@@ -1857,23 +1857,100 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 }
 
 .wallets-overview-section.expanded .wallets-content {
-  max-height: 1000px;
+  max-height: 5000px;
   opacity: 1;
   padding-top: 14px;
 }
 
 .wallets-overview-section #expenseOverviewWallets {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px;
-  margin-bottom: 10px;
+}
+
+/* Increase text size for summary card - keep title same, increase other texts */
+
+.wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview .summary-line {
+  font-size: 1.15em;
+}
+
+.wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview .summary-line-one {
+  font-size: 1.2em;
+}
+
+.wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview .summary-line-one-label {
+  font-size: 1.1em;
+}
+
+.wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview .summary-line-one-value {
+  font-size: 1.1em;
+}
+
+.wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview .overview-card-actions {
+  font-size: 1.05em;
+}
+
+/* Currency separator lines for premium appearance */
+.wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview .currency-separator {
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--line) 15%, 
+    var(--line) 85%, 
+    transparent 100%
+  );
+  margin: 12px 20px 8px 20px;
+  opacity: 0.6;
+}
+
+/* Desktop layout: split into two columns - left for summary, right for wallet cards */
+@media (min-width: 769px) {
+  .wallets-desktop-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  
+  .summary-column {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .wallets-column {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .wallets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    align-content: start;
+  }
+  
+  .wallets-full-width {
+    width: 100%;
+  }
 }
 
 /* Force 2 columns on mobile for wallet cards */
 @media (max-width: 768px) {
   .wallets-overview-section #expenseOverviewWallets {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  /* Summary card spans full width on mobile */
+  .wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+  
+  /* Ensure wallet cards use single column */
+  .wallets-overview-section #expenseOverviewWallets .summary.currency-summary:not(.expense-overview) {
+    grid-column: auto !important;
+    width: 100% !important;
   }
   
   /* Bitcoin summary grid responsive adjustments */
@@ -1916,10 +1993,6 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
       opacity: 1;
       transform: translateY(0);
     }
-  }
-/* Summary card spans full width on mobile only */
-  .wallets-overview-section #expenseOverviewWallets .summary.currency-summary.expense-overview {
-    grid-column: 1 / -1;
   }
 }
 
