@@ -2558,7 +2558,7 @@ function renderExpensesList(){
             </div>
             <div class="cell expense-item-total">
               <small>Total (${currencySymbolHtml(cur)})</small>
-              <strong>${escapeHtml(moneyText(totalCur, cur))}</strong>
+              <strong>${money(totalCur, cur)}</strong>
             </div>
             <div class="lt-action">
               <button type="button" class="icon-btn ghost expenseActionBtn" data-action="pdf" data-type="topups-by-currency" data-currency="${escapeHtml(cur)}" title="Download PDF (${escapeHtml(cur)})" style="font-size: 0.9rem;"><i class="fa-solid fa-download"></i></button>
@@ -2635,8 +2635,8 @@ function renderExpensesList(){
               </div>
             </div>
             <div class="cell expense-item-total expense-transfer-totals">
-              <div><small>Sent (${currencySymbolHtml(cur)})</small><strong>${escapeHtml(moneyText(sent, cur))}</strong></div>
-              <div><small>Received (${currencySymbolHtml(cur)})</small><strong>${escapeHtml(moneyText(received, cur))}</strong></div>
+              <div><small>Sent (${currencySymbolHtml(cur)})</small><strong>${money(sent, cur)}</strong></div>
+              <div><small>Received (${currencySymbolHtml(cur)})</small><strong>${money(received, cur)}</strong></div>
             </div>
             <div class="lt-action">
               <button type="button" class="icon-btn ghost expenseActionBtn" data-action="pdf" data-type="transfers-by-currency" data-currency="${escapeHtml(cur)}" title="Download PDF (${escapeHtml(cur)})" style="font-size: 0.9rem;"><i class="fa-solid fa-download"></i></button>
