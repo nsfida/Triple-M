@@ -2999,13 +2999,18 @@ function renderExpenseOverviewWallets(){
     container.innerHTML = `<div class="empty" style="grid-column:1/-1">No expense accounts yet.</div>`;
     return;
   }
+  
+  // Store original data for resize handling
+  container.accounts = accounts;
+  
   const expenseCurrencies = [...new Set(accounts.map(account => account.currency).filter(Boolean))];
   const expenseSummaryCard = expenseCurrencies.length ? `
       <div class="summary currency-summary expense-overview">
         ${overviewWatermarkFloatingWalletLogos(accounts)}
         <div class="currency-head">Summary ${expenseCurrencies.map(currency => currencySymbolHtml(currency)).join(' ')}</div>
-        ${expenseCurrencies.map(currency => {
+        ${expenseCurrencies.map((currency, index) => {
           const s = summarizeExpenseByCurrency(currency);
+          const isLastCurrency = index === expenseCurrencies.length - 1;
           return `
             ${overviewExpenseLine(currency, "Total Amount:", money(s.totalAmount, currency))}
             ${overviewExpenseLine(currency, "Total Expenses:", money(s.totalExpenses, currency))}
@@ -3016,6 +3021,7 @@ function renderExpenseOverviewWallets(){
               </span>
               <span class="summary-line-one-value available-amount strong-success">${money(s.availableBalance, currency)}</span>
             </div>
+            ${!isLastCurrency ? '<div class="currency-separator"></div>' : ''}
           `;
         }).join("")}
         <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
@@ -3026,41 +3032,245 @@ function renderExpenseOverviewWallets(){
       </div>
   ` : "";
 
-  container.innerHTML = expenseSummaryCard + accounts.map(a => {
-    const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
-    
-    // Calculate USD equivalent for BTC wallets
-    let btcUsdEquivalent = "";
-    if (a.currency === "BTC") {
-      const btcBalance = Number(a.balance || 0);
-      if (btcBalance > 0 && state.bitcoin.btcPrice) {
-        const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        btcUsdEquivalent = usdValue;
+  // Check screen width to determine layout
+  const isDesktop = window.innerWidth > 768;
+  
+  if (isDesktop) {
+    // Desktop layout: two columns
+    const walletCardsHtml = accounts.map(a => {
+      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
+      
+      // Calculate USD equivalent for BTC wallets
+      let btcUsdEquivalent = "";
+      if (a.currency === "BTC") {
+        const btcBalance = Number(a.balance || 0);
+        if (btcBalance > 0 && state.bitcoin.btcPrice) {
+          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          btcUsdEquivalent = usdValue;
+        }
       }
-    }
-    
-    return `
-      <div class="summary currency-summary">
-        ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
-        <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
-          ${currencySymbolHtml(a.currency)}
-          ${getWalletIconHtml(a.person_name || "Wallet", 24)}
-          <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
+      
+      return `
+        <div class="summary currency-summary">
+          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
+          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
+            ${currencySymbolHtml(a.currency)}
+            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
+            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
+          </div>
+          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
+          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
+          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
+            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
+            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
+            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
+            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+          </div>
         </div>
-        ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
-        ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
-        ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+      `;
+    }).join("");
+    
+    if (expenseSummaryCard) {
+      container.innerHTML = `
+        <div class="wallets-desktop-layout">
+          <div class="summary-column">
+            ${expenseSummaryCard}
+          </div>
+          <div class="wallets-column">
+            <div class="wallets-grid">
+              ${walletCardsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // No summary card - show only wallet cards in full width
+      container.innerHTML = `
+        <div class="wallets-full-width">
+          <div class="wallets-grid">
+            ${walletCardsHtml}
+          </div>
+        </div>
+      `;
+    }
+  } else {
+    // Mobile layout: original simple grid
+    container.innerHTML = expenseSummaryCard + accounts.map(a => {
+      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
+      
+      // Calculate USD equivalent for BTC wallets
+      let btcUsdEquivalent = "";
+      if (a.currency === "BTC") {
+        const btcBalance = Number(a.balance || 0);
+        if (btcBalance > 0 && state.bitcoin.btcPrice) {
+          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          btcUsdEquivalent = usdValue;
+        }
+      }
+      
+      return `
+        <div class="summary currency-summary">
+          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
+          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
+            ${currencySymbolHtml(a.currency)}
+            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
+            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
+          </div>
+          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
+          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
+          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
+            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
+            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
+            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
+            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+}
+
+// Function to update wallets layout on window resize
+function updateWalletsLayoutOnResize() {
+  const container = document.getElementById("expenseOverviewWallets");
+  if (!container || !container.accounts) return;
+  
+  // Re-render with current screen width
+  const isDesktop = window.innerWidth > 768;
+  const accounts = container.accounts;
+  
+  // Recalculate expense summary card
+  const expenseCurrencies = [...new Set(accounts.map(account => account.currency).filter(Boolean))];
+  const expenseSummaryCard = expenseCurrencies.length ? `
+      <div class="summary currency-summary expense-overview">
+        ${overviewWatermarkFloatingWalletLogos(accounts)}
+        <div class="currency-head">Summary ${expenseCurrencies.map(currency => currencySymbolHtml(currency)).join(' ')}</div>
+        ${expenseCurrencies.map((currency, index) => {
+          const s = summarizeExpenseByCurrency(currency);
+          const isLastCurrency = index === expenseCurrencies.length - 1;
+          return `
+            ${overviewExpenseLine(currency, "Total Amount:", money(s.totalAmount, currency))}
+            ${overviewExpenseLine(currency, "Total Expenses:", money(s.totalExpenses, currency))}
+            <div class="summary-line summary-line-one available-label">
+              <span class="summary-line-one-label summary-line-one-label--with-symbol strong-success">
+                <span class="summary-currency-mark">${currencySymbolHtml(currency)}</span>
+                <span class="summary-label-suffix strong-success">Available Balance:</span>
+              </span>
+              <span class="summary-line-one-value available-amount strong-success">${money(s.availableBalance, currency)}</span>
+            </div>
+            ${!isLastCurrency ? '<div class="currency-separator"></div>' : ''}
+          `;
+        }).join("")}
         <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-          <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
-          <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
-          <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
-          <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-          <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-          <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+          <button class="tiny ghost" onclick="window.location.href='#expensesPanel'">View Expenses</button>
+          <button class="tiny ghost" onclick="openExpenseModal('account')">Add Account</button>
+          <button class="tiny ghost" onclick="downloadExpensesPDF()"><i class="fa-solid fa-download"></i></button>
         </div>
       </div>
-    `;
-  }).join("");
+  ` : "";
+
+  if (isDesktop) {
+    // Desktop layout: two columns
+    const walletCardsHtml = accounts.map(a => {
+      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
+      
+      let btcUsdEquivalent = "";
+      if (a.currency === "BTC") {
+        const btcBalance = Number(a.balance || 0);
+        if (btcBalance > 0 && state.bitcoin.btcPrice) {
+          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          btcUsdEquivalent = usdValue;
+        }
+      }
+      
+      return `
+        <div class="summary currency-summary">
+          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
+          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
+            ${currencySymbolHtml(a.currency)}
+            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
+            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
+          </div>
+          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
+          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
+          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
+            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
+            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
+            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
+            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    
+    if (expenseSummaryCard) {
+      container.innerHTML = `
+        <div class="wallets-desktop-layout">
+          <div class="summary-column">
+            ${expenseSummaryCard}
+          </div>
+          <div class="wallets-column">
+            <div class="wallets-grid">
+              ${walletCardsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="wallets-full-width">
+          <div class="wallets-grid">
+            ${walletCardsHtml}
+          </div>
+        </div>
+      `;
+    }
+  } else {
+    // Mobile layout: original simple grid
+    container.innerHTML = expenseSummaryCard + accounts.map(a => {
+      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
+      
+      let btcUsdEquivalent = "";
+      if (a.currency === "BTC") {
+        const btcBalance = Number(a.balance || 0);
+        if (btcBalance > 0 && state.bitcoin.btcPrice) {
+          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          btcUsdEquivalent = usdValue;
+        }
+      }
+      
+      return `
+        <div class="summary currency-summary">
+          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
+          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
+            ${currencySymbolHtml(a.currency)}
+            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
+            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
+          </div>
+          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
+          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
+          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
+            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
+            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
+            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
+            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
 }
 
 function renderAll(){
@@ -5737,6 +5947,15 @@ function attachEvents(){
     repositionOpenNotePopovers();
   }, { passive: true });
   window.addEventListener("resize", repositionOpenNotePopovers);
+  
+// Add resize listener for wallets layout
+let resizeTimeout;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    updateWalletsLayoutOnResize();
+  }, 250); // Debounce to avoid excessive calls
+});
 
   document.querySelectorAll("[data-close-modal]").forEach(btn => {
     btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal));
