@@ -3011,6 +3011,17 @@ function renderExpenseOverviewWallets(){
         ${expenseCurrencies.map((currency, index) => {
           const s = summarizeExpenseByCurrency(currency);
           const isLastCurrency = index === expenseCurrencies.length - 1;
+          
+          // Calculate USD equivalent for BTC available balance
+          let btcUsdEquivalent = "";
+          if (currency === "BTC") {
+            const btcBalance = Number(s.availableBalance || 0);
+            if (btcBalance > 0 && state.bitcoin.btcPrice) {
+              const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              btcUsdEquivalent = usdValue;
+            }
+          }
+          
           return `
             ${overviewExpenseLine(currency, "Total Amount:", money(s.totalAmount, currency))}
             ${overviewExpenseLine(currency, "Total Expenses:", money(s.totalExpenses, currency))}
@@ -3021,6 +3032,7 @@ function renderExpenseOverviewWallets(){
               </span>
               <span class="summary-line-one-value available-amount strong-success">${money(s.availableBalance, currency)}</span>
             </div>
+            ${btcUsdEquivalent ? `<div class="summary-line summary-line-one" style="margin-top: 2px;"><span class="summary-line-one-label"></span><span class="summary-line-one-value" style="color: var(--muted); font-size: 0.8rem; font-weight: 600;">≈ $${btcUsdEquivalent}</span></div>` : ''}
             ${!isLastCurrency ? '<div class="currency-separator"></div>' : ''}
           `;
         }).join("")}
@@ -3154,6 +3166,17 @@ function updateWalletsLayoutOnResize() {
         ${expenseCurrencies.map((currency, index) => {
           const s = summarizeExpenseByCurrency(currency);
           const isLastCurrency = index === expenseCurrencies.length - 1;
+          
+          // Calculate USD equivalent for BTC available balance
+          let btcUsdEquivalent = "";
+          if (currency === "BTC") {
+            const btcBalance = Number(s.availableBalance || 0);
+            if (btcBalance > 0 && state.bitcoin.btcPrice) {
+              const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              btcUsdEquivalent = usdValue;
+            }
+          }
+          
           return `
             ${overviewExpenseLine(currency, "Total Amount:", money(s.totalAmount, currency))}
             ${overviewExpenseLine(currency, "Total Expenses:", money(s.totalExpenses, currency))}
@@ -3164,6 +3187,7 @@ function updateWalletsLayoutOnResize() {
               </span>
               <span class="summary-line-one-value available-amount strong-success">${money(s.availableBalance, currency)}</span>
             </div>
+            ${btcUsdEquivalent ? `<div class="summary-line summary-line-one" style="margin-top: 2px;"><span class="summary-line-one-label"></span><span class="summary-line-one-value" style="color: var(--muted); font-size: 0.8rem; font-weight: 600;">≈ $${btcUsdEquivalent}</span></div>` : ''}
             ${!isLastCurrency ? '<div class="currency-separator"></div>' : ''}
           `;
         }).join("")}
