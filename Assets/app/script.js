@@ -7919,8 +7919,8 @@ function renderNotes(searchTerm = '') {
     noteEl.style.padding = '14px';
     noteEl.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div style="flex:1;">
-          <div style="font-size:.9rem;color:var(--text);line-height:1.5;white-space:pre-wrap;">${escapeHtml(note.content)}</div>
+        <div style="flex:1;min-width:0;max-width:100%;">
+          <div style="font-size:.9rem;color:var(--text);line-height:1.5;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-all;max-width:100%;width:100%;">${escapeHtml(note.content)}</div>
         </div>
         <div style="display:flex;gap:8px;margin-left:10px;">
           <button class="btn ghost" onclick="editNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;">
