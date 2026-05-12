@@ -132,6 +132,14 @@ button,input,select,textarea,option{
 .symbol-dirham, .currency-chip .symbol-dirham { font-family: "DirhamSymbol", Inter, system-ui, sans-serif !important; }
 .symbol-riyal, .currency-chip .symbol-riyal { font-family: "RiyalSymbol", Inter, system-ui, sans-serif !important; }
 
+/* Ensure SAR symbol uses correct font in expense banners */
+.expense-item-total .symbol-riyal,
+.expense-transfer-totals .symbol-riyal,
+.loan-name .symbol-riyal,
+.loan-sub .symbol-riyal {
+  font-family: "RiyalSymbol", Inter, system-ui, sans-serif !important;
+}
+
 a{color:inherit}
 
 .shell{max-width:var(--max);margin:0 auto;padding:16px}
