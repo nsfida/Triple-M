@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Triple M by NSF</title>
+  <meta name="description" content="Simple loan tracking for money given, received back, loan taken, and returned back." />
+  <link rel="icon" type="image/png" href="Assets/logo/logo.png" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="Assets/style/styles.css" />
+</head>
+<body>
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+  </div>
+
+  <div class="page-currency-bg" id="pageCurrencyBg" aria-hidden="true"></div>
+  <div id="lockScreen" class="lock">
+    <div class="lock-card">
+      <div class="brand">
+        <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
+        <div>
+          <h1>TRIPLE M by NSF</h1>
+          <p id="lockScreenSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
+        </div>
+      </div>
+      
+      <div class="login-header">
+        <div class="app-download-icons">
+          <button id="iosDownloadBtn" class="app-download-btn" type="button" title="Download for iOS">
+            <i class="fa-brands fa-apple"></i>
+          </button>
+          <button id="androidDownloadBtn" class="app-download-btn" type="button" title="Download for Android">
+            <i class="fa-brands fa-google-play"></i>
+          </button>
+        </div>
+        <h2>Welcome Back</h2>
+        <p class="login-subtitle">Sign in to access your financial dashboard</p>
+      </div>
+      
+      <form class="login-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="zipUsernameInput" class="form-label">Username</label>
+          <div class="input-wrapper">
+            <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Enter your username" autocomplete="username" autocapitalize="off" spellcheck="false" />
+            <span class="input-icon">👤</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="zipPasswordInput" class="form-label">Password</label>
+          <div class="input-wrapper">
+            <input id="zipPasswordInput" class="input" type="password" placeholder="Enter your password" autocomplete="current-password" />
+            <span class="input-icon">🔒</span>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button id="unlockBtn" class="btn primary" type="button">
+            <span class="btn-text">Sign In</span>
+            <span class="btn-loader" style="display: none;">⟳</span>
+          </button>
+        </div>
+      </form>
+      
+      <div class="login-actions">
+        <div class="login-action-buttons">
+          <button id="learnMoreBtn" class="btn ghost icon-expand-btn" type="button">
+            <i class="fa-solid fa-info-circle"></i>
+            <span class="btn-text">Learn More</span>
+          </button>
+          <button id="pricingBtn" class="btn ghost icon-expand-btn" type="button">
+            <i class="fa-solid fa-tags"></i>
+            <span class="btn-text">Pricing</span>
+          </button>
+        </div>
+        <button id="sendInquiryBtn" class="btn primary" type="button" style="width: 100%; margin-top: 8px;">
+          <i class="fa-solid fa-envelope"></i> Send Inquiry
+        </button>
+      </div>
+      
+      <div class="login-help">
+        <p>Don't have an account? Contact on WhatsApp <a href="https://wa.me/923339004564" target="_blank" class="whatsapp-link">+923339004564</a></p>
+      </div>
+      
+      <div id="lockError" class="lock-error"></div>
+    </div>
+  </div>
+
+  <!-- Inquiry Overlay Form -->
+  <div id="inquiryOverlay" class="inquiry-overlay hide">
+    <div class="inquiry-modal">
+      <div class="inquiry-header">
+        <h3><i class="fa-solid fa-envelope"></i> Send Inquiry</h3>
+        <button id="closeInquiryBtn" class="btn ghost" type="button" style="font-size: 1.2rem; padding: 4px 8px;">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+      
+      <form id="inquiryForm" action="https://api.web3forms.com/submit" method="POST">
+        <input type="hidden" name="access_key" value="2b84b0cc-53e5-42b8-bf60-fbb8fbaf03ff">
+        <input type="hidden" name="subject" value="New Inquiry from Triple M by NSF">
+        
+        <div class="form-group">
+          <label for="inquiryName" class="form-label">Full Name *</label>
+          <div class="input-wrapper">
+            <input id="inquiryName" name="name" class="input" type="text" placeholder="Enter your full name" required />
+            <span class="input-icon">👤</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="inquiryMobile" class="form-label">Mobile/WhatsApp Number *</label>
+          <div class="input-wrapper">
+            <input id="inquiryMobile" name="mobile" class="input" type="tel" placeholder="Enter your mobile or WhatsApp number" required />
+            <span class="input-icon">📱</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="inquiryEmail" class="form-label">Email Address *</label>
+          <div class="input-wrapper">
+            <input id="inquiryEmail" name="email" class="input" type="email" placeholder="Enter your email address" required />
+            <span class="input-icon">📧</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="inquiryMessage" class="form-label">Message *</label>
+          <div class="input-wrapper" style="align-items: flex-start;">
+            <textarea id="inquiryMessage" name="message" class="input" placeholder="Enter your message or inquiry details" rows="4" required style="resize: vertical; min-height: 100px;"></textarea>
+            <span class="input-icon" style="margin-top: 8px;">💬</span>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="submit" class="btn primary" style="width: 100%;">
+            <i class="fa-solid fa-paper-plane"></i> Send Inquiry
+          </button>
+        </div>
+        
+        <div id="inquirySuccess" class="inquiry-success hide">
+          <i class="fa-solid fa-check-circle"></i>
+          <p>Your inquiry has been sent successfully! We'll get back to you soon.</p>
+        </div>
+        
+        <div id="inquiryError" class="inquiry-error hide">
+          <i class="fa-solid fa-exclamation-circle"></i>
+          <p>Failed to send inquiry. Please try again.</p>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- iOS App Download Overlay -->
+  <div id="iosDownloadOverlay" class="app-download-overlay hide">
+    <div class="app-download-modal">
+      <div class="app-download-header">
+        <h3><i class="fa-brands fa-apple"></i> Download for iOS</h3>
+        <button id="closeIosDownloadBtn" class="btn ghost" type="button" style="font-size: 1.2rem; padding: 4px 8px;">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="app-download-content">
+        <div class="app-download-qr">
+          <div id="iosQrCode" class="qr-code-container"></div>
+          <p class="qr-instruction">Scan this QR code with your iOS device camera to download the configuration file</p>
+          <a href="https://livenews.live/Finance/Assets/mobile_app/iOS/Triple_M_by_NSF.mobileconfig" download="Triple_M_by_NSF.mobileconfig" class="download-btn">
+            <i class="fa-solid fa-download"></i>
+            Download
+          </a>
+        </div>
+        
+        <div class="app-download-instructions">
+          <h4><i class="fa-solid fa-info-circle"></i> Installation Instructions</h4>
+          <ol>
+            <li>Scan the QR code with your iOS device camera</li>
+            <li>Tap the notification that appears to open the configuration profile</li>
+            <li>Tap "Allow" to download the configuration profile</li>
+            <li>Go to Settings > General > VPN & Device Management</li>
+            <li>Find and tap on "Triple M by NSF" profile</li>
+            <li>Tap "Install" and enter your device passcode if prompted</li>
+            <li>Trust the app: Settings > General > VPN & Device Management > Trust "Triple M by NSF"</li>
+            <li>The app is now ready to use on your device!</li>
+          </ol>
+          
+          <div class="app-download-note">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <p><strong>Note:</strong> This app requires iOS 13.0 or later. Make sure to trust the developer profile after installation.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Android App Download Overlay -->
+  <div id="androidDownloadOverlay" class="app-download-overlay hide">
+    <div class="app-download-modal">
+      <div class="app-download-header">
+        <h3><i class="fa-brands fa-google-play"></i> Download for Android</h3>
+        <button id="closeAndroidDownloadBtn" class="btn ghost" type="button" style="font-size: 1.2rem; padding: 4px 8px;">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="app-download-content">
+        <div class="app-download-qr">
+          <div id="androidQrCode" class="qr-code-container"></div>
+          <p class="qr-instruction">Scan this QR code with your Android device camera to download the APK file</p>
+          <a href="https://livenews.live/Finance/Assets/mobile_app/Android/Triple_M_by_NSF.apk" download="Triple_M_by_NSF.apk" class="download-btn">
+            <i class="fa-solid fa-download"></i>
+            Download
+          </a>
+        </div>
+        
+        <div class="app-download-instructions">
+          <h4><i class="fa-solid fa-info-circle"></i> Installation Instructions</h4>
+          <ol>
+            <li>Scan the QR code with your Android device camera</li>
+            <li>Tap the download link that appears to start downloading the APK file</li>
+            <li>Once downloaded, open the APK file from your notifications or downloads folder</li>
+            <li>If prompted, enable "Install from unknown sources" in your device settings</li>
+            <li>Tap "Install" to begin the installation process</li>
+            <li>Wait for the installation to complete</li>
+            <li>Open the app and grant necessary permissions when prompted</li>
+            <li>The app is now ready to use on your device!</li>
+          </ol>
+          
+          <div class="app-download-note">
+            <i class="fa-solid fa-exclamation-triangle"></i>
+            <p><strong>Note:</strong> This app requires Android 6.0 (Marshmallow) or later. You may need to enable installation from unknown sources in your device settings.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standalone About Section (accessible without login) -->
+  <div id="standaloneAboutSection" class="standalone-about-section hide">
+    <div class="standalone-about-container">
+      <div class="standalone-about-header">
+        <div class="brand">
+          <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
+          <div>
+            <h1>TRIPLE M by NSF</h1>
+            <p id="standaloneAboutSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
+          </div>
+        </div>
+        <button id="closeStandaloneAboutBtn" class="btn ghost" type="button" style="font-size: 1.5rem; padding: 8px 12px;">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+
+      <div class="standalone-about-content">
+        <div class="about-content" style="display: grid; gap: 20px;">
+          <!-- Overview Section -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-list-check"></i> Overview</h4>
+            <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+              <p style="margin: 0 0 12px; line-height: 1.6; color: var(--text);">
+                <strong>Triple M by NSF</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
+              </p>
+              <p style="margin: 0; line-height: 1.6; color: var(--text);">
+                The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.
+              </p>
+            </div>
+          </div>
+
+          <!-- Enterprise Security & Infrastructure Section -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-shield-halved"></i> Enterprise Security & Infrastructure</h4>
+            <div style="display: grid; gap: 12px;">
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-database"></i> Separate Database for Each User</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Each user/company/merchant gets a dedicated, isolated database ensuring complete data separation and enhanced security. Your financial data remains private and inaccessible to other users.
+                </p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-lock"></i> AES-256 Security Encryption</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Military-grade AES-256 encryption protects your login credentials and sensitive data, making it nearly impossible for unauthorized access without the actual password.
+                </p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-coins"></i> Multi-Currency Support (5 Currencies)</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Comprehensive support for AED, SAR, PKR, USD, and BTC with real-time conversion rates and separate wallet management for each currency.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Financial Features Section -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-chart-line"></i> Advanced Financial Features</h4>
+            <div style="display: grid; gap: 12px;">
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-receipt"></i> Expense Tracking</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Comprehensive expense management with categorization, multiple account tracking, and detailed reporting across all supported currencies.
+                </p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-hand-holding-dollar"></i> Loans Management</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Complete loan tracking system for loans given and received, with payment schedules, interest calculations, and automated reminders.
+                </p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-store"></i> Shop Inventory Tracking</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Advanced inventory management system for tracking stock levels, sales, purchases, and profit margins with automatic reorder alerts.
+                </p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-calendar-days"></i> Installment Tracking</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Manage installment plans with flexible payment schedules, partial payment tracking, and automated balance calculations.
+                </p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-brands fa-bitcoin"></i> Bitcoin Blockchain Integration</h5>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                  Full Bitcoin wallet functionality with blockchain connectivity, live transaction broadcasting, wallet creation, and paper wallet download capabilities.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact Section -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-phone"></i> Contact & Support</h4>
+            <div style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.05) 0%, rgba(6, 118, 71, 0.02) 100%); border: 1px solid rgba(6, 118, 71, 0.2); border-radius: 12px; padding: 16px;">
+              <div style="display: grid; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 40px; height: 40px; background: var(--success); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-solid fa-user-tie"></i></div>
+                  <div>
+                    <h5 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Developer</h5>
+                    <p style="margin: 0; color: var(--text); font-size: 0.9rem;">Nadeem Shahzad Fida</p>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-brands fa-whatsapp"></i></div>
+                  <div>
+                    <h5 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text);">WhatsApp Support</h5>
+                    <p style="margin: 0; color: var(--text); font-size: 0.9rem;">
+                      <a href="https://wa.me/923339004564" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">+923339004564</a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
+                <p style="margin: 0; text-align: center; color: var(--muted); font-size: 0.85rem; line-height: 1.5;">
+                  <strong>Need help?</strong> Feel free to reach out for support, feature requests, or custom development solutions. 
+                  We're committed to providing excellent financial management tools for individuals and businesses.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Back to Login Button -->
+          <div style="text-align: center; margin-top: 20px;">
+            <button id="backToLoginBtn" class="btn primary" type="button">
+              <i class="fa-solid fa-arrow-left"></i> Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standalone Pricing Section (accessible without login) -->
+  <div id="standalonePricingSection" class="standalone-about-section hide">
+    <div class="standalone-about-container">
+      <div class="standalone-about-header">
+        <div class="brand">
+          <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
+          <div>
+            <h1>TRIPLE M by NSF</h1>
+            <p>Pricing Plans for Small Business Merchants</p>
+          </div>
+        </div>
+        <button id="closeStandalonePricingBtn" class="btn ghost" type="button" style="font-size: 1.5rem; padding: 8px 12px;">
+          <i class="fa-solid fa-times"></i>
+        </button>
+      </div>
+
+      <div class="standalone-about-content">
+        <div class="about-content" style="display: grid; gap: 24px;">
+          <!-- Hero Section -->
+          <div style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 1px solid rgba(6, 118, 71, 0.3); border-radius: 16px; padding: 24px; text-align: center;">
+            <h2 style="margin: 0 0 12px; font-size: 1.5rem; font-weight: 700; color: var(--primary);">Professional Financial Management Solution</h2>
+            <p style="margin: 0 0 16px; line-height: 1.6; color: var(--text); font-size: 1rem;">
+              Empower your business with comprehensive expense tracking, loan management, inventory control, and Bitcoin integration.
+            </p>
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: var(--success); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600;">
+              <i class="fa-solid fa-gift"></i> Monthly: 1 Month Free + Free Installation | Yearly: 2 Months Free + Free Installation (14 Months Total)
+            </div>
+          </div>
+
+          <!-- Key Features -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 16px; font-size: 1.2rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-star"></i> What You Get</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <div style="width: 36px; height: 36px; background: var(--primary); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;"><i class="fa-solid fa-server"></i></div>
+                  <h5 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text);">Dedicated Server</h5>
+                </div>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">Separate server for every business ensuring data isolation and security.</p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <div style="width: 36px; height: 36px; background: #f7931a; color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;"><i class="fa-brands fa-bitcoin"></i></div>
+                  <h5 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text);">Bitcoin Support</h5>
+                </div>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">Full Bitcoin wallet integration with multi-currency support (AED, SAR, PKR, USD, BTC).</p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <div style="width: 36px; height: 36px; background: var(--primary); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;"><i class="fa-solid fa-cloud"></i></div>
+                  <h5 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text);">Cloud Storage</h5>
+                </div>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">Secure cloud-based storage with automatic backups and real-time sync across devices.</p>
+              </div>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <div style="width: 36px; height: 36px; background: var(--primary); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;"><i class="fa-solid fa-headset"></i></div>
+                  <h5 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text);">Priority Support</h5>
+                </div>
+                <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">Dedicated WhatsApp support for quick assistance and issue resolution.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly Pricing -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 16px; font-size: 1.2rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-calendar-alt"></i> Monthly Plans <span style="background: var(--success); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-left: 12px;">1 Month Free + Free Installation</span></h4>
+            <div class="pricing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+              <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇵🇰</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Pakistani Rupee</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;">Rs. 2,499</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">Rs. 1,499</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">40% OFF</div>
+              </div>
+              <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇦🇪</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">UAE Dirham</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dirham">~</span> 34.99</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dirham">~</span> 24.99</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">29% OFF</div>
+              </div>
+              <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇸🇦</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Saudi Riyal</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-riyal">$</span> 34.99</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-riyal">$</span> 24.99</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">29% OFF</div>
+              </div>
+              <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇺🇸</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">US Dollar</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dollar">$</span> 12.99</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dollar">$</span> 9.99</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">23% OFF</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Yearly Pricing -->
+          <div class="about-section">
+            <h4 style="margin: 0 0 8px; font-size: 1.2rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-calendar-check"></i> Yearly Plans <span style="background: var(--success); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-left: 12px;">2 Months Free (14 Months Total)</span></h4>
+            <div style="text-align: center; margin-bottom: 16px;">
+              <span style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Save up to 45%</span>
+            </div>
+            <div class="pricing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+              <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇵🇰</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Pakistani Rupee</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;">Rs. 29,900</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">Rs. 16,499</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">45% OFF</div>
+              </div>
+              <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇦🇪</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">UAE Dirham</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dirham">~</span> 399.99</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dirham">~</span> 249.99</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">38% OFF</div>
+              </div>
+              <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇸🇦</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Saudi Riyal</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-riyal">$</span> 399.99</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-riyal">$</span> 249.99</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">38% OFF</div>
+              </div>
+              <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇺🇸</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">US Dollar</h5>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dollar">$</span> 149.99</span>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dollar">$</span> 99.99</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
+                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">33% OFF</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA Section -->
+          <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 16px; padding: 24px; text-align: center;">
+            <h4 style="margin: 0 0 12px; font-size: 1.2rem; font-weight: 700; color: var(--text);">Ready to Get Started?</h4>
+            <p style="margin: 0 0 20px; line-height: 1.6; color: var(--text); font-size: 1rem;">
+              Contact us on WhatsApp to activate your free trial and get your dedicated server setup.
+            </p>
+            <a href="https://wa.me/923339004564" target="_blank" class="btn primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: 1rem;">
+              <i class="fa-brands fa-whatsapp"></i> Start Free Trial on WhatsApp
+            </a>
+          </div>
+
+          <!-- Back to Login Button -->
+          <div style="text-align: center; margin-top: 20px;">
+            <button id="backToLoginFromPricingBtn" class="btn primary" type="button">
+              <i class="fa-solid fa-arrow-left"></i> Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="welcomeScreen" class="welcome-screen hide">
+    <div class="welcome-content">
+      <div class="welcome-logo">
+        <img class="mark" src="Assets/logo/logo2.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
+      </div>
+      <div class="welcome-text">
+        <h1 class="welcome-title">Welcome Back</h1>
+        <p class="welcome-name" id="welcomeName">User</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="app" class="shell hide">
+    <header class="header">
+      <div class="brand">
+        <img class="mark" src="Assets/logo/logo2.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
+        <div>
+          <p id="mainAppSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
+        </div>
+      </div>
+      <div class="chips">
+        <div class="chip icon-chip finance-chip db-chip" title="Database sync">
+          <span class="db-core"></span>
+          <span class="db-ring"></span>
+        </div>
+        <div class="chip icon-chip finance-chip cash-chip" title="Cash flow">
+          <span class="cash-note"></span>
+          <span class="cash-dot"></span>
+        </div>
+        <div class="chip icon-chip finance-chip coin-chip" title="Coin balance">
+          <span class="coin coin-a"></span>
+          <span class="coin coin-b"></span>
+        </div>
+        <div class="menu-wrap">
+          <button class="btn ghost menu-trigger" id="recycleBinBtn" type="button" data-entry-menu="recyclebin" aria-haspopup="menu" aria-expanded="false" title="Recycle Bin">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+          <span id="recycleBinCount" class="recycle-bin-count">0</span>
+          <div class="menu-dropdown recycle-bin-dropdown" data-entry-menu-panel="recyclebin" id="recycleBinDropdown">
+            <div class="recycle-bin-header">
+              <h4>Recycle Bin</h4>
+              <span class="recycle-bin-subtitle">Deleted items can be restored</span>
+            </div>
+            <div class="recycle-bin-items"></div>
+          </div>
+        </div>
+        <button class="btn ghost" id="refreshBtn" type="button" title="Refresh">↻</button>
+        <button class="btn ghost" id="logoutBtn" type="button" title="Log out">Log out</button>
+      </div>
+    </header>
+
+    <section class="tabs">
+      <button class="tab active" data-tab="expenses" type="button"><i class="fa-solid fa-coins"></i> Expenses</button>
+      <button class="tab" data-tab="given" type="button"><i class="fa-solid fa-hand-holding-dollar"></i> Loan Given / Received Back</button>
+      <button class="tab" data-tab="taken" type="button"><i class="fa-solid fa-money-bill-transfer"></i> Loan Taken / Returned Back</button>
+      <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
+      <button class="tab" data-tab="goods" type="button"><i class="fa-solid fa-cart-shopping"></i> Goods Bought / Sold</button>
+      <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
+      <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
+      <button class="tab" data-tab="about" type="button"><i class="fa-solid fa-info-circle"></i> About</button>
+    </section>
+
+<section class="overview main-overview-section collapsed" id="mainOverview">
+      <div class="overview-top" id="mainOverviewBanner">
+        <div>
+          <h2>Overview</h2>
+          <p>Separate balances shown by currency.</p>
+        </div>
+        <div class="tools">
+          <div class="menu-wrap">
+            <button class="btn soft menu-trigger" id="downloadReportMenuBtn" type="button" data-entry-menu="report" aria-haspopup="menu" aria-expanded="false">📄 Download Full Report ▾</button>
+            <div class="menu-dropdown" data-entry-menu-panel="report">
+              <button type="button" class="menu-item" id="downloadAllSectionsPdfBtn">Download Full Report</button>
+              <button type="button" class="menu-item" id="downloadAllDataJsonBtn">Download JSON</button>
+              <button type="button" class="menu-item" id="downloadAllDataCsvBtn">Download CSV</button>
+            </div>
+          </div>
+          <label class="btn ghost file-import-btn" for="importJsonInput">Import JSON</label>
+          <input id="importJsonInput" type="file" accept=".json,application/json" class="file-import-input" />
+          <label class="btn ghost file-import-btn" for="importCsvInput">Import CSV</label>
+          <input id="importCsvInput" type="file" accept=".csv,text/csv" class="file-import-input" />
+          <button class="btn primary hide" id="uploadBackupBtn" type="button">Upload to Database</button>
+          <button class="btn ghost hide" id="connectSupabaseBtn" type="button">Connect Supabase</button>
+          <button class="icon-btn ghost" id="toggleMainOverviewBtn" type="button" title="Expand Overview">▶</button>
+        </div>
+      </div>
+      <div class="main-overview-content" id="mainOverviewContent">
+        <div class="overview-grid" id="statsGrid"></div>
+      </div>
+    </section>
+
+    <!-- Wallets Overview Section -->
+    <section class="overview wallets-overview-section collapsed" id="walletsOverviewSection">
+      <div class="overview-top" id="walletsBanner">
+        <div>
+          <h2>Wallets Overview</h2>
+          <p>Account balances and expense tracking by wallet.</p>
+        </div>
+        <div class="tools">
+          <button class="icon-btn ghost" id="toggleWalletsBtn" type="button" title="Expand Wallets Overview">▶</button>
+        </div>
+      </div>
+      <div class="wallets-content" id="walletsContent">
+        <div id="expenseOverviewWallets"></div>
+      </div>
+    </section>
+
+    <main class="center-wrap">
+      <section id="givenPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Loan Given / Received Back</h3>
+                  <div class="menu-wrap">
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="given" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <div class="menu-dropdown" data-entry-menu-panel="given">
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="given">Loan Given</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given">Received Back</button>
+                    </div>
+                  </div>
+                </div>
+                <p>Loans are sorted by the latest user-entered payment date, newest first.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft" id="downloadGivenPdfBtn" type="button">📄 Download</button>
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchGiven" class="input filter-inline-input" placeholder="Search name or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Status:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_given_all" name="f_given" value="All" class="filter-radio" data-filter="given" checked>
+                  <label for="f_given_all" class="filter-label">All</label>
+                  <input type="radio" id="f_given_active" name="f_given" value="Active" class="filter-radio" data-filter="given">
+                  <label for="f_given_active" class="filter-label">Open/Partial</label>
+                  <input type="radio" id="f_given_closed" name="f_given" value="Closed" class="filter-radio" data-filter="given">
+                  <label for="f_given_closed" class="filter-label">Closed</label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Currency:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_given_cur_all" name="f_given_cur" value="All" class="currency-radio filter-radio" data-currency-filter="given" checked>
+                  <label for="f_given_cur_all" class="filter-label">All</label>
+                  <input type="radio" id="f_given_cur_aed" name="f_given_cur" value="AED" class="currency-radio filter-radio" data-currency-filter="given">
+                  <label for="f_given_cur_aed" class="filter-label">~</label>
+                  <input type="radio" id="f_given_cur_sar" name="f_given_cur" value="SAR" class="currency-radio filter-radio" data-currency-filter="given">
+                  <label for="f_given_cur_sar" class="filter-label"><span class="symbol-riyal">$</span></label>
+                  <input type="radio" id="f_given_cur_pkr" name="f_given_cur" value="PKR" class="currency-radio filter-radio" data-currency-filter="given">
+                  <label for="f_given_cur_pkr" class="filter-label">Rs.</label>
+                  <input type="radio" id="f_given_cur_usd" name="f_given_cur" value="USD" class="currency-radio filter-radio" data-currency-filter="given">
+                  <label for="f_given_cur_usd" class="filter-label"><span class="symbol-dollar">$</span></label>
+                  <input type="radio" id="f_given_cur_btc" name="f_given_cur" value="BTC" class="currency-radio filter-radio" data-currency-filter="given">
+                  <label for="f_given_cur_btc" class="filter-label"><span class="symbol-bitcoin">₿</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="givenList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="receivedPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Received Back</h3>
+                  <button class="icon-btn" type="button" data-open-modal="payment" data-direction="given" aria-label="Add received back entry">＋</button>
+                </div>
+                <p>Loans are sorted by the latest user-entered payment date, newest first.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft" id="downloadReceivedPdfBtn" type="button">📄 Download</button>
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchReceived" class="input filter-inline-input" placeholder="Search name or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Status:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_rec_all" name="f_rec" value="All" class="filter-radio" data-filter="received" checked>
+                  <label for="f_rec_all" class="filter-label">All</label>
+                  <input type="radio" id="f_rec_active" name="f_rec" value="Active" class="filter-radio" data-filter="received">
+                  <label for="f_rec_active" class="filter-label">Open/Partial</label>
+                  <input type="radio" id="f_rec_closed" name="f_rec" value="Closed" class="filter-radio" data-filter="received">
+                  <label for="f_rec_closed" class="filter-label">Closed</label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Currency:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_rec_cur_all" name="f_rec_cur" value="All" class="currency-radio filter-radio" data-currency-filter="received" checked>
+                  <label for="f_rec_cur_all" class="filter-label">All</label>
+                  <input type="radio" id="f_rec_cur_aed" name="f_rec_cur" value="AED" class="currency-radio filter-radio" data-currency-filter="received">
+                  <label for="f_rec_cur_aed" class="filter-label">~</label>
+                  <input type="radio" id="f_rec_cur_sar" name="f_rec_cur" value="SAR" class="currency-radio filter-radio" data-currency-filter="received">
+                  <label for="f_rec_cur_sar" class="filter-label"><span class="symbol-riyal">$</span></label>
+                  <input type="radio" id="f_rec_cur_pkr" name="f_rec_cur" value="PKR" class="currency-radio filter-radio" data-currency-filter="received">
+                  <label for="f_rec_cur_pkr" class="filter-label">Rs.</label>
+                  <input type="radio" id="f_rec_cur_usd" name="f_rec_cur" value="USD" class="currency-radio filter-radio" data-currency-filter="received">
+                  <label for="f_rec_cur_usd" class="filter-label"><span class="symbol-dollar">$</span></label>
+                  <input type="radio" id="f_rec_cur_btc" name="f_rec_cur" value="BTC" class="currency-radio filter-radio" data-currency-filter="received">
+                  <label for="f_rec_cur_btc" class="filter-label"><span class="symbol-bitcoin">₿</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="receivedList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="takenPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Loan Taken / Returned Back</h3>
+                  <div class="menu-wrap">
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="taken" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <div class="menu-dropdown" data-entry-menu-panel="taken">
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken">Loan Taken</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken">Returned Back</button>
+                    </div>
+                  </div>
+                </div>
+                <p>Loans are sorted by the latest user-entered payment date, newest first.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft" id="downloadTakenPdfBtn" type="button">📄 Download</button>
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchTaken" class="input filter-inline-input" placeholder="Search name or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Status:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_taken_all" name="f_taken" value="All" class="filter-radio" data-filter="taken" checked>
+                  <label for="f_taken_all" class="filter-label">All</label>
+                  <input type="radio" id="f_taken_active" name="f_taken" value="Active" class="filter-radio" data-filter="taken">
+                  <label for="f_taken_active" class="filter-label">Open/Partial</label>
+                  <input type="radio" id="f_taken_closed" name="f_taken" value="Closed" class="filter-radio" data-filter="taken">
+                  <label for="f_taken_closed" class="filter-label">Closed</label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Currency:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_taken_cur_all" name="f_taken_cur" value="All" class="currency-radio filter-radio" data-currency-filter="taken" checked>
+                  <label for="f_taken_cur_all" class="filter-label">All</label>
+                  <input type="radio" id="f_taken_cur_aed" name="f_taken_cur" value="AED" class="currency-radio filter-radio" data-currency-filter="taken">
+                  <label for="f_taken_cur_aed" class="filter-label">~</label>
+                  <input type="radio" id="f_taken_cur_sar" name="f_taken_cur" value="SAR" class="currency-radio filter-radio" data-currency-filter="taken">
+                  <label for="f_taken_cur_sar" class="filter-label"><span class="symbol-riyal">$</span></label>
+                  <input type="radio" id="f_taken_cur_pkr" name="f_taken_cur" value="PKR" class="currency-radio filter-radio" data-currency-filter="taken">
+                  <label for="f_taken_cur_pkr" class="filter-label">Rs.</label>
+                  <input type="radio" id="f_taken_cur_usd" name="f_taken_cur" value="USD" class="currency-radio filter-radio" data-currency-filter="taken">
+                  <label for="f_taken_cur_usd" class="filter-label"><span class="symbol-dollar">$</span></label>
+                  <input type="radio" id="f_taken_cur_btc" name="f_taken_cur" value="BTC" class="currency-radio filter-radio" data-currency-filter="taken">
+                  <label for="f_taken_cur_btc" class="filter-label"><span class="symbol-bitcoin">₿</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="takenList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="returnedPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Returned Back</h3>
+                  <button class="icon-btn" type="button" data-open-modal="payment" data-direction="taken" aria-label="Add returned back entry">＋</button>
+                </div>
+                <p>Loans are sorted by the latest user-entered payment date, newest first.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft" id="downloadReturnedPdfBtn" type="button">📄 Download</button>
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchReturned" class="input filter-inline-input" placeholder="Search name or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Status:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_ret_all" name="f_ret" value="All" class="filter-radio" data-filter="returned" checked>
+                  <label for="f_ret_all" class="filter-label">All</label>
+                  <input type="radio" id="f_ret_active" name="f_ret" value="Active" class="filter-radio" data-filter="returned">
+                  <label for="f_ret_active" class="filter-label">Open/Partial</label>
+                  <input type="radio" id="f_ret_closed" name="f_ret" value="Closed" class="filter-radio" data-filter="returned">
+                  <label for="f_ret_closed" class="filter-label">Closed</label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Currency:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_ret_cur_all" name="f_ret_cur" value="All" class="currency-radio filter-radio" data-currency-filter="returned" checked>
+                  <label for="f_ret_cur_all" class="filter-label">All</label>
+                  <input type="radio" id="f_ret_cur_aed" name="f_ret_cur" value="AED" class="currency-radio filter-radio" data-currency-filter="returned">
+                  <label for="f_ret_cur_aed" class="filter-label">~</label>
+                  <input type="radio" id="f_ret_cur_sar" name="f_ret_cur" value="SAR" class="currency-radio filter-radio" data-currency-filter="returned">
+                  <label for="f_ret_cur_sar" class="filter-label"><span class="symbol-riyal">$</span></label>
+                  <input type="radio" id="f_ret_cur_pkr" name="f_ret_cur" value="PKR" class="currency-radio filter-radio" data-currency-filter="returned">
+                  <label for="f_ret_cur_pkr" class="filter-label">Rs.</label>
+                  <input type="radio" id="f_ret_cur_usd" name="f_ret_cur" value="USD" class="currency-radio filter-radio" data-currency-filter="returned">
+                  <label for="f_ret_cur_usd" class="filter-label"><span class="symbol-dollar">$</span></label>
+                  <input type="radio" id="f_ret_cur_btc" name="f_ret_cur" value="BTC" class="currency-radio filter-radio" data-currency-filter="returned">
+                  <label for="f_ret_cur_btc" class="filter-label"><span class="symbol-bitcoin">₿</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="returnedList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="installmentsPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Installment Plans</h3>
+                </div>
+                <p>People moved here from taken loans are tracked as installment plans.</p>
+              </div>
+              <div class="tools">
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchInstallments" class="input filter-inline-input" placeholder="Search name or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Status:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_inst_all" name="f_inst" value="All" class="filter-radio" data-filter="installments" checked>
+                  <label for="f_inst_all" class="filter-label">All</label>
+                  <input type="radio" id="f_inst_active" name="f_inst" value="Active" class="filter-radio" data-filter="installments">
+                  <label for="f_inst_active" class="filter-label">Open/Partial</label>
+                  <input type="radio" id="f_inst_closed" name="f_inst" value="Closed" class="filter-radio" data-filter="installments">
+                  <label for="f_inst_closed" class="filter-label">Closed</label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Currency:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_inst_cur_all" name="f_inst_cur" value="All" class="currency-radio filter-radio" data-currency-filter="installments" checked>
+                  <label for="f_inst_cur_all" class="filter-label">All</label>
+                  <input type="radio" id="f_inst_cur_aed" name="f_inst_cur" value="AED" class="currency-radio filter-radio" data-currency-filter="installments">
+                  <label for="f_inst_cur_aed" class="filter-label">~</label>
+                  <input type="radio" id="f_inst_cur_sar" name="f_inst_cur" value="SAR" class="currency-radio filter-radio" data-currency-filter="installments">
+                  <label for="f_inst_cur_sar" class="filter-label"><span class="symbol-riyal">$</span></label>
+                  <input type="radio" id="f_inst_cur_pkr" name="f_inst_cur" value="PKR" class="currency-radio filter-radio" data-currency-filter="installments">
+                  <label for="f_inst_cur_pkr" class="filter-label">Rs.</label>
+                  <input type="radio" id="f_inst_cur_usd" name="f_inst_cur" value="USD" class="currency-radio filter-radio" data-currency-filter="installments">
+                  <label for="f_inst_cur_usd" class="filter-label"><span class="symbol-dollar">$</span></label>
+                  <input type="radio" id="f_inst_cur_btc" name="f_inst_cur" value="BTC" class="currency-radio filter-radio" data-currency-filter="installments">
+                  <label for="f_inst_cur_btc" class="filter-label"><span class="symbol-bitcoin">₿</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="installmentsList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="goodsPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Goods Bought / Sold</h3>
+                  <div class="menu-wrap">
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="goods" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <div class="menu-dropdown" data-entry-menu-panel="goods">
+                      <button type="button" class="menu-item" id="openGoodsBoughtBtn">Bought Item</button>
+                      <button type="button" class="menu-item" id="openGoodsSoldBtn">Sale Item</button>
+                    </div>
+                  </div>
+                </div>
+                <p>Track bought items and sold receipts with item-wise status.</p>
+              </div>
+              <div class="tools">
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchGoods" class="input filter-inline-input" placeholder="Search item or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Status:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_goods_all" name="f_goods" value="All" class="filter-radio" data-filter="goods" checked>
+                  <label for="f_goods_all" class="filter-label">All</label>
+                  <input type="radio" id="f_goods_open" name="f_goods" value="Open" class="filter-radio" data-filter="goods">
+                  <label for="f_goods_open" class="filter-label">In Stock</label>
+                  <input type="radio" id="f_goods_sold" name="f_goods" value="Closed" class="filter-radio" data-filter="goods">
+                  <label for="f_goods_sold" class="filter-label">Sold</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="goodsList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="expensesPanel" class="panel active">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Expenses</h3>
+                  <div class="menu-wrap">
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <div class="menu-dropdown" data-entry-menu-panel="expenses">
+                      <button type="button" class="menu-item" id="openExpenseAccountBtn">Add Account</button>
+                      <button type="button" class="menu-item" id="openExpenseTopupBtn">Add Money</button>
+                      <button type="button" class="menu-item" id="openExpenseEntryBtn">Add Expense</button>
+                    </div>
+                  </div>
+                </div>
+                <p>Wallets show top-up, spent, and balance. The list is an expense statement by item; open an item for wallet-level transactions.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft" id="downloadExpensesPdfBtn" type="button">📄 Download</button>
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchExpenses" class="input filter-inline-input" placeholder="Search item, wallet or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Balance:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_exp_all" name="f_exp" value="All" class="filter-radio" data-filter="expenses" checked>
+                  <label for="f_exp_all" class="filter-label">All</label>
+                  <input type="radio" id="f_exp_active" name="f_exp" value="Active" class="filter-radio" data-filter="expenses">
+                  <label for="f_exp_active" class="filter-label">Active Balance</label>
+                  <input type="radio" id="f_exp_empty" name="f_exp" value="Closed" class="filter-radio" data-filter="expenses">
+                  <label for="f_exp_empty" class="filter-label">Zero Balance</label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Currency:</span>
+                <div class="filter-inline-radios">
+                  <input type="radio" id="f_exp_cur_all" name="f_exp_cur" value="All" class="currency-radio filter-radio" data-currency-filter="expenses" checked>
+                  <label for="f_exp_cur_all" class="filter-label">All</label>
+                  <input type="radio" id="f_exp_cur_aed" name="f_exp_cur" value="AED" class="currency-radio filter-radio" data-currency-filter="expenses">
+                  <label for="f_exp_cur_aed" class="filter-label">~</label>
+                  <input type="radio" id="f_exp_cur_sar" name="f_exp_cur" value="SAR" class="currency-radio filter-radio" data-currency-filter="expenses">
+                  <label for="f_exp_cur_sar" class="filter-label"><span class="symbol-riyal">$</span></label>
+                  <input type="radio" id="f_exp_cur_pkr" name="f_exp_cur" value="PKR" class="currency-radio filter-radio" data-currency-filter="expenses">
+                  <label for="f_exp_cur_pkr" class="filter-label">Rs.</label>
+                  <input type="radio" id="f_exp_cur_usd" name="f_exp_cur" value="USD" class="currency-radio filter-radio" data-currency-filter="expenses">
+                  <label for="f_exp_cur_usd" class="filter-label"><span class="symbol-dollar">$</span></label>
+                  <input type="radio" id="f_exp_cur_btc" name="f_exp_cur" value="BTC" class="currency-radio filter-radio" data-currency-filter="expenses">
+                  <label for="f_exp_cur_btc" class="filter-label"><span class="symbol-bitcoin">₿</span></label>
+                </div>
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Date Range:</span>
+                <input type="date" id="expenseDateFrom" class="input filter-inline-date" />
+                <span style="color:var(--muted);font-size:.82rem;">to</span>
+                <input type="date" id="expenseDateTo" class="input filter-inline-date" />
+                <button type="button" class="btn ghost filter-inline-btn" id="clearExpenseDateBtn">Clear</button>
+              </div>
+            </div>
+            <div class="expense-wallet-block">
+              <div class="filter-block-label">Wallets</div>
+              <div id="expenseWalletFilters" class="expense-wallet-scroll" aria-label="Filter by wallet"></div>
+            </div>
+          </div>
+          <div id="expensesList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="notesPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Notes</h3>
+                </div>
+                <p>Keep track of your notes with date and time stamps.</p>
+              </div>
+              <div class="tools">
+              </div>
+            </div>
+            <div class="filter-inline-row">
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Search:</span>
+                <input id="searchNotes" class="input filter-inline-input" placeholder="Search notes..." />
+              </div>
+            </div>
+          </div>
+          
+          <!-- Note Input Section -->
+          <div style="padding: 14px; border-bottom: 1px solid var(--line); margin-bottom: 14px;">
+            <div style="margin-bottom: 12px;">
+              <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">New Note</label>
+              <textarea id="noteInput" class="input" placeholder="Write your note here..." style="min-height:80px;resize:vertical;"></textarea>
+            </div>
+            <button id="saveNoteBtn" class="btn primary" type="button">Save Note</button>
+          </div>
+          
+          <div id="notesList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="bitcoinPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Bitcoin Wallet</h3>
+                </div>
+                <p>Import a WIF or create a new one. All operations are client-side only.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security Notice -->
+          <div style="background:#fffbeb;border:1px solid #ef4444;border-radius:4px;padding:6px;margin-bottom:12px;">
+            <p style="margin:0;color:#dc2626;font-size:.68rem;font-weight:500;line-height:1.3;">
+              ⚠️ This application does not store, transmit, or share any information outside your browser. If you create a wallet, please ensure that you securely copy and store your private key (WIF) in a safe location. If the key is lost, the wallet cannot be recovered under any circumstances.
+            </p>
+          </div>
+
+          <!-- Wallet Login Section -->
+          <div id="btcLoginSection" class="card" style="margin-bottom:14px;">
+            <div style="padding:14px;">
+              <!-- Wallet Type Selection -->
+              <div style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet Type</label>
+                <div style="display:flex;gap:8px;">
+                  <button id="btcFullWalletBtn" class="btn primary" style="flex:1;">Full Wallet (WIF)</button>
+                  <button id="btcWatchWalletBtn" class="btn ghost" style="flex:1;">Watch Only (Address)</button>
+                </div>
+              </div>
+
+              <!-- Existing Addresses Dropdown -->
+              <div style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Existing Addresses</label>
+                <div class="menu-wrap">
+                  <button class="btn ghost menu-trigger" id="btcExistingAddressesBtn" type="button" data-entry-menu="existing-addresses" aria-haspopup="menu" aria-expanded="false" style="width:100%;">
+                    <span id="btcExistingAddressesLabel">Select Saved Address ▾</span>
+                  </button>
+                  <div class="menu-dropdown" data-entry-menu-panel="existing-addresses" id="btcExistingAddressesDropdown" style="max-height:300px;overflow-y:auto;">
+                    <div id="btcExistingAddressesList">
+                      <div style="padding:12px;text-align:center;color:var(--muted);font-size:.9rem;">No saved addresses found</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Full Wallet Input (WIF) -->
+              <div id="btcFullWalletSection" style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Bitcoin WIF (Private Key)</label>
+                <textarea id="btcWifInput" class="input" placeholder="Paste WIF here to login" style="min-height:80px;"></textarea>
+                <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The page never sends your private key to a server. Login and signing stay inside your browser.</div>
+                <div class="tools" style="margin-top:8px;">
+                  <button id="btcImportBtn" class="btn primary">Import WIF</button>
+                  <button id="btcGenerateBtn" class="btn ghost">Create new wallet</button>
+                </div>
+              </div>
+
+              <!-- Watch Wallet Input (Address Only) -->
+              <div id="btcWatchWalletSection" class="hide" style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Bitcoin Address (Watch Only)</label>
+                <textarea id="btcAddressInput" class="input" placeholder="Paste Bitcoin address here to watch" style="min-height:80px;"></textarea>
+                <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">Watch-only mode allows you to view balance and transactions without private keys. To send, you'll need to provide WIF during transaction.</div>
+                <div class="tools" style="margin-top:8px;">
+                  <button id="btcWatchAddressBtn" class="btn primary">Watch Address</button>
+                </div>
+              </div>
+
+              <div id="btcWalletStatus" class="empty" style="margin-top:12px;">No wallet loaded yet.</div>
+            </div>
+          </div>
+
+          <!-- Wallet Info Section (hidden until logged in) -->
+          <div id="btcWalletInfoSection" class="hide" style="margin-bottom:14px;">
+            <div class="card">
+              <div style="padding:14px;">
+                <div style="margin-bottom:12px;">
+                  <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet WIF (Private Key)</label>
+                  <div style="display:flex;gap:10px;align-items:center;">
+                    <div id="btcMaskedWif" class="input" style="background:var(--panel-2);flex:1;">WIF masked after login</div>
+                    <button id="btcCopyWifBtn" class="btn ghost">Copy</button>
+                  </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                  <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet Address</label>
+                  <div style="display:flex;gap:10px;align-items:center;">
+                    <div id="btcWalletAddress" class="input" style="background:var(--panel-2);flex:1;">Address after login</div>
+                    <button id="btcCopyAddressInfoBtn" class="btn ghost">Copy</button>
+                    <button id="btcSaveAddressBtn" class="btn primary" style="display:none;">Save</button>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;" class="btc-summary-grid">
+                  <div class="summary">
+                    <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Available balance</div>
+                    <div id="btcBalanceValue" style="font-size:1rem;font-weight:700;word-break:break-all;overflow-wrap:break-word;min-width:0;">—</div>
+                    <div id="btcBalanceUsd" style="font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px;">≈ $—</div>
+                  </div>
+                  <div class="summary">
+                    <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Total received</div>
+                    <div id="btcReceivedValue" style="font-size:1rem;font-weight:700;">—</div>
+                    <div id="btcReceivedUsd" style="font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px;">≈ $—</div>
+                  </div>
+                  <div class="summary">
+                    <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Total sent</div>
+                    <div id="btcSentValue" style="font-size:1rem;font-weight:700;">—</div>
+                    <div id="btcSentUsd" style="font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px;">≈ $—</div>
+                  </div>
+                  <div class="summary">
+                    <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Transaction count</div>
+                    <div id="btcTxCountValue" style="font-size:1rem;font-weight:700;">—</div>
+                    <div style="font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px;" id="btcPriceDisplay">BTC: $—</div>
+                  </div>
+                </div>
+                <div class="tools">
+                  <button id="btcSendBtn" class="btn primary">Send Bitcoin</button>
+                  <button id="btcReceiveBtn" class="btn primary">Receive Bitcoin</button>
+                  <button id="btcDownloadWalletPdfBtn" class="btn ghost" style="display:none;"><i class="fa-solid fa-download"></i> Download Wallet PDF</button>
+                  <button id="btcRefreshBtn" class="btn ghost">Refresh live data</button>
+                  <button id="btcClearBtn" class="btn ghost">Clear session</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transaction History -->
+          <div id="btcHistorySection" class="hide">
+            <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <h4 style="margin:0 0 4px;font-size:.98rem;">Transaction History</h4>
+                <p style="margin:0;color:var(--muted);font-size:.84rem;">Newest transactions first.</p>
+              </div>
+              <button id="btcDownloadPdfBtn" class="btn ghost">📄 Download PDF</button>
+            </div>
+            <div id="btcHistoryList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="aboutPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>About Triple M by NSF</h3>
+                </div>
+                <p>Learn more about the Money Management Module and its features.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="about-content" style="display: grid; gap: 20px;">
+            <!-- Overview Section -->
+            <div class="about-section">
+              <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-list-check"></i> Overview</h4>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+                <p style="margin: 0 0 12px; line-height: 1.6; color: var(--text);">
+                  <strong>Triple M by NSF</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
+                </p>
+                <p style="margin: 0; line-height: 1.6; color: var(--text);">
+                  The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.
+                </p>
+              </div>
+            </div>
+
+            <!-- Key Features Section -->
+            <div class="about-section">
+              <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-star"></i> Key Features</h4>
+              <div style="display: grid; gap: 12px;">
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-coins"></i> Expense Management</h5>
+                  <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                    Track daily expenses across multiple wallets with detailed categorization and balance monitoring. Supports multiple currencies (AED, SAR, PKR) with real-time conversion and comprehensive reporting.
+                  </p>
+                </div>
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-hand-holding-dollar"></i> Loan Tracking</h5>
+                  <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                    Manage loans given and received with detailed payment tracking, proper calculations, and repayment schedules. Monitor active loans and closed transactions with comprehensive filtering options.
+                  </p>
+                </div>
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-calendar-days"></i> Installment Plans</h5>
+                  <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                    Create and manage installment plans with flexible payment schedules. Track partial payments and remaining balances with automatic status updates.
+                  </p>
+                </div>
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-cart-shopping"></i> Goods Management</h5>
+                  <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                    Track bought and sold items with inventory management. Monitor stock levels, sales records, and profit margins with detailed transaction history.
+                  </p>
+                </div>
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-brands fa-bitcoin"></i> Bitcoin Integration</h5>
+                  <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
+                    Secure Bitcoin wallet functionality with client-side key management. Create, import, and manage Bitcoin wallets with transaction history and balance tracking. All operations remain private and secure in your browser.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Security & Privacy Section -->
+            <div class="about-section">
+              <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-shield-halved"></i> Security & Privacy</h4>
+              <div style="background: linear-gradient(135deg, rgba(36, 87, 214, 0.05) 0%, rgba(36, 87, 214, 0.02) 100%); border: 1px solid rgba(36, 87, 214, 0.2); border-radius: 12px; padding: 16px;">
+                <p style="margin: 0 0 10px; line-height: 1.6; color: var(--text);">
+                  <strong style="color: var(--primary);">Secure Server Storage:</strong> Your financial data (expenses, loans, goods) is securely stored on our protected servers with enterprise-grade encryption and regular backups, ensuring data safety and accessibility from any device.
+                </p>
+                <p style="margin: 0 0 10px; line-height: 1.6; color: var(--text);">
+                  <strong style="color: var(--primary);">Bitcoin Privacy:</strong> Bitcoin wallet operations remain completely client-side. Private keys never leave your browser, providing full control over your cryptocurrency assets.
+                </p>
+                <p style="margin: 0; line-height: 1.6; color: var(--text);">
+                  <strong style="color: var(--primary);">Local Backup Options:</strong> Export your complete financial data in JSON or CSV format for local backup and offline access. Import functionality allows seamless data restoration and migration.
+                </p>
+              </div>
+            </div>
+
+            <!-- Technical Details Section -->
+            <div class="about-section">
+              <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-gear"></i> Technical Details</h4>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--text);"><i class="fa-solid fa-globe"></i> Web Technologies</h5>
+                  <ul style="margin: 0; padding-left: 18px; color: var(--text); font-size: 0.9rem; line-height: 1.5;">
+                    <li>Modern HTML5 & CSS3</li>
+                    <li>Vanilla JavaScript (ES6+)</li>
+                    <li>Responsive Design</li>
+                    <li>Progressive Web App Ready</li>
+                  </ul>
+                </div>
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--text);"><i class="fa-solid fa-database"></i> Data Management</h5>
+                  <ul style="margin: 0; padding-left: 18px; color: var(--text); font-size: 0.9rem; line-height: 1.5;">
+                    <li>Secure Cloud Storage</li>
+                    <li>JSON/CSV Export</li>
+                    <li>PDF Report Generation</li>
+                    <li>Real-time Synchronization</li>
+                  </ul>
+                </div>
+                <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+                  <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--text);"><i class="fa-solid fa-palette"></i> User Experience</h5>
+                  <ul style="margin: 0; padding-left: 18px; color: var(--text); font-size: 0.9rem; line-height: 1.5;">
+                    <li>Intuitive Interface</li>
+                    <li>Dark/Light Theme Support</li>
+                    <li>Mobile Responsive</li>
+                    <li>Accessibility Compliant</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Contact Section -->
+            <div class="about-section">
+              <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-phone"></i> Contact & Support</h4>
+              <div style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.05) 0%, rgba(6, 118, 71, 0.02) 100%); border: 1px solid rgba(6, 118, 71, 0.2); border-radius: 12px; padding: 16px;">
+                <div style="display: grid; gap: 12px;">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: var(--success); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-solid fa-user-tie"></i></div>
+                    <div>
+                      <h5 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Developer</h5>
+                      <p style="margin: 0; color: var(--text); font-size: 0.9rem;">Nadeem Shahzad Fida</p>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-brands fa-whatsapp"></i></div>
+                    <div>
+                      <h5 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text);">WhatsApp Support</h5>
+                      <p style="margin: 0; color: var(--text); font-size: 0.9rem;">
+                        <a href="https://wa.me/923339004564" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">+923339004564</a>
+                      </p>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: var(--warning); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-solid fa-envelope"></i></div>
+                    <div>
+                      <h5 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Email Support</h5>
+                      <p style="margin: 0; color: var(--text); font-size: 0.9rem;">Available upon request</p>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: var(--muted); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-solid fa-location-dot"></i></div>
+                    <div>
+                      <h5 style="margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Location</h5>
+                      <p style="margin: 0; color: var(--text); font-size: 0.9rem;">Pakistan</p>
+                    </div>
+                  </div>
+                </div>
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
+                  <p style="margin: 0; text-align: center; color: var(--muted); font-size: 0.85rem; line-height: 1.5;">
+                    <strong>Need help?</strong> Feel free to reach out for support, feature requests, or custom development solutions. 
+                    We're committed to providing excellent financial management tools for individuals and businesses.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Version & License Section -->
+            <div class="about-section">
+              <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-file-lines"></i> Version & License</h4>
+              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                  <div>
+                    <h5 style="margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Version</h5>
+                    <p style="margin: 0; color: var(--primary); font-weight: 700; font-size: 0.9rem;">2.0.0</p>
+                  </div>
+                  <div>
+                    <h5 style="margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Last Updated</h5>
+                    <p style="margin: 0; color: var(--text); font-size: 0.9rem;">May 2026</p>
+                  </div>
+                  <div>
+                    <h5 style="margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--text);">License</h5>
+                    <p style="margin: 0; color: var(--text); font-size: 0.9rem;">Proprietary Software</p>
+                  </div>
+                  <div>
+                    <h5 style="margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--text);">Compatibility</h5>
+                    <p style="margin: 0; color: var(--text); font-size: 0.9rem;">Modern Browsers</p>
+                  </div>
+                </div>
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);">
+                  <p style="margin: 0; text-align: center; color: var(--muted); font-size: 0.85rem; line-height: 1.5;">
+                    © 2026 Triple M by NSF. All rights reserved. This software is the intellectual property of Nadeem Shahzad Fida.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <section class="overview" style="margin-top:14px">
+      <div class="overview-top">
+        <div>
+          <h2>Quick counters</h2>
+          <p>Active loans and repayment records.</p>
+        </div>
+      </div>
+      <div class="overview-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <div class="summary"><span>Open given</span><strong id="openGivenCount">0</strong></div>
+        <div class="summary"><span>Open taken</span><strong id="openTakenCount">0</strong></div>
+        <div class="summary"><span>Received rows</span><strong id="receivedCount">0</strong></div>
+        <div class="summary"><span>Returned rows</span><strong id="returnedCount">0</strong></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="goodsModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="goodsModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="goodsModalTitle">Goods entry</h3>
+          <p id="goodsModalDesc">Add bought or sold item details.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="goodsModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="goodsBoughtForm" class="hide">
+          <div class="modal-grid">
+            <div class="field w6">
+              <label>Item name</label>
+              <input class="input" name="item_name" required placeholder="Item name" />
+            </div>
+            <div class="field w6">
+              <label>Currency</label>
+              <div class="currency-picker">
+                <button type="button" class="currency-chip active" data-currency="AED">
+                  <span class="symbol symbol-dirham">~</span><span>AED</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="SAR">
+                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="PKR">
+                  <span>Rs.</span><span>PKR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="USD">
+                  <span class="symbol symbol-dollar">$</span><span>USD</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="BTC">
+                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
+                </button>
+              </div>
+              <input type="hidden" name="currency" value="AED" />
+            </div>
+            <div class="field w6">
+              <label>Actual price</label>
+              <input class="input" name="actual_price" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label>Quantity bought</label>
+              <input class="input" name="bought_qty" type="number" min="1" step="1" required value="1" />
+            </div>
+            <div class="field w6">
+              <label>Bought date</label>
+              <input class="input" name="bought_date" type="date" required data-default-today="true" />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="goodsModal">Cancel</button>
+              <button class="btn primary" type="submit">Save Bought Item</button>
+            </div>
+          </div>
+        </form>
+
+        <form id="goodsSoldForm" class="hide">
+          <div class="modal-grid">
+            <div class="field w8">
+              <label>Select bought item</label>
+              <select class="select" id="goodsItemSelect" name="group_id"></select>
+            </div>
+            <div class="field w4">
+              <label>Add new item</label>
+              <button class="btn ghost" type="button" id="goodsNewItemToggleBtn">+ Add New</button>
+            </div>
+            <div id="goodsNewItemFields" class="field w12 hide">
+              <div class="modal-grid">
+                <div class="field w6">
+                  <label>New item name</label>
+                  <input class="input" name="new_item_name" placeholder="Item name" />
+                </div>
+                <div class="field w6">
+                  <label>Currency</label>
+                  <div class="currency-picker">
+                    <button type="button" class="currency-chip active" data-currency="AED">
+                      <span class="symbol symbol-dirham">~</span><span>AED</span>
+                    </button>
+                    <button type="button" class="currency-chip" data-currency="SAR">
+                      <span class="symbol symbol-riyal">$</span><span>SAR</span>
+                    </button>
+                    <button type="button" class="currency-chip" data-currency="PKR">
+                      <span>Rs.</span><span>PKR</span>
+                    </button>
+                    <button type="button" class="currency-chip" data-currency="USD">
+                      <span class="symbol symbol-dollar">$</span><span>USD</span>
+                    </button>
+                    <button type="button" class="currency-chip" data-currency="BTC">
+                      <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
+                    </button>
+                  </div>
+                  <input type="hidden" name="new_currency" value="AED" />
+                </div>
+                <div class="field w6">
+                  <label>Actual price</label>
+                  <input class="input" name="new_actual_price" type="number" min="0" step="0.00000001" placeholder="0.00" />
+                </div>
+                <div class="field w6">
+                  <label>Quantity bought</label>
+                  <input class="input" name="new_bought_qty" type="number" min="1" step="1" value="1" />
+                </div>
+                <div class="field w6">
+                  <label>Bought date</label>
+                  <input class="input" name="new_bought_date" type="date" data-default-today="true" />
+                </div>
+              </div>
+            </div>
+            <div class="field w6">
+              <label>Sold price</label>
+              <input class="input" name="sold_price" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label>Quantity sold</label>
+              <input class="input" name="sold_qty" type="number" min="1" step="1" required value="1" />
+            </div>
+            <div class="field w6">
+              <label>Sold date</label>
+              <input class="input" name="sold_date" type="date" required data-default-today="true" />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="goodsModal">Cancel</button>
+              <button class="btn primary" type="submit">Save Sale Item</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="expenseModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="expenseModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="expenseModalTitle">Expenses</h3>
+          <p id="expenseModalDesc">Track accounts and expenses.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="expenseModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="expenseAccountForm" class="hide">
+          <div class="modal-grid">
+            <div class="field w6">
+              <label>Account name</label>
+              <input class="input" name="account_name" required placeholder="e.g. Main Wallet" />
+            </div>
+            <div class="field w6">
+              <label>Account type</label>
+              <select class="select" name="account_type" required>
+                <option value="Bank Account">Bank Account</option>
+                <option value="Cash Account">Cash Account</option>
+              </select>
+            </div>
+            <div class="field w6">
+              <label>Currency</label>
+              <div class="currency-picker">
+                <button type="button" class="currency-chip active" data-currency="AED">
+                  <span class="symbol symbol-dirham">~</span><span>AED</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="SAR">
+                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="PKR">
+                  <span>Rs.</span><span>PKR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="USD">
+                  <span class="symbol symbol-dollar">$</span><span>USD</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="BTC">
+                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
+                </button>
+              </div>
+              <input type="hidden" name="currency" value="AED" />
+            </div>
+            <div class="field w6">
+              <label>Available balance</label>
+              <input class="input" name="opening_balance" type="number" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label>Account date</label>
+              <input class="input" name="account_date" type="date" required data-default-today="true" />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="expenseModal">Cancel</button>
+              <button class="btn primary" type="submit">Save Account</button>
+            </div>
+          </div>
+        </form>
+
+        <form id="expenseTopupForm" class="hide">
+          <div class="modal-grid">
+            <div class="field w6">
+              <label>Account</label>
+              <select class="select" name="group_id" id="expenseTopupAccountSelect" required></select>
+            </div>
+            <div class="field w6">
+              <label>Amount to add</label>
+              <input class="input" name="amount" type="number" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label>Date</label>
+              <input class="input" name="date" type="date" required data-default-today="true" />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="expenseModal">Cancel</button>
+              <button class="btn primary" type="submit">Add Money</button>
+            </div>
+          </div>
+        </form>
+
+        <form id="expenseEntryForm" class="hide">
+          <div class="modal-grid">
+            <div class="field w6">
+              <label>Item name</label>
+              <input class="input" name="item_name" id="expenseItemNameInput" required placeholder="What did you buy/pay?" autocomplete="off" />
+            </div>
+            <div class="field w6">
+              <label>Amount spent</label>
+              <input class="input" name="amount" type="number" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label>Currency</label>
+              <select class="select" name="currency" id="expenseCurrencySelect" required>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="PKR">PKR</option>
+                <option value="USD">USD</option>
+                <option value="BTC">BTC</option>
+              </select>
+            </div>
+            <div class="field w6">
+              <label>From account</label>
+              <select class="select" name="group_id" id="expenseSpendAccountSelect" required></select>
+            </div>
+            <div class="field w6">
+              <label>Expense type</label>
+              <select class="select" name="expense_type" id="expenseTypeSelect">
+                <option value="">Select type</option>
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Bills">Bills</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Health">Health</option>
+                <option value="Education">Education</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="field w6">
+              <label>Or add new expense type</label>
+              <input class="input" name="custom_expense_type" placeholder="Custom type" />
+            </div>
+            <div class="field w6">
+              <label>Expense date</label>
+              <input class="input" name="date" type="date" required data-default-today="true" />
+            </div>
+            <div id="expenseItemIntentWrap" class="field w12 hide">
+              <p class="expense-intent-hint">This item name already exists for this currency. Choose how to record it.</p>
+              <div class="expense-intent-radios">
+                <label class="expense-intent-label">
+                  <input type="radio" name="expense_item_intent" value="additional" checked />
+                  <span>More spending on the same item</span>
+                </label>
+                <label class="expense-intent-label">
+                  <input type="radio" name="expense_item_intent" value="new_distinct" />
+                  <span>New item — I will use a different name</span>
+                </label>
+              </div>
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="expenseModal">Cancel</button>
+              <button class="btn primary" type="submit">Save Expense</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer Modal -->
+<div id="transferModal" class="modal hide" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal="transferModal"></div>
+  <div class="modal-dialog">
+    <div class="modal-head">
+      <div>
+        <h3 id="transferModalTitle">Transfer Money</h3>
+        <p id="transferModalDesc">Move money from one wallet to another.</p>
+      </div>
+      <button class="icon-btn ghost" type="button" data-close-modal="transferModal" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="transferForm">
+        <div class="modal-grid">
+          <div class="field w6">
+            <label>From Wallet</label>
+            <select class="select" name="from_wallet" id="transferFromWallet" required></select>
+          </div>
+          <div class="field w6">
+            <label>To Wallet</label>
+            <select class="select" name="to_wallet" id="transferToWallet" required></select>
+          </div>
+          <div class="field w6">
+            <label>Amount</label>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input class="input" name="amount" type="number" min="0.00000001" step="0.00000001" required placeholder="0.00" style="flex: 1;" />
+              <span id="fromCurrencyIndicator" style="font-size: 0.8rem; color: var(--muted); min-width: 30px;">AED</span>
+            </div>
+          </div>
+          <div class="field w6">
+            <label>Conversion Rate <span id="conversionHelp" style="font-size: 0.7rem; color: var(--muted);">(1 From = ? To)</span></label>
+            <input class="input" name="conversion_rate" type="number" min="0.000001" step="0.000001" placeholder="1.000000" id="conversionRateInput" />
+          </div>
+          <div class="field w6">
+            <label>Received Amount</label>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input class="input" name="received_amount" type="number" min="0.01" step="0.01" readonly placeholder="0.00" style="flex: 1; background: var(--panel-bg);" />
+              <span id="toCurrencyIndicator" style="font-size: 0.8rem; color: var(--muted); min-width: 30px;">AED</span>
+            </div>
+          </div>
+          <div class="field w6">
+            <label>Date</label>
+            <input class="input" name="date" type="date" required data-default-today="true" />
+          </div>
+          <div class="field w12">
+            <label>Notes</label>
+            <input class="input" name="notes" placeholder="Optional transfer note" />
+          </div>
+          <div class="field w12 modal-footer">
+            <button class="btn ghost" type="button" data-close-modal="transferModal">Cancel</button>
+            <button class="btn primary" type="submit">Transfer Money</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer Success Overlay -->
+<div id="transferSuccessOverlay" class="transfer-success-overlay hide" aria-hidden="true">
+  <div class="transfer-success-backdrop"></div>
+  <div class="transfer-success-content">
+    <div class="transfer-success-icon">
+      <img src="Assets/logo/transfer.gif" alt="Transfer Success" class="transfer-gif" />
+    </div>
+    <div class="transfer-success-message">
+      <h3>Transfer Successful!</h3>
+      <div class="transfer-details">
+        <div class="transfer-amount" id="transferSuccessAmount">AED 100</div>
+        <div class="transfer-route">
+          <span class="wallet-from" id="transferSuccessFromWallet">Wallet 1</span>
+          <div class="transfer-arrow">
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+          <span class="wallet-to" id="transferSuccessToWallet">Wallet 2</span>
+        </div>
+      </div>
+    </div>
+    <div class="transfer-success-actions">
+      <button class="btn primary" onclick="closeTransferSuccessOverlay()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Money Added Success Overlay -->
+<div id="moneyAddedSuccessOverlay" class="transfer-success-overlay hide" aria-hidden="true">
+  <div class="transfer-success-backdrop"></div>
+  <div class="transfer-success-content">
+    <div class="transfer-success-icon">
+      <img src="Assets/logo/transfer.gif" alt="Money Added" class="transfer-gif" />
+    </div>
+    <div class="transfer-success-message">
+      <h3>Money Successfully Added!</h3>
+      <div class="transfer-details">
+        <div class="transfer-amount" id="moneyAddedSuccessAmount">AED 100</div>
+        <div class="transfer-route">
+          <span class="wallet-to" id="moneyAddedSuccessWallet">Wallet Name</span>
+        </div>
+      </div>
+    </div>
+    <div class="transfer-success-actions">
+      <button class="btn primary" onclick="closeMoneyAddedSuccessOverlay()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bitcoin Transaction Success Overlay -->
+<div id="btcTransactionSuccessOverlay" class="transfer-success-overlay hide" aria-hidden="true">
+  <div class="transfer-success-backdrop"></div>
+  <div class="transfer-success-content">
+    <div class="transfer-success-icon">
+      <img src="Assets/logo/transfer.gif" alt="Bitcoin Transaction" class="transfer-gif" />
+    </div>
+    <div class="transfer-success-message">
+      <h3>Bitcoin Transaction Successful!</h3>
+      <div class="transfer-details">
+        <div class="transfer-amount" id="btcTransactionSuccessAmount">0.001 BTC</div>
+        <div class="transfer-route">
+          <span class="wallet-from" id="btcTransactionSuccessFromWallet">Your Wallet</span>
+          <div class="transfer-arrow">
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+          <span class="wallet-to" id="btcTransactionSuccessToWallet">Recipient Address</span>
+        </div>
+        <div class="transaction-txid" id="btcTransactionSuccessTxid" style="margin-top: 8px; font-size: 0.8rem; color: var(--muted); word-break: break-all;">
+          Transaction ID: abc123...
+        </div>
+      </div>
+    </div>
+    <div class="transfer-success-actions">
+      <button class="btn primary" onclick="closeBtcTransactionSuccessOverlay()">Done</button>
+    </div>
+  </div>
+</div>
+
+  <div class="site-footer" style="max-width:1240px;margin:8px auto 18px;padding:0 16px;text-align:center;color:#667085;font-size:.86rem;">
+    Powered by
+    <a href="https://facebook.com/nadeemshahzadfida" target="_blank" rel="noopener noreferrer" style="color:#2457d6;text-decoration:none;font-weight:700;">
+      Nadeem Shahzad Fida
+    </a>
+  </div>
+
+  <div id="entryModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="entryModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="modalTitle">New entry</h3>
+          <p id="modalDesc">Fill the form and save the entry.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="entryModal" aria-label="Close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="principalModalForm" class="hide" data-form-type="principal">
+          <input type="hidden" name="direction" value="given" />
+          <div class="modal-grid">
+            <div class="field w6">
+              <label>Person name</label>
+              <input class="input" name="person_name" required placeholder="Full name" />
+            </div>
+            <div class="field w6">
+              <label>Currency</label>
+              <div class="currency-picker" id="principalCurrencyPicker">
+                <button type="button" class="currency-chip active" data-currency="AED">
+                  <span class="symbol symbol-dirham">~</span><span>AED</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="SAR">
+                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="PKR">
+                  <span>Rs.</span><span>PKR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="USD">
+                  <span class="symbol symbol-dollar">$</span><span>USD</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="BTC">
+                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
+                </button>
+              </div>
+              <input type="hidden" name="currency" value="AED" />
+            </div>
+            <div class="field w6">
+              <label>Amount</label>
+              <input class="input" name="principal_amount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label>Date</label>
+              <input class="input" name="loan_date" type="date" required data-default-today="true" />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional note" />
+            </div>
+            <div class="field w12" id="principalWalletGroup">
+              <label id="principalWalletLabel" style="display:flex;align-items:center;gap:6px;">
+                Wallet
+                <span class="badge blue" id="principalWalletBadge" style="font-size:.68rem;padding:3px 7px;">Loan Given → Deduct from wallet</span>
+              </label>
+              <select class="select" name="loan_wallet_id" id="modalLoanWalletSelect">
+                <option value="">Skip wallet entry</option>
+              </select>
+              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Select a wallet to automatically record this loan as an expense/top-up in your expense tracker.</small>
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="entryModal">Cancel</button>
+              <button class="btn primary" type="submit" id="principalSubmitBtn">Save</button>
+            </div>
+          </div>
+        </form>
+
+        <form id="paymentModalForm" class="hide" data-form-type="payment">
+          <input type="hidden" name="direction" value="given" />
+          <div class="modal-grid">
+            <div class="field w8">
+              <label>Related loan</label>
+              <select class="select" name="group_id" id="modalLoanSelect" required></select>
+            </div>
+            <div class="field w4">
+              <label>Entries Count</label>
+              <input class="input" id="multiEntryCount" type="number" min="1" max="10" value="1" required />
+            </div>
+            <div id="multiEntryContainer" style="grid-column: span 12; margin-top: 5px;">
+              </div>
+            <div class="field w12" id="paymentWalletGroup">
+              <label id="paymentWalletLabel" style="display:flex;align-items:center;gap:6px;">
+                Wallet
+                <span class="badge blue" id="paymentWalletBadge" style="font-size:.68rem;padding:3px 7px;">Received Back → Add to wallet</span>
+              </label>
+              <select class="select" name="payment_wallet_id" id="modalPaymentWalletSelect">
+                <option value="">Skip wallet entry</option>
+              </select>
+              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Select a wallet to automatically record this payment as a top-up/deduction in your expense tracker.</small>
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="entryModal">Cancel</button>
+              <button class="btn primary" type="submit" id="paymentSubmitBtn">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="editModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="editModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Edit entry</h3>
+          <p>Update the record details below.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="editModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="editForm">
+          <div class="modal-grid">
+            <div id="editPersonGroup" class="field w6 hide">
+              <label>Person name</label>
+              <input class="input" id="editName" name="person_name" placeholder="Full name" />
+            </div>
+            <div id="editCurrencyGroup" class="field w6 hide">
+              <label>Currency</label>
+              <div class="currency-picker">
+                <button type="button" class="currency-chip" data-currency="AED">
+                  <span class="symbol symbol-dirham">~</span><span>AED</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="SAR">
+                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="PKR">
+                  <span>Rs.</span><span>PKR</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="USD">
+                  <span class="symbol symbol-dollar">$</span><span>USD</span>
+                </button>
+                <button type="button" class="currency-chip" data-currency="BTC">
+                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
+                </button>
+              </div>
+              <input type="hidden" id="editCurrency" name="currency" />
+            </div>
+            <div class="field w6">
+              <label id="editAmountLabel">Amount</label>
+              <input class="input" id="editAmount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w6">
+              <label id="editDateLabel">Date</label>
+              <input class="input" id="editDate" type="date" required />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" id="editNotes" placeholder="Optional note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="editModal">Cancel</button>
+              <button class="btn primary" type="submit">Update</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bitcoin Send Modal -->
+  <div id="btcSendModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="btcSendModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Send Bitcoin</h3>
+          <p>Send a Bitcoin transaction.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="btcSendModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="btcSendForm">
+          <div class="modal-grid">
+            <div class="field w12">
+              <label>Recipient address</label>
+              <input id="btcToAddress" class="input" type="text" placeholder="bc1... or 1..." required />
+            </div>
+            <div class="field w6">
+              <label>Amount (BTC)</label>
+              <input id="btcSendAmount" class="input" type="number" inputmode="decimal" min="0" step="0.00000001" placeholder="0.0001" required />
+            </div>
+            <div class="field w6">
+              <label>Fee rate (sat/vB)</label>
+              <input id="btcFeeRate" class="input" type="number" inputmode="decimal" min="1" step="0.1" placeholder="8" required />
+            </div>
+            <div class="field w6">
+              <label>Max</label>
+              <button id="btcMaxBtn" class="btn ghost" type="button" style="width:100%">Use balance</button>
+            </div>
+            
+            <!-- WIF Input for Watch-Only Wallets -->
+            <div id="btcSendWifSection" class="field w12 hide">
+              <label>Private Key (WIF) - Required for signing</label>
+              <textarea id="btcSendWifInput" class="input" placeholder="Enter WIF to sign this transaction" style="min-height:60px;"></textarea>
+              <div style="margin-top:4px;font-size:.75rem;color:var(--muted);">Private key is used only to sign this transaction and is not stored.</div>
+            </div>
+            
+            <div class="field w12">
+              <div id="btcSendStatus" class="empty">Enter recipient address and amount.</div>
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="btcSendModal">Cancel</button>
+              <button id="btcBroadcastBtn" class="btn primary" type="button">Send</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bitcoin Receive Modal -->
+  <div id="btcReceiveModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="btcReceiveModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Receive Bitcoin</h3>
+          <p>Scan the QR code to send Bitcoin to this address.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="btcReceiveModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+          <div id="btcQrBox" style="width:220px;height:220px;display:flex;align-items:center;justify-content:center;background:white;border-radius:18px;padding:12px;"></div>
+          <div style="text-align:center;">
+            <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Receive address</div>
+            <div id="btcReceiveAddress" class="input" style="background:var(--panel-2);text-align:center;font-size:.88rem;word-break:break-all;"></div>
+            <div style="margin-top:12px;">
+              <button id="btcCopyAddressBtn" class="btn ghost">Copy address</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="Assets/app/script.js"></script>
+</body>
+</html>
