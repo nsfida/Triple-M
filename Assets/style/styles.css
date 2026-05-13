@@ -131,6 +131,10 @@ button,input,select,textarea,option{
 
 .symbol-dirham, .currency-chip .symbol-dirham { font-family: "DirhamSymbol", Inter, system-ui, sans-serif !important; }
 .symbol-riyal, .currency-chip .symbol-riyal { font-family: "RiyalSymbol", Inter, system-ui, sans-serif !important; }
+.symbol-dollar, .currency-chip .symbol-dollar { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
+.currency-font-sar{font-family:"RiyalSymbol", Inter, system-ui, sans-serif !important;}
+.currency-font-usd,
+.currency-font-normal{font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;}
 
 /* Ensure SAR symbol uses correct font in expense banners */
 .expense-item-total .symbol-riyal,
