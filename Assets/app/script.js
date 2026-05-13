@@ -102,7 +102,8 @@ const state = {
   expenseDateTo: "",
   inventoryDraft: {
     purchaseGroupId: "",
-    saleGroupIds: []
+    saleGroupIds: [],
+    settlement: null
   },
   bitcoin: {
     wallet: null,
@@ -204,6 +205,13 @@ const els = {
   goodsSaleGrandTotal: document.getElementById("goodsSaleGrandTotal"),
   goodsSalePaidAmount: document.getElementById("goodsSalePaidAmount"),
   goodsSaleBalanceAmount: document.getElementById("goodsSaleBalanceAmount"),
+  goodsSettlementModal: document.getElementById("goodsSettlementModal"),
+  goodsSettlementForm: document.getElementById("goodsSettlementForm"),
+  goodsSettlementReceipt: document.getElementById("goodsSettlementReceipt"),
+  goodsSettlementCustomer: document.getElementById("goodsSettlementCustomer"),
+  goodsSettlementBalance: document.getElementById("goodsSettlementBalance"),
+  goodsSettlementAmount: document.getElementById("goodsSettlementAmount"),
+  goodsSettlementDate: document.getElementById("goodsSettlementDate"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -319,6 +327,9 @@ const INVENTORY_UNIT_ITEM = "item";
 const INVENTORY_UNIT_KG = "kg";
 const INVENTORY_UNIT_GRAM = "g";
 const INVENTORY_NEW_CUSTOMER_VALUE = "__new_customer__";
+const INVENTORY_TX_PURCHASE = "PURCHASE";
+const INVENTORY_TX_SALE = "SALE";
+const INVENTORY_TX_SETTLEMENT = "SETTLEMENT";
 const BACKUP_STORAGE_KEY = "loanledger-json-backup-v1";
 const IMPORT_SESSION_KEY = "loanledger-imported-file-v1";
 const FLOAT_CURRENCY_PATHS = ["currency-float-path-1", "currency-float-path-2", "currency-float-path-3", "currency-float-path-4"];
@@ -1102,13 +1113,15 @@ function goodsMetaFromNotes(noteValue){
     quantityUnit: readText("UOM"),
     paidAmount: readNum("PAID"),
     balanceAmount: readNum("BAL"),
-    paymentStatus: readText("PSTAT")
+    paymentStatus: readText("PSTAT"),
+    settlementForEntryId: readText("SID"),
+    settlementId: readText("SETID")
   };
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
   let note = normalizeGoodsNote(noteValue, true) || GOODS_TAG;
-  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
   const tags = [];
   if (meta.boughtQty != null) tags.push(`[BQTY:${meta.boughtQty}]`);
   if (meta.soldQty != null) tags.push(`[SQTY:${meta.soldQty}]`);
@@ -1124,13 +1137,15 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.paidAmount != null) tags.push(`[PAID:${meta.paidAmount}]`);
   if (meta.balanceAmount != null) tags.push(`[BAL:${meta.balanceAmount}]`);
   if (meta.paymentStatus) tags.push(`[PSTAT:${String(meta.paymentStatus).replace(/\]/g, "")}]`);
+  if (meta.settlementForEntryId) tags.push(`[SID:${String(meta.settlementForEntryId).replace(/\]/g, "")}]`);
+  if (meta.settlementId) tags.push(`[SETID:${String(meta.settlementId).replace(/\]/g, "")}]`);
   return `${note} ${tags.join(" ")}`.trim();
 }
 
 function cleanGoodsDisplayNote(noteValue){
   return String(noteValue || "")
     .replace(GOODS_TAG, "")
-    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT):[^\]]*\]/gi, "")
+    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -1269,7 +1284,16 @@ function parseTransferExpenseDetails(tx, fromAccount){
 function inferGoodsActionType(entry){
   if (!entry || entry.entry_kind === "principal") return "ITEM";
   const meta = goodsMetaFromNotes(entry.notes);
-  return meta.transactionType || "SALE";
+  return String(meta.transactionType || INVENTORY_TX_SALE).trim().toUpperCase();
+}
+
+function isInventorySaleAction(entry){
+  const type = inferGoodsActionType(entry);
+  return type !== INVENTORY_TX_PURCHASE && type !== INVENTORY_TX_SETTLEMENT;
+}
+
+function isInventorySettlementAction(entry){
+  return inferGoodsActionType(entry) === INVENTORY_TX_SETTLEMENT;
 }
 
 function getExistingInventoryCodes(){
@@ -1411,6 +1435,141 @@ function inventoryPaymentStatus(meta = {}, lineTotal = 0){
   if (status === "FULL" || status === "FULL PAID") return "Full Paid";
   if (status === "PARTIAL" || status === "PARTIAL PAID") return "Partial Paid";
   return inventoryLineBalanceAmount(meta, lineTotal) <= 0.00000001 ? "Full Paid" : "Partial Paid";
+}
+
+function getInventoryReceiptEntries(receiptNumber, fallbackEntry = null){
+  const receipt = String(receiptNumber || "").trim();
+  const entries = state.entries.filter(e => {
+    if (e.entry_kind === "principal" || !hasGoodsTag(e.notes)) return false;
+    const meta = goodsMetaFromNotes(e.notes);
+    return receipt && (meta.receiptNumber || "") === receipt;
+  });
+  return entries.length || !fallbackEntry ? entries : [fallbackEntry];
+}
+
+function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
+  const entries = getInventoryReceiptEntries(receiptNumber, fallbackEntry);
+  const saleEntries = entries.filter(isInventorySaleAction);
+  const settlementEntries = entries.filter(isInventorySettlementAction);
+  const settlementsBySaleId = new Map();
+  settlementEntries.forEach(entry => {
+    const meta = goodsMetaFromNotes(entry.notes);
+    const saleId = meta.settlementForEntryId || "";
+    if (!saleId) return;
+    if (!settlementsBySaleId.has(saleId)) settlementsBySaleId.set(saleId, []);
+    settlementsBySaleId.get(saleId).push(entry);
+  });
+
+  const saleRows = saleEntries.map((entry, index) => {
+    const principalEntry = state.entries.find(e => e.group_id === entry.group_id && e.entry_kind === "principal");
+    const entryMeta = goodsMetaFromNotes(entry.notes);
+    const principalMeta = goodsMetaFromNotes(principalEntry?.notes);
+    const itemCategory = normalizeInventoryCategory(entryMeta.itemCategory || principalMeta.itemCategory);
+    const qty = normalizeStoredInventoryQty(entryMeta.soldQty, itemCategory, 1);
+    const total = Number(entry.action_amount || 0);
+    const unitPrice = entryMeta.unitSoldPrice != null ? Number(entryMeta.unitSoldPrice) : (qty ? total / qty : 0);
+    const lineSettlements = settlementsBySaleId.get(entry.id) || [];
+    const initialPaid = inventoryLinePaidAmount(entryMeta, total);
+    const settlementPaid = lineSettlements.reduce((sum, settlement) => sum + Number(settlement.action_amount || 0), 0);
+    const paid = Math.min(total, initialPaid + settlementPaid);
+    const balance = Math.max(total - paid, 0);
+    return {
+      sr: index + 1,
+      entry,
+      entryMeta,
+      principalEntry,
+      principalMeta,
+      itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
+      itemName: principalEntry?.person_name || entry.person_name || "Goods item",
+      itemCategory,
+      qty,
+      qtyDisplay: inventoryQtyLabel(qty, itemCategory),
+      unitPrice,
+      total,
+      initialPaid,
+      settlementPaid,
+      paid,
+      balance,
+      paymentStatus: balance <= 0.00000001 ? "Full Paid" : "Partial Paid",
+      currency: entry.currency
+    };
+  });
+
+  const totalsByCurrency = saleRows.reduce((acc, row) => {
+    const currencyKey = row.currency || "AED";
+    if (!acc.has(currencyKey)) acc.set(currencyKey, { total: 0, paid: 0, balance: 0 });
+    const bucket = acc.get(currencyKey);
+    bucket.total += Number(row.total || 0);
+    bucket.paid += Number(row.paid || 0);
+    bucket.balance += Number(row.balance || 0);
+    return acc;
+  }, new Map());
+
+  const settlementGroups = new Map();
+  settlementEntries.forEach(entry => {
+    const meta = goodsMetaFromNotes(entry.notes);
+    const key = meta.settlementId || entry.id || `${entry.action_date || ""}-${entry.created_at || ""}`;
+    if (!settlementGroups.has(key)){
+      settlementGroups.set(key, {
+        key,
+        date: entry.action_date,
+        currency: entry.currency,
+        amount: 0,
+        notes: cleanGoodsDisplayNote(entry.notes) || "Balance settlement"
+      });
+    }
+    const row = settlementGroups.get(key);
+    row.amount += Number(entry.action_amount || 0);
+    if (!row.date) row.date = entry.action_date;
+  });
+
+  const currency = totalsByCurrency.size === 1 ? Array.from(totalsByCurrency.keys())[0] : (saleRows[0]?.currency || fallbackEntry?.currency || "AED");
+  const totalAmount = saleRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const initialPaidTotal = saleRows.reduce((sum, row) => sum + Number(row.initialPaid || 0), 0);
+  const saleDates = saleRows.map(row => row.entry.action_date).filter(Boolean).sort((a, b) => dateStamp(a) - dateStamp(b));
+  const paymentRows = [];
+  if (saleRows.length && totalsByCurrency.size <= 1){
+    let cumulativePaid = initialPaidTotal;
+    paymentRows.push({
+      type: "First payment",
+      date: saleDates[0] || fallbackEntry?.action_date || "—",
+      amount: initialPaidTotal,
+      balanceAfter: Math.max(totalAmount - cumulativePaid, 0),
+      currency
+    });
+    Array.from(settlementGroups.values())
+      .sort((a, b) => {
+        const diff = dateStamp(a.date) - dateStamp(b.date);
+        if (diff !== 0) return diff;
+        return String(a.key).localeCompare(String(b.key));
+      })
+      .forEach(row => {
+        cumulativePaid = Math.min(totalAmount, cumulativePaid + Number(row.amount || 0));
+        paymentRows.push({
+          type: "Balance settlement",
+          date: row.date || "—",
+          amount: Number(row.amount || 0),
+          balanceAfter: Math.max(totalAmount - cumulativePaid, 0),
+          currency: row.currency || currency,
+          notes: row.notes
+        });
+      });
+  }
+
+  return {
+    receiptNumber: receiptNumber || goodsMetaFromNotes(fallbackEntry?.notes).receiptNumber || shortId(fallbackEntry?.id) || "N/A",
+    entries,
+    saleEntries,
+    settlementEntries,
+    saleRows,
+    totalsByCurrency,
+    paymentRows,
+    currency,
+    totalAmount,
+    paidTotal: saleRows.reduce((sum, row) => sum + Number(row.paid || 0), 0),
+    balanceTotal: saleRows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
+    customerName: saleRows[0]?.entryMeta.customerName || goodsMetaFromNotes(fallbackEntry?.notes).customerName || "Walk-in customer"
+  };
 }
 
 function updateGoodsBoughtTotal(){
@@ -2185,8 +2344,9 @@ function getGoodsGroups(options = {}){
   ))
     .map(group => {
       const principalMeta = goodsMetaFromNotes(group.principal?.notes);
-      const purchaseActions = group.actions.filter(row => inferGoodsActionType(row) === "PURCHASE");
-      const saleActions = group.actions.filter(row => inferGoodsActionType(row) !== "PURCHASE");
+      const purchaseActions = group.actions.filter(row => inferGoodsActionType(row) === INVENTORY_TX_PURCHASE);
+      const settlementActions = group.actions.filter(isInventorySettlementAction);
+      const saleActions = group.actions.filter(isInventorySaleAction);
       const purchaseMetas = purchaseActions.map(row => goodsMetaFromNotes(row.notes));
       const itemCategory = normalizeInventoryCategory(
         principalMeta.itemCategory || purchaseMetas.find(meta => meta.itemCategory)?.itemCategory
@@ -2204,6 +2364,10 @@ function getGoodsGroups(options = {}){
       const unitActualPrice = boughtQty ? (bought / boughtQty) : bought;
       const soldQty = saleActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).soldQty, itemCategory, 1), 0);
       const soldTotal = saleActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+      const initialPaidTotal = saleActions.reduce((sum, row) => sum + inventoryLinePaidAmount(goodsMetaFromNotes(row.notes), row.action_amount || 0), 0);
+      const settlementTotal = settlementActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+      const paidTotal = Math.min(soldTotal, initialPaidTotal + settlementTotal);
+      const balanceTotal = Math.max(soldTotal - paidTotal, 0);
       const remainingQty = Math.max(boughtQty - soldQty, 0);
       const status = soldQty + 0.00000001 >= boughtQty ? "Sold" : soldQty > 0 ? "Partial" : "In Stock";
       const soldCostBasis = soldQty > 0 ? unitActualPrice * soldQty : 0;
@@ -2217,12 +2381,15 @@ function getGoodsGroups(options = {}){
         ...group,
         actions: saleActions,
         purchaseActions,
+        settlementActions,
         bought,
         boughtQty,
         soldQty,
         remainingQty,
         unitActualPrice,
         soldTotal,
+        paidTotal,
+        balanceTotal,
         soldCostBasis,
         soldCount: saleActions.length,
         profitLoss,
@@ -2284,8 +2451,21 @@ async function downloadGoodsItemPDF(groupId){
   doc.text(`Item: ${group.person_name || "Unnamed item"}`, 132, 48);
   doc.text(`Status: ${group.status}`, 132, 54);
   doc.text(`In Stock: ${inventoryQtyLabel(group.remainingQty, group.itemCategory)}`, 132, 60);
-  doc.text(`Net ${group.profitLoss >= 0 ? "Profit" : "Loss"}: ${fmt(Math.abs(group.profitLoss))}`, 132, 72);
   doc.text(`Purchase Date: ${displayDate(group.principal?.loan_date || "—")}`, 132, 66);
+  doc.text(`Net ${group.profitLoss >= 0 ? "Profit" : "Loss"}: ${fmt(Math.abs(group.profitLoss))}`, 132, 72);
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 78, 182, 28, 2, 2, "F");
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 78, 182, 28, 2, 2, "S");
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Purchase Total: ${fmt(group.bought || 0)}`, 18, 86);
+  doc.text(`Sales Total: ${fmt(group.soldTotal || 0)}`, 18, 93);
+  doc.text(`Paid Total: ${fmt(group.paidTotal || 0)}`, 105, 86);
+  doc.text(`Balance Amount: ${fmt(group.balanceTotal || 0)}`, 105, 93);
+  doc.text(`Purchase Qty: ${inventoryQtyLabel(group.boughtQty, group.itemCategory)}`, 18, 100);
+  doc.text(`Sold Qty: ${inventoryQtyLabel(group.soldQty, group.itemCategory)}`, 105, 100);
 
   const rows = [
     {
@@ -2293,6 +2473,9 @@ async function downloadGoodsItemPDF(groupId){
       date: group.principal?.loan_date,
       qty: inventoryQtyLabel(group.boughtQty - group.purchaseActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).boughtQty, group.itemCategory, 1), 0), group.itemCategory),
       amount: fmt(group.principal?.principal_amount || 0),
+      paid: "—",
+      balance: "—",
+      status: "—",
       note: group.itemDescription || cleanGoodsDisplayNote(group.principal?.notes) || "Opening stock"
     },
     ...group.purchaseActions.map(row => {
@@ -2302,26 +2485,61 @@ async function downloadGoodsItemPDF(groupId){
         date: row.action_date,
         qty: inventoryQtyLabel(meta.boughtQty || 0, group.itemCategory),
         amount: fmt(row.action_amount || 0),
+        paid: "—",
+        balance: "—",
+        status: "—",
         note: cleanGoodsDisplayNote(row.notes) || "Additional stock"
       };
     }),
     ...group.actions.map(row => {
       const meta = goodsMetaFromNotes(row.notes);
+      const receipt = meta.receiptNumber || shortId(row.id);
+      const receiptData = getInventoryReceiptData(receipt, row);
+      const saleSummary = receiptData.saleRows.find(saleRow => saleRow.entry.id === row.id);
       return {
         type: "Sold",
         date: row.action_date,
         qty: inventoryQtyLabel(meta.soldQty || 0, group.itemCategory),
         amount: fmt(row.action_amount || 0),
-        note: `${meta.customerName || "Walk-in customer"} | ${meta.receiptNumber || shortId(row.id)}`
+        paid: fmt(saleSummary?.paid || inventoryLinePaidAmount(meta, row.action_amount || 0)),
+        balance: fmt(saleSummary?.balance || 0),
+        status: saleSummary?.paymentStatus || inventoryPaymentStatus(meta, row.action_amount || 0),
+        note: `${meta.customerName || "Walk-in customer"} | ${receipt}`
+      };
+    }),
+    ...group.settlementActions.map(row => {
+      const meta = goodsMetaFromNotes(row.notes);
+      const balance = inventoryLineBalanceAmount(meta, 0);
+      return {
+        type: "Settlement",
+        date: row.action_date,
+        qty: "—",
+        amount: fmt(row.action_amount || 0),
+        paid: fmt(row.action_amount || 0),
+        balance: fmt(balance),
+        status: inventoryPaymentStatus(meta, balance),
+        note: `${meta.customerName || "Walk-in customer"} | ${meta.receiptNumber || shortId(row.id)} | ${cleanGoodsDisplayNote(row.notes) || "Balance settlement"}`
       };
     })
   ].sort((a, b) => dateStamp(a.date) - dateStamp(b.date));
   doc.autoTable({
-    startY: 78,
-    head: [["Type", "Date", "Qty", "Amount", "Note"]],
-    body: rows.map(row => [row.type, displayDate(row.date || "—"), row.qty, row.amount, row.note]),
+    startY: 114,
+    head: [["Type", "Date", "Qty", "Amount", "Paid", "Balance", "Status", "Note"]],
+    body: rows.map(row => [row.type, displayDate(row.date || "—"), row.qty, row.amount, row.paid, row.balance, row.status, row.note]),
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 7.2, cellPadding: 1.8, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 18 },
+      1: { cellWidth: 19 },
+      2: { cellWidth: 18, halign: "right" },
+      3: { cellWidth: 24, halign: "right" },
+      4: { cellWidth: 24, halign: "right" },
+      5: { cellWidth: 24, halign: "right" },
+      6: { cellWidth: 20 },
+      7: { cellWidth: 35 }
+    },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
@@ -2514,49 +2732,16 @@ async function downloadInventoryReceiptPDF(entryId){
   }
   const meta = goodsMetaFromNotes(saleEntry.notes);
   const receiptNumber = meta.receiptNumber || shortId(saleEntry.id) || "N/A";
-  const receiptEntries = state.entries.filter(e => {
-    if (e.entry_kind === "principal" || !hasGoodsTag(e.notes)) return false;
-    const entryMeta = goodsMetaFromNotes(e.notes);
-    return (entryMeta.receiptNumber || "") === receiptNumber;
-  });
-  const matchedReceiptEntries = receiptEntries.length ? receiptEntries : [saleEntry];
-  const receiptRows = matchedReceiptEntries.map((entry, index) => {
-    const principalEntry = state.entries.find(e => e.group_id === entry.group_id && e.entry_kind === "principal");
-    const entryMeta = goodsMetaFromNotes(entry.notes);
-    const principalMeta = goodsMetaFromNotes(principalEntry?.notes);
-    const itemCategory = normalizeInventoryCategory(entryMeta.itemCategory || principalMeta.itemCategory);
-    const qty = normalizeStoredInventoryQty(entryMeta.soldQty, itemCategory, 1);
-    const unitPrice = entryMeta.unitSoldPrice != null ? Number(entryMeta.unitSoldPrice) : (Number(entry.action_amount || 0) / qty);
-    const total = Number(entry.action_amount || 0);
-    const paid = inventoryLinePaidAmount(entryMeta, total);
-    const balance = inventoryLineBalanceAmount(entryMeta, total);
-    return {
-      sr: index + 1,
-      itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
-      itemName: principalEntry?.person_name || entry.person_name || "Goods item",
-      itemCategory,
-      qty,
-      qtyDisplay: inventoryQtyLabel(qty, itemCategory),
-      unitPrice,
-      total,
-      paid,
-      balance,
-      paymentStatus: inventoryPaymentStatus(entryMeta, total),
-      currency: entry.currency
-    };
-  });
-  const totalsByCurrency = receiptRows.reduce((acc, row) => {
-    const currencyKey = row.currency || "AED";
-    if (!acc.has(currencyKey)) acc.set(currencyKey, { total: 0, paid: 0, balance: 0 });
-    const bucket = acc.get(currencyKey);
-    bucket.total += Number(row.total || 0);
-    bucket.paid += Number(row.paid || 0);
-    bucket.balance += Number(row.balance || 0);
-    return acc;
-  }, new Map());
-  const soldTotal = receiptRows.reduce((sum, row) => sum + row.total, 0);
-  const currency = saleEntry.currency || receiptRows[0]?.currency || "AED";
-  const customerName = meta.customerName || "Walk-in customer";
+  const receiptData = getInventoryReceiptData(receiptNumber, saleEntry);
+  const receiptRows = receiptData.saleRows;
+  if (!receiptRows.length){
+    alert("No sale lines found for this receipt.");
+    return;
+  }
+  const totalsByCurrency = receiptData.totalsByCurrency;
+  const soldTotal = receiptData.totalAmount;
+  const currency = receiptData.currency || saleEntry.currency || receiptRows[0]?.currency || "AED";
+  const customerName = receiptData.customerName || meta.customerName || "Walk-in customer";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
   const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total") || moneyText(soldTotal, currency);
   const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid") || moneyText(soldTotal, currency);
@@ -2572,9 +2757,9 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.setTextColor(23, 33, 43);
   doc.setFontSize(10);
   doc.text(`Customer: ${customerName}`, 132, 48);
-  doc.text(`Date: ${displayDate(saleEntry.action_date || "—")}`, 132, 54);
+  doc.text(`Date: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "—")}`, 132, 54);
   doc.text(`Lines: ${receiptRows.length}`, 132, 60);
-  doc.text(`Status: ${receiptRows.some(row => row.paymentStatus === "Partial Paid") ? "Partial Paid" : "Full Paid"}`, 132, 66);
+  doc.text(`Status: ${receiptData.balanceTotal > 0.00000001 ? "Partial Paid" : "Full Paid"}`, 132, 66);
   doc.setFillColor(248, 250, 252);
   doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
@@ -2584,7 +2769,7 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Bill To: ${customerName}`, 18, 86);
   doc.text(`Receipt No: ${receiptNumber}`, 18, 92);
   doc.text(`Total Amount: ${totalAmountText}`, 110, 86);
-  doc.text(`Issued On: ${displayDate(saleEntry.action_date || "-")}`, 110, 92);
+  doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, 92);
   doc.text(`Paid Amount: ${paidAmountText}`, 18, 100);
   doc.text(`Balance Amount: ${balanceAmountText}`, 110, 100);
 
@@ -2610,7 +2795,32 @@ async function downloadInventoryReceiptPDF(entryId){
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
-  const afterTableY = doc.lastAutoTable.finalY + 8;
+  let afterTableY = doc.lastAutoTable.finalY + 8;
+  if (receiptData.paymentRows.length){
+    doc.autoTable({
+      startY: afterTableY,
+      head: [["Settlement", "Date", "Paid", "Balance"]],
+      body: receiptData.paymentRows.map(row => [
+        row.type,
+        displayDate(row.date || "—"),
+        formatReportAmount(row.amount || 0, row.currency || currency),
+        formatReportAmount(row.balanceAfter || 0, row.currency || currency)
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.5 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 52 },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 48, halign: "right" },
+        3: { cellWidth: 50, halign: "right" }
+      },
+      margin: { top: 50, bottom: 40 },
+      didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+    });
+    afterTableY = doc.lastAutoTable.finalY + 8;
+  }
   const showCurrencyInSummary = totalsByCurrency.size > 1;
   const summaryRows = Array.from(totalsByCurrency.entries()).flatMap(([rowCurrency, amounts]) => [
     [showCurrencyInSummary ? `${rowCurrency} total amount` : "Total amount", formatReportAmount(amounts.total, rowCurrency)],
@@ -2659,6 +2869,8 @@ function renderInventoryList(){
         amount: group.principal?.principal_amount,
         note: group.itemDescription || cleanGoodsDisplayNote(group.principal?.notes) || "Opening stock",
         paymentStatus: "—",
+        paidDisplay: "—",
+        balanceDisplay: "—",
         entryId: group.principal?.id || ""
       },
       ...group.purchaseActions.map(row => ({
@@ -2668,6 +2880,8 @@ function renderInventoryList(){
         amount: row.action_amount,
         note: cleanGoodsDisplayNote(row.notes) || "Additional stock",
         paymentStatus: "—",
+        paidDisplay: "—",
+        balanceDisplay: "—",
         entryId: row.id
       })),
       ...group.actions.map(row => {
@@ -2675,7 +2889,10 @@ function renderInventoryList(){
         const receipt = meta.receiptNumber || shortId(row.id);
         const customer = meta.customerName || "Walk-in customer";
         const noteText = cleanGoodsDisplayNote(row.notes) || "Sale entry";
-        const paymentStatus = inventoryPaymentStatus(meta, row.action_amount || 0);
+        const receiptData = getInventoryReceiptData(receipt, row);
+        const saleSummary = receiptData.saleRows.find(saleRow => saleRow.entry.id === row.id);
+        const paymentStatus = saleSummary?.paymentStatus || inventoryPaymentStatus(meta, row.action_amount || 0);
+        const balance = Number(saleSummary?.balance || 0);
         return {
           kind: "Sold",
           badge: "green",
@@ -2684,6 +2901,29 @@ function renderInventoryList(){
           note: `${customer} | ${receipt}${noteText ? ` | ${noteText}` : ""}`,
           paymentStatus,
           paymentBadge: paymentStatus === "Full Paid" ? "green" : "orange",
+          paidDisplay: money(saleSummary?.paid || inventoryLinePaidAmount(meta, row.action_amount || 0), group.currency),
+          balanceDisplay: money(balance, group.currency),
+          canSettle: balance > 0.00000001,
+          entryId: row.id
+        };
+      }),
+      ...group.settlementActions.map(row => {
+        const meta = goodsMetaFromNotes(row.notes);
+        const receipt = meta.receiptNumber || shortId(row.id);
+        const customer = meta.customerName || "Walk-in customer";
+        const balance = inventoryLineBalanceAmount(meta, 0);
+        const status = inventoryPaymentStatus(meta, balance);
+        return {
+          kind: "Settlement",
+          badge: "orange",
+          date: row.action_date,
+          amount: row.action_amount,
+          note: `${customer} | ${receipt} | ${cleanGoodsDisplayNote(row.notes) || "Balance settlement"}`,
+          paymentStatus: status,
+          paymentBadge: status === "Full Paid" ? "green" : "orange",
+          paidDisplay: money(row.action_amount || 0, group.currency),
+          balanceDisplay: money(balance, group.currency),
+          canSettle: false,
           entryId: row.id
         };
       })
@@ -2731,24 +2971,27 @@ function renderInventoryList(){
           ${group.itemDescription ? `<div class="detail-head"><div><h4>Description</h4><p>${escapeHtml(group.itemDescription)}</p></div></div>` : ""}
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>Payment</th><th>Notes</th><th>Action</th></tr></thead>
+              <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Payment</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
                 ${historyRows.length ? historyRows.map(row => `
                   <tr>
                     <td><span class="badge ${escapeHtml(row.badge)}">${escapeHtml(row.kind)}</span></td>
                     <td>${escapeHtml(displayDate(row.date || "—"))}</td>
                     <td>${money(row.amount || 0, group.currency)}</td>
+                    <td>${row.paidDisplay || "—"}</td>
+                    <td>${row.balanceDisplay || "—"}</td>
                     <td>${row.paymentStatus === "—" ? "—" : `<span class="badge ${escapeHtml(row.paymentBadge || "orange")}">${escapeHtml(row.paymentStatus)}</span>`}</td>
                     <td>${escapeHtml(row.note || "—")}</td>
                     <td>
                       <div style="display:flex;gap:4px;">
-                        ${row.kind === "Sold" ? `<button class="tiny soldReceiptBtn" data-id="${escapeHtml(row.entryId)}" title="Download receipt"><i class="fa-solid fa-download"></i></button>` : `<button class="tiny invoiceDownloadBtn" data-group-id="${escapeHtml(group.group_id)}" title="Download invoice"><i class="fa-solid fa-file-invoice"></i></button>`}
+                        ${row.kind === "Sold" || row.kind === "Settlement" ? `<button class="tiny soldReceiptBtn" data-id="${escapeHtml(row.entryId)}" title="Download receipt"><i class="fa-solid fa-download"></i></button>` : `<button class="tiny invoiceDownloadBtn" data-group-id="${escapeHtml(group.group_id)}" title="Download invoice"><i class="fa-solid fa-file-invoice"></i></button>`}
+                        ${row.canSettle ? `<button class="tiny ghost clearBalanceBtn" data-id="${escapeHtml(row.entryId)}" title="Clear balance">Clear</button>` : ""}
                         <button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}">✎</button>
                         <button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}">✕</button>
                       </div>
                     </td>
                   </tr>
-                `).join("") : `<tr><td colspan="6">No inventory activity yet.</td></tr>`}
+                `).join("") : `<tr><td colspan="8">No inventory activity yet.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -2776,6 +3019,7 @@ function renderInventoryList(){
     if (action === "delete-item") await deleteEntry(btn.dataset.entryId);
   }));
   els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
+  els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
   els.goodsList.querySelectorAll(".invoiceDownloadBtn").forEach(btn => btn.addEventListener("click", () => downloadGoodsItemPDF(btn.dataset.groupId)));
   els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
@@ -4620,6 +4864,109 @@ async function saveGoodsSold(form){
     await loadEntriesFromSupabase();
   }
   closeModal("goodsModal");
+}
+
+function openGoodsSettlementModal(entryId){
+  const entry = state.entries.find(e => e.id === entryId && e.entry_kind !== "principal" && hasGoodsTag(e.notes));
+  if (!entry){
+    alert("Sale entry not found.");
+    return;
+  }
+  const meta = goodsMetaFromNotes(entry.notes);
+  const receiptNumber = meta.receiptNumber || shortId(entry.id) || "";
+  const receiptData = getInventoryReceiptData(receiptNumber, entry);
+  if (receiptData.totalsByCurrency.size !== 1){
+    alert("Balance clearance is available only for a single-currency receipt.");
+    return;
+  }
+  if (receiptData.balanceTotal <= 0.00000001){
+    alert("This receipt has no balance amount to clear.");
+    return;
+  }
+  state.inventoryDraft.settlement = {
+    entryId,
+    receiptNumber,
+    currency: receiptData.currency,
+    balance: receiptData.balanceTotal
+  };
+  if (els.goodsSettlementForm) els.goodsSettlementForm.reset();
+  if (els.goodsSettlementReceipt) els.goodsSettlementReceipt.value = receiptNumber;
+  if (els.goodsSettlementCustomer) els.goodsSettlementCustomer.value = receiptData.customerName || "Walk-in customer";
+  if (els.goodsSettlementBalance) {
+    els.goodsSettlementBalance.value = moneyText(receiptData.balanceTotal, receiptData.currency);
+    applyCurrencyFontClass(els.goodsSettlementBalance, receiptData.currency);
+  }
+  if (els.goodsSettlementAmount) {
+    els.goodsSettlementAmount.value = trimInventoryNumber(receiptData.balanceTotal);
+    els.goodsSettlementAmount.max = trimInventoryNumber(receiptData.balanceTotal);
+  }
+  if (els.goodsSettlementDate) els.goodsSettlementDate.value = todayISO();
+  els.goodsSettlementModal.classList.remove("hide");
+  els.goodsSettlementModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+async function saveGoodsSettlement(form){
+  const draft = state.inventoryDraft.settlement;
+  if (!draft?.receiptNumber) throw new Error("Settlement receipt was not selected.");
+  const fd = new FormData(form);
+  const settlementAmount = Number(fd.get("settlement_amount") || 0);
+  const settlementDate = String(fd.get("settlement_date") || "");
+  const settlementNotes = String(fd.get("notes") || "").trim() || "Balance settlement";
+  if (!settlementDate) throw new Error("Settlement date is required.");
+  if (!Number.isFinite(settlementAmount) || settlementAmount <= 0) throw new Error("Settlement amount must be greater than zero.");
+
+  const fallbackEntry = state.entries.find(e => e.id === draft.entryId) || null;
+  const receiptData = getInventoryReceiptData(draft.receiptNumber, fallbackEntry);
+  if (receiptData.totalsByCurrency.size !== 1) throw new Error("Balance clearance is available only for a single-currency receipt.");
+  if (settlementAmount > receiptData.balanceTotal + 0.00000001) throw new Error("Settlement amount cannot exceed the current balance.");
+
+  let remainingSettlement = settlementAmount;
+  const settlementId = crypto.randomUUID();
+  const payloads = [];
+  for (const row of receiptData.saleRows.filter(saleRow => saleRow.balance > 0.00000001)){
+    if (remainingSettlement <= 0.00000001) break;
+    const paidForLine = Math.min(row.balance, remainingSettlement);
+    remainingSettlement = Math.max(remainingSettlement - paidForLine, 0);
+    const lineBalance = Math.max(row.balance - paidForLine, 0);
+    payloads.push({
+      group_id: row.entry.group_id,
+      direction: "taken",
+      entry_kind: lineBalance <= 0.00000001 ? "full" : "partial",
+      person_name: row.principalEntry?.person_name || row.itemName,
+      currency: row.currency,
+      principal_amount: null,
+      action_amount: paidForLine,
+      loan_date: row.entry.loan_date,
+      action_date: settlementDate,
+      notes: upsertGoodsMetaInNote(normalizeGoodsNote(settlementNotes, true), {
+        itemCode: row.itemCode,
+        itemCategory: row.itemCategory,
+        quantityUnit: inventoryBaseUnitForCategory(row.itemCategory),
+        customerName: receiptData.customerName,
+        receiptNumber: receiptData.receiptNumber,
+        transactionType: INVENTORY_TX_SETTLEMENT,
+        paidAmount: paidForLine,
+        balanceAmount: lineBalance,
+        paymentStatus: lineBalance <= 0.00000001 ? "FULL" : "PARTIAL",
+        settlementForEntryId: row.entry.id,
+        settlementId
+      })
+    });
+  }
+  if (!payloads.length) throw new Error("No outstanding balance found for this receipt.");
+
+  if (isBackupMode()){
+    payloads.slice().reverse().forEach(payload => {
+      state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
+    });
+    refreshBackupView();
+  } else {
+    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payloads) });
+    await loadEntriesFromSupabase();
+  }
+  state.inventoryDraft.settlement = null;
+  closeModal("goodsSettlementModal");
 }
 
 function openEditModal(id) {
@@ -7012,7 +7359,8 @@ window.addEventListener("resize", () => {
     btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal));
   });
 
-  [els.entryModal, els.editModal, els.goodsModal, els.expenseModal].forEach(m => {
+  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.expenseModal].forEach(m => {
+    if (!m) return;
     m.addEventListener("click", e => {
       if (e.target && e.target.matches(".modal-backdrop")) closeModal(m.id);
     });
@@ -7023,6 +7371,7 @@ window.addEventListener("resize", () => {
       if (!els.entryModal.classList.contains("hide")) closeModal("entryModal");
       if (!els.editModal.classList.contains("hide")) closeModal("editModal");
       if (!els.goodsModal.classList.contains("hide")) closeModal("goodsModal");
+      if (els.goodsSettlementModal && !els.goodsSettlementModal.classList.contains("hide")) closeModal("goodsSettlementModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
     }
   });
@@ -7086,6 +7435,12 @@ window.addEventListener("resize", () => {
     e.preventDefault();
     try { await saveGoodsSold(els.goodsSoldForm); } catch (err) { alert(err.message); }
   });
+  if (els.goodsSettlementForm) {
+    els.goodsSettlementForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      try { await saveGoodsSettlement(els.goodsSettlementForm); } catch (err) { alert(err.message); }
+    });
+  }
   els.expenseAccountForm.addEventListener("submit", async e => {
     e.preventDefault();
     try { await saveExpenseAccount(els.expenseAccountForm); } catch (err) { alert(err.message); }
