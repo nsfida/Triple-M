@@ -689,6 +689,18 @@ function currencySymbolHtml(currency){
   return `<span class="symbol">${escapeHtml(symbol)}</span>`;
 }
 
+function currencyFontClass(currency){
+  if (currency === "SAR") return "currency-font-sar";
+  if (currency === "USD") return "currency-font-usd";
+  return "currency-font-normal";
+}
+
+function applyCurrencyFontClass(element, currency){
+  if (!element) return;
+  element.classList.remove("currency-font-sar", "currency-font-usd", "currency-font-normal");
+  element.classList.add(currencyFontClass(currency));
+}
+
 function moneyText(amount, currency){
   const n = Number(amount || 0);
   const isBtc = currency === "BTC";
@@ -1996,6 +2008,8 @@ function updateGoodsSaleGrandTotal(){
   els.goodsSaleGrandTotal.value = totalsByCurrency.size
     ? Array.from(totalsByCurrency.entries()).map(([currency, amount]) => moneyText(amount, currency)).join(" | ")
     : "";
+  const onlyCurrency = totalsByCurrency.size === 1 ? Array.from(totalsByCurrency.keys())[0] : "";
+  applyCurrencyFontClass(els.goodsSaleGrandTotal, onlyCurrency);
 }
 
 function updateGoodsSaleLine(line){
@@ -2032,6 +2046,7 @@ function updateGoodsSaleLine(line){
   if (totalInput){
     totalInput.dataset.rawTotal = String(total);
     totalInput.value = group && total ? moneyText(total, group.currency) : "";
+    applyCurrencyFontClass(totalInput, group?.currency || "");
   }
   syncGoodsSaleLineMeta(line);
   updateGoodsSaleGrandTotal();
