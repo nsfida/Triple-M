@@ -725,7 +725,7 @@ a{color:inherit}
 }
 .inventory-sale-line{
   display:grid;
-  grid-template-columns:minmax(0,2.2fr) minmax(84px,.7fr) minmax(110px,.9fr) minmax(120px,1fr) 40px;
+  grid-template-columns:minmax(0,2.2fr) minmax(78px,.65fr) minmax(78px,.65fr) minmax(110px,.9fr) minmax(120px,1fr) 40px;
   gap:8px;
   align-items:center;
   padding:10px;
