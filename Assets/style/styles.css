@@ -706,6 +706,39 @@ a{color:inherit}
 .expense-transfer-totals > div{display:flex;flex-direction:column;gap:2px;}
 .expense-item-detail-note{font-size:.74rem;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
+.inventory-inline-actions{
+  display:flex;
+  gap:6px;
+  margin-bottom:6px;
+  justify-content:flex-end;
+}
+.inventory-sale-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.inventory-sale-lines{
+  display:grid;
+  gap:8px;
+}
+.inventory-sale-line{
+  display:grid;
+  grid-template-columns:minmax(0,2.2fr) minmax(84px,.7fr) minmax(110px,.9fr) minmax(120px,1fr) 40px;
+  gap:8px;
+  align-items:center;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+}
+.inventory-sale-line-meta{
+  grid-column:1 / -1;
+  font-size:.74rem;
+  color:var(--muted);
+}
+
 .expense-section-anchor{margin-top:16px;margin-bottom:2px;}
 .expense-section-anchor:first-child{margin-top:0;}
 .expense-section-title{margin:0 0 8px;font-size:1rem;font-weight:760;color:var(--text);}
@@ -1806,6 +1839,17 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   .modal-body{padding:12px}
   .modal-grid{gap:8px}
   .modal-grid .field{grid-column:span 12}
+  .inventory-sale-line{
+    grid-template-columns:1fr 1fr;
+  }
+  .inventory-sale-line .goods-sale-item,
+  .inventory-sale-line .inventory-sale-line-meta{
+    grid-column:1 / -1;
+  }
+  .inventory-sale-line .goods-sale-remove{
+    width:100%;
+    grid-column:1 / -1;
+  }
 
   .multi-row-header { font-size: .68rem; gap: 4px; padding-left: 6px; }
   .multi-row {
