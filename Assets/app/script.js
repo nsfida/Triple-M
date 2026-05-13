@@ -196,7 +196,9 @@ const els = {
   openGoodsSoldBtn: document.getElementById("openGoodsSoldBtn"),
   goodsBoughtTotalAmount: document.getElementById("goodsBoughtTotalAmount"),
   goodsReceiptNumber: document.getElementById("goodsReceiptNumber"),
-  goodsCustomerList: document.getElementById("goodsCustomerList"),
+  goodsCustomerSelect: document.getElementById("goodsCustomerSelect"),
+  goodsNewCustomerField: document.getElementById("goodsNewCustomerField"),
+  goodsNewCustomerName: document.getElementById("goodsNewCustomerName"),
   goodsSaleLines: document.getElementById("goodsSaleLines"),
   addGoodsSaleLineBtn: document.getElementById("addGoodsSaleLineBtn"),
   goodsSaleGrandTotal: document.getElementById("goodsSaleGrandTotal"),
@@ -309,6 +311,12 @@ const INSTALLMENT_TAG = "[INSTALLMENT]";
 const GOODS_TAG = "[GOODS]";
 const EXPENSE_ACCOUNT_TAG = "[EXPENSE_ACCOUNT]";
 const DELETED_TAG = "[DELETED]";
+const INVENTORY_CATEGORY_COUNT = "count";
+const INVENTORY_CATEGORY_WEIGHT = "weight";
+const INVENTORY_UNIT_ITEM = "item";
+const INVENTORY_UNIT_KG = "kg";
+const INVENTORY_UNIT_GRAM = "g";
+const INVENTORY_NEW_CUSTOMER_VALUE = "__new_customer__";
 const BACKUP_STORAGE_KEY = "loanledger-json-backup-v1";
 const IMPORT_SESSION_KEY = "loanledger-imported-file-v1";
 const FLOAT_CURRENCY_PATHS = ["currency-float-path-1", "currency-float-path-2", "currency-float-path-3", "currency-float-path-4"];
@@ -974,9 +982,9 @@ function renderOverviewCards(){
   const allowedCurrencies = getAllowedCurrencies();
   const currencies = [...new Set([...allowedCurrencies, ...state.entries.map(e => e.currency).filter(Boolean)])];
   const goodsAll = getGoodsGroups({ applyUiFilters: false });
-  const goodsBoughtQty = goodsAll.reduce((sum, g) => sum + Number(g.boughtQty || 0), 0);
-  const goodsSoldQty = goodsAll.reduce((sum, g) => sum + Number(g.soldQty || 0), 0);
-  const goodsStockQty = goodsAll.reduce((sum, g) => sum + Number(g.remainingQty || 0), 0);
+  const goodsBoughtQty = inventoryQtySummary(goodsAll, "boughtQty");
+  const goodsSoldQty = inventoryQtySummary(goodsAll, "soldQty");
+  const goodsStockQty = inventoryQtySummary(goodsAll, "remainingQty");
   const goodsNetPLByCurrency = goodsAll.reduce((acc, g) => {
     const key = g.currency || "";
     acc[key] = (acc[key] || 0) + Number(g.profitLoss || 0);
@@ -1011,9 +1019,9 @@ function renderOverviewCards(){
     <div class="summary currency-summary goods-overview">
       ${overviewWatermarkGoods()}
       <div class="currency-head">🛒</div>
-      ${overviewOneLine("Bought qty:", `<strong>${escapeHtml(String(goodsBoughtQty))}</strong>`)}
-      ${overviewOneLine("Sold qty:", `<strong>${escapeHtml(String(goodsSoldQty))}</strong>`)}
-      ${overviewOneLine("In stock qty:", `<strong>${escapeHtml(String(goodsStockQty))}</strong>`)}
+      ${overviewOneLine("Purchase qty:", `<strong>${escapeHtml(goodsBoughtQty)}</strong>`)}
+      ${overviewOneLine("Sold qty:", `<strong>${escapeHtml(goodsSoldQty)}</strong>`)}
+      ${overviewOneLine("In stock qty:", `<strong>${escapeHtml(goodsStockQty)}</strong>`)}
       ${overviewOneLine("Net P/L:", `<strong>${escapeHtml(goodsNetPLText)}</strong>`)}
       <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
         <button class="tiny ghost" onclick="window.location.href='#goodsPanel'">View Inventory</button>
@@ -1075,13 +1083,15 @@ function goodsMetaFromNotes(noteValue){
     itemDescription: readText("IDESC"),
     customerName: readText("CUST"),
     receiptNumber: readText("RCPT"),
-    transactionType: readText("TX")
+    transactionType: readText("TX"),
+    itemCategory: readText("UCAT"),
+    quantityUnit: readText("UOM")
   };
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
   let note = normalizeGoodsNote(noteValue, true) || GOODS_TAG;
-  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
   const tags = [];
   if (meta.boughtQty != null) tags.push(`[BQTY:${meta.boughtQty}]`);
   if (meta.soldQty != null) tags.push(`[SQTY:${meta.soldQty}]`);
@@ -1092,13 +1102,15 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.customerName) tags.push(`[CUST:${String(meta.customerName).replace(/\]/g, "")}]`);
   if (meta.receiptNumber) tags.push(`[RCPT:${String(meta.receiptNumber).replace(/\]/g, "")}]`);
   if (meta.transactionType) tags.push(`[TX:${String(meta.transactionType).replace(/\]/g, "")}]`);
+  if (meta.itemCategory) tags.push(`[UCAT:${String(meta.itemCategory).replace(/\]/g, "")}]`);
+  if (meta.quantityUnit) tags.push(`[UOM:${String(meta.quantityUnit).replace(/\]/g, "")}]`);
   return `${note} ${tags.join(" ")}`.trim();
 }
 
 function cleanGoodsDisplayNote(noteValue){
   return String(noteValue || "")
     .replace(GOODS_TAG, "")
-    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX):[^\]]*\]/gi, "")
+    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM):[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -1246,49 +1258,152 @@ function getExistingInventoryCodes(){
       .filter(e => hasGoodsTag(e.notes))
       .map(e => goodsMetaFromNotes(e.notes).itemCode)
       .filter(Boolean)
+      .map(code => String(code).trim().toUpperCase())
   );
 }
 
-function nextInventoryCode(){
-  const codes = Array.from(getExistingInventoryCodes());
-  let max = 0;
-  for (const code of codes){
-    const m = String(code).match(/INV-(\d+)/i);
-    if (m) max = Math.max(max, Number(m[1]) || 0);
+function getExistingInventoryReceipts(){
+  return new Set(state.entries
+    .filter(e => hasGoodsTag(e.notes) && e.entry_kind !== "principal")
+    .map(e => goodsMetaFromNotes(e.notes).receiptNumber)
+    .filter(Boolean)
+    .map(receipt => String(receipt).trim().toUpperCase()));
+}
+
+function randomHex8(){
+  const bytes = new Uint8Array(4);
+  if (window.crypto?.getRandomValues){
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
   }
-  let next = max + 1;
-  let candidate = `INV-${String(next).padStart(4, "0")}`;
-  while (codes.includes(candidate)){
-    next += 1;
-    candidate = `INV-${String(next).padStart(4, "0")}`;
-  }
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+function nextPrefixedHexCode(prefix, existingCodes = new Set()){
+  const used = new Set(Array.from(existingCodes || []).map(code => String(code).trim().toUpperCase()));
+  let candidate = "";
+  do {
+    candidate = `${prefix}#${randomHex8()}`;
+  } while (used.has(candidate.toUpperCase()));
+  used.add(candidate.toUpperCase());
   return candidate;
 }
 
+function nextInventoryCode(){
+  return nextPrefixedHexCode("ITM", getExistingInventoryCodes());
+}
+
 function nextReceiptNumber(){
-  const receipts = state.entries
-    .filter(e => hasGoodsTag(e.notes) && e.entry_kind !== "principal")
-    .map(e => goodsMetaFromNotes(e.notes).receiptNumber)
-    .filter(Boolean);
-  let max = 0;
-  for (const receipt of receipts){
-    const m = String(receipt).match(/RCP-(\d+)/i);
-    if (m) max = Math.max(max, Number(m[1]) || 0);
+  return nextPrefixedHexCode("RCP", getExistingInventoryReceipts());
+}
+
+function normalizeInventoryCategory(value){
+  return String(value || "").toLowerCase() === INVENTORY_CATEGORY_WEIGHT
+    ? INVENTORY_CATEGORY_WEIGHT
+    : INVENTORY_CATEGORY_COUNT;
+}
+
+function inventoryBaseUnitForCategory(category){
+  return normalizeInventoryCategory(category) === INVENTORY_CATEGORY_WEIGHT ? INVENTORY_UNIT_KG : INVENTORY_UNIT_ITEM;
+}
+
+function normalizeInventoryUnit(value, category){
+  const normalizedCategory = normalizeInventoryCategory(category);
+  const unit = String(value || "").toLowerCase();
+  if (normalizedCategory === INVENTORY_CATEGORY_WEIGHT){
+    return unit === INVENTORY_UNIT_GRAM ? INVENTORY_UNIT_GRAM : INVENTORY_UNIT_KG;
   }
-  let next = max + 1;
-  let candidate = `RCP-${String(next).padStart(5, "0")}`;
-  while (receipts.includes(candidate)){
-    next += 1;
-    candidate = `RCP-${String(next).padStart(5, "0")}`;
+  return INVENTORY_UNIT_ITEM;
+}
+
+function trimInventoryNumber(value, decimals = 8){
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0";
+  return n.toFixed(decimals).replace(/\.?0+$/, "");
+}
+
+function normalizeInventoryQuantityInput(value, category, unit){
+  const normalizedCategory = normalizeInventoryCategory(category);
+  const raw = Number(value || 0);
+  if (normalizedCategory === INVENTORY_CATEGORY_WEIGHT){
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    return normalizeInventoryUnit(unit, normalizedCategory) === INVENTORY_UNIT_GRAM ? raw / 1000 : raw;
   }
-  return candidate;
+  const count = Math.floor(raw);
+  return Number.isFinite(count) && count > 0 ? count : 1;
+}
+
+function normalizeStoredInventoryQty(value, category, fallback = 1){
+  const normalizedCategory = normalizeInventoryCategory(category);
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0){
+    return normalizedCategory === INVENTORY_CATEGORY_WEIGHT ? 0 : fallback;
+  }
+  return normalizedCategory === INVENTORY_CATEGORY_WEIGHT ? n : Math.max(1, Math.floor(n));
+}
+
+function formatInventoryQty(value, category){
+  const normalizedCategory = normalizeInventoryCategory(category);
+  const qty = normalizeStoredInventoryQty(value, normalizedCategory, 0);
+  if (normalizedCategory === INVENTORY_CATEGORY_WEIGHT) return `${trimInventoryNumber(qty, 3)} KG`;
+  return `${trimInventoryNumber(qty, 0)} pcs`;
+}
+
+function inventoryQtyLabel(value, category){
+  return formatInventoryQty(value, category);
+}
+
+function inventoryQtySummary(groups, key){
+  const rows = Array.isArray(groups) ? groups : [];
+  const countTotal = rows
+    .filter(group => normalizeInventoryCategory(group.itemCategory) === INVENTORY_CATEGORY_COUNT)
+    .reduce((sum, group) => sum + Number(group[key] || 0), 0);
+  const weightTotal = rows
+    .filter(group => normalizeInventoryCategory(group.itemCategory) === INVENTORY_CATEGORY_WEIGHT)
+    .reduce((sum, group) => sum + Number(group[key] || 0), 0);
+  const parts = [];
+  if (countTotal) parts.push(formatInventoryQty(countTotal, INVENTORY_CATEGORY_COUNT));
+  if (weightTotal) parts.push(formatInventoryQty(weightTotal, INVENTORY_CATEGORY_WEIGHT));
+  return parts.length ? parts.join(" | ") : "0";
 }
 
 function updateGoodsBoughtTotal(){
   if (!els.goodsBoughtForm || !els.goodsBoughtTotalAmount) return;
   const price = Number(els.goodsBoughtForm.querySelector('[name="actual_price"]')?.value || 0);
-  const qty = Math.max(1, parseInt(els.goodsBoughtForm.querySelector('[name="bought_qty"]')?.value, 10) || 1);
-  els.goodsBoughtTotalAmount.value = price || qty ? String(price * qty) : "";
+  const category = normalizeInventoryCategory(els.goodsBoughtForm.querySelector('[name="item_category"]')?.value);
+  const unit = els.goodsBoughtForm.querySelector('[name="quantity_unit"]')?.value || inventoryBaseUnitForCategory(category);
+  const qty = normalizeInventoryQuantityInput(els.goodsBoughtForm.querySelector('[name="bought_qty"]')?.value, category, unit);
+  const total = price * qty;
+  els.goodsBoughtTotalAmount.value = price || qty ? trimInventoryNumber(total) : "";
+}
+
+function syncGoodsBoughtCategoryFields(){
+  if (!els.goodsBoughtForm) return;
+  const categorySelect = els.goodsBoughtForm.querySelector('[name="item_category"]');
+  const unitSelect = els.goodsBoughtForm.querySelector('[name="quantity_unit"]');
+  const unitWrap = els.goodsBoughtForm.querySelector("[data-inventory-unit-wrap]");
+  const qtyInput = els.goodsBoughtForm.querySelector('[name="bought_qty"]');
+  const priceLabel = els.goodsBoughtForm.querySelector("[data-inventory-price-label]");
+  const sellingLabel = els.goodsBoughtForm.querySelector("[data-inventory-selling-label]");
+  const qtyLabel = els.goodsBoughtForm.querySelector("[data-inventory-qty-label]");
+  const category = normalizeInventoryCategory(categorySelect?.value);
+  const isWeight = category === INVENTORY_CATEGORY_WEIGHT;
+
+  if (unitWrap) unitWrap.classList.toggle("hide", !isWeight);
+  if (unitSelect){
+    unitSelect.disabled = !isWeight;
+    unitSelect.value = isWeight ? normalizeInventoryUnit(unitSelect.value, category) : INVENTORY_UNIT_ITEM;
+  }
+  if (qtyInput){
+    qtyInput.min = isWeight ? "0.001" : "1";
+    qtyInput.step = isWeight ? "0.001" : "1";
+    qtyInput.placeholder = isWeight ? "Weight" : "Quantity";
+  }
+  if (priceLabel) priceLabel.textContent = isWeight ? "Purchase price / KG" : "Purchase price";
+  if (sellingLabel) sellingLabel.textContent = isWeight ? "Selling price / KG" : "Selling price";
+  if (qtyLabel) qtyLabel.textContent = isWeight ? "Weight" : "Quantity";
+  updateGoodsBoughtTotal();
 }
 
 function getInventoryCustomerNames(){
@@ -1791,13 +1906,46 @@ function getInventorySelectableGroups(){
 
 function inventoryGroupOptionLabel(group){
   const codePart = group.itemCode ? `${group.itemCode} - ` : "";
-  return `${codePart}${group.person_name} - Qty ${group.remainingQty} left`;
+  return `${codePart}${group.person_name} - ${inventoryQtyLabel(group.remainingQty, group.itemCategory)} left`;
 }
 
 function renderGoodsCustomerOptions(){
-  if (!els.goodsCustomerList) return;
+  if (!els.goodsCustomerSelect) return;
   const names = getInventoryCustomerNames();
-  els.goodsCustomerList.innerHTML = names.map(name => `<option value="${escapeHtml(name)}"></option>`).join("");
+  els.goodsCustomerSelect.innerHTML = [
+    '<option value="">Select customer</option>',
+    ...names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`),
+    `<option value="${INVENTORY_NEW_CUSTOMER_VALUE}">+ Add new customer</option>`
+  ].join("");
+  if (!names.length) els.goodsCustomerSelect.value = INVENTORY_NEW_CUSTOMER_VALUE;
+  syncGoodsCustomerFields();
+}
+
+function syncGoodsCustomerFields(){
+  if (!els.goodsCustomerSelect || !els.goodsNewCustomerField || !els.goodsNewCustomerName) return;
+  const isNew = els.goodsCustomerSelect.value === INVENTORY_NEW_CUSTOMER_VALUE;
+  els.goodsNewCustomerField.classList.toggle("hide", !isNew);
+  els.goodsNewCustomerName.required = isNew;
+  if (!isNew) els.goodsNewCustomerName.value = "";
+}
+
+function getSelectedGoodsCustomerName(form){
+  const selected = String(form.querySelector('[name="customer_name_select"]')?.value || "").trim();
+  if (selected === INVENTORY_NEW_CUSTOMER_VALUE){
+    return String(form.querySelector('[name="new_customer_name"]')?.value || "").trim();
+  }
+  return selected;
+}
+
+function inventorySaleUnitOptions(group){
+  const category = normalizeInventoryCategory(group?.itemCategory);
+  if (category === INVENTORY_CATEGORY_WEIGHT){
+    return `
+      <option value="${INVENTORY_UNIT_KG}">KG</option>
+      <option value="${INVENTORY_UNIT_GRAM}">Gram</option>
+    `;
+  }
+  return `<option value="${INVENTORY_UNIT_ITEM}">Pcs</option>`;
 }
 
 function buildGoodsSaleLine(groupId = ""){
@@ -1806,17 +1954,18 @@ function buildGoodsSaleLine(groupId = ""){
     .concat(groups.map(group => `<option value="${escapeHtml(group.group_id)}" ${group.group_id === groupId ? "selected" : ""}>${escapeHtml(inventoryGroupOptionLabel(group))}</option>`))
     .join("");
   const selectedGroup = groups.find(g => g.group_id === groupId);
-  const currency = selectedGroup?.currency || "";
+  const selectedCategory = normalizeInventoryCategory(selectedGroup?.itemCategory);
   return `
     <div class="inventory-sale-line">
       <select class="select goods-sale-item">${options}</select>
-      <input class="input goods-sale-qty" type="number" min="1" step="1" value="1" placeholder="Qty" />
-      <input class="input goods-sale-price" type="number" min="0" step="0.00000001" placeholder="Unit price" />
+      <input class="input goods-sale-qty" type="number" min="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "0.001" : "1"}" step="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "0.001" : "1"}" value="1" placeholder="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Qty"}" />
+      <select class="select goods-sale-unit">${inventorySaleUnitOptions(selectedGroup)}</select>
+      <input class="input goods-sale-price" type="number" min="0" step="0.00000001" placeholder="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "Price / KG" : "Unit price"}" />
       <input class="input goods-sale-line-total" type="text" readonly placeholder="Total" />
       <button class="icon-btn ghost goods-sale-remove" type="button" aria-label="Remove item" title="Remove item">
         <i class="fa-solid fa-trash"></i>
       </button>
-      <div class="inventory-sale-line-meta">${selectedGroup ? escapeHtml(`${selectedGroup.currency} | ${selectedGroup.itemCode || "No code"}`) : ""}</div>
+      <div class="inventory-sale-line-meta">${selectedGroup ? escapeHtml(`${selectedGroup.currency} | ${selectedGroup.itemCode || "No code"} | ${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers"}`) : ""}</div>
     </div>
   `;
 }
@@ -1826,7 +1975,11 @@ function syncGoodsSaleLineMeta(line){
   const groupId = line.querySelector(".goods-sale-item")?.value || "";
   const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
   const meta = line.querySelector(".inventory-sale-line-meta");
-  if (meta) meta.textContent = group ? `${group.currency} | ${group.itemCode || "No code"} | Stock ${group.remainingQty}` : "";
+  if (meta) {
+    meta.textContent = group
+      ? `${group.currency} | ${group.itemCode || "No code"} | ${normalizeInventoryCategory(group.itemCategory) === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers"} | Stock ${inventoryQtyLabel(group.remainingQty, group.itemCategory)}`
+      : "";
+  }
 }
 
 function updateGoodsSaleGrandTotal(){
@@ -1850,13 +2003,30 @@ function updateGoodsSaleLine(line){
   const groupId = line.querySelector(".goods-sale-item")?.value || "";
   const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
   const qtyInput = line.querySelector(".goods-sale-qty");
+  const unitSelect = line.querySelector(".goods-sale-unit");
   const priceInput = line.querySelector(".goods-sale-price");
   const totalInput = line.querySelector(".goods-sale-line-total");
-  const qty = Math.max(1, parseInt(qtyInput?.value, 10) || 1);
-  const price = Number(priceInput?.value || 0);
-  if (qtyInput) qtyInput.value = String(qty);
+  const category = normalizeInventoryCategory(group?.itemCategory);
+  if (unitSelect && group){
+    const selectedUnit = normalizeInventoryUnit(unitSelect.value, category);
+    unitSelect.innerHTML = inventorySaleUnitOptions(group);
+    unitSelect.value = selectedUnit;
+    unitSelect.disabled = category !== INVENTORY_CATEGORY_WEIGHT;
+  }
+  if (qtyInput){
+    qtyInput.min = category === INVENTORY_CATEGORY_WEIGHT ? "0.001" : "1";
+    qtyInput.step = category === INVENTORY_CATEGORY_WEIGHT ? "0.001" : "1";
+    qtyInput.placeholder = category === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Qty";
+  }
+  if (priceInput) priceInput.placeholder = category === INVENTORY_CATEGORY_WEIGHT ? "Price / KG" : "Unit price";
+  const qty = normalizeInventoryQuantityInput(qtyInput?.value, category, unitSelect?.value || inventoryBaseUnitForCategory(category));
+  const visibleQty = category === INVENTORY_CATEGORY_WEIGHT
+    ? Number(qtyInput?.value || 0)
+    : qty;
+  if (qtyInput && visibleQty > 0) qtyInput.value = trimInventoryNumber(visibleQty, category === INVENTORY_CATEGORY_WEIGHT ? 3 : 0);
   if (group && priceInput && (!priceInput.value || Number(priceInput.value) <= 0)){
-    priceInput.value = group.unitActualPrice ? String(group.unitActualPrice) : "";
+    const defaultPrice = Number(group.defaultUnitSoldPrice || 0) || Number(group.unitActualPrice || 0);
+    priceInput.value = defaultPrice ? trimInventoryNumber(defaultPrice) : "";
   }
   const total = qty * Number(priceInput?.value || 0);
   if (totalInput){
@@ -1896,9 +2066,12 @@ function collectGoodsSaleLines(){
   if (!els.goodsSaleLines) return [];
   return Array.from(els.goodsSaleLines.querySelectorAll(".inventory-sale-line")).map(line => {
     const groupId = line.querySelector(".goods-sale-item")?.value || "";
-    const qty = Math.max(1, parseInt(line.querySelector(".goods-sale-qty")?.value, 10) || 1);
+    const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
+    const category = normalizeInventoryCategory(group?.itemCategory);
+    const unit = normalizeInventoryUnit(line.querySelector(".goods-sale-unit")?.value, category);
+    const qty = normalizeInventoryQuantityInput(line.querySelector(".goods-sale-qty")?.value, category, unit);
     const unitPrice = Number(line.querySelector(".goods-sale-price")?.value || 0);
-    return { groupId, qty, unitPrice };
+    return { groupId, qty, unitPrice, unit, itemCategory: category };
   }).filter(line => line.groupId);
 }
 
@@ -1911,19 +2084,32 @@ function getGoodsGroups(options = {}){
       const principalMeta = goodsMetaFromNotes(group.principal?.notes);
       const purchaseActions = group.actions.filter(row => inferGoodsActionType(row) === "PURCHASE");
       const saleActions = group.actions.filter(row => inferGoodsActionType(row) !== "PURCHASE");
-      const principalBoughtQty = Math.max(1, Number(principalMeta.boughtQty || 1));
-      const restockQty = purchaseActions.reduce((sum, row) => sum + Math.max(1, Number(goodsMetaFromNotes(row.notes).boughtQty || 1)), 0);
+      const purchaseMetas = purchaseActions.map(row => goodsMetaFromNotes(row.notes));
+      const itemCategory = normalizeInventoryCategory(
+        principalMeta.itemCategory || purchaseMetas.find(meta => meta.itemCategory)?.itemCategory
+      );
+      const quantityUnit = normalizeInventoryUnit(
+        principalMeta.quantityUnit || purchaseMetas.find(meta => meta.quantityUnit)?.quantityUnit,
+        itemCategory
+      );
+      const principalBoughtQty = normalizeStoredInventoryQty(principalMeta.boughtQty, itemCategory, 1);
+      const restockQty = purchaseMetas.reduce((sum, meta) => sum + normalizeStoredInventoryQty(meta.boughtQty, itemCategory, 1), 0);
       const boughtQty = principalBoughtQty + restockQty;
       const principalBought = Number(group.principal?.principal_amount || 0);
       const restockTotal = purchaseActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
       const bought = principalBought + restockTotal;
       const unitActualPrice = boughtQty ? (bought / boughtQty) : bought;
-      const soldQty = saleActions.reduce((sum, row) => sum + Math.max(1, Number(goodsMetaFromNotes(row.notes).soldQty || 1)), 0);
+      const soldQty = saleActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).soldQty, itemCategory, 1), 0);
       const soldTotal = saleActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
       const remainingQty = Math.max(boughtQty - soldQty, 0);
-      const status = soldQty >= boughtQty ? "Sold" : soldQty > 0 ? "Partial" : "In Stock";
+      const status = soldQty + 0.00000001 >= boughtQty ? "Sold" : soldQty > 0 ? "Partial" : "In Stock";
       const soldCostBasis = soldQty > 0 ? unitActualPrice * soldQty : 0;
       const profitLoss = soldQty > 0 ? (soldTotal - soldCostBasis) : 0;
+      const purchaseDefaultPrice = purchaseMetas
+        .map(meta => Number(meta.unitSoldPrice || 0))
+        .filter(price => price > 0)
+        .pop() || 0;
+      const defaultUnitSoldPrice = Number(principalMeta.unitSoldPrice || 0) || purchaseDefaultPrice;
       return {
         ...group,
         actions: saleActions,
@@ -1940,6 +2126,9 @@ function getGoodsGroups(options = {}){
         status,
         itemCode: principalMeta.itemCode || "",
         itemDescription: principalMeta.itemDescription || cleanGoodsDisplayNote(group.principal?.notes) || "",
+        itemCategory,
+        quantityUnit,
+        defaultUnitSoldPrice,
         latestSoldDate: saleActions.length
           ? saleActions.slice().sort((a, b) => dateStamp(b.action_date) - dateStamp(a.action_date))[0]?.action_date
           : null
@@ -1960,7 +2149,7 @@ function getGoodsGroups(options = {}){
 function renderGoodsSelectors(){
   const groups = getGoodsGroups().filter(g => g.remainingQty > 0);
   els.goodsItemSelect.innerHTML = groups.length
-    ? `<option value="">Choose bought item</option>${groups.map(g => `<option value="${escapeHtml(g.group_id)}">${escapeHtml(g.person_name)} — Qty ${escapeHtml(String(g.remainingQty))} left</option>`).join("")}`
+    ? `<option value="">Choose purchased item</option>${groups.map(g => `<option value="${escapeHtml(g.group_id)}">${escapeHtml(g.person_name)} - ${escapeHtml(inventoryQtyLabel(g.remainingQty, g.itemCategory))} left</option>`).join("")}`
     : `<option value="">No in-stock items</option>`;
 }
 
@@ -1991,18 +2180,43 @@ async function downloadGoodsItemPDF(groupId){
   doc.setFontSize(10);
   doc.text(`Item: ${group.person_name || "Unnamed item"}`, 132, 48);
   doc.text(`Status: ${group.status}`, 132, 54);
-  doc.text(`In Stock: ${group.remainingQty}`, 132, 60);
+  doc.text(`In Stock: ${inventoryQtyLabel(group.remainingQty, group.itemCategory)}`, 132, 60);
   doc.text(`Net ${group.profitLoss >= 0 ? "Profit" : "Loss"}: ${fmt(Math.abs(group.profitLoss))}`, 132, 72);
-  doc.text(`Bought Date: ${displayDate(group.principal?.loan_date || "—")}`, 132, 66);
+  doc.text(`Purchase Date: ${displayDate(group.principal?.loan_date || "—")}`, 132, 66);
 
   const rows = [
-    ["Bought", displayDate(group.principal?.loan_date || "—"), fmt(group.bought), group.principal?.notes || "—"],
-    ...group.actions.map(a => ["Sold", displayDate(a.action_date || "—"), fmt(a.action_amount || 0), a.notes || "—"])
-  ];
+    {
+      type: "Purchase",
+      date: group.principal?.loan_date,
+      qty: inventoryQtyLabel(group.boughtQty - group.purchaseActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).boughtQty, group.itemCategory, 1), 0), group.itemCategory),
+      amount: fmt(group.principal?.principal_amount || 0),
+      note: group.itemDescription || cleanGoodsDisplayNote(group.principal?.notes) || "Opening stock"
+    },
+    ...group.purchaseActions.map(row => {
+      const meta = goodsMetaFromNotes(row.notes);
+      return {
+        type: "Purchase",
+        date: row.action_date,
+        qty: inventoryQtyLabel(meta.boughtQty || 0, group.itemCategory),
+        amount: fmt(row.action_amount || 0),
+        note: cleanGoodsDisplayNote(row.notes) || "Additional stock"
+      };
+    }),
+    ...group.actions.map(row => {
+      const meta = goodsMetaFromNotes(row.notes);
+      return {
+        type: "Sold",
+        date: row.action_date,
+        qty: inventoryQtyLabel(meta.soldQty || 0, group.itemCategory),
+        amount: fmt(row.action_amount || 0),
+        note: `${meta.customerName || "Walk-in customer"} | ${meta.receiptNumber || shortId(row.id)}`
+      };
+    })
+  ].sort((a, b) => dateStamp(a.date) - dateStamp(b.date));
   doc.autoTable({
     startY: 78,
-    head: [["Type", "Date", "Amount", "Note"]],
-    body: rows,
+    head: [["Type", "Date", "Qty", "Amount", "Note"]],
+    body: rows.map(row => [row.type, displayDate(row.date || "—"), row.qty, row.amount, row.note]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
     margin: { top: 50, bottom: 40 },
@@ -2020,7 +2234,7 @@ async function downloadGoodsSoldReceiptPDF(entryId){
   }
   const principalEntry = state.entries.find(e => e.group_id === saleEntry.group_id && e.entry_kind === "principal");
   if (!principalEntry){
-    alert("Original bought record not found.");
+    alert("Original purchase record not found.");
     return;
   }
   if (!window.jspdf){
@@ -2078,9 +2292,9 @@ function renderGoodsList(){
     els.goodsList.innerHTML = `<div class="empty">No goods entries found.</div>`;
     return;
   }
-  const boughtCount = groups.reduce((sum, g) => sum + Number(g.boughtQty || 0), 0);
-  const soldCount = groups.reduce((sum, g) => sum + Number(g.soldQty || 0), 0);
-  const stockCount = groups.reduce((sum, g) => sum + Number(g.remainingQty || 0), 0);
+  const boughtCount = inventoryQtySummary(groups, "boughtQty");
+  const soldCount = inventoryQtySummary(groups, "soldQty");
+  const stockCount = inventoryQtySummary(groups, "remainingQty");
   els.goodsList.innerHTML = groups.map(group => {
     const statusClass = group.status === "Sold" ? "green" : "orange";
     const pnlClass = group.profitLoss >= 0 ? "green" : "red";
@@ -2095,9 +2309,10 @@ function renderGoodsList(){
             <div class="lt-main">
               <div class="loan-name"><i class="fa-solid fa-box"></i> ${escapeHtml(group.person_name || "Unnamed item")}</div>
               <div class="loan-sub">
-                <span>Bought ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
+                <span>Purchase ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
                 <span>${currencySymbolHtml(group.currency || "")}</span>
-                <span>Qty ${escapeHtml(String(group.soldQty))}/${escapeHtml(String(group.boughtQty))}</span>
+                <span>${escapeHtml(normalizeInventoryCategory(group.itemCategory) === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers")}</span>
+                <span>Qty ${escapeHtml(inventoryQtyLabel(group.soldQty, group.itemCategory))}/${escapeHtml(inventoryQtyLabel(group.boughtQty, group.itemCategory))}</span>
                 <span class="badge ${statusClass}">${escapeHtml(group.status)}</span>
               </div>
             </div>
@@ -2109,7 +2324,7 @@ function renderGoodsList(){
                 <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}">☰</button>
                 <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
                   <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-download"></i> Download PDF</button>
-                  <button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Bought</button>
+                  <button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Purchase</button>
                   <button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>
                 </div>
               </div>
@@ -2145,7 +2360,7 @@ function renderGoodsList(){
   }).join("") + `
     <div class="summary" style="margin-top:8px">
       <span>Goods Summary</span>
-      <strong>Bought Qty: ${boughtCount} | Sold Qty: ${soldCount} | In Stock Qty: ${stockCount}</strong>
+      <strong>Purchase Qty: ${escapeHtml(boughtCount)} | Sold Qty: ${escapeHtml(soldCount)} | In Stock Qty: ${escapeHtml(stockCount)}</strong>
     </div>
   `;
 
@@ -2204,14 +2419,18 @@ async function downloadInventoryReceiptPDF(entryId){
   const receiptRows = receiptEntries.map((entry, index) => {
     const principalEntry = state.entries.find(e => e.group_id === entry.group_id && e.entry_kind === "principal");
     const entryMeta = goodsMetaFromNotes(entry.notes);
-    const qty = Math.max(1, Number(entryMeta.soldQty || 1));
+    const principalMeta = goodsMetaFromNotes(principalEntry?.notes);
+    const itemCategory = normalizeInventoryCategory(entryMeta.itemCategory || principalMeta.itemCategory);
+    const qty = normalizeStoredInventoryQty(entryMeta.soldQty, itemCategory, 1);
     const unitPrice = entryMeta.unitSoldPrice != null ? Number(entryMeta.unitSoldPrice) : (Number(entry.action_amount || 0) / qty);
     return {
       sr: index + 1,
-      itemCode: goodsMetaFromNotes(principalEntry?.notes).itemCode || "",
+      itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
       itemName: principalEntry?.person_name || entry.person_name || "Goods item",
-      itemDescription: goodsMetaFromNotes(principalEntry?.notes).itemDescription || "",
+      itemDescription: principalMeta.itemDescription || "",
+      itemCategory,
       qty,
+      qtyDisplay: inventoryQtyLabel(qty, itemCategory),
       unitPrice,
       total: Number(entry.action_amount || 0),
       currency: entry.currency
@@ -2220,6 +2439,7 @@ async function downloadInventoryReceiptPDF(entryId){
   const soldTotal = receiptRows.reduce((sum, row) => sum + row.total, 0);
   const currency = saleEntry.currency || receiptRows[0]?.currency || "AED";
   const customerName = meta.customerName || "Walk-in customer";
+  const totalQtyText = inventoryQtySummary(receiptRows, "qty");
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   await loadCustomFontsForPdf(doc);
@@ -2243,22 +2463,34 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Bill To: ${customerName}`, 18, 86);
   doc.text(`Receipt No: ${receiptNumber}`, 18, 92);
   doc.text(`Currency: ${currency}`, 110, 86);
-  doc.text(`Issued On: ${displayDate(saleEntry.action_date || "â€”")}`, 110, 92);
+  doc.text(`Issued On: ${displayDate(saleEntry.action_date || "-")}`, 110, 92);
+  doc.text(`Total Qty: ${totalQtyText}`, 110, 98);
 
   doc.autoTable({
-    startY: 108,
-    head: [["#", "Item Code", "Item", "Description", "Qty", "Unit Price", "Line Total"]],
+    startY: 110,
+    head: [["#", "Item Code", "Item", "Category", "Qty", "Unit Price", "Line Total"]],
     body: receiptRows.map(row => [
       String(row.sr),
       row.itemCode || "-",
-      row.itemName,
-      row.itemDescription || "-",
-      String(row.qty),
+      row.itemDescription ? `${row.itemName}\n${row.itemDescription}` : row.itemName,
+      row.itemCategory === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers",
+      row.qtyDisplay,
       formatReportAmount(row.unitPrice, row.currency),
       formatReportAmount(row.total, row.currency)
     ]),
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.5, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 10, halign: "center" },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 42 },
+      3: { cellWidth: 22 },
+      4: { cellWidth: 22 },
+      5: { cellWidth: 30, halign: "right" },
+      6: { cellWidth: 30, halign: "right" }
+    },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
@@ -2284,9 +2516,9 @@ function renderInventoryList(){
     els.goodsList.innerHTML = `<div class="empty">No inventory items found.</div>`;
     return;
   }
-  const boughtCount = groups.reduce((sum, g) => sum + Number(g.boughtQty || 0), 0);
-  const soldCount = groups.reduce((sum, g) => sum + Number(g.soldQty || 0), 0);
-  const stockCount = groups.reduce((sum, g) => sum + Number(g.remainingQty || 0), 0);
+  const boughtCount = inventoryQtySummary(groups, "boughtQty");
+  const soldCount = inventoryQtySummary(groups, "soldQty");
+  const stockCount = inventoryQtySummary(groups, "remainingQty");
   els.goodsList.innerHTML = groups.map(group => {
     const statusClass = group.status === "Sold" ? "green" : "orange";
     const pnlClass = group.profitLoss >= 0 ? "green" : "red";
@@ -2331,10 +2563,11 @@ function renderInventoryList(){
               <div class="loan-name"><i class="fa-solid fa-box"></i> ${escapeHtml(group.person_name || "Unnamed item")}</div>
               <div class="loan-sub">
                 <span>${escapeHtml(group.itemCode || "No code")}</span>
-                <span>Bought ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
+                <span>Purchase ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
                 <span>${currencySymbolHtml(group.currency || "")}</span>
-                <span>Qty sold ${escapeHtml(String(group.soldQty))}/${escapeHtml(String(group.boughtQty))}</span>
-                <span>In stock ${escapeHtml(String(group.remainingQty))}</span>
+                <span>${escapeHtml(normalizeInventoryCategory(group.itemCategory) === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers")}</span>
+                <span>Qty sold ${escapeHtml(inventoryQtyLabel(group.soldQty, group.itemCategory))}/${escapeHtml(inventoryQtyLabel(group.boughtQty, group.itemCategory))}</span>
+                <span>In stock ${escapeHtml(inventoryQtyLabel(group.remainingQty, group.itemCategory))}</span>
                 <span class="badge ${statusClass}">${escapeHtml(group.status)}</span>
               </div>
             </div>
@@ -2391,7 +2624,7 @@ function renderInventoryList(){
   }).join("") + `
     <div class="summary" style="margin-top:8px">
       <span>Inventory Summary</span>
-      <strong>Bought Qty: ${boughtCount} | Sold Qty: ${soldCount} | In Stock Qty: ${stockCount}</strong>
+      <strong>Purchase Qty: ${escapeHtml(boughtCount)} | Sold Qty: ${escapeHtml(soldCount)} | In Stock Qty: ${escapeHtml(stockCount)}</strong>
     </div>
   `;
 
@@ -3450,6 +3683,7 @@ async function loadEntriesFromSupabase(){
   const rows = await supabase(`${CONFIG.table}?select=*&order=created_at.desc`);
   // Filter out entries with deleted tag for main display
   const filteredRows = Array.isArray(rows) ? rows.filter(row => !hasDeletedTag(row.notes)) : [];
+  await ensureInventoryItemCodesForRows(filteredRows);
   updateDbSnapshot(filteredRows);
   applyEntries(filteredRows, "supabase", { hasImportedFile: false });
   
@@ -3462,6 +3696,54 @@ async function loadEntriesFromSupabase(){
   }));
   saveRecycleBinToStorage();
   renderRecycleBinDropdown();
+}
+
+async function ensureInventoryItemCodesForRows(rows){
+  const goodsRows = Array.isArray(rows) ? rows.filter(row => hasGoodsTag(row.notes)) : [];
+  if (!goodsRows.length) return;
+
+  const existingCodes = new Set();
+  const codeByGroup = new Map();
+  for (const row of goodsRows){
+    const meta = goodsMetaFromNotes(row.notes);
+    if (!meta.itemCode) continue;
+    const code = String(meta.itemCode).trim();
+    if (!code) continue;
+    existingCodes.add(code.toUpperCase());
+    if (row.group_id && !codeByGroup.has(row.group_id)) codeByGroup.set(row.group_id, code);
+  }
+
+  for (const row of goodsRows){
+    if (!row.group_id || codeByGroup.has(row.group_id)) continue;
+    const itemCode = nextPrefixedHexCode("ITM", existingCodes);
+    existingCodes.add(itemCode.toUpperCase());
+    codeByGroup.set(row.group_id, itemCode);
+  }
+
+  const patches = [];
+  for (const row of goodsRows){
+    const meta = goodsMetaFromNotes(row.notes);
+    if (meta.itemCode || !row.group_id) continue;
+    const itemCode = codeByGroup.get(row.group_id);
+    if (!itemCode) continue;
+    const nextNotes = upsertGoodsMetaInNote(row.notes, { ...meta, itemCode });
+    row.notes = nextNotes;
+    if (row.id){
+      patches.push({ id: row.id, notes: nextNotes });
+    }
+  }
+
+  if (!patches.length) return;
+  try {
+    for (const patch of patches){
+      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(patch.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes: patch.notes })
+      });
+    }
+  } catch (err) {
+    console.warn("Inventory item code backfill failed:", err);
+  }
 }
 
 function renderExpenseOverviewWallets(){
@@ -3988,18 +4270,26 @@ function openGoodsModal(mode, options = {}){
       els.goodsBoughtForm.querySelector('[name="item_name"]').value = currentGroup.person_name || "";
       setCurrencyChoice(els.goodsBoughtForm, currentGroup.currency || state.lastCurrency || "AED");
       els.goodsBoughtForm.querySelector('[name="item_description"]').value = currentGroup.itemDescription || "";
+      els.goodsBoughtForm.querySelector('[name="selling_price"]').value = currentGroup.defaultUnitSoldPrice ? trimInventoryNumber(currentGroup.defaultUnitSoldPrice) : "";
+      els.goodsBoughtForm.querySelector('[name="item_category"]').value = normalizeInventoryCategory(currentGroup.itemCategory);
+      els.goodsBoughtForm.querySelector('[name="item_category"]').disabled = true;
+      els.goodsBoughtForm.querySelector('[name="quantity_unit"]').value = normalizeInventoryUnit(currentGroup.quantityUnit, currentGroup.itemCategory);
     } else {
       els.goodsBoughtForm.querySelector('[name="item_code"]').value = nextInventoryCode();
+      els.goodsBoughtForm.querySelector('[name="item_category"]').value = INVENTORY_CATEGORY_COUNT;
+      els.goodsBoughtForm.querySelector('[name="item_category"]').disabled = false;
+      els.goodsBoughtForm.querySelector('[name="quantity_unit"]').value = INVENTORY_UNIT_ITEM;
       setCurrencyChoice(els.goodsBoughtForm, state.lastCurrency || "AED");
     }
     defaultDateInputs(els.goodsBoughtForm);
-    updateGoodsBoughtTotal();
+    syncGoodsBoughtCategoryFields();
   } else {
     els.goodsModalTitle.textContent = "Create Sales Receipt";
     els.goodsModalDesc.textContent = "Select customer, choose one or more items, and save one receipt.";
     els.goodsSoldForm.reset();
     if (els.goodsReceiptNumber) els.goodsReceiptNumber.value = nextReceiptNumber();
     renderGoodsCustomerOptions();
+    syncGoodsCustomerFields();
     renderGoodsSaleLines(state.inventoryDraft.saleGroupIds || []);
     renderGoodsSelectors();
     defaultDateInputs(els.goodsSoldForm);
@@ -4012,8 +4302,11 @@ async function saveGoodsBought(form){
   const groupId = state.inventoryDraft.purchaseGroupId || "";
   const currentGroup = groupId ? getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === groupId) : null;
   const unitActualPrice = Number(fd.get("actual_price") || 0);
-  const boughtQty = Math.max(1, parseInt(fd.get("bought_qty"), 10) || 1);
+  const itemCategory = currentGroup ? normalizeInventoryCategory(currentGroup.itemCategory) : normalizeInventoryCategory(fd.get("item_category"));
+  const quantityUnit = normalizeInventoryUnit(fd.get("quantity_unit"), itemCategory);
+  const boughtQty = normalizeInventoryQuantityInput(fd.get("bought_qty"), itemCategory, quantityUnit);
   const totalActualPrice = unitActualPrice * boughtQty;
+  const sellingPrice = Number(fd.get("selling_price") || 0);
   const itemCode = String(fd.get("item_code") || "").trim() || nextInventoryCode();
   const itemName = currentGroup ? currentGroup.person_name : String(fd.get("item_name") || "").trim();
   const itemDescription = String(fd.get("item_description") || "").trim();
@@ -4039,8 +4332,11 @@ async function saveGoodsBought(form){
       notes: upsertGoodsMetaInNote(normalizeGoodsNote(null, true), {
         boughtQty,
         unitActualPrice,
+        unitSoldPrice: sellingPrice > 0 ? sellingPrice : null,
         itemCode,
         itemDescription,
+        itemCategory,
+        quantityUnit: inventoryBaseUnitForCategory(itemCategory),
         transactionType: "PURCHASE"
       })
     };
@@ -4065,8 +4361,11 @@ async function saveGoodsBought(form){
       notes: upsertGoodsMetaInNote(normalizeGoodsNote(null, true), {
         boughtQty,
         unitActualPrice,
+        unitSoldPrice: sellingPrice > 0 ? sellingPrice : null,
         itemCode,
         itemDescription,
+        itemCategory,
+        quantityUnit: inventoryBaseUnitForCategory(itemCategory),
         transactionType: "ITEM"
       })
     };
@@ -4084,7 +4383,7 @@ async function saveGoodsBought(form){
 async function saveGoodsSold(form){
   const fd = new FormData(form);
   const soldDate = String(fd.get("sold_date") || "");
-  const customerName = String(fd.get("customer_name") || "").trim();
+  const customerName = getSelectedGoodsCustomerName(form);
   const receiptNumber = String(fd.get("receipt_number") || "").trim() || nextReceiptNumber();
   const soldNotes = String(fd.get("notes") || "").trim() || null;
   const saleLines = collectGoodsSaleLines();
@@ -4093,7 +4392,7 @@ async function saveGoodsSold(form){
   if (!soldDate) throw new Error("Sold date is required.");
   if (!saleLines.length) throw new Error("Add at least one item to this receipt.");
   for (const line of saleLines){
-    requestedQtyByGroup.set(line.groupId, (requestedQtyByGroup.get(line.groupId) || 0) + Math.max(1, parseInt(line.qty, 10) || 1));
+    requestedQtyByGroup.set(line.groupId, (requestedQtyByGroup.get(line.groupId) || 0) + Number(line.qty || 0));
   }
 
   const payloads = saleLines.map(line => {
@@ -4104,14 +4403,16 @@ async function saveGoodsSold(form){
     );
     if (!principalEntry) throw new Error("One of the selected items no longer exists.");
     const soldPrice = Number(line.unitPrice || 0);
-    const soldQty = Math.max(1, parseInt(line.qty, 10) || 1);
+    const selectedGroup = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === line.groupId);
+    const itemCategory = normalizeInventoryCategory(selectedGroup?.itemCategory || line.itemCategory);
+    const soldQty = normalizeStoredInventoryQty(line.qty, itemCategory, 0);
     if (!soldPrice || !soldQty) throw new Error("Each selected item needs quantity and unit selling price.");
     const principalMeta = goodsMetaFromNotes(principalEntry.notes);
-    const totalBoughtQty = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === line.groupId)?.boughtQty || Math.max(1, Number(principalMeta.boughtQty || 1));
-    const soldQtyAlready = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === line.groupId)?.soldQty || 0;
+    const totalBoughtQty = selectedGroup?.boughtQty || normalizeStoredInventoryQty(principalMeta.boughtQty, itemCategory, 1);
+    const soldQtyAlready = selectedGroup?.soldQty || 0;
     const remainingQty = Math.max(totalBoughtQty - soldQtyAlready, 0);
     if ((requestedQtyByGroup.get(line.groupId) || soldQty) > remainingQty){
-      throw new Error(`Only ${remainingQty} item(s) left for ${principalEntry.person_name}.`);
+      throw new Error(`Only ${inventoryQtyLabel(remainingQty, itemCategory)} left for ${principalEntry.person_name}.`);
     }
     return {
       group_id: line.groupId,
@@ -4127,6 +4428,8 @@ async function saveGoodsSold(form){
         soldQty,
         unitSoldPrice: soldPrice,
         itemCode: principalMeta.itemCode,
+        itemCategory,
+        quantityUnit: inventoryBaseUnitForCategory(itemCategory),
         customerName,
         receiptNumber,
         transactionType: "SALE"
@@ -4354,10 +4657,12 @@ async function submitEdit(){
     // Handle goods entries - update metadata when price/amount changes
     if (hasGoodsTag(currentEntry.notes)) {
       const currentMeta = goodsMetaFromNotes(currentEntry.notes);
-      const currentBoughtQty = Math.max(1, Number(currentMeta.boughtQty || 1));
+      const itemCategory = normalizeInventoryCategory(currentMeta.itemCategory);
+      const currentBoughtQty = normalizeStoredInventoryQty(currentMeta.boughtQty, itemCategory, 1);
       const newUnitActualPrice = amt / currentBoughtQty;
       
       updatedNotes = upsertGoodsMetaInNote(nt, {
+        ...currentMeta,
         boughtQty: currentBoughtQty,
         unitActualPrice: newUnitActualPrice
       });
@@ -4383,10 +4688,12 @@ async function submitEdit(){
     // Handle goods sold entries - update metadata when sold amount changes
     if (hasGoodsTag(currentEntry.notes)) {
       const currentMeta = goodsMetaFromNotes(currentEntry.notes);
-      const currentSoldQty = Math.max(1, Number(currentMeta.soldQty || 1));
+      const itemCategory = normalizeInventoryCategory(currentMeta.itemCategory);
+      const currentSoldQty = normalizeStoredInventoryQty(currentMeta.soldQty, itemCategory, 1);
       const newUnitSoldPrice = amt / currentSoldQty;
       
       editedNotes = upsertGoodsMetaInNote(nt, {
+        ...currentMeta,
         soldQty: currentSoldQty,
         unitSoldPrice: newUnitSoldPrice
       });
@@ -5408,39 +5715,73 @@ async function downloadGoodsPDF(){
   await loadCustomFontsForPdf(doc);
 
   const logoData = await getPdfLogo();
-  const title = "Goods Report - Full Summary";
+  const title = "Inventory Statement";
   const subtitle = `Generated: ${new Date().toLocaleString()}`;
 
   drawPdfHeader(doc, logoData, title, subtitle);
   drawPdfOwnerBlock(doc, 48);
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`Total Items: ${goodsAll.length}`, 132, 48);
+  const totalsByCurrency = goodsAll.reduce((acc, group) => {
+    const key = group.currency || "";
+    acc[key] = acc[key] || { purchase: 0, sales: 0, profitLoss: 0 };
+    acc[key].purchase += Number(group.bought || 0);
+    acc[key].sales += Number(group.soldTotal || 0);
+    acc[key].profitLoss += Number(group.profitLoss || 0);
+    return acc;
+  }, {});
+  const totalsText = Object.entries(totalsByCurrency)
+    .map(([currency, row]) => `${currency}: Purchase ${formatReportAmount(row.purchase, currency)} | Sales ${formatReportAmount(row.sales, currency)} | P/L ${formatReportAmount(row.profitLoss, currency)}`)
+    .join("   ");
 
-  const goodsRows = goodsAll.map(group => {
-    const meta = goodsMetaFromNotes(group.principal?.notes);
-    return [
-      group.person_name || "Unnamed",
-      String(meta.boughtQty || 1),
-      String(meta.soldQty || 0),
-      String(group.remainingQty || 0),
-      formatPdfAmount(group.profitLoss || 0, group.currency),
-      group.currency || ""
-    ];
-  });
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 72, 182, 24, 2, 2, "F");
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 72, 182, 24, 2, 2, "S");
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(9.5);
+  doc.text(`Total Items: ${goodsAll.length}`, 18, 80);
+  doc.text(`Purchase Qty: ${inventoryQtySummary(goodsAll, "boughtQty")}`, 18, 87);
+  doc.text(`Sold Qty: ${inventoryQtySummary(goodsAll, "soldQty")}`, 105, 80);
+  doc.text(`In Stock: ${inventoryQtySummary(goodsAll, "remainingQty")}`, 105, 87);
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text(doc.splitTextToSize(totalsText || "No totals", 174), 18, 94);
+
+  const goodsRows = goodsAll.map(group => [
+    group.itemCode || shortId(group.group_id) || "-",
+    group.person_name || "Unnamed",
+    normalizeInventoryCategory(group.itemCategory) === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers",
+    inventoryQtyLabel(group.boughtQty, group.itemCategory),
+    inventoryQtyLabel(group.soldQty, group.itemCategory),
+    inventoryQtyLabel(group.remainingQty, group.itemCategory),
+    formatReportAmount(group.bought || 0, group.currency),
+    formatReportAmount(group.soldTotal || 0, group.currency),
+    formatReportAmount(group.profitLoss || 0, group.currency)
+  ]);
 
   doc.autoTable({
-    startY: 72,
-    head: [["Item", "Bought Qty", "Sold Qty", "In Stock", "P/L", "Currency"]],
+    startY: 104,
+    head: [["Item Code", "Item", "Category", "Purchase Qty", "Sold Qty", "In Stock", "Purchase Total", "Sales Total", "P/L"]],
     body: goodsRows,
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 7.5, cellPadding: 2, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 17 },
+      3: { cellWidth: 18, halign: "right" },
+      4: { cellWidth: 16, halign: "right" },
+      5: { cellWidth: 18, halign: "right" },
+      6: { cellWidth: 20, halign: "right" },
+      7: { cellWidth: 20, halign: "right" },
+      8: { cellWidth: 18, halign: "right" }
+    },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
 
-  doc.save("Goods_Report.pdf");
+  doc.save("Inventory_Statement.pdf");
 }
 
 async function downloadAllTopupsPDF(currencyFilter = null){
@@ -6607,8 +6948,15 @@ window.addEventListener("resize", () => {
   if (els.goodsBoughtForm) {
     const boughtPriceInput = els.goodsBoughtForm.querySelector('[name="actual_price"]');
     const boughtQtyInput = els.goodsBoughtForm.querySelector('[name="bought_qty"]');
+    const boughtCategorySelect = els.goodsBoughtForm.querySelector('[name="item_category"]');
+    const boughtUnitSelect = els.goodsBoughtForm.querySelector('[name="quantity_unit"]');
     if (boughtPriceInput) boughtPriceInput.addEventListener("input", updateGoodsBoughtTotal);
     if (boughtQtyInput) boughtQtyInput.addEventListener("input", updateGoodsBoughtTotal);
+    if (boughtCategorySelect) boughtCategorySelect.addEventListener("change", syncGoodsBoughtCategoryFields);
+    if (boughtUnitSelect) boughtUnitSelect.addEventListener("change", updateGoodsBoughtTotal);
+  }
+  if (els.goodsCustomerSelect) {
+    els.goodsCustomerSelect.addEventListener("change", syncGoodsCustomerFields);
   }
   if (els.addGoodsSaleLineBtn) {
     els.addGoodsSaleLineBtn.addEventListener("click", () => addGoodsSaleLine(""));
