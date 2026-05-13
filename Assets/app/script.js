@@ -202,6 +202,8 @@ const els = {
   goodsSaleLines: document.getElementById("goodsSaleLines"),
   addGoodsSaleLineBtn: document.getElementById("addGoodsSaleLineBtn"),
   goodsSaleGrandTotal: document.getElementById("goodsSaleGrandTotal"),
+  goodsSalePaidAmount: document.getElementById("goodsSalePaidAmount"),
+  goodsSaleBalanceAmount: document.getElementById("goodsSaleBalanceAmount"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -1097,13 +1099,16 @@ function goodsMetaFromNotes(noteValue){
     receiptNumber: readText("RCPT"),
     transactionType: readText("TX"),
     itemCategory: readText("UCAT"),
-    quantityUnit: readText("UOM")
+    quantityUnit: readText("UOM"),
+    paidAmount: readNum("PAID"),
+    balanceAmount: readNum("BAL"),
+    paymentStatus: readText("PSTAT")
   };
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
   let note = normalizeGoodsNote(noteValue, true) || GOODS_TAG;
-  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
   const tags = [];
   if (meta.boughtQty != null) tags.push(`[BQTY:${meta.boughtQty}]`);
   if (meta.soldQty != null) tags.push(`[SQTY:${meta.soldQty}]`);
@@ -1116,13 +1121,16 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.transactionType) tags.push(`[TX:${String(meta.transactionType).replace(/\]/g, "")}]`);
   if (meta.itemCategory) tags.push(`[UCAT:${String(meta.itemCategory).replace(/\]/g, "")}]`);
   if (meta.quantityUnit) tags.push(`[UOM:${String(meta.quantityUnit).replace(/\]/g, "")}]`);
+  if (meta.paidAmount != null) tags.push(`[PAID:${meta.paidAmount}]`);
+  if (meta.balanceAmount != null) tags.push(`[BAL:${meta.balanceAmount}]`);
+  if (meta.paymentStatus) tags.push(`[PSTAT:${String(meta.paymentStatus).replace(/\]/g, "")}]`);
   return `${note} ${tags.join(" ")}`.trim();
 }
 
 function cleanGoodsDisplayNote(noteValue){
   return String(noteValue || "")
     .replace(GOODS_TAG, "")
-    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM):[^\]]*\]/gi, "")
+    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT):[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -1282,8 +1290,8 @@ function getExistingInventoryReceipts(){
     .map(receipt => String(receipt).trim().toUpperCase()));
 }
 
-function randomHex8(){
-  const bytes = new Uint8Array(4);
+function randomHex12(){
+  const bytes = new Uint8Array(6);
   if (window.crypto?.getRandomValues){
     window.crypto.getRandomValues(bytes);
   } else {
@@ -1296,7 +1304,7 @@ function nextPrefixedHexCode(prefix, existingCodes = new Set()){
   const used = new Set(Array.from(existingCodes || []).map(code => String(code).trim().toUpperCase()));
   let candidate = "";
   do {
-    candidate = `${prefix}#${randomHex8()}`;
+    candidate = `${prefix}#${randomHex12()}`;
   } while (used.has(candidate.toUpperCase()));
   used.add(candidate.toUpperCase());
   return candidate;
@@ -1332,7 +1340,9 @@ function normalizeInventoryUnit(value, category){
 function trimInventoryNumber(value, decimals = 8){
   const n = Number(value || 0);
   if (!Number.isFinite(n)) return "0";
-  return n.toFixed(decimals).replace(/\.?0+$/, "");
+  const places = Math.max(0, Number(decimals) || 0);
+  if (places === 0) return n.toFixed(0);
+  return n.toFixed(places).replace(/\.?0+$/, "");
 }
 
 function normalizeInventoryQuantityInput(value, category, unit){
@@ -1378,6 +1388,29 @@ function inventoryQtySummary(groups, key){
   if (countTotal) parts.push(formatInventoryQty(countTotal, INVENTORY_CATEGORY_COUNT));
   if (weightTotal) parts.push(formatInventoryQty(weightTotal, INVENTORY_CATEGORY_WEIGHT));
   return parts.length ? parts.join(" | ") : "0";
+}
+
+function inventoryLinePaidAmount(meta = {}, lineTotal = 0){
+  const total = Math.max(Number(lineTotal || 0), 0);
+  const paid = Number(meta.paidAmount);
+  if (Number.isFinite(paid)) return Math.min(Math.max(paid, 0), total);
+  const balance = Number(meta.balanceAmount);
+  if (Number.isFinite(balance)) return Math.min(Math.max(total - balance, 0), total);
+  return total;
+}
+
+function inventoryLineBalanceAmount(meta = {}, lineTotal = 0){
+  const total = Math.max(Number(lineTotal || 0), 0);
+  const balance = Number(meta.balanceAmount);
+  if (Number.isFinite(balance)) return Math.max(balance, 0);
+  return Math.max(total - inventoryLinePaidAmount(meta, total), 0);
+}
+
+function inventoryPaymentStatus(meta = {}, lineTotal = 0){
+  const status = String(meta.paymentStatus || "").trim().toUpperCase();
+  if (status === "FULL" || status === "FULL PAID") return "Full Paid";
+  if (status === "PARTIAL" || status === "PARTIAL PAID") return "Partial Paid";
+  return inventoryLineBalanceAmount(meta, lineTotal) <= 0.00000001 ? "Full Paid" : "Partial Paid";
 }
 
 function updateGoodsBoughtTotal(){
@@ -1994,10 +2027,10 @@ function syncGoodsSaleLineMeta(line){
   }
 }
 
-function updateGoodsSaleGrandTotal(){
-  if (!els.goodsSaleGrandTotal || !els.goodsSaleLines) return;
-  const lines = Array.from(els.goodsSaleLines.querySelectorAll(".inventory-sale-line"));
+function getGoodsSaleTotalsByCurrency(){
   const totalsByCurrency = new Map();
+  if (!els.goodsSaleLines) return totalsByCurrency;
+  const lines = Array.from(els.goodsSaleLines.querySelectorAll(".inventory-sale-line"));
   for (const line of lines){
     const groupId = line.querySelector(".goods-sale-item")?.value || "";
     const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
@@ -2005,11 +2038,62 @@ function updateGoodsSaleGrandTotal(){
     if (!group || !amount) continue;
     totalsByCurrency.set(group.currency, (totalsByCurrency.get(group.currency) || 0) + amount);
   }
+  return totalsByCurrency;
+}
+
+function formatInventoryTotalsByCurrency(totalsByCurrency, key = null){
+  const rows = totalsByCurrency instanceof Map
+    ? Array.from(totalsByCurrency.entries())
+    : Object.entries(totalsByCurrency || {});
+  return rows
+    .filter(([, value]) => key ? Number.isFinite(Number(value?.[key])) : Number(value || 0))
+    .map(([currency, value]) => moneyText(key ? value[key] : value, currency))
+    .join(" | ");
+}
+
+function updateGoodsSalePaymentFields(totalsByCurrency = getGoodsSaleTotalsByCurrency()){
+  if (!els.goodsSalePaidAmount || !els.goodsSaleBalanceAmount) return;
+  const totals = Array.from(totalsByCurrency.entries()).filter(([, amount]) => Number(amount || 0) > 0);
+  if (!totals.length){
+    els.goodsSalePaidAmount.disabled = false;
+    els.goodsSalePaidAmount.value = "";
+    els.goodsSaleBalanceAmount.value = "";
+    els.goodsSalePaidAmount.removeAttribute("max");
+    return;
+  }
+  if (totals.length !== 1){
+    els.goodsSalePaidAmount.disabled = true;
+    els.goodsSalePaidAmount.value = "";
+    els.goodsSalePaidAmount.dataset.autoPaid = "true";
+    els.goodsSalePaidAmount.placeholder = "Multiple currencies";
+    els.goodsSalePaidAmount.removeAttribute("max");
+    els.goodsSaleBalanceAmount.value = formatInventoryTotalsByCurrency(totalsByCurrency);
+    applyCurrencyFontClass(els.goodsSaleBalanceAmount, "");
+    return;
+  }
+  const [currency, total] = totals[0];
+  els.goodsSalePaidAmount.disabled = false;
+  els.goodsSalePaidAmount.placeholder = "0.00";
+  els.goodsSalePaidAmount.max = trimInventoryNumber(total);
+  if (els.goodsSalePaidAmount.dataset.autoPaid !== "false"){
+    els.goodsSalePaidAmount.value = trimInventoryNumber(total);
+    els.goodsSalePaidAmount.dataset.autoPaid = "true";
+  }
+  const paid = Math.max(Number(els.goodsSalePaidAmount.value || 0), 0);
+  const balance = Math.max(Number(total || 0) - Math.min(paid, Number(total || 0)), 0);
+  els.goodsSaleBalanceAmount.value = moneyText(balance, currency);
+  applyCurrencyFontClass(els.goodsSaleBalanceAmount, currency);
+}
+
+function updateGoodsSaleGrandTotal(){
+  if (!els.goodsSaleGrandTotal || !els.goodsSaleLines) return;
+  const totalsByCurrency = getGoodsSaleTotalsByCurrency();
   els.goodsSaleGrandTotal.value = totalsByCurrency.size
-    ? Array.from(totalsByCurrency.entries()).map(([currency, amount]) => moneyText(amount, currency)).join(" | ")
+    ? formatInventoryTotalsByCurrency(totalsByCurrency)
     : "";
   const onlyCurrency = totalsByCurrency.size === 1 ? Array.from(totalsByCurrency.keys())[0] : "";
   applyCurrencyFontClass(els.goodsSaleGrandTotal, onlyCurrency);
+  updateGoodsSalePaymentFields(totalsByCurrency);
 }
 
 function updateGoodsSaleLine(line){
@@ -2033,11 +2117,14 @@ function updateGoodsSaleLine(line){
     qtyInput.placeholder = category === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Qty";
   }
   if (priceInput) priceInput.placeholder = category === INVENTORY_CATEGORY_WEIGHT ? "Price / KG" : "Unit price";
-  const qty = normalizeInventoryQuantityInput(qtyInput?.value, category, unitSelect?.value || inventoryBaseUnitForCategory(category));
+  const rawQtyValue = String(qtyInput?.value || "").trim();
+  const qty = rawQtyValue
+    ? normalizeInventoryQuantityInput(rawQtyValue, category, unitSelect?.value || inventoryBaseUnitForCategory(category))
+    : 0;
   const visibleQty = category === INVENTORY_CATEGORY_WEIGHT
     ? Number(qtyInput?.value || 0)
     : qty;
-  if (qtyInput && visibleQty > 0) qtyInput.value = trimInventoryNumber(visibleQty, category === INVENTORY_CATEGORY_WEIGHT ? 3 : 0);
+  if (qtyInput && document.activeElement !== qtyInput && visibleQty > 0) qtyInput.value = trimInventoryNumber(visibleQty, category === INVENTORY_CATEGORY_WEIGHT ? 3 : 0);
   if (group && priceInput && (!priceInput.value || Number(priceInput.value) <= 0)){
     const defaultPrice = Number(group.defaultUnitSoldPrice || 0) || Number(group.unitActualPrice || 0);
     priceInput.value = defaultPrice ? trimInventoryNumber(defaultPrice) : "";
@@ -2084,7 +2171,8 @@ function collectGoodsSaleLines(){
     const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
     const category = normalizeInventoryCategory(group?.itemCategory);
     const unit = normalizeInventoryUnit(line.querySelector(".goods-sale-unit")?.value, category);
-    const qty = normalizeInventoryQuantityInput(line.querySelector(".goods-sale-qty")?.value, category, unit);
+    const qtyValue = String(line.querySelector(".goods-sale-qty")?.value || "").trim();
+    const qty = qtyValue ? normalizeInventoryQuantityInput(qtyValue, category, unit) : 0;
     const unitPrice = Number(line.querySelector(".goods-sale-price")?.value || 0);
     return { groupId, qty, unitPrice, unit, itemCategory: category };
   }).filter(line => line.groupId);
@@ -2431,30 +2519,48 @@ async function downloadInventoryReceiptPDF(entryId){
     const entryMeta = goodsMetaFromNotes(e.notes);
     return (entryMeta.receiptNumber || "") === receiptNumber;
   });
-  const receiptRows = receiptEntries.map((entry, index) => {
+  const matchedReceiptEntries = receiptEntries.length ? receiptEntries : [saleEntry];
+  const receiptRows = matchedReceiptEntries.map((entry, index) => {
     const principalEntry = state.entries.find(e => e.group_id === entry.group_id && e.entry_kind === "principal");
     const entryMeta = goodsMetaFromNotes(entry.notes);
     const principalMeta = goodsMetaFromNotes(principalEntry?.notes);
     const itemCategory = normalizeInventoryCategory(entryMeta.itemCategory || principalMeta.itemCategory);
     const qty = normalizeStoredInventoryQty(entryMeta.soldQty, itemCategory, 1);
     const unitPrice = entryMeta.unitSoldPrice != null ? Number(entryMeta.unitSoldPrice) : (Number(entry.action_amount || 0) / qty);
+    const total = Number(entry.action_amount || 0);
+    const paid = inventoryLinePaidAmount(entryMeta, total);
+    const balance = inventoryLineBalanceAmount(entryMeta, total);
     return {
       sr: index + 1,
       itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
       itemName: principalEntry?.person_name || entry.person_name || "Goods item",
-      itemDescription: principalMeta.itemDescription || "",
       itemCategory,
       qty,
       qtyDisplay: inventoryQtyLabel(qty, itemCategory),
       unitPrice,
-      total: Number(entry.action_amount || 0),
+      total,
+      paid,
+      balance,
+      paymentStatus: inventoryPaymentStatus(entryMeta, total),
       currency: entry.currency
     };
   });
+  const totalsByCurrency = receiptRows.reduce((acc, row) => {
+    const currencyKey = row.currency || "AED";
+    if (!acc.has(currencyKey)) acc.set(currencyKey, { total: 0, paid: 0, balance: 0 });
+    const bucket = acc.get(currencyKey);
+    bucket.total += Number(row.total || 0);
+    bucket.paid += Number(row.paid || 0);
+    bucket.balance += Number(row.balance || 0);
+    return acc;
+  }, new Map());
   const soldTotal = receiptRows.reduce((sum, row) => sum + row.total, 0);
   const currency = saleEntry.currency || receiptRows[0]?.currency || "AED";
   const customerName = meta.customerName || "Walk-in customer";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
+  const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total") || moneyText(soldTotal, currency);
+  const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid") || moneyText(soldTotal, currency);
+  const balanceAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "balance") || moneyText(0, currency);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   await loadCustomFontsForPdf(doc);
@@ -2468,60 +2574,67 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Customer: ${customerName}`, 132, 48);
   doc.text(`Date: ${displayDate(saleEntry.action_date || "—")}`, 132, 54);
   doc.text(`Lines: ${receiptRows.length}`, 132, 60);
-  doc.text(`Grand Total: ${moneyText(soldTotal, currency)}`, 132, 66);
+  doc.text(`Status: ${receiptRows.some(row => row.paymentStatus === "Partial Paid") ? "Partial Paid" : "Full Paid"}`, 132, 66);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 78, 182, 24, 2, 2, "F");
+  doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 78, 182, 24, 2, 2, "S");
+  doc.roundedRect(14, 78, 182, 30, 2, 2, "S");
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
   doc.text(`Bill To: ${customerName}`, 18, 86);
   doc.text(`Receipt No: ${receiptNumber}`, 18, 92);
-  doc.text(`Currency: ${currency}`, 110, 86);
+  doc.text(`Total Amount: ${totalAmountText}`, 110, 86);
   doc.text(`Issued On: ${displayDate(saleEntry.action_date || "-")}`, 110, 92);
-  doc.text(`Total Qty: ${totalQtyText}`, 110, 98);
+  doc.text(`Paid Amount: ${paidAmountText}`, 18, 100);
+  doc.text(`Balance Amount: ${balanceAmountText}`, 110, 100);
 
   doc.autoTable({
-    startY: 110,
-    head: [["#", "Item Code", "Item", "Category", "Qty", "Unit Price", "Line Total"]],
+    startY: 116,
+    head: [["#", "Item Name", "Quantity", "Amount"]],
     body: receiptRows.map(row => [
       String(row.sr),
-      row.itemCode || "-",
-      row.itemDescription ? `${row.itemName}\n${row.itemDescription}` : row.itemName,
-      row.itemCategory === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers",
+      row.itemName,
       row.qtyDisplay,
-      formatReportAmount(row.unitPrice, row.currency),
       formatReportAmount(row.total, row.currency)
     ]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.5, overflow: "linebreak" },
+    styles: { font: "helvetica", fontSize: 9, cellPadding: 3, overflow: "linebreak" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       0: { cellWidth: 10, halign: "center" },
-      1: { cellWidth: 26 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 22 },
-      4: { cellWidth: 22 },
-      5: { cellWidth: 30, halign: "right" },
-      6: { cellWidth: 30, halign: "right" }
+      1: { cellWidth: 92 },
+      2: { cellWidth: 36, halign: "right" },
+      3: { cellWidth: 44, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
   const afterTableY = doc.lastAutoTable.finalY + 8;
-  doc.setFillColor(241, 245, 249);
-  doc.roundedRect(120, afterTableY, 76, 22, 2, 2, "F");
-  doc.setTextColor(15, 23, 42);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("Invoice Total", 124, afterTableY + 8);
-  doc.text(formatReportAmount(soldTotal, currency), 124, afterTableY + 16);
-  doc.setFont("helvetica", "normal");
+  const showCurrencyInSummary = totalsByCurrency.size > 1;
+  const summaryRows = Array.from(totalsByCurrency.entries()).flatMap(([rowCurrency, amounts]) => [
+    [showCurrencyInSummary ? `${rowCurrency} total amount` : "Total amount", formatReportAmount(amounts.total, rowCurrency)],
+    [showCurrencyInSummary ? `${rowCurrency} paid amount` : "Paid amount", formatReportAmount(amounts.paid, rowCurrency)],
+    [showCurrencyInSummary ? `${rowCurrency} balance amount` : "Balance amount", formatReportAmount(amounts.balance, rowCurrency)]
+  ]);
+  doc.autoTable({
+    startY: afterTableY,
+    body: summaryRows,
+    theme: "plain",
+    styles: { font: "helvetica", fontSize: 9.5, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 38, halign: "right", fontStyle: "bold", textColor: [51, 65, 85] },
+      1: { cellWidth: 38, halign: "right", textColor: [15, 23, 42] }
+    },
+    margin: { left: 120, right: 14, top: 50, bottom: 40 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+  });
   doc.setFontSize(9.5);
   doc.setTextColor(102, 112, 133);
-  doc.text(`Notes: ${cleanGoodsDisplayNote(saleEntry.notes) || "—"}`, 14, doc.lastAutoTable.finalY + 10);
-  doc.text(`Prepared for: ${customerName}`, 14, afterTableY + 18);
+  const noteY = Math.max(afterTableY + 10, doc.lastAutoTable.finalY + 8);
+  doc.text(`Total Qty: ${totalQtyText}`, 14, noteY);
+  doc.text(`Notes: ${cleanGoodsDisplayNote(saleEntry.notes) || "—"}`, 14, noteY + 6);
+  doc.text(`Prepared for: ${customerName}`, 14, noteY + 12);
   doc.save(`Receipt_${String(receiptNumber).replace(/\s+/g, "_")}.pdf`);
 }
 
@@ -2545,6 +2658,7 @@ function renderInventoryList(){
         date: group.principal?.loan_date,
         amount: group.principal?.principal_amount,
         note: group.itemDescription || cleanGoodsDisplayNote(group.principal?.notes) || "Opening stock",
+        paymentStatus: "—",
         entryId: group.principal?.id || ""
       },
       ...group.purchaseActions.map(row => ({
@@ -2553,6 +2667,7 @@ function renderInventoryList(){
         date: row.action_date,
         amount: row.action_amount,
         note: cleanGoodsDisplayNote(row.notes) || "Additional stock",
+        paymentStatus: "—",
         entryId: row.id
       })),
       ...group.actions.map(row => {
@@ -2560,12 +2675,15 @@ function renderInventoryList(){
         const receipt = meta.receiptNumber || shortId(row.id);
         const customer = meta.customerName || "Walk-in customer";
         const noteText = cleanGoodsDisplayNote(row.notes) || "Sale entry";
+        const paymentStatus = inventoryPaymentStatus(meta, row.action_amount || 0);
         return {
           kind: "Sold",
           badge: "green",
           date: row.action_date,
           amount: row.action_amount,
           note: `${customer} | ${receipt}${noteText ? ` | ${noteText}` : ""}`,
+          paymentStatus,
+          paymentBadge: paymentStatus === "Full Paid" ? "green" : "orange",
           entryId: row.id
         };
       })
@@ -2613,13 +2731,14 @@ function renderInventoryList(){
           ${group.itemDescription ? `<div class="detail-head"><div><h4>Description</h4><p>${escapeHtml(group.itemDescription)}</p></div></div>` : ""}
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>Notes</th><th>Action</th></tr></thead>
+              <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>Payment</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
                 ${historyRows.length ? historyRows.map(row => `
                   <tr>
                     <td><span class="badge ${escapeHtml(row.badge)}">${escapeHtml(row.kind)}</span></td>
                     <td>${escapeHtml(displayDate(row.date || "—"))}</td>
                     <td>${money(row.amount || 0, group.currency)}</td>
+                    <td>${row.paymentStatus === "—" ? "—" : `<span class="badge ${escapeHtml(row.paymentBadge || "orange")}">${escapeHtml(row.paymentStatus)}</span>`}</td>
                     <td>${escapeHtml(row.note || "—")}</td>
                     <td>
                       <div style="display:flex;gap:4px;">
@@ -2629,7 +2748,7 @@ function renderInventoryList(){
                       </div>
                     </td>
                   </tr>
-                `).join("") : `<tr><td colspan="5">No inventory activity yet.</td></tr>`}
+                `).join("") : `<tr><td colspan="6">No inventory activity yet.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -4303,6 +4422,13 @@ function openGoodsModal(mode, options = {}){
     els.goodsModalDesc.textContent = "Select customer, choose one or more items, and save one receipt.";
     els.goodsSoldForm.reset();
     if (els.goodsReceiptNumber) els.goodsReceiptNumber.value = nextReceiptNumber();
+    if (els.goodsSalePaidAmount) {
+      els.goodsSalePaidAmount.dataset.autoPaid = "true";
+      els.goodsSalePaidAmount.disabled = false;
+      els.goodsSalePaidAmount.value = "";
+      els.goodsSalePaidAmount.placeholder = "0.00";
+    }
+    if (els.goodsSaleBalanceAmount) els.goodsSaleBalanceAmount.value = "";
     renderGoodsCustomerOptions();
     syncGoodsCustomerFields();
     renderGoodsSaleLines(state.inventoryDraft.saleGroupIds || []);
@@ -4410,7 +4536,7 @@ async function saveGoodsSold(form){
     requestedQtyByGroup.set(line.groupId, (requestedQtyByGroup.get(line.groupId) || 0) + Number(line.qty || 0));
   }
 
-  const payloads = saleLines.map(line => {
+  const preparedLines = saleLines.map(line => {
     const principalEntry = state.entries.find(e =>
       e.group_id === line.groupId &&
       e.entry_kind === "principal" &&
@@ -4429,25 +4555,58 @@ async function saveGoodsSold(form){
     if ((requestedQtyByGroup.get(line.groupId) || soldQty) > remainingQty){
       throw new Error(`Only ${inventoryQtyLabel(remainingQty, itemCategory)} left for ${principalEntry.person_name}.`);
     }
+    const lineTotal = soldPrice * soldQty;
+    return {
+      ...line,
+      principalEntry,
+      principalMeta,
+      itemCategory,
+      soldQty,
+      soldPrice,
+      lineTotal,
+      currency: principalEntry.currency
+    };
+  });
+
+  const saleCurrencies = new Set(preparedLines.map(line => line.currency));
+  const singleCurrencyReceipt = saleCurrencies.size === 1;
+  const receiptTotal = preparedLines.reduce((sum, line) => sum + Number(line.lineTotal || 0), 0);
+  let receiptPaidTotal = receiptTotal;
+  if (singleCurrencyReceipt){
+    const paidRaw = String(fd.get("paid_amount") || "").trim();
+    receiptPaidTotal = paidRaw ? Number(paidRaw) : receiptTotal;
+    if (!Number.isFinite(receiptPaidTotal) || receiptPaidTotal < 0) throw new Error("Paid amount must be zero or more.");
+    if (receiptPaidTotal > receiptTotal + 0.00000001) throw new Error("Paid amount cannot exceed receipt total.");
+  }
+  const receiptPaymentStatus = !singleCurrencyReceipt || receiptPaidTotal + 0.00000001 >= receiptTotal ? "FULL" : "PARTIAL";
+  let paidRemaining = receiptPaidTotal;
+
+  const payloads = preparedLines.map(line => {
+    const linePaid = singleCurrencyReceipt ? Math.min(line.lineTotal, Math.max(paidRemaining, 0)) : line.lineTotal;
+    if (singleCurrencyReceipt) paidRemaining = Math.max(paidRemaining - linePaid, 0);
+    const lineBalance = Math.max(line.lineTotal - linePaid, 0);
     return {
       group_id: line.groupId,
       direction: "taken",
-      entry_kind: "full",
-      person_name: principalEntry.person_name,
-      currency: principalEntry.currency,
+      entry_kind: receiptPaymentStatus === "FULL" ? "full" : "partial",
+      person_name: line.principalEntry.person_name,
+      currency: line.principalEntry.currency,
       principal_amount: null,
-      action_amount: soldPrice * soldQty,
-      loan_date: principalEntry.loan_date,
+      action_amount: line.lineTotal,
+      loan_date: line.principalEntry.loan_date,
       action_date: soldDate,
       notes: upsertGoodsMetaInNote(normalizeGoodsNote(soldNotes, true), {
-        soldQty,
-        unitSoldPrice: soldPrice,
-        itemCode: principalMeta.itemCode,
-        itemCategory,
-        quantityUnit: inventoryBaseUnitForCategory(itemCategory),
+        soldQty: line.soldQty,
+        unitSoldPrice: line.soldPrice,
+        itemCode: line.principalMeta.itemCode,
+        itemCategory: line.itemCategory,
+        quantityUnit: inventoryBaseUnitForCategory(line.itemCategory),
         customerName,
         receiptNumber,
-        transactionType: "SALE"
+        transactionType: "SALE",
+        paidAmount: linePaid,
+        balanceAmount: lineBalance,
+        paymentStatus: receiptPaymentStatus
       })
     };
   });
@@ -6975,6 +7134,12 @@ window.addEventListener("resize", () => {
   }
   if (els.addGoodsSaleLineBtn) {
     els.addGoodsSaleLineBtn.addEventListener("click", () => addGoodsSaleLine(""));
+  }
+  if (els.goodsSalePaidAmount) {
+    els.goodsSalePaidAmount.addEventListener("input", () => {
+      els.goodsSalePaidAmount.dataset.autoPaid = "false";
+      updateGoodsSalePaymentFields();
+    });
   }
   if (els.goodsSaleLines) {
     els.goodsSaleLines.addEventListener("input", e => {
