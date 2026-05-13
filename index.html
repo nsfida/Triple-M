@@ -1646,6 +1646,53 @@
     </div>
   </div>
 
+  <div id="goodsSettlementModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="goodsSettlementModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Balance clearance</h3>
+          <p>Record a balance settlement against the original sales receipt.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="goodsSettlementModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="goodsSettlementForm">
+          <div class="modal-grid">
+            <div class="field w4">
+              <label>Receipt number</label>
+              <input class="input" id="goodsSettlementReceipt" name="receipt_number" readonly />
+            </div>
+            <div class="field w4">
+              <label>Customer name</label>
+              <input class="input" id="goodsSettlementCustomer" name="customer_name" readonly />
+            </div>
+            <div class="field w4">
+              <label>Balance amount</label>
+              <input class="input" id="goodsSettlementBalance" name="balance_amount" readonly />
+            </div>
+            <div class="field w6">
+              <label>Settlement amount</label>
+              <input class="input" id="goodsSettlementAmount" name="settlement_amount" type="number" min="0" step="0.00000001" required />
+            </div>
+            <div class="field w6">
+              <label>Settlement date</label>
+              <input class="input" id="goodsSettlementDate" name="settlement_date" type="date" required data-default-today="true" />
+            </div>
+            <div class="field w12">
+              <label>Notes</label>
+              <input class="input" name="notes" placeholder="Optional settlement note" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="goodsSettlementModal">Cancel</button>
+              <button class="btn primary" type="submit">Save Settlement</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div id="expenseModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="expenseModal"></div>
     <div class="modal-dialog">
