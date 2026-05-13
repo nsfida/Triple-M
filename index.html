@@ -623,7 +623,7 @@
       <button class="tab" data-tab="given" type="button"><i class="fa-solid fa-hand-holding-dollar"></i> Loan Given / Received Back</button>
       <button class="tab" data-tab="taken" type="button"><i class="fa-solid fa-money-bill-transfer"></i> Loan Taken / Returned Back</button>
       <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
-      <button class="tab" data-tab="goods" type="button"><i class="fa-solid fa-cart-shopping"></i> Goods Bought / Sold</button>
+      <button class="tab" data-tab="goods" type="button"><i class="fa-solid fa-cart-shopping"></i> Inventory</button>
       <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
       <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
       <button class="tab" data-tab="about" type="button"><i class="fa-solid fa-info-circle"></i> About</button>
@@ -971,16 +971,13 @@
             <div class="section-head-top">
               <div class="title-group">
                 <div class="title-row">
-                  <h3>Goods Bought / Sold</h3>
-                  <div class="menu-wrap">
-                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="goods" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
-                    <div class="menu-dropdown" data-entry-menu-panel="goods">
-                      <button type="button" class="menu-item" id="openGoodsBoughtBtn">Bought Item</button>
-                      <button type="button" class="menu-item" id="openGoodsSoldBtn">Sale Item</button>
-                    </div>
-                  </div>
+                  <h3>Inventory</h3>
+                  <button class="icon-btn" type="button" id="openGoodsBoughtBtn" aria-label="Add purchased item" title="Add purchased item">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                  <button class="hide" type="button" id="openGoodsSoldBtn" aria-hidden="true" tabindex="-1"></button>
                 </div>
-                <p>Track bought items and sold receipts with item-wise status.</p>
+                <p>Track stock, purchases, sales receipts, and item-wise status.</p>
               </div>
               <div class="tools">
               </div>
@@ -1470,14 +1467,18 @@
     <div class="modal-dialog">
       <div class="modal-head">
         <div>
-          <h3 id="goodsModalTitle">Goods entry</h3>
-          <p id="goodsModalDesc">Add bought or sold item details.</p>
+          <h3 id="goodsModalTitle">Inventory entry</h3>
+          <p id="goodsModalDesc">Add purchase or sale details.</p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-modal="goodsModal" aria-label="Close">×</button>
       </div>
       <div class="modal-body">
         <form id="goodsBoughtForm" class="hide">
           <div class="modal-grid">
+            <div class="field w6">
+              <label>Item code</label>
+              <input class="input" name="item_code" readonly placeholder="Auto generated" />
+            </div>
             <div class="field w6">
               <label>Item name</label>
               <input class="input" name="item_name" required placeholder="Item name" />
@@ -1504,37 +1505,44 @@
               <input type="hidden" name="currency" value="AED" />
             </div>
             <div class="field w6">
-              <label>Actual price</label>
+              <label>Unit price</label>
               <input class="input" name="actual_price" type="number" min="0" step="0.00000001" required placeholder="0.00" />
             </div>
             <div class="field w6">
-              <label>Quantity bought</label>
+              <label>Quantity</label>
               <input class="input" name="bought_qty" type="number" min="1" step="1" required value="1" />
+            </div>
+            <div class="field w6">
+              <label>Total amount</label>
+              <input class="input" id="goodsBoughtTotalAmount" name="total_amount" type="number" min="0" step="0.00000001" readonly placeholder="0.00" />
             </div>
             <div class="field w6">
               <label>Bought date</label>
               <input class="input" name="bought_date" type="date" required data-default-today="true" />
             </div>
             <div class="field w12">
-              <label>Notes</label>
-              <input class="input" name="notes" placeholder="Optional note" />
+              <label>Item description</label>
+              <textarea class="input" name="item_description" rows="3" placeholder="Optional item description"></textarea>
             </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="goodsModal">Cancel</button>
-              <button class="btn primary" type="submit">Save Bought Item</button>
+              <button class="btn primary" type="submit">Save Purchase</button>
             </div>
           </div>
         </form>
 
         <form id="goodsSoldForm" class="hide">
           <div class="modal-grid">
-            <div class="field w8">
-              <label>Select bought item</label>
-              <select class="select" id="goodsItemSelect" name="group_id"></select>
+            <select class="select hide" id="goodsItemSelect" name="group_id" aria-hidden="true" tabindex="-1"></select>
+            <button class="hide" type="button" id="goodsNewItemToggleBtn" aria-hidden="true" tabindex="-1"></button>
+            <div class="field w4">
+              <label>Receipt number</label>
+              <input class="input" id="goodsReceiptNumber" name="receipt_number" readonly placeholder="Auto generated" />
             </div>
             <div class="field w4">
-              <label>Add new item</label>
-              <button class="btn ghost" type="button" id="goodsNewItemToggleBtn">+ Add New</button>
+              <label>Customer name</label>
+              <input class="input" name="customer_name" list="goodsCustomerList" required placeholder="Select or type new customer" autocomplete="off" />
+              <datalist id="goodsCustomerList"></datalist>
             </div>
             <div id="goodsNewItemFields" class="field w12 hide">
               <div class="modal-grid">
@@ -1578,12 +1586,17 @@
               </div>
             </div>
             <div class="field w6">
-              <label>Sold price</label>
-              <input class="input" name="sold_price" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+              <label>Receipt total</label>
+              <input class="input" id="goodsSaleGrandTotal" name="receipt_total" readonly placeholder="0.00" />
             </div>
-            <div class="field w6">
-              <label>Quantity sold</label>
-              <input class="input" name="sold_qty" type="number" min="1" step="1" required value="1" />
+            <div class="field w12">
+              <div class="inventory-sale-head">
+                <label>Items for this receipt</label>
+                <button class="icon-btn ghost" type="button" id="addGoodsSaleLineBtn" aria-label="Add sale item" title="Add sale item">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </div>
+              <div id="goodsSaleLines" class="inventory-sale-lines"></div>
             </div>
             <div class="field w6">
               <label>Sold date</label>
@@ -1595,7 +1608,7 @@
             </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="goodsModal">Cancel</button>
-              <button class="btn primary" type="submit">Save Sale Item</button>
+              <button class="btn primary" type="submit">Save Sale</button>
             </div>
           </div>
         </form>
