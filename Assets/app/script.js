@@ -1003,21 +1003,110 @@ function overviewWatermarkFloatingWalletLogos(accounts){
   return `<div class="wallet-float-watermark" aria-hidden="true">${logos.join("")}</div>`;
 }
 
-function renderOverviewCards(){
-  const allowedCurrencies = getAllowedCurrencies();
-  const currencies = [...new Set([...allowedCurrencies, ...state.entries.map(e => e.currency).filter(Boolean)])];
-  const goodsAll = getGoodsGroups({ applyUiFilters: false });
-  const goodsBoughtQty = inventoryQtySummary(goodsAll, "boughtQty");
-  const goodsSoldQty = inventoryQtySummary(goodsAll, "soldQty");
-  const goodsStockQty = inventoryQtySummary(goodsAll, "remainingQty");
-  const goodsNetPLByCurrency = goodsAll.reduce((acc, g) => {
-    const key = g.currency || "";
-    acc[key] = (acc[key] || 0) + Number(g.profitLoss || 0);
+function getActiveTabKey(){
+  return document.querySelector(".tab.active")?.dataset.tab || "expenses";
+}
+
+function inventoryOverviewTotals(groups, selector){
+  return groups.reduce((acc, group) => {
+    const currency = group.currency || "";
+    const amount = Number(selector(group) || 0);
+    if (!amount) return acc;
+    acc[currency] = (acc[currency] || 0) + amount;
     return acc;
   }, {});
-  const goodsNetPLText = Object.keys(goodsNetPLByCurrency).length
-    ? Object.entries(goodsNetPLByCurrency).map(([currency, amount]) => formatReportAmount(amount, currency)).join(" | ")
+}
+
+function inventoryOverviewAmountText(totals){
+  const rows = Object.entries(totals || {}).filter(([, amount]) => Number(amount || 0));
+  return rows.length
+    ? rows.map(([currency, amount]) => formatReportAmount(amount, currency)).join(" | ")
     : "0";
+}
+
+function setMainOverviewHeading(mode){
+  if (!els.mainOverview) return;
+  const title = els.mainOverview.querySelector(".overview-top h2");
+  const desc = els.mainOverview.querySelector(".overview-top p");
+  if (mode === "inventory"){
+    if (title) title.textContent = "Inventory Overview";
+    if (desc) desc.textContent = "Inventory purchase, sales, profit, and loss summary.";
+    if (els.toggleMainOverviewBtn) els.toggleMainOverviewBtn.title = els.mainOverview.classList.contains("collapsed") ? "Expand Inventory Overview" : "Collapse Inventory Overview";
+  } else {
+    if (title) title.textContent = "Loans Overview";
+    if (desc) desc.textContent = "Loan balances shown by currency.";
+    if (els.toggleMainOverviewBtn) els.toggleMainOverviewBtn.title = els.mainOverview.classList.contains("collapsed") ? "Expand Loans Overview" : "Collapse Loans Overview";
+  }
+}
+
+function renderInventoryOverviewCards(){
+  const goodsAll = getGoodsGroups({ applyUiFilters: false });
+  const boughtCount = goodsAll.length;
+  const soldItemCount = goodsAll.filter(group => Number(group.soldQty || 0) > 0).length;
+  const profitGroups = goodsAll.filter(group => Number(group.profitLoss || 0) > 0);
+  const lossGroups = goodsAll.filter(group => Number(group.profitLoss || 0) < 0);
+  const purchaseTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.bought));
+  const salesTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.soldTotal));
+  const paidTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.paidTotal));
+  const balanceTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.balanceTotal));
+  const profitTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(profitGroups, group => Math.max(Number(group.profitLoss || 0), 0)));
+  const lossTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(lossGroups, group => Math.abs(Number(group.profitLoss || 0))));
+  const boughtQty = inventoryQtySummary(goodsAll, "boughtQty");
+  const soldQty = inventoryQtySummary(goodsAll, "soldQty");
+  const stockQty = inventoryQtySummary(goodsAll, "remainingQty");
+
+  els.statsGrid.innerHTML = `
+    <div class="summary currency-summary goods-overview">
+      ${overviewWatermarkGoods()}
+      <div class="currency-head"><i class="fa-solid fa-boxes-stacked"></i></div>
+      ${overviewOneLine("Purchased items:", `<strong>${escapeHtml(boughtCount)}</strong>`)}
+      ${overviewOneLine("Purchase qty:", `<strong>${escapeHtml(boughtQty)}</strong>`)}
+      ${overviewOneLine("Purchase total:", `<strong>${escapeHtml(purchaseTotalText)}</strong>`)}
+      ${overviewOneLine("In stock qty:", `<strong>${escapeHtml(stockQty)}</strong>`)}
+      <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+        <button class="tiny ghost" onclick="window.location.href='#goodsPanel'">View Inventory</button>
+        <button class="tiny ghost" onclick="openGoodsModal('bought')">Add Item</button>
+      </div>
+    </div>
+    <div class="summary currency-summary goods-overview">
+      ${overviewWatermarkGoods()}
+      <div class="currency-head"><i class="fa-solid fa-cash-register"></i></div>
+      ${overviewOneLine("Sold items:", `<strong>${escapeHtml(soldItemCount)}</strong>`)}
+      ${overviewOneLine("Sold qty:", `<strong>${escapeHtml(soldQty)}</strong>`)}
+      ${overviewOneLine("Sales total:", `<strong>${escapeHtml(salesTotalText)}</strong>`)}
+      ${overviewOneLine("Paid total:", `<strong>${escapeHtml(paidTotalText)}</strong>`)}
+    </div>
+    <div class="summary currency-summary goods-overview">
+      ${overviewWatermarkGoods()}
+      <div class="currency-head"><i class="fa-solid fa-arrow-trend-up"></i></div>
+      ${overviewOneLine("Profit items:", `<strong>${escapeHtml(profitGroups.length)}</strong>`)}
+      ${overviewOneLine("Profit total:", `<strong>${escapeHtml(profitTotalText)}</strong>`)}
+      ${overviewOneLine("Balance due:", `<strong>${escapeHtml(balanceTotalText)}</strong>`)}
+      ${overviewOneLine("Net stock:", `<strong>${escapeHtml(stockQty)}</strong>`)}
+    </div>
+    <div class="summary currency-summary goods-overview">
+      ${overviewWatermarkGoods()}
+      <div class="currency-head"><i class="fa-solid fa-arrow-trend-down"></i></div>
+      ${overviewOneLine("Loss items:", `<strong>${escapeHtml(lossGroups.length)}</strong>`)}
+      ${overviewOneLine("Loss total:", `<strong>${escapeHtml(lossTotalText)}</strong>`)}
+      ${overviewOneLine("Sales total:", `<strong>${escapeHtml(salesTotalText)}</strong>`)}
+      ${overviewOneLine("Balance due:", `<strong>${escapeHtml(balanceTotalText)}</strong>`)}
+      <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+        <button class="tiny ghost" onclick="downloadGoodsPDF()"><i class="fa-solid fa-download"></i></button>
+      </div>
+    </div>
+  `;
+}
+
+function renderOverviewCards(tab = getActiveTabKey()){
+  const mode = tab === "goods" ? "inventory" : "loans";
+  setMainOverviewHeading(mode);
+  if (mode === "inventory"){
+    renderInventoryOverviewCards();
+    return;
+  }
+  const allowedCurrencies = getAllowedCurrencies();
+  const currencies = [...new Set([...allowedCurrencies, ...state.entries.map(e => e.currency).filter(Boolean)])];
 
   const currencyCards = currencies.map(currency => {
     const s = summarizeCurrency(currency);
@@ -1040,25 +1129,7 @@ function renderOverviewCards(){
     `;
   }).join("");
 
-  const goodsCard = `
-    <div class="summary currency-summary goods-overview">
-      ${overviewWatermarkGoods()}
-      <div class="currency-head">🛒</div>
-      ${overviewOneLine("Purchase qty:", `<strong>${escapeHtml(goodsBoughtQty)}</strong>`)}
-      ${overviewOneLine("Sold qty:", `<strong>${escapeHtml(goodsSoldQty)}</strong>`)}
-      ${overviewOneLine("In stock qty:", `<strong>${escapeHtml(goodsStockQty)}</strong>`)}
-      ${overviewOneLine("Net P/L:", `<strong>${escapeHtml(goodsNetPLText)}</strong>`)}
-      <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-        <button class="tiny ghost" onclick="window.location.href='#goodsPanel'">View Inventory</button>
-        <button class="tiny ghost" onclick="openGoodsModal('bought')">Add Item</button>
-        <button class="tiny ghost" onclick="downloadGoodsPDF()"><i class="fa-solid fa-download"></i></button>
-      </div>
-    </div>
-  `;
-
-  // Expense summary is intentionally rendered inside Wallets Overview (Expenses tab),
-  // not inside the main Overview grid.
-  els.statsGrid.innerHTML = currencyCards + goodsCard;
+  els.statsGrid.innerHTML = currencyCards;
 }
 
 function matchesSearch(entry, term){
@@ -4468,12 +4539,15 @@ function activate(tab){
   document.getElementById(`${tab}Panel`).classList.add("active");
   const mainOverview = document.getElementById("mainOverview");
   const walletsOverview = document.getElementById("walletsOverviewSection");
+  const loanOverviewTabs = new Set(["given", "received", "taken", "returned", "installments"]);
+  const showMainOverview = loanOverviewTabs.has(tab) || tab === "goods";
 
   if (mainOverview) {
-    if (tab === "expenses" || tab === "bitcoin" || tab === "notes") {
-      mainOverview.style.display = "none";
-    } else {
+    if (showMainOverview) {
+      renderOverviewCards(tab);
       mainOverview.style.display = "block";
+    } else {
+      mainOverview.style.display = "none";
     }
   }
 
@@ -7220,14 +7294,14 @@ function expandMainOverview() {
   els.mainOverview.classList.remove("collapsed");
   els.mainOverview.classList.add("expanded");
   els.toggleMainOverviewBtn.textContent = "▼";
-  els.toggleMainOverviewBtn.title = "Collapse Overview";
+  setMainOverviewHeading(getActiveTabKey() === "goods" ? "inventory" : "loans");
 }
 
 function collapseMainOverview() {
   els.mainOverview.classList.remove("expanded");
   els.mainOverview.classList.add("collapsed");
   els.toggleMainOverviewBtn.textContent = "▶";
-  els.toggleMainOverviewBtn.title = "Expand Overview";
+  setMainOverviewHeading(getActiveTabKey() === "goods" ? "inventory" : "loans");
 }
 
 function toggleMainOverview() {
