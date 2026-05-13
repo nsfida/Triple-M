@@ -1304,7 +1304,7 @@
                 <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
                   <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-solid fa-cart-shopping"></i> Goods Management</h5>
                   <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
-                    Track bought and sold items with inventory management. Monitor stock levels, sales records, and profit margins with detailed transaction history.
+                    Track purchased and sold items with inventory management. Monitor stock levels, sales records, and profit margins with detailed transaction history.
                   </p>
                 </div>
                 <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
@@ -1504,20 +1504,39 @@
               </div>
               <input type="hidden" name="currency" value="AED" />
             </div>
-            <div class="field w6">
-              <label>Unit price</label>
+            <div class="field w4">
+              <label>Item category</label>
+              <select class="select" name="item_category">
+                <option value="count">Numbers</option>
+                <option value="weight">Weight</option>
+              </select>
+            </div>
+            <div class="field w4">
+              <label data-inventory-price-label>Purchase price</label>
               <input class="input" name="actual_price" type="number" min="0" step="0.00000001" required placeholder="0.00" />
             </div>
-            <div class="field w6">
-              <label>Quantity</label>
+            <div class="field w4">
+              <label data-inventory-selling-label>Selling price</label>
+              <input class="input" name="selling_price" type="number" min="0" step="0.00000001" placeholder="0.00" />
+            </div>
+            <div class="field w4">
+              <label data-inventory-qty-label>Quantity</label>
               <input class="input" name="bought_qty" type="number" min="1" step="1" required value="1" />
             </div>
-            <div class="field w6">
+            <div class="field w4 hide" data-inventory-unit-wrap>
+              <label>Unit</label>
+              <select class="select" name="quantity_unit">
+                <option value="item">Pcs</option>
+                <option value="kg">KG</option>
+                <option value="g">Gram</option>
+              </select>
+            </div>
+            <div class="field w4">
               <label>Total amount</label>
               <input class="input" id="goodsBoughtTotalAmount" name="total_amount" type="number" min="0" step="0.00000001" readonly placeholder="0.00" />
             </div>
-            <div class="field w6">
-              <label>Bought date</label>
+            <div class="field w4">
+              <label>Purchase date</label>
               <input class="input" name="bought_date" type="date" required data-default-today="true" />
             </div>
             <div class="field w12">
@@ -1541,8 +1560,11 @@
             </div>
             <div class="field w4">
               <label>Customer name</label>
-              <input class="input" name="customer_name" list="goodsCustomerList" required placeholder="Select or type new customer" autocomplete="off" />
-              <datalist id="goodsCustomerList"></datalist>
+              <select class="select" id="goodsCustomerSelect" name="customer_name_select" required></select>
+            </div>
+            <div class="field w4 hide" id="goodsNewCustomerField">
+              <label>New customer</label>
+              <input class="input" id="goodsNewCustomerName" name="new_customer_name" placeholder="Customer name" autocomplete="off" />
             </div>
             <div id="goodsNewItemFields" class="field w12 hide">
               <div class="modal-grid">
@@ -1576,11 +1598,11 @@
                   <input class="input" name="new_actual_price" type="number" min="0" step="0.00000001" placeholder="0.00" />
                 </div>
                 <div class="field w6">
-                  <label>Quantity bought</label>
+                  <label>Quantity purchased</label>
                   <input class="input" name="new_bought_qty" type="number" min="1" step="1" value="1" />
                 </div>
                 <div class="field w6">
-                  <label>Bought date</label>
+                  <label>Purchase date</label>
                   <input class="input" name="new_bought_date" type="date" data-default-today="true" />
                 </div>
               </div>
