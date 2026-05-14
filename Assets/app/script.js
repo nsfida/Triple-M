@@ -105,7 +105,8 @@ const state = {
   inventoryDraft: {
     purchaseGroupId: "",
     saleGroupIds: [],
-    settlement: null
+    settlement: null,
+    customerRecordName: ""
   },
   bitcoin: {
     wallet: null,
@@ -202,6 +203,10 @@ const els = {
   goodsCustomerSelect: document.getElementById("goodsCustomerSelect"),
   goodsNewCustomerField: document.getElementById("goodsNewCustomerField"),
   goodsNewCustomerName: document.getElementById("goodsNewCustomerName"),
+  goodsNewCustomerPhoneField: document.getElementById("goodsNewCustomerPhoneField"),
+  goodsNewCustomerPhone: document.getElementById("goodsNewCustomerPhone"),
+  goodsNewCustomerAddressField: document.getElementById("goodsNewCustomerAddressField"),
+  goodsNewCustomerAddress: document.getElementById("goodsNewCustomerAddress"),
   goodsSaleLines: document.getElementById("goodsSaleLines"),
   addGoodsSaleLineBtn: document.getElementById("addGoodsSaleLineBtn"),
   goodsSaleGrandTotal: document.getElementById("goodsSaleGrandTotal"),
@@ -214,6 +219,13 @@ const els = {
   goodsSettlementBalance: document.getElementById("goodsSettlementBalance"),
   goodsSettlementAmount: document.getElementById("goodsSettlementAmount"),
   goodsSettlementDate: document.getElementById("goodsSettlementDate"),
+  goodsSettlementInvoiceListField: document.getElementById("goodsSettlementInvoiceListField"),
+  goodsSettlementInvoiceList: document.getElementById("goodsSettlementInvoiceList"),
+  inventoryCustomerModal: document.getElementById("inventoryCustomerModal"),
+  inventoryCustomerTitle: document.getElementById("inventoryCustomerTitle"),
+  inventoryCustomerDesc: document.getElementById("inventoryCustomerDesc"),
+  inventoryCustomerBody: document.getElementById("inventoryCustomerBody"),
+  inventoryCustomerStatementBtn: document.getElementById("inventoryCustomerStatementBtn"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -1278,6 +1290,8 @@ function goodsMetaFromNotes(noteValue){
     itemCode: readText("ICODE"),
     itemDescription: readText("IDESC"),
     customerName: readText("CUST"),
+    customerPhone: readText("CPHONE"),
+    customerAddress: readText("CADDR"),
     receiptNumber: readText("RCPT"),
     transactionType: readText("TX"),
     itemCategory: readText("UCAT"),
@@ -1292,7 +1306,7 @@ function goodsMetaFromNotes(noteValue){
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
   let note = normalizeGoodsNote(noteValue, true) || GOODS_TAG;
-  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
   const tags = [];
   if (meta.boughtQty != null) tags.push(`[BQTY:${meta.boughtQty}]`);
   if (meta.soldQty != null) tags.push(`[SQTY:${meta.soldQty}]`);
@@ -1301,6 +1315,8 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.itemCode) tags.push(`[ICODE:${String(meta.itemCode).replace(/\]/g, "")}]`);
   if (meta.itemDescription) tags.push(`[IDESC:${String(meta.itemDescription).replace(/\]/g, "")}]`);
   if (meta.customerName) tags.push(`[CUST:${String(meta.customerName).replace(/\]/g, "")}]`);
+  if (meta.customerPhone) tags.push(`[CPHONE:${String(meta.customerPhone).replace(/\]/g, "")}]`);
+  if (meta.customerAddress) tags.push(`[CADDR:${String(meta.customerAddress).replace(/\]/g, "")}]`);
   if (meta.receiptNumber) tags.push(`[RCPT:${String(meta.receiptNumber).replace(/\]/g, "")}]`);
   if (meta.transactionType) tags.push(`[TX:${String(meta.transactionType).replace(/\]/g, "")}]`);
   if (meta.itemCategory) tags.push(`[UCAT:${String(meta.itemCategory).replace(/\]/g, "")}]`);
@@ -1316,7 +1332,7 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
 function cleanGoodsDisplayNote(noteValue){
   return String(noteValue || "")
     .replace(GOODS_TAG, "")
-    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "")
+    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -1869,6 +1885,8 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
       principalMeta,
       itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
       itemName: principalEntry?.person_name || entry.person_name || "Goods item",
+      customerPhone: entryMeta.customerPhone || "",
+      customerAddress: entryMeta.customerAddress || "",
       itemCategory,
       qty,
       qtyDisplay: inventoryQtyLabel(qty, itemCategory),
@@ -1956,7 +1974,9 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
     totalAmount,
     paidTotal: saleRows.reduce((sum, row) => sum + Number(row.paid || 0), 0),
     balanceTotal: saleRows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
-    customerName: saleRows[0]?.entryMeta.customerName || goodsMetaFromNotes(fallbackEntry?.notes).customerName || "Walk-in customer"
+    customerName: saleRows[0]?.entryMeta.customerName || goodsMetaFromNotes(fallbackEntry?.notes).customerName || "Walk-in customer",
+    customerPhone: saleRows.find(row => row.customerPhone)?.customerPhone || goodsMetaFromNotes(fallbackEntry?.notes).customerPhone || "",
+    customerAddress: saleRows.find(row => row.customerAddress)?.customerAddress || goodsMetaFromNotes(fallbackEntry?.notes).customerAddress || ""
   };
 }
 
@@ -1997,6 +2017,10 @@ function collectOutstandingInventoryInvoices(){
       .map(row => row.entry.action_date)
       .filter(Boolean)
       .sort((a, b) => dateStamp(b) - dateStamp(a))[0] || entry.action_date || entry.loan_date || "";
+    const oldestDate = receiptData.saleRows
+      .map(row => row.entry.action_date)
+      .filter(Boolean)
+      .sort((a, b) => dateStamp(a) - dateStamp(b))[0] || entry.action_date || entry.loan_date || "";
     const itemNames = [...new Set(receiptData.saleRows.map(row => row.itemName).filter(Boolean))];
 
     invoices.push({
@@ -2004,11 +2028,17 @@ function collectOutstandingInventoryInvoices(){
       customerName: receiptData.customerName || meta.customerName || "Walk-in customer",
       entryId: outstandingSaleRow?.entry?.id || entry.id,
       date: dateValue,
+      oldestDate,
       lineCount: receiptData.saleRows.length,
       itemSummary: itemNames.slice(0, 3).join(", ") + (itemNames.length > 3 ? ` +${itemNames.length - 3}` : ""),
       totalText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency),
       paidText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "paid") || moneyText(receiptData.paidTotal, receiptData.currency),
       balanceText: inventoryCurrencyTotalsText(balanceByCurrency) || moneyText(receiptData.balanceTotal, receiptData.currency),
+      totalAmount: receiptData.totalAmount,
+      paidTotal: receiptData.paidTotal,
+      balanceTotal: receiptData.balanceTotal,
+      currency: receiptData.totalsByCurrency.size === 1 ? Array.from(receiptData.totalsByCurrency.keys())[0] : receiptData.currency,
+      totalsByCurrency: receiptData.totalsByCurrency,
       balanceByCurrency,
       canSettle: receiptData.totalsByCurrency.size === 1
     });
@@ -2030,15 +2060,15 @@ function renderInventoryOutstandingBanner(){
 
   if (!invoices.length){
     return `
-      <section class="inventory-outstanding-banner is-clear">
-        <div class="inventory-outstanding-top">
+      <details class="inventory-outstanding-banner is-clear">
+        <summary class="inventory-outstanding-top">
           <div>
             <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
             <p>No outstanding inventory invoices.</p>
           </div>
           <strong>Clear</strong>
-        </div>
-      </section>
+        </summary>
+      </details>
     `;
   }
 
@@ -2046,16 +2076,21 @@ function renderInventoryOutstandingBanner(){
   invoices.forEach(invoice => {
     const key = invoice.customerName || "Walk-in customer";
     if (!members.has(key)){
-      members.set(key, { name: key, invoices: [], balanceByCurrency: new Map() });
+      members.set(key, { name: key, invoices: [], totalByCurrency: new Map(), paidByCurrency: new Map(), balanceByCurrency: new Map() });
     }
     const member = members.get(key);
     member.invoices.push(invoice);
+    invoice.totalsByCurrency.forEach((amounts, currency) => {
+      addCurrencyTotal(member.totalByCurrency, currency, amounts.total || 0);
+      addCurrencyTotal(member.paidByCurrency, currency, amounts.paid || 0);
+    });
     invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(member.balanceByCurrency, currency, amount));
   });
+  const memberRows = Array.from(members.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   return `
-    <section class="inventory-outstanding-banner">
-      <div class="inventory-outstanding-top">
+    <details class="inventory-outstanding-banner">
+      <summary class="inventory-outstanding-top">
         <div>
           <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
           <p>${escapeHtml(invoices.length)} invoice${invoices.length === 1 ? "" : "s"} pending across ${escapeHtml(members.size)} member${members.size === 1 ? "" : "s"}.</p>
@@ -2064,36 +2099,566 @@ function renderInventoryOutstandingBanner(){
           <small>Total balance</small>
           <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance))}</strong>
         </div>
-      </div>
-      <div class="inventory-outstanding-members">
-        ${Array.from(members.values()).map(member => `
-          <details class="inventory-outstanding-member" open>
+      </summary>
+      <div class="inventory-outstanding-body">
+        <div class="inventory-outstanding-search">
+          <div class="inventory-outstanding-search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="input inventoryOutstandingSearchInput" type="search" placeholder="Search customer, invoice, or item" />
+          </div>
+          <button class="tiny inventoryOutstandingSearchBtn" type="button">Search</button>
+          <button class="tiny ghost inventoryOutstandingClearSearchBtn" type="button">Clear</button>
+        </div>
+        <div class="inventory-outstanding-members">
+        ${memberRows.map(member => {
+          const searchText = `${member.name} ${member.invoices.map(invoice => `${invoice.receiptNumber} ${invoice.itemSummary} ${invoice.totalText} ${invoice.paidText} ${invoice.balanceText}`).join(" ")}`;
+          return `
+          <details class="inventory-outstanding-member" data-search="${escapeHtml(searchText)}">
             <summary>
-              <span>${escapeHtml(member.name)}</span>
+              <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
               <strong>${escapeHtml(member.invoices.length)} invoice${member.invoices.length === 1 ? "" : "s"} • ${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency))}</strong>
             </summary>
             <div class="inventory-outstanding-list">
-              ${member.invoices.map(invoice => `
-                <div class="inventory-outstanding-row">
-                  <div class="inventory-outstanding-main">
-                    <strong>Invoice ${escapeHtml(invoice.receiptNumber)}</strong>
-                    <span>${escapeHtml(displayDate(invoice.date || "—"))} • ${escapeHtml(invoice.lineCount)} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` • ${escapeHtml(invoice.itemSummary)}` : ""}</span>
-                  </div>
-                  <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(invoice.totalText)}</strong></div>
-                  <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(invoice.paidText)}</strong></div>
-                  <div class="inventory-outstanding-money is-due"><small>Balance</small><strong>${escapeHtml(invoice.balanceText)}</strong></div>
-                  <div class="inventory-outstanding-actions">
-                    <button class="tiny soldReceiptBtn" type="button" data-id="${escapeHtml(invoice.entryId)}" title="Download invoice PDF"><i class="fa-solid fa-download"></i> PDF</button>
-                    <button class="tiny ghost clearBalanceBtn" type="button" data-id="${escapeHtml(invoice.entryId)}" title="${invoice.canSettle ? "Record full or partial settlement" : "Settlement is available only for single-currency invoices"}" ${invoice.canSettle ? "" : "disabled"}>Settle</button>
-                  </div>
+              <div class="inventory-outstanding-row">
+                <div class="inventory-outstanding-main">
+                  <strong>Combined outstanding invoice</strong>
+                  <span>${escapeHtml(member.invoices.length)} invoice${member.invoices.length === 1 ? "" : "s"} for ${escapeHtml(member.name)} • oldest balance settled first</span>
                 </div>
-              `).join("")}
+                <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency))}</strong></div>
+                <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency))}</strong></div>
+                <div class="inventory-outstanding-money is-due"><small>Balance</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency))}</strong></div>
+                <div class="inventory-outstanding-actions">
+                  <button class="tiny inventoryOutstandingCustomerPdfBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download customer outstanding invoice PDF"><i class="fa-solid fa-download"></i> PDF</button>
+                  <button class="tiny ghost inventoryOutstandingCustomerSettleBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Select one or more invoices and record settlement">Settle</button>
+                </div>
+              </div>
             </div>
           </details>
-        `).join("")}
+        `;
+        }).join("")}
+          <div class="inventory-outstanding-empty hide">No matching outstanding customers.</div>
+        </div>
       </div>
-    </section>
+    </details>
   `;
+}
+
+function applyInventoryOutstandingSearch(root = els.goodsList){
+  const banner = root?.querySelector(".inventory-outstanding-banner");
+  const input = banner?.querySelector(".inventoryOutstandingSearchInput");
+  const members = Array.from(banner?.querySelectorAll(".inventory-outstanding-member") || []);
+  const empty = banner?.querySelector(".inventory-outstanding-empty");
+  const term = String(input?.value || "").trim().toLowerCase();
+  let visible = 0;
+  members.forEach(member => {
+    const haystack = String(member.dataset.search || "").toLowerCase();
+    const isVisible = !term || haystack.includes(term);
+    member.classList.toggle("hide", !isVisible);
+    if (isVisible) visible += 1;
+    else member.open = false;
+  });
+  if (empty) empty.classList.toggle("hide", visible > 0);
+}
+
+function bindInventoryOutstandingBanner(root = els.goodsList){
+  if (!root) return;
+  root.querySelectorAll(".inventoryOutstandingCustomerOpenBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openInventoryCustomerModal(btn.dataset.customer);
+  }));
+  root.querySelectorAll(".inventoryOutstandingSearchBtn").forEach(btn => btn.addEventListener("click", () => applyInventoryOutstandingSearch(root)));
+  root.querySelectorAll(".inventoryOutstandingClearSearchBtn").forEach(btn => btn.addEventListener("click", () => {
+    const input = root.querySelector(".inventoryOutstandingSearchInput");
+    if (input) input.value = "";
+    applyInventoryOutstandingSearch(root);
+  }));
+  root.querySelectorAll(".inventoryOutstandingSearchInput").forEach(input => input.addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    applyInventoryOutstandingSearch(root);
+  }));
+}
+
+function outstandingInvoicesForCustomer(customerName){
+  const target = String(customerName || "").trim().toLowerCase();
+  return collectOutstandingInventoryInvoices()
+    .filter(invoice => String(invoice.customerName || "").trim().toLowerCase() === target)
+    .sort((a, b) => dateStamp(a.oldestDate || a.date) - dateStamp(b.oldestDate || b.date) || String(a.receiptNumber).localeCompare(String(b.receiptNumber)));
+}
+
+async function downloadOutstandingCustomerInvoicePDF(customerName){
+  const invoices = outstandingInvoicesForCustomer(customerName);
+  if (!invoices.length){
+    alert("No outstanding invoices found for this customer.");
+    return;
+  }
+  if (!window.jspdf){
+    alert("PDF library loading. Please try again.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
+  const logoData = await getPdfLogo();
+  const title = "Outstanding Inventory Invoice";
+  const subtitle = `Customer: ${customerName}`;
+  drawPdfHeader(doc, logoData, title, subtitle);
+  drawPdfOwnerBlock(doc, 48);
+
+  const contact = getInventoryCustomerContact(customerName);
+  const totalBalance = new Map();
+  const totalAmounts = new Map();
+  const paidAmounts = new Map();
+  invoices.forEach(invoice => {
+    invoice.totalsByCurrency.forEach((amounts, currency) => {
+      addCurrencyTotal(totalAmounts, currency, amounts.total || 0);
+      addCurrencyTotal(paidAmounts, currency, amounts.paid || 0);
+    });
+    invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
+  });
+
+  doc.setFontSize(10);
+  doc.setTextColor(23, 33, 43);
+  doc.text(`Bill To: ${customerName}`, 132, 48);
+  if (contact.phone) doc.text(`Phone: ${contact.phone}`, 132, 54);
+  if (contact.address) doc.text(`Address: ${contact.address}`, 132, contact.phone ? 60 : 54, { maxWidth: 58 });
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 78, 182, 30, 2, 2, "S");
+  doc.setFontSize(9.5);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Invoices: ${invoices.length}`, 18, 86);
+  doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts)}`, 18, 94);
+  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts)}`, 110, 86);
+  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance)}`, 110, 94);
+
+  doc.autoTable({
+    startY: 116,
+    head: [["Invoice", "Date", "Items", "Total", "Paid", "Balance"]],
+    body: invoices.map(invoice => [
+      invoice.receiptNumber,
+      displayDate(invoice.oldestDate || invoice.date || "—"),
+      `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` - ${invoice.itemSummary}` : ""}`,
+      invoice.totalText,
+      invoice.paidText,
+      invoice.balanceText
+    ]),
+    theme: "grid",
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 8.2, cellPadding: 2.2, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 25 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 51 },
+      3: { cellWidth: 28, halign: "right" },
+      4: { cellWidth: 28, halign: "right" },
+      5: { cellWidth: 28, halign: "right" }
+    },
+    margin: { top: 50, bottom: 40 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+  });
+
+  doc.save(`Outstanding_Invoice_${String(customerName || "customer").replace(/\s+/g, "_")}.pdf`);
+}
+
+function normalizeInventoryCustomerKey(name){
+  return String(name || "").trim().toLowerCase();
+}
+
+function getInventoryCustomerInvoices(customerName){
+  const target = normalizeInventoryCustomerKey(customerName);
+  if (!target) return [];
+  const seenReceipts = new Set();
+  return state.entries
+    .filter(entry => entry.entry_kind !== "principal" && hasGoodsTag(entry.notes) && isInventorySaleAction(entry))
+    .filter(entry => normalizeInventoryCustomerKey(goodsMetaFromNotes(entry.notes).customerName || "Walk-in customer") === target)
+    .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at))
+    .map(entry => {
+      const meta = goodsMetaFromNotes(entry.notes);
+      const receiptNumber = meta.receiptNumber || shortId(entry.id) || "";
+      const receiptKey = receiptNumber || entry.id;
+      if (seenReceipts.has(receiptKey)) return null;
+      seenReceipts.add(receiptKey);
+      const receiptData = getInventoryReceiptData(receiptNumber, entry);
+      if (!receiptData.saleRows.length) return null;
+      if (normalizeInventoryCustomerKey(receiptData.customerName || meta.customerName || "Walk-in customer") !== target) return null;
+      const balanceByCurrency = new Map();
+      receiptData.totalsByCurrency.forEach((amounts, currency) => addCurrencyTotal(balanceByCurrency, currency, amounts.balance || 0));
+      const dates = receiptData.saleRows.map(row => row.entry.action_date).filter(Boolean);
+      const oldestDate = dates.slice().sort((a, b) => dateStamp(a) - dateStamp(b))[0] || entry.action_date || "";
+      const latestDate = dates.slice().sort((a, b) => dateStamp(b) - dateStamp(a))[0] || entry.action_date || "";
+      const itemNames = [...new Set(receiptData.saleRows.map(row => row.itemName).filter(Boolean))];
+      return {
+        receiptNumber: receiptData.receiptNumber || receiptNumber || shortId(entry.id),
+        entryId: receiptData.saleRows[0]?.entry?.id || entry.id,
+        customerName: receiptData.customerName || meta.customerName || "Walk-in customer",
+        oldestDate,
+        date: latestDate,
+        lineCount: receiptData.saleRows.length,
+        itemSummary: itemNames.slice(0, 4).join(", ") + (itemNames.length > 4 ? ` +${itemNames.length - 4}` : ""),
+        totalText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency),
+        paidText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "paid") || moneyText(receiptData.paidTotal, receiptData.currency),
+        balanceText: inventoryCurrencyTotalsText(balanceByCurrency) || moneyText(receiptData.balanceTotal, receiptData.currency),
+        totalsByCurrency: receiptData.totalsByCurrency,
+        balanceByCurrency,
+        receiptData
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => dateStamp(a.oldestDate || a.date) - dateStamp(b.oldestDate || b.date) || String(a.receiptNumber).localeCompare(String(b.receiptNumber)));
+}
+
+function inventoryReceiptSettlementGroups(receiptData){
+  const groups = new Map();
+  receiptData.settlementEntries.forEach(entry => {
+    const meta = goodsMetaFromNotes(entry.notes);
+    const key = meta.settlementId || entry.id;
+    if (!groups.has(key)){
+      groups.set(key, {
+        key,
+        date: entry.action_date || entry.created_at || "",
+        receiptNumber: meta.receiptNumber || receiptData.receiptNumber,
+        entryIds: [],
+        itemNames: new Set(),
+        amountByCurrency: new Map(),
+        notes: cleanGoodsDisplayNote(entry.notes) || "Balance settlement"
+      });
+    }
+    const group = groups.get(key);
+    group.entryIds.push(entry.id);
+    if (entry.person_name) group.itemNames.add(entry.person_name);
+    addCurrencyTotal(group.amountByCurrency, entry.currency || receiptData.currency, Number(entry.action_amount || 0));
+    if (!group.date) group.date = entry.action_date || entry.created_at || "";
+  });
+  return Array.from(groups.values()).sort((a, b) => dateStamp(a.date) - dateStamp(b.date) || String(a.key).localeCompare(String(b.key)));
+}
+
+function getInventoryCustomerRecord(customerName){
+  const invoices = getInventoryCustomerInvoices(customerName);
+  const customer = invoices[0]?.customerName || customerName || "Walk-in customer";
+  const contact = getInventoryCustomerContact(customer);
+  const totalByCurrency = new Map();
+  const paidByCurrency = new Map();
+  const balanceByCurrency = new Map();
+  const statementRows = [];
+
+  invoices.forEach(invoice => {
+    invoice.totalsByCurrency.forEach((amounts, currency) => {
+      addCurrencyTotal(totalByCurrency, currency, amounts.total || 0);
+      addCurrencyTotal(paidByCurrency, currency, amounts.paid || 0);
+      addCurrencyTotal(balanceByCurrency, currency, amounts.balance || 0);
+    });
+
+    statementRows.push({
+      date: invoice.oldestDate || invoice.date || "",
+      type: "Invoice",
+      receiptNumber: invoice.receiptNumber,
+      details: `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` - ${invoice.itemSummary}` : ""}`,
+      debitText: invoice.totalText,
+      creditText: "-",
+      balanceText: invoice.balanceText,
+      entryId: invoice.entryId,
+      action: "invoice"
+    });
+
+    const initialPaidByCurrency = new Map();
+    const initialBalanceByCurrency = new Map();
+    invoice.receiptData.saleRows.forEach(row => {
+      addCurrencyTotal(initialPaidByCurrency, row.currency, row.initialPaid || 0);
+      addCurrencyTotal(initialBalanceByCurrency, row.currency, Math.max(Number(row.total || 0) - Number(row.initialPaid || 0), 0));
+    });
+    const initialPaidText = inventoryCurrencyTotalsText(initialPaidByCurrency);
+    if (initialPaidText){
+      statementRows.push({
+        date: invoice.oldestDate || invoice.date || "",
+        type: "First Payment",
+        receiptNumber: invoice.receiptNumber,
+        details: "Initial payment on invoice",
+        debitText: "-",
+        creditText: initialPaidText,
+        balanceText: inventoryCurrencyTotalsText(initialBalanceByCurrency) || "-",
+        entryId: invoice.entryId,
+        action: "receipt"
+      });
+    }
+
+    inventoryReceiptSettlementGroups(invoice.receiptData).forEach(payment => {
+      statementRows.push({
+        date: payment.date,
+        type: "Balance Payment",
+        receiptNumber: payment.receiptNumber,
+        details: payment.itemNames.size ? Array.from(payment.itemNames).join(", ") : payment.notes,
+        debitText: "-",
+        creditText: inventoryCurrencyTotalsText(payment.amountByCurrency),
+        balanceText: "",
+        entryId: payment.entryIds[0],
+        action: "receipt"
+      });
+    });
+  });
+
+  const typeOrder = { "Invoice": 1, "First Payment": 2, "Balance Payment": 3 };
+  statementRows.sort((a, b) =>
+    dateStamp(a.date) - dateStamp(b.date) ||
+    String(a.receiptNumber).localeCompare(String(b.receiptNumber)) ||
+    (typeOrder[a.type] || 9) - (typeOrder[b.type] || 9)
+  );
+
+  return { customerName: customer, contact, invoices, statementRows, totalByCurrency, paidByCurrency, balanceByCurrency };
+}
+
+function renderInventoryCustomerRecord(record){
+  if (!record.invoices.length){
+    return `<div class="empty">No inventory records found for this customer.</div>`;
+  }
+  return `
+    <div class="inventory-customer-summary">
+      <div><small>Total Invoiced</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.totalByCurrency) || "0")}</strong></div>
+      <div><small>Total Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.paidByCurrency) || "0")}</strong></div>
+      <div><small>Outstanding</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.balanceByCurrency) || "0")}</strong></div>
+      <div><small>Invoices</small><strong>${escapeHtml(record.invoices.length)}</strong></div>
+    </div>
+    <div class="inventory-customer-contact">
+      <span><strong>Bill To:</strong> ${escapeHtml(record.customerName)}</span>
+      ${record.contact.phone ? `<span><strong>Phone:</strong> ${escapeHtml(record.contact.phone)}</span>` : ""}
+      ${record.contact.address ? `<span><strong>Address:</strong> ${escapeHtml(record.contact.address)}</span>` : ""}
+    </div>
+    <div class="inventory-customer-section">
+      <h4>Invoices</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Invoice</th><th>Items</th><th>Total</th><th>Paid</th><th>Balance</th><th>Action</th></tr></thead>
+          <tbody>
+            ${record.invoices.map(invoice => `
+              <tr>
+                <td>${escapeHtml(displayDate(invoice.oldestDate || invoice.date || "-"))}</td>
+                <td>${escapeHtml(invoice.receiptNumber)}</td>
+                <td>${escapeHtml(invoice.itemSummary || `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}`)}</td>
+                <td>${escapeHtml(invoice.totalText)}</td>
+                <td>${escapeHtml(invoice.paidText)}</td>
+                <td>${escapeHtml(invoice.balanceText || "-")}</td>
+                <td><button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(invoice.entryId)}"><i class="fa-solid fa-download"></i> Invoice</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="inventory-customer-section">
+      <h4>Payment Statement</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Invoice</th><th>Details</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Receipt</th></tr></thead>
+          <tbody>
+            ${record.statementRows.map(row => `
+              <tr>
+                <td>${escapeHtml(displayDate(row.date || "-"))}</td>
+                <td>${escapeHtml(row.type)}</td>
+                <td>${escapeHtml(row.receiptNumber)}</td>
+                <td>${escapeHtml(row.details || "-")}</td>
+                <td>${escapeHtml(row.debitText || "-")}</td>
+                <td>${escapeHtml(row.creditText || "-")}</td>
+                <td>${escapeHtml(row.balanceText || "-")}</td>
+                <td>
+                  ${row.action === "invoice"
+                    ? `<button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}"><i class="fa-solid fa-file-invoice"></i></button>`
+                    : `<button class="tiny ghost inventoryCustomerReceiptPdfBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}"><i class="fa-solid fa-receipt"></i></button>`}
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openInventoryCustomerModal(customerName){
+  const record = getInventoryCustomerRecord(customerName);
+  state.inventoryDraft.customerRecordName = record.customerName || customerName || "";
+  if (els.inventoryCustomerTitle) els.inventoryCustomerTitle.textContent = record.customerName || "Customer record";
+  if (els.inventoryCustomerDesc) {
+    els.inventoryCustomerDesc.textContent = `${record.invoices.length} invoice${record.invoices.length === 1 ? "" : "s"} sorted by date with receipts and payment statement.`;
+  }
+  if (els.inventoryCustomerBody) {
+    els.inventoryCustomerBody.innerHTML = renderInventoryCustomerRecord(record);
+    els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerInvoicePdfBtn").forEach(btn => {
+      btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.entryId));
+    });
+    els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerReceiptPdfBtn").forEach(btn => {
+      btn.addEventListener("click", () => downloadInventoryPaymentReceiptPDF(btn.dataset.entryId));
+    });
+  }
+  if (els.inventoryCustomerModal) {
+    els.inventoryCustomerModal.classList.remove("hide");
+    els.inventoryCustomerModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+}
+
+async function downloadInventoryPaymentReceiptPDF(entryId){
+  const sourceEntry = state.entries.find(entry => entry.id === entryId && entry.entry_kind !== "principal" && hasGoodsTag(entry.notes));
+  if (!sourceEntry){
+    alert("Payment receipt entry not found.");
+    return;
+  }
+  if (!window.jspdf){
+    alert("PDF library loading. Please try again.");
+    return;
+  }
+  const sourceMeta = goodsMetaFromNotes(sourceEntry.notes);
+  const receiptNumber = sourceMeta.receiptNumber || shortId(sourceEntry.id) || "N/A";
+  const receiptData = getInventoryReceiptData(receiptNumber, sourceEntry);
+  const rows = [];
+  const paidByCurrency = new Map();
+  let receiptDate = sourceEntry.action_date || sourceEntry.created_at || "";
+  let receiptLabel = isInventorySettlementAction(sourceEntry) ? "Balance Payment Receipt" : "Initial Payment Receipt";
+
+  if (isInventorySettlementAction(sourceEntry)){
+    const settlementId = sourceMeta.settlementId || "";
+    const settlementRows = receiptData.settlementEntries.filter(entry => {
+      const meta = goodsMetaFromNotes(entry.notes);
+      return settlementId ? meta.settlementId === settlementId : entry.id === sourceEntry.id;
+    });
+    settlementRows.forEach(entry => {
+      const meta = goodsMetaFromNotes(entry.notes);
+      const amount = Number(entry.action_amount || 0);
+      addCurrencyTotal(paidByCurrency, entry.currency || receiptData.currency, amount);
+      rows.push([
+        displayDate(entry.action_date || receiptDate || "-"),
+        meta.receiptNumber || receiptNumber,
+        entry.person_name || meta.itemCode || "Inventory item",
+        formatReportAmount(amount, entry.currency || receiptData.currency),
+        formatReportAmount(meta.balanceAmount || 0, entry.currency || receiptData.currency)
+      ]);
+    });
+  } else {
+    receiptData.saleRows.filter(row => row.initialPaid > 0.00000001).forEach(row => {
+      addCurrencyTotal(paidByCurrency, row.currency || receiptData.currency, row.initialPaid || 0);
+      rows.push([
+        displayDate(row.entry.action_date || receiptDate || "-"),
+        receiptNumber,
+        row.itemName || row.itemCode || "Inventory item",
+        formatReportAmount(row.initialPaid || 0, row.currency || receiptData.currency),
+        formatReportAmount(Math.max(row.total - row.initialPaid, 0), row.currency || receiptData.currency)
+      ]);
+    });
+  }
+
+  if (!rows.length){
+    alert("No payment amount found for this receipt.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
+  const logoData = await getPdfLogo();
+  const title = receiptLabel;
+  const subtitle = `Invoice ID: ${receiptNumber}`;
+  drawPdfHeader(doc, logoData, title, subtitle);
+  drawPdfOwnerBlock(doc, 48);
+
+  doc.setTextColor(23, 33, 43);
+  doc.setFontSize(10);
+  doc.text(`Customer: ${receiptData.customerName || sourceMeta.customerName || "Walk-in customer"}`, 132, 48);
+  doc.text(`Receipt Date: ${displayDate(receiptDate || "-")}`, 132, 54);
+  doc.text(`Paid: ${inventoryCurrencyTotalsText(paidByCurrency)}`, 132, 60, { maxWidth: 58 });
+
+  doc.autoTable({
+    startY: 78,
+    head: [["Date", "Invoice", "Item", "Paid", "Line Balance"]],
+    body: rows,
+    theme: "grid",
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.4, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 27 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 64 },
+      3: { cellWidth: 31, halign: "right" },
+      4: { cellWidth: 32, halign: "right" }
+    },
+    margin: { top: 50, bottom: 40 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+  });
+  doc.setFontSize(9.5);
+  doc.setTextColor(102, 112, 133);
+  doc.text(`Notes: ${cleanGoodsDisplayNote(sourceEntry.notes) || "-"}`, 14, doc.lastAutoTable.finalY + 10);
+  doc.save(`Payment_Receipt_${String(receiptNumber).replace(/\s+/g, "_")}_${String(entryId || "").slice(0, 6)}.pdf`);
+}
+
+async function downloadInventoryCustomerStatementPDF(customerName){
+  const record = getInventoryCustomerRecord(customerName);
+  if (!record.invoices.length){
+    alert("No inventory records found for this customer.");
+    return;
+  }
+  if (!window.jspdf){
+    alert("PDF library loading. Please try again.");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
+  const logoData = await getPdfLogo();
+  const title = "Inventory Customer Statement";
+  const subtitle = `Customer: ${record.customerName}`;
+  drawPdfHeader(doc, logoData, title, subtitle);
+  drawPdfOwnerBlock(doc, 48);
+
+  doc.setTextColor(23, 33, 43);
+  doc.setFontSize(10);
+  doc.text(`Bill To: ${record.customerName}`, 132, 48);
+  if (record.contact.phone) doc.text(`Phone: ${record.contact.phone}`, 132, 54);
+  if (record.contact.address) doc.text(`Address: ${record.contact.address}`, 132, record.contact.phone ? 60 : 54, { maxWidth: 58 });
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 78, 182, 30, 2, 2, "S");
+  doc.setFontSize(9.2);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Invoices: ${record.invoices.length}`, 18, 86);
+  doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency) || "0"}`, 18, 94);
+  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency) || "0"}`, 110, 86);
+  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency) || "0"}`, 110, 94);
+
+  doc.autoTable({
+    startY: 116,
+    head: [["Date", "Type", "Invoice", "Details", "Debit", "Credit", "Balance"]],
+    body: record.statementRows.map(row => [
+      displayDate(row.date || "-"),
+      row.type,
+      row.receiptNumber,
+      row.details || "-",
+      row.debitText || "-",
+      row.creditText || "-",
+      row.balanceText || "-"
+    ]),
+    theme: "grid",
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 7.4, cellPadding: 1.8, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 45 },
+      4: { cellWidth: 23, halign: "right" },
+      5: { cellWidth: 23, halign: "right" },
+      6: { cellWidth: 20, halign: "right" }
+    },
+    margin: { top: 50, bottom: 40 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+  });
+  doc.save(`Inventory_Customer_Statement_${String(record.customerName || "customer").replace(/\s+/g, "_")}.pdf`);
 }
 
 function updateGoodsBoughtTotal(){
@@ -2141,6 +2706,19 @@ function getInventoryCustomerNames(){
       .map(e => goodsMetaFromNotes(e.notes).customerName)
       .filter(Boolean)
   )].sort((a, b) => a.localeCompare(b));
+}
+
+function getInventoryCustomerContact(name){
+  const target = String(name || "").trim().toLowerCase();
+  if (!target) return { phone: "", address: "" };
+  const rows = state.entries
+    .filter(e => hasGoodsTag(e.notes) && e.entry_kind !== "principal")
+    .map(entry => ({ entry, meta: goodsMetaFromNotes(entry.notes) }))
+    .filter(row => String(row.meta.customerName || "").trim().toLowerCase() === target)
+    .sort((a, b) => dateStamp(b.entry.action_date || b.entry.created_at) - dateStamp(a.entry.action_date || a.entry.created_at));
+  const phone = rows.find(row => row.meta.customerPhone)?.meta.customerPhone || "";
+  const address = rows.find(row => row.meta.customerAddress)?.meta.customerAddress || "";
+  return { phone, address };
 }
 
 function buildTransferEvents(){
@@ -2655,8 +3233,14 @@ function syncGoodsCustomerFields(){
   if (!els.goodsCustomerSelect || !els.goodsNewCustomerField || !els.goodsNewCustomerName) return;
   const isNew = els.goodsCustomerSelect.value === INVENTORY_NEW_CUSTOMER_VALUE;
   els.goodsNewCustomerField.classList.toggle("hide", !isNew);
+  if (els.goodsNewCustomerPhoneField) els.goodsNewCustomerPhoneField.classList.toggle("hide", !isNew);
+  if (els.goodsNewCustomerAddressField) els.goodsNewCustomerAddressField.classList.toggle("hide", !isNew);
   els.goodsNewCustomerName.required = isNew;
-  if (!isNew) els.goodsNewCustomerName.value = "";
+  if (!isNew) {
+    els.goodsNewCustomerName.value = "";
+    if (els.goodsNewCustomerPhone) els.goodsNewCustomerPhone.value = "";
+    if (els.goodsNewCustomerAddress) els.goodsNewCustomerAddress.value = "";
+  }
 }
 
 function getSelectedGoodsCustomerName(form){
@@ -2665,6 +3249,17 @@ function getSelectedGoodsCustomerName(form){
     return String(form.querySelector('[name="new_customer_name"]')?.value || "").trim();
   }
   return selected;
+}
+
+function getSelectedGoodsCustomerContact(form){
+  const selected = String(form.querySelector('[name="customer_name_select"]')?.value || "").trim();
+  if (selected === INVENTORY_NEW_CUSTOMER_VALUE){
+    return {
+      phone: String(form.querySelector('[name="new_customer_phone"]')?.value || "").trim(),
+      address: String(form.querySelector('[name="new_customer_address"]')?.value || "").trim()
+    };
+  }
+  return getInventoryCustomerContact(selected);
 }
 
 function inventorySaleUnitOptions(group){
@@ -2938,6 +3533,7 @@ function getGoodsGroups(options = {}){
       if (!matchesSearch(group.principal || {}, state.search.goods)) return false;
       const f = state.statusFilter.goods;
       if (f === "Open") return group.status === "In Stock" || group.status === "Partial";
+      if (f === "LowStock") return group.remainingQty > 0.00000001 && group.boughtQty > 0 && (group.remainingQty / group.boughtQty) <= 0.15;
       if (f === "Closed") return group.status === "Sold";
       return true;
     });
@@ -3269,6 +3865,8 @@ async function downloadInventoryReceiptPDF(entryId){
   const soldTotal = receiptData.totalAmount;
   const currency = receiptData.currency || saleEntry.currency || receiptRows[0]?.currency || "AED";
   const customerName = receiptData.customerName || meta.customerName || "Walk-in customer";
+  const customerPhone = receiptData.customerPhone || meta.customerPhone || "";
+  const customerAddress = receiptData.customerAddress || meta.customerAddress || "";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
   const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total") || moneyText(soldTotal, currency);
   const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid") || moneyText(soldTotal, currency);
@@ -3288,20 +3886,31 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Lines: ${receiptRows.length}`, 132, 60);
   doc.text(`Status: ${receiptData.balanceTotal > 0.00000001 ? "Partial Paid" : "Full Paid"}`, 132, 66);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
+  doc.roundedRect(14, 78, 182, 44, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 78, 182, 30, 2, 2, "S");
-  doc.setFontSize(9.5);
+  doc.roundedRect(14, 78, 182, 44, 2, 2, "S");
+  doc.setFontSize(9.2);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Bill To: ${customerName}`, 18, 86);
-  doc.text(`Invoice No: ${receiptNumber}`, 18, 92);
+  let billY = 86;
+  doc.text(`Bill To: ${customerName}`, 18, billY);
+  billY += 6;
+  if (customerPhone) {
+    doc.text(`Phone: ${customerPhone}`, 18, billY);
+    billY += 6;
+  }
+  if (customerAddress) {
+    const addressLines = doc.splitTextToSize(`Address: ${customerAddress}`, 84).slice(0, 2);
+    doc.text(addressLines, 18, billY);
+    billY += addressLines.length * 6;
+  }
+  doc.text(`Invoice No: ${receiptNumber}`, 18, Math.min(billY, 116));
   doc.text(`Total Amount: ${totalAmountText}`, 110, 86);
   doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, 92);
-  doc.text(`Paid Amount: ${paidAmountText}`, 18, 100);
-  doc.text(`Balance Amount: ${balanceAmountText}`, 110, 100);
+  doc.text(`Paid Amount: ${paidAmountText}`, 110, 100);
+  doc.text(`Balance Amount: ${balanceAmountText}`, 110, 106);
 
   doc.autoTable({
-    startY: 116,
+    startY: 130,
     head: [["#", "Item Name", "Quantity", "Amount"]],
     body: receiptRows.map(row => [
       String(row.sr),
@@ -3382,6 +3991,9 @@ function renderInventoryList(){
     els.goodsList.innerHTML = `${outstandingBanner}<div class="empty">No inventory items found.</div>`;
     els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
     els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
+    els.goodsList.querySelectorAll(".inventoryOutstandingCustomerPdfBtn").forEach(btn => btn.addEventListener("click", () => downloadOutstandingCustomerInvoicePDF(btn.dataset.customer)));
+    els.goodsList.querySelectorAll(".inventoryOutstandingCustomerSettleBtn").forEach(btn => btn.addEventListener("click", () => openGoodsCustomerSettlementModal(btn.dataset.customer)));
+    bindInventoryOutstandingBanner(els.goodsList);
     return;
   }
   const boughtCount = inventoryQtySummary(groups, "boughtQty");
@@ -3550,6 +4162,9 @@ function renderInventoryList(){
   }));
   els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
   els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
+  els.goodsList.querySelectorAll(".inventoryOutstandingCustomerPdfBtn").forEach(btn => btn.addEventListener("click", () => downloadOutstandingCustomerInvoicePDF(btn.dataset.customer)));
+  els.goodsList.querySelectorAll(".inventoryOutstandingCustomerSettleBtn").forEach(btn => btn.addEventListener("click", () => openGoodsCustomerSettlementModal(btn.dataset.customer)));
+  bindInventoryOutstandingBanner(els.goodsList);
   els.goodsList.querySelectorAll(".invoiceDownloadBtn").forEach(btn => btn.addEventListener("click", () => downloadGoodsItemPDF(btn.dataset.groupId)));
   els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
@@ -5485,6 +6100,7 @@ async function saveGoodsSold(form){
   const fd = new FormData(form);
   const soldDate = String(fd.get("sold_date") || "");
   const customerName = getSelectedGoodsCustomerName(form);
+  const customerContact = getSelectedGoodsCustomerContact(form);
   const receiptNumber = String(fd.get("receipt_number") || "").trim() || nextReceiptNumber();
   const soldNotes = String(fd.get("notes") || "").trim() || null;
   const saleLines = collectGoodsSaleLines();
@@ -5562,6 +6178,8 @@ async function saveGoodsSold(form){
         itemCategory: line.itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(line.itemCategory),
         customerName,
+        customerPhone: customerContact.phone,
+        customerAddress: customerContact.address,
         receiptNumber,
         transactionType: "SALE",
         paidAmount: linePaid,
@@ -5582,6 +6200,103 @@ async function saveGoodsSold(form){
   closeModal("goodsModal");
 }
 
+function addInventorySettlementPayloads(payloads, receiptData, remainingSettlement, settlementDate, settlementNotes, settlementId){
+  const rows = receiptData.saleRows
+    .filter(saleRow => saleRow.balance > 0.00000001)
+    .sort((a, b) =>
+      dateStamp(a.entry.action_date || a.entry.created_at) - dateStamp(b.entry.action_date || b.entry.created_at) ||
+      String(a.entry.id || "").localeCompare(String(b.entry.id || ""))
+    );
+  for (const row of rows){
+    if (remainingSettlement.amount <= 0.00000001) break;
+    const paidForLine = Math.min(row.balance, remainingSettlement.amount);
+    remainingSettlement.amount = Math.max(remainingSettlement.amount - paidForLine, 0);
+    const lineBalance = Math.max(row.balance - paidForLine, 0);
+    payloads.push({
+      group_id: row.entry.group_id,
+      direction: "taken",
+      entry_kind: lineBalance <= 0.00000001 ? "full" : "partial",
+      person_name: row.principalEntry?.person_name || row.itemName,
+      currency: row.currency,
+      principal_amount: null,
+      action_amount: paidForLine,
+      loan_date: row.entry.loan_date,
+      action_date: settlementDate,
+      notes: upsertGoodsMetaInNote(normalizeGoodsNote(settlementNotes, true), {
+        itemCode: row.itemCode,
+        itemCategory: row.itemCategory,
+        quantityUnit: inventoryBaseUnitForCategory(row.itemCategory),
+        customerName: receiptData.customerName,
+        customerPhone: receiptData.customerPhone,
+        customerAddress: receiptData.customerAddress,
+        receiptNumber: receiptData.receiptNumber,
+        transactionType: INVENTORY_TX_SETTLEMENT,
+        paidAmount: paidForLine,
+        balanceAmount: lineBalance,
+        paymentStatus: lineBalance <= 0.00000001 ? "FULL" : "PARTIAL",
+        settlementForEntryId: row.entry.id,
+        settlementId
+      })
+    });
+  }
+}
+
+function renderGoodsSettlementInvoiceList(invoices){
+  if (!els.goodsSettlementInvoiceListField || !els.goodsSettlementInvoiceList) return;
+  if (!invoices.length){
+    els.goodsSettlementInvoiceListField.classList.add("hide");
+    els.goodsSettlementInvoiceList.innerHTML = "";
+    return;
+  }
+  els.goodsSettlementInvoiceListField.classList.remove("hide");
+  els.goodsSettlementInvoiceList.innerHTML = invoices.map(invoice => `
+    <label class="settlement-invoice-option">
+      <input type="checkbox" class="goods-settlement-invoice-check" value="${escapeHtml(invoice.receiptNumber)}" data-entry-id="${escapeHtml(invoice.entryId)}" data-currency="${escapeHtml(invoice.currency || "")}" data-balance="${escapeHtml(invoice.balanceTotal)}" data-date="${escapeHtml(invoice.oldestDate || invoice.date || "")}" checked>
+      <span>
+        <strong>${escapeHtml(invoice.receiptNumber)}</strong>
+        <small>${escapeHtml(displayDate(invoice.oldestDate || invoice.date || "—"))} • Balance ${escapeHtml(invoice.balanceText)}</small>
+      </span>
+    </label>
+  `).join("");
+}
+
+function selectedGoodsSettlementInvoices(){
+  if (!els.goodsSettlementInvoiceList) return [];
+  return Array.from(els.goodsSettlementInvoiceList.querySelectorAll(".goods-settlement-invoice-check:checked"))
+    .map(input => ({
+      receiptNumber: input.value,
+      entryId: input.dataset.entryId || "",
+      currency: input.dataset.currency || "",
+      balance: Number(input.dataset.balance || 0),
+      date: input.dataset.date || ""
+    }))
+    .filter(invoice => invoice.receiptNumber && invoice.balance > 0.00000001);
+}
+
+function updateGoodsSettlementSelectionTotals(){
+  const draft = state.inventoryDraft.settlement;
+  if (draft?.mode !== "customer") return;
+  const selected = selectedGoodsSettlementInvoices();
+  const currencies = new Set(selected.map(invoice => invoice.currency).filter(Boolean));
+  const total = selected.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
+  const currency = currencies.size === 1 ? Array.from(currencies)[0] : "";
+  if (els.goodsSettlementBalance) {
+    els.goodsSettlementBalance.value = selected.length && currency ? moneyText(total, currency) : (selected.length ? "Select one currency only" : "Select invoices");
+    applyCurrencyFontClass(els.goodsSettlementBalance, currency);
+  }
+  if (els.goodsSettlementAmount) {
+    els.goodsSettlementAmount.disabled = !selected.length || currencies.size !== 1;
+    if (currency) els.goodsSettlementAmount.max = trimInventoryNumber(total);
+    else els.goodsSettlementAmount.removeAttribute("max");
+    const current = Number(els.goodsSettlementAmount.value || 0);
+    if (!current || current > total || currencies.size !== 1) {
+      els.goodsSettlementAmount.value = currency ? trimInventoryNumber(total) : "";
+    }
+  }
+  state.inventoryDraft.settlement.currency = currency;
+  state.inventoryDraft.settlement.balance = total;
+}
+
 function openGoodsSettlementModal(entryId){
   const entry = state.entries.find(e => e.id === entryId && e.entry_kind !== "principal" && hasGoodsTag(e.notes));
   if (!entry){
@@ -5600,12 +6315,14 @@ function openGoodsSettlementModal(entryId){
     return;
   }
   state.inventoryDraft.settlement = {
+    mode: "receipt",
     entryId,
     receiptNumber,
     currency: receiptData.currency,
     balance: receiptData.balanceTotal
   };
   if (els.goodsSettlementForm) els.goodsSettlementForm.reset();
+  renderGoodsSettlementInvoiceList([]);
   if (els.goodsSettlementReceipt) els.goodsSettlementReceipt.value = receiptNumber;
   if (els.goodsSettlementCustomer) els.goodsSettlementCustomer.value = receiptData.customerName || "Walk-in customer";
   if (els.goodsSettlementBalance) {
@@ -5613,10 +6330,35 @@ function openGoodsSettlementModal(entryId){
     applyCurrencyFontClass(els.goodsSettlementBalance, receiptData.currency);
   }
   if (els.goodsSettlementAmount) {
+    els.goodsSettlementAmount.disabled = false;
     els.goodsSettlementAmount.value = trimInventoryNumber(receiptData.balanceTotal);
     els.goodsSettlementAmount.max = trimInventoryNumber(receiptData.balanceTotal);
   }
   if (els.goodsSettlementDate) els.goodsSettlementDate.value = todayISO();
+  els.goodsSettlementModal.classList.remove("hide");
+  els.goodsSettlementModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function openGoodsCustomerSettlementModal(customerName){
+  const invoices = outstandingInvoicesForCustomer(customerName).filter(invoice => invoice.canSettle);
+  if (!invoices.length){
+    alert("No single-currency outstanding invoices found for this customer.");
+    return;
+  }
+  state.inventoryDraft.settlement = {
+    mode: "customer",
+    customerName,
+    receiptNumber: "Multiple invoices",
+    currency: "",
+    balance: 0
+  };
+  if (els.goodsSettlementForm) els.goodsSettlementForm.reset();
+  if (els.goodsSettlementReceipt) els.goodsSettlementReceipt.value = "Multiple invoices";
+  if (els.goodsSettlementCustomer) els.goodsSettlementCustomer.value = customerName || "Walk-in customer";
+  renderGoodsSettlementInvoiceList(invoices);
+  if (els.goodsSettlementDate) els.goodsSettlementDate.value = todayISO();
+  updateGoodsSettlementSelectionTotals();
   els.goodsSettlementModal.classList.remove("hide");
   els.goodsSettlementModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -5632,45 +6374,35 @@ async function saveGoodsSettlement(form){
   if (!settlementDate) throw new Error("Settlement date is required.");
   if (!Number.isFinite(settlementAmount) || settlementAmount <= 0) throw new Error("Settlement amount must be greater than zero.");
 
-  const fallbackEntry = state.entries.find(e => e.id === draft.entryId) || null;
-  const receiptData = getInventoryReceiptData(draft.receiptNumber, fallbackEntry);
-  if (receiptData.totalsByCurrency.size !== 1) throw new Error("Balance clearance is available only for a single-currency receipt.");
-  if (settlementAmount > receiptData.balanceTotal + 0.00000001) throw new Error("Settlement amount cannot exceed the current balance.");
-
-  let remainingSettlement = settlementAmount;
+  let remainingSettlement = { amount: settlementAmount };
   const settlementId = crypto.randomUUID();
   const payloads = [];
-  for (const row of receiptData.saleRows.filter(saleRow => saleRow.balance > 0.00000001)){
-    if (remainingSettlement <= 0.00000001) break;
-    const paidForLine = Math.min(row.balance, remainingSettlement);
-    remainingSettlement = Math.max(remainingSettlement - paidForLine, 0);
-    const lineBalance = Math.max(row.balance - paidForLine, 0);
-    payloads.push({
-      group_id: row.entry.group_id,
-      direction: "taken",
-      entry_kind: lineBalance <= 0.00000001 ? "full" : "partial",
-      person_name: row.principalEntry?.person_name || row.itemName,
-      currency: row.currency,
-      principal_amount: null,
-      action_amount: paidForLine,
-      loan_date: row.entry.loan_date,
-      action_date: settlementDate,
-      notes: upsertGoodsMetaInNote(normalizeGoodsNote(settlementNotes, true), {
-        itemCode: row.itemCode,
-        itemCategory: row.itemCategory,
-        quantityUnit: inventoryBaseUnitForCategory(row.itemCategory),
-        customerName: receiptData.customerName,
-        receiptNumber: receiptData.receiptNumber,
-        transactionType: INVENTORY_TX_SETTLEMENT,
-        paidAmount: paidForLine,
-        balanceAmount: lineBalance,
-        paymentStatus: lineBalance <= 0.00000001 ? "FULL" : "PARTIAL",
-        settlementForEntryId: row.entry.id,
-        settlementId
-      })
-    });
+
+  if (draft.mode === "customer"){
+    const selected = selectedGoodsSettlementInvoices()
+      .sort((a, b) => dateStamp(a.date) - dateStamp(b.date) || String(a.receiptNumber).localeCompare(String(b.receiptNumber)));
+    if (!selected.length) throw new Error("Select at least one invoice to settle.");
+    const selectedCurrencies = new Set(selected.map(invoice => invoice.currency).filter(Boolean));
+    if (selectedCurrencies.size !== 1) throw new Error("Select invoices from one currency only.");
+    const selectedBalance = selected.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
+    if (settlementAmount > selectedBalance + 0.00000001) throw new Error("Settlement amount cannot exceed the selected balance.");
+
+    for (const invoice of selected){
+      if (remainingSettlement.amount <= 0.00000001) break;
+      const fallbackEntry = state.entries.find(e => e.id === invoice.entryId) || null;
+      const receiptData = getInventoryReceiptData(invoice.receiptNumber, fallbackEntry);
+      if (receiptData.totalsByCurrency.size !== 1) continue;
+      addInventorySettlementPayloads(payloads, receiptData, remainingSettlement, settlementDate, settlementNotes, settlementId);
+    }
+  } else {
+    const fallbackEntry = state.entries.find(e => e.id === draft.entryId) || null;
+    const receiptData = getInventoryReceiptData(draft.receiptNumber, fallbackEntry);
+    if (receiptData.totalsByCurrency.size !== 1) throw new Error("Balance clearance is available only for a single-currency receipt.");
+    if (settlementAmount > receiptData.balanceTotal + 0.00000001) throw new Error("Settlement amount cannot exceed the current balance.");
+    addInventorySettlementPayloads(payloads, receiptData, remainingSettlement, settlementDate, settlementNotes, settlementId);
   }
-  if (!payloads.length) throw new Error("No outstanding balance found for this receipt.");
+  if (!payloads.length) throw new Error("No outstanding balance found for the selected invoice(s).");
+  if (remainingSettlement.amount > 0.00000001) throw new Error("Settlement amount exceeds the current outstanding balance.");
 
   if (isBackupMode()){
     payloads.slice().reverse().forEach(payload => {
@@ -8003,6 +8735,9 @@ function attachEvents(){
       openGoodsModal("sold");
     });
   }
+  if (els.inventoryCustomerStatementBtn) {
+    els.inventoryCustomerStatementBtn.addEventListener("click", () => downloadInventoryCustomerStatementPDF(state.inventoryDraft.customerRecordName));
+  }
   els.openExpenseAccountBtn.addEventListener("click", () => {
     activate("expenses");
     openExpenseModal("account");
@@ -8094,7 +8829,7 @@ window.addEventListener("resize", () => {
     btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal));
   });
 
-  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.expenseModal].forEach(m => {
+  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.expenseModal].forEach(m => {
     if (!m) return;
     m.addEventListener("click", e => {
       if (e.target && e.target.matches(".modal-backdrop")) closeModal(m.id);
@@ -8107,6 +8842,7 @@ window.addEventListener("resize", () => {
       if (!els.editModal.classList.contains("hide")) closeModal("editModal");
       if (!els.goodsModal.classList.contains("hide")) closeModal("goodsModal");
       if (els.goodsSettlementModal && !els.goodsSettlementModal.classList.contains("hide")) closeModal("goodsSettlementModal");
+      if (els.inventoryCustomerModal && !els.inventoryCustomerModal.classList.contains("hide")) closeModal("inventoryCustomerModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
     }
   });
@@ -8174,6 +8910,11 @@ window.addEventListener("resize", () => {
     els.goodsSettlementForm.addEventListener("submit", async e => {
       e.preventDefault();
       try { await saveGoodsSettlement(els.goodsSettlementForm); } catch (err) { alert(err.message); }
+    });
+  }
+  if (els.goodsSettlementInvoiceList) {
+    els.goodsSettlementInvoiceList.addEventListener("change", e => {
+      if (e.target?.matches(".goods-settlement-invoice-check")) updateGoodsSettlementSelectionTotals();
     });
   }
   els.expenseAccountForm.addEventListener("submit", async e => {
