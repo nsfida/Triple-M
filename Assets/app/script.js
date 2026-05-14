@@ -77,9 +77,10 @@ function getAllowedCurrencies() {
   }
   
   // Filter to only include currencies that are both in config and supported
-  return configCurrencies.filter(currency => 
-    SUPPORTED_CURRENCIES.includes(normalizeCurrencyCode(currency))
-  );
+  return [...new Set(configCurrencies
+    .map(currency => normalizeCurrencyCode(currency))
+    .filter(currency => SUPPORTED_CURRENCIES.includes(currency))
+  )];
 }
 
 const state = {
@@ -1093,7 +1094,11 @@ function expenseOverviewWalletCardHtml(a){
 }
 
 function getActiveTabKey(){
-  return document.querySelector(".tab.active")?.dataset.tab || "expenses";
+  const activePanel = document.querySelector(".panel.active");
+  if (activePanel?.id && activePanel.id.endsWith("Panel")) {
+    return activePanel.id.replace(/Panel$/, "");
+  }
+  return document.querySelector(".tab.active[data-tab]")?.dataset.tab || "expenses";
 }
 
 function inventoryOverviewTotals(groups, selector){
@@ -1195,7 +1200,13 @@ function renderOverviewCards(tab = getActiveTabKey()){
     return;
   }
   const allowedCurrencies = getAllowedCurrencies();
-  const currencies = [...new Set([...allowedCurrencies, ...state.entries.map(e => e.currency).filter(Boolean)])];
+  const activeLoanCurrencies = getActiveEntries()
+    .filter(entry => !hasGoodsTag(entry.notes) && !hasExpenseAccountTag(entry.notes))
+    .map(entry => normalizeCurrencyCode(entry.currency))
+    .filter(currency => allowedCurrencies.includes(currency));
+  const currencies = activeLoanCurrencies.length
+    ? sortCurrenciesList(activeLoanCurrencies)
+    : sortCurrenciesList(allowedCurrencies);
 
   const currencyCards = currencies.map(currency => {
     const s = summarizeCurrency(currency);
@@ -1468,6 +1479,40 @@ async function fetchExpenseBtcWalletData(address, networkKey = ""){
     fetchedAt: Date.now(),
     loading: false,
     error: ""
+  };
+}
+
+async function fetchExpenseBtcAllWalletData(address, networkKey = ""){
+  const data = await fetchExpenseBtcWalletData(address, networkKey);
+  const api = btcGetNetworkInfo(data.networkKey).api;
+  const all = Array.isArray(data.transactions) ? data.transactions.slice() : [];
+  const seen = new Set(all.map(tx => tx?.txid).filter(Boolean));
+  let confirmed = all.filter(tx => tx?.status?.confirmed);
+  let cursor = all.length >= 25 && confirmed.length ? confirmed[confirmed.length - 1].txid : "";
+
+  while (cursor && all.length < MAX_BTC_HISTORY) {
+    const batch = await btcFetchJson(`${api}/address/${encodeURIComponent(data.address)}/txs/chain/${encodeURIComponent(cursor)}`);
+    if (!Array.isArray(batch) || !batch.length) break;
+
+    let added = 0;
+    for (const tx of batch) {
+      if (!tx?.txid || seen.has(tx.txid)) continue;
+      all.push(tx);
+      seen.add(tx.txid);
+      added += 1;
+      if (all.length >= MAX_BTC_HISTORY) break;
+    }
+
+    const confirmedBatch = batch.filter(tx => tx?.status?.confirmed);
+    const nextCursor = confirmedBatch.length ? confirmedBatch[confirmedBatch.length - 1].txid : "";
+    if (batch.length < 25 || !nextCursor || nextCursor === cursor || !added) break;
+    cursor = nextCursor;
+  }
+
+  return {
+    ...data,
+    transactions: all,
+    txCount: Math.max(Number(data.txCount || 0), all.length)
   };
 }
 
@@ -2600,7 +2645,7 @@ function updateGoodsSaleGrandTotal(){
   updateGoodsSalePaymentFields(totalsByCurrency);
 }
 
-function updateGoodsSaleLine(line){
+function updateGoodsSaleLine(line, sourceEl = null){
   if (!line) return;
   const groupId = line.querySelector(".goods-sale-item")?.value || "";
   const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
@@ -2629,7 +2674,8 @@ function updateGoodsSaleLine(line){
     ? Number(qtyInput?.value || 0)
     : qty;
   if (qtyInput && document.activeElement !== qtyInput && visibleQty > 0) qtyInput.value = trimInventoryNumber(visibleQty, category === INVENTORY_CATEGORY_WEIGHT ? 3 : 0);
-  if (group && priceInput && (!priceInput.value || Number(priceInput.value) <= 0)){
+  const editingPrice = sourceEl === priceInput;
+  if (group && priceInput && !editingPrice && (!priceInput.value || Number(priceInput.value) <= 0)){
     const defaultPrice = Number(group.defaultUnitSoldPrice || 0) || Number(group.unitActualPrice || 0);
     priceInput.value = defaultPrice ? trimInventoryNumber(defaultPrice) : "";
   }
@@ -3599,6 +3645,10 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
   }
 
   rows.sort((a, b) => Number(b.tx?.status?.block_time || 0) - Number(a.tx?.status?.block_time || 0));
+  const statementAccount = btcAccounts.length === 1 ? btcAccounts[0] : null;
+  const statementTitle = statementAccount
+    ? `Download full statement for ${statementAccount.person_name || "BTC Wallet"}`
+    : "Select one BTC wallet to download its full statement";
 
   const body = rows.length ? `
     <div class="table-wrap">
@@ -3616,7 +3666,12 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
               <td style="${row.amountStyle}">${escapeHtml(row.amount)}</td>
               <td>${escapeHtml(row.status)}</td>
               <td class="mono">${escapeHtml(btcShortHash(row.tx.txid))}</td>
-              <td><button type="button" class="tiny ghost expenseBtcTxBtn" data-url="${escapeHtml(expenseBtcExplorerUrl(row.tx.txid, row.account.btcNetwork))}">View</button></td>
+              <td>
+                <div class="expense-tx-actions">
+                  <button type="button" class="tiny ghost expenseBtcTxPdfBtn" data-group-id="${escapeHtml(row.account.group_id)}" data-tx-id="${escapeHtml(row.tx.txid)}" title="Download transaction receipt"><i class="fa-solid fa-download"></i> Receipt</button>
+                  <button type="button" class="tiny ghost expenseBtcTxBtn" data-url="${escapeHtml(expenseBtcExplorerUrl(row.tx.txid, row.account.btcNetwork))}">View</button>
+                </div>
+              </td>
             </tr>
           `).join("")}
         </tbody>
@@ -3627,7 +3682,10 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
   return `<details class="expense-collapsible-section" id="btcBlockchainRecordsSection" ${isOpen ? "open" : ""}>
     <summary class="expense-collapsible-header">
       <h4 class="expense-section-title"><i class="fa-brands fa-bitcoin"></i> BTC Blockchain Transactions</h4>
-      <span class="expand-icon">▶</span>
+      <span class="expense-section-actions">
+        <button type="button" class="tiny ghost expenseBtcStatementBtn" data-group-id="${escapeHtml(statementAccount?.group_id || "")}" title="${escapeHtml(statementTitle)}"><i class="fa-solid fa-download"></i> Statement</button>
+        <span class="expand-icon">▶</span>
+      </span>
     </summary>
     <div class="expense-collapsible-content">${body}</div>
   </details>`;
@@ -4082,76 +4140,71 @@ async function downloadExpenseAccountPDF(groupId){
   doc.save(`Expense_Account_${String(account.person_name || "account").replace(/\s+/g, "_")}.pdf`);
 }
 
-async function downloadExpenseBtcAccountPDF(account){
-  if (!window.jspdf){
-    alert("PDF library loading. Please try again.");
-    return;
+function expenseBtcWalletPdfContext(account){
+  const networkKey = account.btcNetwork || "mainnet";
+  const networkInfo = btcGetNetworkInfo(networkKey);
+  return {
+    key: networkKey,
+    label: networkInfo.label,
+    address: account.btcAddress,
+    isWatchOnly: true
+  };
+}
+
+async function getExpenseBtcAccountForPdf(groupIdOrAccount, options = {}){
+  const groupId = typeof groupIdOrAccount === "string" ? groupIdOrAccount : groupIdOrAccount?.group_id;
+  let account = typeof groupIdOrAccount === "object" && groupIdOrAccount
+    ? groupIdOrAccount
+    : getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
+  if (!account?.isBtcLive || !account.btcAddress) throw new Error("BTC wallet not found.");
+
+  const needAll = options.fetchAll === true;
+  const loadedCount = Number(account.chainTransactions?.length || 0);
+  const maxNeeded = Math.min(Number(account.btcCache?.txCount || 0), MAX_BTC_HISTORY);
+  const hasNeededTransactions = !needAll || loadedCount >= maxNeeded;
+  const needsRefresh = !account.btcCache || account.btcCache.error || account.btcCache.loading || !hasNeededTransactions;
+
+  if (needsRefresh) {
+    const data = needAll
+      ? await fetchExpenseBtcAllWalletData(account.btcAddress, account.btcNetwork || "mainnet")
+      : await fetchExpenseBtcWalletData(account.btcAddress, account.btcNetwork || "mainnet");
+    expenseBtcSetCache(data.address, data.networkKey, data);
+    account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === account.group_id) || account;
   }
 
-  let freshAccount = account;
-  if (!freshAccount.btcCache || freshAccount.btcCache.error || freshAccount.btcCache.loading) {
-    try {
-      const data = await fetchExpenseBtcWalletData(freshAccount.btcAddress, freshAccount.btcNetwork || "mainnet");
-      expenseBtcSetCache(data.address, data.networkKey, data);
-      freshAccount = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === account.group_id) || freshAccount;
-    } catch (err) {
-      alert(`Could not load BTC wallet data: ${err.message || err}`);
-      return;
+  return account;
+}
+
+async function downloadExpenseBtcStatementPDF(groupIdOrAccount){
+  try {
+    const account = await getExpenseBtcAccountForPdf(groupIdOrAccount, { fetchAll: true });
+    await btcDownloadPDF({
+      wallet: expenseBtcWalletPdfContext(account),
+      transactions: account.chainTransactions || [],
+      balanceSat: account.btcCache?.balanceSat ?? Math.round(Number(account.balance || 0) * 1e8)
+    });
+  } catch (err) {
+    alert(`Could not download BTC statement: ${err.message || err}`);
+  }
+}
+
+async function downloadExpenseBtcTransactionReceiptPDF(groupId, txid){
+  try {
+    let account = await getExpenseBtcAccountForPdf(groupId, { fetchAll: false });
+    let tx = (account.chainTransactions || []).find(row => row.txid === txid);
+    if (!tx) {
+      account = await getExpenseBtcAccountForPdf(account, { fetchAll: true });
+      tx = (account.chainTransactions || []).find(row => row.txid === txid);
     }
+    if (!tx) throw new Error("Transaction not found.");
+    await btcDownloadTransactionPDF(tx, expenseBtcWalletPdfContext(account));
+  } catch (err) {
+    alert(`Could not download BTC transaction receipt: ${err.message || err}`);
   }
+}
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  await loadCustomFontsForPdf(doc);
-  const logoData = await getPdfLogo();
-  const title = "BTC Wallet Report";
-  const subtitle = `Wallet: ${freshAccount.person_name || "BTC Wallet"}`;
-  drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-  doc.setFontSize(10);
-  doc.setTextColor(23, 33, 43);
-  doc.text(`Address: ${freshAccount.btcAddress}`, 14, 58, { maxWidth: 120 });
-  doc.text(`Balance: ${formatPdfAmount(freshAccount.balance, "BTC")}`, 132, 48);
-  doc.text(`Received: ${formatPdfAmount(freshAccount.openingBalance, "BTC")}`, 132, 54);
-  doc.text(`Sent: ${formatPdfAmount(freshAccount.spentMoney, "BTC")}`, 132, 60);
-
-  const rows = (freshAccount.chainTransactions || []).map(tx => {
-    const dir = btcTxDirectionForAddress(tx, freshAccount.btcAddress);
-    const type = dir.label === "received" ? "Received" : dir.label === "sent" ? "Sent" : "Self / change";
-    const amount = dir.netSat === 0
-      ? "0 BTC"
-      : `${dir.netSat > 0 ? "+" : "-"}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
-    const status = tx.status?.confirmed
-      ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : "confirmed")
-      : "unconfirmed";
-    return [
-      tx.status?.confirmed ? btcFormatDate(tx.status.block_time || 0) : "mempool",
-      type,
-      amount,
-      status,
-      tx.txid || ""
-    ];
-  });
-
-  doc.autoTable({
-    startY: 76,
-    head: [["Date", "Type", "Amount", "Status", "Txid"]],
-    body: rows.length ? rows : [["—", "No blockchain transactions", "—", "—", "—"]],
-    theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 8, cellPadding: 2.5, overflow: "linebreak" },
-    columnStyles: {
-      0: { cellWidth: 34 },
-      1: { cellWidth: 24 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 62 }
-    },
-    margin: { top: 50, bottom: 40 },
-    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
-  });
-
-  doc.save(`BTC_Wallet_${String(freshAccount.person_name || "wallet").replace(/\s+/g, "_")}_${todayISO()}.pdf`);
+async function downloadExpenseBtcAccountPDF(account){
+  await downloadExpenseBtcStatementPDF(account);
 }
 
 function filterExpensesBySearch(expenses, searchTerm){
@@ -4482,6 +4535,20 @@ function renderExpensesList(){
         await downloadAllTransfersPDF(null);
       }
     }
+  }));
+  els.expensesList.querySelectorAll(".expenseBtcStatementBtn").forEach(btn => btn.addEventListener("click", async e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const groupId = btn.dataset.groupId || "";
+    if (!groupId) {
+      alert("Select one BTC wallet to download its full statement.");
+      return;
+    }
+    await downloadExpenseBtcStatementPDF(groupId);
+  }));
+  els.expensesList.querySelectorAll(".expenseBtcTxPdfBtn").forEach(btn => btn.addEventListener("click", async e => {
+    e.preventDefault();
+    await downloadExpenseBtcTransactionReceiptPDF(btn.dataset.groupId, btn.dataset.txId);
   }));
   els.expensesList.querySelectorAll(".expenseBtcTxBtn").forEach(btn => btn.addEventListener("click", e => {
     e.preventDefault();
@@ -4958,14 +5025,20 @@ function renderAll(){
 }
 
 function activate(tab){
+  if (!tab) return;
   // Prevent access to tabs when not logged in (except when showing standalone about)
   if (!state.unlocked && window.location.hash !== "#about") {
     return;
   }
+  const targetPanel = document.getElementById(`${tab}Panel`);
+  if (!targetPanel) return;
 
-  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".tab").forEach(b => {
+    const isLoanDropdownTab = b.id === "loansTabBtn" && ["given", "received", "taken", "returned"].includes(tab);
+    b.classList.toggle("active", b.dataset.tab === tab || isLoanDropdownTab);
+  });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.getElementById(`${tab}Panel`).classList.add("active");
+  targetPanel.classList.add("active");
   const mainOverview = document.getElementById("mainOverview");
   const walletsOverview = document.getElementById("walletsOverviewSection");
   const loanOverviewTabs = new Set(["given", "received", "taken", "returned", "installments"]);
@@ -7758,7 +7831,17 @@ function attachEvents(){
     document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
   };
 
-  document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", () => activate(btn.dataset.tab)));
+  document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", () => {
+    if (btn.dataset.tab) activate(btn.dataset.tab);
+  }));
+  document.querySelectorAll("[data-loan-tab]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      activate(btn.dataset.loanTab);
+      closeAllMenus();
+    });
+  });
 
   document.querySelectorAll("[data-open-modal]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -8022,11 +8105,11 @@ window.addEventListener("resize", () => {
   if (els.goodsSaleLines) {
     els.goodsSaleLines.addEventListener("input", e => {
       const line = e.target.closest(".inventory-sale-line");
-      if (line) updateGoodsSaleLine(line);
+      if (line) updateGoodsSaleLine(line, e.target);
     });
     els.goodsSaleLines.addEventListener("change", e => {
       const line = e.target.closest(".inventory-sale-line");
-      if (line) updateGoodsSaleLine(line);
+      if (line) updateGoodsSaleLine(line, e.target);
     });
     els.goodsSaleLines.addEventListener("click", e => {
       const btn = e.target.closest(".goods-sale-remove");
@@ -9347,7 +9430,7 @@ async function btcRenderMoreTransactions(startIndex, count) {
   btcUpdateLoadMoreButton();
 }
 
-async function btcDownloadTransactionPDF(tx) {
+async function btcDownloadTransactionPDF(tx, walletOverride = null) {
   if (!window.jspdf) {
     alert('PDF library loading. Please try again.');
     return;
@@ -9355,7 +9438,11 @@ async function btcDownloadTransactionPDF(tx) {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  const wallet = state.bitcoin.wallet;
+  const wallet = walletOverride || state.bitcoin.wallet;
+  if (!wallet?.address) {
+    alert('Please load a wallet first.');
+    return;
+  }
 
   const logoData = await getPdfLogo();
   const title = 'Bitcoin Transaction Details';
@@ -9364,7 +9451,7 @@ async function btcDownloadTransactionPDF(tx) {
   drawPdfOwnerBlock(doc, 48);
 
   // Get transaction direction and details
-  const dir = btcTxDirection(tx);
+  const dir = btcTxDirectionForAddress(tx, wallet.address);
   const ts = tx.status && tx.status.confirmed
     ? btcFormatDate(tx.status.block_time || 0)
     : 'mempool';
@@ -10215,12 +10302,18 @@ function btcUseMaxAmount() {
   btcSetSendStatus(`Max amount prefilled from confirmed balance: ${btcFormatBtcFromSat(maxSat)}.`, '');
 }
 
-async function btcDownloadPDF() {
-  if (!state.bitcoin.wallet) {
+async function btcDownloadPDF(options = {}) {
+  const customContext = options && typeof options === "object" && options.wallet ? options : null;
+  const wallet = customContext?.wallet || state.bitcoin.wallet;
+  const history = customContext && Array.isArray(customContext.transactions)
+    ? customContext.transactions
+    : state.bitcoin.history;
+
+  if (!wallet?.address) {
     alert('Please load a wallet first.');
     return;
   }
-  if (!state.bitcoin.history || !state.bitcoin.history.length) {
+  if (!history || !history.length) {
     alert('No transactions to download.');
     return;
   }
@@ -10229,12 +10322,13 @@ async function btcDownloadPDF() {
     return;
   }
 
-  // Only use currently displayed transactions (max 20 or currently loaded)
-  const displayedTransactions = state.bitcoin.history.slice(0, Math.min(state.bitcoin.history.length, 20));
+  // Bitcoin tab keeps its current 20-row statement; Expense BTC statements pass a full wallet history.
+  const displayedTransactions = customContext
+    ? history
+    : history.slice(0, Math.min(history.length, 20));
   
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  const wallet = state.bitcoin.wallet;
 
   const logoData = await getPdfLogo();
   const title = 'Bitcoin Transaction History';
@@ -10243,9 +10337,12 @@ async function btcDownloadPDF() {
   drawPdfOwnerBlock(doc, 48);
 
   // Calculate summary data from displayed transactions only
-  const balance = btcSummarizeUtxoBalance();
-  const received = Number(displayedTransactions.reduce((sum, tx) => sum + (btcTxDirection(tx).receivedSat || 0), 0));
-  const sent = Number(displayedTransactions.reduce((sum, tx) => sum + (btcTxDirection(tx).sentSat || 0), 0));
+  const directionForTx = tx => btcTxDirectionForAddress(tx, wallet.address);
+  const balance = customContext && customContext.balanceSat != null
+    ? Number(customContext.balanceSat || 0)
+    : btcSummarizeUtxoBalance();
+  const received = Number(displayedTransactions.reduce((sum, tx) => sum + (directionForTx(tx).receivedSat || 0), 0));
+  const sent = Number(displayedTransactions.reduce((sum, tx) => sum + (directionForTx(tx).sentSat || 0), 0));
   const transactionCount = displayedTransactions.length;
 
   // Add summary info to top right
@@ -10258,12 +10355,12 @@ async function btcDownloadPDF() {
   doc.text(`Current Balance: ${btcFormatBtcFromSat(balance)}`, summaryX, summaryY + 7);
   doc.text(`Total Received: ${btcFormatBtcFromSat(received)}`, summaryX, summaryY + 14);
   doc.text(`Total Sent: ${btcFormatBtcFromSat(sent)}`, summaryX, summaryY + 21);
-  doc.text(`Network: ${wallet.label}`, summaryX, summaryY + 28);
+  doc.text(`Network: ${wallet.label || wallet.key || 'Bitcoin'}`, summaryX, summaryY + 28);
 
   // Create detailed transaction data
   const tableData = [];
   for (const tx of displayedTransactions) {
-    const dir = btcTxDirection(tx);
+    const dir = directionForTx(tx);
     const ts = tx.status && tx.status.confirmed
       ? btcFormatDate(tx.status.block_time || 0)
       : 'mempool';
@@ -10397,7 +10494,8 @@ async function btcDownloadPDF() {
   // Summary already displayed at top right, no need to repeat here
 
   drawPdfFooter(doc);
-  doc.save(`bitcoin-transactions-${wallet.address.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.pdf`);
+  const safeAddress = String(wallet.address || "wallet").slice(0, 8) || "wallet";
+  doc.save(`bitcoin-transactions-${safeAddress}-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 async function btcBuildAndBroadcast() {
