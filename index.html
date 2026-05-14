@@ -607,8 +607,16 @@
           <span id="recycleBinCount" class="recycle-bin-count">0</span>
           <div class="menu-dropdown recycle-bin-dropdown" data-entry-menu-panel="recyclebin" id="recycleBinDropdown">
             <div class="recycle-bin-header">
-              <h4>Recycle Bin</h4>
-              <span class="recycle-bin-subtitle">Deleted items can be restored</span>
+              <div class="recycle-bin-title-row">
+                <div>
+                  <h4>Recycle Bin</h4>
+                  <span class="recycle-bin-subtitle">Deleted items can be restored</span>
+                </div>
+                <button class="recycle-bin-empty-btn" id="emptyRecycleBinBtn" type="button" title="Empty Recycle Bin">
+                  <i class="fa-solid fa-trash-can"></i>
+                  <span>Empty</span>
+                </button>
+              </div>
             </div>
             <div class="recycle-bin-items"></div>
           </div>
@@ -1741,6 +1749,11 @@
             <div class="field w6">
               <label>Available balance</label>
               <input class="input" name="opening_balance" type="number" step="0.00000001" required placeholder="0.00" />
+            </div>
+            <div class="field w12 hide" id="expenseBtcAddressField">
+              <label>Bitcoin wallet address</label>
+              <input class="input" name="btc_address" type="text" placeholder="bc1... or 1..." autocomplete="off" spellcheck="false" />
+              <small class="expense-btc-help" id="expenseBtcBalanceStatus">Balance and transactions will be loaded directly from the blockchain.</small>
             </div>
             <div class="field w6">
               <label>Account date</label>
