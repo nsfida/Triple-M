@@ -1764,7 +1764,7 @@
             <select class="select hide" id="goodsItemSelect" name="group_id" aria-hidden="true" tabindex="-1"></select>
             <button class="hide" type="button" id="goodsNewItemToggleBtn" aria-hidden="true" tabindex="-1"></button>
             <div class="field w4">
-              <label>Receipt number</label>
+              <label>Invoice number</label>
               <input class="input" id="goodsReceiptNumber" name="receipt_number" readonly placeholder="Auto generated" />
             </div>
             <div class="field w4">
@@ -1825,7 +1825,7 @@
               </div>
             </div>
             <div class="field w4">
-              <label>Receipt total</label>
+              <label>Invoice total</label>
               <input class="input" id="goodsSaleGrandTotal" name="receipt_total" readonly placeholder="0.00" />
             </div>
             <div class="field w4">
@@ -1841,11 +1841,11 @@
               <select class="select" name="sale_wallet_id" id="goodsSaleWalletSelect">
                 <option value="">Skip wallet top-up</option>
               </select>
-              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Optional. The selected wallet receives the paid amount for single-currency receipts.</small>
+              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Optional. The selected wallet receives the paid amount for single-currency invoices.</small>
             </div>
             <div class="field w12">
               <div class="inventory-sale-head">
-                <label>Items for this receipt</label>
+                <label>Items for this invoice</label>
                 <button class="icon-btn ghost" type="button" id="addGoodsSaleLineBtn" aria-label="Add sale item" title="Add sale item">
                   <i class="fa-solid fa-plus"></i>
                 </button>
@@ -1884,7 +1884,7 @@
         <form id="goodsSettlementForm">
           <div class="modal-grid">
             <div class="field w4">
-              <label>Receipt number</label>
+              <label>Invoice number</label>
               <input class="input" id="goodsSettlementReceipt" name="receipt_number" readonly />
             </div>
             <div class="field w4">
