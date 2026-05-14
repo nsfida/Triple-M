@@ -460,6 +460,8 @@ a{color:inherit}
   font-size:.9rem;line-height:1;transition:background .15s ease,color .15s ease;
 }
 .tab.active{background:var(--primary);color:#fff}
+.tab-menu-wrap{display:inline-flex}
+.tabs .menu-dropdown{min-width:250px}
 
 .panel{display:none}
 .panel.active{display:block}
@@ -830,6 +832,22 @@ a{color:inherit}
   transition: transform 0.2s ease;
   font-size: 0.65rem;
   color: var(--muted);
+}
+.expense-section-actions{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-left:auto;
+}
+.expense-section-actions .tiny{
+  padding:4px 8px;
+  font-size:.72rem;
+}
+.expense-tx-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:nowrap;
 }
 .expense-collapsible-section[open] .expand-icon {
   transform: rotate(90deg);
