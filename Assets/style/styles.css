@@ -4132,3 +4132,18 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     font-size: 0.6rem;
   }
 }
+
+/* Prevent mobile browser focus zoom on search, entry, and overlay fields. */
+@media (max-width: 768px) {
+  input:focus,
+  select:focus,
+  textarea:focus,
+  .input:focus,
+  .select:focus,
+  #inquiryForm .input:focus,
+  .multi-row .input:focus,
+  .filter-inline-input:focus,
+  .filter-inline-date:focus {
+    font-size: 16px !important;
+  }
+}
