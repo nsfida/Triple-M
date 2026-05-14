@@ -1960,6 +1960,142 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
   };
 }
 
+function addCurrencyTotal(target, currency, amount){
+  const key = currency || "AED";
+  target.set(key, Number(target.get(key) || 0) + Number(amount || 0));
+}
+
+function inventoryCurrencyTotalsText(totals){
+  const rows = totals instanceof Map ? Array.from(totals.entries()) : Object.entries(totals || {});
+  return rows
+    .filter(([, amount]) => Math.abs(Number(amount || 0)) > 0.00000001)
+    .map(([currency, amount]) => moneyText(amount, currency))
+    .join(" | ");
+}
+
+function collectOutstandingInventoryInvoices(){
+  const seenReceipts = new Set();
+  const saleEntries = state.entries.filter(e => e.entry_kind !== "principal" && hasGoodsTag(e.notes) && isInventorySaleAction(e));
+  const invoices = [];
+
+  for (const entry of saleEntries){
+    const meta = goodsMetaFromNotes(entry.notes);
+    const receiptNumber = meta.receiptNumber || shortId(entry.id) || "";
+    const receiptKey = receiptNumber || entry.id;
+    if (seenReceipts.has(receiptKey)) continue;
+    seenReceipts.add(receiptKey);
+
+    const receiptData = getInventoryReceiptData(receiptNumber, entry);
+    if (!receiptData.saleRows.length || receiptData.balanceTotal <= 0.00000001) continue;
+
+    const balanceByCurrency = new Map();
+    receiptData.totalsByCurrency.forEach((amounts, currency) => {
+      addCurrencyTotal(balanceByCurrency, currency, amounts.balance || 0);
+    });
+    const outstandingSaleRow = receiptData.saleRows.find(row => row.balance > 0.00000001) || receiptData.saleRows[0];
+    const dateValue = receiptData.saleRows
+      .map(row => row.entry.action_date)
+      .filter(Boolean)
+      .sort((a, b) => dateStamp(b) - dateStamp(a))[0] || entry.action_date || entry.loan_date || "";
+    const itemNames = [...new Set(receiptData.saleRows.map(row => row.itemName).filter(Boolean))];
+
+    invoices.push({
+      receiptNumber: receiptData.receiptNumber || receiptNumber || shortId(entry.id),
+      customerName: receiptData.customerName || meta.customerName || "Walk-in customer",
+      entryId: outstandingSaleRow?.entry?.id || entry.id,
+      date: dateValue,
+      lineCount: receiptData.saleRows.length,
+      itemSummary: itemNames.slice(0, 3).join(", ") + (itemNames.length > 3 ? ` +${itemNames.length - 3}` : ""),
+      totalText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency),
+      paidText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "paid") || moneyText(receiptData.paidTotal, receiptData.currency),
+      balanceText: inventoryCurrencyTotalsText(balanceByCurrency) || moneyText(receiptData.balanceTotal, receiptData.currency),
+      balanceByCurrency,
+      canSettle: receiptData.totalsByCurrency.size === 1
+    });
+  }
+
+  return invoices.sort((a, b) =>
+    String(a.customerName).localeCompare(String(b.customerName)) ||
+    dateStamp(b.date) - dateStamp(a.date) ||
+    String(a.receiptNumber).localeCompare(String(b.receiptNumber))
+  );
+}
+
+function renderInventoryOutstandingBanner(){
+  const invoices = collectOutstandingInventoryInvoices();
+  const totalBalance = new Map();
+  invoices.forEach(invoice => {
+    invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
+  });
+
+  if (!invoices.length){
+    return `
+      <section class="inventory-outstanding-banner is-clear">
+        <div class="inventory-outstanding-top">
+          <div>
+            <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
+            <p>No outstanding inventory invoices.</p>
+          </div>
+          <strong>Clear</strong>
+        </div>
+      </section>
+    `;
+  }
+
+  const members = new Map();
+  invoices.forEach(invoice => {
+    const key = invoice.customerName || "Walk-in customer";
+    if (!members.has(key)){
+      members.set(key, { name: key, invoices: [], balanceByCurrency: new Map() });
+    }
+    const member = members.get(key);
+    member.invoices.push(invoice);
+    invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(member.balanceByCurrency, currency, amount));
+  });
+
+  return `
+    <section class="inventory-outstanding-banner">
+      <div class="inventory-outstanding-top">
+        <div>
+          <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
+          <p>${escapeHtml(invoices.length)} invoice${invoices.length === 1 ? "" : "s"} pending across ${escapeHtml(members.size)} member${members.size === 1 ? "" : "s"}.</p>
+        </div>
+        <div class="inventory-outstanding-total">
+          <small>Total balance</small>
+          <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance))}</strong>
+        </div>
+      </div>
+      <div class="inventory-outstanding-members">
+        ${Array.from(members.values()).map(member => `
+          <details class="inventory-outstanding-member" open>
+            <summary>
+              <span>${escapeHtml(member.name)}</span>
+              <strong>${escapeHtml(member.invoices.length)} invoice${member.invoices.length === 1 ? "" : "s"} • ${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency))}</strong>
+            </summary>
+            <div class="inventory-outstanding-list">
+              ${member.invoices.map(invoice => `
+                <div class="inventory-outstanding-row">
+                  <div class="inventory-outstanding-main">
+                    <strong>Invoice ${escapeHtml(invoice.receiptNumber)}</strong>
+                    <span>${escapeHtml(displayDate(invoice.date || "—"))} • ${escapeHtml(invoice.lineCount)} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` • ${escapeHtml(invoice.itemSummary)}` : ""}</span>
+                  </div>
+                  <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(invoice.totalText)}</strong></div>
+                  <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(invoice.paidText)}</strong></div>
+                  <div class="inventory-outstanding-money is-due"><small>Balance</small><strong>${escapeHtml(invoice.balanceText)}</strong></div>
+                  <div class="inventory-outstanding-actions">
+                    <button class="tiny soldReceiptBtn" type="button" data-id="${escapeHtml(invoice.entryId)}" title="Download invoice PDF"><i class="fa-solid fa-download"></i> PDF</button>
+                    <button class="tiny ghost clearBalanceBtn" type="button" data-id="${escapeHtml(invoice.entryId)}" title="${invoice.canSettle ? "Record full or partial settlement" : "Settlement is available only for single-currency invoices"}" ${invoice.canSettle ? "" : "disabled"}>Settle</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </details>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function updateGoodsBoughtTotal(){
   if (!els.goodsBoughtForm || !els.goodsBoughtTotalAmount) return;
   const price = Number(els.goodsBoughtForm.querySelector('[name="actual_price"]')?.value || 0);
@@ -3142,7 +3278,7 @@ async function downloadInventoryReceiptPDF(entryId){
   await loadCustomFontsForPdf(doc);
   const logoData = await getPdfLogo();
   const title = "Inventory Sales Invoice";
-  const subtitle = `Receipt ID: ${receiptNumber}`;
+  const subtitle = `Invoice ID: ${receiptNumber}`;
   drawPdfHeader(doc, logoData, title, subtitle);
   drawPdfOwnerBlock(doc, 48);
   doc.setTextColor(23, 33, 43);
@@ -3158,7 +3294,7 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
   doc.text(`Bill To: ${customerName}`, 18, 86);
-  doc.text(`Receipt No: ${receiptNumber}`, 18, 92);
+  doc.text(`Invoice No: ${receiptNumber}`, 18, 92);
   doc.text(`Total Amount: ${totalAmountText}`, 110, 86);
   doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, 92);
   doc.text(`Paid Amount: ${paidAmountText}`, 18, 100);
@@ -3236,19 +3372,22 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Total Qty: ${totalQtyText}`, 14, noteY);
   doc.text(`Notes: ${cleanGoodsDisplayNote(saleEntry.notes) || "—"}`, 14, noteY + 6);
   doc.text(`Prepared for: ${customerName}`, 14, noteY + 12);
-  doc.save(`Receipt_${String(receiptNumber).replace(/\s+/g, "_")}.pdf`);
+  doc.save(`Invoice_${String(receiptNumber).replace(/\s+/g, "_")}.pdf`);
 }
 
 function renderInventoryList(){
   const groups = getGoodsGroups();
+  const outstandingBanner = renderInventoryOutstandingBanner();
   if (!groups.length){
-    els.goodsList.innerHTML = `<div class="empty">No inventory items found.</div>`;
+    els.goodsList.innerHTML = `${outstandingBanner}<div class="empty">No inventory items found.</div>`;
+    els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
+    els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
     return;
   }
   const boughtCount = inventoryQtySummary(groups, "boughtQty");
   const soldCount = inventoryQtySummary(groups, "soldQty");
   const stockCount = inventoryQtySummary(groups, "remainingQty");
-  els.goodsList.innerHTML = groups.map(group => {
+  els.goodsList.innerHTML = outstandingBanner + groups.map(group => {
     const statusClass = group.status === "Sold" ? "green" : "orange";
     const pnlClass = group.profitLoss >= 0 ? "green" : "red";
     const pnlLabel = group.profitLoss >= 0 ? "Profit" : "Loss";
