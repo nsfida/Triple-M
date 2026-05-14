@@ -6,6 +6,14 @@ const CONFIG = {
 const ZIP_USERNAME_SESSION_KEY = "loanledger-zip-username-v1";
 const ZIP_PASSWORD_STORAGE_KEY = "loanledger-zip-password-v1";
 const ZIP_USERNAME_STORAGE_KEY = "loanledger-zip-username-persist-v1";
+const ZIP_DERIVED_PASSWORD_SESSION_KEY = "loanledger-zip-derived-password-v2";
+const ZIP_DERIVED_USERNAME_SESSION_KEY = "loanledger-zip-derived-username-v2";
+const ZIP_ENCRYPTED_CREDENTIAL_STORAGE_KEY = "loanledger-zip-credential-v3";
+const ZIP_CREDENTIAL_DB_NAME = "loanledger-secure-credentials-v1";
+const ZIP_CREDENTIAL_STORE_NAME = "secureKeys";
+const ZIP_CREDENTIAL_KEY_ID = "zip-login-aes-gcm-v1";
+const ZIP_KDF_ITERATIONS = 250000;
+const ZIP_KDF_SALT_CONTEXT = "Triple-M-by-NSF:zip-password:v2";
 
 function sanitizeZipUsername(raw){
   const username = String(raw || "").trim();
@@ -19,6 +27,170 @@ function sanitizeZipUsername(raw){
 function zipUrlForUsername(raw){
   const username = sanitizeZipUsername(raw);
   return `${CONFIG.zipBaseUrl}${encodeURIComponent(username)}.zip`;
+}
+
+function bytesToHex(bytes){
+  return Array.from(bytes || [], b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function bytesToBase64(bytes){
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize){
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(value){
+  const binary = atob(String(value || ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1){
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function deriveZipPassword(rawPassword, username){
+  if (!window.crypto?.subtle) {
+    throw new Error("Secure password derivation is not available in this browser.");
+  }
+  const safeUser = sanitizeZipUsername(username).toLowerCase();
+  const enc = new TextEncoder();
+  const saltSource = `${ZIP_KDF_SALT_CONTEXT}:${safeUser}`;
+  const saltDigest = await crypto.subtle.digest("SHA-256", enc.encode(saltSource));
+  const salt = new Uint8Array(saltDigest).slice(0, 16);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(String(rawPassword || "")),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: ZIP_KDF_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return bytesToHex(new Uint8Array(bits));
+}
+
+function openCredentialDb(){
+  if (!window.indexedDB) {
+    return Promise.reject(new Error("Secure browser storage is not available."));
+  }
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(ZIP_CREDENTIAL_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(ZIP_CREDENTIAL_STORE_NAME)){
+        db.createObjectStore(ZIP_CREDENTIAL_STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not open secure browser storage."));
+  });
+}
+
+async function credentialStoreOperation(mode, action){
+  const db = await openCredentialDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(ZIP_CREDENTIAL_STORE_NAME, mode);
+      const store = tx.objectStore(ZIP_CREDENTIAL_STORE_NAME);
+      let request;
+      try {
+        request = action(store);
+      } catch (err) {
+        reject(err);
+        return;
+      }
+      if (request) {
+        request.onerror = () => reject(request.error || new Error("Secure browser storage request failed."));
+      }
+      tx.oncomplete = () => resolve(request?.result);
+      tx.onerror = () => reject(tx.error || new Error("Secure browser storage transaction failed."));
+      tx.onabort = () => reject(tx.error || new Error("Secure browser storage transaction aborted."));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function getCredentialEncryptionKey({ create = true } = {}){
+  if (!window.crypto?.subtle) {
+    throw new Error("Secure encryption is not available in this browser.");
+  }
+  let key = await credentialStoreOperation("readonly", store => store.get(ZIP_CREDENTIAL_KEY_ID)).catch(() => null);
+  if (key || !create) return key || null;
+  key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  await credentialStoreOperation("readwrite", store => store.put(key, ZIP_CREDENTIAL_KEY_ID));
+  return key;
+}
+
+async function saveEncryptedZipCredential(credential){
+  const key = await getCredentialEncryptionKey({ create: true });
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify({
+    version: 3,
+    username: credential.username,
+    secretKind: credential.secretKind,
+    secret: credential.secret,
+    savedAt: new Date().toISOString()
+  }));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  localStorage.setItem(ZIP_ENCRYPTED_CREDENTIAL_STORAGE_KEY, JSON.stringify({
+    version: 3,
+    iv: bytesToBase64(iv),
+    data: bytesToBase64(new Uint8Array(encrypted))
+  }));
+}
+
+async function loadEncryptedZipCredential(){
+  let stored = "";
+  try {
+    stored = localStorage.getItem(ZIP_ENCRYPTED_CREDENTIAL_STORAGE_KEY) || "";
+  } catch {
+    return null;
+  }
+  if (!stored) return null;
+  try {
+    const envelope = JSON.parse(stored);
+    const key = await getCredentialEncryptionKey({ create: false });
+    if (!key) return null;
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64ToBytes(envelope.iv) },
+      key,
+      base64ToBytes(envelope.data)
+    );
+    const credential = JSON.parse(new TextDecoder().decode(decrypted));
+    if (!credential?.username || !credential?.secret || !credential?.secretKind) return null;
+    return credential;
+  } catch (err) {
+    console.warn("Encrypted login could not be read.", err);
+    return null;
+  }
+}
+
+async function deleteCredentialEncryptionKey(){
+  try {
+    await credentialStoreOperation("readwrite", store => store.delete(ZIP_CREDENTIAL_KEY_ID));
+  } catch {}
+}
+
+function removeStoredZipCredentials(){
+  try {
+    sessionStorage.removeItem("loanledger-unlocked");
+    sessionStorage.removeItem(ZIP_USERNAME_SESSION_KEY);
+    sessionStorage.removeItem(ZIP_DERIVED_PASSWORD_SESSION_KEY);
+    sessionStorage.removeItem(ZIP_DERIVED_USERNAME_SESSION_KEY);
+  } catch {}
+  try {
+    localStorage.removeItem(ZIP_USERNAME_STORAGE_KEY);
+    localStorage.removeItem(ZIP_PASSWORD_STORAGE_KEY);
+    localStorage.removeItem(ZIP_ENCRYPTED_CREDENTIAL_STORAGE_KEY);
+  } catch {}
+  deleteCredentialEncryptionKey();
 }
 
 let runtimeConfig = null;
@@ -199,6 +371,7 @@ const els = {
   openGoodsBoughtBtn: document.getElementById("openGoodsBoughtBtn"),
   openGoodsSoldBtn: document.getElementById("openGoodsSoldBtn"),
   goodsBoughtTotalAmount: document.getElementById("goodsBoughtTotalAmount"),
+  goodsPurchaseWalletSelect: document.getElementById("goodsPurchaseWalletSelect"),
   goodsReceiptNumber: document.getElementById("goodsReceiptNumber"),
   goodsCustomerSelect: document.getElementById("goodsCustomerSelect"),
   goodsNewCustomerField: document.getElementById("goodsNewCustomerField"),
@@ -212,6 +385,7 @@ const els = {
   goodsSaleGrandTotal: document.getElementById("goodsSaleGrandTotal"),
   goodsSalePaidAmount: document.getElementById("goodsSalePaidAmount"),
   goodsSaleBalanceAmount: document.getElementById("goodsSaleBalanceAmount"),
+  goodsSaleWalletSelect: document.getElementById("goodsSaleWalletSelect"),
   goodsSettlementModal: document.getElementById("goodsSettlementModal"),
   goodsSettlementForm: document.getElementById("goodsSettlementForm"),
   goodsSettlementReceipt: document.getElementById("goodsSettlementReceipt"),
@@ -698,6 +872,21 @@ async function readConfigFromZip(file, password){
   const jsonText = await configEntry.getData(new zip.TextWriter());
   await reader.close();
   return JSON.parse(jsonText);
+}
+
+async function readConfigWithPasswordProtection(file, rawPassword, username){
+  const derivedPassword = await deriveZipPassword(rawPassword, username);
+  try {
+    const configData = await readConfigFromZip(file, derivedPassword);
+    return { configData, derivedPassword, usedDerivedPassword: true };
+  } catch (derivedErr) {
+    try {
+      const configData = await readConfigFromZip(file, rawPassword);
+      return { configData, derivedPassword: "", usedDerivedPassword: false };
+    } catch {
+      throw derivedErr;
+    }
+  }
 }
 
 async function fetchProtectedZipBlob(username){
@@ -3339,6 +3528,7 @@ function updateGoodsSalePaymentFields(totalsByCurrency = getGoodsSaleTotalsByCur
     els.goodsSalePaidAmount.value = "";
     els.goodsSaleBalanceAmount.value = "";
     els.goodsSalePaidAmount.removeAttribute("max");
+    updateGoodsSaleWalletSelector(totalsByCurrency);
     return;
   }
   if (totals.length !== 1){
@@ -3349,6 +3539,7 @@ function updateGoodsSalePaymentFields(totalsByCurrency = getGoodsSaleTotalsByCur
     els.goodsSalePaidAmount.removeAttribute("max");
     els.goodsSaleBalanceAmount.value = formatInventoryTotalsByCurrency(totalsByCurrency);
     applyCurrencyFontClass(els.goodsSaleBalanceAmount, "");
+    updateGoodsSaleWalletSelector(totalsByCurrency);
     return;
   }
   const [currency, total] = totals[0];
@@ -3363,6 +3554,7 @@ function updateGoodsSalePaymentFields(totalsByCurrency = getGoodsSaleTotalsByCur
   const balance = Math.max(Number(total || 0) - Math.min(paid, Number(total || 0)), 0);
   els.goodsSaleBalanceAmount.value = moneyText(balance, currency);
   applyCurrencyFontClass(els.goodsSaleBalanceAmount, currency);
+  updateGoodsSaleWalletSelector(totalsByCurrency);
 }
 
 function updateGoodsSaleGrandTotal(){
@@ -5889,6 +6081,7 @@ function setCurrencyChoice(form, currency){
   // Refresh loan wallet selector if present in this form
   const walletSel = form.querySelector('[name="loan_wallet_id"]') || form.querySelector('[name="payment_wallet_id"]');
   if (walletSel) populateLoanWalletSelector(currency, walletSel);
+  if (form === els.goodsBoughtForm) updateGoodsPurchaseWalletSelector();
   syncExpenseBtcAccountFields(form);
 }
 
@@ -5992,6 +6185,7 @@ function openGoodsModal(mode, options = {}){
     }
     defaultDateInputs(els.goodsBoughtForm);
     syncGoodsBoughtCategoryFields();
+    updateGoodsPurchaseWalletSelector();
   } else {
     els.goodsModalTitle.textContent = "Create Sales Receipt";
     els.goodsModalDesc.textContent = "Select customer, choose one or more items, and save one receipt.";
@@ -6010,6 +6204,7 @@ function openGoodsModal(mode, options = {}){
     renderGoodsSelectors();
     defaultDateInputs(els.goodsSoldForm);
     updateGoodsSaleGrandTotal();
+    updateGoodsSaleWalletSelector();
   }
 }
 
@@ -6017,6 +6212,7 @@ async function saveGoodsBought(form){
   const fd = new FormData(form);
   const groupId = state.inventoryDraft.purchaseGroupId || "";
   const currentGroup = groupId ? getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === groupId) : null;
+  const walletId = String(fd.get("purchase_wallet_id") || "").trim();
   const unitActualPrice = Number(fd.get("actual_price") || 0);
   const itemCategory = currentGroup ? normalizeInventoryCategory(currentGroup.itemCategory) : normalizeInventoryCategory(fd.get("item_category"));
   const quantityUnit = normalizeInventoryUnit(fd.get("quantity_unit"), itemCategory);
@@ -6033,6 +6229,7 @@ async function saveGoodsBought(form){
   }
 
   validateCurrencyForForm(fd);
+  if (walletId) validateInventoryWallet(walletId, currency, totalActualPrice, "deduct");
 
   if (currentGroup){
     const payload = {
@@ -6058,10 +6255,8 @@ async function saveGoodsBought(form){
     };
     if (isBackupMode()){
       state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-      refreshBackupView();
     } else {
       await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-      await loadEntriesFromSupabase();
     }
   } else {
     const payload = {
@@ -6087,12 +6282,15 @@ async function saveGoodsBought(form){
     };
     if (isBackupMode()){
       state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-      refreshBackupView();
     } else {
       await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-      await loadEntriesFromSupabase();
     }
   }
+  if (walletId) {
+    await createWalletEntryForInventory(walletId, totalActualPrice, boughtDate, currency, "purchase", { itemName, itemCode });
+  }
+  if (isBackupMode()) refreshBackupView();
+  else await loadEntriesFromSupabase();
   closeModal("goodsModal");
 }
 
@@ -6103,6 +6301,7 @@ async function saveGoodsSold(form){
   const customerContact = getSelectedGoodsCustomerContact(form);
   const receiptNumber = String(fd.get("receipt_number") || "").trim() || nextReceiptNumber();
   const soldNotes = String(fd.get("notes") || "").trim() || null;
+  const walletId = String(fd.get("sale_wallet_id") || "").trim();
   const saleLines = collectGoodsSaleLines();
   const requestedQtyByGroup = new Map();
   if (!customerName) throw new Error("Customer name is required.");
@@ -6156,6 +6355,12 @@ async function saveGoodsSold(form){
   }
   const receiptPaymentStatus = !singleCurrencyReceipt || receiptPaidTotal + 0.00000001 >= receiptTotal ? "FULL" : "PARTIAL";
   let paidRemaining = receiptPaidTotal;
+  const saleCurrency = singleCurrencyReceipt ? preparedLines[0]?.currency : "";
+  if (walletId){
+    if (!singleCurrencyReceipt) throw new Error("Wallet top-up is available only for single-currency sale receipts.");
+    if (receiptPaidTotal <= 0) throw new Error("Paid amount must be greater than zero to add money to a wallet.");
+    validateInventoryWallet(walletId, saleCurrency, receiptPaidTotal, "topup");
+  }
 
   const payloads = preparedLines.map(line => {
     const linePaid = singleCurrencyReceipt ? Math.min(line.lineTotal, Math.max(paidRemaining, 0)) : line.lineTotal;
@@ -6192,11 +6397,14 @@ async function saveGoodsSold(form){
     payloads.slice().reverse().forEach(payload => {
       state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
     });
-    refreshBackupView();
   } else {
     await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payloads) });
-    await loadEntriesFromSupabase();
   }
+  if (walletId) {
+    await createWalletEntryForInventory(walletId, receiptPaidTotal, soldDate, saleCurrency, "sale", { customerName, receiptNumber });
+  }
+  if (isBackupMode()) refreshBackupView();
+  else await loadEntriesFromSupabase();
   closeModal("goodsModal");
 }
 
@@ -9184,10 +9392,7 @@ function doLogout(){
   fullConfigData = null;
   cachedPdfLogo = null;
   state.unlocked = false;
-  sessionStorage.removeItem("loanledger-unlocked");
-  sessionStorage.removeItem(ZIP_USERNAME_SESSION_KEY);
-  localStorage.removeItem(ZIP_USERNAME_STORAGE_KEY);
-  localStorage.removeItem(ZIP_PASSWORD_STORAGE_KEY);
+  removeStoredZipCredentials();
   if (els.zipPasswordInput) els.zipPasswordInput.value = "";
   if (els.app) els.app.classList.add("hide");
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
@@ -9197,25 +9402,28 @@ function doLogout(){
 }
 
 async function autoLogin(){
-  const storedUsername = localStorage.getItem(ZIP_USERNAME_STORAGE_KEY);
-  const storedPassword = localStorage.getItem(ZIP_PASSWORD_STORAGE_KEY);
-  
-  if (storedUsername && storedPassword && els.zipUsernameInput && els.zipPasswordInput){
-    els.zipUsernameInput.value = storedUsername;
-    els.zipPasswordInput.value = storedPassword;
-    await attemptUnlock();
+  try {
+    localStorage.removeItem(ZIP_PASSWORD_STORAGE_KEY);
+    localStorage.removeItem(ZIP_USERNAME_STORAGE_KEY);
+  } catch {}
+  const credential = await loadEncryptedZipCredential();
+  if (!credential?.username || !credential?.secret) return;
+  if (els.zipUsernameInput){
+    els.zipUsernameInput.value = credential.username;
   }
+  await attemptUnlock({ username: credential.username, rememberedCredential: credential });
 }
 
-async function attemptUnlock(){
+async function attemptUnlock(options = {}){
   els.lockError.textContent = "";
-  const zipUsernameRaw = els.zipUsernameInput ? els.zipUsernameInput.value.trim() : "";
-  const zipPassword = els.zipPasswordInput.value.trim();
+  const zipUsernameRaw = options.username || (els.zipUsernameInput ? els.zipUsernameInput.value.trim() : "");
+  const rememberedCredential = options.rememberedCredential || null;
+  const zipPassword = rememberedCredential ? "" : els.zipPasswordInput.value.trim();
   if (!zipUsernameRaw){
     els.lockError.textContent = "Please enter your username.";
     return;
   }
-  if (!zipPassword){
+  if (!rememberedCredential && !zipPassword){
     els.lockError.textContent = "Please enter the ZIP password.";
     return;
   }
@@ -9234,9 +9442,27 @@ async function attemptUnlock(){
     }
     const zipFile = new File([zipBlob], `${safeUser}.zip`, { type: "application/zip" });
     let configData;
+    let storedCredential = null;
     try{
-      configData = await readConfigFromZip(zipFile, zipPassword);
+      if (rememberedCredential){
+        if (rememberedCredential.username !== safeUser) throw new Error("Saved login does not match this username.");
+        configData = await readConfigFromZip(zipFile, rememberedCredential.secret);
+      } else {
+        const result = await readConfigWithPasswordProtection(zipFile, zipPassword, safeUser);
+        configData = result.configData;
+        storedCredential = {
+          username: safeUser,
+          secretKind: result.usedDerivedPassword ? "derived" : "encrypted-raw",
+          secret: result.usedDerivedPassword ? result.derivedPassword : zipPassword
+        };
+      }
     }catch(decryptErr){
+      if (rememberedCredential){
+        removeStoredZipCredentials();
+        els.lockError.textContent = "Saved login could not be used. Please enter your password again.";
+        els.lockError.classList.add("show");
+        return;
+      }
       els.lockError.textContent = "Password is incorrect. Please check your password and try again.";
       els.lockError.classList.add("show");
       return;
@@ -9272,8 +9498,18 @@ async function attemptUnlock(){
     
     sessionStorage.setItem("loanledger-unlocked", "true");
     sessionStorage.setItem(ZIP_USERNAME_SESSION_KEY, safeUser);
-    localStorage.setItem(ZIP_USERNAME_STORAGE_KEY, safeUser);
-    localStorage.setItem(ZIP_PASSWORD_STORAGE_KEY, zipPassword);
+    localStorage.removeItem(ZIP_USERNAME_STORAGE_KEY);
+    localStorage.removeItem(ZIP_PASSWORD_STORAGE_KEY);
+    sessionStorage.removeItem(ZIP_DERIVED_USERNAME_SESSION_KEY);
+    sessionStorage.removeItem(ZIP_DERIVED_PASSWORD_SESSION_KEY);
+    if (storedCredential){
+      try {
+        await saveEncryptedZipCredential(storedCredential);
+      } catch (storeErr) {
+        console.warn("Could not save encrypted login for auto-login.", storeErr);
+      }
+    }
+    if (els.zipPasswordInput) els.zipPasswordInput.value = "";
     state.unlocked = true;
     
     // Show welcome screen with name from JSON config
@@ -9343,6 +9579,105 @@ function populateLoanWalletSelector(currency, selectEl) {
       const balDisplay = formatReportAmount(a.balance, a.currency);
       return `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) — ${escapeHtml(balDisplay)}</option>`;
     }).join("");
+}
+
+function populateInventoryWalletSelector(selectEl, currency, placeholder, emptyLabel){
+  if (!selectEl) return;
+  const cur = String(currency || "").trim();
+  const currentValue = String(selectEl.value || "");
+  const accounts = getExpenseAccounts({ applyUiFilters: false })
+    .filter(a => a.currency !== "BTC" && (!cur || a.currency === cur));
+  if (!cur){
+    selectEl.innerHTML = `<option value="">${escapeHtml(emptyLabel || placeholder)}</option>`;
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  selectEl.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` +
+    accounts.map(a => {
+      const balDisplay = formatReportAmount(a.balance, a.currency);
+      return `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(balDisplay)}</option>`;
+    }).join("");
+  if (currentValue && accounts.some(a => a.group_id === currentValue)){
+    selectEl.value = currentValue;
+  }
+  if (!accounts.length){
+    selectEl.innerHTML = `<option value="">No wallet in ${escapeHtml(cur)}</option>`;
+    selectEl.disabled = true;
+  }
+}
+
+function updateGoodsPurchaseWalletSelector(){
+  if (!els.goodsBoughtForm) return;
+  const currency = String(els.goodsBoughtForm.querySelector('[name="currency"]')?.value || state.lastCurrency || "AED").trim();
+  populateInventoryWalletSelector(
+    els.goodsPurchaseWalletSelect,
+    currency,
+    "Skip wallet deduction",
+    "Select item currency first"
+  );
+}
+
+function updateGoodsSaleWalletSelector(totalsByCurrency = getGoodsSaleTotalsByCurrency()){
+  if (!els.goodsSaleWalletSelect) return;
+  const totals = Array.from((totalsByCurrency || new Map()).entries())
+    .filter(([, amount]) => Number(amount || 0) > 0);
+  if (totals.length !== 1){
+    els.goodsSaleWalletSelect.innerHTML = `<option value="">${totals.length ? "Wallet requires one currency receipt" : "Skip wallet top-up"}</option>`;
+    els.goodsSaleWalletSelect.disabled = totals.length !== 0;
+    return;
+  }
+  populateInventoryWalletSelector(
+    els.goodsSaleWalletSelect,
+    totals[0][0],
+    "Skip wallet top-up",
+    "Select sale item first"
+  );
+}
+
+function validateInventoryWallet(walletGroupId, currency, amount, mode){
+  const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
+  if (!account) throw new Error("Selected wallet was not found.");
+  if (account.currency === "BTC") throw new Error("BTC wallet balances and transactions are loaded directly from the blockchain.");
+  if (account.currency !== currency) throw new Error("Selected wallet currency does not match the inventory currency.");
+  if (mode === "deduct" && Number(amount || 0) > Number(account.balance || 0)){
+    throw new Error(`Insufficient wallet balance. Available: ${formatReportAmount(account.balance, account.currency)}.`);
+  }
+  return account;
+}
+
+async function createWalletEntryForInventory(walletGroupId, amount, date, currency, mode, context = {}){
+  const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
+  if (!account || account.currency === "BTC" || account.currency !== currency || !Number(amount || 0)) return;
+  const isTopup = mode === "sale";
+  const itemName = String(context.itemName || context.customerName || "Inventory").trim();
+  const noteText = isTopup
+    ? `Inventory sale ${context.receiptNumber ? `receipt ${context.receiptNumber}` : ""}`.trim()
+    : `Inventory purchase ${itemName}`.trim();
+
+  const payload = {
+    group_id: walletGroupId,
+    direction: "taken",
+    entry_kind: "partial",
+    person_name: account.person_name,
+    currency: account.currency,
+    principal_amount: null,
+    action_amount: Number(amount || 0),
+    loan_date: account.principal?.loan_date || date,
+    action_date: date,
+    notes: upsertExpenseMetaInNote(noteText, {
+      accountType: account.accountType,
+      rowType: isTopup ? "TOPUP" : "EXPENSE",
+      itemName,
+      expenseType: isTopup ? "Inventory Sale" : "Inventory Purchase"
+    })
+  };
+
+  if (isBackupMode()) {
+    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
+  } else {
+    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
+  }
 }
 
 async function createWalletEntryForLoanPrincipal(walletGroupId, amount, date, personName, direction, currency) {
