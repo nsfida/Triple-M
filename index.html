@@ -628,10 +628,17 @@
 
     <section class="tabs">
       <button class="tab active" data-tab="expenses" type="button"><i class="fa-solid fa-coins"></i> Expenses</button>
-      <button class="tab" data-tab="given" type="button"><i class="fa-solid fa-hand-holding-dollar"></i> Loan Given / Received Back</button>
-      <button class="tab" data-tab="taken" type="button"><i class="fa-solid fa-money-bill-transfer"></i> Loan Taken / Returned Back</button>
-      <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
       <button class="tab" data-tab="goods" type="button"><i class="fa-solid fa-cart-shopping"></i> Inventory</button>
+      <div class="menu-wrap tab-menu-wrap">
+        <button class="tab menu-trigger" id="loansTabBtn" type="button" data-entry-menu="loans-tabs" aria-haspopup="menu" aria-expanded="false">
+          <i class="fa-solid fa-hand-holding-dollar"></i> Loans
+        </button>
+        <div class="menu-dropdown" data-entry-menu-panel="loans-tabs">
+          <button type="button" class="menu-item" data-loan-tab="given">Loan Given / Received Back</button>
+          <button type="button" class="menu-item" data-loan-tab="taken">Loan Taken / Returned Back</button>
+        </div>
+      </div>
+      <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
       <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
       <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
       <button class="tab" data-tab="about" type="button"><i class="fa-solid fa-info-circle"></i> About</button>
