@@ -506,6 +506,12 @@ a{color:inherit}
   background:var(--primary-soft);
   border-radius:8px 8px 0 0;
 }
+.recycle-bin-title-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
 .recycle-bin-header h4{
   margin:0;
   font-size:.95rem;
@@ -517,6 +523,24 @@ a{color:inherit}
   color:var(--muted);
   margin-top:2px;
 }
+.recycle-bin-empty-btn{
+  appearance:none;
+  border:1px solid rgba(185,28,28,.2);
+  background:#fff;
+  color:var(--danger);
+  border-radius:8px;
+  padding:6px 8px;
+  font-size:.72rem;
+  font-weight:750;
+  line-height:1;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+}
+.recycle-bin-empty-btn:hover{background:#fff1f0;border-color:rgba(185,28,28,.34);}
+.recycle-bin-empty-btn:disabled{opacity:.45;cursor:not-allowed;background:#fff;}
 .recycle-bin-items{
   padding:8px;
   max-height:400px;
@@ -660,11 +684,26 @@ a{color:inherit}
 .expense-wallet-radio:checked + .expense-wallet-card{
   border-color:rgba(36,87,214,.5);background:var(--primary-soft);box-shadow:0 0 0 2px rgba(36,87,214,.08);
 }
-.expense-wallet-title{font-weight:780;font-size:.88rem;line-height:1.2;color:var(--text);max-width:100%;}
+.expense-wallet-title{display:block;font-weight:780;font-size:.88rem;line-height:1.2;color:var(--text);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .expense-wallet-sub{font-size:.72rem;color:var(--muted);line-height:1.35;}
+.expense-wallet-address{
+  display:block;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  font-size:.56rem;
+  line-height:1.1;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 .expense-wallet-stats{font-size:.7rem;color:var(--text);line-height:1.45;display:grid;gap:2px;width:100%;}
 .expense-wallet-stats span{display:flex;justify-content:space-between;gap:8px;}
 .expense-wallet-stats em{font-style:normal;color:var(--muted);font-weight:600;}
+.expense-btc-help{display:block;margin-top:4px;color:var(--muted);font-size:.74rem;line-height:1.35;}
+.expense-btc-help.success{color:var(--success);}
+.expense-btc-help.error{color:var(--danger);}
 /* Available amount styling for expense wallet filter */
 .expense-wallet-stats .available-label{color:var(--success);}
 .expense-wallet-stats .available-label em{color:var(--success) !important;}
