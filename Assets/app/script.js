@@ -9106,7 +9106,11 @@ function focusUnlockForm(){
   const focusEl = els.zipUsernameInput && !els.zipUsernameInput.value.trim()
     ? els.zipUsernameInput
     : els.zipPasswordInput;
-  focusEl.focus();
+  try {
+    focusEl.focus({ preventScroll: true });
+  } catch {
+    focusEl.focus();
+  }
 }
 
 function showStandaloneAbout() {
@@ -9153,11 +9157,26 @@ function hideStandalonePricing() {
 
 // Handle URL hash for direct About section access
 function handleUrlHash() {
-  if (window.location.hash === "#about") {
-    showStandaloneAbout();
-  } else if (window.location.hash === "#pricing") {
-    showStandalonePricing();
+  if (!window.location.hash || state.unlocked) return;
+  const target = els.lockScreen?.querySelector(window.location.hash);
+  if (target) {
+    setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }
+}
+
+function bindLandingAnchorScroll(){
+  if (!els.lockScreen) return;
+  els.lockScreen.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener("click", e => {
+      const hash = anchor.getAttribute("href");
+      if (!hash || hash === "#") return;
+      const target = els.lockScreen.querySelector(hash);
+      if (!target) return;
+      e.preventDefault();
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      history.replaceState(null, "", hash);
+    });
+  });
 }
 
 function doLogout(){
@@ -11651,6 +11670,7 @@ function btcClearSession() {
 
 async function boot(){
   attachEvents();
+  bindLandingAnchorScroll();
   initFloatingCurrencyBackground();
   defaultDateInputs(document);
   const resumedImport = sessionStorage.getItem(IMPORT_SESSION_KEY) === "1";
