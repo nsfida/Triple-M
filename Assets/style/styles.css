@@ -832,6 +832,19 @@ a{color:inherit}
   text-align:right;
   min-width:150px;
 }
+.inventory-outstanding-top-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex:0 0 auto;
+}
+.inventory-outstanding-top-actions > strong{
+  color:var(--text);
+  font-size:.9rem;
+  line-height:1.25;
+  white-space:nowrap;
+}
 .inventory-outstanding-total small,
 .inventory-outstanding-money small{
   display:block;
@@ -1099,9 +1112,14 @@ a{color:inherit}
     flex:1 1 100%;
   }
   .inventory-outstanding-total,
+  .inventory-outstanding-top-actions,
   .inventory-outstanding-member summary strong{
     width:100%;
     text-align:left;
+  }
+  .inventory-outstanding-top-actions{
+    justify-content:flex-start;
+    flex-wrap:wrap;
   }
   .inventory-outstanding-row{
     grid-template-columns:1fr 1fr;
