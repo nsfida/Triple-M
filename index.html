@@ -1010,6 +1010,8 @@
                   <label for="f_goods_all" class="filter-label">All</label>
                   <input type="radio" id="f_goods_open" name="f_goods" value="Open" class="filter-radio" data-filter="goods">
                   <label for="f_goods_open" class="filter-label">In Stock</label>
+                  <input type="radio" id="f_goods_low" name="f_goods" value="LowStock" class="filter-radio" data-filter="goods">
+                  <label for="f_goods_low" class="filter-label">Low Stock</label>
                   <input type="radio" id="f_goods_sold" name="f_goods" value="Closed" class="filter-radio" data-filter="goods">
                   <label for="f_goods_sold" class="filter-label">Sold</label>
                 </div>
@@ -1581,6 +1583,14 @@
               <label>New customer</label>
               <input class="input" id="goodsNewCustomerName" name="new_customer_name" placeholder="Customer name" autocomplete="off" />
             </div>
+            <div class="field w4 hide" id="goodsNewCustomerPhoneField">
+              <label>Customer phone</label>
+              <input class="input" id="goodsNewCustomerPhone" name="new_customer_phone" placeholder="Optional phone" autocomplete="off" />
+            </div>
+            <div class="field w8 hide" id="goodsNewCustomerAddressField">
+              <label>Customer address</label>
+              <input class="input" id="goodsNewCustomerAddress" name="new_customer_address" placeholder="Optional address" autocomplete="off" />
+            </div>
             <div id="goodsNewItemFields" class="field w12 hide">
               <div class="modal-grid">
                 <div class="field w6">
@@ -1686,6 +1696,10 @@
               <label>Balance amount</label>
               <input class="input" id="goodsSettlementBalance" name="balance_amount" readonly />
             </div>
+            <div class="field w12 hide" id="goodsSettlementInvoiceListField">
+              <label>Invoices to settle</label>
+              <div id="goodsSettlementInvoiceList" class="settlement-invoice-list"></div>
+            </div>
             <div class="field w6">
               <label>Settlement amount (full or partial)</label>
               <input class="input" id="goodsSettlementAmount" name="settlement_amount" type="number" min="0" step="0.00000001" required />
@@ -1704,6 +1718,25 @@
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="inventoryCustomerModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="inventoryCustomerModal"></div>
+    <div class="modal-dialog inventory-customer-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="inventoryCustomerTitle">Customer record</h3>
+          <p id="inventoryCustomerDesc">Inventory invoices, receipts, and payment history.</p>
+        </div>
+        <div class="inventory-customer-head-actions">
+          <button class="btn ghost" type="button" id="inventoryCustomerStatementBtn"><i class="fa-solid fa-download"></i> Statement</button>
+          <button class="icon-btn ghost" type="button" data-close-modal="inventoryCustomerModal" aria-label="Close">Ã—</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="inventoryCustomerBody" class="inventory-customer-record"></div>
       </div>
     </div>
   </div>
