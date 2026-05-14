@@ -1741,6 +1741,13 @@
               <label>Purchase date</label>
               <input class="input" name="bought_date" type="date" required data-default-today="true" />
             </div>
+            <div class="field w4">
+              <label>Deduct from wallet</label>
+              <select class="select" name="purchase_wallet_id" id="goodsPurchaseWalletSelect">
+                <option value="">Skip wallet deduction</option>
+              </select>
+              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Optional. Only wallets in this item currency appear.</small>
+            </div>
             <div class="field w12">
               <label>Item description</label>
               <textarea class="input" name="item_description" rows="3" placeholder="Optional item description"></textarea>
@@ -1828,6 +1835,13 @@
             <div class="field w4">
               <label>Balance amount</label>
               <input class="input" id="goodsSaleBalanceAmount" name="balance_amount" readonly placeholder="0.00" />
+            </div>
+            <div class="field w12">
+              <label>Add paid amount to wallet</label>
+              <select class="select" name="sale_wallet_id" id="goodsSaleWalletSelect">
+                <option value="">Skip wallet top-up</option>
+              </select>
+              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Optional. The selected wallet receives the paid amount for single-currency receipts.</small>
             </div>
             <div class="field w12">
               <div class="inventory-sale-head">
