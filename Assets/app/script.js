@@ -100,6 +100,7 @@ const state = {
   expenseWalletFilter: "all",
   expenseDateFrom: "",
   expenseDateTo: "",
+  expenseBtcCache: {},
   inventoryDraft: {
     purchaseGroupId: "",
     saleGroupIds: [],
@@ -228,6 +229,9 @@ const els = {
   expenseWalletFilters: document.getElementById("expenseWalletFilters"),
   expenseItemNameInput: document.getElementById("expenseItemNameInput"),
   expenseItemIntentWrap: document.getElementById("expenseItemIntentWrap"),
+  expenseBtcAddressField: document.getElementById("expenseBtcAddressField"),
+  expenseBtcBalanceStatus: document.getElementById("expenseBtcBalanceStatus"),
+  emptyRecycleBinBtn: document.getElementById("emptyRecycleBinBtn"),
   transferModal: document.getElementById("transferModal"),
   transferModalTitle: document.getElementById("transferModalTitle"),
   transferModalDesc: document.getElementById("transferModalDesc"),
@@ -568,12 +572,50 @@ async function permanentDeleteFromRecycleBin(entryId) {
   renderRecycleBinDropdown();
 }
 
+async function emptyRecycleBin() {
+  const items = state.recycleBin.slice();
+  if (!items.length) return;
+
+  if (!confirm(`Permanently delete all ${items.length} item${items.length === 1 ? "" : "s"} in the recycle bin? This action cannot be undone.`)) return;
+
+  const emptyBtn = document.getElementById('emptyRecycleBinBtn');
+  if (emptyBtn) emptyBtn.disabled = true;
+
+  try {
+    if (!isBackupMode()) {
+      const ids = items.map(item => item.id).filter(Boolean);
+      for (const id of ids) {
+        await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+      }
+      await loadEntriesFromSupabase();
+    }
+
+    state.recycleBin = [];
+    saveRecycleBinToStorage();
+    if (isBackupMode()) {
+      refreshBackupView();
+    }
+    renderRecycleBinDropdown();
+  } catch (err) {
+    alert(`Failed to empty recycle bin: ${err.message || err}`);
+    renderRecycleBinDropdown();
+  } finally {
+    if (emptyBtn) emptyBtn.disabled = state.recycleBin.length === 0;
+  }
+}
+
 function renderRecycleBinDropdown() {
   // Always update the count badge first, even if dropdown doesn't exist yet
   const countBadge = document.getElementById('recycleBinCount');
   if (countBadge) {
     countBadge.textContent = state.recycleBin.length;
     countBadge.style.display = state.recycleBin.length > 0 ? 'inline' : 'none';
+  }
+
+  const emptyBtn = document.getElementById('emptyRecycleBinBtn');
+  if (emptyBtn) {
+    emptyBtn.disabled = state.recycleBin.length === 0;
+    emptyBtn.onclick = () => emptyRecycleBin();
   }
 
   let dropdown = document.getElementById('recycleBinDropdown');
@@ -1003,6 +1045,53 @@ function overviewWatermarkFloatingWalletLogos(accounts){
   return `<div class="wallet-float-watermark" aria-hidden="true">${logos.join("")}</div>`;
 }
 
+function expenseOverviewWalletCardHtml(a){
+  const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
+  const isBtcLive = a.currency === "BTC";
+  let btcUsdEquivalent = "";
+  if (a.currency === "BTC") {
+    const btcBalance = Number(a.balance || 0);
+    if (btcBalance > 0 && state.bitcoin.btcPrice) {
+      btcUsdEquivalent = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  }
+  const addressLine = a.btcAddress
+    ? `<span class="expense-wallet-address mono" title="${escapeHtml(a.btcAddress)}">${escapeHtml(a.btcAddress)}</span>`
+    : "";
+  const actions = isBtcLive
+    ? `
+        <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+        <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
+        <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+      `
+    : `
+        <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
+        <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
+        <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
+        <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+        <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
+        <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+      `;
+
+  return `
+    <div class="summary currency-summary">
+      ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
+      <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
+        ${currencySymbolHtml(a.currency)}
+        ${getWalletIconHtml(a.person_name || "Wallet", 24)}
+        <span style="font-size:.8rem;font-weight:750;line-height:1.2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(a.person_name || "Wallet")}</span>
+      </div>
+      ${addressLine}
+      ${overviewOneLine(isBtcLive ? "Received:" : "Top-up:", money(totalTopup, a.currency))}
+      ${overviewOneLine(isBtcLive ? "Sent:" : "Spent:", money(a.spentMoney, a.currency))}
+      ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
+      <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+        ${actions}
+      </div>
+    </div>
+  `;
+}
+
 function getActiveTabKey(){
   return document.querySelector(".tab.active")?.dataset.tab || "expenses";
 }
@@ -1250,21 +1339,26 @@ function expenseMetaFromNotes(noteValue){
     accountType: readText("ATYPE"),
     rowType: readText("ETYPE"),
     itemName: readText("ITEM"),
-    expenseType: readText("XTYPE")
+    expenseType: readText("XTYPE"),
+    btcAddress: readText("BADDR"),
+    btcNetwork: readText("BNET")
   };
 }
 
 function upsertExpenseMetaInNote(noteValue, meta = {}){
+  const tagValue = value => String(value || "").replace(/\]/g, "").trim();
   const base = String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
-    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE):[^\]]+\]/gi, "")
+    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET):[^\]]+\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
   const tags = [];
-  if (meta.accountType) tags.push(`[ATYPE:${meta.accountType}]`);
-  if (meta.rowType) tags.push(`[ETYPE:${meta.rowType}]`);
-  if (meta.itemName) tags.push(`[ITEM:${meta.itemName}]`);
-  if (meta.expenseType) tags.push(`[XTYPE:${meta.expenseType}]`);
+  if (meta.accountType) tags.push(`[ATYPE:${tagValue(meta.accountType)}]`);
+  if (meta.rowType) tags.push(`[ETYPE:${tagValue(meta.rowType)}]`);
+  if (meta.itemName) tags.push(`[ITEM:${tagValue(meta.itemName)}]`);
+  if (meta.expenseType) tags.push(`[XTYPE:${tagValue(meta.expenseType)}]`);
+  if (meta.btcAddress) tags.push(`[BADDR:${tagValue(meta.btcAddress)}]`);
+  if (meta.btcNetwork) tags.push(`[BNET:${tagValue(meta.btcNetwork)}]`);
   const withTag = `${EXPENSE_ACCOUNT_TAG} ${base}`.trim();
   return `${withTag} ${tags.join(" ")}`.trim();
 }
@@ -1272,7 +1366,7 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
 function cleanExpenseNote(noteValue){
   return String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
-    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE):[^\]]+\]/gi, "")
+    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET):[^\]]+\]/gi, "")
     .replace(/→/g, "->")
     .replace(/\s{2,}/g, " ")
     .trim() || "—";
@@ -1294,6 +1388,184 @@ function wrapTextForPdf(text, maxLength = 50){
   }
   if (currentLine) lines.push(currentLine);
   return lines.join('\n');
+}
+
+function expenseBtcTrimAmount(value){
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  return n.toFixed(8).replace(/\.?0+$/, "");
+}
+
+function expenseBtcCacheKey(address, networkKey = "mainnet"){
+  return `${String(networkKey || "mainnet").trim()}:${String(address || "").trim().toLowerCase()}`;
+}
+
+function expenseBtcGetCache(address, networkKey = "mainnet"){
+  return state.expenseBtcCache[expenseBtcCacheKey(address, networkKey)] || null;
+}
+
+function expenseBtcSetCache(address, networkKey, data){
+  state.expenseBtcCache[expenseBtcCacheKey(address, networkKey)] = {
+    ...(data || {}),
+    address: String(address || "").trim(),
+    networkKey: String(networkKey || "mainnet").trim() || "mainnet"
+  };
+}
+
+function expenseBtcIsCacheFresh(cache, maxAgeMs = 120000){
+  return cache && !cache.loading && !cache.error && cache.fetchedAt && (Date.now() - cache.fetchedAt) < maxAgeMs;
+}
+
+function expenseBtcDetectNetwork(address){
+  const cleaned = String(address || "").trim();
+  if (!cleaned) throw new Error("Bitcoin wallet address is required.");
+  const candidates = ["mainnet", "testnet", "signet"];
+  for (const key of candidates){
+    try {
+      bitcoinjs.address.toOutputScript(cleaned, btcGetNetworkInfo(key).network);
+      return key;
+    } catch {
+      // keep trying the next Bitcoin network
+    }
+  }
+  const lower = cleaned.toLowerCase();
+  if (lower.startsWith("bc1") || /^[13]/.test(cleaned)) return "mainnet";
+  if (lower.startsWith("tb1") || /^[mn2]/i.test(cleaned)) return "testnet";
+  throw new Error("Enter a valid Bitcoin wallet address.");
+}
+
+function expenseBtcNetworkFromMeta(meta = {}){
+  const key = String(meta.btcNetwork || "mainnet").trim().toLowerCase();
+  return BTC_NETWORKS[key] ? key : "mainnet";
+}
+
+async function fetchExpenseBtcWalletData(address, networkKey = ""){
+  const cleaned = String(address || "").trim();
+  const detectedNetwork = networkKey && BTC_NETWORKS[networkKey] ? networkKey : expenseBtcDetectNetwork(cleaned);
+  const api = btcGetNetworkInfo(detectedNetwork).api;
+  const [stats, utxos, txs] = await Promise.all([
+    btcFetchJson(`${api}/address/${encodeURIComponent(cleaned)}`),
+    btcFetchJson(`${api}/address/${encodeURIComponent(cleaned)}/utxo`),
+    btcFetchJson(`${api}/address/${encodeURIComponent(cleaned)}/txs`)
+  ]);
+  const chainStats = stats?.chain_stats || {};
+  const mempoolStats = stats?.mempool_stats || {};
+  const fundedSat = Number(chainStats.funded_txo_sum || 0) + Number(mempoolStats.funded_txo_sum || 0);
+  const sentSat = Number(chainStats.spent_txo_sum || 0) + Number(mempoolStats.spent_txo_sum || 0);
+  const balanceSat = Array.isArray(utxos)
+    ? utxos.reduce((sum, utxo) => sum + Number(utxo.value || 0), 0)
+    : Math.max(fundedSat - sentSat, 0);
+  const txCount = Number(chainStats.tx_count || 0) + Number(mempoolStats.tx_count || 0);
+  return {
+    address: cleaned,
+    networkKey: detectedNetwork,
+    balanceSat,
+    fundedSat,
+    sentSat,
+    txCount,
+    utxos: Array.isArray(utxos) ? utxos : [],
+    transactions: Array.isArray(txs) ? txs : [],
+    fetchedAt: Date.now(),
+    loading: false,
+    error: ""
+  };
+}
+
+function refreshExpenseBtcWallets(accounts, options = {}){
+  const force = options.force === true;
+  const targets = [];
+  const seen = new Set();
+  for (const account of accounts || []){
+    if (account.currency !== "BTC" || !account.btcAddress) continue;
+    const key = expenseBtcCacheKey(account.btcAddress, account.btcNetwork || "mainnet");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const cache = expenseBtcGetCache(account.btcAddress, account.btcNetwork || "mainnet");
+    if (!force && (expenseBtcIsCacheFresh(cache) || cache?.loading)) continue;
+    if (!force && cache?.error && cache.fetchedAt && (Date.now() - cache.fetchedAt) < 120000) continue;
+    targets.push({ address: account.btcAddress, networkKey: account.btcNetwork || "mainnet", key });
+  }
+  if (!targets.length) return;
+
+  for (const target of targets){
+    expenseBtcSetCache(target.address, target.networkKey, {
+      ...(state.expenseBtcCache[target.key] || {}),
+      loading: true,
+      error: ""
+    });
+  }
+
+  Promise.allSettled(targets.map(async target => {
+    try {
+      const data = await fetchExpenseBtcWalletData(target.address, target.networkKey);
+      expenseBtcSetCache(target.address, data.networkKey, data);
+      if (data.networkKey !== target.networkKey) {
+        delete state.expenseBtcCache[target.key];
+      }
+    } catch (err) {
+      expenseBtcSetCache(target.address, target.networkKey, {
+        ...(state.expenseBtcCache[target.key] || {}),
+        loading: false,
+        error: err.message || String(err),
+        fetchedAt: Date.now()
+      });
+    }
+  })).then(() => {
+    renderAll();
+  });
+}
+
+function syncExpenseBtcAccountFields(form = els.expenseAccountForm){
+  if (!form || form !== els.expenseAccountForm) return;
+  const currency = String(form.querySelector('input[name="currency"]')?.value || "").trim();
+  const isBtc = currency === "BTC";
+  const addressInput = form.querySelector('input[name="btc_address"]');
+  const balanceInput = form.querySelector('input[name="opening_balance"]');
+  const balanceLabel = balanceInput?.closest(".field")?.querySelector("label");
+
+  if (els.expenseBtcAddressField) els.expenseBtcAddressField.classList.toggle("hide", !isBtc);
+  if (addressInput) addressInput.required = isBtc;
+  if (balanceInput) {
+    balanceInput.readOnly = isBtc;
+    balanceInput.placeholder = isBtc ? "Fetched from blockchain" : "0.00";
+    if (isBtc && !balanceInput.value) balanceInput.value = "0";
+  }
+  if (balanceLabel) balanceLabel.textContent = isBtc ? "Live blockchain balance" : "Available balance";
+  if (els.expenseBtcBalanceStatus) {
+    els.expenseBtcBalanceStatus.className = "expense-btc-help";
+    els.expenseBtcBalanceStatus.textContent = isBtc
+      ? "Balance and transactions will be loaded directly from the blockchain."
+      : "";
+  }
+}
+
+async function previewExpenseBtcBalance(){
+  const form = els.expenseAccountForm;
+  if (!form) return;
+  const addressInput = form.querySelector('input[name="btc_address"]');
+  const balanceInput = form.querySelector('input[name="opening_balance"]');
+  const address = String(addressInput?.value || "").trim();
+  if (!address) return;
+
+  if (els.expenseBtcBalanceStatus) {
+    els.expenseBtcBalanceStatus.className = "expense-btc-help";
+    els.expenseBtcBalanceStatus.textContent = "Loading live BTC balance...";
+  }
+
+  try {
+    const data = await fetchExpenseBtcWalletData(address);
+    expenseBtcSetCache(data.address, data.networkKey, data);
+    if (balanceInput) balanceInput.value = expenseBtcTrimAmount(btcSatToBtc(data.balanceSat));
+    if (els.expenseBtcBalanceStatus) {
+      els.expenseBtcBalanceStatus.className = "expense-btc-help success";
+      els.expenseBtcBalanceStatus.textContent = `Live balance: ${btcFormatBtcFromSat(data.balanceSat)} · ${data.txCount} transaction${data.txCount === 1 ? "" : "s"}`;
+    }
+  } catch (err) {
+    if (els.expenseBtcBalanceStatus) {
+      els.expenseBtcBalanceStatus.className = "expense-btc-help error";
+      els.expenseBtcBalanceStatus.textContent = err.message || String(err);
+    }
+  }
 }
 
 function sortCurrenciesList(values){
@@ -1696,6 +1968,7 @@ function buildTransferEvents(){
   const accountsByGroup = new Map(accounts.map(a => [a.group_id, a]));
   const out = [];
   for (const account of accounts){
+    if (account.currency === "BTC") continue;
     for (const row of account.spends){
       const meta = expenseMetaFromNotes(row.notes);
       if (meta.expenseType !== "Transfer") continue;
@@ -1779,6 +2052,7 @@ function collectTopupTransactionsFlat(accounts){
   const topupTransactions = [];
   for (const account of accounts){
     if (wf !== "all" && account.group_id !== wf) continue;
+    if (account.currency === "BTC") continue;
     if (account.principal && Number(account.principal.principal_amount || 0) > 0){
       if (isInDateRange(account.principal.loan_date)){
         topupTransactions.push({
@@ -3120,23 +3394,40 @@ function getExpenseAccounts(options = {}){
     .map(group => {
       const principal = group.principal;
       const principalMeta = expenseMetaFromNotes(principal?.notes);
-      const topups = group.actions.filter(a => expenseMetaFromNotes(a.notes).rowType === "TOPUP");
-      const spends = group.actions.filter(a => expenseMetaFromNotes(a.notes).rowType === "EXPENSE");
-      const openingBalance = Number(principal?.principal_amount || 0);
-      const addedMoney = topups.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
-      const spentMoney = spends.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
-      const balance = openingBalance + addedMoney - spentMoney;
+      const isBtcLive = String(principal?.currency || "").trim() === "BTC" && !!principalMeta.btcAddress;
+      const btcNetwork = isBtcLive ? expenseBtcNetworkFromMeta(principalMeta) : "";
+      const btcCache = isBtcLive ? expenseBtcGetCache(principalMeta.btcAddress, btcNetwork) : null;
+      const topups = isBtcLive ? [] : group.actions.filter(a => expenseMetaFromNotes(a.notes).rowType === "TOPUP");
+      const spends = isBtcLive ? [] : group.actions.filter(a => expenseMetaFromNotes(a.notes).rowType === "EXPENSE");
+      let openingBalance = Number(principal?.principal_amount || 0);
+      let addedMoney = topups.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+      let spentMoney = spends.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+      let balance = openingBalance + addedMoney - spentMoney;
+
+      if (isBtcLive && btcCache && btcCache.balanceSat != null) {
+        openingBalance = btcSatToBtc(btcCache.fundedSat || 0);
+        addedMoney = 0;
+        spentMoney = btcSatToBtc(btcCache.sentSat || 0);
+        balance = btcSatToBtc(btcCache.balanceSat || 0);
+      }
+
       const status = balance > 0 ? "Open" : "Closed";
       return {
         ...group,
         accountType: principalMeta.accountType || "Bank Account",
+        btcAddress: principalMeta.btcAddress || "",
+        btcNetwork,
+        btcCache,
+        isBtcLive,
         openingBalance,
         addedMoney,
         spentMoney,
         balance,
         status,
         topups,
-        spends
+        spends,
+        actions: isBtcLive ? [] : group.actions,
+        chainTransactions: isBtcLive && btcCache && Array.isArray(btcCache.transactions) ? btcCache.transactions : []
       };
     });
 
@@ -3146,7 +3437,7 @@ function getExpenseAccounts(options = {}){
   const status = state.statusFilter.expenses;
   const currency = state.currencyFilter.expenses || "All";
   return groups.filter(group => {
-    const blob = `${group.person_name || ""} ${group.accountType || ""} ${group.principal?.notes || ""} ${group.spends.map(s => expenseMetaFromNotes(s.notes).itemName).join(" ")} ${group.spends.map(s => expenseMetaFromNotes(s.notes).expenseType).join(" ")}`;
+    const blob = `${group.person_name || ""} ${group.accountType || ""} ${group.btcAddress || ""} ${group.principal?.notes || ""} ${group.spends.map(s => expenseMetaFromNotes(s.notes).itemName).join(" ")} ${group.spends.map(s => expenseMetaFromNotes(s.notes).expenseType).join(" ")}`;
     if (searchTerm && !blob.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     if (currency !== "All" && group.currency !== currency) return false;
     if (status === "Active") return group.status === "Open";
@@ -3201,12 +3492,145 @@ function collectExpenseSpendRows(accounts){
   const wf = state.expenseWalletFilter;
   for (const account of accounts){
     if (wf !== "all" && account.group_id !== wf) continue;
+    if (account.currency === "BTC") continue;
     for (const row of account.spends){
       if (!isInDateRange(row.action_date)) continue;
       out.push({ row, account });
     }
   }
   return out;
+}
+
+function btcTxDirectionForAddress(tx, walletAddress) {
+  let received = 0;
+  let sent = 0;
+
+  for (const out of (tx.vout || [])) {
+    if (out && out.scriptpubkey_address === walletAddress) {
+      received += Number(out.value || 0);
+    }
+  }
+
+  for (const input of (tx.vin || [])) {
+    const prev = input && input.prevout;
+    if (prev && prev.scriptpubkey_address === walletAddress) {
+      sent += Number(prev.value || 0);
+    }
+  }
+
+  const net = received - sent;
+  let label = "self";
+  let cls = "self";
+  if (net > 0) { label = "received"; cls = "in"; }
+  else if (net < 0) { label = "sent"; cls = "out"; }
+
+  return { label, cls, netSat: net, receivedSat: received, sentSat: sent };
+}
+
+function expenseBtcExplorerUrl(txid, networkKey = "mainnet"){
+  const safeTxid = encodeURIComponent(String(txid || ""));
+  if (networkKey === "testnet") return `https://blockstream.info/testnet/tx/${safeTxid}`;
+  if (networkKey === "signet") return `https://blockstream.info/signet/tx/${safeTxid}`;
+  return `https://blockstream.info/tx/${safeTxid}`;
+}
+
+function expenseBtcTxDateIso(tx){
+  return tx?.status?.confirmed && tx.status.block_time
+    ? new Date(Number(tx.status.block_time) * 1000).toISOString().slice(0, 10)
+    : "";
+}
+
+function expenseBtcAccountsForCurrentFilters(accounts){
+  const currency = state.currencyFilter.expenses || "All";
+  const status = state.statusFilter.expenses || "All";
+  const walletFilter = state.expenseWalletFilter || "all";
+  return (accounts || []).filter(account => {
+    if (account.currency !== "BTC" || !account.btcAddress) return false;
+    if (currency !== "All" && currency !== "BTC") return false;
+    if (walletFilter !== "all" && account.group_id !== walletFilter) return false;
+    if (status === "Active" && account.status !== "Open") return false;
+    if (status === "Closed" && account.status !== "Closed") return false;
+    return true;
+  });
+}
+
+function renderExpenseBtcTransactionsSection(accounts, isOpen){
+  const btcAccounts = expenseBtcAccountsForCurrentFilters(accounts);
+  if (!btcAccounts.length) return "";
+
+  const searchTerm = String(state.search.expenses || "").trim().toLowerCase();
+  const rows = [];
+  const notices = [];
+
+  for (const account of btcAccounts){
+    const cache = account.btcCache;
+    if (cache?.loading) {
+      notices.push(`<div class="empty">Loading blockchain records for ${escapeHtml(account.person_name || "BTC Wallet")}...</div>`);
+    } else if (cache?.error) {
+      notices.push(`<div class="empty">Could not load ${escapeHtml(account.person_name || "BTC Wallet")}: ${escapeHtml(cache.error)}</div>`);
+    } else if (!account.chainTransactions.length) {
+      notices.push(`<div class="empty">No blockchain transactions for ${escapeHtml(account.person_name || "BTC Wallet")}.</div>`);
+    }
+
+    for (const tx of account.chainTransactions){
+      const dateIso = expenseBtcTxDateIso(tx);
+      if (dateIso && !isInDateRange(dateIso)) continue;
+      const dir = btcTxDirectionForAddress(tx, account.btcAddress);
+      const type = dir.label === "received" ? "Received" : dir.label === "sent" ? "Sent" : "Self / change";
+      const amount = dir.netSat === 0
+        ? "0 BTC"
+        : `${dir.netSat > 0 ? "+" : "-"}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
+      const status = tx.status?.confirmed
+        ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : "confirmed")
+        : "unconfirmed";
+      const blob = `${account.person_name || ""} ${account.btcAddress || ""} ${tx.txid || ""} ${type} ${status}`.toLowerCase();
+      if (searchTerm && !blob.includes(searchTerm)) continue;
+      rows.push({
+        account,
+        tx,
+        type,
+        amount,
+        amountStyle: dir.netSat < 0 ? "color: var(--danger);" : dir.netSat > 0 ? "color: var(--success);" : "",
+        badgeClass: dir.netSat < 0 ? "orange" : dir.netSat > 0 ? "green" : "blue",
+        status,
+        dateText: tx.status?.confirmed ? btcFormatDate(tx.status.block_time || 0) : "mempool"
+      });
+    }
+  }
+
+  rows.sort((a, b) => Number(b.tx?.status?.block_time || 0) - Number(a.tx?.status?.block_time || 0));
+
+  const body = rows.length ? `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>Status</th><th>Txid</th><th>Action</th></tr></thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>${escapeHtml(row.dateText)}</td>
+              <td>
+                ${getWalletIconHtml(row.account.person_name || "Wallet", 16)} ${escapeHtml(row.account.person_name || "BTC Wallet")}
+                <span class="expense-wallet-address mono" title="${escapeHtml(row.account.btcAddress)}">${escapeHtml(row.account.btcAddress)}</span>
+              </td>
+              <td><span class="badge ${row.badgeClass}">${escapeHtml(row.type)}</span></td>
+              <td style="${row.amountStyle}">${escapeHtml(row.amount)}</td>
+              <td>${escapeHtml(row.status)}</td>
+              <td class="mono">${escapeHtml(btcShortHash(row.tx.txid))}</td>
+              <td><button type="button" class="tiny ghost expenseBtcTxBtn" data-url="${escapeHtml(expenseBtcExplorerUrl(row.tx.txid, row.account.btcNetwork))}">View</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  ` : (notices.join("") || `<div class="empty">No blockchain transactions found.</div>`);
+
+  return `<details class="expense-collapsible-section" id="btcBlockchainRecordsSection" ${isOpen ? "open" : ""}>
+    <summary class="expense-collapsible-header">
+      <h4 class="expense-section-title"><i class="fa-brands fa-bitcoin"></i> BTC Blockchain Transactions</h4>
+      <span class="expand-icon">▶</span>
+    </summary>
+    <div class="expense-collapsible-content">${body}</div>
+  </details>`;
 }
 
 
@@ -3272,6 +3696,31 @@ function renderExpenseWalletBar(accounts){
     const ck = state.expenseWalletFilter === a.group_id ? "checked" : "";
     const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
     const gid = escapeHtml(a.group_id);
+    const isBtcLive = a.currency === "BTC";
+    const titleAmount = isBtcLive ? Number(a.balance || 0) : totalTopup;
+    const walletAddressLine = a.btcAddress
+      ? `<span class="expense-wallet-address mono" title="${escapeHtml(a.btcAddress)}">${escapeHtml(a.btcAddress)}</span>`
+      : "";
+    const inLabel = isBtcLive ? "Received" : "Top-up";
+    const outLabel = isBtcLive ? "Sent" : "Spent";
+    const btcStatusLine = isBtcLive && a.btcCache?.loading
+      ? `<span><em>Blockchain</em> <strong>Loading...</strong></span>`
+      : isBtcLive && a.btcCache?.error
+      ? `<span><em>Blockchain</em> <strong title="${escapeHtml(a.btcCache.error)}">Needs refresh</strong></span>`
+      : "";
+    const walletActions = isBtcLive
+      ? `
+          <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
+          <button type="button" class="expenseWalletQuick" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Edit</button>
+          <button type="button" class="expenseWalletQuick danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Delete</button>
+        `
+      : `
+          <button type="button" class="expenseWalletQuick" data-action="topup" data-group-id="${gid}">Add money</button>
+          <button type="button" class="expenseWalletQuick" data-action="expense" data-group-id="${gid}">Add expense</button>
+          <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
+          <button type="button" class="expenseWalletQuick" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Edit</button>
+          <button type="button" class="expenseWalletQuick danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Delete</button>
+        `;
     
     // Calculate USD equivalent for BTC wallets
     let btcUsdEquivalent = "";
@@ -3314,22 +3763,20 @@ function renderExpenseWalletBar(accounts){
     blocks.push(`
       <div class="expense-wallet-card-wrap">
         <input type="radio" id="${rid}" name="f_exp_wallet" value="${gid}" class="filter-radio expense-wallet-radio" ${ck}>
-        <label for="${rid}" class="expense-wallet-card">
-          <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18)} ${escapeHtml(a.person_name || "Wallet")} (${escapeHtml(formatReportAmount(totalTopup, a.currency))})</span>
-          <span class="expense-wallet-sub">${escapeHtml(a.accountType || "")} · ${currencySymbolHtml(a.currency)}</span>
+        <label for="${rid}" class="expense-wallet-card" data-group-id="${gid}">
+          <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18)} ${escapeHtml(a.person_name || "Wallet")} (${escapeHtml(formatReportAmount(titleAmount, a.currency))})</span>
+          ${walletAddressLine}
+          <span class="expense-wallet-sub">${escapeHtml(a.accountType || "")} · ${currencySymbolHtml(a.currency)}${isBtcLive ? " · Live blockchain" : ""}</span>
           <div class="expense-wallet-stats">
-            <span><em>Top-up</em> <strong>${escapeHtml(formatReportAmount(totalTopup, a.currency))}</strong></span>
-            <span><em>Spent</em> <strong>${escapeHtml(formatReportAmount(a.spentMoney, a.currency))}</strong></span>
+            <span><em>${inLabel}</em> <strong>${escapeHtml(formatReportAmount(totalTopup, a.currency))}</strong></span>
+            <span><em>${outLabel}</em> <strong>${escapeHtml(formatReportAmount(a.spentMoney, a.currency))}</strong></span>
             <span class="available-label"><em style="color: var(--success) !important;">Available</em> <strong class="available-amount">${escapeHtml(formatReportAmount(a.balance, a.currency))}</strong></span>
             ${btcUsdEquivalent}
+            ${btcStatusLine}
           </div>
         </label>
         <div class="expense-wallet-actions">
-          <button type="button" class="expenseWalletQuick" data-action="topup" data-group-id="${gid}">Add money</button>
-          <button type="button" class="expenseWalletQuick" data-action="expense" data-group-id="${gid}">Add expense</button>
-          <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
-          <button type="button" class="expenseWalletQuick" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Edit</button>
-          <button type="button" class="expenseWalletQuick danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Delete</button>
+          ${walletActions}
         </div>
       </div>
     `);
@@ -3359,7 +3806,7 @@ function renderExpenseWalletBar(accounts){
 }
 
 function renderExpenseAccountSelectors(){
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency !== "BTC");
   const byCurrency = accounts.reduce((acc, account) => {
     const key = account.currency || "";
     acc[key] = acc[key] || [];
@@ -3379,6 +3826,14 @@ function renderExpenseAccountSelectors(){
 }
 
 function openExpenseModal(mode, presetGroupId = ""){
+  if ((mode === "topup" || mode === "expense") && presetGroupId) {
+    const presetAccount = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === presetGroupId);
+    if (presetAccount?.currency === "BTC") {
+      alert("BTC wallet balances and transactions are loaded directly from the blockchain.");
+      return;
+    }
+  }
+
   els.expenseModal.classList.remove("hide");
   els.expenseModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -3392,6 +3847,7 @@ function openExpenseModal(mode, presetGroupId = ""){
     els.expenseModalDesc.textContent = "Create Bank or Cash account with opening balance.";
     els.expenseAccountForm.reset();
     setCurrencyChoice(els.expenseAccountForm, state.lastCurrency || "AED");
+    syncExpenseBtcAccountFields(els.expenseAccountForm);
     defaultDateInputs(els.expenseAccountForm);
   } else if (mode === "topup"){
     els.expenseModalTitle.textContent = "Add Money";
@@ -3416,24 +3872,44 @@ function openExpenseModal(mode, presetGroupId = ""){
 
 async function saveExpenseAccount(form){
   const fd = new FormData(form);
+  const currency = String(fd.get("currency") || "AED").trim();
+  const accountType = String(fd.get("account_type") || "Bank Account");
+  let openingBalance = Number(fd.get("opening_balance") || 0);
+  let btcAddress = "";
+  let btcNetwork = "";
+
+  if (currency === "BTC") {
+    btcAddress = String(fd.get("btc_address") || "").trim();
+    if (!btcAddress) throw new Error("Bitcoin wallet address is required.");
+    const btcData = await fetchExpenseBtcWalletData(btcAddress);
+    btcAddress = btcData.address;
+    btcNetwork = btcData.networkKey;
+    openingBalance = btcSatToBtc(btcData.balanceSat);
+    expenseBtcSetCache(btcAddress, btcNetwork, btcData);
+  }
+
   const payload = {
     group_id: crypto.randomUUID(),
     direction: "taken",
     entry_kind: "principal",
     person_name: String(fd.get("account_name") || "").trim(),
-    currency: String(fd.get("currency") || "AED").trim(),
-    principal_amount: Number(fd.get("opening_balance") || 0),
+    currency,
+    principal_amount: openingBalance,
     action_amount: null,
     loan_date: String(fd.get("account_date") || ""),
     action_date: null,
     notes: upsertExpenseMetaInNote(String(fd.get("notes") || "").trim() || null, {
-      accountType: String(fd.get("account_type") || "Bank Account"),
-      rowType: "ACCOUNT"
+      accountType,
+      rowType: "ACCOUNT",
+      btcAddress,
+      btcNetwork
     })
   };
   if (!payload.person_name || !payload.currency || payload.principal_amount === "" || payload.principal_amount === null || payload.principal_amount === undefined || !payload.loan_date){
     throw new Error("Complete all required fields.");
   }
+  validateCurrencyForForm(fd);
+  if (currency === "BTC") state.expenseWalletFilter = payload.group_id;
   if (isBackupMode()){
     state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
     refreshBackupView();
@@ -3453,6 +3929,7 @@ async function saveExpenseTopup(form){
   if (!groupId || !amount || !date) throw new Error("Complete all required fields.");
   const principal = state.entries.find(e => e.group_id === groupId && e.direction === "taken" && e.entry_kind === "principal" && hasExpenseAccountTag(e.notes));
   if (!principal) throw new Error("Account not found.");
+  if (principal.currency === "BTC") throw new Error("BTC wallet balances and transactions are loaded directly from the blockchain.");
   const payload = {
     group_id: groupId,
     direction: "taken",
@@ -3495,6 +3972,7 @@ async function saveExpenseEntry(form){
   if (!groupId || amount === "" || amount === null || amount === undefined || !date || !itemName) throw new Error("Complete all required fields.");
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
   if (!account) throw new Error("Account not found.");
+  if (account.currency === "BTC") throw new Error("BTC wallet transactions are loaded directly from the blockchain.");
   if (selectedCurrency && account.currency !== selectedCurrency){
     throw new Error("Selected currency does not match the account currency.");
   }
@@ -3535,6 +4013,10 @@ async function downloadExpenseAccountPDF(groupId){
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
   if (!account){
     alert("Account not found.");
+    return;
+  }
+  if (account.isBtcLive) {
+    await downloadExpenseBtcAccountPDF(account);
     return;
   }
   if (!window.jspdf){
@@ -3600,6 +4082,78 @@ async function downloadExpenseAccountPDF(groupId){
   doc.save(`Expense_Account_${String(account.person_name || "account").replace(/\s+/g, "_")}.pdf`);
 }
 
+async function downloadExpenseBtcAccountPDF(account){
+  if (!window.jspdf){
+    alert("PDF library loading. Please try again.");
+    return;
+  }
+
+  let freshAccount = account;
+  if (!freshAccount.btcCache || freshAccount.btcCache.error || freshAccount.btcCache.loading) {
+    try {
+      const data = await fetchExpenseBtcWalletData(freshAccount.btcAddress, freshAccount.btcNetwork || "mainnet");
+      expenseBtcSetCache(data.address, data.networkKey, data);
+      freshAccount = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === account.group_id) || freshAccount;
+    } catch (err) {
+      alert(`Could not load BTC wallet data: ${err.message || err}`);
+      return;
+    }
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
+  const logoData = await getPdfLogo();
+  const title = "BTC Wallet Report";
+  const subtitle = `Wallet: ${freshAccount.person_name || "BTC Wallet"}`;
+  drawPdfHeader(doc, logoData, title, subtitle);
+  drawPdfOwnerBlock(doc, 48);
+  doc.setFontSize(10);
+  doc.setTextColor(23, 33, 43);
+  doc.text(`Address: ${freshAccount.btcAddress}`, 14, 58, { maxWidth: 120 });
+  doc.text(`Balance: ${formatPdfAmount(freshAccount.balance, "BTC")}`, 132, 48);
+  doc.text(`Received: ${formatPdfAmount(freshAccount.openingBalance, "BTC")}`, 132, 54);
+  doc.text(`Sent: ${formatPdfAmount(freshAccount.spentMoney, "BTC")}`, 132, 60);
+
+  const rows = (freshAccount.chainTransactions || []).map(tx => {
+    const dir = btcTxDirectionForAddress(tx, freshAccount.btcAddress);
+    const type = dir.label === "received" ? "Received" : dir.label === "sent" ? "Sent" : "Self / change";
+    const amount = dir.netSat === 0
+      ? "0 BTC"
+      : `${dir.netSat > 0 ? "+" : "-"}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
+    const status = tx.status?.confirmed
+      ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : "confirmed")
+      : "unconfirmed";
+    return [
+      tx.status?.confirmed ? btcFormatDate(tx.status.block_time || 0) : "mempool",
+      type,
+      amount,
+      status,
+      tx.txid || ""
+    ];
+  });
+
+  doc.autoTable({
+    startY: 76,
+    head: [["Date", "Type", "Amount", "Status", "Txid"]],
+    body: rows.length ? rows : [["—", "No blockchain transactions", "—", "—", "—"]],
+    theme: "grid",
+    headStyles: { fillColor: [36, 87, 214] },
+    styles: { font: "helvetica", fontSize: 8, cellPadding: 2.5, overflow: "linebreak" },
+    columnStyles: {
+      0: { cellWidth: 34 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 62 }
+    },
+    margin: { top: 50, bottom: 40 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+  });
+
+  doc.save(`BTC_Wallet_${String(freshAccount.person_name || "wallet").replace(/\s+/g, "_")}_${todayISO()}.pdf`);
+}
+
 function filterExpensesBySearch(expenses, searchTerm){
   if (!searchTerm || searchTerm.trim() === "") return expenses;
   
@@ -3646,7 +4200,11 @@ function filterExpensesBySearch(expenses, searchTerm){
 }
 
 function renderExpensesList(){
-  const accounts = getExpenseAccounts();
+  let accounts = getExpenseAccounts();
+  let accountsForSections = getExpenseAccounts({ applyUiFilters: false });
+  refreshExpenseBtcWallets(accountsForSections);
+  accounts = getExpenseAccounts();
+  accountsForSections = getExpenseAccounts({ applyUiFilters: false });
   const validIds = new Set(accounts.map(a => a.group_id));
   if (state.expenseWalletFilter !== "all" && !validIds.has(state.expenseWalletFilter)){
     state.expenseWalletFilter = "all";
@@ -3669,9 +4227,9 @@ function renderExpensesList(){
   );
 
   let html = "";
+  html += renderExpenseBtcTransactionsSection(accountsForSections, isExpenseFilterActive);
 
-  const accountsForTopups = getExpenseAccounts({ applyUiFilters: false });
-  let topupTransactions = collectTopupTransactionsFlat(accountsForTopups);
+  let topupTransactions = collectTopupTransactionsFlat(accountsForSections);
   
   // Apply search filtering to top-up transactions
   if (state.search.expenses && state.search.expenses.trim() !== "") {
@@ -3924,6 +4482,11 @@ function renderExpensesList(){
         await downloadAllTransfersPDF(null);
       }
     }
+  }));
+  els.expensesList.querySelectorAll(".expenseBtcTxBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    const url = btn.dataset.url;
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
   }));
 }
 
@@ -4253,41 +4816,7 @@ function renderExpenseOverviewWallets(){
   
   if (isDesktop) {
     // Desktop layout: two columns
-    const walletCardsHtml = accounts.map(a => {
-      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
-      
-      // Calculate USD equivalent for BTC wallets
-      let btcUsdEquivalent = "";
-      if (a.currency === "BTC") {
-        const btcBalance = Number(a.balance || 0);
-        if (btcBalance > 0 && state.bitcoin.btcPrice) {
-          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          btcUsdEquivalent = usdValue;
-        }
-      }
-      
-      return `
-        <div class="summary currency-summary">
-          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
-          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
-            ${currencySymbolHtml(a.currency)}
-            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
-            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
-          </div>
-          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
-          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
-          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
-          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
-            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
-            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
-            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
-          </div>
-        </div>
-      `;
-    }).join("");
+    const walletCardsHtml = accounts.map(expenseOverviewWalletCardHtml).join("");
     
     if (expenseSummaryCard) {
       container.innerHTML = `
@@ -4314,41 +4843,7 @@ function renderExpenseOverviewWallets(){
     }
   } else {
     // Mobile layout: original simple grid
-    container.innerHTML = expenseSummaryCard + accounts.map(a => {
-      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
-      
-      // Calculate USD equivalent for BTC wallets
-      let btcUsdEquivalent = "";
-      if (a.currency === "BTC") {
-        const btcBalance = Number(a.balance || 0);
-        if (btcBalance > 0 && state.bitcoin.btcPrice) {
-          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          btcUsdEquivalent = usdValue;
-        }
-      }
-      
-      return `
-        <div class="summary currency-summary">
-          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
-          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
-            ${currencySymbolHtml(a.currency)}
-            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
-            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
-          </div>
-          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
-          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
-          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
-          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
-            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
-            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
-            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
-          </div>
-        </div>
-      `;
-    }).join("");
+    container.innerHTML = expenseSummaryCard + accounts.map(expenseOverviewWalletCardHtml).join("");
   }
 }
 
@@ -4405,40 +4900,7 @@ function updateWalletsLayoutOnResize() {
 
   if (isDesktop) {
     // Desktop layout: two columns
-    const walletCardsHtml = accounts.map(a => {
-      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
-      
-      let btcUsdEquivalent = "";
-      if (a.currency === "BTC") {
-        const btcBalance = Number(a.balance || 0);
-        if (btcBalance > 0 && state.bitcoin.btcPrice) {
-          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          btcUsdEquivalent = usdValue;
-        }
-      }
-      
-      return `
-        <div class="summary currency-summary">
-          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
-          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
-            ${currencySymbolHtml(a.currency)}
-            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
-            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
-          </div>
-          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
-          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
-          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
-          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
-            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
-            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
-            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
-          </div>
-        </div>
-      `;
-    }).join("");
+    const walletCardsHtml = accounts.map(expenseOverviewWalletCardHtml).join("");
     
     if (expenseSummaryCard) {
       container.innerHTML = `
@@ -4464,40 +4926,7 @@ function updateWalletsLayoutOnResize() {
     }
   } else {
     // Mobile layout: original simple grid
-    container.innerHTML = expenseSummaryCard + accounts.map(a => {
-      const totalTopup = Number(a.openingBalance || 0) + Number(a.addedMoney || 0);
-      
-      let btcUsdEquivalent = "";
-      if (a.currency === "BTC") {
-        const btcBalance = Number(a.balance || 0);
-        if (btcBalance > 0 && state.bitcoin.btcPrice) {
-          const usdValue = (btcBalance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          btcUsdEquivalent = usdValue;
-        }
-      }
-      
-      return `
-        <div class="summary currency-summary">
-          ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
-          <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
-            ${currencySymbolHtml(a.currency)}
-            ${getWalletIconHtml(a.person_name || "Wallet", 24)}
-            <span style="font-size:.8rem;font-weight:750;line-height:1.2;">${escapeHtml(a.person_name || "Wallet")}</span>
-          </div>
-          ${overviewOneLine("Top-up:", money(totalTopup, a.currency))}
-          ${overviewOneLine("Spent:", money(a.spentMoney, a.currency))}
-          ${overviewAvailableLine(money(a.balance, a.currency), a.balance, btcUsdEquivalent)}
-          <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-            <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
-            <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
-            <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
-            <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-            <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-            <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
-          </div>
-        </div>
-      `;
-    }).join("");
+    container.innerHTML = expenseSummaryCard + accounts.map(expenseOverviewWalletCardHtml).join("");
   }
 }
 
@@ -4633,6 +5062,7 @@ function setCurrencyChoice(form, currency){
   // Refresh loan wallet selector if present in this form
   const walletSel = form.querySelector('[name="loan_wallet_id"]') || form.querySelector('[name="payment_wallet_id"]');
   if (walletSel) populateLoanWalletSelector(currency, walletSel);
+  syncExpenseBtcAccountFields(form);
 }
 
 function openEntryModal(mode, direction){
@@ -6697,6 +7127,12 @@ async function deleteExpenseWallet(groupId, walletName) {
 }
 
 function openTransferModal(fromGroupId, fromWalletName, currency) {
+  const sourceAccount = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === fromGroupId);
+  if (sourceAccount?.currency === "BTC") {
+    alert("BTC wallet transactions are loaded directly from the blockchain.");
+    return;
+  }
+
   els.transferModal.classList.remove("hide");
   els.transferModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -6707,7 +7143,7 @@ function openTransferModal(fromGroupId, fromWalletName, currency) {
   defaultDateInputs(els.transferForm);
   
   // Populate wallet options
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency !== "BTC");
   
   // Set from wallet (all wallets)
   els.transferFromWallet.innerHTML = accounts.map(a => 
@@ -6800,6 +7236,9 @@ async function saveTransfer(form) {
   const toAccount = accounts.find(a => a.group_id === toGroupId);
   
   if (!fromAccount || !toAccount) throw new Error("Selected wallet not found.");
+  if (fromAccount.currency === "BTC" || toAccount.currency === "BTC") {
+    throw new Error("BTC wallet transactions are loaded directly from the blockchain.");
+  }
   if (amount > fromAccount.balance) throw new Error(`Insufficient balance. Available: ${formatReportAmount(fromAccount.balance, fromAccount.currency)}`);
   
   // Validate conversion rate for cross-currency transfers
@@ -7536,6 +7975,16 @@ window.addEventListener("resize", () => {
     renderExpenseAccountSelectors();
     refreshExpenseItemIntentUi();
   });
+  const expenseBtcAddressInput = els.expenseAccountForm?.querySelector('input[name="btc_address"]');
+  if (expenseBtcAddressInput) {
+    expenseBtcAddressInput.addEventListener("blur", () => previewExpenseBtcBalance());
+    expenseBtcAddressInput.addEventListener("input", () => {
+      if (els.expenseBtcBalanceStatus) {
+        els.expenseBtcBalanceStatus.className = "expense-btc-help";
+        els.expenseBtcBalanceStatus.textContent = "Balance and transactions will be loaded directly from the blockchain.";
+      }
+    });
+  }
   if (els.expenseItemNameInput){
     els.expenseItemNameInput.addEventListener("input", refreshExpenseItemIntentUi);
     els.expenseItemNameInput.addEventListener("blur", refreshExpenseItemIntentUi);
@@ -7902,7 +8351,7 @@ async function showWelcomeAndTransitionToApp(keepCurrentBackup) {
 
 function populateLoanWalletSelector(currency, selectEl) {
   if (!selectEl) return;
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency !== "BTC");
   const matchingAccounts = currency
     ? accounts.filter(a => a.currency === currency)
     : accounts;
@@ -7917,6 +8366,7 @@ function populateLoanWalletSelector(currency, selectEl) {
 async function createWalletEntryForLoanPrincipal(walletGroupId, amount, date, personName, direction, currency) {
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
   if (!account) return;
+  if (account.currency === "BTC") return;
   if (account.currency !== currency) {
     console.warn("Wallet currency mismatch, skipping wallet entry.");
     return;
@@ -7956,6 +8406,7 @@ async function createWalletEntryForLoanPrincipal(walletGroupId, amount, date, pe
 async function createWalletEntryForPayment(walletGroupId, amount, date, personName, direction, currency) {
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
   if (!account) return;
+  if (account.currency === "BTC") return;
   if (account.currency !== currency) {
     console.warn("Wallet currency mismatch, skipping wallet entry.");
     return;
@@ -8503,29 +8954,7 @@ function btcBuildSpendPlan(sumIn, inputCount, amountSat, feeRateSatVb) {
 
 function btcTxDirection(tx) {
   const wallet = state.bitcoin.wallet;
-  let received = 0;
-  let sent = 0;
-
-  for (const out of (tx.vout || [])) {
-    if (out && out.scriptpubkey_address === wallet.address) {
-      received += Number(out.value || 0);
-    }
-  }
-
-  for (const input of (tx.vin || [])) {
-    const prev = input && input.prevout;
-    if (prev && prev.scriptpubkey_address === wallet.address) {
-      sent += Number(prev.value || 0);
-    }
-  }
-
-  const net = received - sent;
-  let label = 'self';
-  let cls = 'self';
-  if (net > 0) { label = 'received'; cls = 'in'; }
-  else if (net < 0) { label = 'sent'; cls = 'out'; }
-
-  return { label, cls, netSat: net, receivedSat: received, sentSat: sent };
+  return btcTxDirectionForAddress(tx, wallet?.address || "");
 }
 
 function btcRenderHistory() {
