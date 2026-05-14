@@ -2,10 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no" />
-  <title>Triple M by NSF</title>
-  <meta name="description" content="Simple loan tracking for money given, received back, loan taken, and returned back." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Triple M by NSF | Secure Money Management, Inventory, Loans & Bitcoin Wallets</title>
+  <meta name="description" content="Triple M by NSF is a secure money management platform for expenses, loans, inventory, multi-currency wallets, Bitcoin records, PDF statements, and business finance control." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="theme-color" content="#edf1f7" />
+  <link rel="canonical" href="https://triplem.vip/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Triple M by NSF | Secure Money Management Platform" />
+  <meta property="og:description" content="A premium financial control system for businesses and individuals: expenses, loans, inventory, Bitcoin wallets, secure data storage, and downloadable reports." />
+  <meta property="og:url" content="https://triplem.vip/" />
+  <meta property="og:site_name" content="Triple M by NSF" />
+  <meta property="og:image" content="https://triplem.vip/Assets/logo/logo.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Triple M by NSF | Secure Money Management Platform" />
+  <meta name="twitter:description" content="Manage expenses, loans, inventory, multi-currency wallets, Bitcoin records, and PDF statements in one secure private dashboard." />
+  <meta name="twitter:image" content="https://triplem.vip/Assets/logo/logo.png" />
   <link rel="icon" type="image/png" href="Assets/logo/logo.png" />
+  <link rel="preload" as="image" href="Assets/logo/logo2.png" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://triplem.vip/#organization",
+        "name": "Triple M by NSF",
+        "url": "https://triplem.vip/",
+        "logo": "https://triplem.vip/Assets/logo/logo.png",
+        "founder": { "@type": "Person", "name": "Nadeem Shahzad Fida" },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+923339004564",
+          "contactType": "customer support",
+          "areaServed": ["PK", "AE", "SA"],
+          "availableLanguage": ["en", "ur"]
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://triplem.vip/#software",
+        "name": "Triple M by NSF",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Web, iOS, Android",
+        "url": "https://triplem.vip/",
+        "description": "Secure money management software for expenses, loans, inventory, multi-currency wallets, Bitcoin tracking, statements, and private business finance records.",
+        "publisher": { "@id": "https://triplem.vip/#organization" },
+        "offers": {
+          "@type": "AggregateOffer",
+          "priceCurrency": "USD",
+          "lowPrice": "9.99",
+          "highPrice": "99.99"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://triplem.vip/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What does Triple M by NSF manage?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Triple M by NSF manages expenses, loans, inventory, customer invoices, wallet balances, Bitcoin records, notes, PDF statements, and business financial history." }
+          },
+          {
+            "@type": "Question",
+            "name": "How is user data protected?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Access is protected through private credentials, isolated customer configuration, secure database connections, local backup options, and careful handling of sensitive Bitcoin wallet data in the browser." }
+          },
+          {
+            "@type": "Question",
+            "name": "Who is Triple M by NSF for?",
+            "acceptedAnswer": { "@type": "Answer", "text": "It is built for merchants, shop owners, service businesses, individuals, and finance operators who need a private system for money tracking, inventory, loans, and reporting." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js"></script>
@@ -29,74 +104,184 @@
 
   <div class="page-currency-bg" id="pageCurrencyBg" aria-hidden="true"></div>
   <div id="lockScreen" class="lock">
-    <div class="lock-card">
-      <div class="brand">
-        <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
-        <div>
-          <h1>TRIPLE M by NSF</h1>
-          <p id="lockScreenSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
-        </div>
-      </div>
-      
-      <div class="login-header">
-        <div class="app-download-icons">
-          <button id="iosDownloadBtn" class="app-download-btn" type="button" title="Download for iOS">
-            <i class="fa-brands fa-apple"></i>
-          </button>
-          <button id="androidDownloadBtn" class="app-download-btn" type="button" title="Download for Android">
-            <i class="fa-brands fa-google-play"></i>
-          </button>
-        </div>
-        <h2>Welcome Back</h2>
-        <p class="login-subtitle">Sign in to access your financial dashboard</p>
-      </div>
-      
-      <form class="login-form" onsubmit="return false;">
-        <div class="form-group">
-          <label for="zipUsernameInput" class="form-label">Username</label>
-          <div class="input-wrapper">
-            <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Enter your username" autocomplete="username" autocapitalize="off" spellcheck="false" />
-            <span class="input-icon">👤</span>
+    <div class="landing-shell">
+      <header class="landing-nav" aria-label="Public navigation">
+        <a class="landing-brand" href="#top" aria-label="Triple M by NSF home">
+          <img src="Assets/logo/logo2.png" alt="Triple M by NSF secure money management logo" onerror="this.src='Assets/logo/logo.png'" />
+          <span id="lockScreenSubtitle">Money Management Module</span>
+        </a>
+        <nav class="landing-links" aria-label="Landing page links">
+          <a href="#overview">Overview</a>
+          <a href="#security">Security</a>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <a class="landing-nav-cta" href="#login">Secure Login</a>
+      </header>
+
+      <main id="top" class="landing-main">
+        <section class="landing-hero" aria-labelledby="landingHeroTitle">
+          <div class="landing-hero-copy">
+            <div class="landing-eyebrow"><i class="fa-solid fa-shield-halved"></i> Private finance command center</div>
+            <h1 id="landingHeroTitle">Triple M by NSF secure money management for modern business owners.</h1>
+            <p class="landing-lead">Track expenses, loans, inventory, customer invoices, wallet balances, Bitcoin records, notes, and PDF statements in one elegant financial dashboard built for merchants, service teams, and private operators.</p>
+            <div class="landing-hero-actions">
+              <a class="btn primary landing-cta" href="#login"><i class="fa-solid fa-lock"></i> Access Dashboard</a>
+              <button id="sendInquiryBtn" class="btn ghost landing-cta" type="button"><i class="fa-solid fa-envelope"></i> Request Access</button>
+            </div>
+            <div class="landing-trust-strip" aria-label="Trust highlights">
+              <span><i class="fa-solid fa-database"></i> Dedicated data setup</span>
+              <span><i class="fa-solid fa-file-pdf"></i> PDF statements</span>
+              <span><i class="fa-brands fa-bitcoin"></i> Bitcoin ready</span>
+              <span><i class="fa-solid fa-cloud-arrow-down"></i> Backup export</span>
+            </div>
           </div>
-        </div>
-        
-        <div class="form-group">
-          <label for="zipPasswordInput" class="form-label">Password</label>
-          <div class="input-wrapper">
-            <input id="zipPasswordInput" class="input" type="password" placeholder="Enter your password" autocomplete="current-password" />
-            <span class="input-icon">🔒</span>
+
+          <aside id="login" class="login-glass-panel" aria-labelledby="loginTitle">
+            <div class="login-panel-top">
+              <img src="Assets/logo/logo.png" alt="Triple M private login emblem" />
+              <div>
+                <p class="login-kicker">Secure portal</p>
+                <h2 id="loginTitle">Sign in</h2>
+              </div>
+            </div>
+            <p class="login-panel-copy">Enter your assigned credentials to open your private financial workspace.</p>
+            <form class="login-form landing-login-form" onsubmit="return false;">
+              <div class="form-group">
+                <label for="zipUsernameInput" class="form-label">Username</label>
+                <div class="input-wrapper">
+                  <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Your account username" autocomplete="username" autocapitalize="off" spellcheck="false" />
+                  <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="zipPasswordInput" class="form-label">Password</label>
+                <div class="input-wrapper">
+                  <input id="zipPasswordInput" class="input" type="password" placeholder="Your private password" autocomplete="current-password" />
+                  <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+                </div>
+              </div>
+              <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
+            </form>
+            <div class="landing-downloads" aria-label="App downloads">
+              <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triple M for iOS"><i class="fa-brands fa-apple"></i></button>
+              <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triple M for Android"><i class="fa-brands fa-google-play"></i></button>
+              <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp support</a>
+            </div>
+            <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Access is configured privately for each user or business.</div>
+            <div id="lockError" class="lock-error"></div>
+          </aside>
+        </section>
+
+        <section id="overview" class="landing-section landing-grid-2" aria-labelledby="overviewTitle">
+          <div>
+            <p class="section-kicker">Project overview</p>
+            <h2 id="overviewTitle">A private operating system for daily money control.</h2>
+            <p>Triple M by NSF brings everyday finance into one organized workspace: expense wallets, loan records, inventory sales, customer invoices, installment activity, notes, Bitcoin wallets, and downloadable statements. It is designed for people who need clarity without spreadsheets becoming a second job.</p>
           </div>
-        </div>
-        
-        <div class="form-actions">
-          <button id="unlockBtn" class="btn primary" type="button">
-            <span class="btn-text">Sign In</span>
-            <span class="btn-loader" style="display: none;">⟳</span>
-          </button>
-        </div>
-      </form>
-      
-      <div class="login-actions">
-        <div class="login-action-buttons">
-          <button id="learnMoreBtn" class="btn ghost icon-expand-btn" type="button">
-            <i class="fa-solid fa-info-circle"></i>
-            <span class="btn-text">Learn More</span>
-          </button>
-          <button id="pricingBtn" class="btn ghost icon-expand-btn" type="button">
-            <i class="fa-solid fa-tags"></i>
-            <span class="btn-text">Pricing</span>
-          </button>
-        </div>
-        <button id="sendInquiryBtn" class="btn primary" type="button" style="width: 100%; margin-top: 8px;">
-          <i class="fa-solid fa-envelope"></i> Send Inquiry
-        </button>
-      </div>
-      
-      <div class="login-help">
-        <p>Don't have an account? Contact on WhatsApp <a href="https://wa.me/923339004564" target="_blank" class="whatsapp-link">+923339004564</a></p>
-      </div>
-      
-      <div id="lockError" class="lock-error"></div>
+          <div class="showcase-card" aria-label="Triple M dashboard preview">
+            <div class="showcase-bar"><span></span><span></span><span></span></div>
+            <div class="showcase-metric"><small>Available Balance</small><strong>AED 48,250.00</strong></div>
+            <div class="showcase-lines"><span style="width:92%"></span><span style="width:68%"></span><span style="width:81%"></span></div>
+            <div class="showcase-stack"><span>Inventory invoices</span><span>Loan settlements</span><span>BTC blockchain records</span></div>
+          </div>
+        </section>
+
+        <section class="landing-section" aria-labelledby="storyTitle">
+          <p class="section-kicker">Brand story</p>
+          <h2 id="storyTitle">Built for finance that happens in real life.</h2>
+          <div class="landing-story">
+            <p>Triple M by NSF was shaped around practical business workflows: customers paying partially, inventory moving daily, loans coming back in pieces, wallets changing across currencies, and owners needing reliable statements at the end of the day.</p>
+            <p>The result is a calm, premium dashboard where financial records feel structured, searchable, and ready for action. It supports careful operators who want a private system that looks polished and behaves like a serious business tool.</p>
+          </div>
+        </section>
+
+        <section id="security" class="landing-section" aria-labelledby="securityTitle">
+          <p class="section-kicker">Security and privacy</p>
+          <h2 id="securityTitle">Trust blocks designed for sensitive financial work.</h2>
+          <div class="landing-card-grid three">
+            <article class="landing-card"><i class="fa-solid fa-user-shield"></i><h3>Private account access</h3><p>Each workspace is opened only with assigned credentials and private configuration, keeping financial records away from public access.</p></article>
+            <article class="landing-card"><i class="fa-solid fa-database"></i><h3>Separated data handling</h3><p>Customer data is kept organized through existing secure storage calls and private setup files, with no shared manual spreadsheet exposure.</p></article>
+            <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Bitcoin wallet workflows are handled in the browser, while blockchain balances and transactions are retrieved from public network records.</p></article>
+          </div>
+        </section>
+
+        <section class="landing-section landing-grid-2" aria-labelledby="protectionTitle">
+          <div>
+            <p class="section-kicker">Data protection highlights</p>
+            <h2 id="protectionTitle">Designed to protect records, exports, and wallet workflows.</h2>
+            <p>Triple M supports local backups, PDF exports, private login, careful browser-side wallet handling, and structured records that can be restored or reviewed without rebuilding ledgers manually.</p>
+          </div>
+          <div class="landing-check-list">
+            <span><i class="fa-solid fa-check"></i> JSON and CSV backup options</span>
+            <span><i class="fa-solid fa-check"></i> Statement and receipt PDF generation</span>
+            <span><i class="fa-solid fa-check"></i> Customer invoice history and payment records</span>
+            <span><i class="fa-solid fa-check"></i> Multi-currency wallet and expense tracking</span>
+            <span><i class="fa-solid fa-check"></i> Clear separation between public login and private app</span>
+          </div>
+        </section>
+
+        <section id="features" class="landing-section" aria-labelledby="featuresTitle">
+          <p class="section-kicker">Features</p>
+          <h2 id="featuresTitle">Everything important, connected in one dashboard.</h2>
+          <div class="landing-card-grid">
+            <article class="landing-card"><i class="fa-solid fa-wallet"></i><h3>Expense wallets</h3><p>Track cash, bank, card, and custom accounts with top-ups, expenses, transfers, and wallet-level statements.</p></article>
+            <article class="landing-card"><i class="fa-solid fa-hand-holding-dollar"></i><h3>Loans</h3><p>Manage loans given, received back, loans taken, returned payments, and full histories with clean settlement visibility.</p></article>
+            <article class="landing-card"><i class="fa-solid fa-boxes-stacked"></i><h3>Inventory</h3><p>Control purchased stock, sales receipts, low-stock items, customer balances, outstanding invoices, and profit records.</p></article>
+            <article class="landing-card"><i class="fa-solid fa-file-invoice-dollar"></i><h3>Invoices and receipts</h3><p>Download professional PDFs for sales invoices, transaction receipts, customer statements, and section reports.</p></article>
+            <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin records</h3><p>Create or import wallets, watch addresses, read blockchain balances, and review transaction records in BTC workflows.</p></article>
+            <article class="landing-card"><i class="fa-solid fa-note-sticky"></i><h3>Notes and records</h3><p>Keep operational notes beside finance tools so important context stays close to the numbers.</p></article>
+          </div>
+        </section>
+
+        <section id="services" class="landing-section" aria-labelledby="servicesTitle">
+          <p class="section-kicker">Services included</p>
+          <h2 id="servicesTitle">Setup, support, reporting, and private workspace delivery.</h2>
+          <div class="landing-service-row">
+            <article><h3>Workspace setup</h3><p>Account preparation, configuration, and supported currency selection for your business workflow.</p></article>
+            <article><h3>Financial reporting</h3><p>PDF statements for loans, expenses, inventory, BTC transactions, customer balances, and full exports.</p></article>
+            <article><h3>Support channel</h3><p>WhatsApp support for onboarding, access, usage questions, and practical feature guidance.</p></article>
+          </div>
+        </section>
+
+        <section id="pricing" class="landing-section" aria-labelledby="pricingTitle">
+          <p class="section-kicker">Pricing</p>
+          <h2 id="pricingTitle">Simple plans for merchants and private finance users.</h2>
+          <div class="pricing-row">
+            <article class="pricing-panel"><h3>Monthly</h3><p class="price-line">From <strong>$9.99</strong> / month</p><p>Ideal for small businesses starting with secure finance, inventory, and reporting workflows.</p><span>Includes free installation and one free month on eligible setup.</span></article>
+            <article class="pricing-panel featured"><h3>Yearly</h3><p class="price-line">From <strong>$99.99</strong> / year</p><p>Best value for active businesses that want continuous access, support, and long-term records.</p><span>Includes free installation and two free months on eligible setup.</span></article>
+            <article class="pricing-panel"><h3>Custom</h3><p class="price-line"><strong>Request quote</strong></p><p>For tailored setup, special currency choices, dedicated workflows, or multi-user business needs.</p><button class="btn ghost" type="button" onclick="document.getElementById('sendInquiryBtn')?.click()">Send Inquiry</button></article>
+          </div>
+        </section>
+
+        <section id="about" class="landing-section landing-grid-2" aria-labelledby="aboutTitle">
+          <div><p class="section-kicker">About</p><h2 id="aboutTitle">Created by Nadeem Shahzad Fida for practical financial clarity.</h2><p>Triple M by NSF is a proprietary money management module focused on high-control finance workflows. It is built for users who need secure access, multi-currency records, inventory visibility, wallet tracking, and polished documents without switching between disconnected tools.</p></div>
+          <div class="landing-about-card"><img src="Assets/logo/logo.png" alt="Triple M by NSF brand mark" /><div><h3>Money Management Module</h3><p>Expenses, loans, inventory, Bitcoin, notes, reports, receipts, and statements in one private dashboard.</p></div></div>
+        </section>
+
+        <section id="policies" class="landing-section" aria-labelledby="policyTitle">
+          <p class="section-kicker">Policies</p>
+          <h2 id="policyTitle">Clear terms for responsible use and private data handling.</h2>
+          <div class="landing-policy-grid">
+            <article><h3>Terms and conditions</h3><p>Access is provided to approved users only. Users are responsible for entering accurate records, protecting their login credentials, reviewing exported reports, and requesting support when a setup or data concern appears.</p></article>
+            <article><h3>Privacy policy summary</h3><p>Financial records are used to operate the dashboard features requested by the user. Sensitive access details should not be shared publicly, and Bitcoin private-key workflows should be handled only on trusted devices.</p></article>
+            <article><h3>Data responsibility</h3><p>Backups and exports are available so users can keep copies of important finance data. Reports should be reviewed before business or accounting decisions are finalized.</p></article>
+          </div>
+        </section>
+
+        <section id="faq" class="landing-section" aria-labelledby="faqTitle">
+          <p class="section-kicker">FAQ</p>
+          <h2 id="faqTitle">Questions before you sign in.</h2>
+          <div class="faq-list">
+            <details><summary>What is Triple M by NSF?</summary><p>It is a secure finance dashboard for managing expenses, wallets, loans, inventory, customer invoices, Bitcoin records, notes, and PDF reports.</p></details>
+            <details><summary>Who should use it?</summary><p>It is useful for shop owners, merchants, service businesses, private lenders, and individuals who need structured finance records without manual spreadsheets.</p></details>
+            <details><summary>Does it support multiple currencies?</summary><p>Yes. The app supports common business currencies such as AED, SAR, PKR, USD, and BTC depending on the configured setup.</p></details>
+            <details><summary>Can I download statements?</summary><p>Yes. The dashboard includes PDF statements, receipts, inventory invoices, BTC statements, customer records, and backup exports.</p></details>
+            <details><summary>How do I get access?</summary><p>Use the inquiry button or WhatsApp support link to request setup and receive your private login details.</p></details>
+          </div>
+        </section>
+      </main>
     </div>
   </div>
 
@@ -256,7 +441,7 @@
         <div class="brand">
           <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
           <div>
-            <h1>TRIPLE M by NSF</h1>
+            <div class="brand-title">TRIPLE M by NSF</div>
             <p id="standaloneAboutSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
           </div>
         </div>
@@ -391,7 +576,7 @@
         <div class="brand">
           <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
           <div>
-            <h1>TRIPLE M by NSF</h1>
+            <div class="brand-title">TRIPLE M by NSF</div>
             <p>Pricing Plans for Small Business Merchants</p>
           </div>
         </div>
@@ -573,7 +758,7 @@
         <img class="mark" src="Assets/logo/logo2.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
       </div>
       <div class="welcome-text">
-        <h1 class="welcome-title">Welcome Back</h1>
+        <h2 class="welcome-title">Welcome Back</h2>
         <p class="welcome-name" id="welcomeName">User</p>
       </div>
     </div>
