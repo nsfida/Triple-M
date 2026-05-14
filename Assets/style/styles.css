@@ -783,6 +783,162 @@ a{color:inherit}
   font-size:.74rem;
   color:var(--muted);
 }
+.inventory-outstanding-banner{
+  border:1px solid #d9e2f1;
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.inventory-outstanding-banner.is-clear{
+  border-color:var(--line);
+}
+.inventory-outstanding-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding:12px 14px;
+  background:#f8fafc;
+  border-bottom:1px solid var(--line);
+}
+.inventory-outstanding-banner.is-clear .inventory-outstanding-top{
+  border-bottom:none;
+}
+.inventory-outstanding-top h4{
+  margin:0 0 4px;
+  font-size:1rem;
+  font-weight:780;
+  color:var(--text);
+}
+.inventory-outstanding-top p{
+  margin:0;
+  color:var(--muted);
+  font-size:.82rem;
+  line-height:1.35;
+}
+.inventory-outstanding-total{
+  flex:0 0 auto;
+  text-align:right;
+  min-width:150px;
+}
+.inventory-outstanding-total small,
+.inventory-outstanding-money small{
+  display:block;
+  color:var(--muted);
+  font-size:.68rem;
+  font-weight:700;
+  text-transform:uppercase;
+}
+.inventory-outstanding-total strong,
+.inventory-outstanding-money strong{
+  display:block;
+  color:var(--text);
+  font-size:.9rem;
+  line-height:1.25;
+  white-space:nowrap;
+}
+.inventory-outstanding-member{
+  border-top:1px solid var(--line);
+}
+.inventory-outstanding-member:first-child{
+  border-top:none;
+}
+.inventory-outstanding-member summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 14px;
+  cursor:pointer;
+  list-style:none;
+}
+.inventory-outstanding-member summary::-webkit-details-marker{
+  display:none;
+}
+.inventory-outstanding-member summary span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-weight:760;
+}
+.inventory-outstanding-member summary strong{
+  flex:0 0 auto;
+  color:var(--muted);
+  font-size:.78rem;
+  font-weight:760;
+  text-align:right;
+}
+.inventory-outstanding-list{
+  border-top:1px solid var(--line);
+}
+.inventory-outstanding-row{
+  display:grid;
+  grid-template-columns:minmax(0,2.1fr) minmax(105px,.8fr) minmax(105px,.8fr) minmax(115px,.9fr) auto;
+  gap:10px;
+  align-items:center;
+  padding:10px 14px;
+  border-top:1px solid var(--line);
+}
+.inventory-outstanding-row:first-child{
+  border-top:none;
+}
+.inventory-outstanding-main{
+  min-width:0;
+}
+.inventory-outstanding-main strong{
+  display:block;
+  color:var(--text);
+  font-size:.88rem;
+  line-height:1.25;
+}
+.inventory-outstanding-main span{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:.76rem;
+  line-height:1.25;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.inventory-outstanding-money{
+  min-width:0;
+}
+.inventory-outstanding-money.is-due strong{
+  color:var(--danger);
+}
+.inventory-outstanding-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:nowrap;
+}
+@media (max-width: 768px){
+  .inventory-outstanding-top,
+  .inventory-outstanding-member summary{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .inventory-outstanding-total,
+  .inventory-outstanding-member summary strong{
+    width:100%;
+    text-align:left;
+  }
+  .inventory-outstanding-row{
+    grid-template-columns:1fr 1fr;
+  }
+  .inventory-outstanding-main,
+  .inventory-outstanding-actions{
+    grid-column:1 / -1;
+  }
+  .inventory-outstanding-actions{
+    justify-content:flex-start;
+    flex-wrap:wrap;
+  }
+}
 
 .expense-section-anchor{margin-top:16px;margin-bottom:2px;}
 .expense-section-anchor:first-child{margin-top:0;}
