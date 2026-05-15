@@ -814,7 +814,16 @@
           </div>
         </div>
         <button class="btn ghost" id="refreshBtn" type="button" title="Refresh">↻</button>
-        <button class="btn ghost" id="logoutBtn" type="button" title="Log out">Log out</button>
+        <div class="menu-wrap">
+          <button class="btn ghost menu-trigger" id="accountMenuBtn" type="button" data-entry-menu="account" aria-haspopup="menu" aria-expanded="false" title="Account">
+            Account v
+          </button>
+          <div class="menu-dropdown account-menu-dropdown" data-entry-menu-panel="account">
+            <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
+            <button class="menu-item danger hide" id="deleteSmartPinBtn" type="button">Delete Smart Pin</button>
+            <button class="menu-item" id="logoutBtn" type="button">Logout</button>
+          </div>
+        </div>
       </div>
     </header>
 
