@@ -6342,6 +6342,7 @@ function renderExpenseHistoryToolbar(transactionCount){
     <span class="expense-history-custom ${customOpen ? "" : "hide"}">
       <input type="date" class="input" data-expense-history-date="from" value="${escapeHtml(state.expenseHistoryCustomFrom || "")}" aria-label="Transactions history from date">
       <input type="date" class="input" data-expense-history-date="to" value="${escapeHtml(state.expenseHistoryCustomTo || "")}" aria-label="Transactions history to date">
+      <button type="button" class="tiny primary expense-history-custom-apply">Ok</button>
     </span>
   </div>`;
 }
@@ -6638,11 +6639,19 @@ function renderExpensesList(){
     e.stopPropagation();
     setExpenseHistoryRange(btn.dataset.expenseHistoryRange || "month", true);
   }));
-  els.expensesList.querySelectorAll("[data-expense-history-date]").forEach(input => input.addEventListener("change", e => {
+  els.expensesList.querySelectorAll(".expense-history-custom-apply").forEach(btn => btn.addEventListener("click", e => {
     e.preventDefault();
+    const wrap = btn.closest(".expense-history-custom");
+    const fromValue = String(wrap?.querySelector('[data-expense-history-date="from"]')?.value || "");
+    const toValue = String(wrap?.querySelector('[data-expense-history-date="to"]')?.value || "");
+    const completeDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (!completeDate(fromValue) || !completeDate(toValue)){
+      alert("Please enter both custom dates first.");
+      return;
+    }
     state.expenseHistoryRange = "custom";
-    if (input.dataset.expenseHistoryDate === "from") state.expenseHistoryCustomFrom = input.value;
-    if (input.dataset.expenseHistoryDate === "to") state.expenseHistoryCustomTo = input.value;
+    state.expenseHistoryCustomFrom = fromValue;
+    state.expenseHistoryCustomTo = toValue;
     renderExpensesList();
     const section = document.getElementById("transactionsHistorySection");
     if (section) section.open = true;
