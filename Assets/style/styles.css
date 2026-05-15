@@ -1346,6 +1346,11 @@ a{color:inherit}
   padding:6px 8px;
   font-size:.78rem;
 }
+.expense-history-custom-apply{
+  height:32px;
+  padding:6px 12px;
+  font-size:.78rem;
+}
 .expense-tx-actions{
   display:flex;
   align-items:center;
