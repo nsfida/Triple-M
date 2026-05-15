@@ -351,6 +351,7 @@ const state = {
   dbSignatures: new Set(),
   dbSignaturesById: new Map(),
   unlocked: false,
+  guestMode: false,
   pageCurrency: PAGE_CURRENCY_DEFAULT,
   pageCurrencyPreferenceId: null,
   pageCurrencySaving: false,
@@ -400,6 +401,7 @@ const els = {
   zipUsernameInput: document.getElementById("zipUsernameInput"),
   zipPasswordInput: document.getElementById("zipPasswordInput"),
   unlockBtn: document.getElementById("unlockBtn"),
+  guestLoginBtn: document.getElementById("guestLoginBtn"),
   lockError: document.getElementById("lockError"),
   welcomeScreen: document.getElementById("welcomeScreen"),
   welcomeName: document.getElementById("welcomeName"),
@@ -407,6 +409,7 @@ const els = {
   standaloneAboutSubtitle: document.getElementById("standaloneAboutSubtitle"),
   mainAppSubtitle: document.getElementById("mainAppSubtitle"),
   app: document.getElementById("app"),
+  guestModeBanner: document.getElementById("guestModeBanner"),
   accountMenuBtn: document.getElementById("accountMenuBtn"),
   secretPinBtn: document.getElementById("secretPinBtn"),
   deleteSmartPinBtn: document.getElementById("deleteSmartPinBtn"),
@@ -623,8 +626,115 @@ const INVENTORY_TX_PURCHASE = "PURCHASE";
 const INVENTORY_TX_SALE = "SALE";
 const INVENTORY_TX_SETTLEMENT = "SETTLEMENT";
 const BACKUP_STORAGE_KEY = "loanledger-json-backup-v1";
+const GUEST_BACKUP_STORAGE_KEY = "loanledger-guest-json-backup-v1";
+const RECYCLE_BIN_STORAGE_KEY = "loanledger-recycle-bin-v1";
+const GUEST_RECYCLE_BIN_STORAGE_KEY = "loanledger-guest-recycle-bin-v1";
+const GUEST_NOTES_STORAGE_KEY = "loanledger-guest-notes-v1";
+const GUEST_BITCOIN_WALLETS_STORAGE_KEY = "loanledger-guest-bitcoin-wallets-v1";
 const IMPORT_SESSION_KEY = "loanledger-imported-file-v1";
 const FLOAT_CURRENCY_PATHS = ["currency-float-path-1", "currency-float-path-2", "currency-float-path-3", "currency-float-path-4"];
+const GUEST_STORAGE_KEYS = [
+  GUEST_BACKUP_STORAGE_KEY,
+  GUEST_RECYCLE_BIN_STORAGE_KEY,
+  GUEST_NOTES_STORAGE_KEY,
+  GUEST_BITCOIN_WALLETS_STORAGE_KEY
+];
+
+function isGuestMode(){
+  return state.guestMode === true;
+}
+
+function backupStorageKey(){
+  return isGuestMode() ? GUEST_BACKUP_STORAGE_KEY : BACKUP_STORAGE_KEY;
+}
+
+function recycleBinStorageKey(){
+  return isGuestMode() ? GUEST_RECYCLE_BIN_STORAGE_KEY : RECYCLE_BIN_STORAGE_KEY;
+}
+
+function readStoredArray(key){
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredArray(key, rows){
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.isArray(rows) ? rows : []));
+  } catch (err) {
+    console.warn("Local guest data could not be saved.", err);
+  }
+}
+
+function clearGuestStorageArtifacts(){
+  GUEST_STORAGE_KEYS.forEach(key => {
+    try { localStorage.removeItem(key); } catch {}
+    try { sessionStorage.removeItem(key); } catch {}
+  });
+}
+
+function resetGuestSessionData(){
+  clearGuestStorageArtifacts();
+  state.entries = [];
+  state.recycleBin = [];
+  state.notes = [];
+  state.bitcoinWallets = [];
+}
+
+function loadGuestNotesFromStorage(){
+  renderNotes();
+}
+
+function saveGuestNotesToStorage(){
+  clearGuestStorageArtifacts();
+}
+
+function loadGuestBitcoinWalletsFromStorage(){
+  renderBitcoinWallets();
+  renderExistingAddressesDropdown();
+}
+
+function saveGuestBitcoinWalletsToStorage(){
+  clearGuestStorageArtifacts();
+}
+
+function updateGuestModeUi(){
+  if (els.guestModeBanner) {
+    els.guestModeBanner.classList.toggle("hide", !isGuestMode());
+  }
+  if (els.accountMenuBtn) {
+    els.accountMenuBtn.textContent = isGuestMode() ? "Guest" : "User";
+  }
+  const guest = isGuestMode();
+  const realLoginOnlyControls = [
+    els.downloadReportMenuBtn,
+    document.querySelector('label[for="importJsonInput"]'),
+    document.querySelector('label[for="importCsvInput"]'),
+    els.importJsonInput,
+    els.importCsvInput
+  ].filter(Boolean);
+  realLoginOnlyControls.forEach(control => {
+    control.classList.toggle("hide", guest);
+    if ("disabled" in control) control.disabled = guest;
+    control.setAttribute("aria-disabled", guest ? "true" : "false");
+  });
+  const bitcoinTab = document.querySelector('.tab[data-tab="bitcoin"]');
+  if (bitcoinTab) {
+    bitcoinTab.disabled = guest;
+    bitcoinTab.classList.toggle("guest-disabled", guest);
+    bitcoinTab.setAttribute("aria-disabled", guest ? "true" : "false");
+  }
+  if (guest && document.getElementById("bitcoinPanel")?.classList.contains("active")) {
+    activate("expenses");
+  }
+  updateUploadButtonVisibility();
+  updateConnectButtonVisibility();
+  renderSecretPinMenu();
+}
 
 function initFloatingCurrencyBackground(){
   const root = document.getElementById("pageCurrencyBg");
@@ -794,18 +904,28 @@ function getEntrySection(entry) {
 }
 
 function saveRecycleBinToStorage() {
+  if (isGuestMode()) {
+    clearGuestStorageArtifacts();
+    return;
+  }
   try {
-    localStorage.setItem('loanledger-recycle-bin-v1', JSON.stringify(state.recycleBin));
+    localStorage.setItem(recycleBinStorageKey(), JSON.stringify(state.recycleBin));
   } catch (e) {
     console.error('Failed to save recycle bin to storage:', e);
   }
 }
 
 function loadRecycleBinFromStorage() {
+  if (isGuestMode()) {
+    state.recycleBin = [];
+    return;
+  }
   try {
-    const stored = localStorage.getItem('loanledger-recycle-bin-v1');
+    const stored = localStorage.getItem(recycleBinStorageKey());
     if (stored) {
       state.recycleBin = JSON.parse(stored);
+    } else {
+      state.recycleBin = [];
     }
   } catch (e) {
     console.error('Failed to load recycle bin from storage:', e);
@@ -1178,7 +1298,13 @@ async function verifySecretPin(pin) {
 }
 
 function renderSecretPinMenu() {
+  if (isGuestMode()) {
+    if (els.secretPinBtn) els.secretPinBtn.classList.add("hide");
+    if (els.deleteSmartPinBtn) els.deleteSmartPinBtn.classList.add("hide");
+    return;
+  }
   if (els.secretPinBtn) {
+    els.secretPinBtn.classList.remove("hide");
     els.secretPinBtn.textContent = state.secretPinHash ? "Change Smart Pin" : "Set Smart Pin";
   }
   if (els.deleteSmartPinBtn) {
@@ -3075,8 +3201,9 @@ function renderInventoryOutstandingBanner(){
   invoices.forEach(invoice => {
     invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
   });
+  const searchableCustomerNames = getInventoryCustomerNames();
 
-  if (!invoices.length){
+  if (!invoices.length && !searchableCustomerNames.length){
     return `
       <details class="inventory-outstanding-banner is-clear">
         <summary class="inventory-outstanding-top">
@@ -3108,19 +3235,36 @@ function renderInventoryOutstandingBanner(){
     invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(member.balanceByCurrency, currency, amount));
   });
   const memberRows = Array.from(members.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const outstandingNameKeys = new Set(Array.from(members.keys()).map(normalizeInventoryCustomerKey));
+  const searchOnlyMembers = searchableCustomerNames
+    .filter(name => !outstandingNameKeys.has(normalizeInventoryCustomerKey(name)))
+    .map(name => {
+      const record = getInventoryCustomerRecord(name);
+      const invoiceSearch = record.invoices.map(invoice => `${invoice.invoiceNumber || invoice.receiptNumber} ${invoice.itemSummary} ${invoice.totalText} ${invoice.paidText} ${invoice.balanceText}`).join(" ");
+      return {
+        name: record.customerName || name,
+        invoiceCount: record.invoices.length,
+        totalByCurrency: record.totalByCurrency,
+        paidByCurrency: record.paidByCurrency,
+        balanceByCurrency: record.balanceByCurrency,
+        searchText: `${record.customerName || name} ${invoiceSearch} ${record.contact.phone || ""} ${record.contact.address || ""}`
+      };
+    })
+    .filter(member => member.invoiceCount > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return `
-    <details class="inventory-outstanding-banner">
+    <details class="inventory-outstanding-banner${invoices.length ? "" : " is-clear"}">
       <summary class="inventory-outstanding-top">
         <div>
           <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
-          <p>${escapeHtml(invoices.length)} invoice${invoices.length === 1 ? "" : "s"} pending across ${escapeHtml(members.size)} member${members.size === 1 ? "" : "s"}.</p>
+          <p>${invoices.length ? `${escapeHtml(invoices.length)} invoice${invoices.length === 1 ? "" : "s"} pending across ${escapeHtml(members.size)} member${members.size === 1 ? "" : "s"}.` : "No outstanding inventory invoices. Search to find customer records."}</p>
         </div>
         <div class="inventory-outstanding-top-actions">
-          <div class="inventory-outstanding-total">
+          ${invoices.length ? `<div class="inventory-outstanding-total">
             <small>Total balance</small>
             <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance))}</strong>
-          </div>
+          </div>` : `<strong>Clear</strong>`}
           <button class="tiny ghost inventoryOutstandingAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
         </div>
       </summary>
@@ -3153,6 +3297,7 @@ function renderInventoryOutstandingBanner(){
                 <div class="inventory-outstanding-money is-due"><small>Balance</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency))}</strong></div>
                 <div class="inventory-outstanding-actions">
                   <button class="tiny inventoryOutstandingCustomerPdfBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download customer outstanding invoice PDF"><i class="fa-solid fa-download"></i> PDF</button>
+                  <button class="tiny ghost inventoryOutstandingCustomerStatementBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download full customer statement">Statement</button>
                   <button class="tiny ghost inventoryOutstandingCustomerSettleBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Select one or more invoices and record settlement">Settle</button>
                 </div>
               </div>
@@ -3160,7 +3305,29 @@ function renderInventoryOutstandingBanner(){
           </details>
         `;
         }).join("")}
-          <div class="inventory-outstanding-empty hide">No matching outstanding customers.</div>
+        ${searchOnlyMembers.map(member => `
+          <details class="inventory-outstanding-member search-only hide" data-search-only="true" data-search="${escapeHtml(member.searchText)}">
+            <summary>
+              <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
+              <strong>${escapeHtml(member.invoiceCount)} paid invoice${member.invoiceCount === 1 ? "" : "s"}</strong>
+            </summary>
+            <div class="inventory-outstanding-list">
+              <div class="inventory-outstanding-row">
+                <div class="inventory-outstanding-main">
+                  <strong>Customer statement</strong>
+                  <span>Open this customer to check payment records and invoices.</span>
+                </div>
+                <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency) || "0")}</strong></div>
+                <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency) || "0")}</strong></div>
+                <div class="inventory-outstanding-money"><small>Balance</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency) || "0")}</strong></div>
+                <div class="inventory-outstanding-actions">
+                  <button class="tiny ghost inventoryOutstandingCustomerStatementBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download full customer statement">Statement</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        `).join("")}
+          <div class="inventory-outstanding-empty hide">No matching customers.</div>
         </div>
       </div>
     </details>
@@ -3176,12 +3343,13 @@ function applyInventoryOutstandingSearch(root = els.goodsList){
   let visible = 0;
   members.forEach(member => {
     const haystack = String(member.dataset.search || "").toLowerCase();
-    const isVisible = !term || haystack.includes(term);
+    const searchOnly = member.dataset.searchOnly === "true";
+    const isVisible = term ? haystack.includes(term) : !searchOnly;
     member.classList.toggle("hide", !isVisible);
     if (isVisible) visible += 1;
     else member.open = false;
   });
-  if (empty) empty.classList.toggle("hide", visible > 0);
+  if (empty) empty.classList.toggle("hide", !term || visible > 0);
 }
 
 function bindInventoryOutstandingBanner(root = els.goodsList){
@@ -3197,12 +3365,18 @@ function bindInventoryOutstandingBanner(root = els.goodsList){
     e.stopPropagation();
     openInventoryCustomerModal(btn.dataset.customer);
   }));
+  root.querySelectorAll(".inventoryOutstandingCustomerStatementBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    downloadInventoryCustomerStatementPDF(btn.dataset.customer);
+  }));
   root.querySelectorAll(".inventoryOutstandingSearchBtn").forEach(btn => btn.addEventListener("click", () => applyInventoryOutstandingSearch(root)));
   root.querySelectorAll(".inventoryOutstandingClearSearchBtn").forEach(btn => btn.addEventListener("click", () => {
     const input = root.querySelector(".inventoryOutstandingSearchInput");
     if (input) input.value = "";
     applyInventoryOutstandingSearch(root);
   }));
+  root.querySelectorAll(".inventoryOutstandingSearchInput").forEach(input => input.addEventListener("input", () => applyInventoryOutstandingSearch(root)));
   root.querySelectorAll(".inventoryOutstandingSearchInput").forEach(input => input.addEventListener("keydown", e => {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -6523,15 +6697,20 @@ function parseEntriesCsv(csvText){
 }
 
 function saveBackupEntries(entries){
+  if (isGuestMode()) {
+    clearGuestStorageArtifacts();
+    return;
+  }
   const payload = {
     exportedAt: new Date().toISOString(),
     entries: Array.isArray(entries) ? entries : []
   };
-  localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(payload));
+  localStorage.setItem(backupStorageKey(), JSON.stringify(payload));
 }
 
 function loadBackupEntriesFromStorage(){
-  const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
+  if (isGuestMode()) return [];
+  const raw = localStorage.getItem(backupStorageKey());
   if (!raw) return [];
   try{
     return parseEntriesPayload(JSON.parse(raw));
@@ -6541,12 +6720,12 @@ function loadBackupEntriesFromStorage(){
 }
 
 function updateUploadButtonVisibility(){
-  const shouldShow = state.hasImportedFile && state.dataSource === "backup";
+  const shouldShow = !isGuestMode() && state.hasImportedFile && state.dataSource === "backup";
   els.uploadBackupBtn.classList.toggle("hide", !shouldShow);
 }
 
 function updateConnectButtonVisibility(){
-  const showConnect = state.hasImportedFile && !state.unlocked;
+  const showConnect = !isGuestMode() && state.hasImportedFile && !state.unlocked;
   els.connectSupabaseBtn.classList.toggle("hide", !showConnect);
 }
 
@@ -6555,7 +6734,7 @@ function applyEntries(entries, source = "backup", options = {}){
   state.dataSource = source;
   if (typeof options.hasImportedFile === "boolean"){
     state.hasImportedFile = options.hasImportedFile;
-    if (state.hasImportedFile){
+    if (state.hasImportedFile && !isGuestMode()){
       sessionStorage.setItem(IMPORT_SESSION_KEY, "1");
     } else {
       sessionStorage.removeItem(IMPORT_SESSION_KEY);
@@ -6569,6 +6748,11 @@ function applyEntries(entries, source = "backup", options = {}){
 
 async function loadEntries(){
   if (state.dataSource === "backup"){
+    if (isGuestMode()) {
+      applyEntries(state.entries, "backup");
+      renderRecycleBinDropdown();
+      return;
+    }
     applyEntries(loadBackupEntriesFromStorage(), "backup");
     // Load recycle bin from localStorage for backup mode
     loadRecycleBinFromStorage();
@@ -6867,6 +7051,10 @@ function activate(tab){
   if (!tab) return;
   // Prevent access to tabs when not logged in (except when showing standalone about)
   if (!state.unlocked && window.location.hash !== "#about") {
+    return;
+  }
+  if (isGuestMode() && tab === "bitcoin") {
+    alert("Bitcoin is available only after a real login.");
     return;
   }
   const targetPanel = document.getElementById(`${tab}Panel`);
@@ -9453,6 +9641,10 @@ async function downloadExpensesPDF(){
 }
 
 async function exportAllSectionsPDF(){
+  if (isGuestMode()) {
+    alert("Demo Login cannot download the full report. Please use a real login for full exports.");
+    return;
+  }
   if (!window.jspdf){
     alert("PDF library loading. Please try again in a moment.");
     return;
@@ -9566,16 +9758,24 @@ async function exportAllSectionsPDF(){
 }
 
 function downloadJsonBackup(){
+  if (isGuestMode()) {
+    alert("Demo Login cannot download JSON backups. Please use a real login for backup exports.");
+    return;
+  }
   const payload = {
     exportedAt: new Date().toISOString(),
-    source: state.dataSource,
-    entries: state.entries
+    source: isGuestMode() ? "guest-local" : state.dataSource,
+    entries: state.entries,
+    ...(isGuestMode() ? {
+      notes: state.notes,
+      bitcoinWallets: state.bitcoinWallets
+    } : {})
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `LoanLedger_Backup_${todayISO()}.json`;
+  a.download = `${isGuestMode() ? "TripleM_Guest_Backup" : "LoanLedger_Backup"}_${todayISO()}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -9583,12 +9783,16 @@ function downloadJsonBackup(){
 }
 
 function downloadCsvBackup(){
+  if (isGuestMode()) {
+    alert("Demo Login cannot download CSV backups. Please use a real login for backup exports.");
+    return;
+  }
   const csvText = toCsv(state.entries);
   const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `LoanLedger_Backup_${todayISO()}.csv`;
+  a.download = `${isGuestMode() ? "TripleM_Guest_Backup" : "LoanLedger_Backup"}_${todayISO()}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -9596,6 +9800,10 @@ function downloadCsvBackup(){
 }
 
 async function importJsonBackup(file){
+  if (isGuestMode()) {
+    alert("Demo Login cannot import backups. Please use a real login for import/export features.");
+    return;
+  }
   if (!file) return;
   const text = await file.text();
   let parsed;
@@ -9623,6 +9831,19 @@ async function importJsonBackup(file){
   }
   
   applyEntries(filteredEntries, "backup", { hasImportedFile: true });
+  if (isGuestMode()) {
+    if (Array.isArray(parsed.notes)) {
+      state.notes = parsed.notes.filter(note => note && note.id && note.content);
+      saveGuestNotesToStorage();
+      renderNotes();
+    }
+    if (Array.isArray(parsed.bitcoinWallets)) {
+      state.bitcoinWallets = parsed.bitcoinWallets.filter(wallet => wallet && wallet.id && wallet.address);
+      saveGuestBitcoinWalletsToStorage();
+      renderBitcoinWallets();
+      renderExistingAddressesDropdown();
+    }
+  }
   if (state.unlocked) {
     await refreshDbSnapshot();
     renderAll();
@@ -9630,6 +9851,10 @@ async function importJsonBackup(file){
 }
 
 async function importCsvBackup(file){
+  if (isGuestMode()) {
+    alert("Demo Login cannot import backups. Please use a real login for import/export features.");
+    return;
+  }
   if (!file) return;
   const text = await file.text();
   const entries = parseEntriesCsv(text);
@@ -10195,6 +10420,9 @@ window.addEventListener("resize", () => {
   }
   els.zipPasswordInput.addEventListener("keydown", e => { if (e.key === "Enter") attemptUnlock(); });
   els.unlockBtn.addEventListener("click", attemptUnlock);
+  if (els.guestLoginBtn){
+    els.guestLoginBtn.addEventListener("click", startGuestMode);
+  }
   
   // Learn More and standalone about section event listeners
   if (els.learnMoreBtn) {
@@ -10308,11 +10536,57 @@ function bindLandingAnchorScroll(){
   });
 }
 
+function startGuestMode(){
+  if (els.lockError) {
+    els.lockError.textContent = "";
+    els.lockError.classList.remove("show");
+  }
+
+  runtimeConfig = null;
+  fullConfigData = null;
+  cachedPdfLogo = null;
+  resetGuestSessionData();
+  state.guestMode = true;
+  state.unlocked = true;
+  state.currentUsername = "guest";
+  state.pageCurrencyPreferenceId = null;
+  state.secretPinPreferenceId = null;
+  state.secretPinHash = "";
+  state.secretPinVerified = true;
+  state.dbEntryIds = new Set();
+  state.dbSignatures = new Set();
+  state.dbSignaturesById = new Map();
+  state.hasImportedFile = false;
+  sessionStorage.removeItem(IMPORT_SESSION_KEY);
+
+  applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
+  updateCurrencyFiltersFromConfig();
+  updateHeaderTextFromConfig();
+  renderSecretPinMenu();
+  loadRecycleBinFromStorage();
+  applyEntries(loadBackupEntriesFromStorage(), "backup", { hasImportedFile: false });
+  renderRecycleBinDropdown();
+  loadGuestNotesFromStorage();
+  loadGuestBitcoinWalletsFromStorage();
+  updateGuestModeUi();
+
+  if (els.zipPasswordInput) els.zipPasswordInput.value = "";
+  if (els.welcomeName) els.welcomeName.textContent = "Guest User";
+  if (els.lockScreen) els.lockScreen.classList.add("hide");
+  if (els.welcomeScreen) els.welcomeScreen.classList.remove("hide");
+
+  setTimeout(() => {
+    showWelcomeAndTransitionToApp(true);
+  }, 1200);
+}
+
 function doLogout(){
+  const wasGuestMode = isGuestMode();
   runtimeConfig = null;
   fullConfigData = null;
   cachedPdfLogo = null;
   state.unlocked = false;
+  state.guestMode = false;
   state.pageCurrencyPreferenceId = null;
   state.currentUsername = "";
   state.secretPinPreferenceId = null;
@@ -10320,10 +10594,15 @@ function doLogout(){
   state.secretPinVerified = false;
   applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
   renderSecretPinMenu();
-  removeStoredZipCredentials();
+  if (!wasGuestMode) {
+    removeStoredZipCredentials();
+  } else {
+    resetGuestSessionData();
+  }
   if (els.zipPasswordInput) els.zipPasswordInput.value = "";
   if (els.app) els.app.classList.add("hide");
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
+  updateGuestModeUi();
   // Clear Bitcoin wallet session on logout
   btcClearSession();
   focusUnlockForm();
@@ -10451,6 +10730,8 @@ async function attemptUnlock(options = {}){
     }
     if (els.zipPasswordInput) els.zipPasswordInput.value = "";
     state.unlocked = true;
+    state.guestMode = false;
+    updateGuestModeUi();
     
     // Show welcome screen with name from JSON config
     const displayName = configData.Name && configData.Name.trim() ? configData.Name.trim() : "User";
@@ -10477,6 +10758,7 @@ async function showWelcomeAndTransitionToApp(keepCurrentBackup) {
   // Prepare app for entrance
   els.app.classList.remove("hide");
   els.app.classList.add("app-enter-animation");
+  updateGuestModeUi();
   
   // Wait for animations to complete
   setTimeout(async () => {
@@ -11995,6 +12277,22 @@ async function saveBitcoinWallet(address, label, network, isWatchOnly) {
     return;
   }
 
+  if (isGuestMode()) {
+    const walletId = crypto.randomUUID();
+    state.bitcoinWallets.unshift({
+      id: walletId,
+      address,
+      label,
+      network,
+      is_watch_only: isWatchOnly,
+      createdAt: new Date().toISOString()
+    });
+    saveGuestBitcoinWalletsToStorage();
+    renderBitcoinWallets();
+    renderExistingAddressesDropdown();
+    return;
+  }
+
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     alert("Please connect to the database first using your username and ZIP password.");
     els.lockScreen.classList.remove("hide");
@@ -12041,6 +12339,14 @@ async function deleteBitcoinWallet(walletId) {
     return;
   }
 
+  if (isGuestMode()) {
+    state.bitcoinWallets = state.bitcoinWallets.filter(wallet => wallet.id !== walletId);
+    saveGuestBitcoinWalletsToStorage();
+    renderBitcoinWallets();
+    renderExistingAddressesDropdown();
+    return;
+  }
+
   try {
     await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(walletId)}`, { method: 'DELETE' });
     console.log('Bitcoin wallet deleted successfully:', walletId);
@@ -12052,6 +12358,11 @@ async function deleteBitcoinWallet(walletId) {
 }
 
 async function loadBitcoinWalletsFromDatabase() {
+  if (isGuestMode()) {
+    loadGuestBitcoinWalletsFromStorage();
+    return;
+  }
+
   if (state.secretPinHash && !state.secretPinVerified) {
     state.bitcoinWallets = [];
     renderBitcoinWallets();
@@ -12307,6 +12618,18 @@ async function saveNote() {
     return;
   }
 
+  if (isGuestMode()) {
+    state.notes.unshift({
+      id: crypto.randomUUID(),
+      content: noteText,
+      createdAt: new Date().toISOString()
+    });
+    saveGuestNotesToStorage();
+    els.noteInput.value = '';
+    renderNotes();
+    return;
+  }
+
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     alert("Please connect to the database first using your username and ZIP password.");
     els.lockScreen.classList.remove("hide");
@@ -12360,6 +12683,8 @@ function renderNotes(searchTerm = '') {
   filteredNotes.forEach(note => {
     const noteDate = new Date(note.createdAt);
     const formattedDate = noteDate.toLocaleDateString() + ' ' + noteDate.toLocaleTimeString();
+    const noteContent = String(note.content || "");
+    const needsPreview = noteContent.split(/\r?\n/).length > 2 || noteContent.length > 180;
 
     const noteEl = document.createElement('div');
     noteEl.className = 'card';
@@ -12368,7 +12693,8 @@ function renderNotes(searchTerm = '') {
     noteEl.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div style="flex:1;min-width:0;max-width:100%;">
-          <div style="font-size:.9rem;color:var(--text);line-height:1.5;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-all;max-width:100%;width:100%;">${escapeHtml(note.content)}</div>
+          <div class="note-content-preview${needsPreview ? " is-collapsed" : ""}">${escapeHtml(noteContent)}</div>
+          ${needsPreview ? '<button class="note-see-more-btn" type="button" onclick="toggleNotePreview(this)">See More</button>' : ""}
         </div>
         <div style="display:flex;gap:8px;margin-left:10px;">
           <button class="btn ghost" onclick="editNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;">
@@ -12385,9 +12711,24 @@ function renderNotes(searchTerm = '') {
   });
 }
 
+window.toggleNotePreview = function(btn) {
+  const noteCard = btn?.closest('.card');
+  const content = noteCard?.querySelector('.note-content-preview');
+  if (!content) return;
+  const expanded = content.classList.toggle('is-collapsed') === false;
+  btn.textContent = expanded ? 'See Less' : 'See More';
+};
+
 window.deleteNote = async function(noteId) {
   if (!confirm('Are you sure you want to delete this note?')) return;
   
+  if (isGuestMode()) {
+    state.notes = state.notes.filter(note => note.id !== noteId);
+    saveGuestNotesToStorage();
+    renderNotes();
+    return;
+  }
+
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     alert("Please connect to the database first using your username and ZIP password.");
     els.lockScreen.classList.remove("hide");
@@ -12409,6 +12750,16 @@ window.editNote = async function(noteId) {
   const newContent = prompt('Edit your note:', note.content);
   if (newContent === null || newContent.trim() === '') return;
   
+  if (isGuestMode()) {
+    state.notes = state.notes.map(item => item.id === noteId
+      ? { ...item, content: newContent.trim() }
+      : item
+    );
+    saveGuestNotesToStorage();
+    renderNotes();
+    return;
+  }
+
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     alert("Please connect to the database first using your username and ZIP password.");
     els.lockScreen.classList.remove("hide");
@@ -12432,6 +12783,11 @@ window.editNote = async function(noteId) {
 };
 
 async function loadNotesFromDatabase() {
+  if (isGuestMode()) {
+    loadGuestNotesFromStorage();
+    return;
+  }
+
   if (state.secretPinHash && !state.secretPinVerified) {
     state.notes = [];
     renderNotes();
