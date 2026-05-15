@@ -664,6 +664,53 @@ a{color:inherit}
 .menu-item:hover{background:var(--primary-soft);color:var(--primary)}
 .menu-item.danger{color:var(--danger)}
 .menu-item.danger:hover{background:#fff1f0;color:var(--danger)}
+.page-currency-trigger{
+  gap:7px;
+  min-height:36px;
+  font-weight:800;
+}
+.page-currency-trigger i{
+  color:var(--primary);
+}
+.page-currency-dropdown{
+  min-width:168px;
+}
+.page-currency-option{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-weight:750;
+}
+.page-currency-option-main{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.page-currency-option-symbol{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  background:var(--primary-soft);
+  color:var(--primary);
+  font-weight:850;
+  line-height:1;
+}
+.page-currency-option.active{
+  background:var(--primary);
+  color:#fff;
+}
+.page-currency-option.active .page-currency-option-symbol{
+  background:rgba(255,255,255,.18);
+  color:#fff;
+}
+.page-currency-option-check{
+  width:16px;
+  text-align:center;
+}
 .file-import-input{display:none}
 .file-import-btn{margin:0}
 
