@@ -197,6 +197,9 @@ let runtimeConfig = null;
 let fullConfigData = null;
 
 const SUPPORTED_CURRENCIES = ["AED", "SAR", "PKR", "USD", "BTC"];
+const PAGE_CURRENCY_OPTIONS = ["AED", "SAR", "PKR", "BTC", "USD", "ALL"];
+const PAGE_CURRENCY_DEFAULT = "ALL";
+const PAGE_CURRENCY_META_TAG = "PAGE_CURRENCY";
 
 // Currency mapping for symbols and variations
 const CURRENCY_ALIASES = {
@@ -255,6 +258,43 @@ function getAllowedCurrencies() {
   )];
 }
 
+function normalizePageCurrencySelection(currency) {
+  const raw = String(currency || PAGE_CURRENCY_DEFAULT).trim().toUpperCase();
+  if (raw === PAGE_CURRENCY_DEFAULT) return PAGE_CURRENCY_DEFAULT;
+  const normalized = normalizeCurrencyCode(raw);
+  return SUPPORTED_CURRENCIES.includes(normalized) ? normalized : PAGE_CURRENCY_DEFAULT;
+}
+
+function getPageCurrencySelection() {
+  return normalizePageCurrencySelection(state.pageCurrency);
+}
+
+function getPageScopedCurrencies() {
+  const selected = getPageCurrencySelection();
+  if (selected === PAGE_CURRENCY_DEFAULT) return getAllowedCurrencies();
+  return [selected];
+}
+
+function entryMatchesPageCurrency(entry) {
+  const selected = getPageCurrencySelection();
+  if (selected === PAGE_CURRENCY_DEFAULT) return true;
+  return normalizeCurrencyCode(entry?.currency) === selected;
+}
+
+function pageCurrencyFromMetaNotes(noteValue) {
+  const match = String(noteValue || "").match(/\[PAGE_CURRENCY:([^\]]+)\]/i);
+  return match ? normalizePageCurrencySelection(match[1]) : "";
+}
+
+function isPageCurrencyPreferenceRow(row) {
+  return String(row?.person_name || "").trim().toUpperCase() === "SYSTEM" &&
+    !!pageCurrencyFromMetaNotes(row?.notes);
+}
+
+function buildPageCurrencyPreferenceNotes(currency) {
+  return `[${PAGE_CURRENCY_META_TAG}:${normalizePageCurrencySelection(currency)}]`;
+}
+
 const state = {
   entries: [],
   dataSource: "backup",
@@ -263,6 +303,9 @@ const state = {
   dbSignatures: new Set(),
   dbSignaturesById: new Map(),
   unlocked: false,
+  pageCurrency: PAGE_CURRENCY_DEFAULT,
+  pageCurrencyPreferenceId: null,
+  pageCurrencySaving: false,
   search: { given: "", received: "", taken: "", returned: "", installments: "", goods: "", expenses: "" },
   statusFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
   currencyFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
@@ -418,6 +461,9 @@ const els = {
   expenseItemIntentWrap: document.getElementById("expenseItemIntentWrap"),
   expenseBtcAddressField: document.getElementById("expenseBtcAddressField"),
   expenseBtcBalanceStatus: document.getElementById("expenseBtcBalanceStatus"),
+  pageCurrencyBtn: document.getElementById("pageCurrencyBtn"),
+  pageCurrencyLabel: document.getElementById("pageCurrencyLabel"),
+  pageCurrencyDropdown: document.getElementById("pageCurrencyDropdown"),
   emptyRecycleBinBtn: document.getElementById("emptyRecycleBinBtn"),
   transferModal: document.getElementById("transferModal"),
   transferModalTitle: document.getElementById("transferModalTitle"),
@@ -652,6 +698,10 @@ function isEntryInRecycleBin(entryId) {
 function getActiveEntries() {
   const allowedCurrencies = getAllowedCurrencies();
   return state.entries.filter(entry => {
+    if (isPageCurrencyPreferenceRow(entry)) {
+      return false;
+    }
+
     // Filter out recycle bin and deleted entries
     if (isEntryInRecycleBin(entry.id) || hasDeletedTag(entry.notes)) {
       return false;
@@ -659,6 +709,10 @@ function getActiveEntries() {
     
     // Filter out entries with currencies not in allowed list
     if (entry.currency && !allowedCurrencies.includes(normalizeCurrencyCode(entry.currency))) {
+      return false;
+    }
+
+    if (!entryMatchesPageCurrency(entry)) {
       return false;
     }
     
@@ -702,6 +756,10 @@ function loadRecycleBinFromStorage() {
     console.error('Failed to load recycle bin from storage:', e);
     state.recycleBin = [];
   }
+}
+
+function getVisibleRecycleBinItems() {
+  return state.recycleBin.filter(item => entryMatchesPageCurrency(item));
 }
 
 async function restoreFromRecycleBin(entryId) {
@@ -760,7 +818,7 @@ async function permanentDeleteFromRecycleBin(entryId) {
 }
 
 async function emptyRecycleBin() {
-  const items = state.recycleBin.slice();
+  const items = getVisibleRecycleBinItems();
   if (!items.length) return;
 
   if (!confirm(`Permanently delete all ${items.length} item${items.length === 1 ? "" : "s"} in the recycle bin? This action cannot be undone.`)) return;
@@ -777,7 +835,8 @@ async function emptyRecycleBin() {
       await loadEntriesFromSupabase();
     }
 
-    state.recycleBin = [];
+    const visibleIds = new Set(items.map(item => item.id).filter(Boolean));
+    state.recycleBin = state.recycleBin.filter(item => !visibleIds.has(item.id));
     saveRecycleBinToStorage();
     if (isBackupMode()) {
       refreshBackupView();
@@ -787,21 +846,22 @@ async function emptyRecycleBin() {
     alert(`Failed to empty recycle bin: ${err.message || err}`);
     renderRecycleBinDropdown();
   } finally {
-    if (emptyBtn) emptyBtn.disabled = state.recycleBin.length === 0;
+    if (emptyBtn) emptyBtn.disabled = getVisibleRecycleBinItems().length === 0;
   }
 }
 
 function renderRecycleBinDropdown() {
   // Always update the count badge first, even if dropdown doesn't exist yet
+  const visibleItems = getVisibleRecycleBinItems();
   const countBadge = document.getElementById('recycleBinCount');
   if (countBadge) {
-    countBadge.textContent = state.recycleBin.length;
-    countBadge.style.display = state.recycleBin.length > 0 ? 'inline' : 'none';
+    countBadge.textContent = visibleItems.length;
+    countBadge.style.display = visibleItems.length > 0 ? 'inline' : 'none';
   }
 
   const emptyBtn = document.getElementById('emptyRecycleBinBtn');
   if (emptyBtn) {
-    emptyBtn.disabled = state.recycleBin.length === 0;
+    emptyBtn.disabled = visibleItems.length === 0;
     emptyBtn.onclick = () => emptyRecycleBin();
   }
 
@@ -811,7 +871,7 @@ function renderRecycleBinDropdown() {
   const itemsContainer = dropdown.querySelector('.recycle-bin-items');
   if (!itemsContainer) return;
 
-  const items = state.recycleBin;
+  const items = visibleItems;
   
   if (items.length === 0) {
     itemsContainer.innerHTML = '<div class="recycle-bin-empty">Recycle bin is empty</div>';
@@ -853,6 +913,155 @@ function renderRecycleBinDropdown() {
   itemsContainer.querySelectorAll('.recycle-bin-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => permanentDeleteFromRecycleBin(btn.dataset.id));
   });
+}
+
+function renderPageCurrencySelector() {
+  const selected = getPageCurrencySelection();
+  if (els.pageCurrencyLabel) {
+    els.pageCurrencyLabel.textContent = selected;
+  }
+  if (els.pageCurrencyBtn) {
+    els.pageCurrencyBtn.title = `Page Currency: ${selected}`;
+    els.pageCurrencyBtn.setAttribute("aria-label", `Page Currency: ${selected}`);
+  }
+  if (!els.pageCurrencyDropdown) return;
+
+  els.pageCurrencyDropdown.innerHTML = PAGE_CURRENCY_OPTIONS.map(currency => {
+    const isAll = currency === PAGE_CURRENCY_DEFAULT;
+    const active = selected === currency;
+    const symbol = isAll ? "ALL" : currencySymbolHtml(currency);
+    const label = isAll ? "All currencies" : currency;
+    return `
+      <button class="menu-item page-currency-option${active ? " active" : ""}" type="button" data-page-currency="${escapeHtml(currency)}" aria-pressed="${active ? "true" : "false"}">
+        <span class="page-currency-option-main">
+          <span class="page-currency-option-symbol">${symbol}</span>
+          <span>${escapeHtml(label)}</span>
+        </span>
+        <span class="page-currency-option-check">${active ? '<i class="fa-solid fa-check"></i>' : ""}</span>
+      </button>
+    `;
+  }).join("");
+
+  els.pageCurrencyDropdown.querySelectorAll("[data-page-currency]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      setPageCurrencySelection(btn.dataset.pageCurrency).catch(err => alert(err.message || err));
+    });
+  });
+}
+
+function syncSectionCurrencyFiltersWithPage() {
+  const selected = getPageCurrencySelection();
+  const filterValue = selected === PAGE_CURRENCY_DEFAULT ? "All" : selected;
+  Object.keys(state.currencyFilter).forEach(key => {
+    state.currencyFilter[key] = filterValue;
+  });
+  document.querySelectorAll(".currency-radio").forEach(radio => {
+    radio.checked = radio.value === filterValue;
+    radio.disabled = selected !== PAGE_CURRENCY_DEFAULT;
+  });
+}
+
+function applyPageCurrencySelection(currency) {
+  const next = normalizePageCurrencySelection(currency);
+  state.pageCurrency = next;
+  if (next !== PAGE_CURRENCY_DEFAULT) {
+    state.lastCurrency = next;
+  } else {
+    const allowedCurrencies = getAllowedCurrencies();
+    if (allowedCurrencies.length && !allowedCurrencies.includes(state.lastCurrency)) {
+      state.lastCurrency = allowedCurrencies[0];
+    }
+  }
+  syncSectionCurrencyFiltersWithPage();
+  renderPageCurrencySelector();
+}
+
+async function loadPageCurrencyPreferenceFromDatabase() {
+  state.pageCurrencyPreferenceId = null;
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
+    applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
+    return;
+  }
+
+  try {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const preferenceRow = (Array.isArray(rows) ? rows : []).find(isPageCurrencyPreferenceRow);
+    if (preferenceRow) {
+      state.pageCurrencyPreferenceId = preferenceRow.id || null;
+      applyPageCurrencySelection(pageCurrencyFromMetaNotes(preferenceRow.notes) || PAGE_CURRENCY_DEFAULT);
+    } else {
+      applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
+    }
+  } catch (err) {
+    console.warn("Page currency preference could not be loaded.", err);
+    applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
+  }
+}
+
+async function savePageCurrencyPreferenceToDatabase(currency) {
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) return;
+  const selected = normalizePageCurrencySelection(currency);
+  const today = todayISO();
+  const notes = buildPageCurrencyPreferenceNotes(selected);
+  const rowCurrency = selected === PAGE_CURRENCY_DEFAULT ? "AED" : selected;
+
+  let preferenceId = state.pageCurrencyPreferenceId;
+  if (!preferenceId) {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const preferenceRow = (Array.isArray(rows) ? rows : []).find(isPageCurrencyPreferenceRow);
+    preferenceId = preferenceRow?.id || null;
+    state.pageCurrencyPreferenceId = preferenceId;
+  }
+
+  if (preferenceId) {
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(preferenceId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ currency: rowCurrency, notes })
+    });
+    return;
+  }
+
+  const rowId = crypto.randomUUID();
+  const payload = {
+    id: rowId,
+    group_id: rowId,
+    direction: "taken",
+    entry_kind: "principal",
+    person_name: "SYSTEM",
+    currency: rowCurrency,
+    principal_amount: 0,
+    action_amount: null,
+    loan_date: today,
+    action_date: null,
+    notes,
+    created_at: new Date().toISOString()
+  };
+  const result = await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
+  state.pageCurrencyPreferenceId = Array.isArray(result) && result[0]?.id ? result[0].id : rowId;
+}
+
+async function setPageCurrencySelection(currency) {
+  const selected = normalizePageCurrencySelection(currency);
+  applyPageCurrencySelection(selected);
+  document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+  document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+
+  try {
+    state.pageCurrencySaving = true;
+    await savePageCurrencyPreferenceToDatabase(selected);
+    if (isBackupMode()) {
+      renderAll();
+    } else {
+      await loadEntriesFromSupabase();
+    }
+    await loadBitcoinWalletsFromDatabase();
+  } finally {
+    state.pageCurrencySaving = false;
+    renderPageCurrencySelector();
+    renderRecycleBinDropdown();
+  }
 }
 
 function getSupabaseConfig(){
@@ -1400,7 +1609,7 @@ function renderOverviewCards(tab = getActiveTabKey()){
     renderInventoryOverviewCards();
     return;
   }
-  const allowedCurrencies = getAllowedCurrencies();
+  const allowedCurrencies = getPageScopedCurrencies();
   const activeLoanCurrencies = getActiveEntries()
     .filter(entry => !hasGoodsTag(entry.notes) && !hasExpenseAccountTag(entry.notes))
     .map(entry => normalizeCurrencyCode(entry.currency))
@@ -3053,6 +3262,7 @@ function buildTransferEvents(){
 }
 
 function getTransferRowsForCurrency(cur, events){
+  const showOtherCurrencyLeg = getPageCurrencySelection() === PAGE_CURRENCY_DEFAULT;
   const rows = [];
   for (const ev of events){
     if (ev.curOut === cur){
@@ -3064,7 +3274,7 @@ function getTransferRowsForCurrency(cur, events){
         counterparty: ev.toWallet,
         amount: ev.amtOut,
         rateDisplay: ev.sameCurrency ? "1" : String(ev.rate),
-        otherLegDisplay: ev.sameCurrency ? "—" : `${moneyText(ev.amtIn, ev.curIn)}`,
+        otherLegDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtIn, ev.curIn)}`,
         notes: cleanExpenseNote(ev.notesExpense),
         editId: ev.expenseId
       });
@@ -3078,7 +3288,7 @@ function getTransferRowsForCurrency(cur, events){
         counterparty: ev.fromWallet,
         amount: ev.amtIn,
         rateDisplay: ev.sameCurrency ? "1" : String(ev.rate),
-        otherLegDisplay: ev.sameCurrency ? "—" : `${moneyText(ev.amtOut, ev.curOut)}`,
+        otherLegDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtOut, ev.curOut)}`,
         notes: cleanExpenseNote(ev.notesTopup || ev.notesExpense),
         editId: ev.topupId || ev.expenseId
       });
@@ -5420,9 +5630,14 @@ function renderExpensesList(){
   }
   
   const transferCurrencySet = new Set();
+  const selectedPageCurrency = getPageCurrencySelection();
   for (const ev of transferEvents){
-    transferCurrencySet.add(ev.curOut);
-    transferCurrencySet.add(ev.curIn);
+    if (selectedPageCurrency === PAGE_CURRENCY_DEFAULT || ev.curOut === selectedPageCurrency) {
+      transferCurrencySet.add(ev.curOut);
+    }
+    if (selectedPageCurrency === PAGE_CURRENCY_DEFAULT || ev.curIn === selectedPageCurrency) {
+      transferCurrencySet.add(ev.curIn);
+    }
   }
   const transferCurrencies = sortCurrenciesList([...transferCurrencySet]);
 
@@ -5811,15 +6026,20 @@ async function loadEntries(){
 }
 
 async function loadEntriesFromSupabase(){
-  const rows = await supabase(`${CONFIG.table}?select=*&order=created_at.desc`);
+  const selectedCurrency = getPageCurrencySelection();
+  const currencyQuery = selectedCurrency === PAGE_CURRENCY_DEFAULT
+    ? ""
+    : `&currency=eq.${encodeURIComponent(selectedCurrency)}`;
+  const rows = await supabase(`${CONFIG.table}?select=*${currencyQuery}&order=created_at.desc`);
+  const dataRows = Array.isArray(rows) ? rows.filter(row => !isPageCurrencyPreferenceRow(row)) : [];
   // Filter out entries with deleted tag for main display
-  const filteredRows = Array.isArray(rows) ? rows.filter(row => !hasDeletedTag(row.notes)) : [];
+  const filteredRows = dataRows.filter(row => !hasDeletedTag(row.notes));
   await ensureInventoryItemCodesForRows(filteredRows);
   updateDbSnapshot(filteredRows);
   applyEntries(filteredRows, "supabase", { hasImportedFile: false });
   
   // Load deleted entries into recycle bin
-  const deletedRows = Array.isArray(rows) ? rows.filter(row => hasDeletedTag(row.notes)) : [];
+  const deletedRows = dataRows.filter(row => hasDeletedTag(row.notes));
   state.recycleBin = deletedRows.map(row => ({
     ...row,
     deletedAt: row.updated_at, // Use updated_at as deletion time
@@ -7380,6 +7600,8 @@ function updateCurrencyFiltersFromConfig(){
   
   // Update currency select elements in modals
   updateCurrencySelectElements();
+  syncSectionCurrencyFiltersWithPage();
+  renderPageCurrencySelector();
 }
 
 function updateCurrencySelectElements() {
@@ -9118,6 +9340,9 @@ function attachEvents(){
         if (key === "recyclebin") {
           renderRecycleBinDropdown();
         }
+        if (key === "page-currency") {
+          renderPageCurrencySelector();
+        }
       }
     });
   });
@@ -9188,6 +9413,10 @@ window.addEventListener("resize", () => {
 
   document.querySelectorAll(".currency-radio").forEach(r => {
     r.addEventListener("change", e => {
+      if (getPageCurrencySelection() !== PAGE_CURRENCY_DEFAULT) {
+        syncSectionCurrencyFiltersWithPage();
+        return;
+      }
       const key = e.target.dataset.currencyFilter;
       state.currencyFilter[key] = e.target.value;
       renderAll();
@@ -9510,6 +9739,8 @@ function doLogout(){
   fullConfigData = null;
   cachedPdfLogo = null;
   state.unlocked = false;
+  state.pageCurrencyPreferenceId = null;
+  applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
   removeStoredZipCredentials();
   if (els.zipPasswordInput) els.zipPasswordInput.value = "";
   if (els.app) els.app.classList.add("hide");
@@ -9604,6 +9835,9 @@ async function attemptUnlock(options = {}){
     
     // Update header text with Company and TRN from JSON if available
     updateHeaderTextFromConfig();
+
+    // Load the saved page-wide currency before any ledger data is loaded.
+    await loadPageCurrencyPreferenceFromDatabase();
     
     // Update currency filters based on configuration
     updateCurrencyFiltersFromConfig();
@@ -11230,6 +11464,14 @@ async function deleteBitcoinWallet(walletId) {
 }
 
 async function loadBitcoinWalletsFromDatabase() {
+  const selectedCurrency = getPageCurrencySelection();
+  if (selectedCurrency !== PAGE_CURRENCY_DEFAULT && selectedCurrency !== "BTC") {
+    state.bitcoinWallets = [];
+    renderBitcoinWallets();
+    renderExistingAddressesDropdown();
+    return;
+  }
+
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     console.log('Database not connected, Bitcoin wallets will not be loaded');
     state.bitcoinWallets = [];
@@ -12124,6 +12366,7 @@ function btcClearSession() {
 async function boot(){
   attachEvents();
   bindLandingAnchorScroll();
+  applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
   initFloatingCurrencyBackground();
   defaultDateInputs(document);
   const resumedImport = sessionStorage.getItem(IMPORT_SESSION_KEY) === "1";
