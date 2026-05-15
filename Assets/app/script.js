@@ -369,6 +369,9 @@ const state = {
   expenseWalletFilter: "all",
   expenseDateFrom: "",
   expenseDateTo: "",
+  expenseHistoryRange: "month",
+  expenseHistoryCustomFrom: "",
+  expenseHistoryCustomTo: "",
   expenseBtcCache: {},
   inventoryDraft: {
     purchaseGroupId: "",
@@ -5521,6 +5524,81 @@ function isInDateRange(dateStr){
   return true;
 }
 
+function localDateInputValue(date = new Date()){
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
+function addLocalDays(date, days){
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function monthStartISO(date = new Date()){
+  return localDateInputValue(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
+function expenseHistoryRangeBounds(range = state.expenseHistoryRange){
+  const today = new Date();
+  const todayIso = localDateInputValue(today);
+  if (range === "today"){
+    return { from: todayIso, to: todayIso, label: "Today" };
+  }
+  if (range === "last7"){
+    return { from: localDateInputValue(addLocalDays(today, -6)), to: todayIso, label: "Last 7 Days" };
+  }
+  if (range === "all"){
+    return { from: "", to: "", label: "All" };
+  }
+  if (range === "custom"){
+    return {
+      from: state.expenseHistoryCustomFrom || "",
+      to: state.expenseHistoryCustomTo || "",
+      label: "Custom"
+    };
+  }
+  return { from: monthStartISO(today), to: todayIso, label: "This Month" };
+}
+
+function expenseHistoryRangeText(){
+  const bounds = expenseHistoryRangeBounds();
+  if (!bounds.from && !bounds.to) return bounds.label;
+  if (bounds.from && bounds.to) return `${bounds.label}: ${displayDate(bounds.from)} - ${displayDate(bounds.to)}`;
+  if (bounds.from) return `${bounds.label}: from ${displayDate(bounds.from)}`;
+  return `${bounds.label}: until ${displayDate(bounds.to)}`;
+}
+
+function isInExpenseHistoryRange(dateStr){
+  const bounds = expenseHistoryRangeBounds();
+  if (state.expenseHistoryRange === "custom" && !bounds.from && !bounds.to) return false;
+  if (!bounds.from && !bounds.to) return true;
+  const d = dateStamp(dateStr);
+  if (!d) return true;
+  if (bounds.from && d < dateStamp(bounds.from)) return false;
+  if (bounds.to && d > dateStamp(bounds.to + "T23:59:59")) return false;
+  return true;
+}
+
+function filterExpenseHistoryRows(spendAttached){
+  return spendAttached.filter(({ row }) => isInExpenseHistoryRange(row.action_date));
+}
+
+function setExpenseHistoryRange(range, keepHistoryOpen = false){
+  const allowed = new Set(["month", "today", "last7", "all", "custom"]);
+  state.expenseHistoryRange = allowed.has(range) ? range : "month";
+  if (state.expenseHistoryRange === "custom"){
+    state.expenseHistoryCustomFrom = "";
+    state.expenseHistoryCustomTo = "";
+  }
+  renderExpensesList();
+  if (keepHistoryOpen){
+    const section = document.getElementById("transactionsHistorySection");
+    if (section) section.open = true;
+  }
+}
+
 function collectExpenseSpendRows(accounts){
   const out = [];
   const wf = state.expenseWalletFilter;
@@ -6240,6 +6318,34 @@ function filterExpensesBySearch(expenses, searchTerm){
   });
 }
 
+function renderExpenseHistoryRangeControls(){
+  const active = state.expenseHistoryRange || "month";
+  const options = [
+    ["month", "This Month"],
+    ["today", "Today"],
+    ["last7", "Last 7 Days"],
+    ["all", "All"],
+    ["custom", "Custom"]
+  ];
+  return `<span class="expense-history-controls">
+    ${options.map(([value, label]) => `
+      <button type="button" class="tiny ghost expense-history-range-btn ${active === value ? "active" : ""}" data-expense-history-range="${escapeHtml(value)}">${escapeHtml(label)}</button>
+    `).join("")}
+    <button type="button" class="icon-btn ghost expenseActionBtn expense-history-download" data-action="pdf" data-type="transactions-history" title="Download Transactions History PDF"><i class="fa-solid fa-download"></i></button>
+  </span>`;
+}
+
+function renderExpenseHistoryToolbar(transactionCount){
+  const customOpen = state.expenseHistoryRange === "custom";
+  return `<div class="expense-section-toolbar expense-history-toolbar">
+    <span class="expense-toolbar-hint">Showing ${escapeHtml(expenseHistoryRangeText())}. ${transactionCount} transaction(s) in this selection.</span>
+    <span class="expense-history-custom ${customOpen ? "" : "hide"}">
+      <input type="date" class="input" data-expense-history-date="from" value="${escapeHtml(state.expenseHistoryCustomFrom || "")}" aria-label="Transactions history from date">
+      <input type="date" class="input" data-expense-history-date="to" value="${escapeHtml(state.expenseHistoryCustomTo || "")}" aria-label="Transactions history to date">
+    </span>
+  </div>`;
+}
+
 function renderExpensesList(){
   let accounts = getExpenseAccounts();
   let accountsForSections = getExpenseAccounts({ applyUiFilters: false });
@@ -6257,18 +6363,8 @@ function renderExpensesList(){
     return;
   }
 
-  // Check if any expense filters are active
-  const isExpenseFilterActive = (
-    (state.search.expenses && state.search.expenses.trim() !== "") ||
-    (state.expenseDateFrom && state.expenseDateFrom.trim() !== "") ||
-    (state.expenseDateTo && state.expenseDateTo.trim() !== "") ||
-    (state.currencyFilter.expenses && state.currencyFilter.expenses !== "All") ||
-    (state.expenseWalletFilter && state.expenseWalletFilter !== "all") ||
-    (state.statusFilter.expenses && state.statusFilter.expenses !== "All")
-  );
-
   let html = "";
-  html += renderExpenseBtcTransactionsSection(accountsForSections, isExpenseFilterActive);
+  html += renderExpenseBtcTransactionsSection(accountsForSections, false);
 
   let topupTransactions = collectTopupTransactionsFlat(accountsForSections);
   
@@ -6286,7 +6382,7 @@ function renderExpensesList(){
   const topupCurrencies = sortCurrenciesList([...topupByCurrency.keys()]);
 
   if (topupTransactions.length > 0){
-    html += `<details class="expense-collapsible-section" id="topupRecordsSection" ${isExpenseFilterActive ? 'open' : ''}>
+    html += `<details class="expense-collapsible-section" id="topupRecordsSection">
       <summary class="expense-collapsible-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-money-bill-wave"></i> Top-Up Records</h4>
         <span class="expand-icon">▶</span>
@@ -6369,7 +6465,7 @@ function renderExpensesList(){
   const transferCurrencies = sortCurrenciesList([...transferCurrencySet]);
 
   if (transferEvents.length > 0 && transferCurrencies.length > 0){
-    html += `<details class="expense-collapsible-section" id="transferRecordsSection" ${isExpenseFilterActive ? 'open' : ''}>
+    html += `<details class="expense-collapsible-section" id="transferRecordsSection">
       <summary class="expense-collapsible-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transfer Records</h4>
         <span class="expand-icon">▶</span>
@@ -6440,21 +6536,25 @@ function renderExpensesList(){
 
   // Expense items (non-transfer spending), grouped by item
   const spendAttached = collectExpenseSpendRows(accounts);
-  let items = groupExpenseItems(spendAttached);
+  const historySpendAttached = filterExpenseHistoryRows(spendAttached);
+  let items = groupExpenseItems(historySpendAttached);
   
   // Apply search filtering to expense items
   if (state.search.expenses && state.search.expenses.trim() !== "") {
     items = filterExpensesBySearch(items, state.search.expenses);
   }
   
-  if (items.length > 0) {
-    html += `<details class="expense-collapsible-section" id="transactionsHistorySection" ${isExpenseFilterActive ? 'open' : ''}>
-      <summary class="expense-collapsible-header">
+  if (spendAttached.length > 0) {
+    const visibleTransactionCount = items.reduce((sum, item) => sum + item.txs.length, 0);
+    html += `<details class="expense-collapsible-section" id="transactionsHistorySection">
+      <summary class="expense-collapsible-header expense-history-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-list-ul"></i> Transactions History</h4>
+        ${renderExpenseHistoryRangeControls()}
         <span class="expand-icon">▶</span>
       </summary>
-      <div class="expense-collapsible-content">`;
-    html += items.map(item => `
+      <div class="expense-collapsible-content">
+      ${renderExpenseHistoryToolbar(visibleTransactionCount)}`;
+    html += items.length ? items.map(item => `
       <details class="loan expense-item-row">
         <summary>
           <div class="loan-top">
@@ -6500,7 +6600,7 @@ function renderExpensesList(){
           </div>
         </div>
       </details>
-    `).join("");
+    `).join("") : `<div class="empty">No transactions found for ${escapeHtml(expenseHistoryRangeText())}.</div>`;
     html += `</div></details>`;
   }
 
@@ -6515,6 +6615,7 @@ function renderExpensesList(){
   // Add event listeners for expense action buttons
   els.expensesList.querySelectorAll(".expenseActionBtn").forEach(btn => btn.addEventListener("click", async e => {
     e.preventDefault();
+    e.stopPropagation();
     const action = btn.dataset.action;
     const type = btn.dataset.type;
     
@@ -6527,8 +6628,24 @@ function renderExpensesList(){
         await downloadAllTransfersPDF(btn.dataset.currency);
       } else if (type === "all-transfers"){
         await downloadAllTransfersPDF(null);
+      } else if (type === "transactions-history"){
+        await downloadExpenseTransactionsHistoryPDF();
       }
     }
+  }));
+  els.expensesList.querySelectorAll(".expense-history-range-btn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpenseHistoryRange(btn.dataset.expenseHistoryRange || "month", true);
+  }));
+  els.expensesList.querySelectorAll("[data-expense-history-date]").forEach(input => input.addEventListener("change", e => {
+    e.preventDefault();
+    state.expenseHistoryRange = "custom";
+    if (input.dataset.expenseHistoryDate === "from") state.expenseHistoryCustomFrom = input.value;
+    if (input.dataset.expenseHistoryDate === "to") state.expenseHistoryCustomTo = input.value;
+    renderExpensesList();
+    const section = document.getElementById("transactionsHistorySection");
+    if (section) section.open = true;
   }));
   els.expensesList.querySelectorAll(".expenseBtcStatementBtn").forEach(btn => btn.addEventListener("click", async e => {
     e.preventDefault();
@@ -9055,6 +9172,165 @@ async function downloadGoodsPDF(){
   });
 
   doc.save("Inventory_Statement.pdf");
+}
+
+function getExpenseHistoryItemsForExport(){
+  const accounts = getExpenseAccounts();
+  const spendAttached = filterExpenseHistoryRows(collectExpenseSpendRows(accounts));
+  let items = groupExpenseItems(spendAttached);
+  if (state.search.expenses && state.search.expenses.trim() !== ""){
+    items = filterExpensesBySearch(items, state.search.expenses);
+  }
+  return items;
+}
+
+function flattenExpenseHistoryItems(items){
+  const rows = [];
+  for (const item of items){
+    for (const tx of item.txs){
+      rows.push({
+        item: item.displayName,
+        currency: item.currency,
+        expenseType: tx.expenseType || item.expenseType || "Other",
+        date: tx.date,
+        wallet: tx.wallet || "Wallet",
+        amount: Number(tx.amount || 0),
+        notes: cleanExpenseNote(tx.notes)
+      });
+    }
+  }
+  return rows.sort((a, b) => dateStamp(b.date) - dateStamp(a.date));
+}
+
+function expenseHistoryRangeSlug(){
+  return String(state.expenseHistoryRange || "month").replace(/[^a-z0-9_-]/gi, "_");
+}
+
+function expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, needed = 32){
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y + needed <= pageHeight - 38) return y;
+  doc.addPage();
+  drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false);
+  return 52;
+}
+
+async function downloadExpenseTransactionsHistoryPDF(){
+  if (!window.jspdf){
+    alert("PDF library loading. Please try again in a moment.");
+    return;
+  }
+
+  const items = getExpenseHistoryItemsForExport();
+  const rows = flattenExpenseHistoryItems(items);
+  if (!rows.length){
+    alert("No transactions found for the selected history range.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  await loadCustomFontsForPdf(doc);
+
+  const logoData = await getPdfLogo();
+  const rangeLabel = expenseHistoryRangeText();
+  const title = "Expense Transactions History";
+  const subtitle = `${rangeLabel} | Generated: ${new Date().toLocaleString()}`;
+  drawPdfHeader(doc, logoData, title, subtitle);
+  drawPdfOwnerBlock(doc, 52);
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const walletCount = new Set(rows.map(r => r.wallet)).size;
+  const currencyTotals = new Map();
+  const currencyCounts = new Map();
+  for (const r of rows){
+    const cur = r.currency || "AED";
+    currencyTotals.set(cur, (currencyTotals.get(cur) || 0) + Number(r.amount || 0));
+    currencyCounts.set(cur, (currencyCounts.get(cur) || 0) + 1);
+  }
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 74, pageWidth - 28, 24, 2, 2, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(14, 74, pageWidth - 28, 24, 2, 2, "S");
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Report Summary", 20, 83);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Date selection: ${rangeLabel}`, 20, 90);
+  doc.text(`Transactions: ${rows.length}`, 132, 83);
+  doc.text(`Expense items: ${items.length}`, 132, 90);
+  doc.text(`Wallets: ${walletCount}`, 132, 96);
+
+  const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(cur => [
+    cur,
+    String(currencyCounts.get(cur) || 0),
+    formatPdfAmount(currencyTotals.get(cur) || 0, cur)
+  ]);
+
+  doc.autoTable({
+    startY: 106,
+    head: [["Currency", "Transactions", "Total Spent"]],
+    body: totalsBody,
+    theme: "grid",
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.5 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 40 },
+      1: { cellWidth: 35, halign: "right" },
+      2: { cellWidth: 55, halign: "right" }
+    },
+    margin: { left: 14, right: 14, top: 50, bottom: 40 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+  });
+
+  let y = (doc.lastAutoTable?.finalY || 106) + 12;
+  for (const item of items){
+    y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 45);
+    doc.setFillColor(36, 87, 214);
+    doc.roundedRect(14, y, pageWidth - 28, 9, 1.5, 1.5, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`${item.displayName} | ${item.currency}`, 18, y + 6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`${item.txs.length} transaction(s) | Total: ${formatPdfAmount(item.total, item.currency)} | Type: ${item.expenseType || "Other"}`, pageWidth - 18, y + 6, { align: "right" });
+
+    const body = item.txs.map(tx => [
+      displayDate(tx.date || "â€”"),
+      tx.wallet || "â€”",
+      tx.expenseType || item.expenseType || "Other",
+      formatPdfAmount(tx.amount, item.currency),
+      wrapTextForPdf(cleanExpenseNote(tx.notes), 62).split("\n")
+    ]);
+
+    doc.autoTable({
+      startY: y + 13,
+      head: [["Date", "Wallet", "Type", "Amount", "Notes"]],
+      body,
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+      styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 34 },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 28, halign: "right" },
+        4: { cellWidth: 70 }
+      },
+      margin: { left: 14, right: 14, top: 50, bottom: 40 },
+      didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+    });
+    y = (doc.lastAutoTable?.finalY || y + 13) + 12;
+  }
+
+  doc.save(`Expense_Transactions_History_${expenseHistoryRangeSlug()}_${todayISO()}.pdf`);
 }
 
 async function downloadAllTopupsPDF(currencyFilter = null){
