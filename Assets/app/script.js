@@ -200,6 +200,9 @@ const SUPPORTED_CURRENCIES = ["AED", "SAR", "PKR", "USD", "BTC"];
 const PAGE_CURRENCY_OPTIONS = ["AED", "SAR", "PKR", "BTC", "USD", "ALL"];
 const PAGE_CURRENCY_DEFAULT = "ALL";
 const PAGE_CURRENCY_META_TAG = "PAGE_CURRENCY";
+const SECRET_PIN_HASH_TAG = "SECRET_PIN_HASH";
+const SMART_PIN_DISABLED_META_TAG = "SMART_PIN_DISABLED";
+const SECRET_PIN_HASH_CONTEXT = "Triple-M-by-NSF:secret-pin:v1";
 
 // Currency mapping for symbols and variations
 const CURRENCY_ALIASES = {
@@ -258,27 +261,50 @@ function getAllowedCurrencies() {
   )];
 }
 
+function normalizePageCurrencyList(value) {
+  const rawValues = Array.isArray(value)
+    ? value
+    : String(value || PAGE_CURRENCY_DEFAULT).split(",");
+  const values = rawValues
+    .map(currency => String(currency || "").trim().toUpperCase())
+    .filter(Boolean);
+  if (!values.length || values.some(currency => currency === PAGE_CURRENCY_DEFAULT)) {
+    return [PAGE_CURRENCY_DEFAULT];
+  }
+  const normalized = [...new Set(values
+    .map(currency => normalizeCurrencyCode(currency))
+    .filter(currency => SUPPORTED_CURRENCIES.includes(currency))
+  )];
+  return normalized.length ? normalized : [PAGE_CURRENCY_DEFAULT];
+}
+
 function normalizePageCurrencySelection(currency) {
-  const raw = String(currency || PAGE_CURRENCY_DEFAULT).trim().toUpperCase();
-  if (raw === PAGE_CURRENCY_DEFAULT) return PAGE_CURRENCY_DEFAULT;
-  const normalized = normalizeCurrencyCode(raw);
-  return SUPPORTED_CURRENCIES.includes(normalized) ? normalized : PAGE_CURRENCY_DEFAULT;
+  const currencies = normalizePageCurrencyList(currency);
+  return currencies.includes(PAGE_CURRENCY_DEFAULT) ? PAGE_CURRENCY_DEFAULT : currencies.join(",");
 }
 
 function getPageCurrencySelection() {
   return normalizePageCurrencySelection(state.pageCurrency);
 }
 
+function getSelectedPageCurrencies() {
+  const selected = normalizePageCurrencyList(state.pageCurrency);
+  if (selected.includes(PAGE_CURRENCY_DEFAULT)) return getAllowedCurrencies();
+  const allowed = new Set(getAllowedCurrencies());
+  return selected.filter(currency => allowed.has(currency));
+}
+
+function isPageCurrencyAll() {
+  return getPageCurrencySelection() === PAGE_CURRENCY_DEFAULT;
+}
+
 function getPageScopedCurrencies() {
-  const selected = getPageCurrencySelection();
-  if (selected === PAGE_CURRENCY_DEFAULT) return getAllowedCurrencies();
-  return [selected];
+  return getSelectedPageCurrencies();
 }
 
 function entryMatchesPageCurrency(entry) {
-  const selected = getPageCurrencySelection();
-  if (selected === PAGE_CURRENCY_DEFAULT) return true;
-  return normalizeCurrencyCode(entry?.currency) === selected;
+  if (isPageCurrencyAll()) return true;
+  return getSelectedPageCurrencies().includes(normalizeCurrencyCode(entry?.currency));
 }
 
 function pageCurrencyFromMetaNotes(noteValue) {
@@ -295,6 +321,28 @@ function buildPageCurrencyPreferenceNotes(currency) {
   return `[${PAGE_CURRENCY_META_TAG}:${normalizePageCurrencySelection(currency)}]`;
 }
 
+function secretPinHashFromMetaNotes(noteValue) {
+  const match = String(noteValue || "").match(/\[SECRET_PIN_HASH:([a-f0-9]{64})\]/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function smartPinDisabledFromMetaNotes(noteValue) {
+  return new RegExp(`\\[${SMART_PIN_DISABLED_META_TAG}:1\\]`, "i").test(String(noteValue || ""));
+}
+
+function isSecretPinPreferenceRow(row) {
+  return String(row?.person_name || "").trim().toUpperCase() === "SYSTEM" &&
+    (!!secretPinHashFromMetaNotes(row?.notes) || smartPinDisabledFromMetaNotes(row?.notes));
+}
+
+function buildSecretPinPreferenceNotes(pinHash) {
+  return `[${SECRET_PIN_HASH_TAG}:${String(pinHash || "").toLowerCase()}]`;
+}
+
+function buildSmartPinDisabledPreferenceNotes() {
+  return `[${SMART_PIN_DISABLED_META_TAG}:1]`;
+}
+
 const state = {
   entries: [],
   dataSource: "backup",
@@ -306,6 +354,10 @@ const state = {
   pageCurrency: PAGE_CURRENCY_DEFAULT,
   pageCurrencyPreferenceId: null,
   pageCurrencySaving: false,
+  currentUsername: "",
+  secretPinPreferenceId: null,
+  secretPinHash: "",
+  secretPinVerified: false,
   search: { given: "", received: "", taken: "", returned: "", installments: "", goods: "", expenses: "" },
   statusFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
   currencyFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
@@ -355,6 +407,9 @@ const els = {
   standaloneAboutSubtitle: document.getElementById("standaloneAboutSubtitle"),
   mainAppSubtitle: document.getElementById("mainAppSubtitle"),
   app: document.getElementById("app"),
+  accountMenuBtn: document.getElementById("accountMenuBtn"),
+  secretPinBtn: document.getElementById("secretPinBtn"),
+  deleteSmartPinBtn: document.getElementById("deleteSmartPinBtn"),
   learnMoreBtn: document.getElementById("learnMoreBtn"),
   pricingBtn: document.getElementById("pricingBtn"),
   standaloneAboutSection: document.getElementById("standaloneAboutSection"),
@@ -698,7 +753,7 @@ function isEntryInRecycleBin(entryId) {
 function getActiveEntries() {
   const allowedCurrencies = getAllowedCurrencies();
   return state.entries.filter(entry => {
-    if (isPageCurrencyPreferenceRow(entry)) {
+    if (isPageCurrencyPreferenceRow(entry) || isSecretPinPreferenceRow(entry)) {
       return false;
     }
 
@@ -917,18 +972,22 @@ function renderRecycleBinDropdown() {
 
 function renderPageCurrencySelector() {
   const selected = getPageCurrencySelection();
+  const selectedCurrencies = getSelectedPageCurrencies();
+  const selectedSet = new Set(selectedCurrencies);
+  const isAllSelected = isPageCurrencyAll();
+  const labelText = isAllSelected ? PAGE_CURRENCY_DEFAULT : selectedCurrencies.join("+");
   if (els.pageCurrencyLabel) {
-    els.pageCurrencyLabel.textContent = selected;
+    els.pageCurrencyLabel.textContent = labelText;
   }
   if (els.pageCurrencyBtn) {
-    els.pageCurrencyBtn.title = `Page Currency: ${selected}`;
-    els.pageCurrencyBtn.setAttribute("aria-label", `Page Currency: ${selected}`);
+    els.pageCurrencyBtn.title = `Page Currency: ${labelText}`;
+    els.pageCurrencyBtn.setAttribute("aria-label", `Page Currency: ${labelText}`);
   }
   if (!els.pageCurrencyDropdown) return;
 
   els.pageCurrencyDropdown.innerHTML = PAGE_CURRENCY_OPTIONS.map(currency => {
     const isAll = currency === PAGE_CURRENCY_DEFAULT;
-    const active = selected === currency;
+    const active = isAll ? isAllSelected : !isAllSelected && selectedSet.has(currency);
     const symbol = isAll ? "ALL" : currencySymbolHtml(currency);
     const label = isAll ? "All currencies" : currency;
     return `
@@ -952,22 +1011,41 @@ function renderPageCurrencySelector() {
 }
 
 function syncSectionCurrencyFiltersWithPage() {
-  const selected = getPageCurrencySelection();
-  const filterValue = selected === PAGE_CURRENCY_DEFAULT ? "All" : selected;
+  const isAllSelected = isPageCurrencyAll();
+  const scopedCurrencies = new Set(getPageScopedCurrencies());
+  const forcedSingleCurrency = !isAllSelected && scopedCurrencies.size === 1 ? [...scopedCurrencies][0] : "";
   Object.keys(state.currencyFilter).forEach(key => {
-    state.currencyFilter[key] = filterValue;
+    const current = state.currencyFilter[key] || "All";
+    if (forcedSingleCurrency) {
+      state.currencyFilter[key] = forcedSingleCurrency;
+    } else if (!isAllSelected && scopedCurrencies.size > 1) {
+      state.currencyFilter[key] = "All";
+    } else if (current !== "All" && !scopedCurrencies.has(normalizeCurrencyCode(current))) {
+      state.currencyFilter[key] = "All";
+    }
   });
   document.querySelectorAll(".currency-radio").forEach(radio => {
-    radio.checked = radio.value === filterValue;
-    radio.disabled = selected !== PAGE_CURRENCY_DEFAULT;
+    const filterKey = radio.dataset.currencyFilter;
+    const value = radio.value;
+    const label = document.querySelector(`label[for="${radio.id}"]`);
+    const visible = value === "All"
+      ? (isAllSelected || scopedCurrencies.size > 1)
+      : scopedCurrencies.has(normalizeCurrencyCode(value));
+    radio.style.display = visible ? "" : "none";
+    radio.disabled = !visible;
+    if (label) label.style.display = visible ? "" : "none";
+    radio.checked = (state.currencyFilter[filterKey] || "All") === value;
   });
 }
 
 function applyPageCurrencySelection(currency) {
   const next = normalizePageCurrencySelection(currency);
   state.pageCurrency = next;
-  if (next !== PAGE_CURRENCY_DEFAULT) {
-    state.lastCurrency = next;
+  const selectedCurrencies = getSelectedPageCurrencies();
+  if (!isPageCurrencyAll() && selectedCurrencies.length) {
+    if (!selectedCurrencies.includes(state.lastCurrency)) {
+      state.lastCurrency = selectedCurrencies[0];
+    }
   } else {
     const allowedCurrencies = getAllowedCurrencies();
     if (allowedCurrencies.length && !allowedCurrencies.includes(state.lastCurrency)) {
@@ -975,6 +1053,7 @@ function applyPageCurrencySelection(currency) {
     }
   }
   syncSectionCurrencyFiltersWithPage();
+  updateCurrencySelectElements();
   renderPageCurrencySelector();
 }
 
@@ -1005,7 +1084,8 @@ async function savePageCurrencyPreferenceToDatabase(currency) {
   const selected = normalizePageCurrencySelection(currency);
   const today = todayISO();
   const notes = buildPageCurrencyPreferenceNotes(selected);
-  const rowCurrency = selected === PAGE_CURRENCY_DEFAULT ? "AED" : selected;
+  const selectedCurrencies = normalizePageCurrencyList(selected);
+  const rowCurrency = selected === PAGE_CURRENCY_DEFAULT ? "AED" : (selectedCurrencies[0] || "AED");
 
   let preferenceId = state.pageCurrencyPreferenceId;
   if (!preferenceId) {
@@ -1043,10 +1123,23 @@ async function savePageCurrencyPreferenceToDatabase(currency) {
 }
 
 async function setPageCurrencySelection(currency) {
-  const selected = normalizePageCurrencySelection(currency);
+  const chosen = normalizePageCurrencySelection(currency);
+  let selected = chosen;
+  if (chosen !== PAGE_CURRENCY_DEFAULT) {
+    const current = isPageCurrencyAll() ? [] : normalizePageCurrencyList(state.pageCurrency);
+    const nextSet = new Set(current);
+    if (nextSet.has(chosen)) {
+      nextSet.delete(chosen);
+    } else {
+      nextSet.add(chosen);
+    }
+    selected = nextSet.size ? [...nextSet].join(",") : PAGE_CURRENCY_DEFAULT;
+  }
   applyPageCurrencySelection(selected);
-  document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
-  document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+  if (chosen === PAGE_CURRENCY_DEFAULT) {
+    document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+    document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+  }
 
   try {
     state.pageCurrencySaving = true;
@@ -1062,6 +1155,465 @@ async function setPageCurrencySelection(currency) {
     renderPageCurrencySelector();
     renderRecycleBinDropdown();
   }
+}
+
+function validateSecretPinValue(pin) {
+  return /^(\d{4}|\d{6})$/.test(String(pin || "").trim());
+}
+
+async function hashSecretPin(pin) {
+  if (!window.crypto?.subtle) {
+    throw new Error("Secure Smart Pin storage is not available in this browser.");
+  }
+  const username = String(state.currentUsername || sessionStorage.getItem(ZIP_USERNAME_SESSION_KEY) || "user").trim().toLowerCase();
+  const text = `${SECRET_PIN_HASH_CONTEXT}:${username}:${String(pin || "").trim()}`;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function verifySecretPin(pin) {
+  if (!state.secretPinHash) return true;
+  if (!validateSecretPinValue(pin)) return false;
+  return (await hashSecretPin(pin)) === state.secretPinHash;
+}
+
+function renderSecretPinMenu() {
+  if (els.secretPinBtn) {
+    els.secretPinBtn.textContent = state.secretPinHash ? "Change Smart Pin" : "Set Smart Pin";
+  }
+  if (els.deleteSmartPinBtn) {
+    els.deleteSmartPinBtn.classList.toggle("hide", !state.secretPinHash);
+  }
+}
+
+async function loadSecretPinPreferenceFromDatabase() {
+  state.secretPinPreferenceId = null;
+  state.secretPinHash = "";
+  state.secretPinVerified = false;
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
+    renderSecretPinMenu();
+    return;
+  }
+
+  try {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const pinRow = (Array.isArray(rows) ? rows : []).find(isSecretPinPreferenceRow);
+    if (pinRow) {
+      state.secretPinPreferenceId = pinRow.id || null;
+      state.secretPinHash = secretPinHashFromMetaNotes(pinRow.notes);
+    }
+  } catch (err) {
+    console.warn("Smart Pin preference could not be loaded.", err);
+  }
+  renderSecretPinMenu();
+}
+
+async function saveSecretPinPreferenceToDatabase(pin) {
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) return;
+  if (!validateSecretPinValue(pin)) {
+    throw new Error("Smart Pin must be exactly 4 or 6 digits.");
+  }
+
+  const pinHash = await hashSecretPin(pin);
+  const notes = buildSecretPinPreferenceNotes(pinHash);
+  const today = todayISO();
+
+  let preferenceId = state.secretPinPreferenceId;
+  if (!preferenceId) {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const pinRow = (Array.isArray(rows) ? rows : []).find(isSecretPinPreferenceRow);
+    preferenceId = pinRow?.id || null;
+    state.secretPinPreferenceId = preferenceId;
+  }
+
+  if (preferenceId) {
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(preferenceId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes })
+    });
+  } else {
+    const rowId = crypto.randomUUID();
+    const payload = {
+      id: rowId,
+      group_id: rowId,
+      direction: "taken",
+      entry_kind: "principal",
+      person_name: "SYSTEM",
+      currency: "AED",
+      principal_amount: 0,
+      action_amount: null,
+      loan_date: today,
+      action_date: null,
+      notes,
+      created_at: new Date().toISOString()
+    };
+    const result = await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
+    state.secretPinPreferenceId = Array.isArray(result) && result[0]?.id ? result[0].id : rowId;
+  }
+
+  state.secretPinHash = pinHash;
+  state.secretPinVerified = true;
+  renderSecretPinMenu();
+}
+
+function ensureSmartPinManageModal() {
+  let modal = document.getElementById("smartPinManageModal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "smartPinManageModal";
+  modal.className = "modal hide secret-pin-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog secret-pin-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="smartPinManageTitle">Set Smart Pin</h3>
+          <p id="smartPinManageDescription">Choose a 4 or 6 digit Smart Pin.</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <form id="smartPinManageForm">
+          <div class="modal-grid">
+            <div class="field w12 hide" id="smartPinExistingField">
+              <label>Existing Smart Pin</label>
+              <input id="smartPinExistingInput" class="input" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="4 or 6 digits" />
+            </div>
+            <div class="field w12" id="smartPinNewField">
+              <label>New Smart Pin</label>
+              <input id="smartPinNewInput" class="input" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="4 or 6 digits" />
+            </div>
+            <div class="field w12" id="smartPinConfirmField">
+              <label>Confirm Smart Pin</label>
+              <input id="smartPinConfirmInput" class="input" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="Repeat Smart Pin" />
+            </div>
+            <div class="field w12">
+              <div id="smartPinManageError" class="secret-pin-error"></div>
+            </div>
+            <div class="field w12 modal-footer secret-pin-actions">
+              <button class="btn ghost" id="smartPinManageCancelBtn" type="button">Cancel</button>
+              <button class="btn primary" id="smartPinManageSubmitBtn" type="submit">Set Smart Pin</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function openSmartPinManageModal(mode) {
+  const modal = ensureSmartPinManageModal();
+  document.body.appendChild(modal);
+
+  const config = {
+    set: {
+      title: "Set Smart Pin",
+      description: "Choose a 4 or 6 digit Smart Pin.",
+      submit: "Set Smart Pin"
+    },
+    change: {
+      title: "Change Smart Pin",
+      description: "Enter your existing Smart Pin, then choose a new one.",
+      submit: "Change Smart Pin"
+    },
+    reset: {
+      title: "Reset Smart Pin",
+      description: "Choose a new 4 or 6 digit Smart Pin.",
+      submit: "Reset Smart Pin"
+    },
+    delete: {
+      title: "Delete Smart Pin",
+      description: "Enter your existing Smart Pin to remove it. Your data will load normally afterward.",
+      submit: "Delete Smart Pin"
+    }
+  }[mode] || {};
+
+  const form = modal.querySelector("#smartPinManageForm");
+  const title = modal.querySelector("#smartPinManageTitle");
+  const description = modal.querySelector("#smartPinManageDescription");
+  const existingField = modal.querySelector("#smartPinExistingField");
+  const newField = modal.querySelector("#smartPinNewField");
+  const confirmField = modal.querySelector("#smartPinConfirmField");
+  const existingInput = modal.querySelector("#smartPinExistingInput");
+  const newInput = modal.querySelector("#smartPinNewInput");
+  const confirmInput = modal.querySelector("#smartPinConfirmInput");
+  const error = modal.querySelector("#smartPinManageError");
+  const cancelBtn = modal.querySelector("#smartPinManageCancelBtn");
+  const submitBtn = modal.querySelector("#smartPinManageSubmitBtn");
+  const backdrop = modal.querySelector(".modal-backdrop");
+  const needsExistingPin = mode === "change" || mode === "delete";
+  const needsNewPin = mode !== "delete";
+  const previousOverflow = document.body.style.overflow;
+
+  title.textContent = config.title || "Smart Pin";
+  description.textContent = config.description || "";
+  submitBtn.textContent = config.submit || "Save";
+  submitBtn.classList.toggle("danger", mode === "delete");
+  existingField.classList.toggle("hide", !needsExistingPin);
+  newField.classList.toggle("hide", !needsNewPin);
+  confirmField.classList.toggle("hide", !needsNewPin);
+  existingInput.value = "";
+  newInput.value = "";
+  confirmInput.value = "";
+  error.textContent = "";
+
+  const inputs = [existingInput, newInput, confirmInput];
+  const cleanNumericInput = input => {
+    input.value = String(input.value || "").replace(/\D/g, "").slice(0, 6);
+  };
+  inputs.forEach(input => {
+    input.oninput = () => cleanNumericInput(input);
+  });
+
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  setTimeout(() => (needsExistingPin ? existingInput : newInput).focus(), 50);
+
+  return new Promise(resolve => {
+    const finish = value => {
+      modal.classList.add("hide");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = previousOverflow;
+      form.onsubmit = null;
+      cancelBtn.onclick = null;
+      backdrop.onclick = null;
+      inputs.forEach(input => { input.oninput = null; });
+      resolve(value);
+    };
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      error.textContent = "";
+
+      if (needsExistingPin) {
+        const existingPin = String(existingInput.value || "").trim();
+        if (!validateSecretPinValue(existingPin)) {
+          error.textContent = "Existing Smart Pin must be exactly 4 or 6 digits.";
+          existingInput.focus();
+          return;
+        }
+        if (!(await verifySecretPin(existingPin))) {
+          error.textContent = "Existing Smart Pin is incorrect.";
+          existingInput.focus();
+          return;
+        }
+      }
+
+      if (!needsNewPin) {
+        finish({ deletePin: true });
+        return;
+      }
+
+      const newPin = String(newInput.value || "").trim();
+      const confirmPin = String(confirmInput.value || "").trim();
+      if (!validateSecretPinValue(newPin)) {
+        error.textContent = "Smart Pin must be exactly 4 or 6 digits.";
+        newInput.focus();
+        return;
+      }
+      if (newPin !== confirmPin) {
+        error.textContent = "Smart Pin confirmation does not match.";
+        confirmInput.focus();
+        return;
+      }
+
+      finish({ pin: newPin });
+    };
+
+    cancelBtn.onclick = () => finish(null);
+    backdrop.onclick = () => finish(null);
+  });
+}
+
+async function getExpenseWalletChallengeData() {
+  const rows = await supabase(`${CONFIG.table}?select=person_name,currency,notes&direction=eq.taken&entry_kind=eq.principal&order=created_at.desc`);
+  const wallets = (Array.isArray(rows) ? rows : [])
+    .filter(row => hasExpenseAccountTag(row.notes))
+    .filter(row => entryMatchesPageCurrency(row));
+  return {
+    count: wallets.length,
+    names: new Set(wallets.map(row => String(row.person_name || "").trim().toLowerCase()).filter(Boolean))
+  };
+}
+
+async function handleForgotSecretPin() {
+  const answerCount = prompt("How many wallets do you have in the Expenses tab?");
+  if (answerCount === null) return false;
+  const answerName = prompt("Enter the name of any existing wallet.");
+  if (answerName === null) return false;
+
+  const challenge = await getExpenseWalletChallengeData();
+  const countOk = Number.parseInt(String(answerCount || "").trim(), 10) === challenge.count;
+  const nameOk = challenge.names.has(String(answerName || "").trim().toLowerCase());
+  if (!countOk || !nameOk) {
+    alert("The answers are wrong.");
+    return false;
+  }
+
+  const result = await openSmartPinManageModal("reset");
+  if (!result?.pin) return false;
+  await saveSecretPinPreferenceToDatabase(result.pin);
+  alert("Smart Pin updated successfully.");
+  return true;
+}
+
+async function handleSecretPinMenuAction() {
+  document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+  document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+
+  try {
+    const mode = state.secretPinHash ? "change" : "set";
+    const result = await openSmartPinManageModal(mode);
+    if (!result?.pin) return;
+    await saveSecretPinPreferenceToDatabase(result.pin);
+    alert(mode === "change" ? "Smart Pin changed successfully." : "Smart Pin set successfully.");
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+async function deleteSecretPinPreferenceFromDatabase() {
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) return;
+
+  let preferenceId = state.secretPinPreferenceId;
+  if (!preferenceId) {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const pinRow = (Array.isArray(rows) ? rows : []).find(isSecretPinPreferenceRow);
+    preferenceId = pinRow?.id || null;
+  }
+
+  if (preferenceId) {
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(preferenceId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes: buildSmartPinDisabledPreferenceNotes() })
+    });
+  }
+
+  state.secretPinPreferenceId = preferenceId || null;
+  state.secretPinHash = "";
+  state.secretPinVerified = true;
+  renderSecretPinMenu();
+}
+
+async function handleDeleteSmartPinAction() {
+  document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+  document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+
+  if (!state.secretPinHash) return;
+
+  try {
+    const result = await openSmartPinManageModal("delete");
+    if (!result?.deletePin) return;
+    await deleteSecretPinPreferenceFromDatabase();
+    alert("Smart Pin deleted successfully.");
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+function ensureSecretPinModal() {
+  let modal = document.getElementById("secretPinGateModal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "secretPinGateModal";
+  modal.className = "modal hide secret-pin-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog secret-pin-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Smart Pin</h3>
+          <p>Enter your Smart Pin to load your data.</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <form id="secretPinGateForm">
+          <div class="modal-grid">
+            <div class="field w12">
+              <label>Smart Pin</label>
+              <input id="secretPinGateInput" class="input" type="password" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="4 or 6 digits" />
+              <div id="secretPinGateError" class="secret-pin-error"></div>
+            </div>
+            <div class="field w12 modal-footer secret-pin-actions">
+              <button class="btn ghost" id="secretPinGateLogoutBtn" type="button">Logout</button>
+              <button class="btn ghost" id="secretPinForgotBtn" type="button">Forgot Smart Pin</button>
+              <button class="btn primary" id="secretPinUnlockBtn" type="submit">Unlock</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function requestSecretPinUnlock() {
+  if (!state.secretPinHash) {
+    state.secretPinVerified = true;
+    return Promise.resolve(true);
+  }
+
+  const modal = ensureSecretPinModal();
+  const form = modal.querySelector("#secretPinGateForm");
+  const input = modal.querySelector("#secretPinGateInput");
+  const error = modal.querySelector("#secretPinGateError");
+  const forgotBtn = modal.querySelector("#secretPinForgotBtn");
+  const logoutBtn = modal.querySelector("#secretPinGateLogoutBtn");
+
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  input.value = "";
+  error.textContent = "";
+  setTimeout(() => input.focus(), 50);
+
+  return new Promise(resolve => {
+    const finish = (ok) => {
+      modal.classList.add("hide");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+      form.onsubmit = null;
+      forgotBtn.onclick = null;
+      logoutBtn.onclick = null;
+      resolve(ok);
+    };
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const pin = String(input.value || "").trim();
+      if (!validateSecretPinValue(pin)) {
+        error.textContent = "Smart Pin must be exactly 4 or 6 digits.";
+        return;
+      }
+      if (!(await verifySecretPin(pin))) {
+        error.textContent = "Smart Pin is incorrect.";
+        return;
+      }
+      state.secretPinVerified = true;
+      finish(true);
+    };
+
+    forgotBtn.onclick = async () => {
+      try {
+        const ok = await handleForgotSecretPin();
+        if (ok) finish(true);
+      } catch (err) {
+        error.textContent = err.message || String(err);
+      }
+    };
+
+    logoutBtn.onclick = () => {
+      finish(false);
+      doLogout();
+    };
+  });
 }
 
 function getSupabaseConfig(){
@@ -3262,7 +3814,7 @@ function buildTransferEvents(){
 }
 
 function getTransferRowsForCurrency(cur, events){
-  const showOtherCurrencyLeg = getPageCurrencySelection() === PAGE_CURRENCY_DEFAULT;
+  const showOtherCurrencyLeg = isPageCurrencyAll();
   const rows = [];
   for (const ev of events){
     if (ev.curOut === cur){
@@ -5630,12 +6182,13 @@ function renderExpensesList(){
   }
   
   const transferCurrencySet = new Set();
-  const selectedPageCurrency = getPageCurrencySelection();
+  const selectedPageCurrencies = new Set(getSelectedPageCurrencies());
+  const allPageCurrencies = isPageCurrencyAll();
   for (const ev of transferEvents){
-    if (selectedPageCurrency === PAGE_CURRENCY_DEFAULT || ev.curOut === selectedPageCurrency) {
+    if (allPageCurrencies || selectedPageCurrencies.has(ev.curOut)) {
       transferCurrencySet.add(ev.curOut);
     }
-    if (selectedPageCurrency === PAGE_CURRENCY_DEFAULT || ev.curIn === selectedPageCurrency) {
+    if (allPageCurrencies || selectedPageCurrencies.has(ev.curIn)) {
       transferCurrencySet.add(ev.curIn);
     }
   }
@@ -6026,12 +6579,26 @@ async function loadEntries(){
 }
 
 async function loadEntriesFromSupabase(){
-  const selectedCurrency = getPageCurrencySelection();
-  const currencyQuery = selectedCurrency === PAGE_CURRENCY_DEFAULT
+  if (state.secretPinHash && !state.secretPinVerified) {
+    applyEntries([], "supabase", { hasImportedFile: false });
+    return;
+  }
+  const selectedCurrencies = getSelectedPageCurrencies();
+  if (!isPageCurrencyAll() && !selectedCurrencies.length) {
+    applyEntries([], "supabase", { hasImportedFile: false });
+    state.recycleBin = [];
+    renderRecycleBinDropdown();
+    return;
+  }
+  const currencyQuery = isPageCurrencyAll()
     ? ""
-    : `&currency=eq.${encodeURIComponent(selectedCurrency)}`;
+    : selectedCurrencies.length === 1
+      ? `&currency=eq.${encodeURIComponent(selectedCurrencies[0])}`
+      : `&currency=in.(${selectedCurrencies.map(currency => encodeURIComponent(currency)).join(",")})`;
   const rows = await supabase(`${CONFIG.table}?select=*${currencyQuery}&order=created_at.desc`);
-  const dataRows = Array.isArray(rows) ? rows.filter(row => !isPageCurrencyPreferenceRow(row)) : [];
+  const dataRows = Array.isArray(rows)
+    ? rows.filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row))
+    : [];
   // Filter out entries with deleted tag for main display
   const filteredRows = dataRows.filter(row => !hasDeletedTag(row.notes));
   await ensureInventoryItemCodesForRows(filteredRows);
@@ -7605,7 +8172,7 @@ function updateCurrencyFiltersFromConfig(){
 }
 
 function updateCurrencySelectElements() {
-  const allowedCurrencies = getAllowedCurrencies();
+  const allowedCurrencies = getPageScopedCurrencies();
   
   // Find all currency select elements
   const currencySelects = document.querySelectorAll('select[name="currency"]');
@@ -7639,7 +8206,7 @@ function updateCurrencySelectElements() {
 }
 
 function updateCurrencyButtons() {
-  const allowedCurrencies = getAllowedCurrencies();
+  const allowedCurrencies = getPageScopedCurrencies();
   
   // Find all currency chip buttons in modals
   const currencyChips = document.querySelectorAll('.currency-chip[data-currency]');
@@ -7680,8 +8247,9 @@ function validateCurrencyForForm(formData) {
   if (!currency) return true; // Allow forms without currency
   
   const allowedCurrencies = getAllowedCurrencies();
+  const pageCurrencies = getPageScopedCurrencies();
   const normalizedCurrency = normalizeCurrencyCode(currency);
-  const isAllowed = allowedCurrencies.includes(normalizedCurrency);
+  const isAllowed = allowedCurrencies.includes(normalizedCurrency) && pageCurrencies.includes(normalizedCurrency);
   
   if (!isAllowed) {
     throw new Error(`Currency "${currency}" is not supported. Supported currencies: ${allowedCurrencies.join(', ')}`);
@@ -9413,7 +9981,7 @@ window.addEventListener("resize", () => {
 
   document.querySelectorAll(".currency-radio").forEach(r => {
     r.addEventListener("change", e => {
-      if (getPageCurrencySelection() !== PAGE_CURRENCY_DEFAULT) {
+      if (!isPageCurrencyAll()) {
         syncSectionCurrencyFiltersWithPage();
         return;
       }
@@ -9609,6 +10177,12 @@ window.addEventListener("resize", () => {
   if (els.logoutBtn){
     els.logoutBtn.addEventListener("click", () => doLogout());
   }
+  if (els.secretPinBtn){
+    els.secretPinBtn.addEventListener("click", () => handleSecretPinMenuAction());
+  }
+  if (els.deleteSmartPinBtn){
+    els.deleteSmartPinBtn.addEventListener("click", () => handleDeleteSmartPinAction());
+  }
   if (els.refreshBtn){
     els.refreshBtn.addEventListener("click", () => {
       loadEntries();
@@ -9740,7 +10314,12 @@ function doLogout(){
   cachedPdfLogo = null;
   state.unlocked = false;
   state.pageCurrencyPreferenceId = null;
+  state.currentUsername = "";
+  state.secretPinPreferenceId = null;
+  state.secretPinHash = "";
+  state.secretPinVerified = false;
   applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
+  renderSecretPinMenu();
   removeStoredZipCredentials();
   if (els.zipPasswordInput) els.zipPasswordInput.value = "";
   if (els.app) els.app.classList.add("hide");
@@ -9824,6 +10403,7 @@ async function attemptUnlock(options = {}){
       supabaseUrl: String(configData.supabaseUrl).trim(),
       supabaseKey: String(configData.supabaseKey).trim()
     };
+    state.currentUsername = safeUser;
     // Store full config data for PDF generation and logo usage
     fullConfigData = configData;
     
@@ -9846,6 +10426,14 @@ async function attemptUnlock(options = {}){
     const allowedCurrencies = getAllowedCurrencies();
     if (allowedCurrencies.length > 0 && !allowedCurrencies.includes(state.lastCurrency)) {
       state.lastCurrency = allowedCurrencies[0];
+    }
+
+    await loadSecretPinPreferenceFromDatabase();
+    if (state.secretPinHash) {
+      const pinOk = await requestSecretPinUnlock();
+      if (!pinOk) return;
+    } else {
+      state.secretPinVerified = true;
     }
     
     sessionStorage.setItem("loanledger-unlocked", "true");
@@ -11464,8 +12052,15 @@ async function deleteBitcoinWallet(walletId) {
 }
 
 async function loadBitcoinWalletsFromDatabase() {
-  const selectedCurrency = getPageCurrencySelection();
-  if (selectedCurrency !== PAGE_CURRENCY_DEFAULT && selectedCurrency !== "BTC") {
+  if (state.secretPinHash && !state.secretPinVerified) {
+    state.bitcoinWallets = [];
+    renderBitcoinWallets();
+    renderExistingAddressesDropdown();
+    return;
+  }
+
+  const selectedCurrencies = getSelectedPageCurrencies();
+  if (!isPageCurrencyAll() && !selectedCurrencies.includes("BTC")) {
     state.bitcoinWallets = [];
     renderBitcoinWallets();
     renderExistingAddressesDropdown();
@@ -11837,6 +12432,12 @@ window.editNote = async function(noteId) {
 };
 
 async function loadNotesFromDatabase() {
+  if (state.secretPinHash && !state.secretPinVerified) {
+    state.notes = [];
+    renderNotes();
+    return;
+  }
+
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     console.log('Database not connected, notes will not be loaded');
     state.notes = [];
