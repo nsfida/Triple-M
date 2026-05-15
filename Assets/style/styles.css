@@ -1302,6 +1302,50 @@ a{color:inherit}
   padding:4px 8px;
   font-size:.72rem;
 }
+.expense-history-header{
+  gap:10px;
+  flex-wrap:wrap;
+}
+.expense-history-header .expense-section-title{
+  flex:0 0 auto;
+}
+.expense-history-controls{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  margin-left:auto;
+  flex-wrap:wrap;
+}
+.expense-history-range-btn{
+  line-height:1.1;
+  white-space:nowrap;
+}
+.expense-history-range-btn.active{
+  background:#2457d6;
+  border-color:#2457d6;
+  color:#fff;
+}
+.expense-history-download{
+  width:30px;
+  height:30px;
+  min-width:30px;
+}
+.expense-history-toolbar{
+  align-items:flex-start;
+}
+.expense-history-custom{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.expense-history-custom .input{
+  width:140px;
+  height:32px;
+  padding:6px 8px;
+  font-size:.78rem;
+}
 .expense-tx-actions{
   display:flex;
   align-items:center;
