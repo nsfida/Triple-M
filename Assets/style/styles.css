@@ -673,7 +673,7 @@ a{color:inherit}
   color:var(--primary);
 }
 .page-currency-dropdown{
-  min-width:168px;
+  min-width:188px;
 }
 .page-currency-option{
   display:flex;
@@ -710,6 +710,22 @@ a{color:inherit}
 .page-currency-option-check{
   width:16px;
   text-align:center;
+}
+.account-menu-dropdown{
+  min-width:170px;
+}
+.secret-pin-dialog{
+  max-width:420px;
+}
+.secret-pin-error{
+  min-height:18px;
+  margin-top:6px;
+  color:var(--danger);
+  font-size:.78rem;
+  font-weight:650;
+}
+.secret-pin-actions{
+  justify-content:flex-end;
 }
 .file-import-input{display:none}
 .file-import-btn{margin:0}
