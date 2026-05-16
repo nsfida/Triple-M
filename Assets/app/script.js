@@ -619,7 +619,13 @@ const state = {
     isWatchOnly: false,
     watchAddress: null,
     btcPrice: null,
-    lastPriceUpdate: null
+    lastPriceUpdate: null,
+    wifQrScanner: {
+      stream: null,
+      rafId: null,
+      detector: null,
+      active: false
+    }
   },
   notes: [],
   bitcoinWallets: [],
@@ -641,6 +647,7 @@ const els = {
   app: document.getElementById("app"),
   guestModeBanner: document.getElementById("guestModeBanner"),
   accountMenuBtn: document.getElementById("accountMenuBtn"),
+  accountMenuUserName: document.getElementById("accountMenuUserName"),
   secretPinBtn: document.getElementById("secretPinBtn"),
   deleteSmartPinBtn: document.getElementById("deleteSmartPinBtn"),
   learnMoreBtn: document.getElementById("learnMoreBtn"),
@@ -823,12 +830,22 @@ const els = {
   // Watch wallet elements
   btcFullWalletBtn: document.getElementById("btcFullWalletBtn"),
   btcWatchWalletBtn: document.getElementById("btcWatchWalletBtn"),
+  btcBrainWalletBtn: document.getElementById("btcBrainWalletBtn"),
   btcFullWalletSection: document.getElementById("btcFullWalletSection"),
   btcWatchWalletSection: document.getElementById("btcWatchWalletSection"),
+  btcBrainWalletSection: document.getElementById("btcBrainWalletSection"),
   btcAddressInput: document.getElementById("btcAddressInput"),
   btcWatchAddressBtn: document.getElementById("btcWatchAddressBtn"),
+  btcBrainWalletInput: document.getElementById("btcBrainWalletInput"),
+  btcBrainWalletImportBtn: document.getElementById("btcBrainWalletImportBtn"),
   btcSendWifSection: document.getElementById("btcSendWifSection"),
   btcSendWifInput: document.getElementById("btcSendWifInput"),
+  btcScanWifQrBtn: document.getElementById("btcScanWifQrBtn"),
+  btcWifQrScannerModal: document.getElementById("btcWifQrScannerModal"),
+  btcWifQrVideo: document.getElementById("btcWifQrVideo"),
+  btcWifQrCanvas: document.getElementById("btcWifQrCanvas"),
+  btcWifQrStatus: document.getElementById("btcWifQrStatus"),
+  btcWifQrStopBtn: document.getElementById("btcWifQrStopBtn"),
   // USD price display elements
   btcBalanceUsd: document.getElementById("btcBalanceUsd"),
   btcReceivedUsd: document.getElementById("btcReceivedUsd"),
@@ -1051,20 +1068,37 @@ function handleGuestRestrictedClick(event){
   }
 }
 
+function getLoggedInUserDisplayName(){
+  if (isGuestMode()) return "Guest User";
+  const configuredName = String(fullConfigData?.Name || "").trim();
+  if (configuredName) return configuredName;
+  const sessionUser = String(state.currentUsername || sessionStorage.getItem(ZIP_USERNAME_SESSION_KEY) || "").trim();
+  return sessionUser || "User";
+}
+
+function updateUserIdentityUi(){
+  const displayName = getLoggedInUserDisplayName();
+  if (els.accountMenuUserName) {
+    els.accountMenuUserName.textContent = displayName;
+  }
+  if (els.accountMenuBtn) {
+    els.accountMenuBtn.innerHTML = '<i class="fa-solid fa-user" aria-hidden="true"></i>';
+    els.accountMenuBtn.title = displayName ? `Account: ${displayName}` : "Account";
+    els.accountMenuBtn.setAttribute("aria-label", displayName ? `Account menu for ${displayName}` : "Account menu");
+  }
+}
+
 function updateGuestModeUi(){
   if (els.guestModeBanner) {
     els.guestModeBanner.classList.toggle("hide", !isGuestMode());
   }
-  if (els.accountMenuBtn) {
-    els.accountMenuBtn.textContent = isGuestMode() ? "Guest" : "User";
-  }
+  updateUserIdentityUi();
   const guest = isGuestMode();
   const realLoginOnlyControls = [
     els.downloadAllSectionsPdfBtn,
     els.downloadAllDataJsonBtn,
     els.downloadAllDataCsvBtn,
     document.querySelector('label[for="importJsonInput"]'),
-    document.querySelector('label[for="importCsvInput"]'),
     els.importJsonInput,
     els.importCsvInput
   ].filter(Boolean);
@@ -8772,8 +8806,13 @@ function getEditTaxMeta(entry, amount) {
 }
 
 function closeModal(modalId){
-  document.getElementById(modalId).classList.add("hide");
-  document.getElementById(modalId).setAttribute("aria-hidden", "true");
+  if (modalId === "btcWifQrScannerModal") {
+    btcStopWifQrScanner();
+  }
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.classList.add("hide");
+  modal.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
 }
 
@@ -9307,6 +9346,44 @@ async function getPdfLogo(){
   return cachedPdfLogo;
 }
 
+function pdfImageFormatFromDataUrl(dataUrl){
+  const match = String(dataUrl || "").match(/^data:image\/([a-z0-9.+-]+);/i);
+  const type = (match?.[1] || "png").toLowerCase();
+  if (type.includes("jpeg") || type.includes("jpg")) return "JPEG";
+  if (type.includes("webp")) return "WEBP";
+  return "PNG";
+}
+
+function drawPdfWatermark(doc, logoData){
+  if (!doc || !logoData) return;
+  const pageInfo = doc.internal?.getCurrentPageInfo?.();
+  const pageNumber = pageInfo?.pageNumber || doc.internal?.getNumberOfPages?.() || 1;
+  if (!doc.__tripleMWatermarkedPages) doc.__tripleMWatermarkedPages = new Set();
+  if (doc.__tripleMWatermarkedPages.has(pageNumber)) return;
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const width = Math.min(pageWidth * 0.58, 128);
+  const height = Math.min(width * 0.34, 48);
+  const x = (pageWidth - width) / 2;
+  const y = (pageHeight - height) / 2;
+
+  try {
+    if (typeof doc.GState === "function" && typeof doc.setGState === "function") {
+      doc.setGState(new doc.GState({ opacity: 0.045 }));
+      doc.addImage(logoData, pdfImageFormatFromDataUrl(logoData), x, y, width, height);
+      doc.setGState(new doc.GState({ opacity: 1 }));
+      doc.__tripleMWatermarkedPages.add(pageNumber);
+    }
+  } catch {
+    try {
+      if (typeof doc.setGState === "function" && typeof doc.GState === "function") {
+        doc.setGState(new doc.GState({ opacity: 1 }));
+      }
+    } catch {}
+  }
+}
+
 function updateLogosFromConfig(){
   if (!fullConfigData?.logo) return;
   
@@ -9611,10 +9688,13 @@ function installProfessionalPdfTableDefaults(doc){
   if (!doc?.autoTable || doc.__tripleMAutoTableInstalled) return;
   const originalAutoTable = doc.autoTable.bind(doc);
   doc.autoTable = function tripleMAutoTable(options = {}){
+    const userWillDrawPage = options.willDrawPage;
     const userDidParseCell = options.didParseCell;
     const nextOptions = {
       ...options,
       theme: options.theme || "grid",
+      showHead: options.showHead || "everyPage",
+      rowPageBreak: options.rowPageBreak || "avoid",
       styles: {
         font: "helvetica",
         fontSize: 8.4,
@@ -9624,7 +9704,8 @@ function installProfessionalPdfTableDefaults(doc){
         textColor: [30, 41, 59],
         overflow: "linebreak",
         valign: "middle",
-        ...options.styles
+        ...options.styles,
+        fillColor: false
       },
       headStyles: {
         fillColor: [15, 23, 42],
@@ -9632,11 +9713,25 @@ function installProfessionalPdfTableDefaults(doc){
         fontStyle: "bold",
         lineColor: [15, 23, 42],
         lineWidth: 0.12,
+        halign: "center",
+        valign: "middle",
         ...options.headStyles
       },
+      bodyStyles: {
+        ...(options.bodyStyles || {}),
+        fillColor: false
+      },
       alternateRowStyles: {
-        fillColor: [248, 250, 252],
-        ...options.alternateRowStyles
+        ...(options.alternateRowStyles || {}),
+        fillColor: false
+      },
+      footStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [15, 23, 42],
+        fontStyle: "bold",
+        lineColor: [203, 213, 225],
+        lineWidth: 0.15,
+        ...(options.footStyles || {})
       },
       margin: {
         top: 52,
@@ -9645,8 +9740,15 @@ function installProfessionalPdfTableDefaults(doc){
         right: 14,
         ...(options.margin || {})
       },
+      willDrawPage(data){
+        drawPdfWatermark(doc, doc.__tripleMPdfLogoData);
+        if (typeof userWillDrawPage === "function") userWillDrawPage(data);
+      },
       didParseCell(data){
         if (typeof userDidParseCell === "function") userDidParseCell(data);
+        if (data.section === "body"){
+          data.cell.styles.fillColor = false;
+        }
         if (data.section === "body" && isPdfMoneyLike(pdfCellTextValue(data.cell))){
           if (!data.cell.styles.halign || data.cell.styles.halign === "left"){
             data.cell.styles.halign = "right";
@@ -9678,6 +9780,8 @@ function drawPdfHeader(doc, logoData, title, subtitle){
   const pageWidth = doc.internal.pageSize.getWidth();
 
   applyProfessionalPdfDefaults(doc);
+  doc.__tripleMPdfLogoData = logoData || doc.__tripleMPdfLogoData || null;
+  drawPdfWatermark(doc, doc.__tripleMPdfLogoData);
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageWidth, 38, "F");
   doc.setFillColor(15, 23, 42);
@@ -9721,7 +9825,7 @@ function drawPdfHeader(doc, logoData, title, subtitle){
 
 function drawPdfOwnerBlock(doc, y = 48){
   // Use JSON config data if available, otherwise use defaults
-  const owner = fullConfigData?.Name || PDF_BRAND.owner;
+  const owner = getLoggedInUserDisplayName();
   const email = fullConfigData?.email || PDF_BRAND.email;
   const mobile = fullConfigData?.Mobile || PDF_BRAND.mobile;
   const whatsapp = fullConfigData?.WhatsApp || PDF_BRAND.whatsapp;
@@ -11294,6 +11398,27 @@ async function importCsvBackup(file){
   }
 }
 
+async function importBackupFile(file){
+  if (!file) return;
+  const name = String(file.name || "").toLowerCase();
+  const type = String(file.type || "").toLowerCase();
+  if (name.endsWith(".json") || type.includes("json")) {
+    await importJsonBackup(file);
+    return;
+  }
+  if (name.endsWith(".csv") || type.includes("csv")) {
+    await importCsvBackup(file);
+    return;
+  }
+
+  const preview = (await file.text()).trimStart();
+  if (preview.startsWith("{") || preview.startsWith("[")) {
+    await importJsonBackup(file);
+    return;
+  }
+  await importCsvBackup(file);
+}
+
 function sanitizeEntryForSupabase(entry){
   const normalizedLoanDate = normalizeDateForDb(entry.loan_date);
   const normalizedActionDate = normalizeDateForDb(entry.action_date);
@@ -11606,6 +11731,7 @@ window.addEventListener("resize", () => {
       if (els.goodsSettlementModal && !els.goodsSettlementModal.classList.contains("hide")) closeModal("goodsSettlementModal");
       if (els.inventoryCustomerModal && !els.inventoryCustomerModal.classList.contains("hide")) closeModal("inventoryCustomerModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
+      if (els.btcWifQrScannerModal && !els.btcWifQrScannerModal.classList.contains("hide")) closeModal("btcWifQrScannerModal");
     }
   });
 
@@ -11814,22 +11940,22 @@ window.addEventListener("resize", () => {
   els.downloadAllDataJsonBtn.addEventListener("click", downloadJsonBackup);
   els.downloadAllDataCsvBtn.addEventListener("click", downloadCsvBackup);
   els.uploadBackupBtn.addEventListener("click", () => uploadBackupToDatabase().catch(err => alert(err.message)));
-  els.importJsonInput.addEventListener("change", async e => {
+  if (els.importJsonInput) els.importJsonInput.addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     try{
-      await importJsonBackup(file);
+      await importBackupFile(file);
     }catch(err){
       alert(err.message);
     }finally{
       e.target.value = "";
     }
   });
-  els.importCsvInput.addEventListener("change", async e => {
+  if (els.importCsvInput) els.importCsvInput.addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     try{
-      await importCsvBackup(file);
+      await importBackupFile(file);
     }catch(err){
       alert(err.message);
     }finally{
@@ -12732,21 +12858,19 @@ function btcStopPriceUpdates() {
 
 // Watch wallet functions
 function btcToggleWalletType(type) {
-  if (type === 'full') {
-    els.btcFullWalletSection.classList.remove('hide');
-    els.btcWatchWalletSection.classList.add('hide');
-    els.btcFullWalletBtn.classList.add('primary');
-    els.btcFullWalletBtn.classList.remove('ghost');
-    els.btcWatchWalletBtn.classList.add('ghost');
-    els.btcWatchWalletBtn.classList.remove('primary');
-  } else {
-    els.btcFullWalletSection.classList.add('hide');
-    els.btcWatchWalletSection.classList.remove('hide');
-    els.btcFullWalletBtn.classList.add('ghost');
-    els.btcFullWalletBtn.classList.remove('primary');
-    els.btcWatchWalletBtn.classList.add('primary');
-    els.btcWatchWalletBtn.classList.remove('ghost');
-  }
+  const mode = type === "watch" || type === "brain" ? type : "full";
+  const controls = [
+    { key: "full", button: els.btcFullWalletBtn, section: els.btcFullWalletSection },
+    { key: "watch", button: els.btcWatchWalletBtn, section: els.btcWatchWalletSection },
+    { key: "brain", button: els.btcBrainWalletBtn, section: els.btcBrainWalletSection }
+  ];
+  controls.forEach(control => {
+    if (control.section) control.section.classList.toggle("hide", control.key !== mode);
+    if (control.button) {
+      control.button.classList.toggle("primary", control.key === mode);
+      control.button.classList.toggle("ghost", control.key !== mode);
+    }
+  });
 }
 
 async function btcWatchAddress(skipSave = false) {
@@ -12869,14 +12993,23 @@ function btcUpdateWalletView() {
   }
 
   const wallet = state.bitcoin.wallet;
-  els.btcMaskedWif.textContent = btcMaskWif(wallet.inputWif);
   els.btcWalletAddress.textContent = wallet.address;
-  els.btcCopyWifBtn.disabled = false;
-  els.btcDownloadWalletPdfBtn.style.display = 'inline-block';
   els.btcLoginSection.classList.add('hide');
   els.btcWalletInfoSection.classList.remove('hide');
   els.btcHistorySection.classList.remove('hide');
-  btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+  if (wallet.isWatchOnly) {
+    els.btcMaskedWif.textContent = 'Watch-only wallet (no private key)';
+    els.btcCopyWifBtn.disabled = true;
+    els.btcCopyWifBtn.style.display = 'none';
+    els.btcDownloadWalletPdfBtn.style.display = 'none';
+    btcSetWalletStatus(`Watch-only wallet loaded for ${wallet.label}. Balance and transactions only.`, '');
+  } else {
+    els.btcMaskedWif.textContent = btcMaskWif(wallet.inputWif);
+    els.btcCopyWifBtn.disabled = false;
+    els.btcCopyWifBtn.style.display = 'inline-flex';
+    els.btcDownloadWalletPdfBtn.style.display = 'inline-flex';
+    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+  }
 }
 
 function btcDetectAndLoadWallet(wif, preferredKey) {
@@ -12916,6 +13049,47 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
     }
   }
   throw new Error('Invalid WIF format. Please check your WIF and try again.');
+}
+
+function btcBytesToHex(bytes){
+  return Array.from(bytes || [], byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function btcIsValidPrivateKeyBytes(bytes){
+  const hex = btcBytesToHex(bytes);
+  if (!hex) return false;
+  const value = BigInt(`0x${hex}`);
+  const order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+  return value > 0n && value < order;
+}
+
+async function btcSha256Bytes(text){
+  const data = new TextEncoder().encode(String(text || ""));
+  if (window.crypto?.subtle?.digest) {
+    const digest = await window.crypto.subtle.digest("SHA-256", data);
+    return new Uint8Array(digest);
+  }
+  if (bitcoinjs.crypto?.sha256) {
+    return new Uint8Array(bitcoinjs.crypto.sha256(data));
+  }
+  throw new Error("This browser cannot hash the brain wallet phrase.");
+}
+
+async function btcDeriveBrainWallet(phrase, preferredKey = "mainnet"){
+  const normalizedPhrase = String(phrase || "").trim();
+  if (!normalizedPhrase) throw new Error("Please enter a brain wallet phrase.");
+  const privateKeyBytes = await btcSha256Bytes(normalizedPhrase);
+  if (!btcIsValidPrivateKeyBytes(privateKeyBytes)) {
+    throw new Error("Brain wallet phrase produced an invalid private key.");
+  }
+  const key = preferredKey || "mainnet";
+  const info = btcGetNetworkInfo(key);
+  const privateKey = new bitcoinjs.Buffer(privateKeyBytes);
+  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKey, {
+    network: info.network,
+    compressed: false
+  });
+  return btcDetectAndLoadWallet(uncompressedPair.toWIF(), key);
 }
 
 function btcEstimateLegacyP2PKHSize(inputCount, outputCount) {
@@ -13523,7 +13697,12 @@ async function btcImportWif() {
       return;
     }
     
-    state.bitcoin.wallet = wallet;
+    state.bitcoin.wallet = {
+      ...wallet,
+      isWatchOnly: false
+    };
+    state.bitcoin.isWatchOnly = false;
+    state.bitcoin.watchAddress = null;
     btcUpdateWalletView();
     btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
     
@@ -13536,6 +13715,34 @@ async function btcImportWif() {
   } catch (error) {
     console.error('WIF import error:', error);
     btcSetWalletStatus(error.message, 'error');
+  }
+}
+
+async function btcImportBrainWallet() {
+  try {
+    const phrase = els.btcBrainWalletInput.value.trim();
+    if (!phrase) {
+      btcSetWalletStatus('Please enter a brain wallet phrase.', 'error');
+      return;
+    }
+
+    state.bitcoin.selectedNetworkKey = 'mainnet';
+    const wallet = await btcDeriveBrainWallet(phrase, state.bitcoin.selectedNetworkKey);
+    state.bitcoin.wallet = {
+      ...wallet,
+      isWatchOnly: false
+    };
+    state.bitcoin.isWatchOnly = false;
+    state.bitcoin.watchAddress = null;
+    els.btcBrainWalletInput.value = "";
+
+    btcUpdateWalletView();
+    btcSetWalletStatus(`Brain wallet loaded for ${wallet.label}. Back up the generated WIF securely.`, '');
+    updateSaveButtonVisibility();
+    await btcFetchWalletData(true);
+  } catch (error) {
+    console.error('Brain wallet import error:', error);
+    btcSetWalletStatus(error.message || 'Could not load brain wallet.', 'error');
   }
 }
 
@@ -13563,8 +13770,11 @@ async function btcGenerateWallet() {
       inputWif: wif,
       sourcePair,
       uncompressedPair,
-      address
+      address,
+      isWatchOnly: false
     };
+    state.bitcoin.isWatchOnly = false;
+    state.bitcoin.watchAddress = null;
 
     btcUpdateWalletView();
     await btcFetchWalletData(true);
@@ -13710,6 +13920,7 @@ async function btcDownloadWalletPdf() {
 }
 
 function btcClearSession() {
+  btcStopWifQrScanner();
   state.bitcoin.wallet = null;
   state.bitcoin.utxos = [];
   state.bitcoin.history = [];
@@ -14504,6 +14715,161 @@ async function btcDownloadPDF(options = {}) {
   doc.save(`bitcoin-transactions-${safeAddress}-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+function btcSetWifQrStatus(message, kind = ""){
+  if (!els.btcWifQrStatus) return;
+  els.btcWifQrStatus.className = `empty ${kind || ""}`.trim();
+  els.btcWifQrStatus.textContent = message;
+}
+
+function btcStopWifQrScanner(){
+  const scanner = state.bitcoin.wifQrScanner;
+  scanner.active = false;
+  if (scanner.rafId) {
+    cancelAnimationFrame(scanner.rafId);
+    scanner.rafId = null;
+  }
+  if (scanner.stream) {
+    scanner.stream.getTracks().forEach(track => track.stop());
+    scanner.stream = null;
+  }
+  if (els.btcWifQrVideo) {
+    els.btcWifQrVideo.pause();
+    els.btcWifQrVideo.srcObject = null;
+  }
+}
+
+function btcQrCameraErrorMessage(error){
+  const name = error?.name || "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Camera permission was denied. Allow camera access and try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera was found on this device.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The camera is already in use by another app.";
+  }
+  if (name === "SecurityError") {
+    return "Camera access requires HTTPS or a trusted local app context.";
+  }
+  return error?.message || "Could not start the camera.";
+}
+
+function btcExtractWifFromQrText(text){
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+  const candidates = [raw];
+  try {
+    const url = new URL(raw);
+    ["wif", "privkey", "privateKey", "key"].forEach(param => {
+      const value = url.searchParams.get(param);
+      if (value) candidates.push(value);
+    });
+  } catch {}
+  const joined = candidates.join(" ");
+  const match = joined.match(/\b(?:[5KL][1-9A-HJ-NP-Za-km-z]{50,51}|[9c][1-9A-HJ-NP-Za-km-z]{50,51})\b/);
+  return (match?.[0] || candidates[0]).trim();
+}
+
+function btcHandleScannedWif(text){
+  const wif = btcExtractWifFromQrText(text);
+  if (!wif) {
+    btcSetWifQrStatus("QR code did not contain a WIF.", "error");
+    return false;
+  }
+  els.btcSendWifInput.value = wif;
+  if (state.bitcoin.wallet?.isWatchOnly) {
+    try {
+      const signingWallet = btcDetectAndLoadWallet(wif, state.bitcoin.wallet.key);
+      if (signingWallet.address !== state.bitcoin.wallet.address) {
+        btcSetSendStatus("WIF scanned, but it does not match this watch-only address.", "");
+      } else {
+        btcSetSendStatus("WIF scanned and matched this watch-only wallet.", "success");
+      }
+    } catch (err) {
+      btcSetSendStatus(`WIF scanned, but validation failed: ${err.message || err}`, "");
+    }
+  } else {
+    btcSetSendStatus("WIF scanned.", "success");
+  }
+  closeModal("btcWifQrScannerModal");
+  return true;
+}
+
+async function btcScanWifQrFrame(){
+  const scanner = state.bitcoin.wifQrScanner;
+  if (!scanner.active || !els.btcWifQrVideo || !els.btcWifQrCanvas) return;
+  const video = els.btcWifQrVideo;
+  if (video.readyState >= 2 && video.videoWidth && video.videoHeight) {
+    const canvas = els.btcWifQrCanvas;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    let scannedText = "";
+    if (scanner.detector) {
+      try {
+        const codes = await scanner.detector.detect(canvas);
+        scannedText = codes?.[0]?.rawValue || "";
+      } catch {}
+    }
+    if (!scannedText && typeof window.jsQR === "function") {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR(imageData.data, imageData.width, imageData.height);
+      scannedText = code?.data || "";
+    }
+    if (scannedText && btcHandleScannedWif(scannedText)) return;
+  }
+  scanner.rafId = requestAnimationFrame(() => btcScanWifQrFrame());
+}
+
+async function btcOpenWifQrScanner(){
+  if (!els.btcWifQrScannerModal || !els.btcWifQrVideo) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    btcSetSendStatus("QR scanning is not available in this browser.", "");
+    return;
+  }
+  if (!("BarcodeDetector" in window) && typeof window.jsQR !== "function") {
+    btcSetSendStatus("QR scanner library is still loading. Please try again in a moment.", "");
+    return;
+  }
+
+  btcStopWifQrScanner();
+  els.btcWifQrScannerModal.classList.remove("hide");
+  els.btcWifQrScannerModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  btcSetWifQrStatus("Camera is starting...");
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+    const scanner = state.bitcoin.wifQrScanner;
+    scanner.stream = stream;
+    scanner.active = true;
+    scanner.detector = null;
+    if ("BarcodeDetector" in window) {
+      try {
+        scanner.detector = new BarcodeDetector({ formats: ["qr_code"] });
+      } catch {}
+    }
+    els.btcWifQrVideo.srcObject = stream;
+    await els.btcWifQrVideo.play();
+    btcSetWifQrStatus("Scanning for WIF QR code...");
+    scanner.rafId = requestAnimationFrame(() => btcScanWifQrFrame());
+  } catch (error) {
+    btcStopWifQrScanner();
+    btcSetWifQrStatus(btcQrCameraErrorMessage(error), "error");
+    btcSetSendStatus(btcQrCameraErrorMessage(error), "");
+  }
+}
+
 async function btcBuildAndBroadcast() {
   if (!state.bitcoin.wallet) {
     btcSetSendStatus('Load a wallet first.', '');
@@ -14661,9 +15027,11 @@ function btcBindUI() {
   // Wallet type toggle buttons
   els.btcFullWalletBtn.addEventListener('click', () => btcToggleWalletType('full'));
   els.btcWatchWalletBtn.addEventListener('click', () => btcToggleWalletType('watch'));
+  els.btcBrainWalletBtn.addEventListener('click', () => btcToggleWalletType('brain'));
   els.btcWatchAddressBtn.addEventListener('click', btcWatchAddress);
   
   els.btcImportBtn.addEventListener('click', btcImportWif);
+  els.btcBrainWalletImportBtn.addEventListener('click', btcImportBrainWallet);
   els.btcGenerateBtn.addEventListener('click', btcGenerateWallet);
   els.btcDownloadWalletPdfBtn.addEventListener('click', btcDownloadWalletPdf);
   els.btcClearBtn.addEventListener('click', btcClearSession);
@@ -14734,6 +15102,8 @@ function btcBindUI() {
   els.btcDownloadPdfBtn.addEventListener('click', btcDownloadPDF);
   els.btcBroadcastBtn.addEventListener('click', btcBuildAndBroadcast);
   els.btcMaxBtn.addEventListener('click', btcUseMaxAmount);
+  els.btcScanWifQrBtn.addEventListener('click', btcOpenWifQrScanner);
+  els.btcWifQrStopBtn.addEventListener('click', btcStopWifQrScanner);
 }
 
 // Notes UI Binding
@@ -14745,6 +15115,7 @@ function notesBindUI() {
 }
 
 function btcClearSession() {
+  btcStopWifQrScanner();
   state.bitcoin.wallet = null;
   state.bitcoin.utxos = [];
   state.bitcoin.history = [];
