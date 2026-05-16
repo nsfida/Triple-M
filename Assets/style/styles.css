@@ -132,7 +132,9 @@ button,input,select,textarea,option{
 .symbol-dirham, .currency-chip .symbol-dirham { font-family: "DirhamSymbol", Inter, system-ui, sans-serif !important; }
 .symbol-riyal, .currency-chip .symbol-riyal { font-family: "RiyalSymbol", Inter, system-ui, sans-serif !important; }
 .symbol-dollar, .currency-chip .symbol-dollar { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
+.currency-font-aed{font-family:"DirhamSymbol", Inter, system-ui, sans-serif !important;}
 .currency-font-sar{font-family:"RiyalSymbol", Inter, system-ui, sans-serif !important;}
+.currency-font-mixed{font-family:"RiyalSymbol", "DirhamSymbol", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;}
 .currency-font-usd,
 .currency-font-normal{font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;}
 
@@ -1793,6 +1795,14 @@ tbody tr:hover{background:#fbfdff}
   color:var(--success);
   margin-bottom:16px;
   letter-spacing:-0.02em;
+}
+.transfer-amount .money{
+  justify-content:center;
+  gap:8px;
+  color:inherit;
+}
+.transfer-amount .money .symbol{
+  color:inherit;
 }
 
 .transfer-route{
