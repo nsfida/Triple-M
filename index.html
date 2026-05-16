@@ -820,6 +820,13 @@
             User
           </button>
           <div class="menu-dropdown account-menu-dropdown" data-entry-menu-panel="account">
+            <button type="button" class="menu-item" id="downloadAllSectionsPdfBtn"><i class="fa-solid fa-file-pdf"></i> Download Full Report</button>
+            <button type="button" class="menu-item" id="downloadAllDataJsonBtn"><i class="fa-solid fa-file-code"></i> Download JSON</button>
+            <button type="button" class="menu-item" id="downloadAllDataCsvBtn"><i class="fa-solid fa-file-csv"></i> Download CSV</button>
+            <label class="menu-item file-import-btn" for="importJsonInput"><i class="fa-solid fa-file-import"></i> Import JSON</label>
+            <input id="importJsonInput" type="file" accept=".json,application/json" class="file-import-input" />
+            <label class="menu-item file-import-btn" for="importCsvInput"><i class="fa-solid fa-file-import"></i> Import CSV</label>
+            <input id="importCsvInput" type="file" accept=".csv,text/csv" class="file-import-input" />
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
             <button class="menu-item danger hide" id="deleteSmartPinBtn" type="button">Delete Smart Pin</button>
             <button class="menu-item" id="logoutBtn" type="button">Logout</button>
@@ -861,18 +868,6 @@
           <p>Loan balances shown by currency.</p>
         </div>
         <div class="tools">
-          <div class="menu-wrap">
-            <button class="btn soft menu-trigger" id="downloadReportMenuBtn" type="button" data-entry-menu="report" aria-haspopup="menu" aria-expanded="false">📄 Download Full Report ▾</button>
-            <div class="menu-dropdown" data-entry-menu-panel="report">
-              <button type="button" class="menu-item" id="downloadAllSectionsPdfBtn">Download Full Report</button>
-              <button type="button" class="menu-item" id="downloadAllDataJsonBtn">Download JSON</button>
-              <button type="button" class="menu-item" id="downloadAllDataCsvBtn">Download CSV</button>
-            </div>
-          </div>
-          <label class="btn ghost file-import-btn" for="importJsonInput">Import JSON</label>
-          <input id="importJsonInput" type="file" accept=".json,application/json" class="file-import-input" />
-          <label class="btn ghost file-import-btn" for="importCsvInput">Import CSV</label>
-          <input id="importCsvInput" type="file" accept=".csv,text/csv" class="file-import-input" />
           <button class="btn primary hide" id="uploadBackupBtn" type="button">Upload to Database</button>
           <button class="btn ghost hide" id="connectSupabaseBtn" type="button">Connect Supabase</button>
           <button class="icon-btn ghost" id="toggleMainOverviewBtn" type="button" title="Expand Loans Overview">▶</button>
