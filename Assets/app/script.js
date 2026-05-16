@@ -200,9 +200,19 @@ const SUPPORTED_CURRENCIES = ["AED", "SAR", "PKR", "USD", "BTC"];
 const PAGE_CURRENCY_OPTIONS = ["AED", "SAR", "PKR", "BTC", "USD", "ALL"];
 const PAGE_CURRENCY_DEFAULT = "ALL";
 const PAGE_CURRENCY_META_TAG = "PAGE_CURRENCY";
+const VAT_SETTINGS_META_TAG = "VAT_SETTINGS";
+const TAX_MODE_ADD = "ADD";
+const TAX_MODE_INCLUDE = "INCLUDE";
 const SECRET_PIN_HASH_TAG = "SECRET_PIN_HASH";
 const SMART_PIN_DISABLED_META_TAG = "SMART_PIN_DISABLED";
 const SECRET_PIN_HASH_CONTEXT = "Triple-M-by-NSF:secret-pin:v1";
+const DEFAULT_TAX_SETTINGS = {
+  AED: { rate: 0, mode: TAX_MODE_ADD },
+  SAR: { rate: 0, mode: TAX_MODE_ADD },
+  PKR: { rate: 0, mode: TAX_MODE_ADD },
+  USD: { rate: 0, mode: TAX_MODE_ADD },
+  BTC: { rate: 0, mode: TAX_MODE_INCLUDE }
+};
 
 // Currency mapping for symbols and variations
 const CURRENCY_ALIASES = {
@@ -321,6 +331,219 @@ function buildPageCurrencyPreferenceNotes(currency) {
   return `[${PAGE_CURRENCY_META_TAG}:${normalizePageCurrencySelection(currency)}]`;
 }
 
+function normalizeTaxRate(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, 100);
+}
+
+function normalizeTaxMode(value) {
+  return String(value || "").trim().toUpperCase() === TAX_MODE_INCLUDE
+    ? TAX_MODE_INCLUDE
+    : TAX_MODE_ADD;
+}
+
+function cloneTaxSettings(settings = DEFAULT_TAX_SETTINGS) {
+  const source = settings || {};
+  return SUPPORTED_CURRENCIES.reduce((acc, currency) => {
+    const row = source[currency] || DEFAULT_TAX_SETTINGS[currency] || {};
+    acc[currency] = {
+      rate: normalizeTaxRate(row.rate),
+      mode: normalizeTaxMode(row.mode)
+    };
+    return acc;
+  }, {});
+}
+
+function taxSettingsFromMetaNotes(noteValue) {
+  const match = String(noteValue || "").match(/\[VAT_SETTINGS:([^\]]*)\]/i);
+  if (!match) return null;
+  const next = cloneTaxSettings(DEFAULT_TAX_SETTINGS);
+  match[1].split(";").forEach(part => {
+    const [currencyRaw, rateRaw, modeRaw] = String(part || "").split(",");
+    const currency = normalizeCurrencyCode(currencyRaw);
+    if (!SUPPORTED_CURRENCIES.includes(currency)) return;
+    next[currency] = {
+      rate: normalizeTaxRate(rateRaw),
+      mode: normalizeTaxMode(modeRaw)
+    };
+  });
+  return next;
+}
+
+function buildTaxSettingsPreferenceNotes(settings) {
+  const normalized = cloneTaxSettings(settings);
+  const rows = SUPPORTED_CURRENCIES.map(currency => {
+    const row = normalized[currency] || DEFAULT_TAX_SETTINGS[currency];
+    return `${currency},${trimInventoryNumber(row.rate, 4)},${normalizeTaxMode(row.mode)}`;
+  });
+  return `[${VAT_SETTINGS_META_TAG}:${rows.join(";")}]`;
+}
+
+function isTaxSettingsPreferenceRow(row) {
+  return String(row?.person_name || "").trim().toUpperCase() === "SYSTEM" &&
+    !!taxSettingsFromMetaNotes(row?.notes);
+}
+
+function loadTaxSettingsPreferenceFromStorage() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TAX_SETTINGS_STORAGE_KEY) || "null");
+    state.taxSettings = cloneTaxSettings(parsed || DEFAULT_TAX_SETTINGS);
+  } catch {
+    state.taxSettings = cloneTaxSettings(DEFAULT_TAX_SETTINGS);
+  }
+}
+
+function saveTaxSettingsPreferenceToStorage(settings = state.taxSettings) {
+  try {
+    localStorage.setItem(TAX_SETTINGS_STORAGE_KEY, JSON.stringify(cloneTaxSettings(settings)));
+  } catch {}
+}
+
+async function loadTaxSettingsPreferenceFromDatabase() {
+  state.taxPreferenceId = null;
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
+    loadTaxSettingsPreferenceFromStorage();
+    return;
+  }
+
+  try {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const taxRow = (Array.isArray(rows) ? rows : []).find(isTaxSettingsPreferenceRow);
+    if (taxRow) {
+      state.taxPreferenceId = taxRow.id || null;
+      state.taxSettings = cloneTaxSettings(taxSettingsFromMetaNotes(taxRow.notes));
+      saveTaxSettingsPreferenceToStorage(state.taxSettings);
+    } else {
+      loadTaxSettingsPreferenceFromStorage();
+    }
+  } catch (err) {
+    console.warn("VAT settings could not be loaded.", err);
+    loadTaxSettingsPreferenceFromStorage();
+  }
+}
+
+async function saveTaxSettingsPreferenceToDatabase(settings = state.taxSettings) {
+  const normalized = cloneTaxSettings(settings);
+  state.taxSettings = normalized;
+  saveTaxSettingsPreferenceToStorage(normalized);
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) return;
+
+  const notes = buildTaxSettingsPreferenceNotes(normalized);
+  const today = todayISO();
+  let preferenceId = state.taxPreferenceId;
+  if (!preferenceId) {
+    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const taxRow = (Array.isArray(rows) ? rows : []).find(isTaxSettingsPreferenceRow);
+    preferenceId = taxRow?.id || null;
+    state.taxPreferenceId = preferenceId;
+  }
+
+  if (preferenceId) {
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(preferenceId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes })
+    });
+    return;
+  }
+
+  const rowId = crypto.randomUUID();
+  const payload = {
+    id: rowId,
+    group_id: rowId,
+    direction: "taken",
+    entry_kind: "principal",
+    person_name: "SYSTEM",
+    currency: "AED",
+    principal_amount: 0,
+    action_amount: null,
+    loan_date: today,
+    action_date: null,
+    notes,
+    created_at: new Date().toISOString()
+  };
+  const result = await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
+  state.taxPreferenceId = Array.isArray(result) && result[0]?.id ? result[0].id : rowId;
+}
+
+function getTaxSettingForCurrency(currency) {
+  const key = normalizeCurrencyCode(currency) || "AED";
+  return cloneTaxSettings(state.taxSettings)[key] || { rate: 0, mode: TAX_MODE_ADD };
+}
+
+function roundTaxMoney(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(8));
+}
+
+function calculateTaxBreakdown(amount, rateValue, modeValue, applied = true) {
+  const inputAmount = Math.max(Number(amount || 0), 0);
+  const rate = applied ? normalizeTaxRate(rateValue) : 0;
+  const mode = normalizeTaxMode(modeValue);
+  if (!applied || rate <= 0 || inputAmount <= 0) {
+    return { net: roundTaxMoney(inputAmount), tax: 0, total: roundTaxMoney(inputAmount), rate: 0, mode, applied: false };
+  }
+  if (mode === TAX_MODE_INCLUDE) {
+    const tax = inputAmount * rate / (100 + rate);
+    const net = inputAmount - tax;
+    return { net: roundTaxMoney(net), tax: roundTaxMoney(tax), total: roundTaxMoney(inputAmount), rate, mode, applied: true };
+  }
+  const tax = inputAmount * rate / 100;
+  return { net: roundTaxMoney(inputAmount), tax: roundTaxMoney(tax), total: roundTaxMoney(inputAmount + tax), rate, mode, applied: true };
+}
+
+function calculateTaxBreakdownFromGross(totalValue, rateValue, modeValue, applied = true) {
+  const total = Math.max(Number(totalValue || 0), 0);
+  const rate = applied ? normalizeTaxRate(rateValue) : 0;
+  const mode = normalizeTaxMode(modeValue);
+  if (!applied || rate <= 0 || total <= 0) {
+    return { net: roundTaxMoney(total), tax: 0, total: roundTaxMoney(total), rate: 0, mode, applied: false };
+  }
+  const tax = total * rate / (100 + rate);
+  return { net: roundTaxMoney(total - tax), tax: roundTaxMoney(tax), total: roundTaxMoney(total), rate, mode, applied: true };
+}
+
+function taxMetaFromBreakdown(breakdown) {
+  return {
+    taxApplied: !!breakdown.applied,
+    taxRate: normalizeTaxRate(breakdown.rate),
+    taxMode: normalizeTaxMode(breakdown.mode),
+    taxAmount: roundTaxMoney(breakdown.tax),
+    netAmount: roundTaxMoney(breakdown.net),
+    grossAmount: roundTaxMoney(breakdown.total)
+  };
+}
+
+function taxBreakdownFromMeta(meta = {}, totalValue = 0) {
+  const total = Math.max(Number(totalValue || meta.grossAmount || 0), 0);
+  const taxAmount = Number(meta.taxAmount);
+  const netAmount = Number(meta.netAmount);
+  const rate = normalizeTaxRate(meta.taxRate);
+  const mode = normalizeTaxMode(meta.taxMode);
+  const applied = meta.taxApplied || rate > 0 || taxAmount > 0;
+  if (Number.isFinite(taxAmount) || Number.isFinite(netAmount)) {
+    return {
+      net: roundTaxMoney(Number.isFinite(netAmount) ? netAmount : Math.max(total - (Number.isFinite(taxAmount) ? taxAmount : 0), 0)),
+      tax: roundTaxMoney(Number.isFinite(taxAmount) ? taxAmount : Math.max(total - netAmount, 0)),
+      total: roundTaxMoney(total),
+      rate,
+      mode,
+      applied: !!applied
+    };
+  }
+  return calculateTaxBreakdownFromGross(total, rate, mode, applied);
+}
+
+function formatTaxModeLabel(mode) {
+  return normalizeTaxMode(mode) === TAX_MODE_INCLUDE ? "included" : "added";
+}
+
+function formatTaxSummary(breakdown, currency) {
+  if (!breakdown?.applied || !Number(breakdown.tax || 0)) return "VAT off";
+  return `VAT ${trimInventoryNumber(breakdown.rate, 2)}% ${formatTaxModeLabel(breakdown.mode)}: ${formatReportAmount(breakdown.tax, currency)} | Net ${formatReportAmount(breakdown.net, currency)}`;
+}
+
 function secretPinHashFromMetaNotes(noteValue) {
   const match = String(noteValue || "").match(/\[SECRET_PIN_HASH:([a-f0-9]{64})\]/i);
   return match ? match[1].toLowerCase() : "";
@@ -356,6 +579,9 @@ const state = {
   pageCurrency: PAGE_CURRENCY_DEFAULT,
   pageCurrencyPreferenceId: null,
   pageCurrencySaving: false,
+  taxSettings: cloneTaxSettings(DEFAULT_TAX_SETTINGS),
+  taxPreferenceId: null,
+  taxSettingsSaving: false,
   currentUsername: "",
   secretPinPreferenceId: null,
   secretPinHash: "",
@@ -447,6 +673,7 @@ const els = {
   downloadAllDataCsvBtn: document.getElementById("downloadAllDataCsvBtn"),
   uploadBackupBtn: document.getElementById("uploadBackupBtn"),
   downloadAllSectionsPdfBtn: document.getElementById("downloadAllSectionsPdfBtn"),
+  taxSettingsBtn: document.getElementById("taxSettingsBtn"),
   downloadGivenPdfBtn: document.getElementById("downloadGivenPdfBtn"),
   downloadReceivedPdfBtn: document.getElementById("downloadReceivedPdfBtn"),
   downloadTakenPdfBtn: document.getElementById("downloadTakenPdfBtn"),
@@ -476,6 +703,10 @@ const els = {
   openGoodsSoldBtn: document.getElementById("openGoodsSoldBtn"),
   goodsBoughtTotalAmount: document.getElementById("goodsBoughtTotalAmount"),
   goodsPurchaseWalletSelect: document.getElementById("goodsPurchaseWalletSelect"),
+  goodsPurchaseTaxApplied: document.getElementById("goodsPurchaseTaxApplied"),
+  goodsPurchaseTaxRate: document.getElementById("goodsPurchaseTaxRate"),
+  goodsPurchaseTaxMode: document.getElementById("goodsPurchaseTaxMode"),
+  goodsPurchaseTaxPreview: document.getElementById("goodsPurchaseTaxPreview"),
   goodsReceiptNumber: document.getElementById("goodsReceiptNumber"),
   goodsCustomerSelect: document.getElementById("goodsCustomerSelect"),
   goodsNewCustomerField: document.getElementById("goodsNewCustomerField"),
@@ -514,6 +745,10 @@ const els = {
   expenseSpendAccountSelect: document.getElementById("expenseSpendAccountSelect"),
   expenseCurrencySelect: document.getElementById("expenseCurrencySelect"),
   expenseTypeSelect: document.getElementById("expenseTypeSelect"),
+  expenseTaxApplied: document.getElementById("expenseTaxApplied"),
+  expenseTaxRate: document.getElementById("expenseTaxRate"),
+  expenseTaxMode: document.getElementById("expenseTaxMode"),
+  expenseTaxPreview: document.getElementById("expenseTaxPreview"),
   openExpenseAccountBtn: document.getElementById("openExpenseAccountBtn"),
   openExpenseTopupBtn: document.getElementById("openExpenseTopupBtn"),
   openExpenseEntryBtn: document.getElementById("openExpenseEntryBtn"),
@@ -635,6 +870,7 @@ const RECYCLE_BIN_STORAGE_KEY = "loanledger-recycle-bin-v1";
 const GUEST_RECYCLE_BIN_STORAGE_KEY = "loanledger-guest-recycle-bin-v1";
 const GUEST_NOTES_STORAGE_KEY = "loanledger-guest-notes-v1";
 const GUEST_BITCOIN_WALLETS_STORAGE_KEY = "loanledger-guest-bitcoin-wallets-v1";
+const TAX_SETTINGS_STORAGE_KEY = "loanledger-tax-settings-v1";
 const IMPORT_SESSION_KEY = "loanledger-imported-file-v1";
 const FLOAT_CURRENCY_PATHS = ["currency-float-path-1", "currency-float-path-2", "currency-float-path-3", "currency-float-path-4"];
 const GUEST_STORAGE_KEYS = [
@@ -978,7 +1214,7 @@ function isEntryInRecycleBin(entryId) {
 function getActiveEntries() {
   const allowedCurrencies = getAllowedCurrencies();
   return state.entries.filter(entry => {
-    if (isPageCurrencyPreferenceRow(entry) || isSecretPinPreferenceRow(entry)) {
+    if (isPageCurrencyPreferenceRow(entry) || isSecretPinPreferenceRow(entry) || isTaxSettingsPreferenceRow(entry)) {
       return false;
     }
 
@@ -1245,6 +1481,90 @@ function renderPageCurrencySelector() {
       setPageCurrencySelection(btn.dataset.pageCurrency).catch(err => alert(err.message || err));
     });
   });
+}
+
+function ensureTaxSettingsModal() {
+  let modal = document.getElementById("taxSettingsModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "taxSettingsModal";
+  modal.className = "modal hide";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-close-modal="taxSettingsModal"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>VAT Settings</h3>
+          <p>Default VAT rates for new records. Existing invoices keep their saved VAT.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="taxSettingsModal" aria-label="Close">X</button>
+      </div>
+      <div class="modal-body">
+        <form id="taxSettingsForm">
+          <div class="vat-settings-body"></div>
+          <div class="field w12 modal-footer" style="margin-top:14px;">
+            <button class="btn ghost" type="button" data-close-modal="taxSettingsModal">Cancel</button>
+            <button class="btn primary" type="submit">Save VAT Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll("[data-close-modal]").forEach(btn => btn.addEventListener("click", () => closeModal("taxSettingsModal")));
+  modal.querySelector("#taxSettingsForm")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    await saveTaxSettingsFromModal();
+  });
+  return modal;
+}
+
+function openTaxSettingsModal() {
+  const modal = ensureTaxSettingsModal();
+  const body = modal.querySelector(".vat-settings-body");
+  const settings = cloneTaxSettings(state.taxSettings);
+  body.innerHTML = SUPPORTED_CURRENCIES.map(currency => {
+    const row = settings[currency] || DEFAULT_TAX_SETTINGS[currency];
+    return `
+      <div class="vat-settings-row" data-vat-currency="${currency}">
+        <span class="vat-settings-currency">${currency}</span>
+        <input class="input" name="tax_rate_${currency}" type="number" min="0" max="100" step="0.01" value="${escapeHtml(trimInventoryNumber(row.rate, 2))}" aria-label="${currency} VAT rate" />
+        <select class="select" name="tax_mode_${currency}" aria-label="${currency} VAT treatment">
+          <option value="ADD" ${normalizeTaxMode(row.mode) === TAX_MODE_ADD ? "selected" : ""}>Add VAT to total</option>
+          <option value="INCLUDE" ${normalizeTaxMode(row.mode) === TAX_MODE_INCLUDE ? "selected" : ""}>VAT included in total</option>
+        </select>
+      </div>
+    `;
+  }).join("");
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+async function saveTaxSettingsFromModal() {
+  const modal = ensureTaxSettingsModal();
+  const form = modal.querySelector("#taxSettingsForm");
+  const fd = new FormData(form);
+  const next = {};
+  SUPPORTED_CURRENCIES.forEach(currency => {
+    next[currency] = {
+      rate: normalizeTaxRate(fd.get(`tax_rate_${currency}`)),
+      mode: normalizeTaxMode(fd.get(`tax_mode_${currency}`))
+    };
+  });
+  try {
+    state.taxSettingsSaving = true;
+    await saveTaxSettingsPreferenceToDatabase(next);
+    closeModal("taxSettingsModal");
+    syncGoodsPurchaseTaxDefaults(true);
+    syncExpenseTaxDefaults(true);
+    renderAll();
+  } catch (err) {
+    alert(err.message || err);
+  } finally {
+    state.taxSettingsSaving = false;
+  }
 }
 
 function syncSectionCurrencyFiltersWithPage() {
@@ -2568,13 +2888,19 @@ function goodsMetaFromNotes(noteValue){
     balanceAmount: readNum("BAL"),
     paymentStatus: readText("PSTAT"),
     settlementForEntryId: readText("SID"),
-    settlementId: readText("SETID")
+    settlementId: readText("SETID"),
+    taxApplied: readText("VATP") === "1",
+    taxRate: readNum("VATR"),
+    taxMode: readText("VATM"),
+    taxAmount: readNum("VATA"),
+    netAmount: readNum("NET"),
+    grossAmount: readNum("GROSS")
   };
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
   let note = normalizeGoodsNote(noteValue, true) || GOODS_TAG;
-  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
   const tags = [];
   if (meta.boughtQty != null) tags.push(`[BQTY:${meta.boughtQty}]`);
   if (meta.soldQty != null) tags.push(`[SQTY:${meta.soldQty}]`);
@@ -2596,13 +2922,19 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.paymentStatus) tags.push(`[PSTAT:${String(meta.paymentStatus).replace(/\]/g, "")}]`);
   if (meta.settlementForEntryId) tags.push(`[SID:${String(meta.settlementForEntryId).replace(/\]/g, "")}]`);
   if (meta.settlementId) tags.push(`[SETID:${String(meta.settlementId).replace(/\]/g, "")}]`);
+  if (meta.taxApplied != null) tags.push(`[VATP:${meta.taxApplied ? 1 : 0}]`);
+  if (meta.taxRate != null) tags.push(`[VATR:${normalizeTaxRate(meta.taxRate)}]`);
+  if (meta.taxMode) tags.push(`[VATM:${normalizeTaxMode(meta.taxMode)}]`);
+  if (meta.taxAmount != null) tags.push(`[VATA:${roundTaxMoney(meta.taxAmount)}]`);
+  if (meta.netAmount != null) tags.push(`[NET:${roundTaxMoney(meta.netAmount)}]`);
+  if (meta.grossAmount != null) tags.push(`[GROSS:${roundTaxMoney(meta.grossAmount)}]`);
   return `${note} ${tags.join(" ")}`.trim();
 }
 
 function cleanGoodsDisplayNote(noteValue){
   return String(noteValue || "")
     .replace(GOODS_TAG, "")
-    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID):[^\]]*\]/gi, "")
+    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -2632,13 +2964,25 @@ function expenseMetaFromNotes(noteValue){
     const m = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
     return m ? m[1] : "";
   };
+  const readNum = key => {
+    const m = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : null;
+  };
   return {
     accountType: readText("ATYPE"),
     rowType: readText("ETYPE"),
     itemName: readText("ITEM"),
     expenseType: readText("XTYPE"),
     btcAddress: readText("BADDR"),
-    btcNetwork: readText("BNET")
+    btcNetwork: readText("BNET"),
+    taxApplied: readText("VATP") === "1",
+    taxRate: readNum("VATR"),
+    taxMode: readText("VATM"),
+    taxAmount: readNum("VATA"),
+    netAmount: readNum("NET"),
+    grossAmount: readNum("GROSS")
   };
 }
 
@@ -2646,7 +2990,7 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
   const tagValue = value => String(value || "").replace(/\]/g, "").trim();
   const base = String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
-    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET):[^\]]+\]/gi, "")
+    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]+\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
   const tags = [];
@@ -2656,6 +3000,12 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
   if (meta.expenseType) tags.push(`[XTYPE:${tagValue(meta.expenseType)}]`);
   if (meta.btcAddress) tags.push(`[BADDR:${tagValue(meta.btcAddress)}]`);
   if (meta.btcNetwork) tags.push(`[BNET:${tagValue(meta.btcNetwork)}]`);
+  if (meta.taxApplied != null) tags.push(`[VATP:${meta.taxApplied ? 1 : 0}]`);
+  if (meta.taxRate != null) tags.push(`[VATR:${normalizeTaxRate(meta.taxRate)}]`);
+  if (meta.taxMode) tags.push(`[VATM:${normalizeTaxMode(meta.taxMode)}]`);
+  if (meta.taxAmount != null) tags.push(`[VATA:${roundTaxMoney(meta.taxAmount)}]`);
+  if (meta.netAmount != null) tags.push(`[NET:${roundTaxMoney(meta.netAmount)}]`);
+  if (meta.grossAmount != null) tags.push(`[GROSS:${roundTaxMoney(meta.grossAmount)}]`);
   const withTag = `${EXPENSE_ACCOUNT_TAG} ${base}`.trim();
   return `${withTag} ${tags.join(" ")}`.trim();
 }
@@ -2663,7 +3013,7 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
 function cleanExpenseNote(noteValue){
   return String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
-    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET):[^\]]+\]/gi, "")
+    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]+\]/gi, "")
     .replace(/→/g, "->")
     .replace(/\s{2,}/g, " ")
     .trim() || "—";
@@ -3198,6 +3548,7 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
     const itemCategory = normalizeInventoryCategory(entryMeta.itemCategory || principalMeta.itemCategory);
     const qty = normalizeStoredInventoryQty(entryMeta.soldQty, itemCategory, 1);
     const total = Number(entry.action_amount || 0);
+    const tax = taxBreakdownFromMeta(entryMeta, total);
     const unitPrice = entryMeta.unitSoldPrice != null ? Number(entryMeta.unitSoldPrice) : (qty ? total / qty : 0);
     const lineSettlements = settlementsBySaleId.get(entry.id) || [];
     const initialPaid = inventoryLinePaidAmount(entryMeta, total);
@@ -3220,6 +3571,11 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
       qty,
       qtyDisplay: inventoryQtyLabel(qty, itemCategory),
       unitPrice,
+      netAmount: tax.net,
+      taxAmount: tax.tax,
+      taxRate: tax.rate,
+      taxMode: tax.mode,
+      taxApplied: tax.applied,
       total,
       initialPaid,
       settlementPaid,
@@ -3232,8 +3588,10 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
 
   const totalsByCurrency = saleRows.reduce((acc, row) => {
     const currencyKey = row.currency || "AED";
-    if (!acc.has(currencyKey)) acc.set(currencyKey, { total: 0, paid: 0, balance: 0 });
+    if (!acc.has(currencyKey)) acc.set(currencyKey, { net: 0, tax: 0, total: 0, paid: 0, balance: 0 });
     const bucket = acc.get(currencyKey);
+    bucket.net += Number(row.netAmount || 0);
+    bucket.tax += Number(row.taxAmount || 0);
     bucket.total += Number(row.total || 0);
     bucket.paid += Number(row.paid || 0);
     bucket.balance += Number(row.balance || 0);
@@ -3369,6 +3727,7 @@ function collectOutstandingInventoryInvoices(){
       oldestDate,
       lineCount: receiptData.saleRows.length,
       itemSummary: itemNames.slice(0, 3).join(", ") + (itemNames.length > 3 ? ` +${itemNames.length - 3}` : ""),
+      taxText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax") || "-",
       totalText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency),
       paidText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "paid") || moneyText(receiptData.paidTotal, receiptData.currency),
       balanceText: inventoryCurrencyTotalsText(balanceByCurrency) || moneyText(receiptData.balanceTotal, receiptData.currency),
@@ -3608,10 +3967,12 @@ async function downloadOutstandingCustomerInvoicePDF(customerName){
   const contact = getInventoryCustomerContact(customerName);
   const totalBalance = new Map();
   const totalAmounts = new Map();
+  const taxAmounts = new Map();
   const paidAmounts = new Map();
   invoices.forEach(invoice => {
     invoice.totalsByCurrency.forEach((amounts, currency) => {
       addCurrencyTotal(totalAmounts, currency, amounts.total || 0);
+      addCurrencyTotal(taxAmounts, currency, amounts.tax || 0);
       addCurrencyTotal(paidAmounts, currency, amounts.paid || 0);
     });
     invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
@@ -3631,16 +3992,18 @@ async function downloadOutstandingCustomerInvoicePDF(customerName){
   doc.setTextColor(51, 65, 85);
   doc.text(`Invoices: ${invoices.length}`, 18, 86);
   doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts)}`, 18, 94);
-  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts)}`, 110, 86);
-  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance)}`, 110, 94);
+  doc.text(`VAT Amount: ${inventoryCurrencyTotalsText(taxAmounts)}`, 110, 86);
+  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts)}`, 110, 94);
+  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance)}`, 110, 102);
 
   doc.autoTable({
     startY: 116,
-    head: [["Invoice", "Date", "Items", "Total", "Paid", "Balance"]],
+    head: [["Invoice", "Date", "Items", "VAT", "Total", "Paid", "Balance"]],
     body: invoices.map(invoice => [
       invoice.invoiceNumber || invoice.receiptNumber,
       displayDate(invoice.oldestDate || invoice.date || "—"),
       `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` - ${invoice.itemSummary}` : ""}`,
+      invoice.taxText || "-",
       invoice.totalText,
       invoice.paidText,
       invoice.balanceText
@@ -3652,10 +4015,11 @@ async function downloadOutstandingCustomerInvoicePDF(customerName){
     columnStyles: {
       0: { cellWidth: 25 },
       1: { cellWidth: 24 },
-      2: { cellWidth: 51 },
-      3: { cellWidth: 28, halign: "right" },
-      4: { cellWidth: 28, halign: "right" },
-      5: { cellWidth: 28, halign: "right" }
+      2: { cellWidth: 42 },
+      3: { cellWidth: 21, halign: "right" },
+      4: { cellWidth: 24, halign: "right" },
+      5: { cellWidth: 23, halign: "right" },
+      6: { cellWidth: 23, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -3700,6 +4064,7 @@ function getInventoryCustomerInvoices(customerName){
         date: latestDate,
         lineCount: receiptData.saleRows.length,
         itemSummary: itemNames.slice(0, 4).join(", ") + (itemNames.length > 4 ? ` +${itemNames.length - 4}` : ""),
+        taxText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax") || "-",
         totalText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency),
         paidText: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "paid") || moneyText(receiptData.paidTotal, receiptData.currency),
         balanceText: inventoryCurrencyTotalsText(balanceByCurrency) || moneyText(receiptData.balanceTotal, receiptData.currency),
@@ -3754,6 +4119,7 @@ function getInventoryCustomerRecord(customerName){
   const customer = invoices[0]?.customerName || customerName || "Walk-in customer";
   const contact = getInventoryCustomerContact(customer);
   const totalByCurrency = new Map();
+  const taxByCurrency = new Map();
   const paidByCurrency = new Map();
   const balanceByCurrency = new Map();
   const statementRows = [];
@@ -3761,6 +4127,7 @@ function getInventoryCustomerRecord(customerName){
   invoices.forEach(invoice => {
     invoice.totalsByCurrency.forEach((amounts, currency) => {
       addCurrencyTotal(totalByCurrency, currency, amounts.total || 0);
+      addCurrencyTotal(taxByCurrency, currency, amounts.tax || 0);
       addCurrencyTotal(paidByCurrency, currency, amounts.paid || 0);
       addCurrencyTotal(balanceByCurrency, currency, amounts.balance || 0);
     });
@@ -3771,6 +4138,7 @@ function getInventoryCustomerRecord(customerName){
       receiptNumber: invoice.invoiceNumber || invoice.receiptNumber,
       sortInvoiceNumber: invoice.invoiceNumber || invoice.receiptNumber,
       details: `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` - ${invoice.itemSummary}` : ""}`,
+      taxText: invoice.taxText || "-",
       debitText: invoice.totalText,
       creditText: "-",
       balanceText: invoice.totalText,
@@ -3794,6 +4162,7 @@ function getInventoryCustomerRecord(customerName){
         receiptNumber: initialPaymentRow?.receiptNumber || inventoryPaymentReceiptNumberFromMeta(goodsMetaFromNotes(firstSaleEntry?.notes), firstSaleEntry, `${invoice.invoiceNumber || invoice.receiptNumber}:initial`),
         sortInvoiceNumber: invoice.invoiceNumber || invoice.receiptNumber,
         details: "Initial payment on invoice",
+        taxText: "-",
         debitText: "-",
         creditText: initialPaidText,
         balanceText: inventoryCurrencyTotalsText(initialBalanceByCurrency) || "-",
@@ -3809,6 +4178,7 @@ function getInventoryCustomerRecord(customerName){
         receiptNumber: payment.paymentReceiptNumber || payment.receiptNumber,
         sortInvoiceNumber: invoice.invoiceNumber || invoice.receiptNumber,
         details: payment.itemNames.size ? Array.from(payment.itemNames).join(", ") : payment.notes,
+        taxText: "-",
         debitText: "-",
         creditText: inventoryCurrencyTotalsText(payment.amountByCurrency),
         balanceText: payment.balanceText || "",
@@ -3826,7 +4196,7 @@ function getInventoryCustomerRecord(customerName){
     String(a.receiptNumber).localeCompare(String(b.receiptNumber))
   );
 
-  return { customerName: customer, contact, invoices, statementRows, totalByCurrency, paidByCurrency, balanceByCurrency };
+  return { customerName: customer, contact, invoices, statementRows, totalByCurrency, taxByCurrency, paidByCurrency, balanceByCurrency };
 }
 
 function renderInventoryCustomerRecord(record){
@@ -3843,9 +4213,9 @@ function renderInventoryCustomerRecord(record){
   return `
     <div class="inventory-customer-summary">
       <div><small>Total Invoiced</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.totalByCurrency) || "0")}</strong></div>
+      <div><small>Total VAT</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.taxByCurrency) || "0")}</strong></div>
       <div><small>Total Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.paidByCurrency) || "0")}</strong></div>
       <div><small>Outstanding</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.balanceByCurrency) || "0")}</strong></div>
-      <div><small>Invoices</small><strong>${escapeHtml(record.invoices.length)}</strong></div>
     </div>
     <div class="inventory-customer-contact">
       <span><strong>Bill To:</strong> ${escapeHtml(record.customerName)}</span>
@@ -3856,13 +4226,14 @@ function renderInventoryCustomerRecord(record){
       <h4>Invoices</h4>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Invoice</th><th>Items</th><th>Total</th><th>Paid</th><th>Balance</th><th>Action</th></tr></thead>
+          <thead><tr><th>Date</th><th>Invoice</th><th>Items</th><th>VAT</th><th>Total</th><th>Paid</th><th>Balance</th><th>Action</th></tr></thead>
           <tbody>
             ${record.invoices.map(invoice => `
               <tr>
                 <td>${escapeHtml(displayDate(invoice.oldestDate || invoice.date || "-"))}</td>
                 <td>${escapeHtml(invoice.invoiceNumber || invoice.receiptNumber)}</td>
                 <td>${escapeHtml(invoice.itemSummary || `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}`)}</td>
+                <td>${escapeHtml(invoice.taxText || "-")}</td>
                 <td>${escapeHtml(invoice.totalText)}</td>
                 <td>${escapeHtml(invoice.paidText)}</td>
                 <td>${escapeHtml(invoice.balanceText || "-")}</td>
@@ -3877,7 +4248,7 @@ function renderInventoryCustomerRecord(record){
       <h4>Payment Statement</h4>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Type</th><th>Invoice / Receipt</th><th>Details</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Download</th></tr></thead>
+          <thead><tr><th>Date</th><th>Type</th><th>Invoice / Receipt</th><th>Details</th><th>VAT</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Download</th></tr></thead>
           <tbody>
             ${record.statementRows.map(row => `
               <tr>
@@ -3885,6 +4256,7 @@ function renderInventoryCustomerRecord(record){
                 <td>${escapeHtml(row.type)}</td>
                 <td>${escapeHtml(row.receiptNumber)}</td>
                 <td>${escapeHtml(row.details || "-")}</td>
+                <td>${escapeHtml(row.taxText || "-")}</td>
                 <td>${escapeHtml(row.debitText || "-")}</td>
                 <td>${escapeHtml(row.creditText || "-")}</td>
                 <td>${escapeHtml(row.balanceText || "-")}</td>
@@ -3996,9 +4368,10 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
   doc.text(`Receipt Date: ${displayDate(receiptDate || "-")}`, 132, 54);
   doc.text(`Invoice ID: ${invoiceNumber}`, 132, 60);
   doc.text(`Paid: ${inventoryCurrencyTotalsText(paidByCurrency)}`, 132, 66, { maxWidth: 58 });
+  doc.text(`Invoice VAT: ${formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax") || "-"}`, 132, 72, { maxWidth: 58 });
 
   doc.autoTable({
-    startY: 78,
+    startY: 84,
     head: [["Date", "Invoice", "Item", "Paid", "Line Balance"]],
     body: rows,
     theme: "grid",
@@ -4054,17 +4427,19 @@ async function downloadInventoryCustomerStatementPDF(customerName){
   doc.setTextColor(51, 65, 85);
   doc.text(`Invoices: ${record.invoices.length}`, 18, 86);
   doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency) || "0"}`, 18, 94);
-  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency) || "0"}`, 110, 86);
-  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency) || "0"}`, 110, 94);
+  doc.text(`VAT: ${inventoryCurrencyTotalsText(record.taxByCurrency) || "0"}`, 110, 86);
+  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency) || "0"}`, 110, 94);
+  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency) || "0"}`, 110, 102);
 
   doc.autoTable({
     startY: 116,
-    head: [["Date", "Type", "Invoice / Receipt", "Details", "Debit", "Credit", "Balance"]],
+    head: [["Date", "Type", "Invoice / Receipt", "Details", "VAT", "Debit", "Credit", "Balance"]],
     body: record.statementRows.map(row => [
       displayDate(row.date || "-"),
       row.type,
       row.receiptNumber,
       row.details || "-",
+      row.taxText || "-",
       row.debitText || "-",
       row.creditText || "-",
       row.balanceText || "-"
@@ -4075,12 +4450,13 @@ async function downloadInventoryCustomerStatementPDF(customerName){
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       0: { cellWidth: 22 },
-      1: { cellWidth: 24 },
+      1: { cellWidth: 22 },
       2: { cellWidth: 25 },
-      3: { cellWidth: 45 },
-      4: { cellWidth: 23, halign: "right" },
-      5: { cellWidth: 23, halign: "right" },
-      6: { cellWidth: 20, halign: "right" }
+      3: { cellWidth: 31 },
+      4: { cellWidth: 20, halign: "right" },
+      5: { cellWidth: 21, halign: "right" },
+      6: { cellWidth: 21, halign: "right" },
+      7: { cellWidth: 20, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -4088,14 +4464,47 @@ async function downloadInventoryCustomerStatementPDF(customerName){
   doc.save(`Inventory_Customer_Statement_${String(record.customerName || "customer").replace(/\s+/g, "_")}.pdf`);
 }
 
-function updateGoodsBoughtTotal(){
-  if (!els.goodsBoughtForm || !els.goodsBoughtTotalAmount) return;
+function inventoryTaxDefaultsForGroup(group) {
+  const setting = getTaxSettingForCurrency(group?.currency || state.lastCurrency || "AED");
+  const rate = group?.defaultTaxRate != null ? group.defaultTaxRate : setting.rate;
+  const mode = group?.defaultTaxMode || setting.mode;
+  return { rate: normalizeTaxRate(rate), mode: normalizeTaxMode(mode) };
+}
+
+function syncGoodsPurchaseTaxDefaults(force = false) {
+  if (!els.goodsBoughtForm) return;
+  const currentGroup = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === state.inventoryDraft.purchaseGroupId);
+  const currency = currentGroup?.currency || String(els.goodsBoughtForm.querySelector('[name="currency"]')?.value || state.lastCurrency || "AED");
+  const defaults = inventoryTaxDefaultsForGroup(currentGroup || { currency });
+  if (force || els.goodsBoughtForm.dataset.taxManual !== "true") {
+    if (els.goodsPurchaseTaxApplied) els.goodsPurchaseTaxApplied.checked = defaults.rate > 0;
+    if (els.goodsPurchaseTaxRate) els.goodsPurchaseTaxRate.value = defaults.rate ? trimInventoryNumber(defaults.rate, 2) : "";
+    if (els.goodsPurchaseTaxMode) els.goodsPurchaseTaxMode.value = defaults.mode;
+  }
+  updateGoodsBoughtTotal();
+}
+
+function getGoodsPurchaseTaxBreakdown() {
+  if (!els.goodsBoughtForm) return calculateTaxBreakdown(0, 0, TAX_MODE_ADD, false);
   const price = Number(els.goodsBoughtForm.querySelector('[name="actual_price"]')?.value || 0);
   const category = normalizeInventoryCategory(els.goodsBoughtForm.querySelector('[name="item_category"]')?.value);
   const unit = els.goodsBoughtForm.querySelector('[name="quantity_unit"]')?.value || inventoryBaseUnitForCategory(category);
   const qty = normalizeInventoryQuantityInput(els.goodsBoughtForm.querySelector('[name="bought_qty"]')?.value, category, unit);
-  const total = price * qty;
-  els.goodsBoughtTotalAmount.value = price || qty ? trimInventoryNumber(total) : "";
+  const baseAmount = price * qty;
+  const applied = !!els.goodsPurchaseTaxApplied?.checked;
+  const rate = normalizeTaxRate(els.goodsPurchaseTaxRate?.value);
+  const mode = normalizeTaxMode(els.goodsPurchaseTaxMode?.value);
+  return calculateTaxBreakdown(baseAmount, rate, mode, applied);
+}
+
+function updateGoodsBoughtTotal(){
+  if (!els.goodsBoughtForm || !els.goodsBoughtTotalAmount) return;
+  const breakdown = getGoodsPurchaseTaxBreakdown();
+  els.goodsBoughtTotalAmount.value = breakdown.total ? trimInventoryNumber(breakdown.total) : "";
+  if (els.goodsPurchaseTaxPreview) {
+    const currency = String(els.goodsBoughtForm.querySelector('[name="currency"]')?.value || state.lastCurrency || "AED");
+    els.goodsPurchaseTaxPreview.textContent = formatTaxSummary(breakdown, currency);
+  }
 }
 
 function syncGoodsBoughtCategoryFields(){
@@ -4701,8 +5110,9 @@ function buildGoodsSaleLine(groupId = ""){
     .join("");
   const selectedGroup = groups.find(g => g.group_id === groupId);
   const selectedCategory = normalizeInventoryCategory(selectedGroup?.itemCategory);
+  const taxDefault = inventoryTaxDefaultsForGroup(selectedGroup);
   return `
-    <div class="inventory-sale-line">
+    <div class="inventory-sale-line" data-tax-manual="false">
       <select class="select goods-sale-item">${options}</select>
       <input class="input goods-sale-qty" type="number" min="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "0.001" : "1"}" step="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "0.001" : "1"}" value="1" placeholder="${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Qty"}" />
       <select class="select goods-sale-unit">${inventorySaleUnitOptions(selectedGroup)}</select>
@@ -4712,6 +5122,18 @@ function buildGoodsSaleLine(groupId = ""){
         <i class="fa-solid fa-trash"></i>
       </button>
       <div class="inventory-sale-line-meta">${selectedGroup ? escapeHtml(`${selectedGroup.currency} | ${selectedGroup.itemCode || "No code"} | ${selectedCategory === INVENTORY_CATEGORY_WEIGHT ? "Weight" : "Numbers"}`) : ""}</div>
+      <div class="inventory-sale-tax-controls">
+        <label class="checkbox-line">
+          <input class="goods-sale-tax-applied" type="checkbox" ${taxDefault.rate > 0 ? "checked" : ""} />
+          <span>VAT</span>
+        </label>
+        <input class="input goods-sale-tax-rate" type="number" min="0" max="100" step="0.01" value="${taxDefault.rate ? escapeHtml(trimInventoryNumber(taxDefault.rate, 2)) : ""}" placeholder="VAT %" />
+        <select class="select goods-sale-tax-mode">
+          <option value="ADD" ${taxDefault.mode === TAX_MODE_ADD ? "selected" : ""}>Add VAT to line</option>
+          <option value="INCLUDE" ${taxDefault.mode === TAX_MODE_INCLUDE ? "selected" : ""}>VAT included</option>
+        </select>
+        <span class="inventory-sale-tax-summary">VAT off</span>
+      </div>
     </div>
   `;
 }
@@ -4808,7 +5230,16 @@ function updateGoodsSaleLine(line, sourceEl = null){
   const unitSelect = line.querySelector(".goods-sale-unit");
   const priceInput = line.querySelector(".goods-sale-price");
   const totalInput = line.querySelector(".goods-sale-line-total");
+  const taxAppliedInput = line.querySelector(".goods-sale-tax-applied");
+  const taxRateInput = line.querySelector(".goods-sale-tax-rate");
+  const taxModeInput = line.querySelector(".goods-sale-tax-mode");
+  const taxSummary = line.querySelector(".inventory-sale-tax-summary");
   const category = normalizeInventoryCategory(group?.itemCategory);
+  const itemChanged = sourceEl?.classList?.contains("goods-sale-item");
+  const taxChanged = sourceEl?.classList?.contains("goods-sale-tax-applied") ||
+    sourceEl?.classList?.contains("goods-sale-tax-rate") ||
+    sourceEl?.classList?.contains("goods-sale-tax-mode");
+  if (taxChanged) line.dataset.taxManual = "true";
   if (unitSelect && group){
     const selectedUnit = normalizeInventoryUnit(unitSelect.value, category);
     unitSelect.innerHTML = inventorySaleUnitOptions(group);
@@ -4834,12 +5265,31 @@ function updateGoodsSaleLine(line, sourceEl = null){
     const defaultPrice = Number(group.defaultUnitSoldPrice || 0) || Number(group.unitActualPrice || 0);
     priceInput.value = defaultPrice ? trimInventoryNumber(defaultPrice) : "";
   }
-  const total = qty * Number(priceInput?.value || 0);
+  if (group && (itemChanged || line.dataset.taxManual !== "true")) {
+    const taxDefault = inventoryTaxDefaultsForGroup(group);
+    if (taxAppliedInput) taxAppliedInput.checked = taxDefault.rate > 0;
+    if (taxRateInput) taxRateInput.value = taxDefault.rate ? trimInventoryNumber(taxDefault.rate, 2) : "";
+    if (taxModeInput) taxModeInput.value = taxDefault.mode;
+    line.dataset.taxManual = "false";
+  }
+  const lineBase = qty * Number(priceInput?.value || 0);
+  const breakdown = calculateTaxBreakdown(
+    lineBase,
+    taxRateInput?.value,
+    taxModeInput?.value,
+    !!taxAppliedInput?.checked
+  );
   if (totalInput){
-    totalInput.dataset.rawTotal = String(total);
-    totalInput.value = group && total ? moneyText(total, group.currency) : "";
+    totalInput.dataset.rawNet = String(breakdown.net);
+    totalInput.dataset.rawTax = String(breakdown.tax);
+    totalInput.dataset.rawTotal = String(breakdown.total);
+    totalInput.dataset.taxRate = String(breakdown.rate);
+    totalInput.dataset.taxMode = breakdown.mode;
+    totalInput.dataset.taxApplied = breakdown.applied ? "1" : "0";
+    totalInput.value = group && breakdown.total ? moneyText(breakdown.total, group.currency) : "";
     applyCurrencyFontClass(totalInput, group?.currency || "");
   }
+  if (taxSummary) taxSummary.textContent = group ? formatTaxSummary(breakdown, group.currency) : "Select item for VAT";
   syncGoodsSaleLineMeta(line);
   updateGoodsSaleGrandTotal();
 }
@@ -4879,7 +5329,20 @@ function collectGoodsSaleLines(){
     const qtyValue = String(line.querySelector(".goods-sale-qty")?.value || "").trim();
     const qty = qtyValue ? normalizeInventoryQuantityInput(qtyValue, category, unit) : 0;
     const unitPrice = Number(line.querySelector(".goods-sale-price")?.value || 0);
-    return { groupId, qty, unitPrice, unit, itemCategory: category };
+    const totalInput = line.querySelector(".goods-sale-line-total");
+    return {
+      groupId,
+      qty,
+      unitPrice,
+      unit,
+      itemCategory: category,
+      taxApplied: totalInput?.dataset.taxApplied === "1",
+      taxRate: normalizeTaxRate(totalInput?.dataset.taxRate),
+      taxMode: normalizeTaxMode(totalInput?.dataset.taxMode),
+      taxAmount: Number(totalInput?.dataset.rawTax || 0),
+      netAmount: Number(totalInput?.dataset.rawNet || 0),
+      grossAmount: Number(totalInput?.dataset.rawTotal || 0)
+    };
   }).filter(line => line.groupId);
 }
 
@@ -4924,6 +5387,15 @@ function getGoodsGroups(options = {}){
         .filter(price => price > 0)
         .pop() || 0;
       const defaultUnitSoldPrice = Number(principalMeta.unitSoldPrice || 0) || purchaseDefaultPrice;
+      const taxDefaultMeta = (principalMeta.taxRate != null || principalMeta.taxMode)
+        ? principalMeta
+        : (purchaseMetas.filter(meta => meta.taxRate != null || meta.taxMode).pop() || principalMeta);
+      const currencyTaxDefault = getTaxSettingForCurrency(group.currency);
+      const defaultTaxRate = taxDefaultMeta.taxRate != null ? normalizeTaxRate(taxDefaultMeta.taxRate) : currencyTaxDefault.rate;
+      const defaultTaxMode = taxDefaultMeta.taxMode ? normalizeTaxMode(taxDefaultMeta.taxMode) : currencyTaxDefault.mode;
+      const principalPurchaseTax = taxBreakdownFromMeta(principalMeta, group.principal?.principal_amount || 0).tax;
+      const purchaseTaxTotal = principalPurchaseTax + purchaseActions.reduce((sum, row) => sum + taxBreakdownFromMeta(goodsMetaFromNotes(row.notes), row.action_amount || 0).tax, 0);
+      const salesTaxTotal = saleActions.reduce((sum, row) => sum + taxBreakdownFromMeta(goodsMetaFromNotes(row.notes), row.action_amount || 0).tax, 0);
       return {
         ...group,
         actions: saleActions,
@@ -4946,6 +5418,10 @@ function getGoodsGroups(options = {}){
         itemCategory,
         quantityUnit,
         defaultUnitSoldPrice,
+        defaultTaxRate,
+        defaultTaxMode,
+        purchaseTaxTotal,
+        salesTaxTotal,
         latestSoldDate: saleActions.length
           ? saleActions.slice().sort((a, b) => dateStamp(b.action_date) - dateStamp(a.action_date))[0]?.action_date
           : null
@@ -5014,13 +5490,17 @@ async function downloadGoodsItemPDF(groupId){
   doc.text(`Balance Amount: ${fmt(group.balanceTotal || 0)}`, 105, 93);
   doc.text(`Purchase Qty: ${inventoryQtyLabel(group.boughtQty, group.itemCategory)}`, 18, 100);
   doc.text(`Sold Qty: ${inventoryQtyLabel(group.soldQty, group.itemCategory)}`, 105, 100);
+  doc.text(`VAT: ${fmt((group.purchaseTaxTotal || 0) + (group.salesTaxTotal || 0))}`, 150, 100);
 
+  const principalTax = taxBreakdownFromMeta(goodsMetaFromNotes(group.principal?.notes), group.principal?.principal_amount || 0);
   const rows = [
     {
       type: "Purchase",
       date: group.principal?.loan_date,
       qty: inventoryQtyLabel(group.boughtQty - group.purchaseActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).boughtQty, group.itemCategory, 1), 0), group.itemCategory),
-      amount: fmt(group.principal?.principal_amount || 0),
+      net: fmt(principalTax.net || 0),
+      vat: principalTax.tax ? fmt(principalTax.tax) : "-",
+      amount: fmt(principalTax.total || group.principal?.principal_amount || 0),
       paid: "—",
       balance: "—",
       status: "—",
@@ -5028,11 +5508,14 @@ async function downloadGoodsItemPDF(groupId){
     },
     ...group.purchaseActions.map(row => {
       const meta = goodsMetaFromNotes(row.notes);
+      const tax = taxBreakdownFromMeta(meta, row.action_amount || 0);
       return {
         type: "Purchase",
         date: row.action_date,
         qty: inventoryQtyLabel(meta.boughtQty || 0, group.itemCategory),
-        amount: fmt(row.action_amount || 0),
+        net: fmt(tax.net || 0),
+        vat: tax.tax ? fmt(tax.tax) : "-",
+        amount: fmt(tax.total || row.action_amount || 0),
         paid: "—",
         balance: "—",
         status: "—",
@@ -5049,6 +5532,8 @@ async function downloadGoodsItemPDF(groupId){
         type: "Sold",
         date: row.action_date,
         qty: inventoryQtyLabel(meta.soldQty || 0, group.itemCategory),
+        net: fmt(saleSummary?.netAmount || 0),
+        vat: saleSummary?.taxAmount ? fmt(saleSummary.taxAmount) : "-",
         amount: fmt(row.action_amount || 0),
         paid: fmt(saleSummary?.paid || inventoryLinePaidAmount(meta, row.action_amount || 0)),
         balance: fmt(saleSummary?.balance || 0),
@@ -5073,21 +5558,24 @@ async function downloadGoodsItemPDF(groupId){
   ].sort((a, b) => dateStamp(a.date) - dateStamp(b.date));
   doc.autoTable({
     startY: 114,
-    head: [["Type", "Date", "Qty", "Amount", "Paid", "Balance", "Status", "Note"]],
+    head: [["Type", "Date", "Qty", "Net", "VAT", "Total", "Paid", "Balance", "Status", "Note"]],
     body: rows.map(row => [row.type, displayDate(row.date || "—"), row.qty, row.amount, row.paid, row.balance, row.status, row.note]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
     styles: { font: "helvetica", fontSize: 7.2, cellPadding: 1.8, overflow: "linebreak" },
+    body: rows.map(row => [row.type, displayDate(row.date || "-"), row.qty, row.net || "-", row.vat || "-", row.amount, row.paid, row.balance, row.status, row.note]),
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 18 },
-      1: { cellWidth: 19 },
-      2: { cellWidth: 18, halign: "right" },
-      3: { cellWidth: 24, halign: "right" },
-      4: { cellWidth: 24, halign: "right" },
-      5: { cellWidth: 24, halign: "right" },
-      6: { cellWidth: 20 },
-      7: { cellWidth: 35 }
+      0: { cellWidth: 16 },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 16, halign: "right" },
+      3: { cellWidth: 20, halign: "right" },
+      4: { cellWidth: 18, halign: "right" },
+      5: { cellWidth: 21, halign: "right" },
+      6: { cellWidth: 20, halign: "right" },
+      7: { cellWidth: 20, halign: "right" },
+      8: { cellWidth: 17 },
+      9: { cellWidth: 16 }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -5204,13 +5692,14 @@ function renderGoodsList(){
         <div class="detail">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>Notes</th><th>Action</th></tr></thead>
+              <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>VAT</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
                 ${soldRows.length ? soldRows.map(row => `
                   <tr>
                     <td><span class="badge green">Sold</span></td>
                     <td>${escapeHtml(displayDate(row.action_date || "—"))}</td>
                     <td>${money(row.action_amount || 0, group.currency)}</td>
+                    <td>${taxBreakdownFromMeta(goodsMetaFromNotes(row.notes), row.action_amount || 0).tax ? money(taxBreakdownFromMeta(goodsMetaFromNotes(row.notes), row.action_amount || 0).tax, group.currency) : "-"}</td>
                     <td>${escapeHtml(row.notes || "—")}</td>
                     <td>
                       <div style="display:flex;gap:4px;">
@@ -5220,7 +5709,7 @@ function renderGoodsList(){
                       </div>
                     </td>
                   </tr>
-                `).join("") : `<tr><td colspan="5">No sold entries yet.</td></tr>`}
+                `).join("") : `<tr><td colspan="6">No sold entries yet.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -5296,6 +5785,8 @@ async function downloadInventoryReceiptPDF(entryId){
   const customerAddress = receiptData.customerAddress || meta.customerAddress || "";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
   const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total") || moneyText(soldTotal, currency);
+  const netAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "net") || moneyText(soldTotal, currency);
+  const taxAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "tax") || moneyText(0, currency);
   const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid") || moneyText(soldTotal, currency);
   const balanceAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "balance") || moneyText(0, currency);
   const { jsPDF } = window.jspdf;
@@ -5331,18 +5822,22 @@ async function downloadInventoryReceiptPDF(entryId){
     billY += addressLines.length * 6;
   }
   doc.text(`Invoice No: ${invoiceNumber}`, 18, Math.min(billY, 116));
-  doc.text(`Total Amount: ${totalAmountText}`, 110, 86);
+  doc.text(`Net Amount: ${netAmountText}`, 110, 86);
   doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, 92);
-  doc.text(`Paid Amount: ${paidAmountText}`, 110, 100);
-  doc.text(`Balance Amount: ${balanceAmountText}`, 110, 106);
+  doc.text(`VAT Amount: ${taxAmountText}`, 110, 100);
+  doc.text(`Total Amount: ${totalAmountText}`, 110, 106);
+  doc.text(`Paid: ${paidAmountText}`, 110, 112);
+  doc.text(`Balance: ${balanceAmountText}`, 110, 118);
 
   doc.autoTable({
     startY: 130,
-    head: [["#", "Item Name", "Quantity", "Amount"]],
+    head: [["#", "Item Name", "Quantity", "Net", "VAT", "Total"]],
     body: receiptRows.map(row => [
       String(row.sr),
       row.itemName,
       row.qtyDisplay,
+      formatReportAmount(row.netAmount || 0, row.currency),
+      row.taxAmount ? `${formatReportAmount(row.taxAmount, row.currency)} (${trimInventoryNumber(row.taxRate, 2)}%)` : "-",
       formatReportAmount(row.total, row.currency)
     ]),
     theme: "grid",
@@ -5350,10 +5845,12 @@ async function downloadInventoryReceiptPDF(entryId){
     styles: { font: "helvetica", fontSize: 9, cellPadding: 3, overflow: "linebreak" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 10, halign: "center" },
-      1: { cellWidth: 92 },
-      2: { cellWidth: 36, halign: "right" },
-      3: { cellWidth: 44, halign: "right" }
+      0: { cellWidth: 9, halign: "center" },
+      1: { cellWidth: 67 },
+      2: { cellWidth: 28, halign: "right" },
+      3: { cellWidth: 27, halign: "right" },
+      4: { cellWidth: 24, halign: "right" },
+      5: { cellWidth: 27, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -5386,6 +5883,8 @@ async function downloadInventoryReceiptPDF(entryId){
   }
   const showCurrencyInSummary = totalsByCurrency.size > 1;
   const summaryRows = Array.from(totalsByCurrency.entries()).flatMap(([rowCurrency, amounts]) => [
+    [showCurrencyInSummary ? `${rowCurrency} net amount` : "Net amount", formatReportAmount(amounts.net || 0, rowCurrency)],
+    [showCurrencyInSummary ? `${rowCurrency} VAT amount` : "VAT amount", formatReportAmount(amounts.tax || 0, rowCurrency)],
     [showCurrencyInSummary ? `${rowCurrency} total amount` : "Total amount", formatReportAmount(amounts.total, rowCurrency)],
     [showCurrencyInSummary ? `${rowCurrency} paid amount` : "Paid amount", formatReportAmount(amounts.paid, rowCurrency)],
     [showCurrencyInSummary ? `${rowCurrency} balance amount` : "Balance amount", formatReportAmount(amounts.balance, rowCurrency)]
@@ -5965,17 +6464,27 @@ function groupExpenseItems(spendAttached){
         expenseType: meta.expenseType || "",
         currency,
         total: 0,
+        taxTotal: 0,
+        netTotal: 0,
         txs: []
       });
     }
     const g = map.get(key);
-    g.total += Number(row.action_amount || 0);
+    const gross = Number(row.action_amount || 0);
+    const tax = taxBreakdownFromMeta(meta, gross);
+    g.total += gross;
+    g.taxTotal += Number(tax.tax || 0);
+    g.netTotal += Number(tax.net || 0);
     g.txs.push({
       id: row.id,
       date: row.action_date,
       wallet: account.person_name,
       group_id: account.group_id,
-      amount: Number(row.action_amount || 0),
+      amount: gross,
+      netAmount: Number(tax.net || 0),
+      taxAmount: Number(tax.tax || 0),
+      taxRate: Number(tax.rate || 0),
+      taxMode: tax.mode,
       expenseType: meta.expenseType || "",
       notes: cleanExpenseNote(row.notes)
     });
@@ -6141,6 +6650,34 @@ function renderExpenseAccountSelectors(){
     : `<option value="">No account in ${escapeHtml(chosenCurrency)}</option>`;
 }
 
+function syncExpenseTaxDefaults(force = false) {
+  if (!els.expenseEntryForm) return;
+  const currency = String(els.expenseCurrencySelect?.value || state.lastCurrency || "AED");
+  const defaults = getTaxSettingForCurrency(currency);
+  if (force || els.expenseEntryForm.dataset.taxManual !== "true") {
+    if (els.expenseTaxApplied) els.expenseTaxApplied.checked = false;
+    if (els.expenseTaxRate) els.expenseTaxRate.value = defaults.rate ? trimInventoryNumber(defaults.rate, 2) : "";
+    if (els.expenseTaxMode) els.expenseTaxMode.value = TAX_MODE_INCLUDE;
+  }
+  updateExpenseTaxPreview();
+}
+
+function getExpenseTaxBreakdown() {
+  if (!els.expenseEntryForm) return calculateTaxBreakdown(0, 0, TAX_MODE_INCLUDE, false);
+  const amount = Number(els.expenseEntryForm.querySelector('[name="amount"]')?.value || 0);
+  const applied = !!els.expenseTaxApplied?.checked;
+  const rate = normalizeTaxRate(els.expenseTaxRate?.value);
+  const mode = normalizeTaxMode(els.expenseTaxMode?.value);
+  return calculateTaxBreakdown(amount, rate, mode, applied);
+}
+
+function updateExpenseTaxPreview() {
+  if (!els.expenseTaxPreview) return;
+  const currency = String(els.expenseCurrencySelect?.value || state.lastCurrency || "AED");
+  const breakdown = getExpenseTaxBreakdown();
+  els.expenseTaxPreview.textContent = formatTaxSummary(breakdown, currency);
+}
+
 function openExpenseModal(mode, presetGroupId = ""){
   if ((mode === "topup" || mode === "expense") && presetGroupId) {
     const presetAccount = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === presetGroupId);
@@ -6175,8 +6712,10 @@ function openExpenseModal(mode, presetGroupId = ""){
     els.expenseModalTitle.textContent = "Add Expense";
     els.expenseModalDesc.textContent = "Record expense item, amount, type and source account.";
     els.expenseEntryForm.reset();
+    els.expenseEntryForm.dataset.taxManual = "false";
     els.expenseCurrencySelect.value = state.lastCurrency || "AED";
     renderExpenseAccountSelectors();
+    syncExpenseTaxDefaults(true);
     defaultDateInputs(els.expenseEntryForm);
     if (presetGroupId) els.expenseSpendAccountSelect.value = presetGroupId;
     const intentAdd = els.expenseEntryForm.querySelector('input[name="expense_item_intent"][value="additional"]');
@@ -6267,13 +6806,15 @@ async function saveExpenseEntry(form){
   const fd = new FormData(form);
   const groupId = String(fd.get("group_id") || "");
   const selectedCurrency = String(fd.get("currency") || "").trim();
-  const amount = Number(fd.get("amount") || 0);
+  const enteredAmount = Number(fd.get("amount") || 0);
+  const taxBreakdown = getExpenseTaxBreakdown();
+  const amount = taxBreakdown.total;
   const date = String(fd.get("date") || "");
   const itemName = String(fd.get("item_name") || "").trim();
   const expenseType = String(fd.get("custom_expense_type") || "").trim() || String(fd.get("expense_type") || "").trim() || "Other";
   const notes = String(fd.get("notes") || "").trim() || null;
   const itemIntent = String(fd.get("expense_item_intent") || "additional");
-  if (!groupId || amount === "" || amount === null || amount === undefined || !date || !itemName) throw new Error("Complete all required fields.");
+  if (!groupId || !enteredAmount || !date || !itemName) throw new Error("Complete all required fields.");
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
   if (!account) throw new Error("Account not found.");
   if (account.currency === "BTC") throw new Error("BTC wallet transactions are loaded directly from the blockchain.");
@@ -6300,7 +6841,8 @@ async function saveExpenseEntry(form){
       accountType: account.accountType,
       rowType: "EXPENSE",
       itemName,
-      expenseType
+      expenseType,
+      ...taxMetaFromBreakdown(taxBreakdown)
     })
   };
   saveEntriesImmediately(payload, { label: "Expense" });
@@ -6361,12 +6903,14 @@ async function downloadExpenseAccountPDF(groupId){
     const meta = expenseMetaFromNotes(row.notes);
     const isExpense = meta.rowType === "EXPENSE";
     const amt = Number(row.action_amount || 0);
+    const tax = taxBreakdownFromMeta(meta, amt);
     runningBalance = isExpense ? runningBalance - amt : runningBalance + amt;
     rows.push([
       isExpense ? `Expense (${meta.expenseType || "Other"})` : "Topup",
       displayDate(row.action_date || "—"),
       isExpense ? (meta.itemName || "—") : "—",
       formatPdfAmount(amt, account.currency),
+      isExpense && tax.tax ? formatPdfAmount(tax.tax, account.currency) : "-",
       formatPdfAmount(runningBalance, account.currency),
       cleanExpenseNote(row.notes)
     ]);
@@ -6374,10 +6918,20 @@ async function downloadExpenseAccountPDF(groupId){
 
   doc.autoTable({
     startY: 72,
-    head: [["Type", "Date", "Item", "Amount", "Balance", "Remarks"]],
-    body: rows,
+    head: [["Type", "Date", "Item", "Amount", "VAT", "Balance", "Remarks"]],
+    body: rows.map(row => row.length === 6 ? [row[0], row[1], row[2], row[3], "-", row[4], row[5]] : row),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
+    styles: { font: "helvetica", fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+    columnStyles: {
+      0: { cellWidth: 30 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 32 },
+      3: { cellWidth: 28, halign: "right" },
+      4: { cellWidth: 24, halign: "right" },
+      5: { cellWidth: 28, halign: "right" },
+      6: { cellWidth: 18 }
+    },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
@@ -6748,6 +7302,7 @@ function renderExpensesList(){
             <div class="cell expense-item-total">
               <small>Total spent</small>
               <strong>${money(item.total, item.currency)}</strong>
+              ${item.taxTotal ? `<small>VAT ${money(item.taxTotal, item.currency)}</small>` : ""}
             </div>
             <div class="lt-action">
               <button class="icon-btn ghost" onclick="downloadExpenseItemPDF('${escapeHtml(item.key)}')" title="Download PDF" style="font-size: 0.9rem;"><i class="fa-solid fa-download"></i></button>
@@ -6757,7 +7312,7 @@ function renderExpensesList(){
         <div class="detail">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>Notes</th><th>Action</th></tr></thead>
+              <thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>VAT</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
                 ${item.txs.map(tx => `
                   <tr>
@@ -6765,6 +7320,7 @@ function renderExpensesList(){
                     <td>${getWalletIconHtml(tx.wallet || "Wallet", 16)} ${escapeHtml(tx.wallet || "—")}</td>
                     <td>${escapeHtml(tx.expenseType || "—")}</td>
                     <td>${money(tx.amount, item.currency)}</td>
+                    <td>${tx.taxAmount ? `${money(tx.taxAmount, item.currency)} (${escapeHtml(trimInventoryNumber(tx.taxRate, 2))}%)` : "-"}</td>
                     <td class="expense-item-detail-note">${escapeHtml(tx.notes)}</td>
                     <td>
                       <div style="display:flex;gap:4px;">
@@ -7085,7 +7641,7 @@ async function loadEntriesFromSupabase(){
       : `&currency=in.(${selectedCurrencies.map(currency => encodeURIComponent(currency)).join(",")})`;
   const rows = await supabase(`${CONFIG.table}?select=*${currencyQuery}&order=created_at.desc`);
   const dataRows = Array.isArray(rows)
-    ? rows.filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row))
+    ? rows.filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row) && !isTaxSettingsPreferenceRow(row))
     : [];
   // Filter out entries with deleted tag for main display
   const filteredRows = dataRows.filter(row => !hasDeletedTag(row.notes));
@@ -7466,7 +8022,10 @@ function setCurrencyChoice(form, currency){
   // Refresh loan wallet selector if present in this form
   const walletSel = form.querySelector('[name="loan_wallet_id"]') || form.querySelector('[name="payment_wallet_id"]');
   if (walletSel) populateLoanWalletSelector(currency, walletSel);
-  if (form === els.goodsBoughtForm) updateGoodsPurchaseWalletSelector();
+  if (form === els.goodsBoughtForm) {
+    syncGoodsPurchaseTaxDefaults();
+    updateGoodsPurchaseWalletSelector();
+  }
   syncExpenseBtcAccountFields(form);
 }
 
@@ -7552,6 +8111,7 @@ function openGoodsModal(mode, options = {}){
     els.goodsModalTitle.textContent = currentGroup ? "Add Inventory Stock" : "Add Inventory Item";
     els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add a newly purchased inventory item.";
     els.goodsBoughtForm.reset();
+    els.goodsBoughtForm.dataset.taxManual = "false";
     if (currentGroup){
       els.goodsBoughtForm.querySelector('[name="item_code"]').value = currentGroup.itemCode || nextInventoryCode();
       els.goodsBoughtForm.querySelector('[name="item_name"]').value = currentGroup.person_name || "";
@@ -7569,6 +8129,7 @@ function openGoodsModal(mode, options = {}){
       setCurrencyChoice(els.goodsBoughtForm, state.lastCurrency || "AED");
     }
     defaultDateInputs(els.goodsBoughtForm);
+    syncGoodsPurchaseTaxDefaults(true);
     syncGoodsBoughtCategoryFields();
     updateGoodsPurchaseWalletSelector();
   } else {
@@ -7610,7 +8171,8 @@ async function saveGoodsBought(form){
   const itemCategory = currentGroup ? normalizeInventoryCategory(currentGroup.itemCategory) : normalizeInventoryCategory(fd.get("item_category"));
   const quantityUnit = normalizeInventoryUnit(fd.get("quantity_unit"), itemCategory);
   const boughtQty = normalizeInventoryQuantityInput(fd.get("bought_qty"), itemCategory, quantityUnit);
-  const totalActualPrice = unitActualPrice * boughtQty;
+  const purchaseTax = getGoodsPurchaseTaxBreakdown();
+  const totalActualPrice = purchaseTax.total;
   const sellingPrice = Number(fd.get("selling_price") || 0);
   const itemCode = String(fd.get("item_code") || "").trim() || nextInventoryCode();
   const itemName = currentGroup ? currentGroup.person_name : String(fd.get("item_name") || "").trim();
@@ -7643,7 +8205,8 @@ async function saveGoodsBought(form){
         itemDescription,
         itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(itemCategory),
-        transactionType: "PURCHASE"
+        transactionType: "PURCHASE",
+        ...taxMetaFromBreakdown(purchaseTax)
       })
     };
     saveEntriesImmediately(payload, { label: "Inventory purchase" });
@@ -7666,7 +8229,8 @@ async function saveGoodsBought(form){
         itemDescription,
         itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(itemCategory),
-        transactionType: "ITEM"
+        transactionType: "ITEM",
+        ...taxMetaFromBreakdown(purchaseTax)
       })
     };
     saveEntriesImmediately(payload, { label: "Inventory item" });
@@ -7745,7 +8309,10 @@ async function saveGoodsSold(form){
     if ((requestedQtyByGroup.get(line.groupId) || soldQty) > remainingQty){
       throw new Error(`Only ${inventoryQtyLabel(remainingQty, itemCategory)} left for ${principalEntry.person_name}.`);
     }
-    const lineTotal = soldPrice * soldQty;
+    const fallbackTax = calculateTaxBreakdown(soldPrice * soldQty, line.taxRate, line.taxMode, line.taxApplied);
+    const lineNet = Number.isFinite(Number(line.netAmount)) && Number(line.netAmount) > 0 ? Number(line.netAmount) : fallbackTax.net;
+    const lineTax = Number.isFinite(Number(line.taxAmount)) ? Number(line.taxAmount) : fallbackTax.tax;
+    const lineTotal = Number.isFinite(Number(line.grossAmount)) && Number(line.grossAmount) > 0 ? Number(line.grossAmount) : fallbackTax.total;
     return {
       ...line,
       principalEntry,
@@ -7753,6 +8320,8 @@ async function saveGoodsSold(form){
       itemCategory,
       soldQty,
       soldPrice,
+      lineNet,
+      lineTax,
       lineTotal,
       currency: principalEntry.currency
     };
@@ -7807,7 +8376,15 @@ async function saveGoodsSold(form){
         transactionType: "SALE",
         paidAmount: linePaid,
         balanceAmount: lineBalance,
-        paymentStatus: receiptPaymentStatus
+        paymentStatus: receiptPaymentStatus,
+        ...taxMetaFromBreakdown({
+          applied: line.taxApplied,
+          rate: line.taxRate,
+          mode: line.taxMode,
+          tax: line.lineTax,
+          net: line.lineNet,
+          total: line.lineTotal
+        })
       })
     };
   });
@@ -8056,10 +8633,52 @@ function openEditModal(id) {
     document.getElementById('editDate').value = entry.action_date || "";
   }
   document.getElementById('editNotes').value = entry.notes || "";
+  syncEditTaxControls(entry);
 
   els.editModal.classList.remove("hide");
   els.editModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+}
+
+function syncEditTaxControls(entry) {
+  const group = document.getElementById("editTaxGroup");
+  if (!group) return;
+  const amount = Number(entry.entry_kind === "principal" ? entry.principal_amount : entry.action_amount || 0);
+  const isExpense = hasExpenseAccountTag(entry.notes) && expenseMetaFromNotes(entry.notes).rowType === "EXPENSE";
+  const isGoods = hasGoodsTag(entry.notes);
+  const show = isGoods || isExpense;
+  group.classList.toggle("hide", !show);
+  if (!show) return;
+  const meta = isGoods ? goodsMetaFromNotes(entry.notes) : expenseMetaFromNotes(entry.notes);
+  const defaults = getTaxSettingForCurrency(entry.currency || "AED");
+  const rate = meta.taxRate != null ? normalizeTaxRate(meta.taxRate) : defaults.rate;
+  const mode = meta.taxMode ? normalizeTaxMode(meta.taxMode) : defaults.mode;
+  const applied = meta.taxApplied || rate > 0 || Number(meta.taxAmount || 0) > 0;
+  document.getElementById("editTaxApplied").checked = applied;
+  document.getElementById("editTaxRate").value = rate ? trimInventoryNumber(rate, 2) : "";
+  document.getElementById("editTaxMode").value = mode;
+  updateEditTaxPreview(amount, entry.currency || "AED");
+}
+
+function updateEditTaxPreview(amountValue = null, currencyValue = null) {
+  const preview = document.getElementById("editTaxPreview");
+  if (!preview || document.getElementById("editTaxGroup")?.classList.contains("hide")) return;
+  const entry = state.entries.find(e => e.id === state.editId);
+  const amount = amountValue != null ? Number(amountValue || 0) : Number(document.getElementById("editAmount")?.value || 0);
+  const currency = currencyValue || entry?.currency || "AED";
+  const applied = !!document.getElementById("editTaxApplied")?.checked;
+  const rate = normalizeTaxRate(document.getElementById("editTaxRate")?.value);
+  const mode = normalizeTaxMode(document.getElementById("editTaxMode")?.value);
+  preview.textContent = formatTaxSummary(calculateTaxBreakdownFromGross(amount, rate, mode, applied), currency);
+}
+
+function getEditTaxMeta(entry, amount) {
+  const group = document.getElementById("editTaxGroup");
+  if (!group || group.classList.contains("hide")) return {};
+  const applied = !!document.getElementById("editTaxApplied")?.checked;
+  const rate = normalizeTaxRate(document.getElementById("editTaxRate")?.value);
+  const mode = normalizeTaxMode(document.getElementById("editTaxMode")?.value);
+  return taxMetaFromBreakdown(calculateTaxBreakdownFromGross(amount, rate, mode, applied));
 }
 
 function closeModal(modalId){
@@ -8227,7 +8846,8 @@ async function submitEdit(){
       updatedNotes = upsertGoodsMetaInNote(nt, {
         ...currentMeta,
         boughtQty: currentBoughtQty,
-        unitActualPrice: newUnitActualPrice
+        unitActualPrice: newUnitActualPrice,
+        ...getEditTaxMeta(currentEntry, amt)
       });
     } else if (hasExpenseAccountTag(currentEntry.notes)) {
       updatedNotes = upsertExpenseMetaInNote(nt, { ...expenseMetaFromNotes(currentEntry.notes), rowType: "ACCOUNT" });
@@ -8258,11 +8878,15 @@ async function submitEdit(){
       editedNotes = upsertGoodsMetaInNote(nt, {
         ...currentMeta,
         soldQty: currentSoldQty,
-        unitSoldPrice: newUnitSoldPrice
+        unitSoldPrice: newUnitSoldPrice,
+        ...getEditTaxMeta(currentEntry, amt)
       });
     } else if (hasExpenseAccountTag(currentEntry.notes)) {
       const expenseMeta = expenseMetaFromNotes(currentEntry.notes);
-      editedNotes = upsertExpenseMetaInNote(nt, expenseMeta);
+      editedNotes = upsertExpenseMetaInNote(nt, {
+        ...expenseMeta,
+        ...getEditTaxMeta(currentEntry, amt)
+      });
     }
     
     if (isBackupMode()){
@@ -9040,6 +9664,7 @@ function buildSectionReportRows(direction, searchKey){
       .sort((a, b) => dateStamp(a.row.action_date) - dateStamp(b.row.action_date))
       .map(({ row, account }) => {
         const meta = expenseMetaFromNotes(row.notes);
+        const tax = taxBreakdownFromMeta(meta, row.action_amount || 0);
         return [
           meta.itemName || "—",
           displayDate(row.action_date || "—"),
@@ -9288,14 +9913,15 @@ async function downloadGoodsPDF(){
   drawPdfOwnerBlock(doc, 48);
   const totalsByCurrency = goodsAll.reduce((acc, group) => {
     const key = group.currency || "";
-    acc[key] = acc[key] || { purchase: 0, sales: 0, profitLoss: 0 };
+    acc[key] = acc[key] || { purchase: 0, sales: 0, tax: 0, profitLoss: 0 };
     acc[key].purchase += Number(group.bought || 0);
     acc[key].sales += Number(group.soldTotal || 0);
+    acc[key].tax += Number(group.purchaseTaxTotal || 0) + Number(group.salesTaxTotal || 0);
     acc[key].profitLoss += Number(group.profitLoss || 0);
     return acc;
   }, {});
   const totalsText = Object.entries(totalsByCurrency)
-    .map(([currency, row]) => `${currency}: Purchase ${formatReportAmount(row.purchase, currency)} | Sales ${formatReportAmount(row.sales, currency)} | P/L ${formatReportAmount(row.profitLoss, currency)}`)
+    .map(([currency, row]) => `${currency}: Purchase ${formatReportAmount(row.purchase, currency)} | Sales ${formatReportAmount(row.sales, currency)} | VAT ${formatReportAmount(row.tax, currency)} | P/L ${formatReportAmount(row.profitLoss, currency)}`)
     .join("   ");
 
   doc.setFillColor(248, 250, 252);
@@ -9321,27 +9947,29 @@ async function downloadGoodsPDF(){
     inventoryQtyLabel(group.remainingQty, group.itemCategory),
     formatReportAmount(group.bought || 0, group.currency),
     formatReportAmount(group.soldTotal || 0, group.currency),
+    formatReportAmount((group.purchaseTaxTotal || 0) + (group.salesTaxTotal || 0), group.currency),
     formatReportAmount(group.profitLoss || 0, group.currency)
   ]);
 
   doc.autoTable({
     startY: 104,
-    head: [["Item Code", "Item", "Category", "Purchase Qty", "Sold Qty", "In Stock", "Purchase Total", "Sales Total", "P/L"]],
+    head: [["Item Code", "Item", "Category", "Purchase Qty", "Sold Qty", "In Stock", "Purchase Total", "Sales Total", "VAT", "P/L"]],
     body: goodsRows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
     styles: { font: "helvetica", fontSize: 7.5, cellPadding: 2, overflow: "linebreak" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 17 },
-      3: { cellWidth: 18, halign: "right" },
-      4: { cellWidth: 16, halign: "right" },
-      5: { cellWidth: 18, halign: "right" },
-      6: { cellWidth: 20, halign: "right" },
-      7: { cellWidth: 20, halign: "right" },
-      8: { cellWidth: 18, halign: "right" }
+      0: { cellWidth: 19 },
+      1: { cellWidth: 27 },
+      2: { cellWidth: 15 },
+      3: { cellWidth: 17, halign: "right" },
+      4: { cellWidth: 15, halign: "right" },
+      5: { cellWidth: 17, halign: "right" },
+      6: { cellWidth: 19, halign: "right" },
+      7: { cellWidth: 19, halign: "right" },
+      8: { cellWidth: 16, halign: "right" },
+      9: { cellWidth: 18, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -9371,6 +9999,9 @@ function flattenExpenseHistoryItems(items){
         date: tx.date,
         wallet: tx.wallet || "Wallet",
         amount: Number(tx.amount || 0),
+        netAmount: Number(tx.netAmount || 0),
+        taxAmount: Number(tx.taxAmount || 0),
+        taxRate: Number(tx.taxRate || 0),
         notes: cleanExpenseNote(tx.notes)
       });
     }
@@ -9418,10 +10049,12 @@ async function downloadExpenseTransactionsHistoryPDF(){
   const pageWidth = doc.internal.pageSize.getWidth();
   const walletCount = new Set(rows.map(r => r.wallet)).size;
   const currencyTotals = new Map();
+  const currencyTaxTotals = new Map();
   const currencyCounts = new Map();
   for (const r of rows){
     const cur = r.currency || "AED";
     currencyTotals.set(cur, (currencyTotals.get(cur) || 0) + Number(r.amount || 0));
+    currencyTaxTotals.set(cur, (currencyTaxTotals.get(cur) || 0) + Number(r.taxAmount || 0));
     currencyCounts.set(cur, (currencyCounts.get(cur) || 0) + 1);
   }
 
@@ -9444,12 +10077,13 @@ async function downloadExpenseTransactionsHistoryPDF(){
   const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(cur => [
     cur,
     String(currencyCounts.get(cur) || 0),
+    formatPdfAmount(currencyTaxTotals.get(cur) || 0, cur),
     formatPdfAmount(currencyTotals.get(cur) || 0, cur)
   ]);
 
   doc.autoTable({
     startY: 106,
-    head: [["Currency", "Transactions", "Total Spent"]],
+    head: [["Currency", "Transactions", "VAT", "Total Spent"]],
     body: totalsBody,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
@@ -9458,7 +10092,8 @@ async function downloadExpenseTransactionsHistoryPDF(){
     columnStyles: {
       0: { cellWidth: 40 },
       1: { cellWidth: 35, halign: "right" },
-      2: { cellWidth: 55, halign: "right" }
+      2: { cellWidth: 35, halign: "right" },
+      3: { cellWidth: 55, halign: "right" }
     },
     margin: { left: 14, right: 14, top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -9482,12 +10117,13 @@ async function downloadExpenseTransactionsHistoryPDF(){
       tx.wallet || "â€”",
       tx.expenseType || item.expenseType || "Other",
       formatPdfAmount(tx.amount, item.currency),
+      tx.taxAmount ? formatPdfAmount(tx.taxAmount, item.currency) : "-",
       wrapTextForPdf(cleanExpenseNote(tx.notes), 62).split("\n")
     ]);
 
     doc.autoTable({
       startY: y + 13,
-      head: [["Date", "Wallet", "Type", "Amount", "Notes"]],
+      head: [["Date", "Wallet", "Type", "Amount", "VAT", "Notes"]],
       body,
       theme: "grid",
       headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
@@ -9498,7 +10134,8 @@ async function downloadExpenseTransactionsHistoryPDF(){
         1: { cellWidth: 34 },
         2: { cellWidth: 26 },
         3: { cellWidth: 28, halign: "right" },
-        4: { cellWidth: 70 }
+        4: { cellWidth: 24, halign: "right" },
+        5: { cellWidth: 46 }
       },
       margin: { left: 14, right: 14, top: 50, bottom: 40 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -9764,23 +10401,25 @@ async function downloadExpenseItemPDF(itemKey){
   doc.text(`Item: ${targetItem.displayName}`, 132, 48);
   doc.text(`Type: ${targetItem.expenseType || 'Other'}`, 132, 54);
   doc.text(`Transactions: ${targetItem.txs.length}`, 132, 60);
+  doc.text(`VAT: ${formatPdfAmount(targetItem.taxTotal || 0, targetItem.currency)}`, 132, 66);
 
   const rows = targetItem.txs.map(tx => [
     displayDate(tx.date || "—"),
     tx.wallet || "—",
     tx.expenseType || "—",
     formatPdfAmount(tx.amount, targetItem.currency),
+    tx.taxAmount ? formatPdfAmount(tx.taxAmount, targetItem.currency) : "-",
     cleanExpenseNote(tx.notes)
   ]);
 
   doc.autoTable({
-    startY: 72,
-    head: [["Date", "Wallet", "Type", "Amount", "Notes"]],
+    startY: 78,
+    head: [["Date", "Wallet", "Type", "Amount", "VAT", "Notes"]],
     body: rows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 9, cellPadding: 2.5 },
-    columnStyles: { 3: { cellWidth: 30 }, 4: { cellWidth: 60 } },
+    styles: { font: "helvetica", fontSize: 8.4, cellPadding: 2.3, overflow: "linebreak" },
+    columnStyles: { 3: { cellWidth: 30 }, 4: { cellWidth: 24, halign: "right" }, 5: { cellWidth: 46 } },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
@@ -9790,6 +10429,7 @@ async function downloadExpenseItemPDF(itemKey){
   doc.setTextColor(23, 33, 43);
   doc.setFontSize(10);
   doc.text(`Total Amount: ${formatPdfAmount(targetItem.total, targetItem.currency)}`, 14, finalY + 10);
+  doc.text(`Total VAT: ${formatPdfAmount(targetItem.taxTotal || 0, targetItem.currency)}`, 14, finalY + 16);
 
   const fileName = `Expense_${targetItem.displayName.replace(/\s+/g, "_")}_${targetItem.currency}.pdf`;
   doc.save(fileName);
@@ -10711,6 +11351,13 @@ window.addEventListener("resize", () => {
       if (e.target?.matches(".goods-settlement-invoice-check")) updateGoodsSettlementSelectionTotals();
     });
   }
+  if (els.taxSettingsBtn) {
+    els.taxSettingsBtn.addEventListener("click", e => {
+      e.preventDefault();
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      openTaxSettingsModal();
+    });
+  }
   els.expenseAccountForm.addEventListener("submit", async e => {
     e.preventDefault();
     try { await saveExpenseAccount(els.expenseAccountForm); } catch (err) { alert(err.message); }
@@ -10730,6 +11377,7 @@ window.addEventListener("resize", () => {
   });
   els.expenseCurrencySelect.addEventListener("change", () => {
     renderExpenseAccountSelectors();
+    syncExpenseTaxDefaults();
     refreshExpenseItemIntentUi();
   });
   const expenseBtcAddressInput = els.expenseAccountForm?.querySelector('input[name="btc_address"]');
@@ -10763,7 +11411,35 @@ window.addEventListener("resize", () => {
     if (boughtQtyInput) boughtQtyInput.addEventListener("input", updateGoodsBoughtTotal);
     if (boughtCategorySelect) boughtCategorySelect.addEventListener("change", syncGoodsBoughtCategoryFields);
     if (boughtUnitSelect) boughtUnitSelect.addEventListener("change", updateGoodsBoughtTotal);
+    [els.goodsPurchaseTaxApplied, els.goodsPurchaseTaxRate, els.goodsPurchaseTaxMode].forEach(control => {
+      if (!control) return;
+      control.addEventListener("input", () => {
+        els.goodsBoughtForm.dataset.taxManual = "true";
+        updateGoodsBoughtTotal();
+      });
+      control.addEventListener("change", () => {
+        els.goodsBoughtForm.dataset.taxManual = "true";
+        updateGoodsBoughtTotal();
+      });
+    });
   }
+  [els.expenseTaxApplied, els.expenseTaxRate, els.expenseTaxMode, els.expenseEntryForm?.querySelector('[name="amount"]')].forEach(control => {
+    if (!control) return;
+    control.addEventListener("input", () => {
+      if (control !== els.expenseEntryForm?.querySelector('[name="amount"]')) els.expenseEntryForm.dataset.taxManual = "true";
+      updateExpenseTaxPreview();
+    });
+    control.addEventListener("change", () => {
+      if (control !== els.expenseEntryForm?.querySelector('[name="amount"]')) els.expenseEntryForm.dataset.taxManual = "true";
+      updateExpenseTaxPreview();
+    });
+  });
+  ["editAmount", "editTaxApplied", "editTaxRate", "editTaxMode"].forEach(id => {
+    const control = document.getElementById(id);
+    if (!control) return;
+    control.addEventListener("input", () => updateEditTaxPreview());
+    control.addEventListener("change", () => updateEditTaxPreview());
+  });
   if (els.goodsCustomerSelect) {
     els.goodsCustomerSelect.addEventListener("change", syncGoodsCustomerFields);
   }
@@ -11146,6 +11822,7 @@ async function attemptUnlock(options = {}){
 
     // Load the saved page-wide currency before any ledger data is loaded.
     await loadPageCurrencyPreferenceFromDatabase();
+    await loadTaxSettingsPreferenceFromDatabase();
     
     // Update currency filters based on configuration
     updateCurrencyFiltersFromConfig();
@@ -13761,6 +14438,7 @@ async function boot(){
   attachEvents();
   bindLandingAnchorScroll();
   applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
+  loadTaxSettingsPreferenceFromStorage();
   initFloatingCurrencyBackground();
   defaultDateInputs(document);
   const resumedImport = sessionStorage.getItem(IMPORT_SESSION_KEY) === "1";
