@@ -5623,25 +5623,25 @@ async function downloadGoodsItemPDF(groupId){
   doc.autoTable({
     startY: 114,
     head: [["Type", "Date", "Notes/Description", "Qty", "Status", "Net", "VAT", "Paid", "Balance", "Total"]],
-    body: rows.map(row => [row.type, displayDate(row.date || "—"), row.qty, row.amount, row.paid, row.balance, row.status, row.note]),
-    theme: "grid",
-    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 7.2, cellPadding: 1.8, overflow: "linebreak" },
     body: rows.map(row => [row.type, displayDate(row.date || "-"), row.note, row.qty, row.status, row.net || "-", row.vat || "-", row.paid, row.balance, row.amount]),
+    theme: "grid",
+    tableWidth: 170,
+    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+    styles: { font: "helvetica", fontSize: 7.2, cellPadding: 1.8, overflow: "linebreak", cellWidth: "wrap" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 16 },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 38 },
-      3: { cellWidth: 15, halign: "right" },
-      4: { cellWidth: 18 },
-      5: { cellWidth: 18, halign: "right" },
-      6: { cellWidth: 18, halign: "right" },
-      7: { cellWidth: 18, halign: "right" },
-      8: { cellWidth: 19, halign: "right" },
-      9: { cellWidth: 22, halign: "right" }
+      0: { cellWidth: 12, halign: "center" },
+      1: { cellWidth: 14 },
+      2: { cellWidth: 46 },
+      3: { cellWidth: 12, halign: "right" },
+      4: { cellWidth: 14 },
+      5: { cellWidth: 16, halign: "right" },
+      6: { cellWidth: 14, halign: "right" },
+      7: { cellWidth: 14, halign: "right" },
+      8: { cellWidth: 14, halign: "right" },
+      9: { cellWidth: 18, halign: "right" }
     },
-    margin: { top: 50, bottom: 40 },
+    margin: { left: 16, right: 16, top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
   doc.save(`Goods_${String(group.person_name || "item").replace(/\s+/g, "_")}.pdf`);
@@ -7147,7 +7147,27 @@ function renderExpenseHistoryToolbar(transactionCount){
   </div>`;
 }
 
+function getExpenseDetailsOpenState(){
+  if (!els.expensesList) return new Set();
+  const openDetails = new Set();
+  els.expensesList.querySelectorAll("details").forEach(detail => {
+    if (!detail.open) return;
+    const key = detail.dataset.expenseDetailsId || detail.id;
+    if (key) openDetails.add(key);
+  });
+  return openDetails;
+}
+
+function restoreExpenseDetailsOpenState(openDetails){
+  if (!els.expensesList || !openDetails?.size) return;
+  els.expensesList.querySelectorAll("details").forEach(detail => {
+    const key = detail.dataset.expenseDetailsId || detail.id;
+    if (key && openDetails.has(key)) detail.open = true;
+  });
+}
+
 function renderExpensesList(){
+  const openExpenseDetails = getExpenseDetailsOpenState();
   let accounts = getExpenseAccounts();
   let accountsForSections = getExpenseAccounts({ applyUiFilters: false });
   refreshExpenseBtcWallets(accountsForSections);
@@ -7183,7 +7203,7 @@ function renderExpensesList(){
   const topupCurrencies = sortCurrenciesList([...topupByCurrency.keys()]);
 
   if (topupTransactions.length > 0){
-    html += `<details class="expense-collapsible-section" id="topupRecordsSection">
+    html += `<details class="expense-collapsible-section" id="topupRecordsSection" data-expense-details-id="topupRecordsSection">
       <summary class="expense-collapsible-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-money-bill-wave"></i> Top-Up Records</h4>
         <span class="expand-icon">▶</span>
@@ -7196,7 +7216,7 @@ function renderExpensesList(){
       const txs = topupByCurrency.get(cur).slice().sort((a, b) => dateStamp(b.action_date || b.loan_date) - dateStamp(a.action_date || a.loan_date));
       const totalCur = txs.reduce((sum, tx) => sum + Number(tx.action_amount || 0), 0);
       html += `
-      <details class="loan expense-item-row expense-by-currency">
+      <details class="loan expense-item-row expense-by-currency" data-expense-details-id="topup-${escapeHtml(cur)}">
         <summary>
           <div class="loan-top">
             <div class="lt-main">
@@ -7266,7 +7286,7 @@ function renderExpensesList(){
   const transferCurrencies = sortCurrenciesList([...transferCurrencySet]);
 
   if (transferEvents.length > 0 && transferCurrencies.length > 0){
-    html += `<details class="expense-collapsible-section" id="transferRecordsSection">
+    html += `<details class="expense-collapsible-section" id="transferRecordsSection" data-expense-details-id="transferRecordsSection">
       <summary class="expense-collapsible-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transfer Records</h4>
         <span class="expand-icon">▶</span>
@@ -7280,7 +7300,7 @@ function renderExpensesList(){
       if (!rows.length) continue;
       const { sent, received } = transferCurrencyTotals(cur, transferEvents);
       html += `
-      <details class="loan expense-item-row expense-by-currency">
+      <details class="loan expense-item-row expense-by-currency" data-expense-details-id="transfer-${escapeHtml(cur)}">
         <summary>
           <div class="loan-top">
             <div class="lt-main">
@@ -7347,7 +7367,7 @@ function renderExpensesList(){
   
   if (spendAttached.length > 0) {
     const visibleTransactionCount = items.reduce((sum, item) => sum + item.txs.length, 0);
-    html += `<details class="expense-collapsible-section" id="transactionsHistorySection">
+    html += `<details class="expense-collapsible-section" id="transactionsHistorySection" data-expense-details-id="transactionsHistorySection">
       <summary class="expense-collapsible-header expense-history-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-list-ul"></i> Transactions History</h4>
         ${renderExpenseHistoryRangeControls()}
@@ -7356,7 +7376,7 @@ function renderExpensesList(){
       <div class="expense-collapsible-content">
       ${renderExpenseHistoryToolbar(visibleTransactionCount)}`;
     html += items.length ? items.map(item => `
-      <details class="loan expense-item-row">
+      <details class="loan expense-item-row" data-expense-details-id="history-${escapeHtml(item.key)}">
         <summary>
           <div class="loan-top">
             <div class="lt-main">
@@ -7412,6 +7432,8 @@ function renderExpensesList(){
   } else {
     els.expensesList.innerHTML = html;
   }
+
+  restoreExpenseDetailsOpenState(openExpenseDetails);
 
   els.expensesList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   els.expensesList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
