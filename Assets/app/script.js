@@ -350,6 +350,7 @@ const state = {
   dbEntryIds: new Set(),
   dbSignatures: new Set(),
   dbSignaturesById: new Map(),
+  pendingDbSyncIds: new Set(),
   unlocked: false,
   guestMode: false,
   pageCurrency: PAGE_CURRENCY_DEFAULT,
@@ -442,7 +443,6 @@ const els = {
   connectSupabaseBtn: document.getElementById("connectSupabaseBtn"),
   importJsonInput: document.getElementById("importJsonInput"),
   importCsvInput: document.getElementById("importCsvInput"),
-  downloadReportMenuBtn: document.getElementById("downloadReportMenuBtn"),
   downloadAllDataJsonBtn: document.getElementById("downloadAllDataJsonBtn"),
   downloadAllDataCsvBtn: document.getElementById("downloadAllDataCsvBtn"),
   uploadBackupBtn: document.getElementById("uploadBackupBtn"),
@@ -628,6 +628,7 @@ const INVENTORY_NEW_CUSTOMER_VALUE = "__new_customer__";
 const INVENTORY_TX_PURCHASE = "PURCHASE";
 const INVENTORY_TX_SALE = "SALE";
 const INVENTORY_TX_SETTLEMENT = "SETTLEMENT";
+const INVENTORY_TX_CUSTOMER = "CUSTOMER";
 const BACKUP_STORAGE_KEY = "loanledger-json-backup-v1";
 const GUEST_BACKUP_STORAGE_KEY = "loanledger-guest-json-backup-v1";
 const RECYCLE_BIN_STORAGE_KEY = "loanledger-recycle-bin-v1";
@@ -705,6 +706,115 @@ function saveGuestBitcoinWalletsToStorage(){
   clearGuestStorageArtifacts();
 }
 
+function ensureGuestRestrictionOverlay(){
+  let overlay = document.getElementById("guestRestrictionOverlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "guestRestrictionOverlay";
+  overlay.className = "guest-restriction-overlay hide";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.innerHTML = `
+    <div class="guest-restriction-dialog">
+      <div class="guest-restriction-icon"><i class="fa-solid fa-lock"></i></div>
+      <div class="guest-restriction-copy">
+        <h3 id="guestRestrictionTitle">Full access required</h3>
+        <p id="guestRestrictionMessage">This feature is not available in Guest Mode.</p>
+        <a class="guest-restriction-contact" href="https://wa.me/923339004564" target="_blank" rel="noopener">
+          <i class="fa-brands fa-whatsapp"></i>
+          <span>To get full access contact +923339004564</span>
+        </a>
+      </div>
+      <button class="btn primary guest-restriction-ok" type="button">OK</button>
+    </div>
+  `;
+  const closeOverlay = () => {
+    overlay.classList.add("hide");
+    document.body.style.overflow = "";
+  };
+  overlay.querySelector(".guest-restriction-ok")?.addEventListener("click", closeOverlay);
+  overlay.addEventListener("click", event => {
+    if (event.target === overlay) closeOverlay();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !overlay.classList.contains("hide")) closeOverlay();
+  });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function showGuestRestrictionOverlay(kind = "feature"){
+  const overlay = ensureGuestRestrictionOverlay();
+  const title = overlay.querySelector("#guestRestrictionTitle");
+  const message = overlay.querySelector("#guestRestrictionMessage");
+  if (title) title.textContent = kind === "bitcoin" ? "Bitcoin is locked in Guest Mode" : "Full access required";
+  if (message) {
+    message.textContent = kind === "bitcoin"
+      ? "Bitcoin wallet tools are not available in Guest Mode. Please use a full account to access this section."
+      : "PDFs, statements, reports, invoices, receipts, CSV exports, and JSON exports are not available in Guest Mode.";
+  }
+  overlay.classList.remove("hide");
+  document.body.style.overflow = "hidden";
+  overlay.querySelector(".guest-restriction-ok")?.focus();
+}
+
+function isGuestRestrictedDownloadTarget(target){
+  const control = target?.closest?.("button,a,label,[role='button']");
+  if (!control) return false;
+  if (control.closest("#iosDownloadOverlay, #androidDownloadOverlay")) return false;
+  const restrictedIds = new Set([
+    "downloadAllSectionsPdfBtn",
+    "downloadAllDataJsonBtn",
+    "downloadAllDataCsvBtn",
+    "downloadGivenPdfBtn",
+    "downloadReceivedPdfBtn",
+    "downloadTakenPdfBtn",
+    "downloadReturnedPdfBtn",
+    "downloadExpensesPdfBtn",
+    "inventoryCustomerStatementBtn",
+    "btcDownloadWalletPdfBtn",
+    "btcDownloadPdfBtn"
+  ]);
+  if (control.id && restrictedIds.has(control.id)) return true;
+  if (control.matches([
+    ".soldReceiptBtn",
+    ".invoiceDownloadBtn",
+    ".inventoryOutstandingCustomerPdfBtn",
+    ".inventoryOutstandingCustomerStatementBtn",
+    ".inventoryCustomerInvoicePdfBtn",
+    ".inventoryCustomerReceiptPdfBtn",
+    ".expenseBtcTxPdfBtn",
+    ".btc-download-tx-btn",
+    ".walletDownloadPdfBtn"
+  ].join(","))) return true;
+  if (control.dataset?.action === "pdf") return true;
+  const probe = [
+    control.id,
+    control.className,
+    control.getAttribute("onclick"),
+    control.getAttribute("title"),
+    control.getAttribute("aria-label"),
+    control.textContent
+  ].join(" ");
+  return /\b(download|pdf|statement|report|receipt|csv|json)\b/i.test(probe);
+}
+
+function handleGuestRestrictedClick(event){
+  if (!isGuestMode()) return;
+  const bitcoinTab = event.target.closest?.('.tab[data-tab="bitcoin"]');
+  if (bitcoinTab) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showGuestRestrictionOverlay("bitcoin");
+    return;
+  }
+  if (isGuestRestrictedDownloadTarget(event.target)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showGuestRestrictionOverlay("download");
+  }
+}
+
 function updateGuestModeUi(){
   if (els.guestModeBanner) {
     els.guestModeBanner.classList.toggle("hide", !isGuestMode());
@@ -714,7 +824,9 @@ function updateGuestModeUi(){
   }
   const guest = isGuestMode();
   const realLoginOnlyControls = [
-    els.downloadReportMenuBtn,
+    els.downloadAllSectionsPdfBtn,
+    els.downloadAllDataJsonBtn,
+    els.downloadAllDataCsvBtn,
     document.querySelector('label[for="importJsonInput"]'),
     document.querySelector('label[for="importCsvInput"]'),
     els.importJsonInput,
@@ -727,7 +839,7 @@ function updateGuestModeUi(){
   });
   const bitcoinTab = document.querySelector('.tab[data-tab="bitcoin"]');
   if (bitcoinTab) {
-    bitcoinTab.disabled = guest;
+    bitcoinTab.disabled = false;
     bitcoinTab.classList.toggle("guest-disabled", guest);
     bitcoinTab.setAttribute("aria-disabled", guest ? "true" : "false");
   }
@@ -1100,7 +1212,9 @@ function renderPageCurrencySelector() {
   const isAllSelected = isPageCurrencyAll();
   const labelText = isAllSelected ? PAGE_CURRENCY_DEFAULT : selectedCurrencies.join("+");
   if (els.pageCurrencyLabel) {
-    els.pageCurrencyLabel.textContent = labelText;
+    els.pageCurrencyLabel.innerHTML = isAllSelected
+      ? PAGE_CURRENCY_DEFAULT
+      : selectedCurrencies.map(currency => currencySymbolHtml(currency)).join("");
   }
   if (els.pageCurrencyBtn) {
     els.pageCurrencyBtn.title = `Page Currency: ${labelText}`;
@@ -1818,6 +1932,79 @@ async function supabase(path, options = {}){
   return data;
 }
 
+function asEntryArray(entryOrEntries){
+  return Array.isArray(entryOrEntries) ? entryOrEntries : [entryOrEntries];
+}
+
+function withLocalEntryIdentity(entry, timestamp = new Date().toISOString()){
+  return {
+    ...entry,
+    id: entry?.id || crypto.randomUUID(),
+    created_at: entry?.created_at || timestamp
+  };
+}
+
+function databaseInsertPayload(entry){
+  const row = sanitizeEntryForSupabase(entry);
+  if (entry?.id) row.id = entry.id;
+  if (entry?.created_at) row.created_at = entry.created_at;
+  return row;
+}
+
+function markDbSnapshotRows(rows){
+  asEntryArray(rows).forEach(row => {
+    if (!row?.id) return;
+    const signature = entrySignature(row);
+    state.dbEntryIds.add(row.id);
+    state.dbSignatures.add(signature);
+    state.dbSignaturesById.set(row.id, signature);
+  });
+}
+
+function unmarkDbSnapshotRows(rows){
+  asEntryArray(rows).forEach(row => {
+    if (!row?.id) return;
+    state.dbEntryIds.delete(row.id);
+    state.dbSignatures.delete(entrySignature(row));
+    state.dbSignaturesById.delete(row.id);
+  });
+}
+
+function queueDatabaseInsert(rows, label = "Entry"){
+  if (isBackupMode()) return;
+  const localRows = asEntryArray(rows);
+  localRows.forEach(row => row?.id && state.pendingDbSyncIds.add(row.id));
+  const payload = localRows.map(databaseInsertPayload);
+  const body = payload.length === 1 ? payload[0] : payload;
+
+  supabase(CONFIG.table, { method: "POST", body: JSON.stringify(body) })
+    .then(() => {
+      markDbSnapshotRows(localRows);
+    })
+    .catch(err => {
+      unmarkDbSnapshotRows(localRows);
+      console.error(`${label} database sync failed.`, err);
+      alert(`${label} was added on this screen, but database sync failed. It will remain visible here and can be saved again when the connection improves.`);
+    })
+    .finally(() => {
+      localRows.forEach(row => row?.id && state.pendingDbSyncIds.delete(row.id));
+      renderAll();
+    });
+}
+
+function saveEntriesImmediately(entryOrEntries, options = {}){
+  const timestamp = new Date().toISOString();
+  const rows = asEntryArray(entryOrEntries).map(entry => withLocalEntryIdentity(entry, timestamp));
+  state.entries.unshift(...rows);
+  if (isBackupMode()) {
+    refreshBackupView();
+  } else {
+    queueDatabaseInsert(rows, options.label || (rows.length === 1 ? "Entry" : "Entries"));
+    renderAll();
+  }
+  return Array.isArray(entryOrEntries) ? rows : rows[0];
+}
+
 function currencySymbol(currency){
   return currency === "AED" ? "~" : 
          currency === "SAR" ? "$" : 
@@ -2152,7 +2339,7 @@ function expenseOverviewWalletCardHtml(a){
     : "";
   const actions = isBtcLive
     ? `
-        <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+        <button class="tiny ghost walletDownloadPdfBtn" title="Download wallet transactions PDF" aria-label="Download wallet transactions PDF" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
         <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
         <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
       `
@@ -2160,7 +2347,7 @@ function expenseOverviewWalletCardHtml(a){
         <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
         <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
         <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
-        <button class="tiny ghost" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
+        <button class="tiny ghost walletDownloadPdfBtn" title="Download wallet transactions PDF" aria-label="Download wallet transactions PDF" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
         <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
         <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
       `;
@@ -2776,11 +2963,15 @@ function inferGoodsActionType(entry){
 
 function isInventorySaleAction(entry){
   const type = inferGoodsActionType(entry);
-  return type !== INVENTORY_TX_PURCHASE && type !== INVENTORY_TX_SETTLEMENT;
+  return type === INVENTORY_TX_SALE;
 }
 
 function isInventorySettlementAction(entry){
   return inferGoodsActionType(entry) === INVENTORY_TX_SETTLEMENT;
+}
+
+function isInventoryCustomerOnlyEntry(entry){
+  return hasGoodsTag(entry?.notes) && inferGoodsActionType(entry) === INVENTORY_TX_CUSTOMER;
 }
 
 function getExistingInventoryCodes(){
@@ -3253,7 +3444,7 @@ function renderInventoryOutstandingBanner(){
         searchText: `${record.customerName || name} ${invoiceSearch} ${record.contact.phone || ""} ${record.contact.address || ""}`
       };
     })
-    .filter(member => member.invoiceCount > 0)
+    .filter(member => member.name)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return `
@@ -3312,13 +3503,13 @@ function renderInventoryOutstandingBanner(){
           <details class="inventory-outstanding-member search-only hide" data-search-only="true" data-search="${escapeHtml(member.searchText)}">
             <summary>
               <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
-              <strong>${escapeHtml(member.invoiceCount)} paid invoice${member.invoiceCount === 1 ? "" : "s"}</strong>
+              <strong>${member.invoiceCount ? `${escapeHtml(member.invoiceCount)} paid invoice${member.invoiceCount === 1 ? "" : "s"}` : "Customer record"}</strong>
             </summary>
             <div class="inventory-outstanding-list">
               <div class="inventory-outstanding-row">
                 <div class="inventory-outstanding-main">
                   <strong>Customer statement</strong>
-                  <span>Open this customer to check payment records and invoices.</span>
+                  <span>${member.invoiceCount ? "Open this customer to check payment records and invoices." : "Open this customer record before creating an invoice."}</span>
                 </div>
                 <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency) || "0")}</strong></div>
                 <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency) || "0")}</strong></div>
@@ -3640,7 +3831,14 @@ function getInventoryCustomerRecord(customerName){
 
 function renderInventoryCustomerRecord(record){
   if (!record.invoices.length){
-    return `<div class="empty">No inventory records found for this customer.</div>`;
+    return `
+      <div class="inventory-customer-contact">
+        <span><strong>Bill To:</strong> ${escapeHtml(record.customerName)}</span>
+        ${record.contact.phone ? `<span><strong>Phone:</strong> ${escapeHtml(record.contact.phone)}</span>` : ""}
+        ${record.contact.address ? `<span><strong>Address:</strong> ${escapeHtml(record.contact.address)}</span>` : ""}
+      </div>
+      <div class="empty">No inventory invoices found for this customer.</div>
+    `;
   }
   return `
     <div class="inventory-customer-summary">
@@ -4262,21 +4460,14 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                 </tr>
               </thead>
               <tbody>
-                ${group.rows.map((row, index) => `
+                ${group.rows.map(row => `
                   <tr>
                     <td>${escapeHtml(displayDate(row.date))}</td>
                     <td><span class="badge ${row.kind === "principal" ? "blue" : row.kind === "partial" ? "orange" : "green"}">${row.kind === "principal" ? "Principal" : row.kind === "partial" ? "Partial" : "Full"}</span></td>
                     <td>${money(row.amount, group.currency)}</td>
                     <td><strong>${money(row.remainingAfter, group.currency)}</strong></td>
-                    <td>
-                      <div class="note-wrap">
-                        <button type="button" class="note-toggle" data-note-toggle style="color:var(--primary);cursor:pointer;font-weight:600;font-size:.72rem;line-height:1.1;background:none;border:none;padding:0;font-family:inherit;">Note ▾</button>
-                        <div class="hide note-popover" style="margin-top:4px;padding:6px;background:var(--bg);border-radius:6px;font-size:.76rem;">
-                          <button class="note-close" type="button" data-note-close aria-label="Close note">×</button>
-                          ${escapeHtml(row.note)}
-                          <div style="color:var(--muted);font-size:.7rem;margin-top:3px">${index === 0 ? "Opening row" : `Linked ${escapeHtml(shortId(row.entryId))}`}</div>
-                        </div>
-                      </div>
+                    <td class="loan-note-cell">
+                      <span class="loan-note-inline" title="${escapeHtml(row.note)}">${escapeHtml(row.note)}</span>
                     </td>
                     <td>
                        <div style="display:flex;gap:4px;">
@@ -4695,7 +4886,8 @@ function collectGoodsSaleLines(){
 function getGoodsGroups(options = {}){
   const applyUiFilters = options.applyUiFilters !== false;
   const groups = groupByLoan(getActiveEntries().filter(e =>
-    e.direction === "goods" || (e.direction === "taken" && hasGoodsTag(e.notes))
+    (e.direction === "goods" || (e.direction === "taken" && hasGoodsTag(e.notes))) &&
+    !isInventoryCustomerOnlyEntry(e)
   ))
     .map(group => {
       const principalMeta = goodsMetaFromNotes(group.principal?.notes);
@@ -5734,8 +5926,8 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
               <td class="mono">${escapeHtml(btcShortHash(row.tx.txid))}</td>
               <td>
                 <div class="expense-tx-actions">
-                  <button type="button" class="tiny ghost expenseBtcTxPdfBtn" data-group-id="${escapeHtml(row.account.group_id)}" data-tx-id="${escapeHtml(row.tx.txid)}" title="Download transaction receipt"><i class="fa-solid fa-download"></i> Receipt</button>
-                  <button type="button" class="tiny ghost expenseBtcTxBtn" data-url="${escapeHtml(expenseBtcExplorerUrl(row.tx.txid, row.account.btcNetwork))}">View</button>
+                  <button type="button" class="tiny ghost expenseBtcTxPdfBtn" data-group-id="${escapeHtml(row.account.group_id)}" data-tx-id="${escapeHtml(row.tx.txid)}" title="Download transaction receipt" aria-label="Download transaction receipt"><i class="fa-solid fa-download"></i></button>
+                  <button type="button" class="tiny ghost expenseBtcTxBtn" data-url="${escapeHtml(expenseBtcExplorerUrl(row.tx.txid, row.account.btcNetwork))}" title="View on chain" aria-label="View on chain"><i class="fa-solid fa-link"></i></button>
                 </div>
               </td>
             </tr>
@@ -6034,13 +6226,7 @@ async function saveExpenseAccount(form){
   }
   validateCurrencyForForm(fd);
   if (currency === "BTC") state.expenseWalletFilter = payload.group_id;
-  if (isBackupMode()){
-    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    refreshBackupView();
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    await loadEntriesFromSupabase();
-  }
+  saveEntriesImmediately(payload, { label: "Expense account" });
   closeModal("expenseModal");
 }
 
@@ -6069,13 +6255,7 @@ async function saveExpenseTopup(form){
       rowType: "TOPUP"
     })
   };
-  if (isBackupMode()){
-    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    refreshBackupView();
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    await loadEntriesFromSupabase();
-  }
+  saveEntriesImmediately(payload, { label: "Top-up" });
   
   // Show money added success overlay
   showMoneyAddedSuccessOverlay(principal.person_name, amount, principal.currency);
@@ -6123,17 +6303,15 @@ async function saveExpenseEntry(form){
       expenseType
     })
   };
-  if (isBackupMode()){
-    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    refreshBackupView();
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    await loadEntriesFromSupabase();
-  }
+  saveEntriesImmediately(payload, { label: "Expense" });
   closeModal("expenseModal");
 }
 
 async function downloadExpenseAccountPDF(groupId){
+  if (isGuestMode()){
+    showGuestRestrictionOverlay("download");
+    return;
+  }
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
   if (!account){
     alert("Account not found.");
@@ -7180,7 +7358,7 @@ function activate(tab){
     return;
   }
   if (isGuestMode() && tab === "bitcoin") {
-    alert("Bitcoin is available only after a real login.");
+    showGuestRestrictionOverlay("bitcoin");
     return;
   }
   const targetPanel = document.getElementById(`${tab}Panel`);
@@ -7394,8 +7572,11 @@ function openGoodsModal(mode, options = {}){
     syncGoodsBoughtCategoryFields();
     updateGoodsPurchaseWalletSelector();
   } else {
-    els.goodsModalTitle.textContent = "Create Sales Invoice";
-    els.goodsModalDesc.textContent = "Select customer, choose one or more items, and save one invoice.";
+    const addingCustomerOnly = options.addCustomer && !options.groupId;
+    els.goodsModalTitle.textContent = addingCustomerOnly ? "Add Customer" : "Create Sales Invoice";
+    els.goodsModalDesc.textContent = addingCustomerOnly
+      ? "Save customer details now, or choose items if you also want to create an invoice."
+      : "Select customer, choose one or more items, and save one invoice.";
     els.goodsSoldForm.reset();
     if (els.goodsReceiptNumber) els.goodsReceiptNumber.value = nextInvoiceNumber();
     if (els.goodsSalePaidAmount) {
@@ -7465,11 +7646,7 @@ async function saveGoodsBought(form){
         transactionType: "PURCHASE"
       })
     };
-    if (isBackupMode()){
-      state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    } else {
-      await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    }
+    saveEntriesImmediately(payload, { label: "Inventory purchase" });
   } else {
     const payload = {
       group_id: crypto.randomUUID(),
@@ -7492,17 +7669,39 @@ async function saveGoodsBought(form){
         transactionType: "ITEM"
       })
     };
-    if (isBackupMode()){
-      state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    } else {
-      await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    }
+    saveEntriesImmediately(payload, { label: "Inventory item" });
   }
   if (walletId) {
     await createWalletEntryForInventory(walletId, totalActualPrice, boughtDate, currency, "purchase", { itemName, itemCode });
   }
-  if (isBackupMode()) refreshBackupView();
-  else await loadEntriesFromSupabase();
+  closeModal("goodsModal");
+}
+
+function saveInventoryCustomerOnly(form, customerName, customerContact, fd){
+  const today = String(fd.get("sold_date") || "") || todayISO();
+  const allowedCurrencies = getPageScopedCurrencies();
+  const currency = allowedCurrencies.includes(state.lastCurrency)
+    ? state.lastCurrency
+    : (allowedCurrencies[0] || "AED");
+  const payload = {
+    group_id: crypto.randomUUID(),
+    direction: "taken",
+    entry_kind: "partial",
+    person_name: customerName,
+    currency,
+    principal_amount: null,
+    action_amount: 0,
+    loan_date: today,
+    action_date: today,
+    notes: upsertGoodsMetaInNote(normalizeGoodsNote("Customer record", true), {
+      customerName,
+      customerPhone: customerContact.phone,
+      customerAddress: customerContact.address,
+      transactionType: INVENTORY_TX_CUSTOMER
+    })
+  };
+  saveEntriesImmediately(payload, { label: "Customer" });
+  form.reset();
   closeModal("goodsModal");
 }
 
@@ -7518,8 +7717,11 @@ async function saveGoodsSold(form){
   const saleLines = collectGoodsSaleLines();
   const requestedQtyByGroup = new Map();
   if (!customerName) throw new Error("Customer name is required.");
+  if (!saleLines.length) {
+    saveInventoryCustomerOnly(form, customerName, customerContact, fd);
+    return;
+  }
   if (!soldDate) throw new Error("Sold date is required.");
-  if (!saleLines.length) throw new Error("Add at least one item to this invoice.");
   for (const line of saleLines){
     requestedQtyByGroup.set(line.groupId, (requestedQtyByGroup.get(line.groupId) || 0) + Number(line.qty || 0));
   }
@@ -7609,18 +7811,10 @@ async function saveGoodsSold(form){
       })
     };
   });
-  if (isBackupMode()){
-    payloads.slice().reverse().forEach(payload => {
-      state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    });
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payloads) });
-  }
+  saveEntriesImmediately(payloads, { label: "Sales invoice" });
   if (walletId) {
     await createWalletEntryForInventory(walletId, receiptPaidTotal, soldDate, saleCurrency, "sale", { customerName, receiptNumber });
   }
-  if (isBackupMode()) refreshBackupView();
-  else await loadEntriesFromSupabase();
   closeModal("goodsModal");
 }
 
@@ -7831,15 +8025,7 @@ async function saveGoodsSettlement(form){
   if (!payloads.length) throw new Error("No outstanding balance found for the selected invoice(s).");
   if (remainingSettlement.amount > 0.00000001) throw new Error("Settlement amount exceeds the current outstanding balance.");
 
-  if (isBackupMode()){
-    payloads.slice().reverse().forEach(payload => {
-      state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-    });
-    refreshBackupView();
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payloads) });
-    await loadEntriesFromSupabase();
-  }
+  saveEntriesImmediately(payloads, { label: "Settlement" });
   state.inventoryDraft.settlement = null;
   closeModal("goodsSettlementModal");
 }
@@ -7923,15 +8109,7 @@ async function createPrincipal(form){
     }
   }
 
-  if (isBackupMode()){
-    state.entries.unshift({
-      ...payload,
-      id: crypto.randomUUID(),
-      created_at: new Date().toISOString()
-    });
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-  }
+  saveEntriesImmediately(payload, { label: "Loan" });
 
   // Create linked wallet entry
   if (walletId) {
@@ -7942,8 +8120,6 @@ async function createPrincipal(form){
   setCurrencyChoice(form, "AED");
   defaultDateInputs(form);
   closeModal("entryModal");
-  if (isBackupMode()) refreshBackupView();
-  else await loadEntriesFromSupabase();
 }
 
 async function createPayment(form){
@@ -8009,14 +8185,7 @@ async function createPayment(form){
 
   if(payloads.length === 0) throw new Error("Please fill out amount and date.");
 
-  if (isBackupMode()){
-    const now = new Date().toISOString();
-    payloads.forEach(p => {
-      state.entries.unshift({ ...p, id: crypto.randomUUID(), created_at: now });
-    });
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payloads) });
-  }
+  saveEntriesImmediately(payloads, { label: "Payment" });
 
   // Create linked wallet entries for each payment row
   if (walletId) {
@@ -8029,8 +8198,6 @@ async function createPayment(form){
   els.multiEntryCount.value = 1;
   renderMultiEntries(1);
   closeModal("entryModal");
-  if (isBackupMode()) refreshBackupView();
-  else await loadEntriesFromSupabase();
 }
 
 async function submitEdit(){
@@ -9821,16 +9988,7 @@ async function saveTransfer(form) {
     notes: upsertExpenseMetaInNote(receiveNote, { rowType: "TOPUP" })
   };
   
-  if (isBackupMode()) {
-    const now = new Date().toISOString();
-    state.entries.unshift({ ...expensePayload, id: crypto.randomUUID(), created_at: now });
-    state.entries.unshift({ ...topupPayload, id: crypto.randomUUID(), created_at: now });
-    refreshBackupView();
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(expensePayload) });
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(topupPayload) });
-    await loadEntriesFromSupabase();
-  }
+  saveEntriesImmediately([expensePayload, topupPayload], { label: "Transfer" });
   
   // Show transfer success overlay
   showTransferSuccessOverlay(fromAccount, toAccount, amount, fromAccount.currency);
@@ -10197,6 +10355,7 @@ function getUnsyncedEntriesForPerson(personName, direction){
   return state.entries.filter(entry => {
     if (entry.direction !== direction) return false;
     if (String(entry.person_name || "").trim() !== personName) return false;
+    if (entry.id && state.pendingDbSyncIds.has(entry.id)) return false;
     const signature = entrySignature(entry);
     const byId = entry.id && state.dbEntryIds.has(entry.id);
     if (byId){
@@ -10327,6 +10486,8 @@ function attachEvents(){
     document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
     document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
   };
+
+  document.addEventListener("click", handleGuestRestrictedClick, true);
 
   document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", () => {
     if (btn.dataset.tab) activate(btn.dataset.tab);
@@ -10841,6 +11002,7 @@ function startGuestMode(){
   state.dbEntryIds = new Set();
   state.dbSignatures = new Set();
   state.dbSignaturesById = new Map();
+  state.pendingDbSyncIds = new Set();
   state.hasImportedFile = false;
   sessionStorage.removeItem(IMPORT_SESSION_KEY);
 
@@ -10877,6 +11039,7 @@ function doLogout(){
   state.secretPinPreferenceId = null;
   state.secretPinHash = "";
   state.secretPinVerified = false;
+  state.pendingDbSyncIds = new Set();
   applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
   renderSecretPinMenu();
   if (!wasGuestMode) {
@@ -10968,6 +11131,7 @@ async function attemptUnlock(options = {}){
       supabaseKey: String(configData.supabaseKey).trim()
     };
     state.currentUsername = safeUser;
+    state.pendingDbSyncIds = new Set();
     // Store full config data for PDF generation and logo usage
     fullConfigData = configData;
     
@@ -11180,11 +11344,7 @@ async function createWalletEntryForInventory(walletGroupId, amount, date, curren
     })
   };
 
-  if (isBackupMode()) {
-    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-  }
+  saveEntriesImmediately(payload, { label: "Wallet entry" });
 }
 
 async function createWalletEntryForLoanPrincipal(walletGroupId, amount, date, personName, direction, currency) {
@@ -11220,11 +11380,7 @@ async function createWalletEntryForLoanPrincipal(walletGroupId, amount, date, pe
     })
   };
 
-  if (isBackupMode()) {
-    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-  }
+  saveEntriesImmediately(payload, { label: "Wallet entry" });
 }
 
 async function createWalletEntryForPayment(walletGroupId, amount, date, personName, direction, currency) {
@@ -11260,11 +11416,7 @@ async function createWalletEntryForPayment(walletGroupId, amount, date, personNa
     })
   };
 
-  if (isBackupMode()) {
-    state.entries.unshift({ ...payload, id: crypto.randomUUID(), created_at: new Date().toISOString() });
-  } else {
-    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-  }
+  saveEntriesImmediately(payload, { label: "Wallet entry" });
 }
 
 // Bitcoin Wallet Functions
@@ -11832,13 +11984,13 @@ function btcRenderHistory() {
           <strong class="mono">${escapeHtml(btcShortHash(tx.txid))}</strong>
         </div>
         <div class="cell">
-          <button class="btn ghost btc-download-tx-btn" data-tx-id="${escapeHtml(tx.txid)}" title="Download Transaction PDF" style="padding: 4px 8px; font-size: 0.8rem;">
+          <button class="btn ghost btc-download-tx-btn" data-tx-id="${escapeHtml(tx.txid)}" title="Download receipt" aria-label="Download receipt" style="padding: 4px 8px; font-size: 0.8rem;">
             <i class="fa-solid fa-download"></i>
           </button>
         </div>
         <div class="cell">
-          <button class="btn ghost btc-view-on-chain-btn" data-tx-id="${escapeHtml(tx.txid)}" title="View on Chain" style="padding: 4px 8px; font-size: 0.8rem;">
-            View on chain
+          <button class="btn ghost btc-view-on-chain-btn" data-tx-id="${escapeHtml(tx.txid)}" title="View on Chain" aria-label="View on Chain" style="padding: 4px 8px; font-size: 0.8rem;">
+            <i class="fa-solid fa-link"></i>
           </button>
         </div>
       </div>
@@ -12078,13 +12230,13 @@ async function btcRenderMoreTransactions(startIndex, count) {
           <strong class="mono">${escapeHtml(btcShortHash(tx.txid))}</strong>
         </div>
         <div class="cell">
-          <button class="btn ghost btc-download-tx-btn" data-tx-id="${escapeHtml(tx.txid)}" title="Download Transaction PDF" style="padding: 4px 8px; font-size: 0.8rem;">
+          <button class="btn ghost btc-download-tx-btn" data-tx-id="${escapeHtml(tx.txid)}" title="Download receipt" aria-label="Download receipt" style="padding: 4px 8px; font-size: 0.8rem;">
             <i class="fa-solid fa-download"></i>
           </button>
         </div>
         <div class="cell">
-          <button class="btn ghost btc-view-on-chain-btn" data-tx-id="${escapeHtml(tx.txid)}" title="View on Chain" style="padding: 4px 8px; font-size: 0.8rem;">
-            View on chain
+          <button class="btn ghost btc-view-on-chain-btn" data-tx-id="${escapeHtml(tx.txid)}" title="View on Chain" aria-label="View on Chain" style="padding: 4px 8px; font-size: 0.8rem;">
+            <i class="fa-solid fa-link"></i>
           </button>
         </div>
       </div>
