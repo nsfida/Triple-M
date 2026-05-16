@@ -86,6 +86,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="Assets/style/styles.css" />
 </head>
@@ -787,14 +788,14 @@
           <span class="coin coin-b"></span>
         </div>
         <div class="menu-wrap page-currency-wrap">
-          <button class="btn ghost menu-trigger page-currency-trigger" id="pageCurrencyBtn" type="button" data-entry-menu="page-currency" aria-haspopup="menu" aria-expanded="false" title="Page Currency">
+          <button class="btn ghost menu-trigger page-currency-trigger top-icon-btn" id="pageCurrencyBtn" type="button" data-entry-menu="page-currency" aria-haspopup="menu" aria-expanded="false" title="Page Currency">
             <i class="fa-solid fa-money-bill-wave"></i>
-            <span id="pageCurrencyLabel">ALL</span>
+            <span id="pageCurrencyLabel" class="sr-only">ALL</span>
           </button>
           <div class="menu-dropdown page-currency-dropdown" data-entry-menu-panel="page-currency" id="pageCurrencyDropdown"></div>
         </div>
         <div class="menu-wrap">
-          <button class="btn ghost menu-trigger" id="recycleBinBtn" type="button" data-entry-menu="recyclebin" aria-haspopup="menu" aria-expanded="false" title="Recycle Bin">
+          <button class="btn ghost menu-trigger top-icon-btn" id="recycleBinBtn" type="button" data-entry-menu="recyclebin" aria-haspopup="menu" aria-expanded="false" title="Recycle Bin">
             <i class="fa-solid fa-trash-can"></i>
           </button>
           <span id="recycleBinCount" class="recycle-bin-count">0</span>
@@ -814,19 +815,23 @@
             <div class="recycle-bin-items"></div>
           </div>
         </div>
-        <button class="btn ghost" id="refreshBtn" type="button" title="Refresh">↻</button>
+        <button class="btn ghost top-icon-btn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
         <div class="menu-wrap">
-          <button class="btn ghost menu-trigger" id="accountMenuBtn" type="button" data-entry-menu="account" aria-haspopup="menu" aria-expanded="false" title="Account">
-            User
+          <button class="btn ghost menu-trigger top-icon-btn" id="accountMenuBtn" type="button" data-entry-menu="account" aria-haspopup="menu" aria-expanded="false" title="Account" aria-label="Account menu">
+            <i class="fa-solid fa-user"></i>
           </button>
           <div class="menu-dropdown account-menu-dropdown" data-entry-menu-panel="account">
+            <div class="account-menu-user">
+              <i class="fa-solid fa-user"></i>
+              <span id="accountMenuUserName">User</span>
+            </div>
             <button type="button" class="menu-item" id="downloadAllSectionsPdfBtn"><i class="fa-solid fa-file-pdf"></i> Download Full Report</button>
             <button type="button" class="menu-item" id="downloadAllDataJsonBtn"><i class="fa-solid fa-file-code"></i> Download JSON</button>
             <button type="button" class="menu-item" id="downloadAllDataCsvBtn"><i class="fa-solid fa-file-csv"></i> Download CSV</button>
-            <label class="menu-item file-import-btn" for="importJsonInput"><i class="fa-solid fa-file-import"></i> Import JSON</label>
-            <input id="importJsonInput" type="file" accept=".json,application/json" class="file-import-input" />
-            <label class="menu-item file-import-btn" for="importCsvInput"><i class="fa-solid fa-file-import"></i> Import CSV</label>
-            <input id="importCsvInput" type="file" accept=".csv,text/csv" class="file-import-input" />
+            <label class="menu-item file-import-btn" for="importJsonInput"><i class="fa-solid fa-upload"></i> JSON/CSV</label>
+            <input id="importJsonInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
             <button class="menu-item danger hide" id="deleteSmartPinBtn" type="button">Delete Smart Pin</button>
             <button class="menu-item" id="taxSettingsBtn" type="button"><i class="fa-solid fa-percent"></i> VAT Settings</button>
@@ -1363,9 +1368,10 @@
               <!-- Wallet Type Selection -->
               <div style="margin-bottom:12px;">
                 <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet Type</label>
-                <div style="display:flex;gap:8px;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <button id="btcFullWalletBtn" class="btn primary" style="flex:1;">Full Wallet (WIF)</button>
                   <button id="btcWatchWalletBtn" class="btn ghost" style="flex:1;">Watch Only (Address)</button>
+                  <button id="btcBrainWalletBtn" class="btn ghost" style="flex:1;">Brain Wallet</button>
                 </div>
               </div>
 
@@ -1402,6 +1408,16 @@
                 <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">Watch-only mode allows you to view balance and transactions without private keys. To send, you'll need to provide WIF during transaction.</div>
                 <div class="tools" style="margin-top:8px;">
                   <button id="btcWatchAddressBtn" class="btn primary">Watch Address</button>
+                </div>
+              </div>
+
+              <!-- Brain Wallet Input -->
+              <div id="btcBrainWalletSection" class="hide" style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Brain Wallet Phrase</label>
+                <textarea id="btcBrainWalletInput" class="input" placeholder="Enter brain wallet phrase" style="min-height:80px;"></textarea>
+                <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The phrase is hashed in this browser to derive the wallet. Use only a strong private phrase.</div>
+                <div class="tools" style="margin-top:8px;">
+                  <button id="btcBrainWalletImportBtn" class="btn primary">Load Brain Wallet</button>
                 </div>
               </div>
 
@@ -2522,7 +2538,12 @@
             <!-- WIF Input for Watch-Only Wallets -->
             <div id="btcSendWifSection" class="field w12 hide">
               <label>Private Key (WIF) - Required for signing</label>
-              <textarea id="btcSendWifInput" class="input" placeholder="Enter WIF to sign this transaction" style="min-height:60px;"></textarea>
+              <div class="btc-wif-scan-row">
+                <textarea id="btcSendWifInput" class="input" placeholder="Enter WIF to sign this transaction" style="min-height:60px;"></textarea>
+                <button id="btcScanWifQrBtn" class="btn ghost btc-qr-scan-btn" type="button" title="Scan WIF QR code" aria-label="Scan WIF QR code">
+                  <i class="fa-solid fa-qrcode"></i>
+                </button>
+              </div>
               <div style="margin-top:4px;font-size:.75rem;color:var(--muted);">Private key is used only to sign this transaction and is not stored.</div>
             </div>
             
@@ -2535,6 +2556,30 @@
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIF QR Scanner Modal -->
+  <div id="btcWifQrScannerModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="btcWifQrScannerModal"></div>
+    <div class="modal-dialog btc-qr-scanner-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Scan WIF QR</h3>
+          <p>Point the camera at a QR code containing the private key.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="btcWifQrScannerModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="btc-qr-video-wrap">
+          <video id="btcWifQrVideo" autoplay muted playsinline></video>
+          <canvas id="btcWifQrCanvas" class="hide"></canvas>
+        </div>
+        <div id="btcWifQrStatus" class="empty">Camera is starting...</div>
+        <div class="modal-footer">
+          <button id="btcWifQrStopBtn" class="btn ghost" type="button" data-close-modal="btcWifQrScannerModal">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
