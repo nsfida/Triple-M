@@ -2325,48 +2325,97 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   return Array.isArray(entryOrEntries) ? rows : rows[0];
 }
 
+const PDF_CURRENCY_MARKERS = Object.freeze({
+  AED: "\u2060",
+  SAR: "\u2061"
+});
+const PDF_CURRENCY_MARKER_PATTERN = /[\u2060\u2061]/g;
+const PDF_CURRENCY_MARKER_TEST_PATTERN = /[\u2060\u2061]/;
+
 function currencySymbol(currency){
-  return currency === "AED" ? "~" : 
-         currency === "SAR" ? "$" : 
-         currency === "PKR" ? "Rs." : 
-         currency === "USD" ? "$" : 
-         currency === "BTC" ? "₿" : 
+  const code = normalizeCurrencyCode(currency);
+  return code === "AED" ? "~" :
+         code === "SAR" ? "$" :
+         code === "PKR" ? "Rs." :
+         code === "USD" ? "$" :
+         code === "BTC" ? "₿" :
          currency || "";
 }
 
+function currencySymbolForPdf(currency){
+  const code = normalizeCurrencyCode(currency);
+  const symbol = currencySymbol(code);
+  return `${PDF_CURRENCY_MARKERS[code] || ""}${symbol}`;
+}
+
+function pdfCurrencyLabel(currency){
+  const code = normalizeCurrencyCode(currency);
+  return code || String(currency || "");
+}
+
+function stripPdfCurrencyMarkers(value){
+  return String(value ?? "").replace(PDF_CURRENCY_MARKER_PATTERN, "");
+}
+
+function hasPdfCurrencyMarkers(value){
+  return PDF_CURRENCY_MARKER_TEST_PATTERN.test(String(value ?? ""));
+}
+
+function currencyDecimals(currency, options = {}){
+  const code = normalizeCurrencyCode(currency);
+  if (code === "BTC") return options.forPdf ? 8 : 6;
+  return 2;
+}
+
+function formatCurrencyAmountText(amount, currency, options = {}){
+  const code = normalizeCurrencyCode(currency);
+  const n = Number(amount || 0);
+  const decimals = Number.isFinite(Number(options.decimals))
+    ? Number(options.decimals)
+    : currencyDecimals(code, options);
+  const formatted = n.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+  const label = options.forPdf ? code : currencySymbol(code);
+  return `${label ? label + " " : ""}${formatted}`.trim();
+}
+
 function currencySymbolHtml(currency){
-  const symbol = currencySymbol(currency);
-  if (currency === "AED") return `<span class="symbol symbol-dirham">${escapeHtml(symbol)}</span>`;
-  if (currency === "SAR") return `<span class="symbol symbol-riyal">${escapeHtml(symbol)}</span>`;
-  if (currency === "USD") return `<span class="symbol symbol-dollar">${escapeHtml(symbol)}</span>`;
-  if (currency === "BTC") return `<span class="symbol symbol-bitcoin">${escapeHtml(symbol)}</span>`;
+  const code = normalizeCurrencyCode(currency);
+  const symbol = currencySymbol(code);
+  if (code === "AED") return `<span class="symbol symbol-dirham">${escapeHtml(symbol)}</span>`;
+  if (code === "SAR") return `<span class="symbol symbol-riyal">${escapeHtml(symbol)}</span>`;
+  if (code === "USD") return `<span class="symbol symbol-dollar">${escapeHtml(symbol)}</span>`;
+  if (code === "BTC") return `<span class="symbol symbol-bitcoin">${escapeHtml(symbol)}</span>`;
   return `<span class="symbol">${escapeHtml(symbol)}</span>`;
 }
 
-function currencyFontClass(currency){
-  if (currency === "SAR") return "currency-font-sar";
-  if (currency === "USD") return "currency-font-usd";
+function currencyFontClass(currency, sampleText = ""){
+  const code = normalizeCurrencyCode(currency);
+  if (code === "AED") return "currency-font-aed";
+  if (code === "SAR") return "currency-font-sar";
+  if (code === "USD") return "currency-font-usd";
+  if (!code && /[~$]/.test(String(sampleText || ""))) return "currency-font-mixed";
   return "currency-font-normal";
 }
 
 function applyCurrencyFontClass(element, currency){
   if (!element) return;
-  element.classList.remove("currency-font-sar", "currency-font-usd", "currency-font-normal");
-  element.classList.add(currencyFontClass(currency));
+  const sampleText = "value" in element ? element.value : element.textContent;
+  element.classList.remove("currency-font-aed", "currency-font-sar", "currency-font-usd", "currency-font-mixed", "currency-font-normal");
+  element.classList.add(currencyFontClass(currency, sampleText));
 }
 
-function moneyText(amount, currency){
-  const n = Number(amount || 0);
-  const isBtc = currency === "BTC";
-  const formatted = n.toLocaleString("en-US", { minimumFractionDigits: isBtc ? 6 : 2, maximumFractionDigits: isBtc ? 6 : 2 });
-  const symbol = currencySymbol(currency);
-  return `${symbol ? symbol + " " : ""}${formatted}`;
+function moneyText(amount, currency, options = {}){
+  return formatCurrencyAmountText(amount, currency, options);
 }
 
 function money(amount, currency){
+  const code = normalizeCurrencyCode(currency);
   const n = Number(amount || 0);
-  const isBtc = currency === "BTC";
-  const formatted = n.toLocaleString("en-US", { minimumFractionDigits: isBtc ? 6 : 2, maximumFractionDigits: isBtc ? 6 : 2 });
+  const decimals = currencyDecimals(code);
+  const formatted = n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   return `<span class="money">${currencySymbolHtml(currency)}<span class="amount">${formatted}</span></span>`;
 }
 
@@ -3680,11 +3729,11 @@ function addCurrencyTotal(target, currency, amount){
   target.set(key, Number(target.get(key) || 0) + Number(amount || 0));
 }
 
-function inventoryCurrencyTotalsText(totals){
+function inventoryCurrencyTotalsText(totals, options = {}){
   const rows = totals instanceof Map ? Array.from(totals.entries()) : Object.entries(totals || {});
   return rows
     .filter(([, amount]) => Math.abs(Number(amount || 0)) > 0.00000001)
-    .map(([currency, amount]) => moneyText(amount, currency))
+    .map(([currency, amount]) => moneyText(amount, currency, options))
     .join(" | ");
 }
 
@@ -3991,22 +4040,22 @@ async function downloadOutstandingCustomerInvoicePDF(customerName){
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
   doc.text(`Invoices: ${invoices.length}`, 18, 86);
-  doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts)}`, 18, 94);
-  doc.text(`VAT Amount: ${inventoryCurrencyTotalsText(taxAmounts)}`, 110, 86);
-  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts)}`, 110, 94);
-  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance)}`, 110, 102);
+  doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts, { forPdf: true })}`, 18, 94);
+  doc.text(`VAT Amount: ${inventoryCurrencyTotalsText(taxAmounts, { forPdf: true })}`, 110, 86);
+  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts, { forPdf: true })}`, 110, 94);
+  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance, { forPdf: true })}`, 110, 102);
 
   doc.autoTable({
     startY: 116,
-    head: [["Invoice", "Date", "Items", "VAT", "Total", "Paid", "Balance"]],
+    head: [["Invoice", "Date", "Notes/Description", "VAT", "Total", "Paid", "Balance"]],
     body: invoices.map(invoice => [
       invoice.invoiceNumber || invoice.receiptNumber,
       displayDate(invoice.oldestDate || invoice.date || "—"),
       `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` - ${invoice.itemSummary}` : ""}`,
-      invoice.taxText || "-",
-      invoice.totalText,
-      invoice.paidText,
-      invoice.balanceText
+      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "tax", { forPdf: true }) || "-",
+      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "total", { forPdf: true }) || "-",
+      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "paid", { forPdf: true }) || "-",
+      inventoryCurrencyTotalsText(invoice.balanceByCurrency, { forPdf: true }) || "-"
     ]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
@@ -4109,6 +4158,7 @@ function inventoryReceiptSettlementGroups(receiptData){
     const paymentRow = paymentRows.find(row => row.receiptNumber === group.paymentReceiptNumber) || paymentRows[index];
     if (paymentRow){
       group.balanceText = formatReportAmount(paymentRow.balanceAfter || 0, paymentRow.currency || group.currency || receiptData.currency);
+      group.balancePdfText = formatPdfAmount(paymentRow.balanceAfter || 0, paymentRow.currency || group.currency || receiptData.currency);
     }
   });
   return rows;
@@ -4142,6 +4192,10 @@ function getInventoryCustomerRecord(customerName){
       debitText: invoice.totalText,
       creditText: "-",
       balanceText: invoice.totalText,
+      taxPdfText: formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "tax", { forPdf: true }) || "-",
+      debitPdfText: formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "total", { forPdf: true }) || "-",
+      creditPdfText: "-",
+      balancePdfText: formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "total", { forPdf: true }) || "-",
       entryId: invoice.entryId,
       action: "invoice"
     });
@@ -4166,6 +4220,10 @@ function getInventoryCustomerRecord(customerName){
         debitText: "-",
         creditText: initialPaidText,
         balanceText: inventoryCurrencyTotalsText(initialBalanceByCurrency) || "-",
+        taxPdfText: "-",
+        debitPdfText: "-",
+        creditPdfText: inventoryCurrencyTotalsText(initialPaidByCurrency, { forPdf: true }),
+        balancePdfText: inventoryCurrencyTotalsText(initialBalanceByCurrency, { forPdf: true }) || "-",
         entryId: invoice.entryId,
         action: "receipt"
       });
@@ -4182,6 +4240,10 @@ function getInventoryCustomerRecord(customerName){
         debitText: "-",
         creditText: inventoryCurrencyTotalsText(payment.amountByCurrency),
         balanceText: payment.balanceText || "",
+        taxPdfText: "-",
+        debitPdfText: "-",
+        creditPdfText: inventoryCurrencyTotalsText(payment.amountByCurrency, { forPdf: true }),
+        balancePdfText: payment.balancePdfText || payment.balanceText || "",
         entryId: payment.entryIds[0],
         action: "receipt"
       });
@@ -4331,8 +4393,8 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
         displayDate(entry.action_date || receiptDate || "-"),
         inventoryInvoiceNumberFromMeta(meta, entry) || invoiceNumber,
         entry.person_name || meta.itemCode || "Inventory item",
-        formatReportAmount(amount, entry.currency || receiptData.currency),
-        formatReportAmount(meta.balanceAmount || 0, entry.currency || receiptData.currency)
+        formatPdfAmount(amount, entry.currency || receiptData.currency),
+        formatPdfAmount(meta.balanceAmount || 0, entry.currency || receiptData.currency)
       ]);
     });
   } else {
@@ -4342,8 +4404,8 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
         displayDate(row.entry.action_date || receiptDate || "-"),
         invoiceNumber,
         row.itemName || row.itemCode || "Inventory item",
-        formatReportAmount(row.initialPaid || 0, row.currency || receiptData.currency),
-        formatReportAmount(Math.max(row.total - row.initialPaid, 0), row.currency || receiptData.currency)
+        formatPdfAmount(row.initialPaid || 0, row.currency || receiptData.currency),
+        formatPdfAmount(Math.max(row.total - row.initialPaid, 0), row.currency || receiptData.currency)
       ]);
     });
   }
@@ -4367,12 +4429,12 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
   doc.text(`Customer: ${receiptData.customerName || sourceMeta.customerName || "Walk-in customer"}`, 132, 48);
   doc.text(`Receipt Date: ${displayDate(receiptDate || "-")}`, 132, 54);
   doc.text(`Invoice ID: ${invoiceNumber}`, 132, 60);
-  doc.text(`Paid: ${inventoryCurrencyTotalsText(paidByCurrency)}`, 132, 66, { maxWidth: 58 });
-  doc.text(`Invoice VAT: ${formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax") || "-"}`, 132, 72, { maxWidth: 58 });
+  doc.text(`Paid: ${inventoryCurrencyTotalsText(paidByCurrency, { forPdf: true })}`, 132, 66, { maxWidth: 58 });
+  doc.text(`Invoice VAT: ${formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax", { forPdf: true }) || "-"}`, 132, 72, { maxWidth: 58 });
 
   doc.autoTable({
     startY: 84,
-    head: [["Date", "Invoice", "Item", "Paid", "Line Balance"]],
+    head: [["Date", "Invoice", "Notes/Description", "Paid", "Line Balance"]],
     body: rows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
@@ -4390,7 +4452,7 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
   });
   doc.setFontSize(9.5);
   doc.setTextColor(102, 112, 133);
-  doc.text(`Notes: ${cleanGoodsDisplayNote(sourceEntry.notes) || "-"}`, 14, doc.lastAutoTable.finalY + 10);
+  doc.text(`Notes/Description: ${cleanGoodsDisplayNote(sourceEntry.notes) || "-"}`, 14, doc.lastAutoTable.finalY + 10);
   doc.save(`Payment_Receipt_${String(paymentReceiptNumber).replace(/\s+/g, "_")}.pdf`);
 }
 
@@ -4426,23 +4488,23 @@ async function downloadInventoryCustomerStatementPDF(customerName){
   doc.setFontSize(9.2);
   doc.setTextColor(51, 65, 85);
   doc.text(`Invoices: ${record.invoices.length}`, 18, 86);
-  doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency) || "0"}`, 18, 94);
-  doc.text(`VAT: ${inventoryCurrencyTotalsText(record.taxByCurrency) || "0"}`, 110, 86);
-  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency) || "0"}`, 110, 94);
-  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency) || "0"}`, 110, 102);
+  doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency, { forPdf: true }) || "0"}`, 18, 94);
+  doc.text(`VAT: ${inventoryCurrencyTotalsText(record.taxByCurrency, { forPdf: true }) || "0"}`, 110, 86);
+  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency, { forPdf: true }) || "0"}`, 110, 94);
+  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency, { forPdf: true }) || "0"}`, 110, 102);
 
   doc.autoTable({
     startY: 116,
-    head: [["Date", "Type", "Invoice / Receipt", "Details", "VAT", "Debit", "Credit", "Balance"]],
+    head: [["Date", "Type", "Invoice / Receipt", "Notes/Description", "VAT", "Debit", "Credit", "Balance"]],
     body: record.statementRows.map(row => [
       displayDate(row.date || "-"),
-      row.type,
+      row.action === "receipt" ? "Receipt" : row.type,
       row.receiptNumber,
       row.details || "-",
-      row.taxText || "-",
-      row.debitText || "-",
-      row.creditText || "-",
-      row.balanceText || "-"
+      row.taxPdfText || row.taxText || "-",
+      row.debitPdfText || row.debitText || "-",
+      row.creditPdfText || row.creditText || "-",
+      row.balancePdfText || row.balanceText || "-"
     ]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
@@ -4611,6 +4673,7 @@ function getTransferRowsForCurrency(cur, events){
         amount: ev.amtOut,
         rateDisplay: ev.sameCurrency ? "1" : String(ev.rate),
         otherLegDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtIn, ev.curIn)}`,
+        otherLegPdfDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtIn, ev.curIn, { forPdf: true })}`,
         notes: cleanExpenseNote(ev.notesExpense),
         editId: ev.expenseId
       });
@@ -4625,6 +4688,7 @@ function getTransferRowsForCurrency(cur, events){
         amount: ev.amtIn,
         rateDisplay: ev.sameCurrency ? "1" : String(ev.rate),
         otherLegDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtOut, ev.curOut)}`,
+        otherLegPdfDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtOut, ev.curOut, { forPdf: true })}`,
         notes: cleanExpenseNote(ev.notesTopup || ev.notesExpense),
         editId: ev.topupId || ev.expenseId
       });
@@ -5164,13 +5228,13 @@ function getGoodsSaleTotalsByCurrency(){
   return totalsByCurrency;
 }
 
-function formatInventoryTotalsByCurrency(totalsByCurrency, key = null){
+function formatInventoryTotalsByCurrency(totalsByCurrency, key = null, options = {}){
   const rows = totalsByCurrency instanceof Map
     ? Array.from(totalsByCurrency.entries())
     : Object.entries(totalsByCurrency || {});
   return rows
     .filter(([, value]) => key ? Number.isFinite(Number(value?.[key])) : Number(value || 0))
-    .map(([currency, value]) => moneyText(key ? value[key] : value, currency))
+    .map(([currency, value]) => moneyText(key ? value[key] : value, currency, options))
     .join(" | ");
 }
 
@@ -5469,7 +5533,7 @@ async function downloadGoodsItemPDF(groupId){
   drawPdfHeader(doc, logoData, title, subtitle);
   drawPdfOwnerBlock(doc, 48);
 
-  const fmt = amt => formatReportAmount(amt, group.currency);
+  const fmt = amt => formatPdfAmount(amt, group.currency);
   doc.setTextColor(23, 33, 43);
   doc.setFontSize(10);
   doc.text(`Item: ${group.person_name || "Unnamed item"}`, 132, 48);
@@ -5558,24 +5622,24 @@ async function downloadGoodsItemPDF(groupId){
   ].sort((a, b) => dateStamp(a.date) - dateStamp(b.date));
   doc.autoTable({
     startY: 114,
-    head: [["Type", "Date", "Qty", "Net", "VAT", "Total", "Paid", "Balance", "Status", "Note"]],
+    head: [["Type", "Date", "Notes/Description", "Qty", "Status", "Net", "VAT", "Paid", "Balance", "Total"]],
     body: rows.map(row => [row.type, displayDate(row.date || "—"), row.qty, row.amount, row.paid, row.balance, row.status, row.note]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
     styles: { font: "helvetica", fontSize: 7.2, cellPadding: 1.8, overflow: "linebreak" },
-    body: rows.map(row => [row.type, displayDate(row.date || "-"), row.qty, row.net || "-", row.vat || "-", row.amount, row.paid, row.balance, row.status, row.note]),
+    body: rows.map(row => [row.type, displayDate(row.date || "-"), row.note, row.qty, row.status, row.net || "-", row.vat || "-", row.paid, row.balance, row.amount]),
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       0: { cellWidth: 16 },
       1: { cellWidth: 18 },
-      2: { cellWidth: 16, halign: "right" },
-      3: { cellWidth: 20, halign: "right" },
-      4: { cellWidth: 18, halign: "right" },
-      5: { cellWidth: 21, halign: "right" },
-      6: { cellWidth: 20, halign: "right" },
-      7: { cellWidth: 20, halign: "right" },
-      8: { cellWidth: 17 },
-      9: { cellWidth: 16 }
+      2: { cellWidth: 38 },
+      3: { cellWidth: 15, halign: "right" },
+      4: { cellWidth: 18 },
+      5: { cellWidth: 18, halign: "right" },
+      6: { cellWidth: 18, halign: "right" },
+      7: { cellWidth: 18, halign: "right" },
+      8: { cellWidth: 19, halign: "right" },
+      9: { cellWidth: 22, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -5620,7 +5684,7 @@ async function downloadGoodsSoldReceiptPDF(entryId){
   doc.setFontSize(10);
   doc.text(`Item: ${principalEntry.person_name || "Unnamed"}`, 132, 48);
   doc.text(`Date: ${displayDate(saleEntry.action_date || "—")}`, 132, 54);
-  doc.text(`Currency: ${saleEntry.currency || ""}`, 132, 60);
+  doc.text(`Currency: ${pdfCurrencyLabel(saleEntry.currency || "")}`, 132, 60);
   doc.text(`Qty Sold: ${soldQty}`, 132, 66);
 
   doc.autoTable({
@@ -5629,8 +5693,8 @@ async function downloadGoodsSoldReceiptPDF(entryId){
     body: [[
       principalEntry.person_name || "Goods item",
       String(soldQty),
-      formatReportAmount(unitSoldPrice, saleEntry.currency),
-      formatReportAmount(soldTotal, saleEntry.currency)
+      formatPdfAmount(unitSoldPrice, saleEntry.currency),
+      formatPdfAmount(soldTotal, saleEntry.currency)
     ]],
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
@@ -5640,7 +5704,7 @@ async function downloadGoodsSoldReceiptPDF(entryId){
 
   doc.setFontSize(9.5);
   doc.setTextColor(102, 112, 133);
-  doc.text(`Notes: ${String(saleEntry.notes || "—").replace(GOODS_TAG, "").trim() || "—"}`, 14, doc.lastAutoTable.finalY + 10);
+  doc.text(`Notes/Description: ${String(saleEntry.notes || "—").replace(GOODS_TAG, "").trim() || "—"}`, 14, doc.lastAutoTable.finalY + 10);
   doc.save(`Sold_Receipt_${String(principalEntry.person_name || "item").replace(/\s+/g, "_")}_${String(saleEntry.id || "").slice(0, 6)}.pdf`);
 }
 
@@ -5784,11 +5848,11 @@ async function downloadInventoryReceiptPDF(entryId){
   const customerPhone = receiptData.customerPhone || meta.customerPhone || "";
   const customerAddress = receiptData.customerAddress || meta.customerAddress || "";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
-  const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total") || moneyText(soldTotal, currency);
-  const netAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "net") || moneyText(soldTotal, currency);
-  const taxAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "tax") || moneyText(0, currency);
-  const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid") || moneyText(soldTotal, currency);
-  const balanceAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "balance") || moneyText(0, currency);
+  const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
+  const netAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "net", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
+  const taxAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "tax", { forPdf: true }) || moneyText(0, currency, { forPdf: true });
+  const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
+  const balanceAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "balance", { forPdf: true }) || moneyText(0, currency, { forPdf: true });
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   await loadCustomFontsForPdf(doc);
@@ -5836,9 +5900,9 @@ async function downloadInventoryReceiptPDF(entryId){
       String(row.sr),
       row.itemName,
       row.qtyDisplay,
-      formatReportAmount(row.netAmount || 0, row.currency),
-      row.taxAmount ? `${formatReportAmount(row.taxAmount, row.currency)} (${trimInventoryNumber(row.taxRate, 2)}%)` : "-",
-      formatReportAmount(row.total, row.currency)
+      formatPdfAmount(row.netAmount || 0, row.currency),
+      row.taxAmount ? `${formatPdfAmount(row.taxAmount, row.currency)} (${trimInventoryNumber(row.taxRate, 2)}%)` : "-",
+      formatPdfAmount(row.total, row.currency)
     ]),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
@@ -5863,8 +5927,8 @@ async function downloadInventoryReceiptPDF(entryId){
       body: receiptData.paymentRows.map(row => [
         row.type,
         displayDate(row.date || "—"),
-        formatReportAmount(row.amount || 0, row.currency || currency),
-        formatReportAmount(row.balanceAfter || 0, row.currency || currency)
+        formatPdfAmount(row.amount || 0, row.currency || currency),
+        formatPdfAmount(row.balanceAfter || 0, row.currency || currency)
       ]),
       theme: "grid",
       headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
@@ -5883,11 +5947,11 @@ async function downloadInventoryReceiptPDF(entryId){
   }
   const showCurrencyInSummary = totalsByCurrency.size > 1;
   const summaryRows = Array.from(totalsByCurrency.entries()).flatMap(([rowCurrency, amounts]) => [
-    [showCurrencyInSummary ? `${rowCurrency} net amount` : "Net amount", formatReportAmount(amounts.net || 0, rowCurrency)],
-    [showCurrencyInSummary ? `${rowCurrency} VAT amount` : "VAT amount", formatReportAmount(amounts.tax || 0, rowCurrency)],
-    [showCurrencyInSummary ? `${rowCurrency} total amount` : "Total amount", formatReportAmount(amounts.total, rowCurrency)],
-    [showCurrencyInSummary ? `${rowCurrency} paid amount` : "Paid amount", formatReportAmount(amounts.paid, rowCurrency)],
-    [showCurrencyInSummary ? `${rowCurrency} balance amount` : "Balance amount", formatReportAmount(amounts.balance, rowCurrency)]
+    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} net amount` : "Net amount", formatPdfAmount(amounts.net || 0, rowCurrency)],
+    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} VAT amount` : "VAT amount", formatPdfAmount(amounts.tax || 0, rowCurrency)],
+    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} total amount` : "Total amount", formatPdfAmount(amounts.total, rowCurrency)],
+    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} paid amount` : "Paid amount", formatPdfAmount(amounts.paid, rowCurrency)],
+    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} balance amount` : "Balance amount", formatPdfAmount(amounts.balance, rowCurrency)]
   ]);
   doc.autoTable({
     startY: afterTableY,
@@ -5905,7 +5969,7 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.setTextColor(102, 112, 133);
   const noteY = Math.max(afterTableY + 10, doc.lastAutoTable.finalY + 8);
   doc.text(`Total Qty: ${totalQtyText}`, 14, noteY);
-  doc.text(`Notes: ${cleanGoodsDisplayNote(saleEntry.notes) || "—"}`, 14, noteY + 6);
+  doc.text(`Notes/Description: ${cleanGoodsDisplayNote(saleEntry.notes) || "—"}`, 14, noteY + 6);
   doc.text(`Prepared for: ${customerName}`, 14, noteY + 12);
   doc.save(`Invoice_${String(invoiceNumber).replace(/\s+/g, "_")}.pdf`);
 }
@@ -6381,7 +6445,7 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
       const dir = btcTxDirectionForAddress(tx, account.btcAddress);
       const type = dir.label === "received" ? "Received" : dir.label === "sent" ? "Sent" : "Self / change";
       const amount = dir.netSat === 0
-        ? "0 BTC"
+        ? btcFormatBtcFromSat(0)
         : `${dir.netSat > 0 ? "+" : "-"}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
       const status = tx.status?.confirmed
         ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : "confirmed")
@@ -6881,17 +6945,17 @@ async function downloadExpenseAccountPDF(groupId){
   doc.setFontSize(10);
   doc.setTextColor(23, 33, 43);
   doc.text(`Type: ${account.accountType}`, 132, 48);
-  doc.text(`Currency: ${account.currency}`, 132, 54);
+  doc.text(`Currency: ${pdfCurrencyLabel(account.currency)}`, 132, 54);
   doc.text(`Balance: ${formatPdfAmount(account.balance, account.currency)}`, 132, 60);
   
   // Add USD equivalent for BTC wallets
   if (account.currency === "BTC" && account.balance > 0 && state.bitcoin.btcPrice) {
     const usdValue = (account.balance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     doc.setTextColor(102, 112, 133); // Muted color
-    doc.text(`~ $${usdValue}`, 132, 66);
+    doc.text(`Approx USD ${usdValue}`, 132, 66);
     doc.setFontSize(8);
     doc.setTextColor(153, 163, 180); // Lighter muted color
-    doc.text(`* USD value as of statement generation`, 132, 72);
+    doc.text(`* Dollar value as of statement generation`, 132, 72);
   }
 
   let runningBalance = Number(account.openingBalance || 0);
@@ -6918,19 +6982,23 @@ async function downloadExpenseAccountPDF(groupId){
 
   doc.autoTable({
     startY: 72,
-    head: [["Type", "Date", "Item", "Amount", "VAT", "Balance", "Remarks"]],
-    body: rows.map(row => row.length === 6 ? [row[0], row[1], row[2], row[3], "-", row[4], row[5]] : row),
+    head: [["Type", "Date", "Item", "Notes/Description", "VAT", "Amount", "Balance"]],
+    body: rows.map(row => row.length === 6
+      ? [row[0], row[1], row[2], row[5], "-", row[3], row[4]]
+      : [row[0], row[1], row[2], row[6], row[4], row[3], row[5]]
+    ),
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+    styles: { font: "helvetica", fontSize: 7.6, cellPadding: 1.8, overflow: "linebreak" },
+    tableWidth: 182,
     columnStyles: {
-      0: { cellWidth: 30 },
+      0: { cellWidth: 24 },
       1: { cellWidth: 22 },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 28, halign: "right" },
-      4: { cellWidth: 24, halign: "right" },
-      5: { cellWidth: 28, halign: "right" },
-      6: { cellWidth: 18 }
+      2: { cellWidth: 24 },
+      3: { cellWidth: 45 },
+      4: { cellWidth: 15, halign: "right" },
+      5: { cellWidth: 26, halign: "right" },
+      6: { cellWidth: 26, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -9383,16 +9451,220 @@ function updateHeaderTextFromConfig(){
   if (els.mainAppSubtitle) els.mainAppSubtitle.innerHTML = subtitle;
 }
 
+function pdfTextContainsCurrencyMarkers(text){
+  if (Array.isArray(text)) return text.some(line => hasPdfCurrencyMarkers(line));
+  return hasPdfCurrencyMarkers(text);
+}
+
+function splitPdfMarkedTextToSize(doc, text, maxWidth){
+  const words = String(text ?? "").split(/(\s+)/);
+  const lines = [];
+  let line = "";
+  words.forEach(word => {
+    const candidate = `${line}${word}`;
+    const visibleCandidate = stripPdfCurrencyMarkers(candidate);
+    if (line && doc.getTextWidth(visibleCandidate) > maxWidth && /\S/.test(word)){
+      lines.push(line.trimEnd());
+      line = word.trimStart();
+    } else {
+      line = candidate;
+    }
+  });
+  if (line) lines.push(line.trimEnd());
+  return lines.length ? lines : [String(text ?? "")];
+}
+
+function tokenizePdfCurrencyText(text){
+  const markerFonts = {
+    [PDF_CURRENCY_MARKERS.AED]: "AED",
+    [PDF_CURRENCY_MARKERS.SAR]: "SAR"
+  };
+  const raw = String(text ?? "");
+  const tokens = [];
+  let buffer = "";
+  for (let i = 0; i < raw.length; i += 1){
+    const ch = raw[i];
+    const font = markerFonts[ch];
+    if (font){
+      if (buffer){
+        tokens.push({ text: buffer, font: null });
+        buffer = "";
+      }
+      const symbol = raw[i + 1] || "";
+      if (symbol){
+        tokens.push({ text: symbol, font });
+        i += 1;
+      }
+    } else {
+      buffer += ch;
+    }
+  }
+  if (buffer) tokens.push({ text: buffer, font: null });
+  return tokens;
+}
+
+function installPdfCurrencyTextRenderer(doc){
+  if (!doc || doc.__tripleMCurrencyRendererInstalled) return;
+  const originalText = doc.text.bind(doc);
+
+  function restoreFont(font){
+    if (!font) return;
+    try {
+      doc.setFont(font.fontName || "helvetica", font.fontStyle || "normal");
+    } catch {
+      doc.setFont("helvetica", "normal");
+    }
+  }
+
+  function drawMarkedLine(line, x, y, options = {}){
+    const raw = String(line ?? "");
+    if (!hasPdfCurrencyMarkers(raw)){
+      return originalText(raw, x, y, options);
+    }
+
+    const baseFont = doc.getFont();
+    const visibleText = stripPdfCurrencyMarkers(raw);
+    const align = options.align || "left";
+    const drawOptions = { ...options };
+    delete drawOptions.align;
+    delete drawOptions.maxWidth;
+
+    let cursorX = x;
+    if (align === "right") cursorX = x - doc.getTextWidth(visibleText);
+    if (align === "center") cursorX = x - (doc.getTextWidth(visibleText) / 2);
+
+    tokenizePdfCurrencyText(raw).forEach(token => {
+      if (!token.text) return;
+      if (token.font) {
+        try {
+          doc.setFont(token.font, "normal");
+        } catch {
+          restoreFont(baseFont);
+        }
+      } else {
+        restoreFont(baseFont);
+      }
+      originalText(token.text, cursorX, y, drawOptions);
+      cursorX += doc.getTextWidth(token.text);
+    });
+
+    restoreFont(baseFont);
+    return doc;
+  }
+
+  doc.text = function tripleMCurrencyText(text, x, y, options, transform){
+    if (!pdfTextContainsCurrencyMarkers(text)){
+      return originalText(text, x, y, options, transform);
+    }
+
+    const safeOptions = options && typeof options === "object" ? { ...options } : {};
+    let lines = Array.isArray(text) ? text.map(line => String(line ?? "")) : [String(text ?? "")];
+    if (!Array.isArray(text) && safeOptions.maxWidth){
+      lines = splitPdfMarkedTextToSize(doc, lines[0], Number(safeOptions.maxWidth));
+    }
+    const lineHeight = typeof doc.getLineHeight === "function"
+      ? doc.getLineHeight() / doc.internal.scaleFactor
+      : (doc.getFontSize() * 1.15) / doc.internal.scaleFactor;
+    lines.forEach((line, index) => drawMarkedLine(line, x, y + (index * lineHeight), safeOptions));
+    return doc;
+  };
+
+  doc.__tripleMCurrencyRendererInstalled = true;
+}
+
+function pdfCellTextValue(cell){
+  const raw = cell?.raw;
+  if (raw && typeof raw === "object" && "content" in raw) return raw.content;
+  if (Array.isArray(cell?.text)) return cell.text.join(" ");
+  return raw ?? cell?.text ?? "";
+}
+
+function isPdfMoneyLike(value){
+  const text = stripPdfCurrencyMarkers(Array.isArray(value) ? value.join(" ") : value);
+  if (!/\d/.test(text)) return false;
+  return /(^|[\s(:+-])(?:~|\$|Rs\.|₿)\s*[-+]?\d|[-+]?\d[\d,]*(?:\.\d+)?\s*(?:~|\$|Rs\.|₿)/.test(text);
+}
+
+function installProfessionalPdfTableDefaults(doc){
+  if (!doc?.autoTable || doc.__tripleMAutoTableInstalled) return;
+  const originalAutoTable = doc.autoTable.bind(doc);
+  doc.autoTable = function tripleMAutoTable(options = {}){
+    const userDidParseCell = options.didParseCell;
+    const nextOptions = {
+      ...options,
+      theme: options.theme || "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 8.4,
+        cellPadding: 2.4,
+        lineColor: [226, 232, 240],
+        lineWidth: 0.12,
+        textColor: [30, 41, 59],
+        overflow: "linebreak",
+        valign: "middle",
+        ...options.styles
+      },
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: 255,
+        fontStyle: "bold",
+        lineColor: [15, 23, 42],
+        lineWidth: 0.12,
+        ...options.headStyles
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+        ...options.alternateRowStyles
+      },
+      margin: {
+        top: 52,
+        bottom: 34,
+        left: 14,
+        right: 14,
+        ...(options.margin || {})
+      },
+      didParseCell(data){
+        if (typeof userDidParseCell === "function") userDidParseCell(data);
+        if (data.section === "body" && isPdfMoneyLike(pdfCellTextValue(data.cell))){
+          if (!data.cell.styles.halign || data.cell.styles.halign === "left"){
+            data.cell.styles.halign = "right";
+          }
+          data.cell.styles.fontStyle = data.cell.styles.fontStyle || "normal";
+        }
+      }
+    };
+    return originalAutoTable(nextOptions);
+  };
+  doc.__tripleMAutoTableInstalled = true;
+}
+
+function applyProfessionalPdfDefaults(doc){
+  if (!doc || doc.__tripleMProfessionalPdfApplied) return;
+  installPdfCurrencyTextRenderer(doc);
+  installProfessionalPdfTableDefaults(doc);
+  try {
+    doc.setProperties({
+      title: PDF_BRAND.systemName,
+      subject: "Financial document",
+      creator: PDF_BRAND.systemName
+    });
+  } catch {}
+  doc.__tripleMProfessionalPdfApplied = true;
+}
+
 function drawPdfHeader(doc, logoData, title, subtitle){
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Premium gradient-like header background
-  doc.setFillColor(241, 245, 249);
-  doc.roundedRect(10, 8, pageWidth - 20, 35, 3, 3, "F");
-
-  // Accent border at top
+  applyProfessionalPdfDefaults(doc);
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, 38, "F");
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, pageWidth, 5, "F");
   doc.setFillColor(36, 87, 214);
-  doc.roundedRect(10, 8, pageWidth - 20, 3, 3, 3, "F");
+  doc.rect(0, 5, pageWidth, 1.4, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.line(14, 36, pageWidth - 14, 36);
 
   if (logoData){
     try {
@@ -9401,25 +9673,27 @@ function drawPdfHeader(doc, logoData, title, subtitle){
       
       if (isJsonLogo) {
         // For JSON logos, use smaller size to fit properly without stretching
-        doc.addImage(logoData, "PNG", 15.5, 15, 40, 14);
+        doc.addImage(logoData, "PNG", 14, 11, 36, 12);
       } else {
         // For default logo, use original size
-        doc.addImage(logoData, "PNG", 15.5, 14, 50, 18);
+        doc.addImage(logoData, "PNG", 14, 10, 42, 15);
       }
     } catch {}
   }
 
-  // Title with premium styling
   doc.setTextColor(15, 23, 42);
-  doc.setFontSize(13);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text(title, 72, 20);
+  doc.text(title, 68, 16);
 
   if (subtitle) {
     doc.setTextColor(71, 85, 105);
-    doc.setFontSize(8);
+    doc.setFontSize(8.2);
     doc.setFont("helvetica", "normal");
-    doc.text(subtitle, 72, 28);
+    const subtitleLines = hasPdfCurrencyMarkers(subtitle)
+      ? splitPdfMarkedTextToSize(doc, subtitle, pageWidth - 86)
+      : doc.splitTextToSize(subtitle, pageWidth - 86);
+    doc.text(subtitleLines, 68, 23);
   }
 }
 
@@ -9430,12 +9704,21 @@ function drawPdfOwnerBlock(doc, y = 48){
   const mobile = fullConfigData?.Mobile || PDF_BRAND.mobile;
   const whatsapp = fullConfigData?.WhatsApp || PDF_BRAND.whatsapp;
   
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`${owner}`, 14, y);
-  doc.text(`Email: ${email}`, 14, y + 5);
-  doc.text(`Mobile: ${mobile}`, 14, y + 10);
-  doc.text(`WhatsApp: ${whatsapp}`, 14, y + 15);
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(14, y - 5, 92, 24, 2, 2, "FD");
+  doc.setTextColor(100, 116, 139);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.2);
+  doc.text("PREPARED BY", 18, y + 1);
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(9.2);
+  doc.text(String(owner || ""), 18, y + 7, { maxWidth: 82 });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.2);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Email: ${email}`, 18, y + 12, { maxWidth: 82 });
+  doc.text(`Mobile: ${mobile} | WhatsApp: ${whatsapp}`, 18, y + 17, { maxWidth: 82 });
 }
 
 function drawPdfFooter(doc){
@@ -9573,6 +9856,7 @@ async function downloadPersonPDF(personNameEncoded, direction) {
   }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
 
   const personName = decodeURIComponent(personNameEncoded || "");
   const data = buildPersonPdfData(personName, direction);
@@ -9591,13 +9875,11 @@ async function downloadPersonPDF(personNameEncoded, direction) {
   doc.setTextColor(0);
   doc.setFontSize(11);
   doc.text(`Status: ${data.status}`, 132, 48);
-  doc.text(`Currency: ${data.currency}`, 132, 54);
+  doc.text(`Currency: ${pdfCurrencyLabel(data.currency)}`, 132, 54);
   doc.text(`Loan Entries: ${data.loanCount}`, 132, 60);
 
   const formatMon = (amt) => {
-     const n = Number(amt || 0);
-     const formatted = n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-     return `${data.currency ? data.currency + " " : ""}${formatted}`;
+     return formatPdfAmount(amt, data.currency);
   };
 
   doc.text(`Principal: ${formatMon(data.principalTotal)}`, 132, 66);
@@ -9612,13 +9894,20 @@ async function downloadPersonPDF(personNameEncoded, direction) {
     r.note || '—'
   ]);
 
+  const orderedTableData = tableData.map(row => [row[0], row[1], row[4], row[2], row[3]]);
+
   doc.autoTable({
     startY: 88,
-    head: [['Date', 'Type', 'Amount', 'Remaining', 'Notes']],
-    body: tableData,
+    head: [['Date', 'Type', 'Notes/Description', 'Amount', 'Remaining']],
+    body: orderedTableData,
     theme: 'grid',
     headStyles: { fillColor: [36, 87, 214] },
     styles: { font: 'helvetica' },
+    columnStyles: {
+      2: { cellWidth: 62 },
+      3: { halign: "right" },
+      4: { halign: "right" }
+    },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
@@ -9639,20 +9928,12 @@ function sectionLabel(searchKey){
 }
 
 function formatReportAmount(amount, currency){
-  const n = Number(amount || 0);
-  const isBtc = currency === "BTC";
-  const formatted = n.toLocaleString("en-US", { minimumFractionDigits: isBtc ? 9 : 2, maximumFractionDigits: isBtc ? 9 : 2 });
-  const symbol = currency === "AED" ? "AED" : currency === "SAR" ? "SAR" : currency === "PKR" ? "PKR" : currency === "USD" ? "USD" : currency === "BTC" ? "BTC" : currency || "";
-  return `${symbol} ${formatted}`.trim();
+  return formatCurrencyAmountText(amount, currency, { decimals: normalizeCurrencyCode(currency) === "BTC" ? 8 : 2 });
 }
 
 // New function for PDF-specific currency formatting
 function formatPdfAmount(amount, currency){
-  const n = Number(amount || 0);
-  const isBtc = currency === "BTC";
-  const formatted = n.toLocaleString("en-US", { minimumFractionDigits: isBtc ? 9 : 2, maximumFractionDigits: isBtc ? 9 : 2 });
-  const symbol = currency === "AED" ? "AED" : currency === "SAR" ? "SAR" : currency === "PKR" ? "PKR" : currency === "USD" ? "USD" : currency === "BTC" ? "BTC" : currency || "";
-  return `${symbol} ${formatted}`.trim();
+  return formatCurrencyAmountText(amount, currency, { forPdf: true });
 }
 
 function buildSectionReportRows(direction, searchKey){
@@ -9671,6 +9952,7 @@ function buildSectionReportRows(direction, searchKey){
           `${account.person_name || "Wallet"} · ${meta.expenseType || "Other"}`,
           account.person_name || "Wallet",
           formatPdfAmount(Number(row.action_amount || 0), account.currency),
+          tax.tax ? formatPdfAmount(tax.tax, account.currency) : "-",
           "—",
           cleanExpenseNote(row.notes)
         ];
@@ -9687,6 +9969,7 @@ function buildSectionReportRows(direction, searchKey){
         group.person_name || "Unnamed",
         displayDate(row.date),
         row.kind === "principal" ? "Principal" : row.kind === "partial" ? "Partial" : "Full",
+        row.note || "-",
         formatPdfAmount(row.amount, group.currency),
         formatPdfAmount(row.remainingAfter, group.currency),
         row.note || "—"
@@ -9729,23 +10012,38 @@ async function exportSectionPDF(searchKey){
   doc.text(`${expensePdf ? "Wallets in view" : "Members"}: ${report.groups.length}`, 132, 48);
   doc.text(`Rows: ${report.rows.length}`, 132, 54);
 
+  const tableRows = expensePdf
+    ? report.rows.map(row => [row[0], row[1], row[row.length > 7 ? 7 : 6], row[2], row[3], row.length > 7 ? row[5] : "-", row[4]])
+    : report.rows.map(row => [row[0], row[1], row[2], row.length > 6 ? row[3] : row[5], row.length > 6 ? row[4] : row[3], row.length > 6 ? row[5] : row[4]]);
+
   const tableHead = expensePdf
-    ? [["Item", "Date", "Wallet · Type", "Amount", "—", "Notes"]]
-    : [["Member", "Date", "Type", "Amount", "Remaining", "Remarks"]];
+    ? [["Item", "Date", "Notes/Description", "Wallet / Type", "Wallet", "VAT", "Amount"]]
+    : [["Member", "Date", "Type", "Notes/Description", "Amount", "Remaining"]];
 
   doc.autoTable({
     startY: 72,
     head: tableHead,
-    body: report.rows,
+    body: tableRows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 9, cellPadding: 2.5 },
-    columnStyles: { 
-      0: { cellWidth: expensePdf ? 35 : 38 }, 
-      3: { cellWidth: expensePdf ? 32 : 28 }, // Amount column - wider for expenses to accommodate BTC
-      4: { cellWidth: expensePdf ? 15 : 28 }, // Remaining/empty column
-      5: { cellWidth: expensePdf ? 55 : 58 }  // Notes column
-    },
+    styles: { font: "helvetica", fontSize: expensePdf ? 7.8 : 9, cellPadding: expensePdf ? 1.9 : 2.5, overflow: "linebreak" },
+    tableWidth: 182,
+    columnStyles: expensePdf
+      ? {
+          0: { cellWidth: 24 },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 46 },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 24 },
+          5: { cellWidth: 17, halign: "right" },
+          6: { cellWidth: 19, halign: "right" }
+        }
+      : {
+          0: { cellWidth: 34 },
+          3: { cellWidth: 48 },
+          4: { cellWidth: 28, halign: "right" },
+          5: { cellWidth: 28, halign: "right" }
+        },
     margin: { top: 50, bottom: 40 },
     didDrawPage: (data) => {
       drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false);
@@ -9757,6 +10055,11 @@ async function exportSectionPDF(searchKey){
 
 
 async function loadCustomFontsForPdf(doc){
+  if (!doc) return;
+  if (doc.__tripleMFontsLoaded) {
+    applyProfessionalPdfDefaults(doc);
+    return;
+  }
   try {
     // Load Dirham symbol font
     const aedFontResponse = await fetch('Assets/style/fonts/AED.ttf');
@@ -9785,8 +10088,11 @@ async function loadCustomFontsForPdf(doc){
       doc.addFileToVFS('SAR.otf', sarFontData);
       doc.addFont('SAR.otf', 'SAR', 'normal');
     }
+    doc.__tripleMFontsLoaded = true;
   } catch (e) {
     console.log('Failed to load custom fonts:', e);
+  } finally {
+    applyProfessionalPdfDefaults(doc);
   }
 }
 
@@ -9803,7 +10109,7 @@ async function downloadCurrencyPDF(currency){
   await loadCustomFontsForPdf(doc);
 
   const logoData = await getPdfLogo();
-  const title = `Currency Report - ${currency}`;
+  const title = `Currency Report - ${pdfCurrencyLabel(currency)}`;
   const subtitle = `Generated: ${new Date().toLocaleString()}`;
 
   // Get currency-specific data
@@ -9854,13 +10160,19 @@ async function downloadCurrencyPDF(currency){
 
   // Add given loans section
   if (givenRows.length > 0) {
+    const givenTableRows = givenRows.map(row => [row[0], row[1], row[2], row[5], row[3], row[4]]);
     doc.autoTable({
       startY: 72,
-      head: [["Member", "Date", "Type", "Amount", "Remaining", "Remarks"]],
-      body: givenRows,
+      head: [["Member", "Date", "Type", "Notes/Description", "Amount", "Remaining"]],
+      body: givenTableRows,
       theme: "grid",
       headStyles: { fillColor: [36, 87, 214] },
       styles: { font: "helvetica", fontSize: 9, cellPadding: 2.5 },
+      columnStyles: {
+        3: { cellWidth: 50 },
+        4: { halign: "right" },
+        5: { halign: "right" }
+      },
       margin: { top: 50, bottom: 40 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
     });
@@ -9869,16 +10181,22 @@ async function downloadCurrencyPDF(currency){
   // Add taken loans section if there's space or on new page
   if (takenRows.length > 0) {
     if (givenRows.length > 0) doc.addPage();
-    const takenTitle = `Currency Report - ${currency} (Taken Loans)`;
+    const takenTitle = `Currency Report - ${pdfCurrencyLabel(currency)} (Taken Loans)`;
     drawPdfHeader(doc, logoData, takenTitle, subtitle);
     drawPdfOwnerBlock(doc, 48);
+    const takenTableRows = takenRows.map(row => [row[0], row[1], row[2], row[5], row[3], row[4]]);
     doc.autoTable({
       startY: 72,
-      head: [["Member", "Date", "Type", "Amount", "Remaining", "Remarks"]],
-      body: takenRows,
+      head: [["Member", "Date", "Type", "Notes/Description", "Amount", "Remaining"]],
+      body: takenTableRows,
       theme: "grid",
       headStyles: { fillColor: [36, 87, 214] },
       styles: { font: "helvetica", fontSize: 9, cellPadding: 2.5 },
+      columnStyles: {
+        3: { cellWidth: 50 },
+        4: { halign: "right" },
+        5: { halign: "right" }
+      },
       margin: { top: 50, bottom: 40 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, takenTitle, subtitle, false)
     });
@@ -9921,7 +10239,7 @@ async function downloadGoodsPDF(){
     return acc;
   }, {});
   const totalsText = Object.entries(totalsByCurrency)
-    .map(([currency, row]) => `${currency}: Purchase ${formatReportAmount(row.purchase, currency)} | Sales ${formatReportAmount(row.sales, currency)} | VAT ${formatReportAmount(row.tax, currency)} | P/L ${formatReportAmount(row.profitLoss, currency)}`)
+    .map(([currency, row]) => `${pdfCurrencyLabel(currency)} Purchase ${formatPdfAmount(row.purchase, currency)} | Sales ${formatPdfAmount(row.sales, currency)} | VAT ${formatPdfAmount(row.tax, currency)} | P/L ${formatPdfAmount(row.profitLoss, currency)}`)
     .join("   ");
 
   doc.setFillColor(248, 250, 252);
@@ -9945,10 +10263,10 @@ async function downloadGoodsPDF(){
     inventoryQtyLabel(group.boughtQty, group.itemCategory),
     inventoryQtyLabel(group.soldQty, group.itemCategory),
     inventoryQtyLabel(group.remainingQty, group.itemCategory),
-    formatReportAmount(group.bought || 0, group.currency),
-    formatReportAmount(group.soldTotal || 0, group.currency),
-    formatReportAmount((group.purchaseTaxTotal || 0) + (group.salesTaxTotal || 0), group.currency),
-    formatReportAmount(group.profitLoss || 0, group.currency)
+    formatPdfAmount(group.bought || 0, group.currency),
+    formatPdfAmount(group.soldTotal || 0, group.currency),
+    formatPdfAmount((group.purchaseTaxTotal || 0) + (group.salesTaxTotal || 0), group.currency),
+    formatPdfAmount(group.profitLoss || 0, group.currency)
   ]);
 
   doc.autoTable({
@@ -10075,7 +10393,7 @@ async function downloadExpenseTransactionsHistoryPDF(){
   doc.text(`Wallets: ${walletCount}`, 132, 96);
 
   const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(cur => [
-    cur,
+    pdfCurrencyLabel(cur),
     String(currencyCounts.get(cur) || 0),
     formatPdfAmount(currencyTaxTotals.get(cur) || 0, cur),
     formatPdfAmount(currencyTotals.get(cur) || 0, cur)
@@ -10107,7 +10425,7 @@ async function downloadExpenseTransactionsHistoryPDF(){
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text(`${item.displayName} | ${item.currency}`, 18, y + 6);
+    doc.text(`${item.displayName} | ${pdfCurrencyLabel(item.currency)}`, 18, y + 6);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.text(`${item.txs.length} transaction(s) | Total: ${formatPdfAmount(item.total, item.currency)} | Type: ${item.expenseType || "Other"}`, pageWidth - 18, y + 6, { align: "right" });
@@ -10120,11 +10438,12 @@ async function downloadExpenseTransactionsHistoryPDF(){
       tx.taxAmount ? formatPdfAmount(tx.taxAmount, item.currency) : "-",
       wrapTextForPdf(cleanExpenseNote(tx.notes), 62).split("\n")
     ]);
+    const orderedBody = body.map(row => [row[0], row[1], row[2], row[5], row[4], row[3]]);
 
     doc.autoTable({
       startY: y + 13,
-      head: [["Date", "Wallet", "Type", "Amount", "VAT", "Notes"]],
-      body,
+      head: [["Date", "Wallet", "Type", "Notes/Description", "VAT", "Amount"]],
+      body: orderedBody,
       theme: "grid",
       headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
       styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
@@ -10133,9 +10452,9 @@ async function downloadExpenseTransactionsHistoryPDF(){
         0: { cellWidth: 22 },
         1: { cellWidth: 34 },
         2: { cellWidth: 26 },
-        3: { cellWidth: 28, halign: "right" },
+        3: { cellWidth: 46 },
         4: { cellWidth: 24, halign: "right" },
-        5: { cellWidth: 46 }
+        5: { cellWidth: 28, halign: "right" }
       },
       margin: { left: 14, right: 14, top: 50, bottom: 40 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -10171,9 +10490,9 @@ async function downloadAllTopupsPDF(currencyFilter = null){
 
   const logoData = await getPdfLogo();
   const subtitle = currencyFilter
-    ? `Currency: ${currencyFilter}`
+    ? `Currency: ${pdfCurrencyLabel(currencyFilter)}`
     : "All currencies (separate totals per currency)";
-  const title = currencyFilter ? `Top-Up Records — ${currencyFilter}` : "Top-Up Records — all currencies";
+  const title = currencyFilter ? `Top-Up Records - ${pdfCurrencyLabel(currencyFilter)}` : "Top-Up Records - all currencies";
   drawPdfHeader(
     doc,
     logoData,
@@ -10202,7 +10521,7 @@ async function downloadAllTopupsPDF(currencyFilter = null){
     doc.text(`Transactions: ${filtered.length}`, 120, y);
     y += 6;
     sortCurrenciesList(Object.keys(totals)).forEach(c => {
-      doc.text(`Total (${c}): ${formatPdfAmount(totals[c], c)}`, 120, y);
+      doc.text(`Total (${pdfCurrencyLabel(c)}): ${formatPdfAmount(totals[c], c)}`, 120, y);
       y += 6;
     });
     tableStartY = y + 8;
@@ -10215,13 +10534,13 @@ async function downloadAllTopupsPDF(currencyFilter = null){
     const amt = formatPdfAmount(Number(tx.action_amount || 0), tx.currency);
     const note = cleanExpenseNote(tx.notes);
     const wrappedNote = wrapTextForPdf(note, 45).split('\n');
-    if (currencyFilter) return [d, w, ty, amt, wrappedNote];
-    return [d, w, ty, amt, tx.currency || "—", wrappedNote];
+    if (currencyFilter) return [d, w, ty, wrappedNote, amt];
+    return [d, w, ty, wrappedNote, pdfCurrencyLabel(tx.currency || ""), amt];
   });
 
   doc.autoTable({
     startY: tableStartY,
-    head: currencyFilter ? [["Date", "Wallet", "Type", "Amount", "Notes"]] : [["Date", "Wallet", "Type", "Amount", "Cur", "Notes"]],
+    head: currencyFilter ? [["Date", "Wallet", "Type", "Notes/Description", "Amount"]] : [["Date", "Wallet", "Type", "Notes/Description", "Currency", "Amount"]],
     body: bodyRows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
@@ -10233,16 +10552,16 @@ async function downloadAllTopupsPDF(currencyFilter = null){
           0: { cellWidth: 22 },
           1: { cellWidth: 36 },
           2: { cellWidth: 24 },
-          3: { cellWidth: 26 },
-          4: { cellWidth: 72 }
+          3: { cellWidth: 72 },
+          4: { cellWidth: 26, halign: "right" }
         }
       : {
           0: { cellWidth: 17 },
           1: { cellWidth: 31 },
           2: { cellWidth: 19 },
-          3: { cellWidth: 22 },
+          3: { cellWidth: 79 },
           4: { cellWidth: 12 },
-          5: { cellWidth: 79 }
+          5: { cellWidth: 22, halign: "right" }
         },
     margin: { left: 14, right: 14, top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -10275,7 +10594,7 @@ async function downloadAllTransfersPDF(currencyFilter = null){
         withParty: r.counterparty || "—",
         amount: formatPdfAmount(r.amount, cur),
         rate: r.rateDisplay,
-        convertedLeg: r.otherLegDisplay,
+        convertedLeg: r.otherLegPdfDisplay || r.otherLegDisplay,
         notes: r.notes
       });
     }
@@ -10295,7 +10614,7 @@ async function downloadAllTransfersPDF(currencyFilter = null){
   await loadCustomFontsForPdf(doc);
 
   const logoData = await getPdfLogo();
-  const title = currencyFilter ? `Transfer Records — ${currencyFilter}` : "Transfer Records — all currencies";
+  const title = currencyFilter ? `Transfer Records - ${pdfCurrencyLabel(currencyFilter)}` : "Transfer Records - all currencies";
   const subtitle = "Sent and received legs per currency; rate matches the booking on each transfer.";
   drawPdfHeader(
     doc,
@@ -10310,22 +10629,22 @@ async function downloadAllTransfersPDF(currencyFilter = null){
   let ySummary = 62;
   for (const cur of currencies){
     const { sent, received } = transferCurrencyTotals(cur, events);
-    doc.text(`${cur} — Sent: ${formatPdfAmount(sent, cur)}   Received: ${formatPdfAmount(received, cur)}`, 120, ySummary);
+    doc.text(`${pdfCurrencyLabel(cur)} - Sent: ${formatPdfAmount(sent, cur)}   Received: ${formatPdfAmount(received, cur)}`, 120, ySummary);
     ySummary += 5;
   }
 
   const body = tableRows.map(r => {
     const wrappedNote = wrapTextForPdf(r.notes, 40).split('\n');
     return currencyFilter
-      ? [r.date, r.type, r.wallet, r.withParty, r.amount, r.rate, r.convertedLeg, wrappedNote]
-      : [r.currency, r.date, r.type, r.wallet, r.withParty, r.amount, r.rate, r.convertedLeg, wrappedNote];
+      ? [r.date, r.type, r.wallet, r.withParty, wrappedNote, r.rate, r.convertedLeg, r.amount]
+      : [pdfCurrencyLabel(r.currency), r.date, r.type, r.wallet, r.withParty, wrappedNote, r.rate, r.convertedLeg, r.amount];
   });
 
   doc.autoTable({
     startY: ySummary + 6,
     head: currencyFilter
-      ? [["Date", "Type", "Wallet", "With", "Amount", "Rate", "Converted leg", "Notes"]]
-      : [["Cur", "Date", "Type", "Wallet", "With", "Amount", "Rate", "Converted leg", "Notes"]],
+      ? [["Date", "Type", "Wallet", "With", "Notes/Description", "Rate", "Converted leg", "Amount"]]
+      : [["Currency", "Date", "Type", "Wallet", "With", "Notes/Description", "Rate", "Converted leg", "Amount"]],
     body,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
@@ -10338,10 +10657,10 @@ async function downloadAllTransfersPDF(currencyFilter = null){
           1: { cellWidth: 12 }, // Type
           2: { cellWidth: 22 }, // Wallet
           3: { cellWidth: 20 }, // With
-          4: { cellWidth: 20 }, // Amount
+          4: { cellWidth: 60 }, // Notes
           5: { cellWidth: 12 }, // Rate
           6: { cellWidth: 17 }, // Converted leg
-          7: { cellWidth: 60 }  // Notes
+          7: { cellWidth: 20, halign: "right" }  // Amount
         }
       : {
           0: { cellWidth: 9 }, // Cur
@@ -10349,10 +10668,10 @@ async function downloadAllTransfersPDF(currencyFilter = null){
           2: { cellWidth: 12 }, // Type
           3: { cellWidth: 20 }, // Wallet
           4: { cellWidth: 17 }, // With
-          5: { cellWidth: 20 }, // Amount
+          5: { cellWidth: 61 }, // Notes
           6: { cellWidth: 11 }, // Rate
           7: { cellWidth: 15 }, // Converted leg
-          8: { cellWidth: 61 }  // Notes
+          8: { cellWidth: 20, halign: "right" }  // Amount
         },
     didDrawPage: () => drawPdfFooter(doc)
   });
@@ -10411,15 +10730,16 @@ async function downloadExpenseItemPDF(itemKey){
     tx.taxAmount ? formatPdfAmount(tx.taxAmount, targetItem.currency) : "-",
     cleanExpenseNote(tx.notes)
   ]);
+  const orderedRows = rows.map(row => [row[0], row[1], row[2], row[5], row[4], row[3]]);
 
   doc.autoTable({
     startY: 78,
-    head: [["Date", "Wallet", "Type", "Amount", "VAT", "Notes"]],
-    body: rows,
+    head: [["Date", "Wallet", "Type", "Notes/Description", "VAT", "Amount"]],
+    body: orderedRows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214] },
     styles: { font: "helvetica", fontSize: 8.4, cellPadding: 2.3, overflow: "linebreak" },
-    columnStyles: { 3: { cellWidth: 30 }, 4: { cellWidth: 24, halign: "right" }, 5: { cellWidth: 46 } },
+    columnStyles: { 3: { cellWidth: 46 }, 4: { cellWidth: 24, halign: "right" }, 5: { cellWidth: 30, halign: "right" } },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
@@ -10644,7 +10964,7 @@ function showTransferSuccessOverlay(fromAccount, toAccount, amount, currency) {
   const toWalletElement = document.getElementById("transferSuccessToWallet");
   
   // Set transfer details with wallet icons
-  amountElement.textContent = formatReportAmount(amount, currency);
+  amountElement.innerHTML = money(amount, currency);
   fromWalletElement.innerHTML = `${getWalletIconHtml(fromAccount.person_name, 16)} ${fromAccount.person_name}`;
   toWalletElement.innerHTML = `${getWalletIconHtml(toAccount.person_name, 16)} ${toAccount.person_name}`;
   
@@ -10672,7 +10992,7 @@ function showMoneyAddedSuccessOverlay(walletName, amount, currency) {
   const walletElement = document.getElementById("moneyAddedSuccessWallet");
   
   // Set money added details with wallet icon
-  amountElement.textContent = formatReportAmount(amount, currency);
+  amountElement.innerHTML = money(amount, currency);
   walletElement.innerHTML = `${getWalletIconHtml(walletName, 16)} ${walletName}`;
   
   // Show overlay
@@ -10698,12 +11018,10 @@ function closeBtcTransactionSuccessOverlay() {
 }
 
 function showBtcTransactionSuccessOverlay(amountSat, toAddress, txid) {
-  // Format the amount for display
-  const amountBtc = btcFormatBtcFromSat(amountSat);
   const walletAddress = state.bitcoin.wallet ? state.bitcoin.wallet.address : 'Your Wallet';
   
   // Update overlay content
-  els.btcTransactionSuccessAmount.textContent = `${amountBtc} BTC`;
+  els.btcTransactionSuccessAmount.innerHTML = money(btcSatToBtc(amountSat), "BTC");
   els.btcTransactionSuccessFromWallet.textContent = walletAddress.slice(0, 12) + '...';
   els.btcTransactionSuccessToWallet.textContent = toAddress.slice(0, 12) + '...';
   els.btcTransactionSuccessTxid.textContent = `Transaction ID: ${txid}`;
@@ -10777,60 +11095,52 @@ async function exportAllSectionsPDF(){
     doc.text(`${secExpense ? "Wallets in view" : "Members"}: ${section.groups.length}`, 132, 48);
     doc.text(`Rows: ${section.rows.length}`, 132, 54);
 
-    // Process rows to keep currency text format
     const processedRows = section.rows.map(row => {
       if (secExpense) {
         const walletCell = row[2];
         const amountCell = row[4];
-        // Keep currency text format (AED, SAR, PKR) for PDF
-        const updatedWalletCell = walletCell;
-        const updatedAmountCell = amountCell;
         return [
           row[0],
           row[1],
-          updatedWalletCell,
-          updatedAmountCell,
+          walletCell,
+          amountCell,
           row[5],
           row[6]
         ];
       } else {
-        return row.map(cell => {
-          if (typeof cell === 'string') {
-            return cell; // Keep currency text format
-          }
-          return cell;
-        });
+        return row;
       }
     });
 
     const secHead = secExpense
-      ? [["Item", "Date", "Wallet · Type", "Amount", "—", "Notes"]]
-      : [["Member", "Date", "Type", "Amount", "Remaining", "Remarks"]];
+      ? [["Item", "Date", "Notes/Description", "Wallet / Type", "Wallet", "VAT", "Amount"]]
+      : [["Member", "Date", "Type", "Notes/Description", "Amount", "Remaining"]];
+    const finalSectionRows = secExpense
+      ? section.rows.map(row => [row[0], row[1], row[row.length > 7 ? 7 : 6], row[2], row[3], row.length > 7 ? row[5] : "-", row[4]])
+      : section.rows.map(row => [row[0], row[1], row[2], row.length > 6 ? row[3] : row[5], row.length > 6 ? row[4] : row[3], row.length > 6 ? row[5] : row[4]]);
+    const finalSectionHead = secExpense
+      ? [["Item", "Date", "Notes/Description", "Wallet / Type", "Wallet", "VAT", "Amount"]]
+      : [["Member", "Date", "Type", "Notes/Description", "Amount", "Remaining"]];
 
     doc.autoTable({
       startY: 72,
-      head: secHead,
-      body: section.rows,
+      head: finalSectionHead,
+      body: finalSectionRows,
       theme: "grid",
       headStyles: { fillColor: [36, 87, 214] },
-      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.2 },
-      columnStyles: { 0: { cellWidth: 34 }, 5: { cellWidth: 55 } },
-      didDrawCell: (data) => {
-        // Apply custom fonts to currency symbols in body cells
-        if (data.section === 'body' && typeof data.cell.raw === 'string') {
-          const cellText = data.cell.raw;
-          if (cellText.includes('AED')) {
-            doc.setFont('AED');
-            doc.setFontSize(8.5);
-          } else if (cellText.includes('SAR')) {
-            doc.setFont('SAR');
-            doc.setFontSize(8.5);
-          } else {
-            doc.setFont('helvetica');
-            doc.setFontSize(8.5);
+      styles: { font: "helvetica", fontSize: secExpense ? 7.7 : 8.5, cellPadding: secExpense ? 1.8 : 2.2, overflow: "linebreak" },
+      tableWidth: 182,
+      columnStyles: secExpense
+        ? {
+            0: { cellWidth: 24 },
+            1: { cellWidth: 24 },
+            2: { cellWidth: 46 },
+            3: { cellWidth: 28 },
+            4: { cellWidth: 24 },
+            5: { cellWidth: 17, halign: "right" },
+            6: { cellWidth: 19, halign: "right" }
           }
-        }
-      },
+        : { 3: { cellWidth: 50 }, 4: { halign: "right" }, 5: { halign: "right" } },
       margin: { top: 50, bottom: 40 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, section.label, "Section Summary", false)
     });
@@ -12127,7 +12437,18 @@ function btcSatToBtc(sats) {
 
 function btcFormatBtcFromSat(sats) {
   const btcFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 });
-  return `${btcFmt.format(btcSatToBtc(sats))} BTC`;
+  return `${currencySymbol("BTC")} ${btcFmt.format(btcSatToBtc(sats))}`;
+}
+
+function formatPdfBtcFromSat(sats) {
+  return formatPdfAmount(btcSatToBtc(sats), "BTC");
+}
+
+function formatPdfSignedBtcFromSat(sats) {
+  const value = Number(sats || 0);
+  const btcFmt = new Intl.NumberFormat("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `BTC ${sign}${btcFmt.format(btcSatToBtc(Math.abs(value)))}`;
 }
 
 function btcBtcToSat(value) {
@@ -12633,7 +12954,7 @@ function btcRenderHistory() {
       ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : 'confirmed')
       : 'unconfirmed';
     const amount = dir.netSat === 0
-      ? '0 BTC'
+      ? btcFormatBtcFromSat(0)
       : `${dir.netSat > 0 ? '+' : '-'}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
     const badgeText = dir.label === 'received' ? 'Received' : dir.label === 'sent' ? 'Sent' : 'Self / change';
 
@@ -12879,7 +13200,7 @@ async function btcRenderMoreTransactions(startIndex, count) {
       ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : 'confirmed')
       : 'unconfirmed';
     const amount = dir.netSat === 0
-      ? '0 BTC'
+      ? btcFormatBtcFromSat(0)
       : `${dir.netSat > 0 ? '+' : '-'}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
     const badgeText = dir.label === 'received' ? 'Received' : dir.label === 'sent' ? 'Sent' : 'Self / change';
 
@@ -13008,6 +13329,7 @@ async function btcDownloadTransactionPDF(tx, walletOverride = null) {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
   const wallet = walletOverride || state.bitcoin.wallet;
   if (!wallet?.address) {
     alert('Please load a wallet first.');
@@ -13028,9 +13350,7 @@ async function btcDownloadTransactionPDF(tx, walletOverride = null) {
   const conf = tx.status && tx.status.confirmed
     ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : 'confirmed')
     : 'unconfirmed';
-  const amount = dir.netSat === 0
-    ? '0 BTC'
-    : `${dir.netSat > 0 ? '+' : '-'}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
+  const amount = formatPdfSignedBtcFromSat(dir.netSat);
   const badgeText = dir.label === 'received' ? 'Received' : dir.label === 'sent' ? 'Sent' : 'Self / change';
   
   // Get addresses for this transaction
@@ -13039,7 +13359,7 @@ async function btcDownloadTransactionPDF(tx, walletOverride = null) {
   // Add transaction summary to top right
   doc.setFontSize(10);
   doc.setTextColor(23, 33, 43);
-  const summaryY = 55;
+  const summaryY = 48;
   const summaryX = 120;
   
   doc.text(`Type: ${badgeText}`, summaryX, summaryY);
@@ -13049,7 +13369,7 @@ async function btcDownloadTransactionPDF(tx, walletOverride = null) {
   doc.text(`Size: ${tx.size || 0} bytes`, summaryX, summaryY + 28);
   doc.text(`Weight: ${tx.weight || 0} WU`, summaryX, summaryY + 35);
   if (tx.fee) {
-    doc.text(`Fee: ${btcFormatBtcFromSat(tx.fee)}`, summaryX, summaryY + 42);
+    doc.text(`Fee: ${formatPdfBtcFromSat(tx.fee)}`, summaryX, summaryY + 42);
   }
 
   // Create detailed transaction data
@@ -13065,7 +13385,7 @@ async function btcDownloadTransactionPDF(tx, walletOverride = null) {
   tableData.push(['Size', `${tx.size || 0} bytes`]);
   tableData.push(['Weight', `${tx.weight || 0} WU`]);
   if (tx.fee) {
-    tableData.push(['Fee', btcFormatBtcFromSat(tx.fee)]);
+    tableData.push(['Fee', formatPdfBtcFromSat(tx.fee)]);
   }
   if (tx.status && tx.status.block_height) {
     tableData.push(['Block Height', tx.status.block_height.toString()]);
@@ -13083,7 +13403,7 @@ async function btcDownloadTransactionPDF(tx, walletOverride = null) {
   doc.autoTable({
     head: [tableData[0]],
     body: tableData.slice(1),
-    startY: 75,
+    startY: tx.fee ? 102 : 94,
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: 'bold' },
@@ -13994,6 +14314,7 @@ async function btcDownloadPDF(options = {}) {
   
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
 
   const logoData = await getPdfLogo();
   const title = 'Bitcoin Transaction History';
@@ -14013,13 +14334,13 @@ async function btcDownloadPDF(options = {}) {
   // Add summary info to top right
   doc.setFontSize(10);
   doc.setTextColor(23, 33, 43);
-  const summaryY = 55;
+  const summaryY = 48;
   const summaryX = 120;
   
   doc.text(`Transaction Count: ${transactionCount}`, summaryX, summaryY);
-  doc.text(`Current Balance: ${btcFormatBtcFromSat(balance)}`, summaryX, summaryY + 7);
-  doc.text(`Total Received: ${btcFormatBtcFromSat(received)}`, summaryX, summaryY + 14);
-  doc.text(`Total Sent: ${btcFormatBtcFromSat(sent)}`, summaryX, summaryY + 21);
+  doc.text(`Current Balance: ${formatPdfBtcFromSat(balance)}`, summaryX, summaryY + 7);
+  doc.text(`Total Received: ${formatPdfBtcFromSat(received)}`, summaryX, summaryY + 14);
+  doc.text(`Total Sent: ${formatPdfBtcFromSat(sent)}`, summaryX, summaryY + 21);
   doc.text(`Network: ${wallet.label || wallet.key || 'Bitcoin'}`, summaryX, summaryY + 28);
 
   // Create detailed transaction data
@@ -14032,9 +14353,7 @@ async function btcDownloadPDF(options = {}) {
     const conf = tx.status && tx.status.confirmed
       ? (tx.status.block_height ? `confirmed @ ${tx.status.block_height}` : 'confirmed')
       : 'unconfirmed';
-    const amount = dir.netSat === 0
-      ? '0 BTC'
-      : `${dir.netSat > 0 ? '+' : '-'}${btcFormatBtcFromSat(Math.abs(dir.netSat))}`;
+    const amount = formatPdfSignedBtcFromSat(dir.netSat);
     const badgeText = dir.label === 'received' ? 'Received' : dir.label === 'sent' ? 'Sent' : 'Self / change';
     
     // Get addresses for this transaction
@@ -14044,9 +14363,9 @@ async function btcDownloadPDF(options = {}) {
     tableData.push([
       badgeText,
       ts,
-      amount,
       conf,
-      btcShortHash(tx.txid)
+      btcShortHash(tx.txid),
+      amount
     ]);
     
     // Full transaction hash row
@@ -14084,7 +14403,7 @@ async function btcDownloadPDF(options = {}) {
     const details = [];
     if (tx.size) details.push(`Size: ${tx.size} bytes`);
     if (tx.weight) details.push(`Weight: ${tx.weight} WU`);
-    if (tx.fee) details.push(`Fee: ${btcFormatBtcFromSat(tx.fee)}`);
+    if (tx.fee) details.push(`Fee: ${formatPdfBtcFromSat(tx.fee)}`);
     if (details.length > 0) {
       tableData.push([
         '',
@@ -14100,8 +14419,8 @@ async function btcDownloadPDF(options = {}) {
   }
 
   doc.autoTable({
-    startY: 72,
-    head: [['Type', 'Date', 'Amount', 'Status', 'Txid']],
+    startY: 88,
+    head: [['Type', 'Date', 'Status', 'Txid', 'Amount']],
     body: tableData,
     theme: 'grid',
     styles: { fontSize: 8, cellPadding: 2 },
@@ -14116,8 +14435,8 @@ async function btcDownloadPDF(options = {}) {
       0: { cellWidth: 22, fontSize: 8 },
       1: { cellWidth: 40, fontSize: 8 },
       2: { cellWidth: 30, fontSize: 8 },
-      3: { cellWidth: 30, fontSize: 8 },
-      4: { cellWidth: 60, fontSize: 7 }
+      3: { cellWidth: 60, fontSize: 7 },
+      4: { cellWidth: 30, fontSize: 8, halign: "right" }
     },
     didParseCell: function(data) {
       // Style detail rows differently
@@ -14136,7 +14455,7 @@ async function btcDownloadPDF(options = {}) {
       }
       
       // Truncate long text in main txid column
-      if (data.column.index === 4 && typeof data.cell.text === 'string' && data.cell.text.length > 15) {
+      if (data.column.index === 3 && typeof data.cell.text === 'string' && data.cell.text.length > 15) {
         data.cell.text = data.cell.text.substring(0, 12) + '...';
       }
     },
@@ -14252,7 +14571,7 @@ async function btcBuildAndBroadcast() {
 
   if (!plan) {
     btcSetSendStatus(
-      `Not enough amount available to make transaction.\nAvailable balance: ${btcFormatBtcFromSat(spendable)}\nAmount requested: ${btcFormatBtcFromSat(amountSat)} BTC\nPlease reduce the amount or add more funds.`,
+      `Not enough amount available to make transaction.\nAvailable balance: ${btcFormatBtcFromSat(spendable)}\nAmount requested: ${btcFormatBtcFromSat(amountSat)}\nPlease reduce the amount or add more funds.`,
       'danger'
     );
     return;
