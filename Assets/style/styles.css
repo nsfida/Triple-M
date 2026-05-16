@@ -859,6 +859,64 @@ a{color:inherit}
   font-size:.74rem;
   color:var(--muted);
 }
+.inventory-sale-tax-controls{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:minmax(92px,.7fr) minmax(90px,.7fr) minmax(150px,1fr) minmax(0,1.8fr);
+  gap:8px;
+  align-items:center;
+}
+.checkbox-line{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:40px;
+  margin:0;
+  font-weight:600;
+  color:var(--text);
+}
+.checkbox-line input{
+  width:16px;
+  height:16px;
+  flex:0 0 auto;
+}
+.tax-preview,
+.inventory-sale-tax-summary{
+  display:block;
+  color:var(--muted);
+  font-size:.76rem;
+  line-height:1.35;
+  word-break:break-word;
+}
+.tax-inline-grid{
+  display:grid;
+  grid-template-columns:minmax(130px,.8fr) minmax(110px,.7fr) minmax(170px,1fr) minmax(0,1.5fr);
+  gap:10px;
+  align-items:end;
+}
+.tax-inline-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.tax-inline-grid .checkbox-line{
+  flex-direction:row;
+  align-items:center;
+}
+.vat-settings-body{
+  display:grid;
+  gap:10px;
+}
+.vat-settings-row{
+  display:grid;
+  grid-template-columns:72px minmax(100px,1fr) minmax(150px,1.2fr);
+  gap:10px;
+  align-items:center;
+}
+.vat-settings-currency{
+  font-weight:700;
+  color:var(--text);
+}
 .inventory-outstanding-banner{
   border:1px solid #d9e2f1;
   border-radius:12px;
@@ -3112,6 +3170,11 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   .inventory-sale-line .goods-sale-item,
   .inventory-sale-line .inventory-sale-line-meta{
     grid-column:1 / -1;
+  }
+  .inventory-sale-tax-controls,
+  .tax-inline-grid,
+  .vat-settings-row{
+    grid-template-columns:1fr;
   }
   .inventory-sale-line .goods-sale-remove{
     width:100%;
