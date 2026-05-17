@@ -620,6 +620,9 @@ const state = {
     watchAddress: null,
     btcPrice: null,
     lastPriceUpdate: null,
+    bulkWallets: [],
+    bulkImportRunId: 0,
+    bulkImportLoading: false,
     wifQrScanner: {
       stream: null,
       rafId: null,
@@ -840,6 +843,11 @@ const els = {
   btcFullWalletBtn: document.getElementById("btcFullWalletBtn"),
   btcWatchWalletBtn: document.getElementById("btcWatchWalletBtn"),
   btcBrainWalletBtn: document.getElementById("btcBrainWalletBtn"),
+  btcBulkWalletBtn: document.getElementById("btcBulkWalletBtn"),
+  btcBulkWalletFileInput: document.getElementById("btcBulkWalletFileInput"),
+  btcBulkWalletsSection: document.getElementById("btcBulkWalletsSection"),
+  btcBulkWalletsList: document.getElementById("btcBulkWalletsList"),
+  btcBulkImportStatus: document.getElementById("btcBulkImportStatus"),
   btcFullWalletSection: document.getElementById("btcFullWalletSection"),
   btcWatchWalletSection: document.getElementById("btcWatchWalletSection"),
   btcBrainWalletSection: document.getElementById("btcBrainWalletSection"),
@@ -12779,6 +12787,17 @@ function btcFormatPlainBtcFromSat(sats) {
   return btcTrimAmount(btcSatToBtc(sats), 8) || "0";
 }
 
+function btcMaskBulkValue(value, front = 6, back = 5) {
+  const text = String(value || "").trim();
+  if (!text) return "—";
+  if (text.length <= front + back + 4) return text;
+  return `${text.slice(0, front)}....${text.slice(-back)}`;
+}
+
+function btcBulkYield() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 async function btcEnsurePrice() {
   if (state.bitcoin.btcPrice) return state.bitcoin.btcPrice;
   const priceData = await btcFetchPrice();
@@ -12939,6 +12958,19 @@ function btcUpdateGuestBitcoinUi() {
     els.btcSaveAddressBtn.disabled = true;
   } else if (els.btcSaveAddressBtn) {
     els.btcSaveAddressBtn.disabled = false;
+  }
+  if (els.btcBulkWalletBtn) {
+    els.btcBulkWalletBtn.classList.toggle("hide", guest);
+    els.btcBulkWalletBtn.disabled = guest;
+    els.btcBulkWalletBtn.setAttribute("aria-disabled", guest ? "true" : "false");
+  }
+  if (els.btcBulkWalletFileInput) {
+    els.btcBulkWalletFileInput.disabled = guest;
+  }
+  if (guest) {
+    btcClearBulkWallets();
+  } else {
+    btcRenderBulkWallets();
   }
   btcUpdateGuestFeeDisplay();
   btcUpdateSendPreview();
@@ -13272,6 +13304,349 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
     }
   }
   throw new Error('Invalid WIF format. Please check your WIF and try again.');
+}
+
+function btcDetectAndLoadWalletQuiet(wif, preferredKey) {
+  const normalized = String(wif || '').trim();
+  if (!normalized) throw new Error("Missing WIF.");
+
+  const keys = [preferredKey, "mainnet", "testnet", "signet"].filter((v, i, a) => v && a.indexOf(v) === i);
+  for (const key of keys) {
+    const net = btcGetNetworkInfo(key).network;
+    try {
+      const importedPair = bitcoinjs.ECPair.fromWIF(normalized, net);
+      if (!importedPair.privateKey) throw new Error("Missing private key.");
+      const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(importedPair.privateKey, {
+        network: net,
+        compressed: false
+      });
+      const address = bitcoinjs.payments.p2pkh({
+        pubkey: uncompressedPair.publicKey,
+        network: net
+      }).address;
+      if (!address) throw new Error("Could not derive address.");
+      return {
+        key,
+        network: net,
+        label: btcGetNetworkInfo(key).label,
+        inputWif: normalized,
+        sourcePair: importedPair,
+        uncompressedPair,
+        address
+      };
+    } catch {
+      // keep trying the next Bitcoin network
+    }
+  }
+  throw new Error("Invalid WIF.");
+}
+
+function btcBulkStatsFromAddressData(stats) {
+  const chainStats = stats?.chain_stats || {};
+  const mempoolStats = stats?.mempool_stats || {};
+  const funded = Number(chainStats.funded_txo_sum || 0) + Number(mempoolStats.funded_txo_sum || 0);
+  const spent = Number(chainStats.spent_txo_sum || 0) + Number(mempoolStats.spent_txo_sum || 0);
+  return {
+    txCount: Number(chainStats.tx_count || 0) + Number(mempoolStats.tx_count || 0),
+    balanceSat: Math.max(0, funded - spent)
+  };
+}
+
+function btcBulkWalletRowHtml(row) {
+  const rowClass = [
+    "btc-bulk-wallet-row",
+    row.status === "error" || row.status === "invalid" ? "is-error" : "",
+    row.status === "loading" ? "is-loading" : ""
+  ].filter(Boolean).join(" ");
+  const txText = row.status === "loaded"
+    ? `${Number(row.txCount || 0)}Tx`
+    : row.status === "invalid"
+      ? "Invalid"
+      : row.status === "error"
+        ? "Error"
+        : row.status === "loading"
+          ? "Loading..."
+          : "Queued";
+  const btcText = row.status === "loaded"
+    ? `${btcFormatPlainBtcFromSat(row.balanceSat || 0)} BTC`
+    : "—";
+  const titleParts = [];
+  if (row.status !== "invalid") titleParts.push("Click to load this wallet.");
+  if (row.suppliedAddress && row.address && row.suppliedAddress !== row.address) {
+    titleParts.push(`File address differs from WIF-derived address: ${row.suppliedAddress}`);
+  }
+  if (row.error) titleParts.push(row.error);
+  return `
+    <tr class="${rowClass}" data-bulk-wallet-id="${escapeHtml(row.id)}" title="${escapeHtml(titleParts.join(" "))}">
+      <td class="mono">${escapeHtml(row.maskedWif || btcMaskBulkValue(row.wif))}</td>
+      <td class="mono">${escapeHtml(row.maskedAddress || btcMaskBulkValue(row.address || row.suppliedAddress || "", 6, 5))}</td>
+      <td class="btc-bulk-tx">${escapeHtml(txText)}</td>
+      <td class="btc-bulk-btc">${escapeHtml(btcText)}</td>
+    </tr>
+  `;
+}
+
+function btcUpdateBulkImportStatus() {
+  if (!els.btcBulkImportStatus) return;
+  const rows = state.bitcoin.bulkWallets || [];
+  if (isGuestMode()) {
+    els.btcBulkImportStatus.textContent = "Bulk wallet import is available only for real users.";
+    return;
+  }
+  if (!rows.length) {
+    els.btcBulkImportStatus.textContent = "No bulk wallet file imported.";
+    return;
+  }
+  const loaded = rows.filter(row => row.status === "loaded").length;
+  const failed = rows.filter(row => row.status === "error" || row.status === "invalid").length;
+  const completed = loaded + failed;
+  const totalBtcSat = rows.reduce((sum, row) => sum + (row.status === "loaded" ? Number(row.balanceSat || 0) : 0), 0);
+  const loadingText = state.bitcoin.bulkImportLoading ? "Loading..." : "Loaded";
+  els.btcBulkImportStatus.textContent = `${loadingText} ${completed}/${rows.length} wallets | ${loaded} ok | ${failed} failed | Total ${btcFormatPlainBtcFromSat(totalBtcSat)} BTC`;
+}
+
+function btcRenderBulkWallets() {
+  if (!els.btcBulkWalletsSection || !els.btcBulkWalletsList) return;
+  const rows = state.bitcoin.bulkWallets || [];
+  const show = !isGuestMode() && rows.length > 0;
+  els.btcBulkWalletsSection.classList.toggle("hide", !show);
+  if (!show) {
+    els.btcBulkWalletsList.innerHTML = "";
+    btcUpdateBulkImportStatus();
+    return;
+  }
+  els.btcBulkWalletsList.innerHTML = rows.map(btcBulkWalletRowHtml).join("");
+  btcUpdateBulkImportStatus();
+}
+
+function btcUpdateBulkWalletRow(row) {
+  if (!row || !els.btcBulkWalletsList) return;
+  const tr = els.btcBulkWalletsList.querySelector(`[data-bulk-wallet-id="${row.id}"]`);
+  if (!tr) return;
+  tr.className = [
+    "btc-bulk-wallet-row",
+    row.status === "error" || row.status === "invalid" ? "is-error" : "",
+    row.status === "loading" ? "is-loading" : ""
+  ].filter(Boolean).join(" ");
+  const txCell = tr.querySelector(".btc-bulk-tx");
+  const btcCell = tr.querySelector(".btc-bulk-btc");
+  if (txCell) {
+    txCell.textContent = row.status === "loaded"
+      ? `${Number(row.txCount || 0)}Tx`
+      : row.status === "invalid"
+        ? "Invalid"
+        : row.status === "error"
+          ? "Error"
+          : row.status === "loading"
+            ? "Loading..."
+            : "Queued";
+  }
+  if (btcCell) {
+    btcCell.textContent = row.status === "loaded"
+      ? `${btcFormatPlainBtcFromSat(row.balanceSat || 0)} BTC`
+      : "—";
+  }
+  const titleParts = [];
+  if (row.status !== "invalid") titleParts.push("Click to load this wallet.");
+  if (row.suppliedAddress && row.address && row.suppliedAddress !== row.address) {
+    titleParts.push(`File address differs from WIF-derived address: ${row.suppliedAddress}`);
+  }
+  if (row.error) titleParts.push(row.error);
+  tr.title = titleParts.join(" ");
+}
+
+function btcClearBulkWallets() {
+  state.bitcoin.bulkImportRunId += 1;
+  state.bitcoin.bulkImportLoading = false;
+  state.bitcoin.bulkWallets = [];
+  btcRenderBulkWallets();
+}
+
+async function btcBuildBulkWalletRowsFromText(text, runId) {
+  const lines = String(text || "").split(/\r?\n/);
+  const rows = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (runId !== state.bitcoin.bulkImportRunId) return [];
+    const rawLine = String(lines[i] || "").trim();
+    if (!rawLine) continue;
+    const parts = rawLine.split(/\s+/);
+    const wif = String(parts[0] || "").trim();
+    const suppliedAddress = String(parts[1] || "").trim();
+    const id = `bulk-${runId}-${rows.length}`;
+    try {
+      const wallet = btcDetectAndLoadWalletQuiet(wif, "mainnet");
+      rows.push({
+        id,
+        lineNumber: i + 1,
+        wif,
+        maskedWif: btcMaskBulkValue(wif),
+        suppliedAddress,
+        address: wallet.address,
+        maskedAddress: btcMaskBulkValue(wallet.address, 6, 5),
+        key: wallet.key,
+        label: wallet.label,
+        txCount: null,
+        balanceSat: null,
+        status: "queued",
+        error: suppliedAddress && suppliedAddress !== wallet.address ? "File address does not match the WIF-derived address." : ""
+      });
+    } catch (err) {
+      rows.push({
+        id,
+        lineNumber: i + 1,
+        wif,
+        maskedWif: btcMaskBulkValue(wif),
+        suppliedAddress,
+        address: suppliedAddress,
+        maskedAddress: btcMaskBulkValue(suppliedAddress, 6, 5),
+        txCount: null,
+        balanceSat: null,
+        status: "invalid",
+        error: err.message || "Invalid WIF."
+      });
+    }
+    if (rows.length % 100 === 0) {
+      if (els.btcBulkImportStatus) {
+        els.btcBulkImportStatus.textContent = `Reading file... ${rows.length} wallets found`;
+      }
+      await btcBulkYield();
+    }
+  }
+  return rows;
+}
+
+async function btcFetchBulkWalletStats(row) {
+  const api = btcGetNetworkInfo(row.key || "mainnet").api;
+  const stats = await btcFetchJson(`${api}/address/${encodeURIComponent(row.address)}`);
+  return btcBulkStatsFromAddressData(stats);
+}
+
+async function btcProcessBulkWalletStats(runId) {
+  const rows = state.bitcoin.bulkWallets || [];
+  const validRows = rows.filter(row => row.status !== "invalid" && row.address);
+  let cursor = 0;
+  const workerCount = Math.min(4, Math.max(1, validRows.length));
+
+  async function worker() {
+    while (runId === state.bitcoin.bulkImportRunId && !isGuestMode()) {
+      const row = validRows[cursor];
+      cursor += 1;
+      if (!row) break;
+      row.status = "loading";
+      btcUpdateBulkWalletRow(row);
+      try {
+        let stats;
+        try {
+          stats = await btcFetchBulkWalletStats(row);
+        } catch {
+          await btcBulkYield();
+          stats = await btcFetchBulkWalletStats(row);
+        }
+        row.txCount = stats.txCount;
+        row.balanceSat = stats.balanceSat;
+        row.status = "loaded";
+        row.error = row.error || "";
+      } catch (err) {
+        row.status = "error";
+        row.error = err.message || "Could not load wallet data.";
+      }
+      btcUpdateBulkWalletRow(row);
+      btcUpdateBulkImportStatus();
+      await btcBulkYield();
+    }
+  }
+
+  try {
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  } finally {
+    if (runId === state.bitcoin.bulkImportRunId) {
+      state.bitcoin.bulkImportLoading = false;
+      btcUpdateBulkImportStatus();
+    }
+  }
+}
+
+function btcPromptBulkWalletImport() {
+  if (isGuestMode()) {
+    btcSetWalletStatus("Bulk wallet import is available only for real users.", "");
+    return;
+  }
+  if (!els.btcBulkWalletFileInput) return;
+  els.btcBulkWalletFileInput.value = "";
+  els.btcBulkWalletFileInput.click();
+}
+
+async function btcHandleBulkWalletFileChange(event) {
+  if (isGuestMode()) {
+    btcSetWalletStatus("Bulk wallet import is available only for real users.", "");
+    return;
+  }
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+  const runId = state.bitcoin.bulkImportRunId + 1;
+  state.bitcoin.bulkImportRunId = runId;
+  state.bitcoin.bulkImportLoading = true;
+  state.bitcoin.bulkWallets = [];
+  if (els.btcBulkWalletsSection) els.btcBulkWalletsSection.classList.remove("hide");
+  if (els.btcBulkWalletsList) els.btcBulkWalletsList.innerHTML = "";
+  if (els.btcBulkImportStatus) els.btcBulkImportStatus.textContent = "Reading file...";
+
+  try {
+    const text = typeof file.text === "function"
+      ? await file.text()
+      : await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(reader.error || new Error("Could not read file."));
+          reader.readAsText(file);
+        });
+    if (runId !== state.bitcoin.bulkImportRunId) return;
+    const rows = await btcBuildBulkWalletRowsFromText(text, runId);
+    if (runId !== state.bitcoin.bulkImportRunId) return;
+    state.bitcoin.bulkWallets = rows;
+    btcRenderBulkWallets();
+    if (!rows.length) {
+      state.bitcoin.bulkImportLoading = false;
+      btcSetWalletStatus("No WIF rows were found in the selected TXT file.", "");
+      btcUpdateBulkImportStatus();
+      return;
+    }
+    btcSetWalletStatus(`Bulk import found ${rows.length} wallet${rows.length === 1 ? "" : "s"}. Loading balances and transaction counts...`, "");
+    btcProcessBulkWalletStats(runId);
+  } catch (err) {
+    if (runId === state.bitcoin.bulkImportRunId) {
+      state.bitcoin.bulkImportLoading = false;
+      state.bitcoin.bulkWallets = [];
+      btcRenderBulkWallets();
+      btcSetWalletStatus(`Could not import bulk wallets.\n${err.message || err}`, "");
+    }
+  }
+}
+
+async function btcLoadBulkWallet(rowId) {
+  if (isGuestMode()) {
+    btcSetWalletStatus("Bulk wallet import is available only for real users.", "");
+    return;
+  }
+  const row = (state.bitcoin.bulkWallets || []).find(item => item.id === rowId);
+  if (!row || row.status === "invalid" || !row.wif) return;
+  try {
+    const wallet = btcDetectAndLoadWalletQuiet(row.wif, row.key || "mainnet");
+    state.bitcoin.wallet = {
+      ...wallet,
+      isWatchOnly: false
+    };
+    state.bitcoin.selectedNetworkKey = wallet.key;
+    state.bitcoin.isWatchOnly = false;
+    state.bitcoin.watchAddress = null;
+    btcUpdateWalletView();
+    updateSaveButtonVisibility();
+    updateSavedAddressesVisibility();
+    btcSetWalletStatus(`Bulk wallet loaded for ${wallet.label}: ${btcShortHash(wallet.address)}`, "");
+    await btcFetchWalletData(true);
+  } catch (err) {
+    btcSetWalletStatus(`Could not load bulk wallet.\n${err.message || err}`, "");
+  }
 }
 
 function btcBytesToHex(bytes){
@@ -14156,6 +14531,7 @@ function btcClearSession() {
   state.bitcoin.historyCursor = null;
   state.bitcoin.historyDone = false;
   state.bitcoin.historyTotal = 0;
+  btcClearBulkWallets();
   els.btcWifInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
@@ -15410,6 +15786,14 @@ function btcBindUI() {
   els.btcFullWalletBtn.addEventListener('click', () => btcToggleWalletType('full'));
   els.btcWatchWalletBtn.addEventListener('click', () => btcToggleWalletType('watch'));
   els.btcBrainWalletBtn.addEventListener('click', () => btcToggleWalletType('brain'));
+  els.btcBulkWalletBtn.addEventListener('click', btcPromptBulkWalletImport);
+  els.btcBulkWalletFileInput.addEventListener('change', btcHandleBulkWalletFileChange);
+  els.btcBulkWalletsList.addEventListener('click', event => {
+    const row = event.target.closest?.('.btc-bulk-wallet-row');
+    if (row?.dataset?.bulkWalletId) {
+      btcLoadBulkWallet(row.dataset.bulkWalletId);
+    }
+  });
   els.btcWatchAddressBtn.addEventListener('click', btcWatchAddress);
   
   els.btcImportBtn.addEventListener('click', btcImportWif);
@@ -15515,6 +15899,7 @@ function btcClearSession() {
   state.bitcoin.historyDone = false;
   state.bitcoin.isWatchOnly = false;
   state.bitcoin.watchAddress = null;
+  btcClearBulkWallets();
   
   btcClearView();
   
