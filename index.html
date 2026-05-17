@@ -1368,11 +1368,12 @@
               <!-- Wallet Type Selection -->
               <div style="margin-bottom:12px;">
                 <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet Type</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <button id="btcFullWalletBtn" class="btn primary" style="flex:1;">Full Wallet (WIF)</button>
-                  <button id="btcWatchWalletBtn" class="btn ghost" style="flex:1;">Watch Only (Address)</button>
-                  <button id="btcBrainWalletBtn" class="btn ghost" style="flex:1;">Brain Wallet</button>
-                  <button id="btcBulkWalletBtn" class="btn ghost" style="flex:1;">Import Bulk Wallets</button>
+                <div class="btc-wallet-type-grid">
+                  <button id="btcFullWalletBtn" class="btn primary">WIF</button>
+                  <button id="btcWatchWalletBtn" class="btn ghost">Watch</button>
+                  <button id="btcBrainWalletBtn" class="btn ghost">Brain</button>
+                  <button id="btcBulkWalletBtn" class="btn ghost">Bulk</button>
+                  <button id="btcHexWalletBtn" class="btn ghost">Hex</button>
                   <input id="btcBulkWalletFileInput" class="hide" type="file" accept=".txt,text/plain" />
                 </div>
               </div>
@@ -1420,6 +1421,16 @@
                 <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The phrase is hashed in this browser to derive the wallet. Use only a strong private phrase.</div>
                 <div class="tools" style="margin-top:8px;">
                   <button id="btcBrainWalletImportBtn" class="btn primary">Load Brain Wallet</button>
+                </div>
+              </div>
+
+              <!-- Hex Private Key Input -->
+              <div id="btcHexWalletSection" class="hide" style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Bitcoin Hex (Private Key)</label>
+                <textarea id="btcHexInput" class="input" placeholder="Paste 64-character private key hex here" style="min-height:80px;"></textarea>
+                <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The private key is converted in this browser and loaded through the same wallet flow as WIF.</div>
+                <div class="tools" style="margin-top:8px;">
+                  <button id="btcHexImportBtn" class="btn primary">Import Hex</button>
                 </div>
               </div>
 
