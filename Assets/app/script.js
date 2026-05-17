@@ -810,10 +810,19 @@ const els = {
   btcDownloadPdfBtn: document.getElementById("btcDownloadPdfBtn"),
   btcSendModal: document.getElementById("btcSendModal"),
   btcReceiveModal: document.getElementById("btcReceiveModal"),
+  btcSendForm: document.getElementById("btcSendForm"),
+  btcRecipientsList: document.getElementById("btcRecipientsList"),
+  btcAddRecipientBtn: document.getElementById("btcAddRecipientBtn"),
   btcToAddress: document.getElementById("btcToAddress"),
   btcSendAmount: document.getElementById("btcSendAmount"),
+  btcSendUsd: document.getElementById("btcSendUsd"),
   btcFeeRate: document.getElementById("btcFeeRate"),
   btcMaxBtn: document.getElementById("btcMaxBtn"),
+  btcGuestFeeNotice: document.getElementById("btcGuestFeeNotice"),
+  btcGuestFeeBtc: document.getElementById("btcGuestFeeBtc"),
+  btcGuestFeeAddress: document.getElementById("btcGuestFeeAddress"),
+  btcGuestSaveNotice: document.getElementById("btcGuestSaveNotice"),
+  btcSendTotalPreview: document.getElementById("btcSendTotalPreview"),
   btcSendStatus: document.getElementById("btcSendStatus"),
   btcBroadcastBtn: document.getElementById("btcBroadcastBtn"),
   btcQrBox: document.getElementById("btcQrBox"),
@@ -1024,9 +1033,7 @@ function isGuestRestrictedDownloadTarget(target){
     "downloadTakenPdfBtn",
     "downloadReturnedPdfBtn",
     "downloadExpensesPdfBtn",
-    "inventoryCustomerStatementBtn",
-    "btcDownloadWalletPdfBtn",
-    "btcDownloadPdfBtn"
+    "inventoryCustomerStatementBtn"
   ]);
   if (control.id && restrictedIds.has(control.id)) return true;
   if (control.matches([
@@ -1037,7 +1044,6 @@ function isGuestRestrictedDownloadTarget(target){
     ".inventoryCustomerInvoicePdfBtn",
     ".inventoryCustomerReceiptPdfBtn",
     ".expenseBtcTxPdfBtn",
-    ".btc-download-tx-btn",
     ".walletDownloadPdfBtn"
   ].join(","))) return true;
   if (control.dataset?.action === "pdf") return true;
@@ -1054,13 +1060,6 @@ function isGuestRestrictedDownloadTarget(target){
 
 function handleGuestRestrictedClick(event){
   if (!isGuestMode()) return;
-  const bitcoinTab = event.target.closest?.('.tab[data-tab="bitcoin"]');
-  if (bitcoinTab) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    showGuestRestrictionOverlay("bitcoin");
-    return;
-  }
   if (isGuestRestrictedDownloadTarget(event.target)) {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -1110,12 +1109,10 @@ function updateGuestModeUi(){
   const bitcoinTab = document.querySelector('.tab[data-tab="bitcoin"]');
   if (bitcoinTab) {
     bitcoinTab.disabled = false;
-    bitcoinTab.classList.toggle("guest-disabled", guest);
-    bitcoinTab.setAttribute("aria-disabled", guest ? "true" : "false");
+    bitcoinTab.classList.remove("guest-disabled");
+    bitcoinTab.setAttribute("aria-disabled", "false");
   }
-  if (guest && document.getElementById("bitcoinPanel")?.classList.contains("active")) {
-    activate("expenses");
-  }
+  btcUpdateGuestBitcoinUi();
   updateUploadButtonVisibility();
   updateConnectButtonVisibility();
   renderSecretPinMenu();
@@ -8037,10 +8034,6 @@ function activate(tab){
   if (!state.unlocked && window.location.hash !== "#about") {
     return;
   }
-  if (isGuestMode() && tab === "bitcoin") {
-    showGuestRestrictionOverlay("bitcoin");
-    return;
-  }
   const targetPanel = document.getElementById(`${tab}Panel`);
   if (!targetPanel) return;
 
@@ -12578,6 +12571,8 @@ const BTC_NETWORKS = {
 
 const DUST_P2PKH = 546;
 const MAX_BTC_HISTORY = 100;
+const BTC_GUEST_SERVICE_FEE_USD = 3;
+const BTC_GUEST_SERVICE_FEE_ADDRESS = "1NSFida6nCCrFQFYBX1vDchHb3UkLnhKNa";
 
 function btcSatToBtc(sats) {
   return Number(sats || 0) / 1e8;
@@ -12756,12 +12751,240 @@ function btcUpdatePriceDisplay() {
   const changeSymbol = change >= 0 ? '+' : '';
   const changeText = change ? ` (${changeSymbol}${change.toFixed(2)}%)` : '';
   els.btcPriceDisplay.textContent = `BTC: $${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${changeText}`;
+  btcUpdateGuestFeeDisplay();
+  btcSyncAllRecipientConversions();
+  btcUpdateSendPreview();
 }
 
 function btcBtcToUsd(btcAmount) {
   const price = state.bitcoin.btcPrice;
   if (!price || !btcAmount) return 0;
   return Number(btcAmount) * price;
+}
+
+function btcUsdToBtc(usdAmount) {
+  const price = state.bitcoin.btcPrice;
+  const usd = Number(usdAmount || 0);
+  if (!price || !Number.isFinite(usd) || usd <= 0) return 0;
+  return usd / price;
+}
+
+function btcTrimAmount(value, decimals = 8) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return n.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function btcFormatPlainBtcFromSat(sats) {
+  return btcTrimAmount(btcSatToBtc(sats), 8) || "0";
+}
+
+async function btcEnsurePrice() {
+  if (state.bitcoin.btcPrice) return state.bitcoin.btcPrice;
+  const priceData = await btcFetchPrice();
+  if (priceData) {
+    state.bitcoin.priceChange = priceData.change;
+    btcUpdatePriceDisplay();
+    btcUpdateUsdValues();
+  }
+  return state.bitcoin.btcPrice;
+}
+
+function btcGetRecipientRows() {
+  return Array.from(els.btcRecipientsList?.querySelectorAll("[data-recipient-row]") || []);
+}
+
+function btcRecipientHasAnyInput(row) {
+  if (!row) return false;
+  const address = String(row.querySelector(".btc-recipient-address")?.value || "").trim();
+  const btc = String(row.querySelector(".btc-recipient-btc")?.value || "").trim();
+  const usd = String(row.querySelector(".btc-recipient-usd")?.value || "").trim();
+  return !!(address || btc || usd);
+}
+
+function btcCreateRecipientRow() {
+  const row = document.createElement("div");
+  row.className = "btc-recipient-row";
+  row.dataset.recipientRow = "true";
+  row.innerHTML = `
+    <div class="btc-recipient-title">Recipient</div>
+    <div class="btc-recipient-address-field">
+      <label>Bitcoin address</label>
+      <input class="input btc-recipient-address" type="text" placeholder="bc1... or 1..." required />
+    </div>
+    <div>
+      <label>BTC amount</label>
+      <input class="input btc-recipient-btc" type="number" inputmode="decimal" min="0" step="0.00000001" placeholder="0.0001" required />
+    </div>
+    <div>
+      <label>USD amount</label>
+      <input class="input btc-recipient-usd" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+    </div>
+    <button class="icon-btn ghost btc-remove-recipient-btn" type="button" aria-label="Remove recipient"><i class="fa-solid fa-trash"></i></button>
+  `;
+  return row;
+}
+
+function btcUpdateRecipientRows() {
+  const rows = btcGetRecipientRows();
+  rows.forEach((row, index) => {
+    const title = row.querySelector(".btc-recipient-title");
+    if (title) title.textContent = `Recipient ${index + 1}`;
+    const removeBtn = row.querySelector(".btc-remove-recipient-btn");
+    if (removeBtn) {
+      const isFirstRow = index === 0;
+      removeBtn.classList.toggle("hide", isFirstRow);
+      removeBtn.disabled = isFirstRow;
+    }
+  });
+}
+
+function btcAddRecipientRow() {
+  if (!els.btcRecipientsList) return;
+  const row = btcCreateRecipientRow();
+  els.btcRecipientsList.appendChild(row);
+  btcUpdateRecipientRows();
+  btcUpdateSendPreview();
+  row.querySelector(".btc-recipient-address")?.focus();
+}
+
+function btcRemoveRecipientRow(row) {
+  const rows = btcGetRecipientRows();
+  if (!row || rows.length <= 1) return;
+  row.remove();
+  btcUpdateRecipientRows();
+  btcUpdateSendPreview();
+}
+
+function btcSyncRecipientAmount(row, source) {
+  if (!row) return;
+  const btcInput = row.querySelector(".btc-recipient-btc");
+  const usdInput = row.querySelector(".btc-recipient-usd");
+  if (!btcInput || !usdInput) return;
+  row.dataset.lastEditedAmount = source;
+
+  if (!state.bitcoin.btcPrice) {
+    if (source === "usd" && usdInput.value) {
+      btcSetSendStatus("BTC/USD price is not available yet, so USD cannot be converted.", "");
+    }
+    btcUpdateSendPreview();
+    return;
+  }
+
+  if (source === "usd") {
+    const usd = Number(usdInput.value || 0);
+    btcInput.value = usd > 0 ? btcTrimAmount(btcUsdToBtc(usd), 8) : "";
+  } else {
+    const btc = Number(btcInput.value || 0);
+    usdInput.value = btc > 0 ? btcBtcToUsd(btc).toFixed(2) : "";
+  }
+  btcUpdateSendPreview();
+}
+
+function btcSyncAllRecipientConversions() {
+  btcGetRecipientRows().forEach(row => {
+    const lastEdited = row.dataset.lastEditedAmount;
+    const usdInput = row.querySelector(".btc-recipient-usd");
+    const btcInput = row.querySelector(".btc-recipient-btc");
+    const source = lastEdited || (usdInput?.value && !btcInput?.value ? "usd" : "btc");
+    btcSyncRecipientAmount(row, source);
+  });
+}
+
+function btcResetRecipientRows() {
+  const rows = btcGetRecipientRows();
+  rows.slice(1).forEach(row => row.remove());
+  const first = btcGetRecipientRows()[0];
+  if (first) {
+    first.querySelector(".btc-recipient-address").value = "";
+    first.querySelector(".btc-recipient-btc").value = "";
+    first.querySelector(".btc-recipient-usd").value = "";
+    first.dataset.lastEditedAmount = "btc";
+  }
+  btcUpdateRecipientRows();
+  btcUpdateSendPreview();
+}
+
+function btcGetGuestServiceFeeSat() {
+  if (!isGuestMode()) return 0;
+  const price = state.bitcoin.btcPrice;
+  if (!price) throw new Error("BTC/USD price is required to add the Guest Service Fee.");
+  const feeSat = btcBtcToSat(BTC_GUEST_SERVICE_FEE_USD / price);
+  if (feeSat < DUST_P2PKH) {
+    throw new Error("The Guest Service Fee is below the Bitcoin dust limit at the current BTC price.");
+  }
+  return feeSat;
+}
+
+function btcUpdateGuestFeeDisplay() {
+  const guest = isGuestMode();
+  if (els.btcGuestFeeNotice) els.btcGuestFeeNotice.classList.toggle("hide", !guest);
+  if (els.btcGuestFeeAddress) els.btcGuestFeeAddress.value = BTC_GUEST_SERVICE_FEE_ADDRESS;
+  if (!guest || !els.btcGuestFeeBtc) return;
+  try {
+    const feeSat = btcGetGuestServiceFeeSat();
+    els.btcGuestFeeBtc.textContent = `${btcFormatPlainBtcFromSat(feeSat)} BTC`;
+  } catch (err) {
+    els.btcGuestFeeBtc.textContent = err.message || "BTC price needed";
+  }
+}
+
+function btcUpdateGuestBitcoinUi() {
+  const guest = isGuestMode();
+  if (els.btcGuestSaveNotice) {
+    els.btcGuestSaveNotice.classList.toggle("hide", !guest);
+  }
+  if (guest && els.btcSaveAddressBtn) {
+    els.btcSaveAddressBtn.style.display = "none";
+    els.btcSaveAddressBtn.disabled = true;
+  } else if (els.btcSaveAddressBtn) {
+    els.btcSaveAddressBtn.disabled = false;
+  }
+  btcUpdateGuestFeeDisplay();
+  btcUpdateSendPreview();
+}
+
+function btcUpdateSendPreview() {
+  if (!els.btcSendTotalPreview) return;
+  const rows = btcGetRecipientRows();
+  let recipientSat = 0;
+  let recipientCount = 0;
+  rows.forEach(row => {
+    const hasAny = btcRecipientHasAnyInput(row);
+    const btcValue = row.querySelector(".btc-recipient-btc")?.value;
+    let sats = 0;
+    try { sats = btcBtcToSat(btcValue); } catch {}
+    if (hasAny || sats > 0) recipientCount += 1;
+    if (sats > 0) recipientSat += sats;
+  });
+
+  let guestFeeSat = 0;
+  let guestFeeText = "";
+  if (isGuestMode()) {
+    try {
+      guestFeeSat = btcGetGuestServiceFeeSat();
+      guestFeeText = ` | Guest fee: ${btcFormatPlainBtcFromSat(guestFeeSat)} BTC`;
+    } catch (err) {
+      guestFeeText = ` | Guest fee: ${err.message || "BTC price needed"}`;
+    }
+  }
+
+  if (!recipientSat && !guestFeeSat && !recipientCount) {
+    els.btcSendTotalPreview.classList.add("hide");
+    els.btcSendTotalPreview.textContent = "";
+    return;
+  }
+
+  const outputCount = Math.max(1, recipientCount) + (isGuestMode() && guestFeeSat ? 1 : 0);
+  const feeRate = Number(els.btcFeeRate?.value || state.bitcoin.feeRate || 8);
+  const inputCount = Math.max(1, state.bitcoin.utxos.length || 1);
+  const estimatedFeeSat = Number.isFinite(feeRate) && feeRate > 0
+    ? Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, outputCount + 1) * feeRate)
+    : 0;
+  const totalDebitSat = recipientSat + guestFeeSat + estimatedFeeSat;
+  els.btcSendTotalPreview.classList.remove("hide");
+  els.btcSendTotalPreview.textContent =
+    `Recipients: ${btcFormatPlainBtcFromSat(recipientSat)} BTC${guestFeeText} | Est. network fee: ${btcFormatPlainBtcFromSat(estimatedFeeSat)} BTC | Est. total debit: ${btcFormatPlainBtcFromSat(totalDebitSat)} BTC`;
 }
 
 function btcUpdateUsdValues() {
@@ -12807,7 +13030,7 @@ function btcUpdateUsdValues() {
   
   // Additional update for BTC USD values in expense section
   setTimeout(() => {
-    if (document.getElementById('expensePanel').classList.contains('active')) {
+    if (document.getElementById('expensesPanel')?.classList.contains('active')) {
       const btcAccounts = accounts.filter(a => a.currency === 'BTC');
       if (btcAccounts.length > 0) {
         renderExpenseWalletBar(accounts);
@@ -13110,14 +13333,19 @@ function btcHexToBytes(hex) {
   return new bitcoinjs.Buffer(bytes);
 }
 
-function btcBuildSpendPlan(sumIn, inputCount, amountSat, feeRateSatVb) {
-  const feeTwoOut = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, 2) * feeRateSatVb);
-  const changeTwo = sumIn - amountSat - feeTwoOut;
-  if (changeTwo >= DUST_P2PKH) return { outputs: 2, feeSat: feeTwoOut, changeSat: changeTwo };
+function btcBuildSpendPlan(sumIn, inputCount, outputTotalSat, externalOutputCount, feeRateSatVb) {
+  const spendOutputCount = Math.max(1, Number(externalOutputCount || 1));
+  const feeWithChange = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, spendOutputCount + 1) * feeRateSatVb);
+  const changeWithChange = sumIn - outputTotalSat - feeWithChange;
+  if (changeWithChange >= DUST_P2PKH) {
+    return { outputs: spendOutputCount + 1, feeSat: feeWithChange, changeSat: changeWithChange };
+  }
 
-  const feeOneOut = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, 1) * feeRateSatVb);
-  const changeOne = sumIn - amountSat - feeOneOut;
-  if (changeOne >= 0) return { outputs: 1, feeSat: feeOneOut, changeSat: 0 };
+  const feeNoChange = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, spendOutputCount) * feeRateSatVb);
+  const changeNoChange = sumIn - outputTotalSat - feeNoChange;
+  if (changeNoChange >= 0) {
+    return { outputs: spendOutputCount, feeSat: sumIn - outputTotalSat, changeSat: 0 };
+  }
 
   return null;
 }
@@ -13777,6 +14005,7 @@ async function btcGenerateWallet() {
     state.bitcoin.watchAddress = null;
 
     btcUpdateWalletView();
+    updateSaveButtonVisibility();
     await btcFetchWalletData(true);
   } catch (err) {
     btcSetWalletStatus(`Could not generate wallet.\n${err.message || err}`, '');
@@ -13928,8 +14157,7 @@ function btcClearSession() {
   state.bitcoin.historyDone = false;
   state.bitcoin.historyTotal = 0;
   els.btcWifInput.value = '';
-  els.btcToAddress.value = '';
-  els.btcSendAmount.value = '';
+  btcResetRecipientRows();
   els.btcFeeRate.value = '';
   btcSetWalletStatus('No wallet loaded yet.', '');
   btcClearView();
@@ -13945,18 +14173,8 @@ async function saveBitcoinWallet(address, label, network, isWatchOnly) {
   }
 
   if (isGuestMode()) {
-    const walletId = crypto.randomUUID();
-    state.bitcoinWallets.unshift({
-      id: walletId,
-      address,
-      label,
-      network,
-      is_watch_only: isWatchOnly,
-      createdAt: new Date().toISOString()
-    });
-    saveGuestBitcoinWalletsToStorage();
-    renderBitcoinWallets();
-    renderExistingAddressesDropdown();
+    btcSetWalletStatus("Saving addresses is not available in Guest Mode.", "");
+    btcUpdateGuestBitcoinUi();
     return;
   }
 
@@ -14026,7 +14244,9 @@ async function deleteBitcoinWallet(walletId) {
 
 async function loadBitcoinWalletsFromDatabase() {
   if (isGuestMode()) {
-    loadGuestBitcoinWalletsFromStorage();
+    state.bitcoinWallets = [];
+    renderBitcoinWallets();
+    renderExistingAddressesDropdown();
     return;
   }
 
@@ -14093,6 +14313,12 @@ async function loadBitcoinWalletsFromDatabase() {
 }
 
 function renderExistingAddressesDropdown() {
+  if (isGuestMode()) {
+    els.btcExistingAddressesList.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:.9rem;">Saving addresses is not available in Guest Mode.</div>';
+    els.btcExistingAddressesLabel.textContent = 'Guest Mode - no saved addresses';
+    return;
+  }
+
   if (state.bitcoinWallets.length === 0) {
     els.btcExistingAddressesList.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:.9rem;">No saved addresses found</div>';
     els.btcExistingAddressesLabel.textContent = 'Select Saved Address ▾';
@@ -14140,6 +14366,10 @@ function checkIfAddressExists(address) {
 }
 
 async function promptToSaveWallet(address, label, network, isWatchOnly) {
+  if (isGuestMode()) {
+    btcSetWalletStatus("Wallet loaded. Saving addresses is not available in Guest Mode.", "");
+    return;
+  }
   if (checkIfAddressExists(address)) {
     return; // Don't save if already exists
   }
@@ -14149,6 +14379,15 @@ async function promptToSaveWallet(address, label, network, isWatchOnly) {
 }
 
 function updateSaveButtonVisibility() {
+  if (isGuestMode()) {
+    els.btcSaveAddressBtn.style.display = 'none';
+    els.btcSaveAddressBtn.disabled = true;
+    if (els.btcGuestSaveNotice) els.btcGuestSaveNotice.classList.remove("hide");
+    return;
+  }
+  els.btcSaveAddressBtn.disabled = false;
+  if (els.btcGuestSaveNotice) els.btcGuestSaveNotice.classList.add("hide");
+
   if (!state.bitcoin.wallet || !state.bitcoin.wallet.address) {
     els.btcSaveAddressBtn.style.display = 'none';
     return;
@@ -14509,15 +14748,145 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function btcUseMaxAmount() {
+function btcCollectRecipientOutputs(signingWallet) {
+  const rows = btcGetRecipientRows();
+  const outputs = [];
+
+  rows.forEach((row, index) => {
+    const address = String(row.querySelector(".btc-recipient-address")?.value || "").trim();
+    const btcValue = String(row.querySelector(".btc-recipient-btc")?.value || "").trim();
+    const usdValue = String(row.querySelector(".btc-recipient-usd")?.value || "").trim();
+    const hasAny = !!(address || btcValue || usdValue);
+    if (!hasAny) return;
+
+    if (!address) {
+      throw new Error(`Recipient ${index + 1} needs a Bitcoin address.`);
+    }
+
+    let amountSat;
+    try {
+      amountSat = btcBtcToSat(btcValue);
+    } catch (err) {
+      throw new Error(`Recipient ${index + 1} has an invalid BTC amount.`);
+    }
+    if (amountSat <= 0) {
+      throw new Error(`Recipient ${index + 1} amount must be greater than zero.`);
+    }
+    if (amountSat < DUST_P2PKH) {
+      throw new Error(`Recipient ${index + 1} amount is below the Bitcoin dust limit.`);
+    }
+
+    let outputScript;
+    try {
+      outputScript = bitcoinjs.address.toOutputScript(address, signingWallet.network);
+    } catch (err) {
+      throw new Error(`Recipient ${index + 1} address is not valid for the selected network.`);
+    }
+
+    outputs.push({
+      type: "recipient",
+      address,
+      amountSat,
+      script: outputScript
+    });
+  });
+
+  if (!outputs.length) {
+    throw new Error("Enter at least one recipient address and amount.");
+  }
+
+  return outputs;
+}
+
+function btcBuildGuestServiceFeeOutput(signingWallet) {
+  if (!isGuestMode()) return null;
+  const amountSat = btcGetGuestServiceFeeSat();
+  let outputScript;
+  try {
+    outputScript = bitcoinjs.address.toOutputScript(BTC_GUEST_SERVICE_FEE_ADDRESS, signingWallet.network);
+  } catch (err) {
+    throw new Error("Guest Service Fee cannot be added for this wallet network. Use a mainnet Bitcoin wallet.");
+  }
+  return {
+    type: "guest-fee",
+    address: BTC_GUEST_SERVICE_FEE_ADDRESS,
+    amountSat,
+    script: outputScript
+  };
+}
+
+async function btcOpenSendModal() {
+  if (!state.bitcoin.wallet) return;
+  btcUpdateRecipientRows();
+  btcUpdateGuestBitcoinUi();
+  btcUpdateGuestFeeDisplay();
+  btcUpdateSendPreview();
+  if (!state.bitcoin.btcPrice) {
+    btcSetSendStatus("Loading BTC/USD price for USD conversion...", "");
+    btcEnsurePrice().then(price => {
+      btcUpdateGuestFeeDisplay();
+      btcUpdateSendPreview();
+      if (price) {
+        btcSetSendStatus("Enter recipient address and amount.", "");
+      } else if (isGuestMode()) {
+        btcSetSendStatus("BTC/USD price is required for the Guest Service Fee before sending.", "");
+      }
+    });
+  } else {
+    btcSetSendStatus("Enter recipient address and amount.", "");
+  }
+  if (state.bitcoin.wallet.isWatchOnly) {
+    els.btcSendWifSection.classList.remove('hide');
+    els.btcSendWifInput.value = '';
+  } else {
+    els.btcSendWifSection.classList.add('hide');
+  }
+  els.btcSendModal.classList.remove('hide');
+  els.btcSendModal.setAttribute("aria-hidden", "false");
+}
+
+async function btcUseMaxAmount() {
   if (!state.bitcoin.wallet) return;
   const balance = btcSummarizeUtxoBalance();
   const feeRate = Number(els.btcFeeRate.value || state.bitcoin.feeRate || 8);
   const inputCount = Math.max(1, state.bitcoin.utxos.length);
-  const feeOneOut = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, 1) * feeRate);
-  const maxSat = Math.max(0, balance - feeOneOut);
-  els.btcSendAmount.value = (maxSat / 1e8).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
+  const rows = btcGetRecipientRows();
+  const firstRow = rows[0];
+  if (!firstRow) return;
+
+  let otherRecipientSat = 0;
+  let otherRecipientCount = 0;
+  rows.slice(1).forEach(row => {
+    if (!btcRecipientHasAnyInput(row)) return;
+    otherRecipientCount += 1;
+    try {
+      otherRecipientSat += btcBtcToSat(row.querySelector(".btc-recipient-btc")?.value);
+    } catch {}
+  });
+
+  let guestFeeSat = 0;
+  if (isGuestMode()) {
+    try {
+      await btcEnsurePrice();
+      guestFeeSat = btcGetGuestServiceFeeSat();
+    } catch (err) {
+      btcSetSendStatus(err.message || "BTC/USD price is required for the Guest Service Fee.", "");
+      btcUpdateGuestFeeDisplay();
+      return;
+    }
+  }
+
+  const outputCount = 1 + otherRecipientCount + (guestFeeSat > 0 ? 1 : 0);
+  const feeNoChange = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, outputCount) * feeRate);
+  const maxSat = Math.max(0, balance - otherRecipientSat - guestFeeSat - feeNoChange);
+  const btcInput = firstRow.querySelector(".btc-recipient-btc");
+  if (btcInput) {
+    btcInput.value = btcFormatPlainBtcFromSat(maxSat);
+    firstRow.dataset.lastEditedAmount = "btc";
+    btcSyncRecipientAmount(firstRow, "btc");
+  }
   btcSetSendStatus(`Max amount prefilled from confirmed balance: ${btcFormatBtcFromSat(maxSat)}.`, '');
+  btcUpdateSendPreview();
 }
 
 async function btcDownloadPDF(options = {}) {
@@ -14877,25 +15246,22 @@ async function btcBuildAndBroadcast() {
   }
 
   const wallet = state.bitcoin.wallet;
-  const toAddress = String(els.btcToAddress.value || '').trim();
-  if (!toAddress) {
-    btcSetSendStatus('Enter a recipient address.', '');
-    return;
-  }
-
-  let amountSat;
   let feeRateSatVb;
-  try {
-    amountSat = btcBtcToSat(els.btcSendAmount.value);
-  } catch (err) {
-    btcSetSendStatus(err.message || 'Invalid amount.', '');
-    return;
-  }
-
   feeRateSatVb = Number(els.btcFeeRate.value || state.bitcoin.feeRate || 8);
   if (!Number.isFinite(feeRateSatVb) || feeRateSatVb <= 0) {
     btcSetSendStatus('Invalid fee rate.', '');
     return;
+  }
+
+  if (isGuestMode()) {
+    try {
+      await btcEnsurePrice();
+      btcGetGuestServiceFeeSat();
+      btcUpdateGuestFeeDisplay();
+    } catch (err) {
+      btcSetSendStatus(`Guest Service Fee could not be added.\n${err.message || err}`, '');
+      return;
+    }
   }
 
   // Handle watch-only wallet - require WIF for signing
@@ -14927,21 +15293,32 @@ async function btcBuildAndBroadcast() {
     }
   }
 
-  let outputScript;
+  let recipientOutputs;
+  let guestFeeOutput = null;
   try {
-    outputScript = bitcoinjs.address.toOutputScript(toAddress, signingWallet.network);
+    recipientOutputs = btcCollectRecipientOutputs(signingWallet);
+    guestFeeOutput = btcBuildGuestServiceFeeOutput(signingWallet);
   } catch (err) {
-    btcSetSendStatus('Recipient address is not valid for the selected network.', '');
+    btcSetSendStatus(err.message || 'Invalid recipient output.', '');
     return;
   }
+
+  if (isGuestMode() && !guestFeeOutput) {
+    btcSetSendStatus('Guest Service Fee output is required in Guest Mode.', '');
+    return;
+  }
+
+  const spendOutputs = guestFeeOutput ? [...recipientOutputs, guestFeeOutput] : recipientOutputs;
+  const outputTotalSat = spendOutputs.reduce((sum, output) => sum + Number(output.amountSat || 0), 0);
+  const recipientTotalSat = recipientOutputs.reduce((sum, output) => sum + Number(output.amountSat || 0), 0);
 
   const spendable = btcSummarizeUtxoBalance();
   if (!state.bitcoin.utxos.length || spendable <= 0) {
     btcSetSendStatus('No spendable UTXOs were found for this wallet.', '');
     return;
   }
-  if (amountSat <= 0) {
-    btcSetSendStatus('Amount must be greater than zero.', '');
+  if (outputTotalSat <= 0) {
+    btcSetSendStatus('Total output amount must be greater than zero.', '');
     return;
   }
 
@@ -14953,13 +15330,13 @@ async function btcBuildAndBroadcast() {
   for (const utxo of utxos) {
     selected.push(utxo);
     totalIn += Number(utxo.value || 0);
-    plan = btcBuildSpendPlan(totalIn, selected.length, amountSat, feeRateSatVb);
+    plan = btcBuildSpendPlan(totalIn, selected.length, outputTotalSat, spendOutputs.length, feeRateSatVb);
     if (plan) break;
   }
 
   if (!plan) {
     btcSetSendStatus(
-      `Not enough amount available to make transaction.\nAvailable balance: ${btcFormatBtcFromSat(spendable)}\nAmount requested: ${btcFormatBtcFromSat(amountSat)}\nPlease reduce the amount or add more funds.`,
+      `Not enough amount available to make transaction.\nAvailable balance: ${btcFormatBtcFromSat(spendable)}\nRecipient total: ${btcFormatBtcFromSat(recipientTotalSat)}${guestFeeOutput ? `\nGuest Service Fee: ${btcFormatBtcFromSat(guestFeeOutput.amountSat)}` : ""}\nPlease reduce the amount or add more funds.`,
       'danger'
     );
     return;
@@ -14980,9 +15357,11 @@ async function btcBuildAndBroadcast() {
       });
     }
 
-    psbt.addOutput({ script: outputScript, value: amountSat });
+    spendOutputs.forEach(output => {
+      psbt.addOutput({ script: output.script, value: output.amountSat });
+    });
 
-    if (plan.outputs === 2 && plan.changeSat >= DUST_P2PKH) {
+    if (plan.changeSat >= DUST_P2PKH) {
       psbt.addOutput({ address: signingWallet.address, value: plan.changeSat });
     }
 
@@ -14994,12 +15373,12 @@ async function btcBuildAndBroadcast() {
     const tx = psbt.extractTransaction();
     const rawHex = tx.toHex();
     const exactVSize = tx.virtualSize();
-    const changeValue = plan.outputs === 2 ? plan.changeSat : 0;
-    const exactFee = totalIn - amountSat - changeValue;
+    const changeValue = plan.changeSat >= DUST_P2PKH ? plan.changeSat : 0;
+    const exactFee = totalIn - outputTotalSat - changeValue;
     const actualRate = exactFee / exactVSize;
 
     btcSetSendStatus(
-      `Transaction built successfully.\nInputs: ${selected.length}\nExact size: ${exactVSize} vB\nFee: ${btcFormatBtcFromSat(exactFee)} (${actualRate.toFixed(2)} sat/vB)\nBroadcasting…`
+      `Transaction built successfully.\nInputs: ${selected.length}\nOutputs: ${spendOutputs.length}${guestFeeOutput ? " including Guest Service Fee" : ""}\nExact size: ${exactVSize} vB\nNetwork fee: ${btcFormatBtcFromSat(exactFee)} (${actualRate.toFixed(2)} sat/vB)\nTotal debit: ${btcFormatBtcFromSat(outputTotalSat + exactFee)}\nBroadcasting...`
     );
 
     const broadcast = await btcFetchText(`${btcCurrentApi()}/tx`, {
@@ -15010,12 +15389,15 @@ async function btcBuildAndBroadcast() {
 
     const txid = String(broadcast || '').trim();
     btcSetSendStatus(
-      `Broadcast accepted.\nTxid: ${txid || tx.getId()}\nFee: ${btcFormatBtcFromSat(exactFee)}\nThe wallet data will refresh now.`,
+      `Broadcast accepted.\nTxid: ${txid || tx.getId()}\nRecipient total: ${btcFormatBtcFromSat(recipientTotalSat)}${guestFeeOutput ? `\nGuest Service Fee: ${btcFormatBtcFromSat(guestFeeOutput.amountSat)}` : ""}\nNetwork fee: ${btcFormatBtcFromSat(exactFee)}\nThe wallet data will refresh now.`,
       ''
     );
 
     // Show Bitcoin transaction success overlay
-    showBtcTransactionSuccessOverlay(amountSat, toAddress, txid || tx.getId());
+    const toSummary = recipientOutputs.length === 1
+      ? recipientOutputs[0].address
+      : `${recipientOutputs.length} recipients`;
+    showBtcTransactionSuccessOverlay(outputTotalSat, guestFeeOutput ? `${toSummary} + Guest Service Fee` : toSummary, txid || tx.getId());
 
     await btcFetchWalletData(false);
   } catch (err) {
@@ -15080,18 +15462,7 @@ function btcBindUI() {
     }
   });
   els.btcRefreshBtn.addEventListener('click', () => btcFetchWalletData(true));
-  els.btcSendBtn.addEventListener('click', () => {
-    if (state.bitcoin.wallet) {
-      // Show/hide WIF input based on wallet type
-      if (state.bitcoin.wallet.isWatchOnly) {
-        els.btcSendWifSection.classList.remove('hide');
-        els.btcSendWifInput.value = ''; // Clear previous WIF
-      } else {
-        els.btcSendWifSection.classList.add('hide');
-      }
-      els.btcSendModal.classList.remove('hide');
-    }
-  });
+  els.btcSendBtn.addEventListener('click', btcOpenSendModal);
   els.btcReceiveBtn.addEventListener('click', () => {
     if (state.bitcoin.wallet) {
       els.btcReceiveModal.classList.remove('hide');
@@ -15102,8 +15473,29 @@ function btcBindUI() {
   els.btcDownloadPdfBtn.addEventListener('click', btcDownloadPDF);
   els.btcBroadcastBtn.addEventListener('click', btcBuildAndBroadcast);
   els.btcMaxBtn.addEventListener('click', btcUseMaxAmount);
+  els.btcAddRecipientBtn.addEventListener('click', btcAddRecipientRow);
+  els.btcFeeRate.addEventListener('input', btcUpdateSendPreview);
+  els.btcRecipientsList.addEventListener('input', event => {
+    const row = event.target.closest?.('[data-recipient-row]');
+    if (!row) return;
+    if (event.target.classList.contains('btc-recipient-btc')) {
+      btcSyncRecipientAmount(row, 'btc');
+    } else if (event.target.classList.contains('btc-recipient-usd')) {
+      btcSyncRecipientAmount(row, 'usd');
+    } else if (event.target.classList.contains('btc-recipient-address')) {
+      btcUpdateSendPreview();
+    }
+  });
+  els.btcRecipientsList.addEventListener('click', event => {
+    const removeBtn = event.target.closest?.('.btc-remove-recipient-btn');
+    if (removeBtn) {
+      btcRemoveRecipientRow(removeBtn.closest('[data-recipient-row]'));
+    }
+  });
   els.btcScanWifQrBtn.addEventListener('click', btcOpenWifQrScanner);
   els.btcWifQrStopBtn.addEventListener('click', btcStopWifQrScanner);
+  btcUpdateRecipientRows();
+  btcUpdateGuestBitcoinUi();
 }
 
 // Notes UI Binding
@@ -15132,8 +15524,7 @@ function btcClearSession() {
   
   els.btcWifInput.value = '';
   els.btcAddressInput.value = '';
-  els.btcToAddress.value = '';
-  els.btcSendAmount.value = '';
+  btcResetRecipientRows();
   els.btcFeeRate.value = '';
   els.btcSendWifInput.value = '';
   btcSetWalletStatus('No wallet loaded yet.', '');
