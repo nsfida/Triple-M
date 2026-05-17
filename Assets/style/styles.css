@@ -2977,6 +2977,86 @@ tbody tr:hover{background:#fbfdff}
 .field.w12{grid-column:span 12}
 .modal-footer{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:4px;}
 label{font-size:.78rem;color:var(--muted);font-weight:600}
+.btc-guest-save-notice{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:.76rem;
+  line-height:1.35;
+}
+.btc-recipient-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.btc-recipients-list{
+  display:grid;
+  gap:8px;
+}
+.btc-recipient-row{
+  display:grid;
+  grid-template-columns:minmax(150px,1.4fr) minmax(110px,.8fr) minmax(110px,.8fr) 42px;
+  gap:8px;
+  align-items:end;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--panel-2);
+}
+.btc-recipient-title{
+  grid-column:1/-1;
+  color:var(--text);
+  font-size:.78rem;
+  font-weight:700;
+}
+.btc-recipient-address-field{
+  min-width:0;
+}
+.btc-remove-recipient-btn{
+  width:42px;
+  min-width:42px;
+  height:42px;
+  align-self:end;
+}
+.btc-guest-fee-box{
+  padding:10px;
+  border:1px solid rgba(247,147,26,.35);
+  border-radius:8px;
+  background:#fff7ed;
+}
+.btc-guest-fee-title{
+  color:var(--text);
+  font-size:.84rem;
+  font-weight:800;
+}
+.btc-guest-fee-grid{
+  display:grid;
+  grid-template-columns:minmax(92px,.5fr) minmax(130px,.7fr) minmax(220px,1.6fr);
+  gap:8px;
+  align-items:end;
+}
+.btc-guest-fee-address{
+  min-width:0;
+}
+.btc-readonly-value{
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  background:#fff;
+}
+.btc-guest-fee-note,
+.btc-send-preview{
+  color:var(--muted);
+  font-size:.76rem;
+  line-height:1.35;
+}
+.btc-send-preview{
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--panel-2);
+}
 .btc-wif-scan-row{
   display:flex;
   align-items:stretch;
@@ -3051,6 +3131,13 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   .chips{justify-content:flex-start}
   .guest-mode-banner{align-items:flex-start;flex-direction:column}
   .guest-mode-banner a{white-space:normal}
+  .btc-recipient-row,
+  .btc-guest-fee-grid{
+    grid-template-columns:1fr;
+  }
+  .btc-remove-recipient-btn{
+    width:100%;
+  }
   .loan-top{grid-template-columns:1fr 1fr;gap:8px}
   .loan-top .cell:nth-child(1){grid-column:1 / -1}
   .modal-grid .field.w3,.modal-grid .field.w4,.modal-grid .field.w6,.modal-grid .field.w8{grid-column:span 6}
