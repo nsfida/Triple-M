@@ -3057,6 +3057,70 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   border-radius:8px;
   background:var(--panel-2);
 }
+.btc-bulk-wallets-section{
+  overflow:hidden;
+}
+.btc-bulk-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 14px 10px;
+  border-bottom:1px solid var(--line);
+}
+.btc-bulk-head h4{
+  margin:0 0 4px;
+  font-size:.98rem;
+}
+.btc-bulk-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:.78rem;
+  line-height:1.35;
+}
+.btc-bulk-table-wrap{
+  max-height:420px;
+  overflow:auto;
+}
+.btc-bulk-table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+  font-size:.78rem;
+}
+.btc-bulk-table th,
+.btc-bulk-table td{
+  padding:8px 10px;
+  border-bottom:1px solid var(--line);
+  text-align:left;
+  vertical-align:middle;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.btc-bulk-table th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:#fff;
+  color:var(--muted);
+  font-size:.72rem;
+  font-weight:800;
+}
+.btc-bulk-wallet-row{
+  cursor:pointer;
+}
+.btc-bulk-wallet-row:hover{
+  background:var(--panel-2);
+}
+.btc-bulk-wallet-row.is-error{
+  color:var(--danger);
+  cursor:default;
+}
+.btc-bulk-wallet-row.is-loading .btc-bulk-tx,
+.btc-bulk-wallet-row.is-loading .btc-bulk-btc{
+  color:var(--muted);
+}
 .btc-wif-scan-row{
   display:flex;
   align-items:stretch;
@@ -3137,6 +3201,9 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   }
   .btc-remove-recipient-btn{
     width:100%;
+  }
+  .btc-bulk-table{
+    min-width:620px;
   }
   .loan-top{grid-template-columns:1fr 1fr;gap:8px}
   .loan-top .cell:nth-child(1){grid-column:1 / -1}
