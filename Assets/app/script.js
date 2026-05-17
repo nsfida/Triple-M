@@ -844,6 +844,7 @@ const els = {
   btcWatchWalletBtn: document.getElementById("btcWatchWalletBtn"),
   btcBrainWalletBtn: document.getElementById("btcBrainWalletBtn"),
   btcBulkWalletBtn: document.getElementById("btcBulkWalletBtn"),
+  btcHexWalletBtn: document.getElementById("btcHexWalletBtn"),
   btcBulkWalletFileInput: document.getElementById("btcBulkWalletFileInput"),
   btcBulkWalletsSection: document.getElementById("btcBulkWalletsSection"),
   btcBulkWalletsList: document.getElementById("btcBulkWalletsList"),
@@ -851,10 +852,13 @@ const els = {
   btcFullWalletSection: document.getElementById("btcFullWalletSection"),
   btcWatchWalletSection: document.getElementById("btcWatchWalletSection"),
   btcBrainWalletSection: document.getElementById("btcBrainWalletSection"),
+  btcHexWalletSection: document.getElementById("btcHexWalletSection"),
   btcAddressInput: document.getElementById("btcAddressInput"),
   btcWatchAddressBtn: document.getElementById("btcWatchAddressBtn"),
   btcBrainWalletInput: document.getElementById("btcBrainWalletInput"),
   btcBrainWalletImportBtn: document.getElementById("btcBrainWalletImportBtn"),
+  btcHexInput: document.getElementById("btcHexInput"),
+  btcHexImportBtn: document.getElementById("btcHexImportBtn"),
   btcSendWifSection: document.getElementById("btcSendWifSection"),
   btcSendWifInput: document.getElementById("btcSendWifInput"),
   btcScanWifQrBtn: document.getElementById("btcScanWifQrBtn"),
@@ -2142,10 +2146,12 @@ function ensureSecretPinModal() {
               <input id="secretPinGateInput" class="input" type="password" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="4 or 6 digits" />
               <div id="secretPinGateError" class="secret-pin-error"></div>
             </div>
-            <div class="field w12 modal-footer secret-pin-actions">
-              <button class="btn ghost" id="secretPinGateLogoutBtn" type="button">Logout</button>
-              <button class="btn ghost" id="secretPinForgotBtn" type="button">Forgot Smart Pin</button>
+            <div class="field w12 modal-footer secret-pin-actions secret-pin-gate-actions">
               <button class="btn primary" id="secretPinUnlockBtn" type="submit">Unlock</button>
+              <div class="secret-pin-text-actions">
+                <button class="secret-pin-text-btn" id="secretPinForgotBtn" type="button">Forgot Smart Pin</button>
+                <button class="secret-pin-text-btn" id="secretPinGateLogoutBtn" type="button">Logout</button>
+              </div>
             </div>
           </div>
         </form>
@@ -13113,11 +13119,12 @@ function btcStopPriceUpdates() {
 
 // Watch wallet functions
 function btcToggleWalletType(type) {
-  const mode = type === "watch" || type === "brain" ? type : "full";
+  const mode = ["full", "watch", "brain", "hex"].includes(type) ? type : "full";
   const controls = [
     { key: "full", button: els.btcFullWalletBtn, section: els.btcFullWalletSection },
     { key: "watch", button: els.btcWatchWalletBtn, section: els.btcWatchWalletSection },
-    { key: "brain", button: els.btcBrainWalletBtn, section: els.btcBrainWalletSection }
+    { key: "brain", button: els.btcBrainWalletBtn, section: els.btcBrainWalletSection },
+    { key: "hex", button: els.btcHexWalletBtn, section: els.btcHexWalletSection }
   ];
   controls.forEach(control => {
     if (control.section) control.section.classList.toggle("hide", control.key !== mode);
@@ -13304,6 +13311,30 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
     }
   }
   throw new Error('Invalid WIF format. Please check your WIF and try again.');
+}
+
+function btcNormalizePrivateKeyHex(value) {
+  const clean = String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "");
+  if (!clean) throw new Error("Please enter a hex private key.");
+  if (clean.length !== 64 || /[^0-9a-f]/i.test(clean)) {
+    throw new Error("Hex private key must be exactly 64 hexadecimal characters.");
+  }
+  return clean.toLowerCase();
+}
+
+function btcDetectAndLoadHexPrivateKey(hex, preferredKey = "mainnet") {
+  const normalized = btcNormalizePrivateKeyHex(hex);
+  const key = preferredKey || "mainnet";
+  const info = btcGetNetworkInfo(key);
+  const privateKeyBytes = btcHexToBytes(normalized);
+  if (!btcIsValidPrivateKeyBytes(privateKeyBytes)) {
+    throw new Error("Hex private key is outside the valid Bitcoin private-key range.");
+  }
+  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKeyBytes, {
+    network: info.network,
+    compressed: false
+  });
+  return btcDetectAndLoadWallet(uncompressedPair.toWIF(), key);
 }
 
 function btcDetectAndLoadWalletQuiet(wif, preferredKey) {
@@ -14321,6 +14352,39 @@ async function btcImportWif() {
   }
 }
 
+async function btcImportHex() {
+  try {
+    const hex = els.btcHexInput.value.trim();
+    if (!hex) {
+      btcSetWalletStatus('Please enter a hex private key to import.', 'error');
+      return;
+    }
+
+    state.bitcoin.selectedNetworkKey = 'mainnet';
+    const wallet = btcDetectAndLoadHexPrivateKey(hex, state.bitcoin.selectedNetworkKey);
+
+    if (!wallet || !wallet.address) {
+      btcSetWalletStatus('Failed to import wallet. Please check your hex private key.', 'error');
+      return;
+    }
+
+    state.bitcoin.wallet = {
+      ...wallet,
+      isWatchOnly: false
+    };
+    state.bitcoin.isWatchOnly = false;
+    state.bitcoin.watchAddress = null;
+    btcUpdateWalletView();
+    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+
+    updateSaveButtonVisibility();
+    await btcFetchWalletData(true);
+  } catch (error) {
+    console.error('Hex import error:', error);
+    btcSetWalletStatus(error.message || 'Could not import hex private key.', 'error');
+  }
+}
+
 async function btcImportBrainWallet() {
   try {
     const phrase = els.btcBrainWalletInput.value.trim();
@@ -14533,6 +14597,7 @@ function btcClearSession() {
   state.bitcoin.historyTotal = 0;
   btcClearBulkWallets();
   els.btcWifInput.value = '';
+  els.btcHexInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
   btcSetWalletStatus('No wallet loaded yet.', '');
@@ -14872,6 +14937,7 @@ async function loadSavedBitcoinWallet(address, network, isWatchOnly) {
       // For full wallets, we need the user to provide WIF
       // We'll pre-fill the WIF input and switch to full wallet mode
       els.btcWifInput.value = ''; // Clear for security
+      els.btcHexInput.value = '';
       state.bitcoin.selectedNetworkKey = network;
       
       // Switch to full wallet mode
@@ -15786,6 +15852,7 @@ function btcBindUI() {
   els.btcFullWalletBtn.addEventListener('click', () => btcToggleWalletType('full'));
   els.btcWatchWalletBtn.addEventListener('click', () => btcToggleWalletType('watch'));
   els.btcBrainWalletBtn.addEventListener('click', () => btcToggleWalletType('brain'));
+  els.btcHexWalletBtn.addEventListener('click', () => btcToggleWalletType('hex'));
   els.btcBulkWalletBtn.addEventListener('click', btcPromptBulkWalletImport);
   els.btcBulkWalletFileInput.addEventListener('change', btcHandleBulkWalletFileChange);
   els.btcBulkWalletsList.addEventListener('click', event => {
@@ -15798,6 +15865,7 @@ function btcBindUI() {
   
   els.btcImportBtn.addEventListener('click', btcImportWif);
   els.btcBrainWalletImportBtn.addEventListener('click', btcImportBrainWallet);
+  els.btcHexImportBtn.addEventListener('click', btcImportHex);
   els.btcGenerateBtn.addEventListener('click', btcGenerateWallet);
   els.btcDownloadWalletPdfBtn.addEventListener('click', btcDownloadWalletPdf);
   els.btcClearBtn.addEventListener('click', btcClearSession);
@@ -15909,6 +15977,7 @@ function btcClearSession() {
   
   els.btcWifInput.value = '';
   els.btcAddressInput.value = '';
+  els.btcHexInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
   els.btcSendWifInput.value = '';
