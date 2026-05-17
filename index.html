@@ -1443,6 +1443,7 @@
                     <button id="btcCopyAddressInfoBtn" class="btn ghost">Copy</button>
                     <button id="btcSaveAddressBtn" class="btn primary" style="display:none;">Save</button>
                   </div>
+                  <div id="btcGuestSaveNotice" class="btc-guest-save-notice hide">Saving addresses is not available in Guest Mode.</div>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;" class="btc-summary-grid">
                   <div class="summary">
@@ -2519,12 +2520,46 @@
         <form id="btcSendForm">
           <div class="modal-grid">
             <div class="field w12">
-              <label>Recipient address</label>
-              <input id="btcToAddress" class="input" type="text" placeholder="bc1... or 1..." required />
+              <div class="btc-recipient-head">
+                <label>Recipients</label>
+                <button id="btcAddRecipientBtn" class="btn ghost" type="button"><i class="fa-solid fa-plus"></i> Add Recipient</button>
+              </div>
+              <div id="btcRecipientsList" class="btc-recipients-list">
+                <div class="btc-recipient-row" data-recipient-row>
+                  <div class="btc-recipient-title">Recipient 1</div>
+                  <div class="btc-recipient-address-field">
+                    <label>Bitcoin address</label>
+                    <input id="btcToAddress" class="input btc-recipient-address" type="text" placeholder="bc1... or 1..." required />
+                  </div>
+                  <div>
+                    <label>BTC amount</label>
+                    <input id="btcSendAmount" class="input btc-recipient-btc" type="number" inputmode="decimal" min="0" step="0.00000001" placeholder="0.0001" required />
+                  </div>
+                  <div>
+                    <label>USD amount</label>
+                    <input id="btcSendUsd" class="input btc-recipient-usd" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                  <button class="icon-btn ghost btc-remove-recipient-btn hide" type="button" aria-label="Remove recipient"><i class="fa-solid fa-trash"></i></button>
+                </div>
+              </div>
             </div>
-            <div class="field w6">
-              <label>Amount (BTC)</label>
-              <input id="btcSendAmount" class="input" type="number" inputmode="decimal" min="0" step="0.00000001" placeholder="0.0001" required />
+            <div id="btcGuestFeeNotice" class="field w12 btc-guest-fee-box hide">
+              <div class="btc-guest-fee-title">Guest Service Fee</div>
+              <div class="btc-guest-fee-grid">
+                <div>
+                  <label>USD fee</label>
+                  <div class="input btc-readonly-value">$3</div>
+                </div>
+                <div>
+                  <label>Converted BTC</label>
+                  <div id="btcGuestFeeBtc" class="input btc-readonly-value">BTC price needed</div>
+                </div>
+                <div class="btc-guest-fee-address">
+                  <label>Fee receiving address</label>
+                  <input id="btcGuestFeeAddress" class="input" type="text" value="1NSFida6nCCrFQFYBX1vDchHb3UkLnhKNa" readonly />
+                </div>
+              </div>
+              <div class="btc-guest-fee-note">This required fee is locked for Guest Mode and will be added as a separate transaction output.</div>
             </div>
             <div class="field w6">
               <label>Fee rate (sat/vB)</label>
@@ -2548,6 +2583,7 @@
             </div>
             
             <div class="field w12">
+              <div id="btcSendTotalPreview" class="btc-send-preview hide"></div>
               <div id="btcSendStatus" class="empty">Enter recipient address and amount.</div>
             </div>
             <div class="field w12 modal-footer">
