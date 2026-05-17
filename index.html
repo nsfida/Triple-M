@@ -1372,6 +1372,8 @@
                   <button id="btcFullWalletBtn" class="btn primary" style="flex:1;">Full Wallet (WIF)</button>
                   <button id="btcWatchWalletBtn" class="btn ghost" style="flex:1;">Watch Only (Address)</button>
                   <button id="btcBrainWalletBtn" class="btn ghost" style="flex:1;">Brain Wallet</button>
+                  <button id="btcBulkWalletBtn" class="btn ghost" style="flex:1;">Import Bulk Wallets</button>
+                  <input id="btcBulkWalletFileInput" class="hide" type="file" accept=".txt,text/plain" />
                 </div>
               </div>
 
@@ -1422,6 +1424,28 @@
               </div>
 
               <div id="btcWalletStatus" class="empty" style="margin-top:12px;">No wallet loaded yet.</div>
+            </div>
+          </div>
+
+          <div id="btcBulkWalletsSection" class="card btc-bulk-wallets-section hide" style="margin-bottom:14px;">
+            <div class="btc-bulk-head">
+              <div>
+                <h4>Bulk Wallets</h4>
+                <p id="btcBulkImportStatus">No bulk wallet file imported.</p>
+              </div>
+            </div>
+            <div class="btc-bulk-table-wrap">
+              <table class="btc-bulk-table">
+                <thead>
+                  <tr>
+                    <th>WIF</th>
+                    <th>Address</th>
+                    <th>Tx</th>
+                    <th>BTC</th>
+                  </tr>
+                </thead>
+                <tbody id="btcBulkWalletsList"></tbody>
+              </table>
             </div>
           </div>
 
