@@ -795,6 +795,40 @@ a{color:inherit}
 .secret-pin-actions{
   justify-content:flex-end;
 }
+.secret-pin-gate-actions{
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+}
+.secret-pin-gate-actions #secretPinUnlockBtn{
+  width:100%;
+  justify-content:center;
+}
+.secret-pin-text-actions{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  flex-wrap:wrap;
+  width:100%;
+}
+.secret-pin-text-btn{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:var(--primary);
+  cursor:pointer;
+  padding:4px 6px;
+  border-radius:6px;
+  font:inherit;
+  font-size:.82rem;
+  font-weight:750;
+  line-height:1.2;
+  letter-spacing:0;
+}
+.secret-pin-text-btn:hover{
+  background:var(--primary-soft);
+}
 .file-import-input{display:none}
 .file-import-btn{margin:0}
 
@@ -3057,6 +3091,23 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   border-radius:8px;
   background:var(--panel-2);
 }
+.btc-wallet-type-grid{
+  display:grid;
+  grid-template-columns:repeat(5, minmax(0, 1fr));
+  gap:8px;
+}
+.btc-wallet-type-grid:has(#btcBulkWalletBtn.hide){
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+.btc-wallet-type-grid .btn{
+  width:100%;
+  min-width:0;
+  padding:11px 8px;
+  font-size:.86rem;
+  line-height:1.1;
+  text-align:center;
+  letter-spacing:0;
+}
 .btc-bulk-wallets-section{
   overflow:hidden;
 }
@@ -3283,6 +3334,12 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 
   .input,.select{font-size:.8rem;padding:8px 9px}
   .btn{font-size:.8rem;padding:8px 10px}
+  .btc-wallet-type-grid{gap:5px}
+  .btc-wallet-type-grid .btn{
+    padding:8px 4px;
+    font-size:.72rem;
+    border-radius:8px;
+  }
   
   /* Mobile overview banner buttons */
   .overview-top .btn {
