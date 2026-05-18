@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BTC Wallet Range</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#101828}
+    main{max-width:720px;margin:16px auto;padding:12px}
+    h1{margin:0 0 10px;font-size:18px}
+    label{display:block;margin:8px 0 4px;font-size:12px;font-weight:700}
+    textarea,input,select{width:100%;border:1px solid #cfd6e4;border-radius:5px;padding:6px;font:12px/1.25 Consolas,monospace;background:#fff;color:#101828}
+    textarea{min-height:52px;resize:vertical}
+    select,input[type="number"]{font-family:Arial,sans-serif}
+    button{border:0;border-radius:5px;background:#1457d9;color:#fff;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
+    button.secondary{background:#344054}
+    button.danger{background:#b42318}
+    button:disabled{background:#98a2b3;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .controls{display:grid;grid-template-columns:80px 130px 1fr;gap:8px;align-items:end}
+    .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .count,.stat{color:#667085;font-size:11px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+    .stat{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:6px}
+    .stat b{display:block;color:#101828;font-size:13px;margin-top:1px}
+    .status{margin:8px 0 0;min-height:17px;font-size:12px;color:#667085}
+    .status.ok{color:#067647}
+    .status.err{color:#b42318}
+    .result{margin-top:10px}
+    #liveWallet{white-space:nowrap}
+    @media (max-width:720px){
+      main{margin:8px auto;padding:10px}
+      .grid,.controls,.stats{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>BTC Wallet Range</h1>
+
+    <div class="grid">
+      <div>
+        <label for="startHex">Hex start</label>
+        <input id="startHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Start hex">
+        <div id="startCount" class="count">0 / 64</div>
+      </div>
+      <div>
+        <label for="endHex">Hex end</label>
+        <input id="endHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="End hex">
+        <div id="endCount" class="count">0 / 64</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label for="coresInput">Cores</label>
+        <input id="coresInput" type="number" min="1" max="64" value="1">
+      </div>
+      <div>
+        <label for="modeSelect">Mode</label>
+        <select id="modeSelect">
+          <option value="sequence">Sequence</option>
+          <option value="random">Random</option>
+          <option value="reverse">Reverse</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="startBtn" type="button">Start</button>
+        <button id="stopBtn" class="danger" type="button" disabled>Stop</button>
+        <button id="clearBtn" class="secondary" type="button">Clear</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">Generated<b id="generatedStat">0</b></div>
+      <div class="stat">Speed<b id="speedStat">0 / sec</b></div>
+      <div class="stat">Workers<b id="workersStat">0</b></div>
+    </div>
+
+    <p id="status" class="status">Enter a hex range.</p>
+
+    <section class="result">
+      <label for="targetAddress">Target address to auto-stop</label>
+      <input id="targetAddress" type="text" autocomplete="off" spellcheck="false" placeholder="e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa">
+    </section>
+
+    <section class="result">
+      <label for="liveWallet">Live hex | address</label>
+      <input id="liveWallet" readonly>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+      const defaultCores = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 1));
+
+      const startHex = document.getElementById("startHex");
+      const endHex = document.getElementById("endHex");
+      const startCount = document.getElementById("startCount");
+      const endCount = document.getElementById("endCount");
+      const coresInput = document.getElementById("coresInput");
+      const modeSelect = document.getElementById("modeSelect");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const statusEl = document.getElementById("status");
+      const generatedStat = document.getElementById("generatedStat");
+      const speedStat = document.getElementById("speedStat");
+      const workersStat = document.getElementById("workersStat");
+      const targetAddress = document.getElementById("targetAddress");
+      const liveWallet = document.getElementById("liveWallet");
+
+      let workers = [];
+      let runToken = 0;
+      let running = false;
+      let startedAt = 0;
+      let generated = 0;
+      let completedWorkers = 0;
+      let statsTimer = 0;
+
+      coresInput.value = String(defaultCores);
+
+      function setStatus(message, kind = "") {
+        statusEl.textContent = message;
+        statusEl.className = `status ${kind}`.trim();
+      }
+
+      function sanitizeHex(value) {
+        return String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "").replace(/[^0-9a-f]/gi, "").toLowerCase();
+      }
+
+      function normalizeHex(value, name) {
+        const hex = sanitizeHex(value);
+        if (!hex) throw new Error(`${name} is required.`);
+        if (hex.length > 64) throw new Error(`${name} must be 64 hex digits or less.`);
+        const padded = hex.padStart(64, "0");
+        const number = BigInt(`0x${padded}`);
+        if (number <= 0n || number >= SECP256K1_N) throw new Error(`${name} is outside the valid Bitcoin private-key range.`);
+        return { hex: padded, number };
+      }
+
+      function clampCores(value, rangeSize) {
+        let cores = Math.floor(Number(value));
+        if (!Number.isFinite(cores) || cores < 1) cores = 1;
+        cores = Math.min(64, cores);
+        if (rangeSize <= BigInt(cores)) cores = Number(rangeSize);
+        return Math.max(1, cores);
+      }
+
+      function updateCounts() {
+        const s = sanitizeHex(startHex.value);
+        const e = sanitizeHex(endHex.value);
+        if (s !== startHex.value) startHex.value = s;
+        if (e !== endHex.value) endHex.value = e;
+        startCount.textContent = `${Math.min(s.length, 64)} / 64`;
+        endCount.textContent = `${Math.min(e.length, 64)} / 64`;
+      }
+
+      function updateStats() {
+        const seconds = running ? Math.max(0.001, (performance.now() - startedAt) / 1000) : 0;
+        const speed = running ? Math.round(generated / seconds) : 0;
+        generatedStat.textContent = generated.toLocaleString();
+        speedStat.textContent = `${speed.toLocaleString()} / sec`;
+        workersStat.textContent = running ? String(workers.length) : "0";
+      }
+
+      function clearOutput() {
+        generated = 0;
+        liveWallet.value = "";
+        updateStats();
+      }
+
+      function queueBatch(count, lastItem, matchItem) {
+        if (!count) return;
+        generated += count;
+        
+        if (matchItem) {
+          liveWallet.value = `${matchItem.hex} | ${matchItem.address}`;
+          updateStats();
+          stopRun("Match found! Automatically stopped.");
+        } else if (lastItem) {
+          liveWallet.value = `${lastItem.hex} | ${lastItem.address}`;
+        }
+      }
+
+      function stopRun(message = "Stopped.") {
+        if (!running && !workers.length) return;
+        running = false;
+        workers.forEach(worker => worker.terminate());
+        workers = [];
+        completedWorkers = 0;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        clearInterval(statsTimer);
+        statsTimer = 0;
+        updateStats();
+        setStatus(message, generated ? "ok" : "");
+      }
+
+      function finishWorker(token) {
+        if (token !== runToken) return;
+        completedWorkers += 1;
+        if (completedWorkers >= workers.length) {
+          running = false;
+          workers = [];
+          completedWorkers = 0;
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+          clearInterval(statsTimer);
+          statsTimer = 0;
+          updateStats();
+          setStatus("Finished range.", "ok");
+        }
+      }
+
+      function startRun() {
+        try {
+          if (running) stopRun("Restarted.");
+          clearOutput();
+          updateCounts();
+          const start = normalizeHex(startHex.value, "Hex start");
+          const end = normalizeHex(endHex.value, "Hex end");
+          if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
+          const rangeSize = end.number - start.number + 1n;
+          const cores = clampCores(coresInput.value, rangeSize);
+          const mode = modeSelect.value;
+          const target = targetAddress.value.trim();
+          const token = ++runToken;
+          const blob = new Blob([workerSource()], { type: "text/javascript" });
+          const url = URL.createObjectURL(blob);
+
+          running = true;
+          startedAt = performance.now();
+          completedWorkers = 0;
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          setStatus("Running...");
+
+          workers = Array.from({ length: cores }, (_, id) => {
+            const worker = new Worker(url);
+            worker.onmessage = event => {
+              const data = event.data || {};
+              if (token !== runToken) return;
+              if (data.type === "batch") queueBatch(data.count, data.lastItem, data.matchItem);
+              if (data.type === "done") finishWorker(token);
+              if (data.type === "error") stopRun(data.message || "Worker error.");
+            };
+            worker.onerror = error => stopRun(error.message || "Worker failed.");
+            worker.postMessage({
+              type: "start",
+              id,
+              cores,
+              mode,
+              startHex: start.hex,
+              endHex: end.hex,
+              target: target,
+              batchLimit: 40000 
+            });
+            return worker;
+          });
+
+          URL.revokeObjectURL(url);
+          statsTimer = setInterval(updateStats, 250);
+          updateStats();
+        } catch (error) {
+          setStatus(error.message || "Could not start.", "err");
+          stopBtn.disabled = true;
+          startBtn.disabled = false;
+        }
+      }
+
+      function workerSource() {
+        return `
+          "use strict";
+          const P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+          const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+          const G = {
+            x: 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n,
+            y: 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n
+          };
+          const A58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+          const ZERO = { x: 0n, y: 1n, z: 0n };
+          const K256 = [
+            0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+            0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+            0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+            0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+            0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+            0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+            0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+            0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+          ];
+
+          let active = false;
+          let batchLimit = 40000;
+          let start = 1n;
+          let end = 1n;
+          let mode = "sequence";
+          let workerId = 0n;
+          let workerCount = 1n;
+          let current = 1n;
+          let step = 1n;
+          let stepPointAffine = null;
+          let currentPoint = null;
+          let targetHash = null;
+
+          self.onmessage = event => {
+            const data = event.data || {};
+            if (data.type === "stop") {
+              active = false;
+              return;
+            }
+            if (data.type !== "start") return;
+            try {
+              workerId = BigInt(data.id || 0);
+              workerCount = BigInt(data.cores || 1);
+              mode = data.mode || "sequence";
+              start = BigInt("0x" + data.startHex);
+              end = BigInt("0x" + data.endHex);
+              batchLimit = Math.max(1, Math.min(100000, Number(data.batchLimit || 40000)));
+              step = workerCount;
+              active = true;
+
+              if (data.target) {
+                 targetHash = addressToHash(data.target);
+              }
+
+              if (mode === "reverse") {
+                current = end - workerId;
+                if (current < start) return done();
+                const stepScalar = (N - (step % N)) % N;
+                const sPt = scalarMultiply(stepScalar);
+                const aff = toAffine(sPt);
+                stepPointAffine = { x: aff.x, y: aff.y };
+                currentPoint = scalarMultiply(current);
+              } else if (mode === "random") {
+                current = 0n;
+              } else {
+                current = start + workerId;
+                if (current > end) return done();
+                const sPt = scalarMultiply(step % N);
+                const aff = toAffine(sPt);
+                stepPointAffine = { x: aff.x, y: aff.y };
+                currentPoint = scalarMultiply(current);
+              }
+              setTimeout(runSlice, 0);
+            } catch (error) {
+              postMessage({ type: "error", message: error.message || String(error) });
+            }
+          };
+
+          function done() {
+            postMessage({ type: "done" });
+          }
+
+          function runSlice() {
+            if (!active) return done();
+            try {
+              const until = performance.now() + 45;
+              let totalBatchCount = 0;
+              let lastHash = null;
+              let lastPriv = null;
+              
+              const MINI_BATCH = 128;
+
+              while (active && performance.now() < until) {
+                let count = 0;
+                let pointsX = [];
+                let pointsY = [];
+                let pointsZ = [];
+                let privKeys = [];
+
+                for (let i = 0; i < MINI_BATCH; i++) {
+                  let privKey = current;
+                  let pubPoint = currentPoint;
+
+                  if (mode === "random") {
+                    privKey = randomBetween(start, end);
+                    pubPoint = scalarMultiply(privKey);
+                  } else if (mode === "reverse") {
+                    if (current < start) { active = false; break; }
+                    current -= step;
+                    currentPoint = pointAddMixed(currentPoint, stepPointAffine);
+                  } else {
+                    if (current > end) { active = false; break; }
+                    current += step;
+                    currentPoint = pointAddMixed(currentPoint, stepPointAffine);
+                  }
+
+                  pointsX.push(pubPoint.x);
+                  pointsY.push(pubPoint.pubZ ? pubPoint.x : pubPoint.x);
+                  pointsY[i] = pubPoint.y;
+                  pointsZ.push(pubPoint.z);
+                  privKeys.push(privKey);
+                  count++;
+                }
+
+                if (count === 0) break;
+
+                let prefixes = new Array(count);
+                prefixes[0] = pointsZ[0];
+                for (let i = 1; i < count; i++) {
+                  prefixes[i] = mod(prefixes[i - 1] * pointsZ[i]);
+                }
+
+                let invTotal = invert(prefixes[count - 1]);
+                let invZ = new Array(count);
+
+                for (let i = count - 1; i > 0; i--) {
+                  invZ[i] = mod(invTotal * prefixes[i - 1]);
+                  invTotal = mod(invTotal * pointsZ[i]);
+                }
+                invZ[0] = invTotal;
+
+                for (let i = 0; i < count; i++) {
+                  const zInv = invZ[i];
+                  const zInv2 = mod(zInv * zInv);
+                  const zInv3 = mod(zInv2 * zInv);
+                  const ax = mod(pointsX[i] * zInv2);
+                  const ay = mod(pointsY[i] * zInv3);
+
+                  const publicKey = joinBytes(new Uint8Array([4]), bigIntTo32(ax), bigIntTo32(ay));
+                  const hash160 = ripemd160(sha256(publicKey));
+
+                  if (targetHash) {
+                    let match = true;
+                    for (let j = 0; j < 20; j++) {
+                      if (hash160[j] !== targetHash[j]) { match = false; break; }
+                    }
+                    if (match) {
+                      postMessage({ type: "batch", count: totalBatchCount + i + 1, matchItem: makeWalletFromHash(privKeys[i], hash160) });
+                      active = false;
+                      return done();
+                    }
+                  }
+
+                  lastHash = hash160;
+                  lastPriv = privKeys[i];
+                }
+
+                totalBatchCount += count;
+                if (totalBatchCount >= batchLimit) break;
+              }
+
+              if (totalBatchCount > 0) {
+                postMessage({ type: "batch", count: totalBatchCount, lastItem: makeWalletFromHash(lastPriv, lastHash) });
+              }
+
+              if (active) setTimeout(runSlice, 0);
+              else done();
+            } catch (error) {
+              postMessage({ type: "error", message: error.message || String(error) });
+            }
+          }
+
+          function mod(value) {
+            const out = value % P;
+            return out >= 0n ? out : out + P;
+          }
+
+          function invert(number) {
+            let a = mod(number);
+            let b = P;
+            let x = 0n, y = 1n, u = 1n, v = 0n;
+            while (a !== 0n) {
+              const q = b / a;
+              const r = b % a;
+              const m = x - u * q;
+              const n = y - v * q;
+              b = a; a = r; x = u; y = v; u = m; v = n;
+            }
+            return mod(x);
+          }
+
+          function pointDouble(p) {
+            if (p.z === 0n || p.y === 0n) return ZERO;
+            const yy = mod(p.y * p.y);
+            const s = mod(4n * p.x * yy);
+            const m = mod(3n * p.x * p.x);
+            const x = mod(m * m - 2n * s);
+            const y = mod(m * (s - x) - 8n * yy * yy);
+            const z = mod(2n * p.y * p.z);
+            return { x, y, z };
+          }
+
+          function pointAddMixed(p, q) {
+            if (p.z === 0n) return { x: q.x, y: q.y, z: 1n };
+            const z12 = mod(p.z * p.z);
+            const u2 = mod(q.x * z12);
+            const s2 = mod(mod(q.y * p.z) * z12);
+            const h = mod(u2 - p.x);
+            const r = mod(s2 - p.y);
+            if (h === 0n) {
+              if (r === 0n) return pointDouble(p);
+              return ZERO;
+            }
+            const hh = mod(h * h);
+            const hff = mod(hh * h);
+            const v = mod(p.x * hh);
+            const x3 = mod(r * r - hff - 2n * v);
+            const y3 = mod(r * (v - x3) - p.y * hff);
+            const z3 = mod(p.z * h);
+            return { x: x3, y: y3, z: z3 };
+          }
+
+          function scalarMultiply(k) {
+            let point = ZERO;
+            const bits = k.toString(2);
+            for (let i = 0; i < bits.length; i += 1) {
+              point = pointDouble(point);
+              if (bits[i] === "1") {
+                point = pointAddMixed(point, { x: G.x, y: G.y });
+              }
+            }
+            return point;
+          }
+
+          function toAffine(point) {
+            if (point.z === 0n) throw new Error("Invalid public key.");
+            const zi = invert(point.z);
+            const zi2 = mod(zi * zi);
+            return { x: mod(point.x * zi2), y: mod(point.y * zi2 * zi) };
+          }
+
+          function hexToBytes(hex) {
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i += 1) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+            return bytes;
+          }
+
+          function bigIntTo32(value) {
+            return hexToBytes(value.toString(16).padStart(64, "0"));
+          }
+
+          function joinBytes() {
+            let size = 0;
+            for (let i = 0; i < arguments.length; i += 1) size += arguments[i].length;
+            const out = new Uint8Array(size);
+            let offset = 0;
+            for (let i = 0; i < arguments.length; i += 1) {
+              out.set(arguments[i], offset);
+              offset += arguments[i].length;
+            }
+            return out;
+          }
+
+          function rotr(value, shift) { return (value >>> shift) | (value << (32 - shift)); }
+
+          function sha256(bytes) {
+            const total = (((bytes.length + 9 + 63) >>> 6) << 6);
+            const data = new Uint8Array(total);
+            data.set(bytes);
+            data[bytes.length] = 0x80;
+            const bitHi = Math.floor(bytes.length / 0x20000000);
+            const bitLo = (bytes.length << 3) >>> 0;
+            data[total - 8] = (bitHi >>> 24) & 255;
+            data[total - 7] = (bitHi >>> 16) & 255;
+            data[total - 6] = (bitHi >>> 8) & 255;
+            data[total - 5] = bitHi & 255;
+            data[total - 4] = (bitLo >>> 24) & 255;
+            data[total - 3] = (bitLo >>> 16) & 255;
+            data[total - 2] = (bitLo >>> 8) & 255;
+            data[total - 1] = bitLo & 255;
+            let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+            let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+            const w = new Uint32Array(64);
+            for (let offset = 0; offset < total; offset += 64) {
+              for (let i = 0; i < 16; i += 1) {
+                const p = offset + i * 4;
+                w[i] = ((data[p] << 24) | (data[p + 1] << 16) | (data[p + 2] << 8) | data[p + 3]) >>> 0;
+              }
+              for (let i = 16; i < 64; i += 1) {
+                const s0 = (rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3)) >>> 0;
+                const s1 = (rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10)) >>> 0;
+                w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+              }
+              let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+              for (let i = 0; i < 64; i += 1) {
+                const s1 = (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) >>> 0;
+                const ch = ((e & f) ^ (~e & g)) >>> 0;
+                const t1 = (h + s1 + ch + K256[i] + w[i]) >>> 0;
+                const s0 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) >>> 0;
+                const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
+                const t2 = (s0 + maj) >>> 0;
+                h = g; g = f; f = e; e = (d + t1) >>> 0;
+                d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+              }
+              h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+              h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+            }
+            const out = new Uint8Array(32);
+            [h0,h1,h2,h3,h4,h5,h6,h7].forEach((word, i) => {
+              out[i * 4] = (word >>> 24) & 255;
+              out[i * 4 + 1] = (word >>> 16) & 255;
+              out[i * 4 + 2] = (word >>> 8) & 255;
+              out[i * 4 + 3] = word & 255;
+            });
+            return out;
+          }
+
+          function rol(value, shift) { return ((value << shift) | (value >>> (32 - shift))) >>> 0; }
+
+          function ripemd160(bytes) {
+            const rl = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+            const rr = [5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+            const sl = [11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+            const sr = [8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+            const kl = [0x00000000,0x5a827999,0x6ed9eba1,0x8f1bbcdc,0xa953fd4e];
+            const kr = [0x50a28be6,0x5c4dd124,0x6d703ef3,0x7a6d76e9,0x00000000];
+            const f = (j, x, y, z) => j < 16 ? (x ^ y ^ z) : j < 32 ? ((x & y) | (~x & z)) : j < 48 ? ((x | ~y) ^ z) : j < 64 ? ((x & z) | (y & ~z)) : (x ^ (y | ~z));
+            const fp = (j, x, y, z) => j < 16 ? (x ^ (y | ~z)) : j < 32 ? ((x & z) | (y & ~z)) : j < 48 ? ((x | ~y) ^ z) : j < 64 ? ((x & y) | (~x & z)) : (x ^ y ^ z);
+            const total = (((bytes.length + 8) >>> 6) + 1) << 6;
+            const data = new Uint8Array(total);
+            data.set(bytes);
+            data[bytes.length] = 0x80;
+            const bitLength = BigInt(bytes.length) * 8n;
+            for (let i = 0; i < 8; i += 1) data[total - 8 + i] = Number((bitLength >> BigInt(8 * i)) & 255n);
+            let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+            for (let offset = 0; offset < total; offset += 64) {
+              const x = new Array(16);
+              for (let i = 0; i < 16; i += 1) {
+                const p = offset + i * 4;
+                x[i] = (data[p] | (data[p + 1] << 8) | (data[p + 2] << 16) | (data[p + 3] << 24)) >>> 0;
+              }
+              let al = h0, bl = h1, cl = h2, dl = h3, el = h4;
+              let ar = h0, br = h1, cr = h2, dr = h3, er = h4;
+              for (let j = 0; j < 80; j += 1) {
+                let t = (rol((al + f(j, bl, cl, dl) + x[rl[j]] + kl[(j / 16) | 0]) >>> 0, sl[j]) + el) >>> 0;
+                al = el; el = dl; dl = rol(cl, 10); cl = bl; bl = t;
+                t = (rol((ar + fp(j, br, cr, dr) + x[rr[j]] + kr[(j / 16) | 0]) >>> 0, sr[j]) + er) >>> 0;
+                ar = er; er = dr; dr = rol(cr, 10); cr = br; br = t;
+              }
+              const t = (h1 + cl + dr) >>> 0; h1 = (h2 + dl + er) >>> 0; h2 = (h3 + el + ar) >>> 0; h3 = (h4 + al + br) >>> 0; h4 = (h0 + bl + cr) >>> 0; h0 = t;
+            }
+            const out = new Uint8Array(20);
+            [h0, h1, h2, h3, h4].forEach((word, i) => {
+              out[i * 4] = word & 255; out[i * 4 + 1] = (word >>> 8) & 255; out[i * 4 + 2] = (word >>> 16) & 255; out[i * 4 + 3] = (word >>> 24) & 255;
+            });
+            return out;
+          }
+
+          function base58(bytes) {
+            let value = 0n;
+            for (const byte of bytes) value = (value << 8n) + BigInt(byte);
+            let out = "";
+            while (value > 0n) {
+              out = A58[Number(value % 58n)] + out;
+              value /= 58n;
+            }
+            for (const byte of bytes) {
+              if (byte === 0) out = "1" + out;
+              else break;
+            }
+            return out || "1";
+          }
+
+          function base58Check(payload) {
+            const checksum = sha256(sha256(payload)).slice(0, 4);
+            return base58(joinBytes(payload, checksum));
+          }
+
+          function addressToHash(address) {
+            let val = 0n;
+            for (let i = 0; i < address.length; i++) {
+                let idx = A58.indexOf(address[i]);
+                if (idx === -1) throw new Error("Invalid address base58");
+                val = val * 58n + BigInt(idx);
+            }
+            let hex = val.toString(16);
+            if (hex.length % 2 !== 0) hex = '0' + hex;
+            let bytes = hexToBytes(hex);
+            let leadingZeros = 0;
+            while(address[leadingZeros] === '1') leadingZeros++;
+            let fullBytes = new Uint8Array(leadingZeros + bytes.length);
+            fullBytes.set(bytes, leadingZeros);
+            return fullBytes.slice(1, 21);
+          }
+
+          function randomBetween(min, max) {
+            const span = max - min + 1n;
+            const bytesLength = Math.ceil(span.toString(2).length / 8);
+            const bytes = new Uint8Array(bytesLength);
+            while (true) {
+              crypto.getRandomValues(bytes);
+              let value = 0n;
+              for (const byte of bytes) value = (value << 8n) + BigInt(byte);
+              if (value < span) return min + value;
+            }
+          }
+
+          function makeWalletFromHash(privateNumber, hash160) {
+            const hex = privateNumber.toString(16).padStart(64, "0");
+            return {
+              hex: hex,
+              address: base58Check(joinBytes(new Uint8Array([0x00]), hash160))
+            };
+          }
+        `;
+      }
+
+      startHex.addEventListener("input", updateCounts);
+      endHex.addEventListener("input", updateCounts);
+      startBtn.addEventListener("click", startRun);
+      stopBtn.addEventListener("click", () => stopRun("Stopped. Current key and address are shown."));
+      clearBtn.addEventListener("click", () => {
+        if (running) stopRun("Stopped.");
+        clearOutput();
+        setStatus("Enter a hex range.");
+      });
+      updateCounts();
+      updateStats();
+    })();
+  </script>
+</body>
+</html>
