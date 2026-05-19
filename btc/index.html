@@ -273,20 +273,17 @@
       }
 
       /* ------------------------------------------------------------------ */
-      /*  Worker source                                                        */
+      /*  Worker source — all performance fixes applied                       */
       /* ------------------------------------------------------------------ */
       function workerSource() {
         return `
 "use strict";
 
-/* ── Field / curve constants ── */
+/* ── Curve constants ── */
 const P  = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
 const N  = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 const Gx = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
 const Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
-const ZERO     = { x: 0n, y: 1n, z: 0n };
-const G_AFFINE = { x: Gx, y: Gy };        // affine form of generator
-
 const A58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 /* SHA-256 round constants */
@@ -301,40 +298,80 @@ const K256 = new Int32Array([
   0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
 ]);
 
+/* RIPEMD-160 tables */
+const rl=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+const rr=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+const sl=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+const sr=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+const kl=[0x00000000,0x5a827999,0x6ed9eba1,0x8f1bbcdc,0xa953fd4e];
+const kr=[0x50a28be6,0x5c4dd124,0x6d703ef3,0x7a6d76e9,0x00000000];
+
 /* ── Tuning ── */
-const MINI_BATCH  = 512;    // keys per inner slice
-const RAND_RESEED = 512;    // random mode: full scalar-mult every N keys
-const SLICE_MS    = 60;     // ms per setTimeout slice
+const MINI_BATCH  = 4096;   // raised from 512 — amortises the single batch inversion better
+const RAND_RESEED = 4096;   // random mode: full scalar-mul every N keys
+const SLICE_MS    = 60;
 
-/* ── Mutable worker state ── */
-let active       = false;
-let batchLimit   = 100000;
-let rangeStart   = 1n;
-let rangeEnd     = 1n;
-let mode         = "sequence";
-let workerStep   = 1n;                 // gap between this worker's keys
-let stepPt       = null;              // affine point for workerStep * G
-let current      = 1n;
-let currentPt    = ZERO;
-let targetHash   = null;
+/* ================================================================
+   Pre-allocated hot-path buffers — allocated ONCE at worker start,
+   never inside the key-generation loop.
+   ================================================================ */
 
-/* random-mode incremental walk counter */
-let randWalk     = RAND_RESEED;       // = RAND_RESEED → triggers immediate reseed
+/* Uncompressed public key  04 || x(32) || y(32) */
+const pubBuf = new Uint8Array(65);
+pubBuf[0] = 0x04;
 
-/* pre-allocated batch arrays (avoids GC per slice) */
+/* SHA-256 padded input for a fixed 65-byte message → 128 bytes (2 blocks).
+   Only [0..64] is overwritten per key; padding is set once here and stays. */
+const sha256Pad = new Uint8Array(128);
+sha256Pad[65]  = 0x80;          // length delimiter
+sha256Pad[126] = 0x02;          // bit-length 520 = 0x0208 big-endian uint64
+sha256Pad[127] = 0x08;
+
+/* SHA-256 output feeds directly into RIPEMD-160 input — same buffer.
+   Layout: [0..31] SHA-256 result (written each call)
+           [32]    0x80  (static padding delimiter)
+           [33..56] 0x00 (static zeros)
+           [57]    0x01  (static; 256 bits LE = 0x0100)
+           [58..63] 0x00 (static zeros) */
+const chainBuf = new Uint8Array(64);
+chainBuf[32] = 0x80;
+chainBuf[57] = 0x01;   // 256 bits little-endian: byte[1] = 1
+
+/* RIPEMD-160 result — reused each key */
+const hash160Buf = new Uint8Array(20);
+/* Stable copy kept for the "lastItem" report (set once per mini-batch) */
+const lastH160 = new Uint8Array(20);
+
+/* SHA-256 message schedule — shared, never reallocated */
+const W  = new Uint32Array(64);
+/* RIPEMD-160 message words — shared */
+const Xw = new Uint32Array(16);
+
+/* Batch arrays for MINI_BATCH Jacobian points */
 const bX    = new Array(MINI_BATCH);
 const bY    = new Array(MINI_BATCH);
 const bZ    = new Array(MINI_BATCH);
 const bPriv = new Array(MINI_BATCH);
 const pfx   = new Array(MINI_BATCH);
 const iZ    = new Array(MINI_BATCH);
-const W     = new Uint32Array(64);
+
+/* ── Mutable worker state ── */
+let active     = false;
+let batchLimit = 100000;
+let rangeStart = 1n;
+let rangeEnd   = 1n;
+let mode       = "sequence";
+let workerStep = 1n;
+let stepX      = 0n, stepY = 0n;       // affine step point
+let current    = 1n;
+let cpX        = 0n, cpY = 1n, cpZ = 0n;  // Jacobian current point (in-place)
+let targetHash = null;
+let randWalk   = RAND_RESEED;
 
 /* ================================================================
-   Finite-field helpers
+   Field math
    ================================================================ */
-function mod(v)    { const r = v % P; return r >= 0n ? r : r + P; }
-function modN(v)   { const r = v % N; return r >= 0n ? r : r + N; }
+function mod(v) { const r = v % P; return r < 0n ? r + P : r; }
 
 function invert(n) {
   let a = mod(n), b = P, x = 0n, y = 1n, u = 1n, v = 0n;
@@ -346,211 +383,262 @@ function invert(n) {
 }
 
 /* ================================================================
-   Jacobian point arithmetic (Z=0 → point at infinity)
+   Jacobian point arithmetic — ALL operations mutate cpX/cpY/cpZ
+   in place, eliminating the {x,y,z} object allocation per step.
    ================================================================ */
-function pdbl(p) {
-  if (p.z === 0n || p.y === 0n) return ZERO;
-  const yy = mod(p.y * p.y);
-  const s  = mod(4n * p.x * yy);
-  const m  = mod(3n * p.x * p.x);
+function pdblIP() {
+  if (cpZ === 0n) return;
+  const yy = mod(cpY * cpY);
+  const s  = mod(4n * cpX * yy);
+  const m  = mod(3n * cpX * cpX);
   const x3 = mod(m * m - 2n * s);
   const y3 = mod(m * (s - x3) - 8n * yy * yy);
-  const z3 = mod(2n * p.y * p.z);
-  return { x: x3, y: y3, z: z3 };
+  const z3 = mod(2n * cpY * cpZ);
+  cpX = x3; cpY = y3; cpZ = z3;
 }
 
-/* Add Jacobian p to affine q (q.z assumed 1) */
-function paddMixed(p, q) {
-  if (p.z === 0n) return { x: q.x, y: q.y, z: 1n };
-  const z12 = mod(p.z * p.z);
-  const u2  = mod(q.x * z12);
-  const s2  = mod(mod(q.y * p.z) * z12);
-  const h   = mod(u2 - p.x);
-  const r   = mod(s2 - p.y);
-  if (h === 0n) return r === 0n ? pdbl(p) : ZERO;
-  const hh  = mod(h * h);
-  const hff = mod(hh * h);
-  const vv  = mod(p.x * hh);
-  const x3  = mod(r * r - hff - 2n * vv);
-  const y3  = mod(r * (vv - x3) - p.y * hff);
-  const z3  = mod(p.z * h);
-  return { x: x3, y: y3, z: z3 };
+/* Add affine point (qx, qy) to Jacobian (cpX, cpY, cpZ). Result in-place. */
+function paddMixedIP(qx, qy) {
+  if (cpZ === 0n) { cpX = qx; cpY = qy; cpZ = 1n; return; }
+  const z12 = mod(cpZ * cpZ);
+  const u2  = mod(qx * z12);
+  const s2  = mod(mod(qy * cpZ) * z12);
+  const h   = mod(u2 - cpX);
+  const r   = mod(s2 - cpY);
+  if (h === 0n) {
+    if (r === 0n) { pdblIP(); return; }
+    cpX = 0n; cpY = 1n; cpZ = 0n; return;
+  }
+  const hh = mod(h * h);
+  const hf = mod(hh * h);
+  const vv = mod(cpX * hh);
+  const x3 = mod(r * r - hf - 2n * vv);
+  const y3 = mod(r * (vv - x3) - cpY * hf);
+  const z3 = mod(cpZ * h);
+  cpX = x3; cpY = y3; cpZ = z3;
 }
 
-/* Double-and-add scalar multiplication (Jacobian, mixed-add G) */
-function scalarMul(k) {
-  let pt   = ZERO;
+/* Scalar multiply k*G → result stored in cpX/cpY/cpZ */
+function scalarMulInto(k) {
+  cpX = 0n; cpY = 1n; cpZ = 0n;
   const bs = k.toString(2);
   for (let i = 0; i < bs.length; i++) {
-    pt = pdbl(pt);
-    if (bs[i] === "1") pt = paddMixed(pt, G_AFFINE);
+    pdblIP();
+    if (bs[i] === "1") paddMixedIP(Gx, Gy);
   }
-  return pt;
 }
 
-function toAffine(pt) {
-  if (pt.z === 0n) throw new Error("Point at infinity.");
-  const zi  = invert(pt.z);
-  const zi2 = mod(zi * zi);
-  return { x: mod(pt.x * zi2), y: mod(pt.y * zi2 * zi) };
+/* Convert current (cpX/cpY/cpZ) to affine — only called during setup */
+function toAffineResult() {
+  if (cpZ === 0n) throw new Error("Point at infinity");
+  const zi = invert(cpZ);
+  const z2 = mod(zi * zi);
+  return { x: mod(cpX * z2), y: mod(cpY * z2 * zi) };
 }
 
 /* ================================================================
-   Byte helpers
+   BigInt → bytes (no allocation — writes directly into a buffer)
    ================================================================ */
-function hexToBytes(hex) {
-  const b = new Uint8Array(hex.length >>> 1);
-  for (let i = 0; i < b.length; i++) b[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  return b;
-}
-
-function bigInt32(v) { return hexToBytes(v.toString(16).padStart(64, "0")); }
-
-function joinBytes(...arrs) {
-  let len = 0;
-  for (const a of arrs) len += a.length;
-  const out = new Uint8Array(len);
-  let off = 0;
-  for (const a of arrs) { out.set(a, off); off += a.length; }
-  return out;
+function writeBigInt32(v, buf, off) {
+  for (let i = 31; i >= 0; i--) {
+    buf[off + i] = Number(v & 0xffn);
+    v >>= 8n;
+  }
 }
 
 /* ================================================================
-   SHA-256  (single-call, no SubtleCrypto so it stays synchronous)
+   SHA-256 of the fixed 65-byte pubBuf.
+   Reads pubBuf; writes 32-byte digest into chainBuf[0..31].
+   Uses pre-allocated sha256Pad and W — zero allocations.
    ================================================================ */
 function rotr32(v, n) { return (v >>> n) | (v << (32 - n)); }
 
-function sha256(bytes) {
-  const len   = bytes.length;
-  const total = (((len + 9 + 63) >>> 6) << 6);
-  const data  = new Uint8Array(total);
-  data.set(bytes);
-  data[len] = 0x80;
-  const bitHi = Math.floor(len / 0x20000000);
-  const bitLo = (len << 3) >>> 0;
-  data[total-8]=(bitHi>>>24)&255; data[total-7]=(bitHi>>>16)&255;
-  data[total-6]=(bitHi>>>8)&255;  data[total-5]=bitHi&255;
-  data[total-4]=(bitLo>>>24)&255; data[total-3]=(bitLo>>>16)&255;
-  data[total-2]=(bitLo>>>8)&255;  data[total-1]=bitLo&255;
+function sha256_65() {
+  /* Copy 65 bytes of pubBuf into sha256Pad[0..64].
+     sha256Pad[65..127] retains its pre-set padding (set once at startup). */
+  sha256Pad.set(pubBuf);
+
   let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a;
   let h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
-  for (let off = 0; off < total; off += 64) {
-    for (let i=0;i<16;i++){const p=off+i*4;W[i]=((data[p]<<24)|(data[p+1]<<16)|(data[p+2]<<8)|data[p+3])>>>0;}
+
+  for (let blk = 0; blk < 128; blk += 64) {
+    for (let i=0;i<16;i++){
+      const p=blk+i*4;
+      W[i]=((sha256Pad[p]<<24)|(sha256Pad[p+1]<<16)|(sha256Pad[p+2]<<8)|sha256Pad[p+3])>>>0;
+    }
     for (let i=16;i<64;i++){
       const s0=(rotr32(W[i-15],7)^rotr32(W[i-15],18)^(W[i-15]>>>3))>>>0;
       const s1=(rotr32(W[i-2],17)^rotr32(W[i-2],19)^(W[i-2]>>>10))>>>0;
       W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;
     }
-    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
     for (let i=0;i<64;i++){
-      const s1=(rotr32(e,6)^rotr32(e,11)^rotr32(e,25))>>>0;
+      const S1=(rotr32(e,6)^rotr32(e,11)^rotr32(e,25))>>>0;
       const ch=((e&f)^(~e&g))>>>0;
-      const t1=(h+s1+ch+K256[i]+W[i])>>>0;
-      const s0=(rotr32(a,2)^rotr32(a,13)^rotr32(a,22))>>>0;
+      const t1=(hh+S1+ch+K256[i]+W[i])>>>0;
+      const S0=(rotr32(a,2)^rotr32(a,13)^rotr32(a,22))>>>0;
       const mj=((a&b)^(a&c)^(b&c))>>>0;
-      const t2=(s0+mj)>>>0;
-      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+      const t2=(S0+mj)>>>0;
+      hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
     }
     h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;
-    h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;
+    h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+hh)>>>0;
   }
-  const out = new Uint8Array(32);
-  [h0,h1,h2,h3,h4,h5,h6,h7].forEach((w,i)=>{
-    out[i*4]=(w>>>24)&255;out[i*4+1]=(w>>>16)&255;out[i*4+2]=(w>>>8)&255;out[i*4+3]=w&255;
-  });
+
+  /* Write digest directly into chainBuf[0..31] — becomes RIPEMD-160 input */
+  chainBuf[ 0]=(h0>>>24)&255;chainBuf[ 1]=(h0>>>16)&255;chainBuf[ 2]=(h0>>>8)&255;chainBuf[ 3]=h0&255;
+  chainBuf[ 4]=(h1>>>24)&255;chainBuf[ 5]=(h1>>>16)&255;chainBuf[ 6]=(h1>>>8)&255;chainBuf[ 7]=h1&255;
+  chainBuf[ 8]=(h2>>>24)&255;chainBuf[ 9]=(h2>>>16)&255;chainBuf[10]=(h2>>>8)&255;chainBuf[11]=h2&255;
+  chainBuf[12]=(h3>>>24)&255;chainBuf[13]=(h3>>>16)&255;chainBuf[14]=(h3>>>8)&255;chainBuf[15]=h3&255;
+  chainBuf[16]=(h4>>>24)&255;chainBuf[17]=(h4>>>16)&255;chainBuf[18]=(h4>>>8)&255;chainBuf[19]=h4&255;
+  chainBuf[20]=(h5>>>24)&255;chainBuf[21]=(h5>>>16)&255;chainBuf[22]=(h5>>>8)&255;chainBuf[23]=h5&255;
+  chainBuf[24]=(h6>>>24)&255;chainBuf[25]=(h6>>>16)&255;chainBuf[26]=(h6>>>8)&255;chainBuf[27]=h6&255;
+  chainBuf[28]=(h7>>>24)&255;chainBuf[29]=(h7>>>16)&255;chainBuf[30]=(h7>>>8)&255;chainBuf[31]=h7&255;
+}
+
+/* ================================================================
+   General SHA-256 — used only by base58Check (not the hot path).
+   Allocates locally; reuses the shared W schedule (safe: single-threaded).
+   ================================================================ */
+function sha256(bytes) {
+  const len = bytes.length;
+  const total = (((len+9+63)>>>6)<<6);
+  const data = new Uint8Array(total);
+  data.set(bytes);
+  data[len] = 0x80;
+  const bLo=(len<<3)>>>0, bHi=Math.floor(len/0x20000000);
+  data[total-8]=(bHi>>>24)&255;data[total-7]=(bHi>>>16)&255;
+  data[total-6]=(bHi>>>8)&255; data[total-5]=bHi&255;
+  data[total-4]=(bLo>>>24)&255;data[total-3]=(bLo>>>16)&255;
+  data[total-2]=(bLo>>>8)&255; data[total-1]=bLo&255;
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a;
+  let h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  for (let off=0;off<total;off+=64){
+    for(let i=0;i<16;i++){const p=off+i*4;W[i]=((data[p]<<24)|(data[p+1]<<16)|(data[p+2]<<8)|data[p+3])>>>0;}
+    for(let i=16;i<64;i++){
+      const s0=(rotr32(W[i-15],7)^rotr32(W[i-15],18)^(W[i-15]>>>3))>>>0;
+      const s1=(rotr32(W[i-2],17)^rotr32(W[i-2],19)^(W[i-2]>>>10))>>>0;
+      W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;
+    }
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
+    for(let i=0;i<64;i++){
+      const S1=(rotr32(e,6)^rotr32(e,11)^rotr32(e,25))>>>0;
+      const ch=((e&f)^(~e&g))>>>0;
+      const t1=(hh+S1+ch+K256[i]+W[i])>>>0;
+      const S0=(rotr32(a,2)^rotr32(a,13)^rotr32(a,22))>>>0;
+      const mj=((a&b)^(a&c)^(b&c))>>>0;
+      const t2=(S0+mj)>>>0;
+      hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+    }
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;
+    h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+hh)>>>0;
+  }
+  const out=new Uint8Array(32);
+  out[ 0]=(h0>>>24)&255;out[ 1]=(h0>>>16)&255;out[ 2]=(h0>>>8)&255;out[ 3]=h0&255;
+  out[ 4]=(h1>>>24)&255;out[ 5]=(h1>>>16)&255;out[ 6]=(h1>>>8)&255;out[ 7]=h1&255;
+  out[ 8]=(h2>>>24)&255;out[ 9]=(h2>>>16)&255;out[10]=(h2>>>8)&255;out[11]=h2&255;
+  out[12]=(h3>>>24)&255;out[13]=(h3>>>16)&255;out[14]=(h3>>>8)&255;out[15]=h3&255;
+  out[16]=(h4>>>24)&255;out[17]=(h4>>>16)&255;out[18]=(h4>>>8)&255;out[19]=h4&255;
+  out[20]=(h5>>>24)&255;out[21]=(h5>>>16)&255;out[22]=(h5>>>8)&255;out[23]=h5&255;
+  out[24]=(h6>>>24)&255;out[25]=(h6>>>16)&255;out[26]=(h6>>>8)&255;out[27]=h6&255;
+  out[28]=(h7>>>24)&255;out[29]=(h7>>>16)&255;out[30]=(h7>>>8)&255;out[31]=h7&255;
   return out;
 }
 
 /* ================================================================
-   RIPEMD-160
+   RIPEMD-160 of the 32-byte chainBuf[0..31].
+   chainBuf[32..63] holds pre-set static padding (set once at startup).
+   Reads Xw (pre-allocated); writes result to hash160Buf.
+   Zero allocations.
    ================================================================ */
-const rl=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
-const rr=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
-const sl=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
-const sr=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
-const kl=[0x00000000,0x5a827999,0x6ed9eba1,0x8f1bbcdc,0xa953fd4e];
-const kr=[0x50a28be6,0x5c4dd124,0x6d703ef3,0x7a6d76e9,0x00000000];
-
-function rol32(v,n){return((v<<n)|(v>>>(32-n)))>>>0;}
+function rol32(v, n) { return ((v<<n)|(v>>>(32-n)))>>>0; }
 function rmd_f(j,x,y,z){return j<16?(x^y^z):j<32?((x&y)|(~x&z)):j<48?((x|~y)^z):j<64?((x&z)|(y&~z)):(x^(y|~z));}
 function rmd_fp(j,x,y,z){return j<16?(x^(y|~z)):j<32?((x&z)|(y&~z)):j<48?((x|~y)^z):j<64?((x&y)|(~x&z)):(x^y^z);}
 
-function ripemd160(bytes) {
-  const len   = bytes.length;
-  const total = (((len+8)>>>6)+1)<<6;
-  const data  = new Uint8Array(total);
-  data.set(bytes);
-  data[len] = 0x80;
-  const bit = BigInt(len)*8n;
-  for(let i=0;i<8;i++) data[total-8+i]=Number((bit>>BigInt(8*i))&255n);
-  let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476,h4=0xc3d2e1f0;
-  for(let off=0;off<total;off+=64){
-    const x=new Array(16);
-    for(let i=0;i<16;i++){const p=off+i*4;x[i]=(data[p]|(data[p+1]<<8)|(data[p+2]<<16)|(data[p+3]<<24))>>>0;}
-    let al=h0,bl=h1,cl=h2,dl=h3,el=h4,ar=h0,br=h1,cr=h2,dr=h3,er=h4;
-    for(let j=0;j<80;j++){
-      let t=(rol32((al+rmd_f(j,bl,cl,dl)+x[rl[j]]+kl[(j/16)|0])>>>0,sl[j])+el)>>>0;
-      al=el;el=dl;dl=rol32(cl,10);cl=bl;bl=t;
-      t=(rol32((ar+rmd_fp(j,br,cr,dr)+x[rr[j]]+kr[(j/16)|0])>>>0,sr[j])+er)>>>0;
-      ar=er;er=dr;dr=rol32(cr,10);cr=br;br=t;
-    }
-    const t=(h1+cl+dr)>>>0;h1=(h2+dl+er)>>>0;h2=(h3+el+ar)>>>0;h3=(h4+al+br)>>>0;h4=(h0+bl+cr)>>>0;h0=t;
+function ripemd160_32() {
+  /* Load 16 little-endian 32-bit words from chainBuf[0..63] into pre-allocated Xw */
+  for (let i=0;i<16;i++){
+    const p=i*4;
+    Xw[i]=(chainBuf[p]|(chainBuf[p+1]<<8)|(chainBuf[p+2]<<16)|(chainBuf[p+3]<<24))>>>0;
   }
-  const out=new Uint8Array(20);
-  [h0,h1,h2,h3,h4].forEach((w,i)=>{out[i*4]=w&255;out[i*4+1]=(w>>>8)&255;out[i*4+2]=(w>>>16)&255;out[i*4+3]=(w>>>24)&255;});
-  return out;
+  let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476,h4=0xc3d2e1f0;
+  let al=h0,bl=h1,cl=h2,dl=h3,el=h4,ar=h0,br=h1,cr=h2,dr=h3,er=h4;
+  for (let j=0;j<80;j++){
+    let t=(rol32((al+rmd_f(j,bl,cl,dl)+Xw[rl[j]]+kl[(j/16)|0])>>>0,sl[j])+el)>>>0;
+    al=el;el=dl;dl=rol32(cl,10);cl=bl;bl=t;
+    t=(rol32((ar+rmd_fp(j,br,cr,dr)+Xw[rr[j]]+kr[(j/16)|0])>>>0,sr[j])+er)>>>0;
+    ar=er;er=dr;dr=rol32(cr,10);cr=br;br=t;
+  }
+  const t=(h1+cl+dr)>>>0;
+  h1=(h2+dl+er)>>>0;h2=(h3+el+ar)>>>0;h3=(h4+al+br)>>>0;h4=(h0+bl+cr)>>>0;h0=t;
+  hash160Buf[ 0]=h0&255;hash160Buf[ 1]=(h0>>>8)&255;hash160Buf[ 2]=(h0>>>16)&255;hash160Buf[ 3]=(h0>>>24)&255;
+  hash160Buf[ 4]=h1&255;hash160Buf[ 5]=(h1>>>8)&255;hash160Buf[ 6]=(h1>>>16)&255;hash160Buf[ 7]=(h1>>>24)&255;
+  hash160Buf[ 8]=h2&255;hash160Buf[ 9]=(h2>>>8)&255;hash160Buf[10]=(h2>>>16)&255;hash160Buf[11]=(h2>>>24)&255;
+  hash160Buf[12]=h3&255;hash160Buf[13]=(h3>>>8)&255;hash160Buf[14]=(h3>>>16)&255;hash160Buf[15]=(h3>>>24)&255;
+  hash160Buf[16]=h4&255;hash160Buf[17]=(h4>>>8)&255;hash160Buf[18]=(h4>>>16)&255;hash160Buf[19]=(h4>>>24)&255;
 }
 
 /* ================================================================
-   Base-58 / address
+   Base58 / address utilities
    ================================================================ */
+function hexToBytes(hex) {
+  const b=new Uint8Array(hex.length>>>1);
+  for(let i=0;i<b.length;i++) b[i]=parseInt(hex.slice(i*2,i*2+2),16);
+  return b;
+}
+
 function base58(bytes) {
-  let v = 0n;
-  for (const b of bytes) v = (v << 8n) + BigInt(b);
-  let out = "";
-  while (v > 0n) { out = A58[Number(v % 58n)] + out; v /= 58n; }
-  for (const b of bytes) { if (b === 0) out = "1" + out; else break; }
-  return out || "1";
+  let v=0n;
+  for (const b of bytes) v=(v<<8n)+BigInt(b);
+  let out="";
+  while (v>0n){out=A58[Number(v%58n)]+out;v/=58n;}
+  for (const b of bytes){if(b===0)out="1"+out;else break;}
+  return out||"1";
 }
 
 function base58Check(payload) {
-  const cs = sha256(sha256(payload)).slice(0, 4);
-  return base58(joinBytes(payload, cs));
+  const cs=sha256(sha256(payload)).slice(0,4);
+  const full=new Uint8Array(payload.length+4);
+  full.set(payload);full.set(cs,payload.length);
+  return base58(full);
 }
 
 function addressToHash160(addr) {
-  let v = 0n;
-  for (let i = 0; i < addr.length; i++) {
-    const idx = A58.indexOf(addr[i]);
-    if (idx < 0) throw new Error("Invalid address character.");
-    v = v * 58n + BigInt(idx);
+  let v=0n;
+  for(let i=0;i<addr.length;i++){
+    const idx=A58.indexOf(addr[i]);
+    if(idx<0) throw new Error("Invalid address character.");
+    v=v*58n+BigInt(idx);
   }
-  let hex = v.toString(16);
-  if (hex.length & 1) hex = "0" + hex;
-  const bytes = hexToBytes(hex);
-  let lead = 0;
-  while (addr[lead] === "1") lead++;
-  const full = new Uint8Array(lead + bytes.length);
-  full.set(bytes, lead);
-  return full.slice(1, 21);   // strip version byte, drop checksum
+  let hex=v.toString(16);
+  if(hex.length&1) hex="0"+hex;
+  const bytes=hexToBytes(hex);
+  let lead=0;
+  while(addr[lead]==="1") lead++;
+  const full=new Uint8Array(lead+bytes.length);
+  full.set(bytes,lead);
+  return full.slice(1,21);
 }
 
-function randomBetween(lo, hi) {
-  const span = hi - lo + 1n;
-  const nb   = Math.ceil(span.toString(2).length / 8);
-  const buf  = new Uint8Array(nb);
-  while (true) {
+function randomBetween(lo,hi){
+  const span=hi-lo+1n;
+  const nb=Math.ceil(span.toString(2).length/8);
+  const buf=new Uint8Array(nb);
+  while(true){
     crypto.getRandomValues(buf);
-    let v = 0n;
-    for (const b of buf) v = (v << 8n) + BigInt(b);
-    if (v < span) return lo + v;
+    let v=0n;
+    for(const b of buf) v=(v<<8n)+BigInt(b);
+    if(v<span) return lo+v;
   }
 }
 
-function makeWallet(privNum, hash160) {
+function makeWallet(privNum, h160) {
+  const vp=new Uint8Array(21);
+  vp[0]=0x00;
+  vp.set(h160,1);
   return {
-    hex:     privNum.toString(16).padStart(64, "0"),
-    address: base58Check(joinBytes(new Uint8Array([0x00]), hash160))
+    hex: privNum.toString(16).padStart(64,"0"),
+    address: base58Check(vp)
   };
 }
 
@@ -558,51 +646,48 @@ function makeWallet(privNum, hash160) {
    Message handler
    ================================================================ */
 self.onmessage = ev => {
-  const d = ev.data || {};
-  if (d.type === "stop") { active = false; return; }
-  if (d.type !== "start") return;
+  const d=ev.data||{};
+  if (d.type==="stop"){active=false;return;}
+  if (d.type!=="start") return;
   try {
-    const wId   = BigInt(d.id   || 0);
-    const wCnt  = BigInt(d.cores || 1);
-    mode        = d.mode || "sequence";
-    rangeStart  = BigInt("0x" + d.startHex);
-    rangeEnd    = BigInt("0x" + d.endHex);
-    batchLimit  = Math.max(1, Math.min(500000, Number(d.batchLimit || 100000)));
+    const wId  = BigInt(d.id||0);
+    const wCnt = BigInt(d.cores||1);
+    mode        = d.mode||"sequence";
+    rangeStart  = BigInt("0x"+d.startHex);
+    rangeEnd    = BigInt("0x"+d.endHex);
+    batchLimit  = Math.max(1,Math.min(500000,Number(d.batchLimit||100000)));
     workerStep  = wCnt;
     active      = true;
-    randWalk    = RAND_RESEED;   // trigger immediate reseed for random mode
+    randWalk    = RAND_RESEED;
+    targetHash  = d.target ? addressToHash160(d.target) : null;
 
-    targetHash = d.target ? addressToHash160(d.target) : null;
-
-    if (mode === "random") {
-      /* stepPt not needed; random mode uses G_AFFINE (step=1) for the walk */
-      stepPt     = G_AFFINE;
-      current    = rangeStart;      // placeholder; overwritten on first reseed
-      currentPt  = ZERO;
-    } else if (mode === "reverse") {
-      current   = rangeEnd - wId;
-      if (current < rangeStart) return done();
-      /* step point = workerStep * G  →  negate for stepping backwards */
-      const fwd    = scalarMul(workerStep % N);
-      const affFwd = toAffine(fwd);
-      /* negate y to subtract: -P = (x, P - y) */
-      stepPt = { x: affFwd.x, y: P - affFwd.y };
-      currentPt = scalarMul(current);
-    } else {
-      current   = rangeStart + wId;
-      if (current > rangeEnd) return done();
-      const fwd = scalarMul(workerStep % N);
-      stepPt    = toAffine(fwd);
-      currentPt = scalarMul(current);
+    if (mode==="random") {
+      /* Step = G (add 1 each walk tick); reseed scalar-mul triggers on randWalk */
+      stepX=Gx; stepY=Gy;
+      current=rangeStart;
+      cpX=0n;cpY=1n;cpZ=0n;
+    } else if (mode==="reverse") {
+      current=rangeEnd-wId;
+      if(current<rangeStart) return done();
+      scalarMulInto(workerStep%N);
+      const aff=toAffineResult();
+      stepX=aff.x; stepY=P-aff.y;   // negate y → subtract step
+      scalarMulInto(current);
+    } else {                          // sequence
+      current=rangeStart+wId;
+      if(current>rangeEnd) return done();
+      scalarMulInto(workerStep%N);
+      const aff=toAffineResult();
+      stepX=aff.x; stepY=aff.y;
+      scalarMulInto(current);
     }
-
-    setTimeout(runSlice, 0);
-  } catch (e) {
-    postMessage({ type: "error", message: e.message || String(e) });
+    setTimeout(runSlice,0);
+  } catch(e) {
+    postMessage({type:"error",message:e.message||String(e)});
   }
 };
 
-function done() { postMessage({ type: "done" }); }
+function done(){postMessage({type:"done"});}
 
 /* ================================================================
    Main work loop
@@ -610,117 +695,88 @@ function done() { postMessage({ type: "done" }); }
 function runSlice() {
   if (!active) return done();
   try {
-    const deadline       = performance.now() + SLICE_MS;
-    let   totalGenerated = 0;
-    let   lastPriv       = null;
-    let   lastHash       = null;
+    const deadline=performance.now()+SLICE_MS;
+    let totalGenerated=0;
+    let lastPriv=null;
 
-    while (active && performance.now() < deadline) {
-
-      /* ── collect MINI_BATCH keys ── */
-      let count = 0;
-
-      for (let i = 0; i < MINI_BATCH; i++) {
-
-        if (mode === "random") {
-          /* ── FAST RANDOM: reseed with one full scalar-mul every RAND_RESEED keys,
-                            then walk forward by 1 (add G) for the rest           ── */
-          if (randWalk >= RAND_RESEED) {
-            current   = randomBetween(rangeStart, rangeEnd);
-            currentPt = scalarMul(current);
-            randWalk  = 0;
+    while (active && performance.now()<deadline) {
+      /* ── Collect MINI_BATCH Jacobian points into batch arrays ── */
+      let count=0;
+      for (let i=0;i<MINI_BATCH;i++){
+        if (mode==="random") {
+          if (randWalk>=RAND_RESEED){
+            current=randomBetween(rangeStart,rangeEnd);
+            scalarMulInto(current);
+            randWalk=0;
           }
-          bX[i]    = currentPt.x;
-          bY[i]    = currentPt.y;
-          bZ[i]    = currentPt.z;
-          bPriv[i] = current;
-          /* advance */
-          current  += 1n;
-          if (current > rangeEnd) {
-            randWalk = RAND_RESEED;  /* force new random seed next iteration */
-          } else {
-            currentPt = paddMixed(currentPt, G_AFFINE);
-            randWalk++;
-          }
-
-        } else if (mode === "reverse") {
-          if (current < rangeStart) { active = false; break; }
-          bX[i]    = currentPt.x;
-          bY[i]    = currentPt.y;
-          bZ[i]    = currentPt.z;
-          bPriv[i] = current;
-          current  -= workerStep;
-          currentPt = paddMixed(currentPt, stepPt);   /* stepPt has negated y */
-
-        } else { /* sequence */
-          if (current > rangeEnd) { active = false; break; }
-          bX[i]    = currentPt.x;
-          bY[i]    = currentPt.y;
-          bZ[i]    = currentPt.z;
-          bPriv[i] = current;
-          current  += workerStep;
-          currentPt = paddMixed(currentPt, stepPt);
+          bX[i]=cpX; bY[i]=cpY; bZ[i]=cpZ; bPriv[i]=current;
+          current+=1n;
+          if(current>rangeEnd){ randWalk=RAND_RESEED; }
+          else { paddMixedIP(Gx,Gy); randWalk++; }
+        } else if (mode==="reverse") {
+          if(current<rangeStart){active=false;break;}
+          bX[i]=cpX; bY[i]=cpY; bZ[i]=cpZ; bPriv[i]=current;
+          current-=workerStep;
+          paddMixedIP(stepX,stepY);
+        } else {
+          if(current>rangeEnd){active=false;break;}
+          bX[i]=cpX; bY[i]=cpY; bZ[i]=cpZ; bPriv[i]=current;
+          current+=workerStep;
+          paddMixedIP(stepX,stepY);
         }
-
         count++;
       }
+      if (count===0) break;
 
-      if (count === 0) break;
+      /* ── Montgomery batch inversion of Z-coordinates ──
+         One modular inversion amortised across 4096 keys. */
+      pfx[0]=bZ[0];
+      for(let i=1;i<count;i++) pfx[i]=mod(pfx[i-1]*bZ[i]);
+      let inv=invert(pfx[count-1]);
+      for(let i=count-1;i>0;i--){iZ[i]=mod(inv*pfx[i-1]);inv=mod(inv*bZ[i]);}
+      iZ[0]=inv;
 
-      /* ── Montgomery batch inversion of Z-coordinates ── */
-      pfx[0] = bZ[0];
-      for (let i = 1; i < count; i++) pfx[i] = mod(pfx[i-1] * bZ[i]);
+      /* ── Hash each key → hash160, zero allocation ── */
+      for (let i=0;i<count;i++){
+        const zi =iZ[i];
+        const zi2=mod(zi*zi);
+        const zi3=mod(zi2*zi);
+        /* Write affine x/y directly into the pre-allocated pubBuf */
+        writeBigInt32(mod(bX[i]*zi2), pubBuf, 1);
+        writeBigInt32(mod(bY[i]*zi3), pubBuf, 33);
+        /* SHA-256(pubBuf) → chainBuf[0..31] */
+        sha256_65();
+        /* RIPEMD-160(chainBuf[0..63]) → hash160Buf */
+        ripemd160_32();
 
-      let inv = invert(pfx[count-1]);
-      for (let i = count-1; i > 0; i--) {
-        iZ[i]  = mod(inv * pfx[i-1]);
-        inv    = mod(inv * bZ[i]);
-      }
-      iZ[0] = inv;
-
-      /* ── Compute hash160 for each key and check target ── */
-      for (let i = 0; i < count; i++) {
-        const zi  = iZ[i];
-        const zi2 = mod(zi * zi);
-        const zi3 = mod(zi2 * zi);
-        const ax  = mod(bX[i] * zi2);
-        const ay  = mod(bY[i] * zi3);
-
-        /* uncompressed public key: 04 || x || y */
-        const pub     = joinBytes(new Uint8Array([0x04]), bigInt32(ax), bigInt32(ay));
-        const hash160 = ripemd160(sha256(pub));
-
-        if (targetHash) {
-          let match = true;
-          for (let j = 0; j < 20; j++) {
-            if (hash160[j] !== targetHash[j]) { match = false; break; }
-          }
-          if (match) {
-            postMessage({ type: "batch", count: totalGenerated + i + 1,
-                          matchItem: makeWallet(bPriv[i], hash160) });
-            active = false;
-            return done();
+        if (targetHash){
+          let match=true;
+          for(let j=0;j<20;j++){if(hash160Buf[j]!==targetHash[j]){match=false;break;}}
+          if (match){
+            const mh=hash160Buf.slice();   // one alloc only on match
+            postMessage({type:"batch",count:totalGenerated+i+1,
+                         matchItem:makeWallet(bPriv[i],mh)});
+            active=false; return done();
           }
         }
-
-        lastPriv = bPriv[i];
-        lastHash = hash160;
+        lastPriv=bPriv[i];
       }
+      /* After hash loop, hash160Buf holds the result for lastPriv */
+      lastH160.set(hash160Buf);
 
-      totalGenerated += count;
-      if (totalGenerated >= batchLimit) break;
+      totalGenerated+=count;
+      if(totalGenerated>=batchLimit) break;
     }
 
-    if (totalGenerated > 0) {
-      postMessage({ type: "batch", count: totalGenerated,
-                    lastItem: makeWallet(lastPriv, lastHash) });
+    if (totalGenerated>0){
+      postMessage({type:"batch",count:totalGenerated,
+                   lastItem:makeWallet(lastPriv,lastH160)});
     }
 
-    if (active) setTimeout(runSlice, 0);
+    if (active) setTimeout(runSlice,0);
     else        done();
-
-  } catch (e) {
-    postMessage({ type: "error", message: e.message || String(e) });
+  } catch(e){
+    postMessage({type:"error",message:e.message||String(e)});
   }
 }
         `;
