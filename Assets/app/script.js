@@ -408,7 +408,7 @@ async function loadTaxSettingsPreferenceFromDatabase() {
   }
 
   try {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery(VAT_SETTINGS_META_TAG));
     const taxRow = (Array.isArray(rows) ? rows : []).find(isTaxSettingsPreferenceRow);
     if (taxRow) {
       state.taxPreferenceId = taxRow.id || null;
@@ -433,7 +433,7 @@ async function saveTaxSettingsPreferenceToDatabase(settings = state.taxSettings)
   const today = todayISO();
   let preferenceId = state.taxPreferenceId;
   if (!preferenceId) {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery(VAT_SETTINGS_META_TAG));
     const taxRow = (Array.isArray(rows) ? rows : []).find(isTaxSettingsPreferenceRow);
     preferenceId = taxRow?.id || null;
     state.taxPreferenceId = preferenceId;
@@ -566,6 +566,14 @@ function buildSmartPinDisabledPreferenceNotes() {
   return `[${SMART_PIN_DISABLED_META_TAG}:1]`;
 }
 
+function systemPreferenceQuery(tagOrTags){
+  const tags = (Array.isArray(tagOrTags) ? tagOrTags : [tagOrTags]).filter(Boolean);
+  const notesFilter = tags.length === 1
+    ? `&notes=ilike.*${encodeURIComponent(tags[0])}*`
+    : `&or=(${tags.map(tag => `notes.ilike.*${encodeURIComponent(tag)}*`).join(",")})`;
+  return `${CONFIG.table}?select=*&person_name=eq.SYSTEM${notesFilter}&order=created_at.desc`;
+}
+
 const state = {
   entries: [],
   dataSource: "backup",
@@ -574,6 +582,9 @@ const state = {
   dbSignatures: new Set(),
   dbSignaturesById: new Map(),
   pendingDbSyncIds: new Set(),
+  loadedLedgerScopes: new Set(),
+  loadingLedgerScopes: new Set(),
+  ledgerLoadPromises: new Map(),
   unlocked: false,
   guestMode: false,
   pageCurrency: PAGE_CURRENCY_DEFAULT,
@@ -631,7 +642,11 @@ const state = {
     }
   },
   notes: [],
+  notesLoaded: false,
+  notesLoading: false,
   bitcoinWallets: [],
+  bitcoinWalletsLoaded: false,
+  bitcoinWalletsLoading: false,
   recycleBin: []
 };
 
@@ -917,6 +932,34 @@ const GUEST_STORAGE_KEYS = [
   GUEST_NOTES_STORAGE_KEY,
   GUEST_BITCOIN_WALLETS_STORAGE_KEY
 ];
+const LEDGER_SCOPE_EXPENSES = "expenses";
+const LEDGER_SCOPE_GOODS = "goods";
+const LEDGER_SCOPE_INSTALLMENTS = "installments";
+const LEDGER_SCOPE_LOANS_GIVEN = "loans-given";
+const LEDGER_SCOPE_LOANS_TAKEN = "loans-taken";
+const LEDGER_DATA_SCOPES = [
+  LEDGER_SCOPE_EXPENSES,
+  LEDGER_SCOPE_GOODS,
+  LEDGER_SCOPE_INSTALLMENTS,
+  LEDGER_SCOPE_LOANS_GIVEN,
+  LEDGER_SCOPE_LOANS_TAKEN
+];
+
+function resetLazyDataState({ clearEntries = false } = {}){
+  state.loadedLedgerScopes = new Set();
+  state.loadingLedgerScopes = new Set();
+  state.ledgerLoadPromises = new Map();
+  state.notesLoaded = false;
+  state.notesLoading = false;
+  state.bitcoinWalletsLoaded = false;
+  state.bitcoinWalletsLoading = false;
+  if (clearEntries) {
+    state.entries = [];
+    state.recycleBin = [];
+    updateDbSnapshot([]);
+    renderRecycleBinDropdown();
+  }
+}
 
 function isGuestMode(){
   return state.guestMode === true;
@@ -1351,13 +1394,10 @@ async function restoreFromRecycleBin(entryId) {
   } else {
     // For database mode, remove the deleted tag from notes
     const updatedNotes = removeDeletedTag(deletedItem?.notes || "");
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, { 
-      method: "PATCH", 
-      body: JSON.stringify({ notes: updatedNotes }) 
-    });
-    // Add a small delay to ensure database operations complete
-    await new Promise(resolve => setTimeout(resolve, 200));
-    await loadEntriesFromSupabase();
+    const { deletedAt, originalSection, ...restoredEntryBase } = deletedItem;
+    const restoredEntry = { ...restoredEntryBase, notes: updatedNotes };
+    state.entries.unshift(restoredEntry);
+    queueDatabasePatch(entryId, { notes: updatedNotes }, "Restore", restoredEntry);
     renderAll();
     // Force refresh of expense accounts specifically
     renderExpensesList();
@@ -1665,7 +1705,7 @@ async function loadPageCurrencyPreferenceFromDatabase() {
   }
 
   try {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery(PAGE_CURRENCY_META_TAG));
     const preferenceRow = (Array.isArray(rows) ? rows : []).find(isPageCurrencyPreferenceRow);
     if (preferenceRow) {
       state.pageCurrencyPreferenceId = preferenceRow.id || null;
@@ -1689,7 +1729,7 @@ async function savePageCurrencyPreferenceToDatabase(currency) {
 
   let preferenceId = state.pageCurrencyPreferenceId;
   if (!preferenceId) {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery(PAGE_CURRENCY_META_TAG));
     const preferenceRow = (Array.isArray(rows) ? rows : []).find(isPageCurrencyPreferenceRow);
     preferenceId = preferenceRow?.id || null;
     state.pageCurrencyPreferenceId = preferenceId;
@@ -1747,9 +1787,14 @@ async function setPageCurrencySelection(currency) {
     if (isBackupMode()) {
       renderAll();
     } else {
-      await loadEntriesFromSupabase();
+      resetLazyDataState({ clearEntries: true });
+      state.dataSource = "supabase";
+      await ensureTabDataLoaded(getActiveTabKey(), { force: true });
+      state.bitcoinWalletsLoaded = false;
+      if (getActiveTabKey() === "bitcoin") {
+        await loadBitcoinWalletsFromDatabase({ force: true });
+      }
     }
-    await loadBitcoinWalletsFromDatabase();
   } finally {
     state.pageCurrencySaving = false;
     renderPageCurrencySelector();
@@ -1802,7 +1847,7 @@ async function loadSecretPinPreferenceFromDatabase() {
   }
 
   try {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery([SECRET_PIN_HASH_TAG, SMART_PIN_DISABLED_META_TAG]));
     const pinRow = (Array.isArray(rows) ? rows : []).find(isSecretPinPreferenceRow);
     if (pinRow) {
       state.secretPinPreferenceId = pinRow.id || null;
@@ -1826,7 +1871,7 @@ async function saveSecretPinPreferenceToDatabase(pin) {
 
   let preferenceId = state.secretPinPreferenceId;
   if (!preferenceId) {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery([SECRET_PIN_HASH_TAG, SMART_PIN_DISABLED_META_TAG]));
     const pinRow = (Array.isArray(rows) ? rows : []).find(isSecretPinPreferenceRow);
     preferenceId = pinRow?.id || null;
     state.secretPinPreferenceId = preferenceId;
@@ -2087,7 +2132,7 @@ async function deleteSecretPinPreferenceFromDatabase() {
 
   let preferenceId = state.secretPinPreferenceId;
   if (!preferenceId) {
-    const rows = await supabase(`${CONFIG.table}?select=*&person_name=eq.SYSTEM&order=created_at.desc`);
+    const rows = await supabase(systemPreferenceQuery([SECRET_PIN_HASH_TAG, SMART_PIN_DISABLED_META_TAG]));
     const pinRow = (Array.isArray(rows) ? rows : []).find(isSecretPinPreferenceRow);
     preferenceId = pinRow?.id || null;
   }
@@ -2368,6 +2413,26 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
     renderAll();
   }
   return Array.isArray(entryOrEntries) ? rows : rows[0];
+}
+
+function queueDatabasePatch(id, body, label = "Entry", snapshotRow = null){
+  if (isBackupMode() || !id) return;
+  state.pendingDbSyncIds.add(id);
+  supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  })
+    .then(() => {
+      if (snapshotRow) markDbSnapshotRows([snapshotRow]);
+    })
+    .catch(err => {
+      console.error(`${label} database sync failed.`, err);
+      alert(`${label} was updated on this screen, but database sync failed. Please refresh after the connection improves.`);
+    })
+    .finally(() => {
+      state.pendingDbSyncIds.delete(id);
+      renderAll();
+    });
 }
 
 const PDF_CURRENCY_MARKERS = Object.freeze({
@@ -7741,7 +7806,176 @@ function applyEntries(entries, source = "backup", options = {}){
   renderAll();
 }
 
+function databaseSessionCanLoad(){
+  return !isGuestMode() &&
+    state.unlocked &&
+    !!runtimeConfig?.supabaseUrl &&
+    !!runtimeConfig?.supabaseKey &&
+    !(state.dataSource === "backup" && state.hasImportedFile);
+}
+
+function normalizeLedgerScope(scope){
+  return LEDGER_DATA_SCOPES.includes(scope) ? scope : LEDGER_SCOPE_EXPENSES;
+}
+
+function ledgerScopeForTab(tab){
+  if (tab === "expenses") return LEDGER_SCOPE_EXPENSES;
+  if (tab === "goods") return LEDGER_SCOPE_GOODS;
+  if (tab === "installments") return LEDGER_SCOPE_INSTALLMENTS;
+  if (tab === "given" || tab === "received") return LEDGER_SCOPE_LOANS_GIVEN;
+  if (tab === "taken" || tab === "returned") return LEDGER_SCOPE_LOANS_TAKEN;
+  return "";
+}
+
+function ledgerScopeForSection(section){
+  return ledgerScopeForTab(section);
+}
+
+function ledgerScopeLabel(scope){
+  return scope === LEDGER_SCOPE_EXPENSES ? "expenses"
+    : scope === LEDGER_SCOPE_GOODS ? "inventory"
+    : scope === LEDGER_SCOPE_INSTALLMENTS ? "installment plans"
+    : scope === LEDGER_SCOPE_LOANS_GIVEN ? "given loans"
+    : "taken loans";
+}
+
+function ledgerScopeContainers(scope){
+  if (scope === LEDGER_SCOPE_EXPENSES) return [els.expensesList];
+  if (scope === LEDGER_SCOPE_GOODS) return [els.goodsList];
+  if (scope === LEDGER_SCOPE_INSTALLMENTS) return [els.installmentsList];
+  if (scope === LEDGER_SCOPE_LOANS_GIVEN) return [els.givenList, els.receivedList];
+  if (scope === LEDGER_SCOPE_LOANS_TAKEN) return [els.takenList, els.returnedList];
+  return [];
+}
+
+function loadingStateHtml(label){
+  return `<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading ${escapeHtml(label)}...</div>`;
+}
+
+function errorStateHtml(label, err){
+  return `<div class="empty">Could not load ${escapeHtml(label)}. ${escapeHtml(err?.message || String(err || ""))}</div>`;
+}
+
+function setLedgerScopeLoading(scope, loading, err = null){
+  const html = err ? errorStateHtml(ledgerScopeLabel(scope), err) : loadingStateHtml(ledgerScopeLabel(scope));
+  ledgerScopeContainers(scope).forEach(container => {
+    if (!container) return;
+    if (loading || err) container.innerHTML = html;
+  });
+}
+
+function entryBelongsToLedgerScope(entry, scope){
+  if (!entry || isPageCurrencyPreferenceRow(entry) || isSecretPinPreferenceRow(entry) || isTaxSettingsPreferenceRow(entry)) return false;
+  if (scope === LEDGER_SCOPE_EXPENSES) {
+    return entry.direction === "taken" && hasExpenseAccountTag(entry.notes);
+  }
+  if (scope === LEDGER_SCOPE_GOODS) {
+    return entry.direction === "goods" || hasGoodsTag(entry.notes);
+  }
+  if (scope === LEDGER_SCOPE_INSTALLMENTS) {
+    return entry.direction === "taken" &&
+      hasInstallmentTag(entry.notes) &&
+      !hasGoodsTag(entry.notes) &&
+      !hasExpenseAccountTag(entry.notes);
+  }
+  if (scope === LEDGER_SCOPE_LOANS_GIVEN) {
+    return entry.direction === "given";
+  }
+  if (scope === LEDGER_SCOPE_LOANS_TAKEN) {
+    return entry.direction === "taken" &&
+      String(entry.person_name || "").trim().toUpperCase() !== "SYSTEM" &&
+      !hasInstallmentTag(entry.notes) &&
+      !hasGoodsTag(entry.notes) &&
+      !hasExpenseAccountTag(entry.notes);
+  }
+  return false;
+}
+
+function encodedTagValue(tag){
+  return encodeURIComponent(String(tag || ""));
+}
+
+function selectedCurrencyQuery(){
+  const selectedCurrencies = getSelectedPageCurrencies();
+  if (!isPageCurrencyAll() && !selectedCurrencies.length) return { blocked: true, query: "" };
+  if (isPageCurrencyAll()) return { blocked: false, query: "" };
+  if (selectedCurrencies.length === 1) {
+    return { blocked: false, query: `&currency=eq.${encodeURIComponent(selectedCurrencies[0])}` };
+  }
+  return {
+    blocked: false,
+    query: `&currency=in.(${selectedCurrencies.map(currency => encodeURIComponent(currency)).join(",")})`
+  };
+}
+
+function ledgerScopeQuery(scope, { fallback = false } = {}){
+  const { blocked, query: currencyQuery } = selectedCurrencyQuery();
+  if (blocked) return "";
+  const expenses = encodedTagValue(EXPENSE_ACCOUNT_TAG);
+  const goods = encodedTagValue(GOODS_TAG);
+  const installments = encodedTagValue(INSTALLMENT_TAG);
+  let scopeQuery = "";
+  if (scope === LEDGER_SCOPE_EXPENSES) {
+    scopeQuery = `&direction=eq.taken&notes=ilike.*${expenses}*`;
+  } else if (scope === LEDGER_SCOPE_GOODS) {
+    scopeQuery = fallback
+      ? `&direction=eq.taken`
+      : `&or=(direction.eq.goods,notes.ilike.*${goods}*)`;
+  } else if (scope === LEDGER_SCOPE_INSTALLMENTS) {
+    scopeQuery = `&direction=eq.taken&notes=ilike.*${installments}*`;
+  } else if (scope === LEDGER_SCOPE_LOANS_GIVEN) {
+    scopeQuery = `&direction=eq.given`;
+  } else if (scope === LEDGER_SCOPE_LOANS_TAKEN) {
+    scopeQuery = fallback
+      ? `&direction=eq.taken`
+      : `&direction=eq.taken&person_name=neq.SYSTEM&or=(notes.is.null,and(notes.not.ilike.*${goods}*,notes.not.ilike.*${installments}*,notes.not.ilike.*${expenses}*))`;
+  }
+  return `${CONFIG.table}?select=*${scopeQuery}${currencyQuery}&order=created_at.desc`;
+}
+
+function mergeRecycleBinRowsForScope(scope, rows){
+  const incoming = (Array.isArray(rows) ? rows : [])
+    .filter(row => entryBelongsToLedgerScope(row, scope))
+    .map(row => ({
+      ...row,
+      deletedAt: row.updated_at || new Date().toISOString(),
+      originalSection: getEntrySection(row)
+    }));
+  const incomingIds = new Set(incoming.map(row => row.id).filter(Boolean));
+  state.recycleBin = state.recycleBin
+    .filter(item => !entryBelongsToLedgerScope(item, scope) || (item.id && !incomingIds.has(item.id)))
+    .concat(incoming);
+  saveRecycleBinToStorage();
+  renderRecycleBinDropdown();
+}
+
+function mergeLedgerRowsFromSupabase(scope, rows){
+  const dataRows = (Array.isArray(rows) ? rows : [])
+    .filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row) && !isTaxSettingsPreferenceRow(row));
+  const activeRows = dataRows.filter(row => entryBelongsToLedgerScope(row, scope) && !hasDeletedTag(row.notes));
+  const deletedRows = dataRows.filter(row => entryBelongsToLedgerScope(row, scope) && hasDeletedTag(row.notes));
+  const previousScopeRows = state.entries.filter(entry => entryBelongsToLedgerScope(entry, scope));
+  const activeIds = new Set(activeRows.map(row => row.id).filter(Boolean));
+
+  unmarkDbSnapshotRows(previousScopeRows);
+  state.entries = state.entries
+    .filter(entry => !entryBelongsToLedgerScope(entry, scope) && !(entry.id && activeIds.has(entry.id)))
+    .concat(activeRows)
+    .sort((a, b) => dateStamp(b.created_at || b.action_date || b.loan_date) - dateStamp(a.created_at || a.action_date || a.loan_date));
+  state.dataSource = "supabase";
+  state.hasImportedFile = false;
+  sessionStorage.removeItem(IMPORT_SESSION_KEY);
+  markDbSnapshotRows(activeRows);
+  mergeRecycleBinRowsForScope(scope, deletedRows);
+  updateUploadButtonVisibility();
+  updateConnectButtonVisibility();
+}
+
 async function loadEntries(){
+  if (databaseSessionCanLoad()) {
+    await loadEntriesFromSupabase({ force: true });
+    return;
+  }
   if (state.dataSource === "backup"){
     if (isGuestMode()) {
       applyEntries(state.entries, "backup");
@@ -7757,23 +7991,18 @@ async function loadEntries(){
   await loadEntriesFromSupabase();
 }
 
-async function loadEntriesFromSupabase(){
+async function loadAllEntriesFromSupabase(){
   if (state.secretPinHash && !state.secretPinVerified) {
     applyEntries([], "supabase", { hasImportedFile: false });
     return;
   }
-  const selectedCurrencies = getSelectedPageCurrencies();
-  if (!isPageCurrencyAll() && !selectedCurrencies.length) {
+  const { blocked, query: currencyQuery } = selectedCurrencyQuery();
+  if (blocked) {
     applyEntries([], "supabase", { hasImportedFile: false });
     state.recycleBin = [];
     renderRecycleBinDropdown();
     return;
   }
-  const currencyQuery = isPageCurrencyAll()
-    ? ""
-    : selectedCurrencies.length === 1
-      ? `&currency=eq.${encodeURIComponent(selectedCurrencies[0])}`
-      : `&currency=in.(${selectedCurrencies.map(currency => encodeURIComponent(currency)).join(",")})`;
   const rows = await supabase(`${CONFIG.table}?select=*${currencyQuery}&order=created_at.desc`);
   const dataRows = Array.isArray(rows)
     ? rows.filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row) && !isTaxSettingsPreferenceRow(row))
@@ -7793,6 +8022,91 @@ async function loadEntriesFromSupabase(){
   }));
   saveRecycleBinToStorage();
   renderRecycleBinDropdown();
+  LEDGER_DATA_SCOPES.forEach(scope => state.loadedLedgerScopes.add(scope));
+}
+
+async function loadLedgerScopeFromSupabase(scope, options = {}){
+  const normalizedScope = normalizeLedgerScope(scope);
+  const force = options.force === true;
+  if (!databaseSessionCanLoad() && state.dataSource === "backup") return;
+  if (!force && state.loadedLedgerScopes.has(normalizedScope)) {
+    renderAll();
+    return;
+  }
+  if (state.ledgerLoadPromises.has(normalizedScope)) {
+    return state.ledgerLoadPromises.get(normalizedScope);
+  }
+
+  const loadPromise = (async () => {
+    if (state.secretPinHash && !state.secretPinVerified) {
+      mergeLedgerRowsFromSupabase(normalizedScope, []);
+      return;
+    }
+    const query = ledgerScopeQuery(normalizedScope);
+    if (!query) {
+      mergeLedgerRowsFromSupabase(normalizedScope, []);
+      return;
+    }
+    state.loadingLedgerScopes.add(normalizedScope);
+    setLedgerScopeLoading(normalizedScope, true);
+    let rows;
+    try {
+      rows = await supabase(query);
+    } catch (err) {
+      const fallbackQuery = ledgerScopeQuery(normalizedScope, { fallback: true });
+      if (!fallbackQuery || fallbackQuery === query) throw err;
+      rows = await supabase(fallbackQuery);
+    }
+    const scopeRows = (Array.isArray(rows) ? rows : []).filter(row => entryBelongsToLedgerScope(row, normalizedScope));
+    if (normalizedScope === LEDGER_SCOPE_GOODS) await ensureInventoryItemCodesForRows(scopeRows.filter(row => !hasDeletedTag(row.notes)));
+    mergeLedgerRowsFromSupabase(normalizedScope, scopeRows);
+    state.loadedLedgerScopes.add(normalizedScope);
+    renderAll();
+  })();
+
+  state.ledgerLoadPromises.set(normalizedScope, loadPromise);
+  try {
+    await loadPromise;
+  } catch (err) {
+    console.error(`Failed to load ${ledgerScopeLabel(normalizedScope)}.`, err);
+    setLedgerScopeLoading(normalizedScope, false, err);
+    if (options.throwOnError) throw err;
+  } finally {
+    state.loadingLedgerScopes.delete(normalizedScope);
+    state.ledgerLoadPromises.delete(normalizedScope);
+  }
+}
+
+async function loadEntriesFromSupabase(options = {}){
+  if (options.full === true) {
+    await loadAllEntriesFromSupabase();
+    return;
+  }
+  const scope = normalizeLedgerScope(options.scope || ledgerScopeForTab(getActiveTabKey()) || LEDGER_SCOPE_EXPENSES);
+  await loadLedgerScopeFromSupabase(scope, options);
+}
+
+async function ensureTabDataLoaded(tab, options = {}){
+  const scope = ledgerScopeForTab(tab);
+  if (!scope || isGuestMode()) return;
+  if (databaseSessionCanLoad() || state.dataSource === "supabase") {
+    await loadLedgerScopeFromSupabase(scope, options);
+  }
+}
+
+async function ensureSectionDataLoaded(section, options = {}){
+  const scope = ledgerScopeForSection(section);
+  if (!scope || isGuestMode()) return;
+  if (databaseSessionCanLoad() || state.dataSource === "supabase") {
+    await loadLedgerScopeFromSupabase(scope, options);
+  }
+}
+
+async function ensureAllLedgerDataLoaded(options = {}){
+  if (isGuestMode()) return;
+  if (databaseSessionCanLoad() || state.dataSource === "supabase") {
+    await loadEntriesFromSupabase({ ...options, full: true });
+  }
 }
 
 async function ensureInventoryItemCodesForRows(rows){
@@ -8081,14 +8395,16 @@ function activate(tab){
     }
   }
 
+  ensureTabDataLoaded(tab).catch(err => console.error("Tab data load failed:", err));
+
   // Load notes from database when Notes tab is activated
   if (tab === "notes") {
-    loadNotesFromDatabase();
+    loadNotesFromDatabase().catch(err => console.error("Notes load failed:", err));
   }
   
   // Load Bitcoin wallets from database when Bitcoin tab is activated
   if (tab === "bitcoin") {
-    loadBitcoinWalletsFromDatabase();
+    loadBitcoinWalletsFromDatabase().catch(err => console.error("Bitcoin wallet load failed:", err));
   }
   
   // Fetch Bitcoin price when expense tab is activated to ensure USD values are displayed
@@ -8989,17 +9305,10 @@ async function submitEdit(){
       updatedNotes = upsertExpenseMetaInNote(nt, { ...expenseMetaFromNotes(currentEntry.notes), rowType: "ACCOUNT" });
     }
     
-    if (isBackupMode()){
-      state.entries = state.entries.map(entry => entry.id === id
-        ? { ...entry, person_name: nm, currency: curr, principal_amount: amt, loan_date: dt, notes: updatedNotes }
-        : entry
-      );
-    } else {
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ person_name: nm, currency: curr, principal_amount: amt, loan_date: dt, notes: updatedNotes })
-      });
-    }
+    const updatedEntry = { ...currentEntry, person_name: nm, currency: curr, principal_amount: amt, loan_date: dt, notes: updatedNotes };
+    const patchBody = { person_name: nm, currency: curr, principal_amount: amt, loan_date: dt, notes: updatedNotes };
+    state.entries = state.entries.map(entry => entry.id === id ? updatedEntry : entry);
+    if (!isBackupMode()) queueDatabasePatch(id, patchBody, "Entry", updatedEntry);
   } else {
     if (!amt || !dt) throw new Error("Complete required fields.");
     let editedNotes = nt;
@@ -9025,22 +9334,15 @@ async function submitEdit(){
       });
     }
     
-    if (isBackupMode()){
-      state.entries = state.entries.map(entry => entry.id === id
-        ? { ...entry, action_amount: amt, action_date: dt, notes: editedNotes }
-        : entry
-      );
-    } else {
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ action_amount: amt, action_date: dt, notes: editedNotes })
-      });
-    }
+    const updatedEntry = { ...currentEntry, action_amount: amt, action_date: dt, notes: editedNotes };
+    const patchBody = { action_amount: amt, action_date: dt, notes: editedNotes };
+    state.entries = state.entries.map(entry => entry.id === id ? updatedEntry : entry);
+    if (!isBackupMode()) queueDatabasePatch(id, patchBody, "Entry", updatedEntry);
   }
 
   closeModal("editModal");
   if (isBackupMode()) refreshBackupView();
-  else await loadEntriesFromSupabase();
+  else renderAll();
 }
 
 async function renamePersonRecords(personNameEncoded, direction){
@@ -9072,13 +9374,17 @@ async function renamePersonRecords(personNameEncoded, direction){
     return;
   }
 
-  for (const id of matchingIds){
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify({ person_name: cleanedName })
-    });
-  }
-  await loadEntriesFromSupabase();
+  const updatedRows = [];
+  state.entries = state.entries.map(entry => {
+    if (entry.direction === direction && String(entry.person_name || "").trim() === currentName) {
+      const updated = { ...entry, person_name: cleanedName };
+      updatedRows.push(updated);
+      return updated;
+    }
+    return entry;
+  });
+  updatedRows.forEach(row => queueDatabasePatch(row.id, { person_name: cleanedName }, "Name change", row));
+  renderAll();
 }
 
 async function deleteEntry(id){
@@ -9104,13 +9410,10 @@ async function deleteEntry(id){
       const groupEntries = state.entries.filter(e => e.group_id === entry.group_id);
       groupEntries.forEach(e => {
         addToRecycleBin(e);
-        // Update in database to mark as deleted using notes field
-        supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(e.id)}`, { 
-          method: "PATCH", 
-          body: JSON.stringify({ notes: addDeletedTag(e.notes || "") }) 
-        });
+        queueDatabasePatch(e.id, { notes: addDeletedTag(e.notes || "") }, "Delete");
       });
-      await loadEntriesFromSupabase();
+      unmarkDbSnapshotRows(groupEntries);
+      state.entries = state.entries.filter(e => e.group_id !== entry.group_id);
       renderAll();
     }
   } else if (isTransfer) {
@@ -9123,19 +9426,15 @@ async function deleteEntry(id){
       state.entries = state.entries.filter(e => e.id !== id);
     } else {
       addToRecycleBin(entry);
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, { 
-        method: "PATCH", 
-        body: JSON.stringify({ notes: addDeletedTag(entry.notes || "") }) 
-      });
+      unmarkDbSnapshotRows([entry]);
+      state.entries = state.entries.filter(e => e.id !== id);
+      queueDatabasePatch(id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
     }
   }
   if (isBackupMode()) {
     refreshBackupView();
     renderAll();
   } else {
-    // Add a small delay to ensure database operations complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-    await loadEntriesFromSupabase();
     renderAll();
   }
   renderRecycleBinDropdown();
@@ -9186,10 +9485,10 @@ async function deleteTransfer(entry) {
       state.entries = state.entries.filter(e => e.id !== entry.id);
     } else {
       addToRecycleBin(entry);
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entry.id)}`, { 
-        method: "PATCH", 
-        body: JSON.stringify({ deleted: true, deleted_at: new Date().toISOString() }) 
-      });
+      unmarkDbSnapshotRows([entry]);
+      state.entries = state.entries.filter(e => e.id !== entry.id);
+      queueDatabasePatch(entry.id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
+      renderAll();
     }
     return;
   }
@@ -9211,17 +9510,10 @@ async function deleteTransfer(entry) {
   } else {
     addToRecycleBin(entry);
     addToRecycleBin(transferPartner);
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entry.id)}`, { 
-      method: "PATCH", 
-      body: JSON.stringify({ notes: addDeletedTag(entry.notes || "") }) 
-    });
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(transferPartner.id)}`, { 
-      method: "PATCH", 
-      body: JSON.stringify({ notes: addDeletedTag(transferPartner.notes || "") }) 
-    });
-    // Add a small delay to ensure database operations complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-    await loadEntriesFromSupabase();
+    unmarkDbSnapshotRows([entry, transferPartner]);
+    state.entries = state.entries.filter(e => e.id !== entry.id && e.id !== transferPartner.id);
+    queueDatabasePatch(entry.id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
+    queueDatabasePatch(transferPartner.id, { notes: addDeletedTag(transferPartner.notes || "") }, "Delete");
     renderAll();
   }
   renderRecycleBinDropdown();
@@ -9253,25 +9545,13 @@ async function deletePersonRecords(personNameEncoded, direction){
     return;
   }
 
-  const matchingIds = state.entries
-    .filter(e => e.direction === direction && String(e.person_name || "").trim() === personName)
-    .map(e => e.id)
-    .filter(Boolean);
-
   const matchingEntries = state.entries.filter(e => e.direction === direction && String(e.person_name || "").trim() === personName);
   matchingEntries.forEach(e => addToRecycleBin(e));
-
-  for (const id of matchingIds){
-    const entry = state.entries.find(e => e.id === id);
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, { 
-      method: "PATCH", 
-      body: JSON.stringify({ notes: addDeletedTag(entry?.notes || "") }) 
-    });
-  }
-
-  // Add a small delay to ensure database operations complete
-  await new Promise(resolve => setTimeout(resolve, 100));
-  await loadEntriesFromSupabase();
+  matchingEntries.forEach(entry => {
+    queueDatabasePatch(entry.id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
+  });
+  unmarkDbSnapshotRows(matchingEntries);
+  state.entries = state.entries.filter(e => !(e.direction === direction && String(e.person_name || "").trim() === personName));
   renderAll();
   renderRecycleBinDropdown();
 }
@@ -9300,12 +9580,12 @@ async function movePersonToInstallments(personNameEncoded, direction){
     refreshBackupView();
   } else {
     for (const entry of matchedEntries){
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entry.id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ notes: normalizeInstallmentNote(entry.notes, true) })
-      });
+      const nextNotes = normalizeInstallmentNote(entry.notes, true);
+      const updatedEntry = { ...entry, notes: nextNotes };
+      state.entries = state.entries.map(row => row.id === entry.id ? updatedEntry : row);
+      queueDatabasePatch(entry.id, { notes: nextNotes }, "Installment move", updatedEntry);
     }
-    await loadEntriesFromSupabase();
+    renderAll();
   }
   activate("installments");
 }
@@ -10118,6 +10398,7 @@ async function exportSectionPDF(searchKey){
     alert("PDF library loading. Please try again in a moment.");
     return;
   }
+  await ensureSectionDataLoaded(searchKey, { throwOnError: true });
 
   const direction = (searchKey === "given" || searchKey === "received") ? "given" : "taken";
   const label = sectionLabel(searchKey);
@@ -10908,14 +11189,14 @@ async function deleteExpenseWallet(groupId, walletName) {
     state.entries = state.entries.filter(e => e.group_id !== groupId);
     refreshBackupView();
   } else {
-    // In database mode, delete all entries with this group_id
-    try {
-      await supabase(`${CONFIG.table}?group_id=eq.${encodeURIComponent(groupId)}`, { method: "DELETE" });
-      await loadEntriesFromSupabase();
-    } catch (error) {
-      alert("Error deleting wallet: " + error.message);
-      return;
-    }
+    unmarkDbSnapshotRows(walletEntries);
+    state.entries = state.entries.filter(e => e.group_id !== groupId);
+    renderAll();
+    supabase(`${CONFIG.table}?group_id=eq.${encodeURIComponent(groupId)}`, { method: "DELETE" })
+      .catch(error => {
+        console.error("Wallet delete database sync failed.", error);
+        alert("Wallet was removed on this screen, but database sync failed. Please refresh after the connection improves.");
+      });
   }
 }
 
@@ -11183,6 +11464,7 @@ async function exportAllSectionsPDF(){
     alert("PDF library loading. Please try again in a moment.");
     return;
   }
+  await ensureAllLedgerDataLoaded({ throwOnError: true });
 
   const sectionDefs = [
     { key: "given", direction: "given", label: "Loan Given" },
@@ -11283,11 +11565,12 @@ async function exportAllSectionsPDF(){
   doc.save("All_Sections_Detailed_Report.pdf");
 }
 
-function downloadJsonBackup(){
+async function downloadJsonBackup(){
   if (isGuestMode()) {
     alert("Demo Login cannot download JSON backups. Please use a real login for backup exports.");
     return;
   }
+  await ensureAllLedgerDataLoaded({ throwOnError: true });
   const payload = {
     exportedAt: new Date().toISOString(),
     source: isGuestMode() ? "guest-local" : state.dataSource,
@@ -11308,11 +11591,12 @@ function downloadJsonBackup(){
   URL.revokeObjectURL(url);
 }
 
-function downloadCsvBackup(){
+async function downloadCsvBackup(){
   if (isGuestMode()) {
     alert("Demo Login cannot download CSV backups. Please use a real login for backup exports.");
     return;
   }
+  await ensureAllLedgerDataLoaded({ throwOnError: true });
   const csvText = toCsv(state.entries);
   const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -11944,8 +12228,8 @@ window.addEventListener("resize", () => {
   els.downloadReturnedPdfBtn.addEventListener("click", () => exportSectionPDF("returned").catch(err => alert(err.message)));
   els.downloadExpensesPdfBtn.addEventListener("click", () => exportSectionPDF("expenses").catch(err => alert(err.message)));
   els.downloadAllSectionsPdfBtn.addEventListener("click", () => exportAllSectionsPDF().catch(err => alert(err.message)));
-  els.downloadAllDataJsonBtn.addEventListener("click", downloadJsonBackup);
-  els.downloadAllDataCsvBtn.addEventListener("click", downloadCsvBackup);
+  els.downloadAllDataJsonBtn.addEventListener("click", () => downloadJsonBackup().catch(err => alert(err.message)));
+  els.downloadAllDataCsvBtn.addEventListener("click", () => downloadCsvBackup().catch(err => alert(err.message)));
   els.uploadBackupBtn.addEventListener("click", () => uploadBackupToDatabase().catch(err => alert(err.message)));
   if (els.importJsonInput) els.importJsonInput.addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0];
@@ -11997,8 +12281,17 @@ window.addEventListener("resize", () => {
   }
   if (els.refreshBtn){
     els.refreshBtn.addEventListener("click", () => {
-      loadEntries();
-      loadNotesFromDatabase();
+      if (state.dataSource === "supabase") {
+        loadEntriesFromSupabase({ force: true }).catch(err => alert(err.message));
+      } else {
+        loadEntries();
+      }
+      if (getActiveTabKey() === "notes" || state.notesLoaded) {
+        loadNotesFromDatabase({ force: true }).catch(err => console.error("Notes refresh failed:", err));
+      }
+      if (getActiveTabKey() === "bitcoin" || state.bitcoinWalletsLoaded) {
+        loadBitcoinWalletsFromDatabase({ force: true }).catch(err => console.error("Bitcoin refresh failed:", err));
+      }
     });
   }
 
@@ -12144,6 +12437,7 @@ function startGuestMode(){
   state.dbSignatures = new Set();
   state.dbSignaturesById = new Map();
   state.pendingDbSyncIds = new Set();
+  resetLazyDataState();
   state.hasImportedFile = false;
   sessionStorage.removeItem(IMPORT_SESSION_KEY);
 
@@ -12181,6 +12475,7 @@ function doLogout(){
   state.secretPinHash = "";
   state.secretPinVerified = false;
   state.pendingDbSyncIds = new Set();
+  resetLazyDataState({ clearEntries: true });
   applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
   renderSecretPinMenu();
   if (!wasGuestMode) {
@@ -12322,6 +12617,10 @@ async function attemptUnlock(options = {}){
     if (els.zipPasswordInput) els.zipPasswordInput.value = "";
     state.unlocked = true;
     state.guestMode = false;
+    if (!keepCurrentBackup) {
+      resetLazyDataState({ clearEntries: true });
+      state.dataSource = "supabase";
+    }
     updateGuestModeUi();
     
     // Show welcome screen with name from JSON config
@@ -12375,7 +12674,8 @@ async function showWelcomeAndTransitionToApp(keepCurrentBackup) {
       updateConnectButtonVisibility();
       renderAll();
     } else {
-      await loadEntriesFromSupabase();
+      activate(getActiveTabKey() || "expenses");
+      await ensureTabDataLoaded(getActiveTabKey() || "expenses", { force: true });
     }
   }, 1200); // Match the animation duration
 }
@@ -14652,7 +14952,7 @@ async function saveBitcoinWallet(address, label, network, isWatchOnly) {
     console.log('Bitcoin wallet saved successfully:', result);
     
     // Refresh the saved wallets list
-    await loadBitcoinWalletsFromDatabase();
+    await loadBitcoinWalletsFromDatabase({ force: true });
   } catch (err) {
     console.error('Failed to save Bitcoin wallet:', err);
     alert('Failed to save Bitcoin wallet to database: ' + err.message);
@@ -14676,16 +14976,25 @@ async function deleteBitcoinWallet(walletId) {
   try {
     await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(walletId)}`, { method: 'DELETE' });
     console.log('Bitcoin wallet deleted successfully:', walletId);
-    await loadBitcoinWalletsFromDatabase();
+    await loadBitcoinWalletsFromDatabase({ force: true });
   } catch (err) {
     console.error('Failed to delete Bitcoin wallet:', err);
     alert('Failed to delete Bitcoin wallet: ' + err.message);
   }
 }
 
-async function loadBitcoinWalletsFromDatabase() {
+async function loadBitcoinWalletsFromDatabase(options = {}) {
+  const force = options.force === true;
+  if (state.bitcoinWalletsLoaded && !force) {
+    renderBitcoinWallets();
+    renderExistingAddressesDropdown();
+    return;
+  }
+  if (state.bitcoinWalletsLoading && !force) return;
+
   if (isGuestMode()) {
     state.bitcoinWallets = [];
+    state.bitcoinWalletsLoaded = true;
     renderBitcoinWallets();
     renderExistingAddressesDropdown();
     return;
@@ -14693,6 +15002,7 @@ async function loadBitcoinWalletsFromDatabase() {
 
   if (state.secretPinHash && !state.secretPinVerified) {
     state.bitcoinWallets = [];
+    state.bitcoinWalletsLoaded = true;
     renderBitcoinWallets();
     renderExistingAddressesDropdown();
     return;
@@ -14701,6 +15011,7 @@ async function loadBitcoinWalletsFromDatabase() {
   const selectedCurrencies = getSelectedPageCurrencies();
   if (!isPageCurrencyAll() && !selectedCurrencies.includes("BTC")) {
     state.bitcoinWallets = [];
+    state.bitcoinWalletsLoaded = true;
     renderBitcoinWallets();
     renderExistingAddressesDropdown();
     return;
@@ -14709,11 +15020,16 @@ async function loadBitcoinWalletsFromDatabase() {
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     console.log('Database not connected, Bitcoin wallets will not be loaded');
     state.bitcoinWallets = [];
+    state.bitcoinWalletsLoaded = true;
     renderBitcoinWallets();
     return;
   }
 
   try {
+    state.bitcoinWalletsLoading = true;
+    if (els.btcSavedWalletsList) {
+      els.btcSavedWalletsList.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading saved addresses...</div>';
+    }
     console.log('Loading Bitcoin wallets from database...');
     const rows = await supabase(`${CONFIG.table}?select=*&direction=eq.taken&person_name=eq.SYSTEM&order=created_at.desc`);
     console.log('Database rows:', rows);
@@ -14742,6 +15058,7 @@ async function loadBitcoinWalletsFromDatabase() {
         }
       })
       .filter(Boolean);
+    state.bitcoinWalletsLoaded = true;
     console.log('Loaded Bitcoin wallets:', state.bitcoinWallets);
     renderBitcoinWallets();
     renderExistingAddressesDropdown();
@@ -14750,6 +15067,8 @@ async function loadBitcoinWalletsFromDatabase() {
     state.bitcoinWallets = [];
     renderBitcoinWallets();
     renderExistingAddressesDropdown();
+  } finally {
+    state.bitcoinWalletsLoading = false;
   }
 }
 
@@ -15007,7 +15326,7 @@ async function saveNote() {
     const result = await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
     console.log('Note saved successfully:', result);
     els.noteInput.value = '';
-    await loadNotesFromDatabase();
+    await loadNotesFromDatabase({ force: true });
   } catch (err) {
     console.error('Failed to save note:', err);
     alert("Failed to save note to database: " + err.message);
@@ -15085,7 +15404,7 @@ window.deleteNote = async function(noteId) {
 
   try {
     await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, { method: "DELETE" });
-    await loadNotesFromDatabase();
+    await loadNotesFromDatabase({ force: true });
   } catch (err) {
     alert("Failed to delete note: " + err.message);
   }
@@ -15124,20 +15443,29 @@ window.editNote = async function(noteId) {
         })
       })
     });
-    await loadNotesFromDatabase();
+    await loadNotesFromDatabase({ force: true });
   } catch (err) {
     alert("Failed to update note: " + err.message);
   }
 };
 
-async function loadNotesFromDatabase() {
+async function loadNotesFromDatabase(options = {}) {
+  const force = options.force === true;
+  if (state.notesLoaded && !force) {
+    renderNotes();
+    return;
+  }
+  if (state.notesLoading && !force) return;
+
   if (isGuestMode()) {
     loadGuestNotesFromStorage();
+    state.notesLoaded = true;
     return;
   }
 
   if (state.secretPinHash && !state.secretPinVerified) {
     state.notes = [];
+    state.notesLoaded = true;
     renderNotes();
     return;
   }
@@ -15145,11 +15473,16 @@ async function loadNotesFromDatabase() {
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) {
     console.log('Database not connected, notes will not be loaded');
     state.notes = [];
+    state.notesLoaded = true;
     renderNotes();
     return;
   }
 
   try {
+    state.notesLoading = true;
+    if (els.notesList) {
+      els.notesList.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading notes...</div>';
+    }
     console.log('Loading notes from database...');
     const rows = await supabase(`${CONFIG.table}?select=*&direction=eq.taken&person_name=eq.SYSTEM&order=created_at.desc`);
     console.log('Database rows:', rows);
@@ -15175,12 +15508,15 @@ async function loadNotesFromDatabase() {
         }
       })
       .filter(Boolean);
+    state.notesLoaded = true;
     console.log('Loaded notes:', state.notes);
     renderNotes();
   } catch (err) {
     console.error('Failed to load notes from database:', err);
     state.notes = [];
     renderNotes();
+  } finally {
+    state.notesLoading = false;
   }
 }
 
@@ -16005,7 +16341,6 @@ async function boot(){
   btcBindUI();
   notesBindUI();
   await autoLogin();
-  await loadNotesFromDatabase();
   handleUrlHash();
 }
 
