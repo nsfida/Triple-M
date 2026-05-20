@@ -3093,11 +3093,11 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 }
 .btc-wallet-type-grid{
   display:grid;
-  grid-template-columns:repeat(5, minmax(0, 1fr));
+  grid-template-columns:repeat(6, minmax(0, 1fr));
   gap:8px;
 }
 .btc-wallet-type-grid:has(#btcBulkWalletBtn.hide){
-  grid-template-columns:repeat(4, minmax(0, 1fr));
+  grid-template-columns:repeat(5, minmax(0, 1fr));
 }
 .btc-wallet-type-grid .btn{
   width:100%;
@@ -3181,6 +3181,10 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   flex:1 1 auto;
   min-width:0;
   resize:vertical;
+}
+.btc-wif-scan-row .input{
+  flex:1 1 auto;
+  min-width:0;
 }
 .btc-qr-scan-btn{
   width:48px;
