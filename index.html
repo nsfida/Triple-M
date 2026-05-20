@@ -1371,6 +1371,7 @@
                 <div class="btc-wallet-type-grid">
                   <button id="btcFullWalletBtn" class="btn primary">WIF</button>
                   <button id="btcWatchWalletBtn" class="btn ghost">Watch</button>
+                  <button id="btcSeedWalletBtn" class="btn ghost">Seed</button>
                   <button id="btcBrainWalletBtn" class="btn ghost">Brain</button>
                   <button id="btcBulkWalletBtn" class="btn ghost">Bulk</button>
                   <button id="btcHexWalletBtn" class="btn ghost">Hex</button>
@@ -1396,7 +1397,12 @@
               <!-- Full Wallet Input (WIF) -->
               <div id="btcFullWalletSection" style="margin-bottom:12px;">
                 <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Bitcoin WIF (Private Key)</label>
-                <textarea id="btcWifInput" class="input" placeholder="Paste WIF here to login" style="min-height:80px;"></textarea>
+                <div class="btc-wif-scan-row">
+                  <textarea id="btcWifInput" class="input" placeholder="Paste WIF here to login" style="min-height:80px;"></textarea>
+                  <button id="btcScanImportWifQrBtn" class="btn ghost btc-qr-scan-btn" type="button" title="Scan WIF QR code" aria-label="Scan WIF QR code">
+                    <i class="fa-solid fa-qrcode"></i>
+                  </button>
+                </div>
                 <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The page never sends your private key to a server. Login and signing stay inside your browser.</div>
                 <div class="tools" style="margin-top:8px;">
                   <button id="btcImportBtn" class="btn primary">Import WIF</button>
@@ -1407,10 +1413,27 @@
               <!-- Watch Wallet Input (Address Only) -->
               <div id="btcWatchWalletSection" class="hide" style="margin-bottom:12px;">
                 <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Bitcoin Address (Watch Only)</label>
-                <textarea id="btcAddressInput" class="input" placeholder="Paste Bitcoin address here to watch" style="min-height:80px;"></textarea>
+                <div class="btc-wif-scan-row">
+                  <textarea id="btcAddressInput" class="input" placeholder="Paste Bitcoin address here to watch" style="min-height:80px;"></textarea>
+                  <button id="btcScanWatchAddressQrBtn" class="btn ghost btc-qr-scan-btn" type="button" title="Scan address QR code" aria-label="Scan address QR code">
+                    <i class="fa-solid fa-qrcode"></i>
+                  </button>
+                </div>
                 <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">Watch-only mode allows you to view balance and transactions without private keys. To send, you'll need to provide WIF during transaction.</div>
                 <div class="tools" style="margin-top:8px;">
                   <button id="btcWatchAddressBtn" class="btn primary">Watch Address</button>
+                </div>
+              </div>
+
+              <!-- Seed Wallet Input -->
+              <div id="btcSeedWalletSection" class="hide" style="margin-bottom:12px;">
+                <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Seed Phrase (12 or 24 words)</label>
+                <textarea id="btcSeedPhraseInput" class="input" placeholder="Enter or create a 12 or 24 word seed phrase" style="min-height:96px;"></textarea>
+                <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The seed phrase is converted in this browser to the first Bitcoin wallet key.</div>
+                <div class="tools" style="margin-top:8px;">
+                  <button id="btcSeedImportBtn" class="btn primary">Import Seed</button>
+                  <button id="btcSeedCreate12Btn" class="btn ghost">Create 12 words</button>
+                  <button id="btcSeedCreate24Btn" class="btn ghost">Create 24 words</button>
                 </div>
               </div>
 
@@ -2564,7 +2587,12 @@
                   <div class="btc-recipient-title">Recipient 1</div>
                   <div class="btc-recipient-address-field">
                     <label>Bitcoin address</label>
-                    <input id="btcToAddress" class="input btc-recipient-address" type="text" placeholder="bc1... or 1..." required />
+                    <div class="btc-wif-scan-row">
+                      <input id="btcToAddress" class="input btc-recipient-address" type="text" placeholder="bc1... or 1..." required />
+                      <button class="btn ghost btc-qr-scan-btn btc-scan-address-qr-btn" type="button" title="Scan address QR code" aria-label="Scan address QR code">
+                        <i class="fa-solid fa-qrcode"></i>
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label>BTC amount</label>
