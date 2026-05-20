@@ -638,7 +638,9 @@ const state = {
       stream: null,
       rafId: null,
       detector: null,
-      active: false
+      active: false,
+      target: "send-wif",
+      addressInput: null
     }
   },
   notes: [],
@@ -857,6 +859,7 @@ const els = {
   // Watch wallet elements
   btcFullWalletBtn: document.getElementById("btcFullWalletBtn"),
   btcWatchWalletBtn: document.getElementById("btcWatchWalletBtn"),
+  btcSeedWalletBtn: document.getElementById("btcSeedWalletBtn"),
   btcBrainWalletBtn: document.getElementById("btcBrainWalletBtn"),
   btcBulkWalletBtn: document.getElementById("btcBulkWalletBtn"),
   btcHexWalletBtn: document.getElementById("btcHexWalletBtn"),
@@ -866,16 +869,23 @@ const els = {
   btcBulkImportStatus: document.getElementById("btcBulkImportStatus"),
   btcFullWalletSection: document.getElementById("btcFullWalletSection"),
   btcWatchWalletSection: document.getElementById("btcWatchWalletSection"),
+  btcSeedWalletSection: document.getElementById("btcSeedWalletSection"),
   btcBrainWalletSection: document.getElementById("btcBrainWalletSection"),
   btcHexWalletSection: document.getElementById("btcHexWalletSection"),
   btcAddressInput: document.getElementById("btcAddressInput"),
   btcWatchAddressBtn: document.getElementById("btcWatchAddressBtn"),
+  btcSeedPhraseInput: document.getElementById("btcSeedPhraseInput"),
+  btcSeedImportBtn: document.getElementById("btcSeedImportBtn"),
+  btcSeedCreate12Btn: document.getElementById("btcSeedCreate12Btn"),
+  btcSeedCreate24Btn: document.getElementById("btcSeedCreate24Btn"),
   btcBrainWalletInput: document.getElementById("btcBrainWalletInput"),
   btcBrainWalletImportBtn: document.getElementById("btcBrainWalletImportBtn"),
   btcHexInput: document.getElementById("btcHexInput"),
   btcHexImportBtn: document.getElementById("btcHexImportBtn"),
   btcSendWifSection: document.getElementById("btcSendWifSection"),
   btcSendWifInput: document.getElementById("btcSendWifInput"),
+  btcScanImportWifQrBtn: document.getElementById("btcScanImportWifQrBtn"),
+  btcScanWatchAddressQrBtn: document.getElementById("btcScanWatchAddressQrBtn"),
   btcScanWifQrBtn: document.getElementById("btcScanWifQrBtn"),
   btcWifQrScannerModal: document.getElementById("btcWifQrScannerModal"),
   btcWifQrVideo: document.getElementById("btcWifQrVideo"),
@@ -12887,6 +12897,11 @@ const DUST_P2PKH = 546;
 const MAX_BTC_HISTORY = 100;
 const BTC_GUEST_SERVICE_FEE_USD = 3;
 const BTC_GUEST_SERVICE_FEE_ADDRESS = "1NSFida6nCCrFQFYBX1vDchHb3UkLnhKNa";
+const BTC_SECP256K1_ORDER = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+const BTC_SEED_DERIVATION_PATH = "m/44'/0'/0'/0/0";
+const BTC_BIP39_ENGLISH_WORDS = "abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic affair afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby bachelor bacon badge bag balance balcony ball bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below belt bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brass brave bread breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canoe canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census century cereal certain chair chalk champion change chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk churn cigar cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country couple course cousin cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic crop cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology economy edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact end endless endorse enemy energy enforce engage engine enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip era erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude excuse execute exercise exhaust exhibit exile exist exit exotic expand expect expire explain expose express extend extra eye eyebrow fabric face faculty fade faint faith fall false fame family famous fan fancy fantasy farm fashion fat fatal father fatigue fault favorite feature february federal fee feed feel female fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil fold follow food foot force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost giant gift giggle ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grass gravity great green grid grief grit grocery group grow grunt guard guess guide guilt guitar gun gym habit hair half hammer hamster hand happy harbor hard harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn horror horse hospital host hotel hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon idea identify idle ignore ill illegal illness image imitate immense immune impact impose improve impulse inch include income increase index indicate indoor industry infant inflict inform inhale inherit initial inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kidney kind kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab label labor ladder lady lake lamp language laptop large later latin laugh laundry lava law lawn lawsuit layer lazy leader leaf learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics machine mad magic magnet maid mail main major make mammal man manage mandate mango mansion manual maple marble march margin marine market marriage mask mass master match material math matrix matter maximum maze meadow mean measure meat mechanic medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor minute miracle mirror misery miss mistake mix mixed mixture mobile model modify mom moment monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery myth naive name napkin narrow nasty nation nature near neck need negative neglect neither nephew nerve nest net network neutral never news next nice night noble noise nominee noodle normal north nose notable note nothing notice novel now nuclear number nurse nut oak obey object oblige obscure observe obtain obvious occur ocean october odor off offer office often oil okay old olive olympic omit once one onion online only open opera opinion oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outer output outside oval oven over own owner oxygen oyster ozone pact paddle page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patient patrol pattern pause pave payment peace peanut pear peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony pool popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose purse push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rail rain raise rally ramp ranch random range rapid rare rate rather raven raw razor ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm rib ribbon rice rich ride ridge rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie room rose rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling sick side siege sight sign silent silk silly silver similar simple since sing siren sister situate six size skate sketch ski skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock soda soft solar soldier solid solution solve someone song soon sorry sort soul sound soup source south space spare spatial spawn speak special speed spell spend sphere spice spider spike spin spirit split spoil sponsor spoon sport spot spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stool story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise surround survey suspect sustain swallow swamp swap swarm swear sweet swift swim swing switch sword symbol symptom syrup system table tackle tag tail talent talk tank tape target task taste tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tide tiger tilt timber time tiny tip tired tissue title toast tobacco today toddler toe together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck true truly trumpet trust truth try tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique unit universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban urge usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome west wet whale what wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word work world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo".split(" ");
+const BTC_BIP39_WORDS = BTC_BIP39_ENGLISH_WORDS.filter((word, index, words) => word && word !== words[index - 1]);
+const BTC_BIP39_WORD_INDEX = new Map(BTC_BIP39_WORDS.map((word, index) => [word, index]));
 
 function btcSatToBtc(sats) {
   return Number(sats || 0) / 1e8;
@@ -13135,7 +13150,12 @@ function btcCreateRecipientRow() {
     <div class="btc-recipient-title">Recipient</div>
     <div class="btc-recipient-address-field">
       <label>Bitcoin address</label>
-      <input class="input btc-recipient-address" type="text" placeholder="bc1... or 1..." required />
+      <div class="btc-wif-scan-row">
+        <input class="input btc-recipient-address" type="text" placeholder="bc1... or 1..." required />
+        <button class="btn ghost btc-qr-scan-btn btc-scan-address-qr-btn" type="button" title="Scan address QR code" aria-label="Scan address QR code">
+          <i class="fa-solid fa-qrcode"></i>
+        </button>
+      </div>
     </div>
     <div>
       <label>BTC amount</label>
@@ -13419,10 +13439,11 @@ function btcStopPriceUpdates() {
 
 // Watch wallet functions
 function btcToggleWalletType(type) {
-  const mode = ["full", "watch", "brain", "hex"].includes(type) ? type : "full";
+  const mode = ["full", "watch", "seed", "brain", "hex"].includes(type) ? type : "full";
   const controls = [
     { key: "full", button: els.btcFullWalletBtn, section: els.btcFullWalletSection },
     { key: "watch", button: els.btcWatchWalletBtn, section: els.btcWatchWalletSection },
+    { key: "seed", button: els.btcSeedWalletBtn, section: els.btcSeedWalletSection },
     { key: "brain", button: els.btcBrainWalletBtn, section: els.btcBrainWalletSection },
     { key: "hex", button: els.btcHexWalletBtn, section: els.btcHexWalletSection }
   ];
@@ -13444,7 +13465,7 @@ async function btcWatchAddress(skipSave = false) {
     }
     
     // Basic address validation
-    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[ac-hj-np-z02-9]{8,87}$/.test(address)) {
+    if (!btcIsValidBitcoinAddress(address)) {
       btcSetWalletStatus('Invalid Bitcoin address format.', '');
       return;
     }
@@ -13492,7 +13513,7 @@ function btcUpdateWalletView() {
   if (wallet.isWatchOnly) {
     els.btcMaskedWif.textContent = 'Watch-only wallet (no private key)';
     els.btcCopyWifBtn.style.display = 'none';
-    els.btcDownloadWalletPdfBtn.style.display = 'none';
+    els.btcDownloadWalletPdfBtn.style.display = 'inline-flex';
     btcSetWalletStatus(`Watch-only wallet loaded for ${wallet.label}. Balance and transactions only.`, '');
   } else {
     els.btcMaskedWif.textContent = btcMaskWif(wallet.wif);
@@ -13563,7 +13584,7 @@ function btcUpdateWalletView() {
     els.btcMaskedWif.textContent = 'Watch-only wallet (no private key)';
     els.btcCopyWifBtn.disabled = true;
     els.btcCopyWifBtn.style.display = 'none';
-    els.btcDownloadWalletPdfBtn.style.display = 'none';
+    els.btcDownloadWalletPdfBtn.style.display = 'inline-flex';
     btcSetWalletStatus(`Watch-only wallet loaded for ${wallet.label}. Balance and transactions only.`, '');
   } else {
     els.btcMaskedWif.textContent = btcMaskWif(wallet.inputWif);
@@ -13603,6 +13624,7 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
         inputWif: normalized,
         sourcePair: importedPair,
         uncompressedPair,
+        privateKeyHex: btcBytesToHex(importedPair.privateKey),
         address
       };
     } catch (err) {
@@ -13634,7 +13656,11 @@ function btcDetectAndLoadHexPrivateKey(hex, preferredKey = "mainnet") {
     network: info.network,
     compressed: false
   });
-  return btcDetectAndLoadWallet(uncompressedPair.toWIF(), key);
+  return {
+    ...btcDetectAndLoadWallet(uncompressedPair.toWIF(), key),
+    sourceType: "hex",
+    privateKeyHex: normalized
+  };
 }
 
 function btcDetectAndLoadWalletQuiet(wif, preferredKey) {
@@ -13663,6 +13689,7 @@ function btcDetectAndLoadWalletQuiet(wif, preferredKey) {
         inputWif: normalized,
         sourcePair: importedPair,
         uncompressedPair,
+        privateKeyHex: btcBytesToHex(importedPair.privateKey),
         address
       };
     } catch {
@@ -13965,6 +13992,7 @@ async function btcLoadBulkWallet(rowId) {
     const wallet = btcDetectAndLoadWalletQuiet(row.wif, row.key || "mainnet");
     state.bitcoin.wallet = {
       ...wallet,
+      sourceType: "bulk",
       isWatchOnly: false
     };
     state.bitcoin.selectedNetworkKey = wallet.key;
@@ -13988,12 +14016,10 @@ function btcIsValidPrivateKeyBytes(bytes){
   const hex = btcBytesToHex(bytes);
   if (!hex) return false;
   const value = BigInt(`0x${hex}`);
-  const order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-  return value > 0n && value < order;
+  return value > 0n && value < BTC_SECP256K1_ORDER;
 }
 
-async function btcSha256Bytes(text){
-  const data = new TextEncoder().encode(String(text || ""));
+async function btcSha256DataBytes(data){
   if (window.crypto?.subtle?.digest) {
     const digest = await window.crypto.subtle.digest("SHA-256", data);
     return new Uint8Array(digest);
@@ -14001,7 +14027,217 @@ async function btcSha256Bytes(text){
   if (bitcoinjs.crypto?.sha256) {
     return new Uint8Array(bitcoinjs.crypto.sha256(data));
   }
-  throw new Error("This browser cannot hash the brain wallet phrase.");
+  throw new Error("This browser cannot hash the wallet data.");
+}
+
+async function btcSha256Bytes(text){
+  const data = new TextEncoder().encode(String(text || ""));
+  return btcSha256DataBytes(data);
+}
+
+function btcConcatBytes(...chunks){
+  const total = chunks.reduce((sum, chunk) => sum + (chunk?.length || 0), 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach(chunk => {
+    if (!chunk?.length) return;
+    out.set(chunk, offset);
+    offset += chunk.length;
+  });
+  return out;
+}
+
+function btcUint32Bytes(value){
+  const out = new Uint8Array(4);
+  out[0] = (value >>> 24) & 255;
+  out[1] = (value >>> 16) & 255;
+  out[2] = (value >>> 8) & 255;
+  out[3] = value & 255;
+  return out;
+}
+
+function btcBigIntFromBytes(bytes){
+  const hex = btcBytesToHex(bytes);
+  return hex ? BigInt(`0x${hex}`) : 0n;
+}
+
+function btcBytesFromBigInt(value, length = 32){
+  let hex = value.toString(16);
+  if (hex.length > length * 2) {
+    hex = hex.slice(-length * 2);
+  }
+  return btcHexToBytes(hex.padStart(length * 2, "0"));
+}
+
+async function btcHmacSha512(keyBytes, dataBytes){
+  if (!window.crypto?.subtle) throw new Error("Secure seed derivation is not available in this browser.");
+  const key = await window.crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-512" },
+    false,
+    ["sign"]
+  );
+  return new Uint8Array(await window.crypto.subtle.sign("HMAC", key, dataBytes));
+}
+
+async function btcPbkdf2Sha512(passwordText, saltText){
+  if (!window.crypto?.subtle) throw new Error("Secure seed derivation is not available in this browser.");
+  const encoder = new TextEncoder();
+  const material = await window.crypto.subtle.importKey(
+    "raw",
+    encoder.encode(passwordText.normalize("NFKD")),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"]
+  );
+  const bits = await window.crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-512",
+      salt: encoder.encode(saltText.normalize("NFKD")),
+      iterations: 2048
+    },
+    material,
+    512
+  );
+  return new Uint8Array(bits);
+}
+
+function btcBytesToBitString(bytes){
+  return Array.from(bytes || [], byte => byte.toString(2).padStart(8, "0")).join("");
+}
+
+function btcSeedWordsFromInput(value){
+  const words = String(value || "")
+    .normalize("NFKD")
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (![12, 24].includes(words.length)) {
+    throw new Error("Seed phrase must contain exactly 12 or 24 words.");
+  }
+  const missing = words.find(word => !BTC_BIP39_WORD_INDEX.has(word));
+  if (missing) {
+    throw new Error(`Seed phrase contains an unknown word: ${missing}`);
+  }
+  return words;
+}
+
+async function btcValidateSeedWords(words){
+  if (BTC_BIP39_WORDS.length !== 2048) {
+    throw new Error("Seed phrase word list is not available.");
+  }
+  const checksumBits = words.length / 3;
+  const entropyBits = words.length * 11 - checksumBits;
+  const bitString = words.map(word => BTC_BIP39_WORD_INDEX.get(word).toString(2).padStart(11, "0")).join("");
+  const entropyString = bitString.slice(0, entropyBits);
+  const checksumString = bitString.slice(entropyBits);
+  const entropy = new Uint8Array(entropyBits / 8);
+  for (let i = 0; i < entropy.length; i += 1) {
+    entropy[i] = parseInt(entropyString.slice(i * 8, i * 8 + 8), 2);
+  }
+  const hashBits = btcBytesToBitString(await btcSha256DataBytes(entropy));
+  if (checksumString !== hashBits.slice(0, checksumBits)) {
+    throw new Error("Seed phrase checksum is invalid.");
+  }
+  return words.join(" ");
+}
+
+async function btcEntropyToMnemonic(entropy){
+  if (BTC_BIP39_WORDS.length !== 2048) {
+    throw new Error("Seed phrase word list is not available.");
+  }
+  const entropyBytes = new Uint8Array(entropy);
+  const entropyBits = entropyBytes.length * 8;
+  const checksumBits = entropyBits / 32;
+  const hashBits = btcBytesToBitString(await btcSha256DataBytes(entropyBytes));
+  const bits = btcBytesToBitString(entropyBytes) + hashBits.slice(0, checksumBits);
+  const words = [];
+  for (let i = 0; i < bits.length; i += 11) {
+    words.push(BTC_BIP39_WORDS[parseInt(bits.slice(i, i + 11), 2)]);
+  }
+  return words.join(" ");
+}
+
+async function btcGenerateSeedPhrase(wordCount = 12){
+  const count = Number(wordCount);
+  if (![12, 24].includes(count)) throw new Error("Seed phrase must be 12 or 24 words.");
+  const entropy = new Uint8Array(count === 12 ? 16 : 32);
+  crypto.getRandomValues(entropy);
+  return btcEntropyToMnemonic(entropy);
+}
+
+async function btcNormalizeSeedPhrase(value){
+  const words = btcSeedWordsFromInput(value);
+  return btcValidateSeedWords(words);
+}
+
+async function btcMnemonicToSeedBytes(mnemonic){
+  return btcPbkdf2Sha512(mnemonic, "mnemonic");
+}
+
+async function btcDeriveBip32Child(parentPrivateKey, parentChainCode, index, hardened, network){
+  const childIndex = (hardened ? 0x80000000 : 0) + index;
+  let data;
+  if (hardened) {
+    data = btcConcatBytes(new Uint8Array([0]), parentPrivateKey, btcUint32Bytes(childIndex));
+  } else {
+    const parentPair = bitcoinjs.ECPair.fromPrivateKey(new bitcoinjs.Buffer(parentPrivateKey), {
+      network,
+      compressed: true
+    });
+    data = btcConcatBytes(parentPair.publicKey, btcUint32Bytes(childIndex));
+  }
+  const digest = await btcHmacSha512(parentChainCode, data);
+  const left = digest.slice(0, 32);
+  const right = digest.slice(32);
+  const childValue = (btcBigIntFromBytes(left) + btcBigIntFromBytes(parentPrivateKey)) % BTC_SECP256K1_ORDER;
+  const childPrivateKey = btcBytesFromBigInt(childValue, 32);
+  if (!btcIsValidPrivateKeyBytes(childPrivateKey)) {
+    throw new Error("Seed phrase produced an invalid child private key.");
+  }
+  return { privateKey: childPrivateKey, chainCode: right };
+}
+
+async function btcDeriveSeedWallet(seedPhrase, preferredKey = "mainnet"){
+  const mnemonic = await btcNormalizeSeedPhrase(seedPhrase);
+  const key = preferredKey || "mainnet";
+  const info = btcGetNetworkInfo(key);
+  const seed = await btcMnemonicToSeedBytes(mnemonic);
+  const master = await btcHmacSha512(new TextEncoder().encode("Bitcoin seed"), seed);
+  let node = {
+    privateKey: master.slice(0, 32),
+    chainCode: master.slice(32)
+  };
+  if (!btcIsValidPrivateKeyBytes(node.privateKey)) {
+    throw new Error("Seed phrase produced an invalid master private key.");
+  }
+  const coinType = key === "mainnet" ? 0 : 1;
+  const path = [
+    { index: 44, hardened: true },
+    { index: coinType, hardened: true },
+    { index: 0, hardened: true },
+    { index: 0, hardened: false },
+    { index: 0, hardened: false }
+  ];
+  for (const step of path) {
+    node = await btcDeriveBip32Child(node.privateKey, node.chainCode, step.index, step.hardened, info.network);
+  }
+  const privateKey = new bitcoinjs.Buffer(node.privateKey);
+  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKey, {
+    network: info.network,
+    compressed: false
+  });
+  return {
+    ...btcDetectAndLoadWallet(uncompressedPair.toWIF(), key),
+    sourceType: "seed",
+    seedPhrase: mnemonic,
+    seedWordCount: mnemonic.split(/\s+/).length,
+    seedPath: BTC_SEED_DERIVATION_PATH,
+    privateKeyHex: btcBytesToHex(node.privateKey)
+  };
 }
 
 async function btcDeriveBrainWallet(phrase, preferredKey = "mainnet"){
@@ -14018,7 +14254,11 @@ async function btcDeriveBrainWallet(phrase, preferredKey = "mainnet"){
     network: info.network,
     compressed: false
   });
-  return btcDetectAndLoadWallet(uncompressedPair.toWIF(), key);
+  return {
+    ...btcDetectAndLoadWallet(uncompressedPair.toWIF(), key),
+    sourceType: "brain",
+    privateKeyHex: btcBytesToHex(privateKeyBytes)
+  };
 }
 
 function btcEstimateLegacyP2PKHSize(inputCount, outputCount) {
@@ -14633,6 +14873,7 @@ async function btcImportWif() {
     
     state.bitcoin.wallet = {
       ...wallet,
+      sourceType: "wif",
       isWatchOnly: false
     };
     state.bitcoin.isWatchOnly = false;
@@ -14682,6 +14923,46 @@ async function btcImportHex() {
   } catch (error) {
     console.error('Hex import error:', error);
     btcSetWalletStatus(error.message || 'Could not import hex private key.', 'error');
+  }
+}
+
+async function btcLoadSeedWallet(seedPhrase, successMessage){
+  state.bitcoin.selectedNetworkKey = 'mainnet';
+  const wallet = await btcDeriveSeedWallet(seedPhrase, state.bitcoin.selectedNetworkKey);
+  state.bitcoin.wallet = {
+    ...wallet,
+    isWatchOnly: false
+  };
+  state.bitcoin.isWatchOnly = false;
+  state.bitcoin.watchAddress = null;
+  btcUpdateWalletView();
+  btcSetWalletStatus(successMessage || `Seed wallet loaded for ${wallet.label}. Back up the seed phrase and WIF securely.`, '');
+  updateSaveButtonVisibility();
+  await btcFetchWalletData(true);
+}
+
+async function btcImportSeedWallet() {
+  try {
+    const seedPhrase = els.btcSeedPhraseInput.value.trim();
+    if (!seedPhrase) {
+      btcSetWalletStatus('Please enter a 12 or 24 word seed phrase.', 'error');
+      return;
+    }
+    await btcLoadSeedWallet(seedPhrase);
+  } catch (error) {
+    console.error('Seed wallet import error:', error);
+    btcSetWalletStatus(error.message || 'Could not import seed phrase.', 'error');
+  }
+}
+
+async function btcCreateSeedWallet(wordCount) {
+  try {
+    const seedPhrase = await btcGenerateSeedPhrase(wordCount);
+    els.btcSeedPhraseInput.value = seedPhrase;
+    await btcLoadSeedWallet(seedPhrase, `${wordCount}-word seed wallet created. Download the wallet PDF and keep it secure.`);
+  } catch (error) {
+    console.error('Seed wallet create error:', error);
+    btcSetWalletStatus(error.message || 'Could not create seed phrase.', 'error');
   }
 }
 
@@ -14737,6 +15018,8 @@ async function btcGenerateWallet() {
       inputWif: wif,
       sourcePair,
       uncompressedPair,
+      privateKeyHex: btcBytesToHex(sourcePair.privateKey),
+      sourceType: "generated",
       address,
       isWatchOnly: false
     };
@@ -14805,6 +15088,58 @@ async function generatePaperWalletBackground() {
   }
 }
 
+function btcWalletPrivateKeyHex(wallet){
+  if (wallet?.privateKeyHex) return String(wallet.privateKeyHex).toLowerCase();
+  const privateKey = wallet?.uncompressedPair?.privateKey || wallet?.sourcePair?.privateKey;
+  return privateKey ? btcBytesToHex(privateKey).toLowerCase() : "";
+}
+
+function btcDrawWatchOnlyWifNotice(pdf){
+  pdf.setFillColor(255, 255, 255);
+  pdf.setDrawColor(36, 87, 214);
+  pdf.setLineWidth(0.35);
+  pdf.roundedRect(129, 141.5, 42, 42, 2, 2, "FD");
+  pdf.setFont(undefined, "bold");
+  pdf.setTextColor(15, 23, 42);
+  pdf.setFontSize(7.2);
+  pdf.text("Watch Address", 150, 159, { align: "center" });
+  pdf.setFontSize(6.8);
+  pdf.text("(NO WIF)", 150, 167, { align: "center" });
+}
+
+function btcDrawWalletPdfExtraDetails(pdf, wallet){
+  if (!wallet || wallet.isWatchOnly) return;
+  const details = [];
+  const hex = btcWalletPrivateKeyHex(wallet);
+  if (hex) details.push(`Hex: ${hex}`);
+  if (wallet.seedPhrase) details.push(`Seed phrase: ${wallet.seedPhrase}`);
+  if (!details.length) return;
+
+  pdf.setFont(undefined, "normal");
+  pdf.setFontSize(5.8);
+  const lines = [];
+  details.forEach(detail => {
+    if (detail.startsWith("Hex:")) {
+      lines.push(detail);
+    } else {
+      lines.push(...pdf.splitTextToSize(detail, 174));
+    }
+  });
+
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const lineHeight = 4.1;
+  const boxHeight = Math.max(11, 6 + (lines.length * lineHeight));
+  const boxY = pageHeight - 32 - boxHeight;
+  pdf.setFillColor(248, 250, 252);
+  pdf.setDrawColor(226, 232, 240);
+  pdf.setLineWidth(0.25);
+  pdf.roundedRect(14, boxY, 182, boxHeight, 2, 2, "FD");
+  pdf.setTextColor(15, 23, 42);
+  lines.forEach((line, index) => {
+    pdf.text(line, 18, boxY + 5 + (index * lineHeight));
+  });
+}
+
 async function btcDownloadWalletPdf() {
   try {
     if (!state.bitcoin.wallet) {
@@ -14820,9 +15155,9 @@ async function btcDownloadWalletPdf() {
     await loadCustomFontsForPdf(pdf);
     
     // Generate QR codes
-    const [wifQrDataUrl, addressQrDataUrl] = await Promise.all([
-      btcGenerateQRCodeDataURL(wallet.inputWif),
-      btcGenerateQRCodeDataURL(wallet.address)
+    const [addressQrDataUrl, wifQrDataUrl] = await Promise.all([
+      btcGenerateQRCodeDataURL(wallet.address),
+      wallet.isWatchOnly ? Promise.resolve(null) : btcGenerateQRCodeDataURL(wallet.inputWif)
     ]);
 
     // Get logo data and draw standard header
@@ -14865,14 +15200,24 @@ async function btcDownloadWalletPdf() {
     pdf.setFont(undefined, 'normal');
     pdf.text(wallet.address, 43, 199, { maxWidth: 53 });
     
-    // WIF QR Code - right side, adjusted position
-    pdf.addImage(wifQrDataUrl, 'PNG', 129, 141.5, 42, 42);
-    
-    // WIF Text - below WIF QR code, smaller font to fit on one line
-    pdf.setFontSize(4);
-    pdf.setTextColor(...textColor);
-    pdf.setFont(undefined, 'normal');
-    pdf.text(wallet.inputWif, 140, 199, { maxWidth: 65 });
+    if (wallet.isWatchOnly) {
+      btcDrawWatchOnlyWifNotice(pdf);
+      pdf.setFontSize(6.2);
+      pdf.setTextColor(...textColor);
+      pdf.setFont(undefined, 'bold');
+      pdf.text("Watch Address (NO WIF)", 150, 199, { align: "center", maxWidth: 65 });
+    } else {
+      // WIF QR Code - right side, adjusted position
+      pdf.addImage(wifQrDataUrl, 'PNG', 129, 141.5, 42, 42);
+      
+      // WIF Text - below WIF QR code, smaller font to fit on one line
+      pdf.setFontSize(4);
+      pdf.setTextColor(...textColor);
+      pdf.setFont(undefined, 'normal');
+      pdf.text(wallet.inputWif, 140, 199, { maxWidth: 65 });
+    }
+
+    btcDrawWalletPdfExtraDetails(pdf, wallet);
     
     // Draw standard footer
     drawPdfFooter(pdf);
@@ -14898,6 +15243,7 @@ function btcClearSession() {
   btcClearBulkWallets();
   els.btcWifInput.value = '';
   els.btcHexInput.value = '';
+  els.btcSeedPhraseInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
   btcSetWalletStatus('No wallet loaded yet.', '');
@@ -15257,6 +15603,7 @@ async function loadSavedBitcoinWallet(address, network, isWatchOnly) {
       // We'll pre-fill the WIF input and switch to full wallet mode
       els.btcWifInput.value = ''; // Clear for security
       els.btcHexInput.value = '';
+      els.btcSeedPhraseInput.value = '';
       state.bitcoin.selectedNetworkKey = network;
       
       // Switch to full wallet mode
@@ -15883,6 +16230,7 @@ function btcStopWifQrScanner(){
     els.btcWifQrVideo.pause();
     els.btcWifQrVideo.srcObject = null;
   }
+  scanner.addressInput = null;
 }
 
 function btcQrCameraErrorMessage(error){
@@ -15918,12 +16266,102 @@ function btcExtractWifFromQrText(text){
   return (match?.[0] || candidates[0]).trim();
 }
 
-function btcHandleScannedWif(text){
+function btcIsValidBitcoinAddress(address){
+  return /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[ac-hj-np-z02-9]{8,87}$/i.test(String(address || "").trim());
+}
+
+function btcExtractAddressFromQrText(text){
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+  const candidates = [raw];
+  const lower = raw.toLowerCase();
+  if (lower.startsWith("bitcoin:")) {
+    const value = raw.slice(8).split("?")[0].trim();
+    if (value) candidates.push(decodeURIComponent(value));
+  }
+  try {
+    const url = new URL(raw);
+    ["address", "addr"].forEach(param => {
+      const value = url.searchParams.get(param);
+      if (value) candidates.push(value);
+    });
+  } catch {}
+  return candidates.map(candidate => String(candidate || "").trim()).find(btcIsValidBitcoinAddress) || "";
+}
+
+function btcQrScannerMeta(target){
+  if (target === "watch-address" || target === "send-address") {
+    return {
+      title: "Scan Address QR",
+      description: "Point the camera at a QR code containing the Bitcoin address.",
+      starting: "Camera is starting...",
+      scanning: "Scanning for address QR code...",
+      emptyMessage: "QR code did not contain a Bitcoin address."
+    };
+  }
+  return {
+    title: "Scan WIF QR",
+    description: "Point the camera at a QR code containing the private key.",
+    starting: "Camera is starting...",
+    scanning: "Scanning for WIF QR code...",
+    emptyMessage: "QR code did not contain a WIF."
+  };
+}
+
+function btcSetQrScannerContextStatus(message, kind = ""){
+  const target = state.bitcoin.wifQrScanner?.target || "send-wif";
+  if (target === "send-wif" || target === "send-address") {
+    btcSetSendStatus(message, kind);
+  } else {
+    btcSetWalletStatus(message, kind);
+  }
+}
+
+function btcUpdateQrScannerModalCopy(target){
+  if (!els.btcWifQrScannerModal) return;
+  const meta = btcQrScannerMeta(target);
+  const title = els.btcWifQrScannerModal.querySelector(".modal-head h3");
+  const description = els.btcWifQrScannerModal.querySelector(".modal-head p");
+  if (title) title.textContent = meta.title;
+  if (description) description.textContent = meta.description;
+}
+
+function btcHandleScannedQrText(text){
+  const target = state.bitcoin.wifQrScanner?.target || "send-wif";
+  if (target === "watch-address" || target === "send-address") {
+    const address = btcExtractAddressFromQrText(text);
+    if (!address) {
+      btcSetWifQrStatus(btcQrScannerMeta(target).emptyMessage, "error");
+      return false;
+    }
+    if (target === "send-address") {
+      const input = state.bitcoin.wifQrScanner.addressInput;
+      if (input) {
+        input.value = address;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      btcSetSendStatus("Recipient address QR scanned.", "success");
+    } else {
+      els.btcAddressInput.value = address;
+      btcSetWalletStatus("Address QR scanned. Tap Watch Address to load it.", "success");
+    }
+    closeModal("btcWifQrScannerModal");
+    return true;
+  }
+
   const wif = btcExtractWifFromQrText(text);
   if (!wif) {
-    btcSetWifQrStatus("QR code did not contain a WIF.", "error");
+    btcSetWifQrStatus(btcQrScannerMeta(target).emptyMessage, "error");
     return false;
   }
+
+  if (target === "import-wif") {
+    els.btcWifInput.value = wif;
+    btcSetWalletStatus("WIF QR scanned. Tap Import WIF to load it.", "success");
+    closeModal("btcWifQrScannerModal");
+    return true;
+  }
+
   els.btcSendWifInput.value = wif;
   if (state.bitcoin.wallet?.isWatchOnly) {
     try {
@@ -15966,27 +16404,33 @@ async function btcScanWifQrFrame(){
       const code = window.jsQR(imageData.data, imageData.width, imageData.height);
       scannedText = code?.data || "";
     }
-    if (scannedText && btcHandleScannedWif(scannedText)) return;
+    if (scannedText && btcHandleScannedQrText(scannedText)) return;
   }
   scanner.rafId = requestAnimationFrame(() => btcScanWifQrFrame());
 }
 
-async function btcOpenWifQrScanner(){
+async function btcOpenWifQrScanner(target = "send-wif", options = {}){
+  const scannerTarget = typeof target === "string" ? target : "send-wif";
   if (!els.btcWifQrScannerModal || !els.btcWifQrVideo) return;
+  state.bitcoin.wifQrScanner.target = scannerTarget;
+  state.bitcoin.wifQrScanner.addressInput = options.addressInput || null;
+  btcUpdateQrScannerModalCopy(scannerTarget);
   if (!navigator.mediaDevices?.getUserMedia) {
-    btcSetSendStatus("QR scanning is not available in this browser.", "");
+    btcSetQrScannerContextStatus("QR scanning is not available in this browser.", "");
     return;
   }
   if (!("BarcodeDetector" in window) && typeof window.jsQR !== "function") {
-    btcSetSendStatus("QR scanner library is still loading. Please try again in a moment.", "");
+    btcSetQrScannerContextStatus("QR scanner library is still loading. Please try again in a moment.", "");
     return;
   }
 
   btcStopWifQrScanner();
+  state.bitcoin.wifQrScanner.target = scannerTarget;
+  state.bitcoin.wifQrScanner.addressInput = options.addressInput || null;
   els.btcWifQrScannerModal.classList.remove("hide");
   els.btcWifQrScannerModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
-  btcSetWifQrStatus("Camera is starting...");
+  btcSetWifQrStatus(btcQrScannerMeta(scannerTarget).starting);
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -16008,12 +16452,12 @@ async function btcOpenWifQrScanner(){
     }
     els.btcWifQrVideo.srcObject = stream;
     await els.btcWifQrVideo.play();
-    btcSetWifQrStatus("Scanning for WIF QR code...");
+    btcSetWifQrStatus(btcQrScannerMeta(scannerTarget).scanning);
     scanner.rafId = requestAnimationFrame(() => btcScanWifQrFrame());
   } catch (error) {
     btcStopWifQrScanner();
     btcSetWifQrStatus(btcQrCameraErrorMessage(error), "error");
-    btcSetSendStatus(btcQrCameraErrorMessage(error), "");
+    btcSetQrScannerContextStatus(btcQrCameraErrorMessage(error), "");
   }
 }
 
@@ -16187,6 +16631,7 @@ function btcBindUI() {
   // Wallet type toggle buttons
   els.btcFullWalletBtn.addEventListener('click', () => btcToggleWalletType('full'));
   els.btcWatchWalletBtn.addEventListener('click', () => btcToggleWalletType('watch'));
+  els.btcSeedWalletBtn.addEventListener('click', () => btcToggleWalletType('seed'));
   els.btcBrainWalletBtn.addEventListener('click', () => btcToggleWalletType('brain'));
   els.btcHexWalletBtn.addEventListener('click', () => btcToggleWalletType('hex'));
   els.btcBulkWalletBtn.addEventListener('click', btcPromptBulkWalletImport);
@@ -16200,6 +16645,9 @@ function btcBindUI() {
   els.btcWatchAddressBtn.addEventListener('click', btcWatchAddress);
   
   els.btcImportBtn.addEventListener('click', btcImportWif);
+  els.btcSeedImportBtn.addEventListener('click', btcImportSeedWallet);
+  els.btcSeedCreate12Btn.addEventListener('click', () => btcCreateSeedWallet(12));
+  els.btcSeedCreate24Btn.addEventListener('click', () => btcCreateSeedWallet(24));
   els.btcBrainWalletImportBtn.addEventListener('click', btcImportBrainWallet);
   els.btcHexImportBtn.addEventListener('click', btcImportHex);
   els.btcGenerateBtn.addEventListener('click', btcGenerateWallet);
@@ -16275,12 +16723,21 @@ function btcBindUI() {
     }
   });
   els.btcRecipientsList.addEventListener('click', event => {
+    const scanBtn = event.target.closest?.('.btc-scan-address-qr-btn');
+    if (scanBtn) {
+      const row = scanBtn.closest?.('[data-recipient-row]');
+      const addressInput = row?.querySelector?.('.btc-recipient-address') || null;
+      btcOpenWifQrScanner("send-address", { addressInput });
+      return;
+    }
     const removeBtn = event.target.closest?.('.btc-remove-recipient-btn');
     if (removeBtn) {
       btcRemoveRecipientRow(removeBtn.closest('[data-recipient-row]'));
     }
   });
-  els.btcScanWifQrBtn.addEventListener('click', btcOpenWifQrScanner);
+  els.btcScanImportWifQrBtn.addEventListener('click', () => btcOpenWifQrScanner("import-wif"));
+  els.btcScanWatchAddressQrBtn.addEventListener('click', () => btcOpenWifQrScanner("watch-address"));
+  els.btcScanWifQrBtn.addEventListener('click', () => btcOpenWifQrScanner("send-wif"));
   els.btcWifQrStopBtn.addEventListener('click', btcStopWifQrScanner);
   btcUpdateRecipientRows();
   btcUpdateGuestBitcoinUi();
@@ -16314,6 +16771,7 @@ function btcClearSession() {
   els.btcWifInput.value = '';
   els.btcAddressInput.value = '';
   els.btcHexInput.value = '';
+  els.btcSeedPhraseInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
   els.btcSendWifInput.value = '';
