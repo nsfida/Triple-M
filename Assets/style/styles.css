@@ -3108,6 +3108,227 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   text-align:center;
   letter-spacing:0;
 }
+.btc-wallet-card{
+  overflow:hidden;
+}
+.btc-wallet-details{
+  display:grid;
+  gap:6px;
+  margin-bottom:10px;
+  padding:9px;
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:8px;
+  background:linear-gradient(180deg,#fff,#f8fafc);
+}
+.btc-wallet-details.is-watch-only{
+  opacity:.78;
+}
+.btc-detail-line{
+  display:grid;
+  grid-template-columns:auto minmax(0,1.15fr) 28px auto minmax(0,1fr) 28px;
+  gap:6px;
+  align-items:center;
+  min-width:0;
+  font-size:.73rem;
+  line-height:1.25;
+}
+.btc-detail-line-hex{
+  grid-template-columns:auto minmax(0,1fr) 28px;
+}
+.btc-detail-label,
+.btc-detail-address-label{
+  color:var(--muted);
+  font-weight:800;
+  white-space:nowrap;
+}
+.btc-detail-value{
+  display:block;
+  min-width:0;
+  padding:5px 6px;
+  border:1px solid rgba(16,24,40,.07);
+  border-radius:6px;
+  background:#fff;
+  color:var(--text);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.68rem;
+  line-height:1.25;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.btc-detail-line-hex .btc-detail-value{
+  font-size:.66rem;
+}
+.btc-copy-icon{
+  width:28px;
+  min-width:28px;
+  height:28px;
+  border:1px solid rgba(36,87,214,.18);
+  border-radius:7px;
+  background:#fff;
+  color:var(--primary);
+  display:inline-grid;
+  place-items:center;
+  cursor:pointer;
+  font-size:.78rem;
+}
+.btc-copy-icon:hover,
+.btc-copy-icon.is-copied{
+  background:rgba(36,87,214,.08);
+  border-color:rgba(36,87,214,.35);
+}
+.btc-address-types-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin:6px 0 8px;
+}
+.btc-address-types-head h4{
+  margin:0 0 2px;
+  font-size:.9rem;
+}
+.btc-address-types-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:.72rem;
+  line-height:1.3;
+}
+.btc-address-type-list{
+  display:grid;
+  gap:6px;
+  margin-bottom:10px;
+}
+.btc-address-type-row{
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(82px,.45fr) minmax(0,1.65fr) minmax(112px,.5fr) auto;
+  gap:8px;
+  align-items:center;
+  text-align:left;
+  padding:8px;
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:8px;
+  background:#fff;
+  color:var(--text);
+  cursor:pointer;
+}
+.btc-address-type-row:hover{
+  border-color:rgba(36,87,214,.28);
+  background:#f8fbff;
+}
+.btc-address-type-row.is-selected{
+  border-color:rgba(36,87,214,.5);
+  box-shadow:0 0 0 2px rgba(36,87,214,.08);
+}
+.btc-address-type-row.has-error{
+  border-color:rgba(220,38,38,.28);
+}
+.btc-address-type-name{
+  font-weight:850;
+  font-size:.74rem;
+  white-space:nowrap;
+}
+.btc-address-type-address{
+  min-width:0;
+  font-size:.68rem;
+  color:var(--text);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.btc-address-type-balance{
+  display:grid;
+  gap:1px;
+  justify-items:end;
+  font-size:.68rem;
+}
+.btc-address-type-balance strong{
+  font-size:.72rem;
+  white-space:nowrap;
+}
+.btc-address-type-balance em{
+  color:var(--muted);
+  font-style:normal;
+}
+.btc-address-type-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.btc-selected-dot{
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:var(--primary);
+  opacity:0;
+  font-size:.62rem;
+}
+.btc-address-type-row.is-selected .btc-selected-dot{
+  opacity:1;
+}
+.btc-send-from-box{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center;
+  padding:8px 10px;
+  border:1px solid rgba(36,87,214,.18);
+  border-radius:8px;
+  background:#f8fbff;
+  color:var(--text);
+  font-size:.76rem;
+}
+.btc-send-from-box code{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:.68rem;
+}
+.btc-send-from-box em{
+  color:var(--muted);
+  font-style:normal;
+  white-space:nowrap;
+}
+.btc-receive-address-list{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:6px;
+}
+.btc-receive-address-chip{
+  min-width:0;
+  padding:7px 6px;
+  border:1px solid rgba(16,24,40,.09);
+  border-radius:8px;
+  background:#fff;
+  color:var(--text);
+  display:grid;
+  gap:3px;
+  text-align:center;
+  cursor:pointer;
+}
+.btc-receive-address-chip.is-selected{
+  border-color:rgba(36,87,214,.5);
+  background:#f8fbff;
+  box-shadow:0 0 0 2px rgba(36,87,214,.08);
+}
+.btc-receive-address-chip span{
+  font-size:.68rem;
+  font-weight:850;
+}
+.btc-receive-address-chip code{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--muted);
+  font-size:.6rem;
+}
 .btc-bulk-wallets-section{
   overflow:hidden;
 }
@@ -3252,6 +3473,31 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   .guest-mode-banner a{white-space:normal}
   .btc-recipient-row,
   .btc-guest-fee-grid{
+    grid-template-columns:1fr;
+  }
+  .btc-detail-line,
+  .btc-detail-line-hex{
+    grid-template-columns:auto minmax(0,1fr) 28px;
+  }
+  .btc-detail-address-label{
+    grid-column:1;
+  }
+  .btc-detail-address{
+    grid-column:2;
+  }
+  .btc-address-type-row{
+    grid-template-columns:minmax(72px,.45fr) minmax(0,1fr) auto;
+  }
+  .btc-address-type-balance{
+    grid-column:2;
+    justify-items:start;
+  }
+  .btc-address-type-actions{
+    grid-column:3;
+    grid-row:1 / span 2;
+  }
+  .btc-send-from-box,
+  .btc-receive-address-list{
     grid-template-columns:1fr;
   }
   .btc-remove-recipient-btn{
