@@ -3093,11 +3093,11 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 }
 .btc-wallet-type-grid{
   display:grid;
-  grid-template-columns:repeat(7, minmax(0, 1fr));
+  grid-template-columns:repeat(6, minmax(0, 1fr));
   gap:8px;
 }
 .btc-wallet-type-grid:has(#btcBulkWalletBtn.hide){
-  grid-template-columns:repeat(6, minmax(0, 1fr));
+  grid-template-columns:repeat(5, minmax(0, 1fr));
 }
 .btc-wallet-type-grid .btn{
   width:100%;
@@ -3221,193 +3221,6 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   pointer-events:none;
 }
 
-.btc-directory-section{
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:#fff;
-  overflow:hidden;
-}
-.btc-directory-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:12px;
-  padding:14px;
-  border-bottom:1px solid var(--line);
-  background:var(--panel-2);
-}
-.btc-directory-head h4{
-  margin:0 0 4px;
-  font-size:.98rem;
-}
-.btc-directory-head p{
-  margin:0;
-  color:var(--muted);
-  font-size:.78rem;
-  line-height:1.35;
-}
-.btc-directory-page-pill{
-  flex:0 0 auto;
-  max-width:min(360px, 45%);
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:#fff;
-  color:var(--primary);
-  font-size:.74rem;
-  font-weight:800;
-  padding:7px 10px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.btc-directory-search{
-  padding:14px;
-  border-bottom:1px solid var(--line);
-}
-.btc-directory-search label{
-  display:block;
-  margin-bottom:6px;
-  font-size:.84rem;
-  font-weight:600;
-  color:var(--text);
-}
-.btc-directory-search-grid{
-  display:grid;
-  grid-template-columns:minmax(170px, .34fr) minmax(0, 1fr) auto;
-  gap:8px;
-  align-items:center;
-}
-.btc-directory-warning{
-  margin-top:7px;
-  color:#b45309;
-  font-size:.75rem;
-  line-height:1.35;
-}
-.btc-directory-controls{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  padding:12px 14px;
-  border-bottom:1px solid var(--line);
-  background:#fff;
-}
-.btc-directory-go{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  min-width:0;
-  flex:1 1 auto;
-  justify-content:center;
-}
-.btc-directory-go .input{
-  max-width:360px;
-  min-width:0;
-}
-.btc-directory-status{
-  margin:12px 14px;
-  text-align:left;
-}
-.btc-directory-table-wrap{
-  max-height:620px;
-  overflow-x:hidden;
-  overflow-y:auto;
-  border-top:1px solid var(--line);
-}
-.btc-directory-table{
-  width:100%;
-  min-width:0;
-  table-layout:fixed;
-  border-collapse:collapse;
-}
-.btc-directory-table th,
-.btc-directory-table td{
-  vertical-align:top;
-  overflow:hidden;
-  word-break:normal;
-  overflow-wrap:normal;
-}
-.btc-directory-table th{
-  font-size:.68rem;
-  padding:7px 6px;
-}
-.btc-directory-table td{
-  font-size:.6rem;
-  line-height:1.18;
-  padding:7px 6px;
-}
-.btc-directory-table th:nth-child(1),
-.btc-directory-table td:nth-child(1){
-  width:49%;
-}
-.btc-directory-table th:nth-child(2),
-.btc-directory-table td:nth-child(2){
-  width:34%;
-}
-.btc-directory-table th:nth-child(3),
-.btc-directory-table td:nth-child(3){
-  width:17%;
-}
-.btc-directory-stack{
-  display:grid;
-  gap:3px;
-  min-width:0;
-  color:var(--text);
-}
-.btc-directory-line{
-  display:flex;
-  align-items:center;
-  gap:4px;
-  min-width:0;
-  white-space:nowrap;
-}
-.btc-directory-line-value{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:clip;
-  white-space:nowrap;
-}
-.btc-directory-hex-line{
-  display:block;
-  overflow:hidden;
-  text-overflow:clip;
-  white-space:nowrap;
-  font-size:.52rem;
-  line-height:1.1;
-  letter-spacing:0;
-}
-.btc-directory-spacer{
-  min-height:1.1em;
-}
-.btc-directory-tag{
-  flex:0 0 auto;
-  color:var(--muted);
-  font-size:.56rem;
-  font-weight:800;
-  letter-spacing:0;
-}
-.btc-directory-stat-line{
-  justify-content:space-between;
-  gap:4px;
-  font-size:.55rem;
-  letter-spacing:0;
-}
-.btc-directory-stat-line span:last-child{
-  flex:1 1 auto;
-  min-width:0;
-  overflow:hidden;
-  text-align:right;
-  text-overflow:clip;
-}
-.btc-directory-highlight td{
-  background:#fffbeb;
-  box-shadow:inset 0 1px 0 rgba(245,158,11,.22), inset 0 -1px 0 rgba(245,158,11,.22);
-}
-.btc-directory-out-of-range td{
-  color:var(--danger);
-  background:#fff8f8;
-}
-
 .multi-row-header {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1.5fr;
@@ -3446,37 +3259,6 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   }
   .btc-bulk-table{
     min-width:620px;
-  }
-  .btc-directory-search-grid{
-    grid-template-columns:1fr;
-  }
-  .btc-directory-controls{
-    align-items:stretch;
-    flex-direction:column;
-  }
-  .btc-directory-go{
-    justify-content:stretch;
-  }
-  .btc-directory-go .input{
-    max-width:none;
-  }
-  .btc-directory-table{
-    min-width:0;
-  }
-  .btc-directory-table th{
-    font-size:.6rem;
-    padding:6px 4px;
-  }
-  .btc-directory-table td{
-    font-size:.48rem;
-    padding:6px 4px;
-  }
-  .btc-directory-hex-line{
-    font-size:.42rem;
-  }
-  .btc-directory-tag,
-  .btc-directory-stat-line{
-    font-size:.44rem;
   }
   .loan-top{grid-template-columns:1fr 1fr;gap:8px}
   .loan-top .cell:nth-child(1){grid-column:1 / -1}
@@ -3561,42 +3343,6 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     padding:8px 4px;
     font-size:.72rem;
     border-radius:8px;
-  }
-  .btc-directory-head{
-    flex-direction:column;
-    align-items:stretch;
-    padding:10px;
-  }
-  .btc-directory-page-pill{
-    max-width:100%;
-  }
-  .btc-directory-search,
-  .btc-directory-controls{
-    padding:10px;
-  }
-  .btc-directory-status{
-    margin:10px;
-  }
-  .btc-directory-table{
-    min-width:0;
-  }
-  .btc-directory-table th{
-    font-size:.52rem;
-    padding:5px 3px;
-  }
-  .btc-directory-table td{
-    font-size:.36rem;
-    padding:5px 3px;
-  }
-  .btc-directory-hex-line{
-    font-size:.32rem;
-  }
-  .btc-directory-line{
-    gap:2px;
-  }
-  .btc-directory-tag,
-  .btc-directory-stat-line{
-    font-size:.34rem;
   }
   
   /* Mobile overview banner buttons */
