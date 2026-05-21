@@ -1375,7 +1375,6 @@
                   <button id="btcBrainWalletBtn" class="btn ghost">Brain</button>
                   <button id="btcBulkWalletBtn" class="btn ghost">Bulk</button>
                   <button id="btcHexWalletBtn" class="btn ghost">Hex</button>
-                  <button id="btcDirectoryWalletBtn" class="btn ghost">Directory</button>
                   <input id="btcBulkWalletFileInput" class="hide" type="file" accept=".txt,text/plain" />
                 </div>
               </div>
@@ -1455,55 +1454,6 @@
                 <div style="margin-top:6px;font-size:.76rem;color:var(--muted);">The private key is converted in this browser and loaded through the same wallet flow as WIF.</div>
                 <div class="tools" style="margin-top:8px;">
                   <button id="btcHexImportBtn" class="btn primary">Import Hex</button>
-                </div>
-              </div>
-
-              <!-- Bitcoin Directory -->
-              <div id="btcDirectorySection" class="hide btc-directory-section" style="margin-bottom:12px;">
-                <div class="btc-directory-head">
-                  <div>
-                    <h4>Bitcoin Directory</h4>
-                    <p>Calculate private-key pages locally and check generated public addresses.</p>
-                  </div>
-                  <div id="btcDirectoryCurrentPage" class="btc-directory-page-pill">Page 1</div>
-                </div>
-
-                <div class="btc-directory-search">
-                  <label for="btcDirectorySearchInput">Search</label>
-                  <div class="btc-directory-search-grid">
-                    <select id="btcDirectorySearchType" class="select" aria-label="Directory search type">
-                      <option value="page">Search by page number</option>
-                      <option value="hex">Search by HEX private key</option>
-                      <option value="wif">Search by WIF private key</option>
-                    </select>
-                    <input id="btcDirectorySearchInput" class="input" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Enter page number" />
-                    <button id="btcDirectorySearchBtn" class="btn primary" type="button">Search</button>
-                  </div>
-                  <div id="btcDirectoryWifWarning" class="btc-directory-warning hide">Warning: Only enter WIF keys you are comfortable testing locally. This tool does not save or send your WIF.</div>
-                </div>
-
-                <div class="btc-directory-controls">
-                  <button id="btcDirectoryPrevBtn" class="btn ghost" type="button">Previous Page</button>
-                  <div class="btc-directory-go">
-                    <input id="btcDirectoryPageInput" class="input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" value="1" aria-label="Directory page number" />
-                    <button id="btcDirectoryGoBtn" class="btn ghost" type="button">Go</button>
-                  </div>
-                  <button id="btcDirectoryNextBtn" class="btn ghost" type="button">Next Page</button>
-                </div>
-
-                <div id="btcDirectoryStatus" class="empty btc-directory-status">Open Page 1 or search by page, HEX, or WIF.</div>
-
-                <div class="btc-directory-table-wrap">
-                  <table class="btc-directory-table">
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Address</th>
-                        <th>Txns and Bal</th>
-                      </tr>
-                    </thead>
-                    <tbody id="btcDirectoryTableBody"></tbody>
-                  </table>
                 </div>
               </div>
 
