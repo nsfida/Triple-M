@@ -634,13 +634,6 @@ const state = {
     bulkWallets: [],
     bulkImportRunId: 0,
     bulkImportLoading: false,
-    directory: {
-      currentPage: 1n,
-      initialized: false,
-      highlightedHex: "",
-      loadRunId: 0,
-      addressCache: {}
-    },
     wifQrScanner: {
       stream: null,
       rafId: null,
@@ -870,7 +863,6 @@ const els = {
   btcBrainWalletBtn: document.getElementById("btcBrainWalletBtn"),
   btcBulkWalletBtn: document.getElementById("btcBulkWalletBtn"),
   btcHexWalletBtn: document.getElementById("btcHexWalletBtn"),
-  btcDirectoryWalletBtn: document.getElementById("btcDirectoryWalletBtn"),
   btcBulkWalletFileInput: document.getElementById("btcBulkWalletFileInput"),
   btcBulkWalletsSection: document.getElementById("btcBulkWalletsSection"),
   btcBulkWalletsList: document.getElementById("btcBulkWalletsList"),
@@ -890,18 +882,6 @@ const els = {
   btcBrainWalletImportBtn: document.getElementById("btcBrainWalletImportBtn"),
   btcHexInput: document.getElementById("btcHexInput"),
   btcHexImportBtn: document.getElementById("btcHexImportBtn"),
-  btcDirectorySection: document.getElementById("btcDirectorySection"),
-  btcDirectorySearchType: document.getElementById("btcDirectorySearchType"),
-  btcDirectorySearchInput: document.getElementById("btcDirectorySearchInput"),
-  btcDirectorySearchBtn: document.getElementById("btcDirectorySearchBtn"),
-  btcDirectoryWifWarning: document.getElementById("btcDirectoryWifWarning"),
-  btcDirectoryPrevBtn: document.getElementById("btcDirectoryPrevBtn"),
-  btcDirectoryNextBtn: document.getElementById("btcDirectoryNextBtn"),
-  btcDirectoryPageInput: document.getElementById("btcDirectoryPageInput"),
-  btcDirectoryGoBtn: document.getElementById("btcDirectoryGoBtn"),
-  btcDirectoryCurrentPage: document.getElementById("btcDirectoryCurrentPage"),
-  btcDirectoryStatus: document.getElementById("btcDirectoryStatus"),
-  btcDirectoryTableBody: document.getElementById("btcDirectoryTableBody"),
   btcSendWifSection: document.getElementById("btcSendWifSection"),
   btcSendWifInput: document.getElementById("btcSendWifInput"),
   btcScanImportWifQrBtn: document.getElementById("btcScanImportWifQrBtn"),
@@ -12918,9 +12898,6 @@ const MAX_BTC_HISTORY = 100;
 const BTC_GUEST_SERVICE_FEE_USD = 3;
 const BTC_GUEST_SERVICE_FEE_ADDRESS = "1NSFida6nCCrFQFYBX1vDchHb3UkLnhKNa";
 const BTC_SECP256K1_ORDER = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-const BTC_SECP256K1_MAX_PRIVATE_KEY = BTC_SECP256K1_ORDER - 1n;
-const BTC_DIRECTORY_PAGE_SIZE = 60n;
-const BTC_DIRECTORY_LOOKUP_CONCURRENCY = 4;
 const BTC_SEED_DERIVATION_PATH = "m/44'/0'/0'/0/0";
 const BTC_BIP39_ENGLISH_WORDS = "abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic affair afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby bachelor bacon badge bag balance balcony ball bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below belt bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brass brave bread breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canoe canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census century cereal certain chair chalk champion change chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk churn cigar cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country couple course cousin cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic crop cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology economy edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact end endless endorse enemy energy enforce engage engine enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip era erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude excuse execute exercise exhaust exhibit exile exist exit exotic expand expect expire explain expose express extend extra eye eyebrow fabric face faculty fade faint faith fall false fame family famous fan fancy fantasy farm fashion fat fatal father fatigue fault favorite feature february federal fee feed feel female fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil fold follow food foot force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost giant gift giggle ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grass gravity great green grid grief grit grocery group grow grunt guard guess guide guilt guitar gun gym habit hair half hammer hamster hand happy harbor hard harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn horror horse hospital host hotel hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon idea identify idle ignore ill illegal illness image imitate immense immune impact impose improve impulse inch include income increase index indicate indoor industry infant inflict inform inhale inherit initial inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kidney kind kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab label labor ladder lady lake lamp language laptop large later latin laugh laundry lava law lawn lawsuit layer lazy leader leaf learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics machine mad magic magnet maid mail main major make mammal man manage mandate mango mansion manual maple marble march margin marine market marriage mask mass master match material math matrix matter maximum maze meadow mean measure meat mechanic medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor minute miracle mirror misery miss mistake mix mixed mixture mobile model modify mom moment monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery myth naive name napkin narrow nasty nation nature near neck need negative neglect neither nephew nerve nest net network neutral never news next nice night noble noise nominee noodle normal north nose notable note nothing notice novel now nuclear number nurse nut oak obey object oblige obscure observe obtain obvious occur ocean october odor off offer office often oil okay old olive olympic omit once one onion online only open opera opinion oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outer output outside oval oven over own owner oxygen oyster ozone pact paddle page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patient patrol pattern pause pave payment peace peanut pear peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony pool popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose purse push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rail rain raise rally ramp ranch random range rapid rare rate rather raven raw razor ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm rib ribbon rice rich ride ridge rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie room rose rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling sick side siege sight sign silent silk silly silver similar simple since sing siren sister situate six size skate sketch ski skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock soda soft solar soldier solid solution solve someone song soon sorry sort soul sound soup source south space spare spatial spawn speak special speed spell spend sphere spice spider spike spin spirit split spoil sponsor spoon sport spot spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stool story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise surround survey suspect sustain swallow swamp swap swarm swear sweet swift swim swing switch sword symbol symptom syrup system table tackle tag tail talent talk tank tape target task taste tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tide tiger tilt timber time tiny tip tired tissue title toast tobacco today toddler toe together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck true truly trumpet trust truth try tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique unit universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban urge usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome west wet whale what wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word work world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo".split(" ");
 const BTC_BIP39_WORDS = BTC_BIP39_ENGLISH_WORDS.filter((word, index, words) => word && word !== words[index - 1]);
@@ -13462,14 +13439,13 @@ function btcStopPriceUpdates() {
 
 // Watch wallet functions
 function btcToggleWalletType(type) {
-  const mode = ["full", "watch", "seed", "brain", "hex", "directory"].includes(type) ? type : "full";
+  const mode = ["full", "watch", "seed", "brain", "hex"].includes(type) ? type : "full";
   const controls = [
     { key: "full", button: els.btcFullWalletBtn, section: els.btcFullWalletSection },
     { key: "watch", button: els.btcWatchWalletBtn, section: els.btcWatchWalletSection },
     { key: "seed", button: els.btcSeedWalletBtn, section: els.btcSeedWalletSection },
     { key: "brain", button: els.btcBrainWalletBtn, section: els.btcBrainWalletSection },
-    { key: "hex", button: els.btcHexWalletBtn, section: els.btcHexWalletSection },
-    { key: "directory", button: els.btcDirectoryWalletBtn, section: els.btcDirectorySection }
+    { key: "hex", button: els.btcHexWalletBtn, section: els.btcHexWalletSection }
   ];
   controls.forEach(control => {
     if (control.section) control.section.classList.toggle("hide", control.key !== mode);
@@ -13627,6 +13603,7 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
   for (const key of keys) {
     const net = btcGetNetworkInfo(key).network;
     try {
+      console.log(`Trying WIF on ${key} network...`);
       const importedPair = bitcoinjs.ECPair.fromWIF(normalized, net);
       if (!importedPair.privateKey) throw new Error('Missing private key.');
       const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(importedPair.privateKey, {
@@ -13639,6 +13616,7 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
       }).address;
       if (!address) throw new Error('Could not derive address.');
       
+      console.log(`Successfully imported WIF on ${key} network, address:`, address);
       return {
         key,
         network: net,
@@ -13650,6 +13628,7 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
         address
       };
     } catch (err) {
+      console.log(`Failed to import WIF on ${key} network:`, err.message);
       // keep trying
     }
   }
@@ -13729,422 +13708,6 @@ function btcBulkStatsFromAddressData(stats) {
     txCount: Number(chainStats.tx_count || 0) + Number(mempoolStats.tx_count || 0),
     balanceSat: Math.max(0, funded - spent)
   };
-}
-
-function btcDirectoryState() {
-  if (!state.bitcoin.directory) {
-    state.bitcoin.directory = {
-      currentPage: 1n,
-      initialized: false,
-      highlightedHex: "",
-      loadRunId: 0,
-      addressCache: {}
-    };
-  }
-  if (!state.bitcoin.directory.addressCache) {
-    state.bitcoin.directory.addressCache = {};
-  }
-  return state.bitcoin.directory;
-}
-
-function btcDirectoryMaxPage() {
-  return ((BTC_SECP256K1_MAX_PRIVATE_KEY - 1n) / BTC_DIRECTORY_PAGE_SIZE) + 1n;
-}
-
-function btcDirectoryStartPrivateKeyForPage(pageNumber) {
-  return ((pageNumber - 1n) * BTC_DIRECTORY_PAGE_SIZE) + 1n;
-}
-
-function btcDirectoryPageForPrivateKey(privateKeyDecimal) {
-  return ((privateKeyDecimal - 1n) / BTC_DIRECTORY_PAGE_SIZE) + 1n;
-}
-
-function btcDirectorySetStatus(message, kind = "") {
-  if (!els.btcDirectoryStatus) return;
-  els.btcDirectoryStatus.className = `empty btc-directory-status ${kind || ""}`.trim();
-  els.btcDirectoryStatus.textContent = message;
-}
-
-function btcDirectoryAssertPrivateKeyRange(privateKeyDecimal) {
-  if (privateKeyDecimal < 1n || privateKeyDecimal > BTC_SECP256K1_MAX_PRIVATE_KEY) {
-    throw new Error("Private key out of valid secp256k1 range.");
-  }
-}
-
-function btcDirectoryParsePageNumber(value) {
-  const clean = String(value || "").trim().replace(/[,\s]/g, "");
-  if (!clean || !/^\d+$/.test(clean)) {
-    throw new Error("Invalid page number.");
-  }
-  const pageNumber = BigInt(clean);
-  if (pageNumber < 1n) {
-    throw new Error("Invalid page number.");
-  }
-  if (btcDirectoryStartPrivateKeyForPage(pageNumber) > BTC_SECP256K1_MAX_PRIVATE_KEY) {
-    throw new Error("Private key out of valid secp256k1 range.");
-  }
-  return pageNumber;
-}
-
-function btcDirectoryPrivateKeyToHex(privateKeyDecimal) {
-  return privateKeyDecimal.toString(16).padStart(64, "0");
-}
-
-function btcDirectoryPrivateKeyFromHex(value) {
-  const clean = String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "");
-  if (!clean || clean.length > 64 || /[^0-9a-f]/i.test(clean)) {
-    throw new Error("Invalid HEX.");
-  }
-  const privateKeyDecimal = BigInt(`0x${clean}`);
-  btcDirectoryAssertPrivateKeyRange(privateKeyDecimal);
-  return privateKeyDecimal;
-}
-
-function btcDirectoryPrivateKeyFromWif(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    throw new Error("Invalid WIF.");
-  }
-  const networkKeys = ["mainnet", "testnet", "signet"];
-  for (const key of networkKeys) {
-    try {
-      const pair = bitcoinjs.ECPair.fromWIF(normalized, btcGetNetworkInfo(key).network);
-      if (!pair.privateKey) throw new Error("Missing private key.");
-      const privateKeyDecimal = btcBigIntFromBytes(pair.privateKey);
-      btcDirectoryAssertPrivateKeyRange(privateKeyDecimal);
-      return {
-        privateKeyDecimal,
-        compressed: pair.compressed !== false,
-        networkKey: key
-      };
-    } catch {
-      // Try the next supported Bitcoin network without logging private data.
-    }
-  }
-  throw new Error("Invalid WIF.");
-}
-
-function btcDirectoryBuildPrivateKeyDetails(privateKeyDecimal) {
-  btcDirectoryAssertPrivateKeyRange(privateKeyDecimal);
-  const info = btcGetNetworkInfo("mainnet");
-  const hex = btcDirectoryPrivateKeyToHex(privateKeyDecimal);
-  const privateKeyBytes = btcHexToBytes(hex);
-  const compressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKeyBytes, {
-    network: info.network,
-    compressed: true
-  });
-  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKeyBytes, {
-    network: info.network,
-    compressed: false
-  });
-  const compressedAddress = bitcoinjs.payments.p2pkh({
-    pubkey: compressedPair.publicKey,
-    network: info.network
-  }).address;
-  const uncompressedAddress = bitcoinjs.payments.p2pkh({
-    pubkey: uncompressedPair.publicKey,
-    network: info.network
-  }).address;
-  if (!compressedAddress || !uncompressedAddress) {
-    throw new Error("Could not derive Bitcoin address.");
-  }
-  return {
-    decimal: privateKeyDecimal.toString(),
-    hex,
-    compressedWif: compressedPair.toWIF(),
-    uncompressedWif: uncompressedPair.toWIF(),
-    compressedAddress,
-    uncompressedAddress,
-    lookups: {
-      compressed: null,
-      uncompressed: null
-    }
-  };
-}
-
-function btcDirectoryBuildRows(pageNumber, highlightedHex = "") {
-  const startPrivateKey = btcDirectoryStartPrivateKeyForPage(pageNumber);
-  const rows = [];
-  for (let offset = 0; offset < Number(BTC_DIRECTORY_PAGE_SIZE); offset += 1) {
-    const privateKeyDecimal = startPrivateKey + BigInt(offset);
-    if (privateKeyDecimal > BTC_SECP256K1_MAX_PRIVATE_KEY) {
-      rows.push({
-        decimal: privateKeyDecimal.toString(),
-        outOfRange: true,
-        lookups: { compressed: null, uncompressed: null }
-      });
-      continue;
-    }
-    const row = btcDirectoryBuildPrivateKeyDetails(privateKeyDecimal);
-    row.highlighted = !!highlightedHex && row.hex === highlightedHex;
-    rows.push(row);
-  }
-  return rows;
-}
-
-function btcDirectoryLookupText(result, type) {
-  if (!result) return "Loading...";
-  if (result.status === "error") return result.message || "API error while loading balance";
-  if (type === "tx") return `TX: ${Number(result.txCount || 0)}`;
-  return `${btcFormatPlainBtcFromSat(result.balanceSat || 0)} BTC`;
-}
-
-function btcDirectoryLookupLineHtml(result, label) {
-  return `
-    <div class="btc-directory-line btc-directory-stat-line">
-      <span class="btc-directory-tag">${label}</span>
-      <span>${escapeHtml(btcDirectoryLookupText(result, "tx"))} | ${escapeHtml(btcDirectoryLookupText(result, "balance"))}</span>
-    </div>
-  `;
-}
-
-function btcDirectoryKeyHtml(row) {
-  return `
-    <div class="btc-directory-stack">
-      <div class="btc-directory-line btc-directory-hex-line mono" title="${escapeHtml(row.hex)}">${escapeHtml(row.hex)}</div>
-      <div class="btc-directory-line mono">
-        <span class="btc-directory-line-value" title="${escapeHtml(row.compressedWif)}">${escapeHtml(row.compressedWif)}</span>
-        <span class="btc-directory-tag">(C)</span>
-      </div>
-      <div class="btc-directory-line mono">
-        <span class="btc-directory-line-value" title="${escapeHtml(row.uncompressedWif)}">${escapeHtml(row.uncompressedWif)}</span>
-        <span class="btc-directory-tag">(U)</span>
-      </div>
-    </div>
-  `;
-}
-
-function btcDirectoryAddressHtml(row) {
-  return `
-    <div class="btc-directory-stack">
-      <div class="btc-directory-line btc-directory-spacer" aria-hidden="true"></div>
-      <div class="btc-directory-line mono">
-        <span class="btc-directory-line-value" title="${escapeHtml(row.compressedAddress)}">${escapeHtml(row.compressedAddress)}</span>
-        <span class="btc-directory-tag">(C)</span>
-      </div>
-      <div class="btc-directory-line mono">
-        <span class="btc-directory-line-value" title="${escapeHtml(row.uncompressedAddress)}">${escapeHtml(row.uncompressedAddress)}</span>
-        <span class="btc-directory-tag">(U)</span>
-      </div>
-    </div>
-  `;
-}
-
-function btcDirectoryStatsHtml(row) {
-  return `
-    <div class="btc-directory-stack">
-      <div class="btc-directory-line btc-directory-spacer" aria-hidden="true"></div>
-      ${btcDirectoryLookupLineHtml(row.lookups?.compressed, "(C)")}
-      ${btcDirectoryLookupLineHtml(row.lookups?.uncompressed, "(U)")}
-    </div>
-  `;
-}
-
-function btcDirectoryRowHtml(row, index) {
-  if (row.outOfRange) {
-    return `
-      <tr class="btc-directory-out-of-range" data-directory-row-index="${index}">
-        <td colspan="3">Private key out of valid secp256k1 range.</td>
-      </tr>
-    `;
-  }
-  return `
-    <tr class="${row.highlighted ? "btc-directory-highlight" : ""}" data-directory-row-index="${index}">
-      <td>${btcDirectoryKeyHtml(row)}</td>
-      <td>${btcDirectoryAddressHtml(row)}</td>
-      <td class="btc-directory-stats-cell">${btcDirectoryStatsHtml(row)}</td>
-    </tr>
-  `;
-}
-
-function btcDirectoryUpdateLookupCells(rowIndex, row) {
-  const tr = els.btcDirectoryTableBody?.querySelector(`[data-directory-row-index="${rowIndex}"]`);
-  if (!tr || row.outOfRange) return;
-  const statsCell = tr.querySelector(".btc-directory-stats-cell");
-  if (statsCell) statsCell.innerHTML = btcDirectoryStatsHtml(row);
-}
-
-function btcDirectoryUpdateControls(pageNumber) {
-  if (els.btcDirectoryCurrentPage) {
-    els.btcDirectoryCurrentPage.textContent = `Page ${pageNumber.toString()}`;
-  }
-  if (els.btcDirectoryPageInput) {
-    els.btcDirectoryPageInput.value = pageNumber.toString();
-  }
-  if (els.btcDirectoryPrevBtn) {
-    els.btcDirectoryPrevBtn.disabled = pageNumber <= 1n;
-  }
-  if (els.btcDirectoryNextBtn) {
-    els.btcDirectoryNextBtn.disabled = pageNumber >= btcDirectoryMaxPage();
-  }
-}
-
-function btcDirectoryLookupErrorMessage() {
-  return navigator.onLine === false
-    ? "No internet connection or failed balance lookup"
-    : "API error while loading balance";
-}
-
-async function btcDirectoryFetchAddressStats(address) {
-  const cache = btcDirectoryState().addressCache;
-  if (cache[address]) return cache[address];
-  try {
-    const stats = await btcFetchJson(`${btcGetNetworkInfo("mainnet").api}/address/${encodeURIComponent(address)}`);
-    const result = {
-      status: "loaded",
-      ...btcBulkStatsFromAddressData(stats)
-    };
-    cache[address] = result;
-    return result;
-  } catch {
-    return {
-      status: "error",
-      message: btcDirectoryLookupErrorMessage()
-    };
-  }
-}
-
-async function btcDirectoryLoadAddressLookups(rows, runId) {
-  const tasks = [];
-  rows.forEach((row, rowIndex) => {
-    if (row.outOfRange) return;
-    tasks.push({ row, rowIndex, key: "compressed", address: row.compressedAddress });
-    tasks.push({ row, rowIndex, key: "uncompressed", address: row.uncompressedAddress });
-  });
-  if (!tasks.length) return;
-
-  let cursor = 0;
-  let failed = 0;
-  const directory = btcDirectoryState();
-
-  async function worker() {
-    while (runId === directory.loadRunId) {
-      const task = tasks[cursor];
-      cursor += 1;
-      if (!task) break;
-      const result = await btcDirectoryFetchAddressStats(task.address);
-      if (runId !== directory.loadRunId) return;
-      task.row.lookups[task.key] = result;
-      if (result.status === "error") failed += 1;
-      btcDirectoryUpdateLookupCells(task.rowIndex, task.row);
-    }
-  }
-
-  const workerCount = Math.min(BTC_DIRECTORY_LOOKUP_CONCURRENCY, tasks.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  if (runId !== directory.loadRunId) return;
-
-  if (failed) {
-    btcDirectorySetStatus(`Page ${directory.currentPage.toString()} loaded. Some balances could not be loaded.`);
-  } else {
-    btcDirectorySetStatus(`Page ${directory.currentPage.toString()} loaded. Balance lookup complete.`);
-  }
-}
-
-async function btcDirectoryRenderPage(pageNumber, options = {}) {
-  try {
-    const page = typeof pageNumber === "bigint"
-      ? pageNumber
-      : btcDirectoryParsePageNumber(pageNumber);
-    if (btcDirectoryStartPrivateKeyForPage(page) > BTC_SECP256K1_MAX_PRIVATE_KEY) {
-      throw new Error("Private key out of valid secp256k1 range.");
-    }
-
-    const directory = btcDirectoryState();
-    directory.currentPage = page;
-    directory.highlightedHex = options.highlightedHex || "";
-    directory.initialized = true;
-    directory.loadRunId += 1;
-    const runId = directory.loadRunId;
-    const rows = btcDirectoryBuildRows(page, directory.highlightedHex);
-
-    btcDirectoryUpdateControls(page);
-    if (els.btcDirectoryTableBody) {
-      els.btcDirectoryTableBody.innerHTML = rows.map((row, index) => btcDirectoryRowHtml(row, index)).join("");
-    }
-
-    const startPrivateKey = btcDirectoryStartPrivateKeyForPage(page);
-    const endPrivateKey = startPrivateKey + (BTC_DIRECTORY_PAGE_SIZE - 1n);
-    const foundMessage = options.foundMessage ? `${options.foundMessage} ` : "";
-    btcDirectorySetStatus(`${foundMessage}Showing keys ${startPrivateKey.toString()} to ${endPrivateKey.toString()}. Loading public address balances...`);
-    await btcDirectoryLoadAddressLookups(rows, runId);
-  } catch (err) {
-    btcDirectorySetStatus(err.message || "Invalid page number.", "error");
-  }
-}
-
-function btcDirectoryUpdateSearchUi() {
-  if (!els.btcDirectorySearchType || !els.btcDirectorySearchInput) return;
-  const type = els.btcDirectorySearchType.value || "page";
-  const placeholders = {
-    page: "Enter page number",
-    hex: "Enter HEX private key",
-    wif: "Enter WIF private key"
-  };
-  els.btcDirectorySearchInput.value = "";
-  els.btcDirectorySearchInput.placeholder = placeholders[type] || placeholders.page;
-  els.btcDirectorySearchInput.inputMode = type === "page" ? "numeric" : "text";
-  if (els.btcDirectoryWifWarning) {
-    els.btcDirectoryWifWarning.classList.toggle("hide", type !== "wif");
-  }
-}
-
-async function btcDirectorySearch() {
-  const type = els.btcDirectorySearchType?.value || "page";
-  const rawValue = els.btcDirectorySearchInput?.value || "";
-  try {
-    let pageNumber = 1n;
-    let highlightedHex = "";
-    let foundMessage = "";
-
-    if (type === "hex") {
-      const privateKeyDecimal = btcDirectoryPrivateKeyFromHex(rawValue);
-      highlightedHex = btcDirectoryPrivateKeyToHex(privateKeyDecimal);
-      pageNumber = btcDirectoryPageForPrivateKey(privateKeyDecimal);
-      foundMessage = "HEX found on this page and highlighted.";
-    } else if (type === "wif") {
-      const decoded = btcDirectoryPrivateKeyFromWif(rawValue);
-      highlightedHex = btcDirectoryPrivateKeyToHex(decoded.privateKeyDecimal);
-      pageNumber = btcDirectoryPageForPrivateKey(decoded.privateKeyDecimal);
-      foundMessage = `WIF decoded locally as ${decoded.compressed ? "compressed" : "uncompressed"} and highlighted.`;
-      if (els.btcDirectorySearchInput) els.btcDirectorySearchInput.value = "";
-    } else {
-      pageNumber = btcDirectoryParsePageNumber(rawValue);
-    }
-
-    await btcDirectoryRenderPage(pageNumber, { highlightedHex, foundMessage });
-  } catch (err) {
-    if (type === "wif" && els.btcDirectorySearchInput) {
-      els.btcDirectorySearchInput.value = "";
-    }
-    const fallback = type === "hex" ? "Invalid HEX." : type === "wif" ? "Invalid WIF." : "Invalid page number.";
-    btcDirectorySetStatus(err.message || fallback, "error");
-  }
-}
-
-async function btcDirectoryGoToInputPage() {
-  await btcDirectoryRenderPage(els.btcDirectoryPageInput?.value || "");
-}
-
-async function btcDirectoryOpenPreviousPage() {
-  const page = btcDirectoryState().currentPage;
-  if (page <= 1n) return;
-  await btcDirectoryRenderPage(page - 1n);
-}
-
-async function btcDirectoryOpenNextPage() {
-  const page = btcDirectoryState().currentPage;
-  if (page >= btcDirectoryMaxPage()) return;
-  await btcDirectoryRenderPage(page + 1n);
-}
-
-function btcOpenDirectory() {
-  btcToggleWalletType("directory");
-  if (!btcDirectoryState().initialized) {
-    btcDirectoryRenderPage(1n);
-  } else {
-    btcDirectoryUpdateControls(btcDirectoryState().currentPage);
-  }
 }
 
 function btcBulkWalletRowHtml(row) {
@@ -14930,16 +14493,8 @@ async function btcLoadMoreTransactions() {
       btcUpdateLoadMoreButton();
     }
   } catch (error) {
-    const timedOut = error?.name === "AbortError";
-    if (!timedOut) {
-      console.warn('Could not load more transactions:', error);
-    }
-    btcSetWalletStatus(
-      timedOut
-        ? 'Live balance loaded. Transaction history took too long to respond; try Refresh live data.'
-        : 'Could not load more transactions.',
-      timedOut ? '' : 'error'
-    );
+    console.error('Error loading more transactions:', error);
+    btcSetWalletStatus('Error loading more transactions.', 'error');
   }
 }
 
@@ -15304,9 +14859,12 @@ async function btcImportWif() {
       return;
     }
     
+    console.log('Importing WIF:', wif);
     state.bitcoin.selectedNetworkKey = 'mainnet';
+    console.log('Selected network:', state.bitcoin.selectedNetworkKey);
     
     const wallet = btcDetectAndLoadWallet(wif, state.bitcoin.selectedNetworkKey);
+    console.log('Wallet detected:', wallet);
     
     if (!wallet || !wallet.address) {
       btcSetWalletStatus('Failed to import wallet. Please check your WIF format.', 'error');
@@ -15330,7 +14888,7 @@ async function btcImportWif() {
     await btcFetchWalletData(true);
     
   } catch (error) {
-    console.warn('WIF import failed.');
+    console.error('WIF import error:', error);
     btcSetWalletStatus(error.message, 'error');
   }
 }
@@ -15363,7 +14921,7 @@ async function btcImportHex() {
     updateSaveButtonVisibility();
     await btcFetchWalletData(true);
   } catch (error) {
-    console.warn('Hex import failed.');
+    console.error('Hex import error:', error);
     btcSetWalletStatus(error.message || 'Could not import hex private key.', 'error');
   }
 }
@@ -15686,7 +15244,6 @@ function btcClearSession() {
   els.btcWifInput.value = '';
   els.btcHexInput.value = '';
   els.btcSeedPhraseInput.value = '';
-  if (els.btcDirectorySearchInput) els.btcDirectorySearchInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
   btcSetWalletStatus('No wallet loaded yet.', '');
@@ -17077,7 +16634,6 @@ function btcBindUI() {
   els.btcSeedWalletBtn.addEventListener('click', () => btcToggleWalletType('seed'));
   els.btcBrainWalletBtn.addEventListener('click', () => btcToggleWalletType('brain'));
   els.btcHexWalletBtn.addEventListener('click', () => btcToggleWalletType('hex'));
-  els.btcDirectoryWalletBtn.addEventListener('click', btcOpenDirectory);
   els.btcBulkWalletBtn.addEventListener('click', btcPromptBulkWalletImport);
   els.btcBulkWalletFileInput.addEventListener('change', btcHandleBulkWalletFileChange);
   els.btcBulkWalletsList.addEventListener('click', event => {
@@ -17094,23 +16650,6 @@ function btcBindUI() {
   els.btcSeedCreate24Btn.addEventListener('click', () => btcCreateSeedWallet(24));
   els.btcBrainWalletImportBtn.addEventListener('click', btcImportBrainWallet);
   els.btcHexImportBtn.addEventListener('click', btcImportHex);
-  els.btcDirectorySearchType.addEventListener('change', btcDirectoryUpdateSearchUi);
-  els.btcDirectorySearchBtn.addEventListener('click', btcDirectorySearch);
-  els.btcDirectorySearchInput.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      btcDirectorySearch();
-    }
-  });
-  els.btcDirectoryPrevBtn.addEventListener('click', btcDirectoryOpenPreviousPage);
-  els.btcDirectoryNextBtn.addEventListener('click', btcDirectoryOpenNextPage);
-  els.btcDirectoryGoBtn.addEventListener('click', btcDirectoryGoToInputPage);
-  els.btcDirectoryPageInput.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      btcDirectoryGoToInputPage();
-    }
-  });
   els.btcGenerateBtn.addEventListener('click', btcGenerateWallet);
   els.btcDownloadWalletPdfBtn.addEventListener('click', btcDownloadWalletPdf);
   els.btcClearBtn.addEventListener('click', btcClearSession);
@@ -17200,8 +16739,6 @@ function btcBindUI() {
   els.btcScanWatchAddressQrBtn.addEventListener('click', () => btcOpenWifQrScanner("watch-address"));
   els.btcScanWifQrBtn.addEventListener('click', () => btcOpenWifQrScanner("send-wif"));
   els.btcWifQrStopBtn.addEventListener('click', btcStopWifQrScanner);
-  btcDirectoryUpdateSearchUi();
-  btcDirectoryUpdateControls(btcDirectoryState().currentPage);
   btcUpdateRecipientRows();
   btcUpdateGuestBitcoinUi();
 }
@@ -17235,7 +16772,6 @@ function btcClearSession() {
   els.btcAddressInput.value = '';
   els.btcHexInput.value = '';
   els.btcSeedPhraseInput.value = '';
-  if (els.btcDirectorySearchInput) els.btcDirectorySearchInput.value = '';
   btcResetRecipientRows();
   els.btcFeeRate.value = '';
   els.btcSendWifInput.value = '';
