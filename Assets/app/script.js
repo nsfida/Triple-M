@@ -620,6 +620,7 @@ const state = {
   bitcoin: {
     wallet: null,
     selectedNetworkKey: "mainnet",
+    selectedAddressType: "legacy_c",
     utxos: [],
     history: [],
     historyCursor: null,
@@ -811,6 +812,14 @@ const els = {
   btcDownloadWalletPdfBtn: document.getElementById("btcDownloadWalletPdfBtn"),
   btcClearBtn: document.getElementById("btcClearBtn"),
   btcWalletStatus: document.getElementById("btcWalletStatus"),
+  btcWalletDetails: document.getElementById("btcWalletDetails"),
+  btcPrivateHexValue: document.getElementById("btcPrivateHexValue"),
+  btcWifCompressedValue: document.getElementById("btcWifCompressedValue"),
+  btcWifUncompressedValue: document.getElementById("btcWifUncompressedValue"),
+  btcLegacyCompressedValue: document.getElementById("btcLegacyCompressedValue"),
+  btcLegacyUncompressedValue: document.getElementById("btcLegacyUncompressedValue"),
+  btcAddressTypeList: document.getElementById("btcAddressTypeList"),
+  btcSelectedAddressHelp: document.getElementById("btcSelectedAddressHelp"),
   btcMaskedWif: document.getElementById("btcMaskedWif"),
   btcCopyWifBtn: document.getElementById("btcCopyWifBtn"),
   btcWalletAddress: document.getElementById("btcWalletAddress"),
@@ -846,6 +855,8 @@ const els = {
   btcSendStatus: document.getElementById("btcSendStatus"),
   btcBroadcastBtn: document.getElementById("btcBroadcastBtn"),
   btcQrBox: document.getElementById("btcQrBox"),
+  btcReceiveAddressList: document.getElementById("btcReceiveAddressList"),
+  btcReceiveAddressLabel: document.getElementById("btcReceiveAddressLabel"),
   btcReceiveAddress: document.getElementById("btcReceiveAddress"),
   btcCopyAddressBtn: document.getElementById("btcCopyAddressBtn"),
   btcTransactionSuccessOverlay: document.getElementById("btcTransactionSuccessOverlay"),
@@ -884,6 +895,7 @@ const els = {
   btcHexImportBtn: document.getElementById("btcHexImportBtn"),
   btcSendWifSection: document.getElementById("btcSendWifSection"),
   btcSendWifInput: document.getElementById("btcSendWifInput"),
+  btcSendFromAddress: document.getElementById("btcSendFromAddress"),
   btcScanImportWifQrBtn: document.getElementById("btcScanImportWifQrBtn"),
   btcScanWatchAddressQrBtn: document.getElementById("btcScanWatchAddressQrBtn"),
   btcScanWifQrBtn: document.getElementById("btcScanWifQrBtn"),
@@ -12903,6 +12915,371 @@ const BTC_BIP39_ENGLISH_WORDS = "abandon ability able about above absent absorb 
 const BTC_BIP39_WORDS = BTC_BIP39_ENGLISH_WORDS.filter((word, index, words) => word && word !== words[index - 1]);
 const BTC_BIP39_WORD_INDEX = new Map(BTC_BIP39_WORDS.map((word, index) => [word, index]));
 
+const BTC_ADDRESS_TYPES = [
+  { key: "legacy_c", label: "Legacy (c)", scriptType: "p2pkh", compressed: true, inputVbytes: 148, outputVbytes: 34 },
+  { key: "legacy_u", label: "Legacy (u)", scriptType: "p2pkh", compressed: false, inputVbytes: 148, outputVbytes: 34 },
+  { key: "segwit", label: "SegWit", scriptType: "p2wpkh", compressed: true, inputVbytes: 68, outputVbytes: 31 },
+  { key: "p2sh", label: "P2SH", scriptType: "p2sh-p2wpkh", compressed: true, inputVbytes: 91, outputVbytes: 32 },
+  { key: "taproot", label: "Taproot", scriptType: "p2tr", compressed: true, inputVbytes: 58, outputVbytes: 43 }
+];
+const BTC_ADDRESS_TYPE_MAP = Object.fromEntries(BTC_ADDRESS_TYPES.map(type => [type.key, type]));
+const BTC_BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+const BTC_BECH32_GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+const BTC_SECP256K1_FIELD = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+const BTC_SECP256K1_G = {
+  x: BigInt("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"),
+  y: BigInt("0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8")
+};
+
+function btcAddressTypeInfo(typeKey) {
+  return BTC_ADDRESS_TYPE_MAP[typeKey] || BTC_ADDRESS_TYPE_MAP.legacy_c;
+}
+
+function btcNetworkBech32Hrp(network) {
+  return network?.bech32 || (network === bitcoinjs.networks.testnet ? "tb" : "bc");
+}
+
+function btcSha256Digest(bytes) {
+  if (!bitcoinjs.crypto?.sha256) {
+    throw new Error("Bitcoin hash support is not available.");
+  }
+  return new Uint8Array(bitcoinjs.crypto.sha256(new bitcoinjs.Buffer(bytes || [])));
+}
+
+function btcTaggedHash(tag, ...chunks) {
+  const tagBytes = new TextEncoder().encode(tag);
+  const tagHash = btcSha256Digest(tagBytes);
+  return btcSha256Digest(btcConcatBytes(tagHash, tagHash, ...chunks));
+}
+
+function btcBech32Polymod(values) {
+  let chk = 1;
+  values.forEach(value => {
+    const top = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ value;
+    for (let i = 0; i < 5; i += 1) {
+      if ((top >> i) & 1) chk ^= BTC_BECH32_GENERATOR[i];
+    }
+  });
+  return chk;
+}
+
+function btcBech32HrpExpand(hrp) {
+  const out = [];
+  for (let i = 0; i < hrp.length; i += 1) out.push(hrp.charCodeAt(i) >> 5);
+  out.push(0);
+  for (let i = 0; i < hrp.length; i += 1) out.push(hrp.charCodeAt(i) & 31);
+  return out;
+}
+
+function btcBech32CreateChecksum(hrp, data, encoding = "bech32") {
+  const constant = encoding === "bech32m" ? 0x2bc830a3 : 1;
+  const values = btcBech32HrpExpand(hrp).concat(data, [0, 0, 0, 0, 0, 0]);
+  const mod = btcBech32Polymod(values) ^ constant;
+  return Array.from({ length: 6 }, (_, i) => (mod >> (5 * (5 - i))) & 31);
+}
+
+function btcBech32VerifyChecksum(hrp, data) {
+  const mod = btcBech32Polymod(btcBech32HrpExpand(hrp).concat(data));
+  if (mod === 1) return "bech32";
+  if (mod === 0x2bc830a3) return "bech32m";
+  return "";
+}
+
+function btcBech32Encode(hrp, data, encoding = "bech32") {
+  const combined = data.concat(btcBech32CreateChecksum(hrp, data, encoding));
+  return `${hrp}1${combined.map(value => BTC_BECH32_CHARSET[value]).join("")}`;
+}
+
+function btcBech32Decode(address) {
+  const text = String(address || "").trim();
+  if (!text || text.length > 90 || (text !== text.toLowerCase() && text !== text.toUpperCase())) return null;
+  const lower = text.toLowerCase();
+  const pos = lower.lastIndexOf("1");
+  if (pos < 1 || pos + 7 > lower.length) return null;
+  const hrp = lower.slice(0, pos);
+  const data = [];
+  for (const char of lower.slice(pos + 1)) {
+    const value = BTC_BECH32_CHARSET.indexOf(char);
+    if (value < 0) return null;
+    data.push(value);
+  }
+  const encoding = btcBech32VerifyChecksum(hrp, data);
+  if (!encoding) return null;
+  return { hrp, data: data.slice(0, -6), encoding };
+}
+
+function btcConvertBits(data, fromBits, toBits, pad) {
+  let acc = 0;
+  let bits = 0;
+  const out = [];
+  const maxv = (1 << toBits) - 1;
+  for (const value of data) {
+    if (value < 0 || (value >> fromBits)) return null;
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      out.push((acc >> bits) & maxv);
+    }
+  }
+  if (pad) {
+    if (bits) out.push((acc << (toBits - bits)) & maxv);
+  } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
+    return null;
+  }
+  return out;
+}
+
+function btcEncodeWitnessAddress(version, program, network) {
+  const hrp = btcNetworkBech32Hrp(network);
+  const data = [version].concat(btcConvertBits(Array.from(program), 8, 5, true));
+  return btcBech32Encode(hrp, data, version === 0 ? "bech32" : "bech32m");
+}
+
+function btcDecodeWitnessAddress(address) {
+  const decoded = btcBech32Decode(address);
+  if (!decoded || !decoded.data.length) return null;
+  const version = decoded.data[0];
+  if (version > 16) return null;
+  const program = btcConvertBits(decoded.data.slice(1), 5, 8, false);
+  if (!program || program.length < 2 || program.length > 40) return null;
+  if (version === 0 && decoded.encoding !== "bech32") return null;
+  if (version !== 0 && decoded.encoding !== "bech32m") return null;
+  if (version === 0 && ![20, 32].includes(program.length)) return null;
+  if (version === 1 && program.length !== 32) return null;
+  return { hrp: decoded.hrp, version, program: new Uint8Array(program), encoding: decoded.encoding };
+}
+
+function btcWitnessScriptPubKey(version, program) {
+  const op = version === 0 ? 0 : 0x50 + version;
+  return new bitcoinjs.Buffer([op, program.length, ...program]);
+}
+
+function btcAddressToOutputScript(address, network) {
+  try {
+    return bitcoinjs.address.toOutputScript(address, network);
+  } catch (err) {
+    const decoded = btcDecodeWitnessAddress(address);
+    const expectedHrp = btcNetworkBech32Hrp(network);
+    if (!decoded || decoded.hrp !== expectedHrp) throw err;
+    return btcWitnessScriptPubKey(decoded.version, decoded.program);
+  }
+}
+
+function btcMod(value, modulo = BTC_SECP256K1_FIELD) {
+  const result = value % modulo;
+  return result >= 0n ? result : result + modulo;
+}
+
+function btcModPow(base, exponent, modulo) {
+  let result = 1n;
+  let b = btcMod(base, modulo);
+  let e = exponent;
+  while (e > 0n) {
+    if (e & 1n) result = (result * b) % modulo;
+    b = (b * b) % modulo;
+    e >>= 1n;
+  }
+  return result;
+}
+
+function btcPointNeg(point) {
+  return point ? { x: point.x, y: btcMod(-point.y) } : null;
+}
+
+function btcPointAdd(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.x === b.x && btcMod(a.y + b.y) === 0n) return null;
+  const slope = a.x === b.x && a.y === b.y
+    ? btcMod((3n * a.x * a.x) * btcModPow(2n * a.y, BTC_SECP256K1_FIELD - 2n, BTC_SECP256K1_FIELD))
+    : btcMod((b.y - a.y) * btcModPow(b.x - a.x, BTC_SECP256K1_FIELD - 2n, BTC_SECP256K1_FIELD));
+  const x = btcMod(slope * slope - a.x - b.x);
+  const y = btcMod(slope * (a.x - x) - a.y);
+  return { x, y };
+}
+
+function btcPointMultiply(scalar, point = BTC_SECP256K1_G) {
+  let n = btcMod(scalar, BTC_SECP256K1_ORDER);
+  let result = null;
+  let addend = point;
+  while (n > 0n) {
+    if (n & 1n) result = btcPointAdd(result, addend);
+    addend = btcPointAdd(addend, addend);
+    n >>= 1n;
+  }
+  return result;
+}
+
+function btcPointFromPrivateKeyBytes(privateKeyBytes) {
+  return btcPointMultiply(btcBigIntFromBytes(privateKeyBytes));
+}
+
+function btcXOnlyBytesFromPoint(point) {
+  return btcBytesFromBigInt(point.x, 32);
+}
+
+function btcTaprootOutputData(privateKeyBytes, network) {
+  const privateValue = btcBigIntFromBytes(privateKeyBytes);
+  const rawPoint = btcPointFromPrivateKeyBytes(privateKeyBytes);
+  const internalSecret = (rawPoint.y & 1n) === 0n ? privateValue : BTC_SECP256K1_ORDER - privateValue;
+  const internalPoint = (rawPoint.y & 1n) === 0n ? rawPoint : btcPointNeg(rawPoint);
+  const internalKey = btcXOnlyBytesFromPoint(internalPoint);
+  const tweak = btcBigIntFromBytes(btcTaggedHash("TapTweak", internalKey)) % BTC_SECP256K1_ORDER;
+  const outputPoint = btcPointAdd(internalPoint, btcPointMultiply(tweak));
+  if (!outputPoint) throw new Error("Could not derive Taproot output key.");
+  const outputKey = btcXOnlyBytesFromPoint(outputPoint);
+  const tweakedPrivateKey = btcBytesFromBigInt(btcMod(internalSecret + tweak, BTC_SECP256K1_ORDER), 32);
+  return {
+    internalKey,
+    outputKey,
+    tweak,
+    tweakedPrivateKey,
+    address: btcEncodeWitnessAddress(1, outputKey, network),
+    scriptPubKey: btcWitnessScriptPubKey(1, outputKey)
+  };
+}
+
+function btcCreateWalletAddressRows(privateKeyBytes, network) {
+  const keyBuffer = new bitcoinjs.Buffer(privateKeyBytes);
+  const compressedPair = bitcoinjs.ECPair.fromPrivateKey(keyBuffer, { network, compressed: true });
+  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(keyBuffer, { network, compressed: false });
+  const segwitPayment = bitcoinjs.payments.p2wpkh({ pubkey: compressedPair.publicKey, network });
+  const nestedPayment = bitcoinjs.payments.p2sh({ redeem: segwitPayment, network });
+  const taproot = btcTaprootOutputData(privateKeyBytes, network);
+  return [
+    {
+      ...btcAddressTypeInfo("legacy_c"),
+      address: bitcoinjs.payments.p2pkh({ pubkey: compressedPair.publicKey, network }).address,
+      pair: compressedPair
+    },
+    {
+      ...btcAddressTypeInfo("legacy_u"),
+      address: bitcoinjs.payments.p2pkh({ pubkey: uncompressedPair.publicKey, network }).address,
+      pair: uncompressedPair
+    },
+    {
+      ...btcAddressTypeInfo("segwit"),
+      address: segwitPayment.address,
+      pair: compressedPair,
+      payment: segwitPayment,
+      scriptPubKey: segwitPayment.output
+    },
+    {
+      ...btcAddressTypeInfo("p2sh"),
+      address: nestedPayment.address,
+      pair: compressedPair,
+      payment: nestedPayment,
+      redeemScript: segwitPayment.output,
+      scriptPubKey: nestedPayment.output
+    },
+    {
+      ...btcAddressTypeInfo("taproot"),
+      address: taproot.address,
+      pair: compressedPair,
+      taproot,
+      scriptPubKey: taproot.scriptPubKey
+    }
+  ].map(row => ({
+    ...row,
+    balanceSat: 0,
+    receivedSat: 0,
+    sentSat: 0,
+    txCount: 0,
+    utxos: [],
+    history: [],
+    historyCursor: null,
+    historyDone: false,
+    historyLoaded: false,
+    loading: false,
+    error: ""
+  }));
+}
+
+function btcBuildWalletFromPrivateKey(privateKeyBytes, networkKey = "mainnet", inputWif = "", sourceType = "wif", defaultAddressType = "legacy_c") {
+  if (!btcIsValidPrivateKeyBytes(privateKeyBytes)) {
+    throw new Error("Private key is outside the valid Bitcoin private-key range.");
+  }
+  const key = networkKey || "mainnet";
+  const info = btcGetNetworkInfo(key);
+  const keyBuffer = new bitcoinjs.Buffer(privateKeyBytes);
+  const compressedPair = bitcoinjs.ECPair.fromPrivateKey(keyBuffer, { network: info.network, compressed: true });
+  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(keyBuffer, { network: info.network, compressed: false });
+  const addressTypes = btcCreateWalletAddressRows(privateKeyBytes, info.network);
+  const selectedAddressType = BTC_ADDRESS_TYPE_MAP[defaultAddressType] ? defaultAddressType : "legacy_c";
+  const selectedAddress = addressTypes.find(row => row.key === selectedAddressType) || addressTypes[0];
+  return {
+    key,
+    network: info.network,
+    label: info.label,
+    inputWif: inputWif || compressedPair.toWIF(),
+    compressedWif: compressedPair.toWIF(),
+    uncompressedWif: uncompressedPair.toWIF(),
+    sourcePair: compressedPair,
+    compressedPair,
+    uncompressedPair,
+    privateKeyHex: btcBytesToHex(privateKeyBytes).toLowerCase(),
+    sourceType,
+    addressTypes,
+    selectedAddressType,
+    addressType: selectedAddressType,
+    address: selectedAddress.address,
+    isWatchOnly: false
+  };
+}
+
+function btcGetWalletAddressType(wallet = state.bitcoin.wallet, typeKey = "") {
+  if (!wallet) return null;
+  const key = typeKey || wallet.selectedAddressType || wallet.addressType || state.bitcoin.selectedAddressType || "legacy_c";
+  return (wallet.addressTypes || []).find(row => row.key === key) || null;
+}
+
+function btcGetSelectedWalletAddress(wallet = state.bitcoin.wallet) {
+  if (!wallet) return null;
+  return btcGetWalletAddressType(wallet) || (wallet.addressTypes || [])[0] || null;
+}
+
+function btcSetSelectedWalletAddressType(typeKey, options = {}) {
+  const wallet = state.bitcoin.wallet;
+  if (!wallet || wallet.isWatchOnly || !BTC_ADDRESS_TYPE_MAP[typeKey]) return null;
+  const row = btcGetWalletAddressType(wallet, typeKey);
+  if (!row) return null;
+  wallet.selectedAddressType = typeKey;
+  wallet.addressType = typeKey;
+  wallet.address = row.address;
+  state.bitcoin.selectedAddressType = typeKey;
+  state.bitcoin.utxos = Array.isArray(row.utxos) ? row.utxos : [];
+  state.bitcoin.history = Array.isArray(row.history) ? row.history : [];
+  state.bitcoin.historyCursor = row.historyCursor || null;
+  state.bitcoin.historyDone = !!row.historyDone;
+  state.bitcoin.historyTotal = Number(row.txCount || 0);
+  state.bitcoin.lastChainStats = {
+    funded_txo_sum: Number(row.receivedSat || 0),
+    spent_txo_sum: Number(row.sentSat || 0),
+    tx_count: Number(row.txCount || 0)
+  };
+  if (!options.silent) {
+    btcUpdateWalletView();
+    btcRenderHistory();
+    updateSaveButtonVisibility();
+  }
+  return row;
+}
+
+function btcWalletCopyValue(key) {
+  const wallet = state.bitcoin.wallet;
+  if (!wallet) return "";
+  if (key === "hex") return wallet.privateKeyHex || "";
+  if (key === "wif-compressed") return wallet.compressedWif || "";
+  if (key === "wif-uncompressed") return wallet.uncompressedWif || "";
+  if (key === "legacy-compressed") return btcGetWalletAddressType(wallet, "legacy_c")?.address || "";
+  if (key === "legacy-uncompressed") return btcGetWalletAddressType(wallet, "legacy_u")?.address || "";
+  if (key?.startsWith("address:")) return btcGetWalletAddressType(wallet, key.slice(8))?.address || "";
+  if (key === "selected-address") return btcGetSelectedWalletAddress(wallet)?.address || wallet.address || "";
+  return "";
+}
+
 function btcSatToBtc(sats) {
   return Number(sats || 0) / 1e8;
 }
@@ -13337,7 +13714,7 @@ function btcUpdateSendPreview() {
   const feeRate = Number(els.btcFeeRate?.value || state.bitcoin.feeRate || 8);
   const inputCount = Math.max(1, state.bitcoin.utxos.length || 1);
   const estimatedFeeSat = Number.isFinite(feeRate) && feeRate > 0
-    ? Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, outputCount + 1) * feeRate)
+    ? Math.ceil(btcEstimateSpendVbytes(inputCount, outputCount + 1, state.bitcoin.wallet) * feeRate)
     : 0;
   const totalDebitSat = recipientSat + guestFeeSat + estimatedFeeSat;
   els.btcSendTotalPreview.classList.remove("hide");
@@ -13437,6 +13814,194 @@ function btcStopPriceUpdates() {
   }
 }
 
+function btcAddressStatsFromRow(row) {
+  const received = Number(row?.receivedSat || 0);
+  const sent = Number(row?.sentSat || 0);
+  const balance = row?.balanceSat != null ? Number(row.balanceSat || 0) : Math.max(0, received - sent);
+  const txCount = Number(row?.txCount || 0);
+  return { received, sent, balance, txCount };
+}
+
+function btcRenderWalletDetails(wallet) {
+  if (!wallet || wallet.isWatchOnly) {
+    if (els.btcWalletDetails) els.btcWalletDetails.classList.add("is-watch-only");
+    if (els.btcPrivateHexValue) els.btcPrivateHexValue.textContent = "Watch-only wallet";
+    if (els.btcWifCompressedValue) els.btcWifCompressedValue.textContent = "No private key loaded";
+    if (els.btcWifUncompressedValue) els.btcWifUncompressedValue.textContent = "No private key loaded";
+    if (els.btcLegacyCompressedValue) els.btcLegacyCompressedValue.textContent = wallet?.address || "";
+    if (els.btcLegacyUncompressedValue) els.btcLegacyUncompressedValue.textContent = wallet?.address || "";
+    return;
+  }
+  if (els.btcWalletDetails) els.btcWalletDetails.classList.remove("is-watch-only");
+  const legacyC = btcGetWalletAddressType(wallet, "legacy_c");
+  const legacyU = btcGetWalletAddressType(wallet, "legacy_u");
+  if (els.btcPrivateHexValue) els.btcPrivateHexValue.textContent = wallet.privateKeyHex || "";
+  if (els.btcWifCompressedValue) els.btcWifCompressedValue.textContent = wallet.compressedWif || "";
+  if (els.btcWifUncompressedValue) els.btcWifUncompressedValue.textContent = wallet.uncompressedWif || "";
+  if (els.btcLegacyCompressedValue) els.btcLegacyCompressedValue.textContent = legacyC?.address || "";
+  if (els.btcLegacyUncompressedValue) els.btcLegacyUncompressedValue.textContent = legacyU?.address || "";
+}
+
+function btcAddressTypeRowHtml(row, selectedKey) {
+  const selected = row.key === selectedKey;
+  const stats = btcAddressStatsFromRow(row);
+  const status = row.loading
+    ? "Loading"
+    : row.error
+      ? "Needs refresh"
+      : `${stats.txCount} tx`;
+  const balanceText = row.loading ? "Loading..." : row.error ? "Error" : `${btcFormatPlainBtcFromSat(stats.balance)} BTC`;
+  const title = row.error || row.address;
+  return `
+    <button class="btc-address-type-row${selected ? " is-selected" : ""}${row.error ? " has-error" : ""}" type="button" data-btc-address-type="${escapeHtml(row.key)}" title="${escapeHtml(title)}">
+      <span class="btc-address-type-name">${escapeHtml(row.label)}</span>
+      <span class="btc-address-type-address mono">${escapeHtml(row.address || "")}</span>
+      <span class="btc-address-type-balance">
+        <strong>${escapeHtml(balanceText)}</strong>
+        <em>${escapeHtml(status)}</em>
+      </span>
+      <span class="btc-address-type-actions">
+        <span class="btc-selected-dot" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+        <span class="btc-copy-icon" role="button" tabindex="0" data-btc-copy="address:${escapeHtml(row.key)}" title="Copy address" aria-label="Copy ${escapeHtml(row.label)} address"><i class="fa-solid fa-copy"></i></span>
+      </span>
+    </button>
+  `;
+}
+
+function btcRenderAddressTypes(wallet) {
+  if (!els.btcAddressTypeList) return;
+  if (!wallet) {
+    els.btcAddressTypeList.innerHTML = "";
+    return;
+  }
+  if (wallet.isWatchOnly) {
+    const stats = btcAddressStatsFromRow({
+      balanceSat: btcSummarizeUtxoBalance(),
+      receivedSat: state.bitcoin.lastChainStats?.funded_txo_sum || 0,
+      sentSat: state.bitcoin.lastChainStats?.spent_txo_sum || 0,
+      txCount: state.bitcoin.historyTotal || 0
+    });
+    els.btcAddressTypeList.innerHTML = `
+      <div class="btc-address-type-row is-selected is-watch-row">
+        <span class="btc-address-type-name">Watch</span>
+        <span class="btc-address-type-address mono">${escapeHtml(wallet.address || "")}</span>
+        <span class="btc-address-type-balance"><strong>${escapeHtml(btcFormatPlainBtcFromSat(stats.balance))} BTC</strong><em>${stats.txCount} tx</em></span>
+        <span class="btc-address-type-actions"><span class="btc-copy-icon" role="button" tabindex="0" data-btc-copy="selected-address" title="Copy address" aria-label="Copy address"><i class="fa-solid fa-copy"></i></span></span>
+      </div>
+    `;
+    return;
+  }
+  const selectedKey = wallet.selectedAddressType || "legacy_c";
+  els.btcAddressTypeList.innerHTML = (wallet.addressTypes || []).map(row => btcAddressTypeRowHtml(row, selectedKey)).join("");
+}
+
+function btcUpdateSelectedSummary(wallet) {
+  const selected = btcGetSelectedWalletAddress(wallet);
+  const stats = selected
+    ? btcAddressStatsFromRow(selected)
+    : {
+        balance: btcSummarizeUtxoBalance(),
+        received: Number(state.bitcoin.lastChainStats?.funded_txo_sum || 0),
+        sent: Number(state.bitcoin.lastChainStats?.spent_txo_sum || 0),
+        txCount: Number(state.bitcoin.historyTotal || 0)
+      };
+  els.btcBalanceValue.textContent = btcFormatBtcFromSat(stats.balance);
+  els.btcReceivedValue.textContent = btcFormatBtcFromSat(stats.received);
+  els.btcSentValue.textContent = btcFormatBtcFromSat(stats.sent);
+  els.btcTxCountValue.textContent = `${stats.txCount} tx`;
+  if (els.btcSelectedAddressHelp) {
+    const label = selected?.label || (wallet?.isWatchOnly ? "Watch" : "Address");
+    els.btcSelectedAddressHelp.textContent = `${label} is selected for sending, receiving, history, and live UTXOs.`;
+  }
+}
+
+function btcFlashCopied(control, fallbackText = "") {
+  if (!control) return;
+  const oldText = control.textContent;
+  const oldHtml = control.innerHTML;
+  const oldTitle = control.getAttribute("title");
+  control.classList.add("is-copied");
+  if (control.tagName === "BUTTON") {
+    control.innerHTML = '<i class="fa-solid fa-check"></i>';
+    control.disabled = true;
+  } else {
+    control.setAttribute("title", "Copied");
+  }
+  setTimeout(() => {
+    control.classList.remove("is-copied");
+    if (control.tagName === "BUTTON") {
+      control.innerHTML = oldHtml || escapeHtml(fallbackText || oldText || "");
+      control.disabled = false;
+    } else if (oldTitle) {
+      control.setAttribute("title", oldTitle);
+    }
+  }, 1000);
+}
+
+async function btcHandleWalletCopyClick(event) {
+  const copyControl = event.target.closest?.("[data-btc-copy]");
+  if (!copyControl) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  const value = btcWalletCopyValue(copyControl.dataset.btcCopy);
+  if (!value) {
+    btcSetWalletStatus("Nothing available to copy yet.", "");
+    return true;
+  }
+  try {
+    await btcCopyText(value);
+    btcFlashCopied(copyControl);
+    btcSetWalletStatus("Copied.", "success");
+  } catch {
+    btcSetWalletStatus("Could not copy.", "");
+  }
+  return true;
+}
+
+async function btcSelectAddressType(typeKey) {
+  const row = btcSetSelectedWalletAddressType(typeKey);
+  if (!row) return;
+  btcUpdateSendPreview();
+  if (!row.historyLoaded && Number(row.txCount || 0) > 0) {
+    btcSetWalletStatus(`Loading ${row.label} transaction history...`, "");
+    await btcLoadMoreTransactions();
+  } else {
+    btcRenderHistory();
+    btcSetWalletStatus(`${row.label} selected for send, receive, history, and live balance.`, "success");
+  }
+}
+
+function btcRenderReceiveModal(typeKey = "") {
+  const wallet = state.bitcoin.wallet;
+  if (!wallet) return;
+  let receiveRow = wallet.isWatchOnly ? null : btcGetWalletAddressType(wallet, typeKey || wallet.selectedAddressType);
+  if (!receiveRow && !wallet.isWatchOnly) receiveRow = btcGetSelectedWalletAddress(wallet);
+  const receiveAddress = receiveRow?.address || wallet.address || "";
+  const receiveLabel = receiveRow?.label || (wallet.isWatchOnly ? "Watch address" : "Receive address");
+  if (els.btcReceiveAddressList) {
+    if (wallet.isWatchOnly) {
+      els.btcReceiveAddressList.innerHTML = "";
+    } else {
+      els.btcReceiveAddressList.innerHTML = (wallet.addressTypes || []).map(row => `
+        <button class="btc-receive-address-chip${row.key === receiveRow?.key ? " is-selected" : ""}" type="button" data-btc-receive-type="${escapeHtml(row.key)}">
+          <span>${escapeHtml(row.label)}</span>
+          <code>${escapeHtml(btcShortHash(row.address))}</code>
+        </button>
+      `).join("");
+    }
+  }
+  if (els.btcReceiveAddressLabel) els.btcReceiveAddressLabel.textContent = receiveLabel;
+  els.btcReceiveAddress.textContent = receiveAddress;
+  btcRenderQR(`bitcoin:${receiveAddress}`);
+}
+
+function btcOpenReceiveModal() {
+  if (!state.bitcoin.wallet) return;
+  els.btcReceiveModal.classList.remove('hide');
+  els.btcReceiveModal.setAttribute("aria-hidden", "false");
+  btcRenderReceiveModal();
+}
+
 // Watch wallet functions
 function btcToggleWalletType(type) {
   const mode = ["full", "watch", "seed", "brain", "hex"].includes(type) ? type : "full";
@@ -13469,6 +14034,7 @@ async function btcWatchAddress(skipSave = false) {
       btcSetWalletStatus('Invalid Bitcoin address format.', '');
       return;
     }
+    state.bitcoin.selectedNetworkKey = btcDetectAddressNetworkKey(address, state.bitcoin.selectedNetworkKey);
     
     state.bitcoin.isWatchOnly = true;
     state.bitcoin.watchAddress = address;
@@ -13516,10 +14082,10 @@ function btcUpdateWalletView() {
     els.btcDownloadWalletPdfBtn.style.display = 'inline-flex';
     btcSetWalletStatus(`Watch-only wallet loaded for ${wallet.label}. Balance and transactions only.`, '');
   } else {
-    els.btcMaskedWif.textContent = btcMaskWif(wallet.wif);
+    els.btcMaskedWif.textContent = btcMaskWif(wallet.inputWif || wallet.compressedWif);
     els.btcCopyWifBtn.style.display = 'inline-flex';
     els.btcDownloadWalletPdfBtn.style.display = 'inline-flex';
-    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. Five address types are ready.`, '');
   }
   
   els.btcWalletAddress.textContent = wallet.address;
@@ -13546,7 +14112,21 @@ function btcClearView() {
   state.bitcoin.historyDone = false;
   state.bitcoin.historyTotal = 0;
   state.bitcoin.lastChainStats = null; // Clear stored chain stats
+  state.bitcoin.selectedAddressType = "legacy_c";
+  if (els.btcWalletDetails) els.btcWalletDetails.classList.remove("is-watch-only");
+  if (els.btcPrivateHexValue) els.btcPrivateHexValue.textContent = 'Private key after login';
+  if (els.btcWifCompressedValue) els.btcWifCompressedValue.textContent = 'Compressed WIF';
+  if (els.btcWifUncompressedValue) els.btcWifUncompressedValue.textContent = 'Uncompressed WIF';
+  if (els.btcLegacyCompressedValue) els.btcLegacyCompressedValue.textContent = 'Compressed address';
+  if (els.btcLegacyUncompressedValue) els.btcLegacyUncompressedValue.textContent = 'Uncompressed address';
+  if (els.btcAddressTypeList) els.btcAddressTypeList.innerHTML = '';
+  if (els.btcSelectedAddressHelp) els.btcSelectedAddressHelp.textContent = 'Select which address type to use for sending, receiving, history, and live UTXOs.';
+  if (els.btcSendFromAddress) els.btcSendFromAddress.textContent = 'From address appears after wallet selection.';
+  if (els.btcReceiveAddressList) els.btcReceiveAddressList.innerHTML = '';
+  if (els.btcReceiveAddressLabel) els.btcReceiveAddressLabel.textContent = 'Receive address';
+  if (els.btcReceiveAddress) els.btcReceiveAddress.textContent = '';
   els.btcMaskedWif.textContent = 'WIF masked after login';
+  els.btcWalletAddress.textContent = 'Address after login';
   els.btcBalanceValue.textContent = '—';
   els.btcReceivedValue.textContent = '—';
   els.btcSentValue.textContent = '—';
@@ -13576,10 +14156,18 @@ function btcUpdateWalletView() {
   }
 
   const wallet = state.bitcoin.wallet;
-  els.btcWalletAddress.textContent = wallet.address;
+  const selected = btcGetSelectedWalletAddress(wallet);
+  if (selected) {
+    wallet.address = selected.address;
+    state.bitcoin.selectedAddressType = selected.key;
+  }
+  els.btcWalletAddress.textContent = wallet.address || '';
   els.btcLoginSection.classList.add('hide');
   els.btcWalletInfoSection.classList.remove('hide');
   els.btcHistorySection.classList.remove('hide');
+  btcRenderWalletDetails(wallet);
+  btcRenderAddressTypes(wallet);
+  btcUpdateSelectedSummary(wallet);
   if (wallet.isWatchOnly) {
     els.btcMaskedWif.textContent = 'Watch-only wallet (no private key)';
     els.btcCopyWifBtn.disabled = true;
@@ -13591,8 +14179,14 @@ function btcUpdateWalletView() {
     els.btcCopyWifBtn.disabled = false;
     els.btcCopyWifBtn.style.display = 'inline-flex';
     els.btcDownloadWalletPdfBtn.style.display = 'inline-flex';
-    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. Five address types are ready.`, '');
   }
+
+  if (state.bitcoin.btcPrice) {
+    btcUpdatePriceDisplay();
+    btcUpdateUsdValues();
+  }
+  btcStartPriceUpdates();
 }
 
 function btcDetectAndLoadWallet(wif, preferredKey) {
@@ -13606,27 +14200,11 @@ function btcDetectAndLoadWallet(wif, preferredKey) {
       console.log(`Trying WIF on ${key} network...`);
       const importedPair = bitcoinjs.ECPair.fromWIF(normalized, net);
       if (!importedPair.privateKey) throw new Error('Missing private key.');
-      const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(importedPair.privateKey, {
-        network: net,
-        compressed: false
-      });
-      const address = bitcoinjs.payments.p2pkh({
-        pubkey: uncompressedPair.publicKey,
-        network: net
-      }).address;
-      if (!address) throw new Error('Could not derive address.');
-      
-      console.log(`Successfully imported WIF on ${key} network, address:`, address);
-      return {
-        key,
-        network: net,
-        label: btcGetNetworkInfo(key).label,
-        inputWif: normalized,
-        sourcePair: importedPair,
-        uncompressedPair,
-        privateKeyHex: btcBytesToHex(importedPair.privateKey),
-        address
-      };
+      const defaultAddressType = importedPair.compressed === false ? "legacy_u" : "legacy_c";
+      const wallet = btcBuildWalletFromPrivateKey(importedPair.privateKey, key, normalized, "wif", defaultAddressType);
+      wallet.sourcePair = importedPair;
+      console.log(`Successfully imported WIF on ${key} network, address:`, wallet.address);
+      return wallet;
     } catch (err) {
       console.log(`Failed to import WIF on ${key} network:`, err.message);
       // keep trying
@@ -13647,17 +14225,9 @@ function btcNormalizePrivateKeyHex(value) {
 function btcDetectAndLoadHexPrivateKey(hex, preferredKey = "mainnet") {
   const normalized = btcNormalizePrivateKeyHex(hex);
   const key = preferredKey || "mainnet";
-  const info = btcGetNetworkInfo(key);
   const privateKeyBytes = btcHexToBytes(normalized);
-  if (!btcIsValidPrivateKeyBytes(privateKeyBytes)) {
-    throw new Error("Hex private key is outside the valid Bitcoin private-key range.");
-  }
-  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKeyBytes, {
-    network: info.network,
-    compressed: false
-  });
   return {
-    ...btcDetectAndLoadWallet(uncompressedPair.toWIF(), key),
+    ...btcBuildWalletFromPrivateKey(privateKeyBytes, key, "", "hex", "legacy_c"),
     sourceType: "hex",
     privateKeyHex: normalized
   };
@@ -13673,25 +14243,10 @@ function btcDetectAndLoadWalletQuiet(wif, preferredKey) {
     try {
       const importedPair = bitcoinjs.ECPair.fromWIF(normalized, net);
       if (!importedPair.privateKey) throw new Error("Missing private key.");
-      const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(importedPair.privateKey, {
-        network: net,
-        compressed: false
-      });
-      const address = bitcoinjs.payments.p2pkh({
-        pubkey: uncompressedPair.publicKey,
-        network: net
-      }).address;
-      if (!address) throw new Error("Could not derive address.");
-      return {
-        key,
-        network: net,
-        label: btcGetNetworkInfo(key).label,
-        inputWif: normalized,
-        sourcePair: importedPair,
-        uncompressedPair,
-        privateKeyHex: btcBytesToHex(importedPair.privateKey),
-        address
-      };
+      const defaultAddressType = importedPair.compressed === false ? "legacy_u" : "legacy_c";
+      const wallet = btcBuildWalletFromPrivateKey(importedPair.privateKey, key, normalized, "wif", defaultAddressType);
+      wallet.sourcePair = importedPair;
+      return wallet;
     } catch {
       // keep trying the next Bitcoin network
     }
@@ -13708,6 +14263,49 @@ function btcBulkStatsFromAddressData(stats) {
     txCount: Number(chainStats.tx_count || 0) + Number(mempoolStats.tx_count || 0),
     balanceSat: Math.max(0, funded - spent)
   };
+}
+
+async function btcFetchAddressStats(address, networkKey) {
+  const api = btcGetNetworkInfo(networkKey || "mainnet").api;
+  const [stats, utxos] = await Promise.all([
+    btcFetchJson(`${api}/address/${encodeURIComponent(address)}`),
+    btcFetchJson(`${api}/address/${encodeURIComponent(address)}/utxo`)
+  ]);
+  const chainStats = stats?.chain_stats || {};
+  const mempoolStats = stats?.mempool_stats || {};
+  const fundedSat = Number(chainStats.funded_txo_sum || 0) + Number(mempoolStats.funded_txo_sum || 0);
+  const sentSat = Number(chainStats.spent_txo_sum || 0) + Number(mempoolStats.spent_txo_sum || 0);
+  const txCount = Number(chainStats.tx_count || 0) + Number(mempoolStats.tx_count || 0);
+  const normalizedUtxos = Array.isArray(utxos) ? utxos : [];
+  return {
+    stats,
+    utxos: normalizedUtxos,
+    balanceSat: normalizedUtxos.reduce((sum, utxo) => sum + Number(utxo.value || 0), 0),
+    receivedSat: fundedSat,
+    sentSat,
+    txCount
+  };
+}
+
+async function btcUpdateAddressRowStats(row, wallet) {
+  if (!row?.address || !wallet?.key) return;
+  row.loading = true;
+  row.error = "";
+  btcRenderAddressTypes(wallet);
+  try {
+    const data = await btcFetchAddressStats(row.address, wallet.key);
+    row.balanceSat = data.balanceSat;
+    row.receivedSat = data.receivedSat;
+    row.sentSat = data.sentSat;
+    row.txCount = data.txCount;
+    row.utxos = data.utxos;
+    row.loading = false;
+    row.error = "";
+  } catch (err) {
+    row.loading = false;
+    row.error = err.message || "Could not load address data.";
+  }
+  btcRenderAddressTypes(wallet);
 }
 
 function btcBulkWalletRowHtml(row) {
@@ -13833,20 +14431,25 @@ async function btcBuildBulkWalletRowsFromText(text, runId) {
     const id = `bulk-${runId}-${rows.length}`;
     try {
       const wallet = btcDetectAndLoadWalletQuiet(wif, "mainnet");
+      const suppliedMatch = suppliedAddress
+        ? (wallet.addressTypes || []).find(item => item.address === suppliedAddress)
+        : null;
+      const displayAddress = suppliedMatch?.address || wallet.address;
       rows.push({
         id,
         lineNumber: i + 1,
         wif,
         maskedWif: btcMaskBulkValue(wif),
         suppliedAddress,
-        address: wallet.address,
-        maskedAddress: btcMaskBulkValue(wallet.address, 6, 5),
+        address: displayAddress,
+        addressType: suppliedMatch?.key || wallet.selectedAddressType || "legacy_c",
+        maskedAddress: btcMaskBulkValue(displayAddress, 6, 5),
         key: wallet.key,
         label: wallet.label,
         txCount: null,
         balanceSat: null,
         status: "queued",
-        error: suppliedAddress && suppliedAddress !== wallet.address ? "File address does not match the WIF-derived address." : ""
+        error: suppliedAddress && !suppliedMatch ? "File address does not match any address derived from the WIF." : ""
       });
     } catch (err) {
       rows.push({
@@ -13990,12 +14593,18 @@ async function btcLoadBulkWallet(rowId) {
   if (!row || row.status === "invalid" || !row.wif) return;
   try {
     const wallet = btcDetectAndLoadWalletQuiet(row.wif, row.key || "mainnet");
+    const selectedType = row.addressType && BTC_ADDRESS_TYPE_MAP[row.addressType] ? row.addressType : wallet.selectedAddressType || "legacy_c";
+    const selectedAddress = (wallet.addressTypes || []).find(item => item.key === selectedType);
+    wallet.selectedAddressType = selectedType;
+    wallet.addressType = selectedType;
+    wallet.address = selectedAddress?.address || wallet.address;
     state.bitcoin.wallet = {
       ...wallet,
       sourceType: "bulk",
       isWatchOnly: false
     };
     state.bitcoin.selectedNetworkKey = wallet.key;
+    state.bitcoin.selectedAddressType = wallet.selectedAddressType || "legacy_c";
     state.bitcoin.isWatchOnly = false;
     state.bitcoin.watchAddress = null;
     btcUpdateWalletView();
@@ -14225,13 +14834,8 @@ async function btcDeriveSeedWallet(seedPhrase, preferredKey = "mainnet"){
   for (const step of path) {
     node = await btcDeriveBip32Child(node.privateKey, node.chainCode, step.index, step.hardened, info.network);
   }
-  const privateKey = new bitcoinjs.Buffer(node.privateKey);
-  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKey, {
-    network: info.network,
-    compressed: false
-  });
   return {
-    ...btcDetectAndLoadWallet(uncompressedPair.toWIF(), key),
+    ...btcBuildWalletFromPrivateKey(node.privateKey, key, "", "seed", "segwit"),
     sourceType: "seed",
     seedPhrase: mnemonic,
     seedWordCount: mnemonic.split(/\s+/).length,
@@ -14248,14 +14852,8 @@ async function btcDeriveBrainWallet(phrase, preferredKey = "mainnet"){
     throw new Error("Brain wallet phrase produced an invalid private key.");
   }
   const key = preferredKey || "mainnet";
-  const info = btcGetNetworkInfo(key);
-  const privateKey = new bitcoinjs.Buffer(privateKeyBytes);
-  const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(privateKey, {
-    network: info.network,
-    compressed: false
-  });
   return {
-    ...btcDetectAndLoadWallet(uncompressedPair.toWIF(), key),
+    ...btcBuildWalletFromPrivateKey(privateKeyBytes, key, "", "brain", "legacy_c"),
     sourceType: "brain",
     privateKeyHex: btcBytesToHex(privateKeyBytes)
   };
@@ -14263,6 +14861,21 @@ async function btcDeriveBrainWallet(phrase, preferredKey = "mainnet"){
 
 function btcEstimateLegacyP2PKHSize(inputCount, outputCount) {
   return 10 + (inputCount * 148) + (outputCount * 34);
+}
+
+function btcSelectedInputVbytes(wallet = state.bitcoin.wallet) {
+  const selected = btcGetSelectedWalletAddress(wallet);
+  return Number(selected?.inputVbytes || 148);
+}
+
+function btcSelectedOutputVbytes(wallet = state.bitcoin.wallet) {
+  const selected = btcGetSelectedWalletAddress(wallet);
+  return Number(selected?.outputVbytes || 34);
+}
+
+function btcEstimateSpendVbytes(inputCount, outputCount, wallet = state.bitcoin.wallet) {
+  const base = 10;
+  return base + (Math.max(1, inputCount) * btcSelectedInputVbytes(wallet)) + (Math.max(1, outputCount) * btcSelectedOutputVbytes(wallet));
 }
 
 function btcHexToBytes(hex) {
@@ -14279,21 +14892,180 @@ function btcHexToBytes(hex) {
   return new bitcoinjs.Buffer(bytes);
 }
 
-function btcBuildSpendPlan(sumIn, inputCount, outputTotalSat, externalOutputCount, feeRateSatVb) {
+function btcBuildSpendPlan(sumIn, inputCount, outputTotalSat, externalOutputCount, feeRateSatVb, wallet = state.bitcoin.wallet) {
   const spendOutputCount = Math.max(1, Number(externalOutputCount || 1));
-  const feeWithChange = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, spendOutputCount + 1) * feeRateSatVb);
+  const feeWithChange = Math.ceil(btcEstimateSpendVbytes(inputCount, spendOutputCount + 1, wallet) * feeRateSatVb);
   const changeWithChange = sumIn - outputTotalSat - feeWithChange;
   if (changeWithChange >= DUST_P2PKH) {
     return { outputs: spendOutputCount + 1, feeSat: feeWithChange, changeSat: changeWithChange };
   }
 
-  const feeNoChange = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, spendOutputCount) * feeRateSatVb);
+  const feeNoChange = Math.ceil(btcEstimateSpendVbytes(inputCount, spendOutputCount, wallet) * feeRateSatVb);
   const changeNoChange = sumIn - outputTotalSat - feeNoChange;
   if (changeNoChange >= 0) {
     return { outputs: spendOutputCount, feeSat: sumIn - outputTotalSat, changeSat: 0 };
   }
 
   return null;
+}
+
+function btcUint64Bytes(value) {
+  let n = BigInt(Number(value || 0));
+  const out = new Uint8Array(8);
+  for (let i = 0; i < 8; i += 1) {
+    out[i] = Number(n & 255n);
+    n >>= 8n;
+  }
+  return out;
+}
+
+function btcUint32BytesLE(value) {
+  const n = Number(value || 0) >>> 0;
+  return new Uint8Array([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]);
+}
+
+function btcVarInt(value) {
+  const n = Number(value || 0);
+  if (n < 0xfd) return new Uint8Array([n]);
+  if (n <= 0xffff) return new Uint8Array([0xfd, n & 255, (n >>> 8) & 255]);
+  if (n <= 0xffffffff) return btcConcatBytes(new Uint8Array([0xfe]), btcUint32BytesLE(n));
+  return btcConcatBytes(new Uint8Array([0xff]), btcUint64Bytes(n));
+}
+
+function btcReverseBytes(bytes) {
+  return new Uint8Array(Array.from(bytes || []).reverse());
+}
+
+function btcHash256(bytes) {
+  return btcSha256Digest(btcSha256Digest(bytes));
+}
+
+function btcSerializeOutput(output) {
+  const script = new Uint8Array(output.script || []);
+  return btcConcatBytes(btcUint64Bytes(output.amountSat), btcVarInt(script.length), script);
+}
+
+function btcSerializeOutpoint(input) {
+  return btcConcatBytes(btcReverseBytes(btcHexToBytes(input.txid)), btcUint32BytesLE(input.vout));
+}
+
+function btcSerializeTransaction(inputs, outputs, witnesses = null) {
+  const hasWitness = Array.isArray(witnesses);
+  const chunks = [btcUint32BytesLE(2)];
+  if (hasWitness) chunks.push(new Uint8Array([0, 1]));
+  chunks.push(btcVarInt(inputs.length));
+  inputs.forEach(input => {
+    const scriptSig = new Uint8Array(input.scriptSig || []);
+    chunks.push(
+      btcSerializeOutpoint(input),
+      btcVarInt(scriptSig.length),
+      scriptSig,
+      btcUint32BytesLE(input.sequence == null ? 0xffffffff : input.sequence)
+    );
+  });
+  chunks.push(btcVarInt(outputs.length));
+  outputs.forEach(output => chunks.push(btcSerializeOutput(output)));
+  if (hasWitness) {
+    witnesses.forEach(stack => {
+      chunks.push(btcVarInt(stack.length));
+      stack.forEach(item => {
+        const bytes = new Uint8Array(item || []);
+        chunks.push(btcVarInt(bytes.length), bytes);
+      });
+    });
+  }
+  chunks.push(btcUint32BytesLE(0));
+  return btcConcatBytes(...chunks);
+}
+
+function btcBytesXor(a, b) {
+  const left = new Uint8Array(a || []);
+  const right = new Uint8Array(b || []);
+  return left.map((value, index) => value ^ (right[index] || 0));
+}
+
+function btcSchnorrSign(message, privateKeyBytes) {
+  const d0 = btcBigIntFromBytes(privateKeyBytes);
+  if (d0 <= 0n || d0 >= BTC_SECP256K1_ORDER) throw new Error("Invalid Taproot signing key.");
+  const point = btcPointMultiply(d0);
+  const d = (point.y & 1n) === 0n ? d0 : BTC_SECP256K1_ORDER - d0;
+  const pubkey = btcXOnlyBytesFromPoint((point.y & 1n) === 0n ? point : btcPointNeg(point));
+  const aux = new Uint8Array(32);
+  if (crypto?.getRandomValues) crypto.getRandomValues(aux);
+  const t = btcBytesXor(btcBytesFromBigInt(d, 32), btcTaggedHash("BIP0340/aux", aux));
+  const k0 = btcBigIntFromBytes(btcTaggedHash("BIP0340/nonce", t, pubkey, message)) % BTC_SECP256K1_ORDER;
+  if (k0 === 0n) throw new Error("Invalid Taproot nonce.");
+  const rPoint = btcPointMultiply(k0);
+  const k = (rPoint.y & 1n) === 0n ? k0 : BTC_SECP256K1_ORDER - k0;
+  const r = btcXOnlyBytesFromPoint((rPoint.y & 1n) === 0n ? rPoint : btcPointNeg(rPoint));
+  const e = btcBigIntFromBytes(btcTaggedHash("BIP0340/challenge", r, pubkey, message)) % BTC_SECP256K1_ORDER;
+  const s = btcMod(k + (e * d), BTC_SECP256K1_ORDER);
+  return btcConcatBytes(r, btcBytesFromBigInt(s, 32));
+}
+
+function btcTaprootSignatureHash(inputs, outputs, inputIndex) {
+  const input = inputs[inputIndex];
+  const prevouts = btcConcatBytes(...inputs.map(btcSerializeOutpoint));
+  const amounts = btcConcatBytes(...inputs.map(item => btcUint64Bytes(item.value)));
+  const scriptPubkeys = btcConcatBytes(...inputs.map(item => {
+    const script = new Uint8Array(item.scriptPubKey || []);
+    return btcConcatBytes(btcVarInt(script.length), script);
+  }));
+  const sequences = btcConcatBytes(...inputs.map(item => btcUint32BytesLE(item.sequence == null ? 0xffffffff : item.sequence)));
+  const serializedOutputs = btcConcatBytes(...outputs.map(btcSerializeOutput));
+  const sigMsg = btcConcatBytes(
+    new Uint8Array([0]),
+    btcUint32BytesLE(2),
+    btcUint32BytesLE(0),
+    btcSha256Digest(prevouts),
+    btcSha256Digest(amounts),
+    btcSha256Digest(scriptPubkeys),
+    btcSha256Digest(sequences),
+    btcSha256Digest(serializedOutputs),
+    new Uint8Array([0]),
+    btcUint32BytesLE(inputIndex)
+  );
+  if (!input) throw new Error("Invalid Taproot input index.");
+  return btcTaggedHash("TapSighash", new Uint8Array([0]), sigMsg);
+}
+
+function btcBuildTaprootTransaction(selectedUtxos, spendOutputs, plan, signingWallet) {
+  const signingRow = btcGetSelectedWalletAddress(signingWallet);
+  if (!signingRow?.taproot?.tweakedPrivateKey) {
+    throw new Error("Taproot signing data is not available.");
+  }
+  const scriptPubKey = new Uint8Array(signingRow.scriptPubKey || btcAddressToOutputScript(signingRow.address, signingWallet.network));
+  const inputs = selectedUtxos.map(utxo => ({
+    txid: utxo.txid,
+    vout: utxo.vout,
+    value: Number(utxo.value || 0),
+    sequence: 0xffffffff,
+    scriptPubKey,
+    scriptSig: new Uint8Array()
+  }));
+  const outputs = spendOutputs.map(output => ({
+    amountSat: Number(output.amountSat || 0),
+    script: new Uint8Array(output.script || [])
+  }));
+  if (plan.changeSat >= DUST_P2PKH) {
+    outputs.push({
+      amountSat: plan.changeSat,
+      script: btcAddressToOutputScript(signingWallet.address, signingWallet.network)
+    });
+  }
+  const witnesses = inputs.map((_, index) => [
+    btcSchnorrSign(btcTaprootSignatureHash(inputs, outputs, index), signingRow.taproot.tweakedPrivateKey)
+  ]);
+  const baseBytes = btcSerializeTransaction(inputs, outputs, null);
+  const fullBytes = btcSerializeTransaction(inputs, outputs, witnesses);
+  const weight = (baseBytes.length * 4) + (fullBytes.length - baseBytes.length);
+  const vsize = Math.ceil(weight / 4);
+  const txid = btcBytesToHex(btcReverseBytes(btcHash256(baseBytes)));
+  return {
+    rawHex: btcBytesToHex(fullBytes),
+    txid,
+    vsize
+  };
 }
 
 function btcTxDirection(tx) {
@@ -14475,22 +15247,37 @@ async function btcLoadMoreTransactions() {
   if (!state.bitcoin.wallet || state.bitcoin.historyDone) return;
   
   const wallet = state.bitcoin.wallet;
+  const selected = btcGetSelectedWalletAddress(wallet);
+  const activeAddress = selected?.address || wallet.address;
   const url = state.bitcoin.historyCursor 
-    ? `${btcCurrentApi()}/address/${wallet.address}/txs/chain/${state.bitcoin.historyCursor}`
-    : `${btcCurrentApi()}/address/${wallet.address}/txs`;
+    ? `${btcCurrentApi()}/address/${activeAddress}/txs/chain/${state.bitcoin.historyCursor}`
+    : `${btcCurrentApi()}/address/${activeAddress}/txs`;
     
   try {
     const txs = await btcFetchJson(url);
     
     if (Array.isArray(txs) && txs.length > 0) {
       state.bitcoin.history = [...state.bitcoin.history, ...txs];
+      if (selected) selected.history = state.bitcoin.history;
       
       const confirmed = state.bitcoin.history.filter((tx) => tx.status && tx.status.confirmed);
       state.bitcoin.historyCursor = confirmed.length >= 25 ? confirmed[confirmed.length - 1].txid : null;
       state.bitcoin.historyDone = txs.length < 25;
+      if (selected) {
+        selected.historyCursor = state.bitcoin.historyCursor;
+        selected.historyDone = state.bitcoin.historyDone;
+        selected.historyLoaded = true;
+      }
       
       btcRenderHistory();
       btcUpdateLoadMoreButton();
+    } else {
+      state.bitcoin.historyDone = true;
+      if (selected) {
+        selected.historyDone = true;
+        selected.historyLoaded = true;
+      }
+      btcRenderHistory();
     }
   } catch (error) {
     console.error('Error loading more transactions:', error);
@@ -14794,23 +15581,34 @@ async function btcFetchWalletData(withFeeRefresh) {
   const wallet = state.bitcoin.wallet;
   btcSetWalletStatus('Loading wallet data from Blockstream Explorer…', '');
   try {
-    const [stats, utxos] = await Promise.all([
-      btcFetchJson(`${btcCurrentApi()}/address/${wallet.address}`),
-      btcFetchJson(`${btcCurrentApi()}/address/${wallet.address}/utxo`)
-    ]);
-
-    state.bitcoin.utxos = Array.isArray(utxos) ? utxos : [];
-    const chainStats = stats.chain_stats || {};
-    const mempoolStats = stats.mempool_stats || {};
-
-    // Store chain stats for USD calculations
-    state.bitcoin.lastChainStats = chainStats;
-
-    const txCount = Number(chainStats.tx_count || 0) + Number(mempoolStats.tx_count || 0);
-    els.btcBalanceValue.textContent = btcFormatBtcFromSat(btcSummarizeUtxoBalance());
-    els.btcReceivedValue.textContent = btcFormatBtcFromSat(Number(chainStats.funded_txo_sum || 0));
-    els.btcSentValue.textContent = btcFormatBtcFromSat(Number(chainStats.spent_txo_sum || 0));
-    els.btcTxCountValue.textContent = `${txCount} tx`;
+    if (wallet.isWatchOnly || !Array.isArray(wallet.addressTypes) || !wallet.addressTypes.length) {
+      const data = await btcFetchAddressStats(wallet.address, wallet.key);
+      state.bitcoin.utxos = data.utxos;
+      state.bitcoin.lastChainStats = {
+        funded_txo_sum: data.receivedSat,
+        spent_txo_sum: data.sentSat,
+        tx_count: data.txCount
+      };
+      state.bitcoin.history = [];
+      state.bitcoin.historyCursor = null;
+      state.bitcoin.historyDone = false;
+      state.bitcoin.historyTotal = data.txCount;
+      btcUpdateWalletView();
+    } else {
+      await Promise.all(wallet.addressTypes.map(row => btcUpdateAddressRowStats(row, wallet)));
+      const selected = btcSetSelectedWalletAddressType(wallet.selectedAddressType || state.bitcoin.selectedAddressType || "legacy_c", { silent: true });
+      state.bitcoin.history = [];
+      state.bitcoin.historyCursor = null;
+      state.bitcoin.historyDone = false;
+      state.bitcoin.historyTotal = Number(selected?.txCount || 0);
+      if (selected) {
+        selected.history = [];
+        selected.historyCursor = null;
+        selected.historyDone = false;
+        selected.historyLoaded = false;
+      }
+      btcUpdateWalletView();
+    }
 
     // Fetch BTC price and update USD values
     const priceData = await btcFetchPrice();
@@ -14820,17 +15618,15 @@ async function btcFetchWalletData(withFeeRefresh) {
       btcUpdateUsdValues();
     }
 
-    // Reset pagination state
-    state.bitcoin.history = [];
-    state.bitcoin.historyCursor = null;
-    state.bitcoin.historyDone = false;
-    state.bitcoin.historyTotal = txCount;
-    
     // Load initial batch of transactions
     await btcLoadMoreTransactions();
 
+    const selectedAddress = btcGetSelectedWalletAddress(wallet);
+    const selectedBalance = selectedAddress
+      ? Number(selectedAddress.balanceSat || 0)
+      : btcSummarizeUtxoBalance();
     btcSetWalletStatus(
-      `Live data loaded.\nAddress: ${wallet.address}\nAvailable balance: ${btcFormatBtcFromSat(btcSummarizeUtxoBalance())}`,
+      `Live data loaded.\nAddress: ${wallet.address}\nAvailable balance: ${btcFormatBtcFromSat(selectedBalance)}`,
       ''
     );
 
@@ -14876,10 +15672,12 @@ async function btcImportWif() {
       sourceType: "wif",
       isWatchOnly: false
     };
+    state.bitcoin.selectedNetworkKey = wallet.key;
+    state.bitcoin.selectedAddressType = wallet.selectedAddressType || "legacy_c";
     state.bitcoin.isWatchOnly = false;
     state.bitcoin.watchAddress = null;
     btcUpdateWalletView();
-    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. Five address types are ready.`, '');
     
     // Update save button visibility
     updateSaveButtonVisibility();
@@ -14913,10 +15711,12 @@ async function btcImportHex() {
       ...wallet,
       isWatchOnly: false
     };
+    state.bitcoin.selectedNetworkKey = wallet.key;
+    state.bitcoin.selectedAddressType = wallet.selectedAddressType || "legacy_c";
     state.bitcoin.isWatchOnly = false;
     state.bitcoin.watchAddress = null;
     btcUpdateWalletView();
-    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. The uncompressed legacy address is ready.`, '');
+    btcSetWalletStatus(`Wallet loaded for ${wallet.label}. Five address types are ready.`, '');
 
     updateSaveButtonVisibility();
     await btcFetchWalletData(true);
@@ -14933,6 +15733,8 @@ async function btcLoadSeedWallet(seedPhrase, successMessage){
     ...wallet,
     isWatchOnly: false
   };
+  state.bitcoin.selectedNetworkKey = wallet.key;
+  state.bitcoin.selectedAddressType = wallet.selectedAddressType || "legacy_c";
   state.bitcoin.isWatchOnly = false;
   state.bitcoin.watchAddress = null;
   btcUpdateWalletView();
@@ -14980,12 +15782,14 @@ async function btcImportBrainWallet() {
       ...wallet,
       isWatchOnly: false
     };
+    state.bitcoin.selectedNetworkKey = wallet.key;
+    state.bitcoin.selectedAddressType = wallet.selectedAddressType || "legacy_c";
     state.bitcoin.isWatchOnly = false;
     state.bitcoin.watchAddress = null;
     els.btcBrainWalletInput.value = "";
 
     btcUpdateWalletView();
-    btcSetWalletStatus(`Brain wallet loaded for ${wallet.label}. Back up the generated WIF securely.`, '');
+    btcSetWalletStatus(`Brain wallet loaded for ${wallet.label}. Five address types are ready.`, '');
     updateSaveButtonVisibility();
     await btcFetchWalletData(true);
   } catch (error) {
@@ -15000,29 +15804,15 @@ async function btcGenerateWallet() {
     const info = btcGetNetworkInfo(key);
     const sourcePair = bitcoinjs.ECPair.makeRandom({ network: info.network });
     if (!sourcePair.privateKey) throw new Error('Could not generate a private key.');
-    const uncompressedPair = bitcoinjs.ECPair.fromPrivateKey(sourcePair.privateKey, {
-      network: info.network,
-      compressed: false
-    });
-    const address = bitcoinjs.payments.p2pkh({
-      pubkey: uncompressedPair.publicKey,
-      network: info.network
-    }).address;
-    if (!address) throw new Error('Could not derive an address.');
-    const wif = uncompressedPair.toWIF();
 
     state.bitcoin.wallet = {
-      key,
-      network: info.network,
-      label: info.label,
-      inputWif: wif,
+      ...btcBuildWalletFromPrivateKey(sourcePair.privateKey, key, "", "generated", "legacy_c"),
       sourcePair,
-      uncompressedPair,
-      privateKeyHex: btcBytesToHex(sourcePair.privateKey),
       sourceType: "generated",
-      address,
       isWatchOnly: false
     };
+    state.bitcoin.selectedNetworkKey = state.bitcoin.wallet.key;
+    state.bitcoin.selectedAddressType = state.bitcoin.wallet.selectedAddressType || "legacy_c";
     state.bitcoin.isWatchOnly = false;
     state.bitcoin.watchAddress = null;
 
@@ -15112,6 +15902,11 @@ function btcDrawWalletPdfExtraDetails(pdf, wallet){
   const details = [];
   const hex = btcWalletPrivateKeyHex(wallet);
   if (hex) details.push(`Hex: ${hex}`);
+  if (wallet.compressedWif) details.push(`WIF (c): ${wallet.compressedWif}`);
+  if (wallet.uncompressedWif) details.push(`WIF (u): ${wallet.uncompressedWif}`);
+  if (Array.isArray(wallet.addressTypes)) {
+    wallet.addressTypes.forEach(row => details.push(`${row.label}: ${row.address}`));
+  }
   if (wallet.seedPhrase) details.push(`Seed phrase: ${wallet.seedPhrase}`);
   if (!details.length) return;
 
@@ -15513,7 +16308,7 @@ function updateSaveButtonVisibility() {
     if (state.bitcoin.wallet.isWatchOnly) {
       els.btcSaveAddressBtn.textContent = 'Save Watch Wallet';
     } else {
-      els.btcSaveAddressBtn.textContent = 'Save Wallet';
+      els.btcSaveAddressBtn.textContent = 'Save selected';
     }
   }
 }
@@ -15546,7 +16341,7 @@ async function loadSelectedAddress(wallet) {
   // Always load as watch-only address when selecting from existing list
   els.btcWatchWalletBtn.click();
   els.btcAddressInput.value = wallet.address;
-  state.bitcoin.selectedNetworkKey = wallet.network;
+  state.bitcoin.selectedNetworkKey = wallet.network || btcDetectAddressNetworkKey(wallet.address, "mainnet");
   
   // Directly set up watch wallet without going through btcWatchAddress function
   try {
@@ -15583,13 +16378,13 @@ async function loadSavedBitcoinWallet(address, network, isWatchOnly) {
   try {
     if (isWatchOnly) {
       // Load as watch-only wallet
-      state.bitcoin.selectedNetworkKey = network;
+      state.bitcoin.selectedNetworkKey = network || btcDetectAddressNetworkKey(address, "mainnet");
       state.bitcoin.isWatchOnly = true;
       state.bitcoin.watchAddress = address;
       state.bitcoin.wallet = {
         address: address,
-        key: network,
-        label: network.charAt(0).toUpperCase() + network.slice(1),
+        key: state.bitcoin.selectedNetworkKey,
+        label: btcGetNetworkInfo(state.bitcoin.selectedNetworkKey).label,
         isWatchOnly: true
       };
       
@@ -15903,7 +16698,7 @@ function btcCollectRecipientOutputs(signingWallet) {
 
     let outputScript;
     try {
-      outputScript = bitcoinjs.address.toOutputScript(address, signingWallet.network);
+      outputScript = btcAddressToOutputScript(address, signingWallet.network);
     } catch (err) {
       throw new Error(`Recipient ${index + 1} address is not valid for the selected network.`);
     }
@@ -15928,7 +16723,7 @@ function btcBuildGuestServiceFeeOutput(signingWallet) {
   const amountSat = btcGetGuestServiceFeeSat();
   let outputScript;
   try {
-    outputScript = bitcoinjs.address.toOutputScript(BTC_GUEST_SERVICE_FEE_ADDRESS, signingWallet.network);
+    outputScript = btcAddressToOutputScript(BTC_GUEST_SERVICE_FEE_ADDRESS, signingWallet.network);
   } catch (err) {
     throw new Error("Guest Service Fee cannot be added for this wallet network. Use a mainnet Bitcoin wallet.");
   }
@@ -15940,11 +16735,29 @@ function btcBuildGuestServiceFeeOutput(signingWallet) {
   };
 }
 
+function btcUpdateSendFromAddress() {
+  if (!els.btcSendFromAddress) return;
+  const wallet = state.bitcoin.wallet;
+  if (!wallet) {
+    els.btcSendFromAddress.textContent = "Load a wallet first.";
+    return;
+  }
+  const selected = btcGetSelectedWalletAddress(wallet);
+  const label = selected?.label || (wallet.isWatchOnly ? "Watch" : "Address");
+  const balanceSat = selected ? Number(selected.balanceSat || 0) : btcSummarizeUtxoBalance();
+  els.btcSendFromAddress.innerHTML = `
+    <span>From <strong>${escapeHtml(label)}</strong></span>
+    <code>${escapeHtml(wallet.address || selected?.address || "")}</code>
+    <em>${escapeHtml(btcFormatPlainBtcFromSat(balanceSat))} BTC available</em>
+  `;
+}
+
 async function btcOpenSendModal() {
   if (!state.bitcoin.wallet) return;
   btcUpdateRecipientRows();
   btcUpdateGuestBitcoinUi();
   btcUpdateGuestFeeDisplay();
+  btcUpdateSendFromAddress();
   btcUpdateSendPreview();
   if (!state.bitcoin.btcPrice) {
     btcSetSendStatus("Loading BTC/USD price for USD conversion...", "");
@@ -16002,7 +16815,7 @@ async function btcUseMaxAmount() {
   }
 
   const outputCount = 1 + otherRecipientCount + (guestFeeSat > 0 ? 1 : 0);
-  const feeNoChange = Math.ceil(btcEstimateLegacyP2PKHSize(inputCount, outputCount) * feeRate);
+  const feeNoChange = Math.ceil(btcEstimateSpendVbytes(inputCount, outputCount, state.bitcoin.wallet) * feeRate);
   const maxSat = Math.max(0, balance - otherRecipientSat - guestFeeSat - feeNoChange);
   const btcInput = firstRow.querySelector(".btc-recipient-btc");
   if (btcInput) {
@@ -16267,7 +17080,27 @@ function btcExtractWifFromQrText(text){
 }
 
 function btcIsValidBitcoinAddress(address){
-  return /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[ac-hj-np-z02-9]{8,87}$/i.test(String(address || "").trim());
+  const cleaned = String(address || "").trim();
+  if (!cleaned) return false;
+  return ["mainnet", "testnet", "signet"].some(key => {
+    try {
+      btcAddressToOutputScript(cleaned, btcGetNetworkInfo(key).network);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function btcDetectAddressNetworkKey(address, fallback = "mainnet") {
+  const cleaned = String(address || "").trim();
+  for (const key of ["mainnet", "testnet", "signet"]) {
+    try {
+      btcAddressToOutputScript(cleaned, btcGetNetworkInfo(key).network);
+      return key;
+    } catch {}
+  }
+  return fallback;
 }
 
 function btcExtractAddressFromQrText(text){
@@ -16366,7 +17199,8 @@ function btcHandleScannedQrText(text){
   if (state.bitcoin.wallet?.isWatchOnly) {
     try {
       const signingWallet = btcDetectAndLoadWallet(wif, state.bitcoin.wallet.key);
-      if (signingWallet.address !== state.bitcoin.wallet.address) {
+      const matches = (signingWallet.addressTypes || []).some(row => row.address === state.bitcoin.wallet.address);
+      if (!matches) {
         btcSetSendStatus("WIF scanned, but it does not match this watch-only address.", "");
       } else {
         btcSetSendStatus("WIF scanned and matched this watch-only wallet.", "success");
@@ -16498,15 +17332,17 @@ async function btcBuildAndBroadcast() {
     try {
       // Create temporary signing wallet from provided WIF
       const signingKeyPair = btcDetectAndLoadWallet(wif, wallet.key);
-      if (signingKeyPair.address !== wallet.address) {
+      const matchingAddress = (signingKeyPair.addressTypes || []).find(row => row.address === wallet.address);
+      if (!matchingAddress) {
         btcSetSendStatus('Provided WIF does not match the watch-only wallet address.', '');
         return;
       }
       signingWallet = {
-        ...wallet,
-        wif: wif,
-        uncompressedPair: signingKeyPair.uncompressedPair,
-        network: signingKeyPair.network,
+        ...signingKeyPair,
+        inputWif: wif,
+        selectedAddressType: matchingAddress.key,
+        addressType: matchingAddress.key,
+        address: matchingAddress.address,
         isWatchOnly: false // Temporary override for signing
       };
     } catch (err) {
@@ -16552,7 +17388,7 @@ async function btcBuildAndBroadcast() {
   for (const utxo of utxos) {
     selected.push(utxo);
     totalIn += Number(utxo.value || 0);
-    plan = btcBuildSpendPlan(totalIn, selected.length, outputTotalSat, spendOutputs.length, feeRateSatVb);
+    plan = btcBuildSpendPlan(totalIn, selected.length, outputTotalSat, spendOutputs.length, feeRateSatVb, signingWallet);
     if (plan) break;
   }
 
@@ -16567,34 +17403,63 @@ async function btcBuildAndBroadcast() {
   btcSetSendStatus('Fetching previous transactions and assembling the spend…', '');
 
   try {
-    const prevHexes = await Promise.all(selected.map((u) => btcFetchText(`${btcCurrentApi()}/tx/${u.txid}/hex`)));
-    const psbt = new bitcoinjs.Psbt({ network: signingWallet.network });
+    const signingRow = btcGetSelectedWalletAddress(signingWallet);
+    if (!signingRow) throw new Error("No signing address type is selected.");
+    let rawHex;
+    let txid = "";
+    let exactVSize = 0;
+    if (signingRow.scriptType === "p2tr") {
+      const built = btcBuildTaprootTransaction(selected, spendOutputs, plan, signingWallet);
+      rawHex = built.rawHex;
+      txid = built.txid;
+      exactVSize = built.vsize;
+    } else {
+      const needsPrevHex = signingRow.scriptType === "p2pkh";
+      const prevHexes = needsPrevHex
+        ? await Promise.all(selected.map((u) => btcFetchText(`${btcCurrentApi()}/tx/${u.txid}/hex`)))
+        : [];
+      const psbt = new bitcoinjs.Psbt({ network: signingWallet.network });
+      const signingScript = signingRow.scriptPubKey || btcAddressToOutputScript(signingRow.address, signingWallet.network);
 
-    for (let i = 0; i < selected.length; i++) {
-      const utxo = selected[i];
-      psbt.addInput({
-        hash: utxo.txid,
-        index: utxo.vout,
-        nonWitnessUtxo: btcHexToBytes(prevHexes[i])
+      for (let i = 0; i < selected.length; i++) {
+        const utxo = selected[i];
+        const input = {
+          hash: utxo.txid,
+          index: utxo.vout
+        };
+        if (signingRow.scriptType === "p2pkh") {
+          input.nonWitnessUtxo = btcHexToBytes(prevHexes[i]);
+        } else {
+          input.witnessUtxo = {
+            script: signingScript,
+            value: Number(utxo.value || 0)
+          };
+          if (signingRow.scriptType === "p2sh-p2wpkh") {
+            input.redeemScript = signingRow.redeemScript;
+          }
+        }
+        psbt.addInput(input);
+      }
+
+      spendOutputs.forEach(output => {
+        psbt.addOutput({ script: output.script, value: output.amountSat });
       });
+
+      if (plan.changeSat >= DUST_P2PKH) {
+        psbt.addOutput({ address: signingWallet.address, value: plan.changeSat });
+      }
+
+      const pair = signingRow.pair || signingWallet.compressedPair || signingWallet.uncompressedPair;
+      for (let i = 0; i < selected.length; i++) {
+        psbt.signInput(i, pair);
+      }
+      psbt.finalizeAllInputs();
+
+      const tx = psbt.extractTransaction();
+      rawHex = tx.toHex();
+      txid = tx.getId();
+      exactVSize = tx.virtualSize();
     }
-
-    spendOutputs.forEach(output => {
-      psbt.addOutput({ script: output.script, value: output.amountSat });
-    });
-
-    if (plan.changeSat >= DUST_P2PKH) {
-      psbt.addOutput({ address: signingWallet.address, value: plan.changeSat });
-    }
-
-    for (let i = 0; i < selected.length; i++) {
-      psbt.signInput(i, signingWallet.uncompressedPair);
-    }
-    psbt.finalizeAllInputs();
-
-    const tx = psbt.extractTransaction();
-    const rawHex = tx.toHex();
-    const exactVSize = tx.virtualSize();
     const changeValue = plan.changeSat >= DUST_P2PKH ? plan.changeSat : 0;
     const exactFee = totalIn - outputTotalSat - changeValue;
     const actualRate = exactFee / exactVSize;
@@ -16609,9 +17474,9 @@ async function btcBuildAndBroadcast() {
       body: rawHex
     });
 
-    const txid = String(broadcast || '').trim();
+    txid = String(broadcast || '').trim() || txid;
     btcSetSendStatus(
-      `Broadcast accepted.\nTxid: ${txid || tx.getId()}\nRecipient total: ${btcFormatBtcFromSat(recipientTotalSat)}${guestFeeOutput ? `\nGuest Service Fee: ${btcFormatBtcFromSat(guestFeeOutput.amountSat)}` : ""}\nNetwork fee: ${btcFormatBtcFromSat(exactFee)}\nThe wallet data will refresh now.`,
+      `Broadcast accepted.\nTxid: ${txid}\nRecipient total: ${btcFormatBtcFromSat(recipientTotalSat)}${guestFeeOutput ? `\nGuest Service Fee: ${btcFormatBtcFromSat(guestFeeOutput.amountSat)}` : ""}\nNetwork fee: ${btcFormatBtcFromSat(exactFee)}\nThe wallet data will refresh now.`,
       ''
     );
 
@@ -16619,7 +17484,7 @@ async function btcBuildAndBroadcast() {
     const toSummary = recipientOutputs.length === 1
       ? recipientOutputs[0].address
       : `${recipientOutputs.length} recipients`;
-    showBtcTransactionSuccessOverlay(outputTotalSat, guestFeeOutput ? `${toSummary} + Guest Service Fee` : toSummary, txid || tx.getId());
+    showBtcTransactionSuccessOverlay(outputTotalSat, guestFeeOutput ? `${toSummary} + Guest Service Fee` : toSummary, txid);
 
     await btcFetchWalletData(false);
   } catch (err) {
@@ -16653,15 +17518,20 @@ function btcBindUI() {
   els.btcGenerateBtn.addEventListener('click', btcGenerateWallet);
   els.btcDownloadWalletPdfBtn.addEventListener('click', btcDownloadWalletPdf);
   els.btcClearBtn.addEventListener('click', btcClearSession);
+  els.btcWalletDetails?.addEventListener('click', btcHandleWalletCopyClick);
+  els.btcAddressTypeList?.addEventListener('click', async event => {
+    if (await btcHandleWalletCopyClick(event)) return;
+    const row = event.target.closest?.('[data-btc-address-type]');
+    if (row?.dataset?.btcAddressType) {
+      await btcSelectAddressType(row.dataset.btcAddressType);
+      updateSaveButtonVisibility();
+    }
+  });
   els.btcCopyWifBtn.addEventListener('click', async () => {
     if (!state.bitcoin.wallet) return;
     try {
-      await btcCopyText(state.bitcoin.wallet.inputWif);
-      const oldText = els.btcCopyWifBtn.textContent;
-      els.btcCopyWifBtn.textContent = 'Copied';
-      setTimeout(() => {
-        els.btcCopyWifBtn.textContent = oldText;
-      }, 1000);
+      await btcCopyText(state.bitcoin.wallet.compressedWif || state.bitcoin.wallet.inputWif);
+      btcFlashCopied(els.btcCopyWifBtn, "Copy");
     } catch (err) {
       btcSetWalletStatus('Could not copy WIF.', '');
     }
@@ -16671,11 +17541,15 @@ function btcBindUI() {
       btcSetWalletStatus('No wallet loaded to save.', 'error');
       return;
     }
+    const selected = btcGetSelectedWalletAddress(state.bitcoin.wallet);
+    const label = selected
+      ? `${selected.label} ${selected.address}`
+      : state.bitcoin.wallet.address;
     
     // Save directly using the address as the label
     await saveBitcoinWallet(
       state.bitcoin.wallet.address, 
-      state.bitcoin.wallet.address, 
+      label, 
       state.bitcoin.wallet.key, 
       state.bitcoin.isWatchOnly
     );
@@ -16685,25 +17559,27 @@ function btcBindUI() {
   els.btcCopyAddressInfoBtn.addEventListener('click', async () => {
     if (!state.bitcoin.wallet) return;
     try {
-      await btcCopyText(state.bitcoin.wallet.address);
-      const oldText = els.btcCopyAddressInfoBtn.textContent;
-      els.btcCopyAddressInfoBtn.textContent = 'Copied';
-      els.btcCopyAddressInfoBtn.disabled = true;
-      setTimeout(() => {
-        els.btcCopyAddressInfoBtn.textContent = oldText;
-        els.btcCopyAddressInfoBtn.disabled = false;
-      }, 1000);
+      await btcCopyText(btcWalletCopyValue("selected-address"));
+      btcFlashCopied(els.btcCopyAddressInfoBtn, "Copy");
     } catch (err) {
       console.error('Could not copy address');
     }
   });
   els.btcRefreshBtn.addEventListener('click', () => btcFetchWalletData(true));
   els.btcSendBtn.addEventListener('click', btcOpenSendModal);
-  els.btcReceiveBtn.addEventListener('click', () => {
-    if (state.bitcoin.wallet) {
-      els.btcReceiveModal.classList.remove('hide');
-      els.btcReceiveAddress.textContent = state.bitcoin.wallet.address;
-      btcRenderQR(`bitcoin:${state.bitcoin.wallet.address}`);
+  els.btcReceiveBtn.addEventListener('click', btcOpenReceiveModal);
+  els.btcReceiveAddressList?.addEventListener('click', event => {
+    const chip = event.target.closest?.('[data-btc-receive-type]');
+    if (chip?.dataset?.btcReceiveType) btcRenderReceiveModal(chip.dataset.btcReceiveType);
+  });
+  els.btcCopyAddressBtn.addEventListener('click', async () => {
+    const value = String(els.btcReceiveAddress?.textContent || "").trim();
+    if (!value) return;
+    try {
+      await btcCopyText(value);
+      btcFlashCopied(els.btcCopyAddressBtn, "Copy address");
+    } catch {
+      btcSetWalletStatus("Could not copy receive address.", "");
     }
   });
   els.btcDownloadPdfBtn.addEventListener('click', btcDownloadPDF);
