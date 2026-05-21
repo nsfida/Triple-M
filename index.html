@@ -1485,24 +1485,44 @@
 
           <!-- Wallet Info Section (hidden until logged in) -->
           <div id="btcWalletInfoSection" class="hide" style="margin-bottom:14px;">
-            <div class="card">
+            <div class="card btc-wallet-card">
               <div style="padding:14px;">
-                <div style="margin-bottom:12px;">
-                  <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet WIF (Private Key)</label>
-                  <div style="display:flex;gap:10px;align-items:center;">
-                    <div id="btcMaskedWif" class="input" style="background:var(--panel-2);flex:1;">WIF masked after login</div>
-                    <button id="btcCopyWifBtn" class="btn ghost">Copy</button>
+                <div id="btcWalletDetails" class="btc-wallet-details">
+                  <div class="btc-detail-line btc-detail-line-hex">
+                    <span class="btc-detail-label">HEX:</span>
+                    <code id="btcPrivateHexValue" class="btc-detail-value">Private key after login</code>
+                    <button class="btc-copy-icon" type="button" data-btc-copy="hex" title="Copy HEX private key" aria-label="Copy HEX private key"><i class="fa-solid fa-copy"></i></button>
+                  </div>
+                  <div class="btc-detail-line">
+                    <span class="btc-detail-label">WIF (c):</span>
+                    <code id="btcWifCompressedValue" class="btc-detail-value">Compressed WIF</code>
+                    <button class="btc-copy-icon" type="button" data-btc-copy="wif-compressed" title="Copy compressed WIF" aria-label="Copy compressed WIF"><i class="fa-solid fa-copy"></i></button>
+                    <span class="btc-detail-address-label">Address:</span>
+                    <code id="btcLegacyCompressedValue" class="btc-detail-value btc-detail-address">Compressed address</code>
+                    <button class="btc-copy-icon" type="button" data-btc-copy="legacy-compressed" title="Copy compressed legacy address" aria-label="Copy compressed legacy address"><i class="fa-solid fa-copy"></i></button>
+                  </div>
+                  <div class="btc-detail-line">
+                    <span class="btc-detail-label">WIF (u):</span>
+                    <code id="btcWifUncompressedValue" class="btc-detail-value">Uncompressed WIF</code>
+                    <button class="btc-copy-icon" type="button" data-btc-copy="wif-uncompressed" title="Copy uncompressed WIF" aria-label="Copy uncompressed WIF"><i class="fa-solid fa-copy"></i></button>
+                    <span class="btc-detail-address-label">Address:</span>
+                    <code id="btcLegacyUncompressedValue" class="btc-detail-value btc-detail-address">Uncompressed address</code>
+                    <button class="btc-copy-icon" type="button" data-btc-copy="legacy-uncompressed" title="Copy uncompressed legacy address" aria-label="Copy uncompressed legacy address"><i class="fa-solid fa-copy"></i></button>
                   </div>
                 </div>
-                <div style="margin-bottom:12px;">
-                  <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet Address</label>
-                  <div style="display:flex;gap:10px;align-items:center;">
-                    <div id="btcWalletAddress" class="input" style="background:var(--panel-2);flex:1;">Address after login</div>
-                    <button id="btcCopyAddressInfoBtn" class="btn ghost">Copy</button>
-                    <button id="btcSaveAddressBtn" class="btn primary" style="display:none;">Save</button>
+                <div id="btcMaskedWif" class="hide">WIF masked after login</div>
+                <button id="btcCopyWifBtn" class="hide" type="button">Copy</button>
+                <div id="btcWalletAddress" class="hide">Address after login</div>
+                <button id="btcCopyAddressInfoBtn" class="hide" type="button">Copy</button>
+                <div class="btc-address-types-head">
+                  <div>
+                    <h4>Addresses</h4>
+                    <p id="btcSelectedAddressHelp">Select which address type to use for sending, receiving, history, and live UTXOs.</p>
                   </div>
-                  <div id="btcGuestSaveNotice" class="btc-guest-save-notice hide">Saving addresses is not available in Guest Mode.</div>
+                  <button id="btcSaveAddressBtn" class="btn primary" type="button" style="display:none;">Save selected</button>
                 </div>
+                <div id="btcGuestSaveNotice" class="btc-guest-save-notice hide">Saving addresses is not available in Guest Mode.</div>
+                <div id="btcAddressTypeList" class="btc-address-type-list"></div>
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;" class="btc-summary-grid">
                   <div class="summary">
                     <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Available balance</div>
@@ -2578,6 +2598,9 @@
         <form id="btcSendForm">
           <div class="modal-grid">
             <div class="field w12">
+              <div id="btcSendFromAddress" class="btc-send-from-box">From address appears after wallet selection.</div>
+            </div>
+            <div class="field w12">
               <div class="btc-recipient-head">
                 <label>Recipients</label>
                 <button id="btcAddRecipientBtn" class="btn ghost" type="button"><i class="fa-solid fa-plus"></i> Add Recipient</button>
@@ -2695,10 +2718,11 @@
         <button class="icon-btn ghost" type="button" data-close-modal="btcReceiveModal" aria-label="Close">×</button>
       </div>
       <div class="modal-body">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+          <div id="btcReceiveAddressList" class="btc-receive-address-list"></div>
           <div id="btcQrBox" style="width:220px;height:220px;display:flex;align-items:center;justify-content:center;background:white;border-radius:18px;padding:12px;"></div>
           <div style="text-align:center;">
-            <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Receive address</div>
+            <div id="btcReceiveAddressLabel" style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Receive address</div>
             <div id="btcReceiveAddress" class="input" style="background:var(--panel-2);text-align:center;font-size:.88rem;word-break:break-all;"></div>
             <div style="margin-top:12px;">
               <button id="btcCopyAddressBtn" class="btn ghost">Copy address</button>
