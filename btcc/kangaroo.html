@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollard's Kangaroo Algorithm (secp256k1)</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #38bdf8;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 10px;
+        }
+        .panel {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .flex {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .col {
+            flex: 1;
+            min-width: 300px;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            font-size: 0.85em;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #f8fafc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-top: 15px;
+        }
+        button {
+            padding: 10px 16px;
+            margin-top: 12px;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: monospace;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        button:hover { background: #1d4ed8; }
+        .btn-green { background: #059669; }
+        .btn-green:hover { background: #047857; }
+        .btn-yellow { background: #d97706; }
+        .btn-yellow:hover { background: #b45309; }
+        .btn-red { background: #dc2626; }
+        .btn-red:hover { background: #b91c1c; }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        .input-group input { margin-top: 0; }
+        .input-group button { margin-top: 0; white-space: nowrap; width: auto; }
+
+        canvas {
+            width: 100%;
+            height: 250px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: block;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .stat-box {
+            background: #334155;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #475569;
+        }
+        .stat-label {
+            font-size: 0.8em;
+            color: #cbd5e1;
+            text-transform: uppercase;
+        }
+        .stat-val {
+            display: block;
+            font-size: 1em; /* Reduced size to fit 64 chars */
+            font-weight: bold;
+            margin-top: 8px;
+            word-break: break-all;
+        }
+        
+        .highlight { color: #34d399; }
+        .tame-color { color: #38bdf8; }
+        .wild-color { color: #f87171; }
+        
+        .result-box {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px dashed #475569;
+            margin-top: 15px;
+        }
+        code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+        
+        ol li { margin-bottom: 10px; color: #cbd5e1; line-height: 1.5; }
+        ol li strong { color: #f8fafc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Pollard's Kangaroo Algorithm (Real secp256k1)</h2>
+    
+    <div class="panel flex">
+        <div class="col">
+            <label>Range Start (a) [HEX]</label>
+            <input type="text" id="in-start" value="00000000000000000000000000000000000000000000000000000000000f4240">
+            
+            <label>Range End (b) [HEX]</label>
+            <input type="text" id="in-end" value="00000000000000000000000000000000000000000000000000000000000f6970">
+            
+            <label>Hidden Private Key (x) [HEX]</label>
+            <div class="input-group">
+                <input type="text" id="in-priv" placeholder="Enter x or Generate">
+                <button id="btn-gen-priv" class="btn-yellow">Generate Random</button>
+            </div>
+            
+            <button id="btn-calc-pub">Calculate Public Key (P) from x</button>
+        </div>
+        
+        <div class="col">
+            <label>Target Public Key P (Hex)</label>
+            <input type="text" id="in-pub" placeholder="Uncompressed or Compressed Hex">
+            
+            <label>Jump Table Size (k)</label>
+            <div class="input-group">
+                <input type="number" id="in-k" value="8">
+                <button id="btn-calc-k" class="btn-yellow">Auto-Calculate</button>
+            </div>
+            
+            <label>Animation Speed (Delay ms)</label>
+            <input type="range" id="in-speed" min="0" max="200" value="20">
+        </div>
+    </div>
+
+    <div class="panel flex" style="gap: 10px;">
+        <button id="btn-start" class="btn-green">Start Kangaroo</button>
+        <button id="btn-pause" class="btn-yellow">Pause</button>
+        <button id="btn-reset" class="btn-red">Reset</button>
+    </div>
+
+    <canvas id="canvas" width="1000" height="250"></canvas>
+
+    <div class="panel stats">
+        <div class="stat-box" style="grid-column: span 2;">
+            <div class="stat-label">Tame Position (b + d_T) [HEX]</div>
+            <div class="stat-val tame-color" id="st-tame-pos">0000000000000000000000000000000000000000000000000000000000000000</div>
+        </div>
+        <div class="stat-box" style="grid-column: span 2;">
+            <div class="stat-label">Wild Position (x + d_W) [HEX]</div>
+            <div class="stat-val wild-color" id="st-wild-pos">0000000000000000000000000000000000000000000000000000000000000000</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Tame Dist (d_T)</div>
+            <div class="stat-val" id="st-tame-dist" style="font-size: 1.3em;">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Wild Dist (d_W)</div>
+            <div class="stat-val" id="st-wild-dist" style="font-size: 1.3em;">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Total Steps</div>
+            <div class="stat-val" id="st-steps" style="font-size: 1.3em;">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Traps Set</div>
+            <div class="stat-val" id="st-dps" style="font-size: 1.3em;">0</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 style="margin-top: 0;">Algorithm Result</h3>
+        <p><strong>Collision Status:</strong> <span id="st-collision">Not Started</span></p>
+        <div class="result-box">
+            <p><strong>Collision Formula:</strong> <code>x = (b + d_T - d_W) mod n</code></p>
+            <p><strong>Recovered Private Key (x):</strong> <span id="st-recovered" class="stat-val highlight" style="word-break: break-all;">None</span></p>
+            <p><strong>Verification:</strong> <span id="st-verify">N/A</span></p>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 style="margin-top: 0;">How it Works</h3>
+        <ol>
+            <li><strong>What G means:</strong> <code>G</code> is the known Generator point of the secp256k1 elliptic curve. It is the universal starting point for Bitcoin keys.</li>
+            <li><strong>What public key means:</strong> The public key <code>P</code> is mathematically derived by multiplying the generator by the private key: <code>P = x * G</code>. Finding <code>x</code> from <code>P</code> is the Discrete Logarithm Problem.</li>
+            <li><strong>What tame kangaroo does:</strong> It starts at the upper boundary <code>b</code> of the known range and executes a deterministic, pseudo-random walk based on point coordinates. Periodically, it drops "Distinguished Points" (markers) into a Map to record its path.</li>
+            <li><strong>What wild kangaroo does:</strong> It starts at the unknown target public point <code>P</code>. It uses the exact same deterministic walk logic. If its path intersects the tame kangaroo's trail, it will unwittingly follow it and hit a stored marker.</li>
+            <li><strong>What collision means:</strong> A collision occurs when Wild hits a Tame marker (or vice versa). Because their absolute curve positions are perfectly equal at that moment, we know exactly how far each kangaroo traveled to get there. We can then solve for the original starting distance <code>x</code> using simple arithmetic.</li>
+        </ol>
+    </div>
+</div>
+
+<script type="module">
+    // Import real secp256k1 library from ESM CDN
+    import * as secp from "https://esm.sh/@noble/secp256k1@1.7.1";
+
+    const G = secp.Point.BASE;
+    const n = secp.CURVE.n;
+
+    // DOM Elements
+    const inStart = document.getElementById("in-start");
+    const inEnd = document.getElementById("in-end");
+    const inPriv = document.getElementById("in-priv");
+    const inPub = document.getElementById("in-pub");
+    const inK = document.getElementById("in-k");
+    const inSpeed = document.getElementById("in-speed");
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Algorithm State
+    let a = 0n, b = 0n;
+    let jumpTable = [];
+    let k = 8;
+    let dpMask = 15n; // Determines frequency of distinguished points
+    
+    let isRunning = false;
+    let isPaused = false;
+    let animationFrameId = null;
+
+    let wildStartX = 0n; // Solved quietly for drawing purposes only
+    let wildStartP = null;
+
+    let tameState = { point: null, dist: 0n, pos: 0n };
+    let wildState = { point: null, dist: 0n, pos: 0n };
+    
+    let tamePath = [];
+    let wildPath = [];
+    
+    const tameMap = new Map();
+    const wildMap = new Map();
+    let steps = 0;
+
+    // Viewport bounds for canvas
+    let visualA = 0n;
+    let visualB = 0n;
+
+    // Helper: Parse Hex String to BigInt safely
+    const parseHex = (val) => {
+        let str = val.trim().replace(/^0x/i, "");
+        return str ? BigInt("0x" + str) : 0n;
+    };
+
+    // Helper: Random BigInt in range
+    function randomBigIntInRange(min, max) {
+        const range = max - min;
+        let hex = "0x";
+        for (let i = 0; i < 16; i++) hex += Math.floor(Math.random() * 16).toString(16);
+        return min + (BigInt(hex) % range);
+    }
+
+    // Initialize UI Handlers
+    document.getElementById("btn-gen-priv").onclick = () => {
+        let A = parseHex(inStart.value);
+        let B = parseHex(inEnd.value);
+        if (A >= B) { alert("Start range must be less than End range."); return; }
+        inPriv.value = randomBigIntInRange(A, B).toString(16).padStart(64, '0');
+        document.getElementById("btn-calc-pub").click();
+    };
+
+    document.getElementById("btn-calc-pub").onclick = () => {
+        try {
+            let priv = parseHex(inPriv.value);
+            if (priv <= 0n || priv >= n) throw new Error("Out of curve bounds");
+            let pub = G.multiply(priv);
+            inPub.value = pub.toHex(false); // Uncompressed hex
+        } catch(e) {
+            alert("Invalid private key. Must be a valid hex integer.");
+        }
+    };
+
+    document.getElementById("btn-calc-k").onclick = () => {
+        let A = parseHex(inStart.value);
+        let B = parseHex(inEnd.value);
+        let W = Number(B - A);
+        if (W <= 0) return;
+        
+        let targetMean = Math.sqrt(W) / 2;
+        let bestK = 1;
+        while(true) {
+            let mean = ((1 << bestK) - 1) / bestK;
+            if (mean >= targetMean || bestK >= 24) break;
+            bestK++;
+        }
+        inK.value = bestK;
+    };
+
+    function initJumps(kValue) {
+        k = kValue;
+        jumpTable = [];
+        for (let i = 0; i < k; i++) {
+            const dist = 1n << BigInt(i);
+            jumpTable.push({
+                dist: dist,
+                point: G.multiply(dist)
+            });
+        }
+        // Capture approx 1/16 of points as distinguished points
+        dpMask = 15n; 
+    }
+
+    function getJumpIndex(point) {
+        // Use lower 32 bits of X coordinate to pseudo-randomly pick next jump
+        let low = Number(BigInt.asUintN(32, point.x));
+        return low % k;
+    }
+
+    function isDP(point) {
+        let low = Number(BigInt.asUintN(32, point.x));
+        return (low & Number(dpMask)) === 0;
+    }
+
+    function updateUI() {
+        document.getElementById("st-tame-pos").innerText = tameState.pos.toString(16).padStart(64, '0');
+        document.getElementById("st-wild-pos").innerText = wildState.pos.toString(16).padStart(64, '0');
+        document.getElementById("st-tame-dist").innerText = tameState.dist.toString();
+        document.getElementById("st-wild-dist").innerText = wildState.dist.toString();
+        document.getElementById("st-steps").innerText = steps.toString();
+        document.getElementById("st-dps").innerText = (tameMap.size + wildMap.size).toString();
+    }
+
+    function handleCollision(tDist, wDist) {
+        isRunning = false;
+        
+        // Key recovery formula: x = (b + d_T - d_W) mod n
+        let recoveredX = (b + tDist - wDist) % n;
+        if (recoveredX < 0n) recoveredX += n;
+        
+        document.getElementById("st-collision").innerText = "COLLISION FOUND!";
+        document.getElementById("st-collision").className = "highlight stat-val";
+        document.getElementById("st-recovered").innerText = recoveredX.toString(16).padStart(64, '0');
+        
+        // Cryptographic Verification
+        let checkP = G.multiply(recoveredX);
+        if (checkP.equals(wildStartP)) {
+            document.getElementById("st-verify").innerText = "✅ SUCCESS: Recovered key matches Public Key";
+            document.getElementById("st-verify").className = "highlight";
+        } else {
+            document.getElementById("st-verify").innerText = "❌ FAILED: Derived P does not match Target P";
+            document.getElementById("st-verify").className = "wild-color";
+        }
+        draw();
+    }
+
+    function updateBounds() {
+        let maxPos = tameState.pos > wildState.pos ? tameState.pos : wildState.pos;
+        if (maxPos > visualB - (visualB - visualA)/10n) {
+            visualB = maxPos + (maxPos - visualA)/5n;
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const padX = 60;
+        const width = canvas.width - 2 * padX;
+        const midY = canvas.height / 2;
+
+        updateBounds();
+        let range = visualB - visualA;
+        if (range <= 0n) range = 1n;
+
+        function getX(val) {
+            let offset = Number(val - visualA);
+            return padX + (offset / Number(range)) * width;
+        }
+
+        // Draw Base Axis
+        ctx.strokeStyle = "#475569";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(padX, midY);
+        ctx.lineTo(canvas.width - padX, midY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "12px monospace";
+        ctx.fillText("a", getX(a) - 5, midY + 25);
+        ctx.fillText("b", getX(b) - 5, midY + 25);
+
+        // Draw Paths (Trails)
+        function drawTrail(pathArray, yOffset, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            if (pathArray.length > 0) {
+                ctx.moveTo(getX(pathArray[0]), midY + yOffset);
+                for (let i = 1; i < pathArray.length; i++) {
+                    ctx.lineTo(getX(pathArray[i]), midY + yOffset);
+                }
+            }
+            ctx.stroke();
+        }
+
+        drawTrail(tamePath, -20, "rgba(56, 189, 248, 0.4)"); // Tame Trail (Blue)
+        drawTrail(wildPath, 20, "rgba(248, 113, 113, 0.4)"); // Wild Trail (Red)
+
+        // Draw Distinguished Points (Traps)
+        ctx.fillStyle = "#38bdf8"; // Tame traps
+        for (let [hex, dist] of tameMap.entries()) {
+            let dpPos = b + dist;
+            ctx.beginPath(); ctx.arc(getX(dpPos), midY - 20, 3, 0, Math.PI*2); ctx.fill();
+        }
+
+        ctx.fillStyle = "#f87171"; // Wild traps
+        for (let [hex, dist] of wildMap.entries()) {
+            let dpPos = wildStartX + dist;
+            ctx.beginPath(); ctx.arc(getX(dpPos), midY + 20, 3, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Draw Current Kangaroos
+        let tX = getX(tameState.pos);
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath(); ctx.arc(tX, midY - 20, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillText("Tame", tX - 15, midY - 35);
+
+        let wX = getX(wildState.pos);
+        ctx.fillStyle = "#f87171";
+        ctx.beginPath(); ctx.arc(wX, midY + 20, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillText("Wild", wX - 15, midY + 45);
+    }
+
+    async function stepKangaroo() {
+        if (!isRunning || isPaused) return;
+
+        // --- TAME KANGAROO JUMP ---
+        let tIdx = getJumpIndex(tameState.point);
+        let tJump = jumpTable[tIdx];
+        tameState.point = tameState.point.add(tJump.point);
+        tameState.dist += tJump.dist;
+        tameState.pos += tJump.dist;
+        tamePath.push(tameState.pos);
+
+        // Record Tame DP and check against Wild map
+        if (isDP(tameState.point)) {
+            let tHex = tameState.point.toHex(true);
+            tameMap.set(tHex, tameState.dist);
+            if (wildMap.has(tHex)) {
+                handleCollision(tameState.dist, wildMap.get(tHex));
+                return;
+            }
+        }
+
+        // --- WILD KANGAROO JUMP ---
+        let wIdx = getJumpIndex(wildState.point);
+        let wJump = jumpTable[wIdx];
+        wildState.point = wildState.point.add(wJump.point);
+        wildState.dist += wJump.dist;
+        wildState.pos += wJump.dist;
+        wildPath.push(wildState.pos);
+
+        // Record Wild DP and check against Tame map
+        if (isDP(wildState.point)) {
+            let wHex = wildState.point.toHex(true);
+            wildMap.set(wHex, wildState.dist);
+        }
+        
+        let currentWHex = wildState.point.toHex(true);
+        if (tameMap.has(currentWHex)) {
+            handleCollision(tameMap.get(currentWHex), wildState.dist);
+            return;
+        }
+
+        steps++;
+
+        // Fail-safe to prevent infinite run if visually exceeded bounds drastically
+        if (wildState.pos > b + BigInt(Number(b - a) * 20)) {
+            document.getElementById("st-collision").innerText = "Failed to Merge (Exceeded Max Bounds)";
+            document.getElementById("st-collision").className = "wild-color stat-val";
+            isRunning = false;
+        }
+
+        draw();
+        updateUI();
+
+        if (isRunning && !isPaused) {
+            let speed = parseInt(inSpeed.value);
+            if (speed > 0) {
+                await new Promise(r => setTimeout(r, speed));
+            }
+            animationFrameId = requestAnimationFrame(stepKangaroo);
+        }
+    }
+
+    document.getElementById("btn-start").onclick = () => {
+        if (isRunning) {
+            isPaused = false;
+            stepKangaroo();
+            return;
+        }
+
+        try {
+            a = parseHex(inStart.value);
+            b = parseHex(inEnd.value);
+            let Phex = inPub.value.trim();
+            if (!Phex) throw new Error("Target Public Key missing");
+            wildStartP = secp.Point.fromHex(Phex);
+        } catch(e) {
+            alert("Configuration Error: " + e.message);
+            return;
+        }
+
+        let kVal = parseInt(inK.value);
+        initJumps(kVal);
+
+        // Brute force X sequentially just to accurately position the Wild marker on the UI line
+        wildStartX = a; 
+        let testP = G.multiply(a);
+        let maxVisualSearch = Number(b - a);
+        if (maxVisualSearch > 100000) maxVisualSearch = 100000; // Prevent UI freeze on large spans
+        
+        for (let i = 0; i <= maxVisualSearch; i++) {
+            if (testP.equals(wildStartP)) { wildStartX = a + BigInt(i); break; }
+            testP = testP.add(G);
+        }
+
+        // Initialize state
+        tameState = { point: G.multiply(b), dist: 0n, pos: b };
+        wildState = { point: wildStartP, dist: 0n, pos: wildStartX };
+        
+        tamePath = [tameState.pos];
+        wildPath = [wildState.pos];
+        tameMap.clear();
+        wildMap.clear();
+        steps = 0;
+
+        visualA = a - (b - a)/10n;
+        visualB = b + (jumpTable[k-1].dist * 10n);
+
+        // Store origin if DP
+        if (isDP(tameState.point)) tameMap.set(tameState.point.toHex(true), 0n);
+        if (isDP(wildState.point)) wildMap.set(wildState.point.toHex(true), 0n);
+
+        document.getElementById("st-collision").innerText = "Searching...";
+        document.getElementById("st-collision").className = "stat-val";
+        document.getElementById("st-recovered").innerText = "None";
+        document.getElementById("st-recovered").className = "stat-val highlight";
+        document.getElementById("st-verify").innerText = "N/A";
+        document.getElementById("st-verify").className = "";
+
+        isRunning = true;
+        isPaused = false;
+        
+        draw();
+        updateUI();
+        stepKangaroo();
+    };
+
+    document.getElementById("btn-pause").onclick = () => {
+        isPaused = true;
+        document.getElementById("st-collision").innerText = "Paused";
+    };
+
+    document.getElementById("btn-reset").onclick = () => {
+        isRunning = false;
+        isPaused = false;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        tameMap.clear(); wildMap.clear();
+        tamePath = []; wildPath = [];
+        tameState = { pos: 0n, dist: 0n };
+        wildState = { pos: 0n, dist: 0n };
+        steps = 0;
+        
+        updateUI();
+        document.getElementById("st-collision").innerText = "Not Started";
+        document.getElementById("st-collision").className = "";
+        document.getElementById("st-recovered").innerText = "None";
+        document.getElementById("st-verify").innerText = "N/A";
+        document.getElementById("st-verify").className = "";
+    };
+    
+    // Initial draw bounds
+    draw();
+
+</script>
+</body>
+</html>
