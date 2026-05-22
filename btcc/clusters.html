@@ -343,9 +343,9 @@
     catch(e) { setStatus(e.message, "err"); return; }
 
     const rangeSize = c.endNum - c.startNum + 1n;
-    const cores  = clampCores($coresInput.value, rangeSize);
-    const mode   = $modeSelect.value;
-    const wToken = Symbol();
+    const workerCount = 1;
+    const mode        = $modeSelect.value;
+    const wToken      = Symbol();
 
     c.running     = true;
     c.status      = "running";
@@ -359,7 +359,7 @@
     const url = getBlobUrl();
     let completed = 0;
 
-    for (let id = 0; id < cores; id++) {
+    for (let id = 0; id < workerCount; id++) {
       const w = new Worker(url);
 
       w.onmessage = ev => {
@@ -392,7 +392,7 @@
       w.onerror = err => { stopOne(c, "error"); setStatus(err.message || "Worker failed.", "err"); };
 
       w.postMessage({
-        type: "start", id, cores, mode,
+        type: "start", id, cores: workerCount, mode,
         startHex:   c.startNum.toString(16).padStart(64,"0"),
         endHex:     c.endNum.toString(16).padStart(64,"0"),
         target,
@@ -449,15 +449,10 @@
       updateStats();
 
       const rangeSize = end.number - start.number + 1n;
-
-      // Determine cluster size — auto-scale if too many clusters would result
-      let clusterSz = TARGET_CLUSTER_SZ;
-      const idealN  = (rangeSize + clusterSz - 1n) / clusterSz;
-      if (idealN > BigInt(MAX_CLUSTERS)) {
-        clusterSz = (rangeSize + BigInt(MAX_CLUSTERS) - 1n) / BigInt(MAX_CLUSTERS);
-      }
-      const totalN = Number((rangeSize + clusterSz - 1n) / clusterSz);
-      const autoScaled = idealN > BigInt(MAX_CLUSTERS);
+      const clusterCount = clampCores($coresInput.value, rangeSize);
+      const baseSize = rangeSize / BigInt(clusterCount);
+      const remainder = rangeSize % BigInt(clusterCount);
+      const totalN = Number(clusterCount);
 
       isBuilding = true;
       $buildBtn.disabled    = true;
@@ -471,12 +466,14 @@
       let idx     = 0;
 
       // Render in RENDER_CHUNK-sized batches per event-loop tick so the page stays live
-      while (current <= end.number) {
+      while (current <= end.number && idx < clusterCount) {
         if (token !== buildToken) return; // cancelled by Clear
 
         const frag = document.createDocumentFragment();
-        for (let i = 0; i < RENDER_CHUNK && current <= end.number; i++) {
-          const cEnd  = (current + clusterSz - 1n > end.number) ? end.number : current + clusterSz - 1n;
+        for (let i = 0; i < RENDER_CHUNK && current <= end.number && idx < clusterCount; i++) {
+          const extra = BigInt(idx) < remainder ? 1n : 0n;
+          const cSize = baseSize + extra;
+          const cEnd  = current + cSize - 1n;
           const c     = {
             id: idx++, startNum: current, endNum: cEnd,
             workers: [], running: false, generated: 0,
@@ -492,12 +489,10 @@
         await new Promise(r => setTimeout(r, 0)); // yield to browser
       }
 
-      const note = autoScaled
-        ? ` (auto-scaled: ~${Number(clusterSz).toLocaleString()} keys/cluster)`
-        : ` (~${Number(clusterSz).toLocaleString()} keys/cluster)`;
+      const note = ` (~${(baseSize + (remainder > 0n ? 1n : 0n)).toLocaleString()} keys/cluster)`;
       $clusterInfo.textContent = totalN.toLocaleString() + " cluster" + (totalN !== 1 ? "s" : "") + " ready." + note;
       $totStat.textContent = String(clusters.length);
-      setStatus("Clusters ready. Set target HASH160 and use Start All or individual Start.", "ok");
+      setStatus("Clusters ready. Each cluster is one worker/core. Use Start All or individual Start.", "ok");
 
     } catch(e) {
       setStatus(e.message, "err");
