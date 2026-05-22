@@ -187,7 +187,7 @@
 
     <div class="panel stats">
         <div class="stat-box" style="grid-column: span 2;">
-            <div class="stat-label">Tame Position (b + d_T) [HEX]</div>
+            <div class="stat-label">Tame Position (start + d_T) [HEX]</div>
             <div class="stat-val tame-color" id="st-tame-pos">0000000000000000000000000000000000000000000000000000000000000000</div>
         </div>
         <div class="stat-box" style="grid-column: span 2;">
@@ -210,13 +210,17 @@
             <div class="stat-label">Traps Set</div>
             <div class="stat-val" id="st-dps" style="font-size: 1.3em;">0</div>
         </div>
+        <div class="stat-box">
+            <div class="stat-label">Workers</div>
+            <div class="stat-val" id="st-workers" style="font-size: 1.3em;">0</div>
+        </div>
     </div>
 
     <div class="panel">
         <h3 style="margin-top: 0;">Algorithm Result</h3>
         <p><strong>Collision Status:</strong> <span id="st-collision">Not Started</span></p>
         <div class="result-box">
-            <p><strong>Collision Formula:</strong> <code>x = (b + d_T - d_W) mod n</code></p>
+            <p><strong>Collision Formula:</strong> <code>x = (tame_start + d_T - d_W) mod n</code></p>
             <p><strong>Recovered Private Key (x):</strong> <span id="st-recovered" class="stat-val highlight" style="word-break: break-all;">None</span></p>
             <p><strong>Verification:</strong> <span id="st-verify">N/A</span></p>
         </div>
@@ -227,9 +231,9 @@
         <ol>
             <li><strong>What G means:</strong> <code>G</code> is the known Generator point of the secp256k1 elliptic curve. It is the universal starting point for Bitcoin keys.</li>
             <li><strong>What public key means:</strong> The public key <code>P</code> is mathematically derived by multiplying the generator by the private key: <code>P = x * G</code>. Finding <code>x</code> from <code>P</code> is the Discrete Logarithm Problem.</li>
-            <li><strong>What tame kangaroo does:</strong> It starts at the upper boundary <code>b</code> of the known range and executes a deterministic, pseudo-random walk based on point coordinates. Periodically, it drops "Distinguished Points" (markers) into a Map to record its path.</li>
-            <li><strong>What wild kangaroo does:</strong> It starts at the unknown target public point <code>P</code>. It uses the exact same deterministic walk logic. If its path intersects the tame kangaroo's trail, it will unwittingly follow it and hit a stored marker.</li>
-            <li><strong>What collision means:</strong> A collision occurs when Wild hits a Tame marker (or vice versa). Because their absolute curve positions are perfectly equal at that moment, we know exactly how far each kangaroo traveled to get there. We can then solve for the original starting distance <code>x</code> using simple arithmetic.</li>
+            <li><strong>What tame kangaroo does:</strong> Each worker starts an independent tame walk from <code>b + offset</code> and executes a deterministic, pseudo-random walk based on point coordinates. Periodically, it drops "Distinguished Points" (markers) into the shared coordinator map.</li>
+            <li><strong>What wild kangaroo does:</strong> Each worker starts an independent wild walk from <code>P + offset*G</code>. It uses the exact same deterministic walk logic. If its path intersects any tame trail, the main thread sees the shared marker collision.</li>
+            <li><strong>What collision means:</strong> A collision occurs when Wild hits a Tame marker (or vice versa). Because their absolute curve positions are perfectly equal at that moment, the coordinator solves <code>x = tame_start + d_T - d_W</code>.</li>
         </ol>
     </div>
 </div>
@@ -240,6 +244,258 @@
 
     const G = secp.Point.BASE;
     const n = secp.CURVE.n;
+    const KANGAROO_WORKER_SOURCE = String.raw`
+let secp = null;
+let G = null;
+
+let workerId = 0;
+let jumpTable = [];
+let k = 0;
+let dpMask = 15n;
+let batchSize = 100;
+let delayMs = 0;
+let stopped = true;
+let paused = false;
+let loopScheduled = false;
+let tame = null;
+let wild = null;
+let steps = 0n;
+let localTameMap = new Map();
+let localWildMap = new Map();
+
+async function loadSecp() {
+    if (!secp) {
+        secp = await import("https://esm.sh/@noble/secp256k1@1.7.1");
+        G = secp.Point.BASE;
+    }
+}
+
+function parseHexBigInt(hex) {
+    const clean = String(hex || "0").replace(/^0x/i, "");
+    return clean ? BigInt("0x" + clean) : 0n;
+}
+
+function toHexBigInt(value) {
+    return value.toString(16);
+}
+
+function multiplyGenerator(scalar) {
+    if (scalar === 0n) throw new Error("Tame start cannot be zero");
+    return G.multiply(scalar);
+}
+
+function addGeneratorMultiple(point, scalar) {
+    return scalar === 0n ? point : point.add(G.multiply(scalar));
+}
+
+function getJumpIndex(point) {
+    const low = Number(BigInt.asUintN(32, point.x));
+    return low % k;
+}
+
+function isDistinguished(point) {
+    const low = Number(BigInt.asUintN(32, point.x));
+    return (low & Number(dpMask)) === 0;
+}
+
+function makeDp(kind, state) {
+    return {
+        kind,
+        pointHex: state.point.toHex(true),
+        distHex: toHexBigInt(state.dist),
+        posHex: toHexBigInt(state.pos),
+        startHex: kind === "tame" ? toHexBigInt(state.start) : null,
+        workerId
+    };
+}
+
+function makeCollision(tameDist, wildDist, pointHex) {
+    return {
+        type: "collision",
+        workerId,
+        pointHex,
+        tame: {
+            kind: "tame",
+            pointHex,
+            distHex: toHexBigInt(tameDist),
+            posHex: toHexBigInt(tame.start + tameDist),
+            startHex: toHexBigInt(tame.start),
+            workerId
+        },
+        wild: {
+            kind: "wild",
+            pointHex,
+            distHex: toHexBigInt(wildDist),
+            posHex: toHexBigInt(wildDist),
+            startHex: null,
+            workerId
+        },
+        stats: makeStats()
+    };
+}
+
+function makeStats() {
+    return {
+        tameDistHex: toHexBigInt(tame.dist),
+        tamePosHex: toHexBigInt(tame.pos),
+        tameStartHex: toHexBigInt(tame.start),
+        wildDistHex: toHexBigInt(wild.dist),
+        wildOffsetHex: toHexBigInt(wild.start),
+        steps: steps.toString(10)
+    };
+}
+
+function stepWalker(kind) {
+    const state = kind === "tame" ? tame : wild;
+    const jump = jumpTable[getJumpIndex(state.point)];
+
+    state.point = state.point.add(jump.point);
+    state.dist += jump.dist;
+    state.pos += jump.dist;
+
+    return isDistinguished(state.point) ? makeDp(kind, state) : null;
+}
+
+function postBatch(dps) {
+    self.postMessage({
+        type: "batch",
+        workerId,
+        dps,
+        stats: makeStats()
+    });
+}
+
+function scheduleLoop() {
+    if (loopScheduled || stopped || paused) return;
+    loopScheduled = true;
+    setTimeout(runBatch, delayMs);
+}
+
+function runBatch() {
+    loopScheduled = false;
+    if (stopped || paused) return;
+
+    const dps = [];
+    for (let i = 0; i < batchSize && !stopped && !paused; i++) {
+        const tameDp = stepWalker("tame");
+        if (tameDp) {
+            dps.push(tameDp);
+            localTameMap.set(tameDp.pointHex, tame.dist);
+            if (localWildMap.has(tameDp.pointHex)) {
+                stopped = true;
+                self.postMessage(makeCollision(tame.dist, localWildMap.get(tameDp.pointHex), tameDp.pointHex));
+                return;
+            }
+        }
+
+        const wildDp = stepWalker("wild");
+        if (wildDp) {
+            dps.push(wildDp);
+            localWildMap.set(wildDp.pointHex, wild.dist);
+        }
+
+        const currentWildHex = wild.point.toHex(true);
+        if (localTameMap.has(currentWildHex)) {
+            stopped = true;
+            self.postMessage(makeCollision(localTameMap.get(currentWildHex), wild.dist, currentWildHex));
+            return;
+        }
+
+        steps++;
+    }
+
+    postBatch(dps);
+    scheduleLoop();
+}
+
+async function initWorker(message) {
+    await loadSecp();
+
+    workerId = message.workerId;
+    k = message.k;
+    dpMask = parseHexBigInt(message.dpMaskHex);
+    batchSize = Math.max(1, Number(message.batchSize || 100));
+    delayMs = Math.max(0, Number(message.delayMs || 0));
+    steps = 0n;
+    stopped = false;
+    paused = false;
+    loopScheduled = false;
+    localTameMap = new Map();
+    localWildMap = new Map();
+
+    jumpTable = message.jumpTable.map((jump) => ({
+        dist: parseHexBigInt(jump.distHex),
+        point: secp.Point.fromHex(jump.pointHex)
+    }));
+
+    const tameStart = parseHexBigInt(message.tameStartHex || message.bHex);
+    const wildOffset = parseHexBigInt(message.wildOffsetHex);
+    const wildStartPoint = secp.Point.fromHex(message.pHex);
+
+    tame = {
+        point: multiplyGenerator(tameStart),
+        dist: 0n,
+        pos: tameStart,
+        start: tameStart
+    };
+
+    wild = {
+        point: addGeneratorMultiple(wildStartPoint, wildOffset),
+        dist: wildOffset,
+        pos: wildOffset,
+        start: wildOffset
+    };
+
+    const initialDps = [];
+    if (isDistinguished(tame.point)) {
+        const tameDp = makeDp("tame", tame);
+        initialDps.push(tameDp);
+        localTameMap.set(tameDp.pointHex, tame.dist);
+    }
+    if (isDistinguished(wild.point)) {
+        const wildDp = makeDp("wild", wild);
+        initialDps.push(wildDp);
+        localWildMap.set(wildDp.pointHex, wild.dist);
+    }
+    const wildHex = wild.point.toHex(true);
+    if (localTameMap.has(wildHex)) {
+        stopped = true;
+        self.postMessage(makeCollision(localTameMap.get(wildHex), wild.dist, wildHex));
+        return;
+    }
+
+    postBatch(initialDps);
+    scheduleLoop();
+}
+
+self.onmessage = async (event) => {
+    const message = event.data || {};
+
+    try {
+        if (message.type === "init") {
+            await initWorker(message);
+        } else if (message.type === "pause") {
+            paused = true;
+        } else if (message.type === "resume") {
+            paused = false;
+            scheduleLoop();
+        } else if (message.type === "setDelay") {
+            delayMs = Math.max(0, Number(message.delayMs || 0));
+        } else if (message.type === "stop") {
+            stopped = true;
+            paused = false;
+        }
+    } catch (error) {
+        stopped = true;
+        self.postMessage({
+            type: "error",
+            workerId,
+            message: error instanceof Error ? error.message : String(error)
+        });
+    }
+};
+`;
+    let workerModuleUrl = null;
 
     // DOM Elements
     const inStart = document.getElementById("in-start");
@@ -261,19 +517,20 @@
     let isRunning = false;
     let isPaused = false;
     let animationFrameId = null;
+    let drawPending = false;
 
     let wildStartX = 0n; // Solved quietly for drawing purposes only
     let wildStartP = null;
 
-    let tameState = { point: null, dist: 0n, pos: 0n };
-    let wildState = { point: null, dist: 0n, pos: 0n };
-    
-    let tamePath = [];
-    let wildPath = [];
-    
+    let tameState = { dist: 0n, pos: 0n, start: 0n };
+    let wildState = { dist: 0n, pos: 0n };
+
+    const activeWorkers = [];
+    const workerVisuals = new Map();
+    const workerStepCounts = new Map();
     const tameMap = new Map();
     const wildMap = new Map();
-    let steps = 0;
+    let steps = 0n;
 
     // Viewport bounds for canvas
     let visualA = 0n;
@@ -285,12 +542,89 @@
         return str ? BigInt("0x" + str) : 0n;
     };
 
+    function toHex(value) {
+        return value.toString(16);
+    }
+
+    function randomBigIntBelow(maxExclusive) {
+        if (maxExclusive <= 1n) return 0n;
+
+        let bits = 0n;
+        let cursor = maxExclusive - 1n;
+        while (cursor > 0n) {
+            bits++;
+            cursor >>= 1n;
+        }
+
+        const byteLength = Math.max(1, Math.ceil(Number(bits) / 8));
+        const bytes = new Uint8Array(byteLength);
+        if (globalThis.crypto && globalThis.crypto.getRandomValues) {
+            globalThis.crypto.getRandomValues(bytes);
+        } else {
+            for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+        }
+
+        let value = 0n;
+        for (const byte of bytes) value = (value << 8n) + BigInt(byte);
+        return value % maxExclusive;
+    }
+
     // Helper: Random BigInt in range
     function randomBigIntInRange(min, max) {
         const range = max - min;
-        let hex = "0x";
-        for (let i = 0; i < 16; i++) hex += Math.floor(Math.random() * 16).toString(16);
-        return min + (BigInt(hex) % range);
+        if (range <= 0n) throw new Error("Invalid random range");
+        return min + randomBigIntBelow(range);
+    }
+
+    function getWorkerCount() {
+        return Math.max(1, Number(navigator.hardwareConcurrency) || 4);
+    }
+
+    function getWorkerModuleUrl() {
+        if (!workerModuleUrl) {
+            const blob = new Blob([KANGAROO_WORKER_SOURCE], { type: "application/javascript" });
+            workerModuleUrl = URL.createObjectURL(blob);
+        }
+        return workerModuleUrl;
+    }
+
+    function serializeJumpTable() {
+        return jumpTable.map((jump) => ({
+            distHex: toHex(jump.dist),
+            pointHex: jump.point.toHex(true)
+        }));
+    }
+
+    function postToWorkers(message) {
+        for (const entry of activeWorkers) entry.worker.postMessage(message);
+    }
+
+    function stopWorkers() {
+        for (const entry of activeWorkers) {
+            try { entry.worker.postMessage({ type: "stop" }); } catch (e) {}
+            entry.worker.terminate();
+        }
+        activeWorkers.length = 0;
+    }
+
+    function appendPath(path, value) {
+        path.push(value);
+        if (path.length > 500) path.splice(0, path.length - 500);
+    }
+
+    function refreshTotalSteps() {
+        steps = 0n;
+        for (const count of workerStepCounts.values()) steps += count;
+    }
+
+    function requestRender() {
+        if (drawPending) return;
+        drawPending = true;
+        animationFrameId = requestAnimationFrame(() => {
+            drawPending = false;
+            draw();
+            updateUI();
+        });
     }
 
     // Initialize UI Handlers
@@ -361,16 +695,23 @@
         document.getElementById("st-wild-dist").innerText = wildState.dist.toString();
         document.getElementById("st-steps").innerText = steps.toString();
         document.getElementById("st-dps").innerText = (tameMap.size + wildMap.size).toString();
+        document.getElementById("st-workers").innerText = activeWorkers.length.toString();
     }
 
-    function handleCollision(tDist, wDist) {
+    function handleCollision(tameEntry, wildEntry) {
+        if (!isRunning) return;
+
         isRunning = false;
+        isPaused = false;
+        stopWorkers();
         
-        // Key recovery formula: x = (b + d_T - d_W) mod n
-        let recoveredX = (b + tDist - wDist) % n;
+        // Key recovery formula with spread tame starts:
+        // x = tame_start + d_T - d_W mod n.
+        let recoveredX = (tameEntry.start + tameEntry.dist - wildEntry.dist) % n;
         if (recoveredX < 0n) recoveredX += n;
         
-        document.getElementById("st-collision").innerText = "COLLISION FOUND!";
+        document.getElementById("st-collision").innerText =
+            `COLLISION FOUND! T${tameEntry.workerId} / W${wildEntry.workerId}`;
         document.getElementById("st-collision").className = "highlight stat-val";
         document.getElementById("st-recovered").innerText = recoveredX.toString(16).padStart(64, '0');
         
@@ -378,16 +719,32 @@
         let checkP = G.multiply(recoveredX);
         if (checkP.equals(wildStartP)) {
             document.getElementById("st-verify").innerText = "✅ SUCCESS: Recovered key matches Public Key";
+            document.getElementById("st-verify").innerText = "SUCCESS: Recovered key matches Public Key";
             document.getElementById("st-verify").className = "highlight";
         } else {
             document.getElementById("st-verify").innerText = "❌ FAILED: Derived P does not match Target P";
+            document.getElementById("st-verify").innerText = "FAILED: Derived P does not match Target P";
             document.getElementById("st-verify").className = "wild-color";
         }
+        updateUI();
         draw();
     }
 
     function updateBounds() {
         let maxPos = tameState.pos > wildState.pos ? tameState.pos : wildState.pos;
+        for (const visual of workerVisuals.values()) {
+            const wildPos = wildStartX + visual.wildDist;
+            if (visual.tamePos > maxPos) maxPos = visual.tamePos;
+            if (wildPos > maxPos) maxPos = wildPos;
+        }
+        for (const entry of tameMap.values()) {
+            const pos = entry.start + entry.dist;
+            if (pos > maxPos) maxPos = pos;
+        }
+        for (const entry of wildMap.values()) {
+            const pos = wildStartX + entry.dist;
+            if (pos > maxPos) maxPos = pos;
+        }
         if (maxPos > visualB - (visualB - visualA)/10n) {
             visualB = maxPos + (maxPos - visualA)/5n;
         }
@@ -436,146 +793,250 @@
             ctx.stroke();
         }
 
-        drawTrail(tamePath, -20, "rgba(56, 189, 248, 0.4)"); // Tame Trail (Blue)
-        drawTrail(wildPath, 20, "rgba(248, 113, 113, 0.4)"); // Wild Trail (Red)
+        for (const visual of workerVisuals.values()) {
+            drawTrail(visual.tamePath, -20, "rgba(56, 189, 248, 0.25)");
+            drawTrail(visual.wildPath, 20, "rgba(248, 113, 113, 0.25)");
+        }
 
         // Draw Distinguished Points (Traps)
         ctx.fillStyle = "#38bdf8"; // Tame traps
-        for (let [hex, dist] of tameMap.entries()) {
-            let dpPos = b + dist;
+        for (let entry of tameMap.values()) {
+            let dpPos = entry.start + entry.dist;
             ctx.beginPath(); ctx.arc(getX(dpPos), midY - 20, 3, 0, Math.PI*2); ctx.fill();
         }
 
         ctx.fillStyle = "#f87171"; // Wild traps
-        for (let [hex, dist] of wildMap.entries()) {
-            let dpPos = wildStartX + dist;
+        for (let entry of wildMap.values()) {
+            let dpPos = wildStartX + entry.dist;
             ctx.beginPath(); ctx.arc(getX(dpPos), midY + 20, 3, 0, Math.PI*2); ctx.fill();
         }
 
         // Draw Current Kangaroos
-        let tX = getX(tameState.pos);
-        ctx.fillStyle = "#38bdf8";
-        ctx.beginPath(); ctx.arc(tX, midY - 20, 8, 0, Math.PI*2); ctx.fill();
-        ctx.fillText("Tame", tX - 15, midY - 35);
+        let labelDrawn = false;
+        for (const visual of workerVisuals.values()) {
+            let tX = getX(visual.tamePos);
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath(); ctx.arc(tX, midY - 20, 5, 0, Math.PI*2); ctx.fill();
 
-        let wX = getX(wildState.pos);
-        ctx.fillStyle = "#f87171";
-        ctx.beginPath(); ctx.arc(wX, midY + 20, 8, 0, Math.PI*2); ctx.fill();
-        ctx.fillText("Wild", wX - 15, midY + 45);
-    }
+            let wX = getX(wildStartX + visual.wildDist);
+            ctx.fillStyle = "#f87171";
+            ctx.beginPath(); ctx.arc(wX, midY + 20, 5, 0, Math.PI*2); ctx.fill();
 
-    async function stepKangaroo() {
-        if (!isRunning || isPaused) return;
-
-        // --- TAME KANGAROO JUMP ---
-        let tIdx = getJumpIndex(tameState.point);
-        let tJump = jumpTable[tIdx];
-        tameState.point = tameState.point.add(tJump.point);
-        tameState.dist += tJump.dist;
-        tameState.pos += tJump.dist;
-        tamePath.push(tameState.pos);
-
-        // Record Tame DP and check against Wild map
-        if (isDP(tameState.point)) {
-            let tHex = tameState.point.toHex(true);
-            tameMap.set(tHex, tameState.dist);
-            if (wildMap.has(tHex)) {
-                handleCollision(tameState.dist, wildMap.get(tHex));
-                return;
+            if (!labelDrawn) {
+                ctx.fillStyle = "#cbd5e1";
+                ctx.fillText("Tame workers", tX - 35, midY - 35);
+                ctx.fillText("Wild workers", wX - 35, midY + 45);
+                labelDrawn = true;
             }
         }
 
-        // --- WILD KANGAROO JUMP ---
-        let wIdx = getJumpIndex(wildState.point);
-        let wJump = jumpTable[wIdx];
-        wildState.point = wildState.point.add(wJump.point);
-        wildState.dist += wJump.dist;
-        wildState.pos += wJump.dist;
-        wildPath.push(wildState.pos);
+        if (!labelDrawn) {
+            let tX = getX(tameState.pos);
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath(); ctx.arc(tX, midY - 20, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillText("Tame", tX - 15, midY - 35);
 
-        // Record Wild DP and check against Tame map
-        if (isDP(wildState.point)) {
-            let wHex = wildState.point.toHex(true);
-            wildMap.set(wHex, wildState.dist);
+            let wX = getX(wildState.pos);
+            ctx.fillStyle = "#f87171";
+            ctx.beginPath(); ctx.arc(wX, midY + 20, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillText("Wild", wX - 15, midY + 45);
         }
-        
-        let currentWHex = wildState.point.toHex(true);
-        if (tameMap.has(currentWHex)) {
-            handleCollision(tameMap.get(currentWHex), wildState.dist);
+    }
+
+    function parseWorkerHex(hex) {
+        const clean = String(hex || "0").replace(/^0x/i, "");
+        return clean ? BigInt("0x" + clean) : 0n;
+    }
+
+    function entryFromWorkerPoint(dp) {
+        return {
+            kind: dp.kind,
+            pointHex: dp.pointHex,
+            dist: parseWorkerHex(dp.distHex),
+            pos: parseWorkerHex(dp.posHex),
+            start: dp.kind === "tame" ? parseWorkerHex(dp.startHex) : 0n,
+            workerId: dp.workerId
+        };
+    }
+
+    function rememberDistinguishedPoint(dp) {
+        const entry = entryFromWorkerPoint(dp);
+
+        if (entry.kind === "tame") {
+            if (wildMap.has(entry.pointHex)) {
+                handleCollision(entry, wildMap.get(entry.pointHex));
+                return true;
+            }
+            if (!tameMap.has(entry.pointHex)) tameMap.set(entry.pointHex, entry);
+        } else {
+            if (tameMap.has(entry.pointHex)) {
+                handleCollision(tameMap.get(entry.pointHex), entry);
+                return true;
+            }
+            if (!wildMap.has(entry.pointHex)) wildMap.set(entry.pointHex, entry);
+        }
+
+        return false;
+    }
+
+    function handleWorkerMessage(event) {
+        const message = event.data || {};
+
+        if (message.type === "error") {
+            isRunning = false;
+            isPaused = false;
+            stopWorkers();
+            document.getElementById("st-collision").innerText =
+                `Worker ${message.workerId} error: ${message.message}`;
+            document.getElementById("st-collision").className = "wild-color stat-val";
+            updateUI();
             return;
         }
 
-        steps++;
-
-        // Fail-safe to prevent infinite run if visually exceeded bounds drastically
-        if (wildState.pos > b + BigInt(Number(b - a) * 20)) {
-            document.getElementById("st-collision").innerText = "Failed to Merge (Exceeded Max Bounds)";
-            document.getElementById("st-collision").className = "wild-color stat-val";
-            isRunning = false;
+        if (message.type === "collision") {
+            const tameEntry = entryFromWorkerPoint(message.tame);
+            const wildEntry = entryFromWorkerPoint(message.wild);
+            handleCollision(tameEntry, wildEntry);
+            return;
         }
 
-        draw();
-        updateUI();
+        if (message.type !== "batch" || !isRunning) return;
 
-        if (isRunning && !isPaused) {
-            let speed = parseInt(inSpeed.value);
-            if (speed > 0) {
-                await new Promise(r => setTimeout(r, speed));
+        const visual = workerVisuals.get(message.workerId);
+        if (!visual) return;
+
+        visual.tameDist = parseWorkerHex(message.stats.tameDistHex);
+        visual.tamePos = parseWorkerHex(message.stats.tamePosHex);
+        visual.tameStart = parseWorkerHex(message.stats.tameStartHex);
+        visual.wildDist = parseWorkerHex(message.stats.wildDistHex);
+
+        appendPath(visual.tamePath, visual.tamePos);
+        appendPath(visual.wildPath, wildStartX + visual.wildDist);
+
+        tameState = { dist: visual.tameDist, pos: visual.tamePos, start: visual.tameStart };
+        wildState = { dist: visual.wildDist, pos: wildStartX + visual.wildDist };
+
+        workerStepCounts.set(message.workerId, BigInt(message.stats.steps || "0"));
+        refreshTotalSteps();
+
+        let collisionFound = false;
+        for (const dp of message.dps || []) {
+            if (rememberDistinguishedPoint(dp)) {
+                collisionFound = true;
+                break;
             }
-            animationFrameId = requestAnimationFrame(stepKangaroo);
         }
+
+        if (!collisionFound) requestRender();
+    }
+
+    function handleWorkerError(workerId, event) {
+        if (!isRunning) return;
+        isRunning = false;
+        isPaused = false;
+        stopWorkers();
+        const detail = event.message || event.type || "unknown startup error";
+        document.getElementById("st-collision").innerText =
+            `Worker ${workerId} failed to start: ${detail}`;
+        document.getElementById("st-collision").className = "wild-color stat-val";
+        updateUI();
+        console.error(event);
+    }
+
+    function resetCoordinatorState() {
+        stopWorkers();
+        workerVisuals.clear();
+        workerStepCounts.clear();
+        tameMap.clear();
+        wildMap.clear();
+        tameState = { pos: 0n, dist: 0n, start: 0n };
+        wildState = { pos: 0n, dist: 0n };
+        steps = 0n;
+    }
+
+    function startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, delayMs) {
+        const worker = new Worker(getWorkerModuleUrl());
+        worker.onmessage = handleWorkerMessage;
+        worker.onerror = (event) => handleWorkerError(workerId, event);
+        activeWorkers.push({ workerId, worker });
+
+        workerVisuals.set(workerId, {
+            workerId,
+            tameStart,
+            tameDist: 0n,
+            tamePos: tameStart,
+            wildOffset,
+            wildDist: wildOffset,
+            tamePath: [tameStart],
+            wildPath: [wildStartX + wildOffset]
+        });
+        workerStepCounts.set(workerId, 0n);
+
+        worker.postMessage({
+            type: "init",
+            workerId,
+            bHex: toHex(b),
+            pHex: wildStartP.toHex(true),
+            tameStartHex: toHex(tameStart),
+            wildOffsetHex: toHex(wildOffset),
+            jumpTable: serializedJumpTable,
+            k,
+            dpMaskHex: toHex(dpMask),
+            batchSize: 100,
+            delayMs
+        });
     }
 
     document.getElementById("btn-start").onclick = () => {
         if (isRunning) {
             isPaused = false;
-            stepKangaroo();
+            document.getElementById("st-collision").innerText = "Searching...";
+            postToWorkers({ type: "resume" });
             return;
         }
+
+        resetCoordinatorState();
 
         try {
             a = parseHex(inStart.value);
             b = parseHex(inEnd.value);
+            if (a >= b) throw new Error("Start range must be less than End range");
+
             let Phex = inPub.value.trim();
             if (!Phex) throw new Error("Target Public Key missing");
             wildStartP = secp.Point.fromHex(Phex);
+
+            let kVal = parseInt(inK.value, 10);
+            if (!Number.isInteger(kVal) || kVal < 1 || kVal > 24) {
+                throw new Error("Jump table size must be between 1 and 24");
+            }
+            initJumps(kVal);
         } catch(e) {
             alert("Configuration Error: " + e.message);
             return;
         }
 
-        let kVal = parseInt(inK.value);
-        initJumps(kVal);
-
-        // Brute force X sequentially just to accurately position the Wild marker on the UI line
-        wildStartX = a; 
-        let testP = G.multiply(a);
+        // Brute force X sequentially just to accurately position the Wild marker on the UI line.
+        wildStartX = a;
+        let visualSearchStart = a === 0n ? 1n : a;
+        let testP = G.multiply(visualSearchStart);
         let maxVisualSearch = Number(b - a);
         if (maxVisualSearch > 100000) maxVisualSearch = 100000; // Prevent UI freeze on large spans
-        
+
         for (let i = 0; i <= maxVisualSearch; i++) {
-            if (testP.equals(wildStartP)) { wildStartX = a + BigInt(i); break; }
+            if (testP.equals(wildStartP)) { wildStartX = visualSearchStart + BigInt(i); break; }
             testP = testP.add(G);
         }
 
-        // Initialize state
-        tameState = { point: G.multiply(b), dist: 0n, pos: b };
-        wildState = { point: wildStartP, dist: 0n, pos: wildStartX };
-        
-        tamePath = [tameState.pos];
-        wildPath = [wildState.pos];
-        tameMap.clear();
-        wildMap.clear();
-        steps = 0;
+        const workerCount = getWorkerCount();
+        const serializedJumpTable = serializeJumpTable();
+        const rangeWidth = b - a + 1n;
+        const delayMs = parseInt(inSpeed.value, 10) || 0;
 
         visualA = a - (b - a)/10n;
-        visualB = b + (jumpTable[k-1].dist * 10n);
+        visualB = b + (rangeWidth * 2n) + (jumpTable[k-1].dist * 10n);
 
-        // Store origin if DP
-        if (isDP(tameState.point)) tameMap.set(tameState.point.toHex(true), 0n);
-        if (isDP(wildState.point)) wildMap.set(wildState.point.toHex(true), 0n);
-
-        document.getElementById("st-collision").innerText = "Searching...";
+        document.getElementById("st-collision").innerText = `Searching with ${workerCount} workers...`;
         document.getElementById("st-collision").className = "stat-val";
         document.getElementById("st-recovered").innerText = "None";
         document.getElementById("st-recovered").className = "stat-val highlight";
@@ -584,14 +1045,40 @@
 
         isRunning = true;
         isPaused = false;
-        
+
+        try {
+            for (let workerId = 0; workerId < workerCount; workerId++) {
+                const workerSlot = BigInt(workerId);
+                const workerTotal = BigInt(workerCount);
+                const deterministicOffset = workerId === 0
+                    ? 0n
+                    : ((rangeWidth * workerSlot) / workerTotal) || workerSlot;
+                const boundedOffset = deterministicOffset % rangeWidth;
+                const tameOffset = workerId === 0 ? 0n : boundedOffset;
+                const wildOffset = workerId === 0 ? 0n : boundedOffset;
+                startWorkerPair(workerId, b + tameOffset, wildOffset, serializedJumpTable, delayMs);
+            }
+        } catch (e) {
+            isRunning = false;
+            stopWorkers();
+            alert("Unable to start Web Workers: " + e.message);
+            return;
+        }
+
+        if (workerVisuals.size > 0) {
+            const first = workerVisuals.values().next().value;
+            tameState = { dist: first.tameDist, pos: first.tamePos, start: first.tameStart };
+            wildState = { dist: first.wildDist, pos: wildStartX + first.wildDist };
+        }
+
         draw();
         updateUI();
-        stepKangaroo();
     };
 
     document.getElementById("btn-pause").onclick = () => {
+        if (!isRunning) return;
         isPaused = true;
+        postToWorkers({ type: "pause" });
         document.getElementById("st-collision").innerText = "Paused";
     };
 
@@ -599,21 +1086,25 @@
         isRunning = false;
         isPaused = false;
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        
+        drawPending = false;
+
+        resetCoordinatorState();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        tameMap.clear(); wildMap.clear();
-        tamePath = []; wildPath = [];
-        tameState = { pos: 0n, dist: 0n };
-        wildState = { pos: 0n, dist: 0n };
-        steps = 0;
-        
+
         updateUI();
         document.getElementById("st-collision").innerText = "Not Started";
         document.getElementById("st-collision").className = "";
         document.getElementById("st-recovered").innerText = "None";
         document.getElementById("st-verify").innerText = "N/A";
         document.getElementById("st-verify").className = "";
+        draw();
     };
+
+    inSpeed.addEventListener("input", () => {
+        postToWorkers({ type: "setDelay", delayMs: parseInt(inSpeed.value, 10) || 0 });
+    });
+
+    window.addEventListener("beforeunload", stopWorkers);
     
     // Initial draw bounds
     draw();
