@@ -1,1165 +1,900 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pollard's Kangaroo Algorithm (secp256k1)</title>
-    <style>
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        h2 {
-            color: #38bdf8;
-            border-bottom: 2px solid #1e293b;
-            padding-bottom: 10px;
-        }
-        .panel {
-            background-color: #1e293b;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .flex {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .col {
-            flex: 1;
-            min-width: 300px;
-        }
-        label {
-            display: block;
-            margin-top: 12px;
-            font-size: 0.85em;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 10px;
-            margin-top: 6px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #f8fafc;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-family: monospace;
-        }
-        input[type="range"] {
-            width: 100%;
-            margin-top: 15px;
-        }
-        button {
-            padding: 10px 16px;
-            margin-top: 12px;
-            background: #2563eb;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-family: monospace;
-            transition: background 0.2s;
-            width: 100%;
-        }
-        button:hover { background: #1d4ed8; }
-        .btn-green { background: #059669; }
-        .btn-green:hover { background: #047857; }
-        .btn-yellow { background: #d97706; }
-        .btn-yellow:hover { background: #b45309; }
-        .btn-red { background: #dc2626; }
-        .btn-red:hover { background: #b91c1c; }
-        
-        .input-group {
-            display: flex;
-            gap: 10px;
-        }
-        .input-group input { margin-top: 0; }
-        .input-group button { margin-top: 0; white-space: nowrap; width: auto; }
-
-        canvas {
-            width: 100%;
-            height: 250px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: block;
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-        }
-        .stat-box {
-            background: #334155;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: center;
-            border: 1px solid #475569;
-        }
-        .stat-label {
-            font-size: 0.8em;
-            color: #cbd5e1;
-            text-transform: uppercase;
-        }
-        .stat-val {
-            display: block;
-            font-size: 1em; /* Reduced size to fit 64 chars */
-            font-weight: bold;
-            margin-top: 8px;
-            word-break: break-all;
-        }
-        
-        .highlight { color: #34d399; }
-        .tame-color { color: #38bdf8; }
-        .wild-color { color: #f87171; }
-        
-        .result-box {
-            background: #0f172a;
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px dashed #475569;
-            margin-top: 15px;
-        }
-        code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
-        
-        ol li { margin-bottom: 10px; color: #cbd5e1; line-height: 1.5; }
-        ol li strong { color: #f8fafc; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BTC Kangaroo Range</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#101828}
+    main{max-width:720px;margin:16px auto;padding:12px}
+    h1{margin:0 0 10px;font-size:18px}
+    label{display:block;margin:8px 0 4px;font-size:12px;font-weight:700}
+    textarea,input,select{width:100%;border:1px solid #cfd6e4;border-radius:5px;padding:6px;font:12px/1.25 Consolas,monospace;background:#fff;color:#101828}
+    textarea{min-height:52px;resize:vertical}
+    select,input[type="number"]{font-family:Arial,sans-serif}
+    button{border:0;border-radius:5px;background:#1457d9;color:#fff;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
+    button.secondary{background:#344054}
+    button.danger{background:#b42318}
+    button:disabled{background:#98a2b3;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .controls{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:end}
+    .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .count,.stat{color:#667085;font-size:11px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+    .stat{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:6px}
+    .stat b{display:block;color:#101828;font-size:13px;margin-top:1px;word-break:break-word}
+    .status{margin:8px 0 0;min-height:17px;font-size:12px;color:#667085}
+    .status.ok{color:#067647}
+    .status.err{color:#b42318}
+    .result{margin-top:10px}
+    .progress{height:8px;border:1px solid #dde3ee;border-radius:5px;background:#fff;overflow:hidden;margin-top:8px}
+    .progress span{display:block;height:100%;width:0;background:#1457d9;transition:width .18s linear}
+    #currentKeys{min-height:70px;white-space:pre;overflow:auto}
+    @media (max-width:720px){
+      main{margin:8px auto;padding:10px}
+      .grid,.controls,.stats{grid-template-columns:1fr}
+    }
+  </style>
 </head>
 <body>
+  <main>
+    <h1>BTC Kangaroo Range</h1>
 
-<div class="container">
-    <h2>Pollard's Kangaroo Algorithm (Real secp256k1)</h2>
-    
-    <div class="panel flex">
-        <div class="col">
-            <label>Range Start (a) [HEX]</label>
-            <input type="text" id="in-start" value="00000000000000000000000000000000000000000000000000000000000f4240">
-            
-            <label>Range End (b) [HEX]</label>
-            <input type="text" id="in-end" value="00000000000000000000000000000000000000000000000000000000000f6970">
-            
-            <label>Hidden Private Key (x) [HEX]</label>
-            <div class="input-group">
-                <input type="text" id="in-priv" placeholder="Enter x or Generate">
-                <button id="btn-gen-priv" class="btn-yellow">Generate Random</button>
-            </div>
-            
-            <button id="btn-calc-pub">Calculate Public Key (P) from x</button>
-        </div>
-        
-        <div class="col">
-            <label>Target Public Key P (Hex)</label>
-            <input type="text" id="in-pub" placeholder="Uncompressed or Compressed Hex">
-            
-            <label>Jump Table Size (k)</label>
-            <div class="input-group">
-                <input type="number" id="in-k" value="8">
-                <button id="btn-calc-k" class="btn-yellow">Auto-Calculate</button>
-            </div>
-            
-            <label>Animation Speed (Delay ms)</label>
-            <input type="range" id="in-speed" min="0" max="200" value="20">
-        </div>
+    <div class="grid">
+      <div>
+        <label for="startHex">Hex start</label>
+        <input id="startHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="00000000000000000000000000000000000000000000000000000000000f4240">
+        <div id="startCount" class="count">0 / 64</div>
+      </div>
+      <div>
+        <label for="endHex">Hex end</label>
+        <input id="endHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="00000000000000000000000000000000000000000000000000000000000f6970">
+        <div id="endCount" class="count">0 / 64</div>
+      </div>
     </div>
 
-    <div class="panel flex" style="gap: 10px;">
-        <button id="btn-start" class="btn-green">Start Kangaroo</button>
-        <button id="btn-pause" class="btn-yellow">Pause</button>
-        <button id="btn-reset" class="btn-red">Reset</button>
+    <section class="result">
+      <label for="targetPub">Target public key P</label>
+      <textarea id="targetPub" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Compressed 02/03... or uncompressed 04..."></textarea>
+    </section>
+
+    <div class="grid">
+      <div>
+        <label for="privateHex">Hidden private key x</label>
+        <input id="privateHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Optional demo key">
+      </div>
+      <div class="row">
+        <button id="generateBtn" class="secondary" type="button">Generate Random</button>
+        <button id="calcPubBtn" type="button">Calculate Public Key</button>
+      </div>
     </div>
 
-    <canvas id="canvas" width="1000" height="250"></canvas>
-
-    <div class="panel stats">
-        <div class="stat-box" style="grid-column: span 2;">
-            <div class="stat-label">Tame Position (start + d_T) [HEX]</div>
-            <div class="stat-val tame-color" id="st-tame-pos">0000000000000000000000000000000000000000000000000000000000000000</div>
-        </div>
-        <div class="stat-box" style="grid-column: span 2;">
-            <div class="stat-label">Wild Position (x + d_W) [HEX]</div>
-            <div class="stat-val wild-color" id="st-wild-pos">0000000000000000000000000000000000000000000000000000000000000000</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Tame Dist (d_T)</div>
-            <div class="stat-val" id="st-tame-dist" style="font-size: 1.3em;">0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Wild Dist (d_W)</div>
-            <div class="stat-val" id="st-wild-dist" style="font-size: 1.3em;">0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Total Steps</div>
-            <div class="stat-val" id="st-steps" style="font-size: 1.3em;">0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Traps Set</div>
-            <div class="stat-val" id="st-dps" style="font-size: 1.3em;">0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Workers</div>
-            <div class="stat-val" id="st-workers" style="font-size: 1.3em;">0</div>
-        </div>
+    <div class="controls">
+      <div>
+        <label for="coresInput">Cores</label>
+        <select id="coresInput"></select>
+      </div>
+      <div class="row">
+        <button id="startBtn" type="button">Start</button>
+        <button id="pauseBtn" class="secondary" type="button" disabled>Pause</button>
+        <button id="stopBtn" class="danger" type="button" disabled>Stop</button>
+        <button id="clearBtn" class="secondary" type="button">Clear</button>
+      </div>
     </div>
 
-    <div class="panel">
-        <h3 style="margin-top: 0;">Algorithm Result</h3>
-        <p><strong>Collision Status:</strong> <span id="st-collision">Not Started</span></p>
-        <div class="result-box">
-            <p><strong>Collision Formula:</strong> <code>x = (tame_start + d_T - d_W) mod n</code></p>
-            <p><strong>Recovered Private Key (x):</strong> <span id="st-recovered" class="stat-val highlight" style="word-break: break-all;">None</span></p>
-            <p><strong>Verification:</strong> <span id="st-verify">N/A</span></p>
-        </div>
+    <div class="stats">
+      <div class="stat">Progress<b id="progressStat">0.00%</b></div>
+      <div class="stat">Processed<b id="processedStat">0</b></div>
+      <div class="stat">Remaining<b id="remainingStat">0</b></div>
+      <div class="stat">Speed<b id="speedStat">0 / sec</b></div>
+      <div class="stat">Workers<b id="workersStat">0</b></div>
     </div>
+    <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
 
-    <div class="panel">
-        <h3 style="margin-top: 0;">How it Works</h3>
-        <ol>
-            <li><strong>What G means:</strong> <code>G</code> is the known Generator point of the secp256k1 elliptic curve. It is the universal starting point for Bitcoin keys.</li>
-            <li><strong>What public key means:</strong> The public key <code>P</code> is mathematically derived by multiplying the generator by the private key: <code>P = x * G</code>. Finding <code>x</code> from <code>P</code> is the Discrete Logarithm Problem.</li>
-            <li><strong>What tame kangaroo does:</strong> Each worker starts an independent tame walk from <code>b + offset</code> and executes a deterministic, pseudo-random walk based on point coordinates. Periodically, it drops "Distinguished Points" (markers) into the shared coordinator map.</li>
-            <li><strong>What wild kangaroo does:</strong> Each worker starts an independent wild walk from <code>P + offset*G</code>. It uses the exact same deterministic walk logic. If its path intersects any tame trail, the main thread sees the shared marker collision.</li>
-            <li><strong>What collision means:</strong> A collision occurs when Wild hits a Tame marker (or vice versa). Because their absolute curve positions are perfectly equal at that moment, the coordinator solves <code>x = tame_start + d_T - d_W</code>.</li>
-        </ol>
-    </div>
-</div>
+    <p id="status" class="status">Enter a range and target public key.</p>
 
-<script type="module">
-    // Import real secp256k1 library from ESM CDN
-    import * as secp from "https://esm.sh/@noble/secp256k1@1.7.1";
+    <section class="result">
+      <label for="currentKeys">Keys getting calculated</label>
+      <textarea id="currentKeys" readonly></textarea>
+    </section>
 
-    const G = secp.Point.BASE;
-    const n = secp.CURVE.n;
-    const WORKER_BATCH_SIZE = 2048;
-    const UI_RENDER_INTERVAL_MS = 100;
-    const MAX_RENDERED_DPS = 1200;
-    const MAX_WORKERS = 8;
-    const VISUAL_SEARCH_LIMIT = 20000;
-    const KANGAROO_WORKER_SOURCE = String.raw`
+    <section class="result">
+      <label for="recoveredKey">Recovered private key</label>
+      <input id="recoveredKey" readonly>
+    </section>
+  </main>
+
+  <script type="module">
+    (() => {
+      "use strict";
+
+      const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+      const MAX_CORES = 64;
+      const WORKER_BATCH_SIZE = 8192;
+      const UI_INTERVAL_MS = 250;
+      const SECP_URL = "https://esm.sh/@noble/secp256k1@1.7.1";
+      const KANGAROO_WORKER_SOURCE = String.raw`
 let secp = null;
 let G = null;
 
+let runId = 0;
 let workerId = 0;
 let jumpTable = [];
 let k = 0;
-let dpMask = 15n;
-let batchSize = 100;
-let delayMs = 0;
+let dpMaskNumber = 15;
+let batchSize = 8192;
 let stopped = true;
 let paused = false;
 let loopScheduled = false;
 let tame = null;
 let wild = null;
-let steps = 0n;
+let calculated = 0n;
+let skipped = 0n;
 let localTameMap = new Map();
 let localWildMap = new Map();
 
 async function loadSecp() {
-    if (!secp) {
-        secp = await import("https://esm.sh/@noble/secp256k1@1.7.1");
-        G = secp.Point.BASE;
-    }
+  if (!secp) {
+    secp = await import("https://esm.sh/@noble/secp256k1@1.7.1");
+    G = secp.Point.BASE;
+  }
 }
 
 function parseHexBigInt(hex) {
-    const clean = String(hex || "0").replace(/^0x/i, "");
-    return clean ? BigInt("0x" + clean) : 0n;
+  const clean = String(hex || "0").replace(/^0x/i, "");
+  return clean ? BigInt("0x" + clean) : 0n;
 }
 
-function toHexBigInt(value) {
-    return value.toString(16);
+function toHex(value) {
+  return value.toString(16);
 }
 
 function multiplyGenerator(scalar) {
-    if (scalar === 0n) throw new Error("Tame start cannot be zero");
-    return G.multiply(scalar);
+  if (scalar === 0n) throw new Error("Tame start cannot be zero");
+  return G.multiply(scalar);
 }
 
 function addGeneratorMultiple(point, scalar) {
-    return scalar === 0n ? point : point.add(G.multiply(scalar));
+  return scalar === 0n ? point : point.add(G.multiply(scalar));
 }
 
 function getJumpIndex(point) {
-    const low = Number(BigInt.asUintN(32, point.x));
-    return low % k;
+  return Number(BigInt.asUintN(32, point.x)) % k;
 }
 
 function isDistinguished(point) {
-    const low = Number(BigInt.asUintN(32, point.x));
-    return (low & Number(dpMask)) === 0;
+  return (Number(BigInt.asUintN(32, point.x)) & dpMaskNumber) === 0;
 }
 
 function makeDp(kind, state) {
-    return {
-        kind,
-        pointHex: state.point.toHex(true),
-        distHex: toHexBigInt(state.dist),
-        posHex: toHexBigInt(state.pos),
-        startHex: kind === "tame" ? toHexBigInt(state.start) : null,
-        workerId
-    };
-}
-
-function makeCollision(tameDist, wildDist, pointHex) {
-    return {
-        type: "collision",
-        workerId,
-        pointHex,
-        tame: {
-            kind: "tame",
-            pointHex,
-            distHex: toHexBigInt(tameDist),
-            posHex: toHexBigInt(tame.start + tameDist),
-            startHex: toHexBigInt(tame.start),
-            workerId
-        },
-        wild: {
-            kind: "wild",
-            pointHex,
-            distHex: toHexBigInt(wildDist),
-            posHex: toHexBigInt(wildDist),
-            startHex: null,
-            workerId
-        },
-        stats: makeStats()
-    };
+  return {
+    kind: kind,
+    pointHex: state.point.toHex(true),
+    distHex: toHex(state.dist),
+    posHex: toHex(state.pos),
+    startHex: kind === "tame" ? toHex(state.start) : null,
+    workerId: workerId
+  };
 }
 
 function makeStats() {
-    return {
-        tameDistHex: toHexBigInt(tame.dist),
-        tamePosHex: toHexBigInt(tame.pos),
-        tameStartHex: toHexBigInt(tame.start),
-        wildDistHex: toHexBigInt(wild.dist),
-        wildOffsetHex: toHexBigInt(wild.start),
-        steps: steps.toString(10)
-    };
+  return {
+    tamePosHex: toHex(tame.pos),
+    wildOffsetHex: toHex(wild.dist),
+    calculated: calculated.toString(10),
+    skippedHex: toHex(skipped)
+  };
+}
+
+function makeCollision(tameDist, wildDist, pointHex) {
+  return {
+    type: "collision",
+    runId: runId,
+    workerId: workerId,
+    pointHex: pointHex,
+    tame: {
+      kind: "tame",
+      pointHex: pointHex,
+      distHex: toHex(tameDist),
+      posHex: toHex(tame.start + tameDist),
+      startHex: toHex(tame.start),
+      workerId: workerId
+    },
+    wild: {
+      kind: "wild",
+      pointHex: pointHex,
+      distHex: toHex(wildDist),
+      posHex: toHex(wildDist),
+      startHex: null,
+      workerId: workerId
+    },
+    stats: makeStats()
+  };
 }
 
 function stepWalker(kind) {
-    const state = kind === "tame" ? tame : wild;
-    const jump = jumpTable[getJumpIndex(state.point)];
+  const state = kind === "tame" ? tame : wild;
+  const jump = jumpTable[getJumpIndex(state.point)];
 
-    state.point = state.point.add(jump.point);
-    state.dist += jump.dist;
-    state.pos += jump.dist;
+  state.point = state.point.add(jump.point);
+  state.dist += jump.dist;
+  state.pos += jump.dist;
+  skipped += jump.dist;
+  calculated++;
 
-    return isDistinguished(state.point) ? makeDp(kind, state) : null;
+  return isDistinguished(state.point) ? makeDp(kind, state) : null;
 }
 
 function postBatch(dps) {
-    self.postMessage({
-        type: "batch",
-        workerId,
-        dps,
-        stats: makeStats()
-    });
+  self.postMessage({
+    type: "batch",
+    runId: runId,
+    workerId: workerId,
+    dps: dps,
+    stats: makeStats()
+  });
 }
 
 function scheduleLoop() {
-    if (loopScheduled || stopped || paused) return;
-    loopScheduled = true;
-    setTimeout(runBatch, delayMs);
+  if (loopScheduled || stopped || paused) return;
+  loopScheduled = true;
+  setTimeout(runBatch, 0);
 }
 
 function runBatch() {
-    loopScheduled = false;
-    if (stopped || paused) return;
+  loopScheduled = false;
+  if (stopped || paused) return;
 
-    const dps = [];
-    for (let i = 0; i < batchSize && !stopped && !paused; i++) {
-        const tameDp = stepWalker("tame");
-        if (tameDp) {
-            dps.push(tameDp);
-            localTameMap.set(tameDp.pointHex, tame.dist);
-            if (localWildMap.has(tameDp.pointHex)) {
-                stopped = true;
-                self.postMessage(makeCollision(tame.dist, localWildMap.get(tameDp.pointHex), tameDp.pointHex));
-                return;
-            }
-        }
-
-        const wildDp = stepWalker("wild");
-        if (wildDp) {
-            dps.push(wildDp);
-            localWildMap.set(wildDp.pointHex, wild.dist);
-        }
-
-        const currentWildHex = wild.point.toHex(true);
-        if (localTameMap.has(currentWildHex)) {
-            stopped = true;
-            self.postMessage(makeCollision(localTameMap.get(currentWildHex), wild.dist, currentWildHex));
-            return;
-        }
-
-        steps++;
+  const dps = [];
+  for (let i = 0; i < batchSize && !stopped && !paused; i++) {
+    const tameDp = stepWalker("tame");
+    if (tameDp) {
+      dps.push(tameDp);
+      localTameMap.set(tameDp.pointHex, tame.dist);
+      if (localWildMap.has(tameDp.pointHex)) {
+        stopped = true;
+        self.postMessage(makeCollision(tame.dist, localWildMap.get(tameDp.pointHex), tameDp.pointHex));
+        return;
+      }
     }
 
-    postBatch(dps);
-    scheduleLoop();
+    const wildDp = stepWalker("wild");
+    if (wildDp) {
+      dps.push(wildDp);
+      localWildMap.set(wildDp.pointHex, wild.dist);
+      if (localTameMap.has(wildDp.pointHex)) {
+        stopped = true;
+        self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wild.dist, wildDp.pointHex));
+        return;
+      }
+    }
+  }
+
+  postBatch(dps);
+  scheduleLoop();
 }
 
 async function initWorker(message) {
-    await loadSecp();
+  runId = Number(message.runId || 0);
+  workerId = Number(message.workerId || 0);
+  await loadSecp();
 
-    workerId = message.workerId;
-    k = message.k;
-    dpMask = parseHexBigInt(message.dpMaskHex);
-    batchSize = Math.max(1, Number(message.batchSize || 100));
-    delayMs = Math.max(0, Number(message.delayMs || 0));
-    steps = 0n;
-    stopped = false;
-    paused = false;
-    loopScheduled = false;
-    localTameMap = new Map();
-    localWildMap = new Map();
+  k = Number(message.k || 1);
+  dpMaskNumber = Number(parseHexBigInt(message.dpMaskHex || "f"));
+  batchSize = Math.max(1, Math.min(65536, Number(message.batchSize || 8192)));
+  calculated = 0n;
+  skipped = 0n;
+  stopped = false;
+  paused = false;
+  loopScheduled = false;
+  localTameMap = new Map();
+  localWildMap = new Map();
 
-    jumpTable = message.jumpTable.map((jump) => ({
-        dist: parseHexBigInt(jump.distHex),
-        point: secp.Point.fromHex(jump.pointHex)
-    }));
+  jumpTable = message.jumpTable.map((jump) => ({
+    dist: parseHexBigInt(jump.distHex),
+    point: secp.Point.fromHex(jump.pointHex)
+  }));
 
-    const tameStart = parseHexBigInt(message.tameStartHex || message.bHex);
-    const wildOffset = parseHexBigInt(message.wildOffsetHex);
-    const wildStartPoint = secp.Point.fromHex(message.pHex);
+  const tameStart = parseHexBigInt(message.tameStartHex);
+  const wildOffset = parseHexBigInt(message.wildOffsetHex);
+  const wildStartPoint = secp.Point.fromHex(message.pHex);
 
-    tame = {
-        point: multiplyGenerator(tameStart),
-        dist: 0n,
-        pos: tameStart,
-        start: tameStart
-    };
+  tame = {
+    point: multiplyGenerator(tameStart),
+    dist: 0n,
+    pos: tameStart,
+    start: tameStart
+  };
 
-    wild = {
-        point: addGeneratorMultiple(wildStartPoint, wildOffset),
-        dist: wildOffset,
-        pos: wildOffset,
-        start: wildOffset
-    };
+  wild = {
+    point: addGeneratorMultiple(wildStartPoint, wildOffset),
+    dist: wildOffset,
+    pos: wildOffset,
+    start: wildOffset
+  };
 
-    const initialDps = [];
-    if (isDistinguished(tame.point)) {
-        const tameDp = makeDp("tame", tame);
-        initialDps.push(tameDp);
-        localTameMap.set(tameDp.pointHex, tame.dist);
+  const initialDps = [];
+  if (isDistinguished(tame.point)) {
+    const tameDp = makeDp("tame", tame);
+    initialDps.push(tameDp);
+    localTameMap.set(tameDp.pointHex, tame.dist);
+  }
+  if (isDistinguished(wild.point)) {
+    const wildDp = makeDp("wild", wild);
+    initialDps.push(wildDp);
+    localWildMap.set(wildDp.pointHex, wild.dist);
+    if (localTameMap.has(wildDp.pointHex)) {
+      stopped = true;
+      self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wild.dist, wildDp.pointHex));
+      return;
     }
-    if (isDistinguished(wild.point)) {
-        const wildDp = makeDp("wild", wild);
-        initialDps.push(wildDp);
-        localWildMap.set(wildDp.pointHex, wild.dist);
-    }
-    const wildHex = wild.point.toHex(true);
-    if (localTameMap.has(wildHex)) {
-        stopped = true;
-        self.postMessage(makeCollision(localTameMap.get(wildHex), wild.dist, wildHex));
-        return;
-    }
+  }
 
-    postBatch(initialDps);
-    scheduleLoop();
+  postBatch(initialDps);
+  scheduleLoop();
 }
 
 self.onmessage = async (event) => {
-    const message = event.data || {};
+  const message = event.data || {};
 
-    try {
-        if (message.type === "init") {
-            await initWorker(message);
-        } else if (message.type === "pause") {
-            paused = true;
-        } else if (message.type === "resume") {
-            paused = false;
-            scheduleLoop();
-        } else if (message.type === "setDelay") {
-            delayMs = Math.max(0, Number(message.delayMs || 0));
-        } else if (message.type === "stop") {
-            stopped = true;
-            paused = false;
-        }
-    } catch (error) {
-        stopped = true;
-        self.postMessage({
-            type: "error",
-            workerId,
-            message: error instanceof Error ? error.message : String(error)
-        });
+  try {
+    if (message.type === "init") {
+      await initWorker(message);
+    } else if (message.type === "pause") {
+      paused = true;
+    } else if (message.type === "resume") {
+      paused = false;
+      scheduleLoop();
+    } else if (message.type === "stop") {
+      stopped = true;
+      paused = false;
     }
+  } catch (error) {
+    stopped = true;
+    self.postMessage({
+      type: "error",
+      runId: runId,
+      workerId: workerId,
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
 };
 `;
-    let workerModuleUrl = null;
 
-    // DOM Elements
-    const inStart = document.getElementById("in-start");
-    const inEnd = document.getElementById("in-end");
-    const inPriv = document.getElementById("in-priv");
-    const inPub = document.getElementById("in-pub");
-    const inK = document.getElementById("in-k");
-    const inSpeed = document.getElementById("in-speed");
+      const startHex = document.getElementById("startHex");
+      const endHex = document.getElementById("endHex");
+      const targetPub = document.getElementById("targetPub");
+      const privateHex = document.getElementById("privateHex");
+      const startCount = document.getElementById("startCount");
+      const endCount = document.getElementById("endCount");
+      const coresInput = document.getElementById("coresInput");
+      const generateBtn = document.getElementById("generateBtn");
+      const calcPubBtn = document.getElementById("calcPubBtn");
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const statusEl = document.getElementById("status");
+      const progressStat = document.getElementById("progressStat");
+      const processedStat = document.getElementById("processedStat");
+      const remainingStat = document.getElementById("remainingStat");
+      const speedStat = document.getElementById("speedStat");
+      const workersStat = document.getElementById("workersStat");
+      const progressBar = document.getElementById("progressBar");
+      const currentKeys = document.getElementById("currentKeys");
+      const recoveredKey = document.getElementById("recoveredKey");
 
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+      let secp = null;
+      let G = null;
+      let curveN = SECP256K1_N;
+      let workerModuleUrl = null;
+      let activeRunId = 0;
+      let running = false;
+      let paused = false;
+      let statsTimer = 0;
+      let rangeSize = 0n;
+      let wildStartP = null;
+      let jumpTable = [];
+      let k = 8;
+      let dpMask = 15n;
+      let lastSpeedAt = 0;
+      let lastSpeedSkipped = 0n;
+      let currentSpeed = 0n;
 
-    // Algorithm State
-    let a = 0n, b = 0n;
-    let jumpTable = [];
-    let k = 8;
-    let dpMask = 15n; // Determines frequency of distinguished points
-    
-    let isRunning = false;
-    let isPaused = false;
-    let animationFrameId = null;
-    let drawPending = false;
-    let renderTimerId = null;
-    let lastRenderAt = 0;
+      const activeWorkers = [];
+      const workerStats = new Map();
+      const tameMap = new Map();
+      const wildMap = new Map();
 
-    let wildStartX = 0n; // Solved quietly for drawing purposes only
-    let wildStartP = null;
+      function setStatus(message, kind = "") {
+        statusEl.textContent = message;
+        statusEl.className = ("status " + kind).trim();
+      }
 
-    let tameState = { dist: 0n, pos: 0n, start: 0n };
-    let wildState = { dist: 0n, pos: 0n };
+      function sanitizeHex(value) {
+        return String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "").replace(/[^0-9a-f]/gi, "").toLowerCase();
+      }
 
-    const activeWorkers = [];
-    const workerVisuals = new Map();
-    const workerStepCounts = new Map();
-    const tameMap = new Map();
-    const wildMap = new Map();
-    const tameDpSamples = [];
-    const wildDpSamples = [];
-    let tameDpSampleCursor = 0;
-    let wildDpSampleCursor = 0;
-    let steps = 0n;
+      function pad64(value) {
+        return value.toString(16).padStart(64, "0");
+      }
 
-    // Viewport bounds for canvas
-    let visualA = 0n;
-    let visualB = 0n;
+      function formatBigInt(value) {
+        return value.toString(10).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
 
-    // Helper: Parse Hex String to BigInt safely
-    const parseHex = (val) => {
-        let str = val.trim().replace(/^0x/i, "");
-        return str ? BigInt("0x" + str) : 0n;
-    };
+      function percentParts(done, total) {
+        if (total <= 0n) return { label: "0.00%", width: "0%" };
+        const capped = done > total ? total : done;
+        const basis = (capped * 10000n) / total;
+        const whole = basis / 100n;
+        const frac = String(basis % 100n).padStart(2, "0");
+        return { label: whole.toString() + "." + frac + "%", width: String(Number(basis) / 100) + "%" };
+      }
 
-    function toHex(value) {
-        return value.toString(16);
-    }
+      function normalizeScalar(value, name) {
+        const hex = sanitizeHex(value);
+        if (!hex) throw new Error(name + " is required.");
+        if (hex.length > 64) throw new Error(name + " must be 64 hex digits or less.");
+        const number = BigInt("0x" + hex.padStart(1, "0"));
+        if (number <= 0n || number >= SECP256K1_N) throw new Error(name + " is outside the valid Bitcoin private-key range.");
+        return { hex: pad64(number), number: number };
+      }
 
-    function randomBigIntBelow(maxExclusive) {
+      async function loadSecp() {
+        if (!secp) {
+          setStatus("Loading secp256k1 engine...");
+          secp = await import(SECP_URL);
+          G = secp.Point.BASE;
+          curveN = secp.CURVE.n || SECP256K1_N;
+        }
+        return secp;
+      }
+
+      function updateCounts() {
+        const s = sanitizeHex(startHex.value).slice(0, 64);
+        const e = sanitizeHex(endHex.value).slice(0, 64);
+        if (s !== startHex.value) startHex.value = s;
+        if (e !== endHex.value) endHex.value = e;
+        startCount.textContent = s.length + " / 64";
+        endCount.textContent = e.length + " / 64";
+      }
+
+      function sanitizeLongInputs() {
+        targetPub.value = sanitizeHex(targetPub.value).slice(0, 130);
+        privateHex.value = sanitizeHex(privateHex.value).slice(0, 64);
+      }
+
+      function populateCores() {
+        const hardware = Math.max(1, Math.min(MAX_CORES, navigator.hardwareConcurrency || 1));
+        const preferred = Math.max(1, Math.min(8, hardware));
+        for (let i = 1; i <= MAX_CORES; i++) {
+          const option = document.createElement("option");
+          option.value = String(i);
+          option.textContent = String(i);
+          if (i === preferred) option.selected = true;
+          coresInput.appendChild(option);
+        }
+      }
+
+      function clampCores(value, size) {
+        let cores = Math.floor(Number(value));
+        if (!Number.isFinite(cores) || cores < 1) cores = 1;
+        cores = Math.min(MAX_CORES, cores);
+        if (size > 0n && size < BigInt(cores)) cores = Number(size);
+        return Math.max(1, cores);
+      }
+
+      function randomBigIntBelow(maxExclusive) {
         if (maxExclusive <= 1n) return 0n;
-
-        let bits = 0n;
-        let cursor = maxExclusive - 1n;
-        while (cursor > 0n) {
-            bits++;
-            cursor >>= 1n;
-        }
-
-        const byteLength = Math.max(1, Math.ceil(Number(bits) / 8));
-        const bytes = new Uint8Array(byteLength);
-        if (globalThis.crypto && globalThis.crypto.getRandomValues) {
-            globalThis.crypto.getRandomValues(bytes);
-        } else {
-            for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-        }
-
+        const bits = maxExclusive.toString(2).length;
+        const bytes = new Uint8Array(Math.max(1, Math.ceil(bits / 8)));
         let value = 0n;
-        for (const byte of bytes) value = (value << 8n) + BigInt(byte);
-        return value % maxExclusive;
-    }
+        do {
+          crypto.getRandomValues(bytes);
+          value = 0n;
+          for (const byte of bytes) value = (value << 8n) + BigInt(byte);
+        } while (value >= maxExclusive);
+        return value;
+      }
 
-    // Helper: Random BigInt in range
-    function randomBigIntInRange(min, max) {
-        const range = max - min;
-        if (range <= 0n) throw new Error("Invalid random range");
-        return min + randomBigIntBelow(range);
-    }
+      function randomBigIntInRange(min, max) {
+        if (min > max) throw new Error("Invalid random range.");
+        return min + randomBigIntBelow(max - min + 1n);
+      }
 
-    function getWorkerCount() {
-        const cores = Number(navigator.hardwareConcurrency) || 4;
-        return Math.max(1, Math.min(MAX_WORKERS, cores));
-    }
+      function autoK(width) {
+        const bits = width > 0n ? width.toString(2).length : 1;
+        return Math.max(4, Math.min(24, Math.ceil(bits / 2)));
+      }
 
-    function getWorkerModuleUrl() {
-        if (!workerModuleUrl) {
-            const blob = new Blob([KANGAROO_WORKER_SOURCE], { type: "application/javascript" });
-            workerModuleUrl = URL.createObjectURL(blob);
-        }
-        return workerModuleUrl;
-    }
+      function chooseDpMask(width) {
+        const bits = width < 1000000n ? 5n : width < 100000000n ? 8n : 10n;
+        return (1n << bits) - 1n;
+      }
 
-    function serializeJumpTable() {
-        return jumpTable.map((jump) => ({
-            distHex: toHex(jump.dist),
-            pointHex: jump.point.toHex(true)
-        }));
-    }
-
-    function postToWorkers(message) {
-        for (const entry of activeWorkers) entry.worker.postMessage(message);
-    }
-
-    function stopWorkers() {
-        for (const entry of activeWorkers) {
-            try { entry.worker.postMessage({ type: "stop" }); } catch (e) {}
-            entry.worker.terminate();
-        }
-        activeWorkers.length = 0;
-    }
-
-    function appendPath(path, value) {
-        path.push(value);
-        if (path.length > 250) path.splice(0, path.length - 250);
-    }
-
-    function rememberDpSample(entry) {
-        const samples = entry.kind === "tame" ? tameDpSamples : wildDpSamples;
-        const pos = entry.kind === "tame" ? entry.start + entry.dist : wildStartX + entry.dist;
-
-        if (samples.length < MAX_RENDERED_DPS) {
-            samples.push(pos);
-            return;
-        }
-
-        if (entry.kind === "tame") {
-            samples[tameDpSampleCursor] = pos;
-            tameDpSampleCursor = (tameDpSampleCursor + 1) % MAX_RENDERED_DPS;
-        } else {
-            samples[wildDpSampleCursor] = pos;
-            wildDpSampleCursor = (wildDpSampleCursor + 1) % MAX_RENDERED_DPS;
-        }
-    }
-
-    function refreshTotalSteps() {
-        steps = 0n;
-        for (const count of workerStepCounts.values()) steps += count;
-    }
-
-    function requestRender() {
-        if (drawPending) return;
-
-        const now = performance.now();
-        const wait = Math.max(0, UI_RENDER_INTERVAL_MS - (now - lastRenderAt));
-
-        const scheduleFrame = () => {
-            renderTimerId = null;
-            drawPending = true;
-            animationFrameId = requestAnimationFrame(() => {
-                drawPending = false;
-                lastRenderAt = performance.now();
-                draw();
-                updateUI();
-            });
-        };
-
-        if (wait === 0) {
-            scheduleFrame();
-        } else if (!renderTimerId) {
-            renderTimerId = setTimeout(scheduleFrame, wait);
-        }
-    }
-
-    // Initialize UI Handlers
-    document.getElementById("btn-gen-priv").onclick = () => {
-        let A = parseHex(inStart.value);
-        let B = parseHex(inEnd.value);
-        if (A >= B) { alert("Start range must be less than End range."); return; }
-        inPriv.value = randomBigIntInRange(A, B).toString(16).padStart(64, '0');
-        document.getElementById("btn-calc-pub").click();
-    };
-
-    document.getElementById("btn-calc-pub").onclick = () => {
-        try {
-            let priv = parseHex(inPriv.value);
-            if (priv <= 0n || priv >= n) throw new Error("Out of curve bounds");
-            let pub = G.multiply(priv);
-            inPub.value = pub.toHex(false); // Uncompressed hex
-        } catch(e) {
-            alert("Invalid private key. Must be a valid hex integer.");
-        }
-    };
-
-    document.getElementById("btn-calc-k").onclick = () => {
-        let A = parseHex(inStart.value);
-        let B = parseHex(inEnd.value);
-        let W = Number(B - A);
-        if (W <= 0) return;
-        
-        let targetMean = Math.sqrt(W) / 2;
-        let bestK = 1;
-        while(true) {
-            let mean = ((1 << bestK) - 1) / bestK;
-            if (mean >= targetMean || bestK >= 24) break;
-            bestK++;
-        }
-        inK.value = bestK;
-    };
-
-    function initJumps(kValue) {
+      function initJumps(kValue) {
         k = kValue;
         jumpTable = [];
         for (let i = 0; i < k; i++) {
-            const dist = 1n << BigInt(i);
-            jumpTable.push({
-                dist: dist,
-                point: G.multiply(dist)
-            });
+          const dist = 1n << BigInt(i);
+          jumpTable.push({ dist: dist, point: G.multiply(dist) });
         }
-        // Capture approx 1/16 of points as distinguished points
-        dpMask = 15n; 
-    }
+      }
 
-    function getJumpIndex(point) {
-        // Use lower 32 bits of X coordinate to pseudo-randomly pick next jump
-        let low = Number(BigInt.asUintN(32, point.x));
-        return low % k;
-    }
+      function serializeJumpTable() {
+        return jumpTable.map((jump) => ({
+          distHex: jump.dist.toString(16),
+          pointHex: jump.point.toHex(true)
+        }));
+      }
 
-    function isDP(point) {
-        let low = Number(BigInt.asUintN(32, point.x));
-        return (low & Number(dpMask)) === 0;
-    }
+      function getWorkerModuleUrl() {
+        if (!workerModuleUrl) {
+          const blob = new Blob([KANGAROO_WORKER_SOURCE], { type: "application/javascript" });
+          workerModuleUrl = URL.createObjectURL(blob);
+        }
+        return workerModuleUrl;
+      }
 
-    function updateUI() {
-        document.getElementById("st-tame-pos").innerText = tameState.pos.toString(16).padStart(64, '0');
-        document.getElementById("st-wild-pos").innerText = wildState.pos.toString(16).padStart(64, '0');
-        document.getElementById("st-tame-dist").innerText = tameState.dist.toString();
-        document.getElementById("st-wild-dist").innerText = wildState.dist.toString();
-        document.getElementById("st-steps").innerText = steps.toString();
-        document.getElementById("st-dps").innerText = (tameMap.size + wildMap.size).toString();
-        document.getElementById("st-workers").innerText = activeWorkers.length.toString();
-    }
+      function postToWorkers(message) {
+        for (const entry of activeWorkers) entry.worker.postMessage(message);
+      }
 
-    function handleCollision(tameEntry, wildEntry) {
-        if (!isRunning) return;
+      function stopWorkers() {
+        for (const entry of activeWorkers) {
+          try { entry.worker.postMessage({ type: "stop" }); } catch (error) {}
+          entry.worker.terminate();
+        }
+        activeWorkers.length = 0;
+      }
 
-        isRunning = false;
-        isPaused = false;
+      function resetCoordinatorState() {
         stopWorkers();
-        
-        // Key recovery formula with spread tame starts:
-        // x = tame_start + d_T - d_W mod n.
-        let recoveredX = (tameEntry.start + tameEntry.dist - wildEntry.dist) % n;
-        if (recoveredX < 0n) recoveredX += n;
-        
-        document.getElementById("st-collision").innerText =
-            `COLLISION FOUND! T${tameEntry.workerId} / W${wildEntry.workerId}`;
-        document.getElementById("st-collision").className = "highlight stat-val";
-        document.getElementById("st-recovered").innerText = recoveredX.toString(16).padStart(64, '0');
-        
-        // Cryptographic Verification
-        let checkP = G.multiply(recoveredX);
-        if (checkP.equals(wildStartP)) {
-            document.getElementById("st-verify").innerText = "✅ SUCCESS: Recovered key matches Public Key";
-            document.getElementById("st-verify").innerText = "SUCCESS: Recovered key matches Public Key";
-            document.getElementById("st-verify").className = "highlight";
-        } else {
-            document.getElementById("st-verify").innerText = "❌ FAILED: Derived P does not match Target P";
-            document.getElementById("st-verify").innerText = "FAILED: Derived P does not match Target P";
-            document.getElementById("st-verify").className = "wild-color";
-        }
-        updateUI();
-        draw();
-    }
+        workerStats.clear();
+        tameMap.clear();
+        wildMap.clear();
+        rangeSize = 0n;
+        wildStartP = null;
+        currentSpeed = 0n;
+        lastSpeedSkipped = 0n;
+        lastSpeedAt = performance.now();
+      }
 
-    function updateBounds() {
-        let maxPos = tameState.pos > wildState.pos ? tameState.pos : wildState.pos;
-        for (const visual of workerVisuals.values()) {
-            const wildPos = wildStartX + visual.wildDist;
-            if (visual.tamePos > maxPos) maxPos = visual.tamePos;
-            if (wildPos > maxPos) maxPos = wildPos;
-        }
-        if (maxPos > visualB - (visualB - visualA)/10n) {
-            visualB = maxPos + (maxPos - visualA)/5n;
-        }
-    }
+      function updateButtons() {
+        startBtn.textContent = paused ? "Resume" : "Start";
+        startBtn.disabled = running && !paused;
+        pauseBtn.disabled = !running || paused;
+        stopBtn.disabled = !running && activeWorkers.length === 0;
+      }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const padX = 60;
-        const width = canvas.width - 2 * padX;
-        const midY = canvas.height / 2;
+      function aggregateStats() {
+        let calculated = 0n;
+        let skipped = 0n;
+        let latest = null;
 
-        updateBounds();
-        let range = visualB - visualA;
-        if (range <= 0n) range = 1n;
-
-        function getX(val) {
-            let offset = Number(val - visualA);
-            return padX + (offset / Number(range)) * width;
+        for (const stat of workerStats.values()) {
+          calculated += stat.calculated;
+          skipped += stat.skipped;
+          if (!latest || stat.updatedAt > latest.updatedAt) latest = stat;
         }
 
-        // Draw Base Axis
-        ctx.strokeStyle = "#475569";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(padX, midY);
-        ctx.lineTo(canvas.width - padX, midY);
-        ctx.stroke();
+        return { calculated: calculated, skipped: skipped, latest: latest };
+      }
 
-        ctx.fillStyle = "#94a3b8";
-        ctx.font = "12px monospace";
-        ctx.fillText("a", getX(a) - 5, midY + 25);
-        ctx.fillText("b", getX(b) - 5, midY + 25);
+      function updateStats() {
+        const aggregate = aggregateStats();
+        const processed = rangeSize > 0n && aggregate.skipped > rangeSize ? rangeSize : aggregate.skipped;
+        const remaining = rangeSize > processed ? rangeSize - processed : 0n;
+        const percent = percentParts(processed, rangeSize);
+        const now = performance.now();
 
-        // Draw Paths (Trails)
-        function drawTrail(pathArray, yOffset, color) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            if (pathArray.length > 0) {
-                ctx.moveTo(getX(pathArray[0]), midY + yOffset);
-                for (let i = 1; i < pathArray.length; i++) {
-                    ctx.lineTo(getX(pathArray[i]), midY + yOffset);
-                }
-            }
-            ctx.stroke();
+        if (lastSpeedAt > 0) {
+          const elapsed = Math.max(1, Math.round(now - lastSpeedAt));
+          const delta = aggregate.skipped >= lastSpeedSkipped ? aggregate.skipped - lastSpeedSkipped : 0n;
+          currentSpeed = (delta * 1000n) / BigInt(elapsed);
         }
+        lastSpeedAt = now;
+        lastSpeedSkipped = aggregate.skipped;
 
-        for (const visual of workerVisuals.values()) {
-            drawTrail(visual.tamePath, -20, "rgba(56, 189, 248, 0.25)");
-            drawTrail(visual.wildPath, 20, "rgba(248, 113, 113, 0.25)");
+        progressStat.textContent = percent.label;
+        progressBar.style.width = percent.width;
+        processedStat.textContent = formatBigInt(processed);
+        remainingStat.textContent = formatBigInt(remaining);
+        speedStat.textContent = formatBigInt(currentSpeed) + " / sec";
+        workersStat.textContent = running || activeWorkers.length ? String(activeWorkers.length) : "0";
+
+        if (aggregate.latest) {
+          currentKeys.value =
+            "Tame key: " + pad64(aggregate.latest.tamePos) + "\n" +
+            "Wild key: target + " + pad64(aggregate.latest.wildOffset);
         }
+      }
 
-        // Draw Distinguished Points (Traps)
-        ctx.fillStyle = "#38bdf8"; // Tame traps
-        for (let dpPos of tameDpSamples) {
-            ctx.beginPath(); ctx.arc(getX(dpPos), midY - 20, 3, 0, Math.PI*2); ctx.fill();
-        }
+      function clearOutput() {
+        recoveredKey.value = "";
+        currentKeys.value = "";
+        progressStat.textContent = "0.00%";
+        processedStat.textContent = "0";
+        remainingStat.textContent = "0";
+        speedStat.textContent = "0 / sec";
+        workersStat.textContent = "0";
+        progressBar.style.width = "0%";
+      }
 
-        ctx.fillStyle = "#f87171"; // Wild traps
-        for (let dpPos of wildDpSamples) {
-            ctx.beginPath(); ctx.arc(getX(dpPos), midY + 20, 3, 0, Math.PI*2); ctx.fill();
-        }
+      function finishRun(message, kind) {
+        running = false;
+        paused = false;
+        clearInterval(statsTimer);
+        statsTimer = 0;
+        stopWorkers();
+        updateStats();
+        updateButtons();
+        setStatus(message, kind);
+      }
 
-        // Draw Current Kangaroos
-        let labelDrawn = false;
-        for (const visual of workerVisuals.values()) {
-            let tX = getX(visual.tamePos);
-            ctx.fillStyle = "#38bdf8";
-            ctx.beginPath(); ctx.arc(tX, midY - 20, 5, 0, Math.PI*2); ctx.fill();
-
-            let wX = getX(wildStartX + visual.wildDist);
-            ctx.fillStyle = "#f87171";
-            ctx.beginPath(); ctx.arc(wX, midY + 20, 5, 0, Math.PI*2); ctx.fill();
-
-            if (!labelDrawn) {
-                ctx.fillStyle = "#cbd5e1";
-                ctx.fillText("Tame workers", tX - 35, midY - 35);
-                ctx.fillText("Wild workers", wX - 35, midY + 45);
-                labelDrawn = true;
-            }
-        }
-
-        if (!labelDrawn) {
-            let tX = getX(tameState.pos);
-            ctx.fillStyle = "#38bdf8";
-            ctx.beginPath(); ctx.arc(tX, midY - 20, 8, 0, Math.PI*2); ctx.fill();
-            ctx.fillText("Tame", tX - 15, midY - 35);
-
-            let wX = getX(wildState.pos);
-            ctx.fillStyle = "#f87171";
-            ctx.beginPath(); ctx.arc(wX, midY + 20, 8, 0, Math.PI*2); ctx.fill();
-            ctx.fillText("Wild", wX - 15, midY + 45);
-        }
-    }
-
-    function parseWorkerHex(hex) {
+      function parseWorkerHex(hex) {
         const clean = String(hex || "0").replace(/^0x/i, "");
         return clean ? BigInt("0x" + clean) : 0n;
-    }
+      }
 
-    function entryFromWorkerPoint(dp) {
+      function entryFromWorkerPoint(dp) {
         return {
-            kind: dp.kind,
-            pointHex: dp.pointHex,
-            dist: parseWorkerHex(dp.distHex),
-            pos: parseWorkerHex(dp.posHex),
-            start: dp.kind === "tame" ? parseWorkerHex(dp.startHex) : 0n,
-            workerId: dp.workerId
+          kind: dp.kind,
+          pointHex: dp.pointHex,
+          dist: parseWorkerHex(dp.distHex),
+          pos: parseWorkerHex(dp.posHex),
+          start: dp.kind === "tame" ? parseWorkerHex(dp.startHex) : 0n,
+          workerId: dp.workerId
         };
-    }
+      }
 
-    function rememberDistinguishedPoint(dp) {
+      function handleCollision(tameEntry, wildEntry) {
+        if (!running) return;
+
+        let recovered = (tameEntry.start + tameEntry.dist - wildEntry.dist) % curveN;
+        if (recovered < 0n) recovered += curveN;
+        recoveredKey.value = pad64(recovered);
+
+        let verified = false;
+        try {
+          verified = G.multiply(recovered).equals(wildStartP);
+        } catch (error) {
+          verified = false;
+        }
+
+        finishRun(
+          verified ? "Match found and verified." : "Collision found, but verification failed.",
+          verified ? "ok" : "err"
+        );
+      }
+
+      function rememberDistinguishedPoint(dp) {
         const entry = entryFromWorkerPoint(dp);
 
         if (entry.kind === "tame") {
-            if (wildMap.has(entry.pointHex)) {
-                handleCollision(entry, wildMap.get(entry.pointHex));
-                return true;
-            }
-            if (!tameMap.has(entry.pointHex)) {
-                tameMap.set(entry.pointHex, entry);
-                rememberDpSample(entry);
-            }
+          if (wildMap.has(entry.pointHex)) {
+            handleCollision(entry, wildMap.get(entry.pointHex));
+            return true;
+          }
+          if (!tameMap.has(entry.pointHex)) tameMap.set(entry.pointHex, entry);
         } else {
-            if (tameMap.has(entry.pointHex)) {
-                handleCollision(tameMap.get(entry.pointHex), entry);
-                return true;
-            }
-            if (!wildMap.has(entry.pointHex)) {
-                wildMap.set(entry.pointHex, entry);
-                rememberDpSample(entry);
-            }
+          if (tameMap.has(entry.pointHex)) {
+            handleCollision(tameMap.get(entry.pointHex), entry);
+            return true;
+          }
+          if (!wildMap.has(entry.pointHex)) wildMap.set(entry.pointHex, entry);
         }
 
         return false;
-    }
+      }
 
-    function handleWorkerMessage(event) {
+      function handleWorkerMessage(event) {
         const message = event.data || {};
+        if (message.runId !== activeRunId) return;
 
         if (message.type === "error") {
-            isRunning = false;
-            isPaused = false;
-            stopWorkers();
-            document.getElementById("st-collision").innerText =
-                `Worker ${message.workerId} error: ${message.message}`;
-            document.getElementById("st-collision").className = "wild-color stat-val";
-            updateUI();
-            return;
+          finishRun("Worker " + message.workerId + " error: " + message.message, "err");
+          return;
+        }
+
+        if (message.stats) {
+          workerStats.set(message.workerId, {
+            calculated: BigInt(message.stats.calculated || "0"),
+            skipped: parseWorkerHex(message.stats.skippedHex),
+            tamePos: parseWorkerHex(message.stats.tamePosHex),
+            wildOffset: parseWorkerHex(message.stats.wildOffsetHex),
+            updatedAt: performance.now()
+          });
         }
 
         if (message.type === "collision") {
-            const tameEntry = entryFromWorkerPoint(message.tame);
-            const wildEntry = entryFromWorkerPoint(message.wild);
-            rememberDpSample(tameEntry);
-            rememberDpSample(wildEntry);
-            handleCollision(tameEntry, wildEntry);
-            return;
+          handleCollision(entryFromWorkerPoint(message.tame), entryFromWorkerPoint(message.wild));
+          return;
         }
 
-        if (message.type !== "batch" || !isRunning) return;
+        if (message.type !== "batch" || !running) return;
 
-        const visual = workerVisuals.get(message.workerId);
-        if (!visual) return;
-
-        visual.tameDist = parseWorkerHex(message.stats.tameDistHex);
-        visual.tamePos = parseWorkerHex(message.stats.tamePosHex);
-        visual.tameStart = parseWorkerHex(message.stats.tameStartHex);
-        visual.wildDist = parseWorkerHex(message.stats.wildDistHex);
-
-        appendPath(visual.tamePath, visual.tamePos);
-        appendPath(visual.wildPath, wildStartX + visual.wildDist);
-
-        tameState = { dist: visual.tameDist, pos: visual.tamePos, start: visual.tameStart };
-        wildState = { dist: visual.wildDist, pos: wildStartX + visual.wildDist };
-
-        workerStepCounts.set(message.workerId, BigInt(message.stats.steps || "0"));
-        refreshTotalSteps();
-
-        let collisionFound = false;
         for (const dp of message.dps || []) {
-            if (rememberDistinguishedPoint(dp)) {
-                collisionFound = true;
-                break;
-            }
+          if (rememberDistinguishedPoint(dp)) break;
         }
+      }
 
-        if (!collisionFound) requestRender();
-    }
-
-    function handleWorkerError(workerId, event) {
-        if (!isRunning) return;
-        isRunning = false;
-        isPaused = false;
-        stopWorkers();
+      function handleWorkerError(workerId, event) {
+        if (!running) return;
         const detail = event.message || event.type || "unknown startup error";
-        document.getElementById("st-collision").innerText =
-            `Worker ${workerId} failed to start: ${detail}`;
-        document.getElementById("st-collision").className = "wild-color stat-val";
-        updateUI();
-        console.error(event);
-    }
+        finishRun("Worker " + workerId + " failed: " + detail, "err");
+      }
 
-    function resetCoordinatorState() {
-        stopWorkers();
-        if (renderTimerId) clearTimeout(renderTimerId);
-        renderTimerId = null;
-        drawPending = false;
-        workerVisuals.clear();
-        workerStepCounts.clear();
-        tameMap.clear();
-        wildMap.clear();
-        tameDpSamples.length = 0;
-        wildDpSamples.length = 0;
-        tameDpSampleCursor = 0;
-        wildDpSampleCursor = 0;
-        tameState = { pos: 0n, dist: 0n, start: 0n };
-        wildState = { pos: 0n, dist: 0n };
-        steps = 0n;
-    }
-
-    function startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, delayMs) {
+      function startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, publicKeyHex) {
         const worker = new Worker(getWorkerModuleUrl());
         worker.onmessage = handleWorkerMessage;
         worker.onerror = (event) => handleWorkerError(workerId, event);
-        activeWorkers.push({ workerId, worker });
-
-        workerVisuals.set(workerId, {
-            workerId,
-            tameStart,
-            tameDist: 0n,
-            tamePos: tameStart,
-            wildOffset,
-            wildDist: wildOffset,
-            tamePath: [tameStart],
-            wildPath: [wildStartX + wildOffset]
+        activeWorkers.push({ workerId: workerId, worker: worker });
+        workerStats.set(workerId, {
+          calculated: 0n,
+          skipped: 0n,
+          tamePos: tameStart,
+          wildOffset: wildOffset,
+          updatedAt: performance.now()
         });
-        workerStepCounts.set(workerId, 0n);
 
         worker.postMessage({
-            type: "init",
-            workerId,
-            bHex: toHex(b),
-            pHex: wildStartP.toHex(true),
-            tameStartHex: toHex(tameStart),
-            wildOffsetHex: toHex(wildOffset),
-            jumpTable: serializedJumpTable,
-            k,
-            dpMaskHex: toHex(dpMask),
-            batchSize: WORKER_BATCH_SIZE,
-            delayMs
+          type: "init",
+          runId: activeRunId,
+          workerId: workerId,
+          pHex: publicKeyHex,
+          tameStartHex: tameStart.toString(16),
+          wildOffsetHex: wildOffset.toString(16),
+          jumpTable: serializedJumpTable,
+          k: k,
+          dpMaskHex: dpMask.toString(16),
+          batchSize: WORKER_BATCH_SIZE
         });
-    }
+      }
 
-    document.getElementById("btn-start").onclick = () => {
-        if (isRunning) {
-            isPaused = false;
-            document.getElementById("st-collision").innerText = "Searching...";
-            postToWorkers({ type: "resume" });
-            return;
+      async function calculatePublicKey(showError = true) {
+        try {
+          sanitizeLongInputs();
+          const priv = normalizeScalar(privateHex.value, "Hidden private key");
+          await loadSecp();
+          targetPub.value = G.multiply(priv.number).toHex(false);
+          setStatus("Public key calculated.", "ok");
+          return true;
+        } catch (error) {
+          if (showError) setStatus(error.message || "Could not calculate public key.", "err");
+          return false;
+        }
+      }
+
+      async function generatePrivateKey() {
+        try {
+          updateCounts();
+          const start = normalizeScalar(startHex.value, "Hex start");
+          const end = normalizeScalar(endHex.value, "Hex end");
+          if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
+          privateHex.value = pad64(randomBigIntInRange(start.number, end.number));
+          const calculated = await calculatePublicKey(false);
+          setStatus(calculated ? "Random private key generated." : "Random private key generated. Public key was not calculated.", calculated ? "ok" : "");
+        } catch (error) {
+          setStatus(error.message || "Could not generate private key.", "err");
+        }
+      }
+
+      async function startRun() {
+        if (running && paused) {
+          paused = false;
+          postToWorkers({ type: "resume" });
+          lastSpeedAt = performance.now();
+          lastSpeedSkipped = aggregateStats().skipped;
+          updateButtons();
+          setStatus("Running...");
+          return;
         }
 
         resetCoordinatorState();
+        clearOutput();
+        updateButtons();
 
         try {
-            a = parseHex(inStart.value);
-            b = parseHex(inEnd.value);
-            if (a >= b) throw new Error("Start range must be less than End range");
+          updateCounts();
+          sanitizeLongInputs();
+          await loadSecp();
 
-            let Phex = inPub.value.trim();
-            if (!Phex) throw new Error("Target Public Key missing");
-            wildStartP = secp.Point.fromHex(Phex);
+          const start = normalizeScalar(startHex.value, "Hex start");
+          const end = normalizeScalar(endHex.value, "Hex end");
+          if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
 
-            let kVal = parseInt(inK.value, 10);
-            if (!Number.isInteger(kVal) || kVal < 1 || kVal > 24) {
-                throw new Error("Jump table size must be between 1 and 24");
-            }
-            initJumps(kVal);
-        } catch(e) {
-            alert("Configuration Error: " + e.message);
-            return;
-        }
+          if (!targetPub.value && privateHex.value) await calculatePublicKey(false);
+          const publicKeyHex = sanitizeHex(targetPub.value);
+          if (!publicKeyHex) throw new Error("Target public key is required.");
+          wildStartP = secp.Point.fromHex(publicKeyHex);
 
-        // Small demo ranges can place the Wild marker exactly; large ranges skip this visual-only scan.
-        wildStartX = a;
-        const visualSpan = Number(b - a);
-        if (Number.isSafeInteger(visualSpan) && visualSpan <= VISUAL_SEARCH_LIMIT) {
-            let visualSearchStart = a === 0n ? 1n : a;
-            let testP = G.multiply(visualSearchStart);
+          rangeSize = end.number - start.number + 1n;
+          const workerCount = clampCores(coresInput.value, rangeSize);
+          k = autoK(rangeSize);
+          dpMask = chooseDpMask(rangeSize);
+          initJumps(k);
 
-            for (let i = 0; i <= visualSpan; i++) {
-                if (testP.equals(wildStartP)) { wildStartX = visualSearchStart + BigInt(i); break; }
-                testP = testP.add(G);
-            }
-        }
+          const serializedJumpTable = serializeJumpTable();
+          const runId = activeRunId + 1;
+          activeRunId = runId;
+          running = true;
+          paused = false;
+          lastSpeedAt = performance.now();
+          lastSpeedSkipped = 0n;
+          currentSpeed = 0n;
 
-        const workerCount = getWorkerCount();
-        const serializedJumpTable = serializeJumpTable();
-        const rangeWidth = b - a + 1n;
-        const delayMs = parseInt(inSpeed.value, 10) || 0;
+          for (let workerId = 0; workerId < workerCount; workerId++) {
+            const slot = BigInt(workerId);
+            const total = BigInt(workerCount);
+            const offset = workerId === 0 ? 0n : ((rangeSize * slot) / total) % rangeSize;
+            const tameStart = end.number - offset;
+            const wildOffset = offset;
+            startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, publicKeyHex);
+          }
 
-        visualA = a - (b - a)/10n;
-        visualB = b + (rangeWidth * 2n) + (jumpTable[k-1].dist * 10n);
-
-        document.getElementById("st-collision").innerText =
-            `Searching with ${workerCount} workers...`;
-        document.getElementById("st-collision").className = "stat-val";
-        document.getElementById("st-recovered").innerText = "None";
-        document.getElementById("st-recovered").className = "stat-val highlight";
-        document.getElementById("st-verify").innerText = "N/A";
-        document.getElementById("st-verify").className = "";
-
-        isRunning = true;
-        isPaused = false;
-
-        try {
-            for (let workerId = 0; workerId < workerCount; workerId++) {
-                const workerSlot = BigInt(workerId);
-                const workerTotal = BigInt(workerCount);
-                const deterministicOffset = workerId === 0
-                    ? 0n
-                    : ((rangeWidth * workerSlot) / workerTotal) || workerSlot;
-                const boundedOffset = deterministicOffset % rangeWidth;
-                const tameOffset = workerId === 0 ? 0n : boundedOffset;
-                const wildOffset = workerId === 0 ? 0n : boundedOffset;
-                startWorkerPair(workerId, b + tameOffset, wildOffset, serializedJumpTable, delayMs);
-            }
-        } catch (e) {
-            isRunning = false;
+          updateButtons();
+          setStatus("Running...");
+          updateStats();
+          statsTimer = setInterval(updateStats, UI_INTERVAL_MS);
+        } catch (error) {
+          const message = error.message || "Could not start.";
+          if (running || activeWorkers.length) {
+            finishRun(message, "err");
+          } else {
+            running = false;
+            paused = false;
+            clearInterval(statsTimer);
+            statsTimer = 0;
             stopWorkers();
-            alert("Unable to start Web Workers: " + e.message);
-            return;
+            updateButtons();
+            setStatus(message, "err");
+          }
         }
+      }
 
-        if (workerVisuals.size > 0) {
-            const first = workerVisuals.values().next().value;
-            tameState = { dist: first.tameDist, pos: first.tamePos, start: first.tameStart };
-            wildState = { dist: first.wildDist, pos: wildStartX + first.wildDist };
-        }
-
-        draw();
-        updateUI();
-    };
-
-    document.getElementById("btn-pause").onclick = () => {
-        if (!isRunning) return;
-        isPaused = true;
+      function pauseRun() {
+        if (!running || paused) return;
+        paused = true;
         postToWorkers({ type: "pause" });
-        document.getElementById("st-collision").innerText = "Paused";
-    };
+        currentSpeed = 0n;
+        updateStats();
+        updateButtons();
+        setStatus("Paused.");
+      }
 
-    document.getElementById("btn-reset").onclick = () => {
-        isRunning = false;
-        isPaused = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        drawPending = false;
+      function stopRun() {
+        if (!running && !activeWorkers.length) return;
+        finishRun("Stopped. Current keys and progress are shown.", "");
+      }
 
+      function clearRun() {
+        if (running || activeWorkers.length) finishRun("Stopped.", "");
         resetCoordinatorState();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        clearOutput();
+        updateButtons();
+        setStatus("Enter a range and target public key.");
+      }
 
-        updateUI();
-        document.getElementById("st-collision").innerText = "Not Started";
-        document.getElementById("st-collision").className = "";
-        document.getElementById("st-recovered").innerText = "None";
-        document.getElementById("st-verify").innerText = "N/A";
-        document.getElementById("st-verify").className = "";
-        draw();
-    };
+      startHex.addEventListener("input", updateCounts);
+      endHex.addEventListener("input", updateCounts);
+      targetPub.addEventListener("input", sanitizeLongInputs);
+      privateHex.addEventListener("input", sanitizeLongInputs);
+      generateBtn.addEventListener("click", generatePrivateKey);
+      calcPubBtn.addEventListener("click", () => calculatePublicKey(true));
+      startBtn.addEventListener("click", startRun);
+      pauseBtn.addEventListener("click", pauseRun);
+      stopBtn.addEventListener("click", stopRun);
+      clearBtn.addEventListener("click", clearRun);
+      window.addEventListener("beforeunload", stopWorkers);
 
-    inSpeed.addEventListener("input", () => {
-        postToWorkers({ type: "setDelay", delayMs: parseInt(inSpeed.value, 10) || 0 });
-    });
-
-    window.addEventListener("beforeunload", stopWorkers);
-    
-    // Initial draw bounds
-    draw();
-
-</script>
+      populateCores();
+      updateCounts();
+      clearOutput();
+      updateButtons();
+    })();
+  </script>
 </body>
 </html>
