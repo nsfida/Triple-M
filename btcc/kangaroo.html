@@ -244,6 +244,11 @@
 
     const G = secp.Point.BASE;
     const n = secp.CURVE.n;
+    const WORKER_BATCH_SIZE = 2048;
+    const UI_RENDER_INTERVAL_MS = 100;
+    const MAX_RENDERED_DPS = 1200;
+    const MAX_WORKERS = 8;
+    const VISUAL_SEARCH_LIMIT = 20000;
     const KANGAROO_WORKER_SOURCE = String.raw`
 let secp = null;
 let G = null;
@@ -518,6 +523,8 @@ self.onmessage = async (event) => {
     let isPaused = false;
     let animationFrameId = null;
     let drawPending = false;
+    let renderTimerId = null;
+    let lastRenderAt = 0;
 
     let wildStartX = 0n; // Solved quietly for drawing purposes only
     let wildStartP = null;
@@ -530,6 +537,10 @@ self.onmessage = async (event) => {
     const workerStepCounts = new Map();
     const tameMap = new Map();
     const wildMap = new Map();
+    const tameDpSamples = [];
+    const wildDpSamples = [];
+    let tameDpSampleCursor = 0;
+    let wildDpSampleCursor = 0;
     let steps = 0n;
 
     // Viewport bounds for canvas
@@ -577,7 +588,8 @@ self.onmessage = async (event) => {
     }
 
     function getWorkerCount() {
-        return Math.max(1, Number(navigator.hardwareConcurrency) || 4);
+        const cores = Number(navigator.hardwareConcurrency) || 4;
+        return Math.max(1, Math.min(MAX_WORKERS, cores));
     }
 
     function getWorkerModuleUrl() {
@@ -609,7 +621,25 @@ self.onmessage = async (event) => {
 
     function appendPath(path, value) {
         path.push(value);
-        if (path.length > 500) path.splice(0, path.length - 500);
+        if (path.length > 250) path.splice(0, path.length - 250);
+    }
+
+    function rememberDpSample(entry) {
+        const samples = entry.kind === "tame" ? tameDpSamples : wildDpSamples;
+        const pos = entry.kind === "tame" ? entry.start + entry.dist : wildStartX + entry.dist;
+
+        if (samples.length < MAX_RENDERED_DPS) {
+            samples.push(pos);
+            return;
+        }
+
+        if (entry.kind === "tame") {
+            samples[tameDpSampleCursor] = pos;
+            tameDpSampleCursor = (tameDpSampleCursor + 1) % MAX_RENDERED_DPS;
+        } else {
+            samples[wildDpSampleCursor] = pos;
+            wildDpSampleCursor = (wildDpSampleCursor + 1) % MAX_RENDERED_DPS;
+        }
     }
 
     function refreshTotalSteps() {
@@ -619,12 +649,26 @@ self.onmessage = async (event) => {
 
     function requestRender() {
         if (drawPending) return;
-        drawPending = true;
-        animationFrameId = requestAnimationFrame(() => {
-            drawPending = false;
-            draw();
-            updateUI();
-        });
+
+        const now = performance.now();
+        const wait = Math.max(0, UI_RENDER_INTERVAL_MS - (now - lastRenderAt));
+
+        const scheduleFrame = () => {
+            renderTimerId = null;
+            drawPending = true;
+            animationFrameId = requestAnimationFrame(() => {
+                drawPending = false;
+                lastRenderAt = performance.now();
+                draw();
+                updateUI();
+            });
+        };
+
+        if (wait === 0) {
+            scheduleFrame();
+        } else if (!renderTimerId) {
+            renderTimerId = setTimeout(scheduleFrame, wait);
+        }
     }
 
     // Initialize UI Handlers
@@ -737,14 +781,6 @@ self.onmessage = async (event) => {
             if (visual.tamePos > maxPos) maxPos = visual.tamePos;
             if (wildPos > maxPos) maxPos = wildPos;
         }
-        for (const entry of tameMap.values()) {
-            const pos = entry.start + entry.dist;
-            if (pos > maxPos) maxPos = pos;
-        }
-        for (const entry of wildMap.values()) {
-            const pos = wildStartX + entry.dist;
-            if (pos > maxPos) maxPos = pos;
-        }
         if (maxPos > visualB - (visualB - visualA)/10n) {
             visualB = maxPos + (maxPos - visualA)/5n;
         }
@@ -800,14 +836,12 @@ self.onmessage = async (event) => {
 
         // Draw Distinguished Points (Traps)
         ctx.fillStyle = "#38bdf8"; // Tame traps
-        for (let entry of tameMap.values()) {
-            let dpPos = entry.start + entry.dist;
+        for (let dpPos of tameDpSamples) {
             ctx.beginPath(); ctx.arc(getX(dpPos), midY - 20, 3, 0, Math.PI*2); ctx.fill();
         }
 
         ctx.fillStyle = "#f87171"; // Wild traps
-        for (let entry of wildMap.values()) {
-            let dpPos = wildStartX + entry.dist;
+        for (let dpPos of wildDpSamples) {
             ctx.beginPath(); ctx.arc(getX(dpPos), midY + 20, 3, 0, Math.PI*2); ctx.fill();
         }
 
@@ -867,13 +901,19 @@ self.onmessage = async (event) => {
                 handleCollision(entry, wildMap.get(entry.pointHex));
                 return true;
             }
-            if (!tameMap.has(entry.pointHex)) tameMap.set(entry.pointHex, entry);
+            if (!tameMap.has(entry.pointHex)) {
+                tameMap.set(entry.pointHex, entry);
+                rememberDpSample(entry);
+            }
         } else {
             if (tameMap.has(entry.pointHex)) {
                 handleCollision(tameMap.get(entry.pointHex), entry);
                 return true;
             }
-            if (!wildMap.has(entry.pointHex)) wildMap.set(entry.pointHex, entry);
+            if (!wildMap.has(entry.pointHex)) {
+                wildMap.set(entry.pointHex, entry);
+                rememberDpSample(entry);
+            }
         }
 
         return false;
@@ -896,6 +936,8 @@ self.onmessage = async (event) => {
         if (message.type === "collision") {
             const tameEntry = entryFromWorkerPoint(message.tame);
             const wildEntry = entryFromWorkerPoint(message.wild);
+            rememberDpSample(tameEntry);
+            rememberDpSample(wildEntry);
             handleCollision(tameEntry, wildEntry);
             return;
         }
@@ -945,10 +987,17 @@ self.onmessage = async (event) => {
 
     function resetCoordinatorState() {
         stopWorkers();
+        if (renderTimerId) clearTimeout(renderTimerId);
+        renderTimerId = null;
+        drawPending = false;
         workerVisuals.clear();
         workerStepCounts.clear();
         tameMap.clear();
         wildMap.clear();
+        tameDpSamples.length = 0;
+        wildDpSamples.length = 0;
+        tameDpSampleCursor = 0;
+        wildDpSampleCursor = 0;
         tameState = { pos: 0n, dist: 0n, start: 0n };
         wildState = { pos: 0n, dist: 0n };
         steps = 0n;
@@ -982,7 +1031,7 @@ self.onmessage = async (event) => {
             jumpTable: serializedJumpTable,
             k,
             dpMaskHex: toHex(dpMask),
-            batchSize: 100,
+            batchSize: WORKER_BATCH_SIZE,
             delayMs
         });
     }
@@ -1016,16 +1065,17 @@ self.onmessage = async (event) => {
             return;
         }
 
-        // Brute force X sequentially just to accurately position the Wild marker on the UI line.
+        // Small demo ranges can place the Wild marker exactly; large ranges skip this visual-only scan.
         wildStartX = a;
-        let visualSearchStart = a === 0n ? 1n : a;
-        let testP = G.multiply(visualSearchStart);
-        let maxVisualSearch = Number(b - a);
-        if (maxVisualSearch > 100000) maxVisualSearch = 100000; // Prevent UI freeze on large spans
+        const visualSpan = Number(b - a);
+        if (Number.isSafeInteger(visualSpan) && visualSpan <= VISUAL_SEARCH_LIMIT) {
+            let visualSearchStart = a === 0n ? 1n : a;
+            let testP = G.multiply(visualSearchStart);
 
-        for (let i = 0; i <= maxVisualSearch; i++) {
-            if (testP.equals(wildStartP)) { wildStartX = visualSearchStart + BigInt(i); break; }
-            testP = testP.add(G);
+            for (let i = 0; i <= visualSpan; i++) {
+                if (testP.equals(wildStartP)) { wildStartX = visualSearchStart + BigInt(i); break; }
+                testP = testP.add(G);
+            }
         }
 
         const workerCount = getWorkerCount();
@@ -1036,7 +1086,8 @@ self.onmessage = async (event) => {
         visualA = a - (b - a)/10n;
         visualB = b + (rangeWidth * 2n) + (jumpTable[k-1].dist * 10n);
 
-        document.getElementById("st-collision").innerText = `Searching with ${workerCount} workers...`;
+        document.getElementById("st-collision").innerText =
+            `Searching with ${workerCount} workers...`;
         document.getElementById("st-collision").className = "stat-val";
         document.getElementById("st-recovered").innerText = "None";
         document.getElementById("st-recovered").className = "stat-val highlight";
