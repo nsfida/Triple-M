@@ -3,908 +3,575 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BTC HASH160 Cluster Scanner</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <title>BTC HASH160 Range – Clusters</title>
   <style>
-    :root {
-      --bg:        #0a0c10;
-      --surface:   #111318;
-      --border:    #1e2330;
-      --border2:   #2a3040;
-      --text:      #e0e6f0;
-      --muted:     #5a6478;
-      --accent:    #00d4ff;
-      --accent2:   #ff6b35;
-      --green:     #00e5a0;
-      --red:       #ff4466;
-      --yellow:    #ffd060;
-      --mono:      'JetBrains Mono', monospace;
-      --display:   'Syne', sans-serif;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#101828}
+    main{max-width:860px;margin:16px auto;padding:12px}
+    h1{margin:0 0 10px;font-size:18px}
+    label{display:block;margin:8px 0 4px;font-size:12px;font-weight:700}
+    input,select{width:100%;border:1px solid #cfd6e4;border-radius:5px;padding:6px;font:12px/1.25 Consolas,monospace;background:#fff;color:#101828}
+    select,input[type="number"]{font-family:Arial,sans-serif}
+    button{border:0;border-radius:5px;background:#1457d9;color:#fff;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
+    button.secondary{background:#344054}
+    button.danger{background:#b42318}
+    button.success{background:#067647}
+    button:disabled{background:#98a2b3;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .controls{display:grid;grid-template-columns:80px 130px 1fr;gap:8px;align-items:end}
+    .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .count{color:#667085;font-size:11px;margin-top:2px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+    .stat{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:6px;color:#667085;font-size:11px}
+    .stat b{display:block;color:#101828;font-size:13px;margin-top:1px}
+    .status{margin:8px 0 0;min-height:17px;font-size:12px;color:#667085}
+    .status.ok{color:#067647}
+    .status.err{color:#b42318}
+    .result{margin-top:10px}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 13px;
-      min-height: 100vh;
-    }
+    /* ── Cluster section ── */
+    .cluster-section{margin-top:14px}
+    .cluster-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+    .cluster-info{font-size:11px;color:#667085;flex:1;min-width:0}
+    .cluster-list{max-height:370px;overflow-y:auto;border:1px solid #dde3ee;border-radius:5px;background:#fff}
+    .empty-msg{padding:20px;text-align:center;color:#98a2b3;font-size:12px}
 
-    /* scanline overlay */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.015) 2px, rgba(0,212,255,0.015) 4px);
-      pointer-events: none; z-index: 9999;
-    }
+    .crow{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid #f0f2f7;font-size:11px}
+    .crow:last-child{border-bottom:none}
+    .crow.running{background:#eff6ff}
+    .crow.found  {background:#f0fdf4}
+    .crow.done   {background:#f9fafb}
+    .crow.error  {background:#fff7f7}
 
-    header {
-      border-bottom: 1px solid var(--border);
-      padding: 14px 20px;
-      display: flex; align-items: center; gap: 12px;
-      background: linear-gradient(90deg, rgba(0,212,255,0.06) 0%, transparent 60%);
-    }
-    header .logo {
-      font-family: var(--display);
-      font-size: 18px; font-weight: 800;
-      color: var(--accent);
-      letter-spacing: -0.5px;
-    }
-    header .subtitle {
-      color: var(--muted);
-      font-size: 11px;
-      border-left: 1px solid var(--border2);
-      padding-left: 12px;
-      margin-left: 4px;
-    }
+    .cidx{min-width:30px;color:#98a2b3;font-size:10px;text-align:right;flex-shrink:0}
+    .crng{flex:1;font-family:Consolas,monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;color:#344054}
+    .cst {min-width:58px;text-align:center;font-size:10px;flex-shrink:0;color:#98a2b3}
+    .cst.running{color:#1457d9;font-weight:700}
+    .cst.done   {color:#067647}
+    .cst.found  {color:#067647;font-weight:700}
+    .cst.error  {color:#b42318}
+    .cgen{min-width:82px;text-align:right;font-size:10px;color:#667085;font-family:Consolas,monospace;flex-shrink:0}
+    .cbtns{display:flex;gap:3px;flex-shrink:0}
+    .cbtns button{padding:3px 8px;font-size:10px;font-weight:700}
 
-    main { max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; }
-
-    /* ── Config panel ── */
-    .config-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .config-panel h2 {
-      font-family: var(--display);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: var(--muted);
-      margin-bottom: 14px;
-    }
-
-    .cfg-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .cfg-row {
-      display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;
-    }
-    .cfg-inline {
-      display: grid;
-      grid-template-columns: 140px 120px 100px;
-      gap: 10px;
-    }
-
-    label {
-      display: block;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      color: var(--muted);
-      margin-bottom: 5px;
-    }
-
-    input[type="text"], input[type="number"], select, textarea {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border2);
-      border-radius: 5px;
-      padding: 7px 9px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--text);
-      outline: none;
-      transition: border-color .15s;
-    }
-    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,212,255,0.1); }
-
-    select option { background: var(--bg); }
-
-    .char-count {
-      font-size: 10px;
-      color: var(--muted);
-      margin-top: 3px;
-      text-align: right;
-    }
-
-    /* ── Buttons ── */
-    .btn {
-      display: inline-flex; align-items: center; gap: 6px;
-      border: none; border-radius: 5px;
-      padding: 7px 14px;
-      font-family: var(--mono); font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all .15s;
-      white-space: nowrap;
-    }
-    .btn:disabled { opacity: .35; cursor: not-allowed; }
-    .btn-accent  { background: var(--accent); color: #000; }
-    .btn-accent:hover:not(:disabled) { filter: brightness(1.15); }
-    .btn-danger  { background: var(--red); color: #fff; }
-    .btn-danger:hover:not(:disabled) { filter: brightness(1.15); }
-    .btn-neutral { background: var(--border2); color: var(--text); }
-    .btn-neutral:hover:not(:disabled) { background: #36404f; }
-    .btn-green   { background: var(--green); color: #000; }
-    .btn-green:hover:not(:disabled) { filter: brightness(1.15); }
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border2);
-      color: var(--text);
-    }
-    .btn-outline:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-    .btn-sm { padding: 5px 10px; font-size: 11px; }
-
-    /* ── Global controls bar ── */
-    .global-bar {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    }
-    .global-bar .sep {
-      width: 1px; height: 24px;
-      background: var(--border2);
-      margin: 0 4px;
-    }
-    .global-stats {
-      margin-left: auto;
-      display: flex; gap: 16px;
-    }
-    .gstat {
-      display: flex; flex-direction: column; align-items: flex-end;
-    }
-    .gstat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-    .gstat-val   { font-size: 13px; color: var(--accent); font-weight: 600; }
-
-    /* ── Status ── */
-    .status-bar {
-      padding: 8px 12px;
-      border-radius: 5px;
-      font-size: 12px;
-      margin-bottom: 14px;
-      background: var(--surface);
-      border-left: 3px solid var(--muted);
-      color: var(--muted);
-      transition: all .2s;
-    }
-    .status-bar.ok     { border-left-color: var(--green); color: var(--green); }
-    .status-bar.err    { border-left-color: var(--red);   color: var(--red); }
-    .status-bar.active { border-left-color: var(--accent); color: var(--accent); }
-
-    /* ── Match result ── */
-    .match-box {
-      display: none;
-      background: linear-gradient(135deg, rgba(0,229,160,0.1), rgba(0,212,255,0.08));
-      border: 1px solid var(--green);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .match-box.visible { display: block; animation: popIn .3s ease; }
-    @keyframes popIn { from { transform: scale(.97); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    .match-title {
-      font-family: var(--display);
-      font-size: 15px; color: var(--green);
-      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    }
-    .match-title::before { content: '✓'; }
-    .match-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-    .match-row label { margin: 0; }
-    .match-row .val {
-      background: var(--bg); border: 1px solid var(--border2);
-      border-radius: 4px; padding: 7px 10px;
-      color: var(--yellow); font-size: 12px;
-      word-break: break-all;
-    }
-
-    /* ── Target input ── */
-    .target-section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      margin-bottom: 16px;
-    }
-    .target-section h2 {
-      font-family: var(--display);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-
-    /* ── Cluster list ── */
-    .clusters-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .clusters-title {
-      font-family: var(--display);
-      font-size: 13px; font-weight: 800;
-      text-transform: uppercase; letter-spacing: 2px;
-      color: var(--muted);
-    }
-    .cluster-count-badge {
-      background: rgba(0,212,255,0.1);
-      border: 1px solid rgba(0,212,255,0.3);
-      border-radius: 20px;
-      padding: 2px 10px;
-      font-size: 11px; color: var(--accent);
-    }
-
-    .clusters-list {
-      display: flex; flex-direction: column; gap: 8px;
-    }
-
-    .cluster-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 10px 14px;
-      display: grid;
-      grid-template-columns: 36px 1fr auto auto;
-      gap: 10px;
-      align-items: center;
-      transition: border-color .15s;
-    }
-    .cluster-card:hover { border-color: var(--border2); }
-    .cluster-card.running {
-      border-color: rgba(0,212,255,0.4);
-      background: linear-gradient(90deg, rgba(0,212,255,0.04) 0%, var(--surface) 100%);
-    }
-    .cluster-card.done {
-      border-color: rgba(0,229,160,0.3);
-      opacity: .7;
-    }
-    .cluster-card.matched {
-      border-color: var(--green);
-      background: linear-gradient(90deg, rgba(0,229,160,0.06) 0%, var(--surface) 100%);
-    }
-
-    .cluster-idx {
-      font-family: var(--display);
-      font-size: 18px; font-weight: 800;
-      color: var(--border2);
-      text-align: center;
-    }
-    .cluster-card.running .cluster-idx { color: var(--accent); }
-    .cluster-card.done    .cluster-idx { color: var(--green); }
-
-    .cluster-info { min-width: 0; }
-    .cluster-range {
-      font-size: 11px; color: var(--text);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      letter-spacing: .3px;
-    }
-    .cluster-meta {
-      display: flex; gap: 14px; margin-top: 4px;
-    }
-    .cluster-meta span {
-      font-size: 10px; color: var(--muted);
-    }
-    .cluster-meta .cl-speed { color: var(--accent); }
-    .cluster-meta .cl-gen   { color: var(--text); }
-    .cluster-meta .cl-live  {
-      color: var(--yellow);
-      max-width: 260px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-
-    .cluster-prog-wrap {
-      display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
-      min-width: 80px;
-    }
-    .cluster-prog-bar {
-      width: 80px; height: 3px;
-      background: var(--border);
-      border-radius: 2px; overflow: hidden;
-    }
-    .cluster-prog-bar .fill {
-      height: 100%; background: var(--accent);
-      border-radius: 2px;
-      transition: width .5s linear;
-    }
-    .cluster-card.done .cluster-prog-bar .fill { background: var(--green); }
-    .cluster-pct {
-      font-size: 10px; color: var(--muted);
-    }
-
-    .cluster-btns {
-      display: flex; gap: 6px;
-    }
-
-    .cluster-status-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex-shrink: 0;
-    }
-    .cluster-card.running .cluster-status-dot {
-      background: var(--accent);
-      box-shadow: 0 0 6px var(--accent);
-      animation: pulse 1s ease-in-out infinite;
-    }
-    .cluster-card.done .cluster-status-dot { background: var(--green); }
-    .cluster-card.matched .cluster-status-dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
-
-    .empty-state {
-      text-align: center; padding: 48px 20px;
-      color: var(--muted); font-size: 12px;
-      border: 1px dashed var(--border2);
-      border-radius: 8px;
-    }
-    .empty-state .big { font-size: 32px; margin-bottom: 10px; opacity:.4; }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-    @media (max-width: 700px) {
-      .cfg-grid, .cfg-inline { grid-template-columns: 1fr; }
-      .cluster-card {
-        grid-template-columns: 28px 1fr;
-        grid-template-rows: auto auto;
-      }
-      .cluster-btns, .cluster-prog-wrap { grid-column: 2; }
-      .global-stats { margin-left: 0; width: 100%; justify-content: flex-start; }
-      .cluster-range { font-size: 10px; }
+    @media(max-width:620px){
+      .grid,.controls,.stats{grid-template-columns:1fr}
+      main{padding:8px}
     }
   </style>
 </head>
 <body>
-
-<header>
-  <div class="logo">⬡ HASH160</div>
-  <div class="subtitle">BTC Compressed Key Range Scanner — Cluster Mode</div>
-</header>
-
 <main>
+  <h1>BTC HASH160 Range (Compressed) — Cluster Mode</h1>
 
-  <!-- ── Config panel ── -->
-  <div class="config-panel">
-    <h2>Range Configuration</h2>
-    <div class="cfg-grid">
-      <div>
-        <label for="startHex">Hex Start</label>
-        <input id="startHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. 1">
-        <div class="char-count" id="startCount">0 / 64</div>
-      </div>
-      <div>
-        <label for="endHex">Hex End</label>
-        <input id="endHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. 2">
-        <div class="char-count" id="endCount">0 / 64</div>
-      </div>
-    </div>
-    <div class="cfg-row">
-      <button class="btn btn-accent" id="buildBtn">⬡ Build Clusters</button>
-      <button class="btn btn-neutral" id="resetBtn">✕ Reset</button>
-      <div style="margin-left:auto;font-size:11px;color:var(--muted);align-self:center;">
-        Cluster size: ~100 billion keys each
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Target ── -->
-  <div class="target-section">
-    <h2>Auto-Stop Target</h2>
-    <label for="targetHash160">Target RIPEMD-160 / HASH160 (40 hex chars)</label>
-    <input id="targetHash160" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-           placeholder="e.g. f6f5431d25bbf7b12e8add9af5e3475c44a0a5b8">
-  </div>
-
-  <!-- ── Match result ── -->
-  <div class="match-box" id="matchBox">
-    <div class="match-title">MATCH FOUND — ALL WORKERS HALTED</div>
-    <div class="match-row">
-      <label>Private Key (Hex)</label>
-      <div class="val" id="matchHex">—</div>
-    </div>
-    <div class="match-row">
-      <label>HASH160 / RIPEMD-160</label>
-      <div class="val" id="matchH160">—</div>
-    </div>
-    <div class="match-row">
-      <label>Cluster</label>
-      <div class="val" id="matchCluster">—</div>
-    </div>
-  </div>
-
-  <!-- ── Status ── -->
-  <div class="status-bar" id="statusBar">Enter a hex range above and click Build Clusters.</div>
-
-  <!-- ── Global controls ── -->
-  <div class="global-bar" id="globalBar" style="display:none">
+  <div class="grid">
     <div>
-      <label style="margin-bottom:4px">Mode</label>
-      <select id="modeSelect" style="width:130px">
+      <label for="startHex">Hex start</label>
+      <input id="startHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Start hex">
+      <div id="startCount" class="count">0 / 64</div>
+    </div>
+    <div>
+      <label for="endHex">Hex end</label>
+      <input id="endHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="End hex">
+      <div id="endCount" class="count">0 / 64</div>
+    </div>
+  </div>
+
+  <!-- Shared global controls (cores + mode) -->
+  <div class="controls">
+    <div>
+      <label for="coresInput">Cores</label>
+      <input id="coresInput" type="number" min="1" max="64" value="1">
+    </div>
+    <div>
+      <label for="modeSelect">Mode</label>
+      <select id="modeSelect">
         <option value="sequence">Sequence</option>
         <option value="random">Random</option>
         <option value="reverse">Reverse</option>
       </select>
     </div>
-    <div>
-      <label style="margin-bottom:4px">Cores / cluster</label>
-      <input id="coresInput" type="number" min="1" max="64" value="1" style="width:80px">
-    </div>
-    <div class="sep"></div>
-    <button class="btn btn-accent" id="startAllBtn">▶ Start All</button>
-    <button class="btn btn-danger" id="stopAllBtn" disabled>■ Stop All</button>
-    <div class="global-stats">
-      <div class="gstat">
-        <span class="gstat-label">Total Keys</span>
-        <span class="gstat-val" id="totalGenStat">0</span>
-      </div>
-      <div class="gstat">
-        <span class="gstat-label">Speed</span>
-        <span class="gstat-val" id="totalSpeedStat">0/s</span>
-      </div>
-      <div class="gstat">
-        <span class="gstat-label">Active</span>
-        <span class="gstat-val" id="activeStat">0</span>
-      </div>
+    <div class="row">
+      <button id="buildBtn" type="button" class="secondary">Build Clusters</button>
+      <button id="clearBtn" type="button" class="secondary">Clear</button>
     </div>
   </div>
 
-  <!-- ── Clusters ── -->
-  <div class="clusters-header" id="clustersHeader" style="display:none">
-    <div class="clusters-title">Clusters</div>
-    <span class="cluster-count-badge" id="clusterCountBadge">0 clusters</span>
-  </div>
-  <div class="clusters-list" id="clustersList">
-    <div class="empty-state">
-      <div class="big">⬡</div>
-      Enter a hex range and click <strong>Build Clusters</strong>
-    </div>
+  <div class="stats">
+    <div class="stat">Total Generated<b id="genStat">0</b></div>
+    <div class="stat">Speed<b id="spdStat">0 / sec</b></div>
+    <div class="stat">Active Clusters<b id="actStat">0</b></div>
+    <div class="stat">Total Clusters<b id="totStat">0</b></div>
   </div>
 
+  <p id="statusEl" class="status">Enter a hex range and click Build Clusters.</p>
+
+  <section class="result">
+    <label for="targetHash160">Target RIPEMD-160 / HASH160 (auto-stop all on match)</label>
+    <input id="targetHash160" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+           placeholder="e.g., f6f5431d25bbf7b12e8add9af5e3475c44a0a5b8">
+  </section>
+
+  <section class="result">
+    <label for="liveWallet">Live hex | HASH160</label>
+    <input id="liveWallet" readonly>
+  </section>
+
+  <section id="matchSection" class="result" style="display:none">
+    <label>🎉 Match Found — Private Key | HASH160</label>
+    <input id="matchOutput" readonly style="background:#f0fdf4;border-color:#86efac;font-weight:700">
+  </section>
+
+  <!-- Cluster list -->
+  <section class="cluster-section">
+    <div class="cluster-header">
+      <button id="startAllBtn" type="button" class="success" disabled>▶ Start All</button>
+      <button id="stopAllBtn"  type="button" class="danger"  disabled>■ Stop All</button>
+      <span id="clusterInfo" class="cluster-info"></span>
+    </div>
+    <div class="cluster-list" id="clusterList">
+      <div class="empty-msg">No clusters yet. Enter a range and click "Build Clusters".</div>
+    </div>
+  </section>
 </main>
 
 <script>
 (() => {
-"use strict";
+  "use strict";
 
-/* ================================================================
-   Constants
-   ================================================================ */
-const SECP256K1_N  = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
-const CLUSTER_SIZE = 100_000_000_000_000_000_00n; // 100 billion
-const DEFAULT_CORES = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 1));
+  /* ─── Constants ─────────────────────────────────────────────────────── */
+  const SECP256K1_N       = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+  const TARGET_CLUSTER_SZ = 100_000_000_000n;   // 100 billion keys per cluster
+  const MAX_CLUSTERS      = 1000;
+  const RENDER_CHUNK      = 50;                  // DOM rows per animation frame
+  const START_STAGGER_MS  = 15;                  // ms between each cluster launch on Start All
+  const defaultCores      = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 1));
 
-/* ================================================================
-   DOM refs
-   ================================================================ */
-const $ = id => document.getElementById(id);
-const startHexEl    = $("startHex");
-const endHexEl      = $("endHex");
-const startCountEl  = $("startCount");
-const endCountEl    = $("endCount");
-const buildBtn      = $("buildBtn");
-const resetBtn      = $("resetBtn");
-const targetEl      = $("targetHash160");
-const matchBox      = $("matchBox");
-const matchHexEl    = $("matchHex");
-const matchH160El   = $("matchH160");
-const matchClusterEl= $("matchCluster");
-const statusBar     = $("statusBar");
-const globalBar     = $("globalBar");
-const startAllBtn   = $("startAllBtn");
-const stopAllBtn    = $("stopAllBtn");
-const modeSelect    = $("modeSelect");
-const coresInput    = $("coresInput");
-const totalGenStat  = $("totalGenStat");
-const totalSpeedStat= $("totalSpeedStat");
-const activeStat    = $("activeStat");
-const clustersList  = $("clustersList");
-const clustersHeader= $("clustersHeader");
-const clusterCountBadge = $("clusterCountBadge");
+  /* ─── DOM ────────────────────────────────────────────────────────────── */
+  const $startHex    = document.getElementById("startHex");
+  const $endHex      = document.getElementById("endHex");
+  const $startCount  = document.getElementById("startCount");
+  const $endCount    = document.getElementById("endCount");
+  const $coresInput  = document.getElementById("coresInput");
+  const $modeSelect  = document.getElementById("modeSelect");
+  const $buildBtn    = document.getElementById("buildBtn");
+  const $clearBtn    = document.getElementById("clearBtn");
+  const $startAllBtn = document.getElementById("startAllBtn");
+  const $stopAllBtn  = document.getElementById("stopAllBtn");
+  const $statusEl    = document.getElementById("statusEl");
+  const $genStat     = document.getElementById("genStat");
+  const $spdStat     = document.getElementById("spdStat");
+  const $actStat     = document.getElementById("actStat");
+  const $totStat     = document.getElementById("totStat");
+  const $targetHash  = document.getElementById("targetHash160");
+  const $liveWallet  = document.getElementById("liveWallet");
+  const $clusterList = document.getElementById("clusterList");
+  const $matchSec    = document.getElementById("matchSection");
+  const $matchOut    = document.getElementById("matchOutput");
+  const $clusterInfo = document.getElementById("clusterInfo");
 
-coresInput.value = String(DEFAULT_CORES);
+  $coresInput.value = String(defaultCores);
 
-/* ================================================================
-   App state
-   ================================================================ */
-let clusters       = [];   // array of cluster objects
-let globalRunToken = 0;
-let statsTimer     = 0;
-let globalStartedAt= 0;
-let matchFound     = false;
+  /* ─── App state ──────────────────────────────────────────────────────── */
+  let clusters    = [];
+  let isBuilding  = false;
+  let buildToken  = 0;
+  let statsTimer  = 0;
+  let globalStart = 0;
+  let blobUrl     = null;   // shared worker blob URL
 
-/* ================================================================
-   Hex utils
-   ================================================================ */
-function sanitizeHex(v) {
-  return String(v||"").trim().replace(/^0x/i,"").replace(/\s+/g,"").replace(/[^0-9a-f]/gi,"").toLowerCase();
-}
-function normalizeHex(v, name) {
-  const hex = sanitizeHex(v);
-  if (!hex) throw new Error(`${name} is required.`);
-  if (hex.length > 64) throw new Error(`${name} exceeds 64 hex digits.`);
-  const padded = hex.padStart(64,"0");
-  const num = BigInt(`0x${padded}`);
-  if (num <= 0n || num >= SECP256K1_N) throw new Error(`${name} is outside valid key range.`);
-  return { hex: padded, number: num };
-}
-function normalizeHash160(v) {
-  const hex = sanitizeHex(v);
-  if (!hex) throw new Error("Target HASH160 is required.");
-  if (hex.length !== 40) throw new Error("Target HASH160 must be exactly 40 hex characters.");
-  return hex;
-}
-function bigToHex64(n) { return n.toString(16).padStart(64,"0"); }
-
-/* ================================================================
-   Cluster builder
-   ================================================================ */
-function buildClusters() {
-  try {
-    const start = normalizeHex(startHexEl.value, "Hex start");
-    const end   = normalizeHex(endHexEl.value, "Hex end");
-    if (start.number > end.number) throw new Error("Hex start must be less than hex end.");
-    normalizeHash160(targetEl.value); // validate early
-
-    stopAll();
-    matchFound = false;
-    matchBox.classList.remove("visible");
-
-    clusters = [];
-    let lo = start.number;
-    let idx = 1;
-    while (lo <= end.number) {
-      const hi = lo + CLUSTER_SIZE - 1n <= end.number ? lo + CLUSTER_SIZE - 1n : end.number;
-      clusters.push(createCluster(idx, lo, hi));
-      lo = hi + 1n;
-      idx++;
-    }
-
-    renderClusters();
-    globalBar.style.display = "flex";
-    clustersHeader.style.display = "flex";
-    clusterCountBadge.textContent = `${clusters.length} cluster${clusters.length !== 1 ? "s" : ""}`;
-    setStatus(`Built ${clusters.length} cluster${clusters.length !== 1 ? "s" : ""} from range. Ready to scan.`, "");
-  } catch(e) {
-    setStatus(e.message, "err");
-  }
-}
-
-function createCluster(idx, lo, hi) {
-  const rangeSize = hi - lo + 1n;
-  return {
-    idx,
-    lo, hi,
-    rangeSize,
-    state: "idle",  // idle | running | done | matched
-    generated: 0,
-    startedAt: 0,
-    speed: 0,
-    liveKey: "",
-    liveH160: "",
-    workers: [],
-    completedWorkers: 0,
-    runToken: 0,
+  /* ─── Utility ────────────────────────────────────────────────────────── */
+  const setStatus = (msg, kind = "") => {
+    $statusEl.textContent = msg;
+    $statusEl.className = `status ${kind}`.trim();
   };
-}
 
-/* ================================================================
-   Render
-   ================================================================ */
-function renderClusters() {
-  clustersList.innerHTML = "";
-  if (!clusters.length) {
-    clustersList.innerHTML = `<div class="empty-state"><div class="big">⬡</div>No clusters yet.</div>`;
-    return;
+  const sanitizeHex = v =>
+    String(v || "").trim().replace(/^0x/i,"").replace(/\s+/g,"").replace(/[^0-9a-f]/gi,"").toLowerCase();
+
+  function normalizeHex(v, name) {
+    const hex = sanitizeHex(v);
+    if (!hex) throw new Error(`${name} is required.`);
+    if (hex.length > 64) throw new Error(`${name} must be ≤ 64 hex digits.`);
+    const padded = hex.padStart(64, "0");
+    const num = BigInt("0x" + padded);
+    if (num <= 0n || num >= SECP256K1_N) throw new Error(`${name} is outside the valid Bitcoin key range.`);
+    return { hex: padded, number: num };
   }
-  clusters.forEach(cl => {
-    const card = document.createElement("div");
-    card.className = `cluster-card ${cl.state !== "idle" ? cl.state : ""}`;
-    card.id = `cl-card-${cl.idx}`;
-    card.innerHTML = clusterCardHTML(cl);
-    clustersList.appendChild(card);
-    wireClusterButtons(cl);
-  });
-}
 
-function clusterCardHTML(cl) {
-  const pct = cl.rangeSize > 0n ? Number((BigInt(cl.generated) * 100n) / cl.rangeSize) : 0;
-  const pctClamped = Math.min(100, pct);
-  const startLabel = `…${cl.lo.toString(16).padStart(64,"0").slice(-12)}`;
-  const endLabel   = `…${cl.hi.toString(16).padStart(64,"0").slice(-12)}`;
-  const stateLabel = cl.state === "idle" ? "" : cl.state === "running" ? "SCANNING" : cl.state === "done" ? "DONE" : "MATCHED";
-
-  const canStart = cl.state === "idle" || cl.state === "done";
-  const canStop  = cl.state === "running";
-
-  return `
-    <div class="cluster-idx">${cl.idx}</div>
-    <div class="cluster-info">
-      <div class="cluster-range">${startLabel} → ${endLabel}</div>
-      <div class="cluster-meta">
-        ${cl.state === "running" ? `<span class="cl-speed">⚡ ${cl.speed.toLocaleString()}/s</span>` : ""}
-        ${cl.generated > 0 ? `<span class="cl-gen">🔑 ${cl.generated.toLocaleString()}</span>` : ""}
-        ${cl.liveKey ? `<span class="cl-live" title="${cl.liveKey}">↳ ${cl.liveKey}</span>` : ""}
-        ${stateLabel ? `<span style="color:${cl.state==='matched'?'var(--yellow)':cl.state==='done'?'var(--green)':'var(--accent)'}">${stateLabel}</span>` : ""}
-      </div>
-    </div>
-    <div class="cluster-prog-wrap">
-      <div class="cluster-prog-bar"><div class="fill" style="width:${pctClamped}%"></div></div>
-      <div class="cluster-pct">${pctClamped.toFixed(1)}%</div>
-    </div>
-    <div class="cluster-btns">
-      <button class="btn btn-green btn-sm" id="clStartBtn-${cl.idx}" ${canStart ? "" : "disabled"}>▶</button>
-      <button class="btn btn-danger btn-sm" id="clStopBtn-${cl.idx}"  ${canStop  ? "" : "disabled"}>■</button>
-    </div>
-    <div class="cluster-status-dot" style="position:absolute;right:8px;top:8px"></div>
-  `;
-}
-
-function wireClusterButtons(cl) {
-  const sb = $(`clStartBtn-${cl.idx}`);
-  const xb = $(`clStopBtn-${cl.idx}`);
-  if (sb) sb.onclick = () => startCluster(cl);
-  if (xb) xb.onclick = () => stopCluster(cl, "Stopped.");
-}
-
-function updateClusterCard(cl) {
-  const card = $(`cl-card-${cl.idx}`);
-  if (!card) return;
-  card.className = `cluster-card ${cl.state !== "idle" ? cl.state : ""}`;
-  card.innerHTML = clusterCardHTML(cl);
-  wireClusterButtons(cl);
-}
-
-/* ================================================================
-   Status
-   ================================================================ */
-function setStatus(msg, kind = "") {
-  statusBar.textContent = msg;
-  statusBar.className = `status-bar ${kind}`.trim();
-}
-
-/* ================================================================
-   Global stats ticker
-   ================================================================ */
-function startGlobalTimer() {
-  if (statsTimer) return;
-  statsTimer = setInterval(tickStats, 300);
-}
-function stopGlobalTimer() {
-  clearInterval(statsTimer);
-  statsTimer = 0;
-}
-function tickStats() {
-  let total = 0, speed = 0, active = 0;
-  clusters.forEach(cl => {
-    total += cl.generated;
-    speed += cl.speed;
-    if (cl.state === "running") active++;
-  });
-  totalGenStat.textContent  = total.toLocaleString();
-  totalSpeedStat.textContent= `${speed.toLocaleString()}/s`;
-  activeStat.textContent    = String(active);
-  if (active === 0) {
-    stopGlobalTimer();
-    updateGlobalButtons();
+  function normalizeHash160(v) {
+    const hex = sanitizeHex(v);
+    if (!hex) throw new Error("Target HASH160 is required.");
+    if (hex.length !== 40) throw new Error("Target HASH160 must be exactly 40 hex characters.");
+    return hex;
   }
-}
 
-function updateGlobalButtons() {
-  const anyRunning = clusters.some(c => c.state === "running");
-  stopAllBtn.disabled   = !anyRunning;
-  startAllBtn.disabled  = anyRunning || matchFound;
-}
+  function clampCores(v, rangeSize) {
+    let c = Math.max(1, Math.min(64, Math.floor(Number(v)) || 1));
+    if (rangeSize <= BigInt(c)) c = Number(rangeSize);
+    return Math.max(1, c);
+  }
 
-/* ================================================================
-   Start / stop individual cluster
-   ================================================================ */
-function startCluster(cl) {
-  if (matchFound) return;
-  if (cl.state === "running") return;
-  try {
-    const target = normalizeHash160(targetEl.value);
-    const cores  = clampCores(Number(coresInput.value), cl.rangeSize);
-    const mode   = modeSelect.value;
-    const token  = ++globalRunToken;
-    cl.runToken  = token;
-    cl.state     = "running";
-    cl.generated = 0;
-    cl.startedAt = performance.now();
-    cl.completedWorkers = 0;
-    cl.workers   = [];
-    updateClusterCard(cl);
-    updateGlobalButtons();
-    startGlobalTimer();
+  function shortHex(hex64) {
+    const s = hex64.replace(/^0+/, "") || "0";
+    return s.length <= 18 ? s : s.slice(0, 9) + "…" + s.slice(-9);
+  }
 
-    const blob = new Blob([workerSource()], { type: "text/javascript" });
-    const url  = URL.createObjectURL(blob);
-    cl.workers = Array.from({ length: cores }, (_, id) => {
+  function updateCounts() {
+    const s = sanitizeHex($startHex.value);
+    const e = sanitizeHex($endHex.value);
+    if (s !== $startHex.value) $startHex.value = s;
+    if (e !== $endHex.value)   $endHex.value   = e;
+    $startCount.textContent = `${Math.min(s.length,64)} / 64`;
+    $endCount.textContent   = `${Math.min(e.length,64)} / 64`;
+  }
+
+  function getBlobUrl() {
+    if (!blobUrl) blobUrl = URL.createObjectURL(new Blob([workerSrc()], { type: "text/javascript" }));
+    return blobUrl;
+  }
+
+  /* ─── Stats ──────────────────────────────────────────────────────────── */
+  function updateStats() {
+    let total = 0, active = 0;
+    for (const c of clusters) { total += c.generated; if (c.running) active++; }
+    const secs = globalStart ? Math.max(0.001, (performance.now() - globalStart) / 1000) : 0;
+    $genStat.textContent = total.toLocaleString();
+    $spdStat.textContent = secs > 0 ? Math.round(total / secs).toLocaleString() + " / sec" : "0 / sec";
+    $actStat.textContent = String(active);
+    $totStat.textContent = String(clusters.length);
+    if (!active && statsTimer) { clearInterval(statsTimer); statsTimer = 0; }
+  }
+
+  function ensureStatsTimer() {
+    if (!globalStart)  globalStart = performance.now();
+    if (!statsTimer)   statsTimer  = setInterval(updateStats, 250);
+  }
+
+  /* ─── Cluster row DOM ─────────────────────────────────────────────────── */
+  function makeRow(c) {
+    const row = document.createElement("div");
+    row.className = "crow idle";
+
+    const idx = document.createElement("span");
+    idx.className = "cidx";
+    idx.textContent = "#" + (c.id + 1);
+
+    const s64 = c.startNum.toString(16).padStart(64,"0");
+    const e64 = c.endNum.toString(16).padStart(64,"0");
+    const rng = document.createElement("span");
+    rng.className = "crng";
+    rng.textContent = shortHex(s64) + " → " + shortHex(e64);
+    rng.title = s64 + " → " + e64;
+
+    const st = document.createElement("span");
+    st.className = "cst idle";
+    st.textContent = "○ idle";
+
+    const gen = document.createElement("span");
+    gen.className = "cgen";
+
+    const btns = document.createElement("div");
+    btns.className = "cbtns";
+
+    const sb = document.createElement("button");
+    sb.textContent = "Start";
+    sb.onclick = () => startCluster(c);
+
+    const xb = document.createElement("button");
+    xb.textContent = "Stop";
+    xb.className = "danger";
+    xb.disabled = true;
+    xb.onclick = () => stopOne(c);
+
+    btns.append(sb, xb);
+    row.append(idx, rng, st, gen, btns);
+
+    c.el      = row;
+    c.elSt    = st;
+    c.elGen   = gen;
+    c.elStart = sb;
+    c.elStop  = xb;
+    return row;
+  }
+
+  function refreshRow(c) {
+    if (!c.el) return;
+    c.el.className        = "crow " + c.status;
+    c.elSt.className      = "cst "  + c.status;
+    c.elSt.textContent    =
+      c.status === "running" ? "⚡ run"   :
+      c.status === "done"    ? "✓ done"   :
+      c.status === "found"   ? "★ match"  :
+      c.status === "error"   ? "✗ error"  : "○ idle";
+    c.elGen.textContent   = c.generated > 0 ? c.generated.toLocaleString() : "";
+    c.elStart.disabled    = c.running || isBuilding;
+    c.elStop.disabled     = !c.running;
+  }
+
+  /* ─── Cluster control ─────────────────────────────────────────────────── */
+  function updateGlobalBtns() {
+    const anyRunning = clusters.some(c => c.running);
+    const anyStartable = clusters.some(c => !c.running && c.status !== "found");
+    $startAllBtn.disabled = isBuilding || clusters.length === 0 || !anyStartable;
+    $stopAllBtn.disabled  = !anyRunning;
+  }
+
+  function stopOne(c, newStatus = "idle") {
+    c.workers.forEach(w => { try { w.terminate(); } catch(_){} });
+    c.workers      = [];
+    c.running      = false;
+    c.status       = newStatus;
+    c.workerToken  = null;
+    refreshRow(c);
+    updateGlobalBtns();
+    updateStats();
+  }
+
+  function stopAll(newStatus = "idle") {
+    for (const c of clusters) if (c.running) stopOne(c, newStatus);
+    clearInterval(statsTimer); statsTimer = 0;
+    updateStats();
+    updateGlobalBtns();
+  }
+
+  function startCluster(c) {
+    if (c.running) return;
+
+    let target;
+    try { target = normalizeHash160($targetHash.value); }
+    catch(e) { setStatus(e.message, "err"); return; }
+
+    const rangeSize = c.endNum - c.startNum + 1n;
+    const cores  = clampCores($coresInput.value, rangeSize);
+    const mode   = $modeSelect.value;
+    const wToken = Symbol();
+
+    c.running     = true;
+    c.status      = "running";
+    c.generated   = 0;
+    c.workerToken = wToken;
+    c.workers     = [];
+    refreshRow(c);
+    updateGlobalBtns();
+    ensureStatsTimer();
+
+    const url = getBlobUrl();
+    let completed = 0;
+
+    for (let id = 0; id < cores; id++) {
       const w = new Worker(url);
-      w.onmessage = ev => handleWorkerMessage(cl, token, ev.data || {});
-      w.onerror   = ev => stopCluster(cl, ev.message || "Worker error.");
+
+      w.onmessage = ev => {
+        if (c.workerToken !== wToken) return;
+        const d = ev.data || {};
+
+        if (d.type === "batch") {
+          c.generated += d.count;
+          if (d.lastItem) $liveWallet.value = d.lastItem.hex + " | " + d.lastItem.hash160;
+          if (d.matchItem) { handleMatch(c, d.matchItem); return; }
+        }
+
+        if (d.type === "done") {
+          completed++;
+          if (completed >= c.workers.length) {
+            c.running = false;
+            c.status  = "done";
+            refreshRow(c);
+            updateGlobalBtns();
+            updateStats();
+          }
+        }
+
+        if (d.type === "error") {
+          stopOne(c, "error");
+          setStatus(d.message || "Worker error.", "err");
+        }
+      };
+
+      w.onerror = err => { stopOne(c, "error"); setStatus(err.message || "Worker failed.", "err"); };
+
       w.postMessage({
         type: "start", id, cores, mode,
-        startHex: bigToHex64(cl.lo),
-        endHex:   bigToHex64(cl.hi),
+        startHex:   c.startNum.toString(16).padStart(64,"0"),
+        endHex:     c.endNum.toString(16).padStart(64,"0"),
         target,
         batchLimit: 100000
       });
-      return w;
-    });
-    URL.revokeObjectURL(url);
-  } catch(e) {
-    setStatus(e.message, "err");
-    cl.state = "idle";
-    updateClusterCard(cl);
-  }
-}
 
-function stopCluster(cl, reason) {
-  if (!cl.workers.length && cl.state !== "running") return;
-  cl.workers.forEach(w => w.terminate());
-  cl.workers = [];
-  cl.completedWorkers = 0;
-  if (cl.state !== "matched") cl.state = "idle";
-  updateClusterCard(cl);
-  updateGlobalButtons();
-  tickStats();
-}
-
-/* ================================================================
-   Worker message handler
-   ================================================================ */
-function handleWorkerMessage(cl, token, data) {
-  if (token !== cl.runToken) return;
-  if (matchFound && data.type !== "done") { stopCluster(cl); return; }
-
-  if (data.type === "batch") {
-    cl.generated += data.count || 0;
-    const elapsed = (performance.now() - cl.startedAt) / 1000;
-    cl.speed = elapsed > 0.01 ? Math.round(cl.generated / elapsed) : 0;
-    if (data.matchItem) {
-      matchFound = true;
-      cl.state = "matched";
-      cl.liveKey  = data.matchItem.hex;
-      cl.liveH160 = data.matchItem.hash160;
-      updateClusterCard(cl);
-      showMatch(data.matchItem, cl.idx);
-      stopAll(`Match found in cluster ${cl.idx}! All workers halted.`);
-      return;
-    }
-    if (data.lastItem) {
-      cl.liveKey = data.lastItem.hex + " | " + data.lastItem.hash160;
-    }
-    updateClusterCard(cl);
-  }
-
-  if (data.type === "done") {
-    cl.completedWorkers++;
-    if (cl.completedWorkers >= cl.workers.length) {
-      cl.workers = [];
-      if (cl.state !== "matched") cl.state = "done";
-      cl.completedWorkers = 0;
-      updateClusterCard(cl);
-      updateGlobalButtons();
-      tickStats();
-      const allDone = clusters.every(c => c.state === "done" || c.state === "matched");
-      if (allDone) setStatus(`All clusters finished. Total: ${clusters.reduce((s,c)=>s+c.generated,0).toLocaleString()} keys scanned.`, "ok");
+      c.workers.push(w);
     }
   }
 
-  if (data.type === "error") {
-    stopCluster(cl, data.message || "Worker error.");
-    setStatus(`Cluster ${cl.idx} error: ${data.message}`, "err");
-  }
-}
+  function handleMatch(srcCluster, matchItem) {
+    // Stop every cluster immediately
+    for (const c of clusters) {
+      if (c.running) {
+        c.workers.forEach(w => { try { w.terminate(); } catch(_){} });
+        c.workers     = [];
+        c.running     = false;
+        c.workerToken = null;
+        c.status      = "idle";
+        refreshRow(c);
+      }
+    }
+    srcCluster.status = "found";
+    refreshRow(srcCluster);
 
-/* ================================================================
-   Start / Stop All
-   ================================================================ */
-function startAll() {
-  if (matchFound) return;
-  clusters.forEach(cl => {
-    if (cl.state === "idle" || cl.state === "done") startCluster(cl);
+    clearInterval(statsTimer); statsTimer = 0;
+    updateStats();
+    updateGlobalBtns();
+
+    const result = matchItem.hex + " | " + matchItem.hash160;
+    $liveWallet.value    = result;
+    $matchOut.value      = result;
+    $matchSec.style.display = "";
+    setStatus("🎉 Match found! All searches stopped.", "ok");
+  }
+
+  /* ─── Build Clusters (async, non-blocking) ────────────────────────────── */
+  async function buildClusters() {
+    if (isBuilding) return;
+    try {
+      updateCounts();
+      const start = normalizeHex($startHex.value, "Hex start");
+      const end   = normalizeHex($endHex.value,   "Hex end");
+      if (start.number > end.number) throw new Error("Hex start must be ≤ hex end.");
+
+      // Reset everything
+      stopAll();
+      clusters    = [];
+      globalStart = 0;
+      if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+      $matchSec.style.display = "none";
+      $matchOut.value = "";
+      $liveWallet.value = "";
+      updateStats();
+
+      const rangeSize = end.number - start.number + 1n;
+
+      // Determine cluster size — auto-scale if too many clusters would result
+      let clusterSz = TARGET_CLUSTER_SZ;
+      const idealN  = (rangeSize + clusterSz - 1n) / clusterSz;
+      if (idealN > BigInt(MAX_CLUSTERS)) {
+        clusterSz = (rangeSize + BigInt(MAX_CLUSTERS) - 1n) / BigInt(MAX_CLUSTERS);
+      }
+      const totalN = Number((rangeSize + clusterSz - 1n) / clusterSz);
+      const autoScaled = idealN > BigInt(MAX_CLUSTERS);
+
+      isBuilding = true;
+      $buildBtn.disabled    = true;
+      $startAllBtn.disabled = true;
+      $clusterList.innerHTML = "";
+      $clusterInfo.textContent = "Building…";
+      setStatus("Building " + totalN.toLocaleString() + " cluster" + (totalN !== 1 ? "s" : "") + "…");
+
+      const token = ++buildToken;
+      let current = start.number;
+      let idx     = 0;
+
+      // Render in RENDER_CHUNK-sized batches per event-loop tick so the page stays live
+      while (current <= end.number) {
+        if (token !== buildToken) return; // cancelled by Clear
+
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < RENDER_CHUNK && current <= end.number; i++) {
+          const cEnd  = (current + clusterSz - 1n > end.number) ? end.number : current + clusterSz - 1n;
+          const c     = {
+            id: idx++, startNum: current, endNum: cEnd,
+            workers: [], running: false, generated: 0,
+            status: "idle", workerToken: null,
+            el: null, elSt: null, elGen: null, elStart: null, elStop: null
+          };
+          clusters.push(c);
+          frag.appendChild(makeRow(c));
+          current = cEnd + 1n;
+        }
+        $clusterList.appendChild(frag);
+        $clusterInfo.textContent = idx + " / " + totalN + " clusters…";
+        await new Promise(r => setTimeout(r, 0)); // yield to browser
+      }
+
+      const note = autoScaled
+        ? ` (auto-scaled: ~${Number(clusterSz).toLocaleString()} keys/cluster)`
+        : ` (~${Number(clusterSz).toLocaleString()} keys/cluster)`;
+      $clusterInfo.textContent = totalN.toLocaleString() + " cluster" + (totalN !== 1 ? "s" : "") + " ready." + note;
+      $totStat.textContent = String(clusters.length);
+      setStatus("Clusters ready. Set target HASH160 and use Start All or individual Start.", "ok");
+
+    } catch(e) {
+      setStatus(e.message, "err");
+    } finally {
+      isBuilding = false;
+      $buildBtn.disabled = false;
+      updateGlobalBtns();
+    }
+  }
+
+  /* ─── Event listeners ─────────────────────────────────────────────────── */
+  $startHex.addEventListener("input", updateCounts);
+  $endHex.addEventListener("input", updateCounts);
+  $targetHash.addEventListener("input", () => {
+    const v = sanitizeHex($targetHash.value).slice(0,40);
+    if ($targetHash.value !== v) $targetHash.value = v;
   });
-  setStatus("All clusters scanning…", "active");
-  updateGlobalButtons();
-}
 
-function stopAll(msg) {
-  clusters.forEach(cl => {
-    if (cl.state === "running") stopCluster(cl);
+  $buildBtn.addEventListener("click", buildClusters);
+
+  $clearBtn.addEventListener("click", () => {
+    ++buildToken; // cancel in-progress build
+    stopAll();
+    clusters    = [];
+    isBuilding  = false;
+    globalStart = 0;
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+    $clusterList.innerHTML = "<div class='empty-msg'>No clusters yet. Enter a range and click \"Build Clusters\".</div>";
+    $clusterInfo.textContent = "";
+    $matchSec.style.display  = "none";
+    $matchOut.value          = "";
+    $liveWallet.value        = "";
+    $buildBtn.disabled       = false;
+    updateCounts(); updateStats(); updateGlobalBtns();
+    setStatus("Cleared. Enter a hex range.");
   });
-  stopGlobalTimer();
-  tickStats();
-  updateGlobalButtons();
-  if (msg) setStatus(msg, matchFound ? "ok" : "");
-}
 
-/* ================================================================
-   Match display
-   ================================================================ */
-function showMatch(item, clusterIdx) {
-  matchHexEl.textContent     = item.hex;
-  matchH160El.textContent    = item.hash160;
-  matchClusterEl.textContent = `Cluster #${clusterIdx} — range ${bigToHex64(clusters[clusterIdx-1].lo)} → ${bigToHex64(clusters[clusterIdx-1].hi)}`;
-  matchBox.classList.add("visible");
-  matchBox.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+  $startAllBtn.addEventListener("click", () => {
+    try { normalizeHash160($targetHash.value); }
+    catch(e) { setStatus(e.message, "err"); return; }
 
-/* ================================================================
-   Helpers
-   ================================================================ */
-function clampCores(v, rangeSize) {
-  let c = Math.floor(Number(v));
-  if (!Number.isFinite(c) || c < 1) c = 1;
-  c = Math.min(64, c);
-  if (rangeSize <= BigInt(c)) c = Number(rangeSize);
-  return Math.max(1, c);
-}
+    // Stagger launches so browser stays responsive
+    let delay = 0;
+    for (const c of clusters) {
+      if (!c.running && c.status !== "found" && c.status !== "done") {
+        const ref = c;
+        setTimeout(() => { if (!ref.running && ref.status !== "found") startCluster(ref); }, delay);
+        delay += START_STAGGER_MS;
+      }
+    }
+    updateGlobalBtns();
+    setStatus("All clusters starting…");
+  });
 
-function updateCounts() {
-  const s = sanitizeHex(startHexEl.value);
-  const e = sanitizeHex(endHexEl.value);
-  if (s !== startHexEl.value) startHexEl.value = s;
-  if (e !== endHexEl.value) endHexEl.value = e;
-  startCountEl.textContent = `${Math.min(s.length,64)} / 64`;
-  endCountEl.textContent   = `${Math.min(e.length,64)} / 64`;
-}
+  $stopAllBtn.addEventListener("click", () => {
+    stopAll("idle");
+    setStatus("All stopped.");
+  });
 
-/* ================================================================
-   Event listeners
-   ================================================================ */
-startHexEl.addEventListener("input", updateCounts);
-endHexEl.addEventListener("input", updateCounts);
-targetEl.addEventListener("input", () => { targetEl.value = sanitizeHex(targetEl.value).slice(0,40); });
-buildBtn.addEventListener("click", buildClusters);
-resetBtn.addEventListener("click", () => {
-  stopAll();
-  clusters = [];
-  matchFound = false;
-  matchBox.classList.remove("visible");
-  globalBar.style.display = "none";
-  clustersHeader.style.display = "none";
-  clustersList.innerHTML = `<div class="empty-state"><div class="big">⬡</div>Enter a hex range and click <strong>Build Clusters</strong></div>`;
-  setStatus("Enter a hex range above and click Build Clusters.");
-  tickStats();
-});
-startAllBtn.addEventListener("click", startAll);
-stopAllBtn.addEventListener("click", () => stopAll("Stopped all clusters."));
+  updateCounts(); updateStats(); updateGlobalBtns();
 
-updateCounts();
-
-/* ================================================================
-   Worker source — identical crypto engine, unchanged
-   ================================================================ */
-function workerSource() {
-  return `
+  /* ================================================================
+     Worker source — unchanged hot-path logic, embedded as string
+     ================================================================ */
+  function workerSrc() { return `
 "use strict";
 
+/* ── Curve constants ── */
 const P  = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
 const N  = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 const Gx = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
 const Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
 
+/* SHA-256 round constants */
 const K256 = new Int32Array([
   0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
   0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
@@ -916,6 +583,7 @@ const K256 = new Int32Array([
   0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
 ]);
 
+/* RIPEMD-160 tables */
 const rl=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
 const rr=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
 const sl=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
@@ -923,49 +591,119 @@ const sr=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6
 const kl=[0x00000000,0x5a827999,0x6ed9eba1,0x8f1bbcdc,0xa953fd4e];
 const kr=[0x50a28be6,0x5c4dd124,0x6d703ef3,0x7a6d76e9,0x00000000];
 
+/* ── Tuning ── */
 const MINI_BATCH  = 4096;
 const RAND_RESEED = 4096;
 const SLICE_MS    = 60;
 
+/* ── Pre-allocated hot-path buffers ── */
 const pubBuf = new Uint8Array(33);
+
 const sha256Pad = new Uint8Array(64);
-sha256Pad[33]=0x80; sha256Pad[62]=0x01; sha256Pad[63]=0x08;
+sha256Pad[33] = 0x80; sha256Pad[62] = 0x01; sha256Pad[63] = 0x08;
+
 const chainBuf = new Uint8Array(64);
-chainBuf[32]=0x80; chainBuf[57]=0x01;
+chainBuf[32] = 0x80; chainBuf[57] = 0x01;
+
 const hash160Buf = new Uint8Array(20);
 const lastH160   = new Uint8Array(20);
+
 const W  = new Uint32Array(64);
 const Xw = new Uint32Array(16);
-const bX=new Array(MINI_BATCH),bY=new Array(MINI_BATCH),bZ=new Array(MINI_BATCH),bPriv=new Array(MINI_BATCH);
-const pfx=new Array(MINI_BATCH),iZ=new Array(MINI_BATCH);
 
-let active=false,batchLimit=100000,rangeStart=1n,rangeEnd=1n,mode="sequence";
-let workerStep=1n,stepX=0n,stepY=0n,current=1n;
-let cpX=0n,cpY=1n,cpZ=0n;
-let targetHash=null,randWalk=RAND_RESEED;
+const bX    = new Array(MINI_BATCH);
+const bY    = new Array(MINI_BATCH);
+const bZ    = new Array(MINI_BATCH);
+const bPriv = new Array(MINI_BATCH);
+const pfx   = new Array(MINI_BATCH);
+const iZ    = new Array(MINI_BATCH);
 
-function mod(v){const r=v%P;return r<0n?r+P:r;}
-function invert(n){let a=mod(n),b=P,x=0n,y=1n,u=1n,v=0n;while(a!==0n){const q=b/a,r=b%a,m=x-u*q,nn=y-v*q;b=a;a=r;x=u;y=v;u=m;v=nn;}return mod(x);}
+/* ── Mutable worker state ── */
+let active     = false;
+let batchLimit = 100000;
+let rangeStart = 1n;
+let rangeEnd   = 1n;
+let mode       = "sequence";
+let workerStep = 1n;
+let stepX      = 0n, stepY = 0n;
+let current    = 1n;
+let cpX = 0n, cpY = 1n, cpZ = 0n;
+let targetHash = null;
+let randWalk   = RAND_RESEED;
 
-function pdblIP(){if(cpZ===0n)return;const yy=mod(cpY*cpY),s=mod(4n*cpX*yy),m=mod(3n*cpX*cpX),x3=mod(m*m-2n*s),y3=mod(m*(s-x3)-8n*yy*yy),z3=mod(2n*cpY*cpZ);cpX=x3;cpY=y3;cpZ=z3;}
-function paddMixedIP(qx,qy){if(cpZ===0n){cpX=qx;cpY=qy;cpZ=1n;return;}const z12=mod(cpZ*cpZ),u2=mod(qx*z12),s2=mod(mod(qy*cpZ)*z12),h=mod(u2-cpX),r=mod(s2-cpY);if(h===0n){if(r===0n){pdblIP();return;}cpX=0n;cpY=1n;cpZ=0n;return;}const hh=mod(h*h),hf=mod(hh*h),vv=mod(cpX*hh),x3=mod(r*r-hf-2n*vv),y3=mod(r*(vv-x3)-cpY*hf),z3=mod(cpZ*h);cpX=x3;cpY=y3;cpZ=z3;}
-function scalarMulInto(k){cpX=0n;cpY=1n;cpZ=0n;const bs=k.toString(2);for(let i=0;i<bs.length;i++){pdblIP();if(bs[i]==="1")paddMixedIP(Gx,Gy);}}
-function toAffineResult(){if(cpZ===0n)throw new Error("Point at infinity");const zi=invert(cpZ),z2=mod(zi*zi);return{x:mod(cpX*z2),y:mod(cpY*z2*zi)};}
+/* ── Field math ── */
+function mod(v) { const r = v % P; return r < 0n ? r + P : r; }
 
-function writeBigInt32(v,buf,off){for(let i=31;i>=0;i--){buf[off+i]=Number(v&0xffn);v>>=8n;}}
-function rotr32(v,n){return(v>>>n)|(v<<(32-n));}
+function invert(n) {
+  let a = mod(n), b = P, x = 0n, y = 1n, u = 1n, v = 0n;
+  while (a !== 0n) {
+    const q = b / a, r = b % a, m = x - u*q, nn = y - v*q;
+    b=a; a=r; x=u; y=v; u=m; v=nn;
+  }
+  return mod(x);
+}
 
-function sha256_33(){
+/* ── Jacobian arithmetic ── */
+function pdblIP() {
+  if (cpZ === 0n) return;
+  const yy=mod(cpY*cpY), s=mod(4n*cpX*yy), m=mod(3n*cpX*cpX);
+  const x3=mod(m*m-2n*s), y3=mod(m*(s-x3)-8n*yy*yy), z3=mod(2n*cpY*cpZ);
+  cpX=x3; cpY=y3; cpZ=z3;
+}
+
+function paddMixedIP(qx, qy) {
+  if (cpZ===0n) { cpX=qx; cpY=qy; cpZ=1n; return; }
+  const z12=mod(cpZ*cpZ), u2=mod(qx*z12), s2=mod(mod(qy*cpZ)*z12), h=mod(u2-cpX), r=mod(s2-cpY);
+  if (h===0n) { if (r===0n) { pdblIP(); return; } cpX=0n; cpY=1n; cpZ=0n; return; }
+  const hh=mod(h*h), hf=mod(hh*h), vv=mod(cpX*hh);
+  const x3=mod(r*r-hf-2n*vv), y3=mod(r*(vv-x3)-cpY*hf), z3=mod(cpZ*h);
+  cpX=x3; cpY=y3; cpZ=z3;
+}
+
+function scalarMulInto(k) {
+  cpX=0n; cpY=1n; cpZ=0n;
+  const bs=k.toString(2);
+  for (let i=0;i<bs.length;i++) { pdblIP(); if (bs[i]==="1") paddMixedIP(Gx,Gy); }
+}
+
+function toAffineResult() {
+  if (cpZ===0n) throw new Error("Point at infinity");
+  const zi=invert(cpZ), z2=mod(zi*zi);
+  return { x: mod(cpX*z2), y: mod(cpY*z2*zi) };
+}
+
+function writeBigInt32(v, buf, off) {
+  for (let i=31;i>=0;i--) { buf[off+i]=Number(v&0xffn); v>>=8n; }
+}
+
+/* ── SHA-256 of 33-byte pubBuf ── */
+function rotr32(v,n){ return (v>>>n)|(v<<(32-n)); }
+
+function sha256_33() {
   sha256Pad.set(pubBuf);
-  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a;
+  let h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
   for(let i=0;i<16;i++){const p=i*4;W[i]=((sha256Pad[p]<<24)|(sha256Pad[p+1]<<16)|(sha256Pad[p+2]<<8)|sha256Pad[p+3])>>>0;}
-  for(let i=16;i<64;i++){const s0=(rotr32(W[i-15],7)^rotr32(W[i-15],18)^(W[i-15]>>>3))>>>0,s1=(rotr32(W[i-2],17)^rotr32(W[i-2],19)^(W[i-2]>>>10))>>>0;W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;}
+  for(let i=16;i<64;i++){
+    const s0=(rotr32(W[i-15],7)^rotr32(W[i-15],18)^(W[i-15]>>>3))>>>0;
+    const s1=(rotr32(W[i-2],17)^rotr32(W[i-2],19)^(W[i-2]>>>10))>>>0;
+    W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0;
+  }
   let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
-  for(let i=0;i<64;i++){const S1=(rotr32(e,6)^rotr32(e,11)^rotr32(e,25))>>>0,ch=((e&f)^(~e&g))>>>0,t1=(hh+S1+ch+K256[i]+W[i])>>>0,S0=(rotr32(a,2)^rotr32(a,13)^rotr32(a,22))>>>0,mj=((a&b)^(a&c)^(b&c))>>>0,t2=(S0+mj)>>>0;hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}
-  h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+hh)>>>0;
-  chainBuf[0]=(h0>>>24)&255;chainBuf[1]=(h0>>>16)&255;chainBuf[2]=(h0>>>8)&255;chainBuf[3]=h0&255;
-  chainBuf[4]=(h1>>>24)&255;chainBuf[5]=(h1>>>16)&255;chainBuf[6]=(h1>>>8)&255;chainBuf[7]=h1&255;
-  chainBuf[8]=(h2>>>24)&255;chainBuf[9]=(h2>>>16)&255;chainBuf[10]=(h2>>>8)&255;chainBuf[11]=h2&255;
+  for(let i=0;i<64;i++){
+    const S1=(rotr32(e,6)^rotr32(e,11)^rotr32(e,25))>>>0;
+    const ch=((e&f)^(~e&g))>>>0;
+    const t1=(hh+S1+ch+K256[i]+W[i])>>>0;
+    const S0=(rotr32(a,2)^rotr32(a,13)^rotr32(a,22))>>>0;
+    const mj=((a&b)^(a&c)^(b&c))>>>0;
+    const t2=(S0+mj)>>>0;
+    hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+  }
+  h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;
+  h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+hh)>>>0;
+  chainBuf[ 0]=(h0>>>24)&255;chainBuf[ 1]=(h0>>>16)&255;chainBuf[ 2]=(h0>>>8)&255;chainBuf[ 3]=h0&255;
+  chainBuf[ 4]=(h1>>>24)&255;chainBuf[ 5]=(h1>>>16)&255;chainBuf[ 6]=(h1>>>8)&255;chainBuf[ 7]=h1&255;
+  chainBuf[ 8]=(h2>>>24)&255;chainBuf[ 9]=(h2>>>16)&255;chainBuf[10]=(h2>>>8)&255;chainBuf[11]=h2&255;
   chainBuf[12]=(h3>>>24)&255;chainBuf[13]=(h3>>>16)&255;chainBuf[14]=(h3>>>8)&255;chainBuf[15]=h3&255;
   chainBuf[16]=(h4>>>24)&255;chainBuf[17]=(h4>>>16)&255;chainBuf[18]=(h4>>>8)&255;chainBuf[19]=h4&255;
   chainBuf[20]=(h5>>>24)&255;chainBuf[21]=(h5>>>16)&255;chainBuf[22]=(h5>>>8)&255;chainBuf[23]=h5&255;
@@ -973,100 +711,135 @@ function sha256_33(){
   chainBuf[28]=(h7>>>24)&255;chainBuf[29]=(h7>>>16)&255;chainBuf[30]=(h7>>>8)&255;chainBuf[31]=h7&255;
 }
 
-function rol32(v,n){return((v<<n)|(v>>>(32-n)))>>>0;}
+/* ── RIPEMD-160 of 32-byte chainBuf ── */
+function rol32(v,n){ return ((v<<n)|(v>>>(32-n)))>>>0; }
 function rmd_f(j,x,y,z){return j<16?(x^y^z):j<32?((x&y)|(~x&z)):j<48?((x|~y)^z):j<64?((x&z)|(y&~z)):(x^(y|~z));}
 function rmd_fp(j,x,y,z){return j<16?(x^(y|~z)):j<32?((x&z)|(y&~z)):j<48?((x|~y)^z):j<64?((x&y)|(~x&z)):(x^y^z);}
 
-function ripemd160_32(){
+function ripemd160_32() {
   for(let i=0;i<16;i++){const p=i*4;Xw[i]=(chainBuf[p]|(chainBuf[p+1]<<8)|(chainBuf[p+2]<<16)|(chainBuf[p+3]<<24))>>>0;}
   let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476,h4=0xc3d2e1f0;
   let al=h0,bl=h1,cl=h2,dl=h3,el=h4,ar=h0,br=h1,cr=h2,dr=h3,er=h4;
-  for(let j=0;j<80;j++){let t=(rol32((al+rmd_f(j,bl,cl,dl)+Xw[rl[j]]+kl[(j/16)|0])>>>0,sl[j])+el)>>>0;al=el;el=dl;dl=rol32(cl,10);cl=bl;bl=t;t=(rol32((ar+rmd_fp(j,br,cr,dr)+Xw[rr[j]]+kr[(j/16)|0])>>>0,sr[j])+er)>>>0;ar=er;er=dr;dr=rol32(cr,10);cr=br;br=t;}
-  const t=(h1+cl+dr)>>>0;h1=(h2+dl+er)>>>0;h2=(h3+el+ar)>>>0;h3=(h4+al+br)>>>0;h4=(h0+bl+cr)>>>0;h0=t;
-  hash160Buf[0]=h0&255;hash160Buf[1]=(h0>>>8)&255;hash160Buf[2]=(h0>>>16)&255;hash160Buf[3]=(h0>>>24)&255;
-  hash160Buf[4]=h1&255;hash160Buf[5]=(h1>>>8)&255;hash160Buf[6]=(h1>>>16)&255;hash160Buf[7]=(h1>>>24)&255;
-  hash160Buf[8]=h2&255;hash160Buf[9]=(h2>>>8)&255;hash160Buf[10]=(h2>>>16)&255;hash160Buf[11]=(h2>>>24)&255;
+  for(let j=0;j<80;j++){
+    let t=(rol32((al+rmd_f(j,bl,cl,dl)+Xw[rl[j]]+kl[(j/16)|0])>>>0,sl[j])+el)>>>0;
+    al=el;el=dl;dl=rol32(cl,10);cl=bl;bl=t;
+    t=(rol32((ar+rmd_fp(j,br,cr,dr)+Xw[rr[j]]+kr[(j/16)|0])>>>0,sr[j])+er)>>>0;
+    ar=er;er=dr;dr=rol32(cr,10);cr=br;br=t;
+  }
+  const t=(h1+cl+dr)>>>0;
+  h1=(h2+dl+er)>>>0;h2=(h3+el+ar)>>>0;h3=(h4+al+br)>>>0;h4=(h0+bl+cr)>>>0;h0=t;
+  hash160Buf[ 0]=h0&255;hash160Buf[ 1]=(h0>>>8)&255;hash160Buf[ 2]=(h0>>>16)&255;hash160Buf[ 3]=(h0>>>24)&255;
+  hash160Buf[ 4]=h1&255;hash160Buf[ 5]=(h1>>>8)&255;hash160Buf[ 6]=(h1>>>16)&255;hash160Buf[ 7]=(h1>>>24)&255;
+  hash160Buf[ 8]=h2&255;hash160Buf[ 9]=(h2>>>8)&255;hash160Buf[10]=(h2>>>16)&255;hash160Buf[11]=(h2>>>24)&255;
   hash160Buf[12]=h3&255;hash160Buf[13]=(h3>>>8)&255;hash160Buf[14]=(h3>>>16)&255;hash160Buf[15]=(h3>>>24)&255;
   hash160Buf[16]=h4&255;hash160Buf[17]=(h4>>>8)&255;hash160Buf[18]=(h4>>>16)&255;hash160Buf[19]=(h4>>>24)&255;
 }
 
-function hexToBytes(hex){const b=new Uint8Array(hex.length>>>1);for(let i=0;i<b.length;i++)b[i]=parseInt(hex.slice(i*2,i*2+2),16);return b;}
-function bytesToHex(b){let o="";for(let i=0;i<b.length;i++)o+=b[i].toString(16).padStart(2,"0");return o;}
-function randomBetween(lo,hi){const span=hi-lo+1n,nb=Math.ceil(span.toString(2).length/8),buf=new Uint8Array(nb);while(true){crypto.getRandomValues(buf);let v=0n;for(const b of buf)v=(v<<8n)+BigInt(b);if(v<span)return lo+v;}}
-function makeResult(privNum,h160){return{hex:privNum.toString(16).padStart(64,"0"),hash160:bytesToHex(h160)};}
+/* ── Helpers ── */
+function hexToBytes(hex){ const b=new Uint8Array(hex.length>>>1);for(let i=0;i<b.length;i++)b[i]=parseInt(hex.slice(i*2,i*2+2),16);return b; }
+function bytesToHex(bytes){ let o="";for(let i=0;i<bytes.length;i++)o+=bytes[i].toString(16).padStart(2,"0");return o; }
+function makeResult(priv,h160){ return {hex:priv.toString(16).padStart(64,"0"),hash160:bytesToHex(h160)}; }
 
+function randomBetween(lo,hi){
+  const span=hi-lo+1n, nb=Math.ceil(span.toString(2).length/8), buf=new Uint8Array(nb);
+  while(true){ crypto.getRandomValues(buf); let v=0n;for(const b of buf)v=(v<<8n)+BigInt(b); if(v<span)return lo+v; }
+}
+
+/* ── Message handler ── */
 self.onmessage = ev => {
   const d=ev.data||{};
   if(d.type==="stop"){active=false;return;}
-  if(d.type!=="start")return;
-  try{
-    const wId=BigInt(d.id||0),wCnt=BigInt(d.cores||1);
+  if(d.type!=="start") return;
+  try {
+    const wId=BigInt(d.id||0), wCnt=BigInt(d.cores||1);
     mode=d.mode||"sequence";
     rangeStart=BigInt("0x"+d.startHex);
     rangeEnd=BigInt("0x"+d.endHex);
     batchLimit=Math.max(1,Math.min(500000,Number(d.batchLimit||100000)));
     workerStep=wCnt; active=true; randWalk=RAND_RESEED;
     targetHash=hexToBytes(d.target);
-    if(mode==="random"){stepX=Gx;stepY=Gy;current=rangeStart;cpX=0n;cpY=1n;cpZ=0n;}
-    else if(mode==="reverse"){current=rangeEnd-wId;if(current<rangeStart)return done();scalarMulInto(workerStep%N);const aff=toAffineResult();stepX=aff.x;stepY=P-aff.y;scalarMulInto(current);}
-    else{current=rangeStart+wId;if(current>rangeEnd)return done();scalarMulInto(workerStep%N);const aff=toAffineResult();stepX=aff.x;stepY=aff.y;scalarMulInto(current);}
+
+    if(mode==="random"){
+      stepX=Gx; stepY=Gy; current=rangeStart; cpX=0n;cpY=1n;cpZ=0n;
+    } else if(mode==="reverse"){
+      current=rangeEnd-wId;
+      if(current<rangeStart) return done();
+      scalarMulInto(workerStep%N); const aff=toAffineResult(); stepX=aff.x; stepY=P-aff.y;
+      scalarMulInto(current);
+    } else {
+      current=rangeStart+wId;
+      if(current>rangeEnd) return done();
+      scalarMulInto(workerStep%N); const aff=toAffineResult(); stepX=aff.x; stepY=aff.y;
+      scalarMulInto(current);
+    }
     setTimeout(runSlice,0);
-  }catch(e){postMessage({type:"error",message:e.message||String(e)});}
+  } catch(e){ postMessage({type:"error",message:e.message||String(e)}); }
 };
 
-function done(){postMessage({type:"done"});}
+function done(){ postMessage({type:"done"}); }
 
-function runSlice(){
-  if(!active)return done();
-  try{
+/* ── Main work loop ── */
+function runSlice() {
+  if(!active) return done();
+  try {
     const deadline=performance.now()+SLICE_MS;
-    let totalGenerated=0,lastPriv=null;
-    while(active&&performance.now()<deadline){
+    let totalGenerated=0, lastPriv=null;
+
+    while(active && performance.now()<deadline){
       let count=0;
       for(let i=0;i<MINI_BATCH;i++){
         if(mode==="random"){
-          if(randWalk>=RAND_RESEED){current=randomBetween(rangeStart,rangeEnd);scalarMulInto(current);randWalk=0;}
+          if(randWalk>=RAND_RESEED){ current=randomBetween(rangeStart,rangeEnd); scalarMulInto(current); randWalk=0; }
           bX[i]=cpX;bY[i]=cpY;bZ[i]=cpZ;bPriv[i]=current;
           current+=1n;
-          if(current>rangeEnd){randWalk=RAND_RESEED;}else{paddMixedIP(Gx,Gy);randWalk++;}
-        }else if(mode==="reverse"){
+          if(current>rangeEnd){ randWalk=RAND_RESEED; } else { paddMixedIP(Gx,Gy); randWalk++; }
+        } else if(mode==="reverse"){
           if(current<rangeStart){active=false;break;}
           bX[i]=cpX;bY[i]=cpY;bZ[i]=cpZ;bPriv[i]=current;
-          current-=workerStep;paddMixedIP(stepX,stepY);
-        }else{
+          current-=workerStep; paddMixedIP(stepX,stepY);
+        } else {
           if(current>rangeEnd){active=false;break;}
           bX[i]=cpX;bY[i]=cpY;bZ[i]=cpZ;bPriv[i]=current;
-          current+=workerStep;paddMixedIP(stepX,stepY);
+          current+=workerStep; paddMixedIP(stepX,stepY);
         }
         count++;
       }
-      if(count===0)break;
+      if(count===0) break;
+
       pfx[0]=bZ[0];
-      for(let i=1;i<count;i++)pfx[i]=mod(pfx[i-1]*bZ[i]);
+      for(let i=1;i<count;i++) pfx[i]=mod(pfx[i-1]*bZ[i]);
       let inv=invert(pfx[count-1]);
       for(let i=count-1;i>0;i--){iZ[i]=mod(inv*pfx[i-1]);inv=mod(inv*bZ[i]);}
       iZ[0]=inv;
+
       for(let i=0;i<count;i++){
-        const zi=iZ[i],zi2=mod(zi*zi),zi3=mod(zi2*zi),ax=mod(bX[i]*zi2),ay=mod(bY[i]*zi3);
+        const zi=iZ[i], zi2=mod(zi*zi), zi3=mod(zi2*zi);
+        const ax=mod(bX[i]*zi2), ay=mod(bY[i]*zi3);
         pubBuf[0]=(ay&1n)===0n?0x02:0x03;
         writeBigInt32(ax,pubBuf,1);
-        sha256_33();ripemd160_32();
+        sha256_33();
+        ripemd160_32();
         let match=true;
         for(let j=0;j<20;j++){if(hash160Buf[j]!==targetHash[j]){match=false;break;}}
-        if(match){const mh=hash160Buf.slice();postMessage({type:"batch",count:totalGenerated+i+1,matchItem:makeResult(bPriv[i],mh)});active=false;return done();}
+        if(match){
+          const mh=hash160Buf.slice();
+          postMessage({type:"batch",count:totalGenerated+i+1,matchItem:makeResult(bPriv[i],mh)});
+          active=false; return done();
+        }
         lastPriv=bPriv[i];
       }
       lastH160.set(hash160Buf);
       totalGenerated+=count;
-      if(totalGenerated>=batchLimit)break;
+      if(totalGenerated>=batchLimit) break;
     }
-    if(totalGenerated>0)postMessage({type:"batch",count:totalGenerated,lastItem:makeResult(lastPriv,lastH160)});
-    if(active)setTimeout(runSlice,0);
-    else done();
-  }catch(e){postMessage({type:"error",message:e.message||String(e)});}
+
+    if(totalGenerated>0){
+      postMessage({type:"batch",count:totalGenerated,lastItem:makeResult(lastPriv,lastH160)});
+    }
+    if(active) setTimeout(runSlice,0); else done();
+  } catch(e){ postMessage({type:"error",message:e.message||String(e)}); }
 }
-`;
-}
+`; } // end workerSrc
 
 })();
 </script>
