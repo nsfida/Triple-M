@@ -113,13 +113,14 @@
 
       const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
       const MAX_CORES = 64;
-      const WORKER_BATCH_SIZE = 8192;
+      const WORKER_BATCH_SIZE = 16384;
+      const DEFAULT_KANGAROO_LANES = 20;
       const UI_INTERVAL_MS = 250;
       const CHECKPOINT_INTERVAL_MS = 5000;
       const CHECKPOINT_DB_NAME = "btc-kangaroo-checkpoints";
       const CHECKPOINT_DB_VERSION = 1;
       const CHECKPOINT_META_ID = "active";
-      const CHECKPOINT_SCHEMA_VERSION = 1;
+      const CHECKPOINT_SCHEMA_VERSION = 2;
       const CHECKPOINT_MAP_CHUNK_SIZE = 1000;
       const CHECKPOINT_WORKER_TIMEOUT_MS = 10000;
       const SECP_URL = "https://esm.sh/@noble/secp256k1@1.7.1";
@@ -138,8 +139,8 @@ let batchSize = 8192;
 let stopped = true;
 let paused = false;
 let loopScheduled = false;
-let tame = null;
-let wild = null;
+let lanes = [];
+let latestLaneIndex = 0;
 let calculated = 0n;
 let skipped = 0n;
 let localTameMap = new Map();
@@ -180,23 +181,28 @@ function isDistinguished(point) {
   return (Number(BigInt.asUintN(32, point.x)) & dpMaskNumber) === 0;
 }
 
-function makeDp(kind, state) {
+function makeDp(kind, lane, state) {
   return {
     kind: kind,
     pointHex: state.point.toHex(true),
     distHex: toHex(state.dist),
     posHex: toHex(state.pos),
     startHex: kind === "tame" ? toHex(state.start) : null,
-    workerId: workerId
+    workerId: workerId,
+    laneId: lane.laneId
   };
 }
 
 function makeStats() {
+  const lane = lanes.length ? lanes[Math.min(latestLaneIndex, lanes.length - 1)] : null;
   return {
-    tamePosHex: toHex(tame.pos),
-    wildOffsetHex: toHex(wild.dist),
+    tamePosHex: lane ? toHex(lane.tame.pos) : "0",
+    wildOffsetHex: lane ? toHex(lane.wild.dist) : "0",
     calculated: calculated.toString(10),
-    skippedHex: toHex(skipped)
+    skippedHex: toHex(skipped),
+    laneCount: lanes.length,
+    kangarooCount: lanes.length * 2,
+    latestLaneId: lane ? lane.laneId : 0
   };
 }
 
@@ -212,11 +218,16 @@ function makeWalkerCheckpoint(kind, state) {
 
 function makeCheckpointState() {
   return {
-    tame: makeWalkerCheckpoint("tame", tame),
-    wild: makeWalkerCheckpoint("wild", wild),
+    lanes: lanes.map((lane) => ({
+      laneId: lane.laneId,
+      tame: makeWalkerCheckpoint("tame", lane.tame),
+      wild: makeWalkerCheckpoint("wild", lane.wild)
+    })),
     calculated: calculated.toString(10),
     skippedHex: toHex(skipped),
     stats: makeStats(),
+    laneCount: lanes.length,
+    kangarooCount: lanes.length * 2,
     localTameMapSize: localTameMap.size,
     localWildMapSize: localWildMap.size,
     localTameMapPages: 0,
@@ -228,12 +239,48 @@ function yieldWorker() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function makeLocalEntry(kind, lane, state) {
+  return {
+    kind: kind,
+    pointHex: state.point.toHex(true),
+    dist: state.dist,
+    pos: state.pos,
+    start: kind === "tame" ? state.start : 0n,
+    workerId: workerId,
+    laneId: lane.laneId
+  };
+}
+
+function serializeLocalEntry(entry) {
+  return {
+    kind: entry.kind,
+    pointHex: entry.pointHex,
+    distHex: toHex(entry.dist),
+    posHex: toHex(entry.pos),
+    startHex: toHex(entry.start || 0n),
+    workerId: entry.workerId,
+    laneId: entry.laneId
+  };
+}
+
+function parseLocalEntry(row, kind) {
+  return {
+    kind: row.kind || kind,
+    pointHex: row.pointHex,
+    dist: parseHexBigInt(row.distHex),
+    pos: parseHexBigInt(row.posHex),
+    start: (row.kind || kind) === "tame" ? parseHexBigInt(row.startHex) : 0n,
+    workerId: Number(row.workerId || workerId),
+    laneId: Number(row.laneId || 0)
+  };
+}
+
 async function postCheckpointMap(requestId, mapName, map) {
   let page = 0;
   let rows = [];
 
-  for (const [pointHex, dist] of map) {
-    rows.push({ pointHex: pointHex, distHex: toHex(dist) });
+  for (const entry of map.values()) {
+    rows.push(serializeLocalEntry(entry));
     if (rows.length >= CHECKPOINT_EXPORT_CHUNK_SIZE) {
       self.postMessage({
         type: "checkpoint-chunk",
@@ -267,7 +314,7 @@ async function postCheckpointMap(requestId, mapName, map) {
 }
 
 async function exportCheckpoint(requestId) {
-  if (checkpointExporting || !tame || !wild) return;
+  if (checkpointExporting || !lanes.length) return;
   checkpointExporting = true;
   const wasPaused = paused;
   paused = true;
@@ -298,7 +345,7 @@ async function exportCheckpoint(requestId) {
   }
 }
 
-function makeCollision(tameDist, wildDist, pointHex) {
+function makeCollision(tameEntry, wildEntry, pointHex) {
   return {
     type: "collision",
     runId: runId,
@@ -307,25 +354,27 @@ function makeCollision(tameDist, wildDist, pointHex) {
     tame: {
       kind: "tame",
       pointHex: pointHex,
-      distHex: toHex(tameDist),
-      posHex: toHex(tame.start + tameDist),
-      startHex: toHex(tame.start),
-      workerId: workerId
+      distHex: toHex(tameEntry.dist),
+      posHex: toHex(tameEntry.pos),
+      startHex: toHex(tameEntry.start),
+      workerId: workerId,
+      laneId: tameEntry.laneId
     },
     wild: {
       kind: "wild",
       pointHex: pointHex,
-      distHex: toHex(wildDist),
-      posHex: toHex(wildDist),
+      distHex: toHex(wildEntry.dist),
+      posHex: toHex(wildEntry.pos),
       startHex: null,
-      workerId: workerId
+      workerId: workerId,
+      laneId: wildEntry.laneId
     },
     stats: makeStats()
   };
 }
 
-function stepWalker(kind) {
-  const state = kind === "tame" ? tame : wild;
+function stepWalker(kind, lane, laneIndex) {
+  const state = kind === "tame" ? lane.tame : lane.wild;
   const jump = jumpTable[getJumpIndex(state.point)];
 
   state.point = state.point.add(jump.point);
@@ -333,8 +382,9 @@ function stepWalker(kind) {
   state.pos += jump.dist;
   skipped += jump.dist;
   calculated++;
+  latestLaneIndex = laneIndex;
 
-  return isDistinguished(state.point) ? makeDp(kind, state) : null;
+  return isDistinguished(state.point) ? makeDp(kind, lane, state) : null;
 }
 
 function postBatch(dps) {
@@ -358,26 +408,34 @@ function runBatch() {
   if (stopped || paused) return;
 
   const dps = [];
-  for (let i = 0; i < batchSize && !stopped && !paused; i++) {
-    const tameDp = stepWalker("tame");
-    if (tameDp) {
-      dps.push(tameDp);
-      localTameMap.set(tameDp.pointHex, tame.dist);
-      if (localWildMap.has(tameDp.pointHex)) {
-        stopped = true;
-        self.postMessage(makeCollision(tame.dist, localWildMap.get(tameDp.pointHex), tameDp.pointHex));
-        return;
-      }
-    }
+  const laneCount = Math.max(1, lanes.length);
+  const rounds = Math.max(1, Math.floor(batchSize / Math.max(1, laneCount * 2)));
 
-    const wildDp = stepWalker("wild");
-    if (wildDp) {
-      dps.push(wildDp);
-      localWildMap.set(wildDp.pointHex, wild.dist);
-      if (localTameMap.has(wildDp.pointHex)) {
-        stopped = true;
-        self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wild.dist, wildDp.pointHex));
-        return;
+  for (let i = 0; i < rounds && !stopped && !paused; i++) {
+    for (let laneIndex = 0; laneIndex < laneCount && !stopped && !paused; laneIndex++) {
+      const lane = lanes[laneIndex];
+      const tameDp = stepWalker("tame", lane, laneIndex);
+      if (tameDp) {
+        dps.push(tameDp);
+        const tameEntry = makeLocalEntry("tame", lane, lane.tame);
+        localTameMap.set(tameDp.pointHex, tameEntry);
+        if (localWildMap.has(tameDp.pointHex)) {
+          stopped = true;
+          self.postMessage(makeCollision(tameEntry, localWildMap.get(tameDp.pointHex), tameDp.pointHex));
+          return;
+        }
+      }
+
+      const wildDp = stepWalker("wild", lane, laneIndex);
+      if (wildDp) {
+        dps.push(wildDp);
+        const wildEntry = makeLocalEntry("wild", lane, lane.wild);
+        localWildMap.set(wildDp.pointHex, wildEntry);
+        if (localTameMap.has(wildDp.pointHex)) {
+          stopped = true;
+          self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wildEntry, wildDp.pointHex));
+          return;
+        }
       }
     }
   }
@@ -399,6 +457,7 @@ async function initWorker(message) {
   stopped = false;
   paused = false;
   loopScheduled = false;
+  latestLaneIndex = 0;
   localTameMap = new Map();
   localWildMap = new Map();
 
@@ -407,38 +466,50 @@ async function initWorker(message) {
     point: secp.Point.fromHex(jump.pointHex)
   }));
 
-  const tameStart = parseHexBigInt(message.tameStartHex);
-  const wildOffset = parseHexBigInt(message.wildOffsetHex);
   const wildStartPoint = secp.Point.fromHex(message.pHex);
+  const laneConfigs = Array.isArray(message.lanes) && message.lanes.length
+    ? message.lanes
+    : [{ laneId: workerId, tameStartHex: message.tameStartHex, wildOffsetHex: message.wildOffsetHex }];
 
-  tame = {
-    point: multiplyGenerator(tameStart),
-    dist: 0n,
-    pos: tameStart,
-    start: tameStart
-  };
-
-  wild = {
-    point: addGeneratorMultiple(wildStartPoint, wildOffset),
-    dist: wildOffset,
-    pos: wildOffset,
-    start: wildOffset
-  };
+  lanes = laneConfigs.map((laneConfig, index) => {
+    const tameStart = parseHexBigInt(laneConfig.tameStartHex);
+    const wildOffset = parseHexBigInt(laneConfig.wildOffsetHex);
+    return {
+      laneId: Number(laneConfig.laneId ?? index),
+      tame: {
+        point: multiplyGenerator(tameStart),
+        dist: 0n,
+        pos: tameStart,
+        start: tameStart
+      },
+      wild: {
+        point: addGeneratorMultiple(wildStartPoint, wildOffset),
+        dist: wildOffset,
+        pos: wildOffset,
+        start: wildOffset
+      }
+    };
+  });
 
   const initialDps = [];
-  if (isDistinguished(tame.point)) {
-    const tameDp = makeDp("tame", tame);
-    initialDps.push(tameDp);
-    localTameMap.set(tameDp.pointHex, tame.dist);
-  }
-  if (isDistinguished(wild.point)) {
-    const wildDp = makeDp("wild", wild);
-    initialDps.push(wildDp);
-    localWildMap.set(wildDp.pointHex, wild.dist);
-    if (localTameMap.has(wildDp.pointHex)) {
-      stopped = true;
-      self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wild.dist, wildDp.pointHex));
-      return;
+  for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
+    const lane = lanes[laneIndex];
+    if (isDistinguished(lane.tame.point)) {
+      const tameDp = makeDp("tame", lane, lane.tame);
+      const tameEntry = makeLocalEntry("tame", lane, lane.tame);
+      initialDps.push(tameDp);
+      localTameMap.set(tameDp.pointHex, tameEntry);
+    }
+    if (isDistinguished(lane.wild.point)) {
+      const wildDp = makeDp("wild", lane, lane.wild);
+      const wildEntry = makeLocalEntry("wild", lane, lane.wild);
+      initialDps.push(wildDp);
+      localWildMap.set(wildDp.pointHex, wildEntry);
+      if (localTameMap.has(wildDp.pointHex)) {
+        stopped = true;
+        self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wildEntry, wildDp.pointHex));
+        return;
+      }
     }
   }
 
@@ -460,6 +531,7 @@ async function initWorkerFromCheckpoint(message) {
   stopped = false;
   paused = true;
   loopScheduled = false;
+  latestLaneIndex = 0;
   localTameMap = new Map();
   localWildMap = new Map();
 
@@ -468,22 +540,27 @@ async function initWorkerFromCheckpoint(message) {
     point: secp.Point.fromHex(jump.pointHex)
   }));
 
-  const tameState = state.tame || {};
-  const wildState = state.wild || {};
+  lanes = (state.lanes || []).map((laneState, index) => {
+    const tameState = laneState.tame || {};
+    const wildState = laneState.wild || {};
+    return {
+      laneId: Number(laneState.laneId ?? index),
+      tame: {
+        point: secp.Point.fromHex(tameState.pointHex),
+        dist: parseHexBigInt(tameState.distHex),
+        pos: parseHexBigInt(tameState.posHex),
+        start: parseHexBigInt(tameState.startHex)
+      },
+      wild: {
+        point: secp.Point.fromHex(wildState.pointHex),
+        dist: parseHexBigInt(wildState.distHex),
+        pos: parseHexBigInt(wildState.posHex),
+        start: parseHexBigInt(wildState.startHex)
+      }
+    };
+  });
 
-  tame = {
-    point: secp.Point.fromHex(tameState.pointHex),
-    dist: parseHexBigInt(tameState.distHex),
-    pos: parseHexBigInt(tameState.posHex),
-    start: parseHexBigInt(tameState.startHex)
-  };
-
-  wild = {
-    point: secp.Point.fromHex(wildState.pointHex),
-    dist: parseHexBigInt(wildState.distHex),
-    pos: parseHexBigInt(wildState.posHex),
-    start: parseHexBigInt(wildState.startHex)
-  };
+  if (!lanes.length) throw new Error("Saved worker checkpoint has no kangaroo lanes.");
 
   self.postMessage({
     type: "restore-ready",
@@ -495,8 +572,9 @@ async function initWorkerFromCheckpoint(message) {
 
 function restoreMapChunk(message) {
   const targetMap = message.mapName === "localTameMap" ? localTameMap : localWildMap;
+  const kind = message.mapName === "localTameMap" ? "tame" : "wild";
   for (const row of message.rows || []) {
-    if (row && row.pointHex) targetMap.set(row.pointHex, parseHexBigInt(row.distHex));
+    if (row && row.pointHex) targetMap.set(row.pointHex, parseLocalEntry(row, kind));
   }
 }
 
@@ -751,6 +829,7 @@ self.onmessage = async (event) => {
         if (!meta.checkpointId || !meta.rangeStartHex || !meta.rangeEndHex || !meta.rangeSizeHex) return false;
         if (!meta.targetPublicKeyHex || !Array.isArray(meta.jumpTable) || !Array.isArray(meta.workerStates)) return false;
         if (!Number.isFinite(Number(meta.selectedCores)) || Number(meta.selectedCores) < 1) return false;
+        if (!Number.isFinite(Number(meta.kangarooLaneCount)) || Number(meta.kangarooLaneCount) < 1) return false;
         return true;
       }
 
@@ -769,7 +848,8 @@ self.onmessage = async (event) => {
           distHex: entry.dist.toString(16),
           posHex: entry.pos.toString(16),
           startHex: entry.start.toString(16),
-          workerId: entry.workerId
+          workerId: entry.workerId,
+          laneId: entry.laneId || 0
         };
       }
 
@@ -780,7 +860,8 @@ self.onmessage = async (event) => {
           dist: parseWorkerHex(row.distHex),
           pos: parseWorkerHex(row.posHex),
           start: row.kind === "tame" ? parseWorkerHex(row.startHex) : 0n,
-          workerId: Number(row.workerId || 0)
+          workerId: Number(row.workerId || 0),
+          laneId: Number(row.laneId || 0)
         };
       }
 
@@ -890,6 +971,7 @@ self.onmessage = async (event) => {
         const targetPoint = secp.Point.fromHex(publicKeyHex);
         const width = end.number - start.number + 1n;
         const selectedCores = clampCores(coresInput.value, width);
+        const kangarooLaneCount = chooseKangarooLaneCount(width, selectedCores);
 
         return {
           rangeStartHex: start.hex,
@@ -899,7 +981,8 @@ self.onmessage = async (event) => {
           rangeSizeHex: width.toString(16),
           rangeSizeNumber: width,
           targetPublicKeyHex: targetPoint.toHex(true),
-          selectedCores: selectedCores
+          selectedCores: selectedCores,
+          kangarooLaneCount: kangarooLaneCount
         };
       }
 
@@ -909,7 +992,8 @@ self.onmessage = async (event) => {
           meta.rangeEndHex === config.rangeEndHex &&
           meta.rangeSizeHex === config.rangeSizeHex &&
           String(meta.targetPublicKeyHex || "").toLowerCase() === config.targetPublicKeyHex.toLowerCase() &&
-          Number(meta.selectedCores) === Number(config.selectedCores);
+          Number(meta.selectedCores) === Number(config.selectedCores) &&
+          Number(meta.kangarooLaneCount || 0) === Number(config.kangarooLaneCount || 0);
       }
 
       function configFromCheckpointMeta(meta) {
@@ -922,6 +1006,7 @@ self.onmessage = async (event) => {
           rangeSizeNumber: parseWorkerHex(meta.rangeSizeHex),
           targetPublicKeyHex: meta.targetPublicKeyHex,
           selectedCores: Number(meta.selectedCores),
+          kangarooLaneCount: Number(meta.kangarooLaneCount || DEFAULT_KANGAROO_LANES),
           sessionId: meta.sessionId || ("resume-" + Date.now().toString(36))
         };
       }
@@ -968,6 +1053,27 @@ self.onmessage = async (event) => {
         cores = Math.min(MAX_CORES, cores);
         if (size > 0n && size < BigInt(cores)) cores = Number(size);
         return Math.max(1, cores);
+      }
+
+      function chooseKangarooLaneCount(size, workerCount) {
+        const desired = Math.max(DEFAULT_KANGAROO_LANES, workerCount);
+        if (size > 0n && size < BigInt(desired)) return Math.max(1, Number(size));
+        return desired;
+      }
+
+      function buildWorkerLaneConfigs(config, workerCount, laneCount) {
+        const workerLanes = Array.from({ length: workerCount }, () => []);
+        for (let laneId = 0; laneId < laneCount; laneId++) {
+          const lane = BigInt(laneId);
+          const total = BigInt(laneCount);
+          const offset = laneId === 0 ? 0n : ((config.rangeSizeNumber * lane) / total) % config.rangeSizeNumber;
+          workerLanes[laneId % workerCount].push({
+            laneId: laneId,
+            tameStartHex: (config.rangeEndNumber - offset).toString(16),
+            wildOffsetHex: offset.toString(16)
+          });
+        }
+        return workerLanes;
       }
 
       function randomBigIntBelow(maxExclusive) {
@@ -1149,6 +1255,7 @@ self.onmessage = async (event) => {
           rangeSizeHex: activeRunConfig.rangeSizeHex,
           targetPublicKeyHex: activeRunConfig.targetPublicKeyHex,
           selectedCores: activeRunConfig.selectedCores,
+          kangarooLaneCount: activeRunConfig.kangarooLaneCount || workerStates.reduce((sum, state) => sum + Number(state.laneCount || 0), 0),
           k: k,
           dpMaskHex: dpMask.toString(16),
           jumpTable: serializeJumpTable(),
@@ -1266,15 +1373,17 @@ self.onmessage = async (event) => {
       function aggregateStats() {
         let calculated = 0n;
         let skipped = 0n;
+        let laneCount = 0;
         let latest = null;
 
         for (const stat of workerStats.values()) {
           calculated += stat.calculated;
           skipped += stat.skipped;
+          laneCount += Number(stat.laneCount || 0);
           if (!latest || stat.updatedAt > latest.updatedAt) latest = stat;
         }
 
-        return { calculated: calculated, skipped: skipped, latest: latest };
+        return { calculated: calculated, skipped: skipped, latest: latest, laneCount: laneCount };
       }
 
       function updateStats() {
@@ -1302,7 +1411,8 @@ self.onmessage = async (event) => {
         if (aggregate.latest) {
           currentKeys.value =
             "Tame key: " + pad64(aggregate.latest.tamePos) + "\n" +
-            "Wild key: target + " + pad64(aggregate.latest.wildOffset);
+            "Wild key: target + " + pad64(aggregate.latest.wildOffset) + "\n" +
+            "Active kangaroo pairs: " + String(aggregate.laneCount || 0);
         }
       }
 
@@ -1341,7 +1451,8 @@ self.onmessage = async (event) => {
           dist: parseWorkerHex(dp.distHex),
           pos: parseWorkerHex(dp.posHex),
           start: dp.kind === "tame" ? parseWorkerHex(dp.startHex) : 0n,
-          workerId: dp.workerId
+          workerId: dp.workerId,
+          laneId: Number(dp.laneId || 0)
         };
       }
 
@@ -1401,6 +1512,9 @@ self.onmessage = async (event) => {
             skipped: parseWorkerHex(message.stats.skippedHex),
             tamePos: parseWorkerHex(message.stats.tamePosHex),
             wildOffset: parseWorkerHex(message.stats.wildOffsetHex),
+            laneCount: Number(message.stats.laneCount || 1),
+            kangarooCount: Number(message.stats.kangarooCount || 2),
+            latestLaneId: Number(message.stats.latestLaneId || 0),
             updatedAt: performance.now()
           });
         }
@@ -1441,16 +1555,20 @@ self.onmessage = async (event) => {
         finishRun("Worker " + workerId + " failed: " + detail, "err");
       }
 
-      function startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, publicKeyHex) {
+      function startWorkerPair(workerId, laneConfigs, serializedJumpTable, publicKeyHex) {
         const worker = new Worker(getWorkerModuleUrl());
         worker.onmessage = handleWorkerMessage;
         worker.onerror = (event) => handleWorkerError(workerId, event);
         activeWorkers.push({ workerId: workerId, worker: worker });
+        const firstLane = laneConfigs[0] || { tameStartHex: "0", wildOffsetHex: "0" };
         workerStats.set(workerId, {
           calculated: 0n,
           skipped: 0n,
-          tamePos: tameStart,
-          wildOffset: wildOffset,
+          tamePos: parseWorkerHex(firstLane.tameStartHex),
+          wildOffset: parseWorkerHex(firstLane.wildOffsetHex),
+          laneCount: laneConfigs.length,
+          kangarooCount: laneConfigs.length * 2,
+          latestLaneId: Number(firstLane.laneId || 0),
           updatedAt: performance.now()
         });
 
@@ -1459,8 +1577,7 @@ self.onmessage = async (event) => {
           runId: activeRunId,
           workerId: workerId,
           pHex: publicKeyHex,
-          tameStartHex: tameStart.toString(16),
-          wildOffsetHex: wildOffset.toString(16),
+          lanes: laneConfigs,
           jumpTable: serializedJumpTable,
           k: k,
           dpMaskHex: dpMask.toString(16),
@@ -1498,11 +1615,15 @@ self.onmessage = async (event) => {
         worker.onerror = (event) => handleWorkerError(workerId, event);
         activeWorkers.push({ workerId: workerId, worker: worker });
 
+        const firstLane = workerState.lanes && workerState.lanes.length ? workerState.lanes[0] : null;
         workerStats.set(workerId, {
           calculated: BigInt(workerState.calculated || "0"),
           skipped: parseWorkerHex(workerState.skippedHex),
-          tamePos: parseWorkerHex(workerState.tame && workerState.tame.posHex),
-          wildOffset: parseWorkerHex(workerState.wild && workerState.wild.distHex),
+          tamePos: parseWorkerHex(firstLane && firstLane.tame && firstLane.tame.posHex),
+          wildOffset: parseWorkerHex(firstLane && firstLane.wild && firstLane.wild.distHex),
+          laneCount: Number(workerState.laneCount || (workerState.lanes ? workerState.lanes.length : 1)),
+          kangarooCount: Number(workerState.kangarooCount || ((workerState.lanes ? workerState.lanes.length : 1) * 2)),
+          latestLaneId: Number(firstLane ? firstLane.laneId || 0 : 0),
           updatedAt: performance.now()
         });
 
@@ -1636,6 +1757,7 @@ self.onmessage = async (event) => {
 
           rangeSize = config.rangeSizeNumber;
           const workerCount = config.selectedCores;
+          const laneCount = config.kangarooLaneCount;
           k = autoK(rangeSize);
           dpMask = chooseDpMask(rangeSize);
           initJumps(k);
@@ -1653,17 +1775,13 @@ self.onmessage = async (event) => {
           currentSpeed = 0n;
           checkpointMismatchArmed = false;
 
+          const workerLanes = buildWorkerLaneConfigs(config, workerCount, laneCount);
           for (let workerId = 0; workerId < workerCount; workerId++) {
-            const slot = BigInt(workerId);
-            const total = BigInt(workerCount);
-            const offset = workerId === 0 ? 0n : ((rangeSize * slot) / total) % rangeSize;
-            const tameStart = config.rangeEndNumber - offset;
-            const wildOffset = offset;
-            startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, config.targetPublicKeyHex);
+            startWorkerPair(workerId, workerLanes[workerId], serializedJumpTable, config.targetPublicKeyHex);
           }
 
           updateButtons();
-          setStatus("Running...");
+          setStatus("Running " + laneCount + " kangaroo pairs...");
           updateStats();
           statsTimer = setInterval(updateStats, UI_INTERVAL_MS);
           startCheckpointTimer();
