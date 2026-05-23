@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Hex & Big Number Calculator</title>
+
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --card-soft: #f9fafc;
+      --text: #1c1f26;
+      --muted: #6f7785;
+      --line: #e4e8f0;
+      --accent: #f7931a;
+      --accent-dark: #d97800;
+      --blue: #2563eb;
+      --green: #0f9f6e;
+      --danger: #e53935;
+      --shadow: 0 14px 35px rgba(18, 29, 54, 0.08);
+      --radius: 14px;
+      --mono: Consolas, Monaco, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(247, 147, 26, 0.14), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.10), transparent 30%),
+        var(--bg);
+      padding: 18px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(228, 232, 240, 0.9);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+    }
+
+    .header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(135deg, #ffffff, #fff8ef);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 32px);
+      color: var(--accent-dark);
+      letter-spacing: -0.6px;
+    }
+
+    .header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--line);
+      background: var(--card-soft);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: 0.18s ease;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent-dark);
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(247, 147, 26, 0.22);
+    }
+
+    .content {
+      padding: 14px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: 0 8px 24px rgba(18, 29, 54, 0.05);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 17px;
+      color: var(--accent-dark);
+    }
+
+    .badge {
+      font-size: 11px;
+      color: var(--muted);
+      background: #f2f4f8;
+      border: 1px solid var(--line);
+      padding: 5px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 120px 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: #313744;
+      margin: 8px 0 5px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 11px;
+      outline: none;
+      font-size: 14px;
+      transition: 0.18s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(247, 147, 26, 0.14);
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: var(--mono);
+      line-height: 1.45;
+    }
+
+    button.action {
+      width: 100%;
+      margin-top: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), #ffb24f);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    button.action:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+    }
+
+    .mini-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .mini-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .mini-btn.primary {
+      border-color: rgba(247, 147, 26, 0.35);
+      color: var(--accent-dark);
+      background: #fff8ef;
+    }
+
+    .mini-btn.dark {
+      background: #202633;
+      color: #fff;
+      border-color: #202633;
+    }
+
+    .mini-btn.danger {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+
+    .result {
+      margin-top: 10px;
+      background: #fbfcff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px;
+      min-height: 48px;
+      max-height: 360px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .result-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .result-title {
+      color: var(--accent-dark);
+      font-weight: 900;
+    }
+
+    .copy-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      word-break: break-all;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 900;
+    }
+
+    .success {
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .row {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .hex-line {
+      font-family: var(--mono);
+      color: #111827;
+      word-break: break-all;
+    }
+
+    .small-line {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .multi-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .multi-input-row input {
+      flex: 1;
+      font-family: var(--mono);
+    }
+
+    .multi-input-row button {
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 10px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #fff8ef;
+      color: var(--accent-dark);
+      font-weight: 900;
+    }
+
+    td {
+      background: #fff;
+    }
+
+    .note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 850px) {
+      body {
+        padding: 10px;
+      }
+
+      .header {
+        padding: 14px;
+      }
+
+      .content {
+        padding: 10px;
+      }
+
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .section-title {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .result {
+        max-height: 300px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Hex & Big Number Calculator</h1>
+      <p>Exact calculations for large decimal and hex values. No scientific notation. All calculations use BigInt.</p>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" onclick="openTab('tab-hex-calc', this)">Hex Calculator</button>
+      <button class="tab-btn" onclick="openTab('tab-big-calc', this)">Big Number Calculator</button>
+      <button class="tab-btn" onclick="openTab('tab-hex-diff', this)">Hex Difference</button>
+      <button class="tab-btn" onclick="openTab('tab-hex-multiply', this)">Hex Multiply Series</button>
+      <button class="tab-btn" onclick="openTab('tab-multi-diff', this)">Multiple Hex Difference</button>
+      <button class="tab-btn" onclick="openTab('tab-bulk-diff', this)">Paste Hex List</button>
+      <button class="tab-btn" onclick="openTab('tab-divide-chain', this)">Hex /2 Chain</button>
+    </nav>
+
+    <main class="content">
+
+      <!-- TAB 1: HEX CALCULATOR -->
+      <section id="tab-hex-calc" class="tab-panel active">
+        <div class="section">
+          <div class="section-title">
+            <h2>Hex Calculator</h2>
+            <span class="badge">Hex + Hex / Hex - Hex / Hex × Hex / Hex ÷ Hex</span>
+          </div>
+
+          <div class="grid-3">
+            <div>
+              <label for="hexCalcValue1">Hex Value 1</label>
+              <input type="text" id="hexCalcValue1" placeholder="Example: 4000" />
+            </div>
+
+            <div>
+              <label for="hexCalcOperator">Operation</label>
+              <select id="hexCalcOperator">
+                <option value="+">+ Add</option>
+                <option value="-">- Subtract</option>
+                <option value="*">× Multiply</option>
+                <option value="/">÷ Divide</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="hexCalcValue2">Hex Value 2</label>
+              <input type="text" id="hexCalcValue2" placeholder="Example: 2" />
+            </div>
+          </div>
+
+          <button class="action" onclick="calculateHexValues()">Calculate Hex</button>
+
+          <div class="result" id="hexCalculatorResult">Hex calculator result will appear here</div>
+
+          <div class="note">
+            Example: <b>4000 ÷ 2</b> gives <b>2000</b> in hex. Division shows quotient and remainder in hex and decimal.
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: BIG NUMBER CALCULATOR -->
+      <section id="tab-big-calc" class="tab-panel">
+        <div class="section">
+          <div class="section-title">
+            <h2>Big Number Calculator</h2>
+            <span class="badge">Exact decimal integer calculator</span>
+          </div>
+
+          <div class="grid-3">
+            <div>
+              <label for="bigValue1">Big Value 1</label>
+              <input type="text" id="bigValue1" placeholder="Enter very large decimal number" />
+            </div>
+
+            <div>
+              <label for="bigOperator">Operation</label>
+              <select id="bigOperator">
+                <option value="+">+ Add</option>
+                <option value="-">- Subtract</option>
+                <option value="*">× Multiply</option>
+                <option value="/">÷ Divide</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="bigValue2">Big Value 2</label>
+              <input type="text" id="bigValue2" placeholder="Enter very large decimal number" />
+            </div>
+          </div>
+
+          <button class="action" onclick="calculateBigValues()">Calculate Big Values</button>
+
+          <div class="result" id="bigNumberResult">Big number result will appear here</div>
+
+          <div class="note">
+            Use full decimal integers only. Example: use 1000000000000000000, not 1e18.
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: HEX DIFFERENCE -->
+      <section id="tab-hex-diff" class="tab-panel">
+        <div class="section">
+          <div class="section-title">
+            <h2>Hex Difference Calculator</h2>
+            <span class="badge">Absolute difference between two hex values</span>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label for="hex1">Hex 1</label>
+              <input type="text" id="hex1" placeholder="Enter first hex number" />
+            </div>
+
+            <div>
+              <label for="hex2">Hex 2</label>
+              <input type="text" id="hex2" placeholder="Enter second hex number" />
+            </div>
+          </div>
+
+          <button class="action" onclick="calculateDifference()">Calculate Difference</button>
+
+          <div class="result" id="differenceResult">Difference result will appear here</div>
+        </div>
+      </section>
+
+      <!-- TAB 4: HEX MULTIPLY SERIES -->
+      <section id="tab-hex-multiply" class="tab-panel">
+        <div class="section">
+          <div class="section-title">
+            <h2>Hex Multiplication Series</h2>
+            <span class="badge">Multiply one hex repeatedly</span>
+          </div>
+
+          <label for="startHex">Starting Hex Code</label>
+          <input type="text" id="startHex" placeholder="Enter starting hex number" />
+
+          <div class="grid-2">
+            <div>
+              <label for="multiplyBy">Multiply By</label>
+              <input type="number" id="multiplyBy" placeholder="Example: 2" min="1" />
+            </div>
+
+            <div>
+              <label for="multiplyTimes">How Many Times?</label>
+              <input type="number" id="multiplyTimes" placeholder="Example: 50" min="1" />
+            </div>
+          </div>
+
+          <button class="action" onclick="generateMultiplicationSeries()">Generate Hex Series</button>
+
+          <div class="result" id="multiplicationResult">Multiplication result will appear here</div>
+        </div>
+      </section>
+
+      <!-- TAB 5: MULTIPLE HEX DIFFERENCE -->
+      <section id="tab-multi-diff" class="tab-panel">
+        <div class="section">
+          <div class="section-title">
+            <h2>Multiple Hex Difference</h2>
+            <span class="badge">Difference between each previous and next hex</span>
+          </div>
+
+          <label>Multiple Hex Values</label>
+
+          <div id="multiHexContainer">
+            <div class="multi-input-row">
+              <input type="text" class="multiHexInput" placeholder="Enter hex 1" />
+              <button type="button" onclick="removeHexInput(this)">×</button>
+            </div>
+
+            <div class="multi-input-row">
+              <input type="text" class="multiHexInput" placeholder="Enter hex 2" />
+              <button type="button" onclick="removeHexInput(this)">×</button>
+            </div>
+          </div>
+
+          <div class="mini-actions">
+            <button type="button" class="mini-btn primary" onclick="addHexInput()">+ Add Hex</button>
+            <button type="button" class="mini-btn dark" onclick="clearMultipleHexInputs()">Clear All</button>
+          </div>
+
+          <button class="action" onclick="calculateMultipleHexDifferences()">Calculate Multiple Differences</button>
+
+          <div class="result" id="multipleDifferenceResult">Multiple hex difference result will appear here</div>
+        </div>
+      </section>
+
+      <!-- TAB 6: BULK HEX DIFFERENCE -->
+      <section id="tab-bulk-diff" class="tab-panel">
+        <div class="section">
+          <div class="section-title">
+            <h2>Fast Paste Multiple Hex List</h2>
+            <span class="badge">Paste one hex per line</span>
+          </div>
+
+          <label for="bulkHexInput">Paste Hex List</label>
+          <textarea id="bulkHexInput" placeholder="Paste one hex per line"></textarea>
+
+          <button class="action" onclick="calculateBulkHexDifferences()">Calculate Pasted Hex Differences</button>
+
+          <div class="result" id="bulkDifferenceResult">Pasted hex difference result will appear here</div>
+        </div>
+      </section>
+
+      <!-- TAB 7: HEX DIVIDE BY 2 CHAIN -->
+      <section id="tab-divide-chain" class="tab-panel">
+        <div class="section">
+          <div class="section-title">
+            <h2>Hex Divide By 2 Chain</h2>
+            <span class="badge">Hex / 2 / 2 / 2...</span>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label for="divideHexInput">Starting Hex</label>
+              <input type="text" id="divideHexInput" placeholder="Example: 4000" />
+            </div>
+
+            <div>
+              <label for="divideLimit">Maximum Lines</label>
+              <input type="number" id="divideLimit" value="1000" min="1" max="100000" />
+            </div>
+          </div>
+
+          <button class="action" onclick="generateHexDivisionChain()">Generate /2 Hex Chain</button>
+
+          <div class="result" id="hexDivisionResult">Hex division result will appear here</div>
+
+          <div class="note">
+            Example: 4000 gives 2000, 1000, 800, 400, 200, 100, 80, 40, 20, 10, 8, 4, 2, 1.
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    function openTab(tabId, button) {
+      const panels = document.querySelectorAll(".tab-panel");
+      const buttons = document.querySelectorAll(".tab-btn");
+
+      panels.forEach(function (panel) {
+        panel.classList.remove("active");
+      });
+
+      buttons.forEach(function (btn) {
+        btn.classList.remove("active");
+      });
+
+      document.getElementById(tabId).classList.add("active");
+      button.classList.add("active");
+    }
+
+    function cleanHex(hex) {
+      return String(hex).trim().replace(/^0x/i, "");
+    }
+
+    function cleanDecimal(value) {
+      return String(value).trim().replace(/,/g, "");
+    }
+
+    function isValidHex(hex) {
+      return /^[0-9a-fA-F]+$/.test(hex);
+    }
+
+    function isValidDecimalInteger(value) {
+      return /^-?\d+$/.test(value);
+    }
+
+    function formatHex(value, minLength = 0) {
+      let negative = false;
+
+      if (value < 0n) {
+        negative = true;
+        value = -value;
+      }
+
+      let hex = value.toString(16).toUpperCase();
+
+      if (minLength > 0) {
+        hex = hex.padStart(minLength, "0");
+      }
+
+      return negative ? "-" + hex : hex;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function getAbsoluteDifference(a, b) {
+      return a >= b ? a - b : b - a;
+    }
+
+    function copyTextFromElement(elementId) {
+      const element = document.getElementById(elementId);
+      const text = element.innerText || element.textContent || "";
+
+      navigator.clipboard.writeText(text).then(function () {
+        alert("Copied.");
+      }).catch(function () {
+        alert("Copy failed. Please copy manually.");
+      });
+    }
+
+    function renderResult(title, elementId, bodyHtml) {
+      return `
+        <div class="result-title-row">
+          <div class="result-title">${escapeHtml(title)}</div>
+          <button type="button" class="copy-btn" onclick="copyTextFromElement('${elementId}')">Copy</button>
+        </div>
+        ${bodyHtml}
+      `;
+    }
+
+    function errorHtml(message) {
+      return `<span class="error">${escapeHtml(message)}</span>`;
+    }
+
+    function parseHexInput(value, fieldName, resultBox) {
+      const cleaned = cleanHex(value);
+
+      if (!cleaned) {
+        resultBox.innerHTML = errorHtml("Please enter " + fieldName + ".");
+        return null;
+      }
+
+      if (!isValidHex(cleaned)) {
+        resultBox.innerHTML = errorHtml(fieldName + " is invalid. Only 0-9 and A-F are allowed.");
+        return null;
+      }
+
+      return {
+        text: cleaned.toUpperCase(),
+        value: BigInt("0x" + cleaned)
+      };
+    }
+
+    function calculateHexValues() {
+      const resultBox = document.getElementById("hexCalculatorResult");
+      const hex1Parsed = parseHexInput(document.getElementById("hexCalcValue1").value, "Hex Value 1", resultBox);
+
+      if (!hex1Parsed) {
+        return;
+      }
+
+      const hex2Parsed = parseHexInput(document.getElementById("hexCalcValue2").value, "Hex Value 2", resultBox);
+
+      if (!hex2Parsed) {
+        return;
+      }
+
+      const a = hex1Parsed.value;
+      const b = hex2Parsed.value;
+      const operator = document.getElementById("hexCalcOperator").value;
+
+      let body = "";
+
+      if (operator === "+") {
+        const result = a + b;
+
+        body = `
+          <div><b>Hex Result:</b></div>
+          <div class="mono">${formatHex(result)}</div>
+          <br>
+          <div><b>Decimal Result:</b></div>
+          <div class="mono">${result.toString()}</div>
+        `;
+      } else if (operator === "-") {
+        const result = a - b;
+
+        body = `
+          <div><b>Hex Result:</b></div>
+          <div class="mono">${formatHex(result)}</div>
+          <br>
+          <div><b>Decimal Result:</b></div>
+          <div class="mono">${result.toString()}</div>
+        `;
+      } else if (operator === "*") {
+        const result = a * b;
+
+        body = `
+          <div><b>Hex Result:</b></div>
+          <div class="mono">${formatHex(result)}</div>
+          <br>
+          <div><b>Decimal Result:</b></div>
+          <div class="mono">${result.toString()}</div>
+        `;
+      } else if (operator === "/") {
+        if (b === 0n) {
+          resultBox.innerHTML = errorHtml("Cannot divide by zero.");
+          return;
+        }
+
+        const quotient = a / b;
+        const remainder = a % b;
+
+        body = `
+          <div><b>Hex Quotient:</b></div>
+          <div class="mono">${formatHex(quotient)}</div>
+          <br>
+          <div><b>Hex Remainder:</b></div>
+          <div class="mono">${formatHex(remainder)}</div>
+          <br>
+          <div><b>Decimal Quotient:</b></div>
+          <div class="mono">${quotient.toString()}</div>
+          <br>
+          <div><b>Decimal Remainder:</b></div>
+          <div class="mono">${remainder.toString()}</div>
+        `;
+      }
+
+      resultBox.innerHTML = renderResult("Hex Calculator Result", "hexCalculatorResult", body);
+    }
+
+    function calculateBigValues() {
+      const value1Input = cleanDecimal(document.getElementById("bigValue1").value);
+      const value2Input = cleanDecimal(document.getElementById("bigValue2").value);
+      const operator = document.getElementById("bigOperator").value;
+      const resultBox = document.getElementById("bigNumberResult");
+
+      if (!value1Input || !value2Input) {
+        resultBox.innerHTML = errorHtml("Please enter both big values.");
+        return;
+      }
+
+      if (!isValidDecimalInteger(value1Input) || !isValidDecimalInteger(value2Input)) {
+        resultBox.innerHTML = errorHtml("Only full decimal integers are allowed. Do not use powers like 1e50.");
+        return;
+      }
+
+      const a = BigInt(value1Input);
+      const b = BigInt(value2Input);
+
+      let body = "";
+
+      if (operator === "+") {
+        const result = a + b;
+
+        body = `
+          <div><b>Decimal Result:</b></div>
+          <div class="mono">${result.toString()}</div>
+        `;
+      } else if (operator === "-") {
+        const result = a - b;
+
+        body = `
+          <div><b>Decimal Result:</b></div>
+          <div class="mono">${result.toString()}</div>
+        `;
+      } else if (operator === "*") {
+        const result = a * b;
+
+        body = `
+          <div><b>Decimal Result:</b></div>
+          <div class="mono">${result.toString()}</div>
+        `;
+      } else if (operator === "/") {
+        if (b === 0n) {
+          resultBox.innerHTML = errorHtml("Cannot divide by zero.");
+          return;
+        }
+
+        const quotient = a / b;
+        const remainder = a % b;
+        const decimalPreview = getDecimalDivisionPreview(a, b, 160);
+
+        body = `
+          <div><b>Quotient:</b></div>
+          <div class="mono">${quotient.toString()}</div>
+          <br>
+          <div><b>Remainder:</b></div>
+          <div class="mono">${remainder.toString()}</div>
+          <br>
+          <div><b>Decimal Preview:</b></div>
+          <div class="mono">${escapeHtml(decimalPreview)}</div>
+        `;
+      }
+
+      resultBox.innerHTML = renderResult("Big Number Result", "bigNumberResult", body);
+    }
+
+    function getDecimalDivisionPreview(a, b, maxDecimalPlaces) {
+      const negative = (a < 0n) !== (b < 0n);
+
+      let numerator = a < 0n ? -a : a;
+      let denominator = b < 0n ? -b : b;
+
+      const integerPart = numerator / denominator;
+      let remainder = numerator % denominator;
+
+      if (remainder === 0n) {
+        return (negative ? "-" : "") + integerPart.toString();
+      }
+
+      let decimals = "";
+      let count = 0;
+
+      while (remainder !== 0n && count < maxDecimalPlaces) {
+        remainder *= 10n;
+        decimals += (remainder / denominator).toString();
+        remainder %= denominator;
+        count++;
+      }
+
+      const suffix = remainder === 0n ? "" : "...";
+      return (negative ? "-" : "") + integerPart.toString() + "." + decimals + suffix;
+    }
+
+    function calculateDifference() {
+      const resultBox = document.getElementById("differenceResult");
+      const hex1Parsed = parseHexInput(document.getElementById("hex1").value, "Hex 1", resultBox);
+
+      if (!hex1Parsed) {
+        return;
+      }
+
+      const hex2Parsed = parseHexInput(document.getElementById("hex2").value, "Hex 2", resultBox);
+
+      if (!hex2Parsed) {
+        return;
+      }
+
+      const difference = getAbsoluteDifference(hex1Parsed.value, hex2Parsed.value);
+
+      const body = `
+        <div><b>Decimal Difference:</b></div>
+        <div class="mono">${difference.toString()}</div>
+        <br>
+        <div><b>Hex Difference:</b></div>
+        <div class="mono">${formatHex(difference)}</div>
+      `;
+
+      resultBox.innerHTML = renderResult("Hex Difference Result", "differenceResult", body);
+    }
+
+    function generateMultiplicationSeries() {
+      const startHexInput = cleanHex(document.getElementById("startHex").value);
+      const multiplyByInput = document.getElementById("multiplyBy").value.trim();
+      const multiplyTimesInput = document.getElementById("multiplyTimes").value.trim();
+      const resultBox = document.getElementById("multiplicationResult");
+
+      if (!startHexInput) {
+        resultBox.innerHTML = errorHtml("Please enter the starting hex code.");
+        return;
+      }
+
+      if (!isValidHex(startHexInput)) {
+        resultBox.innerHTML = errorHtml("Invalid starting hex code. Only 0-9 and A-F are allowed.");
+        return;
+      }
+
+      if (!multiplyByInput) {
+        resultBox.innerHTML = errorHtml("Please enter the number you want to multiply with.");
+        return;
+      }
+
+      if (!multiplyTimesInput) {
+        resultBox.innerHTML = errorHtml("Please enter how many multiplications you want.");
+        return;
+      }
+
+      let multiplyBy;
+
+      try {
+        multiplyBy = BigInt(multiplyByInput);
+      } catch (error) {
+        resultBox.innerHTML = errorHtml("Multiply number is invalid.");
+        return;
+      }
+
+      const multiplyTimes = Number(multiplyTimesInput);
+
+      if (multiplyBy <= 0n) {
+        resultBox.innerHTML = errorHtml("Multiply number must be greater than 0.");
+        return;
+      }
+
+      if (!Number.isInteger(multiplyTimes) || multiplyTimes <= 0) {
+        resultBox.innerHTML = errorHtml("Multiplication times must be a positive whole number.");
+        return;
+      }
+
+      if (multiplyTimes > 10000) {
+        resultBox.innerHTML = errorHtml("Please use 10,000 or fewer multiplications to avoid browser freezing.");
+        return;
+      }
+
+      let currentHexValue = BigInt("0x" + startHexInput);
+      const originalHexLength = startHexInput.length;
+
+      let output = "";
+
+      for (let i = 1; i <= multiplyTimes; i++) {
+        const previousHexValue = currentHexValue;
+        const newHexValue = previousHexValue * multiplyBy;
+
+        const previousHexText = formatHex(previousHexValue, originalHexLength);
+        const newHexText = formatHex(newHexValue, originalHexLength);
+
+        const difference = getAbsoluteDifference(previousHexValue, newHexValue);
+
+        output += `
+          <div class="row">
+            <div class="hex-line">
+              Hex ${i}: ${escapeHtml(previousHexText)} × ${multiplyBy.toString()} = Hex ${i + 1}: ${escapeHtml(newHexText)}
+            </div>
+            <div class="small-line">
+              Decimal Difference: ${difference.toString()}
+            </div>
+            <div class="small-line">
+              Hex Difference: ${formatHex(difference)}
+            </div>
+          </div>
+        `;
+
+        currentHexValue = newHexValue;
+      }
+
+      resultBox.innerHTML = renderResult("Generated Hex Multiplication Series", "multiplicationResult", output);
+    }
+
+    function addHexInput(value = "") {
+      const container = document.getElementById("multiHexContainer");
+      const currentCount = container.querySelectorAll(".multiHexInput").length;
+      const newIndex = currentCount + 1;
+
+      const row = document.createElement("div");
+      row.className = "multi-input-row";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "multiHexInput";
+      input.placeholder = "Enter hex " + newIndex;
+      input.value = value;
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.innerHTML = "×";
+      removeButton.onclick = function () {
+        removeHexInput(removeButton);
+      };
+
+      row.appendChild(input);
+      row.appendChild(removeButton);
+      container.appendChild(row);
+    }
+
+    function removeHexInput(button) {
+      const container = document.getElementById("multiHexContainer");
+      const rows = container.querySelectorAll(".multi-input-row");
+
+      if (rows.length <= 2) {
+        alert("At least 2 hex inputs are required.");
+        return;
+      }
+
+      button.parentElement.remove();
+      updateHexPlaceholders();
+    }
+
+    function updateHexPlaceholders() {
+      const inputs = document.querySelectorAll(".multiHexInput");
+
+      inputs.forEach(function (input, index) {
+        input.placeholder = "Enter hex " + (index + 1);
+      });
+    }
+
+    function clearMultipleHexInputs() {
+      const container = document.getElementById("multiHexContainer");
+      container.innerHTML = "";
+
+      addHexInput();
+      addHexInput();
+
+      document.getElementById("multipleDifferenceResult").innerHTML =
+        "Multiple hex difference result will appear here";
+    }
+
+    function getHexValuesFromDynamicInputs() {
+      const inputs = document.querySelectorAll(".multiHexInput");
+      const hexList = [];
+
+      inputs.forEach(function (input) {
+        const cleaned = cleanHex(input.value);
+
+        if (cleaned) {
+          hexList.push(cleaned);
+        }
+      });
+
+      return hexList;
+    }
+
+    function calculateMultipleHexDifferences() {
+      const resultBox = document.getElementById("multipleDifferenceResult");
+      const hexList = getHexValuesFromDynamicInputs();
+
+      calculateHexListDifferences(hexList, resultBox, "multipleDifferenceResult");
+    }
+
+    function calculateBulkHexDifferences() {
+      const resultBox = document.getElementById("bulkDifferenceResult");
+      const bulkText = document.getElementById("bulkHexInput").value;
+
+      const hexList = bulkText
+        .split(/\r?\n/)
+        .map(function (line) {
+          return cleanHex(line);
+        })
+        .filter(function (line) {
+          return line.length > 0;
+        });
+
+      calculateHexListDifferences(hexList, resultBox, "bulkDifferenceResult");
+    }
+
+    function calculateHexListDifferences(hexList, resultBox, resultId) {
+      if (hexList.length < 2) {
+        resultBox.innerHTML = errorHtml("Please enter at least 2 hex numbers.");
+        return;
+      }
+
+      for (let i = 0; i < hexList.length; i++) {
+        if (!isValidHex(hexList[i])) {
+          resultBox.innerHTML = errorHtml("Invalid hex number at line " + (i + 1) + ". Only 0-9 and A-F are allowed.");
+          return;
+        }
+      }
+
+      if (hexList.length > 10000) {
+        resultBox.innerHTML = errorHtml("Please use 10,000 or fewer hex numbers to avoid browser freezing.");
+        return;
+      }
+
+      const values = hexList.map(function (hex) {
+        return BigInt("0x" + hex);
+      });
+
+      let output = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Hex Value</th>
+                <th>Decimal Difference From Previous</th>
+                <th>Hex Difference From Previous</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      for (let i = 0; i < values.length; i++) {
+        let differenceText = "-";
+        let differenceHexText = "-";
+
+        if (i > 0) {
+          const difference = getAbsoluteDifference(values[i - 1], values[i]);
+          differenceText = difference.toString();
+          differenceHexText = formatHex(difference);
+        }
+
+        output += `
+          <tr>
+            <td>${i + 1}</td>
+            <td class="mono">${escapeHtml(hexList[i].toUpperCase())}</td>
+            <td class="mono">${differenceText}</td>
+            <td class="mono">${differenceHexText}</td>
+          </tr>
+        `;
+      }
+
+      output += `
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      resultBox.innerHTML = renderResult("Multiple Hex Difference Result", resultId, output);
+    }
+
+    function generateHexDivisionChain() {
+      const startHexInput = cleanHex(document.getElementById("divideHexInput").value);
+      const limitInput = document.getElementById("divideLimit").value.trim();
+      const resultBox = document.getElementById("hexDivisionResult");
+
+      if (!startHexInput) {
+        resultBox.innerHTML = errorHtml("Please enter a starting hex number.");
+        return;
+      }
+
+      if (!isValidHex(startHexInput)) {
+        resultBox.innerHTML = errorHtml("Invalid hex number. Only 0-9 and A-F are allowed.");
+        return;
+      }
+
+      const maxLines = Number(limitInput);
+
+      if (!Number.isInteger(maxLines) || maxLines <= 0) {
+        resultBox.innerHTML = errorHtml("Maximum lines must be a positive whole number.");
+        return;
+      }
+
+      if (maxLines > 100000) {
+        resultBox.innerHTML = errorHtml("Please use 100,000 or fewer lines to avoid browser freezing.");
+        return;
+      }
+
+      let value = BigInt("0x" + startHexInput);
+
+      if (value <= 0n) {
+        resultBox.innerHTML = errorHtml("Starting hex must be greater than 0.");
+        return;
+      }
+
+      let output = "";
+      let count = 0;
+
+      while (value > 1n && count < maxLines) {
+        const previous = value;
+        value = value / 2n;
+        count++;
+
+        if (value === 0n) {
+          break;
+        }
+
+        output += `
+          <div class="row">
+            <div class="hex-line">${formatHex(value)}</div>
+            <div class="small-line">${formatHex(previous)} ÷ 2 = ${formatHex(value)}</div>
+          </div>
+        `;
+      }
+
+      if (value > 1n) {
+        output += `
+          <div class="row">
+            <div class="small-line">Stopped because maximum line limit was reached.</div>
+          </div>
+        `;
+      }
+
+      resultBox.innerHTML = renderResult("Hex Divide By 2 Chain Result", "hexDivisionResult", output || "No result.");
+    }
+  </script>
+</body>
+</html>
