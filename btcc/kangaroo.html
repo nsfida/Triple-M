@@ -25,6 +25,7 @@
     .stat{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:6px}
     .stat b{display:block;color:#101828;font-size:13px;margin-top:1px;word-break:break-word}
     .status{margin:8px 0 0;min-height:17px;font-size:12px;color:#667085}
+    .checkpoint-status{margin-top:4px}
     .status.ok{color:#067647}
     .status.err{color:#b42318}
     .result{margin-top:10px}
@@ -93,6 +94,7 @@
     <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
 
     <p id="status" class="status">Enter a range and target public key.</p>
+    <p id="checkpointStatus" class="status checkpoint-status">Last checkpoint saved: never | Resume available: no</p>
 
     <section class="result">
       <label for="currentKeys">Keys getting calculated</label>
@@ -113,10 +115,19 @@
       const MAX_CORES = 64;
       const WORKER_BATCH_SIZE = 8192;
       const UI_INTERVAL_MS = 250;
+      const CHECKPOINT_INTERVAL_MS = 5000;
+      const CHECKPOINT_DB_NAME = "btc-kangaroo-checkpoints";
+      const CHECKPOINT_DB_VERSION = 1;
+      const CHECKPOINT_META_ID = "active";
+      const CHECKPOINT_SCHEMA_VERSION = 1;
+      const CHECKPOINT_MAP_CHUNK_SIZE = 1000;
+      const CHECKPOINT_WORKER_TIMEOUT_MS = 10000;
       const SECP_URL = "https://esm.sh/@noble/secp256k1@1.7.1";
       const KANGAROO_WORKER_SOURCE = String.raw`
 let secp = null;
 let G = null;
+
+const CHECKPOINT_EXPORT_CHUNK_SIZE = 1000;
 
 let runId = 0;
 let workerId = 0;
@@ -133,6 +144,8 @@ let calculated = 0n;
 let skipped = 0n;
 let localTameMap = new Map();
 let localWildMap = new Map();
+let checkpointExporting = false;
+let initPromise = Promise.resolve();
 
 async function loadSecp() {
   if (!secp) {
@@ -185,6 +198,104 @@ function makeStats() {
     calculated: calculated.toString(10),
     skippedHex: toHex(skipped)
   };
+}
+
+function makeWalkerCheckpoint(kind, state) {
+  return {
+    kind: kind,
+    pointHex: state.point.toHex(true),
+    distHex: toHex(state.dist),
+    posHex: toHex(state.pos),
+    startHex: toHex(state.start)
+  };
+}
+
+function makeCheckpointState() {
+  return {
+    tame: makeWalkerCheckpoint("tame", tame),
+    wild: makeWalkerCheckpoint("wild", wild),
+    calculated: calculated.toString(10),
+    skippedHex: toHex(skipped),
+    stats: makeStats(),
+    localTameMapSize: localTameMap.size,
+    localWildMapSize: localWildMap.size,
+    localTameMapPages: 0,
+    localWildMapPages: 0
+  };
+}
+
+function yieldWorker() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function postCheckpointMap(requestId, mapName, map) {
+  let page = 0;
+  let rows = [];
+
+  for (const [pointHex, dist] of map) {
+    rows.push({ pointHex: pointHex, distHex: toHex(dist) });
+    if (rows.length >= CHECKPOINT_EXPORT_CHUNK_SIZE) {
+      self.postMessage({
+        type: "checkpoint-chunk",
+        runId: runId,
+        workerId: workerId,
+        requestId: requestId,
+        mapName: mapName,
+        page: page,
+        rows: rows
+      });
+      rows = [];
+      page++;
+      await yieldWorker();
+    }
+  }
+
+  if (rows.length || page === 0) {
+    self.postMessage({
+      type: "checkpoint-chunk",
+      runId: runId,
+      workerId: workerId,
+      requestId: requestId,
+      mapName: mapName,
+      page: page,
+      rows: rows
+    });
+    page++;
+  }
+
+  return page;
+}
+
+async function exportCheckpoint(requestId) {
+  if (checkpointExporting || !tame || !wild) return;
+  checkpointExporting = true;
+  const wasPaused = paused;
+  paused = true;
+
+  try {
+    const state = makeCheckpointState();
+    self.postMessage({
+      type: "checkpoint-start",
+      runId: runId,
+      workerId: workerId,
+      requestId: requestId,
+      state: state
+    });
+    state.localTameMapPages = await postCheckpointMap(requestId, "localTameMap", localTameMap);
+    state.localWildMapPages = await postCheckpointMap(requestId, "localWildMap", localWildMap);
+    self.postMessage({
+      type: "checkpoint",
+      runId: runId,
+      workerId: workerId,
+      requestId: requestId,
+      state: state,
+      stats: makeStats()
+    });
+  } finally {
+    paused = wasPaused;
+    checkpointExporting = false;
+    if (!stopped && !paused) scheduleLoop();
+  }
 }
 
 function makeCollision(tameDist, wildDist, pointHex) {
@@ -335,18 +446,96 @@ async function initWorker(message) {
   scheduleLoop();
 }
 
+async function initWorkerFromCheckpoint(message) {
+  runId = Number(message.runId || 0);
+  workerId = Number(message.workerId || 0);
+  await loadSecp();
+
+  const state = message.state || {};
+  k = Number(message.k || 1);
+  dpMaskNumber = Number(parseHexBigInt(message.dpMaskHex || "f"));
+  batchSize = Math.max(1, Math.min(65536, Number(message.batchSize || 8192)));
+  calculated = BigInt(String(state.calculated || "0"));
+  skipped = parseHexBigInt(state.skippedHex || "0");
+  stopped = false;
+  paused = true;
+  loopScheduled = false;
+  localTameMap = new Map();
+  localWildMap = new Map();
+
+  jumpTable = message.jumpTable.map((jump) => ({
+    dist: parseHexBigInt(jump.distHex),
+    point: secp.Point.fromHex(jump.pointHex)
+  }));
+
+  const tameState = state.tame || {};
+  const wildState = state.wild || {};
+
+  tame = {
+    point: secp.Point.fromHex(tameState.pointHex),
+    dist: parseHexBigInt(tameState.distHex),
+    pos: parseHexBigInt(tameState.posHex),
+    start: parseHexBigInt(tameState.startHex)
+  };
+
+  wild = {
+    point: secp.Point.fromHex(wildState.pointHex),
+    dist: parseHexBigInt(wildState.distHex),
+    pos: parseHexBigInt(wildState.posHex),
+    start: parseHexBigInt(wildState.startHex)
+  };
+
+  self.postMessage({
+    type: "restore-ready",
+    runId: runId,
+    workerId: workerId,
+    stats: makeStats()
+  });
+}
+
+function restoreMapChunk(message) {
+  const targetMap = message.mapName === "localTameMap" ? localTameMap : localWildMap;
+  for (const row of message.rows || []) {
+    if (row && row.pointHex) targetMap.set(row.pointHex, parseHexBigInt(row.distHex));
+  }
+}
+
+function startRestoredWorker() {
+  stopped = false;
+  paused = false;
+  loopScheduled = false;
+  postBatch([]);
+  scheduleLoop();
+}
+
 self.onmessage = async (event) => {
   const message = event.data || {};
 
   try {
     if (message.type === "init") {
-      await initWorker(message);
+      initPromise = initWorker(message);
+      await initPromise;
+    } else if (message.type === "initCheckpoint") {
+      initPromise = initWorkerFromCheckpoint(message);
+      await initPromise;
+    } else if (message.type === "restoreMapChunk") {
+      await initPromise;
+      restoreMapChunk(message);
+    } else if (message.type === "startRestored") {
+      await initPromise;
+      startRestoredWorker();
+    } else if (message.type === "checkpoint") {
+      await initPromise;
+      await exportCheckpoint(message.requestId || 0);
     } else if (message.type === "pause") {
+      await initPromise;
       paused = true;
     } else if (message.type === "resume") {
+      await initPromise;
       paused = false;
       scheduleLoop();
     } else if (message.type === "stop") {
+      await initPromise;
       stopped = true;
       paused = false;
     }
@@ -376,6 +565,7 @@ self.onmessage = async (event) => {
       const stopBtn = document.getElementById("stopBtn");
       const clearBtn = document.getElementById("clearBtn");
       const statusEl = document.getElementById("status");
+      const checkpointStatus = document.getElementById("checkpointStatus");
       const progressStat = document.getElementById("progressStat");
       const processedStat = document.getElementById("processedStat");
       const remainingStat = document.getElementById("remainingStat");
@@ -401,11 +591,23 @@ self.onmessage = async (event) => {
       let lastSpeedAt = 0;
       let lastSpeedSkipped = 0n;
       let currentSpeed = 0n;
+      let checkpointTimer = 0;
+      let checkpointDbPromise = null;
+      let checkpointSaveInFlight = false;
+      let checkpointSavePromise = null;
+      let checkpointSaveRequested = false;
+      let checkpointRequestId = 0;
+      let activeRunConfig = null;
+      let savedCheckpointMeta = null;
+      let checkpointCorrupted = false;
+      let checkpointMismatchArmed = false;
 
       const activeWorkers = [];
       const workerStats = new Map();
       const tameMap = new Map();
       const wildMap = new Map();
+      const pendingCheckpointRequests = new Map();
+      const restoreReadyWaiters = new Map();
 
       function setStatus(message, kind = "") {
         statusEl.textContent = message;
@@ -424,6 +626,236 @@ self.onmessage = async (event) => {
         return value.toString(10).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       }
 
+      function yieldToBrowser() {
+        return new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
+      function idbRequest(request) {
+        return new Promise((resolve, reject) => {
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error || new Error("IndexedDB request failed."));
+        });
+      }
+
+      function idbTransactionDone(transaction) {
+        return new Promise((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed."));
+          transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted."));
+        });
+      }
+
+      function openCheckpointDb() {
+        if (!("indexedDB" in window)) return Promise.reject(new Error("IndexedDB is not available in this browser."));
+        if (!checkpointDbPromise) {
+          checkpointDbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(CHECKPOINT_DB_NAME, CHECKPOINT_DB_VERSION);
+            request.onupgradeneeded = () => {
+              const db = request.result;
+              if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "id" });
+              if (!db.objectStoreNames.contains("chunks")) {
+                const chunks = db.createObjectStore("chunks", { keyPath: "key" });
+                chunks.createIndex("checkpointId", "checkpointId", { unique: false });
+              }
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error || new Error("Could not open checkpoint storage."));
+          });
+        }
+        return checkpointDbPromise;
+      }
+
+      async function readCheckpointMeta() {
+        const db = await openCheckpointDb();
+        const transaction = db.transaction("meta", "readonly");
+        return idbRequest(transaction.objectStore("meta").get(CHECKPOINT_META_ID));
+      }
+
+      async function putCheckpointMeta(meta) {
+        const db = await openCheckpointDb();
+        const transaction = db.transaction("meta", "readwrite");
+        transaction.objectStore("meta").put(meta);
+        await idbTransactionDone(transaction);
+      }
+
+      function checkpointChunkKey(checkpointId, name, page) {
+        return checkpointId + "|" + name + "|" + String(page).padStart(8, "0");
+      }
+
+      async function putCheckpointChunk(checkpointId, name, page, rows) {
+        const db = await openCheckpointDb();
+        const transaction = db.transaction("chunks", "readwrite");
+        transaction.objectStore("chunks").put({
+          key: checkpointChunkKey(checkpointId, name, page),
+          checkpointId: checkpointId,
+          name: name,
+          page: page,
+          rows: rows
+        });
+        await idbTransactionDone(transaction);
+      }
+
+      async function deleteChunksForCheckpoint(checkpointId) {
+        if (!checkpointId) return;
+        const db = await openCheckpointDb();
+        const transaction = db.transaction("chunks", "readwrite");
+        const index = transaction.objectStore("chunks").index("checkpointId");
+
+        await new Promise((resolve, reject) => {
+          const request = index.openCursor(IDBKeyRange.only(checkpointId));
+          request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor) {
+              resolve();
+              return;
+            }
+            cursor.delete();
+            cursor.continue();
+          };
+          request.onerror = () => reject(request.error || new Error("Could not delete checkpoint chunks."));
+        });
+
+        await idbTransactionDone(transaction);
+      }
+
+      async function deleteSavedCheckpoint() {
+        const existing = await readCheckpointMeta().catch(() => null);
+        const db = await openCheckpointDb();
+        const transaction = db.transaction("meta", "readwrite");
+        transaction.objectStore("meta").delete(CHECKPOINT_META_ID);
+        await idbTransactionDone(transaction);
+        if (existing && existing.checkpointId) await deleteChunksForCheckpoint(existing.checkpointId).catch(() => {});
+        savedCheckpointMeta = null;
+        checkpointCorrupted = false;
+        checkpointMismatchArmed = false;
+        updateCheckpointStatus();
+      }
+
+      function formatCheckpointTime(savedAt) {
+        if (!savedAt) return "never";
+        try {
+          return new Date(savedAt).toLocaleString();
+        } catch (error) {
+          return "unknown";
+        }
+      }
+
+      function updateCheckpointStatus() {
+        const available = !!savedCheckpointMeta && !checkpointCorrupted;
+        const lastSaved = savedCheckpointMeta ? formatCheckpointTime(savedCheckpointMeta.savedAt) : "never";
+        checkpointStatus.textContent = "Last checkpoint saved: " + lastSaved + " | Resume available: " + (available ? "yes" : "no");
+      }
+
+      function validateCheckpointMeta(meta) {
+        if (!meta || meta.schemaVersion !== CHECKPOINT_SCHEMA_VERSION) return false;
+        if (!meta.checkpointId || !meta.rangeStartHex || !meta.rangeEndHex || !meta.rangeSizeHex) return false;
+        if (!meta.targetPublicKeyHex || !Array.isArray(meta.jumpTable) || !Array.isArray(meta.workerStates)) return false;
+        if (!Number.isFinite(Number(meta.selectedCores)) || Number(meta.selectedCores) < 1) return false;
+        return true;
+      }
+
+      function restoreFormFromCheckpointMeta(meta) {
+        startHex.value = meta.rangeStartHex || "";
+        endHex.value = meta.rangeEndHex || "";
+        targetPub.value = meta.targetPublicKeyHex || "";
+        if (meta.selectedCores) coresInput.value = String(meta.selectedCores);
+        updateCounts();
+      }
+
+      function serializeDpEntry(entry) {
+        return {
+          kind: entry.kind,
+          pointHex: entry.pointHex,
+          distHex: entry.dist.toString(16),
+          posHex: entry.pos.toString(16),
+          startHex: entry.start.toString(16),
+          workerId: entry.workerId
+        };
+      }
+
+      function entryFromCheckpointRow(row) {
+        return {
+          kind: row.kind,
+          pointHex: row.pointHex,
+          dist: parseWorkerHex(row.distHex),
+          pos: parseWorkerHex(row.posHex),
+          start: row.kind === "tame" ? parseWorkerHex(row.startHex) : 0n,
+          workerId: Number(row.workerId || 0)
+        };
+      }
+
+      async function writeMainMapChunks(checkpointId, name, map) {
+        let rows = [];
+        let page = 0;
+
+        for (const entry of map.values()) {
+          rows.push(serializeDpEntry(entry));
+          if (rows.length >= CHECKPOINT_MAP_CHUNK_SIZE) {
+            await putCheckpointChunk(checkpointId, name, page, rows);
+            rows = [];
+            page++;
+            await yieldToBrowser();
+          }
+        }
+
+        if (rows.length) {
+          await putCheckpointChunk(checkpointId, name, page, rows);
+          page++;
+        }
+
+        return { pages: page, size: map.size };
+      }
+
+      async function writeWorkerMapChunks(checkpointId, name, chunks) {
+        let page = 0;
+        for (const rows of chunks || []) {
+          await putCheckpointChunk(checkpointId, name, page, rows || []);
+          page++;
+          await yieldToBrowser();
+        }
+        return page;
+      }
+
+      async function readCheckpointChunk(checkpointId, name, page) {
+        const db = await openCheckpointDb();
+        const transaction = db.transaction("chunks", "readonly");
+        return idbRequest(transaction.objectStore("chunks").get(checkpointChunkKey(checkpointId, name, page)));
+      }
+
+      async function readCheckpointChunks(checkpointId, name, pages, onRows) {
+        for (let page = 0; page < pages; page++) {
+          const chunk = await readCheckpointChunk(checkpointId, name, page);
+          if (!chunk) throw new Error("Saved checkpoint is missing map data.");
+          await onRows(chunk && chunk.rows ? chunk.rows : [], page);
+          await yieldToBrowser();
+        }
+      }
+
+      async function restoreMainMap(checkpointId, name, pages, targetMap) {
+        targetMap.clear();
+        await readCheckpointChunks(checkpointId, name, pages, async (rows) => {
+          for (const row of rows) {
+            if (row && row.pointHex) targetMap.set(row.pointHex, entryFromCheckpointRow(row));
+          }
+        });
+      }
+
+      function checkpointMapName(workerId, mapName) {
+        return "worker-" + workerId + "-" + mapName;
+      }
+
+      function makeCheckpointProgress() {
+        const aggregate = aggregateStats();
+        const processed = rangeSize > 0n && aggregate.skipped > rangeSize ? rangeSize : aggregate.skipped;
+        const percent = percentParts(processed, rangeSize);
+        return {
+          calculated: aggregate.calculated.toString(10),
+          skippedHex: aggregate.skipped.toString(16),
+          processedHex: processed.toString(16),
+          progressLabel: percent.label
+        };
+      }
+
       function percentParts(done, total) {
         if (total <= 0n) return { label: "0.00%", width: "0%" };
         const capped = done > total ? total : done;
@@ -440,6 +872,58 @@ self.onmessage = async (event) => {
         const number = BigInt("0x" + hex.padStart(1, "0"));
         if (number <= 0n || number >= SECP256K1_N) throw new Error(name + " is outside the valid Bitcoin private-key range.");
         return { hex: pad64(number), number: number };
+      }
+
+      async function buildFormRunConfig() {
+        updateCounts();
+        sanitizeLongInputs();
+        await loadSecp();
+
+        const start = normalizeScalar(startHex.value, "Hex start");
+        const end = normalizeScalar(endHex.value, "Hex end");
+        if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
+
+        if (!targetPub.value && privateHex.value) await calculatePublicKey(false);
+        const publicKeyHex = sanitizeHex(targetPub.value);
+        if (!publicKeyHex) throw new Error("Target public key is required.");
+
+        const targetPoint = secp.Point.fromHex(publicKeyHex);
+        const width = end.number - start.number + 1n;
+        const selectedCores = clampCores(coresInput.value, width);
+
+        return {
+          rangeStartHex: start.hex,
+          rangeEndHex: end.hex,
+          rangeStartNumber: start.number,
+          rangeEndNumber: end.number,
+          rangeSizeHex: width.toString(16),
+          rangeSizeNumber: width,
+          targetPublicKeyHex: targetPoint.toHex(true),
+          selectedCores: selectedCores
+        };
+      }
+
+      function checkpointMatchesConfig(meta, config) {
+        return !!meta &&
+          meta.rangeStartHex === config.rangeStartHex &&
+          meta.rangeEndHex === config.rangeEndHex &&
+          meta.rangeSizeHex === config.rangeSizeHex &&
+          String(meta.targetPublicKeyHex || "").toLowerCase() === config.targetPublicKeyHex.toLowerCase() &&
+          Number(meta.selectedCores) === Number(config.selectedCores);
+      }
+
+      function configFromCheckpointMeta(meta) {
+        return {
+          rangeStartHex: meta.rangeStartHex,
+          rangeEndHex: meta.rangeEndHex,
+          rangeStartNumber: parseWorkerHex(meta.rangeStartHex),
+          rangeEndNumber: parseWorkerHex(meta.rangeEndHex),
+          rangeSizeHex: meta.rangeSizeHex,
+          rangeSizeNumber: parseWorkerHex(meta.rangeSizeHex),
+          targetPublicKeyHex: meta.targetPublicKeyHex,
+          selectedCores: Number(meta.selectedCores),
+          sessionId: meta.sessionId || ("resume-" + Date.now().toString(36))
+        };
       }
 
       async function loadSecp() {
@@ -550,13 +1034,223 @@ self.onmessage = async (event) => {
         activeWorkers.length = 0;
       }
 
+      function startCheckpointTimer() {
+        stopCheckpointTimer();
+        checkpointTimer = setInterval(() => {
+          void saveCheckpoint("auto");
+        }, CHECKPOINT_INTERVAL_MS);
+      }
+
+      function stopCheckpointTimer() {
+        clearInterval(checkpointTimer);
+        checkpointTimer = 0;
+      }
+
+      function workerCheckpointBucket(pending, workerId) {
+        if (!pending.workers.has(workerId)) {
+          pending.workers.set(workerId, {
+            workerId: workerId,
+            state: null,
+            maps: {
+              localTameMap: [],
+              localWildMap: []
+            }
+          });
+        }
+        return pending.workers.get(workerId);
+      }
+
+      function finishCheckpointRequest(requestId) {
+        const pending = pendingCheckpointRequests.get(requestId);
+        if (!pending) return;
+        for (const workerId of pending.expected) {
+          const bucket = pending.workers.get(workerId);
+          if (!bucket || !bucket.state) return;
+        }
+
+        clearTimeout(pending.timer);
+        pendingCheckpointRequests.delete(requestId);
+        const snapshots = Array.from(pending.expected)
+          .map((workerId) => pending.workers.get(workerId))
+          .sort((a, b) => a.workerId - b.workerId);
+        pending.resolve(snapshots);
+      }
+
+      function handleCheckpointWorkerMessage(message) {
+        if (!message.requestId || !pendingCheckpointRequests.has(message.requestId)) return false;
+
+        const pending = pendingCheckpointRequests.get(message.requestId);
+        const bucket = workerCheckpointBucket(pending, Number(message.workerId || 0));
+
+        if (message.type === "checkpoint-start") {
+          bucket.state = message.state || bucket.state;
+          return true;
+        }
+
+        if (message.type === "checkpoint-chunk") {
+          const mapName = message.mapName === "localWildMap" ? "localWildMap" : "localTameMap";
+          bucket.maps[mapName][Number(message.page || 0)] = message.rows || [];
+          return true;
+        }
+
+        if (message.type === "checkpoint") {
+          bucket.state = message.state || bucket.state;
+          finishCheckpointRequest(message.requestId);
+          return true;
+        }
+
+        return false;
+      }
+
+      function requestWorkerCheckpoints() {
+        const expected = activeWorkers.map((entry) => entry.workerId);
+        if (!expected.length) return Promise.resolve([]);
+
+        const requestId = ++checkpointRequestId;
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            pendingCheckpointRequests.delete(requestId);
+            reject(new Error("Timed out while collecting worker checkpoint state."));
+          }, CHECKPOINT_WORKER_TIMEOUT_MS);
+
+          pendingCheckpointRequests.set(requestId, {
+            expected: new Set(expected),
+            workers: new Map(),
+            timer: timer,
+            resolve: resolve,
+            reject: reject
+          });
+
+          for (const entry of activeWorkers) {
+            try {
+              entry.worker.postMessage({ type: "checkpoint", requestId: requestId });
+            } catch (error) {
+              clearTimeout(timer);
+              pendingCheckpointRequests.delete(requestId);
+              reject(error);
+              break;
+            }
+          }
+        });
+      }
+
+      function makeCheckpointMeta(checkpointId, workerStates, mainMapInfo) {
+        const progress = makeCheckpointProgress();
+        const now = Date.now();
+        return {
+          id: CHECKPOINT_META_ID,
+          schemaVersion: CHECKPOINT_SCHEMA_VERSION,
+          checkpointId: checkpointId,
+          savedAt: now,
+          sessionId: activeRunConfig.sessionId,
+          runId: activeRunId,
+          rangeStartHex: activeRunConfig.rangeStartHex,
+          rangeEndHex: activeRunConfig.rangeEndHex,
+          rangeSizeHex: activeRunConfig.rangeSizeHex,
+          targetPublicKeyHex: activeRunConfig.targetPublicKeyHex,
+          selectedCores: activeRunConfig.selectedCores,
+          k: k,
+          dpMaskHex: dpMask.toString(16),
+          jumpTable: serializeJumpTable(),
+          calculated: progress.calculated,
+          skippedHex: progress.skippedHex,
+          currentProgress: progress.progressLabel,
+          processedHex: progress.processedHex,
+          mainMaps: mainMapInfo,
+          workerStates: workerStates
+        };
+      }
+
+      async function saveCheckpoint(reason = "auto") {
+        if (!activeRunConfig || !activeWorkers.length || (!running && reason === "auto")) return;
+        if (checkpointSaveInFlight) {
+          if (reason === "auto" || reason === "queued") {
+            checkpointSaveRequested = true;
+            return checkpointSavePromise || Promise.resolve();
+          }
+          checkpointSaveRequested = false;
+          await (checkpointSavePromise || Promise.resolve()).catch(() => {});
+          if (!activeRunConfig || !activeWorkers.length) return;
+          return saveCheckpoint(reason);
+        }
+
+        checkpointSaveInFlight = true;
+        checkpointSaveRequested = false;
+
+        checkpointSavePromise = (async () => {
+          const checkpointId = "cp-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2);
+          const oldCheckpointId = savedCheckpointMeta && savedCheckpointMeta.checkpointId;
+
+          try {
+            const workerSnapshots = await requestWorkerCheckpoints();
+            const mainTameMap = await writeMainMapChunks(checkpointId, "main-tameMap", tameMap);
+            const mainWildMap = await writeMainMapChunks(checkpointId, "main-wildMap", wildMap);
+            const workerStates = [];
+
+            for (const snapshot of workerSnapshots) {
+              const localTameMapPages = await writeWorkerMapChunks(
+                checkpointId,
+                checkpointMapName(snapshot.workerId, "localTameMap"),
+                snapshot.maps.localTameMap
+              );
+              const localWildMapPages = await writeWorkerMapChunks(
+                checkpointId,
+                checkpointMapName(snapshot.workerId, "localWildMap"),
+                snapshot.maps.localWildMap
+              );
+
+              workerStates.push(Object.assign({}, snapshot.state, {
+                workerId: snapshot.workerId,
+                localTameMapPages: localTameMapPages,
+                localWildMapPages: localWildMapPages
+              }));
+              await yieldToBrowser();
+            }
+
+            const meta = makeCheckpointMeta(checkpointId, workerStates, {
+              tameMap: mainTameMap,
+              wildMap: mainWildMap
+            });
+
+            await putCheckpointMeta(meta);
+            savedCheckpointMeta = meta;
+            checkpointCorrupted = false;
+            checkpointMismatchArmed = false;
+            updateCheckpointStatus();
+
+            if (oldCheckpointId && oldCheckpointId !== checkpointId) {
+              void deleteChunksForCheckpoint(oldCheckpointId).catch(() => {});
+            }
+          } catch (error) {
+            await deleteChunksForCheckpoint(checkpointId).catch(() => {});
+            if (reason !== "auto") setStatus(error.message || "Could not save checkpoint.", "err");
+            throw error;
+          }
+        })();
+
+        try {
+          await checkpointSavePromise;
+        } catch (error) {
+          console.warn(error);
+        } finally {
+          checkpointSaveInFlight = false;
+          checkpointSavePromise = null;
+          if (checkpointSaveRequested && running && activeWorkers.length) {
+            checkpointSaveRequested = false;
+            void saveCheckpoint("queued");
+          }
+        }
+      }
+
       function resetCoordinatorState() {
         stopWorkers();
+        stopCheckpointTimer();
         workerStats.clear();
         tameMap.clear();
         wildMap.clear();
         rangeSize = 0n;
         wildStartP = null;
+        activeRunConfig = null;
         currentSpeed = 0n;
         lastSpeedSkipped = 0n;
         lastSpeedAt = performance.now();
@@ -628,6 +1322,7 @@ self.onmessage = async (event) => {
         paused = false;
         clearInterval(statsTimer);
         statsTimer = 0;
+        stopCheckpointTimer();
         stopWorkers();
         updateStats();
         updateButtons();
@@ -668,6 +1363,7 @@ self.onmessage = async (event) => {
           verified ? "Match found and verified." : "Collision found, but verification failed.",
           verified ? "ok" : "err"
         );
+        if (verified) void deleteSavedCheckpoint().catch(() => {});
       }
 
       function rememberDistinguishedPoint(dp) {
@@ -709,6 +1405,18 @@ self.onmessage = async (event) => {
           });
         }
 
+        if (handleCheckpointWorkerMessage(message)) return;
+
+        if (message.type === "restore-ready") {
+          const waiter = restoreReadyWaiters.get(message.workerId);
+          if (waiter) {
+            clearTimeout(waiter.timer);
+            restoreReadyWaiters.delete(message.workerId);
+            waiter.resolve();
+          }
+          return;
+        }
+
         if (message.type === "collision") {
           handleCollision(entryFromWorkerPoint(message.tame), entryFromWorkerPoint(message.wild));
           return;
@@ -724,6 +1432,12 @@ self.onmessage = async (event) => {
       function handleWorkerError(workerId, event) {
         if (!running) return;
         const detail = event.message || event.type || "unknown startup error";
+        const waiter = restoreReadyWaiters.get(workerId);
+        if (waiter) {
+          clearTimeout(waiter.timer);
+          restoreReadyWaiters.delete(workerId);
+          waiter.reject(new Error(detail));
+        }
         finishRun("Worker " + workerId + " failed: " + detail, "err");
       }
 
@@ -752,6 +1466,104 @@ self.onmessage = async (event) => {
           dpMaskHex: dpMask.toString(16),
           batchSize: WORKER_BATCH_SIZE
         });
+      }
+
+      function waitForWorkerRestoreReady(workerId) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            restoreReadyWaiters.delete(workerId);
+            reject(new Error("Worker " + workerId + " did not restore in time."));
+          }, CHECKPOINT_WORKER_TIMEOUT_MS);
+          restoreReadyWaiters.set(workerId, { resolve: resolve, reject: reject, timer: timer });
+        });
+      }
+
+      async function sendWorkerCheckpointMap(worker, checkpointId, workerId, mapName, pages) {
+        for (let page = 0; page < pages; page++) {
+          const chunk = await readCheckpointChunk(checkpointId, checkpointMapName(workerId, mapName), page);
+          if (!chunk) throw new Error("Saved checkpoint is missing worker map data.");
+          worker.postMessage({
+            type: "restoreMapChunk",
+            mapName: mapName,
+            rows: chunk && chunk.rows ? chunk.rows : []
+          });
+          await yieldToBrowser();
+        }
+      }
+
+      async function restoreWorkerFromCheckpoint(workerState, serializedJumpTable, publicKeyHex, checkpointId) {
+        const workerId = Number(workerState.workerId || 0);
+        const worker = new Worker(getWorkerModuleUrl());
+        worker.onmessage = handleWorkerMessage;
+        worker.onerror = (event) => handleWorkerError(workerId, event);
+        activeWorkers.push({ workerId: workerId, worker: worker });
+
+        workerStats.set(workerId, {
+          calculated: BigInt(workerState.calculated || "0"),
+          skipped: parseWorkerHex(workerState.skippedHex),
+          tamePos: parseWorkerHex(workerState.tame && workerState.tame.posHex),
+          wildOffset: parseWorkerHex(workerState.wild && workerState.wild.distHex),
+          updatedAt: performance.now()
+        });
+
+        const ready = waitForWorkerRestoreReady(workerId);
+        worker.postMessage({
+          type: "initCheckpoint",
+          runId: activeRunId,
+          workerId: workerId,
+          pHex: publicKeyHex,
+          jumpTable: serializedJumpTable,
+          k: k,
+          dpMaskHex: dpMask.toString(16),
+          batchSize: WORKER_BATCH_SIZE,
+          state: workerState
+        });
+
+        await ready;
+        await sendWorkerCheckpointMap(worker, checkpointId, workerId, "localTameMap", Number(workerState.localTameMapPages || 0));
+        await sendWorkerCheckpointMap(worker, checkpointId, workerId, "localWildMap", Number(workerState.localWildMapPages || 0));
+      }
+
+      async function resumeFromCheckpoint(meta) {
+        if (!validateCheckpointMeta(meta)) throw new Error("Saved checkpoint is corrupted.");
+
+        resetCoordinatorState();
+        clearOutput();
+        updateButtons();
+        setStatus("Loading saved progress...");
+
+        await loadSecp();
+        activeRunConfig = configFromCheckpointMeta(meta);
+        rangeSize = activeRunConfig.rangeSizeNumber;
+        wildStartP = secp.Point.fromHex(meta.targetPublicKeyHex);
+        k = Number(meta.k || 1);
+        dpMask = parseWorkerHex(meta.dpMaskHex || "f");
+        jumpTable = meta.jumpTable.map((jump) => ({
+          dist: parseWorkerHex(jump.distHex),
+          point: secp.Point.fromHex(jump.pointHex)
+        }));
+
+        await restoreMainMap(meta.checkpointId, "main-tameMap", Number(meta.mainMaps && meta.mainMaps.tameMap ? meta.mainMaps.tameMap.pages : 0), tameMap);
+        await restoreMainMap(meta.checkpointId, "main-wildMap", Number(meta.mainMaps && meta.mainMaps.wildMap ? meta.mainMaps.wildMap.pages : 0), wildMap);
+
+        activeRunId++;
+        running = true;
+        paused = false;
+        lastSpeedAt = performance.now();
+        lastSpeedSkipped = parseWorkerHex(meta.skippedHex);
+        currentSpeed = 0n;
+
+        const serializedJumpTable = meta.jumpTable;
+        for (const workerState of meta.workerStates) {
+          await restoreWorkerFromCheckpoint(workerState, serializedJumpTable, meta.targetPublicKeyHex, meta.checkpointId);
+        }
+
+        postToWorkers({ type: "startRestored" });
+        updateButtons();
+        setStatus("Running from saved checkpoint...", "ok");
+        updateStats();
+        statsTimer = setInterval(updateStats, UI_INTERVAL_MS);
+        startCheckpointTimer();
       }
 
       async function calculatePublicKey(showError = true) {
@@ -793,26 +1605,37 @@ self.onmessage = async (event) => {
           return;
         }
 
-        resetCoordinatorState();
-        clearOutput();
-        updateButtons();
-
         try {
-          updateCounts();
-          sanitizeLongInputs();
-          await loadSecp();
+          const config = await buildFormRunConfig();
 
-          const start = normalizeScalar(startHex.value, "Hex start");
-          const end = normalizeScalar(endHex.value, "Hex end");
-          if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
+          if (savedCheckpointMeta) {
+            if (checkpointCorrupted) {
+              setStatus("Saved checkpoint is corrupted. Click Clear to discard it.", "err");
+              return;
+            }
 
-          if (!targetPub.value && privateHex.value) await calculatePublicKey(false);
-          const publicKeyHex = sanitizeHex(targetPub.value);
-          if (!publicKeyHex) throw new Error("Target public key is required.");
-          wildStartP = secp.Point.fromHex(publicKeyHex);
+            if (checkpointMatchesConfig(savedCheckpointMeta, config)) {
+              await resumeFromCheckpoint(savedCheckpointMeta);
+              return;
+            }
 
-          rangeSize = end.number - start.number + 1n;
-          const workerCount = clampCores(coresInput.value, rangeSize);
+            if (!checkpointMismatchArmed) {
+              checkpointMismatchArmed = true;
+              setStatus("Saved checkpoint is for a different range, target public key, or core count. Click Clear to discard it, or click Start again to start a new run.", "err");
+              return;
+            }
+
+            await deleteSavedCheckpoint();
+          }
+
+          resetCoordinatorState();
+          clearOutput();
+          updateButtons();
+
+          wildStartP = secp.Point.fromHex(config.targetPublicKeyHex);
+
+          rangeSize = config.rangeSizeNumber;
+          const workerCount = config.selectedCores;
           k = autoK(rangeSize);
           dpMask = chooseDpMask(rangeSize);
           initJumps(k);
@@ -820,27 +1643,36 @@ self.onmessage = async (event) => {
           const serializedJumpTable = serializeJumpTable();
           const runId = activeRunId + 1;
           activeRunId = runId;
+          activeRunConfig = Object.assign({}, config, {
+            sessionId: "session-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2)
+          });
           running = true;
           paused = false;
           lastSpeedAt = performance.now();
           lastSpeedSkipped = 0n;
           currentSpeed = 0n;
+          checkpointMismatchArmed = false;
 
           for (let workerId = 0; workerId < workerCount; workerId++) {
             const slot = BigInt(workerId);
             const total = BigInt(workerCount);
             const offset = workerId === 0 ? 0n : ((rangeSize * slot) / total) % rangeSize;
-            const tameStart = end.number - offset;
+            const tameStart = config.rangeEndNumber - offset;
             const wildOffset = offset;
-            startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, publicKeyHex);
+            startWorkerPair(workerId, tameStart, wildOffset, serializedJumpTable, config.targetPublicKeyHex);
           }
 
           updateButtons();
           setStatus("Running...");
           updateStats();
           statsTimer = setInterval(updateStats, UI_INTERVAL_MS);
+          startCheckpointTimer();
         } catch (error) {
           const message = error.message || "Could not start.";
+          if (/checkpoint|saved/i.test(message)) {
+            checkpointCorrupted = true;
+            updateCheckpointStatus();
+          }
           if (running || activeWorkers.length) {
             finishRun(message, "err");
           } else {
@@ -863,25 +1695,80 @@ self.onmessage = async (event) => {
         updateStats();
         updateButtons();
         setStatus("Paused.");
+        void saveCheckpoint("pause");
       }
 
-      function stopRun() {
+      async function stopRun() {
         if (!running && !activeWorkers.length) return;
+        setStatus("Saving checkpoint before stop...");
+        await saveCheckpoint("stop");
         finishRun("Stopped. Current keys and progress are shown.", "");
       }
 
-      function clearRun() {
+      async function clearRun() {
         if (running || activeWorkers.length) finishRun("Stopped.", "");
         resetCoordinatorState();
         clearOutput();
         updateButtons();
-        setStatus("Enter a range and target public key.");
+        try {
+          await deleteSavedCheckpoint();
+          setStatus("Enter a range and target public key.");
+        } catch (error) {
+          setStatus(error.message || "Could not clear saved checkpoint.", "err");
+        }
       }
 
-      startHex.addEventListener("input", updateCounts);
-      endHex.addEventListener("input", updateCounts);
-      targetPub.addEventListener("input", sanitizeLongInputs);
-      privateHex.addEventListener("input", sanitizeLongInputs);
+      function handleRangeInput() {
+        checkpointMismatchArmed = false;
+        updateCounts();
+      }
+
+      function handleSavedInputChange() {
+        checkpointMismatchArmed = false;
+        sanitizeLongInputs();
+      }
+
+      function handleCoreChange() {
+        checkpointMismatchArmed = false;
+      }
+
+      async function initializeCheckpointOnLoad() {
+        updateCheckpointStatus();
+
+        try {
+          const meta = await readCheckpointMeta();
+          if (!meta) {
+            savedCheckpointMeta = null;
+            checkpointCorrupted = false;
+            updateCheckpointStatus();
+            return;
+          }
+
+          savedCheckpointMeta = meta;
+          if (!validateCheckpointMeta(meta)) {
+            checkpointCorrupted = true;
+            updateCheckpointStatus();
+            setStatus("Saved checkpoint is corrupted. Click Clear to discard it.", "err");
+            return;
+          }
+
+          checkpointCorrupted = false;
+          restoreFormFromCheckpointMeta(meta);
+          updateCheckpointStatus();
+          setStatus("Saved progress found. Click Start to resume or Clear to discard.", "ok");
+        } catch (error) {
+          savedCheckpointMeta = null;
+          checkpointCorrupted = true;
+          updateCheckpointStatus();
+          setStatus(error.message || "Could not read saved checkpoint. Click Clear to discard saved data.", "err");
+        }
+      }
+
+      startHex.addEventListener("input", handleRangeInput);
+      endHex.addEventListener("input", handleRangeInput);
+      targetPub.addEventListener("input", handleSavedInputChange);
+      privateHex.addEventListener("input", handleSavedInputChange);
+      coresInput.addEventListener("change", handleCoreChange);
       generateBtn.addEventListener("click", generatePrivateKey);
       calcPubBtn.addEventListener("click", () => calculatePublicKey(true));
       startBtn.addEventListener("click", startRun);
@@ -894,6 +1781,8 @@ self.onmessage = async (event) => {
       updateCounts();
       clearOutput();
       updateButtons();
+      updateCheckpointStatus();
+      void initializeCheckpointOnLoad();
     })();
   </script>
 </body>
