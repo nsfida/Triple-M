@@ -1,0 +1,1026 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BTC Kangaroo Range</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#101828}
+    main{max-width:720px;margin:16px auto;padding:12px}
+    h1{margin:0 0 10px;font-size:18px}
+    label{display:block;margin:8px 0 4px;font-size:12px;font-weight:700}
+    textarea,input,select{width:100%;border:1px solid #cfd6e4;border-radius:5px;padding:6px;font:12px/1.25 Consolas,monospace;background:#fff;color:#101828}
+    textarea{min-height:52px;resize:vertical}
+    select,input[type="number"]{font-family:Arial,sans-serif}
+    button{border:0;border-radius:5px;background:#1457d9;color:#fff;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
+    button.secondary{background:#344054}
+    button.danger{background:#b42318}
+    button:disabled{background:#98a2b3;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .controls{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:end}
+    .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .count,.stat{color:#667085;font-size:11px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+    .stat{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:6px}
+    .stat b{display:block;color:#101828;font-size:13px;margin-top:1px;word-break:break-word}
+    .status{margin:8px 0 0;min-height:17px;font-size:12px;color:#667085}
+    .status.ok{color:#067647}
+    .status.err{color:#b42318}
+    .result{margin-top:10px}
+    .progress{height:8px;border:1px solid #dde3ee;border-radius:5px;background:#fff;overflow:hidden;margin-top:8px}
+    .progress span{display:block;height:100%;width:0;background:#1457d9;transition:width .18s linear}
+    #currentKeys{min-height:70px;white-space:pre;overflow:auto}
+    @media (max-width:720px){
+      main{margin:8px auto;padding:10px}
+      .grid,.controls,.stats{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>BTC Kangaroo Range</h1>
+
+    <div class="grid">
+      <div>
+        <label for="startHex">Hex start</label>
+        <input id="startHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="00000000000000000000000000000000000000000000000000000000000f4240">
+        <div id="startCount" class="count">0 / 64</div>
+      </div>
+      <div>
+        <label for="endHex">Hex end</label>
+        <input id="endHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="00000000000000000000000000000000000000000000000000000000000f6970">
+        <div id="endCount" class="count">0 / 64</div>
+      </div>
+    </div>
+
+    <section class="result">
+      <label for="targetPub">Target public key P</label>
+      <textarea id="targetPub" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Compressed 02/03... or uncompressed 04..."></textarea>
+    </section>
+
+    <div class="grid">
+      <div>
+        <label for="privateHex">Hidden private key x</label>
+        <input id="privateHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Optional demo key">
+      </div>
+      <div class="row">
+        <button id="generateBtn" class="secondary" type="button">Generate Random</button>
+        <button id="calcPubBtn" type="button">Calculate Public Key</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label for="coresInput">Cores</label>
+        <select id="coresInput"></select>
+      </div>
+      <div class="row">
+        <button id="startBtn" type="button">Start</button>
+        <button id="pauseBtn" class="secondary" type="button" disabled>Pause</button>
+        <button id="stopBtn" class="danger" type="button" disabled>Stop</button>
+        <button id="clearBtn" class="secondary" type="button">Clear</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">Progress<b id="progressStat">0.00%</b></div>
+      <div class="stat">Processed<b id="processedStat">0</b></div>
+      <div class="stat">Remaining<b id="remainingStat">0</b></div>
+      <div class="stat">Speed<b id="speedStat">0 / sec</b></div>
+      <div class="stat">Workers<b id="workersStat">0</b></div>
+    </div>
+    <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+    <p id="status" class="status">Enter a range and target public key.</p>
+    <section class="result">
+      <label for="currentKeys">Keys getting calculated</label>
+      <textarea id="currentKeys" readonly></textarea>
+    </section>
+
+    <section class="result">
+      <label for="recoveredKey">Recovered private key</label>
+      <input id="recoveredKey" readonly>
+    </section>
+  </main>
+
+  <script type="module">
+    (() => {
+      "use strict";
+
+      const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+      const MAX_CORES = 128;
+      const WORKER_BATCH_SIZE = 16384;
+      const DEFAULT_KANGAROO_LANES = 20;
+      const UI_INTERVAL_MS = 250;
+      const SECP_URL = "https://esm.sh/@noble/secp256k1@1.7.1";
+      const KANGAROO_WORKER_SOURCE = String.raw`
+let secp = null;
+let G = null;
+
+const WORKER_STATS_INTERVAL_MS = 125;
+
+let runId = 0;
+let workerId = 0;
+let jumpTable = [];
+let k = 0;
+let dpMaskNumber = 15;
+let batchSize = 8192;
+let stopped = true;
+let paused = false;
+let loopScheduled = false;
+let lanes = [];
+let latestLaneIndex = 0;
+let calculated = 0n;
+let skipped = 0n;
+let localTameMap = new Map();
+let localWildMap = new Map();
+let initPromise = Promise.resolve();
+let lastStatsAt = 0;
+
+async function loadSecp() {
+  if (!secp) {
+    secp = await import("https://esm.sh/@noble/secp256k1@1.7.1");
+    G = secp.Point.BASE;
+  }
+}
+
+function parseHexBigInt(hex) {
+  const clean = String(hex || "0").replace(/^0x/i, "");
+  return clean ? BigInt("0x" + clean) : 0n;
+}
+
+function toHex(value) {
+  return value.toString(16);
+}
+
+function multiplyGenerator(scalar) {
+  if (scalar === 0n) throw new Error("Tame start cannot be zero");
+  return G.multiply(scalar);
+}
+
+function addGeneratorMultiple(point, scalar) {
+  return scalar === 0n ? point : point.add(G.multiply(scalar));
+}
+
+function getJumpIndex(point) {
+  return Number(BigInt.asUintN(32, point.x)) % k;
+}
+
+function isDistinguished(point) {
+  return (Number(BigInt.asUintN(32, point.x)) & dpMaskNumber) === 0;
+}
+
+function makeDp(kind, lane, state) {
+  return {
+    kind: kind,
+    pointHex: state.point.toHex(true),
+    distHex: toHex(state.dist),
+    posHex: toHex(state.pos),
+    startHex: kind === "tame" ? toHex(state.start) : null,
+    workerId: workerId,
+    laneId: lane.laneId
+  };
+}
+
+function makeStats() {
+  const lane = lanes.length ? lanes[Math.min(latestLaneIndex, lanes.length - 1)] : null;
+  return {
+    tamePosHex: lane ? toHex(lane.tame.pos) : "0",
+    wildOffsetHex: lane ? toHex(lane.wild.dist) : "0",
+    calculated: calculated.toString(10),
+    skippedHex: toHex(skipped),
+    laneCount: lanes.length,
+    kangarooCount: lanes.length * 2,
+    latestLaneId: lane ? lane.laneId : 0
+  };
+}
+
+function makeLocalEntry(kind, lane, state) {
+  return {
+    kind: kind,
+    pointHex: state.point.toHex(true),
+    dist: state.dist,
+    pos: state.pos,
+    start: kind === "tame" ? state.start : 0n,
+    workerId: workerId,
+    laneId: lane.laneId
+  };
+}
+
+function makeCollision(tameEntry, wildEntry, pointHex) {
+  return {
+    type: "collision",
+    runId: runId,
+    workerId: workerId,
+    pointHex: pointHex,
+    tame: {
+      kind: "tame",
+      pointHex: pointHex,
+      distHex: toHex(tameEntry.dist),
+      posHex: toHex(tameEntry.pos),
+      startHex: toHex(tameEntry.start),
+      workerId: workerId,
+      laneId: tameEntry.laneId
+    },
+    wild: {
+      kind: "wild",
+      pointHex: pointHex,
+      distHex: toHex(wildEntry.dist),
+      posHex: toHex(wildEntry.pos),
+      startHex: null,
+      workerId: workerId,
+      laneId: wildEntry.laneId
+    },
+    stats: makeStats()
+  };
+}
+
+function stepWalker(kind, lane, laneIndex) {
+  const state = kind === "tame" ? lane.tame : lane.wild;
+  const jump = jumpTable[getJumpIndex(state.point)];
+
+  state.point = state.point.add(jump.point);
+  state.dist += jump.dist;
+  state.pos += jump.dist;
+  skipped += jump.dist;
+  calculated++;
+  latestLaneIndex = laneIndex;
+
+  return isDistinguished(state.point) ? makeDp(kind, lane, state) : null;
+}
+
+function postBatch(dps, force = false) {
+  const now = Date.now();
+  if (!force && !dps.length && now - lastStatsAt < WORKER_STATS_INTERVAL_MS) return;
+  lastStatsAt = now;
+
+  self.postMessage({
+    type: "batch",
+    runId: runId,
+    workerId: workerId,
+    dps: dps,
+    stats: makeStats()
+  });
+}
+
+function scheduleLoop() {
+  if (loopScheduled || stopped || paused) return;
+  loopScheduled = true;
+  setTimeout(runBatch, 0);
+}
+
+function runBatch() {
+  loopScheduled = false;
+  if (stopped || paused) return;
+
+  const dps = [];
+  const laneCount = lanes.length;
+  if (!laneCount) return;
+  const rounds = Math.max(1, Math.floor(batchSize / (laneCount * 2)));
+
+  for (let i = 0; i < rounds && !stopped && !paused; i++) {
+    for (let laneIndex = 0; laneIndex < laneCount && !stopped && !paused; laneIndex++) {
+      const lane = lanes[laneIndex];
+      const tameDp = stepWalker("tame", lane, laneIndex);
+      if (tameDp) {
+        dps.push(tameDp);
+        const tameEntry = makeLocalEntry("tame", lane, lane.tame);
+        localTameMap.set(tameDp.pointHex, tameEntry);
+        if (localWildMap.has(tameDp.pointHex)) {
+          stopped = true;
+          self.postMessage(makeCollision(tameEntry, localWildMap.get(tameDp.pointHex), tameDp.pointHex));
+          return;
+        }
+      }
+
+      const wildDp = stepWalker("wild", lane, laneIndex);
+      if (wildDp) {
+        dps.push(wildDp);
+        const wildEntry = makeLocalEntry("wild", lane, lane.wild);
+        localWildMap.set(wildDp.pointHex, wildEntry);
+        if (localTameMap.has(wildDp.pointHex)) {
+          stopped = true;
+          self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wildEntry, wildDp.pointHex));
+          return;
+        }
+      }
+    }
+  }
+
+  postBatch(dps);
+  scheduleLoop();
+}
+
+async function initWorker(message) {
+  runId = Number(message.runId || 0);
+  workerId = Number(message.workerId || 0);
+  await loadSecp();
+
+  k = Number(message.k || 1);
+  dpMaskNumber = Number(parseHexBigInt(message.dpMaskHex || "f"));
+  batchSize = Math.max(1, Math.min(65536, Number(message.batchSize || 8192)));
+  calculated = 0n;
+  skipped = 0n;
+  stopped = false;
+  paused = false;
+  loopScheduled = false;
+  latestLaneIndex = 0;
+  lastStatsAt = 0;
+  localTameMap = new Map();
+  localWildMap = new Map();
+
+  jumpTable = message.jumpTable.map((jump) => ({
+    dist: parseHexBigInt(jump.distHex),
+    point: secp.Point.fromHex(jump.pointHex)
+  }));
+
+  const wildStartPoint = secp.Point.fromHex(message.pHex);
+  const laneConfigs = Array.isArray(message.lanes) && message.lanes.length
+    ? message.lanes
+    : [{ laneId: workerId, tameStartHex: message.tameStartHex, wildOffsetHex: message.wildOffsetHex }];
+
+  lanes = laneConfigs.map((laneConfig, index) => {
+    const tameStart = parseHexBigInt(laneConfig.tameStartHex);
+    const wildOffset = parseHexBigInt(laneConfig.wildOffsetHex);
+    return {
+      laneId: Number(laneConfig.laneId ?? index),
+      tame: {
+        point: multiplyGenerator(tameStart),
+        dist: 0n,
+        pos: tameStart,
+        start: tameStart
+      },
+      wild: {
+        point: addGeneratorMultiple(wildStartPoint, wildOffset),
+        dist: wildOffset,
+        pos: wildOffset,
+        start: wildOffset
+      }
+    };
+  });
+
+  const initialDps = [];
+  for (let laneIndex = 0; laneIndex < lanes.length; laneIndex++) {
+    const lane = lanes[laneIndex];
+    if (isDistinguished(lane.tame.point)) {
+      const tameDp = makeDp("tame", lane, lane.tame);
+      const tameEntry = makeLocalEntry("tame", lane, lane.tame);
+      initialDps.push(tameDp);
+      localTameMap.set(tameDp.pointHex, tameEntry);
+    }
+    if (isDistinguished(lane.wild.point)) {
+      const wildDp = makeDp("wild", lane, lane.wild);
+      const wildEntry = makeLocalEntry("wild", lane, lane.wild);
+      initialDps.push(wildDp);
+      localWildMap.set(wildDp.pointHex, wildEntry);
+      if (localTameMap.has(wildDp.pointHex)) {
+        stopped = true;
+        self.postMessage(makeCollision(localTameMap.get(wildDp.pointHex), wildEntry, wildDp.pointHex));
+        return;
+      }
+    }
+  }
+
+  postBatch(initialDps, true);
+  scheduleLoop();
+}
+
+self.onmessage = async (event) => {
+  const message = event.data || {};
+
+  try {
+    if (message.type === "init") {
+      initPromise = initWorker(message);
+      await initPromise;
+    } else if (message.type === "pause") {
+      await initPromise;
+      paused = true;
+    } else if (message.type === "resume") {
+      await initPromise;
+      paused = false;
+      scheduleLoop();
+    } else if (message.type === "stop") {
+      await initPromise;
+      stopped = true;
+      paused = false;
+    }
+  } catch (error) {
+    stopped = true;
+    self.postMessage({
+      type: "error",
+      runId: runId,
+      workerId: workerId,
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+`;
+
+      const startHex = document.getElementById("startHex");
+      const endHex = document.getElementById("endHex");
+      const targetPub = document.getElementById("targetPub");
+      const privateHex = document.getElementById("privateHex");
+      const startCount = document.getElementById("startCount");
+      const endCount = document.getElementById("endCount");
+      const coresInput = document.getElementById("coresInput");
+      const generateBtn = document.getElementById("generateBtn");
+      const calcPubBtn = document.getElementById("calcPubBtn");
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const statusEl = document.getElementById("status");
+      const progressStat = document.getElementById("progressStat");
+      const processedStat = document.getElementById("processedStat");
+      const remainingStat = document.getElementById("remainingStat");
+      const speedStat = document.getElementById("speedStat");
+      const workersStat = document.getElementById("workersStat");
+      const progressBar = document.getElementById("progressBar");
+      const currentKeys = document.getElementById("currentKeys");
+      const recoveredKey = document.getElementById("recoveredKey");
+
+      let secp = null;
+      let G = null;
+      let curveN = SECP256K1_N;
+      let workerModuleUrl = null;
+      let activeRunId = 0;
+      let running = false;
+      let paused = false;
+      let statsTimer = 0;
+      let rangeSize = 0n;
+      let wildStartP = null;
+      let jumpTable = [];
+      let k = 8;
+      let dpMask = 15n;
+      let lastSpeedAt = 0;
+      let lastSpeedSkipped = 0n;
+      let currentSpeed = 0n;
+
+      const activeWorkers = [];
+      const workerStats = new Map();
+      const tameMap = new Map();
+      const wildMap = new Map();
+
+      function setStatus(message, kind = "") {
+        statusEl.textContent = message;
+        statusEl.className = ("status " + kind).trim();
+      }
+
+      function sanitizeHex(value) {
+        return String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "").replace(/[^0-9a-f]/gi, "").toLowerCase();
+      }
+
+      function pad64(value) {
+        return value.toString(16).padStart(64, "0");
+      }
+
+      function formatBigInt(value) {
+        return value.toString(10).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      function percentParts(done, total) {
+        if (total <= 0n) return { label: "0.00%", width: "0%" };
+        const capped = done > total ? total : done;
+        const basis = (capped * 10000n) / total;
+        const whole = basis / 100n;
+        const frac = String(basis % 100n).padStart(2, "0");
+        return { label: whole.toString() + "." + frac + "%", width: String(Number(basis) / 100) + "%" };
+      }
+
+      function normalizeScalar(value, name) {
+        const hex = sanitizeHex(value);
+        if (!hex) throw new Error(name + " is required.");
+        if (hex.length > 64) throw new Error(name + " must be 64 hex digits or less.");
+        const number = BigInt("0x" + hex.padStart(1, "0"));
+        if (number <= 0n || number >= SECP256K1_N) throw new Error(name + " is outside the valid Bitcoin private-key range.");
+        return { hex: pad64(number), number: number };
+      }
+
+      async function buildFormRunConfig() {
+        updateCounts();
+        sanitizeLongInputs();
+        await loadSecp();
+
+        const start = normalizeScalar(startHex.value, "Hex start");
+        const end = normalizeScalar(endHex.value, "Hex end");
+        if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
+
+        if (!targetPub.value && privateHex.value) await calculatePublicKey(false);
+        const publicKeyHex = sanitizeHex(targetPub.value);
+        if (!publicKeyHex) throw new Error("Target public key is required.");
+
+        const targetPoint = secp.Point.fromHex(publicKeyHex);
+        const width = end.number - start.number + 1n;
+        const selectedCores = clampCores(coresInput.value, width);
+        const kangarooLaneCount = chooseKangarooLaneCount(width, selectedCores);
+
+        return {
+          rangeEndNumber: end.number,
+          rangeSizeNumber: width,
+          targetPublicKeyHex: targetPoint.toHex(true),
+          selectedCores: selectedCores,
+          kangarooLaneCount: kangarooLaneCount
+        };
+      }
+
+      async function loadSecp() {
+        if (!secp) {
+          setStatus("Loading secp256k1 engine...");
+          secp = await import(SECP_URL);
+          G = secp.Point.BASE;
+          curveN = secp.CURVE.n || SECP256K1_N;
+        }
+        return secp;
+      }
+
+      function updateCounts() {
+        const s = sanitizeHex(startHex.value).slice(0, 64);
+        const e = sanitizeHex(endHex.value).slice(0, 64);
+        if (s !== startHex.value) startHex.value = s;
+        if (e !== endHex.value) endHex.value = e;
+        startCount.textContent = s.length + " / 64";
+        endCount.textContent = e.length + " / 64";
+      }
+
+      function sanitizeLongInputs() {
+        targetPub.value = sanitizeHex(targetPub.value).slice(0, 130);
+        privateHex.value = sanitizeHex(privateHex.value).slice(0, 64);
+      }
+
+      function populateCores() {
+        const hardware = Math.max(1, Math.min(MAX_CORES, navigator.hardwareConcurrency || 1));
+        const preferred = Math.max(1, Math.min(8, hardware));
+        for (let i = 1; i <= MAX_CORES; i++) {
+          const option = document.createElement("option");
+          option.value = String(i);
+          option.textContent = String(i);
+          if (i === preferred) option.selected = true;
+          coresInput.appendChild(option);
+        }
+      }
+
+      function clampCores(value, size) {
+        let cores = Math.floor(Number(value));
+        if (!Number.isFinite(cores) || cores < 1) cores = 1;
+        cores = Math.min(MAX_CORES, cores);
+        if (size > 0n && size < BigInt(cores)) cores = Number(size);
+        return Math.max(1, cores);
+      }
+
+      function chooseKangarooLaneCount(size, workerCount) {
+        const desired = Math.max(DEFAULT_KANGAROO_LANES, workerCount);
+        if (size > 0n && size < BigInt(desired)) return Math.max(1, Number(size));
+        return desired;
+      }
+
+      function buildWorkerLaneConfigs(config, workerCount, laneCount) {
+        const workerLanes = Array.from({ length: workerCount }, () => []);
+        const offsets = randomUniqueOffsets(config.rangeSizeNumber, laneCount);
+        for (let laneId = 0; laneId < laneCount; laneId++) {
+          const offset = offsets[laneId];
+          workerLanes[laneId % workerCount].push({
+            laneId: laneId,
+            tameStartHex: (config.rangeEndNumber - offset).toString(16),
+            wildOffsetHex: offset.toString(16)
+          });
+        }
+        return workerLanes;
+      }
+
+      function randomUniqueOffsets(size, count) {
+        if (size <= 0n) throw new Error("Range size must be positive.");
+        if (BigInt(count) > size) throw new Error("Range is too small for this many unique kangaroo positions.");
+
+        const offsets = [];
+        const seen = new Set();
+        while (offsets.length < count) {
+          const offset = randomBigIntBelow(size);
+          const key = offset.toString(16);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          offsets.push(offset);
+        }
+        return offsets;
+      }
+
+      function randomBigIntBelow(maxExclusive) {
+        if (maxExclusive <= 1n) return 0n;
+        const bits = (maxExclusive - 1n).toString(2).length;
+        const bytes = new Uint8Array(Math.max(1, Math.ceil(bits / 8)));
+        const excessBits = (bytes.length * 8) - bits;
+        let value = 0n;
+        do {
+          crypto.getRandomValues(bytes);
+          if (excessBits > 0) bytes[0] &= 0xff >>> excessBits;
+          value = 0n;
+          for (const byte of bytes) value = (value << 8n) + BigInt(byte);
+        } while (value >= maxExclusive);
+        return value;
+      }
+
+      function randomBigIntInRange(min, max) {
+        if (min > max) throw new Error("Invalid random range.");
+        return min + randomBigIntBelow(max - min + 1n);
+      }
+
+      function autoK(width) {
+        const bits = width > 0n ? width.toString(2).length : 1;
+        return Math.max(4, Math.min(24, Math.ceil(bits / 2)));
+      }
+
+      function chooseDpMask(width) {
+        const bits = width < 1000000n ? 5n : width < 100000000n ? 8n : 10n;
+        return (1n << bits) - 1n;
+      }
+
+      function initJumps(kValue) {
+        k = kValue;
+        jumpTable = [];
+        for (let i = 0; i < k; i++) {
+          const dist = 1n << BigInt(i);
+          jumpTable.push({ dist: dist, point: G.multiply(dist) });
+        }
+      }
+
+      function serializeJumpTable() {
+        return jumpTable.map((jump) => ({
+          distHex: jump.dist.toString(16),
+          pointHex: jump.point.toHex(true)
+        }));
+      }
+
+      function getWorkerModuleUrl() {
+        if (!workerModuleUrl) {
+          const blob = new Blob([KANGAROO_WORKER_SOURCE], { type: "application/javascript" });
+          workerModuleUrl = URL.createObjectURL(blob);
+        }
+        return workerModuleUrl;
+      }
+
+      function postToWorkers(message) {
+        for (const entry of activeWorkers) entry.worker.postMessage(message);
+      }
+
+      function stopWorkers() {
+        for (const entry of activeWorkers) {
+          try { entry.worker.postMessage({ type: "stop" }); } catch (error) {}
+          entry.worker.terminate();
+        }
+        activeWorkers.length = 0;
+      }
+
+      function resetCoordinatorState() {
+        stopWorkers();
+        workerStats.clear();
+        tameMap.clear();
+        wildMap.clear();
+        rangeSize = 0n;
+        wildStartP = null;
+        currentSpeed = 0n;
+        lastSpeedSkipped = 0n;
+        lastSpeedAt = performance.now();
+      }
+
+      function updateButtons() {
+        startBtn.textContent = paused ? "Resume" : "Start";
+        startBtn.disabled = running && !paused;
+        pauseBtn.disabled = !running || paused;
+        stopBtn.disabled = !running && activeWorkers.length === 0;
+      }
+
+      function aggregateStats() {
+        let calculated = 0n;
+        let skipped = 0n;
+        let laneCount = 0;
+        let latest = null;
+
+        for (const stat of workerStats.values()) {
+          calculated += stat.calculated;
+          skipped += stat.skipped;
+          laneCount += Number(stat.laneCount || 0);
+          if (!latest || stat.updatedAt > latest.updatedAt) latest = stat;
+        }
+
+        return { calculated: calculated, skipped: skipped, latest: latest, laneCount: laneCount };
+      }
+
+      function updateStats() {
+        const aggregate = aggregateStats();
+        const processed = rangeSize > 0n && aggregate.skipped > rangeSize ? rangeSize : aggregate.skipped;
+        const remaining = rangeSize > processed ? rangeSize - processed : 0n;
+        const percent = percentParts(processed, rangeSize);
+        const now = performance.now();
+
+        if (lastSpeedAt > 0) {
+          const elapsed = Math.max(1, Math.round(now - lastSpeedAt));
+          const delta = aggregate.skipped >= lastSpeedSkipped ? aggregate.skipped - lastSpeedSkipped : 0n;
+          currentSpeed = (delta * 1000n) / BigInt(elapsed);
+        }
+        lastSpeedAt = now;
+        lastSpeedSkipped = aggregate.skipped;
+
+        progressStat.textContent = percent.label;
+        progressBar.style.width = percent.width;
+        processedStat.textContent = formatBigInt(processed);
+        remainingStat.textContent = formatBigInt(remaining);
+        speedStat.textContent = formatBigInt(currentSpeed) + " / sec";
+        workersStat.textContent = running || activeWorkers.length ? String(activeWorkers.length) : "0";
+
+        if (aggregate.latest) {
+          currentKeys.value =
+            "Tame key: " + pad64(aggregate.latest.tamePos) + "\n" +
+            "Wild key: target + " + pad64(aggregate.latest.wildOffset) + "\n" +
+            "Active kangaroo pairs: " + String(aggregate.laneCount || 0);
+        }
+      }
+
+      function clearOutput() {
+        recoveredKey.value = "";
+        currentKeys.value = "";
+        progressStat.textContent = "0.00%";
+        processedStat.textContent = "0";
+        remainingStat.textContent = "0";
+        speedStat.textContent = "0 / sec";
+        workersStat.textContent = "0";
+        progressBar.style.width = "0%";
+      }
+
+      function finishRun(message, kind) {
+        running = false;
+        paused = false;
+        clearInterval(statsTimer);
+        statsTimer = 0;
+        stopWorkers();
+        updateStats();
+        updateButtons();
+        setStatus(message, kind);
+      }
+
+      function parseWorkerHex(hex) {
+        const clean = String(hex || "0").replace(/^0x/i, "");
+        return clean ? BigInt("0x" + clean) : 0n;
+      }
+
+      function entryFromWorkerPoint(dp) {
+        return {
+          kind: dp.kind,
+          pointHex: dp.pointHex,
+          dist: parseWorkerHex(dp.distHex),
+          pos: parseWorkerHex(dp.posHex),
+          start: dp.kind === "tame" ? parseWorkerHex(dp.startHex) : 0n,
+          workerId: dp.workerId,
+          laneId: Number(dp.laneId || 0)
+        };
+      }
+
+      function handleCollision(tameEntry, wildEntry) {
+        if (!running) return;
+
+        let recovered = (tameEntry.start + tameEntry.dist - wildEntry.dist) % curveN;
+        if (recovered < 0n) recovered += curveN;
+        recoveredKey.value = pad64(recovered);
+
+        let verified = false;
+        try {
+          verified = G.multiply(recovered).equals(wildStartP);
+        } catch (error) {
+          verified = false;
+        }
+
+        finishRun(
+          verified ? "Match found and verified." : "Collision found, but verification failed.",
+          verified ? "ok" : "err"
+        );
+      }
+
+      function rememberDistinguishedPoint(dp) {
+        const entry = entryFromWorkerPoint(dp);
+
+        if (entry.kind === "tame") {
+          if (wildMap.has(entry.pointHex)) {
+            handleCollision(entry, wildMap.get(entry.pointHex));
+            return true;
+          }
+          if (!tameMap.has(entry.pointHex)) tameMap.set(entry.pointHex, entry);
+        } else {
+          if (tameMap.has(entry.pointHex)) {
+            handleCollision(tameMap.get(entry.pointHex), entry);
+            return true;
+          }
+          if (!wildMap.has(entry.pointHex)) wildMap.set(entry.pointHex, entry);
+        }
+
+        return false;
+      }
+
+      function handleWorkerMessage(event) {
+        const message = event.data || {};
+        if (message.runId !== activeRunId) return;
+
+        if (message.type === "error") {
+          finishRun("Worker " + message.workerId + " error: " + message.message, "err");
+          return;
+        }
+
+        if (message.stats) {
+          workerStats.set(message.workerId, {
+            calculated: BigInt(message.stats.calculated || "0"),
+            skipped: parseWorkerHex(message.stats.skippedHex),
+            tamePos: parseWorkerHex(message.stats.tamePosHex),
+            wildOffset: parseWorkerHex(message.stats.wildOffsetHex),
+            laneCount: Number(message.stats.laneCount || 1),
+            kangarooCount: Number(message.stats.kangarooCount || 2),
+            latestLaneId: Number(message.stats.latestLaneId || 0),
+            updatedAt: performance.now()
+          });
+        }
+
+        if (message.type === "collision") {
+          handleCollision(entryFromWorkerPoint(message.tame), entryFromWorkerPoint(message.wild));
+          return;
+        }
+
+        if (message.type !== "batch" || !running) return;
+
+        for (const dp of message.dps || []) {
+          if (rememberDistinguishedPoint(dp)) break;
+        }
+      }
+
+      function handleWorkerError(workerId, event) {
+        if (!running) return;
+        const detail = event.message || event.type || "unknown startup error";
+        finishRun("Worker " + workerId + " failed: " + detail, "err");
+      }
+
+      function startWorkerPair(workerId, laneConfigs, serializedJumpTable, publicKeyHex) {
+        const worker = new Worker(getWorkerModuleUrl());
+        worker.onmessage = handleWorkerMessage;
+        worker.onerror = (event) => handleWorkerError(workerId, event);
+        activeWorkers.push({ workerId: workerId, worker: worker });
+        const firstLane = laneConfigs[0] || { tameStartHex: "0", wildOffsetHex: "0" };
+        workerStats.set(workerId, {
+          calculated: 0n,
+          skipped: 0n,
+          tamePos: parseWorkerHex(firstLane.tameStartHex),
+          wildOffset: parseWorkerHex(firstLane.wildOffsetHex),
+          laneCount: laneConfigs.length,
+          kangarooCount: laneConfigs.length * 2,
+          latestLaneId: Number(firstLane.laneId || 0),
+          updatedAt: performance.now()
+        });
+
+        worker.postMessage({
+          type: "init",
+          runId: activeRunId,
+          workerId: workerId,
+          pHex: publicKeyHex,
+          lanes: laneConfigs,
+          jumpTable: serializedJumpTable,
+          k: k,
+          dpMaskHex: dpMask.toString(16),
+          batchSize: WORKER_BATCH_SIZE
+        });
+      }
+
+      async function calculatePublicKey(showError = true) {
+        try {
+          sanitizeLongInputs();
+          const priv = normalizeScalar(privateHex.value, "Hidden private key");
+          await loadSecp();
+          targetPub.value = G.multiply(priv.number).toHex(false);
+          setStatus("Public key calculated.", "ok");
+          return true;
+        } catch (error) {
+          if (showError) setStatus(error.message || "Could not calculate public key.", "err");
+          return false;
+        }
+      }
+
+      async function generatePrivateKey() {
+        try {
+          updateCounts();
+          const start = normalizeScalar(startHex.value, "Hex start");
+          const end = normalizeScalar(endHex.value, "Hex end");
+          if (start.number > end.number) throw new Error("Hex start must be lower than hex end.");
+          privateHex.value = pad64(randomBigIntInRange(start.number, end.number));
+          const calculated = await calculatePublicKey(false);
+          setStatus(calculated ? "Random private key generated." : "Random private key generated. Public key was not calculated.", calculated ? "ok" : "");
+        } catch (error) {
+          setStatus(error.message || "Could not generate private key.", "err");
+        }
+      }
+
+      async function startRun() {
+        if (running && paused) {
+          paused = false;
+          postToWorkers({ type: "resume" });
+          lastSpeedAt = performance.now();
+          lastSpeedSkipped = aggregateStats().skipped;
+          updateButtons();
+          setStatus("Running...");
+          return;
+        }
+
+        try {
+          const config = await buildFormRunConfig();
+          resetCoordinatorState();
+          clearOutput();
+          updateButtons();
+
+          wildStartP = secp.Point.fromHex(config.targetPublicKeyHex);
+
+          rangeSize = config.rangeSizeNumber;
+          const workerCount = config.selectedCores;
+          const laneCount = config.kangarooLaneCount;
+          k = autoK(rangeSize);
+          dpMask = chooseDpMask(rangeSize);
+          initJumps(k);
+
+          const serializedJumpTable = serializeJumpTable();
+          const runId = activeRunId + 1;
+          activeRunId = runId;
+          running = true;
+          paused = false;
+          lastSpeedAt = performance.now();
+          lastSpeedSkipped = 0n;
+          currentSpeed = 0n;
+
+          const workerLanes = buildWorkerLaneConfigs(config, workerCount, laneCount);
+          for (let workerId = 0; workerId < workerCount; workerId++) {
+            startWorkerPair(workerId, workerLanes[workerId], serializedJumpTable, config.targetPublicKeyHex);
+          }
+
+          updateButtons();
+          setStatus("Running " + laneCount + " kangaroo pairs...");
+          updateStats();
+          statsTimer = setInterval(updateStats, UI_INTERVAL_MS);
+        } catch (error) {
+          const message = error.message || "Could not start.";
+          if (running || activeWorkers.length) {
+            finishRun(message, "err");
+          } else {
+            running = false;
+            paused = false;
+            clearInterval(statsTimer);
+            statsTimer = 0;
+            stopWorkers();
+            updateButtons();
+            setStatus(message, "err");
+          }
+        }
+      }
+
+      function pauseRun() {
+        if (!running || paused) return;
+        paused = true;
+        postToWorkers({ type: "pause" });
+        currentSpeed = 0n;
+        updateStats();
+        updateButtons();
+        setStatus("Paused.");
+      }
+
+      function stopRun() {
+        if (!running && !activeWorkers.length) return;
+        finishRun("Stopped. Current keys and progress are shown.", "");
+      }
+
+      function clearRun() {
+        if (running || activeWorkers.length) finishRun("Stopped.", "");
+        resetCoordinatorState();
+        clearOutput();
+        updateButtons();
+        setStatus("Enter a range and target public key.");
+      }
+
+      function handleRangeInput() {
+        updateCounts();
+      }
+
+      function handleKeyInput() {
+        sanitizeLongInputs();
+      }
+
+      startHex.addEventListener("input", handleRangeInput);
+      endHex.addEventListener("input", handleRangeInput);
+      targetPub.addEventListener("input", handleKeyInput);
+      privateHex.addEventListener("input", handleKeyInput);
+      generateBtn.addEventListener("click", generatePrivateKey);
+      calcPubBtn.addEventListener("click", () => calculatePublicKey(true));
+      startBtn.addEventListener("click", startRun);
+      pauseBtn.addEventListener("click", pauseRun);
+      stopBtn.addEventListener("click", stopRun);
+      clearBtn.addEventListener("click", clearRun);
+      window.addEventListener("beforeunload", stopWorkers);
+
+      populateCores();
+      updateCounts();
+      clearOutput();
+      updateButtons();
+    })();
+  </script>
+</body>
+</html>
