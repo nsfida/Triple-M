@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bitcoin G Multiplier</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
+
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    h1, h2 {
+      margin: 0 0 12px;
+    }
+
+    p {
+      color: #cfcfcf;
+      margin: 8px 0;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 4px;
+      font-weight: bold;
+    }
+
+    input, button, select {
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
+      margin: 8px 0;
+      box-sizing: border-box;
+    }
+
+    input, select {
+      background: #1d1d1d;
+      color: #eee;
+      border: 1px solid #444;
+    }
+
+    button {
+      cursor: pointer;
+      background: #2d7;
+      border: none;
+      color: #06130a;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      background: #5d6b62;
+      color: #cbd7ce;
+    }
+
+    button.secondary {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    button.danger {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    pre {
+      background: #222;
+      padding: 15px;
+      min-height: 120px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      border: 1px solid #444;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .tab-button {
+      width: auto;
+      margin: 0;
+      border: 1px solid #333;
+      border-bottom: 0;
+      background: #1b1b1b;
+      color: #ddd;
+    }
+
+    .tab-button.active {
+      background: #2d7;
+      color: #06130a;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .actions button {
+      flex: 1 1 180px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .stat {
+      background: #1d1d1d;
+      border: 1px solid #333;
+      padding: 10px;
+      color: #aaa;
+      min-width: 0;
+    }
+
+    .stat b {
+      display: block;
+      margin-top: 4px;
+      color: #fff;
+      word-break: break-word;
+    }
+
+    .note {
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 12px;
+      }
+
+      .grid, .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs {
+        flex-direction: column;
+        border-bottom: 0;
+      }
+
+      .tab-button {
+        border: 1px solid #333;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Bitcoin Fixed G Calculator</h1>
+
+  <div class="tabs" role="tablist" aria-label="Calculator tabs">
+    <button class="tab-button active" type="button" data-tab="forwardPanel" role="tab" aria-selected="true">Number to Public Key</button>
+    <button class="tab-button" type="button" data-tab="reversePanel" role="tab" aria-selected="false">Public Key to Number</button>
+  </div>
+
+  <section id="forwardPanel" class="tab-panel active" role="tabpanel">
+    <h2>Number x G to Compressed Public Key</h2>
+    <p>Enter how many G:</p>
+
+    <input id="scalarInput" placeholder="Example: 5 or 1000000000 or 0x5">
+
+    <button id="calculateBtn" type="button">Calculate Public Key</button>
+
+    <pre id="output"></pre>
+  </section>
+
+  <section id="reversePanel" class="tab-panel" role="tabpanel">
+    <h2>Compressed Public Key to Number</h2>
+    <p class="note">This searches for the number k where k x G equals the public key. Use a realistic start and stop range for fast results.</p>
+
+    <label for="reversePublicKey">Public key</label>
+    <input id="reversePublicKey" placeholder="02... or 03... compressed key, or 04... uncompressed key" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+    <div class="grid">
+      <div>
+        <label for="reverseStart">Start from number</label>
+        <input id="reverseStart" value="1" placeholder="Example: 1 or 0x1">
+      </div>
+      <div>
+        <label for="reverseEnd">Stop at number</label>
+        <input id="reverseEnd" placeholder="Optional, example: 1000000 or 0xffff">
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <label for="reverseDirection">Search direction</label>
+        <select id="reverseDirection">
+          <option value="up">Up from start</option>
+          <option value="down">Down from start</option>
+        </select>
+      </div>
+      <div>
+        <label for="reverseCores">Cores / workers</label>
+        <input id="reverseCores" type="number" min="1" step="1" placeholder="Example: 8">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="startReverseBtn" type="button">Start Reverse Search</button>
+      <button id="stopReverseBtn" class="danger" type="button" disabled>Stop</button>
+      <button id="clearReverseBtn" class="secondary" type="button">Clear</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat">Checked<b id="checkedStat">0</b></div>
+      <div class="stat">Speed<b id="speedStat">0 / sec</b></div>
+      <div class="stat">Workers<b id="workerStat">0</b></div>
+      <div class="stat">Latest number<b id="latestStat">-</b></div>
+    </div>
+
+    <pre id="reverseOutput">Enter a public key, choose where to start, choose cores, then start.</pre>
+  </section>
+</main>
+
+<script>
+/*
+  Bitcoin secp256k1 curve:
+
+  y^2 = x^3 + 7 mod p
+
+  Public Key = private number x G
+
+  The normal tab uses fast double-and-add multiplication.
+  The reverse tab searches from the chosen number using Web Workers.
+*/
+
+const P = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+const N = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+
+// Fixed Bitcoin generator point G
+const Gx = BigInt("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
+const Gy = BigInt("0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
+
+const G = { x: Gx, y: Gy };
+const defaultCores = Math.max(1, navigator.hardwareConcurrency || 1);
+
+const scalarInput = document.getElementById("scalarInput");
+const output = document.getElementById("output");
+const calculateBtn = document.getElementById("calculateBtn");
+const reversePublicKey = document.getElementById("reversePublicKey");
+const reverseStart = document.getElementById("reverseStart");
+const reverseEnd = document.getElementById("reverseEnd");
+const reverseDirection = document.getElementById("reverseDirection");
+const reverseCores = document.getElementById("reverseCores");
+const startReverseBtn = document.getElementById("startReverseBtn");
+const stopReverseBtn = document.getElementById("stopReverseBtn");
+const clearReverseBtn = document.getElementById("clearReverseBtn");
+const checkedStat = document.getElementById("checkedStat");
+const speedStat = document.getElementById("speedStat");
+const workerStat = document.getElementById("workerStat");
+const latestStat = document.getElementById("latestStat");
+const reverseOutput = document.getElementById("reverseOutput");
+
+let reverseWorkers = [];
+let reverseToken = 0;
+let reverseRunning = false;
+let reverseStartedAt = 0;
+let reverseChecked = 0;
+let reverseCompletedWorkers = 0;
+let reverseStatsTimer = 0;
+let reverseBlobUrl = "";
+
+reverseCores.value = String(defaultCores);
+
+function mod(a, m = P) {
+  const result = a % m;
+  return result >= 0n ? result : result + m;
+}
+
+function modInv(a, m = P) {
+  let lm = 1n;
+  let hm = 0n;
+  let low = mod(a, m);
+  let high = m;
+
+  while (low > 1n) {
+    const r = high / low;
+    const nm = hm - lm * r;
+    const nw = high - low * r;
+
+    hm = lm;
+    lm = nm;
+    high = low;
+    low = nw;
+  }
+
+  return mod(lm, m);
+}
+
+function modPow(base, exponent, modulus = P) {
+  let result = 1n;
+  let b = mod(base, modulus);
+  let e = exponent;
+
+  while (e > 0n) {
+    if (e & 1n) result = mod(result * b, modulus);
+    b = mod(b * b, modulus);
+    e >>= 1n;
+  }
+
+  return result;
+}
+
+function pointAdd(p1, p2) {
+  if (p1 === null) return p2;
+  if (p2 === null) return p1;
+
+  if (p1.x === p2.x && p1.y !== p2.y) {
+    return null;
+  }
+
+  let slope;
+
+  if (p1.x === p2.x && p1.y === p2.y) {
+    slope = mod((3n * p1.x * p1.x) * modInv(2n * p1.y));
+  } else {
+    slope = mod((p2.y - p1.y) * modInv(p2.x - p1.x));
+  }
+
+  const x3 = mod(slope * slope - p1.x - p2.x);
+  const y3 = mod(slope * (p1.x - x3) - p1.y);
+
+  return { x: x3, y: y3 };
+}
+
+function scalarMultiply(k, point) {
+  let result = null;
+  let addend = point;
+  let scalar = k;
+
+  while (scalar > 0n) {
+    if (scalar & 1n) {
+      result = pointAdd(result, addend);
+    }
+
+    addend = pointAdd(addend, addend);
+    scalar >>= 1n;
+  }
+
+  return result;
+}
+
+function to64Hex(num) {
+  return num.toString(16).padStart(64, "0").toUpperCase();
+}
+
+function toCompactHex(num) {
+  return "0x" + num.toString(16).toUpperCase();
+}
+
+function compressedPublicKey(point) {
+  const prefix = point.y % 2n === 0n ? "02" : "03";
+  return prefix + to64Hex(point.x);
+}
+
+function cleanHex(value) {
+  return String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "").toLowerCase();
+}
+
+function parsePositiveNumber(value, fieldName) {
+  const raw = String(value || "").trim().replace(/,/g, "");
+  if (!raw) throw new Error(`${fieldName} is required.`);
+  const number = raw.toLowerCase().startsWith("0x") ? BigInt(raw) : BigInt(raw);
+  if (number <= 0n || number >= N) {
+    throw new Error(`${fieldName} must be from 1 to N - 1.`);
+  }
+  return number;
+}
+
+function parseOptionalNumber(value, fieldName) {
+  const raw = String(value || "").trim();
+  return raw ? parsePositiveNumber(raw, fieldName) : null;
+}
+
+function normalizePublicKey(value) {
+  const hex = cleanHex(value);
+  if (!hex) throw new Error("Public key is required.");
+
+  if (hex.length === 66) {
+    const prefix = hex.slice(0, 2);
+    if (prefix !== "02" && prefix !== "03") {
+      throw new Error("Compressed public key must start with 02 or 03.");
+    }
+
+    const x = BigInt("0x" + hex.slice(2));
+    if (x >= P) throw new Error("Public key X is outside the curve field.");
+    const y2 = mod(x * x * x + 7n);
+    const y = modPow(y2, (P + 1n) >> 2n);
+    if (mod(y * y) !== y2) throw new Error("Compressed public key is not on secp256k1.");
+
+    return {
+      mode: "compressed",
+      prefix,
+      xHex: x.toString(16)
+    };
+  }
+
+  if (hex.length === 130) {
+    if (hex.slice(0, 2) !== "04") {
+      throw new Error("Uncompressed public key must start with 04.");
+    }
+
+    const x = BigInt("0x" + hex.slice(2, 66));
+    const y = BigInt("0x" + hex.slice(66));
+    if (x >= P || y >= P) throw new Error("Public key coordinates are outside the curve field.");
+    if (mod(y * y - x * x * x - 7n) !== 0n) {
+      throw new Error("Uncompressed public key is not on secp256k1.");
+    }
+
+    return {
+      mode: "uncompressed",
+      xHex: x.toString(16),
+      yHex: y.toString(16)
+    };
+  }
+
+  throw new Error("Public key must be 66 hex characters compressed, or 130 hex characters uncompressed.");
+}
+
+function normalizeCores(value, start, end, direction) {
+  const numeric = Math.floor(Number(value));
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    throw new Error("Cores must be a whole number greater than 0.");
+  }
+
+  if (end === null) return numeric;
+
+  const rangeSize = direction === "up" ? end - start + 1n : start - end + 1n;
+  if (rangeSize <= 0n) throw new Error("Search range is empty.");
+  const rangeSizeNumber = rangeSize > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(rangeSize);
+
+  return Math.max(1, Math.min(numeric, rangeSizeNumber));
+}
+
+function setupTabs() {
+  document.querySelectorAll(".tab-button").forEach(button => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".tab-button").forEach(tab => {
+        tab.classList.toggle("active", tab === button);
+        tab.setAttribute("aria-selected", tab === button ? "true" : "false");
+      });
+
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === button.dataset.tab);
+      });
+    });
+  });
+}
+
+function calculatePublicKey() {
+  const input = scalarInput.value.trim();
+
+  try {
+    if (!input) {
+      output.textContent = "Please enter a number.";
+      return;
+    }
+
+    const k = parsePositiveNumber(input, "Number");
+    const point = scalarMultiply(k, G);
+    const compressed = compressedPublicKey(point);
+
+    output.textContent =
+`Input:
+${input}
+
+Meaning:
+${input} x G
+
+Result point:
+X = ${to64Hex(point.x)}
+Y = ${to64Hex(point.y)}
+
+Y parity:
+${point.y % 2n === 0n ? "Even, so prefix is 02" : "Odd, so prefix is 03"}
+
+Compressed public key:
+${compressed}`;
+  } catch (err) {
+    output.textContent = err.message || "Invalid input. Use numbers like 5, 1000000000, or 0x5.";
+  }
+}
+
+function setReverseOutput(message) {
+  reverseOutput.textContent = message;
+}
+
+function updateReverseStats() {
+  const seconds = reverseRunning ? Math.max(0.001, (performance.now() - reverseStartedAt) / 1000) : 0;
+  const speed = reverseRunning ? Math.round(reverseChecked / seconds) : 0;
+  checkedStat.textContent = reverseChecked.toLocaleString();
+  speedStat.textContent = `${speed.toLocaleString()} / sec`;
+  workerStat.textContent = reverseRunning ? String(reverseWorkers.length) : "0";
+}
+
+function resetReverseStats() {
+  reverseChecked = 0;
+  reverseCompletedWorkers = 0;
+  latestStat.textContent = "-";
+  updateReverseStats();
+}
+
+function cleanupReverseBlob() {
+  if (reverseBlobUrl) {
+    URL.revokeObjectURL(reverseBlobUrl);
+    reverseBlobUrl = "";
+  }
+}
+
+function stopReverseSearch(message = "Stopped.") {
+  if (!reverseRunning && !reverseWorkers.length) return;
+
+  reverseRunning = false;
+  reverseWorkers.forEach(worker => worker.terminate());
+  reverseWorkers = [];
+  reverseCompletedWorkers = 0;
+  clearInterval(reverseStatsTimer);
+  reverseStatsTimer = 0;
+  cleanupReverseBlob();
+
+  startReverseBtn.disabled = false;
+  stopReverseBtn.disabled = true;
+  updateReverseStats();
+  setReverseOutput(message);
+}
+
+function finishReverseWorker(token) {
+  if (token !== reverseToken) return;
+  reverseCompletedWorkers += 1;
+
+  if (reverseCompletedWorkers >= reverseWorkers.length) {
+    reverseRunning = false;
+    reverseWorkers = [];
+    reverseCompletedWorkers = 0;
+    clearInterval(reverseStatsTimer);
+    reverseStatsTimer = 0;
+    cleanupReverseBlob();
+    startReverseBtn.disabled = false;
+    stopReverseBtn.disabled = true;
+    updateReverseStats();
+    setReverseOutput("Finished the selected range. No matching number was found.");
+  }
+}
+
+function handleReverseProgress(data) {
+  if (data.count) reverseChecked += data.count;
+  if (data.latestDecimal) {
+    latestStat.textContent = `${data.latestDecimal} (${data.latestHex})`;
+  }
+}
+
+function handleReverseFound(data) {
+  reverseChecked += data.count || 0;
+  latestStat.textContent = `${data.decimal} (${data.hex})`;
+  updateReverseStats();
+
+  const foundMessage =
+`Match found!
+
+Recovered number:
+${data.decimal}
+
+Recovered number in hex:
+${data.hex}
+
+Compressed public key:
+${data.publicKey}
+
+This is the number that produces the public key in the first tab.`;
+
+  stopReverseSearch(foundMessage);
+}
+
+function startReverseSearch() {
+  try {
+    if (reverseRunning) stopReverseSearch("Restarting...");
+
+    resetReverseStats();
+
+    const target = normalizePublicKey(reversePublicKey.value);
+    const start = parsePositiveNumber(reverseStart.value, "Start number");
+    const end = parseOptionalNumber(reverseEnd.value, "Stop number");
+    const direction = reverseDirection.value;
+
+    if (end !== null) {
+      if (direction === "up" && end < start) throw new Error("For upward search, stop number must be greater than or equal to start.");
+      if (direction === "down" && end > start) throw new Error("For downward search, stop number must be less than or equal to start.");
+    }
+
+    const cores = normalizeCores(reverseCores.value, start, end, direction);
+    const token = ++reverseToken;
+    reverseBlobUrl = URL.createObjectURL(new Blob([reverseWorkerSource()], { type: "text/javascript" }));
+
+    reverseRunning = true;
+    reverseStartedAt = performance.now();
+    startReverseBtn.disabled = true;
+    stopReverseBtn.disabled = false;
+    setReverseOutput("Running reverse search...");
+
+    reverseWorkers = Array.from({ length: cores }, (_, id) => {
+      const worker = new Worker(reverseBlobUrl);
+
+      worker.onmessage = event => {
+        const data = event.data || {};
+        if (token !== reverseToken) return;
+
+        if (data.type === "progress") handleReverseProgress(data);
+        if (data.type === "found") handleReverseFound(data);
+        if (data.type === "done") finishReverseWorker(token);
+        if (data.type === "error") stopReverseSearch(data.message || "Worker error.");
+      };
+
+      worker.onerror = error => {
+        if (token === reverseToken) stopReverseSearch(error.message || "Worker failed.");
+      };
+
+      worker.postMessage({
+        type: "start",
+        workerId: id,
+        workers: cores,
+        direction,
+        startHex: start.toString(16),
+        endHex: end === null ? "" : end.toString(16),
+        target
+      });
+
+      return worker;
+    });
+
+    reverseStatsTimer = setInterval(updateReverseStats, 250);
+    updateReverseStats();
+  } catch (err) {
+    stopReverseBtn.disabled = true;
+    startReverseBtn.disabled = false;
+    cleanupReverseBlob();
+    setReverseOutput(err.message || "Could not start reverse search.");
+  }
+}
+
+function clearReverseSearch() {
+  stopReverseSearch("Cleared.");
+  resetReverseStats();
+  setReverseOutput("Enter a public key, choose where to start, choose cores, then start.");
+}
+
+function reverseWorkerSource() {
+  return `
+"use strict";
+
+const P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+const G = {
+  x: 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n,
+  y: 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n
+};
+
+const BATCH_SIZE = 4096;
+
+let active = false;
+let candidate = 1n;
+let end = null;
+let direction = "up";
+let stride = 1n;
+let stepPoint = null;
+let target = null;
+let jX = 0n;
+let jY = 1n;
+let jZ = 0n;
+
+function mod(a, m = P) {
+  const result = a % m;
+  return result >= 0n ? result : result + m;
+}
+
+function modInv(a, m = P) {
+  let lm = 1n;
+  let hm = 0n;
+  let low = mod(a, m);
+  let high = m;
+
+  while (low > 1n) {
+    const r = high / low;
+    const nm = hm - lm * r;
+    const nw = high - low * r;
+
+    hm = lm;
+    lm = nm;
+    high = low;
+    low = nw;
+  }
+
+  return mod(lm, m);
+}
+
+function pointAdd(p1, p2) {
+  if (p1 === null) return p2;
+  if (p2 === null) return p1;
+
+  if (p1.x === p2.x && p1.y !== p2.y) {
+    return null;
+  }
+
+  let slope;
+
+  if (p1.x === p2.x && p1.y === p2.y) {
+    slope = mod((3n * p1.x * p1.x) * modInv(2n * p1.y));
+  } else {
+    slope = mod((p2.y - p1.y) * modInv(p2.x - p1.x));
+  }
+
+  const x3 = mod(slope * slope - p1.x - p2.x);
+  const y3 = mod(slope * (p1.x - x3) - p1.y);
+
+  return { x: x3, y: y3 };
+}
+
+function pointNeg(point) {
+  return point === null ? null : { x: point.x, y: mod(-point.y) };
+}
+
+function scalarMultiply(k, point) {
+  let result = null;
+  let addend = point;
+  let scalar = k;
+
+  while (scalar > 0n) {
+    if (scalar & 1n) {
+      result = pointAdd(result, addend);
+    }
+
+    addend = pointAdd(addend, addend);
+    scalar >>= 1n;
+  }
+
+  return result;
+}
+
+function setJacobian(point) {
+  if (point === null) {
+    jX = 0n;
+    jY = 1n;
+    jZ = 0n;
+    return;
+  }
+
+  jX = point.x;
+  jY = point.y;
+  jZ = 1n;
+}
+
+function jacobianDouble() {
+  if (jZ === 0n) return;
+
+  const yy = mod(jY * jY);
+  const s = mod(4n * jX * yy);
+  const m = mod(3n * jX * jX);
+  const x3 = mod(m * m - 2n * s);
+  const y3 = mod(m * (s - x3) - 8n * yy * yy);
+  const z3 = mod(2n * jY * jZ);
+
+  jX = x3;
+  jY = y3;
+  jZ = z3;
+}
+
+function jacobianAddMixed(qx, qy) {
+  if (jZ === 0n) {
+    jX = qx;
+    jY = qy;
+    jZ = 1n;
+    return;
+  }
+
+  const z2 = mod(jZ * jZ);
+  const u2 = mod(qx * z2);
+  const s2 = mod(mod(qy * jZ) * z2);
+  const h = mod(u2 - jX);
+  const r = mod(s2 - jY);
+
+  if (h === 0n) {
+    if (r === 0n) {
+      jacobianDouble();
+      return;
+    }
+
+    jX = 0n;
+    jY = 1n;
+    jZ = 0n;
+    return;
+  }
+
+  const hh = mod(h * h);
+  const hhh = mod(hh * h);
+  const v = mod(jX * hh);
+  const x3 = mod(r * r - hhh - 2n * v);
+  const y3 = mod(r * (v - x3) - jY * hhh);
+  const z3 = mod(jZ * h);
+
+  jX = x3;
+  jY = y3;
+  jZ = z3;
+}
+
+function jacobianToAffine() {
+  if (jZ === 0n) return null;
+
+  const zi = modInv(jZ);
+  const zi2 = mod(zi * zi);
+  const zi3 = mod(zi2 * zi);
+
+  return {
+    x: mod(jX * zi2),
+    y: mod(jY * zi3)
+  };
+}
+
+function to64Hex(num) {
+  return num.toString(16).padStart(64, "0").toUpperCase();
+}
+
+function compressedPublicKey(point) {
+  const prefix = point.y % 2n === 0n ? "02" : "03";
+  return prefix + to64Hex(point.x);
+}
+
+function compactHex(num) {
+  return "0x" + num.toString(16).toUpperCase();
+}
+
+function inRange(value) {
+  if (value <= 0n || value >= N) return false;
+  if (end === null) return true;
+  return direction === "up" ? value <= end : value >= end;
+}
+
+function currentMatchPoint() {
+  if (jZ === 0n) return null;
+
+  const z2 = mod(jZ * jZ);
+  if (jX !== mod(target.x * z2)) return null;
+
+  if (target.mode === "uncompressed") {
+    const z3 = mod(z2 * jZ);
+    if (jY !== mod(target.y * z3)) return null;
+    return jacobianToAffine();
+  }
+
+  const point = jacobianToAffine();
+  if (point === null) return null;
+  const prefix = point.y % 2n === 0n ? "02" : "03";
+  return prefix === target.prefix ? point : null;
+}
+
+function makeProgressMessage(type, count, value, point) {
+  return {
+    type,
+    count,
+    decimal: value ? value.toString(10) : "",
+    hex: value ? compactHex(value) : "",
+    latestDecimal: value ? value.toString(10) : "",
+    latestHex: value ? compactHex(value) : "",
+    publicKey: point ? compressedPublicKey(point) : ""
+  };
+}
+
+function searchBatch() {
+  if (!active) return;
+
+  let count = 0;
+  let latestCandidate = 0n;
+
+  while (active && count < BATCH_SIZE && inRange(candidate)) {
+    latestCandidate = candidate;
+    const matchedPoint = currentMatchPoint();
+
+    if (matchedPoint) {
+      active = false;
+      postMessage(makeProgressMessage("found", count + 1, candidate, matchedPoint));
+      return;
+    }
+
+    candidate = direction === "up" ? candidate + stride : candidate - stride;
+    jacobianAddMixed(stepPoint.x, stepPoint.y);
+    count += 1;
+  }
+
+  if (count > 0) {
+    postMessage(makeProgressMessage("progress", count, latestCandidate, null));
+  }
+
+  if (!inRange(candidate)) {
+    active = false;
+    postMessage({ type: "done" });
+    return;
+  }
+
+  setTimeout(searchBatch, 0);
+}
+
+onmessage = event => {
+  const data = event.data || {};
+  if (data.type !== "start") return;
+
+  try {
+    const workerId = BigInt(data.workerId);
+    const workers = BigInt(data.workers);
+    const start = BigInt("0x" + data.startHex);
+
+    direction = data.direction === "down" ? "down" : "up";
+    end = data.endHex ? BigInt("0x" + data.endHex) : null;
+    stride = workers;
+    candidate = direction === "up" ? start + workerId : start - workerId;
+
+    target = {
+      mode: data.target.mode,
+      prefix: data.target.prefix || "",
+      x: BigInt("0x" + data.target.xHex),
+      y: data.target.yHex ? BigInt("0x" + data.target.yHex) : 0n
+    };
+
+    if (!inRange(candidate)) {
+      postMessage({ type: "done" });
+      return;
+    }
+
+    const currentPoint = scalarMultiply(candidate, G);
+    stepPoint = scalarMultiply(stride, G);
+    if (direction === "down") stepPoint = pointNeg(stepPoint);
+    setJacobian(currentPoint);
+
+    active = true;
+    searchBatch();
+  } catch (error) {
+    postMessage({ type: "error", message: error.message || "Worker could not start." });
+  }
+};
+`;
+}
+
+setupTabs();
+calculateBtn.addEventListener("click", calculatePublicKey);
+scalarInput.addEventListener("keydown", event => {
+  if (event.key === "Enter") calculatePublicKey();
+});
+startReverseBtn.addEventListener("click", startReverseSearch);
+stopReverseBtn.addEventListener("click", () => stopReverseSearch("Stopped."));
+clearReverseBtn.addEventListener("click", clearReverseSearch);
+</script>
+
+</body>
+</html>
