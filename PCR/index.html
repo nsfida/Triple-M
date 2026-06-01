@@ -676,17 +676,20 @@
         els.recipientCecNo.value = "";
       }
 
+      function hasRecipientDisplayValue(value){
+        const text = normalizeDisplay(value);
+        return Boolean(text && text !== "-");
+      }
+
       function recipientDetailRows(voucher){
         const details = recipientDetailsFromVoucher(voucher);
-        const rows = [
-          ["Paid To", voucher.paid_to],
-          ["Company", voucher.company || "-"]
-        ];
-        if (details.staff) rows.push(["Staff", details.staff]);
-        if (details.mobile) rows.push(["Mobile", details.mobile]);
-        if (details.designation) rows.push(["Designation", details.designation]);
-        if (details.nationality) rows.push(["Nationality", details.nationality]);
-        if (details.cecNo) rows.push(["CEC No.", details.cecNo]);
+        const rows = [["Paid To", voucher.paid_to]];
+        if (hasRecipientDisplayValue(voucher.company)) rows.push(["Company", voucher.company]);
+        if (hasRecipientDisplayValue(details.staff)) rows.push(["Staff", details.staff]);
+        if (hasRecipientDisplayValue(details.mobile)) rows.push(["Mobile", details.mobile]);
+        if (hasRecipientDisplayValue(details.designation)) rows.push(["Designation", details.designation]);
+        if (hasRecipientDisplayValue(details.nationality)) rows.push(["Nationality", details.nationality]);
+        if (hasRecipientDisplayValue(details.cecNo)) rows.push(["CEC No.", details.cecNo]);
         rows.push(
           ["Prepared By", voucher.created_by || "-"],
           ["Created", formatDateTime(voucher.created_at) || nowLabel()]
@@ -708,14 +711,13 @@
         if (typeof html2canvas !== "function"){
           throw new Error("PDF rendering library is still loading. Please try again.");
         }
-        const frameW = Math.round(210 * PX_PER_MM);
-        const frameH = Math.round(297 * PX_PER_MM);
         const sheetW = Math.round(297 * PX_PER_MM);
         const sheetH = Math.round(210 * PX_PER_MM);
+        const captureScale = Math.max(2, window.devicePixelRatio || 1);
         const frame = document.createElement("div");
         frame.className = "pcr-pdf-capture";
-        frame.style.width = `${frameW}px`;
-        frame.style.height = `${frameH}px`;
+        frame.style.width = `${sheetW}px`;
+        frame.style.height = `${sheetH}px`;
         frame.innerHTML = voucherHtml(voucher);
         const sheet = frame.querySelector(".voucher-sheet");
         if (!sheet) throw new Error("Voucher layout missing");
@@ -724,21 +726,16 @@
         sheet.style.maxWidth = "none";
         sheet.style.margin = "0";
         sheet.style.boxShadow = "none";
-        sheet.style.transform = `scale(${PRINT_TOP_SCALE})`;
-        sheet.style.transformOrigin = "top left";
+        sheet.style.transform = "none";
         document.body.appendChild(frame);
         try {
           await waitForImages(frame);
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          return await html2canvas(frame, {
+          return await html2canvas(sheet, {
             backgroundColor: "#ffffff",
-            scale: Math.max(2, window.devicePixelRatio || 1),
+            scale: captureScale,
             useCORS: true,
-            logging: false,
-            width: frameW,
-            height: frameH,
-            windowWidth: frameW,
-            windowHeight: frameH
+            logging: false
           });
         } finally {
           frame.remove();
@@ -1940,8 +1937,9 @@
           const canvas = await captureVoucherForPdf(voucher);
           const pdf = new jsPDFConstructor({ orientation: "portrait", unit: "mm", format: "a4" });
           const pageW = pdf.internal.pageSize.getWidth();
-          const imgH = 210 * PRINT_TOP_SCALE;
-          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, imgH, undefined, "FAST");
+          const imgW = pageW;
+          const imgH = imgW * (canvas.height / canvas.width);
+          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, imgW, imgH, undefined, "FAST");
           const filename = `${voucher.voucher_number || "payment-voucher"}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
           pdf.save(filename);
           await recordVoucherEvent(voucher, "pdf");
