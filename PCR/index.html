@@ -1106,7 +1106,9 @@
       }
 
       async function downloadPdf(voucher){
-        if (!window.jspdf?.jsPDF || !window.html2canvas){
+        const jsPDFConstructor = window.jsPDF || window.jspdf?.jsPDF;
+        const html2canvasFn = window.html2canvas || html2canvas;
+        if (!jsPDFConstructor || !html2canvasFn){
           showToast("PDF libraries are still loading. Please try again.", "error");
           return;
         }
@@ -1121,15 +1123,18 @@
         try {
           await waitForImages(holder);
           const sheet = holder.querySelector(".voucher-sheet");
-          const canvas = await window.html2canvas(sheet, {
+          if (!sheet) throw new Error("PDF content could not be rendered.");
+          sheet.querySelectorAll("img").forEach(img => img.remove());
+          const canvas = await html2canvasFn(sheet, {
             scale: 2,
             useCORS: true,
             backgroundColor: "#ffffff",
             logging: false
           });
-          const pdf = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+          const pdf = new jsPDFConstructor({ orientation: "landscape", unit: "mm", format: "a4" });
           pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 297, 210, undefined, "FAST");
-          pdf.save(`${voucher.voucher_number || "payment-voucher"}.pdf`);
+          const filename = `${voucher.voucher_number || "payment-voucher"}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
+          pdf.save(filename);
           await recordVoucherEvent(voucher, "pdf");
           showToast("PDF downloaded.");
           await loadVouchers();
