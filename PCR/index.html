@@ -1639,15 +1639,15 @@
           pdf.text(label, x + 2, signatureLineY + 5);
         }
 
-        const footerY = pageHeight - margin - 4;
+        const footerY = pageHeight - margin - 5;
         setBorder(0.16, softBorderColor);
         pdf.line(margin, footerLineY, pageWidth - margin, footerLineY);
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(...mutedColor);
         pdf.setFontSize(7);
-        pdf.text("Premium Car Rental DMCC", margin + 2, footerY + 4);
+        pdf.text("Premium Car Rental DMCC", margin + 2, footerY);
         const footerText = fitLines(`${String(voucher.voucher_number || "-")} | TRN: 100035111200003`, contentWidth / 2, 1)[0];
-        pdf.text(footerText, pageWidth - margin - 2, footerY + 4, { align: "right" });
+        pdf.text(footerText, pageWidth - margin - 2, footerY, { align: "right" });
       }
 
       async function downloadPdf(voucher){
