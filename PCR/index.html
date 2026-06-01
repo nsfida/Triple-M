@@ -11,6 +11,10 @@
   <meta name="db-table-recipients" content="pcr_recipients" />
   <meta name="db-table-print-events" content="pcr_voucher_print_events" />
   <meta name="smart-pin-enabled" content="true" />
+  <meta name="db-table-smart-pin" content="pcr_recipients" />
+  <meta name="smart-pin-record-key" content="__pcr_smart_pin__" />
+  <meta name="smart-pin-hash-key" content="pin_hash" />
+  <meta name="smart-pin-record-name" content="PCR Smart PIN" />
   <meta name="recipient-staff-key" content="staff" />
   <meta name="recipient-mobile-key" content="mobile_number" />
   <meta name="recipient-designation-key" content="designation" />
@@ -487,11 +491,35 @@
       const PRINT_EVENT_TABLE = getMeta("db-table-print-events") || "pcr_voucher_print_events";
       const LOGO_URL = "logo.png";
       const SMART_PIN_ENABLED = getMeta("smart-pin-enabled") === "true";
+      const SMART_PIN_TABLE = getMeta("db-table-smart-pin") || RECIPIENT_TABLE;
+      const SMART_PIN_RECORD_KEY = getMeta("smart-pin-record-key") || "__pcr_smart_pin__";
+      const SMART_PIN_HASH_KEY = getMeta("smart-pin-hash-key") || "pin_hash";
+      const SMART_PIN_RECORD_NAME = getMeta("smart-pin-record-name") || "PCR Smart PIN";
       const RECIPIENT_STAFF_KEY = getMeta("recipient-staff-key") || "staff";
       const RECIPIENT_MOBILE_KEY = getMeta("recipient-mobile-key") || "mobile_number";
       const RECIPIENT_DESIGNATION_KEY = getMeta("recipient-designation-key") || "designation";
       const RECIPIENT_NATIONALITY_KEY = getMeta("recipient-nationality-key") || "nationality";
       const RECIPIENT_CEC_KEY = getMeta("recipient-cec-key") || "cec_no";
+      const RECIPIENT_METADATA_KEYS = [
+        RECIPIENT_STAFF_KEY,
+        RECIPIENT_MOBILE_KEY,
+        RECIPIENT_DESIGNATION_KEY,
+        RECIPIENT_NATIONALITY_KEY,
+        RECIPIENT_CEC_KEY,
+        "staff",
+        "staff_id",
+        "staff_no",
+        "mobile",
+        "phone",
+        "mobile_number",
+        "designation",
+        "job_title",
+        "title",
+        "nationality",
+        "cec_no",
+        "cec",
+        "cec_number"
+      ];
       const PRINT_TOP_SCALE = 210 / 297;
       const PX_PER_MM = 96 / 25.4;
       const PIN_STORAGE_KEY = "pcr-smart-pin-hash";
@@ -580,6 +608,7 @@
         busyCount: 0
         , smartPinEnabled: SMART_PIN_ENABLED
         , pinConfigured: false
+        , pinHash: ""
         , databaseUnlocked: false
       };
 
@@ -666,6 +695,16 @@
           if (value) metadata[key] = value;
         }
         return metadata;
+      }
+
+      function mergeRecipientMetadata(existingRow){
+        const existingMeta = readMetadata(existingRow);
+        const freshMeta = buildRecipientMetadata();
+        const merged = { ...existingMeta };
+        for (const key of RECIPIENT_METADATA_KEYS){
+          delete merged[key];
+        }
+        return { ...merged, ...freshMeta };
       }
 
       function clearRecipientExtraFields(){
@@ -791,27 +830,140 @@
         }
       }
 
-      function getStoredPinHash(){
-        return localStorage.getItem(PIN_STORAGE_KEY) || "";
+      function isSmartPinRecord(row){
+        if (!row) return false;
+        const key = normalizeName(row.normalized_name || row.recipient_name || "");
+        return key === normalizeName(SMART_PIN_RECORD_KEY);
       }
 
-      function setStoredPinHash(hash){
-        if (hash) localStorage.setItem(PIN_STORAGE_KEY, hash);
-        else localStorage.removeItem(PIN_STORAGE_KEY);
+      async function fetchSmartPinRecord(){
+        const select = "id,normalized_name,recipient_name,metadata,is_active,source";
+        const queries = [
+          `${SMART_PIN_TABLE}?select=${select}&normalized_name=eq.${encodeURIComponent(SMART_PIN_RECORD_KEY)}&limit=1`,
+          `${SMART_PIN_TABLE}?select=${select}&source=eq.system&recipient_name=eq.${encodeURIComponent(SMART_PIN_RECORD_NAME)}&limit=1`
+        ];
+        for (const path of queries){
+          try {
+            const rows = await api(path);
+            const row = Array.isArray(rows) ? rows[0] : null;
+            if (row && (isSmartPinRecord(row) || row.source === "system")) return row;
+          } catch {}
+        }
+        return null;
+      }
+
+      function pinHashFromRecord(row){
+        const metadata = readMetadata(row);
+        return firstMetadataValue(metadata, [SMART_PIN_HASH_KEY, "pin_hash", "smart_pin_hash"]);
+      }
+
+      async function fetchPinHashFromDatabase(){
+        const record = await fetchSmartPinRecord();
+        return pinHashFromRecord(record);
+      }
+
+      async function migratePinFromLocalStorage(){
+        const legacyHash = localStorage.getItem(PIN_STORAGE_KEY) || "";
+        if (!legacyHash) return;
+        try {
+          const existingHash = await fetchPinHashFromDatabase();
+          if (!existingHash) await savePinHashToDatabase(legacyHash);
+        } finally {
+          localStorage.removeItem(PIN_STORAGE_KEY);
+        }
+      }
+
+      async function loadPinConfiguration(){
+        state.pinHash = "";
+        state.pinConfigured = false;
+        try {
+          await migratePinFromLocalStorage();
+        } catch {}
+        try {
+          const hash = await fetchPinHashFromDatabase();
+          state.pinHash = hash || "";
+          state.pinConfigured = Boolean(state.pinHash);
+        } catch {
+          state.pinHash = "";
+          state.pinConfigured = false;
+        }
+      }
+
+      function isDatabaseLocked(){
+        return Boolean(state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked);
+      }
+
+      function isDatabaseAccessible(){
+        return !isDatabaseLocked();
+      }
+
+      function syncDatabaseUnlockWithPinState(){
+        if (!state.smartPinEnabled || !state.pinConfigured){
+          state.databaseUnlocked = true;
+          return true;
+        }
+        return state.databaseUnlocked;
+      }
+
+      async function savePinHashToDatabase(hash){
+        const record = await fetchSmartPinRecord();
+        const metadata = { ...(readMetadata(record)), [SMART_PIN_HASH_KEY]: hash };
+        if (record?.id){
+          await api(`${SMART_PIN_TABLE}?id=eq.${encodeURIComponent(record.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              metadata,
+              source: "system",
+              is_active: false
+            })
+          });
+        } else {
+          await api(SMART_PIN_TABLE, {
+            method: "POST",
+            body: JSON.stringify({
+              recipient_name: SMART_PIN_RECORD_NAME,
+              normalized_name: SMART_PIN_RECORD_KEY,
+              recipient_type: "other",
+              source: "system",
+              is_active: false,
+              usage_count: 0,
+              metadata
+            })
+          });
+        }
+        state.pinHash = hash;
+        state.pinConfigured = true;
+      }
+
+      async function deletePinFromDatabase(){
+        const record = await fetchSmartPinRecord();
+        if (!record?.id) return;
+        await api(`${SMART_PIN_TABLE}?id=eq.${encodeURIComponent(record.id)}`, { method: "DELETE" });
+        state.pinHash = "";
+        state.pinConfigured = false;
+      }
+
+      async function setStoredPinHash(hash){
+        if (hash) await savePinHashToDatabase(hash);
+        else await deletePinFromDatabase();
+        state.pinHash = hash || "";
+        state.pinConfigured = Boolean(hash);
       }
 
       function isPinConfigured(){
-        return Boolean(getStoredPinHash());
+        return Boolean(state.pinConfigured);
       }
 
       async function verifyPin(pin){
-        const stored = getStoredPinHash();
+        const stored = state.pinHash || await fetchPinHashFromDatabase();
+        state.pinHash = stored || "";
+        state.pinConfigured = Boolean(stored);
         if (!stored) return false;
         return (await hashPin(pin)) === stored;
       }
 
       function updateAccessState(){
-        const locked = state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked;
+        const locked = isDatabaseLocked();
         const formControls = Array.from(els.form.querySelectorAll("input,select,textarea,button"));
         formControls.forEach(control => {
           if (control !== els.cancelEditBtn) control.disabled = locked;
@@ -836,7 +988,7 @@
         }
         if (els.pinBanner) {
           // show the inline banner only when a PIN is configured and the DB remains locked
-          els.pinBanner.classList.toggle("hide", !(state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked));
+          els.pinBanner.classList.toggle("hide", !isDatabaseLocked());
         }
       }
 
@@ -904,12 +1056,16 @@
             els.pinError.textContent = "Please enter your smart PIN.";
             return;
           }
+          await loadPinConfiguration();
+          if (!state.pinConfigured){
+            els.pinError.textContent = "No Smart PIN is configured yet.";
+            return;
+          }
           if (!await verifyPin(newPin)){
             els.pinError.textContent = "Smart PIN is incorrect.";
             return;
           }
           state.databaseUnlocked = true;
-          state.pinConfigured = true;
           hidePinModal();
           showToast("Smart PIN verified.");
           updateAccessState();
@@ -925,8 +1081,7 @@
             els.pinError.textContent = "PIN confirmation does not match.";
             return;
           }
-          setStoredPinHash(await hashPin(newPin));
-          state.pinConfigured = true;
+          await setStoredPinHash(await hashPin(newPin));
           state.databaseUnlocked = true;
           hidePinModal();
           showToast("Smart PIN set.");
@@ -951,8 +1106,7 @@
             els.pinError.textContent = "New PIN confirmation does not match.";
             return;
           }
-          setStoredPinHash(await hashPin(newPin));
-          state.pinConfigured = true;
+          await setStoredPinHash(await hashPin(newPin));
           hidePinModal();
           showToast("Smart PIN changed.");
           return;
@@ -966,24 +1120,14 @@
             els.pinError.textContent = "Current PIN is incorrect.";
             return;
           }
-          setStoredPinHash("");
-          state.pinConfigured = false;
-          state.databaseUnlocked = false;
+          await setStoredPinHash("");
+          state.databaseUnlocked = true;
           hidePinModal();
           updateAccessState();
-          renderSummary();
-          renderTable();
-          setConnection(false, "Smart PIN deleted");
+          await loadAll();
           showToast("Smart PIN deleted.");
           return;
         }
-      }
-
-      async function unlockDatabase(){
-        state.databaseUnlocked = true;
-        setConnection(true, "Connected");
-        updateAccessState();
-        await loadAll();
       }
 
       async function api(path, options = {}){
@@ -1142,13 +1286,12 @@
         els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Voucher';
         els.cancelEditBtn.classList.add("hide");
         els.formError.classList.remove("show");
-        const dbAccessible = !state.smartPinEnabled || !state.pinConfigured || state.databaseUnlocked;
-        els.voucherNumber.value = dbAccessible ? await fetchNextVoucherNumber() : "";
+        els.voucherNumber.value = isDatabaseAccessible() ? await fetchNextVoucherNumber() : "";
       }
 
       async function loadRecipients(){
         const rows = await api(`${RECIPIENT_TABLE}?select=*&is_active=eq.true&order=last_used_at.desc.nullslast&limit=800`);
-        state.recipients = Array.isArray(rows) ? rows : [];
+        state.recipients = (Array.isArray(rows) ? rows : []).filter(row => !isSmartPinRecord(row));
         renderRecipientControls();
       }
 
@@ -1177,7 +1320,7 @@
       }
 
       async function loadAll(){
-        if (state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked) {
+        if (isDatabaseLocked()) {
           setConnection(false, "Smart PIN required");
           renderSummary();
           renderTable();
@@ -1235,7 +1378,7 @@
       }
 
       function renderSummary(){
-        if (state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked){
+        if (isDatabaseLocked()){
           els.totalVouchers.textContent = "0";
           els.todayVouchers.textContent = "0";
           els.monthVouchers.textContent = "0";
@@ -1261,7 +1404,7 @@
       }
 
       function renderTable(){
-        if (state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked){
+        if (isDatabaseLocked()){
           els.databaseCount.textContent = "Locked";
           els.tableBody.innerHTML = `<tr><td colspan="7"><div class="pcr-empty">Database locked. Enter Smart PIN to load records.</div></td></tr>`;
           return;
@@ -1309,6 +1452,7 @@
       function suggestionPool(){
         const map = new Map();
         for (const row of state.recipients){
+          if (isSmartPinRecord(row)) continue;
           const key = normalizeName(row.recipient_name);
           if (key) map.set(key, { ...row, source: row.source || "saved" });
         }
@@ -1353,7 +1497,10 @@
         els.suggestions.classList.add("open");
         els.paidTo.setAttribute("aria-expanded", "true");
         els.suggestions.querySelectorAll("[data-suggestion-index]").forEach((button, index) => {
-          button.addEventListener("click", () => selectRecipient(matches[index]));
+          button.addEventListener("mousedown", event => {
+            event.preventDefault();
+            selectRecipient(matches[index]);
+          });
         });
       }
 
@@ -1362,18 +1509,46 @@
         els.paidTo.setAttribute("aria-expanded", "false");
       }
 
+      function resolveRecipientRow(row){
+        if (!row) return null;
+        if (row.id){
+          return state.recipients.find(item => item.id === row.id) || row;
+        }
+        const key = normalizeName(row.recipient_name);
+        if (!key) return row;
+        return state.recipients.find(item =>
+          normalizeName(item.recipient_name) === key
+          || normalizeName(item.normalized_name) === key
+        ) || row;
+      }
+
+      function applyRecipientToForm(row){
+        const resolved = resolveRecipientRow(row);
+        if (!resolved) return;
+        els.paidTo.value = resolved.recipient_name || "";
+        els.companyName.value = resolved.company || "";
+        els.recipientType.value = resolved.recipient_type || "other";
+        const contact = recipientContactFromRow(resolved);
+        els.recipientStaff.value = contact.staff || "";
+        els.recipientMobile.value = contact.mobile || "";
+        els.recipientDesignation.value = contact.designation || "";
+        els.recipientNationality.value = contact.nationality || "";
+        els.recipientCecNo.value = contact.cecNo || "";
+        state.selectedRecipientId = resolved.id || null;
+      }
+
       function selectRecipient(row){
-        els.paidTo.value = row.recipient_name || "";
-        els.companyName.value = row.company || els.companyName.value;
-        els.recipientType.value = row.recipient_type || "other";
-        const contact = recipientContactFromRow(row);
-        els.recipientStaff.value = contact.staff;
-        els.recipientMobile.value = contact.mobile;
-        els.recipientDesignation.value = contact.designation;
-        els.recipientNationality.value = contact.nationality;
-        els.recipientCecNo.value = contact.cecNo;
-        state.selectedRecipientId = row.id || null;
+        applyRecipientToForm(row);
         closeSuggestions();
+      }
+
+      function matchRecipientByPaidTo(){
+        const key = normalizeName(els.paidTo.value);
+        if (!key) return null;
+        return state.recipients.find(row =>
+          normalizeName(row.recipient_name) === key
+          || normalizeName(row.normalized_name) === key
+        ) || null;
       }
 
       async function ensureRecipient(){
@@ -1383,7 +1558,7 @@
         const existing = state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
         const recipientType = els.recipientType.value || "other";
         const company = normalizeDisplay(els.companyName.value) || null;
-        const metadata = { ...readMetadata(existing), ...buildRecipientMetadata() };
+        const metadata = mergeRecipientMetadata(existing);
         if (existing){
           await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existing.id)}`, {
             method: "PATCH",
@@ -1447,8 +1622,9 @@
 
       async function saveVoucher(event){
         event.preventDefault();
-        if (state.smartPinEnabled && !state.databaseUnlocked) {
+        if (isDatabaseLocked()) {
           showToast("Unlock Smart PIN before saving vouchers.", "error");
+          showPinModal("enter");
           return;
         }
         if (!validateForm()) return;
@@ -1997,6 +2173,10 @@
           state.selectedRecipientId = null;
           renderSuggestions();
         });
+        els.paidTo.addEventListener("blur", () => {
+          const match = matchRecipientByPaidTo();
+          if (match) applyRecipientToForm(match);
+        });
         els.paidTo.addEventListener("focus", renderSuggestions);
         document.addEventListener("click", event => {
           if (!event.target.closest(".pcr-autocomplete")) closeSuggestions();
@@ -2005,7 +2185,7 @@
           const button = event.target.closest("[data-recipient-id]");
           if (!button) return;
           const row = state.recipients.find(item => item.id === button.dataset.recipientId);
-          if (row) selectRecipient(row);
+          if (row) applyRecipientToForm(row);
         });
         els.cancelEditBtn.addEventListener("click", () => resetForm());
         els.previewDraftBtn.addEventListener("click", () => {
@@ -2048,7 +2228,7 @@
           if (button.dataset.action === "delete") deleteVoucher(voucher.id);
         });
         els.refreshBtn.addEventListener("click", () => {
-          if (!state.smartPinEnabled || !state.pinConfigured || state.databaseUnlocked) loadAll();
+          if (isDatabaseAccessible()) loadAll();
         });
         els.printLatestBtn.addEventListener("click", () => {
           const latest = state.vouchers[0];
@@ -2097,23 +2277,16 @@
         els.createdBy.value = getCurrentUser();
         els.createdAt.value = nowLabel();
         els.amountWords.value = amountToWords(0);
-        state.pinConfigured = isPinConfigured();
-        state.databaseUnlocked = false;
+        await loadPinConfiguration();
+        syncDatabaseUnlockWithPinState();
         updateAccessState();
-        if (state.smartPinEnabled){
-          if (state.pinConfigured){
-            // PIN is configured: require entry on load (show modal)
-            setConnection(false, "Smart PIN required");
-            showPinModal("enter");
-          } else {
-            // no PIN set: behave normally and load database
-            await loadAll();
-            if (!els.voucherNumber.value) els.voucherNumber.value = await fetchNextVoucherNumber();
-          }
-        } else {
+        if (isDatabaseAccessible()){
           await loadAll();
           if (!els.voucherNumber.value) els.voucherNumber.value = await fetchNextVoucherNumber();
+          return;
         }
+        setConnection(false, "Smart PIN required");
+        showPinModal("enter");
       }
 
       init();
