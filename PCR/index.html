@@ -11,6 +11,8 @@
   <meta name="db-table-recipients" content="pcr_recipients" />
   <meta name="db-table-print-events" content="pcr_voucher_print_events" />
   <meta name="smart-pin-enabled" content="true" />
+  <meta name="recipient-mobile-key" content="mobile_number" />
+  <meta name="recipient-designation-key" content="designation" />
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -36,6 +38,7 @@
     .pcr-field.w4{grid-column:span 4}
     .pcr-field.w8{grid-column:span 8}
     .pcr-field label{font-size:.78rem;color:var(--muted);font-weight:750}
+    .pcr-recipient-extra.hide{display:none !important}
     .pcr-readonly{background:#f8fafc;color:var(--text)}
     .pcr-amount-row{display:grid;grid-template-columns:1fr 86px;gap:8px}
     .pcr-form-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px}
@@ -49,11 +52,24 @@
     .pcr-database-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
     .pcr-database-head h3{margin:0;font-size:.98rem;letter-spacing:-.02em}
     .pcr-database-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem;line-height:1.45}
-    .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px}
-    .pcr-table td{white-space:nowrap}
-    .pcr-table .pcr-cell-main{white-space:normal;min-width:180px}
-    .pcr-actions{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
-    .pcr-actions .tiny{height:30px;display:inline-flex;align-items:center;justify-content:center}
+    .pcr-table-wrap{overflow-x:hidden}
+    .pcr-table{table-layout:fixed;width:100%}
+    .pcr-table th,.pcr-table td{white-space:normal;overflow-wrap:anywhere}
+    .pcr-table th{padding:8px 6px}
+    .pcr-table td{padding:8px 6px;line-height:1.28}
+    .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px;max-width:100%;white-space:normal;text-align:left}
+    .pcr-table th:nth-child(1){width:13%}
+    .pcr-table th:nth-child(2){width:10%}
+    .pcr-table th:nth-child(3){width:21%}
+    .pcr-table th:nth-child(4){width:11%}
+    .pcr-table th:nth-child(5){width:13%}
+    .pcr-table th:nth-child(6){width:13%}
+    .pcr-table th:nth-child(7){width:19%}
+    .pcr-table .pcr-cell-main{white-space:normal;min-width:0}
+    .pcr-table .badge{white-space:normal;line-height:1.15;text-align:center;justify-content:center}
+    .pcr-table small{display:block;line-height:1.25;overflow-wrap:anywhere}
+    .pcr-actions{display:flex;gap:4px;align-items:center;justify-content:flex-start;flex-wrap:wrap;max-width:100%}
+    .pcr-actions .tiny{height:auto;min-height:27px;display:inline-flex;align-items:center;justify-content:center;flex:1 1 42px;padding:4px 6px;font-size:.68rem;line-height:1.1;white-space:normal}
     .pcr-autocomplete{position:relative}
     .pcr-suggestions{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-strong);padding:6px;max-height:260px;overflow:auto;display:none}
     .pcr-suggestions.open{display:block}
@@ -84,41 +100,56 @@
     .pcr-modal-head h3{margin:0;font-size:1rem;letter-spacing:-.02em}
     .pcr-modal-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}
     .pcr-modal-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:0 14px 14px}
+    .pcr-pin-dialog{width:min(390px,calc(100vw - 28px),calc(100vh - 28px));height:min(390px,calc(100vw - 28px),calc(100vh - 28px));max-height:none;overflow:hidden;border-radius:20px;display:flex;flex-direction:column;justify-content:center;text-align:center}
+    .pcr-pin-dialog .pcr-modal-head{justify-content:center;padding:20px 22px 4px}
+    .pcr-pin-dialog .pcr-modal-head > div{min-width:0}
+    .pcr-pin-dialog .pcr-modal-head p{max-width:280px;margin:6px auto 0}
+    .pcr-pin-dialog [data-close-pin]{position:absolute;top:10px;right:10px}
+    .pcr-pin-body{padding:10px 32px 24px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:10px;flex:1;overflow:auto}
+    .pcr-pin-body .pcr-field{text-align:left}
+    .pcr-pin-submit-row{justify-content:center;padding:4px 0 0;gap:8px}
+    .pcr-pin-submit-row .btn{min-width:126px}
+    .pcr-pin-links{display:flex;justify-content:center;gap:6px 14px;flex-wrap:wrap;margin-top:0}
+    .pcr-pin-links button{appearance:none;border:0;background:transparent;color:var(--primary);font-size:.78rem;font-weight:800;padding:3px 4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+    .pcr-pin-links button.active{display:none !important}
+    .pcr-pin-links button.danger{color:var(--danger)}
+    .pcr-pin-dialog .pcr-form-error{text-align:left;margin-top:0}
     .pcr-preview-body{padding:14px;overflow:auto}
     .pcr-empty{border:1px dashed var(--line-strong);border-radius:12px;background:#fff;padding:18px;text-align:center;color:var(--muted);font-size:.88rem;line-height:1.6}
     #printRoot{display:none}
     .voucher-sheet{width:297mm;height:210mm;background:#fff;color:#17212b;padding:8mm;box-sizing:border-box;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto;page-break-inside:avoid;break-inside:avoid;overflow:hidden}
     .voucher-frame{border:.7px solid #c2cad6;height:100%;min-height:0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}
-    .voucher-company{display:grid;grid-template-columns:35mm minmax(0,1fr) 55mm;gap:5mm;align-items:center;border-bottom:.7px solid #c2cad6;padding:5mm 6mm}
+    .voucher-company{display:grid;grid-template-columns:34mm minmax(0,1fr) 53mm;gap:4mm;align-items:center;border-bottom:.7px solid #c2cad6;padding:4.2mm 5.5mm}
     .voucher-company > *{min-width:0}
-    .voucher-logo{width:32mm;height:22mm;object-fit:contain}
-    .voucher-company h1{margin:0;text-transform:uppercase;font-size:18pt;letter-spacing:.03em;line-height:1.05}
-    .voucher-company p{margin:2mm 0 0;font-size:8.5pt;line-height:1.35;color:#344054;overflow-wrap:anywhere}
-    .voucher-number-box{border:.7px solid #c2cad6;padding:3mm;text-align:center;min-width:0}
+    .voucher-logo{width:31mm;height:20mm;object-fit:contain}
+    .voucher-company h1{margin:0;text-transform:uppercase;font-size:17pt;letter-spacing:.03em;line-height:1.05}
+    .voucher-company p{margin:1.5mm 0 0;font-size:8pt;line-height:1.25;color:#344054;overflow-wrap:anywhere}
+    .voucher-number-box{border:.7px solid #c2cad6;padding:2.6mm;text-align:center;min-width:0}
     .voucher-number-box span{display:block;font-size:7.5pt;color:#667085;text-transform:uppercase;font-weight:700}
     .voucher-number-box strong{display:block;margin-top:1.5mm;font-size:13pt;letter-spacing:.02em}
     .voucher-title-row{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:5mm;align-items:stretch;border-bottom:.7px solid #c2cad6}
-    .voucher-title{padding:4mm 6mm}
-    .voucher-title h2{margin:0;font-size:20pt;text-transform:uppercase;letter-spacing:.08em}
-    .voucher-title p{margin:2mm 0 0;font-size:9pt;color:#344054}
-    .voucher-date{border-left:.7px solid #c2cad6;display:grid;grid-template-columns:1fr;align-content:center;padding:4mm 5mm;min-width:0}
+    .voucher-title{padding:3.5mm 5.5mm}
+    .voucher-title h2{margin:0;font-size:19pt;text-transform:uppercase;letter-spacing:.08em}
+    .voucher-title p{margin:1.5mm 0 0;font-size:8.5pt;color:#344054}
+    .voucher-date{border-left:.7px solid #c2cad6;display:grid;grid-template-columns:1fr;align-content:center;padding:3.5mm 5mm;min-width:0}
     .voucher-date span{font-size:7.5pt;color:#667085;font-weight:700;text-transform:uppercase}
     .voucher-date strong{font-size:13pt;margin-top:1.5mm}
-    .voucher-main{padding:5mm 6mm;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:5mm;flex:1;min-height:0;overflow:hidden}
+    .voucher-main{padding:4mm 5.5mm;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:4mm;flex:1;min-height:0;overflow:hidden}
     .voucher-box{border:.7px solid #cfd6e0;min-width:0;overflow:hidden}
-    .voucher-box h3{margin:0;padding:2.5mm 3mm;background:#f8fafc;border-bottom:.7px solid #cfd6e0;text-transform:uppercase;font-size:8pt;letter-spacing:.08em}
-    .voucher-box-content{padding:3mm;display:grid;gap:2.5mm;min-width:0;overflow:hidden}
-    .voucher-line{display:grid;grid-template-columns:32mm minmax(0,1fr);gap:3mm;font-size:9pt;line-height:1.35;min-width:0}
+    .voucher-box h3{margin:0;padding:2mm 2.8mm;background:#f8fafc;border-bottom:.7px solid #cfd6e0;text-transform:uppercase;font-size:7.6pt;letter-spacing:.08em}
+    .voucher-box-content{padding:2.2mm 2.8mm;display:grid;gap:1.15mm;min-width:0;overflow:hidden}
+    .voucher-line{display:grid;grid-template-columns:29mm minmax(0,1fr);gap:2.6mm;font-size:8pt;line-height:1.18;min-width:0;align-items:start}
     .voucher-line span{color:#667085;font-weight:700}
     .voucher-line strong{font-weight:800;word-break:normal;overflow-wrap:anywhere;min-width:0}
-    .voucher-amount-words{grid-column:1 / -1;border:.7px solid #c2cad6;background:#f8fafc;padding:4mm;margin-top:1mm;overflow:hidden}
+    .voucher-detail-box .voucher-line strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .voucher-amount-words{grid-column:1 / -1;border:.7px solid #c2cad6;background:#f8fafc;padding:3mm 3.5mm;margin-top:0;overflow:hidden}
     .voucher-amount-words span{display:block;color:#667085;font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
-    .voucher-amount-words strong{display:-webkit-box;margin-top:2mm;font-size:13pt;line-height:1.35;text-transform:uppercase;overflow:hidden;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+    .voucher-amount-words strong{display:-webkit-box;margin-top:1.5mm;font-size:12pt;line-height:1.28;text-transform:uppercase;overflow:hidden;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:anywhere}
     .voucher-description{grid-column:1 / -1;min-height:24mm}
-    .voucher-description p{margin:0;font-size:9pt;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
-    .voucher-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;padding:0 6mm 6mm}
-    .voucher-signature{padding-top:13mm;border-top:.7px solid #c2cad6;text-align:center;font-size:8.5pt;text-transform:uppercase;font-weight:800;color:#344054}
-    .voucher-footer{border-top:.7px solid #cfd6e0;padding:3mm 6mm;display:flex;justify-content:space-between;gap:5mm;font-size:7.5pt;color:#667085}
+    .voucher-description p{margin:0;font-size:8.5pt;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+    .voucher-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;padding:0 5.5mm 5mm}
+    .voucher-signature{padding-top:11mm;border-top:.7px solid #c2cad6;text-align:center;font-size:8pt;text-transform:uppercase;font-weight:800;color:#344054}
+    .voucher-footer{border-top:.7px solid #cfd6e0;padding:2.5mm 5.5mm;display:flex;justify-content:space-between;gap:5mm;font-size:7.2pt;color:#667085}
     .voucher-preview-scale{transform-origin:top left}
     @media (max-width:1100px){
       .pcr-layout{grid-template-columns:1fr}
@@ -134,6 +165,18 @@
       .pcr-toolbar-actions .btn{flex:1 1 auto}
       .pcr-table th,.pcr-table td{font-size:.72rem;padding:8px}
       .pcr-actions{flex-wrap:wrap}
+    }
+    @media (max-width:900px){
+      .pcr-table-wrap{overflow-x:hidden}
+      .pcr-table,.pcr-table thead,.pcr-table tbody,.pcr-table tr,.pcr-table td{display:block;width:100%}
+      .pcr-table thead{display:none}
+      .pcr-table tr{border-bottom:1px solid rgba(16,24,40,.08);padding:6px 0}
+      .pcr-table tr:last-child{border-bottom:0}
+      .pcr-table td{display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px;align-items:start;border-bottom:0;padding:6px 10px}
+      .pcr-table td::before{content:attr(data-label);font-size:.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+      .pcr-table td[colspan]{display:block}
+      .pcr-table td[colspan]::before{content:""}
+      .pcr-actions .tiny{flex:0 1 auto}
     }
     @media print{
       @page{size:A4 landscape;margin:0}
@@ -256,6 +299,14 @@
                 <div id="recipientSuggestions" class="pcr-suggestions" role="listbox"></div>
                 <div id="quickRecipients" class="pcr-quick-list" aria-label="Saved recipients"></div>
               </div>
+              <div class="pcr-field w6 pcr-recipient-extra hide" id="recipientDesignationField">
+                <label for="recipientDesignation">Designation</label>
+                <input id="recipientDesignation" class="input" type="text" autocomplete="organization-title" />
+              </div>
+              <div class="pcr-field w6 pcr-recipient-extra hide" id="recipientMobileField">
+                <label for="recipientMobile">Mobile Number</label>
+                <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
+              </div>
               <div class="pcr-field">
                 <label for="descriptionText">Description / Remarks</label>
                 <textarea id="descriptionText" class="input" rows="3"></textarea>
@@ -323,7 +374,7 @@
             <button id="clearFiltersBtn" class="btn ghost" type="button">Clear</button>
           </div>
 
-          <div class="table-wrap" style="margin-top:10px">
+          <div class="table-wrap pcr-table-wrap" style="margin-top:10px">
             <table class="pcr-table">
               <thead>
                 <tr>
@@ -366,7 +417,7 @@
 
   <div id="pinModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
     <div class="pcr-modal-backdrop" data-close-pin></div>
-    <div class="pcr-modal-dialog">
+    <div class="pcr-modal-dialog pcr-pin-dialog">
       <div class="pcr-modal-head">
         <div>
           <h3 id="pinModalTitle">Smart PIN</h3>
@@ -374,13 +425,7 @@
         </div>
         <button class="icon-btn ghost" type="button" data-close-pin aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="pcr-preview-body">
-        <div id="pinActionButtons" class="pcr-quick-list" style="margin-bottom:12px;gap:8px;display:flex;flex-wrap:wrap;">
-          <button type="button" class="btn soft" data-action="enter">Enter PIN</button>
-          <button type="button" class="btn soft" data-action="set">Set PIN</button>
-          <button type="button" class="btn soft" data-action="change">Change PIN</button>
-          <button type="button" class="btn soft danger" data-action="delete">Delete PIN</button>
-        </div>
+      <div class="pcr-preview-body pcr-pin-body">
         <div class="pcr-field hide" id="pinCurrentField">
           <label id="pinCurrentLabel" for="pinCurrentInput">Current PIN</label>
           <input id="pinCurrentInput" class="input" type="password" autocomplete="current-password" />
@@ -393,9 +438,15 @@
           <label id="pinConfirmLabel" for="pinConfirmInput">Confirm PIN</label>
           <input id="pinConfirmInput" class="input" type="password" autocomplete="new-password" />
         </div>
-        <div class="pcr-modal-actions" style="justify-content:flex-start;gap:10px;">
+        <div class="pcr-modal-actions pcr-pin-submit-row">
           <button id="pinSubmitBtn" class="btn primary" type="button">Continue</button>
           <button id="pinCancelBtn" class="btn ghost" type="button">Cancel</button>
+        </div>
+        <div id="pinActionButtons" class="pcr-pin-links">
+          <button type="button" data-action="enter">Unlock</button>
+          <button type="button" data-action="set">Set PIN</button>
+          <button type="button" data-action="change">Change PIN</button>
+          <button type="button" class="danger" data-action="delete">Delete PIN</button>
         </div>
         <div id="pinError" class="pcr-form-error" role="alert"></div>
       </div>
@@ -420,6 +471,8 @@
       const PRINT_EVENT_TABLE = getMeta("db-table-print-events") || "pcr_voucher_print_events";
       const LOGO_URL = "logo.png";
       const SMART_PIN_ENABLED = getMeta("smart-pin-enabled") === "true";
+      const RECIPIENT_MOBILE_KEY = getMeta("recipient-mobile-key") || "mobile_number";
+      const RECIPIENT_DESIGNATION_KEY = getMeta("recipient-designation-key") || "designation";
       const PIN_STORAGE_KEY = "pcr-smart-pin-hash";
 
       const els = {
@@ -431,6 +484,10 @@
         companyName: document.getElementById("companyName"),
         paidTo: document.getElementById("paidTo"),
         recipientType: document.getElementById("recipientType"),
+        recipientDesignationField: document.getElementById("recipientDesignationField"),
+        recipientDesignation: document.getElementById("recipientDesignation"),
+        recipientMobileField: document.getElementById("recipientMobileField"),
+        recipientMobile: document.getElementById("recipientMobile"),
         paymentMethod: document.getElementById("paymentMethod"),
         descriptionText: document.getElementById("descriptionText"),
         createdBy: document.getElementById("createdBy"),
@@ -529,6 +586,67 @@
 
       function normalizeName(value){
         return normalizeDisplay(value).toLowerCase();
+      }
+
+      function readMetadata(row){
+        return row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : {};
+      }
+
+      function firstMetadataValue(metadata, keys){
+        for (const key of keys){
+          const value = normalizeDisplay(metadata[key]);
+          if (value) return value;
+        }
+        return "";
+      }
+
+      function recipientContactFromRow(row){
+        const metadata = readMetadata(row);
+        return {
+          mobile: firstMetadataValue(metadata, [RECIPIENT_MOBILE_KEY, "mobile", "phone", "mobile_number"]),
+          designation: firstMetadataValue(metadata, [RECIPIENT_DESIGNATION_KEY, "designation", "job_title", "title"])
+        };
+      }
+
+      function findRecipientForVoucher(voucher){
+        if (!voucher) return null;
+        return state.recipients.find(row => row.id && row.id === voucher.recipient_id)
+          || state.recipients.find(row => normalizeName(row.recipient_name) === normalizeName(voucher.paid_to))
+          || null;
+      }
+
+      function recipientDetailsFromVoucher(voucher){
+        const voucherMeta = readMetadata(voucher);
+        const recipient = findRecipientForVoucher(voucher);
+        const recipientMeta = readMetadata(recipient);
+        const type = normalizeDisplay(voucherMeta.recipient_type || recipient?.recipient_type || "other") || "other";
+        const mergedMeta = { ...recipientMeta, ...voucherMeta };
+        const contact = recipientContactFromRow({ metadata: mergedMeta });
+        return {
+          type,
+          mobile: contact.mobile,
+          designation: type === "staff" ? contact.designation : ""
+        };
+      }
+
+      function buildRecipientMetadata(){
+        const type = els.recipientType.value || "other";
+        const metadata = {};
+        const mobile = normalizeDisplay(els.recipientMobile.value);
+        const designation = normalizeDisplay(els.recipientDesignation.value);
+        if (mobile && (type === "staff" || type === "customer")) metadata[RECIPIENT_MOBILE_KEY] = mobile;
+        if (designation && type === "staff") metadata[RECIPIENT_DESIGNATION_KEY] = designation;
+        return metadata;
+      }
+
+      function updateRecipientExtraFields(clearHidden = false){
+        const type = els.recipientType.value || "other";
+        const showMobile = type === "staff" || type === "customer";
+        const showDesignation = type === "staff";
+        els.recipientMobileField.classList.toggle("hide", !showMobile);
+        els.recipientDesignationField.classList.toggle("hide", !showDesignation);
+        if (clearHidden && !showMobile) els.recipientMobile.value = "";
+        if (clearHidden && !showDesignation) els.recipientDesignation.value = "";
       }
 
       function getCurrentUser(){
@@ -878,7 +996,12 @@
           payment_method: els.paymentMethod.value || "Cash",
           description: normalizeDisplay(els.descriptionText.value),
           created_by: normalizeDisplay(els.createdBy.value) || getCurrentUser(),
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          metadata: {
+            source: "PCR Payment Voucher Database",
+            recipient_type: els.recipientType.value || "other",
+            ...buildRecipientMetadata()
+          }
         };
       }
 
@@ -919,6 +1042,7 @@
         state.selectedRecipientId = null;
         state.amountWordsTouched = false;
         els.form.reset();
+        updateRecipientExtraFields(true);
         els.voucherDate.value = todayIso();
         els.createdBy.value = getCurrentUser();
         els.createdAt.value = nowLabel();
@@ -992,6 +1116,8 @@
             voucher.voucher_number,
             voucher.paid_to,
             voucher.company,
+            recipientDetailsFromVoucher(voucher).mobile,
+            recipientDetailsFromVoucher(voucher).designation,
             voucher.description,
             voucher.created_by,
             voucher.payment_method
@@ -1033,7 +1159,7 @@
           .sort((a, b) => String(a.recipient_name || "").localeCompare(String(b.recipient_name || "")));
         els.recipientFilter.innerHTML = `<option value="">All</option>${names.map(row => `<option value="${escapeHtml(row.recipient_name)}">${escapeHtml(row.recipient_name)}</option>`).join("")}`;
         els.quickRecipients.innerHTML = state.recipients.slice(0, 8).map(row => (
-          `<button type="button" data-recipient-id="${escapeHtml(row.id)}" title="${escapeHtml(row.recipient_name)}">${escapeHtml(row.recipient_name)}</button>`
+          `<button type="button" data-recipient-id="${escapeHtml(row.id)}" title="${escapeHtml([row.recipient_name, recipientContactFromRow(row).mobile].filter(Boolean).join(" - "))}">${escapeHtml(row.recipient_name)}</button>`
         )).join("");
       }
 
@@ -1051,13 +1177,13 @@
         }
         els.tableBody.innerHTML = rows.map(voucher => `
           <tr>
-            <td><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
-            <td>${escapeHtml(formatDate(voucher.voucher_date))}</td>
-            <td class="pcr-cell-main"><strong>${escapeHtml(voucher.paid_to)}</strong>${voucher.company ? `<br><small>${escapeHtml(voucher.company)}</small>` : ""}</td>
-            <td><span class="badge ${methodClass(voucher.payment_method)}">${escapeHtml(voucher.payment_method)}</span></td>
-            <td><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></td>
-            <td>${escapeHtml(voucher.created_by || "")}</td>
-            <td>
+            <td data-label="Voucher"><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
+            <td data-label="Date">${escapeHtml(formatDate(voucher.voucher_date))}</td>
+            <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(voucher.paid_to)}</strong>${voucher.company ? `<br><small>${escapeHtml(voucher.company)}</small>` : ""}</td>
+            <td data-label="Method"><span class="badge ${methodClass(voucher.payment_method)}">${escapeHtml(voucher.payment_method)}</span></td>
+            <td data-label="Amount"><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></td>
+            <td data-label="Created By">${escapeHtml(voucher.created_by || "")}</td>
+            <td data-label="Actions">
               <div class="pcr-actions">
                 <button class="tiny ghost" type="button" data-action="view" data-id="${escapeHtml(voucher.id)}">View</button>
                 <button class="tiny" type="button" data-action="edit" data-id="${escapeHtml(voucher.id)}">Edit</button>
@@ -1099,7 +1225,14 @@
       function renderSuggestions(){
         const query = normalizeName(els.paidTo.value);
         const matches = suggestionPool()
-          .filter(row => !query || normalizeName(row.recipient_name).includes(query) || normalizeName(row.company).includes(query))
+          .filter(row => {
+            const contact = recipientContactFromRow(row);
+            return !query
+              || normalizeName(row.recipient_name).includes(query)
+              || normalizeName(row.company).includes(query)
+              || normalizeName(contact.mobile).includes(query)
+              || normalizeName(contact.designation).includes(query);
+          })
           .slice(0, 10);
         if (!matches.length){
           els.suggestions.innerHTML = `<div class="pcr-empty" style="padding:10px">Manual entry</div>`;
@@ -1107,12 +1240,16 @@
           els.paidTo.setAttribute("aria-expanded", "true");
           return;
         }
-        els.suggestions.innerHTML = matches.map((row, index) => `
+        els.suggestions.innerHTML = matches.map((row, index) => {
+          const contact = recipientContactFromRow(row);
+          const detail = [row.company || row.source || "saved", contact.designation, contact.mobile].filter(Boolean).join(" - ");
+          return `
           <button class="pcr-suggestion" type="button" role="option" data-suggestion-index="${index}">
-            <span><strong>${escapeHtml(row.recipient_name)}</strong><small>${escapeHtml(row.company || row.source || "saved")}</small></span>
+            <span><strong>${escapeHtml(row.recipient_name)}</strong><small>${escapeHtml(detail)}</small></span>
             <span class="badge ${row.recipient_type === "staff" ? "orange" : row.recipient_type === "customer" ? "blue" : "green"}">${escapeHtml(row.recipient_type || "saved")}</span>
           </button>
-        `).join("");
+        `;
+        }).join("");
         els.suggestions.classList.add("open");
         els.paidTo.setAttribute("aria-expanded", "true");
         els.suggestions.querySelectorAll("[data-suggestion-index]").forEach((button, index) => {
@@ -1129,6 +1266,10 @@
         els.paidTo.value = row.recipient_name || "";
         els.companyName.value = row.company || els.companyName.value;
         els.recipientType.value = row.recipient_type || "other";
+        const contact = recipientContactFromRow(row);
+        els.recipientMobile.value = contact.mobile;
+        els.recipientDesignation.value = contact.designation;
+        updateRecipientExtraFields();
         state.selectedRecipientId = row.id || null;
         closeSuggestions();
       }
@@ -1138,15 +1279,33 @@
         const key = normalizeName(paidTo);
         if (!key) return null;
         const existing = state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
-        if (existing) return existing.id;
+        const recipientType = els.recipientType.value || "other";
+        const company = normalizeDisplay(els.companyName.value) || null;
+        const metadata = { ...readMetadata(existing), ...buildRecipientMetadata() };
+        if (existing){
+          await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existing.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              recipient_type: recipientType,
+              company: company || existing.company || null,
+              metadata,
+              usage_count: Number(existing.usage_count || 0) + 1,
+              last_used_at: new Date().toISOString()
+            })
+          });
+          await loadRecipients();
+          return existing.id;
+        }
 
         const payload = {
           recipient_name: paidTo,
           normalized_name: key,
-          recipient_type: els.recipientType.value || "other",
-          company: normalizeDisplay(els.companyName.value) || null,
+          recipient_type: recipientType,
+          company,
           source: "manual",
-          usage_count: 0,
+          usage_count: 1,
+          last_used_at: new Date().toISOString(),
+          metadata,
           created_by: normalizeDisplay(els.createdBy.value) || getCurrentUser()
         };
         try {
@@ -1176,7 +1335,11 @@
           description: normalizeDisplay(els.descriptionText.value) || null,
           created_by: createdBy,
           updated_by: createdBy,
-          metadata: { source: "PCR Payment Voucher Database" }
+          metadata: {
+            source: "PCR Payment Voucher Database",
+            recipient_type: els.recipientType.value || "other",
+            ...buildRecipientMetadata()
+          }
         };
       }
 
@@ -1232,6 +1395,11 @@
         els.amountWords.value = voucher.amount_words || amountToWords(voucher.amount);
         els.companyName.value = voucher.company || "";
         els.paidTo.value = voucher.paid_to || "";
+        const details = recipientDetailsFromVoucher(voucher);
+        els.recipientType.value = details.type || "other";
+        els.recipientMobile.value = details.mobile || "";
+        els.recipientDesignation.value = details.designation || "";
+        updateRecipientExtraFields();
         els.paymentMethod.value = voucher.payment_method || "";
         els.descriptionText.value = voucher.description || "";
         els.createdBy.value = voucher.created_by || getCurrentUser();
