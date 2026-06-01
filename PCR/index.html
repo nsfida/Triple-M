@@ -11,8 +11,11 @@
   <meta name="db-table-recipients" content="pcr_recipients" />
   <meta name="db-table-print-events" content="pcr_voucher_print_events" />
   <meta name="smart-pin-enabled" content="true" />
+  <meta name="recipient-staff-key" content="staff" />
   <meta name="recipient-mobile-key" content="mobile_number" />
   <meta name="recipient-designation-key" content="designation" />
+  <meta name="recipient-nationality-key" content="nationality" />
+  <meta name="recipient-cec-key" content="cec_no" />
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -38,7 +41,8 @@
     .pcr-field.w4{grid-column:span 4}
     .pcr-field.w8{grid-column:span 8}
     .pcr-field label{font-size:.78rem;color:var(--muted);font-weight:750}
-    .pcr-recipient-extra.hide{display:none !important}
+    .pcr-field-label-optional{font-weight:600;color:var(--muted);font-size:.82em}
+    .pcr-pdf-capture{position:fixed;left:-12000px;top:0;z-index:-1;background:#fff;overflow:hidden;pointer-events:none}
     .pcr-readonly{background:#f8fafc;color:var(--text)}
     .pcr-amount-row{display:grid;grid-template-columns:1fr 86px;gap:8px}
     .pcr-form-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px}
@@ -179,13 +183,13 @@
       .pcr-actions .tiny{flex:0 1 auto}
     }
     @media print{
-      @page{size:A4 landscape;margin:0}
-      html,body{margin:0 !important;padding:0 !important;width:297mm !important;height:210mm !important;min-height:0 !important;overflow:hidden !important;background:#fff !important}
+      @page{size:A4 portrait;margin:0}
+      html,body{margin:0 !important;padding:0 !important;width:210mm !important;height:297mm !important;min-height:0 !important;overflow:hidden !important;background:#fff !important}
       body{position:static !important}
       body > :not(#printRoot){display:none !important}
       #printRoot,#printRoot *{visibility:visible !important}
-      #printRoot{display:block !important;position:fixed;left:0;top:0;width:297mm;height:210mm;max-width:297mm;max-height:210mm;overflow:hidden;background:#fff;box-sizing:border-box;margin:0;padding:0}
-      .voucher-sheet{box-shadow:none;margin:0;width:297mm;height:210mm;padding:8mm;box-sizing:border-box;overflow:hidden;page-break-before:avoid;page-break-after:avoid;break-before:avoid;break-after:avoid}
+      #printRoot{display:block !important;position:fixed;left:0;top:0;width:210mm;height:297mm;max-width:210mm;max-height:297mm;overflow:hidden;background:#fff;box-sizing:border-box;margin:0;padding:0}
+      .voucher-sheet{box-shadow:none;margin:0;width:297mm;height:210mm;padding:8mm;box-sizing:border-box;overflow:hidden;transform:scale(calc(210 / 297));transform-origin:top left;page-break-before:avoid;page-break-after:avoid;break-before:avoid;break-after:avoid}
     }
   </style>
 </head>
@@ -299,13 +303,25 @@
                 <div id="recipientSuggestions" class="pcr-suggestions" role="listbox"></div>
                 <div id="quickRecipients" class="pcr-quick-list" aria-label="Saved recipients"></div>
               </div>
-              <div class="pcr-field w6 pcr-recipient-extra hide" id="recipientDesignationField">
-                <label for="recipientDesignation">Designation</label>
+              <div class="pcr-field w6">
+                <label for="recipientStaff">Staff <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientStaff" class="input" type="text" autocomplete="off" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientMobile">Mobile Number <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientDesignation">Designation <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientDesignation" class="input" type="text" autocomplete="organization-title" />
               </div>
-              <div class="pcr-field w6 pcr-recipient-extra hide" id="recipientMobileField">
-                <label for="recipientMobile">Mobile Number</label>
-                <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
+              <div class="pcr-field w6">
+                <label for="recipientNationality">Nationality <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientNationality" class="input" type="text" autocomplete="country-name" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientCecNo">CEC No. <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientCecNo" class="input" type="text" autocomplete="off" />
               </div>
               <div class="pcr-field">
                 <label for="descriptionText">Description / Remarks</label>
@@ -471,8 +487,13 @@
       const PRINT_EVENT_TABLE = getMeta("db-table-print-events") || "pcr_voucher_print_events";
       const LOGO_URL = "logo.png";
       const SMART_PIN_ENABLED = getMeta("smart-pin-enabled") === "true";
+      const RECIPIENT_STAFF_KEY = getMeta("recipient-staff-key") || "staff";
       const RECIPIENT_MOBILE_KEY = getMeta("recipient-mobile-key") || "mobile_number";
       const RECIPIENT_DESIGNATION_KEY = getMeta("recipient-designation-key") || "designation";
+      const RECIPIENT_NATIONALITY_KEY = getMeta("recipient-nationality-key") || "nationality";
+      const RECIPIENT_CEC_KEY = getMeta("recipient-cec-key") || "cec_no";
+      const PRINT_TOP_SCALE = 210 / 297;
+      const PX_PER_MM = 96 / 25.4;
       const PIN_STORAGE_KEY = "pcr-smart-pin-hash";
 
       const els = {
@@ -484,10 +505,11 @@
         companyName: document.getElementById("companyName"),
         paidTo: document.getElementById("paidTo"),
         recipientType: document.getElementById("recipientType"),
-        recipientDesignationField: document.getElementById("recipientDesignationField"),
-        recipientDesignation: document.getElementById("recipientDesignation"),
-        recipientMobileField: document.getElementById("recipientMobileField"),
+        recipientStaff: document.getElementById("recipientStaff"),
         recipientMobile: document.getElementById("recipientMobile"),
+        recipientDesignation: document.getElementById("recipientDesignation"),
+        recipientNationality: document.getElementById("recipientNationality"),
+        recipientCecNo: document.getElementById("recipientCecNo"),
         paymentMethod: document.getElementById("paymentMethod"),
         descriptionText: document.getElementById("descriptionText"),
         createdBy: document.getElementById("createdBy"),
@@ -603,8 +625,11 @@
       function recipientContactFromRow(row){
         const metadata = readMetadata(row);
         return {
+          staff: firstMetadataValue(metadata, [RECIPIENT_STAFF_KEY, "staff", "staff_id", "staff_no"]),
           mobile: firstMetadataValue(metadata, [RECIPIENT_MOBILE_KEY, "mobile", "phone", "mobile_number"]),
-          designation: firstMetadataValue(metadata, [RECIPIENT_DESIGNATION_KEY, "designation", "job_title", "title"])
+          designation: firstMetadataValue(metadata, [RECIPIENT_DESIGNATION_KEY, "designation", "job_title", "title"]),
+          nationality: firstMetadataValue(metadata, [RECIPIENT_NATIONALITY_KEY, "nationality"]),
+          cecNo: firstMetadataValue(metadata, [RECIPIENT_CEC_KEY, "cec_no", "cec", "cec_number"])
         };
       }
 
@@ -621,32 +646,103 @@
         const recipientMeta = readMetadata(recipient);
         const type = normalizeDisplay(voucherMeta.recipient_type || recipient?.recipient_type || "other") || "other";
         const mergedMeta = { ...recipientMeta, ...voucherMeta };
-        const contact = recipientContactFromRow({ metadata: mergedMeta });
         return {
           type,
-          mobile: contact.mobile,
-          designation: type === "staff" ? contact.designation : ""
+          ...recipientContactFromRow({ metadata: mergedMeta })
         };
       }
 
       function buildRecipientMetadata(){
-        const type = els.recipientType.value || "other";
         const metadata = {};
-        const mobile = normalizeDisplay(els.recipientMobile.value);
-        const designation = normalizeDisplay(els.recipientDesignation.value);
-        if (mobile && (type === "staff" || type === "customer")) metadata[RECIPIENT_MOBILE_KEY] = mobile;
-        if (designation && type === "staff") metadata[RECIPIENT_DESIGNATION_KEY] = designation;
+        const entries = [
+          [RECIPIENT_STAFF_KEY, els.recipientStaff.value],
+          [RECIPIENT_MOBILE_KEY, els.recipientMobile.value],
+          [RECIPIENT_DESIGNATION_KEY, els.recipientDesignation.value],
+          [RECIPIENT_NATIONALITY_KEY, els.recipientNationality.value],
+          [RECIPIENT_CEC_KEY, els.recipientCecNo.value]
+        ];
+        for (const [key, raw] of entries){
+          const value = normalizeDisplay(raw);
+          if (value) metadata[key] = value;
+        }
         return metadata;
       }
 
-      function updateRecipientExtraFields(clearHidden = false){
-        const type = els.recipientType.value || "other";
-        const showMobile = type === "staff" || type === "customer";
-        const showDesignation = type === "staff";
-        els.recipientMobileField.classList.toggle("hide", !showMobile);
-        els.recipientDesignationField.classList.toggle("hide", !showDesignation);
-        if (clearHidden && !showMobile) els.recipientMobile.value = "";
-        if (clearHidden && !showDesignation) els.recipientDesignation.value = "";
+      function clearRecipientExtraFields(){
+        els.recipientStaff.value = "";
+        els.recipientMobile.value = "";
+        els.recipientDesignation.value = "";
+        els.recipientNationality.value = "";
+        els.recipientCecNo.value = "";
+      }
+
+      function recipientDetailRows(voucher){
+        const details = recipientDetailsFromVoucher(voucher);
+        const rows = [
+          ["Paid To", voucher.paid_to],
+          ["Company", voucher.company || "-"]
+        ];
+        if (details.staff) rows.push(["Staff", details.staff]);
+        if (details.mobile) rows.push(["Mobile", details.mobile]);
+        if (details.designation) rows.push(["Designation", details.designation]);
+        if (details.nationality) rows.push(["Nationality", details.nationality]);
+        if (details.cecNo) rows.push(["CEC No.", details.cecNo]);
+        rows.push(
+          ["Prepared By", voucher.created_by || "-"],
+          ["Created", formatDateTime(voucher.created_at) || nowLabel()]
+        );
+        return rows;
+      }
+
+      function voucherRecipientLinesHtml(voucher){
+        return recipientDetailRows(voucher).map(([label, value]) => (
+          `<div class="voucher-line"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "-")}</strong></div>`
+        )).join("");
+      }
+
+      function recipientContactSummary(contact){
+        return [contact.staff, contact.designation, contact.mobile, contact.nationality, contact.cecNo].filter(Boolean).join(" - ");
+      }
+
+      async function captureVoucherForPdf(voucher){
+        if (typeof html2canvas !== "function"){
+          throw new Error("PDF rendering library is still loading. Please try again.");
+        }
+        const frameW = Math.round(210 * PX_PER_MM);
+        const frameH = Math.round(297 * PX_PER_MM);
+        const sheetW = Math.round(297 * PX_PER_MM);
+        const sheetH = Math.round(210 * PX_PER_MM);
+        const frame = document.createElement("div");
+        frame.className = "pcr-pdf-capture";
+        frame.style.width = `${frameW}px`;
+        frame.style.height = `${frameH}px`;
+        frame.innerHTML = voucherHtml(voucher);
+        const sheet = frame.querySelector(".voucher-sheet");
+        if (!sheet) throw new Error("Voucher layout missing");
+        sheet.style.width = `${sheetW}px`;
+        sheet.style.height = `${sheetH}px`;
+        sheet.style.maxWidth = "none";
+        sheet.style.margin = "0";
+        sheet.style.boxShadow = "none";
+        sheet.style.transform = `scale(${PRINT_TOP_SCALE})`;
+        sheet.style.transformOrigin = "top left";
+        document.body.appendChild(frame);
+        try {
+          await waitForImages(frame);
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          return await html2canvas(frame, {
+            backgroundColor: "#ffffff",
+            scale: Math.max(2, window.devicePixelRatio || 1),
+            useCORS: true,
+            logging: false,
+            width: frameW,
+            height: frameH,
+            windowWidth: frameW,
+            windowHeight: frameH
+          });
+        } finally {
+          frame.remove();
+        }
       }
 
       function getCurrentUser(){
@@ -1042,7 +1138,7 @@
         state.selectedRecipientId = null;
         state.amountWordsTouched = false;
         els.form.reset();
-        updateRecipientExtraFields(true);
+        clearRecipientExtraFields();
         els.voucherDate.value = todayIso();
         els.createdBy.value = getCurrentUser();
         els.createdAt.value = nowLabel();
@@ -1112,12 +1208,16 @@
         const method = els.methodFilter.value;
 
         return state.vouchers.filter(voucher => {
+          const recipientDetails = recipientDetailsFromVoucher(voucher);
           const haystack = normalizeName([
             voucher.voucher_number,
             voucher.paid_to,
             voucher.company,
-            recipientDetailsFromVoucher(voucher).mobile,
-            recipientDetailsFromVoucher(voucher).designation,
+            recipientDetails.staff,
+            recipientDetails.mobile,
+            recipientDetails.designation,
+            recipientDetails.nationality,
+            recipientDetails.cecNo,
             voucher.description,
             voucher.created_by,
             voucher.payment_method
@@ -1159,7 +1259,7 @@
           .sort((a, b) => String(a.recipient_name || "").localeCompare(String(b.recipient_name || "")));
         els.recipientFilter.innerHTML = `<option value="">All</option>${names.map(row => `<option value="${escapeHtml(row.recipient_name)}">${escapeHtml(row.recipient_name)}</option>`).join("")}`;
         els.quickRecipients.innerHTML = state.recipients.slice(0, 8).map(row => (
-          `<button type="button" data-recipient-id="${escapeHtml(row.id)}" title="${escapeHtml([row.recipient_name, recipientContactFromRow(row).mobile].filter(Boolean).join(" - "))}">${escapeHtml(row.recipient_name)}</button>`
+          `<button type="button" data-recipient-id="${escapeHtml(row.id)}" title="${escapeHtml([row.recipient_name, recipientContactSummary(recipientContactFromRow(row))].filter(Boolean).join(" - "))}">${escapeHtml(row.recipient_name)}</button>`
         )).join("");
       }
 
@@ -1230,8 +1330,11 @@
             return !query
               || normalizeName(row.recipient_name).includes(query)
               || normalizeName(row.company).includes(query)
+              || normalizeName(contact.staff).includes(query)
               || normalizeName(contact.mobile).includes(query)
-              || normalizeName(contact.designation).includes(query);
+              || normalizeName(contact.designation).includes(query)
+              || normalizeName(contact.nationality).includes(query)
+              || normalizeName(contact.cecNo).includes(query);
           })
           .slice(0, 10);
         if (!matches.length){
@@ -1242,7 +1345,7 @@
         }
         els.suggestions.innerHTML = matches.map((row, index) => {
           const contact = recipientContactFromRow(row);
-          const detail = [row.company || row.source || "saved", contact.designation, contact.mobile].filter(Boolean).join(" - ");
+          const detail = [row.company || row.source || "saved", recipientContactSummary(contact)].filter(Boolean).join(" - ");
           return `
           <button class="pcr-suggestion" type="button" role="option" data-suggestion-index="${index}">
             <span><strong>${escapeHtml(row.recipient_name)}</strong><small>${escapeHtml(detail)}</small></span>
@@ -1267,9 +1370,11 @@
         els.companyName.value = row.company || els.companyName.value;
         els.recipientType.value = row.recipient_type || "other";
         const contact = recipientContactFromRow(row);
+        els.recipientStaff.value = contact.staff;
         els.recipientMobile.value = contact.mobile;
         els.recipientDesignation.value = contact.designation;
-        updateRecipientExtraFields();
+        els.recipientNationality.value = contact.nationality;
+        els.recipientCecNo.value = contact.cecNo;
         state.selectedRecipientId = row.id || null;
         closeSuggestions();
       }
@@ -1397,9 +1502,11 @@
         els.paidTo.value = voucher.paid_to || "";
         const details = recipientDetailsFromVoucher(voucher);
         els.recipientType.value = details.type || "other";
+        els.recipientStaff.value = details.staff || "";
         els.recipientMobile.value = details.mobile || "";
         els.recipientDesignation.value = details.designation || "";
-        updateRecipientExtraFields();
+        els.recipientNationality.value = details.nationality || "";
+        els.recipientCecNo.value = details.cecNo || "";
         els.paymentMethod.value = voucher.payment_method || "";
         els.descriptionText.value = voucher.description || "";
         els.createdBy.value = voucher.created_by || getCurrentUser();
@@ -1467,10 +1574,7 @@
                 <div class="voucher-box">
                   <h3>Recipient</h3>
                   <div class="voucher-box-content">
-                    <div class="voucher-line"><span>Paid To</span><strong>${escapeHtml(voucher.paid_to)}</strong></div>
-                    <div class="voucher-line"><span>Company</span><strong>${escapeHtml(voucher.company || "-")}</strong></div>
-                    <div class="voucher-line"><span>Prepared By</span><strong>${escapeHtml(voucher.created_by || "-")}</strong></div>
-                    <div class="voucher-line"><span>Created</span><strong>${escapeHtml(formatDateTime(voucher.created_at) || nowLabel())}</strong></div>
+                    ${voucherRecipientLinesHtml(voucher)}
                   </div>
                 </div>
                 <div class="voucher-box">
@@ -1596,8 +1700,15 @@
       }
 
       async function drawVoucherPdf(pdf, voucher){
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
+        const designWidth = 297;
+        const designHeight = 210;
+        const topHalfScale = pdf.internal.pageSize.getWidth() / designWidth;
+        const pageWidth = designWidth;
+        const pageHeight = designHeight;
+        const canTransform = typeof pdf.Matrix === "function" && typeof pdf.setCurrentTransformationMatrix === "function";
+        if (canTransform){
+          pdf.setCurrentTransformationMatrix(pdf.Matrix(topHalfScale, 0, 0, topHalfScale, 0, 0));
+        }
         const margin = 8;
         const contentWidth = pageWidth - margin * 2;
         const sectionGap = 5;
@@ -1754,18 +1865,14 @@
 
         const mainTopY = titleSectionY + titleBoxHeight + 5;
         const boxWidth = (contentWidth - sectionGap) / 2;
-        const boxHeight = 42;
         const rightBoxX = pageWidth - margin - boxWidth;
+        const leftDetails = recipientDetailRows(voucher).map(([label, value]) => [label, String(value || "-")]);
+        const recipientBoxHeight = Math.max(42, 15 + leftDetails.length * 6.6);
+        const paymentBoxHeight = 42;
+        const mainBoxHeight = Math.max(recipientBoxHeight, paymentBoxHeight);
 
-        drawSectionBox(margin, mainTopY, boxWidth, boxHeight, "Recipient");
-        drawSectionBox(rightBoxX, mainTopY, boxWidth, boxHeight, "Payment Details");
-
-        const leftDetails = [
-          ["Paid To", String(voucher.paid_to || "-")],
-          ["Company", String(voucher.company || "-")],
-          ["Prepared By", String(voucher.created_by || "-")],
-          ["Created", String(formatDateTime(voucher.created_at) || nowLabel())]
-        ];
+        drawSectionBox(margin, mainTopY, boxWidth, recipientBoxHeight, "Recipient");
+        drawSectionBox(rightBoxX, mainTopY, boxWidth, paymentBoxHeight, "Payment Details");
         drawKeyValueRows(leftDetails, margin, mainTopY, boxWidth, 29);
 
         const rightDetails = [
@@ -1776,7 +1883,7 @@
         ];
         drawKeyValueRows(rightDetails, rightBoxX, mainTopY, boxWidth, 25);
 
-        const amountWordsY = mainTopY + boxHeight + 5;
+        const amountWordsY = mainTopY + mainBoxHeight + 5;
         const amountWordsHeight = 24;
         drawSectionBox(margin, amountWordsY, contentWidth, amountWordsHeight, "Amount in Words");
         pdf.setFont("helvetica", "bold");
@@ -1816,6 +1923,10 @@
         pdf.text("Premium Car Rental DMCC", margin + 2, footerY);
         const footerText = fitLines(`${String(voucher.voucher_number || "-")} | TRN: 100035111200003`, contentWidth / 2, 1)[0];
         pdf.text(footerText, pageWidth - margin - 2, footerY, { align: "right" });
+
+        if (canTransform){
+          pdf.setCurrentTransformationMatrix(pdf.Matrix(1, 0, 0, 1, 0, 0));
+        }
       }
 
       async function downloadPdf(voucher){
@@ -1826,8 +1937,11 @@
         }
         setBusy(true, "Generating PDF");
         try {
-          const pdf = new jsPDFConstructor({ orientation: "landscape", unit: "mm", format: "a4" });
-          await drawVoucherPdf(pdf, voucher);
+          const canvas = await captureVoucherForPdf(voucher);
+          const pdf = new jsPDFConstructor({ orientation: "portrait", unit: "mm", format: "a4" });
+          const pageW = pdf.internal.pageSize.getWidth();
+          const imgH = 210 * PRINT_TOP_SCALE;
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, imgH, undefined, "FAST");
           const filename = `${voucher.voucher_number || "payment-voucher"}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
           pdf.save(filename);
           await recordVoucherEvent(voucher, "pdf");
