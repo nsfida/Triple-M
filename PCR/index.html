@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Payment Voucher Database</title>
   <meta name="theme-color" content="#edf1f7" />
+  <meta name="supabase-url" content="https://ewmjnknbcohixqptshoc.supabase.co" />
+  <meta name="supabase-key" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpua25iY29oaXhxcHRzaG9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMDg3NTgsImV4cCI6MjA5NTg4NDc1OH0.CVAm7bA_ZTVNtu_FMHp_v-x2qH9bA_kwRkK02hYanfw" />
+  <meta name="db-table-vouchers" content="pcr_payment_vouchers" />
+  <meta name="db-table-recipients" content="pcr_recipients" />
+  <meta name="db-table-print-events" content="pcr_voucher_print_events" />
+  <meta name="smart-pin-enabled" content="true" />
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -65,6 +71,7 @@
     .pcr-toast.error{border-left-color:var(--danger)}
     .pcr-form-error{display:none;margin-top:10px;color:var(--danger);font-size:.82rem;font-weight:650;background:rgba(180,35,24,.07);border:1px solid rgba(180,35,24,.16);border-radius:10px;padding:10px}
     .pcr-form-error.show{display:block}
+    .hide{display:none !important}
     .pcr-loading{position:fixed;inset:0;background:rgba(237,241,247,.58);backdrop-filter:blur(4px);display:none;place-items:center;z-index:250}
     .pcr-loading.show{display:grid}
     .pcr-loading-card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-strong);padding:18px 22px;display:flex;align-items:center;gap:12px;font-weight:800;color:var(--text)}
@@ -154,10 +161,16 @@
       </div>
       <div class="chips">
         <span class="chip pcr-status-chip"><span id="connectionDot" class="pcr-status-dot"></span><span id="connectionText">Connecting</span></span>
+        <button class="btn ghost top-icon-btn" id="managePinBtn" type="button" title="Smart PIN" aria-label="Smart PIN"><i class="fa-solid fa-lock"></i></button>
         <button class="btn ghost top-icon-btn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
         <a class="btn ghost top-icon-btn" href="../index.html" title="Dashboard" aria-label="Dashboard"><i class="fa-solid fa-house"></i></a>
       </div>
     </header>
+
+    <div id="pinBanner" class="pcr-empty hide" style="margin:10px 0;display:flex;justify-content:space-between;align-items:center;">
+      <span id="pinBannerText">Smart PIN is configured. Enter PIN to unlock database.</span>
+      <div><button id="pinBannerEnterBtn" class="btn soft" type="button">Enter PIN</button></div>
+    </div>
 
     <section class="overview" aria-label="Voucher summary">
       <div class="overview-top">
@@ -349,6 +362,44 @@
     </div>
   </div>
 
+  <div id="pinModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
+    <div class="pcr-modal-backdrop" data-close-pin></div>
+    <div class="pcr-modal-dialog">
+      <div class="pcr-modal-head">
+        <div>
+          <h3 id="pinModalTitle">Smart PIN</h3>
+          <p id="pinModalMessage">Enter your smart PIN to load database records.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-pin aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pcr-preview-body">
+        <div id="pinActionButtons" class="pcr-quick-list" style="margin-bottom:12px;gap:8px;display:flex;flex-wrap:wrap;">
+          <button type="button" class="btn soft" data-action="enter">Enter PIN</button>
+          <button type="button" class="btn soft" data-action="set">Set PIN</button>
+          <button type="button" class="btn soft" data-action="change">Change PIN</button>
+          <button type="button" class="btn soft danger" data-action="delete">Delete PIN</button>
+        </div>
+        <div class="pcr-field hide" id="pinCurrentField">
+          <label id="pinCurrentLabel" for="pinCurrentInput">Current PIN</label>
+          <input id="pinCurrentInput" class="input" type="password" autocomplete="current-password" />
+        </div>
+        <div class="pcr-field" id="pinNewField">
+          <label id="pinInputLabel" for="pinInput">Smart PIN</label>
+          <input id="pinInput" class="input" type="password" autocomplete="new-password" />
+        </div>
+        <div class="pcr-field hide" id="pinConfirmField">
+          <label id="pinConfirmLabel" for="pinConfirmInput">Confirm PIN</label>
+          <input id="pinConfirmInput" class="input" type="password" autocomplete="new-password" />
+        </div>
+        <div class="pcr-modal-actions" style="justify-content:flex-start;gap:10px;">
+          <button id="pinSubmitBtn" class="btn primary" type="button">Continue</button>
+          <button id="pinCancelBtn" class="btn ghost" type="button">Cancel</button>
+        </div>
+        <div id="pinError" class="pcr-form-error" role="alert"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="loadingLayer" class="pcr-loading" aria-live="polite" aria-hidden="true">
     <div class="pcr-loading-card"><span class="pcr-spinner"></span><span id="loadingText">Loading</span></div>
   </div>
@@ -359,12 +410,15 @@
     (() => {
       "use strict";
 
-      const SUPABASE_URL = "https://ewmjnknbcohixqptshoc.supabase.co";
-      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpua25iY29oaXhxcHRzaG9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMDg3NTgsImV4cCI6MjA5NTg4NDc1OH0.CVAm7bA_ZTVNtu_FMHp_v-x2qH9bA_kwRkK02hYanfw";
-      const TABLE = "pcr_payment_vouchers";
-      const RECIPIENT_TABLE = "pcr_recipients";
-      const PRINT_EVENT_TABLE = "pcr_voucher_print_events";
+      const getMeta = name => document.querySelector(`meta[name="${name}"]`)?.content || "";
+      const SUPABASE_URL = getMeta("supabase-url") || "https://ewmjnknbcohixqptshoc.supabase.co";
+      const SUPABASE_KEY = getMeta("supabase-key") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpua25iY29oaXhxcHRzaG9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMDg3NTgsImV4cCI6MjA5NTg4NDc1OH0.CVAm7bA_ZTVNtu_FMHp_v-x2qH9bA_kwRkK02hYanfw";
+      const TABLE = getMeta("db-table-vouchers") || "pcr_payment_vouchers";
+      const RECIPIENT_TABLE = getMeta("db-table-recipients") || "pcr_recipients";
+      const PRINT_EVENT_TABLE = getMeta("db-table-print-events") || "pcr_voucher_print_events";
       const LOGO_URL = "logo.png";
+      const SMART_PIN_ENABLED = getMeta("smart-pin-enabled") === "true";
+      const PIN_STORAGE_KEY = "pcr-smart-pin-hash";
 
       const els = {
         form: document.getElementById("voucherForm"),
@@ -396,11 +450,29 @@
         exportCsvBtn: document.getElementById("exportCsvBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         printLatestBtn: document.getElementById("printLatestBtn"),
+        managePinBtn: document.getElementById("managePinBtn"),
         previewModal: document.getElementById("previewModal"),
         previewBody: document.getElementById("previewBody"),
         previewSubtitle: document.getElementById("previewSubtitle"),
         modalPrintBtn: document.getElementById("modalPrintBtn"),
         modalPdfBtn: document.getElementById("modalPdfBtn"),
+        pinModal: document.getElementById("pinModal"),
+        pinModalTitle: document.getElementById("pinModalTitle"),
+        pinModalMessage: document.getElementById("pinModalMessage"),
+        pinActionButtons: document.getElementById("pinActionButtons"),
+        pinCurrentField: document.getElementById("pinCurrentField"),
+        pinCurrentInput: document.getElementById("pinCurrentInput"),
+        pinNewField: document.getElementById("pinNewField"),
+        pinInputLabel: document.getElementById("pinInputLabel"),
+        pinBanner: document.getElementById("pinBanner"),
+        pinBannerEnterBtn: document.getElementById("pinBannerEnterBtn"),
+        pinInput: document.getElementById("pinInput"),
+        pinConfirmField: document.getElementById("pinConfirmField"),
+        pinConfirmLabel: document.getElementById("pinConfirmLabel"),
+        pinConfirmInput: document.getElementById("pinConfirmInput"),
+        pinSubmitBtn: document.getElementById("pinSubmitBtn"),
+        pinCancelBtn: document.getElementById("pinCancelBtn"),
+        pinError: document.getElementById("pinError"),
         loadingLayer: document.getElementById("loadingLayer"),
         loadingText: document.getElementById("loadingText"),
         toastArea: document.getElementById("toastArea"),
@@ -425,6 +497,9 @@
         sortDirection: "desc",
         amountWordsTouched: false,
         busyCount: 0
+        , smartPinEnabled: SMART_PIN_ENABLED
+        , pinConfigured: false
+        , databaseUnlocked: false
       };
 
       function todayIso(){
@@ -490,6 +565,212 @@
       function setConnection(ok, text){
         els.connectionDot.classList.toggle("is-online", ok);
         els.connectionText.textContent = text;
+      }
+
+      async function hashPin(pin){
+        if (!pin) return "";
+        try {
+          const data = new TextEncoder().encode(pin);
+          const digest = await crypto.subtle.digest("SHA-256", data);
+          return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+        } catch {
+          return btoa(pin);
+        }
+      }
+
+      function getStoredPinHash(){
+        return localStorage.getItem(PIN_STORAGE_KEY) || "";
+      }
+
+      function setStoredPinHash(hash){
+        if (hash) localStorage.setItem(PIN_STORAGE_KEY, hash);
+        else localStorage.removeItem(PIN_STORAGE_KEY);
+      }
+
+      function isPinConfigured(){
+        return Boolean(getStoredPinHash());
+      }
+
+      async function verifyPin(pin){
+        const stored = getStoredPinHash();
+        if (!stored) return false;
+        return (await hashPin(pin)) === stored;
+      }
+
+      function updateAccessState(){
+        const locked = state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked;
+        const formControls = Array.from(els.form.querySelectorAll("input,select,textarea,button"));
+        formControls.forEach(control => {
+          if (control !== els.cancelEditBtn) control.disabled = locked;
+        });
+        [
+          els.refreshBtn,
+          els.printLatestBtn,
+          els.exportCsvBtn,
+          els.previewDraftBtn,
+          els.saveVoucherBtn,
+          els.searchInput,
+          els.dateFrom,
+          els.dateTo,
+          els.recipientFilter,
+          els.methodFilter,
+          els.clearFiltersBtn
+        ].forEach(control => {
+          if (control) control.disabled = locked;
+        });
+        if (els.managePinBtn) {
+          els.managePinBtn.style.display = state.smartPinEnabled ? "" : "none";
+        }
+        if (els.pinBanner) {
+          // show the inline banner only when a PIN is configured and the DB remains locked
+          els.pinBanner.classList.toggle("hide", !(state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked));
+        }
+      }
+
+      function showPinModal(mode){
+        state.pinMode = mode;
+        const configured = isPinConfigured();
+        els.pinModal.classList.add("open");
+        document.body.style.overflow = "hidden";
+        els.pinError.textContent = "";
+        els.pinCurrentInput.value = "";
+        els.pinInput.value = "";
+        els.pinConfirmInput.value = "";
+        els.pinModalTitle.textContent = mode === "enter" ? "Enter Smart PIN"
+          : mode === "set" ? "Set Smart PIN"
+          : mode === "change" ? "Change Smart PIN"
+          : "Delete Smart PIN";
+        els.pinModalMessage.textContent = mode === "enter"
+          ? "Enter your smart PIN to load database records."
+          : mode === "set"
+          ? "Set a new smart PIN to protect the page."
+          : mode === "change"
+          ? "Enter your current PIN and choose a new PIN."
+          : "Enter your current PIN to delete it.";
+        const actionButtons = els.pinActionButtons.querySelectorAll("[data-action]");
+        actionButtons.forEach(button => {
+          const action = button.dataset.action;
+          button.classList.toggle("active", action === mode);
+          if (action === "set" && configured) button.style.display = "none";
+          else if ((action === "enter" || action === "change" || action === "delete") && !configured) button.style.display = "none";
+          else button.style.display = "inline-flex";
+        });
+        // Show fields per mode:
+        // enter: show new (used as PIN entry), hide current and confirm
+        // set: show new + confirm
+        // change: show current + new + confirm
+        // delete: show current only
+        els.pinCurrentField.classList.toggle("hide", !(mode === "change" || mode === "delete"));
+        els.pinNewField.classList.toggle("hide", mode === "delete");
+        els.pinConfirmField.classList.toggle("hide", !(mode === "set" || mode === "change"));
+        els.pinInputLabel.textContent = mode === "set" || mode === "change" ? "New PIN" : "Smart PIN";
+        els.pinConfirmLabel.textContent = mode === "set" ? "Confirm PIN" : "Confirm new PIN";
+        els.pinSubmitBtn.textContent = mode === "enter" ? "Unlock"
+          : mode === "set" ? "Set PIN"
+          : mode === "change" ? "Change PIN"
+          : "Delete PIN";
+        // focus the visible input for convenience
+        setTimeout(() => {
+          if (!els.pinNewField.classList.contains("hide")) els.pinInput.focus();
+          else if (!els.pinCurrentField.classList.contains("hide")) els.pinCurrentInput.focus();
+        }, 50);
+      }
+
+      function hidePinModal(){
+        els.pinModal.classList.remove("open");
+        document.body.style.overflow = "";
+      }
+
+      async function handlePinSubmit(){
+        const mode = state.pinMode;
+        const currentPin = els.pinCurrentInput.value.trim();
+        const newPin = els.pinInput.value.trim();
+        const confirmPin = els.pinConfirmInput.value.trim();
+        if (mode === "enter"){
+          if (!newPin){
+            els.pinError.textContent = "Please enter your smart PIN.";
+            return;
+          }
+          if (!await verifyPin(newPin)){
+            els.pinError.textContent = "Smart PIN is incorrect.";
+            return;
+          }
+          state.databaseUnlocked = true;
+          state.pinConfigured = true;
+          hidePinModal();
+          showToast("Smart PIN verified.");
+          updateAccessState();
+          await loadAll();
+          return;
+        }
+        if (mode === "set"){
+          if (newPin.length < 4){
+            els.pinError.textContent = "A smart PIN must be at least 4 digits.";
+            return;
+          }
+          if (newPin !== confirmPin){
+            els.pinError.textContent = "PIN confirmation does not match.";
+            return;
+          }
+          setStoredPinHash(await hashPin(newPin));
+          state.pinConfigured = true;
+          state.databaseUnlocked = true;
+          hidePinModal();
+          showToast("Smart PIN set.");
+          updateAccessState();
+          await loadAll();
+          return;
+        }
+        if (mode === "change"){
+          if (!currentPin){
+            els.pinError.textContent = "Enter your current PIN.";
+            return;
+          }
+          if (!await verifyPin(currentPin)){
+            els.pinError.textContent = "Current PIN is incorrect.";
+            return;
+          }
+          if (newPin.length < 4){
+            els.pinError.textContent = "A new smart PIN must be at least 4 digits.";
+            return;
+          }
+          if (newPin !== confirmPin){
+            els.pinError.textContent = "New PIN confirmation does not match.";
+            return;
+          }
+          setStoredPinHash(await hashPin(newPin));
+          state.pinConfigured = true;
+          hidePinModal();
+          showToast("Smart PIN changed.");
+          return;
+        }
+        if (mode === "delete"){
+          if (!currentPin){
+            els.pinError.textContent = "Enter your current PIN.";
+            return;
+          }
+          if (!await verifyPin(currentPin)){
+            els.pinError.textContent = "Current PIN is incorrect.";
+            return;
+          }
+          setStoredPinHash("");
+          state.pinConfigured = false;
+          state.databaseUnlocked = false;
+          hidePinModal();
+          updateAccessState();
+          renderSummary();
+          renderTable();
+          setConnection(false, "Smart PIN deleted");
+          showToast("Smart PIN deleted.");
+          return;
+        }
+      }
+
+      async function unlockDatabase(){
+        state.databaseUnlocked = true;
+        setConnection(true, "Connected");
+        updateAccessState();
+        await loadAll();
       }
 
       async function api(path, options = {}){
@@ -642,7 +923,8 @@
         els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Voucher';
         els.cancelEditBtn.classList.add("hide");
         els.formError.classList.remove("show");
-        els.voucherNumber.value = await fetchNextVoucherNumber();
+        const dbAccessible = !state.smartPinEnabled || !state.pinConfigured || state.databaseUnlocked;
+        els.voucherNumber.value = dbAccessible ? await fetchNextVoucherNumber() : "";
       }
 
       async function loadRecipients(){
@@ -676,6 +958,12 @@
       }
 
       async function loadAll(){
+        if (state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked) {
+          setConnection(false, "Smart PIN required");
+          renderSummary();
+          renderTable();
+          return;
+        }
         setBusy(true, "Loading vouchers");
         try {
           await Promise.all([loadRecipients(), loadExternalPeople(), loadVouchers()]);
@@ -722,6 +1010,13 @@
       }
 
       function renderSummary(){
+        if (state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked){
+          els.totalVouchers.textContent = "0";
+          els.todayVouchers.textContent = "0";
+          els.monthVouchers.textContent = "0";
+          els.totalAmount.textContent = "AED 0.00";
+          return;
+        }
         const today = todayIso();
         const month = today.slice(0, 7);
         const total = state.vouchers.reduce((sum, voucher) => sum + Number(voucher.amount || 0), 0);
@@ -741,6 +1036,11 @@
       }
 
       function renderTable(){
+        if (state.smartPinEnabled && state.pinConfigured && !state.databaseUnlocked){
+          els.databaseCount.textContent = "Locked";
+          els.tableBody.innerHTML = `<tr><td colspan="7"><div class="pcr-empty">Database locked. Enter Smart PIN to load records.</div></td></tr>`;
+          return;
+        }
         const rows = filteredVouchers();
         els.databaseCount.textContent = `${rows.length} record${rows.length === 1 ? "" : "s"}`;
         if (!rows.length){
@@ -880,6 +1180,10 @@
 
       async function saveVoucher(event){
         event.preventDefault();
+        if (state.smartPinEnabled && !state.databaseUnlocked) {
+          showToast("Unlock Smart PIN before saving vouchers.", "error");
+          return;
+        }
         if (!validateForm()) return;
         setBusy(true, state.editingId ? "Updating voucher" : "Saving voucher");
         try {
@@ -1120,8 +1424,36 @@
         holder.style.background = "#fff";
         holder.innerHTML = voucherHtml(voucher);
         document.body.appendChild(holder);
+        const objectUrls = [];
         try {
           await waitForImages(holder);
+          // Try to fetch images and replace with blob URLs to avoid tainting the canvas.
+          const imgs = Array.from(holder.querySelectorAll('img'));
+          for (const img of imgs){
+            const src = img.src;
+            if (!src) { img.remove(); continue; }
+            try {
+              const res = await fetch(src, { mode: 'cors' });
+              if (!res.ok) throw new Error('image fetch failed');
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              objectUrls.push(url);
+              img.src = url;
+            } catch (e) {
+              try {
+                // fallback: try fetching without explicit CORS mode
+                const res2 = await fetch(src);
+                if (!res2.ok) throw new Error('image fetch failed');
+                const blob2 = await res2.blob();
+                const url2 = URL.createObjectURL(blob2);
+                objectUrls.push(url2);
+                img.src = url2;
+              } catch (_) {
+                // can't fetch image safely — remove it to avoid taint
+                img.remove();
+              }
+            }
+          }
           const sheet = holder.querySelector(".voucher-sheet");
           if (!sheet) throw new Error("PDF content could not be rendered.");
           const canvas = await html2canvasFn(sheet, {
@@ -1145,6 +1477,7 @@
           showToast(error.message || "PDF could not be generated.", "error");
         } finally {
           holder.remove();
+          objectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
           setBusy(false);
         }
       }
@@ -1244,7 +1577,9 @@
           if (button.dataset.action === "pdf") downloadPdf(voucher);
           if (button.dataset.action === "delete") deleteVoucher(voucher.id);
         });
-        els.refreshBtn.addEventListener("click", loadAll);
+        els.refreshBtn.addEventListener("click", () => {
+          if (!state.smartPinEnabled || !state.pinConfigured || state.databaseUnlocked) loadAll();
+        });
         els.printLatestBtn.addEventListener("click", () => {
           const latest = state.vouchers[0];
           if (!latest){
@@ -1254,7 +1589,27 @@
           printVoucher(latest);
         });
         els.exportCsvBtn.addEventListener("click", exportCsv);
+        els.managePinBtn.addEventListener("click", () => showPinModal(state.pinConfigured ? "enter" : "set"));
+        if (els.pinBannerEnterBtn) els.pinBannerEnterBtn.addEventListener("click", () => showPinModal("enter"));
+        els.pinActionButtons.addEventListener("click", event => {
+          const button = event.target.closest("[data-action]");
+          if (!button) return;
+          showPinModal(button.dataset.action);
+        });
+        els.pinSubmitBtn.addEventListener("click", handlePinSubmit);
+        els.pinCancelBtn.addEventListener("click", hidePinModal);
+        // allow pressing Enter in PIN inputs to submit
+        [els.pinInput, els.pinCurrentInput, els.pinConfirmInput].forEach(inp => {
+          if (!inp) return;
+          inp.addEventListener("keydown", event => {
+            if (event.key === "Enter"){
+              event.preventDefault();
+              handlePinSubmit();
+            }
+          });
+        });
         document.querySelectorAll("[data-close-preview]").forEach(item => item.addEventListener("click", closePreview));
+        document.querySelectorAll("[data-close-pin]").forEach(item => item.addEventListener("click", hidePinModal));
         document.addEventListener("keydown", event => {
           if (event.key === "Escape") closePreview();
         });
@@ -1272,8 +1627,23 @@
         els.createdBy.value = getCurrentUser();
         els.createdAt.value = nowLabel();
         els.amountWords.value = amountToWords(0);
-        await loadAll();
-        if (!els.voucherNumber.value) els.voucherNumber.value = await fetchNextVoucherNumber();
+        state.pinConfigured = isPinConfigured();
+        state.databaseUnlocked = false;
+        updateAccessState();
+        if (state.smartPinEnabled){
+          if (state.pinConfigured){
+            // PIN is configured: require entry on load (show modal)
+            setConnection(false, "Smart PIN required");
+            showPinModal("enter");
+          } else {
+            // no PIN set: behave normally and load database
+            await loadAll();
+            if (!els.voucherNumber.value) els.voucherNumber.value = await fetchNextVoucherNumber();
+          }
+        } else {
+          await loadAll();
+          if (!els.voucherNumber.value) els.voucherNumber.value = await fetchNextVoucherNumber();
+        }
       }
 
       init();
