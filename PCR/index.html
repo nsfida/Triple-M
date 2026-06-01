@@ -301,11 +301,16 @@
                   <option value="staff">Staff</option>
                 </select>
               </div>
-              <div class="pcr-field pcr-autocomplete">
-                <label for="paidTo">Paid To</label>
-                <input id="paidTo" class="input" type="text" autocomplete="off" required aria-autocomplete="list" aria-expanded="false" aria-controls="recipientSuggestions" />
-                <div id="recipientSuggestions" class="pcr-suggestions" role="listbox"></div>
-                <div id="quickRecipients" class="pcr-quick-list" aria-label="Saved recipients"></div>
+              <div class="pcr-field">
+                <label for="recipientSelect">Paid To</label>
+                <select id="recipientSelect" class="select" required>
+                  <option value="">Select recipient</option>
+                  <option value="__new__">+ New recipient</option>
+                </select>
+              </div>
+              <div class="pcr-field hide" id="paidToManualField">
+                <label for="paidTo">New recipient name</label>
+                <input id="paidTo" class="input" type="text" autocomplete="name" />
               </div>
               <div class="pcr-field w6">
                 <label for="recipientStaff">Staff <span class="pcr-field-label-optional">(optional)</span></label>
@@ -531,6 +536,8 @@
         amountNumber: document.getElementById("amountNumber"),
         amountWords: document.getElementById("amountWords"),
         companyName: document.getElementById("companyName"),
+        recipientSelect: document.getElementById("recipientSelect"),
+        paidToManualField: document.getElementById("paidToManualField"),
         paidTo: document.getElementById("paidTo"),
         recipientType: document.getElementById("recipientType"),
         recipientStaff: document.getElementById("recipientStaff"),
@@ -546,8 +553,6 @@
         saveVoucherBtn: document.getElementById("saveVoucherBtn"),
         cancelEditBtn: document.getElementById("cancelEditBtn"),
         previewDraftBtn: document.getElementById("previewDraftBtn"),
-        suggestions: document.getElementById("recipientSuggestions"),
-        quickRecipients: document.getElementById("quickRecipients"),
         searchInput: document.getElementById("searchInput"),
         dateFrom: document.getElementById("dateFrom"),
         dateTo: document.getElementById("dateTo"),
@@ -640,7 +645,17 @@
       }
 
       function readMetadata(row){
-        return row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : {};
+        const raw = row?.metadata;
+        if (!raw) return {};
+        if (typeof raw === "string"){
+          try {
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+          } catch {
+            return {};
+          }
+        }
+        return typeof raw === "object" && !Array.isArray(raw) ? raw : {};
       }
 
       function firstMetadataValue(metadata, keys){
@@ -667,6 +682,31 @@
         return state.recipients.find(row => row.id && row.id === voucher.recipient_id)
           || state.recipients.find(row => normalizeName(row.recipient_name) === normalizeName(voucher.paid_to))
           || null;
+      }
+
+      function latestVoucherForRecipient(row){
+        if (!row) return null;
+        const key = normalizeName(row.recipient_name);
+        if (row.id){
+          const byId = state.vouchers.find(voucher => voucher.recipient_id === row.id);
+          if (byId) return byId;
+        }
+        if (!key) return null;
+        return state.vouchers.find(voucher => normalizeName(voucher.paid_to) === key) || null;
+      }
+
+      function mergeRecipientWithSavedDetails(row){
+        if (!row) return null;
+        const latestVoucher = latestVoucherForRecipient(row);
+        const recipientMeta = readMetadata(row);
+        const voucherMeta = readMetadata(latestVoucher);
+        const mergedMeta = { ...recipientMeta, ...voucherMeta };
+        return {
+          ...row,
+          company: normalizeDisplay(row.company) || normalizeDisplay(latestVoucher?.company) || "",
+          recipient_type: normalizeDisplay(row.recipient_type || voucherMeta.recipient_type || "other") || "other",
+          metadata: mergedMeta
+        };
       }
 
       function recipientDetailsFromVoucher(voucher){
@@ -1229,7 +1269,7 @@
           amount_words: normalizeDisplay(els.amountWords.value) || amountToWords(els.amountNumber.value),
           currency: "AED",
           company: normalizeDisplay(els.companyName.value),
-          paid_to: normalizeDisplay(els.paidTo.value) || "Recipient",
+          paid_to: getPaidToValue() || "Recipient",
           payment_method: els.paymentMethod.value || "Cash",
           description: normalizeDisplay(els.descriptionText.value),
           created_by: normalizeDisplay(els.createdBy.value) || getCurrentUser(),
@@ -1248,7 +1288,10 @@
         if (!els.voucherDate.value) errors.push("Date is required.");
         if (!els.amountNumber.value || Number(els.amountNumber.value) < 0) errors.push("Amount must be zero or greater.");
         if (!normalizeDisplay(els.amountWords.value)) errors.push("Amount in words is required.");
-        if (!normalizeDisplay(els.paidTo.value)) errors.push("Paid To is required.");
+        if (!getPaidToValue()) errors.push("Paid To is required.");
+        if (els.recipientSelect.value === "__new__" && !normalizeDisplay(els.paidTo.value)){
+          errors.push("Enter a name for the new recipient.");
+        }
         if (!els.paymentMethod.value) errors.push("Payment method is required.");
         if (!normalizeDisplay(els.createdBy.value)) errors.push("Created By is required.");
 
@@ -1280,6 +1323,9 @@
         state.amountWordsTouched = false;
         els.form.reset();
         clearRecipientExtraFields();
+        els.recipientSelect.value = "";
+        els.paidTo.value = "";
+        syncPaidToManualVisibility();
         els.voucherDate.value = todayIso();
         els.createdBy.value = getCurrentUser();
         els.createdAt.value = nowLabel();
@@ -1394,13 +1440,48 @@
         els.totalAmount.textContent = formatMoney(total);
       }
 
+      function getPaidToValue(){
+        const selected = els.recipientSelect.value;
+        if (selected && selected !== "__new__"){
+          const row = state.recipients.find(item => item.id === selected);
+          if (row) return normalizeDisplay(row.recipient_name);
+        }
+        return normalizeDisplay(els.paidTo.value);
+      }
+
+      function syncPaidToManualVisibility(){
+        const manual = els.recipientSelect.value === "__new__";
+        els.paidToManualField.classList.toggle("hide", !manual);
+        els.paidTo.required = manual;
+      }
+
+      function renderRecipientSelectOptions(){
+        const currentValue = els.recipientSelect.value;
+        const selectedId = currentValue && currentValue !== "__new__"
+          ? currentValue
+          : (state.selectedRecipientId || "");
+        const isManual = currentValue === "__new__" || (!selectedId && normalizeDisplay(els.paidTo.value));
+        const names = [...state.recipients]
+          .filter(row => !isSmartPinRecord(row))
+          .sort((a, b) => String(a.recipient_name || "").localeCompare(String(b.recipient_name || "")));
+        const options = [
+          `<option value="">Select recipient</option>`,
+          `<option value="__new__"${isManual ? " selected" : ""}>+ New recipient</option>`,
+          ...names.map(row => {
+            const summary = recipientContactSummary(recipientContactFromRow(row));
+            return `<option value="${escapeHtml(row.id)}"${selectedId === row.id ? " selected" : ""} title="${escapeHtml(summary)}">${escapeHtml(row.recipient_name)}</option>`;
+          })
+        ];
+        els.recipientSelect.innerHTML = options.join("");
+        syncPaidToManualVisibility();
+      }
+
       function renderRecipientControls(){
         const names = [...state.recipients]
+          .filter(row => !isSmartPinRecord(row))
           .sort((a, b) => String(a.recipient_name || "").localeCompare(String(b.recipient_name || "")));
         els.recipientFilter.innerHTML = `<option value="">All</option>${names.map(row => `<option value="${escapeHtml(row.recipient_name)}">${escapeHtml(row.recipient_name)}</option>`).join("")}`;
-        els.quickRecipients.innerHTML = state.recipients.slice(0, 8).map(row => (
-          `<button type="button" data-recipient-id="${escapeHtml(row.id)}" title="${escapeHtml([row.recipient_name, recipientContactSummary(recipientContactFromRow(row))].filter(Boolean).join(" - "))}">${escapeHtml(row.recipient_name)}</button>`
-        )).join("");
+        renderRecipientSelectOptions();
       }
 
       function renderTable(){
@@ -1449,66 +1530,6 @@
         renderTable();
       }
 
-      function suggestionPool(){
-        const map = new Map();
-        for (const row of state.recipients){
-          if (isSmartPinRecord(row)) continue;
-          const key = normalizeName(row.recipient_name);
-          if (key) map.set(key, { ...row, source: row.source || "saved" });
-        }
-        for (const row of state.externalPeople){
-          const key = normalizeName(row.recipient_name);
-          if (key && !map.has(key)) map.set(key, row);
-        }
-        return Array.from(map.values());
-      }
-
-      function renderSuggestions(){
-        const query = normalizeName(els.paidTo.value);
-        const matches = suggestionPool()
-          .filter(row => {
-            const contact = recipientContactFromRow(row);
-            return !query
-              || normalizeName(row.recipient_name).includes(query)
-              || normalizeName(row.company).includes(query)
-              || normalizeName(contact.staff).includes(query)
-              || normalizeName(contact.mobile).includes(query)
-              || normalizeName(contact.designation).includes(query)
-              || normalizeName(contact.nationality).includes(query)
-              || normalizeName(contact.cecNo).includes(query);
-          })
-          .slice(0, 10);
-        if (!matches.length){
-          els.suggestions.innerHTML = `<div class="pcr-empty" style="padding:10px">Manual entry</div>`;
-          els.suggestions.classList.add("open");
-          els.paidTo.setAttribute("aria-expanded", "true");
-          return;
-        }
-        els.suggestions.innerHTML = matches.map((row, index) => {
-          const contact = recipientContactFromRow(row);
-          const detail = [row.company || row.source || "saved", recipientContactSummary(contact)].filter(Boolean).join(" - ");
-          return `
-          <button class="pcr-suggestion" type="button" role="option" data-suggestion-index="${index}">
-            <span><strong>${escapeHtml(row.recipient_name)}</strong><small>${escapeHtml(detail)}</small></span>
-            <span class="badge ${row.recipient_type === "staff" ? "orange" : row.recipient_type === "customer" ? "blue" : "green"}">${escapeHtml(row.recipient_type || "saved")}</span>
-          </button>
-        `;
-        }).join("");
-        els.suggestions.classList.add("open");
-        els.paidTo.setAttribute("aria-expanded", "true");
-        els.suggestions.querySelectorAll("[data-suggestion-index]").forEach((button, index) => {
-          button.addEventListener("mousedown", event => {
-            event.preventDefault();
-            selectRecipient(matches[index]);
-          });
-        });
-      }
-
-      function closeSuggestions(){
-        els.suggestions.classList.remove("open");
-        els.paidTo.setAttribute("aria-expanded", "false");
-      }
-
       function resolveRecipientRow(row){
         if (!row) return null;
         if (row.id){
@@ -1522,9 +1543,12 @@
         ) || row;
       }
 
-      function applyRecipientToForm(row){
-        const resolved = resolveRecipientRow(row);
+      function populateRecipientFields(row){
+        const resolved = mergeRecipientWithSavedDetails(row);
         if (!resolved) return;
+        clearRecipientExtraFields();
+        state.selectedRecipientId = resolved.id || null;
+        if (resolved.id) els.recipientSelect.value = resolved.id;
         els.paidTo.value = resolved.recipient_name || "";
         els.companyName.value = resolved.company || "";
         els.recipientType.value = resolved.recipient_type || "other";
@@ -1534,43 +1558,74 @@
         els.recipientDesignation.value = contact.designation || "";
         els.recipientNationality.value = contact.nationality || "";
         els.recipientCecNo.value = contact.cecNo || "";
-        state.selectedRecipientId = resolved.id || null;
+        syncPaidToManualVisibility();
       }
 
-      function selectRecipient(row){
-        applyRecipientToForm(row);
-        closeSuggestions();
+      async function applyRecipientToForm(row){
+        let resolved = resolveRecipientRow(row);
+        if (!resolved) return;
+        if (resolved.id){
+          try {
+            const rows = await api(`${RECIPIENT_TABLE}?select=*&id=eq.${encodeURIComponent(resolved.id)}&limit=1`);
+            if (rows?.[0]) resolved = rows[0];
+          } catch {}
+        }
+        populateRecipientFields(resolved);
       }
 
-      function matchRecipientByPaidTo(){
-        const key = normalizeName(els.paidTo.value);
-        if (!key) return null;
-        return state.recipients.find(row =>
-          normalizeName(row.recipient_name) === key
-          || normalizeName(row.normalized_name) === key
-        ) || null;
+      async function onRecipientSelectChange(){
+        const value = els.recipientSelect.value;
+        if (!value){
+          state.selectedRecipientId = null;
+          clearRecipientExtraFields();
+          els.paidTo.value = "";
+          els.companyName.value = "";
+          els.recipientType.value = "other";
+          syncPaidToManualVisibility();
+          return;
+        }
+        if (value === "__new__"){
+          state.selectedRecipientId = null;
+          clearRecipientExtraFields();
+          els.paidTo.value = "";
+          els.companyName.value = "";
+          syncPaidToManualVisibility();
+          els.paidTo.focus();
+          return;
+        }
+        const row = state.recipients.find(item => item.id === value);
+        if (row) await applyRecipientToForm(row);
+        else syncPaidToManualVisibility();
       }
 
       async function ensureRecipient(){
-        const paidTo = normalizeDisplay(els.paidTo.value);
+        const paidTo = getPaidToValue();
         const key = normalizeName(paidTo);
         if (!key) return null;
-        const existing = state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
+        const existing = (state.selectedRecipientId
+          ? state.recipients.find(row => row.id === state.selectedRecipientId)
+          : null)
+          || state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
         const recipientType = els.recipientType.value || "other";
         const company = normalizeDisplay(els.companyName.value) || null;
         const metadata = mergeRecipientMetadata(existing);
         if (existing){
-          await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existing.id)}`, {
+          const patchBody = {
+            recipient_type: recipientType,
+            company: company || existing.company || null,
+            metadata,
+            usage_count: Number(existing.usage_count || 0) + 1,
+            last_used_at: new Date().toISOString()
+          };
+          const rows = await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existing.id)}`, {
             method: "PATCH",
-            body: JSON.stringify({
-              recipient_type: recipientType,
-              company: company || existing.company || null,
-              metadata,
-              usage_count: Number(existing.usage_count || 0) + 1,
-              last_used_at: new Date().toISOString()
-            })
+            body: JSON.stringify(patchBody)
           });
-          await loadRecipients();
+          const savedRow = rows?.[0] || { ...existing, ...patchBody };
+          const index = state.recipients.findIndex(row => row.id === existing.id);
+          if (index >= 0) state.recipients[index] = { ...state.recipients[index], ...savedRow };
+          state.selectedRecipientId = existing.id;
+          renderRecipientSelectOptions();
           return existing.id;
         }
 
@@ -1588,11 +1643,20 @@
         try {
           const rows = await api(RECIPIENT_TABLE, { method: "POST", body: JSON.stringify(payload) });
           await loadRecipients();
-          return rows?.[0]?.id || null;
+          const createdId = rows?.[0]?.id || null;
+          if (createdId){
+            state.selectedRecipientId = createdId;
+            renderRecipientSelectOptions();
+          }
+          return createdId;
         } catch (error) {
           await loadRecipients();
           const matched = state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
-          if (matched) return matched.id;
+          if (matched){
+            state.selectedRecipientId = matched.id;
+            renderRecipientSelectOptions();
+            return matched.id;
+          }
           throw error;
         }
       }
@@ -1607,7 +1671,7 @@
           amount_words: normalizeDisplay(els.amountWords.value),
           currency: "AED",
           company: normalizeDisplay(els.companyName.value) || null,
-          paid_to: normalizeDisplay(els.paidTo.value),
+          paid_to: getPaidToValue(),
           payment_method: els.paymentMethod.value,
           description: normalizeDisplay(els.descriptionText.value) || null,
           created_by: createdBy,
@@ -1630,7 +1694,8 @@
         if (!validateForm()) return;
         setBusy(true, state.editingId ? "Updating voucher" : "Saving voucher");
         try {
-          const recipientId = state.selectedRecipientId || await ensureRecipient();
+          const recipientId = await ensureRecipient();
+          state.selectedRecipientId = recipientId;
           if (state.editingId){
             const payload = voucherPayload(recipientId, normalizeDisplay(els.voucherNumber.value));
             delete payload.created_by;
@@ -1671,15 +1736,24 @@
         els.voucherDate.value = voucher.voucher_date || todayIso();
         els.amountNumber.value = Number(voucher.amount || 0).toFixed(2);
         els.amountWords.value = voucher.amount_words || amountToWords(voucher.amount);
-        els.companyName.value = voucher.company || "";
-        els.paidTo.value = voucher.paid_to || "";
-        const details = recipientDetailsFromVoucher(voucher);
-        els.recipientType.value = details.type || "other";
-        els.recipientStaff.value = details.staff || "";
-        els.recipientMobile.value = details.mobile || "";
-        els.recipientDesignation.value = details.designation || "";
-        els.recipientNationality.value = details.nationality || "";
-        els.recipientCecNo.value = details.cecNo || "";
+        const savedRecipient = findRecipientForVoucher(voucher)
+          || state.recipients.find(row => normalizeName(row.recipient_name) === normalizeName(voucher.paid_to));
+        if (savedRecipient?.id){
+          void applyRecipientToForm(savedRecipient);
+        } else {
+          state.selectedRecipientId = voucher.recipient_id || null;
+          els.recipientSelect.value = "__new__";
+          els.paidTo.value = voucher.paid_to || "";
+          syncPaidToManualVisibility();
+          els.companyName.value = voucher.company || "";
+          const details = recipientDetailsFromVoucher(voucher);
+          els.recipientType.value = details.type || "other";
+          els.recipientStaff.value = details.staff || "";
+          els.recipientMobile.value = details.mobile || "";
+          els.recipientDesignation.value = details.designation || "";
+          els.recipientNationality.value = details.nationality || "";
+          els.recipientCecNo.value = details.cecNo || "";
+        }
         els.paymentMethod.value = voucher.payment_method || "";
         els.descriptionText.value = voucher.description || "";
         els.createdBy.value = voucher.created_by || getCurrentUser();
@@ -2169,23 +2243,9 @@
         els.voucherDate.addEventListener("change", async () => {
           if (!state.editingId) els.voucherNumber.value = await fetchNextVoucherNumber();
         });
+        els.recipientSelect.addEventListener("change", onRecipientSelectChange);
         els.paidTo.addEventListener("input", () => {
-          state.selectedRecipientId = null;
-          renderSuggestions();
-        });
-        els.paidTo.addEventListener("blur", () => {
-          const match = matchRecipientByPaidTo();
-          if (match) applyRecipientToForm(match);
-        });
-        els.paidTo.addEventListener("focus", renderSuggestions);
-        document.addEventListener("click", event => {
-          if (!event.target.closest(".pcr-autocomplete")) closeSuggestions();
-        });
-        els.quickRecipients.addEventListener("click", event => {
-          const button = event.target.closest("[data-recipient-id]");
-          if (!button) return;
-          const row = state.recipients.find(item => item.id === button.dataset.recipientId);
-          if (row) applyRecipientToForm(row);
+          if (els.recipientSelect.value === "__new__") state.selectedRecipientId = null;
         });
         els.cancelEditBtn.addEventListener("click", () => resetForm());
         els.previewDraftBtn.addEventListener("click", () => {
