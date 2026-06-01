@@ -80,8 +80,8 @@
     .pcr-preview-body{padding:14px;overflow:auto}
     .pcr-empty{border:1px dashed var(--line-strong);border-radius:12px;background:#fff;padding:18px;text-align:center;color:var(--muted);font-size:.88rem;line-height:1.6}
     #printRoot{display:none}
-    .voucher-sheet{width:297mm;min-height:210mm;background:#fff;color:#17212b;padding:10mm;font-family:Inter,Arial,sans-serif;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto}
-    .voucher-frame{border:1.4px solid #17212b;min-height:190mm;display:flex;flex-direction:column}
+    .voucher-sheet{width:297mm;height:210mm;background:#fff;color:#17212b;padding:8mm;box-sizing:border-box;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto;page-break-inside:avoid;break-inside:avoid}
+    .voucher-frame{border:1.4px solid #17212b;min-height:100%;display:flex;flex-direction:column;box-sizing:border-box}
     .voucher-company{display:grid;grid-template-columns:35mm 1fr 55mm;gap:5mm;align-items:center;border-bottom:1.2px solid #17212b;padding:5mm 6mm}
     .voucher-logo{width:32mm;height:22mm;object-fit:contain}
     .voucher-company h1{margin:0;text-transform:uppercase;font-size:18pt;letter-spacing:.03em;line-height:1.05}
@@ -132,8 +132,8 @@
       body{background:#fff !important}
       body *{visibility:hidden !important}
       #printRoot,#printRoot *{visibility:visible !important}
-      #printRoot{display:block !important;position:absolute;inset:0;width:297mm;min-height:210mm;background:#fff}
-      .voucher-sheet{box-shadow:none;margin:0;width:297mm;min-height:210mm}
+      #printRoot{display:block !important;position:absolute;inset:0;width:297mm;height:210mm;overflow:hidden;background:#fff;box-sizing:border-box}
+      .voucher-sheet{box-shadow:none;margin:0;width:297mm;height:210mm;padding:8mm;box-sizing:border-box}
     }
   </style>
 </head>
@@ -146,7 +146,7 @@
   <div class="pcr-shell">
     <header class="header pcr-header">
       <div class="brand">
-        <img class="mark" src="logo.png" alt="Triple M by NSF" onerror="this.src='logo.png'" />
+        <img class="mark" src="logo.png" alt="Triple M by NSF" onerror="this.onerror=null;this.remove()" />
         <div>
           <h1 class="pcr-header-title">Payment Voucher Database</h1>
           <p class="pcr-header-sub">Premium Car Rental DMCC</p>
@@ -966,7 +966,7 @@
           <article class="voucher-sheet">
             <div class="voucher-frame">
               <header class="voucher-company">
-                <div><img class="voucher-logo" src="${LOGO_URL}" alt="logo.png" /></div>
+                <div><img class="voucher-logo" src="${LOGO_URL}" alt="logo.png" onerror="this.onerror=null;this.remove()" /></div>
                 <div>
                   <h1>Premium Car Rental DMCC</h1>
                   <p><strong>TRN: 100035111200003</strong></p>
@@ -1124,15 +1124,18 @@
           await waitForImages(holder);
           const sheet = holder.querySelector(".voucher-sheet");
           if (!sheet) throw new Error("PDF content could not be rendered.");
-          sheet.querySelectorAll("img").forEach(img => img.remove());
           const canvas = await html2canvasFn(sheet, {
-            scale: 2,
+            scale: Math.min(1.5, Math.max(1, window.devicePixelRatio || 1)),
             useCORS: true,
             backgroundColor: "#ffffff",
-            logging: false
+            logging: false,
+            windowWidth: sheet.scrollWidth,
+            windowHeight: sheet.scrollHeight
           });
           const pdf = new jsPDFConstructor({ orientation: "landscape", unit: "mm", format: "a4" });
-          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 297, 210, undefined, "FAST");
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
           const filename = `${voucher.voucher_number || "payment-voucher"}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
           pdf.save(filename);
           await recordVoucherEvent(voucher, "pdf");
