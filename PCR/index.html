@@ -27,17 +27,21 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    .pcr-shell{max-width:var(--max);margin:0 auto;padding:16px;position:relative;z-index:1}
-    .pcr-header .brand{margin-bottom:14px}
-    .pcr-header .brand .mark{width:180px;height:48px;border-radius:8px;object-fit:contain}
-    .pcr-header-title{margin:0;font-size:1.05rem;font-weight:800;letter-spacing:-.03em;color:var(--text)}
-    .pcr-header-sub{margin:4px 0 0;color:var(--muted);font-size:.82rem;line-height:1.4}
+    .pcr-shell{max-width:var(--max);margin:0 auto;padding:12px;position:relative;z-index:1;font-size:.84rem}
+    .pcr-shell .overview{padding:12px 14px}
+    .pcr-shell .overview h2{font-size:.95rem;margin:0}
+    .pcr-shell .overview .overview-top p{font-size:.72rem}
+    .pcr-shell .overview .tools .btn{font-size:.74rem;padding:7px 11px;min-height:32px}
+    .pcr-header .brand{margin-bottom:10px}
+    .pcr-header .brand .mark{width:150px;height:40px;border-radius:8px;object-fit:contain}
+    .pcr-header-title{margin:0;font-size:.92rem;font-weight:800;letter-spacing:-.03em;color:var(--text)}
+    .pcr-header-sub{margin:2px 0 0;color:var(--muted);font-size:.72rem;line-height:1.35}
     .pcr-status-chip{display:inline-flex;align-items:center;gap:8px}
     .pcr-status-dot{width:8px;height:8px;border-radius:999px;background:var(--warning);box-shadow:0 0 0 4px rgba(181,71,8,.12)}
     .pcr-status-dot.is-online{background:var(--success);box-shadow:0 0 0 4px rgba(6,118,71,.12)}
-    .pcr-layout{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:14px;align-items:start}
+    .pcr-main{margin-top:10px}
     .pcr-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .pcr-section{padding:14px}
+    .pcr-section{padding:12px}
     .pcr-section + .pcr-section{border-top:1px solid var(--line)}
     .pcr-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}
     .pcr-field{display:flex;flex-direction:column;gap:6px;grid-column:span 12;min-width:0}
@@ -53,31 +57,53 @@
     .pcr-tools-row{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
     .pcr-tools-row .pcr-field{flex:1 1 150px}
     .pcr-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
-    .pcr-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}
-    .pcr-summary-card{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:11px;min-height:78px;display:flex;flex-direction:column;justify-content:space-between;gap:8px}
-    .pcr-summary-card span{font-size:.74rem;color:var(--muted);font-weight:700}
-    .pcr-summary-card strong{font-size:1.04rem;letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
-    .pcr-database-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
-    .pcr-database-head h3{margin:0;font-size:.98rem;letter-spacing:-.02em}
-    .pcr-database-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem;line-height:1.45}
+    .pcr-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px}
+    .pcr-summary-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:58px;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+    .pcr-summary-card span{font-size:.66rem;color:var(--muted);font-weight:700;letter-spacing:.02em}
+    .pcr-summary-card strong{font-size:.86rem;letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
+    .pcr-database-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px}
+    .pcr-database-head h3{margin:0;font-size:.88rem;letter-spacing:-.02em}
+    .pcr-database-head p{margin:2px 0 0;color:var(--muted);font-size:.72rem;line-height:1.4}
+    .pcr-database-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .pcr-database-tools .btn{font-size:.72rem;padding:6px 10px;min-height:30px}
     .pcr-table-wrap{overflow-x:hidden}
     .pcr-table{table-layout:fixed;width:100%}
+    .pcr-table{font-size:.74rem}
     .pcr-table th,.pcr-table td{white-space:normal;overflow-wrap:anywhere}
-    .pcr-table th{padding:8px 6px}
-    .pcr-table td{padding:8px 6px;line-height:1.28}
-    .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px;max-width:100%;white-space:normal;text-align:left}
+    .pcr-table th{padding:6px 5px;font-size:.68rem}
+    .pcr-table td{padding:5px 5px;line-height:1.22;vertical-align:middle}
+    .pcr-table tbody tr{height:36px}
+    .pcr-table tbody tr.pcr-import-row{background:rgba(36,87,214,.04)}
+    .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:normal;text-align:left;font-size:.68rem}
     .pcr-table th:nth-child(1){width:13%}
     .pcr-table th:nth-child(2){width:10%}
     .pcr-table th:nth-child(3){width:21%}
     .pcr-table th:nth-child(4){width:11%}
     .pcr-table th:nth-child(5){width:13%}
     .pcr-table th:nth-child(6){width:13%}
-    .pcr-table th:nth-child(7){width:19%}
+    .pcr-table th:nth-child(7){width:8%}
     .pcr-table .pcr-cell-main{white-space:normal;min-width:0}
-    .pcr-table .badge{white-space:normal;line-height:1.15;text-align:center;justify-content:center}
-    .pcr-table small{display:block;line-height:1.25;overflow-wrap:anywhere}
-    .pcr-actions{display:flex;gap:4px;align-items:center;justify-content:flex-start;flex-wrap:wrap;max-width:100%}
-    .pcr-actions .tiny{height:auto;min-height:27px;display:inline-flex;align-items:center;justify-content:center;flex:1 1 42px;padding:4px 6px;font-size:.68rem;line-height:1.1;white-space:normal}
+    .pcr-table .badge{white-space:nowrap;line-height:1.1;text-align:center;justify-content:center;font-size:.64rem;padding:3px 6px}
+    .pcr-table small{display:block;line-height:1.2;overflow-wrap:anywhere;font-size:.66rem}
+    .pcr-table strong{font-size:.74rem;font-weight:800}
+    .pcr-row-menu{position:relative;display:inline-flex}
+    .pcr-menu-trigger{width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);display:inline-grid;place-items:center;cursor:pointer;padding:0}
+    .pcr-menu-trigger:hover{border-color:rgba(36,87,214,.35);background:var(--primary-soft);color:var(--primary)}
+    .pcr-menu-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:60;min-width:148px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-strong);padding:4px;display:grid;gap:2px}
+    .pcr-menu-panel.open{display:grid}
+    .pcr-menu-panel:not(.open){display:none}
+    .pcr-menu-panel button{appearance:none;border:0;background:transparent;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:.72rem;font-weight:700;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:7px}
+    .pcr-menu-panel button:hover{background:var(--primary-soft);color:var(--primary)}
+    .pcr-menu-panel button.danger{color:var(--danger)}
+    .pcr-menu-panel button.danger:hover{background:rgba(180,35,24,.08)}
+    .pcr-import-save{height:26px;padding:0 10px;font-size:.68rem;border-radius:7px}
+    .pcr-form-modal-dialog{width:min(920px,100%);max-height:calc(100vh - 24px)}
+    .pcr-form-modal-body{padding:0 14px 14px;overflow:auto;max-height:calc(100vh - 120px)}
+    .pcr-form-section{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel-2);margin-bottom:10px}
+    .pcr-form-section:last-of-type{margin-bottom:0}
+    .pcr-form-section h4{margin:0 0 10px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+    .pcr-form-section .pcr-form-grid{gap:8px}
+    .pcr-form-modal-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px;margin:0 -14px -14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .pcr-autocomplete{position:relative}
     .pcr-suggestions{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-strong);padding:6px;max-height:260px;overflow:auto;display:none}
     .pcr-suggestions.open{display:block}
@@ -160,8 +186,7 @@
     .voucher-footer{border-top:.7px solid #cfd6e0;padding:2.5mm 5.5mm;display:flex;justify-content:space-between;gap:5mm;font-size:7.2pt;color:#667085}
     .voucher-preview-scale{transform-origin:top left}
     @media (max-width:1100px){
-      .pcr-layout{grid-template-columns:1fr}
-      .pcr-summary-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}
+      .pcr-summary-grid{grid-template-columns:repeat(2,minmax(110px,1fr))}
     }
     @media (max-width:760px){
       .pcr-shell{padding:10px}
@@ -232,6 +257,7 @@
           <p id="summaryUpdated">Live Supabase records</p>
         </div>
         <div class="tools">
+          <button class="btn primary" id="createVoucherBtn" type="button"><i class="fa-solid fa-plus"></i> Create Voucher</button>
           <button class="btn soft" id="printLatestBtn" type="button"><i class="fa-solid fa-print"></i> Print Latest</button>
         </div>
       </div>
@@ -245,116 +271,7 @@
       </div>
     </section>
 
-    <main class="pcr-layout" style="margin-top:14px">
-      <section class="pcr-card" aria-labelledby="voucherFormTitle">
-        <div class="pcr-section">
-          <div class="section-head">
-            <div class="section-head-top">
-              <div class="title-group">
-                <div class="title-row">
-                  <h3 id="voucherFormTitle">Voucher Creation</h3>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <form id="voucherForm" novalidate>
-            <div class="pcr-form-grid">
-              <div class="pcr-field w6">
-                <label for="voucherNumber">Voucher Number</label>
-                <input id="voucherNumber" class="input pcr-readonly" type="text" readonly />
-              </div>
-              <div class="pcr-field w6">
-                <label for="voucherDate">Date</label>
-                <input id="voucherDate" class="input" type="date" required />
-              </div>
-              <div class="pcr-field w6">
-                <label for="amountNumber">Amount in Numbers</label>
-                <div class="pcr-amount-row">
-                  <input id="amountNumber" class="input" type="number" min="0" step="0.01" inputmode="decimal" required />
-                  <input class="input pcr-readonly" value="AED" readonly aria-label="Currency" />
-                </div>
-              </div>
-              <div class="pcr-field w6">
-                <label for="paymentMethod">Payment Method</label>
-                <select id="paymentMethod" class="select" required>
-                  <option value="">Select method</option>
-                  <option>Cash</option>
-                  <option>Cheque</option>
-                  <option>Card</option>
-                  <option>Bank Transfer</option>
-                </select>
-              </div>
-              <div class="pcr-field">
-                <label for="amountWords">Amount in Words</label>
-                <textarea id="amountWords" class="input" rows="2" required></textarea>
-              </div>
-              <div class="pcr-field w6">
-                <label for="companyName">Company</label>
-                <input id="companyName" class="input" type="text" autocomplete="organization" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="recipientType">Recipient Type</label>
-                <select id="recipientType" class="select">
-                  <option value="other">Other</option>
-                  <option value="customer">Customer</option>
-                  <option value="staff">Staff</option>
-                </select>
-              </div>
-              <div class="pcr-field">
-                <label for="recipientSelect">Paid To</label>
-                <select id="recipientSelect" class="select" required>
-                  <option value="">Select recipient</option>
-                  <option value="__new__">+ New recipient</option>
-                </select>
-              </div>
-              <div class="pcr-field hide" id="paidToManualField">
-                <label for="paidTo">New recipient name</label>
-                <input id="paidTo" class="input" type="text" autocomplete="name" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="recipientStaff">Staff <span class="pcr-field-label-optional">(optional)</span></label>
-                <input id="recipientStaff" class="input" type="text" autocomplete="off" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="recipientMobile">Mobile Number <span class="pcr-field-label-optional">(optional)</span></label>
-                <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="recipientDesignation">Designation <span class="pcr-field-label-optional">(optional)</span></label>
-                <input id="recipientDesignation" class="input" type="text" autocomplete="organization-title" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="recipientNationality">Nationality <span class="pcr-field-label-optional">(optional)</span></label>
-                <input id="recipientNationality" class="input" type="text" autocomplete="country-name" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="recipientCecNo">CEC No. <span class="pcr-field-label-optional">(optional)</span></label>
-                <input id="recipientCecNo" class="input" type="text" autocomplete="off" />
-              </div>
-              <div class="pcr-field">
-                <label for="descriptionText">Description / Remarks</label>
-                <textarea id="descriptionText" class="input" rows="3"></textarea>
-              </div>
-              <div class="pcr-field w6">
-                <label for="createdBy">Created By</label>
-                <input id="createdBy" class="input" type="text" />
-              </div>
-              <div class="pcr-field w6">
-                <label for="createdAt">Created Timestamp</label>
-                <input id="createdAt" class="input pcr-readonly" type="text" readonly />
-              </div>
-            </div>
-            <div id="formError" class="pcr-form-error" role="alert"></div>
-            <div class="pcr-form-actions">
-              <button id="cancelEditBtn" class="btn ghost hide" type="button">Cancel Edit</button>
-              <button id="previewDraftBtn" class="btn soft" type="button"><i class="fa-solid fa-eye"></i> Print Preview</button>
-              <button id="saveVoucherBtn" class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save Voucher</button>
-            </div>
-          </form>
-        </div>
-      </section>
-
+    <main class="pcr-main">
       <section class="pcr-card" aria-labelledby="voucherDatabaseTitle">
         <div class="pcr-section">
           <div class="pcr-database-head">
@@ -362,8 +279,10 @@
               <h3 id="voucherDatabaseTitle">Voucher Database</h3>
               <p id="databaseCount">0 records</p>
             </div>
-            <div class="tools">
-              <button id="exportCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+            <div class="tools pcr-database-tools">
+              <button id="backupCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-download"></i> Backup</button>
+              <button id="importCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-upload"></i> Import CSV</button>
+              <input id="importCsvInput" class="hide" type="file" accept=".csv,text/csv" />
             </div>
           </div>
 
@@ -420,6 +339,128 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="voucherFormModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="voucherFormTitle">
+    <div class="pcr-modal-backdrop" data-close-voucher-form></div>
+    <div class="pcr-modal-dialog pcr-form-modal-dialog">
+      <div class="pcr-modal-head">
+        <div>
+          <h3 id="voucherFormTitle">Create Voucher</h3>
+          <p id="voucherFormSubtitle">Enter voucher and recipient details</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-voucher-form aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pcr-form-modal-body">
+        <form id="voucherForm" novalidate>
+          <section class="pcr-form-section" aria-label="Voucher details">
+            <h4>Voucher Details</h4>
+            <div class="pcr-form-grid">
+              <div class="pcr-field w6">
+                <label for="voucherNumber">Voucher Number</label>
+                <input id="voucherNumber" class="input pcr-readonly" type="text" readonly />
+              </div>
+              <div class="pcr-field w6">
+                <label for="voucherDate">Date</label>
+                <input id="voucherDate" class="input" type="date" required />
+              </div>
+              <div class="pcr-field w6">
+                <label for="amountNumber">Amount in Numbers</label>
+                <div class="pcr-amount-row">
+                  <input id="amountNumber" class="input" type="number" min="0" step="0.01" inputmode="decimal" required />
+                  <input class="input pcr-readonly" value="AED" readonly aria-label="Currency" />
+                </div>
+              </div>
+              <div class="pcr-field w6">
+                <label for="paymentMethod">Payment Method</label>
+                <select id="paymentMethod" class="select" required>
+                  <option value="">Select method</option>
+                  <option>Cash</option>
+                  <option>Cheque</option>
+                  <option>Card</option>
+                  <option>Bank Transfer</option>
+                </select>
+              </div>
+              <div class="pcr-field">
+                <label for="amountWords">Amount in Words</label>
+                <textarea id="amountWords" class="input" rows="2" required></textarea>
+              </div>
+            </div>
+          </section>
+          <section class="pcr-form-section" aria-label="Recipient details">
+            <h4>Recipient</h4>
+            <div class="pcr-form-grid">
+              <div class="pcr-field w6">
+                <label for="recipientType">Recipient Type</label>
+                <select id="recipientType" class="select">
+                  <option value="other">Other</option>
+                  <option value="customer">Customer</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientSelect">Paid To</label>
+                <select id="recipientSelect" class="select" required>
+                  <option value="">Select recipient</option>
+                  <option value="__new__">+ New recipient</option>
+                </select>
+              </div>
+              <div class="pcr-field hide" id="paidToManualField">
+                <label for="paidTo">New recipient name</label>
+                <input id="paidTo" class="input" type="text" autocomplete="name" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="companyName">Company <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="companyName" class="input" type="text" autocomplete="organization" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientStaff">Staff <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientStaff" class="input" type="text" autocomplete="off" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientMobile">Mobile Number <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientDesignation">Designation <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientDesignation" class="input" type="text" autocomplete="organization-title" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientNationality">Nationality <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientNationality" class="input" type="text" autocomplete="country-name" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientCecNo">CEC No. <span class="pcr-field-label-optional">(optional)</span></label>
+                <input id="recipientCecNo" class="input" type="text" autocomplete="off" />
+              </div>
+            </div>
+          </section>
+          <section class="pcr-form-section" aria-label="Additional information">
+            <h4>Additional Information</h4>
+            <div class="pcr-form-grid">
+              <div class="pcr-field">
+                <label for="descriptionText">Description / Remarks</label>
+                <textarea id="descriptionText" class="input" rows="3"></textarea>
+              </div>
+              <div class="pcr-field w6">
+                <label for="createdBy">Created By</label>
+                <input id="createdBy" class="input" type="text" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="createdAt">Created Timestamp</label>
+                <input id="createdAt" class="input pcr-readonly" type="text" readonly />
+              </div>
+            </div>
+          </section>
+          <div id="formError" class="pcr-form-error" role="alert"></div>
+          <div class="pcr-form-modal-actions">
+            <button id="cancelEditBtn" class="btn ghost" type="button">Cancel</button>
+            <button id="previewDraftBtn" class="btn soft" type="button"><i class="fa-solid fa-eye"></i> Print Preview</button>
+            <button id="saveVoucherBtn" class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save Voucher</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <div id="previewModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
@@ -528,6 +569,24 @@
       const PRINT_TOP_SCALE = 210 / 297;
       const PX_PER_MM = 96 / 25.4;
       const PIN_STORAGE_KEY = "pcr-smart-pin-hash";
+      const BACKUP_CSV_HEADERS = [
+        "Voucher Number",
+        "Date",
+        "Paid To",
+        "Company",
+        "Recipient Type",
+        "Staff",
+        "Mobile Number",
+        "Designation",
+        "Nationality",
+        "CEC No.",
+        "Payment Method",
+        "Amount",
+        "Amount Words",
+        "Created By",
+        "Created At",
+        "Remarks"
+      ];
 
       const els = {
         form: document.getElementById("voucherForm"),
@@ -561,7 +620,13 @@
         clearFiltersBtn: document.getElementById("clearFiltersBtn"),
         tableBody: document.getElementById("voucherTableBody"),
         databaseCount: document.getElementById("databaseCount"),
-        exportCsvBtn: document.getElementById("exportCsvBtn"),
+        createVoucherBtn: document.getElementById("createVoucherBtn"),
+        voucherFormModal: document.getElementById("voucherFormModal"),
+        voucherFormSubtitle: document.getElementById("voucherFormSubtitle"),
+        voucherFormTitle: document.getElementById("voucherFormTitle"),
+        backupCsvBtn: document.getElementById("backupCsvBtn"),
+        importCsvBtn: document.getElementById("importCsvBtn"),
+        importCsvInput: document.getElementById("importCsvInput"),
         refreshBtn: document.getElementById("refreshBtn"),
         printLatestBtn: document.getElementById("printLatestBtn"),
         managePinBtn: document.getElementById("managePinBtn"),
@@ -615,6 +680,8 @@
         , pinConfigured: false
         , pinHash: ""
         , databaseUnlocked: false
+        , pendingImports: []
+        , openMenuId: null
       };
 
       function todayIso(){
@@ -1011,7 +1078,9 @@
         [
           els.refreshBtn,
           els.printLatestBtn,
-          els.exportCsvBtn,
+          els.createVoucherBtn,
+          els.backupCsvBtn,
+          els.importCsvBtn,
           els.previewDraftBtn,
           els.saveVoucherBtn,
           els.searchInput,
@@ -1484,6 +1553,335 @@
         renderRecipientSelectOptions();
       }
 
+      function closeRowMenus(){
+        state.openMenuId = null;
+        document.querySelectorAll(".pcr-menu-panel.open").forEach(panel => panel.classList.remove("open"));
+      }
+
+      function toggleRowMenu(menuId){
+        const panel = document.querySelector(`[data-menu-panel="${menuId}"]`);
+        if (!panel) return;
+        const willOpen = !panel.classList.contains("open");
+        closeRowMenus();
+        if (willOpen){
+          panel.classList.add("open");
+          state.openMenuId = menuId;
+        }
+      }
+
+      function renderRowActionMenu(menuId, actions){
+        const items = actions.map(action => (
+          `<button type="button" class="${action.className || ""}" data-action="${escapeHtml(action.name)}" data-id="${escapeHtml(action.id)}">${action.icon ? `<i class="${action.icon}"></i>` : ""}${escapeHtml(action.label)}</button>`
+        )).join("");
+        return `
+          <div class="pcr-row-menu">
+            <button type="button" class="pcr-menu-trigger" data-menu-trigger="${escapeHtml(menuId)}" aria-label="Actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            <div class="pcr-menu-panel" data-menu-panel="${escapeHtml(menuId)}">${items}</div>
+          </div>
+        `;
+      }
+
+      function isVoucherNumberInDatabase(voucherNumber){
+        const key = normalizeName(voucherNumber);
+        if (!key) return false;
+        return state.vouchers.some(voucher => normalizeName(voucher.voucher_number) === key);
+      }
+
+      function getVisiblePendingImports(){
+        const query = normalizeName(els.searchInput.value);
+        return state.pendingImports.filter(row => {
+          if (isVoucherNumberInDatabase(row.voucher_number)) return false;
+          const haystack = normalizeName([
+            row.voucher_number,
+            row.paid_to,
+            row.company,
+            row.payment_method,
+            row.description
+          ].join(" "));
+          if (query && !haystack.includes(query)) return false;
+          return true;
+        });
+      }
+
+      function openVoucherFormModal(mode = "create"){
+        els.voucherFormTitle.textContent = mode === "edit" ? "Edit Voucher" : "Create Voucher";
+        els.voucherFormSubtitle.textContent = mode === "edit"
+          ? "Update voucher and recipient details"
+          : "Enter voucher and recipient details";
+        els.voucherFormModal.classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeVoucherFormModal(){
+        els.voucherFormModal.classList.remove("open");
+        if (!els.previewModal.classList.contains("open") && !els.pinModal.classList.contains("open")){
+          document.body.style.overflow = "";
+        }
+      }
+
+      function buildMetadataFromImportRow(row){
+        const metadata = { recipient_type: row.recipient_type || "other" };
+        if (row.staff) metadata[RECIPIENT_STAFF_KEY] = row.staff;
+        if (row.mobile) metadata[RECIPIENT_MOBILE_KEY] = row.mobile;
+        if (row.designation) metadata[RECIPIENT_DESIGNATION_KEY] = row.designation;
+        if (row.nationality) metadata[RECIPIENT_NATIONALITY_KEY] = row.nationality;
+        if (row.cec_no) metadata[RECIPIENT_CEC_KEY] = row.cec_no;
+        return metadata;
+      }
+
+      async function ensureRecipientFromImport(row){
+        const paidTo = normalizeDisplay(row.paid_to);
+        const key = normalizeName(paidTo);
+        if (!key) return null;
+        const existing = state.recipients.find(item => normalizeName(item.recipient_name) === key || item.normalized_name === key);
+        const metadata = existing
+          ? { ...readMetadata(existing), ...buildMetadataFromImportRow(row) }
+          : buildMetadataFromImportRow(row);
+        if (existing){
+          const rows = await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existing.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              recipient_type: row.recipient_type || existing.recipient_type || "other",
+              company: normalizeDisplay(row.company) || existing.company || null,
+              metadata,
+              usage_count: Number(existing.usage_count || 0) + 1,
+              last_used_at: new Date().toISOString()
+            })
+          });
+          const savedRow = rows?.[0] || { ...existing, metadata };
+          const index = state.recipients.findIndex(item => item.id === existing.id);
+          if (index >= 0) state.recipients[index] = { ...state.recipients[index], ...savedRow };
+          return existing.id;
+        }
+        const payload = {
+          recipient_name: paidTo,
+          normalized_name: key,
+          recipient_type: row.recipient_type || "other",
+          company: normalizeDisplay(row.company) || null,
+          source: "import",
+          usage_count: 1,
+          last_used_at: new Date().toISOString(),
+          metadata,
+          created_by: normalizeDisplay(row.created_by) || getCurrentUser()
+        };
+        const rows = await api(RECIPIENT_TABLE, { method: "POST", body: JSON.stringify(payload) });
+        await loadRecipients();
+        return rows?.[0]?.id || null;
+      }
+
+      function voucherToBackupRow(voucher){
+        const details = recipientDetailsFromVoucher(voucher);
+        return [
+          voucher.voucher_number,
+          voucher.voucher_date,
+          voucher.paid_to,
+          voucher.company || "",
+          details.type || "other",
+          details.staff,
+          details.mobile,
+          details.designation,
+          details.nationality,
+          details.cecNo,
+          voucher.payment_method,
+          Number(voucher.amount || 0).toFixed(2),
+          voucher.amount_words,
+          voucher.created_by || "",
+          voucher.created_at || "",
+          voucher.description || ""
+        ];
+      }
+
+      function parseCsvLine(line){
+        const values = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i += 1){
+          const char = line[i];
+          if (char === "\""){
+            if (inQuotes && line[i + 1] === "\""){
+              current += "\"";
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+            continue;
+          }
+          if (char === "," && !inQuotes){
+            values.push(current);
+            current = "";
+            continue;
+          }
+          current += char;
+        }
+        values.push(current);
+        return values.map(value => value.trim());
+      }
+
+      function parseCsvText(text){
+        const lines = String(text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        if (!lines.length) return [];
+        const headers = parseCsvLine(lines[0].replace(/^\uFEFF/, ""));
+        return lines.slice(1).map(line => {
+          const cols = parseCsvLine(line);
+          const row = {};
+          headers.forEach((header, index) => {
+            row[normalizeDisplay(header)] = cols[index] ?? "";
+          });
+          return row;
+        });
+      }
+
+      function normalizeImportRow(raw, index){
+        const lookup = {};
+        Object.entries(raw).forEach(([key, value]) => {
+          lookup[normalizeName(key)] = value;
+        });
+        const pick = (...labels) => {
+          for (const label of labels){
+            const value = lookup[normalizeName(label)];
+            if (normalizeDisplay(value)) return normalizeDisplay(value);
+          }
+          return "";
+        };
+        return {
+          tempId: `import-${Date.now()}-${index}`,
+          voucher_number: pick("voucher number", "voucher_number"),
+          voucher_date: pick("date", "voucher_date") || todayIso(),
+          paid_to: pick("paid to", "paid_to"),
+          company: pick("company"),
+          recipient_type: pick("recipient type", "recipient_type") || "other",
+          staff: pick("staff"),
+          mobile: pick("mobile number", "mobile", "mobile_number"),
+          designation: pick("designation"),
+          nationality: pick("nationality"),
+          cec_no: pick("cec no.", "cec no", "cec_no", "cec number"),
+          payment_method: pick("payment method", "payment_method") || "Cash",
+          amount: pick("amount") || "0",
+          amount_words: pick("amount words", "amount_words") || amountToWords(pick("amount") || 0),
+          created_by: pick("created by", "created_by") || getCurrentUser(),
+          created_at: pick("created at", "created_at") || new Date().toISOString(),
+          description: pick("remarks", "description")
+        };
+      }
+
+      function downloadCsvFile(filename, headers, dataRows){
+        const csv = [headers].concat(dataRows)
+          .map(cols => cols.map(value => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`).join(","))
+          .join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function downloadBackupCsv(){
+        if (!state.vouchers.length){
+          showToast("No vouchers to backup.", "error");
+          return;
+        }
+        downloadCsvFile(
+          `payment-vouchers-backup-${todayIso()}.csv`,
+          BACKUP_CSV_HEADERS,
+          state.vouchers.map(voucherToBackupRow)
+        );
+        showToast("Backup downloaded.");
+      }
+
+      async function handleImportCsvFile(file){
+        if (!file) return;
+        if (isDatabaseLocked()){
+          showToast("Unlock Smart PIN before importing.", "error");
+          return;
+        }
+        setBusy(true, "Reading CSV");
+        try {
+          const text = await file.text();
+          const parsed = parseCsvText(text);
+          if (!parsed.length){
+            showToast("CSV file has no data rows.", "error");
+            return;
+          }
+          let added = 0;
+          let skipped = 0;
+          parsed.forEach((raw, index) => {
+            const row = normalizeImportRow(raw, index);
+            if (!normalizeDisplay(row.paid_to)){
+              skipped += 1;
+              return;
+            }
+            if (isVoucherNumberInDatabase(row.voucher_number)){
+              skipped += 1;
+              return;
+            }
+            if (state.pendingImports.some(item => normalizeName(item.voucher_number) === normalizeName(row.voucher_number) && row.voucher_number)){
+              skipped += 1;
+              return;
+            }
+            state.pendingImports.push(row);
+            added += 1;
+          });
+          renderTable();
+          showToast(added
+            ? `${added} row${added === 1 ? "" : "s"} ready to import.${skipped ? ` ${skipped} skipped.` : ""}`
+            : "No new rows to import.");
+        } catch (error) {
+          showToast(error.message || "CSV import failed.", "error");
+        } finally {
+          setBusy(false);
+          els.importCsvInput.value = "";
+        }
+      }
+
+      async function saveImportedRow(tempId){
+        if (isDatabaseLocked()){
+          showToast("Unlock Smart PIN before saving.", "error");
+          return;
+        }
+        const row = state.pendingImports.find(item => item.tempId === tempId);
+        if (!row) return;
+        if (!normalizeDisplay(row.paid_to)){
+          showToast("Paid To is required.", "error");
+          return;
+        }
+        setBusy(true, "Saving import");
+        try {
+          const recipientId = await ensureRecipientFromImport(row);
+          let voucherNumber = normalizeDisplay(row.voucher_number);
+          if (!voucherNumber) voucherNumber = await fetchNextVoucherNumber();
+          const payload = {
+            recipient_id: recipientId,
+            voucher_number: voucherNumber,
+            voucher_date: row.voucher_date || todayIso(),
+            amount: Number(row.amount || 0).toFixed(2),
+            amount_words: normalizeDisplay(row.amount_words) || amountToWords(row.amount),
+            currency: "AED",
+            company: normalizeDisplay(row.company) || null,
+            paid_to: normalizeDisplay(row.paid_to),
+            payment_method: row.payment_method || "Cash",
+            description: normalizeDisplay(row.description) || null,
+            created_by: normalizeDisplay(row.created_by) || getCurrentUser(),
+            updated_by: normalizeDisplay(row.created_by) || getCurrentUser(),
+            metadata: {
+              source: "PCR CSV Import",
+              ...buildMetadataFromImportRow(row)
+            }
+          };
+          await api(TABLE, { method: "POST", body: JSON.stringify(payload) });
+          state.pendingImports = state.pendingImports.filter(item => item.tempId !== tempId);
+          await loadAll();
+          showToast("Imported voucher saved.");
+        } catch (error) {
+          showToast(error.message || "Could not save imported row.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
       function renderTable(){
         if (isDatabaseLocked()){
           els.databaseCount.textContent = "Locked";
@@ -1491,12 +1889,32 @@
           return;
         }
         const rows = filteredVouchers();
-        els.databaseCount.textContent = `${rows.length} record${rows.length === 1 ? "" : "s"}`;
-        if (!rows.length){
+        const pending = getVisiblePendingImports();
+        const totalCount = rows.length + pending.length;
+        els.databaseCount.textContent = `${totalCount} record${totalCount === 1 ? "" : "s"}${pending.length ? ` (${pending.length} import)` : ""}`;
+        if (!totalCount){
           els.tableBody.innerHTML = `<tr><td colspan="7"><div class="pcr-empty">No vouchers found.</div></td></tr>`;
           return;
         }
-        els.tableBody.innerHTML = rows.map(voucher => `
+        const importRowsHtml = pending.map(row => {
+          const menuId = `import-${row.tempId}`;
+          return `
+          <tr class="pcr-import-row">
+            <td data-label="Voucher"><span class="badge orange">Import</span> <strong>${escapeHtml(row.voucher_number || "New")}</strong></td>
+            <td data-label="Date">${escapeHtml(formatDate(row.voucher_date))}</td>
+            <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(row.paid_to)}</strong>${row.company ? `<br><small>${escapeHtml(row.company)}</small>` : ""}</td>
+            <td data-label="Method"><span class="badge ${methodClass(row.payment_method)}">${escapeHtml(row.payment_method || "-")}</span></td>
+            <td data-label="Amount"><strong>${escapeHtml(formatMoney(row.amount))}</strong></td>
+            <td data-label="Created By">${escapeHtml(row.created_by || "")}</td>
+            <td data-label="Actions">
+              <button class="btn primary pcr-import-save" type="button" data-import-save="${escapeHtml(row.tempId)}"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+            </td>
+          </tr>
+        `;
+        }).join("");
+        const dbRowsHtml = rows.map(voucher => {
+          const menuId = `db-${voucher.id}`;
+          return `
           <tr>
             <td data-label="Voucher"><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
             <td data-label="Date">${escapeHtml(formatDate(voucher.voucher_date))}</td>
@@ -1505,16 +1923,18 @@
             <td data-label="Amount"><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></td>
             <td data-label="Created By">${escapeHtml(voucher.created_by || "")}</td>
             <td data-label="Actions">
-              <div class="pcr-actions">
-                <button class="tiny ghost" type="button" data-action="view" data-id="${escapeHtml(voucher.id)}">View</button>
-                <button class="tiny" type="button" data-action="edit" data-id="${escapeHtml(voucher.id)}">Edit</button>
-                <button class="tiny ghost" type="button" data-action="print" data-id="${escapeHtml(voucher.id)}">Print</button>
-                <button class="tiny" type="button" data-action="pdf" data-id="${escapeHtml(voucher.id)}">PDF</button>
-                <button class="tiny danger" type="button" data-action="delete" data-id="${escapeHtml(voucher.id)}">Delete</button>
-              </div>
+              ${renderRowActionMenu(menuId, [
+                { name: "view", id: voucher.id, label: "View", icon: "fa-regular fa-eye" },
+                { name: "edit", id: voucher.id, label: "Edit", icon: "fa-regular fa-pen-to-square" },
+                { name: "print", id: voucher.id, label: "Print", icon: "fa-solid fa-print" },
+                { name: "pdf", id: voucher.id, label: "PDF", icon: "fa-solid fa-file-pdf" },
+                { name: "delete", id: voucher.id, label: "Delete", className: "danger", icon: "fa-solid fa-trash" }
+              ])}
             </td>
           </tr>
-        `).join("");
+        `;
+        }).join("");
+        els.tableBody.innerHTML = importRowsHtml + dbRowsHtml;
       }
 
       function methodClass(method){
@@ -1719,6 +2139,7 @@
             showToast("Voucher saved.");
           }
           await loadAll();
+          closeVoucherFormModal();
           await resetForm();
         } catch (error) {
           showToast(error.message || "Voucher could not be saved.", "error");
@@ -1760,7 +2181,7 @@
         els.createdAt.value = formatDateTime(voucher.created_at) || nowLabel();
         els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Voucher';
         els.cancelEditBtn.classList.remove("hide");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        openVoucherFormModal("edit");
       }
 
       async function deleteVoucher(id){
@@ -2202,36 +2623,6 @@
         }
       }
 
-      function exportCsv(){
-        const rows = filteredVouchers();
-        if (!rows.length){
-          showToast("No vouchers to export.", "error");
-          return;
-        }
-        const headers = ["Voucher Number", "Date", "Paid To", "Company", "Payment Method", "Amount", "Amount Words", "Created By", "Created At", "Remarks"];
-        const csv = [headers].concat(rows.map(row => [
-          row.voucher_number,
-          row.voucher_date,
-          row.paid_to,
-          row.company || "",
-          row.payment_method,
-          row.amount,
-          row.amount_words,
-          row.created_by || "",
-          row.created_at || "",
-          row.description || ""
-        ])).map(cols => cols.map(value => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `payment-vouchers-${todayIso()}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-      }
-
       function attachEvents(){
         els.form.addEventListener("submit", saveVoucher);
         els.amountWords.addEventListener("input", () => { state.amountWordsTouched = true; });
@@ -2247,7 +2638,20 @@
         els.paidTo.addEventListener("input", () => {
           if (els.recipientSelect.value === "__new__") state.selectedRecipientId = null;
         });
-        els.cancelEditBtn.addEventListener("click", () => resetForm());
+        els.createVoucherBtn.addEventListener("click", async () => {
+          await resetForm();
+          openVoucherFormModal("create");
+        });
+        els.cancelEditBtn.addEventListener("click", async () => {
+          closeVoucherFormModal();
+          await resetForm();
+        });
+        document.querySelectorAll("[data-close-voucher-form]").forEach(item => {
+          item.addEventListener("click", async () => {
+            closeVoucherFormModal();
+            if (state.editingId) await resetForm();
+          });
+        });
         els.previewDraftBtn.addEventListener("click", () => {
           if (!validateForm()) return;
           openPreview(buildDraftVoucher());
@@ -2277,8 +2681,21 @@
           });
         });
         els.tableBody.addEventListener("click", event => {
+          const menuTrigger = event.target.closest("[data-menu-trigger]");
+          if (menuTrigger){
+            event.stopPropagation();
+            toggleRowMenu(menuTrigger.dataset.menuTrigger);
+            return;
+          }
+          const importSave = event.target.closest("[data-import-save]");
+          if (importSave){
+            closeRowMenus();
+            saveImportedRow(importSave.dataset.importSave);
+            return;
+          }
           const button = event.target.closest("[data-action]");
           if (!button) return;
+          closeRowMenus();
           const voucher = getVoucherById(button.dataset.id);
           if (!voucher) return;
           if (button.dataset.action === "view") openPreview(voucher);
@@ -2286,6 +2703,9 @@
           if (button.dataset.action === "print") printVoucher(voucher);
           if (button.dataset.action === "pdf") downloadPdf(voucher);
           if (button.dataset.action === "delete") deleteVoucher(voucher.id);
+        });
+        document.addEventListener("click", event => {
+          if (!event.target.closest(".pcr-row-menu")) closeRowMenus();
         });
         els.refreshBtn.addEventListener("click", () => {
           if (isDatabaseAccessible()) loadAll();
@@ -2298,7 +2718,12 @@
           }
           printVoucher(latest);
         });
-        els.exportCsvBtn.addEventListener("click", exportCsv);
+        els.backupCsvBtn.addEventListener("click", downloadBackupCsv);
+        els.importCsvBtn.addEventListener("click", () => els.importCsvInput.click());
+        els.importCsvInput.addEventListener("change", event => {
+          const file = event.target.files?.[0];
+          if (file) handleImportCsvFile(file);
+        });
         els.managePinBtn.addEventListener("click", () => showPinModal(state.pinConfigured ? "enter" : "set"));
         if (els.pinBannerEnterBtn) els.pinBannerEnterBtn.addEventListener("click", () => showPinModal("enter"));
         els.pinActionButtons.addEventListener("click", event => {
