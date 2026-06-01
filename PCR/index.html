@@ -87,37 +87,38 @@
     .pcr-preview-body{padding:14px;overflow:auto}
     .pcr-empty{border:1px dashed var(--line-strong);border-radius:12px;background:#fff;padding:18px;text-align:center;color:var(--muted);font-size:.88rem;line-height:1.6}
     #printRoot{display:none}
-    .voucher-sheet{width:297mm;height:210mm;background:#fff;color:#17212b;padding:8mm;box-sizing:border-box;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto;page-break-inside:avoid;break-inside:avoid}
-    .voucher-frame{border:1.4px solid #17212b;min-height:100%;display:flex;flex-direction:column;box-sizing:border-box}
-    .voucher-company{display:grid;grid-template-columns:35mm 1fr 55mm;gap:5mm;align-items:center;border-bottom:1.2px solid #17212b;padding:5mm 6mm}
+    .voucher-sheet{width:297mm;height:210mm;background:#fff;color:#17212b;padding:8mm;box-sizing:border-box;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto;page-break-inside:avoid;break-inside:avoid;overflow:hidden}
+    .voucher-frame{border:.7px solid #c2cad6;height:100%;min-height:0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}
+    .voucher-company{display:grid;grid-template-columns:35mm minmax(0,1fr) 55mm;gap:5mm;align-items:center;border-bottom:.7px solid #c2cad6;padding:5mm 6mm}
+    .voucher-company > *{min-width:0}
     .voucher-logo{width:32mm;height:22mm;object-fit:contain}
     .voucher-company h1{margin:0;text-transform:uppercase;font-size:18pt;letter-spacing:.03em;line-height:1.05}
-    .voucher-company p{margin:2mm 0 0;font-size:8.5pt;line-height:1.35;color:#344054}
-    .voucher-number-box{border:1px solid #17212b;padding:3mm;text-align:center}
+    .voucher-company p{margin:2mm 0 0;font-size:8.5pt;line-height:1.35;color:#344054;overflow-wrap:anywhere}
+    .voucher-number-box{border:.7px solid #c2cad6;padding:3mm;text-align:center;min-width:0}
     .voucher-number-box span{display:block;font-size:7.5pt;color:#667085;text-transform:uppercase;font-weight:700}
     .voucher-number-box strong{display:block;margin-top:1.5mm;font-size:13pt;letter-spacing:.02em}
-    .voucher-title-row{display:grid;grid-template-columns:1fr 58mm;gap:5mm;align-items:stretch;border-bottom:1.2px solid #17212b}
+    .voucher-title-row{display:grid;grid-template-columns:minmax(0,1fr) 58mm;gap:5mm;align-items:stretch;border-bottom:.7px solid #c2cad6}
     .voucher-title{padding:4mm 6mm}
     .voucher-title h2{margin:0;font-size:20pt;text-transform:uppercase;letter-spacing:.08em}
     .voucher-title p{margin:2mm 0 0;font-size:9pt;color:#344054}
-    .voucher-date{border-left:1.2px solid #17212b;display:grid;grid-template-columns:1fr;align-content:center;padding:4mm 5mm}
+    .voucher-date{border-left:.7px solid #c2cad6;display:grid;grid-template-columns:1fr;align-content:center;padding:4mm 5mm;min-width:0}
     .voucher-date span{font-size:7.5pt;color:#667085;font-weight:700;text-transform:uppercase}
     .voucher-date strong{font-size:13pt;margin-top:1.5mm}
-    .voucher-main{padding:5mm 6mm;display:grid;grid-template-columns:1.1fr .9fr;gap:5mm;flex:1}
-    .voucher-box{border:1px solid #98a2b3}
-    .voucher-box h3{margin:0;padding:2.5mm 3mm;background:#f2f4f7;border-bottom:1px solid #98a2b3;text-transform:uppercase;font-size:8pt;letter-spacing:.08em}
-    .voucher-box-content{padding:3mm;display:grid;gap:2.5mm}
-    .voucher-line{display:grid;grid-template-columns:32mm 1fr;gap:3mm;font-size:9pt;line-height:1.35}
+    .voucher-main{padding:5mm 6mm;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:5mm;flex:1;min-height:0;overflow:hidden}
+    .voucher-box{border:.7px solid #cfd6e0;min-width:0;overflow:hidden}
+    .voucher-box h3{margin:0;padding:2.5mm 3mm;background:#f8fafc;border-bottom:.7px solid #cfd6e0;text-transform:uppercase;font-size:8pt;letter-spacing:.08em}
+    .voucher-box-content{padding:3mm;display:grid;gap:2.5mm;min-width:0;overflow:hidden}
+    .voucher-line{display:grid;grid-template-columns:32mm minmax(0,1fr);gap:3mm;font-size:9pt;line-height:1.35;min-width:0}
     .voucher-line span{color:#667085;font-weight:700}
-    .voucher-line strong{font-weight:800;word-break:break-word}
-    .voucher-amount-words{grid-column:1 / -1;border:1px solid #17212b;background:#f8fafc;padding:4mm;margin-top:1mm}
+    .voucher-line strong{font-weight:800;word-break:normal;overflow-wrap:anywhere;min-width:0}
+    .voucher-amount-words{grid-column:1 / -1;border:.7px solid #c2cad6;background:#f8fafc;padding:4mm;margin-top:1mm;overflow:hidden}
     .voucher-amount-words span{display:block;color:#667085;font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
-    .voucher-amount-words strong{display:block;margin-top:2mm;font-size:13pt;line-height:1.35;text-transform:uppercase}
+    .voucher-amount-words strong{display:-webkit-box;margin-top:2mm;font-size:13pt;line-height:1.35;text-transform:uppercase;overflow:hidden;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:anywhere}
     .voucher-description{grid-column:1 / -1;min-height:24mm}
-    .voucher-description p{margin:0;font-size:9pt;line-height:1.5;white-space:pre-wrap}
+    .voucher-description p{margin:0;font-size:9pt;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
     .voucher-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;padding:0 6mm 6mm}
-    .voucher-signature{padding-top:13mm;border-top:1px solid #17212b;text-align:center;font-size:8.5pt;text-transform:uppercase;font-weight:800;color:#344054}
-    .voucher-footer{border-top:1px solid #98a2b3;padding:3mm 6mm;display:flex;justify-content:space-between;gap:5mm;font-size:7.5pt;color:#667085}
+    .voucher-signature{padding-top:13mm;border-top:.7px solid #c2cad6;text-align:center;font-size:8.5pt;text-transform:uppercase;font-weight:800;color:#344054}
+    .voucher-footer{border-top:.7px solid #cfd6e0;padding:3mm 6mm;display:flex;justify-content:space-between;gap:5mm;font-size:7.5pt;color:#667085}
     .voucher-preview-scale{transform-origin:top left}
     @media (max-width:1100px){
       .pcr-layout{grid-template-columns:1fr}
@@ -136,11 +137,12 @@
     }
     @media print{
       @page{size:A4 landscape;margin:0}
-      body{background:#fff !important}
-      body *{visibility:hidden !important}
+      html,body{margin:0 !important;padding:0 !important;width:297mm !important;height:210mm !important;min-height:0 !important;overflow:hidden !important;background:#fff !important}
+      body{position:static !important}
+      body > :not(#printRoot){display:none !important}
       #printRoot,#printRoot *{visibility:visible !important}
-      #printRoot{display:block !important;position:absolute;inset:0;width:297mm;height:210mm;overflow:hidden;background:#fff;box-sizing:border-box}
-      .voucher-sheet{box-shadow:none;margin:0;width:297mm;height:210mm;padding:8mm;box-sizing:border-box}
+      #printRoot{display:block !important;position:fixed;left:0;top:0;width:297mm;height:210mm;max-width:297mm;max-height:210mm;overflow:hidden;background:#fff;box-sizing:border-box;margin:0;padding:0}
+      .voucher-sheet{box-shadow:none;margin:0;width:297mm;height:210mm;padding:8mm;box-sizing:border-box;overflow:hidden;page-break-before:avoid;page-break-after:avoid;break-before:avoid;break-after:avoid}
     }
   </style>
 </head>
@@ -1409,65 +1411,255 @@
         }
       }
 
+      async function fetchImageDataUrl(src){
+        try {
+          const response = await fetch(src, { mode: "cors" });
+          if (!response.ok) throw new Error("Image fetch failed");
+          const blob = await response.blob();
+          return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("Could not read image"));
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          return null;
+        }
+      }
+
+      async function drawVoucherPdf(pdf, voucher){
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 8;
+        const contentWidth = pageWidth - margin * 2;
+        const sectionGap = 5;
+        const inkColor = [31, 41, 55];
+        const mutedColor = [91, 103, 118];
+        const borderColor = [190, 199, 211];
+        const softBorderColor = [211, 218, 228];
+        const headerFill = [248, 250, 252];
+
+        function normalizePdfText(value){
+          return String(value ?? "-").replace(/\s+/g, " ").trim() || "-";
+        }
+
+        function setBorder(width = 0.16, color = borderColor){
+          pdf.setDrawColor(...color);
+          pdf.setLineWidth(width);
+        }
+
+        function drawRect(x, y, width, height, lineWidth = 0.16, color = borderColor){
+          setBorder(lineWidth, color);
+          pdf.rect(x, y, width, height);
+        }
+
+        function trimToWidth(text, width){
+          const suffix = "...";
+          let trimmed = normalizePdfText(text);
+          while (trimmed.length > 0 && pdf.getTextWidth(trimmed + suffix) > width){
+            trimmed = trimmed.slice(0, -1).trimEnd();
+          }
+          return trimmed ? trimmed + suffix : suffix;
+        }
+
+        function fitLines(text, width, maxLines){
+          const lines = pdf.splitTextToSize(normalizePdfText(text), width);
+          if (lines.length <= maxLines) return lines;
+          const limited = lines.slice(0, maxLines);
+          limited[limited.length - 1] = trimToWidth(limited[limited.length - 1], width);
+          return limited;
+        }
+
+        function drawLines(text, x, y, width, maxLines, lineHeight, options = {}){
+          const lines = fitLines(text, width, maxLines);
+          lines.forEach((line, index) => {
+            pdf.text(line, x, y + index * lineHeight, options);
+          });
+          return lines.length;
+        }
+
+        function drawSectionBox(x, y, width, height, title){
+          pdf.setFillColor(...headerFill);
+          pdf.rect(x, y, width, 9, "F");
+          drawRect(x, y, width, height, 0.16, softBorderColor);
+          setBorder(0.16, softBorderColor);
+          pdf.line(x, y + 9, x + width, y + 9);
+          pdf.setTextColor(...inkColor);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7.8);
+          pdf.text(title, x + 3, y + 6.2);
+        }
+
+        function drawKeyValueRows(rows, x, y, width, valueOffset){
+          let rowY = y + 15;
+          rows.forEach(([label, value]) => {
+            pdf.setTextColor(...mutedColor);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(7.3);
+            pdf.text(`${label}:`, x + 3, rowY);
+
+            pdf.setTextColor(...inkColor);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(8.7);
+            drawLines(value, x + valueOffset, rowY, width - valueOffset - 3, 1, 4);
+            rowY += 6.6;
+          });
+        }
+
+        pdf.setTextColor(...inkColor);
+        drawRect(margin, margin, contentWidth, pageHeight - margin * 2, 0.2, borderColor);
+
+        const logoWidth = 32;
+        const logoHeight = 18;
+        const logoX = margin + 3;
+        const logoY = margin + 3;
+        const companyX = logoX + logoWidth + 5;
+        const companyY = margin + 9.5;
+        const voucherBoxWidth = 53;
+        const voucherBoxX = pageWidth - margin - voucherBoxWidth - 3;
+        const voucherBoxY = margin + 3;
+        const companyWidth = voucherBoxX - companyX - 5;
+
+        const logoData = await fetchImageDataUrl(LOGO_URL);
+        if (logoData){
+          const type = logoData.startsWith("data:image/png") ? "PNG" : logoData.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+          pdf.addImage(logoData, type, logoX, logoY, logoWidth, logoHeight);
+        }
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(16.5);
+        pdf.text("Premium Car Rental DMCC", companyX, companyY);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.2);
+        pdf.setTextColor(...mutedColor);
+        drawLines(
+          "Ground Floor, Lobby Area, Jumeirah Business Centre 1, Cluster G, Jumeirah Lake Towers, Dubai, UAE",
+          companyX,
+          companyY + 7,
+          companyWidth,
+          2,
+          3.8
+        );
+        drawLines("PHONE: +971 4 3609991   FAX: +971 4 4311317   EMAIL: accounts@pcr.ae", companyX, companyY + 16, companyWidth, 1, 3.8);
+        drawLines("HOURS: Saturday - Thursday :: 9am - 7:00pm", companyX, companyY + 20, companyWidth, 1, 3.8);
+
+        drawRect(voucherBoxX, voucherBoxY, voucherBoxWidth, 20, 0.16, softBorderColor);
+        pdf.setTextColor(...mutedColor);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7);
+        pdf.text("Voucher Number", voucherBoxX + 2, voucherBoxY + 6);
+        pdf.setTextColor(...inkColor);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11.5);
+        drawLines(voucher.voucher_number, voucherBoxX + 2, voucherBoxY + 15, voucherBoxWidth - 4, 1, 4);
+
+        const headerLineY = margin + 30;
+        setBorder(0.16, borderColor);
+        pdf.line(margin, headerLineY, pageWidth - margin, headerLineY);
+
+        const titleSectionY = headerLineY + 4;
+        const titleBoxHeight = 22;
+        const titleBoxRightWidth = 58;
+        const titleBoxLeftWidth = contentWidth - titleBoxRightWidth - sectionGap;
+        drawRect(margin, titleSectionY, titleBoxLeftWidth, titleBoxHeight, 0.16, softBorderColor);
+        drawRect(pageWidth - margin - titleBoxRightWidth, titleSectionY, titleBoxRightWidth, titleBoxHeight, 0.16, softBorderColor);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(...inkColor);
+        pdf.setFontSize(18);
+        pdf.text("Payment Voucher", margin + 3, titleSectionY + 10);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.6);
+        pdf.setTextColor(...mutedColor);
+        pdf.text("TRN: 100035111200003", margin + 3, titleSectionY + 17);
+
+        const dateBoxX = pageWidth - margin - titleBoxRightWidth + 2;
+        pdf.setTextColor(...mutedColor);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7);
+        pdf.text("Date", dateBoxX, titleSectionY + 7);
+        pdf.setTextColor(...inkColor);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11.5);
+        drawLines(formatDate(voucher.voucher_date), dateBoxX, titleSectionY + 17, titleBoxRightWidth - 5, 1, 4);
+
+        const mainTopY = titleSectionY + titleBoxHeight + 5;
+        const boxWidth = (contentWidth - sectionGap) / 2;
+        const boxHeight = 42;
+        const rightBoxX = pageWidth - margin - boxWidth;
+
+        drawSectionBox(margin, mainTopY, boxWidth, boxHeight, "Recipient");
+        drawSectionBox(rightBoxX, mainTopY, boxWidth, boxHeight, "Payment Details");
+
+        const leftDetails = [
+          ["Paid To", String(voucher.paid_to || "-")],
+          ["Company", String(voucher.company || "-")],
+          ["Prepared By", String(voucher.created_by || "-")],
+          ["Created", String(formatDateTime(voucher.created_at) || nowLabel())]
+        ];
+        drawKeyValueRows(leftDetails, margin, mainTopY, boxWidth, 29);
+
+        const rightDetails = [
+          ["Amount", String(formatMoney(voucher.amount))],
+          ["Method", String(voucher.payment_method || "-")],
+          ["Currency", "AED"],
+          ["Voucher Date", String(formatDate(voucher.voucher_date) || "-")]
+        ];
+        drawKeyValueRows(rightDetails, rightBoxX, mainTopY, boxWidth, 25);
+
+        const amountWordsY = mainTopY + boxHeight + 5;
+        const amountWordsHeight = 24;
+        drawSectionBox(margin, amountWordsY, contentWidth, amountWordsHeight, "Amount in Words");
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(...inkColor);
+        pdf.setFontSize(9.3);
+        drawLines(voucher.amount_words, margin + 3, amountWordsY + 15, contentWidth - 6, 2, 4.5);
+
+        const descriptionY = amountWordsY + amountWordsHeight + 5;
+        const descriptionHeight = 25;
+        drawSectionBox(margin, descriptionY, contentWidth, descriptionHeight, "Description / Remarks");
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(...inkColor);
+        pdf.setFontSize(9);
+        drawLines(voucher.description || "-", margin + 3, descriptionY + 14, contentWidth - 6, 3, 4.2);
+
+        const footerLineY = pageHeight - margin - 12;
+        const signatureLineY = footerLineY - 13;
+        const signatureWidth = (contentWidth - 16) / 3;
+        for (let i = 0; i < 3; i += 1){
+          const x = margin + i * (signatureWidth + 8);
+          setBorder(0.16, borderColor);
+          pdf.line(x, signatureLineY, x + signatureWidth, signatureLineY);
+          pdf.setTextColor(...mutedColor);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7.8);
+          const label = i === 0 ? "Prepared By" : i === 1 ? "Authorized Signature" : "Recipient Signature";
+          pdf.text(label, x + 2, signatureLineY + 5);
+        }
+
+        const footerY = pageHeight - margin - 4;
+        setBorder(0.16, softBorderColor);
+        pdf.line(margin, footerLineY, pageWidth - margin, footerLineY);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(...mutedColor);
+        pdf.setFontSize(7);
+        pdf.text("Premium Car Rental DMCC", margin + 2, footerY + 4);
+        const footerText = fitLines(`${String(voucher.voucher_number || "-")} | TRN: 100035111200003`, contentWidth / 2, 1)[0];
+        pdf.text(footerText, pageWidth - margin - 2, footerY + 4, { align: "right" });
+      }
+
       async function downloadPdf(voucher){
         const jsPDFConstructor = window.jsPDF || window.jspdf?.jsPDF;
-        const html2canvasFn = window.html2canvas || html2canvas;
-        if (!jsPDFConstructor || !html2canvasFn){
-          showToast("PDF libraries are still loading. Please try again.", "error");
+        if (!jsPDFConstructor){
+          showToast("PDF library is still loading. Please try again.", "error");
           return;
         }
         setBusy(true, "Generating PDF");
-        const holder = document.createElement("div");
-        holder.style.position = "fixed";
-        holder.style.left = "-10000px";
-        holder.style.top = "0";
-        holder.style.background = "#fff";
-        holder.innerHTML = voucherHtml(voucher);
-        document.body.appendChild(holder);
-        const objectUrls = [];
         try {
-          await waitForImages(holder);
-          // Try to fetch images and replace with blob URLs to avoid tainting the canvas.
-          const imgs = Array.from(holder.querySelectorAll('img'));
-          for (const img of imgs){
-            const src = img.src;
-            if (!src) { img.remove(); continue; }
-            try {
-              const res = await fetch(src, { mode: 'cors' });
-              if (!res.ok) throw new Error('image fetch failed');
-              const blob = await res.blob();
-              const url = URL.createObjectURL(blob);
-              objectUrls.push(url);
-              img.src = url;
-            } catch (e) {
-              try {
-                // fallback: try fetching without explicit CORS mode
-                const res2 = await fetch(src);
-                if (!res2.ok) throw new Error('image fetch failed');
-                const blob2 = await res2.blob();
-                const url2 = URL.createObjectURL(blob2);
-                objectUrls.push(url2);
-                img.src = url2;
-              } catch (_) {
-                // can't fetch image safely — remove it to avoid taint
-                img.remove();
-              }
-            }
-          }
-          const sheet = holder.querySelector(".voucher-sheet");
-          if (!sheet) throw new Error("PDF content could not be rendered.");
-          const canvas = await html2canvasFn(sheet, {
-            scale: Math.min(1.5, Math.max(1, window.devicePixelRatio || 1)),
-            useCORS: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-            windowWidth: sheet.scrollWidth,
-            windowHeight: sheet.scrollHeight
-          });
           const pdf = new jsPDFConstructor({ orientation: "landscape", unit: "mm", format: "a4" });
-          const pageWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
+          await drawVoucherPdf(pdf, voucher);
           const filename = `${voucher.voucher_number || "payment-voucher"}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
           pdf.save(filename);
           await recordVoucherEvent(voucher, "pdf");
@@ -1476,8 +1668,6 @@
         } catch (error) {
           showToast(error.message || "PDF could not be generated.", "error");
         } finally {
-          holder.remove();
-          objectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
           setBusy(false);
         }
       }
