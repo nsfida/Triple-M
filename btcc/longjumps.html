@@ -1,0 +1,1247 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pollard Kangaroo Range Search</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f6f8fb;color:#101828}
+    main{max-width:860px;margin:16px auto;padding:12px}
+    h1{margin:0 0 10px;font-size:18px}
+    label{display:block;margin:8px 0 4px;font-size:12px;font-weight:700}
+    input,select{width:100%;border:1px solid #cfd6e4;border-radius:5px;padding:7px;font:12px/1.25 Consolas,monospace;background:#fff;color:#101828}
+    select,input[type="number"]{font-family:Arial,sans-serif}
+    button{border:0;border-radius:5px;background:#1457d9;color:#fff;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
+    button.danger{background:#b42318}
+    button.secondary{background:#344054}
+    button:disabled{background:#98a2b3;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .controls{display:grid;grid-template-columns:88px 132px 1fr;gap:8px;align-items:end}
+    .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .count,.stat,.note{color:#667085;font-size:11px}
+    .warning{border:1px solid #f79009;background:#fffaeb;color:#93370d;border-radius:5px;padding:8px;margin:8px 0 10px;font-size:12px;line-height:1.35}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+    .stat{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:6px}
+    .stat b{display:block;color:#101828;font-size:13px;margin-top:1px;word-break:break-word}
+    .status{margin:8px 0 0;min-height:17px;font-size:12px;color:#667085}
+    .status.ok{color:#067647}
+    .status.err{color:#b42318}
+    .result{margin-top:10px}
+    .panels{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .panel{border:1px solid #dde3ee;border-radius:5px;background:#fff;padding:10px;min-height:120px}
+    .panel h2{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#344054}
+    .point-list{display:grid;gap:4px;max-height:260px;overflow:auto;padding-right:2px}
+    .point-item{font-family:Consolas,monospace;font-size:11px;word-break:break-all;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px;display:flex;justify-content:space-between;gap:8px}
+    .point-kind{font-weight:700;color:#0f172a;margin-right:6px}
+    .point-empty{color:#94a3b8;font-size:11px}
+    @media (max-width:760px){
+      main{margin:8px auto;padding:10px}
+      .grid,.controls,.stats,.panels{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Pollard Kangaroo Range Search</h1>
+    <div class="warning">
+      Pollard Kangaroo needs about the square root of the range size in group jumps. A 135-bit interval is about 2^67.5 jumps, so browser JavaScript can run the method but cannot make that range quick without native/GPU/distributed compute.
+    </div>
+
+    <div class="grid">
+      <div>
+        <label for="startHex">Start hex</label>
+        <input id="startHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="1">
+        <div id="startCount" class="count">0 / 64</div>
+      </div>
+      <div>
+        <label for="endHex">End hex</label>
+        <input id="endHex" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ffffffff">
+        <div id="endCount" class="count">0 / 64</div>
+      </div>
+    </div>
+
+    <div class="result">
+      <label for="publicKey">Compressed public key</label>
+      <input id="publicKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="02... or 03...">
+      <div id="pubCount" class="count">0 / 66</div>
+    </div>
+
+    <div class="controls">
+      <div>
+        <label for="cores">Workers</label>
+        <input id="cores" type="number" min="1" max="48" value="1">
+      </div>
+      <div>
+        <label for="startMode">Start mode</label>
+        <select id="startMode">
+          <option value="deterministic">Deterministic</option>
+          <option value="random">Random</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="startBtn" type="button">Start</button>
+        <button id="pauseBtn" class="secondary" type="button" disabled>Pause</button>
+        <button id="resumeBtn" class="secondary" type="button" disabled>Resume</button>
+        <button id="stopBtn" class="danger" type="button" disabled>Stop</button>
+        <button id="clearBtn" class="secondary" type="button">Clear Progress</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">Total jumps<b id="jumpsStat">0</b></div>
+      <div class="stat">Jumps/sec<b id="speedStat">0</b></div>
+      <div class="stat">Tame DPs<b id="tameStat">0</b></div>
+      <div class="stat">Wild DPs<b id="wildStat">0</b></div>
+      <div class="stat">Collisions<b id="collisionStat">0</b></div>
+      <div class="stat">Active workers<b id="workersStat">0</b></div>
+      <div class="stat">Saved points<b id="savedStat">0</b></div>
+      <div class="stat">Range sqrt<b id="rangeStat">0</b></div>
+      <div class="stat">Kangaroo pairs<b id="pairsStat">48</b></div>
+      <div class="stat">Run seed<b id="seedStat">Deterministic</b></div>
+      <div class="stat">Self-test<b id="testStat">Waiting</b></div>
+    </div>
+
+    <p id="status" class="status">Enter a range and compressed public key.</p>
+
+    <div class="result">
+      <label>Live kangaroos</label>
+      <div id="walkerList" class="point-list"><div class="point-empty">No live kangaroos yet.</div></div>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <h2>Tame/Wild DPs</h2>
+        <div id="dpList" class="point-list"><div class="point-empty">No distinguished points yet.</div></div>
+      </div>
+      <div class="panel">
+        <h2>Saved points</h2>
+        <div id="savedList" class="point-list"><div class="point-empty">No saved points yet.</div></div>
+      </div>
+    </div>
+
+    <div class="result">
+      <label for="recoveredKey">Recovered private key</label>
+      <input id="recoveredKey" readonly>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+      const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+      const STORAGE_KEY = "pointX-pollard-kangaroo-v2";
+      const MAX_SAVED_DPS = 5000;
+      const KANGAROO_PAIR_COUNT = 48;
+      const defaultCores = Math.max(1, Math.min(KANGAROO_PAIR_COUNT, navigator.hardwareConcurrency || 1));
+
+      const startHex = document.getElementById("startHex");
+      const endHex = document.getElementById("endHex");
+      const publicKey = document.getElementById("publicKey");
+      const startCount = document.getElementById("startCount");
+      const endCount = document.getElementById("endCount");
+      const pubCount = document.getElementById("pubCount");
+      const cores = document.getElementById("cores");
+      const startMode = document.getElementById("startMode");
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const resumeBtn = document.getElementById("resumeBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const statusEl = document.getElementById("status");
+      const jumpsStat = document.getElementById("jumpsStat");
+      const speedStat = document.getElementById("speedStat");
+      const tameStat = document.getElementById("tameStat");
+      const wildStat = document.getElementById("wildStat");
+      const collisionStat = document.getElementById("collisionStat");
+      const workersStat = document.getElementById("workersStat");
+      const savedStat = document.getElementById("savedStat");
+      const rangeStat = document.getElementById("rangeStat");
+      const pairsStat = document.getElementById("pairsStat");
+      const seedStat = document.getElementById("seedStat");
+      const testStat = document.getElementById("testStat");
+      const recoveredKey = document.getElementById("recoveredKey");
+      const walkerList = document.getElementById("walkerList");
+      const dpList = document.getElementById("dpList");
+      const savedList = document.getElementById("savedList");
+
+      let workers = [];
+      let running = false;
+      let paused = false;
+      let runToken = 0;
+      let finishedWorkers = 0;
+      let workerUrl = "";
+      let statsTimer = 0;
+      let lastStatsAt = 0;
+      let lastStatsJumps = 0n;
+      let speed = 0;
+      let activeStart = null;
+      let activeEnd = null;
+      let activeTarget = "";
+      let activeRunKey = "";
+      let dpTable = new Map();
+      let workerStates = {};
+      let activeRunSeed = "";
+      let totalJumps = 0n;
+      let tameDps = 0n;
+      let wildDps = 0n;
+      let collisions = 0n;
+
+      cores.value = String(defaultCores);
+      pairsStat.textContent = String(KANGAROO_PAIR_COUNT);
+
+      function setStatus(text, kind = "") {
+        statusEl.textContent = text;
+        statusEl.className = ("status " + kind).trim();
+      }
+
+      function sanitizeHex(value) {
+        return String(value || "").trim().replace(/^0x/i, "").replace(/\s+/g, "").replace(/[^0-9a-f]/gi, "").toLowerCase();
+      }
+
+      function formatBig(value) {
+        return value.toLocaleString();
+      }
+
+      function hexScalar(value) {
+        return value.toString(16).padStart(64, "0");
+      }
+
+      function randomSeedHex() {
+        const bytes = new Uint8Array(8);
+        if (globalThis.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
+        else {
+          let x = Date.now() >>> 0;
+          for (let i = 0; i < bytes.length; i++) {
+            x = (x * 1664525 + 1013904223) >>> 0;
+            bytes[i] = x & 255;
+          }
+        }
+        let out = "";
+        for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
+        return out;
+      }
+
+      function modP(value) {
+        const r = value % P;
+        return r < 0n ? r + P : r;
+      }
+
+      function powMod(base, exp) {
+        let result = 1n;
+        base = modP(base);
+        while (exp > 0n) {
+          if (exp & 1n) result = modP(result * base);
+          base = modP(base * base);
+          exp >>= 1n;
+        }
+        return result;
+      }
+
+      function bitLength(value) {
+        return value <= 0n ? 0 : value.toString(2).length;
+      }
+
+      function sqrtBig(value) {
+        if (value < 2n) return value;
+        let x0 = 1n << BigInt(Math.ceil(bitLength(value) / 2));
+        let x1 = (x0 + value / x0) >> 1n;
+        while (x1 < x0) {
+          x0 = x1;
+          x1 = (x0 + value / x0) >> 1n;
+        }
+        return x0;
+      }
+
+      function formatEstimate(value) {
+        const bits = bitLength(value);
+        if (bits > 52) return "2^" + (bits - 1);
+        return value.toLocaleString();
+      }
+
+      function normalizeScalar(value, name) {
+        const clean = sanitizeHex(value);
+        if (!clean) throw new Error(name + " is required.");
+        if (clean.length > 64) throw new Error(name + " must be 64 hex digits or less.");
+        const number = BigInt("0x" + clean.padStart(64, "0"));
+        if (number <= 0n || number >= N) throw new Error(name + " is outside the valid secp256k1 private-key range.");
+        return { number, hex: hexScalar(number) };
+      }
+
+      function normalizePublicKey(value) {
+        const clean = sanitizeHex(value);
+        if (!clean) throw new Error("Compressed public key is required.");
+        if (clean.length !== 66) throw new Error("Public key must be 66 hex characters.");
+        const prefix = clean.slice(0, 2);
+        if (prefix !== "02" && prefix !== "03") throw new Error("Compressed public key must start with 02 or 03.");
+        const x = BigInt("0x" + clean.slice(2));
+        if (x <= 0n || x >= P) throw new Error("Public key x-coordinate is outside secp256k1.");
+        const y2 = modP(x * x * x + 7n);
+        const y = powMod(y2, (P + 1n) >> 2n);
+        if (modP(y * y) !== y2) throw new Error("Public key is not on secp256k1.");
+        return clean;
+      }
+
+      function updateCounts() {
+        const s = sanitizeHex(startHex.value);
+        const e = sanitizeHex(endHex.value);
+        const p = sanitizeHex(publicKey.value);
+        if (s !== startHex.value) startHex.value = s;
+        if (e !== endHex.value) endHex.value = e;
+        if (p !== publicKey.value) publicKey.value = p;
+        startCount.textContent = Math.min(s.length, 64) + " / 64";
+        endCount.textContent = Math.min(e.length, 64) + " / 64";
+        pubCount.textContent = Math.min(p.length, 66) + " / 66";
+      }
+
+      function clampWorkers(value, rangeSize) {
+        let count = Math.floor(Number(value));
+        if (!Number.isFinite(count) || count < 1) count = 1;
+        count = Math.min(KANGAROO_PAIR_COUNT, count);
+        if (rangeSize < BigInt(count)) count = Number(rangeSize);
+        return Math.max(1, count);
+      }
+
+      function makeRunKey(start, end, target, seed) {
+        return start.hex + ":" + end.hex + ":" + target + ":pairs=" + KANGAROO_PAIR_COUNT + ":seed=" + (seed || "deterministic");
+      }
+
+      function readProgress(runKey, workerCount, pairCount) {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.runKey !== runKey) return null;
+          return {
+            dps: Array.isArray(parsed.dps) ? parsed.dps : [],
+            workerStates: parsed.workerCount === workerCount && parsed.pairCount === pairCount && parsed.workerStates ? parsed.workerStates : {},
+            totalJumps: parsed.totalJumps || "0",
+            tameDps: parsed.tameDps || "0",
+            wildDps: parsed.wildDps || "0",
+            collisions: parsed.collisions || "0",
+            runSeed: parsed.runSeed || ""
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      function saveProgress() {
+        if (!activeRunKey) return;
+        const dps = [];
+        for (const entry of dpTable.values()) {
+          if (dps.length >= MAX_SAVED_DPS) break;
+          dps.push(entry);
+        }
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            runKey: activeRunKey,
+            runSeed: activeRunSeed,
+            workerCount: workers.length,
+            pairCount: KANGAROO_PAIR_COUNT,
+            totalJumps: totalJumps.toString(),
+            tameDps: tameDps.toString(),
+            wildDps: wildDps.toString(),
+            collisions: collisions.toString(),
+            dps,
+            workerStates
+          }));
+        } catch {
+          setStatus("Progress is running, but localStorage is full.", "err");
+        }
+      }
+
+      function clearProgress() {
+        localStorage.removeItem(STORAGE_KEY);
+        dpTable = new Map();
+        workerStates = {};
+        totalJumps = 0n;
+        tameDps = 0n;
+        wildDps = 0n;
+        collisions = 0n;
+        recoveredKey.value = "";
+        rangeStat.textContent = "0";
+        seedStat.textContent = "Deterministic";
+        updateStats();
+        updateLists();
+      }
+
+      function updateButtons() {
+        startBtn.disabled = running;
+        pauseBtn.disabled = !running || paused;
+        resumeBtn.disabled = !running || !paused;
+        stopBtn.disabled = !running;
+      }
+
+      function updateStats() {
+        const now = performance.now();
+        if (running && !paused) {
+          const elapsed = now - lastStatsAt;
+          if (elapsed >= 250) {
+            const delta = totalJumps - lastStatsJumps;
+            speed = Math.round(Number(delta) / Math.max(0.001, elapsed / 1000));
+            lastStatsAt = now;
+            lastStatsJumps = totalJumps;
+          }
+        } else {
+          speed = 0;
+        }
+        jumpsStat.textContent = formatBig(totalJumps);
+        speedStat.textContent = speed.toLocaleString();
+        tameStat.textContent = formatBig(tameDps);
+        wildStat.textContent = formatBig(wildDps);
+        collisionStat.textContent = formatBig(collisions);
+        workersStat.textContent = running ? String(workers.length - finishedWorkers) : "0";
+        savedStat.textContent = dpTable.size.toLocaleString();
+      }
+
+      function renderWalkerList() {
+        const walkers = Object.values(workerStates)
+          .flatMap(state => Array.isArray(state.walkers) ? state.walkers : [])
+          .sort((a, b) => (a.lane || 0) - (b.lane || 0));
+
+        if (!walkerList.children.length || walkerList.children.length !== KANGAROO_PAIR_COUNT) {
+          walkerList.innerHTML = "";
+          for (let pairIndex = 0; pairIndex < KANGAROO_PAIR_COUNT; pairIndex++) {
+            const item = document.createElement("div");
+            item.className = "point-item";
+            item.dataset.pair = String(pairIndex);
+            item.innerHTML = `
+              <span class="point-kind">Pair ${pairIndex}</span>
+              <span>Tame=<span class="walker-value tame">---</span> Wild=<span class="walker-value wild">---</span></span>
+            `.trim();
+            walkerList.appendChild(item);
+          }
+        }
+
+        const walkerByLane = new Map(walkers.map(w => [Number(w.lane), w]));
+        for (let pairIndex = 0; pairIndex < KANGAROO_PAIR_COUNT; pairIndex++) {
+          const item = walkerList.children[pairIndex];
+          const tame = walkerByLane.get(pairIndex * 2);
+          const wild = walkerByLane.get(pairIndex * 2 + 1);
+          const tameValue = tame ? sanitizeHex(String(tame.scalar || "")) || "0" : "---";
+          const wildValue = wild ? sanitizeHex(String(wild.dist || "")) || "0" : "---";
+          const tameSpan = item.querySelector(".walker-value.tame");
+          const wildSpan = item.querySelector(".walker-value.wild");
+          if (tameSpan) tameSpan.textContent = tameValue;
+          if (wildSpan) wildSpan.textContent = wildValue;
+        }
+      }
+
+      function renderDpList() {
+        const entries = Array.from(dpTable.values()).slice(-12).reverse();
+        if (!entries.length) {
+          dpList.innerHTML = '<div class="point-empty">No distinguished points yet.</div>';
+          return;
+        }
+        dpList.innerHTML = entries.map(entry => {
+          const payload = entry.kind === "tame"
+            ? `scalar=${entry.scalar}`
+            : `dist=${entry.dist}`;
+          return `<div class="point-item"><span class="point-kind">${entry.kind}</span><span>${entry.point} ${payload}</span></div>`;
+        }).join("");
+      }
+
+      function renderSavedList() {
+        const entries = Array.from(dpTable.values()).slice(-12).reverse();
+        if (!entries.length) {
+          savedList.innerHTML = '<div class="point-empty">No saved points yet.</div>';
+          return;
+        }
+        savedList.innerHTML = entries.map(entry => {
+          const payload = entry.kind === "tame"
+            ? `scalar=${entry.scalar}`
+            : `dist=${entry.dist}`;
+          return `<div class="point-item"><span class="point-kind">${entry.kind}</span><span>${entry.point} ${payload}</span></div>`;
+        }).join("");
+      }
+
+      function updateLists() {
+        renderWalkerList();
+        renderDpList();
+        renderSavedList();
+      }
+
+      function resetRunCounters() {
+        dpTable = new Map();
+        workerStates = {};
+        totalJumps = 0n;
+        tameDps = 0n;
+        wildDps = 0n;
+        collisions = 0n;
+        speed = 0;
+        lastStatsAt = performance.now();
+        lastStatsJumps = 0n;
+        recoveredKey.value = "";
+        updateStats();
+        updateLists();
+      }
+
+      function restoreProgress(progress) {
+        dpTable = new Map();
+        for (const entry of progress.dps) {
+          if (entry && entry.point && entry.kind) dpTable.set(entry.point, entry);
+        }
+        workerStates = progress.workerStates || {};
+        totalJumps = BigInt(progress.totalJumps || "0");
+        tameDps = BigInt(progress.tameDps || "0");
+        wildDps = BigInt(progress.wildDps || "0");
+        collisions = BigInt(progress.collisions || "0");
+        activeRunSeed = progress.runSeed || "";
+        seedStat.textContent = activeRunSeed ? activeRunSeed : "Deterministic";
+        lastStatsAt = performance.now();
+        lastStatsJumps = totalJumps;
+        updateStats();
+        updateLists();
+      }
+
+      function stopRun(text = "Stopped.", kind = "") {
+        if (!running && workers.length === 0) return;
+        running = false;
+        paused = false;
+        runToken++;
+        for (const worker of workers) worker.terminate();
+        workers = [];
+        finishedWorkers = 0;
+        clearInterval(statsTimer);
+        statsTimer = 0;
+        if (workerUrl) URL.revokeObjectURL(workerUrl);
+        workerUrl = "";
+        saveProgress();
+        updateButtons();
+        updateStats();
+        setStatus(text, kind);
+      }
+
+      function pauseRun() {
+        if (!running || paused) return;
+        paused = true;
+        for (const worker of workers) worker.postMessage({ type: "pause" });
+        saveProgress();
+        updateButtons();
+        updateStats();
+        setStatus("Paused. Progress saved.");
+      }
+
+      function resumeRun() {
+        if (!running || !paused) return;
+        paused = false;
+        lastStatsAt = performance.now();
+        lastStatsJumps = totalJumps;
+        for (const worker of workers) worker.postMessage({ type: "resume" });
+        updateButtons();
+        updateStats();
+        setStatus("Running...");
+      }
+
+      function candidateFromCollision(a, b) {
+        const tame = a.kind === "tame" ? a : b;
+        const wild = a.kind === "wild" ? a : b;
+        if (!tame || !wild || !tame.scalar || !wild.dist) return null;
+        let candidate = BigInt("0x" + tame.scalar) - BigInt("0x" + wild.dist);
+        candidate %= N;
+        if (candidate < 0n) candidate += N;
+        return candidate;
+      }
+
+      function handleDistinguished(entry) {
+        if (!entry || !entry.point || !entry.kind) return;
+        const existing = dpTable.get(entry.point);
+        if (!existing) {
+          dpTable.set(entry.point, entry);
+          if (entry.kind === "tame") tameDps++;
+          else wildDps++;
+          updateLists();
+          return;
+        }
+        if (existing.kind === entry.kind) return;
+        collisions++;
+        const candidate = candidateFromCollision(existing, entry);
+        if (candidate !== null && activeStart !== null && activeEnd !== null && candidate >= activeStart && candidate <= activeEnd) {
+          recoveredKey.value = hexScalar(candidate);
+          saveProgress();
+          stopRun("Recovered private key from tame/wild collision.", "ok");
+        }
+      }
+
+      function onWorkerMessage(token, event) {
+        const data = event.data || {};
+        if (token !== runToken) return;
+        if (data.type === "batch") {
+          if (data.jumps) totalJumps += BigInt(data.jumps);
+          if (Array.isArray(data.dps)) {
+            for (const entry of data.dps) handleDistinguished(entry);
+          }
+          if (data.state) {
+            workerStates[String(data.workerId)] = data.state;
+            renderWalkerList();
+          }
+          updateStats();
+        } else if (data.type === "done") {
+          finishedWorkers++;
+          if (finishedWorkers >= workers.length) {
+            stopRun("Finished without a collision. Try a smaller range or restart.", "err");
+          }
+        } else if (data.type === "error") {
+          stopRun(data.message || "Worker error.", "err");
+        } else if (data.type === "selftest") {
+          testStat.textContent = data.ok ? "Passed" : "Failed";
+          testStat.style.color = data.ok ? "#067647" : "#b42318";
+          if (!data.ok) setStatus(data.message || "Self-test failed.", "err");
+        }
+      }
+
+      function startRun() {
+        try {
+          if (running || workers.length) stopRun("Restarted.");
+          updateCounts();
+
+          const a = normalizeScalar(startHex.value, "Start hex");
+          const b = normalizeScalar(endHex.value, "End hex");
+          const start = a.number <= b.number ? a : b;
+          const end = a.number <= b.number ? b : a;
+          const target = normalizePublicKey(publicKey.value);
+          const rangeSize = end.number - start.number + 1n;
+          const workerCount = clampWorkers(cores.value, rangeSize);
+          const requestedSeed = startMode.value === "random" ? randomSeedHex() : "";
+          const runKey = makeRunKey(start, end, target, requestedSeed);
+          const progress = readProgress(runKey, workerCount, KANGAROO_PAIR_COUNT);
+          rangeStat.textContent = formatEstimate(sqrtBig(rangeSize));
+
+          if (progress) restoreProgress(progress);
+          else {
+            resetRunCounters();
+            activeRunSeed = requestedSeed;
+            seedStat.textContent = activeRunSeed ? activeRunSeed : "Deterministic";
+          }
+
+          activeStart = start.number;
+          activeEnd = end.number;
+          activeTarget = target;
+          activeRunKey = runKey;
+          finishedWorkers = 0;
+          running = true;
+          paused = false;
+          lastStatsAt = performance.now();
+          lastStatsJumps = totalJumps;
+          updateButtons();
+
+          const token = ++runToken;
+          const blob = new Blob([workerSource()], { type: "text/javascript" });
+          workerUrl = URL.createObjectURL(blob);
+
+          workers = Array.from({ length: workerCount }, (_, id) => {
+            const worker = new Worker(workerUrl);
+            worker.onmessage = event => onWorkerMessage(token, event);
+            worker.onerror = error => stopRun("Worker failed: " + (error.message || "could not start"), "err");
+            worker.postMessage({
+              type: "start",
+              workerId: id,
+              workers: workerCount,
+              pairCount: KANGAROO_PAIR_COUNT,
+              runSeed: activeRunSeed,
+              startHex: start.hex,
+              endHex: end.hex,
+              publicKey: target,
+              resumeState: progress && progress.workerStates ? progress.workerStates[String(id)] : null
+            });
+            return worker;
+          });
+
+          statsTimer = setInterval(() => {
+            saveProgress();
+            updateStats();
+          }, 1000);
+          setStatus((progress ? "Running from saved progress" : "Running") + " with " + KANGAROO_PAIR_COUNT + " kangaroo pairs across " + workerCount + " workers" + (activeRunSeed ? " using random seed " + activeRunSeed : "") + "...");
+          updateStats();
+        } catch (error) {
+          running = false;
+          paused = false;
+          updateButtons();
+          updateStats();
+          setStatus(error.message || "Could not start.", "err");
+        }
+      }
+
+      function runSelfTest() {
+        try {
+          testStat.textContent = "Running";
+          const blob = new Blob([workerSource()], { type: "text/javascript" });
+          const url = URL.createObjectURL(blob);
+          const worker = new Worker(url);
+          const timer = setTimeout(() => {
+            worker.terminate();
+            URL.revokeObjectURL(url);
+            testStat.textContent = "Timeout";
+            testStat.style.color = "#b42318";
+          }, 8000);
+          worker.onmessage = event => {
+            const data = event.data || {};
+            if (data.type !== "selftest") return;
+            clearTimeout(timer);
+            worker.terminate();
+            URL.revokeObjectURL(url);
+            testStat.textContent = data.ok ? "Passed" : "Failed";
+            testStat.style.color = data.ok ? "#067647" : "#b42318";
+          };
+          worker.onerror = () => {
+            clearTimeout(timer);
+            worker.terminate();
+            URL.revokeObjectURL(url);
+            testStat.textContent = "Failed";
+            testStat.style.color = "#b42318";
+          };
+          worker.postMessage({ type: "selftest" });
+        } catch {
+          testStat.textContent = "Failed";
+          testStat.style.color = "#b42318";
+        }
+      }
+
+      function workerSource() {
+        return String.raw`
+"use strict";
+
+const P = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
+const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+const Gx = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
+const Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
+const INF = { x: 0n, y: 1n, z: 0n };
+const TAME = 1;
+const WILD = 2;
+const DEFAULT_PAIR_COUNT = 48;
+const ROUND_SLICE_MS = 70;
+const STATE_INTERVAL_MS = 1000;
+const MAX_BATCH_ROUNDS = 256;
+const MASK64 = 0xffffffffffffffffn;
+
+let active = false;
+let paused = false;
+let scheduled = false;
+let workerId = 0;
+let workerCount = 1;
+let pairCount = DEFAULT_PAIR_COUNT;
+let rangeStart = 1n;
+let rangeEnd = 1n;
+let rangeSize = 1n;
+let targetX = 0n;
+let targetY = 0n;
+let publicKeyHex = "";
+let jumps = [];
+let jumpMask = 0n;
+let dpBits = 0;
+let dpMask = 0n;
+let walkers = [];
+let lastStateAt = 0;
+let seedBase = 1n;
+
+function mod(value, modulus = P) {
+  const r = value % modulus;
+  return r < 0n ? r + modulus : r;
+}
+
+function modN(value) {
+  return mod(value, N);
+}
+
+function hex64(value) {
+  return value.toString(16).padStart(64, "0");
+}
+
+function hexAny(value) {
+  return value.toString(16);
+}
+
+function parseHex(value) {
+  return BigInt("0x" + String(value || "0"));
+}
+
+function invert(value, modulus = P) {
+  let a = mod(value, modulus);
+  let b = modulus;
+  let x = 0n, y = 1n, u = 1n, v = 0n;
+  while (a !== 0n) {
+    const q = b / a;
+    const r = b % a;
+    const m = x - u * q;
+    const n = y - v * q;
+    b = a; a = r; x = u; y = v; u = m; v = n;
+  }
+  if (b !== 1n) throw new Error("Inverse does not exist.");
+  return mod(x, modulus);
+}
+
+function powMod(base, exp) {
+  let result = 1n;
+  base = mod(base);
+  while (exp > 0n) {
+    if (exp & 1n) result = mod(result * base);
+    base = mod(base * base);
+    exp >>= 1n;
+  }
+  return result;
+}
+
+function recoverY(x, odd) {
+  if (x <= 0n || x >= P) throw new Error("Public key x-coordinate is outside secp256k1.");
+  const y2 = mod(x * x * x + 7n);
+  let y = powMod(y2, (P + 1n) >> 2n);
+  if (mod(y * y) !== y2) throw new Error("Public key is not on secp256k1.");
+  if (((y & 1n) === 1n) !== odd) y = P - y;
+  return y;
+}
+
+function parseCompressedPublicKey(hex) {
+  hex = String(hex || "").toLowerCase();
+  if (hex.length !== 66) throw new Error("Public key must be compressed, 66 hex characters.");
+  const prefix = hex.slice(0, 2);
+  if (prefix !== "02" && prefix !== "03") throw new Error("Compressed public key must start with 02 or 03.");
+  const x = parseHex(hex.slice(2));
+  const y = recoverY(x, prefix === "03");
+  return { x, y, hex };
+}
+
+function pointKey(x, y) {
+  return ((y & 1n) ? "03" : "02") + hex64(x);
+}
+
+function pointDouble(p) {
+  if (p.z === 0n || p.y === 0n) return { ...INF };
+  const yy = mod(p.y * p.y);
+  const yyyy = mod(yy * yy);
+  const xx = mod(p.x * p.x);
+  const s = mod(2n * (mod((p.x + yy) * (p.x + yy)) - xx - yyyy));
+  const m = mod(3n * xx);
+  const x3 = mod(m * m - 2n * s);
+  const y3 = mod(m * (s - x3) - 8n * yyyy);
+  const z3 = mod(2n * p.y * p.z);
+  return { x: x3, y: y3, z: z3 };
+}
+
+function pointAddMixed(p, qx, qy) {
+  if (p.z === 0n) return { x: qx, y: qy, z: 1n };
+  const z2 = mod(p.z * p.z);
+  const u2 = mod(qx * z2);
+  const s2 = mod(qy * p.z * z2);
+  const hRaw = u2 - p.x;
+  const rRaw = s2 - p.y;
+  if (hRaw === 0n) {
+    if (rRaw === 0n) return pointDouble(p);
+    return { ...INF };
+  }
+  const h = hRaw < 0n ? hRaw + P : hRaw;
+  const r = rRaw < 0n ? rRaw + P : rRaw;
+  const hh = mod(h * h);
+  const hhh = mod(hh * h);
+  const v = mod(p.x * hh);
+  const x3 = mod(r * r - hhh - 2n * v);
+  const y3 = mod(r * (v - x3) - p.y * hhh);
+  const z3 = mod(p.z * h);
+  return { x: x3, y: y3, z: z3 };
+}
+
+function scalarMulAffine(k) {
+  k = modN(k);
+  if (k === 0n) throw new Error("Zero scalar cannot produce a public key.");
+  let p = { ...INF };
+  const bits = k.toString(2);
+  for (let i = 0; i < bits.length; i++) {
+    p = pointDouble(p);
+    if (bits[i] === "1") p = pointAddMixed(p, Gx, Gy);
+  }
+  const invZ = invert(p.z);
+  const z2 = mod(invZ * invZ);
+  return { x: mod(p.x * z2), y: mod(p.y * z2 * invZ) };
+}
+
+function negateAffine(point) {
+  return { x: point.x, y: mod(-point.y) };
+}
+
+function batchAffine(points) {
+  const count = points.length;
+  const prefixes = new Array(count);
+  let acc = 1n;
+  for (let i = 0; i < count; i++) {
+    prefixes[i] = acc;
+    if (points[i].z !== 0n) acc = mod(acc * points[i].z);
+  }
+  let inv = invert(acc);
+  const out = new Array(count);
+  for (let i = count - 1; i >= 0; i--) {
+    const p = points[i];
+    if (p.z === 0n) {
+      out[i] = null;
+      continue;
+    }
+    const zi = mod(inv * prefixes[i]);
+    inv = mod(inv * p.z);
+    const z2 = mod(zi * zi);
+    out[i] = { x: mod(p.x * z2), y: mod(p.y * z2 * zi) };
+  }
+  return out;
+}
+
+function bitLength(value) {
+  return value <= 0n ? 0 : value.toString(2).length;
+}
+
+function sqrtBig(value) {
+  if (value < 2n) return value;
+  let x0 = 1n << BigInt(Math.ceil(bitLength(value) / 2));
+  let x1 = (x0 + value / x0) >> 1n;
+  while (x1 < x0) {
+    x0 = x1;
+    x1 = (x0 + value / x0) >> 1n;
+  }
+  return x0;
+}
+
+function mix64(value) {
+  value &= MASK64;
+  value = ((value ^ (value >> 30n)) * 0xbf58476d1ce4e5b9n) & MASK64;
+  value = ((value ^ (value >> 27n)) * 0x94d049bb133111ebn) & MASK64;
+  return (value ^ (value >> 31n)) & MASK64;
+}
+
+function seedFromInput(text) {
+  let seed = 0xcbf29ce484222325n;
+  for (let i = 0; i < text.length; i++) {
+    seed ^= BigInt(text.charCodeAt(i));
+    seed = (seed * 0x100000001b3n) & MASK64;
+  }
+  return mix64(seed);
+}
+
+function randomBig(seed, modulus) {
+  if (modulus <= 1n) return 0n;
+  let out = 0n;
+  let bits = 0;
+  let x = seed & MASK64;
+  const need = bitLength(modulus - 1n) + 64;
+  while (bits < need) {
+    x = mix64(x + 0x9e3779b97f4a7c15n);
+    out = (out << 64n) | x;
+    bits += 64;
+  }
+  return out % modulus;
+}
+
+function chooseJumpCount(width) {
+  if (width <= 1024n) return 8;
+  if (width <= 65536n) return 16;
+  if (width <= 0x100000000n) return 32;
+  return 128;
+}
+
+function createJumpTable() {
+  const count = chooseJumpCount(rangeSize);
+  const sqrt = sqrtBig(rangeSize);
+  const maxDelta = sqrt > 134217728n ? sqrt * 134217728n : 134217728n;
+  jumps = [];
+  for (let i = 0; i < count; i++) {
+    let delta = randomBig(seedBase ^ (BigInt(i + 1) * 0x9e3779b97f4a7c15n), maxDelta) + 1n;
+    if (i === 0) delta = 1n;
+    const p = scalarMulAffine(delta);
+    jumps.push({ delta, x: p.x, y: p.y });
+  }
+  jumpMask = BigInt(count - 1);
+}
+
+function configureDistinguishedPoints(forceAll = false) {
+  if (forceAll || rangeSize <= 4096n) dpBits = 0;
+  else {
+    const sqrtBits = bitLength(sqrtBig(rangeSize));
+    dpBits = Math.max(4, Math.min(22, sqrtBits - 6));
+  }
+  dpMask = dpBits === 0 ? 0n : (1n << BigInt(dpBits)) - 1n;
+}
+
+function isDistinguished(x) {
+  return dpBits === 0 || (x & dpMask) === 0n;
+}
+
+function selectJump(x) {
+  return jumps[Number((x ^ (x >> 32n)) & jumpMask)];
+}
+
+function makeWalker(kind, scalar, dist, lane) {
+  let p;
+  if (kind === TAME) {
+    p = scalarMulAffine(scalar);
+  } else {
+    p = { x: targetX, y: targetY, z: 1n };
+    if (dist !== 0n) {
+      const off = scalarMulAffine(dist);
+      p = pointAddMixed(p, off.x, off.y);
+    }
+  }
+  return { kind, x: p.x, y: p.y, z: p.z || 1n, scalar, dist, lane };
+}
+
+function makeRandomTameScalar(pairIndex) {
+  const slot = randomBig(seedBase ^ (BigInt(pairIndex + 1) * 0xd6e8feb86659fd93n), rangeSize);
+  const jitter = randomBig(seedBase ^ (BigInt(pairIndex + 1) * 0xa0761d6478bd642fn), rangeSize);
+  return rangeStart + ((slot + jitter) % rangeSize);
+}
+
+function makeRandomWildDistance(pairIndex) {
+  const sqrt = sqrtBig(rangeSize) + 1n;
+  const spread = rangeSize + sqrt * BigInt(pairCount + 2);
+  const a = randomBig(seedBase ^ (BigInt(pairIndex + 1) * 0x94d049bb133111ebn), spread);
+  const b = randomBig(seedBase ^ (BigInt(pairIndex + 1) * 0xbf58476d1ce4e5b9n), spread);
+  return (a + b + BigInt(pairIndex) * sqrt) % spread;
+}
+
+function initWalkers(resumeState) {
+  if (resumeState && Array.isArray(resumeState.walkers) && resumeState.walkers.length) {
+    walkers = resumeState.walkers.map(w => ({
+      kind: w.kind,
+      x: parseHex(w.x),
+      y: parseHex(w.y),
+      z: parseHex(w.z),
+      scalar: parseHex(w.scalar || "0"),
+      dist: parseHex(w.dist || "0"),
+      lane: w.lane || 0
+    }));
+    return;
+  }
+
+  walkers = [];
+  for (let pairIndex = workerId; pairIndex < pairCount; pairIndex += workerCount) {
+    const tameLane = pairIndex * 2;
+    const wildLane = tameLane + 1;
+
+    // Each pair has one tame kangaroo from a known random scalar in the interval
+    // and one wild kangaroo from Q + randomDistance*G. The positions are
+    // deterministic from the input seed, so the same run is repeatable/resumable.
+    const tameScalar = makeRandomTameScalar(pairIndex);
+    const wildDist = makeRandomWildDistance(pairIndex);
+    walkers.push(makeWalker(TAME, tameScalar, 0n, tameLane));
+    walkers.push(makeWalker(WILD, 0n, wildDist, wildLane));
+  }
+}
+
+function serializeState() {
+  const affine = batchAffine(walkers);
+  return {
+    walkers: affine.map((point, index) => {
+      const walker = walkers[index];
+      if (!point) return {
+        kind: walker.kind,
+        x: hex64(walker.x),
+        y: hex64(walker.y),
+        z: hexAny(walker.z),
+        scalar: hexAny(walker.scalar),
+        dist: hexAny(walker.dist),
+        lane: walker.lane
+      };
+      return {
+        kind: walker.kind,
+        x: hex64(point.x),
+        y: hex64(point.y),
+        z: "1",
+        scalar: hexAny(walker.scalar),
+        dist: hexAny(walker.dist),
+        lane: walker.lane
+      };
+    })
+  };
+}
+
+function configureRun(data, forceAllDps = false) {
+  workerId = Number(data.workerId || 0);
+  workerCount = Math.max(1, Number(data.workers || 1));
+  pairCount = Math.max(1, Number(data.pairCount || DEFAULT_PAIR_COUNT));
+  rangeStart = parseHex(data.startHex);
+  rangeEnd = parseHex(data.endHex);
+  if (rangeEnd < rangeStart) {
+    const tmp = rangeStart;
+    rangeStart = rangeEnd;
+    rangeEnd = tmp;
+  }
+  rangeSize = rangeEnd - rangeStart + 1n;
+  const target = parseCompressedPublicKey(data.publicKey);
+  targetX = target.x;
+  targetY = target.y;
+  publicKeyHex = target.hex;
+  seedBase = seedFromInput(hex64(rangeStart) + hex64(rangeEnd) + publicKeyHex + String(data.runSeed || ""));
+  createJumpTable();
+  configureDistinguishedPoints(forceAllDps);
+  initWalkers(data.resumeState || null);
+  lastStateAt = performance.now();
+}
+
+// One Pollard Kangaroo round:
+// 1. Normalize the current walker points to affine coordinates in one batch.
+// 2. Store distinguished points as collision traps.
+// 3. Pick a deterministic jump from the current full point x-coordinate.
+// 4. Update both the EC point and the known scalar/distance accumulator.
+function stepRounds(maxRounds, deadlineMs) {
+  const dps = [];
+  let jumpCount = 0;
+  for (let round = 0; round < maxRounds; round++) {
+    if (!active || paused || performance.now() >= deadlineMs) break;
+    const affine = batchAffine(walkers);
+    for (let i = 0; i < walkers.length; i++) {
+      const w = walkers[i];
+      const a = affine[i];
+      if (!a) continue;
+      const key = pointKey(a.x, a.y);
+      if (isDistinguished(a.x)) {
+        if (w.kind === TAME) {
+          dps.push({ kind: "tame", point: key, scalar: hexAny(w.scalar), workerId, lane: w.lane });
+        } else {
+          dps.push({ kind: "wild", point: key, dist: hexAny(w.dist), workerId, lane: w.lane });
+        }
+      }
+      const jump = selectJump(a.x);
+      const next = pointAddMixed(w, jump.x, jump.y);
+      w.x = next.x; w.y = next.y; w.z = next.z;
+      if (w.kind === TAME) w.scalar += jump.delta;
+      else w.dist += jump.delta;
+      jumpCount++;
+    }
+  }
+  return { dps, jumps: jumpCount };
+}
+
+function runSlice() {
+  scheduled = false;
+  if (!active) {
+    postMessage({ type: "done", workerId });
+    return;
+  }
+  if (paused) return;
+  try {
+    const result = stepRounds(MAX_BATCH_ROUNDS, performance.now() + ROUND_SLICE_MS);
+    const now = performance.now();
+    const message = { type: "batch", workerId, jumps: result.jumps, dps: result.dps };
+    if (now - lastStateAt >= STATE_INTERVAL_MS) {
+      message.state = serializeState();
+      lastStateAt = now;
+    }
+    postMessage(message);
+    if (active && !paused) scheduleRun();
+  } catch (error) {
+    postMessage({ type: "error", message: error.message || String(error) });
+  }
+}
+
+function scheduleRun() {
+  if (!active || paused || scheduled) return;
+  scheduled = true;
+  setTimeout(runSlice, 0);
+}
+
+function recoverFromEntries(a, b) {
+  const tame = a.kind === "tame" ? a : b;
+  const wild = a.kind === "wild" ? a : b;
+  let candidate = parseHex(tame.scalar) - parseHex(wild.dist);
+  candidate = modN(candidate);
+  return candidate;
+}
+
+function runSelfTest() {
+  try {
+    const known = 37n;
+    const target = scalarMulAffine(known);
+    const targetPub = pointKey(target.x, target.y);
+    configureRun({
+      workerId: 0,
+      workers: 1,
+      pairCount: 48,
+      startHex: hex64(1n),
+      endHex: hex64(64n),
+      publicKey: targetPub,
+      resumeState: null
+    }, true);
+    active = true;
+    paused = false;
+    const table = new Map();
+    let recovered = null;
+    for (let i = 0; i < 2000 && recovered === null; i++) {
+      const result = stepRounds(4, performance.now() + 1000);
+      for (const entry of result.dps) {
+        const other = table.get(entry.point);
+        if (!other) {
+          table.set(entry.point, entry);
+        } else if (other.kind !== entry.kind) {
+          const candidate = recoverFromEntries(other, entry);
+          if (candidate >= 1n && candidate <= 64n) recovered = candidate;
+        }
+      }
+    }
+    active = false;
+    postMessage({
+      type: "selftest",
+      ok: recovered === known,
+      privateHex: recovered === null ? "" : hex64(recovered),
+      publicKey: targetPub,
+      message: recovered === known ? "Self-test recovered key 37." : "Self-test did not recover the known key."
+    });
+  } catch (error) {
+    postMessage({ type: "selftest", ok: false, message: error.message || String(error) });
+  }
+}
+
+self.onmessage = event => {
+  const data = event.data || {};
+  if (data.type === "pause") {
+    paused = true;
+    return;
+  }
+  if (data.type === "resume") {
+    if (active) {
+      paused = false;
+      scheduleRun();
+    }
+    return;
+  }
+  if (data.type === "stop") {
+    active = false;
+    paused = false;
+    return;
+  }
+  if (data.type === "selftest") {
+    runSelfTest();
+    return;
+  }
+  if (data.type !== "start") return;
+  try {
+    configureRun(data, false);
+    active = true;
+    paused = false;
+    scheduleRun();
+  } catch (error) {
+    postMessage({ type: "error", message: error.message || String(error) });
+  }
+};
+        `;
+      }
+
+      startHex.addEventListener("input", updateCounts);
+      endHex.addEventListener("input", updateCounts);
+      publicKey.addEventListener("input", updateCounts);
+      startBtn.addEventListener("click", startRun);
+      pauseBtn.addEventListener("click", pauseRun);
+      resumeBtn.addEventListener("click", resumeRun);
+      stopBtn.addEventListener("click", () => stopRun("Stopped. Progress saved."));
+      clearBtn.addEventListener("click", () => {
+        if (running) stopRun("Stopped.");
+        clearProgress();
+        setStatus("Progress cleared.");
+      });
+
+      updateCounts();
+      updateButtons();
+      updateStats();
+      runSelfTest();
+    })();
+  </script>
+</body>
+</html>
