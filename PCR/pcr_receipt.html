@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Payment Voucher Database</title>
+  <meta name="theme-color" content="#edf1f7" />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="../Assets/style/styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    .pcr-shell{max-width:var(--max);margin:0 auto;padding:16px;position:relative;z-index:1}
+    .pcr-header .brand{margin-bottom:14px}
+    .pcr-header .brand .mark{width:180px;height:48px;border-radius:8px;object-fit:contain}
+    .pcr-header-title{margin:0;font-size:1.05rem;font-weight:800;letter-spacing:-.03em;color:var(--text)}
+    .pcr-header-sub{margin:4px 0 0;color:var(--muted);font-size:.82rem;line-height:1.4}
+    .pcr-status-chip{display:inline-flex;align-items:center;gap:8px}
+    .pcr-status-dot{width:8px;height:8px;border-radius:999px;background:var(--warning);box-shadow:0 0 0 4px rgba(181,71,8,.12)}
+    .pcr-status-dot.is-online{background:var(--success);box-shadow:0 0 0 4px rgba(6,118,71,.12)}
+    .pcr-layout{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:14px;align-items:start}
+    .pcr-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .pcr-section{padding:14px}
+    .pcr-section + .pcr-section{border-top:1px solid var(--line)}
+    .pcr-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}
+    .pcr-field{display:flex;flex-direction:column;gap:6px;grid-column:span 12;min-width:0}
+    .pcr-field.w6{grid-column:span 6}
+    .pcr-field.w4{grid-column:span 4}
+    .pcr-field.w8{grid-column:span 8}
+    .pcr-field label{font-size:.78rem;color:var(--muted);font-weight:750}
+    .pcr-readonly{background:#f8fafc;color:var(--text)}
+    .pcr-amount-row{display:grid;grid-template-columns:1fr 86px;gap:8px}
+    .pcr-form-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px}
+    .pcr-tools-row{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+    .pcr-tools-row .pcr-field{flex:1 1 150px}
+    .pcr-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
+    .pcr-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}
+    .pcr-summary-card{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:11px;min-height:78px;display:flex;flex-direction:column;justify-content:space-between;gap:8px}
+    .pcr-summary-card span{font-size:.74rem;color:var(--muted);font-weight:700}
+    .pcr-summary-card strong{font-size:1.04rem;letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
+    .pcr-database-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+    .pcr-database-head h3{margin:0;font-size:.98rem;letter-spacing:-.02em}
+    .pcr-database-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem;line-height:1.45}
+    .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:5px}
+    .pcr-table td{white-space:nowrap}
+    .pcr-table .pcr-cell-main{white-space:normal;min-width:180px}
+    .pcr-actions{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+    .pcr-actions .tiny{height:30px;display:inline-flex;align-items:center;justify-content:center}
+    .pcr-autocomplete{position:relative}
+    .pcr-suggestions{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-strong);padding:6px;max-height:260px;overflow:auto;display:none}
+    .pcr-suggestions.open{display:block}
+    .pcr-suggestion{border:0;background:#fff;color:var(--text);width:100%;text-align:left;border-radius:9px;padding:9px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .pcr-suggestion:hover,.pcr-suggestion:focus{background:var(--primary-soft);outline:none}
+    .pcr-suggestion strong{display:block;font-size:.86rem;line-height:1.2}
+    .pcr-suggestion small{display:block;margin-top:3px;color:var(--muted);font-size:.72rem}
+    .pcr-suggestion .badge{flex:0 0 auto}
+    .pcr-quick-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .pcr-quick-list button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 9px;font-size:.74rem;font-weight:700;color:var(--text);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pcr-quick-list button:hover{border-color:rgba(36,87,214,.42);background:var(--primary-soft);color:var(--primary)}
+    .pcr-message{position:fixed;right:16px;bottom:16px;z-index:300;display:grid;gap:8px;width:min(380px,calc(100vw - 32px))}
+    .pcr-toast{background:#fff;border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:12px;box-shadow:var(--shadow-strong);padding:12px 14px;color:var(--text);font-size:.84rem;line-height:1.45}
+    .pcr-toast.success{border-left-color:var(--success)}
+    .pcr-toast.error{border-left-color:var(--danger)}
+    .pcr-form-error{display:none;margin-top:10px;color:var(--danger);font-size:.82rem;font-weight:650;background:rgba(180,35,24,.07);border:1px solid rgba(180,35,24,.16);border-radius:10px;padding:10px}
+    .pcr-form-error.show{display:block}
+    .pcr-loading{position:fixed;inset:0;background:rgba(237,241,247,.58);backdrop-filter:blur(4px);display:none;place-items:center;z-index:250}
+    .pcr-loading.show{display:grid}
+    .pcr-loading-card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-strong);padding:18px 22px;display:flex;align-items:center;gap:12px;font-weight:800;color:var(--text)}
+    .pcr-spinner{width:18px;height:18px;border:3px solid rgba(36,87,214,.16);border-top-color:var(--primary);border-radius:999px;animation:spin 1s linear infinite}
+    .pcr-modal{position:fixed;inset:0;z-index:220;display:none;place-items:center;padding:14px}
+    .pcr-modal.open{display:grid}
+    .pcr-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(4px)}
+    .pcr-modal-dialog{position:relative;width:min(1120px,100%);max-height:calc(100vh - 28px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 25px 50px rgba(16,24,40,.18)}
+    .pcr-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 14px 0}
+    .pcr-modal-head h3{margin:0;font-size:1rem;letter-spacing:-.02em}
+    .pcr-modal-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}
+    .pcr-modal-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:0 14px 14px}
+    .pcr-preview-body{padding:14px;overflow:auto}
+    .pcr-empty{border:1px dashed var(--line-strong);border-radius:12px;background:#fff;padding:18px;text-align:center;color:var(--muted);font-size:.88rem;line-height:1.6}
+    #printRoot{display:none}
+    .voucher-sheet{width:297mm;min-height:210mm;background:#fff;color:#17212b;padding:10mm;font-family:Inter,Arial,sans-serif;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto}
+    .voucher-frame{border:1.4px solid #17212b;min-height:190mm;display:flex;flex-direction:column}
+    .voucher-company{display:grid;grid-template-columns:35mm 1fr 55mm;gap:5mm;align-items:center;border-bottom:1.2px solid #17212b;padding:5mm 6mm}
+    .voucher-logo{width:32mm;height:22mm;object-fit:contain}
+    .voucher-company h1{margin:0;text-transform:uppercase;font-size:18pt;letter-spacing:.03em;line-height:1.05}
+    .voucher-company p{margin:2mm 0 0;font-size:8.5pt;line-height:1.35;color:#344054}
+    .voucher-number-box{border:1px solid #17212b;padding:3mm;text-align:center}
+    .voucher-number-box span{display:block;font-size:7.5pt;color:#667085;text-transform:uppercase;font-weight:700}
+    .voucher-number-box strong{display:block;margin-top:1.5mm;font-size:13pt;letter-spacing:.02em}
+    .voucher-title-row{display:grid;grid-template-columns:1fr 58mm;gap:5mm;align-items:stretch;border-bottom:1.2px solid #17212b}
+    .voucher-title{padding:4mm 6mm}
+    .voucher-title h2{margin:0;font-size:20pt;text-transform:uppercase;letter-spacing:.08em}
+    .voucher-title p{margin:2mm 0 0;font-size:9pt;color:#344054}
+    .voucher-date{border-left:1.2px solid #17212b;display:grid;grid-template-columns:1fr;align-content:center;padding:4mm 5mm}
+    .voucher-date span{font-size:7.5pt;color:#667085;font-weight:700;text-transform:uppercase}
+    .voucher-date strong{font-size:13pt;margin-top:1.5mm}
+    .voucher-main{padding:5mm 6mm;display:grid;grid-template-columns:1.1fr .9fr;gap:5mm;flex:1}
+    .voucher-box{border:1px solid #98a2b3}
+    .voucher-box h3{margin:0;padding:2.5mm 3mm;background:#f2f4f7;border-bottom:1px solid #98a2b3;text-transform:uppercase;font-size:8pt;letter-spacing:.08em}
+    .voucher-box-content{padding:3mm;display:grid;gap:2.5mm}
+    .voucher-line{display:grid;grid-template-columns:32mm 1fr;gap:3mm;font-size:9pt;line-height:1.35}
+    .voucher-line span{color:#667085;font-weight:700}
+    .voucher-line strong{font-weight:800;word-break:break-word}
+    .voucher-amount-words{grid-column:1 / -1;border:1px solid #17212b;background:#f8fafc;padding:4mm;margin-top:1mm}
+    .voucher-amount-words span{display:block;color:#667085;font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+    .voucher-amount-words strong{display:block;margin-top:2mm;font-size:13pt;line-height:1.35;text-transform:uppercase}
+    .voucher-description{grid-column:1 / -1;min-height:24mm}
+    .voucher-description p{margin:0;font-size:9pt;line-height:1.5;white-space:pre-wrap}
+    .voucher-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;padding:0 6mm 6mm}
+    .voucher-signature{padding-top:13mm;border-top:1px solid #17212b;text-align:center;font-size:8.5pt;text-transform:uppercase;font-weight:800;color:#344054}
+    .voucher-footer{border-top:1px solid #98a2b3;padding:3mm 6mm;display:flex;justify-content:space-between;gap:5mm;font-size:7.5pt;color:#667085}
+    .voucher-preview-scale{transform-origin:top left}
+    @media (max-width:1100px){
+      .pcr-layout{grid-template-columns:1fr}
+      .pcr-summary-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}
+    }
+    @media (max-width:760px){
+      .pcr-shell{padding:10px}
+      .pcr-header .brand{align-items:flex-start}
+      .pcr-header .brand .mark{width:140px;height:38px}
+      .pcr-field.w6,.pcr-field.w4,.pcr-field.w8{grid-column:span 12}
+      .pcr-summary-grid{grid-template-columns:1fr}
+      .pcr-toolbar-actions{width:100%;margin-left:0}
+      .pcr-toolbar-actions .btn{flex:1 1 auto}
+      .pcr-table th,.pcr-table td{font-size:.72rem;padding:8px}
+      .pcr-actions{flex-wrap:wrap}
+    }
+    @media print{
+      @page{size:A4 landscape;margin:0}
+      body{background:#fff !important}
+      body *{visibility:hidden !important}
+      #printRoot,#printRoot *{visibility:visible !important}
+      #printRoot{display:block !important;position:absolute;inset:0;width:297mm;min-height:210mm;background:#fff}
+      .voucher-sheet{box-shadow:none;margin:0;width:297mm;min-height:210mm}
+    }
+  </style>
+</head>
+<body>
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div><div class="circle"></div><div class="circle"></div><div class="circle"></div><div class="circle"></div>
+    <div class="circle"></div><div class="circle"></div><div class="circle"></div><div class="circle"></div>
+  </div>
+
+  <div class="pcr-shell">
+    <header class="header pcr-header">
+      <div class="brand">
+        <img class="mark" src="logo.png" alt="Triple M by NSF" onerror="this.src='logo.png'" />
+        <div>
+          <h1 class="pcr-header-title">Payment Voucher Database</h1>
+          <p class="pcr-header-sub">Premium Car Rental DMCC</p>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip pcr-status-chip"><span id="connectionDot" class="pcr-status-dot"></span><span id="connectionText">Connecting</span></span>
+        <button class="btn ghost top-icon-btn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
+        <a class="btn ghost top-icon-btn" href="../index.html" title="Dashboard" aria-label="Dashboard"><i class="fa-solid fa-house"></i></a>
+      </div>
+    </header>
+
+    <section class="overview" aria-label="Voucher summary">
+      <div class="overview-top">
+        <div>
+          <h2>Voucher Overview</h2>
+          <p id="summaryUpdated">Live Supabase records</p>
+        </div>
+        <div class="tools">
+          <button class="btn soft" id="printLatestBtn" type="button"><i class="fa-solid fa-print"></i> Print Latest</button>
+        </div>
+      </div>
+      <div class="pcr-section">
+        <div class="pcr-summary-grid">
+          <article class="pcr-summary-card"><span>Total Vouchers</span><strong id="totalVouchers">0</strong></article>
+          <article class="pcr-summary-card"><span>Today's Vouchers</span><strong id="todayVouchers">0</strong></article>
+          <article class="pcr-summary-card"><span>This Month's Vouchers</span><strong id="monthVouchers">0</strong></article>
+          <article class="pcr-summary-card"><span>Total Amount Paid</span><strong id="totalAmount">AED 0.00</strong></article>
+        </div>
+      </div>
+    </section>
+
+    <main class="pcr-layout" style="margin-top:14px">
+      <section class="pcr-card" aria-labelledby="voucherFormTitle">
+        <div class="pcr-section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3 id="voucherFormTitle">Voucher Creation</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form id="voucherForm" novalidate>
+            <div class="pcr-form-grid">
+              <div class="pcr-field w6">
+                <label for="voucherNumber">Voucher Number</label>
+                <input id="voucherNumber" class="input pcr-readonly" type="text" readonly />
+              </div>
+              <div class="pcr-field w6">
+                <label for="voucherDate">Date</label>
+                <input id="voucherDate" class="input" type="date" required />
+              </div>
+              <div class="pcr-field w6">
+                <label for="amountNumber">Amount in Numbers</label>
+                <div class="pcr-amount-row">
+                  <input id="amountNumber" class="input" type="number" min="0" step="0.01" inputmode="decimal" required />
+                  <input class="input pcr-readonly" value="AED" readonly aria-label="Currency" />
+                </div>
+              </div>
+              <div class="pcr-field w6">
+                <label for="paymentMethod">Payment Method</label>
+                <select id="paymentMethod" class="select" required>
+                  <option value="">Select method</option>
+                  <option>Cash</option>
+                  <option>Cheque</option>
+                  <option>Card</option>
+                  <option>Bank Transfer</option>
+                </select>
+              </div>
+              <div class="pcr-field">
+                <label for="amountWords">Amount in Words</label>
+                <textarea id="amountWords" class="input" rows="2" required></textarea>
+              </div>
+              <div class="pcr-field w6">
+                <label for="companyName">Company</label>
+                <input id="companyName" class="input" type="text" autocomplete="organization" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="recipientType">Recipient Type</label>
+                <select id="recipientType" class="select">
+                  <option value="other">Other</option>
+                  <option value="customer">Customer</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+              <div class="pcr-field pcr-autocomplete">
+                <label for="paidTo">Paid To</label>
+                <input id="paidTo" class="input" type="text" autocomplete="off" required aria-autocomplete="list" aria-expanded="false" aria-controls="recipientSuggestions" />
+                <div id="recipientSuggestions" class="pcr-suggestions" role="listbox"></div>
+                <div id="quickRecipients" class="pcr-quick-list" aria-label="Saved recipients"></div>
+              </div>
+              <div class="pcr-field">
+                <label for="descriptionText">Description / Remarks</label>
+                <textarea id="descriptionText" class="input" rows="3"></textarea>
+              </div>
+              <div class="pcr-field w6">
+                <label for="createdBy">Created By</label>
+                <input id="createdBy" class="input" type="text" />
+              </div>
+              <div class="pcr-field w6">
+                <label for="createdAt">Created Timestamp</label>
+                <input id="createdAt" class="input pcr-readonly" type="text" readonly />
+              </div>
+            </div>
+            <div id="formError" class="pcr-form-error" role="alert"></div>
+            <div class="pcr-form-actions">
+              <button id="cancelEditBtn" class="btn ghost hide" type="button">Cancel Edit</button>
+              <button id="previewDraftBtn" class="btn soft" type="button"><i class="fa-solid fa-eye"></i> Print Preview</button>
+              <button id="saveVoucherBtn" class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save Voucher</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="pcr-card" aria-labelledby="voucherDatabaseTitle">
+        <div class="pcr-section">
+          <div class="pcr-database-head">
+            <div>
+              <h3 id="voucherDatabaseTitle">Voucher Database</h3>
+              <p id="databaseCount">0 records</p>
+            </div>
+            <div class="tools">
+              <button id="exportCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+            </div>
+          </div>
+
+          <div class="filter-inline-row">
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">Search:</span>
+              <input id="searchInput" class="input filter-inline-input" placeholder="Voucher, recipient, remarks" />
+            </div>
+            <span class="filter-divider">|</span>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">From:</span>
+              <input id="dateFrom" class="input filter-inline-date" type="date" />
+            </div>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">To:</span>
+              <input id="dateTo" class="input filter-inline-date" type="date" />
+            </div>
+            <span class="filter-divider">|</span>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">Recipient:</span>
+              <select id="recipientFilter" class="select filter-inline-input"><option value="">All</option></select>
+            </div>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">Method:</span>
+              <select id="methodFilter" class="select filter-inline-input">
+                <option value="">All</option>
+                <option>Cash</option>
+                <option>Cheque</option>
+                <option>Card</option>
+                <option>Bank Transfer</option>
+              </select>
+            </div>
+            <button id="clearFiltersBtn" class="btn ghost" type="button">Clear</button>
+          </div>
+
+          <div class="table-wrap" style="margin-top:10px">
+            <table class="pcr-table">
+              <thead>
+                <tr>
+                  <th><button type="button" data-sort="voucher_number">Voucher <i class="fa-solid fa-sort"></i></button></th>
+                  <th><button type="button" data-sort="voucher_date">Date <i class="fa-solid fa-sort"></i></button></th>
+                  <th><button type="button" data-sort="paid_to">Paid To <i class="fa-solid fa-sort"></i></button></th>
+                  <th><button type="button" data-sort="payment_method">Method <i class="fa-solid fa-sort"></i></button></th>
+                  <th><button type="button" data-sort="amount">Amount <i class="fa-solid fa-sort"></i></button></th>
+                  <th><button type="button" data-sort="created_by">Created By <i class="fa-solid fa-sort"></i></button></th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="voucherTableBody">
+                <tr><td colspan="7"><div class="pcr-empty">Loading vouchers.</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="previewModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+    <div class="pcr-modal-backdrop" data-close-preview></div>
+    <div class="pcr-modal-dialog">
+      <div class="pcr-modal-head">
+        <div>
+          <h3 id="previewTitle">Print Preview</h3>
+          <p id="previewSubtitle">Payment voucher</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-preview aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="previewBody" class="pcr-preview-body"></div>
+      <div class="pcr-modal-actions">
+        <button id="modalPrintBtn" class="btn ghost" type="button"><i class="fa-solid fa-print"></i> Print</button>
+        <button id="modalPdfBtn" class="btn primary" type="button"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingLayer" class="pcr-loading" aria-live="polite" aria-hidden="true">
+    <div class="pcr-loading-card"><span class="pcr-spinner"></span><span id="loadingText">Loading</span></div>
+  </div>
+  <div id="toastArea" class="pcr-message" aria-live="polite"></div>
+  <div id="printRoot"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const SUPABASE_URL = "https://ewmjnknbcohixqptshoc.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpua25iY29oaXhxcHRzaG9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMDg3NTgsImV4cCI6MjA5NTg4NDc1OH0.CVAm7bA_ZTVNtu_FMHp_v-x2qH9bA_kwRkK02hYanfw";
+      const TABLE = "pcr_payment_vouchers";
+      const RECIPIENT_TABLE = "pcr_recipients";
+      const PRINT_EVENT_TABLE = "pcr_voucher_print_events";
+      const LOGO_URL = "logo.png";
+
+      const els = {
+        form: document.getElementById("voucherForm"),
+        voucherNumber: document.getElementById("voucherNumber"),
+        voucherDate: document.getElementById("voucherDate"),
+        amountNumber: document.getElementById("amountNumber"),
+        amountWords: document.getElementById("amountWords"),
+        companyName: document.getElementById("companyName"),
+        paidTo: document.getElementById("paidTo"),
+        recipientType: document.getElementById("recipientType"),
+        paymentMethod: document.getElementById("paymentMethod"),
+        descriptionText: document.getElementById("descriptionText"),
+        createdBy: document.getElementById("createdBy"),
+        createdAt: document.getElementById("createdAt"),
+        formError: document.getElementById("formError"),
+        saveVoucherBtn: document.getElementById("saveVoucherBtn"),
+        cancelEditBtn: document.getElementById("cancelEditBtn"),
+        previewDraftBtn: document.getElementById("previewDraftBtn"),
+        suggestions: document.getElementById("recipientSuggestions"),
+        quickRecipients: document.getElementById("quickRecipients"),
+        searchInput: document.getElementById("searchInput"),
+        dateFrom: document.getElementById("dateFrom"),
+        dateTo: document.getElementById("dateTo"),
+        recipientFilter: document.getElementById("recipientFilter"),
+        methodFilter: document.getElementById("methodFilter"),
+        clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+        tableBody: document.getElementById("voucherTableBody"),
+        databaseCount: document.getElementById("databaseCount"),
+        exportCsvBtn: document.getElementById("exportCsvBtn"),
+        refreshBtn: document.getElementById("refreshBtn"),
+        printLatestBtn: document.getElementById("printLatestBtn"),
+        previewModal: document.getElementById("previewModal"),
+        previewBody: document.getElementById("previewBody"),
+        previewSubtitle: document.getElementById("previewSubtitle"),
+        modalPrintBtn: document.getElementById("modalPrintBtn"),
+        modalPdfBtn: document.getElementById("modalPdfBtn"),
+        loadingLayer: document.getElementById("loadingLayer"),
+        loadingText: document.getElementById("loadingText"),
+        toastArea: document.getElementById("toastArea"),
+        printRoot: document.getElementById("printRoot"),
+        connectionDot: document.getElementById("connectionDot"),
+        connectionText: document.getElementById("connectionText"),
+        totalVouchers: document.getElementById("totalVouchers"),
+        todayVouchers: document.getElementById("todayVouchers"),
+        monthVouchers: document.getElementById("monthVouchers"),
+        totalAmount: document.getElementById("totalAmount"),
+        summaryUpdated: document.getElementById("summaryUpdated")
+      };
+
+      const state = {
+        vouchers: [],
+        recipients: [],
+        externalPeople: [],
+        selectedRecipientId: null,
+        editingId: null,
+        previewVoucher: null,
+        sortKey: "created_at",
+        sortDirection: "desc",
+        amountWordsTouched: false,
+        busyCount: 0
+      };
+
+      function todayIso(){
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function nowLabel(){
+        const date = new Date();
+        return date.toLocaleString("en-AE", { dateStyle: "medium", timeStyle: "short" });
+      }
+
+      function escapeHtml(value){
+        return String(value ?? "").replace(/[&<>"']/g, char => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&#39;"
+        }[char]));
+      }
+
+      function normalizeDisplay(value){
+        return String(value || "").trim().replace(/\s+/g, " ");
+      }
+
+      function normalizeName(value){
+        return normalizeDisplay(value).toLowerCase();
+      }
+
+      function getCurrentUser(){
+        const keys = [
+          "loanledger-zip-username-v1",
+          "loanledger-zip-derived-username-v2",
+          "loanledger-zip-username-persist-v1"
+        ];
+        for (const storage of [sessionStorage, localStorage]){
+          for (const key of keys){
+            try {
+              const value = normalizeDisplay(storage.getItem(key));
+              if (value) return value;
+            } catch {}
+          }
+        }
+        return "PCR User";
+      }
+
+      function setBusy(isBusy, label = "Loading"){
+        state.busyCount += isBusy ? 1 : -1;
+        if (state.busyCount < 0) state.busyCount = 0;
+        els.loadingText.textContent = label;
+        els.loadingLayer.classList.toggle("show", state.busyCount > 0);
+        els.loadingLayer.setAttribute("aria-hidden", state.busyCount > 0 ? "false" : "true");
+      }
+
+      function showToast(message, type = "success"){
+        const toast = document.createElement("div");
+        toast.className = `pcr-toast ${type}`;
+        toast.textContent = message;
+        els.toastArea.appendChild(toast);
+        setTimeout(() => toast.remove(), 4200);
+      }
+
+      function setConnection(ok, text){
+        els.connectionDot.classList.toggle("is-online", ok);
+        els.connectionText.textContent = text;
+      }
+
+      async function api(path, options = {}){
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+          ...options,
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+            ...(options.headers || {})
+          }
+        });
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+        if (!response.ok){
+          const message = data?.message || data?.error || text || `Request failed (${response.status})`;
+          const error = new Error(message);
+          error.status = response.status;
+          error.details = data;
+          throw error;
+        }
+        return data;
+      }
+
+      function formatMoney(amount){
+        return new Intl.NumberFormat("en-AE", {
+          style: "currency",
+          currency: "AED",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(Number(amount || 0));
+      }
+
+      function formatDate(value){
+        if (!value) return "";
+        const date = new Date(`${value}T00:00:00`);
+        return date.toLocaleDateString("en-AE", { year: "numeric", month: "short", day: "2-digit" });
+      }
+
+      function formatDateTime(value){
+        if (!value) return "";
+        return new Date(value).toLocaleString("en-AE", { dateStyle: "medium", timeStyle: "short" });
+      }
+
+      function numberToWordsInteger(number){
+        const ones = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+        const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+        const scales = ["", "thousand", "million", "billion", "trillion"];
+
+        function chunkWords(n){
+          const parts = [];
+          if (n >= 100){
+            parts.push(`${ones[Math.floor(n / 100)]} hundred`);
+            n %= 100;
+          }
+          if (n >= 20){
+            parts.push(tens[Math.floor(n / 10)]);
+            n %= 10;
+          }
+          if (n > 0) parts.push(ones[n]);
+          return parts.join(" ");
+        }
+
+        if (!number) return "zero";
+        const words = [];
+        let scale = 0;
+        while (number > 0){
+          const chunk = number % 1000;
+          if (chunk){
+            words.unshift(`${chunkWords(chunk)} ${scales[scale]}`.trim());
+          }
+          number = Math.floor(number / 1000);
+          scale += 1;
+        }
+        return words.join(" ");
+      }
+
+      function amountToWords(amount){
+        const fixed = Math.round((Number(amount || 0) + Number.EPSILON) * 100);
+        const dirhams = Math.floor(fixed / 100);
+        const fils = fixed % 100;
+        let words = `${numberToWordsInteger(dirhams)} dirhams`;
+        if (fils) words += ` and ${numberToWordsInteger(fils)} fils`;
+        return `${words} only`.replace(/\b\w/g, char => char.toUpperCase());
+      }
+
+      function getVoucherById(id){
+        return state.vouchers.find(voucher => voucher.id === id) || null;
+      }
+
+      function buildDraftVoucher(){
+        return {
+          id: state.editingId || "draft",
+          voucher_number: normalizeDisplay(els.voucherNumber.value) || "Draft",
+          voucher_date: els.voucherDate.value || todayIso(),
+          amount: Number(els.amountNumber.value || 0),
+          amount_words: normalizeDisplay(els.amountWords.value) || amountToWords(els.amountNumber.value),
+          currency: "AED",
+          company: normalizeDisplay(els.companyName.value),
+          paid_to: normalizeDisplay(els.paidTo.value) || "Recipient",
+          payment_method: els.paymentMethod.value || "Cash",
+          description: normalizeDisplay(els.descriptionText.value),
+          created_by: normalizeDisplay(els.createdBy.value) || getCurrentUser(),
+          created_at: new Date().toISOString()
+        };
+      }
+
+      function validateForm(){
+        const errors = [];
+        if (!normalizeDisplay(els.voucherNumber.value)) errors.push("Voucher number is required.");
+        if (!els.voucherDate.value) errors.push("Date is required.");
+        if (!els.amountNumber.value || Number(els.amountNumber.value) < 0) errors.push("Amount must be zero or greater.");
+        if (!normalizeDisplay(els.amountWords.value)) errors.push("Amount in words is required.");
+        if (!normalizeDisplay(els.paidTo.value)) errors.push("Paid To is required.");
+        if (!els.paymentMethod.value) errors.push("Payment method is required.");
+        if (!normalizeDisplay(els.createdBy.value)) errors.push("Created By is required.");
+
+        els.formError.textContent = errors.join(" ");
+        els.formError.classList.toggle("show", errors.length > 0);
+        return errors.length === 0;
+      }
+
+      async function fetchNextVoucherNumber(offset = 0){
+        const compactDate = (els.voucherDate.value || todayIso()).replaceAll("-", "");
+        const prefix = `PV-${compactDate}-`;
+        let maxNumber = 0;
+        const localNumbers = state.vouchers
+          .map(voucher => String(voucher.voucher_number || ""))
+          .filter(number => number.startsWith(prefix))
+          .map(number => Number(number.slice(prefix.length)) || 0);
+        maxNumber = Math.max(0, ...localNumbers);
+        try {
+          const latest = await api(`${TABLE}?select=voucher_number&voucher_number=like.${prefix}*&order=voucher_number.desc&limit=1`);
+          const latestNumber = Number(String(latest?.[0]?.voucher_number || "").slice(prefix.length)) || 0;
+          maxNumber = Math.max(maxNumber, latestNumber);
+        } catch {}
+        return `${prefix}${String(maxNumber + 1 + offset).padStart(4, "0")}`;
+      }
+
+      async function resetForm(){
+        state.editingId = null;
+        state.selectedRecipientId = null;
+        state.amountWordsTouched = false;
+        els.form.reset();
+        els.voucherDate.value = todayIso();
+        els.createdBy.value = getCurrentUser();
+        els.createdAt.value = nowLabel();
+        els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Voucher';
+        els.cancelEditBtn.classList.add("hide");
+        els.formError.classList.remove("show");
+        els.voucherNumber.value = await fetchNextVoucherNumber();
+      }
+
+      async function loadRecipients(){
+        const rows = await api(`${RECIPIENT_TABLE}?select=*&is_active=eq.true&order=last_used_at.desc.nullslast&limit=800`);
+        state.recipients = Array.isArray(rows) ? rows : [];
+        renderRecipientControls();
+      }
+
+      async function loadExternalPeople(){
+        try {
+          const rows = await api("loan_ledger_entries?select=person_name,created_at&person_name=not.is.null&order=created_at.desc&limit=1000");
+          const seen = new Set();
+          state.externalPeople = (Array.isArray(rows) ? rows : [])
+            .map(row => normalizeDisplay(row.person_name))
+            .filter(name => {
+              const key = normalizeName(name);
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            })
+            .map(name => ({ recipient_name: name, recipient_type: "customer", source: "customer", normalized_name: normalizeName(name) }));
+        } catch {
+          state.externalPeople = [];
+        }
+      }
+
+      async function loadVouchers(){
+        const rows = await api(`${TABLE}?select=*&deleted_at=is.null&order=created_at.desc&limit=2000`);
+        state.vouchers = Array.isArray(rows) ? rows : [];
+        renderAll();
+      }
+
+      async function loadAll(){
+        setBusy(true, "Loading vouchers");
+        try {
+          await Promise.all([loadRecipients(), loadExternalPeople(), loadVouchers()]);
+          setConnection(true, "Connected");
+          els.summaryUpdated.textContent = `Updated ${nowLabel()}`;
+          if (!state.editingId) els.voucherNumber.value = await fetchNextVoucherNumber();
+        } catch (error) {
+          setConnection(false, "Database unavailable");
+          showToast(error.message || "Could not load voucher database.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function filteredVouchers(){
+        const query = normalizeName(els.searchInput.value);
+        const from = els.dateFrom.value;
+        const to = els.dateTo.value;
+        const recipient = normalizeName(els.recipientFilter.value);
+        const method = els.methodFilter.value;
+
+        return state.vouchers.filter(voucher => {
+          const haystack = normalizeName([
+            voucher.voucher_number,
+            voucher.paid_to,
+            voucher.company,
+            voucher.description,
+            voucher.created_by,
+            voucher.payment_method
+          ].join(" "));
+          if (query && !haystack.includes(query)) return false;
+          if (from && voucher.voucher_date < from) return false;
+          if (to && voucher.voucher_date > to) return false;
+          if (recipient && normalizeName(voucher.paid_to) !== recipient) return false;
+          if (method && voucher.payment_method !== method) return false;
+          return true;
+        }).sort((a, b) => {
+          const key = state.sortKey;
+          const aValue = key === "amount" ? Number(a[key] || 0) : String(a[key] || "");
+          const bValue = key === "amount" ? Number(b[key] || 0) : String(b[key] || "");
+          const result = typeof aValue === "number" ? aValue - bValue : aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: "base" });
+          return state.sortDirection === "asc" ? result : -result;
+        });
+      }
+
+      function renderSummary(){
+        const today = todayIso();
+        const month = today.slice(0, 7);
+        const total = state.vouchers.reduce((sum, voucher) => sum + Number(voucher.amount || 0), 0);
+        els.totalVouchers.textContent = String(state.vouchers.length);
+        els.todayVouchers.textContent = String(state.vouchers.filter(v => v.voucher_date === today).length);
+        els.monthVouchers.textContent = String(state.vouchers.filter(v => String(v.voucher_date || "").startsWith(month)).length);
+        els.totalAmount.textContent = formatMoney(total);
+      }
+
+      function renderRecipientControls(){
+        const names = [...state.recipients]
+          .sort((a, b) => String(a.recipient_name || "").localeCompare(String(b.recipient_name || "")));
+        els.recipientFilter.innerHTML = `<option value="">All</option>${names.map(row => `<option value="${escapeHtml(row.recipient_name)}">${escapeHtml(row.recipient_name)}</option>`).join("")}`;
+        els.quickRecipients.innerHTML = state.recipients.slice(0, 8).map(row => (
+          `<button type="button" data-recipient-id="${escapeHtml(row.id)}" title="${escapeHtml(row.recipient_name)}">${escapeHtml(row.recipient_name)}</button>`
+        )).join("");
+      }
+
+      function renderTable(){
+        const rows = filteredVouchers();
+        els.databaseCount.textContent = `${rows.length} record${rows.length === 1 ? "" : "s"}`;
+        if (!rows.length){
+          els.tableBody.innerHTML = `<tr><td colspan="7"><div class="pcr-empty">No vouchers found.</div></td></tr>`;
+          return;
+        }
+        els.tableBody.innerHTML = rows.map(voucher => `
+          <tr>
+            <td><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
+            <td>${escapeHtml(formatDate(voucher.voucher_date))}</td>
+            <td class="pcr-cell-main"><strong>${escapeHtml(voucher.paid_to)}</strong>${voucher.company ? `<br><small>${escapeHtml(voucher.company)}</small>` : ""}</td>
+            <td><span class="badge ${methodClass(voucher.payment_method)}">${escapeHtml(voucher.payment_method)}</span></td>
+            <td><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></td>
+            <td>${escapeHtml(voucher.created_by || "")}</td>
+            <td>
+              <div class="pcr-actions">
+                <button class="tiny ghost" type="button" data-action="view" data-id="${escapeHtml(voucher.id)}">View</button>
+                <button class="tiny" type="button" data-action="edit" data-id="${escapeHtml(voucher.id)}">Edit</button>
+                <button class="tiny ghost" type="button" data-action="print" data-id="${escapeHtml(voucher.id)}">Print</button>
+                <button class="tiny" type="button" data-action="pdf" data-id="${escapeHtml(voucher.id)}">PDF</button>
+                <button class="tiny danger" type="button" data-action="delete" data-id="${escapeHtml(voucher.id)}">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `).join("");
+      }
+
+      function methodClass(method){
+        if (method === "Cash") return "green";
+        if (method === "Cheque") return "orange";
+        if (method === "Card") return "blue";
+        return "red";
+      }
+
+      function renderAll(){
+        renderSummary();
+        renderRecipientControls();
+        renderTable();
+      }
+
+      function suggestionPool(){
+        const map = new Map();
+        for (const row of state.recipients){
+          const key = normalizeName(row.recipient_name);
+          if (key) map.set(key, { ...row, source: row.source || "saved" });
+        }
+        for (const row of state.externalPeople){
+          const key = normalizeName(row.recipient_name);
+          if (key && !map.has(key)) map.set(key, row);
+        }
+        return Array.from(map.values());
+      }
+
+      function renderSuggestions(){
+        const query = normalizeName(els.paidTo.value);
+        const matches = suggestionPool()
+          .filter(row => !query || normalizeName(row.recipient_name).includes(query) || normalizeName(row.company).includes(query))
+          .slice(0, 10);
+        if (!matches.length){
+          els.suggestions.innerHTML = `<div class="pcr-empty" style="padding:10px">Manual entry</div>`;
+          els.suggestions.classList.add("open");
+          els.paidTo.setAttribute("aria-expanded", "true");
+          return;
+        }
+        els.suggestions.innerHTML = matches.map((row, index) => `
+          <button class="pcr-suggestion" type="button" role="option" data-suggestion-index="${index}">
+            <span><strong>${escapeHtml(row.recipient_name)}</strong><small>${escapeHtml(row.company || row.source || "saved")}</small></span>
+            <span class="badge ${row.recipient_type === "staff" ? "orange" : row.recipient_type === "customer" ? "blue" : "green"}">${escapeHtml(row.recipient_type || "saved")}</span>
+          </button>
+        `).join("");
+        els.suggestions.classList.add("open");
+        els.paidTo.setAttribute("aria-expanded", "true");
+        els.suggestions.querySelectorAll("[data-suggestion-index]").forEach((button, index) => {
+          button.addEventListener("click", () => selectRecipient(matches[index]));
+        });
+      }
+
+      function closeSuggestions(){
+        els.suggestions.classList.remove("open");
+        els.paidTo.setAttribute("aria-expanded", "false");
+      }
+
+      function selectRecipient(row){
+        els.paidTo.value = row.recipient_name || "";
+        els.companyName.value = row.company || els.companyName.value;
+        els.recipientType.value = row.recipient_type || "other";
+        state.selectedRecipientId = row.id || null;
+        closeSuggestions();
+      }
+
+      async function ensureRecipient(){
+        const paidTo = normalizeDisplay(els.paidTo.value);
+        const key = normalizeName(paidTo);
+        if (!key) return null;
+        const existing = state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
+        if (existing) return existing.id;
+
+        const payload = {
+          recipient_name: paidTo,
+          normalized_name: key,
+          recipient_type: els.recipientType.value || "other",
+          company: normalizeDisplay(els.companyName.value) || null,
+          source: "manual",
+          usage_count: 0,
+          created_by: normalizeDisplay(els.createdBy.value) || getCurrentUser()
+        };
+        try {
+          const rows = await api(RECIPIENT_TABLE, { method: "POST", body: JSON.stringify(payload) });
+          await loadRecipients();
+          return rows?.[0]?.id || null;
+        } catch (error) {
+          await loadRecipients();
+          const matched = state.recipients.find(row => normalizeName(row.recipient_name) === key || row.normalized_name === key);
+          if (matched) return matched.id;
+          throw error;
+        }
+      }
+
+      function voucherPayload(recipientId, voucherNumber){
+        const createdBy = normalizeDisplay(els.createdBy.value) || getCurrentUser();
+        return {
+          recipient_id: recipientId,
+          voucher_number: voucherNumber || normalizeDisplay(els.voucherNumber.value),
+          voucher_date: els.voucherDate.value,
+          amount: Number(els.amountNumber.value || 0).toFixed(2),
+          amount_words: normalizeDisplay(els.amountWords.value),
+          currency: "AED",
+          company: normalizeDisplay(els.companyName.value) || null,
+          paid_to: normalizeDisplay(els.paidTo.value),
+          payment_method: els.paymentMethod.value,
+          description: normalizeDisplay(els.descriptionText.value) || null,
+          created_by: createdBy,
+          updated_by: createdBy,
+          metadata: { source: "PCR Payment Voucher Database" }
+        };
+      }
+
+      async function saveVoucher(event){
+        event.preventDefault();
+        if (!validateForm()) return;
+        setBusy(true, state.editingId ? "Updating voucher" : "Saving voucher");
+        try {
+          const recipientId = state.selectedRecipientId || await ensureRecipient();
+          if (state.editingId){
+            const payload = voucherPayload(recipientId, normalizeDisplay(els.voucherNumber.value));
+            delete payload.created_by;
+            await api(`${TABLE}?id=eq.${encodeURIComponent(state.editingId)}`, { method: "PATCH", body: JSON.stringify(payload) });
+            showToast("Voucher updated.");
+          } else {
+            let saved = false;
+            let lastError = null;
+            for (let attempt = 0; attempt < 5 && !saved; attempt += 1){
+              const number = await fetchNextVoucherNumber(attempt);
+              els.voucherNumber.value = number;
+              try {
+                await api(TABLE, { method: "POST", body: JSON.stringify(voucherPayload(recipientId, number)) });
+                saved = true;
+              } catch (error) {
+                lastError = error;
+                if (!/duplicate|unique|voucher_number/i.test(error.message || "")) throw error;
+              }
+            }
+            if (!saved) throw lastError || new Error("Could not create a unique voucher number.");
+            showToast("Voucher saved.");
+          }
+          await loadAll();
+          await resetForm();
+        } catch (error) {
+          showToast(error.message || "Voucher could not be saved.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function editVoucher(id){
+        const voucher = getVoucherById(id);
+        if (!voucher) return;
+        state.editingId = id;
+        state.selectedRecipientId = voucher.recipient_id || null;
+        els.voucherNumber.value = voucher.voucher_number || "";
+        els.voucherDate.value = voucher.voucher_date || todayIso();
+        els.amountNumber.value = Number(voucher.amount || 0).toFixed(2);
+        els.amountWords.value = voucher.amount_words || amountToWords(voucher.amount);
+        els.companyName.value = voucher.company || "";
+        els.paidTo.value = voucher.paid_to || "";
+        els.paymentMethod.value = voucher.payment_method || "";
+        els.descriptionText.value = voucher.description || "";
+        els.createdBy.value = voucher.created_by || getCurrentUser();
+        els.createdAt.value = formatDateTime(voucher.created_at) || nowLabel();
+        els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Voucher';
+        els.cancelEditBtn.classList.remove("hide");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      async function deleteVoucher(id){
+        const voucher = getVoucherById(id);
+        if (!voucher) return;
+        const ok = window.confirm(`Delete voucher ${voucher.voucher_number}?`);
+        if (!ok) return;
+        setBusy(true, "Deleting voucher");
+        try {
+          await api(`${TABLE}?id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              deleted_at: new Date().toISOString(),
+              deleted_by: getCurrentUser(),
+              updated_by: getCurrentUser()
+            })
+          });
+          showToast("Voucher deleted.");
+          await loadAll();
+          if (state.editingId === id) await resetForm();
+        } catch (error) {
+          showToast(error.message || "Voucher could not be deleted.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function voucherHtml(voucher){
+        const remarks = voucher.description || "";
+        return `
+          <article class="voucher-sheet">
+            <div class="voucher-frame">
+              <header class="voucher-company">
+                <div><img class="voucher-logo" src="${LOGO_URL}" alt="logo.png" /></div>
+                <div>
+                  <h1>Premium Car Rental DMCC</h1>
+                  <p><strong>TRN: 100035111200003</strong></p>
+                  <p>Ground Floor, Lobby Area, Jumeirah Business Centre 1, Cluster G, Jumeirah Lake Towers, Dubai, UAE</p>
+                  <p>PHONE: +971 4 3609991 &nbsp; FAX: +971 4 4311317 &nbsp; EMAIL: accounts@pcr.ae</p>
+                  <p>HOURS: Saturday - Thursday :: 9am - 7:00pm</p>
+                </div>
+                <div class="voucher-number-box">
+                  <span>Voucher Number</span>
+                  <strong>${escapeHtml(voucher.voucher_number)}</strong>
+                </div>
+              </header>
+              <section class="voucher-title-row">
+                <div class="voucher-title">
+                  <h2>Payment Voucher</h2>
+                  <p>TRN: 100035111200003</p>
+                </div>
+                <div class="voucher-date">
+                  <span>Date</span>
+                  <strong>${escapeHtml(formatDate(voucher.voucher_date))}</strong>
+                </div>
+              </section>
+              <section class="voucher-main">
+                <div class="voucher-box">
+                  <h3>Recipient</h3>
+                  <div class="voucher-box-content">
+                    <div class="voucher-line"><span>Paid To</span><strong>${escapeHtml(voucher.paid_to)}</strong></div>
+                    <div class="voucher-line"><span>Company</span><strong>${escapeHtml(voucher.company || "-")}</strong></div>
+                    <div class="voucher-line"><span>Prepared By</span><strong>${escapeHtml(voucher.created_by || "-")}</strong></div>
+                    <div class="voucher-line"><span>Created</span><strong>${escapeHtml(formatDateTime(voucher.created_at) || nowLabel())}</strong></div>
+                  </div>
+                </div>
+                <div class="voucher-box">
+                  <h3>Payment Details</h3>
+                  <div class="voucher-box-content">
+                    <div class="voucher-line"><span>Amount</span><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></div>
+                    <div class="voucher-line"><span>Method</span><strong>${escapeHtml(voucher.payment_method)}</strong></div>
+                    <div class="voucher-line"><span>Currency</span><strong>AED</strong></div>
+                    <div class="voucher-line"><span>Voucher Date</span><strong>${escapeHtml(formatDate(voucher.voucher_date))}</strong></div>
+                  </div>
+                </div>
+                <div class="voucher-amount-words">
+                  <span>Amount in Words</span>
+                  <strong>${escapeHtml(voucher.amount_words)}</strong>
+                </div>
+                <div class="voucher-box voucher-description">
+                  <h3>Description / Remarks</h3>
+                  <div class="voucher-box-content"><p>${escapeHtml(remarks || "-")}</p></div>
+                </div>
+              </section>
+              <section class="voucher-signatures">
+                <div class="voucher-signature">Prepared By</div>
+                <div class="voucher-signature">Authorized Signature</div>
+                <div class="voucher-signature">Recipient Signature</div>
+              </section>
+              <footer class="voucher-footer">
+                <span>Premium Car Rental DMCC</span>
+                <span>${escapeHtml(voucher.voucher_number)} | TRN: 100035111200003</span>
+              </footer>
+            </div>
+          </article>
+        `;
+      }
+
+      async function waitForImages(container){
+        const images = Array.from(container.querySelectorAll("img"));
+        await Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        })));
+      }
+
+      async function recordVoucherEvent(voucher, type){
+        if (!voucher?.id || voucher.id === "draft") return;
+        const user = getCurrentUser();
+        try {
+          await api(PRINT_EVENT_TABLE, {
+            method: "POST",
+            body: JSON.stringify({
+              voucher_id: voucher.id,
+              event_type: type,
+              performed_by: user,
+              metadata: { voucher_number: voucher.voucher_number }
+            })
+          });
+          if (type === "print"){
+            await api(`${TABLE}?id=eq.${encodeURIComponent(voucher.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                print_count: Number(voucher.print_count || 0) + 1,
+                last_printed_at: new Date().toISOString(),
+                updated_by: user
+              })
+            });
+          }
+          if (type === "pdf"){
+            await api(`${TABLE}?id=eq.${encodeURIComponent(voucher.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                pdf_download_count: Number(voucher.pdf_download_count || 0) + 1,
+                last_pdf_downloaded_at: new Date().toISOString(),
+                updated_by: user
+              })
+            });
+          }
+        } catch {}
+      }
+
+      async function openPreview(voucher){
+        state.previewVoucher = voucher;
+        els.previewSubtitle.textContent = `${voucher.voucher_number || "Draft"} - ${voucher.paid_to || ""}`;
+        els.previewBody.innerHTML = voucherHtml(voucher);
+        els.previewModal.classList.add("open");
+        document.body.style.overflow = "hidden";
+        await recordVoucherEvent(voucher, "preview");
+      }
+
+      function closePreview(){
+        els.previewModal.classList.remove("open");
+        document.body.style.overflow = "";
+      }
+
+      async function printVoucher(voucher){
+        setBusy(true, "Preparing print");
+        try {
+          els.printRoot.innerHTML = voucherHtml(voucher);
+          await waitForImages(els.printRoot);
+          await recordVoucherEvent(voucher, "print");
+          window.print();
+          showToast("Print preview opened.");
+          await loadVouchers();
+        } catch (error) {
+          showToast(error.message || "Voucher could not be printed.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function downloadPdf(voucher){
+        if (!window.jspdf?.jsPDF || !window.html2canvas){
+          showToast("PDF libraries are still loading. Please try again.", "error");
+          return;
+        }
+        setBusy(true, "Generating PDF");
+        const holder = document.createElement("div");
+        holder.style.position = "fixed";
+        holder.style.left = "-10000px";
+        holder.style.top = "0";
+        holder.style.background = "#fff";
+        holder.innerHTML = voucherHtml(voucher);
+        document.body.appendChild(holder);
+        try {
+          await waitForImages(holder);
+          const sheet = holder.querySelector(".voucher-sheet");
+          const canvas = await window.html2canvas(sheet, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            logging: false
+          });
+          const pdf = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 297, 210, undefined, "FAST");
+          pdf.save(`${voucher.voucher_number || "payment-voucher"}.pdf`);
+          await recordVoucherEvent(voucher, "pdf");
+          showToast("PDF downloaded.");
+          await loadVouchers();
+        } catch (error) {
+          showToast(error.message || "PDF could not be generated.", "error");
+        } finally {
+          holder.remove();
+          setBusy(false);
+        }
+      }
+
+      function exportCsv(){
+        const rows = filteredVouchers();
+        if (!rows.length){
+          showToast("No vouchers to export.", "error");
+          return;
+        }
+        const headers = ["Voucher Number", "Date", "Paid To", "Company", "Payment Method", "Amount", "Amount Words", "Created By", "Created At", "Remarks"];
+        const csv = [headers].concat(rows.map(row => [
+          row.voucher_number,
+          row.voucher_date,
+          row.paid_to,
+          row.company || "",
+          row.payment_method,
+          row.amount,
+          row.amount_words,
+          row.created_by || "",
+          row.created_at || "",
+          row.description || ""
+        ])).map(cols => cols.map(value => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `payment-vouchers-${todayIso()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function attachEvents(){
+        els.form.addEventListener("submit", saveVoucher);
+        els.amountWords.addEventListener("input", () => { state.amountWordsTouched = true; });
+        els.amountNumber.addEventListener("input", () => {
+          if (!state.amountWordsTouched || !normalizeDisplay(els.amountWords.value)){
+            els.amountWords.value = amountToWords(els.amountNumber.value);
+          }
+        });
+        els.voucherDate.addEventListener("change", async () => {
+          if (!state.editingId) els.voucherNumber.value = await fetchNextVoucherNumber();
+        });
+        els.paidTo.addEventListener("input", () => {
+          state.selectedRecipientId = null;
+          renderSuggestions();
+        });
+        els.paidTo.addEventListener("focus", renderSuggestions);
+        document.addEventListener("click", event => {
+          if (!event.target.closest(".pcr-autocomplete")) closeSuggestions();
+        });
+        els.quickRecipients.addEventListener("click", event => {
+          const button = event.target.closest("[data-recipient-id]");
+          if (!button) return;
+          const row = state.recipients.find(item => item.id === button.dataset.recipientId);
+          if (row) selectRecipient(row);
+        });
+        els.cancelEditBtn.addEventListener("click", () => resetForm());
+        els.previewDraftBtn.addEventListener("click", () => {
+          if (!validateForm()) return;
+          openPreview(buildDraftVoucher());
+        });
+        els.searchInput.addEventListener("input", renderTable);
+        els.dateFrom.addEventListener("change", renderTable);
+        els.dateTo.addEventListener("change", renderTable);
+        els.recipientFilter.addEventListener("change", renderTable);
+        els.methodFilter.addEventListener("change", renderTable);
+        els.clearFiltersBtn.addEventListener("click", () => {
+          els.searchInput.value = "";
+          els.dateFrom.value = "";
+          els.dateTo.value = "";
+          els.recipientFilter.value = "";
+          els.methodFilter.value = "";
+          renderTable();
+        });
+        document.querySelectorAll("[data-sort]").forEach(button => {
+          button.addEventListener("click", () => {
+            const key = button.dataset.sort;
+            if (state.sortKey === key) state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+            else {
+              state.sortKey = key;
+              state.sortDirection = "asc";
+            }
+            renderTable();
+          });
+        });
+        els.tableBody.addEventListener("click", event => {
+          const button = event.target.closest("[data-action]");
+          if (!button) return;
+          const voucher = getVoucherById(button.dataset.id);
+          if (!voucher) return;
+          if (button.dataset.action === "view") openPreview(voucher);
+          if (button.dataset.action === "edit") editVoucher(voucher.id);
+          if (button.dataset.action === "print") printVoucher(voucher);
+          if (button.dataset.action === "pdf") downloadPdf(voucher);
+          if (button.dataset.action === "delete") deleteVoucher(voucher.id);
+        });
+        els.refreshBtn.addEventListener("click", loadAll);
+        els.printLatestBtn.addEventListener("click", () => {
+          const latest = state.vouchers[0];
+          if (!latest){
+            showToast("No saved voucher available.", "error");
+            return;
+          }
+          printVoucher(latest);
+        });
+        els.exportCsvBtn.addEventListener("click", exportCsv);
+        document.querySelectorAll("[data-close-preview]").forEach(item => item.addEventListener("click", closePreview));
+        document.addEventListener("keydown", event => {
+          if (event.key === "Escape") closePreview();
+        });
+        els.modalPrintBtn.addEventListener("click", () => {
+          if (state.previewVoucher) printVoucher(state.previewVoucher);
+        });
+        els.modalPdfBtn.addEventListener("click", () => {
+          if (state.previewVoucher) downloadPdf(state.previewVoucher);
+        });
+      }
+
+      async function init(){
+        attachEvents();
+        els.voucherDate.value = todayIso();
+        els.createdBy.value = getCurrentUser();
+        els.createdAt.value = nowLabel();
+        els.amountWords.value = amountToWords(0);
+        await loadAll();
+        if (!els.voucherNumber.value) els.voucherNumber.value = await fetchNextVoucherNumber();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
