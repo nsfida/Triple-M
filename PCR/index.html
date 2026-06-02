@@ -20,6 +20,7 @@
   <meta name="recipient-designation-key" content="designation" />
   <meta name="recipient-nationality-key" content="nationality" />
   <meta name="recipient-cec-key" content="cec_no" />
+  <meta name="recipient-customer-key" content="customer_number" />
   <link rel="icon" type="image/png" href="1231.png" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -532,15 +533,15 @@
                 <label for="companyName">Company <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="companyName" class="input" type="text" autocomplete="organization" />
               </div>
-              <div class="pcr-field w4">
-                <label for="recipientStaff">Staff <span class="pcr-field-label-optional">(optional)</span></label>
+              <div class="pcr-field w4 hide" id="recipientStaffField">
+                <label id="recipientStaffLabel" for="recipientStaff">Staff ID <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientStaff" class="input" type="text" autocomplete="off" />
               </div>
               <div class="pcr-field w4">
                 <label for="recipientMobile">Mobile <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
               </div>
-              <div class="pcr-field w4">
+              <div class="pcr-field w4 hide" id="recipientDesignationField">
                 <label for="recipientDesignation">Designation <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientDesignation" class="input" type="text" autocomplete="organization-title" />
               </div>
@@ -567,7 +568,7 @@
               </div>
               <div class="pcr-field w6">
                 <label for="createdAt">Created Timestamp</label>
-                <input id="createdAt" class="input pcr-readonly" type="text" readonly />
+                <input id="createdAt" class="input" type="datetime-local" step="1" />
               </div>
             </div>
           </section>
@@ -689,15 +690,20 @@
       const RECIPIENT_DESIGNATION_KEY = getMeta("recipient-designation-key") || "designation";
       const RECIPIENT_NATIONALITY_KEY = getMeta("recipient-nationality-key") || "nationality";
       const RECIPIENT_CEC_KEY = getMeta("recipient-cec-key") || "cec_no";
+      const RECIPIENT_CUSTOMER_KEY = getMeta("recipient-customer-key") || "customer_number";
       const RECIPIENT_METADATA_KEYS = [
         RECIPIENT_STAFF_KEY,
         RECIPIENT_MOBILE_KEY,
         RECIPIENT_DESIGNATION_KEY,
         RECIPIENT_NATIONALITY_KEY,
         RECIPIENT_CEC_KEY,
+        RECIPIENT_CUSTOMER_KEY,
         "staff",
         "staff_id",
         "staff_no",
+        "customer_number",
+        "customer_no",
+        "customer",
         "mobile",
         "phone",
         "mobile_number",
@@ -745,6 +751,9 @@
         recipientStaff: document.getElementById("recipientStaff"),
         recipientMobile: document.getElementById("recipientMobile"),
         recipientDesignation: document.getElementById("recipientDesignation"),
+        recipientStaffField: document.getElementById("recipientStaffField"),
+        recipientStaffLabel: document.getElementById("recipientStaffLabel"),
+        recipientDesignationField: document.getElementById("recipientDesignationField"),
         recipientNationality: document.getElementById("recipientNationality"),
         recipientCecNo: document.getElementById("recipientCecNo"),
         paymentMethod: document.getElementById("paymentMethod"),
@@ -877,6 +886,28 @@
         return normalizeDisplay(value).toLowerCase();
       }
 
+      function toDatetimeLocal(value){
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        const pad = number => String(number).padStart(2, "0");
+        const yyyy = date.getFullYear();
+        const mm = pad(date.getMonth() + 1);
+        const dd = pad(date.getDate());
+        const hh = pad(date.getHours());
+        const mi = pad(date.getMinutes());
+        const ss = pad(date.getSeconds());
+        return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
+      }
+
+      function fromDatetimeLocal(value){
+        const text = normalizeDisplay(value);
+        if (!text) return "";
+        const date = new Date(text);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toISOString();
+      }
+
       function readMetadata(row){
         const raw = row?.metadata;
         if (!raw) return {};
@@ -903,11 +934,25 @@
         const metadata = readMetadata(row);
         return {
           staff: firstMetadataValue(metadata, [RECIPIENT_STAFF_KEY, "staff", "staff_id", "staff_no"]),
+          customerNo: firstMetadataValue(metadata, [RECIPIENT_CUSTOMER_KEY, "customer_number", "customer_no", "customer"]),
           mobile: firstMetadataValue(metadata, [RECIPIENT_MOBILE_KEY, "mobile", "phone", "mobile_number"]),
           designation: firstMetadataValue(metadata, [RECIPIENT_DESIGNATION_KEY, "designation", "job_title", "title"]),
           nationality: firstMetadataValue(metadata, [RECIPIENT_NATIONALITY_KEY, "nationality"]),
           cecNo: firstMetadataValue(metadata, [RECIPIENT_CEC_KEY, "cec_no", "cec", "cec_number"])
         };
+      }
+
+      function syncRecipientTypeFields(){
+        const type = els.recipientType.value || "other";
+        const showStaff = type === "staff";
+        const showCustomer = type === "customer";
+        if (els.recipientStaffField) els.recipientStaffField.classList.toggle("hide", !(showStaff || showCustomer));
+        if (els.recipientDesignationField) els.recipientDesignationField.classList.toggle("hide", !showStaff);
+        if (els.recipientStaffLabel){
+          els.recipientStaffLabel.innerHTML = `${showCustomer ? "Customer Number" : "Staff ID"} <span class="pcr-field-label-optional">(optional)</span>`;
+        }
+        if (!showStaff) els.recipientDesignation.value = "";
+        if (!(showStaff || showCustomer)) els.recipientStaff.value = "";
       }
 
       function findRecipientForVoucher(voucher){
@@ -956,10 +1001,12 @@
 
       function buildRecipientMetadata(){
         const metadata = {};
+        const type = els.recipientType.value || "other";
+        const staffOrCustomerKey = type === "customer" ? RECIPIENT_CUSTOMER_KEY : RECIPIENT_STAFF_KEY;
         const entries = [
-          [RECIPIENT_STAFF_KEY, els.recipientStaff.value],
+          [staffOrCustomerKey, els.recipientStaff.value],
           [RECIPIENT_MOBILE_KEY, els.recipientMobile.value],
-          [RECIPIENT_DESIGNATION_KEY, els.recipientDesignation.value],
+          ...(type === "staff" ? [[RECIPIENT_DESIGNATION_KEY, els.recipientDesignation.value]] : []),
           [RECIPIENT_NATIONALITY_KEY, els.recipientNationality.value],
           [RECIPIENT_CEC_KEY, els.recipientCecNo.value]
         ];
@@ -997,9 +1044,10 @@
         const details = recipientDetailsFromVoucher(voucher);
         const rows = [["Paid To", voucher.paid_to]];
         if (hasRecipientDisplayValue(voucher.company)) rows.push(["Company", voucher.company]);
-        if (hasRecipientDisplayValue(details.staff)) rows.push(["Staff", details.staff]);
+        if (details.type === "staff" && hasRecipientDisplayValue(details.staff)) rows.push(["Staff ID", details.staff]);
+        if (details.type === "customer" && hasRecipientDisplayValue(details.customerNo)) rows.push(["Customer No.", details.customerNo]);
         if (hasRecipientDisplayValue(details.mobile)) rows.push(["Mobile", details.mobile]);
-        if (hasRecipientDisplayValue(details.designation)) rows.push(["Designation", details.designation]);
+        if (details.type === "staff" && hasRecipientDisplayValue(details.designation)) rows.push(["Designation", details.designation]);
         if (hasRecipientDisplayValue(details.nationality)) rows.push(["Nationality", details.nationality]);
         if (hasRecipientDisplayValue(details.cecNo)) rows.push(["CEC No.", details.cecNo]);
         rows.push(
@@ -1062,6 +1110,7 @@
           company,
           type,
           staff: contact.staff,
+          customerNo: contact.customerNo,
           mobile: contact.mobile,
           designation: contact.designation,
           nationality: contact.nationality,
@@ -1115,9 +1164,10 @@
           ["Full Name", model.name],
           ["Company", model.company],
           ["Recipient Type", capitalizeLabel(model.type)],
-          ["Staff ID", model.staff],
+          ...(model.type === "staff" ? [["Staff ID", model.staff]] : []),
+          ...(model.type === "customer" ? [["Customer Number", model.customerNo]] : []),
           ["Mobile Number", model.mobile],
-          ["Designation", model.designation],
+          ...(model.type === "staff" ? [["Designation", model.designation]] : []),
           ["Nationality", model.nationality],
           ["CEC No.", model.cecNo],
           ["Last Used", formatDateTime(model.lastUsedAt)],
@@ -1139,6 +1189,8 @@
       }
 
       function renderRecipientProfileDetailsEdit(model){
+        const showStaff = model.type === "staff";
+        const showCustomer = model.type === "customer";
         return `
           <section class="pcr-recipient-section">
             <h4>Edit Recipient Details</h4>
@@ -1159,18 +1211,22 @@
                   <option value="other"${model.type === "other" ? " selected" : ""}>Other</option>
                 </select>
               </div>
-              <div class="pcr-field">
-                <label for="profileStaff">Staff ID</label>
-                <input id="profileStaff" class="input" value="${escapeHtml(model.staff)}" />
-              </div>
+              ${(showStaff || showCustomer) ? `
+                <div class="pcr-field">
+                  <label for="profileStaff">${showCustomer ? "Customer Number" : "Staff ID"}</label>
+                  <input id="profileStaff" class="input" value="${escapeHtml(showCustomer ? model.customerNo : model.staff)}" />
+                </div>
+              ` : ``}
               <div class="pcr-field">
                 <label for="profileMobile">Mobile Number</label>
                 <input id="profileMobile" class="input" value="${escapeHtml(model.mobile)}" />
               </div>
-              <div class="pcr-field">
-                <label for="profileDesignation">Designation</label>
-                <input id="profileDesignation" class="input" value="${escapeHtml(model.designation)}" />
-              </div>
+              ${showStaff ? `
+                <div class="pcr-field">
+                  <label for="profileDesignation">Designation</label>
+                  <input id="profileDesignation" class="input" value="${escapeHtml(model.designation)}" />
+                </div>
+              ` : ``}
               <div class="pcr-field">
                 <label for="profileNationality">Nationality</label>
                 <input id="profileNationality" class="input" value="${escapeHtml(model.nationality)}" />
@@ -1269,11 +1325,14 @@
       }
 
       function readRecipientProfileForm(){
+        const type = document.getElementById("profileType")?.value || "other";
+        const staffOrCustomer = normalizeDisplay(document.getElementById("profileStaff")?.value);
         return {
           name: normalizeDisplay(document.getElementById("profileName")?.value),
           company: normalizeDisplay(document.getElementById("profileCompany")?.value),
-          type: document.getElementById("profileType")?.value || "other",
-          staff: normalizeDisplay(document.getElementById("profileStaff")?.value),
+          type,
+          staff: type === "staff" ? staffOrCustomer : "",
+          customerNo: type === "customer" ? staffOrCustomer : "",
           mobile: normalizeDisplay(document.getElementById("profileMobile")?.value),
           designation: normalizeDisplay(document.getElementById("profileDesignation")?.value),
           nationality: normalizeDisplay(document.getElementById("profileNationality")?.value),
@@ -1284,8 +1343,9 @@
       function buildProfileMetadata(details){
         const metadata = { recipient_type: details.type || "other" };
         if (details.staff) metadata[RECIPIENT_STAFF_KEY] = details.staff;
+        if (details.customerNo) metadata[RECIPIENT_CUSTOMER_KEY] = details.customerNo;
         if (details.mobile) metadata[RECIPIENT_MOBILE_KEY] = details.mobile;
-        if (details.designation) metadata[RECIPIENT_DESIGNATION_KEY] = details.designation;
+        if (details.type === "staff" && details.designation) metadata[RECIPIENT_DESIGNATION_KEY] = details.designation;
         if (details.nationality) metadata[RECIPIENT_NATIONALITY_KEY] = details.nationality;
         if (details.cecNo) metadata[RECIPIENT_CEC_KEY] = details.cecNo;
         return metadata;
@@ -1920,18 +1980,22 @@
       async function fetchNextVoucherNumber(offset = 0){
         const compactDate = (els.voucherDate.value || todayIso()).replaceAll("-", "");
         const prefix = `PV-${compactDate}-`;
-        let maxNumber = 0;
-        const localNumbers = state.vouchers
-          .map(voucher => String(voucher.voucher_number || ""))
-          .filter(number => number.startsWith(prefix))
-          .map(number => Number(number.slice(prefix.length)) || 0);
-        maxNumber = Math.max(0, ...localNumbers);
+        const parseSuffix = voucherNumber => {
+          const text = String(voucherNumber || "");
+          const match = text.match(/^PV-\d{8}-(\d{1,})$/);
+          return match ? Number(match[1] || 0) : 0;
+        };
+        let maxSuffix = 0;
+        const localSuffixes = state.vouchers
+          .map(voucher => parseSuffix(voucher.voucher_number))
+          .filter(Boolean);
+        maxSuffix = Math.max(0, ...localSuffixes);
         try {
-          const latest = await api(`${TABLE}?select=voucher_number&voucher_number=like.${prefix}*&order=voucher_number.desc&limit=1`);
-          const latestNumber = Number(String(latest?.[0]?.voucher_number || "").slice(prefix.length)) || 0;
-          maxNumber = Math.max(maxNumber, latestNumber);
+          const latestRows = await api(`${TABLE}?select=voucher_number&deleted_at=is.null&order=created_at.desc&limit=500`);
+          const remoteSuffixes = (Array.isArray(latestRows) ? latestRows : []).map(row => parseSuffix(row.voucher_number)).filter(Boolean);
+          maxSuffix = Math.max(maxSuffix, ...remoteSuffixes);
         } catch {}
-        return `${prefix}${String(maxNumber + 1 + offset).padStart(4, "0")}`;
+        return `${prefix}${String(maxSuffix + 1 + offset).padStart(4, "0")}`;
       }
 
       async function resetForm(){
@@ -1945,11 +2009,12 @@
         syncPaidToManualVisibility();
         els.voucherDate.value = todayIso();
         els.createdBy.value = getCurrentUser();
-        els.createdAt.value = nowLabel();
+        els.createdAt.value = toDatetimeLocal(new Date().toISOString());
         els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Voucher';
         els.cancelEditBtn.classList.add("hide");
         els.formError.classList.remove("show");
         els.voucherNumber.value = isDatabaseAccessible() ? await fetchNextVoucherNumber() : "";
+        syncRecipientTypeFields();
       }
 
       async function loadRecipients(){
@@ -2673,9 +2738,12 @@
         els.companyName.value = resolved.company || "";
         els.recipientType.value = resolved.recipient_type || "other";
         const contact = recipientContactFromRow(resolved);
-        els.recipientStaff.value = contact.staff || "";
+        syncRecipientTypeFields();
+        if (els.recipientType.value === "customer") els.recipientStaff.value = contact.customerNo || "";
+        else if (els.recipientType.value === "staff") els.recipientStaff.value = contact.staff || "";
+        else els.recipientStaff.value = "";
         els.recipientMobile.value = contact.mobile || "";
-        els.recipientDesignation.value = contact.designation || "";
+        els.recipientDesignation.value = els.recipientType.value === "staff" ? (contact.designation || "") : "";
         els.recipientNationality.value = contact.nationality || "";
         els.recipientCecNo.value = contact.cecNo || "";
         syncPaidToManualVisibility();
@@ -2783,6 +2851,7 @@
 
       function voucherPayload(recipientId, voucherNumber){
         const createdBy = normalizeDisplay(els.createdBy.value) || getCurrentUser();
+        const createdAtIso = fromDatetimeLocal(els.createdAt.value);
         return {
           recipient_id: recipientId,
           voucher_number: voucherNumber || normalizeDisplay(els.voucherNumber.value),
@@ -2795,6 +2864,7 @@
           payment_method: els.paymentMethod.value,
           description: normalizeDisplay(els.descriptionText.value) || null,
           created_by: createdBy,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
           updated_by: createdBy,
           metadata: {
             source: "PCR Payment Voucher Database",
@@ -2818,7 +2888,6 @@
           state.selectedRecipientId = recipientId;
           if (state.editingId){
             const payload = voucherPayload(recipientId, normalizeDisplay(els.voucherNumber.value));
-            delete payload.created_by;
             await api(`${TABLE}?id=eq.${encodeURIComponent(state.editingId)}`, { method: "PATCH", body: JSON.stringify(payload) });
             showToast("Voucher updated.");
           } else {
@@ -2869,16 +2938,19 @@
           els.companyName.value = voucher.company || "";
           const details = recipientDetailsFromVoucher(voucher);
           els.recipientType.value = details.type || "other";
-          els.recipientStaff.value = details.staff || "";
+          syncRecipientTypeFields();
+          if (els.recipientType.value === "customer") els.recipientStaff.value = details.customerNo || "";
+          else if (els.recipientType.value === "staff") els.recipientStaff.value = details.staff || "";
+          else els.recipientStaff.value = "";
           els.recipientMobile.value = details.mobile || "";
-          els.recipientDesignation.value = details.designation || "";
+          els.recipientDesignation.value = els.recipientType.value === "staff" ? (details.designation || "") : "";
           els.recipientNationality.value = details.nationality || "";
           els.recipientCecNo.value = details.cecNo || "";
         }
         els.paymentMethod.value = voucher.payment_method || "";
         els.descriptionText.value = voucher.description || "";
         els.createdBy.value = voucher.created_by || getCurrentUser();
-        els.createdAt.value = formatDateTime(voucher.created_at) || nowLabel();
+        els.createdAt.value = toDatetimeLocal(voucher.created_at || new Date().toISOString());
         els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Voucher';
         els.cancelEditBtn.classList.remove("hide");
         openVoucherFormModal("edit");
@@ -3335,6 +3407,9 @@
         els.voucherDate.addEventListener("change", async () => {
           if (!state.editingId) els.voucherNumber.value = await fetchNextVoucherNumber();
         });
+        els.recipientType.addEventListener("change", () => {
+          syncRecipientTypeFields();
+        });
         els.recipientSelect.addEventListener("change", onRecipientSelectChange);
         els.paidTo.addEventListener("input", () => {
           if (els.recipientSelect.value === "__new__") state.selectedRecipientId = null;
@@ -3536,8 +3611,9 @@
         attachEvents();
         els.voucherDate.value = todayIso();
         els.createdBy.value = getCurrentUser();
-        els.createdAt.value = nowLabel();
+        els.createdAt.value = toDatetimeLocal(new Date().toISOString());
         els.amountWords.value = amountToWords(0);
+        syncRecipientTypeFields();
         await loadPinConfiguration();
         syncDatabaseUnlockWithPinState();
         updateAccessState();
