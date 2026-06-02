@@ -152,6 +152,40 @@
     .pcr-form-modal-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:8px 12px;margin:0 -12px -12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
     .pcr-form-modal-actions .btn{font-size:.7rem;padding:6px 11px;min-height:28px;border-radius:8px}
     .pcr-form-modal-dialog .pcr-form-error{margin-top:8px;padding:8px;font-size:.72rem;border-radius:8px}
+    .pcr-recipient-link{appearance:none;border:0;background:transparent;padding:0;margin:0;font:inherit;font-weight:800;color:var(--primary);cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:2px;line-height:1.22}
+    .pcr-recipient-link:hover{color:var(--text)}
+    .pcr-recipient-dialog{width:min(860px,100%);max-height:calc(100vh - 28px);border-radius:14px;display:flex;flex-direction:column}
+    .pcr-recipient-dialog .pcr-modal-head{padding:12px 14px 0}
+    .pcr-recipient-dialog .pcr-modal-head h3{font-size:.92rem}
+    .pcr-recipient-dialog .pcr-modal-head p{font-size:.72rem;margin-top:2px;line-height:1.35}
+    .pcr-recipient-body{padding:0 14px 12px;overflow:auto;max-height:calc(100vh - 160px)}
+    .pcr-recipient-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+    .pcr-recipient-summary-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+    .pcr-recipient-summary-card span{display:block;font-size:.62rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .pcr-recipient-summary-card strong{display:block;margin-top:3px;font-size:.82rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    .pcr-recipient-section{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2);margin-bottom:10px}
+    .pcr-recipient-section h4{margin:0 0 8px;font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:800}
+    .pcr-recipient-details-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px}
+    .pcr-recipient-detail{display:flex;flex-direction:column;gap:2px;min-width:0}
+    .pcr-recipient-detail span{font-size:.64rem;color:var(--muted);font-weight:700}
+    .pcr-recipient-detail strong{font-size:.78rem;overflow-wrap:anywhere;font-weight:800}
+    .pcr-recipient-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .pcr-recipient-edit-grid .pcr-field.w-full{grid-column:1 / -1}
+    .pcr-recipient-dialog .input,.pcr-recipient-dialog .select{min-height:30px;padding:5px 8px;font-size:.74rem;border-radius:8px}
+    .pcr-recipient-dialog .pcr-field{display:flex;flex-direction:column;gap:3px;min-width:0}
+    .pcr-recipient-dialog .pcr-field label{font-size:.64rem;font-weight:700;color:var(--muted)}
+    .pcr-recipient-statement-table{width:100%;font-size:.72rem;border-collapse:collapse}
+    .pcr-recipient-statement-table th,.pcr-recipient-statement-table td{padding:6px 5px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+    .pcr-recipient-statement-table th{font-size:.64rem;color:var(--muted);font-weight:800}
+    .pcr-recipient-statement-table td.amount{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+    .pcr-recipient-statement-table tfoot td{border-bottom:0;background:rgba(36,87,214,.04)}
+    .pcr-recipient-statement-wrap{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+    .pcr-recipient-dialog .pcr-modal-actions{padding:8px 14px 12px;border-top:1px solid var(--line);margin:0}
+    .pcr-recipient-dialog .pcr-modal-actions .btn{font-size:.72rem;padding:6px 12px;min-height:30px;border-radius:8px}
+    @media (max-width:760px){
+      .pcr-recipient-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .pcr-recipient-details-grid,.pcr-recipient-edit-grid{grid-template-columns:1fr}
+    }
     .pcr-preview-dialog{width:min(460px,100%);max-height:calc(100vh - 28px);border-radius:14px}
     .pcr-preview-dialog .pcr-modal-head{padding:10px 12px 0}
     .pcr-preview-dialog .pcr-modal-head h3{font-size:.86rem}
@@ -564,6 +598,30 @@
     </div>
   </div>
 
+  <div id="recipientProfileModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="recipientProfileTitle">
+    <div class="pcr-modal-backdrop" data-close-recipient-profile></div>
+    <div class="pcr-modal-dialog pcr-recipient-dialog">
+      <div class="pcr-modal-head">
+        <div>
+          <h3 id="recipientProfileTitle">Recipient Profile</h3>
+          <p id="recipientProfileSubtitle">Recipient details and voucher statement</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-recipient-profile aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pcr-recipient-body">
+        <div id="recipientProfileSummary"></div>
+        <div id="recipientProfileDetails"></div>
+        <div id="recipientProfileStatement"></div>
+        <div id="recipientProfileError" class="pcr-form-error" role="alert"></div>
+      </div>
+      <div class="pcr-modal-actions">
+        <button id="recipientProfileEditBtn" class="btn soft" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Details</button>
+        <button id="recipientProfileCancelBtn" class="btn ghost hide" type="button">Cancel</button>
+        <button id="recipientProfileSaveBtn" class="btn primary hide" type="button"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <div id="pinModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
     <div class="pcr-modal-backdrop" data-close-pin></div>
     <div class="pcr-modal-dialog pcr-pin-dialog">
@@ -726,6 +784,16 @@
         previewModal: document.getElementById("previewModal"),
         previewBody: document.getElementById("previewBody"),
         previewSubtitle: document.getElementById("previewSubtitle"),
+        recipientProfileModal: document.getElementById("recipientProfileModal"),
+        recipientProfileTitle: document.getElementById("recipientProfileTitle"),
+        recipientProfileSubtitle: document.getElementById("recipientProfileSubtitle"),
+        recipientProfileSummary: document.getElementById("recipientProfileSummary"),
+        recipientProfileDetails: document.getElementById("recipientProfileDetails"),
+        recipientProfileStatement: document.getElementById("recipientProfileStatement"),
+        recipientProfileError: document.getElementById("recipientProfileError"),
+        recipientProfileEditBtn: document.getElementById("recipientProfileEditBtn"),
+        recipientProfileCancelBtn: document.getElementById("recipientProfileCancelBtn"),
+        recipientProfileSaveBtn: document.getElementById("recipientProfileSaveBtn"),
         modalPrintBtn: document.getElementById("modalPrintBtn"),
         modalPdfBtn: document.getElementById("modalPdfBtn"),
         pinModal: document.getElementById("pinModal"),
@@ -777,6 +845,7 @@
         , openMenuId: null
         , selectedVoucherIds: new Set()
         , selectionMode: false
+        , recipientProfile: null
       };
 
       function todayIso(){
@@ -946,6 +1015,387 @@
 
       function recipientContactSummary(contact){
         return [contact.staff, contact.designation, contact.mobile, contact.nationality, contact.cecNo].filter(Boolean).join(" - ");
+      }
+
+      function displayProfileValue(value){
+        const text = normalizeDisplay(value);
+        return text || "-";
+      }
+
+      function capitalizeLabel(value){
+        const text = normalizeDisplay(value);
+        if (!text) return "-";
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      }
+
+      function getVouchersForRecipient(recipientRow, nameKey){
+        const key = normalizeName(nameKey || recipientRow?.recipient_name);
+        const recipientId = recipientRow?.id;
+        return state.vouchers.filter(voucher => {
+          if (recipientId && voucher.recipient_id === recipientId) return true;
+          if (key && normalizeName(voucher.paid_to) === key) return true;
+          return false;
+        }).sort((a, b) => {
+          const dateCmp = String(b.voucher_date || "").localeCompare(String(a.voucher_date || ""));
+          if (dateCmp !== 0) return dateCmp;
+          return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        });
+      }
+
+      function buildRecipientProfileModel(recipientRow, vouchers){
+        const baseRecipient = recipientRow ? mergeRecipientWithSavedDetails(recipientRow) : null;
+        let mergedMeta = readMetadata(baseRecipient);
+        for (const voucher of vouchers){
+          mergedMeta = { ...mergedMeta, ...readMetadata(voucher) };
+        }
+        const contact = recipientContactFromRow({ metadata: mergedMeta });
+        const name = normalizeDisplay(baseRecipient?.recipient_name || vouchers[0]?.paid_to);
+        const company = normalizeDisplay(baseRecipient?.company || vouchers[0]?.company);
+        const type = normalizeDisplay(baseRecipient?.recipient_type || readMetadata(vouchers[0]).recipient_type || "other") || "other";
+        const dates = vouchers.map(voucher => voucher.voucher_date).filter(Boolean).sort();
+        const totalAmount = vouchers.reduce((sum, voucher) => sum + Number(voucher.amount || 0), 0);
+        return {
+          id: baseRecipient?.id || recipientRow?.id || vouchers[0]?.recipient_id || null,
+          name,
+          company,
+          type,
+          staff: contact.staff,
+          mobile: contact.mobile,
+          designation: contact.designation,
+          nationality: contact.nationality,
+          cecNo: contact.cecNo,
+          usageCount: Number(baseRecipient?.usage_count || vouchers.length),
+          lastUsedAt: baseRecipient?.last_used_at || vouchers[0]?.created_at || "",
+          createdBy: normalizeDisplay(baseRecipient?.created_by),
+          vouchers,
+          voucherCount: vouchers.length,
+          totalAmount,
+          firstVoucherDate: dates[0] || "",
+          lastVoucherDate: dates[dates.length - 1] || ""
+        };
+      }
+
+      function resolveRecipientProfileFromVoucher(voucher){
+        if (!voucher) return null;
+        const recipientRow = findRecipientForVoucher(voucher);
+        const nameKey = normalizeName(voucher.paid_to);
+        const vouchers = getVouchersForRecipient(recipientRow, nameKey);
+        const list = vouchers.length ? vouchers : [voucher];
+        return {
+          recipientId: recipientRow?.id || voucher.recipient_id || null,
+          originalNameKey: nameKey,
+          vouchers: list,
+          model: buildRecipientProfileModel(recipientRow, list),
+          editing: false
+        };
+      }
+
+      function renderPaidToCell(paidTo, company, voucherId){
+        const nameHtml = voucherId
+          ? `<button type="button" class="pcr-recipient-link" data-recipient-open="${escapeHtml(voucherId)}">${escapeHtml(paidTo)}</button>`
+          : `<strong>${escapeHtml(paidTo)}</strong>`;
+        return `<td data-label="Paid To" class="pcr-cell-main">${nameHtml}${company ? `<br><small>${escapeHtml(company)}</small>` : ""}</td>`;
+      }
+
+      function renderRecipientProfileSummary(model){
+        return `
+          <div class="pcr-recipient-summary">
+            <article class="pcr-recipient-summary-card"><span>Total Vouchers</span><strong>${model.voucherCount}</strong></article>
+            <article class="pcr-recipient-summary-card"><span>Total Paid</span><strong>${escapeHtml(formatMoney(model.totalAmount))}</strong></article>
+            <article class="pcr-recipient-summary-card"><span>First Receipt</span><strong>${escapeHtml(formatDate(model.firstVoucherDate) || "-")}</strong></article>
+            <article class="pcr-recipient-summary-card"><span>Latest Receipt</span><strong>${escapeHtml(formatDate(model.lastVoucherDate) || "-")}</strong></article>
+          </div>
+        `;
+      }
+
+      function renderRecipientProfileDetailsView(model){
+        const rows = [
+          ["Full Name", model.name],
+          ["Company", model.company],
+          ["Recipient Type", capitalizeLabel(model.type)],
+          ["Staff ID", model.staff],
+          ["Mobile Number", model.mobile],
+          ["Designation", model.designation],
+          ["Nationality", model.nationality],
+          ["CEC No.", model.cecNo],
+          ["Last Used", formatDateTime(model.lastUsedAt)],
+          ["Recorded By", model.createdBy]
+        ];
+        return `
+          <section class="pcr-recipient-section">
+            <h4>Recipient Details</h4>
+            <div class="pcr-recipient-details-grid">
+              ${rows.map(([label, value]) => `
+                <div class="pcr-recipient-detail">
+                  <span>${escapeHtml(label)}</span>
+                  <strong>${escapeHtml(displayProfileValue(value))}</strong>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderRecipientProfileDetailsEdit(model){
+        return `
+          <section class="pcr-recipient-section">
+            <h4>Edit Recipient Details</h4>
+            <div class="pcr-recipient-edit-grid">
+              <div class="pcr-field w-full">
+                <label for="profileName">Full Name</label>
+                <input id="profileName" class="input" value="${escapeHtml(model.name)}" required />
+              </div>
+              <div class="pcr-field">
+                <label for="profileCompany">Company</label>
+                <input id="profileCompany" class="input" value="${escapeHtml(model.company)}" />
+              </div>
+              <div class="pcr-field">
+                <label for="profileType">Recipient Type</label>
+                <select id="profileType" class="select">
+                  <option value="customer"${model.type === "customer" ? " selected" : ""}>Customer</option>
+                  <option value="staff"${model.type === "staff" ? " selected" : ""}>Staff</option>
+                  <option value="other"${model.type === "other" ? " selected" : ""}>Other</option>
+                </select>
+              </div>
+              <div class="pcr-field">
+                <label for="profileStaff">Staff ID</label>
+                <input id="profileStaff" class="input" value="${escapeHtml(model.staff)}" />
+              </div>
+              <div class="pcr-field">
+                <label for="profileMobile">Mobile Number</label>
+                <input id="profileMobile" class="input" value="${escapeHtml(model.mobile)}" />
+              </div>
+              <div class="pcr-field">
+                <label for="profileDesignation">Designation</label>
+                <input id="profileDesignation" class="input" value="${escapeHtml(model.designation)}" />
+              </div>
+              <div class="pcr-field">
+                <label for="profileNationality">Nationality</label>
+                <input id="profileNationality" class="input" value="${escapeHtml(model.nationality)}" />
+              </div>
+              <div class="pcr-field">
+                <label for="profileCecNo">CEC No.</label>
+                <input id="profileCecNo" class="input" value="${escapeHtml(model.cecNo)}" />
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function renderRecipientStatement(vouchers){
+        if (!vouchers.length){
+          return `<section class="pcr-recipient-section"><h4>Voucher Statement</h4><div class="pcr-empty" style="padding:12px;font-size:.78rem">No vouchers recorded.</div></section>`;
+        }
+        const rows = vouchers.map(voucher => `
+          <tr>
+            <td><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
+            <td>${escapeHtml(formatDate(voucher.voucher_date))}</td>
+            <td><span class="badge ${methodClass(voucher.payment_method)}">${escapeHtml(voucher.payment_method)}</span></td>
+            <td class="amount">${escapeHtml(formatMoney(voucher.amount))}</td>
+            <td><button type="button" class="btn ghost" style="padding:3px 8px;font-size:.66rem;min-height:24px;border-radius:7px" data-profile-voucher-view="${escapeHtml(voucher.id)}"><i class="fa-regular fa-eye"></i> View</button></td>
+          </tr>
+        `).join("");
+        const total = vouchers.reduce((sum, voucher) => sum + Number(voucher.amount || 0), 0);
+        return `
+          <section class="pcr-recipient-section">
+            <h4>Voucher Statement (${vouchers.length})</h4>
+            <div class="pcr-recipient-statement-wrap">
+              <table class="pcr-recipient-statement-table">
+                <thead>
+                  <tr>
+                    <th>Voucher</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                    <th style="text-align:right">Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3"><strong>Total</strong></td>
+                    <td class="amount"><strong>${escapeHtml(formatMoney(total))}</strong></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        `;
+      }
+
+      function renderRecipientProfileModal(){
+        const profile = state.recipientProfile;
+        if (!profile) return;
+        const recipientRow = profile.recipientId
+          ? state.recipients.find(row => row.id === profile.recipientId)
+          : findRecipientForVoucher(profile.vouchers[0]);
+        const model = buildRecipientProfileModel(recipientRow, profile.vouchers);
+        profile.model = model;
+        els.recipientProfileTitle.textContent = model.name || "Recipient Profile";
+        els.recipientProfileSubtitle.textContent = `${model.voucherCount} voucher${model.voucherCount === 1 ? "" : "s"} · ${formatMoney(model.totalAmount)} total`;
+        els.recipientProfileSummary.innerHTML = renderRecipientProfileSummary(model);
+        els.recipientProfileDetails.innerHTML = profile.editing
+          ? renderRecipientProfileDetailsEdit(model)
+          : renderRecipientProfileDetailsView(model);
+        els.recipientProfileStatement.innerHTML = renderRecipientStatement(profile.vouchers);
+        els.recipientProfileError.classList.remove("show");
+        els.recipientProfileError.textContent = "";
+        els.recipientProfileEditBtn.classList.toggle("hide", profile.editing || isDatabaseLocked());
+        els.recipientProfileCancelBtn.classList.toggle("hide", !profile.editing);
+        els.recipientProfileSaveBtn.classList.toggle("hide", !profile.editing);
+      }
+
+      function openRecipientProfile(voucher){
+        if (!voucher || isDatabaseLocked()) return;
+        closeRowMenus();
+        state.recipientProfile = resolveRecipientProfileFromVoucher(voucher);
+        renderRecipientProfileModal();
+        els.recipientProfileModal.classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeRecipientProfile(){
+        if (!els.recipientProfileModal) return;
+        els.recipientProfileModal.classList.remove("open");
+        state.recipientProfile = null;
+        if (!els.previewModal.classList.contains("open")
+          && !els.pinModal.classList.contains("open")
+          && !els.voucherFormModal.classList.contains("open")){
+          document.body.style.overflow = "";
+        }
+      }
+
+      function readRecipientProfileForm(){
+        return {
+          name: normalizeDisplay(document.getElementById("profileName")?.value),
+          company: normalizeDisplay(document.getElementById("profileCompany")?.value),
+          type: document.getElementById("profileType")?.value || "other",
+          staff: normalizeDisplay(document.getElementById("profileStaff")?.value),
+          mobile: normalizeDisplay(document.getElementById("profileMobile")?.value),
+          designation: normalizeDisplay(document.getElementById("profileDesignation")?.value),
+          nationality: normalizeDisplay(document.getElementById("profileNationality")?.value),
+          cecNo: normalizeDisplay(document.getElementById("profileCecNo")?.value)
+        };
+      }
+
+      function buildProfileMetadata(details){
+        const metadata = { recipient_type: details.type || "other" };
+        if (details.staff) metadata[RECIPIENT_STAFF_KEY] = details.staff;
+        if (details.mobile) metadata[RECIPIENT_MOBILE_KEY] = details.mobile;
+        if (details.designation) metadata[RECIPIENT_DESIGNATION_KEY] = details.designation;
+        if (details.nationality) metadata[RECIPIENT_NATIONALITY_KEY] = details.nationality;
+        if (details.cecNo) metadata[RECIPIENT_CEC_KEY] = details.cecNo;
+        return metadata;
+      }
+
+      function mergeVoucherMetadataWithProfile(voucher, details){
+        const merged = { ...readMetadata(voucher) };
+        for (const key of RECIPIENT_METADATA_KEYS) delete merged[key];
+        return { ...merged, ...buildProfileMetadata(details) };
+      }
+
+      async function saveRecipientProfile(){
+        const profile = state.recipientProfile;
+        if (!profile?.editing) return;
+        const details = readRecipientProfileForm();
+        if (!details.name){
+          els.recipientProfileError.textContent = "Full name is required.";
+          els.recipientProfileError.classList.add("show");
+          return;
+        }
+        const newKey = normalizeName(details.name);
+        const oldKey = profile.originalNameKey;
+        const existingRecipient = profile.recipientId
+          ? state.recipients.find(row => row.id === profile.recipientId)
+          : state.recipients.find(row => normalizeName(row.recipient_name) === oldKey || row.normalized_name === oldKey);
+        if (newKey !== normalizeName(existingRecipient?.recipient_name)){
+          const conflict = state.recipients.find(row =>
+            !isSmartPinRecord(row)
+            && row.id !== existingRecipient?.id
+            && (normalizeName(row.recipient_name) === newKey || row.normalized_name === newKey)
+          );
+          if (conflict){
+            els.recipientProfileError.textContent = "Another recipient already uses this name.";
+            els.recipientProfileError.classList.add("show");
+            return;
+          }
+        }
+
+        setBusy(true, "Updating recipient");
+        try {
+          let recipientId = existingRecipient?.id || profile.recipientId || null;
+          const metadata = buildProfileMetadata(details);
+          const user = getCurrentUser();
+          if (existingRecipient?.id){
+            const cleanedMeta = { ...readMetadata(existingRecipient) };
+            for (const key of RECIPIENT_METADATA_KEYS) delete cleanedMeta[key];
+            await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existingRecipient.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                recipient_name: details.name,
+                normalized_name: newKey,
+                recipient_type: details.type,
+                company: details.company || null,
+                metadata: { ...cleanedMeta, ...metadata },
+                usage_count: profile.vouchers.length,
+                last_used_at: new Date().toISOString()
+              })
+            });
+            recipientId = existingRecipient.id;
+          } else {
+            const rows = await api(RECIPIENT_TABLE, {
+              method: "POST",
+              body: JSON.stringify({
+                recipient_name: details.name,
+                normalized_name: newKey,
+                recipient_type: details.type,
+                company: details.company || null,
+                source: "profile",
+                usage_count: profile.vouchers.length,
+                last_used_at: new Date().toISOString(),
+                metadata,
+                created_by: user
+              })
+            });
+            recipientId = rows?.[0]?.id || null;
+          }
+
+          const vouchersToUpdate = profile.vouchers.filter(voucher => voucher.id);
+          for (const voucher of vouchersToUpdate){
+            await api(`${TABLE}?id=eq.${encodeURIComponent(voucher.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                paid_to: details.name,
+                company: details.company || null,
+                recipient_id: recipientId,
+                metadata: mergeVoucherMetadataWithProfile(voucher, details),
+                updated_by: user
+              })
+            });
+          }
+
+          await loadRecipients();
+          const rows = await api(`${TABLE}?select=*&deleted_at=is.null&order=created_at.desc&limit=2000`);
+          state.vouchers = Array.isArray(rows) ? rows : [];
+          renderSummary();
+          renderRecipientControls();
+          renderTable();
+
+          const anchorVoucher = state.vouchers.find(voucher => voucher.id === profile.vouchers[0]?.id)
+            || state.vouchers.find(voucher => normalizeName(voucher.paid_to) === newKey);
+          if (anchorVoucher){
+            state.recipientProfile = resolveRecipientProfileFromVoucher(anchorVoucher);
+            state.recipientProfile.editing = false;
+          }
+          renderRecipientProfileModal();
+          showToast(`Updated ${vouchersToUpdate.length} voucher${vouchersToUpdate.length === 1 ? "" : "s"} for ${details.name}.`);
+        } catch (error){
+          els.recipientProfileError.textContent = error.message || "Could not save recipient details.";
+          els.recipientProfileError.classList.add("show");
+        } finally {
+          setBusy(false);
+        }
       }
 
       async function captureVoucherForPdf(voucher){
@@ -1860,7 +2310,9 @@
 
       function closeVoucherFormModal(){
         els.voucherFormModal.classList.remove("open");
-        if (!els.previewModal.classList.contains("open") && !els.pinModal.classList.contains("open")){
+        if (!els.previewModal.classList.contains("open")
+          && !els.pinModal.classList.contains("open")
+          && !els.recipientProfileModal.classList.contains("open")){
           document.body.style.overflow = "";
         }
       }
@@ -2164,7 +2616,7 @@
           <tr>
             <td data-label="Voucher"><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
             <td data-label="Date">${escapeHtml(formatDate(voucher.voucher_date))}</td>
-            <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(voucher.paid_to)}</strong>${voucher.company ? `<br><small>${escapeHtml(voucher.company)}</small>` : ""}</td>
+            ${renderPaidToCell(voucher.paid_to, voucher.company, voucher.id)}
             <td data-label="Method"><span class="badge ${methodClass(voucher.payment_method)}">${escapeHtml(voucher.payment_method)}</span></td>
             <td data-label="Amount"><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></td>
             <td data-label="Created By">${escapeHtml(voucher.created_by || "")}</td>
@@ -2579,7 +3031,11 @@
 
       function closePreview(){
         els.previewModal.classList.remove("open");
-        document.body.style.overflow = "";
+        if (!els.recipientProfileModal.classList.contains("open")
+          && !els.pinModal.classList.contains("open")
+          && !els.voucherFormModal.classList.contains("open")){
+          document.body.style.overflow = "";
+        }
       }
 
       async function printVoucher(voucher){
@@ -2935,6 +3391,13 @@
         });
         els.tableBody.addEventListener("click", event => {
           if (event.target.closest("[data-voucher-select]")) return;
+          const recipientOpen = event.target.closest("[data-recipient-open]");
+          if (recipientOpen){
+            closeRowMenus();
+            const voucher = getVoucherById(recipientOpen.dataset.recipientOpen);
+            if (voucher) openRecipientProfile(voucher);
+            return;
+          }
           const menuTrigger = event.target.closest("[data-menu-trigger]");
           if (menuTrigger){
             event.stopPropagation();
@@ -3025,8 +3488,39 @@
         });
         document.querySelectorAll("[data-close-preview]").forEach(item => item.addEventListener("click", closePreview));
         document.querySelectorAll("[data-close-pin]").forEach(item => item.addEventListener("click", hidePinModal));
+        document.querySelectorAll("[data-close-recipient-profile]").forEach(item => item.addEventListener("click", closeRecipientProfile));
+        if (els.recipientProfileEditBtn){
+          els.recipientProfileEditBtn.addEventListener("click", () => {
+            if (!state.recipientProfile) return;
+            state.recipientProfile.editing = true;
+            renderRecipientProfileModal();
+          });
+        }
+        if (els.recipientProfileCancelBtn){
+          els.recipientProfileCancelBtn.addEventListener("click", () => {
+            if (!state.recipientProfile) return;
+            state.recipientProfile.editing = false;
+            renderRecipientProfileModal();
+          });
+        }
+        if (els.recipientProfileSaveBtn){
+          els.recipientProfileSaveBtn.addEventListener("click", saveRecipientProfile);
+        }
+        if (els.recipientProfileModal){
+          els.recipientProfileModal.addEventListener("click", event => {
+            const viewBtn = event.target.closest("[data-profile-voucher-view]");
+            if (!viewBtn) return;
+            const voucher = getVoucherById(viewBtn.dataset.profileVoucherView);
+            if (voucher) openPreview(voucher);
+          });
+        }
         document.addEventListener("keydown", event => {
-          if (event.key === "Escape") closePreview();
+          if (event.key !== "Escape") return;
+          if (els.recipientProfileModal?.classList.contains("open")){
+            closeRecipientProfile();
+            return;
+          }
+          closePreview();
         });
         els.modalPrintBtn.addEventListener("click", () => {
           if (state.previewVoucher) printVoucher(state.previewVoucher);
