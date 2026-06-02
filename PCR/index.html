@@ -21,6 +21,14 @@
   <meta name="recipient-nationality-key" content="nationality" />
   <meta name="recipient-cec-key" content="cec_no" />
   <meta name="recipient-customer-key" content="customer_number" />
+  <meta name="vehicle-source-key" content="vehicle_tracking" />
+  <meta name="vehicle-plate-key" content="plate_number" />
+  <meta name="vehicle-tracker-key" content="tracker" />
+  <meta name="vehicle-keys-key" content="keys_available" />
+  <meta name="vehicle-condition-key" content="condition" />
+  <meta name="vehicle-remarks-key" content="remarks" />
+  <meta name="vehicle-status-key" content="status" />
+  <meta name="vehicle-status-key" content="status" />
   <link rel="icon" type="image/png" href="1231.png" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -59,6 +67,11 @@
     .pcr-tools-row .pcr-field{flex:1 1 150px}
     .pcr-toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
     .pcr-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px}
+    .pcr-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .pcr-tab-btn{appearance:none;border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 12px;font-size:.74rem;font-weight:800;color:var(--text);cursor:pointer}
+    .pcr-tab-btn.active{border-color:rgba(36,87,214,.36);background:var(--primary-soft);color:var(--primary)}
+    .pcr-tab-panel{display:none}
+    .pcr-tab-panel.active{display:block}
     .pcr-summary-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:58px;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
     .pcr-summary-card span{font-size:.66rem;color:var(--muted);font-weight:700;letter-spacing:.02em}
     .pcr-summary-card strong{font-size:.86rem;letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
@@ -134,6 +147,13 @@
     .pcr-dropdown-panel button:hover:not(:disabled){background:var(--primary-soft);color:var(--primary)}
     .pcr-dropdown-panel button:disabled{opacity:.45;cursor:not-allowed}
     .pcr-dropdown-panel .pcr-dropdown-note{padding:6px 9px 4px;font-size:.64rem;color:var(--muted);line-height:1.35}
+    .pcr-vehicle-table-wrap{overflow:auto;margin-top:10px}
+    .pcr-vehicle-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:.74rem}
+    .pcr-vehicle-table th,.pcr-vehicle-table td{border-bottom:1px solid var(--line);padding:6px 5px;vertical-align:middle}
+    .pcr-vehicle-table th{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:800}
+    .pcr-vehicle-table input,.pcr-vehicle-table select{width:100%;min-height:30px;padding:5px 8px;font-size:.72rem;border:1px solid var(--line);border-radius:8px;background:#fff}
+    .pcr-vehicle-table .btn{padding:5px 10px;font-size:.68rem;min-height:28px;border-radius:8px}
+    .pcr-vehicle-table tr:last-child td{border-bottom:0}
     .pcr-form-modal-dialog{width:min(660px,100%);max-height:calc(100vh - 28px);border-radius:14px}
     .pcr-form-modal-dialog .pcr-modal-head{padding:10px 12px 0}
     .pcr-form-modal-dialog .pcr-modal-head h3{font-size:.86rem}
@@ -372,8 +392,13 @@
       </div>
     </section>
 
+    <div class="pcr-tabs" role="tablist" aria-label="Database sections">
+      <button id="tabVouchersBtn" class="pcr-tab-btn active" type="button" data-tab-target="vouchers">Vouchers</button>
+      <button id="tabVehiclesBtn" class="pcr-tab-btn" type="button" data-tab-target="vehicles">Vehicles Tracking</button>
+    </div>
+
     <main class="pcr-main">
-      <section class="pcr-card" aria-labelledby="voucherDatabaseTitle">
+      <section id="vouchersPanel" class="pcr-card pcr-tab-panel active" aria-labelledby="voucherDatabaseTitle">
         <div class="pcr-section">
           <div class="pcr-database-head">
             <div>
@@ -458,6 +483,77 @@
               </thead>
               <tbody id="voucherTableBody">
                 <tr><td colspan="7"><div class="pcr-empty">Loading vouchers.</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="vehiclesPanel" class="pcr-card pcr-tab-panel" aria-labelledby="vehicleTrackingTitle">
+        <div class="pcr-section">
+          <div class="pcr-database-head">
+            <div>
+              <h3 id="vehicleTrackingTitle">Vehicles Tracking</h3>
+              <p id="vehicleCount">0 records</p>
+            </div>
+            <div class="tools pcr-database-tools">
+              <button id="vehicleBackupCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-download"></i> Backup</button>
+              <button id="vehicleImportCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-upload"></i> Import CSV</button>
+              <input id="vehicleImportCsvInput" class="hide" type="file" accept=".csv,text/csv" />
+            </div>
+          </div>
+          <div class="filter-inline-row pcr-filter-row pcr-vehicle-filter-row">
+            <div class="filter-inline-section pcr-filter-search">
+              <span class="filter-inline-label">Search</span>
+              <input id="vehicleSearchInput" class="input filter-inline-input" placeholder="Vehicle, plate, remarks…" />
+            </div>
+            <span class="filter-divider">|</span>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">Status</span>
+              <select id="vehicleStatusFilter" class="select filter-inline-input">
+                <option value="">All</option>
+                <option>Available</option>
+                <option>Under Maintenance</option>
+                <option>Out of order</option>
+                <option>NRM-Movements</option>
+                <option>Rented</option>
+              </select>
+            </div>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">Tracker</span>
+              <select id="vehicleTrackerFilter" class="select filter-inline-input">
+                <option value="">All</option>
+                <option>Yes</option>
+                <option>No</option>
+              </select>
+            </div>
+            <div class="filter-inline-section">
+              <span class="filter-inline-label">Keys</span>
+              <select id="vehicleKeysFilter" class="select filter-inline-input">
+                <option value="">All</option>
+                <option>Yes</option>
+                <option>No</option>
+              </select>
+            </div>
+            <button id="vehicleClearFiltersBtn" class="btn ghost" type="button">Clear</button>
+          </div>
+          <div class="pcr-vehicle-table-wrap">
+            <table class="pcr-vehicle-table">
+              <thead>
+                <tr>
+                  <th>Vehicle</th>
+                  <th>Model</th>
+                  <th>Plate Number</th>
+                  <th>Tracker</th>
+                  <th>Keys</th>
+                  <th>Status</th>
+                  <th>Condition</th>
+                  <th>Remarks</th>
+                  <th>Save</th>
+                </tr>
+              </thead>
+              <tbody id="vehicleTableBody">
+                <tr><td colspan="9"><div class="pcr-empty">No vehicles yet. Add the first row and save.</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -700,6 +796,31 @@
       const RECIPIENT_NATIONALITY_KEY = getMeta("recipient-nationality-key") || "nationality";
       const RECIPIENT_CEC_KEY = getMeta("recipient-cec-key") || "cec_no";
       const RECIPIENT_CUSTOMER_KEY = getMeta("recipient-customer-key") || "customer_number";
+      const VEHICLE_SOURCE_KEY = getMeta("vehicle-source-key") || "vehicle_tracking";
+      const VEHICLE_PLATE_KEY = getMeta("vehicle-plate-key") || "plate_number";
+      const VEHICLE_TRACKER_KEY = getMeta("vehicle-tracker-key") || "tracker";
+      const VEHICLE_KEYS_KEY = getMeta("vehicle-keys-key") || "keys_available";
+      const VEHICLE_CONDITION_KEY = getMeta("vehicle-condition-key") || "condition";
+      const VEHICLE_REMARKS_KEY = getMeta("vehicle-remarks-key") || "remarks";
+      const VEHICLE_STATUS_KEY = getMeta("vehicle-status-key") || "status";
+      const VEHICLE_STATUS_OPTIONS = [
+        "Available",
+        "Under Maintenance",
+        "Out of order",
+        "NRM-Movements",
+        "Rented"
+      ];
+      const VEHICLE_BACKUP_CSV_HEADERS = [
+        "Record ID",
+        "Vehicle",
+        "Model",
+        "Plate Number",
+        "Tracker",
+        "Keys",
+        "Status",
+        "Condition",
+        "Remarks"
+      ];
       const RECIPIENT_METADATA_KEYS = [
         RECIPIENT_STAFF_KEY,
         RECIPIENT_MOBILE_KEY,
@@ -848,6 +969,20 @@
         monthVouchers: document.getElementById("monthVouchers"),
         totalAmount: document.getElementById("totalAmount"),
         summaryUpdated: document.getElementById("summaryUpdated")
+        , tabVouchersBtn: document.getElementById("tabVouchersBtn")
+        , tabVehiclesBtn: document.getElementById("tabVehiclesBtn")
+        , vouchersPanel: document.getElementById("vouchersPanel")
+        , vehiclesPanel: document.getElementById("vehiclesPanel")
+        , vehicleTableBody: document.getElementById("vehicleTableBody")
+        , vehicleCount: document.getElementById("vehicleCount")
+        , vehicleBackupCsvBtn: document.getElementById("vehicleBackupCsvBtn")
+        , vehicleImportCsvBtn: document.getElementById("vehicleImportCsvBtn")
+        , vehicleImportCsvInput: document.getElementById("vehicleImportCsvInput")
+        , vehicleSearchInput: document.getElementById("vehicleSearchInput")
+        , vehicleStatusFilter: document.getElementById("vehicleStatusFilter")
+        , vehicleTrackerFilter: document.getElementById("vehicleTrackerFilter")
+        , vehicleKeysFilter: document.getElementById("vehicleKeysFilter")
+        , vehicleClearFiltersBtn: document.getElementById("vehicleClearFiltersBtn")
       };
 
       const state = {
@@ -870,6 +1005,8 @@
         , selectedVoucherIds: new Set()
         , selectionMode: false
         , recipientProfile: null
+        , vehicles: []
+        , activeTab: "vouchers"
       };
 
       function todayIso(){
@@ -1724,7 +1861,9 @@
           els.dateTo,
           els.recipientFilter,
           els.methodFilter,
-          els.clearFiltersBtn
+          els.clearFiltersBtn,
+          els.vehicleBackupCsvBtn,
+          els.vehicleImportCsvBtn
         ].forEach(control => {
           if (control) control.disabled = locked;
         });
@@ -2048,7 +2187,7 @@
       }
 
       async function loadRecipients(){
-        const rows = await api(`${RECIPIENT_TABLE}?select=*&is_active=eq.true&order=last_used_at.desc.nullslast&limit=800`);
+        const rows = await api(`${RECIPIENT_TABLE}?select=*&is_active=eq.true&source=neq.${encodeURIComponent(VEHICLE_SOURCE_KEY)}&order=last_used_at.desc.nullslast&limit=800`);
         state.recipients = (Array.isArray(rows) ? rows : []).filter(row => !isSmartPinRecord(row));
         renderRecipientControls();
       }
@@ -2102,13 +2241,15 @@
       async function loadAll(){
         if (isDatabaseLocked()) {
           setConnection(false, "Smart PIN required");
+          state.vehicles = [];
           renderSummary();
           renderTable();
+          renderVehiclesTable();
           return;
         }
         setBusy(true, "Loading vouchers");
         try {
-          await Promise.all([loadRecipients(), loadExternalPeople(), loadVouchers()]);
+          await Promise.all([loadRecipients(), loadExternalPeople(), loadVouchers(), loadVehicles()]);
           setConnection(true, "Connected");
           els.summaryUpdated.textContent = `Updated ${nowLabel()}`;
           if (!state.editingId) els.voucherNumber.value = await fetchNextVoucherNumber();
@@ -2772,6 +2913,351 @@
         renderSummary();
         renderRecipientControls();
         renderTable();
+        renderVehiclesTable();
+      }
+
+      function switchMainTab(tab){
+        const target = tab === "vehicles" ? "vehicles" : "vouchers";
+        state.activeTab = target;
+        if (els.tabVouchersBtn) els.tabVouchersBtn.classList.toggle("active", target === "vouchers");
+        if (els.tabVehiclesBtn) els.tabVehiclesBtn.classList.toggle("active", target === "vehicles");
+        if (els.vouchersPanel) els.vouchersPanel.classList.toggle("active", target === "vouchers");
+        if (els.vehiclesPanel) els.vehiclesPanel.classList.toggle("active", target === "vehicles");
+      }
+
+      function normalizeVehicleYesNo(value){
+        const text = normalizeDisplay(value).toLowerCase();
+        if (text === "yes" || text === "y" || text === "true" || text === "1") return "Yes";
+        return "No";
+      }
+
+      function normalizeVehicleStatus(value){
+        const text = normalizeDisplay(value);
+        if (!text) return "Available";
+        const match = VEHICLE_STATUS_OPTIONS.find(option => normalizeName(option) === normalizeName(text));
+        return match || "";
+      }
+
+      function vehicleRowToModel(row){
+        const metadata = readMetadata(row);
+        const statusRaw = normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_STATUS_KEY, "status"]));
+        const status = VEHICLE_STATUS_OPTIONS.find(option => normalizeName(option) === normalizeName(statusRaw)) || "Available";
+        return {
+          id: row?.id || "",
+          vehicle: normalizeDisplay(row?.recipient_name),
+          model: normalizeDisplay(row?.company),
+          plateNumber: normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_PLATE_KEY, "plate_number", "plate"])),
+          tracker: normalizeVehicleYesNo(firstMetadataValue(metadata, [VEHICLE_TRACKER_KEY, "tracker"])),
+          keys: normalizeVehicleYesNo(firstMetadataValue(metadata, [VEHICLE_KEYS_KEY, "keys_available", "keys"])),
+          status,
+          condition: normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_CONDITION_KEY, "condition"])),
+          remarks: normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_REMARKS_KEY, "remarks"]))
+        };
+      }
+
+      function buildVehicleMetadata(vehicle){
+        return {
+          [VEHICLE_PLATE_KEY]: vehicle.plateNumber,
+          [VEHICLE_TRACKER_KEY]: vehicle.tracker,
+          [VEHICLE_KEYS_KEY]: vehicle.keys,
+          [VEHICLE_STATUS_KEY]: vehicle.status,
+          [VEHICLE_CONDITION_KEY]: vehicle.condition,
+          [VEHICLE_REMARKS_KEY]: vehicle.remarks,
+          category: "vehicle_tracking"
+        };
+      }
+
+      function buildVehicleApiPayload(vehicle, recordId = ""){
+        const idPart = recordId || Date.now();
+        return {
+          recipient_name: vehicle.vehicle,
+          normalized_name: `vehicle-${normalizeName(vehicle.plateNumber)}-${idPart}`,
+          recipient_type: "other",
+          company: vehicle.model,
+          source: VEHICLE_SOURCE_KEY,
+          metadata: buildVehicleMetadata(vehicle),
+          is_active: true,
+          usage_count: 0,
+          created_by: getCurrentUser(),
+          last_used_at: new Date().toISOString()
+        };
+      }
+
+      function getVehicleDraftFromRow(row){
+        return {
+          id: row?.dataset.vehicleId || "",
+          vehicle: normalizeDisplay(row?.querySelector('[data-field="vehicle"]')?.value),
+          model: normalizeDisplay(row?.querySelector('[data-field="model"]')?.value),
+          plateNumber: normalizeDisplay(row?.querySelector('[data-field="plateNumber"]')?.value),
+          tracker: normalizeDisplay(row?.querySelector('[data-field="tracker"]')?.value) || "No",
+          keys: normalizeDisplay(row?.querySelector('[data-field="keys"]')?.value) || "No",
+          status: normalizeDisplay(row?.querySelector('[data-field="status"]')?.value) || "Available",
+          condition: normalizeDisplay(row?.querySelector('[data-field="condition"]')?.value),
+          remarks: normalizeDisplay(row?.querySelector('[data-field="remarks"]')?.value)
+        };
+      }
+
+      function validateVehicleDraft(vehicle){
+        if (!vehicle.vehicle || !vehicle.model || !vehicle.plateNumber || !vehicle.condition || !vehicle.remarks){
+          return "Fill all vehicle fields before saving.";
+        }
+        if (!["Yes", "No"].includes(vehicle.tracker) || !["Yes", "No"].includes(vehicle.keys)){
+          return "Tracker and Keys must be Yes or No.";
+        }
+        if (!VEHICLE_STATUS_OPTIONS.includes(vehicle.status)){
+          return "Status must be one of the listed options.";
+        }
+        return "";
+      }
+
+      function renderVehicleStatusOptions(selected){
+        return VEHICLE_STATUS_OPTIONS.map(option => (
+          `<option value="${escapeHtml(option)}"${option === selected ? " selected" : ""}>${escapeHtml(option)}</option>`
+        )).join("");
+      }
+
+      function renderVehicleRow(vehicle){
+        const rowId = vehicle.id || "";
+        const status = vehicle.status || "Available";
+        return `
+          <tr data-vehicle-id="${escapeHtml(rowId)}">
+            <td><input data-field="vehicle" value="${escapeHtml(vehicle.vehicle || "")}" placeholder="Vehicle" /></td>
+            <td><input data-field="model" value="${escapeHtml(vehicle.model || "")}" placeholder="Model" /></td>
+            <td><input data-field="plateNumber" value="${escapeHtml(vehicle.plateNumber || "")}" placeholder="Plate Number" /></td>
+            <td>
+              <select data-field="tracker">
+                <option value="Yes"${vehicle.tracker === "Yes" ? " selected" : ""}>Yes</option>
+                <option value="No"${vehicle.tracker === "No" ? " selected" : ""}>No</option>
+              </select>
+            </td>
+            <td>
+              <select data-field="keys">
+                <option value="Yes"${vehicle.keys === "Yes" ? " selected" : ""}>Yes</option>
+                <option value="No"${vehicle.keys === "No" ? " selected" : ""}>No</option>
+              </select>
+            </td>
+            <td>
+              <select data-field="status">${renderVehicleStatusOptions(status)}</select>
+            </td>
+            <td><input data-field="condition" value="${escapeHtml(vehicle.condition || "")}" placeholder="Condition" /></td>
+            <td><input data-field="remarks" value="${escapeHtml(vehicle.remarks || "")}" placeholder="Remarks" /></td>
+            <td><button class="btn primary" type="button" data-vehicle-save>${rowId ? "Update" : "Save"}</button></td>
+          </tr>
+        `;
+      }
+
+      function filteredVehicles(){
+        const query = normalizeName(els.vehicleSearchInput?.value || "");
+        const statusFilter = normalizeDisplay(els.vehicleStatusFilter?.value || "");
+        const trackerFilter = normalizeDisplay(els.vehicleTrackerFilter?.value || "");
+        const keysFilter = normalizeDisplay(els.vehicleKeysFilter?.value || "");
+        return (Array.isArray(state.vehicles) ? state.vehicles : []).filter(vehicle => {
+          const haystack = normalizeName([
+            vehicle.vehicle,
+            vehicle.model,
+            vehicle.plateNumber,
+            vehicle.condition,
+            vehicle.remarks
+          ].join(" "));
+          if (query && !haystack.includes(query)) return false;
+          if (statusFilter && vehicle.status !== statusFilter) return false;
+          if (trackerFilter && vehicle.tracker !== trackerFilter) return false;
+          if (keysFilter && vehicle.keys !== keysFilter) return false;
+          return true;
+        });
+      }
+
+      function renderVehiclesTable(){
+        if (!els.vehicleTableBody || !els.vehicleCount) return;
+        const allVehicles = Array.isArray(state.vehicles) ? state.vehicles : [];
+        const vehicles = filteredVehicles();
+        const hasFilters = Boolean(
+          normalizeDisplay(els.vehicleSearchInput?.value)
+          || normalizeDisplay(els.vehicleStatusFilter?.value)
+          || normalizeDisplay(els.vehicleTrackerFilter?.value)
+          || normalizeDisplay(els.vehicleKeysFilter?.value)
+        );
+        els.vehicleCount.textContent = hasFilters
+          ? `${vehicles.length} of ${allVehicles.length} record${allVehicles.length === 1 ? "" : "s"}`
+          : `${allVehicles.length} record${allVehicles.length === 1 ? "" : "s"}`;
+        const rowsHtml = vehicles.map(renderVehicleRow).join("") + renderVehicleRow({
+          id: "",
+          vehicle: "",
+          model: "",
+          plateNumber: "",
+          tracker: "No",
+          keys: "No",
+          status: "Available",
+          condition: "",
+          remarks: ""
+        });
+        els.vehicleTableBody.innerHTML = rowsHtml;
+      }
+
+      async function loadVehicles(){
+        const rows = await api(`${RECIPIENT_TABLE}?select=*&source=eq.${encodeURIComponent(VEHICLE_SOURCE_KEY)}&is_active=eq.true&order=created_at.desc&limit=2000`);
+        state.vehicles = (Array.isArray(rows) ? rows : []).filter(row => !isSmartPinRecord(row)).map(vehicleRowToModel);
+        renderVehiclesTable();
+      }
+
+      async function saveVehicleRow(row){
+        const draft = getVehicleDraftFromRow(row);
+        const validationError = validateVehicleDraft(draft);
+        if (validationError){
+          showToast(validationError, "error");
+          return;
+        }
+        setBusy(true, draft.id ? "Updating vehicle" : "Saving vehicle");
+        try {
+          const payload = buildVehicleApiPayload(draft, draft.id);
+          if (draft.id){
+            await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(draft.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify(payload)
+            });
+            showToast("Vehicle updated.");
+          } else {
+            await api(RECIPIENT_TABLE, {
+              method: "POST",
+              body: JSON.stringify(payload)
+            });
+            showToast("Vehicle saved.");
+          }
+          await loadVehicles();
+        } catch (error){
+          showToast(error.message || "Could not save vehicle entry.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function vehicleToBackupRow(vehicle){
+        return [
+          vehicle.id || "",
+          vehicle.vehicle,
+          vehicle.model,
+          vehicle.plateNumber,
+          vehicle.tracker,
+          vehicle.keys,
+          vehicle.status,
+          vehicle.condition,
+          vehicle.remarks
+        ];
+      }
+
+      function normalizeVehicleImportRow(raw){
+        const lookup = {};
+        Object.entries(raw).forEach(([key, value]) => {
+          lookup[normalizeName(key)] = value;
+        });
+        const pick = (...labels) => {
+          for (const label of labels){
+            const value = lookup[normalizeName(label)];
+            if (normalizeDisplay(value)) return normalizeDisplay(value);
+          }
+          return "";
+        };
+        const status = normalizeVehicleStatus(pick("status"));
+        return {
+          recordId: pick("record id", "record_id", "id"),
+          vehicle: pick("vehicle"),
+          model: pick("model"),
+          plateNumber: pick("plate number", "plate_number", "plate"),
+          tracker: normalizeVehicleYesNo(pick("tracker") || "No"),
+          keys: normalizeVehicleYesNo(pick("keys") || "No"),
+          status: status || "Available",
+          condition: pick("condition"),
+          remarks: pick("remarks")
+        };
+      }
+
+      function findVehicleForImport(draft){
+        if (draft.recordId){
+          const byId = state.vehicles.find(item => item.id === draft.recordId);
+          if (byId) return byId;
+        }
+        const plateKey = normalizeName(draft.plateNumber);
+        if (!plateKey) return null;
+        return state.vehicles.find(item => normalizeName(item.plateNumber) === plateKey) || null;
+      }
+
+      function downloadVehicleBackupCsv(){
+        if (!state.vehicles.length){
+          showToast("No vehicles to backup.", "error");
+          return;
+        }
+        downloadCsvFile(
+          `vehicles-tracking-backup-${todayIso()}.csv`,
+          VEHICLE_BACKUP_CSV_HEADERS,
+          state.vehicles.map(vehicleToBackupRow)
+        );
+        showToast("Vehicle backup downloaded.");
+      }
+
+      async function handleVehicleImportCsvFile(file){
+        if (!file) return;
+        if (isDatabaseLocked()){
+          showToast("Unlock Smart PIN before importing.", "error");
+          return;
+        }
+        setBusy(true, "Importing vehicles");
+        try {
+          const text = await file.text();
+          const parsed = parseCsvText(text);
+          if (!parsed.length){
+            showToast("CSV file has no data rows.", "error");
+            return;
+          }
+          await loadVehicles();
+          const byId = new Map(state.vehicles.filter(item => item.id).map(item => [item.id, item]));
+          const byPlate = new Map(state.vehicles.map(item => [normalizeName(item.plateNumber), item]));
+          let updated = 0;
+          let added = 0;
+          let skipped = 0;
+          for (const raw of parsed){
+            const draft = normalizeVehicleImportRow(raw);
+            const validationError = validateVehicleDraft(draft);
+            if (validationError){
+              skipped += 1;
+              continue;
+            }
+            const existing = (draft.recordId && byId.get(draft.recordId))
+              || byPlate.get(normalizeName(draft.plateNumber))
+              || null;
+            const payload = buildVehicleApiPayload(draft, existing?.id || "");
+            if (existing?.id){
+              await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(existing.id)}`, {
+                method: "PATCH",
+                body: JSON.stringify(payload)
+              });
+              const saved = { ...draft, id: existing.id };
+              byId.set(existing.id, saved);
+              byPlate.set(normalizeName(draft.plateNumber), saved);
+              updated += 1;
+            } else {
+              const rows = await api(RECIPIENT_TABLE, {
+                method: "POST",
+                body: JSON.stringify(payload)
+              });
+              const newId = rows?.[0]?.id || "";
+              const saved = { ...draft, id: newId };
+              if (newId) byId.set(newId, saved);
+              byPlate.set(normalizeName(draft.plateNumber), saved);
+              added += 1;
+            }
+          }
+          await loadVehicles();
+          const parts = [];
+          if (updated) parts.push(`updated ${updated}`);
+          if (added) parts.push(`added ${added}`);
+          if (skipped) parts.push(`${skipped} skipped`);
+          showToast(parts.length ? `Import complete: ${parts.join(", ")}.` : "No rows imported.");
+        } catch (error){
+          showToast(error.message || "Vehicle CSV import failed.", "error");
+        } finally {
+          setBusy(false);
+          if (els.vehicleImportCsvInput) els.vehicleImportCsvInput.value = "";
+        }
       }
 
       function resolveRecipientRow(row){
@@ -3466,6 +3952,8 @@
       }
 
       function attachEvents(){
+        if (els.tabVouchersBtn) els.tabVouchersBtn.addEventListener("click", () => switchMainTab("vouchers"));
+        if (els.tabVehiclesBtn) els.tabVehiclesBtn.addEventListener("click", () => switchMainTab("vehicles"));
         els.form.addEventListener("submit", saveVoucher);
         els.amountWords.addEventListener("input", () => { state.amountWordsTouched = true; });
         els.amountNumber.addEventListener("input", () => {
@@ -3567,6 +4055,39 @@
           if (button.dataset.action === "pdf") downloadPdf(voucher);
           if (button.dataset.action === "delete") deleteVoucher(voucher.id);
         });
+        if (els.vehicleTableBody){
+          els.vehicleTableBody.addEventListener("click", event => {
+            const saveBtn = event.target.closest("[data-vehicle-save]");
+            if (!saveBtn) return;
+            const row = saveBtn.closest("tr");
+            if (row) saveVehicleRow(row);
+          });
+        }
+        if (els.vehicleBackupCsvBtn) els.vehicleBackupCsvBtn.addEventListener("click", downloadVehicleBackupCsv);
+        if (els.vehicleImportCsvBtn){
+          els.vehicleImportCsvBtn.addEventListener("click", () => {
+            if (els.vehicleImportCsvInput) els.vehicleImportCsvInput.click();
+          });
+        }
+        if (els.vehicleImportCsvInput){
+          els.vehicleImportCsvInput.addEventListener("change", event => {
+            const file = event.target.files?.[0];
+            if (file) handleVehicleImportCsvFile(file);
+          });
+        }
+        if (els.vehicleSearchInput) els.vehicleSearchInput.addEventListener("input", renderVehiclesTable);
+        if (els.vehicleStatusFilter) els.vehicleStatusFilter.addEventListener("change", renderVehiclesTable);
+        if (els.vehicleTrackerFilter) els.vehicleTrackerFilter.addEventListener("change", renderVehiclesTable);
+        if (els.vehicleKeysFilter) els.vehicleKeysFilter.addEventListener("change", renderVehiclesTable);
+        if (els.vehicleClearFiltersBtn){
+          els.vehicleClearFiltersBtn.addEventListener("click", () => {
+            if (els.vehicleSearchInput) els.vehicleSearchInput.value = "";
+            if (els.vehicleStatusFilter) els.vehicleStatusFilter.value = "";
+            if (els.vehicleTrackerFilter) els.vehicleTrackerFilter.value = "";
+            if (els.vehicleKeysFilter) els.vehicleKeysFilter.value = "";
+            renderVehiclesTable();
+          });
+        }
         document.addEventListener("click", event => {
           if (!event.target.closest(".pcr-row-menu")) closeRowMenus();
           if (!event.target.closest(".pcr-dropdown")) closeBulkPdfMenu();
