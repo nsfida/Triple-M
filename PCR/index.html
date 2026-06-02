@@ -212,6 +212,11 @@
     .pcr-toast{background:#fff;border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:12px;box-shadow:var(--shadow-strong);padding:12px 14px;color:var(--text);font-size:.84rem;line-height:1.45}
     .pcr-toast.success{border-left-color:var(--success)}
     .pcr-toast.error{border-left-color:var(--danger)}
+    /* Shared voucher mode: show only preview */
+    body.pcr-public-view{background:#fff}
+    body.pcr-public-view .floating-circles{display:none !important}
+    body.pcr-public-view .pcr-shell{display:none !important}
+    body.pcr-public-view #previewModal{display:grid !important}
     .pcr-form-error{display:none;margin-top:10px;color:var(--danger);font-size:.82rem;font-weight:650;background:rgba(180,35,24,.07);border:1px solid rgba(180,35,24,.16);border-radius:10px;padding:10px}
     .pcr-form-error.show{display:block}
     .hide{display:none !important}
@@ -549,7 +554,7 @@
                 <label for="recipientNationality">Nationality <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientNationality" class="input" type="text" autocomplete="country-name" />
               </div>
-              <div class="pcr-field w6">
+              <div class="pcr-field w6" id="recipientCecField">
                 <label for="recipientCecNo">CEC No. <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientCecNo" class="input" type="text" autocomplete="off" />
               </div>
@@ -590,6 +595,10 @@
         <div>
           <h3 id="previewTitle">Print Preview</h3>
           <p id="previewSubtitle">Payment voucher</p>
+          <p id="previewShareRow" class="hide" style="margin:6px 0 0;font-size:.72rem;line-height:1.4">
+            <a id="previewShareLink" href="#" target="_blank" rel="noopener">Open voucher link</a>
+            <button id="copyShareLinkBtn" type="button" class="btn ghost" style="margin-left:8px;padding:3px 8px;font-size:.66rem;min-height:24px;border-radius:7px">Copy link</button>
+          </p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-preview aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
@@ -756,6 +765,7 @@
         recipientDesignationField: document.getElementById("recipientDesignationField"),
         recipientNationality: document.getElementById("recipientNationality"),
         recipientCecNo: document.getElementById("recipientCecNo"),
+        recipientCecField: document.getElementById("recipientCecField"),
         paymentMethod: document.getElementById("paymentMethod"),
         descriptionText: document.getElementById("descriptionText"),
         createdBy: document.getElementById("createdBy"),
@@ -795,6 +805,9 @@
         previewModal: document.getElementById("previewModal"),
         previewBody: document.getElementById("previewBody"),
         previewSubtitle: document.getElementById("previewSubtitle"),
+        previewShareRow: document.getElementById("previewShareRow"),
+        previewShareLink: document.getElementById("previewShareLink"),
+        copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
         recipientProfileModal: document.getElementById("recipientProfileModal"),
         recipientProfileTitle: document.getElementById("recipientProfileTitle"),
         recipientProfileSubtitle: document.getElementById("recipientProfileSubtitle"),
@@ -948,11 +961,13 @@
         const showCustomer = type === "customer";
         if (els.recipientStaffField) els.recipientStaffField.classList.toggle("hide", !(showStaff || showCustomer));
         if (els.recipientDesignationField) els.recipientDesignationField.classList.toggle("hide", !showStaff);
+        if (els.recipientCecField) els.recipientCecField.classList.toggle("hide", showCustomer);
         if (els.recipientStaffLabel){
           els.recipientStaffLabel.innerHTML = `${showCustomer ? "Customer Number" : "Staff ID"} <span class="pcr-field-label-optional">(optional)</span>`;
         }
         if (!showStaff) els.recipientDesignation.value = "";
         if (!(showStaff || showCustomer)) els.recipientStaff.value = "";
+        if (showCustomer) els.recipientCecNo.value = "";
       }
 
       function findRecipientForVoucher(voucher){
@@ -1528,6 +1543,19 @@
         setTimeout(() => toast.remove(), 4200);
       }
 
+      function buildVoucherShareUrl(voucher){
+        const number = normalizeDisplay(voucher?.voucher_number);
+        if (!number) return "";
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set("voucher", number);
+          url.searchParams.delete("id");
+          return url.toString();
+        } catch {
+          return "";
+        }
+      }
+
       function setConnection(ok, text){
         els.connectionDot.classList.toggle("is-online", ok);
         els.connectionText.textContent = text;
@@ -2010,6 +2038,8 @@
         els.voucherDate.value = todayIso();
         els.createdBy.value = getCurrentUser();
         els.createdAt.value = toDatetimeLocal(new Date().toISOString());
+        els.voucherNumber.readOnly = true;
+        els.voucherNumber.classList.add("pcr-readonly");
         els.saveVoucherBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Voucher';
         els.cancelEditBtn.classList.add("hide");
         els.formError.classList.remove("show");
@@ -2045,6 +2075,28 @@
         const rows = await api(`${TABLE}?select=*&deleted_at=is.null&order=created_at.desc&limit=2000`);
         state.vouchers = Array.isArray(rows) ? rows : [];
         renderAll();
+      }
+
+      async function fetchVoucherByShareParam(){
+        const params = new URLSearchParams(window.location.search || "");
+        const voucherNumber = normalizeDisplay(params.get("voucher"));
+        const voucherId = normalizeDisplay(params.get("id"));
+        if (!voucherNumber && !voucherId) return null;
+        try {
+          setBusy(true, "Loading voucher");
+          const filter = voucherId
+            ? `id=eq.${encodeURIComponent(voucherId)}`
+            : `voucher_number=eq.${encodeURIComponent(voucherNumber)}`;
+          const rows = await api(`${TABLE}?select=*&deleted_at=is.null&${filter}&limit=1`);
+          const voucher = Array.isArray(rows) ? rows[0] : null;
+          return voucher || null;
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function enterSharedVoucherMode(){
+        document.body.classList.add("pcr-public-view");
       }
 
       async function loadAll(){
@@ -2371,6 +2423,13 @@
         els.voucherFormSubtitle.textContent = mode === "edit"
           ? "Update voucher and recipient details"
           : "Enter voucher and recipient details";
+        if (mode === "edit"){
+          els.voucherNumber.readOnly = false;
+          els.voucherNumber.classList.remove("pcr-readonly");
+        } else {
+          els.voucherNumber.readOnly = true;
+          els.voucherNumber.classList.add("pcr-readonly");
+        }
         els.voucherFormModal.classList.add("open");
         document.body.style.overflow = "hidden";
       }
@@ -3096,6 +3155,16 @@
       async function openPreview(voucher){
         state.previewVoucher = voucher;
         els.previewSubtitle.textContent = `${voucher.voucher_number || "Draft"} - ${voucher.paid_to || ""}`;
+        if (els.previewShareRow && els.previewShareLink){
+          const shareUrl = buildVoucherShareUrl(voucher);
+          if (shareUrl){
+            els.previewShareLink.href = shareUrl;
+            els.previewShareLink.textContent = shareUrl;
+            els.previewShareRow.classList.remove("hide");
+          } else {
+            els.previewShareRow.classList.add("hide");
+          }
+        }
         els.previewBody.innerHTML = `<div class="pcr-preview-viewport"><div class="pcr-preview-inner">${voucherHtml(voucher)}</div></div>`;
         els.previewModal.classList.add("open");
         document.body.style.overflow = "hidden";
@@ -3591,6 +3660,18 @@
             if (voucher) openPreview(voucher);
           });
         }
+        if (els.copyShareLinkBtn){
+          els.copyShareLinkBtn.addEventListener("click", async () => {
+            const href = els.previewShareLink?.href || "";
+            if (!href || href === "#") return;
+            try {
+              await navigator.clipboard.writeText(href);
+              showToast("Voucher link copied.");
+            } catch {
+              showToast("Could not copy link.", "error");
+            }
+          });
+        }
         document.addEventListener("keydown", event => {
           if (event.key !== "Escape") return;
           if (els.recipientProfileModal?.classList.contains("open")){
@@ -3614,6 +3695,17 @@
         els.createdAt.value = toDatetimeLocal(new Date().toISOString());
         els.amountWords.value = amountToWords(0);
         syncRecipientTypeFields();
+        const sharedVoucher = await fetchVoucherByShareParam();
+        if (sharedVoucher){
+          // bypass PIN and load just this voucher
+          state.databaseUnlocked = true;
+          state.pinConfigured = false;
+          enterSharedVoucherMode();
+          setConnection(true, "Shared voucher");
+          await openPreview(sharedVoucher);
+          return;
+        }
+
         await loadPinConfiguration();
         syncDatabaseUnlockWithPinState();
         updateAccessState();
