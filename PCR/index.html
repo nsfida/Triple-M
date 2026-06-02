@@ -75,13 +75,14 @@
     .pcr-table tbody tr{height:36px}
     .pcr-table tbody tr.pcr-import-row{background:rgba(36,87,214,.04)}
     .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:normal;text-align:left;font-size:.68rem}
-    .pcr-table th:nth-child(1){width:13%}
-    .pcr-table th:nth-child(2){width:10%}
-    .pcr-table th:nth-child(3){width:21%}
-    .pcr-table th:nth-child(4){width:11%}
-    .pcr-table th:nth-child(5){width:13%}
-    .pcr-table th:nth-child(6){width:13%}
-    .pcr-table th:nth-child(7){width:8%}
+    .pcr-table th:nth-child(1){width:34px}
+    .pcr-table th:nth-child(2){width:12%}
+    .pcr-table th:nth-child(3){width:9%}
+    .pcr-table th:nth-child(4){width:20%}
+    .pcr-table th:nth-child(5){width:10%}
+    .pcr-table th:nth-child(6){width:12%}
+    .pcr-table th:nth-child(7){width:12%}
+    .pcr-table th:nth-child(8){width:7%}
     .pcr-table .pcr-cell-main{white-space:normal;min-width:0}
     .pcr-table .badge{white-space:nowrap;line-height:1.1;text-align:center;justify-content:center;font-size:.64rem;padding:3px 6px}
     .pcr-table small{display:block;line-height:1.2;overflow-wrap:anywhere;font-size:.66rem}
@@ -97,13 +98,46 @@
     .pcr-menu-panel button.danger{color:var(--danger)}
     .pcr-menu-panel button.danger:hover{background:rgba(180,35,24,.08)}
     .pcr-import-save{height:26px;padding:0 10px;font-size:.68rem;border-radius:7px}
-    .pcr-form-modal-dialog{width:min(920px,100%);max-height:calc(100vh - 24px)}
-    .pcr-form-modal-body{padding:0 14px 14px;overflow:auto;max-height:calc(100vh - 120px)}
-    .pcr-form-section{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel-2);margin-bottom:10px}
+    .pcr-check-col{width:34px;text-align:center;padding:4px 2px !important}
+    .pcr-check-col input{width:14px;height:14px;margin:0;cursor:pointer;accent-color:var(--primary)}
+    .pcr-dropdown{position:relative;display:inline-flex}
+    .pcr-dropdown-trigger{font-size:.72rem;padding:6px 10px;min-height:30px;display:inline-flex;align-items:center;gap:6px}
+    .pcr-dropdown-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:70;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-strong);padding:4px;display:grid;gap:2px}
+    .pcr-dropdown-panel.open{display:grid}
+    .pcr-dropdown-panel:not(.open){display:none}
+    .pcr-dropdown-panel button{appearance:none;border:0;background:transparent;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:.72rem;font-weight:700;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:7px}
+    .pcr-dropdown-panel button:hover:not(:disabled){background:var(--primary-soft);color:var(--primary)}
+    .pcr-dropdown-panel button:disabled{opacity:.45;cursor:not-allowed}
+    .pcr-dropdown-panel .pcr-dropdown-note{padding:6px 9px 4px;font-size:.64rem;color:var(--muted);line-height:1.35}
+    .pcr-form-modal-dialog{width:min(660px,100%);max-height:calc(100vh - 28px);border-radius:14px}
+    .pcr-form-modal-dialog .pcr-modal-head{padding:10px 12px 0}
+    .pcr-form-modal-dialog .pcr-modal-head h3{font-size:.86rem}
+    .pcr-form-modal-dialog .pcr-modal-head p{font-size:.68rem;margin-top:2px;line-height:1.35}
+    .pcr-form-modal-body{padding:0 12px 12px;overflow:auto;max-height:calc(100vh - 118px)}
+    .pcr-form-modal-dialog .input,.pcr-form-modal-dialog .select,.pcr-form-modal-dialog textarea.input{min-height:32px;padding:6px 9px;font-size:.76rem;border-radius:8px}
+    .pcr-form-modal-dialog textarea.input{min-height:52px;line-height:1.35}
+    .pcr-form-section{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--panel-2);margin-bottom:8px}
     .pcr-form-section:last-of-type{margin-bottom:0}
-    .pcr-form-section h4{margin:0 0 10px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-    .pcr-form-section .pcr-form-grid{gap:8px}
-    .pcr-form-modal-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px;margin:0 -14px -14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .pcr-form-section h4{margin:0 0 7px;font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:800}
+    .pcr-form-section .pcr-form-grid{gap:6px}
+    .pcr-form-modal-dialog .pcr-field{gap:3px}
+    .pcr-form-modal-dialog .pcr-field.w6{grid-column:span 6}
+    .pcr-form-modal-dialog .pcr-field.w4{grid-column:span 4}
+    .pcr-form-modal-dialog .pcr-field label{font-size:.66rem;font-weight:700}
+    .pcr-form-modal-dialog .pcr-amount-row{grid-template-columns:1fr 68px;gap:6px}
+    .pcr-form-modal-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:8px 12px;margin:0 -12px -12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .pcr-form-modal-actions .btn{font-size:.7rem;padding:6px 11px;min-height:28px;border-radius:8px}
+    .pcr-form-modal-dialog .pcr-form-error{margin-top:8px;padding:8px;font-size:.72rem;border-radius:8px}
+    .pcr-preview-dialog{width:min(460px,100%);max-height:calc(100vh - 28px);border-radius:14px}
+    .pcr-preview-dialog .pcr-modal-head{padding:10px 12px 0}
+    .pcr-preview-dialog .pcr-modal-head h3{font-size:.86rem}
+    .pcr-preview-dialog .pcr-modal-head p{font-size:.68rem;margin-top:2px}
+    .pcr-preview-body{padding:10px 12px;background:linear-gradient(180deg,#eef2f7 0%,#f8fafc 100%);overflow:auto;max-height:calc(100vh - 150px);display:flex;justify-content:center;align-items:flex-start}
+    .pcr-preview-viewport{width:min(100%,400px);height:282px;margin:0 auto;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 10px 24px rgba(16,24,40,.08);position:relative}
+    .pcr-preview-inner{position:absolute;top:0;left:50%;width:297mm;height:210mm;transform:translateX(-50%) scale(0.355);transform-origin:top center}
+    .pcr-preview-inner .voucher-sheet{width:297mm;height:210mm;box-shadow:none;margin:0;padding:8mm}
+    .pcr-preview-dialog .pcr-modal-actions{padding:8px 12px 12px;gap:6px}
+    .pcr-preview-dialog .pcr-modal-actions .btn{font-size:.7rem;padding:6px 11px;min-height:28px;border-radius:8px}
     .pcr-autocomplete{position:relative}
     .pcr-suggestions{position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-strong);padding:6px;max-height:260px;overflow:auto;display:none}
     .pcr-suggestions.open{display:block}
@@ -148,7 +182,6 @@
     .pcr-pin-links button.active{display:none !important}
     .pcr-pin-links button.danger{color:var(--danger)}
     .pcr-pin-dialog .pcr-form-error{text-align:left;margin-top:0}
-    .pcr-preview-body{padding:14px;overflow:auto}
     .pcr-empty{border:1px dashed var(--line-strong);border-radius:12px;background:#fff;padding:18px;text-align:center;color:var(--muted);font-size:.88rem;line-height:1.6}
     #printRoot{display:none}
     .voucher-sheet{width:297mm;height:210mm;background:#fff;color:#17212b;padding:8mm;box-sizing:border-box;box-shadow:0 12px 30px rgba(16,24,40,.16);margin:0 auto;page-break-inside:avoid;break-inside:avoid;overflow:hidden}
@@ -192,7 +225,9 @@
       .pcr-shell{padding:10px}
       .pcr-header .brand{align-items:flex-start}
       .pcr-header .brand .mark{width:140px;height:38px}
-      .pcr-field.w6,.pcr-field.w4,.pcr-field.w8{grid-column:span 12}
+      .pcr-form-modal-dialog .pcr-field.w6,.pcr-form-modal-dialog .pcr-field.w4{grid-column:span 12}
+      .pcr-preview-viewport{width:min(100%,340px);height:240px}
+      .pcr-preview-inner{transform:translateX(-50%) scale(0.302)}
       .pcr-summary-grid{grid-template-columns:1fr}
       .pcr-toolbar-actions{width:100%;margin-left:0}
       .pcr-toolbar-actions .btn{flex:1 1 auto}
@@ -280,6 +315,18 @@
               <p id="databaseCount">0 records</p>
             </div>
             <div class="tools pcr-database-tools">
+              <div class="pcr-dropdown" id="bulkPdfDropdown">
+                <button id="bulkPdfBtn" class="btn soft pcr-dropdown-trigger" type="button" aria-expanded="false">
+                  <i class="fa-solid fa-file-pdf"></i> PDF <i class="fa-solid fa-chevron-down" style="font-size:.6rem;opacity:.7"></i>
+                </button>
+                <div class="pcr-dropdown-panel" id="bulkPdfMenu">
+                  <div class="pcr-dropdown-note">Download receipts as one PDF file</div>
+                  <button type="button" data-bulk-pdf="selected"><i class="fa-solid fa-check-double"></i> Selected (<span id="bulkPdfSelectedCount">0</span>)</button>
+                  <button type="button" data-bulk-pdf="filtered"><i class="fa-solid fa-filter"></i> All Filtered</button>
+                  <button type="button" data-bulk-pdf="recipient"><i class="fa-solid fa-user"></i> Filtered Recipient</button>
+                  <button type="button" data-bulk-pdf="all"><i class="fa-solid fa-layer-group"></i> Entire Database</button>
+                </div>
+              </div>
               <button id="backupCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-download"></i> Backup</button>
               <button id="importCsvBtn" class="btn soft" type="button"><i class="fa-solid fa-upload"></i> Import CSV</button>
               <input id="importCsvInput" class="hide" type="file" accept=".csv,text/csv" />
@@ -322,6 +369,7 @@
             <table class="pcr-table">
               <thead>
                 <tr>
+                  <th class="pcr-check-col"><input id="selectAllVouchers" type="checkbox" aria-label="Select all visible vouchers" /></th>
                   <th><button type="button" data-sort="voucher_number">Voucher <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="voucher_date">Date <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="paid_to">Paid To <i class="fa-solid fa-sort"></i></button></th>
@@ -332,7 +380,7 @@
                 </tr>
               </thead>
               <tbody id="voucherTableBody">
-                <tr><td colspan="7"><div class="pcr-empty">Loading vouchers.</div></td></tr>
+                <tr><td colspan="8"><div class="pcr-empty">Loading vouchers.</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -413,15 +461,15 @@
                 <label for="companyName">Company <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="companyName" class="input" type="text" autocomplete="organization" />
               </div>
-              <div class="pcr-field w6">
+              <div class="pcr-field w4">
                 <label for="recipientStaff">Staff <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientStaff" class="input" type="text" autocomplete="off" />
               </div>
-              <div class="pcr-field w6">
-                <label for="recipientMobile">Mobile Number <span class="pcr-field-label-optional">(optional)</span></label>
+              <div class="pcr-field w4">
+                <label for="recipientMobile">Mobile <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientMobile" class="input" type="tel" inputmode="tel" autocomplete="tel" />
               </div>
-              <div class="pcr-field w6">
+              <div class="pcr-field w4">
                 <label for="recipientDesignation">Designation <span class="pcr-field-label-optional">(optional)</span></label>
                 <input id="recipientDesignation" class="input" type="text" autocomplete="organization-title" />
               </div>
@@ -465,7 +513,7 @@
 
   <div id="previewModal" class="pcr-modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
     <div class="pcr-modal-backdrop" data-close-preview></div>
-    <div class="pcr-modal-dialog">
+    <div class="pcr-modal-dialog pcr-preview-dialog">
       <div class="pcr-modal-head">
         <div>
           <h3 id="previewTitle">Print Preview</h3>
@@ -627,6 +675,11 @@
         backupCsvBtn: document.getElementById("backupCsvBtn"),
         importCsvBtn: document.getElementById("importCsvBtn"),
         importCsvInput: document.getElementById("importCsvInput"),
+        bulkPdfBtn: document.getElementById("bulkPdfBtn"),
+        bulkPdfMenu: document.getElementById("bulkPdfMenu"),
+        bulkPdfDropdown: document.getElementById("bulkPdfDropdown"),
+        bulkPdfSelectedCount: document.getElementById("bulkPdfSelectedCount"),
+        selectAllVouchers: document.getElementById("selectAllVouchers"),
         refreshBtn: document.getElementById("refreshBtn"),
         printLatestBtn: document.getElementById("printLatestBtn"),
         managePinBtn: document.getElementById("managePinBtn"),
@@ -682,6 +735,7 @@
         , databaseUnlocked: false
         , pendingImports: []
         , openMenuId: null
+        , selectedVoucherIds: new Set()
       };
 
       function todayIso(){
@@ -1081,6 +1135,7 @@
           els.createVoucherBtn,
           els.backupCsvBtn,
           els.importCsvBtn,
+          els.bulkPdfBtn,
           els.previewDraftBtn,
           els.saveVoucherBtn,
           els.searchInput,
@@ -1558,11 +1613,126 @@
         document.querySelectorAll(".pcr-menu-panel.open").forEach(panel => panel.classList.remove("open"));
       }
 
+      function closeBulkPdfMenu(){
+        if (els.bulkPdfMenu) els.bulkPdfMenu.classList.remove("open");
+        if (els.bulkPdfBtn) els.bulkPdfBtn.setAttribute("aria-expanded", "false");
+      }
+
+      function toggleBulkPdfMenu(){
+        if (!els.bulkPdfMenu) return;
+        const willOpen = !els.bulkPdfMenu.classList.contains("open");
+        closeRowMenus();
+        closeBulkPdfMenu();
+        if (willOpen){
+          updateBulkPdfMenu();
+          els.bulkPdfMenu.classList.add("open");
+          if (els.bulkPdfBtn) els.bulkPdfBtn.setAttribute("aria-expanded", "true");
+        }
+      }
+
+      function getVisibleDbVoucherIds(){
+        return filteredVouchers().map(voucher => voucher.id).filter(Boolean);
+      }
+
+      function toggleVoucherSelection(id, checked){
+        if (!id) return;
+        if (checked) state.selectedVoucherIds.add(id);
+        else state.selectedVoucherIds.delete(id);
+      }
+
+      function syncSelectAllCheckbox(){
+        if (!els.selectAllVouchers) return;
+        const visibleIds = getVisibleDbVoucherIds();
+        if (!visibleIds.length){
+          els.selectAllVouchers.checked = false;
+          els.selectAllVouchers.indeterminate = false;
+          return;
+        }
+        const selectedVisible = visibleIds.filter(id => state.selectedVoucherIds.has(id));
+        els.selectAllVouchers.checked = selectedVisible.length === visibleIds.length;
+        els.selectAllVouchers.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleIds.length;
+      }
+
+      function updateBulkPdfMenu(){
+        if (els.bulkPdfSelectedCount) els.bulkPdfSelectedCount.textContent = String(state.selectedVoucherIds.size);
+        const selectedBtn = els.bulkPdfMenu?.querySelector('[data-bulk-pdf="selected"]');
+        const recipientBtn = els.bulkPdfMenu?.querySelector('[data-bulk-pdf="recipient"]');
+        if (selectedBtn) selectedBtn.disabled = state.selectedVoucherIds.size === 0;
+        if (recipientBtn) recipientBtn.disabled = !normalizeDisplay(els.recipientFilter.value);
+      }
+
+      function resolveBulkPdfVouchers(mode){
+        if (mode === "selected") return state.vouchers.filter(voucher => state.selectedVoucherIds.has(voucher.id));
+        if (mode === "filtered") return filteredVouchers();
+        if (mode === "recipient"){
+          const key = normalizeName(els.recipientFilter.value);
+          if (!key) return [];
+          return state.vouchers.filter(voucher => normalizeName(voucher.paid_to) === key);
+        }
+        if (mode === "all") return [...state.vouchers];
+        return [];
+      }
+
+      async function appendVoucherToPdf(pdf, voucher, isFirstPage){
+        const canvas = await captureVoucherForPdf(voucher);
+        if (!isFirstPage) pdf.addPage();
+        const pageW = pdf.internal.pageSize.getWidth();
+        const imgH = pageW * (canvas.height / canvas.width);
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageW, imgH, undefined, "FAST");
+      }
+
+      async function downloadPdfBulk(vouchers, filenameBase){
+        if (!vouchers.length){
+          showToast("No vouchers to download.", "error");
+          return;
+        }
+        const jsPDFConstructor = window.jsPDF || window.jspdf?.jsPDF;
+        if (!jsPDFConstructor){
+          showToast("PDF library is still loading. Please try again.", "error");
+          return;
+        }
+        setBusy(true, `Generating PDF (${vouchers.length})`);
+        try {
+          const pdf = new jsPDFConstructor({ orientation: "portrait", unit: "mm", format: "a4" });
+          for (let i = 0; i < vouchers.length; i += 1){
+            await appendVoucherToPdf(pdf, vouchers[i], i === 0);
+            if (vouchers[i]?.id && vouchers[i].id !== "draft") await recordVoucherEvent(vouchers[i], "pdf");
+          }
+          const filename = `${filenameBase}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
+          pdf.save(filename);
+          showToast(`${vouchers.length} receipt${vouchers.length === 1 ? "" : "s"} downloaded.`);
+          await loadVouchers();
+        } catch (error) {
+          showToast(error.message || "Bulk PDF could not be generated.", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function handleBulkPdf(mode){
+        closeBulkPdfMenu();
+        if (mode === "recipient" && !normalizeDisplay(els.recipientFilter.value)){
+          showToast("Choose a recipient in the filter first.", "error");
+          return;
+        }
+        const vouchers = resolveBulkPdfVouchers(mode);
+        if (!vouchers.length){
+          showToast("No vouchers match this download option.", "error");
+          return;
+        }
+        const label = mode === "selected" ? "selected"
+          : mode === "filtered" ? "filtered"
+          : mode === "recipient" ? normalizeDisplay(els.recipientFilter.value).replace(/\s+/g, "-")
+          : "all-vouchers";
+        await downloadPdfBulk(vouchers, `payment-vouchers-${label}-${todayIso()}`);
+      }
+
       function toggleRowMenu(menuId){
         const panel = document.querySelector(`[data-menu-panel="${menuId}"]`);
         if (!panel) return;
         const willOpen = !panel.classList.contains("open");
         closeRowMenus();
+        closeBulkPdfMenu();
         if (willOpen){
           panel.classList.add("open");
           state.openMenuId = menuId;
@@ -1885,7 +2055,8 @@
       function renderTable(){
         if (isDatabaseLocked()){
           els.databaseCount.textContent = "Locked";
-          els.tableBody.innerHTML = `<tr><td colspan="7"><div class="pcr-empty">Database locked. Enter Smart PIN to load records.</div></td></tr>`;
+          els.tableBody.innerHTML = `<tr><td colspan="8"><div class="pcr-empty">Database locked. Enter Smart PIN to load records.</div></td></tr>`;
+          updateBulkPdfMenu();
           return;
         }
         const rows = filteredVouchers();
@@ -1893,13 +2064,14 @@
         const totalCount = rows.length + pending.length;
         els.databaseCount.textContent = `${totalCount} record${totalCount === 1 ? "" : "s"}${pending.length ? ` (${pending.length} import)` : ""}`;
         if (!totalCount){
-          els.tableBody.innerHTML = `<tr><td colspan="7"><div class="pcr-empty">No vouchers found.</div></td></tr>`;
+          els.tableBody.innerHTML = `<tr><td colspan="8"><div class="pcr-empty">No vouchers found.</div></td></tr>`;
+          syncSelectAllCheckbox();
+          updateBulkPdfMenu();
           return;
         }
-        const importRowsHtml = pending.map(row => {
-          const menuId = `import-${row.tempId}`;
-          return `
+        const importRowsHtml = pending.map(row => `
           <tr class="pcr-import-row">
+            <td class="pcr-check-col"></td>
             <td data-label="Voucher"><span class="badge orange">Import</span> <strong>${escapeHtml(row.voucher_number || "New")}</strong></td>
             <td data-label="Date">${escapeHtml(formatDate(row.voucher_date))}</td>
             <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(row.paid_to)}</strong>${row.company ? `<br><small>${escapeHtml(row.company)}</small>` : ""}</td>
@@ -1910,12 +2082,13 @@
               <button class="btn primary pcr-import-save" type="button" data-import-save="${escapeHtml(row.tempId)}"><i class="fa-solid fa-floppy-disk"></i> Save</button>
             </td>
           </tr>
-        `;
-        }).join("");
+        `).join("");
         const dbRowsHtml = rows.map(voucher => {
           const menuId = `db-${voucher.id}`;
+          const checked = state.selectedVoucherIds.has(voucher.id) ? " checked" : "";
           return `
           <tr>
+            <td class="pcr-check-col" data-label="Select"><input type="checkbox" data-voucher-select="${escapeHtml(voucher.id)}"${checked} aria-label="Select ${escapeHtml(voucher.voucher_number)}" /></td>
             <td data-label="Voucher"><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
             <td data-label="Date">${escapeHtml(formatDate(voucher.voucher_date))}</td>
             <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(voucher.paid_to)}</strong>${voucher.company ? `<br><small>${escapeHtml(voucher.company)}</small>` : ""}</td>
@@ -1935,6 +2108,8 @@
         `;
         }).join("");
         els.tableBody.innerHTML = importRowsHtml + dbRowsHtml;
+        syncSelectAllCheckbox();
+        updateBulkPdfMenu();
       }
 
       function methodClass(method){
@@ -2324,9 +2499,10 @@
       async function openPreview(voucher){
         state.previewVoucher = voucher;
         els.previewSubtitle.textContent = `${voucher.voucher_number || "Draft"} - ${voucher.paid_to || ""}`;
-        els.previewBody.innerHTML = voucherHtml(voucher);
+        els.previewBody.innerHTML = `<div class="pcr-preview-viewport"><div class="pcr-preview-inner">${voucherHtml(voucher)}</div></div>`;
         els.previewModal.classList.add("open");
         document.body.style.overflow = "hidden";
+        await waitForImages(els.previewBody);
         await recordVoucherEvent(voucher, "preview");
       }
 
@@ -2605,12 +2781,8 @@
         }
         setBusy(true, "Generating PDF");
         try {
-          const canvas = await captureVoucherForPdf(voucher);
           const pdf = new jsPDFConstructor({ orientation: "portrait", unit: "mm", format: "a4" });
-          const pageW = pdf.internal.pageSize.getWidth();
-          const imgW = pageW;
-          const imgH = imgW * (canvas.height / canvas.width);
-          pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, imgW, imgH, undefined, "FAST");
+          await appendVoucherToPdf(pdf, voucher, true);
           const filename = `${voucher.voucher_number || "payment-voucher"}`.replace(/[^a-zA-Z0-9-_\. ]+/g, "_") + ".pdf";
           pdf.save(filename);
           await recordVoucherEvent(voucher, "pdf");
@@ -2659,7 +2831,10 @@
         els.searchInput.addEventListener("input", renderTable);
         els.dateFrom.addEventListener("change", renderTable);
         els.dateTo.addEventListener("change", renderTable);
-        els.recipientFilter.addEventListener("change", renderTable);
+        els.recipientFilter.addEventListener("change", () => {
+          renderTable();
+          updateBulkPdfMenu();
+        });
         els.methodFilter.addEventListener("change", renderTable);
         els.clearFiltersBtn.addEventListener("click", () => {
           els.searchInput.value = "";
@@ -2680,7 +2855,15 @@
             renderTable();
           });
         });
+        els.tableBody.addEventListener("change", event => {
+          const checkbox = event.target.closest("[data-voucher-select]");
+          if (!checkbox) return;
+          toggleVoucherSelection(checkbox.dataset.voucherSelect, checkbox.checked);
+          syncSelectAllCheckbox();
+          updateBulkPdfMenu();
+        });
         els.tableBody.addEventListener("click", event => {
+          if (event.target.closest("[data-voucher-select]")) return;
           const menuTrigger = event.target.closest("[data-menu-trigger]");
           if (menuTrigger){
             event.stopPropagation();
@@ -2706,7 +2889,29 @@
         });
         document.addEventListener("click", event => {
           if (!event.target.closest(".pcr-row-menu")) closeRowMenus();
+          if (!event.target.closest(".pcr-dropdown")) closeBulkPdfMenu();
         });
+        if (els.selectAllVouchers){
+          els.selectAllVouchers.addEventListener("change", event => {
+            const visibleIds = getVisibleDbVoucherIds();
+            if (event.target.checked) visibleIds.forEach(id => state.selectedVoucherIds.add(id));
+            else visibleIds.forEach(id => state.selectedVoucherIds.delete(id));
+            renderTable();
+          });
+        }
+        if (els.bulkPdfBtn){
+          els.bulkPdfBtn.addEventListener("click", event => {
+            event.stopPropagation();
+            toggleBulkPdfMenu();
+          });
+        }
+        if (els.bulkPdfMenu){
+          els.bulkPdfMenu.addEventListener("click", event => {
+            const button = event.target.closest("[data-bulk-pdf]");
+            if (!button || button.disabled) return;
+            handleBulkPdf(button.dataset.bulkPdf);
+          });
+        }
         els.refreshBtn.addEventListener("click", () => {
           if (isDatabaseAccessible()) loadAll();
         });
