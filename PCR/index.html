@@ -75,14 +75,13 @@
     .pcr-table tbody tr{height:36px}
     .pcr-table tbody tr.pcr-import-row{background:rgba(36,87,214,.04)}
     .pcr-table th button{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:normal;text-align:left;font-size:.68rem}
-    .pcr-table th:nth-child(1){width:34px}
-    .pcr-table th:nth-child(2){width:12%}
-    .pcr-table th:nth-child(3){width:9%}
-    .pcr-table th:nth-child(4){width:20%}
-    .pcr-table th:nth-child(5){width:10%}
+    .pcr-table th:nth-child(1){width:12%}
+    .pcr-table th:nth-child(2){width:9%}
+    .pcr-table th:nth-child(3){width:21%}
+    .pcr-table th:nth-child(4){width:10%}
+    .pcr-table th:nth-child(5){width:12%}
     .pcr-table th:nth-child(6){width:12%}
-    .pcr-table th:nth-child(7){width:12%}
-    .pcr-table th:nth-child(8){width:7%}
+    .pcr-table th:nth-child(7){width:10%}
     .pcr-table .pcr-cell-main{white-space:normal;min-width:0}
     .pcr-table .badge{white-space:nowrap;line-height:1.1;text-align:center;justify-content:center;font-size:.64rem;padding:3px 6px}
     .pcr-table small{display:block;line-height:1.2;overflow-wrap:anywhere;font-size:.66rem}
@@ -99,7 +98,32 @@
     .pcr-menu-panel button.danger:hover{background:rgba(180,35,24,.08)}
     .pcr-import-save{height:26px;padding:0 10px;font-size:.68rem;border-radius:7px}
     .pcr-check-col{width:34px;text-align:center;padding:4px 2px !important}
-    .pcr-check-col input{width:14px;height:14px;margin:0;cursor:pointer;accent-color:var(--primary)}
+    .pcr-check-col.hide{display:none !important}
+    .pcr-check-col input,.pcr-row-check input{width:14px;height:14px;margin:0;cursor:pointer;accent-color:var(--primary)}
+    .pcr-actions-col{text-align:right;vertical-align:middle}
+    .pcr-actions-head,.pcr-actions-inner{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;max-width:100%}
+    .pcr-row-check{display:inline-flex;align-items:center;flex:0 0 auto}
+    .pcr-select-links{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;white-space:nowrap;justify-content:flex-end}
+    .pcr-select-links button{appearance:none;border:0;background:transparent;color:var(--primary);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;font:inherit;font-weight:700}
+    .pcr-select-links button:hover{color:var(--text)}
+    .pcr-select-links .pcr-select-divider{color:var(--muted);font-weight:500;text-decoration:none}
+    .pcr-filter-row{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;padding:4px 0 8px;overflow-x:auto;scrollbar-width:thin}
+    .pcr-filter-row .filter-inline-section{gap:4px;flex:0 0 auto;min-width:0}
+    .pcr-filter-row .filter-inline-section.pcr-filter-search{flex:1 1 140px;min-width:120px;max-width:200px}
+    .pcr-filter-row .filter-inline-label{font-size:.64rem;font-weight:700;letter-spacing:.01em}
+    .pcr-filter-row .filter-inline-input,.pcr-filter-row .select{min-width:0;width:100%;padding:3px 7px;font-size:.71rem;min-height:26px;height:26px;border-radius:7px}
+    .pcr-filter-row .filter-inline-date{min-width:112px;width:112px;padding:2px 4px;font-size:.68rem;height:26px}
+    .pcr-filter-row #recipientFilter{min-width:88px;max-width:118px}
+    .pcr-filter-row #methodFilter{min-width:72px;max-width:92px}
+    .pcr-filter-row .filter-divider{font-size:.85rem;padding:0 1px;flex:0 0 auto}
+    .pcr-filter-row #clearFiltersBtn{padding:3px 8px;font-size:.66rem;min-height:26px;height:26px;flex:0 0 auto;border-radius:7px}
+    @media (max-width:768px){
+      .pcr-filter-row{flex-direction:row;align-items:center;gap:5px;padding:4px 0 8px}
+      .pcr-filter-row .filter-inline-section{flex-wrap:nowrap}
+      .pcr-filter-row .filter-inline-section.pcr-filter-search{flex:1 1 110px;min-width:96px;max-width:160px}
+      .pcr-filter-row .filter-inline-label{min-width:0;font-size:.62rem}
+      .pcr-filter-row .filter-inline-date{min-width:104px;width:104px}
+    }
     .pcr-dropdown{position:relative;display:inline-flex}
     .pcr-dropdown-trigger{font-size:.72rem;padding:6px 10px;min-height:30px;display:inline-flex;align-items:center;gap:6px}
     .pcr-dropdown-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:70;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-strong);padding:4px;display:grid;gap:2px}
@@ -333,27 +357,27 @@
             </div>
           </div>
 
-          <div class="filter-inline-row">
-            <div class="filter-inline-section">
-              <span class="filter-inline-label">Search:</span>
-              <input id="searchInput" class="input filter-inline-input" placeholder="Voucher, recipient, remarks" />
+          <div class="filter-inline-row pcr-filter-row">
+            <div class="filter-inline-section pcr-filter-search">
+              <span class="filter-inline-label">Search</span>
+              <input id="searchInput" class="input filter-inline-input" placeholder="Voucher, recipient…" />
             </div>
             <span class="filter-divider">|</span>
             <div class="filter-inline-section">
-              <span class="filter-inline-label">From:</span>
+              <span class="filter-inline-label">From</span>
               <input id="dateFrom" class="input filter-inline-date" type="date" />
             </div>
             <div class="filter-inline-section">
-              <span class="filter-inline-label">To:</span>
+              <span class="filter-inline-label">To</span>
               <input id="dateTo" class="input filter-inline-date" type="date" />
             </div>
             <span class="filter-divider">|</span>
             <div class="filter-inline-section">
-              <span class="filter-inline-label">Recipient:</span>
+              <span class="filter-inline-label">Recipient</span>
               <select id="recipientFilter" class="select filter-inline-input"><option value="">All</option></select>
             </div>
             <div class="filter-inline-section">
-              <span class="filter-inline-label">Method:</span>
+              <span class="filter-inline-label">Method</span>
               <select id="methodFilter" class="select filter-inline-input">
                 <option value="">All</option>
                 <option>Cash</option>
@@ -369,18 +393,29 @@
             <table class="pcr-table">
               <thead>
                 <tr>
-                  <th class="pcr-check-col"><input id="selectAllVouchers" type="checkbox" aria-label="Select all visible vouchers" /></th>
                   <th><button type="button" data-sort="voucher_number">Voucher <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="voucher_date">Date <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="paid_to">Paid To <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="payment_method">Method <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="amount">Amount <i class="fa-solid fa-sort"></i></button></th>
                   <th><button type="button" data-sort="created_by">Created By <i class="fa-solid fa-sort"></i></button></th>
-                  <th>Actions</th>
+                  <th id="tableActionsHeader" class="pcr-actions-col">
+                    <div class="pcr-actions-head">
+                      <span id="selectModePrompt" class="pcr-select-links">
+                        <button type="button" id="enableSelectBtn">Select</button>
+                        <span class="pcr-select-divider">|</span>
+                        <button type="button" id="enableSelectAllBtn">Select All</button>
+                      </span>
+                      <span id="selectModeActive" class="pcr-select-links hide">
+                        <input id="selectAllVouchers" type="checkbox" aria-label="Select all visible vouchers" />
+                        <button type="button" id="doneSelectBtn">Done</button>
+                      </span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody id="voucherTableBody">
-                <tr><td colspan="8"><div class="pcr-empty">Loading vouchers.</div></td></tr>
+                <tr><td colspan="7"><div class="pcr-empty">Loading vouchers.</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -680,6 +715,11 @@
         bulkPdfDropdown: document.getElementById("bulkPdfDropdown"),
         bulkPdfSelectedCount: document.getElementById("bulkPdfSelectedCount"),
         selectAllVouchers: document.getElementById("selectAllVouchers"),
+        selectModePrompt: document.getElementById("selectModePrompt"),
+        selectModeActive: document.getElementById("selectModeActive"),
+        enableSelectBtn: document.getElementById("enableSelectBtn"),
+        enableSelectAllBtn: document.getElementById("enableSelectAllBtn"),
+        doneSelectBtn: document.getElementById("doneSelectBtn"),
         refreshBtn: document.getElementById("refreshBtn"),
         printLatestBtn: document.getElementById("printLatestBtn"),
         managePinBtn: document.getElementById("managePinBtn"),
@@ -736,6 +776,7 @@
         , pendingImports: []
         , openMenuId: null
         , selectedVoucherIds: new Set()
+        , selectionMode: false
       };
 
       function todayIso(){
@@ -1608,6 +1649,41 @@
         renderRecipientSelectOptions();
       }
 
+      function tableColSpan(){
+        return 7;
+      }
+
+      function syncSelectionHeaderUI(){
+        const active = state.selectionMode;
+        if (els.selectModePrompt) els.selectModePrompt.classList.toggle("hide", active);
+        if (els.selectModeActive) els.selectModeActive.classList.toggle("hide", !active);
+      }
+
+      function enableSelectionMode(selectAll = false){
+        state.selectionMode = true;
+        if (selectAll) getVisibleDbVoucherIds().forEach(id => state.selectedVoucherIds.add(id));
+        else state.selectedVoucherIds.clear();
+        syncSelectionHeaderUI();
+        renderTable();
+      }
+
+      function disableSelectionMode(){
+        state.selectionMode = false;
+        state.selectedVoucherIds.clear();
+        syncSelectionHeaderUI();
+        renderTable();
+      }
+
+      function renderRowCheckbox(voucherId){
+        if (!state.selectionMode || !voucherId) return "";
+        const checked = state.selectedVoucherIds.has(voucherId) ? " checked" : "";
+        return `<span class="pcr-row-check"><input type="checkbox" data-voucher-select="${escapeHtml(voucherId)}"${checked} aria-label="Select voucher" /></span>`;
+      }
+
+      function renderActionsCell(content, voucherId = null){
+        return `<td data-label="Actions" class="pcr-actions-col"><div class="pcr-actions-inner">${renderRowCheckbox(voucherId)}${content}</div></td>`;
+      }
+
       function closeRowMenus(){
         state.openMenuId = null;
         document.querySelectorAll(".pcr-menu-panel.open").forEach(panel => panel.classList.remove("open"));
@@ -2053,9 +2129,11 @@
       }
 
       function renderTable(){
+        syncSelectionHeaderUI();
+        const colSpan = tableColSpan();
         if (isDatabaseLocked()){
           els.databaseCount.textContent = "Locked";
-          els.tableBody.innerHTML = `<tr><td colspan="8"><div class="pcr-empty">Database locked. Enter Smart PIN to load records.</div></td></tr>`;
+          els.tableBody.innerHTML = `<tr><td colspan="${colSpan}"><div class="pcr-empty">Database locked. Enter Smart PIN to load records.</div></td></tr>`;
           updateBulkPdfMenu();
           return;
         }
@@ -2064,46 +2142,39 @@
         const totalCount = rows.length + pending.length;
         els.databaseCount.textContent = `${totalCount} record${totalCount === 1 ? "" : "s"}${pending.length ? ` (${pending.length} import)` : ""}`;
         if (!totalCount){
-          els.tableBody.innerHTML = `<tr><td colspan="8"><div class="pcr-empty">No vouchers found.</div></td></tr>`;
+          els.tableBody.innerHTML = `<tr><td colspan="${colSpan}"><div class="pcr-empty">No vouchers found.</div></td></tr>`;
           syncSelectAllCheckbox();
           updateBulkPdfMenu();
           return;
         }
         const importRowsHtml = pending.map(row => `
           <tr class="pcr-import-row">
-            <td class="pcr-check-col"></td>
             <td data-label="Voucher"><span class="badge orange">Import</span> <strong>${escapeHtml(row.voucher_number || "New")}</strong></td>
             <td data-label="Date">${escapeHtml(formatDate(row.voucher_date))}</td>
             <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(row.paid_to)}</strong>${row.company ? `<br><small>${escapeHtml(row.company)}</small>` : ""}</td>
             <td data-label="Method"><span class="badge ${methodClass(row.payment_method)}">${escapeHtml(row.payment_method || "-")}</span></td>
             <td data-label="Amount"><strong>${escapeHtml(formatMoney(row.amount))}</strong></td>
             <td data-label="Created By">${escapeHtml(row.created_by || "")}</td>
-            <td data-label="Actions">
-              <button class="btn primary pcr-import-save" type="button" data-import-save="${escapeHtml(row.tempId)}"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-            </td>
+            ${renderActionsCell(`<button class="btn primary pcr-import-save" type="button" data-import-save="${escapeHtml(row.tempId)}"><i class="fa-solid fa-floppy-disk"></i> Save</button>`)}
           </tr>
         `).join("");
         const dbRowsHtml = rows.map(voucher => {
           const menuId = `db-${voucher.id}`;
-          const checked = state.selectedVoucherIds.has(voucher.id) ? " checked" : "";
           return `
           <tr>
-            <td class="pcr-check-col" data-label="Select"><input type="checkbox" data-voucher-select="${escapeHtml(voucher.id)}"${checked} aria-label="Select ${escapeHtml(voucher.voucher_number)}" /></td>
             <td data-label="Voucher"><span class="badge blue">${escapeHtml(voucher.voucher_number)}</span></td>
             <td data-label="Date">${escapeHtml(formatDate(voucher.voucher_date))}</td>
             <td data-label="Paid To" class="pcr-cell-main"><strong>${escapeHtml(voucher.paid_to)}</strong>${voucher.company ? `<br><small>${escapeHtml(voucher.company)}</small>` : ""}</td>
             <td data-label="Method"><span class="badge ${methodClass(voucher.payment_method)}">${escapeHtml(voucher.payment_method)}</span></td>
             <td data-label="Amount"><strong>${escapeHtml(formatMoney(voucher.amount))}</strong></td>
             <td data-label="Created By">${escapeHtml(voucher.created_by || "")}</td>
-            <td data-label="Actions">
-              ${renderRowActionMenu(menuId, [
+            ${renderActionsCell(renderRowActionMenu(menuId, [
                 { name: "view", id: voucher.id, label: "View", icon: "fa-regular fa-eye" },
                 { name: "edit", id: voucher.id, label: "Edit", icon: "fa-regular fa-pen-to-square" },
                 { name: "print", id: voucher.id, label: "Print", icon: "fa-solid fa-print" },
                 { name: "pdf", id: voucher.id, label: "PDF", icon: "fa-solid fa-file-pdf" },
                 { name: "delete", id: voucher.id, label: "Delete", className: "danger", icon: "fa-solid fa-trash" }
-              ])}
-            </td>
+              ]), voucher.id)}
           </tr>
         `;
         }).join("");
@@ -2893,12 +2964,16 @@
         });
         if (els.selectAllVouchers){
           els.selectAllVouchers.addEventListener("change", event => {
+            if (!state.selectionMode) return;
             const visibleIds = getVisibleDbVoucherIds();
             if (event.target.checked) visibleIds.forEach(id => state.selectedVoucherIds.add(id));
             else visibleIds.forEach(id => state.selectedVoucherIds.delete(id));
             renderTable();
           });
         }
+        if (els.enableSelectBtn) els.enableSelectBtn.addEventListener("click", () => enableSelectionMode(false));
+        if (els.enableSelectAllBtn) els.enableSelectAllBtn.addEventListener("click", () => enableSelectionMode(true));
+        if (els.doneSelectBtn) els.doneSelectBtn.addEventListener("click", disableSelectionMode);
         if (els.bulkPdfBtn){
           els.bulkPdfBtn.addEventListener("click", event => {
             event.stopPropagation();
