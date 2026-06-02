@@ -22,6 +22,7 @@
   <meta name="recipient-cec-key" content="cec_no" />
   <meta name="recipient-customer-key" content="customer_number" />
   <meta name="vehicle-source-key" content="vehicle_tracking" />
+  <meta name="vehicle-name-key" content="vehicle_name" />
   <meta name="vehicle-plate-key" content="plate_number" />
   <meta name="vehicle-tracker-key" content="tracker" />
   <meta name="vehicle-keys-key" content="keys_available" />
@@ -799,6 +800,7 @@
       const RECIPIENT_CEC_KEY = getMeta("recipient-cec-key") || "cec_no";
       const RECIPIENT_CUSTOMER_KEY = getMeta("recipient-customer-key") || "customer_number";
       const VEHICLE_SOURCE_KEY = getMeta("vehicle-source-key") || "vehicle_tracking";
+      const VEHICLE_NAME_KEY = getMeta("vehicle-name-key") || "vehicle_name";
       const VEHICLE_PLATE_KEY = getMeta("vehicle-plate-key") || "plate_number";
       const VEHICLE_TRACKER_KEY = getMeta("vehicle-tracker-key") || "tracker";
       const VEHICLE_KEYS_KEY = getMeta("vehicle-keys-key") || "keys_available";
@@ -2943,13 +2945,33 @@
         return match || "";
       }
 
+      function vehicleRecordToken(recordId = ""){
+        const cleanId = normalizeDisplay(recordId);
+        if (cleanId) return cleanId;
+        if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+        return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      }
+
+      function vehicleStorageRecipientName(vehicle, recordId = ""){
+        const token = vehicleRecordToken(recordId);
+        const plate = normalizeDisplay(vehicle?.plateNumber) || "No Plate";
+        return `Vehicle Tracking ${plate} ${token}`;
+      }
+
+      function vehicleArchivedRecipientName(vehicle, recordId = ""){
+        const token = vehicleRecordToken(recordId);
+        const plate = normalizeDisplay(vehicle?.plateNumber) || "No Plate";
+        return `Archived Vehicle Tracking ${plate} ${token}`;
+      }
+
       function vehicleRowToModel(row){
         const metadata = readMetadata(row);
         const statusRaw = normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_STATUS_KEY, "status"]));
         const status = VEHICLE_STATUS_OPTIONS.find(option => normalizeName(option) === normalizeName(statusRaw)) || "Available";
         return {
           id: row?.id || "",
-          vehicle: normalizeDisplay(row?.recipient_name),
+          normalized_name: row?.normalized_name || "",
+          vehicle: normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_NAME_KEY, "vehicle_name", "vehicle"]) || row?.recipient_name),
           model: normalizeDisplay(row?.company),
           plateNumber: normalizeDisplay(firstMetadataValue(metadata, [VEHICLE_PLATE_KEY, "plate_number", "plate"])),
           tracker: normalizeVehicleYesNo(firstMetadataValue(metadata, [VEHICLE_TRACKER_KEY, "tracker"])),
@@ -2962,6 +2984,7 @@
 
       function buildVehicleMetadata(vehicle){
         return {
+          [VEHICLE_NAME_KEY]: vehicle.vehicle,
           [VEHICLE_PLATE_KEY]: vehicle.plateNumber,
           [VEHICLE_TRACKER_KEY]: vehicle.tracker,
           [VEHICLE_KEYS_KEY]: vehicle.keys,
@@ -2972,19 +2995,19 @@
         };
       }
 
-      function buildVehicleApiPayload(vehicle, recordId = ""){
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(recordId);
+      function buildVehicleApiPayload(vehicle, recordId = "", options = {}){
+        const storageToken = vehicleRecordToken(recordId);
         const payload = {
-          recipient_name: vehicle.vehicle,
+          recipient_name: vehicleStorageRecipientName(vehicle, storageToken),
+          recipient_type: "other",
           company: vehicle.model,
+          source: VEHICLE_SOURCE_KEY,
+          is_active: true,
           metadata: buildVehicleMetadata(vehicle),
           last_used_at: new Date().toISOString()
         };
-        if (!isUUID){
-          payload.normalized_name = `vehicle-${normalizeName(vehicle.plateNumber)}-${recordId}`;
-          payload.recipient_type = "other";
-          payload.source = VEHICLE_SOURCE_KEY;
-          payload.is_active = true;
+        if (options.insertId) payload.id = options.insertId;
+        if (options.isNew){
           payload.usage_count = 0;
           payload.created_by = getCurrentUser();
         }
@@ -3111,8 +3134,21 @@
       }
 
       async function loadVehicles(){
-        const rows = await api(`${RECIPIENT_TABLE}?select=*&source=eq.${encodeURIComponent(VEHICLE_SOURCE_KEY)}&is_active=eq.true&order=created_at.desc&limit=2000`);
-        state.vehicles = (Array.isArray(rows) ? rows : []).filter(row => !isSmartPinRecord(row)).map(vehicleRowToModel);
+        const rowsById = new Map();
+        const sourceRows = await api(`${RECIPIENT_TABLE}?select=*&source=eq.${encodeURIComponent(VEHICLE_SOURCE_KEY)}&is_active=eq.true&order=created_at.desc&limit=2000`);
+        (Array.isArray(sourceRows) ? sourceRows : []).forEach(row => {
+          if (row?.id) rowsById.set(row.id, row);
+        });
+        try {
+          const metadataRows = await api(`${RECIPIENT_TABLE}?select=*&metadata-%3E%3Ecategory=eq.vehicle_tracking&is_active=eq.true&order=created_at.desc&limit=2000`);
+          (Array.isArray(metadataRows) ? metadataRows : []).forEach(row => {
+            if (row?.id) rowsById.set(row.id, row);
+          });
+        } catch {}
+        const rows = Array.from(rowsById.values()).sort((left, right) => (
+          new Date(right?.created_at || 0).getTime() - new Date(left?.created_at || 0).getTime()
+        ));
+        state.vehicles = rows.filter(row => !isSmartPinRecord(row)).map(vehicleRowToModel);
         renderVehiclesTable();
       }
 
@@ -3128,6 +3164,11 @@
           await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(id)}`, {
             method: "PATCH",
             body: JSON.stringify({
+              recipient_name: vehicleArchivedRecipientName(vehicle, id),
+              metadata: {
+                ...buildVehicleMetadata(vehicle),
+                archived_at: new Date().toISOString()
+              },
               is_active: false
             })
           });
@@ -3155,9 +3196,17 @@
           let deleted = 0;
           for (const id of selectedIds){
             try {
+              const vehicle = (Array.isArray(state.vehicles) ? state.vehicles : []).find(v => v.id === id) || {};
               await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(id)}`, {
                 method: "PATCH",
-                body: JSON.stringify({ is_active: false })
+                body: JSON.stringify({
+                  recipient_name: vehicleArchivedRecipientName(vehicle, id),
+                  metadata: {
+                    ...buildVehicleMetadata(vehicle),
+                    archived_at: new Date().toISOString()
+                  },
+                  is_active: false
+                })
               });
               deleted += 1;
               await new Promise(resolve => setTimeout(resolve, 30));
@@ -3193,7 +3242,7 @@
         }
         setBusy(true, draft.id ? "Updating vehicle" : "Saving vehicle");
         try {
-          const payload = buildVehicleApiPayload(draft, draft.id);
+          const payload = buildVehicleApiPayload(draft, draft.id, { isNew: !draft.id });
           if (draft.id){
             await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(draft.id)}`, {
               method: "PATCH",
@@ -3294,13 +3343,26 @@
           }
           await loadVehicles();
           const byId = new Map(state.vehicles.filter(item => item.id).map(item => [item.id, item]));
+          const importIds = Array.from(new Set(parsed
+            .map(raw => normalizeVehicleImportRow(raw).recordId)
+            .filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+          ));
+          if (importIds.length){
+            try {
+              const idFilter = importIds.map(id => encodeURIComponent(id)).join(",");
+              const rows = await api(`${RECIPIENT_TABLE}?select=*&id=in.(${idFilter})&limit=2000`);
+              (Array.isArray(rows) ? rows : []).forEach(row => {
+                if (row?.id && !isSmartPinRecord(row)) byId.set(row.id, vehicleRowToModel(row));
+              });
+            } catch {}
+          }
           let updated = 0;
           let added = 0;
           let skipped = 0;
           const baseTimestamp = Date.now();
-          const usedNormalizedNames = new Set();
+          const usedStorageNames = new Set();
           for (const existingVehicle of state.vehicles){
-            if (existingVehicle.normalized_name) usedNormalizedNames.add(existingVehicle.normalized_name);
+            if (existingVehicle.normalized_name) usedStorageNames.add(existingVehicle.normalized_name);
           }
           for (let idx = 0; idx < parsed.length; idx++){
             const raw = parsed[idx];
@@ -3314,25 +3376,27 @@
             let existing = null;
             if (isUpdate){
               existing = byId.get(draft.recordId);
-              if (!existing){
-                skipped += 1;
-                continue;
-              }
             }
             let payload;
             if (existing?.id){
               payload = buildVehicleApiPayload(draft, existing.id);
             } else {
-              let uniqueId = `${baseTimestamp}-${idx}-${Math.random().toString(36).substring(2, 11)}`;
-              let normalizedName = `vehicle-${normalizeName(draft.plateNumber)}-${uniqueId}`;
+              const importRecordId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(draft.recordId)
+                ? draft.recordId
+                : "";
+              let storageToken = importRecordId || `${baseTimestamp}-${idx}-${Math.random().toString(36).substring(2, 11)}`;
+              let storageName = normalizeName(vehicleStorageRecipientName(draft, storageToken));
               let attempts = 0;
-              while (usedNormalizedNames.has(normalizedName) && attempts < 5){
-                uniqueId = `${baseTimestamp}-${idx}-${Math.random().toString(36).substring(2, 11)}`;
-                normalizedName = `vehicle-${normalizeName(draft.plateNumber)}-${uniqueId}`;
+              while (usedStorageNames.has(storageName) && attempts < 5){
+                storageToken = `${baseTimestamp}-${idx}-${Math.random().toString(36).substring(2, 11)}`;
+                storageName = normalizeName(vehicleStorageRecipientName(draft, storageToken));
                 attempts += 1;
               }
-              usedNormalizedNames.add(normalizedName);
-              payload = buildVehicleApiPayload(draft, uniqueId);
+              usedStorageNames.add(storageName);
+              payload = buildVehicleApiPayload(draft, storageToken, {
+                isNew: true,
+                insertId: importRecordId
+              });
             }
             try {
               if (existing?.id){
