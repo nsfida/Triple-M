@@ -220,6 +220,8 @@
     .pcr-spinner{width:18px;height:18px;border:3px solid rgba(36,87,214,.16);border-top-color:var(--primary);border-radius:999px;animation:spin 1s linear infinite}
     .pcr-modal{position:fixed;inset:0;z-index:220;display:none;place-items:center;padding:14px}
     .pcr-modal.open{display:grid}
+    /* Ensure preview is always above recipient profile modal */
+    #previewModal{z-index:240}
     .pcr-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(4px)}
     .pcr-modal-dialog{position:relative;width:min(1120px,100%);max-height:calc(100vh - 28px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 25px 50px rgba(16,24,40,.18)}
     .pcr-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 14px 0}
