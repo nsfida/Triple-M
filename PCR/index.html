@@ -549,7 +549,7 @@
                   <th>Status</th>
                   <th>Condition</th>
                   <th>Remarks</th>
-                  <th>Save</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="vehicleTableBody">
@@ -3041,7 +3041,12 @@
             </td>
             <td><input data-field="condition" value="${escapeHtml(vehicle.condition || "")}" placeholder="Condition" /></td>
             <td><input data-field="remarks" value="${escapeHtml(vehicle.remarks || "")}" placeholder="Remarks" /></td>
-            <td><button class="btn primary" type="button" data-vehicle-save>${rowId ? "Update" : "Save"}</button></td>
+            <td>
+              <div style="display:flex;gap:4px;justify-content:flex-end;">
+                <button class="btn primary" type="button" data-vehicle-save>${rowId ? "Update" : "Save"}</button>
+                ${rowId ? `<button class="btn danger" type="button" data-vehicle-delete title="Delete this vehicle"><i class="fa-solid fa-trash"></i></button>` : ""}
+              </div>
+            </td>
           </tr>
         `;
       }
@@ -3098,6 +3103,30 @@
         const rows = await api(`${RECIPIENT_TABLE}?select=*&source=eq.${encodeURIComponent(VEHICLE_SOURCE_KEY)}&is_active=eq.true&order=created_at.desc&limit=2000`);
         state.vehicles = (Array.isArray(rows) ? rows : []).filter(row => !isSmartPinRecord(row)).map(vehicleRowToModel);
         renderVehiclesTable();
+      }
+
+      async function deleteVehicleRow(id){
+        if (!id) return;
+        const vehicle = (Array.isArray(state.vehicles) ? state.vehicles : []).find(v => v.id === id);
+        if (!vehicle) return;
+        const vehicleDisplay = vehicle.vehicle || vehicle.plateNumber || "Unknown";
+        const ok = window.confirm(`Delete vehicle: ${vehicleDisplay}?`);
+        if (!ok) return;
+        setBusy(true, "Deleting vehicle");
+        try {
+          await api(`${RECIPIENT_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              is_active: false
+            })
+          });
+          showToast("Vehicle deleted.");
+          await loadVehicles();
+        } catch (error){
+          showToast(error.message || "Could not delete vehicle.", "error");
+        } finally {
+          setBusy(false);
+        }
       }
 
       async function saveVehicleRow(row){
@@ -4058,9 +4087,16 @@
         if (els.vehicleTableBody){
           els.vehicleTableBody.addEventListener("click", event => {
             const saveBtn = event.target.closest("[data-vehicle-save]");
-            if (!saveBtn) return;
-            const row = saveBtn.closest("tr");
-            if (row) saveVehicleRow(row);
+            if (saveBtn){
+              const row = saveBtn.closest("tr");
+              if (row) saveVehicleRow(row);
+            }
+            const deleteBtn = event.target.closest("[data-vehicle-delete]");
+            if (deleteBtn){
+              const row = deleteBtn.closest("tr");
+              const vehicleId = row?.dataset.vehicleId;
+              if (vehicleId) deleteVehicleRow(vehicleId);
+            }
           });
         }
         if (els.vehicleBackupCsvBtn) els.vehicleBackupCsvBtn.addEventListener("click", downloadVehicleBackupCsv);
