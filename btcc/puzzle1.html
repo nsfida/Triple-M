@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BTC Puzzle 256 Wallet Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --panel-2: #0f1730;
+      --text: #e8ecff;
+      --muted: #9aa6d6;
+      --line: rgba(255,255,255,.10);
+      --accent: #7aa2ff;
+      --good: #7ee787;
+      --warn: #ffcc66;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, var(--bg), #070a14 100%);
+      color: var(--text);
+    }
+    header {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(8px);
+      z-index: 2;
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 6px 0; color: var(--muted); line-height: 1.5; }
+    .wrap { padding: 18px 20px 30px; }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 14px 0 18px;
+      align-items: center;
+    }
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #081024;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #243055;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin: 10px 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(122,162,255,.14);
+      color: #bfd0ff;
+      border: 1px solid rgba(122,162,255,.25);
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.02);
+      box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1200px;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #0f1730;
+      z-index: 1;
+      font-size: 13px;
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      color: #dce3ff;
+    }
+    tbody td {
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      word-break: break-all;
+    }
+    tbody tr:nth-child(even) { background: rgba(255,255,255,.015); }
+    .idx { width: 70px; color: #cfe0ff; font-weight: 700; }
+    .bit { width: 95px; color: #a9f0c2; font-weight: 700; }
+    .small { color: var(--muted); font-size: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .note {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BTC Puzzle 256 Wallet Generator</h1>
+    <p>Generates 256 random secp256k1 keypairs, one for each bit bucket from 1-bit to 256-bit.</p>
+    <p class="small">Private key hex is shown as raw hex. “Compressed” applies to the public key/address derivation.</p>
+  </header>
+
+  <div class="wrap">
+    <div class="controls">
+      <button id="generateBtn">Generate 256 wallets</button>
+      <button id="downloadBtn" class="secondary" disabled>Download CSV</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </div>
+
+    <div class="meta" id="meta">
+      <span class="badge">Ready</span>
+      <span>Curve: secp256k1</span>
+      <span>Address type: P2PKH (Base58Check)</span>
+      <span>Public key: compressed (33 bytes)</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="idx">#</th>
+            <th class="bit">Bit</th>
+            <th>Private Key Hex</th>
+            <th>Public Key (Compressed Hex)</th>
+            <th>Public Address (Compressed)</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr>
+            <td colspan="5" style="padding:18px;color:#9aa6d6;">Click “Generate 256 wallets” to create the list.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      For the 256-bit bucket, the script keeps the value inside the valid secp256k1 private-key range. The 1-bit bucket has only one possible value, so that entry is deterministic.
+    </div>
+  </div>
+
+  <script type="module">
+    import * as secp from "https://esm.sh/@noble/secp256k1";
+
+    const CURVE_N = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+    const rowsEl = document.getElementById("rows");
+    const metaEl = document.getElementById("meta");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    let lastRows = [];
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function hexToBytes(hex) {
+      if (hex.length % 2) hex = "0" + hex;
+      const out = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < out.length; i++) {
+        out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+      }
+      return out;
+    }
+
+    function bigIntToBytes32(num) {
+      let hex = num.toString(16);
+      if (hex.length % 2) hex = "0" + hex;
+      hex = hex.padStart(64, "0");
+      return hexToBytes(hex);
+    }
+
+    function wordArrayFromBytes(bytes) {
+      const words = [];
+      for (let i = 0; i < bytes.length; i++) {
+        words[i >>> 2] |= bytes[i] << (24 - (i % 4) * 8);
+      }
+      return CryptoJS.lib.WordArray.create(words, bytes.length);
+    }
+
+    function bytesFromWordArray(wordArray) {
+      const { words, sigBytes } = wordArray;
+      const bytes = new Uint8Array(sigBytes);
+      for (let i = 0; i < sigBytes; i++) {
+        bytes[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+      }
+      return bytes;
+    }
+
+    function sha256Bytes(bytes) {
+      return bytesFromWordArray(CryptoJS.SHA256(wordArrayFromBytes(bytes)));
+    }
+
+    function hash160(bytes) {
+      const sha = CryptoJS.SHA256(wordArrayFromBytes(bytes));
+      return bytesFromWordArray(CryptoJS.RIPEMD160(sha));
+    }
+
+    function base58Encode(bytes) {
+      let zeroes = 0;
+      while (zeroes < bytes.length && bytes[zeroes] === 0) zeroes++;
+
+      let x = BigInt("0x" + bytesToHex(bytes));
+      let out = "";
+      while (x > 0n) {
+        const mod = Number(x % 58n);
+        x /= 58n;
+        out = ALPHABET[mod] + out;
+      }
+      return "1".repeat(zeroes) + (out || "1");
+    }
+
+    function base58Check(version, payload) {
+      const body = new Uint8Array(1 + payload.length);
+      body[0] = version;
+      body.set(payload, 1);
+      const checksum = sha256Bytes(sha256Bytes(body)).slice(0, 4);
+      const full = new Uint8Array(body.length + 4);
+      full.set(body, 0);
+      full.set(checksum, body.length);
+      return base58Encode(full);
+    }
+
+    function randomBigInt(min, max) {
+      if (max < min) throw new Error("Invalid range");
+      const range = max - min + 1n;
+      const bitLen = range.toString(2).length;
+      const byteLen = Math.ceil(bitLen / 8);
+
+      const limit = (1n << BigInt(byteLen * 8)) - ((1n << BigInt(byteLen * 8)) % range);
+
+      while (true) {
+        const buf = new Uint8Array(byteLen);
+        crypto.getRandomValues(buf);
+
+        let x = 0n;
+        for (const b of buf) x = (x << 8n) + BigInt(b);
+
+        if (x < limit) return min + (x % range);
+      }
+    }
+
+    function randomForBit(bit) {
+      const min = 1n << BigInt(bit - 1);
+      const max = bit === 256 ? (CURVE_N - 1n) : ((1n << BigInt(bit)) - 1n);
+      return randomBigInt(min, max);
+    }
+
+    function p2pkhAddressFromCompressedPubkey(pubkeyBytes) {
+      const h160 = hash160(pubkeyBytes);
+      return base58Check(0x00, h160); // mainnet P2PKH
+    }
+
+    function csvEscape(value) {
+      const s = String(value);
+      return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    }
+
+    function rowsToCsv(rows) {
+      const header = ["Index", "Bit", "PrivateKeyHex", "CompressedPublicKeyHex", "PublicAddress"];
+      const lines = [header.map(csvEscape).join(",")];
+      for (const row of rows) {
+        lines.push([
+          row.index,
+          row.bit,
+          row.privateKeyHex,
+          row.publicKeyHex,
+          row.address
+        ].map(csvEscape).join(","));
+      }
+      return lines.join("\n");
+    }
+
+    function renderRows(rows) {
+      if (!rows.length) {
+        rowsEl.innerHTML = '<tr><td colspan="5" style="padding:18px;color:#9aa6d6;">Click “Generate 256 wallets” to create the list.</td></tr>';
+        return;
+      }
+      rowsEl.innerHTML = rows.map(row => `
+        <tr>
+          <td class="idx">${row.index}</td>
+          <td class="bit">${row.bit}-bit</td>
+          <td class="mono">${row.privateKeyHex}</td>
+          <td class="mono">${row.publicKeyHex}</td>
+          <td class="mono">${row.address}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function generateWalletRows() {
+      const rows = [];
+      for (let bit = 1; bit <= 256; bit++) {
+        const privNum = randomForBit(bit);
+        const privBytes = bigIntToBytes32(privNum);
+        const pubBytes = secp.getPublicKey(privBytes); // compressed 33-byte pubkey
+        const address = p2pkhAddressFromCompressedPubkey(pubBytes);
+
+        rows.push({
+          index: bit,
+          bit,
+          privateKeyHex: bytesToHex(privBytes),
+          publicKeyHex: bytesToHex(pubBytes),
+          address
+        });
+      }
+      return rows;
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", async () => {
+      metaEl.innerHTML = '<span class="badge">Generating…</span><span>Please wait while 256 wallets are created.</span>';
+      downloadBtn.disabled = true;
+      rowsEl.innerHTML = '<tr><td colspan="5" style="padding:18px;color:#9aa6d6;">Generating…</td></tr>';
+
+      try {
+        lastRows = await generateWalletRows();
+        renderRows(lastRows);
+        downloadBtn.disabled = false;
+        metaEl.innerHTML = '<span class="badge">Done</span><span>Generated 256 wallets successfully.</span><span>Public key: compressed (33 bytes)</span><span>Address type: P2PKH (Base58Check)</span>';
+      } catch (err) {
+        console.error(err);
+        metaEl.innerHTML = '<span class="badge">Error</span><span>Generation failed. Check the console for details.</span>';
+        rowsEl.innerHTML = `<tr><td colspan="5" style="padding:18px;color:#ffcc66;">${String(err.message || err)}</td></tr>`;
+      }
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      if (!lastRows.length) return;
+      const csv = rowsToCsv(lastRows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "btc_puzzle_256_wallets.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      lastRows = [];
+      downloadBtn.disabled = true;
+      metaEl.innerHTML = '<span class="badge">Ready</span><span>Curve: secp256k1</span><span>Address type: P2PKH (Base58Check)</span><span>Public key: compressed (33 bytes)</span>';
+      renderRows([]);
+    });
+  </script>
+</body>
+</html>
