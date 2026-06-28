@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gohar Rehman - Professional Driver Resume</title>
+    <style>
+        /*
+            Premium A4 Resume
+            Candidate: Gohar Rehman
+            Format: Single offline HTML file with internal CSS only
+        */
+        /* =========================
+           Design Tokens
+        ========================= */
+        :root {
+            --navy-950: #07182d;
+            --navy-900: #0b213d;
+            --navy-850: #102c4d;
+            --navy-800: #14365e;
+            --navy-700: #1c4c7e;
+            --gold-600: #b99042;
+            --gold-500: #c8a45a;
+            --gold-300: #e6d2a5;
+            --gold-150: #f3ead5;
+            --gray-950: #172033;
+            --gray-800: #2e3a4f;
+            --gray-700: #4a5568;
+            --gray-600: #5d6878;
+            --gray-500: #778294;
+            --gray-350: #b6beca;
+            --gray-250: #d9dee7;
+            --gray-150: #eef1f6;
+            --gray-100: #f6f8fb;
+            --white: #ffffff;
+            --ink: #1f2937;
+            --shadow-soft: 0 18px 48px rgba(7, 24, 45, 0.18);
+            --shadow-card: 0 7px 18px rgba(7, 24, 45, 0.08);
+            --shadow-photo: 0 12px 28px rgba(0, 0, 0, 0.26);
+            --radius-sm: 5px;
+            --radius-md: 8px;
+            --radius-pill: 999px;
+            --page-width: 210mm;
+            --page-height: 297mm;
+            --sidebar-pad-x: 5.7mm;
+            --sidebar-pad-y: 6.4mm;
+            --content-pad-x: 6.4mm;
+            --content-pad-y: 5.8mm;
+            --font-main: Arial, Helvetica, sans-serif;
+            --line-tight: 1.16;
+            --line-normal: 1.34;
+            --line-roomy: 1.48;
+        }
+        /* =========================
+           Base Reset
+        ========================= */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+        html {
+            min-height: 100%;
+            background: #dce2ec;
+            color: var(--ink);
+            font-family: var(--font-main);
+            font-size: 14px;
+            line-height: var(--line-normal);
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+        body {
+            min-height: 100%;
+            margin: 0;
+            background:
+                linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(220, 226, 236, 0.92)),
+                #dce2ec;
+        }
+        img {
+            display: block;
+            max-width: 100%;
+        }
+        h1,
+        h2,
+        h3,
+        p,
+        ul {
+            margin: 0;
+        }
+        ul {
+            padding: 0;
+            list-style: none;
+        }
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+        strong {
+            font-weight: 700;
+        }
+        /* =========================
+           Page Shell
+        ========================= */
+        .print-shell {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+            min-height: 100vh;
+            padding: 18px;
+        }
+        .resume {
+            display: grid;
+            grid-template-columns: 34% 66%;
+            width: var(--page-width);
+            min-height: var(--page-height);
+            overflow: hidden;
+            background: var(--white);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-soft);
+        }
+        /* =========================
+           Sidebar
+        ========================= */
+        .sidebar {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 4.7mm;
+            min-width: 0;
+            padding: var(--sidebar-pad-y) var(--sidebar-pad-x);
+            color: var(--white);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0)),
+                linear-gradient(160deg, var(--navy-950), var(--navy-900) 46%, var(--navy-850));
+        }
+        .sidebar::before {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 1.6mm;
+            height: 100%;
+            background: linear-gradient(180deg, var(--gold-300), var(--gold-600), var(--gold-300));
+            content: "";
+            opacity: 0.94;
+        }
+        .identity {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .photo-frame {
+            width: 33mm;
+            height: 33mm;
+            padding: 1.4mm;
+            border: 1px solid rgba(230, 210, 165, 0.98);
+            border-radius: 50%;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.23), rgba(255, 255, 255, 0.06));
+            box-shadow: var(--shadow-photo);
+        }
+        .photo-frame img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center top;
+            border: 1px solid rgba(255, 255, 255, 0.72);
+        }
+        .name {
+            margin-top: 3.1mm;
+            color: var(--white);
+            font-size: 21px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+        .role {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2.1mm;
+            padding: 1.15mm 2.6mm;
+            color: var(--gold-150);
+            border: 1px solid rgba(230, 210, 165, 0.52);
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.075);
+            font-size: 9.4px;
+            font-weight: 700;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+        .side-section {
+            position: relative;
+            z-index: 1;
+            min-width: 0;
+        }
+        .side-heading {
+            display: flex;
+            align-items: center;
+            gap: 1.6mm;
+            margin-bottom: 2mm;
+            padding-bottom: 1.2mm;
+            color: var(--gold-150);
+            border-bottom: 1px solid rgba(230, 210, 165, 0.35);
+            font-size: 10.3px;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+        .side-heading .icon {
+            display: inline-grid;
+            place-items: center;
+            width: 4.6mm;
+            height: 4.6mm;
+            flex: 0 0 4.6mm;
+            color: var(--navy-950);
+            border-radius: 50%;
+            background: var(--gold-300);
+            font-size: 10px;
+            line-height: 1;
+        }
+        .info-list {
+            display: grid;
+            gap: 1.45mm;
+        }
+        .info-item {
+            display: grid;
+            grid-template-columns: 4.6mm minmax(0, 1fr);
+            gap: 1.7mm;
+            align-items: start;
+            color: rgba(255, 255, 255, 0.91);
+            font-size: 9px;
+            line-height: 1.25;
+        }
+        .info-item .icon {
+            display: inline-grid;
+            place-items: center;
+            width: 4.3mm;
+            height: 4.3mm;
+            color: var(--gold-150);
+            border: 1px solid rgba(230, 210, 165, 0.38);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.07);
+            font-size: 9px;
+            line-height: 1;
+        }
+        .info-label {
+            display: block;
+            margin-bottom: 0.25mm;
+            color: rgba(230, 210, 165, 0.92);
+            font-size: 7.5px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+        .info-value {
+            display: block;
+            overflow-wrap: anywhere;
+        }
+        .language-list {
+            display: grid;
+            gap: 1.55mm;
+        }
+        .language-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 2mm;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.92);
+            font-size: 9.2px;
+            line-height: 1.1;
+        }
+        .language-name {
+            font-weight: 700;
+        }
+        .stars {
+            color: var(--gold-300);
+            font-size: 9.6px;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+        .badge-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.15mm;
+        }
+        .skill-badge,
+        .strength-badge {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            min-height: 4.7mm;
+            padding: 0.9mm 1.65mm;
+            color: rgba(255, 255, 255, 0.93);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.082);
+            font-size: 7.85px;
+            font-weight: 700;
+            line-height: 1.1;
+            overflow-wrap: anywhere;
+        }
+        .strength-badge {
+            color: var(--gold-150);
+            border-color: rgba(230, 210, 165, 0.24);
+            background: rgba(185, 144, 66, 0.15);
+        }
+        /* =========================
+           Main Content
+        ========================= */
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 2.25mm;
+            min-width: 0;
+            padding: var(--content-pad-y) var(--content-pad-x);
+            background:
+                linear-gradient(180deg, rgba(246, 248, 251, 0.95), rgba(255, 255, 255, 1) 38%),
+                var(--white);
+        }
+        .top-line {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 4mm;
+            align-items: center;
+            padding-bottom: 2.25mm;
+            border-bottom: 1px solid var(--gray-250);
+        }
+        .top-kicker {
+            color: var(--gold-600);
+            font-size: 8.6px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+        .top-title {
+            margin-top: 0.9mm;
+            color: var(--navy-950);
+            font-size: 16.2px;
+            font-weight: 800;
+            line-height: 1.08;
+            letter-spacing: 0;
+        }
+        .top-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.35mm;
+            justify-content: flex-end;
+        }
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 5mm;
+            padding: 1mm 2mm;
+            color: var(--navy-900);
+            border: 1px solid var(--gray-250);
+            border-radius: var(--radius-pill);
+            background: var(--white);
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+        .section-card {
+            position: relative;
+            min-width: 0;
+            padding: 2.25mm 2.6mm;
+            border: 1px solid rgba(217, 222, 231, 0.92);
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: var(--shadow-card);
+            transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+        }
+        .section-card::before {
+            position: absolute;
+            top: 2.45mm;
+            bottom: 2.45mm;
+            left: 0;
+            width: 0.8mm;
+            border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+            background: linear-gradient(180deg, var(--gold-300), var(--gold-600));
+            content: "";
+        }
+        .section-card:hover {
+            border-color: rgba(200, 164, 90, 0.62);
+            box-shadow: 0 10px 22px rgba(7, 24, 45, 0.12);
+            transform: translateY(-1px);
+        }
+        .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 1.8mm;
+            margin-bottom: 1.55mm;
+            color: var(--navy-950);
+            font-size: 10.6px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+        .section-heading .icon {
+            display: inline-grid;
+            place-items: center;
+            width: 5mm;
+            height: 5mm;
+            flex: 0 0 5mm;
+            color: var(--navy-950);
+            border: 1px solid rgba(185, 144, 66, 0.42);
+            border-radius: 50%;
+            background: var(--gold-150);
+            font-size: 10px;
+            line-height: 1;
+        }
+        .profile-text {
+            color: var(--gray-800);
+            font-size: 8.4px;
+            line-height: 1.38;
+            text-align: justify;
+        }
+        .timeline {
+            display: grid;
+            gap: 2mm;
+        }
+        .timeline-item {
+            position: relative;
+            display: grid;
+            grid-template-columns: 18mm minmax(0, 1fr);
+            gap: 2.4mm;
+            min-width: 0;
+        }
+        .timeline-date {
+            position: relative;
+            color: var(--navy-950);
+            font-size: 7.8px;
+            font-weight: 800;
+            line-height: 1.15;
+            text-align: right;
+            text-transform: uppercase;
+        }
+        .timeline-date::after {
+            position: absolute;
+            top: 0.7mm;
+            right: -1.7mm;
+            width: 2.6mm;
+            height: 2.6mm;
+            border: 1px solid var(--gold-600);
+            border-radius: 50%;
+            background: var(--white);
+            content: "";
+        }
+        .timeline-body {
+            position: relative;
+            min-width: 0;
+            padding-left: 2mm;
+            border-left: 1px solid var(--gray-250);
+        }
+        .job-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 2mm;
+            align-items: start;
+            margin-bottom: 1.15mm;
+        }
+        .job-title {
+            color: var(--navy-950);
+            font-size: 9.4px;
+            font-weight: 800;
+            line-height: 1.12;
+        }
+        .job-company {
+            margin-top: 0.35mm;
+            color: var(--gray-600);
+            font-size: 8.1px;
+            font-weight: 700;
+            line-height: 1.14;
+        }
+        .job-place {
+            color: var(--gold-600);
+            font-size: 7.8px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-align: right;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .bullet-list {
+            display: grid;
+            gap: 0.75mm 2.4mm;
+        }
+        .bullet-list.two-column {
+            grid-template-columns: 1fr 1fr;
+        }
+        .bullet-list li {
+            position: relative;
+            padding-left: 2.6mm;
+            color: var(--gray-800);
+            font-size: 7.72px;
+            line-height: 1.26;
+        }
+        .bullet-list li::before {
+            position: absolute;
+            top: 1.12mm;
+            left: 0;
+            width: 1.1mm;
+            height: 1.1mm;
+            border-radius: 50%;
+            background: var(--gold-600);
+            content: "";
+        }
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.2mm;
+        }
+        .detail-box {
+            min-width: 0;
+            padding: 2mm;
+            border: 1px solid var(--gray-250);
+            border-radius: var(--radius-sm);
+            background: var(--gray-100);
+        }
+        .detail-title {
+            display: flex;
+            align-items: center;
+            gap: 1.35mm;
+            margin-bottom: 1mm;
+            color: var(--navy-950);
+            font-size: 8.5px;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+        .detail-title .icon {
+            color: var(--gold-600);
+            font-size: 9px;
+            line-height: 1;
+        }
+        .detail-text {
+            color: var(--gray-800);
+            font-size: 7.9px;
+            line-height: 1.32;
+        }
+        .professional-skills {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.35mm;
+        }
+        .skill-group {
+            min-width: 0;
+            padding: 1.55mm;
+            border: 1px solid rgba(217, 222, 231, 0.92);
+            border-radius: var(--radius-sm);
+            background: linear-gradient(180deg, var(--white), var(--gray-100));
+        }
+        .skill-group-title {
+            margin-bottom: 0.8mm;
+            color: var(--navy-950);
+            font-size: 7.8px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+        .skill-group-text {
+            color: var(--gray-700);
+            font-size: 7.1px;
+            line-height: 1.22;
+        }
+        .split-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.2mm;
+        }
+        .micro-list {
+            display: grid;
+            gap: 0.85mm;
+        }
+        .micro-list li {
+            position: relative;
+            padding-left: 2.4mm;
+            color: var(--gray-800);
+            font-size: 7.7px;
+            line-height: 1.26;
+        }
+        .micro-list li::before {
+            position: absolute;
+            top: 1.05mm;
+            left: 0;
+            width: 1mm;
+            height: 1mm;
+            border-radius: 50%;
+            background: var(--gold-500);
+            content: "";
+        }
+        .declaration-text {
+            color: var(--gray-800);
+            font-size: 7.75px;
+            line-height: 1.32;
+        }
+        .signature-line {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 3mm;
+            align-items: end;
+            margin-top: 1.7mm;
+            color: var(--navy-950);
+            font-size: 7.6px;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+        .signature-rule {
+            height: 1px;
+            background: linear-gradient(90deg, var(--gold-600), rgba(185, 144, 66, 0));
+        }
+        /* =========================
+           Responsive Screen Rules
+        ========================= */
+        @media screen and (max-width: 920px) {
+            .print-shell {
+                padding: 12px;
+            }
+            .resume {
+                width: min(100%, var(--page-width));
+            }
+        }
+        @media screen and (max-width: 760px) {
+            html {
+                background: var(--white);
+            }
+            body {
+                background: var(--white);
+            }
+            .print-shell {
+                padding: 0;
+            }
+            .resume {
+                grid-template-columns: 1fr;
+                width: 100%;
+                min-height: 0;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .sidebar {
+                gap: 18px;
+                padding: 24px 18px;
+            }
+            .sidebar::before {
+                width: 100%;
+                height: 3px;
+                top: auto;
+                bottom: 0;
+            }
+            .photo-frame {
+                width: 116px;
+                height: 116px;
+            }
+            .name {
+                font-size: 26px;
+            }
+            .role {
+                font-size: 11px;
+            }
+            .side-heading,
+            .section-heading {
+                font-size: 12px;
+            }
+            .info-item,
+            .language-row,
+            .skill-badge,
+            .strength-badge {
+                font-size: 11px;
+            }
+            .content {
+                padding: 20px 16px 24px;
+            }
+            .top-line,
+            .details-grid,
+            .professional-skills,
+            .split-card {
+                grid-template-columns: 1fr;
+            }
+            .top-meta {
+                justify-content: flex-start;
+            }
+            .timeline-item {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            .timeline-date {
+                text-align: left;
+            }
+            .timeline-date::after {
+                display: none;
+            }
+            .timeline-body {
+                padding-left: 0;
+                border-left: 0;
+            }
+            .bullet-list.two-column {
+                grid-template-columns: 1fr;
+            }
+            .profile-text,
+            .bullet-list li,
+            .detail-text,
+            .skill-group-text,
+            .micro-list li,
+            .declaration-text {
+                font-size: 12px;
+            }
+            .job-title {
+                font-size: 13px;
+            }
+            .job-company,
+            .job-place {
+                font-size: 11px;
+            }
+        }
+        /* =========================
+           Print Rules
+        ========================= */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        @media print {
+            html,
+            body {
+                width: var(--page-width);
+                height: var(--page-height);
+                margin: 0;
+                padding: 0;
+                background: var(--white);
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .print-shell {
+                display: block;
+                width: var(--page-width);
+                height: var(--page-height);
+                margin: 0;
+                padding: 0;
+                background: var(--white);
+            }
+            .resume {
+                width: var(--page-width);
+                height: var(--page-height);
+                min-height: 0;
+                border-radius: 0;
+                box-shadow: none;
+                overflow: hidden;
+                page-break-after: avoid;
+                page-break-before: avoid;
+                page-break-inside: avoid;
+            }
+            .sidebar {
+                gap: 4.25mm;
+                padding: 5.6mm 5.2mm;
+            }
+            .content {
+                gap: 2.05mm;
+                padding: 5.35mm 5.8mm;
+            }
+            .section-card {
+                padding: 2mm 2.35mm;
+                box-shadow: none;
+                break-inside: avoid;
+            }
+            .section-card:hover {
+                border-color: rgba(217, 222, 231, 0.92);
+                box-shadow: none;
+                transform: none;
+            }
+            .top-line {
+                padding-bottom: 1.85mm;
+            }
+            .profile-text {
+                font-size: 8.05px;
+                line-height: 1.34;
+            }
+            .bullet-list li {
+                font-size: 7.28px;
+                line-height: 1.2;
+            }
+            .micro-list li,
+            .detail-text,
+            .declaration-text {
+                font-size: 7.38px;
+                line-height: 1.22;
+            }
+            .skill-group-text {
+                font-size: 7.05px;
+                line-height: 1.22;
+            }
+            a {
+                color: inherit;
+                text-decoration: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Printable A4 document shell -->
+    <div class="print-shell">
+        <main class="resume" aria-label="Resume for Gohar Rehman">
+            <!-- Left sidebar with identity, contact, language, and core capability details -->
+            <aside class="sidebar" aria-label="Candidate details">
+                <!-- Profile photo and headline identity -->
+                <section class="identity" aria-label="Identity">
+                    <div class="photo-frame">
+                        <img src="photo.png" alt="Gohar Rehman profile photo">
+                    </div>
+                    <h1 class="name">Gohar Rehman</h1>
+                    <p class="role">Professional Driver</p>
+                </section>
+                <!-- Contact information -->
+                <section class="side-section" aria-label="Contact information">
+                    <h2 class="side-heading">
+                        <span class="icon" aria-hidden="true">📞</span>
+                        <span>Contact</span>
+                    </h2>
+                    <div class="info-list">
+                        <div class="info-item">
+                            <span class="icon" aria-hidden="true">📍</span>
+                            <span>
+                                <span class="info-label">Address</span>
+                                <span class="info-value">Nowshera, Khyber Pakhtunkhwa, Pakistan</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon" aria-hidden="true">☎</span>
+                            <span>
+                                <span class="info-label">Phone</span>
+                                <span class="info-value">+92 321 9770737</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon" aria-hidden="true">✉</span>
+                            <span>
+                                <span class="info-label">Email</span>
+                                <a class="info-value" href="mailto:Gohar777.gk@gmail.com">Gohar777.gk@gmail.com</a>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon" aria-hidden="true">🌍</span>
+                            <span>
+                                <span class="info-label">Nationality</span>
+                                <span class="info-value">Pakistani</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon" aria-hidden="true">🚗</span>
+                            <span>
+                                <span class="info-label">Driving Licence</span>
+                                <span class="info-value">Saudi Arabian Driving Licence</span>
+                            </span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Language capability with visual ratings -->
+                <section class="side-section" aria-label="Languages">
+                    <h2 class="side-heading">
+                        <span class="icon" aria-hidden="true">🌍</span>
+                        <span>Languages</span>
+                    </h2>
+                    <div class="language-list">
+                        <div class="language-row">
+                            <span class="language-name">English</span>
+                            <span class="stars" aria-label="Five out of five">★★★★★</span>
+                        </div>
+                        <div class="language-row">
+                            <span class="language-name">Arabic</span>
+                            <span class="stars" aria-label="Four out of five">★★★★☆</span>
+                        </div>
+                        <div class="language-row">
+                            <span class="language-name">Urdu</span>
+                            <span class="stars" aria-label="Five out of five">★★★★★</span>
+                        </div>
+                        <div class="language-row">
+                            <span class="language-name">Punjabi</span>
+                            <span class="stars" aria-label="Five out of five">★★★★★</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Core skills shown as compact professional tags -->
+                <section class="side-section" aria-label="Core skills">
+                    <h2 class="side-heading">
+                        <span class="icon" aria-hidden="true">⭐</span>
+                        <span>Core Skills</span>
+                    </h2>
+                    <div class="badge-cloud">
+                        <span class="skill-badge">Professional Driving</span>
+                        <span class="skill-badge">Defensive Driving</span>
+                        <span class="skill-badge">Road Safety</span>
+                        <span class="skill-badge">Vehicle Inspection</span>
+                        <span class="skill-badge">Route Planning</span>
+                        <span class="skill-badge">GPS Navigation</span>
+                        <span class="skill-badge">Customer Service</span>
+                        <span class="skill-badge">Vehicle Maintenance</span>
+                        <span class="skill-badge">Electrical Work</span>
+                        <span class="skill-badge">Civil Technology</span>
+                        <span class="skill-badge">Time Management</span>
+                        <span class="skill-badge">Problem Solving</span>
+                        <span class="skill-badge">Communication</span>
+                        <span class="skill-badge">Teamwork</span>
+                        <span class="skill-badge">Passenger Safety</span>
+                        <span class="skill-badge">Adaptability</span>
+                        <span class="skill-badge">Professional Conduct</span>
+                    </div>
+                </section>
+                <!-- Personal strengths -->
+                <section class="side-section" aria-label="Personal strengths">
+                    <h2 class="side-heading">
+                        <span class="icon" aria-hidden="true">🏆</span>
+                        <span>Strengths</span>
+                    </h2>
+                    <div class="badge-cloud">
+                        <span class="strength-badge">Reliable</span>
+                        <span class="strength-badge">Honest</span>
+                        <span class="strength-badge">Disciplined</span>
+                        <span class="strength-badge">Professional</span>
+                        <span class="strength-badge">Responsible</span>
+                        <span class="strength-badge">Quick Learner</span>
+                        <span class="strength-badge">Positive Attitude</span>
+                        <span class="strength-badge">Calm Under Pressure</span>
+                        <span class="strength-badge">Hardworking</span>
+                        <span class="strength-badge">Flexible</span>
+                    </div>
+                </section>
+            </aside>
+            <!-- Right content area with recruiter-focused resume sections -->
+            <section class="content" aria-label="Resume content">
+                <!-- Executive resume headline -->
+                <header class="top-line">
+                    <div>
+                        <p class="top-kicker">Europass Curriculum Vitae</p>
+                        <h2 class="top-title">Gohar Rehman | Professional Driver</h2>
+                    </div>
+                    <div class="top-meta" aria-label="Quick facts">
+                        <span class="meta-pill">3 Years Driving</span>
+                        <span class="meta-pill">Saudi Licence</span>
+                        <span class="meta-pill">Civil Technology</span>
+                        <span class="meta-pill">Electrical Work</span>
+                    </div>
+                </header>
+                <!-- Professional profile -->
+                <section class="section-card" aria-label="Professional profile">
+                    <h2 class="section-heading">
+                        <span class="icon" aria-hidden="true">👤</span>
+                        <span>Professional Profile</span>
+                    </h2>
+                    <p class="profile-text">
+                        Professional and safety-focused driver with three years of road experience in Saudi Arabia, civil technology education, practical electrical work knowledge, and a strong background in customer service and hospitality. Skilled in defensive driving, route planning, GPS navigation, vehicle inspection, basic maintenance coordination, and strict traffic law compliance. Known for punctuality, reliability, calm decision-making, and respectful communication with passengers, guests, and team members. Brings practical knowledge of long-distance driving, road safety standards, vehicle cleanliness, fuel awareness, and daily readiness checks. Previous hospitality experience with TGI Fridays and McDonald's supports a polished service attitude and professional conduct in fast-paced environments. Prepared to support employers in Saudi Arabia, the UAE, and Europe with disciplined time management, safe passenger transportation, and a dependable work ethic.
+                    </p>
+                </section>
+                <!-- Employment history with vertical timeline -->
+                <section class="section-card" aria-label="Employment history">
+                    <h2 class="section-heading">
+                        <span class="icon" aria-hidden="true">💼</span>
+                        <span>Employment History</span>
+                    </h2>
+                    <div class="timeline">
+                        <article class="timeline-item">
+                            <div class="timeline-date">3 Years</div>
+                            <div class="timeline-body">
+                                <div class="job-head">
+                                    <div>
+                                        <h3 class="job-title">Professional Driver</h3>
+                                        <p class="job-company">Private / Commercial Driving</p>
+                                    </div>
+                                    <p class="job-place">Saudi Arabia</p>
+                                </div>
+                                <ul class="bullet-list two-column">
+                                    <li>Transported passengers safely with disciplined attention to comfort and timing.</li>
+                                    <li>Applied defensive driving habits in city, highway, and long-distance routes.</li>
+                                    <li>Completed daily vehicle inspection for tires, fluids, brakes, lights, and safety items.</li>
+                                    <li>Coordinated routine vehicle maintenance and reported mechanical issues promptly.</li>
+                                    <li>Used GPS navigation and route knowledge to select efficient, reliable journeys.</li>
+                                    <li>Planned trips around traffic, weather, prayer times, appointments, and fuel stops.</li>
+                                    <li>Followed Saudi traffic laws, road signs, speed limits, and parking requirements.</li>
+                                    <li>Maintained passenger safety through careful driving and professional awareness.</li>
+                                    <li>Kept the vehicle clean, presentable, fueled, and ready for daily assignments.</li>
+                                    <li>Managed fuel usage, mileage awareness, and basic journey expense discipline.</li>
+                                    <li>Handled delays, road changes, and minor emergencies calmly and responsibly.</li>
+                                    <li>Represented employers with punctuality, discretion, courtesy, and professional conduct.</li>
+                                </ul>
+                            </div>
+                        </article>
+                        <article class="timeline-item">
+                            <div class="timeline-date">1 Year</div>
+                            <div class="timeline-body">
+                                <div class="job-head">
+                                    <div>
+                                        <h3 class="job-title">Waiter</h3>
+                                        <p class="job-company">TGI Fridays</p>
+                                    </div>
+                                    <p class="job-place">Islamabad</p>
+                                </div>
+                                <ul class="bullet-list two-column">
+                                    <li>Delivered friendly customer service, order taking, food serving, and guest support.</li>
+                                    <li>Worked with team members to maintain smooth service during busy restaurant periods.</li>
+                                    <li>Used POS processes accurately while supporting billing and customer satisfaction.</li>
+                                    <li>Maintained cleanliness, table presentation, hospitality standards, and service discipline.</li>
+                                </ul>
+                            </div>
+                        </article>
+                        <article class="timeline-item">
+                            <div class="timeline-date">Service</div>
+                            <div class="timeline-body">
+                                <div class="job-head">
+                                    <div>
+                                        <h3 class="job-title">Waiter</h3>
+                                        <p class="job-company">McDonald's</p>
+                                    </div>
+                                    <p class="job-place">Islamabad</p>
+                                </div>
+                                <ul class="bullet-list two-column">
+                                    <li>Supported fast-paced service with clear communication and professional customer handling.</li>
+                                    <li>Followed food safety, cleanliness, teamwork, and courteous service expectations.</li>
+                                </ul>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+                <!-- Education and professional capabilities -->
+                <section class="section-card" aria-label="Education and professional skills">
+                    <div class="details-grid">
+                        <div class="detail-box">
+                            <h2 class="detail-title">
+                                <span class="icon" aria-hidden="true">🎓</span>
+                                <span>Education</span>
+                            </h2>
+                            <p class="detail-text">
+                                <strong>Matriculation</strong><br>
+                                Government Centennial Model High School, Akora Khattak<br>
+                                <strong>Diploma of Associate Engineer</strong><br>
+                                Civil Technology, 3 Years &#10003;
+                            </p>
+                        </div>
+                        <div class="detail-box">
+                            <h2 class="detail-title">
+                                <span class="icon" aria-hidden="true">🚗</span>
+                                <span>Driving Experience</span>
+                            </h2>
+                            <p class="detail-text">
+                                Three years of professional driving in Saudi Arabia with strong road awareness, safe passenger transportation, vehicle readiness checks, and route discipline.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+                <!-- Professional skills grouped for ATS and recruiter scanning -->
+                <section class="section-card" aria-label="Professional skills">
+                    <h2 class="section-heading">
+                        <span class="icon" aria-hidden="true">⭐</span>
+                        <span>Professional Skills</span>
+                    </h2>
+                    <div class="professional-skills">
+                        <div class="skill-group">
+                            <h3 class="skill-group-title">Driving</h3>
+                            <p class="skill-group-text">
+                                Defensive driving, passenger safety, GPS navigation, route planning, long-distance driving, traffic law compliance.
+                            </p>
+                        </div>
+                        <div class="skill-group">
+                            <h3 class="skill-group-title">Vehicle Care</h3>
+                            <p class="skill-group-text">
+                                Daily inspection, cleanliness, fuel management, maintenance reporting, readiness checks, emergency awareness.
+                            </p>
+                        </div>
+                        <div class="skill-group">
+                            <h3 class="skill-group-title">Service</h3>
+                            <p class="skill-group-text">
+                                Customer service, communication, hospitality, punctuality, teamwork, problem solving, professional conduct.
+                            </p>
+                        </div>
+                        <div class="skill-group">
+                            <h3 class="skill-group-title">Technical</h3>
+                            <p class="skill-group-text">
+                                Civil technology diploma, practical electrical work, site awareness, basic repairs, careful tool handling.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+                <!-- Hospitality and additional information -->
+                <section class="section-card" aria-label="Hospitality experience and additional information">
+                    <div class="split-card">
+                        <div>
+                            <h2 class="detail-title">
+                                <span class="icon" aria-hidden="true">🏆</span>
+                                <span>Hospitality Experience</span>
+                            </h2>
+                            <p class="detail-text">
+                                Restaurant service experience with TGI Fridays and McDonald's developed strong guest relations, speed, patience, cleanliness awareness, and teamwork under pressure.
+                            </p>
+                        </div>
+                        <div>
+                            <h2 class="detail-title">
+                                <span class="icon" aria-hidden="true">📄</span>
+                                <span>Additional Information</span>
+                            </h2>
+                            <ul class="micro-list">
+                                <li>Available for relocation and international employment.</li>
+                                <li>Able to work flexible schedules, shifts, and long routes.</li>
+                                <li>Strong communication skills and excellent customer relations.</li>
+                                <li>Practical knowledge of electrical work and basic technical support.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+                <!-- Declaration -->
+                <section class="section-card" aria-label="Declaration">
+                    <h2 class="section-heading">
+                        <span class="icon" aria-hidden="true">📄</span>
+                        <span>Declaration</span>
+                    </h2>
+                    <p class="declaration-text">
+                        I declare that the information provided in this resume is true, complete, and accurate to the best of my knowledge. I am prepared to provide supporting documents upon request.
+                    </p>
+                    <div class="signature-line" aria-label="Signature">
+                        <span class="signature-rule"></span>
+                        <span>Gohar Rehman</span>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
