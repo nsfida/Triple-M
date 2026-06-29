@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Professional Resume Builder</title>
+    <style>
+        :root {
+            --navy-950: #07182d;
+            --navy-900: #0b213d;
+            --navy-850: #102c4d;
+            --navy-800: #14365e;
+            --navy-700: #1c4c7e;
+            --gold-600: #b99042;
+            --gold-500: #c8a45a;
+            --gold-300: #e6d2a5;
+            --gold-150: #f3ead5;
+            --gray-800: #2e3a4f;
+            --gray-700: #4a5568;
+            --gray-600: #5d6878;
+            --gray-250: #d9dee7;
+            --gray-100: #f6f8fb;
+            --white: #ffffff;
+            --shadow-card: 0 7px 18px rgba(7, 24, 45, 0.08);
+            --shadow-photo: 0 12px 28px rgba(0, 0, 0, 0.26);
+            --radius-md: 8px;
+            --radius-pill: 999px;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            color: #111827;
+        }
+        img { display: block; max-width: 100%; }
+        h1, h2, h3, p, ul { margin: 0; }
+        ul { padding: 0; list-style: none; }
+        .app-shell { display: grid; grid-template-columns: 430px 1fr; min-height: 100vh; }
+        .form-panel { padding: 24px; border-right: 1px solid #e5e7eb; background: #fff; overflow-y: auto; }
+        .form-panel h1 { margin: 0 0 6px; font-size: 24px; color: #0f172a; }
+        .form-panel p { margin: 0 0 18px; color: #475569; line-height: 1.5; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .btn { border: none; border-radius: 999px; padding: 10px 16px; cursor: pointer; font-weight: 700; transition: transform 180ms ease, box-shadow 180ms ease; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); }
+        .btn-primary { background: linear-gradient(135deg, var(--gold-600), var(--gold-500)); color: #fff; }
+        .btn-secondary { background: #f8fafc; color: #334155; }
+        .form-section { margin-bottom: 16px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: #f8fafc; }
+        .form-section h2 { margin: 0 0 12px; font-size: 15px; color: #0f172a; }
+        .field-grid { display: grid; gap: 10px; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field label { font-size: 12px; font-weight: 700; color: #475569; }
+        .field input, .field textarea, .field select {
+            border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; font: inherit; color: #0f172a; background: #fff;
+        }
+        .field textarea { min-height: 92px; resize: vertical; }
+        .preview-panel { position: relative; padding: 24px; background: linear-gradient(145deg, #f8fafc, #e2e8f0); }
+        .preview-panel::before { content: 'LIVE PREVIEW'; position: absolute; top: 18px; right: 24px; font-size: 12px; font-weight: 700; color: #64748b; letter-spacing: 0.08em; text-transform: uppercase; }
+        .preview-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+        .preview-toolbar strong { font-size: 14px; color: #0f172a; }
+        .resume-wrapper { display: flex; justify-content: center; align-items: flex-start; overflow: auto; padding: 6px 0 12px; }
+        .resume { display: grid; grid-template-columns: 34% 66%; width: 210mm; min-height: 297mm; overflow: hidden; background: #fff; border-radius: 16px; box-shadow: 0 24px 54px rgba(15, 23, 42, 0.16); }
+        .sidebar { position: relative; display: flex; flex-direction: column; gap: 4.7mm; padding: 6.4mm 5.7mm; color: var(--white); background: linear-gradient(160deg, var(--navy-950), var(--navy-900) 46%, var(--navy-850)); }
+        .sidebar::before { position: absolute; top: 0; right: 0; width: 1.6mm; height: 100%; background: linear-gradient(180deg, var(--gold-300), var(--gold-600), var(--gold-300)); content: ''; opacity: 0.94; }
+        .identity { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .photo-frame { width: 33mm; height: 33mm; padding: 1.4mm; border: 1px solid rgba(230,210,165,0.98); border-radius: 50%; background: linear-gradient(145deg, rgba(255,255,255,0.23), rgba(255,255,255,0.06)); box-shadow: var(--shadow-photo); }
+        .photo-frame img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.72); }
+        .avatar-fallback { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, var(--gold-150), var(--gold-300)); color: var(--navy-950); font-size: 28px; font-weight: 800; text-transform: uppercase; }
+        .name { margin-top: 3.1mm; color: var(--white); font-size: 21px; font-weight: 800; line-height: 1; text-transform: uppercase; }
+        .role { display: inline-flex; align-items: center; justify-content: center; margin-top: 2.1mm; padding: 1.15mm 2.6mm; color: var(--gold-150); border: 1px solid rgba(230,210,165,0.52); border-radius: var(--radius-pill); background: rgba(255,255,255,0.075); font-size: 9.4px; font-weight: 700; text-transform: uppercase; }
+        .side-section { position: relative; z-index: 1; }
+        .side-heading { display: flex; align-items: center; gap: 1.6mm; margin-bottom: 2mm; padding-bottom: 1.2mm; color: var(--gold-150); border-bottom: 1px solid rgba(230,210,165,0.35); font-size: 10.3px; font-weight: 800; text-transform: uppercase; }
+        .side-heading .icon { display: inline-grid; place-items: center; width: 4.6mm; height: 4.6mm; flex: 0 0 4.6mm; color: var(--navy-950); border-radius: 50%; background: var(--gold-300); font-size: 10px; }
+        .info-list { display: grid; gap: 1.45mm; }
+        .info-item { display: grid; grid-template-columns: 4.6mm minmax(0,1fr); gap: 1.7mm; align-items: start; color: rgba(255,255,255,0.91); font-size: 9px; line-height: 1.25; }
+        .info-item .icon { display: inline-grid; place-items: center; width: 4.3mm; height: 4.3mm; color: var(--gold-150); border: 1px solid rgba(230,210,165,0.38); border-radius: 50%; background: rgba(255,255,255,0.07); font-size: 9px; }
+        .info-label { display: block; margin-bottom: 0.25mm; color: rgba(230,210,165,0.92); font-size: 7.5px; font-weight: 800; text-transform: uppercase; }
+        .info-value { display: block; overflow-wrap: anywhere; }
+        .language-list { display: grid; gap: 1.55mm; }
+        .language-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2mm; align-items: center; color: rgba(255,255,255,0.92); font-size: 9.2px; }
+        .language-name { font-weight: 700; }
+        .stars { color: var(--gold-300); font-size: 9.6px; white-space: nowrap; }
+        .badge-cloud { display: flex; flex-wrap: wrap; gap: 1.15mm; }
+        .skill-badge, .strength-badge { display: inline-flex; align-items: center; max-width: 100%; min-height: 4.7mm; padding: 0.9mm 1.65mm; color: rgba(255,255,255,0.93); border: 1px solid rgba(255,255,255,0.16); border-radius: var(--radius-pill); background: rgba(255,255,255,0.082); font-size: 7.85px; font-weight: 700; overflow-wrap: anywhere; }
+        .strength-badge { color: var(--gold-150); border-color: rgba(230,210,165,0.24); background: rgba(185,144,66,0.15); }
+        .content { display: flex; flex-direction: column; gap: 2.25mm; padding: 5.35mm 5.8mm; background: linear-gradient(180deg, rgba(246,248,251,0.95), rgba(255,255,255,1) 38%), var(--white); }
+        .top-line { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4mm; align-items: center; padding-bottom: 2.25mm; border-bottom: 1px solid var(--gray-250); }
+        .top-kicker { color: var(--gold-600); font-size: 8.6px; font-weight: 800; text-transform: uppercase; }
+        .top-title { margin-top: 0.9mm; color: var(--navy-950); font-size: 16.2px; font-weight: 800; }
+        .top-meta { display: flex; flex-wrap: wrap; gap: 1.35mm; justify-content: flex-end; }
+        .meta-pill { display: inline-flex; align-items: center; min-height: 5mm; padding: 1mm 2mm; color: var(--navy-900); border: 1px solid var(--gray-250); border-radius: var(--radius-pill); background: var(--white); font-size: 8px; font-weight: 800; white-space: nowrap; }
+        .section-card { position: relative; min-width: 0; padding: 2.25mm 2.6mm; border: 1px solid rgba(217,222,231,0.92); border-radius: var(--radius-md); background: rgba(255,255,255,0.94); box-shadow: var(--shadow-card); }
+        .section-card::before { position: absolute; top: 2.45mm; bottom: 2.45mm; left: 0; width: 0.8mm; border-radius: 0 var(--radius-pill) var(--radius-pill) 0; background: linear-gradient(180deg, var(--gold-300), var(--gold-600)); content: ''; }
+        .section-heading { display: flex; align-items: center; gap: 1.8mm; margin-bottom: 1.55mm; color: var(--navy-950); font-size: 10.6px; font-weight: 800; text-transform: uppercase; }
+        .section-heading .icon { display: inline-grid; place-items: center; width: 5mm; height: 5mm; flex: 0 0 5mm; color: var(--navy-950); border: 1px solid rgba(185,144,66,0.42); border-radius: 50%; background: var(--gold-150); font-size: 10px; }
+        .profile-text { color: var(--gray-800); font-size: 8.4px; line-height: 1.38; text-align: justify; }
+        .timeline { display: grid; gap: 2mm; }
+        .timeline-item { display: grid; grid-template-columns: 18mm minmax(0,1fr); gap: 2.4mm; min-width: 0; }
+        .timeline-date { position: relative; color: var(--navy-950); font-size: 7.8px; font-weight: 800; text-align: right; text-transform: uppercase; }
+        .timeline-date::after { position: absolute; top: 0.7mm; right: -1.7mm; width: 2.6mm; height: 2.6mm; border: 1px solid var(--gold-600); border-radius: 50%; background: var(--white); content: ''; }
+        .timeline-body { position: relative; min-width: 0; padding-left: 2mm; border-left: 1px solid var(--gray-250); }
+        .job-head { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2mm; align-items: start; margin-bottom: 1.15mm; }
+        .job-title { color: var(--navy-950); font-size: 9.4px; font-weight: 800; }
+        .job-company { margin-top: 0.35mm; color: var(--gray-600); font-size: 8.1px; font-weight: 700; }
+        .job-place { color: var(--gold-600); font-size: 7.8px; font-weight: 800; text-align: right; text-transform: uppercase; white-space: nowrap; }
+        .bullet-list { display: grid; gap: 0.75mm 2.4mm; }
+        .bullet-list.two-column { grid-template-columns: 1fr 1fr; }
+        .bullet-list li { position: relative; padding-left: 2.6mm; color: var(--gray-800); font-size: 7.72px; line-height: 1.26; }
+        .bullet-list li::before { position: absolute; top: 1.12mm; left: 0; width: 1.1mm; height: 1.1mm; border-radius: 50%; background: var(--gold-600); content: ''; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.2mm; }
+        .detail-box { min-width: 0; padding: 2mm; border: 1px solid var(--gray-250); border-radius: var(--radius-sm); background: var(--gray-100); }
+        .detail-title { display: flex; align-items: center; gap: 1.35mm; margin-bottom: 1mm; color: var(--navy-950); font-size: 8.5px; font-weight: 800; }
+        .detail-title .icon { color: var(--gold-600); font-size: 9px; }
+        .detail-text { color: var(--gray-800); font-size: 7.9px; line-height: 1.32; }
+        .professional-skills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.35mm; }
+        .skill-group { min-width: 0; padding: 1.55mm; border: 1px solid rgba(217,222,231,0.92); border-radius: var(--radius-sm); background: linear-gradient(180deg, var(--white), var(--gray-100)); }
+        .skill-group-title { margin-bottom: 0.8mm; color: var(--navy-950); font-size: 7.8px; font-weight: 800; text-transform: uppercase; }
+        .skill-group-text { color: var(--gray-700); font-size: 7.1px; line-height: 1.22; }
+        .declaration-text { color: var(--gray-800); font-size: 7.75px; line-height: 1.32; }
+        .signature-line { display: grid; grid-template-columns: 1fr auto; gap: 3mm; align-items: end; margin-top: 1.7mm; color: var(--navy-950); font-size: 7.6px; font-weight: 800; }
+        .signature-rule { height: 1px; background: linear-gradient(90deg, var(--gold-600), rgba(185,144,66,0)); }
+        .page-note { font-size: 13px; color: #475569; }
+        .template-modern { --navy-950:#07182d; --navy-900:#14253d; --navy-850:#243654; --navy-800:#294b72; --navy-700:#336394; --gold-600:#0f766e; --gold-500:#14b8a6; --gold-300:#99f6e4; --gold-150:#ccfbf1; }
+        .template-executive { --navy-950:#111827; --navy-900:#1f2937; --navy-850:#374151; --navy-800:#4b5563; --navy-700:#6b7280; --gold-600:#b45309; --gold-500:#d97706; --gold-300:#fde68a; --gold-150:#fef3c7; }
+        .template-minimal { --navy-950:#1f2937; --navy-900:#4b5563; --navy-850:#6b7280; --navy-800:#9ca3af; --navy-700:#e5e7eb; --gold-600:#6366f1; --gold-500:#818cf8; --gold-300:#c7d2fe; --gold-150:#eef2ff; }
+        .page-count-2 .content { min-height: 150mm; }
+        @media screen and (max-width: 1100px) { .app-shell { grid-template-columns: 1fr; } .form-panel { border-right: none; border-bottom: 1px solid #e5e7eb; } .preview-panel { padding: 20px; } }
+        @media screen and (max-width: 760px) { .form-panel, .preview-panel { padding: 16px; } .resume { width: 100%; min-height: 0; grid-template-columns: 1fr; } .content { padding: 18px 16px; } .sidebar { padding: 20px 16px; } .professional-skills, .details-grid, .bullet-list.two-column { grid-template-columns: 1fr; } .timeline-item { grid-template-columns: 1fr; gap: 6px; } .timeline-date { text-align: left; } .timeline-date::after { display: none; } .timeline-body { padding-left: 0; border-left: none; } }
+        @media print { body { background: #fff; } .app-shell { display: block; padding: 0; } .form-panel, .preview-toolbar, .preview-panel::before { display: none !important; } .preview-panel { padding: 0; } .resume { width: 210mm; min-height: 297mm; box-shadow: none; border-radius: 0; } .section-card { break-inside: avoid; } }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="form-panel">
+            <h1>Professional Resume Builder</h1>
+            <p>Create a polished CV with a professional layout, live preview, and a one-click PDF export.</p>
+            <div class="toolbar">
+                <button class="btn btn-primary" id="pdfButton" type="button">Save PDF</button>
+                <button class="btn btn-secondary" id="resetButton" type="button">Reset</button>
+            </div>
+            <form id="resumeForm">
+                <div class="form-section">
+                    <h2>Personal Details</h2>
+                    <div class="field-grid">
+                        <div class="field"><label for="fullName">Full name</label><input id="fullName" name="fullName" value="Alicia Morgan" /></div>
+                        <div class="field"><label for="phone">Phone number</label><input id="phone" name="phone" value="+1 555 0123" /></div>
+                        <div class="field"><label for="email">Email</label><input id="email" name="email" value="alicia.morgan@email.com" /></div>
+                        <div class="field"><label for="address">Address</label><input id="address" name="address" value="New York, USA" /></div>
+                        <div class="field"><label for="photoUrl">Photo URL</label><input id="photoUrl" name="photoUrl" placeholder="https://..." /></div>
+                        <div class="field"><label for="title">Professional title</label><input id="title" name="title" value="Operations Manager" /></div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h2>Resume Content</h2>
+                    <div class="field-grid">
+                        <div class="field"><label for="summary">Professional summary</label><textarea id="summary" name="summary">Results-focused operations leader with 8+ years of experience improving workflows, leading teams, and delivering measurable growth in fast-paced environments.</textarea></div>
+                        <div class="field"><label for="experience">Work experience</label><textarea id="experience" name="experience">Operations Manager • Northstar Logistics
+• Led multi-department operations across 3 sites.
+• Improved delivery performance by 22% through better planning.
+• Managed budgets, training, and vendor relationships.
+
+Senior Team Lead • BrightPeak Services
+• Guided a team of 18 staff members with strong coaching and accountability.
+• Reduced process delays and improved reporting accuracy.</textarea></div>
+                        <div class="field"><label for="education">Education</label><textarea id="education" name="education">MBA, Business Administration
+University of Chicago
+B.Sc. in Management Studies
+State University</textarea></div>
+                        <div class="field"><label for="skills">Skills</label><textarea id="skills" name="skills">Leadership, Operations Strategy, Team Development, Budgeting, Process Improvement, CRM, Data Analysis</textarea></div>
+                        <div class="field"><label for="strengths">Strengths</label><textarea id="strengths" name="strengths">Reliable, Organized, Calm under pressure, Excellent communicator, Detail oriented</textarea></div>
+                        <div class="field"><label for="languages">Languages</label><textarea id="languages" name="languages">English — Advanced
+Spanish — Intermediate
+French — Conversational</textarea></div>
+                        <div class="field"><label for="extra">Additional details</label><textarea id="extra" name="extra">Available for remote and hybrid leadership roles. Strong record in cross-functional collaboration and executive reporting.</textarea></div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <h2>Output Style</h2>
+                    <div class="field-grid">
+                        <div class="field"><label for="template">Choose design</label><select id="template" name="template"><option value="classic">Classic Premium</option><option value="modern">Modern Executive</option><option value="executive">Bold Executive</option><option value="minimal">Minimal Clean</option></select></div>
+                        <div class="field"><label for="pageCount">How many pages?</label><select id="pageCount" name="pageCount"><option value="1">1 Page</option><option value="2">2 Pages</option></select></div>
+                    </div>
+                </div>
+            </form>
+        </aside>
+        <main class="preview-panel">
+            <div class="preview-toolbar"><strong>Resume preview</strong><span class="page-note" id="pageHint">Your resume will be exported as a professional PDF.</span></div>
+            <div class="resume-wrapper">
+                <div class="resume" id="resumePreview" data-pages="1">
+                    <aside class="sidebar" aria-label="Candidate details">
+                        <section class="identity" aria-label="Identity">
+                            <div class="photo-frame" id="photoFrame"><div class="avatar-fallback" id="avatarFallback">AM</div></div>
+                            <h1 class="name" id="previewName">Alicia Morgan</h1>
+                            <p class="role" id="previewTitle">Operations Manager</p>
+                        </section>
+                        <section class="side-section" aria-label="Contact information">
+                            <h2 class="side-heading"><span class="icon">📞</span><span>Contact</span></h2>
+                            <div class="info-list">
+                                <div class="info-item"><span class="icon">📍</span><span><span class="info-label">Address</span><span class="info-value" id="previewAddress">New York, USA</span></span></div>
+                                <div class="info-item"><span class="icon">☎</span><span><span class="info-label">Phone</span><span class="info-value" id="previewPhone">+1 555 0123</span></span></div>
+                                <div class="info-item"><span class="icon">✉</span><span><span class="info-label">Email</span><span class="info-value" id="previewEmail">alicia.morgan@email.com</span></span></div>
+                            </div>
+                        </section>
+                        <section class="side-section" aria-label="Languages">
+                            <h2 class="side-heading"><span class="icon">🌍</span><span>Languages</span></h2>
+                            <div class="language-list" id="previewLanguages"></div>
+                        </section>
+                        <section class="side-section" aria-label="Core skills">
+                            <h2 class="side-heading"><span class="icon">⭐</span><span>Core Skills</span></h2>
+                            <div class="badge-cloud" id="previewSkills"></div>
+                        </section>
+                        <section class="side-section" aria-label="Strengths">
+                            <h2 class="side-heading"><span class="icon">🏆</span><span>Strengths</span></h2>
+                            <div class="badge-cloud" id="previewStrengths"></div>
+                        </section>
+                    </aside>
+                    <section class="content" aria-label="Resume content">
+                        <header class="top-line">
+                            <div>
+                                <p class="top-kicker">Professional CV</p>
+                                <h2 class="top-title" id="previewHeadline">Alicia Morgan | Operations Manager</h2>
+                            </div>
+                            <div class="top-meta" aria-label="Quick facts">
+                                <span class="meta-pill" id="pageMeta">1 Page</span>
+                                <span class="meta-pill" id="designMeta">Classic Premium</span>
+                            </div>
+                        </header>
+                        <section class="section-card" aria-label="Professional profile">
+                            <h2 class="section-heading"><span class="icon">👤</span><span>Professional Profile</span></h2>
+                            <p class="profile-text" id="previewSummary"></p>
+                        </section>
+                        <section class="section-card" aria-label="Experience">
+                            <h2 class="section-heading"><span class="icon">💼</span><span>Work Experience</span></h2>
+                            <div class="timeline" id="previewExperience"></div>
+                        </section>
+                        <section class="section-card" aria-label="Education and achievements">
+                            <div class="details-grid">
+                                <div class="detail-box">
+                                    <h2 class="detail-title"><span class="icon">🎓</span><span>Education</span></h2>
+                                    <p class="detail-text" id="previewEducation"></p>
+                                </div>
+                                <div class="detail-box">
+                                    <h2 class="detail-title"><span class="icon">📌</span><span>Additional Details</span></h2>
+                                    <p class="detail-text" id="previewExtra"></p>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="section-card" aria-label="Professional skills">
+                            <h2 class="section-heading"><span class="icon">⭐</span><span>Professional Skills</span></h2>
+                            <div class="professional-skills" id="previewSkillGroups"></div>
+                        </section>
+                        <section class="section-card" aria-label="Declaration">
+                            <h2 class="section-heading"><span class="icon">📄</span><span>Declaration</span></h2>
+                            <p class="declaration-text">I declare that the information in this resume is true, current, and accurate to the best of my knowledge.</p>
+                            <div class="signature-line"><span class="signature-rule"></span><span id="previewSignature">Alicia Morgan</span></div>
+                        </section>
+                    </section>
+                </div>
+            </div>
+            <p class="preview-note">Tip: use the Save PDF button to open your browser’s print dialog and export the resume as a polished PDF.</p>
+        </main>
+    </div>
+    <script>
+        const form = document.getElementById('resumeForm');
+        const preview = document.getElementById('resumePreview');
+        const pdfButton = document.getElementById('pdfButton');
+        const resetButton = document.getElementById('resetButton');
+        const defaults = {
+            fullName: 'Alicia Morgan',
+            phone: '+1 555 0123',
+            email: 'alicia.morgan@email.com',
+            address: 'New York, USA',
+            photoUrl: '',
+            title: 'Operations Manager',
+            summary: 'Results-focused operations leader with 8+ years of experience improving workflows, leading teams, and delivering measurable growth in fast-paced environments.',
+            experience: 'Operations Manager • Northstar Logistics\n• Led multi-department operations across 3 sites.\n• Improved delivery performance by 22% through better planning.\n• Managed budgets, training, and vendor relationships.\n\nSenior Team Lead • BrightPeak Services\n• Guided a team of 18 staff members with strong coaching and accountability.\n• Reduced process delays and improved reporting accuracy.',
+            education: 'MBA, Business Administration\nUniversity of Chicago\nB.Sc. in Management Studies\nState University',
+            skills: 'Leadership, Operations Strategy, Team Development, Budgeting, Process Improvement, CRM, Data Analysis',
+            strengths: 'Reliable, Organized, Calm under pressure, Excellent communicator, Detail oriented',
+            languages: 'English — Advanced\nSpanish — Intermediate\nFrench — Conversational',
+            extra: 'Available for remote and hybrid leadership roles. Strong record in cross-functional collaboration and executive reporting.',
+            template: 'classic',
+            pageCount: '1'
+        };
+        function splitList(value) { return value.split(/\n|,/).map(item => item.trim()).filter(Boolean); }
+        function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
+        function buildLanguageRows(value) {
+            const container = document.getElementById('previewLanguages');
+            container.innerHTML = '';
+            splitList(value).forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'language-row';
+                const name = item.replace(/—.*$/, '').trim();
+                const level = item.includes('—') ? item.split('—')[1].trim() : 'Fluent';
+                const stars = level.toLowerCase().includes('advanced') ? '★★★★★' : level.toLowerCase().includes('intermediate') ? '★★★★☆' : '★★★☆☆';
+                row.innerHTML = `<span class="language-name">${name}</span><span class="stars">${stars}</span>`;
+                container.appendChild(row);
+            });
+        }
+        function buildChips(containerId, items, className) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            items.forEach(item => {
+                const chip = document.createElement('span');
+                chip.className = className;
+                chip.textContent = item;
+                container.appendChild(chip);
+            });
+        }
+        function buildExperience(value) {
+            const container = document.getElementById('previewExperience');
+            container.innerHTML = '';
+            const blocks = value.split(/\n\n+/).filter(Boolean);
+            blocks.forEach(block => {
+                const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+                if (!lines.length) return;
+                const firstLine = lines[0];
+                const title = firstLine.includes('•') ? firstLine.split('•')[0].trim() : firstLine;
+                const org = firstLine.includes('•') ? firstLine.split('•').slice(1).join('•').trim() : 'Professional';
+                const item = document.createElement('article');
+                item.className = 'timeline-item';
+                const date = document.createElement('div');
+                date.className = 'timeline-date';
+                date.textContent = org;
+                const body = document.createElement('div');
+                body.className = 'timeline-body';
+                const head = document.createElement('div');
+                head.className = 'job-head';
+                const info = document.createElement('div');
+                const jobTitle = document.createElement('h3');
+                jobTitle.className = 'job-title';
+                jobTitle.textContent = title;
+                info.appendChild(jobTitle);
+                const company = document.createElement('p');
+                company.className = 'job-company';
+                company.textContent = org;
+                info.appendChild(company);
+                head.appendChild(info);
+                const place = document.createElement('p');
+                place.className = 'job-place';
+                place.textContent = 'Professional';
+                head.appendChild(place);
+                body.appendChild(head);
+                const list = document.createElement('ul');
+                list.className = 'bullet-list two-column';
+                lines.slice(1).forEach(line => {
+                    const li = document.createElement('li');
+                    li.textContent = line.replace(/^[-•]\s*/, '');
+                    list.appendChild(li);
+                });
+                body.appendChild(list);
+                item.appendChild(date);
+                item.appendChild(body);
+                container.appendChild(item);
+            });
+        }
+        function buildSkillGroups(skills) {
+            const container = document.getElementById('previewSkillGroups');
+            container.innerHTML = '';
+            const groups = [
+                ['Leadership', skills.slice(0, 2).join(', ')],
+                ['Operations', skills.slice(2, 4).join(', ')],
+                ['Execution', skills.slice(4, 6).join(', ')],
+                ['Growth', skills.slice(6).join(', ')]
+            ];
+            groups.forEach(([title, text]) => {
+                const group = document.createElement('div');
+                group.className = 'skill-group';
+                group.innerHTML = `<h3 class="skill-group-title">${title}</h3><p class="skill-group-text">${text}</p>`;
+                container.appendChild(group);
+            });
+        }
+        function renderResume() {
+            const data = Object.fromEntries(new FormData(form).entries());
+            const fullName = data.fullName || defaults.fullName;
+            const title = data.title || defaults.title;
+            const pageCount = data.pageCount || defaults.pageCount;
+            const template = data.template || defaults.template;
+            preview.classList.remove('template-modern', 'template-executive', 'template-minimal');
+            preview.classList.add(`template-${template === 'classic' ? 'classic' : template}`);
+            preview.classList.toggle('page-count-2', pageCount === '2');
+            document.getElementById('previewHeadline').textContent = `${fullName} | ${title}`;
+            setText('previewName', fullName);
+            setText('previewTitle', title);
+            setText('previewAddress', data.address || defaults.address);
+            setText('previewPhone', data.phone || defaults.phone);
+            setText('previewEmail', data.email || defaults.email);
+            setText('previewSummary', data.summary || defaults.summary);
+            document.getElementById('previewEducation').innerHTML = (data.education || defaults.education).replace(/\n/g, '<br>');
+            document.getElementById('previewExtra').innerHTML = (data.extra || defaults.extra).replace(/\n/g, '<br>');
+            setText('previewSignature', fullName);
+            document.getElementById('pageMeta').textContent = pageCount === '2' ? '2 Pages' : '1 Page';
+            document.getElementById('designMeta').textContent = template === 'classic' ? 'Classic Premium' : template === 'modern' ? 'Modern Executive' : template === 'executive' ? 'Bold Executive' : 'Minimal Clean';
+            document.getElementById('pageHint').textContent = pageCount === '2' ? 'This layout is suited for a two-page professional resume.' : 'This layout is optimized for a polished one-page CV.';
+            const photoFrame = document.getElementById('photoFrame');
+            if (data.photoUrl) {
+                photoFrame.innerHTML = `<img src="${data.photoUrl}" alt="Profile photo">`;
+            } else {
+                photoFrame.innerHTML = '<div class="avatar-fallback">' + fullName.split(' ').slice(0, 2).map(word => word[0]).join('').toUpperCase() + '</div>';
+            }
+            buildLanguageRows(data.languages || defaults.languages);
+            const skills = splitList(data.skills || defaults.skills);
+            const strengths = splitList(data.strengths || defaults.strengths);
+            buildChips('previewSkills', skills, 'skill-badge');
+            buildChips('previewStrengths', strengths, 'strength-badge');
+            buildExperience(data.experience || defaults.experience);
+            buildSkillGroups(skills);
+        }
+        form.addEventListener('input', renderResume);
+        form.addEventListener('change', renderResume);
+        pdfButton.addEventListener('click', () => window.print());
+        resetButton.addEventListener('click', () => {
+            form.reset();
+            Object.entries(defaults).forEach(([key, value]) => {
+                const field = form.elements.namedItem(key);
+                if (field) field.value = value;
+            });
+            renderResume();
+        });
+        renderResume();
+    </script>
+</body>
+</html>
