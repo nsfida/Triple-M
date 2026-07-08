@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professional property inspection survey application">
+    <title>Property Survey</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden" aria-hidden="true">
+        <div class="loading-spinner"></div>
+        <p id="loading-message" class="loading-message">Processing…</p>
+        <div class="progress-bar-container hidden" id="progress-container">
+            <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+        <p id="progress-text" class="progress-text"></p>
+    </div>
+
+    <!-- ========== HEADER ========== -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                <span class="logo-text">Property Survey</span>
+            </div>
+            <nav class="header-nav">
+                <button type="button" id="btn-new-survey" class="btn btn-ghost hidden">New Survey</button>
+                <button type="button" id="btn-admin" class="btn btn-outline">Admin</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ========== SURVEY VIEW ========== -->
+    <main id="survey-view" class="main-content">
+
+        <div class="page-hero">
+            <div class="hero-badges">
+                <span class="hero-pill">Digital property inspections</span>
+                <span class="hero-pill">Photo attachments included</span>
+            </div>
+            <h1>Property Inspection Survey</h1>
+            <p>Complete all sections below and submit when finished.</p>
+        </div>
+
+        <form id="survey-form" novalidate>
+
+            <!-- GENERAL INFORMATION -->
+            <section class="form-section" data-section="general">
+                <button type="button" class="section-toggle" aria-expanded="true">
+                    <span class="section-title">General Information</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="section-body">
+                    <div class="field-grid">
+                        <div class="field-group">
+                            <label for="customer_name">Customer Name <span class="required">*</span></label>
+                            <input type="text" id="customer_name" name="customer_name" required autocomplete="name">
+                        </div>
+                        <div class="field-group">
+                            <label for="customer_phone">Customer Phone</label>
+                            <input type="tel" id="customer_phone" name="customer_phone" autocomplete="tel">
+                        </div>
+                        <div class="field-group">
+                            <label for="customer_email">Customer Email</label>
+                            <input type="email" id="customer_email" name="customer_email" autocomplete="email">
+                        </div>
+                        <div class="field-group field-full">
+                            <label for="property_address">Property Address <span class="required">*</span></label>
+                            <input type="text" id="property_address" name="property_address" required autocomplete="street-address">
+                        </div>
+                        <div class="field-group">
+                            <label for="survey_date">Survey Date <span class="required">*</span></label>
+                            <input type="date" id="survey_date" name="survey_date" required>
+                        </div>
+                        <div class="field-group">
+                            <label for="inspection_time">Inspection Time</label>
+                            <input type="time" id="inspection_time" name="inspection_time">
+                        </div>
+                        <div class="field-group">
+                            <label for="inspector_name">Inspector Name <span class="required">*</span></label>
+                            <input type="text" id="inspector_name" name="inspector_name" required>
+                        </div>
+                        <div class="field-group">
+                            <label for="property_type">Property Type <span class="required">*</span></label>
+                            <select id="property_type" name="property_type" required>
+                                <option value="">Select type…</option>
+                                <option value="Apartment">Apartment</option>
+                                <option value="Villa">Villa</option>
+                                <option value="Office">Office</option>
+                                <option value="Warehouse">Warehouse</option>
+                                <option value="Retail">Retail</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label for="num_bedrooms">Number of Bedrooms</label>
+                            <input type="number" id="num_bedrooms" name="num_bedrooms" min="0" max="50" value="0">
+                        </div>
+                        <div class="field-group">
+                            <label for="num_bathrooms">Number of Bathrooms</label>
+                            <input type="number" id="num_bathrooms" name="num_bathrooms" min="0" max="50" value="0">
+                        </div>
+                        <div class="field-group">
+                            <label for="occupancy_status">Occupancy</label>
+                            <select id="occupancy_status" name="occupancy_status">
+                                <option value="">Select…</option>
+                                <option value="Occupied">Occupied</option>
+                                <option value="Vacant">Vacant</option>
+                                <option value="Tenant">Tenant</option>
+                                <option value="Owner">Owner</option>
+                            </select>
+                        </div>
+                        <div class="field-group field-full">
+                            <label for="general_notes">Notes</label>
+                            <textarea id="general_notes" name="general_notes" rows="3" placeholder="General notes about the property…"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dynamic inspection sections rendered by script.js -->
+            <div id="inspection-sections"></div>
+
+            <!-- FINAL SUMMARY -->
+            <section class="form-section" data-section="final_summary">
+                <button type="button" class="section-toggle" aria-expanded="true">
+                    <span class="section-title">Final Summary</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="section-body">
+                    <div class="field-grid">
+                        <div class="field-group">
+                            <label for="overall_condition">Overall Property Condition <span class="required">*</span></label>
+                            <select id="overall_condition" name="overall_condition" required>
+                                <option value="">Select…</option>
+                                <option value="Excellent">Excellent</option>
+                                <option value="Good">Good</option>
+                                <option value="Average">Average</option>
+                                <option value="Poor">Poor</option>
+                                <option value="Unsafe">Unsafe</option>
+                            </select>
+                        </div>
+                        <div class="field-group field-full">
+                            <label for="major_issues">Major Issues</label>
+                            <textarea id="major_issues" name="major_issues" rows="3"></textarea>
+                        </div>
+                        <div class="field-group field-full">
+                            <label for="recommendations">Recommendations</label>
+                            <textarea id="recommendations" name="recommendations" rows="3"></textarea>
+                        </div>
+                        <div class="field-group field-full">
+                            <label for="additional_notes">Additional Notes</label>
+                            <textarea id="additional_notes" name="additional_notes" rows="3"></textarea>
+                        </div>
+                        <div class="field-group">
+                            <label for="customer_signature">Customer Signature</label>
+                            <canvas id="customer_signature" class="signature-pad" width="400" height="150" aria-label="Customer signature pad"></canvas>
+                            <button type="button" class="btn btn-sm btn-ghost sig-clear" data-target="customer_signature">Clear</button>
+                        </div>
+                        <div class="field-group">
+                            <label for="inspector_signature">Inspector Signature</label>
+                            <canvas id="inspector_signature" class="signature-pad" width="400" height="150" aria-label="Inspector signature pad"></canvas>
+                            <button type="button" class="btn btn-sm btn-ghost sig-clear" data-target="inspector_signature">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sticky submit bar -->
+            <div class="submit-bar">
+                <div class="submit-bar-inner">
+                    <p class="draft-notice" id="draft-notice">Draft saved locally</p>
+                    <button type="submit" id="btn-submit" class="btn btn-primary btn-lg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        Submit Survey
+                    </button>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <!-- ========== ADMIN VIEW ========== -->
+    <main id="admin-view" class="main-content hidden">
+
+        <div class="page-hero admin-hero">
+            <h1>Admin Dashboard</h1>
+            <p>Manage submitted property surveys.</p>
+        </div>
+
+        <!-- Search & filters -->
+        <div class="admin-toolbar card">
+            <div class="search-grid">
+                <div class="field-group">
+                    <label for="search-customer">Customer Name</label>
+                    <input type="text" id="search-customer" placeholder="Search…">
+                </div>
+                <div class="field-group">
+                    <label for="search-address">Property Address</label>
+                    <input type="text" id="search-address" placeholder="Search…">
+                </div>
+                <div class="field-group">
+                    <label for="search-date">Survey Date</label>
+                    <input type="date" id="search-date">
+                </div>
+                <div class="field-group">
+                    <label for="search-inspector">Inspector Name</label>
+                    <input type="text" id="search-inspector" placeholder="Search…">
+                </div>
+                <div class="field-group">
+                    <label for="search-type">Property Type</label>
+                    <select id="search-type">
+                        <option value="">All types</option>
+                        <option value="Apartment">Apartment</option>
+                        <option value="Villa">Villa</option>
+                        <option value="Office">Office</option>
+                        <option value="Warehouse">Warehouse</option>
+                        <option value="Retail">Retail</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="toolbar-actions">
+                <button type="button" id="btn-clear-search" class="btn btn-ghost">Clear Filters</button>
+                <button type="button" id="btn-export-csv" class="btn btn-outline">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Survey list -->
+        <div id="admin-survey-list" class="admin-survey-list">
+            <div class="empty-state" id="admin-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <p>No surveys found.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========== ADMIN KEY MODAL ========== -->
+    <div id="admin-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+        <div class="modal-backdrop" id="admin-modal-backdrop"></div>
+        <div class="modal-content card">
+            <h2 id="admin-modal-title">Admin Access</h2>
+            <p>Enter the admin secret key to access the dashboard. Demo access is <strong>PropertySurveyAdmin2026!</strong>.</p>
+            <div class="field-group">
+                <label for="admin-key-input">Secret Key</label>
+                <input type="password" id="admin-key-input" maxlength="64" autocomplete="off" placeholder="64-character secret key">
+            </div>
+            <p id="admin-key-error" class="error-text hidden">Invalid Key</p>
+            <div class="modal-actions">
+                <button type="button" id="admin-modal-cancel" class="btn btn-ghost">Cancel</button>
+                <button type="button" id="admin-modal-submit" class="btn btn-primary">Enter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== SURVEY DETAIL MODAL ========== -->
+    <div id="detail-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+        <div class="modal-backdrop" id="detail-modal-backdrop"></div>
+        <div class="modal-content modal-lg card">
+            <div class="modal-header">
+                <h2 id="detail-modal-title">Survey Details</h2>
+                <button type="button" id="detail-modal-close" class="btn btn-icon" aria-label="Close">&times;</button>
+            </div>
+            <div id="detail-modal-body" class="detail-body"></div>
+            <div class="modal-actions">
+                <button type="button" id="btn-print-survey" class="btn btn-outline">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Print
+                </button>
+                <button type="button" id="btn-download-json" class="btn btn-outline">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download JSON
+                </button>
+                <button type="button" id="btn-download-pdf" class="btn btn-outline">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Download PDF
+                </button>
+                <button type="button" id="btn-delete-survey" class="btn btn-danger">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        (async function () {
+            try {
+                const response = await fetch("script.js", { cache: "no-store" });
+                if (!response.ok) throw new Error("Unable to load script.js");
+                const source = await response.text();
+                const script = document.createElement("script");
+                script.textContent = source;
+                document.head.appendChild(script);
+            } catch (err) {
+                console.error("Failed to bootstrap app script", err);
+                document.body.insertAdjacentHTML("beforeend", '<div class="toast toast-error">The application script could not be loaded. Please refresh the page.</div>');
+            }
+        })();
+    </script>
+</body>
+</html>
