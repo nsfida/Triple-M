@@ -13,7 +13,7 @@ window.__surveyScriptLoaded = true;
 const SUPABASE_URL = "https://nqaafehuewmejftqsmjr.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xYWFmZWh1ZXdtZWpmdHFzbWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjUzMzgsImV4cCI6MjA5OTAwMTMzOH0.JDEB3b-4psn4DMYWDA8XF112xVsyo_aJnuDid1EmbMo";
 
-const DEFAULT_ADMIN_SECRET_KEY = "PropertySurveyAdmin2026!";
+const DEFAULT_ADMIN_SECRET_KEY = "ad1b1bf524c669ff82d5dc4759b7b7abf0029e9f4220b25054f13809621df3d0";
 const ADMIN_SECRET_KEY = readAdminSecretKey();
 
 function readAdminSecretKey() {
