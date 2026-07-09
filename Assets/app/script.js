@@ -690,10 +690,6 @@ const els = {
   installmentsList: document.getElementById("installmentsList"),
   goodsList: document.getElementById("goodsList"),
   expensesList: document.getElementById("expensesList"),
-  openGivenCount: document.getElementById("openGivenCount"),
-  openTakenCount: document.getElementById("openTakenCount"),
-  receivedCount: document.getElementById("receivedCount"),
-  returnedCount: document.getElementById("returnedCount"),
   connectSupabaseBtn: document.getElementById("connectSupabaseBtn"),
   importJsonInput: document.getElementById("importJsonInput"),
   importCsvInput: document.getElementById("importCsvInput"),
@@ -4751,9 +4747,9 @@ function getInventoryCustomerContact(name){
   return { phone, address };
 }
 
-function buildTransferEvents(){
+function buildTransferEvents(accountsOverride = null){
   const wf = state.expenseWalletFilter;
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const accounts = accountsOverride || getExpenseAccounts({ applyUiFilters: false });
   const accountsByGroup = new Map(accounts.map(a => [a.group_id, a]));
   const out = [];
   for (const account of accounts){
@@ -6469,7 +6465,18 @@ function isInExpenseHistoryRange(dateStr){
 }
 
 function filterExpenseHistoryRows(spendAttached){
-  return spendAttached.filter(({ row }) => isInExpenseHistoryRange(row.action_date));
+  const bounds = expenseHistoryRangeBounds();
+  if (state.expenseHistoryRange === "custom" && !bounds.from && !bounds.to) return [];
+  if (!bounds.from && !bounds.to) return spendAttached;
+  const fromStamp = bounds.from ? dateStamp(bounds.from) : null;
+  const toStamp = bounds.to ? dateStamp(bounds.to + "T23:59:59") : null;
+  return spendAttached.filter(({ row }) => {
+    const d = dateStamp(row.action_date);
+    if (!d) return true;
+    if (fromStamp && d < fromStamp) return false;
+    if (toStamp && d > toStamp) return false;
+    return true;
+  });
 }
 
 function setExpenseHistoryRange(range, keepHistoryOpen = false){
@@ -7300,11 +7307,10 @@ function restoreExpenseDetailsOpenState(openDetails){
 
 function renderExpensesList(){
   const openExpenseDetails = getExpenseDetailsOpenState();
-  let accounts = getExpenseAccounts();
   let accountsForSections = getExpenseAccounts({ applyUiFilters: false });
   refreshExpenseBtcWallets(accountsForSections);
-  accounts = getExpenseAccounts();
   accountsForSections = getExpenseAccounts({ applyUiFilters: false });
+  const accounts = getExpenseAccounts();
   const validIds = new Set(accounts.map(a => a.group_id));
   if (state.expenseWalletFilter !== "all" && !validIds.has(state.expenseWalletFilter)){
     state.expenseWalletFilter = "all";
@@ -7397,7 +7403,7 @@ function renderExpensesList(){
     html += `</div></details>`;
   }
 
-  let transferEvents = buildTransferEvents();
+  let transferEvents = buildTransferEvents(accountsForSections);
   
   // Apply search filtering to transfer events
   if (state.search.expenses && state.search.expenses.trim() !== "") {
@@ -8370,11 +8376,6 @@ function renderAll(){
   renderInventoryList();
   renderExpensesList();
   renderExpenseOverviewWallets();
-
-  els.openGivenCount.textContent = groupByLoan(getActiveEntries().filter(e => e.direction === "given" && !hasGoodsTag(e.notes))).filter(g => calculateLoan(g).remaining > 0).length;
-  els.openTakenCount.textContent = groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && !hasGoodsTag(e.notes) && !hasExpenseAccountTag(e.notes))).filter(g => calculateLoan(g).remaining > 0).length;
-  els.receivedCount.textContent = getActiveEntries().filter(e => e.direction === "given" && e.entry_kind !== "principal").length;
-  els.returnedCount.textContent = getActiveEntries().filter(e => e.direction === "taken" && e.entry_kind !== "principal" && !hasGoodsTag(e.notes) && !hasExpenseAccountTag(e.notes)).length;
 
 }
 
@@ -10733,8 +10734,7 @@ async function downloadGoodsPDF(){
 }
 
 function getExpenseHistoryItemsForExport(){
-  const accounts = getExpenseAccounts();
-  const spendAttached = filterExpenseHistoryRows(collectExpenseSpendRows(accounts));
+  const spendAttached = filterExpenseHistoryRows(collectExpenseSpendRows(getExpenseAccounts()));
   let items = groupExpenseItems(spendAttached);
   if (state.search.expenses && state.search.expenses.trim() !== ""){
     items = filterExpensesBySearch(items, state.search.expenses);
@@ -11123,20 +11123,10 @@ async function downloadExpenseItemPDF(itemKey){
     return;
   }
 
-  // Parse the item key to get currency and item name
-  const [currency, itemName] = itemKey.split('||');
-  
-  // Get all expense accounts
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
-  
-  // Collect all expense transactions
-  const spendAttached = collectExpenseSpendRows(accounts);
-  const items = groupExpenseItems(spendAttached);
-  
-  // Find the specific item
+  const items = getExpenseHistoryItemsForExport();
   const targetItem = items.find(item => item.key === itemKey);
   if (!targetItem) {
-    alert("Expense item not found.");
+    alert("Expense item not found for the selected history range.");
     return;
   }
 
@@ -11148,7 +11138,7 @@ async function downloadExpenseItemPDF(itemKey){
 
   const logoData = await getPdfLogo();
   const title = `Expense Report - ${targetItem.displayName}`;
-  const subtitle = `Generated: ${new Date().toLocaleString()}`;
+  const subtitle = `${expenseHistoryRangeText()} | Generated: ${new Date().toLocaleString()}`;
   drawPdfHeader(doc, logoData, title, subtitle);
   drawPdfOwnerBlock(doc, 48);
   doc.setTextColor(23, 33, 43);
