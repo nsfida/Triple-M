@@ -1,0 +1,778 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Video Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #00d4ff;
+            --primary-dark: #0099cc;
+            --secondary: #ff006e;
+            --accent: #8338ec;
+            --bg-dark: #0a0e27;
+            --bg-darker: #050810;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #b0b3c1;
+            --success: #00d964;
+            --warning: #ffd60a;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, var(--bg-darker) 0%, #1a1e3f 50%, #2d1b4e 100%);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Animated background elements */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(131, 56, 236, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.03"><path d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/></g></g></svg>');
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 60px 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+        }
+
+        .label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            font-size: 18px;
+            color: var(--primary);
+            pointer-events: none;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 15px 14px 45px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+        }
+
+        input.error {
+            border-color: #ff4757;
+        }
+
+        input.error:focus {
+            box-shadow: 0 0 20px rgba(255, 71, 87, 0.2);
+        }
+
+        .error-message {
+            font-size: 12px;
+            color: #ff4757;
+            margin-top: 6px;
+            display: none;
+            animation: shake 0.3s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: var(--text-primary);
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left 0.5s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .button:hover::before {
+            left: 100%;
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress Steps */
+        .progress-container {
+            display: none;
+            margin: 40px 0;
+            gap: 15px;
+        }
+
+        .progress-container.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            animation: slideIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        .progress-step:nth-child(1) { animation-delay: 0s; }
+        .progress-step:nth-child(2) { animation-delay: 0.2s; }
+        .progress-step:nth-child(3) { animation-delay: 0.4s; }
+        .progress-step:nth-child(4) { animation-delay: 0.6s; }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .progress-step.completed .step-icon {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--bg-dark);
+        }
+
+        .progress-step.active .step-icon {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .step-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .progress-step.completed .step-text {
+            color: var(--success);
+        }
+
+        .progress-step.active .step-text {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .status-message.show {
+            display: block;
+        }
+
+        .status-message.success {
+            background: rgba(0, 217, 100, 0.15);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status-message.error {
+            background: rgba(255, 71, 87, 0.15);
+            color: #ff4757;
+            border: 1px solid #ff4757;
+        }
+
+        .status-message.info {
+            background: rgba(0, 212, 255, 0.15);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        /* Download Area */
+        .download-area {
+            display: none;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .download-area.show {
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        .video-info {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+        }
+
+        .info-value {
+            color: var(--primary);
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, var(--success), #00d964);
+            box-shadow: 0 4px 15px rgba(0, 217, 100, 0.3);
+        }
+
+        .download-btn:hover {
+            box-shadow: 0 8px 25px rgba(0, 217, 100, 0.4);
+        }
+
+        .reset-btn {
+            background: transparent;
+            border: 2px solid var(--text-secondary);
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .card {
+                padding: 40px 25px;
+            }
+
+            .title {
+                font-size: 24px;
+            }
+
+            .icon {
+                width: 60px;
+                height: 60px;
+                font-size: 30px;
+            }
+
+            .header {
+                margin-bottom: 35px;
+            }
+
+            .form-group {
+                margin-bottom: 25px;
+            }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <div class="icon">▶️</div>
+                <h1 class="title">TikTok Video Downloader</h1>
+                <p class="subtitle">Pro Video Downloader</p>
+            </div>
+
+            <form id="form">
+                <div class="form-group">
+                    <label for="url" class="label">TikTok URL</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔗</span>
+                        <input 
+                            type="text" 
+                            id="url" 
+                            placeholder="Paste TikTok video link here..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    <div class="error-message" id="errorMsg"></div>
+                </div>
+
+                <button type="submit" class="button" id="submitBtn">Process Video</button>
+            </form>
+
+            <div class="status-message" id="statusMessage"></div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-step" id="step1">
+                    <div class="step-icon">1</div>
+                    <div class="step-text">Detecting video URL</div>
+                </div>
+                <div class="progress-step" id="step2">
+                    <div class="step-icon">2</div>
+                    <div class="step-text">Extracting metadata</div>
+                </div>
+                <div class="progress-step" id="step3">
+                    <div class="step-icon">3</div>
+                    <div class="step-text">Preparing download</div>
+                </div>
+                <div class="progress-step" id="step4">
+                    <div class="step-icon">4</div>
+                    <div class="step-text">Removing watermark</div>
+                </div>
+            </div>
+
+            <div class="download-area" id="downloadArea">
+                <div class="video-info">
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">✓ Ready to Download</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Format:</span>
+                        <span class="info-value" id="videoSize">MP4 (1080p)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Watermark:</span>
+                        <span class="info-value">✓ Removed</span>
+                    </div>
+                </div>
+                <button type="button" class="button download-btn" id="downloadBtn">⬇ Download Video</button>
+                <button type="button" class="button reset-btn" id="resetBtn">↻ Download Another</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('form');
+        const urlInput = document.getElementById('url');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressContainer = document.getElementById('progressContainer');
+        const downloadArea = document.getElementById('downloadArea');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const videoSizeLabel = document.getElementById('videoSize');
+
+        const steps = ['step1', 'step2', 'step3', 'step4'];
+        let currentStep = 0;
+        let isProcessing = false;
+        let realDownloadUrl = '';
+
+        // TikTok URL validation
+        function isValidTikTokUrl(url) {
+            const tiktokRegex = /^(https?:\/\/)?(www\.)?(tiktok\.com|m\.tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com)\/.+/i;
+            return tiktokRegex.test(url);
+        }
+
+        // Show error message
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            urlInput.classList.add('error');
+        }
+
+        // Clear error message
+        function clearError() {
+            errorMsg.style.display = 'none';
+            errorMsg.textContent = '';
+            urlInput.classList.remove('error');
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type} show`;
+        }
+
+        // Hide status message
+        function hideStatus() {
+            statusMessage.classList.remove('show');
+        }
+
+        // Mark step as completed
+        function completeStep(stepIndex) {
+            const stepElement = document.getElementById(steps[stepIndex]);
+            stepElement.classList.add('completed');
+            stepElement.classList.remove('active');
+        }
+
+        // Mark step as active
+        function activateStep(stepIndex) {
+            const stepElement = document.getElementById(steps[stepIndex]);
+            stepElement.classList.add('active');
+        }
+
+        // Reset progress
+        function resetProgress() {
+            steps.forEach(step => {
+                const element = document.getElementById(step);
+                element.classList.remove('completed', 'active');
+            });
+            currentStep = 0;
+            progressContainer.classList.remove('active');
+        }
+
+        // Sleep helper for visual feedback spacing
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Process video workflow using a live public API
+        async function processVideo() {
+            if (isProcessing) return;
+            
+            const url = urlInput.value.trim();
+
+            clearError();
+            hideStatus();
+
+            if (!url) {
+                showError('Please enter a TikTok URL');
+                return;
+            }
+
+            if (!isValidTikTokUrl(url)) {
+                showError('Invalid TikTok URL. Please check and try again.');
+                return;
+            }
+
+            isProcessing = true;
+            submitBtn.disabled = true;
+            resetProgress();
+            progressContainer.classList.add('active');
+            downloadArea.classList.remove('show');
+
+            try {
+                // Step 1: Detecting video URL
+                activateStep(0);
+                await sleep(500);
+                completeStep(0);
+
+                // Step 2: Extracting metadata
+                activateStep(1);
+                
+                // Fetch direct metadata via the TikWM engine
+                const response = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`);
+                const result = await response.json();
+
+                if (result.code !== 0 || !result.data) {
+                    throw new Error(result.msg || 'Unable to bypass TikTok downloader protections. Try another URL.');
+                }
+
+                completeStep(1);
+
+                // Step 3: Preparing download payload
+                activateStep(2);
+                await sleep(500);
+                
+                // Save the real unwatermarked stream URL
+                realDownloadUrl = result.data.play; 
+                
+                // Format file size nicely
+                if (result.data.size) {
+                    const sizeInMB = (result.data.size / (1024 * 1024)).toFixed(2);
+                    videoSizeLabel.textContent = `MP4 (${sizeInMB} MB)`;
+                } else {
+                    videoSizeLabel.textContent = 'MP4 (HD)';
+                }
+
+                completeStep(2);
+
+                // Step 4: Removing watermark structure
+                activateStep(3);
+                await sleep(500);
+                completeStep(3);
+
+                showStatus('✓ Video processed successfully without watermark!', 'success');
+
+                // Render download block
+                setTimeout(() => {
+                    downloadArea.classList.add('show');
+                }, 300);
+
+            } catch (error) {
+                console.error(error);
+                showStatus(error.message || 'Failed to process video metadata.', 'error');
+                resetProgress();
+            } finally {
+                isProcessing = false;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Direct stream downloader
+        downloadBtn.addEventListener('click', async () => {
+            if (!realDownloadUrl) return;
+            showStatus('✓ Initiating secure video fetch...', 'success');
+
+            try {
+                // Fetch the real video blob to bypass browser sandboxing and trigger a safe local save dialog
+                const response = await fetch(realDownloadUrl);
+                if (!response.ok) throw new Error('CORS limitation occurred');
+                
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = 'tiktok_no_watermark_' + Date.now() + '.mp4';
+                document.body.appendChild(link);
+                link.click();
+                
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+                showStatus('✓ Download complete!', 'success');
+            } catch (fallbackError) {
+                // Secure fallback: trigger direct window download if browser rejects Blob requests
+                const link = document.createElement('a');
+                link.href = realDownloadUrl;
+                link.target = '_blank';
+                link.download = 'tiktok_video_no_watermark.mp4';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showStatus('✓ Download started in a new tab!', 'success');
+            }
+        });
+
+        // Reset handler
+        resetBtn.addEventListener('click', () => {
+            urlInput.value = '';
+            urlInput.focus();
+            downloadArea.classList.remove('show');
+            statusMessage.classList.remove('show');
+            resetProgress();
+            isProcessing = false;
+            submitBtn.disabled = false;
+            realDownloadUrl = '';
+        });
+
+        // Form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            processVideo();
+        });
+
+        // Real-time validation UI fixes
+        urlInput.addEventListener('input', () => {
+            if (errorMsg.style.display === 'block') {
+                clearError();
+            }
+        });
+
+        urlInput.addEventListener('focus', () => {
+            clearError();
+        });
+    </script>
+</body>
+</html>
