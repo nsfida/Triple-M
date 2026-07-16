@@ -1111,12 +1111,29 @@
                 for (const character of source) hash = (hash * 33) ^ character.charCodeAt(0);
                 return (`fallback-${(hash >>> 0).toString(16)}`.repeat(4)).slice(0, 64);
             }
-            function getDeviceDetails() {
+            async function getDeviceDetails() {
                 const agent = navigator.userAgent || "";
+                let clientHints = {};
+                try {
+                    clientHints = await navigator.userAgentData?.getHighEntropyValues(["model", "platform", "platformVersion"]) || {};
+                } catch { /* The browser may not expose device client hints. */ }
                 const browser = /Edg\//.test(agent) ? "Microsoft Edge" : /Firefox\//.test(agent) ? "Firefox" : /Chrome\//.test(agent) ? "Google Chrome" : /Safari\//.test(agent) ? "Safari" : "Unknown browser";
+                let device = clientHints.model || "";
+                if (!device) {
+                    const androidModel = agent.match(/;\s*([^;()]+?)\s+(?:Build|BUILD)\//);
+                    if (androidModel) device = androidModel[1].trim();
+                    else if (/iPad/.test(agent)) device = "Apple iPad";
+                    else if (/iPhone/.test(agent)) device = "Apple iPhone (model hidden by browser)";
+                    else if (/Android/.test(agent)) device = "Android device (model hidden by browser)";
+                    else if (/Macintosh/.test(agent)) device = "Apple Mac";
+                    else if (/Windows/.test(agent)) device = "Windows PC";
+                    else if (/Linux/.test(agent)) device = "Linux device";
+                    else device = "Unknown device";
+                }
                 return {
                     browser,
-                    platform: navigator.userAgentData?.platform || navigator.platform || "Unknown platform",
+                    device,
+                    platform: clientHints.platform || navigator.userAgentData?.platform || navigator.platform || "Unknown platform",
                     screen: `${screen.width} x ${screen.height}`,
                     language: navigator.language || "Unknown",
                     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown",
@@ -1369,7 +1386,7 @@
                     p_blood_group: record.blood_group,
                     p_device_fingerprint: await getDeviceFingerprint(),
                     p_private_key: adminKey || null,
-                    p_device_details: getDeviceDetails(),
+                    p_device_details: await getDeviceDetails(),
                 });
                 button.disabled = false;
                 if (error) {
@@ -1469,6 +1486,7 @@
                 const existingPhones = new Set(entries.map((entry) => entry.mobile_number.replace(/\s+/g, "")));
                 const seenPhones = new Set(existingPhones);
                 const fingerprint = await getDeviceFingerprint();
+                const importDeviceDetails = { ...(await getDeviceDetails()), source: "JSON import" };
                 let added = 0, skipped = 0, invalid = 0;
                 setStatus("#backupStatus", "Uploading backup records...");
                 for (const item of backup.records) {
@@ -1476,7 +1494,7 @@
                     const phone = record.mobile_number.replace(/\s+/g, "");
                     if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
                     if (seenPhones.has(phone)) { skipped += 1; continue; }
-                    const { error } = await db.rpc("submit_blood_entry_v2", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_private_key: adminKey, p_device_details: { ...getDeviceDetails(), source: "JSON import" } });
+                    const { error } = await db.rpc("submit_blood_entry_v2", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_private_key: adminKey, p_device_details: importDeviceDetails });
                     if (error) { if (error.message.includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
                     seenPhones.add(phone); added += 1;
                 }
@@ -1513,9 +1531,10 @@
                 if (!data?.length) { $("#activityList").innerHTML = '<div class="activity-empty">No entries are available.</div>'; return; }
                 $("#activityList").innerHTML = data.map((entry) => {
                     const device = entry.device_details || {};
-                    const deviceLabel = device.browser ? `${device.browser} on ${device.platform || "Unknown platform"}` : "Device details unavailable for legacy entry";
+                    const deviceLabel = device.device || "Device details unavailable for legacy entry";
+                    const browserLabel = device.browser || "Browser unavailable";
                     const extra = device.screen ? ` | ${device.screen} | ${device.timezone || "Unknown timezone"}` : "";
-                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br><i class="fa-solid fa-mobile-screen-button"></i>${escapeHtml(deviceLabel + extra)}</div></article>`;
+                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br><i class="fa-solid fa-mobile-screen-button"></i>Device: ${escapeHtml(deviceLabel)}<br><i class="fa-solid fa-globe"></i>Browser: ${escapeHtml(browserLabel + extra)}</div></article>`;
                 }).join("");
             }
             function updateAdminButton() {
