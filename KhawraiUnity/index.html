@@ -516,12 +516,18 @@
                 white-space: nowrap;
             }
             .group-heading {
+                width: 100%;
                 display: flex;
                 align-items: center;
                 gap: 8px;
                 margin: 18px 2px 9px;
-                font-size: 0.86rem;
+                padding: 8px 4px;
+                border: 0;
+                border-radius: 9px;
+                background: transparent;
                 color: var(--primary);
+                text-align: left;
+                font-size: 0.86rem;
                 font-weight: 900;
             }
             .group-heading:after {
@@ -532,6 +538,23 @@
             }
             .group-heading:first-child {
                 margin-top: 0;
+            }
+            .group-heading:hover {
+                background: var(--primary-soft);
+            }
+            .group-chevron {
+                margin-left: auto;
+                transition: transform 0.2s ease;
+            }
+            .group-heading[aria-expanded="false"] .group-chevron {
+                transform: rotate(-90deg);
+            }
+            .group-entries {
+                display: grid;
+                gap: 10px;
+            }
+            .group-entries[hidden] {
+                display: none;
             }
             @media (max-width: 760px) {
                 .directory-tools {
@@ -932,7 +955,8 @@
             ];
             let entries = [],
                 activeGroup = "all",
-                adminKey = "";
+                adminKey = localStorage.getItem("khawraiBloodAdminKey") || "";
+            const collapsedGroups = new Set(STANDARD_GROUPS);
             const $ = (selector) => document.querySelector(selector);
             const escapeHtml = (value) =>
                 String(value).replace(
@@ -1020,23 +1044,29 @@
                         `<div class="empty"><i class="fa-solid fa-hand-holding-heart"></i>No matching blood records are available.</div>`;
                     return;
                 }
-                const grouped = activeGroup === "all";
-                $("#entryList").innerHTML = grouped
-                    ? STANDARD_GROUPS.filter((group) =>
-                          filtered.some((entry) => entry.blood_group === group),
-                      )
-                          .map(
-                              (group) =>
-                                  `<div class="group-heading"><i class="fa-solid fa-droplet"></i> ${group} Blood Group</div>${filtered
-                                      .filter(
-                                          (entry) =>
-                                              entry.blood_group === group,
-                                      )
-                                      .map(entryCard)
-                                      .join("")}`,
-                          )
-                          .join("")
-                    : filtered.map(entryCard).join("");
+                $("#entryList").innerHTML = STANDARD_GROUPS.filter((group) =>
+                    filtered.some((entry) => entry.blood_group === group),
+                )
+                    .map((group) => {
+                        const isCollapsed = collapsedGroups.has(group);
+                        const groupEntries = filtered
+                            .filter((entry) => entry.blood_group === group)
+                            .map(entryCard)
+                            .join("");
+                        return `<button class="group-heading" type="button" data-collapse-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${filtered.filter((entry) => entry.blood_group === group).length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries" ${isCollapsed ? "hidden" : ""}>${groupEntries}</div>`;
+                    })
+                    .join("");
+                document
+                    .querySelectorAll("[data-collapse-group]")
+                    .forEach((button) =>
+                        button.addEventListener("click", () => {
+                            const group = button.dataset.collapseGroup;
+                            collapsedGroups.has(group)
+                                ? collapsedGroups.delete(group)
+                                : collapsedGroups.add(group);
+                            renderDirectory();
+                        }),
+                    );
                 document
                     .querySelectorAll("[data-edit]")
                     .forEach((button) =>
@@ -1136,6 +1166,26 @@
                     mobile_number: $("#mobileNumber").value.trim(),
                     blood_group: $("#bloodGroup").value,
                 };
+                const duplicate = entries.some(
+                    (entry) =>
+                        entry.full_name.trim().toLowerCase() ===
+                            record.full_name.toLowerCase() &&
+                        entry.mohallah.trim().toLowerCase() ===
+                            record.mohallah.toLowerCase() &&
+                        entry.mobile_number.replace(/\s+/g, "") ===
+                            record.mobile_number.replace(/\s+/g, "") &&
+                        entry.blood_group === record.blood_group,
+                );
+                if (duplicate) {
+                    button.disabled = false;
+                    setStatus(
+                        "#formStatus",
+                        "This entry already exists in the directory.",
+                        "error",
+                    );
+                    alert("This entry already exists in the directory.");
+                    return;
+                }
                 const { error } = await db.from("blood_entries").insert(record);
                 button.disabled = false;
                 if (error) {
@@ -1188,14 +1238,23 @@
                     return;
                 }
                 adminKey = key;
+                localStorage.setItem("khawraiBloodAdminKey", adminKey);
                 $("#privateKey").value = "";
                 closeModals();
                 document.body.classList.add("admin-mode");
+                updateAdminButton();
                 renderDirectory();
             });
+            function updateAdminButton() {
+                $("#adminButton").innerHTML = adminKey
+                    ? '<i class="fa-solid fa-right-from-bracket"></i> Log Out'
+                    : '<i class="fa-solid fa-user-shield"></i> Admin';
+            }
             function lockAdmin() {
                 adminKey = "";
+                localStorage.removeItem("khawraiBloodAdminKey");
                 document.body.classList.remove("admin-mode");
+                updateAdminButton();
                 renderDirectory();
             }
             function openEdit(id) {
@@ -1280,6 +1339,8 @@
             document.addEventListener("keydown", (event) => {
                 if (event.key === "Escape") closeModals();
             });
+            if (adminKey) document.body.classList.add("admin-mode");
+            updateAdminButton();
             loadEntries();
         </script>
     </body>
