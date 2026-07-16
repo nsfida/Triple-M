@@ -568,6 +568,12 @@
                 font-size: 1.25rem;
                 color: var(--muted);
             }
+            .activity-list { display: grid; gap: 8px; max-height: 52vh; overflow: auto; padding-right: 2px; }
+            .activity-item { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+            .activity-item strong { display: block; font-size: .86rem; }
+            .activity-meta { margin-top: 5px; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+            .activity-meta i { color: var(--primary); margin-right: 4px; }
+            .activity-empty { padding: 18px; color: var(--muted); text-align: center; border: 1px dashed var(--line); border-radius: 10px; font-size: .82rem; }
             .directory-tools {
                 display: grid;
                 grid-template-columns: minmax(0, 1fr) auto;
@@ -1017,10 +1023,31 @@
                     <p class="form-note">Download the full donor directory as JSON or upload a previously downloaded backup. Existing mobile numbers are skipped during import.</p>
                     <button id="downloadJsonButton" class="btn primary" type="button"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
                     <button id="uploadJsonButton" class="btn ghost" type="button"><i class="fa-solid fa-upload"></i> Upload JSON Backup</button>
+                    <button id="viewActivityButton" class="btn ghost" type="button"><i class="fa-solid fa-clock-rotate-left"></i> View Entry Activity</button>
+                    <button id="changeKeyButton" class="btn ghost" type="button"><i class="fa-solid fa-key"></i> Change Admin Key</button>
                     <input id="jsonUploadInput" type="file" accept="application/json,.json" hidden />
                     <p id="backupStatus" class="form-status" role="status"></p>
                     <button id="logoutButton" class="btn danger" type="button"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
                 </div>
+            </div>
+        </div>
+
+        <div id="changeKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="changeKeyTitle">
+            <div class="modal-box">
+                <div class="modal-head"><h3 id="changeKeyTitle"><i class="fa-solid fa-key"></i> Change Admin Key</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
+                <form id="changeKeyForm" class="form-grid">
+                    <div class="field"><label for="currentAdminKey">Existing Key</label><div class="input-wrap"><i class="fa-solid fa-lock"></i><input class="input" id="currentAdminKey" type="password" required autocomplete="current-password" /></div></div>
+                    <div class="field"><label for="newAdminKey">New Key</label><div class="input-wrap"><i class="fa-solid fa-key"></i><input class="input" id="newAdminKey" type="password" minlength="12" required autocomplete="new-password" /></div></div>
+                    <div class="field"><label for="confirmAdminKey">Confirm New Key</label><div class="input-wrap"><i class="fa-solid fa-check"></i><input class="input" id="confirmAdminKey" type="password" minlength="12" required autocomplete="new-password" /></div></div>
+                    <p id="changeKeyStatus" class="form-status" role="status"></p>
+                    <button class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Update Admin Key</button>
+                </form>
+            </div>
+        </div>
+        <div id="activityModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="activityTitle">
+            <div class="modal-box">
+                <div class="modal-head"><h3 id="activityTitle"><i class="fa-solid fa-clock-rotate-left"></i> Entry Activity</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
+                <div id="activityList" class="activity-list" aria-live="polite"></div>
             </div>
         </div>
 
@@ -1083,6 +1110,17 @@
                 let hash = 5381;
                 for (const character of source) hash = (hash * 33) ^ character.charCodeAt(0);
                 return (`fallback-${(hash >>> 0).toString(16)}`.repeat(4)).slice(0, 64);
+            }
+            function getDeviceDetails() {
+                const agent = navigator.userAgent || "";
+                const browser = /Edg\//.test(agent) ? "Microsoft Edge" : /Firefox\//.test(agent) ? "Firefox" : /Chrome\//.test(agent) ? "Google Chrome" : /Safari\//.test(agent) ? "Safari" : "Unknown browser";
+                return {
+                    browser,
+                    platform: navigator.userAgentData?.platform || navigator.platform || "Unknown platform",
+                    screen: `${screen.width} x ${screen.height}`,
+                    language: navigator.language || "Unknown",
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown",
+                };
             }
 
             function getVisibleEntries() {
@@ -1324,13 +1362,14 @@
                     mobile_number: $("#mobileNumber").value.trim(),
                     blood_group: $("#bloodGroup").value,
                 };
-                const { error } = await db.rpc("submit_blood_entry", {
+                const { error } = await db.rpc("submit_blood_entry_v2", {
                     p_full_name: record.full_name,
                     p_mohallah: record.mohallah,
                     p_mobile_number: record.mobile_number,
                     p_blood_group: record.blood_group,
                     p_device_fingerprint: await getDeviceFingerprint(),
                     p_private_key: adminKey || null,
+                    p_device_details: getDeviceDetails(),
                 });
                 button.disabled = false;
                 if (error) {
@@ -1374,6 +1413,9 @@
             $("#downloadJsonButton").addEventListener("click", downloadJsonBackup);
             $("#uploadJsonButton").addEventListener("click", () => $("#jsonUploadInput").click());
             $("#jsonUploadInput").addEventListener("change", uploadJsonBackup);
+            $("#viewActivityButton").addEventListener("click", showEntryActivity);
+            $("#changeKeyButton").addEventListener("click", showChangeKeyModal);
+            $("#changeKeyForm").addEventListener("submit", changeAdminKey);
             $("#searchEntries").addEventListener("input", renderDirectory);
             $("#sortEntries").addEventListener("change", renderDirectory);
             $("#downloadPdfButton").addEventListener("click", downloadPdf);
@@ -1434,12 +1476,47 @@
                     const phone = record.mobile_number.replace(/\s+/g, "");
                     if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
                     if (seenPhones.has(phone)) { skipped += 1; continue; }
-                    const { error } = await db.rpc("submit_blood_entry", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_private_key: adminKey });
+                    const { error } = await db.rpc("submit_blood_entry_v2", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_private_key: adminKey, p_device_details: { ...getDeviceDetails(), source: "JSON import" } });
                     if (error) { if (error.message.includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
                     seenPhones.add(phone); added += 1;
                 }
                 await loadEntries();
                 setStatus("#backupStatus", `Import complete: ${added} added, ${skipped} already existed, ${invalid} invalid or failed.`, added ? "success" : "error");
+            }
+            function showChangeKeyModal() {
+                if (!adminKey) return showAdminModal();
+                setStatus("#changeKeyStatus", "");
+                $("#changeKeyForm").reset();
+                $("#changeKeyModal").classList.add("show");
+                $("#currentAdminKey").focus();
+            }
+            async function changeAdminKey(event) {
+                event.preventDefault();
+                const currentKey = $("#currentAdminKey").value;
+                const newKey = $("#newAdminKey").value;
+                if (newKey !== $("#confirmAdminKey").value) { setStatus("#changeKeyStatus", "New key and confirmation do not match.", "error"); return; }
+                setStatus("#changeKeyStatus", "Updating admin key...");
+                const { error } = await db.rpc("change_blood_admin_key", { p_existing_private_key: currentKey, p_new_private_key: newKey });
+                if (error) { console.error(error); setStatus("#changeKeyStatus", error.message.includes("Invalid admin key") ? "The existing key is not correct." : error.message, "error"); return; }
+                adminKey = newKey;
+                localStorage.setItem("khawraiBloodAdminKey", adminKey);
+                setStatus("#changeKeyStatus", "Admin key updated successfully.", "success");
+                setTimeout(closeModals, 700);
+            }
+            async function showEntryActivity() {
+                if (!adminKey) return showAdminModal();
+                closeModals();
+                $("#activityModal").classList.add("show");
+                $("#activityList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading entry activity...</div>';
+                const { data, error } = await db.rpc("admin_list_blood_entry_details", { p_private_key: adminKey });
+                if (error) { console.error(error); $("#activityList").innerHTML = '<div class="activity-empty">Could not load entry activity.</div>'; return; }
+                if (!data?.length) { $("#activityList").innerHTML = '<div class="activity-empty">No entries are available.</div>'; return; }
+                $("#activityList").innerHTML = data.map((entry) => {
+                    const device = entry.device_details || {};
+                    const deviceLabel = device.browser ? `${device.browser} on ${device.platform || "Unknown platform"}` : "Device details unavailable for legacy entry";
+                    const extra = device.screen ? ` | ${device.screen} | ${device.timezone || "Unknown timezone"}` : "";
+                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br><i class="fa-solid fa-mobile-screen-button"></i>${escapeHtml(deviceLabel + extra)}</div></article>`;
+                }).join("");
             }
             function updateAdminButton() {
                 $("#adminButton").innerHTML = adminKey
