@@ -1,0 +1,1286 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta name="theme-color" content="#edf1f7" />
+        <meta
+            name="description"
+            content="Khawrai Blood Group List - find and add local blood donor information."
+        />
+        <title>Khawrai Blood Group List</title>
+        <link rel="icon" type="image/png" href="logo.png" />
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <style>
+            :root {
+                --bg: #edf1f7;
+                --panel: rgba(255, 255, 255, 0.8);
+                --panel-2: #f8faff;
+                --text: #17212b;
+                --muted: #667085;
+                --line: rgba(208, 213, 221, 0.8);
+                --primary: #2457d6;
+                --primary-soft: rgba(36, 87, 214, 0.1);
+                --success: #067647;
+                --danger: #b42318;
+                --shadow: 0 10px 26px rgba(16, 24, 40, 0.1);
+                --radius: 16px;
+                --max: 1120px;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                background: var(--bg);
+                color: var(--text);
+                font-family:
+                    Inter,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+                -webkit-font-smoothing: antialiased;
+            }
+            body:before,
+            body:after {
+                content: "";
+                position: fixed;
+                border-radius: 50%;
+                pointer-events: none;
+                filter: blur(1px);
+                z-index: -1;
+            }
+            body:before {
+                width: 30rem;
+                height: 30rem;
+                top: -16rem;
+                right: -9rem;
+                background: rgba(36, 87, 214, 0.09);
+            }
+            body:after {
+                width: 24rem;
+                height: 24rem;
+                bottom: -14rem;
+                left: -10rem;
+                background: rgba(6, 118, 71, 0.07);
+            }
+            button,
+            input,
+            select {
+                font: inherit;
+            }
+            button {
+                cursor: pointer;
+            }
+            a {
+                color: inherit;
+            }
+            .shell {
+                width: min(100%, var(--max));
+                margin: auto;
+                padding: 20px 16px 34px;
+            }
+            .header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                flex-wrap: wrap;
+                margin: 4px 0 20px;
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 13px;
+                min-width: 0;
+            }
+            .logo {
+                width: 58px;
+                height: 58px;
+                object-fit: contain;
+                border-radius: 15px;
+                background: #fff;
+                box-shadow: 0 5px 16px rgba(16, 24, 40, 0.1);
+                padding: 4px;
+            }
+            .brand h1 {
+                margin: 0;
+                font-size: clamp(1.15rem, 3.8vw, 1.55rem);
+                letter-spacing: -0.04em;
+            }
+            .brand p {
+                margin: 4px 0 0;
+                color: var(--muted);
+                font-size: 0.86rem;
+            }
+            .header-actions {
+                display: flex;
+                gap: 9px;
+                align-items: center;
+            }
+            .btn {
+                border: 1px solid transparent;
+                border-radius: 11px;
+                padding: 10px 14px;
+                font-weight: 700;
+                font-size: 0.88rem;
+                transition: 0.2s;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            }
+            .btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 6px 15px rgba(16, 24, 40, 0.1);
+            }
+            .btn.primary {
+                background: var(--primary);
+                color: #fff;
+            }
+            .btn.ghost {
+                background: rgba(255, 255, 255, 0.66);
+                border-color: var(--line);
+                color: var(--text);
+            }
+            .btn.danger {
+                background: #fff1f0;
+                border-color: #ffd1ce;
+                color: var(--danger);
+            }
+            .btn:disabled {
+                opacity: 0.55;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+            .hero,
+            .card,
+            .notice {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                box-shadow: var(--shadow);
+                border-radius: var(--radius);
+            }
+            .hero {
+                padding: clamp(20px, 5vw, 34px);
+                background: linear-gradient(
+                    120deg,
+                    rgba(255, 255, 255, 0.85),
+                    rgba(237, 243, 255, 0.76)
+                );
+                margin-bottom: 15px;
+            }
+            .eyebrow {
+                display: inline-flex;
+                gap: 7px;
+                align-items: center;
+                color: var(--primary);
+                font-weight: 800;
+                font-size: 0.78rem;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+            }
+            .hero h2 {
+                margin: 10px 0 7px;
+                font-size: clamp(1.42rem, 4vw, 2.15rem);
+                letter-spacing: -0.05em;
+            }
+            .hero p {
+                color: var(--muted);
+                line-height: 1.6;
+                margin: 0;
+                max-width: 690px;
+            }
+            .notice {
+                display: flex;
+                align-items: flex-start;
+                gap: 11px;
+                padding: 14px 16px;
+                margin-bottom: 15px;
+                color: #8a3e06;
+                background: #fff8ec;
+                border-color: #f4d7a7;
+                font-size: 0.9rem;
+                line-height: 1.5;
+            }
+            .notice i {
+                color: #b54708;
+                margin-top: 3px;
+            }
+            .layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.85fr);
+                gap: 15px;
+            }
+            .card {
+                padding: 20px;
+            }
+            .section-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 15px;
+            }
+            .section-head h3 {
+                margin: 0;
+                font-size: 1rem;
+                letter-spacing: -0.02em;
+            }
+            .section-head h3 i {
+                color: var(--primary);
+                margin-right: 7px;
+            }
+            .count {
+                background: var(--primary-soft);
+                color: var(--primary);
+                font-weight: 800;
+                font-size: 0.76rem;
+                border-radius: 999px;
+                padding: 5px 9px;
+            }
+            .tabs {
+                display: flex;
+                gap: 8px;
+                overflow-x: auto;
+                padding: 2px 2px 12px;
+                margin: 0 -2px;
+            }
+            .tabs::-webkit-scrollbar {
+                height: 5px;
+            }
+            .tabs::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 99px;
+            }
+            .tab {
+                white-space: nowrap;
+                border: 1px solid var(--line);
+                background: #fff;
+                color: var(--muted);
+                border-radius: 999px;
+                padding: 8px 12px;
+                font-size: 0.8rem;
+                font-weight: 800;
+            }
+            .tab.active {
+                background: var(--primary);
+                border-color: var(--primary);
+                color: #fff;
+            }
+            .entry-list {
+                display: grid;
+                gap: 10px;
+            }
+            .entry {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: var(--panel-2);
+                border: 1px solid var(--line);
+                border-radius: 13px;
+                padding: 13px;
+            }
+            .blood-badge {
+                width: 43px;
+                height: 43px;
+                display: grid;
+                place-items: center;
+                border-radius: 12px;
+                background: #ffe9e8;
+                color: #bd2921;
+                font-size: 0.8rem;
+                font-weight: 900;
+                flex: none;
+            }
+            .entry-main {
+                min-width: 0;
+                flex: 1;
+            }
+            .entry-name {
+                font-weight: 800;
+                font-size: 0.95rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .entry-info {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px 12px;
+                margin-top: 5px;
+                color: var(--muted);
+                font-size: 0.79rem;
+            }
+            .entry-info span {
+                display: inline-flex;
+                gap: 5px;
+                align-items: center;
+            }
+            .entry-info i {
+                color: var(--primary);
+                font-size: 0.73rem;
+            }
+            .phone {
+                font-weight: 700;
+                text-decoration: none;
+            }
+            .admin-entry-actions {
+                display: none;
+                gap: 6px;
+            }
+            .admin-mode .admin-entry-actions {
+                display: flex;
+            }
+            .small-icon {
+                width: 32px;
+                height: 32px;
+                border-radius: 9px;
+                border: 1px solid var(--line);
+                background: #fff;
+                color: var(--primary);
+            }
+            .small-icon.delete {
+                color: var(--danger);
+                border-color: #ffd1ce;
+            }
+            .empty {
+                border: 1px dashed var(--line);
+                border-radius: 13px;
+                padding: 28px 16px;
+                text-align: center;
+                color: var(--muted);
+                font-size: 0.9rem;
+            }
+            .empty i {
+                display: block;
+                font-size: 1.35rem;
+                color: #99a7ba;
+                margin-bottom: 9px;
+            }
+            .form-grid {
+                display: grid;
+                gap: 12px;
+            }
+            .field {
+                display: grid;
+                gap: 6px;
+            }
+            .field label {
+                font-size: 0.81rem;
+                font-weight: 800;
+                color: #344054;
+            }
+            .input-wrap {
+                position: relative;
+            }
+            .input-wrap > i {
+                position: absolute;
+                left: 12px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #8b98a9;
+                font-size: 0.85rem;
+            }
+            .input,
+            select {
+                width: 100%;
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 11px 11px 11px 34px;
+                background: #fff;
+                color: var(--text);
+                outline: none;
+                transition:
+                    border 0.2s,
+                    box-shadow 0.2s;
+            }
+            .input:focus,
+            select:focus {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px var(--primary-soft);
+            }
+            select {
+                padding-left: 34px;
+            }
+            .form-note {
+                font-size: 0.77rem;
+                line-height: 1.45;
+                color: var(--muted);
+                margin: 0;
+            }
+            .form-status {
+                min-height: 20px;
+                margin: 0;
+                font-size: 0.82rem;
+                font-weight: 700;
+            }
+            .form-status.success {
+                color: var(--success);
+            }
+            .form-status.error {
+                color: var(--danger);
+            }
+            .admin-card {
+                margin-top: 15px;
+            }
+            .admin-state {
+                font-size: 0.83rem;
+                color: var(--muted);
+                line-height: 1.5;
+                margin: 0 0 13px;
+            }
+            .admin-state.unlocked {
+                color: var(--success);
+                font-weight: 700;
+            }
+            .footer {
+                text-align: center;
+                color: var(--muted);
+                font-size: 0.82rem;
+                padding: 24px 8px 0;
+            }
+            .footer a {
+                color: var(--primary);
+                font-weight: 800;
+                text-decoration: none;
+            }
+            .modal {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.5);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+                z-index: 10;
+            }
+            .modal.show {
+                display: flex;
+            }
+            .modal-box {
+                width: min(100%, 440px);
+                background: var(--bg);
+                border-radius: 18px;
+                box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+                padding: 20px;
+            }
+            .modal-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 15px;
+            }
+            .modal-head h3 {
+                margin: 0;
+                font-size: 1.05rem;
+            }
+            .modal-close {
+                border: 0;
+                background: transparent;
+                font-size: 1.25rem;
+                color: var(--muted);
+            }
+            .directory-tools {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px;
+                margin: 0 0 14px;
+            }
+            .tool-actions {
+                display: flex;
+                gap: 8px;
+            }
+            .tool-actions select {
+                min-width: 142px;
+                padding-left: 11px;
+            }
+            .tool-actions .btn {
+                white-space: nowrap;
+            }
+            .group-heading {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 18px 2px 9px;
+                font-size: 0.86rem;
+                color: var(--primary);
+                font-weight: 900;
+            }
+            .group-heading:after {
+                content: "";
+                height: 1px;
+                background: var(--line);
+                flex: 1;
+            }
+            .group-heading:first-child {
+                margin-top: 0;
+            }
+            @media (max-width: 760px) {
+                .directory-tools {
+                    grid-template-columns: 1fr;
+                }
+                .tool-actions {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                }
+                .tool-actions select {
+                    min-width: 0;
+                }
+                .tool-actions .btn {
+                    padding-inline: 8px;
+                    font-size: 0.8rem;
+                }
+            }
+
+            @media (max-width: 760px) {
+                .shell {
+                    padding: 14px 12px 28px;
+                }
+                .header {
+                    align-items: flex-start;
+                }
+                .header-actions {
+                    width: 100%;
+                }
+                .header-actions .btn {
+                    flex: 1;
+                }
+                .layout {
+                    grid-template-columns: 1fr;
+                }
+                .hero {
+                    padding: 21px 18px;
+                }
+                .card {
+                    padding: 16px;
+                }
+                .entry {
+                    padding: 11px;
+                }
+                .entry-info {
+                    display: grid;
+                    gap: 4px;
+                }
+                .phone {
+                    font-size: 0.76rem;
+                }
+                .admin-entry-actions {
+                    flex-direction: column;
+                }
+                .small-icon {
+                    width: 30px;
+                    height: 30px;
+                }
+                .footer {
+                    padding-top: 20px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="shell">
+            <header class="header">
+                <div class="brand">
+                    <img
+                        class="logo"
+                        src="logo.png"
+                        alt="Khawrai Unity logo"
+                        onerror="this.style.visibility = 'hidden'"
+                    />
+                    <div>
+                        <h1>Khawrai Blood Group List</h1>
+                        <p>Community donor directory</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn ghost" id="adminButton" type="button">
+                        <i class="fa-solid fa-user-shield"></i> Admin</button
+                    ><button
+                        class="btn primary"
+                        id="newEntryButton"
+                        type="button"
+                    >
+                        <i class="fa-solid fa-user-plus"></i> New Entry
+                    </button>
+                </div>
+            </header>
+
+            <section class="card" aria-labelledby="directory-title">
+                <div class="section-head">
+                    <h3 id="directory-title">
+                        <i class="fa-solid fa-list-ul"></i> Donor Directory
+                    </h3>
+                    <span id="entryCount" class="count">0 records</span>
+                </div>
+                <div
+                    id="bloodTabs"
+                    class="tabs"
+                    aria-label="Filter donors by blood group"
+                ></div>
+                <div class="directory-tools">
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i
+                        ><input
+                            class="input"
+                            id="searchEntries"
+                            type="search"
+                            placeholder="Search name, Mohallah or mobile"
+                            aria-label="Search blood entries"
+                        />
+                    </div>
+                    <div class="tool-actions">
+                        <select
+                            id="sortEntries"
+                            aria-label="Sort blood entries"
+                        >
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="name-asc">Name: A to Z</option>
+                            <option value="name-desc">Name: Z to A</option>
+                            <option value="mohallah-asc">
+                                Mohallah: A to Z
+                            </option></select
+                        ><button
+                            id="downloadPdfButton"
+                            class="btn ghost"
+                            type="button"
+                        >
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="entryList" class="entry-list" aria-live="polite">
+                    <div class="empty">
+                        <i class="fa-solid fa-spinner fa-spin"></i>Loading blood
+                        group records...
+                    </div>
+                </div>
+            </section>
+
+            <section
+                class="modal"
+                id="new-entry"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="new-entry-title"
+            >
+                <div class="modal-box">
+                    <div class="section-head">
+                        <h3 id="new-entry-title">
+                            <i class="fa-solid fa-circle-plus"></i> Add New
+                            Entry
+                        </h3>
+                    </div>
+                    <form id="entryForm" class="form-grid">
+                        <div class="field">
+                            <label for="fullName">Full Name</label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-user"></i
+                                ><input
+                                    class="input"
+                                    id="fullName"
+                                    name="fullName"
+                                    maxlength="100"
+                                    required
+                                    placeholder="Enter full name"
+                                    autocomplete="name"
+                                />
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="mohallah">Mohallah</label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-location-dot"></i
+                                ><input
+                                    class="input"
+                                    id="mohallah"
+                                    name="mohallah"
+                                    maxlength="100"
+                                    required
+                                    placeholder="Enter Mohallah"
+                                />
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="mobileNumber">Mobile Number</label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-mobile-screen-button"></i
+                                ><input
+                                    class="input"
+                                    id="mobileNumber"
+                                    name="mobileNumber"
+                                    maxlength="25"
+                                    required
+                                    inputmode="tel"
+                                    autocomplete="tel"
+                                    placeholder="e.g. 03XX XXXXXXX"
+                                />
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="bloodGroup">Blood Group</label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-droplet"></i
+                                ><select
+                                    id="bloodGroup"
+                                    name="bloodGroup"
+                                    required
+                                >
+                                    <option value="">Select blood group</option>
+                                    <option>A+</option>
+                                    <option>A-</option>
+                                    <option>B+</option>
+                                    <option>B-</option>
+                                    <option>AB+</option>
+                                    <option>AB-</option>
+                                    <option>O+</option>
+                                    <option>O-</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="form-note">
+                            Your entry will be added to the community directory
+                            after submission.
+                        </p>
+                        <p
+                            id="formStatus"
+                            class="form-status"
+                            role="status"
+                        ></p>
+                        <button
+                            id="submitEntry"
+                            class="btn primary"
+                            type="submit"
+                        >
+                            <i class="fa-solid fa-paper-plane"></i>
+                            Submit Entry
+                        </button>
+                    </form>
+                </div>
+            </section>
+            <footer class="footer">
+                Powered by
+                <a
+                    href="https://www.facebook.com/nadeemshahzadfida"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Nadeem Shahzad Fida</a
+                >
+            </footer>
+        </main>
+
+        <div
+            id="adminModal"
+            class="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="adminModalTitle"
+        >
+            <div class="modal-box">
+                <div class="modal-head">
+                    <h3 id="adminModalTitle">
+                        <i class="fa-solid fa-user-shield"></i> Admin Access
+                    </h3>
+                    <button
+                        class="modal-close"
+                        type="button"
+                        data-close-modal
+                        aria-label="Close"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <form id="adminForm" class="form-grid">
+                    <div class="field">
+                        <label for="privateKey">Private Key</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-key"></i
+                            ><input
+                                class="input"
+                                id="privateKey"
+                                type="password"
+                                required
+                                autocomplete="current-password"
+                                placeholder="Enter private key"
+                            />
+                        </div>
+                    </div>
+                    <p id="adminStatus" class="form-status" role="status"></p>
+                    <button class="btn primary" type="submit">
+                        <i class="fa-solid fa-unlock-keyhole"></i> Unlock Admin
+                        Options
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div
+            id="editModal"
+            class="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="editModalTitle"
+        >
+            <div class="modal-box">
+                <div class="modal-head">
+                    <h3 id="editModalTitle">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit Entry
+                    </h3>
+                    <button
+                        class="modal-close"
+                        type="button"
+                        data-close-modal
+                        aria-label="Close"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <form id="editForm" class="form-grid">
+                    <input type="hidden" id="editId" />
+                    <div class="field">
+                        <label for="editName">Full Name</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-user"></i
+                            ><input
+                                class="input"
+                                id="editName"
+                                maxlength="100"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="editMohallah">Mohallah</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-location-dot"></i
+                            ><input
+                                class="input"
+                                id="editMohallah"
+                                maxlength="100"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="editMobile">Mobile Number</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-mobile-screen-button"></i
+                            ><input
+                                class="input"
+                                id="editMobile"
+                                maxlength="25"
+                                required
+                                inputmode="tel"
+                            />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="editBloodGroup">Blood Group</label>
+                        <div class="input-wrap">
+                            <i class="fa-solid fa-droplet"></i
+                            ><select id="editBloodGroup" required>
+                                <option>A+</option>
+                                <option>A-</option>
+                                <option>B+</option>
+                                <option>B-</option>
+                                <option>AB+</option>
+                                <option>AB-</option>
+                                <option>O+</option>
+                                <option>O-</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p id="editStatus" class="form-status" role="status"></p>
+                    <button class="btn primary" type="submit">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            const SUPABASE_URL = "https://nxyfuweyuizmmazmvuyt.supabase.co";
+            const SUPABASE_ANON_KEY =
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54eWZ1d2V5dWl6bW1hem12dXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxODM2NjMsImV4cCI6MjA5OTc1OTY2M30.pI0I8YRxV1LL-5QV4jEq0p4LZyGqdkMqSqH_VcvTGW0";
+            const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const STANDARD_GROUPS = [
+                "A+",
+                "A-",
+                "B+",
+                "B-",
+                "AB+",
+                "AB-",
+                "O+",
+                "O-",
+            ];
+            let entries = [],
+                activeGroup = "all",
+                adminKey = "";
+            const $ = (selector) => document.querySelector(selector);
+            const escapeHtml = (value) =>
+                String(value).replace(
+                    /[&<>'"]/g,
+                    (char) =>
+                        ({
+                            "&": "&amp;",
+                            "<": "&lt;",
+                            ">": "&gt;",
+                            "'": "&#39;",
+                            '"': "&quot;",
+                        })[char],
+                );
+            const setStatus = (id, text, type = "") => {
+                const node = $(id);
+                node.textContent = text;
+                node.className = `form-status ${type}`;
+            };
+            const closeModals = () =>
+                document
+                    .querySelectorAll(".modal")
+                    .forEach((modal) => modal.classList.remove("show"));
+
+            function getVisibleEntries() {
+                const query = $("#searchEntries").value.trim().toLowerCase();
+                const selected =
+                    activeGroup === "all"
+                        ? entries
+                        : entries.filter(
+                              (entry) => entry.blood_group === activeGroup,
+                          );
+                const filtered = selected.filter(
+                    (entry) =>
+                        !query ||
+                        [
+                            entry.full_name,
+                            entry.mohallah,
+                            entry.mobile_number,
+                            entry.blood_group,
+                        ].some((value) => value.toLowerCase().includes(query)),
+                );
+                const sort = $("#sortEntries").value;
+                return [...filtered].sort((a, b) => {
+                    if (sort === "oldest")
+                        return new Date(a.created_at) - new Date(b.created_at);
+                    if (sort === "name-asc")
+                        return a.full_name.localeCompare(b.full_name);
+                    if (sort === "name-desc")
+                        return b.full_name.localeCompare(a.full_name);
+                    if (sort === "mohallah-asc")
+                        return a.mohallah.localeCompare(b.mohallah);
+                    return new Date(b.created_at) - new Date(a.created_at);
+                });
+            }
+            function renderTabs() {
+                const available = STANDARD_GROUPS.filter((group) =>
+                    entries.some((entry) => entry.blood_group === group),
+                );
+                if (activeGroup !== "all" && !available.includes(activeGroup))
+                    activeGroup = "all";
+                const groups = ["all", ...available];
+                $("#bloodTabs").innerHTML = groups
+                    .map(
+                        (group) =>
+                            `<button class="tab ${activeGroup === group ? "active" : ""}" data-group="${group}">${group === "all" ? '<i class="fa-solid fa-border-all"></i> All' : `<i class="fa-solid fa-droplet"></i> ${group}`}</button>`,
+                    )
+                    .join("");
+                document.querySelectorAll("[data-group]").forEach((button) =>
+                    button.addEventListener("click", () => {
+                        activeGroup = button.dataset.group;
+                        renderDirectory();
+                    }),
+                );
+            }
+            function entryCard(entry) {
+                return `<article class="entry"><div class="blood-badge">${escapeHtml(entry.blood_group)}</div><div class="entry-main"><div class="entry-name">${escapeHtml(entry.full_name)}</div><div class="entry-info"><span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</span><a class="phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a></div></div><div class="admin-entry-actions"><button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button><button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button></div></article>`;
+            }
+            function renderDirectory() {
+                renderTabs();
+                const filtered = getVisibleEntries();
+                $("#entryCount").textContent =
+                    `${filtered.length} record${filtered.length === 1 ? "" : "s"}`;
+                if (!filtered.length) {
+                    $("#entryList").innerHTML =
+                        `<div class="empty"><i class="fa-solid fa-hand-holding-heart"></i>No matching blood records are available.</div>`;
+                    return;
+                }
+                const grouped = activeGroup === "all";
+                $("#entryList").innerHTML = grouped
+                    ? STANDARD_GROUPS.filter((group) =>
+                          filtered.some((entry) => entry.blood_group === group),
+                      )
+                          .map(
+                              (group) =>
+                                  `<div class="group-heading"><i class="fa-solid fa-droplet"></i> ${group} Blood Group</div>${filtered
+                                      .filter(
+                                          (entry) =>
+                                              entry.blood_group === group,
+                                      )
+                                      .map(entryCard)
+                                      .join("")}`,
+                          )
+                          .join("")
+                    : filtered.map(entryCard).join("");
+                document
+                    .querySelectorAll("[data-edit]")
+                    .forEach((button) =>
+                        button.addEventListener("click", () =>
+                            openEdit(button.dataset.edit),
+                        ),
+                    );
+                document
+                    .querySelectorAll("[data-delete]")
+                    .forEach((button) =>
+                        button.addEventListener("click", () =>
+                            deleteEntry(button.dataset.delete),
+                        ),
+                    );
+            }
+            function downloadPdf() {
+                const filtered = getVisibleEntries();
+                const label =
+                    activeGroup === "all"
+                        ? "All Blood Groups"
+                        : `${activeGroup} Blood Group`;
+                if (!filtered.length) {
+                    alert("There are no matching records to download.");
+                    return;
+                }
+                if (!window.jspdf) {
+                    alert(
+                        "The PDF library could not be loaded. Please check your internet connection and try again.",
+                    );
+                    return;
+                }
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+                let y = 18;
+                pdf.setFontSize(17);
+                pdf.text("Khawrai Blood Group List", 14, y);
+                y += 8;
+                pdf.setFontSize(11);
+                pdf.text(label, 14, y);
+                y += 7;
+                pdf.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
+                y += 9;
+                filtered.forEach((entry, index) => {
+                    if (y > 274) {
+                        pdf.addPage();
+                        y = 18;
+                    }
+                    pdf.setFontSize(10);
+                    pdf.text(
+                        `${index + 1}. ${entry.full_name} | ${entry.blood_group}`,
+                        14,
+                        y,
+                    );
+                    y += 5;
+                    pdf.setFontSize(9);
+                    pdf.text(
+                        `Mohallah: ${entry.mohallah}    Mobile: ${entry.mobile_number}`,
+                        18,
+                        y,
+                    );
+                    y += 8;
+                });
+                pdf.setFontSize(8);
+                pdf.text(
+                    "Khawrai Unity | Please verify donor availability before contacting.",
+                    14,
+                    288,
+                );
+                pdf.save(
+                    `khawrai-blood-list-${activeGroup === "all" ? "all-groups" : activeGroup.replace("+", "positive").replace("-", "negative")}.pdf`,
+                );
+            }
+            async function loadEntries() {
+                const { data, error } = await db
+                    .from("blood_entries")
+                    .select(
+                        "id, full_name, mohallah, mobile_number, blood_group, created_at",
+                    )
+                    .order("created_at", { ascending: false });
+                if (error) {
+                    $("#entryList").innerHTML =
+                        `<div class="empty"><i class="fa-solid fa-circle-exclamation"></i>Could not load the directory. Please refresh and try again.</div>`;
+                    console.error(error);
+                    return;
+                }
+                entries = data || [];
+                renderDirectory();
+            }
+            $("#entryForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const button = $("#submitEntry");
+                button.disabled = true;
+                setStatus("#formStatus", "Submitting your entry...");
+                const record = {
+                    full_name: $("#fullName").value.trim(),
+                    mohallah: $("#mohallah").value.trim(),
+                    mobile_number: $("#mobileNumber").value.trim(),
+                    blood_group: $("#bloodGroup").value,
+                };
+                const { error } = await db.from("blood_entries").insert(record);
+                button.disabled = false;
+                if (error) {
+                    console.error(error);
+                    setStatus(
+                        "#formStatus",
+                        "Your entry could not be saved. Please check the information and try again.",
+                        "error",
+                    );
+                    return;
+                }
+                event.target.reset();
+                setStatus(
+                    "#formStatus",
+                    "Your entry has been added successfully.",
+                    "success",
+                );
+                await loadEntries();
+                setTimeout(closeModals, 800);
+            });
+            function showAdminModal() {
+                $("#adminModal").classList.add("show");
+                $("#privateKey").focus();
+            }
+            function showNewEntryModal() {
+                $("#new-entry").classList.add("show");
+                $("#fullName").focus();
+            }
+            $("#adminButton").addEventListener("click", () =>
+                adminKey ? lockAdmin() : showAdminModal(),
+            );
+            $("#newEntryButton").addEventListener("click", showNewEntryModal);
+            $("#searchEntries").addEventListener("input", renderDirectory);
+            $("#sortEntries").addEventListener("change", renderDirectory);
+            $("#downloadPdfButton").addEventListener("click", downloadPdf);
+            $("#adminForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const key = $("#privateKey").value;
+                setStatus("#adminStatus", "Checking private key...");
+                const { data, error } = await db.rpc("verify_blood_admin_key", {
+                    p_private_key: key,
+                });
+                if (error || !data) {
+                    console.error(error);
+                    setStatus(
+                        "#adminStatus",
+                        "The private key is not valid.",
+                        "error",
+                    );
+                    return;
+                }
+                adminKey = key;
+                $("#privateKey").value = "";
+                closeModals();
+                document.body.classList.add("admin-mode");
+                renderDirectory();
+            });
+            function lockAdmin() {
+                adminKey = "";
+                document.body.classList.remove("admin-mode");
+                renderDirectory();
+            }
+            function openEdit(id) {
+                const entry = entries.find((item) => item.id === id);
+                if (!entry || !adminKey) return;
+                $("#editId").value = entry.id;
+                $("#editName").value = entry.full_name;
+                $("#editMohallah").value = entry.mohallah;
+                $("#editMobile").value = entry.mobile_number;
+                $("#editBloodGroup").value = entry.blood_group;
+                setStatus("#editStatus", "");
+                $("#editModal").classList.add("show");
+                $("#editName").focus();
+            }
+            $("#editForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const button = event.submitter;
+                button.disabled = true;
+                setStatus("#editStatus", "Saving changes...");
+                const { error } = await db.rpc("admin_update_blood_entry", {
+                    p_private_key: adminKey,
+                    p_id: $("#editId").value,
+                    p_full_name: $("#editName").value.trim(),
+                    p_mohallah: $("#editMohallah").value.trim(),
+                    p_mobile_number: $("#editMobile").value.trim(),
+                    p_blood_group: $("#editBloodGroup").value,
+                });
+                button.disabled = false;
+                if (error) {
+                    console.error(error);
+                    setStatus(
+                        "#editStatus",
+                        error.message.includes("Invalid admin key")
+                            ? "Your admin access has expired."
+                            : "Changes could not be saved.",
+                        "error",
+                    );
+                    if (error.message.includes("Invalid admin key"))
+                        lockAdmin();
+                    return;
+                }
+                closeModals();
+                await loadEntries();
+            });
+            async function deleteEntry(id) {
+                const entry = entries.find((item) => item.id === id);
+                if (
+                    !adminKey ||
+                    !entry ||
+                    !confirm(
+                        `Delete the entry for ${entry.full_name}? This cannot be undone.`,
+                    )
+                )
+                    return;
+                const { error } = await db.rpc("admin_delete_blood_entry", {
+                    p_private_key: adminKey,
+                    p_id: id,
+                });
+                if (error) {
+                    console.error(error);
+                    alert(
+                        error.message.includes("Invalid admin key")
+                            ? "Your admin access has expired."
+                            : "The entry could not be deleted.",
+                    );
+                    if (error.message.includes("Invalid admin key"))
+                        lockAdmin();
+                    return;
+                }
+                await loadEntries();
+            }
+            document
+                .querySelectorAll("[data-close-modal]")
+                .forEach((button) =>
+                    button.addEventListener("click", closeModals),
+                );
+            document.querySelectorAll(".modal").forEach((modal) =>
+                modal.addEventListener("click", (event) => {
+                    if (event.target === modal) closeModals();
+                }),
+            );
+            document.addEventListener("keydown", (event) => {
+                if (event.key === "Escape") closeModals();
+            });
+            loadEntries();
+        </script>
+    </body>
+</html>
