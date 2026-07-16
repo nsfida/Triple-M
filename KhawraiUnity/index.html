@@ -1007,6 +1007,22 @@
                 </form>
             </div>
         </div>
+        <div id="adminToolsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="adminToolsTitle">
+            <div class="modal-box">
+                <div class="modal-head">
+                    <h3 id="adminToolsTitle"><i class="fa-solid fa-shield-heart"></i> Admin Tools</h3>
+                    <button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button>
+                </div>
+                <div class="form-grid">
+                    <p class="form-note">Download the full donor directory as JSON or upload a previously downloaded backup. Existing mobile numbers are skipped during import.</p>
+                    <button id="downloadJsonButton" class="btn primary" type="button"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
+                    <button id="uploadJsonButton" class="btn ghost" type="button"><i class="fa-solid fa-upload"></i> Upload JSON Backup</button>
+                    <input id="jsonUploadInput" type="file" accept="application/json,.json" hidden />
+                    <p id="backupStatus" class="form-status" role="status"></p>
+                    <button id="logoutButton" class="btn danger" type="button"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+                </div>
+            </div>
+        </div>
 
         <script>
             const SUPABASE_URL = "https://nxyfuweyuizmmazmvuyt.supabase.co";
@@ -1049,6 +1065,25 @@
                 document
                     .querySelectorAll(".modal")
                     .forEach((modal) => modal.classList.remove("show"));
+            async function getDeviceFingerprint() {
+                const parts = [
+                    navigator.platform || "",
+                    navigator.language || "",
+                    Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+                    `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                    navigator.hardwareConcurrency || "",
+                    navigator.deviceMemory || "",
+                    navigator.maxTouchPoints || "",
+                ];
+                const source = parts.join("|");
+                if (window.crypto?.subtle) {
+                    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+                    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+                }
+                let hash = 5381;
+                for (const character of source) hash = (hash * 33) ^ character.charCodeAt(0);
+                return (`fallback-${(hash >>> 0).toString(16)}`.repeat(4)).slice(0, 64);
+            }
 
             function getVisibleEntries() {
                 const query = $("#searchEntries").value.trim().toLowerCase();
@@ -1289,35 +1324,24 @@
                     mobile_number: $("#mobileNumber").value.trim(),
                     blood_group: $("#bloodGroup").value,
                 };
-                const duplicate = entries.some(
-                    (entry) =>
-                        entry.full_name.trim().toLowerCase() ===
-                            record.full_name.toLowerCase() &&
-                        entry.mohallah.trim().toLowerCase() ===
-                            record.mohallah.toLowerCase() &&
-                        entry.mobile_number.replace(/\s+/g, "") ===
-                            record.mobile_number.replace(/\s+/g, "") &&
-                        entry.blood_group === record.blood_group,
-                );
-                if (duplicate) {
-                    button.disabled = false;
-                    setStatus(
-                        "#formStatus",
-                        "This entry already exists in the directory.",
-                        "error",
-                    );
-                    alert("This entry already exists in the directory.");
-                    return;
-                }
-                const { error } = await db.from("blood_entries").insert(record);
+                const { error } = await db.rpc("submit_blood_entry", {
+                    p_full_name: record.full_name,
+                    p_mohallah: record.mohallah,
+                    p_mobile_number: record.mobile_number,
+                    p_blood_group: record.blood_group,
+                    p_device_fingerprint: await getDeviceFingerprint(),
+                    p_private_key: adminKey || null,
+                });
                 button.disabled = false;
                 if (error) {
                     console.error(error);
-                    setStatus(
-                        "#formStatus",
-                        "Your entry could not be saved. Please check the information and try again.",
-                        "error",
-                    );
+                    const message = error.message.includes("Device entry limit exceeded")
+                        ? "Your entry limit is exceeded. A maximum of 2 entries can be submitted from this device."
+                        : error.message.includes("Mobile number already registered")
+                          ? "This mobile number is already registered in the directory."
+                          : "Your entry could not be saved. Please check the information and try again.";
+                    setStatus("#formStatus", message, "error");
+                    alert(message);
                     return;
                 }
                 event.target.reset();
@@ -1333,14 +1357,23 @@
                 $("#adminModal").classList.add("show");
                 $("#privateKey").focus();
             }
+            function showAdminTools() {
+                if (!adminKey) return showAdminModal();
+                setStatus("#backupStatus", "");
+                $("#adminToolsModal").classList.add("show");
+            }
             function showNewEntryModal() {
                 $("#new-entry").classList.add("show");
                 $("#fullName").focus();
             }
             $("#adminButton").addEventListener("click", () =>
-                adminKey ? lockAdmin() : showAdminModal(),
+                adminKey ? showAdminTools() : showAdminModal(),
             );
             $("#newEntryButton").addEventListener("click", showNewEntryModal);
+            $("#logoutButton").addEventListener("click", () => { closeModals(); lockAdmin(); });
+            $("#downloadJsonButton").addEventListener("click", downloadJsonBackup);
+            $("#uploadJsonButton").addEventListener("click", () => $("#jsonUploadInput").click());
+            $("#jsonUploadInput").addEventListener("change", uploadJsonBackup);
             $("#searchEntries").addEventListener("input", renderDirectory);
             $("#sortEntries").addEventListener("change", renderDirectory);
             $("#downloadPdfButton").addEventListener("click", downloadPdf);
@@ -1367,10 +1400,50 @@
                 document.body.classList.add("admin-mode");
                 updateAdminButton();
                 renderDirectory();
+                showAdminTools();
             });
+            async function downloadJsonBackup() {
+                if (!adminKey) return;
+                setStatus("#backupStatus", "Preparing backup...");
+                const { data, error } = await db.from("blood_entries").select("id, full_name, mohallah, mobile_number, blood_group, created_at").order("created_at", { ascending: true });
+                if (error) { console.error(error); setStatus("#backupStatus", "Could not create the backup.", "error"); return; }
+                const backup = { format: "khawrai-blood-directory", version: 1, exportedAt: new Date().toISOString(), records: data || [] };
+                const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+                const link = document.createElement("a");
+                link.href = url; link.download = `khawrai-blood-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click();
+                URL.revokeObjectURL(url);
+                setStatus("#backupStatus", `${backup.records.length} records downloaded.`, "success");
+            }
+            async function uploadJsonBackup(event) {
+                const file = event.target.files[0];
+                event.target.value = "";
+                if (!file || !adminKey) return;
+                let backup;
+                try { backup = JSON.parse(await file.text()); } catch { setStatus("#backupStatus", "The selected file is not valid JSON.", "error"); return; }
+                if (backup?.format !== "khawrai-blood-directory" || backup?.version !== 1 || !Array.isArray(backup.records)) {
+                    setStatus("#backupStatus", "Please upload a JSON backup downloaded from this page.", "error");
+                    return;
+                }
+                const existingPhones = new Set(entries.map((entry) => entry.mobile_number.replace(/\s+/g, "")));
+                const seenPhones = new Set(existingPhones);
+                const fingerprint = await getDeviceFingerprint();
+                let added = 0, skipped = 0, invalid = 0;
+                setStatus("#backupStatus", "Uploading backup records...");
+                for (const item of backup.records) {
+                    const record = { full_name: String(item?.full_name || "").trim(), mohallah: String(item?.mohallah || "").trim(), mobile_number: String(item?.mobile_number || "").trim(), blood_group: String(item?.blood_group || "") };
+                    const phone = record.mobile_number.replace(/\s+/g, "");
+                    if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
+                    if (seenPhones.has(phone)) { skipped += 1; continue; }
+                    const { error } = await db.rpc("submit_blood_entry", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_private_key: adminKey });
+                    if (error) { if (error.message.includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
+                    seenPhones.add(phone); added += 1;
+                }
+                await loadEntries();
+                setStatus("#backupStatus", `Import complete: ${added} added, ${skipped} already existed, ${invalid} invalid or failed.`, added ? "success" : "error");
+            }
             function updateAdminButton() {
                 $("#adminButton").innerHTML = adminKey
-                    ? '<i class="fa-solid fa-right-from-bracket"></i> Log Out'
+                    ? '<i class="fa-solid fa-shield-heart"></i> Admin Tools'
                     : '<i class="fa-solid fa-user-shield"></i> Admin';
             }
             function lockAdmin() {
