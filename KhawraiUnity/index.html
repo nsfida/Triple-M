@@ -1152,62 +1152,115 @@
                         ),
                     );
             }
-            function downloadPdf() {
+            async function getPdfLogo() {
+                return new Promise((resolve) => {
+                    const image = new Image();
+                    image.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        const size = 160;
+                        canvas.width = size;
+                        canvas.height = size;
+                        canvas.getContext("2d").drawImage(image, 0, 0, size, size);
+                        resolve(canvas.toDataURL("image/png"));
+                    };
+                    image.onerror = () => resolve(null);
+                    image.src = "logo.png";
+                });
+            }
+            async function downloadPdf() {
                 const filtered = getVisibleEntries();
-                const label =
-                    activeGroup === "all"
-                        ? "All Blood Groups"
-                        : `${activeGroup} Blood Group`;
                 if (!filtered.length) {
                     alert("There are no matching records to download.");
                     return;
                 }
                 if (!window.jspdf) {
-                    alert(
-                        "The PDF library could not be loaded. Please check your internet connection and try again.",
-                    );
+                    alert("The PDF library could not be loaded. Please check your internet connection and try again.");
                     return;
                 }
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF();
-                let y = 18;
-                pdf.setFontSize(17);
-                pdf.text("Khawrai Blood Group List", 14, y);
-                y += 8;
+                const pdf = new jsPDF({ unit: "mm", format: "a4" });
+                const logo = await getPdfLogo();
+                const groups = STANDARD_GROUPS.filter((group) => filtered.some((entry) => entry.blood_group === group));
+                const groupedEntries = groups.map((group) => ({
+                    group,
+                    entries: filtered.filter((entry) => entry.blood_group === group).sort((a, b) => a.full_name.localeCompare(b.full_name)),
+                }));
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 14;
+                let y = 0;
+                let pageNumber = 0;
+                const drawFooter = () => {
+                    pdf.setDrawColor(220, 226, 237);
+                    pdf.line(margin, pageHeight - 13, pageWidth - margin, pageHeight - 13);
+                    pdf.setTextColor(102, 112, 133);
+                    pdf.setFontSize(7.5);
+                    pdf.text("Khawrai Unity | Please verify donor availability before contacting.", margin, pageHeight - 8);
+                    pdf.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - 8, { align: "right" });
+                };
+                const addPage = () => {
+                    if (pageNumber) { drawFooter(); pdf.addPage(); }
+                    pageNumber += 1;
+                    pdf.setFillColor(36, 87, 214);
+                    pdf.rect(0, 0, pageWidth, 36, "F");
+                    if (logo) pdf.addImage(logo, "PNG", margin, 7, 22, 22);
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(18);
+                    pdf.text("Khawrai Blood Group List", logo ? 42 : margin, 18);
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(8.5);
+                    pdf.text("Community donor directory", logo ? 42 : margin, 25);
+                    y = 47;
+                };
+                const ensureSpace = (height) => { if (y + height > pageHeight - 19) addPage(); };
+                addPage();
+                pdf.setTextColor(23, 33, 43);
+                pdf.setFont("helvetica", "bold");
                 pdf.setFontSize(11);
-                pdf.text(label, 14, y);
-                y += 7;
-                pdf.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
-                y += 9;
-                filtered.forEach((entry, index) => {
-                    if (y > 274) {
-                        pdf.addPage();
-                        y = 18;
-                    }
+                pdf.text(activeGroup === "all" ? "All Blood Groups" : `${activeGroup} Blood Group`, margin, y);
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(8.5);
+                pdf.setTextColor(102, 112, 133);
+                pdf.text(`${filtered.length} donor record${filtered.length === 1 ? "" : "s"} | Generated ${new Date().toLocaleString()}`, margin, y + 6);
+                y += 15;
+                groupedEntries.forEach(({ group, entries: donors }) => {
+                    ensureSpace(20);
+                    pdf.setFillColor(234, 240, 255);
+                    pdf.roundedRect(margin, y, pageWidth - margin * 2, 8, 2, 2, "F");
+                    pdf.setTextColor(36, 87, 214);
+                    pdf.setFont("helvetica", "bold");
                     pdf.setFontSize(10);
-                    pdf.text(
-                        `${index + 1}. ${entry.full_name} | ${entry.blood_group}`,
-                        14,
-                        y,
-                    );
-                    y += 5;
-                    pdf.setFontSize(9);
-                    pdf.text(
-                        `Mohallah: ${entry.mohallah}    Mobile: ${entry.mobile_number}`,
-                        18,
-                        y,
-                    );
+                    pdf.text(`${group} Blood Group`, margin + 4, y + 5.3);
+                    pdf.setFontSize(8);
+                    pdf.text(`${donors.length} record${donors.length === 1 ? "" : "s"}`, pageWidth - margin - 4, y + 5.3, { align: "right" });
+                    y += 12;
+                    pdf.setFillColor(243, 246, 251);
+                    pdf.roundedRect(margin, y - 4.5, pageWidth - margin * 2, 7, 1.5, 1.5, "F");
+                    pdf.setTextColor(102, 112, 133);
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(7.2);
+                    pdf.text("NAME", margin + 2, y);
+                    pdf.text("MOHALLAH", 80, y);
+                    pdf.text("MOBILE NUMBER", 135, y);
                     y += 8;
+                    donors.forEach((entry, index) => {
+                        ensureSpace(9);
+                        if (index % 2 === 0) { pdf.setFillColor(248, 250, 255); pdf.rect(margin, y - 3.7, pageWidth - margin * 2, 7.5, "F"); }
+                        pdf.setTextColor(23, 33, 43);
+                        pdf.setFont("helvetica", "normal");
+                        pdf.setFontSize(8.3);
+                        const name = pdf.splitTextToSize(entry.full_name, 60)[0];
+                        const mohallah = pdf.splitTextToSize(entry.mohallah, 50)[0];
+                        pdf.text(`${index + 1}. ${name}`, margin + 2, y + 1.2);
+                        pdf.text(mohallah, 80, y + 1.2);
+                        pdf.text(entry.mobile_number, 135, y + 1.2);
+                        y += 8;
+                    });
+                    y += 4;
                 });
-                pdf.setFontSize(8);
-                pdf.text(
-                    "Khawrai Unity | Please verify donor availability before contacting.",
-                    14,
-                    288,
-                );
-                pdf.save(
-                    `khawrai-blood-list-${activeGroup === "all" ? "all-groups" : activeGroup.replace("+", "positive").replace("-", "negative")}.pdf`,
-                );
+                drawFooter();
+                pdf.save(`khawrai-blood-list-${activeGroup === "all" ? "all-groups" : activeGroup.replace("+", "positive").replace("-", "negative")}.pdf`);
             }
             async function loadEntries() {
                 const { data, error } = await db
