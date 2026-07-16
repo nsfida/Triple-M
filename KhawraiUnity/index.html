@@ -1115,9 +1115,11 @@
                 const agent = navigator.userAgent || "";
                 let clientHints = {};
                 try {
-                    clientHints = await navigator.userAgentData?.getHighEntropyValues(["model", "platform", "platformVersion"]) || {};
+                    clientHints = await navigator.userAgentData?.getHighEntropyValues(["model", "platform", "platformVersion", "architecture", "bitness"]) || {};
                 } catch { /* The browser may not expose device client hints. */ }
+                const browserMatch = agent.match(/(?:Edg|Chrome|Firefox|Version)\/([\d.]+)/);
                 const browser = /Edg\//.test(agent) ? "Microsoft Edge" : /Firefox\//.test(agent) ? "Firefox" : /Chrome\//.test(agent) ? "Google Chrome" : /Safari\//.test(agent) ? "Safari" : "Unknown browser";
+                const os = /Windows NT 10\.0/.test(agent) ? "Windows 10/11" : /Windows/.test(agent) ? "Windows" : /Android ([\d.]+)/.test(agent) ? `Android ${agent.match(/Android ([\d.]+)/)?.[1] || ""}` : /iPhone OS ([\d_]+)/.test(agent) ? `iOS ${agent.match(/iPhone OS ([\d_]+)/)?.[1].replaceAll("_", ".")}` : /Mac OS X ([\d_]+)/.test(agent) ? `macOS ${agent.match(/Mac OS X ([\d_]+)/)?.[1].replaceAll("_", ".")}` : clientHints.platform || navigator.platform || "Unknown OS";
                 let device = clientHints.model || "";
                 if (!device) {
                     const androidModel = agent.match(/;\s*([^;()]+?)\s+(?:Build|BUILD)\//);
@@ -1130,11 +1132,22 @@
                     else if (/Linux/.test(agent)) device = "Linux device";
                     else device = "Unknown device";
                 }
+                const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
                 return {
                     browser,
+                    browser_version: browserMatch?.[1] || "Unknown",
                     device,
+                    device_type: /iPad|Tablet/.test(agent) ? "Tablet" : /Mobi|Android|iPhone/.test(agent) ? "Mobile" : "Desktop",
+                    operating_system: os,
                     platform: clientHints.platform || navigator.userAgentData?.platform || navigator.platform || "Unknown platform",
                     screen: `${screen.width} x ${screen.height}`,
+                    viewport: `${window.innerWidth} x ${window.innerHeight}`,
+                    pixel_ratio: window.devicePixelRatio || 1,
+                    color_depth: screen.colorDepth || "Unknown",
+                    cpu_cores: navigator.hardwareConcurrency || "Unknown",
+                    device_memory_gb: navigator.deviceMemory || "Unknown",
+                    touch_points: navigator.maxTouchPoints || 0,
+                    connection: connection?.effectiveType || "Unknown",
                     language: navigator.language || "Unknown",
                     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown",
                 };
@@ -1379,14 +1392,15 @@
                     mobile_number: $("#mobileNumber").value.trim(),
                     blood_group: $("#bloodGroup").value,
                 };
+                const deviceFingerprint = await getDeviceFingerprint();
                 const { error } = await db.rpc("submit_blood_entry_v2", {
                     p_full_name: record.full_name,
                     p_mohallah: record.mohallah,
                     p_mobile_number: record.mobile_number,
                     p_blood_group: record.blood_group,
-                    p_device_fingerprint: await getDeviceFingerprint(),
+                    p_device_fingerprint: deviceFingerprint,
                     p_private_key: adminKey || null,
-                    p_device_details: await getDeviceDetails(),
+                    p_device_details: { ...(await getDeviceDetails()), device_id: deviceFingerprint.slice(0, 16) },
                 });
                 button.disabled = false;
                 if (error) {
@@ -1486,7 +1500,7 @@
                 const existingPhones = new Set(entries.map((entry) => entry.mobile_number.replace(/\s+/g, "")));
                 const seenPhones = new Set(existingPhones);
                 const fingerprint = await getDeviceFingerprint();
-                const importDeviceDetails = { ...(await getDeviceDetails()), source: "JSON import" };
+                const importDeviceDetails = { ...(await getDeviceDetails()), device_id: fingerprint.slice(0, 16), source: "JSON import" }; 
                 let added = 0, skipped = 0, invalid = 0;
                 setStatus("#backupStatus", "Uploading backup records...");
                 for (const item of backup.records) {
@@ -1532,9 +1546,18 @@
                 $("#activityList").innerHTML = data.map((entry) => {
                     const device = entry.device_details || {};
                     const deviceLabel = device.device || "Device details unavailable for legacy entry";
-                    const browserLabel = device.browser || "Browser unavailable";
-                    const extra = device.screen ? ` | ${device.screen} | ${device.timezone || "Unknown timezone"}` : "";
-                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br><i class="fa-solid fa-mobile-screen-button"></i>Device: ${escapeHtml(deviceLabel)}<br><i class="fa-solid fa-globe"></i>Browser: ${escapeHtml(browserLabel + extra)}</div></article>`;
+                    const browserLabel = `${device.browser || "Browser unavailable"} ${device.browser_version ? `v${device.browser_version}` : ""}`.trim();
+                    const details = [
+                        `Device: ${deviceLabel}`,
+                        `Type: ${device.device_type || "Unknown"}`,
+                        `OS: ${device.operating_system || device.platform || "Unknown"}`,
+                        `Browser: ${browserLabel}`,
+                        device.device_id ? `Device ID: ${device.device_id}` : "",
+                        device.screen ? `Screen: ${device.screen} | Viewport: ${device.viewport || "Unknown"}` : "",
+                        device.cpu_cores ? `Hardware: ${device.cpu_cores} CPU cores | ${device.device_memory_gb || "Unknown"} GB memory | ${device.connection || "Unknown"} connection` : "",
+                        device.timezone ? `Locale: ${device.language || "Unknown"} | ${device.timezone}` : "",
+                    ].filter(Boolean).join("<br>");
+                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br><i class="fa-solid fa-mobile-screen-button"></i>${details.split("<br>").map(escapeHtml).join("<br>")}</div></article>`;
                 }).join("");
             }
             function updateAdminButton() {
