@@ -917,10 +917,34 @@
             .compatibility-result { display: grid; gap: 9px; margin-top: 13px; padding: 12px 14px; border-radius: 12px; background: rgba(36, 87, 214, .07); color: #29415f; font-size: .84rem; }
             .compatibility-result-groups { display: flex; flex-wrap: wrap; gap: 6px; }
             .compatibility-result-groups span { min-width: 38px; padding: 4px 7px; border-radius: 6px; background: #fff; color: #2457d6; text-align: center; font-weight: 900; font-size: .73rem; box-shadow: 0 1px 3px rgba(15, 23, 42, .06); }
+            .compatibility-facts { display:grid; gap:7px; margin-top:13px; padding:13px; border:1px solid #dce6f5; border-radius:13px; background:rgba(255,255,255,.74); }
+            .compatibility-facts-title { color:#29415f; font-size:.8rem; font-weight:900; }
+            .compatibility-facts-title i { color:#d28b09; margin-right:5px; }
+            .compatibility-tip { display:flex; align-items:flex-start; gap:8px; margin:0; padding:8px 9px; border-radius:9px; background:#f8faff; color:#526174; font-size:.74rem; line-height:1.42; opacity:0; transform:translateY(7px); }
+            .compatibility-tip > i { width:18px; padding-top:2px; color:var(--primary); text-align:center; }
+            .compatibility-tip strong { color:#29415f; }
+            .modal.show .compatibility-tip { animation: fact-enter .42s ease forwards; }
+            .modal.show .compatibility-tip:nth-of-type(2) { animation-delay:.13s; }
+            .modal.show .compatibility-tip:nth-of-type(3) { animation-delay:.26s; }
+            .modal.show .compatibility-tip:nth-of-type(4) { animation-delay:.39s; }
             .compatibility-note { margin: 12px 0 0; color: #667085; font-size: .72rem; line-height: 1.45; }
             .compatibility-note i { color: var(--primary); margin-right: 4px; }
+            .directory-summary-modal { width:min(100%, 540px); overflow:hidden; background:linear-gradient(150deg,#ffffff 0%,#edf4ff 100%); }
+            .summary-intro { margin:-4px 0 15px; color:#667085; font-size:.84rem; line-height:1.45; }
+            .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+            .summary-stat { display:grid; justify-items:center; gap:5px; min-height:128px; padding:14px 7px; border:1px solid #dbe6f5; border-radius:14px; background:rgba(255,255,255,.86); text-align:center; box-shadow:0 6px 16px rgba(36,87,214,.06); }
+            .summary-stat i { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; color:#2457d6; background:#eaf1ff; font-size:.9rem; }
+            .summary-stat strong { color:#1f3f91; font-size:clamp(1.3rem,5vw,1.8rem); line-height:1; letter-spacing:-.05em; }
+            .summary-stat span { color:#59697d; font-size:.7rem; font-weight:800; line-height:1.2; }
+            .summary-stat.khawrai i { color:#6938a8; background:#f3edff; }
+            .summary-stat.khawrai strong { color:#6938a8; }
+            .summary-stat.abroad i { color:#067647; background:#edf9f2; }
+            .summary-stat.abroad strong { color:#067647; }
+            .summary-note { margin:14px 0 0; color:#536276; font-size:.73rem; text-align:center; }
+            .summary-note i { color:#067647; margin-right:4px; }
             @keyframes compatibility-flow { to { stroke-dashoffset: -36; } }
-            @media (prefers-reduced-motion: reduce) { .compat-path { animation: none; } }
+            @keyframes fact-enter { to { opacity:1; transform:translateY(0); } }
+            @media (prefers-reduced-motion: reduce) { .compat-path, .modal.show .compatibility-tip { animation: none; opacity:1; transform:none; } }
             @media (max-width: 640px) {
                 .compatibility-modal { padding: 14px; }
                 .compatibility-intro { font-size: .77rem; margin-bottom: 10px; }
@@ -932,6 +956,14 @@
                 .compatibility-diagram { min-height: 235px; }
                 .compatibility-result { margin-top: 10px; padding: 10px; font-size: .75rem; }
                 .compatibility-note { font-size: .65rem; }
+                .compatibility-facts { margin-top:10px; padding:10px; gap:5px; }
+                .compatibility-tip { padding:7px; font-size:.66rem; }
+                .summary-intro { font-size:.76rem; }
+                .summary-grid { gap:6px; }
+                .summary-stat { min-height:108px; padding:10px 4px; border-radius:11px; }
+                .summary-stat i { width:27px; height:27px; border-radius:8px; font-size:.75rem; }
+                .summary-stat span { font-size:.61rem; }
+                .summary-note { font-size:.66rem; }
             }
         </style>
     </head>
@@ -1309,7 +1341,27 @@
                     <svg id="compatibilityDiagram" class="compatibility-diagram" viewBox="0 0 640 350" role="img" aria-label="Interactive blood compatibility diagram"></svg>
                 </section>
                 <div class="compatibility-result"><strong id="compatibilityResultTitle">O- is compatible with 8 blood groups.</strong><div id="compatibilityResultGroups" class="compatibility-result-groups"></div></div>
+                <section class="compatibility-facts" aria-label="Blood donation facts">
+                    <div class="compatibility-facts-title"><i class="fa-solid fa-lightbulb"></i> Good to know</div>
+                    <p class="compatibility-tip"><i class="fa-solid fa-droplet"></i><span><strong>O- is the universal red-cell donor.</strong> It can donate red cells to every blood group.</span></p>
+                    <p class="compatibility-tip"><i class="fa-solid fa-heart-circle-check"></i><span><strong>AB+ can receive red cells from all groups.</strong> It is known as the universal recipient.</span></p>
+                    <p class="compatibility-tip"><i class="fa-solid fa-people-group"></i><span><strong>One donation can help up to three lives.</strong> Blood may be separated into useful components.</span></p>
+                    <p class="compatibility-tip"><i class="fa-solid fa-calendar-check"></i><span><strong>A healthy person may donate every 3–4 months.</strong> Always follow local blood-bank guidance.</span></p>
+                </section>
                 <p class="compatibility-note"><i class="fa-solid fa-circle-info"></i> This is a red-cell compatibility guide. A hospital must always confirm compatibility and cross-match blood before transfusion.</p>
+            </div>
+        </div>
+
+        <div id="directorySummaryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="directorySummaryTitle">
+            <div class="modal-box directory-summary-modal">
+                <div class="modal-head"><h3 id="directorySummaryTitle"><i class="fa-solid fa-hand-holding-heart"></i> Khawrai Community Snapshot</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
+                <p class="summary-intro">Our community directory is stronger when donors keep their details accurate.</p>
+                <div class="summary-grid">
+                    <article class="summary-stat khawrai"><i class="fa-solid fa-house-chimney"></i><strong id="summaryKhawrai">0</strong><span>Khawrai</span></article>
+                    <article class="summary-stat pakistan"><i class="fa-solid fa-map-location-dot"></i><strong id="summaryWithinPakistan">0</strong><span>Within Pakistan</span></article>
+                    <article class="summary-stat abroad"><i class="fa-solid fa-earth-americas"></i><strong id="summaryOutOfCountry">0</strong><span>Out Of Country</span></article>
+                </div>
+                <p class="summary-note"><i class="fa-solid fa-circle-check"></i> Live counts from the Khawrai Unity donor directory.</p>
             </div>
         </div>
 
@@ -1419,6 +1471,7 @@
             ];
             let compatibilityGroup = "O-";
             let compatibilityMode = "donate";
+            let hasShownDirectorySummary = false;
             function renderCompatibilityGuide() {
                 const matches = BLOOD_RED_CELL_COMPATIBILITY[compatibilityGroup][compatibilityMode];
                 const action = compatibilityMode === "donate" ? "can donate red cells to" : "can receive red cells from";
@@ -1443,6 +1496,21 @@
                 closeModals();
                 renderCompatibilityGuide();
                 $("#compatibilityModal").classList.add("show");
+            }
+            function showDirectorySummary() {
+                if (hasShownDirectorySummary) return;
+                hasShownDirectorySummary = true;
+                const counts = entries.reduce((total, entry) => {
+                    const location = normalizeLocationStatus(entry.location_status);
+                    if (location === "Khawrai") total.khawrai += 1;
+                    else if (location === "Out Of Country") total.outOfCountry += 1;
+                    else total.withinPakistan += 1;
+                    return total;
+                }, { khawrai: 0, withinPakistan: 0, outOfCountry: 0 });
+                $("#summaryKhawrai").textContent = counts.khawrai.toLocaleString();
+                $("#summaryWithinPakistan").textContent = counts.withinPakistan.toLocaleString();
+                $("#summaryOutOfCountry").textContent = counts.outOfCountry.toLocaleString();
+                $("#directorySummaryModal").classList.add("show");
             }
             async function getDeviceFingerprint() {
                 const parts = [
@@ -1806,6 +1874,7 @@
                 }
                 entries = data || [];
                 renderDirectory();
+                if (!hasShownDirectorySummary) setTimeout(showDirectorySummary, 450);
             }
             async function loadProfessionals() {
                 if (!(accessProfile?.is_admin || accessProfile?.can_access_professionals)) return;
