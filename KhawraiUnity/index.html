@@ -257,6 +257,12 @@
                 border-radius: 999px;
                 padding: 5px 9px;
             }
+            .workspace-tabs { display:flex; gap:8px; margin:0 0 10px; padding:2px; overflow-x:auto; }
+            .workspace-tabs .tab { box-shadow: 0 3px 10px rgba(16,24,40,.05); }
+            #professionalsWorkspace[hidden], #bloodWorkspace[hidden] { display:none; }
+            .professional-row { display:grid; grid-template-columns:minmax(85px,1.05fr) minmax(70px,.85fr) minmax(95px,1.1fr) minmax(70px,.8fr) minmax(65px,.72fr) minmax(90px,.9fr) auto; gap:8px; align-items:center; padding:10px; border-bottom:1px solid var(--line); font-size:.8rem; }
+            .professional-row strong { font-size:.86rem; }
+            @media(max-width:640px){.professional-row{grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 4px;font-size:.65rem}.professional-row strong{font-size:.72rem}.professional-row .professional-detail{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.professional-row .professional-detail:nth-child(2),.professional-row .professional-detail:nth-child(3){grid-column:1}.professional-row .professional-detail:nth-child(4),.professional-row .professional-detail:nth-child(5){grid-column:2}.professional-row .professional-actions{grid-column:1 / -1;justify-self:end}.workspace-tabs{margin-bottom:7px}.workspace-tabs .tab{font-size:.7rem;padding:6px 8px}}
             .tabs {
                 display: flex;
                 gap: 8px;
@@ -779,7 +785,8 @@
                 </div>
             </header>
 
-            <section class="card" aria-labelledby="directory-title">
+            <nav class="workspace-tabs" aria-label="Directory workspaces"><button id="bloodWorkspaceTab" class="tab active" type="button"><i class="fa-solid fa-droplet"></i> Blood Groups</button><button id="professionalsWorkspaceTab" class="tab" type="button" hidden><i class="fa-solid fa-user-tie"></i> Khawrai Professionals</button></nav>
+            <section id="bloodWorkspace" class="card" aria-labelledby="directory-title">
                 <div class="section-head">
                     <h3 id="directory-title">
                         <i class="fa-solid fa-list-ul"></i> Donor Directory
@@ -829,6 +836,10 @@
                         group records...
                     </div>
                 </div>
+            </section>
+            <section id="professionalsWorkspace" class="card" hidden aria-labelledby="professionalsTitle">
+                <div class="section-head"><h3 id="professionalsTitle"><i class="fa-solid fa-user-tie"></i> Khawrai Professionals</h3><div class="tool-actions"><button id="professionalPdfButton" class="btn ghost" type="button"><i class="fa-solid fa-file-pdf"></i> PDF</button><button id="newProfessionalButton" class="btn primary" type="button"><i class="fa-solid fa-user-plus"></i> Add</button></div></div>
+                <div id="professionalsList" class="entry-list" aria-live="polite"></div>
             </section>
 
             <section
@@ -932,6 +943,7 @@
                     </form>
                 </div>
             </section>
+            <section id="professionalEntryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="professionalEntryTitle"><div class="modal-box"><div class="modal-head"><h3 id="professionalEntryTitle"><i class="fa-solid fa-user-tie"></i> Add Professional</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><form id="professionalEntryForm" class="form-grid"><input id="professionalId" type="hidden" /><div class="field"><label for="professionalName">Name</label><div class="input-wrap"><i class="fa-solid fa-user"></i><input class="input" id="professionalName" required maxlength="100" /></div></div><div class="field"><label for="professionalMohallah">Mohallah</label><div class="input-wrap"><i class="fa-solid fa-location-dot"></i><input class="input" id="professionalMohallah" required maxlength="100" /></div></div><div class="field"><label for="professionalQualification">Qualification</label><div class="input-wrap"><i class="fa-solid fa-graduation-cap"></i><input class="input" id="professionalQualification" required maxlength="160" /></div></div><div class="field"><label for="professionalCountry">Current Residence Country</label><div class="input-wrap"><i class="fa-solid fa-earth-americas"></i><input class="input" id="professionalCountry" required maxlength="100" /></div></div><div class="field"><label for="professionalMobile">Mobile Number</label><div class="input-wrap"><i class="fa-solid fa-mobile-screen-button"></i><input class="input" id="professionalMobile" required maxlength="25" inputmode="tel" /></div></div><div class="field"><label for="professionalAge">Age</label><div class="input-wrap"><i class="fa-solid fa-cake-candles"></i><input class="input" id="professionalAge" required type="number" min="1" max="120" inputmode="numeric" /></div></div><div class="field"><label for="professionalBloodGroup">Blood Group</label><div class="input-wrap"><i class="fa-solid fa-droplet"></i><select id="professionalBloodGroup" required><option value="">Select blood group</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div></div><p id="professionalStatus" class="form-status"></p><button class="btn primary" type="submit">Save Professional</button></form></div></section>
             <footer class="footer">
                 Powered by
                 <a
@@ -1118,12 +1130,13 @@
                     <div class="field"><label for="userEntryLimit">Entry Allowance</label><select id="userEntryLimit"><option value="">Unlimited entries</option><option value="1">1 entry</option><option value="2">2 entries</option><option value="5">5 entries</option><option value="10">10 entries</option></select></div>
                     <label class="form-note"><input id="userCanViewActivity" type="checkbox" /> Allow activity log</label>
                     <label class="form-note"><input id="userCanEdit" type="checkbox" /> Allow editing own entries</label>
-                    <label class="form-note"><input id="userCanDelete" type="checkbox" /> Allow deleting own entries</label>
+                    <label class="form-note"><input id="userCanDelete" type="checkbox" /> Allow deleting own entries</label><label class="form-note"><input id="userCanProfessionals" type="checkbox" /> Allow Khawrai Professionals access</label>
                     <p id="userKeyStatus" class="form-status" role="status"></p>
                     <button class="btn primary" type="submit"><i class="fa-solid fa-user-check"></i> Create User Key</button>
                 </form>
             </div>
         </div>
+        <div id="keyPermissionsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="keyPermissionsTitle"><div class="modal-box"><div class="modal-head"><h3 id="keyPermissionsTitle"><i class="fa-solid fa-sliders"></i> Edit User Access</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><form id="keyPermissionsForm" class="form-grid"><input id="permissionKeyId" type="hidden" /><div class="field"><label for="permissionEntryLimit">Entry Allowance</label><select id="permissionEntryLimit"><option value="">Unlimited entries</option><option value="1">1 entry</option><option value="2">2 entries</option><option value="5">5 entries</option><option value="10">10 entries</option></select></div><label class="form-note"><input id="permissionViewActivity" type="checkbox" /> Allow activity log</label><label class="form-note"><input id="permissionCanEdit" type="checkbox" /> Allow editing own entries</label><label class="form-note"><input id="permissionCanDelete" type="checkbox" /> Allow deleting own entries</label><label class="form-note"><input id="permissionProfessionals" type="checkbox" /> Allow Khawrai Professionals access</label><label class="form-note"><input id="permissionActive" type="checkbox" /> Key is active</label><p id="permissionStatus" class="form-status"></p><button class="btn primary" type="submit">Save Access</button></form></div></div>
         <div id="managedKeysModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="managedKeysTitle">
             <div class="modal-box">
                 <div class="modal-head"><h3 id="managedKeysTitle"><i class="fa-solid fa-users-gear"></i> Managed User Keys</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
@@ -1150,6 +1163,7 @@
                 "O-",
             ];
             let entries = [],
+                professionals = [],
                 activeGroup = "all",
                 adminKey = localStorage.getItem("khawraiBloodAdminKey") || "",
                 accessProfile = null;
@@ -1467,6 +1481,49 @@
                 entries = data || [];
                 renderDirectory();
             }
+            async function loadProfessionals() {
+                if (!(accessProfile?.is_admin || accessProfile?.can_access_professionals)) return;
+                const { data, error } = await db.rpc("access_list_khawrai_professionals_v2", { p_access_key: adminKey });
+                if (error) { console.error(error); $("#professionalsList").innerHTML = '<div class="activity-empty">Could not load professionals.</div>'; return; }
+                professionals = data || [];
+                renderProfessionals();
+            }
+            function renderProfessionals() {
+                if (!professionals.length) { $("#professionalsList").innerHTML = '<div class="activity-empty">No professional records are available yet.</div>'; return; }
+                $("#professionalsList").innerHTML = professionals.map((person) => {
+                    const actions = accessProfile?.is_admin ? `<div class="professional-actions"><button class="small-icon" type="button" data-edit-professional="${person.id}" title="Edit"><i class="fa-solid fa-pen"></i></button><button class="small-icon delete" type="button" data-delete-professional="${person.id}" title="Delete"><i class="fa-solid fa-trash"></i></button></div>` : "";
+                    return `<article class="professional-row"><strong>${escapeHtml(person.full_name)}</strong><span class="professional-detail">${escapeHtml(person.mohallah)}</span><span class="professional-detail">${escapeHtml(person.qualification)}</span><span class="professional-detail">${escapeHtml(person.current_residence_country)}</span><span class="professional-detail">Age: ${escapeHtml(person.age ?? "—")} | ${escapeHtml(person.blood_group || "—")}</span><a class="professional-detail phone" href="tel:${encodeURIComponent(person.mobile_number)}">${escapeHtml(person.mobile_number)}</a>${actions}</article>`;
+                }).join("");
+                document.querySelectorAll("[data-edit-professional]").forEach((button) => button.addEventListener("click", () => openProfessionalModal(button.dataset.editProfessional)));
+                document.querySelectorAll("[data-delete-professional]").forEach((button) => button.addEventListener("click", () => deleteProfessional(button.dataset.deleteProfessional)));
+            }
+            function switchWorkspace(workspace) {
+                const professionalsVisible = workspace === "professionals";
+                $("#bloodWorkspace").hidden = professionalsVisible;
+                $("#professionalsWorkspace").hidden = !professionalsVisible;
+                $("#bloodWorkspaceTab").classList.toggle("active", !professionalsVisible);
+                $("#professionalsWorkspaceTab").classList.toggle("active", professionalsVisible);
+                if (professionalsVisible) loadProfessionals();
+            }
+            function updateProfessionalAccess() {
+                const allowed = Boolean(accessProfile?.is_admin || accessProfile?.can_access_professionals);
+                $("#professionalsWorkspaceTab").hidden = !allowed;
+                if (!allowed && !$("#professionalsWorkspace").hidden) switchWorkspace("blood");
+            }
+            function openProfessionalModal(id = "") {
+                if (!(accessProfile?.is_admin || accessProfile?.can_access_professionals)) return;
+                $("#professionalEntryForm").reset();
+                $("#professionalId").value = id;
+                setStatus("#professionalStatus", "");
+                if (id) {
+                    const person = professionals.find((item) => item.id === id);
+                    if (!person || !accessProfile.is_admin) return;
+                    $("#professionalEntryTitle").textContent = "Edit Professional";
+                    $("#professionalName").value = person.full_name; $("#professionalMohallah").value = person.mohallah;
+                    $("#professionalQualification").value = person.qualification; $("#professionalCountry").value = person.current_residence_country; $("#professionalMobile").value = person.mobile_number; $("#professionalAge").value = person.age ?? ""; $("#professionalBloodGroup").value = person.blood_group ?? "";
+                } else $("#professionalEntryTitle").textContent = "Add Professional";
+                $("#professionalEntryModal").classList.add("show");
+            }
             $("#entryForm").addEventListener("submit", async (event) => {
                 event.preventDefault();
                 const button = $("#submitEntry");
@@ -1511,6 +1568,36 @@
                 await loadEntries();
                 setTimeout(closeModals, 800);
             });
+            $("#professionalEntryForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const id = $("#professionalId").value;
+                const payload = { p_full_name: $("#professionalName").value.trim(), p_mohallah: $("#professionalMohallah").value.trim(), p_qualification: $("#professionalQualification").value.trim(), p_current_residence_country: $("#professionalCountry").value.trim(), p_mobile_number: $("#professionalMobile").value.trim(), p_age: Number($("#professionalAge").value), p_blood_group: $("#professionalBloodGroup").value };
+                setStatus("#professionalStatus", "Saving...");
+                const { error } = id
+                    ? await db.rpc("admin_update_khawrai_professional_v2", { p_admin_key: adminKey, p_id: id, ...payload })
+                    : await db.rpc("access_create_khawrai_professional_v2", { p_access_key: adminKey, ...payload });
+                if (error) { console.error(error); setStatus("#professionalStatus", error.message.includes("Mobile number") ? "This mobile number is already registered." : "Could not save the professional record.", "error"); return; }
+                closeModals(); await loadProfessionals();
+            });
+            async function deleteProfessional(id) {
+                if (!accessProfile?.is_admin || !confirm("Delete this professional record?")) return;
+                const { error } = await db.rpc("admin_delete_khawrai_professional", { p_admin_key: adminKey, p_id: id });
+                if (error) { console.error(error); alert("Could not delete this professional record."); return; }
+                await loadProfessionals();
+            }
+            async function downloadProfessionalsPdf() {
+                if (!professionals.length || !window.jspdf) return alert("No professional records are available to download.");
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ unit: "mm", format: "a4" });
+                const logo = await getPdfLogo();
+                const pageWidth = pdf.internal.pageSize.getWidth(); const pageHeight = pdf.internal.pageSize.getHeight(); const margin = 14;
+                const records = [...professionals].sort((a, b) => a.full_name.localeCompare(b.full_name)); let y = 0; let page = 0;
+                const footer = () => { pdf.setDrawColor(220,226,237); pdf.line(margin, pageHeight - 13, pageWidth - margin, pageHeight - 13); pdf.setTextColor(102,112,133); pdf.setFontSize(7.5); pdf.text("Khawrai Unity | Professionals Directory", margin, pageHeight - 8); pdf.text(`Page ${page}`, pageWidth - margin, pageHeight - 8, { align: "right" }); };
+                const addPage = () => { if (page) { footer(); pdf.addPage(); } page += 1; pdf.setFillColor(36,87,214); pdf.rect(0,0,pageWidth,36,"F"); if (logo) pdf.addImage(logo,"PNG",margin,7,22,22); pdf.setTextColor(255,255,255); pdf.setFont("helvetica","bold"); pdf.setFontSize(18); pdf.text("Khawrai Professionals", logo ? 42 : margin, 18); pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5); pdf.text("Community professional directory", logo ? 42 : margin, 25); y = 47; };
+                addPage(); pdf.setTextColor(23,33,43); pdf.setFont("helvetica","bold"); pdf.setFontSize(11); pdf.text(`${records.length} Professional Record${records.length === 1 ? "" : "s"}`, margin, y); pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5); pdf.setTextColor(102,112,133); pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, y + 6); y += 15;
+                records.forEach((person, index) => { if (y > 270) { addPage(); } if (index % 2 === 0) { pdf.setFillColor(248,250,255); pdf.roundedRect(margin,y - 4,pageWidth - margin * 2,15,2,2,"F"); } pdf.setTextColor(23,33,43); pdf.setFont("helvetica","bold"); pdf.setFontSize(9.5); pdf.text(`${index + 1}. ${person.full_name}`, margin + 3, y); pdf.setFont("helvetica","normal"); pdf.setFontSize(8); const line1 = `${person.qualification} | ${person.current_residence_country} | Age: ${person.age ?? "—"} | Blood: ${person.blood_group || "—"}`; const line2 = `Mohallah: ${person.mohallah} | Mobile: ${person.mobile_number}`; pdf.text(pdf.splitTextToSize(line1, 175)[0], margin + 3, y + 5); pdf.text(pdf.splitTextToSize(line2, 175)[0], margin + 3, y + 10); y += 18; });
+                footer(); pdf.save("khawrai-professionals.pdf");
+            }
             function showAdminModal() {
                 $("#adminModal").classList.add("show");
                 $("#privateKey").focus();
@@ -1529,6 +1616,7 @@
                 const canManageEntries = profile.is_admin || profile.can_edit || profile.can_delete;
                 document.body.classList.toggle("admin-mode", canManageEntries);
                 updateAdminButton();
+                updateProfessionalAccess();
                 renderDirectory();
             }
             function showWelcome() {
@@ -1539,7 +1627,7 @@
             }
             async function restoreAccessSession() {
                 if (!adminKey) return;
-                const { data } = await db.rpc("authenticate_blood_access_key", { p_access_key: adminKey });
+                const { data } = await db.rpc("authenticate_blood_access_key_v2", { p_access_key: adminKey });
                 if (data?.[0]) applyAccessProfile(data[0]);
                 else lockAdmin();
             }
@@ -1551,6 +1639,10 @@
                 adminKey ? showAdminTools() : showAdminModal(),
             );
             $("#newEntryButton").addEventListener("click", showNewEntryModal);
+            $("#bloodWorkspaceTab").addEventListener("click", () => switchWorkspace("blood"));
+            $("#professionalsWorkspaceTab").addEventListener("click", () => switchWorkspace("professionals"));
+            $("#newProfessionalButton").addEventListener("click", () => openProfessionalModal());
+            $("#professionalPdfButton").addEventListener("click", downloadProfessionalsPdf);
             $("#logoutButton").addEventListener("click", () => { closeModals(); lockAdmin(); });
             $("#downloadJsonButton").addEventListener("click", downloadJsonBackup);
             $("#uploadJsonButton").addEventListener("click", () => $("#jsonUploadInput").click());
@@ -1568,7 +1660,7 @@
                 event.preventDefault();
                 const key = $("#privateKey").value;
                 setStatus("#adminStatus", "Checking private key...");
-                const { data, error } = await db.rpc("authenticate_blood_access_key", { p_access_key: key });
+                const { data, error } = await db.rpc("authenticate_blood_access_key_v2", { p_access_key: key });
                 const profile = data?.[0];
                 if (error || !profile) {
                     console.error(error);
@@ -1680,7 +1772,7 @@
                 event.preventDefault();
                 const limitValue = $("#userEntryLimit").value;
                 setStatus("#userKeyStatus", "Creating user key...");
-                const { error } = await db.rpc("create_blood_access_key", {
+                const { error } = await db.rpc("create_blood_access_key_v2", {
                     p_admin_key: adminKey,
                     p_display_name: $("#userDisplayName").value.trim(),
                     p_access_key: $("#userAccessKey").value,
@@ -1688,6 +1780,7 @@
                     p_can_view_activity: $("#userCanViewActivity").checked,
                     p_can_edit: $("#userCanEdit").checked,
                     p_can_delete: $("#userCanDelete").checked,
+                    p_can_access_professionals: $("#userCanProfessionals").checked,
                 });
                 if (error) { console.error(error); setStatus("#userKeyStatus", error.message, "error"); return; }
                 setStatus("#userKeyStatus", "User key created successfully.", "success");
@@ -1697,11 +1790,32 @@
                 closeModals();
                 $("#managedKeysModal").classList.add("show");
                 $("#managedKeysList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading user keys...</div>';
-                const { data, error } = await db.rpc("admin_list_blood_access_keys", { p_admin_key: adminKey });
+                const { data, error } = await db.rpc("admin_list_blood_access_keys_v2", { p_admin_key: adminKey });
                 if (error) { console.error(error); $("#managedKeysList").innerHTML = '<div class="activity-empty">Could not load user keys.</div>'; return; }
-                $("#managedKeysList").innerHTML = data?.length ? data.map((key) => `<article class="activity-item"><strong>${escapeHtml(key.display_name)}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>Permissions: ${key.can_view_activity ? "Activity " : ""}${key.can_edit ? "Edit " : ""}${key.can_delete ? "Delete" : "" || "None"}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div><button class="btn danger" type="button" data-delete-user="${key.id}"><i class="fa-solid fa-user-minus"></i> Delete User</button></article>`).join("") : '<div class="activity-empty">No user keys have been created.</div>';
+                $("#managedKeysList").innerHTML = data?.length ? data.map((key) => `<article class="activity-item"><strong>${escapeHtml(key.display_name)}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>Permissions: ${key.can_view_activity ? "Activity " : ""}${key.can_edit ? "Edit " : ""}${key.can_delete ? "Delete " : ""}${key.can_access_professionals ? "Professionals" : "" || "None"}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div><button class="btn ghost" type="button" data-edit-user="${key.id}"><i class="fa-solid fa-sliders"></i> Edit Access</button><button class="btn danger" type="button" data-delete-user="${key.id}"><i class="fa-solid fa-user-minus"></i> Delete User</button></article>`).join("") : '<div class="activity-empty">No user keys have been created.</div>';
                 document.querySelectorAll("[data-delete-user]").forEach((button) => button.addEventListener("click", () => deleteManagedUser(button.dataset.deleteUser)));
+                document.querySelectorAll("[data-edit-user]").forEach((button) => button.addEventListener("click", () => openKeyPermissions(data.find((key) => key.id === button.dataset.editUser))));
             }
+            function openKeyPermissions(key) {
+                if (!key) return;
+                closeModals();
+                $("#permissionKeyId").value = key.id;
+                $("#permissionEntryLimit").value = key.entry_limit ?? "";
+                $("#permissionViewActivity").checked = key.can_view_activity;
+                $("#permissionCanEdit").checked = key.can_edit;
+                $("#permissionCanDelete").checked = key.can_delete;
+                $("#permissionProfessionals").checked = key.can_access_professionals;
+                $("#permissionActive").checked = key.is_active;
+                setStatus("#permissionStatus", "");
+                $("#keyPermissionsModal").classList.add("show");
+            }
+            $("#keyPermissionsForm").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const rawLimit = $("#permissionEntryLimit").value;
+                const { error } = await db.rpc("update_blood_access_key_permissions", { p_admin_key: adminKey, p_access_key_id: $("#permissionKeyId").value, p_entry_limit: rawLimit === "" ? null : Number(rawLimit), p_can_view_activity: $("#permissionViewActivity").checked, p_can_edit: $("#permissionCanEdit").checked, p_can_delete: $("#permissionCanDelete").checked, p_can_access_professionals: $("#permissionProfessionals").checked, p_is_active: $("#permissionActive").checked });
+                if (error) { console.error(error); setStatus("#permissionStatus", "Could not update user access.", "error"); return; }
+                closeModals(); await showManagedKeys();
+            });
             async function deleteManagedUser(userId) {
                 if (!accessProfile?.is_admin || !confirm("Delete this managed user? Their login key will stop working, but all existing donor records will remain.")) return;
                 const { error } = await db.rpc("delete_blood_access_key", { p_admin_key: adminKey, p_access_key_id: userId });
@@ -1719,6 +1833,7 @@
                 localStorage.removeItem("khawraiBloodAdminKey");
                 document.body.classList.remove("admin-mode");
                 updateAdminButton();
+                updateProfessionalAccess();
                 renderDirectory();
             }
             function openEdit(id) {
@@ -1810,3 +1925,7 @@
         </script>
     </body>
 </html>
+
+
+
+
