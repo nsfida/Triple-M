@@ -303,10 +303,7 @@
             .entry-column-headings,
             .entry {
                 display: grid;
-                grid-template-columns: minmax(120px, 1.35fr) minmax(
-                        105px,
-                        1.15fr
-                    ) 72px minmax(120px, 1fr) auto;
+                grid-template-columns: minmax(145px, 1.4fr) minmax(105px, 1.05fr) 66px minmax(72px, .75fr) minmax(110px, .95fr) auto;
                 align-items: center;
                 column-gap: 14px;
             }
@@ -351,7 +348,8 @@
                 text-overflow: ellipsis;
             }
             .entry-place,
-            .entry-phone {
+            .entry-phone,
+            .entry-location {
                 color: var(--muted);
                 font-size: 0.82rem;
                 white-space: nowrap;
@@ -359,6 +357,8 @@
                 text-overflow: ellipsis;
             }
             .entry-place { text-transform: uppercase; }
+            .location-badge { display:inline-grid; place-items:center; min-width:58px; padding:4px 6px; border-radius:6px; background:#eaf2ff; color:#2457d6; font-size:.7rem; font-weight:900; }
+            .location-badge.foreign { background:#edf9f2; color:#067647; }
             .blood-badge {
                 display: inline-grid;
                 place-items: center;
@@ -728,9 +728,9 @@
                 .entry-list { gap: 2px; }
                 .group-entries { gap: 2px; }
                 .entry {
-                    grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr) 32px minmax(0, 1fr) auto;
-                    gap: 4px;
-                    min-height: 29px;
+                    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) 29px 43px minmax(0, .92fr) auto;
+                    gap: 3px;
+                    min-height: 30px;
                     padding: 4px 5px;
                     border-width: 0 0 1px;
                     border-radius: 0;
@@ -742,13 +742,16 @@
                 .entry-cell:nth-child(2) { grid-column: 2; grid-row: 1; }
                 .entry-cell:nth-child(3) { grid-column: 3; grid-row: 1; }
                 .entry-cell:nth-child(4) { grid-column: 4; grid-row: 1; }
+                .entry-cell:nth-child(5) { grid-column: 5; grid-row: 1; }
                 .entry-label { display: none; }
-                .entry-name { font-size: .66rem; line-height: 1; }
-                .entry-place, .entry-phone { font-size: .6rem; line-height: 1; }
+                .entry-name { font-size: .61rem; line-height: 1.08; white-space: normal; overflow: visible; text-overflow: clip; }
+                .entry-place, .entry-phone, .entry-location { font-size: .56rem; line-height: 1; }
                 .entry-cell { gap: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .entry-place i, .entry-phone i { display: none; }
+                .entry-cell.entry-name { white-space: normal; overflow: visible; text-overflow: clip; }
+                .entry-place i, .entry-phone i, .entry-location > i { display: none; }
+                .location-badge { min-width: 0; padding: 2px 3px; border-radius: 4px; font-size: .52rem; }
                 .blood-badge { min-width: 28px; padding: 2px 3px; border-radius: 4px; font-size: .56rem; }
-                .admin-entry-actions { grid-column: 5; grid-row: 1; flex-direction: row; gap: 2px; justify-content: flex-end; margin: 0; }
+                .admin-entry-actions { grid-column: 6; grid-row: 1; flex-direction: row; gap: 2px; justify-content: flex-end; margin: 0; }
                 .small-icon { width: 20px; height: 20px; border-radius: 5px; font-size: .62rem; }
                 .modal { padding: 10px; }
                 .modal-box { padding: 15px; border-radius: 14px; }
@@ -1097,6 +1100,10 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="field">
+                            <label for="entryLocationStatus">Location</label>
+                            <div class="input-wrap"><i class="fa-solid fa-earth-asia"></i><select id="entryLocationStatus" required><option value="Pakistan">Pakistan</option><option value="Foreign">Foreign</option></select></div>
+                        </div>
                         <label class="form-note"><input id="locationConsent" type="checkbox" required /> I agree to update this entry.</label>
                         <p
                             id="formStatus"
@@ -1245,6 +1252,10 @@
                                 <option>O-</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="field">
+                        <label for="editLocationStatus">Location</label>
+                        <div class="input-wrap"><i class="fa-solid fa-earth-asia"></i><select id="editLocationStatus" required><option value="Pakistan">Pakistan</option><option value="Foreign">Foreign</option></select></div>
                     </div>
                     <p id="editStatus" class="form-status" role="status"></p>
                     <button class="btn primary" type="submit">
@@ -1551,7 +1562,8 @@
                             entry.mohallah,
                             entry.mobile_number,
                             entry.blood_group,
-                        ].some((value) => value.toLowerCase().includes(query)),
+                            entry.location_status || "Pakistan",
+                        ].some((value) => value.toLowerCase().includes(query)), 
                 );
                 const sort = $("#sortEntries").value;
                 return [...filtered].sort((a, b) => {
@@ -1589,7 +1601,8 @@
             function entryCard(entry) {
                 const actions = accessProfile && (accessProfile.is_admin || accessProfile.can_edit || accessProfile.can_delete)
                     ? `<div class="admin-entry-actions">${accessProfile.is_admin || accessProfile.can_edit ? `<button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button>` : ""}${accessProfile.is_admin || accessProfile.can_delete ? `<button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button>` : ""}</div>` : "";
-                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
+                const locationStatus = entry.location_status === "Foreign" ? "Foreign" : "Pakistan";
+                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><div class="entry-cell entry-location"><span class="entry-label">Location</span><i class="fa-solid fa-earth-asia"></i><span class="location-badge ${locationStatus === "Foreign" ? "foreign" : ""}">${locationStatus}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
             }
             function renderDirectory() {
                 renderTabs();
@@ -1610,7 +1623,7 @@
                             .filter((entry) => entry.blood_group === group)
                             .map(entryCard)
                             .join("");
-                        return `<button class="group-heading" type="button" data-collapse-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${filtered.filter((entry) => entry.blood_group === group).length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries" ${isCollapsed ? "hidden" : ""}><div class="entry-column-headings"><span>Name</span><span>Mohallah</span><span>Group</span><span>Mobile Number</span><span></span></div>${groupEntries}</div>`;
+                        return `<button class="group-heading" type="button" data-collapse-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${filtered.filter((entry) => entry.blood_group === group).length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries" ${isCollapsed ? "hidden" : ""}><div class="entry-column-headings"><span>Name</span><span>Mohallah</span><span>Group</span><span>Location</span><span>Mobile Number</span><span></span></div>${groupEntries}</div>`;
                     })
                     .join("");
                 document
@@ -1753,7 +1766,7 @@
                 const { data, error } = await db
                     .from("blood_entries")
                     .select(
-                        "id, full_name, mohallah, mobile_number, blood_group, created_at",
+                        "id, full_name, mohallah, mobile_number, blood_group, location_status, created_at",
                     )
                     .order("created_at", { ascending: false });
                 if (error) {
@@ -1818,6 +1831,7 @@
                     mohallah: $("#mohallah").value.trim(),
                     mobile_number: $("#mobileNumber").value.trim(),
                     blood_group: $("#bloodGroup").value,
+                    location_status: $("#entryLocationStatus").value,
                 };
                 let locationDetails;
                 try {
@@ -1830,12 +1844,13 @@
                     return;
                 }
                 const deviceFingerprint = await getDeviceFingerprint();
-                const { data, error } = await db.rpc("submit_blood_entry_v4", {
-                    p_full_name: record.full_name,
-                    p_mohallah: record.mohallah,
-                    p_mobile_number: record.mobile_number,
-                    p_blood_group: record.blood_group,
-                    p_device_fingerprint: deviceFingerprint,
+                const { data, error } = await db.rpc("submit_blood_entry_v5", {
+                                    p_full_name: record.full_name,
+                                    p_mohallah: record.mohallah,
+                                    p_mobile_number: record.mobile_number,
+                                    p_blood_group: record.blood_group,
+                                    p_location_status: record.location_status,
+                                    p_device_fingerprint: deviceFingerprint,
                     p_access_key: adminKey || null,
                     p_device_details: { ...(await getDeviceDetails()), ...locationDetails, device_id: deviceFingerprint.slice(0, 16) },
                 });
@@ -2011,7 +2026,7 @@
                 let added = 0, skipped = 0;
                 setStatus("#excelImportStatus", "Importing selected records...");
                 for (const item of excelImportRows.filter((row) => selected.has(row.index))) {
-                    const { data, error } = await db.rpc("submit_blood_entry_v4", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: details });
+                    const { data, error } = await db.rpc("submit_blood_entry_v5", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_location_status: "Pakistan", p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: details });
                                         if (error || !data?.success) { console.error(error); skipped += 1; } else added += 1;
                 }
                 await loadEntries(); setStatus("#excelImportStatus", `Import complete: ${added} added, ${skipped} skipped.`, added ? "success" : "error");
@@ -2020,7 +2035,7 @@
             async function downloadJsonBackup() {
                 if (!adminKey) return;
                 setStatus("#backupStatus", "Preparing backup...");
-                const { data, error } = await db.from("blood_entries").select("id, full_name, mohallah, mobile_number, blood_group, created_at").order("created_at", { ascending: true });
+                const { data, error } = await db.from("blood_entries").select("id, full_name, mohallah, mobile_number, blood_group, location_status, created_at").order("created_at", { ascending: true });
                 if (error) { console.error(error); setStatus("#backupStatus", "Could not create the backup.", "error"); return; }
                 const backup = { format: "khawrai-blood-directory", version: 1, exportedAt: new Date().toISOString(), records: data || [] };
                 const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
@@ -2046,12 +2061,12 @@
                 let added = 0, skipped = 0, invalid = 0;
                 setStatus("#backupStatus", "Uploading backup records...");
                 for (const item of backup.records) {
-                    const record = { full_name: String(item?.full_name || "").trim(), mohallah: String(item?.mohallah || "").trim(), mobile_number: String(item?.mobile_number || "").trim(), blood_group: String(item?.blood_group || "") };
+                    const record = { full_name: String(item?.full_name || "").trim(), mohallah: String(item?.mohallah || "").trim(), mobile_number: String(item?.mobile_number || "").trim(), blood_group: String(item?.blood_group || ""), location_status: item?.location_status === "Foreign" ? "Foreign" : "Pakistan" };
                     const phone = record.mobile_number.replace(/\s+/g, "");
                     if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
                     if (seenPhones.has(phone)) { skipped += 1; continue; }
-                    const { error } = await db.rpc("submit_blood_entry_v3", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: importDeviceDetails });
-                    if (error) { if (error.message.includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
+                    const { data, error } = await db.rpc("submit_blood_entry_v5", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_location_status: record.location_status, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: importDeviceDetails });
+                                        if (error || !data?.success) { if ((data?.reason || error?.message || "").includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
                     seenPhones.add(phone); added += 1;
                 }
                 await loadEntries();
@@ -2093,7 +2108,7 @@
                 $("#activityList").innerHTML = entryActivity.length ? entryActivity.join("") : '<div class="activity-empty">No entry activity is available.</div>';
                 $("#reviewQueueTab").hidden = !accessProfile?.is_admin;
                 if (!accessProfile?.is_admin) return;
-                const auditResult = await db.rpc("admin_list_blood_submission_audit_v2", { p_admin_key: adminKey });
+                const auditResult = await db.rpc("admin_list_blood_submission_audit_v3", { p_admin_key: adminKey });
                 const audits = auditResult.error ? [] : auditResult.data || [];
                 const pendingCount = audits.filter((audit) => audit.review_status === "pending").length;
                 $("#reviewQueueCount").textContent = pendingCount;
@@ -2204,6 +2219,7 @@
                 $("#editMohallah").value = entry.mohallah;
                 $("#editMobile").value = entry.mobile_number;
                 $("#editBloodGroup").value = entry.blood_group;
+                $("#editLocationStatus").value = entry.location_status === "Foreign" ? "Foreign" : "Pakistan";
                 setStatus("#editStatus", "");
                 $("#editModal").classList.add("show");
                 $("#editName").focus();
@@ -2213,14 +2229,15 @@
                 const button = event.submitter;
                 button.disabled = true;
                 setStatus("#editStatus", "Saving changes...");
-                const { error } = await db.rpc("access_update_blood_entry", {
-                    p_access_key: adminKey,
-                    p_id: $("#editId").value,
-                    p_full_name: $("#editName").value.trim(),
-                    p_mohallah: $("#editMohallah").value.trim(),
-                    p_mobile_number: $("#editMobile").value.trim(),
-                    p_blood_group: $("#editBloodGroup").value,
-                });
+                const { error } = await db.rpc("access_update_blood_entry_v2", {
+                                    p_access_key: adminKey,
+                                    p_id: $("#editId").value,
+                                    p_full_name: $("#editName").value.trim(),
+                                    p_mohallah: $("#editMohallah").value.trim(),
+                                    p_mobile_number: $("#editMobile").value.trim(),
+                                    p_blood_group: $("#editBloodGroup").value,
+                                    p_location_status: $("#editLocationStatus").value,
+                                });
                 button.disabled = false;
                 if (error) {
                     console.error(error);
