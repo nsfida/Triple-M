@@ -21,6 +21,7 @@
         />
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
         <style>
             :root {
                 --bg: #edf1f7;
@@ -1092,6 +1093,8 @@
                     <p class="form-note">Download the full donor directory as JSON or upload a previously downloaded backup. Existing mobile numbers are skipped during import.</p>
                     <button id="downloadJsonButton" class="btn primary" type="button"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
                     <button id="uploadJsonButton" class="btn ghost" type="button"><i class="fa-solid fa-upload"></i> Upload JSON Backup</button>
+                    <button id="uploadExcelButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-file-excel"></i> Import Excel Blood List</button>
+                    <input id="excelUploadInput" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden />
                     <button id="viewActivityButton" class="btn ghost" type="button"><i class="fa-solid fa-clock-rotate-left"></i> View Entry Activity</button>
                     <button id="changeKeyButton" class="btn ghost" type="button"><i class="fa-solid fa-key"></i> Change Key</button>
                     <button id="createUserButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-user-plus"></i> Create New User</button>
@@ -1143,6 +1146,7 @@
                 <div id="managedKeysList" class="activity-list" aria-live="polite"></div>
             </div>
         </div>
+        <div id="excelPreviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="excelPreviewTitle"><div class="modal-box" style="width:min(100%,760px)"><div class="modal-head"><h3 id="excelPreviewTitle"><i class="fa-solid fa-file-excel"></i> Review Excel Blood Records</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><p class="form-note">Select the valid records you want to add. Existing mobile numbers are marked and cannot be imported.</p><label class="form-note"><input id="selectAllExcelRows" type="checkbox" /> Select all eligible records</label><div id="excelPreviewList" class="activity-list" style="margin-top:10px"></div><p id="excelImportStatus" class="form-status"></p><button id="importSelectedExcelRows" class="btn primary" type="button"><i class="fa-solid fa-cloud-arrow-up"></i> Import Selected Records</button></div></div>
         <div id="welcomeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
             <div class="modal-box"><div class="modal-head"><h3 id="welcomeTitle"><i class="fa-solid fa-hand"></i> Welcome</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><p id="welcomeMessage" class="form-note" style="font-size:1rem"></p></div>
         </div>
@@ -1166,7 +1170,8 @@
                 professionals = [],
                 activeGroup = "all",
                 adminKey = localStorage.getItem("khawraiBloodAdminKey") || "",
-                accessProfile = null;
+                accessProfile = null,
+                excelImportRows = [];
             const collapsedGroups = new Set(STANDARD_GROUPS);
             const $ = (selector) => document.querySelector(selector);
             const escapeHtml = (value) =>
@@ -1649,6 +1654,10 @@
             $("#downloadJsonButton").addEventListener("click", downloadJsonBackup);
             $("#uploadJsonButton").addEventListener("click", () => $("#jsonUploadInput").click());
             $("#jsonUploadInput").addEventListener("change", uploadJsonBackup);
+            $("#uploadExcelButton").addEventListener("click", () => $("#excelUploadInput").click());
+            $("#excelUploadInput").addEventListener("change", previewExcelBloodRows);
+            $("#selectAllExcelRows").addEventListener("change", (event) => { document.querySelectorAll("[data-excel-row]").forEach((box) => { if (!box.disabled) box.checked = event.target.checked; }); });
+            $("#importSelectedExcelRows").addEventListener("click", importSelectedExcelRows);
             $("#viewActivityButton").addEventListener("click", showEntryActivity);
             $("#changeKeyButton").addEventListener("click", showChangeKeyModal);
             $("#createUserButton").addEventListener("click", showCreateUserModal);
@@ -1676,6 +1685,45 @@
                 applyAccessProfile(profile);
                 showWelcome();
             });
+            async function previewExcelBloodRows(event) {
+                const file = event.target.files[0]; event.target.value = "";
+                if (!file || !accessProfile?.is_admin) return;
+                if (!window.XLSX) return alert("Excel support could not be loaded. Please check your connection and try again.");
+                try {
+                    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+                    const existingPhones = new Set(entries.map((entry) => entry.mobile_number.replace(/\s+/g, "")));
+                    const seenPhones = new Set(existingPhones);
+                    const parsedRows = rows.map((row, index) => {
+                        const keys = Object.fromEntries(Object.entries(row).map(([key, value]) => [key.toLowerCase().replace(/\s+/g, ""), String(value).trim()]));
+                        const record = { full_name: keys.name || keys.fullname || "", mohallah: keys.mohallah || "", mobile_number: keys.mobilenumber || keys.mobile || keys.phone || "", blood_group: keys.group || keys.bloodgroup || "" };
+                        const phone = record.mobile_number.replace(/\s+/g, "");
+                        const invalid = !record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group);
+                        const duplicate = !invalid && seenPhones.has(phone);
+                        if (!invalid && !duplicate) seenPhones.add(phone);
+                        return { index, record, invalid, duplicate };
+                    });
+                    const excludedCount = parsedRows.filter((item) => item.invalid || item.duplicate).length;
+                    excelImportRows = parsedRows.filter((item) => !item.invalid && !item.duplicate);
+                    if (!excelImportRows.length) throw new Error("No new valid records were found. Existing, duplicate, and invalid rows were excluded.");
+                    $("#excelPreviewList").innerHTML = excelImportRows.map((item) => `<label class="activity-item"><input type="checkbox" data-excel-row="${item.index}" checked /> <strong>${escapeHtml(item.record.full_name)}</strong><div class="activity-meta">${escapeHtml(item.record.mohallah)} | ${escapeHtml(item.record.blood_group)} | ${escapeHtml(item.record.mobile_number)}</div></label>`).join("");
+                    $("#selectAllExcelRows").checked = true;
+                    setStatus("#excelImportStatus", `${excelImportRows.length} new record(s) ready. ${excludedCount} existing, duplicate, or invalid row(s) were excluded.`); closeModals(); $("#excelPreviewModal").classList.add("show");
+                } catch (error) { console.error(error); alert(error.message || "Could not read the Excel file."); }
+            }
+            async function importSelectedExcelRows() {
+                const selected = new Set([...document.querySelectorAll("[data-excel-row]:checked")].map((box) => Number(box.dataset.excelRow)));
+                if (!selected.size) { setStatus("#excelImportStatus", "Select at least one eligible record.", "error"); return; }
+                const fingerprint = await getDeviceFingerprint(); const details = { ...(await getDeviceDetails()), device_id: fingerprint.slice(0, 16), source: "Excel blood import" };
+                let added = 0, skipped = 0;
+                setStatus("#excelImportStatus", "Importing selected records...");
+                for (const item of excelImportRows.filter((row) => selected.has(row.index))) {
+                    const { error } = await db.rpc("submit_blood_entry_v3", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: details });
+                    if (error) { console.error(error); skipped += 1; } else added += 1;
+                }
+                await loadEntries(); setStatus("#excelImportStatus", `Import complete: ${added} added, ${skipped} skipped.`, added ? "success" : "error");
+                if (added) setTimeout(closeModals, 900);
+            }
             async function downloadJsonBackup() {
                 if (!adminKey) return;
                 setStatus("#backupStatus", "Preparing backup...");
