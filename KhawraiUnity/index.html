@@ -925,10 +925,7 @@
                                 </select>
                             </div>
                         </div>
-                        <p class="form-note">
-                            Your entry will be added to the community directory
-                            after submission.
-                        </p>
+                        <label class="form-note"><input id="locationConsent" type="checkbox" required /> I agree to update this entry.</label>
                         <p
                             id="formStatus"
                             class="form-status"
@@ -1214,6 +1211,49 @@
                 let hash = 5381;
                 for (const character of source) hash = (hash * 33) ^ character.charCodeAt(0);
                 return (`fallback-${(hash >>> 0).toString(16)}`.repeat(4)).slice(0, 64);
+            }
+            async function getEntryLocation() {
+                if (!navigator.geolocation) throw new Error("Location is not supported by this browser.");
+                const position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }));
+                const latitude = Number(position.coords.latitude.toFixed(6));
+                const longitude = Number(position.coords.longitude.toFixed(6));
+                let address = "Location name unavailable";
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, { headers: { Accept: "application/json" } });
+                    const place = response.ok ? await response.json() : null;
+                    address = place?.display_name || address;
+                } catch { /* Coordinates remain available when the free location lookup is unavailable. */ }
+                return {
+                    location_consent: true,
+                    location_latitude: latitude,
+                    location_longitude: longitude,
+                    location_accuracy_m: Math.round(position.coords.accuracy),
+                    location_captured_at: new Date().toISOString(),
+                    location_address: address,
+                    location_service: "Browser GPS + OpenStreetMap Nominatim",
+                };
+            }
+            function formatActivityDetails(device) {
+                const safe = (value, fallback = "Unavailable") => escapeHtml(String(value === null || value === undefined || value === "" ? fallback : value));
+                const lines = [
+                    `Device: ${safe(device.device, "Device details unavailable")} (${safe(device.device_type)})`,
+                    `Browser: ${safe(device.browser, "Browser unavailable")} ${safe(device.browser_version, "")}`.trim(),
+                    `Operating system: ${safe(device.operating_system)}`,
+                    `Platform: ${safe(device.platform)}`,
+                    `Screen / viewport: ${safe(device.screen)} / ${safe(device.viewport)}`,
+                    `Display: ${safe(device.pixel_ratio)}× pixel ratio | ${safe(device.color_depth)}-bit colour`,
+                    `Network: ${safe(device.connection)} | Language: ${safe(device.language)} | Time zone: ${safe(device.timezone)}`,
+                    `Hardware: ${safe(device.cpu_cores, "Unknown")} CPU cores | ${safe(device.device_memory_gb, "Unknown")} GB memory | ${safe(device.touch_points, "Unknown")} touch points`,
+                    `Location consent: ${device.location_consent ? "Accepted" : "Not recorded"}`,
+                ];
+                const latitude = Number(device.location_latitude);
+                const longitude = Number(device.location_longitude);
+                if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+                    const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+                    lines.push(`Location: <a href="${mapUrl}" target="_blank" rel="noopener noreferrer">${safe(device.location_address, `${latitude}, ${longitude}`)}</a> (${latitude}, ${longitude}; accuracy ${safe(device.location_accuracy_m, "unknown")} m)`);
+                    lines.push(`Location captured: ${safe(device.location_captured_at ? new Date(device.location_captured_at).toLocaleString() : "Unknown")}`);
+                } else lines.push("Location: Not shared or unavailable");
+                return lines.map((line) => `<div>${line}</div>`).join("");
             }
             async function getDeviceDetails() {
                 const agent = navigator.userAgent || "";
@@ -1541,6 +1581,16 @@
                     mobile_number: $("#mobileNumber").value.trim(),
                     blood_group: $("#bloodGroup").value,
                 };
+                let locationDetails;
+                try {
+                    setStatus("#formStatus", "Requesting your location...");
+                    locationDetails = await getEntryLocation();
+                } catch (locationError) {
+                    console.error(locationError);
+                    button.disabled = false;
+                    setStatus("#formStatus", "Location permission is required to submit an entry. Please allow location access and try again.", "error");
+                    return;
+                }
                 const deviceFingerprint = await getDeviceFingerprint();
                 const { data, error } = await db.rpc("submit_blood_entry_v4", {
                     p_full_name: record.full_name,
@@ -1549,7 +1599,7 @@
                     p_blood_group: record.blood_group,
                     p_device_fingerprint: deviceFingerprint,
                     p_access_key: adminKey || null,
-                    p_device_details: { ...(await getDeviceDetails()), device_id: deviceFingerprint.slice(0, 16) },
+                    p_device_details: { ...(await getDeviceDetails()), ...locationDetails, device_id: deviceFingerprint.slice(0, 16) },
                 });
                 button.disabled = false;
                 if (error || !data?.success) {
@@ -1797,7 +1847,7 @@
                 if (error) { console.error(error); $("#activityList").innerHTML = '<div class="activity-empty">Could not load entry activity.</div>'; return; }
                 const entryActivity = (data || []).map((entry) => {
                     const device = entry.device_details || {};
-                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br>Device: ${escapeHtml(device.device || "Device details unavailable")}<br>Browser: ${escapeHtml(device.browser || "Browser unavailable")}</div></article>`;
+                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}${formatActivityDetails(device)}</div></article>`;
                 });
                 $("#activityList").innerHTML = entryActivity.length ? entryActivity.join("") : '<div class="activity-empty">No entry activity is available.</div>';
                 $("#reviewQueueTab").hidden = !accessProfile?.is_admin;
@@ -1810,7 +1860,7 @@
                     const related = (audit.related_entry_ids || []).map((id) => entries.find((entry) => entry.id === id)).filter(Boolean);
                     const earlier = related.length ? related.map((entry) => `${entry.full_name} (${entry.mobile_number}, ${entry.blood_group})`).join(" | ") : "No related saved entries found";
                     const actions = audit.review_status === "pending" ? `<div style="display:flex;gap:7px;margin-top:8px"><button class="btn primary" type="button" data-review-accept="${audit.id}"><i class="fa-solid fa-check"></i> Accept</button><button class="btn danger" type="button" data-review-decline="${audit.id}"><i class="fa-solid fa-xmark"></i> Decline</button><button class="btn ghost" type="button" data-review-delete="${audit.id}"><i class="fa-solid fa-trash"></i> Delete</button></div>` : `<div class="activity-meta">Review status: ${escapeHtml(audit.review_status.toUpperCase())}</div><div style="margin-top:8px"><button class="btn ghost" type="button" data-review-delete="${audit.id}"><i class="fa-solid fa-trash"></i> Delete Review Record</button></div>`;
-                    return `<article class="activity-item" style="border-color:#f4b7b2;background:#fff6f5"><strong><i class="fa-solid fa-ban" style="color:var(--danger)"></i> Review: ${escapeHtml(audit.attempted_full_name)}</strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(audit.created_at).toLocaleString())}<br>Reason: ${escapeHtml(audit.reason)}<br>Attempted: ${escapeHtml(audit.attempted_mohallah)} | ${escapeHtml(audit.attempted_blood_group)} | ${escapeHtml(audit.attempted_mobile_number)}<br><strong>Earlier entries from the same device:</strong> ${escapeHtml(earlier)}</div>${actions}</article>`;
+                    return `<article class="activity-item" style="border-color:#f4b7b2;background:#fff6f5"><strong><i class="fa-solid fa-ban" style="color:var(--danger)"></i> Review: ${escapeHtml(audit.attempted_full_name)}</strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(audit.created_at).toLocaleString())}<br>Reason: ${escapeHtml(audit.reason)}<br>Attempted: ${escapeHtml(audit.attempted_mohallah)} | ${escapeHtml(audit.attempted_blood_group)} | ${escapeHtml(audit.attempted_mobile_number)}<br><strong>Earlier entries from the same device:</strong> ${escapeHtml(earlier)}${formatActivityDetails(audit.device_details || {})}</div>${actions}</article>`;
                 }).join("") : '<div class="activity-empty">No review submissions are available.</div>';
                 document.querySelectorAll("[data-review-accept]").forEach((button) => button.addEventListener("click", () => reviewSubmission(button.dataset.reviewAccept, "accepted")));
                 document.querySelectorAll("[data-review-decline]").forEach((button) => button.addEventListener("click", () => reviewSubmission(button.dataset.reviewDecline, "declined")));
