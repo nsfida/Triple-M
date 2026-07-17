@@ -1024,7 +1024,9 @@
                     <button id="downloadJsonButton" class="btn primary" type="button"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
                     <button id="uploadJsonButton" class="btn ghost" type="button"><i class="fa-solid fa-upload"></i> Upload JSON Backup</button>
                     <button id="viewActivityButton" class="btn ghost" type="button"><i class="fa-solid fa-clock-rotate-left"></i> View Entry Activity</button>
-                    <button id="changeKeyButton" class="btn ghost" type="button"><i class="fa-solid fa-key"></i> Change Admin Key</button>
+                    <button id="changeKeyButton" class="btn ghost" type="button"><i class="fa-solid fa-key"></i> Change Key</button>
+                    <button id="createUserButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-user-plus"></i> Create New User</button>
+                    <button id="manageKeysButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-users-gear"></i> Manage User Keys</button>
                     <input id="jsonUploadInput" type="file" accept="application/json,.json" hidden />
                     <p id="backupStatus" class="form-status" role="status"></p>
                     <button id="logoutButton" class="btn danger" type="button"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
@@ -1050,6 +1052,30 @@
                 <div id="activityList" class="activity-list" aria-live="polite"></div>
             </div>
         </div>
+        <div id="userKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="userKeyTitle">
+            <div class="modal-box">
+                <div class="modal-head"><h3 id="userKeyTitle"><i class="fa-solid fa-user-plus"></i> Create New User</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
+                <form id="userKeyForm" class="form-grid">
+                    <div class="field"><label for="userDisplayName">User Name</label><div class="input-wrap"><i class="fa-solid fa-user"></i><input class="input" id="userDisplayName" maxlength="100" required /></div></div>
+                    <div class="field"><label for="userAccessKey">New Access Key</label><div class="input-wrap"><i class="fa-solid fa-key"></i><input class="input" id="userAccessKey" type="password" minlength="12" required /></div></div>
+                    <div class="field"><label for="userEntryLimit">Entry Allowance</label><select id="userEntryLimit"><option value="">Unlimited entries</option><option value="1">1 entry</option><option value="2">2 entries</option><option value="5">5 entries</option><option value="10">10 entries</option></select></div>
+                    <label class="form-note"><input id="userCanViewActivity" type="checkbox" /> Allow activity log</label>
+                    <label class="form-note"><input id="userCanEdit" type="checkbox" /> Allow editing own entries</label>
+                    <label class="form-note"><input id="userCanDelete" type="checkbox" /> Allow deleting own entries</label>
+                    <p id="userKeyStatus" class="form-status" role="status"></p>
+                    <button class="btn primary" type="submit"><i class="fa-solid fa-user-check"></i> Create User Key</button>
+                </form>
+            </div>
+        </div>
+        <div id="managedKeysModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="managedKeysTitle">
+            <div class="modal-box">
+                <div class="modal-head"><h3 id="managedKeysTitle"><i class="fa-solid fa-users-gear"></i> Managed User Keys</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
+                <div id="managedKeysList" class="activity-list" aria-live="polite"></div>
+            </div>
+        </div>
+        <div id="welcomeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+            <div class="modal-box"><div class="modal-head"><h3 id="welcomeTitle"><i class="fa-solid fa-hand"></i> Welcome</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><p id="welcomeMessage" class="form-note" style="font-size:1rem"></p></div>
+        </div>
 
         <script>
             const SUPABASE_URL = "https://nxyfuweyuizmmazmvuyt.supabase.co";
@@ -1068,7 +1094,8 @@
             ];
             let entries = [],
                 activeGroup = "all",
-                adminKey = localStorage.getItem("khawraiBloodAdminKey") || "";
+                adminKey = localStorage.getItem("khawraiBloodAdminKey") || "",
+                accessProfile = null;
             const collapsedGroups = new Set(STANDARD_GROUPS);
             const $ = (selector) => document.querySelector(selector);
             const escapeHtml = (value) =>
@@ -1205,7 +1232,9 @@
                 );
             }
             function entryCard(entry) {
-                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a><div class="admin-entry-actions"><button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button><button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button></div></article>`;
+                const actions = accessProfile && (accessProfile.is_admin || accessProfile.can_edit || accessProfile.can_delete)
+                    ? `<div class="admin-entry-actions">${accessProfile.is_admin || accessProfile.can_edit ? `<button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button>` : ""}${accessProfile.is_admin || accessProfile.can_delete ? `<button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button>` : ""}</div>` : "";
+                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
             }
             function renderDirectory() {
                 renderTabs();
@@ -1393,13 +1422,13 @@
                     blood_group: $("#bloodGroup").value,
                 };
                 const deviceFingerprint = await getDeviceFingerprint();
-                const { error } = await db.rpc("submit_blood_entry_v2", {
+                const { error } = await db.rpc("submit_blood_entry_v3", {
                     p_full_name: record.full_name,
                     p_mohallah: record.mohallah,
                     p_mobile_number: record.mobile_number,
                     p_blood_group: record.blood_group,
                     p_device_fingerprint: deviceFingerprint,
-                    p_private_key: adminKey || null,
+                    p_access_key: adminKey || null,
                     p_device_details: { ...(await getDeviceDetails()), device_id: deviceFingerprint.slice(0, 16) },
                 });
                 button.disabled = false;
@@ -1407,9 +1436,11 @@
                     console.error(error);
                     const message = error.message.includes("Device entry limit exceeded")
                         ? "Your entry limit is exceeded. A maximum of 2 entries can be submitted from this device."
-                        : error.message.includes("Mobile number already registered")
-                          ? "This mobile number is already registered in the directory."
-                          : "Your entry could not be saved. Please check the information and try again.";
+                        : error.message.includes("Access key entry limit exceeded")
+                          ? "This access key has reached its allowed number of entries."
+                          : error.message.includes("Mobile number already registered")
+                            ? "This mobile number is already registered in the directory."
+                            : "Your entry could not be saved. Please check the information and try again.";
                     setStatus("#formStatus", message, "error");
                     alert(message);
                     return;
@@ -1428,9 +1459,32 @@
                 $("#privateKey").focus();
             }
             function showAdminTools() {
-                if (!adminKey) return showAdminModal();
+                if (!adminKey || !accessProfile) return showAdminModal();
                 setStatus("#backupStatus", "");
+                document.querySelectorAll(".admin-only").forEach((node) => node.hidden = !accessProfile.is_admin);
+                $("#downloadJsonButton").hidden = !accessProfile.is_admin;
+                $("#uploadJsonButton").hidden = !accessProfile.is_admin;
+                $("#viewActivityButton").hidden = !(accessProfile.is_admin || accessProfile.can_view_activity);
                 $("#adminToolsModal").classList.add("show");
+            }
+            function applyAccessProfile(profile) {
+                accessProfile = profile;
+                const canManageEntries = profile.is_admin || profile.can_edit || profile.can_delete;
+                document.body.classList.toggle("admin-mode", canManageEntries);
+                updateAdminButton();
+                renderDirectory();
+            }
+            function showWelcome() {
+                $("#welcomeMessage").textContent = accessProfile.is_admin
+                    ? "Welcome Back Admin Nadeem Shahzad Fida"
+                    : `Welcome ${accessProfile.display_name}`;
+                $("#welcomeModal").classList.add("show");
+            }
+            async function restoreAccessSession() {
+                if (!adminKey) return;
+                const { data } = await db.rpc("authenticate_blood_access_key", { p_access_key: adminKey });
+                if (data?.[0]) applyAccessProfile(data[0]);
+                else lockAdmin();
             }
             function showNewEntryModal() {
                 $("#new-entry").classList.add("show");
@@ -1446,6 +1500,9 @@
             $("#jsonUploadInput").addEventListener("change", uploadJsonBackup);
             $("#viewActivityButton").addEventListener("click", showEntryActivity);
             $("#changeKeyButton").addEventListener("click", showChangeKeyModal);
+            $("#createUserButton").addEventListener("click", showCreateUserModal);
+            $("#manageKeysButton").addEventListener("click", showManagedKeys);
+            $("#userKeyForm").addEventListener("submit", createUserKey);
             $("#changeKeyForm").addEventListener("submit", changeAdminKey);
             $("#searchEntries").addEventListener("input", renderDirectory);
             $("#sortEntries").addEventListener("change", renderDirectory);
@@ -1454,26 +1511,19 @@
                 event.preventDefault();
                 const key = $("#privateKey").value;
                 setStatus("#adminStatus", "Checking private key...");
-                const { data, error } = await db.rpc("verify_blood_admin_key", {
-                    p_private_key: key,
-                });
-                if (error || !data) {
+                const { data, error } = await db.rpc("authenticate_blood_access_key", { p_access_key: key });
+                const profile = data?.[0];
+                if (error || !profile) {
                     console.error(error);
-                    setStatus(
-                        "#adminStatus",
-                        "The private key is not valid.",
-                        "error",
-                    );
+                    setStatus("#adminStatus", "The access key is not valid.", "error");
                     return;
                 }
                 adminKey = key;
                 localStorage.setItem("khawraiBloodAdminKey", adminKey);
                 $("#privateKey").value = "";
                 closeModals();
-                document.body.classList.add("admin-mode");
-                updateAdminButton();
-                renderDirectory();
-                showAdminTools();
+                applyAccessProfile(profile);
+                showWelcome();
             });
             async function downloadJsonBackup() {
                 if (!adminKey) return;
@@ -1508,7 +1558,7 @@
                     const phone = record.mobile_number.replace(/\s+/g, "");
                     if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
                     if (seenPhones.has(phone)) { skipped += 1; continue; }
-                    const { error } = await db.rpc("submit_blood_entry_v2", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_private_key: adminKey, p_device_details: importDeviceDetails });
+                    const { error } = await db.rpc("submit_blood_entry_v3", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: importDeviceDetails });
                     if (error) { if (error.message.includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
                     seenPhones.add(phone); added += 1;
                 }
@@ -1528,8 +1578,10 @@
                 const newKey = $("#newAdminKey").value;
                 if (newKey !== $("#confirmAdminKey").value) { setStatus("#changeKeyStatus", "New key and confirmation do not match.", "error"); return; }
                 setStatus("#changeKeyStatus", "Updating admin key...");
-                const { error } = await db.rpc("change_blood_admin_key", { p_existing_private_key: currentKey, p_new_private_key: newKey });
-                if (error) { console.error(error); setStatus("#changeKeyStatus", error.message.includes("Invalid admin key") ? "The existing key is not correct." : error.message, "error"); return; }
+                const { error } = accessProfile?.is_admin
+                    ? await db.rpc("change_blood_admin_key", { p_existing_private_key: currentKey, p_new_private_key: newKey })
+                    : await db.rpc("change_blood_access_key", { p_existing_key: currentKey, p_new_key: newKey });
+                if (error) { console.error(error); setStatus("#changeKeyStatus", "The existing key is not correct or the new key is unavailable.", "error"); return; }
                 adminKey = newKey;
                 localStorage.setItem("khawraiBloodAdminKey", adminKey);
                 setStatus("#changeKeyStatus", "Admin key updated successfully.", "success");
@@ -1540,7 +1592,7 @@
                 closeModals();
                 $("#activityModal").classList.add("show");
                 $("#activityList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading entry activity...</div>';
-                const { data, error } = await db.rpc("admin_list_blood_entry_details", { p_private_key: adminKey });
+                const { data, error } = await db.rpc("access_list_blood_entry_activity", { p_access_key: adminKey });
                 if (error) { console.error(error); $("#activityList").innerHTML = '<div class="activity-empty">Could not load entry activity.</div>'; return; }
                 if (!data?.length) { $("#activityList").innerHTML = '<div class="activity-empty">No entries are available.</div>'; return; }
                 $("#activityList").innerHTML = data.map((entry) => {
@@ -1560,13 +1612,46 @@
                     return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}<br><i class="fa-solid fa-mobile-screen-button"></i>${details.split("<br>").map(escapeHtml).join("<br>")}</div></article>`;
                 }).join("");
             }
+            function showCreateUserModal() {
+                if (!accessProfile?.is_admin) return;
+                $("#userKeyForm").reset();
+                setStatus("#userKeyStatus", "");
+                $("#userKeyModal").classList.add("show");
+                $("#userDisplayName").focus();
+            }
+            async function createUserKey(event) {
+                event.preventDefault();
+                const limitValue = $("#userEntryLimit").value;
+                setStatus("#userKeyStatus", "Creating user key...");
+                const { error } = await db.rpc("create_blood_access_key", {
+                    p_admin_key: adminKey,
+                    p_display_name: $("#userDisplayName").value.trim(),
+                    p_access_key: $("#userAccessKey").value,
+                    p_entry_limit: limitValue === "" ? null : Number(limitValue),
+                    p_can_view_activity: $("#userCanViewActivity").checked,
+                    p_can_edit: $("#userCanEdit").checked,
+                    p_can_delete: $("#userCanDelete").checked,
+                });
+                if (error) { console.error(error); setStatus("#userKeyStatus", error.message, "error"); return; }
+                setStatus("#userKeyStatus", "User key created successfully.", "success");
+            }
+            async function showManagedKeys() {
+                if (!accessProfile?.is_admin) return;
+                closeModals();
+                $("#managedKeysModal").classList.add("show");
+                $("#managedKeysList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading user keys...</div>';
+                const { data, error } = await db.rpc("admin_list_blood_access_keys", { p_admin_key: adminKey });
+                if (error) { console.error(error); $("#managedKeysList").innerHTML = '<div class="activity-empty">Could not load user keys.</div>'; return; }
+                $("#managedKeysList").innerHTML = data?.length ? data.map((key) => `<article class="activity-item"><strong>${escapeHtml(key.display_name)}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>Permissions: ${key.can_view_activity ? "Activity " : ""}${key.can_edit ? "Edit " : ""}${key.can_delete ? "Delete" : "" || "None"}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div></article>`).join("") : '<div class="activity-empty">No user keys have been created.</div>';
+            }
             function updateAdminButton() {
                 $("#adminButton").innerHTML = adminKey
-                    ? '<i class="fa-solid fa-shield-heart"></i> Admin Tools'
+                    ? `<i class="fa-solid fa-shield-heart"></i> ${accessProfile?.is_admin ? "Admin Tools" : "User Tools"}`
                     : '<i class="fa-solid fa-user-shield"></i> Admin';
             }
             function lockAdmin() {
                 adminKey = "";
+                accessProfile = null;
                 localStorage.removeItem("khawraiBloodAdminKey");
                 document.body.classList.remove("admin-mode");
                 updateAdminButton();
@@ -1574,7 +1659,7 @@
             }
             function openEdit(id) {
                 const entry = entries.find((item) => item.id === id);
-                if (!entry || !adminKey) return;
+                if (!entry || !adminKey || !(accessProfile?.is_admin || accessProfile?.can_edit)) return;
                 $("#editId").value = entry.id;
                 $("#editName").value = entry.full_name;
                 $("#editMohallah").value = entry.mohallah;
@@ -1589,8 +1674,8 @@
                 const button = event.submitter;
                 button.disabled = true;
                 setStatus("#editStatus", "Saving changes...");
-                const { error } = await db.rpc("admin_update_blood_entry", {
-                    p_private_key: adminKey,
+                const { error } = await db.rpc("access_update_blood_entry", {
+                    p_access_key: adminKey,
                     p_id: $("#editId").value,
                     p_full_name: $("#editName").value.trim(),
                     p_mohallah: $("#editMohallah").value.trim(),
@@ -1618,14 +1703,15 @@
                 const entry = entries.find((item) => item.id === id);
                 if (
                     !adminKey ||
+                    !(accessProfile?.is_admin || accessProfile?.can_delete) ||
                     !entry ||
                     !confirm(
                         `Delete the entry for ${entry.full_name}? This cannot be undone.`,
                     )
                 )
                     return;
-                const { error } = await db.rpc("admin_delete_blood_entry", {
-                    p_private_key: adminKey,
+                const { error } = await db.rpc("access_delete_blood_entry", {
+                    p_access_key: adminKey,
                     p_id: id,
                 });
                 if (error) {
@@ -1654,8 +1740,8 @@
             document.addEventListener("keydown", (event) => {
                 if (event.key === "Escape") closeModals();
             });
-            if (adminKey) document.body.classList.add("admin-mode");
             updateAdminButton();
+            restoreAccessSession();
             loadEntries();
         </script>
     </body>
