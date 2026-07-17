@@ -1642,7 +1642,14 @@
                 $("#managedKeysList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading user keys...</div>';
                 const { data, error } = await db.rpc("admin_list_blood_access_keys", { p_admin_key: adminKey });
                 if (error) { console.error(error); $("#managedKeysList").innerHTML = '<div class="activity-empty">Could not load user keys.</div>'; return; }
-                $("#managedKeysList").innerHTML = data?.length ? data.map((key) => `<article class="activity-item"><strong>${escapeHtml(key.display_name)}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>Permissions: ${key.can_view_activity ? "Activity " : ""}${key.can_edit ? "Edit " : ""}${key.can_delete ? "Delete" : "" || "None"}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div></article>`).join("") : '<div class="activity-empty">No user keys have been created.</div>';
+                $("#managedKeysList").innerHTML = data?.length ? data.map((key) => `<article class="activity-item"><strong>${escapeHtml(key.display_name)}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>Permissions: ${key.can_view_activity ? "Activity " : ""}${key.can_edit ? "Edit " : ""}${key.can_delete ? "Delete" : "" || "None"}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div><button class="btn danger" type="button" data-delete-user="${key.id}"><i class="fa-solid fa-user-minus"></i> Delete User</button></article>`).join("") : '<div class="activity-empty">No user keys have been created.</div>';
+                document.querySelectorAll("[data-delete-user]").forEach((button) => button.addEventListener("click", () => deleteManagedUser(button.dataset.deleteUser)));
+            }
+            async function deleteManagedUser(userId) {
+                if (!accessProfile?.is_admin || !confirm("Delete this managed user? Their login key will stop working, but all existing donor records will remain.")) return;
+                const { error } = await db.rpc("delete_blood_access_key", { p_admin_key: adminKey, p_access_key_id: userId });
+                if (error) { console.error(error); alert("The managed user could not be deleted."); return; }
+                await showManagedKeys();
             }
             function updateAdminButton() {
                 $("#adminButton").innerHTML = adminKey
