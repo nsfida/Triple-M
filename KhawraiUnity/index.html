@@ -357,8 +357,9 @@
                 text-overflow: ellipsis;
             }
             .entry-place { text-transform: uppercase; }
-            .location-badge { display:inline-grid; place-items:center; min-width:58px; padding:4px 6px; border-radius:6px; background:#eaf2ff; color:#2457d6; font-size:.7rem; font-weight:900; }
-            .location-badge.foreign { background:#edf9f2; color:#067647; }
+            .location-badge { display:inline-grid; place-items:center; min-width:74px; padding:4px 6px; border-radius:6px; background:#eaf2ff; color:#2457d6; font-size:.7rem; font-weight:900; line-height:1.05; text-align:center; white-space:normal; }
+                        .location-badge.khawrai { background:#f3edff; color:#6938a8; }
+                        .location-badge.out-of-country { background:#edf9f2; color:#067647; }
             .blood-badge {
                 display: inline-grid;
                 place-items: center;
@@ -1102,7 +1103,7 @@
                         </div>
                         <div class="field">
                             <label for="entryLocationStatus">Location</label>
-                            <div class="input-wrap"><i class="fa-solid fa-earth-asia"></i><select id="entryLocationStatus" required><option value="Pakistan">Pakistan</option><option value="Foreign">Foreign</option></select></div>
+                            <div class="input-wrap"><i class="fa-solid fa-earth-asia"></i><select id="entryLocationStatus" required><option value="Khawrai">Khawrai</option><option value="Within Pakistan">Within Pakistan</option><option value="Out Of Country">Out Of Country</option></select></div>
                         </div>
                         <label class="form-note"><input id="locationConsent" type="checkbox" required /> I agree to update this entry.</label>
                         <p
@@ -1255,7 +1256,7 @@
                     </div>
                     <div class="field">
                         <label for="editLocationStatus">Location</label>
-                        <div class="input-wrap"><i class="fa-solid fa-earth-asia"></i><select id="editLocationStatus" required><option value="Pakistan">Pakistan</option><option value="Foreign">Foreign</option></select></div>
+                        <div class="input-wrap"><i class="fa-solid fa-earth-asia"></i><select id="editLocationStatus" required><option value="Khawrai">Khawrai</option><option value="Within Pakistan">Within Pakistan</option><option value="Out Of Country">Out Of Country</option></select></div>
                     </div>
                     <p id="editStatus" class="form-status" role="status"></p>
                     <button class="btn primary" type="submit">
@@ -1397,6 +1398,7 @@
                 node.textContent = text;
                 node.className = `form-status ${type}`;
             };
+            const normalizeLocationStatus = (value) => value === "Khawrai" ? "Khawrai" : value === "Out Of Country" || value === "Foreign" ? "Out Of Country" : "Within Pakistan";
             const closeModals = () =>
                 document
                     .querySelectorAll(".modal")
@@ -1562,7 +1564,7 @@
                             entry.mohallah,
                             entry.mobile_number,
                             entry.blood_group,
-                            entry.location_status || "Pakistan",
+                            normalizeLocationStatus(entry.location_status),
                         ].some((value) => value.toLowerCase().includes(query)), 
                 );
                 const sort = $("#sortEntries").value;
@@ -1601,8 +1603,9 @@
             function entryCard(entry) {
                 const actions = accessProfile && (accessProfile.is_admin || accessProfile.can_edit || accessProfile.can_delete)
                     ? `<div class="admin-entry-actions">${accessProfile.is_admin || accessProfile.can_edit ? `<button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button>` : ""}${accessProfile.is_admin || accessProfile.can_delete ? `<button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button>` : ""}</div>` : "";
-                const locationStatus = entry.location_status === "Foreign" ? "Foreign" : "Pakistan";
-                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><div class="entry-cell entry-location"><span class="entry-label">Location</span><i class="fa-solid fa-earth-asia"></i><span class="location-badge ${locationStatus === "Foreign" ? "foreign" : ""}">${locationStatus}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
+                const locationStatus = normalizeLocationStatus(entry.location_status);
+                                const locationClass = locationStatus === "Khawrai" ? "khawrai" : locationStatus === "Out Of Country" ? "out-of-country" : "";
+                                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><div class="entry-cell entry-location"><span class="entry-label">Location</span><i class="fa-solid fa-earth-asia"></i><span class="location-badge ${locationClass}">${locationStatus}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
             }
             function renderDirectory() {
                 renderTabs();
@@ -1770,14 +1773,16 @@
                         pdf.setFontSize(7.7);
                         const name = pdf.splitTextToSize(entry.full_name.toUpperCase(), 48)[0];
                         const mohallah = pdf.splitTextToSize(entry.mohallah.toUpperCase(), 44)[0];
-                        const location = entry.location_status === "Foreign" ? "Foreign" : "Pakistan";
+                        const location = normalizeLocationStatus(entry.location_status);
                         pdf.text(`${index + 1}. ${name}`, margin + 2, y + 1.2);
                         pdf.text(mohallah, 68, y + 1.2);
-                        pdf.setTextColor(location === "Foreign" ? 6 : 36, location === "Foreign" ? 118 : 87, location === "Foreign" ? 71 : 214);
-                        pdf.setFont("helvetica", "bold");
-                        pdf.text(location.toUpperCase(), 116, y + 1.2);
+                        pdf.setTextColor(location === "Out Of Country" ? 6 : location === "Khawrai" ? 105 : 36, location === "Out Of Country" ? 118 : location === "Khawrai" ? 56 : 87, location === "Out Of Country" ? 71 : location === "Khawrai" ? 168 : 214);
+                                                pdf.setFont("helvetica", "bold");
+                                                pdf.setFontSize(6.4);
+                                                pdf.text(location.toUpperCase(), 116, y + 1.2);
                         pdf.setTextColor(23, 33, 43);
                         pdf.setFont("helvetica", "normal");
+                        pdf.setFontSize(7.7);
                         pdf.text(entry.mobile_number, 145, y + 1.2);
                         y += 8;
                     });
@@ -1868,7 +1873,7 @@
                     return;
                 }
                 const deviceFingerprint = await getDeviceFingerprint();
-                const { data, error } = await db.rpc("submit_blood_entry_v5", {
+                const { data, error } = await db.rpc("submit_blood_entry_v6", {
                                     p_full_name: record.full_name,
                                     p_mohallah: record.mohallah,
                                     p_mobile_number: record.mobile_number,
@@ -2050,7 +2055,7 @@
                 let added = 0, skipped = 0;
                 setStatus("#excelImportStatus", "Importing selected records...");
                 for (const item of excelImportRows.filter((row) => selected.has(row.index))) {
-                    const { data, error } = await db.rpc("submit_blood_entry_v5", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_location_status: "Pakistan", p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: details });
+                    const { data, error } = await db.rpc("submit_blood_entry_v6", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_location_status: "Within Pakistan", p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: details });
                                         if (error || !data?.success) { console.error(error); skipped += 1; } else added += 1;
                 }
                 await loadEntries(); setStatus("#excelImportStatus", `Import complete: ${added} added, ${skipped} skipped.`, added ? "success" : "error");
@@ -2085,11 +2090,11 @@
                 let added = 0, skipped = 0, invalid = 0;
                 setStatus("#backupStatus", "Uploading backup records...");
                 for (const item of backup.records) {
-                    const record = { full_name: String(item?.full_name || "").trim(), mohallah: String(item?.mohallah || "").trim(), mobile_number: String(item?.mobile_number || "").trim(), blood_group: String(item?.blood_group || ""), location_status: item?.location_status === "Foreign" ? "Foreign" : "Pakistan" };
+                    const record = { full_name: String(item?.full_name || "").trim(), mohallah: String(item?.mohallah || "").trim(), mobile_number: String(item?.mobile_number || "").trim(), blood_group: String(item?.blood_group || ""), location_status: normalizeLocationStatus(item?.location_status) }; 
                     const phone = record.mobile_number.replace(/\s+/g, "");
                     if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
                     if (seenPhones.has(phone)) { skipped += 1; continue; }
-                    const { data, error } = await db.rpc("submit_blood_entry_v5", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_location_status: record.location_status, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: importDeviceDetails });
+                    const { data, error } = await db.rpc("submit_blood_entry_v6", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_location_status: record.location_status, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: importDeviceDetails });
                                         if (error || !data?.success) { if ((data?.reason || error?.message || "").includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
                     seenPhones.add(phone); added += 1;
                 }
@@ -2140,7 +2145,7 @@
                     const related = (audit.related_entry_ids || []).map((id) => entries.find((entry) => entry.id === id)).filter(Boolean);
                     const earlier = related.length ? related.map((entry) => `${entry.full_name} (${entry.mobile_number}, ${entry.blood_group})`).join(" | ") : "No related saved entries found";
                     const actions = audit.review_status === "pending" ? `<div style="display:flex;gap:7px;margin-top:8px"><button class="btn primary" type="button" data-review-accept="${audit.id}"><i class="fa-solid fa-check"></i> Accept</button><button class="btn danger" type="button" data-review-decline="${audit.id}"><i class="fa-solid fa-xmark"></i> Decline</button><button class="btn ghost" type="button" data-review-delete="${audit.id}"><i class="fa-solid fa-trash"></i> Delete</button></div>` : `<div class="activity-meta">Review status: ${escapeHtml(audit.review_status.toUpperCase())}</div><div style="margin-top:8px"><button class="btn ghost" type="button" data-review-delete="${audit.id}"><i class="fa-solid fa-trash"></i> Delete Review Record</button></div>`;
-                    return `<article class="activity-item" style="border-color:#f4b7b2;background:#fff6f5"><strong><i class="fa-solid fa-ban" style="color:var(--danger)"></i> Review: ${escapeHtml(audit.attempted_full_name)}</strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(audit.created_at).toLocaleString())}<br>Reason: ${escapeHtml(audit.reason)}<br>Attempted: ${escapeHtml(audit.attempted_mohallah)} | ${escapeHtml(audit.attempted_blood_group)} | ${escapeHtml(audit.attempted_mobile_number)}<br><strong>Earlier entries from the same device:</strong> ${escapeHtml(earlier)}${formatActivityDetails(audit.device_details || {})}</div>${actions}</article>`;
+                    return `<article class="activity-item" style="border-color:#f4b7b2;background:#fff6f5"><strong><i class="fa-solid fa-ban" style="color:var(--danger)"></i> Review: ${escapeHtml(audit.attempted_full_name)}</strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(audit.created_at).toLocaleString())}<br>Reason: ${escapeHtml(audit.reason)}<br>Attempted: ${escapeHtml(audit.attempted_mohallah)} | ${escapeHtml(audit.attempted_blood_group)} | ${escapeHtml(normalizeLocationStatus(audit.attempted_location_status))} | ${escapeHtml(audit.attempted_mobile_number)}<br><strong>Earlier entries from the same device:</strong> ${escapeHtml(earlier)}${formatActivityDetails(audit.device_details || {})}</div>${actions}</article>`;
                 }).join("") : '<div class="activity-empty">No review submissions are available.</div>';
                 document.querySelectorAll("[data-review-accept]").forEach((button) => button.addEventListener("click", () => reviewSubmission(button.dataset.reviewAccept, "accepted")));
                 document.querySelectorAll("[data-review-decline]").forEach((button) => button.addEventListener("click", () => reviewSubmission(button.dataset.reviewDecline, "declined")));
@@ -2243,7 +2248,7 @@
                 $("#editMohallah").value = entry.mohallah;
                 $("#editMobile").value = entry.mobile_number;
                 $("#editBloodGroup").value = entry.blood_group;
-                $("#editLocationStatus").value = entry.location_status === "Foreign" ? "Foreign" : "Pakistan";
+                $("#editLocationStatus").value = normalizeLocationStatus(entry.location_status);
                 setStatus("#editStatus", "");
                 $("#editModal").classList.add("show");
                 $("#editName").focus();
@@ -2253,7 +2258,7 @@
                 const button = event.submitter;
                 button.disabled = true;
                 setStatus("#editStatus", "Saving changes...");
-                const { error } = await db.rpc("access_update_blood_entry_v2", {
+                const { error } = await db.rpc("access_update_blood_entry_v3", {
                                     p_access_key: adminKey,
                                     p_id: $("#editId").value,
                                     p_full_name: $("#editName").value.trim(),
