@@ -757,6 +757,178 @@
                 .form-grid { gap: 9px; }
                 .footer { padding-top: 15px; font-size: .7rem; }
             }
+
+            /* Visual refinement: unified surfaces, controls, and responsive hierarchy. */
+            :root {
+                --panel: rgba(255, 255, 255, 0.88);
+                --panel-2: #f8faff;
+                --line: rgba(203, 213, 225, 0.78);
+                --shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+            }
+            body {
+                background:
+                    radial-gradient(circle at 5% 5%, rgba(36, 87, 214, 0.1), transparent 25rem),
+                    radial-gradient(circle at 95% 95%, rgba(6, 118, 71, 0.07), transparent 22rem),
+                    var(--bg);
+            }
+            .header {
+                padding: 12px 14px;
+                border: 1px solid rgba(255, 255, 255, 0.82);
+                border-radius: 18px;
+                background: rgba(255, 255, 255, 0.58);
+                box-shadow: 0 8px 26px rgba(15, 23, 42, 0.05);
+                backdrop-filter: blur(14px);
+            }
+            .logo {
+                border: 1px solid rgba(36, 87, 214, 0.12);
+                box-shadow: 0 6px 18px rgba(36, 87, 214, 0.13);
+            }
+            .btn {
+                min-height: 40px;
+                border-radius: 10px;
+                letter-spacing: -0.01em;
+            }
+            .btn.primary {
+                background: linear-gradient(135deg, #285fdc, #1d4fc5);
+                box-shadow: 0 6px 14px rgba(36, 87, 214, 0.2);
+            }
+            .btn.primary:hover { box-shadow: 0 9px 20px rgba(36, 87, 214, 0.27); }
+            .btn.ghost { background: rgba(255, 255, 255, 0.82); }
+            button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+                outline: 3px solid rgba(36, 87, 214, 0.28);
+                outline-offset: 2px;
+            }
+            .workspace-tabs {
+                width: max-content;
+                max-width: 100%;
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.6);
+                box-shadow: 0 5px 14px rgba(15, 23, 42, 0.04);
+            }
+            .workspace-tabs .tab { box-shadow: none; }
+            .tab { transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease; }
+            .tab:hover:not(.active) { color: var(--primary); border-color: rgba(36, 87, 214, 0.26); background: rgba(255, 255, 255, 0.9); }
+            .tab.active { box-shadow: 0 4px 10px rgba(36, 87, 214, 0.18); }
+            .card {
+                border-color: rgba(203, 213, 225, 0.72);
+                backdrop-filter: blur(14px);
+            }
+            .section-head { padding-bottom: 12px; border-bottom: 1px solid rgba(208, 213, 221, 0.72); }
+            .section-head h3 { font-size: 1.03rem; }
+            .directory-tools {
+                padding: 10px;
+                border: 1px solid rgba(208, 213, 221, 0.72);
+                border-radius: 13px;
+                background: rgba(248, 250, 255, 0.74);
+            }
+            .input, select {
+                background: rgba(255, 255, 255, 0.9);
+                border-color: rgba(203, 213, 225, 0.9);
+            }
+            .group-heading {
+                margin: 18px 0 8px;
+                padding: 9px 10px;
+                border: 1px solid transparent;
+                border-radius: 10px;
+                background: rgba(36, 87, 214, 0.045);
+            }
+            .group-heading:hover { border-color: rgba(36, 87, 214, 0.15); }
+            .group-heading:after { opacity: 0.65; }
+            .entry {
+                transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+                box-shadow: 0 1px 0 rgba(15, 23, 42, 0.015);
+            }
+            .entry:hover { box-shadow: 0 5px 14px rgba(15, 23, 42, 0.055); }
+            .blood-badge { box-shadow: inset 0 0 0 1px rgba(189, 41, 33, 0.08); }
+            .professional-row {
+                margin-bottom: 7px;
+                border: 1px solid rgba(208, 213, 221, 0.8);
+                border-radius: 10px;
+                background: rgba(248, 250, 255, 0.74);
+                transition: border-color .18s ease, box-shadow .18s ease;
+            }
+            .professional-row:hover { border-color: #b9c8e8; box-shadow: 0 5px 14px rgba(15, 23, 42, 0.05); }
+            .form-note input[type="checkbox"] { accent-color: var(--primary); margin: 0 6px 0 1px; vertical-align: middle; }
+            .modal {
+                background: rgba(15, 23, 42, 0.58);
+                backdrop-filter: blur(5px);
+            }
+            .modal-box {
+                max-height: min(760px, calc(100vh - 28px));
+                overflow: auto;
+                border: 1px solid rgba(255, 255, 255, 0.76);
+                background: linear-gradient(180deg, #ffffff, #f5f8fe);
+            }
+            .modal-close {
+                display: inline-grid;
+                place-items: center;
+                width: 32px;
+                height: 32px;
+                border: 1px solid var(--line);
+                border-radius: 9px;
+                background: rgba(255, 255, 255, 0.78);
+                transition: .18s ease;
+            }
+            .modal-close:hover { color: var(--danger); border-color: #f4b7b2; background: #fff6f5; }
+            .activity-item { border-color: rgba(208, 213, 221, 0.84); box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02); }
+            .activity-item:hover { border-color: #b9c8e8; }
+            .activity-list::-webkit-scrollbar, .modal-box::-webkit-scrollbar { width: 7px; }
+            .activity-list::-webkit-scrollbar-thumb, .modal-box::-webkit-scrollbar-thumb { background: #c6d2e8; border-radius: 99px; }
+            @media (max-width: 640px) {
+                .header { padding: 9px; border-radius: 14px; }
+                .workspace-tabs { border-radius: 10px; }
+                .section-head { padding-bottom: 8px; }
+                .directory-tools { padding: 7px; border-radius: 10px; }
+                .group-heading { margin: 9px 0 4px; padding: 5px 6px; border-radius: 7px; }
+                .entry { box-shadow: none; }
+                .entry:hover { box-shadow: none; }
+                .professional-row { margin-bottom: 3px; border-width: 0 0 1px; border-radius: 0; background: transparent; }
+                .modal-box { max-height: calc(100vh - 20px); }
+            }
+
+            .compatibility-modal { width: min(100%, 780px); }
+            .compatibility-intro { margin: -4px 0 14px; color: var(--muted); font-size: .86rem; line-height: 1.45; }
+            .compatibility-controls { display: grid; gap: 11px; margin-bottom: 14px; }
+            .compatibility-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 11px; background: #eaf0fc; }
+            .compatibility-mode { border: 0; border-radius: 8px; padding: 9px 8px; background: transparent; color: #526174; font-size: .77rem; font-weight: 800; transition: .2s ease; }
+            .compatibility-mode.active { background: #fff; color: var(--primary); box-shadow: 0 3px 9px rgba(36, 87, 214, .13); }
+            .compatibility-groups { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+            .compatibility-group { min-height: 35px; border: 1px solid #d9e2f2; border-radius: 9px; background: rgba(255, 255, 255, .82); color: #536276; font-weight: 900; font-size: .78rem; transition: .18s ease; }
+            .compatibility-group:hover { color: var(--primary); border-color: #9eb8ef; transform: translateY(-1px); }
+            .compatibility-group.active { border-color: #2457d6; background: #2457d6; color: #fff; box-shadow: 0 5px 12px rgba(36, 87, 214, .22); }
+            .compatibility-visual { overflow: hidden; border: 1px solid #d9e4f6; border-radius: 15px; background: radial-gradient(circle at 50% 50%, #fff 0, #f4f8ff 48%, #eaf1ff 100%); }
+            .compatibility-visual-head { display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; color: #314766; font-size: .79rem; font-weight: 800; border-bottom: 1px solid #dce6f5; }
+            .compatibility-flow-key { color: var(--primary); white-space: nowrap; }
+            .compatibility-diagram { display: block; width: 100%; min-height: 305px; }
+            .compat-path { fill: none; stroke: #79a0f2; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 7 11; animation: compatibility-flow 1.45s linear infinite; filter: drop-shadow(0 0 4px rgba(36, 87, 214, .28)); }
+            .compat-node { transition: opacity .2s ease; }
+            .compat-node circle { fill: #fff; stroke: #c9d8f2; stroke-width: 2; }
+            .compat-node text { fill: #66758a; font-size: 14px; font-weight: 900; text-anchor: middle; dominant-baseline: middle; }
+            .compat-node.is-match circle { fill: #e9f0ff; stroke: #5a86e5; stroke-width: 3; filter: drop-shadow(0 4px 6px rgba(36, 87, 214, .15)); }
+            .compat-node.is-match text { fill: #194bbf; }
+            .compat-node.is-source circle { fill: #2457d6; stroke: #fff; stroke-width: 4; filter: drop-shadow(0 5px 10px rgba(36, 87, 214, .38)); }
+            .compat-node.is-source text { fill: #fff; font-size: 18px; }
+            .compat-source-label { fill: #2457d6; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-anchor: middle; }
+            .compatibility-result { display: grid; gap: 9px; margin-top: 13px; padding: 12px 14px; border-radius: 12px; background: rgba(36, 87, 214, .07); color: #29415f; font-size: .84rem; }
+            .compatibility-result-groups { display: flex; flex-wrap: wrap; gap: 6px; }
+            .compatibility-result-groups span { min-width: 38px; padding: 4px 7px; border-radius: 6px; background: #fff; color: #2457d6; text-align: center; font-weight: 900; font-size: .73rem; box-shadow: 0 1px 3px rgba(15, 23, 42, .06); }
+            .compatibility-note { margin: 12px 0 0; color: #667085; font-size: .72rem; line-height: 1.45; }
+            .compatibility-note i { color: var(--primary); margin-right: 4px; }
+            @keyframes compatibility-flow { to { stroke-dashoffset: -36; } }
+            @media (prefers-reduced-motion: reduce) { .compat-path { animation: none; } }
+            @media (max-width: 640px) {
+                .compatibility-modal { padding: 14px; }
+                .compatibility-intro { font-size: .77rem; margin-bottom: 10px; }
+                .compatibility-mode { padding: 8px 5px; font-size: .66rem; }
+                .compatibility-groups { grid-template-columns: repeat(4, 1fr); }
+                .compatibility-group { min-height: 31px; font-size: .72rem; }
+                .compatibility-visual-head { padding: 9px 10px; font-size: .67rem; }
+                .compatibility-flow-key { display: none; }
+                .compatibility-diagram { min-height: 235px; }
+                .compatibility-result { margin-top: 10px; padding: 10px; font-size: .75rem; }
+                .compatibility-note { font-size: .65rem; }
+            }
         </style>
     </head>
     <body>
@@ -775,9 +947,11 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button class="btn ghost" id="adminButton" type="button">
-                        <i class="fa-solid fa-user-shield"></i> Admin</button
-                    ><button
+                                    <button class="btn ghost" id="compatibilityInfoButton" type="button">
+                                        <i class="fa-solid fa-heart-pulse"></i> Info
+                                    </button><button class="btn ghost" id="adminButton" type="button">
+                                        <i class="fa-solid fa-user-shield"></i> Admin</button
+                                    ><button
                         class="btn primary"
                         id="newEntryButton"
                         type="button"
@@ -852,11 +1026,9 @@
                 aria-labelledby="new-entry-title"
             >
                 <div class="modal-box">
-                    <div class="section-head">
-                        <h3 id="new-entry-title">
-                            <i class="fa-solid fa-circle-plus"></i> Add New
-                            Entry
-                        </h3>
+                    <div class="modal-head">
+                        <h3 id="new-entry-title"><i class="fa-solid fa-circle-plus"></i> Add New Entry</h3>
+                        <button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button>
                     </div>
                     <form id="entryForm" class="form-grid">
                         <div class="field">
@@ -1104,6 +1276,31 @@
             </div>
         </div>
 
+        <div id="compatibilityModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="compatibilityTitle">
+            <div class="modal-box compatibility-modal">
+                <div class="modal-head">
+                    <h3 id="compatibilityTitle"><i class="fa-solid fa-heart-pulse"></i> Blood Compatibility Guide</h3>
+                    <button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button>
+                </div>
+                <p class="compatibility-intro">Choose a blood group to see its compatible red-cell donors or recipients.</p>
+                <div class="compatibility-controls">
+                    <div class="compatibility-switch" role="group" aria-label="Compatibility direction">
+                        <button class="compatibility-mode active" type="button" data-compat-mode="donate"><i class="fa-solid fa-arrow-up-right-dots"></i> Can Donate To</button>
+                        <button class="compatibility-mode" type="button" data-compat-mode="receive"><i class="fa-solid fa-arrow-down-left-dots"></i> Can Receive From</button>
+                    </div>
+                    <div class="compatibility-groups" role="group" aria-label="Select a blood group">
+                        <button class="compatibility-group" type="button" data-compat-group="O-">O-</button><button class="compatibility-group" type="button" data-compat-group="O+">O+</button><button class="compatibility-group" type="button" data-compat-group="A-">A-</button><button class="compatibility-group" type="button" data-compat-group="A+">A+</button><button class="compatibility-group" type="button" data-compat-group="B-">B-</button><button class="compatibility-group" type="button" data-compat-group="B+">B+</button><button class="compatibility-group" type="button" data-compat-group="AB-">AB-</button><button class="compatibility-group" type="button" data-compat-group="AB+">AB+</button>
+                    </div>
+                </div>
+                <section class="compatibility-visual" aria-live="polite">
+                    <div class="compatibility-visual-head"><span id="compatibilityDirection">O- can donate red cells to</span><span class="compatibility-flow-key"><i class="fa-solid fa-wand-magic-sparkles"></i> Animated match flow</span></div>
+                    <svg id="compatibilityDiagram" class="compatibility-diagram" viewBox="0 0 640 350" role="img" aria-label="Interactive blood compatibility diagram"></svg>
+                </section>
+                <div class="compatibility-result"><strong id="compatibilityResultTitle">O- is compatible with 8 blood groups.</strong><div id="compatibilityResultGroups" class="compatibility-result-groups"></div></div>
+                <p class="compatibility-note"><i class="fa-solid fa-circle-info"></i> This is a red-cell compatibility guide. A hospital must always confirm compatibility and cross-match blood before transfusion.</p>
+            </div>
+        </div>
+
         <div id="changeKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="changeKeyTitle">
             <div class="modal-box">
                 <div class="modal-head"><h3 id="changeKeyTitle"><i class="fa-solid fa-key"></i> Change Admin Key</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
@@ -1193,6 +1390,47 @@
                 document
                     .querySelectorAll(".modal")
                     .forEach((modal) => modal.classList.remove("show"));
+            const BLOOD_RED_CELL_COMPATIBILITY = Object.freeze({
+                "O-": { donate: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"], receive: ["O-"] },
+                "O+": { donate: ["O+", "A+", "B+", "AB+"], receive: ["O-", "O+"] },
+                "A-": { donate: ["A-", "A+", "AB-", "AB+"], receive: ["O-", "A-"] },
+                "A+": { donate: ["A+", "AB+"], receive: ["O-", "O+", "A-", "A+"] },
+                "B-": { donate: ["B-", "B+", "AB-", "AB+"], receive: ["O-", "B-"] },
+                "B+": { donate: ["B+", "AB+"], receive: ["O-", "O+", "B-", "B+"] },
+                "AB-": { donate: ["AB-", "AB+"], receive: ["O-", "A-", "B-", "AB-"] },
+                "AB+": { donate: ["AB+"], receive: ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"] },
+            });
+            const COMPATIBILITY_NODES = [
+                ["O-", 320, 44], ["O+", 442, 80], ["A-", 504, 175], ["A+", 442, 270],
+                ["B-", 320, 306], ["B+", 198, 270], ["AB-", 136, 175], ["AB+", 198, 80],
+            ];
+            let compatibilityGroup = "O-";
+            let compatibilityMode = "donate";
+            function renderCompatibilityGuide() {
+                const matches = BLOOD_RED_CELL_COMPATIBILITY[compatibilityGroup][compatibilityMode];
+                const action = compatibilityMode === "donate" ? "can donate red cells to" : "can receive red cells from";
+                const sourceAction = compatibilityMode === "donate" ? "DONOR" : "RECIPIENT";
+                $("#compatibilityDirection").textContent = `${compatibilityGroup} ${action}`;
+                $("#compatibilityResultTitle").textContent = `${compatibilityGroup} ${action} ${matches.length} blood group${matches.length === 1 ? "" : "s"}.`;
+                $("#compatibilityResultGroups").innerHTML = matches.map((group) => `<span>${group}</span>`).join("");
+                document.querySelectorAll("[data-compat-group]").forEach((button) => button.classList.toggle("active", button.dataset.compatGroup === compatibilityGroup));
+                document.querySelectorAll("[data-compat-mode]").forEach((button) => button.classList.toggle("active", button.dataset.compatMode === compatibilityMode));
+                const nodeLookup = new Map(COMPATIBILITY_NODES.map(([group, x, y]) => [group, { x, y }]));
+                const paths = matches.map((group, index) => {
+                    const target = nodeLookup.get(group);
+                    return `<path class="compat-path" style="animation-delay:${index * 0.14}s" d="M320 175 L${target.x} ${target.y}" />`;
+                }).join("");
+                const nodes = COMPATIBILITY_NODES.map(([group, x, y]) => {
+                    const className = `compat-node${matches.includes(group) ? " is-match" : ""}`;
+                    return `<g class="${className}"><circle cx="${x}" cy="${y}" r="28"/><text x="${x}" y="${y + 1}">${group}</text></g>`;
+                }).join("");
+                $("#compatibilityDiagram").innerHTML = `<defs><radialGradient id="compatibilityHalo"><stop offset="0" stop-color="#dce9ff" stop-opacity=".9"/><stop offset="1" stop-color="#dce9ff" stop-opacity="0"/></radialGradient></defs><circle cx="320" cy="175" r="90" fill="url(#compatibilityHalo)"/>${paths}${nodes}<g class="compat-node is-source"><circle cx="320" cy="175" r="37"/><text x="320" y="176">${compatibilityGroup}</text></g><text class="compat-source-label" x="320" y="232">${sourceAction}</text>`;
+            }
+            function showCompatibilityGuide() {
+                closeModals();
+                renderCompatibilityGuide();
+                $("#compatibilityModal").classList.add("show");
+            }
             async function getDeviceFingerprint() {
                 const parts = [
                     navigator.platform || "",
@@ -1694,10 +1932,13 @@
                 $("#new-entry").classList.add("show");
                 $("#fullName").focus();
             }
+            $("#compatibilityInfoButton").addEventListener("click", showCompatibilityGuide);
             $("#adminButton").addEventListener("click", () =>
                 adminKey ? showAdminTools() : showAdminModal(),
             );
             $("#newEntryButton").addEventListener("click", showNewEntryModal);
+            document.querySelectorAll("[data-compat-mode]").forEach((button) => button.addEventListener("click", () => { compatibilityMode = button.dataset.compatMode; renderCompatibilityGuide(); }));
+            document.querySelectorAll("[data-compat-group]").forEach((button) => button.addEventListener("click", () => { compatibilityGroup = button.dataset.compatGroup; renderCompatibilityGuide(); }));
             $("#bloodWorkspaceTab").addEventListener("click", () => switchWorkspace("blood"));
             $("#professionalsWorkspaceTab").addEventListener("click", () => switchWorkspace("professionals"));
             $("#newProfessionalButton").addEventListener("click", () => openProfessionalModal());
