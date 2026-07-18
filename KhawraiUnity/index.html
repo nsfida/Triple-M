@@ -96,6 +96,17 @@
                 width: min(100%, var(--max));
                 margin: auto;
                 padding: 20px 16px 34px;
+                animation: page-in 0.5s ease both;
+            }
+            @keyframes page-in {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
             }
             .header {
                 display: flex;
@@ -367,9 +378,6 @@
                 display: grid;
                 gap: 8px;
             }
-            .group-entries {
-                overflow: hidden;
-            }
             .entry-column-headings,
             .entry {
                 display: grid;
@@ -519,12 +527,47 @@
                 text-align: center;
                 color: var(--muted);
                 font-size: 0.9rem;
+                animation: fade-rise 0.4s ease both;
             }
             .empty i {
                 display: block;
                 font-size: 1.35rem;
                 color: #99a7ba;
                 margin-bottom: 9px;
+            }
+            .empty i.fa-spinner,
+            .activity-empty i.fa-spinner {
+                display: inline-block;
+                font-size: 1.55rem;
+                background: linear-gradient(135deg, var(--primary), #6938a8);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                filter: drop-shadow(0 2px 10px rgba(36, 87, 214, 0.35));
+                animation:
+                    fa-spin 0.85s linear infinite,
+                    spinner-pulse 1.6s ease-in-out infinite;
+            }
+            @keyframes spinner-pulse {
+                0%,
+                100% {
+                    opacity: 0.6;
+                    transform: scale(0.94);
+                }
+                50% {
+                    opacity: 1;
+                    transform: scale(1.1);
+                }
+            }
+            @keyframes fade-rise {
+                from {
+                    opacity: 0;
+                    transform: translateY(6px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
             }
             .form-grid {
                 display: grid;
@@ -625,6 +668,15 @@
             }
             .modal.show {
                 display: flex;
+                animation: modal-backdrop-in 0.28s ease both;
+            }
+            @keyframes modal-backdrop-in {
+                from {
+                    background: rgba(15, 23, 42, 0);
+                }
+                to {
+                    background: rgba(15, 23, 42, 0.5);
+                }
             }
             .modal-box {
                 width: min(100%, 440px);
@@ -632,6 +684,18 @@
                 border-radius: 18px;
                 box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
                 padding: 20px;
+                animation: modal-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)
+                    both;
+            }
+            @keyframes modal-pop {
+                from {
+                    opacity: 0;
+                    transform: translateY(16px) scale(0.96);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
             }
             .modal-head {
                 display: flex;
@@ -651,11 +715,11 @@
             }
             .activity-list { display: grid; gap: 8px; max-height: 52vh; overflow: auto; padding-right: 2px; }
                         .activity-list[hidden] { display: none !important; }
-                        .activity-item { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+                        .activity-item { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); animation: fade-rise .32s ease both; }
             .activity-item strong { display: block; font-size: .86rem; }
             .activity-meta { margin-top: 5px; color: var(--muted); font-size: .76rem; line-height: 1.5; }
             .activity-meta i { color: var(--primary); margin-right: 4px; }
-            .activity-empty { padding: 18px; color: var(--muted); text-align: center; border: 1px dashed var(--line); border-radius: 10px; font-size: .82rem; }
+            .activity-empty { padding: 18px; color: var(--muted); text-align: center; border: 1px dashed var(--line); border-radius: 10px; font-size: .82rem; animation: fade-rise .35s ease both; }
             .directory-tools {
                 display: grid;
                 grid-template-columns: minmax(0, 1fr) auto;
@@ -702,17 +766,71 @@
             }
             .group-chevron {
                 margin-left: auto;
-                transition: transform 0.2s ease;
+                transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
             }
             .group-heading[aria-expanded="false"] .group-chevron {
                 transform: rotate(-90deg);
             }
-            .group-entries {
+            .group-entries-wrap {
+                display: grid;
+                grid-template-rows: 1fr;
+                opacity: 1;
+                transition:
+                    grid-template-rows 0.62s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.55s ease 0.05s;
+            }
+            .group-entries-wrap.is-collapsed {
+                grid-template-rows: 0fr;
+                opacity: 0;
+                transition:
+                    grid-template-rows 0.46s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.22s ease;
+            }
+            .group-entries-inner {
+                overflow: hidden;
                 display: grid;
                 gap: 10px;
+                min-height: 0;
             }
-            .group-entries[hidden] {
-                display: none;
+            .group-heading {
+                opacity: 0;
+                animation: heading-in 0.5s cubic-bezier(0.16, 1, 0.3, 1)
+                    forwards;
+            }
+            .group-heading:nth-of-type(1) { animation-delay: 0s; }
+            .group-heading:nth-of-type(2) { animation-delay: 0.09s; }
+            .group-heading:nth-of-type(3) { animation-delay: 0.18s; }
+            .group-heading:nth-of-type(4) { animation-delay: 0.27s; }
+            .group-heading:nth-of-type(5) { animation-delay: 0.36s; }
+            .group-heading:nth-of-type(6) { animation-delay: 0.45s; }
+            .group-heading:nth-of-type(7) { animation-delay: 0.54s; }
+            .group-heading:nth-of-type(8) { animation-delay: 0.63s; }
+            @keyframes heading-in {
+                from {
+                    opacity: 0;
+                    transform: translateY(-8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            .entry {
+                --i: 0;
+                opacity: 0;
+                animation: entry-in 0.62s cubic-bezier(0.16, 1, 0.3, 1)
+                    forwards;
+                animation-delay: min(calc(var(--i) * 0.09s), 1.4s);
+            }
+            @keyframes entry-in {
+                from {
+                    opacity: 0;
+                    transform: translateX(-22px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
             }
             @media (max-width: 760px) {
                 .directory-tools {
@@ -795,9 +913,9 @@
                 .tool-actions { gap: 7px; }
                 .tool-actions .btn { min-height: 38px; padding-inline: 6px; font-size: .72rem; }
                 .group-heading { margin: 10px 0 5px; padding: 6px 3px; font-size: .77rem; }
-                .group-entries { gap: 5px; }
+                .group-entries-inner { gap: 5px; }
                 .entry-list { gap: 2px; }
-                .group-entries { gap: 2px; }
+                .group-entries-inner { gap: 2px; }
                 .entry {
                     grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) 29px 43px minmax(0, .92fr) auto;
                     gap: 3px;
@@ -1035,7 +1153,7 @@
             }
             @keyframes compatibility-flow { to { stroke-dashoffset: -36; } }
             @keyframes fact-enter { to { opacity:1; transform:translateY(0); } }
-            @media (prefers-reduced-motion: reduce) { .compat-path, .modal.show .compatibility-tip { animation: none; opacity:1; transform:none; } .compat-blood-drop { display:none; } }
+            @media (prefers-reduced-motion: reduce) { .compat-path, .modal.show .compatibility-tip { animation: none; opacity:1; transform:none; } .compat-blood-drop { display:none; } .entry, .empty, .activity-empty, .activity-item, .modal-box, .modal.show, .shell, .group-heading { animation: none !important; opacity: 1 !important; transform: none !important; } .group-entries-wrap, .group-entries-wrap.is-collapsed, .group-chevron { transition: none !important; } .empty i.fa-spinner, .activity-empty i.fa-spinner { animation: fa-spin 1s linear infinite !important; } }
             @media (max-width: 640px) {
                 .compatibility-modal { padding: 11px; }
                 .compatibility-intro { font-size: .69rem; margin-bottom: 7px; }
@@ -1853,12 +1971,12 @@
                     }),
                 );
             }
-            function entryCard(entry) {
+            function entryCard(entry, index) {
                 const actions = accessProfile && (accessProfile.is_admin || accessProfile.can_edit || accessProfile.can_delete)
                     ? `<div class="admin-entry-actions">${accessProfile.is_admin || accessProfile.can_edit ? `<button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button>` : ""}${accessProfile.is_admin || accessProfile.can_delete ? `<button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button>` : ""}</div>` : "";
                 const locationStatus = normalizeLocationStatus(entry.location_status);
                                 const locationClass = locationStatus === "Khawrai" ? "khawrai" : locationStatus === "Out Of Country" ? "out-of-country" : "";
-                                return `<article class="entry"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><div class="entry-cell entry-location"><span class="entry-label">Location</span><i class="fa-solid fa-earth-asia"></i><span class="location-badge ${locationClass}">${locationStatus}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
+                                return `<article class="entry" style="--i:${index}"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><div class="entry-cell entry-location"><span class="entry-label">Location</span><i class="fa-solid fa-earth-asia"></i><span class="location-badge ${locationClass}">${locationStatus}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
             }
             function renderDirectory() {
                 renderTabs();
@@ -1870,6 +1988,7 @@
                         `<div class="empty"><i class="fa-solid fa-hand-holding-heart"></i>No matching blood records are available.</div>`;
                     return;
                 }
+                let cascadeIndex = 0;
                 $("#entryList").innerHTML = STANDARD_GROUPS.filter((group) =>
                     filtered.some((entry) => entry.blood_group === group),
                 )
@@ -1877,9 +1996,9 @@
                         const isCollapsed = collapsedGroups.has(group);
                         const groupEntries = filtered
                             .filter((entry) => entry.blood_group === group)
-                            .map(entryCard)
+                            .map((entry) => entryCard(entry, cascadeIndex++))
                             .join("");
-                        return `<button class="group-heading" type="button" data-collapse-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${filtered.filter((entry) => entry.blood_group === group).length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries" ${isCollapsed ? "hidden" : ""}><div class="entry-column-headings"><span>Name</span><span>Mohallah</span><span>Group</span><span>Location</span><span>Mobile Number</span><span></span></div>${groupEntries}</div>`;
+                        return `<button class="group-heading" type="button" data-collapse-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${filtered.filter((entry) => entry.blood_group === group).length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries-wrap${isCollapsed ? " is-collapsed" : ""}" data-group-wrap="${group}"><div class="group-entries-inner"><div class="entry-column-headings"><span>Name</span><span>Mohallah</span><span>Group</span><span>Location</span><span>Mobile Number</span><span></span></div>${groupEntries}</div></div>`;
                     })
                     .join("");
                 document
@@ -1887,10 +2006,33 @@
                     .forEach((button) =>
                         button.addEventListener("click", () => {
                             const group = button.dataset.collapseGroup;
-                            collapsedGroups.has(group)
-                                ? collapsedGroups.delete(group)
-                                : collapsedGroups.add(group);
-                            renderDirectory();
+                            const willCollapse = !collapsedGroups.has(group);
+                            willCollapse
+                                ? collapsedGroups.add(group)
+                                : collapsedGroups.delete(group);
+                            button.setAttribute(
+                                "aria-expanded",
+                                String(!willCollapse),
+                            );
+                            const wrap = document.querySelector(
+                                `.group-entries-wrap[data-group-wrap="${group}"]`,
+                            );
+                            if (wrap) {
+                                wrap.classList.toggle(
+                                    "is-collapsed",
+                                    willCollapse,
+                                );
+                                if (!willCollapse) {
+                                    wrap.querySelectorAll(".entry").forEach(
+                                        (row, i) => {
+                                            row.style.animation = "none";
+                                            void row.offsetHeight;
+                                            row.style.animationDelay = `${Math.min(i * 0.07, 0.6)}s`;
+                                            row.style.animation = "";
+                                        },
+                                    );
+                                }
+                            }
                         }),
                     );
                 document
