@@ -96,18 +96,28 @@
                 width: min(100%, var(--max));
                 margin: auto;
                 padding: 20px 16px 34px;
-                animation: page-in 0.5s ease both;
             }
-            @keyframes page-in {
-                from {
-                    opacity: 0;
-                    transform: translateY(8px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
+            /* Whole-page load cascade: mirrors the donor list's
+               left-to-right, top-to-bottom reveal across every major
+               section, in reading order. */
+            .header .brand,
+            .header .header-actions,
+            .shell > .workspace-tabs,
+            .card .section-head,
+            .card #bloodTabs,
+            .card .directory-tools,
+            .footer {
+                opacity: 0;
+                animation: entry-in 0.6s cubic-bezier(0.16, 1, 0.3, 1)
+                    forwards;
             }
+            .header .brand { animation-delay: 0s; }
+            .header .header-actions { animation-delay: 0.1s; }
+            .shell > .workspace-tabs { animation-delay: 0.2s; }
+            .card .section-head { animation-delay: 0.3s; }
+            .card #bloodTabs { animation-delay: 0.38s; }
+            .card .directory-tools { animation-delay: 0.46s; }
+            .footer { animation-delay: 0.6s; }
             .header {
                 display: flex;
                 align-items: center;
@@ -1153,7 +1163,7 @@
             }
             @keyframes compatibility-flow { to { stroke-dashoffset: -36; } }
             @keyframes fact-enter { to { opacity:1; transform:translateY(0); } }
-            @media (prefers-reduced-motion: reduce) { .compat-path, .modal.show .compatibility-tip { animation: none; opacity:1; transform:none; } .compat-blood-drop { display:none; } .entry, .empty, .activity-empty, .activity-item, .modal-box, .modal.show, .shell, .group-heading { animation: none !important; opacity: 1 !important; transform: none !important; } .group-entries-wrap, .group-entries-wrap.is-collapsed, .group-chevron { transition: none !important; } .empty i.fa-spinner, .activity-empty i.fa-spinner { animation: fa-spin 1s linear infinite !important; } }
+            @media (prefers-reduced-motion: reduce) { .compat-path, .modal.show .compatibility-tip { animation: none; opacity:1; transform:none; } .compat-blood-drop { display:none; } .entry, .empty, .activity-empty, .activity-item, .modal-box, .modal.show, .shell, .group-heading, .header .brand, .header .header-actions, .shell > .workspace-tabs, .card .section-head, .card #bloodTabs, .card .directory-tools, .footer { animation: none !important; opacity: 1 !important; transform: none !important; } .group-entries-wrap, .group-entries-wrap.is-collapsed, .group-chevron { transition: none !important; } .empty i.fa-spinner, .activity-empty i.fa-spinner { animation: fa-spin 1s linear infinite !important; } }
             @media (max-width: 640px) {
                 .compatibility-modal { padding: 11px; }
                 .compatibility-intro { font-size: .69rem; margin-bottom: 7px; }
