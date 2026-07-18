@@ -2033,14 +2033,23 @@
                                     willCollapse,
                                 );
                                 if (!willCollapse) {
-                                    wrap.querySelectorAll(".entry").forEach(
-                                        (row, i) => {
-                                            row.style.animation = "none";
-                                            void row.offsetHeight;
-                                            row.style.animationDelay = `${Math.min(i * 0.07, 0.6)}s`;
-                                            row.style.animation = "";
-                                        },
+                                    const rows = Array.from(
+                                        wrap.querySelectorAll(".entry"),
                                     );
+                                    rows.forEach((row) => {
+                                        row.style.animationName = "none";
+                                    });
+                                    void wrap.offsetHeight;
+                                    requestAnimationFrame(() => {
+                                        rows.forEach((row, i) => {
+                                            const delay =
+                                                0.9 *
+                                                (1 -
+                                                    Math.exp(-i * 0.15));
+                                            row.style.animationDelay = `${delay.toFixed(3)}s`;
+                                            row.style.animationName = "entry-in";
+                                        });
+                                    });
                                 }
                             }
                         }),
