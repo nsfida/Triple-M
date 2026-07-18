@@ -785,6 +785,7 @@
                 display: grid;
                 grid-template-rows: 1fr;
                 opacity: 1;
+                contain: layout style;
                 transition:
                     grid-template-rows 0.62s cubic-bezier(0.16, 1, 0.3, 1),
                     opacity 0.55s ease 0.05s;
@@ -1104,8 +1105,8 @@
             .compatibility-visual-head { display: flex; justify-content: space-between; gap: 12px; padding: 8px 11px; color: #6c3131; font-size: .72rem; font-weight: 800; border-bottom: 1px solid #f4d5d3; }
             .compatibility-flow-key { color: #c9342e; white-space: nowrap; }
             .compatibility-diagram { display: block; width: 100%; height: 210px; min-height: 0; }
-            .compat-path { fill: none; stroke: #df3d36; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 7 11; animation: compatibility-flow 1.45s linear infinite; filter: drop-shadow(0 0 4px rgba(220, 38, 38, .3)); }
-            .compat-blood-drop path { fill:#dc2626; stroke:#fff; stroke-width:1.25; filter:drop-shadow(0 2px 3px rgba(127,29,29,.35)); }
+            .compat-path { fill: none; stroke: #df3d36; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 7 11; animation: compatibility-flow 1.45s linear infinite; }
+            .compat-blood-drop path { fill:#dc2626; stroke:#fff; stroke-width:1.25; }
             .compat-node { transition: opacity .2s ease; }
             .compat-node circle { fill: transparent; stroke: none; }
             .compat-node .drop-body { fill: url(#dropGradientNormal); filter: drop-shadow(0 3px 6px rgba(139,0,0,.38)); transition: filter .2s; }
