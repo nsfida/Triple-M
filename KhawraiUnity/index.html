@@ -909,13 +909,15 @@
             .compat-path { fill: none; stroke: #df3d36; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 7 11; animation: compatibility-flow 1.45s linear infinite; filter: drop-shadow(0 0 4px rgba(220, 38, 38, .3)); }
             .compat-blood-drop path { fill:#dc2626; stroke:#fff; stroke-width:1.25; filter:drop-shadow(0 2px 3px rgba(127,29,29,.35)); }
             .compat-node { transition: opacity .2s ease; }
-            .compat-node circle { fill: #fff; stroke: #c9d8f2; stroke-width: 2; }
-            .compat-node text { fill: #66758a; font-size: 14px; font-weight: 900; text-anchor: middle; dominant-baseline: middle; }
-            .compat-node.is-match circle { fill: #e9f0ff; stroke: #5a86e5; stroke-width: 3; filter: drop-shadow(0 4px 6px rgba(36, 87, 214, .15)); }
-            .compat-node.is-match text { fill: #194bbf; }
-            .compat-node.is-source circle { fill: #2457d6; stroke: #fff; stroke-width: 4; filter: drop-shadow(0 5px 10px rgba(36, 87, 214, .38)); }
-            .compat-node.is-source text { fill: #fff; font-size: 18px; }
-            .compat-source-label { fill: #2457d6; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-anchor: middle; }
+            .compat-node circle { fill: transparent; stroke: none; }
+            .compat-node .drop-body { fill: url(#dropGradientNormal); filter: drop-shadow(0 3px 6px rgba(139,0,0,.38)); transition: filter .2s; }
+            .compat-node .drop-shine { fill: url(#shineGradient); opacity: .62; }
+            .compat-node text { fill: #fff; font-size: 13px; font-weight: 900; text-anchor: middle; dominant-baseline: middle; text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+            .compat-node.is-match .drop-body { fill: url(#dropGradientMatch); filter: drop-shadow(0 4px 10px rgba(180,0,0,.55)); }
+            .compat-node.is-match text { fill: #fff; font-size: 13px; }
+            .compat-node.is-source .drop-body { fill: url(#dropGradientSource); filter: drop-shadow(0 6px 14px rgba(120,0,0,.65)); }
+            .compat-node.is-source text { fill: #fff; font-size: 16px; }
+            .compat-source-label { fill: #c0392b; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-anchor: middle; }
             .compatibility-result { display: grid; gap: 6px; margin-top: 8px; padding: 9px 11px; border-radius: 10px; background: rgba(36, 87, 214, .07); color: #29415f; font-size: .76rem; }
             .compatibility-result-groups { display: flex; flex-wrap: wrap; gap: 4px; }
             .compatibility-result-groups span { min-width: 32px; padding: 3px 5px; border-radius: 5px; background: #fff; color: #2457d6; text-align: center; font-weight: 900; font-size: .66rem; box-shadow: 0 1px 3px rgba(15, 23, 42, .06); }
@@ -945,6 +947,22 @@
             .summary-stat.abroad strong { color:#067647; }
             .summary-note { margin:14px 0 0; color:#536276; font-size:.73rem; text-align:center; }
             .summary-note i { color:#067647; margin-right:4px; }
+            .summary-divider { margin:14px 0 11px; border:0; border-top:1px solid rgba(208,213,221,.72); }
+            .summary-blood-title { display:flex; align-items:center; gap:7px; margin:0 0 10px; color:#29415f; font-size:.83rem; font-weight:900; }
+            .summary-blood-title i { color:#bd2921; }
+            .summary-blood-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+            .summary-blood-chip { display:grid; justify-items:center; gap:4px; padding:10px 6px 8px; border:1px solid rgba(189,41,33,.13); border-radius:11px; background:linear-gradient(160deg,#fff7f7,#fff0f0); box-shadow:0 3px 8px rgba(189,41,33,.07); text-align:center; }
+            .summary-blood-chip .chip-badge { display:inline-grid; place-items:center; min-width:38px; padding:4px 7px; border-radius:7px; background:#ffe9e8; color:#bd2921; font-size:.74rem; font-weight:900; box-shadow:inset 0 0 0 1px rgba(189,41,33,.1); }
+            .summary-blood-chip .chip-count { color:#9b1f18; font-size:1.15rem; font-weight:900; line-height:1; letter-spacing:-.04em; }
+            .summary-blood-chip .chip-label { color:#7a4040; font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+            @media (max-width:640px) {
+                .summary-blood-grid { grid-template-columns:repeat(4,1fr); gap:5px; }
+                .summary-blood-chip { padding:7px 3px 6px; border-radius:8px; }
+                .summary-blood-chip .chip-badge { min-width:28px; padding:3px 4px; font-size:.62rem; border-radius:5px; }
+                .summary-blood-chip .chip-count { font-size:.95rem; }
+                .summary-blood-chip .chip-label { font-size:.52rem; }
+                .summary-blood-title { font-size:.75rem; margin-bottom:8px; }
+            }
             @keyframes compatibility-flow { to { stroke-dashoffset: -36; } }
             @keyframes fact-enter { to { opacity:1; transform:translateY(0); } }
             @media (prefers-reduced-motion: reduce) { .compat-path, .modal.show .compatibility-tip { animation: none; opacity:1; transform:none; } .compat-blood-drop { display:none; } }
@@ -1365,6 +1383,18 @@
                     <article class="summary-stat pakistan"><i class="fa-solid fa-map-location-dot"></i><strong id="summaryWithinPakistan">0</strong><span>Within Pakistan</span></article>
                     <article class="summary-stat abroad"><i class="fa-solid fa-earth-americas"></i><strong id="summaryOutOfCountry">0</strong><span>Out Of Country</span></article>
                 </div>
+                <hr class="summary-divider" />
+                <div class="summary-blood-title"><i class="fa-solid fa-droplet"></i> Donors by Blood Group</div>
+                <div class="summary-blood-grid">
+                    <div class="summary-blood-chip"><span class="chip-badge">A+</span><span class="chip-count" id="summaryBloodAPos">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">A-</span><span class="chip-count" id="summaryBloodANeg">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">B+</span><span class="chip-count" id="summaryBloodBPos">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">B-</span><span class="chip-count" id="summaryBloodBNeg">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">AB+</span><span class="chip-count" id="summaryBloodABPos">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">AB-</span><span class="chip-count" id="summaryBloodABNeg">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">O+</span><span class="chip-count" id="summaryBloodOPos">0</span><span class="chip-label">Donors</span></div>
+                    <div class="summary-blood-chip"><span class="chip-badge">O-</span><span class="chip-count" id="summaryBloodONeg">0</span><span class="chip-label">Donors</span></div>
+                </div>
                 <p class="summary-note"><i class="fa-solid fa-circle-check"></i> Live counts from the Khawrai Unity donor directory.</p>
             </div>
         </div>
@@ -1492,11 +1522,27 @@
                     const delay = (index * 0.14).toFixed(2);
                     return `<g class="compat-flow"><path class="compat-path" style="animation-delay:${delay}s" d="${pathData}"/><g class="compat-blood-drop"><path d="M0 -7 C-3 -3 -6 1 -6 4 A6 6 0 0 0 6 4 C6 1 3 -3 0 -7 Z"/><animateMotion dur="1.45s" begin="${delay}s" repeatCount="indefinite" path="${pathData}"/></g></g>`;
                 }).join("");
+                // Blood drop shape: tall drop centered at (0,0), occupying ~56px height x 44px wide
+                // The drop tip points UP; the rounded bottom is DOWN — classic blood drop silhouette
+                const dropPath = (cx, cy, scale) => {
+                    // scale=1 → normal node (r≈28), scale=1.35 → source node (r≈37)
+                    const s = scale;
+                    // Path: tip at top, round blob at bottom
+                    return `M${cx} ${cy - 28 * s} C${cx - 14 * s} ${cy - 14 * s} ${cx - 22 * s} ${cy - 2 * s} ${cx - 22 * s} ${cy + 8 * s} A${22 * s} ${22 * s} 0 0 0 ${cx + 22 * s} ${cy + 8 * s} C${cx + 22 * s} ${cy - 2 * s} ${cx + 14 * s} ${cy - 14 * s} ${cx} ${cy - 28 * s} Z`;
+                };
+                const shinePath = (cx, cy, scale) => {
+                    const s = scale;
+                    return `M${cx - 7 * s} ${cy - 20 * s} C${cx - 12 * s} ${cy - 15 * s} ${cx - 14 * s} ${cy - 8 * s} ${cx - 10 * s} ${cy - 4 * s} C${cx - 7 * s} ${cy - 1 * s} ${cx - 2 * s} ${cy - 3 * s} ${cx} ${cy - 7 * s} C${cx + 1 * s} ${cy - 13 * s} ${cx - 2 * s} ${cy - 20 * s} ${cx - 7 * s} ${cy - 20 * s} Z`;
+                };
                 const nodes = COMPATIBILITY_NODES.map(([group, x, y]) => {
-                    const className = `compat-node${matches.includes(group) ? " is-match" : ""}`;
-                    return `<g class="${className}"><circle cx="${x}" cy="${y}" r="28"/><text x="${x}" y="${y + 1}">${group}</text></g>`;
+                    const isMatch = matches.includes(group);
+                    const className = `compat-node${isMatch ? " is-match" : ""}`;
+                    const textY = y + 7;
+                    return `<g class="${className}"><circle cx="${x}" cy="${y}" r="28"/><path class="drop-body" d="${dropPath(x, y, 1)}"/><path class="drop-shine" d="${shinePath(x, y, 1)}"/><text x="${x}" y="${textY}">${group}</text></g>`;
                 }).join("");
-                $("#compatibilityDiagram").innerHTML = `<defs><radialGradient id="compatibilityHalo"><stop offset="0" stop-color="#dce9ff" stop-opacity=".9"/><stop offset="1" stop-color="#dce9ff" stop-opacity="0"/></radialGradient></defs><circle cx="320" cy="175" r="90" fill="url(#compatibilityHalo)"/>${paths}${nodes}<g class="compat-node is-source"><circle cx="320" cy="175" r="37"/><text x="320" y="176">${compatibilityGroup}</text></g><text class="compat-source-label" x="320" y="232">${sourceAction}</text>`;
+                const srcDrop = dropPath(320, 175, 1.35);
+                const srcShine = shinePath(320, 175, 1.35);
+                $("#compatibilityDiagram").innerHTML = `<defs><radialGradient id="compatibilityHalo"><stop offset="0" stop-color="#ffe5e5" stop-opacity=".9"/><stop offset="1" stop-color="#ffe5e5" stop-opacity="0"/></radialGradient><radialGradient id="dropGradientNormal" cx="35%" cy="25%" r="65%" fx="30%" fy="20%"><stop offset="0%" stop-color="#f87171"/><stop offset="45%" stop-color="#dc2626"/><stop offset="100%" stop-color="#7f1d1d"/></radialGradient><radialGradient id="dropGradientMatch" cx="35%" cy="25%" r="65%" fx="30%" fy="20%"><stop offset="0%" stop-color="#fca5a5"/><stop offset="40%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/></radialGradient><radialGradient id="dropGradientSource" cx="35%" cy="25%" r="65%" fx="30%" fy="20%"><stop offset="0%" stop-color="#fecaca"/><stop offset="35%" stop-color="#f87171"/><stop offset="100%" stop-color="#7f1d1d"/></radialGradient><linearGradient id="shineGradient" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0%" stop-color="#fff" stop-opacity=".75"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><circle cx="320" cy="175" r="90" fill="url(#compatibilityHalo)"/>${paths}${nodes}<g class="compat-node is-source"><circle cx="320" cy="175" r="37"/><path class="drop-body" d="${srcDrop}"/><path class="drop-shine" d="${srcShine}"/><text x="320" y="184">${compatibilityGroup}</text></g><text class="compat-source-label" x="320" y="232">${sourceAction}</text>`;
             }
             function showCompatibilityGuide() {
                 closeModals();
@@ -1516,6 +1562,19 @@
                 $("#summaryKhawrai").textContent = counts.khawrai.toLocaleString();
                 $("#summaryWithinPakistan").textContent = counts.withinPakistan.toLocaleString();
                 $("#summaryOutOfCountry").textContent = counts.outOfCountry.toLocaleString();
+                const bloodCounts = entries.reduce((total, entry) => {
+                    const group = entry.blood_group;
+                    if (group in total) total[group] += 1;
+                    return total;
+                }, { "A+": 0, "A-": 0, "B+": 0, "B-": 0, "AB+": 0, "AB-": 0, "O+": 0, "O-": 0 });
+                $("#summaryBloodAPos").textContent = bloodCounts["A+"].toLocaleString();
+                $("#summaryBloodANeg").textContent = bloodCounts["A-"].toLocaleString();
+                $("#summaryBloodBPos").textContent = bloodCounts["B+"].toLocaleString();
+                $("#summaryBloodBNeg").textContent = bloodCounts["B-"].toLocaleString();
+                $("#summaryBloodABPos").textContent = bloodCounts["AB+"].toLocaleString();
+                $("#summaryBloodABNeg").textContent = bloodCounts["AB-"].toLocaleString();
+                $("#summaryBloodOPos").textContent = bloodCounts["O+"].toLocaleString();
+                $("#summaryBloodONeg").textContent = bloodCounts["O-"].toLocaleString();
                 $("#directorySummaryModal").classList.add("show");
             }
             async function getDeviceFingerprint() {
@@ -2406,8 +2465,3 @@
         </script>
     </body>
 </html>
-
-
-
-
-
