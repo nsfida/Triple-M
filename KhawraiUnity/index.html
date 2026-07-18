@@ -173,6 +173,10 @@
             .btn-icon i {
                 font-size: 1.02rem;
             }
+            .app-platform-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 11px; background: #eaf0fc; margin-bottom: 16px; }
+            .app-platform-tab { border: 0; border-radius: 8px; padding: 9px 8px; background: transparent; color: #526174; font-size: 0.82rem; font-weight: 800; transition: 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+            .app-platform-tab.active { background: #fff; color: var(--primary); box-shadow: 0 3px 9px rgba(36, 87, 214, 0.13); }
+            .app-platform-panel[hidden] { display: none !important; }
             .android-app-intro {
                 margin: 0 0 16px;
                 color: var(--muted);
@@ -1073,8 +1077,8 @@
                 <div class="header-actions">
                                     <button class="btn ghost" id="compatibilityInfoButton" type="button">
                                         <i class="fa-solid fa-heart-pulse"></i> Info
-                                    </button><button class="btn ghost btn-icon" id="androidAppButton" type="button" title="Download Android App" aria-label="Download Android App">
-                                        <i class="fa-brands fa-android"></i>
+                                    </button><button class="btn ghost btn-icon" id="getAppButton" type="button" title="Download the App" aria-label="Download the App">
+                                        <i class="fa-solid fa-mobile-screen-button"></i>
                                     </button><button class="btn ghost" id="adminButton" type="button">
                                         <i class="fa-solid fa-user-shield"></i> Admin</button
                                     ><button
@@ -1442,27 +1446,51 @@
             </div>
         </div>
 
-        <div id="androidAppModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="androidAppTitle">
+        <div id="getAppModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="getAppTitle">
             <div class="modal-box android-app-modal">
                 <div class="modal-head">
-                    <h3 id="androidAppTitle"><i class="fa-brands fa-android"></i> Get the Android App</h3>
+                    <h3 id="getAppTitle"><i class="fa-solid fa-mobile-screen-button"></i> Get the App</h3>
                     <button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button>
                 </div>
-                <p class="android-app-intro">Install the Khawrai Unity app on your Android phone for quick, on-the-go access to the donor directory.</p>
-                <div class="android-app-qr">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Ftriplem.vip%2FKhawraiUnity%2Fandroidapp.apk" alt="QR code to download the Khawrai Unity Android app" width="170" height="170" loading="lazy" />
-                    <span class="android-app-qr-label"><i class="fa-solid fa-qrcode"></i> Scan with your phone camera</span>
+                <p class="android-app-intro">Install the Khawrai Unity app for quick, on-the-go access to the donor directory.</p>
+                <div class="app-platform-switch" role="group" aria-label="Choose your device">
+                    <button class="app-platform-tab active" type="button" data-app-platform="android"><i class="fa-brands fa-android"></i> Android</button>
+                    <button class="app-platform-tab" type="button" data-app-platform="ios"><i class="fa-brands fa-apple"></i> iOS</button>
                 </div>
-                <ol class="android-app-steps">
-                    <li>Tap <strong>Download APK</strong> below, or scan the QR code with your phone.</li>
-                    <li>Open the downloaded file from your notifications or Downloads folder.</li>
-                    <li>If asked, allow <strong>Install unknown apps</strong> for your browser.</li>
-                    <li>Tap <strong>Install</strong>, then open the app once it finishes.</li>
-                </ol>
-                <a class="btn primary android-app-download" href="https://triplem.vip/KhawraiUnity/androidapp.apk" download>
-                    <i class="fa-solid fa-download"></i> Download APK
-                </a>
-                <p class="android-app-note"><i class="fa-solid fa-circle-info"></i> This app is distributed directly by Khawrai Unity, not the Play Store, so Android will show a one-time permission prompt before installing.</p>
+
+                <div class="app-platform-panel" data-app-panel="android">
+                    <div class="android-app-qr">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Ftriplem.vip%2FKhawraiUnity%2Fandroidapp.apk" alt="QR code to download the Khawrai Unity Android app" width="170" height="170" loading="lazy" />
+                        <span class="android-app-qr-label"><i class="fa-solid fa-qrcode"></i> Scan with your phone camera</span>
+                    </div>
+                    <ol class="android-app-steps">
+                        <li>Tap <strong>Download for Android</strong> below, or scan the QR code with your phone.</li>
+                        <li>Open the downloaded file from your notifications or Downloads folder.</li>
+                        <li>If asked, allow <strong>Install unknown apps</strong> for your browser.</li>
+                        <li>Tap <strong>Install</strong>, then open the app once it finishes.</li>
+                    </ol>
+                    <a class="btn primary android-app-download" href="https://triplem.vip/KhawraiUnity/androidapp.apk" download>
+                        <i class="fa-solid fa-download"></i> Download for Android
+                    </a>
+                    <p class="android-app-note"><i class="fa-solid fa-circle-info"></i> This app is distributed directly by Khawrai Unity, not the Play Store, so Android will show a one-time permission prompt before installing.</p>
+                </div>
+
+                <div class="app-platform-panel" data-app-panel="ios" hidden>
+                    <div class="android-app-qr">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Ftriplem.vip%2FKhawraiUnity%2FKhawraiUnity.mobileconfig" alt="QR code to install the Khawrai Unity iOS configuration profile" width="170" height="170" loading="lazy" />
+                        <span class="android-app-qr-label"><i class="fa-solid fa-qrcode"></i> Scan with your iPhone camera</span>
+                    </div>
+                    <ol class="android-app-steps">
+                        <li>Tap <strong>Download for iOS</strong> below, or scan the QR code with your iPhone.</li>
+                        <li>Open <strong>Settings</strong> and tap <strong>General</strong> than go to <strong>VPN and Device Management</strong> and select <strong>Khawrai Unity Profile</strong> near the top.</li>
+                        <li>Tap <strong>Install</strong>, enter your passcode, then confirm.</li>
+                        <li>Once installed, the Khawrai Unity app will be available from your Home Screen.</li>
+                    </ol>
+                    <a class="btn primary android-app-download" href="https://triplem.vip/KhawraiUnity/KhawraiUnity.mobileconfig" download>
+                        <i class="fa-solid fa-download"></i> Download for iOS
+                    </a>
+                    <p class="android-app-note"><i class="fa-solid fa-circle-info"></i> This is a configuration profile provided directly by Khawrai Unity, not the App Store, so iOS will ask you to confirm the install in Settings.</p>
+                </div>
             </div>
         </div>
 
@@ -2203,7 +2231,11 @@
                 $("#fullName").focus();
             }
             $("#compatibilityInfoButton").addEventListener("click", showCompatibilityGuide);
-            $("#androidAppButton").addEventListener("click", () => { closeModals(); $("#androidAppModal").classList.add("show"); });
+            $("#getAppButton").addEventListener("click", () => { closeModals(); $("#getAppModal").classList.add("show"); });
+            document.querySelectorAll("[data-app-platform]").forEach((tab) => tab.addEventListener("click", () => {
+                document.querySelectorAll("[data-app-platform]").forEach((t) => t.classList.toggle("active", t === tab));
+                document.querySelectorAll("[data-app-panel]").forEach((panel) => { panel.hidden = panel.dataset.appPanel !== tab.dataset.appPlatform; });
+            }));
             $("#adminButton").addEventListener("click", () =>
                 adminKey ? showAdminTools() : showAdminModal(),
             );
