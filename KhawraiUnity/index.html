@@ -414,6 +414,25 @@
                 border-color: #b9c8e8;
                 background: #fff;
             }
+            .entry-column-headings.professional-columns,
+            .professional-entry {
+                grid-template-columns: minmax(150px, 1.25fr) 54px minmax(110px, 1fr) minmax(130px, 1.25fr) minmax(110px, 1fr) 58px minmax(112px, .95fr) auto;
+            }
+            @media (max-width: 640px) {
+                .professional-entry {
+                    grid-template-columns: minmax(0, 1fr) auto;
+                    row-gap: 4px;
+                    column-gap: 10px;
+                }
+                .professional-entry .entry-cell {
+                    grid-column: 1;
+                }
+                .professional-entry .admin-entry-actions {
+                    grid-column: 2;
+                    grid-row: 1 / -1;
+                    align-self: center;
+                }
+            }
             .entry-cell {
                 min-width: 0;
                 display: flex;
@@ -629,6 +648,66 @@
                 line-height: 1.45;
                 color: var(--muted);
                 margin: 0;
+            }
+            .permission-group-title {
+                margin: 10px 0 -3px;
+                font-size: 0.72rem;
+                font-weight: 800;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: var(--primary);
+                border-top: 1px dashed var(--line);
+                padding-top: 10px;
+            }
+            .form-grid > .permission-group-title:first-child {
+                border-top: none;
+                padding-top: 0;
+                margin-top: 0;
+            }
+            #userManagerPermissionWrap[hidden],
+            #permissionManagerWrap[hidden] {
+                display: none !important;
+            }
+            .device-id-code {
+                background: var(--primary-soft);
+                color: var(--primary);
+                border-radius: 6px;
+                padding: 1px 6px;
+                font-size: 0.72rem;
+                word-break: break-all;
+            }
+            .device-id-count {
+                color: var(--danger);
+                font-weight: 700;
+            }
+            .manager-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                background: rgba(36, 87, 214, 0.12);
+                color: var(--primary);
+                border-radius: 999px;
+                padding: 2px 9px;
+                font-size: 0.68rem;
+                font-weight: 800;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+                margin-left: 6px;
+            }
+            .permission-chip {
+                display: inline-block;
+                background: var(--panel-2);
+                border: 1px solid var(--line);
+                border-radius: 999px;
+                padding: 1px 8px;
+                font-size: 0.68rem;
+                margin: 2px 4px 0 0;
+                color: var(--muted);
+            }
+            .permission-chip.on {
+                border-color: rgba(6, 118, 71, 0.35);
+                color: var(--success);
+                background: rgba(6, 118, 71, 0.08);
             }
             .form-status {
                 min-height: 20px;
@@ -1273,8 +1352,30 @@
                 </div>
             </section>
             <section id="professionalsWorkspace" class="card" hidden aria-labelledby="professionalsTitle">
-                <div class="section-head"><h3 id="professionalsTitle"><i class="fa-solid fa-user-tie"></i> Khawrai Professionals</h3><div class="tool-actions"><button id="professionalPdfButton" class="btn ghost" type="button"><i class="fa-solid fa-file-pdf"></i> PDF</button><button id="newProfessionalButton" class="btn primary" type="button"><i class="fa-solid fa-user-plus"></i> Add</button></div></div>
-                <div id="professionalsList" class="entry-list" aria-live="polite"></div>
+                <div class="section-head">
+                    <h3 id="professionalsTitle"><i class="fa-solid fa-user-tie"></i> Khawrai Professionals</h3>
+                    <span id="professionalCount" class="count">0 records</span>
+                </div>
+                <div id="professionalTabs" class="tabs" aria-label="Filter professionals by blood group"></div>
+                <div class="directory-tools">
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i><input class="input" id="searchProfessionals" type="search" placeholder="Search name, Mohallah, qualification or mobile" aria-label="Search professionals" />
+                    </div>
+                    <div class="tool-actions">
+                        <select id="sortProfessionals" aria-label="Sort professionals">
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="name-asc">Name: A to Z</option>
+                            <option value="name-desc">Name: Z to A</option>
+                            <option value="mohallah-asc">Mohallah: A to Z</option>
+                        </select>
+                        <button id="professionalPdfButton" class="btn ghost" type="button"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                        <button id="newProfessionalButton" class="btn primary" type="button"><i class="fa-solid fa-user-plus"></i> Add</button>
+                    </div>
+                </div>
+                <div id="professionalsList" class="entry-list" aria-live="polite">
+                    <div class="empty"><i class="fa-solid fa-spinner fa-spin"></i>Loading professional records...</div>
+                </div>
             </section>
 
             <section
@@ -1529,13 +1630,14 @@
                 <div class="form-grid">
                     <p class="form-note">Download the full donor directory as JSON or upload a previously downloaded backup. Existing mobile numbers are skipped during import.</p>
                     <button id="downloadJsonButton" class="btn primary" type="button"><i class="fa-solid fa-download"></i> Download JSON Backup</button>
-                    <button id="uploadJsonButton" class="btn ghost" type="button"><i class="fa-solid fa-upload"></i> Upload JSON Backup</button>
-                    <button id="uploadExcelButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-file-excel"></i> Import Excel Blood List</button>
+                    <button id="uploadJsonButton" class="btn ghost import-only" type="button"><i class="fa-solid fa-upload"></i> Upload JSON Backup</button>
+                    <button id="uploadExcelButton" class="btn ghost import-only" type="button"><i class="fa-solid fa-file-excel"></i> Import Excel Blood List</button>
                     <input id="excelUploadInput" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden />
                     <button id="viewActivityButton" class="btn ghost" type="button"><i class="fa-solid fa-clock-rotate-left"></i> View Entry Activity</button>
                     <button id="changeKeyButton" class="btn ghost" type="button"><i class="fa-solid fa-key"></i> Change Key</button>
-                    <button id="createUserButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-user-plus"></i> Create New User</button>
-                    <button id="manageKeysButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-users-gear"></i> Manage User Keys</button>
+                    <button id="createUserButton" class="btn ghost manager-only" type="button"><i class="fa-solid fa-user-plus"></i> Create New User</button>
+                    <button id="manageKeysButton" class="btn ghost manager-only" type="button"><i class="fa-solid fa-users-gear"></i> Manage User Keys</button>
+                    <button id="directorySettingsButton" class="btn ghost admin-only" type="button"><i class="fa-solid fa-sliders"></i> Directory Settings</button>
                     <input id="jsonUploadInput" type="file" accept="application/json,.json" hidden />
                     <p id="backupStatus" class="form-status" role="status"></p>
                     <button id="logoutButton" class="btn danger" type="button"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
@@ -1648,6 +1750,20 @@
             </div>
         </div>
 
+        <div id="directorySettingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="directorySettingsTitle">
+            <div class="modal-box">
+                <div class="modal-head"><h3 id="directorySettingsTitle"><i class="fa-solid fa-sliders"></i> Directory Settings</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
+                <form id="directorySettingsForm" class="form-grid">
+                    <div class="field">
+                        <label for="anonymousDeviceLimit">Entries allowed per device (visitors without a user key)</label>
+                        <div class="input-wrap"><i class="fa-solid fa-mobile-screen-button"></i><input class="input" id="anonymousDeviceLimit" type="number" min="1" max="50" required /></div>
+                        <p class="form-note">Each visitor's browser is now tracked by a unique, persistent device ID instead of their phone model — so two people with the same phone will never share an entry limit by mistake. This setting controls how many entries a single real device may add without a user key.</p>
+                    </div>
+                    <p id="directorySettingsStatus" class="form-status" role="status"></p>
+                    <button class="btn primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button>
+                </form>
+            </div>
+        </div>
         <div id="changeKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="changeKeyTitle">
             <div class="modal-box">
                 <div class="modal-head"><h3 id="changeKeyTitle"><i class="fa-solid fa-key"></i> Change Admin Key</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
@@ -1673,15 +1789,29 @@
                     <div class="field"><label for="userDisplayName">User Name</label><div class="input-wrap"><i class="fa-solid fa-user"></i><input class="input" id="userDisplayName" maxlength="100" required /></div></div>
                     <div class="field"><label for="userAccessKey">New Access Key</label><div class="input-wrap"><i class="fa-solid fa-key"></i><input class="input" id="userAccessKey" type="password" minlength="12" required /></div></div>
                     <div class="field"><label for="userEntryLimit">Entry Allowance</label><select id="userEntryLimit"><option value="">Unlimited entries</option><option value="1">1 entry</option><option value="2">2 entries</option><option value="5">5 entries</option><option value="10">10 entries</option></select></div>
+                    <p class="permission-group-title">Entry Permissions</p>
                     <label class="form-note"><input id="userCanViewActivity" type="checkbox" /> Allow activity log</label>
                     <label class="form-note"><input id="userCanEdit" type="checkbox" /> Allow editing own entries</label>
-                    <label class="form-note"><input id="userCanDelete" type="checkbox" /> Allow deleting own entries</label><label class="form-note"><input id="userCanProfessionals" type="checkbox" /> Allow Khawrai Professionals access</label>
+                    <label class="form-note"><input id="userCanDelete" type="checkbox" /> Allow deleting own entries</label>
+                    <p class="permission-group-title">Khawrai Professionals Permissions</p>
+                    <label class="form-note"><input id="userCanProfessionals" type="checkbox" /> Allow Khawrai Professionals access</label>
+                    <label class="form-note"><input id="userCanEditProfessionals" type="checkbox" /> Allow editing professional records</label>
+                    <label class="form-note"><input id="userCanDeleteProfessionals" type="checkbox" /> Allow deleting professional records</label>
+                    <p class="permission-group-title">Tools &amp; Data</p>
+                    <label class="form-note"><input id="userCanExportPdf" type="checkbox" checked /> Allow downloading PDF exports</label>
+                    <label class="form-note"><input id="userCanImportData" type="checkbox" /> Allow importing JSON / Excel data</label>
+                    <div id="userManagerPermissionWrap">
+                        <p class="permission-group-title">Administration</p>
+                        <label class="form-note"><input id="userCanManageUsers" type="checkbox" /> Allow this user to create and manage other users (Manager)</label>
+                    </div>
+                    <div class="field"><label for="userNotes">Notes (visible to admin only)</label><div class="input-wrap"><i class="fa-solid fa-note-sticky"></i><input class="input" id="userNotes" maxlength="300" placeholder="Optional — e.g. role, mohallah, contact reason" /></div></div>
                     <p id="userKeyStatus" class="form-status" role="status"></p>
                     <button class="btn primary" type="submit"><i class="fa-solid fa-user-check"></i> Create User Key</button>
                 </form>
             </div>
         </div>
-        <div id="keyPermissionsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="keyPermissionsTitle"><div class="modal-box"><div class="modal-head"><h3 id="keyPermissionsTitle"><i class="fa-solid fa-sliders"></i> Edit User Access</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><form id="keyPermissionsForm" class="form-grid"><input id="permissionKeyId" type="hidden" /><div class="field"><label for="permissionEntryLimit">Entry Allowance</label><select id="permissionEntryLimit"><option value="">Unlimited entries</option><option value="1">1 entry</option><option value="2">2 entries</option><option value="5">5 entries</option><option value="10">10 entries</option></select></div><label class="form-note"><input id="permissionViewActivity" type="checkbox" /> Allow activity log</label><label class="form-note"><input id="permissionCanEdit" type="checkbox" /> Allow editing own entries</label><label class="form-note"><input id="permissionCanDelete" type="checkbox" /> Allow deleting own entries</label><label class="form-note"><input id="permissionProfessionals" type="checkbox" /> Allow Khawrai Professionals access</label><label class="form-note"><input id="permissionActive" type="checkbox" /> Key is active</label><p id="permissionStatus" class="form-status"></p><button class="btn primary" type="submit">Save Access</button></form></div></div>
+        <div id="keyPermissionsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="keyPermissionsTitle"><div class="modal-box"><div class="modal-head"><h3 id="keyPermissionsTitle"><i class="fa-solid fa-sliders"></i> Edit User Access</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><form id="keyPermissionsForm" class="form-grid"><input id="permissionKeyId" type="hidden" /><div class="field"><label for="permissionEntryLimit">Entry Allowance</label><select id="permissionEntryLimit"><option value="">Unlimited entries</option><option value="1">1 entry</option><option value="2">2 entries</option><option value="5">5 entries</option><option value="10">10 entries</option></select></div><p class="permission-group-title">Entry Permissions</p><label class="form-note"><input id="permissionViewActivity" type="checkbox" /> Allow activity log</label><label class="form-note"><input id="permissionCanEdit" type="checkbox" /> Allow editing own entries</label><label class="form-note"><input id="permissionCanDelete" type="checkbox" /> Allow deleting own entries</label><p class="permission-group-title">Khawrai Professionals Permissions</p><label class="form-note"><input id="permissionProfessionals" type="checkbox" /> Allow Khawrai Professionals access</label><label class="form-note"><input id="permissionEditProfessionals" type="checkbox" /> Allow editing professional records</label><label class="form-note"><input id="permissionDeleteProfessionals" type="checkbox" /> Allow deleting professional records</label><p class="permission-group-title">Tools &amp; Data</p><label class="form-note"><input id="permissionExportPdf" type="checkbox" /> Allow downloading PDF exports</label><label class="form-note"><input id="permissionImportData" type="checkbox" /> Allow importing JSON / Excel data</label><div id="permissionManagerWrap"><p class="permission-group-title">Administration</p><label class="form-note"><input id="permissionManageUsers" type="checkbox" /> Allow this user to create and manage other users (Manager)</label></div><label class="form-note"><input id="permissionActive" type="checkbox" /> Key is active</label><div class="field"><label for="permissionNotes">Notes (visible to admin only)</label><div class="input-wrap"><i class="fa-solid fa-note-sticky"></i><input class="input" id="permissionNotes" maxlength="300" /></div></div><p id="permissionStatus" class="form-status"></p><button class="btn primary" type="submit">Save Access</button></form></div></div>
+        <div id="managerBadgeStyleAnchor" hidden></div>
         <div id="managedKeysModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="managedKeysTitle">
             <div class="modal-box">
                 <div class="modal-head"><h3 id="managedKeysTitle"><i class="fa-solid fa-users-gear"></i> Managed User Keys</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div>
@@ -1711,10 +1841,12 @@
             let entries = [],
                 professionals = [],
                 activeGroup = "all",
+                activeProfessionalGroup = "all",
                 adminKey = localStorage.getItem("khawraiBloodAdminKey") || "",
                 accessProfile = null,
                 excelImportRows = [];
             const collapsedGroups = new Set(STANDARD_GROUPS);
+            const collapsedProfessionalGroups = new Set(STANDARD_GROUPS);
             const $ = (selector) => document.querySelector(selector);
             const escapeHtml = (value) =>
                 String(value).replace(
@@ -1826,6 +1958,31 @@
                 $("#summaryBloodONeg").textContent = bloodCounts["O-"].toLocaleString();
                 $("#directorySummaryModal").classList.add("show");
             }
+            // Returns a random ID that is generated once and stored in this browser's
+            // local storage. Unlike the fingerprint below (which is only a hash of
+            // generic device characteristics such as screen size, CPU cores, and
+            // model name), this ID is unique to this specific browser install — two
+            // different physical phones of the exact same model will never collide.
+            // This is what the server now uses to enforce the "2 entries per device"
+            // rule, so people who happen to own the same phone model are no longer
+            // wrongly blocked from adding their own entries.
+            function getPersistentDeviceId() {
+                const STORAGE_KEY = "khawraiDeviceId";
+                try {
+                    let id = localStorage.getItem(STORAGE_KEY);
+                    if (!id) {
+                        id = window.crypto?.randomUUID?.() || `dev-${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+                        localStorage.setItem(STORAGE_KEY, id);
+                    }
+                    return id;
+                } catch {
+                    // Private browsing or storage blocked: keep a stable ID for this tab session only.
+                    if (!window.__khawraiSessionDeviceId) {
+                        window.__khawraiSessionDeviceId = `session-${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+                    }
+                    return window.__khawraiSessionDeviceId;
+                }
+            }
             async function getDeviceFingerprint() {
                 const parts = [
                     navigator.platform || "",
@@ -1866,9 +2023,14 @@
                     location_service: "Browser GPS + OpenStreetMap Nominatim",
                 };
             }
-            function formatActivityDetails(device) {
+            function formatActivityDetails(device, deviceId, deviceEntryCount) {
                 const safe = (value, fallback = "Unavailable") => escapeHtml(String(value === null || value === undefined || value === "" ? fallback : value));
-                const lines = [
+                const lines = [];
+                if (deviceId) {
+                    const countBadge = Number(deviceEntryCount) > 1 ? ` <span class="device-id-count">(${deviceEntryCount} entries from this device)</span>` : "";
+                    lines.push(`<strong>Device ID:</strong> <code class="device-id-code">${safe(deviceId)}</code>${countBadge}`);
+                }
+                lines.push(
                     `Device: ${safe(device.device, "Device details unavailable")} (${safe(device.device_type)})`,
                     `Browser: ${safe(device.browser, "Browser unavailable")} ${safe(device.browser_version, "")}`.trim(),
                     `Operating system: ${safe(device.operating_system)}`,
@@ -1878,7 +2040,7 @@
                     `Network: ${safe(device.connection)} | Language: ${safe(device.language)} | Time zone: ${safe(device.timezone)}`,
                     `Hardware: ${safe(device.cpu_cores, "Unknown")} CPU cores | ${safe(device.device_memory_gb, "Unknown")} GB memory | ${safe(device.touch_points, "Unknown")} touch points`,
                     `Location consent: ${device.location_consent ? "Accepted" : "Not recorded"}`,
-                ];
+                );
                 const latitude = Number(device.location_latitude);
                 const longitude = Number(device.location_longitude);
                 if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
@@ -2228,14 +2390,101 @@
                 const { data, error } = await db.rpc("access_list_khawrai_professionals_v2", { p_access_key: adminKey });
                 if (error) { console.error(error); $("#professionalsList").innerHTML = '<div class="activity-empty">Could not load professionals.</div>'; return; }
                 professionals = data || [];
-                renderProfessionals();
+                renderProfessionalsDirectory();
             }
-            function renderProfessionals() {
-                if (!professionals.length) { $("#professionalsList").innerHTML = '<div class="activity-empty">No professional records are available yet.</div>'; return; }
-                $("#professionalsList").innerHTML = professionals.map((person) => {
-                    const actions = accessProfile?.is_admin ? `<div class="professional-actions"><button class="small-icon" type="button" data-edit-professional="${person.id}" title="Edit"><i class="fa-solid fa-pen"></i></button><button class="small-icon delete" type="button" data-delete-professional="${person.id}" title="Delete"><i class="fa-solid fa-trash"></i></button></div>` : "";
-                    return `<article class="professional-row"><strong>${escapeHtml(person.full_name)}</strong><span class="professional-detail">Age: ${escapeHtml(person.age ?? "—")}</span><span class="professional-detail">${escapeHtml(person.mohallah)}</span><span class="professional-detail">${escapeHtml(person.qualification)}</span><span class="professional-detail">${escapeHtml(person.current_residence_country)}</span><span class="professional-detail">${escapeHtml(person.blood_group || "—")}</span><a class="professional-detail phone" href="tel:${encodeURIComponent(person.mobile_number)}">${escapeHtml(person.mobile_number)}</a>${actions}</article>`;
+            function renderProfessionalTabs() {
+                const available = STANDARD_GROUPS.filter((group) => professionals.some((person) => person.blood_group === group));
+                if (activeProfessionalGroup !== "all" && !available.includes(activeProfessionalGroup)) activeProfessionalGroup = "all";
+                const groups = ["all", ...available];
+                $("#professionalTabs").innerHTML = groups
+                    .map((group) => `<button class="tab ${activeProfessionalGroup === group ? "active" : ""}" data-professional-group="${group}">${group === "all" ? '<i class="fa-solid fa-border-all"></i> All' : `<i class="fa-solid fa-droplet"></i> ${group}`}</button>`)
+                    .join("");
+                document.querySelectorAll("[data-professional-group]").forEach((button) =>
+                    button.addEventListener("click", () => { activeProfessionalGroup = button.dataset.professionalGroup; renderProfessionalsDirectory(); }),
+                );
+            }
+            function getVisibleProfessionals() {
+                const query = $("#searchProfessionals").value.trim().toLowerCase();
+                const selected = activeProfessionalGroup === "all"
+                    ? professionals
+                    : professionals.filter((person) => person.blood_group === activeProfessionalGroup);
+                const filtered = selected.filter((person) =>
+                    !query ||
+                    [person.full_name, person.mohallah, person.qualification, person.current_residence_country, person.mobile_number, person.blood_group || ""].some((value) => String(value).toLowerCase().includes(query)),
+                );
+                const sort = $("#sortProfessionals").value;
+                return [...filtered].sort((a, b) => {
+                    if (sort === "oldest") return new Date(a.created_at) - new Date(b.created_at);
+                    if (sort === "name-asc") return a.full_name.localeCompare(b.full_name);
+                    if (sort === "name-desc") return b.full_name.localeCompare(a.full_name);
+                    if (sort === "mohallah-asc") return a.mohallah.localeCompare(b.mohallah);
+                    return new Date(b.created_at) - new Date(a.created_at);
+                });
+            }
+            function professionalCard(person, index) {
+                const canEdit = accessProfile?.is_admin || accessProfile?.can_edit_professionals;
+                const canDelete = accessProfile?.is_admin || accessProfile?.can_delete_professionals;
+                const actions = (canEdit || canDelete)
+                    ? `<div class="admin-entry-actions">${canEdit ? `<button class="small-icon" type="button" data-edit-professional="${person.id}" title="Edit" aria-label="Edit ${escapeHtml(person.full_name)}"><i class="fa-solid fa-pen"></i></button>` : ""}${canDelete ? `<button class="small-icon delete" type="button" data-delete-professional="${person.id}" title="Delete" aria-label="Delete ${escapeHtml(person.full_name)}"><i class="fa-solid fa-trash"></i></button>` : ""}</div>`
+                    : "";
+                return `<article class="entry professional-entry" style="--i:${index}">
+                    <div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(person.full_name)}</div>
+                    <div class="entry-cell"><span class="entry-label">Age</span>${escapeHtml(person.age ?? "—")}</div>
+                    <div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(person.mohallah)}</div>
+                    <div class="entry-cell entry-place"><span class="entry-label">Qualification</span><i class="fa-solid fa-graduation-cap"></i>${escapeHtml(person.qualification)}</div>
+                    <div class="entry-cell entry-place"><span class="entry-label">Country</span><i class="fa-solid fa-earth-americas"></i>${escapeHtml(person.current_residence_country)}</div>
+                    <div class="entry-cell"><span class="entry-label">Blood</span><span class="blood-badge">${escapeHtml(person.blood_group || "—")}</span></div>
+                    <a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(person.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(person.mobile_number)}</a>
+                    ${actions}
+                </article>`;
+            }
+            function renderProfessionalsDirectory() {
+                renderProfessionalTabs();
+                const filtered = getVisibleProfessionals();
+                $("#professionalCount").textContent = `${filtered.length} record${filtered.length === 1 ? "" : "s"}`;
+                if (!filtered.length) {
+                    $("#professionalsList").innerHTML = `<div class="empty"><i class="fa-solid fa-user-tie"></i>No matching professional records are available.</div>`;
+                    return;
+                }
+                let cascadeIndex = 0;
+                const groupsWithBlood = STANDARD_GROUPS.filter((group) => filtered.some((person) => person.blood_group === group));
+                const withoutBlood = filtered.filter((person) => !STANDARD_GROUPS.includes(person.blood_group));
+                let html = groupsWithBlood.map((group) => {
+                    const isCollapsed = collapsedProfessionalGroups.has(group);
+                    const groupPeople = filtered.filter((person) => person.blood_group === group);
+                    const groupCards = groupPeople.map((person) => professionalCard(person, cascadeIndex++)).join("");
+                    return `<button class="group-heading" type="button" data-collapse-professional-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${groupPeople.length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries-wrap${isCollapsed ? " is-collapsed" : ""}" data-professional-group-wrap="${group}"><div class="group-entries-inner"><div class="entry-column-headings professional-columns"><span>Name</span><span>Age</span><span>Mohallah</span><span>Qualification</span><span>Country</span><span>Blood</span><span>Mobile Number</span><span></span></div>${groupCards}</div></div>`;
                 }).join("");
+                if (withoutBlood.length) {
+                    const isCollapsed = collapsedProfessionalGroups.has("Unspecified");
+                    const groupCards = withoutBlood.map((person) => professionalCard(person, cascadeIndex++)).join("");
+                    html += `<button class="group-heading" type="button" data-collapse-professional-group="Unspecified" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-user-tie"></i> Blood Group Not Set <span class="count">${withoutBlood.length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries-wrap${isCollapsed ? " is-collapsed" : ""}" data-professional-group-wrap="Unspecified"><div class="group-entries-inner"><div class="entry-column-headings professional-columns"><span>Name</span><span>Age</span><span>Mohallah</span><span>Qualification</span><span>Country</span><span>Blood</span><span>Mobile Number</span><span></span></div>${groupCards}</div></div>`;
+                }
+                $("#professionalsList").innerHTML = html;
+                document.querySelectorAll("[data-collapse-professional-group]").forEach((button) =>
+                    button.addEventListener("click", () => {
+                        const group = button.dataset.collapseProfessionalGroup;
+                        const willCollapse = !collapsedProfessionalGroups.has(group);
+                        willCollapse ? collapsedProfessionalGroups.add(group) : collapsedProfessionalGroups.delete(group);
+                        button.setAttribute("aria-expanded", String(!willCollapse));
+                        const wrap = document.querySelector(`.group-entries-wrap[data-professional-group-wrap="${group}"]`);
+                        if (wrap) {
+                            wrap.classList.toggle("is-collapsed", willCollapse);
+                            if (!willCollapse) {
+                                const rows = Array.from(wrap.querySelectorAll(".entry"));
+                                rows.forEach((row) => { row.style.animationName = "none"; });
+                                void wrap.offsetHeight;
+                                requestAnimationFrame(() => {
+                                    rows.forEach((row, i) => {
+                                        const delay = 0.9 * (1 - Math.exp(-i * 0.15));
+                                        row.style.animationDelay = `${delay.toFixed(3)}s`;
+                                        row.style.animationName = "entry-in";
+                                    });
+                                });
+                            }
+                        }
+                    }),
+                );
                 document.querySelectorAll("[data-edit-professional]").forEach((button) => button.addEventListener("click", () => openProfessionalModal(button.dataset.editProfessional)));
                 document.querySelectorAll("[data-delete-professional]").forEach((button) => button.addEventListener("click", () => deleteProfessional(button.dataset.deleteProfessional)));
             }
@@ -2250,6 +2499,7 @@
             function updateProfessionalAccess() {
                 const allowed = Boolean(accessProfile?.is_admin || accessProfile?.can_access_professionals);
                 $("#professionalsWorkspaceTab").hidden = !allowed;
+                $("#newProfessionalButton").hidden = !allowed;
                 if (!allowed && !$("#professionalsWorkspace").hidden) switchWorkspace("blood");
             }
             function openProfessionalModal(id = "") {
@@ -2259,7 +2509,8 @@
                 setStatus("#professionalStatus", "");
                 if (id) {
                     const person = professionals.find((item) => item.id === id);
-                    if (!person || !accessProfile.is_admin) return;
+                    const canEdit = accessProfile?.is_admin || accessProfile?.can_edit_professionals;
+                    if (!person || !canEdit) return;
                     $("#professionalEntryTitle").textContent = "Edit Professional";
                     $("#professionalName").value = person.full_name; $("#professionalMohallah").value = person.mohallah;
                     $("#professionalQualification").value = person.qualification; $("#professionalCountry").value = person.current_residence_country; $("#professionalMobile").value = person.mobile_number; $("#professionalAge").value = person.age ?? ""; $("#professionalBloodGroup").value = person.blood_group ?? "";
@@ -2289,15 +2540,17 @@
                     return;
                 }
                 const deviceFingerprint = await getDeviceFingerprint();
-                const { data, error } = await db.rpc("submit_blood_entry_v6", {
+                const persistentDeviceId = getPersistentDeviceId();
+                const { data, error } = await db.rpc("submit_blood_entry_v7", {
                                     p_full_name: record.full_name,
                                     p_mohallah: record.mohallah,
                                     p_mobile_number: record.mobile_number,
                                     p_blood_group: record.blood_group,
                                     p_location_status: record.location_status,
                                     p_device_fingerprint: deviceFingerprint,
+                    p_device_id: persistentDeviceId,
                     p_access_key: adminKey || null,
-                    p_device_details: { ...(await getDeviceDetails()), ...locationDetails, device_id: deviceFingerprint.slice(0, 16) },
+                    p_device_details: { ...(await getDeviceDetails()), ...locationDetails, device_id: persistentDeviceId },
                 });
                 button.disabled = false;
                 if (error || !data?.success) {
@@ -2331,29 +2584,132 @@
                 if (duplicate) { setStatus("#professionalStatus", "This name and mobile number are already registered.", "error"); return; }
                 setStatus("#professionalStatus", "Saving...");
                 const { error } = id
-                    ? await db.rpc("admin_update_khawrai_professional_v2", { p_admin_key: adminKey, p_id: id, ...payload })
+                    ? await db.rpc("access_update_khawrai_professional_v3", { p_access_key: adminKey, p_id: id, ...payload })
                     : await db.rpc("access_create_khawrai_professional_v2", { p_access_key: adminKey, ...payload });
-                if (error) { console.error(error); setStatus("#professionalStatus", error.message.includes("Mobile number") ? "This mobile number is already registered." : "Could not save the professional record.", "error"); return; }
+                if (error) { console.error(error); setStatus("#professionalStatus", error.message.includes("Mobile number") ? "This mobile number is already registered." : error.message || "Could not save the professional record.", "error"); return; }
                 closeModals(); await loadProfessionals();
             });
             async function deleteProfessional(id) {
-                if (!accessProfile?.is_admin || !confirm("Delete this professional record?")) return;
-                const { error } = await db.rpc("admin_delete_khawrai_professional", { p_admin_key: adminKey, p_id: id });
-                if (error) { console.error(error); alert("Could not delete this professional record."); return; }
+                if (!(accessProfile?.is_admin || accessProfile?.can_delete_professionals) || !confirm("Delete this professional record?")) return;
+                const { error } = await db.rpc("access_delete_khawrai_professional", { p_access_key: adminKey, p_id: id });
+                if (error) { console.error(error); alert(error.message || "Could not delete this professional record."); return; }
                 await loadProfessionals();
             }
             async function downloadProfessionalsPdf() {
-                if (!professionals.length || !window.jspdf) return alert("No professional records are available to download.");
+                const filtered = getVisibleProfessionals();
+                if (!filtered.length) { alert("There are no matching professional records to download."); return; }
+                if (!window.jspdf) { alert("The PDF library could not be loaded. Please check your internet connection and try again."); return; }
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF({ unit: "mm", format: "a4" });
                 const logo = await getPdfLogo();
-                const pageWidth = pdf.internal.pageSize.getWidth(); const pageHeight = pdf.internal.pageSize.getHeight(); const margin = 14;
-                const records = [...professionals].sort((a, b) => a.full_name.localeCompare(b.full_name)); let y = 0; let page = 0;
-                const footer = () => { pdf.setDrawColor(220,226,237); pdf.line(margin, pageHeight - 13, pageWidth - margin, pageHeight - 13); pdf.setTextColor(102,112,133); pdf.setFontSize(7.5); pdf.text("Khawrai Unity | Professionals Directory", margin, pageHeight - 8); pdf.text(`Page ${page}`, pageWidth - margin, pageHeight - 8, { align: "right" }); };
-                const addPage = () => { if (page) { footer(); pdf.addPage(); } page += 1; pdf.setFillColor(36,87,214); pdf.rect(0,0,pageWidth,36,"F"); if (logo) pdf.addImage(logo,"PNG",margin,7,22,22); pdf.setTextColor(255,255,255); pdf.setFont("helvetica","bold"); pdf.setFontSize(18); pdf.text("Khawrai Professionals", logo ? 42 : margin, 18); pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5); pdf.text("Community professional directory", logo ? 42 : margin, 25); y = 47; };
-                addPage(); pdf.setTextColor(23,33,43); pdf.setFont("helvetica","bold"); pdf.setFontSize(11); pdf.text(`${records.length} Professional Record${records.length === 1 ? "" : "s"}`, margin, y); pdf.setFont("helvetica","normal"); pdf.setFontSize(8.5); pdf.setTextColor(102,112,133); pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, y + 6); y += 15;
-                records.forEach((person, index) => { if (y > 270) { addPage(); } if (index % 2 === 0) { pdf.setFillColor(248,250,255); pdf.roundedRect(margin,y - 4,pageWidth - margin * 2,15,2,2,"F"); } pdf.setTextColor(23,33,43); pdf.setFont("helvetica","bold"); pdf.setFontSize(9.5); pdf.text(`${index + 1}. ${person.full_name}`, margin + 3, y); pdf.setFont("helvetica","normal"); pdf.setFontSize(8); const line1 = `${person.qualification} | ${person.current_residence_country} | Age: ${person.age ?? "—"} | Blood: ${person.blood_group || "—"}`; const line2 = `Mohallah: ${person.mohallah} | Mobile: ${person.mobile_number}`; pdf.text(pdf.splitTextToSize(line1, 175)[0], margin + 3, y + 5); pdf.text(pdf.splitTextToSize(line2, 175)[0], margin + 3, y + 10); y += 18; });
-                footer(); pdf.save("khawrai-professionals.pdf");
+                const groups = STANDARD_GROUPS.filter((group) => filtered.some((person) => person.blood_group === group));
+                const withoutBlood = filtered.filter((person) => !STANDARD_GROUPS.includes(person.blood_group));
+                const groupedProfessionals = groups.map((group) => ({
+                    group,
+                    people: filtered.filter((person) => person.blood_group === group).sort((a, b) => a.full_name.localeCompare(b.full_name)),
+                }));
+                if (withoutBlood.length) groupedProfessionals.push({ group: "Not Set", people: [...withoutBlood].sort((a, b) => a.full_name.localeCompare(b.full_name)) });
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 14;
+                const generatedAt = new Date();
+                const generatedBy = accessProfile?.is_admin ? "Nadeem Shahzad Fida" : accessProfile?.display_name || "Khawrai Unity";
+                const generatedDetails = `Generated by ${generatedBy} • ${generatedAt.toLocaleString()}`;
+                let y = 0;
+                let pageNumber = 0;
+                const drawFooter = () => {
+                    pdf.setDrawColor(220, 226, 237);
+                    pdf.line(margin, pageHeight - 13, pageWidth - margin, pageHeight - 13);
+                    pdf.setTextColor(102, 112, 133);
+                    pdf.setFontSize(7.5);
+                    pdf.text(`Khawrai Unity | ${generatedDetails}`, margin, pageHeight - 8);
+                    pdf.text(`Page ${pageNumber}`, pageWidth - margin, pageHeight - 8, { align: "right" });
+                };
+                const addPage = () => {
+                    if (pageNumber) { drawFooter(); pdf.addPage(); }
+                    pageNumber += 1;
+                    pdf.setFillColor(36, 87, 214);
+                    pdf.rect(0, 0, pageWidth, 36, "F");
+                    if (logo) pdf.addImage(logo, "PNG", margin, 7, 22, 22);
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(18);
+                    pdf.text("Khawrai Professionals Directory", logo ? 42 : margin, 18);
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(8.5);
+                    pdf.text("Community professional & career directory", logo ? 42 : margin, 25);
+                    y = 47;
+                };
+                const pageBottom = pageHeight - 19;
+                const drawGroupHeader = (group, count, continued = false) => {
+                    if (y + 20 > pageBottom) addPage();
+                    pdf.setFillColor(36, 87, 214);
+                    pdf.roundedRect(margin, y, pageWidth - margin * 2, 9, 2.5, 2.5, "F");
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(10);
+                    pdf.text(`${group === "Not Set" ? "Blood Group Not Set" : `${group} Blood Group`}${continued ? " — continued" : ""}`, margin + 4, y + 5.9);
+                    pdf.setFontSize(7.8);
+                    pdf.text(`${count} record${count === 1 ? "" : "s"}`, pageWidth - margin - 4, y + 5.8, { align: "right" });
+                    y += 13;
+                };
+                const drawTableHeader = () => {
+                    pdf.setFillColor(239, 244, 253);
+                    pdf.roundedRect(margin, y - 4.5, pageWidth - margin * 2, 7, 1.5, 1.5, "F");
+                    pdf.setTextColor(82, 98, 116);
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(6.6);
+                    pdf.text("NAME", margin + 2, y);
+                    pdf.text("MOHALLAH", 54, y);
+                    pdf.text("QUALIFICATION", 82, y);
+                    pdf.text("COUNTRY", 122, y);
+                    pdf.text("AGE", 150, y);
+                    pdf.text("MOBILE NUMBER", 160, y);
+                    y += 8;
+                };
+                addPage();
+                pdf.setFillColor(248, 250, 255);
+                pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 17, 3, 3, "F");
+                pdf.setTextColor(23, 33, 43);
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(11);
+                pdf.text(activeProfessionalGroup === "all" ? "All Professional Records" : `${activeProfessionalGroup} Blood Group`, margin + 4, y + 1);
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(8.2);
+                pdf.setTextColor(102, 112, 133);
+                pdf.text(`${filtered.length} professional record${filtered.length === 1 ? "" : "s"}  •  ${generatedDetails}`, margin + 4, y + 7);
+                y += 22;
+                groupedProfessionals.forEach(({ group, people }) => {
+                    drawGroupHeader(group, people.length);
+                    drawTableHeader();
+                    people.forEach((person, index) => {
+                        if (y + 9 > pageBottom) {
+                            addPage();
+                            drawGroupHeader(group, people.length, true);
+                            drawTableHeader();
+                        }
+                        if (index % 2 === 0) { pdf.setFillColor(248, 250, 255); pdf.rect(margin, y - 3.7, pageWidth - margin * 2, 7.5, "F"); }
+                        pdf.setDrawColor(230, 235, 244);
+                        pdf.line(margin, y + 4, pageWidth - margin, y + 4);
+                        pdf.setTextColor(23, 33, 43);
+                        pdf.setFont("helvetica", "normal");
+                        pdf.setFontSize(7.2);
+                        const name = pdf.splitTextToSize(person.full_name.toUpperCase(), 38)[0];
+                        const mohallah = pdf.splitTextToSize(person.mohallah.toUpperCase(), 26)[0];
+                        const qualification = pdf.splitTextToSize(person.qualification, 38)[0];
+                        const country = pdf.splitTextToSize(person.current_residence_country, 26)[0];
+                        pdf.text(`${index + 1}. ${name}`, margin + 2, y + 1.2);
+                        pdf.text(mohallah, 54, y + 1.2);
+                        pdf.text(qualification, 82, y + 1.2);
+                        pdf.text(country, 122, y + 1.2);
+                        pdf.text(String(person.age ?? "—"), 150, y + 1.2);
+                        pdf.text(person.mobile_number, 160, y + 1.2);
+                        y += 8;
+                    });
+                    y += 4;
+                });
+                drawFooter();
+                pdf.save(`khawrai-professionals-${activeProfessionalGroup === "all" ? "all-groups" : activeProfessionalGroup.replace("+", "positive").replace("-", "negative")}.pdf`);
             }
             function showAdminModal() {
                 $("#adminModal").classList.add("show");
@@ -2363,8 +2719,9 @@
                 if (!adminKey || !accessProfile) return showAdminModal();
                 setStatus("#backupStatus", "");
                 document.querySelectorAll(".admin-only").forEach((node) => node.hidden = !accessProfile.is_admin);
+                document.querySelectorAll(".manager-only").forEach((node) => node.hidden = !(accessProfile.is_admin || accessProfile.can_manage_users));
+                document.querySelectorAll(".import-only").forEach((node) => node.hidden = !(accessProfile.is_admin || accessProfile.can_import_data));
                 $("#downloadJsonButton").hidden = !accessProfile.is_admin;
-                $("#uploadJsonButton").hidden = !accessProfile.is_admin;
                 $("#viewActivityButton").hidden = !(accessProfile.is_admin || accessProfile.can_view_activity);
                 $("#adminToolsModal").classList.add("show");
             }
@@ -2372,6 +2729,9 @@
                 accessProfile = profile;
                 const canManageEntries = profile.is_admin || profile.can_edit || profile.can_delete;
                 document.body.classList.toggle("admin-mode", canManageEntries);
+                const canExportPdf = profile.is_admin || profile.can_export_pdf !== false;
+                $("#downloadPdfButton").hidden = !canExportPdf;
+                $("#professionalPdfButton").hidden = !canExportPdf;
                 updateAdminButton();
                 updateProfessionalAccess();
                 renderDirectory();
@@ -2384,7 +2744,7 @@
             }
             async function restoreAccessSession() {
                 if (!adminKey) return;
-                const { data } = await db.rpc("authenticate_blood_access_key_v2", { p_access_key: adminKey });
+                const { data } = await db.rpc("authenticate_blood_access_key_v3", { p_access_key: adminKey });
                 if (data?.[0]) applyAccessProfile(data[0]);
                 else lockAdmin();
             }
@@ -2420,16 +2780,20 @@
             $("#changeKeyButton").addEventListener("click", showChangeKeyModal);
             $("#createUserButton").addEventListener("click", showCreateUserModal);
             $("#manageKeysButton").addEventListener("click", showManagedKeys);
+            $("#directorySettingsButton").addEventListener("click", showDirectorySettings);
+            $("#directorySettingsForm").addEventListener("submit", saveDirectorySettings);
             $("#userKeyForm").addEventListener("submit", createUserKey);
             $("#changeKeyForm").addEventListener("submit", changeAdminKey);
             $("#searchEntries").addEventListener("input", renderDirectory);
             $("#sortEntries").addEventListener("change", renderDirectory);
+            $("#searchProfessionals").addEventListener("input", renderProfessionalsDirectory);
+            $("#sortProfessionals").addEventListener("change", renderProfessionalsDirectory);
             $("#downloadPdfButton").addEventListener("click", downloadPdf);
             $("#adminForm").addEventListener("submit", async (event) => {
                 event.preventDefault();
                 const key = $("#privateKey").value;
                 setStatus("#adminStatus", "Checking private key...");
-                const { data, error } = await db.rpc("authenticate_blood_access_key_v2", { p_access_key: key });
+                const { data, error } = await db.rpc("authenticate_blood_access_key_v3", { p_access_key: key });
                 const profile = data?.[0];
                 if (error || !profile) {
                     console.error(error);
@@ -2472,11 +2836,11 @@
             async function importSelectedExcelRows() {
                 const selected = new Set([...document.querySelectorAll("[data-excel-row]:checked")].map((box) => Number(box.dataset.excelRow)));
                 if (!selected.size) { setStatus("#excelImportStatus", "Select at least one eligible record.", "error"); return; }
-                const fingerprint = await getDeviceFingerprint(); const details = { ...(await getDeviceDetails()), device_id: fingerprint.slice(0, 16), source: "Excel blood import" };
+                const fingerprint = await getDeviceFingerprint(); const persistentDeviceId = getPersistentDeviceId(); const details = { ...(await getDeviceDetails()), device_id: persistentDeviceId, source: "Excel blood import" };
                 let added = 0, skipped = 0;
                 setStatus("#excelImportStatus", "Importing selected records...");
                 for (const item of excelImportRows.filter((row) => selected.has(row.index))) {
-                    const { data, error } = await db.rpc("submit_blood_entry_v6", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_location_status: "Within Pakistan", p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: details });
+                    const { data, error } = await db.rpc("submit_blood_entry_v7", { p_full_name: item.record.full_name, p_mohallah: item.record.mohallah, p_mobile_number: item.record.mobile_number, p_blood_group: item.record.blood_group, p_location_status: "Within Pakistan", p_device_fingerprint: fingerprint, p_device_id: persistentDeviceId, p_access_key: adminKey, p_device_details: details });
                                         if (error || !data?.success) { console.error(error); skipped += 1; } else added += 1;
                 }
                 await loadEntries(); setStatus("#excelImportStatus", `Import complete: ${added} added, ${skipped} skipped.`, added ? "success" : "error");
@@ -2507,7 +2871,8 @@
                 const existingPhones = new Set(entries.map((entry) => entry.mobile_number.replace(/\s+/g, "")));
                 const seenPhones = new Set(existingPhones);
                 const fingerprint = await getDeviceFingerprint();
-                const importDeviceDetails = { ...(await getDeviceDetails()), device_id: fingerprint.slice(0, 16), source: "JSON import" }; 
+                const persistentDeviceId = getPersistentDeviceId();
+                const importDeviceDetails = { ...(await getDeviceDetails()), device_id: persistentDeviceId, source: "JSON import" }; 
                 let added = 0, skipped = 0, invalid = 0;
                 setStatus("#backupStatus", "Uploading backup records...");
                 for (const item of backup.records) {
@@ -2515,7 +2880,7 @@
                     const phone = record.mobile_number.replace(/\s+/g, "");
                     if (!record.full_name || !record.mohallah || !phone || !STANDARD_GROUPS.includes(record.blood_group)) { invalid += 1; continue; }
                     if (seenPhones.has(phone)) { skipped += 1; continue; }
-                    const { data, error } = await db.rpc("submit_blood_entry_v6", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_location_status: record.location_status, p_device_fingerprint: fingerprint, p_access_key: adminKey, p_device_details: importDeviceDetails });
+                    const { data, error } = await db.rpc("submit_blood_entry_v7", { p_full_name: record.full_name, p_mohallah: record.mohallah, p_mobile_number: record.mobile_number, p_blood_group: record.blood_group, p_location_status: record.location_status, p_device_fingerprint: fingerprint, p_device_id: persistentDeviceId, p_access_key: adminKey, p_device_details: importDeviceDetails });
                                         if (error || !data?.success) { if ((data?.reason || error?.message || "").includes("Mobile number already registered")) skipped += 1; else { console.error(error); invalid += 1; } continue; }
                     seenPhones.add(phone); added += 1;
                 }
@@ -2528,6 +2893,27 @@
                 $("#changeKeyForm").reset();
                 $("#changeKeyModal").classList.add("show");
                 $("#currentAdminKey").focus();
+            }
+            async function showDirectorySettings() {
+                if (!accessProfile?.is_admin) return;
+                closeModals();
+                setStatus("#directorySettingsStatus", "Loading current settings...");
+                $("#directorySettingsModal").classList.add("show");
+                const { data, error } = await db.rpc("admin_get_directory_settings", { p_admin_key: adminKey });
+                const settings = data?.[0];
+                if (error || !settings) { console.error(error); setStatus("#directorySettingsStatus", "Could not load directory settings.", "error"); return; }
+                $("#anonymousDeviceLimit").value = settings.anonymous_device_entry_limit;
+                setStatus("#directorySettingsStatus", "");
+            }
+            async function saveDirectorySettings(event) {
+                event.preventDefault();
+                setStatus("#directorySettingsStatus", "Saving...");
+                const { error } = await db.rpc("admin_update_directory_settings", {
+                    p_admin_key: adminKey,
+                    p_anonymous_device_entry_limit: Number($("#anonymousDeviceLimit").value),
+                });
+                if (error) { console.error(error); setStatus("#directorySettingsStatus", error.message || "Could not save settings.", "error"); return; }
+                setStatus("#directorySettingsStatus", "Directory settings saved.", "success");
             }
             async function changeAdminKey(event) {
                 event.preventDefault();
@@ -2549,16 +2935,19 @@
                 closeModals();
                 $("#activityModal").classList.add("show");
                 $("#activityList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading entry activity...</div>';
-                const { data, error } = await db.rpc("access_list_blood_entry_activity", { p_access_key: adminKey });
+                const { data, error } = await db.rpc("access_list_blood_entry_activity_v2", { p_access_key: adminKey });
                 if (error) { console.error(error); $("#activityList").innerHTML = '<div class="activity-empty">Could not load entry activity.</div>'; return; }
+                const deviceIdCounts = new Map();
+                (data || []).forEach((entry) => { if (entry.device_id) deviceIdCounts.set(entry.device_id, (deviceIdCounts.get(entry.device_id) || 0) + 1); });
                 const entryActivity = (data || []).map((entry) => {
                     const device = entry.device_details || {};
-                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}${formatActivityDetails(device)}</div></article>`;
+                    const deviceEntryCount = entry.device_id ? deviceIdCounts.get(entry.device_id) || 1 : 1;
+                    return `<article class="activity-item"><strong>${escapeHtml(entry.full_name)} <span class="blood-badge">${escapeHtml(entry.blood_group)}</span></strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(entry.created_at).toLocaleString())}${formatActivityDetails(device, entry.device_id, deviceEntryCount)}</div></article>`;
                 });
                 $("#activityList").innerHTML = entryActivity.length ? entryActivity.join("") : '<div class="activity-empty">No entry activity is available.</div>';
                 $("#reviewQueueTab").hidden = !accessProfile?.is_admin;
                 if (!accessProfile?.is_admin) return;
-                const auditResult = await db.rpc("admin_list_blood_submission_audit_v3", { p_admin_key: adminKey });
+                const auditResult = await db.rpc("admin_list_blood_submission_audit_v4", { p_admin_key: adminKey });
                 const audits = auditResult.error ? [] : auditResult.data || [];
                 const pendingCount = audits.filter((audit) => audit.review_status === "pending").length;
                 $("#reviewQueueCount").textContent = pendingCount;
@@ -2566,7 +2955,7 @@
                     const related = (audit.related_entry_ids || []).map((id) => entries.find((entry) => entry.id === id)).filter(Boolean);
                     const earlier = related.length ? related.map((entry) => `${entry.full_name} (${entry.mobile_number}, ${entry.blood_group})`).join(" | ") : "No related saved entries found";
                     const actions = audit.review_status === "pending" ? `<div style="display:flex;gap:7px;margin-top:8px"><button class="btn primary" type="button" data-review-accept="${audit.id}"><i class="fa-solid fa-check"></i> Accept</button><button class="btn danger" type="button" data-review-decline="${audit.id}"><i class="fa-solid fa-xmark"></i> Decline</button><button class="btn ghost" type="button" data-review-delete="${audit.id}"><i class="fa-solid fa-trash"></i> Delete</button></div>` : `<div class="activity-meta">Review status: ${escapeHtml(audit.review_status.toUpperCase())}</div><div style="margin-top:8px"><button class="btn ghost" type="button" data-review-delete="${audit.id}"><i class="fa-solid fa-trash"></i> Delete Review Record</button></div>`;
-                    return `<article class="activity-item" style="border-color:#f4b7b2;background:#fff6f5"><strong><i class="fa-solid fa-ban" style="color:var(--danger)"></i> Review: ${escapeHtml(audit.attempted_full_name)}</strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(audit.created_at).toLocaleString())}<br>Reason: ${escapeHtml(audit.reason)}<br>Attempted: ${escapeHtml(audit.attempted_mohallah)} | ${escapeHtml(audit.attempted_blood_group)} | ${escapeHtml(normalizeLocationStatus(audit.attempted_location_status))} | ${escapeHtml(audit.attempted_mobile_number)}<br><strong>Earlier entries from the same device:</strong> ${escapeHtml(earlier)}${formatActivityDetails(audit.device_details || {})}</div>${actions}</article>`;
+                    return `<article class="activity-item" style="border-color:#f4b7b2;background:#fff6f5"><strong><i class="fa-solid fa-ban" style="color:var(--danger)"></i> Review: ${escapeHtml(audit.attempted_full_name)}</strong><div class="activity-meta"><i class="fa-solid fa-clock"></i>${escapeHtml(new Date(audit.created_at).toLocaleString())}<br>Reason: ${escapeHtml(audit.reason)}<br>Attempted: ${escapeHtml(audit.attempted_mohallah)} | ${escapeHtml(audit.attempted_blood_group)} | ${escapeHtml(normalizeLocationStatus(audit.attempted_location_status))} | ${escapeHtml(audit.attempted_mobile_number)}<br><strong>Earlier entries from the same device:</strong> ${escapeHtml(earlier)}${formatActivityDetails(audit.device_details || {}, audit.device_id)}</div>${actions}</article>`;
                 }).join("") : '<div class="activity-empty">No review submissions are available.</div>';
                 document.querySelectorAll("[data-review-accept]").forEach((button) => button.addEventListener("click", () => reviewSubmission(button.dataset.reviewAccept, "accepted")));
                 document.querySelectorAll("[data-review-decline]").forEach((button) => button.addEventListener("click", () => reviewSubmission(button.dataset.reviewDecline, "declined")));
@@ -2576,7 +2965,7 @@
             }
             async function reviewSubmission(id, decision) {
                 if (!confirm(`${decision === "accepted" ? "Accept" : "Decline"} this submission?`)) return;
-                const { error } = await db.rpc("admin_review_blood_submission", { p_admin_key: adminKey, p_audit_id: id, p_decision: decision });
+                const { error } = await db.rpc("admin_review_blood_submission_v2", { p_admin_key: adminKey, p_audit_id: id, p_decision: decision });
                 if (error) { console.error(error); alert(error.message.includes("Mobile number") ? "This mobile number is already registered." : "Could not complete the review."); return; }
                 await loadEntries(); await showEntryActivity(); $("#reviewQueueTab").click();
             }
@@ -2587,8 +2976,10 @@
                 await showEntryActivity(); $("#reviewQueueTab").click();
             }
             function showCreateUserModal() {
-                if (!accessProfile?.is_admin) return;
+                if (!(accessProfile?.is_admin || accessProfile?.can_manage_users)) return;
                 $("#userKeyForm").reset();
+                $("#userCanExportPdf").checked = true;
+                $("#userManagerPermissionWrap").hidden = !accessProfile?.is_admin;
                 setStatus("#userKeyStatus", "");
                 $("#userKeyModal").classList.add("show");
                 $("#userDisplayName").focus();
@@ -2597,8 +2988,8 @@
                 event.preventDefault();
                 const limitValue = $("#userEntryLimit").value;
                 setStatus("#userKeyStatus", "Creating user key...");
-                const { error } = await db.rpc("create_blood_access_key_v2", {
-                    p_admin_key: adminKey,
+                const { error } = await db.rpc("create_blood_access_key_v3", {
+                    p_actor_key: adminKey,
                     p_display_name: $("#userDisplayName").value.trim(),
                     p_access_key: $("#userAccessKey").value,
                     p_entry_limit: limitValue === "" ? null : Number(limitValue),
@@ -2606,20 +2997,38 @@
                     p_can_edit: $("#userCanEdit").checked,
                     p_can_delete: $("#userCanDelete").checked,
                     p_can_access_professionals: $("#userCanProfessionals").checked,
+                    p_can_manage_users: accessProfile?.is_admin ? $("#userCanManageUsers").checked : false,
+                    p_can_export_pdf: $("#userCanExportPdf").checked,
+                    p_can_import_data: $("#userCanImportData").checked,
+                    p_can_edit_professionals: $("#userCanEditProfessionals").checked,
+                    p_can_delete_professionals: $("#userCanDeleteProfessionals").checked,
+                    p_notes: $("#userNotes").value.trim() || null,
                 });
                 if (error) { console.error(error); setStatus("#userKeyStatus", error.message, "error"); return; }
                 setStatus("#userKeyStatus", "User key created successfully.", "success");
             }
+            let managedKeysCache = [];
             async function showManagedKeys() {
-                if (!accessProfile?.is_admin) return;
+                if (!(accessProfile?.is_admin || accessProfile?.can_manage_users)) return;
                 closeModals();
                 $("#managedKeysModal").classList.add("show");
                 $("#managedKeysList").innerHTML = '<div class="activity-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading user keys...</div>';
-                const { data, error } = await db.rpc("admin_list_blood_access_keys_v2", { p_admin_key: adminKey });
+                const { data, error } = await db.rpc("admin_list_blood_access_keys_v3", { p_actor_key: adminKey });
                 if (error) { console.error(error); $("#managedKeysList").innerHTML = '<div class="activity-empty">Could not load user keys.</div>'; return; }
-                $("#managedKeysList").innerHTML = data?.length ? data.map((key) => `<article class="activity-item"><strong>${escapeHtml(key.display_name)}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>Permissions: ${key.can_view_activity ? "Activity " : ""}${key.can_edit ? "Edit " : ""}${key.can_delete ? "Delete " : ""}${key.can_access_professionals ? "Professionals" : "" || "None"}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div><button class="btn ghost" type="button" data-edit-user="${key.id}"><i class="fa-solid fa-sliders"></i> Edit Access</button><button class="btn danger" type="button" data-delete-user="${key.id}"><i class="fa-solid fa-user-minus"></i> Delete User</button></article>`).join("") : '<div class="activity-empty">No user keys have been created.</div>';
+                managedKeysCache = data || [];
+                $("#managedKeysList").innerHTML = managedKeysCache.length ? managedKeysCache.map((key) => {
+                    const chips = [
+                        ["Activity", key.can_view_activity], ["Edit", key.can_edit], ["Delete", key.can_delete],
+                        ["Professionals", key.can_access_professionals], ["Edit Pros.", key.can_edit_professionals],
+                        ["Delete Pros.", key.can_delete_professionals], ["PDF Export", key.can_export_pdf],
+                        ["Import Data", key.can_import_data],
+                    ].map(([label, on]) => `<span class="permission-chip ${on ? "on" : ""}">${label}</span>`).join("");
+                    const managerBadge = key.can_manage_users ? '<span class="manager-badge"><i class="fa-solid fa-user-shield"></i> Manager</span>' : "";
+                    const inactiveBadge = key.is_active ? "" : '<span class="manager-badge" style="background:rgba(180,35,24,.12);color:var(--danger)">Inactive</span>';
+                    return `<article class="activity-item"><strong>${escapeHtml(key.display_name)}${managerBadge}${inactiveBadge}</strong><div class="activity-meta">Key: ${escapeHtml(key.access_key)}<br>Entries: ${key.entry_count}${key.entry_limit === null ? " / Unlimited" : ` / ${key.entry_limit}`}<br>${chips}${key.notes ? `<br>Notes: ${escapeHtml(key.notes)}` : ""}<br>Created: ${escapeHtml(new Date(key.created_at).toLocaleString())}</div><button class="btn ghost" type="button" data-edit-user="${key.id}"><i class="fa-solid fa-sliders"></i> Edit Access</button><button class="btn danger" type="button" data-delete-user="${key.id}"><i class="fa-solid fa-user-minus"></i> Delete User</button></article>`;
+                }).join("") : '<div class="activity-empty">No user keys have been created.</div>';
                 document.querySelectorAll("[data-delete-user]").forEach((button) => button.addEventListener("click", () => deleteManagedUser(button.dataset.deleteUser)));
-                document.querySelectorAll("[data-edit-user]").forEach((button) => button.addEventListener("click", () => openKeyPermissions(data.find((key) => key.id === button.dataset.editUser))));
+                document.querySelectorAll("[data-edit-user]").forEach((button) => button.addEventListener("click", () => openKeyPermissions(managedKeysCache.find((key) => key.id === button.dataset.editUser))));
             }
             function openKeyPermissions(key) {
                 if (!key) return;
@@ -2630,26 +3039,48 @@
                 $("#permissionCanEdit").checked = key.can_edit;
                 $("#permissionCanDelete").checked = key.can_delete;
                 $("#permissionProfessionals").checked = key.can_access_professionals;
+                $("#permissionEditProfessionals").checked = key.can_edit_professionals;
+                $("#permissionDeleteProfessionals").checked = key.can_delete_professionals;
+                $("#permissionExportPdf").checked = key.can_export_pdf;
+                $("#permissionImportData").checked = key.can_import_data;
+                $("#permissionManageUsers").checked = key.can_manage_users;
+                $("#permissionManagerWrap").hidden = !accessProfile?.is_admin;
                 $("#permissionActive").checked = key.is_active;
+                $("#permissionNotes").value = key.notes || "";
                 setStatus("#permissionStatus", "");
                 $("#keyPermissionsModal").classList.add("show");
             }
             $("#keyPermissionsForm").addEventListener("submit", async (event) => {
                 event.preventDefault();
                 const rawLimit = $("#permissionEntryLimit").value;
-                const { error } = await db.rpc("update_blood_access_key_permissions", { p_admin_key: adminKey, p_access_key_id: $("#permissionKeyId").value, p_entry_limit: rawLimit === "" ? null : Number(rawLimit), p_can_view_activity: $("#permissionViewActivity").checked, p_can_edit: $("#permissionCanEdit").checked, p_can_delete: $("#permissionCanDelete").checked, p_can_access_professionals: $("#permissionProfessionals").checked, p_is_active: $("#permissionActive").checked });
-                if (error) { console.error(error); setStatus("#permissionStatus", "Could not update user access.", "error"); return; }
+                const { error } = await db.rpc("update_blood_access_key_permissions_v2", {
+                    p_actor_key: adminKey,
+                    p_access_key_id: $("#permissionKeyId").value,
+                    p_entry_limit: rawLimit === "" ? null : Number(rawLimit),
+                    p_can_view_activity: $("#permissionViewActivity").checked,
+                    p_can_edit: $("#permissionCanEdit").checked,
+                    p_can_delete: $("#permissionCanDelete").checked,
+                    p_can_access_professionals: $("#permissionProfessionals").checked,
+                    p_can_manage_users: accessProfile?.is_admin ? $("#permissionManageUsers").checked : false,
+                    p_can_export_pdf: $("#permissionExportPdf").checked,
+                    p_can_import_data: $("#permissionImportData").checked,
+                    p_can_edit_professionals: $("#permissionEditProfessionals").checked,
+                    p_can_delete_professionals: $("#permissionDeleteProfessionals").checked,
+                    p_is_active: $("#permissionActive").checked,
+                    p_notes: $("#permissionNotes").value.trim() || null,
+                });
+                if (error) { console.error(error); setStatus("#permissionStatus", error.message || "Could not update user access.", "error"); return; }
                 closeModals(); await showManagedKeys();
             });
             async function deleteManagedUser(userId) {
-                if (!accessProfile?.is_admin || !confirm("Delete this managed user? Their login key will stop working, but all existing donor records will remain.")) return;
-                const { error } = await db.rpc("delete_blood_access_key", { p_admin_key: adminKey, p_access_key_id: userId });
-                if (error) { console.error(error); alert("The managed user could not be deleted."); return; }
+                if (!(accessProfile?.is_admin || accessProfile?.can_manage_users) || !confirm("Delete this managed user? Their login key will stop working, but all existing donor records will remain.")) return;
+                const { error } = await db.rpc("delete_blood_access_key_v2", { p_actor_key: adminKey, p_access_key_id: userId });
+                if (error) { console.error(error); alert(error.message || "The managed user could not be deleted."); return; }
                 await showManagedKeys();
             }
             function updateAdminButton() {
                 $("#adminButton").innerHTML = adminKey
-                    ? `<i class="fa-solid fa-shield-heart"></i> ${accessProfile?.is_admin ? "Admin Tools" : "User Tools"}`
+                    ? `<i class="fa-solid fa-shield-heart"></i> ${accessProfile?.is_admin ? "Admin Tools" : accessProfile?.can_manage_users ? "Manager Tools" : "User Tools"}`
                     : '<i class="fa-solid fa-user-shield"></i> Admin';
             }
             function lockAdmin() {
