@@ -1846,7 +1846,6 @@
                 accessProfile = null,
                 excelImportRows = [];
             const collapsedGroups = new Set(STANDARD_GROUPS);
-            const collapsedProfessionalGroups = new Set(STANDARD_GROUPS);
             const $ = (selector) => document.querySelector(selector);
             const escapeHtml = (value) =>
                 String(value).replace(
@@ -2446,45 +2445,8 @@
                     $("#professionalsList").innerHTML = `<div class="empty"><i class="fa-solid fa-user-tie"></i>No matching professional records are available.</div>`;
                     return;
                 }
-                let cascadeIndex = 0;
-                const groupsWithBlood = STANDARD_GROUPS.filter((group) => filtered.some((person) => person.blood_group === group));
-                const withoutBlood = filtered.filter((person) => !STANDARD_GROUPS.includes(person.blood_group));
-                let html = groupsWithBlood.map((group) => {
-                    const isCollapsed = collapsedProfessionalGroups.has(group);
-                    const groupPeople = filtered.filter((person) => person.blood_group === group);
-                    const groupCards = groupPeople.map((person) => professionalCard(person, cascadeIndex++)).join("");
-                    return `<button class="group-heading" type="button" data-collapse-professional-group="${group}" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-droplet"></i> ${group} Blood Group <span class="count">${groupPeople.length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries-wrap${isCollapsed ? " is-collapsed" : ""}" data-professional-group-wrap="${group}"><div class="group-entries-inner"><div class="entry-column-headings professional-columns"><span>Name</span><span>Age</span><span>Mohallah</span><span>Qualification</span><span>Country</span><span>Blood</span><span>Mobile Number</span><span></span></div>${groupCards}</div></div>`;
-                }).join("");
-                if (withoutBlood.length) {
-                    const isCollapsed = collapsedProfessionalGroups.has("Unspecified");
-                    const groupCards = withoutBlood.map((person) => professionalCard(person, cascadeIndex++)).join("");
-                    html += `<button class="group-heading" type="button" data-collapse-professional-group="Unspecified" aria-expanded="${!isCollapsed}"><i class="fa-solid fa-user-tie"></i> Blood Group Not Set <span class="count">${withoutBlood.length}</span><i class="fa-solid fa-chevron-down group-chevron"></i></button><div class="group-entries-wrap${isCollapsed ? " is-collapsed" : ""}" data-professional-group-wrap="Unspecified"><div class="group-entries-inner"><div class="entry-column-headings professional-columns"><span>Name</span><span>Age</span><span>Mohallah</span><span>Qualification</span><span>Country</span><span>Blood</span><span>Mobile Number</span><span></span></div>${groupCards}</div></div>`;
-                }
-                $("#professionalsList").innerHTML = html;
-                document.querySelectorAll("[data-collapse-professional-group]").forEach((button) =>
-                    button.addEventListener("click", () => {
-                        const group = button.dataset.collapseProfessionalGroup;
-                        const willCollapse = !collapsedProfessionalGroups.has(group);
-                        willCollapse ? collapsedProfessionalGroups.add(group) : collapsedProfessionalGroups.delete(group);
-                        button.setAttribute("aria-expanded", String(!willCollapse));
-                        const wrap = document.querySelector(`.group-entries-wrap[data-professional-group-wrap="${group}"]`);
-                        if (wrap) {
-                            wrap.classList.toggle("is-collapsed", willCollapse);
-                            if (!willCollapse) {
-                                const rows = Array.from(wrap.querySelectorAll(".entry"));
-                                rows.forEach((row) => { row.style.animationName = "none"; });
-                                void wrap.offsetHeight;
-                                requestAnimationFrame(() => {
-                                    rows.forEach((row, i) => {
-                                        const delay = 0.9 * (1 - Math.exp(-i * 0.15));
-                                        row.style.animationDelay = `${delay.toFixed(3)}s`;
-                                        row.style.animationName = "entry-in";
-                                    });
-                                });
-                            }
-                        }
-                    }),
-                );
+                const cards = filtered.map((person, index) => professionalCard(person, index)).join("");
+                $("#professionalsList").innerHTML = `<div class="entry-column-headings professional-columns"><span>Name</span><span>Age</span><span>Mohallah</span><span>Qualification</span><span>Country</span><span>Blood</span><span>Mobile Number</span><span></span></div>${cards}`;
                 document.querySelectorAll("[data-edit-professional]").forEach((button) => button.addEventListener("click", () => openProfessionalModal(button.dataset.editProfessional)));
                 document.querySelectorAll("[data-delete-professional]").forEach((button) => button.addEventListener("click", () => deleteProfessional(button.dataset.deleteProfessional)));
             }
@@ -2602,16 +2564,11 @@
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF({ unit: "mm", format: "a4" });
                 const logo = await getPdfLogo();
-                const groups = STANDARD_GROUPS.filter((group) => filtered.some((person) => person.blood_group === group));
-                const withoutBlood = filtered.filter((person) => !STANDARD_GROUPS.includes(person.blood_group));
-                const groupedProfessionals = groups.map((group) => ({
-                    group,
-                    people: filtered.filter((person) => person.blood_group === group).sort((a, b) => a.full_name.localeCompare(b.full_name)),
-                }));
-                if (withoutBlood.length) groupedProfessionals.push({ group: "Not Set", people: [...withoutBlood].sort((a, b) => a.full_name.localeCompare(b.full_name)) });
+                const people = [...filtered].sort((a, b) => a.full_name.localeCompare(b.full_name));
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight();
                 const margin = 14;
+                const contentWidth = pageWidth - margin * 2 - 8;
                 const generatedAt = new Date();
                 const generatedBy = accessProfile?.is_admin ? "Nadeem Shahzad Fida" : accessProfile?.display_name || "Khawrai Unity";
                 const generatedDetails = `Generated by ${generatedBy} • ${generatedAt.toLocaleString()}`;
@@ -2641,72 +2598,48 @@
                     y = 47;
                 };
                 const pageBottom = pageHeight - 19;
-                const drawGroupHeader = (group, count, continued = false) => {
-                    if (y + 20 > pageBottom) addPage();
-                    pdf.setFillColor(36, 87, 214);
-                    pdf.roundedRect(margin, y, pageWidth - margin * 2, 9, 2.5, 2.5, "F");
-                    pdf.setTextColor(255, 255, 255);
-                    pdf.setFont("helvetica", "bold");
-                    pdf.setFontSize(10);
-                    pdf.text(`${group === "Not Set" ? "Blood Group Not Set" : `${group} Blood Group`}${continued ? " — continued" : ""}`, margin + 4, y + 5.9);
-                    pdf.setFontSize(7.8);
-                    pdf.text(`${count} record${count === 1 ? "" : "s"}`, pageWidth - margin - 4, y + 5.8, { align: "right" });
-                    y += 13;
-                };
-                const drawTableHeader = () => {
-                    pdf.setFillColor(239, 244, 253);
-                    pdf.roundedRect(margin, y - 4.5, pageWidth - margin * 2, 7, 1.5, 1.5, "F");
-                    pdf.setTextColor(82, 98, 116);
-                    pdf.setFont("helvetica", "bold");
-                    pdf.setFontSize(6.6);
-                    pdf.text("NAME", margin + 2, y);
-                    pdf.text("MOHALLAH", 54, y);
-                    pdf.text("QUALIFICATION", 82, y);
-                    pdf.text("COUNTRY", 122, y);
-                    pdf.text("AGE", 150, y);
-                    pdf.text("MOBILE NUMBER", 160, y);
-                    y += 8;
-                };
+                const nameLineHeight = 5.3;
+                const detailLineHeight = 4.4;
+                const blockGap = 4;
                 addPage();
                 pdf.setFillColor(248, 250, 255);
-                pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 17, 3, 3, "F");
+                pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 12, 3, 3, "F");
                 pdf.setTextColor(23, 33, 43);
                 pdf.setFont("helvetica", "bold");
-                pdf.setFontSize(11);
+                pdf.setFontSize(9.5);
                 pdf.text(activeProfessionalGroup === "all" ? "All Professional Records" : `${activeProfessionalGroup} Blood Group`, margin + 4, y + 1);
                 pdf.setFont("helvetica", "normal");
-                pdf.setFontSize(8.2);
+                pdf.setFontSize(7.6);
                 pdf.setTextColor(102, 112, 133);
-                pdf.text(`${filtered.length} professional record${filtered.length === 1 ? "" : "s"}  •  ${generatedDetails}`, margin + 4, y + 7);
-                y += 22;
-                groupedProfessionals.forEach(({ group, people }) => {
-                    drawGroupHeader(group, people.length);
-                    drawTableHeader();
-                    people.forEach((person, index) => {
-                        if (y + 9 > pageBottom) {
-                            addPage();
-                            drawGroupHeader(group, people.length, true);
-                            drawTableHeader();
-                        }
-                        if (index % 2 === 0) { pdf.setFillColor(248, 250, 255); pdf.rect(margin, y - 3.7, pageWidth - margin * 2, 7.5, "F"); }
-                        pdf.setDrawColor(230, 235, 244);
-                        pdf.line(margin, y + 4, pageWidth - margin, y + 4);
-                        pdf.setTextColor(23, 33, 43);
-                        pdf.setFont("helvetica", "normal");
-                        pdf.setFontSize(7.2);
-                        const name = pdf.splitTextToSize(person.full_name.toUpperCase(), 38)[0];
-                        const mohallah = pdf.splitTextToSize(person.mohallah.toUpperCase(), 26)[0];
-                        const qualification = pdf.splitTextToSize(person.qualification, 38)[0];
-                        const country = pdf.splitTextToSize(person.current_residence_country, 26)[0];
-                        pdf.text(`${index + 1}. ${name}`, margin + 2, y + 1.2);
-                        pdf.text(mohallah, 54, y + 1.2);
-                        pdf.text(qualification, 82, y + 1.2);
-                        pdf.text(country, 122, y + 1.2);
-                        pdf.text(String(person.age ?? "—"), 150, y + 1.2);
-                        pdf.text(person.mobile_number, 160, y + 1.2);
-                        y += 8;
-                    });
-                    y += 4;
+                pdf.text(`${filtered.length} professional record${filtered.length === 1 ? "" : "s"}  •  ${generatedDetails}`, margin + 4, y + 5.5);
+                y += 16;
+                people.forEach((person, index) => {
+                    const nameLines = pdf.splitTextToSize(`${index + 1}. ${person.full_name}`, contentWidth);
+                    const detailLines = [
+                        `Mohallah: ${person.mohallah}     |     Age: ${person.age ?? "—"}     |     Blood Group: ${person.blood_group || "—"}`,
+                        `Qualification: ${person.qualification}`,
+                        `Country: ${person.current_residence_country}     |     Mobile: ${person.mobile_number}`,
+                    ].flatMap((line) => pdf.splitTextToSize(line, contentWidth));
+                    const blockHeight = 5 + nameLines.length * nameLineHeight + detailLines.length * detailLineHeight + blockGap;
+
+                    if (y + blockHeight > pageBottom) addPage();
+
+                    if (index % 2 === 0) {
+                        pdf.setFillColor(248, 250, 255);
+                        pdf.roundedRect(margin, y - 3, pageWidth - margin * 2, blockHeight - 1, 2, 2, "F");
+                    }
+                    let cursorY = y + 2;
+                    pdf.setTextColor(23, 33, 43);
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(9.2);
+                    nameLines.forEach((line) => { pdf.text(line, margin + 3, cursorY); cursorY += nameLineHeight; });
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(7.4);
+                    pdf.setTextColor(82, 98, 116);
+                    detailLines.forEach((line) => { pdf.text(line, margin + 7, cursorY); cursorY += detailLineHeight; });
+                    y = cursorY + blockGap;
+                    pdf.setDrawColor(230, 235, 244);
+                    pdf.line(margin, y - blockGap + 1.5, pageWidth - margin, y - blockGap + 1.5);
                 });
                 drawFooter();
                 pdf.save(`khawrai-professionals-${activeProfessionalGroup === "all" ? "all-groups" : activeProfessionalGroup.replace("+", "positive").replace("-", "negative")}.pdf`);
