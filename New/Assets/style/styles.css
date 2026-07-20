@@ -5884,6 +5884,175 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   background: #f1f5f9;
   color: #64748b;
 }
+
+/* Admin Raw Data overlay */
+.admin-raw-dialog{
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 28px);
+  display: flex;
+  flex-direction: column;
+}
+.admin-raw-body{
+  display: grid;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+.admin-raw-toolbar{
+  display: grid;
+  gap: 10px;
+}
+.admin-raw-filters{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-raw-chip{
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-raw-chip:hover{
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+}
+.admin-raw-chip.active{
+  background: color-mix(in srgb, var(--primary) 12%, #fff);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  color: var(--primary);
+}
+.admin-raw-search-row{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.admin-raw-search-row .input{
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.admin-raw-stats{
+  font-size: .8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.admin-raw-table-wrap{
+  overflow: auto;
+  max-height: min(52vh, 520px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.admin-raw-table{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+.admin-raw-table th,
+.admin-raw-table td{
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.admin-raw-table th{
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  z-index: 1;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--muted);
+}
+.admin-raw-table tr.is-deleted{
+  opacity: .55;
+  background: color-mix(in srgb, #ef4444 6%, transparent);
+}
+.admin-raw-notes{
+  max-width: 220px;
+  white-space: normal !important;
+  word-break: break-word;
+  color: var(--muted);
+}
+.admin-raw-section-pill{
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 700;
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  text-transform: capitalize;
+}
+.admin-raw-row-actions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  white-space: nowrap;
+}
+.admin-raw-pager{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-raw-edit-sheet{
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.42);
+}
+.admin-raw-edit-sheet.hide{
+  display: none;
+}
+.admin-raw-edit-card{
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.admin-raw-edit-head{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.admin-raw-edit-head h4{
+  margin: 0;
+  font-size: 1rem;
+}
+.admin-raw-edit-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+.admin-raw-notes-input{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .82rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+.admin-raw-edit-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 900px){
   .messages-workspace{
     grid-template-columns: 1fr;
@@ -5896,6 +6065,24 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   }
   .admin-comms-dropdown{
     width: min(100vw - 16px, 360px);
+  }
+
+  .admin-raw-dialog{
+    width: min(100vw - 12px, 980px);
+    max-height: calc(100vh - 12px);
+  }
+
+  .admin-raw-edit-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .admin-raw-edit-card{
+    max-height: calc(100vh - 24px);
+  }
+
+  .admin-raw-table th,
+  .admin-raw-table td{
+    padding: 8px 10px;
   }
 }
 
