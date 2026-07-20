@@ -1,0 +1,5 @@
+{
+  "note": "Supabase URL and anon key are embedded in obfuscated form inside Assets/app/script.js. Real security is enforced by session tokens, bcrypt password hashes, and Row Level Security. Do not commit service-role keys.",
+  "projectRef": "iymztqbscfodelovdrnn",
+  "migration": "migrations/001_multi_user_auth.sql"
+}
