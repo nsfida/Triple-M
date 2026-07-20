@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Triple M by NSF | Secure Money Management, Inventory, Loans & Bitcoin Wallets</title>
-  <meta name="description" content="Triple M by NSF is a secure money management platform for expenses, loans, inventory, multi-currency wallets, Bitcoin records, PDF statements, and business finance control." />
+  <title>Triplem | Secure Money Management, Inventory, Loans & Bitcoin Wallets</title>
+  <meta name="description" content="Triplem is a secure money management platform for expenses, loans, inventory, multi-currency wallets, Bitcoin records, PDF statements, and business finance control." />
   <meta name="robots" content="index, follow, max-image-preview:large" />
   <meta name="theme-color" content="#edf1f7" />
   <link rel="canonical" href="https://triplem.vip/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Triple M by NSF | Secure Money Management Platform" />
+  <meta property="og:title" content="Triplem | Secure Money Management Platform" />
   <meta property="og:description" content="A premium financial control system for businesses and individuals: expenses, loans, inventory, Bitcoin wallets, secure data storage, and downloadable reports." />
   <meta property="og:url" content="https://triplem.vip/" />
-  <meta property="og:site_name" content="Triple M by NSF" />
+  <meta property="og:site_name" content="Triplem" />
   <meta property="og:image" content="https://triplem.vip/Assets/logo/logo.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Triple M by NSF | Secure Money Management Platform" />
+  <meta name="twitter:title" content="Triplem | Secure Money Management Platform" />
   <meta name="twitter:description" content="Manage expenses, loans, inventory, multi-currency wallets, Bitcoin records, and PDF statements in one secure private dashboard." />
   <meta name="twitter:image" content="https://triplem.vip/Assets/logo/logo.png" />
   <link rel="icon" type="image/png" href="Assets/logo/logo.png" />
@@ -29,7 +29,7 @@
       {
         "@type": "Organization",
         "@id": "https://triplem.vip/#organization",
-        "name": "Triple M by NSF",
+        "name": "Triplem",
         "url": "https://triplem.vip/",
         "logo": "https://triplem.vip/Assets/logo/logo.png",
         "founder": { "@type": "Person", "name": "Nadeem Shahzad Fida" },
@@ -44,7 +44,7 @@
       {
         "@type": "SoftwareApplication",
         "@id": "https://triplem.vip/#software",
-        "name": "Triple M by NSF",
+        "name": "Triplem",
         "applicationCategory": "FinanceApplication",
         "operatingSystem": "Web, iOS, Android",
         "url": "https://triplem.vip/",
@@ -53,8 +53,8 @@
         "offers": {
           "@type": "AggregateOffer",
           "priceCurrency": "USD",
-          "lowPrice": "9.99",
-          "highPrice": "99.99"
+          "lowPrice": "13.99",
+          "highPrice": "149"
         }
       },
       {
@@ -63,8 +63,8 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "What does Triple M by NSF manage?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Triple M by NSF manages expenses, loans, inventory, customer invoices, wallet balances, Bitcoin records, notes, PDF statements, and business financial history." }
+            "name": "What does Triplem manage?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Triplem manages expenses, loans, inventory, customer invoices, wallet balances, Bitcoin records, notes, PDF statements, and business financial history." }
           },
           {
             "@type": "Question",
@@ -73,7 +73,7 @@
           },
           {
             "@type": "Question",
-            "name": "Who is Triple M by NSF for?",
+            "name": "Who is Triplem for?",
             "acceptedAnswer": { "@type": "Answer", "text": "It is built for merchants, shop owners, service businesses, individuals, and finance operators who need a private system for money tracking, inventory, loans, and reporting." }
           }
         ]
@@ -106,183 +106,325 @@
   <div id="lockScreen" class="lock">
     <div class="landing-shell">
       <header class="landing-nav" aria-label="Public navigation">
-        <a class="landing-brand" href="#top" aria-label="Triple M by NSF home">
-          <img src="Assets/logo/logo2.png" alt="Triple M by NSF secure money management logo" onerror="this.src='Assets/logo/logo.png'" />
-          <span id="lockScreenSubtitle">Money Management Module</span>
+        <a class="landing-brand" href="#top" data-landing-home aria-label="TRIPLEM home">
+          <img src="Assets/logo/logo2.png" alt="TRIPLEM secure money management logo" onerror="this.src='Assets/logo/logo.png'" />
+          <span class="landing-brand-mark" aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></span>
+          <span id="lockScreenSubtitle" class="landing-brand-subtitle" hidden></span>
         </a>
-        <nav class="landing-links" aria-label="Landing page links">
-          <a href="#overview">Overview</a>
-          <a href="#security">Security</a>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
+
+        <nav class="landing-links" id="landingDesktopNav" aria-label="Landing sections">
+          <button type="button" class="landing-nav-btn" data-landing-section="about">About</button>
+          <button type="button" class="landing-nav-btn" data-landing-section="features">Features</button>
+          <button type="button" class="landing-nav-btn" data-landing-section="services">Services</button>
+          <button type="button" class="landing-nav-btn" data-landing-section="pricing">Pricing</button>
+          <button type="button" class="landing-nav-btn" data-landing-section="faq">FAQs</button>
+          <button type="button" class="landing-nav-btn" data-landing-section="policies">Policy</button>
         </nav>
-        <a class="landing-nav-cta" href="#login">Secure Login</a>
+
+        <div class="landing-nav-actions">
+          <button id="sendInquiryBtn" class="landing-nav-cta" type="button">
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            <span>Request Access</span>
+          </button>
+          <button
+            type="button"
+            class="landing-menu-toggle"
+            id="landingMenuToggle"
+            aria-label="Open menu"
+            aria-controls="landingMobileMenu"
+            aria-expanded="false"
+          >
+            <i class="fa-solid fa-bars" aria-hidden="true"></i>
+            <span>Menu</span>
+          </button>
+        </div>
+
+        <div class="landing-mobile-menu hide" id="landingMobileMenu" role="menu" aria-label="Landing sections menu" hidden>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="about">About</button>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="features">Features</button>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="services">Services</button>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="pricing">Pricing</button>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="faq">FAQs</button>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="policies">Policy</button>
+          <button type="button" class="landing-mobile-item landing-mobile-item-cta" role="menuitem" data-landing-inquiry>
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i> Request Access
+          </button>
+        </div>
       </header>
 
       <main id="top" class="landing-main">
-        <section class="landing-hero" aria-labelledby="landingHeroTitle">
-          <div class="landing-hero-copy">
-            <div class="landing-eyebrow"><i class="fa-solid fa-shield-halved"></i> Private finance command center</div>
-            <h1 id="landingHeroTitle">Triple M by NSF secure money management for modern business owners.</h1>
-            <p class="landing-lead">Track expenses, loans, inventory, customer invoices, wallet balances, Bitcoin records, notes, and PDF statements in one elegant financial dashboard built for merchants, service teams, and private operators.</p>
-            <div class="landing-hero-actions">
-              <a class="btn primary landing-cta" href="#login"><i class="fa-solid fa-lock"></i> Access Dashboard</a>
-              <button id="sendInquiryBtn" class="btn ghost landing-cta" type="button"><i class="fa-solid fa-envelope"></i> Request Access</button>
+        <section class="landing-hero landing-hero-signin" aria-labelledby="landingHeroTitle">
+          <div class="landing-signin-compose">
+            <div class="landing-signin-brand">
+              <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private finance command center</p>
+              <h1 id="landingHeroTitle" class="landing-hero-title">
+                <span class="landing-brand-name" aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></span>
+                <span class="landing-tagline">Secure money management for modern business owners.</span>
+              </h1>
+              <p class="landing-lead landing-lead-compact">Sign in to your private workspace for expenses, loans, inventory, wallets, Bitcoin records, and PDF statements.</p>
             </div>
-            <div class="landing-trust-strip" aria-label="Trust highlights">
-              <span><i class="fa-solid fa-database"></i> Dedicated data setup</span>
-              <span><i class="fa-solid fa-file-pdf"></i> PDF statements</span>
-              <span><i class="fa-brands fa-bitcoin"></i> Bitcoin ready</span>
-              <span><i class="fa-solid fa-cloud-arrow-down"></i> Backup export</span>
-            </div>
-          </div>
 
-          <aside id="login" class="login-glass-panel" aria-labelledby="loginTitle">
-            <div class="login-panel-top">
-              <img src="Assets/logo/logo.png" alt="Triple M private login emblem" />
-              <div>
-                <p class="login-kicker">Secure portal</p>
-                <h2 id="loginTitle">Sign in</h2>
-              </div>
-            </div>
-            <p class="login-panel-copy">Enter your username and password to open your private financial workspace.</p>
-            <form class="login-form landing-login-form" onsubmit="return false;">
-              <div class="form-group">
-                <label for="zipUsernameInput" class="form-label">Username</label>
-                <div class="input-wrapper">
-                  <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Your account username" autocomplete="username" autocapitalize="off" spellcheck="false" />
-                  <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+            <aside id="login" class="login-glass-panel" aria-labelledby="loginTitle">
+              <div class="login-panel-top">
+                <img src="Assets/logo/logo.png" alt="Triplem private login emblem" />
+                <div>
+                  <p class="login-kicker">Secure portal</p>
+                  <h2 id="loginTitle">Sign in</h2>
                 </div>
               </div>
-              <div class="form-group">
-                <label for="zipPasswordInput" class="form-label">Password</label>
-                <div class="input-wrapper">
-                  <input id="zipPasswordInput" class="input" type="password" placeholder="Your account password" autocomplete="current-password" />
-                  <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+              <p class="login-panel-copy">Enter your username and password to open your private financial workspace.</p>
+              <form class="login-form landing-login-form" onsubmit="return false;">
+                <div class="form-group">
+                  <label for="zipUsernameInput" class="form-label">Username</label>
+                  <div class="input-wrapper">
+                    <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Your account username" autocomplete="username" autocapitalize="off" spellcheck="false" />
+                    <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+                  </div>
                 </div>
+                <div class="form-group">
+                  <label for="zipPasswordInput" class="form-label">Password</label>
+                  <div class="input-wrapper">
+                    <input id="zipPasswordInput" class="input" type="password" placeholder="Your account password" autocomplete="current-password" />
+                    <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+                  </div>
+                </div>
+                <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
+                <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
+              </form>
+              <div class="landing-downloads" aria-label="App downloads">
+                <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem for iOS"><i class="fa-brands fa-apple"></i></button>
+                <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triplem for Android"><i class="fa-brands fa-google-play"></i></button>
+                <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp support</a>
               </div>
-              <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
-              <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
-            </form>
-            <div class="landing-downloads" aria-label="App downloads">
-              <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triple M for iOS"><i class="fa-brands fa-apple"></i></button>
-              <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triple M for Android"><i class="fa-brands fa-google-play"></i></button>
-              <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp support</a>
-            </div>
-            <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Each account has an isolated workspace secured by database authentication.</div>
-            <div id="lockError" class="lock-error"></div>
-          </aside>
-        </section>
-
-        <section id="overview" class="landing-section landing-grid-2" aria-labelledby="overviewTitle">
-          <div>
-            <p class="section-kicker">Project overview</p>
-            <h2 id="overviewTitle">A private operating system for daily money control.</h2>
-            <p>Triple M by NSF brings everyday finance into one organized workspace: expense wallets, loan records, inventory sales, customer invoices, installment activity, notes, Bitcoin wallets, and downloadable statements. It is designed for people who need clarity without spreadsheets becoming a second job.</p>
-          </div>
-          <div class="showcase-card" aria-label="Triple M dashboard preview">
-            <div class="showcase-bar"><span></span><span></span><span></span></div>
-            <div class="showcase-metric"><small>Available Balance</small><strong>AED 48,250.00</strong></div>
-            <div class="showcase-lines"><span style="width:92%"></span><span style="width:68%"></span><span style="width:81%"></span></div>
-            <div class="showcase-stack"><span>Inventory invoices</span><span>Loan settlements</span><span>BTC blockchain records</span></div>
-          </div>
-        </section>
-
-        <section class="landing-section" aria-labelledby="storyTitle">
-          <p class="section-kicker">Brand story</p>
-          <h2 id="storyTitle">Built for finance that happens in real life.</h2>
-          <div class="landing-story">
-            <p>Triple M by NSF was shaped around practical business workflows: customers paying partially, inventory moving daily, loans coming back in pieces, wallets changing across currencies, and owners needing reliable statements at the end of the day.</p>
-            <p>The result is a calm, premium dashboard where financial records feel structured, searchable, and ready for action. It supports careful operators who want a private system that looks polished and behaves like a serious business tool.</p>
-          </div>
-        </section>
-
-        <section id="security" class="landing-section" aria-labelledby="securityTitle">
-          <p class="section-kicker">Security and privacy</p>
-          <h2 id="securityTitle">Trust blocks designed for sensitive financial work.</h2>
-          <div class="landing-card-grid three">
-            <article class="landing-card"><i class="fa-solid fa-user-shield"></i><h3>Private account access</h3><p>Each workspace is opened only with assigned credentials and private configuration, keeping financial records away from public access.</p></article>
-            <article class="landing-card"><i class="fa-solid fa-database"></i><h3>Separated data handling</h3><p>Customer data is kept organized through existing secure storage calls and private setup files, with no shared manual spreadsheet exposure.</p></article>
-            <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Bitcoin wallet workflows are handled in the browser, while blockchain balances and transactions are retrieved from public network records.</p></article>
-          </div>
-        </section>
-
-        <section class="landing-section landing-grid-2" aria-labelledby="protectionTitle">
-          <div>
-            <p class="section-kicker">Data protection highlights</p>
-            <h2 id="protectionTitle">Designed to protect records, exports, and wallet workflows.</h2>
-            <p>Triple M supports local backups, PDF exports, private login, careful browser-side wallet handling, and structured records that can be restored or reviewed without rebuilding ledgers manually.</p>
-          </div>
-          <div class="landing-check-list">
-            <span><i class="fa-solid fa-check"></i> JSON and CSV backup options</span>
-            <span><i class="fa-solid fa-check"></i> Statement and receipt PDF generation</span>
-            <span><i class="fa-solid fa-check"></i> Customer invoice history and payment records</span>
-            <span><i class="fa-solid fa-check"></i> Multi-currency wallet and expense tracking</span>
-            <span><i class="fa-solid fa-check"></i> Clear separation between public login and private app</span>
-          </div>
-        </section>
-
-        <section id="features" class="landing-section" aria-labelledby="featuresTitle">
-          <p class="section-kicker">Features</p>
-          <h2 id="featuresTitle">Everything important, connected in one dashboard.</h2>
-          <div class="landing-card-grid">
-            <article class="landing-card"><i class="fa-solid fa-wallet"></i><h3>Expense wallets</h3><p>Track cash, bank, card, and custom accounts with top-ups, expenses, transfers, and wallet-level statements.</p></article>
-            <article class="landing-card"><i class="fa-solid fa-hand-holding-dollar"></i><h3>Loans</h3><p>Manage loans given, received back, loans taken, returned payments, and full histories with clean settlement visibility.</p></article>
-            <article class="landing-card"><i class="fa-solid fa-boxes-stacked"></i><h3>Inventory</h3><p>Control purchased stock, sales receipts, low-stock items, customer balances, outstanding invoices, and profit records.</p></article>
-            <article class="landing-card"><i class="fa-solid fa-file-invoice-dollar"></i><h3>Invoices and receipts</h3><p>Download professional PDFs for sales invoices, transaction receipts, customer statements, and section reports.</p></article>
-            <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin records</h3><p>Create or import wallets, watch addresses, read blockchain balances, and review transaction records in BTC workflows.</p></article>
-            <article class="landing-card"><i class="fa-solid fa-note-sticky"></i><h3>Notes and records</h3><p>Keep operational notes beside finance tools so important context stays close to the numbers.</p></article>
-          </div>
-        </section>
-
-        <section id="services" class="landing-section" aria-labelledby="servicesTitle">
-          <p class="section-kicker">Services included</p>
-          <h2 id="servicesTitle">Setup, support, reporting, and private workspace delivery.</h2>
-          <div class="landing-service-row">
-            <article><h3>Workspace setup</h3><p>Account preparation, configuration, and supported currency selection for your business workflow.</p></article>
-            <article><h3>Financial reporting</h3><p>PDF statements for loans, expenses, inventory, BTC transactions, customer balances, and full exports.</p></article>
-            <article><h3>Support channel</h3><p>WhatsApp support for onboarding, access, usage questions, and practical feature guidance.</p></article>
-          </div>
-        </section>
-
-        <section id="pricing" class="landing-section" aria-labelledby="pricingTitle">
-          <p class="section-kicker">Pricing</p>
-          <h2 id="pricingTitle">Simple plans for merchants and private finance users.</h2>
-          <div class="pricing-row">
-            <article class="pricing-panel"><h3>Monthly</h3><p class="price-line">From <strong>$9.99</strong> / month</p><p>Ideal for small businesses starting with secure finance, inventory, and reporting workflows.</p><span>Includes free installation and one free month on eligible setup.</span></article>
-            <article class="pricing-panel featured"><h3>Yearly</h3><p class="price-line">From <strong>$99.99</strong> / year</p><p>Best value for active businesses that want continuous access, support, and long-term records.</p><span>Includes free installation and two free months on eligible setup.</span></article>
-            <article class="pricing-panel"><h3>Custom</h3><p class="price-line"><strong>Request quote</strong></p><p>For tailored setup, special currency choices, dedicated workflows, or multi-user business needs.</p><button class="btn ghost" type="button" onclick="document.getElementById('sendInquiryBtn')?.click()">Send Inquiry</button></article>
-          </div>
-        </section>
-
-        <section id="about" class="landing-section landing-grid-2" aria-labelledby="aboutTitle">
-          <div><p class="section-kicker">About</p><h2 id="aboutTitle">Created by Nadeem Shahzad Fida for practical financial clarity.</h2><p>Triple M by NSF is a proprietary money management module focused on high-control finance workflows. It is built for users who need secure access, multi-currency records, inventory visibility, wallet tracking, and polished documents without switching between disconnected tools.</p></div>
-          <div class="landing-about-card"><img src="Assets/logo/logo.png" alt="Triple M by NSF brand mark" /><div><h3>Money Management Module</h3><p>Expenses, loans, inventory, Bitcoin, notes, reports, receipts, and statements in one private dashboard.</p></div></div>
-        </section>
-
-        <section id="policies" class="landing-section" aria-labelledby="policyTitle">
-          <p class="section-kicker">Policies</p>
-          <h2 id="policyTitle">Clear terms for responsible use and private data handling.</h2>
-          <div class="landing-policy-grid">
-            <article><h3>Terms and conditions</h3><p>Access is provided to approved users only. Users are responsible for entering accurate records, protecting their login credentials, reviewing exported reports, and requesting support when a setup or data concern appears.</p></article>
-            <article><h3>Privacy policy summary</h3><p>Financial records are used to operate the dashboard features requested by the user. Sensitive access details should not be shared publicly, and Bitcoin private-key workflows should be handled only on trusted devices.</p></article>
-            <article><h3>Data responsibility</h3><p>Backups and exports are available so users can keep copies of important finance data. Reports should be reviewed before business or accounting decisions are finalized.</p></article>
-          </div>
-        </section>
-
-        <section id="faq" class="landing-section" aria-labelledby="faqTitle">
-          <p class="section-kicker">FAQ</p>
-          <h2 id="faqTitle">Questions before you sign in.</h2>
-          <div class="faq-list">
-            <details><summary>What is Triple M by NSF?</summary><p>It is a secure finance dashboard for managing expenses, wallets, loans, inventory, customer invoices, Bitcoin records, notes, and PDF reports.</p></details>
-            <details><summary>Who should use it?</summary><p>It is useful for shop owners, merchants, service businesses, private lenders, and individuals who need structured finance records without manual spreadsheets.</p></details>
-            <details><summary>Does it support multiple currencies?</summary><p>Yes. The app supports common business currencies such as AED, SAR, PKR, USD, and BTC depending on the configured setup.</p></details>
-            <details><summary>Can I download statements?</summary><p>Yes. The dashboard includes PDF statements, receipts, inventory invoices, BTC statements, customer records, and backup exports.</p></details>
-            <details><summary>How do I get access?</summary><p>Use the inquiry button or WhatsApp support link to request setup and receive your private login details.</p></details>
+              <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Each account has an isolated workspace secured by database authentication.</div>
+              <div id="lockError" class="lock-error"></div>
+            </aside>
           </div>
         </section>
       </main>
+
+      <div
+        id="landingContentOverlay"
+        class="landing-content-overlay hide"
+        aria-hidden="true"
+        hidden
+      >
+        <div class="landing-content-backdrop" data-landing-close tabindex="-1" aria-hidden="true"></div>
+        <div
+          class="landing-content-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="landingContentTitle"
+        >
+          <header class="landing-content-head">
+            <div class="landing-content-head-copy">
+              <p class="section-kicker" id="landingContentKicker">Explore</p>
+              <h2 id="landingContentTitle">About</h2>
+            </div>
+            <button type="button" class="landing-content-close btn ghost" id="landingContentCloseBtn" data-landing-close aria-label="Close and return to sign in">
+              <i class="fa-solid fa-times" aria-hidden="true"></i>
+            </button>
+          </header>
+
+          <div class="landing-content-tabs" role="tablist" aria-label="Content sections">
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="about" aria-selected="false">About</button>
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="features" aria-selected="false">Features</button>
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="services" aria-selected="false">Services</button>
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="pricing" aria-selected="false">Pricing</button>
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="faq" aria-selected="false">FAQs</button>
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="policies" aria-selected="false">Policy</button>
+          </div>
+
+          <div class="landing-content-body">
+            <section id="about" class="landing-section landing-content-panel hide" data-landing-panel="about" aria-labelledby="aboutTitle" hidden>
+              <div class="landing-grid-2">
+                <div>
+                  <p class="section-kicker">About</p>
+                  <h2 id="aboutTitle">Created by Nadeem Shahzad Fida for practical financial clarity.</h2>
+                  <p>Triplem is a proprietary money management module focused on high-control finance workflows. It is built for users who need secure access, multi-currency records, inventory visibility, wallet tracking, and polished documents without switching between disconnected tools.</p>
+                </div>
+                <div class="landing-about-card">
+                  <img src="Assets/logo/logo.png" alt="Triplem brand mark" />
+                  <div>
+                    <h3>Money Management Module</h3>
+                    <p>Expenses, loans, inventory, Bitcoin, notes, reports, receipts, and statements in one private dashboard.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="landing-section-block" id="overview" aria-labelledby="overviewTitle">
+                <p class="section-kicker">Project overview</p>
+                <h2 id="overviewTitle">A private operating system for daily money control.</h2>
+                <p>Triplem brings everyday finance into one organized workspace: expense wallets, loan records, inventory sales, customer invoices, installment activity, notes, Bitcoin wallets, and downloadable statements. It is designed for people who need clarity without spreadsheets becoming a second job.</p>
+                <div class="showcase-card" aria-label="Triplem dashboard preview">
+                  <div class="showcase-bar"><span></span><span></span><span></span></div>
+                  <div class="showcase-metric"><small>Available Balance</small><strong>AED 48,250.00</strong></div>
+                  <div class="showcase-lines"><span style="width:92%"></span><span style="width:68%"></span><span style="width:81%"></span></div>
+                  <div class="showcase-stack"><span>Inventory invoices</span><span>Loan settlements</span><span>BTC blockchain records</span></div>
+                </div>
+              </div>
+
+              <div class="landing-section-block" aria-labelledby="storyTitle">
+                <p class="section-kicker">Brand story</p>
+                <h2 id="storyTitle">Built for finance that happens in real life.</h2>
+                <div class="landing-story">
+                  <p>Triplem was shaped around practical business workflows: customers paying partially, inventory moving daily, loans coming back in pieces, wallets changing across currencies, and owners needing reliable statements at the end of the day.</p>
+                  <p>The result is a calm, premium dashboard where financial records feel structured, searchable, and ready for action. It supports careful operators who want a private system that looks polished and behaves like a serious business tool.</p>
+                </div>
+              </div>
+            </section>
+
+            <section id="features" class="landing-section landing-content-panel hide" data-landing-panel="features" aria-labelledby="featuresTitle" hidden>
+              <p class="section-kicker">Features</p>
+              <h2 id="featuresTitle">Everything important, connected in one dashboard.</h2>
+              <div class="landing-card-grid">
+                <article class="landing-card"><i class="fa-solid fa-wallet"></i><h3>Expense wallets</h3><p>Track cash, bank, card, and custom accounts with top-ups, expenses, transfers, and wallet-level statements.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-hand-holding-dollar"></i><h3>Loans</h3><p>Manage loans given, received back, loans taken, returned payments, and full histories with clean settlement visibility.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-boxes-stacked"></i><h3>Inventory</h3><p>Control purchased stock, sales receipts, low-stock items, customer balances, outstanding invoices, and profit records.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-file-invoice-dollar"></i><h3>Invoices and receipts</h3><p>Download professional PDFs for sales invoices, transaction receipts, customer statements, and section reports.</p></article>
+                <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin records</h3><p>Create or import wallets, watch addresses, read blockchain balances, and review transaction records in BTC workflows.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-note-sticky"></i><h3>Notes and records</h3><p>Keep operational notes beside finance tools so important context stays close to the numbers.</p></article>
+              </div>
+
+              <div class="landing-section-block" id="security" aria-labelledby="securityTitle">
+                <p class="section-kicker">Security and privacy</p>
+                <h2 id="securityTitle">Trust blocks designed for sensitive financial work.</h2>
+                <div class="landing-card-grid three">
+                  <article class="landing-card"><i class="fa-solid fa-user-shield"></i><h3>Private account access</h3><p>Each workspace is opened only with assigned credentials and private configuration, keeping financial records away from public access.</p></article>
+                  <article class="landing-card"><i class="fa-solid fa-database"></i><h3>Separated data handling</h3><p>Customer data is kept organized through existing secure storage calls and private setup files, with no shared manual spreadsheet exposure.</p></article>
+                  <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Bitcoin wallet workflows are handled in the browser, while blockchain balances and transactions are retrieved from public network records.</p></article>
+                </div>
+              </div>
+
+              <div class="landing-section-block landing-grid-2" aria-labelledby="protectionTitle">
+                <div>
+                  <p class="section-kicker">Data protection highlights</p>
+                  <h2 id="protectionTitle">Designed to protect records, exports, and wallet workflows.</h2>
+                  <p>Triplem supports local backups, PDF exports, private login, careful browser-side wallet handling, and structured records that can be restored or reviewed without rebuilding ledgers manually.</p>
+                </div>
+                <div class="landing-check-list">
+                  <span><i class="fa-solid fa-check"></i> JSON and CSV backup options</span>
+                  <span><i class="fa-solid fa-check"></i> Statement and receipt PDF generation</span>
+                  <span><i class="fa-solid fa-check"></i> Customer invoice history and payment records</span>
+                  <span><i class="fa-solid fa-check"></i> Multi-currency wallet and expense tracking</span>
+                  <span><i class="fa-solid fa-check"></i> Clear separation between public login and private app</span>
+                </div>
+              </div>
+            </section>
+
+            <section id="services" class="landing-section landing-content-panel hide" data-landing-panel="services" aria-labelledby="servicesTitle" hidden>
+              <p class="section-kicker">Services included</p>
+              <h2 id="servicesTitle">Setup, support, reporting, and private workspace delivery.</h2>
+              <div class="landing-service-row">
+                <article><h3>Workspace setup</h3><p>Account preparation, configuration, and supported currency selection for your business workflow.</p></article>
+                <article><h3>Financial reporting</h3><p>PDF statements for loans, expenses, inventory, BTC transactions, customer balances, and full exports.</p></article>
+                <article><h3>Support channel</h3><p>WhatsApp support for onboarding, access, usage questions, and practical feature guidance.</p></article>
+              </div>
+            </section>
+
+            <section id="pricing" class="landing-section landing-content-panel hide" data-landing-panel="pricing" aria-labelledby="pricingTitle" hidden>
+              <p class="section-kicker">Pricing</p>
+              <h2 id="pricingTitle">Simple plans in the currencies you already use.</h2>
+              <p class="landing-pricing-intro">Monthly and yearly access, shown clearly in PKR, SAR, AED, and USD. Installation support included on eligible setup.</p>
+
+              <div class="pricing-compose" aria-label="Triplem pricing by currency">
+                <div class="pricing-billing-grid">
+                  <article class="pricing-plan">
+                    <header class="pricing-plan-head">
+                      <h3>Monthly</h3>
+                      <p>Flexible month-to-month access for growing teams.</p>
+                    </header>
+                    <ul class="pricing-rate-list">
+                      <li>
+                        <span class="pricing-rate-code">PKR</span>
+                        <span class="pricing-rate-amount">Rs. 1,799</span>
+                        <span class="pricing-rate-period">/ month</span>
+                      </li>
+                      <li>
+                        <span class="pricing-rate-code">SAR</span>
+                        <span class="pricing-rate-amount">SAR 49</span>
+                        <span class="pricing-rate-period">/ month</span>
+                      </li>
+                      <li>
+                        <span class="pricing-rate-code">AED</span>
+                        <span class="pricing-rate-amount">AED 49</span>
+                        <span class="pricing-rate-period">/ month</span>
+                      </li>
+                      <li>
+                        <span class="pricing-rate-code">USD</span>
+                        <span class="pricing-rate-amount">USD 13.99</span>
+                        <span class="pricing-rate-period">/ month</span>
+                      </li>
+                    </ul>
+                    <p class="pricing-plan-note">Includes free installation and one free month on eligible setup.</p>
+                  </article>
+
+                  <article class="pricing-plan pricing-plan-featured">
+                    <header class="pricing-plan-head">
+                      <div class="pricing-plan-badge">Best value</div>
+                      <h3>Yearly</h3>
+                      <p>Continuous access with stronger long-term value.</p>
+                    </header>
+                    <ul class="pricing-rate-list">
+                      <li>
+                        <span class="pricing-rate-code">PKR</span>
+                        <span class="pricing-rate-amount">Rs. 19,999</span>
+                        <span class="pricing-rate-period">/ year</span>
+                      </li>
+                      <li>
+                        <span class="pricing-rate-code">SAR</span>
+                        <span class="pricing-rate-amount">SAR 449</span>
+                        <span class="pricing-rate-period">/ year</span>
+                      </li>
+                      <li>
+                        <span class="pricing-rate-code">AED</span>
+                        <span class="pricing-rate-amount">AED 449</span>
+                        <span class="pricing-rate-period">/ year</span>
+                      </li>
+                      <li>
+                        <span class="pricing-rate-code">USD</span>
+                        <span class="pricing-rate-amount">USD 149</span>
+                        <span class="pricing-rate-period">/ year</span>
+                      </li>
+                    </ul>
+                    <p class="pricing-plan-note">Includes free installation and two free months on eligible setup.</p>
+                  </article>
+                </div>
+
+                <div class="pricing-custom-row">
+                  <div>
+                    <h3>Custom setup</h3>
+                    <p>Need tailored currency choices, multi-user workflows, or a dedicated business configuration? Request a quote and we will shape the workspace around your operation.</p>
+                  </div>
+                  <button class="btn ghost" type="button" onclick="document.getElementById('sendInquiryBtn')?.click()">Send Inquiry</button>
+                </div>
+              </div>
+            </section>
+
+            <section id="faq" class="landing-section landing-content-panel hide" data-landing-panel="faq" aria-labelledby="faqTitle" hidden>
+              <p class="section-kicker">FAQ</p>
+              <h2 id="faqTitle">Questions before you sign in.</h2>
+              <div class="faq-list">
+                <details><summary>What is Triplem?</summary><p>It is a secure finance dashboard for managing expenses, wallets, loans, inventory, customer invoices, Bitcoin records, notes, and PDF reports.</p></details>
+                <details><summary>Who should use it?</summary><p>It is useful for shop owners, merchants, service businesses, private lenders, and individuals who need structured finance records without manual spreadsheets.</p></details>
+                <details><summary>Does it support multiple currencies?</summary><p>Yes. The app supports common business currencies such as AED, SAR, PKR, USD, and BTC depending on the configured setup.</p></details>
+                <details><summary>Can I download statements?</summary><p>Yes. The dashboard includes PDF statements, receipts, inventory invoices, BTC statements, customer records, and backup exports.</p></details>
+                <details><summary>How do I get access?</summary><p>Use the inquiry button or WhatsApp support link to request setup and receive your private login details.</p></details>
+              </div>
+            </section>
+
+            <section id="policies" class="landing-section landing-content-panel hide" data-landing-panel="policies" aria-labelledby="policyTitle" hidden>
+              <p class="section-kicker">Policies</p>
+              <h2 id="policyTitle">Clear terms for responsible use and private data handling.</h2>
+              <div class="landing-policy-grid">
+                <article><h3>Terms and conditions</h3><p>Access is provided to approved users only. Users are responsible for entering accurate records, protecting their login credentials, reviewing exported reports, and requesting support when a setup or data concern appears.</p></article>
+                <article><h3>Privacy policy summary</h3><p>Financial records are used to operate the dashboard features requested by the user. Sensitive access details should not be shared publicly, and Bitcoin private-key workflows should be handled only on trusted devices.</p></article>
+                <article><h3>Data responsibility</h3><p>Backups and exports are available so users can keep copies of important finance data. Reports should be reviewed before business or accounting decisions are finalized.</p></article>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -439,7 +581,7 @@
         <div class="brand">
           <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
           <div>
-            <div class="brand-title">TRIPLE M by NSF</div>
+            <div class="brand-title">Triplem</div>
             <p id="standaloneAboutSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
           </div>
         </div>
@@ -455,7 +597,7 @@
             <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-list-check"></i> Overview</h4>
             <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
               <p style="margin: 0 0 12px; line-height: 1.6; color: var(--text);">
-                <strong>Triple M by NSF</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
+                <strong>Triplem</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
               </p>
               <p style="margin: 0; line-height: 1.6; color: var(--text);">
                 The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.
@@ -574,7 +716,7 @@
         <div class="brand">
           <img class="mark" src="Assets/logo/logo.png" alt="Logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
           <div>
-            <div class="brand-title">TRIPLE M by NSF</div>
+            <div class="brand-title">Triplem</div>
             <p>Pricing Plans for Small Business Merchants</p>
           </div>
         </div>
@@ -639,41 +781,33 @@
                 <div style="font-size: 2rem; margin-bottom: 8px;">🇵🇰</div>
                 <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Pakistani Rupee</h5>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;">Rs. 2,499</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">Rs. 1,499</div>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">Rs. 1,799</div>
                 </div>
                 <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">40% OFF</div>
-              </div>
-              <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
-                <div style="font-size: 2rem; margin-bottom: 8px;">🇦🇪</div>
-                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">UAE Dirham</h5>
-                <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dirham">~</span> 34.99</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dirham">~</span> 24.99</div>
-                </div>
-                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">29% OFF</div>
               </div>
               <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🇸🇦</div>
                 <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Saudi Riyal</h5>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-riyal">$</span> 34.99</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-riyal">$</span> 24.99</div>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">SAR 49</div>
                 </div>
                 <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">29% OFF</div>
+              </div>
+              <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇦🇪</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">UAE Dirham</h5>
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">AED 49</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
               </div>
               <div class="pricing-card" style="background: var(--panel-2); border: 2px solid var(--line); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🇺🇸</div>
                 <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">US Dollar</h5>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dollar">$</span> 12.99</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dollar">$</span> 9.99</div>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">USD 13.99</div>
                 </div>
                 <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per month</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">23% OFF</div>
               </div>
             </div>
           </div>
@@ -681,49 +815,38 @@
           <!-- Yearly Pricing -->
           <div class="about-section">
             <h4 style="margin: 0 0 8px; font-size: 1.2rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-calendar-check"></i> Yearly Plans <span style="background: var(--success); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-left: 12px;">2 Months Free (14 Months Total)</span></h4>
-            <div style="text-align: center; margin-bottom: 16px;">
-              <span style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Save up to 45%</span>
-            </div>
             <div class="pricing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
               <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🇵🇰</div>
                 <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Pakistani Rupee</h5>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;">Rs. 29,900</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">Rs. 16,499</div>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">Rs. 19,999</div>
                 </div>
                 <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">45% OFF</div>
-              </div>
-              <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
-                <div style="font-size: 2rem; margin-bottom: 8px;">🇦🇪</div>
-                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">UAE Dirham</h5>
-                <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dirham">~</span> 399.99</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dirham">~</span> 249.99</div>
-                </div>
-                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">38% OFF</div>
               </div>
               <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🇸🇦</div>
                 <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">Saudi Riyal</h5>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-riyal">$</span> 399.99</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-riyal">$</span> 249.99</div>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">SAR 449</div>
                 </div>
                 <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">38% OFF</div>
+              </div>
+              <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🇦🇪</div>
+                <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">UAE Dirham</h5>
+                <div style="margin-bottom: 8px;">
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">AED 449</div>
+                </div>
+                <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
               </div>
               <div class="pricing-card featured" style="background: linear-gradient(135deg, rgba(6, 118, 71, 0.1) 0%, rgba(6, 118, 71, 0.05) 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s ease;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🇺🇸</div>
                 <h5 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; color: var(--text);">US Dollar</h5>
                 <div style="margin-bottom: 8px;">
-                  <span style="font-size: 1.4rem; color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px;"><span class="symbol-dollar">$</span> 149.99</span>
-                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;"><span class="symbol-dollar">$</span> 99.99</div>
+                  <div style="font-size: 2rem; font-weight: 700; color: var(--primary); margin-top: 4px;">USD 149</div>
                 </div>
                 <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.85rem;">per year</p>
-                <div style="background: rgba(6, 118, 71, 0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-block;">33% OFF</div>
               </div>
             </div>
           </div>
@@ -900,15 +1023,9 @@
     <section class="tabs">
       <button class="tab active" data-tab="expenses" type="button"><i class="fa-solid fa-coins"></i> Expenses</button>
       <button class="tab" data-tab="goods" type="button"><i class="fa-solid fa-cart-shopping"></i> Inventory</button>
-      <div class="menu-wrap tab-menu-wrap">
-        <button class="tab menu-trigger" id="loansTabBtn" type="button" data-entry-menu="loans-tabs" aria-haspopup="menu" aria-expanded="false">
-          <i class="fa-solid fa-hand-holding-dollar"></i> Loans
-        </button>
-        <div class="menu-dropdown" data-entry-menu-panel="loans-tabs">
-          <button type="button" class="menu-item" data-loan-tab="given">Loan Given / Received Back</button>
-          <button type="button" class="menu-item" data-loan-tab="taken">Loan Taken / Returned Back</button>
-        </div>
-      </div>
+      <button class="tab" id="loansTabBtn" type="button" data-tab="loans">
+        <i class="fa-solid fa-hand-holding-dollar"></i> Loans
+      </button>
       <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
       <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
       <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
@@ -954,6 +1071,10 @@
       <section id="givenPanel" class="panel">
         <div class="card section">
           <div class="section-head">
+            <div class="loan-mode-switch" role="tablist" aria-label="Loan mode">
+              <button type="button" class="loan-mode-btn active" data-loan-mode="given" role="tab" aria-selected="true">Loan Given / Received Back</button>
+              <button type="button" class="loan-mode-btn" data-loan-mode="taken" role="tab" aria-selected="false">Loan Taken / Returned Back</button>
+            </div>
             <div class="section-head-top">
               <div class="title-group">
                 <div class="title-row">
@@ -1072,6 +1193,10 @@
       <section id="takenPanel" class="panel">
         <div class="card section">
           <div class="section-head">
+            <div class="loan-mode-switch" role="tablist" aria-label="Loan mode">
+              <button type="button" class="loan-mode-btn" data-loan-mode="given" role="tab" aria-selected="false">Loan Given / Received Back</button>
+              <button type="button" class="loan-mode-btn active" data-loan-mode="taken" role="tab" aria-selected="true">Loan Taken / Returned Back</button>
+            </div>
             <div class="section-head-top">
               <div class="title-group">
                 <div class="title-row">
