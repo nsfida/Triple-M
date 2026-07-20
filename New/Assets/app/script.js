@@ -2582,6 +2582,14 @@ function applyPermissionGates(){
   const locked = state.trialLocked === true;
   document.querySelectorAll(".tab[data-tab]").forEach(tab => {
     const mod = tabModuleMap[tab.dataset.tab];
+    if (tab.dataset.tab === "messages") {
+      // Messages available to every signed-in account (including trial-locked)
+      const allowed = state.unlocked && !isGuestMode();
+      tab.classList.toggle("hide", !allowed);
+      tab.disabled = !allowed;
+      tab.setAttribute("aria-hidden", allowed ? "false" : "true");
+      return;
+    }
     if (!mod) return;
     let allowed = isGuestMode() ? mod !== "admin_panel" : userHasPermission(mod, "view");
     if (locked && tab.dataset.tab !== "about") allowed = false;
@@ -2616,6 +2624,13 @@ function applyPermissionGates(){
       if (isGuestMode()) return;
       el.classList.toggle("hide", !canImport);
     });
+  updateAdminCommsVisibility();
+  if (isAppAdminSession() && state.unlocked) {
+    refreshAdminCommsBadges().catch(() => {});
+    startAdminCommsPolling();
+  } else {
+    stopAdminCommsPolling();
+  }
 }
 
 function apiHeaders(extra = {}){
@@ -8719,7 +8734,9 @@ function activate(tab){
     admin: "admin_panel"
   };
   const requiredModule = tabModuleMap[tab];
-  if (requiredModule && !isGuestMode() && !userHasPermission(requiredModule, "view")) {
+  if (tab === "messages") {
+    if (!state.unlocked || isGuestMode()) return;
+  } else if (requiredModule && !isGuestMode() && !userHasPermission(requiredModule, "view")) {
     return;
   }
   if (tab === "admin" && isGuestMode()) return;
@@ -8747,7 +8764,7 @@ function activate(tab){
   }
 
   if (walletsOverview) {
-    if (tab === "bitcoin" || tab === "notes" || tab === "admin" || tab === "about") {
+    if (tab === "bitcoin" || tab === "notes" || tab === "admin" || tab === "about" || tab === "messages") {
       walletsOverview.style.display = "none";
     } else if (tab === "expenses") {
       walletsOverview.style.display = "block";
@@ -8758,7 +8775,12 @@ function activate(tab){
 
   if (tab === "admin") {
     loadAdminUsers().catch(err => console.error("Admin users load failed:", err));
+    refreshAdminCommsBadges().catch(() => {});
+  } else if (tab === "messages") {
+    if (state.trialLocked) hideTrialExpiredOverlay();
+    renderMessagesPanel().catch(err => console.error("Messages load failed:", err));
   } else {
+    if (state.trialLocked) showTrialExpiredOverlay();
     ensureTabDataLoaded(tab).catch(err => console.error("Tab data load failed:", err));
   }
 
@@ -12409,14 +12431,20 @@ function attachEvents(){
 
       // Position the dropdown using fixed positioning
       if (nowOpen) {
+        // Force layout so width is measurable before placing
+        panel.style.visibility = "hidden";
+        panel.classList.add("open");
+        const panelWidth = panel.offsetWidth || 320;
         const rect = btn.getBoundingClientRect();
-        panel.style.top = `${rect.bottom + 6}px`;
-        panel.style.left = `${rect.right - panel.offsetWidth}px`;
-        // Ensure dropdown doesn't go off-screen to the right
-        if (rect.right - panel.offsetWidth < 10) {
-          panel.style.left = `${Math.max(10, rect.left)}px`;
+        let left = rect.right - panelWidth;
+        if (left < 10) left = Math.max(10, rect.left);
+        if (left + panelWidth > window.innerWidth - 10) {
+          left = Math.max(10, window.innerWidth - panelWidth - 10);
         }
-        
+        panel.style.top = `${rect.bottom + 6}px`;
+        panel.style.left = `${left}px`;
+        panel.style.visibility = "";
+
         // Render recycle bin items if this is the recycle bin dropdown
         if (key === "recyclebin") {
           renderRecycleBinDropdown();
@@ -12424,18 +12452,28 @@ function attachEvents(){
         if (key === "page-currency") {
           renderPageCurrencySelector();
         }
+        if (key === "admin-notify") {
+          loadAdminNotificationsDropdown().catch(() => {});
+        }
+        if (key === "admin-messages") {
+          loadAdminMessagesPreview().catch(() => {});
+        }
+      } else {
+        panel.classList.remove("open");
       }
     });
   });
 
   document.addEventListener("click", e => {
     const trigger = e.target.closest(".menu-trigger");
+    const insideOpenMenu = e.target.closest(".menu-dropdown.open");
     document.querySelectorAll(".menu-dropdown.open").forEach(panel => {
-      if (trigger && panel.previousElementSibling === trigger) return;
+      if (insideOpenMenu === panel) return;
+      const wrap = panel.closest(".menu-wrap");
+      if (trigger && wrap && wrap.contains(trigger)) return;
       panel.classList.remove("open");
-      if (panel.previousElementSibling?.classList.contains("menu-trigger")){
-        panel.previousElementSibling.setAttribute("aria-expanded", "false");
-      }
+      const openTrigger = wrap?.querySelector(".menu-trigger");
+      if (openTrigger) openTrigger.setAttribute("aria-expanded", "false");
     });
     if (!e.target.closest(".note-wrap")){
       document.querySelectorAll(".note-popover").forEach(pop => pop.classList.add("hide"));
@@ -13096,6 +13134,8 @@ function doLogout(){
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
   updateGuestModeUi();
   btcClearSession();
+  stopAdminCommsPolling();
+  updateAdminCommsVisibility();
   focusUnlockForm();
 }
 
@@ -19150,6 +19190,573 @@ function openAccountSettingsModal(){
   };
 }
 
+function isAppAdminSession(){
+  return !!(
+    state.sessionUser
+    && state.sessionUser.role === "admin"
+    && !getUserAccessFlags().is_trial
+    && !isGuestMode()
+  );
+}
+
+function formatRelativeTime(value){
+  if (!value) return "";
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return formatAdminDate(value);
+  const diff = Date.now() - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatAdminDate(value);
+}
+
+let adminCommsPollTimer = null;
+const adminCommsState = {
+  notifications: [],
+  inquiryPreview: [],
+  unreadNotifications: 0,
+  unreadInquiries: 0
+};
+
+function stopAdminCommsPolling(){
+  if (adminCommsPollTimer) {
+    clearInterval(adminCommsPollTimer);
+    adminCommsPollTimer = null;
+  }
+}
+
+function startAdminCommsPolling(){
+  stopAdminCommsPolling();
+  if (!isAppAdminSession()) return;
+  adminCommsPollTimer = setInterval(() => {
+    if (!isAppAdminSession() || document.hidden) return;
+    refreshAdminCommsBadges().catch(() => {});
+  }, 45000);
+}
+
+function setHeaderBadge(el, count){
+  if (!el) return;
+  const n = Math.max(0, Number(count) || 0);
+  el.textContent = n > 99 ? "99+" : String(n);
+  el.style.display = n > 0 ? "inline" : "none";
+}
+
+function updateAdminCommsVisibility(){
+  const show = isAppAdminSession() && state.unlocked;
+  ["adminNotifyWrap", "adminMessagesWrap"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hide", !show);
+  });
+  if (!show) {
+    setHeaderBadge(document.getElementById("adminNotifyCount"), 0);
+    setHeaderBadge(document.getElementById("adminMessagesCount"), 0);
+    stopAdminCommsPolling();
+  }
+}
+
+async function refreshAdminCommsBadges(){
+  if (!isAppAdminSession()) {
+    updateAdminCommsVisibility();
+    return;
+  }
+  updateAdminCommsVisibility();
+  try {
+    const counts = await supabaseRpc("app_admin_unread_counts", {});
+    adminCommsState.unreadNotifications = Number(counts?.notifications || 0);
+    adminCommsState.unreadInquiries = Number(counts?.inquiries || 0);
+    setHeaderBadge(document.getElementById("adminNotifyCount"), adminCommsState.unreadNotifications);
+    setHeaderBadge(document.getElementById("adminMessagesCount"), adminCommsState.unreadInquiries);
+  } catch (err) {
+    console.warn("Admin unread counts failed:", err);
+  }
+}
+
+function notificationIconClass(kind){
+  if (kind === "trial_signup") return "trial";
+  if (kind === "inquiry") return "inquiry";
+  return "";
+}
+
+function notificationIcon(kind){
+  if (kind === "trial_signup") return "fa-user-plus";
+  if (kind === "inquiry") return "fa-envelope-open-text";
+  return "fa-bell";
+}
+
+async function loadAdminNotificationsDropdown(){
+  const list = document.getElementById("adminNotifyList");
+  if (!list || !isAppAdminSession()) return;
+  list.innerHTML = `<div class="admin-comms-empty">Loading…</div>`;
+  try {
+    const result = await supabaseRpc("app_admin_list_notifications", { p_limit: 40 });
+    const items = Array.isArray(result?.items) ? result.items : [];
+    adminCommsState.notifications = items;
+    if (!items.length) {
+      list.innerHTML = `<div class="admin-comms-empty">No notifications yet</div>`;
+      return;
+    }
+    list.innerHTML = items.map(n => {
+      const unread = !n.is_read;
+      return `
+        <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}">
+          <div class="admin-comms-item-icon ${notificationIconClass(n.kind)}">
+            <i class="fa-solid ${notificationIcon(n.kind)}"></i>
+          </div>
+          <div>
+            <p class="admin-comms-item-title">${escapeHtml(n.title)}</p>
+            <p class="admin-comms-item-body">${escapeHtml(n.body || "")}</p>
+            <span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(n.created_at))}</span>
+          </div>
+          <div class="admin-comms-item-actions">
+            ${unread ? `<button type="button" class="btn ghost" data-notif-read="${escapeHtml(n.id)}" title="Mark read"><i class="fa-solid fa-check"></i></button>` : ""}
+            <button type="button" class="btn ghost" data-notif-delete="${escapeHtml(n.id)}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>`;
+    }).join("");
+  } catch (err) {
+    list.innerHTML = `<div class="admin-comms-empty">${escapeHtml(err.message || "Could not load notifications")}</div>`;
+  }
+}
+
+async function loadAdminMessagesPreview(){
+  const list = document.getElementById("adminMessagesPreviewList");
+  if (!list || !isAppAdminSession()) return;
+  list.innerHTML = `<div class="admin-comms-empty">Loading…</div>`;
+  try {
+    const result = await supabaseRpc("app_admin_list_inquiries", { p_status: "open", p_limit: 12 });
+    const items = Array.isArray(result?.items) ? result.items : [];
+    adminCommsState.inquiryPreview = items;
+    if (!items.length) {
+      list.innerHTML = `<div class="admin-comms-empty">No open inquiries</div>`;
+      return;
+    }
+    list.innerHTML = items.map(item => `
+      <button type="button" class="admin-comms-item unread" data-preview-inquiry="${escapeHtml(item.id)}">
+        <div class="admin-comms-item-icon inquiry"><i class="fa-solid fa-comments"></i></div>
+        <div>
+          <p class="admin-comms-item-title">${escapeHtml(item.subject)}</p>
+          <p class="admin-comms-item-body">${escapeHtml(item.sender_display_name || item.guest_name || item.sender_username || "Guest")} · ${escapeHtml(item.last_message_preview || item.body || "")}</p>
+          <span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(item.last_message_at || item.created_at))}</span>
+        </div>
+      </button>
+    `).join("");
+  } catch (err) {
+    list.innerHTML = `<div class="admin-comms-empty">${escapeHtml(err.message || "Could not load inquiries")}</div>`;
+  }
+}
+
+function goToMessagesTab(inquiryId = null){
+  document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
+  if (state.trialLocked) hideTrialExpiredOverlay();
+  if (inquiryId) messagesUiState.pendingOpenId = inquiryId;
+  activate("messages");
+}
+
+const messagesUiState = {
+  threads: [],
+  selectedId: null,
+  canReply: false,
+  pendingOpenId: null
+};
+
+function setMessagesComposerVisible(show){
+  const composer = document.getElementById("messagesNewComposer");
+  if (composer) composer.classList.toggle("hide", !show);
+}
+
+async function renderMessagesPanel(){
+  const title = document.getElementById("messagesPanelTitle");
+  const subtitle = document.getElementById("messagesPanelSubtitle");
+  const filters = document.getElementById("messagesAdminFilters");
+  const newBtn = document.getElementById("messagesNewBtn");
+  const list = document.getElementById("messagesThreadList");
+  if (!list) return;
+
+  const admin = isAppAdminSession();
+  if (title) title.textContent = admin ? "Messages" : "Messages";
+  if (subtitle) {
+    subtitle.textContent = admin
+      ? "Conversations with users and access requests from the login page."
+      : "Message the administrator — replies appear in this conversation view.";
+  }
+  if (filters) filters.classList.toggle("hide", !admin);
+  if (newBtn) newBtn.classList.toggle("hide", admin);
+
+  list.innerHTML = `<div class="empty">Loading…</div>`;
+  try {
+    let items = [];
+    if (admin) {
+      const statusRadio = document.querySelector('input[name="inquiryStatusFilter"]:checked');
+      const status = statusRadio?.value === "all" ? null : (statusRadio?.value || null);
+      const result = await supabaseRpc("app_admin_list_inquiries", {
+        p_status: status,
+        p_limit: 150
+      });
+      items = Array.isArray(result?.items) ? result.items : [];
+    } else {
+      const result = await supabaseRpc("app_list_my_inquiries", {});
+      items = Array.isArray(result?.items) ? result.items : [];
+    }
+    messagesUiState.threads = items;
+    renderMessagesThreadList(list, items, admin);
+
+    const openId = messagesUiState.pendingOpenId || messagesUiState.selectedId;
+    messagesUiState.pendingOpenId = null;
+    if (openId && items.some(t => t.id === openId)) {
+      await openInquiryThread(openId);
+    } else if (items.length && admin) {
+      await openInquiryThread(items[0].id);
+    } else if (items.length && !admin && messagesUiState.selectedId) {
+      await openInquiryThread(messagesUiState.selectedId);
+    } else {
+      showMessagesEmptyState();
+    }
+  } catch (err) {
+    list.innerHTML = `<div class="empty">${escapeHtml(err.message || "Could not load messages")}</div>`;
+    showMessagesEmptyState();
+  }
+  if (admin) refreshAdminCommsBadges().catch(() => {});
+}
+
+function renderMessagesThreadList(container, items, isAdmin){
+  if (!items.length) {
+    container.innerHTML = `<div class="empty">${isAdmin ? "No conversations yet." : "No conversations yet. Tap “New message” to start."}</div>`;
+    return;
+  }
+  container.innerHTML = items.map(item => {
+    const unread = isAdmin
+      ? Number(item.unread_for_admin || 0) > 0 || item.status === "open"
+      : Number(item.unread_for_user || 0) > 0;
+    const active = item.id === messagesUiState.selectedId ? "active" : "";
+    const sourceBadge = item.source === "landing"
+      ? `<span class="thread-source">Access request</span>`
+      : "";
+    const who = isAdmin
+      ? (item.sender_display_name || item.guest_name || item.sender_username || "Guest")
+      : item.subject;
+    return `
+      <button type="button" class="messages-thread-item ${active} ${unread ? "unread" : ""}" data-open-thread="${escapeHtml(item.id)}">
+        <div class="thread-item-top">
+          <strong>${escapeHtml(who)}</strong>
+          <span class="thread-time">${escapeHtml(formatRelativeTime(item.last_message_at || item.created_at))}</span>
+        </div>
+        <div class="thread-item-subject">${escapeHtml(item.subject)}${sourceBadge}</div>
+        <div class="thread-item-preview">${escapeHtml(item.last_message_preview || item.body || "")}</div>
+        <div class="thread-item-meta">
+          <span class="message-status-pill ${escapeHtml(item.status || "open")}">${escapeHtml(item.status || "open")}</span>
+          ${unread ? `<span class="thread-unread-dot" title="Unread"></span>` : ""}
+        </div>
+      </button>`;
+  }).join("");
+}
+
+function showMessagesEmptyState(){
+  messagesUiState.selectedId = null;
+  messagesUiState.canReply = false;
+  document.getElementById("messagesThreadEmpty")?.classList.remove("hide");
+  document.getElementById("messagesThreadActive")?.classList.add("hide");
+}
+
+async function openInquiryThread(inquiryId){
+  const empty = document.getElementById("messagesThreadEmpty");
+  const active = document.getElementById("messagesThreadActive");
+  const header = document.getElementById("messagesThreadHeader");
+  const scroll = document.getElementById("messagesChatScroll");
+  const replyBar = document.getElementById("messagesReplyBar");
+  if (!scroll || !header) return;
+
+  messagesUiState.selectedId = inquiryId;
+  document.querySelectorAll(".messages-thread-item").forEach(el => {
+    el.classList.toggle("active", el.dataset.openThread === inquiryId);
+  });
+
+  empty?.classList.add("hide");
+  active?.classList.remove("hide");
+  header.innerHTML = `<div class="help">Loading conversation…</div>`;
+  scroll.innerHTML = "";
+
+  try {
+    const result = await supabaseRpc("app_get_inquiry_thread", { p_inquiry_id: inquiryId });
+    const inquiry = result?.inquiry || {};
+    const messages = Array.isArray(result?.messages) ? result.messages : [];
+    messagesUiState.canReply = !!result?.can_reply;
+    const admin = isAppAdminSession();
+
+    const contactBits = [
+      inquiry.sender_email,
+      inquiry.sender_phone,
+      inquiry.sender_company
+    ].filter(Boolean).map(escapeHtml).join(" · ");
+
+    header.innerHTML = `
+      <div class="messages-thread-header-main">
+        <div>
+          <h4>${escapeHtml(inquiry.subject || "Conversation")}</h4>
+          <p>${escapeHtml(inquiry.sender_display_name || "Guest")}${inquiry.sender_username ? ` · @${escapeHtml(inquiry.sender_username)}` : ""}${inquiry.source === "landing" ? " · Login page request" : ""}</p>
+          ${contactBits ? `<p class="messages-thread-contact">${contactBits}</p>` : ""}
+        </div>
+        <span class="message-status-pill ${escapeHtml(inquiry.status || "open")}">${escapeHtml(inquiry.status || "open")}</span>
+      </div>
+      <div class="messages-thread-header-actions">
+        ${admin && inquiry.status !== "archived" ? `<button type="button" class="btn ghost" data-inquiry-status="${escapeHtml(inquiry.id)}" data-status="archived"><i class="fa-solid fa-box-archive"></i> Archive</button>` : ""}
+        ${admin && inquiry.status === "archived" ? `<button type="button" class="btn soft" data-inquiry-status="${escapeHtml(inquiry.id)}" data-status="open"><i class="fa-solid fa-rotate-left"></i> Reopen</button>` : ""}
+        ${admin ? `<button type="button" class="btn ghost danger-text" data-inquiry-delete="${escapeHtml(inquiry.id)}"><i class="fa-solid fa-trash"></i> Delete</button>` : ""}
+        ${!admin ? `<button type="button" class="btn ghost danger-text" data-my-inquiry-delete="${escapeHtml(inquiry.id)}"><i class="fa-solid fa-trash"></i> Delete</button>` : ""}
+      </div>`;
+
+    scroll.innerHTML = messages.map(m => {
+      const mine = admin ? m.sender_role === "admin" : m.sender_role !== "admin";
+      const roleClass = m.sender_role === "admin" ? "from-admin" : (m.sender_role === "guest" ? "from-guest" : "from-user");
+      return `
+        <div class="chat-bubble-row ${mine ? "mine" : "theirs"}">
+          <div class="chat-bubble ${roleClass}">
+            <div class="chat-bubble-meta">
+              <strong>${escapeHtml(m.sender_label || m.sender_role)}</strong>
+              <span>${escapeHtml(formatRelativeTime(m.created_at))}</span>
+            </div>
+            <div class="chat-bubble-body">${escapeHtml(m.body)}</div>
+          </div>
+        </div>`;
+    }).join("") || `<div class="empty">No messages in this thread.</div>`;
+
+    if (replyBar) {
+      replyBar.classList.toggle("hide", !messagesUiState.canReply);
+      const note = inquiry.source === "landing" && admin
+        ? "Guest request from the login page — you can reply here for internal notes; the guest is not logged in."
+        : "";
+      let hint = replyBar.querySelector(".messages-reply-hint");
+      if (!hint) {
+        hint = document.createElement("p");
+        hint.className = "messages-reply-hint help";
+        replyBar.insertBefore(hint, replyBar.firstChild);
+      }
+      hint.textContent = note;
+      hint.classList.toggle("hide", !note);
+    }
+
+    scroll.scrollTop = scroll.scrollHeight;
+    if (admin) refreshAdminCommsBadges().catch(() => {});
+  } catch (err) {
+    header.innerHTML = `<div class="lock-error show">${escapeHtml(err.message || "Could not open conversation")}</div>`;
+  }
+}
+
+async function sendInquiryReply(){
+  const input = document.getElementById("messagesReplyInput");
+  const btn = document.getElementById("messagesReplySendBtn");
+  const body = String(input?.value || "").trim();
+  if (!messagesUiState.selectedId || !body) return;
+  try {
+    if (btn) btn.disabled = true;
+    await supabaseRpc("app_reply_inquiry", {
+      p_inquiry_id: messagesUiState.selectedId,
+      p_body: body
+    });
+    if (input) input.value = "";
+    await renderMessagesPanel();
+    await openInquiryThread(messagesUiState.selectedId);
+  } catch (ex) {
+    alert(ex.message || "Could not send reply.");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function bindMessagingUi(){
+  const refreshBtn = document.getElementById("messagesRefreshBtn");
+  if (refreshBtn) refreshBtn.addEventListener("click", () => renderMessagesPanel());
+
+  const newBtn = document.getElementById("messagesNewBtn");
+  if (newBtn) {
+    newBtn.addEventListener("click", () => {
+      setMessagesComposerVisible(true);
+      document.getElementById("inquirySubject")?.focus();
+    });
+  }
+  document.getElementById("messagesNewCancelBtn")?.addEventListener("click", () => {
+    setMessagesComposerVisible(false);
+  });
+
+  const submitBtn = document.getElementById("inquirySubmitBtn");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      const err = document.getElementById("inquiryFormError");
+      const subjectEl = document.getElementById("inquirySubject");
+      const bodyEl = document.getElementById("inquiryBody");
+      if (err) {
+        err.textContent = "";
+        err.classList.remove("show");
+      }
+      try {
+        submitBtn.disabled = true;
+        const created = await supabaseRpc("app_submit_inquiry", {
+          p_subject: subjectEl?.value || "",
+          p_body: bodyEl?.value || ""
+        });
+        if (subjectEl) subjectEl.value = "";
+        if (bodyEl) bodyEl.value = "";
+        setMessagesComposerVisible(false);
+        messagesUiState.pendingOpenId = created?.id || null;
+        await renderMessagesPanel();
+      } catch (ex) {
+        if (err) {
+          err.textContent = ex.message || "Could not send message.";
+          err.classList.add("show");
+        } else {
+          alert(ex.message || "Could not send message.");
+        }
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  document.querySelectorAll('input[name="inquiryStatusFilter"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      if (isAppAdminSession()) renderMessagesPanel();
+    });
+  });
+
+  document.getElementById("messagesReplySendBtn")?.addEventListener("click", () => sendInquiryReply());
+  document.getElementById("messagesReplyInput")?.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendInquiryReply();
+    }
+  });
+
+  document.getElementById("messagesThreadList")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-open-thread]");
+    if (!btn) return;
+    openInquiryThread(btn.dataset.openThread);
+  });
+
+  const markAllBtn = document.getElementById("adminNotifyMarkAllBtn");
+  if (markAllBtn) {
+    markAllBtn.addEventListener("click", async e => {
+      e.stopPropagation();
+      try {
+        await supabaseRpc("app_admin_mark_all_notifications_read", {});
+        await loadAdminNotificationsDropdown();
+        await refreshAdminCommsBadges();
+      } catch (ex) {
+        alert(ex.message || "Could not mark notifications as read.");
+      }
+    });
+  }
+
+  ["adminMessagesOpenFullBtn", "adminMessagesGotoBtn"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        goToMessagesTab();
+      });
+    }
+  });
+
+  const openMessagesMenuBtn = document.getElementById("openMessagesMenuBtn");
+  if (openMessagesMenuBtn) {
+    openMessagesMenuBtn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      goToMessagesTab();
+    });
+  }
+
+  const trialExpiredMessagesBtn = document.getElementById("trialExpiredMessagesBtn");
+  if (trialExpiredMessagesBtn) {
+    trialExpiredMessagesBtn.addEventListener("click", e => {
+      e.preventDefault();
+      goToMessagesTab();
+    });
+  }
+
+  document.getElementById("adminNotifyList")?.addEventListener("click", async e => {
+    const readBtn = e.target.closest("[data-notif-read]");
+    const delBtn = e.target.closest("[data-notif-delete]");
+    const row = e.target.closest("[data-notification-id]");
+    try {
+      if (readBtn) {
+        e.stopPropagation();
+        await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: readBtn.dataset.notifRead });
+        await loadAdminNotificationsDropdown();
+        await refreshAdminCommsBadges();
+        return;
+      }
+      if (delBtn) {
+        e.stopPropagation();
+        if (!confirm("Delete this notification?")) return;
+        await supabaseRpc("app_admin_delete_notification", { p_notification_id: delBtn.dataset.notifDelete });
+        await loadAdminNotificationsDropdown();
+        await refreshAdminCommsBadges();
+        return;
+      }
+      if (row?.dataset.notificationId) {
+        const n = adminCommsState.notifications.find(x => x.id === row.dataset.notificationId);
+        if (n && !n.is_read) {
+          await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: n.id });
+          await refreshAdminCommsBadges();
+        }
+        if (n?.kind === "inquiry") {
+          goToMessagesTab(n.related_inquiry_id || null);
+        } else if (n?.kind === "trial_signup") {
+          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
+          activate("admin");
+        }
+      }
+    } catch (ex) {
+      alert(ex.message || "Action failed.");
+    }
+  });
+
+  document.getElementById("adminMessagesPreviewList")?.addEventListener("click", async e => {
+    const btn = e.target.closest("[data-preview-inquiry]");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    goToMessagesTab(btn.dataset.previewInquiry);
+  });
+
+  document.getElementById("messagesThreadHeader")?.addEventListener("click", async e => {
+    const statusBtn = e.target.closest("[data-inquiry-status]");
+    const adminDel = e.target.closest("[data-inquiry-delete]");
+    const myDel = e.target.closest("[data-my-inquiry-delete]");
+    try {
+      if (statusBtn) {
+        await supabaseRpc("app_admin_set_inquiry_status", {
+          p_inquiry_id: statusBtn.dataset.inquiryStatus,
+          p_status: statusBtn.dataset.status
+        });
+        await renderMessagesPanel();
+        return;
+      }
+      if (adminDel) {
+        if (!confirm("Permanently delete this conversation? This cannot be undone.")) return;
+        await supabaseRpc("app_admin_delete_inquiry", { p_inquiry_id: adminDel.dataset.inquiryDelete });
+        messagesUiState.selectedId = null;
+        await renderMessagesPanel();
+        await refreshAdminCommsBadges();
+        return;
+      }
+      if (myDel) {
+        if (!confirm("Delete this conversation?")) return;
+        await supabaseRpc("app_delete_my_inquiry", { p_inquiry_id: myDel.dataset.myInquiryDelete });
+        messagesUiState.selectedId = null;
+        await renderMessagesPanel();
+      }
+    } catch (ex) {
+      alert(ex.message || "Action failed.");
+    }
+  });
+}
+
+
 function bindAdminPanelEvents(){
   const refreshBtn = document.getElementById("adminRefreshUsersBtn");
   const createBtn = document.getElementById("adminCreateUserBtn");
@@ -19163,6 +19770,7 @@ async function boot(){
   attachEvents();
   bindLandingAnchorScroll();
   bindAdminPanelEvents();
+  bindMessagingUi();
   applyPageCurrencySelection(PAGE_CURRENCY_DEFAULT);
   loadTaxSettingsPreferenceFromStorage();
   initFloatingCurrencyBackground();
@@ -19223,46 +19831,34 @@ function initInquiryOverlay() {
     }
   });
 
-  // Handle form submission
+  // Handle form submission → admin Messages inbox
   if (inquiryForm) {
     inquiryForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      // Add submitting state
       inquiryForm.classList.add('submitting');
       inquirySuccess.classList.add('hide');
       inquiryError.classList.add('hide');
+      const errText = document.getElementById('inquiryErrorText');
 
-      // Get form data
-      const formData = new FormData(inquiryForm);
-      
       try {
-        const response = await fetch('https://api.web3forms.com/submit', {
-          method: 'POST',
-          body: formData
+        runtimeConfig = getEmbeddedSupabaseConfig();
+        await supabaseRpc("app_public_request_access", {
+          p_name: document.getElementById('inquiryName')?.value || "",
+          p_mobile: document.getElementById('inquiryMobile')?.value || "",
+          p_email: document.getElementById('inquiryEmail')?.value || "",
+          p_message: document.getElementById('inquiryMessage')?.value || ""
         });
-
-        const result = await response.json();
-        
-        if (result.success) {
-          // Show success message
-          inquirySuccess.classList.remove('hide');
-          inquiryForm.reset();
-          
-          // Close overlay after 3 seconds
-          setTimeout(() => {
-            closeInquiryOverlay();
-          }, 3000);
-        } else {
-          // Show error message
-          inquiryError.classList.remove('hide');
-        }
+        inquirySuccess.classList.remove('hide');
+        inquiryForm.reset();
+        setTimeout(() => {
+          closeInquiryOverlay();
+        }, 2800);
       } catch (error) {
         console.error('Inquiry form submission error:', error);
-        // Show error message
+        if (errText) errText.textContent = error.message || "Failed to send inquiry. Please try again.";
         inquiryError.classList.remove('hide');
       } finally {
-        // Remove submitting state
         inquiryForm.classList.remove('submitting');
       }
     });
