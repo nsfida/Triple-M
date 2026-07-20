@@ -2552,6 +2552,43 @@ function applyUserProfileToConfig(user){
   cachedPdfLogo = null;
 }
 
+function normalizeAssignedModules(rawTabs){
+  const set = new Set();
+  (Array.isArray(rawTabs) ? rawTabs : []).forEach(raw => {
+    const t = String(raw || "").trim().toLowerCase();
+    if (!t) return;
+    if (t === "goods" || t === "inventory") set.add("inventory");
+    else if (t === "expense" || t === "expenses" || t === "wallets") set.add("expenses");
+    else if (t === "loan" || t === "loans") set.add("loans");
+    else if (t === "installment" || t === "installments") set.add("installments");
+    else if (t === "note" || t === "notes") set.add("notes");
+    else if (t === "btc" || t === "bitcoin") set.add("bitcoin");
+    else if (t === "report" || t === "reports" || t === "pdf" || t === "pdf_export") set.add("reports");
+    else if (t === "currency" || t === "currency_settings") set.add("currency_settings");
+    else if (t === "setting" || t === "settings") set.add("settings");
+    else if (t === "admin" || t === "admin_panel") set.add("admin_panel");
+    else if (t === "dashboard" || t === "overview") set.add("dashboard");
+    else if (t === "customers" || t === "customer") set.add("customers");
+    else set.add(t);
+  });
+  if (set.has("expenses")) set.add("wallets");
+  if (set.has("inventory")) set.add("customers");
+  if (set.has("reports")) set.add("pdf_export");
+  if (set.has("currency_settings")) set.add("settings");
+  return set;
+}
+
+function getSessionAssignedModules(){
+  const user = state.sessionUser;
+  if (!user) return null;
+  let tabs = user.allowed_tabs;
+  if (!Array.isArray(tabs) || !tabs.length) {
+    tabs = user.settings?.Tabs;
+  }
+  if (!Array.isArray(tabs) || !tabs.length) return null;
+  return normalizeAssignedModules(tabs);
+}
+
 function userHasPermission(moduleName, action = "view"){
   if (isGuestMode()) {
     return !["admin_panel", "pdf_export"].includes(moduleName);
@@ -2560,7 +2597,22 @@ function userHasPermission(moduleName, action = "view"){
   // Trial accounts never get Admin section / access management
   if (moduleName === "admin_panel" && getUserAccessFlags().is_trial) return false;
   if (state.trialLocked) return false;
-  if (state.sessionUser.role === "admin" && !getUserAccessFlags().is_trial) return true;
+  // Only the protected primary admin bypasses tab restrictions
+  if (state.sessionUser.is_protected && state.sessionUser.role === "admin") return true;
+
+  // Prefer explicit Tabs assignment from admin (source of truth for tab visibility)
+  const assigned = getSessionAssignedModules();
+  if (assigned && action === "view") {
+    const gated = new Set([
+      "dashboard","expenses","wallets","inventory","customers","loans",
+      "installments","notes","bitcoin","reports","pdf_export",
+      "currency_settings","settings","admin_panel"
+    ]);
+    if (gated.has(moduleName)) {
+      return assigned.has(moduleName);
+    }
+  }
+
   return state.permissions.some(
     p => p.module === moduleName && p.action === action && p.allowed === true
   );
@@ -18448,7 +18500,18 @@ function permissionMapFromUser(user){
       map[p.module][p.action] = !!p.allowed;
     }
   });
-  if (user?.role === "admin") {
+  // Prefer explicit Tabs list so the edit form matches what admin selected
+  const assigned = normalizeAssignedModules(
+    Array.isArray(user?.allowed_tabs) && user.allowed_tabs.length
+      ? user.allowed_tabs
+      : (user?.settings?.Tabs || [])
+  );
+  if (assigned.size) {
+    APP_PERMISSION_MODULES.forEach(mod => {
+      const on = assigned.has(mod);
+      APP_PERMISSION_ACTIONS.forEach(act => { map[mod][act] = on; });
+    });
+  } else if (user?.is_protected && user?.role === "admin") {
     APP_PERMISSION_MODULES.forEach(mod => {
       APP_PERMISSION_ACTIONS.forEach(act => { map[mod][act] = true; });
     });
@@ -18571,6 +18634,7 @@ async function loadAdminUsers(){
             </div>
             <div class="admin-user-actions">
               <button type="button" class="btn primary tiny" data-admin-action="edit">Edit Access</button>
+              <button type="button" class="btn soft tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
               ${grantBtn}
               ${trialBtn}
               <button type="button" class="btn ghost tiny" data-admin-action="toggle" ${user.is_protected ? "disabled" : ""}>${user.is_active ? "Disable" : "Enable"}</button>
@@ -18644,6 +18708,10 @@ async function handleAdminUserAction(action, user){
       openAdminEditUserModal(user);
       return;
     }
+    if (action === "raw") {
+      openAdminRawDataOverlay(user);
+      return;
+    }
     if (action === "grant_full") {
       if (!confirm(`Grant full Pro access to "${user.username}"? Their workspace will unlock immediately.`)) return;
       await supabaseRpc("app_admin_grant_full_access", { p_user_id: user.id });
@@ -18674,6 +18742,437 @@ async function handleAdminUserAction(action, user){
     }
   } catch (err) {
     alert(err.message || "Action failed.");
+  }
+}
+
+const ADMIN_RAW_SECTIONS = [
+  { id: "all", label: "All" },
+  { id: "expenses", label: "Wallets / Expenses" },
+  { id: "loans", label: "Loans" },
+  { id: "inventory", label: "Inventory" },
+  { id: "installments", label: "Installments" },
+  { id: "bitcoin", label: "Bitcoin" },
+  { id: "notes", label: "Notes" },
+  { id: "system", label: "System" },
+  { id: "other", label: "Other" }
+];
+
+const adminRawState = {
+  user: null,
+  section: "all",
+  search: "",
+  offset: 0,
+  limit: 150,
+  total: 0,
+  items: [],
+  sectionCounts: {},
+  loading: false
+};
+
+function ensureAdminRawModal(){
+  let modal = document.getElementById("adminRawDataModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "adminRawDataModal";
+  modal.className = "modal hide";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-admin-raw-close="1"></div>
+    <div class="modal-dialog admin-raw-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="adminRawTitle">Raw data</h3>
+          <p id="adminRawSubtitle">Inspect and fix this user’s ledger entries without changing other accounts.</p>
+        </div>
+        <button type="button" class="btn ghost" data-admin-raw-close="1" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body admin-raw-body">
+        <div class="admin-raw-toolbar">
+          <div class="admin-raw-filters" id="adminRawSectionFilters"></div>
+          <div class="admin-raw-search-row">
+            <input id="adminRawSearch" class="input" type="search" placeholder="Search name, notes, currency, id…" />
+            <button type="button" class="btn soft" id="adminRawSearchBtn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+            <button type="button" class="btn ghost" id="adminRawRefreshBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+          </div>
+        </div>
+        <div id="adminRawStats" class="admin-raw-stats"></div>
+        <div id="adminRawTableWrap" class="admin-raw-table-wrap">
+          <div class="empty">Select a user to load raw data.</div>
+        </div>
+        <div class="admin-raw-pager">
+          <button type="button" class="btn ghost" id="adminRawPrevBtn">Previous</button>
+          <span id="adminRawPageLabel" class="help"></span>
+          <button type="button" class="btn ghost" id="adminRawNextBtn">Next</button>
+        </div>
+      </div>
+    </div>
+    <div id="adminRawEditSheet" class="admin-raw-edit-sheet hide" aria-hidden="true">
+      <div class="admin-raw-edit-card">
+        <div class="admin-raw-edit-head">
+          <h4>Edit ledger entry</h4>
+          <button type="button" class="btn ghost" id="adminRawEditCloseBtn" aria-label="Close editor">✕</button>
+        </div>
+        <div id="adminRawEditForm" class="admin-raw-edit-form"></div>
+        <div id="adminRawEditError" class="lock-error"></div>
+        <div class="admin-raw-edit-actions">
+          <button type="button" class="btn ghost" id="adminRawEditCancelBtn">Cancel</button>
+          <button type="button" class="btn primary" id="adminRawEditSaveBtn">Save changes</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll("[data-admin-raw-close]").forEach(el => {
+    el.addEventListener("click", () => closeAdminRawDataOverlay());
+  });
+  const runRawSearch = () => {
+    const searchEl = modal.querySelector("#adminRawSearch");
+    adminRawState.search = String(searchEl?.value || "").trim();
+    adminRawState.offset = 0;
+    loadAdminRawData();
+  };
+  modal.querySelector("#adminRawRefreshBtn")?.addEventListener("click", () => {
+    const searchEl = modal.querySelector("#adminRawSearch");
+    adminRawState.search = String(searchEl?.value || "").trim();
+    loadAdminRawData();
+  });
+  modal.querySelector("#adminRawSearchBtn")?.addEventListener("click", runRawSearch);
+  modal.querySelector("#adminRawSearch")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") runRawSearch();
+  });
+  modal.querySelector("#adminRawPrevBtn")?.addEventListener("click", () => {
+    adminRawState.offset = Math.max(0, adminRawState.offset - adminRawState.limit);
+    loadAdminRawData();
+  });
+  modal.querySelector("#adminRawNextBtn")?.addEventListener("click", () => {
+    if (adminRawState.offset + adminRawState.limit >= adminRawState.total) return;
+    adminRawState.offset += adminRawState.limit;
+    loadAdminRawData();
+  });
+  modal.querySelector("#adminRawEditCloseBtn")?.addEventListener("click", closeAdminRawEditSheet);
+  modal.querySelector("#adminRawEditCancelBtn")?.addEventListener("click", closeAdminRawEditSheet);
+  modal.querySelector("#adminRawEditSaveBtn")?.addEventListener("click", saveAdminRawEdit);
+  return modal;
+}
+
+function closeAdminRawDataOverlay(){
+  const modal = document.getElementById("adminRawDataModal");
+  if (!modal) return;
+  closeAdminRawEditSheet();
+  modal.classList.add("hide");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function openAdminRawDataOverlay(user){
+  if (!userHasPermission("admin_panel", "view")) {
+    alert("Administrator access required.");
+    return;
+  }
+  const modal = ensureAdminRawModal();
+  adminRawState.user = user;
+  adminRawState.section = "all";
+  adminRawState.search = "";
+  adminRawState.offset = 0;
+  const title = modal.querySelector("#adminRawTitle");
+  const subtitle = modal.querySelector("#adminRawSubtitle");
+  const search = modal.querySelector("#adminRawSearch");
+  if (title) title.textContent = `Raw data · ${user.display_name || user.username}`;
+  if (subtitle) {
+    subtitle.textContent = `@${user.username} — wallets, loans, inventory, installments, bitcoin, notes, and system rows. Edits apply only to this account.`;
+  }
+  if (search) search.value = "";
+  renderAdminRawSectionFilters();
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  loadAdminRawData();
+}
+
+function renderAdminRawSectionFilters(){
+  const wrap = document.getElementById("adminRawSectionFilters");
+  if (!wrap) return;
+  wrap.innerHTML = ADMIN_RAW_SECTIONS.map(sec => {
+    const count = sec.id === "all"
+      ? adminRawState.total
+      : Number(adminRawState.sectionCounts?.[sec.id] || 0);
+    const active = adminRawState.section === sec.id ? "active" : "";
+    const countLabel = sec.id === "all" && !adminRawState.items.length && !adminRawState.total
+      ? ""
+      : ` (${sec.id === "all" ? (adminRawState.total || 0) : count})`;
+    return `<button type="button" class="admin-raw-chip ${active}" data-raw-section="${escapeHtml(sec.id)}">${escapeHtml(sec.label)}${escapeHtml(countLabel)}</button>`;
+  }).join("");
+  wrap.querySelectorAll("[data-raw-section]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      adminRawState.section = btn.dataset.rawSection || "all";
+      adminRawState.offset = 0;
+      renderAdminRawSectionFilters();
+      loadAdminRawData();
+    });
+  });
+}
+
+async function loadAdminRawData(){
+  const wrap = document.getElementById("adminRawTableWrap");
+  const stats = document.getElementById("adminRawStats");
+  const pageLabel = document.getElementById("adminRawPageLabel");
+  const prevBtn = document.getElementById("adminRawPrevBtn");
+  const nextBtn = document.getElementById("adminRawNextBtn");
+  if (!wrap || !adminRawState.user?.id) return;
+  if (adminRawState.loading) return;
+  adminRawState.loading = true;
+  wrap.innerHTML = `<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading raw entries…</div>`;
+  try {
+    const searchEl = document.getElementById("adminRawSearch");
+    if (searchEl) adminRawState.search = searchEl.value.trim();
+    const result = await supabaseRpc("app_admin_list_user_ledger", {
+      p_user_id: adminRawState.user.id,
+      p_section: adminRawState.section === "all" ? null : adminRawState.section,
+      p_search: adminRawState.search || null,
+      p_limit: adminRawState.limit,
+      p_offset: adminRawState.offset
+    });
+    adminRawState.items = Array.isArray(result?.items) ? result.items : [];
+    adminRawState.total = Number(result?.total || 0);
+    adminRawState.sectionCounts = result?.section_counts && typeof result.section_counts === "object"
+      ? result.section_counts
+      : {};
+    renderAdminRawSectionFilters();
+    if (stats) {
+      const parts = Object.entries(adminRawState.sectionCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `${k}: ${v}`);
+      stats.textContent = parts.length
+        ? `Totals — ${parts.join(" · ")}`
+        : "No ledger rows for this user yet.";
+    }
+    renderAdminRawTable(wrap, adminRawState.items);
+    const from = adminRawState.total ? adminRawState.offset + 1 : 0;
+    const to = Math.min(adminRawState.offset + adminRawState.limit, adminRawState.total);
+    if (pageLabel) pageLabel.textContent = `${from}–${to} of ${adminRawState.total}`;
+    if (prevBtn) prevBtn.disabled = adminRawState.offset <= 0;
+    if (nextBtn) nextBtn.disabled = adminRawState.offset + adminRawState.limit >= adminRawState.total;
+  } catch (err) {
+    wrap.innerHTML = `<div class="empty">${escapeHtml(err.message || "Could not load raw data")}</div>`;
+  } finally {
+    adminRawState.loading = false;
+  }
+}
+
+function renderAdminRawTable(wrap, items){
+  if (!items.length) {
+    wrap.innerHTML = `<div class="empty">No entries match this filter.</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="admin-raw-table">
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th>Kind</th>
+          <th>Name</th>
+          <th>Currency</th>
+          <th>Amount</th>
+          <th>Dates</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(row => {
+          const amount = row.entry_kind === "principal"
+            ? row.principal_amount
+            : row.action_amount;
+          const dates = row.entry_kind === "principal"
+            ? (row.loan_date || "—")
+            : `${row.loan_date || "—"} / ${row.action_date || "—"}`;
+          const notes = String(row.notes || "");
+          const notesShort = notes.length > 90 ? `${notes.slice(0, 90)}…` : notes;
+          return `
+            <tr class="${row.is_deleted ? "is-deleted" : ""}" data-raw-id="${escapeHtml(row.id)}">
+              <td><span class="admin-raw-section-pill">${escapeHtml(row.section || "other")}</span></td>
+              <td>${escapeHtml(row.direction)} · ${escapeHtml(row.entry_kind)}</td>
+              <td title="${escapeHtml(row.person_name || "")}">${escapeHtml(row.person_name || "—")}</td>
+              <td>${escapeHtml(row.currency || "—")}</td>
+              <td class="mono">${escapeHtml(amount == null ? "—" : String(amount))}</td>
+              <td class="mono">${escapeHtml(dates)}</td>
+              <td class="admin-raw-notes" title="${escapeHtml(notes)}">${escapeHtml(notesShort || "—")}</td>
+              <td class="admin-raw-row-actions">
+                <button type="button" class="btn ghost tiny" data-raw-edit="${escapeHtml(row.id)}">Edit</button>
+                <button type="button" class="btn ghost tiny danger-text" data-raw-soft-delete="${escapeHtml(row.id)}">Delete</button>
+                <button type="button" class="btn ghost tiny danger-text" data-raw-hard-delete="${escapeHtml(row.id)}" title="Permanently remove">Hard</button>
+              </td>
+            </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+
+  wrap.querySelectorAll("[data-raw-edit]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const row = adminRawState.items.find(r => r.id === btn.dataset.rawEdit);
+      if (row) openAdminRawEditSheet(row);
+    });
+  });
+  wrap.querySelectorAll("[data-raw-soft-delete]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Mark this entry as deleted ([DELETED])? It can still be edited later.")) return;
+      try {
+        await supabaseRpc("app_admin_delete_ledger_entry", {
+          p_entry_id: btn.dataset.rawSoftDelete,
+          p_hard_delete: false
+        });
+        await loadAdminRawData();
+      } catch (err) {
+        alert(err.message || "Delete failed.");
+      }
+    });
+  });
+  wrap.querySelectorAll("[data-raw-hard-delete]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Permanently delete this ledger row from the database? This cannot be undone.")) return;
+      try {
+        await supabaseRpc("app_admin_delete_ledger_entry", {
+          p_entry_id: btn.dataset.rawHardDelete,
+          p_hard_delete: true
+        });
+        await loadAdminRawData();
+      } catch (err) {
+        alert(err.message || "Hard delete failed.");
+      }
+    });
+  });
+}
+
+function closeAdminRawEditSheet(){
+  const sheet = document.getElementById("adminRawEditSheet");
+  if (!sheet) return;
+  sheet.classList.add("hide");
+  sheet.setAttribute("aria-hidden", "true");
+  sheet.dataset.entryId = "";
+}
+
+function openAdminRawEditSheet(row){
+  const sheet = document.getElementById("adminRawEditSheet");
+  const form = document.getElementById("adminRawEditForm");
+  const err = document.getElementById("adminRawEditError");
+  if (!sheet || !form) return;
+  if (err) {
+    err.textContent = "";
+    err.classList.remove("show");
+  }
+  sheet.dataset.entryId = row.id;
+  const isPrincipal = row.entry_kind === "principal";
+  form.innerHTML = `
+    <p class="help mono">ID ${escapeHtml(row.id)} · Group ${escapeHtml(row.group_id)} · Section ${escapeHtml(row.section || "")}</p>
+    <div class="admin-raw-edit-grid">
+      <div class="form-group">
+        <label class="form-label">Direction</label>
+        <select id="rawEditDirection" class="input">
+          ${["given", "taken", "goods"].map(v => `<option value="${v}" ${row.direction === v ? "selected" : ""}>${v}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Entry kind</label>
+        <select id="rawEditKind" class="input">
+          ${["principal", "partial", "full"].map(v => `<option value="${v}" ${row.entry_kind === v ? "selected" : ""}>${v}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Person / wallet / item name</label>
+        <input id="rawEditPerson" class="input" value="${escapeHtml(row.person_name || "")}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Currency</label>
+        <select id="rawEditCurrency" class="input">
+          ${SUPPORTED_CURRENCIES.map(v => `<option value="${v}" ${row.currency === v ? "selected" : ""}>${v}</option>`).join("")}
+          ${row.currency && !SUPPORTED_CURRENCIES.includes(row.currency)
+            ? `<option value="${escapeHtml(row.currency)}" selected>${escapeHtml(row.currency)}</option>`
+            : ""}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Group ID</label>
+        <input id="rawEditGroupId" class="input mono" value="${escapeHtml(row.group_id || "")}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Loan / open date</label>
+        <input id="rawEditLoanDate" class="input" type="date" value="${escapeHtml(String(row.loan_date || "").slice(0, 10))}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Principal amount</label>
+        <input id="rawEditPrincipal" class="input" type="number" step="any" value="${isPrincipal && row.principal_amount != null ? escapeHtml(String(row.principal_amount)) : ""}" ${isPrincipal ? "" : "disabled"} />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Action amount</label>
+        <input id="rawEditAction" class="input" type="number" step="any" value="${!isPrincipal && row.action_amount != null ? escapeHtml(String(row.action_amount)) : ""}" ${isPrincipal ? "disabled" : ""} />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Action date</label>
+        <input id="rawEditActionDate" class="input" type="date" value="${escapeHtml(String(row.action_date || "").slice(0, 10))}" ${isPrincipal ? "disabled" : ""} />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes / tags</label>
+      <textarea id="rawEditNotes" class="input admin-raw-notes-input" rows="6">${escapeHtml(row.notes || "")}</textarea>
+      <p class="help">Keep tags like [EXPENSE_ACCOUNT], [GOODS], [INSTALLMENT], [DELETED] intact unless you intend to change them.</p>
+    </div>`;
+
+  const kindSelect = form.querySelector("#rawEditKind");
+  const syncKindFields = () => {
+    const principal = kindSelect.value === "principal";
+    form.querySelector("#rawEditPrincipal").disabled = !principal;
+    form.querySelector("#rawEditAction").disabled = principal;
+    form.querySelector("#rawEditActionDate").disabled = principal;
+  };
+  kindSelect?.addEventListener("change", syncKindFields);
+
+  sheet.classList.remove("hide");
+  sheet.setAttribute("aria-hidden", "false");
+}
+
+async function saveAdminRawEdit(){
+  const sheet = document.getElementById("adminRawEditSheet");
+  const err = document.getElementById("adminRawEditError");
+  const entryId = sheet?.dataset.entryId;
+  if (!entryId) return;
+  if (err) {
+    err.textContent = "";
+    err.classList.remove("show");
+  }
+  try {
+    const kind = document.getElementById("rawEditKind")?.value || "principal";
+    const notesVal = document.getElementById("rawEditNotes")?.value ?? "";
+    const groupRaw = String(document.getElementById("rawEditGroupId")?.value || "").trim();
+    const payload = {
+      p_entry_id: entryId,
+      p_direction: document.getElementById("rawEditDirection")?.value || null,
+      p_entry_kind: kind,
+      p_person_name: document.getElementById("rawEditPerson")?.value || null,
+      p_currency: document.getElementById("rawEditCurrency")?.value || null,
+      p_loan_date: document.getElementById("rawEditLoanDate")?.value || null,
+      p_notes: notesVal,
+      p_clear_notes: false
+    };
+    if (groupRaw) payload.p_group_id = groupRaw;
+    if (kind === "principal") {
+      const p = document.getElementById("rawEditPrincipal")?.value;
+      payload.p_principal_amount = p === "" || p == null ? null : Number(p);
+      payload.p_clear_action = true;
+      payload.p_clear_action_date = true;
+    } else {
+      const a = document.getElementById("rawEditAction")?.value;
+      payload.p_action_amount = a === "" || a == null ? null : Number(a);
+      payload.p_action_date = document.getElementById("rawEditActionDate")?.value || null;
+      payload.p_clear_principal = true;
+    }
+    await supabaseRpc("app_admin_update_ledger_entry", payload);
+    closeAdminRawEditSheet();
+    await loadAdminRawData();
+  } catch (ex) {
+    if (err) {
+      err.textContent = ex.message || "Could not save entry.";
+      err.classList.add("show");
+    } else {
+      alert(ex.message || "Could not save entry.");
+    }
   }
 }
 
