@@ -1631,7 +1631,7 @@
                 <p id="messagesPanelSubtitle">Conversations with the administrator.</p>
               </div>
               <div class="tools">
-                <button class="btn soft hide" id="messagesNewBtn" type="button"><i class="fa-solid fa-pen-to-square"></i> New message</button>
+                <button class="btn soft" id="messagesNewBtn" type="button"><i class="fa-solid fa-pen-to-square"></i> New message</button>
                 <button class="btn ghost" id="messagesRefreshBtn" type="button"><i class="fa-solid fa-rotate"></i> Refresh</button>
               </div>
             </div>
@@ -1640,10 +1640,16 @@
           <div id="messagesNewComposer" class="messages-compose hide">
             <div class="messages-compose-card">
               <div class="messages-compose-head">
-                <h4>Start a conversation</h4>
+                <h4 id="messagesNewTitle">Start a conversation</h4>
                 <button type="button" class="btn ghost" id="messagesNewCancelBtn" aria-label="Close composer"><i class="fa-solid fa-times"></i></button>
               </div>
-              <p class="help">Describe your request clearly. The administrator can reply here in Messages.</p>
+              <p class="help" id="messagesNewHelp">Describe your request clearly. The administrator can reply here in Messages.</p>
+              <div class="form-group hide" id="messagesUserPickWrap">
+                <label class="form-label" for="messagesUserSelect">Send to user</label>
+                <select id="messagesUserSelect" class="input select">
+                  <option value="">Select a user…</option>
+                </select>
+              </div>
               <div class="form-group">
                 <label class="form-label" for="inquirySubject">Subject</label>
                 <input id="inquirySubject" class="input" maxlength="160" placeholder="e.g. Request full access / Billing question" />
