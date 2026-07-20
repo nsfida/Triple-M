@@ -2622,6 +2622,7 @@ function applyPermissionGates(){
   const tabModuleMap = {
     expenses: "expenses",
     goods: "inventory",
+    loans: "loans",
     given: "loans",
     received: "loans",
     taken: "loans",
@@ -2677,11 +2678,11 @@ function applyPermissionGates(){
       el.classList.toggle("hide", !canImport);
     });
   updateAdminCommsVisibility();
-  if (isAppAdminSession() && state.unlocked) {
-    refreshAdminCommsBadges().catch(() => {});
-    startAdminCommsPolling();
+  if (messagingLiveEligible()) {
+    if (isAppAdminSession()) refreshAdminCommsBadges().catch(() => {});
+    startMessagingLiveSync();
   } else {
-    stopAdminCommsPolling();
+    stopMessagingLiveSync();
   }
 }
 
@@ -3362,8 +3363,8 @@ function renderOverviewCards(tab = getActiveTabKey()){
         ${overviewOneLine("Taken Principal:", money(s.takenPrincipal, currency))}
         ${overviewOneLine("Taken Open:", money(s.takenOpen, currency))}
         <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
-          <button class="tiny ghost" onclick="window.location.href='#givenPanel'">View Given</button>
-          <button class="tiny ghost" onclick="window.location.href='#takenPanel'">View Taken</button>
+          <button class="tiny ghost" onclick="activate('given')">View Given</button>
+          <button class="tiny ghost" onclick="activate('taken')">View Taken</button>
           <button class="tiny ghost" onclick="downloadCurrencyPDF('${currency}')"><i class="fa-solid fa-download"></i></button>
         </div>
       </div>
@@ -4527,20 +4528,21 @@ async function downloadOutstandingCustomerInvoicePDF(customerName){
   if (contact.phone) doc.text(`Phone: ${contact.phone}`, 132, 54);
   if (contact.address) doc.text(`Address: ${contact.address}`, 132, contact.phone ? 60 : 54, { maxWidth: 58 });
 
+  const summaryTop = pdfContentStartY(doc, 78, 6);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
+  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 78, 182, 30, 2, 2, "S");
+  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "S");
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Invoices: ${invoices.length}`, 18, 86);
-  doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts, { forPdf: true })}`, 18, 94);
-  doc.text(`VAT Amount: ${inventoryCurrencyTotalsText(taxAmounts, { forPdf: true })}`, 110, 86);
-  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts, { forPdf: true })}`, 110, 94);
-  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance, { forPdf: true })}`, 110, 102);
+  doc.text(`Invoices: ${invoices.length}`, 18, summaryTop + 8);
+  doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts, { forPdf: true })}`, 18, summaryTop + 16);
+  doc.text(`VAT Amount: ${inventoryCurrencyTotalsText(taxAmounts, { forPdf: true })}`, 110, summaryTop + 8);
+  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts, { forPdf: true })}`, 110, summaryTop + 16);
+  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance, { forPdf: true })}`, 110, summaryTop + 24);
 
   doc.autoTable({
-    startY: 116,
+    startY: summaryTop + 38,
     head: [["Invoice", "Date", "Notes/Description", "VAT", "Total", "Paid", "Balance"]],
     body: invoices.map(invoice => [
       invoice.invoiceNumber || invoice.receiptNumber,
@@ -4975,20 +4977,21 @@ async function downloadInventoryCustomerStatementPDF(customerName){
   if (record.contact.phone) doc.text(`Phone: ${record.contact.phone}`, 132, 54);
   if (record.contact.address) doc.text(`Address: ${record.contact.address}`, 132, record.contact.phone ? 60 : 54, { maxWidth: 58 });
 
+  const summaryTop = pdfContentStartY(doc, 78, 6);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 78, 182, 30, 2, 2, "F");
+  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 78, 182, 30, 2, 2, "S");
+  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "S");
   doc.setFontSize(9.2);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Invoices: ${record.invoices.length}`, 18, 86);
-  doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency, { forPdf: true }) || "0"}`, 18, 94);
-  doc.text(`VAT: ${inventoryCurrencyTotalsText(record.taxByCurrency, { forPdf: true }) || "0"}`, 110, 86);
-  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency, { forPdf: true }) || "0"}`, 110, 94);
-  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency, { forPdf: true }) || "0"}`, 110, 102);
+  doc.text(`Invoices: ${record.invoices.length}`, 18, summaryTop + 8);
+  doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency, { forPdf: true }) || "0"}`, 18, summaryTop + 16);
+  doc.text(`VAT: ${inventoryCurrencyTotalsText(record.taxByCurrency, { forPdf: true }) || "0"}`, 110, summaryTop + 8);
+  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency, { forPdf: true }) || "0"}`, 110, summaryTop + 16);
+  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency, { forPdf: true }) || "0"}`, 110, summaryTop + 24);
 
   doc.autoTable({
-    startY: 116,
+    startY: summaryTop + 38,
     head: [["Date", "Type", "Invoice / Receipt", "Notes/Description", "VAT", "Debit", "Credit", "Balance"]],
     body: record.statementRows.map(row => [
       displayDate(row.date || "-"),
@@ -6036,19 +6039,20 @@ async function downloadGoodsItemPDF(groupId){
   doc.text(`Purchase Date: ${displayDate(group.principal?.loan_date || "—")}`, 132, 66);
   doc.text(`Net ${group.profitLoss >= 0 ? "Profit" : "Loss"}: ${fmt(Math.abs(group.profitLoss))}`, 132, 72);
 
+  const summaryTop = pdfContentStartY(doc, 78, 6);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 78, 182, 28, 2, 2, "F");
+  doc.roundedRect(14, summaryTop, 182, 28, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 78, 182, 28, 2, 2, "S");
+  doc.roundedRect(14, summaryTop, 182, 28, 2, 2, "S");
   doc.setFontSize(9);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Purchase Total: ${fmt(group.bought || 0)}`, 18, 86);
-  doc.text(`Sales Total: ${fmt(group.soldTotal || 0)}`, 18, 93);
-  doc.text(`Paid Total: ${fmt(group.paidTotal || 0)}`, 105, 86);
-  doc.text(`Balance Amount: ${fmt(group.balanceTotal || 0)}`, 105, 93);
-  doc.text(`Purchase Qty: ${inventoryQtyLabel(group.boughtQty, group.itemCategory)}`, 18, 100);
-  doc.text(`Sold Qty: ${inventoryQtyLabel(group.soldQty, group.itemCategory)}`, 105, 100);
-  doc.text(`VAT: ${fmt((group.purchaseTaxTotal || 0) + (group.salesTaxTotal || 0))}`, 150, 100);
+  doc.text(`Purchase Total: ${fmt(group.bought || 0)}`, 18, summaryTop + 8);
+  doc.text(`Sales Total: ${fmt(group.soldTotal || 0)}`, 18, summaryTop + 15);
+  doc.text(`Paid Total: ${fmt(group.paidTotal || 0)}`, 105, summaryTop + 8);
+  doc.text(`Balance Amount: ${fmt(group.balanceTotal || 0)}`, 105, summaryTop + 15);
+  doc.text(`Purchase Qty: ${inventoryQtyLabel(group.boughtQty, group.itemCategory)}`, 18, summaryTop + 22);
+  doc.text(`Sold Qty: ${inventoryQtyLabel(group.soldQty, group.itemCategory)}`, 105, summaryTop + 22);
+  doc.text(`VAT: ${fmt((group.purchaseTaxTotal || 0) + (group.salesTaxTotal || 0))}`, 150, summaryTop + 22);
 
   const principalTax = taxBreakdownFromMeta(goodsMetaFromNotes(group.principal?.notes), group.principal?.principal_amount || 0);
   const rows = [
@@ -6115,7 +6119,7 @@ async function downloadGoodsItemPDF(groupId){
     })
   ].sort((a, b) => dateStamp(a.date) - dateStamp(b.date));
   doc.autoTable({
-    startY: 114,
+    startY: summaryTop + 36,
     head: [["Type", "Date", "Notes/Description", "Qty", "Status", "Net", "VAT", "Paid", "Balance", "Total"]],
     body: rows.map(row => [row.type, displayDate(row.date || "-"), row.note, row.qty, row.status, row.net || "-", row.vat || "-", row.paid, row.balance, row.amount]),
     theme: "grid",
@@ -6361,13 +6365,14 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Date: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "—")}`, 132, 54);
   doc.text(`Lines: ${receiptRows.length}`, 132, 60);
   doc.text(`Status: ${receiptData.balanceTotal > 0.00000001 ? "Partial Paid" : "Full Paid"}`, 132, 66);
+  const billBoxTop = pdfContentStartY(doc, 78, 6);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 78, 182, 44, 2, 2, "F");
+  doc.roundedRect(14, billBoxTop, 182, 44, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 78, 182, 44, 2, 2, "S");
+  doc.roundedRect(14, billBoxTop, 182, 44, 2, 2, "S");
   doc.setFontSize(9.2);
   doc.setTextColor(51, 65, 85);
-  let billY = 86;
+  let billY = billBoxTop + 8;
   doc.text(`Bill To: ${customerName}`, 18, billY);
   billY += 6;
   if (customerPhone) {
@@ -6379,16 +6384,16 @@ async function downloadInventoryReceiptPDF(entryId){
     doc.text(addressLines, 18, billY);
     billY += addressLines.length * 6;
   }
-  doc.text(`Invoice No: ${invoiceNumber}`, 18, Math.min(billY, 116));
-  doc.text(`Net Amount: ${netAmountText}`, 110, 86);
-  doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, 92);
-  doc.text(`VAT Amount: ${taxAmountText}`, 110, 100);
-  doc.text(`Total Amount: ${totalAmountText}`, 110, 106);
-  doc.text(`Paid: ${paidAmountText}`, 110, 112);
-  doc.text(`Balance: ${balanceAmountText}`, 110, 118);
+  doc.text(`Invoice No: ${invoiceNumber}`, 18, Math.min(billY, billBoxTop + 38));
+  doc.text(`Net Amount: ${netAmountText}`, 110, billBoxTop + 8);
+  doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, billBoxTop + 14);
+  doc.text(`VAT Amount: ${taxAmountText}`, 110, billBoxTop + 22);
+  doc.text(`Total Amount: ${totalAmountText}`, 110, billBoxTop + 28);
+  doc.text(`Paid: ${paidAmountText}`, 110, billBoxTop + 34);
+  doc.text(`Balance: ${balanceAmountText}`, 110, billBoxTop + 40);
 
   doc.autoTable({
-    startY: 130,
+    startY: billBoxTop + 52,
     head: [["#", "Item Name", "Quantity", "Net", "VAT", "Total"]],
     body: receiptRows.map(row => [
       String(row.sr),
@@ -8767,10 +8772,21 @@ function renderAll(){
 
 }
 
+function syncLoanModeSwitch(tab){
+  const mode = (tab === "taken" || tab === "returned") ? "taken" : "given";
+  document.querySelectorAll(".loan-mode-btn").forEach(btn => {
+    const isActive = btn.dataset.loanMode === mode;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+}
+
 function activate(tab){
   if (!tab) return;
-  // Prevent access to tabs when not logged in (except when showing standalone about)
-  if (!state.unlocked && window.location.hash !== "#about") {
+  // Loans tab opens the Given / Received Back surface by default
+  if (tab === "loans") tab = "given";
+  // Prevent access to app tabs when not logged in
+  if (!state.unlocked) {
     return;
   }
   const tabModuleMap = {
@@ -8796,11 +8812,12 @@ function activate(tab){
   if (!targetPanel) return;
 
   document.querySelectorAll(".tab").forEach(b => {
-    const isLoanDropdownTab = b.id === "loansTabBtn" && ["given", "received", "taken", "returned"].includes(tab);
-    b.classList.toggle("active", b.dataset.tab === tab || isLoanDropdownTab);
+    const isLoanTab = b.id === "loansTabBtn" && ["given", "received", "taken", "returned"].includes(tab);
+    b.classList.toggle("active", b.dataset.tab === tab || isLoanTab);
   });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   targetPanel.classList.add("active");
+  syncLoanModeSwitch(tab);
   const mainOverview = document.getElementById("mainOverview");
   const walletsOverview = document.getElementById("walletsOverviewSection");
   const loanOverviewTabs = new Set(["given", "received", "taken", "returned", "installments"]);
@@ -10517,14 +10534,31 @@ function isPdfMoneyLike(value){
   return /(^|[\s(:+-])(?:~|\$|Rs\.|₿)\s*[-+]?\d|[-+]?\d[\d,]*(?:\.\d+)?\s*(?:~|\$|Rs\.|₿)/.test(text);
 }
 
+function pdfOwnerBlockBottom(doc){
+  return Number(doc?.__tripleMOwnerBlockBottom || 0);
+}
+
+/** First content / table Y below company details (or preferredY if already clear). */
+function pdfContentStartY(doc, preferredY = 72, gap = 8){
+  const preferred = Number(preferredY);
+  const safePreferred = Number.isFinite(preferred) ? preferred : 72;
+  const bottom = pdfOwnerBlockBottom(doc);
+  if (!(bottom > 0)) return safePreferred;
+  return Math.max(safePreferred, bottom + gap);
+}
+
 function installProfessionalPdfTableDefaults(doc){
   if (!doc?.autoTable || doc.__tripleMAutoTableInstalled) return;
   const originalAutoTable = doc.autoTable.bind(doc);
   doc.autoTable = function tripleMAutoTable(options = {}){
     const userWillDrawPage = options.willDrawPage;
     const userDidParseCell = options.didParseCell;
+    const startY = options.startY == null
+      ? options.startY
+      : pdfContentStartY(doc, options.startY, 8);
     const nextOptions = {
       ...options,
+      ...(startY != null ? { startY } : {}),
       theme: options.theme || "grid",
       showHead: options.showHead || "everyPage",
       rowPageBreak: options.rowPageBreak || "avoid",
@@ -10666,27 +10700,46 @@ function drawPdfOwnerBlock(doc, y = 48){
   if (contact.trn) lines.push(`TRN: ${contact.trn}`);
   if (contact.address) lines.push(contact.address);
 
-  const boxHeight = Math.max(24, 14 + lines.length * 4.4);
+  // Measure wrapped owner + detail lines so tall company addresses don't clip or collide with tables
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.2);
+  const ownerWrapped = doc.splitTextToSize(String(owner || ""), 82);
+  const ownerLineHeight = 4.2;
+  const ownerBlockHeight = Math.max(ownerLineHeight, ownerWrapped.length * ownerLineHeight);
+  const detailsStartY = y + 7 + ownerBlockHeight + 1.2;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.2);
+  const wrappedDetails = lines.map(line => doc.splitTextToSize(String(line || ""), 82));
+  let detailsHeight = 0;
+  wrappedDetails.forEach(wrapped => {
+    detailsHeight += Math.max(4.2, wrapped.length * 3.6);
+  });
+
+  const boxTop = y - 5;
+  const contentBottom = detailsStartY + detailsHeight;
+  const boxHeight = Math.max(24, contentBottom - boxTop + 3);
+
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(14, y - 5, 92, boxHeight, 2, 2, "FD");
+  doc.roundedRect(14, boxTop, 92, boxHeight, 2, 2, "FD");
   doc.setTextColor(100, 116, 139);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.2);
   doc.text(contact.isCompany ? "COMPANY" : "PREPARED BY", 18, y + 1);
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(9.2);
-  doc.text(String(owner || ""), 18, y + 7, { maxWidth: 82 });
+  doc.text(ownerWrapped, 18, y + 7);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
-  let lineY = y + 12;
-  lines.forEach(line => {
-    const wrapped = doc.splitTextToSize(String(line || ""), 82);
+  let lineY = detailsStartY;
+  wrappedDetails.forEach(wrapped => {
     doc.text(wrapped, 18, lineY);
     lineY += Math.max(4.2, wrapped.length * 3.6);
   });
-  doc.__tripleMOwnerBlockBottom = y - 5 + boxHeight;
+  doc.__tripleMOwnerBlockBottom = boxTop + boxHeight;
+  return doc.__tripleMOwnerBlockBottom;
 }
 
 function drawPdfFooter(doc){
@@ -10745,6 +10798,9 @@ function drawPdfHeaderAndFooter(doc, logoData, title, subtitle, showOwnerBlock =
   drawPdfHeader(doc, logoData, title, subtitle);
   if (showOwnerBlock) {
     drawPdfOwnerBlock(doc, 48);
+  } else {
+    // Continuation pages: header only — clear owner bottom so tables aren't pushed down
+    doc.__tripleMOwnerBlockBottom = 38;
   }
   drawPdfFooter(doc);
 }
@@ -11190,18 +11246,19 @@ async function downloadGoodsPDF(){
     .join("   ");
 
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 72, 182, 24, 2, 2, "F");
+  const summaryTop = pdfContentStartY(doc, 72, 6);
+  doc.roundedRect(14, summaryTop, 182, 24, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 72, 182, 24, 2, 2, "S");
+  doc.roundedRect(14, summaryTop, 182, 24, 2, 2, "S");
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(9.5);
-  doc.text(`Total Items: ${goodsAll.length}`, 18, 80);
-  doc.text(`Purchase Qty: ${inventoryQtySummary(goodsAll, "boughtQty")}`, 18, 87);
-  doc.text(`Sold Qty: ${inventoryQtySummary(goodsAll, "soldQty")}`, 105, 80);
-  doc.text(`In Stock: ${inventoryQtySummary(goodsAll, "remainingQty")}`, 105, 87);
+  doc.text(`Total Items: ${goodsAll.length}`, 18, summaryTop + 8);
+  doc.text(`Purchase Qty: ${inventoryQtySummary(goodsAll, "boughtQty")}`, 18, summaryTop + 15);
+  doc.text(`Sold Qty: ${inventoryQtySummary(goodsAll, "soldQty")}`, 105, summaryTop + 8);
+  doc.text(`In Stock: ${inventoryQtySummary(goodsAll, "remainingQty")}`, 105, summaryTop + 15);
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105);
-  doc.text(doc.splitTextToSize(totalsText || "No totals", 174), 18, 94);
+  doc.text(doc.splitTextToSize(totalsText || "No totals", 174), 18, summaryTop + 22);
 
   const goodsRows = goodsAll.map(group => [
     group.itemCode || shortId(group.group_id) || "-",
@@ -11217,7 +11274,7 @@ async function downloadGoodsPDF(){
   ]);
 
   doc.autoTable({
-    startY: 104,
+    startY: summaryTop + 32,
     head: [["Item Code", "Item", "Category", "Purchase Qty", "Sold Qty", "In Stock", "Purchase Total", "Sales Total", "VAT", "P/L"]],
     body: goodsRows,
     theme: "grid",
@@ -11322,21 +11379,22 @@ async function downloadExpenseTransactionsHistoryPDF(){
     currencyCounts.set(cur, (currencyCounts.get(cur) || 0) + 1);
   }
 
+  const summaryTop = pdfContentStartY(doc, 74, 6);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 74, pageWidth - 28, 24, 2, 2, "F");
+  doc.roundedRect(14, summaryTop, pageWidth - 28, 24, 2, 2, "F");
   doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(14, 74, pageWidth - 28, 24, 2, 2, "S");
+  doc.roundedRect(14, summaryTop, pageWidth - 28, 24, 2, 2, "S");
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("Report Summary", 20, 83);
+  doc.text("Report Summary", 20, summaryTop + 9);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Date selection: ${rangeLabel}`, 20, 90);
-  doc.text(`Transactions: ${rows.length}`, 132, 83);
-  doc.text(`Expense items: ${items.length}`, 132, 90);
-  doc.text(`Wallets: ${walletCount}`, 132, 96);
+  doc.text(`Date selection: ${rangeLabel}`, 20, summaryTop + 16);
+  doc.text(`Transactions: ${rows.length}`, 132, summaryTop + 9);
+  doc.text(`Expense items: ${items.length}`, 132, summaryTop + 16);
+  doc.text(`Wallets: ${walletCount}`, 132, summaryTop + 22);
 
   const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(cur => [
     pdfCurrencyLabel(cur),
@@ -11346,7 +11404,7 @@ async function downloadExpenseTransactionsHistoryPDF(){
   ]);
 
   doc.autoTable({
-    startY: 106,
+    startY: summaryTop + 32,
     head: [["Currency", "Transactions", "VAT", "Total Spent"]],
     body: totalsBody,
     theme: "grid",
@@ -11447,14 +11505,14 @@ async function downloadAllTopupsPDF(currencyFilter = null){
   );
   drawPdfOwnerBlock(doc, 52);
 
-  let tableStartY = 76;
+  let tableStartY = pdfContentStartY(doc, 76, 8);
   if (currencyFilter){
     const sum = filtered.reduce((s, t) => s + Number(t.action_amount || 0), 0);
     doc.setFontSize(10);
     doc.setTextColor(23, 33, 43);
     doc.text(`Transactions: ${filtered.length}`, 120, 58);
     doc.text(`Total: ${formatPdfAmount(sum, currencyFilter)}`, 120, 64);
-    tableStartY = 72;
+    tableStartY = pdfContentStartY(doc, 72, 8);
   }else{
     const totals = {};
     for (const t of filtered){
@@ -11470,7 +11528,7 @@ async function downloadAllTopupsPDF(currencyFilter = null){
       doc.text(`Total (${pdfCurrencyLabel(c)}): ${formatPdfAmount(totals[c], c)}`, 120, y);
       y += 6;
     });
-    tableStartY = y + 8;
+    tableStartY = pdfContentStartY(doc, y + 8, 8);
   }
 
   const bodyRows = filtered.map(tx => {
@@ -11587,7 +11645,7 @@ async function downloadAllTransfersPDF(currencyFilter = null){
   });
 
   doc.autoTable({
-    startY: ySummary + 6,
+    startY: pdfContentStartY(doc, ySummary + 6, 8),
     head: currencyFilter
       ? [["Date", "Type", "Wallet", "With", "Notes/Description", "Rate", "Converted leg", "Amount"]]
       : [["Currency", "Date", "Type", "Wallet", "With", "Notes/Description", "Rate", "Converted leg", "Amount"]],
@@ -12408,6 +12466,13 @@ function attachEvents(){
   document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", () => {
     if (btn.dataset.tab) activate(btn.dataset.tab);
   }));
+  document.querySelectorAll("[data-loan-mode]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      const mode = btn.dataset.loanMode;
+      if (mode === "given" || mode === "taken") activate(mode);
+    });
+  });
   document.querySelectorAll("[data-loan-tab]").forEach(btn => {
     btn.addEventListener("click", e => {
       e.preventDefault();
@@ -12914,18 +12979,25 @@ function focusUnlockForm(){
 }
 
 function showStandaloneAbout() {
+  // Prefer the sign-in-first content overlay when available
+  if (document.getElementById("landingContentOverlay") && els.lockScreen && !els.lockScreen.classList.contains("hide")) {
+    openLandingContentOverlay("about");
+    return;
+  }
   if (els.lockScreen) els.lockScreen.classList.add("hide");
   if (els.standaloneAboutSection) els.standaloneAboutSection.classList.remove("hide");
-  // Hide tabs when showing standalone about
   const tabsSection = document.querySelector(".tabs");
   if (tabsSection) tabsSection.classList.add("hidden-tabs");
   window.location.hash = "#about";
 }
 
 function hideStandaloneAbout() {
+  if (isLandingContentOverlayOpen()) {
+    closeLandingContentOverlay({ clearHash: true });
+    return;
+  }
   if (els.standaloneAboutSection) els.standaloneAboutSection.classList.add("hide");
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
-  // Show tabs when returning to login (but they won't work without login)
   const tabsSection = document.querySelector(".tabs");
   if (tabsSection) tabsSection.classList.remove("hidden-tabs");
   if (window.location.hash === "#about") {
@@ -12935,18 +13007,24 @@ function hideStandaloneAbout() {
 }
 
 function showStandalonePricing() {
+  if (document.getElementById("landingContentOverlay") && els.lockScreen && !els.lockScreen.classList.contains("hide")) {
+    openLandingContentOverlay("pricing");
+    return;
+  }
   if (els.lockScreen) els.lockScreen.classList.add("hide");
   if (els.standalonePricingSection) els.standalonePricingSection.classList.remove("hide");
-  // Hide tabs when showing standalone pricing
   const tabsSection = document.querySelector(".tabs");
   if (tabsSection) tabsSection.classList.add("hidden-tabs");
   window.location.hash = "#pricing";
 }
 
 function hideStandalonePricing() {
+  if (isLandingContentOverlayOpen()) {
+    closeLandingContentOverlay({ clearHash: true });
+    return;
+  }
   if (els.standalonePricingSection) els.standalonePricingSection.classList.add("hide");
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
-  // Show tabs when returning to login (but they won't work without login)
   const tabsSection = document.querySelector(".tabs");
   if (tabsSection) tabsSection.classList.remove("hidden-tabs");
   if (window.location.hash === "#pricing") {
@@ -12955,28 +13033,297 @@ function hideStandalonePricing() {
   focusUnlockForm();
 }
 
-// Handle URL hash for direct About section access
+// Handle URL hash for landing content tabs / login focus
 function handleUrlHash() {
   if (!window.location.hash || state.unlocked) return;
-  const target = els.lockScreen?.querySelector(window.location.hash);
-  if (target) {
-    setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  const raw = String(window.location.hash || "").replace(/^#/, "").toLowerCase();
+  if (!raw || raw === "top" || raw === "login") {
+    closeLandingContentOverlay({ clearHash: raw === "top" || raw === "login" });
+    if (raw === "login") focusUnlockForm();
+    return;
+  }
+  const section = resolveLandingSection(raw);
+  if (section) {
+    openLandingContentOverlay(section, { fromHash: true });
+    return;
+  }
+  if (raw === "contact" || raw === "request-access" || raw === "inquiry") {
+    document.getElementById("sendInquiryBtn")?.click();
+  }
+}
+
+const LANDING_SECTION_META = {
+  about: { title: "About", kicker: "Brand", hash: "about" },
+  features: { title: "Features", kicker: "Product", hash: "features" },
+  services: { title: "Services", kicker: "Included", hash: "services" },
+  pricing: { title: "Pricing", kicker: "Plans", hash: "pricing" },
+  faq: { title: "FAQs", kicker: "Help", hash: "faq" },
+  policies: { title: "Policy", kicker: "Terms", hash: "policies" }
+};
+
+const LANDING_SECTION_ALIASES = {
+  about: "about",
+  overview: "about",
+  story: "about",
+  features: "features",
+  security: "features",
+  protection: "features",
+  services: "services",
+  pricing: "pricing",
+  faq: "faq",
+  faqs: "faq",
+  policies: "policies",
+  policy: "policies",
+  terms: "policies",
+  privacy: "policies"
+};
+
+function resolveLandingSection(value){
+  const key = String(value || "").replace(/^#/, "").trim().toLowerCase();
+  return LANDING_SECTION_ALIASES[key] || null;
+}
+
+function isLandingContentOverlayOpen(){
+  const overlay = document.getElementById("landingContentOverlay");
+  return !!(overlay && !overlay.classList.contains("hide"));
+}
+
+function isHigherLandingModalOpen(){
+  const inquiry = document.getElementById("inquiryOverlay");
+  const ios = document.getElementById("iosDownloadOverlay");
+  const android = document.getElementById("androidDownloadOverlay");
+  const trial = document.getElementById("trialSignupModal");
+  return !!(
+    (inquiry && !inquiry.classList.contains("hide")) ||
+    (ios && !ios.classList.contains("hide")) ||
+    (android && !android.classList.contains("hide")) ||
+    (trial && !trial.classList.contains("hide"))
+  );
+}
+
+function setLandingMobileMenuOpen(open){
+  const menu = document.getElementById("landingMobileMenu");
+  const toggle = document.getElementById("landingMenuToggle");
+  if (!menu || !toggle) return;
+  const shouldOpen = !!open;
+  menu.classList.toggle("hide", !shouldOpen);
+  menu.hidden = !shouldOpen;
+  toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  toggle.setAttribute("aria-label", shouldOpen ? "Close menu" : "Open menu");
+  const icon = toggle.querySelector("i");
+  if (icon) {
+    icon.className = shouldOpen ? "fa-solid fa-xmark" : "fa-solid fa-bars";
+  }
+}
+
+function syncLandingNavActive(section){
+  const active = section || "";
+  document.querySelectorAll("[data-landing-section]").forEach(el => {
+    const isActive = el.getAttribute("data-landing-section") === active;
+    el.classList.toggle("is-active", isActive);
+    if (el.getAttribute("role") === "tab") {
+      el.setAttribute("aria-selected", isActive ? "true" : "false");
+    }
+  });
+}
+
+function openLandingContentOverlay(sectionKey, options = {}){
+  const section = resolveLandingSection(sectionKey) || sectionKey;
+  const meta = LANDING_SECTION_META[section];
+  const overlay = document.getElementById("landingContentOverlay");
+  if (!meta || !overlay || state.unlocked) return;
+
+  setLandingMobileMenuOpen(false);
+
+  const titleEl = document.getElementById("landingContentTitle");
+  const kickerEl = document.getElementById("landingContentKicker");
+  if (titleEl) titleEl.textContent = meta.title;
+  if (kickerEl) kickerEl.textContent = meta.kicker;
+
+  overlay.querySelectorAll("[data-landing-panel]").forEach(panel => {
+    const match = panel.getAttribute("data-landing-panel") === section;
+    panel.classList.toggle("hide", !match);
+    panel.hidden = !match;
+  });
+
+  overlay.classList.remove("hide");
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  requestAnimationFrame(() => overlay.classList.add("is-open"));
+
+  if (els.lockScreen) els.lockScreen.classList.add("landing-overlay-open");
+  syncLandingNavActive(section);
+
+  if (!options.fromHash) {
+    history.replaceState(null, "", `#${meta.hash}`);
+  } else if (window.location.hash.replace(/^#/, "").toLowerCase() !== meta.hash) {
+    history.replaceState(null, "", `#${meta.hash}`);
+  }
+
+  const sheet = overlay.querySelector(".landing-content-sheet");
+  const body = overlay.querySelector(".landing-content-body");
+  const activeTab = overlay.querySelector('.landing-content-tab[aria-selected="true"], .landing-content-tab.is-active');
+  const resetOverlayScroll = () => {
+    if (sheet) sheet.scrollTop = 0;
+    if (body) body.scrollTop = 0;
+  };
+  resetOverlayScroll();
+  requestAnimationFrame(() => {
+    resetOverlayScroll();
+    try {
+      activeTab?.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
+    } catch {
+      activeTab?.scrollIntoView({ block: "nearest", inline: "center" });
+    }
+  });
+
+  const closeBtn = document.getElementById("landingContentCloseBtn");
+  try {
+    closeBtn?.focus({ preventScroll: true });
+  } catch {
+    closeBtn?.focus();
+  }
+}
+
+function closeLandingContentOverlay(options = {}){
+  const overlay = document.getElementById("landingContentOverlay");
+  if (!overlay || overlay.classList.contains("hide")) {
+    syncLandingNavActive("");
+    return;
+  }
+
+  overlay.classList.remove("is-open");
+  overlay.setAttribute("aria-hidden", "true");
+  if (els.lockScreen) els.lockScreen.classList.remove("landing-overlay-open");
+  syncLandingNavActive("");
+
+  const finish = () => {
+    overlay.classList.add("hide");
+    overlay.hidden = true;
+    overlay.querySelectorAll("[data-landing-panel]").forEach(panel => {
+      panel.classList.add("hide");
+      panel.hidden = true;
+    });
+  };
+
+  window.setTimeout(finish, 220);
+
+  const hash = String(window.location.hash || "").replace(/^#/, "").toLowerCase();
+  if (options.clearHash !== false && resolveLandingSection(hash)) {
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+
+  if (options.focusLogin !== false) focusUnlockForm();
+}
+
+function bindLandingContentNav(){
+  if (!els.lockScreen) return;
+  const shell = els.lockScreen.querySelector(".landing-shell") || els.lockScreen;
+  if (shell.dataset.landingNavBound === "1") return;
+  shell.dataset.landingNavBound = "1";
+
+  const menuToggle = document.getElementById("landingMenuToggle");
+  const mobileMenu = document.getElementById("landingMobileMenu");
+  const overlay = document.getElementById("landingContentOverlay");
+
+  menuToggle?.addEventListener("click", e => {
+    e.stopPropagation();
+    const open = menuToggle.getAttribute("aria-expanded") !== "true";
+    setLandingMobileMenuOpen(open);
+  });
+
+  document.addEventListener("click", e => {
+    if (!mobileMenu || mobileMenu.classList.contains("hide")) return;
+    if (mobileMenu.contains(e.target) || menuToggle?.contains(e.target)) return;
+    setLandingMobileMenuOpen(false);
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.matchMedia("(min-width: 961px)").matches) {
+      setLandingMobileMenuOpen(false);
+    }
+  });
+
+  shell.addEventListener("click", e => {
+    const inquiryTrigger = e.target.closest("[data-landing-inquiry]");
+    if (inquiryTrigger) {
+      e.preventDefault();
+      setLandingMobileMenuOpen(false);
+      document.getElementById("sendInquiryBtn")?.click();
+      return;
+    }
+
+    const home = e.target.closest("[data-landing-home]");
+    if (home) {
+      e.preventDefault();
+      setLandingMobileMenuOpen(false);
+      closeLandingContentOverlay({ clearHash: true });
+      return;
+    }
+
+    const closer = e.target.closest("[data-landing-close]");
+    if (closer) {
+      e.preventDefault();
+      closeLandingContentOverlay({ clearHash: true });
+      return;
+    }
+
+    const sectionBtn = e.target.closest("[data-landing-section]");
+    if (sectionBtn) {
+      e.preventDefault();
+      const section = sectionBtn.getAttribute("data-landing-section");
+      openLandingContentOverlay(section);
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (isHigherLandingModalOpen()) return;
+    if (mobileMenu && !mobileMenu.classList.contains("hide")) {
+      setLandingMobileMenuOpen(false);
+      return;
+    }
+    if (isLandingContentOverlayOpen()) {
+      e.preventDefault();
+      closeLandingContentOverlay({ clearHash: true });
+    }
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (state.unlocked) return;
+    handleUrlHash();
+  });
+
+  // Keep legacy hash anchors (if any remain) from forcing page scroll
+  shell.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener("click", e => {
+      const hash = anchor.getAttribute("href");
+      if (!hash || hash === "#") return;
+      const section = resolveLandingSection(hash);
+      if (section) {
+        e.preventDefault();
+        openLandingContentOverlay(section);
+        return;
+      }
+      if (hash === "#top" || hash === "#login") {
+        e.preventDefault();
+        closeLandingContentOverlay({ clearHash: true });
+        if (hash === "#login") focusUnlockForm();
+      }
+    });
+  });
+
+  if (overlay) {
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay || e.target.classList?.contains("landing-content-backdrop")) {
+        closeLandingContentOverlay({ clearHash: true });
+      }
+    });
   }
 }
 
 function bindLandingAnchorScroll(){
-  if (!els.lockScreen) return;
-  els.lockScreen.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener("click", e => {
-      const hash = anchor.getAttribute("href");
-      if (!hash || hash === "#") return;
-      const target = els.lockScreen.querySelector(hash);
-      if (!target) return;
-      e.preventDefault();
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      history.replaceState(null, "", hash);
-    });
-  });
+  bindLandingContentNav();
 }
 
 function openTrialSignupModal(){
@@ -13186,7 +13533,11 @@ function doLogout(){
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
   updateGuestModeUi();
   btcClearSession();
-  stopAdminCommsPolling();
+  stopMessagingLiveSync();
+  messagingLiveState.fingerprint = null;
+  messagingLiveState.fallbackFingerprint = null;
+  messagingLiveState.syncRpcAvailable = null;
+  messagingLiveState.lastThreadSig = null;
   updateAdminCommsVisibility();
   focusUnlockForm();
 }
@@ -13265,6 +13616,7 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = true
 
   const displayName = getLoggedInUserDisplayName();
   if (els.welcomeName) els.welcomeName.textContent = displayName;
+  try { closeLandingContentOverlay({ clearHash: true, focusLogin: false }); } catch (_) {}
   if (els.lockScreen) els.lockScreen.classList.add("hide");
   if (els.welcomeScreen) els.welcomeScreen.classList.remove("hide");
 
@@ -16664,17 +17016,17 @@ function btcWalletPrivateKeyHex(wallet){
   return privateKey ? btcBytesToHex(privateKey).toLowerCase() : "";
 }
 
-function btcDrawWatchOnlyWifNotice(pdf){
+function btcDrawWatchOnlyWifNotice(pdf, boxTop = 141.5){
   pdf.setFillColor(255, 255, 255);
   pdf.setDrawColor(36, 87, 214);
   pdf.setLineWidth(0.35);
-  pdf.roundedRect(129, 141.5, 42, 42, 2, 2, "FD");
+  pdf.roundedRect(129, boxTop, 42, 42, 2, 2, "FD");
   pdf.setFont(undefined, "bold");
   pdf.setTextColor(15, 23, 42);
   pdf.setFontSize(7.2);
-  pdf.text("Watch Address", 150, 159, { align: "center" });
+  pdf.text("Watch Address", 150, boxTop + 17.5, { align: "center" });
   pdf.setFontSize(6.8);
-  pdf.text("(NO WIF)", 150, 167, { align: "center" });
+  pdf.text("(NO WIF)", 150, boxTop + 25.5, { align: "center" });
 }
 
 function btcDrawWalletPdfExtraDetails(pdf, wallet){
@@ -16743,18 +17095,19 @@ async function btcDownloadWalletPdf() {
     drawPdfOwnerBlock(pdf, 48);
     
     // Security warning box
+    const warnTop = pdfContentStartY(pdf, 72, 6);
     pdf.setFillColor(255, 248, 235);
     pdf.setDrawColor(239, 68, 68);
     pdf.setLineWidth(0.5);
-    pdf.roundedRect(14, 72, 182, 20, 3, 3);
+    pdf.roundedRect(14, warnTop, 182, 20, 3, 3);
     
     pdf.setFontSize(9);
     pdf.setTextColor(220, 38, 38);
     pdf.setFont(undefined, 'bold');
-    pdf.text('WARNING: SECURITY ALERT', 19, 80);
+    pdf.text('WARNING: SECURITY ALERT', 19, warnTop + 8);
     pdf.setTextColor(139, 69, 19);
     pdf.setFont(undefined, 'normal');
-    pdf.text('Keep this PDF secure. Anyone with access to the WIF can control your Bitcoin.', 19, 87);
+    pdf.text('Keep this PDF secure. Anyone with access to the WIF can control your Bitcoin.', 19, warnTop + 15);
     
     // Set up colors
     const textColor = [0, 0, 0]; // Black text for light background
@@ -16762,34 +17115,35 @@ async function btcDownloadWalletPdf() {
     // Single background image for entire paper wallet
     const paperWalletBackground = await generatePaperWalletBackground();
     // Only add background if it loaded successfully
+    const walletTop = warnTop + 28;
     if (paperWalletBackground) {
-      pdf.addImage(paperWalletBackground, 'PNG', 14, 100, 182, 125);
+      pdf.addImage(paperWalletBackground, 'PNG', 14, walletTop, 182, 125);
     }
     
     // Address QR Code - left side, adjusted position
-    pdf.addImage(addressQrDataUrl, 'PNG', 39, 141.5, 42, 42);
+    pdf.addImage(addressQrDataUrl, 'PNG', 39, walletTop + 41.5, 42, 42);
     
     // Address Text - below address QR code, adjusted position
     pdf.setFontSize(7.2);
     pdf.setTextColor(...textColor);
     pdf.setFont(undefined, 'normal');
-    pdf.text(wallet.address, 43, 199, { maxWidth: 53 });
+    pdf.text(wallet.address, 43, walletTop + 99, { maxWidth: 53 });
     
     if (wallet.isWatchOnly) {
-      btcDrawWatchOnlyWifNotice(pdf);
+      btcDrawWatchOnlyWifNotice(pdf, walletTop + 41.5);
       pdf.setFontSize(6.2);
       pdf.setTextColor(...textColor);
       pdf.setFont(undefined, 'bold');
-      pdf.text("Watch Address (NO WIF)", 150, 199, { align: "center", maxWidth: 65 });
+      pdf.text("Watch Address (NO WIF)", 150, walletTop + 99, { align: "center", maxWidth: 65 });
     } else {
       // WIF QR Code - right side, adjusted position
-      pdf.addImage(wifQrDataUrl, 'PNG', 129, 141.5, 42, 42);
+      pdf.addImage(wifQrDataUrl, 'PNG', 129, walletTop + 41.5, 42, 42);
       
       // WIF Text - below WIF QR code, smaller font to fit on one line
       pdf.setFontSize(4);
       pdf.setTextColor(...textColor);
       pdf.setFont(undefined, 'normal');
-      pdf.text(wallet.inputWif, 140, 199, { maxWidth: 65 });
+      pdf.text(wallet.inputWif, 140, walletTop + 99, { maxWidth: 65 });
     }
 
     btcDrawWalletPdfExtraDetails(pdf, wallet);
@@ -19721,20 +20075,237 @@ const adminCommsState = {
   unreadInquiries: 0
 };
 
+/** Near-realtime messaging sync via RPC polling (Realtime blocked by deny-all RLS + custom sessions). */
+const messagingLiveState = {
+  timer: null,
+  visibilityBound: false,
+  fingerprint: null,
+  fallbackFingerprint: null,
+  refreshInFlight: false,
+  debounceTimer: null,
+  syncRpcAvailable: null, // null unknown, true/false after first probe
+  lastThreadSig: null
+};
+
+const MESSAGING_LIVE_POLL_MS = 8000;
+const MESSAGING_LIVE_POLL_ACTIVE_MS = 5000;
+
 function stopAdminCommsPolling(){
-  if (adminCommsPollTimer) {
-    clearInterval(adminCommsPollTimer);
-    adminCommsPollTimer = null;
-  }
+  stopMessagingLiveSync();
 }
 
 function startAdminCommsPolling(){
-  stopAdminCommsPolling();
-  if (!isAppAdminSession()) return;
-  adminCommsPollTimer = setInterval(() => {
-    if (!isAppAdminSession() || document.hidden) return;
-    refreshAdminCommsBadges().catch(() => {});
-  }, 45000);
+  startMessagingLiveSync();
+}
+
+function stopMessagingLiveSync(){
+  if (messagingLiveState.timer) {
+    clearTimeout(messagingLiveState.timer);
+    messagingLiveState.timer = null;
+  }
+  if (messagingLiveState.debounceTimer) {
+    clearTimeout(messagingLiveState.debounceTimer);
+    messagingLiveState.debounceTimer = null;
+  }
+  messagingLiveState.refreshInFlight = false;
+}
+
+function messagingLiveEligible(){
+  return !!(state.unlocked && !isGuestMode() && state.sessionToken && state.sessionUser);
+}
+
+function messagingLivePollIntervalMs(){
+  return getActiveTabKey() === "messages" ? MESSAGING_LIVE_POLL_ACTIVE_MS : MESSAGING_LIVE_POLL_MS;
+}
+
+function scheduleMessagingLivePoll(delayMs){
+  if (messagingLiveState.timer) {
+    clearTimeout(messagingLiveState.timer);
+    messagingLiveState.timer = null;
+  }
+  if (!messagingLiveEligible()) return;
+  const wait = Math.max(1000, Number(delayMs) || messagingLivePollIntervalMs());
+  messagingLiveState.timer = setTimeout(() => {
+    messagingLiveState.timer = null;
+    runMessagingLivePoll().finally(() => {
+      if (messagingLiveEligible()) scheduleMessagingLivePoll(messagingLivePollIntervalMs());
+    });
+  }, wait);
+}
+
+function startMessagingLiveSync(){
+  stopMessagingLiveSync();
+  if (!messagingLiveEligible()) return;
+  bindMessagingLiveVisibility();
+  // Seed soon after login; first successful poll only stores fingerprint (no UI churn)
+  scheduleMessagingLivePoll(1500);
+}
+
+function bindMessagingLiveVisibility(){
+  if (messagingLiveState.visibilityBound) return;
+  messagingLiveState.visibilityBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (messagingLiveState.timer) {
+        clearTimeout(messagingLiveState.timer);
+        messagingLiveState.timer = null;
+      }
+      return;
+    }
+    if (!messagingLiveEligible()) return;
+    scheduleMessagingLivePoll(400);
+  });
+}
+
+function threadListFingerprint(items){
+  return (Array.isArray(items) ? items : []).map(t => [
+    t.id,
+    t.status,
+    t.last_message_at || "",
+    t.message_count || 0,
+    t.unread_for_admin || 0,
+    t.unread_for_user || 0,
+    t.last_message_preview || ""
+  ].join(":")).join("|");
+}
+
+function selectedThreadSignature(items, selectedId){
+  if (!selectedId) return null;
+  const t = (Array.isArray(items) ? items : []).find(x => x.id === selectedId);
+  if (!t) return `${selectedId}:missing`;
+  return [selectedId, t.last_message_at || "", t.message_count || 0, t.status || ""].join(":");
+}
+
+function isAdminCommsDropdownOpen(key){
+  const panel = document.querySelector(`.menu-dropdown[data-entry-menu-panel="${key}"]`);
+  return !!(panel && panel.classList.contains("open"));
+}
+
+function applyAdminBadgeCounts(notifications, inquiries){
+  adminCommsState.unreadNotifications = Math.max(0, Number(notifications) || 0);
+  adminCommsState.unreadInquiries = Math.max(0, Number(inquiries) || 0);
+  setHeaderBadge(document.getElementById("adminNotifyCount"), adminCommsState.unreadNotifications);
+  setHeaderBadge(document.getElementById("adminMessagesCount"), adminCommsState.unreadInquiries);
+}
+
+function queueMessagingLiveUiRefresh(reason){
+  if (messagingLiveState.debounceTimer) clearTimeout(messagingLiveState.debounceTimer);
+  messagingLiveState.debounceTimer = setTimeout(() => {
+    messagingLiveState.debounceTimer = null;
+    applyMessagingLiveUiRefresh(reason).catch(err => {
+      console.warn("Messaging live refresh failed:", err);
+    });
+  }, 350);
+}
+
+async function applyMessagingLiveUiRefresh(reason){
+  if (messagingLiveState.refreshInFlight) {
+    queueMessagingLiveUiRefresh(reason || "retry");
+    return;
+  }
+  messagingLiveState.refreshInFlight = true;
+  try {
+    if (isAppAdminSession()) {
+      await refreshAdminCommsBadges();
+      if (isAdminCommsDropdownOpen("admin-notify")) {
+        await loadAdminNotificationsDropdown();
+      }
+      if (isAdminCommsDropdownOpen("admin-messages")) {
+        await loadAdminMessagesPreview();
+      }
+    }
+    if (getActiveTabKey() === "messages") {
+      await renderMessagesPanel({ silent: true });
+    }
+  } finally {
+    messagingLiveState.refreshInFlight = false;
+  }
+}
+
+async function fetchMessagingSyncState(){
+  if (messagingLiveState.syncRpcAvailable === false) return null;
+  try {
+    const sync = await supabaseRpc("app_messaging_sync_state", {});
+    messagingLiveState.syncRpcAvailable = true;
+    return sync;
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    // Function missing / schema cache → fall back to existing RPCs
+    if (/messaging_sync_state|Could not find the function|404|PGRST202/i.test(msg)) {
+      messagingLiveState.syncRpcAvailable = false;
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function fetchMessagingFallbackFingerprint(){
+  if (isAppAdminSession()) {
+    const counts = await supabaseRpc("app_admin_unread_counts", {});
+    const n = Number(counts?.notifications || 0);
+    const i = Number(counts?.inquiries || 0);
+    applyAdminBadgeCounts(n, i);
+    let listFp = "";
+    if (getActiveTabKey() === "messages" || isAdminCommsDropdownOpen("admin-messages") || isAdminCommsDropdownOpen("admin-notify")) {
+      const statusRadio = document.querySelector('input[name="inquiryStatusFilter"]:checked');
+      const status = statusRadio?.value === "all" ? null : (statusRadio?.value || null);
+      const result = await supabaseRpc("app_admin_list_inquiries", {
+        p_status: getActiveTabKey() === "messages" ? status : "open",
+        p_limit: getActiveTabKey() === "messages" ? 150 : 12
+      });
+      const items = Array.isArray(result?.items) ? result.items : [];
+      listFp = threadListFingerprint(items);
+    }
+    return `a-fb|${n}|${i}|${listFp}`;
+  }
+
+  if (getActiveTabKey() !== "messages") {
+    // Users have no header badge; skip network when Messages tab is closed
+    return messagingLiveState.fallbackFingerprint || "u-fb|idle";
+  }
+  const result = await supabaseRpc("app_list_my_inquiries", {});
+  const items = Array.isArray(result?.items) ? result.items : [];
+  return `u-fb|${threadListFingerprint(items)}`;
+}
+
+async function runMessagingLivePoll(){
+  if (!messagingLiveEligible() || document.hidden) return;
+  try {
+    const sync = await fetchMessagingSyncState();
+    if (sync && sync.fingerprint) {
+      if (isAppAdminSession() && sync.role === "admin") {
+        applyAdminBadgeCounts(sync.notifications, sync.inquiries);
+      }
+      const prev = messagingLiveState.fingerprint;
+      if (prev === null) {
+        messagingLiveState.fingerprint = sync.fingerprint;
+        return;
+      }
+      if (prev === sync.fingerprint) return;
+      messagingLiveState.fingerprint = sync.fingerprint;
+      queueMessagingLiveUiRefresh("sync");
+      return;
+    }
+
+    // Fallback path when 019 is not applied yet
+    const fb = await fetchMessagingFallbackFingerprint();
+    const prevFb = messagingLiveState.fallbackFingerprint;
+    if (prevFb === null) {
+      messagingLiveState.fallbackFingerprint = fb;
+      return;
+    }
+    if (prevFb === fb) return;
+    messagingLiveState.fallbackFingerprint = fb;
+    queueMessagingLiveUiRefresh("fallback");
+  } catch (err) {
+    console.warn("Messaging live poll failed:", err);
+  }
+}
+
+/** Call after local send/reply so the next poll does not treat our own write as remote. */
+function noteMessagingLocalMutation(){
+  messagingLiveState.fingerprint = null;
+  messagingLiveState.fallbackFingerprint = null;
 }
 
 function setHeaderBadge(el, count){
@@ -19753,8 +20324,8 @@ function updateAdminCommsVisibility(){
   if (!show) {
     setHeaderBadge(document.getElementById("adminNotifyCount"), 0);
     setHeaderBadge(document.getElementById("adminMessagesCount"), 0);
-    stopAdminCommsPolling();
   }
+  if (!messagingLiveEligible()) stopMessagingLiveSync();
 }
 
 async function refreshAdminCommsBadges(){
@@ -19765,10 +20336,7 @@ async function refreshAdminCommsBadges(){
   updateAdminCommsVisibility();
   try {
     const counts = await supabaseRpc("app_admin_unread_counts", {});
-    adminCommsState.unreadNotifications = Number(counts?.notifications || 0);
-    adminCommsState.unreadInquiries = Number(counts?.inquiries || 0);
-    setHeaderBadge(document.getElementById("adminNotifyCount"), adminCommsState.unreadNotifications);
-    setHeaderBadge(document.getElementById("adminMessagesCount"), adminCommsState.unreadInquiries);
+    applyAdminBadgeCounts(counts?.notifications, counts?.inquiries);
   } catch (err) {
     console.warn("Admin unread counts failed:", err);
   }
@@ -19921,7 +20489,8 @@ async function prepareMessagesComposer(){
   }
 }
 
-async function renderMessagesPanel(){
+async function renderMessagesPanel(options = {}){
+  const silent = !!options.silent;
   const title = document.getElementById("messagesPanelTitle");
   const subtitle = document.getElementById("messagesPanelSubtitle");
   const filters = document.getElementById("messagesAdminFilters");
@@ -19930,21 +20499,23 @@ async function renderMessagesPanel(){
   if (!list) return;
 
   const admin = isAppAdminSession();
-  if (title) title.textContent = "Messages";
-  if (subtitle) {
-    subtitle.textContent = admin
-      ? "Conversations with users and access requests. Use New message to contact any account."
-      : "Message the administrator — replies appear in this conversation view.";
-  }
-  if (filters) filters.classList.toggle("hide", !admin);
-  if (newBtn) {
-    newBtn.classList.remove("hide");
-    newBtn.innerHTML = admin
-      ? `<i class="fa-solid fa-pen-to-square"></i> Message user`
-      : `<i class="fa-solid fa-pen-to-square"></i> New message`;
+  if (!silent) {
+    if (title) title.textContent = "Messages";
+    if (subtitle) {
+      subtitle.textContent = admin
+        ? "Conversations with users and access requests. Use New message to contact any account."
+        : "Message the administrator — replies appear in this conversation view.";
+    }
+    if (filters) filters.classList.toggle("hide", !admin);
+    if (newBtn) {
+      newBtn.classList.remove("hide");
+      newBtn.innerHTML = admin
+        ? `<i class="fa-solid fa-pen-to-square"></i> Message user`
+        : `<i class="fa-solid fa-pen-to-square"></i> New message`;
+    }
+    list.innerHTML = `<div class="empty">Loading…</div>`;
   }
 
-  list.innerHTML = `<div class="empty">Loading…</div>`;
   try {
     let items = [];
     if (admin) {
@@ -19962,22 +20533,47 @@ async function renderMessagesPanel(){
     messagesUiState.threads = items;
     renderMessagesThreadList(list, items, admin);
 
-    const openId = messagesUiState.pendingOpenId || messagesUiState.selectedId;
-    messagesUiState.pendingOpenId = null;
+    const nextThreadSig = selectedThreadSignature(items, messagesUiState.selectedId);
+    const openId = silent
+      ? (messagesUiState.selectedId && items.some(t => t.id === messagesUiState.selectedId)
+        ? messagesUiState.selectedId
+        : null)
+      : (messagesUiState.pendingOpenId || messagesUiState.selectedId);
+    if (!silent) messagesUiState.pendingOpenId = null;
+
     if (openId && items.some(t => t.id === openId)) {
-      await openInquiryThread(openId);
-    } else if (items.length && admin) {
+      const shouldReloadThread = !silent
+        || messagingLiveState.lastThreadSig !== nextThreadSig
+        || !document.getElementById("messagesThreadActive")
+        || document.getElementById("messagesThreadActive")?.classList.contains("hide");
+      if (shouldReloadThread) {
+        await openInquiryThread(openId, { silent });
+        messagingLiveState.lastThreadSig = selectedThreadSignature(items, openId);
+      } else {
+        messagingLiveState.lastThreadSig = nextThreadSig;
+      }
+    } else if (!silent && items.length && admin) {
       await openInquiryThread(items[0].id);
-    } else if (items.length && !admin && messagesUiState.selectedId) {
+      messagingLiveState.lastThreadSig = selectedThreadSignature(items, items[0].id);
+    } else if (!silent && items.length && !admin && messagesUiState.selectedId && items.some(t => t.id === messagesUiState.selectedId)) {
       await openInquiryThread(messagesUiState.selectedId);
-    } else {
+      messagingLiveState.lastThreadSig = selectedThreadSignature(items, messagesUiState.selectedId);
+    } else if (!items.length || (messagesUiState.selectedId && !items.some(t => t.id === messagesUiState.selectedId))) {
       showMessagesEmptyState();
+      messagingLiveState.lastThreadSig = null;
     }
   } catch (err) {
-    list.innerHTML = `<div class="empty">${escapeHtml(err.message || "Could not load messages")}</div>`;
-    showMessagesEmptyState();
+    if (!silent) {
+      list.innerHTML = `<div class="empty">${escapeHtml(err.message || "Could not load messages")}</div>`;
+      showMessagesEmptyState();
+    }
   }
   if (admin) refreshAdminCommsBadges().catch(() => {});
+  if (!silent) noteMessagingLocalMutation();
+  // Reschedule at active interval while Messages tab is open
+  if (messagingLiveEligible() && getActiveTabKey() === "messages") {
+    scheduleMessagingLivePoll(messagingLivePollIntervalMs());
+  }
 }
 
 function renderMessagesThreadList(container, items, isAdmin){
@@ -20019,7 +20615,8 @@ function showMessagesEmptyState(){
   document.getElementById("messagesThreadActive")?.classList.add("hide");
 }
 
-async function openInquiryThread(inquiryId){
+async function openInquiryThread(inquiryId, options = {}){
+  const silent = !!options.silent;
   const empty = document.getElementById("messagesThreadEmpty");
   const active = document.getElementById("messagesThreadActive");
   const header = document.getElementById("messagesThreadHeader");
@@ -20034,8 +20631,13 @@ async function openInquiryThread(inquiryId){
 
   empty?.classList.add("hide");
   active?.classList.remove("hide");
-  header.innerHTML = `<div class="help">Loading conversation…</div>`;
-  scroll.innerHTML = "";
+  const wasNearBottom = silent
+    ? (scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 96)
+    : true;
+  if (!silent) {
+    header.innerHTML = `<div class="help">Loading conversation…</div>`;
+    scroll.innerHTML = "";
+  }
 
   try {
     const result = await supabaseRpc("app_get_inquiry_thread", { p_inquiry_id: inquiryId });
@@ -20096,10 +20698,20 @@ async function openInquiryThread(inquiryId){
       hint.classList.toggle("hide", !note);
     }
 
-    scroll.scrollTop = scroll.scrollHeight;
+    if (!silent || wasNearBottom) {
+      scroll.scrollTop = scroll.scrollHeight;
+    }
+    messagingLiveState.lastThreadSig = [
+      inquiryId,
+      inquiry.last_message_at || "",
+      inquiry.message_count || messages.length || 0,
+      inquiry.status || ""
+    ].join(":");
     if (admin) refreshAdminCommsBadges().catch(() => {});
   } catch (err) {
-    header.innerHTML = `<div class="lock-error show">${escapeHtml(err.message || "Could not open conversation")}</div>`;
+    if (!silent) {
+      header.innerHTML = `<div class="lock-error show">${escapeHtml(err.message || "Could not open conversation")}</div>`;
+    }
   }
 }
 
@@ -20115,6 +20727,7 @@ async function sendInquiryReply(){
       p_body: body
     });
     if (input) input.value = "";
+    noteMessagingLocalMutation();
     await renderMessagesPanel();
     await openInquiryThread(messagesUiState.selectedId);
   } catch (ex) {
@@ -20177,6 +20790,7 @@ function bindMessagingUi(){
         if (userSelect) userSelect.value = "";
         setMessagesComposerVisible(false);
         messagesUiState.pendingOpenId = created?.id || null;
+        noteMessagingLocalMutation();
         await renderMessagesPanel();
       } catch (ex) {
         if (err) {
@@ -20309,6 +20923,7 @@ function bindMessagingUi(){
           p_inquiry_id: statusBtn.dataset.inquiryStatus,
           p_status: statusBtn.dataset.status
         });
+        noteMessagingLocalMutation();
         await renderMessagesPanel();
         return;
       }
@@ -20316,6 +20931,7 @@ function bindMessagingUi(){
         if (!confirm("Permanently delete this conversation? This cannot be undone.")) return;
         await supabaseRpc("app_admin_delete_inquiry", { p_inquiry_id: adminDel.dataset.inquiryDelete });
         messagesUiState.selectedId = null;
+        noteMessagingLocalMutation();
         await renderMessagesPanel();
         await refreshAdminCommsBadges();
         return;
@@ -20324,6 +20940,7 @@ function bindMessagingUi(){
         if (!confirm("Delete this conversation?")) return;
         await supabaseRpc("app_delete_my_inquiry", { p_inquiry_id: myDel.dataset.myInquiryDelete });
         messagesUiState.selectedId = null;
+        noteMessagingLocalMutation();
         await renderMessagesPanel();
       }
     } catch (ex) {
@@ -20400,12 +21017,14 @@ function initInquiryOverlay() {
     }
   });
 
-  // Close on Escape key
+  // Close on Escape key — stop so content overlay does not also close in the same keypress
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !inquiryOverlay.classList.contains('hide')) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
       closeInquiryOverlay();
     }
-  });
+  }, true);
 
   // Handle form submission → admin Messages inbox
   if (inquiryForm) {
@@ -20486,13 +21105,17 @@ function initAppDownloadOverlay() {
     }
   });
 
-  // Close on Escape key
+  // Close on Escape key (download overlays sit above content overlay)
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      hideIosDownloadOverlay();
-      hideAndroidDownloadOverlay();
-    }
-  });
+    if (e.key !== 'Escape') return;
+    const iosOpen = iosDownloadOverlay && !iosDownloadOverlay.classList.contains('hide');
+    const androidOpen = androidDownloadOverlay && !androidDownloadOverlay.classList.contains('hide');
+    if (!iosOpen && !androidOpen) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (iosOpen) hideIosDownloadOverlay();
+    if (androidOpen) hideAndroidDownloadOverlay();
+  }, true);
 }
 
 function showIosDownloadOverlay() {
