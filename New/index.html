@@ -289,63 +289,60 @@
   <!-- Inquiry Overlay Form -->
   <div id="inquiryOverlay" class="inquiry-overlay hide">
     <div class="inquiry-modal">
-      <div class="inquiry-header">
-        <h3><i class="fa-solid fa-envelope"></i> Send Inquiry</h3>
+          <div class="inquiry-header">
+        <h3><i class="fa-solid fa-comments"></i> Request Access</h3>
         <button id="closeInquiryBtn" class="btn ghost" type="button" style="font-size: 1.2rem; padding: 4px 8px;">
           <i class="fa-solid fa-times"></i>
         </button>
       </div>
       
-      <form id="inquiryForm" action="https://api.web3forms.com/submit" method="POST">
-        <input type="hidden" name="access_key" value="2b84b0cc-53e5-42b8-bf60-fbb8fbaf03ff">
-        <input type="hidden" name="subject" value="New Inquiry from Triple M by NSF">
-        
+      <form id="inquiryForm">
         <div class="form-group">
           <label for="inquiryName" class="form-label">Full Name *</label>
           <div class="input-wrapper">
-            <input id="inquiryName" name="name" class="input" type="text" placeholder="Enter your full name" required />
-            <span class="input-icon">👤</span>
+            <input id="inquiryName" name="name" class="input" type="text" placeholder="Enter your full name" required autocomplete="name" />
+            <span class="input-icon"><i class="fa-solid fa-user"></i></span>
           </div>
         </div>
         
         <div class="form-group">
           <label for="inquiryMobile" class="form-label">Mobile/WhatsApp Number *</label>
           <div class="input-wrapper">
-            <input id="inquiryMobile" name="mobile" class="input" type="tel" placeholder="Enter your mobile or WhatsApp number" required />
-            <span class="input-icon">📱</span>
+            <input id="inquiryMobile" name="mobile" class="input" type="tel" placeholder="Enter your mobile or WhatsApp number" required autocomplete="tel" />
+            <span class="input-icon"><i class="fa-solid fa-phone"></i></span>
           </div>
         </div>
         
         <div class="form-group">
           <label for="inquiryEmail" class="form-label">Email Address *</label>
           <div class="input-wrapper">
-            <input id="inquiryEmail" name="email" class="input" type="email" placeholder="Enter your email address" required />
-            <span class="input-icon">📧</span>
+            <input id="inquiryEmail" name="email" class="input" type="email" placeholder="Enter your email address" required autocomplete="email" />
+            <span class="input-icon"><i class="fa-solid fa-envelope"></i></span>
           </div>
         </div>
         
         <div class="form-group">
           <label for="inquiryMessage" class="form-label">Message *</label>
           <div class="input-wrapper" style="align-items: flex-start;">
-            <textarea id="inquiryMessage" name="message" class="input" placeholder="Enter your message or inquiry details" rows="4" required style="resize: vertical; min-height: 100px;"></textarea>
-            <span class="input-icon" style="margin-top: 8px;">💬</span>
+            <textarea id="inquiryMessage" name="message" class="input" placeholder="Tell us what you need access for…" rows="4" required style="resize: vertical; min-height: 100px;"></textarea>
+            <span class="input-icon" style="margin-top: 8px;"><i class="fa-solid fa-comment"></i></span>
           </div>
         </div>
         
         <div class="form-actions">
-          <button type="submit" class="btn primary" style="width: 100%;">
-            <i class="fa-solid fa-paper-plane"></i> Send Inquiry
+          <button type="submit" class="btn primary" id="inquirySubmitLandingBtn" style="width: 100%;">
+            <i class="fa-solid fa-paper-plane"></i> Send to administrator
           </button>
         </div>
         
         <div id="inquirySuccess" class="inquiry-success hide">
           <i class="fa-solid fa-check-circle"></i>
-          <p>Your inquiry has been sent successfully! We'll get back to you soon.</p>
+          <p>Your request was sent to the administrator. They will review it in Messages.</p>
         </div>
         
         <div id="inquiryError" class="inquiry-error hide">
           <i class="fa-solid fa-exclamation-circle"></i>
-          <p>Failed to send inquiry. Please try again.</p>
+          <p id="inquiryErrorText">Failed to send inquiry. Please try again.</p>
         </div>
       </form>
     </div>
@@ -774,17 +771,48 @@
         </div>
       </div>
       <div class="chips">
-        <div class="chip icon-chip finance-chip db-chip" title="Database sync">
-          <span class="db-core"></span>
-          <span class="db-ring"></span>
+        <div class="menu-wrap hide" id="adminNotifyWrap">
+          <button class="btn ghost menu-trigger top-icon-btn" id="adminNotifyBtn" type="button" data-entry-menu="admin-notify" aria-haspopup="menu" aria-expanded="false" title="Notifications" aria-label="Notifications">
+            <i class="fa-solid fa-bell"></i>
+          </button>
+          <span id="adminNotifyCount" class="header-badge header-badge-bell">0</span>
+          <div class="menu-dropdown admin-comms-dropdown" data-entry-menu-panel="admin-notify" id="adminNotifyDropdown">
+            <div class="admin-comms-header">
+              <div>
+                <h4>Notifications</h4>
+                <span class="admin-comms-subtitle">Trial signups &amp; system alerts</span>
+              </div>
+              <button class="btn ghost admin-comms-action" id="adminNotifyMarkAllBtn" type="button" title="Mark all as read">
+                <i class="fa-solid fa-check-double"></i>
+              </button>
+            </div>
+            <div class="admin-comms-items" id="adminNotifyList">
+              <div class="admin-comms-empty">No notifications yet</div>
+            </div>
+          </div>
         </div>
-        <div class="chip icon-chip finance-chip cash-chip" title="Cash flow">
-          <span class="cash-note"></span>
-          <span class="cash-dot"></span>
-        </div>
-        <div class="chip icon-chip finance-chip coin-chip" title="Coin balance">
-          <span class="coin coin-a"></span>
-          <span class="coin coin-b"></span>
+        <div class="menu-wrap hide" id="adminMessagesWrap">
+          <button class="btn ghost menu-trigger top-icon-btn" id="adminMessagesBtn" type="button" data-entry-menu="admin-messages" aria-haspopup="menu" aria-expanded="false" title="Inquiries" aria-label="Inquiries">
+            <i class="fa-solid fa-comments"></i>
+          </button>
+          <span id="adminMessagesCount" class="header-badge header-badge-mail">0</span>
+          <div class="menu-dropdown admin-comms-dropdown" data-entry-menu-panel="admin-messages" id="adminMessagesDropdown">
+            <div class="admin-comms-header">
+              <div>
+                <h4>Inquiries</h4>
+                <span class="admin-comms-subtitle">Messages from users</span>
+              </div>
+              <button class="btn ghost admin-comms-action" id="adminMessagesOpenFullBtn" type="button" title="Open Messages">
+                <i class="fa-solid fa-up-right-from-square"></i>
+              </button>
+            </div>
+            <div class="admin-comms-items" id="adminMessagesPreviewList">
+              <div class="admin-comms-empty">No open inquiries</div>
+            </div>
+            <div class="admin-comms-footer">
+              <button class="btn soft" id="adminMessagesGotoBtn" type="button">Open Messages inbox</button>
+            </div>
+          </div>
         </div>
         <div class="menu-wrap page-currency-wrap">
           <button class="btn ghost menu-trigger page-currency-trigger top-icon-btn" id="pageCurrencyBtn" type="button" data-entry-menu="page-currency" aria-haspopup="menu" aria-expanded="false" title="Page Currency">
@@ -832,6 +860,7 @@
             <label class="menu-item file-import-btn" for="importJsonInput"><i class="fa-solid fa-upload"></i> JSON/CSV</label>
             <input id="importJsonInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
+            <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
             <button class="menu-item danger hide" id="deleteSmartPinBtn" type="button">Delete Smart Pin</button>
             <button class="menu-item" id="taxSettingsBtn" type="button"><i class="fa-solid fa-percent"></i> VAT Settings</button>
@@ -857,6 +886,9 @@
           <a class="guest-restriction-contact" href="https://wa.me/923339004564" target="_blank" rel="noopener">
             <i class="fa-brands fa-whatsapp"></i> Contact admin on WhatsApp
           </a>
+          <button class="btn soft" id="trialExpiredMessagesBtn" type="button" style="margin-top:10px;width:100%">
+            <i class="fa-solid fa-comments"></i> Send in-app inquiry
+          </button>
         </div>
         <div class="trial-expired-actions">
           <button class="btn ghost" id="trialExpiredLogoutBtn" type="button">Logout</button>
@@ -880,6 +912,7 @@
       <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
       <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
       <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
+      <button class="tab hide" data-tab="messages" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
       <button class="tab hide" data-tab="admin" type="button"><i class="fa-solid fa-user-shield"></i> Admin</button>
       <button class="tab" data-tab="about" type="button"><i class="fa-solid fa-info-circle"></i> About</button>
     </section>
@@ -1587,6 +1620,80 @@
         </div>
       </section>
 
+      <section id="messagesPanel" class="panel">
+        <div class="card section messages-section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3 id="messagesPanelTitle">Messages</h3>
+                </div>
+                <p id="messagesPanelSubtitle">Conversations with the administrator.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft hide" id="messagesNewBtn" type="button"><i class="fa-solid fa-pen-to-square"></i> New message</button>
+                <button class="btn ghost" id="messagesRefreshBtn" type="button"><i class="fa-solid fa-rotate"></i> Refresh</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="messagesNewComposer" class="messages-compose hide">
+            <div class="messages-compose-card">
+              <div class="messages-compose-head">
+                <h4>Start a conversation</h4>
+                <button type="button" class="btn ghost" id="messagesNewCancelBtn" aria-label="Close composer"><i class="fa-solid fa-times"></i></button>
+              </div>
+              <p class="help">Describe your request clearly. The administrator can reply here in Messages.</p>
+              <div class="form-group">
+                <label class="form-label" for="inquirySubject">Subject</label>
+                <input id="inquirySubject" class="input" maxlength="160" placeholder="e.g. Request full access / Billing question" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="inquiryBody">Message</label>
+                <textarea id="inquiryBody" class="input messages-textarea" maxlength="4000" placeholder="Write your message…"></textarea>
+              </div>
+              <div id="inquiryFormError" class="lock-error"></div>
+              <div class="messages-compose-actions">
+                <button class="btn primary" id="inquirySubmitBtn" type="button"><i class="fa-solid fa-paper-plane"></i> Send message</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="messages-workspace">
+            <aside class="messages-sidebar">
+              <div id="messagesAdminFilters" class="messages-admin-filters hide">
+                <div class="messages-filter-row">
+                  <label class="filter-chip"><input type="radio" name="inquiryStatusFilter" value="all" checked /> All</label>
+                  <label class="filter-chip"><input type="radio" name="inquiryStatusFilter" value="open" /> Open</label>
+                  <label class="filter-chip"><input type="radio" name="inquiryStatusFilter" value="read" /> Read</label>
+                  <label class="filter-chip"><input type="radio" name="inquiryStatusFilter" value="archived" /> Archived</label>
+                </div>
+              </div>
+              <div id="messagesThreadList" class="messages-thread-list">
+                <div class="empty">Loading conversations…</div>
+              </div>
+            </aside>
+            <section class="messages-conversation" id="messagesConversation">
+              <div id="messagesThreadEmpty" class="messages-thread-empty">
+                <div class="messages-empty-icon"><i class="fa-solid fa-comments"></i></div>
+                <h4>Select a conversation</h4>
+                <p>Choose a thread from the list, or start a new message.</p>
+              </div>
+              <div id="messagesThreadActive" class="messages-thread-active hide">
+                <header class="messages-thread-header" id="messagesThreadHeader"></header>
+                <div class="messages-chat-scroll" id="messagesChatScroll"></div>
+                <footer class="messages-reply-bar" id="messagesReplyBar">
+                  <textarea id="messagesReplyInput" class="input" rows="2" maxlength="4000" placeholder="Write a reply…"></textarea>
+                  <div class="messages-reply-actions">
+                    <button type="button" class="btn primary" id="messagesReplySendBtn"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                  </div>
+                </footer>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
       <section id="adminPanel" class="panel">
         <div class="card section">
           <div class="section-head">
@@ -1607,6 +1714,7 @@
             <span><i class="fa-solid fa-key"></i> Username &amp; password are visible to admin</span>
             <span><i class="fa-solid fa-coins"></i> Currencies are assigned per user</span>
             <span><i class="fa-solid fa-table-columns"></i> Tabs control which modules appear</span>
+            <span><i class="fa-solid fa-bell"></i> Bell &amp; envelope icons show trial and inquiry alerts</span>
           </div>
           <div id="adminUsersList" class="admin-users-list">
             <div class="empty">Loading users…</div>
