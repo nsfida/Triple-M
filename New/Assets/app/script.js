@@ -19368,6 +19368,60 @@ function setMessagesComposerVisible(show){
   if (composer) composer.classList.toggle("hide", !show);
 }
 
+async function prepareMessagesComposer(){
+  const admin = isAppAdminSession();
+  const title = document.getElementById("messagesNewTitle");
+  const help = document.getElementById("messagesNewHelp");
+  const pickWrap = document.getElementById("messagesUserPickWrap");
+  const select = document.getElementById("messagesUserSelect");
+  const subject = document.getElementById("inquirySubject");
+  const body = document.getElementById("inquiryBody");
+  const err = document.getElementById("inquiryFormError");
+
+  if (title) title.textContent = admin ? "Message a user" : "Start a conversation";
+  if (help) {
+    help.textContent = admin
+      ? "Choose an existing account, then write a subject and first message. It will appear in their Messages tab."
+      : "Describe your request clearly. The administrator can reply here in Messages.";
+  }
+  if (pickWrap) pickWrap.classList.toggle("hide", !admin);
+  if (err) {
+    err.textContent = "";
+    err.classList.remove("show");
+  }
+  if (subject) subject.value = "";
+  if (body) body.value = "";
+
+  if (admin && select) {
+    select.innerHTML = `<option value="">Loading users…</option>`;
+    select.disabled = true;
+    try {
+      const users = await supabaseRpc("app_admin_list_users", {});
+      const list = Array.isArray(users) ? users : (Array.isArray(users?.items) ? users.items : []);
+      const myId = state.sessionUser?.id;
+      const options = list
+        .filter(u => u?.id && u.id !== myId)
+        .sort((a, b) => String(a.username || "").localeCompare(String(b.username || "")));
+      if (!options.length) {
+        select.innerHTML = `<option value="">No other users found</option>`;
+      } else {
+        select.innerHTML = `<option value="">Select a user…</option>` + options.map(u => {
+          const label = `${u.display_name || u.username || "User"} (@${u.username || "—"})`;
+          const meta = u.role === "admin" ? " · admin" : (u.access_plan === "trial" ? " · trial" : "");
+          return `<option value="${escapeHtml(u.id)}">${escapeHtml(label + meta)}</option>`;
+        }).join("");
+        select.disabled = false;
+      }
+    } catch (ex) {
+      select.innerHTML = `<option value="">Could not load users</option>`;
+      if (err) {
+        err.textContent = ex.message || "Could not load users.";
+        err.classList.add("show");
+      }
+    }
+  }
+}
+
 async function renderMessagesPanel(){
   const title = document.getElementById("messagesPanelTitle");
   const subtitle = document.getElementById("messagesPanelSubtitle");
@@ -19377,14 +19431,19 @@ async function renderMessagesPanel(){
   if (!list) return;
 
   const admin = isAppAdminSession();
-  if (title) title.textContent = admin ? "Messages" : "Messages";
+  if (title) title.textContent = "Messages";
   if (subtitle) {
     subtitle.textContent = admin
-      ? "Conversations with users and access requests from the login page."
+      ? "Conversations with users and access requests. Use New message to contact any account."
       : "Message the administrator — replies appear in this conversation view.";
   }
   if (filters) filters.classList.toggle("hide", !admin);
-  if (newBtn) newBtn.classList.toggle("hide", admin);
+  if (newBtn) {
+    newBtn.classList.remove("hide");
+    newBtn.innerHTML = admin
+      ? `<i class="fa-solid fa-pen-to-square"></i> Message user`
+      : `<i class="fa-solid fa-pen-to-square"></i> New message`;
+  }
 
   list.innerHTML = `<div class="empty">Loading…</div>`;
   try {
@@ -19572,9 +19631,14 @@ function bindMessagingUi(){
 
   const newBtn = document.getElementById("messagesNewBtn");
   if (newBtn) {
-    newBtn.addEventListener("click", () => {
+    newBtn.addEventListener("click", async () => {
       setMessagesComposerVisible(true);
-      document.getElementById("inquirySubject")?.focus();
+      await prepareMessagesComposer();
+      if (isAppAdminSession()) {
+        document.getElementById("messagesUserSelect")?.focus();
+      } else {
+        document.getElementById("inquirySubject")?.focus();
+      }
     });
   }
   document.getElementById("messagesNewCancelBtn")?.addEventListener("click", () => {
@@ -19587,18 +19651,31 @@ function bindMessagingUi(){
       const err = document.getElementById("inquiryFormError");
       const subjectEl = document.getElementById("inquirySubject");
       const bodyEl = document.getElementById("inquiryBody");
+      const userSelect = document.getElementById("messagesUserSelect");
       if (err) {
         err.textContent = "";
         err.classList.remove("show");
       }
       try {
         submitBtn.disabled = true;
-        const created = await supabaseRpc("app_submit_inquiry", {
-          p_subject: subjectEl?.value || "",
-          p_body: bodyEl?.value || ""
-        });
+        let created;
+        if (isAppAdminSession()) {
+          const userId = userSelect?.value || "";
+          if (!userId) throw new Error("Please select a user to message.");
+          created = await supabaseRpc("app_admin_start_conversation", {
+            p_user_id: userId,
+            p_subject: subjectEl?.value || "",
+            p_body: bodyEl?.value || ""
+          });
+        } else {
+          created = await supabaseRpc("app_submit_inquiry", {
+            p_subject: subjectEl?.value || "",
+            p_body: bodyEl?.value || ""
+          });
+        }
         if (subjectEl) subjectEl.value = "";
         if (bodyEl) bodyEl.value = "";
+        if (userSelect) userSelect.value = "";
         setMessagesComposerVisible(false);
         messagesUiState.pendingOpenId = created?.id || null;
         await renderMessagesPanel();
