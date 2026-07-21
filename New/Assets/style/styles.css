@@ -544,6 +544,8 @@ a{color:inherit}
 .title-group{display:flex;flex-direction:column;gap:0;min-width:0}
 .title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tools .btn[data-section-csv-download],
+.tools .btn[data-section-csv-upload]{font-size:.82rem;padding:6px 10px}
 .menu-wrap{position:relative;display:inline-flex;align-items:center;overflow:visible}
 .menu-dropdown{
   position:fixed;min-width:180px;display:none;flex-direction:column;
