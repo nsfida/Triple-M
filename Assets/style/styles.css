@@ -5902,16 +5902,108 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 
 .admin-users-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .admin-user-card {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.admin-user-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.admin-user-summary:hover {
+  background: rgba(36, 87, 214, 0.04);
+}
+
+.admin-user-summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.admin-user-summary-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.admin-user-summary-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-user-summary-title-row h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.admin-user-summary-user {
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+
+.admin-user-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-user-summary-expiry {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.admin-user-chevron {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+
+.admin-user-card.is-expanded .admin-user-chevron {
+  transform: rotate(180deg);
+}
+
+.admin-user-details {
   display: grid;
   gap: 10px;
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.admin-user-details[hidden] {
+  display: none;
 }
 
 .admin-user-card-head {
@@ -5938,6 +6030,34 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.admin-extend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.admin-extend-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.admin-extend-days {
+  width: 88px;
+  min-height: 34px;
+  padding: 4px 8px;
+}
+
+.admin-extend-unit {
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
 .admin-badge {
