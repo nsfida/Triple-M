@@ -9168,6 +9168,8 @@ function activate(tab){
   const requiredModule = tabModuleMap[tab];
   if (tab === "messages") {
     if (!state.unlocked || isGuestMode()) return;
+  } else if (tab === "admin") {
+    if (isGuestMode() || getUserAccessFlags().is_trial || !userHasPermission("admin_panel", "view")) return;
   } else if (requiredModule && !isGuestMode() && !userHasPermission(requiredModule, "view")) {
     return;
   }
@@ -20032,8 +20034,8 @@ function adminCredentialBlock(user){
       </div>
       <div class="admin-cred-row">
         <span class="admin-cred-label">Password</span>
-        <input id="${pwId}" class="input admin-cred-password" type="text" readonly value="${escapeHtml(pw)}" placeholder="${pw ? "" : "Not stored yet — set in Edit Access"}" data-password="${escapeHtml(pw)}" />
-        <button type="button" class="btn ghost tiny" data-toggle-pw="${pwId}" ${pw ? "" : "disabled"}>Hide</button>
+        <input id="${pwId}" class="input admin-cred-password" type="password" readonly value="${pw ? "••••••••" : ""}" placeholder="${pw ? "" : "Not stored yet — set in Edit Access"}" data-password="${escapeHtml(pw)}" data-showing="0" autocomplete="off" />
+        <button type="button" class="btn ghost tiny" data-toggle-pw="${pwId}" ${pw ? "" : "disabled"}>Show</button>
         <button type="button" class="btn ghost tiny" data-copy="${escapeHtml(pw)}" ${pw ? "" : "disabled"}>Copy</button>
       </div>
     </div>`;
@@ -20060,6 +20062,7 @@ async function loadAdminUsers(){
     list.innerHTML = `<div class="empty">Administrator access required.</div>`;
     return;
   }
+  const previouslyExpanded = list.querySelector(".admin-user-card.is-expanded")?.dataset.userId || "";
   list.innerHTML = `<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading users…</div>`;
   try {
     const users = await supabaseRpc("app_admin_list_users", {});
@@ -20083,37 +20086,63 @@ async function loadAdminUsers(){
       if (flags.trial_expired) planBadge = `<span class="admin-badge warn">Trial expired</span>`;
       else if (flags.trial_active) planBadge = `<span class="admin-badge">Trial · ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d left</span>`;
       else if (flags.is_trial) planBadge = `<span class="admin-badge warn">Trial</span>`;
-      const trialMeta = flags.is_trial
-        ? `<p class="admin-user-meta">Trial ${flags.trial_expired ? "ended" : "ends"} ${escapeHtml(formatTrialExpiry(flags.trial_expires_at))}</p>`
+      const trialSummary = flags.is_trial
+        ? `<span class="admin-user-summary-expiry">Expires ${escapeHtml(formatTrialExpiry(flags.trial_expires_at))}</span>`
         : "";
+      const trialMeta = flags.is_trial
+        ? `<p class="admin-user-meta">Trial ${flags.trial_expired ? "ended" : "ends"} ${escapeHtml(formatTrialExpiry(flags.trial_expires_at))}${flags.trial_active && flags.trial_days_remaining != null ? ` · <strong>${escapeHtml(String(flags.trial_days_remaining))} day(s) remaining</strong>` : ""}</p>`
+        : `<p class="admin-user-meta">Access plan: <strong>${escapeHtml(flags.access_plan || "full")}</strong></p>`;
       const grantBtn = (!user.is_protected && (flags.is_trial || flags.access_plan !== "full"))
         ? `<button type="button" class="btn primary tiny" data-admin-action="grant_full">Grant full access</button>`
         : "";
       const trialBtn = (!user.is_protected && user.role !== "admin" && flags.access_plan === "full")
         ? `<button type="button" class="btn ghost tiny" data-admin-action="start_trial">Start 14-day trial</button>`
         : "";
+      const extendRow = (!user.is_protected && flags.is_trial)
+        ? `<div class="admin-extend-row">
+            <label class="admin-extend-label" for="admin-extend-${escapeHtml(user.id)}">Extend trial by</label>
+            <input id="admin-extend-${escapeHtml(user.id)}" class="input admin-extend-days" type="number" min="1" max="3650" value="14" inputmode="numeric" data-extend-days />
+            <span class="admin-extend-unit">days</span>
+            <button type="button" class="btn soft tiny" data-admin-action="extend">Extend</button>
+          </div>`
+        : "";
+      const companyLine = (user.company_name || user.settings?.Company)
+        ? `<p class="admin-user-meta"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · TRN ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>`
+        : "";
+      const contactLine = (() => {
+        const email = user.company_email || user.settings?.email || user.settings?.Email || "";
+        const phone = user.company_phone || user.settings?.Mobile || user.settings?.Phone || "";
+        const address = user.company_address || user.settings?.Address || user.settings?.address || "";
+        if (!email && !phone && !address) return "";
+        const bits = [email, phone].filter(Boolean).map(v => escapeHtml(v));
+        return `<p class="admin-user-meta">${bits.join(" · ")}${address ? `<br>${escapeHtml(address)}` : ""}</p>`;
+      })();
       return `
         <article class="admin-user-card" data-user-id="${escapeHtml(user.id)}">
-          <div class="admin-user-card-head">
-            <div>
-              <h4>${escapeHtml(user.display_name || user.username)}</h4>
-              <p class="admin-user-meta">
-                Created ${escapeHtml(formatAdminDate(user.created_at))} · Last login ${escapeHtml(formatAdminDate(user.last_login_at))}
-              </p>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+          <div class="admin-user-summary" data-admin-toggle-card role="button" tabindex="0" aria-expanded="false">
+            <div class="admin-user-summary-main">
+              <div class="admin-user-summary-title-row">
+                <h4>${escapeHtml(user.display_name || user.username)}</h4>
+                <code class="admin-user-summary-user">@${escapeHtml(user.username)}</code>
+                <button type="button" class="btn ghost tiny admin-summary-copy" data-copy="${escapeHtml(user.username)}" title="Copy username">Copy</button>
+              </div>
+              <div class="admin-user-summary-badges">
                 ${statusBadge}${roleBadge}${planBadge}${protectedBadge}${forceBadge}
               </div>
-              ${trialMeta}
-              ${(user.company_name || user.settings?.Company) ? `<p class="admin-user-meta" style="margin-top:8px"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · TRN ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>` : ""}
-              ${(() => {
-                const email = user.company_email || user.settings?.email || user.settings?.Email || "";
-                const phone = user.company_phone || user.settings?.Mobile || user.settings?.Phone || "";
-                const address = user.company_address || user.settings?.Address || user.settings?.address || "";
-                if (!email && !phone && !address) return "";
-                const bits = [email, phone].filter(Boolean).map(v => escapeHtml(v));
-                return `<p class="admin-user-meta">${bits.join(" · ")}${address ? `<br>${escapeHtml(address)}` : ""}</p>`;
-              })()}
+              ${trialSummary}
             </div>
+            <span class="admin-user-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+          </div>
+          <div class="admin-user-details" hidden>
+            <p class="admin-user-meta">
+              Created ${escapeHtml(formatAdminDate(user.created_at))} · Last login ${escapeHtml(formatAdminDate(user.last_login_at))}
+            </p>
+            ${trialMeta}
+            ${companyLine}
+            ${contactLine}
+            ${adminCredentialBlock(user)}
+            ${adminMetaChips(user)}
+            ${extendRow}
             <div class="admin-user-actions">
               <button type="button" class="btn primary tiny" data-admin-action="edit">Edit Access</button>
               <button type="button" class="btn soft tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
@@ -20123,21 +20152,60 @@ async function loadAdminUsers(){
               <button type="button" class="btn ghost tiny" data-admin-action="delete" ${user.is_protected ? "disabled" : ""}>Delete</button>
             </div>
           </div>
-          ${adminCredentialBlock(user)}
-          ${adminMetaChips(user)}
         </article>`;
     }).join("");
 
+    const expandCard = (card, open) => {
+      if (!card) return;
+      const details = card.querySelector(".admin-user-details");
+      const toggle = card.querySelector("[data-admin-toggle-card]");
+      card.classList.toggle("is-expanded", open);
+      if (details) details.hidden = !open;
+      if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+
+    list.querySelectorAll("[data-admin-toggle-card]").forEach(btn => {
+      const toggle = (e) => {
+        if (e.target.closest("[data-copy]")) return;
+        const card = btn.closest(".admin-user-card");
+        if (!card) return;
+        const willOpen = !card.classList.contains("is-expanded");
+        list.querySelectorAll(".admin-user-card.is-expanded").forEach(other => {
+          if (other !== card) expandCard(other, false);
+        });
+        expandCard(card, willOpen);
+      };
+      btn.addEventListener("click", toggle);
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle(e);
+        }
+      });
+    });
+
+    if (previouslyExpanded) {
+      const safeId = (typeof CSS !== "undefined" && CSS.escape)
+        ? CSS.escape(previouslyExpanded)
+        : previouslyExpanded.replace(/["\\]/g, "\\$&");
+      const restore = list.querySelector(`.admin-user-card[data-user-id="${safeId}"]`);
+      if (restore) expandCard(restore, true);
+    }
+
     list.querySelectorAll("[data-admin-action]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const userId = btn.closest("[data-user-id]")?.dataset.userId;
         const user = rows.find(u => u.id === userId);
         if (!user) return;
-        handleAdminUserAction(btn.dataset.adminAction, user);
+        const daysInput = btn.closest(".admin-user-details")?.querySelector("[data-extend-days]");
+        const days = daysInput ? Number(daysInput.value) : 14;
+        handleAdminUserAction(btn.dataset.adminAction, user, { days });
       });
     });
     list.querySelectorAll("[data-copy]").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const value = btn.getAttribute("data-copy") || "";
         try {
           await navigator.clipboard.writeText(value);
@@ -20150,32 +20218,24 @@ async function loadAdminUsers(){
       });
     });
     list.querySelectorAll("[data-toggle-pw]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const el = document.getElementById(btn.getAttribute("data-toggle-pw"));
         if (!el) return;
-        const raw = el.getAttribute("data-password") || el.value || "";
+        const raw = el.getAttribute("data-password") || "";
         if (el.tagName === "INPUT") {
-          const hiding = el.type === "password";
-          if (hiding) {
+          const currentlyHidden = el.type === "password" || el.dataset.showing !== "1";
+          if (currentlyHidden) {
             el.type = "text";
             el.value = raw;
+            el.dataset.showing = "1";
             btn.textContent = "Hide";
           } else {
             el.type = "password";
             el.value = raw ? "••••••••" : "";
+            el.dataset.showing = "0";
             btn.textContent = "Show";
           }
-          return;
-        }
-        const showing = el.dataset.showing === "1";
-        if (showing) {
-          el.textContent = "••••••••";
-          el.dataset.showing = "0";
-          btn.textContent = "Show";
-        } else {
-          el.textContent = raw || "—";
-          el.dataset.showing = "1";
-          btn.textContent = "Hide";
         }
       });
     });
@@ -20184,7 +20244,7 @@ async function loadAdminUsers(){
   }
 }
 
-async function handleAdminUserAction(action, user){
+async function handleAdminUserAction(action, user, opts = {}){
   try {
     if (action === "edit") {
       openAdminEditUserModal(user);
@@ -20205,6 +20265,16 @@ async function handleAdminUserAction(action, user){
       if (!confirm(`Start a fresh 14-day trial for "${user.username}"?`)) return;
       await supabaseRpc("app_admin_start_trial", { p_user_id: user.id, p_days: 14 });
       await loadAdminUsers();
+      return;
+    }
+    if (action === "extend") {
+      if (user.is_protected) return alert("Protected administrator access cannot be extended.");
+      const days = Math.max(1, Math.min(3650, Math.floor(Number(opts.days) || 0)));
+      if (!days) return alert("Enter how many days to extend (1 or more).");
+      const updated = await supabaseRpc("app_admin_extend_access", { p_user_id: user.id, p_days: days });
+      const flags = getUserAccessFlags(updated || user);
+      await loadAdminUsers();
+      alert(`Extended "${user.username}" by ${days} day(s).\nNew expiry: ${formatTrialExpiry(flags.trial_expires_at)}${flags.trial_days_remaining != null ? `\nDays remaining: ${flags.trial_days_remaining}` : ""}`);
       return;
     }
     if (action === "toggle") {
@@ -20672,6 +20742,20 @@ async function saveAdminRawEdit(){
   }
 }
 
+function bindAdminFormPasswordToggle(root){
+  if (!root) return;
+  root.querySelectorAll("[data-toggle-form-pw]").forEach(btn => {
+    btn.onclick = () => {
+      const el = root.querySelector(`#${btn.getAttribute("data-toggle-form-pw")}`)
+        || document.getElementById(btn.getAttribute("data-toggle-form-pw"));
+      if (!el) return;
+      const show = el.type === "password";
+      el.type = show ? "text" : "password";
+      btn.textContent = show ? "Hide" : "Show";
+    };
+  });
+}
+
 function buildAdminUserFormFields(prefix, user = null){
   const currencies = user ? userAllowedCurrencies(user) : ["AED"];
   const tabs = user ? userAllowedTabs(user) : ["dashboard", "expenses", "loans", "notes"];
@@ -20697,9 +20781,10 @@ function buildAdminUserFormFields(prefix, user = null){
       <div class="form-group">
         <label class="form-label">${user ? "Password (leave blank to keep)" : "Password"}</label>
         <div class="admin-password-row">
-          <input id="${prefix}Password" class="input" type="text" autocomplete="off" value="${escapeHtml(user?.admin_visible_password || "")}" placeholder="${user ? (user.admin_visible_password ? "Current password shown — edit to change" : "No stored password — enter one to save") : "Min 6 characters"}" />
+          <input id="${prefix}Password" class="input" type="password" autocomplete="new-password" value="" data-original="${escapeHtml(user?.admin_visible_password || "")}" placeholder="${user ? (user.admin_visible_password ? "••••••••  (leave blank to keep)" : "No stored password — enter one to save") : "Min 6 characters"}" />
+          <button type="button" class="btn ghost tiny" data-toggle-form-pw="${prefix}Password">Show</button>
         </div>
-        <p class="help">Shown to administrators only. Saving a password here stores it for admin view.</p>
+        <p class="help">Shown to administrators only when revealed. Leave blank when editing to keep the current password.</p>
       </div>
       <div class="form-group">
         <label class="form-label">Role</label>
@@ -20865,6 +20950,7 @@ function openAdminCreateUserModal(){
   const body = modal.querySelector("#adminCreateFormBody");
   body.innerHTML = buildAdminUserFormFields("adminNew");
   bindAdminLogoPicker("adminNew", null);
+  bindAdminFormPasswordToggle(modal);
   const err = modal.querySelector("#adminCreateError");
   err.textContent = "";
   err.classList.remove("show");
@@ -20955,9 +21041,10 @@ function openAdminEditUserModal(user){
   const body = modal.querySelector("#adminEditFormBody");
   body.innerHTML = buildAdminUserFormFields("adminEdit", user);
   bindAdminLogoPicker("adminEdit", user.id);
+  bindAdminFormPasswordToggle(modal);
   const pwInput = modal.querySelector("#adminEditPassword");
   if (pwInput) {
-    pwInput.value = user.admin_visible_password || "";
+    pwInput.value = "";
     pwInput.dataset.original = user.admin_visible_password || "";
     if (!String(user.admin_visible_password || "").trim()) {
       pwInput.placeholder = "No stored password yet — enter one to save it for admin view";
@@ -20976,10 +21063,12 @@ function openAdminEditUserModal(user){
       if (!fresh) return;
       if (pwInput) {
         const pw = String(fresh.admin_visible_password || "").trim();
-        pwInput.value = pw;
+        pwInput.value = "";
         pwInput.dataset.original = pw;
         if (!pw) {
           pwInput.placeholder = "No stored password yet — enter one to save it for admin view";
+        } else {
+          pwInput.placeholder = "••••••••  (leave blank to keep)";
         }
       }
       const setVal = (id, value) => {
@@ -21027,7 +21116,8 @@ function openAdminEditUserModal(user){
       const tabs = readCheckboxGrid(body, "adminEditTabs");
       if (!currencies.length) throw new Error("Select at least one currency.");
       if (!tabs.length) throw new Error("Select at least one tab.");
-      const passwordValue = modal.querySelector("#adminEditPassword").value;
+      const passwordValue = String(modal.querySelector("#adminEditPassword").value || "");
+      const originalPassword = String(modal.querySelector("#adminEditPassword").dataset.original || "");
       const payload = {
         p_user_id: user.id,
         p_username: modal.querySelector("#adminEditUsername").value.trim(),
@@ -21048,8 +21138,11 @@ function openAdminEditUserModal(user){
         payload.p_role = "user";
         payload.p_tabs = tabs.filter(t => t !== "admin_panel");
       }
-      if (passwordValue && passwordValue.length >= 6) {
+      // Only send password when the admin intentionally changes it (blank = keep)
+      if (passwordValue && passwordValue.length >= 6 && passwordValue !== originalPassword) {
         payload.p_password = passwordValue;
+      } else if (passwordValue && passwordValue.length > 0 && passwordValue.length < 6) {
+        throw new Error("Password must be at least 6 characters.");
       }
       const activeEl = modal.querySelector("#adminEditActive");
       if (activeEl) payload.p_is_active = activeEl.checked;
@@ -21188,9 +21281,9 @@ function openAccountSettingsModal(){
 function isAppAdminSession(){
   return !!(
     state.sessionUser
-    && state.sessionUser.role === "admin"
-    && !getUserAccessFlags().is_trial
     && !isGuestMode()
+    && !getUserAccessFlags().is_trial
+    && userHasPermission("admin_panel", "view")
   );
 }
 
