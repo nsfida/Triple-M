@@ -1059,33 +1059,499 @@ function getUserAccessFlags(user = state.sessionUser){
       is_trial: false,
       trial_active: false,
       trial_expired: false,
+      period_active: false,
+      period_expired: false,
       trial_days_remaining: null,
+      has_access_period: false,
+      unlimited_access: true,
+      days_past_expiry: 0,
+      grace_active: false,
+      grace_days_left: null,
+      should_auto_disable: false,
+      access_disable_at: null,
       data_access_allowed: true
     };
   }
+  // Prefer server-computed flags when present on the profile
+  if (user.period_expired != null || user.grace_active != null || user.has_access_period != null) {
+    const plan = String(user.access_plan || "full").toLowerCase();
+    const isTrial = plan === "trial" || user.is_trial === true;
+    const periodExpired = user.period_expired === true || user.trial_expired === true;
+    const periodActive = user.period_active === true || user.trial_active === true;
+    return {
+      access_plan: plan || "full",
+      is_trial: isTrial,
+      trial_active: isTrial && periodActive,
+      trial_expired: isTrial && periodExpired,
+      period_active: periodActive,
+      period_expired: periodExpired,
+      trial_days_remaining: user.trial_days_remaining ?? null,
+      trial_expires_at: user.trial_expires_at || null,
+      has_access_period: user.has_access_period === true || !!user.trial_expires_at,
+      unlimited_access: user.unlimited_access === true || (!user.trial_expires_at && plan === "full"),
+      days_past_expiry: Number(user.days_past_expiry) || 0,
+      grace_active: user.grace_active === true,
+      grace_days_left: user.grace_days_left ?? null,
+      should_auto_disable: user.should_auto_disable === true,
+      access_disable_at: user.access_disable_at || null,
+      access_last_extended_at: user.access_last_extended_at || null,
+      access_last_extended_until: user.access_last_extended_until || null,
+      data_access_allowed: typeof user.data_access_allowed === "boolean"
+        ? user.data_access_allowed
+        : (!periodExpired)
+    };
+  }
+
   const plan = String(user.access_plan || "full").toLowerCase();
   const expiresAt = user.trial_expires_at ? new Date(user.trial_expires_at) : null;
   const now = Date.now();
   const isTrial = plan === "trial";
-  const trialExpired = isTrial && (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= now);
-  const trialActive = isTrial && !trialExpired;
+  const isProtected = user.is_protected === true;
+  const hasPeriod = !isProtected && (isTrial || (expiresAt && !Number.isNaN(expiresAt.getTime())));
+  const unlimited = isProtected || (plan === "full" && !hasPeriod);
+  let periodExpired = false;
+  let periodActive = false;
   let daysRemaining = user.trial_days_remaining;
-  if (trialActive && (daysRemaining == null || daysRemaining === "") && expiresAt) {
-    daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - now) / 86400000));
+  let daysPast = 0;
+  let graceActive = false;
+  let graceDaysLeft = null;
+  let shouldDisable = false;
+  let disableAt = null;
+
+  if (hasPeriod) {
+    if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= now) {
+      periodExpired = true;
+      if (expiresAt && !Number.isNaN(expiresAt.getTime())) {
+        daysPast = Math.max(0, Math.ceil((now - expiresAt.getTime()) / 86400000));
+        disableAt = new Date(expiresAt.getTime() + 3 * 86400000).toISOString();
+        graceActive = daysPast < 3;
+        if (graceActive) graceDaysLeft = Math.max(0, 3 - daysPast);
+        shouldDisable = daysPast >= 3;
+      } else {
+        daysPast = 3;
+        shouldDisable = true;
+      }
+    } else {
+      periodActive = true;
+      if (daysRemaining == null || daysRemaining === "") {
+        daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - now) / 86400000));
+      }
+      disableAt = new Date(expiresAt.getTime() + 3 * 86400000).toISOString();
+    }
   }
+
   return {
     access_plan: plan || "full",
     is_trial: isTrial,
-    trial_active: trialActive,
-    trial_expired: trialExpired,
+    trial_active: isTrial && periodActive,
+    trial_expired: isTrial && periodExpired,
+    period_active: periodActive,
+    period_expired: periodExpired,
     trial_days_remaining: daysRemaining,
     trial_expires_at: user.trial_expires_at || null,
-    data_access_allowed: plan === "full" || trialActive || user.data_access_allowed === true
+    has_access_period: !!hasPeriod,
+    unlimited_access: unlimited,
+    days_past_expiry: daysPast,
+    grace_active: graceActive,
+    grace_days_left: graceDaysLeft,
+    should_auto_disable: shouldDisable,
+    access_disable_at: disableAt,
+    access_last_extended_at: user.access_last_extended_at || null,
+    access_last_extended_until: user.access_last_extended_until || null,
+    data_access_allowed: unlimited || periodActive || user.data_access_allowed === true
   };
 }
 
+function accessPeriodDaysFromUi(period, customDays){
+  const p = String(period || "custom").toLowerCase();
+  if (p === "week") return 7;
+  if (p === "month") return 30;
+  if (p === "year") return 365;
+  const n = Math.floor(Number(customDays) || 0);
+  return Math.max(1, Math.min(3650, n || 0));
+}
+
+function accessPeriodLabel(period, days, untilDate){
+  const p = String(period || "custom").toLowerCase();
+  if (p === "week") return "1 week (7 days)";
+  if (p === "month") return "1 month (30 days)";
+  if (p === "year") return "1 year (365 days)";
+  if (p === "date" || untilDate) return `Until ${untilDate || "selected date"}`;
+  const n = Math.max(1, Math.floor(Number(days) || 0));
+  return `${n} day${n === 1 ? "" : "s"}`;
+}
+
+function toInputDateValue(value){
+  if (!value) return "";
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
+function minExtendDateValue(){
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toInputDateValue(d.toISOString());
+}
+
+function addCalendarDaysToDateValue(value, days){
+  const base = value ? new Date(value) : new Date();
+  if (Number.isNaN(base.getTime())) {
+    return minExtendDateValue();
+  }
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  d.setDate(d.getDate() + Number(days || 0));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatAccessDateShort(value){
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return "—";
+  }
+}
+
+function formatAccessDateTimeShort(value){
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleString(undefined, {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function adminAccessActionLabel(action){
+  const a = String(action || "").toLowerCase();
+  if (a === "extend") return "Extended";
+  if (a === "reduce") return "Reduced";
+  if (a === "clear") return "Cleared (unlimited)";
+  return "Set";
+}
+
+function adminPlanStatusMeta(user){
+  const flags = getUserAccessFlags(user);
+  if (user.is_protected) {
+    return { flags, status: "Protected", statusClass: "ok", expiresLabel: "Never (unlimited)" };
+  }
+  if (flags.unlimited_access) {
+    return { flags, status: "Unlimited", statusClass: "ok", expiresLabel: "Never (unlimited)" };
+  }
+  if (flags.grace_active) {
+    return { flags, status: "Expired · grace", statusClass: "warn", expiresLabel: formatAccessDateShort(flags.trial_expires_at) };
+  }
+  if (flags.period_expired) {
+    return { flags, status: "Expired", statusClass: "warn", expiresLabel: formatAccessDateShort(flags.trial_expires_at) };
+  }
+  if (flags.period_active) {
+    return { flags, status: "Active", statusClass: "ok", expiresLabel: formatAccessDateShort(flags.trial_expires_at) };
+  }
+  return { flags, status: "No period", statusClass: "warn", expiresLabel: "—" };
+}
+
+function buildManagePlanBody(user){
+  const meta = adminPlanStatusMeta(user);
+  const flags = meta.flags;
+  const started = formatAccessDateShort(user.trial_started_at || flags.trial_started_at);
+  const currentExpiryVal = flags.trial_expires_at ? toInputDateValue(flags.trial_expires_at) : "";
+  const lastAt = user.access_last_extended_at || flags.access_last_extended_at || null;
+  const lastUntil = user.access_last_extended_until || flags.access_last_extended_until || flags.trial_expires_at || null;
+  const canEditLast = !user.is_protected && !!flags.trial_expires_at && !flags.unlimited_access;
+  const canExtend = !user.is_protected;
+  const extendMin = flags.trial_expires_at && !flags.period_expired
+    ? addCalendarDaysToDateValue(flags.trial_expires_at, 1)
+    : minExtendDateValue();
+  const reduceMax = currentExpiryVal
+    ? addCalendarDaysToDateValue(currentExpiryVal, -1)
+    : "";
+  const reduceDefault = reduceMax || currentExpiryVal || "";
+
+  if (user.is_protected) {
+    return `
+      <div class="manage-plan-status">
+        <div class="manage-plan-status-top">
+          <span class="admin-access-pill ok">Protected</span>
+          <strong>@${escapeHtml(user.username)}</strong>
+        </div>
+        <p class="admin-access-muted">Protected administrator access cannot be changed.</p>
+      </div>`;
+  }
+
+  return `
+    <div class="manage-plan-status">
+      <div class="manage-plan-status-top">
+        <span class="admin-access-pill ${meta.statusClass}">${escapeHtml(meta.status)}</span>
+        <strong>${escapeHtml(flags.access_plan || "full")}</strong>
+      </div>
+      <div class="admin-access-grid manage-plan-grid">
+        <div class="admin-access-kv"><span>Started</span><strong>${escapeHtml(started)}</strong></div>
+        <div class="admin-access-kv"><span>Expires</span><strong>${escapeHtml(meta.expiresLabel)}</strong></div>
+        <div class="admin-access-kv"><span>Last extension</span><strong>${escapeHtml(lastUntil ? formatAccessDateShort(lastUntil) : "None")}</strong></div>
+        <div class="admin-access-kv"><span>Last edit</span><strong>${escapeHtml(lastAt ? formatAccessDateShort(lastAt) : "—")}</strong></div>
+      </div>
+    </div>
+
+    <section class="manage-plan-block">
+      <div class="manage-plan-block-head">
+        <span>Extend plan</span>
+        <span class="manage-plan-block-note">From current expiry</span>
+      </div>
+      <p class="admin-access-hint">${flags.unlimited_access
+        ? "Set a first expiry date for this user."
+        : `New end date must be after ${escapeHtml(meta.expiresLabel)}.`}</p>
+      <div class="manage-plan-row">
+        <label class="admin-access-field">
+          <span>Until date</span>
+          <input type="date" class="input admin-access-date" id="managePlanExtendDate" min="${escapeHtml(extendMin)}" value="${escapeHtml(extendMin)}" ${canExtend ? "" : "disabled"} />
+        </label>
+        <button type="button" class="btn primary tiny" id="managePlanExtendBtn" ${canExtend ? "" : "disabled"}>Extend</button>
+      </div>
+    </section>
+
+    <section class="manage-plan-block">
+      <div class="manage-plan-block-head">
+        <span>Reduce last extension</span>
+        <span class="manage-plan-block-note">Edit current expiry only</span>
+      </div>
+      <p class="admin-access-hint">${canEditLast
+        ? `Only the current expiry (${escapeHtml(meta.expiresLabel)}) can be moved earlier.`
+        : "No dated plan to reduce. Extend first, then you can edit that expiry."}</p>
+      <div class="manage-plan-row">
+        <label class="admin-access-field">
+          <span>New expiry</span>
+          <input type="date" class="input admin-access-date" id="managePlanReduceDate" ${canEditLast ? `max="${escapeHtml(reduceMax)}" value="${escapeHtml(reduceDefault)}"` : "disabled"} />
+        </label>
+        <button type="button" class="btn soft tiny" id="managePlanReduceBtn" ${canEditLast ? "" : "disabled"}>Reduce</button>
+      </div>
+    </section>
+
+    <div class="manage-plan-history" id="managePlanHistory">
+      <p class="admin-access-muted">Loading history…</p>
+    </div>
+
+    <div class="manage-plan-extra">
+      <button type="button" class="btn ghost tiny" id="managePlanUnlimitedBtn">Make unlimited</button>
+    </div>`;
+}
+
+async function loadAdminAccessHistory(userId, container){
+  if (!container || !userId) return;
+  container.innerHTML = `<p class="admin-access-muted">Loading history…</p>`;
+  try {
+    const result = await supabaseRpc("app_admin_list_access_extensions", {
+      p_user_id: userId,
+      p_limit: 5
+    });
+    const items = Array.isArray(result?.items) ? result.items : [];
+    if (!items.length) {
+      container.innerHTML = `<p class="admin-access-muted">No extension history yet.</p>`;
+      return;
+    }
+    container.innerHTML = `
+      <div class="manage-plan-history-title">Recent edits</div>
+      <ul class="admin-access-history-list">
+        ${items.map(item => {
+          const who = item.admin_display_name || item.admin_username || "Admin";
+          const until = item.new_expires_at
+            ? formatAccessDateShort(item.new_expires_at)
+            : "Unlimited";
+          const prev = item.previous_expires_at
+            ? formatAccessDateShort(item.previous_expires_at)
+            : "—";
+          return `<li>
+            <span class="admin-access-history-action">${escapeHtml(adminAccessActionLabel(item.action))}</span>
+            <span>${escapeHtml(prev)} → <strong>${escapeHtml(until)}</strong></span>
+            <span class="admin-access-muted">${escapeHtml(formatAccessDateShort(item.created_at))} · ${escapeHtml(who)}</span>
+          </li>`;
+        }).join("")}
+      </ul>`;
+  } catch (err) {
+    container.innerHTML = `<p class="admin-access-muted">${escapeHtml(err.message || "Could not load history")}</p>`;
+  }
+}
+
+function closeAdminManagePlanModal(){
+  const modal = document.getElementById("adminManagePlanModal");
+  if (!modal) return;
+  modal.classList.add("hide");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function mergeAdminUserCache(updated){
+  if (!updated?.id) return updated;
+  const list = Array.isArray(state.adminUsersCache) ? state.adminUsersCache : [];
+  const idx = list.findIndex(u => u.id === updated.id);
+  if (idx >= 0) list[idx] = { ...list[idx], ...updated };
+  else list.push(updated);
+  state.adminUsersCache = list;
+  return list[idx >= 0 ? idx : list.length - 1];
+}
+
+function openAdminManagePlanModal(user){
+  if (!user) return;
+  let modal = document.getElementById("adminManagePlanModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "adminManagePlanModal";
+    modal.className = "modal hide";
+    document.body.appendChild(modal);
+  }
+
+  const render = (currentUser) => {
+    const name = currentUser.display_name || currentUser.username;
+    modal.innerHTML = `
+      <div class="modal-backdrop" data-manage-plan-close></div>
+      <div class="modal-dialog settings-sheet manage-plan-sheet" role="dialog" aria-modal="true" aria-labelledby="managePlanTitle">
+        <div class="settings-sheet-head">
+          <div>
+            <h3 id="managePlanTitle">Manage plan</h3>
+            <p>${escapeHtml(name)} · @${escapeHtml(currentUser.username)}</p>
+          </div>
+          <button type="button" class="btn ghost tiny" data-manage-plan-close aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body settings-sheet-body manage-plan-body" id="managePlanBody">
+          ${buildManagePlanBody(currentUser)}
+        </div>
+        <div id="managePlanError" class="lock-error manage-plan-error"></div>
+      </div>`;
+
+    modal.querySelectorAll("[data-manage-plan-close]").forEach(el => {
+      el.onclick = () => closeAdminManagePlanModal();
+    });
+
+    const err = modal.querySelector("#managePlanError");
+    const showErr = (msg) => {
+      if (!err) return;
+      err.textContent = msg || "";
+      err.classList.toggle("show", !!msg);
+    };
+    showErr("");
+
+    const history = modal.querySelector("#managePlanHistory");
+    if (history) loadAdminAccessHistory(currentUser.id, history);
+
+    const afterSave = async (updated) => {
+      const merged = mergeAdminUserCache(updated || currentUser);
+      await loadAdminUsers();
+      const fresh = (state.adminUsersCache || []).find(u => u.id === currentUser.id) || merged;
+      render(fresh);
+    };
+
+    modal.querySelector("#managePlanExtendBtn")?.addEventListener("click", async () => {
+      showErr("");
+      const untilDate = modal.querySelector("#managePlanExtendDate")?.value || "";
+      if (!untilDate) return showErr("Choose an until date to extend.");
+      const flags = getUserAccessFlags(currentUser);
+      if (flags.trial_expires_at && !flags.unlimited_access) {
+        const currentVal = toInputDateValue(flags.trial_expires_at);
+        if (untilDate <= currentVal) {
+          return showErr("Extend date must be after the current expiry. Use Reduce to move it earlier.");
+        }
+      }
+      try {
+        const updated = await supabaseRpc("app_admin_set_access_expiry", {
+          p_user_id: currentUser.id,
+          p_until_date: untilDate,
+          p_clear_unlimited: false,
+          p_note: "Extended plan until date"
+        });
+        await afterSave(updated);
+      } catch (ex) {
+        showErr(ex.message || "Could not extend plan.");
+      }
+    });
+
+    modal.querySelector("#managePlanReduceBtn")?.addEventListener("click", async () => {
+      showErr("");
+      const untilDate = modal.querySelector("#managePlanReduceDate")?.value || "";
+      if (!untilDate) return showErr("Choose a reduced expiry date.");
+      const flags = getUserAccessFlags(currentUser);
+      if (!flags.trial_expires_at) return showErr("No current expiry to reduce.");
+      const currentVal = toInputDateValue(flags.trial_expires_at);
+      if (untilDate >= currentVal) {
+        return showErr("Reduce date must be earlier than the current expiry. Use Extend for a later date.");
+      }
+      try {
+        const updated = await supabaseRpc("app_admin_set_access_expiry", {
+          p_user_id: currentUser.id,
+          p_until_date: untilDate,
+          p_clear_unlimited: false,
+          p_note: "Reduced last extension expiry"
+        });
+        await afterSave(updated);
+      } catch (ex) {
+        showErr(ex.message || "Could not reduce plan.");
+      }
+    });
+
+    modal.querySelector("#managePlanUnlimitedBtn")?.addEventListener("click", async () => {
+      showErr("");
+      if (currentUser.is_protected) return;
+      if (!confirm(`Remove expiry for "${currentUser.username}" and grant unlimited access?`)) return;
+      try {
+        const updated = await supabaseRpc("app_admin_set_access_expiry", {
+          p_user_id: currentUser.id,
+          p_until_date: null,
+          p_clear_unlimited: true,
+          p_note: "Cleared expiry · unlimited"
+        });
+        await afterSave(updated);
+      } catch (ex) {
+        showErr(ex.message || "Could not clear expiry.");
+      }
+    });
+  };
+
+  render(user);
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+async function submitPlanRenewalRequest({ period, days, untilDate, message, statusEl } = {}){
+  const p = String(period || "month").toLowerCase();
+  const payload = {
+    p_period: p === "date" ? "date" : p,
+    p_message: message || null
+  };
+  if (p === "date") {
+    if (!untilDate) throw new Error("Choose an until date for the renewal request.");
+    payload.p_until_date = untilDate;
+    payload.p_days = null;
+  } else if (p === "custom") {
+    const resolvedDays = accessPeriodDaysFromUi(p, days);
+    if (!resolvedDays) throw new Error("Choose a valid number of days.");
+    payload.p_days = resolvedDays;
+    payload.p_until_date = null;
+  } else {
+    payload.p_days = null;
+    payload.p_until_date = null;
+  }
+  const result = await supabaseRpc("app_request_plan_renewal", payload);
+  if (statusEl) {
+    statusEl.textContent = `Request sent: ${accessPeriodLabel(p, days, untilDate)}. An administrator will review it.`;
+  }
+  return result;
+}
+
 function isTrialExpired(user = state.sessionUser){
-  return getUserAccessFlags(user).trial_expired === true;
+  const flags = getUserAccessFlags(user);
+  return flags.period_expired === true || flags.trial_expired === true;
 }
 
 function isDataAccessAllowed(user = state.sessionUser){
@@ -1114,6 +1580,21 @@ function hideTrialExpiredOverlay(){
 
 function showTrialExpiredOverlay(){
   if (!els.trialExpiredOverlay) return;
+  const flags = getUserAccessFlags();
+  const title = document.getElementById("trialExpiredTitle");
+  const message = document.getElementById("trialExpiredMessage");
+  const past = Math.floor(Number(flags.days_past_expiry) || 0);
+  const graceLeft = flags.grace_days_left != null ? Math.floor(Number(flags.grace_days_left)) : Math.max(0, 3 - past);
+  if (title) {
+    title.textContent = flags.grace_active
+      ? `Access expired — ${graceLeft} day${graceLeft === 1 ? "" : "s"} left to renew`
+      : "Your access period has ended";
+  }
+  if (message) {
+    message.textContent = flags.grace_active
+      ? `Expired on ${formatTrialExpiry(flags.trial_expires_at)}. Your workspace is locked. Request a renewal below — the account auto-disables on day 3 after expiry (${formatTrialExpiry(flags.access_disable_at)}).`
+      : `Expired on ${formatTrialExpiry(flags.trial_expires_at)}. Your workspace is locked. Send a renewal request so an administrator can extend your plan.`;
+  }
   els.trialExpiredOverlay.classList.remove("hide");
   els.trialExpiredOverlay.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -1122,11 +1603,22 @@ function showTrialExpiredOverlay(){
 function updateAccessBanner(){
   if (!els.guestModeBanner) return;
   const flags = getUserAccessFlags();
-  const showTrial = !isGuestMode() && state.unlocked && flags.is_trial;
   const showGuest = isGuestMode();
-  els.guestModeBanner.classList.toggle("hide", !(showTrial || showGuest));
-  els.guestModeBanner.classList.toggle("trial-expired-banner", !!(showTrial && flags.trial_expired));
-  els.guestModeBanner.classList.toggle("trial-active-banner", !!(showTrial && flags.trial_active));
+  // Front banner: guest demo, OR active plan with ≤14 days remaining only.
+  // Expired / grace warnings stay in Account Settings — not on the main page.
+  const daysLeft = Number(flags.trial_days_remaining);
+  const showApproaching = !showGuest
+    && state.unlocked
+    && flags.period_active
+    && flags.has_access_period
+    && Number.isFinite(daysLeft)
+    && daysLeft >= 0
+    && daysLeft <= 14;
+
+  els.guestModeBanner.classList.toggle("hide", !(showGuest || showApproaching));
+  els.guestModeBanner.classList.toggle("trial-expired-banner", false);
+  els.guestModeBanner.classList.toggle("trial-grace-banner", false);
+  els.guestModeBanner.classList.toggle("trial-active-banner", !!showApproaching);
 
   if (showGuest) {
     if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Demo Login";
@@ -1136,22 +1628,12 @@ function updateAccessBanner(){
     return;
   }
 
-  if (!showTrial) return;
+  if (!showApproaching) return;
 
-  if (flags.trial_expired) {
-    if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Trial / Pro period ended";
-    if (els.accessBannerMessage) {
-      els.accessBannerMessage.textContent = "Your workspace is locked. Contact the administrator to get full access.";
-    }
-  } else {
-    const days = Number(flags.trial_days_remaining);
-    const daysLabel = Number.isFinite(days)
-      ? `${days} day${days === 1 ? "" : "s"} remaining`
-      : "active";
-    if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Free 14-day trial";
-    if (els.accessBannerMessage) {
-      els.accessBannerMessage.textContent = `Trial ${daysLabel}. Expires ${formatTrialExpiry(flags.trial_expires_at)}.`;
-    }
+  const daysLabel = `${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining`;
+  if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Plan ending soon";
+  if (els.accessBannerMessage) {
+    els.accessBannerMessage.textContent = `${daysLabel}. Expires ${formatTrialExpiry(flags.trial_expires_at)}. Renew from Account Settings.`;
   }
 }
 
@@ -1343,7 +1825,8 @@ function updateGuestModeUi(){
   const locked = state.trialLocked === true;
   const accountSettingsBtn = document.getElementById("accountSettingsBtn");
   if (accountSettingsBtn) {
-    accountSettingsBtn.classList.toggle("hide", guest || locked);
+    // Keep Account Settings available when locked so users can request renewal
+    accountSettingsBtn.classList.toggle("hide", guest);
   }
   const realLoginOnlyControls = [
     els.downloadAllSectionsPdfBtn,
@@ -13908,6 +14391,14 @@ window.addEventListener("resize", () => {
   }
   els.zipPasswordInput.addEventListener("keydown", e => { if (e.key === "Enter") attemptUnlock(); });
   els.unlockBtn.addEventListener("click", attemptUnlock);
+  const zipPwToggle = document.getElementById("zipPasswordToggle");
+  if (zipPwToggle && els.zipPasswordInput) {
+    zipPwToggle.addEventListener("click", () => {
+      const show = els.zipPasswordInput.type === "password";
+      els.zipPasswordInput.type = show ? "text" : "password";
+      setPasswordEyeState(zipPwToggle, show);
+    });
+  }
   if (els.guestLoginBtn){
     els.guestLoginBtn.addEventListener("click", () => openTrialSignupModal());
   }
@@ -13920,6 +14411,52 @@ window.addEventListener("resize", () => {
       doLogout();
     });
   }
+
+  const trialExpiredPeriod = document.getElementById("trialExpiredPeriod");
+  const trialExpiredDays = document.getElementById("trialExpiredDays");
+  const trialExpiredUntil = document.getElementById("trialExpiredUntil");
+  const syncTrialRenewFields = () => {
+    const p = trialExpiredPeriod?.value || "month";
+    if (trialExpiredDays) trialExpiredDays.classList.toggle("hide", p !== "custom");
+    if (trialExpiredUntil) {
+      trialExpiredUntil.classList.toggle("hide", p !== "date");
+      if (p === "date") {
+        trialExpiredUntil.min = minExtendDateValue();
+        if (!trialExpiredUntil.value) trialExpiredUntil.value = minExtendDateValue();
+      }
+    }
+  };
+  if (trialExpiredPeriod) {
+    trialExpiredPeriod.addEventListener("change", syncTrialRenewFields);
+    syncTrialRenewFields();
+  }
+  document.getElementById("trialExpiredRenewBtn")?.addEventListener("click", async () => {
+    const statusEl = document.getElementById("trialExpiredRenewStatus");
+    const btn = document.getElementById("trialExpiredRenewBtn");
+    try {
+      if (btn) { btn.disabled = true; btn.textContent = "…"; }
+      if (statusEl) statusEl.textContent = "";
+      await submitPlanRenewalRequest({
+        period: trialExpiredPeriod?.value || "month",
+        days: trialExpiredDays?.value,
+        untilDate: trialExpiredUntil?.value || null,
+        message: document.getElementById("trialExpiredNote")?.value || "",
+        statusEl
+      });
+    } catch (ex) {
+      if (statusEl) statusEl.textContent = ex.message || "Could not send request.";
+      else alert(ex.message || "Could not send request.");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Request";
+      }
+    }
+  });
+  document.getElementById("trialExpiredSettingsBtn")?.addEventListener("click", () => {
+    hideTrialExpiredOverlay();
+    openAccountSettingsModal();
+  });
   
   // Learn More and standalone about section event listeners
   if (els.learnMoreBtn) {
@@ -14383,11 +14920,17 @@ function openTrialSignupModal(){
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
-          <input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="Min 6 characters" />
+          <div class="admin-password-row">
+            <input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="Min 6 characters" />
+            <button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Confirm password</label>
-          <input id="trialPasswordConfirm" class="input" type="password" autocomplete="new-password" placeholder="Repeat password" />
+          <div class="admin-password-row">
+            <input id="trialPasswordConfirm" class="input" type="password" autocomplete="new-password" placeholder="Repeat password" />
+            <button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPasswordConfirm" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+          </div>
         </div>
         <p class="help">Email, mobile, and address appear on your PDFs. Company name, TRN, and logo are optional. After 14 days your login still works, but the workspace locks until an administrator grants full access.</p>
         <div id="trialSignupError" class="lock-error"></div>
@@ -14410,6 +14953,7 @@ function openTrialSignupModal(){
   modal.setAttribute("aria-hidden", "false");
   bindAdminLogoPicker("trial", null);
   modal.querySelector("#trialUsername")?.focus();
+  bindAdminFormPasswordToggle(modal);
 
   modal.querySelector("#trialSignupSave").onclick = async () => {
     err.textContent = "";
@@ -14555,7 +15099,7 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = true
   updateHeaderTextFromConfig();
 
   const access = getUserAccessFlags(user);
-  state.trialLocked = access.trial_expired === true;
+  state.trialLocked = access.period_expired === true || access.trial_expired === true;
 
   if (!state.trialLocked) {
     await loadPageCurrencyPreferenceFromDatabase();
@@ -14634,15 +15178,24 @@ async function requestForcedPasswordChange(){
           <div class="modal-body">
             <div class="form-group">
               <label class="form-label">Current password</label>
-              <input id="forcePwOld" class="input" type="password" autocomplete="current-password" />
+              <div class="admin-password-row">
+                <input id="forcePwOld" class="input" type="password" autocomplete="current-password" />
+                <button type="button" class="pw-eye-btn" data-toggle-form-pw="forcePwOld" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">New password</label>
-              <input id="forcePwNew" class="input" type="password" autocomplete="new-password" />
+              <div class="admin-password-row">
+                <input id="forcePwNew" class="input" type="password" autocomplete="new-password" />
+                <button type="button" class="pw-eye-btn" data-toggle-form-pw="forcePwNew" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">Confirm new password</label>
-              <input id="forcePwConfirm" class="input" type="password" autocomplete="new-password" />
+              <div class="admin-password-row">
+                <input id="forcePwConfirm" class="input" type="password" autocomplete="new-password" />
+                <button type="button" class="pw-eye-btn" data-toggle-form-pw="forcePwConfirm" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+              </div>
             </div>
             <div id="forcePwError" class="lock-error"></div>
             <div class="modal-footer">
@@ -14657,6 +15210,7 @@ async function requestForcedPasswordChange(){
     const oldEl = modal.querySelector("#forcePwOld");
     const newEl = modal.querySelector("#forcePwNew");
     const confirmEl = modal.querySelector("#forcePwConfirm");
+    bindAdminFormPasswordToggle(modal);
     errEl.textContent = "";
     errEl.classList.remove("show");
     oldEl.value = "";
@@ -20035,7 +20589,7 @@ function adminCredentialBlock(user){
       <div class="admin-cred-row">
         <span class="admin-cred-label">Password</span>
         <input id="${pwId}" class="input admin-cred-password" type="password" readonly value="${pw ? "••••••••" : ""}" placeholder="${pw ? "" : "Not stored yet — set in Edit Access"}" data-password="${escapeHtml(pw)}" data-showing="0" autocomplete="off" />
-        <button type="button" class="btn ghost tiny" data-toggle-pw="${pwId}" ${pw ? "" : "disabled"}>Show</button>
+        <button type="button" class="pw-eye-btn" data-toggle-pw="${pwId}" ${pw ? "" : "disabled"} aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
         <button type="button" class="btn ghost tiny" data-copy="${escapeHtml(pw)}" ${pw ? "" : "disabled"}>Copy</button>
       </div>
     </div>`;
@@ -20082,30 +20636,30 @@ async function loadAdminUsers(){
         : `<span class="admin-badge muted">User</span>`;
       const protectedBadge = user.is_protected ? `<span class="admin-badge">Protected</span>` : "";
       const forceBadge = user.must_change_password ? `<span class="admin-badge warn">Must change password</span>` : "";
-      let planBadge = `<span class="admin-badge ok">Full access</span>`;
-      if (flags.trial_expired) planBadge = `<span class="admin-badge warn">Trial expired</span>`;
-      else if (flags.trial_active) planBadge = `<span class="admin-badge">Trial · ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d left</span>`;
-      else if (flags.is_trial) planBadge = `<span class="admin-badge warn">Trial</span>`;
-      const trialSummary = flags.is_trial
-        ? `<span class="admin-user-summary-expiry">Expires ${escapeHtml(formatTrialExpiry(flags.trial_expires_at))}</span>`
+      let planBadge = `<span class="admin-badge ok">Full · unlimited</span>`;
+      if (flags.period_expired && flags.grace_active) {
+        planBadge = `<span class="admin-badge warn">Expired · grace ${escapeHtml(String(Math.floor(Number(flags.grace_days_left) || 0)))}d</span>`;
+      } else if (flags.period_expired) {
+        planBadge = `<span class="admin-badge warn">${flags.is_trial ? "Trial" : "Plan"} expired</span>`;
+      } else if (flags.period_active) {
+        planBadge = `<span class="admin-badge">${flags.is_trial ? "Trial" : "Dated"} · ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d left</span>`;
+      } else if (flags.is_trial) {
+        planBadge = `<span class="admin-badge warn">Trial</span>`;
+      }
+      const trialSummary = flags.has_access_period
+        ? `<span class="admin-user-summary-expiry">Expires ${escapeHtml(formatAccessDateShort(flags.trial_expires_at))}</span>`
+        : flags.unlimited_access
+          ? `<span class="admin-user-summary-expiry">Unlimited</span>`
+          : "";
+      const grantBtn = (!user.is_protected && (flags.is_trial || flags.has_access_period || flags.access_plan !== "full"))
+        ? `<button type="button" class="btn soft tiny" data-admin-action="clear_unlimited">Grant unlimited</button>`
         : "";
-      const trialMeta = flags.is_trial
-        ? `<p class="admin-user-meta">Trial ${flags.trial_expired ? "ended" : "ends"} ${escapeHtml(formatTrialExpiry(flags.trial_expires_at))}${flags.trial_active && flags.trial_days_remaining != null ? ` · <strong>${escapeHtml(String(flags.trial_days_remaining))} day(s) remaining</strong>` : ""}</p>`
-        : `<p class="admin-user-meta">Access plan: <strong>${escapeHtml(flags.access_plan || "full")}</strong></p>`;
-      const grantBtn = (!user.is_protected && (flags.is_trial || flags.access_plan !== "full"))
-        ? `<button type="button" class="btn primary tiny" data-admin-action="grant_full">Grant full access</button>`
-        : "";
-      const trialBtn = (!user.is_protected && user.role !== "admin" && flags.access_plan === "full")
+      const trialBtn = (!user.is_protected && user.role !== "admin" && !flags.is_trial)
         ? `<button type="button" class="btn ghost tiny" data-admin-action="start_trial">Start 14-day trial</button>`
         : "";
-      const extendRow = (!user.is_protected && flags.is_trial)
-        ? `<div class="admin-extend-row">
-            <label class="admin-extend-label" for="admin-extend-${escapeHtml(user.id)}">Extend trial by</label>
-            <input id="admin-extend-${escapeHtml(user.id)}" class="input admin-extend-days" type="number" min="1" max="3650" value="14" inputmode="numeric" data-extend-days />
-            <span class="admin-extend-unit">days</span>
-            <button type="button" class="btn soft tiny" data-admin-action="extend">Extend</button>
-          </div>`
-        : "";
+      const managePlanBtn = user.is_protected
+        ? ""
+        : `<button type="button" class="btn primary tiny" data-admin-action="manage_plan"><i class="fa-solid fa-calendar-check"></i> Manage Plan</button>`;
       const companyLine = (user.company_name || user.settings?.Company)
         ? `<p class="admin-user-meta"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · TRN ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>`
         : "";
@@ -20137,15 +20691,14 @@ async function loadAdminUsers(){
             <p class="admin-user-meta">
               Created ${escapeHtml(formatAdminDate(user.created_at))} · Last login ${escapeHtml(formatAdminDate(user.last_login_at))}
             </p>
-            ${trialMeta}
             ${companyLine}
             ${contactLine}
             ${adminCredentialBlock(user)}
             ${adminMetaChips(user)}
-            ${extendRow}
             <div class="admin-user-actions">
-              <button type="button" class="btn primary tiny" data-admin-action="edit">Edit Access</button>
-              <button type="button" class="btn soft tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
+              ${managePlanBtn}
+              <button type="button" class="btn soft tiny" data-admin-action="edit">Edit Access</button>
+              <button type="button" class="btn ghost tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
               ${grantBtn}
               ${trialBtn}
               <button type="button" class="btn ghost tiny" data-admin-action="toggle" ${user.is_protected ? "disabled" : ""}>${user.is_active ? "Disable" : "Enable"}</button>
@@ -20198,9 +20751,7 @@ async function loadAdminUsers(){
         const userId = btn.closest("[data-user-id]")?.dataset.userId;
         const user = rows.find(u => u.id === userId);
         if (!user) return;
-        const daysInput = btn.closest(".admin-user-details")?.querySelector("[data-extend-days]");
-        const days = daysInput ? Number(daysInput.value) : 14;
-        handleAdminUserAction(btn.dataset.adminAction, user, { days });
+        handleAdminUserAction(btn.dataset.adminAction, user);
       });
     });
     list.querySelectorAll("[data-copy]").forEach(btn => {
@@ -20229,12 +20780,12 @@ async function loadAdminUsers(){
             el.type = "text";
             el.value = raw;
             el.dataset.showing = "1";
-            btn.textContent = "Hide";
+            setPasswordEyeState(btn, true);
           } else {
             el.type = "password";
             el.value = raw ? "••••••••" : "";
             el.dataset.showing = "0";
-            btn.textContent = "Show";
+            setPasswordEyeState(btn, false);
           }
         }
       });
@@ -20246,6 +20797,10 @@ async function loadAdminUsers(){
 
 async function handleAdminUserAction(action, user, opts = {}){
   try {
+    if (action === "manage_plan") {
+      openAdminManagePlanModal(user);
+      return;
+    }
     if (action === "edit") {
       openAdminEditUserModal(user);
       return;
@@ -20254,27 +20809,28 @@ async function handleAdminUserAction(action, user, opts = {}){
       openAdminRawDataOverlay(user);
       return;
     }
-    if (action === "grant_full") {
-      if (!confirm(`Grant full Pro access to "${user.username}"? Their workspace will unlock immediately.`)) return;
-      await supabaseRpc("app_admin_grant_full_access", { p_user_id: user.id });
+    if (action === "grant_full" || action === "clear_unlimited") {
+      if (user.is_protected) return;
+      if (!confirm(`Remove expiry for "${user.username}" and grant unlimited full access?`)) return;
+      await supabaseRpc("app_admin_set_access_expiry", {
+        p_user_id: user.id,
+        p_until_date: null,
+        p_clear_unlimited: true,
+        p_note: "Cleared expiry · unlimited"
+      });
       await loadAdminUsers();
       return;
     }
     if (action === "start_trial") {
       if (user.is_protected || user.role === "admin") return alert("Admin accounts cannot be set to trial.");
       if (!confirm(`Start a fresh 14-day trial for "${user.username}"?`)) return;
-      await supabaseRpc("app_admin_start_trial", { p_user_id: user.id, p_days: 14 });
+      await supabaseRpc("app_admin_set_access_period", {
+        p_user_id: user.id,
+        p_days: 14,
+        p_access_plan: "trial",
+        p_period: "custom"
+      });
       await loadAdminUsers();
-      return;
-    }
-    if (action === "extend") {
-      if (user.is_protected) return alert("Protected administrator access cannot be extended.");
-      const days = Math.max(1, Math.min(3650, Math.floor(Number(opts.days) || 0)));
-      if (!days) return alert("Enter how many days to extend (1 or more).");
-      const updated = await supabaseRpc("app_admin_extend_access", { p_user_id: user.id, p_days: days });
-      const flags = getUserAccessFlags(updated || user);
-      await loadAdminUsers();
-      alert(`Extended "${user.username}" by ${days} day(s).\nNew expiry: ${formatTrialExpiry(flags.trial_expires_at)}${flags.trial_days_remaining != null ? `\nDays remaining: ${flags.trial_days_remaining}` : ""}`);
       return;
     }
     if (action === "toggle") {
@@ -20742,6 +21298,22 @@ async function saveAdminRawEdit(){
   }
 }
 
+function passwordEyeButtonHtml({ toggleAttr, toggleValue, disabled = false, extraClass = "" } = {}){
+  const disabledAttr = disabled ? "disabled" : "";
+  return `<button type="button" class="pw-eye-btn ${extraClass}" ${toggleAttr}="${escapeHtml(toggleValue || "")}" ${disabledAttr} aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>`;
+}
+
+function setPasswordEyeState(btn, visible){
+  if (!btn) return;
+  btn.classList.toggle("is-visible", !!visible);
+  btn.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+  btn.setAttribute("title", visible ? "Hide password" : "Show password");
+  const icon = btn.querySelector("i");
+  if (icon) {
+    icon.className = visible ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+  }
+}
+
 function bindAdminFormPasswordToggle(root){
   if (!root) return;
   root.querySelectorAll("[data-toggle-form-pw]").forEach(btn => {
@@ -20751,7 +21323,7 @@ function bindAdminFormPasswordToggle(root){
       if (!el) return;
       const show = el.type === "password";
       el.type = show ? "text" : "password";
-      btn.textContent = show ? "Hide" : "Show";
+      setPasswordEyeState(btn, show);
     };
   });
 }
@@ -20782,7 +21354,7 @@ function buildAdminUserFormFields(prefix, user = null){
         <label class="form-label">${user ? "Password (leave blank to keep)" : "Password"}</label>
         <div class="admin-password-row">
           <input id="${prefix}Password" class="input" type="password" autocomplete="new-password" value="" data-original="${escapeHtml(user?.admin_visible_password || "")}" placeholder="${user ? (user.admin_visible_password ? "••••••••  (leave blank to keep)" : "No stored password — enter one to save") : "Min 6 characters"}" />
-          <button type="button" class="btn ghost tiny" data-toggle-form-pw="${prefix}Password">Show</button>
+          <button type="button" class="pw-eye-btn" data-toggle-form-pw="${prefix}Password" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
         </div>
         <p class="help">Shown to administrators only when revealed. Leave blank when editing to keep the current password.</p>
       </div>
@@ -20796,11 +21368,42 @@ function buildAdminUserFormFields(prefix, user = null){
       <div class="form-group">
         <label class="form-label">Access plan</label>
         <select id="${prefix}AccessPlan" class="input" ${planDisabled}>
-          <option value="full" ${accessPlan === "full" ? "selected" : ""}>Full / Pro access</option>
-          <option value="trial" ${accessPlan === "trial" ? "selected" : ""}>14-day trial</option>
+          <option value="full" ${accessPlan === "full" ? "selected" : ""}>Full / Pro</option>
+          <option value="trial" ${accessPlan === "trial" ? "selected" : ""}>Timed / trial</option>
         </select>
-        <p class="help">Trial users cannot use Admin. Expired trials can still sign in but data stays locked until granted full access.</p>
       </div>
+      <div class="form-group">
+        <label class="form-label">Access period</label>
+        <select id="${prefix}AccessPeriod" class="input" ${planDisabled} data-access-period-select>
+          <option value="week">1 week</option>
+          <option value="month">1 month</option>
+          <option value="year">1 year</option>
+          <option value="custom" selected>Custom days</option>
+          <option value="date">Until date</option>
+          ${user && accessPlan === "full" && !user.trial_expires_at ? `<option value="unlimited">Unlimited</option>` : ""}
+          ${!user ? `<option value="unlimited">Unlimited (full only)</option>` : ""}
+        </select>
+      </div>
+      <div class="form-group" data-access-days-wrap>
+        <label class="form-label">Days</label>
+        <input id="${prefix}AccessDays" class="input" type="number" min="1" max="3650" value="${escapeHtml(String((() => {
+          if (!user?.trial_expires_at) return 14;
+          const left = Math.ceil((new Date(user.trial_expires_at).getTime() - Date.now()) / 86400000);
+          return Math.max(1, left > 0 ? left : 14);
+        })()))}" ${planDisabled} />
+      </div>
+      <div class="form-group hide" data-access-until-wrap>
+        <label class="form-label">Until date</label>
+        <input id="${prefix}AccessUntil" class="input" type="date" min="${escapeHtml(minExtendDateValue())}" value="${escapeHtml(user?.trial_expires_at ? toInputDateValue(user.trial_expires_at) : minExtendDateValue())}" ${planDisabled} />
+      </div>
+      ${user && !user.is_protected ? `
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="admin-inline-check">
+          <input id="${prefix}ApplyPeriod" type="checkbox" />
+          Apply access period on save
+        </label>
+        <p class="help" style="margin:4px 0 0">Current expiry: ${escapeHtml(formatTrialExpiry(user.trial_expires_at))}</p>
+      </div>` : ""}
     </div>
 
     <div class="admin-branding-block">
@@ -20892,6 +21495,55 @@ async function uploadCompanyLogoToStorage(userId, file){
   return `${dbConfig.supabaseUrl}/storage/v1/object/public/company-logos/${path}`;
 }
 
+function bindAccessPeriodFields(root){
+  const scope = root || document;
+  scope.querySelectorAll("[data-access-period-select]").forEach(sel => {
+    const form = sel.closest(".admin-form-grid") || sel.parentElement?.parentElement || scope;
+    const sync = () => {
+      const p = sel.value;
+      form.querySelectorAll("[data-access-days-wrap]").forEach(el => el.classList.toggle("hide", p === "date" || p === "unlimited"));
+      form.querySelectorAll("[data-access-until-wrap]").forEach(el => el.classList.toggle("hide", p !== "date"));
+    };
+    sel.addEventListener("change", sync);
+    sync();
+  });
+}
+
+function readAccessPeriodPayload(prefix){
+  const period = document.getElementById(`${prefix}AccessPeriod`)?.value || "custom";
+  const daysRaw = document.getElementById(`${prefix}AccessDays`)?.value;
+  const untilDate = document.getElementById(`${prefix}AccessUntil`)?.value || null;
+  const accessPlan = document.getElementById(`${prefix}AccessPlan`)?.value || "full";
+  return { period, daysRaw, untilDate, accessPlan };
+}
+
+async function applyAdminAccessPeriod(userId, { period, daysRaw, untilDate, accessPlan }){
+  if (period === "unlimited") {
+    if (accessPlan !== "full") throw new Error("Unlimited access requires Full / Pro plan.");
+    await supabaseRpc("app_admin_grant_full_access", { p_user_id: userId });
+    return;
+  }
+  if (period === "date") {
+    if (!untilDate) throw new Error("Choose an until date.");
+    await supabaseRpc("app_admin_set_access_period", {
+      p_user_id: userId,
+      p_access_plan: accessPlan,
+      p_period: "date",
+      p_until_date: untilDate,
+      p_days: null
+    });
+    return;
+  }
+  const days = accessPeriodDaysFromUi(period, daysRaw);
+  await supabaseRpc("app_admin_set_access_period", {
+    p_user_id: userId,
+    p_days: period === "custom" ? days : null,
+    p_access_plan: accessPlan,
+    p_period: period === "custom" ? "custom" : period,
+    p_until_date: null
+  });
+}
+
 function bindAdminLogoPicker(prefix, existingUserId = null){
   const fileInput = document.getElementById(`${prefix}LogoFile`);
   const urlInput = document.getElementById(`${prefix}LogoUrl`);
@@ -20930,20 +21582,20 @@ function openAdminCreateUserModal(){
   }
   modal.innerHTML = `
     <div class="modal-backdrop" data-admin-modal-close="adminCreateUserModal"></div>
-    <div class="modal-dialog admin-modal-dialog">
-      <div class="modal-head">
+    <div class="modal-dialog admin-modal-dialog settings-sheet admin-settings-sheet">
+      <div class="settings-sheet-head">
         <div>
-          <h3>Create user account</h3>
-          <p>Set login credentials, company branding, currencies, and which tabs this user can access.</p>
+          <h3>Create user</h3>
+          <p>Credentials, access period, branding</p>
         </div>
-        <button type="button" class="btn ghost" data-admin-modal-close="adminCreateUserModal" aria-label="Close">✕</button>
+        <button type="button" class="btn ghost tiny" data-admin-modal-close="adminCreateUserModal" aria-label="Close">✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body settings-sheet-body">
         <div id="adminCreateFormBody"></div>
         <div id="adminCreateError" class="lock-error"></div>
-        <div class="modal-footer">
-          <button type="button" class="btn ghost" id="adminCreateCancel">Cancel</button>
-          <button type="button" class="btn primary" id="adminCreateSave">Create account</button>
+        <div class="modal-footer settings-sheet-footer">
+          <button type="button" class="btn ghost tiny" id="adminCreateCancel">Cancel</button>
+          <button type="button" class="btn primary tiny" id="adminCreateSave">Create</button>
         </div>
       </div>
     </div>`;
@@ -20951,6 +21603,7 @@ function openAdminCreateUserModal(){
   body.innerHTML = buildAdminUserFormFields("adminNew");
   bindAdminLogoPicker("adminNew", null);
   bindAdminFormPasswordToggle(modal);
+  bindAccessPeriodFields(modal);
   const err = modal.querySelector("#adminCreateError");
   err.textContent = "";
   err.classList.remove("show");
@@ -20977,8 +21630,12 @@ function openAdminCreateUserModal(){
       if (!currencies.length) throw new Error("Select at least one currency.");
       if (!tabs.length) throw new Error("Select at least one tab.");
       const accessPlan = modal.querySelector("#adminNewAccessPlan")?.value || "full";
+      const periodPayload = readAccessPeriodPayload("adminNew");
       if (accessPlan === "trial" && modal.querySelector("#adminNewRole").value === "admin") {
         throw new Error("Trial accounts cannot be admins.");
+      }
+      if (accessPlan === "trial" && periodPayload.period === "unlimited") {
+        throw new Error("Trial access requires a period (week, month, year, days, or until date).");
       }
       const created = await supabaseRpc("app_admin_create_user", {
         p_username: username,
@@ -20996,8 +21653,8 @@ function openAdminCreateUserModal(){
         p_company_phone: modal.querySelector("#adminNewPhone").value.trim(),
         p_company_address: modal.querySelector("#adminNewAddress").value.trim()
       });
-      if (accessPlan === "trial" && created?.id) {
-        await supabaseRpc("app_admin_start_trial", { p_user_id: created.id, p_days: 14 });
+      if (created?.id) {
+        await applyAdminAccessPeriod(created.id, periodPayload);
       }
 
       modal.classList.add("hide");
@@ -21020,20 +21677,20 @@ function openAdminEditUserModal(user){
   }
   modal.innerHTML = `
     <div class="modal-backdrop" data-admin-modal-close="adminEditUserModal"></div>
-    <div class="modal-dialog admin-modal-dialog">
-      <div class="modal-head">
+    <div class="modal-dialog admin-modal-dialog settings-sheet admin-settings-sheet">
+      <div class="settings-sheet-head">
         <div>
           <h3 id="adminEditTitle">Edit access</h3>
-          <p>Update username, password, company branding, currencies, and tab access.</p>
+          <p>Credentials, period, branding, tabs</p>
         </div>
-        <button type="button" class="btn ghost" data-admin-modal-close="adminEditUserModal" aria-label="Close">✕</button>
+        <button type="button" class="btn ghost tiny" data-admin-modal-close="adminEditUserModal" aria-label="Close">✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body settings-sheet-body">
         <div id="adminEditFormBody"></div>
         <div id="adminEditError" class="lock-error"></div>
-        <div class="modal-footer">
-          <button type="button" class="btn ghost" id="adminEditCancel">Cancel</button>
-          <button type="button" class="btn primary" id="adminEditSave">Save changes</button>
+        <div class="modal-footer settings-sheet-footer">
+          <button type="button" class="btn ghost tiny" id="adminEditCancel">Cancel</button>
+          <button type="button" class="btn primary tiny" id="adminEditSave">Save</button>
         </div>
       </div>
     </div>`;
@@ -21042,6 +21699,7 @@ function openAdminEditUserModal(user){
   body.innerHTML = buildAdminUserFormFields("adminEdit", user);
   bindAdminLogoPicker("adminEdit", user.id);
   bindAdminFormPasswordToggle(modal);
+  bindAccessPeriodFields(modal);
   const pwInput = modal.querySelector("#adminEditPassword");
   if (pwInput) {
     pwInput.value = "";
@@ -21147,6 +21805,12 @@ function openAdminEditUserModal(user){
       const activeEl = modal.querySelector("#adminEditActive");
       if (activeEl) payload.p_is_active = activeEl.checked;
       await supabaseRpc("app_admin_update_user_access", payload);
+
+      const applyPeriod = modal.querySelector("#adminEditApplyPeriod")?.checked === true;
+      if (!user.is_protected && applyPeriod) {
+        await applyAdminAccessPeriod(user.id, readAccessPeriodPayload("adminEdit"));
+      }
+
       modal.classList.add("hide");
       modal.setAttribute("aria-hidden", "true");
       await loadAdminUsers();
@@ -21155,7 +21819,8 @@ function openAdminEditUserModal(user){
           const validated = await supabaseRpc("app_validate_session", {});
           if (validated?.user) {
             applyUserProfileToConfig(validated.user);
-            state.trialLocked = getUserAccessFlags(validated.user).trial_expired === true;
+            state.trialLocked = getUserAccessFlags(validated.user).period_expired === true
+              || getUserAccessFlags(validated.user).trial_expired === true;
             if (state.trialLocked) {
               resetLazyDataState({ clearEntries: true });
               showTrialExpiredOverlay();
@@ -21200,94 +21865,106 @@ function openAccountSettingsModal(){
   }
   modal.innerHTML = `
     <div class="modal-backdrop" data-admin-modal-close="accountSettingsModal"></div>
-    <div class="modal-dialog admin-modal-dialog">
-      <div class="modal-head">
+    <div class="modal-dialog settings-sheet">
+      <div class="settings-sheet-head">
         <div>
           <h3>Account settings</h3>
-          <p>Update your login details and company information shown in the app and on PDFs.</p>
+          <p>Profile, plan, and company details</p>
         </div>
-        <button type="button" class="btn ghost" data-admin-modal-close="accountSettingsModal" aria-label="Close">✕</button>
+        <button type="button" class="btn ghost tiny" data-admin-modal-close="accountSettingsModal" aria-label="Close">✕</button>
       </div>
-      <div class="modal-body">
-        <div class="admin-form-grid">
-          <div class="form-group">
-            <label class="form-label">Display name</label>
-            <input id="acctDisplayName" class="input" autocomplete="name" />
+      <div class="modal-body settings-sheet-body">
+        <div id="acctPlanBlock" class="settings-card">
+          <div class="settings-card-head">
+            <span>Plan &amp; access</span>
+            <span id="acctPlanBadge" class="settings-pill"></span>
           </div>
-          <div class="form-group">
-            <label class="form-label">Username</label>
-            <input id="acctUsername" class="input" autocomplete="username" ${usernameLocked ? "readonly" : ""} />
-            ${usernameLocked ? `<p class="help">Protected administrator username cannot be changed.</p>` : `<p class="help">Letters, numbers, underscore, and hyphen only.</p>`}
+          <div id="acctPlanSummary" class="settings-plan-meta"></div>
+          <div class="settings-renew-row">
+            <select id="acctRenewPeriod" class="input settings-input" title="Renewal period">
+              <option value="week">1 week</option>
+              <option value="month" selected>1 month</option>
+              <option value="year">1 year</option>
+              <option value="custom">Custom days</option>
+              <option value="date">Until date</option>
+            </select>
+            <input id="acctRenewDays" class="input settings-input settings-days" type="number" min="1" max="3650" value="30" title="Days" />
+            <input id="acctRenewUntil" class="input settings-input settings-date hide" type="date" title="Until date" />
+            <button type="button" class="btn primary tiny" id="acctRenewSubmit">Request</button>
+          </div>
+          <input id="acctRenewMessage" class="input settings-input" type="text" placeholder="Optional note to admin" />
+          <p class="settings-status" id="acctRenewStatus"></p>
+        </div>
+
+        <div class="settings-card">
+          <div class="settings-card-head"><span>Profile</span></div>
+          <div class="settings-grid">
+            <label class="settings-field">Display name
+              <input id="acctDisplayName" class="input settings-input" autocomplete="name" />
+            </label>
+            <label class="settings-field">Username
+              <input id="acctUsername" class="input settings-input" autocomplete="username" ${usernameLocked ? "readonly" : ""} />
+            </label>
           </div>
         </div>
 
-        <div class="admin-branding-block">
-          <h4 class="admin-section-title">Company details</h4>
-          <p class="help">Used in the header and on PDFs for your account.</p>
-          <div class="admin-form-grid">
-            <div class="form-group">
-              <label class="form-label">Company name</label>
-              <input id="acctCompany" class="input" autocomplete="organization" placeholder="Company / business name" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">VAT / TRN number</label>
-              <input id="acctVat" class="input" placeholder="Tax registration number" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Email</label>
-              <input id="acctEmail" class="input" type="email" autocomplete="email" placeholder="accounts@company.com" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Mobile number</label>
-              <input id="acctPhone" class="input" type="tel" autocomplete="tel" placeholder="+971 50 000 0000" />
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:10px">
-            <label class="form-label">Company address</label>
-            <textarea id="acctAddress" class="input admin-address-input" rows="2" placeholder="Street, city, country"></textarea>
-          </div>
-          <div class="form-group" style="margin-top:10px">
-            <label class="form-label">Company logo (PNG / JPG)</label>
-            <div class="admin-logo-row">
-              <input id="acctLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
-              <input id="acctLogoUrl" class="input" type="hidden" value="" />
-            </div>
-            <div class="admin-logo-preview-wrap">
-              <img id="acctLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" />
-              <span id="acctLogoStatus" class="help">No logo uploaded yet — default Triple M logo will be used</span>
-            </div>
+        <div class="settings-card">
+          <div class="settings-card-head"><span>Company</span></div>
+          <div class="settings-grid">
+            <label class="settings-field">Company
+              <input id="acctCompany" class="input settings-input" autocomplete="organization" />
+            </label>
+            <label class="settings-field">VAT / TRN
+              <input id="acctVat" class="input settings-input" />
+            </label>
+            <label class="settings-field">Email
+              <input id="acctEmail" class="input settings-input" type="email" autocomplete="email" />
+            </label>
+            <label class="settings-field">Mobile
+              <input id="acctPhone" class="input settings-input" type="tel" autocomplete="tel" />
+            </label>
+            <label class="settings-field settings-span-2">Address
+              <input id="acctAddress" class="input settings-input" placeholder="Street, city, country" />
+            </label>
+            <label class="settings-field settings-span-2">Logo
+              <div class="settings-logo-row">
+                <input id="acctLogoFile" class="input settings-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
+                <input id="acctLogoUrl" type="hidden" value="" />
+                <img id="acctLogoPreview" class="settings-logo-preview hide" src="" alt="" />
+              </div>
+              <span id="acctLogoStatus" class="settings-hint">Optional · PNG/JPG</span>
+            </label>
           </div>
         </div>
 
-        <div class="admin-branding-block">
-          <h4 class="admin-section-title">Change password</h4>
-          <p class="help">Leave new password blank to keep your current password. Changing password keeps you signed in on this device.</p>
-          <div class="admin-form-grid">
-            <div class="form-group">
-              <label class="form-label">Current password</label>
+        <div class="settings-card">
+          <div class="settings-card-head"><span>Password</span></div>
+          <div class="settings-grid">
+            <label class="settings-field">Current
               <div class="admin-password-row">
-                <input id="acctOldPassword" class="input" type="password" autocomplete="current-password" />
-                <button type="button" class="btn ghost tiny" data-toggle-form-pw="acctOldPassword">Show</button>
+                <input id="acctOldPassword" class="input settings-input" type="password" autocomplete="current-password" />
+                <button type="button" class="pw-eye-btn" data-toggle-form-pw="acctOldPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
               </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">New password (optional)</label>
+            </label>
+            <label class="settings-field">New
               <div class="admin-password-row">
-                <input id="acctNewPassword" class="input" type="password" autocomplete="new-password" />
-                <button type="button" class="btn ghost tiny" data-toggle-form-pw="acctNewPassword">Show</button>
+                <input id="acctNewPassword" class="input settings-input" type="password" autocomplete="new-password" />
+                <button type="button" class="pw-eye-btn" data-toggle-form-pw="acctNewPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
               </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Confirm new password</label>
-              <input id="acctConfirmPassword" class="input" type="password" autocomplete="new-password" />
-            </div>
+            </label>
+            <label class="settings-field settings-span-2">Confirm new
+              <div class="admin-password-row">
+                <input id="acctConfirmPassword" class="input settings-input" type="password" autocomplete="new-password" />
+                <button type="button" class="pw-eye-btn" data-toggle-form-pw="acctConfirmPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+              </div>
+            </label>
           </div>
         </div>
 
         <div id="acctSettingsError" class="lock-error"></div>
-        <div class="modal-footer">
-          <button type="button" class="btn ghost" id="acctSettingsCancel">Cancel</button>
-          <button type="button" class="btn primary" id="acctSettingsSave">Save</button>
+        <div class="settings-sheet-footer">
+          <button type="button" class="btn ghost tiny" id="acctSettingsCancel">Cancel</button>
+          <button type="button" class="btn primary tiny" id="acctSettingsSave">Save</button>
         </div>
       </div>
     </div>`;
@@ -21312,6 +21989,89 @@ function openAccountSettingsModal(){
   modal.querySelector("#acctConfirmPassword").value = "";
   bindAdminLogoPicker("acct", user.id || null);
   bindAdminFormPasswordToggle(modal);
+
+  const flags = getUserAccessFlags(user);
+  const planSummary = modal.querySelector("#acctPlanSummary");
+  const planBadge = modal.querySelector("#acctPlanBadge");
+  const planBlock = modal.querySelector("#acctPlanBlock");
+  if (user.is_protected) {
+    if (planBlock) planBlock.classList.add("hide");
+  } else {
+    let badgeText = "Unlimited";
+    let badgeClass = "ok";
+    if (flags.grace_active) {
+      badgeText = `Grace ${Math.floor(Number(flags.grace_days_left) || 0)}d`;
+      badgeClass = "warn";
+    } else if (flags.period_expired) {
+      badgeText = "Expired";
+      badgeClass = "warn";
+    } else if (flags.period_active) {
+      badgeText = `${flags.trial_days_remaining ?? "?"}d left`;
+      badgeClass = Number(flags.trial_days_remaining) <= 14 ? "warn" : "ok";
+    } else if (flags.is_trial) {
+      badgeText = "Trial";
+      badgeClass = "warn";
+    }
+    if (planBadge) {
+      planBadge.textContent = badgeText;
+      planBadge.className = `settings-pill ${badgeClass}`;
+    }
+    if (planSummary) {
+      const warnBits = [];
+      if (flags.period_expired && flags.grace_active) {
+        warnBits.push(`Expired ${formatTrialExpiry(flags.trial_expires_at)}. Renew before auto-disable on ${formatTrialExpiry(flags.access_disable_at)}.`);
+      } else if (flags.period_expired) {
+        warnBits.push(`Expired ${formatTrialExpiry(flags.trial_expires_at)}. Request renewal below.`);
+      } else if (flags.period_active && Number(flags.trial_days_remaining) <= 14) {
+        warnBits.push(`Plan ending soon — ${flags.trial_days_remaining} day(s) left.`);
+      }
+      planSummary.innerHTML = `
+        <div class="settings-kv"><span>Plan</span><strong>${escapeHtml(flags.access_plan || "full")}</strong></div>
+        <div class="settings-kv"><span>Expires</span><strong>${escapeHtml(flags.unlimited_access ? "Never" : formatTrialExpiry(flags.trial_expires_at))}</strong></div>
+        ${warnBits.length ? `<p class="settings-warn">${escapeHtml(warnBits.join(" "))}</p>` : ""}
+      `;
+    }
+  }
+
+  const renewPeriod = modal.querySelector("#acctRenewPeriod");
+  const renewDays = modal.querySelector("#acctRenewDays");
+  const renewUntil = modal.querySelector("#acctRenewUntil");
+  const syncRenewFields = () => {
+    const p = renewPeriod?.value || "month";
+    if (renewDays) renewDays.classList.toggle("hide", p !== "custom");
+    if (renewUntil) {
+      renewUntil.classList.toggle("hide", p !== "date");
+      if (p === "date" && !renewUntil.value) renewUntil.min = minExtendDateValue();
+      if (p === "date" && !renewUntil.value) renewUntil.value = minExtendDateValue();
+    }
+  };
+  if (renewPeriod) renewPeriod.onchange = syncRenewFields;
+  syncRenewFields();
+
+  const renewStatus = modal.querySelector("#acctRenewStatus");
+  const renewBtn = modal.querySelector("#acctRenewSubmit");
+  if (renewBtn) {
+    renewBtn.onclick = async () => {
+      if (renewStatus) renewStatus.textContent = "";
+      try {
+        renewBtn.disabled = true;
+        renewBtn.textContent = "…";
+        await submitPlanRenewalRequest({
+          period: renewPeriod?.value || "month",
+          days: renewDays?.value,
+          untilDate: renewUntil?.value || null,
+          message: modal.querySelector("#acctRenewMessage")?.value || "",
+          statusEl: renewStatus
+        });
+      } catch (ex) {
+        if (renewStatus) renewStatus.textContent = ex.message || "Could not send request.";
+        else alert(ex.message || "Could not send request.");
+      } finally {
+        renewBtn.disabled = false;
+        renewBtn.textContent = "Request";
+      }
+    };
+  }
 
   const err = modal.querySelector("#acctSettingsError");
   err.textContent = "";
@@ -21717,12 +22477,17 @@ async function refreshAdminCommsBadges(){
 function notificationIconClass(kind){
   if (kind === "trial_signup") return "trial";
   if (kind === "inquiry") return "inquiry";
+  if (kind === "renewal_request") return "renewal";
+  if (kind === "access_expiry_warning" || kind === "access_auto_disabled") return "warn";
   return "";
 }
 
 function notificationIcon(kind){
   if (kind === "trial_signup") return "fa-user-plus";
   if (kind === "inquiry") return "fa-envelope-open-text";
+  if (kind === "renewal_request") return "fa-rotate";
+  if (kind === "access_expiry_warning") return "fa-triangle-exclamation";
+  if (kind === "access_auto_disabled") return "fa-user-slash";
   return "fa-bell";
 }
 
@@ -21740,17 +22505,28 @@ async function loadAdminNotificationsDropdown(){
     }
     list.innerHTML = items.map(n => {
       const unread = !n.is_read;
+      const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
+      const extra = n.kind === "renewal_request"
+        ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.period_label || accessPeriodLabel(payload.requested_period, payload.requested_days, payload.requested_until ? toInputDateValue(payload.requested_until) : null))}</strong>${payload.current_expires_at ? ` · current ${escapeHtml(formatTrialExpiry(payload.current_expires_at))}` : ""}${payload.message ? ` · “${escapeHtml(payload.message)}”` : ""}</p>`
+        : (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled")
+          ? `<p class="admin-comms-item-body">${payload.trial_expires_at ? `Expired ${escapeHtml(formatTrialExpiry(payload.trial_expires_at))}` : ""}${payload.access_disable_at ? ` · disable ${escapeHtml(formatTrialExpiry(payload.access_disable_at))}` : ""}</p>`
+          : "";
+      const jumpUser = n.related_user_id
+        ? `<button type="button" class="btn ghost" data-notif-user="${escapeHtml(n.related_user_id)}" title="Open user"><i class="fa-solid fa-user"></i></button>`
+        : "";
       return `
-        <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}">
+        <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}" data-related-user="${escapeHtml(n.related_user_id || "")}">
           <div class="admin-comms-item-icon ${notificationIconClass(n.kind)}">
             <i class="fa-solid ${notificationIcon(n.kind)}"></i>
           </div>
           <div>
             <p class="admin-comms-item-title">${escapeHtml(n.title)}</p>
             <p class="admin-comms-item-body">${escapeHtml(n.body || "")}</p>
+            ${extra}
             <span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(n.created_at))}</span>
           </div>
           <div class="admin-comms-item-actions">
+            ${jumpUser}
             ${unread ? `<button type="button" class="btn ghost" data-notif-read="${escapeHtml(n.id)}" title="Mark read"><i class="fa-solid fa-check"></i></button>` : ""}
             <button type="button" class="btn ghost" data-notif-delete="${escapeHtml(n.id)}" title="Delete"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -22242,8 +23018,26 @@ function bindMessagingUi(){
   document.getElementById("adminNotifyList")?.addEventListener("click", async e => {
     const readBtn = e.target.closest("[data-notif-read]");
     const delBtn = e.target.closest("[data-notif-delete]");
+    const userBtn = e.target.closest("[data-notif-user]");
     const row = e.target.closest("[data-notification-id]");
     try {
+      if (userBtn) {
+        e.stopPropagation();
+        const userId = userBtn.dataset.notifUser;
+        document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
+        activate("admin");
+        await loadAdminUsers();
+        const card = document.querySelector(`.admin-user-card[data-user-id="${CSS.escape ? CSS.escape(userId) : userId}"]`);
+        if (card) {
+          const details = card.querySelector(".admin-user-details");
+          const toggle = card.querySelector("[data-admin-toggle-card]");
+          card.classList.add("is-expanded");
+          if (details) details.hidden = false;
+          if (toggle) toggle.setAttribute("aria-expanded", "true");
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        return;
+      }
       if (readBtn) {
         e.stopPropagation();
         await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: readBtn.dataset.notifRead });
@@ -22267,9 +23061,21 @@ function bindMessagingUi(){
         }
         if (n?.kind === "inquiry") {
           goToMessagesTab(n.related_inquiry_id || null);
-        } else if (n?.kind === "trial_signup") {
+        } else if (n?.kind === "trial_signup" || n?.kind === "renewal_request" || n?.kind === "access_expiry_warning" || n?.kind === "access_auto_disabled") {
           document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
           activate("admin");
+          if (n.related_user_id) {
+            await loadAdminUsers();
+            const card = document.querySelector(`.admin-user-card[data-user-id="${CSS.escape ? CSS.escape(n.related_user_id) : n.related_user_id}"]`);
+            if (card) {
+              const details = card.querySelector(".admin-user-details");
+              const toggle = card.querySelector("[data-admin-toggle-card]");
+              card.classList.add("is-expanded");
+              if (details) details.hidden = false;
+              if (toggle) toggle.setAttribute("aria-expanded", "true");
+              card.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }
         }
       }
     } catch (ex) {
