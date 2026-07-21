@@ -1090,6 +1090,7 @@
                 <p>Loans are sorted by the latest user-entered payment date, newest first.</p>
               </div>
               <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="loans_given" title="Move all meta-tag loan rows on this page into section tables">Fix all on this page</button>
                 <button class="btn soft" id="downloadGivenPdfBtn" type="button">📄 Download</button>
               </div>
             </div>
@@ -1212,6 +1213,7 @@
                 <p>Loans are sorted by the latest user-entered payment date, newest first.</p>
               </div>
               <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="loans_taken" title="Move all meta-tag loan rows on this page into section tables">Fix all on this page</button>
                 <button class="btn soft" id="downloadTakenPdfBtn" type="button">📄 Download</button>
               </div>
             </div>
@@ -1323,6 +1325,7 @@
                 <p>People moved here from taken loans are tracked as installment plans.</p>
               </div>
               <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="installments" title="Move all meta-tag installment rows into section tables">Fix all on this page</button>
               </div>
             </div>
             <div class="filter-inline-row">
@@ -1381,6 +1384,7 @@
                 <p>Track stock, purchases, sales receipts, and item-wise status.</p>
               </div>
               <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="inventory" title="Move all meta-tag inventory rows into section tables">Fix all on this page</button>
               </div>
             </div>
             <div class="filter-inline-row">
@@ -1427,6 +1431,7 @@
                 <p>Wallets show top-up, spent, and balance. The list is an expense statement by item; open an item for wallet-level transactions.</p>
               </div>
               <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="expenses" title="Move all meta-tag expense rows into section tables">Fix all on this page</button>
                 <button class="btn soft" id="downloadExpensesPdfBtn" type="button">📄 Download</button>
               </div>
             </div>
@@ -1494,6 +1499,7 @@
                 <p>Keep track of your notes with date and time stamps.</p>
               </div>
               <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="notes" title="Move all meta-tag notes into the notes table">Fix all on this page</button>
               </div>
             </div>
             <div class="filter-inline-row">
@@ -1526,6 +1532,9 @@
                   <h3>Bitcoin Wallet</h3>
                 </div>
                 <p>Import a WIF or create a new one. All operations are client-side only.</p>
+              </div>
+              <div class="tools">
+                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="bitcoin" title="Move all meta-tag bitcoin wallets into the bitcoin_wallets table">Fix all on this page</button>
               </div>
             </div>
           </div>
@@ -3001,6 +3010,7 @@
     </div>
   </div>
 
+  <script src="Assets/app/domain-ledger.js"></script>
   <script src="Assets/app/script.js"></script>
 </body>
 </html>
