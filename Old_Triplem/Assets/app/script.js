@@ -1,5 +1,5 @@
 const CONFIG = {
-  zipBaseUrl: "https://triplem.vip/Assets/app/",
+  zipBaseUrl: "https://triplem.vip/Old_Triplem/Assets/app/",
   table: "loan_ledger_entries"
 };
 
@@ -17824,7 +17824,7 @@ function showIosDownloadOverlay() {
   
   // Generate QR code if not already generated
   if (!iosQrCodeInstance) {
-    const iosUrl = 'https://triplem.vip/Assets/mobile_app/iOS/Triple_M_by_NSF.mobileconfig';
+    const iosUrl = 'https://triplem.vip/Old_Triplem/Assets/mobile_app/iOS/Triple_M_by_NSF.mobileconfig';
     qrContainer.innerHTML = ''; // Clear existing content
     
     try {
@@ -17854,7 +17854,7 @@ function showAndroidDownloadOverlay() {
   
   // Generate QR code if not already generated
   if (!androidQrCodeInstance) {
-    const androidUrl = 'https://triplem.vip/Assets/mobile_app/Android/Triple_M_by_NSF.apk';
+    const androidUrl = 'https://triplem.vip/Old_Triplem/Assets/mobile_app/Android/Triple_M_by_NSF.apk';
     qrContainer.innerHTML = ''; // Clear existing content
     
     try {
