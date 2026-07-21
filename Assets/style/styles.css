@@ -1522,6 +1522,54 @@ a{color:inherit}
   height:30px;
   min-width:30px;
 }
+.expense-history-download-wrap{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+}
+.expense-history-pdf-menu{
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  z-index:40;
+  width:min(248px, calc(100vw - 24px));
+  display:grid;
+  gap:4px;
+  padding:6px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.96);
+  box-shadow:0 12px 28px rgba(15, 23, 42, .12);
+}
+.expense-history-pdf-menu.hide{
+  display:none;
+}
+.expense-history-pdf-option{
+  display:grid;
+  gap:2px;
+  text-align:left;
+  border:0;
+  border-radius:9px;
+  padding:8px 10px;
+  background:transparent;
+  color:var(--text);
+  cursor:pointer;
+}
+.expense-history-pdf-option:hover,
+.expense-history-pdf-option:focus-visible{
+  background:var(--primary-soft);
+  outline:none;
+}
+.expense-history-pdf-option strong{
+  font-size:.78rem;
+  font-weight:750;
+  color:var(--text);
+}
+.expense-history-pdf-option span{
+  font-size:.68rem;
+  color:var(--muted);
+  line-height:1.35;
+}
 .expense-history-toolbar{
   align-items:flex-start;
 }
