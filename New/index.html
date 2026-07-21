@@ -982,6 +982,7 @@
             <button type="button" class="menu-item" id="downloadAllDataCsvBtn"><i class="fa-solid fa-file-csv"></i> Download CSV</button>
             <label class="menu-item file-import-btn" for="importJsonInput"><i class="fa-solid fa-upload"></i> JSON/CSV</label>
             <input id="importJsonInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
+            <input id="sectionCsvInput" type="file" accept=".csv,text/csv,text/plain" class="hide" data-section="" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
@@ -1091,6 +1092,8 @@
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="loans_given" title="Move all meta-tag loan rows on this page into section tables">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="loans-given" title="Download loans given as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="loans-given" title="Upload CSV into loans given">Upload CSV</button>
                 <button class="btn soft" id="downloadGivenPdfBtn" type="button">📄 Download</button>
               </div>
             </div>
@@ -1214,6 +1217,8 @@
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="loans_taken" title="Move all meta-tag loan rows on this page into section tables">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="loans-taken" title="Download loans taken as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="loans-taken" title="Upload CSV into loans taken">Upload CSV</button>
                 <button class="btn soft" id="downloadTakenPdfBtn" type="button">📄 Download</button>
               </div>
             </div>
@@ -1321,11 +1326,20 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Installment Plans</h3>
+                  <div class="menu-wrap">
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="installments" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
+                    <div class="menu-dropdown" data-entry-menu-panel="installments">
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken" data-installment="1">Installment Plan</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" data-installment="1">Payment / Installment Received</button>
+                    </div>
+                  </div>
                 </div>
                 <p>People moved here from taken loans are tracked as installment plans.</p>
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="installments" title="Move all meta-tag installment rows into section tables">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="installments" title="Download installment plans as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="installments" title="Upload CSV into installment plans">Upload CSV</button>
               </div>
             </div>
             <div class="filter-inline-row">
@@ -1385,6 +1399,8 @@
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="inventory" title="Move all meta-tag inventory rows into section tables">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="inventory" title="Download inventory as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="inventory" title="Upload CSV into inventory">Upload CSV</button>
               </div>
             </div>
             <div class="filter-inline-row">
@@ -1432,6 +1448,8 @@
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="expenses" title="Move all meta-tag expense rows into section tables">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="expenses" title="Download expenses as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="expenses" title="Upload CSV into expenses">Upload CSV</button>
                 <button class="btn soft" id="downloadExpensesPdfBtn" type="button">📄 Download</button>
               </div>
             </div>
@@ -1500,6 +1518,8 @@
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="notes" title="Move all meta-tag notes into the notes table">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="notes" title="Download notes as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="notes" title="Upload CSV into notes">Upload CSV</button>
               </div>
             </div>
             <div class="filter-inline-row">
@@ -1535,6 +1555,8 @@
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="bitcoin" title="Move all meta-tag bitcoin wallets into the bitcoin_wallets table">Fix all on this page</button>
+                <button class="btn soft" type="button" data-section-csv-download="bitcoin" title="Download bitcoin wallets as CSV">Download CSV</button>
+                <button class="btn soft" type="button" data-section-csv-upload="bitcoin" title="Upload CSV into bitcoin wallets">Upload CSV</button>
               </div>
             </div>
           </div>
