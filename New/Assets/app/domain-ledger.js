@@ -739,6 +739,135 @@
     return { usedLedger: false, table: mapped.table };
   }
 
+  /**
+   * Upsert into the classified domain table: PATCH when id exists, else INSERT.
+   * Falls back to ledger when the row cannot be mapped to a domain table.
+   */
+  async function upsertDomainEntry(entry) {
+    const mapped = domainInsertPayload(entry);
+    if (mapped.useLedger || !mapped.body) {
+      return { usedLedger: true };
+    }
+    const id = entry?.id || mapped.body.id;
+    if (!id) {
+      await global.supabase(mapped.table, { method: "POST", body: JSON.stringify(mapped.body) });
+      return { usedLedger: false, table: mapped.table, action: "insert" };
+    }
+    let existing = [];
+    try {
+      existing = await safeSelect(`${mapped.table}?id=eq.${encodeURIComponent(id)}&select=id`);
+    } catch {
+      existing = [];
+    }
+    if (existing.length) {
+      await global.supabase(`${mapped.table}?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ...mapped.body, updated_at: new Date().toISOString() })
+      });
+      return { usedLedger: false, table: mapped.table, action: "update" };
+    }
+    await global.supabase(mapped.table, { method: "POST", body: JSON.stringify(mapped.body) });
+    return { usedLedger: false, table: mapped.table, action: "insert" };
+  }
+
+  /**
+   * Move loan-domain rows into installment tables.
+   * Inserts all installment rows first (principals before payments), then removes loan-domain
+   * sources — so loans.group_id ON DELETE CASCADE cannot wipe payments mid-move.
+   * Legacy ledger rows only get the [INSTALLMENT] notes tag via PATCH.
+   */
+  async function moveLoanEntriesToInstallments(entries) {
+    const list = (Array.isArray(entries) ? entries : []).filter(Boolean);
+    const byGroup = new Map();
+    for (const entry of list) {
+      const gid = String(entry.group_id || entry.id || "").trim() || crypto.randomUUID();
+      if (!byGroup.has(gid)) byGroup.set(gid, []);
+      byGroup.get(gid).push(entry);
+    }
+
+    const updated = [];
+    for (const groupEntries of byGroup.values()) {
+      const ordered = [
+        ...groupEntries.filter(e => e.entry_kind === "principal"),
+        ...groupEntries.filter(e => e.entry_kind !== "principal")
+      ];
+      const domainLoanRows = [];
+      const insertedInstallments = [];
+
+      for (const entry of ordered) {
+        const nextNotes = ensureInstallmentNotes(entry.notes);
+        const isDomainLoan =
+          entry.data_origin === "domain" &&
+          (entry.domain_table === DOMAIN.loans || entry.domain_table === DOMAIN.loan_payments);
+
+        if (isDomainLoan) {
+          const installmentEntry = {
+            ...entry,
+            direction: "taken",
+            notes: nextNotes,
+            is_legacy_meta: false,
+            data_origin: "domain"
+          };
+          delete installmentEntry.domain_table;
+          const insertResult = await insertDomainEntry(installmentEntry);
+          if (insertResult.usedLedger) {
+            if (typeof global.supabase === "function" && entry.id) {
+              await global.supabase(`loan_ledger_entries?id=eq.${encodeURIComponent(entry.id)}`, {
+                method: "PATCH",
+                body: JSON.stringify({ notes: nextNotes })
+              });
+            }
+            updated.push({
+              ...entry,
+              notes: nextNotes,
+              data_origin: "ledger",
+              is_legacy_meta: true
+            });
+            continue;
+          }
+          domainLoanRows.push(entry);
+          const table =
+            entry.entry_kind === "principal" ? DOMAIN.installment_plans : DOMAIN.installment_payments;
+          insertedInstallments.push({
+            ...installmentEntry,
+            domain_table: insertResult.table || table,
+            data_origin: "domain",
+            is_legacy_meta: false
+          });
+        } else {
+          if (typeof global.supabase === "function" && entry.id) {
+            await global.supabase(`loan_ledger_entries?id=eq.${encodeURIComponent(entry.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({ notes: nextNotes })
+            });
+          }
+          updated.push({
+            ...entry,
+            notes: nextNotes,
+            data_origin: entry.data_origin || "ledger",
+            is_legacy_meta: entry.data_origin === "domain" ? false : true
+          });
+        }
+      }
+
+      // Delete loan-domain sources only after every installment insert for the group succeeded.
+      // Payments first, then principal — avoids cascade wiping siblings mid-loop.
+      const deleteOrdered = [
+        ...domainLoanRows.filter(e => e.entry_kind !== "principal"),
+        ...domainLoanRows.filter(e => e.entry_kind === "principal")
+      ];
+      for (const entry of deleteOrdered) {
+        try {
+          await hardDeleteDomainEntry(entry);
+        } catch (err) {
+          console.warn("Loan domain cleanup after installment move:", entry.id, err);
+        }
+      }
+      updated.push(...insertedInstallments);
+    }
+    return updated;
+  }
+
   function mapLedgerPatchToDomain(entry, patchBody) {
     const table = entry.domain_table;
     const body = { updated_at: new Date().toISOString() };
@@ -1045,6 +1174,8 @@
     classifyLedgerEntry,
     domainInsertPayload,
     insertDomainEntry,
+    upsertDomainEntry,
+    moveLoanEntriesToInstallments,
     patchDomainEntry,
     softDeleteDomainEntry,
     softDeleteDomainByGroupId,
