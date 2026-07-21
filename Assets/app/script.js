@@ -8350,7 +8350,19 @@ function renderExpenseHistoryRangeControls(){
     ${options.map(([value, label]) => `
       <button type="button" class="tiny ghost expense-history-range-btn ${active === value ? "active" : ""}" data-expense-history-range="${escapeHtml(value)}">${escapeHtml(label)}</button>
     `).join("")}
-    <button type="button" class="icon-btn ghost expenseActionBtn expense-history-download" data-action="pdf" data-type="transactions-history" title="Download Transactions History PDF"><i class="fa-solid fa-download"></i></button>
+    <span class="expense-history-download-wrap">
+      <button type="button" class="icon-btn ghost expenseActionBtn expense-history-download" data-action="pdf-menu" data-type="transactions-history" title="Download Transactions History PDF" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-download"></i></button>
+      <div class="expense-history-pdf-menu hide" role="menu" aria-label="PDF download options">
+        <button type="button" class="expense-history-pdf-option" role="menuitem" data-action="pdf" data-type="transactions-history" data-mode="detailed">
+          <strong>Detailed PDF</strong>
+          <span>Each item with full transaction list</span>
+        </button>
+        <button type="button" class="expense-history-pdf-option" role="menuitem" data-action="pdf" data-type="transactions-history" data-mode="summary">
+          <strong>Summarize PDF</strong>
+          <span>Totals per item for the selected dates</span>
+        </button>
+      </div>
+    </span>
   </span>`;
 }
 
@@ -8661,8 +8673,22 @@ function renderExpensesList(){
     e.stopPropagation();
     const action = btn.dataset.action;
     const type = btn.dataset.type;
+
+    if (action === "pdf-menu") {
+      const wrap = btn.closest(".expense-history-download-wrap");
+      const menu = wrap?.querySelector(".expense-history-pdf-menu");
+      if (!menu) return;
+      const willOpen = menu.classList.contains("hide");
+      closeExpenseHistoryPdfMenus();
+      if (willOpen) {
+        menu.classList.remove("hide");
+        btn.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
     
     if (action === "pdf") {
+      closeExpenseHistoryPdfMenus();
       if (type === "topups-by-currency"){
         await downloadAllTopupsPDF(btn.dataset.currency);
       } else if (type === "all-topups"){
@@ -8672,10 +8698,20 @@ function renderExpensesList(){
       } else if (type === "all-transfers"){
         await downloadAllTransfersPDF(null);
       } else if (type === "transactions-history"){
-        await downloadExpenseTransactionsHistoryPDF();
+        await downloadExpenseTransactionsHistoryPDF(btn.dataset.mode || "detailed");
       }
     }
   }));
+  els.expensesList.querySelectorAll(".expense-history-pdf-option").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeExpenseHistoryPdfMenus();
+      if (btn.dataset.type === "transactions-history") {
+        await downloadExpenseTransactionsHistoryPDF(btn.dataset.mode || "detailed");
+      }
+    });
+  });
   els.expensesList.querySelectorAll(".expense-history-range-btn").forEach(btn => btn.addEventListener("click", e => {
     e.preventDefault();
     e.stopPropagation();
@@ -12328,12 +12364,31 @@ function expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, nee
   return 52;
 }
 
-async function downloadExpenseTransactionsHistoryPDF(){
+function expenseItemTxPeriodLabel(txs = []){
+  const stamps = txs
+    .map(tx => ({ stamp: dateStamp(tx.date), raw: tx.date }))
+    .filter(x => x.stamp);
+  if (!stamps.length) return "—";
+  stamps.sort((a, b) => a.stamp - b.stamp);
+  const from = displayDate(stamps[0].raw);
+  const to = displayDate(stamps[stamps.length - 1].raw);
+  return from === to ? from : `${from} - ${to}`;
+}
+
+function closeExpenseHistoryPdfMenus(){
+  document.querySelectorAll(".expense-history-pdf-menu").forEach(menu => menu.classList.add("hide"));
+  document.querySelectorAll(".expense-history-download[aria-expanded='true']").forEach(btn => {
+    btn.setAttribute("aria-expanded", "false");
+  });
+}
+
+async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
   if (!window.jspdf){
     alert("PDF library loading. Please try again in a moment.");
     return;
   }
 
+  const reportMode = String(mode || "detailed").toLowerCase() === "summary" ? "summary" : "detailed";
   const items = getExpenseHistoryItemsForExport();
   const rows = flattenExpenseHistoryItems(items);
   if (!rows.length){
@@ -12348,7 +12403,9 @@ async function downloadExpenseTransactionsHistoryPDF(){
 
   const logoData = await getPdfLogo();
   const rangeLabel = expenseHistoryRangeText();
-  const title = "Expense Transactions History";
+  const title = reportMode === "summary"
+    ? "Expense Transactions Summary"
+    : "Expense Transactions History";
   const subtitle = `${rangeLabel} | Generated: ${new Date().toLocaleString()}`;
   drawPdfHeader(doc, logoData, title, subtitle);
   drawPdfOwnerBlock(doc, 52);
@@ -12373,7 +12430,7 @@ async function downloadExpenseTransactionsHistoryPDF(){
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("Report Summary", 20, summaryTop + 9);
+  doc.text(reportMode === "summary" ? "Summary Report" : "Report Summary", 20, summaryTop + 9);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(71, 85, 105);
@@ -12408,6 +12465,85 @@ async function downloadExpenseTransactionsHistoryPDF(){
   });
 
   let y = (doc.lastAutoTable?.finalY || 106) + 12;
+
+  if (reportMode === "summary"){
+    const itemsByCurrency = new Map();
+    for (const item of items){
+      const cur = item.currency || "AED";
+      if (!itemsByCurrency.has(cur)) itemsByCurrency.set(cur, []);
+      itemsByCurrency.get(cur).push(item);
+    }
+
+    for (const cur of sortCurrenciesList([...itemsByCurrency.keys()])){
+      const curItems = itemsByCurrency.get(cur) || [];
+      const curTotal = curItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+      const curTax = curItems.reduce((sum, item) => sum + Number(item.taxTotal || 0), 0);
+      const curTxCount = curItems.reduce((sum, item) => sum + Number(item.txs?.length || 0), 0);
+
+      y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 42);
+      doc.setFillColor(36, 87, 214);
+      doc.roundedRect(14, y, pageWidth - 28, 9, 1.5, 1.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(`Spending by Item | ${pdfCurrencyLabel(cur)}`, 18, y + 6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(
+        `${curItems.length} item(s) | ${curTxCount} txn(s) | VAT ${formatPdfAmount(curTax, cur)} | Total ${formatPdfAmount(curTotal, cur)}`,
+        pageWidth - 18,
+        y + 6,
+        { align: "right" }
+      );
+
+      const summaryBody = curItems.map(item => {
+        const period = expenseItemTxPeriodLabel(item.txs);
+        return [
+          item.displayName || "—",
+          item.expenseType || "Other",
+          String(item.txs.length),
+          period,
+          formatPdfAmount(item.taxTotal || 0, item.currency),
+          formatPdfAmount(item.total || 0, item.currency)
+        ];
+      });
+
+      doc.autoTable({
+        startY: y + 13,
+        head: [["Item", "Type", "Txns", "Period (from - to)", "VAT", "Total Spent"]],
+        body: summaryBody,
+        theme: "grid",
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+        styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 36 },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 14, halign: "right" },
+          3: { cellWidth: 46 },
+          4: { cellWidth: 26, halign: "right" },
+          5: { cellWidth: 32, halign: "right" }
+        },
+        margin: { left: 14, right: 14, top: 50, bottom: 40 },
+        didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+      });
+      y = (doc.lastAutoTable?.finalY || y + 13) + 12;
+    }
+
+    y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 22);
+    doc.setTextColor(71, 85, 105);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const noteLines = doc.splitTextToSize(
+      `Summary only — no individual transaction lines. Each item shows total spent for ${rangeLabel}, using that item's first and last transaction dates in this selection.`,
+      pageWidth - 28
+    );
+    doc.text(noteLines, 14, y);
+
+    doc.save(`Expense_Transactions_Summary_${expenseHistoryRangeSlug()}_${todayISO()}.pdf`);
+    return;
+  }
+
   for (const item of items){
     y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 45);
     doc.setFillColor(36, 87, 214);
@@ -12421,8 +12557,8 @@ async function downloadExpenseTransactionsHistoryPDF(){
     doc.text(`${item.txs.length} transaction(s) | Total: ${formatPdfAmount(item.total, item.currency)} | Type: ${item.expenseType || "Other"}`, pageWidth - 18, y + 6, { align: "right" });
 
     const body = item.txs.map(tx => [
-      displayDate(tx.date || "â€”"),
-      tx.wallet || "â€”",
+      displayDate(tx.date || "—"),
+      tx.wallet || "—",
       tx.expenseType || item.expenseType || "Other",
       formatPdfAmount(tx.amount, item.currency),
       tx.taxAmount ? formatPdfAmount(tx.taxAmount, item.currency) : "-",
@@ -14042,6 +14178,9 @@ function attachEvents(){
     if (!e.target.closest(".note-wrap")){
       document.querySelectorAll(".note-popover").forEach(pop => pop.classList.add("hide"));
       updateNoteBackdropVisibility();
+    }
+    if (!e.target.closest(".expense-history-download-wrap")){
+      closeExpenseHistoryPdfMenus();
     }
   });
   window.addEventListener("scroll", () => {
