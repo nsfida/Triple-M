@@ -1589,15 +1589,31 @@ async function restoreFromRecycleBin(entryId) {
     refreshBackupView();
     renderAll();
   } else {
-    // For database mode, remove the deleted tag from notes
+    // Clear is_deleted on domain AND remove [DELETED] on ledger (dual-store restore)
     const updatedNotes = removeDeletedTag(deletedItem?.notes || "");
     const { deletedAt, originalSection, ...restoredEntryBase } = deletedItem;
-    const restoredEntry = { ...restoredEntryBase, notes: updatedNotes };
+    const restoredEntry = { ...restoredEntryBase, notes: updatedNotes, is_deleted: false };
     state.entries.unshift(restoredEntry);
-    queueDatabasePatch(entryId, { notes: updatedNotes }, "Restore", restoredEntry);
-    renderAll();
-    // Force refresh of expense accounts specifically
-    renderExpensesList();
+    const restoreTasks = [];
+    if (window.DomainLedger) {
+      restoreTasks.push(
+        DomainLedger.restoreDomainEntry(restoredEntry).catch(err => {
+          console.warn("Restore domain entry skipped/failed.", err);
+        })
+      );
+    }
+    restoreTasks.push(
+      supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes: updatedNotes })
+      }).catch(err => {
+        console.warn("Restore ledger entry skipped/failed.", err);
+      })
+    );
+    Promise.all(restoreTasks).finally(() => {
+      renderAll();
+      renderExpensesList();
+    });
   }
   
   renderRecycleBinDropdown();
@@ -1615,9 +1631,16 @@ async function permanentDeleteFromRecycleBin(entryId) {
   state.recycleBin.splice(recycleIndex, 1);
   saveRecycleBinToStorage();
 
-  // Permanently delete from database if in database mode
+  // Permanently delete from every store dual-read can load
   if (!isBackupMode()) {
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, { method: "DELETE" });
+    if (window.DomainLedger) {
+      await DomainLedger.hardDeleteDomainEntry(deletedItem).catch(err => {
+        console.warn("Permanent domain delete skipped/failed.", err);
+      });
+    }
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, { method: "DELETE" }).catch(err => {
+      console.warn("Permanent ledger delete skipped/failed.", err);
+    });
   }
   
   renderRecycleBinDropdown();
@@ -1634,9 +1657,16 @@ async function emptyRecycleBin() {
 
   try {
     if (!isBackupMode()) {
-      const ids = items.map(item => item.id).filter(Boolean);
-      for (const id of ids) {
-        await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+      for (const item of items) {
+        if (!item?.id) continue;
+        if (window.DomainLedger) {
+          await DomainLedger.hardDeleteDomainEntry(item).catch(err => {
+            console.warn("Empty-bin domain delete skipped/failed.", err);
+          });
+        }
+        await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(item.id)}`, { method: "DELETE" }).catch(err => {
+          console.warn("Empty-bin ledger delete skipped/failed.", err);
+        });
       }
       await loadEntriesFromSupabase();
     }
@@ -2768,11 +2798,53 @@ function unmarkDbSnapshotRows(rows){
 function queueDatabaseInsert(rows, label = "Entry"){
   if (isBackupMode()) return;
   const localRows = asEntryArray(rows);
-  localRows.forEach(row => row?.id && state.pendingDbSyncIds.add(row.id));
-  const payload = localRows.map(databaseInsertPayload);
-  const body = payload.length === 1 ? payload[0] : payload;
+  localRows.forEach(row => {
+    if (!row) return;
+    row.is_legacy_meta = false;
+    row.data_origin = row.data_origin || "domain";
+    if (row.id) state.pendingDbSyncIds.add(row.id);
+  });
 
-  supabase(CONFIG.table, { method: "POST", body: JSON.stringify(body) })
+  const run = async () => {
+    if (window.DomainLedger?.insertDomainEntry) {
+      for (const row of localRows) {
+        try {
+          const result = await DomainLedger.insertDomainEntry(row);
+          if (result.usedLedger) {
+            row.data_origin = "ledger";
+            row.is_legacy_meta = DomainLedger.classifyLedgerEntry(row) !== "system_prefs";
+            await supabase(CONFIG.table, {
+              method: "POST",
+              body: JSON.stringify(databaseInsertPayload(row))
+            });
+          } else if (result.table) {
+            row.domain_table = result.table;
+            row.data_origin = "domain";
+            row.is_legacy_meta = false;
+          }
+        } catch (err) {
+          // Domain tables missing → fall back to ledger so the app keeps working
+          const msg = String(err?.message || err || "");
+          if (/does not exist|42P01|404|Not Found|Could not find the table/i.test(msg)) {
+            row.data_origin = "ledger";
+            row.is_legacy_meta = true;
+            await supabase(CONFIG.table, {
+              method: "POST",
+              body: JSON.stringify(databaseInsertPayload(row))
+            });
+          } else {
+            throw err;
+          }
+        }
+      }
+      return;
+    }
+    const payload = localRows.map(databaseInsertPayload);
+    const body = payload.length === 1 ? payload[0] : payload;
+    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(body) });
+  };
+
+  run()
     .then(() => {
       markDbSnapshotRows(localRows);
     })
@@ -2803,10 +2875,30 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
 function queueDatabasePatch(id, body, label = "Entry", snapshotRow = null){
   if (isBackupMode() || !id) return;
   state.pendingDbSyncIds.add(id);
-  supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: JSON.stringify(body)
-  })
+  const entry = snapshotRow || state.entries.find(e => e.id === id) || state.recycleBin.find(e => e.id === id);
+
+  const run = async () => {
+    const isSoftDeletePatch = body &&
+      Object.prototype.hasOwnProperty.call(body, "notes") &&
+      hasDeletedTag(body.notes) &&
+      Object.keys(body).length === 1;
+
+    if (window.DomainLedger && entry && isSoftDeletePatch) {
+      // Soft-delete domain AND continue to ledger so dual-read cannot resurrect
+      await DomainLedger.softDeleteDomainEntry(entry).catch(err => {
+        console.warn(`${label}: domain soft-delete via patch failed`, err);
+      });
+    } else if (window.DomainLedger && entry?.data_origin === "domain" && entry.domain_table) {
+      const result = await DomainLedger.patchDomainEntry(entry, body);
+      if (!result.usedLedger) return;
+    }
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body)
+    });
+  };
+
+  run()
     .then(() => {
       if (snapshotRow) markDbSnapshotRows([snapshotRow]);
     })
@@ -5325,6 +5417,7 @@ function groupByPerson(direction, searchKey = direction){
       remaining,
       status,
       rows,
+      entries: person.entries,
       loan_date: firstDate || null,
       activityStamp: person.activityStamp,
       lastActivity: person.lastActivity,
@@ -5388,6 +5481,13 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                 <span>${escapeHtml(`${group.groupCount || 1} loan${(group.groupCount || 1) > 1 ? "s" : ""}`)}</span>
                 ${hasUnsynced ? `<span class="badge orange">Not in DB (${unsyncedEntries.length})</span>` : ""}
                 ${openOnly ? '<span class="badge orange">Open</span>' : '<span class="badge green">Closed</span>'}
+                ${(() => {
+                  const memberEntries = group.entries || [];
+                  const legacy = window.DomainLedger?.groupHasLegacyMeta?.(memberEntries);
+                  if (!legacy) return "";
+                  const seed = memberEntries.find(e => e.is_legacy_meta) || memberEntries[0];
+                  return DomainLedger.legacyFixBadgeHtml(seed?.group_id, seed?.id);
+                })()}
               </div>
             </div>
             <div class="cell lt-status"><small>Status</small><strong><span class="badge ${statusClass}">${escapeHtml(group.status)}</span></strong></div>
@@ -5457,6 +5557,13 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
 
   container.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   container.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
+  container.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
+    });
+  });
   container.querySelectorAll(".personActionBtn").forEach(btn => btn.addEventListener("click", async e => {
     e.preventDefault();
     const action = btn.dataset.action;
@@ -6295,6 +6402,13 @@ function renderGoodsList(){
   els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
   els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
+  els.goodsList.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
+    });
+  });
   els.goodsList.querySelectorAll("[data-goods-menu]").forEach(btn => btn.addEventListener("click", e => {
     e.preventDefault();
     e.stopPropagation();
@@ -6575,6 +6689,12 @@ function renderInventoryList(){
                 <span>Qty sold ${escapeHtml(inventoryQtyLabel(group.soldQty, group.itemCategory))}/${escapeHtml(inventoryQtyLabel(group.boughtQty, group.itemCategory))}</span>
                 <span>In stock ${escapeHtml(inventoryQtyLabel(group.remainingQty, group.itemCategory))}</span>
                 <span class="badge ${statusClass}">${escapeHtml(group.status)}</span>
+                ${(() => {
+                  const members = [group.principal, ...(group.actions || []), ...(group.purchaseActions || []), ...(group.settlementActions || [])].filter(Boolean);
+                  if (!window.DomainLedger?.groupHasLegacyMeta?.(members)) return "";
+                  const seed = members.find(e => e.is_legacy_meta) || members[0];
+                  return DomainLedger.legacyFixBadgeHtml(seed?.group_id, seed?.id);
+                })()}
               </div>
             </div>
             <div class="cell lt-principal"><small>Actual total</small><strong>${money(group.bought, group.currency)}</strong></div>
@@ -6659,6 +6779,13 @@ function renderInventoryList(){
   els.goodsList.querySelectorAll(".invoiceDownloadBtn").forEach(btn => btn.addEventListener("click", () => downloadGoodsItemPDF(btn.dataset.groupId)));
   els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
+  els.goodsList.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
+    });
+  });
   els.goodsList.querySelectorAll("[data-goods-menu]").forEach(btn => btn.addEventListener("click", e => {
     e.preventDefault();
     e.stopPropagation();
@@ -7176,12 +7303,25 @@ function renderExpenseWalletBar(accounts){
         </label>
         <div class="expense-wallet-actions">
           ${walletActions}
+          ${(() => {
+            const seed = state.entries.find(e => e.group_id === a.group_id && e.is_legacy_meta);
+            if (!seed || !window.DomainLedger) return "";
+            return DomainLedger.legacyFixBadgeHtml(a.group_id, seed.id);
+          })()}
         </div>
       </div>
     `);
   }
 
   host.innerHTML = blocks.join("");
+
+  host.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
+    });
+  });
 
   host.querySelectorAll('input[name="f_exp_wallet"]').forEach(inp => {
     inp.addEventListener("change", () => {
@@ -8353,11 +8493,129 @@ function mergeRecycleBinRowsForScope(scope, rows){
   renderRecycleBinDropdown();
 }
 
-function mergeLedgerRowsFromSupabase(scope, rows){
+async function fixLegacyMetaEntry(entryId, groupId){
+  if (!window.DomainLedger?.migrateEntry) {
+    alert("Migration helpers are not loaded. Hard-refresh the app and ensure migrations 020–021 are applied.");
+    return;
+  }
+  if (!entryId && !groupId) return;
+  if (!confirm("Move this meta-tag ledger record into the proper section table? The old ledger row will be permanently removed after a successful move.")) return;
+  try {
+    if (entryId) {
+      await DomainLedger.migrateEntry(entryId);
+    } else {
+      await supabaseRpc("app_migrate_ledger_group", { p_group_id: groupId, p_section: null });
+    }
+    state.loadedLedgerScopes.clear();
+    await loadEntriesFromSupabase({ force: true });
+    if (typeof loadBitcoinWalletsFromDatabase === "function") {
+      await loadBitcoinWalletsFromDatabase({ force: true }).catch(() => {});
+    }
+    if (typeof loadNotesFromDatabase === "function") {
+      await loadNotesFromDatabase({ force: true }).catch(() => {});
+    }
+    renderAll();
+    if (typeof renderNotes === "function") renderNotes(els.searchNotes?.value || "");
+    syncLegacyFixAllButtons();
+    alert("Entry fixed and moved to the section table.");
+  } catch (err) {
+    alert(err.message || "Could not fix this entry.");
+  }
+}
+
+function sectionHasLegacyToFix(sectionKey){
+  const sec = String(sectionKey || "").trim();
+  if (!sec) return false;
+  const isLegacy = (entry) => {
+    if (window.DomainLedger?.entryIsLegacyMeta) return DomainLedger.entryIsLegacyMeta(entry);
+    return entry?.is_legacy_meta === true || entry?.data_origin === "ledger";
+  };
+  if (sec === "bitcoin") {
+    return (state.bitcoinWallets || []).some(w => isLegacy(w) || w.is_legacy_meta === true);
+  }
+  if (sec === "notes") {
+    return (state.notes || []).some(n => isLegacy(n) || n.is_legacy_meta === true);
+  }
+  const scopeMap = {
+    loans_given: LEDGER_SCOPE_LOANS_GIVEN,
+    loans_taken: LEDGER_SCOPE_LOANS_TAKEN,
+    installments: LEDGER_SCOPE_INSTALLMENTS,
+    expenses: LEDGER_SCOPE_EXPENSES,
+    inventory: LEDGER_SCOPE_GOODS,
+    goods: LEDGER_SCOPE_GOODS
+  };
+  const scope = scopeMap[sec];
+  if (!scope) return false;
+  return (state.entries || []).some(entry =>
+    isLegacy(entry) &&
+    entryBelongsToLedgerScope(entry, scope) &&
+    !hasDeletedTag(entry.notes)
+  );
+}
+
+function syncLegacyFixAllButtons(){
+  document.querySelectorAll(".legacy-fix-all-btn").forEach(btn => {
+    const section = btn.dataset.legacyFixSection || btn.dataset.legacyFixAll || "";
+    const needFix = sectionHasLegacyToFix(section);
+    btn.classList.toggle("hide", !needFix);
+    btn.hidden = !needFix;
+    btn.style.display = needFix ? "" : "none";
+  });
+}
+
+async function fixLegacySectionBatch(sectionKey){
+  if (!window.DomainLedger?.migrateSectionBatch) {
+    alert("Migration helpers are not loaded. Hard-refresh the app and ensure migrations 020–021 are applied.");
+    return;
+  }
+  const section = sectionKey || DomainLedger.sectionBatchKeyForTab(state.activeTab);
+  if (!section) {
+    alert("Open a section first (Loans, Expenses, Inventory, Installments, Bitcoin, or Notes).");
+    return;
+  }
+  if (!sectionHasLegacyToFix(section)) {
+    syncLegacyFixAllButtons();
+    return;
+  }
+  if (!confirm(`Fix all meta-tag entries on this page (${section})? Each group moves into the proper table; old ledger rows are deleted after success.`)) return;
+  try {
+    const result = await DomainLedger.migrateSectionBatch(section, 100);
+    state.loadedLedgerScopes.clear();
+    await loadEntriesFromSupabase({ force: true });
+    if (section === "bitcoin" && typeof loadBitcoinWalletsFromDatabase === "function") {
+      await loadBitcoinWalletsFromDatabase({ force: true }).catch(() => {});
+    }
+    if (section === "notes" && typeof loadNotesFromDatabase === "function") {
+      await loadNotesFromDatabase({ force: true }).catch(() => {});
+    }
+    renderAll();
+    if (typeof renderNotes === "function") renderNotes(els.searchNotes?.value || "");
+    syncLegacyFixAllButtons();
+    const errs = Array.isArray(result?.errors) ? result.errors.length : 0;
+    alert(`Fixed ${result?.migrated_groups_or_rows || 0} group(s)/row(s).${errs ? ` ${errs} failed — try Fix on those individually.` : ""}`);
+  } catch (err) {
+    alert(err.message || "Batch fix failed.");
+  }
+}
+
+function mergeLedgerRowsFromSupabase(scope, rows, options = {}){
+  const domainRows = Array.isArray(options.domainRows) ? options.domainRows : [];
   const dataRows = filterRowsForCurrentUser(rows)
-    .filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row) && !isTaxSettingsPreferenceRow(row));
-  const activeRows = dataRows.filter(row => entryBelongsToLedgerScope(row, scope) && !hasDeletedTag(row.notes));
-  const deletedRows = dataRows.filter(row => entryBelongsToLedgerScope(row, scope) && hasDeletedTag(row.notes));
+    .filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row) && !isTaxSettingsPreferenceRow(row))
+    .map(row => (window.DomainLedger ? DomainLedger.markLegacy(row) : { ...row, is_legacy_meta: true, data_origin: "ledger" }));
+  const domainActive = filterRowsForCurrentUser(domainRows)
+    .filter(row => entryBelongsToLedgerScope(row, scope) && !hasDeletedTag(row.notes) && !row.is_deleted);
+  const domainDeleted = filterRowsForCurrentUser(domainRows)
+    .filter(row => entryBelongsToLedgerScope(row, scope) && (hasDeletedTag(row.notes) || row.is_deleted));
+  // Domain wins on id collision so dual-read never double-counts after a migrate.
+  const domainIds = new Set(domainActive.map(r => r.id).filter(Boolean));
+  const domainDeletedIds = new Set(domainDeleted.map(r => r.id).filter(Boolean));
+  const ledgerActive = dataRows
+    .filter(row => entryBelongsToLedgerScope(row, scope) && !hasDeletedTag(row.notes) && !domainIds.has(row.id));
+  const ledgerDeleted = dataRows
+    .filter(row => entryBelongsToLedgerScope(row, scope) && hasDeletedTag(row.notes) && !domainDeletedIds.has(row.id));
+  const activeRows = ledgerActive.concat(domainActive);
+  const deletedRows = ledgerDeleted.concat(domainDeleted);
   const previousScopeRows = state.entries.filter(entry => entryBelongsToLedgerScope(entry, scope));
   const activeIds = new Set(activeRows.map(row => row.id).filter(Boolean));
 
@@ -8415,25 +8673,14 @@ async function loadAllEntriesFromSupabase(){
     renderRecycleBinDropdown();
     return;
   }
-  const rows = await supabase(`${CONFIG.table}?select=*${currencyQuery}${ownerIdQuery()}&order=created_at.desc`);
-  const dataRows = filterRowsForCurrentUser(rows)
-    .filter(row => !isPageCurrencyPreferenceRow(row) && !isSecretPinPreferenceRow(row) && !isTaxSettingsPreferenceRow(row));
-  // Filter out entries with deleted tag for main display
-  const filteredRows = dataRows.filter(row => !hasDeletedTag(row.notes));
-  await ensureInventoryItemCodesForRows(filteredRows);
-  updateDbSnapshot(filteredRows);
-  applyEntries(filteredRows, "supabase", { hasImportedFile: false });
-  
-  // Load deleted entries into recycle bin
-  const deletedRows = dataRows.filter(row => hasDeletedTag(row.notes));
-  state.recycleBin = deletedRows.map(row => ({
-    ...row,
-    deletedAt: row.updated_at, // Use updated_at as deletion time
-    originalSection: getEntrySection(row)
-  }));
-  saveRecycleBinToStorage();
-  renderRecycleBinDropdown();
+  // Prefer per-scope dual-read so domain + ledger merge consistently (no double-count).
+  for (const scope of LEDGER_DATA_SCOPES) {
+    state.loadedLedgerScopes.delete(scope);
+    await loadLedgerScopeFromSupabase(scope, { force: true });
+  }
   LEDGER_DATA_SCOPES.forEach(scope => state.loadedLedgerScopes.add(scope));
+  // Keep currencyQuery referenced so older call sites that expected a full ledger pull stay clear.
+  void currencyQuery;
 }
 
 async function loadLedgerScopeFromSupabase(scope, options = {}){
@@ -8475,7 +8722,18 @@ async function loadLedgerScopeFromSupabase(scope, options = {}){
     const scopeRows = filterRowsForCurrentUser(rows)
       .filter(row => entryBelongsToLedgerScope(row, normalizedScope));
     if (normalizedScope === LEDGER_SCOPE_GOODS) await ensureInventoryItemCodesForRows(scopeRows.filter(row => !hasDeletedTag(row.notes)));
-    mergeLedgerRowsFromSupabase(normalizedScope, scopeRows);
+    let domainRows = [];
+    if (window.DomainLedger?.loadDomainRowsForScope) {
+      try {
+        domainRows = await DomainLedger.loadDomainRowsForScope(normalizedScope);
+        if (normalizedScope === LEDGER_SCOPE_GOODS) {
+          await ensureInventoryItemCodesForRows(domainRows.filter(row => !hasDeletedTag(row.notes)));
+        }
+      } catch (domainErr) {
+        console.warn("Domain table load skipped:", domainErr);
+      }
+    }
+    mergeLedgerRowsFromSupabase(normalizedScope, scopeRows, { domainRows });
     state.loadedLedgerScopes.add(normalizedScope);
     renderAll();
   })();
@@ -8769,7 +9027,7 @@ function renderAll(){
   renderInventoryList();
   renderExpensesList();
   renderExpenseOverviewWallets();
-
+  syncLegacyFixAllButtons();
 }
 
 function syncLoanModeSwitch(tab){
@@ -9843,6 +10101,76 @@ async function renamePersonRecords(personNameEncoded, direction){
   renderAll();
 }
 
+/**
+ * Soft-delete one entry in every store dual-read can load from:
+ * - domain tables via is_deleted=true (when a domain table can be resolved)
+ * - legacy loan_ledger_entries via [DELETED] notes tag
+ * Does not touch local state / recycle bin — callers own that.
+ */
+async function persistDeleteEntry(entry, options = {}) {
+  if (!entry?.id || isBackupMode()) return;
+  const label = options.label || "Delete";
+  const deletedNotes = addDeletedTag(entry.notes || "");
+
+  if (window.DomainLedger) {
+    try {
+      await DomainLedger.softDeleteDomainEntry(entry);
+    } catch (err) {
+      console.warn(`${label}: domain soft-delete failed for ${entry.id}`, err);
+    }
+  }
+
+  try {
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entry.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes: deletedNotes })
+    });
+  } catch (err) {
+    // Missing ledger row after migrate is expected
+    console.warn(`${label}: ledger soft-delete skipped/failed for ${entry.id}`, err);
+  }
+}
+
+/**
+ * Soft-delete an entire group_id in domain tables + ledger so refresh cannot resurrect
+ * wallets/loans/installments/inventory after dual-read merge.
+ */
+async function persistDeleteGroup(groupId, options = {}) {
+  if (!groupId || isBackupMode()) return;
+  const label = options.label || "Delete group";
+  const entries = Array.isArray(options.entries)
+    ? options.entries
+    : state.entries.filter(e => e.group_id === groupId);
+
+  if (window.DomainLedger?.softDeleteDomainByGroupId) {
+    try {
+      await DomainLedger.softDeleteDomainByGroupId(groupId);
+    } catch (err) {
+      console.error(`${label}: domain group soft-delete failed`, err);
+    }
+  }
+
+  // Tag every known in-memory member (covers ledger + inferred domain table by id)
+  await Promise.all(entries.map(entry => persistDeleteEntry(entry, { label })));
+
+  // Sweep leftover ledger rows for this group that may not be in memory
+  try {
+    const leftover = await supabase(
+      `${CONFIG.table}?select=id,notes&group_id=eq.${encodeURIComponent(groupId)}${ownerIdQuery()}`
+    );
+    const rows = Array.isArray(leftover) ? leftover : [];
+    const handled = new Set(entries.map(e => e.id).filter(Boolean));
+    await Promise.all(rows.filter(r => r?.id && !handled.has(r.id)).map(row =>
+      supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes: addDeletedTag(row.notes || "") })
+      }).catch(err => console.warn(`${label}: leftover ledger soft-delete failed`, err))
+    ));
+  } catch (err) {
+    console.warn(`${label}: ledger group sweep failed`, err);
+  }
+}
+
 async function deleteEntry(id){
   if (!id) return;
   const entry = state.entries.find(e => e.id === id);
@@ -9854,37 +10182,31 @@ async function deleteEntry(id){
 
   if(entry.entry_kind === "principal"){
     if (!confirm(`Delete the entire loan for ${entry.person_name}? This will move ALL linked repayments to recycle bin.`)) return;
+    const groupEntries = state.entries.filter(e => e.group_id === entry.group_id);
+    groupEntries.forEach(e => addToRecycleBin(e));
+    unmarkDbSnapshotRows(groupEntries);
+    state.entries = state.entries.filter(e => e.group_id !== entry.group_id);
     if (isBackupMode()){
-      // Move all entries in the group to recycle bin
-      const groupEntries = state.entries.filter(e => e.group_id === entry.group_id);
-      groupEntries.forEach(e => addToRecycleBin(e));
-      state.entries = state.entries.filter(e => e.group_id !== entry.group_id);
       refreshBackupView();
-      renderAll();
     } else {
-      // Move to recycle bin and mark as deleted
-      const groupEntries = state.entries.filter(e => e.group_id === entry.group_id);
-      groupEntries.forEach(e => {
-        addToRecycleBin(e);
-        queueDatabasePatch(e.id, { notes: addDeletedTag(e.notes || "") }, "Delete");
+      persistDeleteGroup(entry.group_id, { entries: groupEntries, label: "Delete" }).catch(err => {
+        console.error("Delete group sync failed.", err);
+        alert("Item was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
       });
-      unmarkDbSnapshotRows(groupEntries);
-      state.entries = state.entries.filter(e => e.group_id !== entry.group_id);
-      renderAll();
     }
   } else if (isTransfer) {
     // Handle transfer deletion - move both expense and top-up parts to recycle bin
     await deleteTransfer(entry);
   } else {
     if (!confirm(`Move this entry to recycle bin?`)) return;
-    if (isBackupMode()){
-      addToRecycleBin(entry);
-      state.entries = state.entries.filter(e => e.id !== id);
-    } else {
-      addToRecycleBin(entry);
-      unmarkDbSnapshotRows([entry]);
-      state.entries = state.entries.filter(e => e.id !== id);
-      queueDatabasePatch(id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
+    addToRecycleBin(entry);
+    unmarkDbSnapshotRows([entry]);
+    state.entries = state.entries.filter(e => e.id !== id);
+    if (!isBackupMode()) {
+      persistDeleteEntry(entry, { label: "Delete" }).catch(err => {
+        console.error("Delete sync failed.", err);
+        alert("Item was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
+      });
     }
   }
   if (isBackupMode()) {
@@ -9936,16 +10258,16 @@ async function deleteTransfer(entry) {
   if (!transferPartner) {
     // No partner found, just move this entry to recycle bin
     if (!confirm(`Move this transfer record to recycle bin? No matching transfer partner found.`)) return;
+    addToRecycleBin(entry);
+    unmarkDbSnapshotRows([entry]);
+    state.entries = state.entries.filter(e => e.id !== entry.id);
     if (isBackupMode()) {
-      addToRecycleBin(entry);
-      state.entries = state.entries.filter(e => e.id !== entry.id);
+      refreshBackupView();
     } else {
-      addToRecycleBin(entry);
-      unmarkDbSnapshotRows([entry]);
-      state.entries = state.entries.filter(e => e.id !== entry.id);
-      queueDatabasePatch(entry.id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
-      renderAll();
+      persistDeleteEntry(entry, { label: "Delete" }).catch(err => console.error(err));
     }
+    renderAll();
+    renderRecycleBinDropdown();
     return;
   }
   
@@ -9957,21 +10279,19 @@ async function deleteTransfer(entry) {
   if (!confirm(confirmMessage)) return;
   
   // Move both transfer records to recycle bin
+  addToRecycleBin(entry);
+  addToRecycleBin(transferPartner);
+  unmarkDbSnapshotRows([entry, transferPartner]);
+  state.entries = state.entries.filter(e => e.id !== entry.id && e.id !== transferPartner.id);
   if (isBackupMode()) {
-    addToRecycleBin(entry);
-    addToRecycleBin(transferPartner);
-    state.entries = state.entries.filter(e => e.id !== entry.id && e.id !== transferPartner.id);
     refreshBackupView();
-    renderAll();
   } else {
-    addToRecycleBin(entry);
-    addToRecycleBin(transferPartner);
-    unmarkDbSnapshotRows([entry, transferPartner]);
-    state.entries = state.entries.filter(e => e.id !== entry.id && e.id !== transferPartner.id);
-    queueDatabasePatch(entry.id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
-    queueDatabasePatch(transferPartner.id, { notes: addDeletedTag(transferPartner.notes || "") }, "Delete");
-    renderAll();
+    Promise.all([
+      persistDeleteEntry(entry, { label: "Delete" }),
+      persistDeleteEntry(transferPartner, { label: "Delete" })
+    ]).catch(err => console.error(err));
   }
+  renderAll();
   renderRecycleBinDropdown();
 }
 
@@ -9979,35 +10299,36 @@ async function deletePersonRecords(personNameEncoded, direction){
   const personName = decodeURIComponent(personNameEncoded || "").trim();
   if (!personName || !direction) return;
 
-  const recordsCount = state.entries.filter(e =>
+  const matchingEntries = state.entries.filter(e =>
     e.direction === direction && String(e.person_name || "").trim() === personName
-  ).length;
+  );
 
-  if (!recordsCount) {
+  if (!matchingEntries.length) {
     alert("No records found for this person.");
     return;
   }
 
   const directionLabel = direction === "given" ? "given" : "taken";
-  if (!confirm(`Move full record for ${personName} to recycle bin? This will move ${recordsCount} entr${recordsCount === 1 ? "y" : "ies"} from ${directionLabel} to recycle bin.`)) return;
+  if (!confirm(`Move full record for ${personName} to recycle bin? This will move ${matchingEntries.length} entr${matchingEntries.length === 1 ? "y" : "ies"} from ${directionLabel} to recycle bin.`)) return;
 
-  if (isBackupMode()){
-    const matchingEntries = state.entries.filter(e => e.direction === direction && String(e.person_name || "").trim() === personName);
-    matchingEntries.forEach(e => addToRecycleBin(e));
-    state.entries = state.entries.filter(e => !(e.direction === direction && String(e.person_name || "").trim() === personName));
-    refreshBackupView();
-    renderAll();
-    renderRecycleBinDropdown();
-    return;
-  }
-
-  const matchingEntries = state.entries.filter(e => e.direction === direction && String(e.person_name || "").trim() === personName);
   matchingEntries.forEach(e => addToRecycleBin(e));
-  matchingEntries.forEach(entry => {
-    queueDatabasePatch(entry.id, { notes: addDeletedTag(entry.notes || "") }, "Delete");
-  });
   unmarkDbSnapshotRows(matchingEntries);
   state.entries = state.entries.filter(e => !(e.direction === direction && String(e.person_name || "").trim() === personName));
+
+  if (isBackupMode()){
+    refreshBackupView();
+  } else {
+    // Soft-delete each entry in both stores; also soft-delete domain by each distinct group_id
+    const groupIds = [...new Set(matchingEntries.map(e => e.group_id).filter(Boolean))];
+    Promise.all([
+      ...matchingEntries.map(entry => persistDeleteEntry(entry, { label: "Delete" })),
+      ...groupIds.map(gid =>
+        window.DomainLedger?.softDeleteDomainByGroupId
+          ? DomainLedger.softDeleteDomainByGroupId(gid)
+          : Promise.resolve()
+      )
+    ]).catch(err => console.error("Person delete sync failed.", err));
+  }
   renderAll();
   renderRecycleBinDropdown();
 }
@@ -11760,24 +12081,26 @@ async function deleteExpenseWallet(groupId, walletName) {
     return;
   }
 
-  const confirmMessage = `Are you sure you want to delete the wallet "${walletName}"?\n\nThis will permanently delete ALL records related to this wallet:\n- ${walletEntries.length} total transactions\n- Including opening balance, top-ups, and expenses\n\nThis action cannot be undone!`;
+  const confirmMessage = `Are you sure you want to delete the wallet "${walletName}"?\n\nThis will move ALL records related to this wallet to the recycle bin:\n- ${walletEntries.length} total transactions\n- Including opening balance, top-ups, and expenses\n\nYou can restore them later from the recycle bin.`;
   
   if (!confirm(confirmMessage)) return;
 
+  walletEntries.forEach(e => addToRecycleBin(e));
+  unmarkDbSnapshotRows(walletEntries);
+  state.entries = state.entries.filter(e => e.group_id !== groupId);
+
   if (isBackupMode()) {
-    // In backup mode, remove from local state
-    state.entries = state.entries.filter(e => e.group_id !== groupId);
     refreshBackupView();
   } else {
-    unmarkDbSnapshotRows(walletEntries);
-    state.entries = state.entries.filter(e => e.group_id !== groupId);
-    renderAll();
-    supabase(`${CONFIG.table}?group_id=eq.${encodeURIComponent(groupId)}`, { method: "DELETE" })
+    // Soft-delete domain rows (whole group) + legacy ledger — dual-read cannot resurrect
+    persistDeleteGroup(groupId, { entries: walletEntries, label: "Wallet delete" })
       .catch(error => {
         console.error("Wallet delete database sync failed.", error);
-        alert("Wallet was removed on this screen, but database sync failed. Please refresh after the connection improves.");
+        alert("Wallet was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
       });
   }
+  renderAll();
+  renderRecycleBinDropdown();
 }
 
 function openTransferModal(fromGroupId, fromWalletName, currency) {
@@ -17201,32 +17524,49 @@ async function saveBitcoinWallet(address, label, network, isWatchOnly) {
   }
 
   const walletId = crypto.randomUUID();
-  const payload = {
+  const domainPayload = {
     id: walletId,
-    group_id: walletId,
-    person_name: "SYSTEM",
-    direction: "taken",
-    entry_kind: "principal",
+    owner_id: state.sessionUser?.id || null,
+    label,
+    address,
+    network,
+    is_watch_only: !!isWatchOnly,
     currency: "BTC",
-    principal_amount: 0,
-    loan_date: new Date().toISOString().split('T')[0],
-    action_date: new Date().toISOString().split('T')[0],
     notes: JSON.stringify({
-      address: address,
-      label: label,
-      network: network,
+      address,
+      label,
+      network,
       is_watch_only: isWatchOnly,
       rowType: "BITCOIN_WALLET"
     }),
+    meta: { rowType: "BITCOIN_WALLET" },
+    is_deleted: false,
     created_at: new Date().toISOString()
   };
 
-  console.log('Saving Bitcoin wallet to database:', payload);
+  console.log('Saving Bitcoin wallet to database:', domainPayload);
   try {
-    const result = await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    console.log('Bitcoin wallet saved successfully:', result);
-    
-    // Refresh the saved wallets list
+    try {
+      await supabase("bitcoin_wallets", { method: "POST", body: JSON.stringify(domainPayload) });
+    } catch (domainErr) {
+      // Fallback to legacy ledger if domain table not migrated yet
+      const payload = {
+        id: walletId,
+        group_id: walletId,
+        person_name: "SYSTEM",
+        direction: "taken",
+        entry_kind: "principal",
+        currency: "BTC",
+        principal_amount: 0,
+        loan_date: new Date().toISOString().split("T")[0],
+        action_date: new Date().toISOString().split("T")[0],
+        notes: domainPayload.notes,
+        created_at: domainPayload.created_at,
+        owner_id: domainPayload.owner_id
+      };
+      await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
+      console.warn("bitcoin_wallets insert failed; used ledger fallback:", domainErr);
+    }
     await loadBitcoinWalletsFromDatabase({ force: true });
   } catch (err) {
     console.error('Failed to save Bitcoin wallet:', err);
@@ -17249,7 +17589,30 @@ async function deleteBitcoinWallet(walletId) {
   }
 
   try {
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(walletId)}`, { method: 'DELETE' });
+    const wallet = (state.bitcoinWallets || []).find(w => w.id === walletId);
+    // Soft-delete / remove from BOTH stores so dual-read cannot resurrect
+    await supabase(`bitcoin_wallets?id=eq.${encodeURIComponent(walletId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_deleted: true, updated_at: new Date().toISOString() })
+    }).catch(err => console.warn("bitcoin_wallets soft-delete skipped/failed:", err));
+
+    const ledgerNotes = wallet?.notes
+      ? addDeletedTag(wallet.notes)
+      : addDeletedTag(JSON.stringify({
+          rowType: "BITCOIN_WALLET",
+          address: wallet?.address || "",
+          label: wallet?.label || "",
+          network: wallet?.network || "",
+          is_watch_only: !!wallet?.is_watch_only
+        }));
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(walletId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes: ledgerNotes })
+    }).catch(async () => {
+      // If patch fails (row shape), fall back to hard delete of leftover ledger row
+      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(walletId)}`, { method: "DELETE" }).catch(() => {});
+    });
+
     console.log('Bitcoin wallet deleted successfully:', walletId);
     await loadBitcoinWalletsFromDatabase({ force: true });
   } catch (err) {
@@ -17307,11 +17670,11 @@ async function loadBitcoinWalletsFromDatabase(options = {}) {
     }
     console.log('Loading Bitcoin wallets from database...');
     const rows = await supabase(`${CONFIG.table}?select=*&direction=eq.taken&person_name=eq.SYSTEM${ownerIdQuery()}&order=created_at.desc`);
-    console.log('Database rows:', rows);
-    state.bitcoinWallets = filterRowsForCurrentUser(rows)
+    const legacyWallets = filterRowsForCurrentUser(rows)
       .filter(row => {
+        if (hasDeletedTag(row.notes)) return false;
         try {
-          const walletData = JSON.parse(row.notes || '{}');
+          const walletData = JSON.parse(removeDeletedTag(row.notes || '{}') || '{}');
           return walletData.rowType === "BITCOIN_WALLET";
         } catch {
           return false;
@@ -17319,20 +17682,41 @@ async function loadBitcoinWalletsFromDatabase(options = {}) {
       })
       .map(row => {
         try {
-          const walletData = JSON.parse(row.notes || '{}');
+          const walletData = JSON.parse(removeDeletedTag(row.notes || '{}') || '{}');
           return {
             id: row.id,
             address: walletData.address || '',
             label: walletData.label || '',
             network: walletData.network || '',
             is_watch_only: walletData.is_watch_only || false,
-            createdAt: row.created_at
+            createdAt: row.created_at,
+            is_legacy_meta: true,
+            data_origin: "ledger"
           };
         } catch {
           return null;
         }
       })
       .filter(Boolean);
+    let domainWallets = [];
+    try {
+      const drows = await supabase(`bitcoin_wallets?select=*&is_deleted=eq.false${ownerIdQuery()}&order=created_at.desc`);
+      domainWallets = filterRowsForCurrentUser(drows).map(row => ({
+        id: row.id,
+        address: row.address || '',
+        label: row.label || '',
+        network: row.network || '',
+        is_watch_only: !!row.is_watch_only,
+        createdAt: row.created_at,
+        is_legacy_meta: false,
+        data_origin: "domain",
+        domain_table: "bitcoin_wallets"
+      }));
+    } catch (domainErr) {
+      console.warn("bitcoin_wallets load skipped:", domainErr);
+    }
+    const seen = new Set(domainWallets.map(w => w.id));
+    state.bitcoinWallets = domainWallets.concat(legacyWallets.filter(w => !seen.has(w.id)));
     state.bitcoinWalletsLoaded = true;
     console.log('Loaded Bitcoin wallets:', state.bitcoinWallets);
     renderBitcoinWallets();
@@ -17344,6 +17728,7 @@ async function loadBitcoinWalletsFromDatabase(options = {}) {
     renderExistingAddressesDropdown();
   } finally {
     state.bitcoinWalletsLoading = false;
+    syncLegacyFixAllButtons();
   }
 }
 
@@ -17367,10 +17752,14 @@ function renderExistingAddressesDropdown() {
     
     const walletInfo = document.createElement('div');
     walletInfo.style.cssText = 'flex:1;cursor:pointer;';
+    const legacyBadge = wallet.is_legacy_meta && window.DomainLedger
+      ? DomainLedger.legacyFixBadgeHtml(wallet.id, wallet.id)
+      : "";
     walletInfo.innerHTML = `
       <div style="font-weight:600;color:var(--text);margin-bottom:2px;">${escapeHtml(wallet.label)}</div>
       <div style="font-size:.8rem;color:var(--muted);">${escapeHtml(wallet.address.slice(0, 20))}...${escapeHtml(wallet.address.slice(-10))}</div>
       <div style="font-size:.75rem;color:var(--muted);">${wallet.network} ${wallet.is_watch_only ? '(Watch Only)' : '(Full)'}</div>
+      ${legacyBadge ? `<div style="margin-top:6px;">${legacyBadge}</div>` : ""}
     `;
     
     const deleteBtn = document.createElement('button');
@@ -17384,13 +17773,21 @@ function renderExistingAddressesDropdown() {
       }
     };
     
-    walletInfo.onclick = () => {
+    walletInfo.onclick = (e) => {
+      if (e.target.closest?.("[data-legacy-fix-id]")) return;
       loadSelectedAddress(wallet);
     };
     
     walletItem.appendChild(walletInfo);
     walletItem.appendChild(deleteBtn);
     els.btcExistingAddressesList.appendChild(walletItem);
+  });
+  els.btcExistingAddressesList.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
+    });
   });
 }
 
@@ -17580,27 +17977,38 @@ async function saveNote() {
   }
 
   const noteId = crypto.randomUUID();
-  const payload = {
+  const domainPayload = {
     id: noteId,
-    group_id: noteId,
-    person_name: "SYSTEM",
-    direction: "taken",
-    entry_kind: "principal",
-    currency: "AED",
-    principal_amount: 0,
-    loan_date: new Date().toISOString().split('T')[0],
-    action_date: new Date().toISOString().split('T')[0],
-    notes: JSON.stringify({
-      content: noteText,
-      rowType: "NOTE"
-    }),
+    owner_id: state.sessionUser?.id || null,
+    content: noteText,
+    notes: JSON.stringify({ content: noteText, rowType: "NOTE" }),
+    meta: { rowType: "NOTE" },
+    is_deleted: false,
     created_at: new Date().toISOString()
   };
 
-  console.log('Saving note to database:', payload);
+  console.log('Saving note to database:', domainPayload);
   try {
-    const result = await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
-    console.log('Note saved successfully:', result);
+    try {
+      await supabase("app_notes", { method: "POST", body: JSON.stringify(domainPayload) });
+    } catch (domainErr) {
+      const payload = {
+        id: noteId,
+        group_id: noteId,
+        person_name: "SYSTEM",
+        direction: "taken",
+        entry_kind: "principal",
+        currency: "AED",
+        principal_amount: 0,
+        loan_date: new Date().toISOString().split("T")[0],
+        action_date: new Date().toISOString().split("T")[0],
+        notes: domainPayload.notes,
+        created_at: domainPayload.created_at,
+        owner_id: domainPayload.owner_id
+      };
+      await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(payload) });
+      console.warn("app_notes insert failed; used ledger fallback:", domainErr);
+    }
     els.noteInput.value = '';
     await loadNotesFromDatabase({ force: true });
   } catch (err) {
@@ -17620,6 +18028,7 @@ function renderNotes(searchTerm = '') {
 
   if (filteredNotes.length === 0) {
     els.notesList.innerHTML = '<div class="empty">No notes found.</div>';
+    syncLegacyFixAllButtons();
     return;
   }
 
@@ -17633,11 +18042,15 @@ function renderNotes(searchTerm = '') {
     noteEl.className = 'card';
     noteEl.style.marginBottom = '12px';
     noteEl.style.padding = '14px';
+    const legacyBtn = note.is_legacy_meta && window.DomainLedger
+      ? DomainLedger.legacyFixBadgeHtml("", note.id)
+      : "";
     noteEl.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div style="flex:1;min-width:0;max-width:100%;">
           <div class="note-content-preview${needsPreview ? " is-collapsed" : ""}">${escapeHtml(noteContent)}</div>
           ${needsPreview ? '<button class="note-see-more-btn" type="button" onclick="toggleNotePreview(this)">See More</button>' : ""}
+          ${legacyBtn ? `<div style="margin-top:8px;">${legacyBtn}</div>` : ""}
         </div>
         <div style="display:flex;gap:8px;margin-left:10px;">
           <button class="btn ghost" onclick="editNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;">
@@ -17651,7 +18064,14 @@ function renderNotes(searchTerm = '') {
       <div style="font-size:.76rem;color:var(--muted);">${formattedDate}</div>
     `;
     els.notesList.appendChild(noteEl);
+    noteEl.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.preventDefault();
+        fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
+      });
+    });
   });
+  syncLegacyFixAllButtons();
 }
 
 window.toggleNotePreview = function(btn) {
@@ -17679,7 +18099,23 @@ window.deleteNote = async function(noteId) {
   }
 
   try {
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, { method: "DELETE" });
+    const note = state.notes.find(n => n.id === noteId);
+    // Soft-delete / remove from BOTH stores so dual-read cannot resurrect
+    await supabase(`app_notes?id=eq.${encodeURIComponent(noteId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_deleted: true, updated_at: new Date().toISOString() })
+    }).catch(err => console.warn("app_notes soft-delete skipped/failed:", err));
+
+    const ledgerNotes = note?.notes
+      ? addDeletedTag(note.notes)
+      : addDeletedTag(JSON.stringify({ rowType: "NOTE", content: note?.content || "" }));
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes: ledgerNotes })
+    }).catch(async () => {
+      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, { method: "DELETE" }).catch(() => {});
+    });
+
     await loadNotesFromDatabase({ force: true });
   } catch (err) {
     alert("Failed to delete note: " + err.message);
@@ -17710,15 +18146,18 @@ window.editNote = async function(noteId) {
   }
 
   try {
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        notes: JSON.stringify({
-          content: newContent.trim(),
-          rowType: "NOTE"
-        })
-      })
-    });
+    const notesJson = JSON.stringify({ content: newContent.trim(), rowType: "NOTE" });
+    if (note.data_origin === "domain") {
+      await supabase(`app_notes?id=eq.${encodeURIComponent(noteId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content: newContent.trim(), notes: notesJson })
+      });
+    } else {
+      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes: notesJson })
+      });
+    }
     await loadNotesFromDatabase({ force: true });
   } catch (err) {
     alert("Failed to update note: " + err.message);
@@ -17761,11 +18200,11 @@ async function loadNotesFromDatabase(options = {}) {
     }
     console.log('Loading notes from database...');
     const rows = await supabase(`${CONFIG.table}?select=*&direction=eq.taken&person_name=eq.SYSTEM${ownerIdQuery()}&order=created_at.desc`);
-    console.log('Database rows:', rows);
-    state.notes = filterRowsForCurrentUser(rows)
+    const legacyNotes = filterRowsForCurrentUser(rows)
       .filter(row => {
+        if (hasDeletedTag(row.notes)) return false;
         try {
-          const noteData = JSON.parse(row.notes || '{}');
+          const noteData = JSON.parse(removeDeletedTag(row.notes || '{}') || '{}');
           return noteData.rowType === "NOTE";
         } catch {
           return false;
@@ -17773,17 +18212,35 @@ async function loadNotesFromDatabase(options = {}) {
       })
       .map(row => {
         try {
-          const noteData = JSON.parse(row.notes || '{}');
+          const noteData = JSON.parse(removeDeletedTag(row.notes || '{}') || '{}');
           return {
             id: row.id,
             content: noteData.content || '',
-            createdAt: row.created_at
+            createdAt: row.created_at,
+            is_legacy_meta: true,
+            data_origin: "ledger"
           };
         } catch {
           return null;
         }
       })
       .filter(Boolean);
+    let domainNotes = [];
+    try {
+      const drows = await supabase(`app_notes?select=*&is_deleted=eq.false${ownerIdQuery()}&order=created_at.desc`);
+      domainNotes = filterRowsForCurrentUser(drows).map(row => ({
+        id: row.id,
+        content: row.content || '',
+        createdAt: row.created_at,
+        is_legacy_meta: false,
+        data_origin: "domain",
+        domain_table: "app_notes"
+      }));
+    } catch (domainErr) {
+      console.warn("app_notes load skipped:", domainErr);
+    }
+    const seen = new Set(domainNotes.map(n => n.id));
+    state.notes = domainNotes.concat(legacyNotes.filter(n => !seen.has(n.id)));
     state.notesLoaded = true;
     console.log('Loaded notes:', state.notes);
     renderNotes();
@@ -18756,6 +19213,13 @@ function btcBindUI() {
 // Notes UI Binding
 function notesBindUI() {
   els.saveNoteBtn.addEventListener('click', saveNote);
+
+  document.querySelectorAll(".legacy-fix-all-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      fixLegacySectionBatch(btn.dataset.legacyFixSection || btn.dataset.legacyFixAll || "");
+    });
+  });
+  syncLegacyFixAllButtons();
   els.searchNotes.addEventListener('input', (e) => {
     renderNotes(e.target.value);
   });
@@ -19294,9 +19758,13 @@ async function loadAdminRawData(){
       const parts = Object.entries(adminRawState.sectionCounts)
         .sort((a, b) => b[1] - a[1])
         .map(([k, v]) => `${k}: ${v}`);
+      const domainHint = Number(result?.domain_row_count || 0) > 0
+        ? ` · ${result.domain_row_count} domain-table row(s)`
+        : "";
+      const ledgerLeft = (adminRawState.items || []).some(r => !r.source || r.source === "loan_ledger_entries");
       stats.textContent = parts.length
-        ? `Totals — ${parts.join(" · ")}`
-        : "No ledger rows for this user yet.";
+        ? `Totals — ${parts.join(" · ")}${domainHint}${ledgerLeft ? " · leftover ledger rows may still use meta-tags" : ""}`
+        : "No ledger/domain rows for this user yet.";
     }
     renderAdminRawTable(wrap, adminRawState.items);
     const from = adminRawState.total ? adminRawState.offset + 1 : 0;
@@ -19321,6 +19789,7 @@ function renderAdminRawTable(wrap, items){
       <thead>
         <tr>
           <th>Section</th>
+          <th>Source</th>
           <th>Kind</th>
           <th>Name</th>
           <th>Currency</th>
@@ -19340,9 +19809,12 @@ function renderAdminRawTable(wrap, items){
             : `${row.loan_date || "—"} / ${row.action_date || "—"}`;
           const notes = String(row.notes || "");
           const notesShort = notes.length > 90 ? `${notes.slice(0, 90)}…` : notes;
+          const source = row.source || "loan_ledger_entries";
+          const isLedger = source === "loan_ledger_entries" || source === "ledger";
           return `
-            <tr class="${row.is_deleted ? "is-deleted" : ""}" data-raw-id="${escapeHtml(row.id)}">
+            <tr class="${row.is_deleted ? "is-deleted" : ""}" data-raw-id="${escapeHtml(row.id)}" data-raw-source="${escapeHtml(source)}">
               <td><span class="admin-raw-section-pill">${escapeHtml(row.section || "other")}</span></td>
+              <td><span class="admin-raw-source-pill ${isLedger ? "is-ledger" : ""}" title="${isLedger ? "Legacy meta-tag ledger row" : "Domain table row"}">${escapeHtml(isLedger ? "ledger" : source)}</span></td>
               <td>${escapeHtml(row.direction)} · ${escapeHtml(row.entry_kind)}</td>
               <td title="${escapeHtml(row.person_name || "")}">${escapeHtml(row.person_name || "—")}</td>
               <td>${escapeHtml(row.currency || "—")}</td>
@@ -19350,7 +19822,9 @@ function renderAdminRawTable(wrap, items){
               <td class="mono">${escapeHtml(dates)}</td>
               <td class="admin-raw-notes" title="${escapeHtml(notes)}">${escapeHtml(notesShort || "—")}</td>
               <td class="admin-raw-row-actions">
-                <button type="button" class="btn ghost tiny" data-raw-edit="${escapeHtml(row.id)}">Edit</button>
+                ${isLedger
+                  ? `<button type="button" class="btn ghost tiny" data-raw-edit="${escapeHtml(row.id)}">Edit</button>`
+                  : `<button type="button" class="btn ghost tiny" disabled title="Ledger edit only — domain rows live in section tables">Edit</button>`}
                 <button type="button" class="btn ghost tiny danger-text" data-raw-soft-delete="${escapeHtml(row.id)}">Delete</button>
                 <button type="button" class="btn ghost tiny danger-text" data-raw-hard-delete="${escapeHtml(row.id)}" title="Permanently remove">Hard</button>
               </td>
@@ -19367,7 +19841,11 @@ function renderAdminRawTable(wrap, items){
   });
   wrap.querySelectorAll("[data-raw-soft-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (!confirm("Mark this entry as deleted ([DELETED])? It can still be edited later.")) return;
+      const row = adminRawState.items.find(r => r.id === btn.dataset.rawSoftDelete);
+      const isLedger = !row?.source || row.source === "loan_ledger_entries" || row.source === "ledger";
+      if (!confirm(isLedger
+        ? "Mark this entry as deleted ([DELETED])? It can still be edited later."
+        : "Soft-delete this domain row (is_deleted = true)?")) return;
       try {
         await supabaseRpc("app_admin_delete_ledger_entry", {
           p_entry_id: btn.dataset.rawSoftDelete,
@@ -19381,7 +19859,7 @@ function renderAdminRawTable(wrap, items){
   });
   wrap.querySelectorAll("[data-raw-hard-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (!confirm("Permanently delete this ledger row from the database? This cannot be undone.")) return;
+      if (!confirm("Permanently delete this row from the database? This cannot be undone.")) return;
       try {
         await supabaseRpc("app_admin_delete_ledger_entry", {
           p_entry_id: btn.dataset.rawHardDelete,
