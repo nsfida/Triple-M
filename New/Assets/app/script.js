@@ -663,6 +663,7 @@ const state = {
   currencyFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
   lastCurrency: "AED", // Will be updated to first allowed currency after config loads
   modalDirection: "given",
+  modalInstallment: false,
   editId: null,
   editKind: null,
   expenseWalletFilter: "all",
@@ -1442,31 +1443,108 @@ function dateStamp(value){
   return Number.isFinite(time) ? time : 0;
 }
 
+/** Strip Excel formula wrappers like ="2024-03-15" or ='2024-03-15' from CSV cells. */
+function unwrapCsvDateCell(value){
+  let raw = String(value || "").trim();
+  if (!raw) return "";
+  const formula = raw.match(/^=\s*"([0-9./\-]+)"\s*$/);
+  if (formula) raw = formula[1];
+  const formula2 = raw.match(/^=\s*'([0-9./\-]+)'\s*$/);
+  if (formula2) raw = formula2[1];
+  if (raw.startsWith("'")) raw = raw.slice(1);
+  return raw.trim();
+}
+
+/**
+ * Normalize any common date string to YYYY-MM-DD for DB/CSV.
+ * Slash dates: if one side > 12, that side is the day.
+ * Ambiguous (both ≤ 12): treat as mm/dd/yyyy (Excel US CSV re-exports).
+ */
 function normalizeDateForDb(value){
-  const raw = String(value || "").trim();
+  let raw = unwrapCsvDateCell(value);
   if (!raw) return null;
+
+  // Take date part only if datetime
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  const spaceIdx = raw.search(/[\sT]/);
+  if (spaceIdx > 0) raw = raw.slice(0, spaceIdx);
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
 
   const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (slashMatch){
-    const dd = slashMatch[1].padStart(2, "0");
-    const mm = slashMatch[2].padStart(2, "0");
+    const a = Number(slashMatch[1]);
+    const b = Number(slashMatch[2]);
     const yyyy = slashMatch[3];
-    return `${yyyy}-${mm}-${dd}`;
+    let mm;
+    let dd;
+    if (a > 12 && b <= 12) {
+      // dd/mm/yyyy
+      dd = a;
+      mm = b;
+    } else if (b > 12 && a <= 12) {
+      // mm/dd/yyyy
+      mm = a;
+      dd = b;
+    } else {
+      // Ambiguous — Excel (US) CSV typically writes mm/dd/yyyy
+      mm = a;
+      dd = b;
+    }
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+    return `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  }
+
+  const dashMatch = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashMatch){
+    const a = Number(dashMatch[1]);
+    const b = Number(dashMatch[2]);
+    const yyyy = dashMatch[3];
+    let mm;
+    let dd;
+    if (a > 12 && b <= 12) {
+      dd = a;
+      mm = b;
+    } else if (b > 12 && a <= 12) {
+      mm = a;
+      dd = b;
+    } else {
+      mm = a;
+      dd = b;
+    }
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+    return `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
   }
 
   const dotMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (dotMatch){
-    const dd = dotMatch[1].padStart(2, "0");
-    const mm = dotMatch[2].padStart(2, "0");
+    // European style: dd.mm.yyyy
+    const dd = Number(dotMatch[1]);
+    const mm = Number(dotMatch[2]);
     const yyyy = dotMatch[3];
-    return `${yyyy}-${mm}-${dd}`;
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+    return `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
   }
 
   const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  if (!Number.isNaN(parsed.getTime())) {
+    // Avoid UTC day-shift for local date-only strings already handled above
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
   return null;
+}
+
+/** Always write ISO YYYY-MM-DD in CSV (Excel-safe formula keeps it from locale conversion). */
+function formatCsvDate(value){
+  const iso = normalizeDateForDb(value);
+  if (!iso) return "";
+  // Pre-escaped CSV cell: Excel stores text ISO instead of locale mm/dd or dd/mm
+  return `"=""${iso}"""`;
 }
 
 function entrySignature(entry){
@@ -5690,14 +5768,22 @@ function repositionOpenNotePopovers(){
 
 function renderLoanSelectors(){
   const givenGroups = groupByLoan(getActiveEntries().filter(e => e.direction === "given")).filter(g => calculateLoan(g).remaining > 0);
-  const takenGroups = groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && !hasGoodsTag(e.notes) && !hasExpenseAccountTag(e.notes))).filter(g => calculateLoan(g).remaining > 0);
+  const takenBase = getActiveEntries().filter(e =>
+    e.direction === "taken" &&
+    !hasGoodsTag(e.notes) &&
+    !hasExpenseAccountTag(e.notes)
+  );
+  const takenFiltered = state.modalInstallment
+    ? takenBase.filter(e => hasInstallmentTag(e.notes))
+    : takenBase.filter(e => !hasInstallmentTag(e.notes));
+  const takenGroups = groupByLoan(takenFiltered).filter(g => calculateLoan(g).remaining > 0);
 
   const makeOptions = groups => groups.length
     ? `<option value="">Choose one</option>` + groups.map(g => {
         const remaining = calculateLoan(g).remaining;
         return `<option value="${escapeHtml(g.group_id)}">${escapeHtml(g.person_name)} — ${escapeHtml(formatReportAmount(remaining, g.currency))} remaining</option>`;
       }).join("")
-    : `<option value="">No open loans available</option>`;
+    : `<option value="">No open ${state.modalInstallment ? "installment plans" : "loans"} available</option>`;
 
   els.modalLoanSelect.innerHTML = state.modalDirection === "given" ? makeOptions(givenGroups) : makeOptions(takenGroups);
 
@@ -8193,13 +8279,28 @@ function csvEscape(value){
 function toCsv(entries){
   const headers = [
     "id","group_id","direction","entry_kind","person_name","currency",
-    "principal_amount","action_amount","loan_date","action_date","notes","created_at"
+    "principal_amount","action_amount","loan_date","action_date","notes","created_at",
+    "data_origin","domain_table"
   ];
+  const dateFields = new Set(["loan_date", "action_date"]);
   const lines = [headers.join(",")];
   for (const entry of entries){
-    lines.push(headers.map(h => csvEscape(entry[h])).join(","));
+    lines.push(headers.map(h => {
+      if (dateFields.has(h)) return formatCsvDate(entry[h]) || "";
+      if (h === "created_at") {
+        const raw = String(entry[h] || "").trim();
+        if (!raw) return "";
+        const isoDay = normalizeDateForDb(raw);
+        if (isoDay && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+          const safe = raw.includes("T") ? raw.replace(/"/g, "") : isoDay;
+          return `"=""${safe}"""`;
+        }
+        return csvEscape(raw);
+      }
+      return csvEscape(entry[h]);
+    }).join(","));
   }
-  return lines.join("\n");
+  return `\uFEFF${lines.join("\n")}`;
 }
 
 function parseCsvLine(line){
@@ -8259,9 +8360,10 @@ function parseEntriesCsv(csvText){
   if (!rows.length) return [];
   const header = rows[0].map(v => String(v || "").trim());
   const idx = key => header.indexOf(key);
-  const required = ["group_id","direction","entry_kind","person_name","currency","loan_date"];
+  // group_id / id may be empty — section import auto-assigns them
+  const required = ["direction","entry_kind","person_name","currency"];
   if (required.some(k => idx(k) === -1)){
-    throw new Error("Invalid CSV format. Missing required columns.");
+    throw new Error("Invalid CSV format. Missing required columns (direction, entry_kind, person_name, currency).");
   }
   return rows.slice(1).map(cols => {
     const get = key => {
@@ -8278,21 +8380,25 @@ function parseEntriesCsv(csvText){
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
     };
+    const loanDate = normalizeDateForDb(get("loan_date") || get("action_date") || "") || "";
+    const actionDate = normalizeDateForDb(get("action_date") || "") || null;
     return {
-      id: valOrNull("id") || crypto.randomUUID(),
-      group_id: get("group_id"),
+      id: valOrNull("id"),
+      group_id: get("group_id") || "",
       direction: get("direction"),
       entry_kind: get("entry_kind"),
       person_name: get("person_name"),
       currency: get("currency"),
       principal_amount: numOrNull("principal_amount"),
       action_amount: numOrNull("action_amount"),
-      loan_date: get("loan_date"),
-      action_date: valOrNull("action_date"),
+      loan_date: loanDate,
+      action_date: actionDate,
       notes: valOrNull("notes"),
-      created_at: valOrNull("created_at") || new Date().toISOString()
+      created_at: valOrNull("created_at") || new Date().toISOString(),
+      data_origin: valOrNull("data_origin"),
+      domain_table: valOrNull("domain_table")
     };
-  }).filter(entry => entry.group_id && entry.direction && entry.entry_kind && entry.person_name);
+  }).filter(entry => entry.direction && entry.entry_kind && entry.person_name && entry.currency && entry.loan_date);
 }
 
 function saveBackupEntries(entries){
@@ -9190,22 +9296,30 @@ function setCurrencyChoice(form, currency){
   syncExpenseBtcAccountFields(form);
 }
 
-function openEntryModal(mode, direction){
+function openEntryModal(mode, direction, options = {}){
   state.modalDirection = direction;
+  state.modalInstallment = !!options.installment;
 
   els.entryModal.classList.remove("hide");
   els.entryModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
   if (mode === "principal"){
-    els.modalTitle.textContent = direction === "given" ? "New loan given" : "New loan taken";
-    els.modalDesc.textContent = direction === "given" ? "Add a loan you gave to someone." : "Add money you received from someone.";
+    if (state.modalInstallment) {
+      els.modalTitle.textContent = "New installment plan";
+      els.modalDesc.textContent = "Add a principal taken as an installment plan.";
+      els.principalSubmitBtn.textContent = "Save installment plan";
+    } else {
+      els.modalTitle.textContent = direction === "given" ? "New loan given" : "New loan taken";
+      els.modalDesc.textContent = direction === "given" ? "Add a loan you gave to someone." : "Add money you received from someone.";
+      els.principalSubmitBtn.textContent = direction === "given" ? "Save given loan" : "Save taken loan";
+    }
     els.principalModalForm.classList.remove("hide");
     els.paymentModalForm.classList.add("hide");
     els.principalModalForm.reset();
     els.principalModalForm.querySelector('input[name="direction"]').value = direction;
-    els.principalModalForm.querySelector('input[name="person_name"]').placeholder = direction === "given" ? "Full name" : "Lender name";
-    els.principalSubmitBtn.textContent = direction === "given" ? "Save given loan" : "Save taken loan";
+    els.principalModalForm.querySelector('input[name="person_name"]').placeholder =
+      state.modalInstallment ? "Lender / plan name" : (direction === "given" ? "Full name" : "Lender name");
     setCurrencyChoice(els.principalModalForm, state.lastCurrency || "AED");
     defaultDateInputs(els.principalModalForm);
 
@@ -9216,19 +9330,27 @@ function openEntryModal(mode, direction){
         walletBadge.textContent = "Loan Given → Deduct from wallet";
         walletBadge.className = "badge orange";
       } else {
-        walletBadge.textContent = "Loan Taken → Add to wallet";
+        walletBadge.textContent = state.modalInstallment
+          ? "Installment Plan → Add to wallet"
+          : "Loan Taken → Add to wallet";
         walletBadge.className = "badge green";
       }
     }
     populateLoanWalletSelector(state.lastCurrency || "AED", document.getElementById("modalLoanWalletSelect"));
   } else {
-    els.modalTitle.textContent = direction === "given" ? "New received back entry" : "New returned back entry";
-    els.modalDesc.textContent = direction === "given" ? "Record money received against a given loan." : "Record repayment against a taken loan.";
+    if (state.modalInstallment) {
+      els.modalTitle.textContent = "Payment / Installment Received";
+      els.modalDesc.textContent = "Record a partial or full payment against an installment plan.";
+      els.paymentSubmitBtn.textContent = "Save installment payment";
+    } else {
+      els.modalTitle.textContent = direction === "given" ? "New received back entry" : "New returned back entry";
+      els.modalDesc.textContent = direction === "given" ? "Record money received against a given loan." : "Record repayment against a taken loan.";
+      els.paymentSubmitBtn.textContent = direction === "given" ? "Save received back" : "Save returned back";
+    }
     els.paymentModalForm.classList.remove("hide");
     els.principalModalForm.classList.add("hide");
     els.paymentModalForm.reset();
     els.paymentModalForm.querySelector('input[name="direction"]').value = direction;
-    els.paymentSubmitBtn.textContent = direction === "given" ? "Save received back" : "Save returned back";
     els.multiEntryCount.value = 1;
     renderMultiEntries(1);
     renderLoanSelectors();
@@ -9240,7 +9362,9 @@ function openEntryModal(mode, direction){
         walletBadge.textContent = "Received Back → Add to wallet";
         walletBadge.className = "badge green";
       } else {
-        walletBadge.textContent = "Returned Back → Deduct from wallet";
+        walletBadge.textContent = state.modalInstallment
+          ? "Installment payment → Deduct from wallet"
+          : "Returned Back → Deduct from wallet";
         walletBadge.className = "badge orange";
       }
     }
@@ -9846,6 +9970,9 @@ function closeModal(modalId){
   if (modalId === "btcWifQrScannerModal") {
     btcStopWifQrScanner();
   }
+  if (modalId === "entryModal") {
+    state.modalInstallment = false;
+  }
   const modal = document.getElementById(modalId);
   if (!modal) return;
   modal.classList.add("hide");
@@ -9880,6 +10007,10 @@ async function createPrincipal(form){
     notes: String(fd.get("notes") || "").trim() || null
   };
 
+  if (state.modalInstallment) {
+    payload.notes = normalizeInstallmentNote(payload.notes, true);
+  }
+
   if (!payload.person_name || !payload.currency || !payload.principal_amount || !payload.loan_date) throw new Error("Complete all required fields.");
   
   // Validate currency
@@ -9894,7 +10025,7 @@ async function createPrincipal(form){
     }
   }
 
-  saveEntriesImmediately(payload, { label: "Loan" });
+  saveEntriesImmediately(payload, { label: state.modalInstallment ? "Installment plan" : "Loan" });
 
   // Create linked wallet entry
   if (walletId) {
@@ -9905,6 +10036,8 @@ async function createPrincipal(form){
   setCurrencyChoice(form, "AED");
   defaultDateInputs(form);
   closeModal("entryModal");
+  if (state.modalInstallment) activate("installments");
+  state.modalInstallment = false;
 }
 
 async function createPayment(form){
@@ -9964,13 +10097,15 @@ async function createPayment(form){
       action_amount: amt,
       loan_date: principalEntry.loan_date,
       action_date: dt,
-      notes: nt
+      notes: (state.modalInstallment || hasInstallmentTag(principalEntry.notes))
+        ? normalizeInstallmentNote(nt, true)
+        : nt
     });
   }
 
   if(payloads.length === 0) throw new Error("Please fill out amount and date.");
 
-  saveEntriesImmediately(payloads, { label: "Payment" });
+  saveEntriesImmediately(payloads, { label: state.modalInstallment ? "Installment payment" : "Payment" });
 
   // Create linked wallet entries for each payment row
   if (walletId) {
@@ -9983,6 +10118,8 @@ async function createPayment(form){
   els.multiEntryCount.value = 1;
   renderMultiEntries(1);
   closeModal("entryModal");
+  if (state.modalInstallment) activate("installments");
+  state.modalInstallment = false;
 }
 
 async function submitEdit(){
@@ -10338,7 +10475,11 @@ async function movePersonToInstallments(personNameEncoded, direction){
   if (!personName || direction !== "taken") return;
 
   const matchedEntries = state.entries.filter(e =>
-    e.direction === "taken" && String(e.person_name || "").trim() === personName
+    e.direction === "taken" &&
+    String(e.person_name || "").trim() === personName &&
+    !hasGoodsTag(e.notes) &&
+    !hasExpenseAccountTag(e.notes) &&
+    !hasDeletedTag(e.notes)
   );
 
   if (!matchedEntries.length){
@@ -10355,16 +10496,55 @@ async function movePersonToInstallments(personNameEncoded, direction){
         : entry
     ));
     refreshBackupView();
-  } else {
-    for (const entry of matchedEntries){
-      const nextNotes = normalizeInstallmentNote(entry.notes, true);
-      const updatedEntry = { ...entry, notes: nextNotes };
-      state.entries = state.entries.map(row => row.id === entry.id ? updatedEntry : row);
-      queueDatabasePatch(entry.id, { notes: nextNotes }, "Installment move", updatedEntry);
+    activate("installments");
+    return;
+  }
+
+  try {
+    let updatedRows = matchedEntries.map(entry => ({
+      ...entry,
+      notes: normalizeInstallmentNote(entry.notes, true),
+      direction: "taken"
+    }));
+
+    if (window.DomainLedger?.moveLoanEntriesToInstallments) {
+      updatedRows = await DomainLedger.moveLoanEntriesToInstallments(matchedEntries);
+    } else {
+      // Fallback: tag + patch only (legacy behavior)
+      for (const entry of matchedEntries) {
+        const nextNotes = normalizeInstallmentNote(entry.notes, true);
+        const updatedEntry = { ...entry, notes: nextNotes };
+        state.entries = state.entries.map(row => row.id === entry.id ? updatedEntry : row);
+        queueDatabasePatch(entry.id, { notes: nextNotes }, "Installment move", updatedEntry);
+      }
+      renderAll();
+      activate("installments");
+      return;
+    }
+
+    const updatedById = new Map(updatedRows.filter(r => r?.id).map(r => [r.id, r]));
+    state.entries = state.entries.map(row => updatedById.get(row.id) || row);
+    // Ensure any newly shaped domain installment rows are present
+    for (const row of updatedRows) {
+      if (row?.id && !state.entries.some(e => e.id === row.id)) {
+        state.entries.unshift(row);
+      }
+    }
+    markDbSnapshotRows(updatedRows);
+
+    // Refresh both scopes so dual-read cannot resurrect moved loan rows
+    state.loadedLedgerScopes.delete(LEDGER_SCOPE_LOANS_TAKEN);
+    state.loadedLedgerScopes.delete(LEDGER_SCOPE_INSTALLMENTS);
+    if (databaseSessionCanLoad()) {
+      await loadLedgerScopeFromSupabase(LEDGER_SCOPE_LOANS_TAKEN, { force: true }).catch(() => {});
+      await loadLedgerScopeFromSupabase(LEDGER_SCOPE_INSTALLMENTS, { force: true }).catch(() => {});
     }
     renderAll();
+    activate("installments");
+  } catch (err) {
+    console.error("Installment move failed", err);
+    alert(`Could not move to Installment Plans: ${err.message || err}`);
   }
-  activate("installments");
 }
 
 async function getBase64ImageFromUrl(imageUrl) {
@@ -12570,7 +12750,7 @@ async function importCsvBackup(file){
   }
   if (!file) return;
   const text = await file.text();
-  const entries = parseEntriesCsv(text);
+  const entries = assignMissingIdsAndGroupIds(parseEntriesCsv(text), { existingEntries: [] });
   
   // Filter entries based on allowed currencies
   const allowedCurrencies = getAllowedCurrencies();
@@ -12590,6 +12770,459 @@ async function importCsvBackup(file){
     await refreshDbSnapshot();
     renderAll();
   }
+}
+
+/**
+ * Auto-assign missing id / group_id for CSV rows.
+ * - Missing id → new UUID
+ * - Principal without group_id → new group_id
+ * - Payment/partial/full without group_id → match person_name+currency+direction
+ *   within the import batch (prefer principal), then existing data; else new group_id
+ */
+function assignMissingIdsAndGroupIds(entries, { existingEntries = [] } = {}){
+  const list = Array.isArray(entries) ? entries.map(e => ({ ...e })) : [];
+  const matchKey = (e) =>
+    `${String(e.person_name || "").trim().toLowerCase()}|${normalizeCurrencyCode(e.currency || "")}|${String(e.direction || "").trim()}`;
+
+  const groupByKey = new Map();
+  const seedFrom = (rows) => {
+    for (const row of rows) {
+      if (!row?.group_id) continue;
+      const key = matchKey(row);
+      if (!groupByKey.has(key)) groupByKey.set(key, String(row.group_id));
+    }
+  };
+  seedFrom(existingEntries);
+  // Prefer principals in the batch for new group assignment
+  for (const entry of list) {
+    if (entry.entry_kind === "principal" && entry.group_id) {
+      groupByKey.set(matchKey(entry), String(entry.group_id));
+    }
+  }
+
+  for (const entry of list) {
+    if (!entry.id) entry.id = crypto.randomUUID();
+    if (!entry.loan_date) entry.loan_date = entry.action_date || todayISO();
+    if (entry.group_id) {
+      if (entry.entry_kind === "principal") groupByKey.set(matchKey(entry), String(entry.group_id));
+      continue;
+    }
+    if (entry.entry_kind === "principal") {
+      entry.group_id = crypto.randomUUID();
+      groupByKey.set(matchKey(entry), entry.group_id);
+      continue;
+    }
+    const key = matchKey(entry);
+    if (groupByKey.has(key)) {
+      entry.group_id = groupByKey.get(key);
+    } else {
+      entry.group_id = crypto.randomUUID();
+      groupByKey.set(key, entry.group_id);
+    }
+  }
+  return list;
+}
+
+function normalizeSectionCsvKey(section){
+  const s = String(section || "").trim().toLowerCase();
+  if (s === "given" || s === "loans-given" || s === "loans_given") return LEDGER_SCOPE_LOANS_GIVEN;
+  if (s === "taken" || s === "loans-taken" || s === "loans_taken") return LEDGER_SCOPE_LOANS_TAKEN;
+  if (s === "installments" || s === "installment") return LEDGER_SCOPE_INSTALLMENTS;
+  if (s === "expenses" || s === "expense") return LEDGER_SCOPE_EXPENSES;
+  if (s === "goods" || s === "inventory") return LEDGER_SCOPE_GOODS;
+  if (s === "notes" || s === "note") return "notes";
+  if (s === "bitcoin" || s === "btc") return "bitcoin";
+  return s;
+}
+
+function ensureEntryTagsForSection(entry, scope){
+  const row = { ...entry };
+  if (scope === LEDGER_SCOPE_INSTALLMENTS) {
+    row.direction = "taken";
+    row.notes = normalizeInstallmentNote(row.notes, true);
+  } else if (scope === LEDGER_SCOPE_GOODS) {
+    row.notes = normalizeGoodsNote(row.notes, true);
+    if (!row.direction) row.direction = "taken";
+  } else if (scope === LEDGER_SCOPE_EXPENSES) {
+    row.direction = "taken";
+    if (!hasExpenseAccountTag(row.notes)) {
+      row.notes = `${EXPENSE_ACCOUNT_TAG} ${String(row.notes || "").trim()}`.trim();
+    }
+  } else if (scope === LEDGER_SCOPE_LOANS_GIVEN) {
+    row.direction = "given";
+    row.notes = normalizeInstallmentNote(row.notes, false);
+  } else if (scope === LEDGER_SCOPE_LOANS_TAKEN) {
+    row.direction = "taken";
+    row.notes = normalizeInstallmentNote(row.notes, false);
+  }
+  if (!row.loan_date) {
+    row.loan_date = row.action_date || todayISO();
+  }
+  return row;
+}
+
+function entriesForSectionCsv(scope){
+  if (scope === "notes") {
+    return (state.notes || []).map(note => ({
+      id: note.id,
+      group_id: note.id,
+      direction: "taken",
+      entry_kind: "principal",
+      person_name: "SYSTEM",
+      currency: "AED",
+      principal_amount: 0,
+      action_amount: null,
+      loan_date: (note.createdAt || "").slice(0, 10) || todayISO(),
+      action_date: (note.createdAt || "").slice(0, 10) || null,
+      notes: JSON.stringify({ content: note.content || "", rowType: "NOTE" }),
+      created_at: note.createdAt || new Date().toISOString(),
+      data_origin: note.data_origin || "",
+      domain_table: note.domain_table || "app_notes"
+    }));
+  }
+  if (scope === "bitcoin") {
+    return (state.bitcoinWallets || []).map(wallet => ({
+      id: wallet.id,
+      group_id: wallet.id,
+      direction: "taken",
+      entry_kind: "principal",
+      person_name: "SYSTEM",
+      currency: "BTC",
+      principal_amount: 0,
+      action_amount: null,
+      loan_date: (wallet.createdAt || "").slice(0, 10) || todayISO(),
+      action_date: null,
+      notes: JSON.stringify({
+        address: wallet.address || "",
+        label: wallet.label || "",
+        network: wallet.network || "",
+        is_watch_only: !!wallet.is_watch_only,
+        rowType: "BITCOIN_WALLET"
+      }),
+      created_at: wallet.createdAt || new Date().toISOString(),
+      data_origin: wallet.data_origin || "",
+      domain_table: wallet.domain_table || "bitcoin_wallets"
+    }));
+  }
+  return state.entries.filter(entry =>
+    entryBelongsToLedgerScope(entry, scope) && !hasDeletedTag(entry.notes)
+  );
+}
+
+function triggerCsvDownload(csvText, filename){
+  const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadSectionCsv(sectionKey){
+  if (isGuestMode()) {
+    alert("Demo Login cannot download CSV. Please use a real login.");
+    return;
+  }
+  const scope = normalizeSectionCsvKey(sectionKey);
+  if (scope === "notes") {
+    await loadNotesFromDatabase({ force: false }).catch(() => {});
+  } else if (scope === "bitcoin") {
+    await loadBitcoinWalletsFromDatabase({ force: false }).catch(() => {});
+  } else if (LEDGER_DATA_SCOPES.includes(scope)) {
+    await ensureAllLedgerDataLoaded({ throwOnError: true });
+    if (databaseSessionCanLoad()) {
+      await loadLedgerScopeFromSupabase(scope, { force: false }).catch(() => {});
+    }
+  } else {
+    throw new Error("Unknown section for CSV download.");
+  }
+  const rows = entriesForSectionCsv(scope);
+  const label = scope === LEDGER_SCOPE_GOODS ? "inventory"
+    : scope === LEDGER_SCOPE_LOANS_GIVEN ? "loans_given"
+    : scope === LEDGER_SCOPE_LOANS_TAKEN ? "loans_taken"
+    : scope;
+  triggerCsvDownload(toCsv(rows), `TripleM_${label}_${todayISO()}.csv`);
+}
+
+async function upsertSectionCsvEntry(entry){
+  const row = withLocalEntryIdentity(entry);
+  if (isBackupMode()) {
+    const idx = state.entries.findIndex(e => e.id === row.id);
+    if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...row };
+    else state.entries.unshift(row);
+    return { action: idx >= 0 ? "update" : "insert", row };
+  }
+
+  if (window.DomainLedger?.upsertDomainEntry) {
+    try {
+      const result = await DomainLedger.upsertDomainEntry(row);
+      if (result.usedLedger) {
+        const existing = state.dbEntryIds.has(row.id);
+        if (existing) {
+          await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(row.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify(databaseInsertPayload(row))
+          });
+        } else {
+          await supabase(CONFIG.table, {
+            method: "POST",
+            body: JSON.stringify(databaseInsertPayload(row))
+          });
+        }
+        row.data_origin = "ledger";
+        row.is_legacy_meta = true;
+      } else {
+        row.domain_table = result.table;
+        row.data_origin = "domain";
+        row.is_legacy_meta = false;
+      }
+    } catch (err) {
+      const msg = String(err?.message || err || "");
+      if (/does not exist|42P01|404|Not Found|Could not find the table/i.test(msg)) {
+        const existing = state.dbEntryIds.has(row.id);
+        if (existing) {
+          await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(row.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify(databaseInsertPayload(row))
+          });
+        } else {
+          await supabase(CONFIG.table, {
+            method: "POST",
+            body: JSON.stringify(databaseInsertPayload(row))
+          });
+        }
+        row.data_origin = "ledger";
+        row.is_legacy_meta = true;
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    queueDatabaseInsert([row], "CSV import");
+  }
+
+  const idx = state.entries.findIndex(e => e.id === row.id);
+  if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...row };
+  else state.entries.unshift(row);
+  markDbSnapshotRows([row]);
+  return { action: "upsert", row };
+}
+
+async function importNotesSectionCsv(entries){
+  let imported = 0;
+  for (const entry of entries) {
+    let content = "";
+    try {
+      const parsed = JSON.parse(String(entry.notes || "{}"));
+      content = parsed.content || "";
+    } catch {
+      content = String(entry.notes || "").trim();
+    }
+    if (!content) continue;
+    const id = entry.id || crypto.randomUUID();
+    const payload = {
+      id,
+      owner_id: state.sessionUser?.id || null,
+      content,
+      notes: JSON.stringify({ content, rowType: "NOTE" }),
+      meta: { rowType: "NOTE" },
+      is_deleted: false,
+      created_at: entry.created_at || new Date().toISOString()
+    };
+    try {
+      const existing = await supabase(`app_notes?id=eq.${encodeURIComponent(id)}&select=id`);
+      if (Array.isArray(existing) && existing.length) {
+        await supabase(`app_notes?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ content, notes: payload.notes, updated_at: new Date().toISOString() })
+        });
+      } else {
+        await supabase("app_notes", { method: "POST", body: JSON.stringify(payload) });
+      }
+      imported += 1;
+    } catch (domainErr) {
+      const ledgerRow = {
+        id,
+        group_id: id,
+        person_name: "SYSTEM",
+        direction: "taken",
+        entry_kind: "principal",
+        currency: "AED",
+        principal_amount: 0,
+        loan_date: todayISO(),
+        action_date: todayISO(),
+        notes: payload.notes,
+        created_at: payload.created_at,
+        owner_id: payload.owner_id
+      };
+      await upsertSectionCsvEntry(ledgerRow);
+      imported += 1;
+      console.warn("app_notes CSV upsert fell back to ledger:", domainErr);
+    }
+  }
+  await loadNotesFromDatabase({ force: true }).catch(() => {});
+  renderNotes(els.searchNotes?.value || "");
+  return imported;
+}
+
+async function importBitcoinSectionCsv(entries){
+  let imported = 0;
+  for (const entry of entries) {
+    let wallet = {};
+    try {
+      wallet = JSON.parse(String(entry.notes || "{}"));
+    } catch {
+      wallet = {};
+    }
+    const address = wallet.address || "";
+    const label = wallet.label || entry.person_name || "Wallet";
+    const network = wallet.network || "bitcoin";
+    if (!address) continue;
+    const id = entry.id || crypto.randomUUID();
+    const payload = {
+      id,
+      owner_id: state.sessionUser?.id || null,
+      label,
+      address,
+      network,
+      is_watch_only: !!wallet.is_watch_only,
+      currency: "BTC",
+      notes: JSON.stringify({
+        address,
+        label,
+        network,
+        is_watch_only: !!wallet.is_watch_only,
+        rowType: "BITCOIN_WALLET"
+      }),
+      meta: { rowType: "BITCOIN_WALLET" },
+      is_deleted: false,
+      created_at: entry.created_at || new Date().toISOString()
+    };
+    try {
+      const existing = await supabase(`bitcoin_wallets?id=eq.${encodeURIComponent(id)}&select=id`);
+      if (Array.isArray(existing) && existing.length) {
+        await supabase(`bitcoin_wallets?id=eq.${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            label,
+            address,
+            network,
+            is_watch_only: !!wallet.is_watch_only,
+            notes: payload.notes,
+            updated_at: new Date().toISOString()
+          })
+        });
+      } else {
+        await supabase("bitcoin_wallets", { method: "POST", body: JSON.stringify(payload) });
+      }
+      imported += 1;
+    } catch (domainErr) {
+      await upsertSectionCsvEntry({
+        id,
+        group_id: id,
+        person_name: "SYSTEM",
+        direction: "taken",
+        entry_kind: "principal",
+        currency: "BTC",
+        principal_amount: 0,
+        loan_date: todayISO(),
+        notes: payload.notes,
+        created_at: payload.created_at,
+        owner_id: payload.owner_id
+      });
+      imported += 1;
+      console.warn("bitcoin_wallets CSV upsert fell back to ledger:", domainErr);
+    }
+  }
+  await loadBitcoinWalletsFromDatabase({ force: true }).catch(() => {});
+  renderBitcoinWallets();
+  renderExistingAddressesDropdown();
+  return imported;
+}
+
+async function importSectionCsv(file, sectionKey){
+  if (isGuestMode()) {
+    alert("Demo Login cannot import CSV. Please use a real login.");
+    return;
+  }
+  if (!file) return;
+  const scope = normalizeSectionCsvKey(sectionKey);
+  const text = await file.text();
+  let parsed = parseEntriesCsv(text);
+
+  if (scope === "notes") {
+    const count = await importNotesSectionCsv(assignMissingIdsAndGroupIds(parsed, { existingEntries: [] }));
+    alert(`Imported ${count} note(s) into Notes.`);
+    return;
+  }
+  if (scope === "bitcoin") {
+    const count = await importBitcoinSectionCsv(assignMissingIdsAndGroupIds(parsed, { existingEntries: [] }));
+    alert(`Imported ${count} wallet(s) into Bitcoin.`);
+    return;
+  }
+  if (!LEDGER_DATA_SCOPES.includes(scope)) {
+    throw new Error("Unknown section for CSV upload.");
+  }
+
+  if (databaseSessionCanLoad()) {
+    await loadLedgerScopeFromSupabase(scope, { force: true }).catch(() => {});
+  }
+
+  parsed = assignMissingIdsAndGroupIds(parsed, { existingEntries: state.entries });
+  const prepared = parsed
+    .map(entry => ensureEntryTagsForSection(entry, scope))
+    .filter(entry => entryBelongsToLedgerScope(entry, scope));
+
+  if (!prepared.length) {
+    throw new Error("No rows matched this section after normalizing tags/direction. Check the CSV.");
+  }
+
+  // Principals first so FK group_id targets exist in domain tables
+  const ordered = [
+    ...prepared.filter(e => e.entry_kind === "principal"),
+    ...prepared.filter(e => e.entry_kind !== "principal")
+  ];
+
+  let imported = 0;
+  const errors = [];
+  for (const entry of ordered) {
+    try {
+      await upsertSectionCsvEntry(entry);
+      imported += 1;
+    } catch (err) {
+      errors.push(`${entry.person_name || entry.id}: ${err.message || err}`);
+    }
+  }
+
+  if (isBackupMode()) {
+    refreshBackupView();
+  } else if (databaseSessionCanLoad()) {
+    state.loadedLedgerScopes.delete(scope);
+    await loadLedgerScopeFromSupabase(scope, { force: true }).catch(() => {});
+    renderAll();
+  } else {
+    renderAll();
+  }
+
+  if (errors.length) {
+    alert(`Imported ${imported} row(s). ${errors.length} failed:\n${errors.slice(0, 5).join("\n")}`);
+  } else {
+    alert(`Imported ${imported} row(s) into this section.`);
+  }
+}
+
+function openSectionCsvUpload(sectionKey){
+  const input = document.getElementById("sectionCsvInput");
+  if (!input) {
+    alert("CSV upload input is missing.");
+    return;
+  }
+  input.dataset.section = normalizeSectionCsvKey(sectionKey);
+  input.value = "";
+  input.click();
 }
 
 async function importBackupFile(file){
@@ -12809,9 +13442,15 @@ function attachEvents(){
     btn.addEventListener("click", () => {
       const mode = btn.dataset.openModal;
       const direction = btn.dataset.direction || "given";
-      if (mode === "principal") activate(direction === "given" ? "given" : "taken");
-      if (mode === "payment") activate(direction === "given" ? "given" : "taken");
-      openEntryModal(mode, direction);
+      const installment = btn.dataset.installment === "1" || btn.dataset.installment === "true";
+      if (installment) {
+        activate("installments");
+      } else if (mode === "principal") {
+        activate(direction === "given" ? "given" : "taken");
+      } else if (mode === "payment") {
+        activate(direction === "given" ? "given" : "taken");
+      }
+      openEntryModal(mode, direction, { installment });
     });
   });
   if (els.openGoodsBoughtBtn) {
@@ -13163,6 +13802,31 @@ window.addEventListener("resize", () => {
   els.downloadAllDataJsonBtn.addEventListener("click", () => downloadJsonBackup().catch(err => alert(err.message)));
   els.downloadAllDataCsvBtn.addEventListener("click", () => downloadCsvBackup().catch(err => alert(err.message)));
   els.uploadBackupBtn.addEventListener("click", () => uploadBackupToDatabase().catch(err => alert(err.message)));
+
+  document.querySelectorAll("[data-section-csv-download]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      downloadSectionCsv(btn.dataset.sectionCsvDownload).catch(err => alert(err.message));
+    });
+  });
+  document.querySelectorAll("[data-section-csv-upload]").forEach(btn => {
+    btn.addEventListener("click", () => openSectionCsvUpload(btn.dataset.sectionCsvUpload));
+  });
+  const sectionCsvInput = document.getElementById("sectionCsvInput");
+  if (sectionCsvInput) {
+    sectionCsvInput.addEventListener("change", async e => {
+      const file = e.target.files && e.target.files[0];
+      const section = e.target.dataset.section || "";
+      if (!file || !section) return;
+      try {
+        await importSectionCsv(file, section);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        e.target.value = "";
+      }
+    });
+  }
+
   if (els.importJsonInput) els.importJsonInput.addEventListener("change", async e => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
