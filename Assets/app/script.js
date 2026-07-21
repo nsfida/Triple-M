@@ -21183,6 +21183,14 @@ function openAccountSettingsModal(){
     return;
   }
   const user = state.sessionUser || {};
+  const settings = user.settings && typeof user.settings === "object" ? user.settings : {};
+  const company = user.company_name || settings.Company || "";
+  const vat = user.vat_number || settings.TRN || "";
+  const logo = user.logo_url || settings.logo || "";
+  const email = user.company_email || settings.email || settings.Email || "";
+  const phone = user.company_phone || settings.Mobile || settings.Phone || settings.phone || "";
+  const address = user.company_address || settings.Address || settings.address || "";
+  const usernameLocked = !!user.is_protected;
   let modal = document.getElementById("accountSettingsModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -21192,31 +21200,90 @@ function openAccountSettingsModal(){
   }
   modal.innerHTML = `
     <div class="modal-backdrop" data-admin-modal-close="accountSettingsModal"></div>
-    <div class="modal-dialog" style="width:min(480px,100%)">
+    <div class="modal-dialog admin-modal-dialog">
       <div class="modal-head">
         <div>
           <h3>Account settings</h3>
-          <p>Update your display name, username, and password.</p>
+          <p>Update your login details and company information shown in the app and on PDFs.</p>
         </div>
         <button type="button" class="btn ghost" data-admin-modal-close="accountSettingsModal" aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Display name</label>
-          <input id="acctDisplayName" class="input" />
+        <div class="admin-form-grid">
+          <div class="form-group">
+            <label class="form-label">Display name</label>
+            <input id="acctDisplayName" class="input" autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input id="acctUsername" class="input" autocomplete="username" ${usernameLocked ? "readonly" : ""} />
+            ${usernameLocked ? `<p class="help">Protected administrator username cannot be changed.</p>` : `<p class="help">Letters, numbers, underscore, and hyphen only.</p>`}
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input id="acctUsername" class="input" />
+
+        <div class="admin-branding-block">
+          <h4 class="admin-section-title">Company details</h4>
+          <p class="help">Used in the header and on PDFs for your account.</p>
+          <div class="admin-form-grid">
+            <div class="form-group">
+              <label class="form-label">Company name</label>
+              <input id="acctCompany" class="input" autocomplete="organization" placeholder="Company / business name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">VAT / TRN number</label>
+              <input id="acctVat" class="input" placeholder="Tax registration number" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input id="acctEmail" class="input" type="email" autocomplete="email" placeholder="accounts@company.com" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mobile number</label>
+              <input id="acctPhone" class="input" type="tel" autocomplete="tel" placeholder="+971 50 000 0000" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label class="form-label">Company address</label>
+            <textarea id="acctAddress" class="input admin-address-input" rows="2" placeholder="Street, city, country"></textarea>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label class="form-label">Company logo (PNG / JPG)</label>
+            <div class="admin-logo-row">
+              <input id="acctLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
+              <input id="acctLogoUrl" class="input" type="hidden" value="" />
+            </div>
+            <div class="admin-logo-preview-wrap">
+              <img id="acctLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" />
+              <span id="acctLogoStatus" class="help">No logo uploaded yet — default Triple M logo will be used</span>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Current password</label>
-          <input id="acctOldPassword" class="input" type="password" autocomplete="current-password" />
+
+        <div class="admin-branding-block">
+          <h4 class="admin-section-title">Change password</h4>
+          <p class="help">Leave new password blank to keep your current password. Changing password keeps you signed in on this device.</p>
+          <div class="admin-form-grid">
+            <div class="form-group">
+              <label class="form-label">Current password</label>
+              <div class="admin-password-row">
+                <input id="acctOldPassword" class="input" type="password" autocomplete="current-password" />
+                <button type="button" class="btn ghost tiny" data-toggle-form-pw="acctOldPassword">Show</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">New password (optional)</label>
+              <div class="admin-password-row">
+                <input id="acctNewPassword" class="input" type="password" autocomplete="new-password" />
+                <button type="button" class="btn ghost tiny" data-toggle-form-pw="acctNewPassword">Show</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm new password</label>
+              <input id="acctConfirmPassword" class="input" type="password" autocomplete="new-password" />
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">New password (optional)</label>
-          <input id="acctNewPassword" class="input" type="password" autocomplete="new-password" />
-        </div>
+
         <div id="acctSettingsError" class="lock-error"></div>
         <div class="modal-footer">
           <button type="button" class="btn ghost" id="acctSettingsCancel">Cancel</button>
@@ -21224,11 +21291,28 @@ function openAccountSettingsModal(){
         </div>
       </div>
     </div>`;
+
   modal.querySelector("#acctDisplayName").value = user.display_name || "";
   modal.querySelector("#acctUsername").value = user.username || state.currentUsername || "";
-  modal.querySelector("#acctUsername").readOnly = !!user.is_protected;
+  modal.querySelector("#acctCompany").value = company;
+  modal.querySelector("#acctVat").value = vat;
+  modal.querySelector("#acctEmail").value = email;
+  modal.querySelector("#acctPhone").value = phone;
+  modal.querySelector("#acctAddress").value = address;
+  modal.querySelector("#acctLogoUrl").value = logo || "";
+  const logoPreview = modal.querySelector("#acctLogoPreview");
+  const logoStatus = modal.querySelector("#acctLogoStatus");
+  if (logo) {
+    logoPreview.src = logo;
+    logoPreview.classList.remove("hide");
+    logoStatus.textContent = "Current logo loaded — PDFs keep natural proportions";
+  }
   modal.querySelector("#acctOldPassword").value = "";
   modal.querySelector("#acctNewPassword").value = "";
+  modal.querySelector("#acctConfirmPassword").value = "";
+  bindAdminLogoPicker("acct", user.id || null);
+  bindAdminFormPasswordToggle(modal);
+
   const err = modal.querySelector("#acctSettingsError");
   err.textContent = "";
   err.classList.remove("show");
@@ -21243,29 +21327,77 @@ function openAccountSettingsModal(){
   modal.querySelector("#acctSettingsSave").onclick = async () => {
     err.textContent = "";
     err.classList.remove("show");
+    const saveBtn = modal.querySelector("#acctSettingsSave");
     try {
       const newUsername = modal.querySelector("#acctUsername").value.trim();
       const newPassword = modal.querySelector("#acctNewPassword").value;
+      const confirmPassword = modal.querySelector("#acctConfirmPassword").value;
       const oldPassword = modal.querySelector("#acctOldPassword").value;
+      const currentUsername = user.username || state.currentUsername || "";
+
+      if (!usernameLocked && newUsername && newUsername !== currentUsername) {
+        if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+          throw new Error("Username may only contain letters, numbers, underscore, and hyphen.");
+        }
+        if (newUsername.length < 3) {
+          throw new Error("Username must be at least 3 characters.");
+        }
+      }
+      if (newPassword) {
+        if (!oldPassword) throw new Error("Enter your current password to set a new password.");
+        if (newPassword.length < 6) throw new Error("New password must be at least 6 characters.");
+        if (newPassword !== confirmPassword) throw new Error("New passwords do not match.");
+      } else if (confirmPassword) {
+        throw new Error("Enter a new password before confirming it.");
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving…";
+      }
+
       const payload = {
-        p_display_name: modal.querySelector("#acctDisplayName").value.trim()
+        p_display_name: modal.querySelector("#acctDisplayName").value.trim(),
+        p_company_name: modal.querySelector("#acctCompany").value.trim(),
+        p_vat_number: modal.querySelector("#acctVat").value.trim(),
+        p_logo_url: modal.querySelector("#acctLogoUrl").value.trim(),
+        p_company_email: modal.querySelector("#acctEmail").value.trim(),
+        p_company_phone: modal.querySelector("#acctPhone").value.trim(),
+        p_company_address: modal.querySelector("#acctAddress").value.trim()
       };
-      if (newUsername && newUsername !== (user.username || "")) {
+      if (!usernameLocked && newUsername && newUsername !== currentUsername) {
         payload.p_new_username = newUsername;
       }
       if (newPassword) {
         payload.p_old_password = oldPassword;
         payload.p_new_password = newPassword;
       }
+
       const updated = await supabaseRpc("app_update_own_profile", payload);
-      applyUserProfileToConfig(updated?.user || updated || { ...user, ...payload });
-      if (updated && !updated.user && updated.username) {
-        applyUserProfileToConfig(updated);
-      }
+      const profile = (updated && updated.user) ? updated.user
+        : (updated && updated.username) ? updated
+        : null;
+      if (profile) applyUserProfileToConfig(profile);
+
       try {
         const validated = await supabaseRpc("app_validate_session", {});
         if (validated?.user) applyUserProfileToConfig(validated.user);
       } catch {}
+
+      try {
+        sessionStorage.setItem(SESSION_USERNAME_KEY, state.currentUsername || "");
+      } catch {}
+      try {
+        const existingCred = await loadEncryptedSessionCredential();
+        if (existingCred?.sessionToken && state.currentUsername) {
+          await saveEncryptedSessionCredential({
+            username: state.currentUsername,
+            sessionToken: existingCred.sessionToken || state.sessionToken
+          });
+        }
+      } catch {}
+
+      updateLogosFromConfig();
       updateHeaderTextFromConfig();
       updateUserIdentityUi();
       applyPermissionGates();
@@ -21274,6 +21406,11 @@ function openAccountSettingsModal(){
     } catch (ex) {
       err.textContent = ex.message || "Could not save account settings.";
       err.classList.add("show");
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save";
+      }
     }
   };
 }
