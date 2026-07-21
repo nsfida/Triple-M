@@ -183,9 +183,10 @@
                 </div>
                 <div class="form-group">
                   <label for="zipPasswordInput" class="form-label">Password</label>
-                  <div class="input-wrapper">
+                  <div class="input-wrapper has-pw-eye">
                     <input id="zipPasswordInput" class="input" type="password" placeholder="Your account password" autocomplete="current-password" />
                     <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+                    <button type="button" class="pw-eye-btn pw-eye-btn--input" id="zipPasswordToggle" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
                   </div>
                 </div>
                 <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
@@ -1005,18 +1006,37 @@
       <div class="guest-restriction-dialog">
         <div class="guest-restriction-icon"><i class="fa-solid fa-lock"></i></div>
         <div class="guest-restriction-copy">
-          <h3>Your Pro / trial period has ended</h3>
-          <p>You can still sign in, but your workspace is locked and no data is shown. Contact the administrator to get full access.</p>
+          <h3 id="trialExpiredTitle">Your access period has ended</h3>
+          <p id="trialExpiredMessage">You can still sign in during a 2-day grace window, but your workspace is locked. On the 3rd day after expiry the account is disabled automatically unless renewed.</p>
+          <div class="trial-renewal-box" id="trialExpiredRenewalBox">
+            <div class="settings-renew-row">
+              <select id="trialExpiredPeriod" class="input settings-input">
+                <option value="week">1 week</option>
+                <option value="month" selected>1 month</option>
+                <option value="year">1 year</option>
+                <option value="custom">Custom days</option>
+                <option value="date">Until date</option>
+              </select>
+              <input id="trialExpiredDays" class="input settings-input settings-days hide" type="number" min="1" max="3650" value="30" />
+              <input id="trialExpiredUntil" class="input settings-input settings-date hide" type="date" />
+              <button class="btn primary tiny" id="trialExpiredRenewBtn" type="button">Request</button>
+            </div>
+            <input id="trialExpiredNote" class="input settings-input" type="text" placeholder="Optional note to admin" style="margin-top:6px;width:100%" />
+            <p class="settings-status" id="trialExpiredRenewStatus"></p>
+          </div>
           <a class="guest-restriction-contact" href="https://wa.me/923339004564" target="_blank" rel="noopener">
             <i class="fa-brands fa-whatsapp"></i> Contact admin on WhatsApp
           </a>
           <button class="btn soft" id="trialExpiredMessagesBtn" type="button" style="margin-top:10px;width:100%">
             <i class="fa-solid fa-comments"></i> Send in-app inquiry
           </button>
+          <button class="btn ghost" id="trialExpiredSettingsBtn" type="button" style="margin-top:8px;width:100%">
+            <i class="fa-solid fa-user-gear"></i> Open Account Settings
+          </button>
         </div>
         <div class="trial-expired-actions">
           <button class="btn ghost" id="trialExpiredLogoutBtn" type="button">Logout</button>
-          <a class="btn primary" href="https://wa.me/923339004564" target="_blank" rel="noopener">Request full access</a>
+          <a class="btn soft" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp admin</a>
         </div>
       </div>
     </div>
@@ -1873,9 +1893,9 @@
             </div>
           </div>
           <div class="admin-legend">
-            <span><i class="fa-solid fa-key"></i> Passwords stay masked until you tap Show</span>
+            <span><i class="fa-solid fa-key"></i> Passwords stay masked until you tap the eye icon</span>
             <span><i class="fa-solid fa-chevron-down"></i> Click a user row to expand details &amp; actions</span>
-            <span><i class="fa-solid fa-calendar-plus"></i> Extend trial expiry by N days from the expanded panel</span>
+            <span><i class="fa-solid fa-calendar-check"></i> Expand a user → Manage Plan to extend or reduce expiry dates</span>
             <span><i class="fa-solid fa-bell"></i> Bell &amp; envelope icons show trial and inquiry alerts</span>
           </div>
           <div id="adminUsersList" class="admin-users-list">
