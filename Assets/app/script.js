@@ -673,6 +673,7 @@ const state = {
   expenseHistoryCustomFrom: "",
   expenseHistoryCustomTo: "",
   expenseBtcCache: {},
+  inventoryItemTypeFilter: "all",
   inventoryDraft: {
     purchaseGroupId: "",
     saleGroupIds: [],
@@ -1003,6 +1004,19 @@ const INVENTORY_UNIT_GRAM = "g";
 const INVENTORY_UNIT_M = "m";
 const INVENTORY_UNIT_CM = "cm";
 const INVENTORY_NEW_CUSTOMER_VALUE = "__new_customer__";
+const INVENTORY_CUSTOM_TYPE_VALUE = "__custom_type__";
+const INVENTORY_DEFAULT_ITEM_TYPES = [
+  "General",
+  "Liquid",
+  "Stationery",
+  "Electronics",
+  "Hardware",
+  "Tools",
+  "Cables & Pipes",
+  "Food & Grocery",
+  "Clothing",
+  "Furniture"
+];
 const INVENTORY_TX_PURCHASE = "PURCHASE";
 const INVENTORY_TX_SALE = "SALE";
 const INVENTORY_TX_SETTLEMENT = "SETTLEMENT";
@@ -4075,9 +4089,13 @@ function goodsMetaFromNotes(noteValue){
     unitSoldPrice: readNum("USP"),
     itemCode: readText("ICODE"),
     itemDescription: readText("IDESC"),
+    itemType: readText("ITYPE"),
     customerName: readText("CUST"),
     customerPhone: readText("CPHONE"),
     customerAddress: readText("CADDR"),
+    customerCompany: readText("CCMP"),
+    customerTrn: readText("CTRN"),
+    customerEmail: readText("CEMAIL"),
     receiptNumber: readText("RCPT"),
     invoiceNumber: readText("INV"),
     paymentReceiptNumber: readText("PAYRCPT"),
@@ -4098,9 +4116,13 @@ function goodsMetaFromNotes(noteValue){
   };
 }
 
+function goodsMetaTagCleanRegex(){
+  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi;
+}
+
 function upsertGoodsMetaInNote(noteValue, meta = {}){
   let note = normalizeGoodsNote(noteValue, true) || GOODS_TAG;
-  note = note.replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  note = note.replace(goodsMetaTagCleanRegex(), "").replace(/\s{2,}/g, " ").trim();
   const tags = [];
   if (meta.boughtQty != null) tags.push(`[BQTY:${meta.boughtQty}]`);
   if (meta.soldQty != null) tags.push(`[SQTY:${meta.soldQty}]`);
@@ -4108,9 +4130,13 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.unitSoldPrice != null) tags.push(`[USP:${meta.unitSoldPrice}]`);
   if (meta.itemCode) tags.push(`[ICODE:${String(meta.itemCode).replace(/\]/g, "")}]`);
   if (meta.itemDescription) tags.push(`[IDESC:${String(meta.itemDescription).replace(/\]/g, "")}]`);
+  if (meta.itemType) tags.push(`[ITYPE:${String(meta.itemType).replace(/\]/g, "")}]`);
   if (meta.customerName) tags.push(`[CUST:${String(meta.customerName).replace(/\]/g, "")}]`);
   if (meta.customerPhone) tags.push(`[CPHONE:${String(meta.customerPhone).replace(/\]/g, "")}]`);
   if (meta.customerAddress) tags.push(`[CADDR:${String(meta.customerAddress).replace(/\]/g, "")}]`);
+  if (meta.customerCompany) tags.push(`[CCMP:${String(meta.customerCompany).replace(/\]/g, "")}]`);
+  if (meta.customerTrn) tags.push(`[CTRN:${String(meta.customerTrn).replace(/\]/g, "")}]`);
+  if (meta.customerEmail) tags.push(`[CEMAIL:${String(meta.customerEmail).replace(/\]/g, "")}]`);
   if (meta.receiptNumber) tags.push(`[RCPT:${String(meta.receiptNumber).replace(/\]/g, "")}]`);
   if (meta.invoiceNumber) tags.push(`[INV:${String(meta.invoiceNumber).replace(/\]/g, "")}]`);
   if (meta.paymentReceiptNumber) tags.push(`[PAYRCPT:${String(meta.paymentReceiptNumber).replace(/\]/g, "")}]`);
@@ -4134,9 +4160,95 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
 function cleanGoodsDisplayNote(noteValue){
   return String(noteValue || "")
     .replace(GOODS_TAG, "")
-    .replace(/\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|CUST|CPHONE|CADDR|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi, "")
+    .replace(goodsMetaTagCleanRegex(), "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function normalizeInventoryItemType(value){
+  const cleaned = String(value || "").replace(/\s+/g, " ").trim();
+  return cleaned || "General";
+}
+
+function getInventoryItemTypes(){
+  const found = new Set(INVENTORY_DEFAULT_ITEM_TYPES.map(normalizeInventoryItemType));
+  for (const entry of state.entries){
+    if (!hasGoodsTag(entry.notes) || entry.entry_kind !== "principal") continue;
+    const type = normalizeInventoryItemType(goodsMetaFromNotes(entry.notes).itemType);
+    if (type) found.add(type);
+  }
+  return [...found].sort((a, b) => a.localeCompare(b));
+}
+
+function inventoryItemTypeOptionsHtml(selectedType = "General", includeCustom = true){
+  const selected = normalizeInventoryItemType(selectedType);
+  const types = getInventoryItemTypes();
+  const hasSelected = types.some(type => type.toLowerCase() === selected.toLowerCase());
+  const options = [];
+  for (const type of types){
+    options.push(`<option value="${escapeHtml(type)}" ${type.toLowerCase() === selected.toLowerCase() ? "selected" : ""}>${escapeHtml(type)}</option>`);
+  }
+  if (!hasSelected && selected){
+    options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+  }
+  if (includeCustom){
+    options.push(`<option value="${INVENTORY_CUSTOM_TYPE_VALUE}">+ Custom type…</option>`);
+  }
+  return options.join("");
+}
+
+function readGoodsBoughtItemType(form = els.goodsBoughtForm){
+  if (!form) return "General";
+  const select = form.querySelector('[name="item_type"]');
+  const customInput = form.querySelector('[name="item_type_custom"]');
+  const selected = String(select?.value || "").trim();
+  if (selected === INVENTORY_CUSTOM_TYPE_VALUE){
+    return normalizeInventoryItemType(customInput?.value);
+  }
+  return normalizeInventoryItemType(selected);
+}
+
+function syncGoodsBoughtItemTypeFields(preferredType = ""){
+  if (!els.goodsBoughtForm) return;
+  const typeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
+  const customWrap = els.goodsBoughtForm.querySelector("[data-inventory-custom-type-wrap]");
+  const customInput = els.goodsBoughtForm.querySelector('[name="item_type_custom"]');
+  if (!typeSelect) return;
+  const current = preferredType || (typeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE
+    ? (customInput?.value || "General")
+    : (typeSelect.value || "General"));
+  const normalized = normalizeInventoryItemType(current);
+  const known = getInventoryItemTypes().some(type => type.toLowerCase() === normalized.toLowerCase());
+  typeSelect.innerHTML = inventoryItemTypeOptionsHtml(known ? normalized : "General");
+  if (known){
+    typeSelect.value = getInventoryItemTypes().find(type => type.toLowerCase() === normalized.toLowerCase()) || normalized;
+    if (customWrap) customWrap.classList.add("hide");
+    if (customInput) {
+      customInput.value = "";
+      customInput.required = false;
+    }
+  } else {
+    typeSelect.value = INVENTORY_CUSTOM_TYPE_VALUE;
+    if (customWrap) customWrap.classList.remove("hide");
+    if (customInput) {
+      customInput.value = normalized;
+      customInput.required = true;
+    }
+  }
+}
+
+function refreshInventoryTypeFilterOptions(){
+  const select = document.getElementById("inventoryTypeFilter");
+  if (!select) return;
+  const current = String(state.inventoryItemTypeFilter || "all");
+  const types = getInventoryItemTypes();
+  select.innerHTML = [
+    `<option value="all">All types</option>`,
+    ...types.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`)
+  ].join("");
+  const stillValid = current === "all" || types.some(type => type.toLowerCase() === current.toLowerCase());
+  state.inventoryItemTypeFilter = stillValid ? current : "all";
+  select.value = state.inventoryItemTypeFilter;
 }
 
 function hasExpenseAccountTag(noteValue){
@@ -4847,6 +4959,9 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
       itemName: principalEntry?.person_name || entry.person_name || "Goods item",
       customerPhone: entryMeta.customerPhone || "",
       customerAddress: entryMeta.customerAddress || "",
+      customerCompany: entryMeta.customerCompany || "",
+      customerTrn: entryMeta.customerTrn || "",
+      customerEmail: entryMeta.customerEmail || "",
       itemCategory,
       qty,
       qtyDisplay: inventoryQtyLabel(qty, itemCategory),
@@ -4951,7 +5066,10 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
     balanceTotal: saleRows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
     customerName: saleRows[0]?.entryMeta.customerName || goodsMetaFromNotes(fallbackEntry?.notes).customerName || "Walk-in customer",
     customerPhone: saleRows.find(row => row.customerPhone)?.customerPhone || goodsMetaFromNotes(fallbackEntry?.notes).customerPhone || "",
-    customerAddress: saleRows.find(row => row.customerAddress)?.customerAddress || goodsMetaFromNotes(fallbackEntry?.notes).customerAddress || ""
+    customerAddress: saleRows.find(row => row.customerAddress)?.customerAddress || goodsMetaFromNotes(fallbackEntry?.notes).customerAddress || "",
+    customerCompany: saleRows.find(row => row.customerCompany)?.customerCompany || goodsMetaFromNotes(fallbackEntry?.notes).customerCompany || "",
+    customerTrn: saleRows.find(row => row.customerTrn)?.customerTrn || goodsMetaFromNotes(fallbackEntry?.notes).customerTrn || "",
+    customerEmail: saleRows.find(row => row.customerEmail)?.customerEmail || goodsMetaFromNotes(fallbackEntry?.notes).customerEmail || ""
   };
 }
 
@@ -5493,18 +5611,74 @@ function getInventoryCustomerRecord(customerName){
   return { customerName: customer, contact, invoices, statementRows, totalByCurrency, taxByCurrency, paidByCurrency, balanceByCurrency };
 }
 
+function renderInventoryCustomerEditCard(record){
+  const contact = record.contact || {};
+  return `
+    <details class="inventory-customer-edit-card" id="inventoryCustomerEditCard">
+      <summary>
+        <div>
+          <strong>Customer details</strong>
+          <p>Edit name and optional company / TRN / mobile / email</p>
+        </div>
+        <span class="inventory-customer-edit-toggle">Edit</span>
+      </summary>
+      <form id="inventoryCustomerEditForm" class="inventory-customer-edit-form">
+        <div class="inventory-customer-edit-grid">
+          <label class="inventory-customer-edit-field">
+            <span>Customer name</span>
+            <input class="input" name="customer_name" required value="${escapeHtml(record.customerName || "")}" autocomplete="name" />
+          </label>
+          <label class="inventory-customer-edit-field">
+            <span>Company name <em>optional</em></span>
+            <input class="input" name="customer_company" value="${escapeHtml(contact.company || "")}" autocomplete="organization" placeholder="Optional" />
+          </label>
+          <label class="inventory-customer-edit-field">
+            <span>TRN number <em>optional</em></span>
+            <input class="input" name="customer_trn" value="${escapeHtml(contact.trn || "")}" placeholder="Optional" />
+          </label>
+          <label class="inventory-customer-edit-field">
+            <span>Mobile number <em>optional</em></span>
+            <input class="input" name="customer_phone" value="${escapeHtml(contact.phone || "")}" autocomplete="tel" placeholder="Optional" />
+          </label>
+          <label class="inventory-customer-edit-field">
+            <span>Email address <em>optional</em></span>
+            <input class="input" name="customer_email" type="email" value="${escapeHtml(contact.email || "")}" autocomplete="email" placeholder="Optional" />
+          </label>
+          <label class="inventory-customer-edit-field inventory-customer-edit-field-wide">
+            <span>Address <em>optional</em></span>
+            <input class="input" name="customer_address" value="${escapeHtml(contact.address || "")}" autocomplete="street-address" placeholder="Optional" />
+          </label>
+        </div>
+        <div class="inventory-customer-edit-actions">
+          <button class="btn ghost tiny" type="button" id="inventoryCustomerEditCancel">Cancel</button>
+          <button class="btn primary tiny" type="submit">Save details</button>
+        </div>
+        <p class="inventory-customer-edit-hint">Optional fields can stay empty. Saved details update this customer across inventory invoices and receipts.</p>
+      </form>
+    </details>
+  `;
+}
+
 function renderInventoryCustomerRecord(record){
+  const contactBits = [
+    record.contact.company ? `<span><strong>Company:</strong> ${escapeHtml(record.contact.company)}</span>` : "",
+    record.contact.trn ? `<span><strong>TRN:</strong> ${escapeHtml(record.contact.trn)}</span>` : "",
+    record.contact.phone ? `<span><strong>Mobile:</strong> ${escapeHtml(record.contact.phone)}</span>` : "",
+    record.contact.email ? `<span><strong>Email:</strong> ${escapeHtml(record.contact.email)}</span>` : "",
+    record.contact.address ? `<span><strong>Address:</strong> ${escapeHtml(record.contact.address)}</span>` : ""
+  ].filter(Boolean).join("");
   if (!record.invoices.length){
     return `
+      ${renderInventoryCustomerEditCard(record)}
       <div class="inventory-customer-contact">
         <span><strong>Bill To:</strong> ${escapeHtml(record.customerName)}</span>
-        ${record.contact.phone ? `<span><strong>Phone:</strong> ${escapeHtml(record.contact.phone)}</span>` : ""}
-        ${record.contact.address ? `<span><strong>Address:</strong> ${escapeHtml(record.contact.address)}</span>` : ""}
+        ${contactBits}
       </div>
       <div class="empty">No inventory invoices found for this customer.</div>
     `;
   }
   return `
+    ${renderInventoryCustomerEditCard(record)}
     <div class="inventory-customer-summary">
       <div><small>Total Invoiced</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.totalByCurrency) || "0")}</strong></div>
       <div><small>Total VAT</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.taxByCurrency) || "0")}</strong></div>
@@ -5513,8 +5687,7 @@ function renderInventoryCustomerRecord(record){
     </div>
     <div class="inventory-customer-contact">
       <span><strong>Bill To:</strong> ${escapeHtml(record.customerName)}</span>
-      ${record.contact.phone ? `<span><strong>Phone:</strong> ${escapeHtml(record.contact.phone)}</span>` : ""}
-      ${record.contact.address ? `<span><strong>Address:</strong> ${escapeHtml(record.contact.address)}</span>` : ""}
+      ${contactBits}
     </div>
     <div class="inventory-customer-section">
       <h4>Invoices</h4>
@@ -5568,6 +5741,47 @@ function renderInventoryCustomerRecord(record){
   `;
 }
 
+function bindInventoryCustomerRecordActions(record){
+  if (!els.inventoryCustomerBody) return;
+  els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerInvoicePdfBtn").forEach(btn => {
+    btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.entryId));
+  });
+  els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerReceiptPdfBtn").forEach(btn => {
+    btn.addEventListener("click", () => downloadInventoryPaymentReceiptPDF(btn.dataset.entryId));
+  });
+  const editCard = els.inventoryCustomerBody.querySelector("#inventoryCustomerEditCard");
+  const editForm = els.inventoryCustomerBody.querySelector("#inventoryCustomerEditForm");
+  const cancelBtn = els.inventoryCustomerBody.querySelector("#inventoryCustomerEditCancel");
+  cancelBtn?.addEventListener("click", () => {
+    if (editCard) editCard.open = false;
+    if (editForm) {
+      editForm.customer_name.value = record.customerName || "";
+      editForm.customer_company.value = record.contact.company || "";
+      editForm.customer_trn.value = record.contact.trn || "";
+      editForm.customer_phone.value = record.contact.phone || "";
+      editForm.customer_email.value = record.contact.email || "";
+      editForm.customer_address.value = record.contact.address || "";
+    }
+  });
+  editForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    try {
+      const details = {
+        name: String(editForm.customer_name.value || "").trim(),
+        company: String(editForm.customer_company.value || "").trim(),
+        trn: String(editForm.customer_trn.value || "").trim(),
+        phone: String(editForm.customer_phone.value || "").trim(),
+        email: String(editForm.customer_email.value || "").trim(),
+        address: String(editForm.customer_address.value || "").trim()
+      };
+      const savedName = saveInventoryCustomerDetails(state.inventoryDraft.customerRecordName || record.customerName, details);
+      openInventoryCustomerModal(savedName);
+    } catch (err) {
+      alert(err.message || "Could not save customer details.");
+    }
+  });
+}
+
 function openInventoryCustomerModal(customerName){
   const record = getInventoryCustomerRecord(customerName);
   state.inventoryDraft.customerRecordName = record.customerName || customerName || "";
@@ -5577,12 +5791,7 @@ function openInventoryCustomerModal(customerName){
   }
   if (els.inventoryCustomerBody) {
     els.inventoryCustomerBody.innerHTML = renderInventoryCustomerRecord(record);
-    els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerInvoicePdfBtn").forEach(btn => {
-      btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.entryId));
-    });
-    els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerReceiptPdfBtn").forEach(btn => {
-      btn.addEventListener("click", () => downloadInventoryPaymentReceiptPDF(btn.dataset.entryId));
-    });
+    bindInventoryCustomerRecordActions(record);
   }
   if (els.inventoryCustomerModal) {
     els.inventoryCustomerModal.classList.remove("hide");
@@ -5843,15 +6052,105 @@ function getInventoryCustomerNames(){
 
 function getInventoryCustomerContact(name){
   const target = String(name || "").trim().toLowerCase();
-  if (!target) return { phone: "", address: "" };
+  if (!target) {
+    return { phone: "", address: "", company: "", trn: "", email: "" };
+  }
   const rows = state.entries
     .filter(e => hasGoodsTag(e.notes) && e.entry_kind !== "principal")
     .map(entry => ({ entry, meta: goodsMetaFromNotes(entry.notes) }))
     .filter(row => String(row.meta.customerName || "").trim().toLowerCase() === target)
     .sort((a, b) => dateStamp(b.entry.action_date || b.entry.created_at) - dateStamp(a.entry.action_date || a.entry.created_at));
-  const phone = rows.find(row => row.meta.customerPhone)?.meta.customerPhone || "";
-  const address = rows.find(row => row.meta.customerAddress)?.meta.customerAddress || "";
-  return { phone, address };
+  const pick = (key) => rows.find(row => row.meta[key])?.meta[key] || "";
+  return {
+    phone: pick("customerPhone"),
+    address: pick("customerAddress"),
+    company: pick("customerCompany"),
+    trn: pick("customerTrn"),
+    email: pick("customerEmail")
+  };
+}
+
+function inventoryCustomerEntriesForName(customerName){
+  const target = String(customerName || "").trim().toLowerCase();
+  if (!target) return [];
+  return state.entries.filter(entry => {
+    if (!hasGoodsTag(entry.notes) || entry.entry_kind === "principal") return false;
+    const meta = goodsMetaFromNotes(entry.notes);
+    return String(meta.customerName || "").trim().toLowerCase() === target;
+  });
+}
+
+function applyInventoryCustomerDetailsToNote(noteValue, details = {}){
+  const existing = goodsMetaFromNotes(noteValue);
+  return upsertGoodsMetaInNote(noteValue, {
+    ...existing,
+    customerName: details.name || existing.customerName || "",
+    customerPhone: details.phone || "",
+    customerAddress: details.address || "",
+    customerCompany: details.company || "",
+    customerTrn: details.trn || "",
+    customerEmail: details.email || ""
+  });
+}
+
+function saveInventoryCustomerDetails(oldName, details){
+  const previousName = String(oldName || "").trim();
+  const nextName = String(details?.name || "").trim();
+  if (!nextName) throw new Error("Customer name is required.");
+  const rows = inventoryCustomerEntriesForName(previousName);
+  if (!rows.length){
+    // Create a customer-only record when editing a name that has no rows yet.
+    const today = todayISO();
+    const allowedCurrencies = getPageScopedCurrencies();
+    const currency = allowedCurrencies.includes(state.lastCurrency)
+      ? state.lastCurrency
+      : (allowedCurrencies[0] || "AED");
+    saveEntriesImmediately({
+      group_id: crypto.randomUUID(),
+      direction: "taken",
+      entry_kind: "partial",
+      person_name: nextName,
+      currency,
+      principal_amount: null,
+      action_amount: 0,
+      loan_date: today,
+      action_date: today,
+      notes: upsertGoodsMetaInNote(normalizeGoodsNote("Customer record", true), {
+        customerName: nextName,
+        customerPhone: details.phone || "",
+        customerAddress: details.address || "",
+        customerCompany: details.company || "",
+        customerTrn: details.trn || "",
+        customerEmail: details.email || "",
+        transactionType: INVENTORY_TX_CUSTOMER
+      })
+    }, { label: "Customer" });
+    return nextName;
+  }
+
+  const contactPayload = {
+    name: nextName,
+    phone: String(details.phone || "").trim(),
+    address: String(details.address || "").trim(),
+    company: String(details.company || "").trim(),
+    trn: String(details.trn || "").trim(),
+    email: String(details.email || "").trim()
+  };
+
+  for (const entry of rows){
+    const nextNotes = applyInventoryCustomerDetailsToNote(entry.notes, contactPayload);
+    const updatedEntry = {
+      ...entry,
+      notes: nextNotes,
+      person_name: isInventoryCustomerOnlyEntry(entry) ? nextName : entry.person_name
+    };
+    state.entries = state.entries.map(row => row.id === entry.id ? updatedEntry : row);
+    const patch = { notes: nextNotes };
+    if (isInventoryCustomerOnlyEntry(entry)) patch.person_name = nextName;
+    queueDatabasePatch(entry.id, patch, "Customer details", updatedEntry);
+  }
+  renderAll();
+  return nextName;
 }
 
 function buildTransferEvents(accountsOverride = null){
@@ -6387,11 +6686,20 @@ function syncGoodsCustomerFields(){
   els.goodsNewCustomerField.classList.toggle("hide", !isNew);
   if (els.goodsNewCustomerPhoneField) els.goodsNewCustomerPhoneField.classList.toggle("hide", !isNew);
   if (els.goodsNewCustomerAddressField) els.goodsNewCustomerAddressField.classList.toggle("hide", !isNew);
+  document.getElementById("goodsNewCustomerCompanyField")?.classList.toggle("hide", !isNew);
+  document.getElementById("goodsNewCustomerTrnField")?.classList.toggle("hide", !isNew);
+  document.getElementById("goodsNewCustomerEmailField")?.classList.toggle("hide", !isNew);
   els.goodsNewCustomerName.required = isNew;
   if (!isNew) {
     els.goodsNewCustomerName.value = "";
     if (els.goodsNewCustomerPhone) els.goodsNewCustomerPhone.value = "";
     if (els.goodsNewCustomerAddress) els.goodsNewCustomerAddress.value = "";
+    const companyEl = document.getElementById("goodsNewCustomerCompany");
+    const trnEl = document.getElementById("goodsNewCustomerTrn");
+    const emailEl = document.getElementById("goodsNewCustomerEmail");
+    if (companyEl) companyEl.value = "";
+    if (trnEl) trnEl.value = "";
+    if (emailEl) emailEl.value = "";
   }
 }
 
@@ -6408,7 +6716,10 @@ function getSelectedGoodsCustomerContact(form){
   if (selected === INVENTORY_NEW_CUSTOMER_VALUE){
     return {
       phone: String(form.querySelector('[name="new_customer_phone"]')?.value || "").trim(),
-      address: String(form.querySelector('[name="new_customer_address"]')?.value || "").trim()
+      address: String(form.querySelector('[name="new_customer_address"]')?.value || "").trim(),
+      company: String(form.querySelector('[name="new_customer_company"]')?.value || "").trim(),
+      trn: String(form.querySelector('[name="new_customer_trn"]')?.value || "").trim(),
+      email: String(form.querySelector('[name="new_customer_email"]')?.value || "").trim()
     };
   }
   return getInventoryCustomerContact(selected);
@@ -6678,6 +6989,9 @@ function getGoodsGroups(options = {}){
       const itemCategory = normalizeInventoryCategory(
         principalMeta.itemCategory || purchaseMetas.find(meta => meta.itemCategory)?.itemCategory
       );
+      const itemType = normalizeInventoryItemType(
+        principalMeta.itemType || purchaseMetas.find(meta => meta.itemType)?.itemType
+      );
       const quantityUnit = normalizeInventoryUnit(
         principalMeta.quantityUnit || purchaseMetas.find(meta => meta.quantityUnit)?.quantityUnit,
         itemCategory
@@ -6756,6 +7070,7 @@ function getGoodsGroups(options = {}){
         itemCode: principalMeta.itemCode || "",
         itemDescription: principalMeta.itemDescription || cleanGoodsDisplayNote(group.principal?.notes) || "",
         itemCategory,
+        itemType,
         quantityUnit,
         defaultUnitSoldPrice,
         defaultTaxRate,
@@ -6771,7 +7086,15 @@ function getGoodsGroups(options = {}){
   if (!applyUiFilters) return groups;
 
   return groups.filter(group => {
-      if (!matchesSearch(group.principal || {}, state.search.goods)) return false;
+      const searchTerm = String(state.search.goods || "").trim().toLowerCase();
+      if (searchTerm) {
+        const blob = `${group.person_name || ""} ${group.itemCode || ""} ${group.itemDescription || ""} ${group.itemType || ""} ${group.principal?.notes || ""}`.toLowerCase();
+        if (!blob.includes(searchTerm)) return false;
+      }
+      const typeFilter = String(state.inventoryItemTypeFilter || "all");
+      if (typeFilter !== "all" && normalizeInventoryItemType(group.itemType).toLowerCase() !== typeFilter.toLowerCase()) {
+        return false;
+      }
       const f = state.statusFilter.goods;
       if (f === "Open") return group.status === "In Stock" || group.status === "Partial";
       if (f === "LowStock") return group.remainingQty > 0.00000001 && group.boughtQty > 0 && (group.remainingQty / group.boughtQty) <= 0.15;
@@ -6813,7 +7136,7 @@ async function downloadGoodsItemPDF(groupId){
   doc.setTextColor(23, 33, 43);
   doc.setFontSize(10);
   doc.text(`Item: ${group.person_name || "Unnamed item"}`, 132, 48);
-  doc.text(`Category: ${inventoryCategoryLabel(group.itemCategory)}`, 132, 54);
+  doc.text(`Type: ${normalizeInventoryItemType(group.itemType)} · ${inventoryCategoryLabel(group.itemCategory)}`, 132, 54);
   doc.text(`In Stock: ${inventoryQtyLabel(group.remainingQty, group.itemCategory)}`, 132, 60);
   doc.text(`Purchase Date: ${displayDate(group.principal?.loan_date || "—")}`, 132, 66);
   doc.text(`Status: ${group.status} · Net ${group.profitLoss >= 0 ? "Profit" : "Loss"}: ${fmt(Math.abs(group.profitLoss))}`, 132, 72);
@@ -6954,6 +7277,7 @@ function renderGoodsList(){
                 <span>Purchase ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
                 <span>${currencySymbolHtml(group.currency || "")}</span>
                 <span class="badge blue inventory-category-badge">${escapeHtml(inventoryCategoryLabel(group.itemCategory))}</span>
+                <span class="badge inventory-type-badge">${escapeHtml(normalizeInventoryItemType(group.itemType))}</span>
                 <span>Qty ${escapeHtml(inventoryQtyLabel(group.soldQty, group.itemCategory))}/${escapeHtml(inventoryQtyLabel(group.boughtQty, group.itemCategory))}</span>
                 <span class="badge ${statusClass}">${escapeHtml(group.status)}</span>
               </div>
@@ -7074,6 +7398,9 @@ async function downloadInventoryReceiptPDF(entryId){
   const customerName = receiptData.customerName || meta.customerName || "Walk-in customer";
   const customerPhone = receiptData.customerPhone || meta.customerPhone || "";
   const customerAddress = receiptData.customerAddress || meta.customerAddress || "";
+  const customerCompany = receiptData.customerCompany || meta.customerCompany || "";
+  const customerTrn = receiptData.customerTrn || meta.customerTrn || "";
+  const customerEmail = receiptData.customerEmail || meta.customerEmail || "";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
   const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
   const netAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "net", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
@@ -7094,18 +7421,33 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Date: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "—")}`, 132, 54);
   doc.text(`Lines: ${receiptRows.length}`, 132, 60);
   doc.text(`Status: ${receiptData.balanceTotal > 0.00000001 ? "Partial Paid" : "Full Paid"}`, 132, 66);
+  const billExtraLines = [customerCompany, customerTrn, customerPhone, customerEmail].filter(Boolean).length
+    + (customerAddress ? 2 : 0);
+  const billBoxHeight = Math.max(44, 28 + ((billExtraLines + 2) * 6));
   const billBoxTop = pdfContentStartY(doc, 78, 6);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, billBoxTop, 182, 44, 2, 2, "F");
+  doc.roundedRect(14, billBoxTop, 182, billBoxHeight, 2, 2, "F");
   doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, billBoxTop, 182, 44, 2, 2, "S");
+  doc.roundedRect(14, billBoxTop, 182, billBoxHeight, 2, 2, "S");
   doc.setFontSize(9.2);
   doc.setTextColor(51, 65, 85);
   let billY = billBoxTop + 8;
   doc.text(`Bill To: ${customerName}`, 18, billY);
   billY += 6;
+  if (customerCompany) {
+    doc.text(`Company: ${customerCompany}`, 18, billY);
+    billY += 6;
+  }
+  if (customerTrn) {
+    doc.text(`TRN: ${customerTrn}`, 18, billY);
+    billY += 6;
+  }
   if (customerPhone) {
-    doc.text(`Phone: ${customerPhone}`, 18, billY);
+    doc.text(`Mobile: ${customerPhone}`, 18, billY);
+    billY += 6;
+  }
+  if (customerEmail) {
+    doc.text(`Email: ${customerEmail}`, 18, billY);
     billY += 6;
   }
   if (customerAddress) {
@@ -7113,7 +7455,7 @@ async function downloadInventoryReceiptPDF(entryId){
     doc.text(addressLines, 18, billY);
     billY += addressLines.length * 6;
   }
-  doc.text(`Invoice No: ${invoiceNumber}`, 18, Math.min(billY, billBoxTop + 38));
+  doc.text(`Invoice No: ${invoiceNumber}`, 18, Math.min(billY, billBoxTop + billBoxHeight - 6));
   doc.text(`Net Amount: ${netAmountText}`, 110, billBoxTop + 8);
   doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, billBoxTop + 14);
   doc.text(`VAT Amount: ${taxAmountText}`, 110, billBoxTop + 22);
@@ -7122,7 +7464,7 @@ async function downloadInventoryReceiptPDF(entryId){
   doc.text(`Balance: ${balanceAmountText}`, 110, billBoxTop + 40);
 
   doc.autoTable({
-    startY: billBoxTop + 52,
+    startY: billBoxTop + billBoxHeight + 8,
     head: [["#", "Code", "Item Name", "Qty", "Unit Price", "Net", "VAT", "Total"]],
     body: receiptRows.map(row => [
       String(row.sr),
@@ -7207,10 +7549,11 @@ async function downloadInventoryReceiptPDF(entryId){
 }
 
 function renderInventoryList(){
+  refreshInventoryTypeFilterOptions();
   const groups = getGoodsGroups();
   const outstandingBanner = renderInventoryOutstandingBanner();
   if (!groups.length){
-    els.goodsList.innerHTML = `${outstandingBanner}<div class="empty">No inventory items found.</div>`;
+    els.goodsList.innerHTML = `${outstandingBanner}<div class="empty">No inventory items found${state.inventoryItemTypeFilter && state.inventoryItemTypeFilter !== "all" ? " for this type" : ""}.</div>`;
     els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
     els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
     els.goodsList.querySelectorAll(".inventoryOutstandingCustomerPdfBtn").forEach(btn => btn.addEventListener("click", () => downloadOutstandingCustomerInvoicePDF(btn.dataset.customer)));
@@ -7305,6 +7648,7 @@ function renderInventoryList(){
                 <span>Purchase ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
                 <span>${currencySymbolHtml(group.currency || "")}</span>
                 <span class="badge blue inventory-category-badge">${escapeHtml(inventoryCategoryLabel(group.itemCategory))}</span>
+                <span class="badge inventory-type-badge">${escapeHtml(normalizeInventoryItemType(group.itemType))}</span>
                 <span>Sold ${escapeHtml(inventoryQtyLabel(group.soldQty, group.itemCategory))} / ${escapeHtml(inventoryQtyLabel(group.boughtQty, group.itemCategory))}</span>
                 <span>In stock ${escapeHtml(inventoryQtyLabel(group.remainingQty, group.itemCategory))}</span>
                 <span class="badge ${statusClass}">${escapeHtml(group.status)}</span>
@@ -9968,6 +10312,8 @@ function openGoodsModal(mode, options = {}){
     els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add a newly purchased inventory item.";
     els.goodsBoughtForm.reset();
     els.goodsBoughtForm.dataset.taxManual = "false";
+    const typeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
+    const typeCustomWrap = els.goodsBoughtForm.querySelector("[data-inventory-custom-type-wrap]");
     if (currentGroup){
       els.goodsBoughtForm.querySelector('[name="item_code"]').value = currentGroup.itemCode || nextInventoryCode();
       els.goodsBoughtForm.querySelector('[name="item_name"]').value = currentGroup.person_name || "";
@@ -9977,12 +10323,17 @@ function openGoodsModal(mode, options = {}){
       els.goodsBoughtForm.querySelector('[name="item_category"]').value = normalizeInventoryCategory(currentGroup.itemCategory);
       els.goodsBoughtForm.querySelector('[name="item_category"]').disabled = true;
       els.goodsBoughtForm.querySelector('[name="quantity_unit"]').value = normalizeInventoryUnit(currentGroup.quantityUnit, currentGroup.itemCategory);
+      syncGoodsBoughtItemTypeFields(currentGroup.itemType || "General");
+      if (typeSelect) typeSelect.disabled = true;
+      if (typeCustomWrap) typeCustomWrap.classList.add("hide");
     } else {
       els.goodsBoughtForm.querySelector('[name="item_code"]').value = nextInventoryCode();
       els.goodsBoughtForm.querySelector('[name="item_category"]').value = INVENTORY_CATEGORY_COUNT;
       els.goodsBoughtForm.querySelector('[name="item_category"]').disabled = false;
       els.goodsBoughtForm.querySelector('[name="quantity_unit"]').value = INVENTORY_UNIT_ITEM;
       setCurrencyChoice(els.goodsBoughtForm, state.lastCurrency || "AED");
+      if (typeSelect) typeSelect.disabled = false;
+      syncGoodsBoughtItemTypeFields("General");
     }
     defaultDateInputs(els.goodsBoughtForm);
     syncGoodsPurchaseTaxDefaults(true);
@@ -10025,6 +10376,9 @@ async function saveGoodsBought(form){
   const walletId = String(fd.get("purchase_wallet_id") || "").trim();
   const unitActualPrice = Number(fd.get("actual_price") || 0);
   const itemCategory = currentGroup ? normalizeInventoryCategory(currentGroup.itemCategory) : normalizeInventoryCategory(fd.get("item_category"));
+  const itemType = currentGroup
+    ? normalizeInventoryItemType(currentGroup.itemType)
+    : readGoodsBoughtItemType(form);
   const quantityUnit = normalizeInventoryUnit(fd.get("quantity_unit"), itemCategory);
   const boughtQty = normalizeInventoryQuantityInput(fd.get("bought_qty"), itemCategory, quantityUnit);
   const purchaseTax = getGoodsPurchaseTaxBreakdown();
@@ -10040,6 +10394,7 @@ async function saveGoodsBought(form){
   }
   if (!(unitActualPrice > 0)) throw new Error("Enter a valid purchase price.");
   if (!(boughtQty > 0)) throw new Error(`Enter a valid ${inventoryQtyFieldLabel(itemCategory).toLowerCase()}.`);
+  if (!itemType) throw new Error("Select or enter an item type.");
 
   validateCurrencyForForm(fd);
   if (walletId) validateInventoryWallet(walletId, currency, totalActualPrice, "deduct");
@@ -10061,6 +10416,7 @@ async function saveGoodsBought(form){
         unitSoldPrice: sellingPrice > 0 ? sellingPrice : null,
         itemCode,
         itemDescription,
+        itemType,
         itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(itemCategory),
         transactionType: "PURCHASE",
@@ -10085,6 +10441,7 @@ async function saveGoodsBought(form){
         unitSoldPrice: sellingPrice > 0 ? sellingPrice : null,
         itemCode,
         itemDescription,
+        itemType,
         itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(itemCategory),
         transactionType: "ITEM",
@@ -10117,8 +10474,11 @@ function saveInventoryCustomerOnly(form, customerName, customerContact, fd){
     action_date: today,
     notes: upsertGoodsMetaInNote(normalizeGoodsNote("Customer record", true), {
       customerName,
-      customerPhone: customerContact.phone,
-      customerAddress: customerContact.address,
+      customerPhone: customerContact.phone || "",
+      customerAddress: customerContact.address || "",
+      customerCompany: customerContact.company || "",
+      customerTrn: customerContact.trn || "",
+      customerEmail: customerContact.email || "",
       transactionType: INVENTORY_TX_CUSTOMER
     })
   };
@@ -10226,8 +10586,11 @@ async function saveGoodsSold(form){
         itemCategory: line.itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(line.itemCategory),
         customerName,
-        customerPhone: customerContact.phone,
-        customerAddress: customerContact.address,
+        customerPhone: customerContact.phone || "",
+        customerAddress: customerContact.address || "",
+        customerCompany: customerContact.company || "",
+        customerTrn: customerContact.trn || "",
+        customerEmail: customerContact.email || "",
         receiptNumber,
         invoiceNumber,
         paymentReceiptNumber,
@@ -10280,8 +10643,11 @@ function addInventorySettlementPayloads(payloads, receiptData, remainingSettleme
         itemCategory: row.itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(row.itemCategory),
         customerName: receiptData.customerName,
-        customerPhone: receiptData.customerPhone,
-        customerAddress: receiptData.customerAddress,
+        customerPhone: receiptData.customerPhone || "",
+        customerAddress: receiptData.customerAddress || "",
+        customerCompany: receiptData.customerCompany || "",
+        customerTrn: receiptData.customerTrn || "",
+        customerEmail: receiptData.customerEmail || "",
         receiptNumber: receiptData.receiptNumber,
         invoiceNumber: receiptData.invoiceNumber,
         paymentReceiptNumber,
@@ -12337,6 +12703,7 @@ async function downloadGoodsPDF(){
   const goodsRows = goodsAll.map(group => [
     group.itemCode || shortId(group.group_id) || "-",
     group.person_name || "Unnamed",
+    normalizeInventoryItemType(group.itemType),
     inventoryCategoryLabel(group.itemCategory),
     inventoryQtyLabel(group.boughtQty, group.itemCategory),
     inventoryQtyLabel(group.soldQty, group.itemCategory),
@@ -12349,23 +12716,24 @@ async function downloadGoodsPDF(){
 
   doc.autoTable({
     startY: summaryTop + 32,
-    head: [["Item Code", "Item", "Category", "Purchase Qty", "Sold Qty", "In Stock", "Purchase Total", "Sales Total", "VAT", "P/L"]],
+    head: [["Code", "Item", "Type", "Measure", "Bought", "Sold", "Stock", "Purchase", "Sales", "VAT", "P/L"]],
     body: goodsRows,
     theme: "grid",
     headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 7.5, cellPadding: 2, overflow: "linebreak" },
+    styles: { font: "helvetica", fontSize: 7.1, cellPadding: 1.8, overflow: "linebreak" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 19 },
-      1: { cellWidth: 27 },
-      2: { cellWidth: 15 },
-      3: { cellWidth: 17, halign: "right" },
+      0: { cellWidth: 16 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 18 },
+      3: { cellWidth: 14 },
       4: { cellWidth: 15, halign: "right" },
-      5: { cellWidth: 17, halign: "right" },
-      6: { cellWidth: 19, halign: "right" },
-      7: { cellWidth: 19, halign: "right" },
-      8: { cellWidth: 16, halign: "right" },
-      9: { cellWidth: 18, halign: "right" }
+      5: { cellWidth: 14, halign: "right" },
+      6: { cellWidth: 15, halign: "right" },
+      7: { cellWidth: 17, halign: "right" },
+      8: { cellWidth: 17, halign: "right" },
+      9: { cellWidth: 14, halign: "right" },
+      10: { cellWidth: 16, halign: "right" }
     },
     margin: { top: 50, bottom: 40 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
@@ -14398,11 +14766,33 @@ window.addEventListener("resize", () => {
       if (!open) defaultDateInputs(els.goodsSoldForm);
     });
   }
+  const inventoryTypeFilter = document.getElementById("inventoryTypeFilter");
+  if (inventoryTypeFilter) {
+    inventoryTypeFilter.addEventListener("change", () => {
+      state.inventoryItemTypeFilter = inventoryTypeFilter.value || "all";
+      renderInventoryList();
+    });
+  }
+
   if (els.goodsBoughtForm) {
     const boughtPriceInput = els.goodsBoughtForm.querySelector('[name="actual_price"]');
     const boughtQtyInput = els.goodsBoughtForm.querySelector('[name="bought_qty"]');
     const boughtCategorySelect = els.goodsBoughtForm.querySelector('[name="item_category"]');
     const boughtUnitSelect = els.goodsBoughtForm.querySelector('[name="quantity_unit"]');
+    const boughtTypeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
+    if (boughtTypeSelect) {
+      boughtTypeSelect.addEventListener("change", () => {
+        const customWrap = els.goodsBoughtForm.querySelector("[data-inventory-custom-type-wrap]");
+        const customInput = els.goodsBoughtForm.querySelector('[name="item_type_custom"]');
+        const isCustom = boughtTypeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE;
+        customWrap?.classList.toggle("hide", !isCustom);
+        if (customInput) {
+          customInput.required = isCustom;
+          if (isCustom) customInput.focus();
+          else customInput.value = "";
+        }
+      });
+    }
     if (boughtPriceInput) boughtPriceInput.addEventListener("input", updateGoodsBoughtTotal);
     if (boughtQtyInput) boughtQtyInput.addEventListener("input", updateGoodsBoughtTotal);
     if (boughtCategorySelect) boughtCategorySelect.addEventListener("change", syncGoodsBoughtCategoryFields);
