@@ -829,6 +829,9 @@ const els = {
   inventoryCustomerDesc: document.getElementById("inventoryCustomerDesc"),
   inventoryCustomerBody: document.getElementById("inventoryCustomerBody"),
   inventoryCustomerStatementBtn: document.getElementById("inventoryCustomerStatementBtn"),
+  inventoryEditItemModal: document.getElementById("inventoryEditItemModal"),
+  inventoryEditItemForm: document.getElementById("inventoryEditItemForm"),
+  inventoryEditItemSummary: document.getElementById("inventoryEditItemSummary"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -4208,20 +4211,21 @@ function readGoodsBoughtItemType(form = els.goodsBoughtForm){
   return normalizeInventoryItemType(selected);
 }
 
-function syncGoodsBoughtItemTypeFields(preferredType = ""){
-  if (!els.goodsBoughtForm) return;
-  const typeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
-  const customWrap = els.goodsBoughtForm.querySelector("[data-inventory-custom-type-wrap]");
-  const customInput = els.goodsBoughtForm.querySelector('[name="item_type_custom"]');
+function syncInventoryItemTypeFields(form, preferredType = ""){
+  if (!form) return;
+  const typeSelect = form.querySelector('[name="item_type"]');
+  const customWrap = form.querySelector("[data-inventory-custom-type-wrap]");
+  const customInput = form.querySelector('[name="item_type_custom"]');
   if (!typeSelect) return;
   const current = preferredType || (typeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE
     ? (customInput?.value || "General")
     : (typeSelect.value || "General"));
   const normalized = normalizeInventoryItemType(current);
-  const known = getInventoryItemTypes().some(type => type.toLowerCase() === normalized.toLowerCase());
+  const knownTypes = getInventoryItemTypes();
+  const known = knownTypes.some(type => type.toLowerCase() === normalized.toLowerCase());
   typeSelect.innerHTML = inventoryItemTypeOptionsHtml(known ? normalized : "General");
   if (known){
-    typeSelect.value = getInventoryItemTypes().find(type => type.toLowerCase() === normalized.toLowerCase()) || normalized;
+    typeSelect.value = knownTypes.find(type => type.toLowerCase() === normalized.toLowerCase()) || normalized;
     if (customWrap) customWrap.classList.add("hide");
     if (customInput) {
       customInput.value = "";
@@ -4235,6 +4239,10 @@ function syncGoodsBoughtItemTypeFields(preferredType = ""){
       customInput.required = true;
     }
   }
+}
+
+function syncGoodsBoughtItemTypeFields(preferredType = ""){
+  syncInventoryItemTypeFields(els.goodsBoughtForm, preferredType);
 }
 
 function refreshInventoryTypeFilterOptions(){
@@ -5359,68 +5367,58 @@ async function downloadOutstandingCustomerInvoicePDF(customerName){
   const logoData = await getPdfLogo();
   const title = "Outstanding Inventory Invoice";
   const subtitle = `Customer: ${customerName}`;
-  drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-
   const contact = getInventoryCustomerContact(customerName);
   const totalBalance = new Map();
   const totalAmounts = new Map();
-  const taxAmounts = new Map();
   const paidAmounts = new Map();
   invoices.forEach(invoice => {
     invoice.totalsByCurrency.forEach((amounts, currency) => {
       addCurrencyTotal(totalAmounts, currency, amounts.total || 0);
-      addCurrencyTotal(taxAmounts, currency, amounts.tax || 0);
       addCurrencyTotal(paidAmounts, currency, amounts.paid || 0);
     });
     invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
   });
-
-  doc.setFontSize(10);
-  doc.setTextColor(23, 33, 43);
-  doc.text(`Bill To: ${customerName}`, 132, 48);
-  if (contact.phone) doc.text(`Phone: ${contact.phone}`, 132, 54);
-  if (contact.address) doc.text(`Address: ${contact.address}`, 132, contact.phone ? 60 : 54, { maxWidth: 58 });
-
-  const summaryTop = pdfContentStartY(doc, 78, 6);
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "F");
-  doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "S");
-  doc.setFontSize(9.5);
-  doc.setTextColor(51, 65, 85);
-  doc.text(`Invoices: ${invoices.length}`, 18, summaryTop + 8);
-  doc.text(`Total Amount: ${inventoryCurrencyTotalsText(totalAmounts, { forPdf: true })}`, 18, summaryTop + 16);
-  doc.text(`VAT Amount: ${inventoryCurrencyTotalsText(taxAmounts, { forPdf: true })}`, 110, summaryTop + 8);
-  doc.text(`Paid Amount: ${inventoryCurrencyTotalsText(paidAmounts, { forPdf: true })}`, 110, summaryTop + 16);
-  doc.text(`Balance Amount: ${inventoryCurrencyTotalsText(totalBalance, { forPdf: true })}`, 110, summaryTop + 24);
+  drawPdfHeader(doc, logoData, title, subtitle);
+  const partiesBottom = drawInventoryPdfPartiesAndMeta(doc, {
+    customerName,
+    customerCompany: contact.company || "",
+    customerTrn: contact.trn || "",
+    customerPhone: contact.phone || "",
+    customerEmail: contact.email || "",
+    customerAddress: contact.address || "",
+    meta: [
+      { label: "Invoices", value: String(invoices.length) },
+      { label: "Total", value: inventoryCurrencyTotalsText(totalAmounts, { forPdf: true }) || "—" },
+      { label: "Paid", value: inventoryCurrencyTotalsText(paidAmounts, { forPdf: true }) || "—" },
+      { label: "Balance", value: inventoryCurrencyTotalsText(totalBalance, { forPdf: true }) || "—" }
+    ]
+  });
 
   doc.autoTable({
-    startY: summaryTop + 38,
-    head: [["Invoice", "Date", "Notes/Description", "VAT", "Total", "Paid", "Balance"]],
+    startY: partiesBottom + 5,
+    head: [["Invoice", "Date", "Items", "VAT", "Total", "Paid", "Balance"]],
     body: invoices.map(invoice => [
       invoice.invoiceNumber || invoice.receiptNumber,
       displayDate(invoice.oldestDate || invoice.date || "—"),
-      `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` - ${invoice.itemSummary}` : ""}`,
-      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "tax", { forPdf: true }) || "-",
-      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "total", { forPdf: true }) || "-",
-      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "paid", { forPdf: true }) || "-",
-      inventoryCurrencyTotalsText(invoice.balanceByCurrency, { forPdf: true }) || "-"
+      `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}${invoice.itemSummary ? ` · ${invoice.itemSummary}` : ""}`,
+      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "tax", { forPdf: true }) || "—",
+      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "total", { forPdf: true }) || "—",
+      formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "paid", { forPdf: true }) || "—",
+      inventoryCurrencyTotalsText(invoice.balanceByCurrency, { forPdf: true }) || "—"
     ]),
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 8.2, cellPadding: 2.2, overflow: "linebreak" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
+    styles: { font: "helvetica", fontSize: 7.6, cellPadding: 1.7, overflow: "linebreak" },
     columnStyles: {
-      0: { cellWidth: 25 },
+      0: { cellWidth: 26 },
       1: { cellWidth: 24 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 21, halign: "right" },
-      4: { cellWidth: 24, halign: "right" },
-      5: { cellWidth: 23, halign: "right" },
-      6: { cellWidth: 23, halign: "right" }
+      2: { cellWidth: 48 },
+      3: { cellWidth: 20, halign: "right" },
+      4: { cellWidth: 22, halign: "right" },
+      5: { cellWidth: 21, halign: "right" },
+      6: { cellWidth: 21, halign: "right" }
     },
-    margin: { top: 50, bottom: 40 },
+    margin: { top: 42, bottom: 32 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
 
@@ -5861,39 +5859,58 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
   await loadCustomFontsForPdf(doc);
   const logoData = await getPdfLogo();
   const title = receiptLabel;
-  const subtitle = `Receipt ID: ${paymentReceiptNumber}`;
+  const subtitle = `Receipt ${paymentReceiptNumber}`;
+  const customerName = receiptData.customerName || sourceMeta.customerName || "Walk-in customer";
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`Customer: ${receiptData.customerName || sourceMeta.customerName || "Walk-in customer"}`, 132, 48);
-  doc.text(`Receipt Date: ${displayDate(receiptDate || "-")}`, 132, 54);
-  doc.text(`Invoice ID: ${invoiceNumber}`, 132, 60);
-  doc.text(`Paid: ${inventoryCurrencyTotalsText(paidByCurrency, { forPdf: true })}`, 132, 66, { maxWidth: 58 });
-  doc.text(`Invoice VAT: ${formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax", { forPdf: true }) || "-"}`, 132, 72, { maxWidth: 58 });
+  const partiesBottom = drawInventoryPdfPartiesAndMeta(doc, {
+    customerName,
+    customerCompany: receiptData.customerCompany || sourceMeta.customerCompany || "",
+    customerTrn: receiptData.customerTrn || sourceMeta.customerTrn || "",
+    customerPhone: receiptData.customerPhone || sourceMeta.customerPhone || "",
+    customerEmail: receiptData.customerEmail || sourceMeta.customerEmail || "",
+    customerAddress: receiptData.customerAddress || sourceMeta.customerAddress || "",
+    meta: [
+      { label: "Receipt", value: paymentReceiptNumber },
+      { label: "Date", value: displayDate(receiptDate || "—") },
+      { label: "Invoice", value: invoiceNumber },
+      { label: "Paid", value: inventoryCurrencyTotalsText(paidByCurrency, { forPdf: true }) || "—" }
+    ]
+  });
 
   doc.autoTable({
-    startY: 84,
-    head: [["Date", "Invoice", "Notes/Description", "Paid", "Line Balance"]],
+    startY: partiesBottom + 5,
+    head: [["Date", "Invoice", "Item / Notes", "Paid", "Balance"]],
     body: rows,
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.4, overflow: "linebreak" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
+    styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8, overflow: "linebreak" },
     columnStyles: {
-      0: { cellWidth: 27 },
+      0: { cellWidth: 26 },
       1: { cellWidth: 28 },
-      2: { cellWidth: 64 },
+      2: { cellWidth: 66 },
       3: { cellWidth: 31, halign: "right" },
-      4: { cellWidth: 32, halign: "right" }
+      4: { cellWidth: 31, halign: "right" }
     },
-    margin: { top: 50, bottom: 40 },
+    margin: { top: 42, bottom: 32 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
-  doc.setFontSize(9.5);
-  doc.setTextColor(102, 112, 133);
-  doc.text(`Notes/Description: ${cleanGoodsDisplayNote(sourceEntry.notes) || "-"}`, 14, doc.lastAutoTable.finalY + 10);
+
+  const tableEndY = doc.lastAutoTable.finalY;
+  drawInventoryPdfTotals(doc, tableEndY + 5, [
+    { label: "Amount paid", value: inventoryCurrencyTotalsText(paidByCurrency, { forPdf: true }) || "—", strong: true },
+    {
+      label: "Invoice VAT",
+      value: formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "tax", { forPdf: true }) || "—"
+    }
+  ]);
+
+  const noteText = cleanGoodsDisplayNote(sourceEntry.notes) || "";
+  if (noteText){
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.4);
+    doc.setTextColor(100, 116, 139);
+    doc.text(pdfClampLines(doc, `Note: ${noteText}`, 108, 2), 14, tableEndY + 9);
+  }
   doc.save(`Payment_Receipt_${String(paymentReceiptNumber).replace(/\s+/g, "_")}.pdf`);
 }
 
@@ -5914,30 +5931,24 @@ async function downloadInventoryCustomerStatementPDF(customerName){
   const title = "Inventory Customer Statement";
   const subtitle = `Customer: ${record.customerName}`;
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`Bill To: ${record.customerName}`, 132, 48);
-  if (record.contact.phone) doc.text(`Phone: ${record.contact.phone}`, 132, 54);
-  if (record.contact.address) doc.text(`Address: ${record.contact.address}`, 132, record.contact.phone ? 60 : 54, { maxWidth: 58 });
-
-  const summaryTop = pdfContentStartY(doc, 78, 6);
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "F");
-  doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, summaryTop, 182, 30, 2, 2, "S");
-  doc.setFontSize(9.2);
-  doc.setTextColor(51, 65, 85);
-  doc.text(`Invoices: ${record.invoices.length}`, 18, summaryTop + 8);
-  doc.text(`Total: ${inventoryCurrencyTotalsText(record.totalByCurrency, { forPdf: true }) || "0"}`, 18, summaryTop + 16);
-  doc.text(`VAT: ${inventoryCurrencyTotalsText(record.taxByCurrency, { forPdf: true }) || "0"}`, 110, summaryTop + 8);
-  doc.text(`Paid: ${inventoryCurrencyTotalsText(record.paidByCurrency, { forPdf: true }) || "0"}`, 110, summaryTop + 16);
-  doc.text(`Balance: ${inventoryCurrencyTotalsText(record.balanceByCurrency, { forPdf: true }) || "0"}`, 110, summaryTop + 24);
+  const partiesBottom = drawInventoryPdfPartiesAndMeta(doc, {
+    customerName: record.customerName,
+    customerCompany: record.contact?.company || "",
+    customerTrn: record.contact?.trn || "",
+    customerPhone: record.contact?.phone || "",
+    customerEmail: record.contact?.email || "",
+    customerAddress: record.contact?.address || "",
+    meta: [
+      { label: "Invoices", value: String(record.invoices.length) },
+      { label: "Total", value: inventoryCurrencyTotalsText(record.totalByCurrency, { forPdf: true }) || "0" },
+      { label: "Paid", value: inventoryCurrencyTotalsText(record.paidByCurrency, { forPdf: true }) || "0" },
+      { label: "Balance", value: inventoryCurrencyTotalsText(record.balanceByCurrency, { forPdf: true }) || "0" }
+    ]
+  });
 
   doc.autoTable({
-    startY: summaryTop + 38,
-    head: [["Date", "Type", "Invoice / Receipt", "Notes/Description", "VAT", "Debit", "Credit", "Balance"]],
+    startY: partiesBottom + 5,
+    head: [["Date", "Type", "Ref", "Details", "VAT", "Debit", "Credit", "Balance"]],
     body: record.statementRows.map(row => [
       displayDate(row.date || "-"),
       row.action === "receipt" ? "Receipt" : row.type,
@@ -5949,20 +5960,19 @@ async function downloadInventoryCustomerStatementPDF(customerName){
       row.balancePdfText || row.balanceText || "-"
     ]),
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 7.4, cellPadding: 1.8, overflow: "linebreak" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.2 },
+    styles: { font: "helvetica", fontSize: 7.2, cellPadding: 1.5, overflow: "linebreak" },
     columnStyles: {
       0: { cellWidth: 22 },
       1: { cellWidth: 22 },
       2: { cellWidth: 25 },
-      3: { cellWidth: 31 },
+      3: { cellWidth: 33 },
       4: { cellWidth: 20, halign: "right" },
-      5: { cellWidth: 21, halign: "right" },
-      6: { cellWidth: 21, halign: "right" },
+      5: { cellWidth: 20, halign: "right" },
+      6: { cellWidth: 20, halign: "right" },
       7: { cellWidth: 20, halign: "right" }
     },
-    margin: { top: 50, bottom: 40 },
+    margin: { top: 42, bottom: 32 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
   doc.save(`Inventory_Customer_Statement_${String(record.customerName || "customer").replace(/\s+/g, "_")}.pdf`);
@@ -7393,7 +7403,6 @@ async function downloadInventoryReceiptPDF(entryId){
     return;
   }
   const totalsByCurrency = receiptData.totalsByCurrency;
-  const soldTotal = receiptData.totalAmount;
   const currency = receiptData.currency || saleEntry.currency || receiptRows[0]?.currency || "AED";
   const customerName = receiptData.customerName || meta.customerName || "Walk-in customer";
   const customerPhone = receiptData.customerPhone || meta.customerPhone || "";
@@ -7402,70 +7411,33 @@ async function downloadInventoryReceiptPDF(entryId){
   const customerTrn = receiptData.customerTrn || meta.customerTrn || "";
   const customerEmail = receiptData.customerEmail || meta.customerEmail || "";
   const totalQtyText = inventoryQtySummary(receiptRows, "qty");
-  const totalAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "total", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
-  const netAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "net", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
-  const taxAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "tax", { forPdf: true }) || moneyText(0, currency, { forPdf: true });
-  const paidAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "paid", { forPdf: true }) || moneyText(soldTotal, currency, { forPdf: true });
-  const balanceAmountText = formatInventoryTotalsByCurrency(totalsByCurrency, "balance", { forPdf: true }) || moneyText(0, currency, { forPdf: true });
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   await loadCustomFontsForPdf(doc);
   const logoData = await getPdfLogo();
-  const title = "Inventory Sales Invoice";
-  const subtitle = `Invoice ID: ${invoiceNumber}`;
+  const title = "Sales Invoice";
+  const subtitle = `Invoice ${invoiceNumber}`;
+  const paymentStatus = receiptData.balanceTotal > 0.00000001 ? "Partial" : "Paid";
+  const invoiceDate = displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "—");
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`Customer: ${customerName}`, 132, 48);
-  doc.text(`Date: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "—")}`, 132, 54);
-  doc.text(`Lines: ${receiptRows.length}`, 132, 60);
-  doc.text(`Status: ${receiptData.balanceTotal > 0.00000001 ? "Partial Paid" : "Full Paid"}`, 132, 66);
-  const billExtraLines = [customerCompany, customerTrn, customerPhone, customerEmail].filter(Boolean).length
-    + (customerAddress ? 2 : 0);
-  const billBoxHeight = Math.max(44, 28 + ((billExtraLines + 2) * 6));
-  const billBoxTop = pdfContentStartY(doc, 78, 6);
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, billBoxTop, 182, billBoxHeight, 2, 2, "F");
-  doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, billBoxTop, 182, billBoxHeight, 2, 2, "S");
-  doc.setFontSize(9.2);
-  doc.setTextColor(51, 65, 85);
-  let billY = billBoxTop + 8;
-  doc.text(`Bill To: ${customerName}`, 18, billY);
-  billY += 6;
-  if (customerCompany) {
-    doc.text(`Company: ${customerCompany}`, 18, billY);
-    billY += 6;
-  }
-  if (customerTrn) {
-    doc.text(`TRN: ${customerTrn}`, 18, billY);
-    billY += 6;
-  }
-  if (customerPhone) {
-    doc.text(`Mobile: ${customerPhone}`, 18, billY);
-    billY += 6;
-  }
-  if (customerEmail) {
-    doc.text(`Email: ${customerEmail}`, 18, billY);
-    billY += 6;
-  }
-  if (customerAddress) {
-    const addressLines = doc.splitTextToSize(`Address: ${customerAddress}`, 84).slice(0, 2);
-    doc.text(addressLines, 18, billY);
-    billY += addressLines.length * 6;
-  }
-  doc.text(`Invoice No: ${invoiceNumber}`, 18, Math.min(billY, billBoxTop + billBoxHeight - 6));
-  doc.text(`Net Amount: ${netAmountText}`, 110, billBoxTop + 8);
-  doc.text(`Issued On: ${displayDate(receiptData.paymentRows[0]?.date || saleEntry.action_date || "-")}`, 110, billBoxTop + 14);
-  doc.text(`VAT Amount: ${taxAmountText}`, 110, billBoxTop + 22);
-  doc.text(`Total Amount: ${totalAmountText}`, 110, billBoxTop + 28);
-  doc.text(`Paid: ${paidAmountText}`, 110, billBoxTop + 34);
-  doc.text(`Balance: ${balanceAmountText}`, 110, billBoxTop + 40);
+  const partiesBottom = drawInventoryPdfPartiesAndMeta(doc, {
+    customerName,
+    customerCompany,
+    customerTrn,
+    customerPhone,
+    customerEmail,
+    customerAddress,
+    meta: [
+      { label: "Invoice", value: invoiceNumber },
+      { label: "Date", value: invoiceDate },
+      { label: "Items", value: String(receiptRows.length) },
+      { label: "Status", value: paymentStatus }
+    ]
+  });
 
   doc.autoTable({
-    startY: billBoxTop + billBoxHeight + 8,
-    head: [["#", "Code", "Item Name", "Qty", "Unit Price", "Net", "VAT", "Total"]],
+    startY: partiesBottom + 5,
+    head: [["#", "Code", "Item", "Qty", "Unit", "Net", "VAT", "Total"]],
     body: receiptRows.map(row => [
       String(row.sr),
       row.itemCode || "—",
@@ -7473,31 +7445,36 @@ async function downloadInventoryReceiptPDF(entryId){
       row.qtyDisplay || "—",
       formatPdfAmount(row.unitPrice || 0, row.currency),
       formatPdfAmount(row.netAmount || 0, row.currency),
-      row.taxAmount ? `${formatPdfAmount(row.taxAmount, row.currency)} (${trimInventoryNumber(row.taxRate, 2)}%)` : "-",
+      row.taxAmount ? `${formatPdfAmount(row.taxAmount, row.currency)} (${trimInventoryNumber(row.taxRate, 2)}%)` : "—",
       formatPdfAmount(row.total, row.currency)
     ]),
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 8.4, cellPadding: 2.4, overflow: "linebreak" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
+    styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8, overflow: "linebreak" },
     columnStyles: {
       0: { cellWidth: 8, halign: "center" },
       1: { cellWidth: 22 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 22, halign: "right" },
+      2: { cellWidth: 46 },
+      3: { cellWidth: 20, halign: "right" },
       4: { cellWidth: 22, halign: "right" },
       5: { cellWidth: 22, halign: "right" },
       6: { cellWidth: 22, halign: "right" },
-      7: { cellWidth: 22, halign: "right" }
+      7: { cellWidth: 20, halign: "right" }
     },
-    margin: { top: 50, bottom: 40 },
+    margin: { top: 42, bottom: 32 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
-  let afterTableY = doc.lastAutoTable.finalY + 8;
-  if (receiptData.paymentRows.length){
+
+  let afterTableY = doc.lastAutoTable.finalY + 5;
+  const settlementRows = (receiptData.paymentRows || []).filter(row =>
+    String(row.type || "").toLowerCase().includes("settlement") ||
+    String(row.type || "").toLowerCase().includes("balance")
+  );
+  const showPaymentHistory = settlementRows.length > 0 || (receiptData.paymentRows || []).length > 1;
+  if (showPaymentHistory){
     doc.autoTable({
       startY: afterTableY,
-      head: [["Settlement", "Date", "Paid", "Balance"]],
+      head: [["Payment", "Date", "Paid", "Balance"]],
       body: receiptData.paymentRows.map(row => [
         row.type,
         displayDate(row.date || "—"),
@@ -7505,46 +7482,39 @@ async function downloadInventoryReceiptPDF(entryId){
         formatPdfAmount(row.balanceAfter || 0, row.currency || currency)
       ]),
       theme: "grid",
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
-      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.5 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: "bold", fontSize: 7.4 },
+      styles: { font: "helvetica", fontSize: 7.6, cellPadding: 1.6 },
       columnStyles: {
         0: { cellWidth: 52 },
         1: { cellWidth: 32 },
         2: { cellWidth: 48, halign: "right" },
         3: { cellWidth: 50, halign: "right" }
       },
-      margin: { top: 50, bottom: 40 },
+      margin: { top: 42, bottom: 32 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
     });
-    afterTableY = doc.lastAutoTable.finalY + 8;
+    afterTableY = doc.lastAutoTable.finalY + 5;
   }
+
   const showCurrencyInSummary = totalsByCurrency.size > 1;
   const summaryRows = Array.from(totalsByCurrency.entries()).flatMap(([rowCurrency, amounts]) => [
-    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} net amount` : "Net amount", formatPdfAmount(amounts.net || 0, rowCurrency)],
-    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} VAT amount` : "VAT amount", formatPdfAmount(amounts.tax || 0, rowCurrency)],
-    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} total amount` : "Total amount", formatPdfAmount(amounts.total, rowCurrency)],
-    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} paid amount` : "Paid amount", formatPdfAmount(amounts.paid, rowCurrency)],
-    [showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} balance amount` : "Balance amount", formatPdfAmount(amounts.balance, rowCurrency)]
+    { label: showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} Net` : "Net", value: formatPdfAmount(amounts.net || 0, rowCurrency) },
+    { label: showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} VAT` : "VAT", value: formatPdfAmount(amounts.tax || 0, rowCurrency) },
+    { label: showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} Total` : "Total", value: formatPdfAmount(amounts.total, rowCurrency), strong: true },
+    { label: showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} Paid` : "Paid", value: formatPdfAmount(amounts.paid, rowCurrency) },
+    { label: showCurrencyInSummary ? `${pdfCurrencyLabel(rowCurrency)} Balance` : "Balance", value: formatPdfAmount(amounts.balance, rowCurrency), strong: true }
   ]);
-  doc.autoTable({
-    startY: afterTableY,
-    body: summaryRows,
-    theme: "plain",
-    styles: { font: "helvetica", fontSize: 9.5, cellPadding: 2 },
-    columnStyles: {
-      0: { cellWidth: 38, halign: "right", fontStyle: "bold", textColor: [51, 65, 85] },
-      1: { cellWidth: 38, halign: "right", textColor: [15, 23, 42] }
-    },
-    margin: { left: 120, right: 14, top: 50, bottom: 40 },
-    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
-  });
-  doc.setFontSize(9.5);
-  doc.setTextColor(102, 112, 133);
-  const noteY = Math.max(afterTableY + 10, doc.lastAutoTable.finalY + 8);
-  doc.text(`Total Qty: ${totalQtyText}`, 14, noteY);
-  doc.text(`Notes/Description: ${cleanGoodsDisplayNote(saleEntry.notes) || "—"}`, 14, noteY + 6);
-  doc.text(`Prepared for: ${customerName}`, 14, noteY + 12);
+  drawInventoryPdfTotals(doc, afterTableY + 1, summaryRows);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.4);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Qty: ${totalQtyText}`, 14, afterTableY + 5);
+  const noteText = cleanGoodsDisplayNote(saleEntry.notes) || "";
+  if (noteText){
+    const noteLines = pdfClampLines(doc, `Note: ${noteText}`, 108, 2);
+    doc.text(noteLines, 14, afterTableY + 9.2);
+  }
   doc.save(`Invoice_${String(invoiceNumber).replace(/\s+/g, "_")}.pdf`);
 }
 
@@ -10834,6 +10804,10 @@ async function saveGoodsSettlement(form){
 function openEditModal(id) {
   const entry = state.entries.find(e => e.id === id);
   if (!entry) return;
+  if (entry.entry_kind === "principal" && hasGoodsTag(entry.notes)) {
+    openInventoryEditItemModal(id);
+    return;
+  }
   state.editId = id;
   state.editKind = entry.entry_kind;
 
@@ -10862,6 +10836,257 @@ function openEditModal(id) {
   els.editModal.classList.remove("hide");
   els.editModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+}
+
+function getInventoryEditItemGroup(entryId){
+  const entry = state.entries.find(e => e.id === entryId);
+  if (!entry || !hasGoodsTag(entry.notes)) return null;
+  return getGoodsGroups({ applyUiFilters: false }).find(group =>
+    group.principal?.id === entryId || group.group_id === entry.group_id
+  ) || null;
+}
+
+function getInventoryEditTaxBreakdown(){
+  const form = els.inventoryEditItemForm;
+  if (!form) return calculateTaxBreakdown(0, 0, TAX_MODE_ADD, false);
+  const price = Number(form.querySelector('[name="actual_price"]')?.value || 0);
+  const category = normalizeInventoryCategory(form.querySelector('[name="item_category"]')?.value);
+  const unit = form.querySelector('[name="quantity_unit"]')?.value || inventoryBaseUnitForCategory(category);
+  const qty = normalizeInventoryQuantityInput(form.querySelector('[name="bought_qty"]')?.value, category, unit);
+  const net = Math.max(price, 0) * Math.max(qty, 0);
+  const applied = !!form.querySelector('[name="edit_tax_applied"]')?.checked;
+  const rate = normalizeTaxRate(form.querySelector('[name="edit_tax_rate"]')?.value);
+  const mode = normalizeTaxMode(form.querySelector('[name="edit_tax_mode"]')?.value);
+  return calculateTaxBreakdown(net, rate, mode, applied);
+}
+
+function updateInventoryEditItemTotals(){
+  const form = els.inventoryEditItemForm;
+  if (!form) return;
+  const breakdown = getInventoryEditTaxBreakdown();
+  const totalInput = form.querySelector('[name="total_amount"]');
+  const preview = document.getElementById("inventoryEditTaxPreview");
+  const currency = String(form.querySelector('[name="currency"]')?.value || "AED");
+  if (totalInput) totalInput.value = breakdown.total ? trimInventoryNumber(breakdown.total) : "";
+  if (preview) preview.textContent = formatTaxSummary(breakdown, currency);
+}
+
+function syncInventoryEditItemCategoryFields(){
+  const form = els.inventoryEditItemForm;
+  if (!form) return;
+  const categorySelect = form.querySelector('[name="item_category"]');
+  const unitSelect = form.querySelector('[name="quantity_unit"]');
+  const unitWrap = form.querySelector("[data-inventory-unit-wrap]");
+  const qtyInput = form.querySelector('[name="bought_qty"]');
+  const priceLabel = form.querySelector("[data-inventory-price-label]");
+  const sellingLabel = form.querySelector("[data-inventory-selling-label]");
+  const qtyLabel = form.querySelector("[data-inventory-qty-label]");
+  const category = normalizeInventoryCategory(categorySelect?.value);
+  const isMeasured = inventoryIsDecimalCategory(category);
+  const selectedUnit = unitSelect ? normalizeInventoryUnit(unitSelect.value, category) : inventoryBaseUnitForCategory(category);
+
+  if (unitWrap) unitWrap.classList.toggle("hide", !isMeasured);
+  if (unitSelect){
+    unitSelect.disabled = !isMeasured || !!categorySelect?.disabled;
+    unitSelect.innerHTML = inventoryUnitSelectOptionsHtml(category, selectedUnit);
+    unitSelect.value = normalizeInventoryUnit(selectedUnit, category);
+  }
+  if (qtyInput){
+    qtyInput.min = isMeasured ? "0.001" : "1";
+    qtyInput.step = isMeasured ? "0.001" : "1";
+    qtyInput.placeholder = inventoryQtyFieldLabel(category);
+  }
+  if (priceLabel) priceLabel.textContent = inventoryPurchasePriceLabel(category);
+  if (sellingLabel) sellingLabel.textContent = inventorySellingPriceLabel(category);
+  if (qtyLabel) qtyLabel.textContent = inventoryQtyFieldLabel(category);
+  updateInventoryEditItemTotals();
+}
+
+function renderInventoryEditItemSummary(group, principalMeta){
+  if (!els.inventoryEditItemSummary) return;
+  const category = normalizeInventoryCategory(group?.itemCategory || principalMeta?.itemCategory);
+  const soldQty = Number(group?.soldQty || 0);
+  const remainingQty = Number(group?.remainingQty || 0);
+  const restockQty = Math.max(Number(group?.boughtQty || 0) - normalizeStoredInventoryQty(principalMeta?.boughtQty, category, 0), 0);
+  els.inventoryEditItemSummary.innerHTML = `
+    <div><small>Type</small><strong>${escapeHtml(normalizeInventoryItemType(group?.itemType || principalMeta?.itemType))}</strong></div>
+    <div><small>In stock</small><strong>${escapeHtml(inventoryQtyLabel(remainingQty, category))}</strong></div>
+    <div><small>Sold</small><strong>${escapeHtml(inventoryQtyLabel(soldQty, category))}</strong></div>
+    <div><small>Extra stock</small><strong>${escapeHtml(inventoryQtyLabel(restockQty, category))}</strong></div>
+  `;
+}
+
+function openInventoryEditItemModal(id){
+  const entry = state.entries.find(e => e.id === id);
+  if (!entry || entry.entry_kind !== "principal" || !hasGoodsTag(entry.notes)) return;
+  const form = els.inventoryEditItemForm;
+  if (!form || !els.inventoryEditItemModal) return;
+
+  const group = getInventoryEditItemGroup(id);
+  const meta = goodsMetaFromNotes(entry.notes);
+  const itemCategory = normalizeInventoryCategory(meta.itemCategory || group?.itemCategory);
+  const quantityUnit = normalizeInventoryUnit(meta.quantityUnit || group?.quantityUnit, itemCategory);
+  const boughtQty = normalizeStoredInventoryQty(meta.boughtQty, itemCategory, 0);
+  const unitActualPrice = Number(meta.unitActualPrice || 0) > 0
+    ? Number(meta.unitActualPrice)
+    : (boughtQty > 0 ? Number(entry.principal_amount || 0) / boughtQty : 0);
+  const sellingPrice = Number(meta.unitSoldPrice || group?.defaultUnitSoldPrice || 0);
+  const hasSales = Number(group?.soldQty || 0) > 0;
+  const taxDefaults = getTaxSettingForCurrency(entry.currency || "AED");
+  const taxApplied = meta.taxApplied || Number(meta.taxAmount || 0) > 0 || normalizeTaxRate(meta.taxRate) > 0;
+  const taxRate = meta.taxRate != null ? normalizeTaxRate(meta.taxRate) : taxDefaults.rate;
+  const taxMode = meta.taxMode ? normalizeTaxMode(meta.taxMode) : taxDefaults.mode;
+
+  state.editId = id;
+  state.editKind = "principal";
+  form.reset();
+  form.dataset.hasSales = hasSales ? "1" : "0";
+  form.dataset.minPrincipalQty = String(Math.max(
+    Number(group?.soldQty || 0) - Math.max(Number(group?.boughtQty || 0) - boughtQty, 0),
+    0
+  ));
+
+  const cleanedNote = cleanGoodsDisplayNote(entry.notes) || "";
+  const itemDescription = meta.itemDescription || cleanedNote;
+  const notesOnly = meta.itemDescription ? cleanedNote : "";
+
+  form.querySelector('[name="item_code"]').value = meta.itemCode || group?.itemCode || "";
+  form.querySelector('[name="item_name"]').value = entry.person_name || "";
+  form.querySelector('[name="item_description"]').value = itemDescription;
+  form.querySelector('[name="item_category"]').value = itemCategory;
+  form.querySelector('[name="item_category"]').disabled = hasSales;
+  form.querySelector('[name="quantity_unit"]').value = quantityUnit;
+  form.querySelector('[name="actual_price"]').value = unitActualPrice ? trimInventoryNumber(unitActualPrice) : "";
+  form.querySelector('[name="selling_price"]').value = sellingPrice > 0 ? trimInventoryNumber(sellingPrice) : "";
+  form.querySelector('[name="bought_qty"]').value = boughtQty > 0 ? trimInventoryNumber(boughtQty) : "";
+  form.querySelector('[name="bought_date"]').value = entry.loan_date || "";
+  form.querySelector('[name="notes"]').value = notesOnly;
+  form.querySelector('[name="edit_tax_applied"]').checked = !!taxApplied;
+  form.querySelector('[name="edit_tax_rate"]').value = taxRate ? trimInventoryNumber(taxRate, 2) : "";
+  form.querySelector('[name="edit_tax_mode"]').value = taxMode;
+  setCurrencyChoice(form, entry.currency || "AED");
+  form.querySelectorAll(".currency-chip").forEach(chip => {
+    chip.disabled = hasSales;
+    chip.classList.toggle("is-locked", hasSales);
+  });
+  syncInventoryItemTypeFields(form, meta.itemType || group?.itemType || "General");
+  syncInventoryEditItemCategoryFields();
+  renderInventoryEditItemSummary(group, meta);
+
+  els.inventoryEditItemModal.classList.remove("hide");
+  els.inventoryEditItemModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  form.querySelector('[name="item_name"]')?.focus();
+}
+
+async function submitInventoryEditItem(){
+  const id = state.editId;
+  if (!id) return;
+  const form = els.inventoryEditItemForm;
+  const currentEntry = state.entries.find(e => e.id === id);
+  if (!form || !currentEntry || !hasGoodsTag(currentEntry.notes)) return;
+
+  const fd = new FormData(form);
+  const group = getInventoryEditItemGroup(id);
+  const currentMeta = goodsMetaFromNotes(currentEntry.notes);
+  const hasSales = form.dataset.hasSales === "1";
+  const itemName = String(fd.get("item_name") || "").trim();
+  const itemCode = String(fd.get("item_code") || "").trim();
+  const itemDescription = String(fd.get("item_description") || "").trim();
+  const itemType = readGoodsBoughtItemType(form);
+  const itemCategory = hasSales
+    ? normalizeInventoryCategory(currentMeta.itemCategory || group?.itemCategory)
+    : normalizeInventoryCategory(fd.get("item_category"));
+  const quantityUnit = hasSales
+    ? normalizeInventoryUnit(currentMeta.quantityUnit || group?.quantityUnit, itemCategory)
+    : normalizeInventoryUnit(fd.get("quantity_unit"), itemCategory);
+  const boughtQty = normalizeInventoryQuantityInput(fd.get("bought_qty"), itemCategory, quantityUnit);
+  const unitActualPrice = Number(fd.get("actual_price") || 0);
+  const sellingPrice = Number(fd.get("selling_price") || 0);
+  const currency = hasSales
+    ? String(currentEntry.currency || "AED").trim()
+    : String(fd.get("currency") || currentEntry.currency || "AED").trim();
+  const boughtDate = String(fd.get("bought_date") || "");
+  const displayNote = String(fd.get("notes") || "").trim();
+  const minPrincipalQty = Number(form.dataset.minPrincipalQty || 0);
+  const taxBreakdown = getInventoryEditTaxBreakdown();
+
+  if (!itemName || !currency || !boughtDate) throw new Error("Complete all required fields.");
+  if (!itemType) throw new Error("Select or enter an item type.");
+  if (!(unitActualPrice > 0)) throw new Error("Enter a valid purchase price.");
+  if (!(boughtQty > 0)) throw new Error(`Enter a valid ${inventoryQtyFieldLabel(itemCategory).toLowerCase()}.`);
+  if (boughtQty + 0.00000001 < minPrincipalQty) {
+    throw new Error(`Opening quantity cannot be below ${inventoryQtyLabel(minPrincipalQty, itemCategory)} because of existing sales.`);
+  }
+  if (!hasSales) validateCurrencyForForm(fd);
+
+  const sharedMeta = {
+    itemCode,
+    itemDescription,
+    itemType,
+    itemCategory,
+    quantityUnit: inventoryBaseUnitForCategory(itemCategory),
+    unitSoldPrice: sellingPrice > 0 ? sellingPrice : null
+  };
+
+  const updatedNotes = upsertGoodsMetaInNote(normalizeGoodsNote(displayNote || null, true), {
+    ...currentMeta,
+    ...sharedMeta,
+    boughtQty,
+    unitActualPrice,
+    transactionType: currentMeta.transactionType || "ITEM",
+    ...taxMetaFromBreakdown(taxBreakdown)
+  });
+
+  const updatedEntry = {
+    ...currentEntry,
+    person_name: itemName,
+    currency,
+    principal_amount: taxBreakdown.total,
+    loan_date: boughtDate,
+    notes: updatedNotes
+  };
+  const patchBody = {
+    person_name: itemName,
+    currency,
+    principal_amount: taxBreakdown.total,
+    loan_date: boughtDate,
+    notes: updatedNotes
+  };
+
+  state.entries = state.entries.map(entry => entry.id === id ? updatedEntry : entry);
+  if (!isBackupMode()) queueDatabasePatch(id, patchBody, "Inventory item", updatedEntry);
+
+  // Keep restock purchase rows aligned on shared item identity fields.
+  const purchaseRows = (group?.purchaseActions || []).filter(row => row?.id);
+  for (const row of purchaseRows){
+    const rowMeta = goodsMetaFromNotes(row.notes);
+    const nextNotes = upsertGoodsMetaInNote(row.notes, {
+      ...rowMeta,
+      itemCode: sharedMeta.itemCode || rowMeta.itemCode,
+      itemDescription: sharedMeta.itemDescription || rowMeta.itemDescription,
+      itemType: sharedMeta.itemType,
+      itemCategory: sharedMeta.itemCategory,
+      quantityUnit: sharedMeta.quantityUnit,
+      unitSoldPrice: sharedMeta.unitSoldPrice
+    });
+    const nextRow = { ...row, person_name: itemName, currency, notes: nextNotes };
+    state.entries = state.entries.map(entry => entry.id === row.id ? nextRow : entry);
+    if (!isBackupMode()) queueDatabasePatch(row.id, { person_name: itemName, currency, notes: nextNotes }, "Inventory stock", nextRow);
+  }
+
+  // Keep sale rows' item name in sync (customer stays in notes meta).
+  const saleRows = (group?.actions || []).filter(row => row?.id);
+  for (const row of saleRows){
+    if (row.person_name === itemName) continue;
+    const nextRow = { ...row, person_name: itemName };
+    state.entries = state.entries.map(entry => entry.id === row.id ? nextRow : entry);
+    if (!isBackupMode()) queueDatabasePatch(row.id, { person_name: itemName }, "Inventory sale", nextRow);
+  }
+
+  closeModal("inventoryEditItemModal");
+  if (isBackupMode()) refreshBackupView();
+  else renderAll();
 }
 
 function syncEditTaxControls(entry) {
@@ -11976,6 +12201,173 @@ function isPdfMoneyLike(value){
 
 function pdfOwnerBlockBottom(doc){
   return Number(doc?.__tripleMOwnerBlockBottom || 0);
+}
+
+function pdfClampLines(doc, text, maxWidth, maxLines = 2){
+  const lines = doc.splitTextToSize(String(text || ""), maxWidth);
+  if (lines.length <= maxLines) return lines;
+  const clipped = lines.slice(0, maxLines);
+  const last = String(clipped[maxLines - 1] || "");
+  clipped[maxLines - 1] = last.length > 3 ? `${last.slice(0, Math.max(0, last.length - 3))}...` : last;
+  return clipped;
+}
+
+function drawInventoryPdfDetailLines(doc, x, startY, lines, maxWidth, lineHeight = 3.5){
+  let y = startY;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  for (const line of lines){
+    if (!line) continue;
+    const wrapped = pdfClampLines(doc, line, maxWidth, 2);
+    doc.text(wrapped, x, y);
+    y += Math.max(lineHeight, wrapped.length * lineHeight);
+  }
+  return y;
+}
+
+/**
+ * Compact From | Bill To block + thin document meta strip for inventory PDFs.
+ * Avoids the tall owner box + oversized customer card that forced 1-line invoices onto page 2.
+ */
+function drawInventoryPdfPartiesAndMeta(doc, options = {}){
+  const customerName = String(options.customerName || "Walk-in customer").trim() || "Walk-in customer";
+  const customerCompany = String(options.customerCompany || "").trim();
+  const customerTrn = String(options.customerTrn || "").trim();
+  const customerPhone = String(options.customerPhone || "").trim();
+  const customerEmail = String(options.customerEmail || "").trim();
+  const customerAddress = String(options.customerAddress || "").trim();
+  const metaItems = Array.isArray(options.meta) ? options.meta.filter(item => item && (item.value || item.value === 0)) : [];
+  const contact = getPdfCompanyContact();
+  const sellerName = contact.isCompany
+    ? contact.name
+    : (getLoggedInUserDisplayName() || contact.name);
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const leftX = 14;
+  const rightX = 108;
+  const colWidth = 84;
+  const top = 40;
+  const labelY = top + 3.2;
+  const nameY = labelY + 5;
+  const detailGap = 1.2;
+  const lineHeight = 3.5;
+
+  const sellerNameLines = pdfClampLines(doc, sellerName, colWidth - 4, 2);
+  const buyerNameLines = pdfClampLines(doc, customerName, colWidth - 4, 2);
+  const sellerDetails = [
+    contact.trn ? `TRN: ${contact.trn}` : "",
+    contact.phone || "",
+    contact.email || "",
+    contact.address || ""
+  ].filter(Boolean);
+  const buyerDetails = [
+    customerCompany,
+    customerTrn ? `TRN: ${customerTrn}` : "",
+    customerPhone,
+    customerEmail,
+    customerAddress
+  ].filter(Boolean);
+
+  const measureDetails = (lines) => {
+    let height = 0;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    for (const line of lines){
+      const wrapped = pdfClampLines(doc, line, colWidth - 4, 2);
+      height += Math.max(lineHeight, wrapped.length * lineHeight);
+    }
+    return height;
+  };
+
+  const leftDetailsH = measureDetails(sellerDetails);
+  const rightDetailsH = measureDetails(buyerDetails);
+  const leftContentH = 5 + Math.max(3.8, sellerNameLines.length * 3.8) + detailGap + leftDetailsH;
+  const rightContentH = 5 + Math.max(3.8, buyerNameLines.length * 3.8) + detailGap + rightDetailsH;
+  const bandHeight = Math.max(22, Math.max(leftContentH, rightContentH) + 5);
+  const partiesBottom = top + bandHeight;
+
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(leftX, top, pageWidth - 28, bandHeight, 1.5, 1.5, "FD");
+  doc.line(101, top + 3, 101, partiesBottom - 3);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.4);
+  doc.setTextColor(100, 116, 139);
+  doc.text(contact.isCompany ? "FROM" : "PREPARED BY", leftX + 3, labelY);
+  doc.text("BILL TO", rightX + 3, labelY);
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(9);
+  doc.text(sellerNameLines, leftX + 3, nameY);
+  doc.text(buyerNameLines, rightX + 3, nameY);
+
+  drawInventoryPdfDetailLines(
+    doc,
+    leftX + 3,
+    nameY + Math.max(3.8, sellerNameLines.length * 3.8) + detailGap,
+    sellerDetails,
+    colWidth - 4,
+    lineHeight
+  );
+  drawInventoryPdfDetailLines(
+    doc,
+    rightX + 3,
+    nameY + Math.max(3.8, buyerNameLines.length * 3.8) + detailGap,
+    buyerDetails,
+    colWidth - 4,
+    lineHeight
+  );
+
+  let metaBottom = partiesBottom;
+  if (metaItems.length){
+    const metaTop = partiesBottom + 2.5;
+    const metaHeight = 9;
+    doc.setFillColor(15, 23, 42);
+    doc.roundedRect(leftX, metaTop, pageWidth - 28, metaHeight, 1.2, 1.2, "F");
+    const usableWidth = pageWidth - 34;
+    const slot = usableWidth / metaItems.length;
+    metaItems.forEach((item, index) => {
+      const x = leftX + 4 + (index * slot);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(5.8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(String(item.label || "").toUpperCase(), x, metaTop + 3.4);
+      doc.setFontSize(7.4);
+      doc.setTextColor(255, 255, 255);
+      const valueLines = pdfClampLines(doc, String(item.value ?? "—"), slot - 4, 1);
+      doc.text(valueLines, x, metaTop + 7.2);
+    });
+    metaBottom = metaTop + metaHeight;
+  }
+
+  doc.__tripleMOwnerBlockBottom = metaBottom;
+  return metaBottom;
+}
+
+function drawInventoryPdfTotals(doc, startY, rows = []){
+  const right = 196;
+  const labelX = 128;
+  let y = startY;
+  rows.forEach((row, index) => {
+    const isLast = index === rows.length - 1;
+    const isStrong = !!row.strong || isLast;
+    if (isStrong){
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(labelX, y - 3.2, right, y - 3.2);
+    }
+    doc.setFont("helvetica", isStrong ? "bold" : "normal");
+    doc.setFontSize(isStrong ? 8.4 : 7.6);
+    doc.setTextColor(isStrong ? 15 : 71, isStrong ? 23 : 85, isStrong ? 42 : 105);
+    doc.text(String(row.label || ""), labelX, y);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(row.value || "—"), right, y, { align: "right" });
+    y += isStrong ? 5.4 : 4.6;
+  });
+  return y;
 }
 
 /** First content / table Y below company details (or preferredY if already clear). */
@@ -14622,7 +15014,7 @@ window.addEventListener("resize", () => {
     btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal));
   });
 
-  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.expenseModal].forEach(m => {
+  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.expenseModal].forEach(m => {
     if (!m) return;
     m.addEventListener("click", e => {
       if (e.target && e.target.matches(".modal-backdrop")) closeModal(m.id);
@@ -14636,6 +15028,7 @@ window.addEventListener("resize", () => {
       if (!els.goodsModal.classList.contains("hide")) closeModal("goodsModal");
       if (els.goodsSettlementModal && !els.goodsSettlementModal.classList.contains("hide")) closeModal("goodsSettlementModal");
       if (els.inventoryCustomerModal && !els.inventoryCustomerModal.classList.contains("hide")) closeModal("inventoryCustomerModal");
+      if (els.inventoryEditItemModal && !els.inventoryEditItemModal.classList.contains("hide")) closeModal("inventoryEditItemModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
       if (els.btcWifQrScannerModal && !els.btcWifQrScannerModal.classList.contains("hide")) closeModal("btcWifQrScannerModal");
     }
@@ -14696,6 +15089,40 @@ window.addEventListener("resize", () => {
     e.preventDefault();
     try { await submitEdit(); } catch (err) { alert(err.message); }
   });
+  if (els.inventoryEditItemForm) {
+    els.inventoryEditItemForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      try { await submitInventoryEditItem(); } catch (err) { alert(err.message); }
+    });
+    const editTypeSelect = els.inventoryEditItemForm.querySelector('[name="item_type"]');
+    if (editTypeSelect) {
+      editTypeSelect.addEventListener("change", () => {
+        const customWrap = els.inventoryEditItemForm.querySelector("[data-inventory-custom-type-wrap]");
+        const customInput = els.inventoryEditItemForm.querySelector('[name="item_type_custom"]');
+        const isCustom = editTypeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE;
+        customWrap?.classList.toggle("hide", !isCustom);
+        if (customInput) {
+          customInput.required = isCustom;
+          if (isCustom) customInput.focus();
+          else customInput.value = "";
+        }
+      });
+    }
+    const editCategorySelect = els.inventoryEditItemForm.querySelector('[name="item_category"]');
+    const editUnitSelect = els.inventoryEditItemForm.querySelector('[name="quantity_unit"]');
+    const editPriceInput = els.inventoryEditItemForm.querySelector('[name="actual_price"]');
+    const editQtyInput = els.inventoryEditItemForm.querySelector('[name="bought_qty"]');
+    if (editCategorySelect) editCategorySelect.addEventListener("change", syncInventoryEditItemCategoryFields);
+    if (editUnitSelect) editUnitSelect.addEventListener("change", updateInventoryEditItemTotals);
+    if (editPriceInput) editPriceInput.addEventListener("input", updateInventoryEditItemTotals);
+    if (editQtyInput) editQtyInput.addEventListener("input", updateInventoryEditItemTotals);
+    ["inventoryEditTaxApplied", "inventoryEditTaxRate", "inventoryEditTaxMode"].forEach(controlId => {
+      const control = document.getElementById(controlId);
+      if (!control) return;
+      control.addEventListener("input", updateInventoryEditItemTotals);
+      control.addEventListener("change", updateInventoryEditItemTotals);
+    });
+  }
   els.goodsBoughtForm.addEventListener("submit", async e => {
     e.preventDefault();
     try { await saveGoodsBought(els.goodsBoughtForm); } catch (err) { alert(err.message); }
