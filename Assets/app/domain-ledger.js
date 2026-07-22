@@ -583,6 +583,26 @@
 
     if (section === "installments") {
       if (entry.entry_kind === "principal") {
+        const instMeta = (() => {
+          const text = String(notes || "");
+          const readNum = (key) => {
+            const m = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
+            if (!m) return null;
+            const n = Number(m[1]);
+            return Number.isFinite(n) ? n : null;
+          };
+          const readText = (key) => {
+            const m = text.match(new RegExp(`\\[${key}:([^\\]]*)\\]`, "i"));
+            return m ? m[1].trim() : "";
+          };
+          return {
+            count: readNum("ICNT"),
+            installmentAmount: readNum("IAMT"),
+            lastAmount: readNum("ILAST"),
+            frequency: readText("IFREQ") || "monthly",
+            startDate: readText("ISTART") || entry.loan_date || null
+          };
+        })();
         return {
           table: DOMAIN.installment_plans,
           body: {
@@ -593,8 +613,15 @@
             currency: entry.currency,
             principal_amount: Number(entry.principal_amount || 0),
             loan_date: entry.loan_date,
+            installment_amount: instMeta.installmentAmount,
+            installment_count: instMeta.count,
+            frequency: instMeta.frequency || "monthly",
             notes,
-            meta: {},
+            meta: {
+              scheduleStart: instMeta.startDate,
+              lastAmount: instMeta.lastAmount,
+              count: instMeta.count
+            },
             is_deleted: !!deleted,
             created_at: entry.created_at
           }
@@ -612,7 +639,12 @@
           payment_amount: Number(entry.action_amount || 0),
           payment_date: entry.action_date || entry.loan_date,
           notes,
-          meta: {},
+          meta: {
+            allocation: (() => {
+              const m = String(notes || "").match(/\[IALLOC:([^\]]*)\]/i);
+              return m ? m[1].trim() : "";
+            })()
+          },
           is_deleted: !!deleted,
           created_at: entry.created_at
         }
