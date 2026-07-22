@@ -23682,19 +23682,31 @@ function readCheckboxGrid(container, groupName){
 
 function adminCredentialBlock(user){
   const pw = String(user.admin_visible_password || "").trim();
+  const pin = String(user.admin_visible_smart_pin || "").trim();
+  const pinEnabled = !!user.smart_pin_enabled || !!String(user.smart_pin_hash || "").trim();
   const pwId = `admin-pw-${user.id}`;
+  const pinId = `admin-pin-${user.id}`;
+  const pinMask = pin ? "•".repeat(Math.min(6, Math.max(4, pin.length))) : "";
+  const pinEmpty = pinEnabled ? "reset to view" : "—";
   return `
     <div class="admin-credentials">
       <div class="admin-cred-row">
-        <span class="admin-cred-label">Username</span>
-        <code class="admin-cred-value">${escapeHtml(user.username)}</code>
-        <button type="button" class="btn ghost tiny" data-copy="${escapeHtml(user.username)}">Copy</button>
+        <span class="admin-cred-label">user</span>
+        <code class="admin-cred-value" title="@${escapeHtml(user.username)}">@${escapeHtml(user.username)}</code>
+        <span class="admin-cred-spacer" aria-hidden="true"></span>
+        <button type="button" class="admin-cred-icon" data-copy="${escapeHtml(user.username)}" title="Copy" aria-label="Copy username"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
       </div>
       <div class="admin-cred-row">
-        <span class="admin-cred-label">Password</span>
-        <input id="${pwId}" class="input admin-cred-password" type="password" readonly value="${pw ? "••••••••" : ""}" placeholder="${pw ? "" : "Not stored yet — set in Edit Access"}" data-password="${escapeHtml(pw)}" data-showing="0" autocomplete="off" />
-        <button type="button" class="pw-eye-btn" data-toggle-pw="${pwId}" ${pw ? "" : "disabled"} aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
-        <button type="button" class="btn ghost tiny" data-copy="${escapeHtml(pw)}" ${pw ? "" : "disabled"}>Copy</button>
+        <span class="admin-cred-label">pass</span>
+        <input id="${pwId}" class="admin-cred-field" type="password" readonly value="${pw ? "••••••••" : ""}" placeholder="${pw ? "" : "—"}" data-password="${escapeHtml(pw)}" data-showing="0" autocomplete="off" tabindex="-1" />
+        <button type="button" class="admin-cred-icon" data-toggle-pw="${pwId}" ${pw ? "" : "disabled"} aria-label="Show password" title="Show"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+        <button type="button" class="admin-cred-icon" data-copy="${escapeHtml(pw)}" ${pw ? "" : "disabled"} title="Copy" aria-label="Copy password"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+      </div>
+      <div class="admin-cred-row">
+        <span class="admin-cred-label">pin</span>
+        <input id="${pinId}" class="admin-cred-field admin-cred-pin" type="password" readonly value="${pinMask}" placeholder="${escapeHtml(pinEmpty)}" data-password="${escapeHtml(pin)}" data-showing="0" autocomplete="off" tabindex="-1" />
+        <button type="button" class="admin-cred-icon" data-toggle-pw="${pinId}" ${pin ? "" : "disabled"} aria-label="Show smart pin" title="Show"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+        <button type="button" class="admin-cred-icon" data-copy="${escapeHtml(pin)}" ${pin ? "" : "disabled"} title="Copy" aria-label="Copy smart pin"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
       </div>
     </div>`;
 }
@@ -23733,40 +23745,45 @@ async function loadAdminUsers(){
     list.innerHTML = rows.map(user => {
       const flags = getUserAccessFlags(user);
       const statusBadge = user.is_active
-        ? `<span class="admin-badge ok">Active</span>`
-        : `<span class="admin-badge warn">Disabled</span>`;
+        ? `<span class="admin-badge ok">On</span>`
+        : `<span class="admin-badge warn">Off</span>`;
       const roleBadge = user.role === "admin"
         ? `<span class="admin-badge">Admin</span>`
-        : `<span class="admin-badge muted">User</span>`;
-      const protectedBadge = user.is_protected ? `<span class="admin-badge">Protected</span>` : "";
-      const teamAccountBadge = user.allow_team_members ? `<span class="admin-badge ok">Team · max ${escapeHtml(String(Math.max(1, Math.min(50, Number(user.max_team_members) || 3))))}</span>` : "";
-      const forceBadge = user.must_change_password ? `<span class="admin-badge warn">Must change password</span>` : "";
-      let planBadge = `<span class="admin-badge ok">Full · unlimited</span>`;
+        : "";
+      const protectedBadge = user.is_protected ? `<span class="admin-badge">Lock</span>` : "";
+      const teamAccountBadge = user.allow_team_members
+        ? `<span class="admin-badge ok">Team ${escapeHtml(String(Math.max(1, Math.min(50, Number(user.max_team_members) || 3))))}</span>`
+        : "";
+      const pinBadge = (user.smart_pin_enabled || String(user.smart_pin_hash || "").trim())
+        ? `<span class="admin-badge">Pin</span>`
+        : "";
+      const forceBadge = user.must_change_password ? `<span class="admin-badge warn">Force PW</span>` : "";
+      let planBadge = `<span class="admin-badge ok">Full</span>`;
       if (flags.period_expired && flags.grace_active) {
-        planBadge = `<span class="admin-badge warn">Expired · grace ${escapeHtml(String(Math.floor(Number(flags.grace_days_left) || 0)))}d</span>`;
+        planBadge = `<span class="admin-badge warn">Grace ${escapeHtml(String(Math.floor(Number(flags.grace_days_left) || 0)))}d</span>`;
       } else if (flags.period_expired) {
-        planBadge = `<span class="admin-badge warn">${flags.is_trial ? "Trial" : "Plan"} expired</span>`;
+        planBadge = `<span class="admin-badge warn">${flags.is_trial ? "Trial" : "Plan"} ended</span>`;
       } else if (flags.period_active) {
-        planBadge = `<span class="admin-badge">${flags.is_trial ? "Trial" : "Dated"} · ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d left</span>`;
+        planBadge = `<span class="admin-badge">${flags.is_trial ? "Trial" : "Dated"} ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d</span>`;
       } else if (flags.is_trial) {
         planBadge = `<span class="admin-badge warn">Trial</span>`;
       }
       const trialSummary = flags.has_access_period
-        ? `<span class="admin-user-summary-expiry">Expires ${escapeHtml(formatAccessDateShort(flags.trial_expires_at))}</span>`
+        ? `<span class="admin-user-summary-expiry">${escapeHtml(formatAccessDateShort(flags.trial_expires_at))}</span>`
         : flags.unlimited_access
-          ? `<span class="admin-user-summary-expiry">Unlimited</span>`
+          ? `<span class="admin-user-summary-expiry">∞</span>`
           : "";
       const grantBtn = (!user.is_protected && (flags.is_trial || flags.has_access_period || flags.access_plan !== "full"))
-        ? `<button type="button" class="btn soft tiny" data-admin-action="clear_unlimited">Grant unlimited</button>`
+        ? `<button type="button" class="btn soft tiny" data-admin-action="clear_unlimited">Unlimited</button>`
         : "";
       const trialBtn = (!user.is_protected && user.role !== "admin" && !flags.is_trial)
-        ? `<button type="button" class="btn ghost tiny" data-admin-action="start_trial">Start 14-day trial</button>`
+        ? `<button type="button" class="btn ghost tiny" data-admin-action="start_trial">14d trial</button>`
         : "";
       const managePlanBtn = user.is_protected
         ? ""
-        : `<button type="button" class="btn primary tiny" data-admin-action="manage_plan"><i class="fa-solid fa-calendar-check"></i> Manage Plan</button>`;
+        : `<button type="button" class="btn primary tiny" data-admin-action="manage_plan"><i class="fa-solid fa-calendar-check"></i> Plan</button>`;
       const companyLine = (user.company_name || user.settings?.Company)
-        ? `<p class="admin-user-meta"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · TRN ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>`
+        ? `<p class="admin-user-meta"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>`
         : "";
       const contactLine = (() => {
         const email = user.company_email || user.settings?.email || user.settings?.Email || "";
@@ -23783,18 +23800,18 @@ async function loadAdminUsers(){
               <div class="admin-user-summary-title-row">
                 <h4>${escapeHtml(user.display_name || user.username)}</h4>
                 <code class="admin-user-summary-user">@${escapeHtml(user.username)}</code>
-                <button type="button" class="btn ghost tiny admin-summary-copy" data-copy="${escapeHtml(user.username)}" title="Copy username">Copy</button>
+                ${trialSummary}
+                <button type="button" class="btn ghost tiny admin-summary-copy" data-copy="${escapeHtml(user.username)}" title="Copy username"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
               </div>
               <div class="admin-user-summary-badges">
-                ${statusBadge}${roleBadge}${planBadge}${protectedBadge}${teamAccountBadge}${forceBadge}
+                ${statusBadge}${roleBadge}${planBadge}${pinBadge}${protectedBadge}${teamAccountBadge}${forceBadge}
               </div>
-              ${trialSummary}
             </div>
             <span class="admin-user-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
           </div>
           <div class="admin-user-details" hidden>
             <p class="admin-user-meta">
-              Created ${escapeHtml(formatAdminDate(user.created_at))} · Last login ${escapeHtml(formatAdminDate(user.last_login_at))}
+              Created ${escapeHtml(formatAdminDate(user.created_at))} · Login ${escapeHtml(formatAdminDate(user.last_login_at))}
             </p>
             ${companyLine}
             ${contactLine}
@@ -23802,7 +23819,7 @@ async function loadAdminUsers(){
             ${adminMetaChips(user)}
             <div class="admin-user-actions">
               ${managePlanBtn}
-              <button type="button" class="btn soft tiny" data-admin-action="edit">Edit Access</button>
+              <button type="button" class="btn soft tiny" data-admin-action="edit">Edit</button>
               <button type="button" class="btn ghost tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
               ${grantBtn}
               ${trialBtn}
@@ -23865,9 +23882,18 @@ async function loadAdminUsers(){
         const value = btn.getAttribute("data-copy") || "";
         try {
           await navigator.clipboard.writeText(value);
-          const prev = btn.textContent;
-          btn.textContent = "Copied";
-          setTimeout(() => { btn.textContent = prev; }, 900);
+          if (btn.classList.contains("admin-cred-icon") || btn.classList.contains("admin-summary-copy")) {
+            const icon = btn.querySelector("i");
+            if (icon) {
+              const prevClass = icon.className;
+              icon.className = "fa-solid fa-check";
+              setTimeout(() => { icon.className = prevClass; }, 900);
+            }
+          } else {
+            const prev = btn.textContent;
+            btn.textContent = "Copied";
+            setTimeout(() => { btn.textContent = prev; }, 900);
+          }
         } catch {
           prompt("Copy this value:", value);
         }
@@ -23888,7 +23914,7 @@ async function loadAdminUsers(){
             setPasswordEyeState(btn, true);
           } else {
             el.type = "password";
-            el.value = raw ? "••••••••" : "";
+            el.value = raw ? (el.classList.contains("admin-cred-pin") ? "•".repeat(Math.min(6, Math.max(4, raw.length))) : "••••••••") : "";
             el.dataset.showing = "0";
             setPasswordEyeState(btn, false);
           }
