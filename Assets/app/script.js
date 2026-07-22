@@ -287,7 +287,7 @@ function getAllowedCurrencies() {
 
 function preferenceRowsForCurrentUser(rows){
   const list = Array.isArray(rows) ? rows : [];
-  const myId = state.sessionUser?.id;
+  const myId = currentOwnerId();
   if (!myId) return list;
   // Admins can see every user's SYSTEM preference rows — always prefer exact owner match.
   const exact = list.filter(row => row.owner_id === myId);
@@ -608,7 +608,9 @@ function systemPreferenceQuery(tagOrTags){
 }
 
 function currentOwnerId(){
-  return state.sessionUser?.id || null;
+  const u = state.sessionUser;
+  if (!u) return null;
+  return u.team_owner_id || u.id || null;
 }
 
 function ownerIdQuery(){
@@ -756,6 +758,7 @@ const els = {
   accountMenuUserName: document.getElementById("accountMenuUserName"),
   secretPinBtn: document.getElementById("secretPinBtn"),
   deleteSmartPinBtn: document.getElementById("deleteSmartPinBtn"),
+  companyTeamBtn: document.getElementById("companyTeamBtn"),
   learnMoreBtn: document.getElementById("learnMoreBtn"),
   pricingBtn: document.getElementById("pricingBtn"),
   standaloneAboutSection: document.getElementById("standaloneAboutSection"),
@@ -2664,6 +2667,7 @@ function renderSecretPinMenu() {
   if (isGuestMode()) {
     if (els.secretPinBtn) els.secretPinBtn.classList.add("hide");
     if (els.deleteSmartPinBtn) els.deleteSmartPinBtn.classList.add("hide");
+    if (els.companyTeamBtn) els.companyTeamBtn.classList.add("hide");
     return;
   }
   if (els.secretPinBtn) {
@@ -2672,6 +2676,14 @@ function renderSecretPinMenu() {
   }
   if (els.deleteSmartPinBtn) {
     els.deleteSmartPinBtn.classList.toggle("hide", !state.secretPinHash);
+  }
+  if (els.companyTeamBtn) {
+    // Activity log + team management: main company account (or manage-team member for members only — activity is owner-only)
+    const showTeam = isTeamOwnerAccount() || canManageCompanyTeam();
+    els.companyTeamBtn.classList.toggle("hide", !showTeam);
+    if (showTeam) {
+      els.companyTeamBtn.innerHTML = `<i class="fa-solid fa-users"></i> Company Team`;
+    }
   }
 }
 
@@ -3099,6 +3111,160 @@ function requestSecretPinUnlock() {
   });
 }
 
+function ensureSmartPinConfirmModal() {
+  let modal = document.getElementById("smartPinConfirmModal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "smartPinConfirmModal";
+  modal.className = "modal hide secret-pin-modal smart-pin-confirm-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog secret-pin-dialog smart-pin-confirm-dialog">
+      <div class="smart-pin-confirm-head">
+        <div class="smart-pin-confirm-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+        <div class="smart-pin-confirm-head-text">
+          <h3 id="smartPinConfirmTitle">Confirm action</h3>
+          <p id="smartPinConfirmDescription"></p>
+        </div>
+      </div>
+      <div class="modal-body smart-pin-confirm-body">
+        <div id="smartPinConfirmSetupNotice" class="smart-pin-confirm-setup hide">
+          <p>You need to set a Smart Pin before you can do this.</p>
+          <button type="button" class="btn primary" id="smartPinConfirmSetupBtn">Set Smart Pin</button>
+        </div>
+        <form id="smartPinConfirmForm">
+          <div class="modal-grid">
+            <div class="field w12">
+              <label>Smart Pin</label>
+              <input id="smartPinConfirmInput" class="input" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="4 or 6 digits" />
+              <div id="smartPinConfirmError" class="secret-pin-error"></div>
+            </div>
+            <div class="field w12 modal-footer secret-pin-actions smart-pin-confirm-actions">
+              <button class="btn ghost" id="smartPinConfirmCancelBtn" type="button">Cancel</button>
+              <button class="btn danger" id="smartPinConfirmSubmitBtn" type="submit">Confirm</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function requireSmartPinConfirm(options = {}) {
+  const {
+    title = "Confirm action",
+    description = "Enter your Smart Pin to confirm this action.",
+    confirmLabel = "Confirm",
+    accent = "danger"
+  } = options;
+
+  const modal = ensureSmartPinConfirmModal();
+  const head = modal.querySelector(".smart-pin-confirm-head");
+  const icon = modal.querySelector(".smart-pin-confirm-icon i");
+  const titleEl = modal.querySelector("#smartPinConfirmTitle");
+  const descEl = modal.querySelector("#smartPinConfirmDescription");
+  const setupNotice = modal.querySelector("#smartPinConfirmSetupNotice");
+  const setupBtn = modal.querySelector("#smartPinConfirmSetupBtn");
+  const form = modal.querySelector("#smartPinConfirmForm");
+  const input = modal.querySelector("#smartPinConfirmInput");
+  const error = modal.querySelector("#smartPinConfirmError");
+  const cancelBtn = modal.querySelector("#smartPinConfirmCancelBtn");
+  const submitBtn = modal.querySelector("#smartPinConfirmSubmitBtn");
+  const backdrop = modal.querySelector(".modal-backdrop");
+  const previousOverflow = document.body.style.overflow;
+
+  titleEl.textContent = title;
+  descEl.textContent = description;
+  submitBtn.textContent = confirmLabel;
+  submitBtn.className = `btn ${accent === "danger" ? "danger" : "primary"}`;
+  head.classList.toggle("is-danger", accent === "danger");
+  if (icon) icon.className = accent === "danger" ? "fa-solid fa-triangle-exclamation" : "fa-solid fa-shield-halved";
+  error.textContent = "";
+  input.value = "";
+
+  const needsSetup = !state.secretPinHash;
+  setupNotice.classList.toggle("hide", !needsSetup);
+  form.classList.toggle("hide", needsSetup);
+
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+
+  if (!needsSetup) {
+    setTimeout(() => input.focus(), 50);
+  }
+
+  return new Promise(resolve => {
+    const onKeydown = e => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+    };
+
+    const finish = value => {
+      modal.classList.add("hide");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = previousOverflow;
+      form.onsubmit = null;
+      cancelBtn.onclick = null;
+      backdrop.onclick = null;
+      setupBtn.onclick = null;
+      document.removeEventListener("keydown", onKeydown);
+      resolve(value);
+    };
+
+    document.addEventListener("keydown", onKeydown);
+
+    if (needsSetup) {
+      setupBtn.onclick = async () => {
+        try {
+          const result = await openSmartPinManageModal("set");
+          if (result?.pin) {
+            await saveSecretPinPreferenceToDatabase(result.pin);
+            alert("Smart Pin set successfully. Please try again.");
+          }
+        } catch (err) {
+          alert(err.message || err);
+        }
+        finish(false);
+      };
+      cancelBtn.onclick = () => finish(false);
+      backdrop.onclick = () => finish(false);
+      return;
+    }
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const pin = String(input.value || "").trim();
+      if (!validateSecretPinValue(pin)) {
+        error.textContent = "Smart Pin must be exactly 4 or 6 digits.";
+        return;
+      }
+      submitBtn.disabled = true;
+      try {
+        const ok = await verifySecretPin(pin);
+        if (!ok) {
+          error.textContent = "Smart Pin is incorrect.";
+          input.value = "";
+          input.focus();
+          return;
+        }
+        finish(true);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    };
+
+    cancelBtn.onclick = () => finish(false);
+    backdrop.onclick = () => finish(false);
+  });
+}
+
 function getSupabaseConfig(){
   if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey){
     runtimeConfig = getEmbeddedSupabaseConfig();
@@ -3119,6 +3285,534 @@ async function supabaseRpc(fnName, args = {}, options = {}){
       Prefer: "return=representation"
     }
   });
+}
+
+async function logCompanyActivity(action, module, summary, extra = {}){
+  if (isGuestMode() || !state.sessionUser) return;
+  if (!isTeamOwnerAccount() && !isTeamMemberAccount()) return;
+  try {
+    await supabaseRpc("app_team_log_activity", {
+      p_action: String(action || "activity").slice(0, 64),
+      p_module: String(module || "").slice(0, 64) || null,
+      p_summary: String(summary || "Activity").slice(0, 280),
+      p_entity_type: extra.entityType || null,
+      p_entity_id: extra.entityId ? String(extra.entityId) : null,
+      p_meta: extra.meta || {}
+    });
+  } catch (e) { console.warn("Activity log failed", e); }
+}
+
+function activityModuleForEntry(entry){
+  if (!entry) return "ledger";
+  if (hasGoodsTag(entry.notes)) return "inventory";
+  if (hasExpenseAccountTag(entry.notes)) return "expenses";
+  if (hasInstallmentTag(entry.notes)) return "installments";
+  if (entry.direction === "given" || entry.direction === "taken") return "loans";
+  return "ledger";
+}
+
+function activitySummaryForEntry(entry, verb = "Saved"){
+  if (!entry) return verb;
+  const name = entry.person_name || "record";
+  const currency = entry.currency || "";
+  if (hasExpenseAccountTag(entry.notes)) {
+    const meta = expenseMetaFromNotes(entry.notes);
+    if (meta.rowType === "ACCOUNT" || entry.entry_kind === "principal") {
+      return `${verb} wallet "${name}" (${moneyText(entry.principal_amount || 0, currency)})`;
+    }
+    if (meta.rowType === "TOPUP" || (meta.expenseType || "").toLowerCase() === "transfer" && meta.rowType === "TOPUP") {
+      return `${verb} top-up on "${name}" (${moneyText(entry.action_amount || 0, currency)})`;
+    }
+    if ((meta.expenseType || "").toLowerCase() === "transfer") {
+      return `${verb} transfer involving "${name}" (${moneyText(entry.action_amount || 0, currency)})`;
+    }
+    return `${verb} expense on "${name}" (${moneyText(entry.action_amount || 0, currency)})`;
+  }
+  if (hasGoodsTag(entry.notes)) {
+    const meta = goodsMetaFromNotes(entry.notes);
+    if (entry.entry_kind === "principal") {
+      return `${verb} inventory item "${name}" (${moneyText(entry.principal_amount || 0, currency)})`;
+    }
+    return `${verb} sale "${name}" qty ${meta.soldQty || "?"} (${moneyText(entry.action_amount || 0, currency)})`;
+  }
+  if (hasInstallmentTag(entry.notes)) {
+    if (entry.entry_kind === "principal") {
+      return `${verb} installment plan "${name}" (${moneyText(entry.principal_amount || 0, currency)})`;
+    }
+    return `${verb} installment payment "${name}" (${moneyText(entry.action_amount || 0, currency)})`;
+  }
+  if (entry.entry_kind === "principal") {
+    const dir = entry.direction === "given" ? "loan given" : "loan taken";
+    return `${verb} ${dir} "${name}" (${moneyText(entry.principal_amount || 0, currency)})`;
+  }
+  return `${verb} payment "${name}" (${moneyText(entry.action_amount || 0, currency)})`;
+}
+
+function logEntriesCreated(entries){
+  asEntryArray(entries).forEach(entry => {
+    logCompanyActivity("create", activityModuleForEntry(entry), activitySummaryForEntry(entry, "Created"), {
+      entityType: entry.entry_kind || "entry",
+      entityId: entry.id || entry.group_id
+    });
+  });
+}
+
+function logEntryUpdated(entry){
+  if (!entry) return;
+  logCompanyActivity("edit", activityModuleForEntry(entry), activitySummaryForEntry(entry, "Updated"), {
+    entityType: entry.entry_kind || "entry",
+    entityId: entry.id
+  });
+}
+
+function logEntryDeleted(entry, label = "Deleted"){
+  if (!entry) return;
+  logCompanyActivity("delete", activityModuleForEntry(entry), activitySummaryForEntry(entry, label), {
+    entityType: entry.entry_kind || "entry",
+    entityId: entry.id || entry.group_id
+  });
+}
+
+const COMPANY_TEAM_PERMISSION_FIELDS = [
+  ["can_edit_entries", "Edit entries"],
+  ["can_delete_entries", "Delete entries"],
+  ["can_edit_invoices", "Edit invoices"],
+  ["can_delete_invoices", "Delete invoices"],
+  ["can_manage_team", "Manage team"]
+];
+
+function companyTeamPermCheckboxesHtml(idPrefix, values = {}){
+  return COMPANY_TEAM_PERMISSION_FIELDS.map(([key, label]) => `
+    <label class="admin-check-item">
+      <input type="checkbox" id="${idPrefix}${key}" data-perm="${key}" ${values[key] ? "checked" : ""} />
+      ${escapeHtml(label)}
+    </label>
+  `).join("");
+}
+
+function readCompanyTeamPermCheckboxes(idPrefix){
+  const permissions = {};
+  COMPANY_TEAM_PERMISSION_FIELDS.forEach(([key]) => {
+    permissions[key] = !!document.getElementById(`${idPrefix}${key}`)?.checked;
+  });
+  return permissions;
+}
+
+function resetCompanyTeamAddPermDefaults(modal){
+  COMPANY_TEAM_PERMISSION_FIELDS.forEach(([key]) => {
+    const input = modal.querySelector(`#teamAdd${key}`);
+    if (!input) return;
+    input.checked = key === "can_edit_entries" || key === "can_edit_invoices";
+  });
+}
+
+function ensureCompanyTeamModal(){
+  let modal = document.getElementById("companyTeamModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "companyTeamModal";
+  modal.className = "modal hide";
+  modal.setAttribute("aria-hidden", "true");
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function closeCompanyTeamModal(){
+  const modal = document.getElementById("companyTeamModal");
+  if (!modal || modal.classList.contains("hide")) return;
+  modal.classList.add("hide");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function isCompanyTeamModalOpen(){
+  const modal = document.getElementById("companyTeamModal");
+  return !!modal && !modal.classList.contains("hide");
+}
+
+async function openCompanyTeamModal(){
+  const canManage = canManageCompanyTeam();
+  const canViewActivity = isTeamOwnerAccount();
+  if (!canManage && !canViewActivity) {
+    alert("Company team is only available on the main company account (or members with manage-team permission).");
+    return;
+  }
+  const modal = ensureCompanyTeamModal();
+  const defaultTab = canManage ? "members" : "activity";
+  const showTabs = canManage && canViewActivity;
+  modal._activityOffset = 0;
+  modal._activityLimit = 50;
+  modal._activityTotal = 0;
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-team-modal-close></div>
+    <div class="modal-dialog admin-modal-dialog company-team-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Company Team</h3>
+          <p>${canManage
+            ? (canViewActivity
+              ? "Invite members, set permissions, and review every action across the company account."
+              : "Invite sub-users and set edit/delete rights for this company account.")
+            : "Activity across the company account and all team members."}</p>
+        </div>
+        <button type="button" class="btn ghost tiny" data-team-modal-close aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body company-team-body">
+        ${showTabs ? `
+        <div class="company-team-tabs" role="tablist">
+          <button type="button" class="company-team-tab ${defaultTab === "members" ? "is-active" : ""}" data-team-tab="members" role="tab" aria-selected="${defaultTab === "members" ? "true" : "false"}">Members</button>
+          <button type="button" class="company-team-tab ${defaultTab === "activity" ? "is-active" : ""}" data-team-tab="activity" role="tab" aria-selected="${defaultTab === "activity" ? "true" : "false"}">Activity</button>
+        </div>` : ""}
+        ${canManage ? `
+        <div class="company-team-panel ${defaultTab === "members" ? "" : "hide"}" data-team-panel="members">
+          <div class="company-team-add">
+            <div class="company-team-add-head">
+              <h4 class="admin-section-title">Add team member</h4>
+              <span id="companyTeamSeats" class="company-team-seats"></span>
+            </div>
+            <form id="companyTeamAddForm" class="admin-form-grid">
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <input id="teamAddUsername" class="input" autocomplete="off" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Display name</label>
+                <input id="teamAddDisplayName" class="input" autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input id="teamAddPassword" class="input" type="password" autocomplete="new-password" placeholder="Min 6 characters" required />
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Permissions</label>
+                <div class="company-team-perm-grid">
+                  ${companyTeamPermCheckboxesHtml("teamAdd", { can_edit_entries: true, can_edit_invoices: true })}
+                </div>
+              </div>
+              <div class="form-group company-team-add-footer" style="grid-column:1/-1">
+                <div id="companyTeamAddError" class="lock-error"></div>
+                <button type="submit" class="btn primary tiny"><i class="fa-solid fa-user-plus"></i> Add member</button>
+              </div>
+            </form>
+          </div>
+          <h4 class="admin-section-title company-team-members-title">Team members</h4>
+          <div id="companyTeamMembersList" class="company-team-list"><div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading members…</div></div>
+        </div>` : ""}
+        ${canViewActivity ? `
+        <div class="company-team-panel ${defaultTab === "activity" ? "" : "hide"}" data-team-panel="activity">
+          <div class="company-team-activity-toolbar">
+            <span id="companyTeamActivityCount" class="company-team-activity-count">Activity</span>
+            <button type="button" class="company-team-activity-icon-btn" data-activity-refresh title="Refresh" aria-label="Refresh activity">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+          </div>
+          <div id="companyTeamActivityList" class="company-team-activity-list"><div class="empty tiny"><i class="fa-solid fa-spinner btn-loader"></i> Loading…</div></div>
+          <div class="company-team-activity-pager">
+            <button type="button" class="company-team-activity-icon-btn" data-activity-prev title="Previous" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+            <span id="companyTeamActivityPage" class="company-team-activity-page">—</span>
+            <button type="button" class="company-team-activity-icon-btn" data-activity-next title="Next" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>` : ""}
+      </div>
+    </div>
+  `;
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+
+  modal.querySelectorAll("[data-team-modal-close]").forEach(el => {
+    el.onclick = () => closeCompanyTeamModal();
+  });
+
+  modal.querySelectorAll("[data-team-tab]").forEach(btn => {
+    btn.onclick = () => {
+      modal.querySelectorAll("[data-team-tab]").forEach(b => {
+        const active = b === btn;
+        b.classList.toggle("is-active", active);
+        b.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      const target = btn.dataset.teamTab;
+      modal.querySelectorAll("[data-team-panel]").forEach(panel => {
+        panel.classList.toggle("hide", panel.dataset.teamPanel !== target);
+      });
+      if (target === "activity" && canViewActivity) loadCompanyTeamActivity(modal);
+      if (target === "members" && canManage) loadCompanyTeamMembers(modal);
+    };
+  });
+
+  if (canViewActivity) {
+    const refreshBtn = modal.querySelector("[data-activity-refresh]");
+    const prevBtn = modal.querySelector("[data-activity-prev]");
+    const nextBtn = modal.querySelector("[data-activity-next]");
+    if (refreshBtn) {
+      refreshBtn.onclick = () => {
+        refreshBtn.classList.add("is-spinning");
+        loadCompanyTeamActivity(modal).finally(() => refreshBtn.classList.remove("is-spinning"));
+      };
+    }
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        const limit = modal._activityLimit || 50;
+        const nextOffset = Math.max(0, (modal._activityOffset || 0) - limit);
+        if (nextOffset === (modal._activityOffset || 0)) return;
+        modal._activityOffset = nextOffset;
+        loadCompanyTeamActivity(modal);
+      };
+    }
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        const limit = modal._activityLimit || 50;
+        const total = modal._activityTotal || 0;
+        const nextOffset = (modal._activityOffset || 0) + limit;
+        if (nextOffset >= total) return;
+        modal._activityOffset = nextOffset;
+        loadCompanyTeamActivity(modal);
+      };
+    }
+  }
+
+  if (canManage) {
+    const addForm = modal.querySelector("#companyTeamAddForm");
+    if (addForm) {
+      addForm.onsubmit = async e => {
+        e.preventDefault();
+        const err = modal.querySelector("#companyTeamAddError");
+        if (err) {
+          err.textContent = "";
+          err.classList.remove("show");
+        }
+        try {
+          const username = modal.querySelector("#teamAddUsername")?.value.trim();
+          const password = modal.querySelector("#teamAddPassword")?.value || "";
+          const displayName = modal.querySelector("#teamAddDisplayName")?.value.trim() || "";
+          if (!username) throw new Error("Username is required.");
+          if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+          const permissions = readCompanyTeamPermCheckboxes("teamAdd");
+          await supabaseRpc("app_team_create_member", {
+            p_username: username,
+            p_password: password,
+            p_display_name: displayName,
+            p_permissions: permissions
+          });
+          addForm.reset();
+          resetCompanyTeamAddPermDefaults(modal);
+          await loadCompanyTeamMembers(modal);
+          logCompanyActivity("team", "team", `Added team member "${username}"`, { entityType: "team_member" });
+        } catch (ex) {
+          if (err) {
+            err.textContent = ex.message || "Could not add member.";
+            err.classList.add("show");
+          } else {
+            alert(ex.message || "Could not add member.");
+          }
+        }
+      };
+    }
+    await loadCompanyTeamMembers(modal);
+  }
+  if (canViewActivity && defaultTab === "activity") {
+    await loadCompanyTeamActivity(modal);
+  }
+}
+
+function updateCompanyTeamSeatsUi(modal, rows){
+  const seatsEl = modal.querySelector("#companyTeamSeats");
+  const submitBtn = modal.querySelector("#companyTeamAddForm button[type='submit']");
+  const activeCount = rows.filter(m => m.is_active !== false).length;
+  const maxTeam = Math.max(1, Math.min(50, Number(state.sessionUser?.max_team_members) || 3));
+  const isFull = activeCount >= maxTeam;
+  if (seatsEl) {
+    seatsEl.textContent = `${activeCount} / ${maxTeam} seats used`;
+    seatsEl.classList.toggle("is-full", isFull);
+  }
+  if (submitBtn) {
+    submitBtn.disabled = isFull;
+    submitBtn.title = isFull ? `Team is full (${activeCount}/${maxTeam}). Ask the platform admin to increase the limit.` : "";
+  }
+}
+
+async function loadCompanyTeamMembers(modal){
+  const list = modal.querySelector("#companyTeamMembersList");
+  if (!list) return;
+  list.innerHTML = `<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading members…</div>`;
+  try {
+    const members = await supabaseRpc("app_team_list_members", {});
+    const rows = Array.isArray(members) ? members : [];
+    updateCompanyTeamSeatsUi(modal, rows);
+    if (!rows.length) {
+      list.innerHTML = `<div class="empty">No team members yet. Add one above.</div>`;
+      return;
+    }
+    list.innerHTML = rows.map(member => renderCompanyTeamMemberCard(member)).join("");
+    wireCompanyTeamMemberActions(modal, list, rows);
+  } catch (err) {
+    list.innerHTML = `<div class="empty">${escapeHtml(err.message || "Could not load team members.")}</div>`;
+  }
+}
+
+function renderCompanyTeamMemberCard(member){
+  const perms = member.team_permissions || {};
+  const chips = COMPANY_TEAM_PERMISSION_FIELDS
+    .map(([key, label]) => `<span class="company-team-chip ${perms[key] ? "is-on" : "is-off"}">${escapeHtml(label)}</span>`)
+    .join("");
+  const statusBadge = member.is_active !== false
+    ? `<span class="admin-badge ok">Active</span>`
+    : `<span class="admin-badge warn">Disabled</span>`;
+  return `
+    <article class="company-team-member" data-member-id="${escapeHtml(String(member.id))}">
+      <div class="company-team-member-head">
+        <div class="company-team-member-name">
+          <strong>${escapeHtml(member.display_name || member.username)}</strong>
+          <code>@${escapeHtml(member.username)}</code>
+        </div>
+        ${statusBadge}
+      </div>
+      <div class="company-team-chip-row">${chips}</div>
+      <div class="company-team-member-actions">
+        <button type="button" class="btn soft tiny" data-team-action="edit-permissions">Edit permissions</button>
+        <button type="button" class="btn ghost tiny" data-team-action="toggle-active">${member.is_active !== false ? "Disable" : "Enable"}</button>
+        <button type="button" class="btn ghost tiny danger-text" data-team-action="remove">Remove</button>
+      </div>
+    </article>`;
+}
+
+function wireCompanyTeamMemberActions(modal, list, rows){
+  list.querySelectorAll(".company-team-member").forEach(card => {
+    const memberId = card.dataset.memberId;
+    const member = rows.find(m => String(m.id) === String(memberId));
+    if (!member) return;
+
+    const editBtn = card.querySelector('[data-team-action="edit-permissions"]');
+    const toggleBtn = card.querySelector('[data-team-action="toggle-active"]');
+    const removeBtn = card.querySelector('[data-team-action="remove"]');
+
+    if (editBtn) {
+      editBtn.onclick = () => openCompanyTeamMemberPermissionsEditor(card, member);
+    }
+    if (toggleBtn) {
+      toggleBtn.onclick = async () => {
+        const nextActive = member.is_active === false;
+        toggleBtn.disabled = true;
+        try {
+          await supabaseRpc("app_team_set_member_active", { p_user_id: member.id, p_active: nextActive });
+          await loadCompanyTeamMembers(modal);
+        } catch (err) {
+          alert(err.message || "Could not update member status.");
+          toggleBtn.disabled = false;
+        }
+      };
+    }
+    if (removeBtn) {
+      removeBtn.onclick = async () => {
+        if (!confirm(`Remove team member "${member.username}"? They will lose access, but shared company data stays intact.`)) return;
+        removeBtn.disabled = true;
+        try {
+          await supabaseRpc("app_team_delete_member", { p_user_id: member.id });
+          await loadCompanyTeamMembers(modal);
+        } catch (err) {
+          alert(err.message || "Could not remove team member.");
+          removeBtn.disabled = false;
+        }
+      };
+    }
+  });
+}
+
+function openCompanyTeamMemberPermissionsEditor(card, member){
+  const existingEditor = card.querySelector(".company-team-perm-editor");
+  if (existingEditor) {
+    existingEditor.remove();
+    return;
+  }
+  const perms = member.team_permissions || {};
+  const editor = document.createElement("div");
+  editor.className = "company-team-perm-editor";
+  editor.innerHTML = `
+    <div class="company-team-perm-grid">${companyTeamPermCheckboxesHtml("teamEdit" + member.id, perms)}</div>
+    <div class="company-team-perm-editor-actions">
+      <button type="button" class="btn ghost tiny" data-perm-cancel>Cancel</button>
+      <button type="button" class="btn primary tiny" data-perm-save>Save permissions</button>
+    </div>
+  `;
+  card.appendChild(editor);
+  editor.querySelector("[data-perm-cancel]").onclick = () => editor.remove();
+  editor.querySelector("[data-perm-save]").onclick = async () => {
+    const saveBtn = editor.querySelector("[data-perm-save]");
+    saveBtn.disabled = true;
+    try {
+      const permissions = {};
+      editor.querySelectorAll("[data-perm]").forEach(input => {
+        permissions[input.dataset.perm] = input.checked;
+      });
+      await supabaseRpc("app_team_update_member_permissions", { p_user_id: member.id, p_permissions: permissions });
+      const modal = card.closest(".modal");
+      if (modal) await loadCompanyTeamMembers(modal);
+    } catch (err) {
+      alert(err.message || "Could not update permissions.");
+      saveBtn.disabled = false;
+    }
+  };
+}
+
+async function loadCompanyTeamActivity(modal){
+  if (!isTeamOwnerAccount()) {
+    const list = modal.querySelector("#companyTeamActivityList");
+    if (list) list.innerHTML = `<div class="empty tiny">Only the main company account can view activity.</div>`;
+    return;
+  }
+  const list = modal.querySelector("#companyTeamActivityList");
+  const countEl = modal.querySelector("#companyTeamActivityCount");
+  const pageEl = modal.querySelector("#companyTeamActivityPage");
+  const prevBtn = modal.querySelector("[data-activity-prev]");
+  const nextBtn = modal.querySelector("[data-activity-next]");
+  if (!list) return;
+
+  const limit = modal._activityLimit || 50;
+  let offset = Math.max(0, modal._activityOffset || 0);
+  list.innerHTML = `<div class="empty tiny"><i class="fa-solid fa-spinner btn-loader"></i> Loading…</div>`;
+  try {
+    const result = await supabaseRpc("app_team_list_activity", { p_limit: limit, p_offset: offset });
+    const items = Array.isArray(result?.items) ? result.items : [];
+    const total = Number(result?.total) || 0;
+    modal._activityTotal = total;
+    if (offset > 0 && !items.length && total > 0) {
+      modal._activityOffset = Math.max(0, Math.floor((total - 1) / limit) * limit);
+      return loadCompanyTeamActivity(modal);
+    }
+    offset = modal._activityOffset || 0;
+    const from = total ? offset + 1 : 0;
+    const to = Math.min(offset + items.length, total);
+    const page = Math.floor(offset / limit) + 1;
+    const pages = Math.max(1, Math.ceil(total / limit) || 1);
+    if (countEl) countEl.textContent = total ? `${from}–${to} of ${total}` : "No activity yet";
+    if (pageEl) pageEl.textContent = total ? `${page}/${pages}` : "0/0";
+    if (prevBtn) prevBtn.disabled = offset <= 0;
+    if (nextBtn) nextBtn.disabled = offset + limit >= total;
+
+    if (!items.length) {
+      list.innerHTML = `<div class="empty tiny">No activity recorded yet.</div>`;
+      return;
+    }
+    list.innerHTML = items.map(item => {
+      const actor = item.actor_username || "unknown";
+      const summary = item.summary || item.action || "Activity";
+      const mod = item.module || "";
+      const time = formatRelativeTime(item.created_at) || formatAdminDate(item.created_at);
+      return `
+        <div class="cta-line" title="${escapeHtml(formatAdminDate(item.created_at))}">
+          <span class="cta-actor">@${escapeHtml(actor)}</span>
+          <span class="cta-summary">${escapeHtml(summary)}</span>
+          ${mod ? `<span class="cta-mod">${escapeHtml(mod)}</span>` : `<span class="cta-mod cta-mod-empty"></span>`}
+          <span class="cta-time">${escapeHtml(time)}</span>
+        </div>`;
+    }).join("");
+  } catch (err) {
+    if (countEl) countEl.textContent = "Activity";
+    if (pageEl) pageEl.textContent = "—";
+    if (prevBtn) prevBtn.disabled = true;
+    if (nextBtn) nextBtn.disabled = true;
+    list.innerHTML = `<div class="empty tiny">${escapeHtml(err.message || "Could not load activity.")}</div>`;
+  }
 }
 
 function applyUserProfileToConfig(user){
@@ -3249,6 +3943,36 @@ function userHasPermission(moduleName, action = "view"){
   return state.permissions.some(
     p => p.module === moduleName && p.action === action && p.allowed === true
   );
+}
+
+function isTeamMemberAccount(user = state.sessionUser){
+  return !!(user && user.team_owner_id);
+}
+function isTeamOwnerAccount(user = state.sessionUser){
+  return !!(user && user.allow_team_members && !user.team_owner_id);
+}
+function canManageCompanyTeam(user = state.sessionUser){
+  if (!user) return false;
+  if (isTeamOwnerAccount(user)) return true;
+  return isTeamMemberAccount(user) && !!user.team_permissions?.can_manage_team;
+}
+function teamCapability(key, user = state.sessionUser){
+  // Solo / owner accounts are unrestricted here (still subject to tab permissions elsewhere)
+  if (!isTeamMemberAccount(user)) return true;
+  return !!user?.team_permissions?.[key];
+}
+function assertTeamCapability(key, message){
+  if (!teamCapability(key)) throw new Error(message || "You do not have permission for this action.");
+}
+
+// UI-level gate: hides (rather than just disabling) edit/delete affordances
+// for restricted team members. "entries" = loans/installments/expenses,
+// "invoices" = inventory/goods items & sales. Solo/owner accounts always pass.
+function teamCanShowEdit(kind = "entries"){
+  return teamCapability(kind === "invoices" ? "can_edit_invoices" : "can_edit_entries");
+}
+function teamCanShowDelete(kind = "entries"){
+  return teamCapability(kind === "invoices" ? "can_delete_invoices" : "can_delete_entries");
 }
 
 function applyPermissionGates(){
@@ -3480,6 +4204,19 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   } else {
     queueDatabaseInsert(rows, options.label || (rows.length === 1 ? "Entry" : "Entries"));
     renderAll();
+  }
+  const label = String(options.label || "").toLowerCase();
+  if (label === "transfer" && rows.length >= 2) {
+    const from = rows[0];
+    const to = rows[1];
+    logCompanyActivity(
+      "transfer",
+      "expenses",
+      `Transferred ${moneyText(from.action_amount || 0, from.currency)} from "${from.person_name}" to "${to.person_name}"${from.currency !== to.currency ? ` (${moneyText(to.action_amount || 0, to.currency)})` : ""}`,
+      { entityType: "transfer", entityId: from.group_id, meta: { toGroupId: to.group_id } }
+    );
+  } else if (!options.skipActivityLog) {
+    logEntriesCreated(rows);
   }
   return Array.isArray(entryOrEntries) ? rows : rows[0];
 }
@@ -3905,19 +4642,25 @@ function expenseOverviewWalletCardHtml(a){
   const addressLine = a.btcAddress
     ? `<span class="expense-wallet-address mono" title="${escapeHtml(a.btcAddress)}">${escapeHtml(a.btcAddress)}</span>`
     : "";
+  const walletEditBtn = teamCanShowEdit("entries")
+    ? `<button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>`
+    : "";
+  const walletDeleteBtn = teamCanShowDelete("entries")
+    ? `<button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>`
+    : "";
   const actions = isBtcLive
     ? `
         <button class="tiny ghost walletDownloadPdfBtn" title="Download wallet transactions PDF" aria-label="Download wallet transactions PDF" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-        <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-        <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+        ${walletEditBtn}
+        ${walletDeleteBtn}
       `
     : `
         <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
         <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
         <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
         <button class="tiny ghost walletDownloadPdfBtn" title="Download wallet transactions PDF" aria-label="Download wallet transactions PDF" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-download"></i></button>
-        <button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>
-        <button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>
+        ${walletEditBtn}
+        ${walletDeleteBtn}
       `;
 
   return `
@@ -6898,9 +7641,9 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                 <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">
                   <button class="menu-item personActionBtn" type="button" data-action="pdf" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-download"></i> Download PDF</button>
                   ${hasUnsynced ? `<button class="menu-item personActionBtn" type="button" data-action="save-db" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Save to Database</button>` : ""}
-                  <button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Edit Name</button>
-                  ${showInstallmentMove ? `<button class="menu-item personActionBtn" type="button" data-action="move-installment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Move to Installments</button>` : ""}
-                  <button class="menu-item danger personActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Delete Record</button>
+                  ${teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Edit Name</button>` : ""}
+                  ${showInstallmentMove && teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="move-installment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Move to Installments</button>` : ""}
+                  ${teamCanShowDelete("entries") ? `<button class="menu-item danger personActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Delete Record</button>` : ""}
                 </div>
               </div>
               ${hasUnsynced ? `<button class="icon-btn savePersonBtn" type="button" title="Save missing records to database" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">💾</button>` : ""}
@@ -6939,8 +7682,8 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                     </td>
                     <td>
                        <div style="display:flex;gap:4px;">
-                         <button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}" title="Edit entry">✎</button>
-                         <button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}" title="Delete entry">✕</button>
+                         ${teamCanShowEdit("entries") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}" title="Edit entry">✎</button>` : ""}
+                         ${teamCanShowDelete("entries") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}" title="Delete entry">✕</button>` : ""}
                        </div>
                     </td>
                   </tr>
@@ -7743,8 +8486,8 @@ function renderGoodsList(){
                 <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}">☰</button>
                 <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
                   <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-download"></i> Download PDF</button>
-                  <button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Purchase</button>
-                  <button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>
+                  ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Purchase</button>` : ""}
+                  ${teamCanShowDelete("invoices") ? `<button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>` : ""}
                 </div>
               </div>
             </div>
@@ -7765,8 +8508,8 @@ function renderGoodsList(){
                     <td>
                       <div style="display:flex;gap:4px;">
                         <button class="tiny soldReceiptBtn" data-id="${escapeHtml(row.id)}">PDF</button>
-                        <button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.id)}">✎</button>
-                        <button class="tiny danger delRowBtn" data-id="${escapeHtml(row.id)}">✕</button>
+                        ${teamCanShowEdit("invoices") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.id)}">✎</button>` : ""}
+                        ${teamCanShowDelete("invoices") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(row.id)}">✕</button>` : ""}
                       </div>
                     </td>
                   </tr>
@@ -8089,8 +8832,8 @@ function renderInventoryList(){
                 <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}">☰</button>
                 <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
                   <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-download"></i> Download PDF</button>
-                  <button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Item</button>
-                  <button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>
+                  ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Item</button>` : ""}
+                  ${teamCanShowDelete("invoices") ? `<button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>` : ""}
                 </div>
               </div>
             </div>
@@ -8115,8 +8858,8 @@ function renderInventoryList(){
                       <div style="display:flex;gap:4px;">
                         ${row.kind === "Sold" || row.kind === "Settlement" ? `<button class="tiny soldReceiptBtn" data-id="${escapeHtml(row.entryId)}" title="Download receipt"><i class="fa-solid fa-download"></i></button>` : `<button class="tiny invoiceDownloadBtn" data-group-id="${escapeHtml(group.group_id)}" title="Download invoice"><i class="fa-solid fa-file-invoice"></i></button>`}
                         ${row.canSettle ? `<button class="tiny ghost clearBalanceBtn" data-id="${escapeHtml(row.entryId)}" title="Clear balance">Clear</button>` : ""}
-                        <button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}">✎</button>
-                        <button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}">✕</button>
+                        ${teamCanShowEdit("invoices") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}">✎</button>` : ""}
+                        ${teamCanShowDelete("invoices") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}">✕</button>` : ""}
                       </div>
                     </td>
                   </tr>
@@ -9285,8 +10028,8 @@ function renderExpensesList(){
                     <td class="expense-item-detail-note">${escapeHtml(cleanExpenseNote(tx.notes))}</td>
                     <td>
                       <div style="display:flex;gap:4px;">
-                        <button class="tiny ghost editRowBtn" data-id="${escapeHtml(tx.id)}">✎</button>
-                        <button class="tiny danger delRowBtn" data-id="${escapeHtml(tx.id)}">✕</button>
+                        ${teamCanShowEdit("entries") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(tx.id)}">✎</button>` : ""}
+                        ${teamCanShowDelete("entries") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(tx.id)}">✕</button>` : ""}
                       </div>
                     </td>
                   </tr>
@@ -9375,8 +10118,8 @@ function renderExpensesList(){
                       <td class="expense-item-detail-note">${escapeHtml(r.notes)}</td>
                       <td>
                         <div style="display:flex;gap:4px;">
-                          <button class="tiny ghost editRowBtn" data-id="${escapeHtml(r.editId)}">✎</button>
-                          <button class="tiny danger delRowBtn" data-id="${escapeHtml(r.editId)}">✕</button>
+                          ${teamCanShowEdit("entries") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(r.editId)}">✎</button>` : ""}
+                          ${teamCanShowDelete("entries") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(r.editId)}">✕</button>` : ""}
                         </div>
                       </td>
                     </tr>`;
@@ -9447,8 +10190,8 @@ function renderExpensesList(){
                     <td class="expense-item-detail-note">${escapeHtml(tx.notes)}</td>
                     <td>
                       <div style="display:flex;gap:4px;">
-                        <button class="tiny ghost editRowBtn" data-id="${escapeHtml(tx.id)}">✎</button>
-                        <button class="tiny danger delRowBtn" data-id="${escapeHtml(tx.id)}">✕</button>
+                        ${teamCanShowEdit("entries") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(tx.id)}">✎</button>` : ""}
+                        ${teamCanShowDelete("entries") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(tx.id)}">✕</button>` : ""}
                       </div>
                     </td>
                   </tr>
@@ -10543,10 +11286,10 @@ function renderInstallmentPlans(){
               <div class="menu-wrap">
                 <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" data-person-menu="${escapeHtml(plan.group_id)}" aria-expanded="false">☰</button>
                 <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(plan.group_id)}">
-                  <button class="menu-item installmentActionBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-pen-to-square"></i> Edit plan / schedule</button>
+                  ${teamCanShowEdit("entries") ? `<button class="menu-item installmentActionBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-pen-to-square"></i> Edit plan / schedule</button>` : ""}
                   <button class="menu-item installmentActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-money-bill"></i> Pay installment</button>
                   <button class="menu-item installmentActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-download"></i> Download statement</button>
-                  <button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>
+                  ${teamCanShowDelete("entries") ? `<button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>` : ""}
                 </div>
               </div>
             </div>
@@ -10691,7 +11434,7 @@ function renderInstallmentPlanOverlayBody(plan){
       </div>
     </div>
     <div class="ipo-actions">
-      <button class="btn ghost tiny installmentOverlayBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}">${needsSchedule ? "Set schedule" : "Edit"}</button>
+      ${teamCanShowEdit("entries") ? `<button class="btn ghost tiny installmentOverlayBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}">${needsSchedule ? "Set schedule" : "Edit"}</button>` : ""}
       ${remaining > 0 ? `<button class="btn primary tiny installmentOverlayBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}">Pay</button>` : ""}
       <button class="btn ghost tiny installmentOverlayBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}">PDF</button>
     </div>
@@ -11271,6 +12014,10 @@ function openInstallmentPaymentModal(groupId, amount = null){
 }
 
 function openInstallmentEditModal(groupId){
+  if (!teamCapability("can_edit_entries")) {
+    alert("You do not have permission to edit entries.");
+    return;
+  }
   const plan = getInstallmentPlanGroup(groupId);
   const form = els.installmentEditForm;
   if (!plan?.principal || !form || !els.installmentEditModal) {
@@ -11354,6 +12101,7 @@ function updateInstallmentEditPreview(){
 }
 
 async function submitInstallmentEdit(){
+  assertTeamCapability("can_edit_entries", "You do not have permission to edit entries.");
   const form = els.installmentEditForm;
   if (!form) return;
   const groupId = String(form.querySelector('[name="group_id"]')?.value || "").trim();
@@ -11429,6 +12177,12 @@ async function submitInstallmentEdit(){
   closeModal("installmentEditModal");
   if (isBackupMode()) refreshBackupView();
   else renderAll();
+  logCompanyActivity(
+    "edit",
+    "installments",
+    `Updated installment plan "${personName}" (${moneyText(amount, currency)}, ${count} installments)`,
+    { entityType: "installment", entityId: groupId }
+  );
   activate("installments");
 }
 
@@ -11979,6 +12733,12 @@ function openEditModal(id) {
     openInstallmentEditModal(entry.group_id);
     return;
   }
+  const isGoodsSaleEntry = hasGoodsTag(entry.notes);
+  const requiredCapability = isGoodsSaleEntry ? "can_edit_invoices" : "can_edit_entries";
+  if (!teamCapability(requiredCapability)) {
+    alert(isGoodsSaleEntry ? "You do not have permission to edit invoices." : "You do not have permission to edit entries.");
+    return;
+  }
   state.editId = id;
   state.editKind = entry.entry_kind;
 
@@ -12090,6 +12850,10 @@ function renderInventoryEditItemSummary(group, principalMeta){
 function openInventoryEditItemModal(id){
   const entry = state.entries.find(e => e.id === id);
   if (!entry || entry.entry_kind !== "principal" || !hasGoodsTag(entry.notes)) return;
+  if (!teamCapability("can_edit_invoices")) {
+    alert("You do not have permission to edit invoices.");
+    return;
+  }
   const form = els.inventoryEditItemForm;
   if (!form || !els.inventoryEditItemModal) return;
 
@@ -12151,6 +12915,7 @@ function openInventoryEditItemModal(id){
 }
 
 async function submitInventoryEditItem(){
+  assertTeamCapability("can_edit_invoices", "You do not have permission to edit invoices.");
   const id = state.editId;
   if (!id) return;
   const form = els.inventoryEditItemForm;
@@ -12510,6 +13275,11 @@ async function submitEdit(){
   const currentEntry = state.entries.find(e => e.id === id);
   if (!currentEntry) return;
 
+  assertTeamCapability(
+    hasGoodsTag(currentEntry.notes) ? "can_edit_invoices" : "can_edit_entries",
+    hasGoodsTag(currentEntry.notes) ? "You do not have permission to edit invoices." : "You do not have permission to edit entries."
+  );
+
   const amt = Number(document.getElementById('editAmount').value || 0);
   const dt = document.getElementById('editDate').value;
   const nt = document.getElementById('editNotes').value.trim() || null;
@@ -12576,9 +13346,15 @@ async function submitEdit(){
   closeModal("editModal");
   if (isBackupMode()) refreshBackupView();
   else renderAll();
+  const edited = state.entries.find(e => e.id === id);
+  if (edited) logEntryUpdated(edited);
 }
 
 async function renamePersonRecords(personNameEncoded, direction){
+  if (!teamCapability("can_edit_entries")) {
+    alert("You do not have permission to edit entries.");
+    return;
+  }
   const currentName = decodeURIComponent(personNameEncoded || "").trim();
   if (!currentName || !direction) return;
   const nextName = prompt("Enter new person name:", currentName);
@@ -12695,13 +13471,31 @@ async function deleteEntry(id){
   const entry = state.entries.find(e => e.id === id);
   if (!entry) return;
 
+  const isGoodsEntry = hasGoodsTag(entry.notes);
+  const requiredCapability = isGoodsEntry ? "can_delete_invoices" : "can_delete_entries";
+  if (!teamCapability(requiredCapability)) {
+    alert(isGoodsEntry ? "You do not have permission to delete invoices." : "You do not have permission to delete entries.");
+    return;
+  }
+
   // Check if this is a transfer record
   const isTransfer = hasExpenseAccountTag(entry.notes) && 
                      expenseMetaFromNotes(entry.notes).expenseType === "Transfer";
+  const isExpenseWallet = entry.entry_kind === "principal" && hasExpenseAccountTag(entry.notes);
 
   if(entry.entry_kind === "principal"){
-    if (!confirm(`Delete the entire loan for ${entry.person_name}? This will move ALL linked repayments to recycle bin.`)) return;
     const groupEntries = state.entries.filter(e => e.group_id === entry.group_id);
+    if (isExpenseWallet) {
+      const ok = await requireSmartPinConfirm({
+        title: "Delete wallet",
+        description: `Enter your Smart Pin to permanently delete the wallet "${entry.person_name}" and move ${groupEntries.length} linked transaction${groupEntries.length === 1 ? "" : "s"} to the recycle bin.`,
+        confirmLabel: "Delete Wallet",
+        accent: "danger"
+      });
+      if (!ok) return;
+    } else {
+      if (!confirm(`Delete the entire loan for ${entry.person_name}? This will move ALL linked repayments to recycle bin.`)) return;
+    }
     groupEntries.forEach(e => addToRecycleBin(e));
     unmarkDbSnapshotRows(groupEntries);
     state.entries = state.entries.filter(e => e.group_id !== entry.group_id);
@@ -12712,6 +13506,14 @@ async function deleteEntry(id){
         console.error("Delete group sync failed.", err);
         alert("Item was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
       });
+    }
+    if (isExpenseWallet) {
+      logCompanyActivity("wallet_deleted", "expenses", `Deleted wallet "${entry.person_name}" (${groupEntries.length} transaction${groupEntries.length === 1 ? "" : "s"})`, {
+        entityType: "wallet",
+        entityId: entry.group_id
+      });
+    } else {
+      logEntryDeleted(entry, "Deleted");
     }
   } else if (isTransfer) {
     // Handle transfer deletion - move both expense and top-up parts to recycle bin
@@ -12727,6 +13529,7 @@ async function deleteEntry(id){
         alert("Item was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
       });
     }
+    logEntryDeleted(entry, "Deleted");
   }
   if (isBackupMode()) {
     refreshBackupView();
@@ -12785,6 +13588,10 @@ async function deleteTransfer(entry) {
     } else {
       persistDeleteEntry(entry, { label: "Delete" }).catch(err => console.error(err));
     }
+    logCompanyActivity("delete", "expenses", `Deleted transfer record on "${entry.person_name}" (${moneyText(entry.action_amount || 0, entry.currency)})`, {
+      entityType: "transfer",
+      entityId: entry.id
+    });
     renderAll();
     renderRecycleBinDropdown();
     return;
@@ -12810,11 +13617,24 @@ async function deleteTransfer(entry) {
       persistDeleteEntry(transferPartner, { label: "Delete" })
     ]).catch(err => console.error(err));
   }
+  const fromName = transferType === "expense" ? entry.person_name : transferPartner.person_name;
+  const toName = transferType === "expense" ? transferPartner.person_name : entry.person_name;
+  const amountEntry = transferType === "expense" ? entry : transferPartner;
+  logCompanyActivity(
+    "delete",
+    "expenses",
+    `Deleted transfer ${moneyText(amountEntry.action_amount || 0, amountEntry.currency)} from "${fromName}" to "${toName}"`,
+    { entityType: "transfer", entityId: entry.id }
+  );
   renderAll();
   renderRecycleBinDropdown();
 }
 
 async function deletePersonRecords(personNameEncoded, direction){
+  if (!teamCapability("can_delete_entries")) {
+    alert("You do not have permission to delete entries.");
+    return;
+  }
   const personName = decodeURIComponent(personNameEncoded || "").trim();
   if (!personName || !direction) return;
 
@@ -14899,7 +15719,12 @@ async function downloadExpenseItemPDF(itemKey){
 
 async function deleteExpenseWallet(groupId, walletName) {
   if (!groupId) return;
-  
+
+  if (!teamCapability("can_delete_entries")) {
+    alert("You do not have permission to delete wallets.");
+    return;
+  }
+
   // Get all entries related to this wallet
   const walletEntries = state.entries.filter(e => e.group_id === groupId);
   
@@ -14908,9 +15733,14 @@ async function deleteExpenseWallet(groupId, walletName) {
     return;
   }
 
-  const confirmMessage = `Are you sure you want to delete the wallet "${walletName}"?\n\nThis will move ALL records related to this wallet to the recycle bin:\n- ${walletEntries.length} total transactions\n- Including opening balance, top-ups, and expenses\n\nYou can restore them later from the recycle bin.`;
-  
-  if (!confirm(confirmMessage)) return;
+  const safeName = walletName || "this wallet";
+  const ok = await requireSmartPinConfirm({
+    title: "Delete wallet",
+    description: `Enter your Smart Pin to permanently delete the wallet "${safeName}" and move ${walletEntries.length} linked transaction${walletEntries.length === 1 ? "" : "s"} to the recycle bin.`,
+    confirmLabel: "Delete Wallet",
+    accent: "danger"
+  });
+  if (!ok) return;
 
   walletEntries.forEach(e => addToRecycleBin(e));
   unmarkDbSnapshotRows(walletEntries);
@@ -14926,6 +15756,10 @@ async function deleteExpenseWallet(groupId, walletName) {
         alert("Wallet was moved to recycle bin on this screen, but database sync failed. Please refresh after the connection improves.");
       });
   }
+  logCompanyActivity("wallet_deleted", "expenses", `Deleted wallet "${safeName}" (${walletEntries.length} transaction${walletEntries.length === 1 ? "" : "s"})`, {
+    entityType: "wallet",
+    entityId: groupId
+  });
   renderAll();
   renderRecycleBinDropdown();
 }
@@ -15672,7 +16506,7 @@ async function importNotesSectionCsv(entries){
     const id = entry.id || crypto.randomUUID();
     const payload = {
       id,
-      owner_id: state.sessionUser?.id || null,
+      owner_id: currentOwnerId(),
       content,
       notes: JSON.stringify({ content, rowType: "NOTE" }),
       meta: { rowType: "NOTE" },
@@ -15731,7 +16565,7 @@ async function importBitcoinSectionCsv(entries){
     const id = entry.id || crypto.randomUUID();
     const payload = {
       id,
-      owner_id: state.sessionUser?.id || null,
+      owner_id: currentOwnerId(),
       label,
       address,
       network,
@@ -15908,7 +16742,7 @@ function sanitizeEntryForSupabase(entry){
     action_date: normalizedActionDate,
     notes: entry.notes == null || String(entry.notes).trim() === "" ? null : String(entry.notes)
   };
-  const ownerId = entry.owner_id || state.sessionUser?.id;
+  const ownerId = entry.owner_id || currentOwnerId();
   if (ownerId) row.owner_id = ownerId;
   return row;
 }
@@ -16620,6 +17454,16 @@ window.addEventListener("resize", () => {
   if (els.deleteSmartPinBtn){
     els.deleteSmartPinBtn.addEventListener("click", () => handleDeleteSmartPinAction());
   }
+  if (els.companyTeamBtn){
+    els.companyTeamBtn.addEventListener("click", () => {
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+      openCompanyTeamModal();
+    });
+  }
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && isCompanyTeamModalOpen()) closeCompanyTeamModal();
+  });
   if (els.refreshBtn){
     els.refreshBtn.addEventListener("click", () => {
       (async () => {
@@ -21006,7 +21850,7 @@ async function saveBitcoinWallet(address, label, network, isWatchOnly) {
   const walletId = crypto.randomUUID();
   const domainPayload = {
     id: walletId,
-    owner_id: state.sessionUser?.id || null,
+    owner_id: currentOwnerId(),
     label,
     address,
     network,
@@ -21459,7 +22303,7 @@ async function saveNote() {
   const noteId = crypto.randomUUID();
   const domainPayload = {
     id: noteId,
-    owner_id: state.sessionUser?.id || null,
+    owner_id: currentOwnerId(),
     content: noteText,
     notes: JSON.stringify({ content: noteText, rowType: "NOTE" }),
     meta: { rowType: "NOTE" },
@@ -22895,6 +23739,7 @@ async function loadAdminUsers(){
         ? `<span class="admin-badge">Admin</span>`
         : `<span class="admin-badge muted">User</span>`;
       const protectedBadge = user.is_protected ? `<span class="admin-badge">Protected</span>` : "";
+      const teamAccountBadge = user.allow_team_members ? `<span class="admin-badge ok">Team · max ${escapeHtml(String(Math.max(1, Math.min(50, Number(user.max_team_members) || 3))))}</span>` : "";
       const forceBadge = user.must_change_password ? `<span class="admin-badge warn">Must change password</span>` : "";
       let planBadge = `<span class="admin-badge ok">Full · unlimited</span>`;
       if (flags.period_expired && flags.grace_active) {
@@ -22941,7 +23786,7 @@ async function loadAdminUsers(){
                 <button type="button" class="btn ghost tiny admin-summary-copy" data-copy="${escapeHtml(user.username)}" title="Copy username">Copy</button>
               </div>
               <div class="admin-user-summary-badges">
-                ${statusBadge}${roleBadge}${planBadge}${protectedBadge}${forceBadge}
+                ${statusBadge}${roleBadge}${planBadge}${protectedBadge}${teamAccountBadge}${forceBadge}
               </div>
               ${trialSummary}
             </div>
@@ -23718,6 +24563,25 @@ function buildAdminUserFormFields(prefix, user = null){
       <input id="${prefix}MustChange" type="checkbox" ${user?.must_change_password ? "checked" : ""} />
       Require password change on next login
     </label>
+    ${!user?.is_protected ? `
+    <label class="admin-inline-check">
+      <input id="${prefix}AllowTeam" type="checkbox" ${user?.allow_team_members ? "checked" : ""} ${user?.team_owner_id ? "disabled" : ""} />
+      Allow multiple users on this company account
+    </label>
+    <p class="help">Company owner can invite sub-users who share the same data, with edit/delete permissions and an activity log.</p>
+    <div class="admin-team-limit-block ${user?.allow_team_members ? "" : "hide"}" id="${prefix}TeamLimitBlock">
+      <label class="form-label">Max team members</label>
+      <div class="admin-team-limit-row">
+        <div class="admin-team-limit-presets" role="group" aria-label="Max team members preset">
+          <button type="button" class="admin-team-limit-chip" data-limit-preset="1">1</button>
+          <button type="button" class="admin-team-limit-chip" data-limit-preset="2">2</button>
+          <button type="button" class="admin-team-limit-chip" data-limit-preset="3">3</button>
+          <button type="button" class="admin-team-limit-chip" data-limit-preset="custom">Custom</button>
+        </div>
+        <input id="${prefix}MaxTeamMembers" class="input admin-team-limit-input" type="number" min="1" max="50" value="${escapeHtml(String(Math.max(1, Math.min(50, Number(user?.max_team_members) || 3))))}" />
+      </div>
+      <p class="help">Seats for sub-users sharing this company account (1–50).</p>
+    </div>` : ""}
     ${user && !user.is_protected ? `
     <label class="admin-inline-check">
       <input id="${prefix}Active" type="checkbox" ${user.is_active !== false ? "checked" : ""} />
@@ -23767,6 +24631,40 @@ function bindAccessPeriodFields(root){
     sel.addEventListener("change", sync);
     sync();
   });
+}
+
+function bindAdminTeamLimitControl(root, prefix){
+  const scope = root || document;
+  const allowEl = scope.querySelector(`#${prefix}AllowTeam`);
+  const block = scope.querySelector(`#${prefix}TeamLimitBlock`);
+  const input = scope.querySelector(`#${prefix}MaxTeamMembers`);
+  if (!allowEl || !block || !input) return;
+  const chips = Array.from(block.querySelectorAll("[data-limit-preset]"));
+  const syncActiveChip = () => {
+    const val = String(Math.max(1, Math.min(50, parseInt(input.value, 10) || 3)));
+    chips.forEach(chip => {
+      const preset = chip.dataset.limitPreset;
+      const active = preset === "custom" ? !["1", "2", "3"].includes(val) : preset === val;
+      chip.classList.toggle("is-active", active);
+    });
+  };
+  chips.forEach(chip => {
+    chip.onclick = () => {
+      const preset = chip.dataset.limitPreset;
+      if (preset === "custom") {
+        input.focus();
+        input.select();
+      } else {
+        input.value = preset;
+      }
+      syncActiveChip();
+    };
+  });
+  input.oninput = syncActiveChip;
+  const syncVisibility = () => block.classList.toggle("hide", !allowEl.checked);
+  allowEl.addEventListener("change", syncVisibility);
+  syncVisibility();
+  syncActiveChip();
 }
 
 function readAccessPeriodPayload(prefix){
@@ -23864,6 +24762,7 @@ function openAdminCreateUserModal(){
   bindAdminLogoPicker("adminNew", null);
   bindAdminFormPasswordToggle(modal);
   bindAccessPeriodFields(modal);
+  bindAdminTeamLimitControl(modal, "adminNew");
   const err = modal.querySelector("#adminCreateError");
   err.textContent = "";
   err.classList.remove("show");
@@ -23911,7 +24810,9 @@ function openAdminCreateUserModal(){
         p_logo_url: modal.querySelector("#adminNewLogoUrl").value.trim(),
         p_company_email: modal.querySelector("#adminNewEmail").value.trim(),
         p_company_phone: modal.querySelector("#adminNewPhone").value.trim(),
-        p_company_address: modal.querySelector("#adminNewAddress").value.trim()
+        p_company_address: modal.querySelector("#adminNewAddress").value.trim(),
+        p_allow_team_members: !!modal.querySelector("#adminNewAllowTeam")?.checked,
+        p_max_team_members: Math.max(1, Math.min(50, parseInt(modal.querySelector("#adminNewMaxTeamMembers")?.value, 10) || 3))
       });
       if (created?.id) {
         await applyAdminAccessPeriod(created.id, periodPayload);
@@ -23960,6 +24861,7 @@ function openAdminEditUserModal(user){
   bindAdminLogoPicker("adminEdit", user.id);
   bindAdminFormPasswordToggle(modal);
   bindAccessPeriodFields(modal);
+  bindAdminTeamLimitControl(modal, "adminEdit");
   const pwInput = modal.querySelector("#adminEditPassword");
   if (pwInput) {
     pwInput.value = "";
@@ -23998,6 +24900,11 @@ function openAdminEditUserModal(user){
       setVal("#adminEditEmail", fresh.company_email || fresh.settings?.email || fresh.settings?.Email || "");
       setVal("#adminEditPhone", fresh.company_phone || fresh.settings?.Mobile || fresh.settings?.Phone || "");
       setVal("#adminEditAddress", fresh.company_address || fresh.settings?.Address || fresh.settings?.address || "");
+      const maxTeamEl = modal.querySelector("#adminEditMaxTeamMembers");
+      if (maxTeamEl && fresh.max_team_members) {
+        maxTeamEl.value = Math.max(1, Math.min(50, Number(fresh.max_team_members) || 3));
+        maxTeamEl.dispatchEvent(new Event("input"));
+      }
       const logoUrl = fresh.logo_url || fresh.settings?.logo || "";
       setVal("#adminEditLogoUrl", logoUrl);
       const preview = modal.querySelector("#adminEditLogoPreview");
@@ -24066,6 +24973,21 @@ function openAdminEditUserModal(user){
       if (activeEl) payload.p_is_active = activeEl.checked;
       await supabaseRpc("app_admin_update_user_access", payload);
 
+      const allowTeamEl = modal.querySelector("#adminEditAllowTeam");
+      if (allowTeamEl && !allowTeamEl.disabled) {
+        const maxTeamEl = modal.querySelector("#adminEditMaxTeamMembers");
+        const nextMax = Math.max(1, Math.min(50, parseInt(maxTeamEl?.value, 10) || 3));
+        const allowChanged = !!allowTeamEl.checked !== !!user.allow_team_members;
+        const maxChanged = nextMax !== Math.max(1, Math.min(50, Number(user.max_team_members) || 3));
+        if (allowChanged || maxChanged) {
+          await supabaseRpc("app_admin_set_team_limits", {
+            p_user_id: user.id,
+            p_allow: allowTeamEl.checked,
+            p_max_team_members: nextMax
+          });
+        }
+      }
+
       const applyPeriod = modal.querySelector("#adminEditApplyPeriod")?.checked === true;
       if (!user.is_protected && applyPeriod) {
         await applyAdminAccessPeriod(user.id, readAccessPeriodPayload("adminEdit"));
@@ -24116,6 +25038,8 @@ function openAccountSettingsModal(){
   const phone = user.company_phone || settings.Mobile || settings.Phone || settings.phone || "";
   const address = user.company_address || settings.Address || settings.address || "";
   const usernameLocked = !!user.is_protected;
+  const brandingLocked = isTeamMemberAccount(user);
+  const brandingAttrs = brandingLocked ? "readonly disabled" : "";
   let modal = document.getElementById("accountSettingsModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -24168,27 +25092,31 @@ function openAccountSettingsModal(){
           </div>
         </div>
 
-        <div class="settings-card">
-          <div class="settings-card-head"><span>Company</span></div>
+        <div class="settings-card${brandingLocked ? " settings-card-locked" : ""}">
+          <div class="settings-card-head">
+            <span>Company</span>
+            ${brandingLocked ? `<span class="settings-pill">Read-only</span>` : ""}
+          </div>
+          ${brandingLocked ? `<p class="settings-readonly-note"><i class="fa-solid fa-lock" aria-hidden="true"></i> Managed by the company main account</p>` : ""}
           <div class="settings-grid">
             <label class="settings-field">Company
-              <input id="acctCompany" class="input settings-input" autocomplete="organization" />
+              <input id="acctCompany" class="input settings-input" autocomplete="organization" ${brandingAttrs} />
             </label>
             <label class="settings-field">VAT / TRN
-              <input id="acctVat" class="input settings-input" />
+              <input id="acctVat" class="input settings-input" ${brandingAttrs} />
             </label>
             <label class="settings-field">Email
-              <input id="acctEmail" class="input settings-input" type="email" autocomplete="email" />
+              <input id="acctEmail" class="input settings-input" type="email" autocomplete="email" ${brandingAttrs} />
             </label>
             <label class="settings-field">Mobile
-              <input id="acctPhone" class="input settings-input" type="tel" autocomplete="tel" />
+              <input id="acctPhone" class="input settings-input" type="tel" autocomplete="tel" ${brandingAttrs} />
             </label>
             <label class="settings-field settings-span-2">Address
-              <input id="acctAddress" class="input settings-input" placeholder="Street, city, country" />
+              <input id="acctAddress" class="input settings-input" placeholder="Street, city, country" ${brandingAttrs} />
             </label>
             <label class="settings-field settings-span-2">Logo
               <div class="settings-logo-row">
-                <input id="acctLogoFile" class="input settings-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
+                ${brandingLocked ? "" : `<input id="acctLogoFile" class="input settings-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />`}
                 <input id="acctLogoUrl" type="hidden" value="" />
                 <img id="acctLogoPreview" class="settings-logo-preview hide" src="" alt="" />
               </div>
@@ -24377,14 +25305,16 @@ function openAccountSettingsModal(){
       }
 
       const payload = {
-        p_display_name: modal.querySelector("#acctDisplayName").value.trim(),
-        p_company_name: modal.querySelector("#acctCompany").value.trim(),
-        p_vat_number: modal.querySelector("#acctVat").value.trim(),
-        p_logo_url: modal.querySelector("#acctLogoUrl").value.trim(),
-        p_company_email: modal.querySelector("#acctEmail").value.trim(),
-        p_company_phone: modal.querySelector("#acctPhone").value.trim(),
-        p_company_address: modal.querySelector("#acctAddress").value.trim()
+        p_display_name: modal.querySelector("#acctDisplayName").value.trim()
       };
+      if (!brandingLocked) {
+        payload.p_company_name = modal.querySelector("#acctCompany").value.trim();
+        payload.p_vat_number = modal.querySelector("#acctVat").value.trim();
+        payload.p_logo_url = modal.querySelector("#acctLogoUrl").value.trim();
+        payload.p_company_email = modal.querySelector("#acctEmail").value.trim();
+        payload.p_company_phone = modal.querySelector("#acctPhone").value.trim();
+        payload.p_company_address = modal.querySelector("#acctAddress").value.trim();
+      }
       if (!usernameLocked && newUsername && newUsername !== currentUsername) {
         payload.p_new_username = newUsername;
       }
