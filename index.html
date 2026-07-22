@@ -1423,10 +1423,17 @@
                 <button class="btn soft" type="button" data-section-csv-upload="inventory" title="Upload CSV into inventory">Upload CSV</button>
               </div>
             </div>
-            <div class="filter-inline-row">
+            <div class="filter-inline-row inventory-filter-row">
               <div class="filter-inline-section">
                 <span class="filter-inline-label">Search:</span>
-                <input id="searchGoods" class="input filter-inline-input" placeholder="Search item or note" />
+                <input id="searchGoods" class="input filter-inline-input" placeholder="Search item, type, or note" />
+              </div>
+              <span class="filter-divider">|</span>
+              <div class="filter-inline-section">
+                <span class="filter-inline-label">Type:</span>
+                <select id="inventoryTypeFilter" class="select filter-inline-select" aria-label="Filter inventory by item type">
+                  <option value="all" selected>All types</option>
+                </select>
               </div>
               <span class="filter-divider">|</span>
               <div class="filter-inline-section">
@@ -2120,6 +2127,25 @@
               <label>Item name</label>
               <input class="input" name="item_name" required placeholder="Item name" />
             </div>
+            <div class="field w4">
+              <label>Item type</label>
+              <select class="select" name="item_type" id="goodsItemTypeSelect">
+                <option value="General" selected>General</option>
+                <option value="__custom_type__">+ Custom type…</option>
+              </select>
+            </div>
+            <div class="field w4 hide" data-inventory-custom-type-wrap>
+              <label>Custom type</label>
+              <input class="input" name="item_type_custom" id="goodsItemTypeCustom" placeholder="e.g. Chemicals" autocomplete="off" />
+            </div>
+            <div class="field w4">
+              <label>Item category</label>
+              <select class="select" name="item_category">
+                <option value="count">Numbers (pcs)</option>
+                <option value="weight">Weight (KG)</option>
+                <option value="length">Length (m)</option>
+              </select>
+            </div>
             <div class="field w6">
               <label>Currency</label>
               <div class="currency-picker">
@@ -2140,14 +2166,6 @@
                 </button>
               </div>
               <input type="hidden" name="currency" value="AED" />
-            </div>
-            <div class="field w4">
-              <label>Item category</label>
-              <select class="select" name="item_category">
-                <option value="count">Numbers (pcs)</option>
-                <option value="weight">Weight (KG)</option>
-                <option value="length">Length (m)</option>
-              </select>
             </div>
             <div class="field w4">
               <label data-inventory-price-label>Purchase price</label>
@@ -2228,16 +2246,28 @@
               <select class="select" id="goodsCustomerSelect" name="customer_name_select" required></select>
             </div>
             <div class="field w4 hide" id="goodsNewCustomerField">
-              <label>New customer</label>
-              <input class="input" id="goodsNewCustomerName" name="new_customer_name" placeholder="Customer name" autocomplete="off" />
+              <label>Customer name</label>
+              <input class="input" id="goodsNewCustomerName" name="new_customer_name" placeholder="Customer name" autocomplete="name" />
+            </div>
+            <div class="field w4 hide" id="goodsNewCustomerCompanyField">
+              <label>Company name <span class="optional-label">optional</span></label>
+              <input class="input" id="goodsNewCustomerCompany" name="new_customer_company" placeholder="Optional company" autocomplete="organization" />
+            </div>
+            <div class="field w4 hide" id="goodsNewCustomerTrnField">
+              <label>TRN number <span class="optional-label">optional</span></label>
+              <input class="input" id="goodsNewCustomerTrn" name="new_customer_trn" placeholder="Optional TRN" />
             </div>
             <div class="field w4 hide" id="goodsNewCustomerPhoneField">
-              <label>Customer phone</label>
-              <input class="input" id="goodsNewCustomerPhone" name="new_customer_phone" placeholder="Optional phone" autocomplete="off" />
+              <label>Mobile number <span class="optional-label">optional</span></label>
+              <input class="input" id="goodsNewCustomerPhone" name="new_customer_phone" placeholder="Optional mobile" autocomplete="tel" />
+            </div>
+            <div class="field w4 hide" id="goodsNewCustomerEmailField">
+              <label>Email address <span class="optional-label">optional</span></label>
+              <input class="input" id="goodsNewCustomerEmail" name="new_customer_email" type="email" placeholder="Optional email" autocomplete="email" />
             </div>
             <div class="field w8 hide" id="goodsNewCustomerAddressField">
-              <label>Customer address</label>
-              <input class="input" id="goodsNewCustomerAddress" name="new_customer_address" placeholder="Optional address" autocomplete="off" />
+              <label>Address <span class="optional-label">optional</span></label>
+              <input class="input" id="goodsNewCustomerAddress" name="new_customer_address" placeholder="Optional address" autocomplete="street-address" />
             </div>
             <div id="goodsNewItemFields" class="field w12 hide">
               <div class="modal-grid">
