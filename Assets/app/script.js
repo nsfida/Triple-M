@@ -621,8 +621,23 @@ function rowBelongsToCurrentUser(row){
   if (isGuestMode() || !row) return true;
   const uid = currentOwnerId();
   if (!uid) return false;
+  // Keep optimistic rows that are still syncing even if owner_id was missing on older builds
+  if (!row.owner_id && row.id && state.pendingDbSyncIds.has(row.id)) return true;
   // Strict: only rows owned by the signed-in user (no cross-account mix)
   return row.owner_id === uid;
+}
+
+/** Keep optimistic / in-flight local rows so a scope reload cannot erase a just-saved entry. */
+function shouldPreserveLocalLedgerEntry(entry, scope, activeIds, deletedIds){
+  if (!entry?.id) return false;
+  if (!entryBelongsToLedgerScope(entry, scope)) return false;
+  if (deletedIds.has(entry.id)) return false;
+  if (!rowBelongsToCurrentUser(entry)) return false;
+  // Prefer the in-flight local version over a stale server row for the same id
+  if (state.pendingDbSyncIds.has(entry.id)) return true;
+  if (activeIds.has(entry.id)) return false;
+  // Owned local row missing from this server response (pending insert race / failed sync / stale fetch)
+  return true;
 }
 
 function filterRowsForCurrentUser(rows){
@@ -3343,10 +3358,12 @@ function asEntryArray(entryOrEntries){
 }
 
 function withLocalEntryIdentity(entry, timestamp = new Date().toISOString()){
+  const ownerId = entry?.owner_id || currentOwnerId();
   return {
     ...entry,
     id: entry?.id || crypto.randomUUID(),
-    created_at: entry?.created_at || timestamp
+    created_at: entry?.created_at || timestamp,
+    ...(ownerId ? { owner_id: ownerId } : {})
   };
 }
 
@@ -3428,6 +3445,13 @@ function queueDatabaseInsert(rows, label = "Entry"){
   run()
     .then(() => {
       markDbSnapshotRows(localRows);
+      // If a scope merge raced and dropped optimistic rows, put them back.
+      localRows.forEach(row => {
+        if (!row?.id) return;
+        if (!state.entries.some(entry => entry.id === row.id)) {
+          state.entries.unshift(row);
+        }
+      });
     })
     .catch(err => {
       unmarkDbSnapshotRows(localRows);
@@ -9607,18 +9631,35 @@ function mergeLedgerRowsFromSupabase(scope, rows, options = {}){
   const deletedRows = ledgerDeleted.concat(domainDeleted);
   const previousScopeRows = state.entries.filter(entry => entryBelongsToLedgerScope(entry, scope));
   const activeIds = new Set(activeRows.map(row => row.id).filter(Boolean));
+  const deletedIds = new Set(deletedRows.map(row => row.id).filter(Boolean));
+  // Capture before unmarking snapshots so a concurrent save/edit is not wiped by this merge.
+  const preservedLocalRows = state.entries.filter(entry =>
+    shouldPreserveLocalLedgerEntry(entry, scope, activeIds, deletedIds)
+  );
+  const preservedIds = new Set(preservedLocalRows.map(row => row.id));
+  const pendingPreserveIds = new Set(
+    preservedLocalRows
+      .filter(row => state.pendingDbSyncIds.has(row.id))
+      .map(row => row.id)
+  );
+  const mergedActiveRows = activeRows.filter(row => !pendingPreserveIds.has(row.id));
 
   unmarkDbSnapshotRows(previousScopeRows);
   // Drop any leftover rows from another account that somehow remained in memory
   state.entries = state.entries
-    .filter(entry => rowBelongsToCurrentUser(entry))
-    .filter(entry => !entryBelongsToLedgerScope(entry, scope) && !(entry.id && activeIds.has(entry.id)))
-    .concat(activeRows)
+    .filter(entry => rowBelongsToCurrentUser(entry) || (entry.id && state.pendingDbSyncIds.has(entry.id)))
+    .filter(entry => {
+      if (entry.id && preservedIds.has(entry.id)) return true;
+      return !entryBelongsToLedgerScope(entry, scope) && !(entry.id && activeIds.has(entry.id));
+    })
+    .concat(mergedActiveRows)
     .sort((a, b) => dateStamp(b.created_at || b.action_date || b.loan_date) - dateStamp(a.created_at || a.action_date || a.loan_date));
   state.dataSource = "supabase";
   state.hasImportedFile = false;
   sessionStorage.removeItem(IMPORT_SESSION_KEY);
-  markDbSnapshotRows(activeRows);
+  markDbSnapshotRows(mergedActiveRows);
+  // Keep snapshot marks for preserved locals that already synced (stale-fetch race)
+  markDbSnapshotRows(preservedLocalRows.filter(row => !state.pendingDbSyncIds.has(row.id)));
   mergeRecycleBinRowsForScope(scope, deletedRows);
   updateUploadButtonVisibility();
   updateConnectButtonVisibility();
