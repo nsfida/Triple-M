@@ -960,6 +960,9 @@ a{color:inherit}
   margin-bottom:6px;
   justify-content:flex-end;
 }
+.inventory-category-badge{
+  letter-spacing:.01em;
+}
 .inventory-sale-head{
   display:flex;
   align-items:center;
@@ -978,13 +981,36 @@ a{color:inherit}
   align-items:center;
   padding:10px;
   border:1px solid var(--line);
-  border-radius:10px;
-  background:#fff;
+  border-radius:12px;
+  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset;
 }
 .inventory-sale-line-meta{
   grid-column:1 / -1;
   font-size:.74rem;
   color:var(--muted);
+  padding-top:2px;
+}
+#goodsPanel .loan-sub{
+  flex-wrap:wrap;
+  gap:6px 8px;
+}
+#goodsPanel .summary{
+  border-radius:12px;
+}
+#goodsPanel .lt-principal,
+#goodsPanel .lt-movement,
+#goodsPanel .lt-remaining{
+  display:grid;
+  gap:2px;
+  align-content:start;
+}
+#goodsPanel .inventory-unit-cost{
+  display:block;
+  font-size:.68rem;
+  font-weight:600;
+  color:var(--muted);
+  line-height:1.25;
 }
 .inventory-sale-tax-controls{
   grid-column:1 / -1;
