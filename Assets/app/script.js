@@ -847,6 +847,13 @@ const els = {
   inventoryEditItemModal: document.getElementById("inventoryEditItemModal"),
   inventoryEditItemForm: document.getElementById("inventoryEditItemForm"),
   inventoryEditItemSummary: document.getElementById("inventoryEditItemSummary"),
+  installmentEditModal: document.getElementById("installmentEditModal"),
+  installmentEditForm: document.getElementById("installmentEditForm"),
+  installmentEditSummary: document.getElementById("installmentEditSummary"),
+  installmentPlanModal: document.getElementById("installmentPlanModal"),
+  installmentPlanBody: document.getElementById("installmentPlanBody"),
+  installmentPlanTitle: document.getElementById("installmentPlanTitle"),
+  installmentPlanDesc: document.getElementById("installmentPlanDesc"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -4089,6 +4096,418 @@ function normalizeInstallmentNote(noteValue, markInstallment){
   const base = String(noteValue || "").replace(INSTALLMENT_TAG, "").trim();
   if (!markInstallment) return base || null;
   return base ? `${INSTALLMENT_TAG} ${base}` : INSTALLMENT_TAG;
+}
+
+function installmentMetaTagCleanRegex(){
+  return /\[(ICNT|IAMT|ILAST|IFREQ|ISTART|IALLOC):[^\]]*\]/gi;
+}
+
+function installmentMetaFromNotes(noteValue){
+  const text = String(noteValue || "");
+  const readNum = (key) => {
+    const m = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : null;
+  };
+  const readText = (key) => {
+    const m = text.match(new RegExp(`\\[${key}:([^\\]]*)\\]`, "i"));
+    return m ? m[1].trim() : "";
+  };
+  return {
+    count: readNum("ICNT"),
+    installmentAmount: readNum("IAMT"),
+    lastAmount: readNum("ILAST"),
+    frequency: readText("IFREQ") || "monthly",
+    startDate: readText("ISTART"),
+    allocation: readText("IALLOC")
+  };
+}
+
+function upsertInstallmentMetaInNote(noteValue, meta = {}){
+  let note = normalizeInstallmentNote(noteValue, true) || INSTALLMENT_TAG;
+  note = note.replace(installmentMetaTagCleanRegex(), "").replace(/\s{2,}/g, " ").trim();
+  const tags = [];
+  if (meta.count != null) tags.push(`[ICNT:${meta.count}]`);
+  if (meta.installmentAmount != null) tags.push(`[IAMT:${meta.installmentAmount}]`);
+  if (meta.lastAmount != null) tags.push(`[ILAST:${meta.lastAmount}]`);
+  if (meta.frequency) tags.push(`[IFREQ:${String(meta.frequency).replace(/\]/g, "")}]`);
+  if (meta.startDate) tags.push(`[ISTART:${String(meta.startDate).replace(/\]/g, "")}]`);
+  if (meta.allocation) tags.push(`[IALLOC:${String(meta.allocation).replace(/\]/g, "")}]`);
+  return `${note} ${tags.join(" ")}`.trim();
+}
+
+function cleanInstallmentDisplayNote(noteValue){
+  return String(noteValue || "")
+    .replace(INSTALLMENT_TAG, "")
+    .replace(installmentMetaTagCleanRegex(), "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function roundInstallmentMoney(value, currency = "AED"){
+  const decimals = normalizeCurrencyCode(currency) === "BTC" ? 8 : 2;
+  const factor = 10 ** decimals;
+  return Math.round((Number(value || 0) + Number.EPSILON) * factor) / factor;
+}
+
+function computeInstallmentAmounts(totalAmount, count, currency = "AED"){
+  const n = Math.max(1, Math.floor(Number(count) || 0));
+  const total = roundInstallmentMoney(totalAmount, currency);
+  if (!(total > 0) || n < 1) {
+    return { count: n, installmentAmount: 0, lastAmount: 0, total: 0 };
+  }
+  if (n === 1) {
+    return { count: 1, installmentAmount: total, lastAmount: total, total };
+  }
+  const base = roundInstallmentMoney(total / n, currency);
+  const last = roundInstallmentMoney(total - (base * (n - 1)), currency);
+  return { count: n, installmentAmount: base, lastAmount: last, total };
+}
+
+function addMonthsToISODate(isoDate, monthsToAdd){
+  const raw = String(isoDate || "").trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return raw;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const base = new Date(Date.UTC(year, month - 1, day));
+  const targetMonth = base.getUTCMonth() + Number(monthsToAdd || 0);
+  const target = new Date(Date.UTC(base.getUTCFullYear(), targetMonth, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  const y = target.getUTCFullYear();
+  const m = String(target.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(target.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function hasInstallmentSchedule(entryOrNotes){
+  const notes = typeof entryOrNotes === "string" ? entryOrNotes : entryOrNotes?.notes;
+  const meta = installmentMetaFromNotes(notes);
+  return Number(meta.count || 0) >= 2 && Number(meta.installmentAmount || 0) > 0;
+}
+
+function parseInstallmentAllocation(text){
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  return raw.split("|").map(part => {
+    const [indexPart, amountPart] = String(part).split(":");
+    const index = Number(indexPart);
+    const amount = Number(amountPart);
+    if (!Number.isFinite(index) || !Number.isFinite(amount) || amount <= 0) return null;
+    return { index: Math.floor(index), amount };
+  }).filter(Boolean);
+}
+
+function formatInstallmentAllocation(allocations){
+  return (allocations || [])
+    .filter(row => row && row.index > 0 && Number(row.amount) > 0)
+    .map(row => `${row.index}:${roundInstallmentMoney(row.amount)}`)
+    .join("|");
+}
+
+function buildInstallmentSchedule(principalEntry, paymentEntries = []){
+  const meta = installmentMetaFromNotes(principalEntry?.notes);
+  const currency = principalEntry?.currency || "AED";
+  const total = roundInstallmentMoney(principalEntry?.principal_amount || 0, currency);
+  const count = Math.max(0, Math.floor(Number(meta.count || 0)));
+  if (count < 2 || !(total > 0)) return null;
+
+  const computed = computeInstallmentAmounts(total, count, currency);
+  const installmentAmount = Number(meta.installmentAmount) > 0 ? roundInstallmentMoney(meta.installmentAmount, currency) : computed.installmentAmount;
+  const lastAmount = Number(meta.lastAmount) > 0 ? roundInstallmentMoney(meta.lastAmount, currency) : computed.lastAmount;
+  const startDate = meta.startDate || principalEntry?.loan_date || todayISO();
+  const today = todayISO();
+
+  const slots = Array.from({ length: count }, (_, i) => {
+    const index = i + 1;
+    const scheduled = index === count ? lastAmount : installmentAmount;
+    return {
+      index,
+      dueDate: addMonthsToISODate(startDate, i),
+      scheduled,
+      paid: 0,
+      balance: scheduled,
+      status: "Upcoming"
+    };
+  });
+
+  const payments = (paymentEntries || [])
+    .filter(entry => entry && entry.entry_kind !== "principal")
+    .slice()
+    .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
+
+  const applyAmountToSlots = (amount) => {
+    let remaining = roundInstallmentMoney(amount, currency);
+    const applied = [];
+    for (const slot of slots){
+      if (!(remaining > 0.00000001)) break;
+      const open = roundInstallmentMoney(slot.scheduled - slot.paid, currency);
+      if (!(open > 0.00000001)) continue;
+      const take = roundInstallmentMoney(Math.min(open, remaining), currency);
+      slot.paid = roundInstallmentMoney(slot.paid + take, currency);
+      remaining = roundInstallmentMoney(remaining - take, currency);
+      applied.push({ index: slot.index, amount: take });
+    }
+    return applied;
+  };
+
+  for (const payment of payments){
+    const payMeta = installmentMetaFromNotes(payment.notes);
+    const tagged = parseInstallmentAllocation(payMeta.allocation);
+    const amount = roundInstallmentMoney(payment.action_amount || 0, currency);
+    if (tagged.length){
+      let leftover = amount;
+      for (const row of tagged){
+        const slot = slots.find(s => s.index === row.index);
+        if (!slot) continue;
+        const open = roundInstallmentMoney(slot.scheduled - slot.paid, currency);
+        const take = roundInstallmentMoney(Math.min(open, row.amount, leftover), currency);
+        if (!(take > 0)) continue;
+        slot.paid = roundInstallmentMoney(slot.paid + take, currency);
+        leftover = roundInstallmentMoney(leftover - take, currency);
+      }
+      if (leftover > 0.00000001) applyAmountToSlots(leftover);
+    } else {
+      applyAmountToSlots(amount);
+    }
+  }
+
+  let paidCount = 0;
+  let partialCount = 0;
+  let overdueCount = 0;
+  let nextOpen = null;
+  for (const slot of slots){
+    slot.paid = roundInstallmentMoney(slot.paid, currency);
+    slot.balance = roundInstallmentMoney(Math.max(slot.scheduled - slot.paid, 0), currency);
+    if (slot.balance <= 0.00000001) {
+      slot.status = "Paid";
+      slot.balance = 0;
+      paidCount += 1;
+    } else if (slot.paid > 0.00000001) {
+      slot.status = "Partial";
+      partialCount += 1;
+      if (!nextOpen) nextOpen = slot;
+    } else if (slot.dueDate && dateStamp(slot.dueDate) < dateStamp(today)) {
+      slot.status = "Overdue";
+      overdueCount += 1;
+      if (!nextOpen) nextOpen = slot;
+    } else {
+      slot.status = "Upcoming";
+      if (!nextOpen) nextOpen = slot;
+    }
+  }
+
+  const paidTotal = roundInstallmentMoney(slots.reduce((sum, s) => sum + s.paid, 0), currency);
+  const remainingTotal = roundInstallmentMoney(Math.max(total - paidTotal, 0), currency);
+  const planStatus = remainingTotal <= 0.00000001
+    ? "Closed"
+    : overdueCount > 0
+      ? "Overdue"
+      : partialCount > 0 || paidCount > 0
+        ? "Partial"
+        : "Open";
+
+  return {
+    count,
+    installmentAmount,
+    lastAmount,
+    startDate,
+    frequency: meta.frequency || "monthly",
+    currency,
+    total,
+    paidTotal,
+    remainingTotal,
+    paidCount,
+    partialCount,
+    overdueCount,
+    planStatus,
+    nextOpen,
+    slots,
+    payments
+  };
+}
+
+function allocateInstallmentPayment(schedule, amount){
+  if (!schedule?.slots?.length) return { allocations: [], applied: 0, leftover: roundInstallmentMoney(amount || 0) };
+  let remaining = roundInstallmentMoney(amount || 0, schedule.currency);
+  const allocations = [];
+  for (const slot of schedule.slots){
+    if (!(remaining > 0.00000001)) break;
+    const open = roundInstallmentMoney(slot.balance > 0 ? slot.balance : (slot.scheduled - slot.paid), schedule.currency);
+    if (!(open > 0.00000001)) continue;
+    const take = roundInstallmentMoney(Math.min(open, remaining), schedule.currency);
+    allocations.push({ index: slot.index, amount: take, dueDate: slot.dueDate, scheduled: slot.scheduled });
+    remaining = roundInstallmentMoney(remaining - take, schedule.currency);
+  }
+  const applied = roundInstallmentMoney((amount || 0) - remaining, schedule.currency);
+  return { allocations, applied, leftover: remaining };
+}
+
+function buildInstallmentScheduleMeta(totalAmount, count, currency, startDate){
+  const amounts = computeInstallmentAmounts(totalAmount, count, currency);
+  return {
+    count: amounts.count,
+    installmentAmount: amounts.installmentAmount,
+    lastAmount: amounts.lastAmount,
+    frequency: "monthly",
+    startDate: startDate || todayISO()
+  };
+}
+
+/** Rebuild FIFO IALLOC tags for existing payments against a new/updated schedule (ignores old IALLOC). */
+function remapInstallmentPaymentsToSchedule(principalEntry, paymentEntries = []){
+  const meta = installmentMetaFromNotes(principalEntry?.notes);
+  const currency = principalEntry?.currency || "AED";
+  const total = roundInstallmentMoney(principalEntry?.principal_amount || 0, currency);
+  const count = Math.max(0, Math.floor(Number(meta.count || 0)));
+  if (count < 2 || !(total > 0)) {
+    return { remaps: [], leftoverTotal: 0, schedule: null };
+  }
+  const amounts = computeInstallmentAmounts(total, count, currency);
+  const installmentAmount = Number(meta.installmentAmount) > 0
+    ? roundInstallmentMoney(meta.installmentAmount, currency)
+    : amounts.installmentAmount;
+  const lastAmount = Number(meta.lastAmount) > 0
+    ? roundInstallmentMoney(meta.lastAmount, currency)
+    : amounts.lastAmount;
+  const startDate = meta.startDate || principalEntry?.loan_date || todayISO();
+  const slots = Array.from({ length: count }, (_, i) => {
+    const index = i + 1;
+    const scheduled = index === count ? lastAmount : installmentAmount;
+    return { index, dueDate: addMonthsToISODate(startDate, i), scheduled, paid: 0 };
+  });
+
+  const payments = (paymentEntries || [])
+    .filter(entry => entry && entry.entry_kind !== "principal")
+    .slice()
+    .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
+
+  let planRemaining = total;
+  let leftoverTotal = 0;
+  const remaps = [];
+
+  for (const payment of payments){
+    let remaining = roundInstallmentMoney(payment.action_amount || 0, currency);
+    const allocations = [];
+    for (const slot of slots){
+      if (!(remaining > 0.00000001)) break;
+      const open = roundInstallmentMoney(slot.scheduled - slot.paid, currency);
+      if (!(open > 0.00000001)) continue;
+      const take = roundInstallmentMoney(Math.min(open, remaining), currency);
+      slot.paid = roundInstallmentMoney(slot.paid + take, currency);
+      remaining = roundInstallmentMoney(remaining - take, currency);
+      allocations.push({ index: slot.index, amount: take });
+    }
+    leftoverTotal = roundInstallmentMoney(leftoverTotal + remaining, currency);
+    planRemaining = roundInstallmentMoney(Math.max(planRemaining - Number(payment.action_amount || 0), 0), currency);
+    remaps.push({
+      id: payment.id,
+      payment,
+      allocations,
+      leftover: remaining,
+      entry_kind: planRemaining <= 0.00000001 ? "full" : "partial",
+      notes: upsertInstallmentMetaInNote(cleanInstallmentDisplayNote(payment.notes), {
+        allocation: formatInstallmentAllocation(allocations)
+      })
+    });
+  }
+
+  const draftPrincipal = {
+    ...principalEntry,
+    notes: upsertInstallmentMetaInNote(cleanInstallmentDisplayNote(principalEntry.notes), {
+      count,
+      installmentAmount,
+      lastAmount,
+      frequency: meta.frequency || "monthly",
+      startDate
+    })
+  };
+  const remappedPayments = remaps.map(row => ({
+    ...row.payment,
+    notes: row.notes,
+    entry_kind: row.entry_kind
+  }));
+  return {
+    remaps,
+    leftoverTotal,
+    schedule: buildInstallmentSchedule(draftPrincipal, remappedPayments)
+  };
+}
+
+function getInstallmentPlanGroup(groupId){
+  const id = String(groupId || "").trim();
+  if (!id) return null;
+  const entries = getActiveEntries().filter(e =>
+    e.group_id === id &&
+    e.direction === "taken" &&
+    hasInstallmentTag(e.notes) &&
+    !hasGoodsTag(e.notes) &&
+    !hasExpenseAccountTag(e.notes)
+  );
+  const principal = entries.find(e => e.entry_kind === "principal");
+  if (!principal) return null;
+  const payments = entries.filter(e => e.entry_kind !== "principal");
+  const schedule = buildInstallmentSchedule(principal, payments);
+  const paidTotal = schedule
+    ? schedule.paidTotal
+    : payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+  const remaining = schedule
+    ? schedule.remainingTotal
+    : Math.max(Number(principal.principal_amount || 0) - paidTotal, 0);
+  return {
+    group_id: id,
+    principal,
+    payments,
+    schedule,
+    person_name: principal.person_name,
+    currency: principal.currency,
+    loan_date: principal.loan_date,
+    principalTotal: Number(principal.principal_amount || 0),
+    paidTotal,
+    remaining,
+    status: schedule?.planStatus || (remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open")
+  };
+}
+
+function getInstallmentPlanGroups(){
+  const principals = getActiveEntries().filter(e =>
+    e.entry_kind === "principal" &&
+    e.direction === "taken" &&
+    hasInstallmentTag(e.notes) &&
+    !hasGoodsTag(e.notes) &&
+    !hasExpenseAccountTag(e.notes)
+  );
+  return principals.map(principal => {
+    const payments = getActiveEntries().filter(e =>
+      e.group_id === principal.group_id &&
+      e.entry_kind !== "principal" &&
+      hasInstallmentTag(e.notes)
+    );
+    const schedule = buildInstallmentSchedule(principal, payments);
+    const paidTotal = schedule
+      ? schedule.paidTotal
+      : payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+    const remaining = schedule
+      ? schedule.remainingTotal
+      : Math.max(Number(principal.principal_amount || 0) - paidTotal, 0);
+    return {
+      group_id: principal.group_id,
+      principal,
+      payments,
+      schedule,
+      person_name: principal.person_name,
+      currency: principal.currency,
+      loan_date: principal.loan_date,
+      principalTotal: Number(principal.principal_amount || 0),
+      paidTotal,
+      remaining,
+      status: schedule?.planStatus || (remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open"),
+      lastActivity: [...payments.map(p => p.action_date), principal.loan_date].filter(Boolean).sort((a, b) => dateStamp(b) - dateStamp(a))[0] || principal.loan_date
+    };
+  }).sort((a, b) => dateStamp(b.lastActivity) - dateStamp(a.lastActivity) || String(a.person_name || "").localeCompare(String(b.person_name || "")));
 }
 
 function normalizeGoodsNote(noteValue, markGoods){
@@ -8548,22 +8967,20 @@ async function downloadExpenseAccountPDF(groupId){
   const title = "Expense Account Report";
   const subtitle = `Account: ${account.person_name}`;
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-  doc.setFontSize(10);
-  doc.setTextColor(23, 33, 43);
-  doc.text(`Type: ${account.accountType}`, 132, 48);
-  doc.text(`Currency: ${pdfCurrencyLabel(account.currency)}`, 132, 54);
-  doc.text(`Balance: ${formatPdfAmount(account.balance, account.currency)}`, 132, 60);
-  
-  // Add USD equivalent for BTC wallets
+  const expenseMeta = [
+    { label: "Type", value: account.accountType || "—" },
+    { label: "Currency", value: pdfCurrencyLabel(account.currency) },
+    { label: "Balance", value: formatPdfAmount(account.balance, account.currency) }
+  ];
   if (account.currency === "BTC" && account.balance > 0 && state.bitcoin.btcPrice) {
     const usdValue = (account.balance * state.bitcoin.btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    doc.setTextColor(102, 112, 133); // Muted color
-    doc.text(`Approx USD ${usdValue}`, 132, 66);
-    doc.setFontSize(8);
-    doc.setTextColor(153, 163, 180); // Lighter muted color
-    doc.text(`* Dollar value as of statement generation`, 132, 72);
+    expenseMeta.push({ label: "Approx USD", value: usdValue });
   }
+  const expensePartiesBottom = drawCompactPdfPartiesAndMeta(doc, {
+    rightLabel: "ACCOUNT",
+    partyName: account.person_name,
+    meta: expenseMeta
+  });
 
   let runningBalance = Number(account.openingBalance || 0);
   const rows = [
@@ -8588,15 +9005,15 @@ async function downloadExpenseAccountPDF(groupId){
   });
 
   doc.autoTable({
-    startY: 72,
-    head: [["Type", "Date", "Item", "Notes/Description", "VAT", "Amount", "Balance"]],
+    startY: expensePartiesBottom + 5,
+    head: [["Type", "Date", "Item", "Notes", "VAT", "Amount", "Balance"]],
     body: rows.map(row => row.length === 6
       ? [row[0], row[1], row[2], row[5], "-", row[3], row[4]]
       : [row[0], row[1], row[2], row[6], row[4], row[3], row[5]]
     ),
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 7.6, cellPadding: 1.8, overflow: "linebreak" },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.4 },
+    styles: { font: "helvetica", fontSize: 7.4, cellPadding: 1.6, overflow: "linebreak" },
     tableWidth: 182,
     columnStyles: {
       0: { cellWidth: 24 },
@@ -10050,16 +10467,459 @@ function renderAll(){
   renderLoanCards(els.returnedList, "taken", "returned", {
     groupFilter: group => !group.rows.some(row => hasInstallmentTag(row.note) || hasGoodsTag(row.note) || hasExpenseAccountTag(row.note)) && group.person_name !== "SYSTEM"
   });
-  renderLoanCards(els.installmentsList, "taken", "installments", {
-    groupFilter: group => group.rows.some(row => hasInstallmentTag(row.note)) && !group.rows.some(row => hasGoodsTag(row.note)) && !group.rows.some(row => hasExpenseAccountTag(row.note)),
-    hideMoveToInstallments: true
-  });
+  renderInstallmentPlans();
   renderInventoryList();
   renderExpensesList();
   renderExpenseOverviewWallets();
   syncLegacyFixAllButtons();
 }
 
+
+function installmentStatusBadgeClass(status){
+  const value = String(status || "").toLowerCase();
+  if (value === "closed" || value === "paid") return "green";
+  if (value === "overdue") return "red";
+  if (value === "partial") return "orange";
+  return "blue";
+}
+
+function renderInstallmentPlans(){
+  const container = els.installmentsList;
+  if (!container) return;
+  let plans = getInstallmentPlanGroups();
+  const searchTerm = String(state.search.installments || "").trim().toLowerCase();
+  if (searchTerm) {
+    plans = plans.filter(plan => `${plan.person_name || ""} ${plan.principal?.notes || ""}`.toLowerCase().includes(searchTerm));
+  }
+  const statusFilter = String(state.statusFilter.installments || "All");
+  if (statusFilter === "Active") plans = plans.filter(plan => plan.remaining > 0.00000001);
+  if (statusFilter === "Closed") plans = plans.filter(plan => plan.remaining <= 0.00000001);
+  const currencyFilter = String(state.currencyFilter.installments || "All");
+  if (currencyFilter !== "All") plans = plans.filter(plan => plan.currency === currencyFilter);
+
+  if (!plans.length){
+    container.innerHTML = `<div class="empty">No installment plans found.</div>`;
+    return;
+  }
+
+  container.innerHTML = plans.map(plan => {
+    const schedule = plan.schedule;
+    const status = plan.status;
+    const statusClass = installmentStatusBadgeClass(status);
+    const monthlyLabel = schedule
+      ? `${moneyText(schedule.installmentAmount, plan.currency)}${schedule.lastAmount !== schedule.installmentAmount ? ` · last ${moneyText(schedule.lastAmount, plan.currency)}` : ""}`
+      : "Open balance";
+    const progressLabel = schedule
+      ? `${schedule.paidCount}/${schedule.count} paid`
+      : `${plan.payments.length} payment${plan.payments.length === 1 ? "" : "s"}`;
+    const paidPct = plan.principalTotal > 0
+      ? Math.min(100, Math.round((plan.paidTotal / plan.principalTotal) * 100))
+      : 0;
+    const next = schedule?.nextOpen;
+    const nextLabel = next
+      ? `#${next.index} · ${displayDate(next.dueDate)}`
+      : (plan.remaining > 0 ? "Open balance" : "Paid in full");
+    const needsSchedule = !schedule;
+
+    return `
+      <article class="loan installment-plan-card" data-group-id="${escapeHtml(plan.group_id)}" tabindex="0" role="button" aria-label="Open installment plan for ${escapeHtml(plan.person_name || "plan")}">
+        <div class="ip-card">
+          <div class="ip-card-head">
+            <div class="ip-card-title">
+              <div class="loan-name">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>${escapeHtml(plan.person_name || "Unnamed plan")}</span>
+                <span class="badge ${statusClass}">${escapeHtml(status)}</span>
+                ${needsSchedule ? `<span class="badge orange">Needs schedule</span>` : ""}
+              </div>
+              <div class="ip-card-meta">
+                <span>${escapeHtml(displayDate(plan.loan_date || "—"))}</span>
+                <span>${currencySymbolHtml(plan.currency || "")}</span>
+                <span>${escapeHtml(progressLabel)}</span>
+                <span>${schedule ? `${escapeHtml(monthlyLabel)} / mo` : escapeHtml(monthlyLabel)}</span>
+              </div>
+            </div>
+            <div class="ip-card-actions">
+              <div class="menu-wrap">
+                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" data-person-menu="${escapeHtml(plan.group_id)}" aria-expanded="false">☰</button>
+                <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(plan.group_id)}">
+                  <button class="menu-item installmentActionBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-pen-to-square"></i> Edit plan / schedule</button>
+                  <button class="menu-item installmentActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-money-bill"></i> Pay installment</button>
+                  <button class="menu-item installmentActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-download"></i> Download statement</button>
+                  <button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ip-card-metrics">
+            <div class="ip-metric"><small>Total</small><strong>${money(plan.principalTotal, plan.currency)}</strong></div>
+            <div class="ip-metric"><small>Paid</small><strong>${money(plan.paidTotal, plan.currency)}</strong></div>
+            <div class="ip-metric"><small>Remaining</small><strong>${money(plan.remaining, plan.currency)}</strong></div>
+            <div class="ip-metric"><small>Next</small><strong>${escapeHtml(nextLabel)}</strong></div>
+          </div>
+          <div class="ip-progress">
+            <div class="ip-progress-track"><div class="ip-progress-fill" style="width:${paidPct}%"></div></div>
+            <div class="ip-progress-label"><span>${paidPct}% paid</span><span>Tap to open</span></div>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  container.querySelectorAll(".installment-plan-card").forEach(card => {
+    const open = () => openInstallmentPlanOverlay(card.dataset.groupId);
+    card.addEventListener("click", e => {
+      if (e.target.closest(".menu-wrap, .menu-dropdown, .person-menu-btn, .installmentActionBtn, button, a")) return;
+      open();
+    });
+    card.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+  });
+  container.querySelectorAll(".person-menu-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const panel = btn.closest(".menu-wrap")?.querySelector(".menu-dropdown");
+      if (!panel) return;
+      document.querySelectorAll(".menu-dropdown.open").forEach(openPanel => {
+        if (openPanel !== panel) openPanel.classList.remove("open");
+      });
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => {
+        if (trigger !== btn) trigger.setAttribute("aria-expanded", "false");
+      });
+      const nowOpen = panel.classList.toggle("open");
+      btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+      if (nowOpen) {
+        const rect = btn.getBoundingClientRect();
+        panel.style.top = `${rect.bottom + 6}px`;
+        panel.style.left = `${rect.right - panel.offsetWidth}px`;
+        if (rect.right - panel.offsetWidth < 10) {
+          panel.style.left = `${Math.max(10, rect.left)}px`;
+        }
+      }
+    });
+  });
+  container.querySelectorAll(".installmentActionBtn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      const action = btn.dataset.action;
+      if (action === "edit") openInstallmentEditModal(btn.dataset.groupId);
+      if (action === "pay") openInstallmentPaymentModal(btn.dataset.groupId);
+      if (action === "pdf") await downloadInstallmentPlanPDF(btn.dataset.groupId);
+      if (action === "delete") await deletePersonRecords(btn.dataset.person, btn.dataset.direction);
+    });
+  });
+}
+
+function renderInstallmentPlanOverlayBody(plan){
+  const schedule = plan.schedule;
+  const needsSchedule = !schedule;
+  const next = schedule?.nextOpen;
+  const currency = plan.currency || plan.principal?.currency || "AED";
+  const principalTotal = Number(plan.principalTotal ?? plan.principal?.principal_amount ?? 0);
+  const paidTotal = Number(
+    plan.paidTotal ??
+    schedule?.paidTotal ??
+    (plan.payments || []).reduce((sum, row) => sum + Number(row.action_amount || 0), 0)
+  );
+  const remaining = Number(
+    plan.remaining ??
+    schedule?.remainingTotal ??
+    Math.max(principalTotal - paidTotal, 0)
+  );
+  const status = plan.status || schedule?.planStatus || (remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open");
+  const progressLabel = schedule
+    ? `${schedule.paidCount}/${schedule.count} paid`
+    : `${(plan.payments || []).length} payment${(plan.payments || []).length === 1 ? "" : "s"}`;
+  const paidPct = principalTotal > 0
+    ? Math.min(100, Math.round((paidTotal / principalTotal) * 100))
+    : 0;
+
+  const scheduleRows = schedule
+    ? schedule.slots.map(slot => `
+        <div class="ipo-row ${slot.balance > 0.00000001 ? "is-open" : "is-done"}">
+          <div class="ipo-row-main">
+            <strong>#${slot.index}</strong>
+            <span>${escapeHtml(displayDate(slot.dueDate))}</span>
+            <span class="badge ${installmentStatusBadgeClass(slot.status)}">${escapeHtml(slot.status)}</span>
+          </div>
+          <div class="ipo-row-amt">
+            <span>${money(slot.paid, currency)} / ${money(slot.scheduled, currency)}</span>
+            ${slot.balance > 0.00000001
+              ? `<button class="tiny ghost installmentPayBalanceBtn" type="button" data-group-id="${escapeHtml(plan.group_id)}" data-amount="${slot.balance}">Pay ${moneyText(slot.balance, currency)}</button>`
+              : `<em>Clear</em>`}
+          </div>
+        </div>
+      `).join("")
+    : `<div class="ip-empty">No monthly schedule yet. Set one to track each installment.</div>`;
+
+  const paymentRows = (plan.payments || []).slice().sort((a, b) => dateStamp(b.action_date) - dateStamp(a.action_date)).map(row => {
+    const alloc = parseInstallmentAllocation(installmentMetaFromNotes(row.notes).allocation);
+    const allocText = alloc.length
+      ? alloc.map(a => `#${a.index}`).join(" · ")
+      : (schedule ? "—" : "Balance");
+    return `
+      <div class="ipo-row">
+        <div class="ipo-row-main">
+          <strong>${escapeHtml(displayDate(row.action_date || "—"))}</strong>
+          <span>${escapeHtml(row.entry_kind === "full" ? "Final" : "Partial")}</span>
+          <span class="ipo-muted">${escapeHtml(allocText)}</span>
+        </div>
+        <div class="ipo-row-amt"><strong>${money(row.action_amount || 0, currency)}</strong></div>
+      </div>
+    `;
+  }).join("") || `<div class="ip-empty">No payments yet.</div>`;
+
+  return `
+    <div class="ipo-summary">
+      <div><small>Total</small><strong>${money(principalTotal, currency)}</strong></div>
+      <div><small>Paid</small><strong>${money(paidTotal, currency)}</strong></div>
+      <div><small>Left</small><strong>${money(remaining, currency)}</strong></div>
+      <div><small>Status</small><strong><span class="badge ${installmentStatusBadgeClass(status)}">${escapeHtml(status)}</span></strong></div>
+    </div>
+    <div class="ipo-progress">
+      <div class="ip-progress-track"><div class="ip-progress-fill" style="width:${paidPct}%"></div></div>
+      <div class="ipo-progress-meta">
+        <span>${paidPct}% · ${escapeHtml(progressLabel)}</span>
+        <span>${next ? `Next #${next.index} · ${moneyText(next.balance, currency)}` : (remaining > 0 ? "Open balance" : "Complete")}</span>
+      </div>
+    </div>
+    <div class="ipo-actions">
+      <button class="btn ghost tiny installmentOverlayBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}">${needsSchedule ? "Set schedule" : "Edit"}</button>
+      ${remaining > 0 ? `<button class="btn primary tiny installmentOverlayBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}">Pay</button>` : ""}
+      <button class="btn ghost tiny installmentOverlayBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}">PDF</button>
+    </div>
+    <div class="ipo-tabs" role="tablist">
+      <button class="ipo-tab active" type="button" data-ipo-tab="schedule">Schedule${schedule ? ` (${schedule.count})` : ""}</button>
+      <button class="ipo-tab" type="button" data-ipo-tab="payments">Payments (${(plan.payments || []).length})</button>
+    </div>
+    <div class="ipo-panel active" data-ipo-panel="schedule">${scheduleRows}</div>
+    <div class="ipo-panel" data-ipo-panel="payments">${paymentRows}</div>
+  `;
+}
+
+function openInstallmentPlanOverlay(groupId){
+  const plan = getInstallmentPlanGroup(groupId);
+  if (!plan || !els.installmentPlanModal || !els.installmentPlanBody) {
+    alert("Installment plan not found.");
+    return;
+  }
+  if (els.installmentPlanTitle) els.installmentPlanTitle.textContent = plan.person_name || "Installment plan";
+  if (els.installmentPlanDesc) {
+    const started = displayDate(plan.loan_date || "—");
+    els.installmentPlanDesc.textContent = plan.schedule
+      ? `${plan.schedule.count} installments · started ${started}`
+      : `Legacy plan · started ${started}`;
+  }
+  els.installmentPlanBody.innerHTML = renderInstallmentPlanOverlayBody(plan);
+  els.installmentPlanBody.dataset.groupId = plan.group_id;
+
+  els.installmentPlanBody.querySelectorAll(".ipo-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const key = tab.dataset.ipoTab;
+      els.installmentPlanBody.querySelectorAll(".ipo-tab").forEach(t => t.classList.toggle("active", t === tab));
+      els.installmentPlanBody.querySelectorAll(".ipo-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.dataset.ipoPanel === key);
+      });
+    });
+  });
+  els.installmentPlanBody.querySelectorAll(".installmentOverlayBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const action = btn.dataset.action;
+      const id = btn.dataset.groupId;
+      if (action === "edit") {
+        closeModal("installmentPlanModal");
+        openInstallmentEditModal(id);
+      }
+      if (action === "pay") {
+        closeModal("installmentPlanModal");
+        openInstallmentPaymentModal(id);
+      }
+      if (action === "pdf") await downloadInstallmentPlanPDF(id);
+    });
+  });
+  els.installmentPlanBody.querySelectorAll(".installmentPayBalanceBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      closeModal("installmentPlanModal");
+      openInstallmentPaymentModal(btn.dataset.groupId, Number(btn.dataset.amount || 0));
+    });
+  });
+
+  els.installmentPlanModal.classList.remove("hide");
+  els.installmentPlanModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+async function downloadInstallmentPlanPDF(groupId){
+  const plan = getInstallmentPlanGroup(groupId);
+  if (!plan){
+    alert("Installment plan not found.");
+    return;
+  }
+  if (!window.jspdf){
+    alert("PDF library loading. Please try again.");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  await loadCustomFontsForPdf(doc);
+  const logoData = await getPdfLogo();
+  const title = "Installment Plan Statement";
+  const subtitle = plan.person_name || plan.principal?.person_name || "Plan";
+  const currency = plan.currency || "AED";
+  const formatMon = (amt) => formatPdfAmount(amt, currency);
+  const schedule = plan.schedule;
+  const principalTotal = Number(plan.principalTotal ?? plan.principal?.principal_amount ?? 0);
+  const paidTotal = Number(
+    plan.paidTotal ??
+    schedule?.paidTotal ??
+    plan.payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0)
+  );
+  const remaining = Number(
+    plan.remaining ??
+    schedule?.remainingTotal ??
+    Math.max(principalTotal - paidTotal, 0)
+  );
+  const status = plan.status || schedule?.planStatus || (remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open");
+  const monthlyLabel = schedule
+    ? (schedule.lastAmount !== schedule.installmentAmount
+      ? `${formatMon(schedule.installmentAmount)} (last ${formatMon(schedule.lastAmount)})`
+      : formatMon(schedule.installmentAmount))
+    : "Open balance";
+  const nextDue = schedule?.nextOpen;
+
+  drawPdfHeader(doc, logoData, title, subtitle);
+  const partiesBottom = drawCompactPdfPartiesAndMeta(doc, {
+    rightLabel: "CLIENT",
+    partyName: subtitle,
+    meta: [
+      { label: "Start date", value: displayDate(plan.loan_date || plan.principal?.loan_date || "—") },
+      { label: "Currency", value: pdfCurrencyLabel(currency) },
+      { label: "Installments", value: schedule ? String(schedule.count) : "Legacy" },
+      { label: "Monthly", value: schedule ? formatMon(schedule.installmentAmount) : "—" }
+    ]
+  });
+
+  let y = partiesBottom + 7;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.2);
+  doc.setTextColor(15, 23, 42);
+  doc.text(schedule ? "Installment schedule" : "Payment history", 14, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    schedule
+      ? "Each installment once - due date, amount due, amount paid, and open balance."
+      : "All payments on this plan in date order.",
+    14,
+    y + 4
+  );
+  y += 8;
+
+  if (schedule){
+    doc.autoTable({
+      startY: y,
+      head: [["#", "Due date", "Amount due", "Paid", "Balance", "Status"]],
+      body: schedule.slots.map(slot => [
+        String(slot.index),
+        displayDate(slot.dueDate),
+        formatMon(slot.scheduled),
+        formatMon(slot.paid),
+        formatMon(slot.balance),
+        slot.status
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.4 },
+      styles: { font: "helvetica", fontSize: 7.6, cellPadding: 1.7 },
+      columnStyles: {
+        0: { cellWidth: 12,halign: "center" },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 34,halign: "right" },
+        3: { cellWidth: 34,halign: "right" },
+        4: { cellWidth: 34,halign: "right" },
+        5: { cellWidth: 28,halign: "center" }
+      },
+      margin: { top: 42, bottom: 42 },
+      didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+    });
+  } else {
+    let running = principalTotal;
+    const rows = plan.payments
+      .slice()
+      .sort((a, b) => dateStamp(a.action_date) - dateStamp(b.action_date))
+      .map(row => {
+        running = Math.max(running - Number(row.action_amount || 0), 0);
+        return [
+          displayDate(row.action_date || "—"),
+          row.entry_kind === "full" ? "Final payment" : "Partial payment",
+          formatMon(row.action_amount || 0),
+          formatMon(running),
+          cleanInstallmentDisplayNote(row.notes) || "—"
+        ];
+      });
+    doc.autoTable({
+      startY: y,
+      head: [["Date", "Type", "Amount", "Balance after", "Notes"]],
+      body: rows.length ? rows : [["—", "No payments yet", "—", formatMon(principalTotal), "—"]],
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.4 },
+      styles: { font: "helvetica", fontSize: 7.5, cellPadding: 1.6, overflow: "linebreak" },
+      columnStyles: {
+        0: { cellWidth: 28 },
+        1: { cellWidth: 34 },
+        2: { cellWidth: 32,halign: "right" },
+        3: { cellWidth: 34,halign: "right" },
+        4: { cellWidth: 44 }
+      },
+      margin: { top: 42, bottom: 42 },
+      didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+    });
+  }
+
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const footerSafeY = pageHeight - 38;
+  const summaryNeeded = 54;
+  let summaryTop = (doc.lastAutoTable?.finalY || y) + 8;
+  if (summaryTop + summaryNeeded > footerSafeY) {
+    doc.addPage();
+    drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false);
+    summaryTop = 48;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.2);
+  doc.setTextColor(15, 23, 42);
+  doc.text("Plan summary", 14, summaryTop);
+
+  drawCompactPdfTotals(doc, summaryTop + 5, [
+    { label: "Plan total", value: formatMon(principalTotal) },
+    { label: "Monthly installment", value: monthlyLabel },
+    {
+      label: "Progress",
+      value: schedule
+        ? `${schedule.paidCount} of ${schedule.count} paid`
+        : `${plan.payments.length} payment${plan.payments.length === 1 ? "" : "s"}`
+    },
+    { label: "Total paid", value: formatMon(paidTotal) },
+    {
+      label: "Next due",
+      value: nextDue
+        ? `#${nextDue.index} · ${displayDate(nextDue.dueDate)} · ${formatMon(nextDue.balance)}`
+        : (remaining > 0 ? "Open balance" : "Fully paid")
+    },
+    { label: "Status", value: status },
+    { label: "Remaining balance", value: formatMon(remaining), strong: true }
+  ]);
+
+  doc.save(`Installment_Plan_${String(subtitle).replace(/\s+/g, "_")}.pdf`);
+}
 function syncLoanModeSwitch(tab){
   const mode = (tab === "taken" || tab === "returned") ? "taken" : "given";
   document.querySelectorAll(".loan-mode-btn").forEach(btn => {
@@ -10233,7 +11093,7 @@ function openEntryModal(mode, direction, options = {}){
   if (mode === "principal"){
     if (state.modalInstallment) {
       els.modalTitle.textContent = "New installment plan";
-      els.modalDesc.textContent = "Add a principal taken as an installment plan.";
+      els.modalDesc.textContent = "Enter total amount and number of monthly installments.";
       els.principalSubmitBtn.textContent = "Save installment plan";
     } else {
       els.modalTitle.textContent = direction === "given" ? "New loan given" : "New loan taken";
@@ -10248,6 +11108,8 @@ function openEntryModal(mode, direction, options = {}){
       state.modalInstallment ? "Lender / plan name" : (direction === "given" ? "Full name" : "Lender name");
     setCurrencyChoice(els.principalModalForm, state.lastCurrency || "AED");
     defaultDateInputs(els.principalModalForm);
+    syncInstallmentPlanFormFields();
+    updateInstallmentPlanPreview();
 
     // Wallet selector badge & population
     const walletBadge = document.getElementById("principalWalletBadge");
@@ -10265,8 +11127,8 @@ function openEntryModal(mode, direction, options = {}){
     populateLoanWalletSelector(state.lastCurrency || "AED", document.getElementById("modalLoanWalletSelect"));
   } else {
     if (state.modalInstallment) {
-      els.modalTitle.textContent = "Payment / Installment Received";
-      els.modalDesc.textContent = "Record a partial or full payment against an installment plan.";
+      els.modalTitle.textContent = "Installment payment";
+      els.modalDesc.textContent = "Pay any amount — underpay leaves a balance, overpay fills the next installments.";
       els.paymentSubmitBtn.textContent = "Save installment payment";
     } else {
       els.modalTitle.textContent = direction === "given" ? "New received back entry" : "New returned back entry";
@@ -10280,6 +11142,8 @@ function openEntryModal(mode, direction, options = {}){
     els.multiEntryCount.value = 1;
     renderMultiEntries(1);
     renderLoanSelectors();
+    syncInstallmentPaymentFormFields(options.groupId || "", options.amount || null);
+    updateInstallmentPaymentPreview();
 
     // Wallet selector badge
     const walletBadge = document.getElementById("paymentWalletBadge");
@@ -10296,14 +11160,276 @@ function openEntryModal(mode, direction, options = {}){
     }
     // Populate wallet selector based on first open loan's currency (if available)
     const firstLoanOption = els.modalLoanSelect.options[els.modalLoanSelect.selectedIndex];
-    const selectedGroup = firstLoanOption?.value;
+    const selectedGroup = options.groupId || firstLoanOption?.value;
     let loanCurrency = null;
     if (selectedGroup) {
       const principalEntry = state.entries.find(e => e.group_id === selectedGroup && e.entry_kind === "principal");
       if (principalEntry) loanCurrency = principalEntry.currency;
+      if (options.groupId) els.modalLoanSelect.value = options.groupId;
     }
     populateLoanWalletSelector(loanCurrency, document.getElementById("modalPaymentWalletSelect"));
+    if (options.amount != null && Number(options.amount) > 0) {
+      const amountInput = els.paymentModalForm.querySelector('[name="action_amount_0"]');
+      if (amountInput) amountInput.value = trimInventoryNumber(options.amount);
+      updateInstallmentPaymentPreview();
+    }
   }
+}
+
+function syncInstallmentPlanFormFields(){
+  const show = !!state.modalInstallment;
+  ["installmentCountGroup", "installmentMonthlyPreviewField", "installmentSchedulePreviewWrap"].forEach(id => {
+    document.getElementById(id)?.classList.toggle("hide", !show);
+  });
+  const countInput = document.getElementById("installmentCountInput");
+  if (countInput) {
+    countInput.required = show;
+    if (!show) countInput.value = "";
+  }
+}
+
+function updateInstallmentPlanPreview(){
+  const previewInput = document.getElementById("installmentMonthlyPreview");
+  const previewWrap = document.getElementById("installmentSchedulePreview");
+  if (!previewInput || !previewWrap || !state.modalInstallment) return;
+  const form = els.principalModalForm;
+  const total = Number(form?.querySelector('[name="principal_amount"]')?.value || 0);
+  const count = Math.floor(Number(document.getElementById("installmentCountInput")?.value || 0));
+  const currency = String(form?.querySelector('[name="currency"]')?.value || "AED");
+  const startDate = String(form?.querySelector('[name="loan_date"]')?.value || todayISO());
+  if (!(total > 0) || count < 2) {
+    previewInput.value = "";
+    previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount and at least 2 installments.</p>`;
+    return;
+  }
+  const amounts = computeInstallmentAmounts(total, count, currency);
+  previewInput.value = `${moneyText(amounts.installmentAmount, currency)} × ${count - 1} + last ${moneyText(amounts.lastAmount, currency)}`;
+  const sample = Array.from({ length: Math.min(count, 4) }, (_, i) => {
+    const due = addMonthsToISODate(startDate, i);
+    const amt = i === count - 1 ? amounts.lastAmount : amounts.installmentAmount;
+    return `<li><span>#${i + 1} · ${escapeHtml(displayDate(due))}</span><strong>${money(amt, currency)}</strong></li>`;
+  }).join("");
+  const more = count > 4 ? `<li class="installment-preview-more">+ ${count - 4} more monthly installment${count - 4 === 1 ? "" : "s"}</li>` : "";
+  previewWrap.innerHTML = `
+    <strong>Schedule preview</strong>
+    <p>${escapeHtml(String(count))} months · total ${money(total, currency)}</p>
+    <ul class="installment-preview-list">${sample}${more}</ul>
+  `;
+}
+
+function syncInstallmentPaymentFormFields(preferredGroupId = "", preferredAmount = null){
+  const show = !!state.modalInstallment;
+  document.getElementById("installmentPaymentPreviewWrap")?.classList.toggle("hide", !show);
+  const multiGroup = document.getElementById("paymentMultiCountGroup");
+  if (multiGroup) multiGroup.classList.toggle("hide", show);
+  if (show) {
+    els.multiEntryCount.value = 1;
+    renderMultiEntries(1);
+  }
+  if (preferredGroupId && els.modalLoanSelect) {
+    els.modalLoanSelect.value = preferredGroupId;
+  }
+  if (preferredAmount != null && Number(preferredAmount) > 0) {
+    const amountInput = els.paymentModalForm?.querySelector('[name="action_amount_0"]');
+    if (amountInput) amountInput.value = trimInventoryNumber(preferredAmount);
+  }
+}
+
+function updateInstallmentPaymentPreview(){
+  const box = document.getElementById("installmentPaymentPreview");
+  if (!box || !state.modalInstallment) return;
+  const groupId = String(els.modalLoanSelect?.value || "").trim();
+  const plan = getInstallmentPlanGroup(groupId);
+  const amount = Number(els.paymentModalForm?.querySelector('[name="action_amount_0"]')?.value || 0);
+  if (!plan) {
+    box.innerHTML = `<strong>Allocation preview</strong><p>Select an installment plan.</p>`;
+    return;
+  }
+  if (!plan.schedule) {
+    box.innerHTML = `
+      <strong>Legacy plan</strong>
+      <p>Remaining balance: <strong>${money(Math.max(Number(plan.principal.principal_amount || 0) - plan.payments.reduce((s, p) => s + Number(p.action_amount || 0), 0), 0), plan.currency)}</strong></p>
+      <p class="installment-preview-hint">No monthly schedule yet. Use <strong>Edit plan / schedule</strong> to convert this plan; until then payments apply to the open balance.</p>
+    `;
+    return;
+  }
+  const next = plan.schedule.nextOpen;
+  const allocation = amount > 0 ? allocateInstallmentPayment(plan.schedule, amount) : { allocations: [], applied: 0, leftover: 0 };
+  const rows = allocation.allocations.map(row =>
+    `<li><span>#${row.index} due ${escapeHtml(displayDate(row.dueDate))}</span><strong>${money(row.amount, plan.currency)}</strong></li>`
+  ).join("");
+  box.innerHTML = `
+    <strong>Allocation preview</strong>
+    <p>Next due: <strong>#${next ? next.index : "—"}</strong> · ${next ? money(next.balance, plan.currency) : "—"} · Remaining plan ${money(plan.schedule.remainingTotal, plan.currency)}</p>
+    ${amount > 0 ? `<ul class="installment-preview-list">${rows || "<li>No open installments</li>"}</ul>` : `<p class="installment-preview-hint">Enter a payment amount to preview under/over allocation.</p>`}
+    ${allocation.leftover > 0.00000001 ? `<p class="installment-preview-warn">Extra ${money(allocation.leftover, plan.currency)} exceeds open installments.</p>` : ""}
+  `;
+}
+
+function openInstallmentPaymentModal(groupId, amount = null){
+  openEntryModal("payment", "taken", { installment: true, groupId, amount });
+}
+
+function openInstallmentEditModal(groupId){
+  const plan = getInstallmentPlanGroup(groupId);
+  const form = els.installmentEditForm;
+  if (!plan?.principal || !form || !els.installmentEditModal) {
+    alert("Installment plan not found.");
+    return;
+  }
+  const principal = plan.principal;
+  const meta = installmentMetaFromNotes(principal.notes);
+  form.querySelector('[name="group_id"]').value = plan.group_id;
+  form.querySelector('[name="person_name"]').value = principal.person_name || "";
+  setCurrencyChoice(form, principal.currency || "AED");
+  form.querySelector('[name="principal_amount"]').value = principal.principal_amount || "";
+  form.querySelector('[name="loan_date"]').value = principal.loan_date || todayISO();
+  form.querySelector('[name="installment_count"]').value = meta.count && meta.count >= 2 ? meta.count : "";
+  form.querySelector('[name="notes"]').value = cleanInstallmentDisplayNote(principal.notes) || "";
+
+  const title = document.getElementById("installmentEditTitle");
+  const desc = document.getElementById("installmentEditDesc");
+  if (title) title.textContent = plan.schedule ? "Edit installment schedule" : "Convert to installment schedule";
+  if (desc) {
+    desc.textContent = plan.schedule
+      ? "Change the monthly plan. Existing payments stay and are re-applied in date order."
+      : "Set installment count for this legacy plan. Existing payments stay and are applied oldest-first across the new schedule.";
+  }
+  if (els.installmentEditSummary) {
+    els.installmentEditSummary.innerHTML = `
+      <div><small>Paid so far</small><strong>${money(plan.paidTotal, plan.currency)}</strong></div>
+      <div><small>Remaining</small><strong>${money(plan.remaining, plan.currency)}</strong></div>
+      <div><small>Payments</small><strong>${plan.payments.length}</strong></div>
+      <div><small>Current setup</small><strong>${plan.schedule ? `${plan.schedule.count} installments` : "Legacy balance"}</strong></div>
+    `;
+  }
+
+  updateInstallmentEditPreview();
+  els.installmentEditModal.classList.remove("hide");
+  els.installmentEditModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function updateInstallmentEditPreview(){
+  const form = els.installmentEditForm;
+  const preview = document.getElementById("installmentEditPreview");
+  const monthlyInput = document.getElementById("installmentEditMonthly");
+  if (!form || !preview) return;
+  const groupId = String(form.querySelector('[name="group_id"]')?.value || "").trim();
+  const plan = getInstallmentPlanGroup(groupId);
+  const total = Number(form.querySelector('[name="principal_amount"]')?.value || 0);
+  const count = Math.floor(Number(form.querySelector('[name="installment_count"]')?.value || 0));
+  const currency = String(form.querySelector('[name="currency"]')?.value || "AED");
+  const startDate = String(form.querySelector('[name="loan_date"]')?.value || todayISO());
+  if (!(total > 0) || count < 2) {
+    if (monthlyInput) monthlyInput.value = "";
+    preview.innerHTML = `<strong>Updated schedule</strong><p>Enter total amount and at least 2 installments.</p>`;
+    return;
+  }
+  const amounts = computeInstallmentAmounts(total, count, currency);
+  if (monthlyInput) {
+    monthlyInput.value = `${moneyText(amounts.installmentAmount, currency)} × ${count - 1} + last ${moneyText(amounts.lastAmount, currency)}`;
+  }
+  const draftPrincipal = {
+    ...(plan?.principal || {}),
+    principal_amount: total,
+    currency,
+    loan_date: startDate,
+    notes: upsertInstallmentMetaInNote("", buildInstallmentScheduleMeta(total, count, currency, startDate))
+  };
+  const remapped = remapInstallmentPaymentsToSchedule(draftPrincipal, plan?.payments || []);
+  const schedule = remapped.schedule;
+  const sample = (schedule?.slots || []).slice(0, 4).map(slot =>
+    `<li><span>#${slot.index} · ${escapeHtml(displayDate(slot.dueDate))} · ${escapeHtml(slot.status)}</span><strong>${money(slot.paid, currency)} / ${money(slot.scheduled, currency)}</strong></li>`
+  ).join("");
+  const more = count > 4 ? `<li class="installment-preview-more">+ ${count - 4} more</li>` : "";
+  preview.innerHTML = `
+    <strong>Updated schedule with existing payments</strong>
+    <p>${count} months · total ${money(total, currency)} · after remap: paid ${money(schedule?.paidTotal || 0, currency)}, remaining ${money(schedule?.remainingTotal || total, currency)}</p>
+    <ul class="installment-preview-list">${sample}${more}</ul>
+    ${remapped.leftoverTotal > 0.00000001
+      ? `<p class="installment-preview-warn">Note: ${money(remapped.leftoverTotal, currency)} of past payments exceeds this schedule total and cannot be slotted.</p>`
+      : `<p class="installment-preview-hint">${(plan?.payments || []).length} existing payment(s) will be re-applied oldest first (FIFO).</p>`}
+  `;
+}
+
+async function submitInstallmentEdit(){
+  const form = els.installmentEditForm;
+  if (!form) return;
+  const groupId = String(form.querySelector('[name="group_id"]')?.value || "").trim();
+  const plan = getInstallmentPlanGroup(groupId);
+  if (!plan?.principal) throw new Error("Installment plan not found.");
+
+  const personName = String(form.querySelector('[name="person_name"]')?.value || "").trim();
+  const currency = String(form.querySelector('[name="currency"]')?.value || "").trim();
+  const amount = Number(form.querySelector('[name="principal_amount"]')?.value || 0);
+  const loanDate = String(form.querySelector('[name="loan_date"]')?.value || "").trim();
+  const count = Math.floor(Number(form.querySelector('[name="installment_count"]')?.value || 0));
+  const displayNote = String(form.querySelector('[name="notes"]')?.value || "").trim();
+
+  if (!personName || !currency || !(amount > 0) || !loanDate) throw new Error("Complete all required fields.");
+  if (count < 2 || count > 120) throw new Error("Enter between 2 and 120 installments.");
+
+  const paidTotal = plan.payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+  if (amount + 0.00000001 < paidTotal) {
+    throw new Error(`Total amount cannot be less than payments already recorded (${moneyText(paidTotal, currency)}).`);
+  }
+
+  const scheduleMeta = buildInstallmentScheduleMeta(amount, count, currency, loanDate);
+  const principalNotes = upsertInstallmentMetaInNote(displayNote, scheduleMeta);
+  const draftPrincipal = {
+    ...plan.principal,
+    person_name: personName,
+    currency,
+    principal_amount: amount,
+    loan_date: loanDate,
+    notes: principalNotes
+  };
+  const remapped = remapInstallmentPaymentsToSchedule(draftPrincipal, plan.payments);
+  if (remapped.leftoverTotal > 0.00000001) {
+    const ok = confirm(
+      `${moneyText(remapped.leftoverTotal, currency)} of existing payments exceeds the new schedule total and will stay on payment history without a slot. Continue?`
+    );
+    if (!ok) return;
+  }
+
+  const updatedPrincipal = { ...draftPrincipal };
+  state.entries = state.entries.map(entry => entry.id === plan.principal.id ? updatedPrincipal : entry);
+  if (!isBackupMode()) {
+    queueDatabasePatch(plan.principal.id, {
+      person_name: personName,
+      currency,
+      principal_amount: amount,
+      loan_date: loanDate,
+      notes: principalNotes
+    }, "Installment plan", updatedPrincipal);
+  }
+
+  for (const row of remapped.remaps){
+    const updatedPayment = {
+      ...row.payment,
+      person_name: personName,
+      currency,
+      loan_date: loanDate,
+      entry_kind: row.entry_kind,
+      notes: row.notes
+    };
+    state.entries = state.entries.map(entry => entry.id === row.id ? updatedPayment : entry);
+    if (!isBackupMode()) {
+      queueDatabasePatch(row.id, {
+        person_name: personName,
+        currency,
+        loan_date: loanDate,
+        entry_kind: row.entry_kind,
+        notes: row.notes
+      }, "Installment payment remap", updatedPayment);
+    }
+  }
+
+  closeModal("installmentEditModal");
+  if (isBackupMode()) refreshBackupView();
+  else renderAll();
+  activate("installments");
 }
 
 function openGoodsModal(mode, options = {}){
@@ -10849,6 +11975,10 @@ function openEditModal(id) {
     openInventoryEditItemModal(id);
     return;
   }
+  if (entry.entry_kind === "principal" && hasInstallmentTag(entry.notes) && !hasExpenseAccountTag(entry.notes)) {
+    openInstallmentEditModal(entry.group_id);
+    return;
+  }
   state.editId = id;
   state.editKind = entry.entry_kind;
 
@@ -11213,7 +12343,16 @@ async function createPrincipal(form){
   };
 
   if (state.modalInstallment) {
-    payload.notes = normalizeInstallmentNote(payload.notes, true);
+    const count = Math.floor(Number(fd.get("installment_count") || 0));
+    if (count < 2 || count > 120) throw new Error("Enter between 2 and 120 installments.");
+    const amounts = computeInstallmentAmounts(payload.principal_amount, count, payload.currency);
+    payload.notes = upsertInstallmentMetaInNote(payload.notes, {
+      count: amounts.count,
+      installmentAmount: amounts.installmentAmount,
+      lastAmount: amounts.lastAmount,
+      frequency: "monthly",
+      startDate: payload.loan_date
+    });
   }
 
   if (!payload.person_name || !payload.currency || !payload.principal_amount || !payload.loan_date) throw new Error("Complete all required fields.");
@@ -11262,15 +12401,25 @@ async function createPayment(form){
   tempFormData.append('currency', principalEntry.currency);
   validateCurrencyForForm(tempFormData);
 
+  const installmentPlan = (state.modalInstallment || hasInstallmentTag(principalEntry.notes))
+    ? getInstallmentPlanGroup(groupId)
+    : null;
+  const scheduled = !!installmentPlan?.schedule;
+
   const group = groupByLoan(getActiveEntries().filter(e => e.group_id === groupId))[0];
-  let currentRemaining = calculateLoan(group).remaining;
+  let currentRemaining = scheduled
+    ? Number(installmentPlan.schedule.remainingTotal || 0)
+    : calculateLoan(group).remaining;
 
   let totalAmount = 0;
-  for(let i=0; i<count; i++){
+  const paymentCount = scheduled ? 1 : count;
+  for(let i=0; i<paymentCount; i++){
      totalAmount += Number(fd.get(`action_amount_${i}`) || 0);
   }
+  totalAmount = roundInstallmentMoney(totalAmount, principalEntry.currency);
 
-  if (totalAmount > currentRemaining){
+  if (!(totalAmount > 0)) throw new Error("Enter a payment amount.");
+  if (totalAmount > currentRemaining + 0.00000001){
     throw new Error(`Total amount (${totalAmount}) exceeds remaining balance (${currentRemaining}).`);
   }
 
@@ -11284,28 +12433,56 @@ async function createPayment(form){
   }
 
   const payloads = [];
-  for(let i=0; i<count; i++){
-    const amt = Number(fd.get(`action_amount_${i}`) || 0);
-    const dt = fd.get(`action_date_${i}`);
-    const nt = String(fd.get(`notes_${i}`) || "").trim() || null;
-
-    if(!amt || !dt) continue;
-
-    currentRemaining -= amt;
+  if (scheduled) {
+    const amt = Number(fd.get("action_amount_0") || 0);
+    const dt = fd.get("action_date_0");
+    const nt = String(fd.get("notes_0") || "").trim() || null;
+    if (!amt || !dt) throw new Error("Please fill out amount and date.");
+    const allocation = allocateInstallmentPayment(installmentPlan.schedule, amt);
+    if (!(allocation.applied > 0)) throw new Error("No open installments to apply this payment to.");
+    if (allocation.leftover > 0.00000001) {
+      throw new Error(`Payment exceeds open installments by ${moneyText(allocation.leftover, principalEntry.currency)}.`);
+    }
+    const remainingAfter = roundInstallmentMoney(currentRemaining - allocation.applied, principalEntry.currency);
+    let notes = upsertInstallmentMetaInNote(nt, {
+      allocation: formatInstallmentAllocation(allocation.allocations)
+    });
     payloads.push({
       group_id: groupId,
       direction,
-      entry_kind: currentRemaining <= 0 ? "full" : "partial",
+      entry_kind: remainingAfter <= 0.00000001 ? "full" : "partial",
       person_name: principalEntry.person_name,
       currency: principalEntry.currency,
       principal_amount: null,
-      action_amount: amt,
+      action_amount: allocation.applied,
       loan_date: principalEntry.loan_date,
       action_date: dt,
-      notes: (state.modalInstallment || hasInstallmentTag(principalEntry.notes))
-        ? normalizeInstallmentNote(nt, true)
-        : nt
+      notes
     });
+  } else {
+    for(let i=0; i<count; i++){
+      const amt = Number(fd.get(`action_amount_${i}`) || 0);
+      const dt = fd.get(`action_date_${i}`);
+      const nt = String(fd.get(`notes_${i}`) || "").trim() || null;
+
+      if(!amt || !dt) continue;
+
+      currentRemaining -= amt;
+      payloads.push({
+        group_id: groupId,
+        direction,
+        entry_kind: currentRemaining <= 0 ? "full" : "partial",
+        person_name: principalEntry.person_name,
+        currency: principalEntry.currency,
+        principal_amount: null,
+        action_amount: amt,
+        loan_date: principalEntry.loan_date,
+        action_date: dt,
+        notes: (state.modalInstallment || hasInstallmentTag(principalEntry.notes))
+          ? normalizeInstallmentNote(nt, true)
+          : nt
+      });
+    }
   }
 
   if(payloads.length === 0) throw new Error("Please fill out amount and date.");
@@ -12268,16 +13445,16 @@ function drawInventoryPdfDetailLines(doc, x, startY, lines, maxWidth, lineHeight
 }
 
 /**
- * Compact From | Bill To block + thin document meta strip for inventory PDFs.
- * Avoids the tall owner box + oversized customer card that forced 1-line invoices onto page 2.
+ * Compact From | Party block + thin document meta strip (inventory, loans, expenses, installments).
  */
 function drawInventoryPdfPartiesAndMeta(doc, options = {}){
-  const customerName = String(options.customerName || "Walk-in customer").trim() || "Walk-in customer";
+  const rightLabel = String(options.rightLabel || "BILL TO").trim().toUpperCase() || "BILL TO";
+  const customerName = String(options.customerName || options.partyName || "—").trim() || "—";
   const customerCompany = String(options.customerCompany || "").trim();
   const customerTrn = String(options.customerTrn || "").trim();
-  const customerPhone = String(options.customerPhone || "").trim();
-  const customerEmail = String(options.customerEmail || "").trim();
-  const customerAddress = String(options.customerAddress || "").trim();
+  const customerPhone = String(options.customerPhone || options.partyPhone || "").trim();
+  const customerEmail = String(options.customerEmail || options.partyEmail || "").trim();
+  const customerAddress = String(options.customerAddress || options.partyAddress || "").trim();
   const metaItems = Array.isArray(options.meta) ? options.meta.filter(item => item && (item.value || item.value === 0)) : [];
   const contact = getPdfCompanyContact();
   const sellerName = contact.isCompany
@@ -12338,7 +13515,7 @@ function drawInventoryPdfPartiesAndMeta(doc, options = {}){
   doc.setFontSize(6.4);
   doc.setTextColor(100, 116, 139);
   doc.text(contact.isCompany ? "FROM" : "PREPARED BY", leftX + 3, labelY);
-  doc.text("BILL TO", rightX + 3, labelY);
+  doc.text(rightLabel, rightX + 3, labelY);
 
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(9);
@@ -12410,6 +13587,9 @@ function drawInventoryPdfTotals(doc, startY, rows = []){
   });
   return y;
 }
+
+const drawCompactPdfPartiesAndMeta = drawInventoryPdfPartiesAndMeta;
+const drawCompactPdfTotals = drawInventoryPdfTotals;
 
 /** First content / table Y below company details (or preferredY if already clear). */
 function pdfContentStartY(doc, preferredY = 72, gap = 8){
@@ -12741,53 +13921,56 @@ async function downloadPersonPDF(personNameEncoded, direction) {
   }
 
   const logoData = await getPdfLogo();
-  const title = "Statement / Receipt";
-  const subtitle = `Client: ${data.personName}`;
+  const isInstallmentDoc = (data.rows || []).some(r => hasInstallmentTag(r.note));
+  const title = isInstallmentDoc ? "Installment Statement" : "Loan Statement";
+  const subtitle = `${data.personName}`;
+  const formatMon = (amt) => formatPdfAmount(amt, data.currency);
 
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
+  const partiesBottom = drawCompactPdfPartiesAndMeta(doc, {
+    rightLabel: "CLIENT",
+    partyName: data.personName,
+    meta: [
+      { label: "Status", value: data.status },
+      { label: "Currency", value: pdfCurrencyLabel(data.currency) },
+      { label: "Entries", value: String(data.loanCount) },
+      { label: "Remaining", value: formatMon(data.remaining) }
+    ]
+  });
 
-  doc.setTextColor(0);
-  doc.setFontSize(11);
-  doc.text(`Status: ${data.status}`, 132, 48);
-  doc.text(`Currency: ${pdfCurrencyLabel(data.currency)}`, 132, 54);
-  doc.text(`Loan Entries: ${data.loanCount}`, 132, 60);
-
-  const formatMon = (amt) => {
-     return formatPdfAmount(amt, data.currency);
-  };
-
-  doc.text(`Principal: ${formatMon(data.principalTotal)}`, 132, 66);
-  doc.text(`Paid/Returned: ${formatMon(data.paidTotal)}`, 132, 72);
-  doc.text(`Remaining: ${formatMon(data.remaining)}`, 132, 78);
-
-  const tableData = data.rows.map((r) => [
+  const orderedTableData = data.rows.map((r) => [
     displayDate(r.date),
     r.type,
+    (typeof cleanInstallmentDisplayNote === "function" ? cleanInstallmentDisplayNote(r.note) : String(r.note || "").replace(/\[INSTALLMENT\]/g, "").trim()) || "—",
     formatMon(r.amount),
-    formatMon(r.remainingAfter),
-    r.note || '—'
+    formatMon(r.remainingAfter)
   ]);
 
-  const orderedTableData = tableData.map(row => [row[0], row[1], row[4], row[2], row[3]]);
-
   doc.autoTable({
-    startY: 88,
-    head: [['Date', 'Type', 'Notes/Description', 'Amount', 'Remaining']],
+    startY: partiesBottom + 5,
+    head: [["Date", "Type", "Notes", "Amount", "Remaining"]],
     body: orderedTableData,
-    theme: 'grid',
-    headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: 'helvetica' },
+    theme: "grid",
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
+    styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8, overflow: "linebreak" },
     columnStyles: {
-      2: { cellWidth: 62 },
-      3: { halign: "right" },
-      4: { halign: "right" }
+      0: { cellWidth: 26 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 64 },
+      3: { cellWidth: 32, halign: "right" },
+      4: { cellWidth: 32, halign: "right" }
     },
-    margin: { top: 50, bottom: 40 },
+    margin: { top: 42, bottom: 32 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
 
-  doc.save(`Statement_${data.personName.replace(/\s+/g, '_')}.pdf`);
+  drawCompactPdfTotals(doc, doc.lastAutoTable.finalY + 5, [
+    { label: "Principal", value: formatMon(data.principalTotal) },
+    { label: direction === "given" ? "Received back" : "Paid / returned", value: formatMon(data.paidTotal) },
+    { label: "Remaining", value: formatMon(data.remaining), strong: true }
+  ]);
+
+  doc.save(`Statement_${data.personName.replace(/\s+/g, "_")}.pdf`);
 }
 
 function sectionLabel(searchKey){
@@ -12857,7 +14040,7 @@ function buildSectionReportRows(direction, searchKey){
 
 async function exportSectionPDF(searchKey){
   if (!window.jspdf){
-    alert("PDF library loading. Please try again in a moment.");
+    alert("PDF library loading. Please try again.");
     return;
   }
   await ensureSectionDataLoaded(searchKey, { throwOnError: true });
@@ -12872,37 +14055,39 @@ async function exportSectionPDF(searchKey){
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-
-  // Load custom fonts for currency symbols
   await loadCustomFontsForPdf(doc);
 
   const logoData = await getPdfLogo();
-  const title = `${label} - Full Report`;
-  const subtitle = `Generated: ${new Date().toLocaleString()}`;
+  const title = `${label} Report`;
+  const subtitle = `Generated ${new Date().toLocaleString()}`;
+  const expensePdf = searchKey === "expenses";
 
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  const expensePdf = searchKey === "expenses";
-  doc.text(`${expensePdf ? "Wallets in view" : "Members"}: ${report.groups.length}`, 132, 48);
-  doc.text(`Rows: ${report.rows.length}`, 132, 54);
+  const partiesBottom = drawCompactPdfPartiesAndMeta(doc, {
+    rightLabel: expensePdf ? "SECTION" : "SUMMARY",
+    partyName: label,
+    meta: [
+      { label: expensePdf ? "Wallets" : "Members", value: String(report.groups.length) },
+      { label: "Rows", value: String(report.rows.length) },
+      { label: "Generated", value: new Date().toLocaleDateString() }
+    ]
+  });
 
   const tableRows = expensePdf
     ? report.rows.map(row => [row[0], row[1], row[row.length > 7 ? 7 : 6], row[2], row[3], row.length > 7 ? row[5] : "-", row[4]])
     : report.rows.map(row => [row[0], row[1], row[2], row.length > 6 ? row[3] : row[5], row.length > 6 ? row[4] : row[3], row.length > 6 ? row[5] : row[4]]);
 
   const tableHead = expensePdf
-    ? [["Item", "Date", "Notes/Description", "Wallet / Type", "Wallet", "VAT", "Amount"]]
-    : [["Member", "Date", "Type", "Notes/Description", "Amount", "Remaining"]];
+    ? [["Item", "Date", "Notes", "Wallet / Type", "Wallet", "VAT", "Amount"]]
+    : [["Member", "Date", "Type", "Notes", "Amount", "Remaining"]];
 
   doc.autoTable({
-    startY: 72,
+    startY: partiesBottom + 5,
     head: tableHead,
     body: tableRows,
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: expensePdf ? 7.8 : 9, cellPadding: expensePdf ? 1.9 : 2.5, overflow: "linebreak" },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: expensePdf ? 7.2 : 7.6 },
+    styles: { font: "helvetica", fontSize: expensePdf ? 7.4 : 7.8, cellPadding: expensePdf ? 1.6 : 1.8, overflow: "linebreak" },
     tableWidth: 182,
     columnStyles: expensePdf
       ? {
@@ -12920,15 +14105,12 @@ async function exportSectionPDF(searchKey){
           4: { cellWidth: 28, halign: "right" },
           5: { cellWidth: 28, halign: "right" }
         },
-    margin: { top: 50, bottom: 40 },
-    didDrawPage: (data) => {
-      drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false);
-    }
+    margin: { top: 42, bottom: 32 },
+    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
 
   doc.save(`${label.replace(/\s+/g, "_")}_Report.pdf`);
 }
-
 
 async function loadCustomFontsForPdf(doc){
   if (!doc) return;
@@ -13261,8 +14443,6 @@ async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
     : "Expense Transactions History";
   const subtitle = `${rangeLabel} | Generated: ${new Date().toLocaleString()}`;
   drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 52);
-
   const pageWidth = doc.internal.pageSize.getWidth();
   const walletCount = new Set(rows.map(r => r.wallet)).size;
   const currencyTotals = new Map();
@@ -13275,22 +14455,16 @@ async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
     currencyCounts.set(cur, (currencyCounts.get(cur) || 0) + 1);
   }
 
-  const summaryTop = pdfContentStartY(doc, 74, 6);
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, summaryTop, pageWidth - 28, 24, 2, 2, "F");
-  doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(14, summaryTop, pageWidth - 28, 24, 2, 2, "S");
-  doc.setTextColor(15, 23, 42);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text(reportMode === "summary" ? "Summary Report" : "Report Summary", 20, summaryTop + 9);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(71, 85, 105);
-  doc.text(`Date selection: ${rangeLabel}`, 20, summaryTop + 16);
-  doc.text(`Transactions: ${rows.length}`, 132, summaryTop + 9);
-  doc.text(`Expense items: ${items.length}`, 132, summaryTop + 16);
-  doc.text(`Wallets: ${walletCount}`, 132, summaryTop + 22);
+  const summaryTop = drawCompactPdfPartiesAndMeta(doc, {
+    rightLabel: "REPORT",
+    partyName: reportMode === "summary" ? "Expense Summary" : "Expense History",
+    meta: [
+      { label: "Range", value: rangeLabel },
+      { label: "Txns", value: String(rows.length) },
+      { label: "Items", value: String(items.length) },
+      { label: "Wallets", value: String(walletCount) }
+    ]
+  });
 
   const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(cur => [
     pdfCurrencyLabel(cur),
@@ -13300,20 +14474,19 @@ async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
   ]);
 
   doc.autoTable({
-    startY: summaryTop + 32,
+    startY: summaryTop + 5,
     head: [["Currency", "Transactions", "VAT", "Total Spent"]],
     body: totalsBody,
     theme: "grid",
-    headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
-    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2.5 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
+    styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8 },
     columnStyles: {
       0: { cellWidth: 40 },
       1: { cellWidth: 35, halign: "right" },
       2: { cellWidth: 35, halign: "right" },
       3: { cellWidth: 55, halign: "right" }
     },
-    margin: { left: 14, right: 14, top: 50, bottom: 40 },
+    margin: { left: 14, right: 14, top: 42, bottom: 32 },
     didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
   });
 
@@ -15055,7 +16228,7 @@ window.addEventListener("resize", () => {
     btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal));
   });
 
-  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.expenseModal].forEach(m => {
+  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.installmentPlanModal, els.installmentEditModal, els.expenseModal].forEach(m => {
     if (!m) return;
     m.addEventListener("click", e => {
       if (e.target && e.target.matches(".modal-backdrop")) closeModal(m.id);
@@ -15070,6 +16243,8 @@ window.addEventListener("resize", () => {
       if (els.goodsSettlementModal && !els.goodsSettlementModal.classList.contains("hide")) closeModal("goodsSettlementModal");
       if (els.inventoryCustomerModal && !els.inventoryCustomerModal.classList.contains("hide")) closeModal("inventoryCustomerModal");
       if (els.inventoryEditItemModal && !els.inventoryEditItemModal.classList.contains("hide")) closeModal("inventoryEditItemModal");
+      if (els.installmentPlanModal && !els.installmentPlanModal.classList.contains("hide")) closeModal("installmentPlanModal");
+      if (els.installmentEditModal && !els.installmentEditModal.classList.contains("hide")) closeModal("installmentEditModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
       if (els.btcWifQrScannerModal && !els.btcWifQrScannerModal.classList.contains("hide")) closeModal("btcWifQrScannerModal");
     }
@@ -15114,7 +16289,43 @@ window.addEventListener("resize", () => {
     const principalEntry = state.entries.find(e => e.group_id === selectedGroupId && e.entry_kind === "principal");
     const currency = principalEntry?.currency || null;
     populateLoanWalletSelector(currency, document.getElementById("modalPaymentWalletSelect"));
+    updateInstallmentPaymentPreview();
   });
+
+  const installmentCountInput = document.getElementById("installmentCountInput");
+  if (installmentCountInput) {
+    ["input", "change"].forEach(evt => installmentCountInput.addEventListener(evt, updateInstallmentPlanPreview));
+  }
+  if (els.principalModalForm) {
+    els.principalModalForm.querySelector('[name="principal_amount"]')?.addEventListener("input", updateInstallmentPlanPreview);
+    els.principalModalForm.querySelector('[name="loan_date"]')?.addEventListener("change", updateInstallmentPlanPreview);
+    els.principalModalForm.querySelectorAll(".currency-chip").forEach(chip => {
+      chip.addEventListener("click", () => setTimeout(updateInstallmentPlanPreview, 0));
+    });
+  }
+  if (els.paymentModalForm) {
+    els.paymentModalForm.addEventListener("input", e => {
+      if (e.target?.name === "action_amount_0" || e.target?.name === "action_date_0") {
+        updateInstallmentPaymentPreview();
+      }
+    });
+  }
+  if (els.installmentEditForm) {
+    ["input", "change"].forEach(evt => {
+      els.installmentEditForm.addEventListener(evt, e => {
+        if (["principal_amount", "installment_count", "loan_date", "currency"].includes(e.target?.name) || e.target?.id === "installmentEditCount") {
+          updateInstallmentEditPreview();
+        }
+      });
+    });
+    els.installmentEditForm.querySelectorAll(".currency-chip").forEach(chip => {
+      chip.addEventListener("click", () => setTimeout(updateInstallmentEditPreview, 0));
+    });
+    els.installmentEditForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      try { await submitInstallmentEdit(); } catch (err) { alert(err.message); }
+    });
+  }
 
   els.principalModalForm.addEventListener("submit", async e => {
     e.preventDefault();
