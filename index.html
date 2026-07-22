@@ -2426,6 +2426,154 @@
     </div>
   </div>
 
+  <div id="inventoryEditItemModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="inventoryEditItemModal"></div>
+    <div class="modal-dialog inventory-edit-item-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Edit inventory item</h3>
+          <p>Update type, pricing, stock, and details for this item.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="inventoryEditItemModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="inventoryEditItemForm" class="inventory-edit-item-form">
+          <div id="inventoryEditItemSummary" class="inventory-edit-item-summary" aria-live="polite"></div>
+
+          <section class="inventory-edit-section">
+            <div class="inventory-edit-section-head">
+              <strong>Item details</strong>
+              <span>Name, type, and measure</span>
+            </div>
+            <div class="inventory-edit-grid">
+              <label class="inventory-edit-field">
+                <span>Item code</span>
+                <input class="input" name="item_code" id="inventoryEditItemCode" placeholder="Item code" autocomplete="off" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Item name</span>
+                <input class="input" name="item_name" id="inventoryEditItemName" required placeholder="Item name" autocomplete="off" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Item type</span>
+                <select class="select" name="item_type" id="inventoryEditItemType"></select>
+              </label>
+              <label class="inventory-edit-field hide" data-inventory-custom-type-wrap>
+                <span>Custom type</span>
+                <input class="input" name="item_type_custom" id="inventoryEditItemTypeCustom" placeholder="e.g. Chemicals" autocomplete="off" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Category</span>
+                <select class="select" name="item_category" id="inventoryEditItemCategory">
+                  <option value="count">Numbers (pcs)</option>
+                  <option value="weight">Weight (KG)</option>
+                  <option value="length">Length (m)</option>
+                </select>
+              </label>
+              <label class="inventory-edit-field hide" data-inventory-unit-wrap>
+                <span>Unit</span>
+                <select class="select" name="quantity_unit" id="inventoryEditItemUnit">
+                  <option value="item">Pcs</option>
+                  <option value="kg">KG</option>
+                  <option value="g">Gram</option>
+                  <option value="m">Meter</option>
+                  <option value="cm">CM</option>
+                </select>
+              </label>
+              <label class="inventory-edit-field inventory-edit-field-wide">
+                <span>Description <em class="optional-label">optional</em></span>
+                <textarea class="input" name="item_description" id="inventoryEditItemDescription" rows="2" placeholder="Optional item description"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section class="inventory-edit-section">
+            <div class="inventory-edit-section-head">
+              <strong>Purchase &amp; stock</strong>
+              <span>Opening purchase for this item</span>
+            </div>
+            <div class="inventory-edit-grid">
+              <label class="inventory-edit-field">
+                <span>Currency</span>
+                <div class="currency-picker" id="inventoryEditCurrencyPicker">
+                  <button type="button" class="currency-chip" data-currency="AED"><span class="symbol symbol-dirham">~</span><span>AED</span></button>
+                  <button type="button" class="currency-chip" data-currency="SAR"><span class="symbol symbol-riyal">$</span><span>SAR</span></button>
+                  <button type="button" class="currency-chip" data-currency="PKR"><span>Rs.</span><span>PKR</span></button>
+                  <button type="button" class="currency-chip" data-currency="USD"><span class="symbol symbol-dollar">$</span><span>USD</span></button>
+                  <button type="button" class="currency-chip" data-currency="BTC"><span class="symbol symbol-bitcoin">₿</span><span>BTC</span></button>
+                </div>
+                <input type="hidden" name="currency" id="inventoryEditCurrency" value="AED" />
+              </label>
+              <label class="inventory-edit-field">
+                <span data-inventory-price-label>Purchase price</span>
+                <input class="input" name="actual_price" id="inventoryEditPurchasePrice" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+              </label>
+              <label class="inventory-edit-field">
+                <span data-inventory-selling-label>Selling price</span>
+                <input class="input" name="selling_price" id="inventoryEditSellingPrice" type="number" min="0" step="0.00000001" placeholder="0.00" />
+              </label>
+              <label class="inventory-edit-field">
+                <span data-inventory-qty-label>Quantity</span>
+                <input class="input" name="bought_qty" id="inventoryEditBoughtQty" type="number" min="1" step="1" required placeholder="1" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Total amount</span>
+                <input class="input" name="total_amount" id="inventoryEditTotalAmount" type="number" min="0" step="0.00000001" readonly placeholder="0.00" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Purchase date</span>
+                <input class="input" name="bought_date" id="inventoryEditBoughtDate" type="date" required />
+              </label>
+            </div>
+          </section>
+
+          <section class="inventory-edit-section">
+            <div class="inventory-edit-section-head">
+              <strong>VAT</strong>
+              <span>Applied to the opening purchase total</span>
+            </div>
+            <div class="inventory-edit-tax">
+              <label class="checkbox-line">
+                <input type="checkbox" name="edit_tax_applied" id="inventoryEditTaxApplied" />
+                <span>VAT applied</span>
+              </label>
+              <label class="inventory-edit-field">
+                <span>VAT %</span>
+                <input class="input" name="edit_tax_rate" id="inventoryEditTaxRate" type="number" min="0" max="100" step="0.01" placeholder="0" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Tax treatment</span>
+                <select class="select" name="edit_tax_mode" id="inventoryEditTaxMode">
+                  <option value="ADD">Add VAT to total</option>
+                  <option value="INCLUDE">VAT included in total</option>
+                </select>
+              </label>
+              <small class="tax-preview" id="inventoryEditTaxPreview">VAT is not applied.</small>
+            </div>
+          </section>
+
+          <section class="inventory-edit-section">
+            <div class="inventory-edit-section-head">
+              <strong>Notes</strong>
+              <span>Shown without inventory tags</span>
+            </div>
+            <div class="inventory-edit-grid">
+              <label class="inventory-edit-field inventory-edit-field-wide">
+                <span>Notes <em class="optional-label">optional</em></span>
+                <input class="input" name="notes" id="inventoryEditNotes" placeholder="Optional note" />
+              </label>
+            </div>
+          </section>
+
+          <div class="inventory-edit-actions">
+            <button class="btn ghost" type="button" data-close-modal="inventoryEditItemModal">Cancel</button>
+            <button class="btn primary" type="submit">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div id="expenseModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="expenseModal"></div>
     <div class="modal-dialog">
