@@ -4060,6 +4060,7 @@ function applyPermissionGates(){
       el.classList.toggle("hide", !canImport);
     });
   updateAdminCommsVisibility();
+  updateAdminBackupVisibility();
   if (messagingLiveEligible()) {
     if (isAppAdminSession()) refreshAdminCommsBadges().catch(() => {});
     startMessagingLiveSync();
@@ -25653,6 +25654,633 @@ function isAppAdminSession(){
   );
 }
 
+/** Protected main admin only (is_protected) — not company owners / sub-admins. */
+function isProtectedAdminSession(){
+  return !!(
+    state.sessionUser
+    && !isGuestMode()
+    && state.sessionUser.role === "admin"
+    && state.sessionUser.is_protected === true
+  );
+}
+
+function updateAdminBackupVisibility(){
+  const wrap = document.getElementById("adminBackupWrap");
+  if (!wrap) return;
+  const allowed = isProtectedAdminSession();
+  wrap.classList.toggle("hide", !allowed);
+  if (!allowed) {
+    const panel = document.querySelector('[data-entry-menu-panel="admin-backup"]');
+    panel?.classList.remove("open");
+    document.getElementById("adminBackupBtn")?.setAttribute("aria-expanded", "false");
+  }
+}
+
+const ADMIN_BACKUP_FORMAT = "triple-m-admin-backup";
+const ADMIN_BACKUP_VERSION = 1;
+
+function setAdminBackupStatus(message, kind = ""){
+  const el = document.getElementById("adminBackupStatus");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("is-busy", kind === "busy");
+  el.classList.toggle("is-error", kind === "error");
+  el.classList.toggle("is-ok", kind === "ok");
+}
+
+function requireProtectedAdminBackup(){
+  if (!isProtectedAdminSession()) {
+    throw new Error("Protected administrator access required.");
+  }
+  if (!state.sessionToken) {
+    throw new Error("Authentication required. Please sign in again, then retry Upload Backup.");
+  }
+}
+
+function triggerAdminBackupDownload(filename, blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Canonical admin backup envelope shared by Download JSON/CSV and Upload Backup.
+ * Shape matches app_admin_export_full_backup / app_admin_import_full_backup.
+ */
+function canonicalizeAdminBackupPayload(raw, options = {}){
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Invalid backup file.");
+  }
+  if (raw.format !== ADMIN_BACKUP_FORMAT) {
+    throw new Error(`Unsupported backup format (expected ${ADMIN_BACKUP_FORMAT}).`);
+  }
+  const version = Number(raw.version || 0);
+  if (!Number.isFinite(version) || version < 1) {
+    throw new Error("Unsupported backup version.");
+  }
+  if (!raw.tables || typeof raw.tables !== "object" || Array.isArray(raw.tables)) {
+    throw new Error("Backup is missing the tables object.");
+  }
+  if (!Array.isArray(raw.tables.app_users)) {
+    throw new Error("Backup must include tables.app_users.");
+  }
+
+  const tables = {};
+  for (const [name, rows] of Object.entries(raw.tables)) {
+    const key = String(name || "").trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]*$/.test(key)) continue;
+    tables[key] = Array.isArray(rows) ? rows : [];
+  }
+  if (!Array.isArray(tables.app_users)) {
+    throw new Error("Backup must include tables.app_users.");
+  }
+
+  const tableOrder = Array.isArray(raw.tableOrder) && raw.tableOrder.length
+    ? raw.tableOrder
+        .map(n => String(n || "").trim().toLowerCase())
+        .filter(n => Object.prototype.hasOwnProperty.call(tables, n))
+    : Object.keys(tables);
+  for (const name of Object.keys(tables)) {
+    if (!tableOrder.includes(name)) tableOrder.push(name);
+  }
+
+  const counts = {};
+  for (const name of tableOrder) {
+    counts[name] = Array.isArray(tables[name]) ? tables[name].length : 0;
+  }
+
+  const out = {
+    format: ADMIN_BACKUP_FORMAT,
+    version: version || ADMIN_BACKUP_VERSION,
+    exportedAt: raw.exportedAt || new Date().toISOString(),
+    tableOrder,
+    counts,
+    tables
+  };
+  if (raw.exportedBy && typeof raw.exportedBy === "object") out.exportedBy = raw.exportedBy;
+  if (Array.isArray(raw.excluded)) out.excluded = raw.excluded;
+  if (Array.isArray(raw.notes)) out.notes = raw.notes;
+  if (options.source) out.source = options.source;
+  return out;
+}
+
+async function fetchAdminFullBackupPayload(){
+  requireProtectedAdminBackup();
+  setAdminBackupStatus("Exporting database…", "busy");
+  const payload = await supabaseRpc("app_admin_export_full_backup", {});
+  if (!payload || payload.format !== ADMIN_BACKUP_FORMAT) {
+    throw new Error("Unexpected backup response from server. Apply migration 034_admin_backup_restore.sql.");
+  }
+  return canonicalizeAdminBackupPayload(payload);
+}
+
+async function downloadAdminBackupJson(){
+  try {
+    const payload = await fetchAdminFullBackupPayload();
+    // Same envelope Upload Backup accepts (format/version/tableOrder/counts/tables).
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    triggerAdminBackupDownload(`TripleM_Admin_Backup_${todayISO()}.json`, blob);
+    const total = Object.values(payload.counts || {}).reduce((s, n) => s + Number(n || 0), 0);
+    setAdminBackupStatus(`JSON ready · ${total} rows`, "ok");
+  } catch (err) {
+    setAdminBackupStatus(err.message || String(err), "error");
+    alert(err.message || err);
+  }
+}
+
+/** Encode one CSV cell so adminBackupCsvDecodeCell restores the same JS value. */
+function adminBackupCsvEncodeCell(val){
+  if (val === null || val === undefined) return "";
+  if (typeof val === "boolean") return val ? "true" : "false";
+  if (typeof val === "number" && Number.isFinite(val)) return String(val);
+  if (typeof val === "object") return csvEscape(JSON.stringify(val));
+  const s = String(val);
+  // Excel-safe ISO dates/timestamps (same unwrap path as import).
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    return `"=""${s.replace(/"/g, "")}"""`;
+  }
+  return csvEscape(s);
+}
+
+function adminBackupCsvDecodeCell(value){
+  let v = String(value ?? "");
+  // Excel formula wrappers from download (and Excel re-saves): ="…"
+  const excel = v.match(/^=\s*"([\s\S]*)"\s*$/);
+  if (excel) v = excel[1];
+  else {
+    const excelSq = v.match(/^=\s*'([\s\S]*)'\s*$/);
+    if (excelSq) v = excelSq[1];
+    else if (v.startsWith("'")) v = v.slice(1);
+  }
+  if (v === "") return null;
+  if (v === "true") return true;
+  if (v === "false") return false;
+  if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v)) return Number(v);
+  if ((v.startsWith("{") && v.endsWith("}")) || (v.startsWith("[") && v.endsWith("]"))) {
+    try { return JSON.parse(v); } catch { /* keep string */ }
+  }
+  return v;
+}
+
+function adminBackupTableColumnOrder(rows){
+  const cols = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    for (const key of Object.keys(row)) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cols.push(key);
+    }
+  }
+  return cols;
+}
+
+function adminBackupTablesToCsv(payload){
+  const canonical = canonicalizeAdminBackupPayload(payload);
+  const tables = canonical.tables;
+  const order = canonical.tableOrder;
+  const lines = [
+    `# format=${canonical.format}`,
+    `# version=${canonical.version}`,
+    `# exportedAt=${canonical.exportedAt}`,
+    `# tableOrder=${order.join(",")}`,
+    `# multi-section CSV: each ###TABLE:name block is one table (Upload Backup expects this exact layout)`
+  ];
+  for (const name of order) {
+    const rows = Array.isArray(tables[name]) ? tables[name] : [];
+    lines.push(`###TABLE:${name}`);
+    if (!rows.length) {
+      // Keep an explicit empty marker so parsers always register the section
+      // even if blank lines are stripped by editors/Excel.
+      lines.push("# empty");
+      continue;
+    }
+    const cols = adminBackupTableColumnOrder(rows);
+    lines.push(cols.map(csvEscape).join(","));
+    for (const row of rows) {
+      lines.push(cols.map(col => adminBackupCsvEncodeCell(row?.[col])).join(","));
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+function parseAdminBackupCsv(text){
+  const raw = String(text || "").replace(/^\uFEFF/, "");
+  const lines = raw.split(/\r?\n/);
+  const tables = {};
+  let current = null;
+  let cols = null;
+  const tableOrder = [];
+  let format = null;
+  let version = null;
+  let exportedAt = null;
+  let headerTableOrder = null;
+
+  const parseLine = (line) => {
+    const out = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          cur += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        out.push(cur);
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  };
+
+  const ensureTable = (name) => {
+    const key = String(name || "").trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]*$/.test(key)) return null;
+    if (!Object.prototype.hasOwnProperty.call(tables, key)) {
+      tables[key] = [];
+      tableOrder.push(key);
+    }
+    return key;
+  };
+
+  for (const rawLine of lines) {
+    // Trim ends so Excel trailing spaces / BOM leftovers do not hide ###TABLE markers.
+    let line = String(rawLine ?? "").trim();
+    if (!line) continue;
+    // Excel sometimes wraps an entire line in quotes.
+    if (line.length >= 2 && line.startsWith('"') && line.endsWith('"')) {
+      line = line.slice(1, -1).replace(/""/g, '"').trim();
+    }
+    if (!line) continue;
+
+    if (line.startsWith("#")) {
+      const fmt = line.match(/^#\s*format\s*=\s*(.+)\s*$/i);
+      if (fmt) {
+        format = String(fmt[1] || "").trim();
+        continue;
+      }
+      const ver = line.match(/^#\s*version\s*=\s*(\d+)\s*$/i);
+      if (ver) {
+        version = Number(ver[1]);
+        continue;
+      }
+      const exp = line.match(/^#\s*exportedAt\s*=\s*(.+)\s*$/i);
+      if (exp) {
+        exportedAt = String(exp[1] || "").trim();
+        continue;
+      }
+      const ord = line.match(/^#\s*tableOrder\s*=\s*(.+)\s*$/i);
+      if (ord) {
+        headerTableOrder = String(ord[1] || "")
+          .split(",")
+          .map(s => s.trim().toLowerCase())
+          .filter(s => /^[a-z][a-z0-9_]*$/i.test(s));
+        // Seed tables from declared order so empty/missing sections still exist.
+        for (const name of headerTableOrder) ensureTable(name);
+        continue;
+      }
+      // "# empty" (and other section comments) keep current table registered.
+      continue;
+    }
+
+    const tableMatch = line.match(/^#{2,3}\s*TABLE\s*:\s*([a-z][a-z0-9_]*)\s*,?\s*$/i);
+    if (tableMatch) {
+      current = ensureTable(tableMatch[1]);
+      cols = null;
+      continue;
+    }
+    if (!current) continue;
+    const cells = parseLine(line);
+    if (!cols) {
+      cols = cells.map(c => String(c || "").trim()).filter(Boolean);
+      // Header-only / empty column list still keeps the table key present.
+      if (!cols.length) cols = null;
+      continue;
+    }
+    if (cells.every(c => String(c || "").trim() === "")) continue;
+    const row = {};
+    cols.forEach((col, idx) => {
+      row[col] = adminBackupCsvDecodeCell(cells[idx]);
+    });
+    tables[current].push(row);
+  }
+
+  // Prefer declared tableOrder from the download header when present.
+  const finalOrder = Array.isArray(headerTableOrder) && headerTableOrder.length
+    ? [...headerTableOrder.filter(n => Object.prototype.hasOwnProperty.call(tables, n)),
+       ...tableOrder.filter(n => !headerTableOrder.includes(n))]
+    : tableOrder;
+
+  // Last-resort: if ###TABLE:app_users was lost but tableOrder listed it, keep [].
+  if (!Object.prototype.hasOwnProperty.call(tables, "app_users") && Array.isArray(headerTableOrder)) {
+    if (headerTableOrder.includes("app_users")) tables.app_users = [];
+  }
+
+  if (!format) {
+    throw new Error(
+      `CSV backup missing "# format=${ADMIN_BACKUP_FORMAT}" header. ` +
+      "Use a file from Download Backup (CSV)."
+    );
+  }
+
+  return canonicalizeAdminBackupPayload({
+    format,
+    version: version == null ? ADMIN_BACKUP_VERSION : version,
+    exportedAt: exportedAt || new Date().toISOString(),
+    tableOrder: finalOrder,
+    tables
+  }, { source: "csv" });
+}
+
+async function downloadAdminBackupCsv(){
+  try {
+    const payload = await fetchAdminFullBackupPayload();
+    const csvText = adminBackupTablesToCsv(payload);
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+    triggerAdminBackupDownload(`TripleM_Admin_Backup_${todayISO()}.csv`, blob);
+    const total = Object.values(payload.counts || {}).reduce((s, n) => s + Number(n || 0), 0);
+    setAdminBackupStatus(`CSV ready · ${total} rows`, "ok");
+  } catch (err) {
+    setAdminBackupStatus(err.message || String(err), "error");
+    alert(err.message || err);
+  }
+}
+
+/** Bundled full DDL for Download SQL (reset + schema + migrations). */
+const ADMIN_FULL_SCHEMA_SQL_URL = "Assets/sql/triplem_full_schema.sql";
+
+/** Escape a JS value as a PostgreSQL string literal (or NULL). */
+function sqlLiteral(value){
+  if (value === null || value === undefined) return "NULL";
+  return "'" + String(value).replace(/'/g, "''") + "'";
+}
+
+/** Escape a UUID for SQL (`'…'::uuid` or NULL). */
+function sqlUuidLiteral(value){
+  const s = String(value || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) {
+    return "NULL";
+  }
+  return sqlLiteral(s) + "::uuid";
+}
+
+/**
+ * Load the protected main admin row (+ optional org) for Download SQL.
+ * Uses PostgREST (own-row / admin RLS) so password_hash is included.
+ */
+async function fetchProtectedAdminCredentialsForSql(){
+  requireProtectedAdminBackup();
+  const uid = String(state.sessionUser?.id || "").trim();
+  if (!uid) throw new Error("No protected admin session.");
+
+  const users = await supabase(
+    "app_users?id=eq." + encodeURIComponent(uid) +
+    "&select=id,organization_id,username,password_hash,admin_visible_password," +
+    "display_name,role,is_protected,is_active,must_change_password," +
+    "smart_pin_hash,admin_visible_smart_pin"
+  );
+  const admin = Array.isArray(users) ? users[0] : null;
+  if (!admin || admin.role !== "admin" || admin.is_protected !== true) {
+    throw new Error("Could not load protected admin credentials for SQL export.");
+  }
+
+  const username = String(admin.username || "").trim();
+  const passwordHash = String(admin.password_hash || "").trim();
+  const visiblePassword = String(admin.admin_visible_password || "").trim();
+  if (!username) throw new Error("Protected admin username is missing.");
+  if (!passwordHash && !visiblePassword) {
+    throw new Error("Protected admin has no password_hash or admin_visible_password to embed.");
+  }
+
+  let org = null;
+  const orgId = String(admin.organization_id || "").trim();
+  if (orgId) {
+    try {
+      const orgs = await supabase(
+        "app_organizations?id=eq." + encodeURIComponent(orgId) +
+        "&select=id,name&limit=1"
+      );
+      org = Array.isArray(orgs) ? orgs[0] : null;
+    } catch {
+      org = { id: orgId, name: "Default Organization" };
+    }
+  }
+  return { admin, org };
+}
+
+/**
+ * Append-only SQL: one org (if needed) + protected main admin upsert.
+ * No other users or business data.
+ */
+function buildProtectedAdminCredentialsSql(admin, org){
+  const username = String(admin.username || "").trim();
+  const displayName = String(admin.display_name || username || "Admin").trim() || "Admin";
+  const visiblePassword = String(admin.admin_visible_password || "").trim();
+  const passwordHash = String(admin.password_hash || "").trim();
+  const pinHash = String(admin.smart_pin_hash || "").trim();
+  const visiblePin = String(admin.admin_visible_smart_pin || "").trim();
+  const orgId = String(admin.organization_id || org?.id || "").trim();
+  const orgName = String(org?.name || "Default Organization").trim() || "Default Organization";
+
+  // Prefer live bcrypt hash; otherwise derive from admin-visible plaintext (same as restore).
+  const passwordSql = passwordHash
+    ? sqlLiteral(passwordHash)
+    : ("extensions.crypt(" + sqlLiteral(visiblePassword) + ", extensions.gen_salt('bf'))");
+
+  const lines = [
+    "",
+    "-- ============================================================================",
+    "-- Protected main admin credentials (live snapshot at download time).",
+    "-- Upserts over schema seed defaults so login matches this admin.",
+    "-- No other users or business data rows are included.",
+    "-- ============================================================================",
+    ""
+  ];
+
+  if (orgId) {
+    lines.push(
+      "INSERT INTO public.app_organizations (id, name)",
+      "VALUES (" + sqlUuidLiteral(orgId) + ", " + sqlLiteral(orgName) + ")",
+      "ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;",
+      ""
+    );
+  }
+
+  lines.push(
+    "INSERT INTO public.app_users (",
+    "  organization_id, username, password_hash, admin_visible_password,",
+    "  display_name, role, is_protected, is_active, must_change_password,",
+    "  smart_pin_hash, admin_visible_smart_pin",
+    ") VALUES (",
+    "  " + (orgId ? sqlUuidLiteral(orgId) : "NULL") + ",",
+    "  " + sqlLiteral(username) + ",",
+    "  " + passwordSql + ",",
+    "  " + (visiblePassword ? sqlLiteral(visiblePassword) : "NULL") + ",",
+    "  " + sqlLiteral(displayName) + ",",
+    "  'admin',",
+    "  true,",
+    "  true,",
+    "  false,",
+    "  " + (pinHash ? sqlLiteral(pinHash) : "NULL") + ",",
+    "  " + (visiblePin ? sqlLiteral(visiblePin) : "NULL"),
+    ")",
+    "ON CONFLICT (username) DO UPDATE SET",
+    "  organization_id = COALESCE(EXCLUDED.organization_id, public.app_users.organization_id),",
+    "  password_hash = EXCLUDED.password_hash,",
+    "  admin_visible_password = EXCLUDED.admin_visible_password,",
+    "  display_name = EXCLUDED.display_name,",
+    "  role = 'admin',",
+    "  is_protected = true,",
+    "  is_active = true,",
+    "  must_change_password = EXCLUDED.must_change_password,",
+    "  smart_pin_hash = EXCLUDED.smart_pin_hash,",
+    "  admin_visible_smart_pin = EXCLUDED.admin_visible_smart_pin,",
+    "  updated_at = now();",
+    ""
+  );
+
+  return lines.join("\n");
+}
+
+async function downloadAdminBackupSql(){
+  try {
+    requireProtectedAdminBackup();
+    setAdminBackupStatus("Fetching full schema SQL…", "busy");
+    const response = await fetch(ADMIN_FULL_SCHEMA_SQL_URL, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("Could not load schema SQL (" + response.status + "). Ensure Assets/sql/triplem_full_schema.sql is deployed.");
+    }
+    const sqlBody = await response.text();
+    if (!sqlBody || !sqlBody.includes("app_admin_export_full_backup") || !sqlBody.includes("create table")) {
+      throw new Error("Schema SQL asset looks incomplete. Rebuild with: node scripts/build_full_schema_sql.js");
+    }
+
+    setAdminBackupStatus("Embedding protected admin credentials…", "busy");
+    const { admin, org } = await fetchProtectedAdminCredentialsForSql();
+    const credentialsSql = buildProtectedAdminCredentialsSql(admin, org);
+
+    const stamp = new Date().toISOString();
+    const sqlText =
+      "-- Downloaded: " + stamp + "\n" +
+      "-- Source asset: " + ADMIN_FULL_SCHEMA_SQL_URL + "\n" +
+      "-- Includes: full schema DDL + protected main admin credentials only (no other data).\n" +
+      "-- After this schema runs, use Admin Upload Backup (JSON/CSV) for full data restore.\n" +
+      sqlBody +
+      credentialsSql;
+    const blob = new Blob([sqlText], { type: "application/sql;charset=utf-8;" });
+    triggerAdminBackupDownload("TripleM_Full_Schema_" + todayISO() + ".sql", blob);
+    setAdminBackupStatus(
+      "SQL ready · full DDL + protected admin @" + String(admin.username || "").trim(),
+      "ok"
+    );
+  } catch (err) {
+    setAdminBackupStatus(err.message || String(err), "error");
+    alert(err.message || err);
+  }
+}
+
+function detectAdminBackupKind(file, text){
+  const name = String(file?.name || "").toLowerCase();
+  const head = String(text || "").trim().slice(0, 200);
+  if (name.endsWith(".json") || head.startsWith("{")) return "json";
+  if (name.endsWith(".csv") || head.startsWith("#") || head.includes("###TABLE:")) return "csv";
+  if (head.startsWith("{")) return "json";
+  return "csv";
+}
+
+function normalizeAdminBackupPayload(parsed){
+  return canonicalizeAdminBackupPayload(parsed);
+}
+
+async function uploadAdminBackupFile(file){
+  requireProtectedAdminBackup();
+  if (!file) return;
+  setAdminBackupStatus("Reading backup…", "busy");
+  const text = await file.text();
+  const kind = detectAdminBackupKind(file, text);
+  let payload;
+  try {
+    if (kind === "json") {
+      // Same canonical envelope as Download Backup (JSON).
+      payload = normalizeAdminBackupPayload(JSON.parse(text));
+    } else {
+      // parseAdminBackupCsv already returns the canonical envelope Download CSV writes.
+      payload = normalizeAdminBackupPayload(parseAdminBackupCsv(text));
+    }
+  } catch (err) {
+    setAdminBackupStatus(err.message || String(err), "error");
+    throw err;
+  }
+
+  const tableNames = Object.keys(payload.tables || {});
+  const rowCount = tableNames.reduce((s, t) => s + (Array.isArray(payload.tables[t]) ? payload.tables[t].length : 0), 0);
+  const ok = confirm(
+    `Restore full admin backup?\n\n` +
+    `This DESTRUCTIVELY replaces exported tables with ${rowCount} row(s) across ${tableNames.length} table(s).\n` +
+    `Other users’ sessions will be cleared. Continue only for disaster recovery.`
+  );
+  if (!ok) {
+    setAdminBackupStatus("Restore cancelled", "");
+    return;
+  }
+
+  setAdminBackupStatus("Restoring database…", "busy");
+  const result = await supabaseRpc("app_admin_import_full_backup", { p_payload: payload });
+  setAdminBackupStatus("Restore complete", "ok");
+  alert(result?.warning || "Database restore finished. Refresh recommended.");
+  try {
+    await loadAdminUsers();
+  } catch { /* ignore */ }
+}
+
+function bindAdminBackupEvents(){
+  const jsonBtn = document.getElementById("adminBackupDownloadJsonBtn");
+  const csvBtn = document.getElementById("adminBackupDownloadCsvBtn");
+  const sqlBtn = document.getElementById("adminBackupDownloadSqlBtn");
+  const uploadInput = document.getElementById("adminBackupUploadInput");
+  jsonBtn?.addEventListener("click", () => {
+    downloadAdminBackupJson().catch(err => alert(err.message || err));
+  });
+  csvBtn?.addEventListener("click", () => {
+    downloadAdminBackupCsv().catch(err => alert(err.message || err));
+  });
+  sqlBtn?.addEventListener("click", () => {
+    downloadAdminBackupSql().catch(err => alert(err.message || err));
+  });
+  uploadInput?.addEventListener("change", async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      await uploadAdminBackupFile(file);
+    } catch (err) {
+      setAdminBackupStatus(err.message || String(err), "error");
+      alert(err.message || err);
+    }
+  });
+  updateAdminBackupVisibility();
+}
+
 function formatRelativeTime(value){
   if (!value) return "";
   const then = new Date(value).getTime();
@@ -26604,6 +27232,7 @@ function bindAdminPanelEvents(){
   if (refreshBtn) refreshBtn.addEventListener("click", () => loadAdminUsers());
   if (createBtn) createBtn.addEventListener("click", () => openAdminCreateUserModal());
   if (accountBtn) accountBtn.addEventListener("click", () => openAccountSettingsModal());
+  bindAdminBackupEvents();
 }
 
 async function boot(){
