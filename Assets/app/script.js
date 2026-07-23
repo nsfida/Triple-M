@@ -694,6 +694,7 @@ const state = {
   expenseHistoryCustomTo: "",
   expenseBtcCache: {},
   inventoryItemTypeFilter: "all",
+  inventoryView: "stock",
   inventoryDraft: {
     purchaseGroupId: "",
     saleGroupIds: [],
@@ -780,6 +781,12 @@ const els = {
   returnedList: document.getElementById("returnedList"),
   installmentsList: document.getElementById("installmentsList"),
   goodsList: document.getElementById("goodsList"),
+  inventoryStockView: document.getElementById("inventoryStockView"),
+  inventoryCustomersView: document.getElementById("inventoryCustomersView"),
+  inventoryOutstandingList: document.getElementById("inventoryOutstandingList"),
+  inventorySectionDesc: document.getElementById("inventorySectionDesc"),
+  openInventoryCustomersBtn: document.getElementById("openInventoryCustomersBtn"),
+  inventoryBackToStockBtn: document.getElementById("inventoryBackToStockBtn"),
   expensesList: document.getElementById("expensesList"),
   connectSupabaseBtn: document.getElementById("connectSupabaseBtn"),
   importJsonInput: document.getElementById("importJsonInput"),
@@ -6352,20 +6359,7 @@ function renderInventoryOutstandingBanner(){
   const searchableCustomerNames = getInventoryCustomerNames();
 
   if (!invoices.length && !searchableCustomerNames.length){
-    return `
-      <details class="inventory-outstanding-banner is-clear">
-        <summary class="inventory-outstanding-top">
-          <div>
-            <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
-            <p>No outstanding inventory invoices.</p>
-          </div>
-          <div class="inventory-outstanding-top-actions">
-            <strong>Clear</strong>
-            <button class="tiny ghost inventoryOutstandingAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
-          </div>
-        </summary>
-      </details>
-    `;
+    return `<div class="inventory-outstanding-empty-state">No outstanding inventory invoices.</div>`;
   }
 
   const members = new Map();
@@ -6402,10 +6396,9 @@ function renderInventoryOutstandingBanner(){
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return `
-    <details class="inventory-outstanding-banner${invoices.length ? "" : " is-clear"}">
+    <details class="inventory-outstanding-banner inventory-outstanding-panel${invoices.length ? "" : " is-clear"}" open>
       <summary class="inventory-outstanding-top">
         <div>
-          <h4><i class="fa-solid fa-file-invoice-dollar"></i> Outstanding Payment Invoices</h4>
           <p>${invoices.length ? `${escapeHtml(invoices.length)} invoice${invoices.length === 1 ? "" : "s"} pending across ${escapeHtml(members.size)} member${members.size === 1 ? "" : "s"}.` : "No outstanding inventory invoices. Search to find customer records."}</p>
         </div>
         <div class="inventory-outstanding-top-actions">
@@ -6413,7 +6406,6 @@ function renderInventoryOutstandingBanner(){
             <small>Total balance</small>
             <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance))}</strong>
           </div>` : `<strong>Clear</strong>`}
-          <button class="tiny ghost inventoryOutstandingAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale"><i class="fa-solid fa-user-plus"></i> Add Customer</button>
         </div>
       </summary>
       <div class="inventory-outstanding-body">
@@ -6482,7 +6474,7 @@ function renderInventoryOutstandingBanner(){
   `;
 }
 
-function applyInventoryOutstandingSearch(root = els.goodsList){
+function applyInventoryOutstandingSearch(root = els.inventoryOutstandingList || els.goodsList){
   const banner = root?.querySelector(".inventory-outstanding-banner");
   const input = banner?.querySelector(".inventoryOutstandingSearchInput");
   const members = Array.from(banner?.querySelectorAll(".inventory-outstanding-member") || []);
@@ -6500,14 +6492,25 @@ function applyInventoryOutstandingSearch(root = els.goodsList){
   if (empty) empty.classList.toggle("hide", !term || visible > 0);
 }
 
-function bindInventoryOutstandingBanner(root = els.goodsList){
+function openInventoryAddCustomer(){
+  activate("goods");
+  openGoodsModal("sold", { addCustomer: true });
+}
+
+function bindInventoryAddCustomerButtons(){
+  document.querySelectorAll(".inventoryAddCustomerBtn").forEach(btn => {
+    if (btn.dataset.boundAddCustomer === "1") return;
+    btn.dataset.boundAddCustomer = "1";
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      openInventoryAddCustomer();
+    });
+  });
+}
+
+function bindInventoryOutstandingBanner(root = els.inventoryOutstandingList || els.goodsList){
   if (!root) return;
-  root.querySelectorAll(".inventoryOutstandingAddCustomerBtn").forEach(btn => btn.addEventListener("click", e => {
-    e.preventDefault();
-    e.stopPropagation();
-    activate("goods");
-    openGoodsModal("sold", { addCustomer: true });
-  }));
   root.querySelectorAll(".inventoryOutstandingCustomerOpenBtn").forEach(btn => btn.addEventListener("click", e => {
     e.preventDefault();
     e.stopPropagation();
@@ -6530,6 +6533,29 @@ function bindInventoryOutstandingBanner(root = els.goodsList){
     e.preventDefault();
     applyInventoryOutstandingSearch(root);
   }));
+}
+
+function setInventorySubView(view = "stock"){
+  const next = view === "customers" ? "customers" : "stock";
+  state.inventoryView = next;
+  const showCustomers = next === "customers";
+  els.inventoryStockView?.classList.toggle("hide", showCustomers);
+  els.inventoryCustomersView?.classList.toggle("hide", !showCustomers);
+  if (els.inventorySectionDesc) {
+    els.inventorySectionDesc.textContent = showCustomers
+      ? "Outstanding payment invoices, customer records, settlements, and statements."
+      : "Shop stock by piece, weight, or length — purchases, sales invoices, and balances.";
+  }
+  if (showCustomers) renderInventoryOutstandingSection();
+}
+
+function renderInventoryOutstandingSection(){
+  const root = els.inventoryOutstandingList;
+  if (!root) return;
+  root.innerHTML = renderInventoryOutstandingBanner();
+  root.querySelectorAll(".inventoryOutstandingCustomerPdfBtn").forEach(btn => btn.addEventListener("click", () => downloadOutstandingCustomerInvoicePDF(btn.dataset.customer)));
+  root.querySelectorAll(".inventoryOutstandingCustomerSettleBtn").forEach(btn => btn.addEventListener("click", () => openGoodsCustomerSettlementModal(btn.dataset.customer)));
+  bindInventoryOutstandingBanner(root);
 }
 
 function outstandingInvoicesForCustomer(customerName){
@@ -8779,20 +8805,15 @@ async function downloadInventoryReceiptPDF(entryId){
 function renderInventoryList(){
   refreshInventoryTypeFilterOptions();
   const groups = getGoodsGroups();
-  const outstandingBanner = renderInventoryOutstandingBanner();
+  if (state.inventoryView === "customers") renderInventoryOutstandingSection();
   if (!groups.length){
-    els.goodsList.innerHTML = `${outstandingBanner}<div class="empty">No inventory items found${state.inventoryItemTypeFilter && state.inventoryItemTypeFilter !== "all" ? " for this type" : ""}.</div>`;
-    els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
-    els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
-    els.goodsList.querySelectorAll(".inventoryOutstandingCustomerPdfBtn").forEach(btn => btn.addEventListener("click", () => downloadOutstandingCustomerInvoicePDF(btn.dataset.customer)));
-    els.goodsList.querySelectorAll(".inventoryOutstandingCustomerSettleBtn").forEach(btn => btn.addEventListener("click", () => openGoodsCustomerSettlementModal(btn.dataset.customer)));
-    bindInventoryOutstandingBanner(els.goodsList);
+    els.goodsList.innerHTML = `<div class="empty">No inventory items found${state.inventoryItemTypeFilter && state.inventoryItemTypeFilter !== "all" ? " for this type" : ""}.</div>`;
     return;
   }
   const boughtCount = inventoryQtySummary(groups, "boughtQty");
   const soldCount = inventoryQtySummary(groups, "soldQty");
   const stockCount = inventoryQtySummary(groups, "remainingQty");
-  els.goodsList.innerHTML = outstandingBanner + groups.map(group => {
+  els.goodsList.innerHTML = groups.map(group => {
     const statusClass = group.status === "Sold" ? "green" : "orange";
     const pnlClass = group.profitLoss >= 0 ? "green" : "red";
     const pnlLabel = group.profitLoss >= 0 ? "Profit" : "Loss";
@@ -8973,9 +8994,6 @@ function renderInventoryList(){
   }));
   els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
   els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
-  els.goodsList.querySelectorAll(".inventoryOutstandingCustomerPdfBtn").forEach(btn => btn.addEventListener("click", () => downloadOutstandingCustomerInvoicePDF(btn.dataset.customer)));
-  els.goodsList.querySelectorAll(".inventoryOutstandingCustomerSettleBtn").forEach(btn => btn.addEventListener("click", () => openGoodsCustomerSettlementModal(btn.dataset.customer)));
-  bindInventoryOutstandingBanner(els.goodsList);
   els.goodsList.querySelectorAll(".invoiceDownloadBtn").forEach(btn => btn.addEventListener("click", () => downloadGoodsItemPDF(btn.dataset.groupId)));
   els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
   els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
@@ -17043,6 +17061,16 @@ function attachEvents(){
       openGoodsModal("sold");
     });
   }
+  if (els.openInventoryCustomersBtn) {
+    els.openInventoryCustomersBtn.addEventListener("click", () => {
+      activate("goods");
+      setInventorySubView("customers");
+    });
+  }
+  if (els.inventoryBackToStockBtn) {
+    els.inventoryBackToStockBtn.addEventListener("click", () => setInventorySubView("stock"));
+  }
+  bindInventoryAddCustomerButtons();
   if (els.inventoryCustomerStatementBtn) {
     els.inventoryCustomerStatementBtn.addEventListener("click", () => downloadInventoryCustomerStatementPDF(state.inventoryDraft.customerRecordName));
   }
