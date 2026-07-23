@@ -1411,44 +1411,51 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Inventory</h3>
-                  <button class="icon-btn" type="button" id="openGoodsBoughtBtn" aria-label="Add purchased item" title="Add purchased item">
-                    <i class="fa-solid fa-plus"></i>
-                  </button>
-                  <button class="hide" type="button" id="openGoodsSoldBtn" aria-hidden="true" tabindex="-1"></button>
+                  <div class="menu-wrap inventory-actions-wrap">
+                    <button class="icon-btn menu-trigger" type="button" id="inventoryActionsBtn" data-entry-menu="inventory-actions" aria-label="Inventory actions" aria-expanded="false" title="Inventory actions">
+                      <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <div class="menu-dropdown inventory-actions-menu" data-entry-menu-panel="inventory-actions">
+                      <button class="menu-item" type="button" id="openGoodsBoughtBtn">
+                        <i class="fa-solid fa-box"></i> Add item
+                      </button>
+                      <button class="menu-item" type="button" id="openGoodsSoldBtn">
+                        <i class="fa-solid fa-cash-register"></i> Create sale
+                      </button>
+                      <button class="menu-item" type="button" data-section-csv-download="inventory">
+                        <i class="fa-solid fa-download"></i> Download CSV
+                      </button>
+                      <button class="menu-item" type="button" data-section-csv-upload="inventory">
+                        <i class="fa-solid fa-upload"></i> Upload CSV
+                      </button>
+                      <button class="menu-item legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="inventory">
+                        <i class="fa-solid fa-wrench"></i> Fix all on this page
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <p>Shop stock by piece, weight, or length — purchases, sales invoices, and balances.</p>
               </div>
-              <div class="tools">
-                <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="inventory" title="Move all meta-tag inventory rows into section tables">Fix all on this page</button>
-                <button class="btn soft" type="button" data-section-csv-download="inventory" title="Download inventory as CSV">Download CSV</button>
-                <button class="btn soft" type="button" data-section-csv-upload="inventory" title="Upload CSV into inventory">Upload CSV</button>
-              </div>
             </div>
             <div class="filter-inline-row inventory-filter-row">
-              <div class="filter-inline-section">
-                <span class="filter-inline-label">Search:</span>
-                <input id="searchGoods" class="input filter-inline-input" placeholder="Search item, type, or note" />
+              <div class="filter-inline-section inventory-filter-search">
+                <span class="filter-inline-label">Search</span>
+                <input id="searchGoods" class="input filter-inline-input" placeholder="Item, type, note" />
               </div>
-              <span class="filter-divider">|</span>
-              <div class="filter-inline-section">
-                <span class="filter-inline-label">Type:</span>
+              <div class="filter-inline-section inventory-filter-type">
+                <span class="filter-inline-label">Type</span>
                 <select id="inventoryTypeFilter" class="select filter-inline-select" aria-label="Filter inventory by item type">
-                  <option value="all" selected>All types</option>
+                  <option value="all" selected>All</option>
                 </select>
               </div>
-              <span class="filter-divider">|</span>
-              <div class="filter-inline-section">
-                <span class="filter-inline-label">Status:</span>
-                <div class="filter-inline-radios">
-                  <input type="radio" id="f_goods_all" name="f_goods" value="All" class="filter-radio" data-filter="goods" checked>
-                  <label for="f_goods_all" class="filter-label">All</label>
-                  <input type="radio" id="f_goods_open" name="f_goods" value="Open" class="filter-radio" data-filter="goods">
-                  <label for="f_goods_open" class="filter-label">In Stock</label>
-                  <input type="radio" id="f_goods_low" name="f_goods" value="LowStock" class="filter-radio" data-filter="goods">
-                  <label for="f_goods_low" class="filter-label">Low Stock</label>
-                  <input type="radio" id="f_goods_sold" name="f_goods" value="Closed" class="filter-radio" data-filter="goods">
-                  <label for="f_goods_sold" class="filter-label">Sold</label>
-                </div>
+              <div class="filter-inline-section inventory-filter-status">
+                <span class="filter-inline-label">Status</span>
+                <select id="inventoryStatusFilter" class="select filter-inline-select" aria-label="Filter inventory by status">
+                  <option value="All">All</option>
+                  <option value="Open" selected>In Stock</option>
+                  <option value="LowStock">Low Stock</option>
+                  <option value="Closed">Sold</option>
+                </select>
               </div>
             </div>
           </div>
@@ -2108,10 +2115,13 @@
 
   <div id="goodsModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="goodsModal"></div>
-    <div class="modal-dialog">
+    <div class="modal-dialog" id="goodsModalDialog">
       <div class="modal-head">
-        <div>
-          <h3 id="goodsModalTitle">Inventory entry</h3>
+        <div class="goods-modal-head-main">
+          <div class="goods-modal-title-row">
+            <input class="input goods-sale-date-inline hide" id="goodsSoldDateInline" form="goodsSoldForm" name="sold_date" type="date" required data-default-today="true" aria-label="Sold date" title="Sold date" />
+            <h3 id="goodsModalTitle">Inventory entry</h3>
+          </div>
           <p id="goodsModalDesc">Add purchase or sale details.</p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-modal="goodsModal" aria-label="Close">×</button>
@@ -2234,16 +2244,18 @@
         </form>
 
         <form id="goodsSoldForm" class="hide">
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <select class="select hide" id="goodsItemSelect" name="group_id" aria-hidden="true" tabindex="-1"></select>
             <button class="hide" type="button" id="goodsNewItemToggleBtn" aria-hidden="true" tabindex="-1"></button>
-            <div class="field w4">
-              <label>Invoice number</label>
-              <input class="input" id="goodsReceiptNumber" name="receipt_number" readonly placeholder="Auto generated" />
-            </div>
-            <div class="field w4">
-              <label>Customer name</label>
-              <select class="select" id="goodsCustomerSelect" name="customer_name_select" required></select>
+            <div class="field w12 goods-sale-meta-row">
+              <div class="goods-sale-meta-field">
+                <label for="goodsReceiptNumber">Invoice</label>
+                <input class="input" id="goodsReceiptNumber" name="receipt_number" readonly placeholder="Auto" />
+              </div>
+              <div class="goods-sale-meta-field goods-sale-meta-customer">
+                <label for="goodsCustomerSelect">Customer</label>
+                <select class="select" id="goodsCustomerSelect" name="customer_name_select" required></select>
+              </div>
             </div>
             <div class="field w4 hide" id="goodsNewCustomerField">
               <label>Customer name</label>
@@ -2310,6 +2322,16 @@
                 </div>
               </div>
             </div>
+            <div class="field w12 inventory-sale-block">
+              <div class="inventory-sale-head">
+                <label>Sale items</label>
+                <span class="inventory-sale-head-hint">VAT uses your saved currency rate</span>
+              </div>
+              <div id="goodsSaleLines" class="inventory-sale-lines"></div>
+              <button class="btn soft tiny inventory-sale-add-btn" type="button" id="addGoodsSaleLineBtn">
+                <i class="fa-solid fa-plus"></i> Add item
+              </button>
+            </div>
             <div class="field w4">
               <label>Invoice total</label>
               <input class="input" id="goodsSaleGrandTotal" name="receipt_total" readonly placeholder="0.00" />
@@ -2319,32 +2341,18 @@
               <input class="input" id="goodsSalePaidAmount" name="paid_amount" type="number" min="0" step="0.00000001" placeholder="0.00" />
             </div>
             <div class="field w4">
-              <label>Balance amount</label>
+              <label>Balance</label>
               <input class="input" id="goodsSaleBalanceAmount" name="balance_amount" readonly placeholder="0.00" />
             </div>
-            <div class="field w12">
-              <label>Add paid amount to wallet</label>
+            <div class="field w8">
+              <label>Wallet top-up <span class="optional-label">optional</span></label>
               <select class="select" name="sale_wallet_id" id="goodsSaleWalletSelect">
                 <option value="">Skip wallet top-up</option>
               </select>
-              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Optional. The selected wallet receives the paid amount for single-currency invoices.</small>
             </div>
-            <div class="field w12">
-              <div class="inventory-sale-head">
-                <label>Items for this invoice</label>
-                <button class="icon-btn ghost" type="button" id="addGoodsSaleLineBtn" aria-label="Add sale item" title="Add sale item">
-                  <i class="fa-solid fa-plus"></i>
-                </button>
-              </div>
-              <div id="goodsSaleLines" class="inventory-sale-lines"></div>
-            </div>
-            <div class="field w6">
-              <label>Sold date</label>
-              <input class="input" name="sold_date" type="date" required data-default-today="true" />
-            </div>
-            <div class="field w12">
-              <label>Notes</label>
-              <input class="input" name="notes" placeholder="Optional note" />
+            <div class="field w4">
+              <label>Notes <span class="optional-label">optional</span></label>
+              <input class="input" name="notes" placeholder="Note" />
             </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="goodsModal">Cancel</button>
