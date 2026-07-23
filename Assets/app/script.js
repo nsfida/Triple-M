@@ -2520,6 +2520,21 @@ function syncSectionCurrencyFiltersWithPage() {
     if (label) label.style.display = visible ? "" : "none";
     radio.checked = (state.currencyFilter[filterKey] || "All") === value;
   });
+  document.querySelectorAll(".currency-filter-select").forEach(select => {
+    const filterKey = select.dataset.currencyFilter;
+    Array.from(select.options).forEach(option => {
+      const value = option.value;
+      const visible = value === "All"
+        ? (isAllSelected || scopedCurrencies.size > 1)
+        : scopedCurrencies.has(normalizeCurrencyCode(value));
+      option.hidden = !visible;
+      option.disabled = !visible;
+    });
+    const desired = state.currencyFilter[filterKey] || "All";
+    const match = Array.from(select.options).find(opt => !opt.disabled && opt.value === desired);
+    select.value = match ? desired : "All";
+    state.currencyFilter[filterKey] = select.value || "All";
+  });
 }
 
 function applyPageCurrencySelection(currency) {
@@ -14097,6 +14112,26 @@ function updateCurrencyFiltersFromConfig(){
       }
     }
   });
+
+  document.querySelectorAll(".currency-filter-select").forEach(select => {
+    const filterKey = select.dataset.currencyFilter;
+    Array.from(select.options).forEach(option => {
+      if (option.value === "All") {
+        option.hidden = false;
+        option.disabled = false;
+        return;
+      }
+      const isAllowed = allowedCurrencies.includes(normalizeCurrencyCode(option.value));
+      option.hidden = !isAllowed;
+      option.disabled = !isAllowed;
+      if (!isAllowed && state.currencyFilter[filterKey] === option.value) {
+        state.currencyFilter[filterKey] = "All";
+      }
+    });
+    const desired = state.currencyFilter[filterKey] || "All";
+    const match = Array.from(select.options).find(opt => !opt.disabled && opt.value === desired);
+    select.value = match ? desired : "All";
+  });
   
   // Update currency select elements in modals
   updateCurrencySelectElements();
@@ -17074,18 +17109,24 @@ function attachEvents(){
   if (els.inventoryCustomerStatementBtn) {
     els.inventoryCustomerStatementBtn.addEventListener("click", () => downloadInventoryCustomerStatementPDF(state.inventoryDraft.customerRecordName));
   }
-  els.openExpenseAccountBtn.addEventListener("click", () => {
-    activate("expenses");
-    openExpenseModal("account");
-  });
-  els.openExpenseTopupBtn.addEventListener("click", () => {
-    activate("expenses");
-    openExpenseModal("topup");
-  });
-  els.openExpenseEntryBtn.addEventListener("click", () => {
-    activate("expenses");
-    openExpenseModal("expense");
-  });
+  if (els.openExpenseAccountBtn) {
+    els.openExpenseAccountBtn.addEventListener("click", () => {
+      activate("expenses");
+      openExpenseModal("account");
+    });
+  }
+  if (els.openExpenseTopupBtn) {
+    els.openExpenseTopupBtn.addEventListener("click", () => {
+      activate("expenses");
+      openExpenseModal("topup");
+    });
+  }
+  if (els.openExpenseEntryBtn) {
+    els.openExpenseEntryBtn.addEventListener("click", () => {
+      activate("expenses");
+      openExpenseModal("expense");
+    });
+  }
 
   els.toggleWalletsBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -17113,6 +17154,14 @@ function attachEvents(){
       });
       const nowOpen = panel.classList.toggle("open");
       btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+
+      // Landing projects: CSS-absolute under .menu-wrap (nav backdrop-filter breaks fixed coords)
+      if (key === "landing-projects") {
+        panel.style.top = "";
+        panel.style.left = "";
+        panel.style.visibility = "";
+        return;
+      }
 
       // Position the dropdown using fixed positioning
       if (nowOpen) {
@@ -17222,6 +17271,19 @@ window.addEventListener("resize", () => {
     });
   });
 
+  document.querySelectorAll(".status-filter-select").forEach(select => {
+    const key = select.dataset.filter;
+    if (key && state.statusFilter[key] != null) {
+      select.value = state.statusFilter[key];
+    }
+    select.addEventListener("change", e => {
+      const filterKey = e.target.dataset.filter;
+      if (!filterKey) return;
+      state.statusFilter[filterKey] = e.target.value;
+      renderAll();
+    });
+  });
+
   document.querySelectorAll(".currency-radio").forEach(r => {
     r.addEventListener("change", e => {
       if (!isPageCurrencyAll()) {
@@ -17230,6 +17292,23 @@ window.addEventListener("resize", () => {
       }
       const key = e.target.dataset.currencyFilter;
       state.currencyFilter[key] = e.target.value;
+      renderAll();
+    });
+  });
+
+  document.querySelectorAll(".currency-filter-select").forEach(select => {
+    const key = select.dataset.currencyFilter;
+    if (key && state.currencyFilter[key] != null) {
+      select.value = state.currencyFilter[key];
+    }
+    select.addEventListener("change", e => {
+      if (!isPageCurrencyAll()) {
+        syncSectionCurrencyFiltersWithPage();
+        return;
+      }
+      const filterKey = e.target.dataset.currencyFilter;
+      if (!filterKey) return;
+      state.currencyFilter[filterKey] = e.target.value;
       renderAll();
     });
   });
@@ -17506,11 +17585,27 @@ window.addEventListener("resize", () => {
     });
   }
 
-  els.downloadGivenPdfBtn.addEventListener("click", () => exportSectionPDF("given").catch(err => alert(err.message)));
-  els.downloadReceivedPdfBtn.addEventListener("click", () => exportSectionPDF("received").catch(err => alert(err.message)));
-  els.downloadTakenPdfBtn.addEventListener("click", () => exportSectionPDF("taken").catch(err => alert(err.message)));
-  els.downloadReturnedPdfBtn.addEventListener("click", () => exportSectionPDF("returned").catch(err => alert(err.message)));
-  els.downloadExpensesPdfBtn.addEventListener("click", () => exportSectionPDF("expenses").catch(err => alert(err.message)));
+  const closeOpenEntryMenus = () => {
+    document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+    document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+  };
+  const bindSectionPdfBtn = (btn, section) => {
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      closeOpenEntryMenus();
+      exportSectionPDF(section).catch(err => alert(err.message));
+    });
+  };
+  bindSectionPdfBtn(els.downloadGivenPdfBtn, "given");
+  bindSectionPdfBtn(els.downloadReceivedPdfBtn, "received");
+  bindSectionPdfBtn(els.downloadTakenPdfBtn, "taken");
+  bindSectionPdfBtn(els.downloadReturnedPdfBtn, "returned");
+  if (els.downloadExpensesPdfBtn) {
+    els.downloadExpensesPdfBtn.addEventListener("click", () => {
+      closeOpenEntryMenus();
+      exportSectionPDF("expenses").catch(err => alert(err.message));
+    });
+  }
   els.downloadAllSectionsPdfBtn.addEventListener("click", () => exportAllSectionsPDF().catch(err => alert(err.message)));
   els.downloadAllDataJsonBtn.addEventListener("click", () => downloadJsonBackup().catch(err => alert(err.message)));
   els.downloadAllDataCsvBtn.addEventListener("click", () => downloadCsvBackup().catch(err => alert(err.message)));
@@ -17884,6 +17979,14 @@ function setLandingMobileMenuOpen(open){
   if (icon) {
     icon.className = shouldOpen ? "fa-solid fa-xmark" : "fa-solid fa-bars";
   }
+  const mobileProjects = document.getElementById("landingMobileProjects");
+  if (mobileProjects) mobileProjects.open = false;
+  if (shouldOpen) {
+    document.querySelectorAll(".landing-projects-dropdown.open").forEach(panel => panel.classList.remove("open"));
+    document.querySelectorAll("#landingOtherProjectsBtn[aria-expanded='true']").forEach(trigger => {
+      trigger.setAttribute("aria-expanded", "false");
+    });
+  }
 }
 
 function syncLandingNavActive(section){
@@ -18015,6 +18118,16 @@ function bindLandingContentNav(){
   });
 
   shell.addEventListener("click", e => {
+    const projectLink = e.target.closest("[data-landing-project-link]");
+    if (projectLink) {
+      setLandingMobileMenuOpen(false);
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => {
+        trigger.setAttribute("aria-expanded", "false");
+      });
+      return;
+    }
+
     const inquiryTrigger = e.target.closest("[data-landing-inquiry]");
     if (inquiryTrigger) {
       e.preventDefault();
