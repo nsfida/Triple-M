@@ -2183,6 +2183,7 @@
       <div class="modal-head">
         <div class="goods-modal-head-main">
           <div class="goods-modal-title-row">
+            <input class="input goods-sale-date-inline hide" id="goodsBoughtDateInline" form="goodsBoughtForm" name="bought_date" type="date" required data-default-today="true" aria-label="Purchase date" title="Purchase date" />
             <input class="input goods-sale-date-inline hide" id="goodsSoldDateInline" form="goodsSoldForm" name="sold_date" type="date" required data-default-today="true" aria-label="Sold date" title="Sold date" />
             <h3 id="goodsModalTitle">Inventory entry</h3>
           </div>
@@ -2192,113 +2193,26 @@
       </div>
       <div class="modal-body">
         <form id="goodsBoughtForm" class="hide">
-          <div class="modal-grid">
-            <div class="field w6">
-              <label>Item code</label>
-              <input class="input" name="item_code" readonly placeholder="Auto generated" />
-            </div>
-            <div class="field w6">
-              <label>Item name</label>
-              <input class="input" name="item_name" required placeholder="Item name" />
-            </div>
-            <div class="field w4">
-              <label>Item type</label>
-              <select class="select" name="item_type" id="goodsItemTypeSelect">
-                <option value="General" selected>General</option>
-                <option value="__custom_type__">+ Custom type…</option>
-              </select>
-            </div>
-            <div class="field w4 hide" data-inventory-custom-type-wrap>
-              <label>Custom type</label>
-              <input class="input" name="item_type_custom" id="goodsItemTypeCustom" placeholder="e.g. Chemicals" autocomplete="off" />
-            </div>
-            <div class="field w4">
-              <label>Item category</label>
-              <select class="select" name="item_category">
-                <option value="count">Numbers (pcs)</option>
-                <option value="weight">Weight (KG)</option>
-                <option value="length">Length (m)</option>
-              </select>
-            </div>
-            <div class="field w6">
-              <label>Currency</label>
-              <div class="currency-picker">
-                <button type="button" class="currency-chip active" data-currency="AED">
-                  <span class="symbol symbol-dirham">~</span><span>AED</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="SAR">
-                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="PKR">
-                  <span>Rs.</span><span>PKR</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="USD">
-                  <span class="symbol symbol-dollar">$</span><span>USD</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="BTC">
-                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
-                </button>
+          <div class="modal-grid goods-sale-form-grid">
+            <div class="field w12 inventory-sale-block">
+              <div class="inventory-sale-head">
+                <label>Purchase items</label>
+                <span class="inventory-sale-head-hint">VAT uses your saved currency rate</span>
               </div>
-              <input type="hidden" name="currency" value="AED" />
+              <div id="goodsPurchaseLines" class="inventory-sale-lines"></div>
+              <button class="btn soft tiny inventory-sale-add-btn" type="button" id="addGoodsPurchaseLineBtn">
+                <i class="fa-solid fa-plus"></i> Add item
+              </button>
             </div>
-            <div class="field w4">
-              <label data-inventory-price-label>Purchase price</label>
-              <input class="input" name="actual_price" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+            <div class="field w6">
+              <label>Total</label>
+              <input class="input" id="goodsBoughtTotalAmount" name="total_amount" type="text" readonly placeholder="0.00" />
             </div>
-            <div class="field w4">
-              <label data-inventory-selling-label>Selling price</label>
-              <input class="input" name="selling_price" type="number" min="0" step="0.00000001" placeholder="0.00" />
-            </div>
-            <div class="field w4">
-              <label class="checkbox-line">
-                <input type="checkbox" name="purchase_tax_applied" id="goodsPurchaseTaxApplied" checked />
-                <span>Apply VAT</span>
-              </label>
-              <small class="tax-preview" id="goodsPurchaseTaxPreview">VAT will be calculated in the total.</small>
-            </div>
-            <div class="field w4">
-              <label>VAT %</label>
-              <input class="input" name="purchase_tax_rate" id="goodsPurchaseTaxRate" type="number" min="0" max="100" step="0.01" placeholder="0" />
-            </div>
-            <div class="field w4">
-              <label>Tax treatment</label>
-              <select class="select" name="purchase_tax_mode" id="goodsPurchaseTaxMode">
-                <option value="ADD">Add VAT to total</option>
-                <option value="INCLUDE">VAT included in total</option>
-              </select>
-            </div>
-            <div class="field w4">
-              <label data-inventory-qty-label>Quantity</label>
-              <input class="input" name="bought_qty" type="number" min="1" step="1" required value="1" />
-            </div>
-            <div class="field w4 hide" data-inventory-unit-wrap>
-              <label>Unit</label>
-              <select class="select" name="quantity_unit">
-                <option value="item">Pcs</option>
-                <option value="kg">KG</option>
-                <option value="g">Gram</option>
-                <option value="m">Meter</option>
-                <option value="cm">CM</option>
-              </select>
-            </div>
-            <div class="field w4">
-              <label>Total amount</label>
-              <input class="input" id="goodsBoughtTotalAmount" name="total_amount" type="number" min="0" step="0.00000001" readonly placeholder="0.00" />
-            </div>
-            <div class="field w4">
-              <label>Purchase date</label>
-              <input class="input" name="bought_date" type="date" required data-default-today="true" />
-            </div>
-            <div class="field w4">
-              <label>Deduct from wallet</label>
+            <div class="field w6">
+              <label>Deduct from wallet <span class="optional-label">optional</span></label>
               <select class="select" name="purchase_wallet_id" id="goodsPurchaseWalletSelect">
                 <option value="">Skip wallet deduction</option>
               </select>
-              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Optional. Only wallets in this item currency appear.</small>
-            </div>
-            <div class="field w12">
-              <label>Item description</label>
-              <textarea class="input" name="item_description" rows="3" placeholder="Optional item description"></textarea>
             </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="goodsModal">Cancel</button>
@@ -2664,11 +2578,14 @@
 
   <div id="installmentEditModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="installmentEditModal"></div>
-    <div class="modal-dialog">
+    <div class="modal-dialog compact-entry-dialog" id="installmentEditModalDialog">
       <div class="modal-head">
-        <div>
-          <h3 id="installmentEditTitle">Edit installment plan</h3>
-          <p id="installmentEditDesc">Set or update the monthly schedule. Existing payments stay and are re-applied in order.</p>
+        <div class="goods-modal-head-main">
+          <div class="goods-modal-title-row">
+            <input class="input goods-sale-date-inline" id="installmentEditDateInline" form="installmentEditForm" name="loan_date" type="date" required aria-label="Plan start date" title="Plan start date" />
+            <h3 id="installmentEditTitle">Edit installment plan</h3>
+          </div>
+          <p id="installmentEditDesc" class="hide">Set or update the monthly schedule. Existing payments stay and are re-applied in order.</p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-modal="installmentEditModal" aria-label="Close">×</button>
       </div>
@@ -2676,32 +2593,27 @@
         <form id="installmentEditForm">
           <input type="hidden" name="group_id" id="installmentEditGroupId" value="" />
           <div id="installmentEditSummary" class="installment-edit-summary" aria-live="polite"></div>
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <div class="field w6">
               <label>Person name</label>
               <input class="input" name="person_name" id="installmentEditName" required placeholder="Full name" />
             </div>
             <div class="field w6">
               <label>Currency</label>
-              <div class="currency-picker" id="installmentEditCurrencyPicker">
-                <button type="button" class="currency-chip" data-currency="AED"><span class="symbol symbol-dirham">~</span><span>AED</span></button>
-                <button type="button" class="currency-chip" data-currency="SAR"><span class="symbol symbol-riyal">$</span><span>SAR</span></button>
-                <button type="button" class="currency-chip" data-currency="PKR"><span>Rs.</span><span>PKR</span></button>
-                <button type="button" class="currency-chip" data-currency="USD"><span class="symbol symbol-dollar">$</span><span>USD</span></button>
-                <button type="button" class="currency-chip" data-currency="BTC"><span class="symbol symbol-bitcoin">₿</span><span>BTC</span></button>
-              </div>
-              <input type="hidden" name="currency" id="installmentEditCurrency" value="AED" />
+              <select class="select" name="currency" id="installmentEditCurrency" required>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="PKR">PKR</option>
+                <option value="USD">USD</option>
+                <option value="BTC">BTC</option>
+              </select>
             </div>
             <div class="field w6">
               <label>Total amount</label>
               <input class="input" name="principal_amount" id="installmentEditAmount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
             </div>
             <div class="field w6">
-              <label>Plan start date</label>
-              <input class="input" name="loan_date" id="installmentEditDate" type="date" required />
-            </div>
-            <div class="field w6">
-              <label>Number of installments</label>
+              <label>Installments</label>
               <input class="input" name="installment_count" id="installmentEditCount" type="number" min="2" max="120" step="1" required placeholder="e.g. 12" />
             </div>
             <div class="field w6">
@@ -2715,7 +2627,7 @@
               </div>
             </div>
             <div class="field w12">
-              <label>Notes</label>
+              <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" id="installmentEditNotes" placeholder="Optional note" />
             </div>
             <div class="field w12 modal-footer">
@@ -2730,17 +2642,22 @@
 
   <div id="expenseModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="expenseModal"></div>
-    <div class="modal-dialog">
+    <div class="modal-dialog compact-entry-dialog" id="expenseModalDialog">
       <div class="modal-head">
-        <div>
-          <h3 id="expenseModalTitle">Expenses</h3>
-          <p id="expenseModalDesc">Track accounts and expenses.</p>
+        <div class="goods-modal-head-main">
+          <div class="goods-modal-title-row">
+            <input class="input goods-sale-date-inline hide" id="expenseAccountDateInline" form="expenseAccountForm" name="account_date" type="date" required data-default-today="true" aria-label="Account date" title="Account date" />
+            <input class="input goods-sale-date-inline hide" id="expenseTopupDateInline" form="expenseTopupForm" name="date" type="date" required data-default-today="true" aria-label="Date" title="Date" />
+            <input class="input goods-sale-date-inline hide" id="expenseEntryDateInline" form="expenseEntryForm" name="date" type="date" required data-default-today="true" aria-label="Expense date" title="Expense date" />
+            <h3 id="expenseModalTitle">Expenses</h3>
+          </div>
+          <p id="expenseModalDesc" class="hide">Track accounts and expenses.</p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-modal="expenseModal" aria-label="Close">×</button>
       </div>
       <div class="modal-body">
         <form id="expenseAccountForm" class="hide">
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <div class="field w6">
               <label>Account name</label>
               <input class="input" name="account_name" required placeholder="e.g. Main Wallet" />
@@ -2754,24 +2671,13 @@
             </div>
             <div class="field w6">
               <label>Currency</label>
-              <div class="currency-picker">
-                <button type="button" class="currency-chip active" data-currency="AED">
-                  <span class="symbol symbol-dirham">~</span><span>AED</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="SAR">
-                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="PKR">
-                  <span>Rs.</span><span>PKR</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="USD">
-                  <span class="symbol symbol-dollar">$</span><span>USD</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="BTC">
-                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
-                </button>
-              </div>
-              <input type="hidden" name="currency" value="AED" />
+              <select class="select" name="currency" id="expenseAccountCurrencySelect" required>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="PKR">PKR</option>
+                <option value="USD">USD</option>
+                <option value="BTC">BTC</option>
+              </select>
             </div>
             <div class="field w6">
               <label>Available balance</label>
@@ -2782,12 +2688,8 @@
               <input class="input" name="btc_address" type="text" placeholder="bc1... or 1..." autocomplete="off" spellcheck="false" />
               <small class="expense-btc-help" id="expenseBtcBalanceStatus">Balance and transactions will be loaded directly from the blockchain.</small>
             </div>
-            <div class="field w6">
-              <label>Account date</label>
-              <input class="input" name="account_date" type="date" required data-default-today="true" />
-            </div>
             <div class="field w12">
-              <label>Notes</label>
+              <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
             </div>
             <div class="field w12 modal-footer">
@@ -2798,7 +2700,7 @@
         </form>
 
         <form id="expenseTopupForm" class="hide">
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <div class="field w6">
               <label>Account</label>
               <select class="select" name="group_id" id="expenseTopupAccountSelect" required></select>
@@ -2807,12 +2709,8 @@
               <label>Amount to add</label>
               <input class="input" name="amount" type="number" step="0.00000001" required placeholder="0.00" />
             </div>
-            <div class="field w6">
-              <label>Date</label>
-              <input class="input" name="date" type="date" required data-default-today="true" />
-            </div>
             <div class="field w12">
-              <label>Notes</label>
+              <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
             </div>
             <div class="field w12 modal-footer">
@@ -2823,7 +2721,7 @@
         </form>
 
         <form id="expenseEntryForm" class="hide">
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <div class="field w6">
               <label>Item name</label>
               <input class="input" name="item_name" id="expenseItemNameInput" required placeholder="What did you buy/pay?" autocomplete="off" />
@@ -2832,14 +2730,7 @@
               <label>Amount spent</label>
               <input class="input" name="amount" type="number" step="0.00000001" required placeholder="0.00" />
             </div>
-            <div class="field w6">
-              <label class="checkbox-line">
-                <input type="checkbox" name="expense_tax_applied" id="expenseTaxApplied" />
-                <span>VAT paid</span>
-              </label>
-              <small class="tax-preview" id="expenseTaxPreview">VAT is not applied.</small>
-            </div>
-            <div class="field w6">
+            <div class="field w4">
               <label>Currency</label>
               <select class="select" name="currency" id="expenseCurrencySelect" required>
                 <option value="AED">AED</option>
@@ -2849,18 +2740,7 @@
                 <option value="BTC">BTC</option>
               </select>
             </div>
-            <div class="field w3">
-              <label>VAT %</label>
-              <input class="input" name="expense_tax_rate" id="expenseTaxRate" type="number" min="0" max="100" step="0.01" placeholder="0" />
-            </div>
-            <div class="field w3">
-              <label>Tax treatment</label>
-              <select class="select" name="expense_tax_mode" id="expenseTaxMode">
-                <option value="INCLUDE">VAT included in amount</option>
-                <option value="ADD">Add VAT to amount</option>
-              </select>
-            </div>
-            <div class="field w6">
+            <div class="field w8">
               <label>From account</label>
               <select class="select" name="group_id" id="expenseSpendAccountSelect" required></select>
             </div>
@@ -2878,12 +2758,26 @@
               </select>
             </div>
             <div class="field w6">
-              <label>Or add new expense type</label>
+              <label>Or new type <span class="optional-label">optional</span></label>
               <input class="input" name="custom_expense_type" placeholder="Custom type" />
             </div>
-            <div class="field w6">
-              <label>Expense date</label>
-              <input class="input" name="date" type="date" required data-default-today="true" />
+            <div class="field w4">
+              <label class="checkbox-line">
+                <input type="checkbox" name="expense_tax_applied" id="expenseTaxApplied" />
+                <span>VAT paid</span>
+              </label>
+              <small class="tax-preview" id="expenseTaxPreview">VAT is not applied.</small>
+            </div>
+            <div class="field w4">
+              <label>VAT %</label>
+              <input class="input" name="expense_tax_rate" id="expenseTaxRate" type="number" min="0" max="100" step="0.01" placeholder="0" />
+            </div>
+            <div class="field w4">
+              <label>VAT mode</label>
+              <select class="select" name="expense_tax_mode" id="expenseTaxMode">
+                <option value="INCLUDE">Incl</option>
+                <option value="ADD">Add</option>
+              </select>
             </div>
             <div id="expenseItemIntentWrap" class="field w12 hide">
               <p class="expense-intent-hint">This item name already exists for this currency. Choose how to record it.</p>
@@ -2899,7 +2793,7 @@
               </div>
             </div>
             <div class="field w12">
-              <label>Notes</label>
+              <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
             </div>
             <div class="field w12 modal-footer">
@@ -3057,11 +2951,14 @@
 
   <div id="entryModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="entryModal"></div>
-    <div class="modal-dialog">
+    <div class="modal-dialog compact-entry-dialog" id="entryModalDialog">
       <div class="modal-head">
-        <div>
-          <h3 id="modalTitle">New entry</h3>
-          <p id="modalDesc">Fill the form and save the entry.</p>
+        <div class="goods-modal-head-main">
+          <div class="goods-modal-title-row">
+            <input class="input goods-sale-date-inline hide" id="entryPrincipalDateInline" form="principalModalForm" name="loan_date" type="date" required data-default-today="true" aria-label="Date" title="Date" />
+            <h3 id="modalTitle">New entry</h3>
+          </div>
+          <p id="modalDesc" class="hide">Fill the form and save the entry.</p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-modal="entryModal" aria-label="Close">×</button>
       </div>
@@ -3069,42 +2966,27 @@
       <div class="modal-body">
         <form id="principalModalForm" class="hide" data-form-type="principal">
           <input type="hidden" name="direction" value="given" />
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <div class="field w6">
               <label>Person name</label>
               <input class="input" name="person_name" required placeholder="Full name" />
             </div>
             <div class="field w6">
               <label>Currency</label>
-              <div class="currency-picker" id="principalCurrencyPicker">
-                <button type="button" class="currency-chip active" data-currency="AED">
-                  <span class="symbol symbol-dirham">~</span><span>AED</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="SAR">
-                  <span class="symbol symbol-riyal">$</span><span>SAR</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="PKR">
-                  <span>Rs.</span><span>PKR</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="USD">
-                  <span class="symbol symbol-dollar">$</span><span>USD</span>
-                </button>
-                <button type="button" class="currency-chip" data-currency="BTC">
-                  <span class="symbol symbol-bitcoin">₿</span><span>BTC</span>
-                </button>
-              </div>
-              <input type="hidden" name="currency" value="AED" />
+              <select class="select" name="currency" id="principalCurrencySelect" required>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="PKR">PKR</option>
+                <option value="USD">USD</option>
+                <option value="BTC">BTC</option>
+              </select>
             </div>
             <div class="field w6">
               <label>Amount</label>
               <input class="input" name="principal_amount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
             </div>
-            <div class="field w6">
-              <label>Date</label>
-              <input class="input" name="loan_date" type="date" required data-default-today="true" />
-            </div>
             <div class="field w6 hide" id="installmentCountGroup">
-              <label>Number of installments</label>
+              <label>Installments</label>
               <input class="input" name="installment_count" id="installmentCountInput" type="number" min="2" max="120" step="1" placeholder="e.g. 12" />
             </div>
             <div class="field w6 hide" id="installmentMonthlyPreviewField">
@@ -3118,18 +3000,17 @@
               </div>
             </div>
             <div class="field w12">
-              <label>Notes</label>
+              <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
             </div>
             <div class="field w12" id="principalWalletGroup">
-              <label id="principalWalletLabel" style="display:flex;align-items:center;gap:6px;">
+              <label id="principalWalletLabel" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 Wallet
                 <span class="badge blue" id="principalWalletBadge" style="font-size:.68rem;padding:3px 7px;">Loan Given → Deduct from wallet</span>
               </label>
               <select class="select" name="loan_wallet_id" id="modalLoanWalletSelect">
                 <option value="">Skip wallet entry</option>
               </select>
-              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Select a wallet to automatically record this loan as an expense/top-up in your expense tracker.</small>
             </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="entryModal">Cancel</button>
@@ -3140,13 +3021,13 @@
 
         <form id="paymentModalForm" class="hide" data-form-type="payment">
           <input type="hidden" name="direction" value="given" />
-          <div class="modal-grid">
+          <div class="modal-grid goods-sale-form-grid">
             <div class="field w8">
               <label>Related loan</label>
               <select class="select" name="group_id" id="modalLoanSelect" required></select>
             </div>
             <div class="field w4" id="paymentMultiCountGroup">
-              <label>Entries Count</label>
+              <label>Entries</label>
               <input class="input" id="multiEntryCount" type="number" min="1" max="10" value="1" required />
             </div>
             <div class="field w12 hide" id="installmentPaymentPreviewWrap">
@@ -3158,14 +3039,13 @@
             <div id="multiEntryContainer" style="grid-column: span 12; margin-top: 5px;">
               </div>
             <div class="field w12" id="paymentWalletGroup">
-              <label id="paymentWalletLabel" style="display:flex;align-items:center;gap:6px;">
+              <label id="paymentWalletLabel" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 Wallet
                 <span class="badge blue" id="paymentWalletBadge" style="font-size:.68rem;padding:3px 7px;">Received Back → Add to wallet</span>
               </label>
               <select class="select" name="payment_wallet_id" id="modalPaymentWalletSelect">
                 <option value="">Skip wallet entry</option>
               </select>
-              <small style="color:var(--muted);font-size:.74rem;margin-top:3px;display:block;">Select a wallet to automatically record this payment as a top-up/deduction in your expense tracker.</small>
             </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="entryModal">Cancel</button>
