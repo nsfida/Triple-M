@@ -1048,38 +1048,55 @@ a{color:inherit}
   color:var(--muted);
   flex:0 0 auto;
 }
-/* Keep Create Sale dialog capped; scroll body/list instead of growing full-screen */
-.modal-dialog.goods-sale-dialog{
+/* Keep Create Sale / Add Item / compact entry dialogs capped; scroll body instead of full-screen */
+.modal-dialog.goods-sale-dialog,
+.modal-dialog.compact-entry-dialog{
   display:flex;
   flex-direction:column;
   overflow:hidden;
+  overflow-x:hidden;
+  max-width:calc(100vw - 16px);
   max-height:min(720px, calc(100vh - 28px));
   max-height:min(720px, calc(100dvh - 28px));
   min-height:0;
+  box-sizing:border-box;
 }
-.goods-sale-dialog .modal-head{
+.modal-dialog.goods-sale-dialog{
+  width:min(720px, calc(100vw - 16px));
+}
+.modal-dialog.compact-entry-dialog{
+  width:min(560px, calc(100vw - 16px));
+}
+.goods-sale-dialog .modal-head,
+.compact-entry-dialog .modal-head{
   padding:10px 12px 6px;
   align-items:center;
   gap:8px;
   flex:0 0 auto;
+  min-width:0;
 }
-.goods-sale-dialog .modal-head h3{
+.goods-sale-dialog .modal-head h3,
+.compact-entry-dialog .modal-head h3{
   font-size:.95rem;
   font-weight:700;
 }
-.goods-sale-dialog .modal-head p{
+.goods-sale-dialog .modal-head p,
+.compact-entry-dialog .modal-head p{
   margin:2px 0 0;
   font-size:.72rem;
 }
-.goods-sale-dialog .modal-body{
+.goods-sale-dialog .modal-body,
+.compact-entry-dialog .modal-body{
   padding:8px 12px 12px;
   flex:1 1 auto;
   min-height:0;
+  min-width:0;
   overflow-x:hidden;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
-.goods-sale-dialog .modal-footer{
+.goods-sale-dialog .modal-footer,
+.compact-entry-dialog .modal-footer{
   position:sticky;
   bottom:0;
   margin-top:6px;
@@ -1087,6 +1104,43 @@ a{color:inherit}
   padding-bottom:2px;
   background:linear-gradient(180deg, rgba(255,255,255,0), #fff 36%);
   z-index:1;
+}
+.compact-entry-dialog .modal-grid{
+  gap:8px;
+}
+.compact-entry-dialog .field label{
+  font-size:.72rem;
+  margin-bottom:3px;
+}
+.compact-entry-dialog .input,
+.compact-entry-dialog .select{
+  min-height:32px;
+  height:32px;
+  padding:4px 8px;
+  font-size:.78rem;
+  border-radius:8px;
+}
+.compact-entry-dialog textarea.input{
+  height:auto;
+  min-height:56px;
+}
+.compact-entry-dialog .checkbox-line{
+  min-height:32px;
+  font-size:.78rem;
+}
+.compact-entry-dialog .currency-picker{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+}
+.compact-entry-dialog .currency-chip{
+  min-height:28px;
+  padding:2px 8px;
+  font-size:.68rem;
+  border-radius:7px;
+}
+.compact-entry-dialog .tax-preview{
+  font-size:.64rem;
 }
 .goods-sale-form-grid{
   gap:8px;
@@ -1127,17 +1181,35 @@ a{color:inherit}
     max-width:8.6rem;
     font-size:.68rem !important;
   }
-  .goods-sale-dialog .modal-head h3{
+  .goods-sale-dialog .modal-head h3,
+  .compact-entry-dialog .modal-head h3{
     font-size:.88rem;
   }
-  .modal-dialog.goods-sale-dialog{
+  .modal-dialog.goods-sale-dialog,
+  .modal-dialog.compact-entry-dialog{
+    width:calc(100vw - 16px);
+    max-width:calc(100vw - 16px);
     max-height:min(88dvh, calc(100% - max(8px, env(safe-area-inset-top, 0px)) - 12px));
+    overflow-x:hidden;
   }
   .goods-sale-dialog .inventory-sale-lines{
     max-height:min(36dvh, 260px);
+    overflow-x:hidden;
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
+  }
+  .inventory-purchase-line-attrs{
+    grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(64px,.65fr);
+  }
+  .inventory-purchase-line-main{
+    grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);
+  }
+  .inventory-purchase-line-main .inventory-sale-vat-toggle{
+    grid-column:1 / 2;
+  }
+  .inventory-purchase-line-main .goods-buy-tax-mode{
+    grid-column:2 / 3;
   }
 }
 
@@ -1172,18 +1244,67 @@ a{color:inherit}
   border:1px solid var(--line);
   border-radius:10px;
   background:var(--panel-2, #f8fafc);
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
 }
 .inventory-sale-line-top{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 28px;
+  grid-template-columns:minmax(0,1fr) 26px;
   gap:5px;
   align-items:center;
+  min-width:0;
 }
 .inventory-sale-line-main{
   display:grid;
   grid-template-columns:minmax(92px,.85fr) minmax(0,1.15fr) auto minmax(64px,.7fr);
   gap:5px;
   align-items:center;
+  min-width:0;
+}
+.inventory-purchase-line-attrs{
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(72px,.7fr);
+  gap:5px;
+  align-items:center;
+  min-width:0;
+}
+.inventory-purchase-line-attrs .goods-buy-type-custom{
+  grid-column:1 / -1;
+}
+.inventory-purchase-line-main{
+  display:grid;
+  grid-template-columns:minmax(96px,.85fr) minmax(0,.95fr) minmax(0,.95fr) auto minmax(58px,.6fr);
+  gap:5px;
+  align-items:center;
+  min-width:0;
+}
+.inventory-purchase-line-attrs .input,
+.inventory-purchase-line-attrs .select,
+.inventory-purchase-line-main > .input,
+.inventory-purchase-line-main > .select{
+  min-height:32px;
+  height:32px;
+  padding:4px 7px;
+  font-size:.78rem;
+  border-radius:8px;
+  min-width:0;
+  max-width:100%;
+}
+.goods-buy-currency{
+  min-width:0;
+  font-weight:700;
+  font-size:.72rem !important;
+  padding-inline:6px !important;
+}
+.inventory-purchase-line .goods-buy-desc{
+  min-height:28px;
+  height:28px;
+  padding:3px 7px;
+  font-size:.72rem;
+  border-radius:8px;
+  max-width:100%;
+  box-sizing:border-box;
 }
 .goods-sale-qty-unit{
   display:flex;
@@ -1246,12 +1367,16 @@ a{color:inherit}
   font-size:.78rem;
   border-radius:8px;
 }
-.inventory-sale-line .goods-sale-remove{
-  width:28px;
-  height:28px;
-  min-width:28px;
+.inventory-sale-line .goods-sale-remove,
+.inventory-sale-line .goods-buy-remove{
+  width:26px;
+  height:26px;
+  min-width:26px;
+  max-width:26px;
   padding:0;
-  font-size:.75rem;
+  font-size:.7rem;
+  border-radius:8px;
+  box-shadow:none;
 }
 .inventory-sale-line-meta{
   font-size:.66rem;
@@ -5343,11 +5468,14 @@ a.landing-mobile-item{
 }
 .modal-dialog.installment-plan-dialog{
   width:min(440px, calc(100vw - 20px));
+  max-width:calc(100vw - 16px);
   max-height:min(720px, calc(100vh - 24px));
   overflow:hidden;
+  overflow-x:hidden;
   display:flex;
   flex-direction:column;
   border-radius:18px;
+  box-sizing:border-box;
 }
 .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 16px 0 16px;}
 .modal-head h3{margin:0;font-size:1.02rem;letter-spacing:-.02em}
@@ -6133,9 +6261,13 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 
   .modal{padding:8px}
   .modal-dialog{max-height:calc(100vh - 16px);border-radius:16px}
-  .modal-dialog.goods-sale-dialog{
+  .modal-dialog.goods-sale-dialog,
+  .modal-dialog.compact-entry-dialog{
+    width:calc(100vw - 16px);
+    max-width:calc(100vw - 16px);
     max-height:min(88dvh, calc(100% - max(8px, env(safe-area-inset-top, 0px)) - 12px));
     overflow:hidden;
+    overflow-x:hidden;
   }
   .modal-dialog.installment-plan-dialog{
     width:100%;
@@ -6163,6 +6295,28 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   .inventory-sale-line-main{
     grid-template-columns:minmax(88px,.9fr) minmax(0,1fr) auto minmax(58px,.65fr);
     gap:4px;
+  }
+  .inventory-purchase-line-attrs{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(64px,.65fr);
+    gap:4px;
+  }
+  .inventory-purchase-line-main{
+    grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);
+    gap:4px;
+  }
+  .inventory-purchase-line-main .inventory-sale-vat-toggle{
+    grid-column:1 / 2;
+  }
+  .inventory-purchase-line-main .goods-buy-tax-mode{
+    grid-column:2 / 3;
+  }
+  .inventory-purchase-line-attrs .input,
+  .inventory-purchase-line-attrs .select,
+  .inventory-purchase-line-main > .input,
+  .inventory-purchase-line-main > .select{
+    min-height:30px;
+    height:30px;
+    font-size:.74rem;
   }
   .goods-sale-qty-unit{
     height:30px;
