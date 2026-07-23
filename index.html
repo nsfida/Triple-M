@@ -1434,8 +1434,18 @@
                     </div>
                   </div>
                 </div>
-                <p>Shop stock by piece, weight, or length — purchases, sales invoices, and balances.</p>
+                <p id="inventorySectionDesc">Shop stock by piece, weight, or length — purchases, sales invoices, and balances.</p>
               </div>
+            </div>
+          </div>
+          <div id="inventoryStockView" class="inventory-subview">
+            <div class="inventory-stock-toolbar">
+              <button class="tiny ghost" type="button" id="openInventoryCustomersBtn" title="Open customers and invoices">
+                Customers / Invoices <i class="fa-solid fa-arrow-right"></i>
+              </button>
+              <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale">
+                <i class="fa-solid fa-user-plus"></i> Add Customer
+              </button>
             </div>
             <div class="filter-inline-row inventory-filter-row">
               <div class="filter-inline-section inventory-filter-search">
@@ -1458,8 +1468,25 @@
                 </select>
               </div>
             </div>
+            <div id="goodsList" class="list"></div>
           </div>
-          <div id="goodsList" class="list"></div>
+          <div id="inventoryCustomersView" class="inventory-subview inventory-customers-view hide">
+            <div class="inventory-customers-toolbar">
+              <div class="inventory-customers-toolbar-nav">
+                <button class="tiny ghost" type="button" id="inventoryBackToStockBtn" title="Back to inventory stock">
+                  <i class="fa-solid fa-arrow-left"></i> Inventory
+                </button>
+                <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale">
+                  <i class="fa-solid fa-user-plus"></i> Add Customer
+                </button>
+              </div>
+              <div class="inventory-customers-toolbar-title">
+                <strong>Customers / Invoices</strong>
+                <span>Track outstanding payment invoices, settle balances, and open customer records.</span>
+              </div>
+            </div>
+            <div id="inventoryOutstandingList" class="list inventory-outstanding-list-root"></div>
+          </div>
         </div>
       </section>
 
