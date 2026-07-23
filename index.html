@@ -1953,6 +1953,19 @@
                 <p>Create login accounts, assign currencies and tabs, view credentials, and edit every user’s access settings.</p>
               </div>
               <div class="tools">
+                <div class="menu-wrap hide" id="adminBackupWrap">
+                  <button class="btn soft tiny menu-trigger" id="adminBackupBtn" type="button" data-entry-menu="admin-backup" aria-haspopup="menu" aria-expanded="false" title="Backup &amp; Restore">
+                    <i class="fa-solid fa-database"></i> Backup
+                  </button>
+                  <div class="menu-dropdown admin-backup-dropdown" data-entry-menu-panel="admin-backup">
+                    <button type="button" class="menu-item" id="adminBackupDownloadJsonBtn"><i class="fa-solid fa-file-code"></i> Download Backup (JSON)</button>
+                    <button type="button" class="menu-item" id="adminBackupDownloadCsvBtn"><i class="fa-solid fa-file-csv"></i> Download Backup (CSV)</button>
+                    <label class="menu-item file-import-btn" for="adminBackupUploadInput"><i class="fa-solid fa-upload"></i> Upload Backup</label>
+                    <input id="adminBackupUploadInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
+                    <button type="button" class="menu-item" id="adminBackupDownloadSqlBtn"><i class="fa-solid fa-file-lines"></i> Download SQL</button>
+                    <p class="admin-backup-status" id="adminBackupStatus" aria-live="polite"></p>
+                  </div>
+                </div>
                 <button class="btn primary" id="adminRefreshUsersBtn" type="button"><i class="fa-solid fa-rotate"></i> Refresh</button>
                 <button class="btn soft" id="adminCreateUserBtn" type="button"><i class="fa-solid fa-user-plus"></i> Create User</button>
               </div>
