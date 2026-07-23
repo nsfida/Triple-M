@@ -8361,6 +8361,35 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   color: #64748b;
 }
 
+.admin-backup-dropdown{
+  min-width: 210px;
+  max-width: min(280px, calc(100vw - 20px));
+  padding: 4px;
+}
+.admin-backup-dropdown .menu-item{
+  font-size: .78rem;
+  padding: 7px 10px;
+  gap: 8px;
+}
+.admin-backup-dropdown .menu-item i{
+  width: 14px;
+  text-align: center;
+  opacity: .85;
+}
+.admin-backup-status{
+  margin: 4px 8px 6px;
+  font-size: .68rem;
+  line-height: 1.35;
+  color: var(--muted);
+  min-height: 0;
+}
+.admin-backup-status.is-busy{ color: var(--primary); }
+.admin-backup-status.is-error{ color: var(--danger); }
+.admin-backup-status.is-ok{ color: #067647; }
+#adminBackupWrap .menu-trigger{
+  white-space: nowrap;
+}
+
 .admin-perm-grid {
   display: grid;
   gap: 8px;
