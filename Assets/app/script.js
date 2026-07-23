@@ -825,10 +825,9 @@ const els = {
   openGoodsSoldBtn: document.getElementById("openGoodsSoldBtn"),
   goodsBoughtTotalAmount: document.getElementById("goodsBoughtTotalAmount"),
   goodsPurchaseWalletSelect: document.getElementById("goodsPurchaseWalletSelect"),
-  goodsPurchaseTaxApplied: document.getElementById("goodsPurchaseTaxApplied"),
-  goodsPurchaseTaxRate: document.getElementById("goodsPurchaseTaxRate"),
-  goodsPurchaseTaxMode: document.getElementById("goodsPurchaseTaxMode"),
-  goodsPurchaseTaxPreview: document.getElementById("goodsPurchaseTaxPreview"),
+  goodsPurchaseLines: document.getElementById("goodsPurchaseLines"),
+  addGoodsPurchaseLineBtn: document.getElementById("addGoodsPurchaseLineBtn"),
+  goodsBoughtDateInline: document.getElementById("goodsBoughtDateInline"),
   goodsReceiptNumber: document.getElementById("goodsReceiptNumber"),
   goodsCustomerSelect: document.getElementById("goodsCustomerSelect"),
   goodsNewCustomerField: document.getElementById("goodsNewCustomerField"),
@@ -5730,7 +5729,11 @@ function refreshExpenseBtcWallets(accounts, options = {}){
 
 function syncExpenseBtcAccountFields(form = els.expenseAccountForm){
   if (!form || form !== els.expenseAccountForm) return;
-  const currency = String(form.querySelector('input[name="currency"]')?.value || "").trim();
+  const currency = String(
+    form.querySelector('select[name="currency"]')?.value ||
+    form.querySelector('input[name="currency"]')?.value ||
+    ""
+  ).trim();
   const isBtc = currency === "BTC";
   const addressInput = form.querySelector('input[name="btc_address"]');
   const balanceInput = form.querySelector('input[name="opening_balance"]');
@@ -6015,29 +6018,31 @@ function inventoryUnitSelectOptionsHtml(category, selectedUnit = ""){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT){
     const unit = normalizeInventoryUnit(selectedUnit, normalized);
-    return `
-      <option value="${INVENTORY_UNIT_KG}" ${unit === INVENTORY_UNIT_KG ? "selected" : ""}>KG</option>
-      <option value="${INVENTORY_UNIT_GRAM}" ${unit === INVENTORY_UNIT_GRAM ? "selected" : ""}>Gram</option>
-    `;
+    return [
+      `<option value="${INVENTORY_UNIT_KG}"${unit === INVENTORY_UNIT_KG ? " selected" : ""}>KG</option>`,
+      `<option value="${INVENTORY_UNIT_GRAM}"${unit === INVENTORY_UNIT_GRAM ? " selected" : ""}>g</option>`
+    ].join("");
   }
   if (normalized === INVENTORY_CATEGORY_LENGTH){
     const unit = normalizeInventoryUnit(selectedUnit, normalized);
-    return `
-      <option value="${INVENTORY_UNIT_M}" ${unit === INVENTORY_UNIT_M ? "selected" : ""}>Meter</option>
-      <option value="${INVENTORY_UNIT_CM}" ${unit === INVENTORY_UNIT_CM ? "selected" : ""}>CM</option>
-    `;
+    return [
+      `<option value="${INVENTORY_UNIT_M}"${unit === INVENTORY_UNIT_M ? " selected" : ""}>m</option>`,
+      `<option value="${INVENTORY_UNIT_CM}"${unit === INVENTORY_UNIT_CM ? " selected" : ""}>cm</option>`
+    ].join("");
   }
   return `<option value="${INVENTORY_UNIT_ITEM}" selected>Pcs</option>`;
 }
 
 function normalizeInventoryUnit(value, category){
   const normalizedCategory = normalizeInventoryCategory(category);
-  const unit = String(value || "").toLowerCase();
+  const unit = String(value || "").trim().toLowerCase();
   if (normalizedCategory === INVENTORY_CATEGORY_WEIGHT){
-    return unit === INVENTORY_UNIT_GRAM ? INVENTORY_UNIT_GRAM : INVENTORY_UNIT_KG;
+    if (unit === INVENTORY_UNIT_GRAM || unit === "gram" || unit === "grams") return INVENTORY_UNIT_GRAM;
+    return INVENTORY_UNIT_KG;
   }
   if (normalizedCategory === INVENTORY_CATEGORY_LENGTH){
-    return unit === INVENTORY_UNIT_CM ? INVENTORY_UNIT_CM : INVENTORY_UNIT_M;
+    if (unit === INVENTORY_UNIT_CM || unit === "cm" || unit === "centimeter" || unit === "centimetre") return INVENTORY_UNIT_CM;
+    return INVENTORY_UNIT_M;
   }
   return INVENTORY_UNIT_ITEM;
 }
@@ -7216,70 +7221,350 @@ function inventoryTaxDefaultsForGroup(group) {
   return { rate: normalizeTaxRate(rate), mode: normalizeTaxMode(mode) };
 }
 
-function syncGoodsPurchaseTaxDefaults(force = false) {
-  if (!els.goodsBoughtForm) return;
-  const currentGroup = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === state.inventoryDraft.purchaseGroupId);
-  const currency = currentGroup?.currency || String(els.goodsBoughtForm.querySelector('[name="currency"]')?.value || state.lastCurrency || "AED");
-  const defaults = inventoryTaxDefaultsForGroup(currentGroup || { currency });
-  if (force || els.goodsBoughtForm.dataset.taxManual !== "true") {
-    if (els.goodsPurchaseTaxApplied) els.goodsPurchaseTaxApplied.checked = defaults.rate > 0;
-    if (els.goodsPurchaseTaxRate) els.goodsPurchaseTaxRate.value = defaults.rate ? trimInventoryNumber(defaults.rate, 2) : "";
-    if (els.goodsPurchaseTaxMode) els.goodsPurchaseTaxMode.value = defaults.mode;
+function inventoryPurchaseCurrencyOptionsHtml(selected = ""){
+  const preferred = String(selected || state.lastCurrency || "AED").trim() || "AED";
+  const currencies = getPageScopedCurrencies();
+  const list = currencies.length ? currencies : SUPPORTED_CURRENCIES;
+  return list.map(currency =>
+    `<option value="${escapeHtml(currency)}" ${currency === preferred ? "selected" : ""}>${escapeHtml(currency)}</option>`
+  ).join("");
+}
+
+function readGoodsPurchaseLineItemType(line){
+  if (!line) return "General";
+  const select = line.querySelector(".goods-buy-type");
+  const customInput = line.querySelector(".goods-buy-type-custom");
+  const selected = String(select?.value || "").trim();
+  if (selected === INVENTORY_CUSTOM_TYPE_VALUE){
+    return normalizeInventoryItemType(customInput?.value);
   }
+  return normalizeInventoryItemType(selected);
+}
+
+function syncGoodsPurchaseLineTypeFields(line, preferredType = ""){
+  if (!line) return;
+  const typeSelect = line.querySelector(".goods-buy-type");
+  const customInput = line.querySelector(".goods-buy-type-custom");
+  if (!typeSelect) return;
+  const current = preferredType || (typeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE
+    ? (customInput?.value || "General")
+    : (typeSelect.value || "General"));
+  const normalized = normalizeInventoryItemType(current);
+  const knownTypes = getInventoryItemTypes();
+  const known = knownTypes.some(type => type.toLowerCase() === normalized.toLowerCase());
+  typeSelect.innerHTML = inventoryItemTypeOptionsHtml(known ? normalized : "General");
+  if (known){
+    typeSelect.value = knownTypes.find(type => type.toLowerCase() === normalized.toLowerCase()) || normalized;
+    customInput?.classList.add("hide");
+    if (customInput) {
+      customInput.value = "";
+      customInput.required = false;
+    }
+  } else {
+    typeSelect.value = INVENTORY_CUSTOM_TYPE_VALUE;
+    customInput?.classList.remove("hide");
+    if (customInput) {
+      customInput.value = normalized;
+      customInput.required = true;
+    }
+  }
+}
+
+function syncGoodsPurchaseTaxDefaults(force = false) {
+  if (!els.goodsPurchaseLines) return;
+  els.goodsPurchaseLines.querySelectorAll(".inventory-purchase-line").forEach(line => {
+    if (force) line.dataset.taxManual = "false";
+    updateGoodsPurchaseLine(line);
+  });
   updateGoodsBoughtTotal();
 }
 
-function getGoodsPurchaseTaxBreakdown() {
-  if (!els.goodsBoughtForm) return calculateTaxBreakdown(0, 0, TAX_MODE_ADD, false);
-  const price = Number(els.goodsBoughtForm.querySelector('[name="actual_price"]')?.value || 0);
-  const category = normalizeInventoryCategory(els.goodsBoughtForm.querySelector('[name="item_category"]')?.value);
-  const unit = els.goodsBoughtForm.querySelector('[name="quantity_unit"]')?.value || inventoryBaseUnitForCategory(category);
-  const qty = normalizeInventoryQuantityInput(els.goodsBoughtForm.querySelector('[name="bought_qty"]')?.value, category, unit);
-  const baseAmount = price * qty;
-  const applied = !!els.goodsPurchaseTaxApplied?.checked;
-  const rate = normalizeTaxRate(els.goodsPurchaseTaxRate?.value);
-  const mode = normalizeTaxMode(els.goodsPurchaseTaxMode?.value);
-  return calculateTaxBreakdown(baseAmount, rate, mode, applied);
+function getGoodsPurchaseTotalsByCurrency(){
+  const totalsByCurrency = new Map();
+  if (!els.goodsPurchaseLines) return totalsByCurrency;
+  els.goodsPurchaseLines.querySelectorAll(".inventory-purchase-line").forEach(line => {
+    const currency = String(line.querySelector(".goods-buy-currency")?.value || "").trim();
+    const amount = Number(line.querySelector(".goods-buy-line-total")?.dataset.rawTotal || 0);
+    if (!currency || !amount) return;
+    totalsByCurrency.set(currency, (totalsByCurrency.get(currency) || 0) + amount);
+  });
+  return totalsByCurrency;
 }
 
 function updateGoodsBoughtTotal(){
-  if (!els.goodsBoughtForm || !els.goodsBoughtTotalAmount) return;
-  const breakdown = getGoodsPurchaseTaxBreakdown();
-  els.goodsBoughtTotalAmount.value = breakdown.total ? trimInventoryNumber(breakdown.total) : "";
-  if (els.goodsPurchaseTaxPreview) {
-    const currency = String(els.goodsBoughtForm.querySelector('[name="currency"]')?.value || state.lastCurrency || "AED");
-    els.goodsPurchaseTaxPreview.textContent = formatTaxSummary(breakdown, currency);
-  }
+  if (!els.goodsBoughtTotalAmount) return;
+  const totalsByCurrency = getGoodsPurchaseTotalsByCurrency();
+  els.goodsBoughtTotalAmount.value = totalsByCurrency.size
+    ? formatInventoryTotalsByCurrency(totalsByCurrency)
+    : "";
+  const onlyCurrency = totalsByCurrency.size === 1 ? Array.from(totalsByCurrency.keys())[0] : "";
+  applyCurrencyFontClass(els.goodsBoughtTotalAmount, onlyCurrency);
+  updateGoodsPurchaseWalletSelector(totalsByCurrency);
 }
 
-function syncGoodsBoughtCategoryFields(){
-  if (!els.goodsBoughtForm) return;
-  const categorySelect = els.goodsBoughtForm.querySelector('[name="item_category"]');
-  const unitSelect = els.goodsBoughtForm.querySelector('[name="quantity_unit"]');
-  const unitWrap = els.goodsBoughtForm.querySelector("[data-inventory-unit-wrap]");
-  const qtyInput = els.goodsBoughtForm.querySelector('[name="bought_qty"]');
-  const priceLabel = els.goodsBoughtForm.querySelector("[data-inventory-price-label]");
-  const sellingLabel = els.goodsBoughtForm.querySelector("[data-inventory-selling-label]");
-  const qtyLabel = els.goodsBoughtForm.querySelector("[data-inventory-qty-label]");
+function syncGoodsPurchaseLineCategoryFields(line, { rebuildUnits = false } = {}){
+  if (!line) return;
+  const categorySelect = line.querySelector(".goods-buy-category");
+  const unitSelect = line.querySelector(".goods-buy-unit");
+  const qtyInput = line.querySelector(".goods-buy-qty");
+  const priceInput = line.querySelector(".goods-buy-price");
+  const sellingInput = line.querySelector(".goods-buy-selling");
   const category = normalizeInventoryCategory(categorySelect?.value);
   const isMeasured = inventoryIsDecimalCategory(category);
-  const selectedUnit = unitSelect ? normalizeInventoryUnit(unitSelect.value, category) : inventoryBaseUnitForCategory(category);
+  const prevCategory = String(line.dataset.categoryKey || "");
+  const categoryChanged = prevCategory !== category;
+  line.dataset.categoryKey = category;
+  const selectedUnit = unitSelect
+    ? normalizeInventoryUnit(unitSelect.value, category)
+    : inventoryBaseUnitForCategory(category);
 
-  if (unitWrap) unitWrap.classList.toggle("hide", !isMeasured);
   if (unitSelect){
     unitSelect.disabled = !isMeasured;
-    unitSelect.innerHTML = inventoryUnitSelectOptionsHtml(category, selectedUnit);
-    unitSelect.value = normalizeInventoryUnit(selectedUnit, category);
+    if (rebuildUnits || categoryChanged || !prevCategory) {
+      unitSelect.innerHTML = inventoryUnitSelectOptionsHtml(category, selectedUnit);
+      unitSelect.value = selectedUnit;
+      // Re-assert after browser parses options (fixes blank/unselected display)
+      if (unitSelect.value !== selectedUnit) {
+        const match = Array.from(unitSelect.options).find(opt => opt.value === selectedUnit);
+        if (match) match.selected = true;
+        unitSelect.value = selectedUnit;
+      }
+    }
   }
   if (qtyInput){
     qtyInput.min = isMeasured ? "0.001" : "1";
     qtyInput.step = isMeasured ? "0.001" : "1";
     qtyInput.placeholder = inventoryQtyFieldLabel(category);
   }
-  if (priceLabel) priceLabel.textContent = inventoryPurchasePriceLabel(category);
-  if (sellingLabel) sellingLabel.textContent = inventorySellingPriceLabel(category);
-  if (qtyLabel) qtyLabel.textContent = inventoryQtyFieldLabel(category);
+  if (priceInput) priceInput.placeholder = inventoryPurchasePriceLabel(category);
+  if (sellingInput) sellingInput.placeholder = inventorySellingPriceLabel(category);
+}
+
+function buildGoodsPurchaseLine(prefill = {}){
+  const currency = String(prefill.currency || state.lastCurrency || "AED").trim() || "AED";
+  const category = normalizeInventoryCategory(prefill.itemCategory || INVENTORY_CATEGORY_COUNT);
+  const isMeasured = inventoryIsDecimalCategory(category);
+  const taxDefault = inventoryTaxDefaultsForGroup({
+    currency,
+    defaultTaxRate: prefill.defaultTaxRate,
+    defaultTaxMode: prefill.defaultTaxMode
+  });
+  const vatRateLabel = taxDefault.rate > 0 ? `${trimInventoryNumber(taxDefault.rate, 2)}%` : "";
+  const locked = !!prefill.locked;
+  return `
+    <div class="inventory-sale-line inventory-purchase-line" data-tax-manual="false" data-locked="${locked ? "true" : "false"}">
+      <div class="inventory-sale-line-top">
+        <input class="input goods-buy-name" type="text" placeholder="Item name" aria-label="Item name" value="${escapeHtml(prefill.itemName || "")}" ${locked ? "readonly" : "required"} />
+        <button class="icon-btn ghost goods-sale-remove goods-buy-remove" type="button" aria-label="Remove item" title="Remove" ${locked ? "disabled" : ""}>
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="inventory-purchase-line-attrs">
+        <select class="select goods-buy-type" aria-label="Item type" ${locked ? "disabled" : ""}>${inventoryItemTypeOptionsHtml(prefill.itemType || "General")}</select>
+        <input class="input goods-buy-type-custom hide" type="text" placeholder="Custom type" aria-label="Custom type" autocomplete="off" />
+        <select class="select goods-buy-category" aria-label="Category" ${locked ? "disabled" : ""}>
+          <option value="count" ${category === INVENTORY_CATEGORY_COUNT ? "selected" : ""}>Numbers (pcs)</option>
+          <option value="weight" ${category === INVENTORY_CATEGORY_WEIGHT ? "selected" : ""}>Weight (KG)</option>
+          <option value="length" ${category === INVENTORY_CATEGORY_LENGTH ? "selected" : ""}>Length (m)</option>
+        </select>
+        <select class="select goods-buy-currency" aria-label="Currency" ${locked ? "disabled" : ""}>${inventoryPurchaseCurrencyOptionsHtml(currency)}</select>
+      </div>
+      <div class="inventory-sale-line-main inventory-purchase-line-main">
+        <div class="goods-sale-qty-unit" title="Quantity">
+          <input class="input goods-sale-qty goods-buy-qty" type="number" min="${isMeasured ? "0.001" : "1"}" step="${isMeasured ? "0.001" : "1"}" value="${escapeHtml(prefill.boughtQty != null ? String(prefill.boughtQty) : "1")}" placeholder="Qty" aria-label="Qty" required />
+          <select class="select goods-sale-unit goods-buy-unit" ${isMeasured ? "" : "disabled"} aria-label="Unit">${inventoryUnitSelectOptionsHtml(category, prefill.quantityUnit)}</select>
+        </div>
+        <input class="input goods-buy-price" type="number" min="0" step="0.00000001" placeholder="Cost" aria-label="Purchase price" title="Purchase price" value="${escapeHtml(prefill.unitActualPrice != null && prefill.unitActualPrice !== "" ? String(prefill.unitActualPrice) : "")}" required />
+        <input class="input goods-buy-selling" type="number" min="0" step="0.00000001" placeholder="Sell" aria-label="Selling price" title="Selling price" value="${escapeHtml(prefill.sellingPrice != null && prefill.sellingPrice !== "" ? String(prefill.sellingPrice) : "")}" />
+        <input class="input goods-buy-line-total hide" type="text" readonly tabindex="-1" aria-hidden="true" />
+        <label class="inventory-sale-vat-toggle" title="Applies the VAT % saved in settings for this currency">
+          <input class="goods-buy-tax-applied" type="checkbox" ${taxDefault.rate > 0 ? "checked" : ""} />
+          <span>VAT</span>
+          <em class="goods-buy-tax-rate-label">${escapeHtml(vatRateLabel)}</em>
+        </label>
+        <select class="select goods-buy-tax-mode" aria-label="VAT mode" title="VAT treatment">
+          <option value="ADD" ${taxDefault.mode === TAX_MODE_ADD ? "selected" : ""}>Add</option>
+          <option value="INCLUDE" ${taxDefault.mode === TAX_MODE_INCLUDE ? "selected" : ""}>Incl</option>
+        </select>
+      </div>
+      <input class="input goods-buy-desc" type="text" placeholder="Description (optional)" aria-label="Description" value="${escapeHtml(prefill.itemDescription || "")}" />
+      <div class="inventory-sale-line-meta">Enter purchase details</div>
+    </div>
+  `;
+}
+
+function syncGoodsPurchaseLineMeta(line){
+  if (!line) return;
+  const meta = line.querySelector(".inventory-sale-line-meta");
+  const totalInput = line.querySelector(".goods-buy-line-total");
+  const currency = String(line.querySelector(".goods-buy-currency")?.value || "").trim();
+  if (!meta) return;
+  const name = String(line.querySelector(".goods-buy-name")?.value || "").trim();
+  if (!name) {
+    meta.textContent = "Enter item name";
+    return;
+  }
+  const totalText = totalInput?.value ? `Total ${totalInput.value}` : "";
+  const taxBit = totalInput?.dataset.taxApplied === "1" && Number(totalInput.dataset.rawTax || 0)
+    ? `VAT ${formatReportAmount(Number(totalInput.dataset.rawTax || 0), currency)}`
+    : "";
+  meta.textContent = [totalText, taxBit, currency].filter(Boolean).join(" · ") || "Enter purchase details";
+}
+
+function updateGoodsPurchaseLine(line, sourceEl = null){
+  if (!line) return;
+  const typeSelect = line.querySelector(".goods-buy-type");
+  const customInput = line.querySelector(".goods-buy-type-custom");
+  const categorySelect = line.querySelector(".goods-buy-category");
+  const currencySelect = line.querySelector(".goods-buy-currency");
+  const qtyInput = line.querySelector(".goods-buy-qty");
+  const unitSelect = line.querySelector(".goods-buy-unit");
+  const priceInput = line.querySelector(".goods-buy-price");
+  const totalInput = line.querySelector(".goods-buy-line-total");
+  const taxAppliedInput = line.querySelector(".goods-buy-tax-applied");
+  const taxModeInput = line.querySelector(".goods-buy-tax-mode");
+  const taxRateLabel = line.querySelector(".goods-buy-tax-rate-label");
+  const typeChanged = sourceEl?.classList?.contains("goods-buy-type");
+  const categoryChanged = sourceEl?.classList?.contains("goods-buy-category");
+  const currencyChanged = sourceEl?.classList?.contains("goods-buy-currency");
+  const taxChanged = sourceEl?.classList?.contains("goods-buy-tax-applied") ||
+    sourceEl?.classList?.contains("goods-buy-tax-mode");
+
+  if (taxChanged) line.dataset.taxManual = "true";
+
+  if (typeChanged && typeSelect) {
+    const isCustom = typeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE;
+    customInput?.classList.toggle("hide", !isCustom);
+    if (customInput) {
+      customInput.required = isCustom;
+      if (isCustom) customInput.focus();
+      else customInput.value = "";
+    }
+  }
+
+  if (categoryChanged || !sourceEl) {
+    syncGoodsPurchaseLineCategoryFields(line, { rebuildUnits: categoryChanged || !sourceEl });
+  } else if (unitSelect) {
+    // Keep measured unit choice stable when editing qty/price/VAT
+    const category = normalizeInventoryCategory(categorySelect?.value);
+    unitSelect.disabled = !inventoryIsDecimalCategory(category);
+  }
+
+  const category = normalizeInventoryCategory(categorySelect?.value);
+  const isMeasured = inventoryIsDecimalCategory(category);
+  const currency = String(currencySelect?.value || state.lastCurrency || "AED").trim() || "AED";
+  const unitValue = unitSelect
+    ? normalizeInventoryUnit(unitSelect.value, category)
+    : inventoryBaseUnitForCategory(category);
+  if (unitSelect && isMeasured && unitSelect.value !== unitValue) {
+    unitSelect.value = unitValue;
+  }
+  const rawQtyValue = String(qtyInput?.value || "").trim();
+  const qty = rawQtyValue
+    ? normalizeInventoryQuantityInput(rawQtyValue, category, unitValue)
+    : 0;
+  const visibleQty = isMeasured ? Number(qtyInput?.value || 0) : qty;
+  if (qtyInput && document.activeElement !== qtyInput && visibleQty > 0) {
+    qtyInput.value = trimInventoryNumber(visibleQty, isMeasured ? 3 : 0);
+  }
+
+  const taxDefault = inventoryTaxDefaultsForGroup({ currency });
+  if (currencyChanged || line.dataset.taxManual !== "true") {
+    if (taxAppliedInput) taxAppliedInput.checked = taxDefault.rate > 0;
+    if (taxModeInput) taxModeInput.value = taxDefault.mode;
+    if (currencyChanged) line.dataset.taxManual = "false";
+  }
+  if (taxRateLabel) {
+    taxRateLabel.textContent = taxDefault.rate > 0 ? `${trimInventoryNumber(taxDefault.rate, 2)}%` : "";
+  }
+
+  const lineBase = qty * Number(priceInput?.value || 0);
+  const breakdown = calculateTaxBreakdown(
+    lineBase,
+    taxDefault.rate,
+    taxModeInput?.value || taxDefault.mode,
+    !!taxAppliedInput?.checked
+  );
+  if (totalInput) {
+    totalInput.dataset.rawNet = String(breakdown.net);
+    totalInput.dataset.rawTax = String(breakdown.tax);
+    totalInput.dataset.rawTotal = String(breakdown.total);
+    totalInput.dataset.taxRate = String(breakdown.rate);
+    totalInput.dataset.taxMode = breakdown.mode;
+    totalInput.dataset.taxApplied = breakdown.applied ? "1" : "0";
+    totalInput.value = breakdown.total ? moneyText(breakdown.total, currency) : "";
+    applyCurrencyFontClass(totalInput, currency);
+    totalInput.title = formatTaxSummary(breakdown, currency);
+  }
+  if (currencyChanged) state.lastCurrency = currency;
+  syncGoodsPurchaseLineMeta(line);
   updateGoodsBoughtTotal();
+}
+
+function addGoodsPurchaseLine(prefill = {}){
+  if (!els.goodsPurchaseLines) return;
+  els.goodsPurchaseLines.insertAdjacentHTML("beforeend", buildGoodsPurchaseLine(prefill));
+  const line = els.goodsPurchaseLines.lastElementChild;
+  syncGoodsPurchaseLineTypeFields(line, prefill.itemType || "General");
+  updateGoodsPurchaseLine(line);
+  toggleGoodsPurchaseRemoveButtons();
+  try {
+    line?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!prefill.locked) line?.querySelector(".goods-buy-name")?.focus({ preventScroll: true });
+  } catch {}
+}
+
+function toggleGoodsPurchaseRemoveButtons(){
+  if (!els.goodsPurchaseLines) return;
+  const lines = els.goodsPurchaseLines.querySelectorAll(".inventory-purchase-line");
+  const locked = !!state.inventoryDraft.purchaseGroupId;
+  lines.forEach(line => {
+    const btn = line.querySelector(".goods-buy-remove");
+    if (btn) btn.disabled = locked || lines.length === 1;
+  });
+  if (els.addGoodsPurchaseLineBtn) {
+    els.addGoodsPurchaseLineBtn.classList.toggle("hide", locked);
+    els.addGoodsPurchaseLineBtn.disabled = locked;
+  }
+}
+
+function renderGoodsPurchaseLines(prefill = null){
+  if (!els.goodsPurchaseLines) return;
+  const seed = prefill || { currency: state.lastCurrency || "AED" };
+  els.goodsPurchaseLines.innerHTML = buildGoodsPurchaseLine(seed);
+  const line = els.goodsPurchaseLines.firstElementChild;
+  syncGoodsPurchaseLineTypeFields(line, seed.itemType || "General");
+  updateGoodsPurchaseLine(line);
+  toggleGoodsPurchaseRemoveButtons();
+}
+
+function collectGoodsPurchaseLines(){
+  if (!els.goodsPurchaseLines) return [];
+  return Array.from(els.goodsPurchaseLines.querySelectorAll(".inventory-purchase-line")).map(line => {
+    const category = normalizeInventoryCategory(line.querySelector(".goods-buy-category")?.value);
+    const unit = line.querySelector(".goods-buy-unit")?.value || inventoryBaseUnitForCategory(category);
+    const qty = normalizeInventoryQuantityInput(line.querySelector(".goods-buy-qty")?.value, category, unit);
+    const totalInput = line.querySelector(".goods-buy-line-total");
+    const currency = String(line.querySelector(".goods-buy-currency")?.value || "").trim();
+    const taxDefault = inventoryTaxDefaultsForGroup({ currency });
+    return {
+      itemName: String(line.querySelector(".goods-buy-name")?.value || "").trim(),
+      itemType: readGoodsPurchaseLineItemType(line),
+      itemCategory: category,
+      quantityUnit: inventoryBaseUnitForCategory(category),
+      currency,
+      unitActualPrice: Number(line.querySelector(".goods-buy-price")?.value || 0),
+      sellingPrice: Number(line.querySelector(".goods-buy-selling")?.value || 0),
+      boughtQty: qty,
+      itemDescription: String(line.querySelector(".goods-buy-desc")?.value || "").trim(),
+      taxApplied: totalInput?.dataset.taxApplied === "1",
+      taxRate: normalizeTaxRate(totalInput?.dataset.taxRate ?? taxDefault.rate),
+      taxMode: normalizeTaxMode(totalInput?.dataset.taxMode || taxDefault.mode),
+      netAmount: Number(totalInput?.dataset.rawNet || 0),
+      taxAmount: Number(totalInput?.dataset.rawTax || 0),
+      grossAmount: Number(totalInput?.dataset.rawTotal || 0)
+    };
+  });
 }
 
 function getInventoryCustomerNames(){
@@ -9643,28 +9928,51 @@ function openExpenseModal(mode, presetGroupId = ""){
   els.expenseEntryForm.classList.toggle("hide", mode !== "expense");
   renderExpenseAccountSelectors();
 
+  const accountDate = document.getElementById("expenseAccountDateInline");
+  const topupDate = document.getElementById("expenseTopupDateInline");
+  const entryDate = document.getElementById("expenseEntryDateInline");
+  if (accountDate) {
+    accountDate.classList.toggle("hide", mode !== "account");
+    accountDate.required = mode === "account";
+    if (mode !== "account") accountDate.removeAttribute("required");
+  }
+  if (topupDate) {
+    topupDate.classList.toggle("hide", mode !== "topup");
+    topupDate.required = mode === "topup";
+    if (mode !== "topup") topupDate.removeAttribute("required");
+  }
+  if (entryDate) {
+    entryDate.classList.toggle("hide", mode !== "expense");
+    entryDate.required = mode === "expense";
+    if (mode !== "expense") entryDate.removeAttribute("required");
+  }
+  if (els.expenseModalDesc) els.expenseModalDesc.classList.add("hide");
+
   if (mode === "account"){
     els.expenseModalTitle.textContent = "Add Expense Account";
-    els.expenseModalDesc.textContent = "Create Bank or Cash account with opening balance.";
     els.expenseAccountForm.reset();
     setCurrencyChoice(els.expenseAccountForm, state.lastCurrency || "AED");
     syncExpenseBtcAccountFields(els.expenseAccountForm);
+    if (accountDate) accountDate.value = todayISO();
     defaultDateInputs(els.expenseAccountForm);
+    if (accountDate && !accountDate.value) accountDate.value = todayISO();
   } else if (mode === "topup"){
     els.expenseModalTitle.textContent = "Add Money";
-    els.expenseModalDesc.textContent = "Add funds to an existing expense account.";
     els.expenseTopupForm.reset();
+    if (topupDate) topupDate.value = todayISO();
     defaultDateInputs(els.expenseTopupForm);
+    if (topupDate && !topupDate.value) topupDate.value = todayISO();
     if (presetGroupId) els.expenseTopupAccountSelect.value = presetGroupId;
   } else {
     els.expenseModalTitle.textContent = "Add Expense";
-    els.expenseModalDesc.textContent = "Record expense item, amount, type and source account.";
     els.expenseEntryForm.reset();
     els.expenseEntryForm.dataset.taxManual = "false";
     els.expenseCurrencySelect.value = state.lastCurrency || "AED";
     renderExpenseAccountSelectors();
     syncExpenseTaxDefaults(true);
+    if (entryDate) entryDate.value = todayISO();
     defaultDateInputs(els.expenseEntryForm);
+    if (entryDate && !entryDate.value) entryDate.value = todayISO();
     if (presetGroupId) els.expenseSpendAccountSelect.value = presetGroupId;
     const intentAdd = els.expenseEntryForm.querySelector('input[name="expense_item_intent"][value="additional"]');
     if (intentAdd) intentAdd.checked = true;
@@ -11927,6 +12235,8 @@ function setInitialOverviewForExpenses() {
 function setCurrencyChoice(form, currency){
   const hidden = form.querySelector('input[name="currency"]');
   if (hidden) hidden.value = currency;
+  const select = form.querySelector('select[name="currency"]');
+  if (select) select.value = currency;
   form.querySelectorAll(".currency-chip").forEach(btn => btn.classList.toggle("active", btn.dataset.currency === currency));
   state.lastCurrency = currency;
 
@@ -11934,7 +12244,6 @@ function setCurrencyChoice(form, currency){
   const walletSel = form.querySelector('[name="loan_wallet_id"]') || form.querySelector('[name="payment_wallet_id"]');
   if (walletSel) populateLoanWalletSelector(currency, walletSel);
   if (form === els.goodsBoughtForm) {
-    syncGoodsPurchaseTaxDefaults();
     updateGoodsPurchaseWalletSelector();
   }
   syncExpenseBtcAccountFields(form);
@@ -11947,25 +12256,32 @@ function openEntryModal(mode, direction, options = {}){
   els.entryModal.classList.remove("hide");
   els.entryModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+  const principalDate = document.getElementById("entryPrincipalDateInline");
+  if (els.modalDesc) els.modalDesc.classList.add("hide");
 
   if (mode === "principal"){
     if (state.modalInstallment) {
       els.modalTitle.textContent = "New installment plan";
-      els.modalDesc.textContent = "Enter total amount and number of monthly installments.";
       els.principalSubmitBtn.textContent = "Save installment plan";
     } else {
       els.modalTitle.textContent = direction === "given" ? "New loan given" : "New loan taken";
-      els.modalDesc.textContent = direction === "given" ? "Add a loan you gave to someone." : "Add money you received from someone.";
       els.principalSubmitBtn.textContent = direction === "given" ? "Save given loan" : "Save taken loan";
     }
     els.principalModalForm.classList.remove("hide");
     els.paymentModalForm.classList.add("hide");
+    if (principalDate) {
+      principalDate.classList.remove("hide");
+      principalDate.required = true;
+      principalDate.value = todayISO();
+    }
     els.principalModalForm.reset();
     els.principalModalForm.querySelector('input[name="direction"]').value = direction;
     els.principalModalForm.querySelector('input[name="person_name"]').placeholder =
       state.modalInstallment ? "Lender / plan name" : (direction === "given" ? "Full name" : "Lender name");
     setCurrencyChoice(els.principalModalForm, state.lastCurrency || "AED");
+    if (principalDate) principalDate.value = todayISO();
     defaultDateInputs(els.principalModalForm);
+    if (principalDate && !principalDate.value) principalDate.value = todayISO();
     syncInstallmentPlanFormFields();
     updateInstallmentPlanPreview();
 
@@ -11986,15 +12302,18 @@ function openEntryModal(mode, direction, options = {}){
   } else {
     if (state.modalInstallment) {
       els.modalTitle.textContent = "Installment payment";
-      els.modalDesc.textContent = "Pay any amount — underpay leaves a balance, overpay fills the next installments.";
       els.paymentSubmitBtn.textContent = "Save installment payment";
     } else {
       els.modalTitle.textContent = direction === "given" ? "New received back entry" : "New returned back entry";
-      els.modalDesc.textContent = direction === "given" ? "Record money received against a given loan." : "Record repayment against a taken loan.";
       els.paymentSubmitBtn.textContent = direction === "given" ? "Save received back" : "Save returned back";
     }
     els.paymentModalForm.classList.remove("hide");
     els.principalModalForm.classList.add("hide");
+    if (principalDate) {
+      principalDate.classList.add("hide");
+      principalDate.required = false;
+      principalDate.removeAttribute("required");
+    }
     els.paymentModalForm.reset();
     els.paymentModalForm.querySelector('input[name="direction"]').value = direction;
     els.multiEntryCount.value = 1;
@@ -12054,7 +12373,11 @@ function updateInstallmentPlanPreview(){
   const total = Number(form?.querySelector('[name="principal_amount"]')?.value || 0);
   const count = Math.floor(Number(document.getElementById("installmentCountInput")?.value || 0));
   const currency = String(form?.querySelector('[name="currency"]')?.value || "AED");
-  const startDate = String(form?.querySelector('[name="loan_date"]')?.value || todayISO());
+  const startDate = String(
+    document.getElementById("entryPrincipalDateInline")?.value ||
+    form?.elements?.namedItem?.("loan_date")?.value ||
+    todayISO()
+  );
   if (!(total > 0) || count < 2) {
     previewInput.value = "";
     previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount and at least 2 installments.</p>`;
@@ -12145,7 +12468,8 @@ function openInstallmentEditModal(groupId){
   form.querySelector('[name="person_name"]').value = principal.person_name || "";
   setCurrencyChoice(form, principal.currency || "AED");
   form.querySelector('[name="principal_amount"]').value = principal.principal_amount || "";
-  form.querySelector('[name="loan_date"]').value = principal.loan_date || todayISO();
+  const dateEl = document.getElementById("installmentEditDateInline") || form.elements.namedItem("loan_date");
+  if (dateEl) dateEl.value = principal.loan_date || todayISO();
   form.querySelector('[name="installment_count"]').value = meta.count && meta.count >= 2 ? meta.count : "";
   form.querySelector('[name="notes"]').value = cleanInstallmentDisplayNote(principal.notes) || "";
 
@@ -12153,6 +12477,7 @@ function openInstallmentEditModal(groupId){
   const desc = document.getElementById("installmentEditDesc");
   if (title) title.textContent = plan.schedule ? "Edit installment schedule" : "Convert to installment schedule";
   if (desc) {
+    desc.classList.add("hide");
     desc.textContent = plan.schedule
       ? "Change the monthly plan. Existing payments stay and are re-applied in date order."
       : "Set installment count for this legacy plan. Existing payments stay and are applied oldest-first across the new schedule.";
@@ -12182,7 +12507,11 @@ function updateInstallmentEditPreview(){
   const total = Number(form.querySelector('[name="principal_amount"]')?.value || 0);
   const count = Math.floor(Number(form.querySelector('[name="installment_count"]')?.value || 0));
   const currency = String(form.querySelector('[name="currency"]')?.value || "AED");
-  const startDate = String(form.querySelector('[name="loan_date"]')?.value || todayISO());
+  const startDate = String(
+    document.getElementById("installmentEditDateInline")?.value ||
+    form.elements?.namedItem?.("loan_date")?.value ||
+    todayISO()
+  );
   if (!(total > 0) || count < 2) {
     if (monthlyInput) monthlyInput.value = "";
     preview.innerHTML = `<strong>Updated schedule</strong><p>Enter total amount and at least 2 installments.</p>`;
@@ -12226,7 +12555,11 @@ async function submitInstallmentEdit(){
   const personName = String(form.querySelector('[name="person_name"]')?.value || "").trim();
   const currency = String(form.querySelector('[name="currency"]')?.value || "").trim();
   const amount = Number(form.querySelector('[name="principal_amount"]')?.value || 0);
-  const loanDate = String(form.querySelector('[name="loan_date"]')?.value || "").trim();
+  const loanDate = String(
+    document.getElementById("installmentEditDateInline")?.value ||
+    form.elements?.namedItem?.("loan_date")?.value ||
+    ""
+  ).trim();
   const count = Math.floor(Number(form.querySelector('[name="installment_count"]')?.value || 0));
   const displayNote = String(form.querySelector('[name="notes"]')?.value || "").trim();
 
@@ -12309,11 +12642,17 @@ function openGoodsModal(mode, options = {}){
   els.goodsSoldForm.classList.toggle("hide", mode !== "sold");
   const dialog = document.getElementById("goodsModalDialog");
   const soldDateInline = document.getElementById("goodsSoldDateInline");
-  dialog?.classList.toggle("goods-sale-dialog", mode === "sold");
+  const boughtDateInline = els.goodsBoughtDateInline || document.getElementById("goodsBoughtDateInline");
+  dialog?.classList.add("goods-sale-dialog");
   if (soldDateInline) {
     soldDateInline.classList.toggle("hide", mode !== "sold");
     soldDateInline.required = mode === "sold";
     if (mode !== "sold") soldDateInline.removeAttribute("required");
+  }
+  if (boughtDateInline) {
+    boughtDateInline.classList.toggle("hide", mode !== "bought");
+    boughtDateInline.required = mode === "bought";
+    if (mode !== "bought") boughtDateInline.removeAttribute("required");
   }
   state.inventoryDraft.purchaseGroupId = options.groupId || "";
   state.inventoryDraft.saleGroupIds = options.groupId ? [options.groupId] : [];
@@ -12323,37 +12662,29 @@ function openGoodsModal(mode, options = {}){
   if (mode === "bought"){
     const currentGroup = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === state.inventoryDraft.purchaseGroupId);
     els.goodsModalTitle.textContent = currentGroup ? "Add Inventory Stock" : "Add Inventory Item";
-    els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add a newly purchased inventory item.";
-    els.goodsModalDesc.classList.remove("hide");
+    els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add one or more purchased inventory items.";
+    els.goodsModalDesc.classList.toggle("hide", !currentGroup);
     els.goodsBoughtForm.reset();
-    els.goodsBoughtForm.dataset.taxManual = "false";
-    const typeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
-    const typeCustomWrap = els.goodsBoughtForm.querySelector("[data-inventory-custom-type-wrap]");
+    if (boughtDateInline) boughtDateInline.value = todayISO();
     if (currentGroup){
-      els.goodsBoughtForm.querySelector('[name="item_code"]').value = currentGroup.itemCode || nextInventoryCode();
-      els.goodsBoughtForm.querySelector('[name="item_name"]').value = currentGroup.person_name || "";
-      setCurrencyChoice(els.goodsBoughtForm, currentGroup.currency || state.lastCurrency || "AED");
-      els.goodsBoughtForm.querySelector('[name="item_description"]').value = currentGroup.itemDescription || "";
-      els.goodsBoughtForm.querySelector('[name="selling_price"]').value = currentGroup.defaultUnitSoldPrice ? trimInventoryNumber(currentGroup.defaultUnitSoldPrice) : "";
-      els.goodsBoughtForm.querySelector('[name="item_category"]').value = normalizeInventoryCategory(currentGroup.itemCategory);
-      els.goodsBoughtForm.querySelector('[name="item_category"]').disabled = true;
-      els.goodsBoughtForm.querySelector('[name="quantity_unit"]').value = normalizeInventoryUnit(currentGroup.quantityUnit, currentGroup.itemCategory);
-      syncGoodsBoughtItemTypeFields(currentGroup.itemType || "General");
-      if (typeSelect) typeSelect.disabled = true;
-      if (typeCustomWrap) typeCustomWrap.classList.add("hide");
+      renderGoodsPurchaseLines({
+        locked: true,
+        itemName: currentGroup.person_name || "",
+        itemType: currentGroup.itemType || "General",
+        itemCategory: currentGroup.itemCategory,
+        quantityUnit: currentGroup.quantityUnit,
+        currency: currentGroup.currency || state.lastCurrency || "AED",
+        sellingPrice: currentGroup.defaultUnitSoldPrice ? trimInventoryNumber(currentGroup.defaultUnitSoldPrice) : "",
+        itemDescription: currentGroup.itemDescription || "",
+        defaultTaxRate: currentGroup.defaultTaxRate,
+        defaultTaxMode: currentGroup.defaultTaxMode
+      });
     } else {
-      els.goodsBoughtForm.querySelector('[name="item_code"]').value = nextInventoryCode();
-      els.goodsBoughtForm.querySelector('[name="item_category"]').value = INVENTORY_CATEGORY_COUNT;
-      els.goodsBoughtForm.querySelector('[name="item_category"]').disabled = false;
-      els.goodsBoughtForm.querySelector('[name="quantity_unit"]').value = INVENTORY_UNIT_ITEM;
-      setCurrencyChoice(els.goodsBoughtForm, state.lastCurrency || "AED");
-      if (typeSelect) typeSelect.disabled = false;
-      syncGoodsBoughtItemTypeFields("General");
+      renderGoodsPurchaseLines({ currency: state.lastCurrency || "AED" });
     }
     defaultDateInputs(els.goodsBoughtForm);
-    syncGoodsPurchaseTaxDefaults(true);
-    syncGoodsBoughtCategoryFields();
-    updateGoodsPurchaseWalletSelector();
+    if (boughtDateInline && !boughtDateInline.value) boughtDateInline.value = todayISO();
+    updateGoodsBoughtTotal();
   } else {
     const addingCustomerOnly = options.addCustomer && !options.groupId;
     els.goodsModalTitle.textContent = addingCustomerOnly ? "Add Customer" : "Create Sales Invoice";
@@ -12392,84 +12723,137 @@ async function saveGoodsBought(form){
   const groupId = state.inventoryDraft.purchaseGroupId || "";
   const currentGroup = groupId ? getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === groupId) : null;
   const walletId = String(fd.get("purchase_wallet_id") || "").trim();
-  const unitActualPrice = Number(fd.get("actual_price") || 0);
-  const itemCategory = currentGroup ? normalizeInventoryCategory(currentGroup.itemCategory) : normalizeInventoryCategory(fd.get("item_category"));
-  const itemType = currentGroup
-    ? normalizeInventoryItemType(currentGroup.itemType)
-    : readGoodsBoughtItemType(form);
-  const quantityUnit = normalizeInventoryUnit(fd.get("quantity_unit"), itemCategory);
-  const boughtQty = normalizeInventoryQuantityInput(fd.get("bought_qty"), itemCategory, quantityUnit);
-  const purchaseTax = getGoodsPurchaseTaxBreakdown();
-  const totalActualPrice = purchaseTax.total;
-  const sellingPrice = Number(fd.get("selling_price") || 0);
-  const itemCode = String(fd.get("item_code") || "").trim() || nextInventoryCode();
-  const itemName = currentGroup ? currentGroup.person_name : String(fd.get("item_name") || "").trim();
-  const itemDescription = String(fd.get("item_description") || "").trim();
-  const currency = currentGroup ? currentGroup.currency : String(fd.get("currency") || "AED").trim();
   const boughtDate = String(fd.get("bought_date") || "");
-  if (!itemName || !currency || !boughtDate){
-    throw new Error("Complete all required fields.");
+  const lines = collectGoodsPurchaseLines();
+  if (!boughtDate) throw new Error("Purchase date is required.");
+  if (!lines.length) throw new Error("Add at least one purchase item.");
+
+  const prepared = lines.map((line, index) => {
+    const itemName = currentGroup ? currentGroup.person_name : line.itemName;
+    const currency = currentGroup ? currentGroup.currency : line.currency;
+    const itemCategory = currentGroup
+      ? normalizeInventoryCategory(currentGroup.itemCategory)
+      : normalizeInventoryCategory(line.itemCategory);
+    const itemType = currentGroup
+      ? normalizeInventoryItemType(currentGroup.itemType)
+      : normalizeInventoryItemType(line.itemType);
+    const quantityUnit = inventoryBaseUnitForCategory(itemCategory);
+    const boughtQty = normalizeStoredInventoryQty(line.boughtQty, itemCategory, 0);
+    const unitActualPrice = Number(line.unitActualPrice || 0);
+    const sellingPrice = Number(line.sellingPrice || 0);
+    const itemDescription = currentGroup
+      ? (currentGroup.itemDescription || line.itemDescription || "")
+      : line.itemDescription;
+    if (!itemName || !currency) throw new Error(`Complete all required fields on item ${index + 1}.`);
+    if (!(unitActualPrice > 0)) throw new Error(`Enter a valid purchase price on item ${index + 1}.`);
+    if (!(boughtQty > 0)) throw new Error(`Enter a valid ${inventoryQtyFieldLabel(itemCategory).toLowerCase()} on item ${index + 1}.`);
+    if (!itemType) throw new Error(`Select or enter an item type on item ${index + 1}.`);
+    const allowedCurrencies = getAllowedCurrencies();
+    const pageCurrencies = getPageScopedCurrencies();
+    const normalizedCurrency = normalizeCurrencyCode(currency);
+    if (!allowedCurrencies.includes(normalizedCurrency) || !pageCurrencies.includes(normalizedCurrency)) {
+      throw new Error(`Currency "${currency}" is not supported on item ${index + 1}.`);
+    }
+    const purchaseTax = calculateTaxBreakdown(
+      unitActualPrice * boughtQty,
+      line.taxRate,
+      line.taxMode,
+      line.taxApplied
+    );
+    return {
+      itemName,
+      currency: normalizedCurrency,
+      itemCategory,
+      itemType,
+      quantityUnit,
+      boughtQty,
+      unitActualPrice,
+      sellingPrice,
+      itemDescription,
+      purchaseTax,
+      totalActualPrice: purchaseTax.total
+    };
+  });
+
+  const currencies = new Set(prepared.map(line => line.currency));
+  const singleCurrency = currencies.size === 1;
+  const walletCurrency = singleCurrency ? prepared[0].currency : "";
+  const walletTotal = prepared.reduce((sum, line) => sum + Number(line.totalActualPrice || 0), 0);
+  if (walletId) {
+    if (!singleCurrency) throw new Error("Wallet deduction is available only when all purchase items share one currency.");
+    validateInventoryWallet(walletId, walletCurrency, walletTotal, "deduct");
   }
-  if (!(unitActualPrice > 0)) throw new Error("Enter a valid purchase price.");
-  if (!(boughtQty > 0)) throw new Error(`Enter a valid ${inventoryQtyFieldLabel(itemCategory).toLowerCase()}.`);
-  if (!itemType) throw new Error("Select or enter an item type.");
 
-  validateCurrencyForForm(fd);
-  if (walletId) validateInventoryWallet(walletId, currency, totalActualPrice, "deduct");
-
-  if (currentGroup){
-    const payload = {
+  const payloads = [];
+  const usedCodes = getExistingInventoryCodes();
+  if (currentGroup) {
+    const line = prepared[0];
+    const itemCode = currentGroup.itemCode || nextPrefixedHexCode("ITM", usedCodes);
+    payloads.push({
       group_id: currentGroup.group_id,
       direction: "taken",
       entry_kind: "partial",
       person_name: currentGroup.person_name,
       currency: currentGroup.currency,
       principal_amount: null,
-      action_amount: totalActualPrice,
+      action_amount: line.totalActualPrice,
       loan_date: currentGroup.principal?.loan_date,
       action_date: boughtDate,
       notes: upsertGoodsMetaInNote(normalizeGoodsNote(null, true), {
-        boughtQty,
-        unitActualPrice,
-        unitSoldPrice: sellingPrice > 0 ? sellingPrice : null,
+        boughtQty: line.boughtQty,
+        unitActualPrice: line.unitActualPrice,
+        unitSoldPrice: line.sellingPrice > 0 ? line.sellingPrice : null,
         itemCode,
-        itemDescription,
-        itemType,
-        itemCategory,
-        quantityUnit: inventoryBaseUnitForCategory(itemCategory),
+        itemDescription: line.itemDescription,
+        itemType: line.itemType,
+        itemCategory: line.itemCategory,
+        quantityUnit: line.quantityUnit,
         transactionType: "PURCHASE",
-        ...taxMetaFromBreakdown(purchaseTax)
+        ...taxMetaFromBreakdown(line.purchaseTax)
       })
-    };
-    saveEntriesImmediately(payload, { label: "Inventory purchase" });
+    });
   } else {
-    const payload = {
-      group_id: crypto.randomUUID(),
-      direction: "taken",
-      entry_kind: "principal",
-      person_name: itemName,
-      currency,
-      principal_amount: totalActualPrice,
-      action_amount: null,
-      loan_date: boughtDate,
-      action_date: null,
-      notes: upsertGoodsMetaInNote(normalizeGoodsNote(null, true), {
-        boughtQty,
-        unitActualPrice,
-        unitSoldPrice: sellingPrice > 0 ? sellingPrice : null,
-        itemCode,
-        itemDescription,
-        itemType,
-        itemCategory,
-        quantityUnit: inventoryBaseUnitForCategory(itemCategory),
-        transactionType: "ITEM",
-        ...taxMetaFromBreakdown(purchaseTax)
-      })
-    };
-    saveEntriesImmediately(payload, { label: "Inventory item" });
+    for (const line of prepared) {
+      const itemCode = nextPrefixedHexCode("ITM", usedCodes);
+      payloads.push({
+        group_id: crypto.randomUUID(),
+        direction: "taken",
+        entry_kind: "principal",
+        person_name: line.itemName,
+        currency: line.currency,
+        principal_amount: line.totalActualPrice,
+        action_amount: null,
+        loan_date: boughtDate,
+        action_date: null,
+        notes: upsertGoodsMetaInNote(normalizeGoodsNote(null, true), {
+          boughtQty: line.boughtQty,
+          unitActualPrice: line.unitActualPrice,
+          unitSoldPrice: line.sellingPrice > 0 ? line.sellingPrice : null,
+          itemCode,
+          itemDescription: line.itemDescription,
+          itemType: line.itemType,
+          itemCategory: line.itemCategory,
+          quantityUnit: line.quantityUnit,
+          transactionType: "ITEM",
+          ...taxMetaFromBreakdown(line.purchaseTax)
+        })
+      });
+    }
   }
+
+  saveEntriesImmediately(payloads, {
+    label: currentGroup
+      ? "Inventory purchase"
+      : (payloads.length > 1 ? "Inventory items" : "Inventory item")
+  });
   if (walletId) {
-    await createWalletEntryForInventory(walletId, totalActualPrice, boughtDate, currency, "purchase", { itemName, itemCode });
+    const walletLabel = currentGroup
+      ? { itemName: currentGroup.person_name, itemCode: currentGroup.itemCode || "" }
+      : {
+          itemName: prepared.length === 1 ? prepared[0].itemName : `${prepared.length} items`,
+          itemCode: ""
+        };
+    await createWalletEntryForInventory(walletId, walletTotal, boughtDate, walletCurrency, "purchase", walletLabel);
   }
   closeModal("goodsModal");
 }
@@ -17337,9 +17721,10 @@ window.addEventListener("resize", () => {
   }
   if (els.principalModalForm) {
     els.principalModalForm.querySelector('[name="principal_amount"]')?.addEventListener("input", updateInstallmentPlanPreview);
-    els.principalModalForm.querySelector('[name="loan_date"]')?.addEventListener("change", updateInstallmentPlanPreview);
-    els.principalModalForm.querySelectorAll(".currency-chip").forEach(chip => {
-      chip.addEventListener("click", () => setTimeout(updateInstallmentPlanPreview, 0));
+    document.getElementById("entryPrincipalDateInline")?.addEventListener("change", updateInstallmentPlanPreview);
+    els.principalModalForm.querySelector('select[name="currency"]')?.addEventListener("change", () => {
+      setCurrencyChoice(els.principalModalForm, els.principalModalForm.querySelector('select[name="currency"]').value);
+      updateInstallmentPlanPreview();
     });
   }
   if (els.paymentModalForm) {
@@ -17357,8 +17742,10 @@ window.addEventListener("resize", () => {
         }
       });
     });
-    els.installmentEditForm.querySelectorAll(".currency-chip").forEach(chip => {
-      chip.addEventListener("click", () => setTimeout(updateInstallmentEditPreview, 0));
+    document.getElementById("installmentEditDateInline")?.addEventListener("change", updateInstallmentEditPreview);
+    els.installmentEditForm.querySelector('select[name="currency"]')?.addEventListener("change", () => {
+      setCurrencyChoice(els.installmentEditForm, els.installmentEditForm.querySelector('select[name="currency"]').value);
+      updateInstallmentEditPreview();
     });
     els.installmentEditForm.addEventListener("submit", async e => {
       e.preventDefault();
@@ -17462,6 +17849,12 @@ window.addEventListener("resize", () => {
     syncExpenseTaxDefaults();
     refreshExpenseItemIntentUi();
   });
+  const expenseAccountCurrencySelect = document.getElementById("expenseAccountCurrencySelect");
+  if (expenseAccountCurrencySelect) {
+    expenseAccountCurrencySelect.addEventListener("change", () => {
+      setCurrencyChoice(els.expenseAccountForm, expenseAccountCurrencySelect.value);
+    });
+  }
   const expenseBtcAddressInput = els.expenseAccountForm?.querySelector('input[name="btc_address"]');
   if (expenseBtcAddressInput) {
     expenseBtcAddressInput.addEventListener("blur", () => previewExpenseBtcBalance());
@@ -17500,39 +17893,29 @@ window.addEventListener("resize", () => {
     });
   }
 
-  if (els.goodsBoughtForm) {
-    const boughtPriceInput = els.goodsBoughtForm.querySelector('[name="actual_price"]');
-    const boughtQtyInput = els.goodsBoughtForm.querySelector('[name="bought_qty"]');
-    const boughtCategorySelect = els.goodsBoughtForm.querySelector('[name="item_category"]');
-    const boughtUnitSelect = els.goodsBoughtForm.querySelector('[name="quantity_unit"]');
-    const boughtTypeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
-    if (boughtTypeSelect) {
-      boughtTypeSelect.addEventListener("change", () => {
-        const customWrap = els.goodsBoughtForm.querySelector("[data-inventory-custom-type-wrap]");
-        const customInput = els.goodsBoughtForm.querySelector('[name="item_type_custom"]');
-        const isCustom = boughtTypeSelect.value === INVENTORY_CUSTOM_TYPE_VALUE;
-        customWrap?.classList.toggle("hide", !isCustom);
-        if (customInput) {
-          customInput.required = isCustom;
-          if (isCustom) customInput.focus();
-          else customInput.value = "";
-        }
-      });
-    }
-    if (boughtPriceInput) boughtPriceInput.addEventListener("input", updateGoodsBoughtTotal);
-    if (boughtQtyInput) boughtQtyInput.addEventListener("input", updateGoodsBoughtTotal);
-    if (boughtCategorySelect) boughtCategorySelect.addEventListener("change", syncGoodsBoughtCategoryFields);
-    if (boughtUnitSelect) boughtUnitSelect.addEventListener("change", updateGoodsBoughtTotal);
-    [els.goodsPurchaseTaxApplied, els.goodsPurchaseTaxRate, els.goodsPurchaseTaxMode].forEach(control => {
-      if (!control) return;
-      control.addEventListener("input", () => {
-        els.goodsBoughtForm.dataset.taxManual = "true";
-        updateGoodsBoughtTotal();
-      });
-      control.addEventListener("change", () => {
-        els.goodsBoughtForm.dataset.taxManual = "true";
-        updateGoodsBoughtTotal();
-      });
+  if (els.addGoodsPurchaseLineBtn) {
+    els.addGoodsPurchaseLineBtn.addEventListener("click", () => addGoodsPurchaseLine({
+      currency: state.lastCurrency || "AED"
+    }));
+  }
+  if (els.goodsPurchaseLines) {
+    els.goodsPurchaseLines.addEventListener("input", e => {
+      const line = e.target.closest(".inventory-purchase-line");
+      if (line) updateGoodsPurchaseLine(line, e.target);
+    });
+    els.goodsPurchaseLines.addEventListener("change", e => {
+      const line = e.target.closest(".inventory-purchase-line");
+      if (line) updateGoodsPurchaseLine(line, e.target);
+    });
+    els.goodsPurchaseLines.addEventListener("click", e => {
+      const btn = e.target.closest(".goods-buy-remove");
+      if (!btn) return;
+      const line = btn.closest(".inventory-purchase-line");
+      if (!line || state.inventoryDraft.purchaseGroupId) return;
+      line.remove();
+      if (!els.goodsPurchaseLines.children.length) addGoodsPurchaseLine({ currency: state.lastCurrency || "AED" });
+      toggleGoodsPurchaseRemoveButtons();
+      updateGoodsBoughtTotal();
     });
   }
   [els.expenseTaxApplied, els.expenseTaxRate, els.expenseTaxMode, els.expenseEntryForm?.querySelector('[name="amount"]')].forEach(control => {
@@ -18776,11 +19159,20 @@ function populateInventoryWalletSelector(selectEl, currency, placeholder, emptyL
 }
 
 function updateGoodsPurchaseWalletSelector(){
-  if (!els.goodsBoughtForm) return;
-  const currency = String(els.goodsBoughtForm.querySelector('[name="currency"]')?.value || state.lastCurrency || "AED").trim();
+  if (!els.goodsPurchaseWalletSelect || !els.goodsPurchaseLines) return;
+  const currencies = new Set(
+    Array.from(els.goodsPurchaseLines.querySelectorAll(".goods-buy-currency"))
+      .map(el => String(el.value || "").trim())
+      .filter(Boolean)
+  );
+  if (currencies.size !== 1){
+    els.goodsPurchaseWalletSelect.innerHTML = `<option value="">${currencies.size ? "Wallet requires one currency" : "Skip wallet deduction"}</option>`;
+    els.goodsPurchaseWalletSelect.disabled = currencies.size !== 0;
+    return;
+  }
   populateInventoryWalletSelector(
     els.goodsPurchaseWalletSelect,
-    currency,
+    Array.from(currencies)[0],
     "Skip wallet deduction",
     "Select item currency first"
   );
