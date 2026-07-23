@@ -572,8 +572,11 @@ function formatTaxModeLabel(mode) {
   return normalizeTaxMode(mode) === TAX_MODE_INCLUDE ? "included" : "added";
 }
 
-function formatTaxSummary(breakdown, currency) {
+function formatTaxSummary(breakdown, currency, options = {}) {
   if (!breakdown?.applied || !Number(breakdown.tax || 0)) return "VAT off";
+  if (options.compact) {
+    return `${trimInventoryNumber(breakdown.rate, 2)}% · ${formatReportAmount(breakdown.tax, currency)}`;
+  }
   return `VAT ${trimInventoryNumber(breakdown.rate, 2)}% ${formatTaxModeLabel(breakdown.mode)}: ${formatReportAmount(breakdown.tax, currency)} | Net ${formatReportAmount(breakdown.net, currency)}`;
 }
 
@@ -676,7 +679,7 @@ const state = {
   secretPinHash: "",
   secretPinVerified: false,
   search: { given: "", received: "", taken: "", returned: "", installments: "", goods: "", expenses: "" },
-  statusFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
+  statusFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "Open", expenses: "All" },
   currencyFilter: { given: "All", received: "All", taken: "All", returned: "All", installments: "All", goods: "All", expenses: "All" },
   lastCurrency: "AED", // Will be updated to first allowed currency after config loads
   modalDirection: "given",
@@ -5437,7 +5440,7 @@ function refreshInventoryTypeFilterOptions(){
   const current = String(state.inventoryItemTypeFilter || "all");
   const types = getInventoryItemTypes();
   select.innerHTML = [
-    `<option value="all">All types</option>`,
+    `<option value="all">All</option>`,
     ...types.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`)
   ].join("");
   const stillValid = current === "all" || types.some(type => type.toLowerCase() === current.toLowerCase());
@@ -6906,7 +6909,7 @@ function renderInventoryCustomerRecord(record){
                 <td>${escapeHtml(displayDate(row.date || "-"))}</td>
                 <td>${escapeHtml(row.type)}</td>
                 <td>${escapeHtml(row.receiptNumber)}</td>
-                <td>${escapeHtml(row.details || "-")}</td>
+                <td class="inventory-stmt-details" title="${escapeHtml(row.details || "")}">${escapeHtml(row.details || "-")}</td>
                 <td>${escapeHtml(row.taxText || "-")}</td>
                 <td>${escapeHtml(row.debitText || "-")}</td>
                 <td>${escapeHtml(row.creditText || "-")}</td>
@@ -7859,6 +7862,43 @@ function getInventorySelectableGroups(){
   return getGoodsGroups({ applyUiFilters: false }).filter(g => g.remainingQty > 0);
 }
 
+function getSelectedGoodsSaleGroupIds(exceptLine = null){
+  if (!els.goodsSaleLines) return new Set();
+  return new Set(
+    Array.from(els.goodsSaleLines.querySelectorAll(".inventory-sale-line"))
+      .filter(line => line !== exceptLine)
+      .map(line => String(line.querySelector(".goods-sale-item")?.value || "").trim())
+      .filter(Boolean)
+  );
+}
+
+function inventorySaleItemOptionsHtml(selectedGroupId = "", excludeIds = null){
+  const taken = excludeIds || getSelectedGoodsSaleGroupIds();
+  const groups = getInventorySelectableGroups().filter(group =>
+    group.group_id === selectedGroupId || !taken.has(group.group_id)
+  );
+  return ['<option value="">Select item</option>']
+    .concat(groups.map(group =>
+      `<option value="${escapeHtml(group.group_id)}" ${group.group_id === selectedGroupId ? "selected" : ""}>${escapeHtml(inventoryGroupOptionLabel(group))}</option>`
+    ))
+    .join("");
+}
+
+function refreshGoodsSaleItemOptions(preferFocusLine = null){
+  if (!els.goodsSaleLines) return;
+  els.goodsSaleLines.querySelectorAll(".inventory-sale-line").forEach(line => {
+    const select = line.querySelector(".goods-sale-item");
+    if (!select) return;
+    const current = String(select.value || "");
+    const keepFocus = preferFocusLine === line && document.activeElement === select;
+    select.innerHTML = inventorySaleItemOptionsHtml(current, getSelectedGoodsSaleGroupIds(line));
+    select.value = current;
+    if (keepFocus) {
+      try { select.focus({ preventScroll: true }); } catch {}
+    }
+  });
+}
+
 function inventoryGroupOptionLabel(group){
   const codePart = group.itemCode ? `${group.itemCode} - ` : "";
   return `${codePart}${group.person_name} - ${inventoryQtyLabel(group.remainingQty, group.itemCategory)} left`;
@@ -7927,36 +7967,38 @@ function inventorySaleUnitOptions(group){
 
 function buildGoodsSaleLine(groupId = ""){
   const groups = getInventorySelectableGroups();
-  const options = ['<option value="">Select item</option>']
-    .concat(groups.map(group => `<option value="${escapeHtml(group.group_id)}" ${group.group_id === groupId ? "selected" : ""}>${escapeHtml(inventoryGroupOptionLabel(group))}</option>`))
-    .join("");
+  const options = inventorySaleItemOptionsHtml(groupId);
   const selectedGroup = groups.find(g => g.group_id === groupId);
   const selectedCategory = normalizeInventoryCategory(selectedGroup?.itemCategory);
   const isMeasured = inventoryIsDecimalCategory(selectedCategory);
   const taxDefault = inventoryTaxDefaultsForGroup(selectedGroup);
+  const vatRateLabel = taxDefault.rate > 0 ? `${trimInventoryNumber(taxDefault.rate, 2)}%` : "";
   return `
     <div class="inventory-sale-line" data-tax-manual="false">
-      <select class="select goods-sale-item">${options}</select>
-      <input class="input goods-sale-qty" type="number" min="${isMeasured ? "0.001" : "1"}" step="${isMeasured ? "0.001" : "1"}" value="1" placeholder="${escapeHtml(inventoryQtyFieldLabel(selectedCategory))}" />
-      <select class="select goods-sale-unit" ${isMeasured ? "" : "disabled"}>${inventorySaleUnitOptions(selectedGroup)}</select>
-      <input class="input goods-sale-price" type="number" min="0" step="0.00000001" placeholder="${escapeHtml(inventorySalePricePlaceholder(selectedCategory))}" />
-      <input class="input goods-sale-line-total" type="text" readonly placeholder="Total" />
-      <button class="icon-btn ghost goods-sale-remove" type="button" aria-label="Remove item" title="Remove item">
-        <i class="fa-solid fa-trash"></i>
-      </button>
-      <div class="inventory-sale-line-meta">${selectedGroup ? escapeHtml(`${selectedGroup.currency} | ${selectedGroup.itemCode || "No code"} | ${inventoryCategoryLabel(selectedCategory)} | Stock ${inventoryQtyLabel(selectedGroup.remainingQty, selectedCategory)}`) : ""}</div>
-      <div class="inventory-sale-tax-controls">
-        <label class="checkbox-line">
+      <div class="inventory-sale-line-top">
+        <select class="select goods-sale-item" aria-label="Item">${options}</select>
+        <button class="icon-btn ghost goods-sale-remove" type="button" aria-label="Remove item" title="Remove">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="inventory-sale-line-main">
+        <div class="goods-sale-qty-unit" title="Quantity">
+          <input class="input goods-sale-qty" type="number" min="${isMeasured ? "0.001" : "1"}" step="${isMeasured ? "0.001" : "1"}" value="1" placeholder="0" aria-label="Qty" />
+          <select class="select goods-sale-unit" ${isMeasured ? "" : "disabled"} aria-label="Unit">${inventorySaleUnitOptions(selectedGroup)}</select>
+        </div>
+        <input class="input goods-sale-price" type="number" min="0" step="0.00000001" placeholder="Price" aria-label="Unit price" title="Unit price" />
+        <input class="input goods-sale-line-total hide" type="text" readonly tabindex="-1" aria-hidden="true" />
+        <label class="inventory-sale-vat-toggle" title="Applies the VAT % saved in settings for this currency">
           <input class="goods-sale-tax-applied" type="checkbox" ${taxDefault.rate > 0 ? "checked" : ""} />
           <span>VAT</span>
+          <em class="goods-sale-tax-rate-label">${escapeHtml(vatRateLabel)}</em>
         </label>
-        <input class="input goods-sale-tax-rate" type="number" min="0" max="100" step="0.01" value="${taxDefault.rate ? escapeHtml(trimInventoryNumber(taxDefault.rate, 2)) : ""}" placeholder="VAT %" />
-        <select class="select goods-sale-tax-mode">
-          <option value="ADD" ${taxDefault.mode === TAX_MODE_ADD ? "selected" : ""}>Add VAT to line</option>
-          <option value="INCLUDE" ${taxDefault.mode === TAX_MODE_INCLUDE ? "selected" : ""}>VAT included</option>
+        <select class="select goods-sale-tax-mode" aria-label="VAT mode" title="VAT treatment">
+          <option value="ADD" ${taxDefault.mode === TAX_MODE_ADD ? "selected" : ""}>Add</option>
+          <option value="INCLUDE" ${taxDefault.mode === TAX_MODE_INCLUDE ? "selected" : ""}>Incl</option>
         </select>
-        <span class="inventory-sale-tax-summary">VAT off</span>
       </div>
+      <div class="inventory-sale-line-meta">${selectedGroup ? escapeHtml(`${selectedGroup.currency} · Stock ${inventoryQtyLabel(selectedGroup.remainingQty, selectedCategory)}`) : "Pick an item"}</div>
     </div>
   `;
 }
@@ -7966,11 +8008,20 @@ function syncGoodsSaleLineMeta(line){
   const groupId = line.querySelector(".goods-sale-item")?.value || "";
   const group = getInventorySelectableGroups().find(g => g.group_id === groupId);
   const meta = line.querySelector(".inventory-sale-line-meta");
-  if (meta) {
-    meta.textContent = group
-      ? `${group.currency} | ${group.itemCode || "No code"} | ${inventoryCategoryLabel(group.itemCategory)} | Stock ${inventoryQtyLabel(group.remainingQty, group.itemCategory)}`
-      : "";
+  const totalInput = line.querySelector(".goods-sale-line-total");
+  if (!meta) return;
+  if (!group) {
+    meta.textContent = "Pick an item";
+    return;
   }
+  const totalText = totalInput?.value
+    ? `Total ${totalInput.value}`
+    : "";
+  const stockText = `Stock ${inventoryQtyLabel(group.remainingQty, group.itemCategory)}`;
+  const taxBit = totalInput?.dataset.taxApplied === "1" && Number(totalInput.dataset.rawTax || 0)
+    ? `VAT ${formatReportAmount(Number(totalInput.dataset.rawTax || 0), group.currency)}`
+    : "";
+  meta.textContent = [totalText, taxBit, `${group.currency} · ${stockText}`].filter(Boolean).join(" · ");
 }
 
 function getGoodsSaleTotalsByCurrency(){
@@ -8054,13 +8105,11 @@ function updateGoodsSaleLine(line, sourceEl = null){
   const priceInput = line.querySelector(".goods-sale-price");
   const totalInput = line.querySelector(".goods-sale-line-total");
   const taxAppliedInput = line.querySelector(".goods-sale-tax-applied");
-  const taxRateInput = line.querySelector(".goods-sale-tax-rate");
   const taxModeInput = line.querySelector(".goods-sale-tax-mode");
-  const taxSummary = line.querySelector(".inventory-sale-tax-summary");
+  const taxRateLabel = line.querySelector(".goods-sale-tax-rate-label");
   const category = normalizeInventoryCategory(group?.itemCategory);
   const itemChanged = sourceEl?.classList?.contains("goods-sale-item");
   const taxChanged = sourceEl?.classList?.contains("goods-sale-tax-applied") ||
-    sourceEl?.classList?.contains("goods-sale-tax-rate") ||
     sourceEl?.classList?.contains("goods-sale-tax-mode");
   if (taxChanged) line.dataset.taxManual = "true";
   const isMeasured = inventoryIsDecimalCategory(category);
@@ -8089,19 +8138,22 @@ function updateGoodsSaleLine(line, sourceEl = null){
     const defaultPrice = Number(group.defaultUnitSoldPrice || 0) || Number(group.unitActualPrice || 0);
     priceInput.value = defaultPrice ? trimInventoryNumber(defaultPrice) : "";
   }
+  const taxDefault = inventoryTaxDefaultsForGroup(group || { currency: state.lastCurrency || "AED" });
   if (group && (itemChanged || line.dataset.taxManual !== "true")) {
-    const taxDefault = inventoryTaxDefaultsForGroup(group);
     if (taxAppliedInput) taxAppliedInput.checked = taxDefault.rate > 0;
-    if (taxRateInput) taxRateInput.value = taxDefault.rate ? trimInventoryNumber(taxDefault.rate, 2) : "";
     if (taxModeInput) taxModeInput.value = taxDefault.mode;
     line.dataset.taxManual = "false";
   }
+  if (taxRateLabel) {
+    taxRateLabel.textContent = taxDefault.rate > 0 ? `${trimInventoryNumber(taxDefault.rate, 2)}%` : "";
+  }
   const lineBase = qty * Number(priceInput?.value || 0);
+  const vatOn = !!taxAppliedInput?.checked;
   const breakdown = calculateTaxBreakdown(
     lineBase,
-    taxRateInput?.value,
-    taxModeInput?.value,
-    !!taxAppliedInput?.checked
+    taxDefault.rate,
+    taxModeInput?.value || taxDefault.mode,
+    vatOn
   );
   if (totalInput){
     totalInput.dataset.rawNet = String(breakdown.net);
@@ -8112,18 +8164,28 @@ function updateGoodsSaleLine(line, sourceEl = null){
     totalInput.dataset.taxApplied = breakdown.applied ? "1" : "0";
     totalInput.value = group && breakdown.total ? moneyText(breakdown.total, group.currency) : "";
     applyCurrencyFontClass(totalInput, group?.currency || "");
+    totalInput.title = group
+      ? formatTaxSummary(breakdown, group.currency)
+      : "Line total";
   }
-  if (taxSummary) taxSummary.textContent = group ? formatTaxSummary(breakdown, group.currency) : "Select item for VAT";
   syncGoodsSaleLineMeta(line);
+  if (itemChanged) refreshGoodsSaleItemOptions(line);
   updateGoodsSaleGrandTotal();
 }
 
 function addGoodsSaleLine(groupId = ""){
   if (!els.goodsSaleLines) return;
-  els.goodsSaleLines.insertAdjacentHTML("beforeend", buildGoodsSaleLine(groupId));
+  const taken = getSelectedGoodsSaleGroupIds();
+  const nextId = groupId && !taken.has(groupId) ? groupId : "";
+  els.goodsSaleLines.insertAdjacentHTML("beforeend", buildGoodsSaleLine(nextId));
   const line = els.goodsSaleLines.lastElementChild;
   updateGoodsSaleLine(line);
+  refreshGoodsSaleItemOptions(line);
   toggleGoodsSaleRemoveButtons();
+  try {
+    line?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    line?.querySelector(".goods-sale-item")?.focus({ preventScroll: true });
+  } catch {}
 }
 
 function toggleGoodsSaleRemoveButtons(){
@@ -8140,6 +8202,7 @@ function renderGoodsSaleLines(prefillGroupIds = []){
   const ids = prefillGroupIds.length ? prefillGroupIds : [""];
   els.goodsSaleLines.innerHTML = ids.map(groupId => buildGoodsSaleLine(groupId)).join("");
   els.goodsSaleLines.querySelectorAll(".inventory-sale-line").forEach(line => updateGoodsSaleLine(line));
+  refreshGoodsSaleItemOptions();
   toggleGoodsSaleRemoveButtons();
 }
 
@@ -8478,12 +8541,21 @@ function renderGoodsList(){
                 <span class="badge ${statusClass}">${escapeHtml(group.status)}</span>
               </div>
             </div>
-            <div class="cell lt-principal"><small>Purchase total</small><strong>${money(group.bought, group.currency)}</strong><small class="inventory-unit-cost">Unit cost ${money(group.unitActualPrice || 0, group.currency)}</small></div>
-            <div class="cell lt-movement"><small>Sold total</small><strong>${money(group.soldTotal, group.currency)}</strong><small class="inventory-unit-cost">Paid ${money(group.paidTotal || 0, group.currency)}</small></div>
-            <div class="cell lt-remaining"><small>${pnlLabel}</small><strong><span class="badge ${pnlClass}">${money(Math.abs(group.profitLoss), group.currency)}</span></strong><small class="inventory-unit-cost">Due ${money(group.balanceTotal || 0, group.currency)}</small></div>
+            <div class="cell lt-principal">
+              <div class="inventory-metric"><small>Purchase total</small><strong>${money(group.bought, group.currency)}</strong></div>
+              <div class="inventory-metric inventory-metric-sub"><small>Unit cost</small><strong>${money(group.unitActualPrice || 0, group.currency)}</strong></div>
+            </div>
+            <div class="cell lt-movement">
+              <div class="inventory-metric"><small>Sold total</small><strong>${money(group.soldTotal, group.currency)}</strong></div>
+              <div class="inventory-metric inventory-metric-sub"><small>Paid</small><strong>${money(group.paidTotal || 0, group.currency)}</strong></div>
+            </div>
+            <div class="cell lt-remaining">
+              <div class="inventory-metric"><small>${pnlLabel}</small><strong><span class="badge ${pnlClass}">${money(Math.abs(group.profitLoss), group.currency)}</span></strong></div>
+              <div class="inventory-metric inventory-metric-sub"><small>Due</small><strong>${money(group.balanceTotal || 0, group.currency)}</strong></div>
+            </div>
             <div class="lt-action">
               <div class="menu-wrap">
-                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}">☰</button>
+                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}" aria-label="Item menu">☰</button>
                 <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
                   <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-download"></i> Download PDF</button>
                   ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Purchase</button>` : ""}
@@ -8816,9 +8888,18 @@ function renderInventoryList(){
                 })()}
               </div>
             </div>
-            <div class="cell lt-principal"><small>Purchase total</small><strong>${money(group.bought, group.currency)}</strong><small class="inventory-unit-cost">Unit cost ${money(group.unitActualPrice || 0, group.currency)}</small></div>
-            <div class="cell lt-movement"><small>Sold total</small><strong>${money(group.soldTotal, group.currency)}</strong><small class="inventory-unit-cost">Paid ${money(group.paidTotal || 0, group.currency)}</small></div>
-            <div class="cell lt-remaining"><small>${pnlLabel}</small><strong><span class="badge ${pnlClass}">${money(Math.abs(group.profitLoss), group.currency)}</span></strong><small class="inventory-unit-cost">Due ${money(group.balanceTotal || 0, group.currency)}</small></div>
+            <div class="cell lt-principal">
+              <div class="inventory-metric"><small>Purchase total</small><strong>${money(group.bought, group.currency)}</strong></div>
+              <div class="inventory-metric inventory-metric-sub"><small>Unit cost</small><strong>${money(group.unitActualPrice || 0, group.currency)}</strong></div>
+            </div>
+            <div class="cell lt-movement">
+              <div class="inventory-metric"><small>Sold total</small><strong>${money(group.soldTotal, group.currency)}</strong></div>
+              <div class="inventory-metric inventory-metric-sub"><small>Paid</small><strong>${money(group.paidTotal || 0, group.currency)}</strong></div>
+            </div>
+            <div class="cell lt-remaining">
+              <div class="inventory-metric"><small>${pnlLabel}</small><strong><span class="badge ${pnlClass}">${money(Math.abs(group.profitLoss), group.currency)}</span></strong></div>
+              <div class="inventory-metric inventory-metric-sub"><small>Due</small><strong>${money(group.balanceTotal || 0, group.currency)}</strong></div>
+            </div>
             <div class="lt-action">
               <div class="inventory-inline-actions">
                 <button class="icon-btn ghost inventoryQuickBtn" type="button" data-action="purchase" data-group-id="${escapeHtml(group.group_id)}" title="Add purchase">
@@ -12192,6 +12273,14 @@ function openGoodsModal(mode, options = {}){
   document.body.style.overflow = "hidden";
   els.goodsBoughtForm.classList.toggle("hide", mode !== "bought");
   els.goodsSoldForm.classList.toggle("hide", mode !== "sold");
+  const dialog = document.getElementById("goodsModalDialog");
+  const soldDateInline = document.getElementById("goodsSoldDateInline");
+  dialog?.classList.toggle("goods-sale-dialog", mode === "sold");
+  if (soldDateInline) {
+    soldDateInline.classList.toggle("hide", mode !== "sold");
+    soldDateInline.required = mode === "sold";
+    if (mode !== "sold") soldDateInline.removeAttribute("required");
+  }
   state.inventoryDraft.purchaseGroupId = options.groupId || "";
   state.inventoryDraft.saleGroupIds = options.groupId ? [options.groupId] : [];
   if (els.goodsNewItemFields) els.goodsNewItemFields.classList.add("hide");
@@ -12201,6 +12290,7 @@ function openGoodsModal(mode, options = {}){
     const currentGroup = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === state.inventoryDraft.purchaseGroupId);
     els.goodsModalTitle.textContent = currentGroup ? "Add Inventory Stock" : "Add Inventory Item";
     els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add a newly purchased inventory item.";
+    els.goodsModalDesc.classList.remove("hide");
     els.goodsBoughtForm.reset();
     els.goodsBoughtForm.dataset.taxManual = "false";
     const typeSelect = els.goodsBoughtForm.querySelector('[name="item_type"]');
@@ -12235,8 +12325,10 @@ function openGoodsModal(mode, options = {}){
     els.goodsModalTitle.textContent = addingCustomerOnly ? "Add Customer" : "Create Sales Invoice";
     els.goodsModalDesc.textContent = addingCustomerOnly
       ? "Save customer details now, or choose items if you also want to create an invoice."
-      : "Select customer, choose one or more items, and save one invoice.";
+      : "";
+    els.goodsModalDesc.classList.toggle("hide", !addingCustomerOnly);
     els.goodsSoldForm.reset();
+    if (soldDateInline) soldDateInline.value = todayISO();
     if (els.goodsReceiptNumber) els.goodsReceiptNumber.value = nextInvoiceNumber();
     if (els.goodsSalePaidAmount) {
       els.goodsSalePaidAmount.dataset.autoPaid = "true";
@@ -12255,6 +12347,7 @@ function openGoodsModal(mode, options = {}){
     renderGoodsSaleLines(state.inventoryDraft.saleGroupIds || []);
     renderGoodsSelectors();
     defaultDateInputs(els.goodsSoldForm);
+    if (soldDateInline && !soldDateInline.value) soldDateInline.value = todayISO();
     updateGoodsSaleGrandTotal();
     updateGoodsSaleWalletSelector();
   }
@@ -16936,12 +17029,16 @@ function attachEvents(){
   });
   if (els.openGoodsBoughtBtn) {
     els.openGoodsBoughtBtn.addEventListener("click", () => {
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
       activate("goods");
       openGoodsModal("bought");
     });
   }
   if (els.openGoodsSoldBtn) {
     els.openGoodsSoldBtn.addEventListener("click", () => {
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
       activate("goods");
       openGoodsModal("sold");
     });
@@ -17286,6 +17383,14 @@ window.addEventListener("resize", () => {
       renderInventoryList();
     });
   }
+  const inventoryStatusFilter = document.getElementById("inventoryStatusFilter");
+  if (inventoryStatusFilter) {
+    inventoryStatusFilter.value = state.statusFilter.goods || "Open";
+    inventoryStatusFilter.addEventListener("change", () => {
+      state.statusFilter.goods = inventoryStatusFilter.value || "Open";
+      renderInventoryList();
+    });
+  }
 
   if (els.goodsBoughtForm) {
     const boughtPriceInput = els.goodsBoughtForm.querySelector('[name="actual_price"]');
@@ -17367,6 +17472,7 @@ window.addEventListener("resize", () => {
       if (!line) return;
       line.remove();
       if (!els.goodsSaleLines.children.length) addGoodsSaleLine("");
+      else refreshGoodsSaleItemOptions();
       toggleGoodsSaleRemoveButtons();
       updateGoodsSaleGrandTotal();
     });
@@ -17384,11 +17490,17 @@ window.addEventListener("resize", () => {
 
   document.querySelectorAll("[data-section-csv-download]").forEach(btn => {
     btn.addEventListener("click", () => {
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
       downloadSectionCsv(btn.dataset.sectionCsvDownload).catch(err => alert(err.message));
     });
   });
   document.querySelectorAll("[data-section-csv-upload]").forEach(btn => {
-    btn.addEventListener("click", () => openSectionCsvUpload(btn.dataset.sectionCsvUpload));
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+      openSectionCsvUpload(btn.dataset.sectionCsvUpload);
+    });
   });
   const sectionCsvInput = document.getElementById("sectionCsvInput");
   if (sectionCsvInput) {
@@ -24017,21 +24129,21 @@ function ensureAdminRawModal(){
   modal.setAttribute("aria-hidden", "true");
   modal.innerHTML = `
     <div class="modal-backdrop" data-admin-raw-close="1"></div>
-    <div class="modal-dialog admin-raw-dialog">
+    <div class="modal-dialog admin-modal-dialog admin-raw-dialog">
       <div class="modal-head">
         <div>
           <h3 id="adminRawTitle">Raw data</h3>
-          <p id="adminRawSubtitle">Inspect and fix this user’s ledger entries without changing other accounts.</p>
+          <p id="adminRawSubtitle">Inspect and fix ledger rows for this account.</p>
         </div>
-        <button type="button" class="btn ghost" data-admin-raw-close="1" aria-label="Close">✕</button>
+        <button type="button" class="btn ghost tiny" data-admin-raw-close="1" aria-label="Close">✕</button>
       </div>
       <div class="modal-body admin-raw-body">
         <div class="admin-raw-toolbar">
           <div class="admin-raw-filters" id="adminRawSectionFilters"></div>
           <div class="admin-raw-search-row">
-            <input id="adminRawSearch" class="input" type="search" placeholder="Search name, notes, currency, id…" />
-            <button type="button" class="btn soft" id="adminRawSearchBtn"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
-            <button type="button" class="btn ghost" id="adminRawRefreshBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            <input id="adminRawSearch" class="input" type="search" placeholder="Search name, notes, id…" />
+            <button type="button" class="btn soft tiny" id="adminRawSearchBtn" title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <button type="button" class="btn ghost tiny" id="adminRawRefreshBtn" title="Refresh"><i class="fa-solid fa-rotate"></i></button>
           </div>
         </div>
         <div id="adminRawStats" class="admin-raw-stats"></div>
@@ -24039,23 +24151,23 @@ function ensureAdminRawModal(){
           <div class="empty">Select a user to load raw data.</div>
         </div>
         <div class="admin-raw-pager">
-          <button type="button" class="btn ghost" id="adminRawPrevBtn">Previous</button>
-          <span id="adminRawPageLabel" class="help"></span>
-          <button type="button" class="btn ghost" id="adminRawNextBtn">Next</button>
+          <button type="button" class="btn ghost tiny" id="adminRawPrevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+          <span id="adminRawPageLabel" class="admin-raw-page-label">—</span>
+          <button type="button" class="btn ghost tiny" id="adminRawNextBtn"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
       </div>
     </div>
     <div id="adminRawEditSheet" class="admin-raw-edit-sheet hide" aria-hidden="true">
       <div class="admin-raw-edit-card">
         <div class="admin-raw-edit-head">
-          <h4>Edit ledger entry</h4>
-          <button type="button" class="btn ghost" id="adminRawEditCloseBtn" aria-label="Close editor">✕</button>
+          <h4>Edit entry</h4>
+          <button type="button" class="btn ghost tiny" id="adminRawEditCloseBtn" aria-label="Close editor">✕</button>
         </div>
         <div id="adminRawEditForm" class="admin-raw-edit-form"></div>
         <div id="adminRawEditError" class="lock-error"></div>
         <div class="admin-raw-edit-actions">
-          <button type="button" class="btn ghost" id="adminRawEditCancelBtn">Cancel</button>
-          <button type="button" class="btn primary" id="adminRawEditSaveBtn">Save changes</button>
+          <button type="button" class="btn ghost tiny" id="adminRawEditCancelBtn">Cancel</button>
+          <button type="button" class="btn primary tiny" id="adminRawEditSaveBtn">Save</button>
         </div>
       </div>
     </div>`;
