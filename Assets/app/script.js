@@ -7923,6 +7923,7 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
 
   if (!groups.length){
     container.innerHTML = `<div class="empty">No entries found.</div>`;
+    ensureLoanCardsDelegation(container);
     return;
   }
 
@@ -7937,9 +7938,9 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
     const unsyncedEntries = getUnsyncedEntriesForPerson(personName, direction);
     const hasUnsynced = unsyncedEntries.length > 0;
     return `
-      <details class="loan">
+      <details class="loan loan-details-card">
         <summary>
-          <div class="loan-top">
+          <div class="loan-top loan-details-banner" data-loan-details="1" data-person="${escapeHtml(group.person_name || "")}" data-direction="${escapeHtml(direction)}" role="button" tabindex="0" title="View loan details">
             <div class="lt-main">
               <div class="loan-name"><i class="fa-solid fa-user"></i> ${escapeHtml(group.person_name || "Unnamed")}</div>
               <div class="loan-sub">
@@ -7964,17 +7965,20 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
             <div class="cell lt-movement"><small>${escapeHtml(movementLabel)}</small><strong>${money(group.paidTotal, group.currency)}</strong></div>
             <div class="cell lt-remaining"><small>Remaining</small><strong>${money(group.remaining, group.currency)}</strong></div>
             <div class="lt-action">
-              <div class="menu-wrap">
-                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" data-person-menu="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">☰</button>
-                <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">
-                  <button class="menu-item personActionBtn" type="button" data-action="pdf" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-download"></i> Download PDF</button>
-                  ${hasUnsynced ? `<button class="menu-item personActionBtn" type="button" data-action="save-db" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Save to Database</button>` : ""}
-                  ${teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Edit Name</button>` : ""}
-                  ${showInstallmentMove && teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="move-installment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Move to Installments</button>` : ""}
-                  ${teamCanShowDelete("entries") ? `<button class="menu-item danger personActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Delete Record</button>` : ""}
+              <div class="card-action-grid loan-inline-actions${hasUnsynced ? " card-action-grid--triple" : ""}" role="group" aria-label="Loan actions">
+                <button class="icon-btn ghost loanHistoryToggle" type="button" data-history-toggle title="Show timeline" aria-label="Show timeline" aria-expanded="false">▾</button>
+                <div class="menu-wrap">
+                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">☰</button>
+                  <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">
+                    <button class="menu-item personActionBtn" type="button" data-action="pdf" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-download"></i> Download PDF</button>
+                    ${hasUnsynced ? `<button class="menu-item personActionBtn" type="button" data-action="save-db" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Save to Database</button>` : ""}
+                    ${teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Edit Name</button>` : ""}
+                    ${showInstallmentMove && teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="move-installment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Move to Installments</button>` : ""}
+                    ${teamCanShowDelete("entries") ? `<button class="menu-item danger personActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Delete Record</button>` : ""}
+                  </div>
                 </div>
+                ${hasUnsynced ? `<button class="icon-btn savePersonBtn" type="button" title="Save missing records to database" aria-label="Save to database" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">💾</button>` : ""}
               </div>
-              ${hasUnsynced ? `<button class="icon-btn savePersonBtn" type="button" title="Save missing records to database" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">💾</button>` : ""}
             </div>
           </div>
         </summary>
@@ -8098,6 +8102,51 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
       }
     }
   }));
+  ensureLoanCardsDelegation(container);
+}
+
+function ensureLoanCardsDelegation(container){
+  if (!container || container.dataset.loanDetailsDelegated === "1") return;
+  container.dataset.loanDetailsDelegated = "1";
+
+  const interactiveSel = "button, a, input, select, textarea, .menu-wrap, .menu-dropdown, .lt-action, .loan-inline-actions, .card-action-grid";
+
+  container.addEventListener("click", e => {
+    const historyBtn = e.target.closest("[data-history-toggle]");
+    if (historyBtn && container.contains(historyBtn)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const details = historyBtn.closest("details");
+      if (details) {
+        details.open = !details.open;
+        historyBtn.setAttribute("aria-expanded", details.open ? "true" : "false");
+      }
+      return;
+    }
+
+    if (e.target.closest(interactiveSel)) return;
+    const banner = e.target.closest("[data-loan-details]");
+    if (!banner || !container.contains(banner)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openLoanDetailsOverlay(banner.dataset.person, banner.dataset.direction);
+  });
+
+  container.addEventListener("toggle", e => {
+    if (!(e.target instanceof HTMLDetailsElement)) return;
+    if (!e.target.classList.contains("loan-details-card")) return;
+    const btn = e.target.querySelector("[data-history-toggle]");
+    if (btn) btn.setAttribute("aria-expanded", e.target.open ? "true" : "false");
+  }, true);
+
+  container.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.target.closest(interactiveSel)) return;
+    const banner = e.target.closest("[data-loan-details]");
+    if (!banner || !container.contains(banner)) return;
+    e.preventDefault();
+    openLoanDetailsOverlay(banner.dataset.person, banner.dataset.direction);
+  });
 }
 
 function positionNotePopover(toggleBtn, popover){
@@ -9107,6 +9156,7 @@ function renderInventoryList(){
   if (state.inventoryView === "customers") renderInventoryOutstandingSection();
   if (!groups.length){
     els.goodsList.innerHTML = `<div class="empty">No inventory items found${state.inventoryItemTypeFilter && state.inventoryItemTypeFilter !== "all" ? " for this type" : ""}.</div>`;
+    ensureInventoryItemDetailsDelegation();
     return;
   }
   const boughtCount = inventoryQtySummary(groups, "boughtQty");
@@ -9186,9 +9236,9 @@ function renderInventoryList(){
       })
     ].sort((a, b) => dateStamp(b.date) - dateStamp(a.date));
     return `
-      <details class="loan">
+      <details class="loan inventory-item-card">
         <summary>
-          <div class="loan-top">
+          <div class="loan-top inventory-item-banner" data-inventory-item-details="${escapeHtml(group.group_id)}" role="button" tabindex="0" title="View item details">
             <div class="lt-main">
               <div class="loan-name"><i class="fa-solid fa-box"></i> ${escapeHtml(group.person_name || "Unnamed item")}</div>
               <div class="loan-sub">
@@ -9221,28 +9271,37 @@ function renderInventoryList(){
               <div class="inventory-metric inventory-metric-sub"><small>Due</small><strong>${money(group.balanceTotal || 0, group.currency)}</strong></div>
             </div>
             <div class="lt-action">
-              <div class="inventory-inline-actions">
-                <button class="icon-btn ghost inventoryQuickBtn" type="button" data-action="purchase" data-group-id="${escapeHtml(group.group_id)}" title="Add purchase">
-                  <i class="fa-solid fa-cart-plus"></i>
+              <div class="card-action-grid inventory-inline-actions" role="group" aria-label="Item actions">
+                <button class="icon-btn ghost inventoryQuickBtn" type="button" data-action="purchase" data-group-id="${escapeHtml(group.group_id)}" title="Add purchase" aria-label="Add purchase">
+                  <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                 </button>
-                <button class="icon-btn ghost inventoryQuickBtn" type="button" data-action="sell" data-group-id="${escapeHtml(group.group_id)}" title="Create sale">
-                  <i class="fa-solid fa-cash-register"></i>
+                <button class="icon-btn ghost inventoryQuickBtn" type="button" data-action="sell" data-group-id="${escapeHtml(group.group_id)}" title="Create sale" aria-label="Create sale">
+                  <i class="fa-solid fa-cash-register" aria-hidden="true"></i>
                 </button>
-              </div>
-              <div class="menu-wrap">
-                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}">☰</button>
-                <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
-                  <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-download"></i> Download PDF</button>
-                  ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Item</button>` : ""}
-                  ${teamCanShowDelete("invoices") ? `<button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>` : ""}
+                <button class="icon-btn ghost inventoryInvoicesBtn" type="button" data-inventory-invoices="${escapeHtml(group.group_id)}" title="Show purchases, sales & settlements" aria-label="Invoices" aria-expanded="false">
+                  <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>
+                </button>
+                <div class="menu-wrap">
+                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" data-goods-menu="${escapeHtml(group.group_id)}" aria-label="More actions" title="More actions">☰</button>
+                  <div class="menu-dropdown" data-goods-menu-panel="${escapeHtml(group.group_id)}">
+                    <button class="menu-item goodsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}"><i class="fa-solid fa-download"></i> Download PDF</button>
+                    ${teamCanShowEdit("invoices") ? `<button class="menu-item goodsActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit Item</button>` : ""}
+                    ${teamCanShowDelete("invoices") ? `<button class="menu-item danger goodsActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete Item</button>` : ""}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </summary>
-        <div class="detail">
+        <div class="detail inventory-item-history">
+          <div class="detail-head inventory-history-head">
+            <div>
+              <h4>Invoices & history</h4>
+              <p>Purchases, sales, and settlements — edit or delete rows below.</p>
+            </div>
+          </div>
           ${group.itemDescription ? `<div class="detail-head"><div><h4>Description</h4><p>${escapeHtml(group.itemDescription)}</p></div></div>` : ""}
-          <div class="table-wrap">
+          <div class="table-wrap inventory-history-table-wrap">
             <table>
               <thead><tr><th>Type</th><th>Date</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Payment</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
@@ -9256,11 +9315,11 @@ function renderInventoryList(){
                     <td>${row.paymentStatus === "—" ? "—" : `<span class="badge ${escapeHtml(row.paymentBadge || "orange")}">${escapeHtml(row.paymentStatus)}</span>`}</td>
                     <td>${escapeHtml(row.note || "—")}</td>
                     <td>
-                      <div style="display:flex;gap:4px;">
+                      <div class="inventory-history-actions">
                         ${row.kind === "Sold" || row.kind === "Settlement" ? `<button class="tiny soldReceiptBtn" data-id="${escapeHtml(row.entryId)}" title="Download receipt"><i class="fa-solid fa-download"></i></button>` : `<button class="tiny invoiceDownloadBtn" data-group-id="${escapeHtml(group.group_id)}" title="Download invoice"><i class="fa-solid fa-file-invoice"></i></button>`}
                         ${row.canSettle ? `<button class="tiny ghost clearBalanceBtn" data-id="${escapeHtml(row.entryId)}" title="Clear balance">Clear</button>` : ""}
-                        ${teamCanShowEdit("invoices") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}">✎</button>` : ""}
-                        ${teamCanShowDelete("invoices") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}">✕</button>` : ""}
+                        ${teamCanShowEdit("invoices") ? `<button class="tiny ghost editRowBtn" data-id="${escapeHtml(row.entryId)}" title="Edit">✎</button>` : ""}
+                        ${teamCanShowDelete("invoices") ? `<button class="tiny danger delRowBtn" data-id="${escapeHtml(row.entryId)}" title="Delete">✕</button>` : ""}
                       </div>
                     </td>
                   </tr>
@@ -9286,16 +9345,37 @@ function renderInventoryList(){
   }));
   els.goodsList.querySelectorAll(".goodsActionBtn").forEach(btn => btn.addEventListener("click", async e => {
     e.preventDefault();
+    e.stopPropagation();
     const action = btn.dataset.action;
     if (action === "pdf") await downloadGoodsItemPDF(btn.dataset.groupId);
     if (action === "edit-bought") openEditModal(btn.dataset.entryId);
     if (action === "delete-item") await deleteEntry(btn.dataset.entryId);
   }));
-  els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", () => downloadInventoryReceiptPDF(btn.dataset.id)));
-  els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", () => openGoodsSettlementModal(btn.dataset.id)));
-  els.goodsList.querySelectorAll(".invoiceDownloadBtn").forEach(btn => btn.addEventListener("click", () => downloadGoodsItemPDF(btn.dataset.groupId)));
-  els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
-  els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
+  els.goodsList.querySelectorAll(".soldReceiptBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    downloadInventoryReceiptPDF(btn.dataset.id);
+  }));
+  els.goodsList.querySelectorAll(".clearBalanceBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openGoodsSettlementModal(btn.dataset.id);
+  }));
+  els.goodsList.querySelectorAll(".invoiceDownloadBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    downloadGoodsItemPDF(btn.dataset.groupId);
+  }));
+  els.goodsList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openEditModal(btn.dataset.id);
+  }));
+  els.goodsList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteEntry(btn.dataset.id);
+  }));
   els.goodsList.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
     btn.addEventListener("click", e => {
       e.preventDefault();
@@ -9321,6 +9401,66 @@ function renderInventoryList(){
       if (rect.right - panel.offsetWidth < 10) panel.style.left = `${Math.max(10, rect.left)}px`;
     }
   }));
+  els.goodsList.querySelectorAll("details.inventory-item-card").forEach(details => {
+    const btn = details.querySelector("[data-inventory-invoices]");
+    if (btn) btn.setAttribute("aria-expanded", details.open ? "true" : "false");
+  });
+  ensureInventoryItemDetailsDelegation();
+}
+
+function syncInventoryInvoicesBtn(details){
+  if (!details) return;
+  const btn = details.querySelector("[data-inventory-invoices]");
+  if (btn) btn.setAttribute("aria-expanded", details.open ? "true" : "false");
+}
+
+function ensureInventoryItemDetailsDelegation(){
+  const container = els.goodsList;
+  if (!container || container.dataset.itemDetailsDelegated === "1") return;
+  container.dataset.itemDetailsDelegated = "1";
+
+  const interactiveSel = "button, a, input, select, textarea, .menu-wrap, .menu-dropdown, .lt-action, .inventory-inline-actions, .card-action-grid, .inventory-item-history";
+
+  container.addEventListener("click", e => {
+    const invoicesBtn = e.target.closest("[data-inventory-invoices]");
+    if (invoicesBtn && container.contains(invoicesBtn)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const details = invoicesBtn.closest("details.inventory-item-card");
+      if (!details) return;
+      details.open = !details.open;
+      syncInventoryInvoicesBtn(details);
+      return;
+    }
+
+    if (e.target.closest(interactiveSel)) {
+      // Keep native <summary> from toggling when using action controls.
+      if (e.target.closest("summary") && e.target.closest("button, a, .menu-wrap, .menu-dropdown, .lt-action, .inventory-inline-actions, .card-action-grid")) {
+        e.preventDefault();
+      }
+      return;
+    }
+    const banner = e.target.closest("[data-inventory-item-details]");
+    if (!banner || !container.contains(banner)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openInventoryItemDetailsOverlay(banner.dataset.inventoryItemDetails);
+  });
+
+  container.addEventListener("toggle", e => {
+    if (!(e.target instanceof HTMLDetailsElement)) return;
+    if (!e.target.classList.contains("inventory-item-card")) return;
+    syncInventoryInvoicesBtn(e.target);
+  }, true);
+
+  container.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.target.closest(interactiveSel)) return;
+    const banner = e.target.closest("[data-inventory-item-details]");
+    if (!banner || !container.contains(banner)) return;
+    e.preventDefault();
+    openInventoryItemDetailsOverlay(banner.dataset.inventoryItemDetails);
+  });
 }
 
 function buildExpenseAccountSearchBlob(account){
@@ -12039,13 +12179,17 @@ function renderInstallmentPlans(){
               </div>
             </div>
             <div class="ip-card-actions">
-              <div class="menu-wrap">
-                <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" data-person-menu="${escapeHtml(plan.group_id)}" aria-expanded="false">☰</button>
-                <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(plan.group_id)}">
-                  ${teamCanShowEdit("entries") ? `<button class="menu-item installmentActionBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-pen-to-square"></i> Edit plan / schedule</button>` : ""}
-                  <button class="menu-item installmentActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-money-bill"></i> Pay installment</button>
-                  <button class="menu-item installmentActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-download"></i> Download statement</button>
-                  ${teamCanShowDelete("entries") ? `<button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>` : ""}
+              <div class="card-action-grid card-action-grid--single" role="group" aria-label="Plan actions">
+                <div class="menu-wrap">
+                  <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(plan.group_id)}" aria-expanded="false">☰</button>
+                  <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(plan.group_id)}">
+                    <button class="menu-item installmentActionBtn" type="button" data-action="details" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-chart-pie"></i> View charts</button>
+                    <button class="menu-item installmentActionBtn" type="button" data-action="schedule" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-list-ol"></i> View schedule</button>
+                    ${teamCanShowEdit("entries") ? `<button class="menu-item installmentActionBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-pen-to-square"></i> Edit plan / schedule</button>` : ""}
+                    <button class="menu-item installmentActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-money-bill"></i> Pay installment</button>
+                    <button class="menu-item installmentActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-download"></i> Download statement</button>
+                    ${teamCanShowDelete("entries") ? `<button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>` : ""}
+                  </div>
                 </div>
               </div>
             </div>
@@ -12066,7 +12210,7 @@ function renderInstallmentPlans(){
   }).join("");
 
   container.querySelectorAll(".installment-plan-card").forEach(card => {
-    const open = () => openInstallmentPlanOverlay(card.dataset.groupId);
+    const open = () => openInstallmentItemDetailsOverlay(card.dataset.groupId);
     card.addEventListener("click", e => {
       if (e.target.closest(".menu-wrap, .menu-dropdown, .person-menu-btn, .installmentActionBtn, button, a")) return;
       open();
@@ -12092,6 +12236,11 @@ function renderInstallmentPlans(){
       });
       const nowOpen = panel.classList.toggle("open");
       btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+      const wrap = btn.closest(".menu-wrap");
+      wrap?.classList.toggle("open", nowOpen);
+      document.querySelectorAll(".menu-wrap.open").forEach(openWrap => {
+        if (openWrap !== wrap) openWrap.classList.remove("open");
+      });
       if (nowOpen) {
         const rect = btn.getBoundingClientRect();
         panel.style.top = `${rect.bottom + 6}px`;
@@ -12107,7 +12256,11 @@ function renderInstallmentPlans(){
       e.preventDefault();
       e.stopPropagation();
       document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-wrap.open").forEach(wrap => wrap.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
       const action = btn.dataset.action;
+      if (action === "details") openInstallmentItemDetailsOverlay(btn.dataset.groupId);
+      if (action === "schedule") openInstallmentPlanOverlay(btn.dataset.groupId);
       if (action === "edit") openInstallmentEditModal(btn.dataset.groupId);
       if (action === "pay") openInstallmentPaymentModal(btn.dataset.groupId);
       if (action === "pdf") await downloadInstallmentPlanPDF(btn.dataset.groupId);
@@ -14939,6 +15092,865 @@ function openWalletDetailsOverlay(groupId){
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
     } else {
       renderWalletDetailsOverlay(id);
+    }
+  }
+
+  els.sectionDetailsModal.classList.remove("hide");
+  els.sectionDetailsModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function inventoryItemStockStatus(group){
+  if (Number(group.remainingQty || 0) <= 0.00000001) return { label: "Sold", tone: "" };
+  if (isInventoryLowStockGroup(group)) return { label: "Low stock", tone: "warning" };
+  return { label: "In stock", tone: "success" };
+}
+
+function buildInventoryItemDetailsPayload(groupId){
+  const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === groupId);
+  if (!group) return null;
+
+  const currency = group.currency || "";
+  const category = group.itemCategory;
+  const principalMeta = goodsMetaFromNotes(group.principal?.notes);
+  const restockQty = (group.purchaseActions || []).reduce(
+    (sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).boughtQty, category, 0),
+    0
+  );
+  const openQty = Math.max(Number(group.boughtQty || 0) - restockQty, 0);
+  const events = [];
+
+  if (group.principal) {
+    events.push({
+      date: group.principal.loan_date,
+      stamp: dateStamp(group.principal.loan_date),
+      kind: "purchase",
+      label: "Opening purchase",
+      qty: openQty,
+      amount: Number(group.principal.principal_amount || 0),
+      note: group.itemDescription || cleanGoodsDisplayNote(group.principal.notes) || "Opening stock"
+    });
+  }
+  (group.purchaseActions || []).forEach(row => {
+    const meta = goodsMetaFromNotes(row.notes);
+    events.push({
+      date: row.action_date,
+      stamp: dateStamp(row.action_date),
+      kind: "purchase",
+      label: "Restock",
+      qty: normalizeStoredInventoryQty(meta.boughtQty, category, 0),
+      amount: Number(row.action_amount || 0),
+      note: cleanGoodsDisplayNote(row.notes) || "Additional stock"
+    });
+  });
+  (group.actions || []).forEach(row => {
+    const meta = goodsMetaFromNotes(row.notes);
+    const invoice = inventoryInvoiceNumberFromMeta(meta, row) || meta.receiptNumber || shortId(row.id);
+    events.push({
+      date: row.action_date,
+      stamp: dateStamp(row.action_date),
+      kind: "sale",
+      label: "Sale",
+      qty: normalizeStoredInventoryQty(meta.soldQty, category, 0),
+      amount: Number(row.action_amount || 0),
+      note: `${meta.customerName || "Walk-in"} · ${invoice}`
+    });
+  });
+  (group.settlementActions || []).forEach(row => {
+    const meta = goodsMetaFromNotes(row.notes);
+    events.push({
+      date: row.action_date,
+      stamp: dateStamp(row.action_date),
+      kind: "settlement",
+      label: "Settlement",
+      qty: 0,
+      amount: Number(row.action_amount || 0),
+      note: `${meta.customerName || "Walk-in"} · ${cleanGoodsDisplayNote(row.notes) || "Balance settlement"}`
+    });
+  });
+
+  events.sort((a, b) => (a.stamp - b.stamp) || String(a.kind).localeCompare(String(b.kind)));
+  let runningQty = 0;
+  const stockPoints = [];
+  const monthMap = new Map();
+  const bumpMonth = (key, field, amount) => {
+    if (!key || !(Number(amount) > 0)) return;
+    if (!monthMap.has(key)) monthMap.set(key, { purchase: 0, sales: 0 });
+    monthMap.get(key)[field] += Number(amount) || 0;
+  };
+
+  events.forEach(ev => {
+    if (ev.kind === "purchase") {
+      runningQty += Number(ev.qty || 0);
+      bumpMonth(sectionDetailsMonthKey(ev.date), "purchase", ev.amount);
+    } else if (ev.kind === "sale") {
+      runningQty = Math.max(runningQty - Number(ev.qty || 0), 0);
+      bumpMonth(sectionDetailsMonthKey(ev.date), "sales", ev.amount);
+    }
+    if (ev.kind === "purchase" || ev.kind === "sale") {
+      stockPoints.push({
+        date: ev.date,
+        label: displayDate(ev.date),
+        remaining: runningQty,
+        kind: ev.kind
+      });
+    }
+  });
+
+  const recent = events
+    .slice()
+    .sort((a, b) => (b.stamp - a.stamp) || String(b.kind).localeCompare(String(a.kind)))
+    .slice(0, 8);
+  const stockStatus = inventoryItemStockStatus(group);
+  const vatTotal = Number(group.purchaseTaxTotal || 0) + Number(group.salesTaxTotal || 0);
+
+  return {
+    group,
+    currency,
+    stockStatus,
+    metrics: {
+      boughtQty: group.boughtQty,
+      soldQty: group.soldQty,
+      remainingQty: group.remainingQty,
+      status: stockStatus.label,
+      unitCost: Number(group.unitActualPrice || 0),
+      unitSold: Number(group.defaultUnitSoldPrice || 0),
+      purchaseTotal: Number(group.bought || 0),
+      salesTotal: Number(group.soldTotal || 0),
+      purchaseNet: Number(group.purchaseNetTotal || 0),
+      salesNet: Number(group.soldNetTotal || 0),
+      profitLoss: Number(group.profitLoss || 0),
+      paidTotal: Number(group.paidTotal || 0),
+      balanceTotal: Number(group.balanceTotal || 0),
+      purchaseVat: Number(group.purchaseTaxTotal || 0),
+      salesVat: Number(group.salesTaxTotal || 0),
+      vatTotal,
+      stockValue: Number(group.unitActualPrice || 0) * Number(group.remainingQty || 0)
+    },
+    monthMap,
+    stockPoints,
+    recent,
+    qtyMix: {
+      bought: Math.max(Number(group.boughtQty || 0), 0),
+      sold: Math.max(Number(group.soldQty || 0), 0),
+      remaining: Math.max(Number(group.remainingQty || 0), 0)
+    },
+    valueMix: {
+      stock: Math.max(Number(group.unitActualPrice || 0) * Number(group.remainingQty || 0), 0),
+      soldCost: Math.max(Number(group.soldCostBasis || 0), 0),
+      profit: Math.max(Number(group.profitLoss || 0), 0),
+      loss: Math.max(-Number(group.profitLoss || 0), 0)
+    }
+  };
+}
+
+function inventoryItemActivityHtml(data){
+  if (!data.recent.length) {
+    return `<div class="section-details-empty">No stock activity yet.</div>`;
+  }
+  const currency = data.currency;
+  const category = data.group.itemCategory;
+  const rows = data.recent.map(ev => {
+    const tone = ev.kind === "sale" ? "is-out" : "is-in";
+    const qtyBit = Number(ev.qty || 0) > 0
+      ? ` · ${escapeHtml(inventoryQtyLabel(ev.qty, category))}`
+      : "";
+    return `
+      <div class="section-details-activity-row ${tone}">
+        <div class="section-details-activity-main">
+          <strong>${escapeHtml(ev.label)}${qtyBit}</strong>
+          <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(ev.note || "—")}</span>
+        </div>
+        <div class="section-details-activity-amt">${escapeHtml(formatReportAmount(ev.amount, currency))}</div>
+      </div>
+    `;
+  }).join("");
+  return `<div class="section-details-activity">${rows}</div>`;
+}
+
+function renderInventoryItemDetailsOverlay(groupId){
+  const data = buildInventoryItemDetailsPayload(groupId);
+  if (!data || !els.sectionDetailsBody) {
+    if (els.sectionDetailsBody) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Item not found.</div>`;
+    }
+    return;
+  }
+
+  const m = data.metrics;
+  const g = data.group;
+  const cur = data.currency;
+  const cat = g.itemCategory;
+  const pnlTone = m.profitLoss >= 0 ? "success" : "danger";
+  const pnlLabel = m.profitLoss >= 0 ? "Profit" : "Loss";
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Bought qty", escapeHtml(inventoryQtyLabel(m.boughtQty, cat)), "primary"),
+    sectionDetailsMetricHtml("Sold qty", escapeHtml(inventoryQtyLabel(m.soldQty, cat))),
+    sectionDetailsMetricHtml("Remaining", escapeHtml(inventoryQtyLabel(m.remainingQty, cat)), data.stockStatus.tone),
+    sectionDetailsMetricHtml("Status", escapeHtml(m.status), data.stockStatus.tone),
+    sectionDetailsMetricHtml("Unit cost", escapeHtml(formatReportAmount(m.unitCost, cur))),
+    sectionDetailsMetricHtml("Default sell", escapeHtml(formatReportAmount(m.unitSold, cur))),
+    sectionDetailsMetricHtml("Purchase total", escapeHtml(formatReportAmount(m.purchaseTotal, cur))),
+    sectionDetailsMetricHtml("Sales total", escapeHtml(formatReportAmount(m.salesTotal, cur)), "success"),
+    sectionDetailsMetricHtml(pnlLabel, escapeHtml(formatReportAmount(Math.abs(m.profitLoss), cur)), pnlTone),
+    sectionDetailsMetricHtml("Stock value", escapeHtml(formatReportAmount(m.stockValue, cur))),
+    sectionDetailsMetricHtml("Paid", escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
+    sectionDetailsMetricHtml("Due", escapeHtml(formatReportAmount(m.balanceTotal, cur)), m.balanceTotal > 0 ? "warning" : ""),
+    sectionDetailsMetricHtml("Purchase VAT", escapeHtml(formatReportAmount(m.purchaseVat, cur))),
+    sectionDetailsMetricHtml("Sales VAT", escapeHtml(formatReportAmount(m.salesVat, cur))),
+    sectionDetailsMetricHtml("VAT total", escapeHtml(formatReportAmount(m.vatTotal, cur)))
+  ].join("");
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Live records for this stock item only. Charts cover quantity movement, purchases vs sales, and value mix.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Qty mix</h4>
+        <div class="section-details-chart-wrap"><canvas id="itemDetailsChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>Sales vs purchases</h4>
+        <div class="section-details-chart-wrap"><canvas id="itemDetailsChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Stock remaining over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="itemDetailsChart3"></canvas></div>
+      </div>
+    </div>
+    <div class="section-details-chart-card section-details-activity-card">
+      <h4>Recent activity</h4>
+      ${inventoryItemActivityHtml(data)}
+    </div>
+  `;
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const qtyLabels = ["Bought", "Sold", "Remaining"];
+  const qtyValues = [data.qtyMix.bought, data.qtyMix.sold, data.qtyMix.remaining];
+  const qtyTotal = qtyValues.reduce((sum, n) => sum + Number(n || 0), 0);
+  createSectionDetailsChart(document.getElementById("itemDetailsChart1"), {
+    type: "doughnut",
+    data: {
+      labels: qtyTotal > 0 ? qtyLabels : ["No stock"],
+      datasets: [{
+        data: qtyTotal > 0 ? qtyValues : [1],
+        backgroundColor: qtyTotal > 0
+          ? [colors.primary, colors.success, colors.warning]
+          : ["rgba(208,213,221,.55)"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "60%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
+  createSectionDetailsChart(document.getElementById("itemDetailsChart2"), {
+    type: "bar",
+    data: {
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
+      datasets: [
+        {
+          label: "Purchases",
+          data: months.map(key => Number(data.monthMap.get(key)?.purchase || 0)),
+          backgroundColor: colors.primary,
+          borderRadius: 8,
+          maxBarThickness: 26
+        },
+        {
+          label: "Sales",
+          data: months.map(key => Number(data.monthMap.get(key)?.sales || 0)),
+          backgroundColor: colors.success,
+          borderRadius: 8,
+          maxBarThickness: 26
+        }
+      ]
+    },
+    options
+  });
+
+  const stockLabels = data.stockPoints.length
+    ? data.stockPoints.map(p => p.label)
+    : ["—"];
+  const stockValues = data.stockPoints.length
+    ? data.stockPoints.map(p => p.remaining)
+    : [Number(m.remainingQty || 0)];
+  createSectionDetailsChart(document.getElementById("itemDetailsChart3"), {
+    type: "line",
+    data: {
+      labels: stockLabels,
+      datasets: [{
+        label: "Remaining qty",
+        data: stockValues,
+        borderColor: colors.primary,
+        backgroundColor: "rgba(36,87,214,.12)",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2.5
+      }]
+    },
+    options: {
+      ...options,
+      scales: {
+        ...options.scales,
+        y: { ...options.scales.y, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function openInventoryItemDetailsOverlay(groupId){
+  if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
+  const id = String(groupId || "").trim();
+  if (!id) return;
+
+  destroySectionDetailsCharts();
+  const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === id);
+  if (!group) {
+    if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Item details";
+    if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Item not found.";
+    els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Item not found.</div>`;
+  } else {
+    const status = inventoryItemStockStatus(group);
+    if (els.sectionDetailsTitle) {
+      els.sectionDetailsTitle.innerHTML = `<i class="fa-solid fa-box"></i><span class="section-details-title-text">${escapeHtml(group.person_name || "Item")}</span>`;
+    }
+    if (els.sectionDetailsDesc) {
+      const code = group.itemCode ? `${group.itemCode} · ` : "";
+      els.sectionDetailsDesc.textContent = `${code}${normalizeInventoryItemType(group.itemType)} · ${status.label} · ${inventoryQtyLabel(group.remainingQty, group.itemCategory)} left · ${group.currency || "—"}`;
+    }
+    if (!sectionDetailsEnsureChartLib()) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
+    } else {
+      renderInventoryItemDetailsOverlay(id);
+    }
+  }
+
+  els.sectionDetailsModal.classList.remove("hide");
+  els.sectionDetailsModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function buildLoanPersonDetailsPayload(personName, direction){
+  const name = String(personName || "").trim();
+  const dir = direction === "given" ? "given" : "taken";
+  if (!name) return null;
+
+  const entries = getActiveEntries().filter(e =>
+    e.direction === dir &&
+    String(e.person_name || "").trim() === name &&
+    !hasGoodsTag(e.notes) &&
+    !hasExpenseAccountTag(e.notes) &&
+    !hasInstallmentTag(e.notes)
+  );
+  if (!entries.length) return null;
+
+  const principalRows = entries.filter(e => e.entry_kind === "principal");
+  const actionRows = entries.filter(e => e.entry_kind !== "principal");
+  const principalTotal = principalRows.reduce((sum, e) => sum + Number(e.principal_amount || 0), 0);
+  const paidTotal = actionRows.reduce((sum, e) => sum + Number(e.action_amount || 0), 0);
+  const remaining = Math.max(principalTotal - paidTotal, 0);
+  const status = remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open";
+  const currency = principalRows[0]?.currency || actionRows[0]?.currency || "";
+  const groupIds = new Set(entries.map(e => e.group_id).filter(Boolean));
+
+  const timeline = entries.slice().sort((a, b) => {
+    const aStamp = dateStamp(a.entry_kind === "principal" ? a.loan_date : a.action_date);
+    const bStamp = dateStamp(b.entry_kind === "principal" ? b.loan_date : b.action_date);
+    if (aStamp !== bStamp) return aStamp - bStamp;
+    return (a.entry_kind === "principal" ? -1 : 1) - (b.entry_kind === "principal" ? -1 : 1);
+  });
+
+  let running = 0;
+  const balancePoints = [];
+  const monthMap = new Map();
+  const flowEvents = [];
+  timeline.forEach(entry => {
+    const isPrincipal = entry.entry_kind === "principal";
+    const amount = Number(isPrincipal ? entry.principal_amount : entry.action_amount || 0);
+    const date = isPrincipal ? entry.loan_date : entry.action_date;
+    running = isPrincipal ? running + amount : Math.max(running - amount, 0);
+    balancePoints.push({ date, label: displayDate(date), remaining: running });
+    if (!isPrincipal) {
+      const key = sectionDetailsMonthKey(date);
+      if (key) monthMap.set(key, (monthMap.get(key) || 0) + amount);
+    }
+    flowEvents.push({
+      date,
+      stamp: dateStamp(date),
+      kind: isPrincipal ? "principal" : (entry.entry_kind === "partial" ? "partial" : "full"),
+      label: isPrincipal ? "Principal" : (entry.entry_kind === "partial" ? "Partial payment" : "Full payment"),
+      amount,
+      note: String(entry.notes || "—").trim() || "—",
+      delta: isPrincipal ? amount : -amount
+    });
+  });
+
+  const recent = flowEvents
+    .slice()
+    .sort((a, b) => (b.stamp - a.stamp) || String(b.kind).localeCompare(String(a.kind)))
+    .slice(0, 8);
+  const firstDate = timeline[0]
+    ? (timeline[0].entry_kind === "principal" ? timeline[0].loan_date : timeline[0].action_date)
+    : null;
+  const lastActivity = [...entries]
+    .map(e => e.action_date || e.loan_date)
+    .filter(Boolean)
+    .sort((a, b) => dateStamp(b) - dateStamp(a))[0] || firstDate;
+
+  return {
+    person_name: name,
+    direction: dir,
+    currency,
+    metrics: {
+      principalTotal,
+      paidTotal,
+      remaining,
+      status,
+      loanCount: groupIds.size || 1,
+      paymentCount: actionRows.length,
+      opened: firstDate,
+      updated: lastActivity
+    },
+    monthMap,
+    balancePoints,
+    recent,
+    composition: {
+      paid: Math.max(paidTotal, 0),
+      remaining: Math.max(remaining, 0)
+    }
+  };
+}
+
+function loanDetailsActivityHtml(data){
+  if (!data.recent.length) {
+    return `<div class="section-details-empty">No loan activity yet.</div>`;
+  }
+  const currency = data.currency;
+  const rows = data.recent.map(ev => {
+    const tone = ev.delta >= 0 ? "is-in" : "is-out";
+    return `
+      <div class="section-details-activity-row ${tone}">
+        <div class="section-details-activity-main">
+          <strong>${escapeHtml(ev.label)}</strong>
+          <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(String(ev.note || "—"))}</span>
+        </div>
+        <div class="section-details-activity-amt">${escapeHtml(formatReportAmount(ev.amount, currency))}</div>
+      </div>
+    `;
+  }).join("");
+  return `<div class="section-details-activity">${rows}</div>`;
+}
+
+function renderLoanDetailsOverlay(personName, direction){
+  const data = buildLoanPersonDetailsPayload(personName, direction);
+  if (!data || !els.sectionDetailsBody) {
+    if (els.sectionDetailsBody) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Loan not found.</div>`;
+    }
+    return;
+  }
+
+  const m = data.metrics;
+  const cur = data.currency;
+  const dirLabel = data.direction === "given" ? "Given" : "Taken";
+  const paidLabel = data.direction === "given" ? "Received back" : "Returned back";
+  const statusTone = m.status === "Closed" ? "success" : m.status === "Partial" ? "warning" : "primary";
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Principal", escapeHtml(formatReportAmount(m.principalTotal, cur)), "primary"),
+    sectionDetailsMetricHtml(paidLabel, escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
+    sectionDetailsMetricHtml("Remaining", escapeHtml(formatReportAmount(m.remaining, cur)), m.remaining > 0 ? "warning" : "success"),
+    sectionDetailsMetricHtml("Status", escapeHtml(m.status), statusTone),
+    sectionDetailsMetricHtml("Currency", escapeHtml(cur || "—")),
+    sectionDetailsMetricHtml("Counterpart", escapeHtml(data.person_name || "—")),
+    sectionDetailsMetricHtml("Direction", escapeHtml(dirLabel)),
+    sectionDetailsMetricHtml("Loans", escapeHtml(String(m.loanCount))),
+    sectionDetailsMetricHtml("Payments", escapeHtml(String(m.paymentCount))),
+    sectionDetailsMetricHtml("Opened", escapeHtml(displayDate(m.opened || "—"))),
+    sectionDetailsMetricHtml("Updated", escapeHtml(displayDate(m.updated || "—")))
+  ].join("");
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Live loan records for this person (${escapeHtml(dirLabel.toLowerCase())}). Charts cover payments over time and paid vs remaining.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Paid vs remaining</h4>
+        <div class="section-details-chart-wrap"><canvas id="loanDetailsChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>Payments over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="loanDetailsChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Remaining balance over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="loanDetailsChart3"></canvas></div>
+      </div>
+    </div>
+    <div class="section-details-chart-card section-details-activity-card">
+      <h4>Recent payments &amp; principals</h4>
+      ${loanDetailsActivityHtml(data)}
+    </div>
+  `;
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const mixTotal = data.composition.paid + data.composition.remaining;
+  createSectionDetailsChart(document.getElementById("loanDetailsChart1"), {
+    type: "doughnut",
+    data: {
+      labels: mixTotal > 0 ? [paidLabel, "Remaining"] : ["No balance"],
+      datasets: [{
+        data: mixTotal > 0 ? [data.composition.paid, data.composition.remaining] : [1],
+        backgroundColor: mixTotal > 0
+          ? [colors.success, "rgba(208,213,221,.75)"]
+          : ["rgba(208,213,221,.55)"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "62%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
+  createSectionDetailsChart(document.getElementById("loanDetailsChart2"), {
+    type: "bar",
+    data: {
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
+      datasets: [{
+        label: "Payments",
+        data: months.map(key => Number(data.monthMap.get(key) || 0)),
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      ...options,
+      plugins: { ...options.plugins, legend: { display: false } }
+    }
+  });
+
+  const balLabels = data.balancePoints.length ? data.balancePoints.map(p => p.label) : ["—"];
+  const balValues = data.balancePoints.length ? data.balancePoints.map(p => p.remaining) : [Number(m.remaining || 0)];
+  createSectionDetailsChart(document.getElementById("loanDetailsChart3"), {
+    type: "line",
+    data: {
+      labels: balLabels,
+      datasets: [{
+        label: "Remaining",
+        data: balValues,
+        borderColor: colors.warning,
+        backgroundColor: "rgba(181,71,8,.12)",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2.5
+      }]
+    },
+    options: {
+      ...options,
+      scales: {
+        ...options.scales,
+        y: { ...options.scales.y, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function openLoanDetailsOverlay(personName, direction){
+  if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
+  const name = String(personName || "").trim();
+  const dir = direction === "given" ? "given" : "taken";
+  if (!name) return;
+
+  destroySectionDetailsCharts();
+  const data = buildLoanPersonDetailsPayload(name, dir);
+  if (!data) {
+    if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Loan details";
+    if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Loan not found.";
+    els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Loan not found.</div>`;
+  } else {
+    const dirLabel = dir === "given" ? "Given" : "Taken";
+    if (els.sectionDetailsTitle) {
+      els.sectionDetailsTitle.innerHTML = `<i class="fa-solid fa-user"></i><span class="section-details-title-text">${escapeHtml(data.person_name)}</span>`;
+    }
+    if (els.sectionDetailsDesc) {
+      els.sectionDetailsDesc.textContent = `${dirLabel} · ${data.metrics.status} · Remaining ${formatReportAmount(data.metrics.remaining, data.currency)} · ${data.currency || "—"}`;
+    }
+    if (!sectionDetailsEnsureChartLib()) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
+    } else {
+      renderLoanDetailsOverlay(name, dir);
+    }
+  }
+
+  els.sectionDetailsModal.classList.remove("hide");
+  els.sectionDetailsModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function buildInstallmentItemDetailsPayload(groupId){
+  const plan = getInstallmentPlanGroup(groupId);
+  if (!plan) return null;
+
+  const currency = plan.currency || "";
+  const schedule = plan.schedule;
+  const principalTotal = Number(plan.principalTotal || 0);
+  const paidTotal = Number(plan.paidTotal || 0);
+  const remaining = Number(plan.remaining || 0);
+  const progressPct = principalTotal > 0 ? Math.min(100, Math.round((paidTotal / principalTotal) * 100)) : 0;
+  const overdue = plan.status === "Overdue" || Number(schedule?.overdueCount || 0) > 0;
+  const completed = remaining <= 0.00000001;
+  const statusLabel = completed ? "Completed" : overdue ? "Overdue" : (plan.status || "Active");
+
+  const monthMap = new Map();
+  (plan.payments || []).forEach(row => {
+    const key = sectionDetailsMonthKey(row.action_date);
+    if (!key) return;
+    monthMap.set(key, (monthMap.get(key) || 0) + Number(row.action_amount || 0));
+  });
+
+  const scheduleMix = { paid: 0, open: 0, overdue: 0 };
+  if (schedule?.slots?.length) {
+    schedule.slots.forEach(slot => {
+      const st = String(slot.status || "").toLowerCase();
+      if (Number(slot.balance || 0) <= 0.00000001 || st === "paid" || st === "closed") scheduleMix.paid += 1;
+      else if (st === "overdue") scheduleMix.overdue += 1;
+      else scheduleMix.open += 1;
+    });
+  }
+
+  const recent = (plan.payments || [])
+    .slice()
+    .sort((a, b) => dateStamp(b.action_date) - dateStamp(a.action_date))
+    .slice(0, 8)
+    .map(row => {
+      const alloc = parseInstallmentAllocation(installmentMetaFromNotes(row.notes).allocation);
+      const allocText = alloc.length ? alloc.map(a => `#${a.index}`).join(" · ") : (schedule ? "—" : "Balance");
+      return {
+        date: row.action_date,
+        stamp: dateStamp(row.action_date),
+        label: row.entry_kind === "full" ? "Final payment" : "Partial payment",
+        amount: Number(row.action_amount || 0),
+        note: `${allocText}${cleanInstallmentDisplayNote(row.notes) ? ` · ${cleanInstallmentDisplayNote(row.notes)}` : ""}`
+      };
+    });
+
+  return {
+    plan,
+    currency,
+    metrics: {
+      principalTotal,
+      paidTotal,
+      remaining,
+      progressPct,
+      status: statusLabel,
+      overdue,
+      completed,
+      active: !completed && !overdue,
+      installmentCount: schedule?.count || 0,
+      paidCount: schedule?.paidCount || 0,
+      paymentCount: (plan.payments || []).length,
+      nextDue: schedule?.nextOpen?.dueDate || null,
+      nextAmount: schedule?.nextOpen?.balance || 0
+    },
+    monthMap,
+    scheduleMix,
+    recent,
+    composition: {
+      paid: Math.max(paidTotal, 0),
+      remaining: Math.max(remaining, 0)
+    }
+  };
+}
+
+function installmentItemActivityHtml(data){
+  if (!data.recent.length) {
+    return `<div class="section-details-empty">No payments yet.</div>`;
+  }
+  const currency = data.currency;
+  const rows = data.recent.map(ev => `
+    <div class="section-details-activity-row is-in">
+      <div class="section-details-activity-main">
+        <strong>${escapeHtml(ev.label)}</strong>
+        <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(ev.note || "—")}</span>
+      </div>
+      <div class="section-details-activity-amt">${escapeHtml(formatReportAmount(ev.amount, currency))}</div>
+    </div>
+  `).join("");
+  return `<div class="section-details-activity">${rows}</div>`;
+}
+
+function renderInstallmentItemDetailsOverlay(groupId){
+  const data = buildInstallmentItemDetailsPayload(groupId);
+  if (!data || !els.sectionDetailsBody) {
+    if (els.sectionDetailsBody) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Installment plan not found.</div>`;
+    }
+    return;
+  }
+
+  const m = data.metrics;
+  const cur = data.currency;
+  const statusTone = m.completed ? "success" : m.overdue ? "danger" : "primary";
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Progress", escapeHtml(`${m.progressPct}%`), "primary"),
+    sectionDetailsMetricHtml("Principal", escapeHtml(formatReportAmount(m.principalTotal, cur))),
+    sectionDetailsMetricHtml("Paid", escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
+    sectionDetailsMetricHtml("Remaining", escapeHtml(formatReportAmount(m.remaining, cur)), m.remaining > 0 ? "warning" : "success"),
+    sectionDetailsMetricHtml("Status", escapeHtml(m.status), statusTone),
+    sectionDetailsMetricHtml("Currency", escapeHtml(cur || "—")),
+    sectionDetailsMetricHtml("Counterpart", escapeHtml(data.plan.person_name || "—")),
+    sectionDetailsMetricHtml("Installments", escapeHtml(m.installmentCount ? `${m.paidCount}/${m.installmentCount}` : String(m.paymentCount))),
+    sectionDetailsMetricHtml("Next due", escapeHtml(m.nextDue ? displayDate(m.nextDue) : (m.completed ? "Complete" : "—"))),
+    sectionDetailsMetricHtml("Next amount", escapeHtml(m.nextAmount ? formatReportAmount(m.nextAmount, cur) : "—"))
+  ].join("");
+
+  const hasScheduleMix = (data.scheduleMix.paid + data.scheduleMix.open + data.scheduleMix.overdue) > 0;
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Live installment plan for this counterpart. Charts cover progress, schedule status, and payment activity.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Paid vs remaining</h4>
+        <div class="section-details-chart-wrap"><canvas id="installmentItemChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>${hasScheduleMix ? "Schedule status" : "Plan status"}</h4>
+        <div class="section-details-chart-wrap"><canvas id="installmentItemChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Payments over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="installmentItemChart3"></canvas></div>
+      </div>
+    </div>
+    <div class="section-details-chart-card section-details-activity-card">
+      <h4>Recent payments</h4>
+      ${installmentItemActivityHtml(data)}
+    </div>
+  `;
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const mixTotal = data.composition.paid + data.composition.remaining;
+  createSectionDetailsChart(document.getElementById("installmentItemChart1"), {
+    type: "doughnut",
+    data: {
+      labels: mixTotal > 0 ? ["Paid", "Remaining"] : ["No balance"],
+      datasets: [{
+        data: mixTotal > 0 ? [data.composition.paid, data.composition.remaining] : [1],
+        backgroundColor: mixTotal > 0
+          ? [colors.success, "rgba(208,213,221,.75)"]
+          : ["rgba(208,213,221,.55)"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "62%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  if (hasScheduleMix) {
+    createSectionDetailsChart(document.getElementById("installmentItemChart2"), {
+      type: "doughnut",
+      data: {
+        labels: ["Paid", "Open", "Overdue"],
+        datasets: [{
+          data: [data.scheduleMix.paid, data.scheduleMix.open, data.scheduleMix.overdue],
+          backgroundColor: [colors.success, colors.primary, colors.danger],
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        ...options,
+        cutout: "58%",
+        plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+        scales: undefined
+      }
+    });
+  } else {
+    createSectionDetailsChart(document.getElementById("installmentItemChart2"), {
+      type: "doughnut",
+      data: {
+        labels: ["Active", "Overdue", "Completed"],
+        datasets: [{
+          data: [m.active ? 1 : 0, m.overdue ? 1 : 0, m.completed ? 1 : 0],
+          backgroundColor: [colors.primary, colors.danger, colors.success],
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        ...options,
+        cutout: "58%",
+        plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+        scales: undefined
+      }
+    });
+  }
+
+  const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
+  createSectionDetailsChart(document.getElementById("installmentItemChart3"), {
+    type: "bar",
+    data: {
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
+      datasets: [{
+        label: "Payments",
+        data: months.map(key => Number(data.monthMap.get(key) || 0)),
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      ...options,
+      plugins: { ...options.plugins, legend: { display: false } }
+    }
+  });
+}
+
+function openInstallmentItemDetailsOverlay(groupId){
+  if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
+  const id = String(groupId || "").trim();
+  if (!id) return;
+
+  destroySectionDetailsCharts();
+  const plan = getInstallmentPlanGroup(id);
+  if (!plan) {
+    if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Installment details";
+    if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Plan not found.";
+    els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Installment plan not found.</div>`;
+  } else {
+    const data = buildInstallmentItemDetailsPayload(id);
+    if (els.sectionDetailsTitle) {
+      els.sectionDetailsTitle.innerHTML = `<i class="fa-solid fa-calendar-check"></i><span class="section-details-title-text">${escapeHtml(plan.person_name || "Installment plan")}</span>`;
+    }
+    if (els.sectionDetailsDesc) {
+      const pct = data?.metrics?.progressPct ?? 0;
+      els.sectionDetailsDesc.textContent = `${data?.metrics?.status || plan.status} · ${pct}% paid · Remaining ${formatReportAmount(plan.remaining, plan.currency)} · ${plan.currency || "—"}`;
+    }
+    if (!sectionDetailsEnsureChartLib()) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
+    } else {
+      renderInstallmentItemDetailsOverlay(id);
     }
   }
 
@@ -19834,6 +20846,7 @@ function toggleMainOverview() {
 function attachEvents(){
   const closeAllMenus = () => {
     document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+    document.querySelectorAll(".menu-wrap.open").forEach(wrap => wrap.classList.remove("open"));
     document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
   };
 
@@ -19999,6 +21012,7 @@ function attachEvents(){
       const wrap = panel.closest(".menu-wrap");
       if (trigger && wrap && wrap.contains(trigger)) return;
       panel.classList.remove("open");
+      wrap?.classList.remove("open");
       const openTrigger = wrap?.querySelector(".menu-trigger");
       if (openTrigger) openTrigger.setAttribute("aria-expanded", "false");
     });
