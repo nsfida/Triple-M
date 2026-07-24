@@ -366,15 +366,11 @@ function buildPageCurrencyPreferenceNotes(currency) {
 }
 
 function normalizeTaxRate(value) {
-  const n = Number(value || 0);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.min(n, 100);
+  return TripleMTaxMath.normalizeTaxRate(value);
 }
 
 function normalizeTaxMode(value) {
-  return String(value || "").trim().toUpperCase() === TAX_MODE_INCLUDE
-    ? TAX_MODE_INCLUDE
-    : TAX_MODE_ADD;
+  return TripleMTaxMath.normalizeTaxMode(value);
 }
 
 function cloneTaxSettings(settings = DEFAULT_TAX_SETTINGS) {
@@ -506,67 +502,40 @@ function getTaxSettingForCurrency(currency) {
 }
 
 function roundTaxMoney(value) {
-  const n = Number(value || 0);
-  if (!Number.isFinite(n)) return 0;
-  return Number(n.toFixed(8));
+  return TripleMTaxMath.roundTaxMoney(value);
+}
+
+/** Coerce ledger money fields; never return NaN/Infinity. */
+function finiteMoney(value, fallback = 0) {
+  return TripleMTaxMath.finiteMoney(value, fallback);
+}
+
+/**
+ * Resolve VAT-on flag from stored meta.
+ * true/false = explicit [VATP:1|0]; null = legacy/missing → infer from rate/amount.
+ */
+function parseVatAppliedToken(raw) {
+  return TripleMTaxMath.parseVatAppliedToken(raw);
+}
+
+function isTaxAppliedFromMeta(meta = {}) {
+  return TripleMTaxMath.isTaxAppliedFromMeta(meta);
 }
 
 function calculateTaxBreakdown(amount, rateValue, modeValue, applied = true) {
-  const inputAmount = Math.max(Number(amount || 0), 0);
-  const rate = applied ? normalizeTaxRate(rateValue) : 0;
-  const mode = normalizeTaxMode(modeValue);
-  if (!applied || rate <= 0 || inputAmount <= 0) {
-    return { net: roundTaxMoney(inputAmount), tax: 0, total: roundTaxMoney(inputAmount), rate: 0, mode, applied: false };
-  }
-  if (mode === TAX_MODE_INCLUDE) {
-    const tax = inputAmount * rate / (100 + rate);
-    const net = inputAmount - tax;
-    return { net: roundTaxMoney(net), tax: roundTaxMoney(tax), total: roundTaxMoney(inputAmount), rate, mode, applied: true };
-  }
-  const tax = inputAmount * rate / 100;
-  return { net: roundTaxMoney(inputAmount), tax: roundTaxMoney(tax), total: roundTaxMoney(inputAmount + tax), rate, mode, applied: true };
+  return TripleMTaxMath.calculateTaxBreakdown(amount, rateValue, modeValue, applied);
 }
 
 function calculateTaxBreakdownFromGross(totalValue, rateValue, modeValue, applied = true) {
-  const total = Math.max(Number(totalValue || 0), 0);
-  const rate = applied ? normalizeTaxRate(rateValue) : 0;
-  const mode = normalizeTaxMode(modeValue);
-  if (!applied || rate <= 0 || total <= 0) {
-    return { net: roundTaxMoney(total), tax: 0, total: roundTaxMoney(total), rate: 0, mode, applied: false };
-  }
-  const tax = total * rate / (100 + rate);
-  return { net: roundTaxMoney(total - tax), tax: roundTaxMoney(tax), total: roundTaxMoney(total), rate, mode, applied: true };
+  return TripleMTaxMath.calculateTaxBreakdownFromGross(totalValue, rateValue, modeValue, applied);
 }
 
 function taxMetaFromBreakdown(breakdown) {
-  return {
-    taxApplied: !!breakdown.applied,
-    taxRate: normalizeTaxRate(breakdown.rate),
-    taxMode: normalizeTaxMode(breakdown.mode),
-    taxAmount: roundTaxMoney(breakdown.tax),
-    netAmount: roundTaxMoney(breakdown.net),
-    grossAmount: roundTaxMoney(breakdown.total)
-  };
+  return TripleMTaxMath.taxMetaFromBreakdown(breakdown);
 }
 
 function taxBreakdownFromMeta(meta = {}, totalValue = 0) {
-  const total = Math.max(Number(totalValue || meta.grossAmount || 0), 0);
-  const taxAmount = Number(meta.taxAmount);
-  const netAmount = Number(meta.netAmount);
-  const rate = normalizeTaxRate(meta.taxRate);
-  const mode = normalizeTaxMode(meta.taxMode);
-  const applied = meta.taxApplied || rate > 0 || taxAmount > 0;
-  if (Number.isFinite(taxAmount) || Number.isFinite(netAmount)) {
-    return {
-      net: roundTaxMoney(Number.isFinite(netAmount) ? netAmount : Math.max(total - (Number.isFinite(taxAmount) ? taxAmount : 0), 0)),
-      tax: roundTaxMoney(Number.isFinite(taxAmount) ? taxAmount : Math.max(total - netAmount, 0)),
-      total: roundTaxMoney(total),
-      rate,
-      mode,
-      applied: !!applied
-    };
-  }
-  return calculateTaxBreakdownFromGross(total, rate, mode, applied);
+  return TripleMTaxMath.taxBreakdownFromMeta(meta, totalValue);
 }
 
 function formatTaxModeLabel(mode) {
@@ -1978,11 +1947,7 @@ function displayDate(value){
 }
 
 function dateStamp(value){
-  if (!value) return 0;
-  const str = String(value).trim();
-  const normalized = str.length === 10 ? `${str}T23:59:59` : str;
-  const time = new Date(normalized).getTime();
-  return Number.isFinite(time) ? time : 0;
+  return TripleMLoanMath.dateStamp(value);
 }
 
 /** Strip Excel formula wrappers like ="2024-03-15" or ='2024-03-15' from CSV cells. */
@@ -3909,29 +3874,7 @@ function applyUserProfileToConfig(user){
 }
 
 function normalizeAssignedModules(rawTabs){
-  const set = new Set();
-  (Array.isArray(rawTabs) ? rawTabs : []).forEach(raw => {
-    const t = String(raw || "").trim().toLowerCase();
-    if (!t) return;
-    if (t === "goods" || t === "inventory") set.add("inventory");
-    else if (t === "expense" || t === "expenses" || t === "wallets") set.add("expenses");
-    else if (t === "loan" || t === "loans") set.add("loans");
-    else if (t === "installment" || t === "installments") set.add("installments");
-    else if (t === "note" || t === "notes") set.add("notes");
-    else if (t === "btc" || t === "bitcoin") set.add("bitcoin");
-    else if (t === "report" || t === "reports" || t === "pdf" || t === "pdf_export") set.add("reports");
-    else if (t === "currency" || t === "currency_settings") set.add("currency_settings");
-    else if (t === "setting" || t === "settings") set.add("settings");
-    else if (t === "admin" || t === "admin_panel") set.add("admin_panel");
-    else if (t === "dashboard" || t === "overview") set.add("dashboard");
-    else if (t === "customers" || t === "customer") set.add("customers");
-    else set.add(t);
-  });
-  if (set.has("expenses")) set.add("wallets");
-  if (set.has("inventory")) set.add("customers");
-  if (set.has("reports")) set.add("pdf_export");
-  if (set.has("currency_settings")) set.add("settings");
-  return set;
+  return TripleMPermissions.normalizeAssignedModules(rawTabs);
 }
 
 function getSessionAssignedModules(){
@@ -3946,49 +3889,29 @@ function getSessionAssignedModules(){
 }
 
 function userHasPermission(moduleName, action = "view"){
-  if (isGuestMode()) {
-    return !["admin_panel", "pdf_export"].includes(moduleName);
-  }
-  if (!state.sessionUser) return false;
-  // Trial accounts never get Admin section / access management
-  if (moduleName === "admin_panel" && getUserAccessFlags().is_trial) return false;
-  if (state.trialLocked) return false;
-  // Only the protected primary admin bypasses tab restrictions
-  if (state.sessionUser.is_protected && state.sessionUser.role === "admin") return true;
-
-  // Prefer explicit Tabs assignment from admin (source of truth for tab visibility)
-  const assigned = getSessionAssignedModules();
-  if (assigned && action === "view") {
-    const gated = new Set([
-      "dashboard","expenses","wallets","inventory","customers","loans",
-      "installments","notes","bitcoin","reports","pdf_export",
-      "currency_settings","settings","admin_panel"
-    ]);
-    if (gated.has(moduleName)) {
-      return assigned.has(moduleName);
-    }
-  }
-
-  return state.permissions.some(
-    p => p.module === moduleName && p.action === action && p.allowed === true
-  );
+  return TripleMPermissions.evaluateUserPermission({
+    moduleName,
+    action,
+    isGuest: isGuestMode(),
+    sessionUser: state.sessionUser,
+    trialLocked: state.trialLocked === true,
+    isTrial: getUserAccessFlags().is_trial === true,
+    assignedModules: getSessionAssignedModules(),
+    permissions: state.permissions
+  });
 }
 
 function isTeamMemberAccount(user = state.sessionUser){
-  return !!(user && user.team_owner_id);
+  return TripleMPermissions.isTeamMemberAccount(user);
 }
 function isTeamOwnerAccount(user = state.sessionUser){
-  return !!(user && user.allow_team_members && !user.team_owner_id);
+  return TripleMPermissions.isTeamOwnerAccount(user);
 }
 function canManageCompanyTeam(user = state.sessionUser){
-  if (!user) return false;
-  if (isTeamOwnerAccount(user)) return true;
-  return isTeamMemberAccount(user) && !!user.team_permissions?.can_manage_team;
+  return TripleMPermissions.canManageCompanyTeam(user);
 }
 function teamCapability(key, user = state.sessionUser){
-  // Solo / owner accounts are unrestricted here (still subject to tab permissions elsewhere)
-  if (!isTeamMemberAccount(user)) return true;
-  return !!user?.team_permissions?.[key];
+  return TripleMPermissions.teamCapability(key, user);
 }
 function assertTeamCapability(key, message){
   if (!teamCapability(key)) throw new Error(message || "You do not have permission for this action.");
@@ -4119,7 +4042,8 @@ function asEntryArray(entryOrEntries){
 }
 
 function withLocalEntryIdentity(entry, timestamp = new Date().toISOString()){
-  const ownerId = entry?.owner_id || currentOwnerId();
+  // Always stamp the session data-owner — never trust client-supplied owner_id (IDOR).
+  const ownerId = currentOwnerId();
   return {
     ...entry,
     id: entry?.id || crypto.randomUUID(),
@@ -4152,6 +4076,14 @@ function unmarkDbSnapshotRows(rows){
     state.dbSignatures.delete(entrySignature(row));
     state.dbSignaturesById.delete(row.id);
   });
+}
+
+/** Serialize ledger writes so concurrent inserts/patches cannot interleave mid-flight. */
+let databaseWriteChain = Promise.resolve();
+function enqueueDatabaseWrite(task){
+  const run = databaseWriteChain.then(task, task);
+  databaseWriteChain = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 function queueDatabaseInsert(rows, label = "Entry"){
@@ -4203,7 +4135,7 @@ function queueDatabaseInsert(rows, label = "Entry"){
     await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(body) });
   };
 
-  run()
+  enqueueDatabaseWrite(run)
     .then(() => {
       markDbSnapshotRows(localRows);
       // If a scope merge raced and dropped optimistic rows, put them back.
@@ -4277,7 +4209,7 @@ function queueDatabasePatch(id, body, label = "Entry", snapshotRow = null){
     });
   };
 
-  run()
+  enqueueDatabaseWrite(run)
     .then(() => {
       if (snapshotRow) markDbSnapshotRows([snapshotRow]);
     })
@@ -4335,7 +4267,7 @@ function currencyDecimals(currency, options = {}){
 
 function formatCurrencyAmountText(amount, currency, options = {}){
   const code = normalizeCurrencyCode(currency);
-  const n = Number(amount || 0);
+  const n = finiteMoney(amount);
   const decimals = Number.isFinite(Number(options.decimals))
     ? Number(options.decimals)
     : currencyDecimals(code, options);
@@ -4379,7 +4311,7 @@ function moneyText(amount, currency, options = {}){
 
 function money(amount, currency){
   const code = normalizeCurrencyCode(currency);
-  const n = Number(amount || 0);
+  const n = finiteMoney(amount);
   const decimals = currencyDecimals(code);
   const formatted = n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   return `<span class="money">${currencySymbolHtml(currency)}<span class="amount">${formatted}</span></span>`;
@@ -4470,43 +4402,7 @@ function groupByLoan(entries){
 }
 
 function calculateLoan(group){
-  const principal = Number(group.principal?.principal_amount || 0);
-  const actions = group.actions
-    .slice()
-    .sort((a, b) => {
-      const ad = dateStamp(a.action_date);
-      const bd = dateStamp(b.action_date);
-      if (ad !== bd) return ad - bd;
-      return 0;
-    });
-
-  let remaining = principal;
-  const rows = [];
-
-  rows.push({
-    kind: "principal",
-    date: group.principal?.loan_date || group.loan_date || "—",
-    amount: principal,
-    remainingAfter: principal,
-    note: group.principal?.notes || group.notes || "—",
-    entryId: group.principal?.id || ""
-  });
-
-  for (const a of actions){
-    remaining = Math.max(remaining - Number(a.action_amount || 0), 0);
-    rows.push({
-      kind: a.entry_kind === "partial" ? "partial" : "full",
-      date: a.action_date || "—",
-      amount: Number(a.action_amount || 0),
-      remainingAfter: remaining,
-      note: a.notes || "—",
-      entryId: a.id
-    });
-  }
-
-  const paid = principal - remaining;
-  const status = remaining <= 0 ? "Closed" : paid > 0 ? "Partial" : "Open";
-  return { principal, paid, remaining, status, rows };
+  return TripleMLoanMath.calculateLoan(group);
 }
 
 function summarizeCurrency(currency){
@@ -4522,9 +4418,9 @@ function summarizeCurrency(currency){
     !hasExpenseAccountTag(e.notes)
   ));
 
-  const givenPrincipal = givenGroups.reduce((s, g) => s + Number(g.principal?.principal_amount || 0), 0);
+  const givenPrincipal = givenGroups.reduce((s, g) => s + finiteMoney(g.principal?.principal_amount), 0);
   const givenOpen = givenGroups.reduce((s, g) => s + calculateLoan(g).remaining, 0);
-  const takenPrincipal = takenGroups.reduce((s, g) => s + Number(g.principal?.principal_amount || 0), 0);
+  const takenPrincipal = takenGroups.reduce((s, g) => s + finiteMoney(g.principal?.principal_amount), 0);
   const takenOpen = takenGroups.reduce((s, g) => s + calculateLoan(g).remaining, 0);
 
   return { currency, givenPrincipal, givenOpen, takenPrincipal, takenOpen };
@@ -4532,9 +4428,9 @@ function summarizeCurrency(currency){
 
 function summarizeExpenseByCurrency(currency){
   const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency === currency);
-  const totalAmount = accounts.reduce((sum, account) => sum + Number(account.openingBalance || 0) + Number(account.addedMoney || 0), 0);
-  const totalExpenses = accounts.reduce((sum, account) => sum + Number(account.spentMoney || 0), 0);
-  const availableBalance = accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
+  const totalAmount = accounts.reduce((sum, account) => sum + finiteMoney(account.openingBalance) + finiteMoney(account.addedMoney), 0);
+  const totalExpenses = accounts.reduce((sum, account) => sum + finiteMoney(account.spentMoney), 0);
+  const availableBalance = accounts.reduce((sum, account) => sum + finiteMoney(account.balance), 0);
   return { currency, totalAmount, totalExpenses, availableBalance };
 }
 
@@ -5003,11 +4899,12 @@ function cleanInstallmentDisplayNote(noteValue){
 function roundInstallmentMoney(value, currency = "AED"){
   const decimals = normalizeCurrencyCode(currency) === "BTC" ? 8 : 2;
   const factor = 10 ** decimals;
-  return Math.round((Number(value || 0) + Number.EPSILON) * factor) / factor;
+  const n = finiteMoney(value);
+  return Math.round((n + Number.EPSILON) * factor) / factor;
 }
 
 function computeInstallmentAmounts(totalAmount, count, currency = "AED"){
-  const n = Math.max(1, Math.floor(Number(count) || 0));
+  const n = Math.max(1, Math.floor(finiteMoney(count)));
   const total = roundInstallmentMoney(totalAmount, currency);
   if (!(total > 0) || n < 1) {
     return { count: n, installmentAmount: 0, lastAmount: 0, total: 0 };
@@ -5408,7 +5305,7 @@ function goodsMetaFromNotes(noteValue){
     paymentStatus: readText("PSTAT"),
     settlementForEntryId: readText("SID"),
     settlementId: readText("SETID"),
-    taxApplied: readText("VATP") === "1",
+    taxApplied: parseVatAppliedToken(readText("VATP")),
     taxRate: readNum("VATR"),
     taxMode: readText("VATM"),
     taxAmount: readNum("VATA"),
@@ -5598,7 +5495,7 @@ function expenseMetaFromNotes(noteValue){
     btcAddress: readText("BADDR"),
     btcNetwork: readText("BNET"),
     customLogoUrl: readText("CLOGO"),
-    taxApplied: readText("VATP") === "1",
+    taxApplied: parseVatAppliedToken(readText("VATP")),
     taxRate: readNum("VATR"),
     taxMode: readText("VATM"),
     taxAmount: readNum("VATA"),
@@ -6206,18 +6103,22 @@ function inventoryQtySummary(groups, key){
 }
 
 function inventoryLinePaidAmount(meta = {}, lineTotal = 0){
-  const total = Math.max(Number(lineTotal || 0), 0);
+  const total = Math.max(finiteMoney(lineTotal), 0);
   const paid = Number(meta.paidAmount);
   if (Number.isFinite(paid)) return Math.min(Math.max(paid, 0), total);
   const balance = Number(meta.balanceAmount);
-  if (Number.isFinite(balance)) return Math.min(Math.max(total - balance, 0), total);
+  if (Number.isFinite(balance)) return Math.min(Math.max(total - Math.max(balance, 0), 0), total);
   return total;
 }
 
 function inventoryLineBalanceAmount(meta = {}, lineTotal = 0){
-  const total = Math.max(Number(lineTotal || 0), 0);
+  const total = Math.max(finiteMoney(lineTotal), 0);
+  // Prefer paid-derived balance when PAID is explicit so paid + balance === total
+  if (Number.isFinite(Number(meta.paidAmount))) {
+    return Math.max(total - inventoryLinePaidAmount(meta, total), 0);
+  }
   const balance = Number(meta.balanceAmount);
-  if (Number.isFinite(balance)) return Math.max(balance, 0);
+  if (Number.isFinite(balance)) return Math.min(Math.max(balance, 0), total);
   return Math.max(total - inventoryLinePaidAmount(meta, total), 0);
 }
 
@@ -9469,9 +9370,9 @@ function buildExpenseAccountsUnfiltered(){
           else if (meta.rowType === "EXPENSE") spends.push(action);
         }
       }
-      let openingBalance = Number(principal?.principal_amount || 0);
-      let addedMoney = topups.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
-      let spentMoney = spends.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+      let openingBalance = finiteMoney(principal?.principal_amount);
+      let addedMoney = topups.reduce((sum, row) => sum + finiteMoney(row.action_amount), 0);
+      let spentMoney = spends.reduce((sum, row) => sum + finiteMoney(row.action_amount), 0);
       let balance = openingBalance + addedMoney - spentMoney;
 
       if (isBtcLive && btcCache && btcCache.balanceSat != null) {
@@ -10305,10 +10206,10 @@ async function saveExpenseAccount(form){
 async function saveExpenseTopup(form){
   const fd = new FormData(form);
   const groupId = String(fd.get("group_id") || "");
-  const amount = Number(fd.get("amount") || 0);
+  const amount = finiteMoney(fd.get("amount"));
   const date = String(fd.get("date") || "");
   const notes = String(fd.get("notes") || "").trim() || null;
-  if (!groupId || !amount || !date) throw new Error("Complete all required fields.");
+  if (!groupId || !(amount > 0) || !date) throw new Error("Complete all required fields.");
   const principal = state.entries.find(e => e.group_id === groupId && e.direction === "taken" && e.entry_kind === "principal" && hasExpenseAccountTag(e.notes));
   if (!principal) throw new Error("Account not found.");
   if (principal.currency === "BTC") throw new Error("BTC wallet balances and transactions are loaded directly from the blockchain.");
@@ -10339,7 +10240,7 @@ async function saveExpenseEntry(form){
   const fd = new FormData(form);
   const groupId = String(fd.get("group_id") || "");
   const selectedCurrency = String(fd.get("currency") || "").trim();
-  const enteredAmount = Number(fd.get("amount") || 0);
+  const enteredAmount = finiteMoney(fd.get("amount"));
   const taxBreakdown = getExpenseTaxBreakdown();
   const amount = taxBreakdown.total;
   const date = String(fd.get("date") || "");
@@ -10347,7 +10248,8 @@ async function saveExpenseEntry(form){
   const expenseType = String(fd.get("custom_expense_type") || "").trim() || String(fd.get("expense_type") || "").trim() || "Other";
   const notes = String(fd.get("notes") || "").trim() || null;
   const itemIntent = String(fd.get("expense_item_intent") || "additional");
-  if (!groupId || !enteredAmount || !date || !itemName) throw new Error("Complete all required fields.");
+  if (!groupId || !(enteredAmount > 0) || !date || !itemName) throw new Error("Complete all required fields.");
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a valid expense amount.");
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
   if (!account) throw new Error("Account not found.");
   if (account.currency === "BTC") throw new Error("BTC wallet transactions are loaded directly from the blockchain.");
@@ -11794,12 +11696,15 @@ async function ensureInventoryItemCodesForRows(rows){
 
   if (!patches.length) return;
   try {
-    for (const patch of patches){
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(patch.id)}`, {
+    // Batch backfill patches (was N+1 sequential) — fail soft per row
+    const results = await Promise.allSettled(patches.map(patch =>
+      supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(patch.id)}`, {
         method: "PATCH",
         body: JSON.stringify({ notes: patch.notes })
-      });
-    }
+      })
+    ));
+    const failed = results.filter(r => r.status === "rejected").length;
+    if (failed) console.warn(`Inventory item code backfill: ${failed}/${patches.length} patch(es) failed.`);
   } catch (err) {
     console.warn("Inventory item code backfill failed:", err);
   }
@@ -12011,6 +11916,7 @@ function renderSearchResults(key){
 }
 
 function renderAll(){
+  invalidateExpenseAccountsSyncCache();
   renderOverviewCards();
   renderLoanSelectors();
   renderGoodsSelectors();
@@ -13780,7 +13686,11 @@ function openInventoryEditItemModal(id){
   const sellingPrice = Number(meta.unitSoldPrice || group?.defaultUnitSoldPrice || 0);
   const hasSales = Number(group?.soldQty || 0) > 0;
   const taxDefaults = getTaxSettingForCurrency(entry.currency || "AED");
-  const taxApplied = meta.taxApplied || Number(meta.taxAmount || 0) > 0 || normalizeTaxRate(meta.taxRate) > 0;
+  const taxApplied = isTaxAppliedFromMeta({
+    taxApplied: meta.taxApplied,
+    taxRate: meta.taxRate != null ? meta.taxRate : (meta.taxApplied == null ? taxDefaults.rate : 0),
+    taxAmount: meta.taxAmount
+  });
   const taxRate = meta.taxRate != null ? normalizeTaxRate(meta.taxRate) : taxDefaults.rate;
   const taxMode = meta.taxMode ? normalizeTaxMode(meta.taxMode) : taxDefaults.mode;
 
@@ -13950,7 +13860,11 @@ function syncEditTaxControls(entry) {
   const defaults = getTaxSettingForCurrency(entry.currency || "AED");
   const rate = meta.taxRate != null ? normalizeTaxRate(meta.taxRate) : defaults.rate;
   const mode = meta.taxMode ? normalizeTaxMode(meta.taxMode) : defaults.mode;
-  const applied = meta.taxApplied || rate > 0 || Number(meta.taxAmount || 0) > 0;
+  const applied = isTaxAppliedFromMeta({
+    taxApplied: meta.taxApplied,
+    taxRate: meta.taxRate != null ? meta.taxRate : (meta.taxApplied == null ? defaults.rate : 0),
+    taxAmount: meta.taxAmount
+  });
   document.getElementById("editTaxApplied").checked = applied;
   document.getElementById("editTaxRate").value = rate ? trimInventoryNumber(rate, 2) : "";
   document.getElementById("editTaxMode").value = mode;
@@ -14713,7 +14627,7 @@ async function createPrincipal(form){
     entry_kind: "principal",
     person_name: String(fd.get("person_name") || "").trim(),
     currency: String(fd.get("currency") || "").trim(),
-    principal_amount: Number(fd.get("principal_amount") || 0),
+    principal_amount: finiteMoney(fd.get("principal_amount")),
     action_amount: null,
     loan_date: fd.get("loan_date"),
     action_date: null,
@@ -14721,7 +14635,7 @@ async function createPrincipal(form){
   };
 
   if (state.modalInstallment) {
-    const count = Math.floor(Number(fd.get("installment_count") || 0));
+    const count = Math.floor(finiteMoney(fd.get("installment_count")));
     if (count < 2 || count > 120) throw new Error("Enter between 2 and 120 installments.");
     const amounts = computeInstallmentAmounts(payload.principal_amount, count, payload.currency);
     payload.notes = upsertInstallmentMetaInNote(payload.notes, {
@@ -14733,7 +14647,9 @@ async function createPrincipal(form){
     });
   }
 
-  if (!payload.person_name || !payload.currency || !payload.principal_amount || !payload.loan_date) throw new Error("Complete all required fields.");
+  if (!payload.person_name || !payload.currency || !(payload.principal_amount > 0) || !payload.loan_date) {
+    throw new Error("Complete all required fields.");
+  }
   
   // Validate currency
   validateCurrencyForForm(fd);
@@ -14749,9 +14665,14 @@ async function createPrincipal(form){
 
   saveEntriesImmediately(payload, { label: state.modalInstallment ? "Installment plan" : "Loan" });
 
-  // Create linked wallet entry
+  // Create linked wallet entry (loan already saved — surface wallet sync failures clearly)
   if (walletId) {
-    await createWalletEntryForLoanPrincipal(walletId, payload.principal_amount, payload.loan_date, payload.person_name, direction, payload.currency);
+    try {
+      await createWalletEntryForLoanPrincipal(walletId, payload.principal_amount, payload.loan_date, payload.person_name, direction, payload.currency);
+    } catch (err) {
+      console.error("Linked wallet entry failed after loan save.", err);
+      alert(`Loan was saved, but the linked wallet update failed: ${err?.message || err}. Check the wallet balance and add a matching expense/top-up if needed.`);
+    }
   }
 
   form.reset();
@@ -14792,7 +14713,13 @@ async function createPayment(form){
   let totalAmount = 0;
   const paymentCount = scheduled ? 1 : count;
   for(let i=0; i<paymentCount; i++){
-     totalAmount += Number(fd.get(`action_amount_${i}`) || 0);
+     const amt = finiteMoney(fd.get(`action_amount_${i}`));
+     const dt = fd.get(`action_date_${i}`);
+     if (!amt && !dt) continue;
+     if (!Number.isFinite(amt) || amt <= 0 || !dt) {
+       throw new Error("Each payment row needs both a valid amount and a date.");
+     }
+     totalAmount += amt;
   }
   totalAmount = roundInstallmentMoney(totalAmount, principalEntry.currency);
 
@@ -14839,13 +14766,13 @@ async function createPayment(form){
     });
   } else {
     for(let i=0; i<count; i++){
-      const amt = Number(fd.get(`action_amount_${i}`) || 0);
+      const amt = finiteMoney(fd.get(`action_amount_${i}`));
       const dt = fd.get(`action_date_${i}`);
       const nt = String(fd.get(`notes_${i}`) || "").trim() || null;
 
-      if(!amt || !dt) continue;
+      if(!(amt > 0) || !dt) continue;
 
-      currentRemaining -= amt;
+      currentRemaining = Math.max(currentRemaining - amt, 0);
       payloads.push({
         group_id: groupId,
         direction,
@@ -14869,8 +14796,13 @@ async function createPayment(form){
 
   // Create linked wallet entries for each payment row
   if (walletId) {
-    for (const p of payloads) {
-      await createWalletEntryForPayment(walletId, p.action_amount, p.action_date, principalEntry.person_name, direction, principalEntry.currency);
+    try {
+      for (const p of payloads) {
+        await createWalletEntryForPayment(walletId, p.action_amount, p.action_date, principalEntry.person_name, direction, principalEntry.currency);
+      }
+    } catch (err) {
+      console.error("Linked wallet entry failed after payment save.", err);
+      alert(`Payment was saved, but the linked wallet update failed: ${err?.message || err}. Check the wallet and add a matching entry if needed.`);
     }
   }
 
@@ -14893,14 +14825,14 @@ async function submitEdit(){
     hasGoodsTag(currentEntry.notes) ? "You do not have permission to edit invoices." : "You do not have permission to edit entries."
   );
 
-  const amt = Number(document.getElementById('editAmount').value || 0);
+  const amt = finiteMoney(document.getElementById('editAmount').value);
   const dt = document.getElementById('editDate').value;
   const nt = document.getElementById('editNotes').value.trim() || null;
 
   if(state.editKind === "principal"){
     const nm = document.getElementById('editName').value.trim();
     const curr = document.getElementById('editCurrency').value;
-    if (!nm || !curr || !amt || !dt) throw new Error("Complete required fields.");
+    if (!nm || !curr || !(amt > 0) || !dt) throw new Error("Complete required fields.");
     
     let updatedNotes = nt;
     
@@ -14926,7 +14858,7 @@ async function submitEdit(){
     state.entries = state.entries.map(entry => entry.id === id ? updatedEntry : entry);
     if (!isBackupMode()) queueDatabasePatch(id, patchBody, "Entry", updatedEntry);
   } else {
-    if (!amt || !dt) throw new Error("Complete required fields.");
+    if (!(amt > 0) || !dt) throw new Error("Complete required fields.");
     let editedNotes = nt;
     
     // Handle goods sold entries - update metadata when sold amount changes
@@ -17499,7 +17431,7 @@ async function saveTransfer(form) {
   
   if (!fromGroupId || !toGroupId) throw new Error("Please select both wallets.");
   if (fromGroupId === toGroupId) throw new Error("Cannot transfer to the same wallet.");
-  if (amount === null || amount === undefined || isNaN(amount) || amount < 0) throw new Error("Please enter a valid amount.");
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Please enter a valid amount greater than zero.");
   if (!date) throw new Error("Please select a date.");
   
   const accounts = getExpenseAccounts({ applyUiFilters: false });
@@ -19328,19 +19260,25 @@ async function importBackupFile(file){
 function sanitizeEntryForSupabase(entry){
   const normalizedLoanDate = normalizeDateForDb(entry.loan_date);
   const normalizedActionDate = normalizeDateForDb(entry.action_date);
+  const principalRaw = entry.principal_amount == null || entry.principal_amount === ""
+    ? null
+    : finiteMoney(entry.principal_amount, NaN);
+  const actionRaw = entry.action_amount == null || entry.action_amount === ""
+    ? null
+    : finiteMoney(entry.action_amount, NaN);
   const row = {
     group_id: String(entry.group_id || "").trim(),
     direction: String(entry.direction || "").trim(),
     entry_kind: String(entry.entry_kind || "").trim(),
     person_name: String(entry.person_name || "").trim(),
     currency: String(entry.currency || "").trim(),
-    principal_amount: entry.principal_amount == null || entry.principal_amount === "" ? null : Number(entry.principal_amount),
-    action_amount: entry.action_amount == null || entry.action_amount === "" ? null : Number(entry.action_amount),
+    principal_amount: Number.isFinite(principalRaw) ? principalRaw : null,
+    action_amount: Number.isFinite(actionRaw) ? actionRaw : null,
     loan_date: normalizedLoanDate,
     action_date: normalizedActionDate,
     notes: entry.notes == null || String(entry.notes).trim() === "" ? null : String(entry.notes)
   };
-  const ownerId = entry.owner_id || currentOwnerId();
+  const ownerId = currentOwnerId();
   if (ownerId) row.owner_id = ownerId;
   return row;
 }
@@ -19405,8 +19343,23 @@ async function uploadBackupToDatabase(){
   if (!uid) throw new Error("Authentication required before uploading.");
   // Only wipe the current user's rows — never other accounts
   await supabase(`${CONFIG.table}?owner_id=eq.${encodeURIComponent(uid)}`, { method: "DELETE" });
-  await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(cleanedRows) });
+  try {
+    await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(cleanedRows) });
+  } catch (err) {
+    const detail = err?.message || String(err);
+    // Local imported rows remain on screen; retry Upload after connection recovers.
+    throw new Error(
+      `Database was cleared for your account, but re-upload failed (${detail}). ` +
+      `Your imported data is still on this screen — fix the connection and click Upload again.`
+    );
+  }
   await refreshDbSnapshot();
+  // Switch out of backup-import mode so subsequent loads use the live DB
+  state.dataSource = "supabase";
+  state.hasImportedFile = false;
+  sessionStorage.removeItem(IMPORT_SESSION_KEY);
+  updateUploadButtonVisibility();
+  updateConnectButtonVisibility();
   renderAll();
 
   alert("Database updated successfully from imported backup.");
@@ -28615,8 +28568,8 @@ function updateAdminBackupVisibility(){
   }
 }
 
-const ADMIN_BACKUP_FORMAT = "triple-m-admin-backup";
-const ADMIN_BACKUP_VERSION = 1;
+const ADMIN_BACKUP_FORMAT = TripleMAdminBackup.ADMIN_BACKUP_FORMAT;
+const ADMIN_BACKUP_VERSION = TripleMAdminBackup.ADMIN_BACKUP_VERSION;
 
 function setAdminBackupStatus(message, kind = ""){
   const el = document.getElementById("adminBackupStatus");
@@ -28652,60 +28605,7 @@ function triggerAdminBackupDownload(filename, blob){
  * Shape matches app_admin_export_full_backup / app_admin_import_full_backup.
  */
 function canonicalizeAdminBackupPayload(raw, options = {}){
-  if (!raw || typeof raw !== "object") {
-    throw new Error("Invalid backup file.");
-  }
-  if (raw.format !== ADMIN_BACKUP_FORMAT) {
-    throw new Error(`Unsupported backup format (expected ${ADMIN_BACKUP_FORMAT}).`);
-  }
-  const version = Number(raw.version || 0);
-  if (!Number.isFinite(version) || version < 1) {
-    throw new Error("Unsupported backup version.");
-  }
-  if (!raw.tables || typeof raw.tables !== "object" || Array.isArray(raw.tables)) {
-    throw new Error("Backup is missing the tables object.");
-  }
-  if (!Array.isArray(raw.tables.app_users)) {
-    throw new Error("Backup must include tables.app_users.");
-  }
-
-  const tables = {};
-  for (const [name, rows] of Object.entries(raw.tables)) {
-    const key = String(name || "").trim().toLowerCase();
-    if (!/^[a-z][a-z0-9_]*$/.test(key)) continue;
-    tables[key] = Array.isArray(rows) ? rows : [];
-  }
-  if (!Array.isArray(tables.app_users)) {
-    throw new Error("Backup must include tables.app_users.");
-  }
-
-  const tableOrder = Array.isArray(raw.tableOrder) && raw.tableOrder.length
-    ? raw.tableOrder
-        .map(n => String(n || "").trim().toLowerCase())
-        .filter(n => Object.prototype.hasOwnProperty.call(tables, n))
-    : Object.keys(tables);
-  for (const name of Object.keys(tables)) {
-    if (!tableOrder.includes(name)) tableOrder.push(name);
-  }
-
-  const counts = {};
-  for (const name of tableOrder) {
-    counts[name] = Array.isArray(tables[name]) ? tables[name].length : 0;
-  }
-
-  const out = {
-    format: ADMIN_BACKUP_FORMAT,
-    version: version || ADMIN_BACKUP_VERSION,
-    exportedAt: raw.exportedAt || new Date().toISOString(),
-    tableOrder,
-    counts,
-    tables
-  };
-  if (raw.exportedBy && typeof raw.exportedBy === "object") out.exportedBy = raw.exportedBy;
-  if (Array.isArray(raw.excluded)) out.excluded = raw.excluded;
-  if (Array.isArray(raw.notes)) out.notes = raw.notes;
-  if (options.source) out.source = options.source;
-  return out;
+  return TripleMAdminBackup.canonicalizeAdminBackupPayload(raw, options);
 }
 
 async function fetchAdminFullBackupPayload(){
@@ -28734,221 +28634,23 @@ async function downloadAdminBackupJson(){
 
 /** Encode one CSV cell so adminBackupCsvDecodeCell restores the same JS value. */
 function adminBackupCsvEncodeCell(val){
-  if (val === null || val === undefined) return "";
-  if (typeof val === "boolean") return val ? "true" : "false";
-  if (typeof val === "number" && Number.isFinite(val)) return String(val);
-  if (typeof val === "object") return csvEscape(JSON.stringify(val));
-  const s = String(val);
-  // Excel-safe ISO dates/timestamps (same unwrap path as import).
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    return `"=""${s.replace(/"/g, "")}"""`;
-  }
-  return csvEscape(s);
+  return TripleMAdminBackup.adminBackupCsvEncodeCell(val);
 }
 
 function adminBackupCsvDecodeCell(value){
-  let v = String(value ?? "");
-  // Excel formula wrappers from download (and Excel re-saves): ="…"
-  const excel = v.match(/^=\s*"([\s\S]*)"\s*$/);
-  if (excel) v = excel[1];
-  else {
-    const excelSq = v.match(/^=\s*'([\s\S]*)'\s*$/);
-    if (excelSq) v = excelSq[1];
-    else if (v.startsWith("'")) v = v.slice(1);
-  }
-  if (v === "") return null;
-  if (v === "true") return true;
-  if (v === "false") return false;
-  if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v)) return Number(v);
-  if ((v.startsWith("{") && v.endsWith("}")) || (v.startsWith("[") && v.endsWith("]"))) {
-    try { return JSON.parse(v); } catch { /* keep string */ }
-  }
-  return v;
+  return TripleMAdminBackup.adminBackupCsvDecodeCell(value);
 }
 
 function adminBackupTableColumnOrder(rows){
-  const cols = [];
-  const seen = new Set();
-  for (const row of rows) {
-    if (!row || typeof row !== "object") continue;
-    for (const key of Object.keys(row)) {
-      if (seen.has(key)) continue;
-      seen.add(key);
-      cols.push(key);
-    }
-  }
-  return cols;
+  return TripleMAdminBackup.adminBackupTableColumnOrder(rows);
 }
 
 function adminBackupTablesToCsv(payload){
-  const canonical = canonicalizeAdminBackupPayload(payload);
-  const tables = canonical.tables;
-  const order = canonical.tableOrder;
-  const lines = [
-    `# format=${canonical.format}`,
-    `# version=${canonical.version}`,
-    `# exportedAt=${canonical.exportedAt}`,
-    `# tableOrder=${order.join(",")}`,
-    `# multi-section CSV: each ###TABLE:name block is one table (Upload Backup expects this exact layout)`
-  ];
-  for (const name of order) {
-    const rows = Array.isArray(tables[name]) ? tables[name] : [];
-    lines.push(`###TABLE:${name}`);
-    if (!rows.length) {
-      // Keep an explicit empty marker so parsers always register the section
-      // even if blank lines are stripped by editors/Excel.
-      lines.push("# empty");
-      continue;
-    }
-    const cols = adminBackupTableColumnOrder(rows);
-    lines.push(cols.map(csvEscape).join(","));
-    for (const row of rows) {
-      lines.push(cols.map(col => adminBackupCsvEncodeCell(row?.[col])).join(","));
-    }
-    lines.push("");
-  }
-  return lines.join("\n");
+  return TripleMAdminBackup.adminBackupTablesToCsv(payload);
 }
 
 function parseAdminBackupCsv(text){
-  const raw = String(text || "").replace(/^\uFEFF/, "");
-  const lines = raw.split(/\r?\n/);
-  const tables = {};
-  let current = null;
-  let cols = null;
-  const tableOrder = [];
-  let format = null;
-  let version = null;
-  let exportedAt = null;
-  let headerTableOrder = null;
-
-  const parseLine = (line) => {
-    const out = [];
-    let cur = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (inQuotes) {
-        if (ch === '"') {
-          if (line[i + 1] === '"') {
-            cur += '"';
-            i++;
-          } else {
-            inQuotes = false;
-          }
-        } else {
-          cur += ch;
-        }
-      } else if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ",") {
-        out.push(cur);
-        cur = "";
-      } else {
-        cur += ch;
-      }
-    }
-    out.push(cur);
-    return out;
-  };
-
-  const ensureTable = (name) => {
-    const key = String(name || "").trim().toLowerCase();
-    if (!/^[a-z][a-z0-9_]*$/.test(key)) return null;
-    if (!Object.prototype.hasOwnProperty.call(tables, key)) {
-      tables[key] = [];
-      tableOrder.push(key);
-    }
-    return key;
-  };
-
-  for (const rawLine of lines) {
-    // Trim ends so Excel trailing spaces / BOM leftovers do not hide ###TABLE markers.
-    let line = String(rawLine ?? "").trim();
-    if (!line) continue;
-    // Excel sometimes wraps an entire line in quotes.
-    if (line.length >= 2 && line.startsWith('"') && line.endsWith('"')) {
-      line = line.slice(1, -1).replace(/""/g, '"').trim();
-    }
-    if (!line) continue;
-
-    if (line.startsWith("#")) {
-      const fmt = line.match(/^#\s*format\s*=\s*(.+)\s*$/i);
-      if (fmt) {
-        format = String(fmt[1] || "").trim();
-        continue;
-      }
-      const ver = line.match(/^#\s*version\s*=\s*(\d+)\s*$/i);
-      if (ver) {
-        version = Number(ver[1]);
-        continue;
-      }
-      const exp = line.match(/^#\s*exportedAt\s*=\s*(.+)\s*$/i);
-      if (exp) {
-        exportedAt = String(exp[1] || "").trim();
-        continue;
-      }
-      const ord = line.match(/^#\s*tableOrder\s*=\s*(.+)\s*$/i);
-      if (ord) {
-        headerTableOrder = String(ord[1] || "")
-          .split(",")
-          .map(s => s.trim().toLowerCase())
-          .filter(s => /^[a-z][a-z0-9_]*$/i.test(s));
-        // Seed tables from declared order so empty/missing sections still exist.
-        for (const name of headerTableOrder) ensureTable(name);
-        continue;
-      }
-      // "# empty" (and other section comments) keep current table registered.
-      continue;
-    }
-
-    const tableMatch = line.match(/^#{2,3}\s*TABLE\s*:\s*([a-z][a-z0-9_]*)\s*,?\s*$/i);
-    if (tableMatch) {
-      current = ensureTable(tableMatch[1]);
-      cols = null;
-      continue;
-    }
-    if (!current) continue;
-    const cells = parseLine(line);
-    if (!cols) {
-      cols = cells.map(c => String(c || "").trim()).filter(Boolean);
-      // Header-only / empty column list still keeps the table key present.
-      if (!cols.length) cols = null;
-      continue;
-    }
-    if (cells.every(c => String(c || "").trim() === "")) continue;
-    const row = {};
-    cols.forEach((col, idx) => {
-      row[col] = adminBackupCsvDecodeCell(cells[idx]);
-    });
-    tables[current].push(row);
-  }
-
-  // Prefer declared tableOrder from the download header when present.
-  const finalOrder = Array.isArray(headerTableOrder) && headerTableOrder.length
-    ? [...headerTableOrder.filter(n => Object.prototype.hasOwnProperty.call(tables, n)),
-       ...tableOrder.filter(n => !headerTableOrder.includes(n))]
-    : tableOrder;
-
-  // Last-resort: if ###TABLE:app_users was lost but tableOrder listed it, keep [].
-  if (!Object.prototype.hasOwnProperty.call(tables, "app_users") && Array.isArray(headerTableOrder)) {
-    if (headerTableOrder.includes("app_users")) tables.app_users = [];
-  }
-
-  if (!format) {
-    throw new Error(
-      `CSV backup missing "# format=${ADMIN_BACKUP_FORMAT}" header. ` +
-      "Use a file from Download Backup (CSV)."
-    );
-  }
-
-  return canonicalizeAdminBackupPayload({
-    format,
-    version: version == null ? ADMIN_BACKUP_VERSION : version,
-    exportedAt: exportedAt || new Date().toISOString(),
-    tableOrder: finalOrder,
-    tables
-  }, { source: "csv" });
+  return TripleMAdminBackup.parseAdminBackupCsv(text);
 }
 
 async function downloadAdminBackupCsv(){
@@ -29184,7 +28886,14 @@ async function uploadAdminBackupFile(file){
   }
 
   setAdminBackupStatus("Restoring database…", "busy");
-  const result = await supabaseRpc("app_admin_import_full_backup", { p_payload: payload });
+  let result;
+  try {
+    result = await supabaseRpc("app_admin_import_full_backup", { p_payload: payload });
+  } catch (err) {
+    const detail = err?.message || String(err);
+    setAdminBackupStatus(detail, "error");
+    throw new Error(`Restore failed: ${detail}. The previous database state may be partially applied — re-export a fresh backup before retrying.`);
+  }
   setAdminBackupStatus("Restore complete", "ok");
   alert(result?.warning || "Database restore finished. Refresh recommended.");
   try {
