@@ -19627,6 +19627,7 @@ function openLandingContentOverlay(sectionKey, options = {}){
     } catch {
       activeTab?.scrollIntoView({ block: "nearest", inline: "center" });
     }
+    syncLandingOverlayDemoCharts(section);
   });
 
   const closeBtn = document.getElementById("landingContentCloseBtn");
@@ -19641,6 +19642,7 @@ function closeLandingContentOverlay(options = {}){
   const overlay = document.getElementById("landingContentOverlay");
   if (!overlay || overlay.classList.contains("hide")) {
     syncLandingNavActive("");
+    destroyLandingOverlayCharts();
     return;
   }
 
@@ -19648,6 +19650,7 @@ function closeLandingContentOverlay(options = {}){
   overlay.setAttribute("aria-hidden", "true");
   if (els.lockScreen) els.lockScreen.classList.remove("landing-overlay-open");
   syncLandingNavActive("");
+  destroyLandingOverlayCharts();
 
   const finish = () => {
     overlay.classList.add("hide");
@@ -19786,6 +19789,199 @@ function bindLandingContentNav(){
 
 let landingDemoCharts = [];
 let landingDemoChartsReady = false;
+let landingOverlayCharts = [];
+
+function destroyLandingOverlayCharts(){
+  while (landingOverlayCharts.length) {
+    const chart = landingOverlayCharts.pop();
+    try { chart?.destroy?.(); } catch (_) {}
+  }
+}
+
+function createLandingOverlayChart(canvas, config){
+  if (!canvas || !window.Chart) return null;
+  const existing = window.Chart.getChart?.(canvas);
+  if (existing) {
+    try { existing.destroy(); } catch (_) {}
+  }
+  const chart = new window.Chart(canvas.getContext("2d"), config);
+  landingOverlayCharts.push(chart);
+  return chart;
+}
+
+function buildLandingFeaturesDemoCharts(){
+  if (!window.Chart) return;
+  const c = landingDemoChartPalette();
+  const base = landingDemoBaseOptions(c);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+  createLandingOverlayChart(document.getElementById("featuresChartSpend"), {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: "Operations",
+          data: [2100, 1980, 2450, 2320, 2180, 2560],
+          borderColor: c.primary,
+          backgroundColor: c.primarySoft,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2.5
+        },
+        {
+          label: "Personal",
+          data: [980, 1120, 1040, 1280, 1190, 1350],
+          borderColor: c.warning,
+          backgroundColor: c.warningSoft,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2.5
+        }
+      ]
+    },
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: {
+          ...base.plugins.legend,
+          position: "bottom",
+          labels: { ...base.plugins.legend.labels, padding: 12 }
+        }
+      }
+    }
+  });
+
+  createLandingOverlayChart(document.getElementById("featuresChartWalletMix"), {
+    type: "doughnut",
+    data: {
+      labels: ["Emirates NBD", "Cash", "HBL", "Bitcoin", "Other"],
+      datasets: [{
+        data: [38, 12, 22, 14, 14],
+        backgroundColor: [c.primary, c.success, c.warning, "#0f766e", c.slate],
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      animation: base.animation,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: c.text,
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { size: 11, weight: "600" },
+            padding: 12
+          }
+        },
+        tooltip: base.plugins.tooltip
+      }
+    }
+  });
+}
+
+function buildLandingServicesDemoCharts(){
+  if (!window.Chart) return;
+  const c = landingDemoChartPalette();
+  const base = landingDemoBaseOptions(c);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+  createLandingOverlayChart(document.getElementById("servicesChartReports"), {
+    type: "bar",
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: "Invoices",
+          data: [28, 32, 30, 41, 38, 46],
+          backgroundColor: c.primarySoft,
+          borderColor: c.primary,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          maxBarThickness: 20
+        },
+        {
+          label: "Statements",
+          data: [12, 14, 13, 16, 18, 19],
+          backgroundColor: c.successSoft,
+          borderColor: c.success,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          maxBarThickness: 20
+        }
+      ]
+    },
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: {
+          ...base.plugins.legend,
+          position: "bottom",
+          labels: { ...base.plugins.legend.labels, padding: 12 }
+        }
+      }
+    }
+  });
+
+  createLandingOverlayChart(document.getElementById("servicesChartExports"), {
+    type: "doughnut",
+    data: {
+      labels: ["Invoices", "Expense PDFs", "Inventory", "BTC", "Backups"],
+      datasets: [{
+        data: [34, 22, 18, 12, 14],
+        backgroundColor: [c.primary, c.warning, c.success, "#0f766e", c.slate],
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      animation: base.animation,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: c.text,
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { size: 11, weight: "600" },
+            padding: 12
+          }
+        },
+        tooltip: base.plugins.tooltip
+      }
+    }
+  });
+}
+
+function syncLandingOverlayDemoCharts(section){
+  destroyLandingOverlayCharts();
+  if (!window.Chart) return;
+  if (section === "features") {
+    buildLandingFeaturesDemoCharts();
+  } else if (section === "services") {
+    buildLandingServicesDemoCharts();
+  }
+}
 
 function landingDemoChartPalette(){
   return {
