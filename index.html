@@ -316,6 +316,58 @@
         </section>
       </main>
 
+      <section class="landing-demo-analytics" id="landingDemoAnalytics" aria-labelledby="landingDemoAnalyticsTitle">
+        <header class="landing-demo-analytics-head">
+          <p class="section-kicker">Product preview</p>
+          <h2 id="landingDemoAnalyticsTitle">Clarity you can glance at.</h2>
+          <p class="landing-demo-analytics-lead">Illustrative demo charts showing how Triplem surfaces expense trends, collections, wallet balances, and profit — sample data only, not live customer results.</p>
+        </header>
+
+        <div class="landing-demo-analytics-grid">
+          <article class="landing-demo-chart-card">
+            <header class="landing-demo-chart-head">
+              <h3>Expense tracking</h3>
+              <p>Monthly spend across wallets</p>
+            </header>
+            <div class="landing-demo-chart-wrap">
+              <canvas id="landingChartExpenses" role="img" aria-label="Demo chart: monthly expense tracking"></canvas>
+            </div>
+          </article>
+
+          <article class="landing-demo-chart-card">
+            <header class="landing-demo-chart-head">
+              <h3>Invoices &amp; collections</h3>
+              <p>Issued vs collected over time</p>
+            </header>
+            <div class="landing-demo-chart-wrap">
+              <canvas id="landingChartCollections" role="img" aria-label="Demo chart: invoice collections growth"></canvas>
+            </div>
+          </article>
+
+          <article class="landing-demo-chart-card">
+            <header class="landing-demo-chart-head">
+              <h3>Wallet balance</h3>
+              <p>Combined balance trend</p>
+            </header>
+            <div class="landing-demo-chart-wrap">
+              <canvas id="landingChartWallet" role="img" aria-label="Demo chart: wallet balance trend"></canvas>
+            </div>
+          </article>
+
+          <article class="landing-demo-chart-card">
+            <header class="landing-demo-chart-head">
+              <h3>Profit snapshot</h3>
+              <p>Revenue mix this quarter</p>
+            </header>
+            <div class="landing-demo-chart-wrap landing-demo-chart-wrap--donut">
+              <canvas id="landingChartProfit" role="img" aria-label="Demo chart: profit snapshot by category"></canvas>
+            </div>
+          </article>
+        </div>
+
+        <p class="landing-demo-analytics-note">Fictional sample data for product illustration — your workspace charts reflect your own books.</p>
+      </section>
+
       <section class="landing-testimonials" aria-labelledby="landingTestimonialsTitle">
         <header class="landing-testimonials-head">
           <p class="section-kicker">Customer reviews</p>
@@ -333,7 +385,8 @@
             <blockquote>
               <p>“Triplem replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace.”</p>
             </blockquote>
-            <figcaption>
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar" src="Assets/logo/customers/danish.jpg" alt="Danish Rabbani" width="48" height="48" loading="lazy" decoding="async" />
               <span class="landing-testimonial-name">Danish Rabbani</span>
             </figcaption>
           </figure>
@@ -347,7 +400,8 @@
             <blockquote>
               <p>“Invoices and inventory stay aligned, and customer balances are easy to follow. It feels like serious accounting software without the clutter.”</p>
             </blockquote>
-            <figcaption>
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar" src="Assets/logo/customers/bilal.jpg" alt="Muhammad Bilal" width="48" height="48" loading="lazy" decoding="async" />
               <span class="landing-testimonial-name">Muhammad Bilal</span>
             </figcaption>
           </figure>
@@ -361,7 +415,8 @@
             <blockquote>
               <p>“I use Triplem for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds.”</p>
             </blockquote>
-            <figcaption>
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar" src="Assets/logo/customers/sarah.png" alt="Sarah Elizabeth" width="48" height="48" loading="lazy" decoding="async" />
               <span class="landing-testimonial-name">Sarah Elizabeth</span>
             </figcaption>
           </figure>
@@ -375,7 +430,8 @@
             <blockquote>
               <p>“Our team runs loans, invoices, and multi-currency finance in Triplem. Isolated workspaces and clear reports made handover far simpler.”</p>
             </blockquote>
-            <figcaption>
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar landing-testimonial-avatar--logo" src="Assets/logo/customers/infonet.png" alt="Infonet Tech" width="48" height="48" loading="lazy" decoding="async" />
               <span class="landing-testimonial-name">Infonet Tech</span>
             </figcaption>
           </figure>
