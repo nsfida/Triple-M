@@ -19784,8 +19784,240 @@ function bindLandingContentNav(){
   }
 }
 
+let landingDemoCharts = [];
+let landingDemoChartsReady = false;
+
+function landingDemoChartPalette(){
+  return {
+    text: "#17212b",
+    muted: "#667085",
+    primary: "#2457d6",
+    primarySoft: "rgba(36,87,214,.16)",
+    success: "#067647",
+    successSoft: "rgba(6,118,71,.14)",
+    warning: "#b54708",
+    warningSoft: "rgba(181,71,8,.14)",
+    slate: "#475467",
+    grid: "rgba(208,213,221,.38)"
+  };
+}
+
+function landingDemoBaseOptions(c){
+  const reduceMotion = typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: reduceMotion ? false : { duration: 520, easing: "easeOutQuart" },
+    plugins: {
+      legend: {
+        labels: {
+          color: c.text,
+          boxWidth: 10,
+          boxHeight: 10,
+          usePointStyle: true,
+          pointStyle: "circle",
+          font: { size: 11, weight: "600" }
+        }
+      },
+      tooltip: {
+        backgroundColor: "rgba(23,33,43,.92)",
+        titleColor: "#fff",
+        bodyColor: "#fff",
+        cornerRadius: 8,
+        padding: 10,
+        displayColors: true,
+        titleFont: { size: 11, weight: "700" },
+        bodyFont: { size: 11 }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: c.grid, drawBorder: false },
+        ticks: { color: c.muted, font: { size: 10, weight: "600" }, maxRotation: 0, autoSkip: true }
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: c.grid, drawBorder: false },
+        ticks: { color: c.muted, font: { size: 10, weight: "600" } }
+      }
+    }
+  };
+}
+
+function createLandingDemoChart(canvas, config){
+  if (!canvas || !window.Chart) return null;
+  const existing = window.Chart.getChart?.(canvas);
+  if (existing) existing.destroy();
+  const chart = new window.Chart(canvas.getContext("2d"), config);
+  landingDemoCharts.push(chart);
+  return chart;
+}
+
+function buildLandingDemoCharts(){
+  if (landingDemoChartsReady || !window.Chart) return;
+  const section = document.getElementById("landingDemoAnalytics");
+  if (!section || section.closest(".hide")) return;
+
+  const c = landingDemoChartPalette();
+  const base = landingDemoBaseOptions(c);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+  landingDemoCharts = [];
+
+  createLandingDemoChart(document.getElementById("landingChartExpenses"), {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: [{
+        label: "Expenses (AED)",
+        data: [4200, 3850, 5100, 4600, 3900, 4450],
+        borderColor: c.primary,
+        backgroundColor: c.primarySoft,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2.5
+      }]
+    },
+    options: {
+      ...base,
+      plugins: { ...base.plugins, legend: { display: false } }
+    }
+  });
+
+  createLandingDemoChart(document.getElementById("landingChartCollections"), {
+    type: "bar",
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: "Invoiced",
+          data: [8200, 9100, 8800, 10400, 11200, 12100],
+          backgroundColor: c.primarySoft,
+          borderColor: c.primary,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          maxBarThickness: 22
+        },
+        {
+          label: "Collected",
+          data: [6400, 7800, 7200, 9100, 9800, 10900],
+          backgroundColor: c.successSoft,
+          borderColor: c.success,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          maxBarThickness: 22
+        }
+      ]
+    },
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: {
+          ...base.plugins.legend,
+          position: "bottom",
+          labels: { ...base.plugins.legend.labels, padding: 12 }
+        }
+      }
+    }
+  });
+
+  createLandingDemoChart(document.getElementById("landingChartWallet"), {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: [{
+        label: "Wallet balance (AED)",
+        data: [18600, 19250, 17800, 21400, 23100, 24850],
+        borderColor: c.success,
+        backgroundColor: c.successSoft,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2.5
+      }]
+    },
+    options: {
+      ...base,
+      plugins: { ...base.plugins, legend: { display: false } },
+      scales: {
+        ...base.scales,
+        y: { ...base.scales.y, beginAtZero: false }
+      }
+    }
+  });
+
+  createLandingDemoChart(document.getElementById("landingChartProfit"), {
+    type: "doughnut",
+    data: {
+      labels: ["Inventory sales", "Services", "Other"],
+      datasets: [{
+        data: [48, 34, 18],
+        backgroundColor: [c.primary, c.success, c.warning],
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      animation: base.animation,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: c.text,
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { size: 11, weight: "600" },
+            padding: 12
+          }
+        },
+        tooltip: base.plugins.tooltip
+      }
+    }
+  });
+
+  landingDemoChartsReady = landingDemoCharts.length > 0;
+}
+
+function initLandingDemoCharts(){
+  const section = document.getElementById("landingDemoAnalytics");
+  if (!section || section.dataset.chartsBound === "1") return;
+  section.dataset.chartsBound = "1";
+
+  const tryBuild = () => {
+    if (landingDemoChartsReady) return;
+    if (!window.Chart) return;
+    const lock = document.getElementById("lockScreen");
+    if (lock && lock.classList.contains("hide")) return;
+    buildLandingDemoCharts();
+  };
+
+  if (typeof IntersectionObserver === "function") {
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      tryBuild();
+      if (landingDemoChartsReady) observer.disconnect();
+    }, { root: null, rootMargin: "80px 0px", threshold: 0.12 });
+    observer.observe(section);
+  }
+
+  // Build once when landing is already in view / Chart is ready
+  requestAnimationFrame(tryBuild);
+  window.addEventListener("load", tryBuild, { once: true });
+}
+
 function bindLandingAnchorScroll(){
   bindLandingContentNav();
+  initLandingDemoCharts();
 }
 
 function openTrialSignupModal(){
