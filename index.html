@@ -168,6 +168,7 @@
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -314,6 +315,72 @@
           </div>
         </section>
       </main>
+
+      <section class="landing-testimonials" aria-labelledby="landingTestimonialsTitle">
+        <header class="landing-testimonials-head">
+          <p class="section-kicker">Customer reviews</p>
+          <h2 id="landingTestimonialsTitle">Trusted by people who keep their books clean.</h2>
+          <p class="landing-testimonials-lead">Short notes from operators using Triplem for accounting, expense tracking, invoices, and day-to-day finance.</p>
+        </header>
+
+        <div class="landing-testimonials-list">
+          <figure class="landing-testimonial">
+            <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
+              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
+              </svg>
+            </div>
+            <blockquote>
+              <p>“Triplem replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace.”</p>
+            </blockquote>
+            <figcaption>
+              <span class="landing-testimonial-name">Danish Rabbani</span>
+            </figcaption>
+          </figure>
+
+          <figure class="landing-testimonial">
+            <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
+              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
+              </svg>
+            </div>
+            <blockquote>
+              <p>“Invoices and inventory stay aligned, and customer balances are easy to follow. It feels like serious accounting software without the clutter.”</p>
+            </blockquote>
+            <figcaption>
+              <span class="landing-testimonial-name">Muhammad Bilal</span>
+            </figcaption>
+          </figure>
+
+          <figure class="landing-testimonial">
+            <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
+              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
+              </svg>
+            </div>
+            <blockquote>
+              <p>“I use Triplem for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds.”</p>
+            </blockquote>
+            <figcaption>
+              <span class="landing-testimonial-name">Sarah Elizabeth</span>
+            </figcaption>
+          </figure>
+
+          <figure class="landing-testimonial">
+            <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
+              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
+              </svg>
+            </div>
+            <blockquote>
+              <p>“Our team runs loans, invoices, and multi-currency finance in Triplem. Isolated workspaces and clear reports made handover far simpler.”</p>
+            </blockquote>
+            <figcaption>
+              <span class="landing-testimonial-name">Infonet Tech</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
 
       <div
         id="landingContentOverlay"
@@ -1446,6 +1513,9 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Installment Plans</h3>
+                  <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="installments" title="Installments summary and graphs">
+                    <i class="fa-solid fa-chart-pie"></i> Details
+                  </button>
                   <div class="menu-wrap">
                     <button class="btn ghost menu-trigger" type="button" data-entry-menu="installments" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="installments">
@@ -1505,6 +1575,9 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Inventory</h3>
+                  <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="inventory" title="Inventory summary and graphs">
+                    <i class="fa-solid fa-chart-pie"></i> Details
+                  </button>
                   <div class="menu-wrap inventory-actions-wrap">
                     <button class="icon-btn menu-trigger" type="button" id="inventoryActionsBtn" data-entry-menu="inventory-actions" aria-label="Inventory actions" aria-expanded="false" title="Inventory actions">
                       <i class="fa-solid fa-plus"></i>
@@ -1591,6 +1664,9 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Expenses</h3>
+                  <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="expenses" title="Expenses summary and graphs">
+                    <i class="fa-solid fa-chart-pie"></i> Details
+                  </button>
                   <div class="menu-wrap">
                     <button class="btn ghost menu-trigger" type="button" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="expenses">
@@ -3382,6 +3458,20 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="sectionDetailsModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="sectionDetailsModal"></div>
+    <div class="modal-dialog section-details-dialog" role="dialog" aria-modal="true" aria-labelledby="sectionDetailsTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="sectionDetailsTitle">Details</h3>
+          <p id="sectionDetailsDesc">Summary and graphs from live section records.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="sectionDetailsModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="sectionDetailsBody"></div>
     </div>
   </div>
 
