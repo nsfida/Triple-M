@@ -7,6 +7,7 @@ const SESSION_ENCRYPTED_STORAGE_KEY = "loanledger-session-credential-v4";
 const SESSION_CREDENTIAL_DB_NAME = "loanledger-secure-credentials-v1";
 const SESSION_CREDENTIAL_STORE_NAME = "secureKeys";
 const SESSION_CREDENTIAL_KEY_ID = "session-login-aes-gcm-v1";
+const TRIAL_PROMO_DISMISS_KEY = "triplem-trial-overlay-dismissed-v1";
 const LEGACY_ZIP_STORAGE_KEYS = [
   "loanledger-unlocked",
   "loanledger-zip-username-v1",
@@ -18117,6 +18118,888 @@ function triggerCsvDownload(csvText, filename){
   URL.revokeObjectURL(url);
 }
 
+function inventoryAuditStatusLabel(group){
+  if (Number(group.remainingQty || 0) <= 0.00000001) return "Sold";
+  if (isInventoryLowStockGroup(group)) return "Low";
+  return "In";
+}
+
+function auditReportRound(value, digits = 4){
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return 0;
+  const factor = 10 ** digits;
+  return Math.round(n * factor) / factor;
+}
+
+function auditReportIsoDate(value){
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const stamp = dateStamp(raw);
+  if (!stamp) return raw.length >= 10 ? raw.slice(0, 10) : raw;
+  try {
+    return new Date(stamp).toISOString().slice(0, 10);
+  } catch {
+    return raw.slice(0, 10);
+  }
+}
+
+function auditReportSheetName(name){
+  return String(name || "Sheet")
+    .replace(/[\\/?*\[\]:]/g, "_")
+    .trim()
+    .slice(0, 31) || "Sheet";
+}
+
+function auditReportEntityInfo(){
+  const contact = typeof getPdfCompanyContact === "function" ? getPdfCompanyContact() : null;
+  const company = String(
+    contact?.name ||
+    fullConfigData?.Company ||
+    state.sessionUser?.company_name ||
+    state.sessionUser?.settings?.Company ||
+    ""
+  ).trim();
+  const trn = String(
+    contact?.trn ||
+    fullConfigData?.TRN ||
+    state.sessionUser?.vat_number ||
+    state.sessionUser?.settings?.TRN ||
+    ""
+  ).trim();
+  const address = String(contact?.address || fullConfigData?.Address || fullConfigData?.address || "").trim();
+  const phone = String(contact?.phone || fullConfigData?.Mobile || fullConfigData?.Phone || "").trim();
+  const email = String(contact?.email || fullConfigData?.Email || fullConfigData?.email || "").trim();
+  return {
+    company: company || "Triple-M",
+    trn,
+    address,
+    phone,
+    email,
+    username: String(state.currentUsername || "").trim(),
+    reportDate: todayISO(),
+    generatedAt: new Date().toISOString()
+  };
+}
+
+function auditReportTitleBlock(sheetTitle, options = {}){
+  const info = options.info || auditReportEntityInfo();
+  const currency = String(options.currency || "").trim();
+  const rows = [
+    [info.company],
+    [info.trn ? `TRN / VAT Registration No.: ${info.trn}` : "TRN / VAT Registration No.: —"],
+    ["Inventory Audit Report"],
+    [`Sheet: ${sheetTitle}`],
+    [`Report date: ${info.reportDate}`],
+    [`Generated (UTC): ${info.generatedAt}`],
+    ["Prepared for audit / inspection"],
+    [info.username ? `Prepared by workspace user: ${info.username}` : "Prepared by workspace user: —"]
+  ];
+  if (info.address) rows.push([`Address: ${info.address}`]);
+  if (info.phone || info.email) {
+    rows.push([`Contact: ${[info.phone, info.email].filter(Boolean).join(" | ")}`]);
+  }
+  if (currency) rows.push([`Currency scope: ${currency}`]);
+  rows.push([]);
+  return rows;
+}
+
+function auditReportColWidths(widths){
+  return (widths || []).map(w => ({ wch: Math.max(Number(w) || 10, 6) }));
+}
+
+function auditReportPushTotalRow(rows, labelColIndex, numericIndexes, label = "TOTAL"){
+  if (!rows.length) return;
+  const width = rows[0].length;
+  const total = new Array(width).fill("");
+  total[Math.max(0, labelColIndex)] = label;
+  numericIndexes.forEach(index => {
+    let sum = 0;
+    for (let i = 0; i < rows.length; i += 1) {
+      const n = Number(rows[i][index]);
+      if (Number.isFinite(n)) sum += n;
+    }
+    total[index] = auditReportRound(sum, 2);
+  });
+  rows.push(total);
+}
+
+function auditReportSettlementPaidForSale(saleEntryId){
+  const saleId = String(saleEntryId || "").trim();
+  if (!saleId) return 0;
+  return state.entries.reduce((sum, entry) => {
+    if (!isInventorySettlementAction(entry)) return sum;
+    const meta = goodsMetaFromNotes(entry.notes);
+    if (String(meta.settlementForEntryId || "") !== saleId) return sum;
+    return sum + Number(entry.action_amount || 0);
+  }, 0);
+}
+
+function auditReportFindLinkedWallet(mode, context = {}){
+  const currency = String(context.currency || "").trim();
+  const date = auditReportIsoDate(context.date);
+  const invoice = String(context.invoiceNumber || context.receiptNumber || "").trim().toLowerCase();
+  const itemName = String(context.itemName || "").trim().toLowerCase();
+  const amount = Number(context.amount || 0);
+  const preferSale = mode === "sale";
+  let best = "";
+  for (const entry of state.entries) {
+    if (!hasExpenseAccountTag(entry.notes)) continue;
+    if (currency && String(entry.currency || "") !== currency) continue;
+    if (date && auditReportIsoDate(entry.action_date) !== date) continue;
+    const meta = expenseMetaFromNotes(entry.notes);
+    const expenseType = String(meta.expenseType || "").toLowerCase();
+    const notes = String(entry.notes || "").toLowerCase();
+    const isSaleWallet = expenseType.includes("inventory sale") || notes.includes("inventory sale");
+    const isPurchaseWallet = expenseType.includes("inventory purchase") || notes.includes("inventory purchase");
+    if (preferSale && !isSaleWallet) continue;
+    if (!preferSale && !isPurchaseWallet) continue;
+    if (preferSale && invoice && !notes.includes(invoice)) continue;
+    if (!preferSale && itemName && meta.itemName && !String(meta.itemName).toLowerCase().includes(itemName) && !itemName.includes(String(meta.itemName).toLowerCase())) {
+      continue;
+    }
+    if (amount > 0 && Math.abs(Number(entry.action_amount || 0) - amount) > 0.02) continue;
+    best = String(entry.person_name || meta.itemName || "").trim();
+    if (best) break;
+  }
+  return best;
+}
+
+function collectInventoryAuditPurchaseLines(goodsAll){
+  const lines = [];
+  (goodsAll || []).forEach(group => {
+    const principal = group.principal;
+    if (principal) {
+      const meta = goodsMetaFromNotes(principal.notes);
+      const qty = Number(meta.boughtQty != null ? meta.boughtQty : group.boughtQty || 0);
+      const lineTotal = Number(principal.principal_amount || 0);
+      const tax = taxBreakdownFromMeta(meta, lineTotal);
+      const unitCost = meta.unitActualPrice != null ? Number(meta.unitActualPrice) : Number(group.unitActualPrice || 0);
+      const currency = String(group.currency || principal.currency || "").trim() || "—";
+      const date = auditReportIsoDate(principal.loan_date || group.loan_date);
+      lines.push({
+        date,
+        entryId: principal.id || "",
+        itemCode: meta.itemCode || group.itemCode || "",
+        itemName: group.person_name || "",
+        itemDescription: meta.itemDescription || group.itemDescription || "",
+        itemType: meta.itemType || group.itemType || "",
+        itemCategory: meta.itemCategory || group.itemCategory || "",
+        quantityUnit: meta.quantityUnit || group.quantityUnit || "",
+        qty,
+        unitCost,
+        lineTotal,
+        taxRate: tax.rate,
+        taxAmount: tax.tax,
+        netAmount: tax.net,
+        currency,
+        entryKind: "Opening purchase",
+        notes: cleanGoodsDisplayNote(principal.notes) || "",
+        wallet: auditReportFindLinkedWallet("purchase", {
+          currency,
+          date,
+          itemName: group.person_name || "",
+          amount: lineTotal
+        })
+      });
+    }
+    (group.purchaseActions || []).forEach(row => {
+      const meta = goodsMetaFromNotes(row.notes);
+      const qty = Number(meta.boughtQty || 0);
+      const lineTotal = Number(row.action_amount || 0);
+      const tax = taxBreakdownFromMeta(meta, lineTotal);
+      const currency = String(row.currency || group.currency || "").trim() || "—";
+      const date = auditReportIsoDate(row.action_date);
+      lines.push({
+        date,
+        entryId: row.id || "",
+        itemCode: meta.itemCode || group.itemCode || "",
+        itemName: group.person_name || "",
+        itemDescription: meta.itemDescription || group.itemDescription || "",
+        itemType: meta.itemType || group.itemType || "",
+        itemCategory: meta.itemCategory || group.itemCategory || "",
+        quantityUnit: meta.quantityUnit || group.quantityUnit || "",
+        qty,
+        unitCost: Number(meta.unitActualPrice || 0),
+        lineTotal,
+        taxRate: tax.rate,
+        taxAmount: tax.tax,
+        netAmount: tax.net,
+        currency,
+        entryKind: "Restock / additional purchase",
+        notes: cleanGoodsDisplayNote(row.notes) || "",
+        wallet: auditReportFindLinkedWallet("purchase", {
+          currency,
+          date,
+          itemName: group.person_name || "",
+          amount: lineTotal
+        })
+      });
+    });
+  });
+  return lines.sort((a, b) =>
+    dateStamp(a.date) - dateStamp(b.date) ||
+    String(a.itemName).localeCompare(String(b.itemName)) ||
+    String(a.itemCode).localeCompare(String(b.itemCode))
+  );
+}
+
+function collectInventoryAuditSalesLines(goodsAll){
+  const lines = [];
+  (goodsAll || []).forEach(group => {
+    const unitCost = Number(group.unitActualPrice || 0);
+    (group.actions || []).forEach(row => {
+      const meta = goodsMetaFromNotes(row.notes);
+      const qty = Number(meta.soldQty || 0);
+      const lineTotal = Number(row.action_amount || 0);
+      const tax = taxBreakdownFromMeta(meta, lineTotal);
+      const initialPaid = inventoryLinePaidAmount(meta, lineTotal);
+      const settlementPaid = auditReportSettlementPaidForSale(row.id);
+      const paid = Math.min(lineTotal, initialPaid + settlementPaid);
+      const balance = Math.max(lineTotal - paid, 0);
+      const currency = String(row.currency || group.currency || "").trim() || "—";
+      const invoiceNumber = meta.invoiceNumber || meta.receiptNumber || shortId(row.id) || "";
+      const date = auditReportIsoDate(row.action_date);
+      const estProfit = qty > 0 ? (Number(tax.net || 0) - (unitCost * qty)) : "";
+      lines.push({
+        date,
+        entryId: row.id || "",
+        invoiceNumber,
+        paymentReceiptNumber: meta.paymentReceiptNumber || "",
+        customerName: meta.customerName || "Walk-in customer",
+        customerCompany: meta.customerCompany || "",
+        customerTrn: meta.customerTrn || "",
+        customerPhone: meta.customerPhone || "",
+        customerEmail: meta.customerEmail || "",
+        customerAddress: meta.customerAddress || "",
+        itemCode: meta.itemCode || group.itemCode || "",
+        itemName: group.person_name || "",
+        itemType: meta.itemType || group.itemType || "",
+        itemCategory: meta.itemCategory || group.itemCategory || "",
+        quantityUnit: meta.quantityUnit || group.quantityUnit || "",
+        qty,
+        unitPrice: Number(meta.unitSoldPrice || 0),
+        unitCost,
+        lineTotal,
+        taxRate: tax.rate,
+        taxAmount: tax.tax,
+        netAmount: tax.net,
+        paid,
+        balance,
+        paymentStatus: balance <= 0.00000001 ? "Full Paid" : inventoryPaymentStatus(meta, lineTotal),
+        currency,
+        estProfit,
+        notes: cleanGoodsDisplayNote(row.notes) || "",
+        wallet: auditReportFindLinkedWallet("sale", {
+          currency,
+          date,
+          invoiceNumber,
+          receiptNumber: meta.receiptNumber || invoiceNumber,
+          amount: paid
+        })
+      });
+    });
+  });
+  return lines.sort((a, b) =>
+    dateStamp(a.date) - dateStamp(b.date) ||
+    String(a.invoiceNumber).localeCompare(String(b.invoiceNumber)) ||
+    String(a.itemName).localeCompare(String(b.itemName))
+  );
+}
+
+function buildInventoryAuditDetailSheet(sheetTitle, headers, dataRows, options = {}){
+  const info = options.info || auditReportEntityInfo();
+  const titleRows = auditReportTitleBlock(sheetTitle, { info, currency: options.currency });
+  const headerRowIndex = titleRows.length;
+  const tableRows = dataRows.map(row => row.slice());
+  if (options.totals && tableRows.length) {
+    auditReportPushTotalRow(
+      tableRows,
+      options.totals.labelColIndex ?? 0,
+      options.totals.numericIndexes || [],
+      options.totals.label || "TOTAL"
+    );
+  }
+  if (!tableRows.length && options.emptyRow) {
+    tableRows.push(options.emptyRow);
+  }
+  return {
+    name: auditReportSheetName(options.sheetName || sheetTitle),
+    rows: [...titleRows, headers, ...tableRows],
+    freezeRow: headerRowIndex + 1,
+    cols: options.cols || null
+  };
+}
+
+function buildInventoryAuditReportSheets(){
+  const payload = buildInventoryDetailsPayload();
+  const goodsAll = payload.goodsAll || [];
+  const outstanding = collectOutstandingInventoryInvoices();
+  const info = auditReportEntityInfo();
+  const purchaseLines = collectInventoryAuditPurchaseLines(goodsAll);
+  const salesLines = collectInventoryAuditSalesLines(goodsAll);
+
+  const currencies = sortCurrenciesList([
+    ...goodsAll.map(g => g.currency),
+    ...purchaseLines.map(l => l.currency),
+    ...salesLines.map(l => l.currency),
+    ...outstanding.map(inv => inv.currency)
+  ].filter(c => c && c !== "—"));
+
+  const currencySet = currencies.length ? currencies : ["—"];
+  const sheets = [];
+
+  const summaryTitle = auditReportTitleBlock("Summary — Overall", { info });
+  const summaryMetricsHeaderIndex = summaryTitle.length;
+  const summaryRows = [
+    ...summaryTitle,
+    ["Section", "Metric", "Value"],
+    ["Inventory register", "Total stock keeping units (SKUs)", payload.metrics.items],
+    ["Inventory register", "Items in stock", payload.metrics.inStock],
+    ["Inventory register", "Items low stock", payload.metrics.lowStock],
+    ["Inventory register", "Items sold out", payload.metrics.soldOut],
+    ["Inventory register", "Quantity on hand (summary)", payload.metrics.stockQty],
+    ["Valuation", "Stock value on hand", payload.metrics.stockValue],
+    ["Purchases", "Purchase total (gross)", payload.metrics.purchaseTotal],
+    ["Sales", "Sales total (gross)", payload.metrics.salesTotal],
+    ["Collections", "Amount collected", payload.metrics.paidTotal],
+    ["Receivables", "Outstanding invoice count", payload.metrics.outstandingCount],
+    ["Receivables", "Outstanding balance", payload.metrics.outstanding],
+    ["Profit and loss", "Realized profit total", payload.metrics.profitTotal],
+    ["Profit and loss", "Realized loss total", payload.metrics.lossTotal],
+    [],
+    ["Movement summary by currency"],
+    [
+      "Currency",
+      "SKUs",
+      "Qty purchased",
+      "Qty sold",
+      "Qty on hand",
+      "Stock value",
+      "Purchase total",
+      "Purchase net",
+      "Purchase VAT",
+      "Sales total",
+      "Sales net",
+      "Sales VAT",
+      "Amount collected",
+      "Balance due",
+      "Realized profit",
+      "Realized loss",
+      "Outstanding invoices",
+      "Outstanding balance"
+    ]
+  ];
+
+  currencySet.forEach(currency => {
+    const groups = goodsAll.filter(g => String(g.currency || "—") === currency);
+    const purchases = purchaseLines.filter(l => l.currency === currency);
+    const sales = salesLines.filter(l => l.currency === currency);
+    const outs = outstanding.filter(inv => String(inv.currency || "—") === currency);
+    const stockValue = groups.reduce((sum, g) => sum + (Number(g.unitActualPrice || 0) * Number(g.remainingQty || 0)), 0);
+    const purchaseTotal = purchases.reduce((sum, l) => sum + Number(l.lineTotal || 0), 0);
+    const purchaseNet = purchases.reduce((sum, l) => sum + Number(l.netAmount || 0), 0);
+    const purchaseTax = purchases.reduce((sum, l) => sum + Number(l.taxAmount || 0), 0);
+    const salesTotal = sales.reduce((sum, l) => sum + Number(l.lineTotal || 0), 0);
+    const salesNet = sales.reduce((sum, l) => sum + Number(l.netAmount || 0), 0);
+    const salesTax = sales.reduce((sum, l) => sum + Number(l.taxAmount || 0), 0);
+    const paidTotal = sales.reduce((sum, l) => sum + Number(l.paid || 0), 0);
+    const balanceDue = sales.reduce((sum, l) => sum + Number(l.balance || 0), 0);
+    const profit = groups.reduce((sum, g) => sum + Math.max(Number(g.profitLoss || 0), 0), 0);
+    const loss = groups.reduce((sum, g) => sum + Math.abs(Math.min(Number(g.profitLoss || 0), 0)), 0);
+    const qtyBought = groups.reduce((sum, g) => sum + Number(g.boughtQty || 0), 0);
+    const qtySold = groups.reduce((sum, g) => sum + Number(g.soldQty || 0), 0);
+    const qtyRemain = groups.reduce((sum, g) => sum + Number(g.remainingQty || 0), 0);
+    const outstandingBalance = outs.reduce((sum, inv) => {
+      if (inv.balanceByCurrency?.has?.(currency)) return sum + Number(inv.balanceByCurrency.get(currency) || 0);
+      return sum + Number(inv.balanceTotal || 0);
+    }, 0);
+    summaryRows.push([
+      currency,
+      groups.length,
+      auditReportRound(qtyBought),
+      auditReportRound(qtySold),
+      auditReportRound(qtyRemain),
+      auditReportRound(stockValue, 2),
+      auditReportRound(purchaseTotal, 2),
+      auditReportRound(purchaseNet, 2),
+      auditReportRound(purchaseTax, 2),
+      auditReportRound(salesTotal, 2),
+      auditReportRound(salesNet, 2),
+      auditReportRound(salesTax, 2),
+      auditReportRound(paidTotal, 2),
+      auditReportRound(balanceDue, 2),
+      auditReportRound(profit, 2),
+      auditReportRound(loss, 2),
+      outs.length,
+      auditReportRound(outstandingBalance, 2)
+    ]);
+  });
+
+  sheets.push({
+    name: auditReportSheetName("Summary"),
+    rows: summaryRows,
+    freezeRow: summaryMetricsHeaderIndex + 1,
+    cols: auditReportColWidths([18, 36, 28, 14, 12, 12, 14, 14, 14, 14, 14, 12, 14, 12, 14, 12, 16, 16])
+  });
+
+  const stockHeaders = [
+    "Serial No.",
+    "Item Code",
+    "Item Name",
+    "Description",
+    "Item Type",
+    "Category",
+    "Unit of Measure",
+    "Currency",
+    "Stock Status",
+    "Quantity Purchased",
+    "Quantity Sold",
+    "Quantity On Hand",
+    "Weighted Avg Unit Cost",
+    "Stock Value (On Hand)",
+    "Purchase Total (Gross)",
+    "Purchase Net Total",
+    "Purchase VAT / Tax",
+    "Sales Total (Gross)",
+    "Sales Net Total",
+    "Sales VAT / Tax",
+    "Amount Collected",
+    "Balance Due",
+    "Realized Profit / Loss",
+    "First Purchase Date",
+    "Latest Sale Date"
+  ];
+  const stockCols = auditReportColWidths([10, 14, 28, 28, 14, 12, 12, 10, 12, 14, 12, 14, 16, 16, 16, 14, 14, 14, 14, 12, 14, 12, 16, 14, 14]);
+
+  currencySet.forEach(currency => {
+    const groups = goodsAll
+      .filter(g => String(g.currency || "—") === currency)
+      .slice()
+      .sort((a, b) => String(a.person_name || "").localeCompare(String(b.person_name || "")) || String(a.itemCode || "").localeCompare(String(b.itemCode || "")));
+    if (!groups.length) return;
+    const dataRows = groups.map((group, index) => {
+      const remaining = Number(group.remainingQty || 0);
+      const unitCost = Number(group.unitActualPrice || 0);
+      const profit = Number(group.soldQty || 0) > 0 ? auditReportRound(group.profitLoss, 2) : "";
+      return [
+        index + 1,
+        group.itemCode || "",
+        group.person_name || "",
+        group.itemDescription || "",
+        group.itemType || "",
+        group.itemCategory || "",
+        group.quantityUnit || "",
+        group.currency || currency,
+        inventoryAuditStatusLabel(group),
+        auditReportRound(group.boughtQty),
+        auditReportRound(group.soldQty),
+        auditReportRound(remaining),
+        auditReportRound(unitCost, 6),
+        auditReportRound(remaining * unitCost, 2),
+        auditReportRound(group.bought, 2),
+        auditReportRound(group.purchaseNetTotal, 2),
+        auditReportRound(group.purchaseTaxTotal, 2),
+        auditReportRound(group.soldTotal, 2),
+        auditReportRound(group.soldNetTotal, 2),
+        auditReportRound(group.salesTaxTotal, 2),
+        auditReportRound(group.paidTotal, 2),
+        auditReportRound(group.balanceTotal, 2),
+        profit,
+        auditReportIsoDate(group.principal?.loan_date || group.loan_date),
+        auditReportIsoDate(group.latestSoldDate)
+      ];
+    });
+    sheets.push(buildInventoryAuditDetailSheet(
+      `Stock / Inventory Register — ${currency}`,
+      stockHeaders,
+      dataRows,
+      {
+        info,
+        currency,
+        sheetName: `Stock_${currency}`,
+        cols: stockCols,
+        totals: {
+          labelColIndex: 2,
+          numericIndexes: [9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+          label: "TOTAL"
+        }
+      }
+    ));
+  });
+
+  const purchaseHeaders = [
+    "Serial No.",
+    "Purchase Date",
+    "Entry Reference",
+    "Item Code",
+    "Item Name",
+    "Description",
+    "Item Type",
+    "Category",
+    "Unit of Measure",
+    "Quantity Purchased",
+    "Unit Cost",
+    "Line Gross Amount",
+    "VAT / Tax Rate (%)",
+    "VAT / Tax Amount",
+    "Net Amount",
+    "Currency",
+    "Transaction Type",
+    "Linked Wallet",
+    "Notes / Remarks"
+  ];
+  const purchaseCols = auditReportColWidths([10, 14, 16, 14, 28, 24, 14, 12, 12, 14, 12, 14, 14, 14, 12, 10, 22, 16, 28]);
+
+  currencySet.forEach(currency => {
+    const lines = purchaseLines.filter(l => l.currency === currency);
+    if (!lines.length) return;
+    const dataRows = lines.map((line, index) => [
+      index + 1,
+      line.date,
+      shortId(line.entryId) || "",
+      line.itemCode,
+      line.itemName,
+      line.itemDescription,
+      line.itemType,
+      line.itemCategory,
+      line.quantityUnit,
+      auditReportRound(line.qty),
+      auditReportRound(line.unitCost, 6),
+      auditReportRound(line.lineTotal, 2),
+      auditReportRound(line.taxRate, 2),
+      auditReportRound(line.taxAmount, 2),
+      auditReportRound(line.netAmount, 2),
+      line.currency,
+      line.entryKind,
+      line.wallet || "",
+      line.notes
+    ]);
+    sheets.push(buildInventoryAuditDetailSheet(
+      `Purchased Items — ${currency}`,
+      purchaseHeaders,
+      dataRows,
+      {
+        info,
+        currency,
+        sheetName: `Purchases_${currency}`,
+        cols: purchaseCols,
+        totals: {
+          labelColIndex: 4,
+          numericIndexes: [9, 11, 13, 14],
+          label: "TOTAL"
+        }
+      }
+    ));
+  });
+
+  const salesHeaders = [
+    "Serial No.",
+    "Sale Date",
+    "Invoice / Receipt No.",
+    "Payment Receipt No.",
+    "Customer Name",
+    "Customer Company",
+    "Customer TRN",
+    "Customer Phone",
+    "Customer Email",
+    "Customer Address",
+    "Item Code",
+    "Item Name",
+    "Item Type",
+    "Category",
+    "Unit of Measure",
+    "Quantity Sold",
+    "Unit Selling Price",
+    "Line Gross Amount",
+    "VAT / Tax Rate (%)",
+    "VAT / Tax Amount",
+    "Net Amount",
+    "Amount Paid",
+    "Balance Due",
+    "Payment Status",
+    "Currency",
+    "Estimated Profit / Loss",
+    "Linked Wallet",
+    "Notes / Remarks"
+  ];
+  const salesCols = auditReportColWidths([10, 12, 18, 16, 22, 18, 14, 14, 20, 24, 12, 22, 12, 12, 10, 12, 14, 14, 12, 12, 12, 12, 12, 12, 10, 14, 14, 24]);
+
+  currencySet.forEach(currency => {
+    const lines = salesLines.filter(l => l.currency === currency);
+    if (!lines.length) return;
+    const dataRows = lines.map((line, index) => [
+      index + 1,
+      line.date,
+      line.invoiceNumber,
+      line.paymentReceiptNumber,
+      line.customerName,
+      line.customerCompany,
+      line.customerTrn,
+      line.customerPhone,
+      line.customerEmail,
+      line.customerAddress,
+      line.itemCode,
+      line.itemName,
+      line.itemType,
+      line.itemCategory,
+      line.quantityUnit,
+      auditReportRound(line.qty),
+      auditReportRound(line.unitPrice, 6),
+      auditReportRound(line.lineTotal, 2),
+      auditReportRound(line.taxRate, 2),
+      auditReportRound(line.taxAmount, 2),
+      auditReportRound(line.netAmount, 2),
+      auditReportRound(line.paid, 2),
+      auditReportRound(line.balance, 2),
+      line.paymentStatus,
+      line.currency,
+      line.estProfit === "" ? "" : auditReportRound(line.estProfit, 2),
+      line.wallet || "",
+      line.notes
+    ]);
+    sheets.push(buildInventoryAuditDetailSheet(
+      `Sold Items — ${currency}`,
+      salesHeaders,
+      dataRows,
+      {
+        info,
+        currency,
+        sheetName: `Sales_${currency}`,
+        cols: salesCols,
+        totals: {
+          labelColIndex: 4,
+          numericIndexes: [15, 17, 19, 20, 21, 22, 25],
+          label: "TOTAL"
+        }
+      }
+    ));
+  });
+
+  const outstandingHeaders = [
+    "Serial No.",
+    "Invoice / Receipt No.",
+    "Customer Name",
+    "Invoice Date",
+    "Oldest Line Date",
+    "Line Count",
+    "Items Summary",
+    "Currency",
+    "Invoice Total",
+    "Amount Paid",
+    "Balance Due",
+    "Tax Summary"
+  ];
+  const outstandingByCurrency = new Map();
+  outstanding.forEach(invoice => {
+    const currency = String(invoice.currency || "—");
+    if (!outstandingByCurrency.has(currency)) outstandingByCurrency.set(currency, []);
+    outstandingByCurrency.get(currency).push(invoice);
+  });
+  const outstandingCurrencies = outstanding.length
+    ? sortCurrenciesList([...outstandingByCurrency.keys()])
+    : [];
+
+  if (!outstandingCurrencies.length) {
+    sheets.push(buildInventoryAuditDetailSheet(
+      "Outstanding Receivables",
+      outstandingHeaders,
+      [],
+      {
+        info,
+        sheetName: "Outstanding",
+        cols: auditReportColWidths([10, 18, 24, 14, 14, 10, 36, 10, 14, 12, 12, 28]),
+        emptyRow: ["—", "No outstanding inventory invoices", "", "", "", "", "", "", "", "", "", ""]
+      }
+    ));
+  } else {
+    outstandingCurrencies.forEach(currency => {
+      const invoices = outstandingByCurrency.get(currency) || [];
+      const dataRows = invoices.map((invoice, index) => {
+        const balance = invoice.balanceByCurrency?.has?.(currency)
+          ? Number(invoice.balanceByCurrency.get(currency) || 0)
+          : Number(invoice.balanceTotal || 0);
+        const total = invoice.totalsByCurrency?.get?.(currency)?.total != null
+          ? Number(invoice.totalsByCurrency.get(currency).total || 0)
+          : Number(invoice.totalAmount || 0);
+        const paid = invoice.totalsByCurrency?.get?.(currency)?.paid != null
+          ? Number(invoice.totalsByCurrency.get(currency).paid || 0)
+          : Number(invoice.paidTotal || 0);
+        return [
+          index + 1,
+          invoice.invoiceNumber || invoice.receiptNumber || "",
+          invoice.customerName || "",
+          auditReportIsoDate(invoice.date),
+          auditReportIsoDate(invoice.oldestDate),
+          invoice.lineCount || 0,
+          invoice.itemSummary || "",
+          currency,
+          auditReportRound(total, 2),
+          auditReportRound(paid, 2),
+          auditReportRound(balance, 2),
+          invoice.taxText || ""
+        ];
+      });
+      sheets.push(buildInventoryAuditDetailSheet(
+        `Outstanding Receivables — ${currency}`,
+        outstandingHeaders,
+        dataRows,
+        {
+          info,
+          currency,
+          sheetName: outstandingCurrencies.length === 1 ? "Outstanding" : `Outstanding_${currency}`,
+          cols: auditReportColWidths([10, 18, 24, 14, 14, 10, 36, 10, 14, 12, 12, 28]),
+          totals: {
+            labelColIndex: 2,
+            numericIndexes: [8, 9, 10],
+            label: "TOTAL"
+          }
+        }
+      ));
+    });
+  }
+
+  // Per-currency profit & loss / movement sheets (skip when already covered by empty inventory)
+  currencySet.forEach(currency => {
+    if (currency === "—") return;
+    const groups = goodsAll.filter(g => String(g.currency || "") === currency);
+    const purchases = purchaseLines.filter(l => l.currency === currency);
+    const sales = salesLines.filter(l => l.currency === currency);
+    if (!groups.length && !purchases.length && !sales.length) return;
+
+    const purchaseTotal = purchases.reduce((sum, l) => sum + Number(l.lineTotal || 0), 0);
+    const purchaseNet = purchases.reduce((sum, l) => sum + Number(l.netAmount || 0), 0);
+    const purchaseTax = purchases.reduce((sum, l) => sum + Number(l.taxAmount || 0), 0);
+    const salesTotal = sales.reduce((sum, l) => sum + Number(l.lineTotal || 0), 0);
+    const salesNet = sales.reduce((sum, l) => sum + Number(l.netAmount || 0), 0);
+    const salesTax = sales.reduce((sum, l) => sum + Number(l.taxAmount || 0), 0);
+    const paidTotal = sales.reduce((sum, l) => sum + Number(l.paid || 0), 0);
+    const balanceDue = sales.reduce((sum, l) => sum + Number(l.balance || 0), 0);
+    const stockValue = groups.reduce((sum, g) => sum + (Number(g.unitActualPrice || 0) * Number(g.remainingQty || 0)), 0);
+    const realizedPl = groups.reduce((sum, g) => sum + Number(g.profitLoss || 0), 0);
+    const costOfSales = groups.reduce((sum, g) => sum + Number(g.soldCostBasis || 0), 0);
+
+    const titleRows = auditReportTitleBlock(`Profit & Loss / Movement — ${currency}`, { info, currency });
+    const headerRowIndex = titleRows.length;
+    const rows = [
+      ...titleRows,
+      ["Particulars", "Amount", "Notes"],
+      ["Purchases (gross)", auditReportRound(purchaseTotal, 2), "All purchase / restock lines"],
+      ["Less: Purchase VAT / tax", auditReportRound(purchaseTax, 2), ""],
+      ["Purchases (net of tax)", auditReportRound(purchaseNet, 2), ""],
+      ["Sales (gross)", auditReportRound(salesTotal, 2), "All sales invoice lines"],
+      ["Less: Sales VAT / tax", auditReportRound(salesTax, 2), ""],
+      ["Sales (net of tax)", auditReportRound(salesNet, 2), ""],
+      ["Cost of goods sold (estimated)", auditReportRound(costOfSales, 2), "Weighted average unit cost × qty sold"],
+      ["Gross profit / (loss) realized", auditReportRound(realizedPl, 2), "Sales net − cost of goods sold"],
+      [],
+      ["Collections and receivables", "", ""],
+      ["Amount collected", auditReportRound(paidTotal, 2), "Includes settlements applied to sales"],
+      ["Balance due from customers", auditReportRound(balanceDue, 2), "Open receivable on sales lines"],
+      ["Closing stock value (on hand)", auditReportRound(stockValue, 2), "Qty on hand × weighted avg unit cost"],
+      [],
+      ["Counts", "", ""],
+      ["SKUs in register", groups.length, ""],
+      ["Purchase line count", purchases.length, ""],
+      ["Sales line count", sales.length, ""]
+    ];
+    sheets.push({
+      name: auditReportSheetName(`PL_${currency}`),
+      rows,
+      freezeRow: headerRowIndex + 1,
+      cols: auditReportColWidths([36, 16, 48])
+    });
+  });
+
+  return sheets;
+}
+
+function escapeXmlText(value){
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function triggerBinaryDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadInventoryAuditReportWithSheetJs(sheets, filename){
+  const XLSXref = window.XLSX;
+  if (!XLSXref?.utils?.aoa_to_sheet || !XLSXref?.utils?.book_new) {
+    throw new Error("SheetJS unavailable");
+  }
+  const workbook = XLSXref.utils.book_new();
+  sheets.forEach(sheet => {
+    const ws = XLSXref.utils.aoa_to_sheet(sheet.rows || []);
+    if (sheet.cols?.length) ws["!cols"] = sheet.cols;
+    const freezeRow = Number(sheet.freezeRow || 0);
+    if (freezeRow > 0) {
+      ws["!freeze"] = { xSplit: 0, ySplit: freezeRow, topLeftCell: `A${freezeRow + 1}`, activePane: "bottomLeft", state: "frozen" };
+      ws["!views"] = [{ state: "frozen", xSplit: 0, ySplit: freezeRow, topLeftCell: `A${freezeRow + 1}`, activePane: "bottomLeft" }];
+    }
+    XLSXref.utils.book_append_sheet(workbook, ws, auditReportSheetName(sheet.name));
+  });
+  const arrayBuffer = XLSXref.write(workbook, { bookType: "xlsx", type: "array" });
+  triggerBinaryDownload(
+    new Blob([arrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    filename
+  );
+}
+
+function downloadInventoryAuditReportSpreadsheetMl(sheets, filename){
+  const worksheets = sheets.map(sheet => {
+    const rowsXml = (sheet.rows || []).map(row => {
+      const cells = row.map(cell => {
+        if (typeof cell === "number" && Number.isFinite(cell)) {
+          return `<Cell><Data ss:Type="Number">${cell}</Data></Cell>`;
+        }
+        return `<Cell><Data ss:Type="String">${escapeXmlText(cell)}</Data></Cell>`;
+      }).join("");
+      return `<Row>${cells}</Row>`;
+    }).join("");
+    return `<Worksheet ss:Name="${escapeXmlText(auditReportSheetName(sheet.name))}"><Table>${rowsXml}</Table></Worksheet>`;
+  }).join("");
+  const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+${worksheets}
+</Workbook>`;
+  const fallbackName = String(filename || "").replace(/\.xlsx$/i, ".xls");
+  triggerBinaryDownload(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8;" }), fallbackName);
+}
+
+async function downloadInventoryAuditReportExcel(){
+  if (isGuestMode()) {
+    alert("Demo Login cannot download reports. Please use a real login.");
+    return;
+  }
+  await ensureAllLedgerDataLoaded({ throwOnError: true });
+  if (databaseSessionCanLoad()) {
+    await loadLedgerScopeFromSupabase(LEDGER_SCOPE_GOODS, { force: false }).catch(() => {});
+  }
+  const sheets = buildInventoryAuditReportSheets();
+  const filename = `TripleM_Inventory_Audit_Report_${todayISO()}.xlsx`;
+  try {
+    downloadInventoryAuditReportWithSheetJs(sheets, filename);
+  } catch (err) {
+    console.warn("SheetJS Excel export unavailable, using SpreadsheetML fallback.", err);
+    downloadInventoryAuditReportSpreadsheetMl(sheets, filename);
+  }
+}
+
 async function downloadSectionCsv(sectionKey){
   if (isGuestMode()) {
     alert("Demo Login cannot download CSV. Please use a real login.");
@@ -19194,6 +20077,14 @@ window.addEventListener("resize", () => {
       downloadSectionCsv(btn.dataset.sectionCsvDownload).catch(err => alert(err.message));
     });
   });
+  const downloadInventoryAuditReportBtn = document.getElementById("downloadInventoryAuditReportBtn");
+  if (downloadInventoryAuditReportBtn) {
+    downloadInventoryAuditReportBtn.addEventListener("click", () => {
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+      downloadInventoryAuditReportExcel().catch(err => alert(err.message || err));
+    });
+  }
   document.querySelectorAll("[data-section-csv-upload]").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
@@ -19968,6 +20859,39 @@ function buildLandingServicesDemoCharts(){
           }
         },
         tooltip: base.plugins.tooltip
+      }
+    }
+  });
+
+  createLandingOverlayChart(document.getElementById("servicesChartAudit"), {
+    type: "bar",
+    data: {
+      labels: ["In", "Low", "Sold"],
+      datasets: [{
+        label: "Stock value (AED k)",
+        data: [28.4, 11.2, 8.6],
+        backgroundColor: [c.successSoft, "rgba(181,71,8,.18)", "rgba(102,112,133,.18)"],
+        borderColor: [c.success, c.warning, c.slate],
+        borderWidth: 1.5,
+        borderRadius: 6,
+        maxBarThickness: 28
+      }]
+    },
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: { display: false }
+      },
+      scales: {
+        ...base.scales,
+        y: {
+          ...base.scales.y,
+          ticks: {
+            ...base.scales.y.ticks,
+            callback: value => `${value}k`
+          }
+        }
       }
     }
   });
@@ -29268,6 +30192,86 @@ async function boot(){
   applyPermissionGates();
   await autoLogin();
   handleUrlHash();
+  initTrialPromoOverlay().catch(() => {});
+}
+
+// 14-day free trial promo overlay (landing / sign-in)
+function hasStoredSignInDetails(){
+  try {
+    if (localStorage.getItem(SESSION_ENCRYPTED_STORAGE_KEY)) return true;
+  } catch {}
+  try {
+    if (sessionStorage.getItem(SESSION_USERNAME_KEY)) return true;
+  } catch {}
+  for (const key of LEGACY_ZIP_STORAGE_KEYS) {
+    try {
+      if (localStorage.getItem(key)) return true;
+    } catch {}
+    try {
+      if (sessionStorage.getItem(key)) return true;
+    } catch {}
+  }
+  return false;
+}
+
+function dismissTrialPromoOverlay(){
+  const overlay = document.getElementById("trialPromoOverlay");
+  if (!overlay) return;
+  overlay.classList.add("hide");
+  overlay.setAttribute("aria-hidden", "true");
+  try {
+    sessionStorage.setItem(TRIAL_PROMO_DISMISS_KEY, "1");
+  } catch {}
+}
+
+function showTrialPromoOverlay(){
+  const overlay = document.getElementById("trialPromoOverlay");
+  if (!overlay) return;
+  overlay.classList.remove("hide");
+  overlay.setAttribute("aria-hidden", "false");
+  document.getElementById("trialPromoStartBtn")?.focus();
+}
+
+async function initTrialPromoOverlay(){
+  const overlay = document.getElementById("trialPromoOverlay");
+  if (!overlay) return;
+
+  const dismissors = overlay.querySelectorAll("[data-trial-promo-dismiss]");
+  dismissors.forEach(el => {
+    el.addEventListener("click", () => dismissTrialPromoOverlay());
+  });
+
+  const startBtn = document.getElementById("trialPromoStartBtn");
+  if (startBtn) {
+    startBtn.addEventListener("click", () => {
+      dismissTrialPromoOverlay();
+      openTrialSignupModal();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (overlay.classList.contains("hide")) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    dismissTrialPromoOverlay();
+  }, true);
+
+  if (state.unlocked) return;
+  try {
+    if (sessionStorage.getItem(TRIAL_PROMO_DISMISS_KEY) === "1") return;
+  } catch {}
+  if (hasStoredSignInDetails()) return;
+  const credential = await loadEncryptedSessionCredential().catch(() => null);
+  if (credential?.username && credential?.sessionToken) return;
+  if (state.unlocked || (els.app && !els.app.classList.contains("hide"))) return;
+  if (els.lockScreen && els.lockScreen.classList.contains("hide")) return;
+
+  window.setTimeout(() => {
+    if (state.unlocked) return;
+    if (els.lockScreen && els.lockScreen.classList.contains("hide")) return;
+    showTrialPromoOverlay();
+  }, 520);
 }
 
 // Inquiry Overlay Functionality
