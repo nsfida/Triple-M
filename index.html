@@ -2692,6 +2692,18 @@
               <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
             </div>
+            <div class="field w12">
+              <label class="admin-check-item expense-custom-logo-check">
+                <input type="checkbox" name="use_custom_logo" value="1" />
+                Use custom logo
+              </label>
+            </div>
+            <div class="field w12 hide" id="expenseCustomLogoField">
+              <label>Custom logo <span class="optional-label">PNG / JPG</span></label>
+              <input class="input" name="custom_logo_file" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
+              <img id="expenseCustomLogoPreview" class="expense-custom-logo-preview hide" src="" alt="Custom wallet logo preview" />
+              <small class="expense-btc-help">Shown for this wallet. If upload is unavailable, a compact image is stored with the account.</small>
+            </div>
             <div class="field w12 modal-footer">
               <button class="btn ghost" type="button" data-close-modal="expenseModal">Cancel</button>
               <button class="btn primary" type="submit">Save Account</button>
