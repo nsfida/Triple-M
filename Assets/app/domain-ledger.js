@@ -166,6 +166,8 @@
     notes = ensureExpenseNotes(notes, { accountType: a.account_type || "Bank Account", rowType: "ACCOUNT" });
     if (a.btc_address && !/\[BADDR:/i.test(notes)) notes += ` [BADDR:${a.btc_address}]`;
     if (a.btc_network && !/\[BNET:/i.test(notes)) notes += ` [BNET:${a.btc_network}]`;
+    const customLogo = String(a.custom_logo_url || "").trim();
+    if (customLogo && !/\[CLOGO:/i.test(notes)) notes += ` [CLOGO:${customLogo.replace(/\]/g, "")}]`;
     if (a.is_deleted) notes = `${notes} ${DELETED_TAG}`.trim();
     return markDomain({
       id: a.id,
@@ -537,6 +539,7 @@
             notes,
             btc_address: metaValue(notes, "BADDR") || null,
             btc_network: metaValue(notes, "BNET") || null,
+            custom_logo_url: metaValue(notes, "CLOGO") || null,
             meta: { etype: "ACCOUNT" },
             is_deleted: !!deleted,
             created_at: entry.created_at
@@ -938,9 +941,11 @@
         const at = metaValue(notes, "ATYPE");
         const ba = metaValue(notes, "BADDR");
         const bn = metaValue(notes, "BNET");
+        const logo = metaValue(notes, "CLOGO");
         if (at) body.account_type = at;
         if (ba) body.btc_address = ba;
         if (bn) body.btc_network = bn;
+        body.custom_logo_url = logo || null;
       }
     }
     if (table === DOMAIN.expense_topups) {
