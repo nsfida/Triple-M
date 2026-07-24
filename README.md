@@ -21,14 +21,22 @@ Triple-M/
 |-- index.html
 |-- README.md
 |-- CNAME
-|-- schema.sql
 |-- migrations/
-|   `-- 001_multi_user_auth.sql
-`-- Assets/
-    |-- app/
-    |-- logo/
-    |-- mobile_app/
-    `-- style/
+|   |-- schema.sql
+|   |-- 001_multi_user_auth.sql
+|   |-- … (numbered migrations through latest)
+|   `-- README.md
+|-- scripts/
+|   `-- build_full_schema_sql.js
+|-- tests/
+|-- Assets/
+|   |-- app/
+|   |-- sql/
+|   |   `-- triplem_full_schema.sql
+|   |-- logo/
+|   |-- mobile_app/
+|   `-- style/
+`-- package.json
 ```
 
 ## Technology
@@ -57,9 +65,11 @@ Deployment is maintained by the project owner. Public setup instructions are not
 
 If you are an authorized maintainer:
 
-1. Apply `schema.sql` only for a brand-new empty database (destructive recreate).
-2. Apply `migrations/001_multi_user_auth.sql` on existing or new databases to enable multi-user auth, ownership isolation, and RBAC without destroying ledger data.
-3. Use the internal deployment process provided by the owner for GitHub Pages / custom domain publishing.
+1. Apply `migrations/schema.sql` only for a brand-new empty database (destructive recreate), **or** prefer the bundled `Assets/sql/triplem_full_schema.sql` built via `npm run build:schema`.
+2. On existing databases, apply numbered files under `migrations/` in order (see `migrations/README.md`) without destroying ledger data.
+3. After a full schema reset, restore data with Admin → Upload Backup (JSON/CSV).
+4. Use the internal deployment process provided by the owner for GitHub Pages / custom domain publishing.
+5. Run `npm test` before release (no live Supabase required).
 
 ## Privacy And Security
 
