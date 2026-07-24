@@ -1327,6 +1327,76 @@ a{color:inherit}
   border:1px dashed var(--line);
   border-radius:10px;
 }
+.section-details-dialog .modal-head h3{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.section-details-title-text{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.section-details-activity-card{
+  margin-top:10px;
+}
+.section-details-activity{
+  display:grid;
+  gap:6px;
+}
+.section-details-activity-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:rgba(255,255,255,.78);
+  min-width:0;
+}
+.section-details-activity-main{
+  min-width:0;
+  flex:1 1 auto;
+}
+.section-details-activity-main strong{
+  display:block;
+  font-size:.76rem;
+  font-weight:700;
+  color:var(--text);
+  line-height:1.25;
+}
+.section-details-activity-main span{
+  display:block;
+  margin-top:2px;
+  font-size:.68rem;
+  color:var(--muted);
+  line-height:1.35;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.section-details-activity-amt{
+  flex:0 0 auto;
+  font-size:.76rem;
+  font-weight:750;
+  white-space:nowrap;
+}
+.section-details-activity-row.is-in .section-details-activity-amt{color:var(--success)}
+.section-details-activity-row.is-out .section-details-activity-amt{color:var(--danger)}
+.wallet-details-card{
+  cursor:pointer;
+  transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.summary.wallet-details-card:hover{
+  border-color:rgba(36,87,214,.35);
+  box-shadow:0 6px 18px rgba(23,33,43,.06);
+}
+.expense-wallet-card.wallet-details-card:hover{
+  border-color:rgba(36,87,214,.42);
+}
 @media (max-width:720px){
   .modal-dialog.section-details-dialog{
     width:calc(100vw - 16px);
@@ -1343,6 +1413,9 @@ a{color:inherit}
   }
   .section-details-metrics{
     grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+  .section-details-activity-main span{
+    white-space:normal;
   }
 }
 
