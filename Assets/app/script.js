@@ -20344,6 +20344,7 @@ const LANDING_SECTION_META = {
   about: { title: "About", kicker: "Brand", hash: "about" },
   features: { title: "Features", kicker: "Product", hash: "features" },
   services: { title: "Services", kicker: "Included", hash: "services" },
+  security: { title: "Security", kicker: "Trust", hash: "security" },
   pricing: { title: "Pricing", kicker: "Plans", hash: "pricing" },
   faq: { title: "FAQs", kicker: "Help", hash: "faq" },
   policies: { title: "Policy", kicker: "Terms", hash: "policies" }
@@ -20354,9 +20355,10 @@ const LANDING_SECTION_ALIASES = {
   overview: "about",
   story: "about",
   features: "features",
-  security: "features",
   protection: "features",
   services: "services",
+  security: "security",
+  credentials: "security",
   pricing: "pricing",
   faq: "faq",
   faqs: "faq",
@@ -20559,6 +20561,15 @@ function bindLandingContentNav(){
       e.preventDefault();
       setLandingMobileMenuOpen(false);
       document.getElementById("sendInquiryBtn")?.click();
+      return;
+    }
+
+    const signinTrigger = e.target.closest("[data-landing-signin]");
+    if (signinTrigger) {
+      e.preventDefault();
+      setLandingMobileMenuOpen(false);
+      closeLandingContentOverlay({ clearHash: true });
+      focusUnlockForm();
       return;
     }
 
@@ -20850,13 +20861,138 @@ function buildLandingServicesDemoCharts(){
   });
 }
 
+function buildLandingAboutDemoCharts(){
+  if (!window.Chart) return;
+  const c = landingDemoChartPalette();
+  const base = landingDemoBaseOptions(c);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
+  createLandingOverlayChart(document.getElementById("aboutChartCashflow"), {
+    type: "bar",
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: "Money in",
+          data: [9200, 10100, 9800, 11200, 12050, 12800],
+          backgroundColor: c.successSoft,
+          borderColor: c.success,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          maxBarThickness: 18
+        },
+        {
+          label: "Money out",
+          data: [6400, 7100, 6900, 7600, 8200, 7900],
+          backgroundColor: c.primarySoft,
+          borderColor: c.primary,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          maxBarThickness: 18
+        }
+      ]
+    },
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: {
+          ...base.plugins.legend,
+          position: "bottom",
+          labels: { ...base.plugins.legend.labels, padding: 12 }
+        }
+      }
+    }
+  });
+
+  createLandingOverlayChart(document.getElementById("aboutChartExpenseMix"), {
+    type: "doughnut",
+    data: {
+      labels: ["Operations", "Inventory", "Personal", "Loans", "Other"],
+      datasets: [{
+        data: [32, 26, 18, 14, 10],
+        backgroundColor: [c.primary, c.success, c.warning, "#0f766e", c.slate],
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      animation: base.animation,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: c.text,
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { size: 11, weight: "600" },
+            padding: 12
+          }
+        },
+        tooltip: base.plugins.tooltip
+      }
+    }
+  });
+}
+
+function buildLandingSecurityDemoCharts(){
+  if (!window.Chart) return;
+  const c = landingDemoChartPalette();
+  const base = landingDemoBaseOptions(c);
+
+  createLandingOverlayChart(document.getElementById("securityChartLayers"), {
+    type: "doughnut",
+    data: {
+      labels: ["Hashing", "Sessions", "Isolation", "HTTPS", "Smart PIN"],
+      datasets: [{
+        data: [26, 22, 20, 18, 14],
+        backgroundColor: [c.primary, c.success, "#0f766e", c.warning, c.slate],
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "64%",
+      animation: base.animation,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: c.text,
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { size: 10, weight: "600" },
+            padding: 10
+          }
+        },
+        tooltip: base.plugins.tooltip
+      }
+    }
+  });
+}
+
 function syncLandingOverlayDemoCharts(section){
   destroyLandingOverlayCharts();
   if (!window.Chart) return;
-  if (section === "features") {
+  if (section === "about") {
+    buildLandingAboutDemoCharts();
+  } else if (section === "features") {
     buildLandingFeaturesDemoCharts();
   } else if (section === "services") {
     buildLandingServicesDemoCharts();
+  } else if (section === "security") {
+    buildLandingSecurityDemoCharts();
   }
 }
 
@@ -21091,6 +21227,8 @@ function initLandingDemoCharts(){
 function bindLandingAnchorScroll(){
   bindLandingContentNav();
   initLandingDemoCharts();
+  const yearEl = document.getElementById("landingFooterYear");
+  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 }
 
 function openTrialSignupModal(){
