@@ -203,6 +203,7 @@
           <button type="button" class="landing-nav-btn" data-landing-section="about">About</button>
           <button type="button" class="landing-nav-btn" data-landing-section="features">Features</button>
           <button type="button" class="landing-nav-btn" data-landing-section="services">Services</button>
+          <button type="button" class="landing-nav-btn" data-landing-section="security">Security</button>
           <button type="button" class="landing-nav-btn" data-landing-section="pricing">Pricing</button>
           <button type="button" class="landing-nav-btn" data-landing-section="faq">FAQs</button>
           <button type="button" class="landing-nav-btn" data-landing-section="policies">Policy</button>
@@ -247,6 +248,7 @@
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="about">About</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="features">Features</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="services">Services</button>
+          <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="security">Security</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="pricing">Pricing</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="faq">FAQs</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="policies">Policy</button>
@@ -439,6 +441,31 @@
         </div>
       </section>
 
+      <footer class="landing-footer" aria-label="Landing footer">
+        <div class="landing-footer-inner">
+          <div class="landing-footer-brand">
+            <img src="Assets/logo/logo.png" alt="" width="28" height="28" />
+            <div>
+              <strong aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></strong>
+              <p>Private accounting &amp; finance solution</p>
+            </div>
+          </div>
+          <nav class="landing-footer-links" aria-label="Footer links">
+            <button type="button" class="landing-footer-link" data-landing-section="about">About</button>
+            <button type="button" class="landing-footer-link" data-landing-section="features">Features</button>
+            <button type="button" class="landing-footer-link" data-landing-section="services">Services</button>
+            <button type="button" class="landing-footer-link" data-landing-section="security">Security</button>
+            <button type="button" class="landing-footer-link" data-landing-section="pricing">Pricing</button>
+            <button type="button" class="landing-footer-link" data-landing-section="faq">FAQs</button>
+            <button type="button" class="landing-footer-link" data-landing-section="policies">Privacy Policy</button>
+            <button type="button" class="landing-footer-link" data-landing-inquiry>Contact</button>
+            <button type="button" class="landing-footer-link" data-landing-inquiry>Request Access</button>
+            <a class="landing-footer-link" href="#login" data-landing-signin>Sign in</a>
+          </nav>
+          <p class="landing-footer-copy">&copy; <span id="landingFooterYear"></span> Triplem · Money Management Module</p>
+        </div>
+      </footer>
+
       <div
         id="landingContentOverlay"
         class="landing-content-overlay hide"
@@ -466,6 +493,7 @@
             <button type="button" class="landing-content-tab" role="tab" data-landing-section="about" aria-selected="false">About</button>
             <button type="button" class="landing-content-tab" role="tab" data-landing-section="features" aria-selected="false">Features</button>
             <button type="button" class="landing-content-tab" role="tab" data-landing-section="services" aria-selected="false">Services</button>
+            <button type="button" class="landing-content-tab" role="tab" data-landing-section="security" aria-selected="false">Security</button>
             <button type="button" class="landing-content-tab" role="tab" data-landing-section="pricing" aria-selected="false">Pricing</button>
             <button type="button" class="landing-content-tab" role="tab" data-landing-section="faq" aria-selected="false">FAQs</button>
             <button type="button" class="landing-content-tab" role="tab" data-landing-section="policies" aria-selected="false">Policy</button>
@@ -476,14 +504,15 @@
               <div class="landing-grid-2">
                 <div>
                   <p class="section-kicker">About</p>
-                  <h2 id="aboutTitle">Created by Nadeem Shahzad Fida for practical financial clarity.</h2>
-                  <p>Triplem is a proprietary accounting solution and finance solution focused on high-control money workflows. It is built for users who need personal expense tracking, multi-currency wallets, inventory visibility, invoices, receipts, reports, transaction history, and polished statements without switching between disconnected tools.</p>
+                  <h2 id="aboutTitle">An accounting solution built for owners who need clear books every day.</h2>
+                  <p>Triplem is a proprietary accounting and finance solution created by Nadeem Shahzad Fida. It brings personal expense tracking, multi-currency wallets, inventory, invoices, receipts, loans, reports, and searchable transaction history into one private workspace—so shop owners, merchants, and careful operators stop juggling disconnected spreadsheets.</p>
+                  <p>Whether you track daily float, customer balances, or month-end statements, Triplem is designed as a calm, high-control finance dashboard that feels like serious business software without the clutter.</p>
                 </div>
                 <div class="landing-about-card">
                   <img src="Assets/logo/logo.png" alt="Triplem expense tracking and accounting brand mark" />
                   <div>
                     <h3>Money Management Module</h3>
-                    <p>Personal expense tracking, loans, inventory, invoices, receipts, reports, transactions, Bitcoin, and statements in one private dashboard.</p>
+                    <p>Accounting clarity, personal expense tracking, loans, inventory invoices, receipts, reports, Bitcoin records, and PDF statements in one private dashboard.</p>
                   </div>
                 </div>
               </div>
@@ -491,13 +520,101 @@
               <div class="landing-section-block" id="overview" aria-labelledby="overviewTitle">
                 <p class="section-kicker">Project overview</p>
                 <h2 id="overviewTitle">A private operating system for daily money control.</h2>
-                <p>Triplem brings everyday finance into one organized workspace: expense wallets, loan records, inventory sales, customer invoices, receipts, reports, searchable transaction history, installment activity, notes, Bitcoin wallets, and downloadable statements. It is designed for people who need accounting clarity without spreadsheets becoming a second job.</p>
-                <div class="showcase-card" aria-label="Triplem dashboard preview">
+                <p>Triplem organizes the full money lifecycle: expense wallets, loan records, inventory sales, customer invoices, receipts, installment activity, notes, Bitcoin wallets, and downloadable statements. It is built for people who need accounting clarity and finance visibility without spreadsheets becoming a second job.</p>
+                <div class="landing-card-grid three" style="margin-top:16px">
+                  <article class="landing-card"><i class="fa-solid fa-book"></i><h3>Accounting solution</h3><p>Structured ledgers for wallets, loans, inventory, and customer balances so day-to-day books stay decision-ready.</p></article>
+                  <article class="landing-card"><i class="fa-solid fa-receipt"></i><h3>Expense tracking</h3><p>Personal and business spend across cash, bank, card, and custom wallets with transfers, history, and statements.</p></article>
+                  <article class="landing-card"><i class="fa-solid fa-briefcase"></i><h3>Business finance</h3><p>Invoices, receipts, reports, and PDF exports for owners who need polished records at the end of every shift.</p></article>
+                </div>
+                <div class="showcase-card" aria-label="Triplem dashboard preview" style="margin-top:16px">
                   <div class="showcase-bar"><span></span><span></span><span></span></div>
                   <div class="showcase-metric"><small>Available Balance</small><strong>AED 48,250.00</strong></div>
                   <div class="showcase-lines"><span style="width:92%"></span><span style="width:68%"></span><span style="width:81%"></span></div>
                   <div class="showcase-stack"><span>Inventory invoices</span><span>Loan settlements</span><span>BTC blockchain records</span></div>
                 </div>
+              </div>
+
+              <div class="landing-section-block landing-product-demo" aria-labelledby="aboutWalletsDemoTitle">
+                <p class="section-kicker">Sample wallets</p>
+                <h2 id="aboutWalletsDemoTitle">Multi-currency wallets for real business money.</h2>
+                <p class="landing-product-demo-lead">Fictional demo wallets — the same layout owners use for banks, cash, cards, and crypto inside a private Triplem workspace.</p>
+                <div class="landing-demo-wallet-grid" role="list" aria-label="Sample about wallets">
+                  <article class="landing-demo-wallet" role="listitem">
+                    <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Emirates%20NBD.png" alt="" width="40" height="40" loading="lazy" decoding="async" onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';}" />
+                    <div class="landing-demo-wallet-copy">
+                      <h3>Emirates NBD</h3>
+                      <p>AED operating account</p>
+                    </div>
+                    <strong class="landing-demo-wallet-bal">AED 18,640.00</strong>
+                  </article>
+                  <article class="landing-demo-wallet" role="listitem">
+                    <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/ADCB.png" alt="" width="40" height="40" loading="lazy" decoding="async" onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';}" />
+                    <div class="landing-demo-wallet-copy">
+                      <h3>ADCB</h3>
+                      <p>Business settlement</p>
+                    </div>
+                    <strong class="landing-demo-wallet-bal">AED 9,220.00</strong>
+                  </article>
+                  <article class="landing-demo-wallet" role="listitem">
+                    <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/HBL.png" alt="" width="40" height="40" loading="lazy" decoding="async" onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';}" />
+                    <div class="landing-demo-wallet-copy">
+                      <h3>HBL Business</h3>
+                      <p>PKR supplier wallet</p>
+                    </div>
+                    <strong class="landing-demo-wallet-bal">Rs. 214,800</strong>
+                  </article>
+                  <article class="landing-demo-wallet" role="listitem">
+                    <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Cash.png" alt="" width="40" height="40" loading="lazy" decoding="async" onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';}" />
+                    <div class="landing-demo-wallet-copy">
+                      <h3>Cash drawer</h3>
+                      <p>Daily float</p>
+                    </div>
+                    <strong class="landing-demo-wallet-bal">AED 1,850.00</strong>
+                  </article>
+                  <article class="landing-demo-wallet" role="listitem">
+                    <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Meezan%20Bank.png" alt="" width="40" height="40" loading="lazy" decoding="async" onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';}" />
+                    <div class="landing-demo-wallet-copy">
+                      <h3>Meezan Bank</h3>
+                      <p>Savings ledger</p>
+                    </div>
+                    <strong class="landing-demo-wallet-bal">Rs. 76,500</strong>
+                  </article>
+                  <article class="landing-demo-wallet" role="listitem">
+                    <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Bitcoin.png" alt="" width="40" height="40" loading="lazy" decoding="async" onerror="if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';}" />
+                    <div class="landing-demo-wallet-copy">
+                      <h3>Bitcoin</h3>
+                      <p>Watched address</p>
+                    </div>
+                    <strong class="landing-demo-wallet-bal">0.0618 BTC</strong>
+                  </article>
+                </div>
+              </div>
+
+              <div class="landing-section-block landing-product-demo" aria-labelledby="aboutChartsDemoTitle">
+                <p class="section-kicker">Finance preview</p>
+                <h2 id="aboutChartsDemoTitle">Expense trends and cashflow at a glance.</h2>
+                <p class="landing-product-demo-lead">Illustrative Chart.js previews — sample data only, mirroring how Triplem surfaces accounting and expense tracking in the live dashboard.</p>
+                <div class="landing-demo-chart-grid">
+                  <article class="landing-demo-mock-card">
+                    <header class="landing-demo-mock-head">
+                      <h3>Cashflow pulse</h3>
+                      <p>Money in vs money out (AED)</p>
+                    </header>
+                    <div class="landing-demo-chart-wrap">
+                      <canvas id="aboutChartCashflow" role="img" aria-label="Demo chart: sample cashflow in versus out"></canvas>
+                    </div>
+                  </article>
+                  <article class="landing-demo-mock-card">
+                    <header class="landing-demo-mock-head">
+                      <h3>Expense mix</h3>
+                      <p>Where sample spend went this quarter</p>
+                    </header>
+                    <div class="landing-demo-chart-wrap landing-demo-chart-wrap--donut">
+                      <canvas id="aboutChartExpenseMix" role="img" aria-label="Demo chart: sample expense category mix"></canvas>
+                    </div>
+                  </article>
+                </div>
+                <p class="landing-product-demo-note">Fictional sample charts — your signed-in workspace reflects your own books.</p>
               </div>
 
               <div class="landing-section-block" aria-labelledby="storyTitle">
@@ -677,7 +794,7 @@
                 <p class="landing-product-demo-note">Sample catalog and invoice row — your live inventory drives real stock, sales receipts, and customer balances.</p>
               </div>
 
-              <div class="landing-section-block" id="security" aria-labelledby="securityTitle">
+              <div class="landing-section-block" id="featuresPrivacy" aria-labelledby="securityTitle">
                 <p class="section-kicker">Security and privacy</p>
                 <h2 id="securityTitle">Trust blocks designed for sensitive financial work.</h2>
                 <div class="landing-card-grid three">
@@ -914,6 +1031,67 @@
                   </div>
                 </div>
                 <p class="landing-product-demo-note">Illustrative workbook mock — signed-in workspaces export from live inventory data via Inventory → Audit Report.</p>
+              </div>
+            </section>
+
+            <section id="security" class="landing-section landing-content-panel hide" data-landing-panel="security" aria-labelledby="securityPanelTitle" hidden>
+              <p class="section-kicker">Credential security</p>
+              <h2 id="securityPanelTitle">Your private account is protected by design—not shared across users.</h2>
+              <p class="landing-product-demo-lead">Triplem treats sign-in credentials, session tokens, and Smart PIN preferences as private account controls. Every layer below exists to keep your workspace isolated and your access path secure.</p>
+
+              <div class="landing-card-grid three" style="margin-top:18px">
+                <article class="landing-card"><i class="fa-solid fa-lock"></i><h3>Credential hashing</h3><p>Account passwords are stored using one-way hashing so your sign-in secret is never kept as plain text in the application database.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-key"></i><h3>Encrypted sessions</h3><p>Active login sessions use encrypted browser credential storage (AES-GCM) so returning to your workspace does not leave tokens sitting in clear text.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-house-lock"></i><h3>Private workspaces</h3><p>Each approved account opens its own finance workspace. Ledgers, wallets, invoices, and notes stay scoped to that owner’s private configuration.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-user-shield"></i><h3>Owner isolation</h3><p>Account boundaries separate one user’s records from another. Data is not blended into a shared public ledger or co-mingled customer view.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-fingerprint"></i><h3>Smart PIN protection</h3><p>Optional Smart PIN preferences are stored as salted hashes, giving you a fast unlock layer without writing the PIN itself as plain text.</p></article>
+                <article class="landing-card"><i class="fa-solid fa-shield-halved"></i><h3>Secure sign-in path</h3><p>Sign-in happens over HTTPS on the public portal. Credentials are submitted only to authenticate your private account—not shared with other users.</p></article>
+              </div>
+
+              <div class="landing-section-block landing-product-demo" aria-labelledby="securityChecklistTitle">
+                <div class="landing-grid-2">
+                  <div>
+                    <p class="section-kicker">Protection checklist</p>
+                    <h2 id="securityChecklistTitle">Built to keep your credentials and books private.</h2>
+                    <p>From hashed passwords to encrypted sessions and isolated workspaces, Triplem is framed around protecting the owner’s private account—not exposing access details to other people on the platform.</p>
+                    <div class="landing-check-list" style="margin-top:14px">
+                      <span><i class="fa-solid fa-check"></i> One-way password hashing at rest</span>
+                      <span><i class="fa-solid fa-check"></i> Encrypted session credential storage</span>
+                      <span><i class="fa-solid fa-check"></i> HTTPS transport for sign-in</span>
+                      <span><i class="fa-solid fa-check"></i> Per-account workspace isolation</span>
+                      <span><i class="fa-solid fa-check"></i> Smart PIN stored as a hash, not plain text</span>
+                      <span><i class="fa-solid fa-check"></i> No credential sharing between user accounts</span>
+                      <span><i class="fa-solid fa-check"></i> Private finance data stays inside your workspace</span>
+                    </div>
+                  </div>
+                  <div class="landing-security-visual" aria-hidden="true">
+                    <div class="landing-security-lock-card">
+                      <i class="fa-solid fa-lock"></i>
+                      <strong>Private account vault</strong>
+                      <p>Credentials · Sessions · Smart PIN</p>
+                    </div>
+                    <div class="landing-security-pillars">
+                      <span><i class="fa-solid fa-hashtag"></i> Hash</span>
+                      <span><i class="fa-solid fa-lock"></i> Encrypt</span>
+                      <span><i class="fa-solid fa-user-lock"></i> Isolate</span>
+                      <span><i class="fa-solid fa-globe"></i> HTTPS</span>
+                    </div>
+                    <div class="landing-demo-chart-wrap landing-demo-chart-wrap--donut landing-security-chart-wrap">
+                      <canvas id="securityChartLayers" role="img" aria-label="Demo chart: credential protection layers"></canvas>
+                    </div>
+                    <p class="landing-product-demo-note" style="text-align:center">Illustrative protection mix — not a live audit score.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="landing-section-block" aria-labelledby="securityPracticeTitle">
+                <p class="section-kicker">Your responsibility</p>
+                <h2 id="securityPracticeTitle">Keep your private access path in your hands.</h2>
+                <div class="landing-card-grid three">
+                  <article class="landing-card"><i class="fa-solid fa-eye-slash"></i><h3>Never share credentials</h3><p>Do not share your username, password, or Smart PIN with other users. Each account is meant for its own private workspace.</p></article>
+                  <article class="landing-card"><i class="fa-solid fa-mobile-screen"></i><h3>Trusted devices only</h3><p>Sign in and handle Bitcoin private-key workflows only on devices you trust, especially when exporting backups or statements.</p></article>
+                  <article class="landing-card"><i class="fa-solid fa-rotate"></i><h3>Rotate when needed</h3><p>If you suspect exposure, change your password and Smart PIN promptly, then review recent session activity in your workspace.</p></article>
+                </div>
               </div>
             </section>
 
