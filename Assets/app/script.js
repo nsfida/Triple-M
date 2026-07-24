@@ -866,6 +866,10 @@ const els = {
   installmentPlanBody: document.getElementById("installmentPlanBody"),
   installmentPlanTitle: document.getElementById("installmentPlanTitle"),
   installmentPlanDesc: document.getElementById("installmentPlanDesc"),
+  sectionDetailsModal: document.getElementById("sectionDetailsModal"),
+  sectionDetailsTitle: document.getElementById("sectionDetailsTitle"),
+  sectionDetailsDesc: document.getElementById("sectionDetailsDesc"),
+  sectionDetailsBody: document.getElementById("sectionDetailsBody"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -13973,12 +13977,713 @@ function getEditTaxMeta(entry, amount) {
   return taxMetaFromBreakdown(calculateTaxBreakdownFromGross(amount, rate, mode, applied));
 }
 
+const sectionDetailsChartInstances = [];
+
+function destroySectionDetailsCharts(){
+  while (sectionDetailsChartInstances.length) {
+    const chart = sectionDetailsChartInstances.pop();
+    try { chart?.destroy?.(); } catch (_) {}
+  }
+}
+
+function sectionDetailsThemeColors(){
+  const styles = getComputedStyle(document.documentElement);
+  const read = (name, fallback) => String(styles.getPropertyValue(name) || "").trim() || fallback;
+  return {
+    primary: read("--primary", "#2457d6"),
+    primarySoft: read("--primary-soft", "rgba(36,87,214,.10)"),
+    success: read("--success", "#067647"),
+    warning: read("--warning", "#b54708"),
+    danger: read("--danger", "#b42318"),
+    muted: read("--muted", "#667085"),
+    text: read("--text", "#17212b"),
+    line: read("--line", "rgba(208,213,221,.70)"),
+    panel: "#ffffff"
+  };
+}
+
+function sectionDetailsChartDefaults(){
+  const colors = sectionDetailsThemeColors();
+  return {
+    colors,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 420, easing: "easeOutQuart" },
+      plugins: {
+        legend: {
+          labels: {
+            color: colors.text,
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { size: 11, weight: "600" }
+          }
+        },
+        tooltip: {
+          backgroundColor: "rgba(23,33,43,.92)",
+          titleColor: "#fff",
+          bodyColor: "#fff",
+          cornerRadius: 8,
+          padding: 10,
+          displayColors: true,
+          titleFont: { size: 11, weight: "700" },
+          bodyFont: { size: 11 }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: "rgba(208,213,221,.35)", drawBorder: false },
+          ticks: { color: colors.muted, font: { size: 10, weight: "600" } }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(208,213,221,.35)", drawBorder: false },
+          ticks: { color: colors.muted, font: { size: 10, weight: "600" } }
+        }
+      }
+    }
+  };
+}
+
+function sectionDetailsMetricHtml(label, value, tone = ""){
+  const toneClass = tone ? ` is-${tone}` : "";
+  return `<div class="section-details-metric${toneClass}"><small>${escapeHtml(label)}</small><strong>${value}</strong></div>`;
+}
+
+function sectionDetailsMonthKey(dateStr){
+  const raw = String(dateStr || "").trim();
+  const match = raw.match(/^(\d{4})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}` : null;
+}
+
+function sectionDetailsMonthLabel(monthKey){
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) return String(monthKey || "");
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[Number(match[2]) - 1] || match[2]} ${match[1].slice(2)}`;
+}
+
+function sectionDetailsSortedMonthKeys(mapOrSet){
+  return [...mapOrSet].filter(Boolean).sort();
+}
+
+function sectionDetailsEnsureChartLib(){
+  return !!(window.Chart);
+}
+
+function createSectionDetailsChart(canvas, config){
+  if (!canvas || !sectionDetailsEnsureChartLib()) return null;
+  const chart = new window.Chart(canvas.getContext("2d"), config);
+  sectionDetailsChartInstances.push(chart);
+  return chart;
+}
+
+function isInventoryLowStockGroup(group){
+  return Number(group.remainingQty || 0) > 0.00000001
+    && Number(group.boughtQty || 0) > 0
+    && (Number(group.remainingQty || 0) / Number(group.boughtQty || 0)) <= 0.15;
+}
+
+function buildInventoryDetailsPayload(){
+  const goodsAll = getGoodsGroups({ applyUiFilters: false });
+  const inStock = goodsAll.filter(g => Number(g.remainingQty || 0) > 0.00000001 && !isInventoryLowStockGroup(g));
+  const lowStock = goodsAll.filter(isInventoryLowStockGroup);
+  const soldOut = goodsAll.filter(g => Number(g.remainingQty || 0) <= 0.00000001);
+  const profitGroups = goodsAll.filter(g => Number(g.profitLoss || 0) > 0);
+  const lossGroups = goodsAll.filter(g => Number(g.profitLoss || 0) < 0);
+  const stockValueTotals = inventoryOverviewTotals(goodsAll, g => Number(g.unitActualPrice || 0) * Number(g.remainingQty || 0));
+  const purchaseTotals = inventoryOverviewTotals(goodsAll, g => g.bought);
+  const salesTotals = inventoryOverviewTotals(goodsAll, g => g.soldTotal);
+  const paidTotals = inventoryOverviewTotals(goodsAll, g => g.paidTotal);
+  const balanceTotals = inventoryOverviewTotals(goodsAll, g => g.balanceTotal);
+  const profitTotals = inventoryOverviewTotals(profitGroups, g => Math.max(Number(g.profitLoss || 0), 0));
+  const lossTotals = inventoryOverviewTotals(lossGroups, g => Math.abs(Number(g.profitLoss || 0)));
+  const outstandingInvoices = collectOutstandingInventoryInvoices();
+  const outstandingBalance = new Map();
+  outstandingInvoices.forEach(invoice => {
+    invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(outstandingBalance, currency, amount));
+  });
+
+  const typeCounts = new Map();
+  goodsAll.forEach(g => {
+    const type = normalizeInventoryItemType(g.itemType);
+    typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+  });
+
+  const monthMap = new Map();
+  const bumpMonth = (key, field, amount) => {
+    if (!key || !(Number(amount) > 0)) return;
+    if (!monthMap.has(key)) monthMap.set(key, { purchase: 0, sales: 0, profit: 0 });
+    monthMap.get(key)[field] += Number(amount) || 0;
+  };
+  goodsAll.forEach(group => {
+    const purchaseDate = group.principal?.loan_date;
+    bumpMonth(sectionDetailsMonthKey(purchaseDate), "purchase", Number(group.principal?.principal_amount || 0));
+    (group.purchaseActions || []).forEach(row => {
+      bumpMonth(sectionDetailsMonthKey(row.action_date), "purchase", row.action_amount);
+    });
+    (group.actions || []).forEach(row => {
+      bumpMonth(sectionDetailsMonthKey(row.action_date), "sales", row.action_amount);
+    });
+    if (Number(group.profitLoss || 0) && group.latestSoldDate) {
+      bumpMonth(sectionDetailsMonthKey(group.latestSoldDate), "profit", Number(group.profitLoss || 0));
+    }
+  });
+
+  return {
+    goodsAll,
+    metrics: {
+      items: goodsAll.length,
+      stockQty: inventoryQtySummary(goodsAll, "remainingQty"),
+      stockValue: inventoryOverviewAmountText(stockValueTotals),
+      inStock: inStock.length,
+      lowStock: lowStock.length,
+      soldOut: soldOut.length,
+      purchaseTotal: inventoryOverviewAmountText(purchaseTotals),
+      salesTotal: inventoryOverviewAmountText(salesTotals),
+      paidTotal: inventoryOverviewAmountText(paidTotals),
+      profitTotal: inventoryOverviewAmountText(profitTotals),
+      lossTotal: inventoryOverviewAmountText(lossTotals),
+      outstanding: inventoryCurrencyTotalsText(outstandingBalance) || "0",
+      outstandingCount: outstandingInvoices.length
+    },
+    statusCounts: {
+      inStock: inStock.length,
+      lowStock: lowStock.length,
+      sold: soldOut.length
+    },
+    typeCounts,
+    monthMap
+  };
+}
+
+function buildExpenseDetailsPayload(){
+  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const currencies = sortCurrenciesList([...new Set(accounts.map(a => a.currency).filter(Boolean))]);
+  const byCurrency = currencies.map(currency => {
+    const s = summarizeExpenseByCurrency(currency);
+    return {
+      currency,
+      toppedUp: s.totalAmount,
+      spent: s.totalExpenses,
+      balance: s.availableBalance,
+      wallets: accounts.filter(a => a.currency === currency).length
+    };
+  });
+  const toppedUpText = byCurrency.length
+    ? byCurrency.map(row => formatReportAmount(row.toppedUp, row.currency)).join(" | ")
+    : "0";
+  const spentText = byCurrency.length
+    ? byCurrency.map(row => formatReportAmount(row.spent, row.currency)).join(" | ")
+    : "0";
+  const balanceText = byCurrency.length
+    ? byCurrency.map(row => formatReportAmount(row.balance, row.currency)).join(" | ")
+    : "0";
+
+  const walletSpend = accounts
+    .map(account => ({
+      name: account.person_name || "Wallet",
+      spent: Number(account.spentMoney || 0),
+      topped: Number(account.openingBalance || 0) + Number(account.addedMoney || 0),
+      currency: account.currency
+    }))
+    .filter(row => row.spent > 0 || row.topped > 0)
+    .sort((a, b) => b.spent - a.spent);
+
+  const monthMap = new Map();
+  accounts.forEach(account => {
+    (account.topups || []).forEach(row => {
+      const key = sectionDetailsMonthKey(row.action_date);
+      if (!key) return;
+      if (!monthMap.has(key)) monthMap.set(key, { spend: 0, topup: 0 });
+      monthMap.get(key).topup += Number(row.action_amount || 0);
+    });
+    (account.spends || []).forEach(row => {
+      const key = sectionDetailsMonthKey(row.action_date);
+      if (!key) return;
+      if (!monthMap.has(key)) monthMap.set(key, { spend: 0, topup: 0 });
+      monthMap.get(key).spend += Number(row.action_amount || 0);
+    });
+    const openKey = sectionDetailsMonthKey(account.principal?.loan_date);
+    if (openKey && Number(account.openingBalance || 0) > 0) {
+      if (!monthMap.has(openKey)) monthMap.set(openKey, { spend: 0, topup: 0 });
+      monthMap.get(openKey).topup += Number(account.openingBalance || 0);
+    }
+  });
+
+  return {
+    accounts,
+    metrics: {
+      wallets: accounts.length,
+      activeWallets: accounts.filter(a => a.status === "Open").length,
+      currencies: currencies.length || 0,
+      toppedUp: toppedUpText,
+      spent: spentText,
+      balance: balanceText
+    },
+    byCurrency,
+    walletSpend,
+    monthMap
+  };
+}
+
+function buildInstallmentDetailsPayload(){
+  const plans = getInstallmentPlanGroups();
+  const overdue = plans.filter(p =>
+    p.status === "Overdue" ||
+    (Number(p.schedule?.overdueCount || 0) > 0 && Number(p.remaining || 0) > 0.00000001)
+  );
+  const completed = plans.filter(p => Number(p.remaining || 0) <= 0.00000001);
+  const active = plans.filter(p =>
+    Number(p.remaining || 0) > 0.00000001 &&
+    !overdue.some(o => o.group_id === p.group_id)
+  );
+  const principalTotals = inventoryOverviewTotals(plans, p => p.principalTotal);
+  const paidTotals = inventoryOverviewTotals(plans, p => p.paidTotal);
+  const remainingTotals = inventoryOverviewTotals(plans, p => p.remaining);
+  const principalSum = plans.reduce((sum, p) => sum + Number(p.principalTotal || 0), 0);
+  const paidSum = plans.reduce((sum, p) => sum + Number(p.paidTotal || 0), 0);
+  const progressPct = principalSum > 0 ? Math.min(100, Math.round((paidSum / principalSum) * 100)) : 0;
+
+  const statusCounts = {
+    Open: 0,
+    Partial: 0,
+    Overdue: 0,
+    Closed: 0
+  };
+  plans.forEach(plan => {
+    if (Number(plan.remaining || 0) <= 0.00000001) {
+      statusCounts.Closed += 1;
+      return;
+    }
+    if (plan.status === "Overdue" || Number(plan.schedule?.overdueCount || 0) > 0) {
+      statusCounts.Overdue += 1;
+      return;
+    }
+    if (plan.status === "Partial" || Number(plan.paidTotal || 0) > 0) {
+      statusCounts.Partial += 1;
+      return;
+    }
+    statusCounts.Open += 1;
+  });
+
+  const monthMap = new Map();
+  plans.forEach(plan => {
+    (plan.payments || []).forEach(row => {
+      const key = sectionDetailsMonthKey(row.action_date);
+      if (!key) return;
+      if (!monthMap.has(key)) monthMap.set(key, 0);
+      monthMap.set(key, monthMap.get(key) + Number(row.action_amount || 0));
+    });
+  });
+
+  return {
+    plans,
+    metrics: {
+      plans: plans.length,
+      active: active.length,
+      overdue: overdue.length,
+      completed: completed.length,
+      principal: inventoryOverviewAmountText(principalTotals),
+      paid: inventoryOverviewAmountText(paidTotals),
+      remaining: inventoryOverviewAmountText(remainingTotals),
+      progressPct
+    },
+    statusCounts,
+    paidSum,
+    remainingSum: plans.reduce((sum, p) => sum + Number(p.remaining || 0), 0),
+    monthMap
+  };
+}
+
+function renderInventoryDetailsOverlay(){
+  const data = buildInventoryDetailsPayload();
+  const m = data.metrics;
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Items", escapeHtml(String(m.items)), "primary"),
+    sectionDetailsMetricHtml("In stock qty", escapeHtml(m.stockQty)),
+    sectionDetailsMetricHtml("Stock value", escapeHtml(m.stockValue)),
+    sectionDetailsMetricHtml("In stock", escapeHtml(String(m.inStock)), "success"),
+    sectionDetailsMetricHtml("Low stock", escapeHtml(String(m.lowStock)), "warning"),
+    sectionDetailsMetricHtml("Sold / out", escapeHtml(String(m.soldOut))),
+    sectionDetailsMetricHtml("Purchase total", escapeHtml(m.purchaseTotal)),
+    sectionDetailsMetricHtml("Sales total", escapeHtml(m.salesTotal)),
+    sectionDetailsMetricHtml("Profit", escapeHtml(m.profitTotal), "success"),
+    sectionDetailsMetricHtml("Loss", escapeHtml(m.lossTotal), "danger"),
+    sectionDetailsMetricHtml("Outstanding", escapeHtml(m.outstanding), m.outstandingCount ? "warning" : ""),
+    sectionDetailsMetricHtml("Open invoices", escapeHtml(String(m.outstandingCount)))
+  ].join("");
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Uses all inventory records (not list filters). Totals refresh from live stock, sales, and invoice data.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Stock status</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>Item type mix</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Purchase, sales &amp; profit over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart3"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  if (!data.goodsAll.length) {
+    els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No inventory records yet.</div>`);
+  }
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const statusLabels = ["In stock", "Low stock", "Sold / out"];
+  const statusValues = [data.statusCounts.inStock, data.statusCounts.lowStock, data.statusCounts.sold];
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart1"), {
+    type: "doughnut",
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusValues,
+        backgroundColor: [colors.success, colors.warning, colors.muted],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "62%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  const typeEntries = [...data.typeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart2"), {
+    type: "bar",
+    data: {
+      labels: typeEntries.map(([label]) => label),
+      datasets: [{
+        label: "Items",
+        data: typeEntries.map(([, count]) => count),
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        maxBarThickness: 28
+      }]
+    },
+    options: {
+      ...options,
+      plugins: { ...options.plugins, legend: { display: false } },
+      indexAxis: typeEntries.length > 4 ? "y" : "x"
+    }
+  });
+
+  const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart3"), {
+    type: "line",
+    data: {
+      labels: months.map(sectionDetailsMonthLabel),
+      datasets: [
+        {
+          label: "Purchases",
+          data: months.map(key => Number(data.monthMap.get(key)?.purchase || 0)),
+          borderColor: colors.primary,
+          backgroundColor: "rgba(36,87,214,.12)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2.5
+        },
+        {
+          label: "Sales",
+          data: months.map(key => Number(data.monthMap.get(key)?.sales || 0)),
+          borderColor: colors.success,
+          backgroundColor: "rgba(6,118,71,.10)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2.5
+        },
+        {
+          label: "Profit / loss",
+          data: months.map(key => Number(data.monthMap.get(key)?.profit || 0)),
+          borderColor: colors.warning,
+          backgroundColor: "transparent",
+          fill: false,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+          borderDash: [5, 4]
+        }
+      ]
+    },
+    options
+  });
+}
+
+function renderExpenseDetailsOverlay(){
+  const data = buildExpenseDetailsPayload();
+  const m = data.metrics;
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Wallets", escapeHtml(String(m.wallets)), "primary"),
+    sectionDetailsMetricHtml("Active wallets", escapeHtml(String(m.activeWallets)), "success"),
+    sectionDetailsMetricHtml("Currencies", escapeHtml(String(m.currencies))),
+    sectionDetailsMetricHtml("Topped up", escapeHtml(m.toppedUp)),
+    sectionDetailsMetricHtml("Spent", escapeHtml(m.spent), "warning"),
+    sectionDetailsMetricHtml("Wallet balances", escapeHtml(m.balance), "success")
+  ].join("");
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Uses all expense wallets and entries (not list filters or history date range). Totals match wallet overview logic.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Top-up vs spend by currency</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>Spend by wallet</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Spending &amp; top-ups over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart3"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  if (!data.accounts.length) {
+    els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No expense wallets yet.</div>`);
+  }
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const currencyLabels = data.byCurrency.map(row => row.currency);
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart1"), {
+    type: "bar",
+    data: {
+      labels: currencyLabels.length ? currencyLabels : ["—"],
+      datasets: [
+        {
+          label: "Topped up",
+          data: data.byCurrency.map(row => row.toppedUp),
+          backgroundColor: colors.primary,
+          borderRadius: 8,
+          maxBarThickness: 26
+        },
+        {
+          label: "Spent",
+          data: data.byCurrency.map(row => row.spent),
+          backgroundColor: colors.warning,
+          borderRadius: 8,
+          maxBarThickness: 26
+        }
+      ]
+    },
+    options
+  });
+
+  const topWallets = data.walletSpend.slice(0, 8);
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart2"), {
+    type: "doughnut",
+    data: {
+      labels: topWallets.length ? topWallets.map(w => w.name) : ["No spend"],
+      datasets: [{
+        data: topWallets.length ? topWallets.map(w => w.spent) : [1],
+        backgroundColor: topWallets.length
+          ? [colors.primary, colors.success, colors.warning, colors.danger, "#0f766e", "#4338ca", "#be185d", "#0369a1"]
+          : ["rgba(208,213,221,.55)"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "58%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart3"), {
+    type: "line",
+    data: {
+      labels: months.map(sectionDetailsMonthLabel),
+      datasets: [
+        {
+          label: "Spent",
+          data: months.map(key => Number(data.monthMap.get(key)?.spend || 0)),
+          borderColor: colors.warning,
+          backgroundColor: "rgba(181,71,8,.12)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          borderWidth: 2.5
+        },
+        {
+          label: "Topped up",
+          data: months.map(key => Number(data.monthMap.get(key)?.topup || 0)),
+          borderColor: colors.primary,
+          backgroundColor: "rgba(36,87,214,.10)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          borderWidth: 2.5
+        }
+      ]
+    },
+    options
+  });
+}
+
+function renderInstallmentDetailsOverlay(){
+  const data = buildInstallmentDetailsPayload();
+  const m = data.metrics;
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Plans", escapeHtml(String(m.plans)), "primary"),
+    sectionDetailsMetricHtml("Active", escapeHtml(String(m.active)), "success"),
+    sectionDetailsMetricHtml("Overdue", escapeHtml(String(m.overdue)), m.overdue ? "danger" : ""),
+    sectionDetailsMetricHtml("Completed", escapeHtml(String(m.completed))),
+    sectionDetailsMetricHtml("Principal", escapeHtml(m.principal)),
+    sectionDetailsMetricHtml("Paid", escapeHtml(m.paid), "success"),
+    sectionDetailsMetricHtml("Remaining", escapeHtml(m.remaining), "warning"),
+    sectionDetailsMetricHtml("Progress", escapeHtml(`${m.progressPct}%`), "primary")
+  ].join("");
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Uses all installment plans (not list filters). Progress and overdue counts come from live schedules and payments.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Status breakdown</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>Overall progress</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Payments over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart3"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  if (!data.plans.length) {
+    els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No installment plans yet.</div>`);
+  }
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const statusLabels = ["Open", "Partial", "Overdue", "Closed"];
+  const statusValues = statusLabels.map(label => Number(data.statusCounts[label] || 0));
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart1"), {
+    type: "doughnut",
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusValues,
+        backgroundColor: [colors.primary, colors.warning, colors.danger, colors.success],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "62%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart2"), {
+    type: "doughnut",
+    data: {
+      labels: ["Paid", "Remaining"],
+      datasets: [{
+        data: [Math.max(data.paidSum, 0), Math.max(data.remainingSum, 0)],
+        backgroundColor: [colors.success, "rgba(208,213,221,.75)"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "68%",
+      plugins: {
+        ...options.plugins,
+        legend: { ...options.plugins.legend, position: "bottom" },
+        tooltip: options.plugins.tooltip
+      },
+      scales: undefined
+    }
+  });
+
+  const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
+  createSectionDetailsChart(document.getElementById("sectionDetailsChart3"), {
+    type: "bar",
+    data: {
+      labels: months.map(sectionDetailsMonthLabel),
+      datasets: [{
+        label: "Payments",
+        data: months.map(key => Number(data.monthMap.get(key) || 0)),
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      ...options,
+      plugins: { ...options.plugins, legend: { display: false } }
+    }
+  });
+}
+
+function openSectionDetailsOverlay(section){
+  if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
+  const key = String(section || "").toLowerCase();
+  destroySectionDetailsCharts();
+
+  const titles = {
+    inventory: { title: "Inventory details", desc: "Live stock, sales, profit, and outstanding invoice summary." },
+    expenses: { title: "Expenses details", desc: "Live wallet top-ups, spending, and balances." },
+    installments: { title: "Installment details", desc: "Live plan progress, overdue status, and payment activity." }
+  };
+  const meta = titles[key] || { title: "Details", desc: "Summary and graphs from live section records." };
+  if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = meta.title;
+  if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = meta.desc;
+
+  if (!sectionDetailsEnsureChartLib()) {
+    els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
+  } else if (key === "inventory") {
+    renderInventoryDetailsOverlay();
+  } else if (key === "expenses") {
+    renderExpenseDetailsOverlay();
+  } else if (key === "installments") {
+    renderInstallmentDetailsOverlay();
+  } else {
+    els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Unknown section.</div>`;
+  }
+
+  els.sectionDetailsModal.classList.remove("hide");
+  els.sectionDetailsModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
 function closeModal(modalId){
   if (modalId === "btcWifQrScannerModal") {
     btcStopWifQrScanner();
   }
   if (modalId === "entryModal") {
     state.modalInstallment = false;
+  }
+  if (modalId === "sectionDetailsModal") {
+    destroySectionDetailsCharts();
   }
   const modal = document.getElementById(modalId);
   if (!modal) return;
@@ -18097,10 +18802,17 @@ window.addEventListener("resize", () => {
 });
 
   document.querySelectorAll("[data-close-modal]").forEach(btn => {
-    btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal));
+    btn.addEventListener("click", e => closeModal(e.target.dataset.closeModal || e.currentTarget.dataset.closeModal));
   });
 
-  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.installmentPlanModal, els.installmentEditModal, els.expenseModal].forEach(m => {
+  document.querySelectorAll(".sectionDetailsBtn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      openSectionDetailsOverlay(btn.dataset.sectionDetails);
+    });
+  });
+
+  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.installmentPlanModal, els.installmentEditModal, els.expenseModal, els.sectionDetailsModal].forEach(m => {
     if (!m) return;
     m.addEventListener("click", e => {
       if (e.target && e.target.matches(".modal-backdrop")) closeModal(m.id);
@@ -18118,6 +18830,7 @@ window.addEventListener("resize", () => {
       if (els.installmentPlanModal && !els.installmentPlanModal.classList.contains("hide")) closeModal("installmentPlanModal");
       if (els.installmentEditModal && !els.installmentEditModal.classList.contains("hide")) closeModal("installmentEditModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
+      if (els.sectionDetailsModal && !els.sectionDetailsModal.classList.contains("hide")) closeModal("sectionDetailsModal");
       if (els.btcWifQrScannerModal && !els.btcWifQrScannerModal.classList.contains("hide")) closeModal("btcWifQrScannerModal");
     }
   });
