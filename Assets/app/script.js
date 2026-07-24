@@ -4563,17 +4563,75 @@ function overviewWatermarkCurrency(currency){
 
 const DEFAULT_WALLET_LOGO_PATH = "Assets/logo/wallet_logos/triplem_default_wallet.png";
 
+/** Per-turn memo so one Expenses render (and nested logo lookups) rebuild accounts once. */
+let expenseAccountsSyncCache = null;
+let expenseAccountsSyncCacheGen = 0;
+
+function getExpenseAccountsSyncCache(){
+  if (!expenseAccountsSyncCache) {
+    const gen = ++expenseAccountsSyncCacheGen;
+    expenseAccountsSyncCache = { unfiltered: null, logoByName: null, gen };
+    queueMicrotask(() => {
+      if (expenseAccountsSyncCache && expenseAccountsSyncCache.gen === gen) {
+        expenseAccountsSyncCache = null;
+      }
+    });
+  }
+  return expenseAccountsSyncCache;
+}
+
+function invalidateExpenseAccountsSyncCache(){
+  expenseAccountsSyncCache = null;
+}
+
+function debounce(fn, waitMs = 180){
+  let timer = null;
+  const wrapped = (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, waitMs);
+  };
+  wrapped.cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  return wrapped;
+}
+
 function walletLogoFilePath(walletName){
   const safe = String(walletName || "Wallet").trim() || "Wallet";
   return `Assets/logo/wallet_logos/${escapeHtml(safe)}.png`;
 }
 
+function escapeLogoSrc(src){
+  const s = String(src ?? "");
+  // Skip full HTML escaping for large data/http URLs that cannot contain markup chars.
+  if ((s.startsWith("data:") || s.startsWith("https:") || s.startsWith("http:")) &&
+      s.indexOf('"') === -1 && s.indexOf("<") === -1 && s.indexOf("'") === -1) {
+    return s;
+  }
+  return escapeHtml(s);
+}
+
+function getWalletCustomLogoMap(){
+  const cache = getExpenseAccountsSyncCache();
+  if (cache.logoByName) return cache.logoByName;
+  const map = new Map();
+  for (const account of getExpenseAccounts({ applyUiFilters: false })) {
+    const name = String(account.person_name || "").trim().toLowerCase();
+    const logo = String(account.customLogoUrl || "").trim();
+    if (name && logo) map.set(name, logo);
+  }
+  cache.logoByName = map;
+  return map;
+}
+
 function customLogoForWalletName(walletName){
   const name = String(walletName || "").trim().toLowerCase();
   if (!name) return "";
-  const account = getExpenseAccounts({ applyUiFilters: false })
-    .find(a => String(a.person_name || "").trim().toLowerCase() === name);
-  return String(account?.customLogoUrl || "").trim();
+  return getWalletCustomLogoMap().get(name) || "";
 }
 
 function resolveWalletLogoSrc(walletName, customLogoUrl = ""){
@@ -4584,15 +4642,18 @@ function resolveWalletLogoSrc(walletName, customLogoUrl = ""){
 
 function walletLogoOnErrorHandler(){
   const fallback = DEFAULT_WALLET_LOGO_PATH.replace(/'/g, "\\'");
-  return `if(this.dataset.fallbackApplied==='1'){this.style.opacity='0.35';return;} this.dataset.fallbackApplied='1'; this.src='${fallback}';`;
+  // One fallback attempt only — never leave onerror attached after switching to default.
+  return `if(this.dataset.fallbackApplied==='1'){this.onerror=null;return;}this.dataset.fallbackApplied='1';this.onerror=null;this.src='${fallback}';`;
 }
 
 function overviewWatermarkWallet(walletName, currency, customLogoUrl = ""){
-  const logoPath = resolveWalletLogoSrc(walletName, customLogoUrl || customLogoForWalletName(walletName));
-  const uniqueId = `wallet-logo-${escapeHtml(walletName).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}`;
+  const resolvedCustom = customLogoUrl !== "" && customLogoUrl != null
+    ? customLogoUrl
+    : customLogoForWalletName(walletName);
+  const logoPath = resolveWalletLogoSrc(walletName, resolvedCustom);
   return `
     <div class="summary-watermark" aria-hidden="true">
-      <img id="${uniqueId}" src="${escapeHtml(logoPath)}" alt="${escapeHtml(walletName)} logo"
+      <img src="${escapeLogoSrc(logoPath)}" alt="${escapeHtml(walletName)} logo"
            style="width: 100%; height: 100%; object-fit: contain; opacity: 0.45;"
            onerror="${walletLogoOnErrorHandler()}">
     </div>
@@ -4602,12 +4663,12 @@ function overviewWatermarkWallet(walletName, currency, customLogoUrl = ""){
 function getWalletIconHtml(walletName, size = 20, customLogoUrl = null){
   const resolvedCustom = customLogoUrl != null ? customLogoUrl : customLogoForWalletName(walletName);
   const logoPath = resolveWalletLogoSrc(walletName, resolvedCustom);
-  const uniqueId = `wallet-icon-${escapeHtml(walletName).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}-${Math.random().toString(36).substr(2, 9)}`;
   return `
     <span class="wallet-icon-inline" style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;">
-      <img id="${uniqueId}" src="${escapeHtml(logoPath)}" alt="${escapeHtml(walletName)}"
+      <img src="${escapeLogoSrc(logoPath)}" alt="${escapeHtml(walletName)}"
            style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle;"
-           onerror="this.onerror=null; ${walletLogoOnErrorHandler()}">
+           loading="lazy" decoding="async"
+           onerror="${walletLogoOnErrorHandler()}">
     </span>
   `;
 }
@@ -4667,7 +4728,7 @@ function overviewWatermarkFloatingWalletLogos(accounts){
     const logoPath = resolveWalletLogoSrc(name, account.customLogoUrl || "");
     logos.push(`
       <span class="wallet-float-logo" style="${cssVars}; left:${left}%; top:${top}%; animation-name: wallet-fade-in, ${animName};">
-        <img src="${escapeHtml(logoPath)}" alt="" aria-hidden="true" loading="lazy" onerror="this.onerror=null; ${walletLogoOnErrorHandler()}"/>
+        <img src="${escapeLogoSrc(logoPath)}" alt="" aria-hidden="true" loading="lazy" decoding="async" onerror="${walletLogoOnErrorHandler()}"/>
       </span>
     `);
   }
@@ -5727,7 +5788,7 @@ function refreshExpenseBtcWallets(accounts, options = {}){
     if (!force && cache?.error && cache.fetchedAt && (Date.now() - cache.fetchedAt) < 120000) continue;
     targets.push({ address: account.btcAddress, networkKey: account.btcNetwork || "mainnet", key });
   }
-  if (!targets.length) return;
+  if (!targets.length) return false;
 
   for (const target of targets){
     expenseBtcSetCache(target.address, target.networkKey, {
@@ -5755,6 +5816,7 @@ function refreshExpenseBtcWallets(accounts, options = {}){
   })).then(() => {
     renderAll();
   });
+  return true;
 }
 
 function syncExpenseBtcAccountFields(form = els.expenseAccountForm){
@@ -9355,17 +9417,53 @@ function renderInventoryList(){
   }));
 }
 
-function getExpenseAccounts(options = {}){
-  const applyUiFilters = options.applyUiFilters !== false;
-  const groups = groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && hasExpenseAccountTag(e.notes)))
+function buildExpenseAccountSearchBlob(account){
+  const parts = [
+    account.person_name || "",
+    account.accountType || "",
+    account.btcAddress || "",
+    account.currency || "",
+    cleanExpenseNote(account.principal?.notes),
+    account.openingBalance,
+    account.addedMoney,
+    account.spentMoney,
+    account.balance
+  ];
+  for (const s of account.spends || []) {
+    const meta = s._expenseMeta || expenseMetaFromNotes(s.notes);
+    parts.push(
+      cleanExpenseNote(s.notes),
+      meta.itemName,
+      meta.expenseType,
+      meta.accountType,
+      s.action_amount,
+      s.currency
+    );
+  }
+  for (const t of account.topups || []) {
+    parts.push(cleanExpenseNote(t.notes), t.action_amount, t.currency);
+  }
+  return parts.join(" ").toLowerCase();
+}
+
+function buildExpenseAccountsUnfiltered(){
+  return groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && hasExpenseAccountTag(e.notes)))
     .map(group => {
       const principal = group.principal;
       const principalMeta = expenseMetaFromNotes(principal?.notes);
       const isBtcLive = String(principal?.currency || "").trim() === "BTC" && !!principalMeta.btcAddress;
       const btcNetwork = isBtcLive ? expenseBtcNetworkFromMeta(principalMeta) : "";
       const btcCache = isBtcLive ? expenseBtcGetCache(principalMeta.btcAddress, btcNetwork) : null;
-      const topups = isBtcLive ? [] : group.actions.filter(a => expenseMetaFromNotes(a.notes).rowType === "TOPUP");
-      const spends = isBtcLive ? [] : group.actions.filter(a => expenseMetaFromNotes(a.notes).rowType === "EXPENSE");
+      const topups = [];
+      const spends = [];
+      if (!isBtcLive) {
+        for (const action of group.actions || []) {
+          const meta = expenseMetaFromNotes(action.notes);
+          action._expenseMeta = meta;
+          if (meta.rowType === "TOPUP") topups.push(action);
+          else if (meta.rowType === "EXPENSE") spends.push(action);
+        }
+      }
       let openingBalance = Number(principal?.principal_amount || 0);
       let addedMoney = topups.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
       let spentMoney = spends.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
@@ -9379,7 +9477,7 @@ function getExpenseAccounts(options = {}){
       }
 
       const status = balance > 0 ? "Open" : "Closed";
-      return {
+      const account = {
         ...group,
         accountType: principalMeta.accountType || "Bank Account",
         btcAddress: principalMeta.btcAddress || "",
@@ -9397,46 +9495,26 @@ function getExpenseAccounts(options = {}){
         actions: isBtcLive ? [] : group.actions,
         chainTransactions: isBtcLive && btcCache && Array.isArray(btcCache.transactions) ? btcCache.transactions : []
       };
+      account.searchBlob = buildExpenseAccountSearchBlob(account);
+      return account;
     });
+}
 
+function getExpenseAccounts(options = {}){
+  const applyUiFilters = options.applyUiFilters !== false;
+  const cache = getExpenseAccountsSyncCache();
+  if (!cache.unfiltered) {
+    cache.unfiltered = buildExpenseAccountsUnfiltered();
+    cache.logoByName = null;
+  }
+  const groups = cache.unfiltered;
   if (!applyUiFilters) return groups;
 
-  const searchTerm = state.search.expenses;
+  const searchTerm = String(state.search.expenses || "").trim().toLowerCase();
   const status = state.statusFilter.expenses;
   const currency = state.currencyFilter.expenses || "All";
   return groups.filter(group => {
-    const spendParts = (group.spends || []).map(s => {
-      const meta = expenseMetaFromNotes(s.notes);
-      return [
-        cleanExpenseNote(s.notes),
-        meta.itemName,
-        meta.expenseType,
-        meta.accountType,
-        s.action_amount,
-        s.currency,
-        formatReportAmount(s.action_amount, s.currency)
-      ].join(" ");
-    }).join(" ");
-    const topupParts = (group.topups || []).map(t => [
-      cleanExpenseNote(t.notes),
-      t.action_amount,
-      t.currency,
-      formatReportAmount(t.action_amount, t.currency)
-    ].join(" ")).join(" ");
-    const blob = [
-      group.person_name || "",
-      group.accountType || "",
-      group.btcAddress || "",
-      group.currency || "",
-      cleanExpenseNote(group.principal?.notes),
-      group.openingBalance,
-      group.addedMoney,
-      group.spentMoney,
-      group.balance,
-      spendParts,
-      topupParts
-    ].join(" ");
-    if (searchTerm && !blob.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && !(group.searchBlob || "").includes(searchTerm)) return false;
     if (currency !== "All" && group.currency !== currency) return false;
     if (status === "Active") return group.status === "Open";
     if (status === "Closed") return group.status === "Closed";
@@ -9697,7 +9775,7 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
             <tr>
               <td>${escapeHtml(row.dateText)}</td>
               <td>
-                ${getWalletIconHtml(row.account.person_name || "Wallet", 16)} ${escapeHtml(row.account.person_name || "BTC Wallet")}
+                ${getWalletIconHtml(row.account.person_name || "Wallet", 16, row.account.customLogoUrl || "")} ${escapeHtml(row.account.person_name || "BTC Wallet")}
                 <span class="expense-wallet-address mono" title="${escapeHtml(row.account.btcAddress)}">${escapeHtml(row.account.btcAddress)}</span>
               </td>
               <td><span class="badge ${row.badgeClass}">${escapeHtml(row.type)}</span></td>
@@ -9733,7 +9811,7 @@ function renderExpenseBtcTransactionsSection(accounts, isOpen){
 function groupExpenseItems(spendAttached){
   const map = new Map();
   for (const { row, account } of spendAttached){
-    const meta = expenseMetaFromNotes(row.notes);
+    const meta = row._expenseMeta || expenseMetaFromNotes(row.notes);
     const nameRaw = String(meta.itemName || "").trim();
     if (!nameRaw) continue;
     const currency = account.currency || "AED";
@@ -9756,6 +9834,7 @@ function groupExpenseItems(spendAttached){
     g.total += gross;
     g.taxTotal += Number(tax.tax || 0);
     g.netTotal += Number(tax.net || 0);
+    const notes = cleanExpenseNote(row.notes);
     g.txs.push({
       id: row.id,
       date: row.action_date,
@@ -9767,11 +9846,18 @@ function groupExpenseItems(spendAttached){
       taxRate: Number(tax.rate || 0),
       taxMode: tax.mode,
       expenseType: meta.expenseType || "",
-      notes: cleanExpenseNote(row.notes)
+      notes
     });
   }
   for (const g of map.values()){
     g.txs.sort((a, b) => dateStamp(b.date) - dateStamp(a.date));
+    g.searchBlob = expenseSearchBlob(
+      g.displayName,
+      g.expenseType,
+      g.currency,
+      g.total,
+      g.txs.map(tx => [tx.wallet, tx.notes, tx.expenseType, tx.amount, tx.date])
+    );
   }
   return [...map.values()].sort((a, b) => b.total - a.total);
 }
@@ -9894,33 +9980,40 @@ function renderExpenseWalletBar(accounts){
   }
 
   host.innerHTML = blocks.join("");
+  ensureExpenseWalletBarDelegation();
+}
 
-  host.querySelectorAll("[data-legacy-fix-id]").forEach(btn => {
-    btn.addEventListener("click", e => {
+function ensureExpenseWalletBarDelegation(){
+  const host = els.expenseWalletFilters;
+  if (!host || host.dataset.delegated === "1") return;
+  host.dataset.delegated = "1";
+
+  host.addEventListener("click", async e => {
+    const legacyBtn = e.target.closest("[data-legacy-fix-id]");
+    if (legacyBtn && host.contains(legacyBtn)) {
       e.preventDefault();
       e.stopPropagation();
-      fixLegacyMetaEntry(btn.dataset.legacyFixId, btn.dataset.legacyFixGroup);
-    });
-  });
-
-  host.querySelectorAll('input[name="f_exp_wallet"]').forEach(inp => {
-    inp.addEventListener("change", () => {
-      state.expenseWalletFilter = inp.value;
-      renderExpensesList();
-    });
-  });
-
-  host.querySelectorAll(".expenseWalletQuick").forEach(btn => {
-    btn.addEventListener("click", async e => {
+      fixLegacyMetaEntry(legacyBtn.dataset.legacyFixId, legacyBtn.dataset.legacyFixGroup);
+      return;
+    }
+    const quick = e.target.closest(".expenseWalletQuick");
+    if (quick && host.contains(quick)) {
       e.preventDefault();
       e.stopPropagation();
-      const action = btn.dataset.action;
-      if (action === "pdf") await downloadExpenseAccountPDF(btn.dataset.groupId);
-      if (action === "topup") openExpenseModal("topup", btn.dataset.groupId);
-      if (action === "expense") openExpenseModal("expense", btn.dataset.groupId);
-      if (action === "edit-account") openEditModal(btn.dataset.entryId);
-      if (action === "delete-account") await deleteEntry(btn.dataset.entryId);
-    });
+      const action = quick.dataset.action;
+      if (action === "pdf") await downloadExpenseAccountPDF(quick.dataset.groupId);
+      if (action === "topup") openExpenseModal("topup", quick.dataset.groupId);
+      if (action === "expense") openExpenseModal("expense", quick.dataset.groupId);
+      if (action === "edit-account") openEditModal(quick.dataset.entryId);
+      if (action === "delete-account") await deleteEntry(quick.dataset.entryId);
+    }
+  });
+
+  host.addEventListener("change", e => {
+    const inp = e.target.closest('input[name="f_exp_wallet"]');
+    if (!inp || !host.contains(inp)) return;
+    state.expenseWalletFilter = inp.value;
+    renderExpensesList();
   });
 }
 
@@ -10459,23 +10552,22 @@ function filterExpensesBySearch(expenses, searchTerm){
 
   const term = searchTerm.toLowerCase().trim();
   return expenses.filter(expense => {
+    if (expense.searchBlob) return expense.searchBlob.includes(term);
+
     // For expense items (from groupExpenseItems)
     if (expense.displayName !== undefined) {
       const itemBlob = expenseSearchBlob(
         expense.displayName,
         expense.expenseType,
         expense.currency,
-        expense.total,
-        formatReportAmount(expense.total, expense.currency)
+        expense.total
       );
       if (itemBlob.includes(term)) return true;
       return !!(expense.txs && expense.txs.some(tx => expenseSearchBlob(
         tx.wallet,
         tx.notes,
-        cleanExpenseNote(tx.notes),
         tx.expenseType,
         tx.amount,
-        formatReportAmount(tx.amount, expense.currency),
         tx.taxAmount,
         tx.date
       ).includes(term)));
@@ -10488,9 +10580,7 @@ function filterExpensesBySearch(expenses, searchTerm){
         expense.toWallet,
         expense.fromAccountType,
         expense.toAccountType,
-        expense.notesExpense,
         cleanExpenseNote(expense.notesExpense),
-        expense.notesTopup,
         cleanExpenseNote(expense.notesTopup),
         expense.amtOut,
         expense.amtIn,
@@ -10505,24 +10595,20 @@ function filterExpensesBySearch(expenses, searchTerm){
     if (expense.person_name !== undefined) {
       return expenseSearchBlob(
         expense.person_name,
-        expense.notes,
         cleanExpenseNote(expense.notes),
         expense.accountType,
         expense.action_amount,
         expense.principal_amount,
         expense.currency,
-        formatReportAmount(expense.action_amount || expense.principal_amount, expense.currency),
         expense.isOpeningBalance ? "opening balance" : "top-up",
         expense.action_date,
         expense.loan_date
       ).includes(term);
     }
 
-    // Fallback: search in common fields (both raw and cleaned notes)
     return expenseSearchBlob(
       expense.displayName,
       expense.wallet,
-      expense.notes,
       cleanExpenseNote(expense.notes),
       expense.expenseType,
       expense.person_name,
@@ -10597,9 +10683,14 @@ function restoreExpenseDetailsOpenState(openDetails){
 function renderExpensesList(){
   const openExpenseDetails = getExpenseDetailsOpenState();
   let accountsForSections = getExpenseAccounts({ applyUiFilters: false });
-  refreshExpenseBtcWallets(accountsForSections);
-  accountsForSections = getExpenseAccounts({ applyUiFilters: false });
+  if (refreshExpenseBtcWallets(accountsForSections)) {
+    // BTC refresh may flip loading flags synchronously — rebuild once for this turn.
+    invalidateExpenseAccountsSyncCache();
+    accountsForSections = getExpenseAccounts({ applyUiFilters: false });
+  }
   const accounts = getExpenseAccounts();
+  const logoByName = getWalletCustomLogoMap();
+  const walletLogo = name => logoByName.get(String(name || "").trim().toLowerCase()) || "";
   const validIds = new Set(accounts.map(a => a.group_id));
   if (state.expenseWalletFilter !== "all" && !validIds.has(state.expenseWalletFilter)){
     state.expenseWalletFilter = "all";
@@ -10608,6 +10699,7 @@ function renderExpensesList(){
 
   if (!accounts.length){
     els.expensesList.innerHTML = `<div class="empty">No expense accounts found.</div>`;
+    ensureExpensesListDelegation();
     return;
   }
 
@@ -10671,7 +10763,7 @@ function renderExpensesList(){
                 ${txs.map(tx => `
                   <tr>
                     <td>${escapeHtml(displayDate(tx.action_date || tx.loan_date || "—"))}</td>
-                    <td>${getWalletIconHtml(tx.person_name || "Wallet", 16)} ${escapeHtml(tx.person_name || "—")} (${escapeHtml(tx.accountType || "")})</td>
+                    <td>${getWalletIconHtml(tx.person_name || "Wallet", 16, walletLogo(tx.person_name))} ${escapeHtml(tx.person_name || "—")} (${escapeHtml(tx.accountType || "")})</td>
                     <td><span class="badge green">${tx.isOpeningBalance ? "Opening Balance" : "Top-up"}</span></td>
                     <td style="color: var(--success);">${money(tx.action_amount, cur)}</td>
                     <td class="expense-item-detail-note">${escapeHtml(cleanExpenseNote(tx.notes))}</td>
@@ -10759,7 +10851,7 @@ function renderExpensesList(){
                     <tr>
                       <td>${escapeHtml(displayDate(r.date || "—"))}</td>
                       <td><span class="badge ${badgeCls}">${escapeHtml(r.kind)}</span></td>
-                      <td>${getWalletIconHtml(r.walletName || "Wallet", 16)} ${escapeHtml(r.walletLabel)}</td>
+                      <td>${getWalletIconHtml(r.walletName || "Wallet", 16, walletLogo(r.walletName))} ${escapeHtml(r.walletLabel)}</td>
                       <td>${escapeHtml(r.counterparty || "—")}</td>
                       <td style="${amountStyle}">${money(r.amount, cur)}</td>
                       <td>${escapeHtml(r.rateDisplay)}</td>
@@ -10832,7 +10924,7 @@ function renderExpensesList(){
                 ${item.txs.map(tx => `
                   <tr>
                     <td>${escapeHtml(displayDate(tx.date || "—"))}</td>
-                    <td>${getWalletIconHtml(tx.wallet || "Wallet", 16)} ${escapeHtml(tx.wallet || "—")}</td>
+                    <td>${getWalletIconHtml(tx.wallet || "Wallet", 16, walletLogo(tx.wallet))} ${escapeHtml(tx.wallet || "—")}</td>
                     <td>${escapeHtml(tx.expenseType || "—")}</td>
                     <td>${money(tx.amount, item.currency)}</td>
                     <td>${tx.taxAmount ? `${money(tx.taxAmount, item.currency)} (${escapeHtml(trimInventoryNumber(tx.taxRate, 2))}%)` : "-"}</td>
@@ -10861,95 +10953,128 @@ function renderExpensesList(){
   }
 
   restoreExpenseDetailsOpenState(openExpenseDetails);
+  ensureExpensesListDelegation();
+}
 
-  els.expensesList.querySelectorAll(".editRowBtn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
-  els.expensesList.querySelectorAll(".delRowBtn").forEach(btn => btn.addEventListener("click", () => deleteEntry(btn.dataset.id)));
-  // Add event listeners for expense action buttons
-  els.expensesList.querySelectorAll(".expenseActionBtn").forEach(btn => btn.addEventListener("click", async e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const action = btn.dataset.action;
-    const type = btn.dataset.type;
+function ensureExpensesListDelegation(){
+  if (!els.expensesList || els.expensesList.dataset.delegated === "1") return;
+  els.expensesList.dataset.delegated = "1";
 
-    if (action === "pdf-menu") {
-      const wrap = btn.closest(".expense-history-download-wrap");
-      const menu = wrap?.querySelector(".expense-history-pdf-menu");
-      if (!menu) return;
-      const willOpen = menu.classList.contains("hide");
-      closeExpenseHistoryPdfMenus();
-      if (willOpen) {
-        menu.classList.remove("hide");
-        btn.setAttribute("aria-expanded", "true");
-      }
+  els.expensesList.addEventListener("click", async e => {
+    const editBtn = e.target.closest(".editRowBtn");
+    if (editBtn && els.expensesList.contains(editBtn)) {
+      openEditModal(editBtn.dataset.id);
       return;
     }
-    
-    if (action === "pdf") {
-      closeExpenseHistoryPdfMenus();
-      if (type === "topups-by-currency"){
-        await downloadAllTopupsPDF(btn.dataset.currency);
-      } else if (type === "all-topups"){
-        await downloadAllTopupsPDF(null);
-      } else if (type === "transfers-by-currency"){
-        await downloadAllTransfersPDF(btn.dataset.currency);
-      } else if (type === "all-transfers"){
-        await downloadAllTransfersPDF(null);
-      } else if (type === "transactions-history"){
-        await downloadExpenseTransactionsHistoryPDF(btn.dataset.mode || "detailed");
-      }
+    const delBtn = e.target.closest(".delRowBtn");
+    if (delBtn && els.expensesList.contains(delBtn)) {
+      deleteEntry(delBtn.dataset.id);
+      return;
     }
-  }));
-  els.expensesList.querySelectorAll(".expense-history-pdf-option").forEach(btn => {
-    btn.addEventListener("click", async e => {
+
+    const historyOption = e.target.closest(".expense-history-pdf-option");
+    if (historyOption && els.expensesList.contains(historyOption)) {
       e.preventDefault();
       e.stopPropagation();
       closeExpenseHistoryPdfMenus();
-      if (btn.dataset.type === "transactions-history") {
-        await downloadExpenseTransactionsHistoryPDF(btn.dataset.mode || "detailed");
+      if (historyOption.dataset.type === "transactions-history") {
+        await downloadExpenseTransactionsHistoryPDF(historyOption.dataset.mode || "detailed");
       }
-    });
+      return;
+    }
+
+    const rangeBtn = e.target.closest(".expense-history-range-btn");
+    if (rangeBtn && els.expensesList.contains(rangeBtn)) {
+      e.preventDefault();
+      e.stopPropagation();
+      setExpenseHistoryRange(rangeBtn.dataset.expenseHistoryRange || "month", true);
+      return;
+    }
+
+    const customApply = e.target.closest(".expense-history-custom-apply");
+    if (customApply && els.expensesList.contains(customApply)) {
+      e.preventDefault();
+      const wrap = customApply.closest(".expense-history-custom");
+      const fromValue = String(wrap?.querySelector('[data-expense-history-date="from"]')?.value || "");
+      const toValue = String(wrap?.querySelector('[data-expense-history-date="to"]')?.value || "");
+      const completeDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
+      if (!completeDate(fromValue) || !completeDate(toValue)){
+        alert("Please enter both custom dates first.");
+        return;
+      }
+      state.expenseHistoryRange = "custom";
+      state.expenseHistoryCustomFrom = fromValue;
+      state.expenseHistoryCustomTo = toValue;
+      renderExpensesList();
+      const section = document.getElementById("transactionsHistorySection");
+      if (section) section.open = true;
+      return;
+    }
+
+    const statementBtn = e.target.closest(".expenseBtcStatementBtn");
+    if (statementBtn && els.expensesList.contains(statementBtn)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const groupId = statementBtn.dataset.groupId || "";
+      if (!groupId) {
+        alert("Select one BTC wallet to download its full statement.");
+        return;
+      }
+      await downloadExpenseBtcStatementPDF(groupId);
+      return;
+    }
+
+    const txPdfBtn = e.target.closest(".expenseBtcTxPdfBtn");
+    if (txPdfBtn && els.expensesList.contains(txPdfBtn)) {
+      e.preventDefault();
+      await downloadExpenseBtcTransactionReceiptPDF(txPdfBtn.dataset.groupId, txPdfBtn.dataset.txId);
+      return;
+    }
+
+    const txLinkBtn = e.target.closest(".expenseBtcTxBtn");
+    if (txLinkBtn && els.expensesList.contains(txLinkBtn)) {
+      e.preventDefault();
+      const url = txLinkBtn.dataset.url;
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const actionBtn = e.target.closest(".expenseActionBtn");
+    if (actionBtn && els.expensesList.contains(actionBtn)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = actionBtn.dataset.action;
+      const type = actionBtn.dataset.type;
+
+      if (action === "pdf-menu") {
+        const wrap = actionBtn.closest(".expense-history-download-wrap");
+        const menu = wrap?.querySelector(".expense-history-pdf-menu");
+        if (!menu) return;
+        const willOpen = menu.classList.contains("hide");
+        closeExpenseHistoryPdfMenus();
+        if (willOpen) {
+          menu.classList.remove("hide");
+          actionBtn.setAttribute("aria-expanded", "true");
+        }
+        return;
+      }
+
+      if (action === "pdf") {
+        closeExpenseHistoryPdfMenus();
+        if (type === "topups-by-currency"){
+          await downloadAllTopupsPDF(actionBtn.dataset.currency);
+        } else if (type === "all-topups"){
+          await downloadAllTopupsPDF(null);
+        } else if (type === "transfers-by-currency"){
+          await downloadAllTransfersPDF(actionBtn.dataset.currency);
+        } else if (type === "all-transfers"){
+          await downloadAllTransfersPDF(null);
+        } else if (type === "transactions-history"){
+          await downloadExpenseTransactionsHistoryPDF(actionBtn.dataset.mode || "detailed");
+        }
+      }
+    }
   });
-  els.expensesList.querySelectorAll(".expense-history-range-btn").forEach(btn => btn.addEventListener("click", e => {
-    e.preventDefault();
-    e.stopPropagation();
-    setExpenseHistoryRange(btn.dataset.expenseHistoryRange || "month", true);
-  }));
-  els.expensesList.querySelectorAll(".expense-history-custom-apply").forEach(btn => btn.addEventListener("click", e => {
-    e.preventDefault();
-    const wrap = btn.closest(".expense-history-custom");
-    const fromValue = String(wrap?.querySelector('[data-expense-history-date="from"]')?.value || "");
-    const toValue = String(wrap?.querySelector('[data-expense-history-date="to"]')?.value || "");
-    const completeDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
-    if (!completeDate(fromValue) || !completeDate(toValue)){
-      alert("Please enter both custom dates first.");
-      return;
-    }
-    state.expenseHistoryRange = "custom";
-    state.expenseHistoryCustomFrom = fromValue;
-    state.expenseHistoryCustomTo = toValue;
-    renderExpensesList();
-    const section = document.getElementById("transactionsHistorySection");
-    if (section) section.open = true;
-  }));
-  els.expensesList.querySelectorAll(".expenseBtcStatementBtn").forEach(btn => btn.addEventListener("click", async e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const groupId = btn.dataset.groupId || "";
-    if (!groupId) {
-      alert("Select one BTC wallet to download its full statement.");
-      return;
-    }
-    await downloadExpenseBtcStatementPDF(groupId);
-  }));
-  els.expensesList.querySelectorAll(".expenseBtcTxPdfBtn").forEach(btn => btn.addEventListener("click", async e => {
-    e.preventDefault();
-    await downloadExpenseBtcTransactionReceiptPDF(btn.dataset.groupId, btn.dataset.txId);
-  }));
-  els.expensesList.querySelectorAll(".expenseBtcTxBtn").forEach(btn => btn.addEventListener("click", e => {
-    e.preventDefault();
-    const url = btn.dataset.url;
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
-  }));
 }
 
 
@@ -11844,6 +11969,39 @@ function updateWalletsLayoutOnResize() {
   } else {
     // Mobile layout: original simple grid
     container.innerHTML = expenseSummaryCard + accounts.map(expenseOverviewWalletCardHtml).join("");
+  }
+}
+
+function renderSearchResults(key){
+  switch (key) {
+    case "expenses":
+      renderExpensesList();
+      renderExpenseOverviewWallets();
+      break;
+    case "goods":
+      renderInventoryList();
+      break;
+    case "installments":
+      renderInstallmentPlans();
+      break;
+    case "given":
+      renderLoanCards(els.givenList, "given", "given");
+      break;
+    case "received":
+      renderLoanCards(els.receivedList, "given", "received");
+      break;
+    case "taken":
+      renderLoanCards(els.takenList, "taken", "taken", {
+        groupFilter: group => !group.rows.some(row => hasInstallmentTag(row.note) || hasGoodsTag(row.note) || hasExpenseAccountTag(row.note)) && group.person_name !== "SYSTEM"
+      });
+      break;
+    case "returned":
+      renderLoanCards(els.returnedList, "taken", "returned", {
+        groupFilter: group => !group.rows.some(row => hasInstallmentTag(row.note) || hasGoodsTag(row.note) || hasExpenseAccountTag(row.note)) && group.person_name !== "SYSTEM"
+      });
+      break;
+    default:
+      renderAll();
   }
 }
 
@@ -17973,7 +18131,7 @@ window.addEventListener("resize", () => {
       if (!e.target.dataset.filter) return;
       const key = e.target.dataset.filter;
       state.statusFilter[key] = e.target.value;
-      renderAll();
+      renderSearchResults(key);
     });
   });
 
@@ -17986,7 +18144,7 @@ window.addEventListener("resize", () => {
       const filterKey = e.target.dataset.filter;
       if (!filterKey) return;
       state.statusFilter[filterKey] = e.target.value;
-      renderAll();
+      renderSearchResults(filterKey);
     });
   });
 
@@ -17998,7 +18156,7 @@ window.addEventListener("resize", () => {
       }
       const key = e.target.dataset.currencyFilter;
       state.currencyFilter[key] = e.target.value;
-      renderAll();
+      renderSearchResults(key);
     });
   });
 
@@ -18015,7 +18173,7 @@ window.addEventListener("resize", () => {
       const filterKey = e.target.dataset.currencyFilter;
       if (!filterKey) return;
       state.currencyFilter[filterKey] = e.target.value;
-      renderAll();
+      renderSearchResults(filterKey);
     });
   });
 
@@ -18525,9 +18683,12 @@ window.addEventListener("resize", () => {
   }
 
   [["searchGiven","given"],["searchReceived","received"],["searchTaken","taken"],["searchReturned","returned"],["searchInstallments","installments"],["searchGoods","goods"],["searchExpenses","expenses"]].forEach(([id,key]) => {
-    document.getElementById(id).addEventListener("input", e => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    const run = debounce(() => renderSearchResults(key), key === "expenses" ? 200 : 160);
+    input.addEventListener("input", e => {
       state.search[key] = e.target.value;
-      renderAll();
+      run();
     });
   });
 }
