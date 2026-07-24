@@ -4177,9 +4177,9 @@ function queueDatabaseInsert(rows, label = "Entry"){
             row.is_legacy_meta = false;
           }
         } catch (err) {
-          // Domain tables missing → fall back to ledger so the app keeps working
+          // Domain tables / columns missing → fall back to ledger so the app keeps working
           const msg = String(err?.message || err || "");
-          if (/does not exist|42P01|404|Not Found|Could not find the table/i.test(msg)) {
+          if (/does not exist|42P01|404|Not Found|Could not find the table|Could not find the .+ column|PGRST204/i.test(msg)) {
             row.data_origin = "ledger";
             row.is_legacy_meta = true;
             await supabase(CONFIG.table, {
@@ -4561,32 +4561,53 @@ function overviewWatermarkCurrency(currency){
   return `<div class="summary-watermark" aria-hidden="true">${currencySymbolHtml(currency)}</div>`;
 }
 
-function overviewWatermarkWallet(walletName, currency){
-  // Try to load wallet logo, fallback to currency symbol if logo doesn't exist
-  const logoPath = `Assets/logo/wallet_logos/${escapeHtml(walletName)}.png`;
+const DEFAULT_WALLET_LOGO_PATH = "Assets/logo/wallet_logos/triplem_default_wallet.png";
+
+function walletLogoFilePath(walletName){
+  const safe = String(walletName || "Wallet").trim() || "Wallet";
+  return `Assets/logo/wallet_logos/${escapeHtml(safe)}.png`;
+}
+
+function customLogoForWalletName(walletName){
+  const name = String(walletName || "").trim().toLowerCase();
+  if (!name) return "";
+  const account = getExpenseAccounts({ applyUiFilters: false })
+    .find(a => String(a.person_name || "").trim().toLowerCase() === name);
+  return String(account?.customLogoUrl || "").trim();
+}
+
+function resolveWalletLogoSrc(walletName, customLogoUrl = ""){
+  const custom = String(customLogoUrl || "").trim();
+  if (custom) return custom;
+  return walletLogoFilePath(walletName);
+}
+
+function walletLogoOnErrorHandler(){
+  const fallback = DEFAULT_WALLET_LOGO_PATH.replace(/'/g, "\\'");
+  return `if(this.dataset.fallbackApplied==='1'){this.style.opacity='0.35';return;} this.dataset.fallbackApplied='1'; this.src='${fallback}';`;
+}
+
+function overviewWatermarkWallet(walletName, currency, customLogoUrl = ""){
+  const logoPath = resolveWalletLogoSrc(walletName, customLogoUrl || customLogoForWalletName(walletName));
   const uniqueId = `wallet-logo-${escapeHtml(walletName).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}`;
   return `
     <div class="summary-watermark" aria-hidden="true">
-      <img id="${uniqueId}" src="${logoPath}" alt="${escapeHtml(walletName)} logo"
+      <img id="${uniqueId}" src="${escapeHtml(logoPath)}" alt="${escapeHtml(walletName)} logo"
            style="width: 100%; height: 100%; object-fit: contain; opacity: 0.45;"
-           onload="this.style.display='block'; document.getElementById('${uniqueId}-fallback').style.display='none';"
-           onerror="this.style.display='none'; document.getElementById('${uniqueId}-fallback').style.display='block';">
-      <div id="${uniqueId}-fallback" style="display:block; font-size:clamp(4.5rem, 28vw, 7.5rem); line-height:1; color:var(--text); opacity:.07; animation:summary-watermark-pulse 3.8s ease-in-out infinite;">${currencySymbolHtml(currency)}</div>
+           onerror="${walletLogoOnErrorHandler()}">
     </div>
   `;
 }
 
-function getWalletIconHtml(walletName, size = 20){
-  // Returns wallet icon HTML for inline use (small size)
-  const logoPath = `Assets/logo/wallet_logos/${escapeHtml(walletName)}.png`;
+function getWalletIconHtml(walletName, size = 20, customLogoUrl = null){
+  const resolvedCustom = customLogoUrl != null ? customLogoUrl : customLogoForWalletName(walletName);
+  const logoPath = resolveWalletLogoSrc(walletName, resolvedCustom);
   const uniqueId = `wallet-icon-${escapeHtml(walletName).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '')}-${Math.random().toString(36).substr(2, 9)}`;
   return `
     <span class="wallet-icon-inline" style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;">
-      <img id="${uniqueId}" src="${logoPath}" alt="${escapeHtml(walletName)}" 
+      <img id="${uniqueId}" src="${escapeHtml(logoPath)}" alt="${escapeHtml(walletName)}"
            style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle;"
-           onload="this.style.display='inline-block'; document.getElementById('${uniqueId}-fallback').style.display='none';"
-           onerror="this.style.display='none'; document.getElementById('${uniqueId}-fallback').style.display='inline-block';">
-      <span id="${uniqueId}-fallback" style="display:none;vertical-align:middle;font-size:${size * 0.8}px;">💼</span>
+           onerror="this.onerror=null; ${walletLogoOnErrorHandler()}">
     </span>
   `;
 }
@@ -4643,10 +4664,10 @@ function overviewWatermarkFloatingWalletLogos(accounts){
       `--s:${scale}`
     ].join(";");
     
-    const logoPath = `Assets/logo/wallet_logos/${escapeHtml(name)}.png`;
+    const logoPath = resolveWalletLogoSrc(name, account.customLogoUrl || "");
     logos.push(`
       <span class="wallet-float-logo" style="${cssVars}; left:${left}%; top:${top}%; animation-name: wallet-fade-in, ${animName};">
-        <img src="${logoPath}" alt="" aria-hidden="true" loading="lazy" onerror="this.parentElement.style.display='none'"/>
+        <img src="${escapeHtml(logoPath)}" alt="" aria-hidden="true" loading="lazy" onerror="this.onerror=null; ${walletLogoOnErrorHandler()}"/>
       </span>
     `);
   }
@@ -4690,10 +4711,10 @@ function expenseOverviewWalletCardHtml(a){
 
   return `
     <div class="summary currency-summary">
-      ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency)}
+      ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency, a.customLogoUrl || "")}
       <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
         ${currencySymbolHtml(a.currency)}
-        ${getWalletIconHtml(a.person_name || "Wallet", 24)}
+        ${getWalletIconHtml(a.person_name || "Wallet", 24, a.customLogoUrl || "")}
         <span style="font-size:.8rem;font-weight:750;line-height:1.2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(a.person_name || "Wallet")}</span>
       </div>
       ${addressLine}
@@ -5489,10 +5510,12 @@ function removeDeletedTag(noteValue){
   return noteValue.replace(DELETED_TAG, "").trim();
 }
 
+const EXPENSE_META_TAG_KEYS = "ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|CLOGO|VATP|VATR|VATM|VATA|NET|GROSS";
+
 function expenseMetaFromNotes(noteValue){
   const text = String(noteValue || "");
   const readText = key => {
-    const m = text.match(new RegExp(`\\[${key}:([^\\]]+)\\]`, "i"));
+    const m = text.match(new RegExp(`\\[${key}:([^\\]]*)\\]`, "i"));
     return m ? m[1] : "";
   };
   const readNum = key => {
@@ -5508,6 +5531,7 @@ function expenseMetaFromNotes(noteValue){
     expenseType: readText("XTYPE"),
     btcAddress: readText("BADDR"),
     btcNetwork: readText("BNET"),
+    customLogoUrl: readText("CLOGO"),
     taxApplied: readText("VATP") === "1",
     taxRate: readNum("VATR"),
     taxMode: readText("VATM"),
@@ -5521,7 +5545,7 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
   const tagValue = value => String(value || "").replace(/\]/g, "").trim();
   const base = String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
-    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]+\]/gi, "")
+    .replace(new RegExp(`\\[(${EXPENSE_META_TAG_KEYS}):[^\\]]*\\]`, "gi"), "")
     .replace(/\s{2,}/g, " ")
     .trim();
   const tags = [];
@@ -5531,6 +5555,7 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
   if (meta.expenseType) tags.push(`[XTYPE:${tagValue(meta.expenseType)}]`);
   if (meta.btcAddress) tags.push(`[BADDR:${tagValue(meta.btcAddress)}]`);
   if (meta.btcNetwork) tags.push(`[BNET:${tagValue(meta.btcNetwork)}]`);
+  if (meta.customLogoUrl) tags.push(`[CLOGO:${tagValue(meta.customLogoUrl)}]`);
   if (meta.taxApplied != null) tags.push(`[VATP:${meta.taxApplied ? 1 : 0}]`);
   if (meta.taxRate != null) tags.push(`[VATR:${normalizeTaxRate(meta.taxRate)}]`);
   if (meta.taxMode) tags.push(`[VATM:${normalizeTaxMode(meta.taxMode)}]`);
@@ -5544,10 +5569,15 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
 function cleanExpenseNote(noteValue){
   return String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
-    .replace(/\[(ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]+\]/gi, "")
+    .replace(new RegExp(`\\[(${EXPENSE_META_TAG_KEYS}):[^\\]]*\\]`, "gi"), "")
     .replace(/→/g, "->")
     .replace(/\s{2,}/g, " ")
     .trim() || "—";
+}
+
+function cleanExpenseNoteForEdit(noteValue){
+  const cleaned = cleanExpenseNote(noteValue);
+  return cleaned === "—" ? "" : cleaned;
 }
 
 function wrapTextForPdf(text, maxLength = 50){
@@ -9353,6 +9383,7 @@ function getExpenseAccounts(options = {}){
         ...group,
         accountType: principalMeta.accountType || "Bank Account",
         btcAddress: principalMeta.btcAddress || "",
+        customLogoUrl: principalMeta.customLogoUrl || "",
         btcNetwork,
         btcCache,
         isBtcLive,
@@ -9374,7 +9405,37 @@ function getExpenseAccounts(options = {}){
   const status = state.statusFilter.expenses;
   const currency = state.currencyFilter.expenses || "All";
   return groups.filter(group => {
-    const blob = `${group.person_name || ""} ${group.accountType || ""} ${group.btcAddress || ""} ${group.principal?.notes || ""} ${group.spends.map(s => expenseMetaFromNotes(s.notes).itemName).join(" ")} ${group.spends.map(s => expenseMetaFromNotes(s.notes).expenseType).join(" ")}`;
+    const spendParts = (group.spends || []).map(s => {
+      const meta = expenseMetaFromNotes(s.notes);
+      return [
+        cleanExpenseNote(s.notes),
+        meta.itemName,
+        meta.expenseType,
+        meta.accountType,
+        s.action_amount,
+        s.currency,
+        formatReportAmount(s.action_amount, s.currency)
+      ].join(" ");
+    }).join(" ");
+    const topupParts = (group.topups || []).map(t => [
+      cleanExpenseNote(t.notes),
+      t.action_amount,
+      t.currency,
+      formatReportAmount(t.action_amount, t.currency)
+    ].join(" ")).join(" ");
+    const blob = [
+      group.person_name || "",
+      group.accountType || "",
+      group.btcAddress || "",
+      group.currency || "",
+      cleanExpenseNote(group.principal?.notes),
+      group.openingBalance,
+      group.addedMoney,
+      group.spentMoney,
+      group.balance,
+      spendParts,
+      topupParts
+    ].join(" ");
     if (searchTerm && !blob.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     if (currency !== "All" && group.currency !== currency) return false;
     if (status === "Active") return group.status === "Open";
@@ -9809,7 +9870,7 @@ function renderExpenseWalletBar(accounts){
       <div class="expense-wallet-card-wrap">
         <input type="radio" id="${rid}" name="f_exp_wallet" value="${gid}" class="filter-radio expense-wallet-radio" ${ck}>
         <label for="${rid}" class="expense-wallet-card" data-group-id="${gid}">
-          <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18)} ${escapeHtml(a.person_name || "Wallet")} (${escapeHtml(formatReportAmount(titleAmount, a.currency))})</span>
+          <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18, a.customLogoUrl || "")} ${escapeHtml(a.person_name || "Wallet")} (${escapeHtml(formatReportAmount(titleAmount, a.currency))})</span>
           ${walletAddressLine}
           <span class="expense-wallet-sub">${escapeHtml(a.accountType || "")} · ${currencySymbolHtml(a.currency)}${isBtcLive ? " · Live blockchain" : ""}</span>
           <div class="expense-wallet-stats">
@@ -9953,6 +10014,8 @@ function openExpenseModal(mode, presetGroupId = ""){
     els.expenseAccountForm.reset();
     setCurrencyChoice(els.expenseAccountForm, state.lastCurrency || "AED");
     syncExpenseBtcAccountFields(els.expenseAccountForm);
+    bindExpenseAccountCustomLogoUi(els.expenseAccountForm);
+    syncExpenseAccountCustomLogoFields(els.expenseAccountForm);
     if (accountDate) accountDate.value = todayISO();
     defaultDateInputs(els.expenseAccountForm);
     if (accountDate && !accountDate.value) accountDate.value = todayISO();
@@ -9981,6 +10044,118 @@ function openExpenseModal(mode, presetGroupId = ""){
   }
 }
 
+async function uploadWalletLogoToStorage(userId, groupId, file){
+  if (!file) return "";
+  if (!String(file.type || "").startsWith("image/")) {
+    throw new Error("Wallet logo must be an image file (PNG, JPG, or WebP).");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("Wallet logo must be 2MB or smaller.");
+  }
+  const dbConfig = getSupabaseConfig();
+  const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+  const path = `${userId}/wallet-${groupId || "new"}-${Date.now()}.${ext}`;
+  const uploadUrl = `${dbConfig.supabaseUrl}/storage/v1/object/company-logos/${path}`;
+  const res = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      apikey: dbConfig.supabaseKey,
+      Authorization: `Bearer ${dbConfig.supabaseKey}`,
+      "Content-Type": file.type || "image/png",
+      "x-upsert": "true"
+    },
+    body: file
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Wallet logo upload failed (${res.status})`);
+  }
+  return `${dbConfig.supabaseUrl}/storage/v1/object/public/company-logos/${path}`;
+}
+
+function readFileAsDataUrl(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Could not read logo file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function compressWalletLogoDataUrl(file, maxSize = 128){
+  const raw = await readFileAsDataUrl(file);
+  if (!raw || typeof createImageBitmap !== "function") return raw;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height, 1));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return raw;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+    return canvas.toDataURL("image/png");
+  } catch {
+    return raw;
+  }
+}
+
+async function resolveWalletCustomLogoFromForm(form, groupId){
+  const useCustom = !!form.querySelector('[name="use_custom_logo"]')?.checked;
+  if (!useCustom) return "";
+  const file = form.querySelector('[name="custom_logo_file"]')?.files?.[0];
+  if (!file) throw new Error("Choose a logo image, or uncheck Use custom logo.");
+  const ownerId = state.sessionUser?.id || "";
+  if (!isGuestMode() && ownerId) {
+    try {
+      return await uploadWalletLogoToStorage(ownerId, groupId, file);
+    } catch (err) {
+      console.warn("Wallet logo storage upload failed; using embedded image.", err);
+    }
+  }
+  return compressWalletLogoDataUrl(file);
+}
+
+function syncExpenseAccountCustomLogoFields(form = els.expenseAccountForm){
+  if (!form) return;
+  const checkbox = form.querySelector('[name="use_custom_logo"]');
+  const field = form.querySelector("#expenseCustomLogoField");
+  const preview = form.querySelector("#expenseCustomLogoPreview");
+  const fileInput = form.querySelector('[name="custom_logo_file"]');
+  const enabled = !!checkbox?.checked;
+  if (field) field.classList.toggle("hide", !enabled);
+  if (!enabled) {
+    if (fileInput) fileInput.value = "";
+    if (preview) {
+      preview.src = "";
+      preview.classList.add("hide");
+    }
+  }
+}
+
+function bindExpenseAccountCustomLogoUi(form = els.expenseAccountForm){
+  if (!form || form.dataset.customLogoBound === "1") return;
+  form.dataset.customLogoBound = "1";
+  const checkbox = form.querySelector('[name="use_custom_logo"]');
+  const fileInput = form.querySelector('[name="custom_logo_file"]');
+  const preview = form.querySelector("#expenseCustomLogoPreview");
+  checkbox?.addEventListener("change", () => syncExpenseAccountCustomLogoFields(form));
+  fileInput?.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+    if (!file || !preview) return;
+    try {
+      preview.src = await compressWalletLogoDataUrl(file);
+      preview.classList.remove("hide");
+    } catch {
+      preview.src = "";
+      preview.classList.add("hide");
+    }
+  });
+}
+
 async function saveExpenseAccount(form){
   const fd = new FormData(form);
   const currency = String(fd.get("currency") || "AED").trim();
@@ -9988,6 +10163,7 @@ async function saveExpenseAccount(form){
   let openingBalance = Number(fd.get("opening_balance") || 0);
   let btcAddress = "";
   let btcNetwork = "";
+  const groupId = crypto.randomUUID();
 
   if (currency === "BTC") {
     btcAddress = String(fd.get("btc_address") || "").trim();
@@ -9999,8 +10175,10 @@ async function saveExpenseAccount(form){
     expenseBtcSetCache(btcAddress, btcNetwork, btcData);
   }
 
+  const customLogoUrl = await resolveWalletCustomLogoFromForm(form, groupId);
+
   const payload = {
-    group_id: crypto.randomUUID(),
+    group_id: groupId,
     direction: "taken",
     entry_kind: "principal",
     person_name: String(fd.get("account_name") || "").trim(),
@@ -10013,7 +10191,8 @@ async function saveExpenseAccount(form){
       accountType,
       rowType: "ACCOUNT",
       btcAddress,
-      btcNetwork
+      btcNetwork,
+      customLogoUrl
     })
   };
   if (!payload.person_name || !payload.currency || payload.principal_amount === "" || payload.principal_amount === null || payload.principal_amount === undefined || !payload.loan_date){
@@ -10263,48 +10442,95 @@ async function downloadExpenseBtcAccountPDF(account){
   await downloadExpenseBtcStatementPDF(account);
 }
 
+function expenseSearchBlob(...parts){
+  return parts
+    .flatMap(part => Array.isArray(part) ? part : [part])
+    .map(part => {
+      if (part == null) return "";
+      if (typeof part === "number" && Number.isFinite(part)) return String(part);
+      return String(part);
+    })
+    .join(" ")
+    .toLowerCase();
+}
+
 function filterExpensesBySearch(expenses, searchTerm){
   if (!searchTerm || searchTerm.trim() === "") return expenses;
-  
+
   const term = searchTerm.toLowerCase().trim();
   return expenses.filter(expense => {
     // For expense items (from groupExpenseItems)
     if (expense.displayName !== undefined) {
-      const itemMatch = (expense.displayName && expense.displayName.toLowerCase().includes(term)) ||
-                        (expense.expenseType && expense.expenseType.toLowerCase().includes(term));
-      // Also search in nested transactions (both raw and cleaned notes)
-      const txMatch = expense.txs && expense.txs.some(tx =>
-        (tx.wallet && tx.wallet.toLowerCase().includes(term)) ||
-        (tx.notes && (tx.notes.toLowerCase().includes(term) || cleanExpenseNote(tx.notes).toLowerCase().includes(term))) ||
-        (tx.expenseType && tx.expenseType.toLowerCase().includes(term))
+      const itemBlob = expenseSearchBlob(
+        expense.displayName,
+        expense.expenseType,
+        expense.currency,
+        expense.total,
+        formatReportAmount(expense.total, expense.currency)
       );
-      return itemMatch || txMatch;
+      if (itemBlob.includes(term)) return true;
+      return !!(expense.txs && expense.txs.some(tx => expenseSearchBlob(
+        tx.wallet,
+        tx.notes,
+        cleanExpenseNote(tx.notes),
+        tx.expenseType,
+        tx.amount,
+        formatReportAmount(tx.amount, expense.currency),
+        tx.taxAmount,
+        tx.date
+      ).includes(term)));
     }
-    
+
     // For transfer events (from buildTransferEvents)
     if (expense.fromWallet !== undefined) {
-      return (expense.fromWallet && expense.fromWallet.toLowerCase().includes(term)) ||
-             (expense.toWallet && expense.toWallet.toLowerCase().includes(term)) ||
-             (expense.fromAccountType && expense.fromAccountType.toLowerCase().includes(term)) ||
-             (expense.toAccountType && expense.toAccountType.toLowerCase().includes(term)) ||
-             (expense.notesExpense && (expense.notesExpense.toLowerCase().includes(term) || cleanExpenseNote(expense.notesExpense).toLowerCase().includes(term))) ||
-             (expense.notesTopup && (expense.notesTopup.toLowerCase().includes(term) || cleanExpenseNote(expense.notesTopup).toLowerCase().includes(term)));
+      return expenseSearchBlob(
+        expense.fromWallet,
+        expense.toWallet,
+        expense.fromAccountType,
+        expense.toAccountType,
+        expense.notesExpense,
+        cleanExpenseNote(expense.notesExpense),
+        expense.notesTopup,
+        cleanExpenseNote(expense.notesTopup),
+        expense.amtOut,
+        expense.amtIn,
+        expense.curOut,
+        expense.curIn,
+        expense.rate,
+        expense.date
+      ).includes(term);
     }
-    
+
     // For topup transactions (from collectTopupTransactionsFlat)
     if (expense.person_name !== undefined) {
-      return (expense.person_name && expense.person_name.toLowerCase().includes(term)) ||
-             (expense.notes && (expense.notes.toLowerCase().includes(term) || cleanExpenseNote(expense.notes).toLowerCase().includes(term))) ||
-             (expense.accountType && expense.accountType.toLowerCase().includes(term));
+      return expenseSearchBlob(
+        expense.person_name,
+        expense.notes,
+        cleanExpenseNote(expense.notes),
+        expense.accountType,
+        expense.action_amount,
+        expense.principal_amount,
+        expense.currency,
+        formatReportAmount(expense.action_amount || expense.principal_amount, expense.currency),
+        expense.isOpeningBalance ? "opening balance" : "top-up",
+        expense.action_date,
+        expense.loan_date
+      ).includes(term);
     }
-    
+
     // Fallback: search in common fields (both raw and cleaned notes)
-    return (expense.displayName && expense.displayName.toLowerCase().includes(term)) ||
-           (expense.wallet && expense.wallet.toLowerCase().includes(term)) ||
-           (expense.notes && (expense.notes.toLowerCase().includes(term) || cleanExpenseNote(expense.notes).toLowerCase().includes(term))) ||
-           (expense.expenseType && expense.expenseType.toLowerCase().includes(term)) ||
-           (expense.person_name && expense.person_name.toLowerCase().includes(term)) ||
-           (expense.accountType && expense.accountType.toLowerCase().includes(term));
+    return expenseSearchBlob(
+      expense.displayName,
+      expense.wallet,
+      expense.notes,
+      cleanExpenseNote(expense.notes),
+      expense.expenseType,
+      expense.person_name,
+      expense.accountType,
+      expense.amount,
+      expense.action_amount,
+      expense.currency
+    ).includes(term);
   });
 }
 
@@ -13011,11 +13237,21 @@ async function saveGoodsSold(form){
       })
     };
   });
-  saveEntriesImmediately(payloads, { label: "Sales invoice" });
+  const savedSaleRows = saveEntriesImmediately(payloads, { label: "Sales invoice" });
   if (walletId) {
     await createWalletEntryForInventory(walletId, receiptPaidTotal, soldDate, saleCurrency, "sale", { customerName, receiptNumber });
   }
   closeModal("goodsModal");
+  const primarySaleEntry = Array.isArray(savedSaleRows) ? savedSaleRows[0] : savedSaleRows;
+  showSalesInvoiceSuccessOverlay({
+    entryId: primarySaleEntry?.id || "",
+    invoiceNumber,
+    receiptNumber,
+    customerName,
+    totalText: singleCurrencyReceipt
+      ? moneyText(receiptTotal, saleCurrency)
+      : `${preparedLines.length} line(s)`
+  });
 }
 
 function addInventorySettlementPayloads(payloads, receiptData, remainingSettlement, settlementDate, settlementNotes, settlementId, paymentReceiptNumber = ""){
@@ -13272,7 +13508,9 @@ function openEditModal(id) {
     document.getElementById('editDateLabel').textContent = "Payment Date";
     document.getElementById('editDate').value = entry.action_date || "";
   }
-  document.getElementById('editNotes').value = entry.notes || "";
+  document.getElementById('editNotes').value = hasExpenseAccountTag(entry.notes)
+    ? cleanExpenseNoteForEdit(entry.notes)
+    : (entry.notes || "");
   syncEditTaxControls(entry);
 
   els.editModal.classList.remove("hide");
@@ -16519,6 +16757,89 @@ function closeMoneyAddedSuccessOverlay() {
   els.moneyAddedSuccessOverlay.classList.add('hide');
   els.moneyAddedSuccessOverlay.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
+}
+
+function ensureSalesInvoiceSuccessOverlay(){
+  let overlay = document.getElementById("salesInvoiceSuccessOverlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "salesInvoiceSuccessOverlay";
+  overlay.className = "transfer-success-overlay sales-invoice-success-overlay hide";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.innerHTML = `
+    <div class="transfer-success-backdrop" data-sales-invoice-close></div>
+    <div class="transfer-success-content sales-invoice-success-content" role="dialog" aria-modal="true" aria-labelledby="salesInvoiceSuccessTitle">
+      <div class="transfer-success-icon sales-invoice-success-mark" aria-hidden="true">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div class="transfer-success-message">
+        <h3 id="salesInvoiceSuccessTitle">Invoice saved</h3>
+        <p class="sales-invoice-success-sub">Your sales invoice / receipt is ready.</p>
+        <div class="transfer-details sales-invoice-success-details">
+          <div class="transfer-amount" id="salesInvoiceSuccessTotal">—</div>
+          <div class="sales-invoice-success-meta">
+            <span id="salesInvoiceSuccessNumber">Invoice —</span>
+            <span id="salesInvoiceSuccessCustomer">Customer —</span>
+          </div>
+        </div>
+      </div>
+      <div class="transfer-success-actions sales-invoice-success-actions">
+        <button type="button" class="btn primary" id="salesInvoiceSuccessPdfBtn">
+          <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Download PDF
+        </button>
+        <button type="button" class="btn ghost" data-sales-invoice-close>Done</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll("[data-sales-invoice-close]").forEach(el => {
+    el.addEventListener("click", () => closeSalesInvoiceSuccessOverlay());
+  });
+  overlay.querySelector("#salesInvoiceSuccessPdfBtn")?.addEventListener("click", async () => {
+    const entryId = overlay.dataset.entryId || "";
+    if (!entryId) {
+      alert("Invoice was saved, but the PDF entry could not be found. Open the customer invoice list to download it.");
+      return;
+    }
+    try {
+      await downloadInventoryReceiptPDF(entryId);
+    } catch (err) {
+      alert(err.message || "Could not download invoice PDF.");
+    }
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !overlay.classList.contains("hide")) {
+      closeSalesInvoiceSuccessOverlay();
+    }
+  });
+  return overlay;
+}
+
+function showSalesInvoiceSuccessOverlay(details = {}){
+  const overlay = ensureSalesInvoiceSuccessOverlay();
+  const invoiceNumber = String(details.invoiceNumber || details.receiptNumber || "").trim() || "—";
+  const customerName = String(details.customerName || "").trim() || "Customer";
+  const totalText = String(details.totalText || "").trim() || "—";
+  overlay.dataset.entryId = String(details.entryId || "").trim();
+  const totalEl = overlay.querySelector("#salesInvoiceSuccessTotal");
+  const numberEl = overlay.querySelector("#salesInvoiceSuccessNumber");
+  const customerEl = overlay.querySelector("#salesInvoiceSuccessCustomer");
+  if (totalEl) totalEl.textContent = totalText;
+  if (numberEl) numberEl.textContent = `Invoice ${invoiceNumber}`;
+  if (customerEl) customerEl.textContent = customerName;
+  overlay.classList.remove("hide");
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  overlay.querySelector("#salesInvoiceSuccessPdfBtn")?.focus();
+}
+
+function closeSalesInvoiceSuccessOverlay(){
+  const overlay = document.getElementById("salesInvoiceSuccessOverlay");
+  if (!overlay) return;
+  overlay.classList.add("hide");
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.dataset.entryId = "";
+  document.body.style.overflow = "";
 }
 
 function closeBtcTransactionSuccessOverlay() {
