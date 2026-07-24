@@ -4672,7 +4672,7 @@ function expenseOverviewWalletCardHtml(a){
       `;
 
   return `
-    <div class="summary currency-summary">
+    <div class="summary currency-summary wallet-details-card" data-wallet-details="${escapeHtml(a.group_id)}" role="button" tabindex="0" title="View wallet details">
       ${overviewWatermarkWallet(a.person_name || "Wallet", a.currency, a.customLogoUrl || "")}
       <div class="currency-head" style="font-size:1.1rem;gap:6px;justify-content:flex-start;">
         ${currencySymbolHtml(a.currency)}
@@ -9808,11 +9808,13 @@ function renderExpenseWalletBar(accounts){
       : "";
     const walletActions = isBtcLive
       ? `
+          <button type="button" class="expenseWalletQuick" data-action="details" data-group-id="${gid}">Details</button>
           <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
           <button type="button" class="expenseWalletQuick" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Edit</button>
           <button type="button" class="expenseWalletQuick danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Delete</button>
         `
       : `
+          <button type="button" class="expenseWalletQuick" data-action="details" data-group-id="${gid}">Details</button>
           <button type="button" class="expenseWalletQuick" data-action="topup" data-group-id="${gid}">Add money</button>
           <button type="button" class="expenseWalletQuick" data-action="expense" data-group-id="${gid}">Add expense</button>
           <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
@@ -9861,7 +9863,7 @@ function renderExpenseWalletBar(accounts){
     blocks.push(`
       <div class="expense-wallet-card-wrap">
         <input type="radio" id="${rid}" name="f_exp_wallet" value="${gid}" class="filter-radio expense-wallet-radio" ${ck}>
-        <label for="${rid}" class="expense-wallet-card" data-group-id="${gid}">
+        <label for="${rid}" class="expense-wallet-card wallet-details-card" data-group-id="${gid}" data-wallet-details="${gid}" title="View wallet details">
           <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18, a.customLogoUrl || "")} ${escapeHtml(a.person_name || "Wallet")} (${escapeHtml(formatReportAmount(titleAmount, a.currency))})</span>
           ${walletAddressLine}
           <span class="expense-wallet-sub">${escapeHtml(a.accountType || "")} · ${currencySymbolHtml(a.currency)}${isBtcLive ? " · Live blockchain" : ""}</span>
@@ -9907,11 +9909,18 @@ function ensureExpenseWalletBarDelegation(){
       e.preventDefault();
       e.stopPropagation();
       const action = quick.dataset.action;
+      if (action === "details") openWalletDetailsOverlay(quick.dataset.groupId);
       if (action === "pdf") await downloadExpenseAccountPDF(quick.dataset.groupId);
       if (action === "topup") openExpenseModal("topup", quick.dataset.groupId);
       if (action === "expense") openExpenseModal("expense", quick.dataset.groupId);
       if (action === "edit-account") openEditModal(quick.dataset.entryId);
       if (action === "delete-account") await deleteEntry(quick.dataset.entryId);
+      return;
+    }
+    const card = e.target.closest(".expense-wallet-card[data-wallet-details]");
+    if (card && host.contains(card)) {
+      const groupId = card.dataset.walletDetails || card.dataset.groupId;
+      if (groupId) openWalletDetailsOverlay(groupId);
     }
   });
 
@@ -11797,6 +11806,34 @@ function renderExpenseOverviewWallets(){
     // Mobile layout: original simple grid
     container.innerHTML = expenseSummaryCard + accounts.map(expenseOverviewWalletCardHtml).join("");
   }
+  ensureExpenseOverviewWalletDelegation();
+}
+
+function ensureExpenseOverviewWalletDelegation(){
+  const container = document.getElementById("expenseOverviewWallets");
+  if (!container || container.dataset.walletDetailsDelegated === "1") return;
+  container.dataset.walletDetailsDelegated = "1";
+
+  const openFromCard = (card) => {
+    const groupId = card?.dataset?.walletDetails;
+    if (groupId) openWalletDetailsOverlay(groupId);
+  };
+
+  container.addEventListener("click", e => {
+    if (e.target.closest("button, a, input, select, textarea, .overview-card-actions")) return;
+    const card = e.target.closest("[data-wallet-details]");
+    if (!card || !container.contains(card)) return;
+    openFromCard(card);
+  });
+
+  container.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.target.closest("button, a, input, select, textarea, .overview-card-actions")) return;
+    const card = e.target.closest("[data-wallet-details]");
+    if (!card || !container.contains(card)) return;
+    e.preventDefault();
+    openFromCard(card);
+  });
 }
 
 // Function to update wallets layout on window resize
@@ -11880,6 +11917,7 @@ function updateWalletsLayoutOnResize() {
     // Mobile layout: original simple grid
     container.innerHTML = expenseSummaryCard + accounts.map(expenseOverviewWalletCardHtml).join("");
   }
+  ensureExpenseOverviewWalletDelegation();
 }
 
 function renderSearchResults(key){
@@ -14557,6 +14595,356 @@ function renderInstallmentDetailsOverlay(){
       plugins: { ...options.plugins, legend: { display: false } }
     }
   });
+}
+
+function isWalletTransferTopup(row){
+  return /Transfer from\s+/i.test(String(row?.notes || ""));
+}
+
+function isWalletTransferSpend(row){
+  return expenseMetaFromNotes(row?.notes).expenseType === "Transfer";
+}
+
+function buildWalletDetailsPayload(groupId){
+  const accounts = getExpenseAccounts({ applyUiFilters: false });
+  const account = accounts.find(a => a.group_id === groupId);
+  if (!account) return null;
+
+  const currency = account.currency || "";
+  const isBtcLive = currency === "BTC";
+  const opening = Number(account.openingBalance || 0);
+  const topups = account.topups || [];
+  const spends = account.spends || [];
+
+  let pureTopup = opening;
+  let transferIn = 0;
+  let pureSpend = 0;
+  let transferOut = 0;
+  const monthMap = new Map();
+  const bumpMonth = (key, field, amount) => {
+    if (!key || !(Number(amount) > 0)) return;
+    if (!monthMap.has(key)) monthMap.set(key, { topup: 0, spend: 0, transferIn: 0, transferOut: 0 });
+    monthMap.get(key)[field] += Number(amount) || 0;
+  };
+
+  const flowEvents = [];
+  if (opening > 0) {
+    const openDate = account.principal?.loan_date || account.loan_date || "";
+    flowEvents.push({
+      date: openDate,
+      stamp: dateStamp(openDate),
+      kind: "opening",
+      label: "Opening balance",
+      amount: opening,
+      delta: opening,
+      note: cleanExpenseNote(account.principal?.notes)
+    });
+    bumpMonth(sectionDetailsMonthKey(openDate), "topup", opening);
+  }
+
+  topups.forEach(row => {
+    const amount = Number(row.action_amount || 0);
+    const isTransfer = isWalletTransferTopup(row);
+    if (isTransfer) transferIn += amount;
+    else pureTopup += amount;
+    bumpMonth(sectionDetailsMonthKey(row.action_date), isTransfer ? "transferIn" : "topup", amount);
+    flowEvents.push({
+      date: row.action_date,
+      stamp: dateStamp(row.action_date),
+      kind: isTransfer ? "transfer-in" : "topup",
+      label: isTransfer ? "Transfer in" : (isBtcLive ? "Received" : "Top-up"),
+      amount,
+      delta: amount,
+      note: cleanExpenseNote(row.notes)
+    });
+  });
+
+  spends.forEach(row => {
+    const amount = Number(row.action_amount || 0);
+    const isTransfer = isWalletTransferSpend(row);
+    if (isTransfer) transferOut += amount;
+    else pureSpend += amount;
+    bumpMonth(sectionDetailsMonthKey(row.action_date), isTransfer ? "transferOut" : "spend", amount);
+    const item = expenseMetaFromNotes(row.notes).itemName;
+    flowEvents.push({
+      date: row.action_date,
+      stamp: dateStamp(row.action_date),
+      kind: isTransfer ? "transfer-out" : "spend",
+      label: isTransfer ? "Transfer out" : (item || (isBtcLive ? "Sent" : "Expense")),
+      amount,
+      delta: -amount,
+      note: cleanExpenseNote(row.notes)
+    });
+  });
+
+  flowEvents.sort((a, b) => (a.stamp - b.stamp) || String(a.kind).localeCompare(String(b.kind)));
+  let running = 0;
+  const balancePoints = [];
+  flowEvents.forEach(ev => {
+    running += Number(ev.delta || 0);
+    balancePoints.push({
+      date: ev.date,
+      label: displayDate(ev.date),
+      balance: running,
+      kind: ev.kind
+    });
+  });
+
+  const monthKeys = sectionDetailsSortedMonthKeys(monthMap.keys());
+  const monthEndBalance = [];
+  let monthRunning = 0;
+  monthKeys.forEach(key => {
+    const row = monthMap.get(key) || { topup: 0, spend: 0, transferIn: 0, transferOut: 0 };
+    monthRunning += Number(row.topup || 0) + Number(row.transferIn || 0) - Number(row.spend || 0) - Number(row.transferOut || 0);
+    monthEndBalance.push(monthRunning);
+  });
+
+  const recent = flowEvents
+    .slice()
+    .sort((a, b) => (b.stamp - a.stamp) || String(b.kind).localeCompare(String(a.kind)))
+    .slice(0, 8);
+
+  const totalTopup = opening + Number(account.addedMoney || 0);
+  const totalSpend = Number(account.spentMoney || 0);
+
+  return {
+    account,
+    currency,
+    isBtcLive,
+    metrics: {
+      balance: Number(account.balance || 0),
+      toppedUp: totalTopup,
+      spent: totalSpend,
+      pureTopup,
+      pureSpend,
+      transferIn,
+      transferOut,
+      status: account.status || (Number(account.balance || 0) > 0 ? "Open" : "Closed"),
+      accountType: account.accountType || "",
+      topupCount: topups.length + (opening > 0 ? 1 : 0),
+      spendCount: spends.length,
+      transferCount: flowEvents.filter(ev => ev.kind === "transfer-in" || ev.kind === "transfer-out").length
+    },
+    monthMap,
+    monthKeys,
+    monthEndBalance,
+    balancePoints,
+    recent,
+    composition: {
+      topup: Math.max(pureTopup, 0),
+      spend: Math.max(pureSpend, 0),
+      transferIn: Math.max(transferIn, 0),
+      transferOut: Math.max(transferOut, 0)
+    }
+  };
+}
+
+function walletDetailsActivityHtml(data){
+  if (!data.recent.length) {
+    return `<div class="section-details-empty">No wallet activity yet.</div>`;
+  }
+  const currency = data.currency;
+  const rows = data.recent.map(ev => {
+    const tone = ev.delta >= 0 ? "is-in" : "is-out";
+    const sign = ev.delta >= 0 ? "+" : "−";
+    return `
+      <div class="section-details-activity-row ${tone}">
+        <div class="section-details-activity-main">
+          <strong>${escapeHtml(ev.label)}</strong>
+          <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(ev.note || "—")}</span>
+        </div>
+        <div class="section-details-activity-amt">${sign}${escapeHtml(formatReportAmount(Math.abs(ev.amount), currency))}</div>
+      </div>
+    `;
+  }).join("");
+  return `<div class="section-details-activity">${rows}</div>`;
+}
+
+function renderWalletDetailsOverlay(groupId){
+  const data = buildWalletDetailsPayload(groupId);
+  if (!data || !els.sectionDetailsBody) {
+    if (els.sectionDetailsBody) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Wallet not found.</div>`;
+    }
+    return;
+  }
+
+  const m = data.metrics;
+  const cur = data.currency;
+  const inLabel = data.isBtcLive ? "Received" : "Topped up";
+  const outLabel = data.isBtcLive ? "Sent" : "Spent";
+  const metricsHtml = [
+    sectionDetailsMetricHtml("Balance", escapeHtml(formatReportAmount(m.balance, cur)), "success"),
+    sectionDetailsMetricHtml(inLabel, escapeHtml(formatReportAmount(m.toppedUp, cur)), "primary"),
+    sectionDetailsMetricHtml(outLabel, escapeHtml(formatReportAmount(m.spent, cur)), "warning"),
+    sectionDetailsMetricHtml("Transfers in", escapeHtml(formatReportAmount(m.transferIn, cur)), "success"),
+    sectionDetailsMetricHtml("Transfers out", escapeHtml(formatReportAmount(m.transferOut, cur)), "danger"),
+    sectionDetailsMetricHtml("Status", escapeHtml(m.status), m.status === "Open" ? "success" : ""),
+    sectionDetailsMetricHtml("Currency", escapeHtml(cur || "—")),
+    sectionDetailsMetricHtml("Type", escapeHtml(m.accountType || "—")),
+    sectionDetailsMetricHtml("Movements", escapeHtml(String(m.topupCount + m.spendCount)))
+  ].join("");
+
+  els.sectionDetailsBody.innerHTML = `
+    <p class="section-details-note">Live records for this wallet only (all dates). Charts cover top-ups, spending, transfers, and balance flow.</p>
+    <div class="section-details-metrics">${metricsHtml}</div>
+    <div class="section-details-charts">
+      <div class="section-details-chart-card">
+        <h4>Money mix</h4>
+        <div class="section-details-chart-wrap"><canvas id="walletDetailsChart1"></canvas></div>
+      </div>
+      <div class="section-details-chart-card">
+        <h4>Inflows vs outflows</h4>
+        <div class="section-details-chart-wrap"><canvas id="walletDetailsChart2"></canvas></div>
+      </div>
+      <div class="section-details-chart-card is-wide">
+        <h4>Balance over time</h4>
+        <div class="section-details-chart-wrap"><canvas id="walletDetailsChart3"></canvas></div>
+      </div>
+    </div>
+    <div class="section-details-chart-card section-details-activity-card">
+      <h4>Recent activity</h4>
+      ${walletDetailsActivityHtml(data)}
+    </div>
+  `;
+
+  const { colors, options } = sectionDetailsChartDefaults();
+  const mixLabels = data.isBtcLive
+    ? ["Received", "Sent", "Transfers in", "Transfers out"]
+    : ["Top-ups", "Spending", "Transfers in", "Transfers out"];
+  const mixValues = [
+    data.composition.topup,
+    data.composition.spend,
+    data.composition.transferIn,
+    data.composition.transferOut
+  ];
+  const mixTotal = mixValues.reduce((sum, n) => sum + Number(n || 0), 0);
+  createSectionDetailsChart(document.getElementById("walletDetailsChart1"), {
+    type: "doughnut",
+    data: {
+      labels: mixTotal > 0 ? mixLabels : ["No activity"],
+      datasets: [{
+        data: mixTotal > 0 ? mixValues : [1],
+        backgroundColor: mixTotal > 0
+          ? [colors.primary, colors.warning, colors.success, colors.danger]
+          : ["rgba(208,213,221,.55)"],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      ...options,
+      cutout: "60%",
+      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
+      scales: undefined
+    }
+  });
+
+  const months = data.monthKeys;
+  createSectionDetailsChart(document.getElementById("walletDetailsChart2"), {
+    type: "bar",
+    data: {
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
+      datasets: [
+        {
+          label: data.isBtcLive ? "Received" : "Top-ups",
+          data: months.map(key => Number(data.monthMap.get(key)?.topup || 0)),
+          backgroundColor: colors.primary,
+          borderRadius: 8,
+          maxBarThickness: 22
+        },
+        {
+          label: "Transfers in",
+          data: months.map(key => Number(data.monthMap.get(key)?.transferIn || 0)),
+          backgroundColor: colors.success,
+          borderRadius: 8,
+          maxBarThickness: 22
+        },
+        {
+          label: data.isBtcLive ? "Sent" : "Spent",
+          data: months.map(key => Number(data.monthMap.get(key)?.spend || 0)),
+          backgroundColor: colors.warning,
+          borderRadius: 8,
+          maxBarThickness: 22
+        },
+        {
+          label: "Transfers out",
+          data: months.map(key => Number(data.monthMap.get(key)?.transferOut || 0)),
+          backgroundColor: colors.danger,
+          borderRadius: 8,
+          maxBarThickness: 22
+        }
+      ]
+    },
+    options
+  });
+
+  const balanceLabels = months.length
+    ? months.map(sectionDetailsMonthLabel)
+    : (data.balancePoints.length ? data.balancePoints.map(p => p.label) : ["—"]);
+  const balanceValues = months.length
+    ? data.monthEndBalance
+    : (data.balancePoints.length ? data.balancePoints.map(p => p.balance) : [Number(m.balance || 0)]);
+
+  createSectionDetailsChart(document.getElementById("walletDetailsChart3"), {
+    type: "line",
+    data: {
+      labels: balanceLabels,
+      datasets: [{
+        label: "Balance",
+        data: balanceValues,
+        borderColor: colors.primary,
+        backgroundColor: "rgba(36,87,214,.12)",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2.5
+      }]
+    },
+    options: {
+      ...options,
+      scales: {
+        ...options.scales,
+        y: {
+          ...options.scales.y,
+          beginAtZero: false
+        }
+      }
+    }
+  });
+}
+
+function openWalletDetailsOverlay(groupId){
+  if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
+  const id = String(groupId || "").trim();
+  if (!id) return;
+
+  destroySectionDetailsCharts();
+  const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === id);
+  if (!account) {
+    if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Wallet details";
+    if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Wallet not found.";
+    els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Wallet not found.</div>`;
+  } else {
+    const name = account.person_name || "Wallet";
+    if (els.sectionDetailsTitle) {
+      els.sectionDetailsTitle.innerHTML = `${getWalletIconHtml(name, 22, account.customLogoUrl || "")}<span class="section-details-title-text">${escapeHtml(name)}</span>`;
+    }
+    if (els.sectionDetailsDesc) {
+      const typeBit = account.accountType ? `${account.accountType} · ` : "";
+      els.sectionDetailsDesc.textContent = `${typeBit}${account.currency || "—"} · Balance ${formatReportAmount(account.balance, account.currency)}`;
+    }
+    if (!sectionDetailsEnsureChartLib()) {
+      els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
+    } else {
+      renderWalletDetailsOverlay(id);
+    }
+  }
+
+  els.sectionDetailsModal.classList.remove("hide");
+  els.sectionDetailsModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
 }
 
 function openSectionDetailsOverlay(section){
