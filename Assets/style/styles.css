@@ -3735,11 +3735,91 @@ tbody tr:hover{background:#fbfdff}
 }
 
 
+.sales-invoice-success-mark{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:72px;
+  height:72px;
+  margin:0 auto 18px;
+  border-radius:50%;
+  background:rgba(22, 163, 74, 0.1);
+  color:var(--success);
+  font-size:2rem;
+}
+
+.sales-invoice-success-sub{
+  margin:-6px 0 14px;
+  color:var(--muted);
+  font-size:0.95rem;
+}
+
+.sales-invoice-success-meta{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:center;
+  color:var(--muted);
+  font-size:0.92rem;
+}
+
+.sales-invoice-success-meta span{
+  font-weight:650;
+  color:var(--text);
+}
+
+.sales-invoice-success-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:center;
+}
+
+.sales-invoice-success-actions .btn{
+  min-width:140px;
+}
+
+.expense-custom-logo-check{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  font-weight:650;
+}
+
+.expense-custom-logo-preview{
+  display:block;
+  margin-top:10px;
+  width:56px;
+  height:56px;
+  object-fit:contain;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--panel-2);
+  padding:6px;
+}
+
 /* Mobile responsive styles for transfer success overlay */
 @media (max-width: 480px) {
   .transfer-success-content{
     padding:32px 24px;
     margin:20px;
+  }
+
+  .sales-invoice-success-content{
+    padding:24px 18px;
+  }
+
+  .sales-invoice-success-mark{
+    width:56px;
+    height:56px;
+    font-size:1.55rem;
+    margin-bottom:12px;
+  }
+
+  .sales-invoice-success-actions .btn{
+    min-width:0;
+    flex:1 1 140px;
   }
   
   .transfer-gif{
