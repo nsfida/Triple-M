@@ -1011,11 +1011,41 @@ a{color:inherit}
 .expense-transfer-totals > div{display:flex;flex-direction:column;gap:2px;}
 .expense-item-detail-note{font-size:.74rem;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
-.inventory-inline-actions{
-  display:flex;
-  gap:6px;
-  margin-bottom:6px;
-  justify-content:flex-end;
+.card-action-grid{
+  --card-action-size: 28px;
+  --card-action-gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, var(--card-action-size));
+  gap: var(--card-action-gap);
+  align-items: center;
+  justify-content: end;
+  margin: 0;
+}
+.card-action-grid--single{
+  grid-template-columns: var(--card-action-size);
+}
+.card-action-grid--triple{
+  grid-template-columns: repeat(2, var(--card-action-size));
+}
+.card-action-grid > .icon-btn,
+.card-action-grid > .menu-wrap > .icon-btn{
+  width: var(--card-action-size);
+  height: var(--card-action-size);
+  min-width: var(--card-action-size);
+  border-radius: 8px;
+  font-size: .78rem;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  line-height: 1;
+}
+.card-action-grid > .menu-wrap{
+  width: var(--card-action-size);
+  height: var(--card-action-size);
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: visible;
 }
 .inventory-category-badge{
   letter-spacing:.01em;
@@ -1397,7 +1427,88 @@ a{color:inherit}
 .expense-wallet-card.wallet-details-card:hover{
   border-color:rgba(36,87,214,.42);
 }
+.inventory-item-banner,
+.loan-details-banner{
+  cursor:pointer;
+}
+.inventory-item-card > summary,
+.loan-details-card > summary{
+  list-style:none;
+}
+.inventory-item-card > summary::-webkit-details-marker,
+.loan-details-card > summary::-webkit-details-marker{
+  display:none;
+}
+.inventory-item-card:hover > summary .loan-top,
+.loan-details-card:hover > summary .loan-top{
+  border-color:rgba(36,87,214,.28);
+}
+.inventory-item-card > summary .loan-top{
+  grid-template-columns:minmax(0,1.8fr) repeat(3,minmax(72px,1fr)) auto;
+}
+.loan-details-card > summary .loan-top{
+  grid-template-columns:minmax(0,1.8fr) repeat(4,minmax(72px,1fr)) auto;
+}
+.inventory-item-card .lt-action,
+.loan-details-card .lt-action{
+  align-self:center;
+  justify-content:flex-end;
+}
+.inventory-inline-actions .inventoryInvoicesBtn[aria-expanded="true"]{
+  background:rgba(36,87,214,.08);
+  border-color:rgba(36,87,214,.4);
+  color:#1a4ab8;
+}
+.loan-inline-actions .loanHistoryToggle[aria-expanded="true"],
+details[open] .loan-inline-actions .loanHistoryToggle{
+  background:rgba(36,87,214,.08);
+  border-color:rgba(36,87,214,.4);
+  color:#1a4ab8;
+}
+.inventory-item-history{
+  border-top:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(248,250,252,.98), #fcfdff);
+}
+.inventory-history-head{
+  margin-bottom:8px;
+}
+.inventory-history-head h4{
+  margin:0 0 2px;
+  font-size:.82rem;
+}
+.inventory-history-head p{
+  margin:0;
+  font-size:.7rem;
+  color:var(--muted);
+}
+.inventory-history-table-wrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:var(--panel, #fff);
+}
+.inventory-history-table-wrap table{
+  margin:0;
+  min-width:640px;
+}
+.inventory-history-actions{
+  display:flex;
+  gap:4px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.inventory-item-card[open] > summary .loan-top{
+  border-color:rgba(36,87,214,.32);
+  box-shadow:0 1px 0 rgba(36,87,214,.08);
+}
 @media (max-width:720px){
+  .card-action-grid{
+    --card-action-size: 26px;
+    --card-action-gap: 4px;
+  }
+  .inventory-history-head h4{font-size:.78rem}
+  .inventory-history-table-wrap table{min-width:560px}
   .modal-dialog.section-details-dialog{
     width:calc(100vw - 16px);
     max-height:min(90dvh, calc(100% - max(8px, env(safe-area-inset-top, 0px)) - 12px));
@@ -2986,6 +3097,8 @@ a{color:inherit}
   border-radius:14px;
   cursor:pointer;
   overflow:visible;
+  position:relative;
+  z-index:1;
   transition:border-color .15s ease, box-shadow .15s ease;
 }
 .installment-plan-card:hover{
@@ -2997,6 +3110,12 @@ a{color:inherit}
   overflow:visible;
   position:relative;
   z-index:3;
+}
+/* Open menu: raise whole card above siblings so fixed dropdown isn't covered */
+.installment-plan-card:has(.menu-dropdown.open),
+.installment-plan-card:has(.menu-wrap.open),
+.installment-plan-card:has(.menu-trigger[aria-expanded="true"]){
+  z-index:20;
 }
 .installment-plan-card:focus-visible{
   outline:2px solid rgba(37,99,235,.45);
@@ -3037,6 +3156,10 @@ a{color:inherit}
   flex-shrink:0;
   display:flex;
   align-items:center;
+  justify-content:flex-end;
+}
+.ip-card-actions .card-action-grid{
+  justify-content:end;
 }
 .ip-card-metrics{
   display:grid;
@@ -7832,9 +7955,19 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     padding: 6px 7px;
     align-items: start;
   }
+  /* Match installment-style mobile: title + actions, metrics stack below */
+  .inventory-item-card > summary .loan-top,
+  .loan-details-card > summary .loan-top{
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 6px;
+    padding: 6px 7px;
+    align-items: start;
+    overflow: visible;
+  }
   .lt-main{
     grid-column: 1 / 2;
     grid-row: 1 / 2;
+    min-width: 0;
     overflow: hidden;
   }
   .loan-sub{
@@ -7842,6 +7975,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     font-size: .61rem;
     line-height: 1.18;
     gap: 4px;
+    flex-wrap: wrap;
   }
   .loan-name { font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lt-status,
@@ -7854,11 +7988,16 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     justify-content: space-between;
     align-items: baseline;
     gap: 8px;
+    min-width: 0;
   }
   .lt-status{ grid-row: 2 / 3; }
   .lt-principal{ grid-row: 3 / 4; }
   .lt-movement{ grid-row: 4 / 5; }
   .lt-remaining{ grid-row: 5 / 6; }
+  /* Inventory has no status cell — pack metrics from row 2 */
+  .inventory-item-card .lt-principal{ grid-row: 2 / 3; }
+  .inventory-item-card .lt-movement{ grid-row: 3 / 4; }
+  .inventory-item-card .lt-remaining{ grid-row: 4 / 5; }
   .loan-top .cell small{ font-size: .58rem; line-height:1.1; }
   .loan-top .cell strong{ font-size: .64rem; text-align: right; line-height:1.12; }
 
@@ -7871,6 +8010,7 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     align-items: stretch;
     gap: 2px;
     width: 100%;
+    min-width: 0;
   }
   #goodsPanel .inventory-metric{
     display: flex;
@@ -7908,20 +8048,53 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   .lt-action{
     grid-column: 2 / 3;
     grid-row: 1 / 6;
-    align-self: center;
+    align-self: start;
+    justify-self: end;
     display: flex;
     flex-direction: column;
+    align-items: flex-end;
     gap: 4px;
+    min-width: calc((var(--card-action-size, 24px) * 2) + var(--card-action-gap, 3px));
+    overflow: visible;
+    position: relative;
+    z-index: 2;
   }
-  .loan-top .lt-action .icon-btn{
-    width: 22px !important;
-    height: 22px !important;
-    min-width: 22px;
+  .inventory-item-card .lt-action,
+  .loan-details-card .lt-action{
+    grid-column: 2 / 3;
+    grid-row: 1 / 6;
+    align-self: start;
+    justify-content: flex-end;
+    overflow: visible;
+  }
+  .card-action-grid{
+    --card-action-size: 24px;
+    --card-action-gap: 3px;
+    flex-shrink: 0;
+    justify-content: end;
+  }
+  .inventory-inline-actions,
+  .loan-inline-actions{
+    width: max-content;
+    max-width: 100%;
+  }
+  .loan-top .lt-action .icon-btn,
+  .loan-top .lt-action .card-action-grid > .icon-btn,
+  .loan-top .lt-action .card-action-grid > .menu-wrap > .icon-btn{
+    width: var(--card-action-size) !important;
+    height: var(--card-action-size) !important;
+    min-width: var(--card-action-size);
     border-radius: 7px;
     font-size: .64rem !important;
     margin-left: 0 !important;
   }
   .menu-dropdown{right:0;min-width:160px}
+  .inventory-item-card:has(.menu-dropdown.open),
+  .loan-details-card:has(.menu-dropdown.open){
+    position: relative;
+    z-index: 20;
+    overflow: visible;
+  }
 
   .detail{padding:8px}
   .detail-head h4{font-size:.76rem}
