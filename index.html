@@ -1749,7 +1749,7 @@
             <div class="admin-comms-header">
               <div>
                 <h4>Notifications</h4>
-                <span class="admin-comms-subtitle">Trial signups &amp; system alerts</span>
+                <span class="admin-comms-subtitle" id="adminNotifySubtitle">Reminders, dues &amp; alerts</span>
               </div>
               <button class="btn ghost admin-comms-action" id="adminNotifyMarkAllBtn" type="button" title="Mark all as read">
                 <i class="fa-solid fa-check-double"></i>
@@ -1761,22 +1761,22 @@
           </div>
         </div>
         <div class="menu-wrap hide" id="adminMessagesWrap">
-          <button class="btn ghost menu-trigger top-icon-btn" id="adminMessagesBtn" type="button" data-entry-menu="admin-messages" aria-haspopup="menu" aria-expanded="false" title="Inquiries" aria-label="Inquiries">
+          <button class="btn ghost menu-trigger top-icon-btn" id="adminMessagesBtn" type="button" data-entry-menu="admin-messages" aria-haspopup="menu" aria-expanded="false" title="Messages" aria-label="Messages">
             <i class="fa-solid fa-comments"></i>
           </button>
           <span id="adminMessagesCount" class="header-badge header-badge-mail">0</span>
           <div class="menu-dropdown admin-comms-dropdown" data-entry-menu-panel="admin-messages" id="adminMessagesDropdown">
             <div class="admin-comms-header">
               <div>
-                <h4>Inquiries</h4>
-                <span class="admin-comms-subtitle">Messages from users</span>
+                <h4 id="adminMessagesTitle">Messages</h4>
+                <span class="admin-comms-subtitle" id="adminMessagesSubtitle">Conversations</span>
               </div>
               <button class="btn ghost admin-comms-action" id="adminMessagesOpenFullBtn" type="button" title="Open Messages">
                 <i class="fa-solid fa-up-right-from-square"></i>
               </button>
             </div>
             <div class="admin-comms-items" id="adminMessagesPreviewList">
-              <div class="admin-comms-empty">No open inquiries</div>
+              <div class="admin-comms-empty">No messages yet</div>
             </div>
             <div class="admin-comms-footer">
               <button class="btn soft" id="adminMessagesGotoBtn" type="button">Open Messages inbox</button>
@@ -3210,8 +3210,14 @@
               <label>Settlement date</label>
               <input class="input" id="goodsSettlementDate" name="settlement_date" type="date" required data-default-today="true" />
             </div>
-            <div class="field w12">
-              <label>Notes</label>
+            <div class="field w8">
+              <label>Wallet top-up <span class="optional-label">optional</span></label>
+              <select class="select" name="settlement_wallet_id" id="goodsSettlementWalletSelect">
+                <option value="">Skip wallet top-up</option>
+              </select>
+            </div>
+            <div class="field w4">
+              <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional settlement note" />
             </div>
             <div class="field w12 modal-footer">
@@ -3467,6 +3473,91 @@
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="noteReminderModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="noteReminderModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="noteReminderTitle">Set reminder</h3>
+          <p id="noteReminderPreview" class="help">Choose when to be notified about this note.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="noteReminderModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="noteReminderExisting" class="note-reminder-existing hide" aria-live="polite"></div>
+        <form id="noteReminderForm">
+          <input type="hidden" name="note_id" id="noteReminderNoteId" />
+          <input type="hidden" name="plan_group_id" id="noteReminderPlanGroupId" value="" />
+          <input type="hidden" name="reminder_id" id="noteReminderId" value="" />
+          <div class="modal-grid">
+            <div class="field w12">
+              <label>Remind at</label>
+              <input class="input" type="datetime-local" name="remind_at" id="noteReminderAt" required />
+            </div>
+            <div class="field w12">
+              <label>Reminder message <span class="optional-label">optional</span></label>
+              <input class="input" name="message" id="noteReminderMessage" maxlength="400" placeholder="Short reminder message" />
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" id="noteReminderResetBtn" hidden>New reminder</button>
+              <button class="btn ghost" type="button" data-close-modal="noteReminderModal">Cancel</button>
+              <button class="btn primary" type="submit" id="noteReminderSaveBtn">Save reminder</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="noteEditModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="noteEditModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="noteEditTitle">Edit note</h3>
+          <p class="help">Update the note content.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="noteEditModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="noteEditForm">
+          <input type="hidden" name="note_id" id="noteEditNoteId" />
+          <div class="modal-grid">
+            <div class="field w12">
+              <label>Note</label>
+              <textarea class="input" name="content" id="noteEditContent" rows="6" required placeholder="Write your note…"></textarea>
+            </div>
+            <div class="field w12 modal-footer">
+              <button class="btn ghost" type="button" data-close-modal="noteEditModal">Cancel</button>
+              <button class="btn primary" type="submit" id="noteEditSaveBtn">Save</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="reminderAlertModal" class="modal hide reminder-alert-modal" aria-hidden="true" role="alertdialog" aria-modal="true" aria-labelledby="reminderAlertTitle" aria-describedby="reminderAlertBody">
+    <div class="modal-backdrop" data-reminder-alert-dismiss="done"></div>
+    <div class="modal-dialog compact-entry-dialog reminder-alert-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="reminderAlertTitle">Reminder</h3>
+          <p id="reminderAlertSubtitle" class="help">Due notification</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-reminder-alert-dismiss="done" aria-label="Done">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="reminderAlertPreview" class="reminder-alert-preview"></div>
+        <p id="reminderAlertBody" class="reminder-alert-message"></p>
+        <div class="field w12 modal-footer reminder-alert-actions">
+          <button class="btn ghost" type="button" id="reminderAlertRescheduleBtn">Reschedule</button>
+          <button class="btn primary" type="button" data-reminder-alert-dismiss="done">Done</button>
+        </div>
       </div>
     </div>
   </div>
@@ -4135,10 +4226,11 @@
     <div class="modal-backdrop" data-close-modal="sectionDetailsModal"></div>
     <div class="modal-dialog section-details-dialog" role="dialog" aria-modal="true" aria-labelledby="sectionDetailsTitle">
       <div class="modal-head">
-        <div>
+        <div class="section-details-head-text">
           <h3 id="sectionDetailsTitle">Details</h3>
           <p id="sectionDetailsDesc">Summary and graphs from live section records.</p>
         </div>
+        <div id="sectionDetailsActions" class="section-details-actions hide" aria-label="Details actions"></div>
         <button class="icon-btn ghost" type="button" data-close-modal="sectionDetailsModal" aria-label="Close">×</button>
       </div>
       <div class="modal-body" id="sectionDetailsBody"></div>
