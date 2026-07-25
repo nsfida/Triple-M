@@ -1674,13 +1674,96 @@ details[open] .loan-inline-actions .loanHistoryToggle{
 }
 .inventory-purchase-line-attrs{
   display:grid;
-  grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(72px,.7fr);
+  grid-template-columns:minmax(0,1.1fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr) minmax(72px,.7fr);
   gap:5px;
   align-items:center;
   min-width:0;
 }
-.inventory-purchase-line-attrs .goods-buy-type-custom{
+.inventory-purchase-line-attrs .goods-buy-type-custom,
+.inventory-purchase-line-attrs .goods-buy-brand-custom,
+.inventory-purchase-line-attrs .goods-buy-variant-custom{
   grid-column:1 / -1;
+}
+.inventory-brand-badge{
+  background:rgba(15, 118, 110, 0.12);
+  color:#0f766e;
+  border:1px solid rgba(15, 118, 110, 0.22);
+}
+.inventory-variant-badge{
+  background:rgba(30, 64, 175, 0.1);
+  color:#1e40af;
+  border:1px solid rgba(30, 64, 175, 0.18);
+}
+.inventory-brands-modal-body{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  max-height:min(70vh, 560px);
+  overflow:auto;
+}
+.inventory-brand-create-form{
+  margin:0;
+}
+.inventory-brand-create-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center;
+}
+.inventory-brands-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.inventory-brand-card{
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px 12px;
+  background:linear-gradient(180deg, rgba(248,250,252,.9), #fff);
+}
+.inventory-brand-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.inventory-brand-card-head .help{
+  display:block;
+  margin-top:2px;
+}
+.inventory-brand-card-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  justify-content:flex-end;
+}
+.inventory-brand-variants{
+  list-style:none;
+  margin:10px 0 0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.inventory-brand-variants li{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:6px 8px;
+  border-radius:8px;
+  background:rgba(15, 23, 42, 0.03);
+  font-size:.78rem;
+}
+.inventory-filter-brand .filter-inline-select{
+  min-width:110px;
+  max-width:160px;
+}
+.inventory-filter-brands-btn{
+  margin-left:auto;
+}
+.inventory-loading-hint{
+  opacity:.8;
 }
 .inventory-purchase-line-main{
   display:grid;
@@ -2907,7 +2990,8 @@ details[open] .loan-inline-actions .loanHistoryToggle{
     max-width:none;
   }
   .inventory-filter-type .filter-inline-select,
-  .inventory-filter-status .filter-inline-select{
+  .inventory-filter-status .filter-inline-select,
+  .inventory-filter-brand .filter-inline-select{
     min-width:72px;
     max-width:104px;
     flex:0 0 auto !important;
@@ -8284,8 +8368,29 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
     gap:4px;
   }
   .inventory-purchase-line-attrs{
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(64px,.65fr);
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
     gap:4px;
+  }
+  .inventory-purchase-line-attrs .goods-buy-category,
+  .inventory-purchase-line-attrs .goods-buy-currency{
+    grid-column:span 1;
+  }
+  .inventory-brand-create-grid{
+    grid-template-columns:1fr;
+  }
+  .inventory-brand-card-head{
+    flex-direction:column;
+  }
+  .inventory-brand-card-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+  .inventory-filter-brand .filter-inline-select{
+    min-width:96px;
+    max-width:140px;
+  }
+  .inventory-filter-brands-btn{
+    margin-left:0;
   }
   .inventory-purchase-line-main{
     grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);
