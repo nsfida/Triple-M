@@ -249,6 +249,12 @@
     if (meta.unitActualPrice != null) add("UAP", meta.unitActualPrice);
     if (meta.unitSoldPrice != null) add("USP", meta.unitSoldPrice);
     if (meta.itemCode) add("ICODE", meta.itemCode);
+    if (meta.brand) add("BRAND", meta.brand);
+    if (meta.variantLabel) add("VARIANT", meta.variantLabel);
+    if (meta.brandId) add("BRANDID", meta.brandId);
+    if (meta.variantId) add("VARIANTID", meta.variantId);
+    if (meta.itemCategory) add("UCAT", meta.itemCategory);
+    if (meta.quantityUnit) add("UOM", meta.quantityUnit);
     if (meta.tx) add("TX", meta.tx);
     return n;
   }
@@ -260,6 +266,12 @@
       boughtQty: g.bought_qty,
       unitActualPrice: g.unit_actual_price,
       itemCode: g.item_code,
+      brand: g.brand,
+      variantLabel: g.variant_label,
+      brandId: g.brand_id,
+      variantId: g.variant_id,
+      itemCategory: g.item_category,
+      quantityUnit: g.quantity_unit,
       tx: g.tx_type || "ITEM"
     });
     if (g.is_deleted) notes = `${notes} ${DELETED_TAG}`.trim();
@@ -716,6 +728,12 @@
             notes,
             tx_type: tx || "ITEM",
             item_code: metaValue(notes, "ICODE") || null,
+            brand: metaValue(notes, "BRAND") || null,
+            variant_label: metaValue(notes, "VARIANT") || null,
+            brand_id: metaValue(notes, "BRANDID") || null,
+            variant_id: metaValue(notes, "VARIANTID") || null,
+            item_category: metaValue(notes, "UCAT") || null,
+            quantity_unit: metaValue(notes, "UOM") || null,
             meta: { ledger_shape: entry },
             is_deleted: !!deleted,
             created_at: entry.created_at
