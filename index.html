@@ -4014,8 +4014,23 @@
         <form id="editForm">
           <div class="modal-grid">
             <div id="editPersonGroup" class="field w6 hide">
-              <label>Person name</label>
+              <label id="editNameLabel">Person name</label>
               <input class="input" id="editName" name="person_name" placeholder="Full name" />
+            </div>
+            <div id="editAccountTypeGroup" class="field w6 hide">
+              <label>Account type</label>
+              <select class="select" id="editAccountType" name="account_type">
+                <option value="Bank Account">Bank Account</option>
+                <option value="Cash Account">Cash Account</option>
+                <option value="Travel Card">Travel Card</option>
+                <option value="Prepaid Card">Prepaid Card</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Debit Card">Debit Card</option>
+                <option value="Cheque Account">Cheque Account</option>
+                <option value="Savings Account">Savings Account</option>
+                <option value="Digital Wallet">Digital Wallet</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div id="editCurrencyGroup" class="field w6 hide">
               <label>Currency</label>
