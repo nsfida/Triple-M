@@ -1,20 +1,21 @@
 /**
  * Inventory catalog taxonomy + add-item wizard + cart chrome.
- * Hierarchy: Category → Brand → Product type → Variant → Cart
+ * Hierarchy: Category → Brand → Product line → Variant → Cart
+ * Perfumes use Brand → Fragrance → Size (bottle).
  */
 (function inventoryCatalogModule(global){
   const PRESETS = [
-    { name: "Electronics", slug: "electronics", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 10, hint: "Brand → Type (iPhone) → Variant (512 GB Black)" },
-    { name: "Perfumes", slug: "perfumes", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "volume", sortOrder: 20, hint: "Brand → Fragrance → Size (3 ml)" },
-    { name: "Liquids", slug: "liquids", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "volume", sortOrder: 30, hint: "Brand → Product → Volume" },
-    { name: "Food & Grocery", slug: "food-grocery", usesBrands: true, usesProductLines: false, usesVariants: true, qtyPattern: "weight", sortOrder: 40, hint: "Brand → Pack / weight" },
-    { name: "Clothing", slug: "clothing", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 50, hint: "Brand → Style → Size / Color" },
-    { name: "Hardware", slug: "hardware", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 60, hint: "Brand → Product → Spec" },
-    { name: "Tools", slug: "tools", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 70, hint: "Brand → Tool → Spec" },
-    { name: "Stationery", slug: "stationery", usesBrands: true, usesProductLines: false, usesVariants: true, qtyPattern: "count", sortOrder: 80, hint: "Brand → Item" },
-    { name: "Furniture", slug: "furniture", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 90, hint: "Brand → Piece → Finish" },
-    { name: "Cables & Pipes", slug: "cables-pipes", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "length", sortOrder: 100, hint: "Brand → Type → Length" },
-    { name: "General", slug: "general", usesBrands: false, usesProductLines: false, usesVariants: false, qtyPattern: "count", sortOrder: 999, hint: "Simple item with quantity" }
+    { name: "Electronics", slug: "electronics", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 10, hint: "Brand → Type (iPhone) → Variant (512 GB Black)", productLineLabel: "Type", variantLabelName: "Variant" },
+    { name: "Perfumes", slug: "perfumes", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "volume", sortOrder: 20, hint: "Brand → Fragrance → Size (100 ml bottle)", productLineLabel: "Fragrance", variantLabelName: "Size" },
+    { name: "Liquids", slug: "liquids", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "volume", sortOrder: 30, hint: "Brand → Product → Volume", productLineLabel: "Product", variantLabelName: "Volume" },
+    { name: "Food & Grocery", slug: "food-grocery", usesBrands: true, usesProductLines: false, usesVariants: true, qtyPattern: "weight", sortOrder: 40, hint: "Brand → Pack / weight", productLineLabel: "Type", variantLabelName: "Pack" },
+    { name: "Clothing", slug: "clothing", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 50, hint: "Brand → Style → Size / Color", productLineLabel: "Style", variantLabelName: "Size" },
+    { name: "Hardware", slug: "hardware", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 60, hint: "Brand → Product → Spec", productLineLabel: "Product", variantLabelName: "Spec" },
+    { name: "Tools", slug: "tools", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 70, hint: "Brand → Tool → Spec", productLineLabel: "Tool", variantLabelName: "Spec" },
+    { name: "Stationery", slug: "stationery", usesBrands: true, usesProductLines: false, usesVariants: true, qtyPattern: "count", sortOrder: 80, hint: "Brand → Item", productLineLabel: "Type", variantLabelName: "Item" },
+    { name: "Furniture", slug: "furniture", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 90, hint: "Brand → Piece → Finish", productLineLabel: "Piece", variantLabelName: "Finish" },
+    { name: "Cables & Pipes", slug: "cables-pipes", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "length", sortOrder: 100, hint: "Brand → Type → Length", productLineLabel: "Type", variantLabelName: "Length" },
+    { name: "General", slug: "general", usesBrands: false, usesProductLines: false, usesVariants: false, qtyPattern: "count", sortOrder: 999, hint: "Simple item with quantity", productLineLabel: "Type", variantLabelName: "Variant" }
   ];
 
   function slugify(value){
@@ -36,18 +37,86 @@
       .replace(/'/g, "&#39;");
   }
 
+  function taxonomyDefaultsFor(name, slug){
+    const key = String(slug || slugify(name) || "").toLowerCase();
+    const label = String(name || "").toLowerCase();
+    if (key === "perfumes" || /perfume/.test(label)) {
+      return {
+        productLineLabel: "Fragrance",
+        variantLabelName: "Size",
+        productLinePlural: "fragrances",
+        variantPlural: "sizes",
+        breadcrumb: "Brand → Fragrance → Size",
+        hint: "Brand → Fragrance → Size (100 ml bottle)"
+      };
+    }
+    if (key === "liquids" || /liquid/.test(label)) {
+      return {
+        productLineLabel: "Product",
+        variantLabelName: "Volume",
+        productLinePlural: "products",
+        variantPlural: "volumes",
+        breadcrumb: "Brand → Product → Volume",
+        hint: "Brand → Product → Volume"
+      };
+    }
+    if (key === "clothing" || /cloth/.test(label)) {
+      return {
+        productLineLabel: "Style",
+        variantLabelName: "Size",
+        productLinePlural: "styles",
+        variantPlural: "sizes",
+        breadcrumb: "Brand → Style → Size",
+        hint: "Brand → Style → Size / Color"
+      };
+    }
+    return {
+      productLineLabel: "Type",
+      variantLabelName: "Variant",
+      productLinePlural: "types",
+      variantPlural: "variants",
+      breadcrumb: "Brand → Type → Variant",
+      hint: ""
+    };
+  }
+
   function normalizePreset(row){
     const name = String(row?.name || "General").trim() || "General";
+    const slug = String(row?.slug || slugify(name));
+    const tax = taxonomyDefaultsFor(name, slug);
+    const productLineLabel = String(row?.product_line_label || row?.productLineLabel || tax.productLineLabel || "Type");
+    const variantLabelName = String(row?.variant_label_name || row?.variantLabelName || tax.variantLabelName || "Variant");
     return {
       id: row?.id || "",
       name,
-      slug: String(row?.slug || slugify(name)),
+      slug,
       usesBrands: row?.uses_brands != null ? !!row.uses_brands : (row?.usesBrands != null ? !!row.usesBrands : true),
       usesProductLines: row?.uses_product_lines != null ? !!row.uses_product_lines : (row?.usesProductLines != null ? !!row.usesProductLines : true),
       usesVariants: row?.uses_variants != null ? !!row.uses_variants : (row?.usesVariants != null ? !!row.usesVariants : true),
       qtyPattern: String(row?.qty_pattern || row?.qtyPattern || "count").toLowerCase(),
       sortOrder: Number(row?.sort_order ?? row?.sortOrder ?? 100),
-      hint: String(row?.hint || "")
+      hint: String(row?.hint || tax.hint || ""),
+      productLineLabel,
+      variantLabelName,
+      productLinePlural: String(row?.productLinePlural || tax.productLinePlural || `${productLineLabel.toLowerCase()}s`),
+      variantPlural: String(row?.variantPlural || tax.variantPlural || `${variantLabelName.toLowerCase()}s`),
+      breadcrumb: String(row?.breadcrumb || tax.breadcrumb || `Brand → ${productLineLabel} → ${variantLabelName}`)
+    };
+  }
+
+  function getCategoryTaxonomyLabels(nameOrCfg){
+    const cfg = nameOrCfg && typeof nameOrCfg === "object"
+      ? normalizePreset(nameOrCfg)
+      : getCategoryConfig(nameOrCfg);
+    return {
+      productLine: cfg.productLineLabel || "Type",
+      variant: cfg.variantLabelName || "Variant",
+      productLinePlural: cfg.productLinePlural || "types",
+      variantPlural: cfg.variantPlural || "variants",
+      breadcrumb: cfg.breadcrumb || "Brand → Type → Variant",
+      qtyPattern: cfg.qtyPattern || "count",
+      name: cfg.name || "",
+      slug: cfg.slug || ""
     };
   }
 
@@ -69,9 +138,13 @@
   }
 
   function ensureCategoriesLoaded(){
+    const custom = ensureCustomCategoriesHydrated();
     const current = Array.isArray(global.state?.inventoryCategories) ? state.inventoryCategories : [];
-    if (current.length) return current;
-    const fallback = presetCategories();
+    if (current.length) {
+      state.inventoryCategories = mergeCategoryLists(current, custom);
+      return state.inventoryCategories;
+    }
+    const fallback = mergeCategoryLists(presetCategories(), custom);
     if (global.state) {
       state.inventoryCategories = fallback;
       state.inventoryCategoriesLoaded = true;
@@ -116,17 +189,43 @@
       qtyPattern: /perfume|liquid/i.test(name) ? "volume" : (/cable|pipe|wire/i.test(name) ? "length" : (/food|grocery|weight/i.test(name) ? "weight" : "count")),
       sortOrder: 200
     }));
-    const custom = Array.isArray(state.inventoryCustomCategories) ? state.inventoryCustomCategories : [];
+    const custom = ensureCustomCategoriesHydrated();
     state.inventoryCategories = mergeCategoryLists(presetCategories(), discoveredRows, custom, rpcItems);
     if (!state.inventoryCategories.length) state.inventoryCategories = presetCategories();
     state.inventoryCategoriesLoaded = true;
     return state.inventoryCategories;
   }
 
-  function addCustomCategory(name, options = {}){
+  const CUSTOM_CATEGORIES_KEY = "triplem-inventory-custom-categories-v1";
+
+  function readStoredCustomCategories(){
+    try {
+      const raw = global.localStorage?.getItem(CUSTOM_CATEGORIES_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list.map(normalizePreset) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeStoredCustomCategories(list){
+    try {
+      global.localStorage?.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+    } catch (_) {}
+  }
+
+  function ensureCustomCategoriesHydrated(){
+    if (!global.state) return [];
+    const stored = readStoredCustomCategories();
+    if (!Array.isArray(state.inventoryCustomCategories)) state.inventoryCustomCategories = [];
+    state.inventoryCustomCategories = mergeCategoryLists(state.inventoryCustomCategories, stored);
+    return state.inventoryCustomCategories;
+  }
+
+  async function addCustomCategory(name, options = {}){
     const cleaned = String(name || "").replace(/\s+/g, " ").trim();
     if (!cleaned) throw new Error("Category name is required.");
-    const row = normalizePreset({
+    let row = normalizePreset({
       name: cleaned,
       slug: slugify(cleaned),
       usesBrands: options.usesBrands != null ? !!options.usesBrands : true,
@@ -137,24 +236,33 @@
       hint: options.hint || "Custom category"
     });
     if (!global.state) return row;
-    if (!Array.isArray(state.inventoryCustomCategories)) state.inventoryCustomCategories = [];
-    const exists = state.inventoryCustomCategories.some(c => slugify(c.name) === row.slug || c.slug === row.slug);
-    if (!exists) state.inventoryCustomCategories.push(row);
-    state.inventoryCategories = mergeCategoryLists(presetCategories(), state.inventoryCategories, state.inventoryCustomCategories, [row]);
-    // Best-effort persist to DB when migration 051 is available.
+    ensureCustomCategoriesHydrated();
+    // Persist to DB first so the category survives reload.
     if (typeof supabaseRpc === "function" && typeof databaseSessionCanLoad === "function" && databaseSessionCanLoad()) {
-      supabaseRpc("app_upsert_goods_category", {
-        p_id: null,
-        p_name: row.name,
-        p_slug: row.slug,
-        p_uses_brands: row.usesBrands,
-        p_uses_product_lines: row.usesProductLines,
-        p_uses_variants: row.usesVariants,
-        p_qty_pattern: row.qtyPattern,
-        p_sort_order: row.sortOrder,
-        p_hint: row.hint
-      }).catch(err => console.warn("Could not persist new category to database.", err));
+      try {
+        const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_category", {
+          p_id: null,
+          p_name: row.name,
+          p_slug: row.slug,
+          p_uses_brands: row.usesBrands,
+          p_uses_product_lines: row.usesProductLines,
+          p_uses_variants: row.usesVariants,
+          p_qty_pattern: row.qtyPattern,
+          p_sort_order: row.sortOrder,
+          p_hint: row.hint
+        }));
+        if (res?.item) row = normalizePreset({ ...row, ...res.item, id: res.item.id || row.id });
+        else if (res?.id) row = { ...row, id: res.id };
+      } catch (err) {
+        console.warn("Could not persist new category to database.", err);
+        // Keep going with local persistence so the UI still works offline / pre-migration.
+      }
     }
+    const existsIdx = state.inventoryCustomCategories.findIndex(c => slugify(c.name) === row.slug || c.slug === row.slug);
+    if (existsIdx >= 0) state.inventoryCustomCategories[existsIdx] = { ...state.inventoryCustomCategories[existsIdx], ...row };
+    else state.inventoryCustomCategories.push(row);
+    writeStoredCustomCategories(state.inventoryCustomCategories);
+    state.inventoryCategories = mergeCategoryLists(presetCategories(), state.inventoryCategories, state.inventoryCustomCategories, [row]);
     return row;
   }
 
@@ -333,10 +441,34 @@
     return { id: refreshed?.id || res?.id || "", name: refreshed?.name || name };
   }
 
+  async function renameBrandInline({ brandId, brandName, categoryName }){
+    const name = String(brandName || "").replace(/\s+/g, " ").trim();
+    const id = String(brandId || "").trim();
+    if (!name) throw new Error("Brand name is required.");
+    if (!id) throw new Error("Brand id is required to rename.");
+    const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand", {
+      p_id: id,
+      p_name: name,
+      p_item_type: categoryName || "General",
+      p_notes: null
+    }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return { id: res?.id || id, name };
+  }
+
+  async function deleteBrandInline(brandId){
+    const id = String(brandId || "").trim();
+    if (!id) throw new Error("Brand id is required.");
+    const res = unwrapRpcJson(await supabaseRpc("app_delete_goods_brand", { p_id: id }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return res;
+  }
+
   async function createProductLineInline({ brandName, categoryName, lineName }){
     const name = String(lineName || "").replace(/\s+/g, " ").trim();
     const brand = String(brandName || "").trim();
-    if (!name) throw new Error("Type name is required.");
+    const tax = getCategoryTaxonomyLabels(categoryName);
+    if (!name) throw new Error(`${tax.productLine} name is required.`);
     if (!brand) throw new Error("Brand is required.");
     let brandEntry = findBrandCatalogEntry(brand);
     if (!brandEntry?.id) {
@@ -354,13 +486,45 @@
     return { id: res?.id || "", name, brandId: brandEntry.id };
   }
 
+  async function renameProductLineInline({ lineId, brandId, brandName, categoryName, lineName }){
+    const name = String(lineName || "").replace(/\s+/g, " ").trim();
+    const id = String(lineId || "").trim();
+    const tax = getCategoryTaxonomyLabels(categoryName);
+    if (!name) throw new Error(`${tax.productLine} name is required.`);
+    if (!id) throw new Error(`${tax.productLine} id is required to rename.`);
+    let resolvedBrandId = String(brandId || "").trim();
+    if (!resolvedBrandId && brandName) {
+      const brandEntry = findBrandCatalogEntry(brandName);
+      resolvedBrandId = brandEntry?.id || "";
+    }
+    if (!resolvedBrandId) throw new Error("Brand is required.");
+    const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_product_line", {
+      p_id: id,
+      p_brand_id: resolvedBrandId,
+      p_name: name,
+      p_category_name: categoryName || "General",
+      p_sort_order: 0
+    }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return { id: res?.id || id, name, brandId: resolvedBrandId };
+  }
+
+  async function deleteProductLineInline(lineId){
+    const id = String(lineId || "").trim();
+    if (!id) throw new Error("Product line id is required.");
+    const res = unwrapRpcJson(await supabaseRpc("app_delete_goods_product_line", { p_id: id }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return res;
+  }
+
   async function createVariantInline({ brandName, categoryName, productLineName, variantLabel, qtyPattern = "count" }){
     const label = String(variantLabel || "").replace(/\s+/g, " ").trim();
     const brand = String(brandName || "").trim();
     const lineName = String(productLineName || "").trim();
-    if (!label) throw new Error("Variant name is required.");
+    const tax = getCategoryTaxonomyLabels(categoryName);
+    if (!label) throw new Error(`${tax.variant} name is required.`);
     if (!brand) throw new Error("Brand is required.");
-    if (!lineName) throw new Error("Product type is required.");
+    if (!lineName) throw new Error(`${tax.productLine} is required.`);
     let brandEntry = findBrandCatalogEntry(brand);
     if (!brandEntry?.id) {
       await createProductLineInline({ brandName: brand, categoryName, lineName });
@@ -386,6 +550,100 @@
     }));
     if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
     return { id: res?.id || "", label, productLineId: line?.id || "", brandId: brandEntry.id };
+  }
+
+  async function renameVariantInline({
+    variantId,
+    brandId,
+    brandName,
+    categoryName = "",
+    productLineId = "",
+    productLineName = "",
+    variantLabel,
+    qtyPattern = "count"
+  }){
+    const label = String(variantLabel || "").replace(/\s+/g, " ").trim();
+    const id = String(variantId || "").trim();
+    const tax = getCategoryTaxonomyLabels(categoryName || brandName);
+    if (!label) throw new Error(`${tax.variant} name is required.`);
+    if (!id) throw new Error(`${tax.variant} id is required to rename.`);
+    let resolvedBrandId = String(brandId || "").trim();
+    let brandEntry = resolvedBrandId
+      ? (typeof getInventoryBrandCatalog === "function" ? getInventoryBrandCatalog() : []).find(b => String(b.id) === resolvedBrandId)
+      : findBrandCatalogEntry(brandName);
+    if (!resolvedBrandId) resolvedBrandId = brandEntry?.id || "";
+    if (!resolvedBrandId) throw new Error("Brand is required.");
+    let resolvedLineId = String(productLineId || "").trim();
+    if (!resolvedLineId && productLineName) {
+      const line = (brandEntry?.product_lines || findBrandCatalogEntry(brandName)?.product_lines || [])
+        .find(l => productLineKey(l.name) === productLineKey(productLineName));
+      resolvedLineId = line?.id || "";
+    }
+    const unit = typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(qtyPattern) : "item";
+    const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand_variant", {
+      p_id: id,
+      p_brand_id: resolvedBrandId,
+      p_label: label,
+      p_item_category: qtyPattern || "count",
+      p_quantity_value: 1,
+      p_quantity_unit: unit,
+      p_sort_order: 0,
+      p_product_line_id: resolvedLineId || null
+    }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return { id: res?.id || id, label, productLineId: resolvedLineId, brandId: resolvedBrandId };
+  }
+
+  async function deleteVariantInline(variantId){
+    const id = String(variantId || "").trim();
+    if (!id) throw new Error("Variant id is required.");
+    const res = unwrapRpcJson(await supabaseRpc("app_delete_goods_brand_variant", { p_id: id }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return res;
+  }
+
+  async function renameCategoryInline({
+    categoryId,
+    previousName = "",
+    name,
+    qtyPattern,
+    usesBrands,
+    usesProductLines,
+    usesVariants,
+    hint,
+    sortOrder
+  }){
+    const cleaned = String(name || "").replace(/\s+/g, " ").trim();
+    if (!cleaned) throw new Error("Category name is required.");
+    const previous = getCategoryConfig(previousName || cleaned);
+    let id = String(categoryId || previous.id || "").trim();
+    // Prefer matching existing DB row by previous slug/name so rename updates instead of insert-dupe.
+    if (!id && previousName) {
+      const prevCfg = getCategoryConfig(previousName);
+      id = String(prevCfg?.id || "").trim();
+    }
+    const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_category", {
+      p_id: id || null,
+      p_name: cleaned,
+      p_slug: id ? slugify(cleaned) : slugify(previousName || cleaned),
+      p_uses_brands: usesBrands != null ? !!usesBrands : (previous.usesBrands !== false),
+      p_uses_product_lines: usesProductLines != null ? !!usesProductLines : (previous.usesProductLines !== false),
+      p_uses_variants: usesVariants != null ? !!usesVariants : (previous.usesVariants !== false),
+      p_qty_pattern: qtyPattern || previous.qtyPattern || "count",
+      p_sort_order: sortOrder != null ? Number(sortOrder) : (previous.sortOrder || 100),
+      p_hint: hint != null ? hint : (previous.hint || null)
+    }));
+    await loadInventoryCategories(true);
+    const item = res?.item || {};
+    return { id: item.id || id, name: item.name || cleaned, slug: item.slug || slugify(cleaned) };
+  }
+
+  async function deleteCategoryInline(categoryId){
+    const id = String(categoryId || "").trim();
+    if (!id) throw new Error("Category id is required.");
+    const res = unwrapRpcJson(await supabaseRpc("app_delete_goods_category", { p_id: id }));
+    await loadInventoryCategories(true);
+    return res;
   }
 
   function buildItemDisplayName({ brand, productLine, variantLabel, itemName }){
@@ -468,34 +726,72 @@
     const brandCatalog = typeof getInventoryBrandCatalog === "function"
       ? getInventoryBrandCatalog()
       : (Array.isArray(state.inventoryBrands) ? state.inventoryBrands : []);
+    const categoryKey = String(w.category || "").trim().toLowerCase();
     const brands = brandCatalog
-      .filter(b => !w.category || String(b.item_type || "").toLowerCase() === String(w.category).toLowerCase() || !b.item_type);
+      .filter(b => {
+        if (!categoryKey) return true;
+        const bt = String(b.item_type || "").trim().toLowerCase();
+        if (!bt) return false; // don't leak untyped brands across categories
+        if (bt === categoryKey) return true;
+        // Soft match Perfumes / Perfume etc.
+        return bt.includes(categoryKey) || categoryKey.includes(bt.replace(/s$/, ""));
+      })
+      .slice()
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
     const selectedBrand = brands.find(b => String(b.id) === String(w.brandId) || String(b.name).toLowerCase() === String(w.brand).toLowerCase());
-    const productLines = Array.isArray(selectedBrand?.product_lines) ? selectedBrand.product_lines : [];
+    const productLines = (Array.isArray(selectedBrand?.product_lines) ? selectedBrand.product_lines : [])
+      .slice()
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
     const selectedLine = productLines.find(l => String(l.id) === String(w.productLineId) || String(l.name).toLowerCase() === String(w.productLine).toLowerCase());
-    const variants = Array.isArray(selectedLine?.variants)
+    const variants = (Array.isArray(selectedLine?.variants)
       ? selectedLine.variants
-      : (Array.isArray(selectedBrand?.variants) ? selectedBrand.variants.filter(v => !w.productLineId || String(v.product_line_id || "") === String(w.productLineId)) : []);
+      : (Array.isArray(selectedBrand?.variants) ? selectedBrand.variants.filter(v => !w.productLineId || String(v.product_line_id || "") === String(w.productLineId)) : []))
+      .slice()
+      .sort((a, b) => String(a.label || a.name || "").localeCompare(String(b.label || b.name || ""), undefined, { sensitivity: "base" }));
 
-    const steps = ["Category"];
-    if (cfg.usesBrands) steps.push("Brand");
-    if (cfg.usesProductLines) steps.push("Type");
-    if (cfg.usesVariants) steps.push("Variant");
-    steps.push("Stock");
+    const tax = getCategoryTaxonomyLabels(cfg);
+    const steps = [];
+    if (!w.categoryLocked) steps.push("category");
+    if (cfg.usesBrands) steps.push("brand");
+    if (cfg.usesProductLines) steps.push("productLine");
+    if (cfg.usesVariants) steps.push("variant");
+    steps.push("stock");
+    // Keep step index valid after category lock changes the step list.
+    if (w.step > steps.length) w.step = steps.length;
+    if (w.step < 1) w.step = 1;
+    const stepLabel = (key) => ({
+      category: "Category",
+      brand: "Brand",
+      productLine: tax.productLine,
+      variant: tax.variant,
+      stock: "Stock"
+    }[key] || key);
 
-    if (title) title.textContent = "Add inventory item";
-    if (help) help.textContent = `${steps.map((s, i) => (i + 1 === w.step ? `· ${s}` : s)).join(" → ")}`;
+    if (title) {
+      title.textContent = w.categoryLocked
+        ? `Add ${w.category || "inventory"} item`
+        : "Add inventory item";
+    }
+    if (help) {
+      help.textContent = w.categoryLocked
+        ? `${w.category} · ${steps.map((s, i) => (i + 1 === w.step ? `· ${stepLabel(s)}` : stepLabel(s))).join(" → ")}`
+        : `${steps.map((s, i) => (i + 1 === w.step ? `· ${stepLabel(s)}` : stepLabel(s))).join(" → ")}`;
+    }
 
     let fields = "";
-    if (w.step === 1) {
+    const currentStep = steps[w.step - 1] || (w.categoryLocked ? "brand" : "category");
+    if (currentStep === "category") {
+      const sortedCategories = categories.slice().sort((a, b) =>
+        (a.sortOrder - b.sortOrder) || String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" })
+      );
       fields = `
         <div class="inventory-add-category-block">
           <div class="inventory-add-category-head">
             <strong>Choose category</strong>
-            <span>${h(String(categories.length))} available</span>
+            <span>${h(String(sortedCategories.length))} available</span>
           </div>
           <div class="inventory-add-category-grid" id="addWizardCategoryGrid">
-            ${categories.map(c => `
+            ${sortedCategories.map(c => `
               <button type="button" class="inventory-add-category-card ${c.name === w.category ? "is-selected" : ""}" data-category-name="${h(c.name)}">
                 <strong>${h(c.name)}</strong>
                 <span>${h(c.hint || c.qtyPattern || "Items")}</span>
@@ -514,8 +810,9 @@
           <p class="help" id="addWizardCategoryHint">${h(cfg.hint || "Choose how this item is organized.")}</p>
           <input type="hidden" id="addWizardCategory" value="${h(w.category || "")}" />
         </div>`;
-    } else if (steps[w.step - 1] === "Brand") {
+    } else if (currentStep === "brand") {
       fields = `
+        ${w.categoryLocked ? `<p class="help">Adding under <strong>${h(w.category)}</strong> only. Brands and items stay in this category.</p>` : ""}
         <label class="inventory-edit-field inventory-edit-field-wide">
           <span>Brand</span>
           <select class="select" id="addWizardBrand">
@@ -528,62 +825,90 @@
           <span>New brand name</span>
           <input class="input" id="addWizardBrandCustom" value="${h(w.brandId === "__custom__" || !w.brandId ? w.brand : "")}" placeholder="e.g. Apple, Afnan" />
         </label>`;
-    } else if (steps[w.step - 1] === "Type") {
+    } else if (currentStep === "productLine") {
+      const linePlaceholder = /perfume/i.test(cfg.name || cfg.slug || "")
+        ? "e.g. 9PM, Oud, Musk, Brun"
+        : "e.g. iPhone, 9PM, MacBook";
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
-          <span>Product type</span>
+          <span>${h(tax.productLine)}</span>
           <select class="select" id="addWizardProductLine">
-            <option value="">Select type…</option>
+            <option value="">Select ${h(tax.productLine.toLowerCase())}…</option>
             ${productLines.map(l => `<option value="${h(l.id)}" ${String(l.id) === String(w.productLineId) ? "selected" : ""}>${h(l.name)}</option>`).join("")}
-            <option value="__custom__">+ New type…</option>
+            <option value="__custom__">+ New ${h(tax.productLine.toLowerCase())}…</option>
           </select>
         </label>
         <label class="inventory-edit-field inventory-edit-field-wide ${w.productLineId === "__custom__" || (!w.productLineId && w.productLine) ? "" : "hide"}" id="addWizardLineCustomWrap">
-          <span>New type name</span>
-          <input class="input" id="addWizardProductLineCustom" value="${h(w.productLineId === "__custom__" || !w.productLineId ? w.productLine : "")}" placeholder="e.g. iPhone, 9PM, MacBook" />
+          <span>New ${h(tax.productLine.toLowerCase())} name</span>
+          <input class="input" id="addWizardProductLineCustom" value="${h(w.productLineId === "__custom__" || !w.productLineId ? w.productLine : "")}" placeholder="${h(linePlaceholder)}" />
         </label>
-        <p class="help">Example: Apple → iPhone, Afnan → 9PM</p>`;
-    } else if (steps[w.step - 1] === "Variant") {
+        <p class="help">${h(tax.breadcrumb)}</p>`;
+    } else if (currentStep === "variant") {
+      const variantPlaceholder = /perfume/i.test(cfg.name || cfg.slug || "")
+        ? "e.g. 100 ml, 50 ml, 1 L"
+        : "e.g. 512 GB Black, 3 ml, 100 ml";
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
-          <span>Variant</span>
+          <span>${h(tax.variant)}</span>
           <select class="select" id="addWizardVariant">
-            <option value="">Select variant…</option>
+            <option value="">Select ${h(tax.variant.toLowerCase())}…</option>
             ${variants.map(v => `<option value="${h(v.id)}" ${String(v.id) === String(w.variantId) ? "selected" : ""}>${h(v.label)}</option>`).join("")}
-            <option value="__custom__">+ New variant…</option>
+            <option value="__custom__">+ New ${h(tax.variant.toLowerCase())}…</option>
           </select>
         </label>
         <label class="inventory-edit-field inventory-edit-field-wide ${w.variantId === "__custom__" || (!w.variantId && w.variantLabel) ? "" : "hide"}" id="addWizardVariantCustomWrap">
-          <span>New variant</span>
-          <input class="input" id="addWizardVariantCustom" value="${h(w.variantId === "__custom__" || !w.variantId ? w.variantLabel : "")}" placeholder="e.g. 512 GB Black, 3 ml, 100 ml" />
+          <span>New ${h(tax.variant.toLowerCase())}</span>
+          <input class="input" id="addWizardVariantCustom" value="${h(w.variantId === "__custom__" || !w.variantId ? w.variantLabel : "")}" placeholder="${h(variantPlaceholder)}" />
         </label>`;
     } else {
       const pattern = cfg.qtyPattern || "count";
+      const sizeHint = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
+      const sizeLocked = pattern === "volume" && !!sizeHint;
+      const defaultPriceUnit = w.priceUnit || w.unit || (pattern === "volume" ? "ml" : (typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(pattern) : "item"));
+      const defaultQty = sizeHint ? String(sizeHint.qty) : (w.qty || (pattern === "volume" ? "100" : "1"));
+      const sizeUnit = sizeHint?.unit || (pattern === "volume" ? "ml" : defaultPriceUnit);
       const unitOptions = typeof inventoryUnitSelectOptionsHtml === "function"
-        ? inventoryUnitSelectOptionsHtml(pattern, w.unit || (typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(pattern) : "item"))
+        ? inventoryUnitSelectOptionsHtml(pattern, defaultPriceUnit)
         : `<option value="item">Pcs</option>`;
-      const qtyLabel = pattern === "volume" ? "Volume" : pattern === "weight" ? "Weight" : pattern === "length" ? "Length" : "Quantity";
+      const volLabels = pattern === "volume" && typeof inventoryVolumeBottleLabels === "function"
+        ? inventoryVolumeBottleLabels(defaultQty, defaultPriceUnit)
+        : null;
+      const qtyLabel = pattern === "volume" ? "Bottle size" : pattern === "weight" ? "Weight" : pattern === "length" ? "Length" : "Quantity";
+      const costLabel = volLabels?.cost || (pattern === "volume" ? "Cost / ml" : "Cost / unit");
+      const sellLabel = volLabels?.sell || (pattern === "volume" ? "Sell / ml" : "Sell / unit");
+      const sizeLockHtml = sizeLocked
+        ? `<div class="inventory-edit-field inventory-edit-field-wide">
+            <span>Size</span>
+            <strong class="inventory-wizard-size-lock">${h(`${trimInventoryNumber ? trimInventoryNumber(sizeHint.qty, 3) : sizeHint.qty} ${sizeHint.unit === "l" ? "L" : "ml"}`)}</strong>
+            <input type="hidden" id="addWizardQty" value="${h(defaultQty)}" />
+            <input type="hidden" id="addWizardSizeUnit" value="${h(sizeUnit)}" />
+          </div>
+          <label class="inventory-edit-field">
+            <span>Bottles</span>
+            <input class="input" id="addWizardBottles" type="number" min="1" step="1" value="${h(w.bottles || "1")}" />
+          </label>`
+        : `<label class="inventory-edit-field">
+            <span>${h(qtyLabel)}</span>
+            <input class="input" id="addWizardQty" type="number" min="0.001" step="any" value="${h(defaultQty)}" />
+          </label>`;
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
           <span>Item display name <em class="optional-label">auto</em></span>
           <input class="input" id="addWizardItemName" value="${h(w.itemName || buildItemDisplayName(w))}" />
         </label>
         <div class="inventory-draft-form">
+          ${sizeLockHtml}
           <label class="inventory-edit-field">
-            <span>${h(qtyLabel)}</span>
-            <input class="input" id="addWizardQty" type="number" min="0.001" step="any" value="${h(w.qty || "1")}" />
-          </label>
-          <label class="inventory-edit-field">
-            <span>Unit</span>
+            <span>${pattern === "volume" ? "Price unit" : "Unit"}</span>
             <select class="select" id="addWizardUnit">${unitOptions}</select>
           </label>
           <label class="inventory-edit-field">
-            <span>Cost / unit</span>
-            <input class="input" id="addWizardCost" type="number" min="0" step="any" value="${h(w.unitCost || "")}" />
+            <span id="addWizardCostLabel">${h(costLabel)}</span>
+            <input class="input" id="addWizardCost" type="number" min="0" step="any" value="${h(w.unitCost || "")}" placeholder="${pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : ""}" />
           </label>
           <label class="inventory-edit-field">
-            <span>Sell / unit</span>
-            <input class="input" id="addWizardSell" type="number" min="0" step="any" value="${h(w.unitSell || "")}" />
+            <span id="addWizardSellLabel">${h(sellLabel)}</span>
+            <input class="input" id="addWizardSell" type="number" min="0" step="any" value="${h(w.unitSell || "")}" placeholder="${pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : ""}" />
           </label>
           <label class="inventory-edit-field">
             <span>Currency</span>
@@ -602,9 +927,10 @@
 
     body.innerHTML = `
       <div class="inventory-add-wizard-steps">
-        ${steps.map((s, i) => `<span class="${i + 1 === w.step ? "is-active" : (i + 1 < w.step ? "is-done" : "")}">${h(s)}</span>`).join("")}
+        ${steps.map((s, i) => `<span class="${i + 1 === w.step ? "is-active" : (i + 1 < w.step ? "is-done" : "")}">${h(stepLabel(s))}</span>`).join("")}
       </div>
       ${fields}
+      ${currentStep === "stock" && (cfg.qtyPattern || "") === "volume" ? `<p class="help">Choose price unit (ml or L). Cost/Sell labels follow that unit. Cart pours still calculate from the stored per-liter price.</p>` : ""}
       <div class="inventory-add-wizard-actions">
         <button type="button" class="btn ghost" id="addWizardBackBtn" ${w.step <= 1 ? "disabled" : ""}>Back</button>
         <button type="button" class="btn primary" id="addWizardNextBtn">${w.step >= steps.length ? "Save item" : "Continue"}</button>
@@ -624,20 +950,34 @@
         if (hint) hint.textContent = next.hint || "";
       });
     });
-    body.querySelector("#addWizardCreateCategoryBtn")?.addEventListener("click", () => {
+    body.querySelector("#addWizardCreateCategoryBtn")?.addEventListener("click", async () => {
       const input = body.querySelector("#addWizardNewCategory");
       const name = String(input?.value || "").trim();
       if (!name) {
         alert("Enter a category name.");
         return;
       }
+      const btn = body.querySelector("#addWizardCreateCategoryBtn");
+      if (btn) btn.disabled = true;
       try {
-        const created = addCustomCategory(name);
+        const created = await addCustomCategory(name);
         w.category = created.name;
+        w.categoryLocked = false;
         if (input) input.value = "";
+        try { await loadInventoryCategories(true); } catch (_) {}
+        // Ensure the new category stays visible even if DB list RPC lags.
+        ensureCustomCategoriesHydrated();
+        state.inventoryCategories = mergeCategoryLists(
+          presetCategories(),
+          state.inventoryCategories || [],
+          state.inventoryCustomCategories || [],
+          [created]
+        );
         renderAddItemWizard();
       } catch (err) {
         alert(err?.message || "Could not create category.");
+      } finally {
+        if (btn) btn.disabled = false;
       }
     });
     body.querySelector("#addWizardNewCategory")?.addEventListener("keydown", e => {
@@ -674,19 +1014,21 @@
     body.querySelector("#addWizardBackBtn")?.addEventListener("click", () => {
       syncWizardFieldsFromDom();
       w.step = Math.max(1, w.step - 1);
+      // Category-locked wizards never go back to a global category picker.
+      if (w.categoryLocked && steps[w.step - 1] === "category") w.step = Math.min(w.step + 1, steps.length);
       renderAddItemWizard();
     });
     body.querySelector("#addWizardNextBtn")?.addEventListener("click", async () => {
       syncWizardFieldsFromDom();
       if (w.step < steps.length) {
-        if (!validateWizardStep(steps[w.step - 1])) return;
+        if (!validateWizardStep(steps[w.step - 1], cfg)) return;
         w.step += 1;
         // Skip unused steps if category changed mid-way
         while (w.step <= steps.length) {
-          const label = steps[w.step - 1];
-          if (label === "Brand" && !cfg.usesBrands) { w.step += 1; continue; }
-          if (label === "Type" && !cfg.usesProductLines) { w.step += 1; continue; }
-          if (label === "Variant" && !cfg.usesVariants) { w.step += 1; continue; }
+          const key = steps[w.step - 1];
+          if (key === "brand" && !cfg.usesBrands) { w.step += 1; continue; }
+          if (key === "productLine" && !cfg.usesProductLines) { w.step += 1; continue; }
+          if (key === "variant" && !cfg.usesVariants) { w.step += 1; continue; }
           break;
         }
         renderAddItemWizard();
@@ -698,6 +1040,25 @@
         alert(err?.message || "Could not save item.");
       }
     });
+
+    if (currentStep === "stock" && (cfg.qtyPattern || "") === "volume") {
+      const refreshWizardPriceLabels = () => {
+        const unitEl = body.querySelector("#addWizardUnit");
+        const labels = typeof inventoryVolumeBottleLabels === "function"
+          ? inventoryVolumeBottleLabels(body.querySelector("#addWizardQty")?.value, unitEl?.value)
+          : { cost: "Cost / ml", sell: "Sell / ml", priceUnit: "ml" };
+        const costLabel = body.querySelector("#addWizardCostLabel");
+        const sellLabel = body.querySelector("#addWizardSellLabel");
+        const costInput = body.querySelector("#addWizardCost");
+        const sellInput = body.querySelector("#addWizardSell");
+        if (costLabel) costLabel.textContent = labels.cost;
+        if (sellLabel) sellLabel.textContent = labels.sell;
+        if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
+        if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
+      };
+      body.querySelector("#addWizardUnit")?.addEventListener("change", refreshWizardPriceLabels);
+      refreshWizardPriceLabels();
+    }
   }
 
   function syncWizardFieldsFromDom(){
@@ -737,8 +1098,16 @@
     if (name) w.itemName = name.value.trim();
     const qty = document.getElementById("addWizardQty");
     if (qty) w.qty = qty.value;
+    const sizeUnit = document.getElementById("addWizardSizeUnit");
+    if (sizeUnit) w.sizeUnit = sizeUnit.value;
+    const bottles = document.getElementById("addWizardBottles");
+    if (bottles) w.bottles = bottles.value;
     const unit = document.getElementById("addWizardUnit");
-    if (unit) w.unit = unit.value;
+    if (unit) {
+      w.priceUnit = unit.value;
+      // Keep legacy unit field as price unit for open forms; size unit is separate when locked.
+      w.unit = unit.value;
+    }
     const cost = document.getElementById("addWizardCost");
     if (cost) w.unitCost = cost.value;
     const sell = document.getElementById("addWizardSell");
@@ -751,31 +1120,39 @@
     if (desc) w.description = desc.value.trim();
   }
 
-  function validateWizardStep(stepLabel){
+  function validateWizardStep(stepKey, cfgInput){
     const w = wizardState();
-    if (stepLabel === "Category" && !w.category) {
+    const cfg = cfgInput || getCategoryConfig(w.category);
+    const tax = getCategoryTaxonomyLabels(cfg);
+    if (stepKey === "category" && !w.category) {
       alert("Select a category.");
       return false;
     }
-    if (stepLabel === "Brand") {
+    if (stepKey === "brand") {
       const brandName = w.brandId === "__custom__" || !w.brandId
         ? String(document.getElementById("addWizardBrandCustom")?.value || w.brand || "").trim()
         : w.brand;
       if (!brandName) { alert("Enter or select a brand."); return false; }
       w.brand = brandName;
     }
-    if (stepLabel === "Type") {
+    if (stepKey === "productLine") {
       const lineName = w.productLineId === "__custom__" || !w.productLineId
         ? String(document.getElementById("addWizardProductLineCustom")?.value || w.productLine || "").trim()
         : w.productLine;
-      if (!lineName) { alert("Enter or select a product type (e.g. iPhone, 9PM)."); return false; }
+      if (!lineName) {
+        alert(`Enter or select a ${tax.productLine.toLowerCase()} (e.g. ${/perfume/i.test(cfg.name || "") ? "9PM, Oud" : "iPhone, 9PM"}).`);
+        return false;
+      }
       w.productLine = lineName;
     }
-    if (stepLabel === "Variant") {
+    if (stepKey === "variant") {
       const variant = w.variantId === "__custom__" || !w.variantId
         ? String(document.getElementById("addWizardVariantCustom")?.value || w.variantLabel || "").trim()
         : w.variantLabel;
-      if (!variant) { alert("Enter or select a variant (e.g. 512 GB Black, 3 ml)."); return false; }
+      if (!variant) {
+        alert(`Enter or select a ${tax.variant.toLowerCase()} (e.g. ${/perfume/i.test(cfg.name || "") ? "100 ml, 50 ml" : "512 GB Black, 3 ml"}).`);
+        return false;
+      }
       w.variantLabel = variant;
     }
     return true;
@@ -877,14 +1254,40 @@
     const categoryName = payload.category || payload.itemType || "General";
     const cfg = getCategoryConfig(categoryName);
     const qtyPattern = payload.qtyPattern || cfg.qtyPattern || "count";
-    const unit = payload.unit || (typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(qtyPattern) : "item");
-    const qty = typeof normalizeInventoryQuantityInput === "function"
-      ? normalizeInventoryQuantityInput(payload.qty, qtyPattern, unit)
+    const sizeUnit = payload.unit || (typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(qtyPattern) : "item");
+    const bottles = Math.max(1, Math.floor(Number(payload.bottles || 1)) || 1);
+    const qtyPerBottle = typeof normalizeInventoryQuantityInput === "function"
+      ? normalizeInventoryQuantityInput(payload.qty, qtyPattern, sizeUnit)
       : Number(payload.qty || 0);
-    const unitCost = Number(payload.unitCost || 0);
-    const unitSell = Number(payload.unitSell || 0);
+    const qty = qtyPerBottle * bottles;
+    // Volume: price unit (ml/L) can differ from bottle size unit; store cost/sell per liter.
+    const priceUnit = qtyPattern === "volume"
+      ? (typeof normalizeInventoryUnit === "function"
+        ? normalizeInventoryUnit(payload.priceUnit || sizeUnit, qtyPattern)
+        : (payload.priceUnit || sizeUnit))
+      : sizeUnit;
+    const enteredCost = Number(payload.unitCost || 0);
+    const enteredSell = Number(payload.unitSell || 0);
     if (!(qty > 0)) throw new Error("Enter a valid quantity / volume / weight / length.");
-    if (!(unitCost > 0)) throw new Error("Enter cost per unit.");
+    if (!(enteredCost > 0)) {
+      const per = qtyPattern === "volume"
+        ? (String(priceUnit).toLowerCase() === "l" ? "L" : "ml")
+        : "unit";
+      throw new Error(qtyPattern === "volume" ? `Enter cost per ${per}.` : "Enter cost per unit.");
+    }
+    const unitCost = qtyPattern === "volume"
+      ? (typeof inventoryVolumePriceToPerLiter === "function"
+        ? inventoryVolumePriceToPerLiter(enteredCost, priceUnit)
+        : (String(priceUnit).toLowerCase() === "ml" ? enteredCost * 1000 : enteredCost))
+      : enteredCost;
+    const unitSell = qtyPattern === "volume"
+      ? (enteredSell > 0
+        ? (typeof inventoryVolumePriceToPerLiter === "function"
+          ? inventoryVolumePriceToPerLiter(enteredSell, priceUnit)
+          : (String(priceUnit).toLowerCase() === "ml" ? enteredSell * 1000 : enteredSell))
+        : 0)
+      : enteredSell;
+    const purchaseTotal = unitCost * qty;
 
     const draft = {
       category: categoryName,
@@ -895,10 +1298,12 @@
       variantLabel: String(payload.variantLabel || "").trim(),
       variantId: payload.variantId || "",
       itemName: String(payload.itemName || "").trim(),
-      qty: String(payload.qty ?? qty),
-      unit,
-      unitCost: String(unitCost),
-      unitSell: unitSell > 0 ? String(unitSell) : "",
+      qty: String(payload.qty ?? qtyPerBottle),
+      unit: sizeUnit,
+      bottles: String(bottles),
+      priceUnit,
+      unitCost: String(enteredCost),
+      unitSell: enteredSell > 0 ? String(enteredSell) : "",
       currency: payload.currency || state.lastCurrency || "AED",
       description: payload.description || "",
       boughtDate: payload.boughtDate || (typeof todayISO === "function" ? todayISO() : "")
@@ -912,7 +1317,7 @@
       const taxDefault = typeof getTaxSettingForCurrency === "function"
         ? getTaxSettingForCurrency(w.currency || "AED")
         : { rate: 0, mode: "exclusive" };
-      const lineTotal = unitCost * qty;
+      const lineTotal = purchaseTotal;
       const tax = typeof calculateTaxBreakdown === "function"
         ? calculateTaxBreakdown(lineTotal, taxDefault.rate, taxDefault.mode, taxDefault.rate > 0)
         : { net: lineTotal, tax: 0, total: lineTotal, applied: false, rate: 0, mode: "exclusive" };
@@ -1031,7 +1436,8 @@
   async function commitAddItemWizard(){
     const w = wizardState();
     const cfg = getCategoryConfig(w.category);
-    if (!validateWizardStep("Stock") && false) return;
+    syncWizardFieldsFromDom();
+    const sizeHint = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
     const result = await persistInventoryStockItem({
       category: w.category,
       brand: w.brand,
@@ -1042,13 +1448,16 @@
       variantId: w.variantId,
       itemName: w.itemName,
       qty: w.qty,
-      unit: w.unit,
+      unit: w.sizeUnit || sizeHint?.unit || w.unit,
+      bottles: w.bottles || 1,
+      priceUnit: w.priceUnit || w.unit,
       unitCost: w.unitCost,
       unitSell: w.unitSell,
       currency: w.currency,
       description: w.description,
       boughtDate: w.boughtDate,
-      qtyPattern: cfg.qtyPattern
+      qtyPattern: cfg.qtyPattern,
+      sizeLocked: !!(cfg.qtyPattern === "volume" && sizeHint)
     });
 
     closeAddItemWizard();
@@ -1069,9 +1478,31 @@
     }
     try { if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(false); } catch (_) {}
     const cats = getWizardCategories();
+    const seededCategory = String(options.seedType || options.category || "").trim();
+    const categoryLocked = !!seededCategory;
+    const category = seededCategory || cats[0]?.name || "General";
+    const cfg = getCategoryConfig(category);
+    const stepKeys = [];
+    if (!categoryLocked) stepKeys.push("category");
+    if (cfg.usesBrands) stepKeys.push("brand");
+    if (cfg.usesProductLines) stepKeys.push("productLine");
+    if (cfg.usesVariants) stepKeys.push("variant");
+    stepKeys.push("stock");
+    let desiredKey = categoryLocked
+      ? (cfg.usesBrands ? "brand" : (cfg.usesProductLines ? "productLine" : (cfg.usesVariants ? "variant" : "stock")))
+      : "category";
+    if (options.brand || options.brandId) {
+      desiredKey = cfg.usesProductLines ? "productLine" : (cfg.usesVariants ? "variant" : "stock");
+    }
+    if (options.productLine || options.productLineId) {
+      desiredKey = cfg.usesVariants ? "variant" : "stock";
+    }
+    if (options.variantLabel || options.variantId) desiredKey = "stock";
+    const startStep = Math.max(1, stepKeys.indexOf(desiredKey) + 1 || 1);
     state.inventoryAddWizard = {
-      step: 1,
-      category: options.seedType || options.category || cats[0]?.name || "General",
+      step: startStep,
+      categoryLocked,
+      category,
       brand: options.brand || "",
       brandId: options.brandId || "",
       productLine: options.productLine || "",
@@ -1079,18 +1510,21 @@
       variantLabel: options.variantLabel || "",
       variantId: options.variantId || "",
       itemName: "",
-      qty: options.qty || "1",
-      unit: options.unit || "item",
+      qty: options.qty || (cfg.qtyPattern === "volume" ? "100" : "1"),
+      unit: options.unit || (cfg.qtyPattern === "volume" ? "ml" : "item"),
       unitCost: "",
       unitSell: "",
       currency: options.currency || state.lastCurrency || "AED",
       description: "",
       boughtDate: typeof todayISO === "function" ? todayISO() : ""
     };
-    const cfg = getCategoryConfig(state.inventoryAddWizard.category);
-    state.inventoryAddWizard.unit = typeof inventoryBaseUnitForCategory === "function"
-      ? inventoryBaseUnitForCategory(cfg.qtyPattern)
-      : "item";
+    if (!options.unit) {
+      state.inventoryAddWizard.unit = cfg.qtyPattern === "volume"
+        ? "ml"
+        : (typeof inventoryBaseUnitForCategory === "function"
+          ? inventoryBaseUnitForCategory(cfg.qtyPattern)
+          : "item");
+    }
     try {
       renderAddItemWizard();
     } catch (err) {
@@ -1135,13 +1569,22 @@
   global.getWizardCategories = getWizardCategories;
   global.addCustomCategory = addCustomCategory;
   global.getCategoryConfig = getCategoryConfig;
+  global.getCategoryTaxonomyLabels = getCategoryTaxonomyLabels;
   global.groupItemsByBrand = groupItemsByBrand;
   global.groupItemsByProductLine = groupItemsByProductLine;
   global.mergeProductLinesForBrand = mergeProductLinesForBrand;
   global.mergeVariantsForProductLine = mergeVariantsForProductLine;
   global.createBrandInline = createBrandInline;
+  global.renameBrandInline = renameBrandInline;
+  global.deleteBrandInline = deleteBrandInline;
   global.createProductLineInline = createProductLineInline;
+  global.renameProductLineInline = renameProductLineInline;
+  global.deleteProductLineInline = deleteProductLineInline;
   global.createVariantInline = createVariantInline;
+  global.renameVariantInline = renameVariantInline;
+  global.deleteVariantInline = deleteVariantInline;
+  global.renameCategoryInline = renameCategoryInline;
+  global.deleteCategoryInline = deleteCategoryInline;
   global.persistInventoryStockItem = persistInventoryStockItem;
   global.resolveItemProductLine = resolveItemProductLine;
   global.productLineKey = productLineKey;
