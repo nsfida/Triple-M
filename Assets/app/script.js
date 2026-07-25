@@ -5544,12 +5544,15 @@ function goodsMetaFromNotes(noteValue){
     taxMode: readText("VATM"),
     taxAmount: readNum("VATA"),
     netAmount: readNum("NET"),
-    grossAmount: readNum("GROSS")
+    grossAmount: readNum("GROSS"),
+    saleLineNo: readNum("SLNO"),
+    saleLineId: readText("SLID"),
+    saleSetId: readText("SSET")
   };
 }
 
 function goodsMetaTagCleanRegex(){
-  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|BRAND|VARIANT|BRANDID|VARIANTID|PLINE|PLINEID|CSLUG|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi;
+  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|BRAND|VARIANT|BRANDID|VARIANTID|PLINE|PLINEID|CSLUG|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS|SLNO|SLID|SSET):[^\]]*\]/gi;
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
@@ -5593,6 +5596,9 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.taxAmount != null) tags.push(`[VATA:${roundTaxMoney(meta.taxAmount)}]`);
   if (meta.netAmount != null) tags.push(`[NET:${roundTaxMoney(meta.netAmount)}]`);
   if (meta.grossAmount != null) tags.push(`[GROSS:${roundTaxMoney(meta.grossAmount)}]`);
+  if (meta.saleLineNo != null) tags.push(`[SLNO:${meta.saleLineNo}]`);
+  if (meta.saleLineId) tags.push(`[SLID:${String(meta.saleLineId).replace(/\]/g, "")}]`);
+  if (meta.saleSetId) tags.push(`[SSET:${String(meta.saleSetId).replace(/\]/g, "")}]`);
   return `${note} ${tags.join(" ")}`.trim();
 }
 
@@ -6247,7 +6253,7 @@ function inventoryPurchasePriceLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Purchase price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Purchase price / m";
-  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Purchase price / L";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Cost / ml";
   return "Purchase price";
 }
 
@@ -6255,7 +6261,7 @@ function inventorySellingPriceLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Selling price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Selling price / m";
-  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Selling price / L";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Sell / ml";
   return "Selling price";
 }
 
@@ -6263,8 +6269,97 @@ function inventorySalePricePlaceholder(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Price / m";
-  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Price / L";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Sell price per ml";
   return "Unit price";
+}
+
+function parseInventorySizeHint(label){
+  const raw = String(label || "").trim().toLowerCase().replace(/,/g, ".");
+  if (!raw) return null;
+  let match = raw.match(/(\d+(?:\.\d+)?)\s*ml\b/);
+  if (match) return { qty: Number(match[1]), unit: INVENTORY_UNIT_ML };
+  match = raw.match(/(\d+(?:\.\d+)?)\s*(?:l|liter|litre|liters|litres)\b/);
+  if (match) return { qty: Number(match[1]), unit: INVENTORY_UNIT_L };
+  return null;
+}
+
+function inventoryVolumeBottleLabels(qtyDisplay, unit){
+  const priceUnit = normalizeInventoryUnit(unit || INVENTORY_UNIT_ML, INVENTORY_CATEGORY_VOLUME);
+  const per = priceUnit === INVENTORY_UNIT_L ? "L" : "ml";
+  return {
+    cost: `Cost / ${per}`,
+    sell: `Sell / ${per}`,
+    qty: "Bottle size",
+    priceUnit: per
+  };
+}
+
+/** Convert a UI cost/sell entered in ml or L into stored per-liter price. */
+function inventoryVolumePriceToPerLiter(enteredPrice, priceUnit){
+  const n = Number(enteredPrice || 0);
+  if (!(n > 0)) return 0;
+  const unit = normalizeInventoryUnit(priceUnit || INVENTORY_UNIT_ML, INVENTORY_CATEGORY_VOLUME);
+  return unit === INVENTORY_UNIT_ML ? n * 1000 : n;
+}
+
+function resolveInventoryItemCategory(groupOrType, fallbackCategory = ""){
+  const fromGroup = groupOrType && typeof groupOrType === "object" ? groupOrType : null;
+  const raw = String(
+    fromGroup?.itemCategory
+    || fallbackCategory
+    || (!fromGroup ? groupOrType : "")
+    || ""
+  ).trim();
+  if (raw) {
+    const normalized = normalizeInventoryCategory(raw);
+    if (normalized !== INVENTORY_CATEGORY_COUNT) return normalized;
+  }
+  const itemType = String(
+    fromGroup?.itemType
+    || fromGroup?.item_type
+    || (typeof groupOrType === "string" ? groupOrType : "")
+    || ""
+  ).trim();
+  if (itemType && typeof getCategoryConfig === "function") {
+    const pattern = normalizeInventoryCategory(getCategoryConfig(itemType)?.qtyPattern || "");
+    if (pattern !== INVENTORY_CATEGORY_COUNT) return pattern;
+  }
+  if (/perfume|liquid|oil|attar/i.test(itemType)) return INVENTORY_CATEGORY_VOLUME;
+  const uom = String(fromGroup?.quantityUnit || fromGroup?.quantity_unit || "").trim().toLowerCase();
+  if (uom === INVENTORY_UNIT_ML || uom === INVENTORY_UNIT_L || /^(ml|l|liter|litre|liters|litres)$/i.test(uom)) {
+    return INVENTORY_CATEGORY_VOLUME;
+  }
+  const variant = String(fromGroup?.variantLabel || fromGroup?.variant_label || "").toLowerCase();
+  if (/\d+(\.\d+)?\s*ml\b|\b\d+(\.\d+)?\s*(l|liter|litre|liters|litres)\b/i.test(variant)) {
+    return INVENTORY_CATEGORY_VOLUME;
+  }
+  return INVENTORY_CATEGORY_COUNT;
+}
+
+function inventoryLineRateForDisplay(unitPricePerBase, qtyBase, category, displayUnit = ""){
+  const cat = normalizeInventoryCategory(category);
+  const price = Number(unitPricePerBase || 0);
+  const unit = normalizeInventoryUnit(
+    displayUnit || preferredDraftQtyUnit(cat, qtyBase),
+    cat
+  );
+  if (cat === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML) return price / 1000;
+  if (cat === INVENTORY_CATEGORY_WEIGHT && unit === INVENTORY_UNIT_GRAM) return price / 1000;
+  if (cat === INVENTORY_CATEGORY_LENGTH && unit === INVENTORY_UNIT_CM) return price / 100;
+  return price;
+}
+
+function inventoryDisplayRateToUnitPrice(displayRate, category, displayUnit = "", qtyBase = 0){
+  const cat = normalizeInventoryCategory(category);
+  const rate = Math.max(0, Number(displayRate || 0));
+  const unit = normalizeInventoryUnit(
+    displayUnit || preferredDraftQtyUnit(cat, qtyBase),
+    cat
+  );
+  if (cat === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML) return rate * 1000;
+  if (cat === INVENTORY_CATEGORY_WEIGHT && unit === INVENTORY_UNIT_GRAM) return rate * 1000;
+  if (cat === INVENTORY_CATEGORY_LENGTH && unit === INVENTORY_UNIT_CM) return rate * 100;
+  return rate;
 }
 
 function inventoryBaseUnitForCategory(category){
@@ -6294,8 +6389,8 @@ function inventoryUnitSelectOptionsHtml(category, selectedUnit = ""){
   if (normalized === INVENTORY_CATEGORY_VOLUME){
     const unit = normalizeInventoryUnit(selectedUnit, normalized);
     return [
-      `<option value="${INVENTORY_UNIT_L}"${unit === INVENTORY_UNIT_L ? " selected" : ""}>L</option>`,
-      `<option value="${INVENTORY_UNIT_ML}"${unit === INVENTORY_UNIT_ML ? " selected" : ""}>ml</option>`
+      `<option value="${INVENTORY_UNIT_ML}"${unit === INVENTORY_UNIT_ML ? " selected" : ""}>ml</option>`,
+      `<option value="${INVENTORY_UNIT_L}"${unit === INVENTORY_UNIT_L ? " selected" : ""}>L</option>`
     ].join("");
   }
   return `<option value="${INVENTORY_UNIT_ITEM}" selected>Pcs</option>`;
@@ -6460,13 +6555,42 @@ function inventoryPaymentStatus(meta = {}, lineTotal = 0){
 }
 
 function getInventoryReceiptEntries(receiptNumber, fallbackEntry = null){
+  const fallbackMeta = goodsMetaFromNotes(fallbackEntry?.notes || "");
   const receipt = String(receiptNumber || "").trim();
+  const invoiceHint = String(
+    fallbackMeta.invoiceNumber || fallbackMeta.receiptNumber || receipt || ""
+  ).trim();
+  const saleSetHint = String(fallbackMeta.saleSetId || "").trim();
+  const keys = new Set([receipt, invoiceHint, saleSetHint].filter(Boolean));
   const entries = state.entries.filter(e => {
     if (e.entry_kind === "principal" || !hasGoodsTag(e.notes)) return false;
     const meta = goodsMetaFromNotes(e.notes);
-    return receipt && (meta.receiptNumber || "") === receipt;
+    const rcpt = String(meta.receiptNumber || "").trim();
+    const inv = String(meta.invoiceNumber || "").trim();
+    const sset = String(meta.saleSetId || "").trim();
+    if (!keys.size) return false;
+    return (rcpt && keys.has(rcpt))
+      || (inv && keys.has(inv))
+      || (sset && keys.has(sset));
   });
-  return entries.length || !fallbackEntry ? entries : [fallbackEntry];
+  // If tags were lost on reload, still keep every locally known sibling from the same finalize.
+  if (fallbackEntry && !entries.some(e => e.id === fallbackEntry.id)) {
+    entries.push(fallbackEntry);
+  }
+  if (entries.length) {
+    // Keep every sale line (same bottle can appear multiple times as separate rows).
+    return entries.sort((a, b) => {
+      const aMeta = goodsMetaFromNotes(a.notes);
+      const bMeta = goodsMetaFromNotes(b.notes);
+      const aNo = Number(aMeta.saleLineNo);
+      const bNo = Number(bMeta.saleLineNo);
+      if (Number.isFinite(aNo) && Number.isFinite(bNo) && aNo !== bNo) return aNo - bNo;
+      return dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at)
+        || String(a.created_at || "").localeCompare(String(b.created_at || ""))
+        || String(a.id || "").localeCompare(String(b.id || ""));
+    });
+  }
+  return fallbackEntry ? [fallbackEntry] : [];
 }
 
 function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
@@ -6509,7 +6633,18 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
       principalEntry,
       principalMeta,
       itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
-      itemName: principalEntry?.person_name || entry.person_name || "Goods item",
+      itemName: (() => {
+        const base = principalEntry?.person_name || entry.person_name || "Goods item";
+        const parts = [
+          principalMeta.brand || entryMeta.brand || "",
+          principalMeta.productLine || entryMeta.productLine || "",
+          principalMeta.variantLabel || entryMeta.variantLabel || ""
+        ].map(v => String(v || "").trim()).filter(Boolean);
+        const labeled = parts.length ? parts.join(" · ") : base;
+        // Always keep repeated pours as distinct invoice rows (draft + finalized).
+        const lineNo = entryMeta.saleLineNo != null ? Number(entryMeta.saleLineNo) : (index + 1);
+        return `${labeled} (#${lineNo})`;
+      })(),
       customerPhone: entryMeta.customerPhone || "",
       customerAddress: entryMeta.customerAddress || "",
       customerCompany: entryMeta.customerCompany || "",
@@ -6646,7 +6781,7 @@ function collectOutstandingInventoryInvoices(){
 
   for (const entry of saleEntries){
     const meta = goodsMetaFromNotes(entry.notes);
-    const receiptNumber = meta.receiptNumber || shortId(entry.id) || "";
+    const receiptNumber = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(entry.id) || "";
     const receiptKey = receiptNumber || entry.id;
     if (seenReceipts.has(receiptKey)) continue;
     seenReceipts.add(receiptKey);
@@ -6667,7 +6802,10 @@ function collectOutstandingInventoryInvoices(){
       .map(row => row.entry.action_date)
       .filter(Boolean)
       .sort((a, b) => dateStamp(a) - dateStamp(b))[0] || entry.action_date || entry.loan_date || "";
-    const itemNames = [...new Set(receiptData.saleRows.map(row => row.itemName).filter(Boolean))];
+    const itemNames = receiptData.saleRows.map(row => {
+      const qty = row.qtyDisplay ? ` ${row.qtyDisplay}` : "";
+      return `${row.itemName || "Item"}${qty}`;
+    }).filter(Boolean);
 
     invoices.push({
       receiptNumber: receiptData.receiptNumber || receiptNumber || shortId(entry.id),
@@ -6700,66 +6838,59 @@ function collectOutstandingInventoryInvoices(){
 }
 
 function renderInventoryOutstandingBanner(){
-  const invoices = collectOutstandingInventoryInvoices();
-  const totalBalance = new Map();
-  invoices.forEach(invoice => {
-    invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
-  });
-  const searchableCustomerNames = getInventoryCustomerNames();
+  // Show every customer that has any sales invoice (paid, partial, or walk-in).
+  const nameSet = new Set(getInventoryCustomerNames());
+  for (const entry of state.entries) {
+    if (entry.entry_kind === "principal" || !hasGoodsTag(entry.notes) || !isInventorySaleAction(entry)) continue;
+    const cust = String(goodsMetaFromNotes(entry.notes).customerName || "").trim() || "Walk-in customer";
+    nameSet.add(cust);
+  }
+  const customerNames = [...nameSet].sort((a, b) => a.localeCompare(b));
+  const memberRows = customerNames.map(name => {
+    const record = getInventoryCustomerRecord(name);
+    if (!record.invoices.length) return null;
+    const outstandingCount = record.invoices.filter(inv => {
+      let bal = 0;
+      inv.balanceByCurrency?.forEach?.(amount => { bal += Number(amount || 0); });
+      return bal > 0.00000001 || Number(inv.balanceTotal || 0) > 0.00000001;
+    }).length;
+    const invoiceSearch = record.invoices.map(invoice =>
+      `${invoice.invoiceNumber || invoice.receiptNumber} ${invoice.itemSummary} ${invoice.totalText} ${invoice.paidText} ${invoice.balanceText}`
+    ).join(" ");
+    return {
+      name: record.customerName || name,
+      invoices: record.invoices,
+      invoiceCount: record.invoices.length,
+      outstandingCount,
+      totalByCurrency: record.totalByCurrency,
+      paidByCurrency: record.paidByCurrency,
+      balanceByCurrency: record.balanceByCurrency,
+      searchText: `${record.customerName || name} ${invoiceSearch} ${record.contact?.phone || ""} ${record.contact?.address || ""}`
+    };
+  }).filter(Boolean);
 
-  if (!invoices.length && !searchableCustomerNames.length){
+  if (!memberRows.length){
     return `<div class="inventory-outstanding-empty-state">No customers or sales invoices yet. Create a sale to see them here.</div>`;
   }
 
-  const members = new Map();
-  invoices.forEach(invoice => {
-    const key = invoice.customerName || "Walk-in customer";
-    if (!members.has(key)){
-      members.set(key, { name: key, invoices: [], totalByCurrency: new Map(), paidByCurrency: new Map(), balanceByCurrency: new Map() });
-    }
-    const member = members.get(key);
-    member.invoices.push(invoice);
-    invoice.totalsByCurrency.forEach((amounts, currency) => {
-      addCurrencyTotal(member.totalByCurrency, currency, amounts.total || 0);
-      addCurrencyTotal(member.paidByCurrency, currency, amounts.paid || 0);
-    });
-    invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(member.balanceByCurrency, currency, amount));
+  const totalBalance = new Map();
+  let outstandingInvoices = 0;
+  memberRows.forEach(member => {
+    member.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(totalBalance, currency, amount));
+    outstandingInvoices += member.outstandingCount;
   });
-  const memberRows = Array.from(members.values()).sort((a, b) => a.name.localeCompare(b.name));
-  const outstandingNameKeys = new Set(Array.from(members.keys()).map(normalizeInventoryCustomerKey));
-  const searchOnlyMembers = searchableCustomerNames
-    .filter(name => !outstandingNameKeys.has(normalizeInventoryCustomerKey(name)))
-    .map(name => {
-      const record = getInventoryCustomerRecord(name);
-      const invoiceSearch = record.invoices.map(invoice => `${invoice.invoiceNumber || invoice.receiptNumber} ${invoice.itemSummary} ${invoice.totalText} ${invoice.paidText} ${invoice.balanceText}`).join(" ");
-      return {
-        name: record.customerName || name,
-        invoiceCount: record.invoices.length,
-        totalByCurrency: record.totalByCurrency,
-        paidByCurrency: record.paidByCurrency,
-        balanceByCurrency: record.balanceByCurrency,
-        searchText: `${record.customerName || name} ${invoiceSearch} ${record.contact.phone || ""} ${record.contact.address || ""}`
-      };
-    })
-    .filter(member => member.name)
-    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const totalCustomers = members.size + searchOnlyMembers.length;
   return `
-    <details class="inventory-outstanding-banner inventory-outstanding-panel${invoices.length || searchOnlyMembers.length ? "" : " is-clear"}" open>
+    <details class="inventory-outstanding-banner inventory-outstanding-panel" open>
       <summary class="inventory-outstanding-top">
         <div>
-          <p>${invoices.length
-            ? `${escapeHtml(invoices.length)} invoice${invoices.length === 1 ? "" : "s"} pending across ${escapeHtml(members.size)} member${members.size === 1 ? "" : "s"}.`
-            : (searchOnlyMembers.length
-              ? `${escapeHtml(searchOnlyMembers.length)} customer${searchOnlyMembers.length === 1 ? "" : "s"} with paid / settled records.`
-              : "No outstanding inventory invoices. Search to find customer records.")}</p>
+          <p>${escapeHtml(memberRows.length)} customer${memberRows.length === 1 ? "" : "s"} · ${escapeHtml(memberRows.reduce((n, m) => n + m.invoiceCount, 0))} invoice${memberRows.reduce((n, m) => n + m.invoiceCount, 0) === 1 ? "" : "s"}${outstandingInvoices ? ` · ${escapeHtml(outstandingInvoices)} open` : " · all settled"}.</p>
         </div>
         <div class="inventory-outstanding-top-actions">
-          ${invoices.length ? `<div class="inventory-outstanding-total">
-            <small>Total balance</small>
-            <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance))}</strong>
-          </div>` : `<strong>${escapeHtml(String(totalCustomers))} customer${totalCustomers === 1 ? "" : "s"}</strong>`}
+          <div class="inventory-outstanding-total">
+            <small>Open balance</small>
+            <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance) || "0")}</strong>
+          </div>
         </div>
       </summary>
       <div class="inventory-outstanding-body">
@@ -6773,54 +6904,35 @@ function renderInventoryOutstandingBanner(){
         </div>
         <div class="inventory-outstanding-members">
         ${memberRows.map(member => {
-          const searchText = `${member.name} ${member.invoices.map(invoice => `${invoice.invoiceNumber || invoice.receiptNumber} ${invoice.itemSummary} ${invoice.totalText} ${invoice.paidText} ${invoice.balanceText}`).join(" ")}`;
+          const balanceText = inventoryCurrencyTotalsText(member.balanceByCurrency) || "0";
+          const statusLabel = member.outstandingCount
+            ? `${member.outstandingCount} open · ${balanceText}`
+            : `${member.invoiceCount} paid`;
           return `
-          <details class="inventory-outstanding-member" data-search="${escapeHtml(searchText)}">
+          <details class="inventory-outstanding-member" data-search="${escapeHtml(member.searchText)}">
             <summary>
               <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
-              <strong>${escapeHtml(member.invoices.length)} invoice${member.invoices.length === 1 ? "" : "s"} • ${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency))}</strong>
+              <strong>${escapeHtml(String(member.invoiceCount))} invoice${member.invoiceCount === 1 ? "" : "s"} · ${escapeHtml(statusLabel)}</strong>
             </summary>
             <div class="inventory-outstanding-list">
               <div class="inventory-outstanding-row">
                 <div class="inventory-outstanding-main">
-                  <strong>Combined outstanding invoice</strong>
-                  <span>${escapeHtml(member.invoices.length)} invoice${member.invoices.length === 1 ? "" : "s"} for ${escapeHtml(member.name)} • oldest balance settled first</span>
+                  <strong>${member.outstandingCount ? "Customer invoices" : "Paid customer record"}</strong>
+                  <span>${escapeHtml(member.invoiceCount)} invoice${member.invoiceCount === 1 ? "" : "s"} for ${escapeHtml(member.name)}${member.outstandingCount ? " · open balances listed in record" : ""}</span>
                 </div>
-                <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency))}</strong></div>
-                <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency))}</strong></div>
-                <div class="inventory-outstanding-money is-due"><small>Balance</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency))}</strong></div>
+                <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency) || "0")}</strong></div>
+                <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency) || "0")}</strong></div>
+                <div class="inventory-outstanding-money${member.outstandingCount ? " is-due" : ""}"><small>Balance</small><strong>${escapeHtml(balanceText)}</strong></div>
                 <div class="inventory-outstanding-actions">
-                  <button class="tiny inventoryOutstandingCustomerPdfBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download customer outstanding invoice PDF"><i class="fa-solid fa-download"></i> PDF</button>
+                  <button class="tiny inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open invoices & receipts">Open</button>
                   <button class="tiny ghost inventoryOutstandingCustomerStatementBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download full customer statement">Statement</button>
-                  <button class="tiny ghost inventoryOutstandingCustomerSettleBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Select one or more invoices and record settlement">Settle</button>
+                  ${member.outstandingCount ? `<button class="tiny ghost inventoryOutstandingCustomerSettleBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Select one or more invoices and record settlement">Settle</button>` : ""}
                 </div>
               </div>
             </div>
           </details>
         `;
         }).join("")}
-        ${searchOnlyMembers.map(member => `
-          <details class="inventory-outstanding-member search-only" data-search-only="true" data-search="${escapeHtml(member.searchText)}">
-            <summary>
-              <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
-              <strong>${member.invoiceCount ? `${escapeHtml(member.invoiceCount)} paid invoice${member.invoiceCount === 1 ? "" : "s"}` : "Customer record"}</strong>
-            </summary>
-            <div class="inventory-outstanding-list">
-              <div class="inventory-outstanding-row">
-                <div class="inventory-outstanding-main">
-                  <strong>Customer statement</strong>
-                  <span>${member.invoiceCount ? "Open this customer to check payment records and invoices." : "Open this customer record before creating an invoice."}</span>
-                </div>
-                <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency) || "0")}</strong></div>
-                <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency) || "0")}</strong></div>
-                <div class="inventory-outstanding-money"><small>Balance</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.balanceByCurrency) || "0")}</strong></div>
-                <div class="inventory-outstanding-actions">
-                  <button class="tiny ghost inventoryOutstandingCustomerStatementBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download full customer statement">Statement</button>
-                </div>
-              </div>
-            </div>
-          </details>
-        `).join("")}
           <div class="inventory-outstanding-empty hide">No matching customers.</div>
         </div>
       </div>
@@ -6898,7 +7010,7 @@ async function setInventorySubView(view = "stock"){
   els.inventoryCustomersView?.classList.toggle("hide", !showCustomers);
   if (els.inventorySectionDesc) {
     els.inventorySectionDesc.textContent = showCustomers
-      ? "Outstanding payment invoices, customer records, settlements, and statements."
+      ? "All sales invoices & receipts by customer (including Walk-in), settlements, and statements."
       : showDrafts
         ? "Saved carts / proforma — finalize later without reducing stock until then."
         : "Category → Brand → Type → Variant — add to cart, save, then finalize.";
@@ -7025,7 +7137,7 @@ function getInventoryCustomerInvoices(customerName){
     .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at))
     .map(entry => {
       const meta = goodsMetaFromNotes(entry.notes);
-      const receiptNumber = meta.receiptNumber || shortId(entry.id) || "";
+      const receiptNumber = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(entry.id) || "";
       const receiptKey = receiptNumber || entry.id;
       if (seenReceipts.has(receiptKey)) return null;
       seenReceipts.add(receiptKey);
@@ -7037,7 +7149,10 @@ function getInventoryCustomerInvoices(customerName){
       const dates = receiptData.saleRows.map(row => row.entry.action_date).filter(Boolean);
       const oldestDate = dates.slice().sort((a, b) => dateStamp(a) - dateStamp(b))[0] || entry.action_date || "";
       const latestDate = dates.slice().sort((a, b) => dateStamp(b) - dateStamp(a))[0] || entry.action_date || "";
-      const itemNames = [...new Set(receiptData.saleRows.map(row => row.itemName).filter(Boolean))];
+      const itemNames = receiptData.saleRows.map(row => {
+        const qty = row.qtyDisplay ? ` ${row.qtyDisplay}` : "";
+        return `${row.itemName || "Item"}${qty}`;
+      }).filter(Boolean);
       return {
         receiptNumber: receiptData.receiptNumber || receiptNumber || shortId(entry.id),
         invoiceNumber: receiptData.invoiceNumber || receiptData.receiptNumber || receiptNumber || shortId(entry.id),
@@ -7288,7 +7403,13 @@ function renderInventoryCustomerRecord(record){
                 <td>${escapeHtml(invoice.totalText)}</td>
                 <td>${escapeHtml(invoice.paidText)}</td>
                 <td>${escapeHtml(invoice.balanceText || "-")}</td>
-                <td><button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(invoice.entryId)}"><i class="fa-solid fa-download"></i> Invoice</button></td>
+                <td>
+                  <div class="inventory-history-actions">
+                    <button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(invoice.entryId)}" title="Download invoice PDF"><i class="fa-solid fa-download"></i></button>
+                    ${teamCanShowEdit("invoices") ? `<button class="tiny ghost inventoryCustomerInvoiceEditBtn" type="button" data-entry-id="${escapeHtml(invoice.entryId)}" title="Edit invoice">✎</button>` : ""}
+                    ${teamCanShowDelete("invoices") ? `<button class="tiny danger inventoryCustomerInvoiceDeleteBtn" type="button" data-entry-id="${escapeHtml(invoice.entryId)}" title="Delete invoice (restores stock)">✕</button>` : ""}
+                  </div>
+                </td>
               </tr>
             `).join("")}
           </tbody>
@@ -7312,9 +7433,13 @@ function renderInventoryCustomerRecord(record){
                 <td>${escapeHtml(row.creditText || "-")}</td>
                 <td>${escapeHtml(row.balanceText || "-")}</td>
                 <td>
-                  ${row.action === "invoice"
-                    ? `<button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}"><i class="fa-solid fa-file-invoice"></i></button>`
-                    : `<button class="tiny ghost inventoryCustomerReceiptPdfBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}"><i class="fa-solid fa-receipt"></i></button>`}
+                  <div class="inventory-history-actions">
+                    ${row.action === "invoice"
+                      ? `<button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}" title="Invoice PDF"><i class="fa-solid fa-file-invoice"></i></button>
+                         ${teamCanShowEdit("invoices") ? `<button class="tiny ghost inventoryCustomerInvoiceEditBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}" title="Edit">✎</button>` : ""}
+                         ${teamCanShowDelete("invoices") ? `<button class="tiny danger inventoryCustomerInvoiceDeleteBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}" title="Delete (restores stock)">✕</button>` : ""}`
+                      : `<button class="tiny ghost inventoryCustomerReceiptPdfBtn" type="button" data-entry-id="${escapeHtml(row.entryId)}" title="Payment receipt"><i class="fa-solid fa-receipt"></i></button>`}
+                  </div>
                 </td>
               </tr>
             `).join("")}
@@ -7332,6 +7457,18 @@ function bindInventoryCustomerRecordActions(record){
   });
   els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerReceiptPdfBtn").forEach(btn => {
     btn.addEventListener("click", () => downloadInventoryPaymentReceiptPDF(btn.dataset.entryId));
+  });
+  els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerInvoiceEditBtn").forEach(btn => {
+    btn.addEventListener("click", () => openInventoryReceiptEditor(btn.dataset.entryId));
+  });
+  els.inventoryCustomerBody.querySelectorAll(".inventoryCustomerInvoiceDeleteBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const deleted = await deleteInventoryReceipt(btn.dataset.entryId);
+      if (deleted) {
+        const name = state.inventoryDraft.customerRecordName || record.customerName;
+        openInventoryCustomerModal(name);
+      }
+    });
   });
   const editCard = els.inventoryCustomerBody.querySelector("#inventoryCustomerEditCard");
   const editForm = els.inventoryCustomerBody.querySelector("#inventoryCustomerEditForm");
@@ -7395,7 +7532,7 @@ async function downloadInventoryPaymentReceiptPDF(entryId){
     return;
   }
   const sourceMeta = goodsMetaFromNotes(sourceEntry.notes);
-  const receiptNumber = sourceMeta.receiptNumber || shortId(sourceEntry.id) || "N/A";
+  const receiptNumber = sourceMeta.receiptNumber || sourceMeta.invoiceNumber || sourceMeta.saleSetId || shortId(sourceEntry.id) || "N/A";
   const receiptData = getInventoryReceiptData(receiptNumber, sourceEntry);
   const invoiceNumber = receiptData.invoiceNumber || inventoryInvoiceNumberFromMeta(sourceMeta, sourceEntry);
   const paymentReceiptNumber = inventoryPaymentReceiptNumberFromMeta(sourceMeta, sourceEntry, sourceMeta.settlementId || `${invoiceNumber}:initial`);
@@ -8315,16 +8452,21 @@ function getInventoryCustomerNames(){
   for (const entry of state.entries) {
     if (!hasGoodsTag(entry.notes) || entry.entry_kind === "principal") continue;
     const meta = goodsMetaFromNotes(entry.notes);
+    const tx = String(meta.transactionType || "").toUpperCase();
     const fromTag = String(meta.customerName || "").trim();
     if (fromTag) {
       names.add(fromTag);
       continue;
     }
+    // Sales without CUST tag still belong to Walk-in.
+    if (isInventorySaleAction(entry) || tx === "SALE") {
+      names.add("Walk-in customer");
+      continue;
+    }
     // CUSTOMER ledger rows sometimes store the name as person_name.
-    const tx = String(meta.transactionType || "").toUpperCase();
     if (tx === "CUSTOMER") {
       const fromPerson = String(entry.person_name || "").trim();
-      if (fromPerson && !/^walk-?in/i.test(fromPerson)) names.add(fromPerson);
+      if (fromPerson) names.add(/^walk-?in/i.test(fromPerson) ? "Walk-in customer" : fromPerson);
     }
   }
   return [...names].sort((a, b) => a.localeCompare(b));
@@ -9375,12 +9517,13 @@ function getGoodsGroups(options = {}){
       const settlementActions = group.actions.filter(isInventorySettlementAction);
       const saleActions = group.actions.filter(isInventorySaleAction);
       const purchaseMetas = purchaseActions.map(row => goodsMetaFromNotes(row.notes));
-      const itemCategory = normalizeInventoryCategory(
-        principalMeta.itemCategory || purchaseMetas.find(meta => meta.itemCategory)?.itemCategory
-      );
       const itemType = normalizeInventoryItemType(
         principalMeta.itemType || purchaseMetas.find(meta => meta.itemType)?.itemType
       );
+      const itemCategory = resolveInventoryItemCategory({
+        itemCategory: principalMeta.itemCategory || purchaseMetas.find(meta => meta.itemCategory)?.itemCategory,
+        itemType
+      });
       const quantityUnit = normalizeInventoryUnit(
         principalMeta.quantityUnit || purchaseMetas.find(meta => meta.quantityUnit)?.quantityUnit,
         itemCategory
@@ -9798,8 +9941,9 @@ async function downloadInventoryReceiptPDF(entryId){
     alert("PDF library loading. Please try again.");
     return;
   }
+  try { await loadInventorySalesForCustomers({ force: false }); } catch (_) {}
   const meta = goodsMetaFromNotes(saleEntry.notes);
-  const receiptNumber = meta.receiptNumber || shortId(saleEntry.id) || "N/A";
+  const receiptNumber = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(saleEntry.id) || "N/A";
   const receiptData = getInventoryReceiptData(receiptNumber, saleEntry);
   const invoiceNumber = receiptData.invoiceNumber || inventoryInvoiceNumberFromMeta(meta, saleEntry);
   const receiptRows = receiptData.saleRows;
@@ -9848,7 +9992,7 @@ async function downloadInventoryReceiptPDF(entryId){
       row.itemCode || "—",
       row.itemName,
       row.qtyDisplay || "—",
-      formatPdfAmount(row.unitPrice || 0, row.currency),
+      formatPdfAmount(inventoryLineRateForDisplay(row.unitPrice, row.qty, row.itemCategory) || 0, row.currency), // /ml when qty < 1 L
       formatPdfAmount(row.netAmount || 0, row.currency),
       row.taxAmount ? `${formatPdfAmount(row.taxAmount, row.currency)} (${trimInventoryNumber(row.taxRate, 2)}%)` : "—",
       formatPdfAmount(row.total, row.currency)
@@ -10188,13 +10332,26 @@ async function startNewSaleDraft({ askSave = false } = {}){
 
 function openSavedSaleDraft(draftId){
   loadSaleDraftLibrary();
-  const found = state.saleDrafts.find(d => String(d.id) === String(draftId || ""));
+  loadSaleDraftFromStorage();
+  const id = String(draftId || "").trim();
+  let found = state.saleDrafts.find(d => String(d.id) === id);
+  // Active cart shown in the list before Save — open that directly.
+  if (!found && String(state.saleDraft?.id || "") === id) {
+    found = state.saleDraft;
+  }
+  // Fallback: match by proforma number if id drifted.
   if (!found) {
-    alert("Saved cart not found.");
+    found = state.saleDrafts.find(d => String(d.draftNumber || "") === id)
+      || (String(state.saleDraft?.draftNumber || "") === id ? state.saleDraft : null);
+  }
+  if (!found) {
+    alert("Saved cart not found. Add items again, or tap Save in the cart first.");
     return false;
   }
   state.saleDraft = cloneSaleDraft(found);
   ensureSaleDraftShape();
+  // Keep library + active cart in sync so Open always works next time.
+  try { upsertSaleDraftInLibrary(state.saleDraft); } catch (_) {}
   persistSaleDraft();
   updateSaleDraftDock();
   openSaleDraftModal();
@@ -10296,6 +10453,7 @@ function ensureInventoryQtyPromptModal(){
       </div>
       <div class="modal-body">
         <div class="inventory-qty-prompt-item" id="inventoryQtyPromptItem"></div>
+        <div class="inventory-qty-prompt-presets hide" id="inventoryQtyPromptPresets" role="group" aria-label="Quick quantity"></div>
         <div class="inventory-qty-prompt-fields">
           <label class="inventory-edit-field">
             <span>Quantity</span>
@@ -10306,6 +10464,7 @@ function ensureInventoryQtyPromptModal(){
             <select class="select" id="inventoryQtyPromptUnit"></select>
           </label>
         </div>
+        <div class="inventory-qty-prompt-price" id="inventoryQtyPromptPrice"></div>
         <div class="inventory-qty-prompt-actions">
           <button type="button" class="btn ghost" data-qty-cancel="1">Cancel</button>
           <button type="button" class="btn primary" id="inventoryQtyPromptConfirm">Add</button>
@@ -10320,28 +10479,36 @@ function ensureInventoryQtyPromptModal(){
 function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
   return new Promise(resolve => {
     const modal = ensureInventoryQtyPromptModal();
-    const category = normalizeInventoryCategory(group.itemCategory);
+    const category = resolveInventoryItemCategory(group);
     const measured = inventoryIsDecimalCategory(category);
-    const preferredUnit = preferredDraftQtyUnit(category, measured && category === INVENTORY_CATEGORY_VOLUME ? 0.003 : 1);
+    const preferredUnit = category === INVENTORY_CATEGORY_VOLUME
+      ? INVENTORY_UNIT_ML
+      : preferredDraftQtyUnit(category, measured ? 1 : 1);
+    let activeUnit = preferredUnit;
     const titleEl = modal.querySelector("#inventoryQtyPromptTitle");
     const descEl = modal.querySelector("#inventoryQtyPromptDesc");
     const itemEl = modal.querySelector("#inventoryQtyPromptItem");
+    const presetsEl = modal.querySelector("#inventoryQtyPromptPresets");
+    const priceEl = modal.querySelector("#inventoryQtyPromptPrice");
     const qtyInput = modal.querySelector("#inventoryQtyPromptInput");
     const unitSelect = modal.querySelector("#inventoryQtyPromptUnit");
-    const displayName = [group.brand, group.variantLabel].filter(Boolean).join(" · ") || group.person_name || "Item";
+    const displayName = [group.brand, group.productLine || group.variantLabel].filter(Boolean).join(" · ")
+      || group.person_name
+      || "Item";
+    const unitSellPerBase = Number(group.defaultUnitSoldPrice || group.unitActualPrice || 0);
     if (titleEl) titleEl.textContent = title;
     if (descEl) descEl.textContent = `In stock: ${inventoryQtyLabel(group.remainingQty, category)}`;
     if (itemEl) {
       itemEl.innerHTML = `
         <strong>${escapeHtml(displayName)}</strong>
-        <span>${escapeHtml([group.itemCode, group.person_name].filter(Boolean).join(" · "))}</span>
-        <span>Sell ${money(group.defaultUnitSoldPrice || group.unitActualPrice || 0, group.currency)}</span>
+        <span>${escapeHtml([group.variantLabel, group.itemCode, group.person_name].filter(Boolean).join(" · "))}</span>
       `;
     }
     if (unitSelect) {
       unitSelect.innerHTML = inventoryUnitSelectOptionsHtml(category, preferredUnit);
       unitSelect.disabled = !measured;
       unitSelect.value = preferredUnit;
+      unitSelect.classList.toggle("is-disabled", !measured);
     }
     if (qtyInput) {
       const defaultQty = measured
@@ -10350,6 +10517,42 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
       qtyInput.value = defaultQty;
       qtyInput.step = measured ? "any" : "1";
     }
+    if (presetsEl) {
+      if (category === INVENTORY_CATEGORY_VOLUME) {
+        presetsEl.classList.remove("hide");
+        presetsEl.innerHTML = `
+          <button type="button" class="tiny ghost inventory-qty-preset" data-qty="3" data-unit="ml">3 ml</button>
+          <button type="button" class="tiny ghost inventory-qty-preset" data-qty="5" data-unit="ml">5 ml</button>
+          <button type="button" class="tiny ghost inventory-qty-preset" data-qty="10" data-unit="ml">10 ml</button>
+          <button type="button" class="tiny ghost inventory-qty-preset" data-qty="1" data-unit="l">1 L</button>
+          <button type="button" class="tiny ghost inventory-qty-preset" data-qty="custom" data-unit="ml">Custom</button>
+        `;
+      } else {
+        presetsEl.classList.add("hide");
+        presetsEl.innerHTML = "";
+      }
+    }
+    const refreshPricePreview = () => {
+      if (!priceEl) return;
+      const unit = normalizeInventoryUnit(unitSelect?.value || activeUnit, category);
+      activeUnit = unit;
+      const baseQty = normalizeInventoryQuantityInput(qtyInput?.value, category, unit);
+      if (!(baseQty > 0) || !(unitSellPerBase > 0)) {
+        priceEl.innerHTML = unitSellPerBase > 0
+          ? `<span>Enter quantity to see sell price</span>`
+          : `<span>No sell / ml price set on this item</span>`;
+        return;
+      }
+      const lineSell = unitSellPerBase * baseQty;
+      const rate = inventoryLineRateForDisplay(unitSellPerBase, baseQty, category, unit);
+      const rateLabel = category === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML
+        ? `${moneyText(rate, group.currency)} / ml`
+        : `${moneyText(unitSellPerBase, group.currency)} / ${inventoryBaseUnitForCategory(category)}`;
+      priceEl.innerHTML = `
+        <strong>This pour: ${money(lineSell, group.currency)}</strong>
+        <span>${escapeHtml(rateLabel)}</span>
+      `;
+    };
     const cleanup = (value) => {
       modal.classList.add("hide");
       modal.setAttribute("aria-hidden", "true");
@@ -10358,6 +10561,8 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
       modal.querySelectorAll("[data-qty-cancel]").forEach(el => el.replaceWith(el.cloneNode(true)));
       const confirmBtn = modal.querySelector("#inventoryQtyPromptConfirm");
       if (confirmBtn) confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+      const presetsHost = modal.querySelector("#inventoryQtyPromptPresets");
+      if (presetsHost) presetsHost.replaceWith(presetsHost.cloneNode(true));
       resolve(value);
     };
     modal.querySelectorAll("[data-qty-cancel]").forEach(el => {
@@ -10366,15 +10571,51 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
         cleanup(null);
       });
     });
+    modal.querySelector("#inventoryQtyPromptPresets")?.querySelectorAll(".inventory-qty-preset").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.preventDefault();
+        const presetQty = btn.dataset.qty;
+        const presetUnit = normalizeInventoryUnit(btn.dataset.unit || INVENTORY_UNIT_ML, category);
+        activeUnit = presetUnit;
+        if (unitSelect) {
+          unitSelect.value = presetUnit;
+          unitSelect.disabled = false;
+        }
+        if (presetQty === "custom") {
+          if (qtyInput) {
+            qtyInput.value = "";
+            qtyInput.focus();
+          }
+        } else if (qtyInput) {
+          qtyInput.value = String(presetQty || "");
+        }
+        refreshPricePreview();
+      });
+    });
     modal.querySelector("#inventoryQtyPromptConfirm")?.addEventListener("click", e => {
       e.preventDefault();
-      const unit = normalizeInventoryUnit(unitSelect?.value, category);
+      const unit = normalizeInventoryUnit(unitSelect?.value || activeUnit, category);
       const baseQty = normalizeInventoryQuantityInput(qtyInput?.value, category, unit);
       if (!(baseQty > 0)) {
         alert("Enter a valid quantity.");
         return;
       }
-      cleanup(baseQty);
+      cleanup({ qty: baseQty, displayUnit: unit });
+    });
+    qtyInput?.addEventListener("input", refreshPricePreview);
+    unitSelect?.addEventListener("change", () => {
+      const prevUnit = activeUnit;
+      const nextUnit = normalizeInventoryUnit(unitSelect.value, category);
+      const typed = Number(qtyInput?.value || 0);
+      if (Number.isFinite(typed) && typed > 0 && prevUnit !== nextUnit) {
+        const asBase = normalizeInventoryQuantityInput(typed, category, prevUnit);
+        qtyInput.value = trimInventoryNumber(
+          inventoryQtyInUnit(asBase, category, nextUnit),
+          inventoryIsDecimalCategory(category) ? 3 : 0
+        );
+      }
+      activeUnit = nextUnit;
+      refreshPricePreview();
     });
     qtyInput?.addEventListener("keydown", e => {
       if (e.key === "Enter") {
@@ -10383,6 +10624,7 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
       }
       if (e.key === "Escape") cleanup(null);
     });
+    refreshPricePreview();
     modal.classList.remove("hide");
     modal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -10403,11 +10645,21 @@ async function addGroupToSaleDraft(groupId, qtyOverride = null){
     alert("This item is out of stock.");
     return false;
   }
-  const category = normalizeInventoryCategory(group.itemCategory);
+  const category = resolveInventoryItemCategory(group);
   let addQty = qtyOverride;
+  let chosenUnit = null;
   if (addQty == null) {
-    addQty = await promptInventoryAddQty(group);
-    if (addQty == null) return false;
+    const picked = await promptInventoryAddQty(group);
+    if (picked == null) return false;
+    if (picked && typeof picked === "object") {
+      addQty = picked.qty;
+      chosenUnit = picked.displayUnit || null;
+    } else {
+      addQty = picked;
+    }
+  } else if (typeof addQty === "object" && addQty) {
+    chosenUnit = addQty.displayUnit || null;
+    addQty = addQty.qty;
   }
   addQty = Number(addQty || 0);
   if (!(addQty > 0)) {
@@ -10424,43 +10676,37 @@ async function addGroupToSaleDraft(groupId, qtyOverride = null){
   const unitPrice = Number(group.defaultUnitSoldPrice || group.unitActualPrice || 0);
   const taxDefault = inventoryTaxDefaultsForGroup(group);
   const tax = calculateTaxBreakdown(unitPrice * addQty, taxDefault.rate, taxDefault.mode, taxDefault.rate > 0);
-  const isMeasured = inventoryIsDecimalCategory(category);
-  const existing = draft.lines.find(line =>
-    String(line.groupId) === String(group.group_id)
-    && Number(line.unitPrice || 0) === unitPrice
+  const displayUnit = normalizeInventoryUnit(
+    chosenUnit || preferredDraftQtyUnit(category, addQty),
+    category
   );
-  if (existing && !isMeasured) {
-    existing.qty = Number(existing.qty || 0) + addQty;
-    const nextTax = calculateTaxBreakdown(unitPrice * existing.qty, taxDefault.rate, taxDefault.mode, taxDefault.rate > 0);
-    existing.netAmount = nextTax.net;
-    existing.taxAmount = nextTax.tax;
-    existing.grossAmount = nextTax.total;
-    existing.taxApplied = nextTax.applied;
-    existing.taxRate = nextTax.rate;
-    existing.taxMode = nextTax.mode;
-  } else {
-    draft.lines.push({
-      groupId: group.group_id,
-      itemName: group.person_name || "Item",
-      itemCode: group.itemCode || "",
-      brand: group.brand || "",
-      variantLabel: group.variantLabel || "",
-      itemType: group.itemType || "General",
-      itemCategory: category,
-      currency: group.currency || "AED",
-      qty: addQty,
-      displayUnit: preferredDraftQtyUnit(category, addQty),
-      unitPrice,
-      taxApplied: tax.applied,
-      taxRate: tax.rate,
-      taxMode: tax.mode,
-      netAmount: tax.net,
-      taxAmount: tax.tax,
-      grossAmount: tax.total
-    });
-  }
+  // Always keep each Add-to-cart as its own line (perfume pours, PDF rows, stock reduce per line).
+  draft.lines.push({
+    lineId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `line-${Date.now()}-${draft.lines.length}`,
+    groupId: group.group_id,
+    itemName: group.person_name || "Item",
+    itemCode: group.itemCode || "",
+    brand: group.brand || "",
+    productLine: group.productLine || "",
+    variantLabel: group.variantLabel || "",
+    itemType: group.itemType || "General",
+    itemCategory: category,
+    currency: group.currency || "AED",
+    qty: addQty,
+    displayUnit,
+    unitPrice,
+    taxApplied: tax.applied,
+    taxRate: tax.rate,
+    taxMode: tax.mode,
+    netAmount: tax.net,
+    taxAmount: tax.tax,
+    grossAmount: tax.total
+  });
   if (!draft.soldDate) draft.soldDate = todayISO();
+  if (!draft.draftNumber) draft.draftNumber = nextProformaNumber();
   persistSaleDraft();
+  // Auto-mirror into Saved carts so Open/finalize always finds this cart.
+  try { upsertSaleDraftInLibrary(draft); } catch (_) {}
   updateSaleDraftDock();
   const dock = document.getElementById("inventorySaleDraftDock");
   if (dock) {
@@ -10496,10 +10742,10 @@ function updateSaleDraftLineFields(index, patch = {}, { refreshUi = false } = {}
   const line = draft.lines[index];
   if (!line) return false;
   const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === line.groupId);
-  const category = normalizeInventoryCategory(line.itemCategory || group?.itemCategory);
-  if (patch.unitPrice != null) {
-    line.unitPrice = Math.max(0, Number(patch.unitPrice) || 0);
-  }
+  const category = resolveInventoryItemCategory({
+    itemCategory: line.itemCategory || group?.itemCategory,
+    itemType: line.itemType || group?.itemType
+  });
   if (patch.displayUnit != null) {
     line.displayUnit = normalizeInventoryUnit(patch.displayUnit, category);
   }
@@ -10525,6 +10771,15 @@ function updateSaleDraftLineFields(index, patch = {}, { refreshUi = false } = {}
     }
     line.qty = nextQty;
     line.displayUnit = unit || preferredDraftQtyUnit(category, nextQty);
+  }
+  if (patch.unitPrice != null) {
+    // Cart UI shows rate in display units (e.g. /ml); store per base unit (e.g. /L).
+    line.unitPrice = inventoryDisplayRateToUnitPrice(
+      patch.unitPrice,
+      category,
+      line.displayUnit,
+      line.qty
+    );
   }
   refreshSaleDraftLineTax(line, group);
   persistSaleDraft();
@@ -10776,16 +11031,20 @@ function renderSaleDraftModalBody(){
   body.innerHTML = `
     <div class="inventory-draft-lines">
       ${draft.lines.map((line, index) => {
-        const category = normalizeInventoryCategory(line.itemCategory);
+        const category = resolveInventoryItemCategory({ itemCategory: line.itemCategory, itemType: line.itemType });
         const unit = normalizeInventoryUnit(line.displayUnit || preferredDraftQtyUnit(category, line.qty), category);
         const qtyDisplay = inventoryQtyInUnit(line.qty, category, unit);
         const measured = inventoryIsDecimalCategory(category);
+        const rateDisplay = inventoryLineRateForDisplay(line.unitPrice, line.qty, category, unit);
+        const rateLabel = category === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML
+          ? "Price / ml"
+          : (category === INVENTORY_CATEGORY_VOLUME ? "Price / L" : "Sell price");
         const stock = getSaleDraftLineStockInfo(line);
         return `
         <div class="inventory-draft-line ${stock.status !== "ok" ? "has-stock-issue" : ""}" data-draft-index="${index}">
           <div class="inventory-draft-line-main">
             <strong>${escapeHtml(line.itemName)}</strong>
-            <span>${escapeHtml([line.brand, line.variantLabel, line.itemCode || line.itemType].filter(Boolean).join(" · "))}</span>
+            <span>${escapeHtml([line.brand, line.productLine, line.variantLabel, line.itemCode || line.itemType].filter(Boolean).join(" · "))}</span>
             <span class="inventory-draft-line-stock is-${stock.status}">${escapeHtml(stock.status === "ok" ? `Stock ${stock.label}` : stock.label)}</span>
           </div>
           <div class="inventory-draft-line-controls">
@@ -10795,7 +11054,7 @@ function renderSaleDraftModalBody(){
                 ${inventoryUnitSelectOptionsHtml(category, unit)}
               </select>
             </div>
-            <input class="input inventory-draft-price" type="number" min="0" step="0.00000001" value="${escapeHtml(String(line.unitPrice || 0))}" aria-label="Sell price" />
+            <input class="input inventory-draft-price" type="number" min="0" step="0.00000001" value="${escapeHtml(String(rateDisplay || 0))}" aria-label="${escapeHtml(rateLabel)}" title="${escapeHtml(rateLabel)}" />
             <strong class="inventory-draft-line-total">${money(line.grossAmount || 0, line.currency)}</strong>
             <button type="button" class="tiny danger inventory-draft-remove" aria-label="Remove">✕</button>
           </div>
@@ -10897,17 +11156,34 @@ function renderSaleDraftModalBody(){
       const idx = Number(row?.dataset.draftIndex);
       const line = ensureSaleDraftShape().lines[idx];
       if (!line) return;
-      const category = normalizeInventoryCategory(line.itemCategory);
+      const category = resolveInventoryItemCategory({ itemCategory: line.itemCategory, itemType: line.itemType });
+      const prevUnit = normalizeInventoryUnit(line.displayUnit || preferredDraftQtyUnit(category, line.qty), category);
       const nextUnit = normalizeInventoryUnit(select.value, category);
       const qtyInput = row.querySelector(".inventory-draft-qty");
+      // Commit the currently typed qty with the previous unit before converting.
+      if (qtyInput && prevUnit !== nextUnit) {
+        const typed = Number(qtyInput.value || 0);
+        if (Number.isFinite(typed) && typed > 0) {
+          line.qty = normalizeInventoryQuantityInput(typed, category, prevUnit);
+        }
+      }
+      line.displayUnit = nextUnit;
       if (qtyInput) {
         qtyInput.value = trimInventoryNumber(
           inventoryQtyInUnit(line.qty, category, nextUnit),
           inventoryIsDecimalCategory(category) ? 3 : 0
         );
       }
-      line.displayUnit = nextUnit;
+      const priceInput = row.querySelector(".inventory-draft-price");
+      if (priceInput) {
+        priceInput.value = String(inventoryLineRateForDisplay(line.unitPrice, line.qty, category, nextUnit) || 0);
+        priceInput.title = category === INVENTORY_CATEGORY_VOLUME && nextUnit === INVENTORY_UNIT_ML
+          ? "Price / ml"
+          : (category === INVENTORY_CATEGORY_VOLUME ? "Price / L" : "Sell price");
+      }
+      refreshSaleDraftLineTax(line);
       persistSaleDraft();
+      updateSaleDraftDock();
     });
   });
   body.querySelectorAll(".inventory-draft-remove").forEach(btn => {
@@ -11038,16 +11314,20 @@ async function downloadSaleDraftPDF(draftInput){
     startY: partiesBottom + 5,
     head: [["#", "Code", "Item", "Qty", "Unit", "Net", "VAT", "Total"]],
     body: draft.lines.map((line, index) => {
-      const category = normalizeInventoryCategory(line.itemCategory);
+      const category = resolveInventoryItemCategory({ itemCategory: line.itemCategory, itemType: line.itemType });
       const stock = getSaleDraftLineStockInfo(line);
-      const itemLabel = [line.itemName, line.brand, line.variantLabel].filter(Boolean).join(" · ");
+      const itemLabel = [line.itemName, line.brand, line.productLine, line.variantLabel]
+        .filter(Boolean)
+        .filter((part, i, arr) => arr.indexOf(part) === i)
+        .join(" · ");
       const stockNote = stock.status === "ok" ? "" : ` (${stock.label})`;
+      const rate = inventoryLineRateForDisplay(line.unitPrice, line.qty, category, line.displayUnit);
       return [
         String(index + 1),
         line.itemCode || "—",
         `${itemLabel}${stockNote}`,
         inventoryQtyLabel(line.qty, category),
-        formatPdfAmount(line.unitPrice || 0, line.currency),
+        formatPdfAmount(rate || 0, line.currency),
         formatPdfAmount(line.netAmount || 0, line.currency),
         line.taxAmount ? `${formatPdfAmount(line.taxAmount, line.currency)} (${trimInventoryNumber(line.taxRate, 2)}%)` : "—",
         formatPdfAmount(line.grossAmount || 0, line.currency)
@@ -11221,17 +11501,24 @@ async function commitInventorySaleInvoice({
   const paymentReceiptNumber = receiptPaidTotal > 0.00000001 ? nextPaymentReceiptNumber([invoiceNumber]) : "";
   let paidRemaining = receiptPaidTotal;
   const saleCurrency = singleCurrencyReceipt ? preparedLines[0]?.currency : "";
+  const saleSetId = (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `sset-${Date.now()}`;
   if (walletId){
     if (!singleCurrencyReceipt) throw new Error("Wallet top-up is available only for single-currency sale invoices.");
     if (receiptPaidTotal <= 0) throw new Error("Paid amount must be greater than zero to add money to a wallet.");
     validateInventoryWallet(walletId, saleCurrency, receiptPaidTotal, "topup");
   }
 
-  const payloads = preparedLines.map(line => {
+  const payloads = preparedLines.map((line, lineIndex) => {
     const linePaid = singleCurrencyReceipt ? Math.min(line.lineTotal, Math.max(paidRemaining, 0)) : line.lineTotal;
     if (singleCurrencyReceipt) paidRemaining = Math.max(paidRemaining - linePaid, 0);
     const lineBalance = Math.max(line.lineTotal - linePaid, 0);
+    const saleLineId = (typeof crypto !== "undefined" && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `sl-${Date.now()}-${lineIndex}`;
     return {
+      id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `sale-${Date.now()}-${lineIndex}`,
       group_id: line.groupId,
       direction: "taken",
       entry_kind: receiptPaymentStatus === "FULL" ? "full" : "partial",
@@ -11264,6 +11551,9 @@ async function commitInventorySaleInvoice({
         invoiceNumber,
         paymentReceiptNumber,
         transactionType: "SALE",
+        saleLineNo: lineIndex + 1,
+        saleLineId,
+        saleSetId,
         paidAmount: linePaid,
         balanceAmount: lineBalance,
         paymentStatus: receiptPaymentStatus,
@@ -11282,7 +11572,19 @@ async function commitInventorySaleInvoice({
   if (walletId) {
     await createWalletEntryForInventory(walletId, receiptPaidTotal, soldDate, saleCurrency, "sale", { customerName, receiptNumber });
   }
+  // Keep newly saved sale lines available for customer PDFs immediately.
+  if (Array.isArray(savedSaleRows) && savedSaleRows.length) {
+    const missing = savedSaleRows.filter(row => !state.entries.some(e => e.id === row.id));
+    if (missing.length) state.entries.unshift(...missing);
+    savedSaleRows.forEach(row => {
+      if (row?.group_id) state.inventoryLazy.detailLoaded.delete(String(row.group_id));
+    });
+  }
+  // Force Customers / Invoices to refetch so new receipts appear right away.
   state.inventorySalesLoaded = false;
+  try { await loadInventorySalesForCustomers({ force: true }); } catch (_) {
+    state.inventorySalesLoaded = true;
+  }
   const primarySaleEntry = Array.isArray(savedSaleRows) ? savedSaleRows[0] : savedSaleRows;
   showSalesInvoiceSuccessOverlay({
     entryId: primarySaleEntry?.id || "",
@@ -11323,6 +11625,48 @@ function sortInventorySectionItems(items){
 
 function buildInventoryGroupHistoryRows(group){
   if (!group) return [];
+  // Group sale lines by invoice so the same cart finalize shows as one Sale entry.
+  // PDF / edit still expands all pours via getInventoryReceiptData.
+  const saleByInvoice = new Map();
+  (group.actions || []).forEach(row => {
+    const meta = goodsMetaFromNotes(row.notes);
+    const receipt = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(row.id);
+    const key = String(receipt || row.id);
+    if (!saleByInvoice.has(key)) {
+      saleByInvoice.set(key, { rows: [], meta, receipt });
+    }
+    saleByInvoice.get(key).rows.push(row);
+  });
+  const saleRows = [...saleByInvoice.values()].map(bundle => {
+    const primary = bundle.rows[0];
+    const receiptData = getInventoryReceiptData(bundle.receipt, primary);
+    const invoiceNumber = receiptData.invoiceNumber || inventoryInvoiceNumberFromMeta(bundle.meta, primary);
+    const customer = receiptData.customerName || bundle.meta.customerName || "Walk-in customer";
+    const amount = receiptData.saleRows.reduce((sum, r) => sum + Number(r.total || 0), 0)
+      || bundle.rows.reduce((sum, r) => sum + Number(r.action_amount || 0), 0);
+    const paid = receiptData.paidTotal;
+    const balance = receiptData.balanceTotal;
+    const paymentStatus = balance <= 0.00000001 ? "Full Paid" : "Partial Paid";
+    const lineCount = Math.max(receiptData.saleRows.length, bundle.rows.length);
+    return {
+      kind: "Sale",
+      badge: "green",
+      date: primary.action_date,
+      amount,
+      note: `${customer} · ${invoiceNumber}${lineCount > 1 ? ` · ${lineCount} lines` : ""}`,
+      paymentStatus,
+      paymentBadge: paymentStatus === "Full Paid" ? "green" : "orange",
+      paidDisplay: money(paid, group.currency),
+      balanceDisplay: money(balance, group.currency),
+      canSettle: balance > 0.00000001,
+      entryId: primary.id,
+      receiptNumber: bundle.receipt,
+      lineCount,
+      isSale: true,
+      isPurchase: false,
+      isInvoiceGroup: true
+    };
+  });
   return [
     {
       kind: "Purchase",
@@ -11350,31 +11694,7 @@ function buildInventoryGroupHistoryRows(group){
       isSale: false,
       isPurchase: true
     })),
-    ...(group.actions || []).map(row => {
-      const meta = goodsMetaFromNotes(row.notes);
-      const receipt = meta.receiptNumber || shortId(row.id);
-      const customer = meta.customerName || "Walk-in customer";
-      const receiptData = getInventoryReceiptData(receipt, row);
-      const invoiceNumber = receiptData.invoiceNumber || inventoryInvoiceNumberFromMeta(meta, row);
-      const saleSummary = receiptData.saleRows.find(saleRow => saleRow.entry.id === row.id);
-      const paymentStatus = saleSummary?.paymentStatus || inventoryPaymentStatus(meta, row.action_amount || 0);
-      const balance = Number(saleSummary?.balance || 0);
-      return {
-        kind: "Sale",
-        badge: "green",
-        date: row.action_date,
-        amount: row.action_amount,
-        note: `${customer} · ${invoiceNumber}`,
-        paymentStatus,
-        paymentBadge: paymentStatus === "Full Paid" ? "green" : "orange",
-        paidDisplay: money(saleSummary?.paid || inventoryLinePaidAmount(meta, row.action_amount || 0), group.currency),
-        balanceDisplay: money(balance, group.currency),
-        canSettle: balance > 0.00000001,
-        entryId: row.id,
-        isSale: true,
-        isPurchase: false
-      };
-    }),
+    ...saleRows,
     ...(group.settlementActions || []).map(row => {
       const meta = goodsMetaFromNotes(row.notes);
       const invoiceNumber = inventoryInvoiceNumberFromMeta(meta, row);
@@ -11439,13 +11759,218 @@ function bindInventorySectionHistoryButtons(scope, sectionType){
       if (action === "receipt") downloadInventoryReceiptPDF(btn.dataset.id);
       if (action === "item-pdf") downloadGoodsItemPDF(btn.dataset.groupId);
       if (action === "settle") openGoodsSettlementModal(btn.dataset.id);
-      if (action === "edit") openEditModal(btn.dataset.id);
+      if (action === "edit") openInventoryReceiptEditor(btn.dataset.id);
       if (action === "delete") {
-        await deleteEntry(btn.dataset.id);
+        const entry = state.entries.find(e => e.id === btn.dataset.id);
+        if (entry && isInventorySaleAction(entry)) {
+          await deleteInventoryReceipt(btn.dataset.id);
+        } else {
+          await deleteEntry(btn.dataset.id);
+        }
         await renderInventorySectionOverlayBody(type);
       }
     });
   });
+}
+
+async function deleteInventoryReceipt(entryId){
+  const saleEntry = state.entries.find(e => e.id === entryId && e.entry_kind !== "principal" && hasGoodsTag(e.notes));
+  if (!saleEntry) {
+    alert("Invoice not found.");
+    return false;
+  }
+  if (!teamCapability("can_delete_invoices")) {
+    alert("You do not have permission to delete invoices.");
+    return false;
+  }
+  const meta = goodsMetaFromNotes(saleEntry.notes);
+  const receiptKey = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(saleEntry.id);
+  const receiptData = getInventoryReceiptData(receiptKey, saleEntry);
+  const invoiceNumber = receiptData.invoiceNumber || inventoryInvoiceNumberFromMeta(meta, saleEntry) || receiptKey;
+  const saleRows = receiptData.saleRows || [];
+  const settlements = receiptData.settlementEntries || [];
+  const lineCount = Math.max(saleRows.length, 1);
+  const ok = confirm(
+    `Delete invoice ${invoiceNumber} (${lineCount} line${lineCount === 1 ? "" : "s"})?\n\n`
+    + `Sold quantity will return to stock. This cannot be undone from here (recycle bin).`
+  );
+  if (!ok) return false;
+
+  const toRemove = [
+    ...settlements,
+    ...saleRows.map(r => r.entry).filter(Boolean)
+  ];
+  // Ensure primary is included even if matching failed.
+  if (!toRemove.some(e => e.id === saleEntry.id)) toRemove.push(saleEntry);
+  const unique = [];
+  const seen = new Set();
+  toRemove.forEach(entry => {
+    if (!entry?.id || seen.has(entry.id)) return;
+    seen.add(entry.id);
+    unique.push(entry);
+  });
+
+  unique.forEach(entry => addToRecycleBin(entry));
+  unmarkDbSnapshotRows(unique);
+  state.entries = state.entries.filter(e => !seen.has(e.id));
+  state.inventorySalesLoaded = false;
+  state.inventoryLazy.detailLoaded.clear();
+
+  if (!isBackupMode()) {
+    await Promise.all(unique.map(entry =>
+      persistDeleteEntry(entry, { label: "Delete invoice" }).catch(err => {
+        console.error("Invoice delete sync failed.", err);
+      })
+    ));
+  }
+  try { await invalidateAndRefreshInventoryLazy(); } catch (_) {}
+  try { await loadInventorySalesForCustomers({ force: true }); } catch (_) {}
+  if (getActiveTabKey() === "goods") {
+    renderInventoryList();
+    if (state.inventoryView === "customers") renderInventoryOutstandingSection();
+  }
+  return true;
+}
+
+function ensureInventoryReceiptEditModal(){
+  let modal = document.getElementById("inventoryReceiptEditModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "inventoryReceiptEditModal";
+  modal.className = "modal hide";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-close-receipt-edit="1"></div>
+    <div class="modal-dialog compact-entry-dialog inventory-receipt-edit-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Edit sales invoice</h3>
+          <p class="help" id="inventoryReceiptEditHelp">Update customer / payment — all lines on this invoice stay together.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-receipt-edit="1" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="inventoryReceiptEditForm" class="inventory-draft-form">
+          <label class="inventory-edit-field inventory-edit-field-wide">
+            <span>Invoice</span>
+            <input class="input" id="inventoryReceiptEditInvoice" readonly />
+          </label>
+          <label class="inventory-edit-field">
+            <span>Customer</span>
+            <input class="input" id="inventoryReceiptEditCustomer" required autocomplete="name" />
+          </label>
+          <label class="inventory-edit-field">
+            <span>Phone</span>
+            <input class="input" id="inventoryReceiptEditPhone" autocomplete="tel" />
+          </label>
+          <label class="inventory-edit-field">
+            <span>Sale date</span>
+            <input class="input" id="inventoryReceiptEditDate" type="date" />
+          </label>
+          <label class="inventory-edit-field">
+            <span>Paid amount</span>
+            <input class="input" id="inventoryReceiptEditPaid" type="number" min="0" step="0.01" />
+          </label>
+          <p class="help" id="inventoryReceiptEditLines">—</p>
+          <div class="inventory-add-wizard-actions" style="margin-top:8px">
+            <button type="button" class="btn ghost" data-close-receipt-edit="1">Cancel</button>
+            <button type="submit" class="btn primary">Save invoice</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll("[data-close-receipt-edit]").forEach(el => {
+    el.addEventListener("click", () => {
+      modal.classList.add("hide");
+      modal.setAttribute("aria-hidden", "true");
+      const stillOpen = document.querySelector(".modal:not(.hide)");
+      document.body.style.overflow = stillOpen ? "hidden" : "";
+    });
+  });
+  return modal;
+}
+
+function openInventoryReceiptEditor(entryId){
+  const saleEntry = state.entries.find(e => e.id === entryId && e.entry_kind !== "principal" && hasGoodsTag(e.notes));
+  if (!saleEntry) {
+    alert("Invoice not found.");
+    return;
+  }
+  if (!teamCanShowEdit("invoices")) {
+    alert("You do not have permission to edit invoices.");
+    return;
+  }
+  const meta = goodsMetaFromNotes(saleEntry.notes);
+  const receiptKey = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(saleEntry.id);
+  const receiptData = getInventoryReceiptData(receiptKey, saleEntry);
+  const modal = ensureInventoryReceiptEditModal();
+  const form = modal.querySelector("#inventoryReceiptEditForm");
+  const invoiceEl = modal.querySelector("#inventoryReceiptEditInvoice");
+  const customerEl = modal.querySelector("#inventoryReceiptEditCustomer");
+  const phoneEl = modal.querySelector("#inventoryReceiptEditPhone");
+  const dateEl = modal.querySelector("#inventoryReceiptEditDate");
+  const paidEl = modal.querySelector("#inventoryReceiptEditPaid");
+  const linesEl = modal.querySelector("#inventoryReceiptEditLines");
+  if (invoiceEl) invoiceEl.value = receiptData.invoiceNumber || receiptKey;
+  if (customerEl) customerEl.value = receiptData.customerName || meta.customerName || "Walk-in customer";
+  if (phoneEl) phoneEl.value = receiptData.customerPhone || meta.customerPhone || "";
+  if (dateEl) dateEl.value = String(saleEntry.action_date || todayISO()).slice(0, 10);
+  if (paidEl) paidEl.value = trimInventoryNumber(receiptData.paidTotal || 0);
+  if (linesEl) {
+    linesEl.textContent = `${receiptData.saleRows.length} line(s) · Total ${formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency)}. PDF keeps every pour as its own row.`;
+  }
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const customerName = String(customerEl?.value || "").trim() || "Walk-in customer";
+    const phone = String(phoneEl?.value || "").trim();
+    const soldDate = String(dateEl?.value || "").trim();
+    let paidRemaining = Math.max(0, Number(paidEl?.value || 0));
+    if (!soldDate) {
+      alert("Sale date is required.");
+      return;
+    }
+    const saleRows = receiptData.saleRows.slice().sort((a, b) =>
+      Number(a.entryMeta?.saleLineNo || 0) - Number(b.entryMeta?.saleLineNo || 0)
+    );
+    for (const row of saleRows) {
+      const entry = state.entries.find(e => e.id === row.entry.id);
+      if (!entry) continue;
+      const lineTotal = Number(row.total || entry.action_amount || 0);
+      const linePaid = Math.min(lineTotal, Math.max(paidRemaining, 0));
+      paidRemaining = Math.max(paidRemaining - linePaid, 0);
+      const lineBalance = Math.max(lineTotal - linePaid, 0);
+      const nextMeta = {
+        ...goodsMetaFromNotes(entry.notes),
+        customerName,
+        customerPhone: phone,
+        paidAmount: linePaid,
+        balanceAmount: lineBalance,
+        paymentStatus: lineBalance <= 0.00000001 ? "FULL" : "PARTIAL"
+      };
+      entry.notes = upsertGoodsMetaInNote(entry.notes, nextMeta);
+      entry.action_date = soldDate;
+      queueDatabasePatch(entry.id, { notes: entry.notes, action_date: soldDate }, "Invoice edit", entry);
+    }
+    state.inventorySalesLoaded = false;
+    modal.classList.add("hide");
+    modal.setAttribute("aria-hidden", "true");
+    const stillOpen = document.querySelector(".modal:not(.hide)");
+    document.body.style.overflow = stillOpen ? "hidden" : "";
+    try { await loadInventorySalesForCustomers({ force: true }); } catch (_) {}
+    if (state.inventoryDraft.customerRecordName) {
+      openInventoryCustomerModal(state.inventoryDraft.customerRecordName);
+    }
+    if (state.inventoryActiveSection) {
+      try { await renderInventorySectionOverlayBody(state.inventoryActiveSection); } catch (_) {}
+    }
+    renderInventoryList();
+  };
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  customerEl?.focus();
 }
 
 async function fillInventorySectionHistoryPanel(groupId, panel, btn){
@@ -11458,7 +11983,10 @@ async function fillInventorySectionHistoryPanel(groupId, panel, btn){
   }
   try {
     if (isInventoryLazyMode()) {
-      await ensureInventoryItemDetailLoaded(groupId, { force: false });
+      // Always force so sales invoices appear (summaries alone only show purchases).
+      await ensureInventoryItemDetailLoaded(groupId, { force: true });
+    } else {
+      try { await loadInventorySalesForCustomers({ force: false }); } catch (_) {}
     }
     const group = getGoodsGroups({ applyUiFilters: false }).find(g => String(g.group_id) === String(groupId));
     const tbody = panel.querySelector("tbody");
@@ -11470,6 +11998,8 @@ async function fillInventorySectionHistoryPanel(groupId, panel, btn){
     bindInventorySectionHistoryButtons(panel, state.inventoryActiveSection);
     const count = group ? buildInventoryGroupHistoryRows(group).length : 0;
     panel.classList.remove("hide");
+    delete panel.dataset.historyLoaded;
+    panel.dataset.historyLoaded = "1";
     if (btn) {
       btn.disabled = false;
       btn.textContent = `Invoices (${count})`;
@@ -11527,6 +12057,84 @@ function inventoryBrandKey(brand){
   return String(brand || "").trim().toLowerCase() || "__unbranded__";
 }
 
+function collectInventoryGroupIdsMatching(predicate){
+  const gids = new Set();
+  for (const entry of state.entries) {
+    if (!entryBelongsToLedgerScope(entry, LEDGER_SCOPE_GOODS) || !hasGoodsTag(entry.notes)) continue;
+    const meta = goodsMetaFromNotes(entry.notes);
+    if (predicate(entry, meta)) gids.add(String(entry.group_id || ""));
+  }
+  return [...gids].filter(Boolean);
+}
+
+function snapshotInventoryGroupsByIds(groupIds){
+  const ids = (Array.isArray(groupIds) ? groupIds : []).filter(Boolean);
+  return ids.map(gid => ({
+    gid: String(gid),
+    entries: state.entries.filter(e => String(e.group_id) === String(gid))
+  }));
+}
+
+async function softDeleteInventoryGroupSnapshots(snapshots, label = "Inventory cascade delete"){
+  for (const row of (Array.isArray(snapshots) ? snapshots : [])) {
+    if (!row?.gid) continue;
+    try {
+      await persistDeleteGroup(row.gid, { entries: row.entries || [], label });
+    } catch (err) {
+      console.warn(`${label}: failed for group ${row.gid}`, err);
+    }
+  }
+}
+
+async function purgeInventoryEntriesForBrand(brandName, brandId = ""){
+  const key = inventoryBrandKey(brandName);
+  const gids = collectInventoryGroupIdsMatching((entry, meta) =>
+    (brandId && String(meta.brandId || "") === String(brandId))
+    || inventoryBrandKey(meta.brand) === key
+  );
+  const snapshots = snapshotInventoryGroupsByIds(gids);
+  const idSet = new Set(gids.map(String));
+  state.entries = state.entries.filter(e => !idSet.has(String(e.group_id || "")));
+  // RPC 057 cascades server-side; this also covers pre-057 DBs via domain/ledger soft-delete.
+  await softDeleteInventoryGroupSnapshots(snapshots, "Brand delete");
+}
+
+async function purgeInventoryEntriesForProductLine(lineName, lineId = "", brandName = ""){
+  const lineKey = String(lineName || "").trim().toLowerCase();
+  const brandKey = inventoryBrandKey(brandName);
+  const gids = collectInventoryGroupIdsMatching((entry, meta) => {
+    if (lineId && String(meta.productLineId || "") === String(lineId)) return true;
+    if (String(meta.productLine || "").trim().toLowerCase() !== lineKey) return false;
+    if (!brandName) return true;
+    return inventoryBrandKey(meta.brand) === brandKey;
+  });
+  const snapshots = snapshotInventoryGroupsByIds(gids);
+  const idSet = new Set(gids.map(String));
+  state.entries = state.entries.filter(e => !idSet.has(String(e.group_id || "")));
+  await softDeleteInventoryGroupSnapshots(snapshots, "Product line delete");
+}
+
+async function purgeInventoryEntriesForCategory(categoryName){
+  const typeKey = normalizeInventoryItemType(categoryName).toLowerCase();
+  const gids = collectInventoryGroupIdsMatching((entry, meta) =>
+    normalizeInventoryItemType(meta.itemType || "").toLowerCase() === typeKey
+  );
+  const snapshots = snapshotInventoryGroupsByIds(gids);
+  const idSet = new Set(gids.map(String));
+  state.entries = state.entries.filter(e => !idSet.has(String(e.group_id || "")));
+  await softDeleteInventoryGroupSnapshots(snapshots, "Category delete");
+  if (Array.isArray(state.inventoryCustomCategories)) {
+    state.inventoryCustomCategories = state.inventoryCustomCategories.filter(c =>
+      normalizeInventoryItemType(c.name).toLowerCase() !== typeKey
+    );
+  }
+  if (Array.isArray(state.inventoryCategories)) {
+    state.inventoryCategories = state.inventoryCategories.filter(c =>
+      normalizeInventoryItemType(c.name).toLowerCase() !== typeKey
+    );
+  }
+}
+
 function getInventorySectionBrandGroups(items){
   if (typeof groupItemsByBrand === "function") return groupItemsByBrand(items);
   const map = new Map();
@@ -11566,7 +12174,12 @@ async function openInventorySectionOverlay(sectionType, { focusSell = false, bra
   const desc = document.getElementById("inventorySectionModalDesc");
   const body = document.getElementById("inventorySectionModalBody");
   if (title) title.textContent = type;
-  if (desc) desc.textContent = "Category → Brand → Type → Variant";
+  {
+    const tax = typeof getCategoryTaxonomyLabels === "function"
+      ? getCategoryTaxonomyLabels(type)
+      : { breadcrumb: "Brand → Type → Variant" };
+    if (desc) desc.textContent = `Category → ${tax.breadcrumb}`;
+  }
   if (body) body.innerHTML = `<div class="empty inventory-loading-hint">Loading ${escapeHtml(type)}…</div>`;
   modal?.classList.remove("hide");
   modal?.setAttribute("aria-hidden", "false");
@@ -11618,13 +12231,8 @@ function bindInventorySectionVariantActions(body, type){
         if (openBtn !== btn) openBtn.setAttribute("aria-expanded", "false");
       });
       try {
-        if (panel.dataset.historyLoaded !== "1") {
-          await fillInventorySectionHistoryPanel(gid, panel, btn);
-          panel.dataset.historyLoaded = "1";
-        } else {
-          panel.classList.remove("hide");
-          btn.setAttribute("aria-expanded", "true");
-        }
+        // Always reload so newly finalized sales appear next to purchases.
+        await fillInventorySectionHistoryPanel(gid, panel, btn);
       } catch (err) {
         alert(err?.message || "Could not load invoices.");
       }
@@ -11650,6 +12258,32 @@ function bindInventorySectionVariantActions(body, type){
         }
       }
       if (action === "edit-bought") openEditModal(btn.dataset.entryId);
+      if (action === "rename-variant") {
+        const list = body.querySelector(".inventory-variant-list") || body;
+        openInventoryInlineRename(list, {
+          placeholder: "Size / variant name",
+          kind: "variant-rename",
+          value: btn.dataset.variantLabel || "",
+          onSave: async (label) => {
+            if (typeof renameVariantInline !== "function") throw new Error("Catalog helper missing.");
+            const variantId = btn.dataset.variantId || "";
+            await renameVariantInline({
+              variantId,
+              brandName: state.inventoryActiveBrand,
+              categoryName: type,
+              productLineName: state.inventoryActiveProductLine,
+              variantLabel: label,
+              qtyPattern: (typeof getCategoryConfig === "function" ? getCategoryConfig(type)?.qtyPattern : "count") || "count"
+            });
+            syncInventoryCatalogMetaOnEntries(
+              meta => String(meta.variantId || "") === String(variantId),
+              { variantLabel: label }
+            );
+            await renderInventorySectionOverlayBody(type);
+            renderInventoryList();
+          }
+        });
+      }
       if (action === "delete-item") {
         await deleteEntry(btn.dataset.entryId);
         await renderInventorySectionOverlayBody(type);
@@ -11687,12 +12321,35 @@ function bindInventorySectionVariantActions(body, type){
   });
 }
 
+function inventoryGroupBottlePriceDisplay(group){
+  const category = resolveInventoryItemCategory(group);
+  const sellPerBase = Number(group.defaultUnitSoldPrice || 0);
+  const costPerBase = Number(group.unitActualPrice || 0);
+  const boughtQty = Number(group.boughtQty || 0);
+  if (category === INVENTORY_CATEGORY_VOLUME) {
+    return {
+      sellLabel: "Sell / ml",
+      costLabel: "Cost / ml",
+      sell: sellPerBase > 0 ? sellPerBase / 1000 : 0,
+      cost: costPerBase > 0 ? costPerBase / 1000 : 0
+    };
+  }
+  return {
+    sellLabel: "Sell",
+    costLabel: "Cost",
+    sell: sellPerBase,
+    cost: costPerBase
+  };
+}
+
 function renderInventoryVariantRowsHtml(items){
   return items.map((group, index) => {
     const inDraft = getSaleDraftQtyForGroup(group.group_id);
     const inStock = group.remainingQty > 0.00000001;
     const statusClass = inStock ? "orange" : "green";
     const name = inventoryVariantDisplayName(group);
+    const category = resolveInventoryItemCategory(group);
+    const prices = inventoryGroupBottlePriceDisplay(group);
     return `
       <article class="inventory-variant-row ${inStock ? "" : "is-empty"}" data-sku-group="${escapeHtml(group.group_id)}">
         <div class="inventory-variant-main">
@@ -11707,9 +12364,9 @@ function renderInventoryVariantRowsHtml(items){
             </div>
           </div>
           <div class="inventory-variant-metrics">
-            <div><small>Stock</small><strong class="badge ${statusClass}">${escapeHtml(inventoryQtyLabel(group.remainingQty, group.itemCategory))}</strong></div>
-            <div><small>Sell</small><strong>${money(group.defaultUnitSoldPrice || 0, group.currency)}</strong></div>
-            <div><small>Cost</small><strong>${money(group.unitActualPrice || 0, group.currency)}</strong></div>
+            <div><small>Stock</small><strong class="badge ${statusClass}">${escapeHtml(inventoryQtyLabel(group.remainingQty, category))}</strong></div>
+            <div><small>${escapeHtml(prices.sellLabel)}</small><strong>${money(prices.sell || 0, group.currency)}</strong></div>
+            <div><small>${escapeHtml(prices.costLabel)}</small><strong>${money(prices.cost || 0, group.currency)}</strong></div>
           </div>
           <div class="inventory-variant-actions">
             <button type="button" class="btn soft tiny inventorySkuSellBtn" data-group-id="${escapeHtml(group.group_id)}" ${inStock ? "" : "disabled"}>
@@ -11723,8 +12380,9 @@ function renderInventoryVariantRowsHtml(items){
                 <button class="menu-item sectionSkuActionBtn" type="button" data-action="details" data-group-id="${escapeHtml(group.group_id)}">Details</button>
                 <button class="menu-item sectionSkuActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(group.group_id)}">Item PDF</button>
                 <button class="menu-item sectionSkuActionBtn" type="button" data-action="add-related" data-group-id="${escapeHtml(group.group_id)}">Add related</button>
-                ${teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit</button>` : ""}
-                ${teamCanShowDelete("invoices") ? `<button class="menu-item danger sectionSkuActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete</button>` : ""}
+                ${group.variantId && teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="rename-variant" data-variant-id="${escapeHtml(group.variantId || "")}" data-variant-label="${escapeHtml(group.variantLabel || "")}" data-group-id="${escapeHtml(group.group_id)}">Rename size</button>` : ""}
+                ${teamCanShowEdit("invoices") ? `<button class="menu-item sectionSkuActionBtn" type="button" data-action="edit-bought" data-entry-id="${escapeHtml(group.principal?.id || "")}">Edit item</button>` : ""}
+                ${teamCanShowDelete("invoices") ? `<button class="menu-item danger sectionSkuActionBtn" type="button" data-action="delete-item" data-entry-id="${escapeHtml(group.principal?.id || "")}">Delete item</button>` : ""}
               </div>
             </div>
           </div>
@@ -11742,9 +12400,15 @@ function renderInventoryVariantRowsHtml(items){
   }).join("");
 }
 
-function renderInventoryCatalogVariantRowsHtml(catalogRows = []){
-  return catalogRows.map((row, index) => `
-    <article class="inventory-variant-row is-empty is-catalog-only" data-catalog-variant="${escapeHtml(row.variantId || row.label)}">
+function renderInventoryCatalogVariantRowsHtml(catalogRows = [], { menuKind = "variant" } = {}){
+  return catalogRows.map((row, index) => {
+    const menuKey = `catalog-variant-${row.variantId || row.label || index}`;
+    return `
+    <article class="inventory-variant-row is-empty is-catalog-only"
+      data-catalog-kind="${escapeHtml(menuKind)}"
+      data-catalog-variant="${escapeHtml(row.variantId || row.label)}"
+      data-variant-id="${escapeHtml(row.variantId || "")}"
+      data-variant-label="${escapeHtml(row.label || "")}">
       <div class="inventory-variant-main">
         <div class="inventory-variant-identity">
           <span class="inventory-section-item-index">#${index + 1}</span>
@@ -11759,41 +12423,74 @@ function renderInventoryCatalogVariantRowsHtml(catalogRows = []){
             data-variant-id="${escapeHtml(row.variantId || "")}">
             <i class="fa-solid fa-plus"></i> Stock
           </button>
+          ${row.variantId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: "Edit", deleteLabel: "Delete" }) : ""}
         </div>
       </div>
       <div class="inventory-inline-stock hide" data-inline-stock-for="${escapeHtml(row.variantId || row.label)}"></div>
-    </article>
-  `).join("");
+    </article>`;
+  }).join("");
 }
 
-function inventoryInlineStockFormHtml(qtyPattern = "count"){
+function inventoryInlineStockFormHtml(qtyPattern = "count", {
+  qty = "",
+  unit = "",
+  sizeLocked = false,
+  sizeLabel = "",
+  bottles = "1",
+  priceUnit = ""
+} = {}){
   const pattern = normalizeInventoryCategory(qtyPattern || "count");
   const defaultUnit = inventoryBaseUnitForCategory(pattern);
-  const qtyLabel = pattern === INVENTORY_CATEGORY_VOLUME
-    ? "Volume"
-    : pattern === "weight"
-      ? "Weight"
-      : pattern === "length"
-        ? "Length"
-        : "Qty";
-  const unitOptions = inventoryUnitSelectOptionsHtml(pattern, pattern === INVENTORY_CATEGORY_VOLUME ? INVENTORY_UNIT_ML : defaultUnit);
+  const selectedPriceUnit = priceUnit
+    || unit
+    || (pattern === INVENTORY_CATEGORY_VOLUME ? INVENTORY_UNIT_ML : defaultUnit);
+  const qtyValue = qty !== "" && qty != null
+    ? String(qty)
+    : (pattern === "count" ? "1" : "");
+  const bottleLabels = pattern === INVENTORY_CATEGORY_VOLUME
+    ? inventoryVolumeBottleLabels(qtyValue || 100, selectedPriceUnit)
+    : null;
+  const costLabel = bottleLabels?.cost || "Cost";
+  const sellLabel = bottleLabels?.sell || "Sell";
+  const unitOptions = inventoryUnitSelectOptionsHtml(pattern, selectedPriceUnit);
+  const sizeLockedHtml = sizeLocked && pattern === INVENTORY_CATEGORY_VOLUME
+    ? `<div class="inventory-inline-stock-size-lock">
+        <span>Size</span>
+        <strong>${escapeHtml(sizeLabel || `${qtyValue} ${unit || "ml"}`)}</strong>
+        <input type="hidden" class="inventory-inline-stock-qty" value="${escapeHtml(qtyValue)}" />
+        <input type="hidden" class="inventory-inline-stock-size-unit" value="${escapeHtml(unit || INVENTORY_UNIT_ML)}" />
+      </div>
+      <label class="inventory-inline-stock-field">
+        <span>Bottles</span>
+        <input class="input inventory-inline-stock-bottles" type="number" min="1" step="1" value="${escapeHtml(String(bottles || "1"))}" inputmode="numeric" />
+      </label>`
+    : `<label class="inventory-inline-stock-field">
+        <span class="inventory-inline-stock-qty-label">${escapeHtml(
+          bottleLabels?.qty
+          || (pattern === INVENTORY_CATEGORY_VOLUME
+            ? "Bottle size"
+            : pattern === "weight"
+              ? "Weight"
+              : pattern === "length"
+                ? "Length"
+                : "Qty")
+        )}</span>
+        <input class="input inventory-inline-stock-qty" type="number" min="0.001" step="any" value="${escapeHtml(qtyValue)}" inputmode="decimal" />
+      </label>`;
   return `
-    <div class="inventory-inline-stock-form">
+    <div class="inventory-inline-stock-form${sizeLocked ? " is-size-locked" : ""}">
+      ${sizeLockedHtml}
       <label class="inventory-inline-stock-field">
-        <span>${escapeHtml(qtyLabel)}</span>
-        <input class="input inventory-inline-stock-qty" type="number" min="0.001" step="any" value="${pattern === "count" ? "1" : ""}" inputmode="decimal" />
-      </label>
-      <label class="inventory-inline-stock-field">
-        <span>Unit</span>
+        <span>${pattern === INVENTORY_CATEGORY_VOLUME ? "Price unit" : "Unit"}</span>
         <select class="select inventory-inline-stock-unit">${unitOptions}</select>
       </label>
       <label class="inventory-inline-stock-field">
-        <span>Cost</span>
-        <input class="input inventory-inline-stock-cost" type="number" min="0" step="any" placeholder="0" inputmode="decimal" />
+        <span class="inventory-inline-stock-cost-label">${escapeHtml(costLabel)}</span>
+        <input class="input inventory-inline-stock-cost" type="number" min="0" step="any" placeholder="${pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0"}" inputmode="decimal" />
       </label>
       <label class="inventory-inline-stock-field">
-        <span>Sell</span>
-        <input class="input inventory-inline-stock-sell" type="number" min="0" step="any" placeholder="0" inputmode="decimal" />
+        <span class="inventory-inline-stock-sell-label">${escapeHtml(sellLabel)}</span>
+        <input class="input inventory-inline-stock-sell" type="number" min="0" step="any" placeholder="${pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0"}" inputmode="decimal" />
       </label>
       <label class="inventory-inline-stock-field">
         <span>Cur</span>
@@ -11835,17 +12532,46 @@ function openInventoryInlineStockEditor(rowEl, {
       openPanel.closest(".inventory-variant-row")?.classList.remove("is-adding-stock");
     }
   });
-  panel.innerHTML = inventoryInlineStockFormHtml(qtyPattern);
+  const sizeHint = parseInventorySizeHint(variantLabel);
+  const pattern = normalizeInventoryCategory(qtyPattern || "count");
+  const sizeLocked = pattern === INVENTORY_CATEGORY_VOLUME && !!sizeHint;
+  const sizeQty = sizeHint?.qty ?? (pattern === INVENTORY_CATEGORY_VOLUME ? 100 : "");
+  const sizeUnit = sizeHint?.unit || (pattern === INVENTORY_CATEGORY_VOLUME ? INVENTORY_UNIT_ML : "");
+  panel.innerHTML = inventoryInlineStockFormHtml(qtyPattern, {
+    qty: sizeQty,
+    unit: sizeUnit,
+    sizeLocked,
+    sizeLabel: sizeHint
+      ? `${trimInventoryNumber(sizeHint.qty, 3)} ${sizeHint.unit === INVENTORY_UNIT_L ? "L" : "ml"}`
+      : (variantLabel || ""),
+    bottles: "1",
+    priceUnit: INVENTORY_UNIT_ML
+  });
   panel.classList.remove("hide");
   rowEl.classList.add("is-adding-stock");
 
   const qtyInput = panel.querySelector(".inventory-inline-stock-qty");
+  const bottlesInput = panel.querySelector(".inventory-inline-stock-bottles");
+  const sizeUnitInput = panel.querySelector(".inventory-inline-stock-size-unit");
   const unitSelect = panel.querySelector(".inventory-inline-stock-unit");
   const costInput = panel.querySelector(".inventory-inline-stock-cost");
   const sellInput = panel.querySelector(".inventory-inline-stock-sell");
   const currencyInput = panel.querySelector(".inventory-inline-stock-currency");
   const saveBtn = panel.querySelector(".inventory-inline-stock-save");
   const cancelBtn = panel.querySelector(".inventory-inline-stock-cancel");
+
+  const refreshPriceUnitLabels = () => {
+    if (pattern !== INVENTORY_CATEGORY_VOLUME) return;
+    const labels = inventoryVolumeBottleLabels(qtyInput?.value, unitSelect?.value);
+    const costLabel = panel.querySelector(".inventory-inline-stock-cost-label");
+    const sellLabel = panel.querySelector(".inventory-inline-stock-sell-label");
+    if (costLabel) costLabel.textContent = labels.cost;
+    if (sellLabel) sellLabel.textContent = labels.sell;
+    if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
+    if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
+  };
+  unitSelect?.addEventListener("change", refreshPriceUnitLabels);
+  refreshPriceUnitLabels();
 
   const close = () => {
     panel.classList.add("hide");
@@ -11862,6 +12588,11 @@ function openInventoryInlineStockEditor(rowEl, {
     saveBtn.disabled = true;
     cancelBtn.disabled = true;
     try {
+      const bottleUnit = sizeLocked
+        ? (sizeUnitInput?.value || sizeUnit || INVENTORY_UNIT_ML)
+        : (unitSelect?.value || sizeUnit);
+      const bottleQty = qtyInput?.value;
+      const bottles = sizeLocked ? Math.max(1, Math.floor(Number(bottlesInput?.value || 1))) : 1;
       await persistInventoryStockItem({
         category: categoryName,
         brand: brandName,
@@ -11869,12 +12600,15 @@ function openInventoryInlineStockEditor(rowEl, {
         productLineId,
         variantLabel,
         variantId,
-        qty: qtyInput?.value,
-        unit: unitSelect?.value,
+        qty: bottleQty,
+        unit: bottleUnit,
+        bottles,
+        priceUnit: unitSelect?.value || INVENTORY_UNIT_ML,
         unitCost: costInput?.value,
         unitSell: sellInput?.value,
         currency: currencyInput?.value || "AED",
-        qtyPattern
+        qtyPattern,
+        sizeLocked
       });
       if (typeof invalidateAndRefreshInventoryLazy === "function") {
         await invalidateAndRefreshInventoryLazy().catch(() => {});
@@ -11885,16 +12619,16 @@ function openInventoryInlineStockEditor(rowEl, {
       alert(err?.message || "Could not save stock.");
       saveBtn.disabled = false;
       cancelBtn.disabled = false;
-      qtyInput?.focus();
+      (costInput || qtyInput)?.focus();
     }
   });
-  requestAnimationFrame(() => (qtyInput?.value ? costInput : qtyInput)?.focus());
+  requestAnimationFrame(() => (costInput || bottlesInput || qtyInput)?.focus());
 }
 
-function inventoryInlineEditorRowHtml(placeholder, kind){
+function inventoryInlineEditorRowHtml(placeholder, kind, value = ""){
   return `
     <div class="inventory-inline-editor" data-inline-kind="${escapeHtml(kind)}">
-      <input class="input inventory-inline-editor-input" type="text" maxlength="120" placeholder="${escapeHtml(placeholder)}" autocomplete="off" />
+      <input class="input inventory-inline-editor-input" type="text" maxlength="120" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(value || "")}" autocomplete="off" />
       <button type="button" class="tiny inventory-inline-editor-save" title="Save" aria-label="Save"><i class="fa-solid fa-check"></i></button>
       <button type="button" class="tiny ghost inventory-inline-editor-cancel" title="Cancel" aria-label="Cancel"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -11941,7 +12675,141 @@ function bindInventoryInlineEditor(root, { onSave } = {}){
       finish();
     }
   });
-  requestAnimationFrame(() => input?.focus());
+  requestAnimationFrame(() => {
+    input?.focus();
+    if (input?.value) input.select();
+  });
+}
+
+function teamCanManageInventoryCatalog(){
+  // Catalog rename/delete is structure management — allow when the user can edit
+  // inventory, or delete invoices, or is the account owner (not a restricted member).
+  if (typeof isTeamMemberAccount === "function" && !isTeamMemberAccount()) return true;
+  if (typeof teamCanShowEdit === "function" && teamCanShowEdit("invoices")) return true;
+  if (typeof teamCanShowDelete === "function" && teamCanShowDelete("invoices")) return true;
+  return typeof teamCapability === "function" ? teamCapability("can_edit_invoices") : true;
+}
+
+function inventoryCatalogRowMenuHtml(menuKey, {
+  editLabel = "Edit",
+  deleteLabel = "Delete",
+  canEdit = true,
+  canDelete = true
+} = {}){
+  const canManage = teamCanManageInventoryCatalog();
+  const showEdit = canEdit && canManage;
+  const showDelete = canDelete && canManage;
+  if (!showEdit && !showDelete) return "";
+  return `
+    <div class="menu-wrap inventory-catalog-menu-wrap">
+      <button class="icon-btn ghost menu-trigger" type="button" data-catalog-menu="${escapeHtml(menuKey)}" aria-label="More" aria-expanded="false">☰</button>
+      <div class="menu-dropdown" data-catalog-menu-panel="${escapeHtml(menuKey)}">
+        ${showEdit ? `<button class="menu-item inventoryCatalogActionBtn" type="button" data-action="edit">${escapeHtml(editLabel)}</button>` : ""}
+        ${showDelete ? `<button class="menu-item danger inventoryCatalogActionBtn" type="button" data-action="delete">${escapeHtml(deleteLabel)}</button>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function bindInventoryCatalogMenus(root, onAction){
+  if (!root) return;
+  root.querySelectorAll("[data-catalog-menu]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const key = btn.dataset.catalogMenu;
+      const panel = root.querySelector(`[data-catalog-menu-panel="${key}"]`);
+      if (!panel) return;
+      document.querySelectorAll(".menu-dropdown.open").forEach(openPanel => {
+        if (openPanel !== panel) openPanel.classList.remove("open");
+      });
+      const nowOpen = panel.classList.toggle("open");
+      btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+      if (nowOpen) {
+        const rect = btn.getBoundingClientRect();
+        const panelWidth = Math.min(panel.offsetWidth || 160, window.innerWidth - 20);
+        const left = Math.min(Math.max(10, rect.right - panelWidth), window.innerWidth - panelWidth - 10);
+        const top = Math.min(rect.bottom + 6, window.innerHeight - 12);
+        panel.style.position = "fixed";
+        panel.style.top = `${top}px`;
+        panel.style.left = `${left}px`;
+        panel.style.right = "auto";
+        panel.style.zIndex = "13000";
+      }
+    });
+  });
+  root.querySelectorAll(".inventoryCatalogActionBtn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      const wrap = btn.closest(".menu-wrap");
+      const menuBtn = wrap?.querySelector("[data-catalog-menu]");
+      const row = btn.closest("[data-catalog-kind]") || btn.closest(".inventory-brand-row") || btn.closest(".inventory-variant-row") || btn.closest(".inventory-section-card");
+      try {
+        await onAction?.(btn.dataset.action, {
+          row,
+          menuKey: menuBtn?.dataset.catalogMenu || "",
+          dataset: { ...(row?.dataset || {}), ...(menuBtn?.dataset || {}), ...(btn.dataset || {}) }
+        });
+      } catch (err) {
+        alert(err?.message || "Action failed.");
+      }
+    });
+  });
+}
+
+function inventoryResolveBrandCatalogId(brandName){
+  const name = String(brandName || "").trim();
+  if (!name || typeof getInventoryBrandCatalog !== "function") return "";
+  const hit = getInventoryBrandCatalog().find(b => inventoryBrandKey(b.name) === inventoryBrandKey(name));
+  return hit?.id || "";
+}
+
+function syncInventoryCatalogMetaOnEntries(matcher, patch){
+  if (!Array.isArray(state.entries) || !patch) return [];
+  const updated = [];
+  for (const entry of state.entries) {
+    if (!entry || entry.entry_kind !== "principal") continue;
+    if (!hasGoodsTag(entry.notes)) continue;
+    const meta = goodsMetaFromNotes(entry.notes);
+    if (!matcher(meta, entry)) continue;
+    const nextMeta = { ...meta, ...patch };
+    entry.notes = upsertGoodsMetaInNote(entry.notes, patch);
+    if (patch.brand != null || patch.productLine != null || patch.variantLabel != null) {
+      const nextName = typeof buildItemDisplayName === "function"
+        ? buildItemDisplayName({
+            brand: nextMeta.brand,
+            productLine: nextMeta.productLine,
+            variantLabel: nextMeta.variantLabel,
+            itemName: entry.person_name
+          })
+        : entry.person_name;
+      if (nextName) entry.person_name = nextName;
+    }
+    updated.push(entry);
+    if (typeof queueDatabasePatch === "function") {
+      queueDatabasePatch(entry.id, {
+        notes: entry.notes,
+        person_name: entry.person_name
+      }, "Catalog rename", entry);
+    }
+  }
+  return updated;
+}
+
+function openInventoryInlineRename(listRoot, {
+  placeholder,
+  kind,
+  value,
+  onSave
+}){
+  if (!listRoot) return;
+  listRoot.querySelector(".inventory-inline-editor")?.remove();
+  const wrap = document.createElement("div");
+  wrap.innerHTML = inventoryInlineEditorRowHtml(placeholder, kind, value || "");
+  listRoot.prepend(wrap.firstElementChild);
+  bindInventoryInlineEditor(listRoot, { onSave });
 }
 
 async function renderInventorySectionOverlayBody(sectionType){
@@ -11950,6 +12818,9 @@ async function renderInventorySectionOverlayBody(sectionType){
   if (!body) return;
   try { await ensureInventoryBrandsLoaded(false); } catch (_) {}
   const cfg = typeof getCategoryConfig === "function" ? getCategoryConfig(type) : { usesBrands: true, usesProductLines: true, usesVariants: true };
+  const tax = typeof getCategoryTaxonomyLabels === "function"
+    ? getCategoryTaxonomyLabels(cfg)
+    : { productLine: "Type", variant: "Variant", productLinePlural: "types", variantPlural: "variants", breadcrumb: "Brand → Type → Variant" };
   const freshItems = sortInventorySectionItems(
     getGoodsGroups({ applyUiFilters: false }).filter(g => normalizeInventoryItemType(g.itemType) === type)
   );
@@ -11966,6 +12837,7 @@ async function renderInventorySectionOverlayBody(sectionType){
     .map(b => ({
       key: inventoryBrandKey(b.name),
       brand: b.name,
+      brandId: b.id || "",
       items: [],
       inStock: false,
       lineCount: Array.isArray(b.product_lines) ? b.product_lines.length : 0,
@@ -11973,6 +12845,10 @@ async function renderInventorySectionOverlayBody(sectionType){
       fromCatalog: true
     }));
   const allBrands = [...brands, ...catalogBrands]
+    .map(row => ({
+      ...row,
+      brandId: row.brandId || inventoryResolveBrandCatalogId(row.brand) || row.items?.[0]?.brandId || ""
+    }))
     .sort((a, b) => a.brand.localeCompare(b.brand, undefined, { sensitivity: "base" }));
   const activeBrandKey = inventoryBrandKey(state.inventoryActiveBrand);
   const activeBrand = state.inventoryActiveBrand
@@ -12013,7 +12889,10 @@ async function renderInventorySectionOverlayBody(sectionType){
     body.querySelector(".inventory-inline-editor")?.remove();
     body.querySelector(".empty")?.remove();
     const wrap = document.createElement("div");
-    wrap.innerHTML = inventoryInlineEditorRowHtml("Type name (e.g. 9PM Rebel)", "type");
+    const placeholder = /perfume/i.test(type)
+      ? `${tax.productLine} (e.g. 9PM, Oud, Musk)`
+      : `${tax.productLine} name (e.g. 9PM Rebel)`;
+    wrap.innerHTML = inventoryInlineEditorRowHtml(placeholder, "type");
     list.prepend(wrap.firstElementChild);
     bindInventoryInlineEditor(list, {
       onSave: async (lineName) => {
@@ -12034,7 +12913,10 @@ async function renderInventorySectionOverlayBody(sectionType){
     body.querySelector(".inventory-inline-editor")?.remove();
     body.querySelector(".empty")?.remove();
     const wrap = document.createElement("div");
-    wrap.innerHTML = inventoryInlineEditorRowHtml("Variant (e.g. 3ml, 100ml)", "variant");
+    const placeholder = /perfume/i.test(type)
+      ? `${tax.variant} (e.g. 100 ml, 50 ml, 1 L)`
+      : `${tax.variant} (e.g. 3ml, 100ml)`;
+    wrap.innerHTML = inventoryInlineEditorRowHtml(placeholder, "variant");
     list.prepend(wrap.firstElementChild);
     bindInventoryInlineEditor(list, {
       onSave: async (variantLabel) => {
@@ -12066,19 +12948,19 @@ async function renderInventorySectionOverlayBody(sectionType){
     const stockVariants = variantRows.filter(r => r.group);
     const catalogOnly = variantRows.filter(r => !r.group);
     if (title) title.textContent = activeLine.name;
-    if (desc) desc.textContent = `${activeBrand.brand} · ${variantRows.length} variant${variantRows.length === 1 ? "" : "s"} · Stock ${activeLine.stockLabel || inventoryQtySummary(activeLine.items || [], "remainingQty")}`;
+    if (desc) desc.textContent = `${activeBrand.brand} · ${variantRows.length} ${variantRows.length === 1 ? tax.variant.toLowerCase() : tax.variantPlural} · Stock ${activeLine.stockLabel || inventoryQtySummary(activeLine.items || [], "remainingQty")}`;
     body.innerHTML = `
       <div class="inventory-section-detail-head inventory-section-brand-head">
         <button type="button" class="tiny ghost" id="inventorySectionBackBtn"><i class="fa-solid fa-arrow-left"></i> ${escapeHtml(activeBrand.brand)}</button>
         <div class="inventory-section-detail-actions">
-          <button type="button" class="tiny ghost" id="inventorySectionAddVariantBtn"><i class="fa-solid fa-plus"></i> Variant</button>
+          <button type="button" class="tiny ghost" id="inventorySectionAddVariantBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(tax.variant)}</button>
           <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
         </div>
       </div>
       <div class="inventory-variant-list">
         ${stockVariants.length ? renderInventoryVariantRowsHtml(stockVariants.map(r => r.group)) : ""}
         ${catalogOnly.length ? renderInventoryCatalogVariantRowsHtml(catalogOnly) : ""}
-        ${!variantRows.length ? `<div class="empty">No variants yet. Tap + Variant.</div>` : ""}
+        ${!variantRows.length ? `<div class="empty">No ${escapeHtml(tax.variantPlural)} yet. Tap + ${escapeHtml(tax.variant)}.</div>` : ""}
       </div>
     `;
     body.querySelector("#inventorySectionBackBtn")?.addEventListener("click", () => {
@@ -12105,6 +12987,41 @@ async function renderInventorySectionOverlayBody(sectionType){
       });
     });
     bindInventorySectionVariantActions(body, type);
+    bindInventoryCatalogMenus(body, async (action, { dataset }) => {
+      const variantId = dataset.variantId || "";
+      const oldLabel = dataset.variantLabel || "";
+      if (!variantId) throw new Error("This size is not saved in the catalog yet.");
+      if (action === "edit") {
+        const list = body.querySelector(".inventory-variant-list") || body;
+        openInventoryInlineRename(list, {
+          placeholder: `${tax.variant} name`,
+          kind: "variant-rename",
+          value: oldLabel,
+          onSave: async (label) => {
+            await renameVariantInline({
+              variantId,
+              brandName: activeBrand.brand,
+              categoryName: type,
+              productLineId: activeLine.id || "",
+              productLineName: activeLine.name,
+              variantLabel: label,
+              qtyPattern: cfg.qtyPattern || "count"
+            });
+            syncInventoryCatalogMetaOnEntries(
+              meta => String(meta.variantId || "") === String(variantId),
+              { variantLabel: label }
+            );
+            await renderInventorySectionOverlayBody(type);
+          }
+        });
+        return;
+      }
+      if (action === "delete") {
+        if (!confirm(`Delete ${tax.variant.toLowerCase()} “${oldLabel}”?`)) return;
+        await deleteVariantInline(variantId);
+        await renderInventorySectionOverlayBody(type);
+      }
+    });
     return;
   }
 
@@ -12122,27 +13039,38 @@ async function renderInventorySectionOverlayBody(sectionType){
   // Level 2: product types under brand
   if (activeBrand && cfg.usesProductLines) {
     if (title) title.textContent = activeBrand.brand;
-    if (desc) desc.textContent = `${productLines.length} type${productLines.length === 1 ? "" : "s"} · Stock ${activeBrand.stockLabel || inventoryQtySummary(activeBrand.items || [], "remainingQty")}`;
+    if (desc) desc.textContent = `${productLines.length} ${productLines.length === 1 ? tax.productLine.toLowerCase() : tax.productLinePlural} · Stock ${activeBrand.stockLabel || inventoryQtySummary(activeBrand.items || [], "remainingQty")}`;
     body.innerHTML = `
       <div class="inventory-section-detail-head inventory-section-brand-head">
         <button type="button" class="tiny ghost" id="inventorySectionBackBtn"><i class="fa-solid fa-arrow-left"></i> ${escapeHtml(type)}</button>
         <div class="inventory-section-detail-actions">
-          <button type="button" class="tiny ghost" id="inventorySectionAddTypeBtn"><i class="fa-solid fa-plus"></i> Type</button>
+          <button type="button" class="tiny ghost" id="inventorySectionAddTypeBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(tax.productLine)}</button>
           <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
         </div>
       </div>
       <div class="inventory-brand-list">
-        ${productLines.length ? productLines.map((line, index) => `
-          <button type="button" class="inventory-brand-row ${line.inStock ? "" : "is-empty"}" data-section-line="${escapeHtml(line.name)}">
-            <span class="inventory-section-item-index">#${index + 1}</span>
-            <span class="inventory-brand-row-main">
-              <strong>${escapeHtml(line.name)}</strong>
-              <span>${escapeHtml(String(line.variantCount || line.items.length || 0))} variant${(line.variantCount || line.items.length || 0) === 1 ? "" : "s"} · Stock ${escapeHtml(line.stockLabel || "0")}</span>
-            </span>
-            <span class="badge ${line.inStock ? "orange" : "green"}">${line.inStock ? "In stock" : "Empty"}</span>
-            <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
-          </button>
-        `).join("") : `<div class="empty">No product types yet. Tap + Type.</div>`}
+        ${productLines.length ? productLines.map((line, index) => {
+          const sizeCount = Number(line.variantCount || line.items.length || 0);
+          const lineId = line.id || "";
+          const menuKey = `line-${lineId || line.key || index}`;
+          return `
+          <div class="inventory-brand-row ${line.inStock ? "" : "is-empty"}"
+            data-catalog-kind="product-line"
+            data-section-line="${escapeHtml(line.name)}"
+            data-line-id="${escapeHtml(lineId)}"
+            data-line-name="${escapeHtml(line.name)}">
+            <button type="button" class="inventory-brand-row-hit" data-section-line="${escapeHtml(line.name)}">
+              <span class="inventory-section-item-index">#${index + 1}</span>
+              <span class="inventory-brand-row-main">
+                <strong>${escapeHtml(line.name)}</strong>
+                <span>${escapeHtml(String(sizeCount))} ${sizeCount === 1 ? tax.variant.toLowerCase() : tax.variantPlural} · Stock ${escapeHtml(line.stockLabel || "0")}</span>
+              </span>
+              <span class="badge ${line.inStock ? "orange" : "green"}">${line.inStock ? "In stock" : "Empty"}</span>
+              <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
+            </button>
+            ${lineId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: `Edit ${tax.productLine.toLowerCase()}`, deleteLabel: `Delete ${tax.productLine.toLowerCase()}` }) : ""}
+          </div>`;
+        }).join("") : `<div class="empty">No ${escapeHtml(tax.productLinePlural)} yet. Tap + ${escapeHtml(tax.productLine)}.</div>`}
       </div>
     `;
     body.querySelector("#inventorySectionBackBtn")?.addEventListener("click", () => {
@@ -12152,11 +13080,61 @@ async function renderInventorySectionOverlayBody(sectionType){
     });
     body.querySelector("#inventorySectionAddTypeBtn")?.addEventListener("click", showInlineTypeEditor);
     body.querySelector("#inventorySectionOpenDraftBtn")?.addEventListener("click", () => openSaleDraftModal());
-    body.querySelectorAll("[data-section-line]").forEach(btn => {
+    body.querySelectorAll(".inventory-brand-row-hit[data-section-line]").forEach(btn => {
       btn.addEventListener("click", () => {
         state.inventoryActiveProductLine = btn.dataset.sectionLine || "";
         renderInventorySectionOverlayBody(type);
       });
+    });
+    bindInventoryCatalogMenus(body, async (action, { dataset }) => {
+      const lineId = dataset.lineId || "";
+      const oldName = dataset.lineName || dataset.sectionLine || "";
+      if (!lineId) throw new Error(`Save this ${tax.productLine.toLowerCase()} first, then edit/delete.`);
+      if (action === "edit") {
+        const list = body.querySelector(".inventory-brand-list") || body;
+        openInventoryInlineRename(list, {
+          placeholder: `${tax.productLine} name`,
+          kind: "type-rename",
+          value: oldName,
+          onSave: async (lineName) => {
+            await renameProductLineInline({
+              lineId,
+              brandName: activeBrand.brand,
+              categoryName: type,
+              lineName
+            });
+            syncInventoryCatalogMetaOnEntries(
+              meta => String(meta.productLineId || "") === String(lineId)
+                || (inventoryBrandKey(meta.brand) === inventoryBrandKey(activeBrand.brand)
+                  && String(meta.productLine || "").toLowerCase() === String(oldName).toLowerCase()),
+              { productLine: lineName, productLineId: lineId }
+            );
+            if (String(state.inventoryActiveProductLine || "").toLowerCase() === String(oldName).toLowerCase()) {
+              state.inventoryActiveProductLine = lineName;
+            }
+            await renderInventorySectionOverlayBody(type);
+          }
+        });
+        return;
+      }
+      if (action === "delete") {
+        const lineRow = productLines.find(l => String(l.id) === String(lineId));
+        const stockCount = (lineRow?.items || []).length;
+        const label = tax.productLine.toLowerCase();
+        const msg = stockCount
+          ? `Delete ${label} “${oldName}” and ALL ${stockCount} stock item${stockCount === 1 ? "" : "s"} under it (including their sales)?`
+          : `Delete ${label} “${oldName}”?`;
+        if (!confirm(msg)) return;
+        await deleteProductLineInline(lineId);
+        await purgeInventoryEntriesForProductLine(oldName, lineId, activeBrand?.brand);
+        state.inventoryLazy.detailLoaded.clear();
+        state.inventorySalesLoaded = false;
+        if (String(state.inventoryActiveProductLine || "").toLowerCase() === String(oldName).toLowerCase()) {
+          state.inventoryActiveProductLine = "";
+        }
+        try { await invalidateAndRefreshInventoryLazy(); } catch (_) {}
+        await renderInventorySectionOverlayBody(type);
+      }
     });
     return;
   }
@@ -12242,31 +13220,95 @@ async function renderInventorySectionOverlayBody(sectionType){
         <button type="button" class="tiny ghost" id="inventorySectionAddBrandBtn"><i class="fa-solid fa-plus"></i> Brand</button>
         <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
       </div>
-      <span class="help">${escapeHtml(cfg.hint || "Tap a brand, then product type, then variant.")}</span>
+      <span class="help">${escapeHtml(cfg.hint || tax.breadcrumb || "Tap a brand, then continue.")}</span>
     </div>
     <div class="inventory-brand-list">
-      ${allBrands.length ? allBrands.map((brand, index) => `
-        <button type="button" class="inventory-brand-row ${brand.inStock ? "" : "is-empty"}" data-section-brand="${escapeHtml(brand.brand)}">
-          <span class="inventory-section-item-index">#${index + 1}</span>
-          <span class="inventory-brand-row-main">
-            <strong>${escapeHtml(brand.brand)}</strong>
-            <span>${escapeHtml(String(brand.lineCount || brand.variantCount || brand.items.length || 0))} type/item · Stock ${escapeHtml(brand.stockLabel || "0")}</span>
-          </span>
-          <span class="badge ${brand.inStock ? "orange" : "green"}">${brand.inStock ? "In stock" : "Empty"}</span>
-          <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
-        </button>
-      `).join("") : `<div class="empty">No brands yet. Tap + Brand.</div>`}
+      ${allBrands.length ? allBrands.map((brand, index) => {
+        const brandId = brand.brandId || inventoryResolveBrandCatalogId(brand.brand);
+        const menuKey = `brand-${brandId || brand.key || index}`;
+        return `
+        <div class="inventory-brand-row ${brand.inStock ? "" : "is-empty"}"
+          data-catalog-kind="brand"
+          data-section-brand="${escapeHtml(brand.brand)}"
+          data-brand-id="${escapeHtml(brandId || "")}"
+          data-brand-name="${escapeHtml(brand.brand)}">
+          <button type="button" class="inventory-brand-row-hit" data-section-brand="${escapeHtml(brand.brand)}">
+            <span class="inventory-section-item-index">#${index + 1}</span>
+            <span class="inventory-brand-row-main">
+              <strong>${escapeHtml(brand.brand)}</strong>
+              <span>${escapeHtml(String(brand.lineCount || brand.variantCount || brand.items.length || 0))} ${tax.productLinePlural}/item · Stock ${escapeHtml(brand.stockLabel || "0")}</span>
+            </span>
+            <span class="badge ${brand.inStock ? "orange" : "green"}">${brand.inStock ? "In stock" : "Empty"}</span>
+            <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
+          </button>
+          ${brandId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: "Edit brand", deleteLabel: "Delete brand" }) : ""}
+        </div>`;
+      }).join("") : `<div class="empty">No brands yet. Tap + Brand.</div>`}
     </div>
   `;
 
   body.querySelector("#inventorySectionAddBrandBtn")?.addEventListener("click", showInlineBrandEditor);
   body.querySelector("#inventorySectionOpenDraftBtn")?.addEventListener("click", () => openSaleDraftModal());
-  body.querySelectorAll("[data-section-brand]").forEach(btn => {
+  body.querySelectorAll(".inventory-brand-row-hit[data-section-brand]").forEach(btn => {
     btn.addEventListener("click", () => {
       state.inventoryActiveBrand = btn.dataset.sectionBrand || "";
       state.inventoryActiveProductLine = "";
       renderInventorySectionOverlayBody(type);
     });
+  });
+  bindInventoryCatalogMenus(body, async (action, { dataset }) => {
+    const brandId = dataset.brandId || "";
+    const oldName = dataset.brandName || dataset.sectionBrand || "";
+    if (!brandId) throw new Error("Save this brand first, then edit/delete.");
+    if (action === "edit") {
+      const list = body.querySelector(".inventory-brand-list") || body;
+      openInventoryInlineRename(list, {
+        placeholder: "Brand name",
+        kind: "brand-rename",
+        value: oldName,
+        onSave: async (brandName) => {
+          await renameBrandInline({ brandId, brandName, categoryName: type });
+          syncInventoryCatalogMetaOnEntries(
+            meta => String(meta.brandId || "") === String(brandId)
+              || inventoryBrandKey(meta.brand) === inventoryBrandKey(oldName),
+            { brand: brandName, brandId }
+          );
+          if (inventoryBrandKey(state.inventoryActiveBrand) === inventoryBrandKey(oldName)) {
+            state.inventoryActiveBrand = brandName;
+          }
+          await renderInventorySectionOverlayBody(type);
+          renderInventoryList();
+        }
+      });
+      return;
+    }
+    if (action === "delete") {
+      const brandRow = allBrands.find(b => inventoryBrandKey(b.brand) === inventoryBrandKey(oldName));
+      const stockCount = (brandRow?.items || []).length;
+      const msg = stockCount
+        ? `Delete brand “${oldName}” and ALL ${stockCount} stock item${stockCount === 1 ? "" : "s"} (including sales history for those items)? This cannot be undone.`
+        : `Delete brand “${oldName}” and its ${tax.productLinePlural}/${tax.variantPlural}?`;
+      if (!confirm(msg)) return;
+      if (brandId) {
+        try {
+          await deleteBrandInline(brandId);
+        } catch (err) {
+          // Still purge stock even if catalog RPC fails / brand id missing.
+          console.warn("Brand catalog delete failed; continuing stock purge.", err);
+        }
+      }
+      // Drop local + domain stock rows for this brand so the UI updates immediately.
+      await purgeInventoryEntriesForBrand(oldName, brandId);
+      state.inventoryLazy.detailLoaded.clear();
+      state.inventorySalesLoaded = false;
+      if (inventoryBrandKey(state.inventoryActiveBrand) === inventoryBrandKey(oldName)) {
+        state.inventoryActiveBrand = "";
+        state.inventoryActiveProductLine = "";
+      }
+      try { await invalidateAndRefreshInventoryLazy(); } catch (_) {}
+      await renderInventorySectionOverlayBody(type);
+      renderInventoryList();
+    }
   });
 }
 
@@ -12352,16 +13394,37 @@ function renderInventorySearchResults(groups){
   bindInventorySectionVariantActions(els.goodsList, "");
 }
 
+function getInventorySectionsForGrid(groups){
+  // Only sections that already have stock/items — never flood the grid with empty presets.
+  const fromStock = getInventorySections(groups);
+  return fromStock.map(section => {
+    const cfg = typeof getCategoryConfig === "function" ? getCategoryConfig(section.type) : null;
+    return {
+      ...section,
+      categoryId: cfg?.id || ""
+    };
+  });
+}
+
 function renderInventorySectionsGrid(groups){
-  const sections = getInventorySections(groups);
+  const sections = getInventorySectionsForGrid(groups);
   if (!sections.length) {
     els.goodsList.innerHTML = `<div class="empty">No inventory sections yet. Add an item to start.</div>`;
     return;
   }
   els.goodsList.innerHTML = `
     <div class="inventory-sections-grid">
-      ${sections.map(section => `
-        <article class="inventory-section-card" data-inventory-section="${escapeHtml(section.type)}" role="button" tabindex="0">
+      ${sections.map((section, index) => {
+        const cfgId = section.categoryId
+          || (typeof getCategoryConfig === "function" ? (getCategoryConfig(section.type)?.id || "") : "");
+        const menuKey = `section-${cfgId || section.type || index}`;
+        return `
+        <article class="inventory-section-card"
+          data-inventory-section="${escapeHtml(section.type)}"
+          data-catalog-kind="category"
+          data-category-id="${escapeHtml(cfgId || "")}"
+          data-category-name="${escapeHtml(section.type)}"
+          role="button" tabindex="0">
           <div class="inventory-section-card-top">
             <strong>${escapeHtml(section.type)}</strong>
             <span class="badge ${section.inStock ? "orange" : "green"}">${section.inStock ? "In stock" : "Empty"}</span>
@@ -12375,9 +13438,15 @@ function renderInventorySectionsGrid(groups){
             <button type="button" class="tiny ghost inventorySectionActionBtn" data-action="open" data-section="${escapeHtml(section.type)}">Open</button>
             <button type="button" class="tiny ghost inventorySectionActionBtn" data-action="add-brand" data-section="${escapeHtml(section.type)}" title="Add item in this category">+ Add</button>
             <button type="button" class="tiny ghost inventorySectionActionBtn" data-action="sell" data-section="${escapeHtml(section.type)}" title="Open cart for section"><i class="fa-solid fa-cart-shopping"></i></button>
+            ${inventoryCatalogRowMenuHtml(menuKey, {
+              editLabel: "Edit",
+              deleteLabel: "Delete",
+              canEdit: true,
+              canDelete: true
+            })}
           </div>
-        </article>
-      `).join("")}
+        </article>`;
+      }).join("")}
     </div>
     <div class="summary" style="margin-top:10px">
       <span>Sections</span>
@@ -12425,6 +13494,57 @@ function renderInventorySectionsGrid(groups){
         }
       }
     });
+  });
+  bindInventoryCatalogMenus(els.goodsList, async (action, { dataset }) => {
+    const oldName = dataset.categoryName || dataset.inventorySection || "";
+    const cfg = typeof getCategoryConfig === "function" ? getCategoryConfig(oldName) : {};
+    const categoryId = dataset.categoryId || cfg.id || "";
+    if (action === "edit") {
+      const name = prompt(`Rename category “${oldName}” to:`, oldName);
+      if (name == null) return;
+      const cleaned = String(name).replace(/\s+/g, " ").trim();
+      if (!cleaned) throw new Error("Category name is required.");
+      if (typeof renameCategoryInline !== "function") throw new Error("Catalog helper missing.");
+      await renameCategoryInline({
+        categoryId,
+        previousName: oldName,
+        name: cleaned,
+        qtyPattern: cfg.qtyPattern,
+        usesBrands: cfg.usesBrands,
+        usesProductLines: cfg.usesProductLines,
+        usesVariants: cfg.usesVariants,
+        hint: cfg.hint,
+        sortOrder: cfg.sortOrder
+      });
+      if (cleaned !== oldName) {
+        syncInventoryCatalogMetaOnEntries(
+          meta => normalizeInventoryItemType(meta.itemType) === normalizeInventoryItemType(oldName),
+          { itemType: cleaned }
+        );
+      }
+      renderInventoryList();
+      return;
+    }
+    if (action === "delete") {
+      const section = sections.find(s => normalizeInventoryItemType(s.type) === normalizeInventoryItemType(oldName));
+      const stockCount = (section?.items || []).length;
+      if (!categoryId && !stockCount) {
+        throw new Error(`“${oldName}” is not saved as a catalog category yet. Run migration 051/055/057, or recreate it with + Add.`);
+      }
+      const msg = stockCount
+        ? `Delete category “${oldName}” and ALL ${stockCount} stock item${stockCount === 1 ? "" : "s"} inside it (brands, types, variants, and sales)? This cannot be undone.`
+        : `Delete category “${oldName}” from the catalog?`;
+      if (!confirm(msg)) return;
+      if (categoryId) await deleteCategoryInline(categoryId);
+      await purgeInventoryEntriesForCategory(oldName);
+      state.inventoryLazy.detailLoaded.clear();
+      state.inventorySalesLoaded = false;
+      try { await invalidateAndRefreshInventoryLazy(); } catch (_) {}
+      if (typeof loadInventoryCategories === "function") {
+        try { await loadInventoryCategories(true); } catch (_) {}
+      }
+      renderInventoryList();
+    }
   });
 }
 
@@ -13011,11 +14131,8 @@ async function loadInventorySalesForCustomers({ force = false } = {}){
     );
     applyInventoryLazyEntries(principals, otherActions.concat(saleEntries, eventEntries));
     state.inventorySalesLoaded = true;
-    // Mark detail loaded for groups that now have actions.
-    const gids = new Set([...saleEntries, ...eventEntries].map(e => String(e.group_id || "")));
-    gids.forEach(gid => {
-      if (gid) state.inventoryLazy.detailLoaded.add(gid);
-    });
+    // Do NOT mark detailLoaded from the global sales list — per-item Invoices
+    // must still fetch app_list_my_inventory_item_detail so sales rows show.
     return true;
   } catch (err) {
     if (isInventoryLazyRpcMissingError(err)) {
@@ -13049,16 +14166,77 @@ async function fetchInventorySummariesRpc({ search = "", brand = "", itemType = 
   return Array.isArray(res?.items) ? res.items : [];
 }
 
-async function fetchInventoryItemDetailRpc(groupId, limit = 2000){
-  const res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_item_detail", {
-    p_group_id: String(groupId || ""),
-    p_limit: limit
-  }));
+function buildInventoryItemDetailLocalFallback(groupId, limit = 2000){
+  const gid = String(groupId || "").trim();
+  const lim = Math.max(1, Math.min(Number(limit) || 2000, 5000));
+  const sales = state.entries
+    .filter(e => String(e.group_id) === gid && e.entry_kind !== "principal" && hasGoodsTag(e.notes) && isInventorySaleAction(e))
+    .slice(0, lim)
+    .map(e => {
+      const meta = goodsMetaFromNotes(e.notes);
+      return {
+        id: e.id,
+        group_id: e.group_id,
+        item_name: e.person_name,
+        currency: e.currency,
+        unit_sold_price: meta.unitSoldPrice,
+        sold_qty: meta.soldQty,
+        total_sold_price: e.action_amount,
+        sold_date: e.action_date,
+        notes: e.notes,
+        created_at: e.created_at,
+        updated_at: e.updated_at
+      };
+    });
+  const events = state.entries
+    .filter(e => String(e.group_id) === gid && e.entry_kind !== "principal" && hasGoodsTag(e.notes) && !isInventorySaleAction(e))
+    .slice(0, lim)
+    .map(e => ({
+      id: e.id,
+      group_id: e.group_id,
+      tx_type: inferGoodsActionType(e),
+      item_name: e.person_name,
+      currency: e.currency,
+      entry_kind: e.entry_kind,
+      direction: e.direction,
+      amount: e.action_amount,
+      qty: goodsMetaFromNotes(e.notes).boughtQty || goodsMetaFromNotes(e.notes).soldQty,
+      event_date: e.action_date,
+      notes: e.notes,
+      created_at: e.created_at,
+      updated_at: e.updated_at
+    }));
+  const principal = state.entries.find(e => String(e.group_id) === gid && e.entry_kind === "principal");
   return {
-    item: res?.item && typeof res.item === "object" ? res.item : null,
-    sales: Array.isArray(res?.sales) ? res.sales : [],
-    events: Array.isArray(res?.events) ? res.events : []
+    item: principal ? {
+      id: principal.id,
+      group_id: principal.group_id,
+      item_name: principal.person_name,
+      currency: principal.currency,
+      notes: principal.notes
+    } : null,
+    sales,
+    events
   };
+}
+
+async function fetchInventoryItemDetailRpc(groupId, limit = 2000){
+  const gid = String(groupId || "").trim();
+  try {
+    const res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_item_detail", {
+      p_group_id: gid,
+      p_limit: limit
+    }));
+    return {
+      item: res?.item && typeof res.item === "object" ? res.item : null,
+      sales: Array.isArray(res?.sales) ? res.sales : [],
+      events: Array.isArray(res?.events) ? res.events : []
+    };
+  } catch (err) {
+    // Never surface missing-RPC / schema-cache errors to the Invoices button.
+    console.warn("Item detail RPC unavailable; using local sale/event fallback. Run migrations/056_inventory_item_detail_rpc_restore.sql.", err);
+    return buildInventoryItemDetailLocalFallback(gid, limit);
+  }
 }
 
 async function loadInventorySummaries({ force = false } = {}){
@@ -13104,8 +14282,35 @@ async function loadInventorySummaries({ force = false } = {}){
 async function ensureInventoryItemDetailLoaded(groupId, { force = false } = {}){
   const gid = String(groupId || "").trim();
   if (!gid || !isInventoryLazyMode()) return null;
-  if (!force && state.inventoryLazy.detailLoaded.has(gid)) return true;
-  const detail = await fetchInventoryItemDetailRpc(gid);
+  const principalHint = state.entries.find(e => String(e.group_id) === gid && e.entry_kind === "principal");
+  const localSaleCount = state.entries.filter(e =>
+    String(e.group_id) === gid && e.entry_kind !== "principal" && hasGoodsTag(e.notes) && isInventorySaleAction(e)
+  ).length;
+  const expectsSales = Number(principalHint?._lazySoldQty || 0) > 0.00000001;
+  if (!force && state.inventoryLazy.detailLoaded.has(gid)) {
+    // Stale empty cache: summary says sold but no sale rows hydrated yet.
+    if (!(expectsSales && !localSaleCount)) return true;
+    state.inventoryLazy.detailLoaded.delete(gid);
+  }
+  let detail;
+  try {
+    detail = await fetchInventoryItemDetailRpc(gid);
+  } catch (err) {
+    console.warn("Inventory item detail failed; using local fallback.", err);
+    detail = buildInventoryItemDetailLocalFallback(gid);
+  }
+  // If detail came back without sales but stock summary shows sold qty, hydrate global sales then rebuild.
+  if (!(detail.sales || []).length && expectsSales) {
+    try { await loadInventorySalesForCustomers({ force: true }); } catch (_) {}
+    try {
+      detail = await fetchInventoryItemDetailRpc(gid);
+    } catch (_) {
+      detail = buildInventoryItemDetailLocalFallback(gid);
+    }
+    if (!(detail.sales || []).length) {
+      detail = buildInventoryItemDetailLocalFallback(gid);
+    }
+  }
   const saleEntries = (detail.sales || []).map(inventorySaleRowToEntry);
   const eventEntries = (detail.events || []).map(inventoryEventRowToEntry)
     .filter(row => row.entry_kind !== "principal");
@@ -13121,13 +14326,26 @@ async function ensureInventoryItemDetailLoaded(groupId, { force = false } = {}){
       delete next._lazyStockStatus;
       return next;
     });
+  // Keep any local sale lines for this group that the RPC/fallback missed (e.g. just finalized).
+  const incomingIds = new Set([...saleEntries, ...eventEntries].map(e => e.id).filter(Boolean));
+  const localSiblings = state.entries.filter(e =>
+    entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS)
+    && e.entry_kind !== "principal"
+    && String(e.group_id) === gid
+    && !incomingIds.has(e.id)
+    && !e._inventoryLazySummary
+  );
   const otherActions = state.entries.filter(e =>
     entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS)
     && e.entry_kind !== "principal"
     && String(e.group_id) !== gid
   );
-  applyInventoryLazyEntries(principals, otherActions.concat(saleEntries, eventEntries));
-  state.inventoryLazy.detailLoaded.add(gid);
+  applyInventoryLazyEntries(principals, otherActions.concat(saleEntries, eventEntries, localSiblings));
+  // Only mark loaded when we have sales or there is nothing expected to load.
+  const loadedSales = saleEntries.length + localSiblings.filter(isInventorySaleAction).length;
+  if (loadedSales > 0 || !expectsSales) {
+    state.inventoryLazy.detailLoaded.add(gid);
+  }
   return detail;
 }
 
@@ -17428,7 +18646,7 @@ function openGoodsSettlementModal(entryId){
     return;
   }
   const meta = goodsMetaFromNotes(entry.notes);
-  const receiptNumber = meta.receiptNumber || shortId(entry.id) || "";
+  const receiptNumber = meta.receiptNumber || meta.invoiceNumber || meta.saleSetId || shortId(entry.id) || "";
   const receiptData = getInventoryReceiptData(receiptNumber, entry);
   if (receiptData.totalsByCurrency.size !== 1){
     alert("Balance clearance is available only for a single-currency receipt.");
