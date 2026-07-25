@@ -13830,6 +13830,10 @@ function openEditModal(id) {
   }
   state.editId = id;
   state.editKind = entry.entry_kind;
+  const isExpenseAccountPrincipal = entry.entry_kind === "principal" && hasExpenseAccountTag(entry.notes);
+  const accountTypeGroup = document.getElementById("editAccountTypeGroup");
+  const accountTypeSelect = document.getElementById("editAccountType");
+  const nameLabel = document.getElementById("editNameLabel");
 
   if (entry.entry_kind === "principal") {
     document.getElementById('editPersonGroup').classList.remove('hide');
@@ -13837,13 +13841,41 @@ function openEditModal(id) {
     document.getElementById('editName').value = entry.person_name || "";
     document.getElementById('editName').required = true;
     setCurrencyChoice(els.editForm, entry.currency || "AED");
-    document.getElementById('editAmountLabel').textContent = "Principal Amount";
+    if (isExpenseAccountPrincipal) {
+      if (nameLabel) nameLabel.textContent = "Account name";
+      document.getElementById('editAmountLabel').textContent = "Available balance";
+      document.getElementById('editDateLabel').textContent = "Account date";
+      if (accountTypeGroup) accountTypeGroup.classList.remove("hide");
+      if (accountTypeSelect) {
+        const currentType = expenseMetaFromNotes(entry.notes).accountType || "Bank Account";
+        const known = Array.from(accountTypeSelect.options).some(opt => opt.value === currentType);
+        if (!known && currentType) {
+          const opt = document.createElement("option");
+          opt.value = currentType;
+          opt.textContent = currentType;
+          accountTypeSelect.appendChild(opt);
+        }
+        accountTypeSelect.value = currentType;
+        accountTypeSelect.required = true;
+      }
+    } else {
+      if (nameLabel) nameLabel.textContent = "Person name";
+      document.getElementById('editAmountLabel').textContent = "Principal Amount";
+      document.getElementById('editDateLabel').textContent = "Loan Date";
+      if (accountTypeGroup) accountTypeGroup.classList.add("hide");
+      if (accountTypeSelect) {
+        accountTypeSelect.required = false;
+        accountTypeSelect.value = "Bank Account";
+      }
+    }
     document.getElementById('editAmount').value = entry.principal_amount || "";
-    document.getElementById('editDateLabel').textContent = "Loan Date";
     document.getElementById('editDate').value = entry.loan_date || "";
   } else {
     document.getElementById('editPersonGroup').classList.add('hide');
     document.getElementById('editCurrencyGroup').classList.add('hide');
+    if (accountTypeGroup) accountTypeGroup.classList.add("hide");
+    if (accountTypeSelect) accountTypeSelect.required = false;
+    if (nameLabel) nameLabel.textContent = "Person name";
     document.getElementById('editName').required = false;
     document.getElementById('editAmountLabel').textContent = "Payment Amount";
     document.getElementById('editAmount').value = entry.action_amount || "";
@@ -16516,7 +16548,13 @@ async function submitEdit(){
         ...getEditTaxMeta(currentEntry, amt)
       });
     } else if (hasExpenseAccountTag(currentEntry.notes)) {
-      updatedNotes = upsertExpenseMetaInNote(nt, { ...expenseMetaFromNotes(currentEntry.notes), rowType: "ACCOUNT" });
+      const accountTypeSelect = document.getElementById("editAccountType");
+      const nextAccountType = String(accountTypeSelect?.value || expenseMetaFromNotes(currentEntry.notes).accountType || "Bank Account").trim() || "Bank Account";
+      updatedNotes = upsertExpenseMetaInNote(nt, {
+        ...expenseMetaFromNotes(currentEntry.notes),
+        rowType: "ACCOUNT",
+        accountType: nextAccountType
+      });
     }
     
     const updatedEntry = { ...currentEntry, person_name: nm, currency: curr, principal_amount: amt, loan_date: dt, notes: updatedNotes };
