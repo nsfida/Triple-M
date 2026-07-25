@@ -5780,6 +5780,13 @@ function syncExpenseBtcAccountFields(form = els.expenseAccountForm){
   const addressInput = form.querySelector('input[name="btc_address"]');
   const balanceInput = form.querySelector('input[name="opening_balance"]');
   const balanceLabel = balanceInput?.closest(".field")?.querySelector("label");
+  const accountTypeSelect = form.querySelector('select[name="account_type"]');
+
+  // Prefer Crypto Wallet when BTC is chosen; user can still change the type after.
+  if (isBtc && accountTypeSelect) {
+    const hasCryptoOption = Array.from(accountTypeSelect.options).some(opt => opt.value === "Crypto Wallet");
+    if (hasCryptoOption) accountTypeSelect.value = "Crypto Wallet";
+  }
 
   if (els.expenseBtcAddressField) els.expenseBtcAddressField.classList.toggle("hide", !isBtc);
   if (addressInput) addressInput.required = isBtc;
