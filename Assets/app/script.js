@@ -6294,12 +6294,30 @@ function inventoryVolumeBottleLabels(qtyDisplay, unit){
   };
 }
 
+/** Labels when cost/sell are entered per whole bottle (perfume sizes). */
+function inventoryVolumeBottleCostLabels(){
+  return {
+    cost: "Bottle cost",
+    sell: "Bottle sell",
+    qty: "Bottles",
+    priceUnit: "bottle"
+  };
+}
+
 /** Convert a UI cost/sell entered in ml or L into stored per-liter price. */
 function inventoryVolumePriceToPerLiter(enteredPrice, priceUnit){
   const n = Number(enteredPrice || 0);
   if (!(n > 0)) return 0;
   const unit = normalizeInventoryUnit(priceUnit || INVENTORY_UNIT_ML, INVENTORY_CATEGORY_VOLUME);
   return unit === INVENTORY_UNIT_ML ? n * 1000 : n;
+}
+
+/** Convert whole-bottle price into stored per-liter price (qty already in liters). */
+function inventoryBottlePriceToPerLiter(bottlePrice, bottleQtyLiters){
+  const price = Number(bottlePrice || 0);
+  const liters = Number(bottleQtyLiters || 0);
+  if (!(price > 0) || !(liters > 0)) return 0;
+  return price / liters;
 }
 
 function resolveInventoryItemCategory(groupOrType, fallbackCategory = ""){
@@ -6561,25 +6579,26 @@ function getInventoryReceiptEntries(receiptNumber, fallbackEntry = null){
     fallbackMeta.invoiceNumber || fallbackMeta.receiptNumber || receipt || ""
   ).trim();
   const saleSetHint = String(fallbackMeta.saleSetId || "").trim();
-  const keys = new Set([receipt, invoiceHint, saleSetHint].filter(Boolean));
+  // Prefer sale-set identity so unrelated invoices never merge into one receipt.
   const entries = state.entries.filter(e => {
     if (e.entry_kind === "principal" || !hasGoodsTag(e.notes)) return false;
     const meta = goodsMetaFromNotes(e.notes);
     const rcpt = String(meta.receiptNumber || "").trim();
     const inv = String(meta.invoiceNumber || "").trim();
     const sset = String(meta.saleSetId || "").trim();
-    if (!keys.size) return false;
-    return (rcpt && keys.has(rcpt))
-      || (inv && keys.has(inv))
-      || (sset && keys.has(sset));
+    if (saleSetHint) return !!sset && sset === saleSetHint;
+    if (invoiceHint) return (inv && inv === invoiceHint) || (rcpt && rcpt === invoiceHint);
+    if (receipt) return (rcpt && rcpt === receipt) || (inv && inv === receipt) || (sset && sset === receipt);
+    return false;
   });
   // If tags were lost on reload, still keep every locally known sibling from the same finalize.
   if (fallbackEntry && !entries.some(e => e.id === fallbackEntry.id)) {
     entries.push(fallbackEntry);
   }
-  if (entries.length) {
-    // Keep every sale line (same bottle can appear multiple times as separate rows).
-    return entries.sort((a, b) => {
+  // Drop accidental duplicate rows (same sale line id / same set + line no).
+  const deduped = dedupeInventoryActionEntries(entries);
+  if (deduped.length) {
+    return deduped.sort((a, b) => {
       const aMeta = goodsMetaFromNotes(a.notes);
       const bMeta = goodsMetaFromNotes(b.notes);
       const aNo = Number(aMeta.saleLineNo);
@@ -6591,6 +6610,44 @@ function getInventoryReceiptEntries(receiptNumber, fallbackEntry = null){
     });
   }
   return fallbackEntry ? [fallbackEntry] : [];
+}
+
+/** Remove duplicate sale/settlement rows kept by lazy merge races. */
+function dedupeInventoryActionEntries(entries){
+  const out = [];
+  const seenIds = new Set();
+  const seenLineKeys = new Set();
+  for (const entry of entries || []) {
+    if (!entry) continue;
+    const id = String(entry.id || "");
+    if (id && seenIds.has(id)) continue;
+    const meta = goodsMetaFromNotes(entry.notes || "");
+    const slid = String(meta.saleLineId || "").trim();
+    const sset = String(meta.saleSetId || "").trim();
+    const lineNo = Number(meta.saleLineNo);
+    const lineKey = slid
+      ? `slid:${slid}`
+      : (sset && Number.isFinite(lineNo) ? `sset:${sset}:${lineNo}` : "");
+    if (lineKey && seenLineKeys.has(lineKey)) continue;
+    if (id) seenIds.add(id);
+    if (lineKey) seenLineKeys.add(lineKey);
+    out.push(entry);
+  }
+  return out;
+}
+
+function dedupeSaleDraftLines(lines){
+  const out = [];
+  const seen = new Set();
+  for (const line of lines || []) {
+    if (!line) continue;
+    const key = String(line.lineId || "").trim()
+      || `${line.groupId}|${line.qty}|${line.unitPrice}|${line.grossAmount}|${line.displayUnit || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+  }
+  return out;
 }
 
 function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
@@ -9515,7 +9572,7 @@ function getGoodsGroups(options = {}){
       const principalMeta = goodsMetaFromNotes(group.principal?.notes);
       const purchaseActions = group.actions.filter(row => inferGoodsActionType(row) === INVENTORY_TX_PURCHASE);
       const settlementActions = group.actions.filter(isInventorySettlementAction);
-      const saleActions = group.actions.filter(isInventorySaleAction);
+      const saleActions = dedupeInventoryActionEntries(group.actions.filter(isInventorySaleAction));
       const purchaseMetas = purchaseActions.map(row => goodsMetaFromNotes(row.notes));
       const itemType = normalizeInventoryItemType(
         principalMeta.itemType || purchaseMetas.find(meta => meta.itemType)?.itemType
@@ -10359,8 +10416,24 @@ function openSavedSaleDraft(draftId){
 }
 
 function deleteSavedSaleDraft(draftId){
-  removeSaleDraftFromLibrary(draftId);
-  if (String(state.saleDraft?.id || "") === String(draftId || "")) {
+  loadSaleDraftLibrary();
+  loadSaleDraftFromStorage();
+  const id = String(draftId || "").trim();
+  const target = (state.saleDrafts || []).find(d => String(d.id) === id)
+    || (String(state.saleDraft?.id || "") === id ? state.saleDraft : null);
+  const draftNumber = String(target?.draftNumber || "").trim();
+  // Remove by id and by proforma number so no ghost cart remains in library/storage.
+  state.saleDrafts = (state.saleDrafts || []).filter(d => {
+    if (String(d.id) === id) return false;
+    if (draftNumber && String(d.draftNumber || "").trim() === draftNumber) return false;
+    return true;
+  });
+  persistSaleDraftLibrary();
+  const active = ensureSaleDraftShape();
+  if (
+    String(active.id || "") === id
+    || (draftNumber && String(active.draftNumber || "").trim() === draftNumber)
+  ) {
     clearSaleDraft({ silent: true });
   }
   if (state.inventoryView === "drafts") renderInventoryDraftsSection();
@@ -10451,7 +10524,7 @@ function ensureInventoryQtyPromptModal(){
         </div>
         <button class="icon-btn ghost" type="button" data-qty-cancel="1" aria-label="Close">×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" id="inventoryQtyPromptBody">
         <div class="inventory-qty-prompt-item" id="inventoryQtyPromptItem"></div>
         <div class="inventory-qty-prompt-presets hide" id="inventoryQtyPromptPresets" role="group" aria-label="Quick quantity"></div>
         <div class="inventory-qty-prompt-fields">
@@ -10462,6 +10535,10 @@ function ensureInventoryQtyPromptModal(){
           <label class="inventory-edit-field">
             <span>Unit</span>
             <select class="select" id="inventoryQtyPromptUnit"></select>
+          </label>
+          <label class="inventory-edit-field hide" id="inventoryQtyPromptSellWrap">
+            <span id="inventoryQtyPromptSellLabel">Sale price</span>
+            <input class="input" id="inventoryQtyPromptSell" type="number" min="0" step="any" placeholder="Required" />
           </label>
         </div>
         <div class="inventory-qty-prompt-price" id="inventoryQtyPromptPrice"></div>
@@ -10476,8 +10553,15 @@ function ensureInventoryQtyPromptModal(){
   return modal;
 }
 
+let inventoryQtyPromptAbort = null;
+
 function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
   return new Promise(resolve => {
+    if (inventoryQtyPromptAbort) {
+      try { inventoryQtyPromptAbort.abort(); } catch (_) {}
+    }
+    inventoryQtyPromptAbort = new AbortController();
+    const { signal } = inventoryQtyPromptAbort;
     const modal = ensureInventoryQtyPromptModal();
     const category = resolveInventoryItemCategory(group);
     const measured = inventoryIsDecimalCategory(category);
@@ -10492,12 +10576,20 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
     const priceEl = modal.querySelector("#inventoryQtyPromptPrice");
     const qtyInput = modal.querySelector("#inventoryQtyPromptInput");
     const unitSelect = modal.querySelector("#inventoryQtyPromptUnit");
+    const sellWrap = modal.querySelector("#inventoryQtyPromptSellWrap");
+    const sellInput = modal.querySelector("#inventoryQtyPromptSell");
+    const sellLabel = modal.querySelector("#inventoryQtyPromptSellLabel");
     const displayName = [group.brand, group.productLine || group.variantLabel].filter(Boolean).join(" · ")
       || group.person_name
       || "Item";
-    const unitSellPerBase = Number(group.defaultUnitSoldPrice || group.unitActualPrice || 0);
+    let unitSellPerBase = Number(group.defaultUnitSoldPrice || 0);
+    const needsSellPrice = !(unitSellPerBase > 0);
     if (titleEl) titleEl.textContent = title;
-    if (descEl) descEl.textContent = `In stock: ${inventoryQtyLabel(group.remainingQty, category)}`;
+    if (descEl) {
+      descEl.textContent = needsSellPrice
+        ? `In stock: ${inventoryQtyLabel(group.remainingQty, category)} · Enter sale price`
+        : `In stock: ${inventoryQtyLabel(group.remainingQty, category)}`;
+    }
     if (itemEl) {
       itemEl.innerHTML = `
         <strong>${escapeHtml(displayName)}</strong>
@@ -10517,6 +10609,18 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
       qtyInput.value = defaultQty;
       qtyInput.step = measured ? "any" : "1";
     }
+    if (sellWrap && sellInput) {
+      sellWrap.classList.toggle("hide", !needsSellPrice);
+      sellInput.value = "";
+      if (sellLabel) {
+        sellLabel.textContent = category === INVENTORY_CATEGORY_VOLUME
+          ? (preferredUnit === INVENTORY_UNIT_ML ? "Sale / ml" : "Sale / L")
+          : "Sale price";
+      }
+      sellInput.placeholder = category === INVENTORY_CATEGORY_VOLUME
+        ? (preferredUnit === INVENTORY_UNIT_ML ? "AED per ml" : "AED per L")
+        : "Required";
+    }
     if (presetsEl) {
       if (category === INVENTORY_CATEGORY_VOLUME) {
         presetsEl.classList.remove("hide");
@@ -10532,44 +10636,59 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
         presetsEl.innerHTML = "";
       }
     }
+    const resolveSellPerBase = () => {
+      if (!needsSellPrice) return unitSellPerBase;
+      const unit = normalizeInventoryUnit(unitSelect?.value || activeUnit, category);
+      const entered = Number(sellInput?.value || 0);
+      if (!(entered > 0)) return 0;
+      if (category === INVENTORY_CATEGORY_VOLUME) {
+        return inventoryVolumePriceToPerLiter(entered, unit);
+      }
+      return entered;
+    };
     const refreshPricePreview = () => {
       if (!priceEl) return;
       const unit = normalizeInventoryUnit(unitSelect?.value || activeUnit, category);
       activeUnit = unit;
+      if (sellLabel && needsSellPrice) {
+        sellLabel.textContent = category === INVENTORY_CATEGORY_VOLUME
+          ? (unit === INVENTORY_UNIT_ML ? "Sale / ml" : "Sale / L")
+          : "Sale price";
+      }
       const baseQty = normalizeInventoryQuantityInput(qtyInput?.value, category, unit);
-      if (!(baseQty > 0) || !(unitSellPerBase > 0)) {
-        priceEl.innerHTML = unitSellPerBase > 0
-          ? `<span>Enter quantity to see sell price</span>`
-          : `<span>No sell / ml price set on this item</span>`;
+      const sellPerBase = resolveSellPerBase();
+      if (!(baseQty > 0) || !(sellPerBase > 0)) {
+        priceEl.innerHTML = needsSellPrice
+          ? `<span>Enter quantity and sale price</span>`
+          : `<span>Enter quantity to see sell price</span>`;
         return;
       }
-      const lineSell = unitSellPerBase * baseQty;
-      const rate = inventoryLineRateForDisplay(unitSellPerBase, baseQty, category, unit);
+      const lineSell = sellPerBase * baseQty;
+      const rate = inventoryLineRateForDisplay(sellPerBase, baseQty, category, unit);
       const rateLabel = category === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML
         ? `${moneyText(rate, group.currency)} / ml`
-        : `${moneyText(unitSellPerBase, group.currency)} / ${inventoryBaseUnitForCategory(category)}`;
+        : `${moneyText(sellPerBase, group.currency)} / ${inventoryBaseUnitForCategory(category)}`;
       priceEl.innerHTML = `
-        <strong>This pour: ${money(lineSell, group.currency)}</strong>
+        <strong>This line: ${money(lineSell, group.currency)}</strong>
         <span>${escapeHtml(rateLabel)}</span>
       `;
     };
+    let settled = false;
     const cleanup = (value) => {
+      if (settled) return;
+      settled = true;
       modal.classList.add("hide");
       modal.setAttribute("aria-hidden", "true");
       const stillOpen = document.querySelector(".modal:not(.hide)");
       document.body.style.overflow = stillOpen ? "hidden" : "";
-      modal.querySelectorAll("[data-qty-cancel]").forEach(el => el.replaceWith(el.cloneNode(true)));
-      const confirmBtn = modal.querySelector("#inventoryQtyPromptConfirm");
-      if (confirmBtn) confirmBtn.replaceWith(confirmBtn.cloneNode(true));
-      const presetsHost = modal.querySelector("#inventoryQtyPromptPresets");
-      if (presetsHost) presetsHost.replaceWith(presetsHost.cloneNode(true));
+      try { inventoryQtyPromptAbort?.abort(); } catch (_) {}
       resolve(value);
     };
     modal.querySelectorAll("[data-qty-cancel]").forEach(el => {
       el.addEventListener("click", e => {
         e.preventDefault();
         cleanup(null);
-      });
+      }, { signal });
     });
     modal.querySelector("#inventoryQtyPromptPresets")?.querySelectorAll(".inventory-qty-preset").forEach(btn => {
       btn.addEventListener("click", e => {
@@ -10590,7 +10709,7 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
           qtyInput.value = String(presetQty || "");
         }
         refreshPricePreview();
-      });
+      }, { signal });
     });
     modal.querySelector("#inventoryQtyPromptConfirm")?.addEventListener("click", e => {
       e.preventDefault();
@@ -10600,9 +10719,18 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
         alert("Enter a valid quantity.");
         return;
       }
-      cleanup({ qty: baseQty, displayUnit: unit });
-    });
-    qtyInput?.addEventListener("input", refreshPricePreview);
+      const sellPerBase = resolveSellPerBase();
+      if (!(sellPerBase > 0)) {
+        alert(category === INVENTORY_CATEGORY_VOLUME
+          ? "Enter the sale price (per ml or per L)."
+          : "Enter the sale price.");
+        sellInput?.focus();
+        return;
+      }
+      cleanup({ qty: baseQty, displayUnit: unit, unitPrice: sellPerBase });
+    }, { signal });
+    qtyInput?.addEventListener("input", refreshPricePreview, { signal });
+    sellInput?.addEventListener("input", refreshPricePreview, { signal });
     unitSelect?.addEventListener("change", () => {
       const prevUnit = activeUnit;
       const nextUnit = normalizeInventoryUnit(unitSelect.value, category);
@@ -10616,104 +10744,131 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
       }
       activeUnit = nextUnit;
       refreshPricePreview();
-    });
+    }, { signal });
     qtyInput?.addEventListener("keydown", e => {
       if (e.key === "Enter") {
         e.preventDefault();
         modal.querySelector("#inventoryQtyPromptConfirm")?.click();
       }
       if (e.key === "Escape") cleanup(null);
-    });
+    }, { signal });
+    sellInput?.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        modal.querySelector("#inventoryQtyPromptConfirm")?.click();
+      }
+    }, { signal });
     refreshPricePreview();
     modal.classList.remove("hide");
     modal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
     setTimeout(() => {
-      qtyInput?.focus();
-      qtyInput?.select();
+      if (needsSellPrice) {
+        sellInput?.focus();
+        sellInput?.select();
+      } else {
+        qtyInput?.focus();
+        qtyInput?.select();
+      }
     }, 30);
   });
 }
 
+let addGroupToSaleDraftBusy = false;
+
 async function addGroupToSaleDraft(groupId, qtyOverride = null){
-  const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === groupId);
-  if (!group) {
-    alert("Item not found.");
-    return false;
-  }
-  if (group.remainingQty <= 0.00000001) {
-    alert("This item is out of stock.");
-    return false;
-  }
-  const category = resolveInventoryItemCategory(group);
-  let addQty = qtyOverride;
-  let chosenUnit = null;
-  if (addQty == null) {
-    const picked = await promptInventoryAddQty(group);
-    if (picked == null) return false;
-    if (picked && typeof picked === "object") {
-      addQty = picked.qty;
-      chosenUnit = picked.displayUnit || null;
-    } else {
-      addQty = picked;
+  if (addGroupToSaleDraftBusy) return false;
+  addGroupToSaleDraftBusy = true;
+  try {
+    const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === groupId);
+    if (!group) {
+      alert("Item not found.");
+      return false;
     }
-  } else if (typeof addQty === "object" && addQty) {
-    chosenUnit = addQty.displayUnit || null;
-    addQty = addQty.qty;
+    if (group.remainingQty <= 0.00000001) {
+      alert("This item is out of stock.");
+      return false;
+    }
+    const category = resolveInventoryItemCategory(group);
+    let addQty = qtyOverride;
+    let chosenUnit = null;
+    let chosenUnitPrice = null;
+    if (addQty == null) {
+      const picked = await promptInventoryAddQty(group);
+      if (picked == null) return false;
+      if (picked && typeof picked === "object") {
+        addQty = picked.qty;
+        chosenUnit = picked.displayUnit || null;
+        if (picked.unitPrice != null) chosenUnitPrice = Number(picked.unitPrice);
+      } else {
+        addQty = picked;
+      }
+    } else if (typeof addQty === "object" && addQty) {
+      chosenUnit = addQty.displayUnit || null;
+      if (addQty.unitPrice != null) chosenUnitPrice = Number(addQty.unitPrice);
+      addQty = addQty.qty;
+    }
+    addQty = Number(addQty || 0);
+    if (!(addQty > 0)) {
+      alert("Enter a valid quantity.");
+      return false;
+    }
+    const already = getSaleDraftQtyForGroup(group.group_id);
+    if (already + addQty > group.remainingQty + 0.00000001) {
+      alert(`Only ${inventoryQtyLabel(group.remainingQty - already, category)} left for this item.`);
+      return false;
+    }
+    const draft = ensureSaleDraftShape();
+    if (!draft.draftNumber) draft.draftNumber = nextProformaNumber();
+    let unitPrice = Number(chosenUnitPrice);
+    if (!(unitPrice > 0)) unitPrice = Number(group.defaultUnitSoldPrice || 0);
+    if (!(unitPrice > 0)) {
+      alert("Set a sale price for this item before adding to cart.");
+      return false;
+    }
+    const taxDefault = inventoryTaxDefaultsForGroup(group);
+    const tax = calculateTaxBreakdown(unitPrice * addQty, taxDefault.rate, taxDefault.mode, taxDefault.rate > 0);
+    const displayUnit = normalizeInventoryUnit(
+      chosenUnit || preferredDraftQtyUnit(category, addQty),
+      category
+    );
+    // Always keep each Add-to-cart as its own line (perfume pours, PDF rows, stock reduce per line).
+    draft.lines.push({
+      lineId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `line-${Date.now()}-${draft.lines.length}`,
+      groupId: group.group_id,
+      itemName: group.person_name || "Item",
+      itemCode: group.itemCode || "",
+      brand: group.brand || "",
+      productLine: group.productLine || "",
+      variantLabel: group.variantLabel || "",
+      itemType: group.itemType || "General",
+      itemCategory: category,
+      currency: group.currency || "AED",
+      qty: addQty,
+      displayUnit,
+      unitPrice,
+      taxApplied: tax.applied,
+      taxRate: tax.rate,
+      taxMode: tax.mode,
+      netAmount: tax.net,
+      taxAmount: tax.tax,
+      grossAmount: tax.total
+    });
+    if (!draft.soldDate) draft.soldDate = todayISO();
+    if (!draft.draftNumber) draft.draftNumber = nextProformaNumber();
+    persistSaleDraft();
+    // Auto-mirror into Saved carts so Open/finalize always finds this cart.
+    try { upsertSaleDraftInLibrary(draft); } catch (_) {}
+    updateSaleDraftDock();
+    const dock = document.getElementById("inventorySaleDraftDock");
+    if (dock) {
+      dock.classList.add("is-pulse");
+      setTimeout(() => dock.classList.remove("is-pulse"), 320);
+    }
+    return true;
+  } finally {
+    addGroupToSaleDraftBusy = false;
   }
-  addQty = Number(addQty || 0);
-  if (!(addQty > 0)) {
-    alert("Enter a valid quantity.");
-    return false;
-  }
-  const already = getSaleDraftQtyForGroup(group.group_id);
-  if (already + addQty > group.remainingQty + 0.00000001) {
-    alert(`Only ${inventoryQtyLabel(group.remainingQty - already, category)} left for this item.`);
-    return false;
-  }
-  const draft = ensureSaleDraftShape();
-  if (!draft.draftNumber) draft.draftNumber = nextProformaNumber();
-  const unitPrice = Number(group.defaultUnitSoldPrice || group.unitActualPrice || 0);
-  const taxDefault = inventoryTaxDefaultsForGroup(group);
-  const tax = calculateTaxBreakdown(unitPrice * addQty, taxDefault.rate, taxDefault.mode, taxDefault.rate > 0);
-  const displayUnit = normalizeInventoryUnit(
-    chosenUnit || preferredDraftQtyUnit(category, addQty),
-    category
-  );
-  // Always keep each Add-to-cart as its own line (perfume pours, PDF rows, stock reduce per line).
-  draft.lines.push({
-    lineId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `line-${Date.now()}-${draft.lines.length}`,
-    groupId: group.group_id,
-    itemName: group.person_name || "Item",
-    itemCode: group.itemCode || "",
-    brand: group.brand || "",
-    productLine: group.productLine || "",
-    variantLabel: group.variantLabel || "",
-    itemType: group.itemType || "General",
-    itemCategory: category,
-    currency: group.currency || "AED",
-    qty: addQty,
-    displayUnit,
-    unitPrice,
-    taxApplied: tax.applied,
-    taxRate: tax.rate,
-    taxMode: tax.mode,
-    netAmount: tax.net,
-    taxAmount: tax.tax,
-    grossAmount: tax.total
-  });
-  if (!draft.soldDate) draft.soldDate = todayISO();
-  if (!draft.draftNumber) draft.draftNumber = nextProformaNumber();
-  persistSaleDraft();
-  // Auto-mirror into Saved carts so Open/finalize always finds this cart.
-  try { upsertSaleDraftInLibrary(draft); } catch (_) {}
-  updateSaleDraftDock();
-  const dock = document.getElementById("inventorySaleDraftDock");
-  if (dock) {
-    dock.classList.add("is-pulse");
-    setTimeout(() => dock.classList.remove("is-pulse"), 320);
-  }
-  return true;
 }
 
 function refreshSaleDraftLineTax(line, group){
@@ -11014,14 +11169,16 @@ function renderSaleDraftModalBody(){
     : [];
   if (!draft.lines.length) {
     body.innerHTML = `
-      <div class="empty">Cart is empty. Open a category → brand → type → variant, then add to cart.</div>
+      <div class="empty">Cart is empty. Tap <strong>Add items</strong> to select stock, or browse a category.</div>
       <div class="inventory-draft-footer">
         <div class="inventory-draft-footer-actions">
+          <button type="button" class="btn primary" id="saleDraftAddItemsBtn">Add items</button>
           <button type="button" class="btn ghost" id="saleDraftNewBtn">New cart</button>
           <button type="button" class="btn ghost" id="saleDraftKeepBtn">Close</button>
         </div>
       </div>`;
     body.querySelector("#saleDraftKeepBtn")?.addEventListener("click", () => closeModal("inventorySaleDraftModal"));
+    body.querySelector("#saleDraftAddItemsBtn")?.addEventListener("click", () => openSaleDraftAddItemsPicker());
     body.querySelector("#saleDraftNewBtn")?.addEventListener("click", async () => {
       await startNewSaleDraft({ askSave: false });
       renderSaleDraftModalBody();
@@ -11126,6 +11283,7 @@ function renderSaleDraftModalBody(){
         <strong>${saleDraftMoneySummaryHtml()}</strong>
       </div>
       <div class="inventory-draft-footer-actions">
+        <button type="button" class="btn ghost" id="saleDraftAddItemsBtn">Add items</button>
         <button type="button" class="btn ghost" id="saleDraftPdfBtn">PDF</button>
         <button type="button" class="btn ghost" id="saleDraftSaveBtn">Save</button>
         <button type="button" class="btn ghost" id="saleDraftNewBtn">New</button>
@@ -11193,6 +11351,10 @@ function renderSaleDraftModalBody(){
     });
   });
   bindSaleDraftCustomerUi(body);
+  body.querySelector("#saleDraftAddItemsBtn")?.addEventListener("click", () => {
+    syncSaleDraftFormFromModal();
+    openSaleDraftAddItemsPicker();
+  });
   body.querySelector("#saleDraftPdfBtn")?.addEventListener("click", async () => {
     try {
       syncSaleDraftFormFromModal();
@@ -11214,11 +11376,15 @@ function renderSaleDraftModalBody(){
     renderSaleDraftModalBody();
   });
   body.querySelector("#saleDraftFinalizeBtn")?.addEventListener("click", async () => {
+    const btn = body.querySelector("#saleDraftFinalizeBtn");
+    if (btn?.disabled) return;
+    if (btn) btn.disabled = true;
     try {
       syncSaleDraftFormFromModal();
       await finalizeSaleDraft();
     } catch (err) {
       alert(err?.message || "Could not finalize sale.");
+      if (btn) btn.disabled = false;
     }
   });
 }
@@ -11279,6 +11445,121 @@ async function openSaleDraftModal(){
   modal?.classList.remove("hide");
   modal?.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+}
+
+function ensureSaleDraftAddItemsModal(){
+  let modal = document.getElementById("inventorySaleDraftAddItemsModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "inventorySaleDraftAddItemsModal";
+  modal.className = "modal hide";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-close-add-items="1"></div>
+    <div class="modal-dialog compact-entry-dialog inventory-add-items-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Add items to cart</h3>
+          <p class="help">Select an in-stock item. Quantity and price are asked next.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-add-items="1" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <label class="inventory-edit-field inventory-edit-field-wide">
+          <span>Search</span>
+          <input class="input" id="saleDraftAddItemsSearch" placeholder="Brand, fragrance, size, code…" autocomplete="off" />
+        </label>
+        <div id="saleDraftAddItemsList" class="inventory-add-items-list"></div>
+        <div class="inventory-add-wizard-actions" style="margin-top:8px">
+          <button type="button" class="btn ghost" data-close-add-items="1">Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll("[data-close-add-items]").forEach(el => {
+    el.addEventListener("click", () => {
+      modal.classList.add("hide");
+      modal.setAttribute("aria-hidden", "true");
+      const stillOpen = document.querySelector(".modal:not(.hide)");
+      document.body.style.overflow = stillOpen ? "hidden" : "";
+      renderSaleDraftModalBody();
+      updateSaleDraftDock();
+    });
+  });
+  let searchTimer = 0;
+  modal.querySelector("#saleDraftAddItemsSearch")?.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderSaleDraftAddItemsList(), 140);
+  });
+  return modal;
+}
+
+function renderSaleDraftAddItemsList(){
+  const list = document.getElementById("saleDraftAddItemsList");
+  if (!list) return;
+  const q = String(document.getElementById("saleDraftAddItemsSearch")?.value || "").trim().toLowerCase();
+  const groups = getGoodsGroups({ applyUiFilters: false })
+    .filter(g => Number(g.remainingQty || 0) > 0.00000001)
+    .filter(g => {
+      if (!q) return true;
+      const hay = [
+        g.person_name, g.brand, g.productLine, g.variantLabel, g.itemCode, g.itemType
+      ].map(v => String(v || "").toLowerCase()).join(" ");
+      return hay.includes(q);
+    })
+    .sort((a, b) =>
+      String(a.brand || "").localeCompare(String(b.brand || ""), undefined, { sensitivity: "base" })
+      || String(a.productLine || "").localeCompare(String(b.productLine || ""), undefined, { sensitivity: "base" })
+      || String(a.variantLabel || "").localeCompare(String(b.variantLabel || ""), undefined, { sensitivity: "base" })
+    )
+    .slice(0, 80);
+  if (!groups.length) {
+    list.innerHTML = `<div class="empty">No matching in-stock items.</div>`;
+    return;
+  }
+  list.innerHTML = groups.map(g => {
+    const category = resolveInventoryItemCategory(g);
+    const title = [g.brand, g.productLine || g.variantLabel].filter(Boolean).join(" · ") || g.person_name || "Item";
+    const meta = [g.variantLabel, g.itemCode, inventoryQtyLabel(g.remainingQty, category)].filter(Boolean).join(" · ");
+    const hasSell = Number(g.defaultUnitSoldPrice || 0) > 0;
+    return `
+      <button type="button" class="inventory-add-items-row" data-add-item-group="${escapeHtml(g.group_id)}">
+        <span class="inventory-add-items-row-main">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(meta)}</span>
+        </span>
+        <span class="badge ${hasSell ? "green" : "orange"}">${hasSell ? "Priced" : "Set price"}</span>
+      </button>`;
+  }).join("");
+  list.querySelectorAll("[data-add-item-group]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.dataset.adding === "1") return;
+      btn.dataset.adding = "1";
+      btn.disabled = true;
+      try {
+        const ok = await addGroupToSaleDraft(btn.dataset.addItemGroup);
+        if (ok) {
+          renderSaleDraftAddItemsList();
+          updateSaleDraftDock();
+        }
+      } finally {
+        delete btn.dataset.adding;
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+function openSaleDraftAddItemsPicker(){
+  const modal = ensureSaleDraftAddItemsModal();
+  const search = modal.querySelector("#saleDraftAddItemsSearch");
+  if (search) search.value = "";
+  renderSaleDraftAddItemsList();
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  setTimeout(() => search?.focus(), 30);
 }
 
 async function downloadSaleDraftPDF(draftInput){
@@ -11371,67 +11652,86 @@ async function downloadSaleDraftPDF(draftInput){
   doc.save(`Proforma_${String(invoiceNumber).replace(/\s+/g, "_")}.pdf`);
 }
 
+let saleDraftFinalizeInFlight = false;
+
 async function finalizeSaleDraft(){
-  const draft = ensureSaleDraftShape();
-  if (!draft.lines.length) throw new Error("Draft is empty.");
-  if (draft.customerMode === "new" && !String(draft.customerName || "").trim()) {
-    throw new Error("Enter a customer name for the new customer.");
+  if (saleDraftFinalizeInFlight) return;
+  saleDraftFinalizeInFlight = true;
+  try {
+    const draft = ensureSaleDraftShape();
+    draft.lines = dedupeSaleDraftLines(draft.lines);
+    persistSaleDraft();
+    if (!draft.lines.length) throw new Error("Draft is empty.");
+    if (draft.customerMode === "new" && !String(draft.customerName || "").trim()) {
+      throw new Error("Enter a customer name for the new customer.");
+    }
+    if (draft.customerMode === "existing" && !String(draft.customerName || "").trim()) {
+      throw new Error("Select an existing customer.");
+    }
+    const stockProblems = draft.lines
+      .map(line => ({ line, info: getSaleDraftLineStockInfo(line) }))
+      .filter(row => row.info.status !== "ok");
+    if (stockProblems.length) {
+      const detail = stockProblems
+        .slice(0, 4)
+        .map(row => `${row.line.itemName}: ${row.info.label}`)
+        .join("\n");
+      throw new Error(`Cannot finalize — stock issue:\n${detail}`);
+    }
+    const customerName = draft.customerMode === "walkin"
+      ? "Walk-in customer"
+      : (String(draft.customerName || "").trim() || "Walk-in customer");
+    const customerContact = draft.customerMode === "walkin"
+      ? { phone: "", address: "", company: "", trn: "", email: "" }
+      : {
+          phone: draft.customerPhone || "",
+          address: draft.customerAddress || "",
+          company: draft.customerCompany || "",
+          trn: draft.customerTrn || "",
+          email: draft.customerEmail || ""
+        };
+    const soldDate = draft.soldDate || todayISO();
+    // Freeze the exact cart lines so later UI refreshes cannot multiply the invoice.
+    const frozenLines = draft.lines.map(line => ({ ...line }));
+    const saleLines = frozenLines.map(line => ({
+      groupId: line.groupId,
+      qty: line.qty,
+      unitPrice: line.unitPrice,
+      unit: inventoryBaseUnitForCategory(line.itemCategory),
+      itemCategory: line.itemCategory,
+      taxApplied: !!line.taxApplied,
+      taxRate: normalizeTaxRate(line.taxRate),
+      taxMode: normalizeTaxMode(line.taxMode),
+      taxAmount: Number(line.taxAmount || 0),
+      netAmount: Number(line.netAmount || 0),
+      grossAmount: Number(line.grossAmount || 0),
+      lineId: line.lineId || ""
+    }));
+    const draftId = draft.id;
+    const draftNumber = String(draft.draftNumber || "").trim();
+    await commitInventorySaleInvoice({
+      soldDate,
+      customerName,
+      customerContact,
+      receiptNumber: nextInvoiceNumber([draft.draftNumber]),
+      soldNotes: draft.notes || null,
+      walletId: draft.walletId || "",
+      paidAmountRaw: draft.paidAmount,
+      saleLines
+    });
+    removeSaleDraftFromLibrary(draftId);
+    if (draftNumber) {
+      state.saleDrafts = (state.saleDrafts || []).filter(d => String(d.draftNumber || "").trim() !== draftNumber);
+      persistSaleDraftLibrary();
+    }
+    clearSaleDraft({ silent: true });
+    closeModal("inventorySaleDraftModal");
+    closeModal("inventorySaleDraftAddItemsModal");
+    if (state.inventoryView === "drafts") renderInventoryDraftsSection();
+    renderInventoryList();
+  } finally {
+    saleDraftFinalizeInFlight = false;
   }
-  if (draft.customerMode === "existing" && !String(draft.customerName || "").trim()) {
-    throw new Error("Select an existing customer.");
-  }
-  const stockProblems = draft.lines
-    .map(line => ({ line, info: getSaleDraftLineStockInfo(line) }))
-    .filter(row => row.info.status !== "ok");
-  if (stockProblems.length) {
-    const detail = stockProblems
-      .slice(0, 4)
-      .map(row => `${row.line.itemName}: ${row.info.label}`)
-      .join("\n");
-    throw new Error(`Cannot finalize — stock issue:\n${detail}`);
-  }
-  const customerName = draft.customerMode === "walkin"
-    ? "Walk-in customer"
-    : (String(draft.customerName || "").trim() || "Walk-in customer");
-  const customerContact = draft.customerMode === "walkin"
-    ? { phone: "", address: "", company: "", trn: "", email: "" }
-    : {
-        phone: draft.customerPhone || "",
-        address: draft.customerAddress || "",
-        company: draft.customerCompany || "",
-        trn: draft.customerTrn || "",
-        email: draft.customerEmail || ""
-      };
-  const soldDate = draft.soldDate || todayISO();
-  const saleLines = draft.lines.map(line => ({
-    groupId: line.groupId,
-    qty: line.qty,
-    unitPrice: line.unitPrice,
-    unit: inventoryBaseUnitForCategory(line.itemCategory),
-    itemCategory: line.itemCategory,
-    taxApplied: !!line.taxApplied,
-    taxRate: normalizeTaxRate(line.taxRate),
-    taxMode: normalizeTaxMode(line.taxMode),
-    taxAmount: Number(line.taxAmount || 0),
-    netAmount: Number(line.netAmount || 0),
-    grossAmount: Number(line.grossAmount || 0)
-  }));
-  const draftId = draft.id;
-  await commitInventorySaleInvoice({
-    soldDate,
-    customerName,
-    customerContact,
-    receiptNumber: nextInvoiceNumber([draft.draftNumber]),
-    soldNotes: draft.notes || null,
-    walletId: draft.walletId || "",
-    paidAmountRaw: draft.paidAmount,
-    saleLines
-  });
-  removeSaleDraftFromLibrary(draftId);
-  clearSaleDraft({ silent: true });
-  closeModal("inventorySaleDraftModal");
-  if (state.inventoryView === "drafts") renderInventoryDraftsSection();
-  renderInventoryList();
 }
 
 
@@ -11796,9 +12096,23 @@ async function deleteInventoryReceipt(entryId){
   );
   if (!ok) return false;
 
+  const saleSetId = String(meta.saleSetId || "").trim();
+  const invoiceKey = String(meta.invoiceNumber || meta.receiptNumber || "").trim();
+  // Also sweep any sibling sale/settlement rows that share the same set/invoice.
+  const siblings = state.entries.filter(e => {
+    if (e.entry_kind === "principal" || !hasGoodsTag(e.notes)) return false;
+    const m = goodsMetaFromNotes(e.notes);
+    if (saleSetId && String(m.saleSetId || "").trim() === saleSetId) return true;
+    if (invoiceKey && (
+      String(m.invoiceNumber || "").trim() === invoiceKey
+      || String(m.receiptNumber || "").trim() === invoiceKey
+    )) return true;
+    return false;
+  });
   const toRemove = [
     ...settlements,
-    ...saleRows.map(r => r.entry).filter(Boolean)
+    ...saleRows.map(r => r.entry).filter(Boolean),
+    ...siblings
   ];
   // Ensure primary is included even if matching failed.
   if (!toRemove.some(e => e.id === saleEntry.id)) toRemove.push(saleEntry);
@@ -12200,8 +12514,16 @@ function bindInventorySectionVariantActions(body, type){
     btn.addEventListener("click", async e => {
       e.preventDefault();
       e.stopPropagation();
-      const ok = await addGroupToSaleDraft(btn.dataset.groupId);
-      if (ok) updateInventorySkuAddButton(btn, btn.dataset.groupId);
+      if (btn.dataset.adding === "1" || btn.disabled) return;
+      btn.dataset.adding = "1";
+      btn.disabled = true;
+      try {
+        const ok = await addGroupToSaleDraft(btn.dataset.groupId);
+        if (ok) updateInventorySkuAddButton(btn, btn.dataset.groupId);
+      } finally {
+        delete btn.dataset.adding;
+        btn.disabled = false;
+      }
     });
   });
   body.querySelectorAll(".inventorySkuRestockBtn").forEach(btn => {
@@ -12447,21 +12769,18 @@ function inventoryInlineStockFormHtml(qtyPattern = "count", {
   const qtyValue = qty !== "" && qty != null
     ? String(qty)
     : (pattern === "count" ? "1" : "");
+  const useBottleCost = pattern === INVENTORY_CATEGORY_VOLUME && sizeLocked;
   const bottleLabels = pattern === INVENTORY_CATEGORY_VOLUME
-    ? inventoryVolumeBottleLabels(qtyValue || 100, selectedPriceUnit)
+    ? (useBottleCost ? inventoryVolumeBottleCostLabels() : inventoryVolumeBottleLabels(qtyValue || 100, selectedPriceUnit))
     : null;
   const costLabel = bottleLabels?.cost || "Cost";
-  const sellLabel = bottleLabels?.sell || "Sell";
+  const sellLabel = useBottleCost ? "Bottle sell" : (bottleLabels?.sell || "Sell");
   const unitOptions = inventoryUnitSelectOptionsHtml(pattern, selectedPriceUnit);
   const sizeLockedHtml = sizeLocked && pattern === INVENTORY_CATEGORY_VOLUME
-    ? `<div class="inventory-inline-stock-size-lock">
-        <span>Size</span>
-        <strong>${escapeHtml(sizeLabel || `${qtyValue} ${unit || "ml"}`)}</strong>
-        <input type="hidden" class="inventory-inline-stock-qty" value="${escapeHtml(qtyValue)}" />
-        <input type="hidden" class="inventory-inline-stock-size-unit" value="${escapeHtml(unit || INVENTORY_UNIT_ML)}" />
-      </div>
+    ? `<input type="hidden" class="inventory-inline-stock-qty" value="${escapeHtml(qtyValue)}" />
+      <input type="hidden" class="inventory-inline-stock-size-unit" value="${escapeHtml(unit || INVENTORY_UNIT_ML)}" />
       <label class="inventory-inline-stock-field">
-        <span>Bottles</span>
+        <span>Bottles <em class="optional-label">${escapeHtml(sizeLabel || `${qtyValue} ${unit || "ml"}`)}</em></span>
         <input class="input inventory-inline-stock-bottles" type="number" min="1" step="1" value="${escapeHtml(String(bottles || "1"))}" inputmode="numeric" />
       </label>`
     : `<label class="inventory-inline-stock-field">
@@ -12477,20 +12796,23 @@ function inventoryInlineStockFormHtml(qtyPattern = "count", {
         )}</span>
         <input class="input inventory-inline-stock-qty" type="number" min="0.001" step="any" value="${escapeHtml(qtyValue)}" inputmode="decimal" />
       </label>`;
-  return `
-    <div class="inventory-inline-stock-form${sizeLocked ? " is-size-locked" : ""}">
-      ${sizeLockedHtml}
-      <label class="inventory-inline-stock-field">
+  const unitFieldHtml = useBottleCost
+    ? `<input type="hidden" class="inventory-inline-stock-unit" value="${escapeHtml(unit || INVENTORY_UNIT_ML)}" />`
+    : `<label class="inventory-inline-stock-field">
         <span>${pattern === INVENTORY_CATEGORY_VOLUME ? "Price unit" : "Unit"}</span>
         <select class="select inventory-inline-stock-unit">${unitOptions}</select>
-      </label>
+      </label>`;
+  return `
+    <div class="inventory-inline-stock-form${sizeLocked ? " is-size-locked" : ""}${useBottleCost ? " is-bottle-cost" : ""}">
+      ${sizeLockedHtml}
+      ${unitFieldHtml}
       <label class="inventory-inline-stock-field">
         <span class="inventory-inline-stock-cost-label">${escapeHtml(costLabel)}</span>
-        <input class="input inventory-inline-stock-cost" type="number" min="0" step="any" placeholder="${pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0"}" inputmode="decimal" />
+        <input class="input inventory-inline-stock-cost" type="number" min="0" step="any" placeholder="${useBottleCost ? "AED / bottle" : (pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0")}" inputmode="decimal" />
       </label>
       <label class="inventory-inline-stock-field">
-        <span class="inventory-inline-stock-sell-label">${escapeHtml(sellLabel)}</span>
-        <input class="input inventory-inline-stock-sell" type="number" min="0" step="any" placeholder="${pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0"}" inputmode="decimal" />
+        <span class="inventory-inline-stock-sell-label">${escapeHtml(sellLabel)} <em class="optional-label">optional</em></span>
+        <input class="input inventory-inline-stock-sell" type="number" min="0" step="any" placeholder="${useBottleCost ? "Optional" : (pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "Optional")}" inputmode="decimal" />
       </label>
       <label class="inventory-inline-stock-field">
         <span>Cur</span>
@@ -12553,15 +12875,16 @@ function openInventoryInlineStockEditor(rowEl, {
   const qtyInput = panel.querySelector(".inventory-inline-stock-qty");
   const bottlesInput = panel.querySelector(".inventory-inline-stock-bottles");
   const sizeUnitInput = panel.querySelector(".inventory-inline-stock-size-unit");
-  const unitSelect = panel.querySelector(".inventory-inline-stock-unit");
+  const unitSelect = panel.querySelector("select.inventory-inline-stock-unit, input.inventory-inline-stock-unit");
   const costInput = panel.querySelector(".inventory-inline-stock-cost");
   const sellInput = panel.querySelector(".inventory-inline-stock-sell");
   const currencyInput = panel.querySelector(".inventory-inline-stock-currency");
   const saveBtn = panel.querySelector(".inventory-inline-stock-save");
   const cancelBtn = panel.querySelector(".inventory-inline-stock-cancel");
+  const useBottleCost = sizeLocked && pattern === INVENTORY_CATEGORY_VOLUME;
 
   const refreshPriceUnitLabels = () => {
-    if (pattern !== INVENTORY_CATEGORY_VOLUME) return;
+    if (pattern !== INVENTORY_CATEGORY_VOLUME || useBottleCost) return;
     const labels = inventoryVolumeBottleLabels(qtyInput?.value, unitSelect?.value);
     const costLabel = panel.querySelector(".inventory-inline-stock-cost-label");
     const sellLabel = panel.querySelector(".inventory-inline-stock-sell-label");
@@ -12570,7 +12893,9 @@ function openInventoryInlineStockEditor(rowEl, {
     if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
     if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
   };
-  unitSelect?.addEventListener("change", refreshPriceUnitLabels);
+  if (unitSelect && unitSelect.tagName === "SELECT") {
+    unitSelect.addEventListener("change", refreshPriceUnitLabels);
+  }
   refreshPriceUnitLabels();
 
   const close = () => {
@@ -12603,12 +12928,13 @@ function openInventoryInlineStockEditor(rowEl, {
         qty: bottleQty,
         unit: bottleUnit,
         bottles,
-        priceUnit: unitSelect?.value || INVENTORY_UNIT_ML,
+        priceUnit: unitSelect?.value || bottleUnit || INVENTORY_UNIT_ML,
         unitCost: costInput?.value,
         unitSell: sellInput?.value,
         currency: currencyInput?.value || "AED",
         qtyPattern,
-        sizeLocked
+        sizeLocked,
+        costMode: useBottleCost ? "bottle" : "unit"
       });
       if (typeof invalidateAndRefreshInventoryLazy === "function") {
         await invalidateAndRefreshInventoryLazy().catch(() => {});
@@ -12622,7 +12948,7 @@ function openInventoryInlineStockEditor(rowEl, {
       (costInput || qtyInput)?.focus();
     }
   });
-  requestAnimationFrame(() => (costInput || bottlesInput || qtyInput)?.focus());
+  requestAnimationFrame(() => (bottlesInput || costInput || qtyInput)?.focus());
 }
 
 function inventoryInlineEditorRowHtml(placeholder, kind, value = ""){
@@ -14117,7 +14443,11 @@ async function loadInventorySalesForCustomers({ force = false } = {}){
   try {
     const res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_sales", { p_limit: 2500 }));
     const saleEntries = (Array.isArray(res?.sales) ? res.sales : []).map(inventorySaleRowToEntry);
-    const eventEntries = (Array.isArray(res?.events) ? res.events : []).map(inventoryEventRowToEntry);
+    const saleIds = new Set(saleEntries.map(e => e.id).filter(Boolean));
+    const eventEntries = (Array.isArray(res?.events) ? res.events : [])
+      .map(inventoryEventRowToEntry)
+      .filter(e => !e.id || !saleIds.has(e.id))
+      .filter(e => !isInventorySaleAction(e));
     const principals = state.entries.filter(e =>
       entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS) && e.entry_kind === "principal"
     );
@@ -14129,7 +14459,10 @@ async function loadInventorySalesForCustomers({ force = false } = {}){
       && !incomingIds.has(e.id)
       && !e._inventoryLazySummary
     );
-    applyInventoryLazyEntries(principals, otherActions.concat(saleEntries, eventEntries));
+    applyInventoryLazyEntries(
+      principals,
+      dedupeInventoryActionEntries(otherActions.concat(saleEntries, eventEntries))
+    );
     state.inventorySalesLoaded = true;
     // Do NOT mark detailLoaded from the global sales list — per-item Invoices
     // must still fetch app_list_my_inventory_item_detail so sales rows show.
@@ -14312,8 +14645,13 @@ async function ensureInventoryItemDetailLoaded(groupId, { force = false } = {}){
     }
   }
   const saleEntries = (detail.sales || []).map(inventorySaleRowToEntry);
+  const saleIds = new Set(saleEntries.map(e => e.id).filter(Boolean));
   const eventEntries = (detail.events || []).map(inventoryEventRowToEntry)
-    .filter(row => row.entry_kind !== "principal");
+    .filter(row => row.entry_kind !== "principal")
+    // Never keep the same row twice when an event mirrors a sale id.
+    .filter(row => !row.id || !saleIds.has(row.id))
+    // Sale-shaped events already live in goods_sales — skip TX:SALE duplicates.
+    .filter(row => !isInventorySaleAction(row));
   const principals = state.entries
     .filter(e => entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS) && e.entry_kind === "principal")
     .map(p => {
@@ -14328,19 +14666,22 @@ async function ensureInventoryItemDetailLoaded(groupId, { force = false } = {}){
     });
   // Keep any local sale lines for this group that the RPC/fallback missed (e.g. just finalized).
   const incomingIds = new Set([...saleEntries, ...eventEntries].map(e => e.id).filter(Boolean));
-  const localSiblings = state.entries.filter(e =>
+  const localSiblings = dedupeInventoryActionEntries(state.entries.filter(e =>
     entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS)
     && e.entry_kind !== "principal"
     && String(e.group_id) === gid
     && !incomingIds.has(e.id)
     && !e._inventoryLazySummary
-  );
+  ));
   const otherActions = state.entries.filter(e =>
     entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS)
     && e.entry_kind !== "principal"
     && String(e.group_id) !== gid
   );
-  applyInventoryLazyEntries(principals, otherActions.concat(saleEntries, eventEntries, localSiblings));
+  applyInventoryLazyEntries(
+    principals,
+    dedupeInventoryActionEntries(otherActions.concat(saleEntries, eventEntries, localSiblings))
+  );
   // Only mark loaded when we have sales or there is nothing expected to load.
   const loadedSales = saleEntries.length + localSiblings.filter(isInventorySaleAction).length;
   if (loadedSales > 0 || !expectsSales) {
