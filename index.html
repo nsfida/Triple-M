@@ -2256,6 +2256,12 @@
                       <button class="menu-item" type="button" id="openGoodsSoldBtn">
                         <i class="fa-solid fa-cash-register"></i> Create sale
                       </button>
+                      <button class="menu-item" type="button" id="openInventoryDraftBtn">
+                        <i class="fa-solid fa-cart-shopping"></i> Open cart
+                      </button>
+                      <button class="menu-item" type="button" id="openInventoryDraftsMenuBtn">
+                        <i class="fa-solid fa-folder-open"></i> Saved carts
+                      </button>
                       <button class="menu-item" type="button" data-section-csv-download="inventory">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -2271,14 +2277,17 @@
                     </div>
                   </div>
                 </div>
-                <p id="inventorySectionDesc">Shop stock by piece, weight, or length — purchases, sales invoices, and balances.</p>
+                <p id="inventorySectionDesc">Category → Brand → Type → Variant — add to cart, save proforma, then finalize.</p>
               </div>
             </div>
           </div>
           <div id="inventoryStockView" class="inventory-subview">
             <div class="inventory-stock-toolbar">
+              <button class="tiny ghost" type="button" id="openInventoryDraftsBtn" title="Saved carts / proforma invoices">
+                <i class="fa-solid fa-cart-flatbed"></i> Carts
+              </button>
               <button class="tiny ghost" type="button" id="openInventoryCustomersBtn" title="Open customers and invoices">
-                Customers / Invoices <i class="fa-solid fa-arrow-right"></i>
+                Customers <i class="fa-solid fa-arrow-right"></i>
               </button>
               <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale">
                 <i class="fa-solid fa-user-plus"></i> Add Customer
@@ -2318,10 +2327,27 @@
             </div>
             <div id="goodsList" class="list"></div>
           </div>
+          <div id="inventoryDraftsView" class="inventory-subview inventory-drafts-view hide">
+            <div class="inventory-customers-toolbar">
+              <div class="inventory-customers-toolbar-nav">
+                <button class="tiny ghost inventoryBackToStockBtn" type="button" title="Back to inventory stock">
+                  <i class="fa-solid fa-arrow-left"></i> Inventory
+                </button>
+                <button class="tiny ghost" type="button" id="inventoryNewDraftFromListBtn" title="Start a new draft invoice">
+                  <i class="fa-solid fa-plus"></i> New draft
+                </button>
+              </div>
+              <div class="inventory-customers-toolbar-title">
+                <strong>Saved carts</strong>
+                <span>Proforma / temporary carts — stock is not reduced until you finalize.</span>
+              </div>
+            </div>
+            <div id="inventoryDraftsList" class="list inventory-drafts-list-root"></div>
+          </div>
           <div id="inventoryCustomersView" class="inventory-subview inventory-customers-view hide">
             <div class="inventory-customers-toolbar">
               <div class="inventory-customers-toolbar-nav">
-                <button class="tiny ghost" type="button" id="inventoryBackToStockBtn" title="Back to inventory stock">
+                <button class="tiny ghost inventoryBackToStockBtn" type="button" title="Back to inventory stock">
                   <i class="fa-solid fa-arrow-left"></i> Inventory
                 </button>
                 <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale">
@@ -4289,6 +4315,7 @@
   <script src="Assets/app/lib/permissions.js"></script>
   <script src="Assets/app/lib/admin-backup.js"></script>
   <script src="Assets/app/domain-ledger.js"></script>
+  <script src="Assets/app/inventory-catalog.js"></script>
   <script src="Assets/app/script.js"></script>
 </body>
 </html>
