@@ -659,10 +659,22 @@ const state = {
   expenseWalletFilter: "all",
   expenseDateFrom: "",
   expenseDateTo: "",
-  expenseHistoryRange: "month",
+  expenseHistoryRange: "today",
   expenseHistoryCustomFrom: "",
   expenseHistoryCustomTo: "",
   expenseBtcCache: {},
+  expenseLazy: {
+    enabled: false,
+    rpcAvailable: null,
+    summaries: [],
+    summaryByGroupId: new Map(),
+    activityQueryKey: "",
+    loadingSummaries: false,
+    loadingActivity: false,
+    historyPreferOpen: true,
+    detailCache: new Map(),
+    lastError: ""
+  },
   inventoryItemTypeFilter: "all",
   inventoryView: "stock",
   inventoryDraft: {
@@ -1070,12 +1082,47 @@ function resetLazyDataState({ clearEntries = false } = {}){
   state.notesLoading = false;
   state.bitcoinWalletsLoaded = false;
   state.bitcoinWalletsLoading = false;
+  resetExpenseLazyState();
   if (clearEntries) {
     state.entries = [];
     state.recycleBin = [];
     updateDbSnapshot([]);
     renderRecycleBinDropdown();
   }
+}
+
+function resetExpenseLazyState(){
+  state.expenseLazy = {
+    enabled: false,
+    rpcAvailable: state.expenseLazy?.rpcAvailable ?? null,
+    summaries: [],
+    summaryByGroupId: new Map(),
+    activityQueryKey: "",
+    loadingSummaries: false,
+    loadingActivity: false,
+    historyPreferOpen: true,
+    detailCache: new Map(),
+    lastError: ""
+  };
+}
+
+function isExpenseLazyMode(){
+  return !!(state.expenseLazy && state.expenseLazy.enabled && state.expenseLazy.rpcAvailable !== false);
+}
+
+function expenseLazyActivityQueryKey(){
+  const bounds = expenseHistoryRangeBounds();
+  const search = String(state.search.expenses || "").trim().toLowerCase();
+  const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all"
+    ? String(state.expenseWalletFilter)
+    : "";
+  return [
+    state.expenseHistoryRange || "today",
+    bounds.from || "",
+    bounds.to || "",
+    search,
+    groupId
+  ].join("|");
 }
 
 function isGuestMode(){
@@ -4192,11 +4239,25 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   const timestamp = new Date().toISOString();
   const rows = asEntryArray(entryOrEntries).map(entry => withLocalEntryIdentity(entry, timestamp));
   state.entries.unshift(...rows);
+  const touchesExpenses = rows.some(row => hasExpenseAccountTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_EXPENSES));
   if (isBackupMode()) {
     refreshBackupView();
   } else {
     queueDatabaseInsert(rows, options.label || (rows.length === 1 ? "Entry" : "Entries"));
     renderAll();
+    if (touchesExpenses && state.expenseLazy.rpcAvailable !== false) {
+      // Refresh accurate balances + current history window after local optimistic insert.
+      Promise.resolve()
+        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+        .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
+        .then(ok => {
+          if (ok && getActiveTabKey() === "expenses") {
+            renderExpensesList();
+            renderExpenseOverviewWallets();
+          }
+        })
+        .catch(() => {});
+    }
   }
   const label = String(options.label || "").toLowerCase();
   if (label === "transfer" && rows.length >= 2) {
@@ -9571,6 +9632,278 @@ function buildExpenseAccountSearchBlob(account){
   return parts.join(" ").toLowerCase();
 }
 
+function expenseSummaryToPrincipalEntry(summary){
+  const s = summary || {};
+  const notes = upsertExpenseMetaInNote(s.notes || null, {
+    accountType: s.account_type || "Bank Account",
+    rowType: "ACCOUNT",
+    btcAddress: s.btc_address || "",
+    btcNetwork: s.btc_network || "",
+    customLogoUrl: s.custom_logo_url || ""
+  });
+  return {
+    id: s.id,
+    group_id: s.group_id,
+    direction: "taken",
+    entry_kind: "principal",
+    person_name: s.account_name,
+    currency: s.currency,
+    principal_amount: Number(s.opening_balance || 0),
+    action_amount: null,
+    loan_date: s.account_date,
+    action_date: null,
+    notes,
+    owner_id: currentOwnerId(),
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+    data_origin: s.data_origin === "ledger" ? "ledger" : "domain",
+    domain_table: s.data_origin === "ledger" ? null : "expense_accounts",
+    is_legacy_meta: s.data_origin === "ledger",
+    _expenseLazySummary: true
+  };
+}
+
+function expenseActivityToEntry(row){
+  const r = row || {};
+  const isTopup = String(r.row_type || "").toUpperCase() === "TOPUP";
+  const notes = upsertExpenseMetaInNote(r.notes || null, {
+    accountType: r.account_type || "Bank Account",
+    rowType: isTopup ? "TOPUP" : "EXPENSE",
+    itemName: r.item_name || "",
+    expenseType: r.expense_type || "Other"
+  });
+  return {
+    id: r.id,
+    group_id: r.group_id,
+    direction: "taken",
+    entry_kind: "partial",
+    person_name: r.account_name,
+    currency: r.currency,
+    principal_amount: null,
+    action_amount: Number(r.amount || 0),
+    loan_date: r.activity_date,
+    action_date: r.activity_date,
+    notes,
+    owner_id: currentOwnerId(),
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    data_origin: "domain",
+    domain_table: isTopup ? "expense_topups" : "expense_entries",
+    is_legacy_meta: false,
+    _expenseLazyActivity: true
+  };
+}
+
+function applyExpenseLazyEntries(principals, actions){
+  const scope = LEDGER_SCOPE_EXPENSES;
+  const pending = state.entries.filter(entry =>
+    entryBelongsToLedgerScope(entry, scope) && entry.id && state.pendingDbSyncIds.has(entry.id)
+  );
+  const pendingIds = new Set(pending.map(row => row.id));
+  const previousScopeRows = state.entries.filter(entry => entryBelongsToLedgerScope(entry, scope));
+  unmarkDbSnapshotRows(previousScopeRows);
+
+  const nextPrincipals = (Array.isArray(principals) ? principals : []).filter(row => row?.id && !pendingIds.has(row.id));
+  const nextActions = (Array.isArray(actions) ? actions : []).filter(row => row?.id && !pendingIds.has(row.id));
+  const merged = nextPrincipals.concat(nextActions);
+
+  state.entries = state.entries
+    .filter(entry => !entryBelongsToLedgerScope(entry, scope) || pendingIds.has(entry.id))
+    .concat(merged, pending)
+    .sort((a, b) => dateStamp(b.created_at || b.action_date || b.loan_date) - dateStamp(a.created_at || a.action_date || a.loan_date));
+
+  markDbSnapshotRows(merged.filter(row => !state.pendingDbSyncIds.has(row.id)));
+  state.loadedLedgerScopes.add(scope);
+  state.dataSource = "supabase";
+  invalidateExpenseAccountsSyncCache();
+}
+
+async function fetchExpenseWalletSummariesRpc(){
+  const res = unwrapRpcJson(await supabaseRpc("app_list_my_expense_wallet_summaries", {}));
+  return Array.isArray(res?.items) ? res.items : [];
+}
+
+async function fetchExpenseActivityRpc({ from = null, to = null, search = "", groupId = "", limit = 800 } = {}){
+  const res = unwrapRpcJson(await supabaseRpc("app_list_my_expense_activity", {
+    p_from: from || null,
+    p_to: to || null,
+    p_search: search || null,
+    p_group_id: groupId || null,
+    p_limit: limit
+  }));
+  return Array.isArray(res?.items) ? res.items : [];
+}
+
+async function fetchExpenseWalletDetailRpc(groupId, limit = 2000){
+  const res = unwrapRpcJson(await supabaseRpc("app_list_my_expense_wallet_detail", {
+    p_group_id: String(groupId || ""),
+    p_limit: limit
+  }));
+  return {
+    summary: res?.summary && typeof res.summary === "object" ? res.summary : null,
+    items: Array.isArray(res?.items) ? res.items : []
+  };
+}
+
+function isExpenseLazyRpcMissingError(err){
+  const msg = String(err?.message || err || "");
+  return /app_list_my_expense_wallet_summaries|app_list_my_expense_activity|app_list_my_expense_wallet_detail|Could not find the function|PGRST202|404/i.test(msg);
+}
+
+async function loadExpenseWalletSummaries({ force = false } = {}){
+  if (!databaseSessionCanLoad() && state.dataSource !== "supabase") return [];
+  if (state.expenseLazy.rpcAvailable === false) return [];
+  state.expenseLazy.loadingSummaries = true;
+  try {
+    const items = await fetchExpenseWalletSummariesRpc();
+    state.expenseLazy.rpcAvailable = true;
+    state.expenseLazy.summaries = items;
+    state.expenseLazy.summaryByGroupId = new Map(
+      items.map(item => [String(item.group_id), item])
+    );
+    const principals = items.map(expenseSummaryToPrincipalEntry);
+    const existingActions = state.entries.filter(entry =>
+      entryBelongsToLedgerScope(entry, LEDGER_SCOPE_EXPENSES)
+      && entry.entry_kind !== "principal"
+    );
+    applyExpenseLazyEntries(principals, existingActions);
+    state.expenseLazy.enabled = true;
+    return items;
+  } catch (err) {
+    if (isExpenseLazyRpcMissingError(err)) {
+      state.expenseLazy.rpcAvailable = false;
+      state.expenseLazy.enabled = false;
+      console.warn("Expense lazy RPCs unavailable; falling back to full expenses load.", err);
+      return null;
+    }
+    state.expenseLazy.lastError = String(err?.message || err || "Summary load failed");
+    throw err;
+  } finally {
+    state.expenseLazy.loadingSummaries = false;
+  }
+}
+
+async function loadExpenseActivityForCurrentQuery({ force = false } = {}){
+  if (!isExpenseLazyMode() && state.expenseLazy.rpcAvailable === false) return [];
+  if (state.expenseLazy.rpcAvailable === false) return [];
+  const queryKey = expenseLazyActivityQueryKey();
+  if (!force && state.expenseLazy.activityQueryKey === queryKey && state.expenseLazy.enabled) {
+    return state.entries.filter(e =>
+      entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind !== "principal"
+    );
+  }
+  const bounds = expenseHistoryRangeBounds();
+  if (state.expenseHistoryRange === "custom" && !bounds.from && !bounds.to) {
+    const principals = state.entries.filter(e =>
+      entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind === "principal"
+    );
+    applyExpenseLazyEntries(principals, []);
+    state.expenseLazy.activityQueryKey = queryKey;
+    return [];
+  }
+  state.expenseLazy.loadingActivity = true;
+  try {
+    const search = String(state.search.expenses || "").trim();
+    const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all"
+      ? String(state.expenseWalletFilter)
+      : "";
+    const limit = state.expenseHistoryRange === "all" ? 1500 : 800;
+    const items = await fetchExpenseActivityRpc({
+      from: bounds.from || null,
+      to: bounds.to || null,
+      search,
+      groupId,
+      limit
+    });
+    state.expenseLazy.rpcAvailable = true;
+    state.expenseLazy.enabled = true;
+    const actions = items.map(expenseActivityToEntry);
+    const principals = state.entries.filter(e =>
+      entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind === "principal"
+    );
+    // If summaries not yet loaded, keep whatever principals we have.
+    applyExpenseLazyEntries(principals, actions);
+    state.expenseLazy.activityQueryKey = queryKey;
+    return actions;
+  } catch (err) {
+    if (isExpenseLazyRpcMissingError(err)) {
+      state.expenseLazy.rpcAvailable = false;
+      state.expenseLazy.enabled = false;
+      console.warn("Expense activity RPC unavailable; falling back to full expenses load.", err);
+      return null;
+    }
+    state.expenseLazy.lastError = String(err?.message || err || "Activity load failed");
+    throw err;
+  } finally {
+    state.expenseLazy.loadingActivity = false;
+  }
+}
+
+async function ensureExpenseWalletDetailLoaded(groupId, { force = false } = {}){
+  const gid = String(groupId || "").trim();
+  if (!gid || !isExpenseLazyMode()) return null;
+  if (!force && state.expenseLazy.detailCache.has(gid)) {
+    return state.expenseLazy.detailCache.get(gid);
+  }
+  const detail = await fetchExpenseWalletDetailRpc(gid);
+  state.expenseLazy.detailCache.set(gid, detail);
+  const detailActions = (detail.items || []).map(expenseActivityToEntry);
+  const principals = state.entries.filter(e =>
+    entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind === "principal"
+  );
+  const otherActions = state.entries.filter(e =>
+    entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES)
+    && e.entry_kind !== "principal"
+    && String(e.group_id) !== gid
+  );
+  applyExpenseLazyEntries(principals, otherActions.concat(detailActions));
+  return detail;
+}
+
+async function invalidateAndRefreshExpenseLazy({ refreshActivity = true } = {}){
+  if (state.expenseLazy.rpcAvailable === false) return false;
+  state.expenseLazy.activityQueryKey = "";
+  state.expenseLazy.detailCache = new Map();
+  try {
+    const summaries = await loadExpenseWalletSummaries({ force: true });
+    if (summaries === null) return false;
+    if (refreshActivity) {
+      const activity = await loadExpenseActivityForCurrentQuery({ force: true });
+      if (activity === null) return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Expense lazy refresh failed:", err);
+    return false;
+  }
+}
+
+async function loadExpensesScopeLazyOrFull(options = {}){
+  if (state.expenseLazy.rpcAvailable === false) {
+    return { usedLazy: false };
+  }
+  try {
+    const summaries = await loadExpenseWalletSummaries({ force: options.force === true });
+    if (summaries === null) return { usedLazy: false };
+    // Paint wallets immediately, then fill today's (or selected) activity.
+    invalidateExpenseAccountsSyncCache();
+    if (typeof renderExpenseWalletBar === "function" && getActiveTabKey() === "expenses") {
+      try { renderExpensesList(); } catch (_) {}
+    }
+    const activity = await loadExpenseActivityForCurrentQuery({ force: true });
+    if (activity === null) return { usedLazy: false };
+    state.expenseLazy.enabled = true;
+    return { usedLazy: true };
+  } catch (err) {
+    if (isExpenseLazyRpcMissingError(err)) {
+      state.expenseLazy.rpcAvailable = false;
+      state.expenseLazy.enabled = false;
+      return { usedLazy: false };
+    }
+    throw err;
+  }
+}
+
 function buildExpenseAccountsUnfiltered(){
   return groupByLoan(getActiveEntries().filter(e => e.direction === "taken" && hasExpenseAccountTag(e.notes)))
     .map(group => {
@@ -9594,6 +9927,18 @@ function buildExpenseAccountsUnfiltered(){
       let spentMoney = spends.reduce((sum, row) => sum + finiteMoney(row.action_amount), 0);
       let balance = openingBalance + addedMoney - spentMoney;
 
+      // Prefer SQL aggregate balances in lazy mode so wallet figures stay accurate
+      // even when only a date-scoped activity window is loaded in memory.
+      const lazySummary = isExpenseLazyMode()
+        ? state.expenseLazy.summaryByGroupId.get(String(group.group_id || ""))
+        : null;
+      if (lazySummary && !isBtcLive) {
+        openingBalance = finiteMoney(lazySummary.opening_balance);
+        addedMoney = finiteMoney(lazySummary.topup_total);
+        spentMoney = finiteMoney(lazySummary.spend_total);
+        balance = finiteMoney(lazySummary.balance);
+      }
+
       if (isBtcLive && btcCache && btcCache.balanceSat != null) {
         openingBalance = btcSatToBtc(btcCache.fundedSat || 0);
         addedMoney = 0;
@@ -9604,9 +9949,9 @@ function buildExpenseAccountsUnfiltered(){
       const status = balance > 0 ? "Open" : "Closed";
       const account = {
         ...group,
-        accountType: principalMeta.accountType || "Bank Account",
-        btcAddress: principalMeta.btcAddress || "",
-        customLogoUrl: principalMeta.customLogoUrl || "",
+        accountType: principalMeta.accountType || lazySummary?.account_type || "Bank Account",
+        btcAddress: principalMeta.btcAddress || lazySummary?.btc_address || "",
+        customLogoUrl: principalMeta.customLogoUrl || lazySummary?.custom_logo_url || "",
         btcNetwork,
         btcCache,
         isBtcLive,
@@ -9638,8 +9983,10 @@ function getExpenseAccounts(options = {}){
   const searchTerm = String(state.search.expenses || "").trim().toLowerCase();
   const status = state.statusFilter.expenses;
   const currency = state.currencyFilter.expenses || "All";
+  // In lazy mode, search is applied server-side to activity rows — keep wallet cards visible.
+  const applyClientSearch = !isExpenseLazyMode();
   return groups.filter(group => {
-    if (searchTerm && !(group.searchBlob || "").includes(searchTerm)) return false;
+    if (applyClientSearch && searchTerm && !(group.searchBlob || "").includes(searchTerm)) return false;
     if (currency !== "All" && group.currency !== currency) return false;
     if (status === "Active") return group.status === "Open";
     if (status === "Closed") return group.status === "Closed";
@@ -9760,15 +10107,24 @@ function filterExpenseHistoryRows(spendAttached){
   });
 }
 
-function setExpenseHistoryRange(range, keepHistoryOpen = false){
+async function setExpenseHistoryRange(range, keepHistoryOpen = false){
   const allowed = new Set(["month", "today", "last7", "all", "custom"]);
-  state.expenseHistoryRange = allowed.has(range) ? range : "month";
+  state.expenseHistoryRange = allowed.has(range) ? range : "today";
+  state.expenseLazy.historyPreferOpen = true;
   if (state.expenseHistoryRange === "custom"){
     state.expenseHistoryCustomFrom = "";
     state.expenseHistoryCustomTo = "";
   }
+  if (isExpenseLazyMode() && state.expenseHistoryRange !== "custom") {
+    try {
+      await loadExpenseActivityForCurrentQuery({ force: true });
+    } catch (err) {
+      console.warn("Expense history range reload failed:", err);
+    }
+  }
   renderExpensesList();
-  if (keepHistoryOpen){
+  renderExpenseOverviewWallets();
+  if (keepHistoryOpen || state.expenseLazy.historyPreferOpen){
     const section = document.getElementById("transactionsHistorySection");
     if (section) section.open = true;
   }
@@ -10143,11 +10499,19 @@ function ensureExpenseWalletBarDelegation(){
     }
   });
 
-  host.addEventListener("change", e => {
+  host.addEventListener("change", async e => {
     const inp = e.target.closest('input[name="f_exp_wallet"]');
     if (!inp || !host.contains(inp)) return;
     state.expenseWalletFilter = inp.value;
+    if (isExpenseLazyMode()) {
+      try {
+        await loadExpenseActivityForCurrentQuery({ force: true });
+      } catch (err) {
+        console.warn("Wallet filter reload failed:", err);
+      }
+    }
     renderExpensesList();
+    renderExpenseOverviewWallets();
   });
 }
 
@@ -10517,6 +10881,14 @@ async function downloadExpenseAccountPDF(groupId){
     showGuestRestrictionOverlay("download");
     return;
   }
+  if (isExpenseLazyMode()) {
+    try {
+      await ensureExpenseWalletDetailLoaded(groupId, { force: true });
+      invalidateExpenseAccountsSyncCache();
+    } catch (err) {
+      console.warn("Wallet PDF detail load failed:", err);
+    }
+  }
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === groupId);
   if (!account){
     alert("Account not found.");
@@ -10756,11 +11128,11 @@ function filterExpensesBySearch(expenses, searchTerm){
 }
 
 function renderExpenseHistoryRangeControls(){
-  const active = state.expenseHistoryRange || "month";
+  const active = state.expenseHistoryRange || "today";
   const options = [
-    ["month", "This Month"],
     ["today", "Today"],
     ["last7", "Last 7 Days"],
+    ["month", "This Month"],
     ["all", "All"],
     ["custom", "Custom"]
   ];
@@ -10817,6 +11189,7 @@ function restoreExpenseDetailsOpenState(openDetails){
 
 function renderExpensesList(){
   const openExpenseDetails = getExpenseDetailsOpenState();
+  if (state.expenseLazy.historyPreferOpen) openExpenseDetails.add("transactionsHistorySection");
   let accountsForSections = getExpenseAccounts({ applyUiFilters: false });
   if (refreshExpenseBtcWallets(accountsForSections)) {
     // BTC refresh may flip loading flags synchronously — rebuild once for this turn.
@@ -10833,18 +11206,24 @@ function renderExpensesList(){
   renderExpenseWalletBar(accounts);
 
   if (!accounts.length){
-    els.expensesList.innerHTML = `<div class="empty">No expense accounts found.</div>`;
+    const loadingHint = state.expenseLazy.loadingSummaries
+      ? `<div class="empty">Loading wallets…</div>`
+      : `<div class="empty">No expense accounts found.</div>`;
+    els.expensesList.innerHTML = loadingHint;
     ensureExpensesListDelegation();
     return;
   }
 
   let html = "";
+  if (state.expenseLazy.loadingActivity && isExpenseLazyMode()) {
+    html += `<div class="expense-toolbar-hint" style="margin:0.35rem 0 0.75rem;">Loading ${escapeHtml(expenseHistoryRangeText())}…</div>`;
+  }
   html += renderExpenseBtcTransactionsSection(accountsForSections, false);
 
   let topupTransactions = collectTopupTransactionsFlat(accountsForSections);
   
-  // Apply search filtering to top-up transactions
-  if (state.search.expenses && state.search.expenses.trim() !== "") {
+  // Server-side search already applied in lazy mode; keep client filter as fallback.
+  if (!isExpenseLazyMode() && state.search.expenses && state.search.expenses.trim() !== "") {
     topupTransactions = filterExpensesBySearch(topupTransactions, state.search.expenses);
   }
   
@@ -10922,7 +11301,7 @@ function renderExpensesList(){
   let transferEvents = buildTransferEvents(accountsForSections);
   
   // Apply search filtering to transfer events
-  if (state.search.expenses && state.search.expenses.trim() !== "") {
+  if (!isExpenseLazyMode() && state.search.expenses && state.search.expenses.trim() !== "") {
     transferEvents = filterExpensesBySearch(transferEvents, state.search.expenses);
   }
   
@@ -11011,17 +11390,19 @@ function renderExpensesList(){
 
   // Expense items (non-transfer spending), grouped by item
   const spendAttached = collectExpenseSpendRows(accounts);
-  const historySpendAttached = filterExpenseHistoryRows(spendAttached);
+  // Lazy mode already fetched the selected date window from the DB.
+  const historySpendAttached = isExpenseLazyMode() ? spendAttached : filterExpenseHistoryRows(spendAttached);
   let items = groupExpenseItems(historySpendAttached);
   
   // Apply search filtering to expense items
-  if (state.search.expenses && state.search.expenses.trim() !== "") {
+  if (!isExpenseLazyMode() && state.search.expenses && state.search.expenses.trim() !== "") {
     items = filterExpensesBySearch(items, state.search.expenses);
   }
   
-  if (spendAttached.length > 0) {
+  {
     const visibleTransactionCount = items.reduce((sum, item) => sum + item.txs.length, 0);
-    html += `<details class="expense-collapsible-section" id="transactionsHistorySection" data-expense-details-id="transactionsHistorySection">
+    const historyOpen = state.expenseLazy.historyPreferOpen || openExpenseDetails.has("transactionsHistorySection");
+    html += `<details class="expense-collapsible-section" id="transactionsHistorySection" data-expense-details-id="transactionsHistorySection"${historyOpen ? " open" : ""}>
       <summary class="expense-collapsible-header expense-history-header">
         <h4 class="expense-section-title"><i class="fa-solid fa-list-ul"></i> Transactions History</h4>
         ${renderExpenseHistoryRangeControls()}
@@ -11029,7 +11410,8 @@ function renderExpensesList(){
       </summary>
       <div class="expense-collapsible-content">
       ${renderExpenseHistoryToolbar(visibleTransactionCount)}`;
-    html += items.length ? items.map(item => `
+    if (items.length) {
+      html += items.map(item => `
       <details class="loan expense-item-row" data-expense-details-id="history-${escapeHtml(item.key)}">
         <summary>
           <div class="loan-top">
@@ -11077,7 +11459,10 @@ function renderExpensesList(){
           </div>
         </div>
       </details>
-    `).join("") : `<div class="empty">No transactions found for ${escapeHtml(expenseHistoryRangeText())}.</div>`;
+    `).join("");
+    } else {
+      html += `<div class="empty" style="padding:0.75rem 0;">No transactions in ${escapeHtml(expenseHistoryRangeText())}.</div>`;
+    }
     html += `</div></details>`;
   }
 
@@ -11122,7 +11507,7 @@ function ensureExpensesListDelegation(){
     if (rangeBtn && els.expensesList.contains(rangeBtn)) {
       e.preventDefault();
       e.stopPropagation();
-      setExpenseHistoryRange(rangeBtn.dataset.expenseHistoryRange || "month", true);
+      await setExpenseHistoryRange(rangeBtn.dataset.expenseHistoryRange || "today", true);
       return;
     }
 
@@ -11140,7 +11525,16 @@ function ensureExpensesListDelegation(){
       state.expenseHistoryRange = "custom";
       state.expenseHistoryCustomFrom = fromValue;
       state.expenseHistoryCustomTo = toValue;
+      state.expenseLazy.historyPreferOpen = true;
+      if (isExpenseLazyMode()) {
+        try {
+          await loadExpenseActivityForCurrentQuery({ force: true });
+        } catch (err) {
+          console.warn("Custom expense history reload failed:", err);
+        }
+      }
       renderExpensesList();
+      renderExpenseOverviewWallets();
       const section = document.getElementById("transactionsHistorySection");
       if (section) section.open = true;
       return;
@@ -11803,13 +12197,28 @@ async function loadLedgerScopeFromSupabase(scope, options = {}){
       mergeLedgerRowsFromSupabase(normalizedScope, []);
       return;
     }
+    state.loadingLedgerScopes.add(normalizedScope);
+    setLedgerScopeLoading(normalizedScope, true);
+
+    // Expenses: prefer wallet summaries + date-scoped activity (fast path).
+    if (normalizedScope === LEDGER_SCOPE_EXPENSES && state.expenseLazy.rpcAvailable !== false) {
+      try {
+        const lazyResult = await loadExpensesScopeLazyOrFull({ force });
+        if (lazyResult?.usedLazy) {
+          state.loadedLedgerScopes.add(normalizedScope);
+          renderAll();
+          return;
+        }
+      } catch (lazyErr) {
+        console.warn("Expense lazy load failed; using full scope load.", lazyErr);
+      }
+    }
+
     const query = ledgerScopeQuery(normalizedScope);
     if (!query) {
       mergeLedgerRowsFromSupabase(normalizedScope, []);
       return;
     }
-    state.loadingLedgerScopes.add(normalizedScope);
-    setLedgerScopeLoading(normalizedScope, true);
     let rows;
     try {
       rows = await supabase(query);
@@ -11824,6 +12233,7 @@ async function loadLedgerScopeFromSupabase(scope, options = {}){
     let domainRows = [];
     if (window.DomainLedger?.loadDomainRowsForScope) {
       try {
+        // Expenses full fallback still needs all tables; other scopes unchanged.
         domainRows = await DomainLedger.loadDomainRowsForScope(normalizedScope);
         if (normalizedScope === LEDGER_SCOPE_GOODS) {
           await ensureInventoryItemCodesForRows(domainRows.filter(row => !hasDeletedTag(row.notes)));
@@ -11833,6 +12243,9 @@ async function loadLedgerScopeFromSupabase(scope, options = {}){
       }
     }
     mergeLedgerRowsFromSupabase(normalizedScope, scopeRows, { domainRows });
+    if (normalizedScope === LEDGER_SCOPE_EXPENSES) {
+      state.expenseLazy.enabled = false;
+    }
     state.loadedLedgerScopes.add(normalizedScope);
     renderAll();
   })();
@@ -15372,13 +15785,21 @@ function renderWalletDetailsOverlay(groupId){
   });
 }
 
-function openWalletDetailsOverlay(groupId){
+async function openWalletDetailsOverlay(groupId){
   if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
   const id = String(groupId || "").trim();
   if (!id) return;
 
   destroySectionDetailsCharts();
   clearSectionDetailsActions();
+  if (isExpenseLazyMode()) {
+    try {
+      await ensureExpenseWalletDetailLoaded(id, { force: true });
+      invalidateExpenseAccountsSyncCache();
+    } catch (err) {
+      console.warn("Wallet detail load failed:", err);
+    }
+  }
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === id);
   if (!account) {
     if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Wallet details";
@@ -16625,7 +17046,21 @@ async function submitEdit(){
 
   closeModal("editModal");
   if (isBackupMode()) refreshBackupView();
-  else renderAll();
+  else {
+    renderAll();
+    if (hasExpenseAccountTag(currentEntry.notes) && state.expenseLazy.rpcAvailable !== false) {
+      Promise.resolve()
+        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+        .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
+        .then(ok => {
+          if (ok && getActiveTabKey() === "expenses") {
+            renderExpensesList();
+            renderExpenseOverviewWallets();
+          }
+        })
+        .catch(() => {});
+    }
+  }
   const edited = state.entries.find(e => e.id === id);
   if (edited) logEntryUpdated(edited);
 }
@@ -16816,6 +17251,18 @@ async function deleteEntry(id){
     renderAll();
   } else {
     renderAll();
+    if (hasExpenseAccountTag(entry.notes) && state.expenseLazy.rpcAvailable !== false) {
+      Promise.resolve()
+        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+        .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
+        .then(ok => {
+          if (ok && getActiveTabKey() === "expenses") {
+            renderExpensesList();
+            renderExpenseOverviewWallets();
+          }
+        })
+        .catch(() => {});
+    }
   }
   renderRecycleBinDropdown();
 }
@@ -21983,7 +22430,16 @@ window.addEventListener("resize", () => {
   [["searchGiven","given"],["searchReceived","received"],["searchTaken","taken"],["searchReturned","returned"],["searchInstallments","installments"],["searchGoods","goods"],["searchExpenses","expenses"]].forEach(([id,key]) => {
     const input = document.getElementById(id);
     if (!input) return;
-    const run = debounce(() => renderSearchResults(key), key === "expenses" ? 200 : 160);
+    const run = debounce(async () => {
+      if (key === "expenses" && isExpenseLazyMode()) {
+        try {
+          await loadExpenseActivityForCurrentQuery({ force: true });
+        } catch (err) {
+          console.warn("Expense search reload failed:", err);
+        }
+      }
+      renderSearchResults(key);
+    }, key === "expenses" ? 250 : 160);
     input.addEventListener("input", e => {
       state.search[key] = e.target.value;
       run();
