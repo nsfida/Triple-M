@@ -80,6 +80,7 @@ const CANONICAL_MIGRATION_FILES = [
   "055_inventory_catalog_edit_delete.sql",
   "056_inventory_item_detail_rpc_restore.sql",
   "057_inventory_cascade_delete_catalog.sql",
+  "058_inventory_sales_upsert_and_owner_fix.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
