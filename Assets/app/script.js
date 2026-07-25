@@ -3285,6 +3285,27 @@ async function supabaseRpc(fnName, args = {}, options = {}){
   });
 }
 
+/** Normalize PostgREST RPC payloads (object, single-element array, or JSON string). */
+function unwrapRpcJson(data){
+  let value = data;
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      try { value = JSON.parse(trimmed); } catch (_) { return data; }
+      continue;
+    }
+    if (Array.isArray(value)) {
+      if (!value.length) return null;
+      value = value.length === 1 ? value[0] : value;
+      if (Array.isArray(value)) return value;
+      continue;
+    }
+    break;
+  }
+  return value;
+}
+
 async function logCompanyActivity(action, module, summary, extra = {}){
   if (isGuestMode() || !state.sessionUser) return;
   if (!isTeamOwnerAccount() && !isTeamMemberAccount()) return;
@@ -3997,6 +4018,9 @@ function applyPermissionGates(){
     startInstallmentDueChecker();
     startMessagingLiveSync();
     if (typeof ensureReminderAlertAudioUnlocked === "function") ensureReminderAlertAudioUnlocked();
+    if (typeof bootstrapReminderDeliveryOnUnlock === "function") {
+      bootstrapReminderDeliveryOnUnlock().catch(() => {});
+    }
   } else {
     stopInstallmentDueChecker();
     stopMessagingLiveSync();
@@ -27874,7 +27898,14 @@ async function dismissReminderAlert(action = "done"){
   if (action === "close") action = "done";
 
   if (action === "done" && current) {
-    const notifId = resolveReminderNotificationId(current);
+    let notifId = resolveReminderNotificationId(current) || current.notificationId || null;
+    if (!notifId) {
+      try {
+        const { items } = await fetchMyNotificationsList(50);
+        mergeUserNotificationsIntoCommsCache(items);
+        notifId = resolveReminderNotificationId(current);
+      } catch (_) {}
+    }
     if (notifId) {
       try {
         await supabaseRpc("app_mark_my_notification_read", { p_notification_id: notifId });
@@ -27950,6 +27981,108 @@ function showNoteReminderToasts(items){
   enqueueReminderAlerts(items);
 }
 
+function mergeUserNotificationsIntoCommsCache(items){
+  const incoming = Array.isArray(items) ? items : [];
+  const existing = Array.isArray(adminCommsState?.notifications) ? adminCommsState.notifications : [];
+  const byId = new Map();
+  existing.forEach(n => {
+    if (n?.id) byId.set(String(n.id), n);
+  });
+  incoming.forEach(n => {
+    if (!n?.id) return;
+    byId.set(String(n.id), { ...n, source: n.source || "user" });
+  });
+  adminCommsState.notifications = Array.from(byId.values())
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    .slice(0, 50);
+  return adminCommsState.notifications;
+}
+
+async function fetchMyNotificationsList(limit = 40){
+  const res = unwrapRpcJson(await supabaseRpc("app_list_my_notifications", { p_limit: limit }));
+  const items = Array.isArray(res?.items) ? res.items : [];
+  const unread = Math.max(0, Number(res?.unread || 0));
+  return { items, unread, raw: res };
+}
+
+/** Map an unread inbox row into overlay alert input (note / installment manual / due). */
+function notificationRowToReminderAlertRaw(n){
+  if (!n || n.is_read) return null;
+  const kind = String(n.kind || "").toLowerCase();
+  if (kind !== "note_reminder" && kind !== "installment_due") return null;
+  const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
+
+  if (kind === "installment_due") {
+    return {
+      kind: "installment_due",
+      title: n.title,
+      body: n.body,
+      message: n.body,
+      notification_id: n.id,
+      plan_group_id: payload.plan_group_id || payload.related_plan_group_id || "",
+      person_name: payload.person_name || "",
+      offset_days: payload.offset_days,
+      due_date: payload.due_date,
+      slot_index: payload.slot_index,
+      amount_label: payload.amount_label || "",
+      key: n.dedupe_key || undefined
+    };
+  }
+
+  const isInstallmentManual = payload.type === "installment_manual"
+    || (!!(payload.plan_group_id || payload.related_plan_group_id) && !n.related_note_id && !payload.note_id);
+  return {
+    kind: isInstallmentManual ? "installment_manual" : "note_reminder",
+    id: n.related_reminder_id || payload.reminder_id || n.id || null,
+    title: n.title,
+    message: n.body || payload.message || "",
+    body: n.body,
+    note_id: n.related_note_id || payload.note_id || null,
+    note_preview: payload.note_preview || "",
+    remind_at: payload.remind_at || null,
+    notification_id: n.id,
+    related_plan_group_id: payload.plan_group_id || payload.related_plan_group_id || "",
+    plan_group_id: payload.plan_group_id || payload.related_plan_group_id || "",
+    person_name: payload.person_name || "",
+    payload
+  };
+}
+
+/**
+ * Show the same reminder overlay for unread note/installment notifications
+ * (covers page-closed-during-due: badge exists but no live wake timer ran).
+ */
+async function presentUnreadReminderAlertsFromNotifications(){
+  if (!messagingLiveEligible()) return 0;
+  try {
+    const { items } = await fetchMyNotificationsList(50);
+    mergeUserNotificationsIntoCommsCache(items);
+    const alerts = items
+      .map(notificationRowToReminderAlertRaw)
+      .filter(Boolean);
+    if (alerts.length) enqueueReminderAlerts(alerts);
+    return alerts.length;
+  } catch (err) {
+    console.warn("Could not present unread reminder alerts:", err);
+    return 0;
+  }
+}
+
+/** On unlock / cold load: deliver due rows, then play unread reminder overlays. */
+async function bootstrapReminderDeliveryOnUnlock(){
+  if (!messagingLiveEligible()) return;
+  try {
+    await dispatchDueNoteRemindersThrottled(true);
+    try { await ensurePendingNoteReminderMap(true); } catch (_) {}
+    const dueLocal = locallyDueNoteReminders(noteReminderUiState.pendingReminders, 2000);
+    if (dueLocal.length) showNoteReminderToasts(dueLocal);
+    await presentUnreadReminderAlertsFromNotifications();
+    await refreshAdminCommsBadges();
+  } catch (err) {
+    console.warn("Reminder bootstrap failed:", err);
+  }
+}
+
 /** Fire dispatch at the local instant of the earliest pending remind_at (no poll wait). */
 function scheduleNoteReminderWake(pendingItems){
   clearNoteReminderWakeTimer();
@@ -28004,7 +28137,7 @@ async function ensurePendingNoteReminderMap(force = false){
   }
   const run = (async () => {
     try {
-      const res = await supabaseRpc("app_list_my_note_reminders", {});
+      const res = unwrapRpcJson(await supabaseRpc("app_list_my_note_reminders", {}));
       const items = Array.isArray(res?.pending)
         ? res.pending
         : (Array.isArray(res?.items) ? res.items : []);
@@ -31792,7 +31925,7 @@ async function applyMessagingLiveUiRefresh(reason){
 async function fetchMessagingSyncState(){
   if (messagingLiveState.syncRpcAvailable === false) return null;
   try {
-    const sync = await supabaseRpc("app_messaging_sync_state", {});
+    const sync = unwrapRpcJson(await supabaseRpc("app_messaging_sync_state", {}));
     messagingLiveState.syncRpcAvailable = true;
     return sync;
   } catch (err) {
@@ -31828,10 +31961,10 @@ async function fetchMessagingFallbackFingerprint(){
 
   let userNotifUnread = 0;
   try {
-    const userNotifs = await supabaseRpc("app_list_my_notifications", { p_limit: 1 });
-    userNotifUnread = Number(userNotifs?.unread || 0);
+    const userNotifs = await fetchMyNotificationsList(1);
+    userNotifUnread = Number(userNotifs.unread || 0);
   } catch (_) {}
-  const result = await supabaseRpc("app_list_my_inquiries", {});
+  const result = unwrapRpcJson(await supabaseRpc("app_list_my_inquiries", {}));
   const items = Array.isArray(result?.items) ? result.items : [];
   const unreadMsgs = items.reduce((sum, t) => sum + Number(t.unread_for_user || 0), 0);
   applyAdminBadgeCounts(userNotifUnread, unreadMsgs);
@@ -31858,7 +31991,8 @@ async function dispatchDueNoteRemindersThrottled(force = false){
       // Prefer client-now; fall back if overload/arg is not deployed yet.
       res = await supabaseRpc("app_dispatch_due_note_reminders", {});
     }
-    const delivered = Math.max(0, Number(res?.delivered ?? res?.[0]?.delivered ?? 0));
+    const payload = unwrapRpcJson(res);
+    const delivered = Math.max(0, Number(payload?.delivered ?? res?.delivered ?? res?.[0]?.delivered ?? 0));
     if (delivered > 0) {
       noteMessagingLocalMutation();
       queueMessagingLiveUiRefresh("note-reminders");
@@ -31868,6 +32002,8 @@ async function dispatchDueNoteRemindersThrottled(force = false){
         try { await loadAdminNotificationsDropdown(); } catch (_) {}
       }
       showNoteReminderToasts(locallyDueNoteReminders(noteReminderUiState.pendingReminders, 2000));
+      // Prefer inbox rows so overlay works even when pending cache is empty (cold load).
+      try { await presentUnreadReminderAlertsFromNotifications(); } catch (_) {}
     }
     return delivered;
   } catch (err) {
@@ -31890,13 +32026,25 @@ async function runMessagingLivePoll(){
         applyAdminBadgeCounts(sync.notifications ?? sync.user_notifications, sync.inquiries ?? sync.user_unread);
       }
       const prev = messagingLiveState.fingerprint;
+      const userUnread = Number(
+        sync.role === "admin"
+          ? (sync.user_notifications ?? 0)
+          : (sync.notifications ?? sync.user_notifications ?? 0)
+      );
       if (prev === null) {
         messagingLiveState.fingerprint = sync.fingerprint;
+        // Cold-load: badge may already be > 0 from unread reminders delivered while offline.
+        if (userUnread > 0) {
+          presentUnreadReminderAlertsFromNotifications().catch(() => {});
+        }
         return;
       }
       if (prev === sync.fingerprint) return;
       messagingLiveState.fingerprint = sync.fingerprint;
       queueMessagingLiveUiRefresh("sync");
+      if (userUnread > 0) {
+        presentUnreadReminderAlertsFromNotifications().catch(() => {});
+      }
       return;
     }
 
@@ -31957,14 +32105,14 @@ async function refreshAdminCommsBadges(){
       let adminN = 0;
       let inquiries = 0;
       try {
-        const counts = await supabaseRpc("app_admin_unread_counts", {});
+        const counts = unwrapRpcJson(await supabaseRpc("app_admin_unread_counts", {}));
         adminN = Number(counts?.notifications || 0);
         inquiries = Number(counts?.inquiries || 0);
       } catch (_) {}
       let userN = 0;
       try {
-        const userNotifs = await supabaseRpc("app_list_my_notifications", { p_limit: 1 });
-        userN = Number(userNotifs?.unread || 0);
+        const userNotifs = await fetchMyNotificationsList(1);
+        userN = Number(userNotifs.unread || 0);
       } catch (_) {}
       applyAdminBadgeCounts(adminN + userN, inquiries);
       return;
@@ -31972,11 +32120,11 @@ async function refreshAdminCommsBadges(){
     let userN = 0;
     let userUnread = 0;
     try {
-      const userNotifs = await supabaseRpc("app_list_my_notifications", { p_limit: 1 });
-      userN = Number(userNotifs?.unread || 0);
+      const userNotifs = await fetchMyNotificationsList(1);
+      userN = Number(userNotifs.unread || 0);
     } catch (_) {}
     try {
-      const result = await supabaseRpc("app_list_my_inquiries", {});
+      const result = unwrapRpcJson(await supabaseRpc("app_list_my_inquiries", {}));
       const items = Array.isArray(result?.items) ? result.items : [];
       userUnread = items.reduce((sum, t) => sum + Number(t.unread_for_user || 0), 0);
     } catch (_) {}
@@ -32014,47 +32162,67 @@ async function loadAdminNotificationsDropdown(){
   try {
     await dispatchDueNoteRemindersThrottled(true);
     const items = [];
+    let loadErrors = [];
     if (isAppAdminSession()) {
       try {
-        const adminResult = await supabaseRpc("app_admin_list_notifications", { p_limit: 40 });
+        const adminResult = unwrapRpcJson(await supabaseRpc("app_admin_list_notifications", { p_limit: 40 }));
         (Array.isArray(adminResult?.items) ? adminResult.items : []).forEach(n => {
           items.push({ ...n, source: "admin" });
         });
-      } catch (_) {}
+      } catch (err) {
+        loadErrors.push(err?.message || "Admin notifications failed");
+      }
     }
     try {
-      const userResult = await supabaseRpc("app_list_my_notifications", { p_limit: 40 });
-      (Array.isArray(userResult?.items) ? userResult.items : []).forEach(n => {
+      const userResult = await fetchMyNotificationsList(40);
+      userResult.items.forEach(n => {
         items.push({ ...n, source: n.source || "user" });
       });
-    } catch (_) {}
+    } catch (err) {
+      loadErrors.push(err?.message || "User notifications failed");
+    }
     items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     adminCommsState.notifications = items.slice(0, 50);
     if (!adminCommsState.notifications.length) {
-      list.innerHTML = `<div class="admin-comms-empty">No notifications yet</div>`;
+      const hint = loadErrors.length
+        ? `Could not load notifications (${escapeHtml(loadErrors[0])})`
+        : "No notifications yet";
+      list.innerHTML = `<div class="admin-comms-empty">${hint}</div>`;
       return;
     }
     list.innerHTML = adminCommsState.notifications.map(n => {
       const unread = !n.is_read;
       const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
       const source = n.source || (n.kind === "note_reminder" || n.kind === "installment_due" ? "user" : "admin");
+      const reminderPreview = n.kind === "note_reminder"
+        ? String(payload.note_preview || n.body || "").trim()
+        : n.kind === "installment_due"
+          ? [payload.person_name, payload.due_date, payload.amount_label].filter(Boolean).join(" · ")
+          : "";
       const extra = n.kind === "renewal_request"
         ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.period_label || accessPeriodLabel(payload.requested_period, payload.requested_days, payload.requested_until ? toInputDateValue(payload.requested_until) : null))}</strong>${payload.current_expires_at ? ` · current ${escapeHtml(formatTrialExpiry(payload.current_expires_at))}` : ""}${payload.message ? ` · “${escapeHtml(payload.message)}”` : ""}</p>`
         : (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled")
           ? `<p class="admin-comms-item-body">${payload.trial_expires_at ? `Expired ${escapeHtml(formatTrialExpiry(payload.trial_expires_at))}` : ""}${payload.access_disable_at ? ` · disable ${escapeHtml(formatTrialExpiry(payload.access_disable_at))}` : ""}</p>`
-          : (n.kind === "note_reminder" && payload.note_preview
-            ? `<p class="admin-comms-item-body">${escapeHtml(String(payload.note_preview).slice(0, 120))}</p>`
+          : (reminderPreview
+            ? `<p class="admin-comms-item-body">${escapeHtml(reminderPreview.slice(0, 120))}</p>`
             : "");
       const jumpUser = source === "admin" && n.related_user_id
         ? `<button type="button" class="btn ghost" data-notif-user="${escapeHtml(n.related_user_id)}" title="Open user"><i class="fa-solid fa-user"></i></button>`
         : "";
+      const title = String(n.title || (
+        n.kind === "note_reminder"
+          ? (payload.type === "installment_manual" ? "Installment reminder" : "Note reminder")
+          : n.kind === "installment_due"
+            ? "Installment due"
+            : "Notification"
+      )).trim();
       return `
         <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" data-related-user="${escapeHtml(n.related_user_id || "")}">
           <div class="admin-comms-item-icon ${notificationIconClass(n.kind)}">
             <i class="fa-solid ${notificationIcon(n.kind)}"></i>
           </div>
           <div>
-            <p class="admin-comms-item-title">${escapeHtml(n.title)}</p>
+            <p class="admin-comms-item-title">${escapeHtml(title)}</p>
             <p class="admin-comms-item-body">${escapeHtml(n.body || "")}</p>
             ${extra}
             <span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(n.created_at))}</span>
@@ -32623,21 +32791,26 @@ function bindMessagingUi(){
         }
         if (n?.kind === "inquiry") {
           goToMessagesTab(n.related_inquiry_id || null);
-        } else if (n?.kind === "note_reminder") {
+        } else if (n?.kind === "note_reminder" || n?.kind === "installment_due") {
           document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
-          const planId = payload.plan_group_id || payload.related_plan_group_id || "";
-          if (payload.type === "installment_manual" || (planId && !n.related_note_id && !payload.note_id)) {
+          // Replay the same centered overlay (and sound) for reminder inbox rows.
+          const raw = notificationRowToReminderAlertRaw({ ...n, is_read: false });
+          if (raw) {
+            const item = normalizeReminderAlertItem(raw);
+            const key = reminderAlertDedupeKey(item);
+            if (key) noteReminderUiState.toastedReminderIds.delete(key);
+            enqueueReminderAlerts([raw]);
+          } else if (n.kind === "installment_due") {
             activate("installments");
-            if (planId && typeof window.openInstallmentReminderModal === "function") {
-              try { await window.openInstallmentReminderModal(planId); } catch (_) {}
-            }
           } else {
-            activate("notes");
+            const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
+            const planId = payload.plan_group_id || payload.related_plan_group_id || "";
+            if (payload.type === "installment_manual" || (planId && !n.related_note_id && !payload.note_id)) {
+              activate("installments");
+            } else {
+              activate("notes");
+            }
           }
-        } else if (n?.kind === "installment_due") {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          activate("installments");
         } else if (n?.kind === "trial_signup" || n?.kind === "renewal_request" || n?.kind === "access_expiry_warning" || n?.kind === "access_auto_disabled") {
           document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
           activate("admin");
