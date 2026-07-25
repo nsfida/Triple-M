@@ -123,7 +123,15 @@ body{
 }
 .site-footer{
   position:relative;
-  z-index:1;
+  /* Stay below .shell (z-index:1) so fixed overlays inside the app
+     (e.g. trial-expired / guest-restriction) cover this footer. */
+  z-index:0;
+}
+/* When workspace is locked (trial expired), keep footer out of the way of the dimmer. */
+body.trial-locked .site-footer,
+body.access-locked .site-footer{
+  visibility:hidden;
+  pointer-events:none;
 }
 button,input,select,textarea,option{
   font-family: inherit;
@@ -1262,6 +1270,10 @@ a{color:inherit}
   flex:0 0 auto;
   min-width:0;
 }
+.section-details-head-text{
+  min-width:0;
+  flex:1 1 auto;
+}
 .section-details-dialog .modal-head h3{
   font-size:.95rem;
   font-weight:700;
@@ -1270,6 +1282,70 @@ a{color:inherit}
   margin:2px 0 0;
   font-size:.72rem;
   color:var(--muted);
+}
+.section-details-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex:0 0 auto;
+  gap:4px;
+  margin-left:auto;
+}
+.section-details-actions.hide{
+  display:none !important;
+}
+.section-details-action-grid{
+  grid-template-columns:repeat(2, var(--card-action-size));
+}
+.section-details-action-grid--triple{
+  grid-template-columns:repeat(3, var(--card-action-size));
+}
+.section-details-currency-bar{
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:center;
+  gap:6px;
+  margin:0 0 10px;
+  padding:2px 0 4px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+}
+.section-details-currency-chip{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:1px solid var(--line-strong);
+  background:rgba(255,255,255,.82);
+  color:var(--text);
+  border-radius:999px;
+  padding:6px 10px;
+  cursor:pointer;
+  font-weight:700;
+  font-size:.72rem;
+  line-height:1;
+  transition:border-color .15s ease, background .15s ease, color .15s ease;
+  white-space:nowrap;
+}
+.section-details-currency-chip:hover{
+  border-color:rgba(36,87,214,.35);
+}
+.section-details-currency-chip.active{
+  border-color:rgba(36,87,214,.45);
+  background:var(--primary-soft);
+  color:var(--primary);
+}
+.section-details-currency-chip .symbol{
+  display:inline-block;
+  font-size:.95rem;
+  line-height:1;
+}
+@media (min-width:721px){
+  .section-details-currency-bar{
+    flex-wrap:wrap;
+    overflow-x:visible;
+  }
 }
 .section-details-dialog .modal-body{
   padding:8px 12px 14px;
@@ -1326,7 +1402,7 @@ a{color:inherit}
 .section-details-chart-card{
   border:1px solid var(--line);
   border-radius:12px;
-  background:rgba(255,255,255,.72);
+  background:linear-gradient(180deg, rgba(255,255,255,.9), rgba(248,250,252,.78));
   padding:10px 10px 8px;
   min-width:0;
 }
@@ -1527,6 +1603,23 @@ details[open] .loan-inline-actions .loanHistoryToggle{
   }
   .section-details-activity-main span{
     white-space:normal;
+  }
+  .section-details-dialog .modal-head{
+    flex-wrap:wrap;
+  }
+  .section-details-actions{
+    order:2;
+  }
+  .section-details-dialog .modal-head > .icon-btn[data-close-modal]{
+    order:3;
+  }
+  .section-details-currency-bar{
+    margin-bottom:8px;
+    gap:5px;
+  }
+  .section-details-currency-chip{
+    padding:5px 9px;
+    font-size:.7rem;
   }
 }
 
@@ -7299,6 +7392,12 @@ a.landing-mobile-item{
 }
 
 .modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:14px;}
+/* Charts overlay; Reminder / Pay (and related) modals must stack above it */
+#sectionDetailsModal.modal{z-index:1040;}
+#noteReminderModal.modal,
+#entryModal.modal,
+#goodsModal.modal,
+#goodsSettlementModal.modal{z-index:1060;}
 .modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(4px);}
 .modal-dialog{
   position:relative;width:min(760px,100%);max-height:calc(100vh - 28px);overflow:auto;
@@ -9931,6 +10030,19 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   gap: 6px;
 }
 
+.admin-user-company-group {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-user-team-nest {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 2px 14px;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--primary) 35%, var(--line));
+}
+
 .admin-user-card {
   background: var(--panel-2);
   border: 1px solid var(--line);
@@ -9939,6 +10051,32 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
   display: grid;
   gap: 0;
   overflow: hidden;
+}
+
+.admin-user-card--team-member {
+  background: color-mix(in srgb, var(--panel-2) 88%, var(--panel));
+  border-style: dashed;
+}
+
+.admin-user-nest-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.admin-user-team-count {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
 }
 
 .admin-user-summary {
@@ -10079,6 +10217,10 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 @media (max-width: 720px) {
   .admin-credentials {
     max-width: 100%;
+  }
+  .admin-user-team-nest {
+    margin-left: 8px;
+    padding-left: 8px;
   }
   .admin-user-summary {
     padding: 7px 8px;
@@ -11188,6 +11330,186 @@ label{font-size:.78rem;color:var(--muted);font-weight:600}
 .admin-comms-item-icon.warn{
   background: #fff7ed;
   color: #c2410c;
+}
+.admin-comms-item-icon.reminder{
+  background: #eef2ff;
+  color: #3730a3;
+}
+.admin-comms-item-icon.due{
+  background: #ecfeff;
+  color: #0e7490;
+}
+.note-reminder-bell.has-reminder{
+  color: var(--primary);
+  border-color: rgba(36, 87, 214, 0.45);
+  background: var(--primary-soft);
+}
+.note-reminder-bell.has-reminder i{
+  color: var(--primary);
+}
+#noteEditModal .modal-dialog.compact-entry-dialog{
+  width: min(480px, calc(100vw - 24px));
+}
+#noteEditContent{
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.note-reminder-existing{
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.note-reminder-existing-head{
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.note-reminder-existing-list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.note-reminder-existing-item{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.note-reminder-existing-item:first-child{
+  border-top: 0;
+  padding-top: 0;
+}
+.note-reminder-existing-meta{
+  min-width: 0;
+  flex: 1;
+}
+.note-reminder-existing-when{
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+.note-reminder-existing-msg{
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+  word-break: break-word;
+}
+.note-reminder-existing-msg.is-empty{
+  font-style: italic;
+  opacity: 0.85;
+}
+.note-reminder-existing-actions{
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+.note-reminder-existing-actions .btn{
+  padding: 4px 8px;
+  font-size: 0.76rem;
+}
+.note-reminder-existing-loading,
+.note-reminder-existing-error{
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.note-reminder-existing-error{
+  color: var(--danger);
+}
+/* Reminder / installment due alert overlay (above app modals & dropdowns) */
+.reminder-alert-modal.modal{
+  z-index: 11050;
+}
+.reminder-alert-modal .reminder-alert-dialog{
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(520px, calc(100vh - 32px));
+  max-height: min(520px, calc(100dvh - 32px));
+  animation: reminder-alert-in 0.22s ease-out;
+}
+.reminder-alert-preview{
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--primary-soft, rgba(36, 87, 214, 0.08));
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 9.5em;
+  overflow: auto;
+}
+.reminder-alert-preview:empty{
+  display: none;
+}
+.reminder-alert-message{
+  margin: 0 0 4px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--text);
+  word-break: break-word;
+}
+.reminder-alert-message:empty{
+  display: none;
+}
+.reminder-alert-actions{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.reminder-alert-actions .btn{
+  min-height: 34px;
+  font-size: 0.8rem;
+}
+@keyframes reminder-alert-in{
+  from{ opacity: 0; transform: translateY(8px) scale(0.98); }
+  to{ opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 720px) {
+  .reminder-alert-modal .reminder-alert-dialog{
+    width: min(420px, calc(100vw - 16px));
+  }
+  #noteEditModal .modal-dialog.compact-entry-dialog{
+    width: min(480px, calc(100vw - 16px));
+  }
+  #noteEditContent{
+    min-height: 160px;
+  }
+  .reminder-alert-actions{
+    gap: 6px;
+  }
+  .reminder-alert-actions .btn{
+    flex: 1 1 auto;
+  }
+  .note-card-actions{
+    gap: 4px;
+  }
+  .note-card-actions .btn{
+    padding: 4px 6px;
+  }
+  .note-reminder-existing{
+    padding: 8px 10px;
+  }
+  .note-reminder-existing-item{
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .note-reminder-existing-actions{
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 720px) {
