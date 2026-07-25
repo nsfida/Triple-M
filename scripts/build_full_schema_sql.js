@@ -69,6 +69,7 @@ const CANONICAL_MIGRATION_FILES = [
   "044_note_reminder_client_now.sql",
   "045_installment_manual_reminders.sql",
   "046_expense_account_types_expand.sql",
+  "047_expense_account_type_crypto_wallet.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
