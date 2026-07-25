@@ -676,12 +676,25 @@ const state = {
     lastError: ""
   },
   inventoryItemTypeFilter: "all",
+  inventoryBrandFilter: "all",
   inventoryView: "stock",
   inventoryDraft: {
     purchaseGroupId: "",
     saleGroupIds: [],
     settlement: null,
     customerRecordName: ""
+  },
+  inventoryBrands: [],
+  inventoryBrandsLoaded: false,
+  inventoryBrandsLoading: false,
+  inventoryLazy: {
+    enabled: false,
+    rpcAvailable: null,
+    summaries: [],
+    queryKey: "",
+    loading: false,
+    detailLoaded: new Set(),
+    lastError: ""
   },
   bitcoin: {
     wallet: null,
@@ -1023,13 +1036,18 @@ const DELETED_TAG = "[DELETED]";
 const INVENTORY_CATEGORY_COUNT = "count";
 const INVENTORY_CATEGORY_WEIGHT = "weight";
 const INVENTORY_CATEGORY_LENGTH = "length";
+const INVENTORY_CATEGORY_VOLUME = "volume";
 const INVENTORY_UNIT_ITEM = "item";
 const INVENTORY_UNIT_KG = "kg";
 const INVENTORY_UNIT_GRAM = "g";
 const INVENTORY_UNIT_M = "m";
 const INVENTORY_UNIT_CM = "cm";
+const INVENTORY_UNIT_L = "l";
+const INVENTORY_UNIT_ML = "ml";
 const INVENTORY_NEW_CUSTOMER_VALUE = "__new_customer__";
 const INVENTORY_CUSTOM_TYPE_VALUE = "__custom_type__";
+const INVENTORY_CUSTOM_BRAND_VALUE = "__custom_brand__";
+const INVENTORY_CUSTOM_VARIANT_VALUE = "__custom_variant__";
 const INVENTORY_DEFAULT_ITEM_TYPES = [
   "General",
   "Liquid",
@@ -1040,7 +1058,8 @@ const INVENTORY_DEFAULT_ITEM_TYPES = [
   "Cables & Pipes",
   "Food & Grocery",
   "Clothing",
-  "Furniture"
+  "Furniture",
+  "Perfumes"
 ];
 const INVENTORY_TX_PURCHASE = "PURCHASE";
 const INVENTORY_TX_SALE = "SALE";
@@ -1083,12 +1102,30 @@ function resetLazyDataState({ clearEntries = false } = {}){
   state.bitcoinWalletsLoaded = false;
   state.bitcoinWalletsLoading = false;
   resetExpenseLazyState();
+  resetInventoryLazyState();
   if (clearEntries) {
     state.entries = [];
     state.recycleBin = [];
     updateDbSnapshot([]);
     renderRecycleBinDropdown();
   }
+}
+
+function resetInventoryLazyState(){
+  state.inventoryLazy = {
+    enabled: false,
+    rpcAvailable: state.inventoryLazy?.rpcAvailable ?? null,
+    summaries: [],
+    queryKey: "",
+    loading: false,
+    detailLoaded: new Set(),
+    lastError: ""
+  };
+  state.inventoryBrandsLoaded = false;
+}
+
+function isInventoryLazyMode(){
+  return !!(state.inventoryLazy && state.inventoryLazy.enabled && state.inventoryLazy.rpcAvailable !== false);
 }
 
 function resetExpenseLazyState(){
@@ -4240,6 +4277,7 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   const rows = asEntryArray(entryOrEntries).map(entry => withLocalEntryIdentity(entry, timestamp));
   state.entries.unshift(...rows);
   const touchesExpenses = rows.some(row => hasExpenseAccountTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_EXPENSES));
+  const touchesGoods = rows.some(row => hasGoodsTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_GOODS));
   if (isBackupMode()) {
     refreshBackupView();
   } else {
@@ -4255,6 +4293,15 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
             renderExpensesList();
             renderExpenseOverviewWallets();
           }
+        })
+        .catch(() => {});
+    }
+    if (touchesGoods && state.inventoryLazy.rpcAvailable !== false) {
+      Promise.resolve()
+        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+        .then(() => invalidateAndRefreshInventoryLazy())
+        .then(ok => {
+          if (ok && getActiveTabKey() === "goods") renderInventoryList();
         })
         .catch(() => {});
     }
@@ -5433,6 +5480,10 @@ function goodsMetaFromNotes(noteValue){
     transactionType: readText("TX"),
     itemCategory: readText("UCAT"),
     quantityUnit: readText("UOM"),
+    brand: readText("BRAND"),
+    variantLabel: readText("VARIANT"),
+    brandId: readText("BRANDID"),
+    variantId: readText("VARIANTID"),
     paidAmount: readNum("PAID"),
     balanceAmount: readNum("BAL"),
     paymentStatus: readText("PSTAT"),
@@ -5448,7 +5499,7 @@ function goodsMetaFromNotes(noteValue){
 }
 
 function goodsMetaTagCleanRegex(){
-  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi;
+  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|BRAND|VARIANT|BRANDID|VARIANTID|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS):[^\]]*\]/gi;
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
@@ -5462,6 +5513,10 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.itemCode) tags.push(`[ICODE:${String(meta.itemCode).replace(/\]/g, "")}]`);
   if (meta.itemDescription) tags.push(`[IDESC:${String(meta.itemDescription).replace(/\]/g, "")}]`);
   if (meta.itemType) tags.push(`[ITYPE:${String(meta.itemType).replace(/\]/g, "")}]`);
+  if (meta.brand) tags.push(`[BRAND:${String(meta.brand).replace(/\]/g, "")}]`);
+  if (meta.variantLabel) tags.push(`[VARIANT:${String(meta.variantLabel).replace(/\]/g, "")}]`);
+  if (meta.brandId) tags.push(`[BRANDID:${String(meta.brandId).replace(/\]/g, "")}]`);
+  if (meta.variantId) tags.push(`[VARIANTID:${String(meta.variantId).replace(/\]/g, "")}]`);
   if (meta.customerName) tags.push(`[CUST:${String(meta.customerName).replace(/\]/g, "")}]`);
   if (meta.customerPhone) tags.push(`[CPHONE:${String(meta.customerPhone).replace(/\]/g, "")}]`);
   if (meta.customerAddress) tags.push(`[CADDR:${String(meta.customerAddress).replace(/\]/g, "")}]`);
@@ -6098,6 +6153,17 @@ function normalizeInventoryCategory(value){
   if (raw === INVENTORY_CATEGORY_LENGTH || raw === "meter" || raw === "metre" || raw === "m" || raw === "cm") {
     return INVENTORY_CATEGORY_LENGTH;
   }
+  if (
+    raw === INVENTORY_CATEGORY_VOLUME
+    || raw === "liter"
+    || raw === "litre"
+    || raw === "l"
+    || raw === "ml"
+    || raw === "milliliter"
+    || raw === "millilitre"
+  ) {
+    return INVENTORY_CATEGORY_VOLUME;
+  }
   return INVENTORY_CATEGORY_COUNT;
 }
 
@@ -6105,18 +6171,22 @@ function inventoryCategoryLabel(value){
   const category = normalizeInventoryCategory(value);
   if (category === INVENTORY_CATEGORY_WEIGHT) return "Weight";
   if (category === INVENTORY_CATEGORY_LENGTH) return "Length";
+  if (category === INVENTORY_CATEGORY_VOLUME) return "Volume";
   return "Numbers";
 }
 
 function inventoryIsDecimalCategory(category){
   const normalized = normalizeInventoryCategory(category);
-  return normalized === INVENTORY_CATEGORY_WEIGHT || normalized === INVENTORY_CATEGORY_LENGTH;
+  return normalized === INVENTORY_CATEGORY_WEIGHT
+    || normalized === INVENTORY_CATEGORY_LENGTH
+    || normalized === INVENTORY_CATEGORY_VOLUME;
 }
 
 function inventoryQtyFieldLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Weight";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Length";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Volume";
   return "Quantity";
 }
 
@@ -6124,6 +6194,7 @@ function inventoryPurchasePriceLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Purchase price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Purchase price / m";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Purchase price / L";
   return "Purchase price";
 }
 
@@ -6131,6 +6202,7 @@ function inventorySellingPriceLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Selling price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Selling price / m";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Selling price / L";
   return "Selling price";
 }
 
@@ -6138,6 +6210,7 @@ function inventorySalePricePlaceholder(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Price / m";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Price / L";
   return "Unit price";
 }
 
@@ -6145,6 +6218,7 @@ function inventoryBaseUnitForCategory(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return INVENTORY_UNIT_KG;
   if (normalized === INVENTORY_CATEGORY_LENGTH) return INVENTORY_UNIT_M;
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return INVENTORY_UNIT_L;
   return INVENTORY_UNIT_ITEM;
 }
 
@@ -6164,6 +6238,13 @@ function inventoryUnitSelectOptionsHtml(category, selectedUnit = ""){
       `<option value="${INVENTORY_UNIT_CM}"${unit === INVENTORY_UNIT_CM ? " selected" : ""}>cm</option>`
     ].join("");
   }
+  if (normalized === INVENTORY_CATEGORY_VOLUME){
+    const unit = normalizeInventoryUnit(selectedUnit, normalized);
+    return [
+      `<option value="${INVENTORY_UNIT_L}"${unit === INVENTORY_UNIT_L ? " selected" : ""}>L</option>`,
+      `<option value="${INVENTORY_UNIT_ML}"${unit === INVENTORY_UNIT_ML ? " selected" : ""}>ml</option>`
+    ].join("");
+  }
   return `<option value="${INVENTORY_UNIT_ITEM}" selected>Pcs</option>`;
 }
 
@@ -6177,6 +6258,10 @@ function normalizeInventoryUnit(value, category){
   if (normalizedCategory === INVENTORY_CATEGORY_LENGTH){
     if (unit === INVENTORY_UNIT_CM || unit === "cm" || unit === "centimeter" || unit === "centimetre") return INVENTORY_UNIT_CM;
     return INVENTORY_UNIT_M;
+  }
+  if (normalizedCategory === INVENTORY_CATEGORY_VOLUME){
+    if (unit === INVENTORY_UNIT_ML || unit === "ml" || unit === "milliliter" || unit === "millilitre") return INVENTORY_UNIT_ML;
+    return INVENTORY_UNIT_L;
   }
   return INVENTORY_UNIT_ITEM;
 }
@@ -6199,6 +6284,9 @@ function normalizeInventoryQuantityInput(value, category, unit){
   if (normalizedCategory === INVENTORY_CATEGORY_LENGTH){
     return normalizeInventoryUnit(unit, normalizedCategory) === INVENTORY_UNIT_CM ? raw / 100 : raw;
   }
+  if (normalizedCategory === INVENTORY_CATEGORY_VOLUME){
+    return normalizeInventoryUnit(unit, normalizedCategory) === INVENTORY_UNIT_ML ? raw / 1000 : raw;
+  }
   return Math.max(0, Math.floor(raw));
 }
 
@@ -6217,6 +6305,10 @@ function formatInventoryQty(value, category){
   const qty = normalizeStoredInventoryQty(value, normalizedCategory, 0);
   if (normalizedCategory === INVENTORY_CATEGORY_WEIGHT) return `${trimInventoryNumber(qty, 3)} KG`;
   if (normalizedCategory === INVENTORY_CATEGORY_LENGTH) return `${trimInventoryNumber(qty, 3)} m`;
+  if (normalizedCategory === INVENTORY_CATEGORY_VOLUME) {
+    if (qty > 0 && qty < 1) return `${trimInventoryNumber(qty * 1000, 3)} ml`;
+    return `${trimInventoryNumber(qty, 3)} L`;
+  }
   return `${trimInventoryNumber(qty, 0)} pcs`;
 }
 
@@ -6229,7 +6321,8 @@ function inventoryQtySummary(groups, key){
   const totals = {
     [INVENTORY_CATEGORY_COUNT]: 0,
     [INVENTORY_CATEGORY_WEIGHT]: 0,
-    [INVENTORY_CATEGORY_LENGTH]: 0
+    [INVENTORY_CATEGORY_LENGTH]: 0,
+    [INVENTORY_CATEGORY_VOLUME]: 0
   };
   for (const group of rows){
     const category = normalizeInventoryCategory(group.itemCategory);
@@ -6239,6 +6332,7 @@ function inventoryQtySummary(groups, key){
   if (totals[INVENTORY_CATEGORY_COUNT]) parts.push(formatInventoryQty(totals[INVENTORY_CATEGORY_COUNT], INVENTORY_CATEGORY_COUNT));
   if (totals[INVENTORY_CATEGORY_WEIGHT]) parts.push(formatInventoryQty(totals[INVENTORY_CATEGORY_WEIGHT], INVENTORY_CATEGORY_WEIGHT));
   if (totals[INVENTORY_CATEGORY_LENGTH]) parts.push(formatInventoryQty(totals[INVENTORY_CATEGORY_LENGTH], INVENTORY_CATEGORY_LENGTH));
+  if (totals[INVENTORY_CATEGORY_VOLUME]) parts.push(formatInventoryQty(totals[INVENTORY_CATEGORY_VOLUME], INVENTORY_CATEGORY_VOLUME));
   return parts.length ? parts.join(" | ") : "0";
 }
 
@@ -7368,6 +7462,332 @@ function inventoryPurchaseCurrencyOptionsHtml(selected = ""){
   ).join("");
 }
 
+function getInventoryBrandCatalog(){
+  return Array.isArray(state.inventoryBrands) ? state.inventoryBrands : [];
+}
+
+function findInventoryBrandById(brandId){
+  const id = String(brandId || "").trim();
+  if (!id) return null;
+  return getInventoryBrandCatalog().find(b => String(b.id) === id) || null;
+}
+
+function inventoryBrandOptionsHtml(selectedBrandId = "", selectedBrandName = ""){
+  const brands = getInventoryBrandCatalog();
+  const selectedId = String(selectedBrandId || "").trim();
+  const selectedName = String(selectedBrandName || "").trim();
+  const known = brands.some(b => String(b.id) === selectedId);
+  const useCustom = !known && !!selectedName;
+  return [
+    `<option value="">No brand</option>`,
+    ...brands.map(b => `<option value="${escapeHtml(b.id)}" ${String(b.id) === selectedId ? "selected" : ""}>${escapeHtml(b.name)}</option>`),
+    `<option value="${INVENTORY_CUSTOM_BRAND_VALUE}" ${useCustom ? "selected" : ""}>+ New brand…</option>`
+  ].join("");
+}
+
+function inventoryVariantOptionsHtml(brandId = "", selectedVariantId = "", selectedVariantLabel = ""){
+  const brand = findInventoryBrandById(brandId);
+  const variants = Array.isArray(brand?.variants) ? brand.variants : [];
+  const selectedId = String(selectedVariantId || "").trim();
+  const selectedLabel = String(selectedVariantLabel || "").trim();
+  const known = variants.some(v => String(v.id) === selectedId);
+  const useCustom = !known && !!selectedLabel;
+  if (!brandId || brandId === INVENTORY_CUSTOM_BRAND_VALUE) {
+    return [
+      `<option value="">No variant</option>`,
+      `<option value="${INVENTORY_CUSTOM_VARIANT_VALUE}" ${useCustom ? "selected" : ""}>+ Custom variant…</option>`
+    ].join("");
+  }
+  return [
+    `<option value="">No variant</option>`,
+    ...variants.map(v => `<option value="${escapeHtml(v.id)}" ${String(v.id) === selectedId ? "selected" : ""}>${escapeHtml(v.label)}</option>`),
+    `<option value="${INVENTORY_CUSTOM_VARIANT_VALUE}" ${useCustom ? "selected" : ""}>+ Custom variant…</option>`
+  ].join("");
+}
+
+function readGoodsPurchaseLineBrand(line){
+  if (!line) return { brand: "", brandId: "", variantLabel: "", variantId: "" };
+  const brandSelect = line.querySelector(".goods-buy-brand");
+  const brandCustom = line.querySelector(".goods-buy-brand-custom");
+  const variantSelect = line.querySelector(".goods-buy-variant");
+  const variantCustom = line.querySelector(".goods-buy-variant-custom");
+  const brandValue = String(brandSelect?.value || "").trim();
+  let brand = "";
+  let brandId = "";
+  if (brandValue === INVENTORY_CUSTOM_BRAND_VALUE) {
+    brand = String(brandCustom?.value || "").trim();
+  } else if (brandValue) {
+    brandId = brandValue;
+    brand = findInventoryBrandById(brandId)?.name || String(brandCustom?.value || "").trim();
+  }
+  const variantValue = String(variantSelect?.value || "").trim();
+  let variantLabel = "";
+  let variantId = "";
+  if (variantValue === INVENTORY_CUSTOM_VARIANT_VALUE) {
+    variantLabel = String(variantCustom?.value || "").trim();
+  } else if (variantValue) {
+    variantId = variantValue;
+    const brandObj = findInventoryBrandById(brandId);
+    variantLabel = (brandObj?.variants || []).find(v => String(v.id) === variantId)?.label
+      || String(variantCustom?.value || "").trim();
+  }
+  return { brand, brandId, variantLabel, variantId };
+}
+
+function applyInventoryVariantToPurchaseLine(line, variant){
+  if (!line || !variant) return;
+  const categorySelect = line.querySelector(".goods-buy-category");
+  const qtyInput = line.querySelector(".goods-buy-qty");
+  const unitSelect = line.querySelector(".goods-buy-unit");
+  const nameInput = line.querySelector(".goods-buy-name");
+  const brandInfo = readGoodsPurchaseLineBrand(line);
+  const category = normalizeInventoryCategory(variant.item_category || variant.itemCategory || INVENTORY_CATEGORY_COUNT);
+  if (categorySelect) categorySelect.value = category;
+  syncGoodsPurchaseLineCategoryFields(line, { rebuildUnits: true });
+  const unit = normalizeInventoryUnit(variant.quantity_unit || variant.quantityUnit, category);
+  const qtyValue = Number(variant.quantity_value ?? variant.quantityValue ?? 1);
+  if (unitSelect) {
+    unitSelect.disabled = !inventoryIsDecimalCategory(category);
+    unitSelect.innerHTML = inventoryUnitSelectOptionsHtml(category, unit);
+    unitSelect.value = unit;
+  }
+  if (qtyInput && Number.isFinite(qtyValue) && qtyValue > 0) {
+    // Show ml when stored as L base < 1, or the variant's display unit.
+    if (category === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML) {
+      qtyInput.value = trimInventoryNumber(qtyValue, 3);
+    } else if (category === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_L && qtyValue < 1) {
+      qtyInput.value = trimInventoryNumber(qtyValue * 1000, 3);
+      if (unitSelect) unitSelect.value = INVENTORY_UNIT_ML;
+    } else {
+      qtyInput.value = trimInventoryNumber(qtyValue, inventoryIsDecimalCategory(category) ? 3 : 0);
+    }
+  }
+  if (nameInput && brandInfo.brand && variant.label) {
+    const current = String(nameInput.value || "").trim();
+    if (!current || /·/.test(current)) {
+      nameInput.value = `${brandInfo.brand} · ${variant.label}`;
+    }
+  }
+}
+
+function syncGoodsPurchaseLineBrandFields(line){
+  if (!line) return;
+  const brandSelect = line.querySelector(".goods-buy-brand");
+  const brandCustom = line.querySelector(".goods-buy-brand-custom");
+  const variantSelect = line.querySelector(".goods-buy-variant");
+  const variantCustom = line.querySelector(".goods-buy-variant-custom");
+  if (!brandSelect || !variantSelect) return;
+  const brandValue = String(brandSelect.value || "").trim();
+  const isCustomBrand = brandValue === INVENTORY_CUSTOM_BRAND_VALUE;
+  brandCustom?.classList.toggle("hide", !isCustomBrand);
+  if (brandCustom) brandCustom.required = isCustomBrand;
+  const prevVariant = String(variantSelect.value || "");
+  const prevLabel = String(variantCustom?.value || "");
+  variantSelect.innerHTML = inventoryVariantOptionsHtml(
+    isCustomBrand ? "" : brandValue,
+    prevVariant === INVENTORY_CUSTOM_VARIANT_VALUE ? "" : prevVariant,
+    prevVariant === INVENTORY_CUSTOM_VARIANT_VALUE ? prevLabel : ""
+  );
+  if (prevVariant === INVENTORY_CUSTOM_VARIANT_VALUE) variantSelect.value = INVENTORY_CUSTOM_VARIANT_VALUE;
+  const isCustomVariant = String(variantSelect.value || "") === INVENTORY_CUSTOM_VARIANT_VALUE;
+  variantCustom?.classList.toggle("hide", !isCustomVariant);
+  if (variantCustom) variantCustom.required = isCustomVariant;
+}
+
+async function ensureInventoryBrandsLoaded(force = false){
+  if (isGuestMode() || !state.sessionUser) {
+    state.inventoryBrands = [];
+    state.inventoryBrandsLoaded = true;
+    return [];
+  }
+  if (!force && state.inventoryBrandsLoaded) return state.inventoryBrands;
+  if (state.inventoryBrandsLoading) return state.inventoryBrands;
+  state.inventoryBrandsLoading = true;
+  try {
+    const res = unwrapRpcJson(await supabaseRpc("app_list_my_goods_brands", {}));
+    state.inventoryBrands = Array.isArray(res?.items) ? res.items : [];
+    state.inventoryBrandsLoaded = true;
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (/app_list_my_goods_brands|Could not find the function|PGRST202|404/i.test(msg)) {
+      state.inventoryBrands = [];
+      state.inventoryBrandsLoaded = true;
+      console.warn("Inventory brands RPC unavailable.", err);
+    } else {
+      console.warn("Failed to load inventory brands:", err);
+    }
+  } finally {
+    state.inventoryBrandsLoading = false;
+  }
+  refreshInventoryBrandFilterOptions();
+  return state.inventoryBrands;
+}
+
+function refreshInventoryBrandFilterOptions(){
+  const select = document.getElementById("inventoryBrandFilter");
+  if (!select) return;
+  const current = String(state.inventoryBrandFilter || "all");
+  const fromCatalog = getInventoryBrandCatalog().map(b => String(b.name || "").trim()).filter(Boolean);
+  const fromItems = getGoodsGroups({ applyUiFilters: false })
+    .map(g => String(g.brand || "").trim())
+    .filter(Boolean);
+  const brands = [...new Set([...fromCatalog, ...fromItems])].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = [
+    `<option value="all">All brands</option>`,
+    ...brands.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+  ].join("");
+  const stillValid = current === "all" || brands.some(name => name.toLowerCase() === current.toLowerCase());
+  state.inventoryBrandFilter = stillValid ? current : "all";
+  select.value = state.inventoryBrandFilter;
+}
+
+function getInventoryBrandNamesFromState(){
+  return getInventoryBrandCatalog().map(b => b.name).filter(Boolean);
+}
+
+async function openInventoryBrandsModal(){
+  await ensureInventoryBrandsLoaded(true);
+  let modal = document.getElementById("inventoryBrandsModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "inventoryBrandsModal";
+    modal.className = "modal hide";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
+      <div class="modal-backdrop" data-close-modal="inventoryBrandsModal"></div>
+      <div class="modal-dialog compact-entry-dialog">
+        <div class="modal-head">
+          <div>
+            <h3>Brands &amp; variants</h3>
+            <p class="help">Create brands (e.g. Afnan Perfumes) and variants (3 ml, 5 ml, custom).</p>
+          </div>
+          <button class="icon-btn ghost" type="button" data-close-modal="inventoryBrandsModal" aria-label="Close">×</button>
+        </div>
+        <div class="modal-body inventory-brands-modal-body">
+          <form id="inventoryBrandCreateForm" class="inventory-brand-create-form">
+            <div class="inventory-brand-create-grid">
+              <input class="input" name="brand_name" required placeholder="Brand name" autocomplete="off" />
+              <select class="select" name="item_type" aria-label="Default type">${inventoryItemTypeOptionsHtml("General", false)}</select>
+              <button class="btn primary" type="submit">Add brand</button>
+            </div>
+          </form>
+          <div id="inventoryBrandsList" class="inventory-brands-list"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector("#inventoryBrandCreateForm")?.addEventListener("submit", async e => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const name = String(new FormData(form).get("brand_name") || "").trim();
+      const itemType = String(new FormData(form).get("item_type") || "General").trim();
+      if (!name) return;
+      try {
+        await supabaseRpc("app_upsert_goods_brand", {
+          p_id: null,
+          p_name: name,
+          p_item_type: itemType || "General",
+          p_notes: null
+        });
+        form.reset();
+        await ensureInventoryBrandsLoaded(true);
+        renderInventoryBrandsList();
+      } catch (err) {
+        alert(err?.message || "Could not save brand.");
+      }
+    });
+    modal.querySelector("#inventoryBrandsList")?.addEventListener("click", async e => {
+      const addVar = e.target.closest("[data-add-variant]");
+      const delBrand = e.target.closest("[data-delete-brand]");
+      const delVar = e.target.closest("[data-delete-variant]");
+      try {
+        if (addVar) {
+          const brandId = addVar.dataset.addVariant;
+          const label = prompt("Variant label (e.g. 3 ml bottle):");
+          if (!label) return;
+          const qtyRaw = prompt("Quantity value (e.g. 3 for 3 ml):", "3");
+          if (qtyRaw == null) return;
+          const unit = prompt("Unit (ml, L, pcs, kg, g, m, cm):", "ml") || "ml";
+          let category = INVENTORY_CATEGORY_COUNT;
+          const u = unit.toLowerCase();
+          if (u === "ml" || u === "l") category = INVENTORY_CATEGORY_VOLUME;
+          else if (u === "kg" || u === "g") category = INVENTORY_CATEGORY_WEIGHT;
+          else if (u === "m" || u === "cm") category = INVENTORY_CATEGORY_LENGTH;
+          let qty = Number(qtyRaw);
+          if (category === INVENTORY_CATEGORY_VOLUME && u === "ml") {
+            // Store display qty in variant as entered; unit ml
+          }
+          await supabaseRpc("app_upsert_goods_brand_variant", {
+            p_id: null,
+            p_brand_id: brandId,
+            p_label: label.trim(),
+            p_item_category: category,
+            p_quantity_value: qty,
+            p_quantity_unit: normalizeInventoryUnit(unit, category),
+            p_sort_order: 0
+          });
+          await ensureInventoryBrandsLoaded(true);
+          renderInventoryBrandsList();
+          return;
+        }
+        if (delBrand) {
+          if (!confirm("Delete this brand and its variants?")) return;
+          await supabaseRpc("app_delete_goods_brand", { p_id: delBrand.dataset.deleteBrand });
+          await ensureInventoryBrandsLoaded(true);
+          renderInventoryBrandsList();
+          return;
+        }
+        if (delVar) {
+          if (!confirm("Delete this variant?")) return;
+          await supabaseRpc("app_delete_goods_brand_variant", { p_id: delVar.dataset.deleteVariant });
+          await ensureInventoryBrandsLoaded(true);
+          renderInventoryBrandsList();
+        }
+      } catch (err) {
+        alert(err?.message || "Brand action failed.");
+      }
+    });
+  }
+  renderInventoryBrandsList();
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function renderInventoryBrandsList(){
+  const host = document.getElementById("inventoryBrandsList");
+  if (!host) return;
+  const brands = getInventoryBrandCatalog();
+  if (!brands.length) {
+    host.innerHTML = `<div class="empty">No brands yet. Add one above.</div>`;
+    return;
+  }
+  host.innerHTML = brands.map(brand => {
+    const variants = Array.isArray(brand.variants) ? brand.variants : [];
+    return `
+      <article class="inventory-brand-card">
+        <div class="inventory-brand-card-head">
+          <div>
+            <strong>${escapeHtml(brand.name)}</strong>
+            <span class="help">${escapeHtml(brand.item_type || "General")}</span>
+          </div>
+          <div class="inventory-brand-card-actions">
+            <button type="button" class="tiny ghost" data-add-variant="${escapeHtml(brand.id)}">+ Variant</button>
+            <button type="button" class="tiny danger" data-delete-brand="${escapeHtml(brand.id)}">Delete</button>
+          </div>
+        </div>
+        <ul class="inventory-brand-variants">
+          ${variants.length
+            ? variants.map(v => `
+              <li>
+                <span>${escapeHtml(v.label)} · ${escapeHtml(String(v.quantity_value))} ${escapeHtml(v.quantity_unit)} · ${escapeHtml(v.item_category)}</span>
+                <button type="button" class="tiny danger" data-delete-variant="${escapeHtml(v.id)}">✕</button>
+              </li>`).join("")
+            : `<li class="help">No variants yet</li>`}
+        </ul>
+      </article>`;
+  }).join("");
+}
+
 function readGoodsPurchaseLineItemType(line){
   if (!line) return "General";
   const select = line.querySelector(".goods-buy-type");
@@ -7500,10 +7920,15 @@ function buildGoodsPurchaseLine(prefill = {}){
       <div class="inventory-purchase-line-attrs">
         <select class="select goods-buy-type" aria-label="Item type" ${locked ? "disabled" : ""}>${inventoryItemTypeOptionsHtml(prefill.itemType || "General")}</select>
         <input class="input goods-buy-type-custom hide" type="text" placeholder="Custom type" aria-label="Custom type" autocomplete="off" />
+        <select class="select goods-buy-brand" aria-label="Brand" ${locked ? "disabled" : ""}>${inventoryBrandOptionsHtml(prefill.brandId || "", prefill.brand || "")}</select>
+        <input class="input goods-buy-brand-custom hide" type="text" placeholder="Brand name" aria-label="Custom brand" autocomplete="off" value="${escapeHtml(prefill.brand && !prefill.brandId ? prefill.brand : "")}" />
+        <select class="select goods-buy-variant" aria-label="Variant" ${locked ? "disabled" : ""}>${inventoryVariantOptionsHtml(prefill.brandId || "", prefill.variantId || "", prefill.variantLabel || "")}</select>
+        <input class="input goods-buy-variant-custom hide" type="text" placeholder="Variant (e.g. 3 ml)" aria-label="Custom variant" autocomplete="off" value="${escapeHtml(prefill.variantLabel && !prefill.variantId ? prefill.variantLabel : "")}" />
         <select class="select goods-buy-category" aria-label="Category" ${locked ? "disabled" : ""}>
           <option value="count" ${category === INVENTORY_CATEGORY_COUNT ? "selected" : ""}>Numbers (pcs)</option>
           <option value="weight" ${category === INVENTORY_CATEGORY_WEIGHT ? "selected" : ""}>Weight (KG)</option>
           <option value="length" ${category === INVENTORY_CATEGORY_LENGTH ? "selected" : ""}>Length (m)</option>
+          <option value="volume" ${category === INVENTORY_CATEGORY_VOLUME ? "selected" : ""}>Volume (L / ml)</option>
         </select>
         <select class="select goods-buy-currency" aria-label="Currency" ${locked ? "disabled" : ""}>${inventoryPurchaseCurrencyOptionsHtml(currency)}</select>
       </div>
@@ -7563,6 +7988,8 @@ function updateGoodsPurchaseLine(line, sourceEl = null){
   const taxModeInput = line.querySelector(".goods-buy-tax-mode");
   const taxRateLabel = line.querySelector(".goods-buy-tax-rate-label");
   const typeChanged = sourceEl?.classList?.contains("goods-buy-type");
+  const brandChanged = sourceEl?.classList?.contains("goods-buy-brand");
+  const variantChanged = sourceEl?.classList?.contains("goods-buy-variant");
   const categoryChanged = sourceEl?.classList?.contains("goods-buy-category");
   const currencyChanged = sourceEl?.classList?.contains("goods-buy-currency");
   const taxChanged = sourceEl?.classList?.contains("goods-buy-tax-applied") ||
@@ -7578,6 +8005,24 @@ function updateGoodsPurchaseLine(line, sourceEl = null){
       if (isCustom) customInput.focus();
       else customInput.value = "";
     }
+  }
+
+  if (brandChanged || variantChanged || !sourceEl) {
+    syncGoodsPurchaseLineBrandFields(line);
+  }
+  if (brandChanged) {
+    const brand = findInventoryBrandById(line.querySelector(".goods-buy-brand")?.value);
+    const typeSel = line.querySelector(".goods-buy-type");
+    if (brand?.item_type && typeSel && typeSel.value !== INVENTORY_CUSTOM_TYPE_VALUE) {
+      syncGoodsPurchaseLineTypeFields(line, brand.item_type);
+    }
+  }
+  if (variantChanged) {
+    const brandId = String(line.querySelector(".goods-buy-brand")?.value || "");
+    const variantId = String(line.querySelector(".goods-buy-variant")?.value || "");
+    const brand = findInventoryBrandById(brandId);
+    const variant = (brand?.variants || []).find(v => String(v.id) === variantId);
+    if (variant) applyInventoryVariantToPurchaseLine(line, variant);
   }
 
   if (categoryChanged || !sourceEl) {
@@ -7644,6 +8089,7 @@ function addGoodsPurchaseLine(prefill = {}){
   els.goodsPurchaseLines.insertAdjacentHTML("beforeend", buildGoodsPurchaseLine(prefill));
   const line = els.goodsPurchaseLines.lastElementChild;
   syncGoodsPurchaseLineTypeFields(line, prefill.itemType || "General");
+  syncGoodsPurchaseLineBrandFields(line);
   updateGoodsPurchaseLine(line);
   toggleGoodsPurchaseRemoveButtons();
   try {
@@ -7672,6 +8118,7 @@ function renderGoodsPurchaseLines(prefill = null){
   els.goodsPurchaseLines.innerHTML = buildGoodsPurchaseLine(seed);
   const line = els.goodsPurchaseLines.firstElementChild;
   syncGoodsPurchaseLineTypeFields(line, seed.itemType || "General");
+  syncGoodsPurchaseLineBrandFields(line);
   updateGoodsPurchaseLine(line);
   toggleGoodsPurchaseRemoveButtons();
 }
@@ -7685,11 +8132,16 @@ function collectGoodsPurchaseLines(){
     const totalInput = line.querySelector(".goods-buy-line-total");
     const currency = String(line.querySelector(".goods-buy-currency")?.value || "").trim();
     const taxDefault = inventoryTaxDefaultsForGroup({ currency });
+    const brandInfo = readGoodsPurchaseLineBrand(line);
     return {
       itemName: String(line.querySelector(".goods-buy-name")?.value || "").trim(),
       itemType: readGoodsPurchaseLineItemType(line),
       itemCategory: category,
       quantityUnit: inventoryBaseUnitForCategory(category),
+      brand: brandInfo.brand,
+      brandId: brandInfo.brandId,
+      variantLabel: brandInfo.variantLabel,
+      variantId: brandInfo.variantId,
       currency,
       unitActualPrice: Number(line.querySelector(".goods-buy-price")?.value || 0),
       sellingPrice: Number(line.querySelector(".goods-buy-selling")?.value || 0),
@@ -8795,11 +9247,17 @@ function getGoodsGroups(options = {}){
       const unitActualPrice = storedUnitCostQty > 0
         ? (storedUnitCostSum / storedUnitCostQty)
         : (boughtQty > 0 ? (purchaseNetTotal / boughtQty) : 0);
-      const soldQty = saleActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).soldQty, itemCategory, 0), 0);
-      const soldTotal = saleActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
-      const soldNetTotal = saleActions.reduce((sum, row) => {
+      let soldQty = saleActions.reduce((sum, row) => sum + normalizeStoredInventoryQty(goodsMetaFromNotes(row.notes).soldQty, itemCategory, 0), 0);
+      let soldTotal = saleActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+      let soldNetTotal = saleActions.reduce((sum, row) => {
         return sum + Number(taxBreakdownFromMeta(goodsMetaFromNotes(row.notes), row.action_amount || 0).net || 0);
       }, 0);
+      // Lazy summaries carry aggregate sold qty/total until item detail is loaded.
+      if (group.principal?._inventoryLazySummary && !saleActions.length) {
+        soldQty = Number(group.principal._lazySoldQty || 0);
+        soldTotal = Number(group.principal._lazySoldTotal || 0);
+        soldNetTotal = soldTotal;
+      }
       const initialPaidTotal = saleActions.reduce((sum, row) => sum + inventoryLinePaidAmount(goodsMetaFromNotes(row.notes), row.action_amount || 0), 0);
       const settlementTotal = settlementActions.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
       const paidTotal = Math.min(soldTotal, initialPaidTotal + settlementTotal);
@@ -8845,6 +9303,10 @@ function getGoodsGroups(options = {}){
         itemCategory,
         itemType,
         quantityUnit,
+        brand: principalMeta.brand || "",
+        brandId: principalMeta.brandId || "",
+        variantLabel: principalMeta.variantLabel || "",
+        variantId: principalMeta.variantId || "",
         defaultUnitSoldPrice,
         defaultTaxRate,
         defaultTaxMode,
@@ -8861,8 +9323,12 @@ function getGoodsGroups(options = {}){
   return groups.filter(group => {
       const searchTerm = String(state.search.goods || "").trim().toLowerCase();
       if (searchTerm) {
-        const blob = `${group.person_name || ""} ${group.itemCode || ""} ${group.itemDescription || ""} ${group.itemType || ""} ${group.principal?.notes || ""}`.toLowerCase();
+        const blob = `${group.person_name || ""} ${group.itemCode || ""} ${group.itemDescription || ""} ${group.itemType || ""} ${group.brand || ""} ${group.variantLabel || ""} ${group.principal?.notes || ""}`.toLowerCase();
         if (!blob.includes(searchTerm)) return false;
+      }
+      const brandFilter = String(state.inventoryBrandFilter || "all");
+      if (brandFilter !== "all" && String(group.brand || "").trim().toLowerCase() !== brandFilter.toLowerCase()) {
+        return false;
       }
       const typeFilter = String(state.inventoryItemTypeFilter || "all");
       if (typeFilter !== "all" && normalizeInventoryItemType(group.itemType).toLowerCase() !== typeFilter.toLowerCase()) {
@@ -9292,10 +9758,19 @@ async function downloadInventoryReceiptPDF(entryId){
 
 function renderInventoryList(){
   refreshInventoryTypeFilterOptions();
+  refreshInventoryBrandFilterOptions();
   const groups = getGoodsGroups();
   if (state.inventoryView === "customers") renderInventoryOutstandingSection();
+  if (state.inventoryLazy.loading && !groups.length){
+    els.goodsList.innerHTML = `<div class="empty inventory-loading-hint">Loading inventory…</div>`;
+    ensureInventoryItemDetailsDelegation();
+    return;
+  }
   if (!groups.length){
-    els.goodsList.innerHTML = `<div class="empty">No inventory items found${state.inventoryItemTypeFilter && state.inventoryItemTypeFilter !== "all" ? " for this type" : ""}.</div>`;
+    const filters = [];
+    if (state.inventoryItemTypeFilter && state.inventoryItemTypeFilter !== "all") filters.push("type");
+    if (state.inventoryBrandFilter && state.inventoryBrandFilter !== "all") filters.push("brand");
+    els.goodsList.innerHTML = `<div class="empty">No inventory items found${filters.length ? " for this filter" : ""}.</div>`;
     ensureInventoryItemDetailsDelegation();
     return;
   }
@@ -9383,6 +9858,8 @@ function renderInventoryList(){
               <div class="loan-name"><i class="fa-solid fa-box"></i> ${escapeHtml(group.person_name || "Unnamed item")}</div>
               <div class="loan-sub">
                 <span>${escapeHtml(group.itemCode || "No code")}</span>
+                ${group.brand ? `<span class="badge inventory-brand-badge">${escapeHtml(group.brand)}</span>` : ""}
+                ${group.variantLabel ? `<span class="badge inventory-variant-badge">${escapeHtml(group.variantLabel)}</span>` : ""}
                 <span>Purchase ${escapeHtml(displayDate(group.principal?.loan_date || "—"))}</span>
                 <span>${currencySymbolHtml(group.currency || "")}</span>
                 <span class="badge blue inventory-category-badge">${escapeHtml(inventoryCategoryLabel(group.itemCategory))}</span>
@@ -9568,8 +10045,24 @@ function ensureInventoryItemDetailsDelegation(){
       e.stopPropagation();
       const details = invoicesBtn.closest("details.inventory-item-card");
       if (!details) return;
-      details.open = !details.open;
+      const groupId = invoicesBtn.dataset.inventoryInvoices || details.querySelector("[data-inventory-item-details]")?.dataset.inventoryItemDetails || "";
+      const willOpen = !details.open;
+      details.open = willOpen;
       syncInventoryInvoicesBtn(details);
+      if (willOpen && groupId && isInventoryLazyMode()) {
+        ensureInventoryItemDetailLoaded(groupId)
+          .then(() => {
+            if (getActiveTabKey() === "goods") renderInventoryList();
+            const again = Array.from(els.goodsList?.querySelectorAll("[data-inventory-invoices]") || [])
+              .find(btn => btn.dataset.inventoryInvoices === groupId)
+              ?.closest("details");
+            if (again) {
+              again.open = true;
+              syncInventoryInvoicesBtn(again);
+            }
+          })
+          .catch(err => console.warn("Inventory detail load failed:", err));
+      }
       return;
     }
 
@@ -9898,6 +10391,262 @@ async function loadExpensesScopeLazyOrFull(options = {}){
     if (isExpenseLazyRpcMissingError(err)) {
       state.expenseLazy.rpcAvailable = false;
       state.expenseLazy.enabled = false;
+      return { usedLazy: false };
+    }
+    throw err;
+  }
+}
+
+function inventorySummaryToPrincipalEntry(summary){
+  const s = summary || {};
+  const notes = upsertGoodsMetaInNote(s.notes || null, {
+    boughtQty: Number(s.bought_qty || 0) || 1,
+    unitActualPrice: Number(s.unit_actual_price || 0),
+    unitSoldPrice: Number(s.unit_sold_price || 0) || null,
+    itemCode: s.item_code || "",
+    itemDescription: s.item_description || "",
+    itemType: s.item_type || "General",
+    itemCategory: s.item_category || "count",
+    quantityUnit: s.quantity_unit || "item",
+    brand: s.brand || "",
+    variantLabel: s.variant_label || "",
+    brandId: s.brand_id || "",
+    variantId: s.variant_id || "",
+    transactionType: "ITEM"
+  });
+  return {
+    id: s.id,
+    group_id: s.group_id,
+    direction: "taken",
+    entry_kind: "principal",
+    person_name: s.item_name,
+    currency: s.currency,
+    principal_amount: Number(s.total_actual_price || 0),
+    action_amount: null,
+    loan_date: s.bought_date,
+    action_date: null,
+    notes,
+    owner_id: currentOwnerId(),
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+    data_origin: "domain",
+    domain_table: "goods_items",
+    is_legacy_meta: false,
+    _inventoryLazySummary: true,
+    _lazySoldQty: Number(s.sold_qty || 0),
+    _lazySoldTotal: Number(s.sold_total || 0),
+    _lazyRemainingQty: Number(s.remaining_qty || 0),
+    _lazyStockStatus: s.stock_status || ""
+  };
+}
+
+function inventorySaleRowToEntry(row){
+  const r = row || {};
+  const notes = upsertGoodsMetaInNote(r.notes || null, {
+    soldQty: Number(r.sold_qty || 0) || 1,
+    unitSoldPrice: Number(r.unit_sold_price || 0) || null,
+    transactionType: "SALE"
+  });
+  return {
+    id: r.id,
+    group_id: r.group_id,
+    direction: "taken",
+    entry_kind: "partial",
+    person_name: r.item_name,
+    currency: r.currency,
+    principal_amount: null,
+    action_amount: Number(r.total_sold_price || 0),
+    loan_date: r.sold_date,
+    action_date: r.sold_date,
+    notes,
+    owner_id: currentOwnerId(),
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    data_origin: "domain",
+    domain_table: "goods_sales",
+    is_legacy_meta: false
+  };
+}
+
+function inventoryEventRowToEntry(row){
+  const r = row || {};
+  const tx = String(r.tx_type || "EVENT").toUpperCase();
+  const isPrincipal = String(r.entry_kind || "") === "principal";
+  let notes = r.notes || "";
+  if (!hasGoodsTag(notes)) notes = normalizeGoodsNote(notes, true);
+  notes = upsertGoodsMetaInNote(notes, {
+    transactionType: tx,
+    boughtQty: tx === "PURCHASE" ? Number(r.qty || 0) || null : null,
+    soldQty: tx === "SALE" ? Number(r.qty || 0) || null : null
+  });
+  return {
+    id: r.id,
+    group_id: r.group_id,
+    direction: r.direction || "taken",
+    entry_kind: r.entry_kind || "partial",
+    person_name: r.item_name,
+    currency: r.currency,
+    principal_amount: isPrincipal ? Number(r.amount || 0) : null,
+    action_amount: isPrincipal ? null : Number(r.amount || 0),
+    loan_date: r.event_date,
+    action_date: isPrincipal ? null : r.event_date,
+    notes,
+    owner_id: currentOwnerId(),
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    data_origin: "domain",
+    domain_table: "goods_events",
+    is_legacy_meta: false
+  };
+}
+
+function applyInventoryLazyEntries(principals, actions){
+  const scope = LEDGER_SCOPE_GOODS;
+  const pending = state.entries.filter(entry =>
+    entryBelongsToLedgerScope(entry, scope) && entry.id && state.pendingDbSyncIds.has(entry.id)
+  );
+  const pendingIds = new Set(pending.map(row => row.id));
+  const previousScopeRows = state.entries.filter(entry => entryBelongsToLedgerScope(entry, scope));
+  unmarkDbSnapshotRows(previousScopeRows);
+
+  const nextPrincipals = (Array.isArray(principals) ? principals : []).filter(row => row?.id && !pendingIds.has(row.id));
+  const nextActions = (Array.isArray(actions) ? actions : []).filter(row => row?.id && !pendingIds.has(row.id));
+  const merged = nextPrincipals.concat(nextActions);
+
+  state.entries = state.entries
+    .filter(entry => !entryBelongsToLedgerScope(entry, scope) || pendingIds.has(entry.id))
+    .concat(merged, pending)
+    .sort((a, b) => dateStamp(b.created_at || b.action_date || b.loan_date) - dateStamp(a.created_at || a.action_date || a.loan_date));
+
+  markDbSnapshotRows(merged.filter(row => !state.pendingDbSyncIds.has(row.id)));
+  state.loadedLedgerScopes.add(scope);
+  state.dataSource = "supabase";
+}
+
+function isInventoryLazyRpcMissingError(err){
+  const msg = String(err?.message || err || "");
+  return /app_list_my_inventory_summaries|app_list_my_inventory_item_detail|Could not find the function|PGRST202|404/i.test(msg);
+}
+
+async function fetchInventorySummariesRpc({ search = "", brand = "", itemType = "", status = "", limit = 500 } = {}){
+  const res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_summaries", {
+    p_search: search || null,
+    p_brand: brand || null,
+    p_item_type: itemType || null,
+    p_status: status || null,
+    p_limit: limit
+  }));
+  return Array.isArray(res?.items) ? res.items : [];
+}
+
+async function fetchInventoryItemDetailRpc(groupId, limit = 2000){
+  const res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_item_detail", {
+    p_group_id: String(groupId || ""),
+    p_limit: limit
+  }));
+  return {
+    item: res?.item && typeof res.item === "object" ? res.item : null,
+    sales: Array.isArray(res?.sales) ? res.sales : [],
+    events: Array.isArray(res?.events) ? res.events : []
+  };
+}
+
+async function loadInventorySummaries({ force = false } = {}){
+  if (!databaseSessionCanLoad() && state.dataSource !== "supabase") return [];
+  if (state.inventoryLazy.rpcAvailable === false) return [];
+  const queryKey = "inventory-summaries";
+  if (!force && state.inventoryLazy.queryKey === queryKey && state.inventoryLazy.enabled) {
+    return state.inventoryLazy.summaries;
+  }
+  state.inventoryLazy.loading = true;
+  try {
+    // Load stock summaries once; brand/type/status/search filter client-side for snappy UX.
+    const items = await fetchInventorySummariesRpc({ limit: 1000 });
+    state.inventoryLazy.rpcAvailable = true;
+    state.inventoryLazy.summaries = items;
+    state.inventoryLazy.queryKey = queryKey;
+    const principals = items.map(inventorySummaryToPrincipalEntry);
+    const keepGroupIds = new Set(principals.map(p => String(p.group_id)));
+    const existingActions = state.entries.filter(entry =>
+      entryBelongsToLedgerScope(entry, LEDGER_SCOPE_GOODS)
+      && entry.entry_kind !== "principal"
+      && keepGroupIds.has(String(entry.group_id))
+      && state.inventoryLazy.detailLoaded.has(String(entry.group_id))
+    );
+    applyInventoryLazyEntries(principals, existingActions);
+    state.inventoryLazy.enabled = true;
+    ensureInventoryBrandsLoaded(false).catch(() => {});
+    return items;
+  } catch (err) {
+    if (isInventoryLazyRpcMissingError(err)) {
+      state.inventoryLazy.rpcAvailable = false;
+      state.inventoryLazy.enabled = false;
+      console.warn("Inventory lazy RPCs unavailable; falling back to full inventory load.", err);
+      return null;
+    }
+    state.inventoryLazy.lastError = String(err?.message || err || "Inventory summary load failed");
+    throw err;
+  } finally {
+    state.inventoryLazy.loading = false;
+  }
+}
+
+async function ensureInventoryItemDetailLoaded(groupId, { force = false } = {}){
+  const gid = String(groupId || "").trim();
+  if (!gid || !isInventoryLazyMode()) return null;
+  if (!force && state.inventoryLazy.detailLoaded.has(gid)) return true;
+  const detail = await fetchInventoryItemDetailRpc(gid);
+  const saleEntries = (detail.sales || []).map(inventorySaleRowToEntry);
+  const eventEntries = (detail.events || []).map(inventoryEventRowToEntry)
+    .filter(row => row.entry_kind !== "principal");
+  const principals = state.entries
+    .filter(e => entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS) && e.entry_kind === "principal")
+    .map(p => {
+      if (String(p.group_id) !== gid) return p;
+      const next = { ...p };
+      delete next._inventoryLazySummary;
+      delete next._lazySoldQty;
+      delete next._lazySoldTotal;
+      delete next._lazyRemainingQty;
+      delete next._lazyStockStatus;
+      return next;
+    });
+  const otherActions = state.entries.filter(e =>
+    entryBelongsToLedgerScope(e, LEDGER_SCOPE_GOODS)
+    && e.entry_kind !== "principal"
+    && String(e.group_id) !== gid
+  );
+  applyInventoryLazyEntries(principals, otherActions.concat(saleEntries, eventEntries));
+  state.inventoryLazy.detailLoaded.add(gid);
+  return detail;
+}
+
+async function invalidateAndRefreshInventoryLazy(){
+  if (state.inventoryLazy.rpcAvailable === false) return false;
+  state.inventoryLazy.queryKey = "";
+  state.inventoryLazy.detailLoaded = new Set();
+  try {
+    const summaries = await loadInventorySummaries({ force: true });
+    return summaries !== null;
+  } catch (err) {
+    console.warn("Inventory lazy refresh failed:", err);
+    return false;
+  }
+}
+
+async function loadGoodsScopeLazyOrFull(options = {}){
+  if (state.inventoryLazy.rpcAvailable === false) {
+    return { usedLazy: false };
+  }
+  try {
+    const summaries = await loadInventorySummaries({ force: options.force === true });
+    if (summaries === null) return { usedLazy: false };
+    state.inventoryLazy.enabled = true;
+    return { usedLazy: true };
+  } catch (err) {
+    if (isInventoryLazyRpcMissingError(err)) {
+      state.inventoryLazy.rpcAvailable = false;
+      state.inventoryLazy.enabled = false;
       return { usedLazy: false };
     }
     throw err;
@@ -12214,6 +12963,20 @@ async function loadLedgerScopeFromSupabase(scope, options = {}){
       }
     }
 
+    // Inventory: prefer stock summaries (detail on expand) for faster first paint.
+    if (normalizedScope === LEDGER_SCOPE_GOODS && state.inventoryLazy.rpcAvailable !== false) {
+      try {
+        const lazyResult = await loadGoodsScopeLazyOrFull({ force });
+        if (lazyResult?.usedLazy) {
+          state.loadedLedgerScopes.add(normalizedScope);
+          renderAll();
+          return;
+        }
+      } catch (lazyErr) {
+        console.warn("Inventory lazy load failed; using full scope load.", lazyErr);
+      }
+    }
+
     const query = ledgerScopeQuery(normalizedScope);
     if (!query) {
       mergeLedgerRowsFromSupabase(normalizedScope, []);
@@ -12245,6 +13008,9 @@ async function loadLedgerScopeFromSupabase(scope, options = {}){
     mergeLedgerRowsFromSupabase(normalizedScope, scopeRows, { domainRows });
     if (normalizedScope === LEDGER_SCOPE_EXPENSES) {
       state.expenseLazy.enabled = false;
+    }
+    if (normalizedScope === LEDGER_SCOPE_GOODS) {
+      state.inventoryLazy.enabled = false;
     }
     state.loadedLedgerScopes.add(normalizedScope);
     renderAll();
@@ -13622,7 +14388,7 @@ async function submitInstallmentEdit(){
   activate("installments");
 }
 
-function openGoodsModal(mode, options = {}){
+async function openGoodsModal(mode, options = {}){
   els.goodsModal.classList.remove("hide");
   els.goodsModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -13648,10 +14414,11 @@ function openGoodsModal(mode, options = {}){
   if (els.goodsNewItemToggleBtn) els.goodsNewItemToggleBtn.textContent = "+ Add New";
 
   if (mode === "bought"){
+    try { await ensureInventoryBrandsLoaded(false); } catch (_) {}
     const currentGroup = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === state.inventoryDraft.purchaseGroupId);
     els.goodsModalTitle.textContent = currentGroup ? "Add Inventory Stock" : "Add Inventory Item";
-    els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add one or more purchased inventory items.";
-    els.goodsModalDesc.classList.toggle("hide", !currentGroup);
+    els.goodsModalDesc.textContent = currentGroup ? "Record an additional purchase for this item." : "Add one or more purchased inventory items. Use brand + variant for sizes like 3 ml / 5 ml.";
+    els.goodsModalDesc.classList.toggle("hide", false);
     els.goodsBoughtForm.reset();
     if (boughtDateInline) boughtDateInline.value = todayISO();
     if (currentGroup){
@@ -13661,6 +14428,10 @@ function openGoodsModal(mode, options = {}){
         itemType: currentGroup.itemType || "General",
         itemCategory: currentGroup.itemCategory,
         quantityUnit: currentGroup.quantityUnit,
+        brand: currentGroup.brand || "",
+        brandId: currentGroup.brandId || "",
+        variantLabel: currentGroup.variantLabel || "",
+        variantId: currentGroup.variantId || "",
         currency: currentGroup.currency || state.lastCurrency || "AED",
         sellingPrice: currentGroup.defaultUnitSoldPrice ? trimInventoryNumber(currentGroup.defaultUnitSoldPrice) : "",
         itemDescription: currentGroup.itemDescription || "",
@@ -13732,6 +14503,10 @@ async function saveGoodsBought(form){
     const itemDescription = currentGroup
       ? (currentGroup.itemDescription || line.itemDescription || "")
       : line.itemDescription;
+    const brand = currentGroup ? (currentGroup.brand || "") : String(line.brand || "").trim();
+    const brandId = currentGroup ? (currentGroup.brandId || "") : String(line.brandId || "").trim();
+    const variantLabel = currentGroup ? (currentGroup.variantLabel || "") : String(line.variantLabel || "").trim();
+    const variantId = currentGroup ? (currentGroup.variantId || "") : String(line.variantId || "").trim();
     if (!itemName || !currency) throw new Error(`Complete all required fields on item ${index + 1}.`);
     if (!(unitActualPrice > 0)) throw new Error(`Enter a valid purchase price on item ${index + 1}.`);
     if (!(boughtQty > 0)) throw new Error(`Enter a valid ${inventoryQtyFieldLabel(itemCategory).toLowerCase()} on item ${index + 1}.`);
@@ -13754,6 +14529,10 @@ async function saveGoodsBought(form){
       itemCategory,
       itemType,
       quantityUnit,
+      brand,
+      brandId,
+      variantLabel,
+      variantId,
       boughtQty,
       unitActualPrice,
       sellingPrice,
@@ -13770,6 +14549,32 @@ async function saveGoodsBought(form){
   if (walletId) {
     if (!singleCurrency) throw new Error("Wallet deduction is available only when all purchase items share one currency.");
     validateInventoryWallet(walletId, walletCurrency, walletTotal, "deduct");
+  }
+
+  // Persist any custom brand names into the catalog for future filtering/variants.
+  if (!isGuestMode() && state.sessionUser) {
+    for (const line of prepared) {
+      if (!line.brand || line.brandId) continue;
+      const existing = getInventoryBrandCatalog().find(b =>
+        String(b.name || "").trim().toLowerCase() === line.brand.toLowerCase()
+      );
+      if (existing) {
+        line.brandId = existing.id;
+        continue;
+      }
+      try {
+        const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand", {
+          p_id: null,
+          p_name: line.brand,
+          p_item_type: line.itemType || "General",
+          p_notes: null
+        }));
+        if (res?.id) line.brandId = res.id;
+      } catch (err) {
+        console.warn("Could not auto-save inventory brand:", err);
+      }
+    }
+    try { await ensureInventoryBrandsLoaded(true); } catch (_) {}
   }
 
   const payloads = [];
@@ -13796,6 +14601,10 @@ async function saveGoodsBought(form){
         itemType: line.itemType,
         itemCategory: line.itemCategory,
         quantityUnit: line.quantityUnit,
+        brand: line.brand || currentGroup.brand || "",
+        brandId: line.brandId || currentGroup.brandId || "",
+        variantLabel: line.variantLabel || currentGroup.variantLabel || "",
+        variantId: line.variantId || currentGroup.variantId || "",
         transactionType: "PURCHASE",
         ...taxMetaFromBreakdown(line.purchaseTax)
       })
@@ -13822,6 +14631,10 @@ async function saveGoodsBought(form){
           itemType: line.itemType,
           itemCategory: line.itemCategory,
           quantityUnit: line.quantityUnit,
+          brand: line.brand || "",
+          brandId: line.brandId || "",
+          variantLabel: line.variantLabel || "",
+          variantId: line.variantId || "",
           transactionType: "ITEM",
           ...taxMetaFromBreakdown(line.purchaseTax)
         })
@@ -14459,6 +15272,10 @@ function openInventoryEditItemModal(id){
   form.querySelector('[name="item_code"]').value = meta.itemCode || group?.itemCode || "";
   form.querySelector('[name="item_name"]').value = entry.person_name || "";
   form.querySelector('[name="item_description"]').value = itemDescription;
+  const brandInput = form.querySelector('[name="brand"]');
+  const variantInput = form.querySelector('[name="variant_label"]');
+  if (brandInput) brandInput.value = meta.brand || group?.brand || "";
+  if (variantInput) variantInput.value = meta.variantLabel || group?.variantLabel || "";
   form.querySelector('[name="item_category"]').value = itemCategory;
   form.querySelector('[name="item_category"]').disabled = hasSales;
   form.querySelector('[name="quantity_unit"]').value = quantityUnit;
@@ -14527,12 +15344,18 @@ async function submitInventoryEditItem(){
   }
   if (!hasSales) validateCurrencyForForm(fd);
 
+  const brand = String(fd.get("brand") || "").trim();
+  const variantLabel = String(fd.get("variant_label") || "").trim();
   const sharedMeta = {
     itemCode,
     itemDescription,
     itemType,
     itemCategory,
     quantityUnit: inventoryBaseUnitForCategory(itemCategory),
+    brand,
+    variantLabel,
+    brandId: currentMeta.brandId || "",
+    variantId: currentMeta.variantId || "",
     unitSoldPrice: sellingPrice > 0 ? sellingPrice : null
   };
 
@@ -16115,13 +16938,18 @@ function renderInventoryItemDetailsOverlay(groupId){
   });
 }
 
-function openInventoryItemDetailsOverlay(groupId){
+async function openInventoryItemDetailsOverlay(groupId){
   if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
   const id = String(groupId || "").trim();
   if (!id) return;
 
   destroySectionDetailsCharts();
   clearSectionDetailsActions();
+  if (isInventoryLazyMode()) {
+    try { await ensureInventoryItemDetailLoaded(id); } catch (err) {
+      console.warn("Inventory detail load failed:", err);
+    }
+  }
   const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === id);
   if (!group) {
     if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Item details";
@@ -16134,7 +16962,8 @@ function openInventoryItemDetailsOverlay(groupId){
     }
     if (els.sectionDetailsDesc) {
       const code = group.itemCode ? `${group.itemCode} · ` : "";
-      els.sectionDetailsDesc.textContent = `${code}${normalizeInventoryItemType(group.itemType)} · ${status.label} · ${inventoryQtyLabel(group.remainingQty, group.itemCategory)} left · ${group.currency || "—"}`;
+      const brandBit = group.brand ? `${group.brand}${group.variantLabel ? ` · ${group.variantLabel}` : ""} · ` : "";
+      els.sectionDetailsDesc.textContent = `${code}${brandBit}${normalizeInventoryItemType(group.itemType)} · ${status.label} · ${inventoryQtyLabel(group.remainingQty, group.itemCategory)} left · ${group.currency || "—"}`;
     }
     if (!sectionDetailsEnsureChartLib()) {
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
@@ -17260,6 +18089,15 @@ async function deleteEntry(id){
             renderExpensesList();
             renderExpenseOverviewWallets();
           }
+        })
+        .catch(() => {});
+    }
+    if (hasGoodsTag(entry.notes) && state.inventoryLazy.rpcAvailable !== false) {
+      Promise.resolve()
+        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+        .then(() => invalidateAndRefreshInventoryLazy())
+        .then(ok => {
+          if (ok && getActiveTabKey() === "goods") renderInventoryList();
         })
         .catch(() => {});
     }
@@ -22100,6 +22938,16 @@ window.addEventListener("resize", () => {
       renderInventoryList();
     });
   }
+  const inventoryBrandFilter = document.getElementById("inventoryBrandFilter");
+  if (inventoryBrandFilter) {
+    inventoryBrandFilter.addEventListener("change", () => {
+      state.inventoryBrandFilter = inventoryBrandFilter.value || "all";
+      renderInventoryList();
+    });
+  }
+  document.getElementById("openInventoryBrandsBtn")?.addEventListener("click", () => {
+    openInventoryBrandsModal().catch(err => alert(err?.message || "Could not open brands."));
+  });
   const inventoryStatusFilter = document.getElementById("inventoryStatusFilter");
   if (inventoryStatusFilter) {
     inventoryStatusFilter.value = state.statusFilter.goods || "Open";
