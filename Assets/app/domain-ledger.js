@@ -561,9 +561,21 @@
     return /invalid input syntax for type uuid|22P02/i.test(msg);
   }
 
+  function resolveDomainOwnerId(entry) {
+    if (entry?.owner_id) return entry.owner_id;
+    if (typeof global.currentOwnerId === "function") {
+      try {
+        const oid = global.currentOwnerId();
+        if (oid) return oid;
+      } catch (_) {}
+    }
+    const session = global.state?.sessionUser;
+    return session?.team_owner_id || session?.id || null;
+  }
+
   function domainInsertPayload(entry) {
     const section = classifyLedgerEntry(entry);
-    const owner_id = entry.owner_id || global.state?.sessionUser?.id || null;
+    const owner_id = resolveDomainOwnerId(entry);
     const notes = entry.notes == null ? null : String(entry.notes);
     const deleted = notes && notes.includes(DELETED_TAG);
 
@@ -943,6 +955,59 @@
     return /app_upsert_goods_item|Could not find the function|PGRST202|404/i.test(msg);
   }
 
+  function isGoodsSaleRpcMissingError(err) {
+    const msg = String(err?.message || err || "");
+    return /app_upsert_goods_sale|Could not find the function|PGRST202|404/i.test(msg);
+  }
+
+  function goodsSalesCoreBody(body) {
+    return {
+      id: body.id,
+      group_id: body.group_id,
+      owner_id: body.owner_id,
+      item_name: body.item_name,
+      currency: body.currency,
+      unit_sold_price: body.unit_sold_price,
+      sold_qty: body.sold_qty,
+      total_sold_price: body.total_sold_price,
+      sold_date: body.sold_date,
+      notes: body.notes,
+      created_at: body.created_at
+    };
+  }
+
+  async function insertGoodsSaleViaRpc(entry, body) {
+    if (typeof global.supabaseRpc !== "function") {
+      throw new Error("RPC helper unavailable");
+    }
+    const notes = String(entry?.notes || body?.notes || "");
+    const res = typeof global.unwrapRpcJson === "function"
+      ? global.unwrapRpcJson(await global.supabaseRpc("app_upsert_goods_sale", {
+          p_id: body.id || null,
+          p_group_id: body.group_id || null,
+          p_item_name: body.item_name || entry.person_name || "Item",
+          p_currency: body.currency || entry.currency || "AED",
+          p_unit_sold_price: Number(body.unit_sold_price || 0),
+          p_sold_qty: Number(body.sold_qty || 1),
+          p_total_sold_price: Number(body.total_sold_price || entry.action_amount || 0),
+          p_sold_date: body.sold_date || entry.action_date || entry.loan_date || null,
+          p_notes: notes || null
+        }))
+      : await global.supabaseRpc("app_upsert_goods_sale", {
+          p_id: body.id || null,
+          p_group_id: body.group_id || null,
+          p_item_name: body.item_name || entry.person_name || "Item",
+          p_currency: body.currency || entry.currency || "AED",
+          p_unit_sold_price: Number(body.unit_sold_price || 0),
+          p_sold_qty: Number(body.sold_qty || 1),
+          p_total_sold_price: Number(body.total_sold_price || entry.action_amount || 0),
+          p_sold_date: body.sold_date || entry.action_date || entry.loan_date || null,
+          p_notes: notes || null
+        });
+    if (!res || res.ok === false) throw new Error(res?.error || "Goods sale RPC failed");
+    return res;
+  }
+
   async function insertDomainEntry(entry) {
     const mapped = domainInsertPayload(entry);
     if (mapped.useLedger || !mapped.body) {
@@ -958,6 +1023,18 @@
         if (!isGoodsItemRpcMissingError(rpcErr)) {
           // Still try direct insert / degraded payloads before giving up.
           console.warn("app_upsert_goods_item failed; trying direct insert.", rpcErr);
+        }
+      }
+    }
+
+    // Inventory sales: prefer SECURITY DEFINER RPC so invoices survive refresh.
+    if (mapped.table === DOMAIN.goods_sales) {
+      try {
+        await insertGoodsSaleViaRpc(entry, mapped.body);
+        return { usedLedger: false, table: mapped.table, via: "rpc" };
+      } catch (rpcErr) {
+        if (!isGoodsSaleRpcMissingError(rpcErr)) {
+          console.warn("app_upsert_goods_sale failed; trying direct insert.", rpcErr);
         }
       }
     }
@@ -985,6 +1062,17 @@
                 throw err3;
               }
             }
+            throw err2;
+          }
+        }
+      }
+      // Retry goods_sales with core columns when meta/tx_type/is_deleted lag.
+      if (mapped.table === DOMAIN.goods_sales) {
+        if (isMissingColumnError(err) || isInvalidUuidError(err) || /row-level security|42501|permission|foreign key|23503|Authentication required/i.test(String(err?.message || err || ""))) {
+          try {
+            await postDomainRow(mapped.table, goodsSalesCoreBody(mapped.body));
+            return { usedLedger: false, table: mapped.table, degraded: "core" };
+          } catch (err2) {
             throw err2;
           }
         }
