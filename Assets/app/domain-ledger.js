@@ -253,6 +253,9 @@
     if (meta.variantLabel) add("VARIANT", meta.variantLabel);
     if (meta.brandId) add("BRANDID", meta.brandId);
     if (meta.variantId) add("VARIANTID", meta.variantId);
+    if (meta.productLine) add("PLINE", meta.productLine);
+    if (meta.productLineId) add("PLINEID", meta.productLineId);
+    if (meta.categorySlug) add("CSLUG", meta.categorySlug);
     if (meta.itemCategory) add("UCAT", meta.itemCategory);
     if (meta.quantityUnit) add("UOM", meta.quantityUnit);
     if (meta.tx) add("TX", meta.tx);
@@ -270,6 +273,9 @@
       variantLabel: g.variant_label,
       brandId: g.brand_id,
       variantId: g.variant_id,
+      productLine: g.product_line,
+      productLineId: g.product_line_id,
+      categorySlug: g.category_slug,
       itemCategory: g.item_category,
       quantityUnit: g.quantity_unit,
       tx: g.tx_type || "ITEM"
@@ -532,6 +538,29 @@
     return m ? m[1] : "";
   }
 
+  function asUuidOrNull(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
+      ? raw
+      : null;
+  }
+
+  function asTextOrNull(value) {
+    const raw = String(value || "").trim();
+    return raw ? raw : null;
+  }
+
+  function isMissingColumnError(err) {
+    const msg = String(err?.message || err || "");
+    return /does not exist|42P01|404|Not Found|Could not find the table|Could not find the .+ column|PGRST204|schema cache/i.test(msg);
+  }
+
+  function isInvalidUuidError(err) {
+    const msg = String(err?.message || err || "");
+    return /invalid input syntax for type uuid|22P02/i.test(msg);
+  }
+
   function domainInsertPayload(entry) {
     const section = classifyLedgerEntry(entry);
     const owner_id = entry.owner_id || global.state?.sessionUser?.id || null;
@@ -713,28 +742,48 @@
     if (section === "inventory") {
       const tx = (metaValue(notes, "TX") || (entry.entry_kind === "principal" ? "ITEM" : "SALE")).toUpperCase();
       if (entry.entry_kind === "principal" && (tx === "ITEM" || tx === "PURCHASE" || !tx)) {
+        const boughtDate = String(entry.loan_date || "").trim().slice(0, 10)
+          || new Date().toISOString().slice(0, 10);
+        const currency = String(entry.currency || "AED").trim().toUpperCase() || "AED";
         return {
           table: DOMAIN.goods_items,
           body: {
-            id: entry.id,
-            group_id: entry.group_id,
+            id: asUuidOrNull(entry.id) || entry.id,
+            group_id: asUuidOrNull(entry.group_id) || (
+              (typeof crypto !== "undefined" && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : entry.group_id
+            ),
             owner_id,
-            item_name: entry.person_name,
-            currency: entry.currency,
-            unit_actual_price: Number(metaValue(notes, "UAP") || entry.principal_amount || 0),
-            bought_qty: Number(metaValue(notes, "BQTY") || 1),
-            total_actual_price: Number(entry.principal_amount || 0),
-            bought_date: entry.loan_date,
+            item_name: String(entry.person_name || "Item").trim() || "Item",
+            currency,
+            unit_actual_price: Number(metaValue(notes, "UAP") || entry.principal_amount || 0) || 0,
+            bought_qty: Number(metaValue(notes, "BQTY") || 1) || 1,
+            total_actual_price: Number(entry.principal_amount || 0) || 0,
+            bought_date: boughtDate,
             notes,
-            tx_type: tx || "ITEM",
-            item_code: metaValue(notes, "ICODE") || null,
-            brand: metaValue(notes, "BRAND") || null,
-            variant_label: metaValue(notes, "VARIANT") || null,
-            brand_id: metaValue(notes, "BRANDID") || null,
-            variant_id: metaValue(notes, "VARIANTID") || null,
-            item_category: metaValue(notes, "UCAT") || null,
-            quantity_unit: metaValue(notes, "UOM") || null,
-            meta: { ledger_shape: entry },
+            tx_type: tx === "PURCHASE" ? "ITEM" : (tx || "ITEM"),
+            item_code: asTextOrNull(metaValue(notes, "ICODE")),
+            brand: asTextOrNull(metaValue(notes, "BRAND")),
+            variant_label: asTextOrNull(metaValue(notes, "VARIANT")),
+            brand_id: asUuidOrNull(metaValue(notes, "BRANDID")),
+            variant_id: asUuidOrNull(metaValue(notes, "VARIANTID")),
+            product_line: asTextOrNull(metaValue(notes, "PLINE")),
+            product_line_id: asUuidOrNull(metaValue(notes, "PLINEID")),
+            category_slug: asTextOrNull(metaValue(notes, "CSLUG")),
+            item_category: asTextOrNull(metaValue(notes, "UCAT")) || "count",
+            quantity_unit: asTextOrNull(metaValue(notes, "UOM")) || "item",
+            meta: { ledger_shape: {
+              id: entry.id,
+              group_id: entry.group_id,
+              direction: entry.direction === "goods" ? "taken" : entry.direction,
+              entry_kind: entry.entry_kind,
+              person_name: entry.person_name,
+              currency,
+              principal_amount: entry.principal_amount,
+              loan_date: boughtDate,
+              notes
+            } },
             is_deleted: !!deleted,
             created_at: entry.created_at
           }
@@ -787,13 +836,161 @@
     return { table: "loan_ledger_entries", body: null, useLedger: true };
   }
 
+  function goodsItemsCoreBody(body) {
+    // Minimal columns from migration 020 — always safe even if later inventory columns are missing.
+    return {
+      id: body.id,
+      group_id: body.group_id,
+      owner_id: body.owner_id,
+      item_name: body.item_name,
+      currency: body.currency,
+      unit_actual_price: body.unit_actual_price,
+      bought_qty: body.bought_qty,
+      total_actual_price: body.total_actual_price,
+      bought_date: body.bought_date,
+      notes: body.notes,
+      created_at: body.created_at
+    };
+  }
+
+  function goodsItemsWithoutUuidExtras(body) {
+    const next = { ...body };
+    delete next.brand_id;
+    delete next.variant_id;
+    delete next.product_line_id;
+    return next;
+  }
+
+  function goodsItemsWithoutLineExtras(body) {
+    const next = goodsItemsWithoutUuidExtras(body);
+    delete next.product_line;
+    delete next.category_slug;
+    delete next.item_category;
+    delete next.quantity_unit;
+    delete next.brand;
+    delete next.variant_label;
+    delete next.item_code;
+    delete next.tx_type;
+    delete next.meta;
+    delete next.is_deleted;
+    return next;
+  }
+
+  async function postDomainRow(table, body) {
+    // return=minimal avoids PostgREST "representation" failures after INSERT
+    // when SELECT RLS / grants briefly hide the new row.
+    await global.supabase(table, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { Prefer: "return=minimal" }
+    });
+  }
+
+  async function insertGoodsItemViaRpc(entry, body) {
+    if (typeof global.supabaseRpc !== "function") {
+      throw new Error("RPC helper unavailable");
+    }
+    const notes = String(entry?.notes || body?.notes || "");
+    const res = typeof global.unwrapRpcJson === "function"
+      ? global.unwrapRpcJson(await global.supabaseRpc("app_upsert_goods_item", {
+          p_id: body.id || null,
+          p_group_id: body.group_id || null,
+          p_item_name: body.item_name || entry.person_name || "Item",
+          p_currency: body.currency || entry.currency || "AED",
+          p_unit_actual_price: Number(body.unit_actual_price || 0),
+          p_bought_qty: Number(body.bought_qty || 1),
+          p_total_actual_price: Number(body.total_actual_price || entry.principal_amount || 0),
+          p_bought_date: body.bought_date || entry.loan_date || null,
+          p_notes: notes || null,
+          p_item_code: body.item_code || metaValue(notes, "ICODE") || null,
+          p_brand: body.brand || metaValue(notes, "BRAND") || null,
+          p_variant_label: body.variant_label || metaValue(notes, "VARIANT") || null,
+          p_brand_id: body.brand_id || asUuidOrNull(metaValue(notes, "BRANDID")),
+          p_variant_id: body.variant_id || asUuidOrNull(metaValue(notes, "VARIANTID")),
+          p_product_line: body.product_line || metaValue(notes, "PLINE") || null,
+          p_product_line_id: body.product_line_id || asUuidOrNull(metaValue(notes, "PLINEID")),
+          p_category_slug: body.category_slug || metaValue(notes, "CSLUG") || null,
+          p_item_category: body.item_category || metaValue(notes, "UCAT") || "count",
+          p_quantity_unit: body.quantity_unit || metaValue(notes, "UOM") || "item"
+        }))
+      : await global.supabaseRpc("app_upsert_goods_item", {
+          p_id: body.id || null,
+          p_group_id: body.group_id || null,
+          p_item_name: body.item_name || entry.person_name || "Item",
+          p_currency: body.currency || entry.currency || "AED",
+          p_unit_actual_price: Number(body.unit_actual_price || 0),
+          p_bought_qty: Number(body.bought_qty || 1),
+          p_total_actual_price: Number(body.total_actual_price || entry.principal_amount || 0),
+          p_bought_date: body.bought_date || entry.loan_date || null,
+          p_notes: notes || null,
+          p_item_code: body.item_code || null,
+          p_brand: body.brand || null,
+          p_variant_label: body.variant_label || null,
+          p_brand_id: body.brand_id || null,
+          p_variant_id: body.variant_id || null,
+          p_product_line: body.product_line || null,
+          p_product_line_id: body.product_line_id || null,
+          p_category_slug: body.category_slug || null,
+          p_item_category: body.item_category || "count",
+          p_quantity_unit: body.quantity_unit || "item"
+        });
+    if (!res || res.ok === false) throw new Error(res?.error || "Goods item RPC failed");
+    return res;
+  }
+
+  function isGoodsItemRpcMissingError(err) {
+    const msg = String(err?.message || err || "");
+    return /app_upsert_goods_item|Could not find the function|PGRST202|404/i.test(msg);
+  }
+
   async function insertDomainEntry(entry) {
     const mapped = domainInsertPayload(entry);
     if (mapped.useLedger || !mapped.body) {
       return { usedLedger: true };
     }
-    await global.supabase(mapped.table, { method: "POST", body: JSON.stringify(mapped.body) });
-    return { usedLedger: false, table: mapped.table };
+
+    // Inventory principals: prefer SECURITY DEFINER RPC (same reliability as brand upserts).
+    if (mapped.table === DOMAIN.goods_items) {
+      try {
+        await insertGoodsItemViaRpc(entry, mapped.body);
+        return { usedLedger: false, table: mapped.table, via: "rpc" };
+      } catch (rpcErr) {
+        if (!isGoodsItemRpcMissingError(rpcErr)) {
+          // Still try direct insert / degraded payloads before giving up.
+          console.warn("app_upsert_goods_item failed; trying direct insert.", rpcErr);
+        }
+      }
+    }
+
+    try {
+      await postDomainRow(mapped.table, mapped.body);
+      return { usedLedger: false, table: mapped.table };
+    } catch (err) {
+      // Retry goods_items with progressively smaller payloads when schema lags migrations.
+      if (mapped.table === DOMAIN.goods_items) {
+        if (isInvalidUuidError(err) || isMissingColumnError(err) || /row-level security|42501|permission|Authentication required/i.test(String(err?.message || err || ""))) {
+          try {
+            await postDomainRow(mapped.table, goodsItemsWithoutUuidExtras(mapped.body));
+            return { usedLedger: false, table: mapped.table, degraded: "uuid-extras" };
+          } catch (err2) {
+            if (isMissingColumnError(err2) || isInvalidUuidError(err2) || /row-level security|42501|permission|Authentication required/i.test(String(err2?.message || err2 || ""))) {
+              try {
+                await postDomainRow(mapped.table, goodsItemsWithoutLineExtras(mapped.body));
+                return { usedLedger: false, table: mapped.table, degraded: "line-extras" };
+              } catch (err3) {
+                if (isMissingColumnError(err3) || /row-level security|42501|permission|Authentication required/i.test(String(err3?.message || err3 || ""))) {
+                  await postDomainRow(mapped.table, goodsItemsCoreBody(mapped.body));
+                  return { usedLedger: false, table: mapped.table, degraded: "core" };
+                }
+                throw err3;
+              }
+            }
+            throw err2;
+          }
+        }
+      }
+      throw err;
+    }
   }
 
   /**
