@@ -2287,7 +2287,13 @@
             <div class="filter-inline-row inventory-filter-row">
               <div class="filter-inline-section inventory-filter-search">
                 <span class="filter-inline-label">Search</span>
-                <input id="searchGoods" class="input filter-inline-input" placeholder="Item, type, note" />
+                <input id="searchGoods" class="input filter-inline-input" placeholder="Item, brand, variant…" />
+              </div>
+              <div class="filter-inline-section inventory-filter-brand">
+                <span class="filter-inline-label">Brand</span>
+                <select id="inventoryBrandFilter" class="select filter-inline-select" aria-label="Filter inventory by brand">
+                  <option value="all" selected>All brands</option>
+                </select>
               </div>
               <div class="filter-inline-section inventory-filter-type">
                 <span class="filter-inline-label">Type</span>
@@ -2303,6 +2309,11 @@
                   <option value="LowStock">Low Stock</option>
                   <option value="Closed">Sold</option>
                 </select>
+              </div>
+              <div class="filter-inline-section inventory-filter-brands-btn">
+                <button type="button" class="tiny ghost" id="openInventoryBrandsBtn" title="Manage brands and variants">
+                  <i class="fa-solid fa-tags"></i> Brands
+                </button>
               </div>
             </div>
             <div id="goodsList" class="list"></div>
@@ -3291,7 +3302,16 @@
                   <option value="count">Numbers (pcs)</option>
                   <option value="weight">Weight (KG)</option>
                   <option value="length">Length (m)</option>
+                  <option value="volume">Volume (L / ml)</option>
                 </select>
+              </label>
+              <label class="inventory-edit-field">
+                <span>Brand <em class="optional-label">optional</em></span>
+                <input class="input" name="brand" id="inventoryEditItemBrand" placeholder="e.g. Afnan Perfumes" autocomplete="off" />
+              </label>
+              <label class="inventory-edit-field">
+                <span>Variant <em class="optional-label">optional</em></span>
+                <input class="input" name="variant_label" id="inventoryEditItemVariant" placeholder="e.g. 3 ml bottle" autocomplete="off" />
               </label>
               <label class="inventory-edit-field hide" data-inventory-unit-wrap>
                 <span>Unit</span>
@@ -3301,6 +3321,8 @@
                   <option value="g">Gram</option>
                   <option value="m">Meter</option>
                   <option value="cm">CM</option>
+                  <option value="l">L</option>
+                  <option value="ml">ml</option>
                 </select>
               </label>
               <label class="inventory-edit-field inventory-edit-field-wide">
