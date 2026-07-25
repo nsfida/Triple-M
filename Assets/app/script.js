@@ -819,6 +819,7 @@ const els = {
   goodsSettlementBalance: document.getElementById("goodsSettlementBalance"),
   goodsSettlementAmount: document.getElementById("goodsSettlementAmount"),
   goodsSettlementDate: document.getElementById("goodsSettlementDate"),
+  goodsSettlementWalletSelect: document.getElementById("goodsSettlementWalletSelect"),
   goodsSettlementInvoiceListField: document.getElementById("goodsSettlementInvoiceListField"),
   goodsSettlementInvoiceList: document.getElementById("goodsSettlementInvoiceList"),
   inventoryCustomerModal: document.getElementById("inventoryCustomerModal"),
@@ -840,6 +841,7 @@ const els = {
   sectionDetailsTitle: document.getElementById("sectionDetailsTitle"),
   sectionDetailsDesc: document.getElementById("sectionDetailsDesc"),
   sectionDetailsBody: document.getElementById("sectionDetailsBody"),
+  sectionDetailsActions: document.getElementById("sectionDetailsActions"),
   expenseModal: document.getElementById("expenseModal"),
   expenseModalTitle: document.getElementById("expenseModalTitle"),
   expenseModalDesc: document.getElementById("expenseModalDesc"),
@@ -1603,6 +1605,7 @@ function hideTrialExpiredOverlay(){
   if (!els.trialExpiredOverlay) return;
   els.trialExpiredOverlay.classList.add("hide");
   els.trialExpiredOverlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("trial-locked", "access-locked");
   document.body.style.overflow = "";
 }
 
@@ -1625,6 +1628,7 @@ function showTrialExpiredOverlay(){
   }
   els.trialExpiredOverlay.classList.remove("hide");
   els.trialExpiredOverlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("trial-locked", "access-locked");
   document.body.style.overflow = "hidden";
 }
 
@@ -3989,9 +3993,12 @@ function applyPermissionGates(){
   updateAdminCommsVisibility();
   updateAdminBackupVisibility();
   if (messagingLiveEligible()) {
-    if (isAppAdminSession()) refreshAdminCommsBadges().catch(() => {});
+    refreshAdminCommsBadges().catch(() => {});
+    startInstallmentDueChecker();
     startMessagingLiveSync();
+    if (typeof ensureReminderAlertAudioUnlocked === "function") ensureReminderAlertAudioUnlocked();
   } else {
+    stopInstallmentDueChecker();
     stopMessagingLiveSync();
   }
 }
@@ -5080,6 +5087,47 @@ function buildInstallmentSchedule(principalEntry, paymentEntries = []){
     slots,
     payments
   };
+}
+
+/** Map payment display notes onto schedule slots (via IALLOC or FIFO order). */
+function collectInstallmentSlotNotes(schedule, paymentEntries = []){
+  const notesBySlot = new Map();
+  const pushNote = (index, note) => {
+    const text = String(note || "").trim();
+    if (!text || !(index > 0)) return;
+    const prev = notesBySlot.get(index) || "";
+    if (!prev) notesBySlot.set(index, text);
+    else if (!prev.split(" · ").includes(text)) notesBySlot.set(index, `${prev} · ${text}`);
+  };
+  const payments = (paymentEntries || [])
+    .filter(entry => entry && entry.entry_kind !== "principal")
+    .slice()
+    .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
+  const openTracker = (schedule?.slots || []).map(slot => ({
+    index: slot.index,
+    remaining: roundInstallmentMoney(slot.scheduled || 0, schedule?.currency)
+  }));
+  for (const payment of payments){
+    const note = cleanInstallmentDisplayNote(payment.notes);
+    if (!note) continue;
+    const payMeta = installmentMetaFromNotes(payment.notes);
+    const tagged = parseInstallmentAllocation(payMeta.allocation);
+    const amount = roundInstallmentMoney(payment.action_amount || 0, schedule?.currency);
+    if (tagged.length){
+      tagged.forEach(row => pushNote(row.index, note));
+      continue;
+    }
+    let remaining = amount;
+    for (const slot of openTracker){
+      if (!(remaining > 0.00000001) || !(slot.remaining > 0.00000001)) continue;
+      const take = roundInstallmentMoney(Math.min(slot.remaining, remaining), schedule?.currency);
+      if (!(take > 0)) continue;
+      pushNote(slot.index, note);
+      slot.remaining = roundInstallmentMoney(slot.remaining - take, schedule?.currency);
+      remaining = roundInstallmentMoney(remaining - take, schedule?.currency);
+    }
+  }
+  return notesBySlot;
 }
 
 function allocateInstallmentPayment(schedule, amount){
@@ -12187,6 +12235,7 @@ function renderInstallmentPlans(){
                     <button class="menu-item installmentActionBtn" type="button" data-action="schedule" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-list-ol"></i> View schedule</button>
                     ${teamCanShowEdit("entries") ? `<button class="menu-item installmentActionBtn" type="button" data-action="edit" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-pen-to-square"></i> Edit plan / schedule</button>` : ""}
                     <button class="menu-item installmentActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-money-bill"></i> Pay installment</button>
+                    <button class="menu-item installmentActionBtn" type="button" data-action="reminder" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-bell"></i> Reminder</button>
                     <button class="menu-item installmentActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(plan.group_id)}"><i class="fa-solid fa-download"></i> Download statement</button>
                     ${teamCanShowDelete("entries") ? `<button class="menu-item danger installmentActionBtn" type="button" data-action="delete" data-person="${encodeURIComponent(plan.person_name || "")}" data-direction="taken">Delete Record</button>` : ""}
                   </div>
@@ -12263,6 +12312,10 @@ function renderInstallmentPlans(){
       if (action === "schedule") openInstallmentPlanOverlay(btn.dataset.groupId);
       if (action === "edit") openInstallmentEditModal(btn.dataset.groupId);
       if (action === "pay") openInstallmentPaymentModal(btn.dataset.groupId);
+      if (action === "reminder") {
+        try { await window.openInstallmentReminderModal(btn.dataset.groupId); }
+        catch (err) { alert(err?.message || "Could not open reminder."); }
+      }
       if (action === "pdf") await downloadInstallmentPlanPDF(btn.dataset.groupId);
       if (action === "delete") await deletePersonRecords(btn.dataset.person, btn.dataset.direction);
     });
@@ -12476,29 +12529,33 @@ async function downloadInstallmentPlanPDF(groupId){
   y += 8;
 
   if (schedule){
+    const slotNotes = collectInstallmentSlotNotes(schedule, plan.payments || []);
     doc.autoTable({
       startY: y,
-      head: [["#", "Due date", "Amount due", "Paid", "Balance", "Status"]],
+      head: [["#", "Due date", "Amount due", "Paid", "Balance", "Status", "Notes"]],
       body: schedule.slots.map(slot => [
         String(slot.index),
         displayDate(slot.dueDate),
         formatMon(slot.scheduled),
         formatMon(slot.paid),
         formatMon(slot.balance),
-        slot.status
+        slot.status,
+        slotNotes.get(slot.index) || "—"
       ]),
       theme: "grid",
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.4 },
-      styles: { font: "helvetica", fontSize: 7.6, cellPadding: 1.7 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 6.8 },
+      styles: { font: "helvetica", fontSize: 6.8, cellPadding: 1.3, overflow: "linebreak", valign: "middle" },
+      tableWidth: 182,
       columnStyles: {
-        0: { cellWidth: 12,halign: "center" },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 34,halign: "right" },
-        3: { cellWidth: 34,halign: "right" },
-        4: { cellWidth: 34,halign: "right" },
-        5: { cellWidth: 28,halign: "center" }
+        0: { cellWidth: 9, halign: "center" },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 24, halign: "right" },
+        3: { cellWidth: 22, halign: "right" },
+        4: { cellWidth: 22, halign: "right" },
+        5: { cellWidth: 20, halign: "center" },
+        6: { cellWidth: 63 }
       },
-      margin: { top: 42, bottom: 42 },
+      margin: { top: 42, bottom: 42, left: 14, right: 14 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
     });
   } else {
@@ -12523,14 +12580,15 @@ async function downloadInstallmentPlanPDF(groupId){
       theme: "grid",
       headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.4 },
       styles: { font: "helvetica", fontSize: 7.5, cellPadding: 1.6, overflow: "linebreak" },
+      tableWidth: 182,
       columnStyles: {
         0: { cellWidth: 28 },
         1: { cellWidth: 34 },
         2: { cellWidth: 32,halign: "right" },
         3: { cellWidth: 34,halign: "right" },
-        4: { cellWidth: 44 }
+        4: { cellWidth: 54 }
       },
-      margin: { top: 42, bottom: 42 },
+      margin: { top: 42, bottom: 42, left: 14, right: 14 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
     });
   }
@@ -13614,6 +13672,7 @@ function updateGoodsSettlementSelectionTotals(){
   }
   state.inventoryDraft.settlement.currency = currency;
   state.inventoryDraft.settlement.balance = total;
+  updateGoodsSettlementWalletSelector(currency);
 }
 
 function openGoodsSettlementModal(entryId){
@@ -13654,6 +13713,7 @@ function openGoodsSettlementModal(entryId){
     els.goodsSettlementAmount.max = trimInventoryNumber(receiptData.balanceTotal);
   }
   if (els.goodsSettlementDate) els.goodsSettlementDate.value = todayISO();
+  updateGoodsSettlementWalletSelector(receiptData.currency);
   els.goodsSettlementModal.classList.remove("hide");
   els.goodsSettlementModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -13690,6 +13750,7 @@ async function saveGoodsSettlement(form){
   const settlementAmount = Number(fd.get("settlement_amount") || 0);
   const settlementDate = String(fd.get("settlement_date") || "");
   const settlementNotes = String(fd.get("notes") || "").trim() || "Balance settlement";
+  const walletId = String(fd.get("settlement_wallet_id") || "").trim();
   if (!settlementDate) throw new Error("Settlement date is required.");
   if (!Number.isFinite(settlementAmount) || settlementAmount <= 0) throw new Error("Settlement amount must be greater than zero.");
 
@@ -13697,6 +13758,9 @@ async function saveGoodsSettlement(form){
   const settlementId = crypto.randomUUID();
   const paymentReceiptNumber = nextPaymentReceiptNumber();
   const payloads = [];
+  let settlementCurrency = String(draft.currency || "").trim();
+  let customerName = "";
+  let receiptLabel = draft.receiptNumber || "";
 
   if (draft.mode === "customer"){
     const selected = selectedGoodsSettlementInvoices()
@@ -13704,6 +13768,9 @@ async function saveGoodsSettlement(form){
     if (!selected.length) throw new Error("Select at least one invoice to settle.");
     const selectedCurrencies = new Set(selected.map(invoice => invoice.currency).filter(Boolean));
     if (selectedCurrencies.size !== 1) throw new Error("Select invoices from one currency only.");
+    settlementCurrency = Array.from(selectedCurrencies)[0];
+    customerName = draft.customerName || "";
+    receiptLabel = selected.map(invoice => invoice.invoiceNumber || invoice.receiptNumber).filter(Boolean).join(", ") || "Multiple invoices";
     const selectedBalance = selected.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
     if (settlementAmount > selectedBalance + 0.00000001) throw new Error("Settlement amount cannot exceed the selected balance.");
 
@@ -13712,6 +13779,7 @@ async function saveGoodsSettlement(form){
       const fallbackEntry = state.entries.find(e => e.id === invoice.entryId) || null;
       const receiptData = getInventoryReceiptData(invoice.receiptNumber, fallbackEntry);
       if (receiptData.totalsByCurrency.size !== 1) continue;
+      if (!customerName) customerName = receiptData.customerName || "";
       addInventorySettlementPayloads(payloads, receiptData, remainingSettlement, settlementDate, settlementNotes, settlementId, paymentReceiptNumber);
     }
   } else {
@@ -13719,12 +13787,26 @@ async function saveGoodsSettlement(form){
     const receiptData = getInventoryReceiptData(draft.receiptNumber, fallbackEntry);
     if (receiptData.totalsByCurrency.size !== 1) throw new Error("Balance clearance is available only for a single-currency receipt.");
     if (settlementAmount > receiptData.balanceTotal + 0.00000001) throw new Error("Settlement amount cannot exceed the current balance.");
+    settlementCurrency = receiptData.currency || settlementCurrency;
+    customerName = receiptData.customerName || "";
+    receiptLabel = receiptData.invoiceNumber || receiptData.receiptNumber || receiptLabel;
     addInventorySettlementPayloads(payloads, receiptData, remainingSettlement, settlementDate, settlementNotes, settlementId, paymentReceiptNumber);
   }
   if (!payloads.length) throw new Error("No outstanding balance found for the selected invoice(s).");
   if (remainingSettlement.amount > 0.00000001) throw new Error("Settlement amount exceeds the current outstanding balance.");
 
+  if (walletId) {
+    if (!settlementCurrency) throw new Error("Wallet top-up requires a single settlement currency.");
+    validateInventoryWallet(walletId, settlementCurrency, settlementAmount, "topup");
+  }
+
   saveEntriesImmediately(payloads, { label: "Settlement" });
+  if (walletId) {
+    await createWalletEntryForInventory(walletId, settlementAmount, settlementDate, settlementCurrency, "settlement", {
+      customerName,
+      receiptNumber: receiptLabel
+    });
+  }
   state.inventoryDraft.settlement = null;
   closeModal("goodsSettlementModal");
 }
@@ -14084,6 +14166,7 @@ function getEditTaxMeta(entry, amount) {
 }
 
 const sectionDetailsChartInstances = [];
+let inventoryDetailsSelectedCurrency = "";
 
 function destroySectionDetailsCharts(){
   while (sectionDetailsChartInstances.length) {
@@ -14092,9 +14175,37 @@ function destroySectionDetailsCharts(){
   }
 }
 
+function clearSectionDetailsActions(){
+  const host = els.sectionDetailsActions;
+  if (!host) return;
+  host.innerHTML = "";
+  host.classList.add("hide");
+  delete host.dataset.groupId;
+}
+
 function sectionDetailsThemeColors(){
   const styles = getComputedStyle(document.documentElement);
   const read = (name, fallback) => String(styles.getPropertyValue(name) || "").trim() || fallback;
+  const bg = read("--bg", "#edf1f7");
+  const bodyBg = String(getComputedStyle(document.body).backgroundColor || "").trim();
+  const luminanceOf = (raw) => {
+    const rgba = String(raw || "").match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (rgba) {
+      const r = Number(rgba[1]) / 255;
+      const g = Number(rgba[2]) / 255;
+      const b = Number(rgba[3]) / 255;
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    const hex = String(raw || "").match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (!hex) return 0.92;
+    let h = hex[1];
+    if (h.length === 3) h = h.split("").map(ch => ch + ch).join("");
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const isDark = Math.min(luminanceOf(bg), luminanceOf(bodyBg || bg)) < 0.35;
   return {
     primary: read("--primary", "#2457d6"),
     primarySoft: read("--primary-soft", "rgba(36,87,214,.10)"),
@@ -14104,52 +14215,191 @@ function sectionDetailsThemeColors(){
     muted: read("--muted", "#667085"),
     text: read("--text", "#17212b"),
     line: read("--line", "rgba(208,213,221,.70)"),
-    panel: "#ffffff"
+    bg,
+    panel: isDark ? "rgba(22,28,36,.92)" : "#ffffff",
+    tooltipBg: isDark ? "rgba(12,16,22,.94)" : "rgba(23,33,43,.92)",
+    crosshair: isDark ? "rgba(255,255,255,.18)" : "rgba(23,33,43,.16)",
+    doughnutBorder: isDark ? "rgba(22,28,36,.95)" : "#ffffff",
+    isDark
   };
 }
 
-function sectionDetailsChartDefaults(){
+function sectionDetailsColorAlpha(color, alpha){
+  const c = String(color || "").trim();
+  const a = Math.max(0, Math.min(1, Number(alpha)));
+  if (!c) return `rgba(36,87,214,${a})`;
+  const rgbaMatch = c.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+  if (rgbaMatch) return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${a})`;
+  const hex = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3) h = h.split("").map(ch => ch + ch).join("");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  return c;
+}
+
+function sectionDetailsAreaFill(ctx, color, alphaTop = 0.2, alphaBottom = 0.02){
+  try {
+    const area = ctx?.chart?.chartArea;
+    const canvasCtx = ctx?.chart?.ctx;
+    if (!area || !canvasCtx || area.top == null || area.bottom == null) {
+      return sectionDetailsColorAlpha(color, alphaTop * 0.45);
+    }
+    const gradient = canvasCtx.createLinearGradient(0, area.top, 0, area.bottom);
+    gradient.addColorStop(0, sectionDetailsColorAlpha(color, alphaTop));
+    gradient.addColorStop(1, sectionDetailsColorAlpha(color, alphaBottom));
+    return gradient;
+  } catch (_) {
+    return sectionDetailsColorAlpha(color, alphaTop * 0.45);
+  }
+}
+
+/** Shared “pro chart” defaults — TradingView-like thin lines, subtle grid, index tooltips. */
+function sectionDetailsProChartDefaults(){
   const colors = sectionDetailsThemeColors();
+  const gridColor = sectionDetailsColorAlpha(colors.muted, colors.isDark ? 0.16 : 0.12);
   return {
     colors,
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 420, easing: "easeOutQuart" },
+      animation: { duration: 360, easing: "easeOutQuart" },
+      interaction: { mode: "index", intersect: false },
+      hover: { mode: "index", intersect: false },
       plugins: {
         legend: {
           labels: {
             color: colors.text,
-            boxWidth: 10,
-            boxHeight: 10,
+            boxWidth: 8,
+            boxHeight: 8,
             usePointStyle: true,
             pointStyle: "circle",
-            font: { size: 11, weight: "600" }
+            font: { size: 11, weight: "600" },
+            padding: 12
           }
         },
         tooltip: {
-          backgroundColor: "rgba(23,33,43,.92)",
+          enabled: true,
+          backgroundColor: colors.tooltipBg,
           titleColor: "#fff",
-          bodyColor: "#fff",
-          cornerRadius: 8,
+          bodyColor: "rgba(255,255,255,.92)",
+          borderColor: sectionDetailsColorAlpha(colors.line, 0.55),
+          borderWidth: 1,
+          cornerRadius: 6,
           padding: 10,
           displayColors: true,
+          boxPadding: 4,
           titleFont: { size: 11, weight: "700" },
-          bodyFont: { size: 11 }
+          bodyFont: { size: 11 },
+          caretSize: 5,
+          mode: "index",
+          intersect: false
         }
       },
       scales: {
         x: {
-          grid: { color: "rgba(208,213,221,.35)", drawBorder: false },
-          ticks: { color: colors.muted, font: { size: 10, weight: "600" } }
+          grid: {
+            color: gridColor,
+            drawBorder: false,
+            tickLength: 0,
+            borderDash: [3, 3]
+          },
+          border: { display: false },
+          ticks: {
+            color: colors.muted,
+            font: { size: 10, weight: "600" },
+            maxRotation: 0,
+            autoSkipPadding: 10
+          }
         },
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(208,213,221,.35)", drawBorder: false },
-          ticks: { color: colors.muted, font: { size: 10, weight: "600" } }
+          grid: {
+            color: gridColor,
+            drawBorder: false,
+            tickLength: 0,
+            borderDash: [3, 3]
+          },
+          border: { display: false },
+          ticks: {
+            color: colors.muted,
+            font: { size: 10, weight: "600" },
+            padding: 6
+          }
         }
       }
     }
+  };
+}
+
+function sectionDetailsChartDefaults(){
+  return sectionDetailsProChartDefaults();
+}
+
+function sectionDetailsLineDataset(label, data, color, opts = {}){
+  const fill = opts.fill !== false;
+  const tension = opts.tension ?? 0.38;
+  return {
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: fill
+      ? (ctx) => sectionDetailsAreaFill(ctx, color, opts.alphaTop ?? 0.2, opts.alphaBottom ?? 0.015)
+      : "transparent",
+    fill,
+    tension,
+    pointRadius: opts.pointRadius ?? 0,
+    pointHoverRadius: opts.pointHoverRadius ?? 4,
+    pointHitRadius: 10,
+    pointBackgroundColor: color,
+    pointBorderColor: opts.pointBorderColor ?? "#fff",
+    pointBorderWidth: 1.5,
+    borderWidth: opts.borderWidth ?? 1.75,
+    borderDash: opts.borderDash || [],
+    cubicInterpolationMode: "monotone"
+  };
+}
+
+function sectionDetailsCandleBarDataset(label, data, color, opts = {}){
+  return {
+    label,
+    data,
+    backgroundColor: sectionDetailsColorAlpha(color, opts.alpha ?? 0.78),
+    hoverBackgroundColor: color,
+    borderColor: color,
+    borderWidth: 0,
+    borderRadius: opts.borderRadius ?? 2,
+    maxBarThickness: opts.maxBarThickness ?? 11,
+    categoryPercentage: opts.categoryPercentage ?? 0.55,
+    barPercentage: opts.barPercentage ?? 0.72
+  };
+}
+
+function sectionDetailsDoughnutDataset(values, palette, opts = {}){
+  const colors = sectionDetailsThemeColors();
+  return {
+    data: values,
+    backgroundColor: palette,
+    borderWidth: opts.borderWidth ?? 2,
+    borderColor: opts.borderColor ?? colors.doughnutBorder,
+    hoverOffset: opts.hoverOffset ?? 5,
+    spacing: opts.spacing ?? 1
+  };
+}
+
+function sectionDetailsDoughnutOptions(baseOptions, cutout = "62%"){
+  return {
+    ...baseOptions,
+    cutout,
+    plugins: {
+      ...baseOptions.plugins,
+      legend: { ...baseOptions.plugins.legend, position: "bottom" }
+    },
+    scales: undefined
   };
 }
 
@@ -14181,9 +14431,46 @@ function sectionDetailsEnsureChartLib(){
 
 function createSectionDetailsChart(canvas, config){
   if (!canvas || !sectionDetailsEnsureChartLib()) return null;
+  try {
+    const existing = window.Chart.getChart?.(canvas);
+    if (existing) existing.destroy();
+  } catch (_) {}
   const chart = new window.Chart(canvas.getContext("2d"), config);
   sectionDetailsChartInstances.push(chart);
   return chart;
+}
+
+function resolveInventoryDetailsCurrency(currencies, preferred){
+  const list = Array.isArray(currencies) ? currencies.filter(Boolean) : [];
+  if (!list.length) return "";
+  if (preferred && list.includes(preferred)) return preferred;
+  if (!isPageCurrencyAll()) {
+    const selected = getSelectedPageCurrencies();
+    if (selected.length === 1 && list.includes(selected[0])) return selected[0];
+    const pageHit = selected.find(c => list.includes(c));
+    if (pageHit) return pageHit;
+  }
+  const goodsFilter = String(state.currencyFilter?.goods || "All");
+  if (goodsFilter !== "All" && list.includes(goodsFilter)) return goodsFilter;
+  return list[0];
+}
+
+function inventoryDetailsCurrencyChipsHtml(currencies, selected){
+  if (!currencies.length) return "";
+  return `
+    <div class="section-details-currency-bar" role="tablist" aria-label="Inventory currency">
+      ${currencies.map(currency => `
+        <button
+          type="button"
+          class="section-details-currency-chip${currency === selected ? " active" : ""}"
+          data-inventory-details-currency="${escapeHtml(currency)}"
+          role="tab"
+          aria-selected="${currency === selected ? "true" : "false"}"
+          title="${escapeHtml(currency)}"
+        >${currencySymbolHtml(currency)}<span>${escapeHtml(currency)}</span></button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function isInventoryLowStockGroup(group){
@@ -14192,8 +14479,16 @@ function isInventoryLowStockGroup(group){
     && (Number(group.remainingQty || 0) / Number(group.boughtQty || 0)) <= 0.15;
 }
 
-function buildInventoryDetailsPayload(){
-  const goodsAll = getGoodsGroups({ applyUiFilters: false });
+function buildInventoryDetailsPayload(currencyFilter = ""){
+  const goodsUniverse = getGoodsGroups({ applyUiFilters: false });
+  const currencies = sortCurrenciesList([
+    ...new Set(goodsUniverse.map(g => String(g.currency || "").trim()).filter(Boolean))
+  ]);
+  const selectedCurrency = resolveInventoryDetailsCurrency(currencies, currencyFilter);
+  const goodsAll = selectedCurrency
+    ? goodsUniverse.filter(g => String(g.currency || "").trim() === selectedCurrency)
+    : goodsUniverse;
+
   const inStock = goodsAll.filter(g => Number(g.remainingQty || 0) > 0.00000001 && !isInventoryLowStockGroup(g));
   const lowStock = goodsAll.filter(isInventoryLowStockGroup);
   const soldOut = goodsAll.filter(g => Number(g.remainingQty || 0) <= 0.00000001);
@@ -14203,14 +14498,28 @@ function buildInventoryDetailsPayload(){
   const purchaseTotals = inventoryOverviewTotals(goodsAll, g => g.bought);
   const salesTotals = inventoryOverviewTotals(goodsAll, g => g.soldTotal);
   const paidTotals = inventoryOverviewTotals(goodsAll, g => g.paidTotal);
-  const balanceTotals = inventoryOverviewTotals(goodsAll, g => g.balanceTotal);
   const profitTotals = inventoryOverviewTotals(profitGroups, g => Math.max(Number(g.profitLoss || 0), 0));
   const lossTotals = inventoryOverviewTotals(lossGroups, g => Math.abs(Number(g.profitLoss || 0)));
-  const outstandingInvoices = collectOutstandingInventoryInvoices();
+
+  const outstandingInvoicesAll = collectOutstandingInventoryInvoices();
+  const outstandingInvoices = selectedCurrency
+    ? outstandingInvoicesAll.filter(invoice => Number(invoice.balanceByCurrency?.get?.(selectedCurrency) || 0) > 0.00000001)
+    : outstandingInvoicesAll;
   const outstandingBalance = new Map();
   outstandingInvoices.forEach(invoice => {
+    if (selectedCurrency) {
+      addCurrencyTotal(outstandingBalance, selectedCurrency, Number(invoice.balanceByCurrency?.get?.(selectedCurrency) || 0));
+      return;
+    }
     invoice.balanceByCurrency.forEach((amount, currency) => addCurrencyTotal(outstandingBalance, currency, amount));
   });
+
+  const amountText = (totals) => {
+    if (selectedCurrency) {
+      return formatReportAmount(Number(totals?.[selectedCurrency] || 0), selectedCurrency);
+    }
+    return inventoryOverviewAmountText(totals);
+  };
 
   const typeCounts = new Map();
   goodsAll.forEach(g => {
@@ -14220,9 +14529,12 @@ function buildInventoryDetailsPayload(){
 
   const monthMap = new Map();
   const bumpMonth = (key, field, amount) => {
-    if (!key || !(Number(amount) > 0)) return;
+    if (!key) return;
+    const n = Number(amount) || 0;
+    if (!n) return;
+    if (field !== "profit" && !(n > 0)) return;
     if (!monthMap.has(key)) monthMap.set(key, { purchase: 0, sales: 0, profit: 0 });
-    monthMap.get(key)[field] += Number(amount) || 0;
+    monthMap.get(key)[field] += n;
   };
   goodsAll.forEach(group => {
     const purchaseDate = group.principal?.loan_date;
@@ -14240,19 +14552,24 @@ function buildInventoryDetailsPayload(){
 
   return {
     goodsAll,
+    goodsUniverse,
+    currencies,
+    selectedCurrency,
     metrics: {
       items: goodsAll.length,
       stockQty: inventoryQtySummary(goodsAll, "remainingQty"),
-      stockValue: inventoryOverviewAmountText(stockValueTotals),
+      stockValue: amountText(stockValueTotals),
       inStock: inStock.length,
       lowStock: lowStock.length,
       soldOut: soldOut.length,
-      purchaseTotal: inventoryOverviewAmountText(purchaseTotals),
-      salesTotal: inventoryOverviewAmountText(salesTotals),
-      paidTotal: inventoryOverviewAmountText(paidTotals),
-      profitTotal: inventoryOverviewAmountText(profitTotals),
-      lossTotal: inventoryOverviewAmountText(lossTotals),
-      outstanding: inventoryCurrencyTotalsText(outstandingBalance) || "0",
+      purchaseTotal: amountText(purchaseTotals),
+      salesTotal: amountText(salesTotals),
+      paidTotal: amountText(paidTotals),
+      profitTotal: amountText(profitTotals),
+      lossTotal: amountText(lossTotals),
+      outstanding: selectedCurrency
+        ? formatReportAmount(Number(outstandingBalance.get(selectedCurrency) || 0), selectedCurrency)
+        : (inventoryCurrencyTotalsText(outstandingBalance) || "0"),
       outstandingCount: outstandingInvoices.length
     },
     statusCounts: {
@@ -14404,9 +14721,12 @@ function buildInstallmentDetailsPayload(){
   };
 }
 
-function renderInventoryDetailsOverlay(){
-  const data = buildInventoryDetailsPayload();
+function renderInventoryDetailsOverlay(preferredCurrency = ""){
+  destroySectionDetailsCharts();
+  const data = buildInventoryDetailsPayload(preferredCurrency || inventoryDetailsSelectedCurrency);
+  inventoryDetailsSelectedCurrency = data.selectedCurrency || "";
   const m = data.metrics;
+  const curLabel = data.selectedCurrency ? ` · ${data.selectedCurrency}` : "";
   const metricsHtml = [
     sectionDetailsMetricHtml("Items", escapeHtml(String(m.items)), "primary"),
     sectionDetailsMetricHtml("In stock qty", escapeHtml(m.stockQty)),
@@ -14423,7 +14743,8 @@ function renderInventoryDetailsOverlay(){
   ].join("");
 
   els.sectionDetailsBody.innerHTML = `
-    <p class="section-details-note">Uses all inventory records (not list filters). Totals refresh from live stock, sales, and invoice data.</p>
+    ${inventoryDetailsCurrencyChipsHtml(data.currencies, data.selectedCurrency)}
+    <p class="section-details-note">Uses inventory records for the selected currency (not list filters). Totals refresh from live stock, sales, and invoice data${escapeHtml(curLabel)}.</p>
     <div class="section-details-metrics">${metricsHtml}</div>
     <div class="section-details-charts">
       <div class="section-details-chart-card">
@@ -14441,8 +14762,21 @@ function renderInventoryDetailsOverlay(){
     </div>
   `;
 
-  if (!data.goodsAll.length) {
+  els.sectionDetailsBody.querySelectorAll("[data-inventory-details-currency]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = String(btn.dataset.inventoryDetailsCurrency || "").trim();
+      if (!next || next === inventoryDetailsSelectedCurrency) return;
+      inventoryDetailsSelectedCurrency = next;
+      renderInventoryDetailsOverlay(next);
+    });
+  });
+
+  if (!data.goodsUniverse.length) {
     els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No inventory records yet.</div>`);
+  } else if (!data.goodsAll.length) {
+    els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No inventory records for ${escapeHtml(data.selectedCurrency || "this currency")}.</div>`);
   }
 
   const { colors, options } = sectionDetailsChartDefaults();
@@ -14452,33 +14786,24 @@ function renderInventoryDetailsOverlay(){
     type: "doughnut",
     data: {
       labels: statusLabels,
-      datasets: [{
-        data: statusValues,
-        backgroundColor: [colors.success, colors.warning, colors.muted],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [sectionDetailsDoughnutDataset(statusValues, [colors.success, colors.warning, colors.muted])]
     },
-    options: {
-      ...options,
-      cutout: "62%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "64%")
   });
 
   const typeEntries = [...data.typeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   createSectionDetailsChart(document.getElementById("sectionDetailsChart2"), {
     type: "bar",
     data: {
-      labels: typeEntries.map(([label]) => label),
-      datasets: [{
-        label: "Items",
-        data: typeEntries.map(([, count]) => count),
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        maxBarThickness: 28
-      }]
+      labels: typeEntries.length ? typeEntries.map(([label]) => label) : ["—"],
+      datasets: [
+        sectionDetailsCandleBarDataset(
+          "Items",
+          typeEntries.length ? typeEntries.map(([, count]) => count) : [0],
+          colors.primary,
+          { maxBarThickness: 12 }
+        )
+      ]
     },
     options: {
       ...options,
@@ -14491,42 +14816,24 @@ function renderInventoryDetailsOverlay(){
   createSectionDetailsChart(document.getElementById("sectionDetailsChart3"), {
     type: "line",
     data: {
-      labels: months.map(sectionDetailsMonthLabel),
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
       datasets: [
-        {
-          label: "Purchases",
-          data: months.map(key => Number(data.monthMap.get(key)?.purchase || 0)),
-          borderColor: colors.primary,
-          backgroundColor: "rgba(36,87,214,.12)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          borderWidth: 2.5
-        },
-        {
-          label: "Sales",
-          data: months.map(key => Number(data.monthMap.get(key)?.sales || 0)),
-          borderColor: colors.success,
-          backgroundColor: "rgba(6,118,71,.10)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          borderWidth: 2.5
-        },
-        {
-          label: "Profit / loss",
-          data: months.map(key => Number(data.monthMap.get(key)?.profit || 0)),
-          borderColor: colors.warning,
-          backgroundColor: "transparent",
-          fill: false,
-          tension: 0.35,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          borderWidth: 2,
-          borderDash: [5, 4]
-        }
+        sectionDetailsLineDataset(
+          "Purchases",
+          months.map(key => Number(data.monthMap.get(key)?.purchase || 0)),
+          colors.primary
+        ),
+        sectionDetailsLineDataset(
+          "Sales",
+          months.map(key => Number(data.monthMap.get(key)?.sales || 0)),
+          colors.success
+        ),
+        sectionDetailsLineDataset(
+          "Profit / loss",
+          months.map(key => Number(data.monthMap.get(key)?.profit || 0)),
+          colors.warning,
+          { fill: false, borderDash: [5, 4], borderWidth: 1.5, alphaTop: 0 }
+        )
       ]
     },
     options
@@ -14575,73 +14882,45 @@ function renderExpenseDetailsOverlay(){
     data: {
       labels: currencyLabels.length ? currencyLabels : ["—"],
       datasets: [
-        {
-          label: "Topped up",
-          data: data.byCurrency.map(row => row.toppedUp),
-          backgroundColor: colors.primary,
-          borderRadius: 8,
-          maxBarThickness: 26
-        },
-        {
-          label: "Spent",
-          data: data.byCurrency.map(row => row.spent),
-          backgroundColor: colors.warning,
-          borderRadius: 8,
-          maxBarThickness: 26
-        }
+        sectionDetailsCandleBarDataset("Topped up", data.byCurrency.map(row => row.toppedUp), colors.primary),
+        sectionDetailsCandleBarDataset("Spent", data.byCurrency.map(row => row.spent), colors.warning)
       ]
     },
     options
   });
 
   const topWallets = data.walletSpend.slice(0, 8);
+  const walletPalette = [colors.primary, colors.success, colors.warning, colors.danger, "#0f766e", "#334155", "#be185d", "#0369a1"];
   createSectionDetailsChart(document.getElementById("sectionDetailsChart2"), {
     type: "doughnut",
     data: {
       labels: topWallets.length ? topWallets.map(w => w.name) : ["No spend"],
-      datasets: [{
-        data: topWallets.length ? topWallets.map(w => w.spent) : [1],
-        backgroundColor: topWallets.length
-          ? [colors.primary, colors.success, colors.warning, colors.danger, "#0f766e", "#4338ca", "#be185d", "#0369a1"]
-          : ["rgba(208,213,221,.55)"],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [
+        sectionDetailsDoughnutDataset(
+          topWallets.length ? topWallets.map(w => w.spent) : [1],
+          topWallets.length ? walletPalette.slice(0, Math.max(topWallets.length, 1)) : ["rgba(208,213,221,.55)"]
+        )
+      ]
     },
-    options: {
-      ...options,
-      cutout: "58%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "58%")
   });
 
   const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
   createSectionDetailsChart(document.getElementById("sectionDetailsChart3"), {
     type: "line",
     data: {
-      labels: months.map(sectionDetailsMonthLabel),
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
       datasets: [
-        {
-          label: "Spent",
-          data: months.map(key => Number(data.monthMap.get(key)?.spend || 0)),
-          borderColor: colors.warning,
-          backgroundColor: "rgba(181,71,8,.12)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: 3,
-          borderWidth: 2.5
-        },
-        {
-          label: "Topped up",
-          data: months.map(key => Number(data.monthMap.get(key)?.topup || 0)),
-          borderColor: colors.primary,
-          backgroundColor: "rgba(36,87,214,.10)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: 3,
-          borderWidth: 2.5
-        }
+        sectionDetailsLineDataset(
+          "Spent",
+          months.map(key => Number(data.monthMap.get(key)?.spend || 0)),
+          colors.warning
+        ),
+        sectionDetailsLineDataset(
+          "Topped up",
+          months.map(key => Number(data.monthMap.get(key)?.topup || 0)),
+          colors.primary
+        )
       ]
     },
     options
@@ -14692,56 +14971,35 @@ function renderInstallmentDetailsOverlay(){
     type: "doughnut",
     data: {
       labels: statusLabels,
-      datasets: [{
-        data: statusValues,
-        backgroundColor: [colors.primary, colors.warning, colors.danger, colors.success],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [sectionDetailsDoughnutDataset(statusValues, [colors.primary, colors.warning, colors.danger, colors.success])]
     },
-    options: {
-      ...options,
-      cutout: "62%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "64%")
   });
 
   createSectionDetailsChart(document.getElementById("sectionDetailsChart2"), {
     type: "doughnut",
     data: {
       labels: ["Paid", "Remaining"],
-      datasets: [{
-        data: [Math.max(data.paidSum, 0), Math.max(data.remainingSum, 0)],
-        backgroundColor: [colors.success, "rgba(208,213,221,.75)"],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [sectionDetailsDoughnutDataset(
+        [Math.max(data.paidSum, 0), Math.max(data.remainingSum, 0)],
+        [colors.success, "rgba(208,213,221,.75)"]
+      )]
     },
-    options: {
-      ...options,
-      cutout: "68%",
-      plugins: {
-        ...options.plugins,
-        legend: { ...options.plugins.legend, position: "bottom" },
-        tooltip: options.plugins.tooltip
-      },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "68%")
   });
 
   const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
   createSectionDetailsChart(document.getElementById("sectionDetailsChart3"), {
-    type: "bar",
+    type: "line",
     data: {
-      labels: months.map(sectionDetailsMonthLabel),
-      datasets: [{
-        label: "Payments",
-        data: months.map(key => Number(data.monthMap.get(key) || 0)),
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        maxBarThickness: 32
-      }]
+      labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
+      datasets: [
+        sectionDetailsLineDataset(
+          "Payments",
+          months.map(key => Number(data.monthMap.get(key) || 0)),
+          colors.primary
+        )
+      ]
     },
     options: {
       ...options,
@@ -14976,21 +15234,16 @@ function renderWalletDetailsOverlay(groupId){
     type: "doughnut",
     data: {
       labels: mixTotal > 0 ? mixLabels : ["No activity"],
-      datasets: [{
-        data: mixTotal > 0 ? mixValues : [1],
-        backgroundColor: mixTotal > 0
-          ? [colors.primary, colors.warning, colors.success, colors.danger]
-          : ["rgba(208,213,221,.55)"],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [
+        sectionDetailsDoughnutDataset(
+          mixTotal > 0 ? mixValues : [1],
+          mixTotal > 0
+            ? [colors.primary, colors.warning, colors.success, colors.danger]
+            : ["rgba(208,213,221,.55)"]
+        )
+      ]
     },
-    options: {
-      ...options,
-      cutout: "60%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "60%")
   });
 
   const months = data.monthKeys;
@@ -14999,34 +15252,30 @@ function renderWalletDetailsOverlay(groupId){
     data: {
       labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
       datasets: [
-        {
-          label: data.isBtcLive ? "Received" : "Top-ups",
-          data: months.map(key => Number(data.monthMap.get(key)?.topup || 0)),
-          backgroundColor: colors.primary,
-          borderRadius: 8,
-          maxBarThickness: 22
-        },
-        {
-          label: "Transfers in",
-          data: months.map(key => Number(data.monthMap.get(key)?.transferIn || 0)),
-          backgroundColor: colors.success,
-          borderRadius: 8,
-          maxBarThickness: 22
-        },
-        {
-          label: data.isBtcLive ? "Sent" : "Spent",
-          data: months.map(key => Number(data.monthMap.get(key)?.spend || 0)),
-          backgroundColor: colors.warning,
-          borderRadius: 8,
-          maxBarThickness: 22
-        },
-        {
-          label: "Transfers out",
-          data: months.map(key => Number(data.monthMap.get(key)?.transferOut || 0)),
-          backgroundColor: colors.danger,
-          borderRadius: 8,
-          maxBarThickness: 22
-        }
+        sectionDetailsCandleBarDataset(
+          data.isBtcLive ? "Received" : "Top-ups",
+          months.map(key => Number(data.monthMap.get(key)?.topup || 0)),
+          colors.primary,
+          { maxBarThickness: 10 }
+        ),
+        sectionDetailsCandleBarDataset(
+          "Transfers in",
+          months.map(key => Number(data.monthMap.get(key)?.transferIn || 0)),
+          colors.success,
+          { maxBarThickness: 10 }
+        ),
+        sectionDetailsCandleBarDataset(
+          data.isBtcLive ? "Sent" : "Spent",
+          months.map(key => Number(data.monthMap.get(key)?.spend || 0)),
+          colors.warning,
+          { maxBarThickness: 10 }
+        ),
+        sectionDetailsCandleBarDataset(
+          "Transfers out",
+          months.map(key => Number(data.monthMap.get(key)?.transferOut || 0)),
+          colors.danger,
+          { maxBarThickness: 10 }
+        )
       ]
     },
     options
@@ -15043,17 +15292,9 @@ function renderWalletDetailsOverlay(groupId){
     type: "line",
     data: {
       labels: balanceLabels,
-      datasets: [{
-        label: "Balance",
-        data: balanceValues,
-        borderColor: colors.primary,
-        backgroundColor: "rgba(36,87,214,.12)",
-        fill: true,
-        tension: 0.35,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        borderWidth: 2.5
-      }]
+      datasets: [
+        sectionDetailsLineDataset("Balance", balanceValues, colors.primary)
+      ]
     },
     options: {
       ...options,
@@ -15074,6 +15315,7 @@ function openWalletDetailsOverlay(groupId){
   if (!id) return;
 
   destroySectionDetailsCharts();
+  clearSectionDetailsActions();
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === id);
   if (!account) {
     if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Wallet details";
@@ -15332,43 +15574,34 @@ function renderInventoryItemDetailsOverlay(groupId){
     type: "doughnut",
     data: {
       labels: qtyTotal > 0 ? qtyLabels : ["No stock"],
-      datasets: [{
-        data: qtyTotal > 0 ? qtyValues : [1],
-        backgroundColor: qtyTotal > 0
-          ? [colors.primary, colors.success, colors.warning]
-          : ["rgba(208,213,221,.55)"],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [
+        sectionDetailsDoughnutDataset(
+          qtyTotal > 0 ? qtyValues : [1],
+          qtyTotal > 0
+            ? [colors.primary, colors.success, colors.warning]
+            : ["rgba(208,213,221,.55)"]
+        )
+      ]
     },
-    options: {
-      ...options,
-      cutout: "60%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "60%")
   });
 
   const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
   createSectionDetailsChart(document.getElementById("itemDetailsChart2"), {
-    type: "bar",
+    type: "line",
     data: {
       labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
       datasets: [
-        {
-          label: "Purchases",
-          data: months.map(key => Number(data.monthMap.get(key)?.purchase || 0)),
-          backgroundColor: colors.primary,
-          borderRadius: 8,
-          maxBarThickness: 26
-        },
-        {
-          label: "Sales",
-          data: months.map(key => Number(data.monthMap.get(key)?.sales || 0)),
-          backgroundColor: colors.success,
-          borderRadius: 8,
-          maxBarThickness: 26
-        }
+        sectionDetailsLineDataset(
+          "Purchases",
+          months.map(key => Number(data.monthMap.get(key)?.purchase || 0)),
+          colors.primary
+        ),
+        sectionDetailsLineDataset(
+          "Sales",
+          months.map(key => Number(data.monthMap.get(key)?.sales || 0)),
+          colors.success
+        )
       ]
     },
     options
@@ -15384,17 +15617,9 @@ function renderInventoryItemDetailsOverlay(groupId){
     type: "line",
     data: {
       labels: stockLabels,
-      datasets: [{
-        label: "Remaining qty",
-        data: stockValues,
-        borderColor: colors.primary,
-        backgroundColor: "rgba(36,87,214,.12)",
-        fill: true,
-        tension: 0.35,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        borderWidth: 2.5
-      }]
+      datasets: [
+        sectionDetailsLineDataset("Remaining qty", stockValues, colors.primary)
+      ]
     },
     options: {
       ...options,
@@ -15412,6 +15637,7 @@ function openInventoryItemDetailsOverlay(groupId){
   if (!id) return;
 
   destroySectionDetailsCharts();
+  clearSectionDetailsActions();
   const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === id);
   if (!group) {
     if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Item details";
@@ -15606,35 +15832,30 @@ function renderLoanDetailsOverlay(personName, direction){
     type: "doughnut",
     data: {
       labels: mixTotal > 0 ? [paidLabel, "Remaining"] : ["No balance"],
-      datasets: [{
-        data: mixTotal > 0 ? [data.composition.paid, data.composition.remaining] : [1],
-        backgroundColor: mixTotal > 0
-          ? [colors.success, "rgba(208,213,221,.75)"]
-          : ["rgba(208,213,221,.55)"],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [
+        sectionDetailsDoughnutDataset(
+          mixTotal > 0 ? [data.composition.paid, data.composition.remaining] : [1],
+          mixTotal > 0
+            ? [colors.success, "rgba(208,213,221,.75)"]
+            : ["rgba(208,213,221,.55)"]
+        )
+      ]
     },
-    options: {
-      ...options,
-      cutout: "62%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "62%")
   });
 
   const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
   createSectionDetailsChart(document.getElementById("loanDetailsChart2"), {
-    type: "bar",
+    type: "line",
     data: {
       labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
-      datasets: [{
-        label: "Payments",
-        data: months.map(key => Number(data.monthMap.get(key) || 0)),
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        maxBarThickness: 32
-      }]
+      datasets: [
+        sectionDetailsLineDataset(
+          "Payments",
+          months.map(key => Number(data.monthMap.get(key) || 0)),
+          colors.primary
+        )
+      ]
     },
     options: {
       ...options,
@@ -15648,17 +15869,9 @@ function renderLoanDetailsOverlay(personName, direction){
     type: "line",
     data: {
       labels: balLabels,
-      datasets: [{
-        label: "Remaining",
-        data: balValues,
-        borderColor: colors.warning,
-        backgroundColor: "rgba(181,71,8,.12)",
-        fill: true,
-        tension: 0.35,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        borderWidth: 2.5
-      }]
+      datasets: [
+        sectionDetailsLineDataset("Remaining", balValues, colors.warning)
+      ]
     },
     options: {
       ...options,
@@ -15677,6 +15890,7 @@ function openLoanDetailsOverlay(personName, direction){
   if (!name) return;
 
   destroySectionDetailsCharts();
+  clearSectionDetailsActions();
   const data = buildLoanPersonDetailsPayload(name, dir);
   if (!data) {
     if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Loan details";
@@ -15850,21 +16064,16 @@ function renderInstallmentItemDetailsOverlay(groupId){
     type: "doughnut",
     data: {
       labels: mixTotal > 0 ? ["Paid", "Remaining"] : ["No balance"],
-      datasets: [{
-        data: mixTotal > 0 ? [data.composition.paid, data.composition.remaining] : [1],
-        backgroundColor: mixTotal > 0
-          ? [colors.success, "rgba(208,213,221,.75)"]
-          : ["rgba(208,213,221,.55)"],
-        borderWidth: 0,
-        hoverOffset: 6
-      }]
+      datasets: [
+        sectionDetailsDoughnutDataset(
+          mixTotal > 0 ? [data.composition.paid, data.composition.remaining] : [1],
+          mixTotal > 0
+            ? [colors.success, "rgba(208,213,221,.75)"]
+            : ["rgba(208,213,221,.55)"]
+        )
+      ]
     },
-    options: {
-      ...options,
-      cutout: "62%",
-      plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-      scales: undefined
-    }
+    options: sectionDetailsDoughnutOptions(options, "62%")
   });
 
   if (hasScheduleMix) {
@@ -15872,58 +16081,98 @@ function renderInstallmentItemDetailsOverlay(groupId){
       type: "doughnut",
       data: {
         labels: ["Paid", "Open", "Overdue"],
-        datasets: [{
-          data: [data.scheduleMix.paid, data.scheduleMix.open, data.scheduleMix.overdue],
-          backgroundColor: [colors.success, colors.primary, colors.danger],
-          borderWidth: 0,
-          hoverOffset: 6
-        }]
+        datasets: [
+          sectionDetailsDoughnutDataset(
+            [data.scheduleMix.paid, data.scheduleMix.open, data.scheduleMix.overdue],
+            [colors.success, colors.primary, colors.danger]
+          )
+        ]
       },
-      options: {
-        ...options,
-        cutout: "58%",
-        plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-        scales: undefined
-      }
+      options: sectionDetailsDoughnutOptions(options, "58%")
     });
   } else {
     createSectionDetailsChart(document.getElementById("installmentItemChart2"), {
       type: "doughnut",
       data: {
         labels: ["Active", "Overdue", "Completed"],
-        datasets: [{
-          data: [m.active ? 1 : 0, m.overdue ? 1 : 0, m.completed ? 1 : 0],
-          backgroundColor: [colors.primary, colors.danger, colors.success],
-          borderWidth: 0,
-          hoverOffset: 6
-        }]
+        datasets: [
+          sectionDetailsDoughnutDataset(
+            [m.active ? 1 : 0, m.overdue ? 1 : 0, m.completed ? 1 : 0],
+            [colors.primary, colors.danger, colors.success]
+          )
+        ]
       },
-      options: {
-        ...options,
-        cutout: "58%",
-        plugins: { ...options.plugins, legend: { ...options.plugins.legend, position: "bottom" } },
-        scales: undefined
-      }
+      options: sectionDetailsDoughnutOptions(options, "58%")
     });
   }
 
   const months = sectionDetailsSortedMonthKeys(data.monthMap.keys());
   createSectionDetailsChart(document.getElementById("installmentItemChart3"), {
-    type: "bar",
+    type: "line",
     data: {
       labels: months.length ? months.map(sectionDetailsMonthLabel) : ["—"],
-      datasets: [{
-        label: "Payments",
-        data: months.map(key => Number(data.monthMap.get(key) || 0)),
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        maxBarThickness: 32
-      }]
+      datasets: [
+        sectionDetailsLineDataset(
+          "Payments",
+          months.map(key => Number(data.monthMap.get(key) || 0)),
+          colors.primary
+        )
+      ]
     },
     options: {
       ...options,
       plugins: { ...options.plugins, legend: { display: false } }
     }
+  });
+}
+
+function renderInstallmentDetailsActions(plan){
+  const host = els.sectionDetailsActions;
+  if (!host) return;
+  if (!plan) {
+    clearSectionDetailsActions();
+    return;
+  }
+  const groupId = String(plan.group_id || "").trim();
+  const remaining = Number(plan.remaining || 0);
+  const canPay = remaining > 0.00000001;
+  host.dataset.groupId = groupId;
+  host.classList.remove("hide");
+  host.innerHTML = `
+    <div class="card-action-grid section-details-action-grid${canPay ? " section-details-action-grid--triple" : ""}" role="group" aria-label="Installment actions">
+      <button class="icon-btn ghost sectionDetailsActionBtn" type="button" data-action="pdf" data-group-id="${escapeHtml(groupId)}" title="Download PDF" aria-label="Download PDF">
+        <i class="fa-solid fa-download" aria-hidden="true"></i>
+      </button>
+      <button class="icon-btn ghost sectionDetailsActionBtn" type="button" data-action="reminder" data-group-id="${escapeHtml(groupId)}" title="Set reminder" aria-label="Set reminder">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+      </button>
+      ${canPay ? `
+      <button class="icon-btn ghost sectionDetailsActionBtn" type="button" data-action="pay" data-group-id="${escapeHtml(groupId)}" title="Pay next installment" aria-label="Pay next installment">
+        <i class="fa-solid fa-money-bill" aria-hidden="true"></i>
+      </button>` : ""}
+    </div>
+  `;
+  host.querySelectorAll(".sectionDetailsActionBtn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const id = String(btn.dataset.groupId || host.dataset.groupId || "").trim();
+      if (!id) return;
+      if (action === "pdf") {
+        try { await downloadInstallmentPlanPDF(id); }
+        catch (err) { alert(err?.message || "Could not download PDF."); }
+        return;
+      }
+      if (action === "reminder") {
+        try { await window.openInstallmentReminderModal(id); }
+        catch (err) { alert(err?.message || "Could not open reminder."); }
+        return;
+      }
+      if (action === "pay") {
+        openInstallmentPaymentModal(id);
+      }
+    });
   });
 }
 
@@ -15933,6 +16182,7 @@ function openInstallmentItemDetailsOverlay(groupId){
   if (!id) return;
 
   destroySectionDetailsCharts();
+  clearSectionDetailsActions();
   const plan = getInstallmentPlanGroup(id);
   if (!plan) {
     if (els.sectionDetailsTitle) els.sectionDetailsTitle.textContent = "Installment details";
@@ -15947,6 +16197,7 @@ function openInstallmentItemDetailsOverlay(groupId){
       const pct = data?.metrics?.progressPct ?? 0;
       els.sectionDetailsDesc.textContent = `${data?.metrics?.status || plan.status} · ${pct}% paid · Remaining ${formatReportAmount(plan.remaining, plan.currency)} · ${plan.currency || "—"}`;
     }
+    renderInstallmentDetailsActions(plan);
     if (!sectionDetailsEnsureChartLib()) {
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
     } else {
@@ -15963,9 +16214,11 @@ function openSectionDetailsOverlay(section){
   if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
   const key = String(section || "").toLowerCase();
   destroySectionDetailsCharts();
+  clearSectionDetailsActions();
+  if (key === "inventory") inventoryDetailsSelectedCurrency = "";
 
   const titles = {
-    inventory: { title: "Inventory details", desc: "Live stock, sales, profit, and outstanding invoice summary." },
+    inventory: { title: "Inventory details", desc: "Live stock, sales, profit, and outstanding invoice summary by currency." },
     expenses: { title: "Expenses details", desc: "Live wallet top-ups, spending, and balances." },
     installments: { title: "Installment details", desc: "Live plan progress, overdue status, and payment activity." }
   };
@@ -15999,12 +16252,25 @@ function closeModal(modalId){
   }
   if (modalId === "sectionDetailsModal") {
     destroySectionDetailsCharts();
+    clearSectionDetailsActions();
+    inventoryDetailsSelectedCurrency = "";
+  }
+  if (modalId === "reminderAlertModal") {
+    dismissReminderAlert("done");
+    return;
   }
   const modal = document.getElementById(modalId);
   if (!modal) return;
   modal.classList.add("hide");
   modal.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
+  if (modalId === "noteReminderModal") {
+    try {
+      queueMicrotask(() => {
+        if (typeof presentNextReminderAlert === "function") presentNextReminderAlert();
+      });
+    } catch (_) {}
+  }
 }
 
 function isBackupMode(){
@@ -21050,7 +21316,7 @@ window.addEventListener("resize", () => {
     });
   });
 
-  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.installmentPlanModal, els.installmentEditModal, els.expenseModal, els.sectionDetailsModal].forEach(m => {
+  [els.entryModal, els.editModal, els.goodsModal, els.goodsSettlementModal, els.inventoryCustomerModal, els.inventoryEditItemModal, els.installmentPlanModal, els.installmentEditModal, document.getElementById("noteReminderModal"), document.getElementById("noteEditModal"), els.expenseModal, els.sectionDetailsModal].forEach(m => {
     if (!m) return;
     m.addEventListener("click", e => {
       if (e.target && e.target.matches(".modal-backdrop")) closeModal(m.id);
@@ -21067,6 +21333,10 @@ window.addEventListener("resize", () => {
       if (els.inventoryEditItemModal && !els.inventoryEditItemModal.classList.contains("hide")) closeModal("inventoryEditItemModal");
       if (els.installmentPlanModal && !els.installmentPlanModal.classList.contains("hide")) closeModal("installmentPlanModal");
       if (els.installmentEditModal && !els.installmentEditModal.classList.contains("hide")) closeModal("installmentEditModal");
+      const noteReminderModal = document.getElementById("noteReminderModal");
+      if (noteReminderModal && !noteReminderModal.classList.contains("hide")) closeModal("noteReminderModal");
+      const noteEditModal = document.getElementById("noteEditModal");
+      if (noteEditModal && !noteEditModal.classList.contains("hide")) closeModal("noteEditModal");
       if (!els.expenseModal.classList.contains("hide")) closeModal("expenseModal");
       if (els.sectionDetailsModal && !els.sectionDetailsModal.classList.contains("hide")) closeModal("sectionDetailsModal");
       if (els.btcWifQrScannerModal && !els.btcWifQrScannerModal.classList.contains("hide")) closeModal("btcWifQrScannerModal");
@@ -22847,11 +23117,24 @@ function doLogout(){
   if (els.lockScreen) els.lockScreen.classList.remove("hide");
   updateGuestModeUi();
   btcClearSession();
+  stopInstallmentDueChecker();
   stopMessagingLiveSync();
   messagingLiveState.fingerprint = null;
   messagingLiveState.fallbackFingerprint = null;
   messagingLiveState.syncRpcAvailable = null;
   messagingLiveState.lastThreadSig = null;
+  messagingLiveState.lastNoteReminderDispatchAt = 0;
+  clearNoteReminderWakeTimer();
+  noteReminderUiState.pendingNoteIds = new Set();
+  noteReminderUiState.pendingReminders = [];
+  noteReminderUiState.loadedAt = 0;
+  noteReminderUiState.inFlight = null;
+  noteReminderUiState.modalMode = "note";
+  noteReminderUiState.modalNoteId = null;
+  noteReminderUiState.modalPlanGroupId = null;
+  noteReminderUiState.modalPending = [];
+  noteReminderUiState.toastedReminderIds = new Set();
+  try { resetReminderAlertUi(); } catch (_) {}
   updateAdminCommsVisibility();
   focusUnlockForm();
 }
@@ -23235,6 +23518,22 @@ function updateGoodsSaleWalletSelector(totalsByCurrency = getGoodsSaleTotalsByCu
   );
 }
 
+function updateGoodsSettlementWalletSelector(currency = ""){
+  if (!els.goodsSettlementWalletSelect) return;
+  const cur = String(currency || state.inventoryDraft?.settlement?.currency || "").trim();
+  if (!cur){
+    els.goodsSettlementWalletSelect.innerHTML = `<option value="">Skip wallet top-up</option>`;
+    els.goodsSettlementWalletSelect.disabled = true;
+    return;
+  }
+  populateInventoryWalletSelector(
+    els.goodsSettlementWalletSelect,
+    cur,
+    "Skip wallet top-up",
+    "Select invoice currency first"
+  );
+}
+
 function validateInventoryWallet(walletGroupId, currency, amount, mode){
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
   if (!account) throw new Error("Selected wallet was not found.");
@@ -23249,11 +23548,13 @@ function validateInventoryWallet(walletGroupId, currency, amount, mode){
 async function createWalletEntryForInventory(walletGroupId, amount, date, currency, mode, context = {}){
   const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
   if (!account || account.currency === "BTC" || account.currency !== currency || !Number(amount || 0)) return;
-  const isTopup = mode === "sale";
+  const isTopup = mode === "sale" || mode === "settlement";
   const itemName = String(context.itemName || context.customerName || "Inventory").trim();
-  const noteText = isTopup
-    ? `Inventory sale ${context.receiptNumber ? `invoice ${context.receiptNumber}` : ""}`.trim()
-    : `Inventory purchase ${itemName}`.trim();
+  const noteText = mode === "settlement"
+    ? `Inventory settlement ${context.receiptNumber ? `invoice ${context.receiptNumber}` : ""}`.trim()
+    : isTopup
+      ? `Inventory sale ${context.receiptNumber ? `invoice ${context.receiptNumber}` : ""}`.trim()
+      : `Inventory purchase ${itemName}`.trim();
 
   const payload = {
     group_id: walletGroupId,
@@ -23269,7 +23570,7 @@ async function createWalletEntryForInventory(walletGroupId, amount, date, curren
       accountType: account.accountType,
       rowType: isTopup ? "TOPUP" : "EXPENSE",
       itemName,
-      expenseType: isTopup ? "Inventory Sale" : "Inventory Purchase"
+      expenseType: mode === "settlement" ? "Inventory Settlement" : (isTopup ? "Inventory Sale" : "Inventory Purchase")
     })
   };
 
@@ -27027,7 +27328,671 @@ async function saveNote() {
   }
 }
 
-function renderNotes(searchTerm = '') {
+const noteReminderUiState = {
+  pendingNoteIds: new Set(),
+  pendingReminders: [],
+  loadedAt: 0,
+  inFlight: null,
+  modalMode: "note", // "note" | "installment"
+  modalNoteId: null,
+  modalPlanGroupId: null,
+  modalPending: [],
+  wakeTimer: null,
+  wakeAtMs: null,
+  toastedReminderIds: new Set()
+};
+
+function clearNoteReminderWakeTimer(){
+  if (noteReminderUiState.wakeTimer) {
+    clearTimeout(noteReminderUiState.wakeTimer);
+    noteReminderUiState.wakeTimer = null;
+  }
+  noteReminderUiState.wakeAtMs = null;
+}
+
+function locallyDueNoteReminders(pendingItems, graceMs = 2000){
+  const cutoff = Date.now() + Math.max(0, Number(graceMs) || 0);
+  return (Array.isArray(pendingItems) ? pendingItems : []).filter(r => {
+    if (!r || r.is_delivered) return false;
+    const t = new Date(r.remind_at).getTime();
+    return Number.isFinite(t) && t <= cutoff;
+  });
+}
+
+function openNoteReminderNotifyPanel(){
+  try { activate("notes"); } catch (_) {}
+  const btn = document.getElementById("adminNotifyBtn");
+  const panel = document.getElementById("adminNotifyDropdown");
+  if (!btn || !panel) return;
+  if (!panel.classList.contains("open")) {
+    btn.click();
+  } else {
+    loadAdminNotificationsDropdown().catch(() => {});
+  }
+}
+
+const REMINDER_ALERT_SOUND_SRC = "Assets/sounds/reminder.mp3";
+
+const reminderAlertState = {
+  queue: [],
+  current: null,
+  audio: null,
+  isOpen: false,
+  bound: false,
+  deferUntilNoteModalClose: false,
+  prevBodyOverflow: "",
+  escapeHandler: null
+};
+
+function ensureNoteReminderToastHost(){
+  // Legacy host kept for compatibility; overlay replaces toast delivery.
+  let host = document.getElementById("noteReminderToastHost");
+  if (host) return host;
+  host = document.createElement("div");
+  host.id = "noteReminderToastHost";
+  host.className = "note-reminder-toast-host";
+  host.setAttribute("aria-live", "polite");
+  host.hidden = true;
+  document.body.appendChild(host);
+  return host;
+}
+
+function stopReminderAlertSound(){
+  const audio = reminderAlertState.audio;
+  if (!audio) return;
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+  } catch (_) {}
+}
+
+function unlockReminderAlertAudio(){
+  try {
+    let audio = reminderAlertState.audio;
+    if (!audio) {
+      audio = new Audio(REMINDER_ALERT_SOUND_SRC);
+      audio.preload = "auto";
+      reminderAlertState.audio = audio;
+    }
+    const prevMuted = audio.muted;
+    audio.muted = true;
+    const p = audio.play();
+    const finish = () => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = prevMuted;
+      } catch (_) {}
+    };
+    if (p && typeof p.then === "function") p.then(finish).catch(finish);
+    else finish();
+  } catch (_) {}
+}
+
+function ensureReminderAlertAudioUnlocked(){
+  if (reminderAlertState.audioUnlocked) return;
+  const unlock = () => {
+    reminderAlertState.audioUnlocked = true;
+    unlockReminderAlertAudio();
+    document.removeEventListener("pointerdown", unlock, true);
+    document.removeEventListener("keydown", unlock, true);
+  };
+  document.addEventListener("pointerdown", unlock, true);
+  document.addEventListener("keydown", unlock, true);
+}
+
+function startReminderAlertSound(){
+  stopReminderAlertSound();
+  ensureReminderAlertAudioUnlocked();
+  try {
+    let audio = reminderAlertState.audio;
+    if (!audio) {
+      audio = new Audio(REMINDER_ALERT_SOUND_SRC);
+      audio.preload = "auto";
+      reminderAlertState.audio = audio;
+    }
+    audio.muted = false;
+    audio.loop = true;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        // Autoplay blocked until a user gesture unlocks audio.
+        ensureReminderAlertAudioUnlocked();
+      });
+    }
+  } catch (_) {}
+}
+
+function reminderAlertDedupeKey(item){
+  if (!item) return "";
+  if (item.key) return String(item.key);
+  if (item.id) return String(item.id);
+  if (item.kind === "installment_due") {
+    return `installment:${item.planGroupId || ""}:${item.slotIndex || ""}:${item.dueDate || ""}:${item.offsetDays ?? ""}`;
+  }
+  if (item.kind === "installment_manual") {
+    return `installment_manual:${item.id || item.planGroupId || ""}:${item.remindAt || ""}`;
+  }
+  return `note:${item.noteId || ""}:${item.remindAt || ""}:${item.message || ""}`;
+}
+
+function extractPlanGroupIdFromReminderRaw(raw){
+  if (!raw) return "";
+  const payload = raw.payload && typeof raw.payload === "object" ? raw.payload : {};
+  const direct = String(
+    raw.related_plan_group_id || raw.relatedPlanGroupId
+    || raw.plan_group_id || raw.planGroupId
+    || payload.plan_group_id || payload.related_plan_group_id || ""
+  ).trim();
+  if (direct) return direct;
+  // Pre-045 fallback stored plan id at end of preview/message.
+  const blob = `${raw.note_preview || raw.notePreview || payload.note_preview || ""} ${raw.message || ""}`;
+  const uuid = blob.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  return uuid ? uuid[0] : "";
+}
+
+function isInstallmentManualReminderRaw(raw){
+  if (!raw) return false;
+  if (raw.kind === "installment_manual") return true;
+  const payload = raw.payload && typeof raw.payload === "object" ? raw.payload : {};
+  if (payload.type === "installment_manual") return true;
+  const planId = extractPlanGroupIdFromReminderRaw(raw);
+  if (!planId) return false;
+  // Rows from app_note_reminders with null note_id + plan group id / preview marker.
+  if (!raw.note_id && !raw.noteId && !payload.note_id) return true;
+  const preview = String(raw.note_preview || raw.notePreview || payload.note_preview || "");
+  return /^Installment\b/i.test(preview.trim());
+}
+
+function normalizeReminderAlertItem(raw){
+  if (!raw) return null;
+  if (raw.kind === "installment_due") {
+    const personName = String(raw.person_name || raw.personName || "").trim();
+    const whenLabel = Number(raw.offset_days ?? raw.offsetDays) === 0
+      ? "due today"
+      : Number(raw.offset_days ?? raw.offsetDays) === 3
+        ? "due in 3 days"
+        : Number(raw.offset_days ?? raw.offsetDays) === 5
+          ? "due in 5 days"
+          : "due soon";
+    const dueDate = String(raw.due_date || raw.dueDate || "").slice(0, 10);
+    const amountLabel = String(raw.amount_label || raw.amountLabel || "").trim();
+    const slotIndex = raw.slot_index ?? raw.slotIndex ?? "";
+    const body = String(raw.body || raw.message || "").trim() || [
+      personName || "Installment plan",
+      slotIndex !== "" ? `#${slotIndex}` : "",
+      dueDate,
+      amountLabel
+    ].filter(Boolean).join(" · ");
+    return {
+      kind: "installment_due",
+      key: raw.key || `installment:${raw.plan_group_id || raw.planGroupId || ""}:${slotIndex}:${dueDate}:${raw.offset_days ?? raw.offsetDays ?? ""}`,
+      title: String(raw.title || `Installment ${whenLabel}`).trim() || "Installment due",
+      message: body,
+      preview: personName ? `${personName}${slotIndex !== "" ? ` · #${slotIndex}` : ""}` : body,
+      noteId: null,
+      notificationId: raw.notification_id || raw.notificationId || null,
+      planGroupId: raw.plan_group_id || raw.planGroupId || "",
+      slotIndex,
+      dueDate,
+      offsetDays: raw.offset_days ?? raw.offsetDays ?? null,
+      personName,
+      remindAt: null
+    };
+  }
+
+  if (isInstallmentManualReminderRaw(raw)) {
+    const payload = raw.payload && typeof raw.payload === "object" ? raw.payload : {};
+    const planGroupId = extractPlanGroupIdFromReminderRaw(raw);
+    let preview = String(raw.note_preview || raw.notePreview || payload.note_preview || "").trim();
+    // Strip trailing plan uuid from pre-045 fallback previews for display.
+    if (planGroupId && preview.endsWith(planGroupId)) {
+      preview = preview.slice(0, -planGroupId.length).replace(/\s*[·|-]\s*$/, "").trim();
+    }
+    const personName = String(raw.person_name || raw.personName || payload.person_name || "").trim();
+    if (!preview && personName) preview = `Installment · ${personName}`;
+    if (!preview && planGroupId) {
+      const plan = typeof getInstallmentPlanGroup === "function" ? getInstallmentPlanGroup(planGroupId) : null;
+      preview = plan?.person_name ? `Installment · ${plan.person_name}` : "Installment reminder";
+    }
+    const message = String(raw.message || "").trim()
+      || String(raw.body || "").trim()
+      || "Installment reminder";
+    return {
+      kind: "installment_manual",
+      key: raw.id
+        ? String(raw.id)
+        : `installment_manual:${planGroupId}:${raw.remind_at || raw.remindAt || ""}:${message}`,
+      id: raw.id || null,
+      title: String(raw.title || "Installment reminder").trim() || "Installment reminder",
+      message,
+      preview,
+      noteId: null,
+      notificationId: raw.notification_id || raw.notificationId || null,
+      planGroupId,
+      personName,
+      remindAt: raw.remind_at || raw.remindAt || null
+    };
+  }
+
+  const noteId = raw.note_id || raw.noteId || null;
+  let notePreview = String(raw.note_preview || raw.notePreview || "").trim();
+  if (!notePreview && noteId && Array.isArray(state.notes)) {
+    const note = state.notes.find(n => String(n.id) === String(noteId));
+    notePreview = String(note?.content || "").trim().slice(0, 240);
+  }
+  const message = String(raw.message || "").trim()
+    || String(raw.body || "").trim()
+    || "Reminder for your note";
+  return {
+    kind: "note_reminder",
+    key: raw.id
+      ? String(raw.id)
+      : `note:${noteId || ""}:${raw.remind_at || raw.remindAt || ""}:${message}`,
+    id: raw.id || null,
+    title: String(raw.title || "Note reminder").trim() || "Note reminder",
+    message,
+    preview: notePreview,
+    noteId,
+    notificationId: raw.notification_id || raw.notificationId || null,
+    remindAt: raw.remind_at || raw.remindAt || null,
+    planGroupId: ""
+  };
+}
+
+function resolveReminderNotificationId(item){
+  if (!item) return null;
+  if (item.notificationId) return item.notificationId;
+  const list = Array.isArray(adminCommsState?.notifications) ? adminCommsState.notifications : [];
+  if (!list.length) return null;
+  if ((item.kind === "note_reminder" || item.kind === "installment_manual") && item.id) {
+    const match = list.find(n =>
+      n?.kind === "note_reminder"
+      && (String(n.related_reminder_id || "") === String(item.id)
+        || String(n.payload?.reminder_id || "") === String(item.id))
+    );
+    if (match?.id) return match.id;
+  }
+  if (item.kind === "note_reminder" && item.noteId) {
+    const match = list.find(n =>
+      n?.kind === "note_reminder"
+      && String(n.related_note_id || n.payload?.note_id || "") === String(item.noteId)
+      && !n.is_read
+    );
+    if (match?.id) return match.id;
+  }
+  if (item.kind === "installment_manual" && item.planGroupId) {
+    const match = list.find(n => {
+      if (n?.kind !== "note_reminder" || n.is_read) return false;
+      const p = n.payload && typeof n.payload === "object" ? n.payload : {};
+      return String(p.plan_group_id || p.related_plan_group_id || "") === String(item.planGroupId)
+        && (p.type === "installment_manual" || !n.related_note_id);
+    });
+    if (match?.id) return match.id;
+  }
+  if (item.kind === "installment_due" && item.key) {
+    const match = list.find(n => {
+      if (n?.kind !== "installment_due" || n.is_read) return false;
+      const p = n.payload && typeof n.payload === "object" ? n.payload : {};
+      const k = `installment:${p.plan_group_id || ""}:${p.slot_index || ""}:${String(p.due_date || "").slice(0, 10)}:${p.offset_days ?? ""}`;
+      return k === item.key;
+    });
+    if (match?.id) return match.id;
+  }
+  return null;
+}
+
+function ensureReminderAlertModal(){
+  let modal = document.getElementById("reminderAlertModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "reminderAlertModal";
+    modal.className = "modal hide reminder-alert-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.setAttribute("role", "alertdialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "reminderAlertTitle");
+    modal.setAttribute("aria-describedby", "reminderAlertBody");
+    modal.innerHTML = `
+      <div class="modal-backdrop" data-reminder-alert-dismiss="done"></div>
+      <div class="modal-dialog compact-entry-dialog reminder-alert-dialog">
+        <div class="modal-head">
+          <div>
+            <h3 id="reminderAlertTitle">Reminder</h3>
+            <p id="reminderAlertSubtitle" class="help">Due notification</p>
+          </div>
+          <button class="icon-btn ghost" type="button" data-reminder-alert-dismiss="done" aria-label="Done">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="reminderAlertPreview" class="reminder-alert-preview"></div>
+          <p id="reminderAlertBody" class="reminder-alert-message"></p>
+          <div class="field w12 modal-footer reminder-alert-actions">
+            <button class="btn ghost" type="button" id="reminderAlertRescheduleBtn">Reschedule</button>
+            <button class="btn primary" type="button" data-reminder-alert-dismiss="done">Done</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  } else {
+    // Migrate older Close-based markup to Done-only actions.
+    modal.querySelectorAll('[data-reminder-alert-dismiss="close"]').forEach(el => {
+      el.setAttribute("data-reminder-alert-dismiss", "done");
+      if (el.tagName === "BUTTON" && el.getAttribute("aria-label") === "Close") {
+        el.setAttribute("aria-label", "Done");
+      }
+    });
+    modal.querySelectorAll(".reminder-alert-actions > .btn.ghost").forEach(btn => {
+      if (btn.id === "reminderAlertRescheduleBtn") return;
+      if (/^close$/i.test(String(btn.textContent || "").trim())) btn.remove();
+    });
+  }
+  bindReminderAlertModal(modal);
+  return modal;
+}
+
+function bindReminderAlertModal(modal){
+  if (!modal || reminderAlertState.bound) return;
+  reminderAlertState.bound = true;
+  modal.addEventListener("click", e => {
+    const dismissEl = e.target.closest("[data-reminder-alert-dismiss]");
+    if (!dismissEl || !modal.contains(dismissEl)) return;
+    e.preventDefault();
+    const action = dismissEl.getAttribute("data-reminder-alert-dismiss") || "done";
+    dismissReminderAlert(action === "close" ? "done" : action);
+  });
+  modal.querySelector("#reminderAlertRescheduleBtn")?.addEventListener("click", e => {
+    e.preventDefault();
+    dismissReminderAlert("reschedule");
+  });
+  reminderAlertState.escapeHandler = e => {
+    if (e.key !== "Escape") return;
+    if (!reminderAlertState.isOpen) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dismissReminderAlert("done");
+  };
+  document.addEventListener("keydown", reminderAlertState.escapeHandler, true);
+}
+
+function hideReminderAlertModalShell(){
+  stopReminderAlertSound();
+  reminderAlertState.isOpen = false;
+  reminderAlertState.current = null;
+  const modal = document.getElementById("reminderAlertModal");
+  if (modal) {
+    modal.classList.add("hide");
+    modal.setAttribute("aria-hidden", "true");
+  }
+  document.body.style.overflow = reminderAlertState.prevBodyOverflow || "";
+  reminderAlertState.prevBodyOverflow = "";
+}
+
+function resetReminderAlertUi(){
+  reminderAlertState.queue = [];
+  reminderAlertState.deferUntilNoteModalClose = false;
+  hideReminderAlertModalShell();
+}
+
+function fillReminderAlertModal(item){
+  const titleEl = document.getElementById("reminderAlertTitle");
+  const subtitleEl = document.getElementById("reminderAlertSubtitle");
+  const previewEl = document.getElementById("reminderAlertPreview");
+  const bodyEl = document.getElementById("reminderAlertBody");
+  const rescheduleBtn = document.getElementById("reminderAlertRescheduleBtn");
+  if (titleEl) {
+    titleEl.textContent = item.title
+      || (item.kind === "installment_due"
+        ? "Installment due"
+        : item.kind === "installment_manual"
+          ? "Installment reminder"
+          : "Note reminder");
+  }
+  if (subtitleEl) {
+    if (item.kind === "installment_due") {
+      subtitleEl.textContent = "Installment payment reminder";
+    } else if (item.kind === "installment_manual") {
+      if (item.remindAt && typeof formatNoteReminderWhen === "function") {
+        const when = formatNoteReminderWhen(item.remindAt);
+        subtitleEl.textContent = when ? `Scheduled ${when}` : "Installment reminder";
+      } else {
+        subtitleEl.textContent = "Installment reminder";
+      }
+    } else if (item.remindAt && typeof formatNoteReminderWhen === "function") {
+      const when = formatNoteReminderWhen(item.remindAt);
+      subtitleEl.textContent = when ? `Scheduled ${when}` : "Note reminder";
+    } else {
+      subtitleEl.textContent = "Note reminder";
+    }
+  }
+  if (previewEl) {
+    const preview = String(item.preview || "").trim();
+    previewEl.textContent = preview;
+    previewEl.classList.toggle("hide", !preview);
+  }
+  if (bodyEl) {
+    const msg = String(item.message || "").trim();
+    const preview = String(item.preview || "").trim();
+    // Avoid duplicating the same text in preview + body.
+    bodyEl.textContent = msg && msg !== preview ? msg : "";
+  }
+  if (rescheduleBtn) {
+    rescheduleBtn.textContent = item.kind === "installment_due" ? "Open installments" : "Reschedule";
+  }
+}
+
+function presentNextReminderAlert(){
+  if (reminderAlertState.isOpen) return;
+  if (reminderAlertState.deferUntilNoteModalClose) {
+    const noteModal = document.getElementById("noteReminderModal");
+    if (noteModal && !noteModal.classList.contains("hide")) return;
+    reminderAlertState.deferUntilNoteModalClose = false;
+  }
+  const next = reminderAlertState.queue.shift();
+  if (!next) {
+    hideReminderAlertModalShell();
+    return;
+  }
+  const modal = ensureReminderAlertModal();
+  reminderAlertState.current = next;
+  reminderAlertState.isOpen = true;
+  reminderAlertState.prevBodyOverflow = document.body.style.overflow || "";
+  fillReminderAlertModal(next);
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  startReminderAlertSound();
+  try {
+    modal.querySelector("[data-reminder-alert-dismiss='done']")?.focus?.();
+  } catch (_) {}
+}
+
+function enqueueReminderAlerts(items){
+  const list = Array.isArray(items) ? items : [items];
+  let added = 0;
+  for (const raw of list) {
+    const item = normalizeReminderAlertItem(raw);
+    if (!item) continue;
+    const key = reminderAlertDedupeKey(item);
+    if (!key || noteReminderUiState.toastedReminderIds.has(key)) continue;
+    noteReminderUiState.toastedReminderIds.add(key);
+    reminderAlertState.queue.push(item);
+    added += 1;
+  }
+  if (added > 0) presentNextReminderAlert();
+}
+
+async function dismissReminderAlert(action = "done"){
+  const current = reminderAlertState.current;
+  const wasOpen = reminderAlertState.isOpen;
+  stopReminderAlertSound();
+  // Backdrop / Escape / legacy "close" all behave like Done.
+  if (action === "close") action = "done";
+
+  if (action === "done" && current) {
+    const notifId = resolveReminderNotificationId(current);
+    if (notifId) {
+      try {
+        await supabaseRpc("app_mark_my_notification_read", { p_notification_id: notifId });
+        await refreshAdminCommsBadges();
+        if (isAdminCommsDropdownOpen("admin-notify")) {
+          try { await loadAdminNotificationsDropdown(); } catch (_) {}
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (action === "reschedule" && current) {
+    hideReminderAlertModalShell();
+    if (current.kind === "note_reminder" && current.noteId) {
+      reminderAlertState.deferUntilNoteModalClose = true;
+      try {
+        if (typeof activate === "function") activate("notes");
+      } catch (_) {}
+      try {
+        await window.openNoteReminderModal(current.noteId);
+      } catch (_) {}
+      const noteModal = document.getElementById("noteReminderModal");
+      if (!noteModal || noteModal.classList.contains("hide")) {
+        reminderAlertState.deferUntilNoteModalClose = false;
+        presentNextReminderAlert();
+      }
+      return;
+    }
+    if (
+      (current.kind === "installment_manual" || current.kind === "note_reminder")
+      && current.planGroupId
+    ) {
+      reminderAlertState.deferUntilNoteModalClose = true;
+      try {
+        if (typeof activate === "function") activate("installments");
+      } catch (_) {}
+      try {
+        await window.openInstallmentReminderModal(current.planGroupId);
+      } catch (_) {}
+      const noteModal = document.getElementById("noteReminderModal");
+      if (!noteModal || noteModal.classList.contains("hide")) {
+        reminderAlertState.deferUntilNoteModalClose = false;
+        presentNextReminderAlert();
+      }
+      return;
+    }
+    try {
+      if (typeof activate === "function") activate("installments");
+    } catch (_) {}
+    presentNextReminderAlert();
+    return;
+  }
+
+  if (wasOpen) hideReminderAlertModalShell();
+  else {
+    reminderAlertState.current = null;
+    reminderAlertState.isOpen = false;
+  }
+  presentNextReminderAlert();
+}
+
+/** Centered overlay alert (replaces corner toast). */
+function showNoteReminderToast(title, body){
+  enqueueReminderAlerts([{
+    kind: "note_reminder",
+    title: title || "Note reminder",
+    message: body || "Reminder for your note",
+    note_preview: body || ""
+  }]);
+}
+
+function showNoteReminderToasts(items){
+  enqueueReminderAlerts(items);
+}
+
+/** Fire dispatch at the local instant of the earliest pending remind_at (no poll wait). */
+function scheduleNoteReminderWake(pendingItems){
+  clearNoteReminderWakeTimer();
+  const pending = Array.isArray(pendingItems) ? pendingItems.filter(r => r && !r.is_delivered) : [];
+  let earliest = Infinity;
+  for (const r of pending) {
+    const t = new Date(r.remind_at).getTime();
+    if (Number.isFinite(t) && t < earliest) earliest = t;
+  }
+  if (!Number.isFinite(earliest)) return;
+  // Keep absolute wake ms; schedule from raw delta (clamped only for setTimeout limits).
+  const wakeAtMs = earliest;
+  noteReminderUiState.wakeAtMs = wakeAtMs;
+  const MAX_DELAY = 2147483647;
+  const rawMs = wakeAtMs - Date.now();
+  const delay = Math.max(50, Math.min(rawMs, MAX_DELAY));
+  noteReminderUiState.wakeTimer = setTimeout(async () => {
+    noteReminderUiState.wakeTimer = null;
+    try {
+      if (Date.now() + 1000 < wakeAtMs) {
+        scheduleNoteReminderWake(noteReminderUiState.pendingReminders);
+        return;
+      }
+      // Toast immediately for locally due items (even before RPC / while tab is hidden).
+      const dueLocal = locallyDueNoteReminders(noteReminderUiState.pendingReminders, 2000);
+      if (dueLocal.length) showNoteReminderToasts(dueLocal);
+      await dispatchDueNoteRemindersThrottled(true);
+      await refreshAdminCommsBadges();
+      if (isAdminCommsDropdownOpen("admin-notify")) {
+        try { await loadAdminNotificationsDropdown(); } catch (_) {}
+      }
+      noteReminderUiState.loadedAt = 0;
+      await ensurePendingNoteReminderMap(true);
+      renderNotes(els.searchNotes?.value || "");
+    } catch (err) {
+      console.warn("Note reminder wake failed:", err);
+    }
+  }, delay);
+}
+
+async function ensurePendingNoteReminderMap(force = false){
+  if (isGuestMode() || !state.sessionUser) {
+    noteReminderUiState.pendingNoteIds = new Set();
+    noteReminderUiState.pendingReminders = [];
+    clearNoteReminderWakeTimer();
+    noteReminderUiState.loadedAt = Date.now();
+    return noteReminderUiState.pendingNoteIds;
+  }
+  if (!force && noteReminderUiState.inFlight) return noteReminderUiState.inFlight;
+  if (!force && noteReminderUiState.loadedAt && Date.now() - noteReminderUiState.loadedAt < 20000) {
+    return noteReminderUiState.pendingNoteIds;
+  }
+  const run = (async () => {
+    try {
+      const res = await supabaseRpc("app_list_my_note_reminders", {});
+      const items = Array.isArray(res?.pending)
+        ? res.pending
+        : (Array.isArray(res?.items) ? res.items : []);
+      const pending = items.filter(r => !r.is_delivered);
+      noteReminderUiState.pendingReminders = pending;
+      noteReminderUiState.pendingNoteIds = new Set(
+        pending
+          .map(r => String(r.note_id || ""))
+          .filter(Boolean)
+      );
+      noteReminderUiState.loadedAt = Date.now();
+      scheduleNoteReminderWake(pending);
+    } catch (_) {
+      if (!noteReminderUiState.loadedAt) {
+        noteReminderUiState.pendingNoteIds = new Set();
+        noteReminderUiState.pendingReminders = [];
+      }
+    } finally {
+      noteReminderUiState.inFlight = null;
+    }
+    return noteReminderUiState.pendingNoteIds;
+  })();
+  noteReminderUiState.inFlight = run;
+  return run;
+}
+
+async function renderNotes(searchTerm = '') {
+  if (!isGuestMode() && state.sessionUser) {
+    await ensurePendingNoteReminderMap(false);
+  } else {
+    noteReminderUiState.pendingNoteIds = new Set();
+  }
+
   const filteredNotes = searchTerm
     ? state.notes.filter(note =>
         note.content.toLowerCase().includes(searchTerm.toLowerCase())
@@ -27047,6 +28012,7 @@ function renderNotes(searchTerm = '') {
     const formattedDate = noteDate.toLocaleDateString() + ' ' + noteDate.toLocaleTimeString();
     const noteContent = String(note.content || "");
     const needsPreview = noteContent.split(/\r?\n/).length > 2 || noteContent.length > 180;
+    const hasReminder = noteReminderUiState.pendingNoteIds.has(String(note.id));
 
     const noteEl = document.createElement('div');
     noteEl.className = 'card';
@@ -27062,11 +28028,14 @@ function renderNotes(searchTerm = '') {
           ${needsPreview ? '<button class="note-see-more-btn" type="button" onclick="toggleNotePreview(this)">See More</button>' : ""}
           ${legacyBtn ? `<div style="margin-top:8px;">${legacyBtn}</div>` : ""}
         </div>
-        <div style="display:flex;gap:8px;margin-left:10px;">
-          <button class="btn ghost" onclick="editNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;">
+        <div class="note-card-actions" style="display:flex;gap:6px;margin-left:10px;flex-shrink:0;">
+          <button class="btn ghost note-reminder-bell${hasReminder ? " has-reminder" : ""}" onclick="openNoteReminderModal('${note.id}')" style="padding:4px 8px;font-size:.8rem;" title="${hasReminder ? "Reminders set" : "Reminder"}" aria-label="${hasReminder ? "Reminders set" : "Set reminder"}">
+            <i class="fa-solid fa-bell"></i>
+          </button>
+          <button class="btn ghost" onclick="editNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;" title="Edit">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="btn ghost" onclick="deleteNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;">
+          <button class="btn ghost" onclick="deleteNote('${note.id}')" style="padding:4px 8px;font-size:.8rem;" title="Delete">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
@@ -27132,16 +28101,39 @@ window.deleteNote = async function(noteId) {
   }
 };
 
-window.editNote = async function(noteId) {
+window.editNote = function(noteId) {
   const note = state.notes.find(n => n.id === noteId);
   if (!note) return;
-  
-  const newContent = prompt('Edit your note:', note.content);
-  if (newContent === null || newContent.trim() === '') return;
-  
+  const modal = document.getElementById("noteEditModal");
+  const form = document.getElementById("noteEditForm");
+  const idInput = document.getElementById("noteEditNoteId");
+  const contentInput = document.getElementById("noteEditContent");
+  if (!modal || !form || !idInput || !contentInput) {
+    // Fallback if modal markup is missing.
+    const newContent = prompt("Edit your note:", note.content);
+    if (newContent === null || newContent.trim() === "") return;
+    saveEditedNoteContent(noteId, newContent.trim()).catch(err => {
+      alert("Failed to update note: " + (err?.message || err));
+    });
+    return;
+  }
+  idInput.value = String(noteId);
+  contentInput.value = String(note.content || "");
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  try { contentInput.focus(); contentInput.setSelectionRange(contentInput.value.length, contentInput.value.length); } catch (_) {}
+};
+
+async function saveEditedNoteContent(noteId, newContent){
+  const content = String(newContent || "").trim();
+  if (!content) throw new Error("Note content is required.");
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note) throw new Error("Note not found.");
+
   if (isGuestMode()) {
     state.notes = state.notes.map(item => item.id === noteId
-      ? { ...item, content: newContent.trim() }
+      ? { ...item, content }
       : item
     );
     saveGuestNotesToStorage();
@@ -27155,24 +28147,20 @@ window.editNote = async function(noteId) {
     return;
   }
 
-  try {
-    const notesJson = JSON.stringify({ content: newContent.trim(), rowType: "NOTE" });
-    if (note.data_origin === "domain") {
-      await supabase(`app_notes?id=eq.${encodeURIComponent(noteId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ content: newContent.trim(), notes: notesJson })
-      });
-    } else {
-      await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ notes: notesJson })
-      });
-    }
-    await loadNotesFromDatabase({ force: true });
-  } catch (err) {
-    alert("Failed to update note: " + err.message);
+  const notesJson = JSON.stringify({ content, rowType: "NOTE" });
+  if (note.data_origin === "domain") {
+    await supabase(`app_notes?id=eq.${encodeURIComponent(noteId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content, notes: notesJson })
+    });
+  } else {
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(noteId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ notes: notesJson })
+    });
   }
-};
+  await loadNotesFromDatabase({ force: true });
+}
 
 async function loadNotesFromDatabase(options = {}) {
   const force = options.force === true;
@@ -28223,6 +29211,70 @@ function btcBindUI() {
 // Notes UI Binding
 function notesBindUI() {
   els.saveNoteBtn.addEventListener('click', saveNote);
+  const noteReminderForm = document.getElementById("noteReminderForm");
+  if (noteReminderForm) {
+    noteReminderForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      try { await saveNoteReminder(noteReminderForm); }
+      catch (err) { alert(err.message || "Could not save reminder."); }
+    });
+  }
+  const noteEditForm = document.getElementById("noteEditForm");
+  if (noteEditForm && !noteEditForm.dataset.bound) {
+    noteEditForm.dataset.bound = "1";
+    noteEditForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(noteEditForm);
+      const noteId = String(fd.get("note_id") || "").trim();
+      const content = String(fd.get("content") || "");
+      const saveBtn = document.getElementById("noteEditSaveBtn");
+      if (saveBtn) saveBtn.disabled = true;
+      try {
+        await saveEditedNoteContent(noteId, content);
+        closeModal("noteEditModal");
+      } catch (err) {
+        alert(err.message || "Could not save note.");
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    });
+  }
+  const noteReminderResetBtn = document.getElementById("noteReminderResetBtn");
+  if (noteReminderResetBtn) {
+    noteReminderResetBtn.addEventListener("click", () => resetNoteReminderForm());
+  }
+  const noteReminderExisting = document.getElementById("noteReminderExisting");
+  if (noteReminderExisting && !noteReminderExisting.dataset.bound) {
+    noteReminderExisting.dataset.bound = "1";
+    noteReminderExisting.addEventListener("click", async e => {
+      const editBtn = e.target.closest?.("[data-reminder-edit]");
+      const deleteBtn = e.target.closest?.("[data-reminder-delete]");
+      if (editBtn) {
+        e.preventDefault();
+        fillNoteReminderFormForEdit(editBtn.getAttribute("data-reminder-edit"));
+        return;
+      }
+      if (deleteBtn) {
+        e.preventDefault();
+        const id = deleteBtn.getAttribute("data-reminder-delete");
+        if (!id || !confirm("Delete this reminder?")) return;
+        try {
+          await supabaseRpc("app_delete_note_reminder", { p_reminder_id: id });
+          noteReminderUiState.loadedAt = 0;
+          if (noteReminderUiState.modalMode === "installment" && noteReminderUiState.modalPlanGroupId) {
+            await loadInstallmentReminderExistingList(noteReminderUiState.modalPlanGroupId);
+          } else {
+            await loadNoteReminderExistingList(noteReminderUiState.modalNoteId);
+            renderNotes(els.searchNotes?.value || "");
+          }
+          resetNoteReminderForm();
+          await ensurePendingNoteReminderMap(true);
+        } catch (err) {
+          alert(err.message || "Could not delete reminder.");
+        }
+      }
+    });
+  }
 
   document.querySelectorAll(".legacy-fix-all-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -28411,6 +29463,128 @@ function adminMetaChips(user){
     </div>`;
 }
 
+/** Group team members under their company owner for the admin users list. */
+function groupAdminUsersForDisplay(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  const byId = new Map(list.map(u => [u.id, u]));
+  const membersByOwner = new Map();
+  list.forEach(u => {
+    const ownerId = u.team_owner_id;
+    if (!ownerId || !byId.has(ownerId)) return;
+    if (!membersByOwner.has(ownerId)) membersByOwner.set(ownerId, []);
+    membersByOwner.get(ownerId).push(u);
+  });
+  membersByOwner.forEach(members => {
+    members.sort((a, b) => String(a.username || "").localeCompare(String(b.username || "")));
+  });
+  const nestedIds = new Set();
+  membersByOwner.forEach(members => members.forEach(m => nestedIds.add(m.id)));
+  const roots = list.filter(u => !nestedIds.has(u.id));
+  return { roots, membersByOwner };
+}
+
+function renderAdminUserCardHtml(user, { nested = false, memberCount = 0 } = {}){
+  const flags = getUserAccessFlags(user);
+  const statusBadge = user.is_active
+    ? `<span class="admin-badge ok">On</span>`
+    : `<span class="admin-badge warn">Off</span>`;
+  const roleBadge = user.role === "admin"
+    ? `<span class="admin-badge">Admin</span>`
+    : "";
+  const protectedBadge = user.is_protected ? `<span class="admin-badge">Lock</span>` : "";
+  const teamAccountBadge = user.allow_team_members
+    ? `<span class="admin-badge ok">Team ${escapeHtml(String(Math.max(1, Math.min(50, Number(user.max_team_members) || 3))))}</span>`
+    : "";
+  const teamMemberBadge = nested
+    ? `<span class="admin-badge">Member</span>`
+    : "";
+  const pinEnabled = !!(user.smart_pin_enabled || String(user.smart_pin_hash || "").trim());
+  const pinBadge = pinEnabled ? `<span class="admin-badge">Pin</span>` : "";
+  const forceBadge = user.must_change_password ? `<span class="admin-badge warn">Force PW</span>` : "";
+  let planBadge = `<span class="admin-badge ok">Full</span>`;
+  if (flags.period_expired && flags.grace_active) {
+    planBadge = `<span class="admin-badge warn">Grace ${escapeHtml(String(Math.floor(Number(flags.grace_days_left) || 0)))}d</span>`;
+  } else if (flags.period_expired) {
+    planBadge = `<span class="admin-badge warn">${flags.is_trial ? "Trial" : "Plan"} ended</span>`;
+  } else if (flags.period_active) {
+    planBadge = `<span class="admin-badge">${flags.is_trial ? "Trial" : "Dated"} ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d</span>`;
+  } else if (flags.is_trial) {
+    planBadge = `<span class="admin-badge warn">Trial</span>`;
+  }
+  const trialSummary = flags.has_access_period
+    ? `<span class="admin-user-summary-expiry">${escapeHtml(formatAccessDateShort(flags.trial_expires_at))}</span>`
+    : flags.unlimited_access
+      ? `<span class="admin-user-summary-expiry">∞</span>`
+      : "";
+  const grantBtn = (!user.is_protected && (flags.is_trial || flags.has_access_period || flags.access_plan !== "full"))
+    ? `<button type="button" class="btn soft tiny" data-admin-action="clear_unlimited">Unlimited</button>`
+    : "";
+  const trialBtn = (!user.is_protected && user.role !== "admin" && !flags.is_trial)
+    ? `<button type="button" class="btn ghost tiny" data-admin-action="start_trial">14d trial</button>`
+    : "";
+  const managePlanBtn = user.is_protected
+    ? ""
+    : `<button type="button" class="btn primary tiny" data-admin-action="manage_plan"><i class="fa-solid fa-calendar-check"></i> Plan</button>`;
+  const clearPinBtn = (pinEnabled && !user.is_protected && isProtectedAdminSession())
+    ? `<button type="button" class="btn ghost tiny" data-admin-action="clear_pin" title="Clear Smart Pin for support"><i class="fa-solid fa-key"></i> Clear Pin</button>`
+    : "";
+  const companyLine = (user.company_name || user.settings?.Company)
+    ? `<p class="admin-user-meta"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>`
+    : "";
+  const contactLine = (() => {
+    const email = user.company_email || user.settings?.email || user.settings?.Email || "";
+    const phone = user.company_phone || user.settings?.Mobile || user.settings?.Phone || "";
+    const address = user.company_address || user.settings?.Address || user.settings?.address || "";
+    if (!email && !phone && !address) return "";
+    const bits = [email, phone].filter(Boolean).map(v => escapeHtml(v));
+    return `<p class="admin-user-meta">${bits.join(" · ")}${address ? `<br>${escapeHtml(address)}` : ""}</p>`;
+  })();
+  const nestClass = nested ? " admin-user-card--team-member" : "";
+  const nestAttr = nested ? ` data-team-owner-id="${escapeHtml(user.team_owner_id || "")}"` : "";
+  const memberHint = !nested && memberCount > 0
+    ? `<span class="admin-user-team-count">${memberCount} team</span>`
+    : "";
+  return `
+    <article class="admin-user-card${nestClass}" data-user-id="${escapeHtml(user.id)}"${nestAttr}>
+      <div class="admin-user-summary" data-admin-toggle-card role="button" tabindex="0" aria-expanded="false">
+        <div class="admin-user-summary-main">
+          <div class="admin-user-summary-title-row">
+            ${nested ? `<span class="admin-user-nest-marker" aria-hidden="true"><i class="fa-solid fa-corner-down-right"></i></span>` : ""}
+            <h4>${escapeHtml(user.display_name || user.username)}</h4>
+            <code class="admin-user-summary-user">@${escapeHtml(user.username)}</code>
+            ${trialSummary}
+            ${memberHint}
+            <button type="button" class="btn ghost tiny admin-summary-copy" data-copy="${escapeHtml(user.username)}" title="Copy username"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+          </div>
+          <div class="admin-user-summary-badges">
+            ${statusBadge}${roleBadge}${planBadge}${pinBadge}${protectedBadge}${teamAccountBadge}${teamMemberBadge}${forceBadge}
+          </div>
+        </div>
+        <span class="admin-user-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+      </div>
+      <div class="admin-user-details" hidden>
+        <p class="admin-user-meta">
+          Created ${escapeHtml(formatAdminDate(user.created_at))} · Login ${escapeHtml(formatAdminDate(user.last_login_at))}
+          ${nested ? ` · Team of @${escapeHtml(user.team_owner_username || "company")}` : ""}
+        </p>
+        ${companyLine}
+        ${contactLine}
+        ${adminCredentialBlock(user)}
+        ${adminMetaChips(user)}
+        <div class="admin-user-actions">
+          ${managePlanBtn}
+          <button type="button" class="btn soft tiny" data-admin-action="edit">Edit</button>
+          <button type="button" class="btn ghost tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
+          ${clearPinBtn}
+          ${grantBtn}
+          ${trialBtn}
+          <button type="button" class="btn ghost tiny" data-admin-action="toggle" ${user.is_protected ? "disabled" : ""}>${user.is_active ? "Disable" : "Enable"}</button>
+          <button type="button" class="btn ghost tiny" data-admin-action="delete" ${user.is_protected ? "disabled" : ""}>Delete</button>
+        </div>
+      </div>
+    </article>`;
+}
+
 async function loadAdminUsers(){
   const list = document.getElementById("adminUsersList");
   if (!list) return;
@@ -28428,92 +29602,13 @@ async function loadAdminUsers(){
       list.innerHTML = `<div class="empty">No users found. Create the first additional account.</div>`;
       return;
     }
-    list.innerHTML = rows.map(user => {
-      const flags = getUserAccessFlags(user);
-      const statusBadge = user.is_active
-        ? `<span class="admin-badge ok">On</span>`
-        : `<span class="admin-badge warn">Off</span>`;
-      const roleBadge = user.role === "admin"
-        ? `<span class="admin-badge">Admin</span>`
-        : "";
-      const protectedBadge = user.is_protected ? `<span class="admin-badge">Lock</span>` : "";
-      const teamAccountBadge = user.allow_team_members
-        ? `<span class="admin-badge ok">Team ${escapeHtml(String(Math.max(1, Math.min(50, Number(user.max_team_members) || 3))))}</span>`
-        : "";
-      const pinBadge = (user.smart_pin_enabled || String(user.smart_pin_hash || "").trim())
-        ? `<span class="admin-badge">Pin</span>`
-        : "";
-      const forceBadge = user.must_change_password ? `<span class="admin-badge warn">Force PW</span>` : "";
-      let planBadge = `<span class="admin-badge ok">Full</span>`;
-      if (flags.period_expired && flags.grace_active) {
-        planBadge = `<span class="admin-badge warn">Grace ${escapeHtml(String(Math.floor(Number(flags.grace_days_left) || 0)))}d</span>`;
-      } else if (flags.period_expired) {
-        planBadge = `<span class="admin-badge warn">${flags.is_trial ? "Trial" : "Plan"} ended</span>`;
-      } else if (flags.period_active) {
-        planBadge = `<span class="admin-badge">${flags.is_trial ? "Trial" : "Dated"} ${escapeHtml(String(flags.trial_days_remaining ?? "?"))}d</span>`;
-      } else if (flags.is_trial) {
-        planBadge = `<span class="admin-badge warn">Trial</span>`;
-      }
-      const trialSummary = flags.has_access_period
-        ? `<span class="admin-user-summary-expiry">${escapeHtml(formatAccessDateShort(flags.trial_expires_at))}</span>`
-        : flags.unlimited_access
-          ? `<span class="admin-user-summary-expiry">∞</span>`
-          : "";
-      const grantBtn = (!user.is_protected && (flags.is_trial || flags.has_access_period || flags.access_plan !== "full"))
-        ? `<button type="button" class="btn soft tiny" data-admin-action="clear_unlimited">Unlimited</button>`
-        : "";
-      const trialBtn = (!user.is_protected && user.role !== "admin" && !flags.is_trial)
-        ? `<button type="button" class="btn ghost tiny" data-admin-action="start_trial">14d trial</button>`
-        : "";
-      const managePlanBtn = user.is_protected
-        ? ""
-        : `<button type="button" class="btn primary tiny" data-admin-action="manage_plan"><i class="fa-solid fa-calendar-check"></i> Plan</button>`;
-      const companyLine = (user.company_name || user.settings?.Company)
-        ? `<p class="admin-user-meta"><strong>${escapeHtml(user.company_name || user.settings.Company)}</strong>${(user.vat_number || user.settings?.TRN) ? ` · ${escapeHtml(user.vat_number || user.settings.TRN)}` : ""}</p>`
-        : "";
-      const contactLine = (() => {
-        const email = user.company_email || user.settings?.email || user.settings?.Email || "";
-        const phone = user.company_phone || user.settings?.Mobile || user.settings?.Phone || "";
-        const address = user.company_address || user.settings?.Address || user.settings?.address || "";
-        if (!email && !phone && !address) return "";
-        const bits = [email, phone].filter(Boolean).map(v => escapeHtml(v));
-        return `<p class="admin-user-meta">${bits.join(" · ")}${address ? `<br>${escapeHtml(address)}` : ""}</p>`;
-      })();
-      return `
-        <article class="admin-user-card" data-user-id="${escapeHtml(user.id)}">
-          <div class="admin-user-summary" data-admin-toggle-card role="button" tabindex="0" aria-expanded="false">
-            <div class="admin-user-summary-main">
-              <div class="admin-user-summary-title-row">
-                <h4>${escapeHtml(user.display_name || user.username)}</h4>
-                <code class="admin-user-summary-user">@${escapeHtml(user.username)}</code>
-                ${trialSummary}
-                <button type="button" class="btn ghost tiny admin-summary-copy" data-copy="${escapeHtml(user.username)}" title="Copy username"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
-              </div>
-              <div class="admin-user-summary-badges">
-                ${statusBadge}${roleBadge}${planBadge}${pinBadge}${protectedBadge}${teamAccountBadge}${forceBadge}
-              </div>
-            </div>
-            <span class="admin-user-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
-          </div>
-          <div class="admin-user-details" hidden>
-            <p class="admin-user-meta">
-              Created ${escapeHtml(formatAdminDate(user.created_at))} · Login ${escapeHtml(formatAdminDate(user.last_login_at))}
-            </p>
-            ${companyLine}
-            ${contactLine}
-            ${adminCredentialBlock(user)}
-            ${adminMetaChips(user)}
-            <div class="admin-user-actions">
-              ${managePlanBtn}
-              <button type="button" class="btn soft tiny" data-admin-action="edit">Edit</button>
-              <button type="button" class="btn ghost tiny" data-admin-action="raw"><i class="fa-solid fa-database"></i> Raw</button>
-              ${grantBtn}
-              ${trialBtn}
-              <button type="button" class="btn ghost tiny" data-admin-action="toggle" ${user.is_protected ? "disabled" : ""}>${user.is_active ? "Disable" : "Enable"}</button>
-              <button type="button" class="btn ghost tiny" data-admin-action="delete" ${user.is_protected ? "disabled" : ""}>Delete</button>
-            </div>
-          </div>
-        </article>`;
+    const { roots, membersByOwner } = groupAdminUsersForDisplay(rows);
+    list.innerHTML = roots.map(user => {
+      const members = membersByOwner.get(user.id) || [];
+      const companyCard = renderAdminUserCardHtml(user, { nested: false, memberCount: members.length });
+      if (!members.length) return companyCard;
+      const nested = members.map(m => renderAdminUserCardHtml(m, { nested: true })).join("");
+      return `<div class="admin-user-company-group" data-company-id="${escapeHtml(user.id)}">${companyCard}<div class="admin-user-team-nest" role="group" aria-label="Team members">${nested}</div></div>`;
     }).join("");
 
     const expandCard = (card, open) => {
@@ -28624,6 +29719,16 @@ async function handleAdminUserAction(action, user, opts = {}){
     }
     if (action === "raw") {
       openAdminRawDataOverlay(user);
+      return;
+    }
+    if (action === "clear_pin") {
+      if (!isProtectedAdminSession()) {
+        return alert("Protected administrator access required.");
+      }
+      if (user.is_protected) return;
+      if (!confirm(`Clear Smart Pin for "${user.username}"? They can sign in without a pin until they set a new one.`)) return;
+      await supabaseRpc("app_admin_clear_user_smart_pin", { p_user_id: user.id });
+      await loadAdminUsers();
       return;
     }
     if (action === "grant_full" || action === "clear_unlimited") {
@@ -30501,11 +31606,13 @@ const messagingLiveState = {
   refreshInFlight: false,
   debounceTimer: null,
   syncRpcAvailable: null, // null unknown, true/false after first probe
-  lastThreadSig: null
+  lastThreadSig: null,
+  lastNoteReminderDispatchAt: 0
 };
 
 const MESSAGING_LIVE_POLL_MS = 8000;
 const MESSAGING_LIVE_POLL_ACTIVE_MS = 5000;
+const NOTE_REMINDER_DISPATCH_THROTTLE_MS = 5000;
 
 function stopAdminCommsPolling(){
   stopMessagingLiveSync();
@@ -30622,14 +31729,12 @@ async function applyMessagingLiveUiRefresh(reason){
   }
   messagingLiveState.refreshInFlight = true;
   try {
-    if (isAppAdminSession()) {
-      await refreshAdminCommsBadges();
-      if (isAdminCommsDropdownOpen("admin-notify")) {
-        await loadAdminNotificationsDropdown();
-      }
-      if (isAdminCommsDropdownOpen("admin-messages")) {
-        await loadAdminMessagesPreview();
-      }
+    await refreshAdminCommsBadges();
+    if (isAdminCommsDropdownOpen("admin-notify")) {
+      await loadAdminNotificationsDropdown();
+    }
+    if (isAdminCommsDropdownOpen("admin-messages")) {
+      await loadAdminMessagesPreview();
     }
     if (getActiveTabKey() === "messages") {
       await renderMessagesPanel({ silent: true });
@@ -30676,22 +31781,68 @@ async function fetchMessagingFallbackFingerprint(){
     return `a-fb|${n}|${i}|${listFp}`;
   }
 
-  if (getActiveTabKey() !== "messages") {
-    // Users have no header badge; skip network when Messages tab is closed
-    return messagingLiveState.fallbackFingerprint || "u-fb|idle";
-  }
+  let userNotifUnread = 0;
+  try {
+    const userNotifs = await supabaseRpc("app_list_my_notifications", { p_limit: 1 });
+    userNotifUnread = Number(userNotifs?.unread || 0);
+  } catch (_) {}
   const result = await supabaseRpc("app_list_my_inquiries", {});
   const items = Array.isArray(result?.items) ? result.items : [];
-  return `u-fb|${threadListFingerprint(items)}`;
+  const unreadMsgs = items.reduce((sum, t) => sum + Number(t.unread_for_user || 0), 0);
+  applyAdminBadgeCounts(userNotifUnread, unreadMsgs);
+  let listFp = "";
+  if (getActiveTabKey() === "messages" || isAdminCommsDropdownOpen("admin-messages") || isAdminCommsDropdownOpen("admin-notify")) {
+    listFp = threadListFingerprint(items);
+  }
+  return `u-fb|${userNotifUnread}|${unreadMsgs}|${listFp}`;
+}
+
+async function dispatchDueNoteRemindersThrottled(force = false){
+  if (!messagingLiveEligible()) return 0;
+  const now = Date.now();
+  if (!force && now - messagingLiveState.lastNoteReminderDispatchAt < NOTE_REMINDER_DISPATCH_THROTTLE_MS) {
+    return 0;
+  }
+  messagingLiveState.lastNoteReminderDispatchAt = now;
+  try {
+    const clientNow = new Date().toISOString();
+    let res;
+    try {
+      res = await supabaseRpc("app_dispatch_due_note_reminders", { p_client_now: clientNow });
+    } catch (_) {
+      // Prefer client-now; fall back if overload/arg is not deployed yet.
+      res = await supabaseRpc("app_dispatch_due_note_reminders", {});
+    }
+    const delivered = Math.max(0, Number(res?.delivered ?? res?.[0]?.delivered ?? 0));
+    if (delivered > 0) {
+      noteMessagingLocalMutation();
+      queueMessagingLiveUiRefresh("note-reminders");
+      noteReminderUiState.loadedAt = 0;
+      await refreshAdminCommsBadges();
+      if (isAdminCommsDropdownOpen("admin-notify")) {
+        try { await loadAdminNotificationsDropdown(); } catch (_) {}
+      }
+      showNoteReminderToasts(locallyDueNoteReminders(noteReminderUiState.pendingReminders, 2000));
+    }
+    return delivered;
+  } catch (err) {
+    console.warn("Note reminder dispatch failed:", err);
+    return 0;
+  }
 }
 
 async function runMessagingLivePoll(){
   if (!messagingLiveEligible() || document.hidden) return;
   try {
+    // Deliver due note reminders while the page is open (throttled).
+    await dispatchDueNoteRemindersThrottled(false);
+
     const sync = await fetchMessagingSyncState();
     if (sync && sync.fingerprint) {
-      if (isAppAdminSession() && sync.role === "admin") {
+      if (sync.role === "admin") {
         applyAdminBadgeCounts(sync.notifications, sync.inquiries);
+      } else {
+        applyAdminBadgeCounts(sync.notifications ?? sync.user_notifications, sync.inquiries ?? sync.user_unread);
       }
       const prev = messagingLiveState.fingerprint;
       if (prev === null) {
@@ -30733,29 +31884,60 @@ function setHeaderBadge(el, count){
 }
 
 function updateAdminCommsVisibility(){
-  const show = isAppAdminSession() && state.unlocked;
+  const show = !!(state.unlocked && !isGuestMode() && state.sessionUser);
   ["adminNotifyWrap", "adminMessagesWrap"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hide", !show);
   });
+  const admin = isAppAdminSession();
+  const notifySub = document.getElementById("adminNotifySubtitle");
+  const msgTitle = document.getElementById("adminMessagesTitle");
+  const msgSub = document.getElementById("adminMessagesSubtitle");
+  if (notifySub) notifySub.textContent = admin ? "Reminders, dues & system alerts" : "Reminders & installment dues";
+  if (msgTitle) msgTitle.textContent = admin ? "Inquiries" : "Messages";
+  if (msgSub) msgSub.textContent = admin ? "Messages from users" : "Conversations with admin";
   if (!show) {
     setHeaderBadge(document.getElementById("adminNotifyCount"), 0);
     setHeaderBadge(document.getElementById("adminMessagesCount"), 0);
+    stopInstallmentDueChecker();
   }
   if (!messagingLiveEligible()) stopMessagingLiveSync();
 }
 
 async function refreshAdminCommsBadges(){
-  if (!isAppAdminSession()) {
-    updateAdminCommsVisibility();
-    return;
-  }
   updateAdminCommsVisibility();
+  if (!messagingLiveEligible()) return;
   try {
-    const counts = await supabaseRpc("app_admin_unread_counts", {});
-    applyAdminBadgeCounts(counts?.notifications, counts?.inquiries);
+    if (isAppAdminSession()) {
+      let adminN = 0;
+      let inquiries = 0;
+      try {
+        const counts = await supabaseRpc("app_admin_unread_counts", {});
+        adminN = Number(counts?.notifications || 0);
+        inquiries = Number(counts?.inquiries || 0);
+      } catch (_) {}
+      let userN = 0;
+      try {
+        const userNotifs = await supabaseRpc("app_list_my_notifications", { p_limit: 1 });
+        userN = Number(userNotifs?.unread || 0);
+      } catch (_) {}
+      applyAdminBadgeCounts(adminN + userN, inquiries);
+      return;
+    }
+    let userN = 0;
+    let userUnread = 0;
+    try {
+      const userNotifs = await supabaseRpc("app_list_my_notifications", { p_limit: 1 });
+      userN = Number(userNotifs?.unread || 0);
+    } catch (_) {}
+    try {
+      const result = await supabaseRpc("app_list_my_inquiries", {});
+      const items = Array.isArray(result?.items) ? result.items : [];
+      userUnread = items.reduce((sum, t) => sum + Number(t.unread_for_user || 0), 0);
+    } catch (_) {}
+    applyAdminBadgeCounts(userN, userUnread);
   } catch (err) {
-    console.warn("Admin unread counts failed:", err);
+    console.warn("Comms unread counts failed:", err);
   }
 }
 
@@ -30764,6 +31946,8 @@ function notificationIconClass(kind){
   if (kind === "inquiry") return "inquiry";
   if (kind === "renewal_request") return "renewal";
   if (kind === "access_expiry_warning" || kind === "access_auto_disabled") return "warn";
+  if (kind === "note_reminder") return "reminder";
+  if (kind === "installment_due") return "due";
   return "";
 }
 
@@ -30773,34 +31957,54 @@ function notificationIcon(kind){
   if (kind === "renewal_request") return "fa-rotate";
   if (kind === "access_expiry_warning") return "fa-triangle-exclamation";
   if (kind === "access_auto_disabled") return "fa-user-slash";
+  if (kind === "note_reminder") return "fa-clock";
+  if (kind === "installment_due") return "fa-calendar-day";
   return "fa-bell";
 }
 
 async function loadAdminNotificationsDropdown(){
   const list = document.getElementById("adminNotifyList");
-  if (!list || !isAppAdminSession()) return;
+  if (!list || !messagingLiveEligible()) return;
   list.innerHTML = `<div class="admin-comms-empty">Loading…</div>`;
   try {
-    const result = await supabaseRpc("app_admin_list_notifications", { p_limit: 40 });
-    const items = Array.isArray(result?.items) ? result.items : [];
-    adminCommsState.notifications = items;
-    if (!items.length) {
+    await dispatchDueNoteRemindersThrottled(true);
+    const items = [];
+    if (isAppAdminSession()) {
+      try {
+        const adminResult = await supabaseRpc("app_admin_list_notifications", { p_limit: 40 });
+        (Array.isArray(adminResult?.items) ? adminResult.items : []).forEach(n => {
+          items.push({ ...n, source: "admin" });
+        });
+      } catch (_) {}
+    }
+    try {
+      const userResult = await supabaseRpc("app_list_my_notifications", { p_limit: 40 });
+      (Array.isArray(userResult?.items) ? userResult.items : []).forEach(n => {
+        items.push({ ...n, source: n.source || "user" });
+      });
+    } catch (_) {}
+    items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    adminCommsState.notifications = items.slice(0, 50);
+    if (!adminCommsState.notifications.length) {
       list.innerHTML = `<div class="admin-comms-empty">No notifications yet</div>`;
       return;
     }
-    list.innerHTML = items.map(n => {
+    list.innerHTML = adminCommsState.notifications.map(n => {
       const unread = !n.is_read;
       const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
+      const source = n.source || (n.kind === "note_reminder" || n.kind === "installment_due" ? "user" : "admin");
       const extra = n.kind === "renewal_request"
         ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.period_label || accessPeriodLabel(payload.requested_period, payload.requested_days, payload.requested_until ? toInputDateValue(payload.requested_until) : null))}</strong>${payload.current_expires_at ? ` · current ${escapeHtml(formatTrialExpiry(payload.current_expires_at))}` : ""}${payload.message ? ` · “${escapeHtml(payload.message)}”` : ""}</p>`
         : (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled")
           ? `<p class="admin-comms-item-body">${payload.trial_expires_at ? `Expired ${escapeHtml(formatTrialExpiry(payload.trial_expires_at))}` : ""}${payload.access_disable_at ? ` · disable ${escapeHtml(formatTrialExpiry(payload.access_disable_at))}` : ""}</p>`
-          : "";
-      const jumpUser = n.related_user_id
+          : (n.kind === "note_reminder" && payload.note_preview
+            ? `<p class="admin-comms-item-body">${escapeHtml(String(payload.note_preview).slice(0, 120))}</p>`
+            : "");
+      const jumpUser = source === "admin" && n.related_user_id
         ? `<button type="button" class="btn ghost" data-notif-user="${escapeHtml(n.related_user_id)}" title="Open user"><i class="fa-solid fa-user"></i></button>`
         : "";
       return `
-        <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}" data-related-user="${escapeHtml(n.related_user_id || "")}">
+        <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" data-related-user="${escapeHtml(n.related_user_id || "")}">
           <div class="admin-comms-item-icon ${notificationIconClass(n.kind)}">
             <i class="fa-solid ${notificationIcon(n.kind)}"></i>
           </div>
@@ -30812,8 +32016,8 @@ async function loadAdminNotificationsDropdown(){
           </div>
           <div class="admin-comms-item-actions">
             ${jumpUser}
-            ${unread ? `<button type="button" class="btn ghost" data-notif-read="${escapeHtml(n.id)}" title="Mark read"><i class="fa-solid fa-check"></i></button>` : ""}
-            <button type="button" class="btn ghost" data-notif-delete="${escapeHtml(n.id)}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            ${unread ? `<button type="button" class="btn ghost" data-notif-read="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" title="Mark read"><i class="fa-solid fa-check"></i></button>` : ""}
+            <button type="button" class="btn ghost" data-notif-delete="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" title="Delete"><i class="fa-solid fa-trash"></i></button>
           </div>
         </div>`;
     }).join("");
@@ -30821,31 +32025,40 @@ async function loadAdminNotificationsDropdown(){
     list.innerHTML = `<div class="admin-comms-empty">${escapeHtml(err.message || "Could not load notifications")}</div>`;
   }
 }
-
 async function loadAdminMessagesPreview(){
   const list = document.getElementById("adminMessagesPreviewList");
-  if (!list || !isAppAdminSession()) return;
+  if (!list || !messagingLiveEligible()) return;
   list.innerHTML = `<div class="admin-comms-empty">Loading…</div>`;
   try {
-    const result = await supabaseRpc("app_admin_list_inquiries", { p_status: "open", p_limit: 12 });
-    const items = Array.isArray(result?.items) ? result.items : [];
+    const admin = isAppAdminSession();
+    const result = admin
+      ? await supabaseRpc("app_admin_list_inquiries", { p_status: "open", p_limit: 12 })
+      : await supabaseRpc("app_list_my_inquiries", {});
+    const items = (Array.isArray(result?.items) ? result.items : []).slice(0, 12);
     adminCommsState.inquiryPreview = items;
     if (!items.length) {
-      list.innerHTML = `<div class="admin-comms-empty">No open inquiries</div>`;
+      list.innerHTML = `<div class="admin-comms-empty">${admin ? "No open inquiries" : "No messages yet"}</div>`;
       return;
     }
-    list.innerHTML = items.map(item => `
-      <button type="button" class="admin-comms-item unread" data-preview-inquiry="${escapeHtml(item.id)}">
+    list.innerHTML = items.map(item => {
+      const unread = admin
+        ? (Number(item.unread_for_admin || 0) > 0 || item.status === "open")
+        : Number(item.unread_for_user || 0) > 0;
+      const who = admin
+        ? (item.sender_display_name || item.guest_name || item.sender_username || "Guest")
+        : "Admin";
+      return `
+      <button type="button" class="admin-comms-item ${unread ? "unread" : ""}" data-preview-inquiry="${escapeHtml(item.id)}">
         <div class="admin-comms-item-icon inquiry"><i class="fa-solid fa-comments"></i></div>
         <div>
-          <p class="admin-comms-item-title">${escapeHtml(item.subject)}</p>
-          <p class="admin-comms-item-body">${escapeHtml(item.sender_display_name || item.guest_name || item.sender_username || "Guest")} · ${escapeHtml(item.last_message_preview || item.body || "")}</p>
+          <p class="admin-comms-item-title">${escapeHtml(item.subject || "Conversation")}</p>
+          <p class="admin-comms-item-body">${escapeHtml(who)} · ${escapeHtml(item.last_message_preview || item.body || "")}</p>
           <span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(item.last_message_at || item.created_at))}</span>
         </div>
-      </button>
-    `).join("");
+      </button>`;
+    }).join("");
   } catch (err) {
-    list.innerHTML = `<div class="admin-comms-empty">${escapeHtml(err.message || "Could not load inquiries")}</div>`;
+    list.innerHTML = `<div class="admin-comms-empty">${escapeHtml(err.message || "Could not load messages")}</div>`;
   }
 }
 
@@ -31263,7 +32476,10 @@ function bindMessagingUi(){
     markAllBtn.addEventListener("click", async e => {
       e.stopPropagation();
       try {
-        await supabaseRpc("app_admin_mark_all_notifications_read", {});
+        if (isAppAdminSession()) {
+          await supabaseRpc("app_admin_mark_all_notifications_read", {}).catch(() => {});
+        }
+        await supabaseRpc("app_mark_all_my_notifications_read", {}).catch(() => {});
         await loadAdminNotificationsDropdown();
         await refreshAdminCommsBadges();
       } catch (ex) {
@@ -31305,6 +32521,7 @@ function bindMessagingUi(){
     const delBtn = e.target.closest("[data-notif-delete]");
     const userBtn = e.target.closest("[data-notif-user]");
     const row = e.target.closest("[data-notification-id]");
+    const sourceOf = (el) => String(el?.dataset?.notifSource || row?.dataset?.notifSource || "admin");
     try {
       if (userBtn) {
         e.stopPropagation();
@@ -31325,7 +32542,12 @@ function bindMessagingUi(){
       }
       if (readBtn) {
         e.stopPropagation();
-        await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: readBtn.dataset.notifRead });
+        const source = sourceOf(readBtn);
+        if (source === "user") {
+          await supabaseRpc("app_mark_my_notification_read", { p_notification_id: readBtn.dataset.notifRead });
+        } else {
+          await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: readBtn.dataset.notifRead });
+        }
         await loadAdminNotificationsDropdown();
         await refreshAdminCommsBadges();
         return;
@@ -31333,19 +32555,44 @@ function bindMessagingUi(){
       if (delBtn) {
         e.stopPropagation();
         if (!confirm("Delete this notification?")) return;
-        await supabaseRpc("app_admin_delete_notification", { p_notification_id: delBtn.dataset.notifDelete });
+        const source = sourceOf(delBtn);
+        if (source === "user") {
+          await supabaseRpc("app_delete_my_notification", { p_notification_id: delBtn.dataset.notifDelete });
+        } else {
+          await supabaseRpc("app_admin_delete_notification", { p_notification_id: delBtn.dataset.notifDelete });
+        }
         await loadAdminNotificationsDropdown();
         await refreshAdminCommsBadges();
         return;
       }
       if (row?.dataset.notificationId) {
         const n = adminCommsState.notifications.find(x => x.id === row.dataset.notificationId);
+        const source = sourceOf(row);
         if (n && !n.is_read) {
-          await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: n.id });
+          if (source === "user") {
+            await supabaseRpc("app_mark_my_notification_read", { p_notification_id: n.id });
+          } else {
+            await supabaseRpc("app_admin_mark_notification_read", { p_notification_id: n.id });
+          }
           await refreshAdminCommsBadges();
         }
         if (n?.kind === "inquiry") {
           goToMessagesTab(n.related_inquiry_id || null);
+        } else if (n?.kind === "note_reminder") {
+          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
+          const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
+          const planId = payload.plan_group_id || payload.related_plan_group_id || "";
+          if (payload.type === "installment_manual" || (planId && !n.related_note_id && !payload.note_id)) {
+            activate("installments");
+            if (planId && typeof window.openInstallmentReminderModal === "function") {
+              try { await window.openInstallmentReminderModal(planId); } catch (_) {}
+            }
+          } else {
+            activate("notes");
+          }
+        } else if (n?.kind === "installment_due") {
+          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
+          activate("installments");
         } else if (n?.kind === "trial_signup" || n?.kind === "renewal_request" || n?.kind === "access_expiry_warning" || n?.kind === "access_auto_disabled") {
           document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
           activate("admin");
@@ -31367,8 +32614,7 @@ function bindMessagingUi(){
       alert(ex.message || "Action failed.");
     }
   });
-
-  document.getElementById("adminMessagesPreviewList")?.addEventListener("click", async e => {
+document.getElementById("adminMessagesPreviewList")?.addEventListener("click", async e => {
     const btn = e.target.closest("[data-preview-inquiry]");
     if (!btn) return;
     e.preventDefault();
@@ -31413,6 +32659,497 @@ function bindMessagingUi(){
 }
 
 
+
+function toDatetimeLocalValue(isoOrDate){
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Parse datetime-local wall-clock as LOCAL components (not UTC). */
+function parseDatetimeLocalInput(value){
+  const m = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +(m[6]||0), 0);
+}
+
+/** Encode local datetime-local as timestamptz string with explicit offset. */
+function datetimeLocalInputToTimestamptz(value){
+  const d = parseDatetimeLocalInput(value);
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const offMin = -d.getTimezoneOffset();
+  const sign = offMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offMin);
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${pad(Math.floor(abs/60))}:${pad(abs%60)}`;
+}
+
+function formatNoteReminderWhen(iso){
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function setNoteReminderFormMode(mode){
+  const isEdit = mode === "edit";
+  const title = document.getElementById("noteReminderTitle");
+  const saveBtn = document.getElementById("noteReminderSaveBtn");
+  const resetBtn = document.getElementById("noteReminderResetBtn");
+  const isInstallment = noteReminderUiState.modalMode === "installment";
+  if (title) {
+    if (isEdit) title.textContent = "Update reminder";
+    else title.textContent = isInstallment ? "Installment reminder" : "Set reminder";
+  }
+  if (saveBtn) saveBtn.textContent = isEdit ? "Update reminder" : "Save reminder";
+  if (resetBtn) resetBtn.hidden = !isEdit;
+}
+
+function resetNoteReminderForm(){
+  const noteId = noteReminderUiState.modalNoteId
+    || document.getElementById("noteReminderNoteId")?.value
+    || "";
+  const planGroupId = noteReminderUiState.modalPlanGroupId
+    || document.getElementById("noteReminderPlanGroupId")?.value
+    || "";
+  const reminderIdInput = document.getElementById("noteReminderId");
+  const atInput = document.getElementById("noteReminderAt");
+  const msgInput = document.getElementById("noteReminderMessage");
+  if (reminderIdInput) reminderIdInput.value = "";
+  if (msgInput) msgInput.value = "";
+  if (atInput) atInput.value = toDatetimeLocalValue(new Date(Date.now() + 60 * 60 * 1000));
+  const noteIdInput = document.getElementById("noteReminderNoteId");
+  if (noteIdInput) noteIdInput.value = noteId || "";
+  const planIdInput = document.getElementById("noteReminderPlanGroupId");
+  if (planIdInput) planIdInput.value = planGroupId || "";
+  setNoteReminderFormMode("new");
+}
+
+function fillNoteReminderFormForEdit(reminderId){
+  const row = noteReminderUiState.modalPending.find(r => String(r.id) === String(reminderId));
+  if (!row) return;
+  const reminderIdInput = document.getElementById("noteReminderId");
+  const noteIdInput = document.getElementById("noteReminderNoteId");
+  const planIdInput = document.getElementById("noteReminderPlanGroupId");
+  const atInput = document.getElementById("noteReminderAt");
+  const msgInput = document.getElementById("noteReminderMessage");
+  if (reminderIdInput) reminderIdInput.value = String(row.id || "");
+  if (noteIdInput) noteIdInput.value = String(row.note_id || noteReminderUiState.modalNoteId || "");
+  if (planIdInput) {
+    planIdInput.value = String(
+      row.related_plan_group_id || noteReminderUiState.modalPlanGroupId || ""
+    );
+  }
+  if (atInput) atInput.value = toDatetimeLocalValue(row.remind_at);
+  if (msgInput) msgInput.value = String(row.message || "");
+  setNoteReminderFormMode("edit");
+}
+
+function renderNoteReminderExistingList(items){
+  const box = document.getElementById("noteReminderExisting");
+  if (!box) return;
+  const pending = Array.isArray(items) ? items.filter(r => !r.is_delivered) : [];
+  noteReminderUiState.modalPending = pending;
+  if (!pending.length) {
+    box.innerHTML = "";
+    box.classList.add("hide");
+    return;
+  }
+  box.classList.remove("hide");
+  box.innerHTML = `
+    <div class="note-reminder-existing-head">Pending reminders</div>
+    <ul class="note-reminder-existing-list">
+      ${pending.map(r => {
+        const when = escapeHtml(formatNoteReminderWhen(r.remind_at));
+        const msg = String(r.message || "").trim();
+        const msgHtml = msg
+          ? `<div class="note-reminder-existing-msg">${escapeHtml(msg)}</div>`
+          : `<div class="note-reminder-existing-msg is-empty">No message</div>`;
+        const id = escapeHtml(String(r.id || ""));
+        return `
+          <li class="note-reminder-existing-item">
+            <div class="note-reminder-existing-meta">
+              <div class="note-reminder-existing-when">${when}</div>
+              ${msgHtml}
+            </div>
+            <div class="note-reminder-existing-actions">
+              <button type="button" class="btn ghost note-reminder-edit-btn" data-reminder-edit="${id}">Edit</button>
+              <button type="button" class="btn ghost note-reminder-delete-btn" data-reminder-delete="${id}">Delete</button>
+            </div>
+          </li>`;
+      }).join("")}
+    </ul>`;
+}
+
+async function loadNoteReminderExistingList(noteId){
+  const box = document.getElementById("noteReminderExisting");
+  if (!box || !noteId) return;
+  box.classList.remove("hide");
+  box.innerHTML = `<div class="note-reminder-existing-loading">Loading reminders…</div>`;
+  try {
+    const res = await supabaseRpc("app_list_my_note_reminders", { p_note_id: noteId });
+    const items = Array.isArray(res?.pending)
+      ? res.pending
+      : (Array.isArray(res?.items) ? res.items : []);
+    renderNoteReminderExistingList(items);
+    const byId = new Map(
+      (noteReminderUiState.pendingReminders || []).map(r => [String(r.id), r])
+    );
+    for (const r of pendingItemsForWake(items)) byId.set(String(r.id), r);
+    scheduleNoteReminderWake([...byId.values()]);
+  } catch (err) {
+    box.innerHTML = `<div class="note-reminder-existing-error">${escapeHtml(err.message || "Could not load reminders.")}</div>`;
+  }
+}
+
+async function loadInstallmentReminderExistingList(planGroupId){
+  const box = document.getElementById("noteReminderExisting");
+  if (!box || !planGroupId) return;
+  box.classList.remove("hide");
+  box.innerHTML = `<div class="note-reminder-existing-loading">Loading reminders…</div>`;
+  try {
+    let items = [];
+    try {
+      const res = await supabaseRpc("app_list_my_installment_reminders", {
+        p_plan_group_id: planGroupId
+      });
+      items = Array.isArray(res?.pending)
+        ? res.pending
+        : (Array.isArray(res?.items) ? res.items : []);
+    } catch (err) {
+      // Fallback before migration 045: filter all pending by preview/plan id.
+      const msg = String(err?.message || err || "");
+      if (!/Could not find the function|404|PGRST202|installment_reminder/i.test(msg)) throw err;
+      const res = await supabaseRpc("app_list_my_note_reminders", {});
+      const all = Array.isArray(res?.pending)
+        ? res.pending
+        : (Array.isArray(res?.items) ? res.items : []);
+      items = all.filter(r => {
+        if (!r || r.is_delivered) return false;
+        const plan = String(r.related_plan_group_id || "").trim();
+        if (plan) return plan === String(planGroupId);
+        const blob = `${r.note_preview || ""} ${r.message || ""}`;
+        return blob.includes(String(planGroupId));
+      });
+    }
+    renderNoteReminderExistingList(items);
+    const byId = new Map(
+      (noteReminderUiState.pendingReminders || []).map(r => [String(r.id), r])
+    );
+    for (const r of pendingItemsForWake(items)) byId.set(String(r.id), r);
+    scheduleNoteReminderWake([...byId.values()]);
+  } catch (err) {
+    box.innerHTML = `<div class="note-reminder-existing-error">${escapeHtml(err.message || "Could not load reminders.")}</div>`;
+  }
+}
+
+function pendingItemsForWake(items){
+  return (Array.isArray(items) ? items : []).filter(r => r && !r.is_delivered);
+}
+
+function installmentReminderPreviewText(plan){
+  const person = String(plan?.person_name || "").trim() || "Installment plan";
+  const currency = plan?.currency || "";
+  const remaining = Number(plan?.remaining || 0);
+  const amount = typeof moneyText === "function" && remaining > 0
+    ? moneyText(remaining, currency)
+    : "";
+  return amount ? `Installment · ${person} · ${amount} left` : `Installment · ${person}`;
+}
+
+window.openNoteReminderModal = async function(noteId){
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note) return;
+  if (isGuestMode()) {
+    alert("Sign in to save note reminders.");
+    return;
+  }
+  const form = document.getElementById("noteReminderForm");
+  const preview = document.getElementById("noteReminderPreview");
+  const noteIdInput = document.getElementById("noteReminderNoteId");
+  const planIdInput = document.getElementById("noteReminderPlanGroupId");
+  const atInput = document.getElementById("noteReminderAt");
+  if (!form || !noteIdInput || !atInput) return;
+  noteReminderUiState.modalMode = "note";
+  noteReminderUiState.modalNoteId = noteId;
+  noteReminderUiState.modalPlanGroupId = null;
+  noteIdInput.value = noteId;
+  if (planIdInput) planIdInput.value = "";
+  if (preview) {
+    const text = String(note.content || "").trim().replace(/\s+/g, " ");
+    preview.textContent = text ? text.slice(0, 120) : "Choose when to be notified about this note.";
+  }
+  resetNoteReminderForm();
+  const modal = document.getElementById("noteReminderModal");
+  if (!modal) return;
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  await loadNoteReminderExistingList(noteId);
+};
+
+window.openInstallmentReminderModal = async function(planGroupId){
+  const groupId = String(planGroupId || "").trim();
+  if (!groupId) return;
+  const plan = typeof getInstallmentPlanGroup === "function" ? getInstallmentPlanGroup(groupId) : null;
+  if (!plan) {
+    alert("Installment plan not found.");
+    return;
+  }
+  if (isGuestMode()) {
+    alert("Sign in to save installment reminders.");
+    return;
+  }
+  const form = document.getElementById("noteReminderForm");
+  const preview = document.getElementById("noteReminderPreview");
+  const noteIdInput = document.getElementById("noteReminderNoteId");
+  const planIdInput = document.getElementById("noteReminderPlanGroupId");
+  const atInput = document.getElementById("noteReminderAt");
+  if (!form || !planIdInput || !atInput) return;
+  noteReminderUiState.modalMode = "installment";
+  noteReminderUiState.modalNoteId = null;
+  noteReminderUiState.modalPlanGroupId = groupId;
+  if (noteIdInput) noteIdInput.value = "";
+  planIdInput.value = groupId;
+  if (preview) {
+    preview.textContent = installmentReminderPreviewText(plan);
+  }
+  resetNoteReminderForm();
+  const modal = document.getElementById("noteReminderModal");
+  if (!modal) return;
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  await loadInstallmentReminderExistingList(groupId);
+};
+
+async function saveNoteReminder(form){
+  const fd = new FormData(form);
+  const isInstallment = noteReminderUiState.modalMode === "installment";
+  const noteId = String(fd.get("note_id") || noteReminderUiState.modalNoteId || "").trim();
+  const planGroupId = String(
+    fd.get("plan_group_id") || noteReminderUiState.modalPlanGroupId || ""
+  ).trim();
+  const reminderId = String(fd.get("reminder_id") || "").trim();
+  const remindLocal = String(fd.get("remind_at") || "").trim();
+  const message = String(fd.get("message") || "").trim();
+  if (isInstallment) {
+    if (!planGroupId) throw new Error("Installment plan not found.");
+  } else if (!noteId) {
+    throw new Error("Note not found.");
+  }
+  if (!remindLocal) throw new Error("Reminder time is required.");
+  // datetime-local is wall-clock local; never use new Date("YYYY-MM-DDTHH:mm") (UTC in Safari).
+  const remindAtLocal = parseDatetimeLocalInput(remindLocal);
+  const remindAtTz = datetimeLocalInputToTimestamptz(remindLocal);
+  if (!remindAtLocal || !remindAtTz || Number.isNaN(remindAtLocal.getTime())) {
+    throw new Error("Invalid reminder time.");
+  }
+  if (remindAtLocal.getTime() <= Date.now()) throw new Error("Reminder time must be in the future.");
+
+  let preview = "";
+  if (isInstallment) {
+    const plan = typeof getInstallmentPlanGroup === "function" ? getInstallmentPlanGroup(planGroupId) : null;
+    preview = installmentReminderPreviewText(plan);
+  } else {
+    const note = state.notes.find(n => n.id === noteId);
+    preview = String(note?.content || "").trim().slice(0, 240);
+  }
+
+  if (reminderId) {
+    await supabaseRpc("app_update_note_reminder", {
+      p_reminder_id: reminderId,
+      p_remind_at: remindAtTz,
+      p_message: message
+    });
+  } else if (isInstallment) {
+    try {
+      await supabaseRpc("app_create_installment_reminder", {
+        p_plan_group_id: planGroupId,
+        p_remind_at: remindAtTz,
+        p_message: message,
+        p_note_preview: preview
+      });
+    } catch (err) {
+      const msg = String(err?.message || err || "");
+      if (!/Could not find the function|404|PGRST202|installment_reminder/i.test(msg)) throw err;
+      // Pre-045 fallback: null note_id + plan id in preview.
+      await supabaseRpc("app_create_note_reminder", {
+        p_note_id: null,
+        p_remind_at: remindAtTz,
+        p_message: message || `Installment reminder · ${planGroupId}`,
+        p_note_preview: `${preview} · ${planGroupId}`
+      });
+    }
+  } else {
+    await supabaseRpc("app_create_note_reminder", {
+      p_note_id: noteId,
+      p_remind_at: remindAtTz,
+      p_message: message,
+      p_note_preview: preview
+    });
+  }
+  noteMessagingLocalMutation();
+  noteReminderUiState.loadedAt = 0;
+  await refreshAdminCommsBadges();
+  if (isInstallment) await loadInstallmentReminderExistingList(planGroupId);
+  else await loadNoteReminderExistingList(noteId);
+  resetNoteReminderForm();
+  await ensurePendingNoteReminderMap(true);
+  // Schedule wake from the just-saved local time — do not rely only on list RPC timing.
+  const justSaved = {
+    id: reminderId || `local-${isInstallment ? planGroupId : noteId}-${remindAtLocal.getTime()}`,
+    note_id: isInstallment ? null : noteId,
+    related_plan_group_id: isInstallment ? planGroupId : null,
+    remind_at: remindAtLocal.toISOString() || remindAtTz,
+    is_delivered: false,
+    message,
+    note_preview: preview,
+    kind: isInstallment ? "installment_manual" : "note_reminder"
+  };
+  const byId = new Map(
+    (noteReminderUiState.pendingReminders || []).map(r => [String(r.id || `${r.note_id || r.related_plan_group_id}:${r.remind_at}`), r])
+  );
+  byId.set(String(justSaved.id), justSaved);
+  const mergedPending = [...byId.values()];
+  noteReminderUiState.pendingReminders = mergedPending;
+  if (!isInstallment) noteReminderUiState.pendingNoteIds.add(String(noteId));
+  scheduleNoteReminderWake(mergedPending);
+  if (!isInstallment) renderNotes(els.searchNotes?.value || "");
+  const statusEl = document.getElementById("noteReminderPreview");
+  if (statusEl) {
+    const whenLabel = formatNoteReminderWhen(remindAtLocal);
+    const confirmMsg = reminderId
+      ? `Reminder updated. Scheduled for ${whenLabel}.`
+      : `Reminder saved. Scheduled for ${whenLabel}.`;
+    statusEl.textContent = confirmMsg;
+    setTimeout(() => {
+      if (statusEl.textContent === confirmMsg) {
+        if (isInstallment) {
+          const plan = typeof getInstallmentPlanGroup === "function" ? getInstallmentPlanGroup(planGroupId) : null;
+          statusEl.textContent = installmentReminderPreviewText(plan);
+        } else {
+          const note = state.notes.find(n => n.id === noteId);
+          statusEl.textContent = String(note?.content || "").trim().replace(/\s+/g, " ").slice(0, 120)
+            || "Choose when to be notified about this note.";
+        }
+      }
+    }, 2800);
+  }
+}
+
+const installmentDueState = { timer: null, inFlight: false, lastRunAt: 0 };
+
+function stopInstallmentDueChecker(){
+  if (installmentDueState.timer) {
+    clearTimeout(installmentDueState.timer);
+    installmentDueState.timer = null;
+  }
+}
+
+function startInstallmentDueChecker(){
+  stopInstallmentDueChecker();
+  if (!messagingLiveEligible()) return;
+  scheduleInstallmentDueCheck(1200);
+}
+
+function scheduleInstallmentDueCheck(delayMs){
+  if (installmentDueState.timer) {
+    clearTimeout(installmentDueState.timer);
+    installmentDueState.timer = null;
+  }
+  if (!messagingLiveEligible()) return;
+  installmentDueState.timer = setTimeout(() => {
+    installmentDueState.timer = null;
+    runInstallmentDueCheck().finally(() => {
+      if (messagingLiveEligible()) scheduleInstallmentDueCheck(5 * 60 * 1000);
+    });
+  }, Math.max(500, Number(delayMs) || 5000));
+}
+
+function daysUntilISODate(dueDate){
+  const due = String(dueDate || "").slice(0, 10);
+  const today = todayISO();
+  if (!due || !today) return null;
+  const dueMs = dateStamp(due);
+  const todayMs = dateStamp(today);
+  if (!Number.isFinite(dueMs) || !Number.isFinite(todayMs)) return null;
+  return Math.round((dueMs - todayMs) / 86400000);
+}
+
+async function runInstallmentDueCheck(){
+  if (!messagingLiveEligible() || document.hidden || installmentDueState.inFlight) return;
+  if (Date.now() - installmentDueState.lastRunAt < 20000) return;
+  installmentDueState.inFlight = true;
+  installmentDueState.lastRunAt = Date.now();
+  try {
+    try {
+      await supabaseRpc("app_dispatch_due_note_reminders", { p_client_now: new Date().toISOString() });
+    } catch (_) {
+      await supabaseRpc("app_dispatch_due_note_reminders", {}).catch(() => {});
+    }
+    const plans = typeof getInstallmentPlanGroups === "function" ? getInstallmentPlanGroups() : [];
+    const offsets = [5, 3, 0];
+    let created = 0;
+    const createdAlerts = [];
+    for (const plan of plans) {
+      const schedule = plan?.schedule;
+      if (!schedule?.slots?.length) continue;
+      const currency = plan.currency || schedule.currency || "AED";
+      for (const slot of schedule.slots) {
+        if (!(Number(slot.balance || 0) > 0.00000001)) continue;
+        const days = daysUntilISODate(slot.dueDate);
+        if (days === null || days < 0) continue;
+        if (!offsets.includes(days)) continue;
+        const amountLabel = typeof moneyText === "function"
+          ? moneyText(slot.balance, currency)
+          : `${slot.balance} ${currency}`;
+        try {
+          const res = await supabaseRpc("app_ensure_installment_due_notice", {
+            p_plan_group_id: String(plan.group_id || ""),
+            p_slot_index: Number(slot.index),
+            p_due_date: String(slot.dueDate).slice(0, 10),
+            p_offset_days: days,
+            p_person_name: plan.person_name || "",
+            p_amount_label: amountLabel,
+            p_currency: currency
+          });
+          if (res?.created) {
+            created += 1;
+            const whenLabel = days === 0 ? "due today" : days === 3 ? "due in 3 days" : "due in 5 days";
+            createdAlerts.push({
+              kind: "installment_due",
+              title: `Installment ${whenLabel}`,
+              person_name: plan.person_name || "",
+              plan_group_id: String(plan.group_id || ""),
+              slot_index: Number(slot.index),
+              due_date: String(slot.dueDate).slice(0, 10),
+              offset_days: days,
+              amount_label: amountLabel,
+              notification_id: res.notification_id || null
+            });
+          }
+        } catch (err) {
+          const msg = String(err?.message || err || "");
+          if (/ensure_installment_due|Could not find the function|404|PGRST202/i.test(msg)) return;
+          console.warn("Installment due notice skipped:", err);
+        }
+      }
+    }
+    if (created > 0) {
+      noteMessagingLocalMutation();
+      await refreshAdminCommsBadges();
+      if (isAdminCommsDropdownOpen("admin-notify")) {
+        await loadAdminNotificationsDropdown();
+      }
+      if (createdAlerts.length) enqueueReminderAlerts(createdAlerts);
+    }
+  } catch (err) {
+    console.warn("Installment due check failed:", err);
+  } finally {
+    installmentDueState.inFlight = false;
+  }
+}
 function bindAdminPanelEvents(){
   const refreshBtn = document.getElementById("adminRefreshUsersBtn");
   const createBtn = document.getElementById("adminCreateUserBtn");
