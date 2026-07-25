@@ -72,6 +72,11 @@ const CANONICAL_MIGRATION_FILES = [
   "047_expense_account_type_crypto_wallet.sql",
   "048_expense_lazy_queries.sql",
   "049_inventory_brands_variants_lazy.sql",
+  "050_inventory_sales_customers_list.sql",
+  "051_inventory_category_product_lines.sql",
+  "052_inventory_product_line_summary_fix.sql",
+  "053_inventory_product_line_variant_safe_upsert.sql",
+  "054_inventory_upsert_goods_item_rpc.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
