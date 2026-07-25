@@ -432,7 +432,7 @@
     return { blocked: false, query: "" };
   }
 
-  async function loadDomainRowsForScope(scope) {
+  async function loadDomainRowsForScope(scope, options = {}) {
     const oq = ownerQ();
     const { blocked, query: cq } = currencyFilterQuery();
     if (blocked) return [];
@@ -450,14 +450,18 @@
       const pays = await safeSelect(`${DOMAIN.installment_payments}?select=*${oq}${cq}&order=created_at.desc`);
       out.push(...plans.map(installmentPlanFromDomain), ...pays.map(installmentPaymentFromDomain));
     } else if (scope === "expenses") {
+      // accountsOnly: lightweight fallback when full topups/entries are loaded via lazy RPCs elsewhere.
+      const accountsOnly = options.expensesMode === "accountsOnly";
       const accounts = await safeSelect(`${DOMAIN.expense_accounts}?select=*${oq}${cq}&order=created_at.desc`);
-      const topups = await safeSelect(`${DOMAIN.expense_topups}?select=*${oq}${cq}&order=created_at.desc`);
-      const entries = await safeSelect(`${DOMAIN.expense_entries}?select=*${oq}${cq}&order=created_at.desc`);
-      out.push(
-        ...accounts.map(expenseAccountFromDomain),
-        ...topups.map(expenseTopupFromDomain),
-        ...entries.map(expenseEntryFromDomain)
-      );
+      out.push(...accounts.map(expenseAccountFromDomain));
+      if (!accountsOnly) {
+        const topups = await safeSelect(`${DOMAIN.expense_topups}?select=*${oq}${cq}&order=created_at.desc`);
+        const entries = await safeSelect(`${DOMAIN.expense_entries}?select=*${oq}${cq}&order=created_at.desc`);
+        out.push(
+          ...topups.map(expenseTopupFromDomain),
+          ...entries.map(expenseEntryFromDomain)
+        );
+      }
     } else if (scope === "goods" || scope === "inventory") {
       const items = await safeSelect(`${DOMAIN.goods_items}?select=*${oq}${cq}&order=created_at.desc`);
       const sales = await safeSelect(`${DOMAIN.goods_sales}?select=*${oq}${cq}&order=created_at.desc`);
