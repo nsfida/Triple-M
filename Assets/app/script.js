@@ -4237,7 +4237,7 @@ function enqueueDatabaseWrite(task){
 }
 
 function queueDatabaseInsert(rows, label = "Entry"){
-  if (isBackupMode()) return;
+  if (isBackupMode()) return Promise.resolve([]);
   const localRows = asEntryArray(rows);
   localRows.forEach(row => {
     if (!row) return;
@@ -4249,9 +4249,16 @@ function queueDatabaseInsert(rows, label = "Entry"){
   const run = async () => {
     if (window.DomainLedger?.insertDomainEntry) {
       for (const row of localRows) {
+        const isGoodsSale = hasGoodsTag(row?.notes) && isInventorySaleAction(row);
         try {
           const result = await DomainLedger.insertDomainEntry(row);
           if (result.usedLedger) {
+            // Inventory sales must land in goods_sales for lazy reload after refresh.
+            if (isGoodsSale) {
+              throw new Error(
+                "Sale could not be saved to goods_sales. Run migrations/058_inventory_sales_upsert_and_owner_fix.sql in Supabase SQL Editor."
+              );
+            }
             row.data_origin = "ledger";
             row.is_legacy_meta = DomainLedger.classifyLedgerEntry(row) !== "system_prefs";
             await supabase(CONFIG.table, {
@@ -4265,7 +4272,15 @@ function queueDatabaseInsert(rows, label = "Entry"){
           }
         } catch (err) {
           // Any domain insert failure → try ledger fallback so stock never dies silently.
+          // Exception: inventory SALE rows — ledger-only writes vanish after refresh in lazy mode.
           const msg = String(err?.message || err || "");
+          if (isGoodsSale) {
+            console.error(`${label} goods_sales sync failed.`, err);
+            throw new Error(
+              msg
+              || "Sale database sync failed. Run migrations/058_inventory_sales_upsert_and_owner_fix.sql in Supabase SQL Editor."
+            );
+          }
           console.warn(`${label} domain insert failed; trying ledger fallback.`, err);
           try {
             row.data_origin = "ledger";
@@ -4292,7 +4307,7 @@ function queueDatabaseInsert(rows, label = "Entry"){
     await supabase(CONFIG.table, { method: "POST", body: JSON.stringify(body) });
   };
 
-  enqueueDatabaseWrite(run)
+  return enqueueDatabaseWrite(run)
     .then(() => {
       markDbSnapshotRows(localRows);
       // If a scope merge raced and dropped optimistic rows, put them back.
@@ -4302,6 +4317,7 @@ function queueDatabaseInsert(rows, label = "Entry"){
           state.entries.unshift(row);
         }
       });
+      return localRows;
     })
     .catch(err => {
       unmarkDbSnapshotRows(localRows);
@@ -4310,8 +4326,10 @@ function queueDatabaseInsert(rows, label = "Entry"){
       alert(
         `${label} was added on this screen, but database sync failed.`
         + (detail ? `\n\nDetails: ${detail}` : "")
+        + `\n\nIf this mentions app_upsert_goods_sale / goods_sales, run migrations/058_inventory_sales_upsert_and_owner_fix.sql in Supabase SQL Editor.`
         + `\n\nIf this mentions app_upsert_goods_item / function not found, run migrations/054_inventory_upsert_goods_item_rpc.sql in Supabase SQL Editor.`
       );
+      throw err;
     })
     .finally(() => {
       localRows.forEach(row => row?.id && state.pendingDbSyncIds.delete(row.id));
@@ -4325,10 +4343,14 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   state.entries.unshift(...rows);
   const touchesExpenses = rows.some(row => hasExpenseAccountTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_EXPENSES));
   const touchesGoods = rows.some(row => hasGoodsTag(row?.notes) || entryBelongsToLedgerScope(row, LEDGER_SCOPE_GOODS));
+  let syncPromise = Promise.resolve(rows);
   if (isBackupMode()) {
     refreshBackupView();
   } else {
-    queueDatabaseInsert(rows, options.label || (rows.length === 1 ? "Entry" : "Entries"));
+    const rawSync = queueDatabaseInsert(rows, options.label || (rows.length === 1 ? "Entry" : "Entries"))
+      .then(() => rows);
+    // Default fire-and-forget keeps local rows even if sync fails; awaitSync callers need the real result.
+    syncPromise = options.awaitSync ? rawSync : rawSync.catch(() => rows);
     renderAll();
     if (touchesExpenses && state.expenseLazy.rpcAvailable !== false) {
       // Refresh accurate balances + current history window after local optimistic insert.
@@ -4343,7 +4365,7 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
         })
         .catch(() => {});
     }
-    if (touchesGoods && state.inventoryLazy.rpcAvailable !== false) {
+    if (touchesGoods && state.inventoryLazy.rpcAvailable !== false && !options.awaitSync) {
       Promise.resolve()
         .then(() => new Promise(resolve => setTimeout(resolve, 280)))
         .then(() => invalidateAndRefreshInventoryLazy())
@@ -4366,6 +4388,7 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   } else if (!options.skipActivityLog) {
     logEntriesCreated(rows);
   }
+  if (options.awaitSync) return syncPromise;
   return Array.isArray(entryOrEntries) ? rows : rows[0];
 }
 
@@ -7078,8 +7101,12 @@ async function setInventorySubView(view = "stock"){
       root.innerHTML = `<div class="empty inventory-loading-hint">Loading customers &amp; invoices…</div>`;
     }
     // Always refresh sales when opening Customers so the list never stays blank
-    // after a stock-only lazy refresh.
-    await loadInventorySalesForCustomers({ force: true });
+    // after a stock-only lazy refresh. Retry briefly if session is still warming up.
+    let loaded = false;
+    for (let attempt = 0; attempt < 3 && !loaded; attempt += 1) {
+      loaded = await loadInventorySalesForCustomers({ force: true });
+      if (!loaded) await new Promise(resolve => setTimeout(resolve, 220 * (attempt + 1)));
+    }
     renderInventoryOutstandingSection();
   } else if (showDrafts) {
     loadSaleDraftLibrary();
@@ -11868,7 +11895,11 @@ async function commitInventorySaleInvoice({
       })
     };
   });
-  const savedSaleRows = saveEntriesImmediately(payloads, { label: "Sales invoice" });
+  // Await domain sync so sales land in goods_sales before any lazy reload/refresh.
+  const savedSaleRows = await saveEntriesImmediately(payloads, {
+    label: "Sales invoice",
+    awaitSync: true
+  });
   if (walletId) {
     await createWalletEntryForInventory(walletId, receiptPaidTotal, soldDate, saleCurrency, "sale", { customerName, receiptNumber });
   }
@@ -11882,9 +11913,13 @@ async function commitInventorySaleInvoice({
   }
   // Force Customers / Invoices to refetch so new receipts appear right away.
   state.inventorySalesLoaded = false;
-  try { await loadInventorySalesForCustomers({ force: true }); } catch (_) {
-    state.inventorySalesLoaded = true;
+  try {
+    await loadInventorySalesForCustomers({ force: true });
+  } catch (_) {
+    // Keep unloaded so the next Customers open retries.
+    state.inventorySalesLoaded = false;
   }
+  try { await invalidateAndRefreshInventoryLazy(); } catch (_) {}
   const primarySaleEntry = Array.isArray(savedSaleRows) ? savedSaleRows[0] : savedSaleRows;
   showSalesInvoiceSuccessOverlay({
     entryId: primarySaleEntry?.id || "",
@@ -14437,12 +14472,37 @@ function isInventoryLazyRpcMissingError(err){
   return /app_list_my_inventory_summaries|app_list_my_inventory_item_detail|app_list_my_inventory_sales|Could not find the function|PGRST202|404/i.test(msg);
 }
 
+async function repairLedgerGoodsSalesOnce(){
+  if (state._inventorySalesRepairTried) return false;
+  state._inventorySalesRepairTried = true;
+  if (typeof supabaseRpc !== "function") return false;
+  try {
+    const res = unwrapRpcJson(await supabaseRpc("app_repair_my_ledger_goods_sales", { p_limit: 2500 }));
+    return Number(res?.repaired || 0) > 0;
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (!/app_repair_my_ledger_goods_sales|Could not find the function|PGRST202|404/i.test(msg)) {
+      console.warn("Ledger goods sales repair skipped.", err);
+    }
+    return false;
+  }
+}
+
 async function loadInventorySalesForCustomers({ force = false } = {}){
   if (!databaseSessionCanLoad() && state.dataSource !== "supabase") return false;
   if (!force && state.inventorySalesLoaded) return true;
   try {
-    const res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_sales", { p_limit: 2500 }));
-    const saleEntries = (Array.isArray(res?.sales) ? res.sales : []).map(inventorySaleRowToEntry);
+    let res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_sales", { p_limit: 2500 }));
+    let saleRows = Array.isArray(res?.sales) ? res.sales : [];
+    // First empty load after login: recover any SALE rows stuck in the ledger.
+    if (!saleRows.length) {
+      const repaired = await repairLedgerGoodsSalesOnce();
+      if (repaired) {
+        res = unwrapRpcJson(await supabaseRpc("app_list_my_inventory_sales", { p_limit: 2500 }));
+        saleRows = Array.isArray(res?.sales) ? res.sales : [];
+      }
+    }
+    const saleEntries = saleRows.map(inventorySaleRowToEntry);
     const saleIds = new Set(saleEntries.map(e => e.id).filter(Boolean));
     const eventEntries = (Array.isArray(res?.events) ? res.events : [])
       .map(inventoryEventRowToEntry)
@@ -14712,6 +14772,8 @@ async function loadGoodsScopeLazyOrFull(options = {}){
     const summaries = await loadInventorySummaries({ force: options.force === true });
     if (summaries === null) return { usedLazy: false };
     state.inventoryLazy.enabled = true;
+    // Prefetch sales/customers in the background so Customers view is ready.
+    loadInventorySalesForCustomers({ force: !!options.force }).catch(() => {});
     return { usedLazy: true };
   } catch (err) {
     if (isInventoryLazyRpcMissingError(err)) {
