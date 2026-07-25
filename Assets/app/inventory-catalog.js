@@ -864,32 +864,46 @@
       const pattern = cfg.qtyPattern || "count";
       const sizeHint = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
       const sizeLocked = pattern === "volume" && !!sizeHint;
+      const useBottleCost = sizeLocked;
       const defaultPriceUnit = w.priceUnit || w.unit || (pattern === "volume" ? "ml" : (typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(pattern) : "item"));
       const defaultQty = sizeHint ? String(sizeHint.qty) : (w.qty || (pattern === "volume" ? "100" : "1"));
       const sizeUnit = sizeHint?.unit || (pattern === "volume" ? "ml" : defaultPriceUnit);
       const unitOptions = typeof inventoryUnitSelectOptionsHtml === "function"
         ? inventoryUnitSelectOptionsHtml(pattern, defaultPriceUnit)
         : `<option value="item">Pcs</option>`;
-      const volLabels = pattern === "volume" && typeof inventoryVolumeBottleLabels === "function"
-        ? inventoryVolumeBottleLabels(defaultQty, defaultPriceUnit)
+      const volLabels = pattern === "volume"
+        ? (useBottleCost && typeof inventoryVolumeBottleCostLabels === "function"
+          ? inventoryVolumeBottleCostLabels()
+          : (typeof inventoryVolumeBottleLabels === "function"
+            ? inventoryVolumeBottleLabels(defaultQty, defaultPriceUnit)
+            : null))
         : null;
       const qtyLabel = pattern === "volume" ? "Bottle size" : pattern === "weight" ? "Weight" : pattern === "length" ? "Length" : "Quantity";
-      const costLabel = volLabels?.cost || (pattern === "volume" ? "Cost / ml" : "Cost / unit");
-      const sellLabel = volLabels?.sell || (pattern === "volume" ? "Sell / ml" : "Sell / unit");
+      const costLabel = useBottleCost
+        ? "Bottle cost"
+        : (volLabels?.cost || (pattern === "volume" ? "Cost / ml" : "Cost / unit"));
+      const sellLabel = useBottleCost
+        ? "Bottle sell"
+        : (volLabels?.sell || (pattern === "volume" ? "Sell / ml" : "Sell / unit"));
+      const sizeText = sizeHint
+        ? `${typeof trimInventoryNumber === "function" ? trimInventoryNumber(sizeHint.qty, 3) : sizeHint.qty} ${sizeHint.unit === "l" ? "L" : "ml"}`
+        : "";
       const sizeLockHtml = sizeLocked
-        ? `<div class="inventory-edit-field inventory-edit-field-wide">
-            <span>Size</span>
-            <strong class="inventory-wizard-size-lock">${h(`${trimInventoryNumber ? trimInventoryNumber(sizeHint.qty, 3) : sizeHint.qty} ${sizeHint.unit === "l" ? "L" : "ml"}`)}</strong>
-            <input type="hidden" id="addWizardQty" value="${h(defaultQty)}" />
-            <input type="hidden" id="addWizardSizeUnit" value="${h(sizeUnit)}" />
-          </div>
+        ? `<input type="hidden" id="addWizardQty" value="${h(defaultQty)}" />
+          <input type="hidden" id="addWizardSizeUnit" value="${h(sizeUnit)}" />
           <label class="inventory-edit-field">
-            <span>Bottles</span>
+            <span>Bottles <em class="optional-label">${h(sizeText)}</em></span>
             <input class="input" id="addWizardBottles" type="number" min="1" step="1" value="${h(w.bottles || "1")}" />
           </label>`
         : `<label class="inventory-edit-field">
             <span>${h(qtyLabel)}</span>
             <input class="input" id="addWizardQty" type="number" min="0.001" step="any" value="${h(defaultQty)}" />
+          </label>`;
+      const unitFieldHtml = useBottleCost
+        ? `<input type="hidden" id="addWizardUnit" value="${h(sizeUnit)}" />`
+        : `<label class="inventory-edit-field">
+            <span>${pattern === "volume" ? "Price unit" : "Unit"}</span>
+            <select class="select" id="addWizardUnit">${unitOptions}</select>
           </label>`;
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
@@ -898,17 +912,14 @@
         </label>
         <div class="inventory-draft-form">
           ${sizeLockHtml}
-          <label class="inventory-edit-field">
-            <span>${pattern === "volume" ? "Price unit" : "Unit"}</span>
-            <select class="select" id="addWizardUnit">${unitOptions}</select>
-          </label>
+          ${unitFieldHtml}
           <label class="inventory-edit-field">
             <span id="addWizardCostLabel">${h(costLabel)}</span>
-            <input class="input" id="addWizardCost" type="number" min="0" step="any" value="${h(w.unitCost || "")}" placeholder="${pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : ""}" />
+            <input class="input" id="addWizardCost" type="number" min="0" step="any" value="${h(w.unitCost || "")}" placeholder="${useBottleCost ? "AED / bottle" : (pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : "")}" />
           </label>
           <label class="inventory-edit-field">
-            <span id="addWizardSellLabel">${h(sellLabel)}</span>
-            <input class="input" id="addWizardSell" type="number" min="0" step="any" value="${h(w.unitSell || "")}" placeholder="${pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : ""}" />
+            <span id="addWizardSellLabel">${h(sellLabel)} <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardSell" type="number" min="0" step="any" value="${h(w.unitSell || "")}" placeholder="${useBottleCost ? "Optional" : (pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : "Optional")}" />
           </label>
           <label class="inventory-edit-field">
             <span>Currency</span>
@@ -930,7 +941,11 @@
         ${steps.map((s, i) => `<span class="${i + 1 === w.step ? "is-active" : (i + 1 < w.step ? "is-done" : "")}">${h(stepLabel(s))}</span>`).join("")}
       </div>
       ${fields}
-      ${currentStep === "stock" && (cfg.qtyPattern || "") === "volume" ? `<p class="help">Choose price unit (ml or L). Cost/Sell labels follow that unit. Cart pours still calculate from the stored per-liter price.</p>` : ""}
+      ${currentStep === "stock" && (cfg.qtyPattern || "") === "volume"
+        ? `<p class="help">${(typeof parseInventorySizeHint === "function" && parseInventorySizeHint(w.variantLabel))
+          ? "Enter bottle cost (e.g. 100 ml bottle for AED 100). Per-ml cost is calculated automatically. Sell price is optional — asked when selling if blank."
+          : "Choose price unit (ml or L). Cost/Sell labels follow that unit. Cart pours calculate from the stored per-liter price."}</p>`
+        : ""}
       <div class="inventory-add-wizard-actions">
         <button type="button" class="btn ghost" id="addWizardBackBtn" ${w.step <= 1 ? "disabled" : ""}>Back</button>
         <button type="button" class="btn primary" id="addWizardNextBtn">${w.step >= steps.length ? "Save item" : "Continue"}</button>
@@ -1042,22 +1057,25 @@
     });
 
     if (currentStep === "stock" && (cfg.qtyPattern || "") === "volume") {
-      const refreshWizardPriceLabels = () => {
-        const unitEl = body.querySelector("#addWizardUnit");
-        const labels = typeof inventoryVolumeBottleLabels === "function"
-          ? inventoryVolumeBottleLabels(body.querySelector("#addWizardQty")?.value, unitEl?.value)
-          : { cost: "Cost / ml", sell: "Sell / ml", priceUnit: "ml" };
-        const costLabel = body.querySelector("#addWizardCostLabel");
-        const sellLabel = body.querySelector("#addWizardSellLabel");
-        const costInput = body.querySelector("#addWizardCost");
-        const sellInput = body.querySelector("#addWizardSell");
-        if (costLabel) costLabel.textContent = labels.cost;
-        if (sellLabel) sellLabel.textContent = labels.sell;
-        if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
-        if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
-      };
-      body.querySelector("#addWizardUnit")?.addEventListener("change", refreshWizardPriceLabels);
-      refreshWizardPriceLabels();
+      const sizeHintNow = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
+      if (!sizeHintNow) {
+        const refreshWizardPriceLabels = () => {
+          const unitEl = body.querySelector("#addWizardUnit");
+          const labels = typeof inventoryVolumeBottleLabels === "function"
+            ? inventoryVolumeBottleLabels(body.querySelector("#addWizardQty")?.value, unitEl?.value)
+            : { cost: "Cost / ml", sell: "Sell / ml", priceUnit: "ml" };
+          const costLabel = body.querySelector("#addWizardCostLabel");
+          const sellLabel = body.querySelector("#addWizardSellLabel");
+          const costInput = body.querySelector("#addWizardCost");
+          const sellInput = body.querySelector("#addWizardSell");
+          if (costLabel) costLabel.textContent = labels.cost;
+          if (sellLabel) sellLabel.textContent = `${labels.sell}`;
+          if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
+          if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
+        };
+        body.querySelector("#addWizardUnit")?.addEventListener("change", refreshWizardPriceLabels);
+        refreshWizardPriceLabels();
+      }
     }
   }
 
@@ -1268,25 +1286,41 @@
       : sizeUnit;
     const enteredCost = Number(payload.unitCost || 0);
     const enteredSell = Number(payload.unitSell || 0);
+    const costMode = String(payload.costMode || "").toLowerCase() === "bottle"
+      || (!!payload.sizeLocked && qtyPattern === "volume");
     if (!(qty > 0)) throw new Error("Enter a valid quantity / volume / weight / length.");
     if (!(enteredCost > 0)) {
-      const per = qtyPattern === "volume"
-        ? (String(priceUnit).toLowerCase() === "l" ? "L" : "ml")
-        : "unit";
-      throw new Error(qtyPattern === "volume" ? `Enter cost per ${per}.` : "Enter cost per unit.");
+      throw new Error(costMode
+        ? "Enter bottle cost."
+        : (qtyPattern === "volume"
+          ? `Enter cost per ${String(priceUnit).toLowerCase() === "l" ? "L" : "ml"}.`
+          : "Enter cost per unit."));
     }
-    const unitCost = qtyPattern === "volume"
-      ? (typeof inventoryVolumePriceToPerLiter === "function"
+    let unitCost;
+    let unitSell;
+    if (qtyPattern === "volume" && costMode) {
+      // Bottle cost AED 100 for 100 ml → per-liter cost = 100 / 0.1 = 1000.
+      unitCost = typeof inventoryBottlePriceToPerLiter === "function"
+        ? inventoryBottlePriceToPerLiter(enteredCost, qtyPerBottle)
+        : (qtyPerBottle > 0 ? enteredCost / qtyPerBottle : 0);
+      unitSell = enteredSell > 0
+        ? (typeof inventoryBottlePriceToPerLiter === "function"
+          ? inventoryBottlePriceToPerLiter(enteredSell, qtyPerBottle)
+          : (qtyPerBottle > 0 ? enteredSell / qtyPerBottle : 0))
+        : 0;
+    } else if (qtyPattern === "volume") {
+      unitCost = typeof inventoryVolumePriceToPerLiter === "function"
         ? inventoryVolumePriceToPerLiter(enteredCost, priceUnit)
-        : (String(priceUnit).toLowerCase() === "ml" ? enteredCost * 1000 : enteredCost))
-      : enteredCost;
-    const unitSell = qtyPattern === "volume"
-      ? (enteredSell > 0
+        : (String(priceUnit).toLowerCase() === "ml" ? enteredCost * 1000 : enteredCost);
+      unitSell = enteredSell > 0
         ? (typeof inventoryVolumePriceToPerLiter === "function"
           ? inventoryVolumePriceToPerLiter(enteredSell, priceUnit)
           : (String(priceUnit).toLowerCase() === "ml" ? enteredSell * 1000 : enteredSell))
-        : 0)
-      : enteredSell;
+        : 0;
+    } else {
+      unitCost = enteredCost;
+      unitSell = enteredSell;
+    }
     const purchaseTotal = unitCost * qty;
 
     const draft = {
@@ -1438,6 +1472,7 @@
     const cfg = getCategoryConfig(w.category);
     syncWizardFieldsFromDom();
     const sizeHint = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
+    const sizeLocked = !!(cfg.qtyPattern === "volume" && sizeHint);
     const result = await persistInventoryStockItem({
       category: w.category,
       brand: w.brand,
@@ -1457,7 +1492,8 @@
       description: w.description,
       boughtDate: w.boughtDate,
       qtyPattern: cfg.qtyPattern,
-      sizeLocked: !!(cfg.qtyPattern === "volume" && sizeHint)
+      sizeLocked,
+      costMode: sizeLocked ? "bottle" : "unit"
     });
 
     closeAddItemWizard();
