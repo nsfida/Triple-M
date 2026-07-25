@@ -2367,6 +2367,10 @@ details[open] .loan-inline-actions .loanHistoryToggle{
     padding:5px;
   }
   .inventory-brand-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:4px;
+  }
+  .inventory-brand-row-hit{
     grid-template-columns:auto minmax(0,1fr) auto;
     gap:6px;
   }
@@ -2384,14 +2388,27 @@ details[open] .loan-inline-actions .loanHistoryToggle{
 }
 .inventory-brand-row{
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto auto;
-  gap:8px;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:6px;
   align-items:center;
   width:100%;
   border:1px solid var(--line);
   border-radius:9px;
   background:#fff;
   padding:8px 9px;
+  text-align:left;
+  color:inherit;
+}
+.inventory-brand-row-hit{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto auto;
+  gap:8px;
+  align-items:center;
+  width:100%;
+  min-width:0;
+  border:0;
+  background:transparent;
+  padding:0;
   text-align:left;
   cursor:pointer;
   color:inherit;
@@ -2401,11 +2418,17 @@ details[open] .loan-inline-actions .loanHistoryToggle{
   background:rgba(248,250,252,.95);
 }
 .inventory-brand-row.is-empty{opacity:.72}
+.inventory-brand-row .inventory-catalog-menu-wrap{
+  flex-shrink:0;
+}
 .inventory-brand-row-main{
   display:flex;
   flex-direction:column;
   gap:1px;
   min-width:0;
+}
+.inventory-section-card-actions .inventory-catalog-menu-wrap{
+  margin-left:auto;
 }
 .inventory-brand-row-main strong{
   font-size:.82rem;
@@ -2780,17 +2803,105 @@ details[open] .loan-inline-actions .loanHistoryToggle{
   font-size:.68rem;
   color:var(--muted);
 }
+.inventory-qty-prompt-presets{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:0 0 8px;
+}
+.inventory-qty-prompt-presets .inventory-qty-preset{
+  min-height:30px;
+  padding:4px 10px;
+}
+.inventory-qty-prompt-price{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  margin:0 0 10px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:rgba(248,250,252,.95);
+  font-size:.78rem;
+}
+.inventory-qty-prompt-price strong{
+  font-size:.86rem;
+}
+.inventory-qty-prompt-price span{
+  color:var(--muted);
+}
+.inventory-inline-stock-size-lock{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+  padding:4px 6px;
+  border:1px dashed var(--line);
+  border-radius:8px;
+  background:#f8fafc;
+}
+.inventory-inline-stock-size-lock span{
+  font-size:.66rem;
+  color:var(--muted);
+}
+.inventory-inline-stock-size-lock strong{
+  font-size:.84rem;
+  font-weight:650;
+}
+.inventory-inline-stock-form.is-size-locked{
+  grid-template-columns:repeat(auto-fit, minmax(88px, 1fr));
+}
+.inventory-wizard-size-lock{
+  display:block;
+  padding:8px 10px;
+  border:1px dashed var(--line);
+  border-radius:8px;
+  background:#f8fafc;
+  font-size:.9rem;
+}
 .inventory-qty-prompt-fields{
   display:grid;
-  grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);
+  grid-template-columns:minmax(0,1.2fr) minmax(88px,.8fr);
   gap:6px;
   margin-bottom:10px;
+  align-items:end;
 }
 .inventory-qty-prompt-fields .input,
 .inventory-qty-prompt-fields .select{
-  min-height:34px;
-  height:34px;
-  font-size:.8rem;
+  min-height:38px;
+  height:38px;
+  font-size:.84rem;
+  width:100%;
+}
+.inventory-qty-prompt-fields .select{
+  appearance:auto;
+  -webkit-appearance:menulist;
+  cursor:pointer;
+  background:#fff;
+}
+.inventory-qty-prompt-fields .select:disabled,
+.inventory-qty-prompt-fields .select.is-disabled{
+  opacity:.7;
+  cursor:not-allowed;
+}
+@media (max-width: 520px){
+  .inventory-qty-prompt-fields{
+    grid-template-columns:minmax(0,1fr) minmax(96px,.7fr);
+  }
+  .inventory-qty-prompt-presets{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .inventory-draft-line-controls{
+    grid-template-columns:minmax(0,1fr) minmax(0,.85fr) auto auto;
+  }
+  .inventory-draft-qty-wrap{
+    grid-template-columns:minmax(0,1fr) minmax(64px,auto);
+  }
+  .inventory-draft-qty-wrap .select{
+    min-width:64px;
+  }
 }
 .inventory-qty-prompt-actions{
   display:flex;
@@ -8753,10 +8864,17 @@ a.landing-mobile-item{
 .modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:14px;}
 /* Charts overlay; Reminder / Pay (and related) modals must stack above it */
 #sectionDetailsModal.modal{z-index:1040;}
+#inventorySectionModal.modal{z-index:1050;}
+#inventoryCustomerModal.modal{z-index:1055;}
 #noteReminderModal.modal,
 #entryModal.modal,
 #goodsModal.modal,
 #goodsSettlementModal.modal{z-index:1060;}
+/* Qty prompt / cart / add-item must sit above the section grid overlay */
+#inventoryQtyPromptModal.modal,
+#inventorySaleDraftModal.modal,
+#inventoryAddItemWizardModal.modal,
+#inventoryReceiptEditModal.modal{z-index:1120;}
 .modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(4px);}
 .modal-dialog{
   position:relative;width:min(760px,100%);max-height:calc(100vh - 28px);overflow:auto;
