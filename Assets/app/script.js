@@ -784,6 +784,8 @@ const els = {
   mainAppSubtitle: document.getElementById("mainAppSubtitle"),
   app: document.getElementById("app"),
   guestModeBanner: document.getElementById("guestModeBanner"),
+  weakPasswordBanner: document.getElementById("weakPasswordBanner"),
+  weakPasswordBannerBtn: document.getElementById("weakPasswordBannerBtn"),
   accountMenuBtn: document.getElementById("accountMenuBtn"),
   accountMenuUserName: document.getElementById("accountMenuUserName"),
   secretPinBtn: document.getElementById("secretPinBtn"),
@@ -1751,6 +1753,36 @@ function showTrialExpiredOverlay(){
   document.body.style.overflow = "hidden";
 }
 
+const PASSWORD_POLICY_HELP =
+  "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.";
+
+function passwordMeetsPolicy(password){
+  const pw = String(password ?? "");
+  return pw.length >= 8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw);
+}
+
+function assertPasswordPolicy(password, label = "Password"){
+  if (!passwordMeetsPolicy(password)) {
+    throw new Error(`${label} must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.`);
+  }
+}
+
+function sessionHasWeakPassword(){
+  return !!(
+    state.unlocked
+    && !isGuestMode()
+    && state.sessionUser
+    && (state.sessionUser.password_is_weak === true || state.sessionUser.password_is_weak === "true")
+  );
+}
+
+function updateWeakPasswordBanner(){
+  const banner = els.weakPasswordBanner || document.getElementById("weakPasswordBanner");
+  if (!banner) return;
+  const show = sessionHasWeakPassword();
+  banner.classList.toggle("hide", !show);
+}
+
 function updateAccessBanner(){
   if (!els.guestModeBanner) return;
   const flags = getUserAccessFlags();
@@ -1776,16 +1808,18 @@ function updateAccessBanner(){
     if (els.accessBannerMessage) {
       els.accessBannerMessage.textContent = "Demo data will not be stored. It will be cleared when the page is closed or refreshed.";
     }
+    updateWeakPasswordBanner();
     return;
   }
 
-  if (!showApproaching) return;
-
-  const daysLabel = `${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining`;
-  if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Plan ending soon";
-  if (els.accessBannerMessage) {
-    els.accessBannerMessage.textContent = `${daysLabel}. Expires ${formatTrialExpiry(flags.trial_expires_at)}. Renew from Account Settings.`;
+  if (showApproaching) {
+    const daysLabel = `${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining`;
+    if (els.accessBannerTitle) els.accessBannerTitle.textContent = "Plan ending soon";
+    if (els.accessBannerMessage) {
+      els.accessBannerMessage.textContent = `${daysLabel}. Expires ${formatTrialExpiry(flags.trial_expires_at)}. Renew from Account Settings.`;
+    }
   }
+  updateWeakPasswordBanner();
 }
 
 function backupStorageKey(){
@@ -1971,6 +2005,7 @@ function updateUserIdentityUi(){
 
 function updateGuestModeUi(){
   updateAccessBanner();
+  updateWeakPasswordBanner();
   updateUserIdentityUi();
   const guest = isGuestMode();
   const locked = state.trialLocked === true;
@@ -3619,7 +3654,7 @@ async function openCompanyTeamModal(){
               </div>
               <div class="form-group">
                 <label class="form-label">Password</label>
-                <input id="teamAddPassword" class="input" type="password" autocomplete="new-password" placeholder="Min 6 characters" required />
+                <input id="teamAddPassword" class="input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" required />
               </div>
               <div class="form-group" style="grid-column:1/-1">
                 <label class="form-label">Permissions</label>
@@ -3724,7 +3759,7 @@ async function openCompanyTeamModal(){
           const password = modal.querySelector("#teamAddPassword")?.value || "";
           const displayName = modal.querySelector("#teamAddDisplayName")?.value.trim() || "";
           if (!username) throw new Error("Username is required.");
-          if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+          assertPasswordPolicy(password);
           const permissions = readCompanyTeamPermCheckboxes("teamAdd");
           await supabaseRpc("app_team_create_member", {
             p_username: username,
@@ -28529,7 +28564,7 @@ function openTrialSignupModal(){
         <div class="form-group">
           <label class="form-label">Password</label>
           <div class="admin-password-row">
-            <input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="Min 6 characters" />
+            <input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" />
             <button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
           </div>
         </div>
@@ -28585,7 +28620,7 @@ function openTrialSignupModal(){
       if (!mobile || mobile.length < 6) throw new Error("Please enter a valid mobile number.");
       if (!address || address.length < 4) throw new Error("Please enter your address for PDFs.");
       if (!currencies.length) throw new Error("Select at least one currency.");
-      if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+      assertPasswordPolicy(password);
       if (password !== confirm) throw new Error("Passwords do not match.");
       const saveBtn = modal.querySelector("#trialSignupSave");
       saveBtn.disabled = true;
@@ -28807,7 +28842,7 @@ async function requestForcedPasswordChange(){
             <div class="form-group">
               <label class="form-label">New password</label>
               <div class="admin-password-row">
-                <input id="forcePwNew" class="input" type="password" autocomplete="new-password" />
+                <input id="forcePwNew" class="input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" />
                 <button type="button" class="pw-eye-btn" data-toggle-form-pw="forcePwNew" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
               </div>
             </div>
@@ -28856,8 +28891,10 @@ async function requestForcedPasswordChange(){
       errEl.classList.remove("show");
       const oldPw = oldEl.value;
       const newPw = newEl.value;
-      if (newPw.length < 6) {
-        errEl.textContent = "New password must be at least 6 characters.";
+      try {
+        assertPasswordPolicy(newPw, "New password");
+      } catch (policyErr) {
+        errEl.textContent = policyErr.message || PASSWORD_POLICY_HELP;
         errEl.classList.add("show");
         return;
       }
@@ -28871,7 +28908,11 @@ async function requestForcedPasswordChange(){
           p_old_password: oldPw,
           p_new_password: newPw
         });
-        if (state.sessionUser) state.sessionUser.must_change_password = false;
+        if (state.sessionUser) {
+          state.sessionUser.must_change_password = false;
+          state.sessionUser.password_is_weak = false;
+        }
+        updateWeakPasswordBanner();
         cleanup(true);
       } catch (err) {
         errEl.textContent = err.message || "Could not change password.";
@@ -35941,7 +35982,7 @@ function buildAdminUserFormFields(prefix, user = null){
       <div class="form-group">
         <label class="form-label">${user ? "Password (leave blank to keep)" : "Password"}</label>
         <div class="admin-password-row">
-          <input id="${prefix}Password" class="input" type="password" autocomplete="new-password" value="" data-original="${escapeHtml(user?.admin_visible_password || "")}" placeholder="${user ? (user.admin_visible_password ? "••••••••  (leave blank to keep)" : "No stored password — enter one to save") : "Min 6 characters"}" />
+          <input id="${prefix}Password" class="input" type="password" autocomplete="new-password" value="" data-original="${escapeHtml(user?.admin_visible_password || "")}" placeholder="${user ? (user.admin_visible_password ? "••••••••  (leave blank to keep)" : "No stored password — enter one to save") : "8+ chars, upper, lower, number"}" />
           <button type="button" class="pw-eye-btn" data-toggle-form-pw="${prefix}Password" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
         </div>
         <p class="help">Shown to administrators only when revealed. Leave blank when editing to keep the current password.</p>
@@ -36279,6 +36320,7 @@ function openAdminCreateUserModal(){
       if (accessPlan === "trial" && periodPayload.period === "unlimited") {
         throw new Error("Trial access requires a period (week, month, year, days, or until date).");
       }
+      assertPasswordPolicy(password);
       const created = await supabaseRpc("app_admin_create_user", {
         p_username: username,
         p_password: password,
@@ -36447,10 +36489,9 @@ function openAdminEditUserModal(user){
         payload.p_tabs = tabs.filter(t => t !== "admin_panel");
       }
       // Only send password when the admin intentionally changes it (blank = keep)
-      if (passwordValue && passwordValue.length >= 6 && passwordValue !== originalPassword) {
+      if (passwordValue && passwordValue !== originalPassword) {
+        assertPasswordPolicy(passwordValue);
         payload.p_password = passwordValue;
-      } else if (passwordValue && passwordValue.length > 0 && passwordValue.length < 6) {
-        throw new Error("Password must be at least 6 characters.");
       }
       const activeEl = modal.querySelector("#adminEditActive");
       if (activeEl) payload.p_is_active = activeEl.checked;
@@ -36619,9 +36660,10 @@ function openAccountSettingsModal(){
             </label>
             <label class="settings-field">New
               <div class="admin-password-row">
-                <input id="acctNewPassword" class="input settings-input" type="password" autocomplete="new-password" />
+                <input id="acctNewPassword" class="input settings-input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" />
                 <button type="button" class="pw-eye-btn" data-toggle-form-pw="acctNewPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
               </div>
+              <span class="settings-hint">At least 8 characters, with one uppercase, one lowercase, and one number.</span>
             </label>
             <label class="settings-field settings-span-2">Confirm new
               <div class="admin-password-row">
@@ -36776,7 +36818,7 @@ function openAccountSettingsModal(){
       }
       if (newPassword) {
         if (!oldPassword) throw new Error("Enter your current password to set a new password.");
-        if (newPassword.length < 6) throw new Error("New password must be at least 6 characters.");
+        assertPasswordPolicy(newPassword, "New password");
         if (newPassword !== confirmPassword) throw new Error("New passwords do not match.");
       } else if (confirmPassword) {
         throw new Error("Enter a new password before confirming it.");
@@ -36811,6 +36853,10 @@ function openAccountSettingsModal(){
         : (updated && updated.username) ? updated
         : null;
       if (profile) applyUserProfileToConfig(profile);
+      if (newPassword && state.sessionUser) {
+        state.sessionUser.password_is_weak = false;
+        updateWeakPasswordBanner();
+      }
 
       try {
         const validated = await supabaseRpc("app_validate_session", {});
@@ -38860,9 +38906,13 @@ function bindAdminPanelEvents(){
   const refreshBtn = document.getElementById("adminRefreshUsersBtn");
   const createBtn = document.getElementById("adminCreateUserBtn");
   const accountBtn = document.getElementById("accountSettingsBtn");
+  const weakPwBtn = els.weakPasswordBannerBtn || document.getElementById("weakPasswordBannerBtn");
   if (refreshBtn) refreshBtn.addEventListener("click", () => loadAdminUsers());
   if (createBtn) createBtn.addEventListener("click", () => openAdminCreateUserModal());
   if (accountBtn) accountBtn.addEventListener("click", () => openAccountSettingsModal());
+  if (weakPwBtn) {
+    weakPwBtn.addEventListener("click", () => openAccountSettingsModal());
+  }
   bindAdminBackupEvents();
 }
 
