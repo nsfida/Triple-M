@@ -5775,6 +5775,27 @@ function expenseMetaFromNotes(noteValue){
 }
 
 function upsertExpenseMetaInNote(noteValue, meta = {}){
+  // Merge with existing tags so partial updates (lazy activity hydrate, transfers)
+  // never wipe VAT / item meta that was already saved in notes.
+  const existing = expenseMetaFromNotes(noteValue);
+  const pick = (key, fallback = undefined) => (
+    Object.prototype.hasOwnProperty.call(meta, key) ? meta[key] : (fallback !== undefined ? fallback : existing[key])
+  );
+  const merged = {
+    accountType: pick("accountType"),
+    rowType: pick("rowType"),
+    itemName: pick("itemName"),
+    expenseType: pick("expenseType"),
+    btcAddress: pick("btcAddress"),
+    btcNetwork: pick("btcNetwork"),
+    customLogoUrl: pick("customLogoUrl"),
+    taxApplied: pick("taxApplied"),
+    taxRate: pick("taxRate"),
+    taxMode: pick("taxMode"),
+    taxAmount: pick("taxAmount"),
+    netAmount: pick("netAmount"),
+    grossAmount: pick("grossAmount")
+  };
   const tagValue = value => String(value || "").replace(/\]/g, "").trim();
   const base = String(noteValue || "")
     .replace(EXPENSE_ACCOUNT_TAG, "")
@@ -5782,19 +5803,19 @@ function upsertExpenseMetaInNote(noteValue, meta = {}){
     .replace(/\s{2,}/g, " ")
     .trim();
   const tags = [];
-  if (meta.accountType) tags.push(`[ATYPE:${tagValue(meta.accountType)}]`);
-  if (meta.rowType) tags.push(`[ETYPE:${tagValue(meta.rowType)}]`);
-  if (meta.itemName) tags.push(`[ITEM:${tagValue(meta.itemName)}]`);
-  if (meta.expenseType) tags.push(`[XTYPE:${tagValue(meta.expenseType)}]`);
-  if (meta.btcAddress) tags.push(`[BADDR:${tagValue(meta.btcAddress)}]`);
-  if (meta.btcNetwork) tags.push(`[BNET:${tagValue(meta.btcNetwork)}]`);
-  if (meta.customLogoUrl) tags.push(`[CLOGO:${tagValue(meta.customLogoUrl)}]`);
-  if (meta.taxApplied != null) tags.push(`[VATP:${meta.taxApplied ? 1 : 0}]`);
-  if (meta.taxRate != null) tags.push(`[VATR:${normalizeTaxRate(meta.taxRate)}]`);
-  if (meta.taxMode) tags.push(`[VATM:${normalizeTaxMode(meta.taxMode)}]`);
-  if (meta.taxAmount != null) tags.push(`[VATA:${roundTaxMoney(meta.taxAmount)}]`);
-  if (meta.netAmount != null) tags.push(`[NET:${roundTaxMoney(meta.netAmount)}]`);
-  if (meta.grossAmount != null) tags.push(`[GROSS:${roundTaxMoney(meta.grossAmount)}]`);
+  if (merged.accountType) tags.push(`[ATYPE:${tagValue(merged.accountType)}]`);
+  if (merged.rowType) tags.push(`[ETYPE:${tagValue(merged.rowType)}]`);
+  if (merged.itemName) tags.push(`[ITEM:${tagValue(merged.itemName)}]`);
+  if (merged.expenseType) tags.push(`[XTYPE:${tagValue(merged.expenseType)}]`);
+  if (merged.btcAddress) tags.push(`[BADDR:${tagValue(merged.btcAddress)}]`);
+  if (merged.btcNetwork) tags.push(`[BNET:${tagValue(merged.btcNetwork)}]`);
+  if (merged.customLogoUrl) tags.push(`[CLOGO:${tagValue(merged.customLogoUrl)}]`);
+  if (merged.taxApplied != null) tags.push(`[VATP:${merged.taxApplied ? 1 : 0}]`);
+  if (merged.taxRate != null) tags.push(`[VATR:${normalizeTaxRate(merged.taxRate)}]`);
+  if (merged.taxMode) tags.push(`[VATM:${normalizeTaxMode(merged.taxMode)}]`);
+  if (merged.taxAmount != null) tags.push(`[VATA:${roundTaxMoney(merged.taxAmount)}]`);
+  if (merged.netAmount != null) tags.push(`[NET:${roundTaxMoney(merged.netAmount)}]`);
+  if (merged.grossAmount != null) tags.push(`[GROSS:${roundTaxMoney(merged.grossAmount)}]`);
   const withTag = `${EXPENSE_ACCOUNT_TAG} ${base}`.trim();
   return `${withTag} ${tags.join(" ")}`.trim();
 }
@@ -14084,11 +14105,19 @@ function expenseSummaryToPrincipalEntry(summary){
 function expenseActivityToEntry(row){
   const r = row || {};
   const isTopup = String(r.row_type || "").toUpperCase() === "TOPUP";
+  const existingTax = expenseMetaFromNotes(r.notes || "");
+  // Keep VAT tags from DB notes — partial upsert used to strip them on every lazy reload.
   const notes = upsertExpenseMetaInNote(r.notes || null, {
-    accountType: r.account_type || "Bank Account",
+    accountType: r.account_type || existingTax.accountType || "Bank Account",
     rowType: isTopup ? "TOPUP" : "EXPENSE",
-    itemName: r.item_name || "",
-    expenseType: r.expense_type || "Other"
+    itemName: r.item_name || existingTax.itemName || "",
+    expenseType: r.expense_type || existingTax.expenseType || "Other",
+    taxApplied: existingTax.taxApplied,
+    taxRate: existingTax.taxRate,
+    taxMode: existingTax.taxMode,
+    taxAmount: existingTax.taxAmount,
+    netAmount: existingTax.netAmount,
+    grossAmount: existingTax.grossAmount
   });
   return {
     id: r.id,
@@ -14108,7 +14137,8 @@ function expenseActivityToEntry(row){
     data_origin: "domain",
     domain_table: isTopup ? "expense_topups" : "expense_entries",
     is_legacy_meta: false,
-    _expenseLazyActivity: true
+    _expenseLazyActivity: true,
+    _expenseMeta: expenseMetaFromNotes(notes)
   };
 }
 
