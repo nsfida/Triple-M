@@ -622,10 +622,13 @@
       const prevCfg = getCategoryConfig(previousName);
       id = String(prevCfg?.id || "").trim();
     }
+    const previousSlug = String(previous.slug || slugify(previousName || cleaned)).trim();
+    const nextSlug = slugify(cleaned);
     const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_category", {
       p_id: id || null,
       p_name: cleaned,
-      p_slug: id ? slugify(cleaned) : slugify(previousName || cleaned),
+      // Always send the intended slug; server resolves collisions / cascades links.
+      p_slug: nextSlug,
       p_uses_brands: usesBrands != null ? !!usesBrands : (previous.usesBrands !== false),
       p_uses_product_lines: usesProductLines != null ? !!usesProductLines : (previous.usesProductLines !== false),
       p_uses_variants: usesVariants != null ? !!usesVariants : (previous.usesVariants !== false),
@@ -635,7 +638,12 @@
     }));
     await loadInventoryCategories(true);
     const item = res?.item || {};
-    return { id: item.id || id, name: item.name || cleaned, slug: item.slug || slugify(cleaned) };
+    return {
+      id: item.id || id,
+      name: item.name || cleaned,
+      slug: item.slug || nextSlug,
+      previousSlug
+    };
   }
 
   async function deleteCategoryInline(categoryId){
