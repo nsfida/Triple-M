@@ -561,7 +561,7 @@ function normalizeInstallmentNote(noteValue, markInstallment){
 }
 
 function installmentMetaTagCleanRegex(){
-  return /\[(ICNT|IAMT|ILAST|IFREQ|ISTART|IALLOC):[^\]]*\]/gi;
+  return /\[(ICNT|IAMT|ILAST|IFREQ|ISTART|IALLOC|IDOWN|IFIN|IPTYPE):[^\]]*\]/gi;
 }
 
 function installmentMetaFromNotes(noteValue){
@@ -580,9 +580,12 @@ function installmentMetaFromNotes(noteValue){
     count: readNum("ICNT"),
     installmentAmount: readNum("IAMT"),
     lastAmount: readNum("ILAST"),
+    downPayment: readNum("IDOWN"),
+    financedAmount: readNum("IFIN"),
     frequency: readText("IFREQ") || "monthly",
     startDate: readText("ISTART"),
-    allocation: readText("IALLOC")
+    allocation: readText("IALLOC"),
+    paymentType: readText("IPTYPE")
   };
 }
 
@@ -593,9 +596,12 @@ function upsertInstallmentMetaInNote(noteValue, meta = {}){
   if (meta.count != null) tags.push(`[ICNT:${meta.count}]`);
   if (meta.installmentAmount != null) tags.push(`[IAMT:${meta.installmentAmount}]`);
   if (meta.lastAmount != null) tags.push(`[ILAST:${meta.lastAmount}]`);
+  if (meta.downPayment != null) tags.push(`[IDOWN:${meta.downPayment}]`);
+  if (meta.financedAmount != null) tags.push(`[IFIN:${meta.financedAmount}]`);
   if (meta.frequency) tags.push(`[IFREQ:${String(meta.frequency).replace(/\]/g, "")}]`);
   if (meta.startDate) tags.push(`[ISTART:${String(meta.startDate).replace(/\]/g, "")}]`);
   if (meta.allocation) tags.push(`[IALLOC:${String(meta.allocation).replace(/\]/g, "")}]`);
+  if (meta.paymentType) tags.push(`[IPTYPE:${String(meta.paymentType).replace(/\]/g, "")}]`);
   return `${note} ${tags.join(" ")}`.trim();
 }
 
@@ -626,6 +632,27 @@ function computeInstallmentAmounts(totalAmount, count, currency = "AED"){
   const base = roundInstallmentMoney(total / n, currency);
   const last = roundInstallmentMoney(total - (base * (n - 1)), currency);
   return { count: n, installmentAmount: base, lastAmount: last, total };
+}
+
+function normalizeInstallmentDownPayment(totalAmount, downPayment, currency = "AED"){
+  const total = roundInstallmentMoney(totalAmount, currency);
+  const entered = roundInstallmentMoney(downPayment, currency);
+  if (!(total > 0) || !(entered > 0)) return 0;
+  return roundInstallmentMoney(Math.min(entered, total), currency);
+}
+
+function installmentFinancedAmount(totalAmount, downPayment, currency = "AED"){
+  const total = roundInstallmentMoney(totalAmount, currency);
+  const down = normalizeInstallmentDownPayment(total, downPayment, currency);
+  return roundInstallmentMoney(Math.max(total - down, 0), currency);
+}
+
+function isInstallmentDownPayment(entryOrNotes){
+  const notes = entryOrNotes && typeof entryOrNotes === "object"
+    ? entryOrNotes.notes
+    : entryOrNotes;
+  const meta = installmentMetaFromNotes(notes);
+  return String(meta.paymentType || "").trim().toLowerCase() === "down_payment";
 }
 
 function addMonthsToISODate(isoDate, monthsToAdd){
@@ -676,9 +703,11 @@ function buildInstallmentSchedule(principalEntry, paymentEntries = []){
   const currency = principalEntry?.currency || "AED";
   const total = roundInstallmentMoney(principalEntry?.principal_amount || 0, currency);
   const count = Math.max(0, Math.floor(Number(meta.count || 0)));
-  if (count < 2 || !(total > 0)) return null;
+  const downPayment = normalizeInstallmentDownPayment(total, meta.downPayment, currency);
+  const financedAmount = installmentFinancedAmount(total, downPayment, currency);
+  if (count < 2 || !(financedAmount > 0)) return null;
 
-  const computed = computeInstallmentAmounts(total, count, currency);
+  const computed = computeInstallmentAmounts(financedAmount, count, currency);
   const installmentAmount = Number(meta.installmentAmount) > 0 ? roundInstallmentMoney(meta.installmentAmount, currency) : computed.installmentAmount;
   const lastAmount = Number(meta.lastAmount) > 0 ? roundInstallmentMoney(meta.lastAmount, currency) : computed.lastAmount;
   const startDate = meta.startDate || principalEntry?.loan_date || todayISO();
@@ -697,10 +726,12 @@ function buildInstallmentSchedule(principalEntry, paymentEntries = []){
     };
   });
 
-  const payments = (paymentEntries || [])
+  const allPayments = (paymentEntries || [])
     .filter(entry => entry && entry.entry_kind !== "principal")
     .slice()
     .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
+  const downPaymentEntries = allPayments.filter(isInstallmentDownPayment);
+  const payments = allPayments.filter(entry => !isInstallmentDownPayment(entry));
 
   const applyAmountToSlots = (amount) => {
     let remaining = roundInstallmentMoney(amount, currency);
@@ -763,13 +794,14 @@ function buildInstallmentSchedule(principalEntry, paymentEntries = []){
     }
   }
 
-  const paidTotal = roundInstallmentMoney(slots.reduce((sum, s) => sum + s.paid, 0), currency);
-  const remainingTotal = roundInstallmentMoney(Math.max(total - paidTotal, 0), currency);
+  const installmentPaidTotal = roundInstallmentMoney(slots.reduce((sum, s) => sum + s.paid, 0), currency);
+  const paidTotal = roundInstallmentMoney(downPayment + installmentPaidTotal, currency);
+  const remainingTotal = roundInstallmentMoney(Math.max(financedAmount - installmentPaidTotal, 0), currency);
   const planStatus = remainingTotal <= 0.00000001
     ? "Closed"
     : overdueCount > 0
       ? "Overdue"
-      : partialCount > 0 || paidCount > 0
+      : partialCount > 0 || paidCount > 0 || downPayment > 0
         ? "Partial"
         : "Open";
 
@@ -781,6 +813,9 @@ function buildInstallmentSchedule(principalEntry, paymentEntries = []){
     frequency: meta.frequency || "monthly",
     currency,
     total,
+    downPayment,
+    financedAmount,
+    installmentPaidTotal,
     paidTotal,
     remainingTotal,
     paidCount,
@@ -789,7 +824,8 @@ function buildInstallmentSchedule(principalEntry, paymentEntries = []){
     planStatus,
     nextOpen,
     slots,
-    payments
+    payments,
+    downPaymentEntries
   };
 }
 
@@ -804,7 +840,7 @@ function collectInstallmentSlotNotes(schedule, paymentEntries = []){
     else if (!prev.split(" · ").includes(text)) notesBySlot.set(index, `${prev} · ${text}`);
   };
   const payments = (paymentEntries || [])
-    .filter(entry => entry && entry.entry_kind !== "principal")
+    .filter(entry => entry && entry.entry_kind !== "principal" && !isInstallmentDownPayment(entry))
     .slice()
     .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
   const openTracker = (schedule?.slots || []).map(slot => ({
@@ -850,12 +886,17 @@ function allocateInstallmentPayment(schedule, amount){
   return { allocations, applied, leftover: remaining };
 }
 
-function buildInstallmentScheduleMeta(totalAmount, count, currency, startDate){
-  const amounts = computeInstallmentAmounts(totalAmount, count, currency);
+function buildInstallmentScheduleMeta(totalAmount, count, currency, startDate, downPayment = 0){
+  const total = roundInstallmentMoney(totalAmount, currency);
+  const down = normalizeInstallmentDownPayment(total, downPayment, currency);
+  const financed = installmentFinancedAmount(total, down, currency);
+  const amounts = computeInstallmentAmounts(financed, count, currency);
   return {
     count: amounts.count,
     installmentAmount: amounts.installmentAmount,
     lastAmount: amounts.lastAmount,
+    downPayment: down,
+    financedAmount: financed,
     frequency: "monthly",
     startDate: startDate || todayISO()
   };
@@ -867,10 +908,12 @@ function remapInstallmentPaymentsToSchedule(principalEntry, paymentEntries = [])
   const currency = principalEntry?.currency || "AED";
   const total = roundInstallmentMoney(principalEntry?.principal_amount || 0, currency);
   const count = Math.max(0, Math.floor(Number(meta.count || 0)));
-  if (count < 2 || !(total > 0)) {
+  const downPayment = normalizeInstallmentDownPayment(total, meta.downPayment, currency);
+  const financedAmount = installmentFinancedAmount(total, downPayment, currency);
+  if (count < 2 || !(financedAmount > 0)) {
     return { remaps: [], leftoverTotal: 0, schedule: null };
   }
-  const amounts = computeInstallmentAmounts(total, count, currency);
+  const amounts = computeInstallmentAmounts(financedAmount, count, currency);
   const installmentAmount = Number(meta.installmentAmount) > 0
     ? roundInstallmentMoney(meta.installmentAmount, currency)
     : amounts.installmentAmount;
@@ -884,12 +927,14 @@ function remapInstallmentPaymentsToSchedule(principalEntry, paymentEntries = [])
     return { index, dueDate: addMonthsToISODate(startDate, i), scheduled, paid: 0 };
   });
 
-  const payments = (paymentEntries || [])
+  const allPayments = (paymentEntries || [])
     .filter(entry => entry && entry.entry_kind !== "principal")
     .slice()
     .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
+  const downPaymentEntries = allPayments.filter(isInstallmentDownPayment);
+  const payments = allPayments.filter(entry => !isInstallmentDownPayment(entry));
 
-  let planRemaining = total;
+  let planRemaining = financedAmount;
   let leftoverTotal = 0;
   const remaps = [];
 
@@ -925,15 +970,17 @@ function remapInstallmentPaymentsToSchedule(principalEntry, paymentEntries = [])
       count,
       installmentAmount,
       lastAmount,
+      downPayment,
+      financedAmount,
       frequency: meta.frequency || "monthly",
       startDate
     })
   };
-  const remappedPayments = remaps.map(row => ({
+  const remappedPayments = downPaymentEntries.concat(remaps.map(row => ({
     ...row.payment,
     notes: row.notes,
     entry_kind: row.entry_kind
-  }));
+  })));
   return {
     remaps,
     leftoverTotal,
@@ -955,6 +1002,10 @@ function getInstallmentPlanGroup(groupId){
   if (!principal) return null;
   const payments = entries.filter(e => e.entry_kind !== "principal");
   const schedule = buildInstallmentSchedule(principal, payments);
+  const principalMeta = installmentMetaFromNotes(principal.notes);
+  const downPayment = schedule
+    ? schedule.downPayment
+    : normalizeInstallmentDownPayment(principal.principal_amount, principalMeta.downPayment, principal.currency);
   const paidTotal = schedule
     ? schedule.paidTotal
     : payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
@@ -970,6 +1021,8 @@ function getInstallmentPlanGroup(groupId){
     currency: principal.currency,
     loan_date: principal.loan_date,
     principalTotal: Number(principal.principal_amount || 0),
+    downPayment,
+    financedAmount: schedule?.financedAmount || installmentFinancedAmount(principal.principal_amount, downPayment, principal.currency),
     paidTotal,
     remaining,
     status: schedule?.planStatus || (remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open")
@@ -991,6 +1044,10 @@ function getInstallmentPlanGroups(){
       hasInstallmentTag(e.notes)
     );
     const schedule = buildInstallmentSchedule(principal, payments);
+    const principalMeta = installmentMetaFromNotes(principal.notes);
+    const downPayment = schedule
+      ? schedule.downPayment
+      : normalizeInstallmentDownPayment(principal.principal_amount, principalMeta.downPayment, principal.currency);
     const paidTotal = schedule
       ? schedule.paidTotal
       : payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
@@ -1006,6 +1063,8 @@ function getInstallmentPlanGroups(){
       currency: principal.currency,
       loan_date: principal.loan_date,
       principalTotal: Number(principal.principal_amount || 0),
+      downPayment,
+      financedAmount: schedule?.financedAmount || installmentFinancedAmount(principal.principal_amount, downPayment, principal.currency),
       paidTotal,
       remaining,
       status: schedule?.planStatus || (remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open"),
