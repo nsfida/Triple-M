@@ -3667,11 +3667,15 @@
               <input class="input" name="principal_amount" id="installmentEditAmount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w6">
+              <label>Down payment <span class="optional-label">optional</span></label>
+              <input class="input" name="down_payment" id="installmentEditDownPayment" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="field w6">
               <label>Installments</label>
               <input class="input" name="installment_count" id="installmentEditCount" type="number" min="2" max="120" step="1" required placeholder="e.g. 12" />
             </div>
             <div class="field w6">
-              <label>Monthly installment</label>
+              <label>Monthly installment after down payment</label>
               <input class="input" id="installmentEditMonthly" type="text" readonly placeholder="—" />
             </div>
             <div class="field w12">
@@ -4146,12 +4150,16 @@
               <label>Amount</label>
               <input class="input" name="principal_amount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
+            <div class="field w6 hide" id="installmentDownPaymentGroup">
+              <label>Down payment <span class="optional-label">optional</span></label>
+              <input class="input" name="down_payment" id="installmentDownPaymentInput" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
             <div class="field w6 hide" id="installmentCountGroup">
               <label>Installments</label>
               <input class="input" name="installment_count" id="installmentCountInput" type="number" min="2" max="120" step="1" placeholder="e.g. 12" />
             </div>
             <div class="field w6 hide" id="installmentMonthlyPreviewField">
-              <label>Monthly installment</label>
+              <label>Monthly installment after down payment</label>
               <input class="input" id="installmentMonthlyPreview" type="text" readonly placeholder="—" />
             </div>
             <div class="field w12 hide" id="installmentSchedulePreviewWrap">
