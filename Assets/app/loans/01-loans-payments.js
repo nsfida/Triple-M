@@ -47,6 +47,9 @@ async function createPrincipal(form){
   const direction = String(fd.get("direction") || "");
   const groupId = crypto.randomUUID();
   const walletId = String(fd.get("loan_wallet_id") || "").trim();
+  const downPayment = state.modalInstallment
+    ? roundInstallmentMoney(fd.get("down_payment"), String(fd.get("currency") || "AED"))
+    : 0;
 
   const payload = {
     group_id: groupId,
@@ -64,14 +67,19 @@ async function createPrincipal(form){
   if (state.modalInstallment) {
     const count = Math.floor(finiteMoney(fd.get("installment_count")));
     if (count < 2 || count > 120) throw new Error("Enter between 2 and 120 installments.");
-    const amounts = computeInstallmentAmounts(payload.principal_amount, count, payload.currency);
-    payload.notes = upsertInstallmentMetaInNote(payload.notes, {
-      count: amounts.count,
-      installmentAmount: amounts.installmentAmount,
-      lastAmount: amounts.lastAmount,
-      frequency: "monthly",
-      startDate: payload.loan_date
-    });
+    if (downPayment < 0 || downPayment >= payload.principal_amount) {
+      throw new Error("Down payment must be zero or less than the total plan amount.");
+    }
+    payload.notes = upsertInstallmentMetaInNote(
+      payload.notes,
+      buildInstallmentScheduleMeta(
+        payload.principal_amount,
+        count,
+        payload.currency,
+        payload.loan_date,
+        downPayment
+      )
+    );
   }
 
   if (!payload.person_name || !payload.currency || !(payload.principal_amount > 0) || !payload.loan_date) {
@@ -90,7 +98,27 @@ async function createPrincipal(form){
     }
   }
 
-  saveEntriesImmediately(payload, { label: state.modalInstallment ? "Installment plan" : "Loan" });
+  const entriesToSave = [payload];
+  if (state.modalInstallment && downPayment > 0) {
+    entriesToSave.push({
+      group_id: groupId,
+      direction,
+      entry_kind: "partial",
+      person_name: payload.person_name,
+      currency: payload.currency,
+      principal_amount: null,
+      action_amount: downPayment,
+      loan_date: payload.loan_date,
+      action_date: payload.loan_date,
+      notes: upsertInstallmentMetaInNote("Down payment", {
+        paymentType: "down_payment"
+      })
+    });
+  }
+  saveEntriesImmediately(
+    entriesToSave.length === 1 ? entriesToSave[0] : entriesToSave,
+    { label: state.modalInstallment ? "Installment plan" : "Loan" }
+  );
 
   // Create linked wallet entry (loan already saved — surface wallet sync failures clearly)
   if (walletId) {
