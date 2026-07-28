@@ -1589,11 +1589,11 @@ details[open] .loan-inline-actions .loanHistoryToggle{
   min-width:0;
 }
 .inventory-inline-stock-field span{
-  font-size:.58rem;
-  font-weight:550;
+  font-size:.64rem;
+  font-weight:500;
   color:var(--muted);
-  text-transform:uppercase;
-  letter-spacing:.02em;
+  text-transform:none;
+  letter-spacing:0;
 }
 .inventory-inline-stock-field .input,
 .inventory-inline-stock-field .select{
@@ -1607,6 +1607,25 @@ details[open] .loan-inline-actions .loanHistoryToggle{
   gap:4px;
   align-items:center;
   padding-bottom:1px;
+}
+.inventory-inline-stock-form .inventory-add-category-card{
+  min-height:0;
+  padding:5px 6px;
+  border-radius:7px;
+}
+.inventory-inline-stock-form .inventory-add-category-card strong{
+  font-size:.67rem;
+  font-weight:600;
+}
+.inventory-inline-stock-form .inventory-add-category-card span{
+  font-size:.56rem;
+  line-height:1.2;
+}
+.inventory-inline-measure-cards{
+  grid-template-columns:repeat(4, minmax(0,1fr));
+}
+.inventory-inline-sellby-cards{
+  grid-template-columns:repeat(2, minmax(0,1fr));
 }
 .inventory-inline-stock-save,
 .inventory-inline-stock-cancel{
@@ -1629,6 +1648,14 @@ details[open] .loan-inline-actions .loanHistoryToggle{
   .inventory-inline-stock-actions{
     grid-column:1 / -1;
     justify-content:flex-end;
+  }
+}
+@media (max-width:560px){
+  .inventory-inline-measure-cards{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+  .inventory-inline-sellby-cards{
+    grid-template-columns:repeat(2, minmax(0,1fr));
   }
 }
 .inventory-variant-row{
@@ -1707,9 +1734,11 @@ details[open] .loan-inline-actions .loanHistoryToggle{
 .inventory-variant-metrics small{
   display:block;
   color:var(--muted);
-  font-size:.58rem;
-  text-transform:uppercase;
-  letter-spacing:.02em;
+  font-size:.66rem;
+  font-weight:500;
+  text-transform:none;
+  letter-spacing:0;
+  white-space:nowrap;
   margin-bottom:2px;
 }
 .inventory-variant-metrics strong{
@@ -1824,7 +1853,7 @@ details[open] .loan-inline-actions .loanHistoryToggle{
     border-right:none;
   }
   .inventory-variant-metrics small{
-    font-size:.55rem;
+    font-size:.62rem;
   }
   .inventory-variant-metrics strong,
   .inventory-variant-metrics .money,
