@@ -1924,6 +1924,7 @@
   async function ensureWizardCatalogIds(){
     const w = wizardState();
     const cfg = getCategoryConfig(w.category);
+    const qtyPattern = wizardQtyPattern(w, cfg);
     if (cfg.usesBrands && w.brand && String(w.brand).trim().toLowerCase() !== "unbranded") {
       if (!w.brandId || w.brandId === "__custom__") {
         const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand", {
@@ -2026,15 +2027,15 @@
       if (matchedVariant?.id) {
         w.variantId = matchedVariant.id;
       }
-      if (!w.variantId || w.variantId === "__custom__" || w.variantStorage || w.variantColor || w.variantOther) {
+      if (!w.variantId || w.variantId === "__custom__" || w.variantStorage || w.variantColor || w.variantOther || w.qtyPatternOverride) {
         try {
           const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand_variant", {
             p_id: (w.variantId && w.variantId !== "__custom__") ? w.variantId : null,
             p_brand_id: w.brandId,
             p_label: w.variantLabel,
-            p_item_category: cfg.qtyPattern || "count",
+            p_item_category: qtyPattern,
             p_quantity_value: 1,
-            p_quantity_unit: typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(cfg.qtyPattern) : "item",
+            p_quantity_unit: typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(qtyPattern) : "item",
             p_sort_order: 0,
             p_product_line_id: w.productLineId || null,
             p_storage: w.variantStorage || null,
@@ -2130,6 +2131,7 @@
       qty: String(payload.qty ?? qtyPerBottle),
       unit: sizeUnit,
       bottles: String(bottles),
+      qtyPatternOverride: qtyPattern,
       priceUnit,
       sellBy: sellBy || "",
       unitCost: String(enteredCost),
