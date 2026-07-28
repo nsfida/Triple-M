@@ -1,0 +1,9 @@
+# Triplem — https://triplem.vip/
+User-agent: *
+Allow: /
+
+# Prefer the public landing / sign-in page; app assets may still be crawled via links
+Disallow: /Backup/
+Disallow: /ad/
+
+Sitemap: https://triplem.vip/sitemap.xml
