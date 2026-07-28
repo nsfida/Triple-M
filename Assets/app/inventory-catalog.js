@@ -46,26 +46,37 @@
       .replace(/^-+|-+$/g, "");
   }
 
-  function isPresetCategory(rowOrNameOrSlug){
+  function findPresetCategory(rowOrNameOrSlug){
     const presets = presetCategories();
     if (rowOrNameOrSlug && typeof rowOrNameOrSlug === "object") {
       const nameKey = String(rowOrNameOrSlug.name || "").trim().toLowerCase();
       const slugKey = compactCategorySlug(rowOrNameOrSlug.slug || slugify(rowOrNameOrSlug.name || ""));
-      return presets.some(p =>
+      return presets.find(p =>
         (nameKey && p.name.toLowerCase() === nameKey)
         || (slugKey && (p.slug === slugKey || compactCategorySlug(p.slug) === slugKey || compactCategorySlug(slugify(p.name)) === slugKey))
-      );
+      ) || null;
     }
     const raw = String(rowOrNameOrSlug || "").trim();
-    if (!raw) return false;
+    if (!raw) return null;
     const nameKey = raw.toLowerCase();
     const slugKey = compactCategorySlug(raw.includes(" ") || raw.includes("&") ? slugify(raw) : raw);
-    return presets.some(p =>
+    return presets.find(p =>
       p.name.toLowerCase() === nameKey
       || p.slug === slugKey
       || compactCategorySlug(p.slug) === slugKey
       || compactCategorySlug(slugify(p.name)) === slugKey
-    );
+    ) || null;
+  }
+
+  function isPresetCategory(rowOrNameOrSlug){
+    return !!findPresetCategory(rowOrNameOrSlug);
+  }
+
+  function categoryGridVisible(row){
+    const meta = row?.meta && typeof row.meta === "object" ? row.meta : {};
+    const value = row?.grid_visible ?? row?.gridVisible ?? meta.grid_visible ?? meta.gridVisible;
+    if (typeof value === "boolean") return value;
+    return /^(true|1|yes)$/i.test(String(value || "").trim());
   }
 
   function scrubPresetCategoriesFromCustoms(list){
@@ -129,12 +140,15 @@
     const name = String(row?.name || "General").trim() || "General";
     const slug = String(row?.slug || slugify(name));
     const tax = taxonomyDefaultsFor(name, slug);
+    const meta = row?.meta && typeof row.meta === "object" ? row.meta : {};
     const productLineLabel = String(row?.product_line_label || row?.productLineLabel || tax.productLineLabel || "Type");
     const variantLabelName = String(row?.variant_label_name || row?.variantLabelName || tax.variantLabelName || "Variant");
     return {
       id: row?.id || "",
       name,
       slug,
+      meta,
+      gridVisible: categoryGridVisible(row),
       usesBrands: row?.uses_brands != null ? !!row.uses_brands : (row?.usesBrands != null ? !!row.usesBrands : true),
       usesProductLines: row?.uses_product_lines != null ? !!row.uses_product_lines : (row?.usesProductLines != null ? !!row.usesProductLines : true),
       usesVariants: row?.uses_variants != null ? !!row.uses_variants : (row?.usesVariants != null ? !!row.usesVariants : true),
@@ -311,23 +325,48 @@
     if (!cleaned) throw new Error("Category name is required.");
     const st = appState();
     if (!st) throw new Error("App state is not ready. Refresh and try again.");
-    let row = normalizePreset({
-      name: cleaned,
-      slug: slugify(cleaned),
-      usesBrands: options.usesBrands != null ? !!options.usesBrands : true,
-      usesProductLines: options.usesProductLines != null ? !!options.usesProductLines : true,
-      usesVariants: options.usesVariants != null ? !!options.usesVariants : true,
-      qtyPattern: options.qtyPattern || "count",
-      sortOrder: options.sortOrder || 150,
-      hint: options.hint || "Custom category"
-    });
-    row = { ...row, isCustom: true };
+    // A built-in category (e.g. Perfumes) is already a DB configuration row.
+    // Adding it means "show this grid", not "insert a duplicate category".
+    const preset = findPresetCategory(cleaned);
+    const source = preset
+      ? {
+          ...preset,
+          usesBrands: options.usesBrands != null ? !!options.usesBrands : preset.usesBrands,
+          usesProductLines: options.usesProductLines != null ? !!options.usesProductLines : preset.usesProductLines,
+          usesVariants: options.usesVariants != null ? !!options.usesVariants : preset.usesVariants,
+          qtyPattern: options.qtyPattern || preset.qtyPattern,
+          sortOrder: options.sortOrder || preset.sortOrder,
+          hint: options.hint || preset.hint
+        }
+      : {
+          name: cleaned,
+          slug: slugify(cleaned),
+          usesBrands: options.usesBrands != null ? !!options.usesBrands : true,
+          usesProductLines: options.usesProductLines != null ? !!options.usesProductLines : true,
+          usesVariants: options.usesVariants != null ? !!options.usesVariants : true,
+          qtyPattern: options.qtyPattern || "count",
+          sortOrder: options.sortOrder || 150,
+          hint: options.hint || "Custom category"
+        };
+    let row = {
+      ...normalizePreset(source),
+      gridVisible: true,
+      isCustom: !preset
+    };
     ensureCustomCategoriesHydrated();
+    const knownRows = []
+      .concat(Array.isArray(st.inventoryCategories) ? st.inventoryCategories : [])
+      .concat(Array.isArray(st.inventoryCustomCategories) ? st.inventoryCustomCategories : []);
+    const known = knownRows.find(c =>
+      compactCategorySlug(c?.slug || slugify(c?.name || "")) === compactCategorySlug(row.slug)
+      || String(c?.name || "").trim().toLowerCase() === row.name.toLowerCase()
+    );
     // Persist to DB first so the category survives reload.
     if (typeof supabaseRpc === "function" && typeof databaseSessionCanLoad === "function" && databaseSessionCanLoad()) {
       try {
         const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_category", {
-          p_id: null,
+          // Existing hidden presets must update their real row, never insert a duplicate.
+          p_id: known?.id || null,
           p_name: row.name,
           p_slug: row.slug,
           p_uses_brands: row.usesBrands,
@@ -337,19 +376,27 @@
           p_sort_order: row.sortOrder,
           p_hint: row.hint
         }));
-        if (res?.item) row = normalizePreset({ ...row, ...res.item, id: res.item.id || row.id });
-        else if (res?.id) row = { ...row, id: res.id };
+        if (res?.item) row = { ...normalizePreset({ ...row, ...res.item, id: res.item.id || row.id }), gridVisible: true, isCustom: !preset };
+        else if (res?.id) row = { ...row, id: res.id, gridVisible: true };
         else if (res?.ok === false) throw new Error(res?.error || "Could not save category.");
       } catch (err) {
         console.warn("Could not persist new category to database.", err);
-        // Keep going with local persistence so the UI still works offline / pre-migration.
+        // Do not create a local-only ghost when a live DB rejected the category.
+        const message = String(err?.message || err || "");
+        if (!/app_upsert_goods_category|Could not find the function|PGRST202|404/i.test(message)) {
+          throw new Error(`Could not save “${row.name}”. Apply migration 067 and try again.`);
+        }
       }
     }
-    if (!Array.isArray(st.inventoryCustomCategories)) st.inventoryCustomCategories = [];
-    const existsIdx = st.inventoryCustomCategories.findIndex(c => slugify(c.name) === row.slug || c.slug === row.slug);
-    if (existsIdx >= 0) st.inventoryCustomCategories[existsIdx] = { ...st.inventoryCustomCategories[existsIdx], ...row };
-    else st.inventoryCustomCategories.push(row);
-    writeStoredCustomCategories(st.inventoryCustomCategories);
+    if (!preset) {
+      if (!Array.isArray(st.inventoryCustomCategories)) st.inventoryCustomCategories = [];
+      const existsIdx = st.inventoryCustomCategories.findIndex(c =>
+        compactCategorySlug(c.slug || slugify(c.name)) === compactCategorySlug(row.slug)
+      );
+      if (existsIdx >= 0) st.inventoryCustomCategories[existsIdx] = { ...st.inventoryCustomCategories[existsIdx], ...row };
+      else st.inventoryCustomCategories.push(row);
+      writeStoredCustomCategories(st.inventoryCustomCategories);
+    }
     // Keep the new category first in the live catalog list so empty tiles never drop it.
     st.inventoryCategories = mergeCategoryLists(
       [row],
