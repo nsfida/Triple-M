@@ -4382,23 +4382,33 @@ function saveEntriesImmediately(entryOrEntries, options = {}){
   if (isBackupMode()) {
     refreshBackupView();
   } else {
+    if (touchesExpenses) {
+      applyOptimisticExpenseLazySummaryForRows(rows);
+    }
     const rawSync = queueDatabaseInsert(rows, options.label || (rows.length === 1 ? "Entry" : "Entries"))
       .then(() => rows);
     // Default fire-and-forget keeps local rows even if sync fails; awaitSync callers need the real result.
     syncPromise = options.awaitSync ? rawSync : rawSync.catch(() => rows);
     renderAll();
     if (touchesExpenses && state.expenseLazy.rpcAvailable !== false) {
-      // Refresh accurate balances + current history window after local optimistic insert.
-      Promise.resolve()
-        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
-        .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
+      // Refresh accurate balances after DB write. Prefer awaiting sync for transfers/wallet links
+      // so the receiving wallet is not left behind a premature summary reload.
+      const scheduleRefresh = () => invalidateAndRefreshExpenseLazy({ refreshActivity: true })
         .then(ok => {
-          if (ok && getActiveTabKey() === "expenses") {
-            renderExpensesList();
-            renderExpenseOverviewWallets();
-          }
+          if (!ok) return;
+          invalidateExpenseAccountsSyncCache();
+          renderExpenseOverviewWallets();
+          if (getActiveTabKey() === "expenses") renderExpensesList();
         })
         .catch(() => {});
+      if (options.awaitSync) {
+        syncPromise.then(() => scheduleRefresh()).catch(() => {});
+      } else {
+        Promise.resolve()
+          .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+          .then(() => scheduleRefresh())
+          .catch(() => {});
+      }
     }
     if (touchesGoods && state.inventoryLazy.rpcAvailable !== false && !options.awaitSync) {
       Promise.resolve()
@@ -4727,6 +4737,35 @@ function getExpenseAccountsSyncCache(){
 
 function invalidateExpenseAccountsSyncCache(){
   expenseAccountsSyncCache = null;
+}
+
+/** Instantly adjust lazy wallet summaries so UI balances update before SQL reload. */
+function applyOptimisticExpenseLazySummaryForRows(rows){
+  if (!isExpenseLazyMode() || !state.expenseLazy?.summaryByGroupId) return;
+  let touched = false;
+  for (const row of asEntryArray(rows)) {
+    if (!row || row.entry_kind === "principal") continue;
+    if (!hasExpenseAccountTag(row.notes) && !entryBelongsToLedgerScope(row, LEDGER_SCOPE_EXPENSES)) continue;
+    const meta = expenseMetaFromNotes(row.notes);
+    const rowType = String(meta.rowType || "").toUpperCase();
+    if (rowType !== "TOPUP" && rowType !== "EXPENSE") continue;
+    const gid = String(row.group_id || "").trim();
+    if (!gid) continue;
+    const prev = state.expenseLazy.summaryByGroupId.get(gid);
+    if (!prev) continue;
+    const amt = finiteMoney(row.action_amount);
+    if (!(amt > 0)) continue;
+    const next = { ...prev };
+    if (rowType === "TOPUP") {
+      next.topup_total = finiteMoney(prev.topup_total) + amt;
+    } else {
+      next.spend_total = finiteMoney(prev.spend_total) + amt;
+    }
+    next.balance = finiteMoney(next.opening_balance) + finiteMoney(next.topup_total) - finiteMoney(next.spend_total);
+    state.expenseLazy.summaryByGroupId.set(gid, next);
+    touched = true;
+  }
+  if (touched) invalidateExpenseAccountsSyncCache();
 }
 
 function debounce(fn, waitMs = 180){
@@ -13922,7 +13961,7 @@ function renderInventorySectionsGrid(groups){
       const cleaned = String(name).replace(/\s+/g, " ").trim();
       if (!cleaned) throw new Error("Category name is required.");
       if (typeof renameCategoryInline !== "function") throw new Error("Catalog helper missing.");
-      await renameCategoryInline({
+      const renamed = await renameCategoryInline({
         categoryId,
         previousName: oldName,
         name: cleaned,
@@ -13934,11 +13973,37 @@ function renderInventorySectionsGrid(groups){
         sortOrder: cfg.sortOrder
       });
       if (cleaned !== oldName) {
+        const oldSlug = String(cfg.slug || (typeof inventoryCategorySlugify === "function" ? inventoryCategorySlugify(oldName) : "") || "").trim();
+        const newSlug = String(
+          renamed?.slug
+          || (typeof inventoryCategorySlugify === "function" ? inventoryCategorySlugify(cleaned) : "")
+          || ""
+        ).trim();
+        const oldTypeKey = normalizeInventoryItemType(oldName).toLowerCase();
         syncInventoryCatalogMetaOnEntries(
-          meta => normalizeInventoryItemType(meta.itemType) === normalizeInventoryItemType(oldName),
-          { itemType: cleaned }
+          meta => {
+            const typeKey = normalizeInventoryItemType(meta.itemType).toLowerCase();
+            const slugKey = String(meta.categorySlug || "").trim().toLowerCase();
+            return typeKey === oldTypeKey
+              || (oldSlug && slugKey === oldSlug.toLowerCase());
+          },
+          {
+            itemType: cleaned,
+            ...(newSlug ? { categorySlug: newSlug } : {})
+          }
         );
+        // Keep brand catalog item_type labels aligned with the renamed category.
+        if (Array.isArray(state.inventoryBrands)) {
+          for (const brand of state.inventoryBrands) {
+            if (!brand) continue;
+            if (normalizeInventoryItemType(brand.item_type).toLowerCase() === oldTypeKey) {
+              brand.item_type = cleaned;
+            }
+          }
+        }
       }
+      state.inventoryLazy.detailLoaded.clear();
+      try { await invalidateAndRefreshInventoryLazy(); } catch (_) {}
       renderInventoryList();
       return;
     }
@@ -14875,7 +14940,10 @@ function buildExpenseAccountsUnfiltered(){
 
       // Prefer SQL aggregate balances in lazy mode so wallet figures stay accurate
       // even when only a date-scoped activity window is loaded in memory.
-      const lazySummary = isExpenseLazyMode()
+      // While a wallet mutation is still syncing, keep local/optimistic figures.
+      const hasPendingWalletMutation = [group.principal, ...(group.actions || [])]
+        .some(row => row?.id && state.pendingDbSyncIds.has(row.id));
+      const lazySummary = isExpenseLazyMode() && !hasPendingWalletMutation
         ? state.expenseLazy.summaryByGroupId.get(String(group.group_id || ""))
         : null;
       if (lazySummary && !isBtcLive) {
@@ -17319,7 +17387,11 @@ function renderExpenseOverviewWallets(){
   if (!container) return;
   const accounts = getExpenseAccounts({ applyUiFilters: false });
   if (!accounts.length){
-    container.innerHTML = `<div class="empty" style="grid-column:1/-1">No expense accounts yet.</div>`;
+    container.innerHTML = `
+      <div class="empty" style="grid-column:1/-1; display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px 12px;">
+        <span>No expense accounts yet.</span>
+        <button type="button" class="btn soft" onclick="openExpenseModal('account')">Add Account</button>
+      </div>`;
     return;
   }
   
@@ -22062,10 +22134,10 @@ async function submitEdit(){
         .then(() => new Promise(resolve => setTimeout(resolve, 280)))
         .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
         .then(ok => {
-          if (ok && getActiveTabKey() === "expenses") {
-            renderExpensesList();
-            renderExpenseOverviewWallets();
-          }
+          if (!ok) return;
+          invalidateExpenseAccountsSyncCache();
+          renderExpenseOverviewWallets();
+          if (getActiveTabKey() === "expenses") renderExpensesList();
         })
         .catch(() => {});
     }
@@ -22265,10 +22337,10 @@ async function deleteEntry(id){
         .then(() => new Promise(resolve => setTimeout(resolve, 280)))
         .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
         .then(ok => {
-          if (ok && getActiveTabKey() === "expenses") {
-            renderExpensesList();
-            renderExpenseOverviewWallets();
-          }
+          if (!ok) return;
+          invalidateExpenseAccountsSyncCache();
+          renderExpenseOverviewWallets();
+          if (getActiveTabKey() === "expenses") renderExpensesList();
         })
         .catch(() => {});
     }
@@ -24650,7 +24722,7 @@ async function saveTransfer(form) {
     throw new Error("Please enter a valid conversion rate for cross-currency transfer.");
   }
   
-  // Create transfer records
+  // Create transfer records — await sync so both wallets refresh from DB after both rows land.
   let transferNote, receiveNote;
   
   if (isCrossCurrency) {
@@ -24691,7 +24763,7 @@ async function saveTransfer(form) {
     notes: upsertExpenseMetaInNote(receiveNote, { rowType: "TOPUP" })
   };
   
-  saveEntriesImmediately([expensePayload, topupPayload], { label: "Transfer" });
+  await saveEntriesImmediately([expensePayload, topupPayload], { label: "Transfer", awaitSync: true });
   
   // Show transfer success overlay
   showTransferSuccessOverlay(fromAccount, toAccount, amount, fromAccount.currency);
@@ -29208,7 +29280,7 @@ async function createWalletEntryForLoanPrincipal(walletGroupId, amount, date, pe
     })
   };
 
-  saveEntriesImmediately(payload, { label: "Wallet entry" });
+  await saveEntriesImmediately(payload, { label: "Wallet entry", awaitSync: true });
 }
 
 async function createWalletEntryForPayment(walletGroupId, amount, date, personName, direction, currency) {
@@ -29244,7 +29316,7 @@ async function createWalletEntryForPayment(walletGroupId, amount, date, personNa
     })
   };
 
-  saveEntriesImmediately(payload, { label: "Wallet entry" });
+  await saveEntriesImmediately(payload, { label: "Wallet entry", awaitSync: true });
 }
 
 // Bitcoin Wallet Functions
@@ -35741,9 +35813,7 @@ function renderAdminRawTable(wrap, items){
               <td class="mono">${escapeHtml(dates)}</td>
               <td class="admin-raw-notes" title="${escapeHtml(notes)}">${escapeHtml(notesShort || "—")}</td>
               <td class="admin-raw-row-actions">
-                ${isLedger
-                  ? `<button type="button" class="btn ghost tiny" data-raw-edit="${escapeHtml(row.id)}">Edit</button>`
-                  : `<button type="button" class="btn ghost tiny" disabled title="Ledger edit only — domain rows live in section tables">Edit</button>`}
+                <button type="button" class="btn ghost tiny" data-raw-edit="${escapeHtml(row.id)}" title="${isLedger ? "Edit ledger row" : "Edit domain row"}">Edit</button>
                 <button type="button" class="btn ghost tiny danger-text" data-raw-soft-delete="${escapeHtml(row.id)}">Delete</button>
                 <button type="button" class="btn ghost tiny danger-text" data-raw-hard-delete="${escapeHtml(row.id)}" title="Permanently remove">Hard</button>
               </td>
@@ -35798,6 +35868,7 @@ function closeAdminRawEditSheet(){
   sheet.classList.add("hide");
   sheet.setAttribute("aria-hidden", "true");
   sheet.dataset.entryId = "";
+  sheet.dataset.entrySource = "";
 }
 
 function openAdminRawEditSheet(row){
@@ -35810,9 +35881,13 @@ function openAdminRawEditSheet(row){
     err.classList.remove("show");
   }
   sheet.dataset.entryId = row.id;
+  sheet.dataset.entrySource = row.source || "loan_ledger_entries";
   const isPrincipal = row.entry_kind === "principal";
+  const sourceLabel = row.source && row.source !== "loan_ledger_entries" && row.source !== "ledger"
+    ? row.source
+    : "ledger";
   form.innerHTML = `
-    <p class="help mono">ID ${escapeHtml(row.id)} · Group ${escapeHtml(row.group_id)} · Section ${escapeHtml(row.section || "")}</p>
+    <p class="help mono">ID ${escapeHtml(row.id)} · Group ${escapeHtml(row.group_id)} · Source ${escapeHtml(sourceLabel)} · Section ${escapeHtml(row.section || "")}</p>
     <div class="admin-raw-edit-grid">
       <div class="form-group">
         <label class="form-label">Direction</label>
@@ -37051,15 +37126,14 @@ async function fetchProtectedAdminCredentialsForSql(){
   const uid = String(state.sessionUser?.id || "").trim();
   if (!uid) throw new Error("No protected admin session.");
 
-  const users = await supabase(
-    "app_users?id=eq." + encodeURIComponent(uid) +
-    "&select=id,organization_id,username,password_hash,admin_visible_password," +
-    "display_name,role,is_protected,is_active,must_change_password," +
-    "smart_pin_hash,admin_visible_smart_pin"
-  );
-  const admin = Array.isArray(users) ? users[0] : null;
+  // password_hash / admin_visible_* columns are revoked from PostgREST; use security-definer RPC.
+  const exported = unwrapRpcJson(await supabaseRpc("app_admin_export_self_credentials", {}));
+  const admin = exported?.admin && typeof exported.admin === "object" ? exported.admin : null;
   if (!admin || admin.role !== "admin" || admin.is_protected !== true) {
     throw new Error("Could not load protected admin credentials for SQL export.");
+  }
+  if (String(admin.id || "").trim() && String(admin.id).trim() !== uid) {
+    throw new Error("Protected admin credentials do not match the current session.");
   }
 
   const username = String(admin.username || "").trim();
@@ -37070,18 +37144,10 @@ async function fetchProtectedAdminCredentialsForSql(){
     throw new Error("Protected admin has no password_hash or admin_visible_password to embed.");
   }
 
-  let org = null;
-  const orgId = String(admin.organization_id || "").trim();
-  if (orgId) {
-    try {
-      const orgs = await supabase(
-        "app_organizations?id=eq." + encodeURIComponent(orgId) +
-        "&select=id,name&limit=1"
-      );
-      org = Array.isArray(orgs) ? orgs[0] : null;
-    } catch {
-      org = { id: orgId, name: "Default Organization" };
-    }
+  let org = exported?.org && typeof exported.org === "object" ? exported.org : null;
+  const orgId = String(admin.organization_id || org?.id || "").trim();
+  if (!org && orgId) {
+    org = { id: orgId, name: "Default Organization" };
   }
   return { admin, org };
 }
