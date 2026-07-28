@@ -1283,9 +1283,11 @@
         const bq = metaValue(notes, "BQTY");
         const uap = metaValue(notes, "UAP");
         const ic = metaValue(notes, "ICODE");
+        const cslug = metaValue(notes, "CSLUG");
         if (bq) body.bought_qty = Number(bq);
         if (uap) body.unit_actual_price = Number(uap);
         if (ic) body.item_code = ic;
+        if (cslug) body.category_slug = cslug;
       }
     }
     if (table === DOMAIN.goods_sales || table === DOMAIN.goods_events) {
