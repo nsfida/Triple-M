@@ -354,6 +354,10 @@ window.addEventListener("resize", () => {
   if (installmentCountInput) {
     ["input", "change"].forEach(evt => installmentCountInput.addEventListener(evt, updateInstallmentPlanPreview));
   }
+  const installmentDownPaymentInput = document.getElementById("installmentDownPaymentInput");
+  if (installmentDownPaymentInput) {
+    ["input", "change"].forEach(evt => installmentDownPaymentInput.addEventListener(evt, updateInstallmentPlanPreview));
+  }
   if (els.principalModalForm) {
     els.principalModalForm.querySelector('[name="principal_amount"]')?.addEventListener("input", updateInstallmentPlanPreview);
     document.getElementById("entryPrincipalDateInline")?.addEventListener("change", updateInstallmentPlanPreview);
@@ -372,7 +376,7 @@ window.addEventListener("resize", () => {
   if (els.installmentEditForm) {
     ["input", "change"].forEach(evt => {
       els.installmentEditForm.addEventListener(evt, e => {
-        if (["principal_amount", "installment_count", "loan_date", "currency"].includes(e.target?.name) || e.target?.id === "installmentEditCount") {
+        if (["principal_amount", "down_payment", "installment_count", "loan_date", "currency"].includes(e.target?.name) || e.target?.id === "installmentEditCount") {
           updateInstallmentEditPreview();
         }
       });
