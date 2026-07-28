@@ -12,6 +12,114 @@
   <meta name="application-name" content="Triplem" />
   <meta name="apple-mobile-web-app-title" content="Triplem" />
   <meta name="theme-color" content="#edf1f7" />
+  <script>
+    /* Remember Me: hide landing immediately so resume never flashes the sign-in page. */
+    (function () {
+      try {
+        if (localStorage.getItem("loanledger-session-credential-v4")) {
+          document.documentElement.classList.add("auth-resuming");
+        }
+      } catch (_) {}
+    })();
+  </script>
+  <style>
+    html.auth-resuming #lockScreen,
+    html.auth-resuming #welcomeScreen {
+      display: none !important;
+    }
+    html.auth-resuming body {
+      background: #edf1f7;
+    }
+    html.auth-resuming #authResumeSplash {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    #authResumeSplash {
+      position: fixed;
+      inset: 0;
+      z-index: 12000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #edf1f7;
+      color: #1e293b;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      contain: layout paint;
+    }
+    html.auth-resuming #secretPinGateModal.modal,
+    html.auth-resuming #forcePasswordModal.modal {
+      z-index: 13050 !important;
+    }
+    #authResumeSplash .auth-resume-card {
+      width: min(340px, 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 14px;
+    }
+    #authResumeSplash .auth-resume-logo-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+    }
+    #authResumeSplash img {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+    }
+    #authResumeSplash .auth-resume-brand {
+      font-size: 1.28rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #0f172a;
+    }
+    #authResumeSplash .auth-resume-brand .brand-m-triple {
+      color: #2457d6;
+    }
+    #authResumeSplash .auth-resume-title {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    #authResumeSplash .auth-resume-hint {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      color: #64748b;
+      max-width: 260px;
+    }
+    #authResumeSplash .auth-resume-track {
+      width: min(200px, 68vw);
+      height: 3px;
+      border-radius: 999px;
+      background: #dbe3ef;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    #authResumeSplash .auth-resume-bar {
+      height: 100%;
+      width: 40%;
+      border-radius: inherit;
+      background: #2457d6;
+      transform: translateX(-120%);
+      animation: authResumeBar 0.9s linear infinite;
+      will-change: transform;
+    }
+    @keyframes authResumeBar {
+      to { transform: translateX(280%); }
+    }
+  </style>
   <link rel="canonical" href="https://triplem.vip/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="en_US" />
@@ -174,7 +282,18 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/styles.css" />
+  <link rel="stylesheet" href="Assets/style/01-tokens.css" />
+  <link rel="stylesheet" href="Assets/style/02-base.css" />
+  <link rel="stylesheet" href="Assets/style/03-components.css" />
+  <link rel="stylesheet" href="Assets/style/04-inventory.css" />
+  <link rel="stylesheet" href="Assets/style/05-expenses-filters.css" />
+  <link rel="stylesheet" href="Assets/style/06-installments.css" />
+  <link rel="stylesheet" href="Assets/style/07-overlays-transfers.css" />
+  <link rel="stylesheet" href="Assets/style/08-landing-auth.css" />
+  <link rel="stylesheet" href="Assets/style/09-shell-overview.css" />
+  <link rel="stylesheet" href="Assets/style/10-overlays-misc.css" />
+  <link rel="stylesheet" href="Assets/style/11-admin-messaging.css" />
+  <link rel="stylesheet" href="Assets/style/12-late-overrides.css" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -190,6 +309,19 @@
   </div>
 
   <div class="page-currency-bg" id="pageCurrencyBg" aria-hidden="true"></div>
+  <div id="authResumeSplash" aria-live="polite" aria-busy="true">
+    <div class="auth-resume-card">
+      <div class="auth-resume-logo-wrap" aria-hidden="true">
+        <img src="Assets/logo/logo.png" alt="" />
+      </div>
+      <div class="auth-resume-brand" aria-hidden="true">TRIPLE<span class="brand-m-triple">M</span></div>
+      <p class="auth-resume-title">Triplem is loading. . .</p>
+      <p class="auth-resume-hint">Restoring your secure session</p>
+      <div class="auth-resume-track" role="progressbar" aria-label="Loading">
+        <div class="auth-resume-bar"></div>
+      </div>
+    </div>
+  </div>
   <div id="lockScreen" class="lock">
     <div class="landing-shell">
       <header class="landing-nav" aria-label="Public navigation">
@@ -304,6 +436,10 @@
                     <button type="button" class="pw-eye-btn pw-eye-btn--input" id="zipPasswordToggle" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
                   </div>
                 </div>
+                <label class="login-remember-me" for="rememberMeCheckbox">
+                  <input id="rememberMeCheckbox" type="checkbox" />
+                  <span>Remember me</span>
+                </label>
                 <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
                 <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
               </form>
@@ -1860,7 +1996,7 @@
         <div class="guest-restriction-icon"><i class="fa-solid fa-lock"></i></div>
         <div class="guest-restriction-copy">
           <h3 id="trialExpiredTitle">Your access period has ended</h3>
-          <p id="trialExpiredMessage">You can still sign in during a 2-day grace window, but your workspace is locked. On the 3rd day after expiry the account is disabled automatically unless renewed.</p>
+          <p id="trialExpiredMessage">Your grace period has ended and the workspace is locked for one day. Request a renewal below — the account auto-disables after this lock day unless renewed.</p>
           <div class="trial-renewal-box" id="trialExpiredRenewalBox">
             <div class="settings-renew-row">
               <select id="trialExpiredPeriod" class="input settings-input">
@@ -2296,7 +2432,7 @@
               <button class="tiny ghost" type="button" id="openInventoryCustomersBtn" title="Open customers and invoices">
                 Customers <i class="fa-solid fa-arrow-right"></i>
               </button>
-              <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale">
+              <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Save a customer record with or without a sale">
                 <i class="fa-solid fa-user-plus"></i> Add Customer
               </button>
             </div>
@@ -2357,7 +2493,7 @@
                 <button class="tiny ghost inventoryBackToStockBtn" type="button" title="Back to inventory stock">
                   <i class="fa-solid fa-arrow-left"></i> Inventory
                 </button>
-                <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Add a customer with an optional outstanding sale">
+                <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Save a customer record with or without a sale">
                   <i class="fa-solid fa-user-plus"></i> Add Customer
                 </button>
               </div>
@@ -3164,7 +3300,7 @@
                 </div>
                 <div class="field w6">
                   <label>Actual price</label>
-                  <input class="input" name="new_actual_price" type="number" min="0" step="0.00000001" placeholder="0.00" />
+                  <input class="input" name="new_actual_price" type="number" min="0" step="0.01" placeholder="0.00" />
                 </div>
                 <div class="field w6">
                   <label>Quantity purchased</label>
@@ -3192,7 +3328,7 @@
             </div>
             <div class="field w4">
               <label>Paid amount</label>
-              <input class="input" id="goodsSalePaidAmount" name="paid_amount" type="number" min="0" step="0.00000001" placeholder="0.00" />
+              <input class="input" id="goodsSalePaidAmount" name="paid_amount" type="number" min="0" step="0.01" placeholder="0.00" />
             </div>
             <div class="field w4">
               <label>Balance</label>
@@ -3249,7 +3385,7 @@
             </div>
             <div class="field w6">
               <label>Settlement amount (full or partial)</label>
-              <input class="input" id="goodsSettlementAmount" name="settlement_amount" type="number" min="0" step="0.00000001" required />
+              <input class="input" id="goodsSettlementAmount" name="settlement_amount" type="number" min="0" step="0.01" required />
             </div>
             <div class="field w6">
               <label>Settlement date</label>
@@ -3339,9 +3475,34 @@
                   <option value="volume">Volume (L / ml)</option>
                 </select>
               </label>
+              <div class="inventory-edit-field inventory-edit-field-wide hide" id="inventoryEditSellByWrap" data-inventory-sellby-wrap>
+                <span>How will you sell this?</span>
+                <div class="inventory-add-branch-grid" style="margin-top:6px">
+                  <button type="button" class="inventory-add-category-card" data-edit-sell-by="volume" id="inventoryEditSellByVolume">
+                    <strong>By volume</strong>
+                    <span>Pour / measure</span>
+                  </button>
+                  <button type="button" class="inventory-add-category-card" data-edit-sell-by="bottle" id="inventoryEditSellByBottle">
+                    <strong>By bottle</strong>
+                    <span>Whole bottles only</span>
+                  </button>
+                </div>
+                <input type="hidden" name="sell_by" id="inventoryEditSellBy" value="volume" />
+              </div>
+              <label class="inventory-edit-field hide" data-inventory-bottle-size-wrap>
+                <span>Bottle size</span>
+                <input class="input" name="bottle_size_qty" id="inventoryEditBottleSizeQty" type="number" min="0.001" step="any" placeholder="e.g. 100" />
+              </label>
+              <label class="inventory-edit-field hide" data-inventory-bottle-unit-wrap>
+                <span>Bottle unit</span>
+                <select class="select" name="bottle_size_unit" id="inventoryEditBottleSizeUnit">
+                  <option value="ml">ml</option>
+                  <option value="l">L</option>
+                </select>
+              </label>
               <label class="inventory-edit-field">
                 <span>Brand <em class="optional-label">optional</em></span>
-                <input class="input" name="brand" id="inventoryEditItemBrand" placeholder="e.g. Afnan Perfumes" autocomplete="off" />
+                <input class="input" name="brand" id="inventoryEditItemBrand" placeholder="e.g. brand name" autocomplete="off" />
               </label>
               <label class="inventory-edit-field">
                 <span>Variant <em class="optional-label">optional</em></span>
@@ -3385,11 +3546,11 @@
               </label>
               <label class="inventory-edit-field">
                 <span data-inventory-price-label>Purchase price</span>
-                <input class="input" name="actual_price" id="inventoryEditPurchasePrice" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+                <input class="input" name="actual_price" id="inventoryEditPurchasePrice" type="number" min="0" step="0.01" required placeholder="0.00" />
               </label>
               <label class="inventory-edit-field">
                 <span data-inventory-selling-label>Selling price</span>
-                <input class="input" name="selling_price" id="inventoryEditSellingPrice" type="number" min="0" step="0.00000001" placeholder="0.00" />
+                <input class="input" name="selling_price" id="inventoryEditSellingPrice" type="number" min="0" step="0.01" placeholder="0.00" />
               </label>
               <label class="inventory-edit-field">
                 <span data-inventory-qty-label>Quantity</span>
@@ -3397,7 +3558,7 @@
               </label>
               <label class="inventory-edit-field">
                 <span>Total amount</span>
-                <input class="input" name="total_amount" id="inventoryEditTotalAmount" type="number" min="0" step="0.00000001" readonly placeholder="0.00" />
+                <input class="input" name="total_amount" id="inventoryEditTotalAmount" type="number" min="0" step="0.01" readonly placeholder="0.00" />
               </label>
               <label class="inventory-edit-field">
                 <span>Purchase date</span>
@@ -3503,7 +3664,7 @@
             </div>
             <div class="field w6">
               <label>Total amount</label>
-              <input class="input" name="principal_amount" id="installmentEditAmount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+              <input class="input" name="principal_amount" id="installmentEditAmount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w6">
               <label>Installments</label>
@@ -3668,7 +3829,7 @@
             </div>
             <div class="field w6">
               <label>Available balance</label>
-              <input class="input" name="opening_balance" type="number" step="0.00000001" required placeholder="0.00" />
+              <input class="input" name="opening_balance" type="number" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w12 hide" id="expenseBtcAddressField">
               <label>Bitcoin wallet address</label>
@@ -3706,7 +3867,7 @@
             </div>
             <div class="field w6">
               <label>Amount to add</label>
-              <input class="input" name="amount" type="number" step="0.00000001" required placeholder="0.00" />
+              <input class="input" name="amount" type="number" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w12">
               <label>Notes <span class="optional-label">optional</span></label>
@@ -3727,7 +3888,7 @@
             </div>
             <div class="field w6">
               <label>Amount spent</label>
-              <input class="input" name="amount" type="number" step="0.00000001" required placeholder="0.00" />
+              <input class="input" name="amount" type="number" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w4">
               <label>Currency</label>
@@ -3831,7 +3992,7 @@
           <div class="field w6">
             <label>Amount</label>
             <div style="display: flex; align-items: center; gap: 4px;">
-              <input class="input" name="amount" type="number" min="0.00000001" step="0.00000001" required placeholder="0.00" style="flex: 1;" />
+              <input class="input" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" style="flex: 1;" />
               <span id="fromCurrencyIndicator" style="font-size: 0.8rem; color: var(--muted); min-width: 30px;">AED</span>
             </div>
           </div>
@@ -3983,7 +4144,7 @@
             </div>
             <div class="field w6">
               <label>Amount</label>
-              <input class="input" name="principal_amount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+              <input class="input" name="principal_amount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w6 hide" id="installmentCountGroup">
               <label>Installments</label>
@@ -4113,7 +4274,7 @@
             </div>
             <div class="field w6">
               <label id="editAmountLabel">Amount</label>
-              <input class="input" id="editAmount" type="number" min="0" step="0.00000001" required placeholder="0.00" />
+              <input class="input" id="editAmount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w6">
               <label id="editDateLabel">Date</label>
@@ -4323,7 +4484,31 @@
   <script src="Assets/app/lib/permissions.js"></script>
   <script src="Assets/app/lib/admin-backup.js"></script>
   <script src="Assets/app/domain-ledger.js"></script>
+  <script src="Assets/app/core/01-config-constants.js"></script>
+  <script src="Assets/app/core/02-state.js"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
-  <script src="Assets/app/script.js"></script>
+  <script src="Assets/app/core/03-els.js"></script>
+  <script src="Assets/app/auth/01-auth-session.js"></script>
+  <script src="Assets/app/core/04-entries-api.js"></script>
+  <script src="Assets/app/utils/01-currency-money.js"></script>
+  <script src="Assets/app/core/05-meta-helpers.js"></script>
+  <script src="Assets/app/inventory/01-inventory-meta-stock.js"></script>
+  <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
+  <script src="Assets/app/inventory/03-inventory-overlays.js"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js"></script>
+  <script src="Assets/app/ui/01-render-navigation.js"></script>
+  <script src="Assets/app/installments/01-installments.js"></script>
+  <script src="Assets/app/loans/01-loans-payments.js"></script>
+  <script src="Assets/app/reports/01-pdf.js"></script>
+  <script src="Assets/app/reports/02-exports.js"></script>
+  <script src="Assets/app/expenses/02-transfers.js"></script>
+  <script src="Assets/app/ui/02-bindings.js"></script>
+  <script src="Assets/app/landing/01-landing.js"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js"></script>
+  <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
+  <script src="Assets/app/notes/01-notes.js"></script>
+  <script src="Assets/app/admin/01-admin.js"></script>
+  <script src="Assets/app/messaging/01-messaging.js"></script>
+  <script src="Assets/app/boot.js"></script>
 </body>
 </html>
