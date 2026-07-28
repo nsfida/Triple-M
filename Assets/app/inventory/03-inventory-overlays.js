@@ -2255,10 +2255,15 @@ function getInventorySectionsForGrid(groups){
     });
   };
 
-  const customs = Array.isArray(state.inventoryCustomCategories) ? state.inventoryCustomCategories : [];
-  for (const cfg of customs) {
-    // Never show built-in presets as sticky empty grids (Food & Grocery, Cables & Pipes, …).
-    if (typeof isPresetCategory === "function" && isPresetCategory(cfg)) continue;
+  // Non-preset categories are always explicit grids. Built-in presets stay hidden
+  // until stock exists or the user explicitly adds that preset (gridVisible).
+  const catalog = typeof getWizardCategories === "function"
+    ? getWizardCategories()
+    : (Array.isArray(state.inventoryCategories) ? state.inventoryCategories : []);
+  for (const cfg of catalog) {
+    if (!cfg) continue;
+    const isPreset = typeof isPresetCategory === "function" && isPresetCategory(cfg);
+    if (isPreset && !cfg.gridVisible) continue;
     upsertEmpty(cfg);
   }
 
