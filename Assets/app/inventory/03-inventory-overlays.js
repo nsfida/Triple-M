@@ -830,11 +830,10 @@ function inventoryGroupBottlePriceDisplay(group){
   const category = resolveInventoryItemCategory(group);
   const sellPerBase = Number(group.defaultUnitSoldPrice || 0);
   const costPerBase = Number(group.unitActualPrice || 0);
-  const boughtQty = Number(group.boughtQty || 0);
   if (category === INVENTORY_CATEGORY_VOLUME) {
     return {
-      sellLabel: "Sell / ml",
-      costLabel: "Cost / ml",
+      sellLabel: "Sell/ml",
+      costLabel: "Cost/ml",
       sell: sellPerBase > 0 ? sellPerBase / 1000 : 0,
       cost: costPerBase > 0 ? costPerBase / 1000 : 0
     };
@@ -872,8 +871,8 @@ function renderInventoryVariantRowsHtml(items){
           </div>
           <div class="inventory-variant-metrics" aria-label="Stock and prices">
             <div><small>Stock</small><strong class="badge ${statusClass}">${escapeHtml(inventoryQtyLabel(group.remainingQty, category, group))}</strong></div>
-            <div><small>${escapeHtml(prices.sellLabel)}</small><strong>${money(prices.sell || 0, group.currency)}</strong></div>
             <div><small>${escapeHtml(prices.costLabel)}</small><strong>${money(prices.cost || 0, group.currency)}</strong></div>
+            <div><small>${escapeHtml(prices.sellLabel)}</small><strong>${money(prices.sell || 0, group.currency)}</strong></div>
           </div>
           <div class="inventory-variant-actions">
             <button type="button" class="btn soft tiny inventorySkuSellBtn" data-group-id="${escapeHtml(group.group_id)}" ${inStock ? "" : "disabled"} title="Add to cart">
@@ -909,9 +908,35 @@ function renderInventoryVariantRowsHtml(items){
   }).join("");
 }
 
-function renderInventoryCatalogVariantRowsHtml(catalogRows = [], { menuKind = "variant" } = {}){
+function resolveCatalogVariantQtyPattern(row, itemType = "", fallback = "count"){
+  const variant = row?.catalogVariant || row || {};
+  const label = String(row?.label || variant.label || "").trim();
+  const normalizedFallback = normalizeInventoryCategory(
+    variant.item_category || variant.itemCategory || fallback
+  );
+  if (typeof parseInventorySizeHint === "function" && parseInventorySizeHint(label)) {
+    return INVENTORY_CATEGORY_VOLUME;
+  }
+  if (/\b\d+(?:\.\d+)?\s*(?:kg|g|gram|grams)\b/i.test(label)) {
+    return INVENTORY_CATEGORY_WEIGHT;
+  }
+  if (/\b\d+(?:\.\d+)?\s*(?:m|meter|metre|cm)\b/i.test(label)) {
+    return INVENTORY_CATEGORY_LENGTH;
+  }
+  if (typeof resolveInventoryItemCategory === "function") {
+    return resolveInventoryItemCategory({
+      itemCategory: variant.item_category || variant.itemCategory || normalizedFallback,
+      itemType,
+      variantLabel: label
+    }, normalizedFallback);
+  }
+  return normalizedFallback;
+}
+
+function renderInventoryCatalogVariantRowsHtml(catalogRows = [], { menuKind = "variant", itemType = "", qtyPattern = "count" } = {}){
   return catalogRows.map((row, index) => {
     const menuKey = `catalog-variant-${row.variantId || row.label || index}`;
+    const rowQtyPattern = resolveCatalogVariantQtyPattern(row, itemType, qtyPattern);
     return `
     <article class="inventory-variant-row is-empty is-catalog-only"
       data-catalog-kind="${escapeHtml(menuKind)}"
@@ -929,7 +954,8 @@ function renderInventoryCatalogVariantRowsHtml(catalogRows = [], { menuKind = "v
         <div class="inventory-variant-actions">
           <button type="button" class="btn soft tiny inventoryCatalogAddStockBtn"
             data-variant-label="${escapeHtml(row.label)}"
-            data-variant-id="${escapeHtml(row.variantId || "")}">
+            data-variant-id="${escapeHtml(row.variantId || "")}"
+            data-variant-qty-pattern="${escapeHtml(rowQtyPattern)}">
             <i class="fa-solid fa-plus"></i> Stock
           </button>
           ${row.variantId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: "Edit", deleteLabel: "Delete" }) : ""}
@@ -949,7 +975,10 @@ function inventoryInlineStockFormHtml(qtyPattern = "count", {
   priceUnit = "",
   sellBy = "volume",
   categorySlug = "",
-  categoryName = ""
+  categoryName = "",
+  unitCost = "",
+  unitSell = "",
+  currency = state.lastCurrency || "AED"
 } = {}){
   const pattern = normalizeInventoryCategory(qtyPattern || "count");
   const defaultUnit = inventoryBaseUnitForCategory(pattern);
@@ -973,17 +1002,34 @@ function inventoryInlineStockFormHtml(qtyPattern = "count", {
   const costLabel = bottleLabels?.cost || "Cost";
   const sellLabel = useBottleCost ? "Bottle sell" : (bottleLabels?.sell || "Sell");
   const unitOptions = inventoryUnitSelectOptionsHtml(pattern, selectedPriceUnit);
+  const measureAsHtml = `
+    <div class="inventory-inline-stock-field inventory-inline-stock-measure" style="grid-column:1/-1">
+      <span>Measure as</span>
+      <div class="inventory-add-branch-grid inventory-inline-measure-cards" style="margin-top:4px">
+        ${[
+          [INVENTORY_CATEGORY_COUNT, "Pcs", "Whole pieces"],
+          [INVENTORY_CATEGORY_WEIGHT, "Weight", "kg / g"],
+          [INVENTORY_CATEGORY_LENGTH, "Length", "m / cm"],
+          [INVENTORY_CATEGORY_VOLUME, "Volume", "L / ml"]
+        ].map(([value, title, detail]) => `
+          <button type="button" class="inventory-add-category-card ${pattern === value ? "is-selected" : ""}" data-inline-qty-pattern="${escapeHtml(value)}">
+            <strong>${escapeHtml(title)}</strong>
+            <span>${escapeHtml(detail)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>`;
   const sellByHtml = pattern === INVENTORY_CATEGORY_VOLUME
     ? `<div class="inventory-inline-stock-field inventory-inline-stock-sellby" style="grid-column:1/-1">
-        <span>Sell as</span>
+        <span>How will you sell this?</span>
         <div class="inventory-add-branch-grid inventory-inline-sellby-cards" style="margin-top:4px">
           <button type="button" class="inventory-add-category-card ${resolvedSellBy === "volume" ? "is-selected" : ""}" data-inline-sell-by="volume">
-            <strong>Volume</strong>
-            <span>Pour / ml</span>
+            <strong>By volume</strong>
+            <span>Pour / measure</span>
           </button>
           <button type="button" class="inventory-add-category-card ${resolvedSellBy === "bottle" ? "is-selected" : ""}" data-inline-sell-by="bottle">
-            <strong>Bottle</strong>
-            <span>Whole bottle</span>
+            <strong>By bottle</strong>
+            <span>Whole bottles only</span>
           </button>
         </div>
       </div>`
@@ -1014,7 +1060,7 @@ function inventoryInlineStockFormHtml(qtyPattern = "count", {
               ? "Weight"
               : pattern === "length"
                 ? "Length"
-                : "Qty")
+                : "Stock")
         )}</span>
         <input class="input inventory-inline-stock-qty" type="number" min="0.001" step="any" value="${escapeHtml(qtyValue)}" inputmode="decimal" />
       </label>`;
@@ -1026,20 +1072,21 @@ function inventoryInlineStockFormHtml(qtyPattern = "count", {
       </label>`;
   return `
     <div class="inventory-inline-stock-form${sizeLocked ? " is-size-locked" : ""}${useBottleCost ? " is-bottle-cost" : ""}" data-sell-by="${escapeHtml(resolvedSellBy)}">
+      ${measureAsHtml}
       ${sellByHtml}
       ${sizeLockedHtml}
       ${unitFieldHtml}
       <label class="inventory-inline-stock-field">
         <span class="inventory-inline-stock-cost-label">${escapeHtml(costLabel)}</span>
-        <input class="input inventory-inline-stock-cost" type="number" min="0" step="0.01" placeholder="${useBottleCost ? "AED / bottle" : (pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0")}" inputmode="decimal" />
+        <input class="input inventory-inline-stock-cost" type="number" min="0" step="0.01" value="${escapeHtml(unitCost)}" placeholder="${useBottleCost ? "AED / bottle" : (pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "0")}" inputmode="decimal" />
       </label>
       <label class="inventory-inline-stock-field">
         <span class="inventory-inline-stock-sell-label">${escapeHtml(sellLabel)} <em class="optional-label">optional</em></span>
-        <input class="input inventory-inline-stock-sell" type="number" min="0" step="0.01" placeholder="${useBottleCost ? "Optional" : (pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "Optional")}" inputmode="decimal" />
+        <input class="input inventory-inline-stock-sell" type="number" min="0" step="0.01" value="${escapeHtml(unitSell)}" placeholder="${useBottleCost ? "Optional" : (pattern === INVENTORY_CATEGORY_VOLUME ? `Per ${bottleLabels?.priceUnit || "ml"}` : "Optional")}" inputmode="decimal" />
       </label>
       <label class="inventory-inline-stock-field">
         <span>Cur</span>
-        <input class="input inventory-inline-stock-currency" value="${escapeHtml(state.lastCurrency || "AED")}" maxlength="8" />
+        <input class="input inventory-inline-stock-currency" value="${escapeHtml(currency)}" maxlength="8" />
       </label>
       <div class="inventory-inline-stock-actions">
         <button type="button" class="tiny inventory-inline-stock-save" title="Save stock" aria-label="Save"><i class="fa-solid fa-check"></i></button>
@@ -1078,122 +1125,186 @@ function openInventoryInlineStockEditor(rowEl, {
     }
   });
   const sizeHint = parseInventorySizeHint(variantLabel);
-  const pattern = normalizeInventoryCategory(qtyPattern || "count");
-  const sizeLocked = pattern === INVENTORY_CATEGORY_VOLUME && !!sizeHint;
-  const sizeQty = sizeHint?.qty ?? (pattern === INVENTORY_CATEGORY_VOLUME ? 100 : "");
-  const sizeUnit = sizeHint?.unit || (pattern === INVENTORY_CATEGORY_VOLUME ? INVENTORY_UNIT_ML : "");
   const cfg = typeof getCategoryConfig === "function" ? getCategoryConfig(categoryName) : null;
   const categorySlug = cfg?.slug || "";
-  let currentSellBy = pattern === INVENTORY_CATEGORY_VOLUME
+  let currentPattern = normalizeInventoryCategory(qtyPattern || cfg?.qtyPattern || "count");
+  let currentSellBy = currentPattern === INVENTORY_CATEGORY_VOLUME
     ? (typeof defaultInventorySellBy === "function"
-      ? defaultInventorySellBy({ categorySlug, categoryName, qtyPattern: pattern })
+      ? defaultInventorySellBy({ categorySlug, categoryName, qtyPattern: currentPattern })
       : "volume")
     : "volume";
+  const formState = {
+    qty: "",
+    sizeUnit: "",
+    priceUnit: "",
+    bottles: "1",
+    unitCost: "",
+    unitSell: "",
+    currency: state.lastCurrency || "AED"
+  };
+
+  const defaultUnitForPattern = () => currentPattern === INVENTORY_CATEGORY_VOLUME
+    ? INVENTORY_UNIT_ML
+    : inventoryBaseUnitForCategory(currentPattern);
+  const currentSizeLocked = () => currentPattern === INVENTORY_CATEGORY_VOLUME && !!sizeHint;
+  const defaultQtyForPattern = () => {
+    if (formState.qty !== "") return formState.qty;
+    if (currentPattern === INVENTORY_CATEGORY_VOLUME) return String(sizeHint?.qty ?? 100);
+    return currentPattern === INVENTORY_CATEGORY_COUNT ? "1" : "";
+  };
+  const readFormState = () => {
+    const qty = panel.querySelector(".inventory-inline-stock-qty");
+    const sizeUnit = panel.querySelector(".inventory-inline-stock-size-unit");
+    const unit = panel.querySelector(".inventory-inline-stock-unit");
+    const bottles = panel.querySelector(".inventory-inline-stock-bottles");
+    const cost = panel.querySelector(".inventory-inline-stock-cost");
+    const sell = panel.querySelector(".inventory-inline-stock-sell");
+    const currency = panel.querySelector(".inventory-inline-stock-currency");
+    if (qty) formState.qty = qty.value;
+    if (sizeUnit) formState.sizeUnit = sizeUnit.value;
+    if (unit) formState.priceUnit = unit.value;
+    if (bottles) formState.bottles = bottles.value;
+    if (cost) formState.unitCost = cost.value;
+    if (sell) formState.unitSell = sell.value;
+    if (currency) formState.currency = currency.value;
+  };
 
   const mountForm = () => {
-    panel.innerHTML = inventoryInlineStockFormHtml(qtyPattern, {
-      qty: sizeQty,
+    const sizeLocked = currentSizeLocked();
+    const sizeUnit = formState.sizeUnit
+      || sizeHint?.unit
+      || defaultUnitForPattern();
+    const priceUnit = formState.priceUnit || defaultUnitForPattern();
+    panel.innerHTML = inventoryInlineStockFormHtml(currentPattern, {
+      qty: defaultQtyForPattern(),
       unit: sizeUnit,
       sizeLocked,
       sizeLabel: sizeHint
         ? `${trimInventoryNumber(sizeHint.qty, 3)} ${sizeHint.unit === INVENTORY_UNIT_L ? "L" : "ml"}`
         : (variantLabel || ""),
-      bottles: "1",
-      priceUnit: INVENTORY_UNIT_ML,
+      bottles: formState.bottles || "1",
+      priceUnit,
       sellBy: currentSellBy,
       categorySlug,
-      categoryName
+      categoryName,
+      unitCost: formState.unitCost,
+      unitSell: formState.unitSell,
+      currency: formState.currency
     });
     bindForm();
   };
 
   const bindForm = () => {
-  const qtyInput = panel.querySelector(".inventory-inline-stock-qty");
-  const bottlesInput = panel.querySelector(".inventory-inline-stock-bottles");
-  const sizeUnitInput = panel.querySelector(".inventory-inline-stock-size-unit");
-  const unitSelect = panel.querySelector("select.inventory-inline-stock-unit, input.inventory-inline-stock-unit");
-  const costInput = panel.querySelector(".inventory-inline-stock-cost");
-  const sellInput = panel.querySelector(".inventory-inline-stock-sell");
-  const currencyInput = panel.querySelector(".inventory-inline-stock-currency");
-  const saveBtn = panel.querySelector(".inventory-inline-stock-save");
-  const cancelBtn = panel.querySelector(".inventory-inline-stock-cancel");
-  const useBottleCost = pattern === INVENTORY_CATEGORY_VOLUME
-    && (sizeLocked || currentSellBy === "bottle");
+    const qtyInput = panel.querySelector(".inventory-inline-stock-qty");
+    const bottlesInput = panel.querySelector(".inventory-inline-stock-bottles");
+    const sizeUnitInput = panel.querySelector(".inventory-inline-stock-size-unit");
+    const unitSelect = panel.querySelector("select.inventory-inline-stock-unit, input.inventory-inline-stock-unit");
+    const costInput = panel.querySelector(".inventory-inline-stock-cost");
+    const sellInput = panel.querySelector(".inventory-inline-stock-sell");
+    const currencyInput = panel.querySelector(".inventory-inline-stock-currency");
+    const saveBtn = panel.querySelector(".inventory-inline-stock-save");
+    const cancelBtn = panel.querySelector(".inventory-inline-stock-cancel");
+    const sizeLocked = currentSizeLocked();
+    const useBottleCost = currentPattern === INVENTORY_CATEGORY_VOLUME
+      && (sizeLocked || currentSellBy === "bottle");
 
-  panel.querySelectorAll("[data-inline-sell-by]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      currentSellBy = btn.dataset.inlineSellBy || "volume";
-      mountForm();
-      requestAnimationFrame(() => panel.querySelector(".inventory-inline-stock-cost, .inventory-inline-stock-qty")?.focus());
-    });
-  });
-
-  const refreshPriceUnitLabels = () => {
-    if (pattern !== INVENTORY_CATEGORY_VOLUME || useBottleCost) return;
-    const labels = inventoryVolumeBottleLabels(qtyInput?.value, unitSelect?.value);
-    const costLabel = panel.querySelector(".inventory-inline-stock-cost-label");
-    const sellLabel = panel.querySelector(".inventory-inline-stock-sell-label");
-    if (costLabel) costLabel.textContent = labels.cost;
-    if (sellLabel) sellLabel.textContent = labels.sell;
-    if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
-    if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
-  };
-  if (unitSelect && unitSelect.tagName === "SELECT") {
-    unitSelect.addEventListener("change", refreshPriceUnitLabels);
-  }
-  refreshPriceUnitLabels();
-
-  const close = () => {
-    panel.classList.add("hide");
-    panel.innerHTML = "";
-    rowEl.classList.remove("is-adding-stock");
-  };
-
-  cancelBtn?.addEventListener("click", close);
-  saveBtn?.addEventListener("click", async () => {
-    if (typeof persistInventoryStockItem !== "function") {
-      alert("Stock helper missing. Refresh and try again.");
-      return;
-    }
-    saveBtn.disabled = true;
-    cancelBtn.disabled = true;
-    try {
-      const bottleUnit = (sizeUnitInput?.value || sizeUnit || unitSelect?.value || INVENTORY_UNIT_ML);
-      const bottleQty = qtyInput?.value;
-      const bottles = (sizeLocked || currentSellBy === "bottle")
-        ? Math.max(1, Math.floor(Number(bottlesInput?.value || 1)))
-        : 1;
-      await persistInventoryStockItem({
-        category: categoryName,
-        brand: brandName,
-        productLine: productLineName,
-        productLineId,
-        variantLabel,
-        variantId,
-        qty: bottleQty,
-        unit: bottleUnit,
-        bottles,
-        priceUnit: unitSelect?.value || bottleUnit || INVENTORY_UNIT_ML,
-        unitCost: costInput?.value,
-        unitSell: sellInput?.value,
-        currency: currencyInput?.value || "AED",
-        qtyPattern,
-        sizeLocked,
-        sellBy: currentSellBy,
-        costMode: useBottleCost ? "bottle" : "unit"
+    panel.querySelectorAll("[data-inline-qty-pattern]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        readFormState();
+        currentPattern = normalizeInventoryCategory(btn.dataset.inlineQtyPattern || "count");
+        formState.priceUnit = defaultUnitForPattern();
+        if (currentPattern !== INVENTORY_CATEGORY_VOLUME) {
+          currentSellBy = "volume";
+          formState.sizeUnit = "";
+          formState.bottles = "1";
+        } else {
+          currentSellBy = typeof defaultInventorySellBy === "function"
+            ? defaultInventorySellBy({ categorySlug, categoryName, qtyPattern: currentPattern })
+            : "volume";
+          formState.sizeUnit = sizeHint?.unit || INVENTORY_UNIT_ML;
+        }
+        mountForm();
+        requestAnimationFrame(() => panel.querySelector(".inventory-inline-stock-bottles, .inventory-inline-stock-cost, .inventory-inline-stock-qty")?.focus());
       });
-      if (typeof invalidateAndRefreshInventoryLazy === "function") {
-        await invalidateAndRefreshInventoryLazy().catch(() => {});
-      }
-      if (typeof renderInventoryList === "function") renderInventoryList();
-      if (typeof onSaved === "function") await onSaved();
-    } catch (err) {
-      alert(err?.message || "Could not save stock.");
-      saveBtn.disabled = false;
-      cancelBtn.disabled = false;
-      (costInput || qtyInput)?.focus();
+    });
+
+    panel.querySelectorAll("[data-inline-sell-by]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        readFormState();
+        currentSellBy = btn.dataset.inlineSellBy || "volume";
+        mountForm();
+        requestAnimationFrame(() => panel.querySelector(".inventory-inline-stock-cost, .inventory-inline-stock-qty")?.focus());
+      });
+    });
+
+    const refreshPriceUnitLabels = () => {
+      if (currentPattern !== INVENTORY_CATEGORY_VOLUME || useBottleCost) return;
+      const labels = inventoryVolumeBottleLabels(qtyInput?.value, unitSelect?.value);
+      const costLabel = panel.querySelector(".inventory-inline-stock-cost-label");
+      const sellLabel = panel.querySelector(".inventory-inline-stock-sell-label");
+      if (costLabel) costLabel.textContent = labels.cost;
+      if (sellLabel) sellLabel.textContent = labels.sell;
+      if (costInput) costInput.placeholder = `Per ${labels.priceUnit}`;
+      if (sellInput) sellInput.placeholder = `Per ${labels.priceUnit}`;
+    };
+    if (unitSelect && unitSelect.tagName === "SELECT") {
+      unitSelect.addEventListener("change", refreshPriceUnitLabels);
     }
-  });
+    refreshPriceUnitLabels();
+
+    const close = () => {
+      panel.classList.add("hide");
+      panel.innerHTML = "";
+      rowEl.classList.remove("is-adding-stock");
+    };
+
+    cancelBtn?.addEventListener("click", close);
+    saveBtn?.addEventListener("click", async () => {
+      if (typeof persistInventoryStockItem !== "function") {
+        alert("Stock helper missing. Refresh and try again.");
+        return;
+      }
+      saveBtn.disabled = true;
+      cancelBtn.disabled = true;
+      try {
+        const unit = currentPattern === INVENTORY_CATEGORY_VOLUME
+          ? (sizeUnitInput?.value || formState.sizeUnit || unitSelect?.value || INVENTORY_UNIT_ML)
+          : (unitSelect?.value || inventoryBaseUnitForCategory(currentPattern));
+        const bottles = (sizeLocked || currentSellBy === "bottle")
+          ? Math.max(1, Math.floor(Number(bottlesInput?.value || 1)))
+          : 1;
+        await persistInventoryStockItem({
+          category: categoryName,
+          brand: brandName,
+          productLine: productLineName,
+          productLineId,
+          variantLabel,
+          variantId,
+          qty: qtyInput?.value,
+          unit,
+          bottles,
+          priceUnit: unitSelect?.value || formState.priceUnit || unit,
+          unitCost: costInput?.value,
+          unitSell: sellInput?.value,
+          currency: currencyInput?.value || "AED",
+          qtyPattern: currentPattern,
+          sizeLocked,
+          sellBy: currentPattern === INVENTORY_CATEGORY_VOLUME ? currentSellBy : "",
+          costMode: useBottleCost ? "bottle" : "unit"
+        });
+        close();
+        if (typeof invalidateAndRefreshInventoryLazy === "function") {
+          await invalidateAndRefreshInventoryLazy().catch(() => {});
+        }
+        if (typeof renderInventoryList === "function") renderInventoryList();
+        if (typeof onSaved === "function") await onSaved();
+      } catch (err) {
+        alert(err?.message || "Could not save stock.");
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        (costInput || qtyInput)?.focus();
+      }
+    });
   };
 
   panel.classList.remove("hide");
@@ -1694,7 +1805,11 @@ async function renderInventorySectionOverlayBody(sectionType){
             categoryName: type,
             productLineName: activeLine.name,
             variantLabel,
-            qtyPattern: cfg.qtyPattern || "count"
+            qtyPattern: resolveCatalogVariantQtyPattern(
+              { label: variantLabel },
+              type,
+              cfg.qtyPattern || "count"
+            )
           });
         }
         await renderInventorySectionOverlayBody(type);
@@ -1732,7 +1847,10 @@ async function renderInventorySectionOverlayBody(sectionType){
       </div>
       <div class="inventory-variant-list">
         ${stockVariants.length ? renderInventoryVariantRowsHtml(stockVariants.map(r => r.group)) : ""}
-        ${catalogOnly.length ? renderInventoryCatalogVariantRowsHtml(catalogOnly) : ""}
+        ${catalogOnly.length ? renderInventoryCatalogVariantRowsHtml(catalogOnly, {
+          itemType: type,
+          qtyPattern: cfg.qtyPattern || "count"
+        }) : ""}
         ${!variantRows.length ? `<div class="empty">No ${escapeHtml(tax.variantPlural)} yet. Tap + ${escapeHtml(tax.variant)}.</div>` : ""}
       </div>
     `;
@@ -1754,7 +1872,7 @@ async function renderInventorySectionOverlayBody(sectionType){
           productLineId: activeLine.id || "",
           variantLabel: btn.dataset.variantLabel || "",
           variantId: btn.dataset.variantId || "",
-          qtyPattern: cfg.qtyPattern || "count",
+          qtyPattern: btn.dataset.variantQtyPattern || cfg.qtyPattern || "count",
           onSaved: () => renderInventorySectionOverlayBody(type)
         });
       });
