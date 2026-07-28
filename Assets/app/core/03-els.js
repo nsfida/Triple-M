@@ -331,6 +331,7 @@ const INVENTORY_DEFAULT_ITEM_TYPES = [
   "Stationery",
   "Furniture",
   "Cables & Pipes",
+  "Books",
   "General"
 ];
 const INVENTORY_TX_PURCHASE = "PURCHASE";
