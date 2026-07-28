@@ -83,6 +83,12 @@ const CANONICAL_MIGRATION_FILES = [
   "058_inventory_sales_upsert_and_owner_fix.sql",
   "059_password_policy.sql",
   "060_fix_category_rename_admin_domain_edit.sql",
+  "061_inventory_sub_brand_variant_attrs.sql",
+  "062_inventory_category_hard_purge.sql",
+  "063_inventory_sell_by_volume_or_bottle.sql",
+  "064_remember_me_and_grace_lock_disable.sql",
+  "065_inventory_summary_sell_by_fields.sql",
+  "066_inventory_category_hard_purge_owner_fix.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
