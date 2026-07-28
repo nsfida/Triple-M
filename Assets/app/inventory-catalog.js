@@ -5,7 +5,7 @@
  */
 (function inventoryCatalogModule(global){
   const PRESETS = [
-    { name: "Electronics", slug: "electronics", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 10, hint: "Brand → Type (iPhone) → Variant (512 GB Black)", productLineLabel: "Type", variantLabelName: "Variant" },
+    { name: "Electronics", slug: "electronics", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 10, hint: "Brand → Type (phone model) → Variant (512 GB Black)", productLineLabel: "Type", variantLabelName: "Variant" },
     { name: "Perfumes", slug: "perfumes", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "volume", sortOrder: 20, hint: "Brand → Fragrance → Size (100 ml bottle)", productLineLabel: "Fragrance", variantLabelName: "Size" },
     { name: "Liquids", slug: "liquids", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "volume", sortOrder: 30, hint: "Brand → Product → Volume", productLineLabel: "Product", variantLabelName: "Volume" },
     { name: "Food & Grocery", slug: "food-grocery", usesBrands: true, usesProductLines: false, usesVariants: true, qtyPattern: "weight", sortOrder: 40, hint: "Brand → Pack / weight", productLineLabel: "Type", variantLabelName: "Pack" },
@@ -18,13 +18,58 @@
     { name: "General", slug: "general", usesBrands: false, usesProductLines: false, usesVariants: false, qtyPattern: "count", sortOrder: 999, hint: "Simple item with quantity", productLineLabel: "Type", variantLabelName: "Variant" }
   ];
 
+  /** Resolve app state whether exposed on window or as a script-global const. */
+  function appState(){
+    try {
+      if (typeof state !== "undefined" && state) return state;
+    } catch (_) {}
+    return global.state || null;
+  }
+
   function slugify(value){
     return String(value || "")
       .trim()
       .toLowerCase()
-      .replace(/&/g, " and ")
+      // Match DB slug rules: "&" is a separator ("Food & Grocery" → food-grocery), not "and".
+      .replace(/&/g, " ")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "general";
+  }
+
+  /** Collapse food-and-grocery ↔ food-grocery style mismatches from older client slugify. */
+  function compactCategorySlug(slug){
+    return String(slug || "")
+      .trim()
+      .toLowerCase()
+      .replace(/-and-/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function isPresetCategory(rowOrNameOrSlug){
+    const presets = presetCategories();
+    if (rowOrNameOrSlug && typeof rowOrNameOrSlug === "object") {
+      const nameKey = String(rowOrNameOrSlug.name || "").trim().toLowerCase();
+      const slugKey = compactCategorySlug(rowOrNameOrSlug.slug || slugify(rowOrNameOrSlug.name || ""));
+      return presets.some(p =>
+        (nameKey && p.name.toLowerCase() === nameKey)
+        || (slugKey && (p.slug === slugKey || compactCategorySlug(p.slug) === slugKey || compactCategorySlug(slugify(p.name)) === slugKey))
+      );
+    }
+    const raw = String(rowOrNameOrSlug || "").trim();
+    if (!raw) return false;
+    const nameKey = raw.toLowerCase();
+    const slugKey = compactCategorySlug(raw.includes(" ") || raw.includes("&") ? slugify(raw) : raw);
+    return presets.some(p =>
+      p.name.toLowerCase() === nameKey
+      || p.slug === slugKey
+      || compactCategorySlug(p.slug) === slugKey
+      || compactCategorySlug(slugify(p.name)) === slugKey
+    );
+  }
+
+  function scrubPresetCategoriesFromCustoms(list){
+    return (Array.isArray(list) ? list : []).filter(c => !isPresetCategory(c));
   }
 
   function h(value){
@@ -138,16 +183,18 @@
   }
 
   function ensureCategoriesLoaded(){
+    const st = appState();
     const custom = ensureCustomCategoriesHydrated();
-    const current = Array.isArray(global.state?.inventoryCategories) ? state.inventoryCategories : [];
+    const current = Array.isArray(st?.inventoryCategories) ? st.inventoryCategories : [];
     if (current.length) {
-      state.inventoryCategories = mergeCategoryLists(current, custom);
-      return state.inventoryCategories;
+      st.inventoryCategories = mergeCategoryLists(current, custom);
+      return st.inventoryCategories;
     }
     const fallback = mergeCategoryLists(presetCategories(), custom);
-    if (global.state) {
-      state.inventoryCategories = fallback;
-      state.inventoryCategoriesLoaded = true;
+    if (st) {
+      st.inventoryCategories = fallback;
+      // Do NOT set inventoryCategoriesLoaded here — presets-only is not a DB load.
+      // Leaving it false forces loadInventoryCategories to fetch from Supabase on refresh.
     }
     return fallback;
   }
@@ -158,11 +205,21 @@
   }
 
   async function loadInventoryCategories(force = false){
-    ensureCategoriesLoaded();
-    if (!global.state) return presetCategories();
-    if (!force && Array.isArray(state.inventoryCategories) && state.inventoryCategories.length) {
-      return state.inventoryCategories;
+    const st = appState();
+    if (!st) return presetCategories();
+    ensureCustomCategoriesHydrated();
+
+    // Early-return only after a real load attempt. Never skip RPC just because presets
+    // were seeded into inventoryCategories (that caused empty customs to vanish on refresh).
+    if (!force && st.inventoryCategoriesLoaded) {
+      st.inventoryCategories = mergeCategoryLists(
+        presetCategories(),
+        st.inventoryCategories || [],
+        st.inventoryCustomCategories || []
+      );
+      return st.inventoryCategories;
     }
+
     let rpcItems = [];
     try {
       if (typeof supabaseRpc === "function" && typeof databaseSessionCanLoad === "function" && databaseSessionCanLoad()) {
@@ -171,7 +228,7 @@
         rpcItems = Array.isArray(res?.items) ? res.items.map(normalizePreset) : [];
       }
     } catch (err) {
-      console.warn("Category config RPC unavailable; using presets.", err);
+      console.warn("Category config RPC unavailable; using presets + local customs.", err);
       rpcItems = [];
     }
     let discovered = [];
@@ -187,13 +244,35 @@
       usesProductLines: true,
       usesVariants: true,
       qtyPattern: /perfume|liquid/i.test(name) ? "volume" : (/cable|pipe|wire/i.test(name) ? "length" : (/food|grocery|weight/i.test(name) ? "weight" : "count")),
-      sortOrder: 200
-    }));
+      sortOrder: 200,
+      isCustom: true
+    })).filter(row => !isPresetCategory(row));
+
     const custom = ensureCustomCategoriesHydrated();
-    state.inventoryCategories = mergeCategoryLists(presetCategories(), discoveredRows, custom, rpcItems);
-    if (!state.inventoryCategories.length) state.inventoryCategories = presetCategories();
-    state.inventoryCategoriesLoaded = true;
-    return state.inventoryCategories;
+    // User-created / non-preset DB categories → always kept in customs so empty grids survive refresh.
+    const rpcCustoms = rpcItems
+      .filter(r => r && !isPresetCategory(r))
+      .map(r => ({ ...r, isCustom: true }));
+    st.inventoryCustomCategories = scrubPresetCategoriesFromCustoms(
+      mergeCategoryLists(custom, rpcCustoms, discoveredRows)
+    );
+    writeStoredCustomCategories(st.inventoryCustomCategories);
+    st.inventoryCategories = mergeCategoryLists(
+      presetCategories(),
+      discoveredRows,
+      st.inventoryCustomCategories,
+      rpcItems
+    );
+    if (!st.inventoryCategories.length) st.inventoryCategories = presetCategories();
+    // Only mark loaded after a DB session was available (RPC attempted). If the session
+    // is not ready yet, leave false so the next inventory paint retries and restores
+    // empty custom grids from Supabase after login/refresh.
+    if (typeof databaseSessionCanLoad === "function" && databaseSessionCanLoad()) {
+      st.inventoryCategoriesLoaded = true;
+    } else if (typeof databaseSessionCanLoad !== "function") {
+      st.inventoryCategoriesLoaded = true;
+    }
+    return st.inventoryCategories;
   }
 
   const CUSTOM_CATEGORIES_KEY = "triplem-inventory-custom-categories-v1";
@@ -215,16 +294,23 @@
   }
 
   function ensureCustomCategoriesHydrated(){
-    if (!global.state) return [];
+    const st = appState();
+    if (!st) return [];
     const stored = readStoredCustomCategories();
-    if (!Array.isArray(state.inventoryCustomCategories)) state.inventoryCustomCategories = [];
-    state.inventoryCustomCategories = mergeCategoryLists(state.inventoryCustomCategories, stored);
-    return state.inventoryCustomCategories;
+    if (!Array.isArray(st.inventoryCustomCategories)) st.inventoryCustomCategories = [];
+    const merged = mergeCategoryLists(st.inventoryCustomCategories, stored);
+    const scrubbed = scrubPresetCategoriesFromCustoms(merged);
+    st.inventoryCustomCategories = scrubbed;
+    // Persist when sticky presets (e.g. Food & Grocery) were stripped from cache.
+    if (scrubbed.length !== merged.length) writeStoredCustomCategories(scrubbed);
+    return st.inventoryCustomCategories;
   }
 
   async function addCustomCategory(name, options = {}){
     const cleaned = String(name || "").replace(/\s+/g, " ").trim();
     if (!cleaned) throw new Error("Category name is required.");
+    const st = appState();
+    if (!st) throw new Error("App state is not ready. Refresh and try again.");
     let row = normalizePreset({
       name: cleaned,
       slug: slugify(cleaned),
@@ -235,7 +321,7 @@
       sortOrder: options.sortOrder || 150,
       hint: options.hint || "Custom category"
     });
-    if (!global.state) return row;
+    row = { ...row, isCustom: true };
     ensureCustomCategoriesHydrated();
     // Persist to DB first so the category survives reload.
     if (typeof supabaseRpc === "function" && typeof databaseSessionCanLoad === "function" && databaseSessionCanLoad()) {
@@ -253,16 +339,24 @@
         }));
         if (res?.item) row = normalizePreset({ ...row, ...res.item, id: res.item.id || row.id });
         else if (res?.id) row = { ...row, id: res.id };
+        else if (res?.ok === false) throw new Error(res?.error || "Could not save category.");
       } catch (err) {
         console.warn("Could not persist new category to database.", err);
         // Keep going with local persistence so the UI still works offline / pre-migration.
       }
     }
-    const existsIdx = state.inventoryCustomCategories.findIndex(c => slugify(c.name) === row.slug || c.slug === row.slug);
-    if (existsIdx >= 0) state.inventoryCustomCategories[existsIdx] = { ...state.inventoryCustomCategories[existsIdx], ...row };
-    else state.inventoryCustomCategories.push(row);
-    writeStoredCustomCategories(state.inventoryCustomCategories);
-    state.inventoryCategories = mergeCategoryLists(presetCategories(), state.inventoryCategories, state.inventoryCustomCategories, [row]);
+    if (!Array.isArray(st.inventoryCustomCategories)) st.inventoryCustomCategories = [];
+    const existsIdx = st.inventoryCustomCategories.findIndex(c => slugify(c.name) === row.slug || c.slug === row.slug);
+    if (existsIdx >= 0) st.inventoryCustomCategories[existsIdx] = { ...st.inventoryCustomCategories[existsIdx], ...row };
+    else st.inventoryCustomCategories.push(row);
+    writeStoredCustomCategories(st.inventoryCustomCategories);
+    // Keep the new category first in the live catalog list so empty tiles never drop it.
+    st.inventoryCategories = mergeCategoryLists(
+      [row],
+      presetCategories(),
+      st.inventoryCategories,
+      st.inventoryCustomCategories
+    );
     return row;
   }
 
@@ -284,9 +378,10 @@
     const name = String(group?.person_name || "").trim();
     const brand = String(group?.brand || "").trim();
     const variant = String(group?.variantLabel || "").trim();
-    // Prefer "Brand · Type · Variant" display names.
+    // Prefer "Brand · SubBrand? · Type · Variant" display names.
     if (name.includes("·")) {
       const parts = name.split("·").map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 4) return parts[2];
       if (parts.length >= 3) return parts[1];
       if (parts.length === 2 && brand && parts[0].toLowerCase() === brand.toLowerCase()) return parts[1];
     }
@@ -357,17 +452,30 @@
   }
 
   /** Merge stock-derived types with catalog product lines so empty types stay visible. */
-  function mergeProductLinesForBrand(brandName, stockItems = []){
-    const fromStock = groupItemsByProductLine(stockItems);
+  function mergeProductLinesForBrand(brandName, stockItems = [], options = {}){
+    const subBrandId = String(options.subBrandId || "").trim();
+    const subBrandOnly = !!options.subBrandOnly;
+    const fromStock = groupItemsByProductLine(
+      (stockItems || []).filter(item => {
+        const itemSub = String(item.subBrandId || "").trim();
+        if (subBrandId) return itemSub === subBrandId;
+        return !itemSub;
+      })
+    );
     const map = new Map(fromStock.map(row => [row.key, { ...row, fromCatalog: false }]));
     const brand = findBrandCatalogEntry(brandName);
     for (const line of (brand?.product_lines || [])) {
+      const lineSub = String(line.sub_brand_id || line.subBrandId || "").trim();
+      if (subBrandId && lineSub !== subBrandId) continue;
+      if (subBrandOnly && !subBrandId && lineSub) continue;
+      if (!subBrandOnly && !subBrandId && lineSub) continue;
       const name = String(line.name || "").trim();
       if (!name) continue;
       const key = productLineKey(name);
       if (map.has(key)) {
         const existing = map.get(key);
         existing.id = existing.id || line.id || "";
+        existing.subBrandId = existing.subBrandId || lineSub;
         existing.catalogVariants = Array.isArray(line.variants) ? line.variants : [];
         continue;
       }
@@ -375,6 +483,7 @@
         key,
         name,
         id: line.id || "",
+        subBrandId: lineSub,
         items: [],
         inStock: false,
         variantCount: Array.isArray(line.variants) ? line.variants.length : 0,
@@ -464,7 +573,7 @@
     return res;
   }
 
-  async function createProductLineInline({ brandName, categoryName, lineName }){
+  async function createProductLineInline({ brandName, categoryName, lineName, subBrandId = null }){
     const name = String(lineName || "").replace(/\s+/g, " ").trim();
     const brand = String(brandName || "").trim();
     const tax = getCategoryTaxonomyLabels(categoryName);
@@ -480,10 +589,39 @@
       p_brand_id: brandEntry.id,
       p_name: name,
       p_category_name: categoryName || "General",
+      p_sort_order: 0,
+      p_sub_brand_id: subBrandId || null
+    }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return { id: res?.id || "", name, brandId: brandEntry.id, subBrandId: subBrandId || "" };
+  }
+
+  async function createSubBrandInline({ brandName, categoryName, subBrandName }){
+    const name = String(subBrandName || "").replace(/\s+/g, " ").trim();
+    const brand = String(brandName || "").trim();
+    if (!name) throw new Error("Sub-brand name is required.");
+    if (!brand) throw new Error("Brand is required.");
+    let brandEntry = findBrandCatalogEntry(brand);
+    if (!brandEntry?.id) {
+      const created = await createBrandInline({ brandName: brand, categoryName });
+      brandEntry = findBrandCatalogEntry(brand) || { id: created.id, name: brand };
+    }
+    const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_sub_brand", {
+      p_id: null,
+      p_brand_id: brandEntry.id,
+      p_name: name,
       p_sort_order: 0
     }));
     if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
     return { id: res?.id || "", name, brandId: brandEntry.id };
+  }
+
+  async function deleteSubBrandInline(subBrandId){
+    const id = String(subBrandId || "").trim();
+    if (!id) throw new Error("Sub-brand id is required.");
+    const res = unwrapRpcJson(await supabaseRpc("app_delete_goods_sub_brand", { p_id: id }));
+    if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+    return res;
   }
 
   async function renameProductLineInline({ lineId, brandId, brandName, categoryName, lineName }){
@@ -649,15 +787,55 @@
   async function deleteCategoryInline(categoryId){
     const id = String(categoryId || "").trim();
     if (!id) throw new Error("Category id is required.");
+    const st = appState();
+    if (!st) throw new Error("App state is not ready. Refresh and try again.");
+    const before = (Array.isArray(st.inventoryCategories) ? st.inventoryCategories : [])
+      .concat(Array.isArray(st.inventoryCustomCategories) ? st.inventoryCustomCategories : [])
+      .find(c => String(c.id || "") === id);
     const res = unwrapRpcJson(await supabaseRpc("app_delete_goods_category", { p_id: id }));
+    ensureCustomCategoriesHydrated();
+    const beforeSlug = String(before?.slug || "").trim().toLowerCase();
+    const beforeName = String(before?.name || "").trim().toLowerCase();
+    st.inventoryCustomCategories = (st.inventoryCustomCategories || []).filter(c => {
+      if (String(c.id || "") === id) return false;
+      if (beforeSlug && String(c.slug || "").trim().toLowerCase() === beforeSlug) return false;
+      if (beforeName && String(c.name || "").trim().toLowerCase() === beforeName) return false;
+      return true;
+    });
+    writeStoredCustomCategories(st.inventoryCustomCategories);
+    if (Array.isArray(st.inventoryCategories)) {
+      st.inventoryCategories = st.inventoryCategories.filter(c => {
+        if (String(c.id || "") === id) return false;
+        if (beforeSlug && String(c.slug || "").trim().toLowerCase() === beforeSlug) return false;
+        if (beforeName && String(c.name || "").trim().toLowerCase() === beforeName) return false;
+        return true;
+      });
+    }
     await loadInventoryCategories(true);
     return res;
   }
 
-  function buildItemDisplayName({ brand, productLine, variantLabel, itemName }){
-    const parts = [brand, productLine, variantLabel].map(v => String(v || "").trim()).filter(Boolean);
-    if (parts.length) return parts.join(" · ");
-    return String(itemName || "Item").trim() || "Item";
+  function buildItemDisplayName({ brand, subBrand, productLine, variantLabel, itemName, variantStorage, variantColor }){
+    const parts = [brand, subBrand, productLine, variantLabel].map(v => String(v || "").trim()).filter(Boolean);
+    let base = parts.length ? parts.join(" · ") : (String(itemName || "Item").trim() || "Item");
+    const attrs = [variantStorage, variantColor].map(v => String(v || "").trim()).filter(Boolean);
+    if (attrs.length) base = `${base} (${attrs.join(", ")})`;
+    return base;
+  }
+
+  function formatInventoryReceiptLineName(src = {}){
+    const parts = [src.brand, src.subBrand, src.productLine, src.variantLabel]
+      .map(v => String(v || "").trim())
+      .filter(Boolean);
+    let base = parts.length
+      ? parts.join(" · ")
+      : (String(src.itemName || src.person_name || "Item").trim() || "Item");
+    const attrs = [src.variantStorage, src.variantColor, src.storage, src.color]
+      .map(v => String(v || "").trim())
+      .filter(Boolean)
+      .filter((v, i, arr) => arr.indexOf(v) === i);
+    if (attrs.length) base = `${base} (${attrs.join(", ")})`;
+    return base;
   }
 
   function ensureAddItemWizardModal(){
@@ -703,15 +881,25 @@
       state.inventoryAddWizard = {
         step: 1,
         category: "",
+        topIntent: "",
         brand: "",
         brandId: "",
+        branchPath: "",
+        subBrand: "",
+        subBrandId: "",
         productLine: "",
         productLineId: "",
         variantLabel: "",
         variantId: "",
+        variantStorage: "",
+        variantColor: "",
+        variantOther: "",
         itemName: "",
         qty: "1",
         unit: "item",
+        qtyPatternOverride: "",
+        sellBy: "",
+        bottles: "1",
         unitCost: "",
         unitSell: "",
         currency: state.lastCurrency || "AED",
@@ -720,6 +908,84 @@
       };
     }
     return state.inventoryAddWizard;
+  }
+
+  /** Dynamic wizard steps from intent + branch (see inventory add-flow plan). */
+  function buildAddWizardSteps(w, cfg){
+    const steps = [];
+    if (!w.categoryLocked) steps.push("category");
+
+    if (!cfg.usesBrands) {
+      if (cfg.usesProductLines) steps.push("productLine");
+      if (cfg.usesVariants) steps.push("variant");
+      steps.push("stock");
+      return steps;
+    }
+
+    steps.push("intent");
+    const intent = String(w.topIntent || "");
+    if (!intent) return steps;
+
+    if (intent === "brands") {
+      steps.push("multiBrand");
+      return steps;
+    }
+    if (intent === "directStock") {
+      steps.push("stock");
+      return steps;
+    }
+
+    // chooseBrand — pick/create one brand, then branch
+    steps.push("brand");
+    steps.push("branch");
+    if (w.branchPath === "subBrand") {
+      steps.push("multiSubBrand");
+      if (cfg.usesProductLines) steps.push("multiType");
+      if (cfg.usesVariants) steps.push("variant");
+    } else if (w.branchPath === "type") {
+      if (cfg.usesProductLines) steps.push("multiType");
+      if (cfg.usesVariants) steps.push("variant");
+    }
+    // branchPath === "directStock": brand → stock (optional name on stock step)
+    steps.push("stock");
+    return steps;
+  }
+
+  function wizardQtyPattern(w, cfg){
+    const override = String(w.qtyPatternOverride || "").toLowerCase();
+    if (["count", "weight", "length", "volume"].includes(override)) return override;
+    return String(cfg.qtyPattern || "count").toLowerCase();
+  }
+
+  function collectWizardMultiNames(rootId){
+    const root = document.getElementById(rootId);
+    if (!root) return [];
+    const seen = new Set();
+    const names = [];
+    root.querySelectorAll(".inventory-multi-inline-input").forEach(input => {
+      const value = String(input.value || "").replace(/\s+/g, " ").trim();
+      if (!value) return;
+      const key = value.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      names.push(value);
+    });
+    return names;
+  }
+
+  function wizardMultiListHtml(rootId, placeholder, rows = 2){
+    const rowHtml = Array.from({ length: Math.max(1, rows) }, () => `
+      <div class="inventory-multi-inline-row">
+        <input class="input inventory-multi-inline-input" type="text" maxlength="120" placeholder="${h(placeholder)}" autocomplete="off" />
+      </div>`).join("");
+    return `
+      <div class="inventory-multi-inline-editor" id="${h(rootId)}">
+        <div class="inventory-multi-inline-rows">${rowHtml}</div>
+        <div class="inventory-multi-inline-actions">
+          <button type="button" class="tiny ghost" data-wizard-multi-add="${h(rootId)}">+ Another</button>
+        </div>
+        <p class="help inventory-multi-inline-hint">One name per row. Continue saves all.</p>
+      </div>`;
   }
 
   function renderAddItemWizard(){
@@ -747,7 +1013,16 @@
       .slice()
       .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
     const selectedBrand = brands.find(b => String(b.id) === String(w.brandId) || String(b.name).toLowerCase() === String(w.brand).toLowerCase());
+    const subBrands = (Array.isArray(selectedBrand?.sub_brands) ? selectedBrand.sub_brands : [])
+      .slice()
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+    const selectedSubBrand = subBrands.find(s => String(s.id) === String(w.subBrandId) || String(s.name).toLowerCase() === String(w.subBrand).toLowerCase());
     const productLines = (Array.isArray(selectedBrand?.product_lines) ? selectedBrand.product_lines : [])
+      .filter(l => {
+        if (w.branchPath !== "subBrand") return !l.sub_brand_id;
+        if (!w.subBrandId || w.subBrandId === "__custom__") return false;
+        return String(l.sub_brand_id || "") === String(w.subBrandId);
+      })
       .slice()
       .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
     const selectedLine = productLines.find(l => String(l.id) === String(w.productLineId) || String(l.name).toLowerCase() === String(w.productLine).toLowerCase());
@@ -758,18 +1033,19 @@
       .sort((a, b) => String(a.label || a.name || "").localeCompare(String(b.label || b.name || ""), undefined, { sensitivity: "base" }));
 
     const tax = getCategoryTaxonomyLabels(cfg);
-    const steps = [];
-    if (!w.categoryLocked) steps.push("category");
-    if (cfg.usesBrands) steps.push("brand");
-    if (cfg.usesProductLines) steps.push("productLine");
-    if (cfg.usesVariants) steps.push("variant");
-    steps.push("stock");
-    // Keep step index valid after category lock changes the step list.
+    const steps = buildAddWizardSteps(w, cfg);
+    // Keep step index valid after category lock / intent changes the step list.
     if (w.step > steps.length) w.step = steps.length;
     if (w.step < 1) w.step = 1;
     const stepLabel = (key) => ({
       category: "Category",
+      intent: "What to add",
+      multiBrand: "Brand(s)",
       brand: "Brand",
+      branch: "Continue with",
+      multiSubBrand: "Sub-brand(s)",
+      multiType: tax.productLinePlural || `${tax.productLine}s`,
+      subBrand: "Sub-brand",
       productLine: tax.productLine,
       variant: tax.variant,
       stock: "Stock"
@@ -777,7 +1053,7 @@
 
     if (title) {
       title.textContent = w.categoryLocked
-        ? `Add ${w.category || "inventory"} item`
+        ? `Add ${w.category || "inventory"}`
         : "Add inventory item";
     }
     if (help) {
@@ -787,7 +1063,7 @@
     }
 
     let fields = "";
-    const currentStep = steps[w.step - 1] || (w.categoryLocked ? "brand" : "category");
+    const currentStep = steps[w.step - 1] || (w.categoryLocked ? "intent" : "category");
     if (currentStep === "category") {
       const sortedCategories = categories.slice().sort((a, b) =>
         (a.sortOrder - b.sortOrder) || String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" })
@@ -818,6 +1094,27 @@
           <p class="help" id="addWizardCategoryHint">${h(cfg.hint || "Choose how this item is organized.")}</p>
           <input type="hidden" id="addWizardCategory" value="${h(w.category || "")}" />
         </div>`;
+    } else if (currentStep === "intent") {
+      fields = `
+        <p class="help">Choose what to add under <strong>${h(w.category || "this category")}</strong>.</p>
+        <div class="inventory-add-branch-grid">
+          <button type="button" class="inventory-add-category-card ${w.topIntent === "brands" ? "is-selected" : ""}" data-top-intent="brands">
+            <strong>Add brand(s)</strong>
+            <span>Create one or many brand names</span>
+          </button>
+          <button type="button" class="inventory-add-category-card ${w.topIntent === "chooseBrand" ? "is-selected" : ""}" data-top-intent="chooseBrand">
+            <strong>Use a brand</strong>
+            <span>Pick or create one brand, then sub-brand / type / item</span>
+          </button>
+          <button type="button" class="inventory-add-category-card ${w.topIntent === "directStock" ? "is-selected" : ""}" data-top-intent="directStock">
+            <strong>Add item with stock</strong>
+            <span>Skip brand — add stock now (Unbranded)</span>
+          </button>
+        </div>`;
+    } else if (currentStep === "multiBrand") {
+      fields = `
+        <p class="help">Add one or more brands for <strong>${h(w.category)}</strong>.</p>
+        ${wizardMultiListHtml("addWizardMultiBrand", "Brand name", 2)}`;
     } else if (currentStep === "brand") {
       fields = `
         ${w.categoryLocked ? `<p class="help">Adding under <strong>${h(w.category)}</strong> only. Brands and items stay in this category.</p>` : ""}
@@ -831,12 +1128,53 @@
         </label>
         <label class="inventory-edit-field inventory-edit-field-wide ${w.brandId === "__custom__" || (!w.brandId && w.brand) ? "" : "hide"}" id="addWizardBrandCustomWrap">
           <span>New brand name</span>
-          <input class="input" id="addWizardBrandCustom" value="${h(w.brandId === "__custom__" || !w.brandId ? w.brand : "")}" placeholder="e.g. Apple, Afnan" />
+          <input class="input" id="addWizardBrandCustom" value="${h(w.brandId === "__custom__" || !w.brandId ? w.brand : "")}" placeholder="e.g. brand name" />
+        </label>`;
+    } else if (currentStep === "branch") {
+      fields = `
+        <p class="help">Brand <strong>${h(w.brand || "selected")}</strong> — what next?</p>
+        <div class="inventory-add-branch-grid">
+          <button type="button" class="inventory-add-category-card ${w.branchPath === "subBrand" ? "is-selected" : ""}" data-branch-path="subBrand">
+            <strong>Sub-brand(s)</strong>
+            <span>Brand → Sub-brand → ${h(tax.productLine)} → ${h(tax.variant)}</span>
+          </button>
+          <button type="button" class="inventory-add-category-card ${w.branchPath === "type" ? "is-selected" : ""}" data-branch-path="type">
+            <strong>${h(tax.productLine)}(s)</strong>
+            <span>Brand → ${h(tax.productLine)} → ${h(tax.variant)}</span>
+          </button>
+          <button type="button" class="inventory-add-category-card ${w.branchPath === "directStock" ? "is-selected" : ""}" data-branch-path="directStock">
+            <strong>Add item with stock</strong>
+            <span>Skip to stock under this brand</span>
+          </button>
+        </div>`;
+    } else if (currentStep === "multiSubBrand") {
+      fields = `
+        <p class="help">Add sub-brand(s) under <strong>${h(w.brand)}</strong>.</p>
+        ${wizardMultiListHtml("addWizardMultiSubBrand", "Sub-brand name", 2)}
+        ${subBrands.length ? `<p class="help">Existing: ${h(subBrands.map(s => s.name).join(", "))}</p>` : ""}`;
+    } else if (currentStep === "multiType") {
+      fields = `
+        <p class="help">Add ${h(tax.productLinePlural || (tax.productLine + "s")).toLowerCase()} under <strong>${h(w.brand)}${w.subBrand ? ` · ${h(w.subBrand)}` : ""}</strong>.</p>
+        ${wizardMultiListHtml("addWizardMultiType", tax.productLine + " name", 2)}
+        ${productLines.length ? `<p class="help">Existing: ${h(productLines.map(l => l.name).join(", "))}</p>` : ""}`;
+    } else if (currentStep === "subBrand") {
+      fields = `
+        <label class="inventory-edit-field inventory-edit-field-wide">
+          <span>Sub-brand</span>
+          <select class="select" id="addWizardSubBrand">
+            <option value="">Select sub-brand…</option>
+            ${subBrands.map(s => `<option value="${h(s.id)}" ${String(s.id) === String(w.subBrandId) ? "selected" : ""}>${h(s.name)}</option>`).join("")}
+            <option value="__custom__">+ New sub-brand…</option>
+          </select>
+        </label>
+        <label class="inventory-edit-field inventory-edit-field-wide ${w.subBrandId === "__custom__" || (!w.subBrandId && w.subBrand) ? "" : "hide"}" id="addWizardSubBrandCustomWrap">
+          <span>New sub-brand name</span>
+          <input class="input" id="addWizardSubBrandCustom" value="${h(w.subBrandId === "__custom__" || !w.subBrandId ? w.subBrand : "")}" placeholder="e.g. Pro, Sport, Classic" />
         </label>`;
     } else if (currentStep === "productLine") {
       const linePlaceholder = /perfume/i.test(cfg.name || cfg.slug || "")
-        ? "e.g. 9PM, Oud, Musk, Brun"
-        : "e.g. iPhone, 9PM, MacBook";
+        ? "e.g. fragrance name, wood scent"
+        : "e.g. phone model, laptop model";
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
           <span>${h(tax.productLine)}</span>
@@ -867,12 +1205,35 @@
         <label class="inventory-edit-field inventory-edit-field-wide ${w.variantId === "__custom__" || (!w.variantId && w.variantLabel) ? "" : "hide"}" id="addWizardVariantCustomWrap">
           <span>New ${h(tax.variant.toLowerCase())}</span>
           <input class="input" id="addWizardVariantCustom" value="${h(w.variantId === "__custom__" || !w.variantId ? w.variantLabel : "")}" placeholder="${h(variantPlaceholder)}" />
-        </label>`;
+        </label>
+        <div class="inventory-draft-form" style="margin-top:8px">
+          <label class="inventory-edit-field">
+            <span>Storage <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardVariantStorage" value="${h(w.variantStorage || "")}" placeholder="e.g. 512 GB" />
+          </label>
+          <label class="inventory-edit-field">
+            <span>Color <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardVariantColor" value="${h(w.variantColor || "")}" placeholder="e.g. Black" />
+          </label>
+          <label class="inventory-edit-field inventory-edit-field-wide">
+            <span>Other specs <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardVariantOther" value="${h(w.variantOther || "")}" placeholder="Free-text specs" />
+          </label>
+        </div>`;
     } else {
-      const pattern = cfg.qtyPattern || "count";
+      const pattern = wizardQtyPattern(w, cfg);
       const sizeHint = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
       const sizeLocked = pattern === "volume" && !!sizeHint;
-      const useBottleCost = sizeLocked;
+      const defaultSellBy = typeof defaultInventorySellBy === "function"
+        ? defaultInventorySellBy({ categorySlug: cfg.slug, categoryName: cfg.name || w.category, qtyPattern: pattern })
+        : "volume";
+      const sellBy = pattern === "volume"
+        ? (typeof normalizeInventorySellBy === "function"
+          ? normalizeInventorySellBy(w.sellBy || "", defaultSellBy)
+          : (w.sellBy || defaultSellBy))
+        : "volume";
+      if (pattern === "volume" && !w.sellBy) w.sellBy = sellBy;
+      const useBottleCost = sizeLocked || (pattern === "volume" && sellBy === "bottle");
       const defaultPriceUnit = w.priceUnit || w.unit || (pattern === "volume" ? "ml" : (typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(pattern) : "item"));
       const defaultQty = sizeHint ? String(sizeHint.qty) : (w.qty || (pattern === "volume" ? "100" : "1"));
       const sizeUnit = sizeHint?.unit || (pattern === "volume" ? "ml" : defaultPriceUnit);
@@ -896,38 +1257,93 @@
       const sizeText = sizeHint
         ? `${typeof trimInventoryNumber === "function" ? trimInventoryNumber(sizeHint.qty, 3) : sizeHint.qty} ${sizeHint.unit === "l" ? "L" : "ml"}`
         : "";
-      const sizeLockHtml = sizeLocked
+      const measureHtml = `
+        <div class="inventory-edit-field inventory-edit-field-wide">
+          <span>Measure as</span>
+          <div class="inventory-add-branch-grid" style="margin-top:6px">
+            ${[
+              ["count", "Pcs / count", "Whole pieces"],
+              ["weight", "Weight", "kg / g"],
+              ["length", "Length", "m / cm"],
+              ["volume", "Volume", "L / ml · pours or bottles"]
+            ].map(([key, title, sub]) => `
+              <button type="button" class="inventory-add-category-card ${pattern === key ? "is-selected" : ""}" data-qty-pattern="${key}">
+                <strong>${title}</strong>
+                <span>${sub}</span>
+              </button>`).join("")}
+          </div>
+        </div>`;
+      const sellByHtml = pattern === "volume"
+        ? `<div class="inventory-edit-field inventory-edit-field-wide">
+            <span>How will you sell this?</span>
+            <div class="inventory-add-branch-grid" style="margin-top:6px">
+              <button type="button" class="inventory-add-category-card ${sellBy === "volume" ? "is-selected" : ""}" data-sell-by="volume">
+                <strong>By volume</strong>
+                <span>Pour / measure (3 ml, 5 ml, custom)</span>
+              </button>
+              <button type="button" class="inventory-add-category-card ${sellBy === "bottle" ? "is-selected" : ""}" data-sell-by="bottle">
+                <strong>By bottle</strong>
+                <span>Whole bottles only (shampoo, sealed)</span>
+              </button>
+            </div>
+          </div>`
+        : "";
+      const sizeLockHtml = (sizeLocked || (pattern === "volume" && sellBy === "bottle" && sizeHint))
         ? `<input type="hidden" id="addWizardQty" value="${h(defaultQty)}" />
           <input type="hidden" id="addWizardSizeUnit" value="${h(sizeUnit)}" />
           <label class="inventory-edit-field">
-            <span>Bottles <em class="optional-label">${h(sizeText)}</em></span>
+            <span>Bottles <em class="optional-label">${h(sizeText || `${defaultQty} ${sizeUnit === "l" ? "L" : "ml"}`)}</em></span>
             <input class="input" id="addWizardBottles" type="number" min="1" step="1" value="${h(w.bottles || "1")}" />
           </label>`
-        : `<label class="inventory-edit-field">
-            <span>${h(qtyLabel)}</span>
-            <input class="input" id="addWizardQty" type="number" min="0.001" step="any" value="${h(defaultQty)}" />
-          </label>`;
+        : (pattern === "volume" && sellBy === "bottle"
+          ? `<label class="inventory-edit-field">
+              <span>${h(qtyLabel)}</span>
+              <input class="input" id="addWizardQty" type="number" min="0.001" step="any" value="${h(defaultQty)}" />
+            </label>
+            <label class="inventory-edit-field">
+              <span>Size unit</span>
+              <select class="select" id="addWizardSizeUnit">${unitOptions}</select>
+            </label>
+            <label class="inventory-edit-field">
+              <span>Bottles in stock</span>
+              <input class="input" id="addWizardBottles" type="number" min="1" step="1" value="${h(w.bottles || "1")}" />
+            </label>`
+          : `<label class="inventory-edit-field">
+              <span>${h(qtyLabel)}</span>
+              <input class="input" id="addWizardQty" type="number" min="0.001" step="any" value="${h(defaultQty)}" />
+            </label>`);
       const unitFieldHtml = useBottleCost
         ? `<input type="hidden" id="addWizardUnit" value="${h(sizeUnit)}" />`
         : `<label class="inventory-edit-field">
             <span>${pattern === "volume" ? "Price unit" : "Unit"}</span>
             <select class="select" id="addWizardUnit">${unitOptions}</select>
           </label>`;
+      const needName = w.branchPath === "directStock" || w.topIntent === "directStock" || !w.variantLabel;
       fields = `
-        <label class="inventory-edit-field inventory-edit-field-wide">
+        ${needName ? `<label class="inventory-edit-field inventory-edit-field-wide">
+          <span>Item name ${w.variantLabel ? `<em class="optional-label">optional</em>` : ""}</span>
+          <input class="input" id="addWizardItemName" value="${h(w.itemName || buildItemDisplayName(w))}" placeholder="Display name" />
+        </label>` : `<label class="inventory-edit-field inventory-edit-field-wide">
           <span>Item display name <em class="optional-label">auto</em></span>
           <input class="input" id="addWizardItemName" value="${h(w.itemName || buildItemDisplayName(w))}" />
-        </label>
+        </label>`}
+        ${(!w.variantLabel && (cfg.usesVariants || w.branchPath === "directStock")) ? `
+          <label class="inventory-edit-field inventory-edit-field-wide">
+            <span>${h(tax.variant)} <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardVariantCustom" value="${h(w.variantLabel || "")}" placeholder="e.g. 100 ml, 512 GB" />
+          </label>` : ""}
+        ${measureHtml}
+        ${sellByHtml}
         <div class="inventory-draft-form">
           ${sizeLockHtml}
           ${unitFieldHtml}
           <label class="inventory-edit-field">
             <span id="addWizardCostLabel">${h(costLabel)}</span>
-            <input class="input" id="addWizardCost" type="number" min="0" step="any" value="${h(w.unitCost || "")}" placeholder="${useBottleCost ? "AED / bottle" : (pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : "")}" />
+            <input class="input" id="addWizardCost" type="number" min="0" step="0.01" value="${h(w.unitCost || "")}" placeholder="${useBottleCost ? "AED / bottle" : (pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : "")}" />
           </label>
           <label class="inventory-edit-field">
             <span id="addWizardSellLabel">${h(sellLabel)} <em class="optional-label">optional</em></span>
-            <input class="input" id="addWizardSell" type="number" min="0" step="any" value="${h(w.unitSell || "")}" placeholder="${useBottleCost ? "Optional" : (pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : "Optional")}" />
+            <input class="input" id="addWizardSell" type="number" min="0" step="0.01" value="${h(w.unitSell || "")}" placeholder="${useBottleCost ? "Optional" : (pattern === "volume" ? `Per ${volLabels?.priceUnit || "ml"}` : "Optional")}" />
           </label>
           <label class="inventory-edit-field">
             <span>Currency</span>
@@ -944,19 +1360,26 @@
         </div>`;
     }
 
+    const onLastStep = w.step >= steps.length;
+    const lastIsStock = currentStep === "stock";
     body.innerHTML = `
       <div class="inventory-add-wizard-steps">
         ${steps.map((s, i) => `<span class="${i + 1 === w.step ? "is-active" : (i + 1 < w.step ? "is-done" : "")}">${h(stepLabel(s))}</span>`).join("")}
       </div>
       ${fields}
-      ${currentStep === "stock" && (cfg.qtyPattern || "") === "volume"
-        ? `<p class="help">${(typeof parseInventorySizeHint === "function" && parseInventorySizeHint(w.variantLabel))
-          ? "Enter bottle cost (e.g. 100 ml bottle for AED 100). Per-ml cost is calculated automatically. Sell price is optional — asked when selling if blank."
-          : "Choose price unit (ml or L). Cost/Sell labels follow that unit. Cart pours calculate from the stored per-liter price."}</p>`
+      ${currentStep === "stock" && wizardQtyPattern(w, cfg) === "volume"
+        ? `<p class="help">${(w.sellBy || "") === "bottle"
+          ? "Sell by bottle: cart asks for whole bottles. Stock is still tracked as volume from bottle size × count."
+          : ((typeof parseInventorySizeHint === "function" && parseInventorySizeHint(w.variantLabel))
+            ? "Sell by volume: enter bottle cost (e.g. 100 ml for AED 100). Cart pours (3/5/10 ml) use the stored per-liter price."
+            : "Sell by volume: choose price unit (ml or L). Cart pours calculate from the stored per-liter price.")}</p>`
         : ""}
       <div class="inventory-add-wizard-actions">
         <button type="button" class="btn ghost" id="addWizardBackBtn" ${w.step <= 1 ? "disabled" : ""}>Back</button>
-        <button type="button" class="btn primary" id="addWizardNextBtn">${w.step >= steps.length ? "Save item" : "Continue"}</button>
+        ${onLastStep && lastIsStock
+          ? `<button type="button" class="btn soft" id="addWizardSaveAnotherBtn">Save &amp; add another</button>
+             <button type="button" class="btn primary" id="addWizardNextBtn">Save item</button>`
+          : `<button type="button" class="btn primary" id="addWizardNextBtn">${onLastStep ? (currentStep === "multiBrand" || currentStep === "multiSubBrand" || currentStep === "multiType" ? "Save" : "Save item") : "Continue"}</button>`}
       </div>
     `;
 
@@ -1009,6 +1432,64 @@
         body.querySelector("#addWizardCreateCategoryBtn")?.click();
       }
     });
+    body.querySelectorAll("[data-top-intent]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        w.topIntent = btn.dataset.topIntent || "";
+        if (w.topIntent === "directStock") {
+          w.brand = "Unbranded";
+          w.brandId = "";
+          w.branchPath = "directStock";
+          w.subBrand = "";
+          w.subBrandId = "";
+          w.productLine = "";
+          w.productLineId = "";
+        } else if (w.topIntent === "brands") {
+          w.branchPath = "";
+        } else if (w.topIntent === "chooseBrand") {
+          w.branchPath = "";
+          if (w.brand === "Unbranded") {
+            w.brand = "";
+            w.brandId = "";
+          }
+        }
+        const nextSteps = buildAddWizardSteps(w, cfg);
+        const intentIdx = nextSteps.indexOf("intent");
+        w.step = intentIdx >= 0 ? intentIdx + 2 : 2;
+        if (w.step > nextSteps.length) w.step = nextSteps.length;
+        renderAddItemWizard();
+      });
+    });
+    body.querySelectorAll("[data-wizard-multi-add]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const rootId = btn.dataset.wizardMultiAdd;
+        const root = document.getElementById(rootId);
+        const rows = root?.querySelector(".inventory-multi-inline-rows");
+        if (!rows) return;
+        const row = document.createElement("div");
+        row.className = "inventory-multi-inline-row";
+        row.innerHTML = `<input class="input inventory-multi-inline-input" type="text" maxlength="120" placeholder="Name" autocomplete="off" />`;
+        rows.appendChild(row);
+        row.querySelector("input")?.focus();
+      });
+    });
+    body.querySelectorAll("[data-qty-pattern]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        syncWizardFieldsFromDom();
+        w.qtyPatternOverride = btn.dataset.qtyPattern || "";
+        if (w.qtyPatternOverride !== "volume") w.sellBy = "";
+        else if (!w.sellBy) {
+          w.sellBy = typeof defaultInventorySellBy === "function"
+            ? defaultInventorySellBy({ categorySlug: cfg.slug, categoryName: cfg.name || w.category, qtyPattern: "volume" })
+            : "volume";
+        }
+        const base = typeof inventoryBaseUnitForCategory === "function"
+          ? inventoryBaseUnitForCategory(w.qtyPatternOverride)
+          : "item";
+        w.unit = w.qtyPatternOverride === "volume" ? "ml" : base;
+        w.priceUnit = w.unit;
+        renderAddItemWizard();
+      });
+    });
     body.querySelector("#addWizardBrand")?.addEventListener("change", e => {
       w.brandId = e.target.value;
       const wrap = body.querySelector("#addWizardBrandCustomWrap");
@@ -1017,6 +1498,41 @@
         const b = brands.find(x => String(x.id) === String(w.brandId));
         w.brand = b?.name || "";
       }
+      w.subBrand = "";
+      w.subBrandId = "";
+      w.productLine = "";
+      w.productLineId = "";
+      w.variantLabel = "";
+      w.variantId = "";
+    });
+    body.querySelectorAll("[data-branch-path]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        w.branchPath = btn.dataset.branchPath || "type";
+        if (w.branchPath !== "subBrand") {
+          w.subBrand = "";
+          w.subBrandId = "";
+        }
+        body.querySelectorAll("[data-branch-path]").forEach(card => {
+          card.classList.toggle("is-selected", card.dataset.branchPath === w.branchPath);
+        });
+        // Rebuild steps immediately so Continue lands on the right next page.
+        const nextSteps = buildAddWizardSteps(w, cfg);
+        const branchIdx = nextSteps.indexOf("branch");
+        w.step = branchIdx >= 0 ? branchIdx + 1 : w.step;
+        renderAddItemWizard();
+      });
+    });
+    body.querySelector("#addWizardSubBrand")?.addEventListener("change", e => {
+      w.subBrandId = e.target.value;
+      body.querySelector("#addWizardSubBrandCustomWrap")?.classList.toggle("hide", w.subBrandId !== "__custom__");
+      if (w.subBrandId && w.subBrandId !== "__custom__") {
+        const s = subBrands.find(x => String(x.id) === String(w.subBrandId));
+        w.subBrand = s?.name || "";
+      }
+      w.productLine = "";
+      w.productLineId = "";
+      w.variantLabel = "";
+      w.variantId = "";
     });
     body.querySelector("#addWizardProductLine")?.addEventListener("change", e => {
       w.productLineId = e.target.value;
@@ -1034,37 +1550,74 @@
         w.variantLabel = v?.label || "";
       }
     });
+    body.querySelectorAll("[data-sell-by]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        syncWizardFieldsFromDom();
+        w.sellBy = btn.dataset.sellBy || "volume";
+        renderAddItemWizard();
+      });
+    });
     body.querySelector("#addWizardBackBtn")?.addEventListener("click", () => {
       syncWizardFieldsFromDom();
       w.step = Math.max(1, w.step - 1);
-      // Category-locked wizards never go back to a global category picker.
       if (w.categoryLocked && steps[w.step - 1] === "category") w.step = Math.min(w.step + 1, steps.length);
       renderAddItemWizard();
     });
-    body.querySelector("#addWizardNextBtn")?.addEventListener("click", async () => {
+    const advanceOrSave = async ({ addAnother = false } = {}) => {
       syncWizardFieldsFromDom();
+      const stepKey = steps[w.step - 1];
       if (w.step < steps.length) {
-        if (!validateWizardStep(steps[w.step - 1], cfg)) return;
+        if (!(await validateWizardStepAsync(stepKey, cfg))) return;
         w.step += 1;
-        // Skip unused steps if category changed mid-way
         while (w.step <= steps.length) {
           const key = steps[w.step - 1];
           if (key === "brand" && !cfg.usesBrands) { w.step += 1; continue; }
-          if (key === "productLine" && !cfg.usesProductLines) { w.step += 1; continue; }
-          if (key === "variant" && !cfg.usesVariants) { w.step += 1; continue; }
+          if (key === "branch" && !cfg.usesBrands) { w.step += 1; continue; }
+          if (key === "subBrand" && w.branchPath !== "subBrand") { w.step += 1; continue; }
+          if (key === "multiSubBrand" && w.branchPath !== "subBrand") { w.step += 1; continue; }
+          if (key === "productLine" && (!cfg.usesProductLines || w.branchPath === "directStock")) { w.step += 1; continue; }
+          if (key === "multiType" && (!cfg.usesProductLines || w.branchPath === "directStock")) { w.step += 1; continue; }
+          if (key === "variant" && (!cfg.usesVariants || w.branchPath === "directStock")) { w.step += 1; continue; }
           break;
         }
         renderAddItemWizard();
         return;
       }
+      if (!(await validateWizardStepAsync(stepKey, cfg))) return;
+      // Catalog-only multi steps finish without stock.
+      if (stepKey === "multiBrand" || stepKey === "multiSubBrand" || stepKey === "multiType") {
+        if (stepKey === "multiBrand") {
+          w.topIntent = "chooseBrand";
+          w.branchPath = "";
+          const nextSteps = buildAddWizardSteps(w, cfg);
+          const branchIdx = nextSteps.indexOf("branch");
+          w.step = branchIdx >= 0 ? branchIdx + 1 : nextSteps.length;
+          renderAddItemWizard();
+          return;
+        }
+        closeAddItemWizard();
+        state.inventoryAddWizard = null;
+        if (typeof renderInventoryList === "function") renderInventoryList();
+        if (state.inventoryActiveSection) {
+          try { await renderInventorySectionOverlayBody(state.inventoryActiveSection); } catch (_) {}
+        }
+        alert(stepKey === "multiSubBrand" ? "Sub-brand(s) saved." : `${tax.productLine}(s) saved.`);
+        return;
+      }
       try {
-        await commitAddItemWizard();
+        await commitAddItemWizard({ addAnother });
       } catch (err) {
         alert(err?.message || "Could not save item.");
       }
+    };
+    body.querySelector("#addWizardNextBtn")?.addEventListener("click", () => {
+      advanceOrSave({ addAnother: false }).catch(() => {});
+    });
+    body.querySelector("#addWizardSaveAnotherBtn")?.addEventListener("click", () => {
+      advanceOrSave({ addAnother: true }).catch(() => {});
     });
 
-    if (currentStep === "stock" && (cfg.qtyPattern || "") === "volume") {
+    if (currentStep === "stock" && wizardQtyPattern(w, cfg) === "volume") {
       const sizeHintNow = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
       if (!sizeHintNow) {
         const refreshWizardPriceLabels = () => {
@@ -1101,6 +1654,19 @@
         w.brand = b?.name || w.brand;
       }
     }
+    const branchSelected = document.querySelector("[data-branch-path].is-selected");
+    if (branchSelected?.dataset?.branchPath) w.branchPath = branchSelected.dataset.branchPath;
+    const subBrand = document.getElementById("addWizardSubBrand");
+    if (subBrand) {
+      w.subBrandId = subBrand.value;
+      if (w.subBrandId === "__custom__") w.subBrand = String(document.getElementById("addWizardSubBrandCustom")?.value || "").trim();
+      else if (w.subBrandId) {
+        const brands = typeof getInventoryBrandCatalog === "function" ? getInventoryBrandCatalog() : (state.inventoryBrands || []);
+        const b = brands.find(x => String(x.id) === String(w.brandId));
+        const s = (b?.sub_brands || []).find(x => String(x.id) === String(w.subBrandId));
+        w.subBrand = s?.name || w.subBrand;
+      }
+    }
     const line = document.getElementById("addWizardProductLine");
     if (line) {
       w.productLineId = line.value;
@@ -1120,14 +1686,30 @@
         w.variantLabel = variant.options[variant.selectedIndex]?.text || w.variantLabel;
       }
     }
+    const storage = document.getElementById("addWizardVariantStorage");
+    if (storage) w.variantStorage = String(storage.value || "").trim();
+    const color = document.getElementById("addWizardVariantColor");
+    if (color) w.variantColor = String(color.value || "").trim();
+    const other = document.getElementById("addWizardVariantOther");
+    if (other) w.variantOther = String(other.value || "").trim();
     const name = document.getElementById("addWizardItemName");
     if (name) w.itemName = name.value.trim();
+    // Stock-step optional variant field (direct stock path)
+    const variantOnStock = document.getElementById("addWizardVariantCustom");
+    if (variantOnStock && !document.getElementById("addWizardVariant")) {
+      w.variantLabel = String(variantOnStock.value || "").trim();
+      w.variantId = w.variantLabel ? "__custom__" : "";
+    }
     const qty = document.getElementById("addWizardQty");
     if (qty) w.qty = qty.value;
     const sizeUnit = document.getElementById("addWizardSizeUnit");
     if (sizeUnit) w.sizeUnit = sizeUnit.value;
     const bottles = document.getElementById("addWizardBottles");
     if (bottles) w.bottles = bottles.value;
+    const sellBySelected = document.querySelector("[data-sell-by].is-selected");
+    if (sellBySelected?.dataset?.sellBy) w.sellBy = sellBySelected.dataset.sellBy;
+    const patternSelected = document.querySelector("[data-qty-pattern].is-selected");
+    if (patternSelected?.dataset?.qtyPattern) w.qtyPatternOverride = patternSelected.dataset.qtyPattern;
     const unit = document.getElementById("addWizardUnit");
     if (unit) {
       w.priceUnit = unit.value;
@@ -1154,6 +1736,10 @@
       alert("Select a category.");
       return false;
     }
+    if (stepKey === "intent" && !w.topIntent) {
+      alert("Choose what to add: brands, a brand path, or item with stock.");
+      return false;
+    }
     if (stepKey === "brand") {
       const brandName = w.brandId === "__custom__" || !w.brandId
         ? String(document.getElementById("addWizardBrandCustom")?.value || w.brand || "").trim()
@@ -1161,12 +1747,33 @@
       if (!brandName) { alert("Enter or select a brand."); return false; }
       w.brand = brandName;
     }
+    if (stepKey === "branch") {
+      if (!w.branchPath) {
+        alert("Choose Sub-brand(s), Type(s), or Add item with stock.");
+        return false;
+      }
+      if (!["subBrand", "type", "directStock"].includes(w.branchPath)) {
+        alert("Choose Sub-brand(s), Type(s), or Add item with stock.");
+        return false;
+      }
+      if (w.branchPath !== "subBrand") {
+        w.subBrand = "";
+        w.subBrandId = "";
+      }
+    }
+    if (stepKey === "subBrand") {
+      const name = w.subBrandId === "__custom__" || !w.subBrandId
+        ? String(document.getElementById("addWizardSubBrandCustom")?.value || w.subBrand || "").trim()
+        : w.subBrand;
+      if (!name) { alert("Enter or select a sub-brand."); return false; }
+      w.subBrand = name;
+    }
     if (stepKey === "productLine") {
       const lineName = w.productLineId === "__custom__" || !w.productLineId
         ? String(document.getElementById("addWizardProductLineCustom")?.value || w.productLine || "").trim()
         : w.productLine;
       if (!lineName) {
-        alert(`Enter or select a ${tax.productLine.toLowerCase()} (e.g. ${/perfume/i.test(cfg.name || "") ? "9PM, Oud" : "iPhone, 9PM"}).`);
+        alert(`Enter or select a ${tax.productLine.toLowerCase()} (e.g. ${/perfume/i.test(cfg.name || "") ? "fragrance name" : "phone model, product name"}).`);
         return false;
       }
       w.productLine = lineName;
@@ -1180,6 +1787,89 @@
         return false;
       }
       w.variantLabel = variant;
+      w.variantStorage = String(document.getElementById("addWizardVariantStorage")?.value || w.variantStorage || "").trim();
+      w.variantColor = String(document.getElementById("addWizardVariantColor")?.value || w.variantColor || "").trim();
+      w.variantOther = String(document.getElementById("addWizardVariantOther")?.value || w.variantOther || "").trim();
+    }
+    if (stepKey === "stock") {
+      const display = String(w.itemName || buildItemDisplayName(w) || "").trim();
+      if (!display && !w.variantLabel) {
+        alert("Enter an item name.");
+        return false;
+      }
+      if (!w.itemName) w.itemName = display;
+    }
+    return true;
+  }
+
+  async function validateWizardStepAsync(stepKey, cfgInput){
+    if (!validateWizardStep(stepKey, cfgInput)) return false;
+    const w = wizardState();
+    const cfg = cfgInput || getCategoryConfig(w.category);
+    const tax = getCategoryTaxonomyLabels(cfg);
+    try {
+      if (stepKey === "multiBrand") {
+        const names = collectWizardMultiNames("addWizardMultiBrand");
+        if (!names.length) {
+          alert("Enter at least one brand name.");
+          return false;
+        }
+        let last = null;
+        for (const name of names) {
+          last = await createBrandInline({ brandName: name, categoryName: w.category });
+        }
+        w.brand = last?.name || names[names.length - 1];
+        w.brandId = last?.id || "";
+        return true;
+      }
+      if (stepKey === "multiSubBrand") {
+        const names = collectWizardMultiNames("addWizardMultiSubBrand");
+        if (!names.length) {
+          alert("Enter at least one sub-brand name.");
+          return false;
+        }
+        if (!w.brand) {
+          alert("Brand is required before sub-brands.");
+          return false;
+        }
+        let last = null;
+        for (const name of names) {
+          last = await createSubBrandInline({
+            brandName: w.brand,
+            categoryName: w.category,
+            subBrandName: name
+          });
+        }
+        w.subBrand = last?.name || names[names.length - 1];
+        w.subBrandId = last?.id || "";
+        return true;
+      }
+      if (stepKey === "multiType") {
+        const names = collectWizardMultiNames("addWizardMultiType");
+        if (!names.length) {
+          alert(`Enter at least one ${tax.productLine.toLowerCase()} name.`);
+          return false;
+        }
+        if (!w.brand) {
+          alert("Brand is required before types.");
+          return false;
+        }
+        let last = null;
+        for (const name of names) {
+          last = await createProductLineInline({
+            brandName: w.brand,
+            categoryName: w.category,
+            lineName: name,
+            subBrandId: w.branchPath === "subBrand" ? (w.subBrandId || null) : null
+          });
+        }
+        w.productLine = last?.name || names[names.length - 1];
+        w.productLineId = last?.id || "";
+        return true;
+      }
+    } catch (err) {
+      alert(err?.message || "Could not save catalog names.");
+      return false;
     }
     return true;
   }
@@ -1187,7 +1877,7 @@
   async function ensureWizardCatalogIds(){
     const w = wizardState();
     const cfg = getCategoryConfig(w.category);
-    if (cfg.usesBrands && w.brand) {
+    if (cfg.usesBrands && w.brand && String(w.brand).trim().toLowerCase() !== "unbranded") {
       if (!w.brandId || w.brandId === "__custom__") {
         const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand", {
           p_id: null,
@@ -1198,12 +1888,44 @@
         w.brandId = res?.id || "";
         if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
       }
+    } else if (String(w.brand || "").trim().toLowerCase() === "unbranded") {
+      w.brand = "";
+      w.brandId = "";
+    }
+    if (w.branchPath === "subBrand" && w.brandId && w.subBrand) {
+      const brandEntry = (typeof getInventoryBrandCatalog === "function" ? getInventoryBrandCatalog() : [])
+        .find(b => String(b.id) === String(w.brandId));
+      const matched = (brandEntry?.sub_brands || []).find(s =>
+        String(s.name || "").trim().toLowerCase() === String(w.subBrand || "").trim().toLowerCase()
+      );
+      if (matched?.id) {
+        w.subBrandId = matched.id;
+      } else if (!w.subBrandId || w.subBrandId === "__custom__") {
+        try {
+          const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_sub_brand", {
+            p_id: null,
+            p_brand_id: w.brandId,
+            p_name: w.subBrand,
+            p_sort_order: 0
+          }));
+          w.subBrandId = res?.id || "";
+        } catch (err) {
+          console.warn("Sub-brand RPC unavailable; saving in item meta only.", err);
+          w.subBrandId = "";
+        }
+        if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
+      }
+    } else {
+      w.subBrand = "";
+      w.subBrandId = "";
     }
     if (cfg.usesProductLines && w.brandId && w.productLine) {
       const brandEntry = (typeof getInventoryBrandCatalog === "function" ? getInventoryBrandCatalog() : [])
         .find(b => String(b.id) === String(w.brandId));
+      const wantSub = w.branchPath === "subBrand" ? String(w.subBrandId || "") : "";
       const matchedLine = (brandEntry?.product_lines || []).find(l =>
         productLineKey(l.name) === productLineKey(w.productLine)
+        && String(l.sub_brand_id || "") === wantSub
       );
       // Never reuse another type's id when the typed name differs (prevents 9PM → 9PM Rebel rename).
       if (matchedLine?.id) {
@@ -1215,7 +1937,8 @@
             p_brand_id: w.brandId,
             p_name: w.productLine,
             p_category_name: w.category || "General",
-            p_sort_order: 0
+            p_sort_order: 0,
+            p_sub_brand_id: wantSub || null
           }));
           w.productLineId = res?.id || "";
         } catch (err) {
@@ -1232,7 +1955,8 @@
               p_brand_id: w.brandId,
               p_name: w.productLine,
               p_category_name: w.category || "General",
-              p_sort_order: 0
+              p_sort_order: 0,
+              p_sub_brand_id: wantSub || null
             }));
             w.productLineId = res?.id || "";
           } catch (err) {
@@ -1254,22 +1978,26 @@
       );
       if (matchedVariant?.id) {
         w.variantId = matchedVariant.id;
-      } else if (!w.variantId || w.variantId === "__custom__") {
+      }
+      if (!w.variantId || w.variantId === "__custom__" || w.variantStorage || w.variantColor || w.variantOther) {
         try {
           const res = unwrapRpcJson(await supabaseRpc("app_upsert_goods_brand_variant", {
-            p_id: null,
+            p_id: (w.variantId && w.variantId !== "__custom__") ? w.variantId : null,
             p_brand_id: w.brandId,
             p_label: w.variantLabel,
             p_item_category: cfg.qtyPattern || "count",
             p_quantity_value: 1,
             p_quantity_unit: typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(cfg.qtyPattern) : "item",
             p_sort_order: 0,
-            p_product_line_id: w.productLineId || null
+            p_product_line_id: w.productLineId || null,
+            p_storage: w.variantStorage || null,
+            p_color: w.variantColor || null,
+            p_other: w.variantOther || null
           }));
-          w.variantId = res?.id || "";
+          w.variantId = res?.id || w.variantId || "";
         } catch (err) {
           console.warn("Variant RPC failed; saving label in meta only.", err);
-          w.variantId = "";
+          if (!w.variantId || w.variantId === "__custom__") w.variantId = "";
         }
         if (typeof ensureInventoryBrandsLoaded === "function") await ensureInventoryBrandsLoaded(true);
       }
@@ -1294,8 +2022,14 @@
       : sizeUnit;
     const enteredCost = Number(payload.unitCost || 0);
     const enteredSell = Number(payload.unitSell || 0);
+    const sellBy = qtyPattern === "volume"
+      ? (typeof normalizeInventorySellBy === "function"
+        ? normalizeInventorySellBy(payload.sellBy || "", "volume")
+        : (payload.sellBy === "bottle" ? "bottle" : "volume"))
+      : "";
     const costMode = String(payload.costMode || "").toLowerCase() === "bottle"
-      || (!!payload.sizeLocked && qtyPattern === "volume");
+      || (!!payload.sizeLocked && qtyPattern === "volume")
+      || (qtyPattern === "volume" && sellBy === "bottle");
     if (!(qty > 0)) throw new Error("Enter a valid quantity / volume / weight / length.");
     if (!(enteredCost > 0)) {
       throw new Error(costMode
@@ -1335,15 +2069,22 @@
       category: categoryName,
       brand: String(payload.brand || "").trim(),
       brandId: payload.brandId || "",
+      branchPath: payload.branchPath || (payload.subBrand || payload.subBrandId ? "subBrand" : "type"),
+      subBrand: String(payload.subBrand || "").trim(),
+      subBrandId: payload.subBrandId || "",
       productLine: String(payload.productLine || "").trim(),
       productLineId: payload.productLineId || "",
       variantLabel: String(payload.variantLabel || "").trim(),
       variantId: payload.variantId || "",
+      variantStorage: String(payload.variantStorage || "").trim(),
+      variantColor: String(payload.variantColor || "").trim(),
+      variantOther: String(payload.variantOther || "").trim(),
       itemName: String(payload.itemName || "").trim(),
       qty: String(payload.qty ?? qtyPerBottle),
       unit: sizeUnit,
       bottles: String(bottles),
       priceUnit,
+      sellBy: sellBy || "",
       unitCost: String(enteredCost),
       unitSell: enteredSell > 0 ? String(enteredSell) : "",
       currency: payload.currency || state.lastCurrency || "AED",
@@ -1366,6 +2107,7 @@
 
       const uuidOk = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || "").trim());
       const brandId = w.brandId && w.brandId !== "__custom__" && uuidOk(w.brandId) ? String(w.brandId).trim() : "";
+      const subBrandId = w.subBrandId && w.subBrandId !== "__custom__" && uuidOk(w.subBrandId) ? String(w.subBrandId).trim() : "";
       const productLineId = w.productLineId && w.productLineId !== "__custom__" && uuidOk(w.productLineId) ? String(w.productLineId).trim() : "";
       const variantId = w.variantId && w.variantId !== "__custom__" && uuidOk(w.variantId) ? String(w.variantId).trim() : "";
       const currency = String(w.currency || "AED").trim().toUpperCase() || "AED";
@@ -1383,10 +2125,20 @@
         quantityUnit: typeof inventoryBaseUnitForCategory === "function" ? inventoryBaseUnitForCategory(qtyPattern) : unit,
         brand: w.brand || "",
         brandId,
+        subBrand: w.subBrand || "",
+        subBrandId,
         productLine: w.productLine || "",
         productLineId,
         variantLabel: w.variantLabel || "",
         variantId,
+        variantStorage: w.variantStorage || "",
+        variantColor: w.variantColor || "",
+        variantOther: w.variantOther || "",
+        sellBy: sellBy || "",
+        bottleSizeQty: qtyPattern === "volume" && Number(payload.qty) > 0 ? Number(payload.qty) : null,
+        bottleSizeUnit: qtyPattern === "volume" && Number(payload.qty) > 0
+          ? (String(sizeUnit || "ml").toLowerCase() === "l" ? "l" : "ml")
+          : "",
         categorySlug: cfg.slug,
         // Match classic purchase save path (domain maps ITEM principals → goods_items).
         transactionType: "ITEM",
@@ -1441,7 +2193,14 @@
             p_product_line_id: productLineId || null,
             p_category_slug: meta.categorySlug || null,
             p_item_category: qtyPattern,
-            p_quantity_unit: meta.quantityUnit || "item"
+            p_quantity_unit: meta.quantityUnit || "item",
+            p_sub_brand: meta.subBrand || null,
+            p_sub_brand_id: subBrandId || null,
+            p_variant_storage: meta.variantStorage || null,
+            p_variant_color: meta.variantColor || null,
+            p_sell_by: meta.sellBy || null,
+            p_bottle_size_qty: meta.bottleSizeQty != null ? Number(meta.bottleSizeQty) : null,
+            p_bottle_size_unit: meta.bottleSizeUnit || null
           }));
           if (res?.ok !== false) syncedViaRpc = true;
         } catch (rpcErr) {
@@ -1475,20 +2234,42 @@
     }
   }
 
-  async function commitAddItemWizard(){
+  async function commitAddItemWizard({ addAnother = false } = {}){
     const w = wizardState();
     const cfg = getCategoryConfig(w.category);
     syncWizardFieldsFromDom();
+    const qtyPattern = wizardQtyPattern(w, cfg);
     const sizeHint = typeof parseInventorySizeHint === "function" ? parseInventorySizeHint(w.variantLabel) : null;
-    const sizeLocked = !!(cfg.qtyPattern === "volume" && sizeHint);
+    const sizeLocked = !!(qtyPattern === "volume" && sizeHint);
+    const ctx = {
+      category: w.category,
+      categoryLocked: !!w.categoryLocked,
+      topIntent: w.topIntent || "",
+      brand: w.brand || "",
+      brandId: w.brandId || "",
+      branchPath: w.branchPath || "",
+      subBrand: w.subBrand || "",
+      subBrandId: w.subBrandId || "",
+      productLine: w.productLine || "",
+      productLineId: w.productLineId || "",
+      qtyPatternOverride: w.qtyPatternOverride || "",
+      sellBy: w.sellBy || "",
+      currency: w.currency || "AED"
+    };
     const result = await persistInventoryStockItem({
       category: w.category,
-      brand: w.brand,
+      brand: w.brand === "Unbranded" ? "" : w.brand,
       brandId: w.brandId,
+      branchPath: w.branchPath,
+      subBrand: w.subBrand,
+      subBrandId: w.subBrandId,
       productLine: w.productLine,
       productLineId: w.productLineId,
       variantLabel: w.variantLabel,
       variantId: w.variantId,
+      variantStorage: w.variantStorage,
+      variantColor: w.variantColor,
+      variantOther: w.variantOther,
       itemName: w.itemName,
       qty: w.qty,
       unit: w.sizeUnit || sizeHint?.unit || w.unit,
@@ -1499,18 +2280,44 @@
       currency: w.currency,
       description: w.description,
       boughtDate: w.boughtDate,
-      qtyPattern: cfg.qtyPattern,
+      qtyPattern,
       sizeLocked,
-      costMode: sizeLocked ? "bottle" : "unit"
+      sellBy: qtyPattern === "volume"
+        ? (w.sellBy || (typeof defaultInventorySellBy === "function"
+          ? defaultInventorySellBy({ categorySlug: cfg.slug, categoryName: cfg.name || w.category, qtyPattern })
+          : "volume"))
+        : "",
+      costMode: (sizeLocked || w.sellBy === "bottle") ? "bottle" : "unit"
     });
 
-    closeAddItemWizard();
-    state.inventoryAddWizard = null;
     if (typeof renderInventoryList === "function") renderInventoryList();
     if (state.inventoryActiveSection) {
       try { await renderInventorySectionOverlayBody(state.inventoryActiveSection); } catch (_) {}
     }
+
+    if (addAnother) {
+      await openInventoryAddItemWizard({
+        seedType: ctx.category,
+        brand: ctx.brand,
+        brandId: ctx.brandId,
+        branchPath: ctx.branchPath || "directStock",
+        subBrand: ctx.subBrand,
+        subBrandId: ctx.subBrandId,
+        productLine: ctx.productLine,
+        productLineId: ctx.productLineId,
+        topIntent: ctx.topIntent === "brands" ? "chooseBrand" : (ctx.topIntent || "directStock"),
+        qtyPatternOverride: ctx.qtyPatternOverride,
+        sellBy: ctx.sellBy,
+        currency: ctx.currency,
+        jumpToStock: true
+      });
+      return result;
+    }
+
+    closeAddItemWizard();
+    state.inventoryAddWizard = null;
     if (result) alert("Item added to inventory.");
+    return result;
   }
 
   async function openInventoryAddItemWizard(options = {}){
@@ -1526,36 +2333,50 @@
     const categoryLocked = !!seededCategory;
     const category = seededCategory || cats[0]?.name || "General";
     const cfg = getCategoryConfig(category);
-    const stepKeys = [];
-    if (!categoryLocked) stepKeys.push("category");
-    if (cfg.usesBrands) stepKeys.push("brand");
-    if (cfg.usesProductLines) stepKeys.push("productLine");
-    if (cfg.usesVariants) stepKeys.push("variant");
-    stepKeys.push("stock");
-    let desiredKey = categoryLocked
-      ? (cfg.usesBrands ? "brand" : (cfg.usesProductLines ? "productLine" : (cfg.usesVariants ? "variant" : "stock")))
-      : "category";
-    if (options.brand || options.brandId) {
-      desiredKey = cfg.usesProductLines ? "productLine" : (cfg.usesVariants ? "variant" : "stock");
+    const seededBranch = options.branchPath
+      || (options.subBrand || options.subBrandId ? "subBrand"
+        : (options.productLine || options.productLineId ? "type" : ""));
+    let topIntent = options.topIntent || "";
+    if (!topIntent) {
+      if (!cfg.usesBrands) topIntent = "directStock";
+      else if (options.brand || options.brandId || options.jumpToStock) topIntent = "chooseBrand";
+      else if (categoryLocked) topIntent = ""; // show intent
+      else topIntent = "";
     }
-    if (options.productLine || options.productLineId) {
-      desiredKey = cfg.usesVariants ? "variant" : "stock";
+    if (options.jumpToStock && !topIntent) {
+      topIntent = (options.brand || options.brandId) ? "chooseBrand" : "directStock";
     }
-    if (options.variantLabel || options.variantId) desiredKey = "stock";
-    const startStep = Math.max(1, stepKeys.indexOf(desiredKey) + 1 || 1);
+    if (topIntent === "directStock" && !(options.brand || options.brandId)) {
+      options.brand = options.brand || "Unbranded";
+    }
+
     state.inventoryAddWizard = {
-      step: startStep,
+      step: 1,
       categoryLocked,
       category,
+      topIntent,
       brand: options.brand || "",
       brandId: options.brandId || "",
+      branchPath: seededBranch || (topIntent === "directStock" ? "directStock" : ""),
+      subBrand: options.subBrand || "",
+      subBrandId: options.subBrandId || "",
       productLine: options.productLine || "",
       productLineId: options.productLineId || "",
       variantLabel: options.variantLabel || "",
       variantId: options.variantId || "",
+      variantStorage: options.variantStorage || "",
+      variantColor: options.variantColor || "",
+      variantOther: options.variantOther || "",
       itemName: "",
       qty: options.qty || (cfg.qtyPattern === "volume" ? "100" : "1"),
       unit: options.unit || (cfg.qtyPattern === "volume" ? "ml" : "item"),
+      qtyPatternOverride: options.qtyPatternOverride || "",
+      sellBy: options.sellBy || (cfg.qtyPattern === "volume"
+        ? (typeof defaultInventorySellBy === "function"
+          ? defaultInventorySellBy({ categorySlug: cfg.slug, categoryName: cfg.name || category, qtyPattern: cfg.qtyPattern })
+          : "volume")
+        : ""),
+      bottles: options.bottles || "1",
       unitCost: "",
       unitSell: "",
       currency: options.currency || state.lastCurrency || "AED",
@@ -1569,6 +2390,30 @@
           ? inventoryBaseUnitForCategory(cfg.qtyPattern)
           : "item");
     }
+
+    const stepKeys = buildAddWizardSteps(state.inventoryAddWizard, cfg);
+    let desiredKey = "intent";
+    if (!cfg.usesBrands) desiredKey = "stock";
+    if (options.jumpToStock) desiredKey = "stock";
+    else if (options.brand || options.brandId) {
+      desiredKey = seededBranch === "directStock"
+        ? "stock"
+        : (seededBranch ? "branch" : "brand");
+    } else if (categoryLocked && !topIntent) {
+      desiredKey = "intent";
+    } else if (!categoryLocked) {
+      desiredKey = "category";
+    }
+    if (options.subBrand || options.subBrandId) {
+      desiredKey = cfg.usesProductLines ? "multiType" : (cfg.usesVariants ? "variant" : "stock");
+    }
+    if (options.productLine || options.productLineId) {
+      desiredKey = cfg.usesVariants ? "variant" : "stock";
+    }
+    if (options.variantLabel || options.variantId) desiredKey = "stock";
+    const idx = stepKeys.indexOf(desiredKey);
+    state.inventoryAddWizard.step = Math.max(1, (idx >= 0 ? idx : 0) + 1);
+
     try {
       renderAddItemWizard();
     } catch (err) {
@@ -1612,6 +2457,9 @@
   global.loadInventoryCategories = loadInventoryCategories;
   global.getWizardCategories = getWizardCategories;
   global.addCustomCategory = addCustomCategory;
+  global.writeStoredCustomCategories = writeStoredCustomCategories;
+  global.ensureCustomCategoriesHydrated = ensureCustomCategoriesHydrated;
+  global.isPresetCategory = isPresetCategory;
   global.getCategoryConfig = getCategoryConfig;
   global.getCategoryTaxonomyLabels = getCategoryTaxonomyLabels;
   global.groupItemsByBrand = groupItemsByBrand;
@@ -1621,6 +2469,8 @@
   global.createBrandInline = createBrandInline;
   global.renameBrandInline = renameBrandInline;
   global.deleteBrandInline = deleteBrandInline;
+  global.createSubBrandInline = createSubBrandInline;
+  global.deleteSubBrandInline = deleteSubBrandInline;
   global.createProductLineInline = createProductLineInline;
   global.renameProductLineInline = renameProductLineInline;
   global.deleteProductLineInline = deleteProductLineInline;
@@ -1633,6 +2483,7 @@
   global.resolveItemProductLine = resolveItemProductLine;
   global.productLineKey = productLineKey;
   global.buildItemDisplayName = buildItemDisplayName;
+  global.formatInventoryReceiptLineName = formatInventoryReceiptLineName;
   global.openInventoryAddItemWizard = openInventoryAddItemWizard;
   global.closeAddItemWizard = closeAddItemWizard;
   global.applyCartChrome = applyCartChrome;
