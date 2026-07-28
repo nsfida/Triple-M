@@ -1593,6 +1593,8 @@ function syncInventoryCatalogMetaOnEntries(matcher, patch){
             variantLabel: nextMeta.variantLabel,
             variantStorage: nextMeta.variantStorage,
             variantColor: nextMeta.variantColor,
+            category: nextMeta.itemType,
+            itemType: nextMeta.itemType,
             itemName: entry.person_name
           })
         : entry.person_name;
@@ -1632,6 +1634,10 @@ async function renderInventorySectionOverlayBody(sectionType){
   const tax = typeof getCategoryTaxonomyLabels === "function"
     ? getCategoryTaxonomyLabels(cfg)
     : { productLine: "Type", variant: "Variant", productLinePlural: "types", variantPlural: "variants", breadcrumb: "Brand → Type → Variant" };
+  const primaryLabel = tax.primary || "Brand";
+  const primaryPlural = tax.primaryPlural || "Brands";
+  const subBrandLabel = tax.subBrand || "Sub-brand";
+  const isBooks = primaryLabel === "Author";
   const freshItems = sortInventorySectionItems(
     getGoodsGroups({ applyUiFilters: false }).filter(g => normalizeInventoryItemType(g.itemType) === type)
   );
@@ -1727,6 +1733,7 @@ async function renderInventorySectionOverlayBody(sectionType){
       openInventoryAddItemWizard({
         seedType: type,
         brand: state.inventoryActiveBrand,
+        brandId: activeBrand?.brandId || "",
         subBrand: state.inventoryActiveSubBrand,
         subBrandId: state.inventoryActiveSubBrandId,
         branchPath: state.inventoryActiveSubBrandId ? "subBrand" : (seed.branchPath || ""),
@@ -1740,9 +1747,11 @@ async function renderInventorySectionOverlayBody(sectionType){
 
   const showInlineTypeEditor = () => {
     const list = body.querySelector(".inventory-brand-list") || body;
-    const placeholder = /perfume/i.test(type)
-      ? `${tax.productLine} (e.g. fragrance name, wood scent)`
-      : `${tax.productLine} name (e.g. product name)`;
+    const placeholder = isBooks
+      ? "Book title (e.g. 1984, The Great Gatsby)"
+      : (/perfume/i.test(type)
+        ? `${tax.productLine} (e.g. fragrance name, wood scent)`
+        : `${tax.productLine} name (e.g. product name)`);
     openInventoryMultiCreate(list, {
       placeholder,
       kind: "type",
@@ -1766,7 +1775,7 @@ async function renderInventorySectionOverlayBody(sectionType){
   const showInlineSubBrandEditor = () => {
     const list = body.querySelector(".inventory-brand-list") || body;
     openInventoryMultiCreate(list, {
-      placeholder: "Sub-brand name",
+      placeholder: isBooks ? "Series name (e.g. Classic novels)" : "Sub-brand name",
       kind: "sub-brand",
       onSaveAll: async (names) => {
         if (typeof createSubBrandInline !== "function") throw new Error("Catalog helper missing.");
@@ -1791,9 +1800,11 @@ async function renderInventorySectionOverlayBody(sectionType){
 
   const showInlineVariantEditor = () => {
     const list = body.querySelector(".inventory-variant-list") || body;
-    const placeholder = /perfume/i.test(type)
-      ? `${tax.variant} (e.g. 100 ml, 50 ml, 1 L)`
-      : `${tax.variant} (e.g. 3ml, 100ml)`;
+    const placeholder = isBooks
+      ? "Edition / format (e.g. Paperback, Hardcover, 1st edition)"
+      : (/perfume/i.test(type)
+        ? `${tax.variant} (e.g. 100 ml, 50 ml, 1 L)`
+        : `${tax.variant} (e.g. 3ml, 100ml)`);
     openInventoryMultiCreate(list, {
       placeholder,
       kind: "variant",
@@ -1842,6 +1853,7 @@ async function renderInventorySectionOverlayBody(sectionType){
         <button type="button" class="tiny ghost" id="inventorySectionBackBtn"><i class="fa-solid fa-arrow-left"></i> ${escapeHtml(activeSubBrand?.name || activeBrand.brand)}</button>
         <div class="inventory-section-detail-actions">
           <button type="button" class="tiny ghost" id="inventorySectionAddVariantBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(tax.variant)}</button>
+          <button type="button" class="tiny ghost" id="inventorySectionAddStockWizardBtn"><i class="fa-solid fa-plus"></i> Stock</button>
           <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
         </div>
       </div>
@@ -1859,6 +1871,7 @@ async function renderInventorySectionOverlayBody(sectionType){
       renderInventorySectionOverlayBody(type);
     });
     body.querySelector("#inventorySectionAddVariantBtn")?.addEventListener("click", showInlineVariantEditor);
+    body.querySelector("#inventorySectionAddStockWizardBtn")?.addEventListener("click", () => openAddWizard());
     body.querySelector("#inventorySectionOpenDraftBtn")?.addEventListener("click", () => openSaleDraftModal());
     body.querySelectorAll(".inventoryCatalogAddStockBtn").forEach(btn => {
       btn.addEventListener("click", e => {
@@ -1934,7 +1947,7 @@ async function renderInventorySectionOverlayBody(sectionType){
     if (desc) {
       desc.textContent = showSubBrandLevel
         ? `${activeBrand.brand} · ${productLines.length} ${productLines.length === 1 ? tax.productLine.toLowerCase() : tax.productLinePlural}`
-        : `${subBrandRows.length ? `${subBrandRows.length} sub-brand${subBrandRows.length === 1 ? "" : "s"} · ` : ""}${productLines.length} ${productLines.length === 1 ? tax.productLine.toLowerCase() : tax.productLinePlural} · Stock ${activeBrand.stockLabel || inventoryQtySummary(activeBrand.items || [], "remainingQty")}`;
+        : `${subBrandRows.length ? `${subBrandRows.length} ${subBrandLabel.toLowerCase()}${subBrandRows.length === 1 ? "" : "s"} · ` : ""}${productLines.length} ${productLines.length === 1 ? tax.productLine.toLowerCase() : tax.productLinePlural} · Stock ${activeBrand.stockLabel || inventoryQtySummary(activeBrand.items || [], "remainingQty")}`;
     }
     const subBrandListHtml = (!showSubBrandLevel && subBrandRows.length)
       ? subBrandRows.map((sb, index) => `
@@ -1946,7 +1959,7 @@ async function renderInventorySectionOverlayBody(sectionType){
               <span class="inventory-section-item-index">#${index + 1}</span>
               <span class="inventory-brand-row-main">
                 <strong>${escapeHtml(sb.name)}</strong>
-                <span>Sub-brand · ${escapeHtml(String(sb.lineCount || 0))} ${tax.productLinePlural} · Stock ${escapeHtml(sb.stockLabel || "0")}</span>
+                <span>${escapeHtml(subBrandLabel)} · ${escapeHtml(String(sb.lineCount || 0))} ${tax.productLinePlural} · Stock ${escapeHtml(sb.stockLabel || "0")}</span>
               </span>
               <span class="badge ${sb.inStock ? "orange" : "green"}">${sb.inStock ? "In stock" : "Empty"}</span>
               <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
@@ -1958,8 +1971,9 @@ async function renderInventorySectionOverlayBody(sectionType){
       <div class="inventory-section-detail-head inventory-section-brand-head">
         <button type="button" class="tiny ghost" id="inventorySectionBackBtn"><i class="fa-solid fa-arrow-left"></i> ${escapeHtml(showSubBrandLevel ? activeBrand.brand : type)}</button>
         <div class="inventory-section-detail-actions">
-          ${showSubBrandLevel ? "" : `<button type="button" class="tiny ghost" id="inventorySectionAddSubBrandBtn"><i class="fa-solid fa-plus"></i> Sub-brand</button>`}
+          ${showSubBrandLevel ? "" : `<button type="button" class="tiny ghost" id="inventorySectionAddSubBrandBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(subBrandLabel)}</button>`}
           <button type="button" class="tiny ghost" id="inventorySectionAddTypeBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(tax.productLine)}</button>
+          <button type="button" class="tiny ghost" id="inventorySectionAddStockWizardBtn"><i class="fa-solid fa-plus"></i> Stock</button>
           <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
         </div>
       </div>
@@ -1984,7 +1998,7 @@ async function renderInventorySectionOverlayBody(sectionType){
               <span class="badge ${line.inStock ? "orange" : "green"}">${line.inStock ? "In stock" : "Empty"}</span>
               <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
             </button>
-            ${lineId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: `Edit ${tax.productLine.toLowerCase()}`, deleteLabel: `Delete ${tax.productLine.toLowerCase()}` }) : ""}
+          ${lineId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: `Edit ${tax.productLine.toLowerCase()}`, deleteLabel: `Delete ${tax.productLine.toLowerCase()}` }) : ""}
           </div>`;
         }).join("") : (showSubBrandLevel || !subBrandRows.length ? `<div class="empty">No ${escapeHtml(tax.productLinePlural)} yet. Tap + ${escapeHtml(tax.productLine)} or + Sub-brand.</div>` : "")}
       </div>
@@ -2004,6 +2018,7 @@ async function renderInventorySectionOverlayBody(sectionType){
     });
     body.querySelector("#inventorySectionAddSubBrandBtn")?.addEventListener("click", showInlineSubBrandEditor);
     body.querySelector("#inventorySectionAddTypeBtn")?.addEventListener("click", showInlineTypeEditor);
+    body.querySelector("#inventorySectionAddStockWizardBtn")?.addEventListener("click", () => openAddWizard());
     body.querySelector("#inventorySectionOpenDraftBtn")?.addEventListener("click", () => openSaleDraftModal());
     body.querySelectorAll(".inventory-brand-row-hit[data-section-sub-brand]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -2024,7 +2039,7 @@ async function renderInventorySectionOverlayBody(sectionType){
         if (action !== "delete") return;
         const subId = dataset.subBrandId || "";
         if (!subId) throw new Error("Sub-brand id missing.");
-        if (!confirm(`Delete sub-brand “${dataset.subBrandName || ""}” and its types/variants/stock?`)) return;
+        if (!confirm(`Delete ${subBrandLabel.toLowerCase()} “${dataset.subBrandName || ""}” and its ${tax.productLinePlural}/${tax.variantPlural}/stock?`)) return;
         if (typeof deleteSubBrandInline !== "function") throw new Error("Catalog helper missing.");
         await deleteSubBrandInline(subId);
         if (String(state.inventoryActiveSubBrandId) === String(subId)) {
@@ -2090,7 +2105,7 @@ async function renderInventorySectionOverlayBody(sectionType){
       <div class="inventory-section-detail-head inventory-section-brand-head">
         <button type="button" class="tiny ghost" id="inventorySectionBackBtn"><i class="fa-solid fa-arrow-left"></i> ${escapeHtml(type)}</button>
         <div class="inventory-section-detail-actions">
-          <button type="button" class="tiny ghost" id="inventorySectionAddBrandBtn"><i class="fa-solid fa-plus"></i> Item</button>
+          <button type="button" class="tiny ghost" id="inventorySectionAddBrandBtn"><i class="fa-solid fa-plus"></i> Stock</button>
           <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
         </div>
       </div>
@@ -2133,13 +2148,13 @@ async function renderInventorySectionOverlayBody(sectionType){
   // Level 1: brands in category
   if (title) title.textContent = type;
   if (desc) {
-    desc.textContent = `${allBrands.length} brand${allBrands.length === 1 ? "" : "s"} · ${freshItems.length} SKU${freshItems.length === 1 ? "" : "s"} · Stock ${stockLabel}`;
+    desc.textContent = `${allBrands.length} ${primaryLabel.toLowerCase()}${allBrands.length === 1 ? "" : "s"} · ${freshItems.length} SKU${freshItems.length === 1 ? "" : "s"} · Stock ${stockLabel}`;
   }
 
   const showInlineBrandEditor = () => {
     const list = body.querySelector(".inventory-brand-list") || body;
     openInventoryMultiCreate(list, {
-      placeholder: "Brand name (e.g. brand name)",
+      placeholder: isBooks ? "Author name (e.g. George Orwell)" : "Brand name (e.g. Afnan, Apple, Nike)",
       kind: "brand",
       onSaveAll: async (names) => {
         if (typeof createBrandInline !== "function") throw new Error("Catalog helper missing.");
@@ -2163,10 +2178,11 @@ async function renderInventorySectionOverlayBody(sectionType){
   body.innerHTML = `
     <div class="inventory-section-detail-head">
       <div class="inventory-section-detail-actions">
-        <button type="button" class="tiny ghost" id="inventorySectionAddBrandBtn"><i class="fa-solid fa-plus"></i> Brand</button>
+        <button type="button" class="tiny ghost" id="inventorySectionAddBrandBtn"><i class="fa-solid fa-plus"></i> ${escapeHtml(primaryLabel)}</button>
+        <button type="button" class="tiny ghost" id="inventorySectionAddStockWizardBtn"><i class="fa-solid fa-plus"></i> Stock</button>
         <button type="button" class="tiny ghost" id="inventorySectionOpenDraftBtn"><i class="fa-solid fa-cart-shopping"></i> Cart</button>
       </div>
-      <span class="help">${escapeHtml(cfg.hint || tax.breadcrumb || "Tap a brand, then continue.")}</span>
+      <span class="help">${escapeHtml(cfg.hint || tax.breadcrumb || `Tap an ${primaryLabel.toLowerCase()}, then continue.`)}</span>
     </div>
     <div class="inventory-brand-list">
       ${allBrands.length ? allBrands.map((brand, index) => {
@@ -2187,13 +2203,14 @@ async function renderInventorySectionOverlayBody(sectionType){
             <span class="badge ${brand.inStock ? "orange" : "green"}">${brand.inStock ? "In stock" : "Empty"}</span>
             <i class="fa-solid fa-chevron-right inventory-brand-chevron" aria-hidden="true"></i>
           </button>
-          ${brandId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: "Edit brand", deleteLabel: "Delete brand" }) : ""}
+          ${brandId ? inventoryCatalogRowMenuHtml(menuKey, { editLabel: `Edit ${primaryLabel.toLowerCase()}`, deleteLabel: `Delete ${primaryLabel.toLowerCase()}` }) : ""}
         </div>`;
-      }).join("") : `<div class="empty">No brands yet. Tap + Brand.</div>`}
+      }).join("") : `<div class="empty">No ${escapeHtml(primaryPlural.toLowerCase())} yet. Tap + ${escapeHtml(primaryLabel)}.</div>`}
     </div>
   `;
 
   body.querySelector("#inventorySectionAddBrandBtn")?.addEventListener("click", showInlineBrandEditor);
+  body.querySelector("#inventorySectionAddStockWizardBtn")?.addEventListener("click", () => openAddWizard());
   body.querySelector("#inventorySectionOpenDraftBtn")?.addEventListener("click", () => openSaleDraftModal());
   body.querySelectorAll(".inventory-brand-row-hit[data-section-brand]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -2234,8 +2251,8 @@ async function renderInventorySectionOverlayBody(sectionType){
       const brandRow = allBrands.find(b => inventoryBrandKey(b.brand) === inventoryBrandKey(oldName));
       const stockCount = (brandRow?.items || []).length;
       const msg = stockCount
-        ? `Delete brand “${oldName}” and ALL ${stockCount} stock item${stockCount === 1 ? "" : "s"} (including sales history for those items)? This cannot be undone.`
-        : `Delete brand “${oldName}” and its ${tax.productLinePlural}/${tax.variantPlural}?`;
+        ? `Delete ${primaryLabel.toLowerCase()} “${oldName}” and ALL ${stockCount} stock item${stockCount === 1 ? "" : "s"} (including sales history for those items)? This cannot be undone.`
+        : `Delete ${primaryLabel.toLowerCase()} “${oldName}” and its ${tax.productLinePlural}/${tax.variantPlural}?`;
       if (!confirm(msg)) return;
       if (brandId) {
         try {
