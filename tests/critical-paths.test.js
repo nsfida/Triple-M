@@ -331,8 +331,46 @@ describe("migrations + schema build smoke", () => {
       assert.ok(result.sql.includes(marker), "missing marker: " + marker);
     }
     assert.match(result.sql, /BEGIN migrations\/038_expense_account_custom_logo\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/070_inventory_category_taxonomy_meta\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/071_admin_backup_table_coverage\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/072_fix_backup_restore_password_and_reminder_fk\.sql/);
     assert.match(result.sql, /app_admin_export_full_backup/);
     assert.match(result.sql, /app_admin_import_full_backup/);
+    assert.match(result.sql, /app_admin_backup_sanitize_fk_rows/);
+    assert.match(result.sql, /goods_category_config/);
+    assert.match(result.sql, /goods_sub_brands/);
     assert.ok(result.sql.length > 50_000);
+  });
+
+  it("schema reset drops inventory catalog and reminder tables", () => {
+    const result = buildFullSchema({ write: false });
+    for (const table of [
+      "goods_brands",
+      "goods_brand_variants",
+      "goods_product_lines",
+      "goods_sub_brands",
+      "goods_category_config",
+      "app_note_reminders",
+      "app_user_notifications",
+      "app_installment_due_notices",
+    ]) {
+      assert.match(
+        result.sql,
+        new RegExp(`drop table if exists public\\.${table}\\b`, "i"),
+        `reset missing drop for ${table}`
+      );
+    }
+  });
+
+  it("client backup expected tables include inventory catalog coverage", () => {
+    assert.ok(backup.ADMIN_BACKUP_EXPECTED_TABLES.includes("goods_brands"));
+    assert.ok(backup.ADMIN_BACKUP_EXPECTED_TABLES.includes("goods_category_config"));
+    assert.ok(backup.ADMIN_BACKUP_EXPECTED_TABLES.includes("goods_sub_brands"));
+    assert.ok(backup.ADMIN_BACKUP_EXPECTED_TABLES.includes("app_note_reminders"));
+    assert.ok(backup.ADMIN_BACKUP_EXPECTED_TABLES.includes("app_installment_due_notices"));
+    const notesIdx = backup.ADMIN_BACKUP_EXPECTED_TABLES.indexOf("app_notes");
+    const notifIdx = backup.ADMIN_BACKUP_EXPECTED_TABLES.indexOf("app_user_notifications");
+    const remindIdx = backup.ADMIN_BACKUP_EXPECTED_TABLES.indexOf("app_note_reminders");
+    assert.ok(notesIdx >= 0 && notifIdx > notesIdx && remindIdx > notifIdx);
   });
 });
