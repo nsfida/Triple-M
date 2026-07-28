@@ -15,6 +15,7 @@
     { name: "Stationery", slug: "stationery", usesBrands: true, usesProductLines: false, usesVariants: true, qtyPattern: "count", sortOrder: 80, hint: "Brand → Item", productLineLabel: "Type", variantLabelName: "Item" },
     { name: "Furniture", slug: "furniture", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 90, hint: "Brand → Piece → Finish", productLineLabel: "Piece", variantLabelName: "Finish" },
     { name: "Cables & Pipes", slug: "cables-pipes", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "length", sortOrder: 100, hint: "Brand → Type → Length", productLineLabel: "Type", variantLabelName: "Length" },
+    { name: "Books", slug: "books", usesBrands: true, usesProductLines: true, usesVariants: true, qtyPattern: "count", sortOrder: 110, hint: "Author → Book title → Edition / Format", productLineLabel: "Book title", variantLabelName: "Edition / Format", productLinePlural: "book titles", variantPlural: "editions / formats", primaryLabel: "Author", primaryPlural: "Authors", subBrandLabel: "Series" },
     { name: "General", slug: "general", usesBrands: false, usesProductLines: false, usesVariants: false, qtyPattern: "count", sortOrder: 999, hint: "Simple item with quantity", productLineLabel: "Type", variantLabelName: "Variant" }
   ];
 
@@ -96,12 +97,28 @@
   function taxonomyDefaultsFor(name, slug){
     const key = String(slug || slugify(name) || "").toLowerCase();
     const label = String(name || "").toLowerCase();
+    if (key === "books" || /\bbooks?\b/.test(label)) {
+      return {
+        productLineLabel: "Book title",
+        variantLabelName: "Edition / Format",
+        productLinePlural: "book titles",
+        variantPlural: "editions / formats",
+        primaryLabel: "Author",
+        primaryPlural: "Authors",
+        subBrandLabel: "Series",
+        breadcrumb: "Author → Book title → Edition / Format",
+        hint: "Author → Book title → Edition / Format (Paperback, Hardcover)"
+      };
+    }
     if (key === "perfumes" || /perfume/.test(label)) {
       return {
         productLineLabel: "Fragrance",
         variantLabelName: "Size",
         productLinePlural: "fragrances",
         variantPlural: "sizes",
+        primaryLabel: "Brand",
+        primaryPlural: "Brands",
+        subBrandLabel: "Sub-brand",
         breadcrumb: "Brand → Fragrance → Size",
         hint: "Brand → Fragrance → Size (100 ml bottle)"
       };
@@ -112,6 +129,9 @@
         variantLabelName: "Volume",
         productLinePlural: "products",
         variantPlural: "volumes",
+        primaryLabel: "Brand",
+        primaryPlural: "Brands",
+        subBrandLabel: "Sub-brand",
         breadcrumb: "Brand → Product → Volume",
         hint: "Brand → Product → Volume"
       };
@@ -122,6 +142,9 @@
         variantLabelName: "Size",
         productLinePlural: "styles",
         variantPlural: "sizes",
+        primaryLabel: "Brand",
+        primaryPlural: "Brands",
+        subBrandLabel: "Sub-brand",
         breadcrumb: "Brand → Style → Size",
         hint: "Brand → Style → Size / Color"
       };
@@ -131,6 +154,9 @@
       variantLabelName: "Variant",
       productLinePlural: "types",
       variantPlural: "variants",
+      primaryLabel: "Brand",
+      primaryPlural: "Brands",
+      subBrandLabel: "Sub-brand",
       breadcrumb: "Brand → Type → Variant",
       hint: ""
     };
@@ -143,6 +169,9 @@
     const meta = row?.meta && typeof row.meta === "object" ? row.meta : {};
     const productLineLabel = String(row?.product_line_label || row?.productLineLabel || tax.productLineLabel || "Type");
     const variantLabelName = String(row?.variant_label_name || row?.variantLabelName || tax.variantLabelName || "Variant");
+    const primaryLabel = String(row?.primary_label || row?.primaryLabel || tax.primaryLabel || "Brand");
+    const primaryPlural = String(row?.primary_plural || row?.primaryPlural || tax.primaryPlural || `${primaryLabel}s`);
+    const subBrandLabel = String(row?.sub_brand_label || row?.subBrandLabel || tax.subBrandLabel || "Sub-brand");
     return {
       id: row?.id || "",
       name,
@@ -159,6 +188,9 @@
       variantLabelName,
       productLinePlural: String(row?.productLinePlural || tax.productLinePlural || `${productLineLabel.toLowerCase()}s`),
       variantPlural: String(row?.variantPlural || tax.variantPlural || `${variantLabelName.toLowerCase()}s`),
+      primaryLabel,
+      primaryPlural,
+      subBrandLabel,
       breadcrumb: String(row?.breadcrumb || tax.breadcrumb || `Brand → ${productLineLabel} → ${variantLabelName}`)
     };
   }
@@ -172,6 +204,9 @@
       variant: cfg.variantLabelName || "Variant",
       productLinePlural: cfg.productLinePlural || "types",
       variantPlural: cfg.variantPlural || "variants",
+      primary: cfg.primaryLabel || "Brand",
+      primaryPlural: cfg.primaryPlural || "Brands",
+      subBrand: cfg.subBrandLabel || "Sub-brand",
       breadcrumb: cfg.breadcrumb || "Brand → Type → Variant",
       qtyPattern: cfg.qtyPattern || "count",
       name: cfg.name || "",
@@ -862,8 +897,19 @@
     return res;
   }
 
-  function buildItemDisplayName({ brand, subBrand, productLine, variantLabel, itemName, variantStorage, variantColor }){
-    const parts = [brand, subBrand, productLine, variantLabel].map(v => String(v || "").trim()).filter(Boolean);
+  function isBooksItemSource(src = {}){
+    const type = String(src.category || src.itemType || src.item_type || "").trim();
+    return /\bbooks?\b/i.test(type);
+  }
+
+  function buildItemDisplayName({ brand, subBrand, productLine, variantLabel, itemName, variantStorage, variantColor, category, itemType }){
+    const primary = String(brand || "").trim();
+    const parts = [
+      isBooksItemSource({ category, itemType }) && primary ? `Author: ${primary}` : primary,
+      subBrand,
+      productLine,
+      variantLabel
+    ].map(v => String(v || "").trim()).filter(Boolean);
     let base = parts.length ? parts.join(" · ") : (String(itemName || "Item").trim() || "Item");
     const attrs = [variantStorage, variantColor].map(v => String(v || "").trim()).filter(Boolean);
     if (attrs.length) base = `${base} (${attrs.join(", ")})`;
@@ -871,7 +917,13 @@
   }
 
   function formatInventoryReceiptLineName(src = {}){
-    const parts = [src.brand, src.subBrand, src.productLine, src.variantLabel]
+    const primary = String(src.brand || "").trim();
+    const parts = [
+      isBooksItemSource(src) && primary ? `Author: ${primary}` : primary,
+      src.subBrand,
+      src.productLine,
+      src.variantLabel
+    ]
       .map(v => String(v || "").trim())
       .filter(Boolean);
     let base = parts.length
@@ -1080,6 +1132,8 @@
       .sort((a, b) => String(a.label || a.name || "").localeCompare(String(b.label || b.name || ""), undefined, { sensitivity: "base" }));
 
     const tax = getCategoryTaxonomyLabels(cfg);
+    const isBooks = tax.primary === "Author";
+    const primaryArticle = /^[aeiou]/i.test(tax.primary) ? "an" : "a";
     const steps = buildAddWizardSteps(w, cfg);
     // Keep step index valid after category lock / intent changes the step list.
     if (w.step > steps.length) w.step = steps.length;
@@ -1087,12 +1141,12 @@
     const stepLabel = (key) => ({
       category: "Category",
       intent: "What to add",
-      multiBrand: "Brand(s)",
-      brand: "Brand",
+      multiBrand: tax.primaryPlural,
+      brand: tax.primary,
       branch: "Continue with",
-      multiSubBrand: "Sub-brand(s)",
+      multiSubBrand: `${tax.subBrand}(s)`,
       multiType: tax.productLinePlural || `${tax.productLine}s`,
-      subBrand: "Sub-brand",
+      subBrand: tax.subBrand,
       productLine: tax.productLine,
       variant: tax.variant,
       stock: "Stock"
@@ -1146,12 +1200,12 @@
         <p class="help">Choose what to add under <strong>${h(w.category || "this category")}</strong>.</p>
         <div class="inventory-add-branch-grid">
           <button type="button" class="inventory-add-category-card ${w.topIntent === "brands" ? "is-selected" : ""}" data-top-intent="brands">
-            <strong>Add brand(s)</strong>
-            <span>Create one or many brand names</span>
+            <strong>Add ${h(tax.primary.toLowerCase())}(s)</strong>
+            <span>Create one or many ${h(tax.primary.toLowerCase())} names</span>
           </button>
           <button type="button" class="inventory-add-category-card ${w.topIntent === "chooseBrand" ? "is-selected" : ""}" data-top-intent="chooseBrand">
-            <strong>Use a brand</strong>
-            <span>Pick or create one brand, then sub-brand / type / item</span>
+            <strong>Use ${primaryArticle} ${h(tax.primary.toLowerCase())}</strong>
+            <span>Pick or create one ${h(tax.primary.toLowerCase())}, then ${h(tax.subBrand.toLowerCase())} / ${h(tax.productLine.toLowerCase())} / item</span>
           </button>
           <button type="button" class="inventory-add-category-card ${w.topIntent === "directStock" ? "is-selected" : ""}" data-top-intent="directStock">
             <strong>Add item with stock</strong>
@@ -1160,34 +1214,34 @@
         </div>`;
     } else if (currentStep === "multiBrand") {
       fields = `
-        <p class="help">Add one or more brands for <strong>${h(w.category)}</strong>.</p>
-        ${wizardMultiListHtml("addWizardMultiBrand", "Brand name", 2)}`;
+        <p class="help">Add one or more ${h(tax.primary.toLowerCase())} names for <strong>${h(w.category)}</strong>.</p>
+        ${wizardMultiListHtml("addWizardMultiBrand", isBooks ? "e.g. George Orwell, Agatha Christie" : "e.g. Afnan, Apple, Nike", 2)}`;
     } else if (currentStep === "brand") {
       fields = `
-        ${w.categoryLocked ? `<p class="help">Adding under <strong>${h(w.category)}</strong> only. Brands and items stay in this category.</p>` : ""}
+        ${w.categoryLocked ? `<p class="help">Adding under <strong>${h(w.category)}</strong> only. ${h(tax.primaryPlural)} and items stay in this category.</p>` : ""}
         <label class="inventory-edit-field inventory-edit-field-wide">
-          <span>Brand</span>
+          <span>${h(tax.primary)}</span>
           <select class="select" id="addWizardBrand">
-            <option value="">Select brand…</option>
+            <option value="">Select ${h(tax.primary.toLowerCase())}…</option>
             ${brands.map(b => `<option value="${h(b.id)}" ${String(b.id) === String(w.brandId) ? "selected" : ""}>${h(b.name)}</option>`).join("")}
-            <option value="__custom__">+ New brand…</option>
+            <option value="__custom__">+ New ${h(tax.primary.toLowerCase())}…</option>
           </select>
         </label>
         <label class="inventory-edit-field inventory-edit-field-wide ${w.brandId === "__custom__" || (!w.brandId && w.brand) ? "" : "hide"}" id="addWizardBrandCustomWrap">
-          <span>New brand name</span>
-          <input class="input" id="addWizardBrandCustom" value="${h(w.brandId === "__custom__" || !w.brandId ? w.brand : "")}" placeholder="e.g. brand name" />
+          <span>New ${h(tax.primary.toLowerCase())} name</span>
+          <input class="input" id="addWizardBrandCustom" value="${h(w.brandId === "__custom__" || !w.brandId ? w.brand : "")}" placeholder="${isBooks ? "e.g. George Orwell" : "e.g. Afnan, Apple, Nike"}" />
         </label>`;
     } else if (currentStep === "branch") {
       fields = `
-        <p class="help">Brand <strong>${h(w.brand || "selected")}</strong> — what next?</p>
+        <p class="help">${h(tax.primary)} <strong>${h(w.brand || "selected")}</strong> — what next?</p>
         <div class="inventory-add-branch-grid">
           <button type="button" class="inventory-add-category-card ${w.branchPath === "subBrand" ? "is-selected" : ""}" data-branch-path="subBrand">
-            <strong>Sub-brand(s)</strong>
-            <span>Brand → Sub-brand → ${h(tax.productLine)} → ${h(tax.variant)}</span>
+            <strong>${h(tax.subBrand)}(s)</strong>
+            <span>${h(tax.primary)} → ${h(tax.subBrand)} → ${h(tax.productLine)} → ${h(tax.variant)}</span>
           </button>
           <button type="button" class="inventory-add-category-card ${w.branchPath === "type" ? "is-selected" : ""}" data-branch-path="type">
             <strong>${h(tax.productLine)}(s)</strong>
-            <span>Brand → ${h(tax.productLine)} → ${h(tax.variant)}</span>
+            <span>${h(tax.primary)} → ${h(tax.productLine)} → ${h(tax.variant)}</span>
           </button>
           <button type="button" class="inventory-add-category-card ${w.branchPath === "directStock" ? "is-selected" : ""}" data-branch-path="directStock">
             <strong>Add item with stock</strong>
@@ -1196,8 +1250,8 @@
         </div>`;
     } else if (currentStep === "multiSubBrand") {
       fields = `
-        <p class="help">Add sub-brand(s) under <strong>${h(w.brand)}</strong>.</p>
-        ${wizardMultiListHtml("addWizardMultiSubBrand", "Sub-brand name", 2)}
+        <p class="help">Add ${h(tax.subBrand.toLowerCase())}(s) under <strong>${h(w.brand)}</strong>.</p>
+        ${wizardMultiListHtml("addWizardMultiSubBrand", isBooks ? "e.g. Classic novels, Detective series" : `${tax.subBrand} name`, 2)}
         ${subBrands.length ? `<p class="help">Existing: ${h(subBrands.map(s => s.name).join(", "))}</p>` : ""}`;
     } else if (currentStep === "multiType") {
       fields = `
@@ -1207,21 +1261,23 @@
     } else if (currentStep === "subBrand") {
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
-          <span>Sub-brand</span>
+          <span>${h(tax.subBrand)}</span>
           <select class="select" id="addWizardSubBrand">
-            <option value="">Select sub-brand…</option>
+            <option value="">Select ${h(tax.subBrand.toLowerCase())}…</option>
             ${subBrands.map(s => `<option value="${h(s.id)}" ${String(s.id) === String(w.subBrandId) ? "selected" : ""}>${h(s.name)}</option>`).join("")}
-            <option value="__custom__">+ New sub-brand…</option>
+            <option value="__custom__">+ New ${h(tax.subBrand.toLowerCase())}…</option>
           </select>
         </label>
         <label class="inventory-edit-field inventory-edit-field-wide ${w.subBrandId === "__custom__" || (!w.subBrandId && w.subBrand) ? "" : "hide"}" id="addWizardSubBrandCustomWrap">
-          <span>New sub-brand name</span>
-          <input class="input" id="addWizardSubBrandCustom" value="${h(w.subBrandId === "__custom__" || !w.subBrandId ? w.subBrand : "")}" placeholder="e.g. Pro, Sport, Classic" />
+          <span>New ${h(tax.subBrand.toLowerCase())} name</span>
+          <input class="input" id="addWizardSubBrandCustom" value="${h(w.subBrandId === "__custom__" || !w.subBrandId ? w.subBrand : "")}" placeholder="${isBooks ? "e.g. Classic novels" : "e.g. Pro, Sport, Classic"}" />
         </label>`;
     } else if (currentStep === "productLine") {
-      const linePlaceholder = /perfume/i.test(cfg.name || cfg.slug || "")
-        ? "e.g. fragrance name, wood scent"
-        : "e.g. phone model, laptop model";
+      const linePlaceholder = isBooks
+        ? "e.g. 1984, The Great Gatsby"
+        : (/perfume/i.test(cfg.name || cfg.slug || "")
+          ? "e.g. fragrance name, wood scent"
+          : "e.g. phone model, laptop model");
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
           <span>${h(tax.productLine)}</span>
@@ -1237,9 +1293,16 @@
         </label>
         <p class="help">${h(tax.breadcrumb)}</p>`;
     } else if (currentStep === "variant") {
-      const variantPlaceholder = /perfume/i.test(cfg.name || cfg.slug || "")
-        ? "e.g. 100 ml, 50 ml, 1 L"
-        : "e.g. 512 GB Black, 3 ml, 100 ml";
+      const variantPlaceholder = isBooks
+        ? "e.g. Paperback, Hardcover, 1st edition"
+        : (/perfume/i.test(cfg.name || cfg.slug || "")
+          ? "e.g. 100 ml, 50 ml, 1 L"
+          : "e.g. 512 GB Black, 3 ml, 100 ml");
+      const storageLabel = isBooks ? "ISBN" : "Storage";
+      const storagePlaceholder = isBooks ? "e.g. 978-..." : "e.g. 512 GB";
+      const colorLabel = isBooks ? "Language" : "Color";
+      const colorPlaceholder = isBooks ? "e.g. English" : "e.g. Black";
+      const otherPlaceholder = isBooks ? "e.g. Publisher, publication year" : "Free-text specs";
       fields = `
         <label class="inventory-edit-field inventory-edit-field-wide">
           <span>${h(tax.variant)}</span>
@@ -1255,16 +1318,16 @@
         </label>
         <div class="inventory-draft-form" style="margin-top:8px">
           <label class="inventory-edit-field">
-            <span>Storage <em class="optional-label">optional</em></span>
-            <input class="input" id="addWizardVariantStorage" value="${h(w.variantStorage || "")}" placeholder="e.g. 512 GB" />
+            <span>${h(storageLabel)} <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardVariantStorage" value="${h(w.variantStorage || "")}" placeholder="${h(storagePlaceholder)}" />
           </label>
           <label class="inventory-edit-field">
-            <span>Color <em class="optional-label">optional</em></span>
-            <input class="input" id="addWizardVariantColor" value="${h(w.variantColor || "")}" placeholder="e.g. Black" />
+            <span>${h(colorLabel)} <em class="optional-label">optional</em></span>
+            <input class="input" id="addWizardVariantColor" value="${h(w.variantColor || "")}" placeholder="${h(colorPlaceholder)}" />
           </label>
           <label class="inventory-edit-field inventory-edit-field-wide">
             <span>Other specs <em class="optional-label">optional</em></span>
-            <input class="input" id="addWizardVariantOther" value="${h(w.variantOther || "")}" placeholder="Free-text specs" />
+            <input class="input" id="addWizardVariantOther" value="${h(w.variantOther || "")}" placeholder="${h(otherPlaceholder)}" />
           </label>
         </div>`;
     } else {
@@ -1779,28 +1842,29 @@
     const w = wizardState();
     const cfg = cfgInput || getCategoryConfig(w.category);
     const tax = getCategoryTaxonomyLabels(cfg);
+    const isBooks = tax.primary === "Author";
     if (stepKey === "category" && !w.category) {
       alert("Select a category.");
       return false;
     }
     if (stepKey === "intent" && !w.topIntent) {
-      alert("Choose what to add: brands, a brand path, or item with stock.");
+      alert(`Choose what to add: ${tax.primaryPlural.toLowerCase()}, a ${tax.primary.toLowerCase()} path, or item with stock.`);
       return false;
     }
     if (stepKey === "brand") {
       const brandName = w.brandId === "__custom__" || !w.brandId
         ? String(document.getElementById("addWizardBrandCustom")?.value || w.brand || "").trim()
         : w.brand;
-      if (!brandName) { alert("Enter or select a brand."); return false; }
+      if (!brandName) { alert(`Enter or select ${/^[aeiou]/i.test(tax.primary) ? "an" : "a"} ${tax.primary.toLowerCase()}.`); return false; }
       w.brand = brandName;
     }
     if (stepKey === "branch") {
       if (!w.branchPath) {
-        alert("Choose Sub-brand(s), Type(s), or Add item with stock.");
+        alert(`Choose ${tax.subBrand}(s), ${tax.productLine}(s), or Add item with stock.`);
         return false;
       }
       if (!["subBrand", "type", "directStock"].includes(w.branchPath)) {
-        alert("Choose Sub-brand(s), Type(s), or Add item with stock.");
+        alert(`Choose ${tax.subBrand}(s), ${tax.productLine}(s), or Add item with stock.`);
         return false;
       }
       if (w.branchPath !== "subBrand") {
@@ -1812,7 +1876,7 @@
       const name = w.subBrandId === "__custom__" || !w.subBrandId
         ? String(document.getElementById("addWizardSubBrandCustom")?.value || w.subBrand || "").trim()
         : w.subBrand;
-      if (!name) { alert("Enter or select a sub-brand."); return false; }
+      if (!name) { alert(`Enter or select a ${tax.subBrand.toLowerCase()}.`); return false; }
       w.subBrand = name;
     }
     if (stepKey === "productLine") {
@@ -1820,7 +1884,7 @@
         ? String(document.getElementById("addWizardProductLineCustom")?.value || w.productLine || "").trim()
         : w.productLine;
       if (!lineName) {
-        alert(`Enter or select a ${tax.productLine.toLowerCase()} (e.g. ${/perfume/i.test(cfg.name || "") ? "fragrance name" : "phone model, product name"}).`);
+        alert(`Enter or select a ${tax.productLine.toLowerCase()} (e.g. ${isBooks ? "1984 or The Great Gatsby" : (/perfume/i.test(cfg.name || "") ? "fragrance name" : "phone model, product name")}).`);
         return false;
       }
       w.productLine = lineName;
@@ -1830,7 +1894,7 @@
         ? String(document.getElementById("addWizardVariantCustom")?.value || w.variantLabel || "").trim()
         : w.variantLabel;
       if (!variant) {
-        alert(`Enter or select a ${tax.variant.toLowerCase()} (e.g. ${/perfume/i.test(cfg.name || "") ? "100 ml, 50 ml" : "512 GB Black, 3 ml"}).`);
+        alert(`Enter or select a ${tax.variant.toLowerCase()} (e.g. ${isBooks ? "Paperback, Hardcover, 1st edition" : (/perfume/i.test(cfg.name || "") ? "100 ml, 50 ml" : "512 GB Black, 3 ml")}).`);
         return false;
       }
       w.variantLabel = variant;
@@ -1858,7 +1922,7 @@
       if (stepKey === "multiBrand") {
         const names = collectWizardMultiNames("addWizardMultiBrand");
         if (!names.length) {
-          alert("Enter at least one brand name.");
+          alert(`Enter at least one ${tax.primary.toLowerCase()} name.`);
           return false;
         }
         let last = null;
@@ -1872,11 +1936,11 @@
       if (stepKey === "multiSubBrand") {
         const names = collectWizardMultiNames("addWizardMultiSubBrand");
         if (!names.length) {
-          alert("Enter at least one sub-brand name.");
+          alert(`Enter at least one ${tax.subBrand.toLowerCase()} name.`);
           return false;
         }
         if (!w.brand) {
-          alert("Brand is required before sub-brands.");
+          alert(`${tax.primary} is required before ${tax.subBrand.toLowerCase()}s.`);
           return false;
         }
         let last = null;
@@ -1898,7 +1962,7 @@
           return false;
         }
         if (!w.brand) {
-          alert("Brand is required before types.");
+          alert(`${tax.primary} is required before ${tax.productLine.toLowerCase()}s.`);
           return false;
         }
         let last = null;
