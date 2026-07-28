@@ -800,7 +800,7 @@ function inventoryPurchasePriceLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Purchase price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Purchase price / m";
-  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Cost / ml";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Cost/ml";
   return "Purchase price";
 }
 
@@ -808,7 +808,7 @@ function inventorySellingPriceLabel(category){
   const normalized = normalizeInventoryCategory(category);
   if (normalized === INVENTORY_CATEGORY_WEIGHT) return "Selling price / KG";
   if (normalized === INVENTORY_CATEGORY_LENGTH) return "Selling price / m";
-  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Sell / ml";
+  if (normalized === INVENTORY_CATEGORY_VOLUME) return "Sell/ml";
   return "Selling price";
 }
 
@@ -834,8 +834,8 @@ function inventoryVolumeBottleLabels(qtyDisplay, unit){
   const priceUnit = normalizeInventoryUnit(unit || INVENTORY_UNIT_ML, INVENTORY_CATEGORY_VOLUME);
   const per = priceUnit === INVENTORY_UNIT_L ? "L" : "ml";
   return {
-    cost: `Cost / ${per}`,
-    sell: `Sell / ${per}`,
+    cost: `Cost/${per}`,
+    sell: `Sell/${per}`,
     qty: "Bottle size",
     priceUnit: per
   };
