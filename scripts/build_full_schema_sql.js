@@ -89,6 +89,7 @@ const CANONICAL_MIGRATION_FILES = [
   "064_remember_me_and_grace_lock_disable.sql",
   "065_inventory_summary_sell_by_fields.sql",
   "066_inventory_category_hard_purge_owner_fix.sql",
+  "067_inventory_category_visibility_and_tombstones.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
