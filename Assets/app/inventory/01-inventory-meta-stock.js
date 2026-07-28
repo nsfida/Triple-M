@@ -1351,8 +1351,13 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
       itemCode: principalMeta.itemCode || entryMeta.itemCode || "",
       itemName: (() => {
         const base = principalEntry?.person_name || entry.person_name || "Goods item";
+        const itemType = String(principalMeta.itemType || entryMeta.itemType || "").trim();
+        const brand = principalMeta.brand || entryMeta.brand || "";
+        const primary = /\bbooks?\b/i.test(itemType) && brand
+          ? `Author: ${brand}`
+          : brand;
         const parts = [
-          principalMeta.brand || entryMeta.brand || "",
+          primary,
           principalMeta.productLine || entryMeta.productLine || "",
           principalMeta.variantLabel || entryMeta.variantLabel || ""
         ].map(v => String(v || "").trim()).filter(Boolean);
