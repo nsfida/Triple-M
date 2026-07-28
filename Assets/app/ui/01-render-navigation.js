@@ -51,6 +51,7 @@ function renderInstallmentPlans(){
     const schedule = plan.schedule;
     const status = plan.status;
     const statusClass = installmentStatusBadgeClass(status);
+    const downPayment = Number(plan.downPayment || schedule?.downPayment || 0);
     const monthlyLabel = schedule
       ? `${moneyText(schedule.installmentAmount, plan.currency)}${schedule.lastAmount !== schedule.installmentAmount ? ` · last ${moneyText(schedule.lastAmount, plan.currency)}` : ""}`
       : "Open balance";
@@ -82,6 +83,7 @@ function renderInstallmentPlans(){
                 <span>${currencySymbolHtml(plan.currency || "")}</span>
                 <span>${escapeHtml(progressLabel)}</span>
                 <span>${schedule ? `${escapeHtml(monthlyLabel)} / mo` : escapeHtml(monthlyLabel)}</span>
+                ${downPayment > 0 ? `<span>Down ${moneyText(downPayment, plan.currency)}</span>` : ""}
               </div>
             </div>
             <div class="ip-card-actions">
@@ -186,6 +188,7 @@ function renderInstallmentPlanOverlayBody(plan){
   const next = schedule?.nextOpen;
   const currency = plan.currency || plan.principal?.currency || "AED";
   const principalTotal = Number(plan.principalTotal ?? plan.principal?.principal_amount ?? 0);
+  const downPayment = Number(plan.downPayment ?? schedule?.downPayment ?? 0);
   const paidTotal = Number(
     plan.paidTotal ??
     schedule?.paidTotal ??
@@ -223,15 +226,17 @@ function renderInstallmentPlanOverlayBody(plan){
     : `<div class="ip-empty">No monthly schedule yet. Set one to track each installment.</div>`;
 
   const paymentRows = (plan.payments || []).slice().sort((a, b) => dateStamp(b.action_date) - dateStamp(a.action_date)).map(row => {
-    const alloc = parseInstallmentAllocation(installmentMetaFromNotes(row.notes).allocation);
+    const rowMeta = installmentMetaFromNotes(row.notes);
+    const isDownPayment = String(rowMeta.paymentType || "").toLowerCase() === "down_payment";
+    const alloc = parseInstallmentAllocation(rowMeta.allocation);
     const allocText = alloc.length
       ? alloc.map(a => `#${a.index}`).join(" · ")
-      : (schedule ? "—" : "Balance");
+      : (isDownPayment ? "Before schedule" : (schedule ? "—" : "Balance"));
     return `
       <div class="ipo-row">
         <div class="ipo-row-main">
           <strong>${escapeHtml(displayDate(row.action_date || "—"))}</strong>
-          <span>${escapeHtml(row.entry_kind === "full" ? "Final" : "Partial")}</span>
+          <span>${escapeHtml(isDownPayment ? "Down payment" : (row.entry_kind === "full" ? "Final" : "Partial"))}</span>
           <span class="ipo-muted">${escapeHtml(allocText)}</span>
         </div>
         <div class="ipo-row-amt"><strong>${money(row.action_amount || 0, currency)}</strong></div>
@@ -242,6 +247,7 @@ function renderInstallmentPlanOverlayBody(plan){
   return `
     <div class="ipo-summary">
       <div><small>Total</small><strong>${money(principalTotal, currency)}</strong></div>
+      ${downPayment > 0 ? `<div><small>Down payment</small><strong>${money(downPayment, currency)}</strong></div>` : ""}
       <div><small>Paid</small><strong>${money(paidTotal, currency)}</strong></div>
       <div><small>Left</small><strong>${money(remaining, currency)}</strong></div>
       <div><small>Status</small><strong><span class="badge ${installmentStatusBadgeClass(status)}">${escapeHtml(status)}</span></strong></div>
@@ -276,8 +282,9 @@ function openInstallmentPlanOverlay(groupId){
   if (els.installmentPlanTitle) els.installmentPlanTitle.textContent = plan.person_name || "Installment plan";
   if (els.installmentPlanDesc) {
     const started = displayDate(plan.loan_date || "—");
+    const downPayment = Number(plan.downPayment || plan.schedule?.downPayment || 0);
     els.installmentPlanDesc.textContent = plan.schedule
-      ? `${plan.schedule.count} installments · started ${started}`
+      ? `${plan.schedule.count} installments${downPayment > 0 ? ` · down payment ${moneyText(downPayment, plan.currency)}` : ""} · started ${started}`
       : `Legacy plan · started ${started}`;
   }
   els.installmentPlanBody.innerHTML = renderInstallmentPlanOverlayBody(plan);
@@ -339,6 +346,8 @@ async function downloadInstallmentPlanPDF(groupId){
   const formatMon = (amt) => formatPdfAmount(amt, currency);
   const schedule = plan.schedule;
   const principalTotal = Number(plan.principalTotal ?? plan.principal?.principal_amount ?? 0);
+  const downPayment = Number(plan.downPayment ?? schedule?.downPayment ?? 0);
+  const financedAmount = Number(plan.financedAmount ?? schedule?.financedAmount ?? Math.max(principalTotal - downPayment, 0));
   const paidTotal = Number(
     plan.paidTotal ??
     schedule?.paidTotal ??
@@ -365,6 +374,8 @@ async function downloadInstallmentPlanPDF(groupId){
       { label: "Start date", value: displayDate(plan.loan_date || plan.principal?.loan_date || "—") },
       { label: "Currency", value: pdfCurrencyLabel(currency) },
       { label: "Installments", value: schedule ? String(schedule.count) : "Legacy" },
+      ...(downPayment > 0 ? [{ label: "Down payment", value: formatMon(downPayment) }] : []),
+      ...(downPayment > 0 ? [{ label: "Financed", value: formatMon(financedAmount) }] : []),
       { label: "Monthly", value: schedule ? formatMon(schedule.installmentAmount) : "—" }
     ]
   });
@@ -379,7 +390,7 @@ async function downloadInstallmentPlanPDF(groupId){
   doc.setTextColor(100, 116, 139);
   doc.text(
     schedule
-      ? "Each installment once - due date, amount due, amount paid, and open balance."
+      ? `${downPayment > 0 ? `Down payment ${formatMon(downPayment)} recorded before the monthly schedule. ` : ""}Each installment once - due date, amount due, amount paid, and open balance.`
       : "All payments on this plan in date order.",
     14,
     y + 4
@@ -453,7 +464,7 @@ async function downloadInstallmentPlanPDF(groupId){
 
   const pageHeight = doc.internal.pageSize.getHeight();
   const footerSafeY = pageHeight - 38;
-  const summaryNeeded = 54;
+  const summaryNeeded = downPayment > 0 ? 72 : 54;
   let summaryTop = (doc.lastAutoTable?.finalY || y) + 8;
   if (summaryTop + summaryNeeded > footerSafeY) {
     doc.addPage();
@@ -468,6 +479,8 @@ async function downloadInstallmentPlanPDF(groupId){
 
   drawCompactPdfTotals(doc, summaryTop + 5, [
     { label: "Plan total", value: formatMon(principalTotal) },
+    ...(downPayment > 0 ? [{ label: "Down payment", value: formatMon(downPayment) }] : []),
+    ...(downPayment > 0 ? [{ label: "Financed amount", value: formatMon(financedAmount) }] : []),
     { label: "Monthly installment", value: monthlyLabel },
     {
       label: "Progress",
@@ -823,9 +836,11 @@ function openEntryModal(mode, direction, options = {}){
 
 function syncInstallmentPlanFormFields(){
   const show = !!state.modalInstallment;
-  ["installmentCountGroup", "installmentMonthlyPreviewField", "installmentSchedulePreviewWrap"].forEach(id => {
+  ["installmentDownPaymentGroup", "installmentCountGroup", "installmentMonthlyPreviewField", "installmentSchedulePreviewWrap"].forEach(id => {
     document.getElementById(id)?.classList.toggle("hide", !show);
   });
+  const downPaymentInput = document.getElementById("installmentDownPaymentInput");
+  if (downPaymentInput && !show) downPaymentInput.value = "";
   const countInput = document.getElementById("installmentCountInput");
   if (countInput) {
     countInput.required = show;
@@ -839,6 +854,7 @@ function updateInstallmentPlanPreview(){
   if (!previewInput || !previewWrap || !state.modalInstallment) return;
   const form = els.principalModalForm;
   const total = Number(form?.querySelector('[name="principal_amount"]')?.value || 0);
+  const downPayment = Math.max(0, Number(document.getElementById("installmentDownPaymentInput")?.value || 0));
   const count = Math.floor(Number(document.getElementById("installmentCountInput")?.value || 0));
   const currency = String(form?.querySelector('[name="currency"]')?.value || "AED");
   const startDate = String(
@@ -846,12 +862,16 @@ function updateInstallmentPlanPreview(){
     form?.elements?.namedItem?.("loan_date")?.value ||
     todayISO()
   );
-  if (!(total > 0) || count < 2) {
+  if (!(total > 0) || count < 2 || downPayment >= total) {
     previewInput.value = "";
-    previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount and at least 2 installments.</p>`;
+    previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount, an optional down payment below the total, and at least 2 installments.</p>`;
     return;
   }
-  const amounts = computeInstallmentAmounts(total, count, currency);
+  const scheduleMeta = buildInstallmentScheduleMeta(total, count, currency, startDate, downPayment);
+  const amounts = {
+    installmentAmount: scheduleMeta.installmentAmount,
+    lastAmount: scheduleMeta.lastAmount
+  };
   previewInput.value = `${moneyText(amounts.installmentAmount, currency)} × ${count - 1} + last ${moneyText(amounts.lastAmount, currency)}`;
   const sample = Array.from({ length: Math.min(count, 4) }, (_, i) => {
     const due = addMonthsToISODate(startDate, i);
@@ -861,7 +881,7 @@ function updateInstallmentPlanPreview(){
   const more = count > 4 ? `<li class="installment-preview-more">+ ${count - 4} more monthly installment${count - 4 === 1 ? "" : "s"}</li>` : "";
   previewWrap.innerHTML = `
     <strong>Schedule preview</strong>
-    <p>${escapeHtml(String(count))} months · total ${money(total, currency)}</p>
+    <p>Total ${money(total, currency)} · down payment ${money(scheduleMeta.downPayment, currency)} · financed ${money(scheduleMeta.financedAmount, currency)} across ${escapeHtml(String(count))} months.</p>
     <ul class="installment-preview-list">${sample}${more}</ul>
   `;
 }
@@ -909,7 +929,7 @@ function updateInstallmentPaymentPreview(){
   ).join("");
   box.innerHTML = `
     <strong>Allocation preview</strong>
-    <p>Next due: <strong>#${next ? next.index : "—"}</strong> · ${next ? money(next.balance, plan.currency) : "—"} · Remaining plan ${money(plan.schedule.remainingTotal, plan.currency)}</p>
+    <p>${plan.schedule.downPayment > 0 ? `Down payment ${money(plan.schedule.downPayment, plan.currency)} · ` : ""}Next due: <strong>#${next ? next.index : "—"}</strong> · ${next ? money(next.balance, plan.currency) : "—"} · Remaining plan ${money(plan.schedule.remainingTotal, plan.currency)}</p>
     ${amount > 0 ? `<ul class="installment-preview-list">${rows || "<li>No open installments</li>"}</ul>` : `<p class="installment-preview-hint">Enter a payment amount to preview under/over allocation.</p>`}
     ${allocation.leftover > 0.00000001 ? `<p class="installment-preview-warn">Extra ${money(allocation.leftover, plan.currency)} exceeds open installments.</p>` : ""}
   `;
@@ -936,6 +956,9 @@ function openInstallmentEditModal(groupId){
   form.querySelector('[name="person_name"]').value = principal.person_name || "";
   setCurrencyChoice(form, principal.currency || "AED");
   form.querySelector('[name="principal_amount"]').value = principal.principal_amount || "";
+  form.querySelector('[name="down_payment"]').value = Number(meta.downPayment || 0) > 0
+    ? trimInventoryNumber(meta.downPayment)
+    : "";
   const dateEl = document.getElementById("installmentEditDateInline") || form.elements.namedItem("loan_date");
   if (dateEl) dateEl.value = principal.loan_date || todayISO();
   form.querySelector('[name="installment_count"]').value = meta.count && meta.count >= 2 ? meta.count : "";
@@ -953,6 +976,7 @@ function openInstallmentEditModal(groupId){
   if (els.installmentEditSummary) {
     els.installmentEditSummary.innerHTML = `
       <div><small>Paid so far</small><strong>${money(plan.paidTotal, plan.currency)}</strong></div>
+      <div><small>Down payment</small><strong>${money(plan.schedule?.downPayment || meta.downPayment || 0, plan.currency)}</strong></div>
       <div><small>Remaining</small><strong>${money(plan.remaining, plan.currency)}</strong></div>
       <div><small>Payments</small><strong>${plan.payments.length}</strong></div>
       <div><small>Current setup</small><strong>${plan.schedule ? `${plan.schedule.count} installments` : "Legacy balance"}</strong></div>
@@ -973,6 +997,7 @@ function updateInstallmentEditPreview(){
   const groupId = String(form.querySelector('[name="group_id"]')?.value || "").trim();
   const plan = getInstallmentPlanGroup(groupId);
   const total = Number(form.querySelector('[name="principal_amount"]')?.value || 0);
+  const downPayment = Math.max(0, Number(form.querySelector('[name="down_payment"]')?.value || 0));
   const count = Math.floor(Number(form.querySelector('[name="installment_count"]')?.value || 0));
   const currency = String(form.querySelector('[name="currency"]')?.value || "AED");
   const startDate = String(
@@ -980,12 +1005,16 @@ function updateInstallmentEditPreview(){
     form.elements?.namedItem?.("loan_date")?.value ||
     todayISO()
   );
-  if (!(total > 0) || count < 2) {
+  if (!(total > 0) || count < 2 || downPayment >= total) {
     if (monthlyInput) monthlyInput.value = "";
-    preview.innerHTML = `<strong>Updated schedule</strong><p>Enter total amount and at least 2 installments.</p>`;
+    preview.innerHTML = `<strong>Updated schedule</strong><p>Enter total amount, an optional down payment below the total, and at least 2 installments.</p>`;
     return;
   }
-  const amounts = computeInstallmentAmounts(total, count, currency);
+  const scheduleMeta = buildInstallmentScheduleMeta(total, count, currency, startDate, downPayment);
+  const amounts = {
+    installmentAmount: scheduleMeta.installmentAmount,
+    lastAmount: scheduleMeta.lastAmount
+  };
   if (monthlyInput) {
     monthlyInput.value = `${moneyText(amounts.installmentAmount, currency)} × ${count - 1} + last ${moneyText(amounts.lastAmount, currency)}`;
   }
@@ -994,7 +1023,7 @@ function updateInstallmentEditPreview(){
     principal_amount: total,
     currency,
     loan_date: startDate,
-    notes: upsertInstallmentMetaInNote("", buildInstallmentScheduleMeta(total, count, currency, startDate))
+    notes: upsertInstallmentMetaInNote("", scheduleMeta)
   };
   const remapped = remapInstallmentPaymentsToSchedule(draftPrincipal, plan?.payments || []);
   const schedule = remapped.schedule;
@@ -1004,7 +1033,7 @@ function updateInstallmentEditPreview(){
   const more = count > 4 ? `<li class="installment-preview-more">+ ${count - 4} more</li>` : "";
   preview.innerHTML = `
     <strong>Updated schedule with existing payments</strong>
-    <p>${count} months · total ${money(total, currency)} · after remap: paid ${money(schedule?.paidTotal || 0, currency)}, remaining ${money(schedule?.remainingTotal || total, currency)}</p>
+    <p>Total ${money(total, currency)} · down payment ${money(scheduleMeta.downPayment, currency)} · financed ${money(scheduleMeta.financedAmount, currency)} · after remap: paid ${money(schedule?.paidTotal || 0, currency)}, remaining ${money(schedule?.remainingTotal || scheduleMeta.financedAmount, currency)}</p>
     <ul class="installment-preview-list">${sample}${more}</ul>
     ${remapped.leftoverTotal > 0.00000001
       ? `<p class="installment-preview-warn">Note: ${money(remapped.leftoverTotal, currency)} of past payments exceeds this schedule total and cannot be slotted.</p>`
@@ -1029,17 +1058,26 @@ async function submitInstallmentEdit(){
     ""
   ).trim();
   const count = Math.floor(Number(form.querySelector('[name="installment_count"]')?.value || 0));
+  const downPayment = Math.max(0, Number(form.querySelector('[name="down_payment"]')?.value || 0));
   const displayNote = String(form.querySelector('[name="notes"]')?.value || "").trim();
 
   if (!personName || !currency || !(amount > 0) || !loanDate) throw new Error("Complete all required fields.");
   if (count < 2 || count > 120) throw new Error("Enter between 2 and 120 installments.");
+  if (downPayment >= amount) throw new Error("Down payment must be less than the total plan amount.");
 
-  const paidTotal = plan.payments.reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
-  if (amount + 0.00000001 < paidTotal) {
-    throw new Error(`Total amount cannot be less than payments already recorded (${moneyText(paidTotal, currency)}).`);
+  const existingDownPayment = plan.payments.find(isInstallmentDownPayment) || null;
+  const scheduledPaidTotal = plan.payments
+    .filter(row => !isInstallmentDownPayment(row))
+    .reduce((sum, row) => sum + Number(row.action_amount || 0), 0);
+  const financedAmount = installmentFinancedAmount(amount, downPayment, currency);
+  if (financedAmount + 0.00000001 < scheduledPaidTotal) {
+    throw new Error(`Financed amount cannot be less than installments already paid (${moneyText(scheduledPaidTotal, currency)}).`);
+  }
+  if (existingDownPayment && !(downPayment > 0)) {
+    throw new Error("A recorded down payment cannot be removed here. Keep a positive value or recreate the plan.");
   }
 
-  const scheduleMeta = buildInstallmentScheduleMeta(amount, count, currency, loanDate);
+  const scheduleMeta = buildInstallmentScheduleMeta(amount, count, currency, loanDate, downPayment);
   const principalNotes = upsertInstallmentMetaInNote(displayNote, scheduleMeta);
   const draftPrincipal = {
     ...plan.principal,
@@ -1049,7 +1087,41 @@ async function submitInstallmentEdit(){
     loan_date: loanDate,
     notes: principalNotes
   };
-  const remapped = remapInstallmentPaymentsToSchedule(draftPrincipal, plan.payments);
+  let nextDownPayment = existingDownPayment;
+  if (downPayment > 0) {
+    const downNotes = upsertInstallmentMetaInNote(
+      cleanInstallmentDisplayNote(existingDownPayment?.notes || "Down payment"),
+      { paymentType: "down_payment" }
+    );
+    nextDownPayment = existingDownPayment
+      ? {
+          ...existingDownPayment,
+          person_name: personName,
+          currency,
+          action_amount: downPayment,
+          loan_date: loanDate,
+          action_date: existingDownPayment.action_date || loanDate,
+          entry_kind: "partial",
+          notes: downNotes
+        }
+      : {
+          id: crypto.randomUUID(),
+          group_id: groupId,
+          direction: "taken",
+          entry_kind: "partial",
+          person_name: personName,
+          currency,
+          principal_amount: null,
+          action_amount: downPayment,
+          loan_date: loanDate,
+          action_date: loanDate,
+          notes: downNotes
+        };
+  }
+  const paymentsForRemap = plan.payments
+    .filter(row => !isInstallmentDownPayment(row))
+    .concat(nextDownPayment ? [nextDownPayment] : []);
+  const remapped = remapInstallmentPaymentsToSchedule(draftPrincipal, paymentsForRemap);
   if (remapped.leftoverTotal > 0.00000001) {
     const ok = confirm(
       `${moneyText(remapped.leftoverTotal, currency)} of existing payments exceeds the new schedule total and will stay on payment history without a slot. Continue?`
@@ -1067,6 +1139,25 @@ async function submitInstallmentEdit(){
       loan_date: loanDate,
       notes: principalNotes
     }, "Installment plan", updatedPrincipal);
+  }
+
+  if (nextDownPayment) {
+    if (existingDownPayment) {
+      state.entries = state.entries.map(entry => entry.id === existingDownPayment.id ? nextDownPayment : entry);
+      if (!isBackupMode()) {
+        queueDatabasePatch(existingDownPayment.id, {
+          person_name: personName,
+          currency,
+          action_amount: downPayment,
+          loan_date: loanDate,
+          action_date: nextDownPayment.action_date,
+          entry_kind: "partial",
+          notes: nextDownPayment.notes
+        }, "Installment down payment", nextDownPayment);
+      }
+    } else {
+      saveEntriesImmediately(nextDownPayment, { label: "Installment down payment" });
+    }
   }
 
   for (const row of remapped.remaps){
@@ -1096,7 +1187,7 @@ async function submitInstallmentEdit(){
   logCompanyActivity(
     "edit",
     "installments",
-    `Updated installment plan "${personName}" (${moneyText(amount, currency)}, ${count} installments)`,
+    `Updated installment plan "${personName}" (${moneyText(amount, currency)}, down payment ${moneyText(downPayment, currency)}, ${count} installments)`,
     { entityType: "installment", entityId: groupId }
   );
   activate("installments");
@@ -4036,6 +4127,7 @@ function buildInstallmentItemDetailsPayload(groupId){
   const currency = plan.currency || "";
   const schedule = plan.schedule;
   const principalTotal = Number(plan.principalTotal || 0);
+  const downPayment = Number(plan.downPayment || schedule?.downPayment || 0);
   const paidTotal = Number(plan.paidTotal || 0);
   const remaining = Number(plan.remaining || 0);
   const progressPct = principalTotal > 0 ? Math.min(100, Math.round((paidTotal / principalTotal) * 100)) : 0;
@@ -4065,12 +4157,16 @@ function buildInstallmentItemDetailsPayload(groupId){
     .sort((a, b) => dateStamp(b.action_date) - dateStamp(a.action_date))
     .slice(0, 8)
     .map(row => {
-      const alloc = parseInstallmentAllocation(installmentMetaFromNotes(row.notes).allocation);
-      const allocText = alloc.length ? alloc.map(a => `#${a.index}`).join(" · ") : (schedule ? "—" : "Balance");
+      const rowMeta = installmentMetaFromNotes(row.notes);
+      const isDownPayment = String(rowMeta.paymentType || "").toLowerCase() === "down_payment";
+      const alloc = parseInstallmentAllocation(rowMeta.allocation);
+      const allocText = alloc.length
+        ? alloc.map(a => `#${a.index}`).join(" · ")
+        : (isDownPayment ? "Before schedule" : (schedule ? "—" : "Balance"));
       return {
         date: row.action_date,
         stamp: dateStamp(row.action_date),
-        label: row.entry_kind === "full" ? "Final payment" : "Partial payment",
+        label: isDownPayment ? "Down payment" : (row.entry_kind === "full" ? "Final payment" : "Partial payment"),
         amount: Number(row.action_amount || 0),
         note: `${allocText}${cleanInstallmentDisplayNote(row.notes) ? ` · ${cleanInstallmentDisplayNote(row.notes)}` : ""}`
       };
@@ -4081,6 +4177,7 @@ function buildInstallmentItemDetailsPayload(groupId){
     currency,
     metrics: {
       principalTotal,
+      downPayment,
       paidTotal,
       remaining,
       progressPct,
@@ -4136,6 +4233,7 @@ function renderInstallmentItemDetailsOverlay(groupId){
   const metricsHtml = [
     sectionDetailsMetricHtml("Progress", escapeHtml(`${m.progressPct}%`), "primary"),
     sectionDetailsMetricHtml("Principal", escapeHtml(formatReportAmount(m.principalTotal, cur))),
+    ...(m.downPayment > 0 ? [sectionDetailsMetricHtml("Down payment", escapeHtml(formatReportAmount(m.downPayment, cur)), "success")] : []),
     sectionDetailsMetricHtml("Paid", escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
     sectionDetailsMetricHtml("Remaining", escapeHtml(formatReportAmount(m.remaining, cur)), m.remaining > 0 ? "warning" : "success"),
     sectionDetailsMetricHtml("Status", escapeHtml(m.status), statusTone),
