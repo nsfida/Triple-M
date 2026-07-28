@@ -255,6 +255,14 @@
     if (meta.variantId) add("VARIANTID", meta.variantId);
     if (meta.productLine) add("PLINE", meta.productLine);
     if (meta.productLineId) add("PLINEID", meta.productLineId);
+    if (meta.subBrand) add("SBRAND", meta.subBrand);
+    if (meta.subBrandId) add("SBRANDID", meta.subBrandId);
+    if (meta.variantStorage) add("STOR", meta.variantStorage);
+    if (meta.variantColor) add("COLOR", meta.variantColor);
+    if (meta.variantOther) add("VOTHER", meta.variantOther);
+    if (meta.sellBy) add("SELLBY", meta.sellBy);
+    if (meta.bottleSizeQty != null) add("BSIZE", meta.bottleSizeQty);
+    if (meta.bottleSizeUnit) add("BUNIT", meta.bottleSizeUnit);
     if (meta.categorySlug) add("CSLUG", meta.categorySlug);
     if (meta.itemCategory) add("UCAT", meta.itemCategory);
     if (meta.quantityUnit) add("UOM", meta.quantityUnit);
@@ -275,6 +283,13 @@
       variantId: g.variant_id,
       productLine: g.product_line,
       productLineId: g.product_line_id,
+      subBrand: g.sub_brand,
+      subBrandId: g.sub_brand_id,
+      variantStorage: g.variant_storage,
+      variantColor: g.variant_color,
+      sellBy: g.sell_by,
+      bottleSizeQty: g.bottle_size_qty,
+      bottleSizeUnit: g.bottle_size_unit,
       categorySlug: g.category_slug,
       itemCategory: g.item_category,
       quantityUnit: g.quantity_unit,
@@ -782,6 +797,16 @@
             variant_id: asUuidOrNull(metaValue(notes, "VARIANTID")),
             product_line: asTextOrNull(metaValue(notes, "PLINE")),
             product_line_id: asUuidOrNull(metaValue(notes, "PLINEID")),
+            sub_brand: asTextOrNull(metaValue(notes, "SBRAND")),
+            sub_brand_id: asUuidOrNull(metaValue(notes, "SBRANDID")),
+            variant_storage: asTextOrNull(metaValue(notes, "STOR")),
+            variant_color: asTextOrNull(metaValue(notes, "COLOR")),
+            sell_by: asTextOrNull(metaValue(notes, "SELLBY")),
+            bottle_size_qty: (() => {
+              const n = Number(metaValue(notes, "BSIZE"));
+              return Number.isFinite(n) && n > 0 ? n : null;
+            })(),
+            bottle_size_unit: asTextOrNull(metaValue(notes, "BUNIT")),
             category_slug: asTextOrNull(metaValue(notes, "CSLUG")),
             item_category: asTextOrNull(metaValue(notes, "UCAT")) || "count",
             quantity_unit: asTextOrNull(metaValue(notes, "UOM")) || "item",
@@ -870,6 +895,7 @@
     delete next.brand_id;
     delete next.variant_id;
     delete next.product_line_id;
+    delete next.sub_brand_id;
     return next;
   }
 
@@ -881,6 +907,12 @@
     delete next.quantity_unit;
     delete next.brand;
     delete next.variant_label;
+    delete next.sub_brand;
+    delete next.variant_storage;
+    delete next.variant_color;
+    delete next.sell_by;
+    delete next.bottle_size_qty;
+    delete next.bottle_size_unit;
     delete next.item_code;
     delete next.tx_type;
     delete next.meta;
@@ -923,7 +955,16 @@
           p_product_line_id: body.product_line_id || asUuidOrNull(metaValue(notes, "PLINEID")),
           p_category_slug: body.category_slug || metaValue(notes, "CSLUG") || null,
           p_item_category: body.item_category || metaValue(notes, "UCAT") || "count",
-          p_quantity_unit: body.quantity_unit || metaValue(notes, "UOM") || "item"
+          p_quantity_unit: body.quantity_unit || metaValue(notes, "UOM") || "item",
+          p_sub_brand: body.sub_brand || metaValue(notes, "SBRAND") || null,
+          p_sub_brand_id: body.sub_brand_id || asUuidOrNull(metaValue(notes, "SBRANDID")),
+          p_variant_storage: body.variant_storage || metaValue(notes, "STOR") || null,
+          p_variant_color: body.variant_color || metaValue(notes, "COLOR") || null,
+          p_sell_by: body.sell_by || metaValue(notes, "SELLBY") || null,
+          p_bottle_size_qty: body.bottle_size_qty != null
+            ? Number(body.bottle_size_qty)
+            : (Number(metaValue(notes, "BSIZE")) || null),
+          p_bottle_size_unit: body.bottle_size_unit || metaValue(notes, "BUNIT") || null
         }))
       : await global.supabaseRpc("app_upsert_goods_item", {
           p_id: body.id || null,
@@ -944,7 +985,14 @@
           p_product_line_id: body.product_line_id || null,
           p_category_slug: body.category_slug || null,
           p_item_category: body.item_category || "count",
-          p_quantity_unit: body.quantity_unit || "item"
+          p_quantity_unit: body.quantity_unit || "item",
+          p_sub_brand: body.sub_brand || null,
+          p_sub_brand_id: body.sub_brand_id || null,
+          p_variant_storage: body.variant_storage || null,
+          p_variant_color: body.variant_color || null,
+          p_sell_by: body.sell_by || null,
+          p_bottle_size_qty: body.bottle_size_qty != null ? Number(body.bottle_size_qty) : null,
+          p_bottle_size_unit: body.bottle_size_unit || null
         });
     if (!res || res.ok === false) throw new Error(res?.error || "Goods item RPC failed");
     return res;
