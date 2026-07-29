@@ -299,7 +299,7 @@
             "name": "How do I get access to Triplem?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Request a private login through the inquiry form or WhatsApp support, or start the available free trial from the sign-in screen. After approval you receive credentials for your own workspace."
+              "text": "Request a private login through the inquiry form or WhatsApp support, or start the available free trial from Secure Sign in or the trial offer. After approval you receive credentials for your own workspace."
             }
           }
         ]
@@ -393,7 +393,11 @@
         </nav>
 
         <div class="landing-nav-actions">
-          <button id="sendInquiryBtn" class="landing-nav-cta" type="button">
+          <button type="button" class="landing-nav-cta landing-nav-cta--signin" data-landing-signin id="navSecureSignInBtn">
+            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+            <span>Secure Sign in</span>
+          </button>
+          <button id="sendInquiryBtn" class="landing-nav-cta landing-nav-cta--ghost" type="button">
             <i class="fa-solid fa-envelope" aria-hidden="true"></i>
             <span>Request Access</span>
           </button>
@@ -418,6 +422,9 @@
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="pricing">Pricing</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="faq">FAQs</button>
           <button type="button" class="landing-mobile-item" role="menuitem" data-landing-section="policies">Policy</button>
+          <button type="button" class="landing-mobile-item landing-mobile-item-cta" role="menuitem" data-landing-signin>
+            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Secure Sign in
+          </button>
           <button type="button" class="landing-mobile-item landing-mobile-item-cta" role="menuitem" data-landing-inquiry>
             <i class="fa-solid fa-envelope" aria-hidden="true"></i> Request Access
           </button>
@@ -433,58 +440,92 @@
         </div>
       </header>
 
-      <main id="top" class="landing-main">
-        <section class="landing-hero landing-hero-signin" aria-labelledby="landingHeroTitle">
-          <div class="landing-signin-compose">
-            <div class="landing-signin-brand">
-              <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private accounting &amp; finance solution</p>
-              <h1 id="landingHeroTitle" class="landing-hero-title">
-                <span class="landing-brand-name" aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></span>
-                <span class="landing-tagline">Secure accounting solution and personal expense tracking for modern business owners.</span>
-              </h1>
-              <p class="landing-lead landing-lead-compact">Sign in to your private Triplem workspace for invoices, receipts, reports, transactions, loans, inventory, assets, wallets, and PDF statements.</p>
-            </div>
+      <main id="top" class="landing-main landing-main--marketing">
+        <div class="landing-offer-ticker" role="status" aria-live="polite">
+          <span class="landing-offer-ticker-pulse" aria-hidden="true">●</span>
+          <p class="landing-offer-ticker-text">
+            <strong>🔥 14-DAY FREE TRIAL</strong>
+            <span class="landing-offer-ticker-sep" aria-hidden="true">·</span>
+            <span class="landing-offer-ticker-detail">Full workspace · No card · Claim in under 2 minutes</span>
+          </p>
+          <button type="button" class="landing-offer-ticker-cta" data-landing-trial>Claim now →</button>
+        </div>
 
-            <aside id="login" class="login-glass-panel" aria-labelledby="loginTitle">
-              <div class="login-panel-top">
-                <img src="Assets/logo/logo.png" alt="Triplem private finance solution sign-in emblem" />
-                <div>
-                  <p class="login-kicker">Secure portal</p>
-                  <h2 id="loginTitle">Sign in</h2>
-                </div>
+        <section class="landing-hero landing-hero-marketing" aria-labelledby="landingHeroTitle">
+          <div class="landing-hero-marketing-inner">
+            <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private finance workspace</p>
+            <h1 id="landingHeroTitle" class="landing-hero-title">
+              <span class="landing-brand-name" aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></span>
+              <span class="landing-tagline">Books, wallets, inventory, assets &amp; Bitcoin — one private dashboard.</span>
+            </h1>
+            <p class="landing-lead">Ditch scattered sheets. Track spend, invoices, loans, stock, assets, and client-side Bitcoin with PDF-ready reports.</p>
+            <div class="landing-hero-actions">
+              <button type="button" class="btn primary landing-cta landing-cta--signin" data-landing-signin>
+                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Secure Sign in
+              </button>
+              <button type="button" class="btn soft landing-cta" id="landingHeroTrialBtn" data-landing-trial>
+                <i class="fa-solid fa-gift" aria-hidden="true"></i> Start free trial
+              </button>
+            </div>
+            <p class="landing-hero-trust"><span aria-hidden="true">🔒</span> Isolated accounts · <span aria-hidden="true">📄</span> PDF exports · <span aria-hidden="true">⚡</span> Browser-ready</p>
+          </div>
+        </section>
+
+        <section class="landing-trial-banner" id="landingTrialBanner" aria-labelledby="landingTrialBannerTitle">
+          <div class="landing-trial-banner-inner">
+            <div class="landing-trial-banner-copy">
+              <p class="landing-trial-badge landing-trial-badge--blink"><span aria-hidden="true">🎁</span> Limited intro offer — blink &amp; grab it</p>
+              <h2 id="landingTrialBannerTitle">14 days free. Full access. No card.</h2>
+              <p>Open wallets, inventory, assets, invoices &amp; Bitcoin tools today. Login stays after trial — continue with a plan or admin grant.</p>
+              <ul class="landing-trial-points">
+                <li><span aria-hidden="true">✅</span> Multi-currency wallets &amp; expenses</li>
+                <li><span aria-hidden="true">✅</span> Inventory, invoices &amp; balances</li>
+                <li><span aria-hidden="true">✅</span> Asset Management with live P/L</li>
+                <li><span aria-hidden="true">✅</span> Client-side Bitcoin send &amp; receive</li>
+              </ul>
+              <div class="landing-trial-banner-actions">
+                <button type="button" class="btn primary landing-cta-pulse" data-landing-trial><i class="fa-solid fa-rocket" aria-hidden="true"></i> Claim free trial</button>
+                <button type="button" class="btn ghost" data-landing-section="pricing">See pricing</button>
               </div>
-              <p class="login-panel-copy">Enter your username and password to open your private finance solution workspace.</p>
-              <form class="login-form landing-login-form" onsubmit="return false;">
-                <div class="form-group">
-                  <label for="zipUsernameInput" class="form-label">Username</label>
-                  <div class="input-wrapper">
-                    <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Your account username" autocomplete="username" autocapitalize="off" spellcheck="false" />
-                    <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="zipPasswordInput" class="form-label">Password</label>
-                  <div class="input-wrapper has-pw-eye">
-                    <input id="zipPasswordInput" class="input" type="password" placeholder="Your account password" autocomplete="current-password" />
-                    <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
-                    <button type="button" class="pw-eye-btn pw-eye-btn--input" id="zipPasswordToggle" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
-                  </div>
-                </div>
-                <label class="login-remember-me" for="rememberMeCheckbox">
-                  <input id="rememberMeCheckbox" type="checkbox" />
-                  <span>Remember me</span>
-                </label>
-                <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
-                <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
-              </form>
-              <div class="landing-downloads" aria-label="App downloads">
-                <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem for iOS"><i class="fa-brands fa-apple"></i></button>
-                <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triplem for Android"><i class="fa-brands fa-google-play"></i></button>
-                <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp support</a>
-              </div>
-              <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Each account has an isolated workspace secured by database authentication.</div>
-              <div id="lockError" class="lock-error"></div>
+            </div>
+            <aside class="landing-trial-banner-card" aria-label="Why start today">
+              <strong>Why owners start today</strong>
+              <p><span aria-hidden="true">⏱️</span> Setup in minutes</p>
+              <p><span aria-hidden="true">🛡️</span> Private per-account data</p>
+              <p><span aria-hidden="true">📊</span> Charts &amp; PDFs included</p>
+              <p><span aria-hidden="true">💬</span> WhatsApp support ready</p>
+              <p class="landing-trial-urgency"><span aria-hidden="true">⏳</span> Offer active for new accounts</p>
             </aside>
+          </div>
+        </section>
+
+        <section class="landing-convince" aria-labelledby="landingConvinceTitle">
+          <header class="landing-convince-head">
+            <p class="section-kicker">Built for real operators</p>
+            <h2 id="landingConvinceTitle">Day-to-day money — without the chaos.</h2>
+            <p>For merchants, shop owners &amp; careful individuals who want clarity that stays private.</p>
+          </header>
+          <div class="landing-convince-grid">
+            <article class="landing-convince-card">
+              <span class="landing-convince-emoji" aria-hidden="true">💼</span>
+              <h3>One private workspace</h3>
+              <p>Wallets, loans, inventory, assets, invoices &amp; Bitcoin — searchable history, not scattered sheets.</p>
+            </article>
+            <article class="landing-convince-card">
+              <span class="landing-convince-emoji" aria-hidden="true">📈</span>
+              <h3>Decisions, not guesswork</h3>
+              <p>Charts, asset P/L, inventory profit &amp; wallet balances — know where money went.</p>
+            </article>
+            <article class="landing-convince-card">
+              <span class="landing-convince-emoji" aria-hidden="true">🔐</span>
+              <h3>Serious about privacy</h3>
+              <p>Isolated accounts + Bitcoin keys that stay in your browser. Keys don’t leave your device.</p>
+            </article>
+            <article class="landing-convince-card">
+              <span class="landing-convince-emoji" aria-hidden="true">🖨️</span>
+              <h3>Export when you need it</h3>
+              <p>Branded invoices, receipts, asset summaries &amp; BTC statements — ready for customers.</p>
+            </article>
           </div>
         </section>
       </main>
@@ -611,7 +652,7 @@
         </div>
       </section>
 
-      <footer class="landing-footer" aria-label="Landing footer">
+      <footer class="landing-footer landing-footer--centered" aria-label="Landing footer">
         <div class="landing-footer-inner">
           <div class="landing-footer-brand">
             <img src="Assets/logo/logo.png" alt="" width="28" height="28" />
@@ -630,7 +671,7 @@
             <button type="button" class="landing-footer-link" data-landing-section="policies">Privacy Policy</button>
             <button type="button" class="landing-footer-link" data-landing-inquiry>Contact</button>
             <button type="button" class="landing-footer-link" data-landing-inquiry>Request Access</button>
-            <a class="landing-footer-link" href="#login" data-landing-signin>Sign in</a>
+            <a class="landing-footer-link" href="#login" data-landing-signin>Secure Sign in</a>
           </nav>
           <p class="landing-footer-copy">&copy; <span id="landingFooterYear"></span> Triplem · Money Management Module</p>
         </div>
@@ -1527,6 +1568,54 @@
     </div>
   </div>
 
+  <!-- Secure Sign-in overlay (form IDs preserved for Remember Me / unlock) -->
+  <div id="signInOverlay" class="signin-overlay hide" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="signin-overlay-backdrop" data-signin-dismiss tabindex="-1" aria-hidden="true"></div>
+    <div class="signin-overlay-card">
+      <button type="button" class="signin-overlay-close" data-signin-dismiss aria-label="Close sign in">&times;</button>
+      <aside id="login" class="login-glass-panel login-glass-panel--overlay" aria-labelledby="loginTitle">
+        <div class="login-panel-top">
+          <img src="Assets/logo/logo.png" alt="Triplem private finance solution sign-in emblem" />
+          <div>
+            <p class="login-kicker">Secure portal</p>
+            <h2 id="loginTitle">Sign in</h2>
+          </div>
+        </div>
+        <p class="login-panel-copy">Enter your username and password to open your private workspace.</p>
+        <form class="login-form landing-login-form" onsubmit="return false;">
+          <div class="form-group">
+            <label for="zipUsernameInput" class="form-label">Username</label>
+            <div class="input-wrapper">
+              <input id="zipUsernameInput" class="input lock-input-full" type="text" placeholder="Your account username" autocomplete="username" autocapitalize="off" spellcheck="false" />
+              <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="zipPasswordInput" class="form-label">Password</label>
+            <div class="input-wrapper has-pw-eye">
+              <input id="zipPasswordInput" class="input" type="password" placeholder="Your account password" autocomplete="current-password" />
+              <span class="input-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+              <button type="button" class="pw-eye-btn pw-eye-btn--input" id="zipPasswordToggle" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+            </div>
+          </div>
+          <label class="login-remember-me" for="rememberMeCheckbox">
+            <input id="rememberMeCheckbox" type="checkbox" />
+            <span>Remember me</span>
+          </label>
+          <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
+          <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
+        </form>
+        <div class="landing-downloads" aria-label="App downloads">
+          <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem for iOS"><i class="fa-brands fa-apple"></i></button>
+          <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triplem for Android"><i class="fa-brands fa-google-play"></i></button>
+          <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp support</a>
+        </div>
+        <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Each account has an isolated workspace secured by database authentication.</div>
+        <div id="lockError" class="lock-error"></div>
+      </aside>
+    </div>
+  </div>
+
   <!-- 14-day free trial promo (landing / sign-in) -->
   <div id="trialPromoOverlay" class="trial-promo-overlay hide" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="trialPromoTitle">
     <div class="trial-promo-backdrop" data-trial-promo-dismiss></div>
@@ -1555,6 +1644,10 @@
         <li>
           <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>
           <span><strong>Live inventory</strong> Stock levels, costs, and service items at a glance.</span>
+        </li>
+        <li>
+          <i class="fa-solid fa-building-columns" aria-hidden="true"></i>
+          <span><strong>Asset Management</strong> Track owned assets with live P/L and PDF summaries.</span>
         </li>
         <li>
           <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
