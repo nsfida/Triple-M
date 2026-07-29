@@ -942,6 +942,58 @@ function buildAssetsDetailsPayload(preferredCurrency = "") {
   return collectAssetPortfolioRows(preferredCurrency);
 }
 
+/** Dashboard-shaped payload (formatted metrics + chart inputs). */
+function buildAssetsDashboardPayload(preferredCurrency = "") {
+  const data = collectAssetPortfolioRows(preferredCurrency);
+  const cur = data.selectedCurrency || "";
+  const fmt = (n) => {
+    if (typeof formatReportAmount === "function") {
+      return cur ? formatReportAmount(n, cur) : formatReportAmount(n, "");
+    }
+    if (typeof moneyText === "function") return moneyText(n || 0, cur || "AED");
+    return String(n || 0);
+  };
+  const t = data.totals || {};
+  const status = t.status || { active: 0, sold: 0, disposed: 0 };
+  return {
+    currencies: data.currencies || [],
+    selectedCurrency: cur,
+    count: data.count || 0,
+    metrics: {
+      assets: data.count || 0,
+      active: status.active || 0,
+      sold: status.sold || 0,
+      disposed: status.disposed || 0,
+      invested: fmt(t.expenses || 0),
+      investedValue: Number(t.expenses || 0),
+      revenue: fmt(t.revenue || 0),
+      revenueValue: Number(t.revenue || 0),
+      income: fmt(t.income || 0),
+      incomeValue: Number(t.income || 0),
+      sale: fmt(t.sale || 0),
+      saleValue: Number(t.sale || 0),
+      net: fmt(t.net || 0),
+      netValue: Number(t.net || 0),
+      purchase: fmt(t.purchase || 0),
+      purchaseValue: Number(t.purchase || 0)
+    },
+    statusCounts: status,
+    typeCounts: t.typeCounts instanceof Map ? t.typeCounts : new Map(),
+    expenseBreakdown: {
+      maintenance: Number(t.maintenance || 0),
+      repair: Number(t.repair || 0),
+      operating: Number(t.operating || 0),
+      otherExpense: Number(t.otherExpense || 0),
+      additionalInvestment: Number(t.additionalInvestment || 0),
+      saleCosts: Number(t.saleCosts || 0),
+      purchase: Number(t.purchase || 0)
+    },
+    monthMap: data.monthMap instanceof Map ? data.monthMap : new Map(),
+    rows: data.rows || [],
+    totals: t
+  };
+}
+
 function assetsDetailsCurrencyChipsHtml(currencies, selected) {
   if (typeof sectionDetailsCurrencyChipsHtml === "function") {
     return sectionDetailsCurrencyChipsHtml(currencies, selected, {
