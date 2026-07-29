@@ -4010,8 +4010,9 @@
             <select id="assetFormType" class="input select"></select>
           </div>
           <div class="form-group hide" id="assetFormTypeOtherWrap">
-            <label class="form-label" for="assetFormTypeOther">Other type</label>
-            <input id="assetFormTypeOther" class="input" maxlength="80" placeholder="Describe type" />
+            <label class="form-label" for="assetFormTypeOther">New type name</label>
+            <input id="assetFormTypeOther" class="input" maxlength="80" placeholder="e.g. Warehouse, Shop, Boat" />
+            <p class="help" style="margin:4px 0 0;">Saved and listed next time under Asset type.</p>
           </div>
           <div class="form-group">
             <label class="form-label" for="assetFormCurrency">Currency</label>
@@ -4067,6 +4068,11 @@
           <div class="form-group">
             <label class="form-label" for="assetTxType">Type</label>
             <select id="assetTxType" class="input select"></select>
+          </div>
+          <div class="form-group hide" id="assetTxLabelWrap">
+            <label class="form-label" for="assetTxLabel">Expense name</label>
+            <input id="assetTxLabel" class="input" maxlength="80" placeholder="e.g. Insurance, Tax, Registration" />
+            <p class="help" style="margin:4px 0 0;">Saved and listed next time with Other expense.</p>
           </div>
           <div class="form-group">
             <label class="form-label" for="assetTxAmount">Amount</label>
