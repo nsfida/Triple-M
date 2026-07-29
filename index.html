@@ -258,7 +258,7 @@
             "name": "How is user data protected in Triplem?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Access is protected through private credentials, isolated customer workspaces, secure database connections, local backup options, and careful handling of sensitive Bitcoin wallet data in the browser."
+              "text": "Access is protected through private credentials, isolated customer workspaces, secure database connections, local backup options, Smart Pin confirmation for sensitive actions, and careful handling of sensitive Bitcoin wallet data in the browser."
             }
           },
           {
@@ -267,6 +267,22 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Triplem is built for merchants, shop owners, service businesses, individuals, and finance operators who need a private accounting and expense tracking system for invoices, receipts, reports, transactions, inventory, loans, and wallets."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Triplem support multiple currencies and Bitcoin?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Triplem supports common business currencies such as AED, SAR, PKR, and USD, plus Bitcoin wallet watching with blockchain balances and transaction history depending on your configured setup."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I get access to Triplem?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Request a private login through the inquiry form or WhatsApp support, or start the available free trial from the sign-in screen. After approval you receive credentials for your own workspace."
             }
           }
         ]
@@ -1312,13 +1328,128 @@
 
             <section id="faq" class="landing-section landing-content-panel hide" data-landing-panel="faq" aria-labelledby="faqTitle" hidden>
               <p class="section-kicker">FAQ</p>
-              <h2 id="faqTitle">Questions before you sign in.</h2>
+              <h2 id="faqTitle">Clear answers before you dive in.</h2>
+              <p>Practical questions about Triplem access, accounting workflows, wallets, inventory, security, and exports.</p>
               <div class="faq-list">
-                <details><summary>What is Triplem?</summary><p>Triplem is a secure accounting solution and finance solution for personal expense tracking, wallets, loans, inventory, invoices, receipts, transactions, Bitcoin records, notes, and PDF reports.</p></details>
-                <details><summary>Who should use it?</summary><p>It is useful for shop owners, merchants, service businesses, private lenders, and individuals who need structured finance records, transaction history, and clear reports without manual spreadsheets.</p></details>
-                <details><summary>Does it support multiple currencies?</summary><p>Yes. The app supports common business currencies such as AED, SAR, PKR, USD, and BTC depending on the configured setup.</p></details>
-                <details><summary>Can I download statements?</summary><p>Yes. The dashboard includes PDF statements, receipts, inventory invoices, BTC statements, customer records, and backup exports.</p></details>
-                <details><summary>How do I get access?</summary><p>Use the inquiry button or WhatsApp support link to request setup and receive your private login details.</p></details>
+                <p class="faq-group-label">Getting started</p>
+                <details>
+                  <summary>What is Triplem?</summary>
+                  <div class="faq-answer">
+                    <p>Triplem is a private accounting and money-management workspace for owners and careful operators. It brings expense wallets, loans, inventory, invoices, receipts, customer balances, notes, Bitcoin records, searchable history, and PDF reports into one calm dashboard.</p>
+                    <p>It is built to replace messy spreadsheets with structured day-to-day books you can actually trust.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Who is Triplem for?</summary>
+                  <div class="faq-answer">
+                    <p>Shop owners, merchants, service businesses, private lenders, and individuals who need clear finance records without enterprise clutter.</p>
+                    <ul>
+                      <li>Track personal and business spend across wallets</li>
+                      <li>Keep loan and customer balances organized</li>
+                      <li>Issue invoices/receipts and export statements</li>
+                    </ul>
+                  </div>
+                </details>
+                <details>
+                  <summary>How do I get access or start a trial?</summary>
+                  <div class="faq-answer">
+                    <p>You can request a private login through the inquiry form or WhatsApp support, or start the available free trial from the sign-in screen when offered.</p>
+                    <p>After approval or trial signup, you receive credentials for your own workspace. Team access can be added later by an administrator.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Do I need to install an app?</summary>
+                  <div class="faq-answer">
+                    <p>No. Triplem runs in the browser on desktop and mobile. Optional iOS/Android install helpers are available if you want a home-screen style shortcut, but the full workspace works without a store install.</p>
+                  </div>
+                </details>
+
+                <p class="faq-group-label">Features &amp; workflow</p>
+                <details>
+                  <summary>Does it support multiple currencies?</summary>
+                  <div class="faq-answer">
+                    <p>Yes. Common business currencies such as AED, SAR, PKR, USD, and BTC are supported depending on your setup. Each wallet keeps its own currency, balances, and statement history.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Can I track inventory, invoices, and customers?</summary>
+                  <div class="faq-answer">
+                    <p>Yes. Inventory covers purchased stock, sales, low-stock signals, customer records, outstanding balances, and profit visibility. You can save carts/proformas, finalize sales, and download invoices or receipts as PDFs.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>How do wallets and transfers work?</summary>
+                  <div class="faq-answer">
+                    <p>Create wallets for cash, bank, card, or custom accounts. Add money, record expenses, and transfer between wallets while keeping a clean transaction history per wallet.</p>
+                    <p>You can also rearrange wallet cards, upload logos, and export wallet-level statements.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Does Triplem handle loans and installments?</summary>
+                  <div class="faq-answer">
+                    <p>Yes. Track money given, received back, loans taken, repayments, and installment plans with settlement visibility so open balances stay easy to follow.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>What about Bitcoin records?</summary>
+                  <div class="faq-answer">
+                    <p>You can create or import watched Bitcoin wallets, review blockchain balances, and keep BTC activity beside your other finance records. Treat private keys carefully and only on trusted devices.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Can I download statements and reports?</summary>
+                  <div class="faq-answer">
+                    <p>Yes. Export PDF statements, receipts, inventory invoices, customer records, BTC statements, and backup-style exports from the dashboard.</p>
+                    <p>Always review exports before using them for formal accounting decisions.</p>
+                  </div>
+                </details>
+
+                <p class="faq-group-label">Security &amp; data</p>
+                <details>
+                  <summary>Is my data private?</summary>
+                  <div class="faq-answer">
+                    <p>Triplem is designed as a private workspace for approved users. Financial records power the features you use in the dashboard and are not meant for public sharing.</p>
+                    <p>Protect your login, Smart Pin, and device access. Admins can manage team permissions where enabled.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>What is Smart Pin used for?</summary>
+                  <div class="faq-answer">
+                    <p>Smart Pin is an extra confirmation step for sensitive actions such as permanent deletes. It helps reduce accidental or unauthorized destructive changes inside a signed-in session.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Can I recover deleted records?</summary>
+                  <div class="faq-answer">
+                    <p>Many deleted items go to the recycle bin first so you can restore them. Permanently purged records cannot be recovered, so confirm carefully before final deletion.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>Will my data sync across devices?</summary>
+                  <div class="faq-answer">
+                    <p>Yes, when you are signed into your cloud workspace. Wallets, inventory order, categories, and other saved records stay available on another device after they sync.</p>
+                  </div>
+                </details>
+
+                <p class="faq-group-label">Pricing &amp; support</p>
+                <details>
+                  <summary>How does pricing work?</summary>
+                  <div class="faq-answer">
+                    <p>Pricing depends on your plan and usage needs. Check the Pricing tab for current options, or ask support for a custom setup if you need team seats, branding, or special workflows.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>What happens after a free trial ends?</summary>
+                  <div class="faq-answer">
+                    <p>Your login remains, but continued full access typically needs an admin grant or paid plan. Contact support before the trial ends if you want an uninterrupted transition.</p>
+                  </div>
+                </details>
+                <details>
+                  <summary>How do I get help?</summary>
+                  <div class="faq-answer">
+                    <p>Use the inquiry form on the landing page, WhatsApp support, or in-app Messages where available. Include your account email and a short description of the issue for faster help.</p>
+                  </div>
+                </details>
               </div>
             </section>
 
