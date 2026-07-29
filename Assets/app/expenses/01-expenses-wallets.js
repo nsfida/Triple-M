@@ -1459,6 +1459,7 @@ function ensureExpenseWalletReorder(host, options = {}){
   host.dataset.walletReorderBound = "1";
 
   const LONG_MS = 450;
+  const MOVE_CANCEL_PX = 14;
   const itemSelector = options.itemSelector || "[data-wallet-details]";
   const getGroupId = typeof options.getGroupId === "function"
     ? options.getGroupId
@@ -1472,6 +1473,11 @@ function ensureExpenseWalletReorder(host, options = {}){
   let ghost = null;
   let lastOver = null;
   let pressCard = null;
+  let lastX = 0;
+  let lastY = 0;
+  const dragSession = typeof createCardReorderDragSession === "function"
+    ? createCardReorderDragSession("expense-wallet-drag-lock")
+    : null;
 
   const clearPress = () => {
     if (pressTimer) {
@@ -1503,7 +1509,9 @@ function ensureExpenseWalletReorder(host, options = {}){
     pointerId = null;
     lastOver = null;
     host.classList.remove("expense-wallet-reordering");
+    dragSession?.stop();
     document.documentElement.classList.remove("expense-wallet-drag-lock");
+    document.body.classList.remove("expense-wallet-drag-lock");
     host.querySelectorAll(".expense-wallet-drag-source, .expense-wallet-drop-target").forEach(el => {
       el.classList.remove("expense-wallet-drag-source", "expense-wallet-drop-target");
     });
@@ -1514,18 +1522,24 @@ function ensureExpenseWalletReorder(host, options = {}){
   const reorderableItems = () => Array.from(host.querySelectorAll(itemSelector))
     .filter(el => !!getGroupId(el));
 
-  const beginDrag = (el, e) => {
+  const beginDrag = (el, point) => {
     const gid = getGroupId(el);
     if (!gid) return;
     clearSelection();
     dragging = true;
     suppressClick = true;
     sourceEl = el;
-    pointerId = e.pointerId;
+    pointerId = point?.pointerId;
     host.classList.add("expense-wallet-reordering");
     document.documentElement.classList.add("expense-wallet-drag-lock");
+    document.body.classList.add("expense-wallet-drag-lock");
     el.classList.add("expense-wallet-drag-source");
-    try { el.setPointerCapture?.(e.pointerId); } catch (_) {}
+    try {
+      if (point?.pointerId != null) el.setPointerCapture?.(point.pointerId);
+    } catch (_) {}
+    try {
+      if (navigator.vibrate) navigator.vibrate(12);
+    } catch (_) {}
 
     ghost = el.cloneNode(true);
     ghost.classList.add("expense-wallet-drag-ghost");
@@ -1534,18 +1548,33 @@ function ensureExpenseWalletReorder(host, options = {}){
     });
     ghost.style.width = `${el.getBoundingClientRect().width}px`;
     document.body.appendChild(ghost);
-    ghost.style.left = `${e.clientX - 24}px`;
-    ghost.style.top = `${e.clientY - 24}px`;
+    const gx = Number(point?.clientX ?? lastX);
+    const gy = Number(point?.clientY ?? lastY);
+    ghost.style.left = `${gx - 24}px`;
+    ghost.style.top = `${gy - 24}px`;
+    const syncDropFromPoint = (x, y) => {
+      const over = findDropTarget(x, y);
+      if (lastOver && lastOver !== over) lastOver.classList.remove("expense-wallet-drop-target");
+      if (over) {
+        over.classList.add("expense-wallet-drop-target");
+        applyLiveReorder(over);
+      }
+      lastOver = over;
+    };
+    dragSession?.start(host, gy, {
+      clientX: gx,
+      onAutoScroll: (x, y) => syncDropFromPoint(x, y)
+    });
   };
 
-  const moveGhost = (e) => {
+  const moveGhost = (clientX, clientY) => {
     if (!ghost) return;
-    ghost.style.left = `${e.clientX - 24}px`;
-    ghost.style.top = `${e.clientY - 24}px`;
+    ghost.style.left = `${clientX - 24}px`;
+    ghost.style.top = `${clientY - 24}px`;
   };
 
-  const findDropTarget = (e) => {
-    const under = document.elementFromPoint(e.clientX, e.clientY);
+  const findDropTarget = (clientX, clientY) => {
+    const under = document.elementFromPoint(clientX, clientY);
     const target = under?.closest?.(itemSelector);
     if (!target || !host.contains(target) || target === sourceEl) return null;
     return getGroupId(target) ? target : null;
@@ -1589,25 +1618,33 @@ function ensureExpenseWalletReorder(host, options = {}){
 
     const startX = e.clientX;
     const startY = e.clientY;
+    lastX = startX;
+    lastY = startY;
+    const activePointerId = e.pointerId;
+
     pressTimer = setTimeout(() => {
       pressTimer = null;
-      beginDrag(card, e);
+      beginDrag(card, { clientX: lastX, clientY: lastY, pointerId: activePointerId });
     }, LONG_MS);
 
     const onMove = (ev) => {
+      if (activePointerId != null && ev.pointerId != null && ev.pointerId !== activePointerId) return;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
       if (!dragging) {
         const dx = Math.abs(ev.clientX - startX);
         const dy = Math.abs(ev.clientY - startY);
-        if (dx > 10 || dy > 10) {
+        if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
           clearPress();
           clearPressUi();
         }
         return;
       }
-      ev.preventDefault();
+      if (ev.cancelable) ev.preventDefault();
       clearSelection();
-      moveGhost(ev);
-      const over = findDropTarget(ev);
+      moveGhost(ev.clientX, ev.clientY);
+      dragSession?.update(ev.clientX, ev.clientY);
+      const over = findDropTarget(ev.clientX, ev.clientY);
       if (lastOver && lastOver !== over) lastOver.classList.remove("expense-wallet-drop-target");
       if (over) {
         over.classList.add("expense-wallet-drop-target");
@@ -1616,10 +1653,11 @@ function ensureExpenseWalletReorder(host, options = {}){
       lastOver = over;
     };
 
-    const onUp = () => {
-      host.removeEventListener("pointermove", onMove);
-      host.removeEventListener("pointerup", onUp);
-      host.removeEventListener("pointercancel", onUp);
+    const onUp = (ev) => {
+      if (activePointerId != null && ev?.pointerId != null && ev.pointerId !== activePointerId) return;
+      document.removeEventListener("pointermove", onMove, true);
+      document.removeEventListener("pointerup", onUp, true);
+      document.removeEventListener("pointercancel", onUp, true);
       if (dragging) finishDrag();
       else {
         clearPress();
@@ -1627,9 +1665,10 @@ function ensureExpenseWalletReorder(host, options = {}){
       }
     };
 
-    host.addEventListener("pointermove", onMove, { passive: false });
-    host.addEventListener("pointerup", onUp);
-    host.addEventListener("pointercancel", onUp);
+    // Document + capture so mobile drag keeps working outside the host / after scroll.
+    document.addEventListener("pointermove", onMove, { passive: false, capture: true });
+    document.addEventListener("pointerup", onUp, { capture: true });
+    document.addEventListener("pointercancel", onUp, { capture: true });
   }, { passive: true });
 
   host.addEventListener("click", (e) => {
