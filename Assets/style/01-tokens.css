@@ -1,0 +1,32 @@
+/* Split from styles.css lines 1-32 — @font-face + :root. Do not reorder relative to other 0N-*.css files. */
+@font-face{
+  font-family:"DirhamSymbol";
+  src:url("fonts/AED.ttf") format("truetype");
+  font-display:swap;
+}
+@font-face{
+  font-family:"RiyalSymbol";
+  src:url("fonts/SAR.otf") format("opentype");
+  font-display:swap;
+}
+
+:root{
+  --bg:#edf1f7;
+  --panel:rgba(255,255,255,.18);
+  --panel-2:rgba(255,255,255,.10);
+  --text:#17212b;
+  --muted:#667085;
+  --line:rgba(208,213,221,.70);
+  --line-strong:rgba(183,193,208,.82);
+  --primary:#2457d6;
+  --primary-soft:rgba(36,87,214,.10);
+  --success:#067647;
+  --warning:#b54708;
+  --danger:#b42318;
+  --shadow:0 10px 26px rgba(16,24,40,.10);
+  --shadow-strong:0 14px 36px rgba(16,24,40,.14);
+  --radius:14px;
+  --max:1240px;
+  --content-max:1040px;
+  --glass-blur:18px;
+}
