@@ -277,7 +277,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script defer data-chartjs-loader="1" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -1914,8 +1914,9 @@
             <div class="admin-comms-items" id="adminMessagesPreviewList">
               <div class="admin-comms-empty">No messages yet</div>
             </div>
-            <div class="admin-comms-footer">
-              <button class="btn soft" id="adminMessagesGotoBtn" type="button">Open Messages inbox</button>
+            <div class="admin-comms-footer admin-comms-footer-actions">
+              <button class="btn soft" id="adminMessagesNewBtn" type="button"><i class="fa-solid fa-pen-to-square"></i> New</button>
+              <button class="btn soft" id="adminMessagesGotoBtn" type="button"><i class="fa-solid fa-inbox"></i> All</button>
             </div>
           </div>
         </div>
@@ -1926,6 +1927,9 @@
           </button>
           <div class="menu-dropdown page-currency-dropdown" data-entry-menu-panel="page-currency" id="pageCurrencyDropdown"></div>
         </div>
+        <button class="btn ghost top-icon-btn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
         <div class="menu-wrap">
           <button class="btn ghost menu-trigger top-icon-btn" id="recycleBinBtn" type="button" data-entry-menu="recyclebin" aria-haspopup="menu" aria-expanded="false" title="Recycle Bin">
             <i class="fa-solid fa-trash-can"></i>
@@ -1947,8 +1951,8 @@
             <div class="recycle-bin-items"></div>
           </div>
         </div>
-        <button class="btn ghost top-icon-btn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh">
-          <i class="fa-solid fa-rotate-right"></i>
+        <button class="btn ghost top-icon-btn" id="appAboutInfoBtn" type="button" title="About Triplem" aria-label="About Triplem">
+          <i class="fa-solid fa-circle-info"></i>
         </button>
         <div class="menu-wrap">
           <button class="btn ghost menu-trigger top-icon-btn" id="accountMenuBtn" type="button" data-entry-menu="account" aria-haspopup="menu" aria-expanded="false" title="Account" aria-label="Account menu">
@@ -2039,9 +2043,9 @@
       <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
       <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
       <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
-      <button class="tab hide" data-tab="messages" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
+      <button class="tab hide" data-tab="messages" type="button" aria-hidden="true" tabindex="-1"><i class="fa-solid fa-comments"></i> Messages</button>
       <button class="tab hide" data-tab="admin" type="button"><i class="fa-solid fa-user-shield"></i> Admin</button>
-      <button class="tab" data-tab="about" type="button"><i class="fa-solid fa-info-circle"></i> About</button>
+      <button class="tab hide" data-tab="about" type="button" aria-hidden="true" tabindex="-1"><i class="fa-solid fa-info-circle"></i> About</button>
     </section>
 
 <section class="overview main-overview-section collapsed" id="mainOverview">
@@ -2435,6 +2439,17 @@
               <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Save a customer record with or without a sale">
                 <i class="fa-solid fa-user-plus"></i> Add Customer
               </button>
+              <label class="inventory-grid-sort" title="Arrange category grids">
+                <span class="inventory-grid-sort-label"><i class="fa-solid fa-arrow-down-short-wide" aria-hidden="true"></i> Arrange</span>
+                <select id="inventoryGridSortSelect" class="select filter-inline-select" aria-label="Arrange inventory category grids">
+                  <option value="manual" selected>Custom order</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="stock">In stock first</option>
+                  <option value="low">Low stock first</option>
+                  <option value="empty">Empty first</option>
+                  <option value="sold">Sold first</option>
+                </select>
+              </label>
             </div>
             <div class="filter-inline-row inventory-filter-row">
               <div class="filter-inline-section inventory-filter-search">
