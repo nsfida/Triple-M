@@ -3568,6 +3568,11 @@ a.landing-mobile-item{
 #inventoryReceiptEditModal.modal{z-index:1160;}
 #inventorySaleDraftAddItemsModal.modal,
 #inventoryQtyPromptModal.modal{z-index:1170;}
+/* Assets: detail under form/tx/sale so Edit/Add open in front */
+#assetDetailModal.modal{z-index:1180;}
+#assetFormModal.modal,
+#assetTxModal.modal,
+#assetSaleModal.modal{z-index:1190;}
 .modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(4px);}
 .modal-dialog{
   position:relative;width:min(760px,100%);max-height:calc(100vh - 28px);overflow:auto;
