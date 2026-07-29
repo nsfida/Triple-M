@@ -2338,6 +2338,7 @@ function getEditTaxMeta(entry, amount) {
 const sectionDetailsChartInstances = [];
 let inventoryDetailsSelectedCurrency = "";
 let inventoryDetailsItemTypeFilter = "";
+let expenseDetailsSelectedCurrency = "";
 
 function sectionDetailsEnsureChartLib(){
   return !!(window.Chart);
@@ -2656,15 +2657,49 @@ function resolveInventoryDetailsCurrency(currencies, preferred){
   return list[0];
 }
 
+function resolveExpenseDetailsCurrency(currencies, preferred){
+  const list = Array.isArray(currencies) ? currencies.filter(Boolean) : [];
+  if (!list.length) return "";
+  if (preferred && list.includes(preferred)) return preferred;
+  if (expenseDetailsSelectedCurrency && list.includes(expenseDetailsSelectedCurrency)) {
+    return expenseDetailsSelectedCurrency;
+  }
+  if (!isPageCurrencyAll()) {
+    const selected = getSelectedPageCurrencies();
+    if (selected.length === 1 && list.includes(selected[0])) return selected[0];
+    const pageHit = selected.find(c => list.includes(c));
+    if (pageHit) return pageHit;
+  }
+  const expenseFilter = String(state.currencyFilter?.expenses || state.currencyFilter?.expense || "All");
+  if (expenseFilter !== "All" && list.includes(expenseFilter)) return expenseFilter;
+  return list[0];
+}
+
 function inventoryDetailsCurrencyChipsHtml(currencies, selected){
+  return sectionDetailsCurrencyChipsHtml(currencies, selected, {
+    ariaLabel: "Inventory currency",
+    dataAttr: "inventory-details-currency"
+  });
+}
+
+function expenseDetailsCurrencyChipsHtml(currencies, selected){
+  return sectionDetailsCurrencyChipsHtml(currencies, selected, {
+    ariaLabel: "Expense currency",
+    dataAttr: "expense-details-currency"
+  });
+}
+
+function sectionDetailsCurrencyChipsHtml(currencies, selected, options = {}){
   if (!currencies.length) return "";
+  const ariaLabel = options.ariaLabel || "Currency";
+  const dataAttr = options.dataAttr || "section-details-currency";
   return `
-    <div class="section-details-currency-bar" role="tablist" aria-label="Inventory currency">
+    <div class="section-details-currency-bar" role="tablist" aria-label="${escapeHtml(ariaLabel)}">
       ${currencies.map(currency => `
         <button
           type="button"
           class="section-details-currency-chip${currency === selected ? " active" : ""}"
-          data-inventory-details-currency="${escapeHtml(currency)}"
+          data-${dataAttr}="${escapeHtml(currency)}"
           role="tab"
           aria-selected="${currency === selected ? "true" : "false"}"
           title="${escapeHtml(currency)}"
@@ -2793,37 +2828,38 @@ function buildInventoryDetailsPayload(currencyFilter = "", itemTypeFilter = ""){
   };
 }
 
-function buildExpenseDetailsPayload(){
-  const accounts = getExpenseAccounts({ applyUiFilters: false });
-  const currencies = sortCurrenciesList([...new Set(accounts.map(a => a.currency).filter(Boolean))]);
-  const byCurrency = currencies.map(currency => {
-    const s = summarizeExpenseByCurrency(currency);
-    return {
-      currency,
-      toppedUp: s.totalAmount,
-      spent: s.totalExpenses,
-      balance: s.availableBalance,
-      wallets: accounts.filter(a => a.currency === currency).length
-    };
-  });
-  const toppedUpText = byCurrency.length
-    ? byCurrency.map(row => formatReportAmount(row.toppedUp, row.currency)).join(" | ")
-    : "0";
-  const spentText = byCurrency.length
-    ? byCurrency.map(row => formatReportAmount(row.spent, row.currency)).join(" | ")
-    : "0";
-  const balanceText = byCurrency.length
-    ? byCurrency.map(row => formatReportAmount(row.balance, row.currency)).join(" | ")
-    : "0";
+function buildExpenseDetailsPayload(currencyFilter = ""){
+  const accountsUniverse = getExpenseAccounts({ applyUiFilters: false });
+  const currencies = sortCurrenciesList([
+    ...new Set(accountsUniverse.map(a => String(a.currency || "").trim()).filter(Boolean))
+  ]);
+  const selectedCurrency = resolveExpenseDetailsCurrency(currencies, currencyFilter);
+  const accounts = selectedCurrency
+    ? accountsUniverse.filter(a => String(a.currency || "").trim() === selectedCurrency)
+    : accountsUniverse;
+
+  const summary = selectedCurrency
+    ? summarizeExpenseByCurrency(selectedCurrency)
+    : null;
+  const toppedUp = summary
+    ? Number(summary.totalAmount || 0)
+    : accounts.reduce((sum, a) => sum + Number(a.openingBalance || 0) + Number(a.addedMoney || 0), 0);
+  const spent = summary
+    ? Number(summary.totalExpenses || 0)
+    : accounts.reduce((sum, a) => sum + Number(a.spentMoney || 0), 0);
+  const balance = summary
+    ? Number(summary.availableBalance || 0)
+    : accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
 
   const walletSpend = accounts
     .map(account => ({
       name: account.person_name || "Wallet",
       spent: Number(account.spentMoney || 0),
       topped: Number(account.openingBalance || 0) + Number(account.addedMoney || 0),
+      balance: Number(account.balance || 0),
       currency: account.currency
     }))
-    .filter(row => row.spent > 0 || row.topped > 0)
+    .filter(row => row.spent > 0 || row.topped > 0 || row.balance !== 0)
     .sort((a, b) => b.spent - a.spent);
 
   const monthMap = new Map();
@@ -2848,16 +2884,21 @@ function buildExpenseDetailsPayload(){
   });
 
   return {
+    accountsUniverse,
     accounts,
+    currencies,
+    selectedCurrency,
     metrics: {
       wallets: accounts.length,
       activeWallets: accounts.filter(a => a.status === "Open").length,
       currencies: currencies.length || 0,
-      toppedUp: toppedUpText,
-      spent: spentText,
-      balance: balanceText
+      toppedUp: selectedCurrency ? formatReportAmount(toppedUp, selectedCurrency) : formatReportAmount(toppedUp, ""),
+      spent: selectedCurrency ? formatReportAmount(spent, selectedCurrency) : formatReportAmount(spent, ""),
+      balance: selectedCurrency ? formatReportAmount(balance, selectedCurrency) : formatReportAmount(balance, ""),
+      toppedUpValue: toppedUp,
+      spentValue: spent,
+      balanceValue: balance
     },
-    byCurrency,
     walletSpend,
     monthMap
   };
@@ -3058,24 +3099,27 @@ function renderInventoryDetailsOverlay(preferredCurrency = ""){
   });
 }
 
-function renderExpenseDetailsOverlay(){
-  const data = buildExpenseDetailsPayload();
+function renderExpenseDetailsOverlay(preferredCurrency = ""){
+  destroySectionDetailsCharts();
+  const data = buildExpenseDetailsPayload(preferredCurrency || expenseDetailsSelectedCurrency);
+  expenseDetailsSelectedCurrency = data.selectedCurrency || "";
   const m = data.metrics;
+  const curLabel = data.selectedCurrency ? ` · ${data.selectedCurrency}` : "";
   const metricsHtml = [
     sectionDetailsMetricHtml("Wallets", escapeHtml(String(m.wallets)), "primary"),
     sectionDetailsMetricHtml("Active wallets", escapeHtml(String(m.activeWallets)), "success"),
-    sectionDetailsMetricHtml("Currencies", escapeHtml(String(m.currencies))),
     sectionDetailsMetricHtml("Topped up", escapeHtml(m.toppedUp)),
     sectionDetailsMetricHtml("Spent", escapeHtml(m.spent), "warning"),
     sectionDetailsMetricHtml("Wallet balances", escapeHtml(m.balance), "success")
   ].join("");
 
   els.sectionDetailsBody.innerHTML = `
-    <p class="section-details-note">Uses all expense wallets and entries (not list filters or history date range). Totals match wallet overview logic.</p>
+    ${expenseDetailsCurrencyChipsHtml(data.currencies, data.selectedCurrency)}
+    <p class="section-details-note">Uses expense wallets for the selected currency${escapeHtml(curLabel)} (not list filters or history date range). Totals match wallet overview logic.</p>
     <div class="section-details-metrics">${metricsHtml}</div>
     <div class="section-details-charts">
       <div class="section-details-chart-card">
-        <h4>Top-up vs spend by currency</h4>
+        <h4>Top-up vs spend${data.selectedCurrency ? ` (${escapeHtml(data.selectedCurrency)})` : ""}</h4>
         <div class="section-details-chart-wrap"><canvas id="sectionDetailsChart1"></canvas></div>
       </div>
       <div class="section-details-chart-card">
@@ -3089,22 +3133,42 @@ function renderExpenseDetailsOverlay(){
     </div>
   `;
 
-  if (!data.accounts.length) {
+  els.sectionDetailsBody.querySelectorAll("[data-expense-details-currency]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = String(btn.dataset.expenseDetailsCurrency || "").trim();
+      if (!next || next === expenseDetailsSelectedCurrency) return;
+      expenseDetailsSelectedCurrency = next;
+      renderExpenseDetailsOverlay(next);
+    });
+  });
+
+  if (!data.accountsUniverse.length) {
     els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No expense wallets yet.</div>`);
+  } else if (!data.accounts.length) {
+    els.sectionDetailsBody.insertAdjacentHTML("beforeend", `<div class="section-details-empty">No expense wallets for ${escapeHtml(data.selectedCurrency || "this currency")}.</div>`);
   }
 
   const { colors, options } = sectionDetailsChartDefaults();
-  const currencyLabels = data.byCurrency.map(row => row.currency);
   createSectionDetailsChart(document.getElementById("sectionDetailsChart1"), {
     type: "bar",
     data: {
-      labels: currencyLabels.length ? currencyLabels : ["—"],
+      labels: ["Topped up", "Spent", "Balance"],
       datasets: [
-        sectionDetailsCandleBarDataset("Topped up", data.byCurrency.map(row => row.toppedUp), colors.primary),
-        sectionDetailsCandleBarDataset("Spent", data.byCurrency.map(row => row.spent), colors.warning)
+        {
+          label: data.selectedCurrency || "Amount",
+          data: [m.toppedUpValue, m.spentValue, m.balanceValue],
+          backgroundColor: [colors.primary, colors.warning, colors.success],
+          borderRadius: 8,
+          maxBarThickness: 42
+        }
       ]
     },
-    options
+    options: {
+      ...options,
+      plugins: { ...(options.plugins || {}), legend: { display: false } }
+    }
   });
 
   const topWallets = data.walletSpend.slice(0, 8);
