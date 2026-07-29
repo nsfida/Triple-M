@@ -2274,13 +2274,22 @@ details[open] .loan-inline-actions .loanHistoryToggle{
 .inventory-section-card.inventory-grid-pressing,
 .inventory-section-card.inventory-grid-pressing *,
 html.inventory-grid-drag-lock,
+html.inventory-grid-drag-lock body,
 html.inventory-grid-drag-lock *{
   user-select:none !important;
   -webkit-user-select:none !important;
   -webkit-touch-callout:none !important;
 }
+html.inventory-grid-drag-lock,
+html.inventory-grid-drag-lock body{
+  touch-action:none !important;
+  overscroll-behavior:none !important;
+}
 .inventory-sections-grid.inventory-grid-reordering{
-  touch-action:none;
+  touch-action:none !important;
+}
+.inventory-sections-grid.inventory-grid-reordering .inventory-section-card{
+  touch-action:none !important;
 }
 .inventory-section-card[data-inventory-section]{
   -webkit-user-select:none;
