@@ -2443,7 +2443,7 @@ async function renderSingleAssetPdfPages(doc, logoData, asset, txs, sum, meta = 
     head: [["Date", "Type", "Amount", "Notes"]],
     body: (txs.length ? txs : [{ tx_date: "—", tx_type: "revenue", amount: 0, notes: "No revenue recorded (shown as 0)" }]).map(tx => [
       tx.tx_date || "—",
-      typeof assetTxTypeLabel === "function" ? assetTxTypeLabel(tx.tx_type) : tx.tx_type,
+      typeof assetTxTypeLabel === "function" ? assetTxTypeLabel(tx.tx_type, tx.tx_label) : tx.tx_type,
       formatPdfAmount(Math.abs(tx.amount || 0), cur),
       tx.notes || ""
     ]),
