@@ -30,6 +30,9 @@ const ASSET_STATUS_OPTIONS = [
   { id: "disposed", label: "Disposed" }
 ];
 
+const ASSET_CUSTOM_TYPE_PREFIX = "__ctype__:";
+const ASSET_CUSTOM_EXPENSE_PREFIX = "__clabel__:";
+
 const assetUi = {
   search: "",
   status: "all",
@@ -45,6 +48,217 @@ const assetUi = {
 
 function assetMath() {
   return window.TripleMAssetMath || {};
+}
+
+function assetCustomCatalogKey() {
+  const oid = typeof currentOwnerId === "function" ? currentOwnerId() : null;
+  return `triplem-asset-custom-options-v1:${oid || "guest"}`;
+}
+
+function normalizeAssetCustomLabel(raw) {
+  return String(raw || "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+function readAssetCustomCatalog() {
+  try {
+    const raw = localStorage.getItem(assetCustomCatalogKey());
+    const parsed = raw ? JSON.parse(raw) : null;
+    return {
+      types: Array.isArray(parsed?.types) ? parsed.types.map(normalizeAssetCustomLabel).filter(Boolean) : [],
+      expenseLabels: Array.isArray(parsed?.expenseLabels)
+        ? parsed.expenseLabels.map(normalizeAssetCustomLabel).filter(Boolean)
+        : []
+    };
+  } catch (_) {
+    return { types: [], expenseLabels: [] };
+  }
+}
+
+function writeAssetCustomCatalog(catalog) {
+  try {
+    localStorage.setItem(assetCustomCatalogKey(), JSON.stringify({
+      types: [...new Set((catalog.types || []).map(normalizeAssetCustomLabel).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+      expenseLabels: [...new Set((catalog.expenseLabels || []).map(normalizeAssetCustomLabel).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+    }));
+  } catch (_) {}
+}
+
+function mergeAssetCustomLabels(existing, extras) {
+  const map = new Map();
+  [...(existing || []), ...(extras || [])].forEach(label => {
+    const clean = normalizeAssetCustomLabel(label);
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (!map.has(key)) map.set(key, clean);
+  });
+  return [...map.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function harvestAssetCustomTypes() {
+  const fromAssets = (state.assets || [])
+    .filter(a => String(a.asset_type || "") === "other")
+    .map(a => a.asset_type_other);
+  return mergeAssetCustomLabels(readAssetCustomCatalog().types, fromAssets);
+}
+
+function harvestAssetCustomExpenseLabels() {
+  const fromTx = (state.assetTransactions || [])
+    .filter(tx => String(tx.tx_type || "") === "other_expense")
+    .map(tx => tx.tx_label || tx.meta?.tx_label || "");
+  return mergeAssetCustomLabels(readAssetCustomCatalog().expenseLabels, fromTx);
+}
+
+function rememberAssetCustomType(label) {
+  const clean = normalizeAssetCustomLabel(label);
+  if (!clean) return;
+  const catalog = readAssetCustomCatalog();
+  catalog.types = mergeAssetCustomLabels(catalog.types, [clean]);
+  writeAssetCustomCatalog(catalog);
+}
+
+function rememberAssetCustomExpenseLabel(label) {
+  const clean = normalizeAssetCustomLabel(label);
+  if (!clean) return;
+  const catalog = readAssetCustomCatalog();
+  catalog.expenseLabels = mergeAssetCustomLabels(catalog.expenseLabels, [clean]);
+  writeAssetCustomCatalog(catalog);
+}
+
+function populateAssetTypeSelect(selectedValue = "") {
+  const typeSel = document.getElementById("assetFormType");
+  if (!typeSel) return;
+  const wanted = String(selectedValue || "");
+  let customs = harvestAssetCustomTypes();
+  if (wanted.startsWith(ASSET_CUSTOM_TYPE_PREFIX)) {
+    customs = mergeAssetCustomLabels(customs, [wanted.slice(ASSET_CUSTOM_TYPE_PREFIX.length)]);
+  }
+  const builtIn = ASSET_TYPE_OPTIONS.filter(o => o.id !== "other");
+  const otherOpt = ASSET_TYPE_OPTIONS.find(o => o.id === "other");
+  const parts = [
+    ...builtIn.map(o => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.label)}</option>`),
+    customs.length
+      ? `<optgroup label="Saved custom types">${customs.map(label =>
+          `<option value="${escapeHtml(ASSET_CUSTOM_TYPE_PREFIX + label)}">${escapeHtml(label)}</option>`
+        ).join("")}</optgroup>`
+      : "",
+    otherOpt
+      ? `<option value="other">${escapeHtml(otherOpt.label)} (add new…)</option>`
+      : ""
+  ];
+  typeSel.innerHTML = parts.join("");
+  if (wanted && [...typeSel.options].some(o => o.value === wanted)) {
+    typeSel.value = wanted;
+  } else {
+    typeSel.value = builtIn[0]?.id || "other";
+  }
+}
+
+function populateAssetTxTypeSelect(selectedValue = "") {
+  const txType = document.getElementById("assetTxType");
+  if (!txType) return;
+  const wanted = String(selectedValue || "");
+  let customs = harvestAssetCustomExpenseLabels();
+  if (wanted.startsWith(ASSET_CUSTOM_EXPENSE_PREFIX)) {
+    customs = mergeAssetCustomLabels(customs, [wanted.slice(ASSET_CUSTOM_EXPENSE_PREFIX.length)]);
+  }
+  const builtIn = ASSET_TX_TYPE_OPTIONS.filter(o => o.id !== "other_expense");
+  const otherOpt = ASSET_TX_TYPE_OPTIONS.find(o => o.id === "other_expense");
+  const parts = [
+    ...builtIn.map(o => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.label)}</option>`),
+    customs.length
+      ? `<optgroup label="Saved other expenses">${customs.map(label =>
+          `<option value="${escapeHtml(ASSET_CUSTOM_EXPENSE_PREFIX + label)}">${escapeHtml(label)}</option>`
+        ).join("")}</optgroup>`
+      : "",
+    otherOpt
+      ? `<option value="other_expense">${escapeHtml(otherOpt.label)} (add new…)</option>`
+      : ""
+  ];
+  txType.innerHTML = parts.join("");
+  if (wanted && [...txType.options].some(o => o.value === wanted)) {
+    txType.value = wanted;
+  } else {
+    txType.value = "maintenance";
+  }
+}
+
+function resolveAssetTypeSelection(selectValue, otherInputValue) {
+  const raw = String(selectValue || "");
+  if (raw.startsWith(ASSET_CUSTOM_TYPE_PREFIX)) {
+    const label = normalizeAssetCustomLabel(raw.slice(ASSET_CUSTOM_TYPE_PREFIX.length));
+    return { asset_type: "other", asset_type_other: label, ok: !!label, error: label ? "" : "Select a custom type." };
+  }
+  if (raw === "other") {
+    const label = normalizeAssetCustomLabel(otherInputValue);
+    return {
+      asset_type: "other",
+      asset_type_other: label,
+      ok: !!label,
+      error: label ? "" : "Please enter a name for the new asset type."
+    };
+  }
+  if (!ASSET_TYPE_OPTIONS.some(o => o.id === raw)) {
+    return { asset_type: "other", asset_type_other: "", ok: false, error: "Select a valid asset type." };
+  }
+  return { asset_type: raw, asset_type_other: "", ok: true, error: "" };
+}
+
+function resolveAssetTxTypeSelection(selectValue, labelInputValue) {
+  const raw = String(selectValue || "");
+  if (raw.startsWith(ASSET_CUSTOM_EXPENSE_PREFIX)) {
+    const label = normalizeAssetCustomLabel(raw.slice(ASSET_CUSTOM_EXPENSE_PREFIX.length));
+    return {
+      tx_type: "other_expense",
+      tx_label: label,
+      ok: !!label,
+      error: label ? "" : "Select a custom expense name."
+    };
+  }
+  if (raw === "other_expense") {
+    const label = normalizeAssetCustomLabel(labelInputValue);
+    return {
+      tx_type: "other_expense",
+      tx_label: label,
+      ok: !!label,
+      error: label ? "" : "Please enter a name for this other expense."
+    };
+  }
+  if (!ASSET_TX_TYPE_OPTIONS.some(o => o.id === raw)) {
+    return { tx_type: "", tx_label: "", ok: false, error: "Select a valid transaction type." };
+  }
+  return { tx_type: raw, tx_label: "", ok: true, error: "" };
+}
+
+function assetTypeSelectValueFor(asset) {
+  if (!asset) return "car";
+  if (String(asset.asset_type || "") === "other") {
+    const label = normalizeAssetCustomLabel(asset.asset_type_other);
+    if (label) {
+      const customs = harvestAssetCustomTypes();
+      const hit = customs.find(c => c.toLowerCase() === label.toLowerCase());
+      if (hit) return ASSET_CUSTOM_TYPE_PREFIX + hit;
+      return ASSET_CUSTOM_TYPE_PREFIX + label;
+    }
+    return "other";
+  }
+  return asset.asset_type || "car";
+}
+
+function assetTxSelectValueFor(tx) {
+  if (!tx) return "maintenance";
+  if (String(tx.tx_type || "") === "other_expense") {
+    const label = normalizeAssetCustomLabel(tx.tx_label || tx.meta?.tx_label || "");
+    if (label) {
+      const customs = harvestAssetCustomExpenseLabels();
+      const hit = customs.find(c => c.toLowerCase() === label.toLowerCase());
+      if (hit) return ASSET_CUSTOM_EXPENSE_PREFIX + hit;
+      return ASSET_CUSTOM_EXPENSE_PREFIX + label;
+    }
+    return "other_expense";
+  }
+  return tx.tx_type || "maintenance";
 }
 
 function assertAssetsFeatureAccess() {
@@ -66,8 +280,8 @@ function canUseAssetsFeature() {
 
 function assetTypeLabel(type, other) {
   const id = String(type || "other");
-  const hit = ASSET_TYPE_OPTIONS.find(o => o.id === id);
   if (id === "other" && other) return String(other);
+  const hit = ASSET_TYPE_OPTIONS.find(o => o.id === id);
   return hit ? hit.label : id;
 }
 
@@ -76,7 +290,9 @@ function assetStatusLabel(status) {
   return hit ? hit.label : String(status || "active");
 }
 
-function assetTxTypeLabel(type) {
+function assetTxTypeLabel(type, label) {
+  const custom = normalizeAssetCustomLabel(label);
+  if (String(type || "") === "other_expense" && custom) return custom;
   const hit = ASSET_TX_TYPE_OPTIONS.find(o => o.id === String(type || ""));
   return hit ? hit.label : String(type || "");
 }
@@ -155,15 +371,17 @@ function mapAssetRow(row) {
 }
 
 function mapAssetTxRow(row) {
+  const meta = row.meta && typeof row.meta === "object" ? row.meta : {};
   return {
     id: row.id,
     asset_id: row.asset_id,
     owner_id: row.owner_id,
     tx_type: row.tx_type,
+    tx_label: normalizeAssetCustomLabel(row.tx_label || meta.tx_label || ""),
     amount: Number(row.amount || 0),
     tx_date: row.tx_date,
     notes: row.notes || "",
-    meta: row.meta || {},
+    meta,
     created_at: row.created_at,
     updated_at: row.updated_at,
     is_deleted: !!row.is_deleted
@@ -205,6 +423,11 @@ async function loadAssetsFromDatabase(options = {}) {
     ]);
     state.assets = filterRowsForCurrentUser(assetRows || []).map(mapAssetRow);
     state.assetTransactions = filterRowsForCurrentUser(txRows || []).map(mapAssetTxRow);
+    // Keep local custom catalogs in sync with live records
+    writeAssetCustomCatalog({
+      types: harvestAssetCustomTypes(),
+      expenseLabels: harvestAssetCustomExpenseLabels()
+    });
     state.assetsLoaded = true;
     renderAssetsList();
     if (assetUi.selectedId) {
@@ -295,9 +518,13 @@ function fillAssetForm(asset) {
   assetUi.editingAssetId = asset?.id || null;
   const title = document.getElementById("assetFormTitle");
   if (title) title.textContent = isEdit ? "Edit Asset" : "Add Asset";
+  populateAssetTypeSelect(assetTypeSelectValueFor(asset));
   document.getElementById("assetFormName").value = asset?.name || "";
-  document.getElementById("assetFormType").value = asset?.asset_type || "car";
-  document.getElementById("assetFormTypeOther").value = asset?.asset_type_other || "";
+  const typeVal = document.getElementById("assetFormType")?.value || "";
+  const otherInput = document.getElementById("assetFormTypeOther");
+  if (otherInput) {
+    otherInput.value = typeVal === "other" ? normalizeAssetCustomLabel(asset?.asset_type_other || "") : "";
+  }
   document.getElementById("assetFormDescription").value = asset?.description || "";
   document.getElementById("assetFormCurrency").value = asset?.currency || "AED";
   document.getElementById("assetFormPurchaseDate").value = asset?.purchase_date || new Date().toISOString().slice(0, 10);
@@ -308,7 +535,12 @@ function fillAssetForm(asset) {
 function toggleAssetTypeOther() {
   const type = document.getElementById("assetFormType")?.value;
   const wrap = document.getElementById("assetFormTypeOtherWrap");
-  if (wrap) wrap.classList.toggle("hide", type !== "other");
+  const show = type === "other";
+  if (wrap) wrap.classList.toggle("hide", !show);
+  if (!show) {
+    const input = document.getElementById("assetFormTypeOther");
+    if (input) input.value = "";
+  }
 }
 
 function openAssetFormModal(assetId) {
@@ -327,8 +559,16 @@ async function saveAssetForm() {
     return;
   }
   const name = String(document.getElementById("assetFormName")?.value || "").trim();
-  const asset_type = String(document.getElementById("assetFormType")?.value || "other");
-  const asset_type_other = String(document.getElementById("assetFormTypeOther")?.value || "").trim();
+  const typeResolved = resolveAssetTypeSelection(
+    document.getElementById("assetFormType")?.value,
+    document.getElementById("assetFormTypeOther")?.value
+  );
+  if (!typeResolved.ok) {
+    alert(typeResolved.error || "Select a valid asset type.");
+    return;
+  }
+  const asset_type = typeResolved.asset_type;
+  const asset_type_other = typeResolved.asset_type_other;
   const description = String(document.getElementById("assetFormDescription")?.value || "").trim();
   const currency = String(document.getElementById("assetFormCurrency")?.value || "AED").toUpperCase();
   const purchase_date = String(document.getElementById("assetFormPurchaseDate")?.value || "").trim();
@@ -336,10 +576,6 @@ async function saveAssetForm() {
   if (!name) { alert("Please enter an asset name."); return; }
   if (!purchase_date) { alert("Please enter a purchase date."); return; }
   if (!(purchase_price >= 0)) { alert("Purchase price must be zero or greater."); return; }
-  if (asset_type === "other" && !asset_type_other) {
-    alert("Please describe the asset type for Other.");
-    return;
-  }
 
   const payload = {
     name,
@@ -369,6 +605,7 @@ async function saveAssetForm() {
       await supabase("app_assets", { method: "POST", body: JSON.stringify(payload) });
       assetUi.selectedId = payload.id;
     }
+    if (asset_type === "other" && asset_type_other) rememberAssetCustomType(asset_type_other);
     closeModal("assetFormModal");
     await loadAssetsFromDatabase({ force: true });
     if (assetUi.selectedId) openAssetDetail(assetUi.selectedId);
@@ -520,7 +757,7 @@ function renderAssetDetail(assetId) {
         ${txs.length ? txs.map(tx => `
           <div class="asset-tx-row" data-tx-id="${escapeHtml(tx.id)}">
             <div>
-              <strong>${escapeHtml(assetTxTypeLabel(tx.tx_type))}</strong>
+              <strong>${escapeHtml(assetTxTypeLabel(tx.tx_type, tx.tx_label))}</strong>
               <span class="asset-tx-date">${escapeHtml(tx.tx_date || "")}</span>
               ${tx.notes ? `<p class="asset-tx-notes">${escapeHtml(tx.notes)}</p>` : ""}
             </div>
@@ -691,11 +928,30 @@ function openAssetTxModal(txId) {
   const tx = txId ? getAssetTransactions(assetUi.selectedId).find(t => t.id === txId) : null;
   assetUi.editingTxId = tx?.id || null;
   document.getElementById("assetTxFormTitle").textContent = tx ? "Edit transaction" : "Add transaction";
-  document.getElementById("assetTxType").value = tx?.tx_type || "maintenance";
+  populateAssetTxTypeSelect(assetTxSelectValueFor(tx));
+  const typeVal = document.getElementById("assetTxType")?.value || "";
+  const labelInput = document.getElementById("assetTxLabel");
+  if (labelInput) {
+    labelInput.value = typeVal === "other_expense"
+      ? normalizeAssetCustomLabel(tx?.tx_label || tx?.meta?.tx_label || "")
+      : "";
+  }
   document.getElementById("assetTxAmount").value = tx ? String(tx.amount) : "";
   document.getElementById("assetTxDate").value = tx?.tx_date || new Date().toISOString().slice(0, 10);
   document.getElementById("assetTxNotes").value = tx?.notes || "";
+  toggleAssetTxLabel();
   openAssetsModal("assetTxModal");
+}
+
+function toggleAssetTxLabel() {
+  const type = document.getElementById("assetTxType")?.value;
+  const wrap = document.getElementById("assetTxLabelWrap");
+  const show = type === "other_expense";
+  if (wrap) wrap.classList.toggle("hide", !show);
+  if (!show) {
+    const input = document.getElementById("assetTxLabel");
+    if (input) input.value = "";
+  }
 }
 
 async function saveAssetTxForm() {
@@ -708,24 +964,40 @@ async function saveAssetTxForm() {
   }
   const assetId = assetUi.selectedId;
   if (!assetId) return;
-  const tx_type = String(document.getElementById("assetTxType")?.value || "");
+  const resolved = resolveAssetTxTypeSelection(
+    document.getElementById("assetTxType")?.value,
+    document.getElementById("assetTxLabel")?.value
+  );
+  if (!resolved.ok) {
+    alert(resolved.error || "Select a valid transaction type.");
+    return;
+  }
+  const tx_type = resolved.tx_type;
+  const tx_label = resolved.tx_label;
   const amount = Number(document.getElementById("assetTxAmount")?.value || 0);
   const tx_date = String(document.getElementById("assetTxDate")?.value || "").trim();
   const notes = String(document.getElementById("assetTxNotes")?.value || "").trim();
-  if (!ASSET_TX_TYPE_OPTIONS.some(o => o.id === tx_type)) {
-    alert("Select a valid transaction type.");
-    return;
-  }
   if (!(amount > 0)) { alert("Amount must be greater than zero."); return; }
   if (!tx_date) { alert("Please enter a date."); return; }
+
+  const existing = assetUi.editingTxId
+    ? getAssetTransactions(assetId).find(t => t.id === assetUi.editingTxId)
+    : null;
+  const meta = {
+    ...(existing?.meta && typeof existing.meta === "object" ? existing.meta : {})
+  };
+  if (tx_type === "other_expense" && tx_label) meta.tx_label = tx_label;
+  else delete meta.tx_label;
 
   const payload = {
     asset_id: assetId,
     owner_id: currentOwnerId(),
     tx_type,
+    tx_label: tx_type === "other_expense" ? (tx_label || null) : null,
     amount,
     tx_date,
     notes: notes || null,
+    meta,
     updated_at: new Date().toISOString()
   };
   const btn = document.getElementById("assetTxSaveBtn");
@@ -742,10 +1014,35 @@ async function saveAssetTxForm() {
       payload.created_at = new Date().toISOString();
       await supabase("app_asset_transactions", { method: "POST", body: JSON.stringify(payload) });
     }
+    if (tx_type === "other_expense" && tx_label) rememberAssetCustomExpenseLabel(tx_label);
     closeModal("assetTxModal");
     await loadAssetsFromDatabase({ force: true });
   } catch (err) {
     console.error(err);
+    // Fallback if tx_label column is not migrated yet — keep label in meta only
+    const msg = String(err?.message || err || "");
+    if (/tx_label|PGRST204|Could not find/i.test(msg) && payload.tx_label != null) {
+      try {
+        const fallback = { ...payload };
+        delete fallback.tx_label;
+        if (assetUi.editingTxId) {
+          await supabase(`app_asset_transactions?id=eq.${encodeURIComponent(assetUi.editingTxId)}${ownerIdQuery()}`, {
+            method: "PATCH",
+            body: JSON.stringify(fallback)
+          });
+        } else {
+          await supabase("app_asset_transactions", { method: "POST", body: JSON.stringify(fallback) });
+        }
+        if (tx_type === "other_expense" && tx_label) rememberAssetCustomExpenseLabel(tx_label);
+        closeModal("assetTxModal");
+        await loadAssetsFromDatabase({ force: true });
+        return;
+      } catch (err2) {
+        console.error(err2);
+        alert("Failed to save transaction: " + (err2.message || err2));
+        return;
+      }
+    }
     alert("Failed to save transaction: " + (err.message || err));
   } finally {
     if (btn) btn.disabled = false;
@@ -1293,6 +1590,7 @@ function assetsBindUI() {
   document.getElementById("openAddAssetBtn")?.addEventListener("click", () => openAssetFormModal(null));
   document.getElementById("openAddAssetBtnMenu")?.addEventListener("click", () => openAssetFormModal(null));
   document.getElementById("assetFormType")?.addEventListener("change", toggleAssetTypeOther);
+  document.getElementById("assetTxType")?.addEventListener("change", toggleAssetTxLabel);
   document.getElementById("assetFormSaveBtn")?.addEventListener("click", () => saveAssetForm());
   document.getElementById("assetTxSaveBtn")?.addEventListener("click", () => saveAssetTxForm());
   document.getElementById("assetSaleSaveBtn")?.addEventListener("click", () => saveAssetSaleForm());
@@ -1356,21 +1654,11 @@ function assetsBindUI() {
     }
   });
 
-  // Populate static selects once
-  const typeSel = document.getElementById("assetFormType");
-  if (typeSel && !typeSel.options.length) {
-    typeSel.innerHTML = ASSET_TYPE_OPTIONS.map(o =>
-      `<option value="${escapeHtml(o.id)}">${escapeHtml(o.label)}</option>`
-    ).join("");
-  }
+  // Seed selects (rebuilt again whenever forms open)
+  populateAssetTypeSelect("car");
+  populateAssetTxTypeSelect("maintenance");
   const curSel = document.getElementById("assetFormCurrency");
   if (curSel && !curSel.options.length) {
     curSel.innerHTML = assetCurrencyOptionsHtml("AED");
-  }
-  const txType = document.getElementById("assetTxType");
-  if (txType && !txType.options.length) {
-    txType.innerHTML = ASSET_TX_TYPE_OPTIONS.map(o =>
-      `<option value="${escapeHtml(o.id)}">${escapeHtml(o.label)}</option>`
-    ).join("");
   }
 }
