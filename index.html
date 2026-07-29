@@ -310,6 +310,7 @@
   <link rel="stylesheet" href="Assets/style/10-overlays-misc.css" />
   <link rel="stylesheet" href="Assets/style/11-admin-messaging.css" />
   <link rel="stylesheet" href="Assets/style/12-late-overrides.css" />
+  <link rel="stylesheet" href="Assets/style/13-assets.css" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -2170,6 +2171,7 @@
       <button class="tab active" data-tab="dashboard" type="button" title="Detailed Dashboard"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span class="tab-label">Dashboard</span></button>
       <button class="tab" data-tab="expenses" type="button" title="Expenses"><i class="fa-solid fa-coins" aria-hidden="true"></i><span class="tab-label">Expenses</span></button>
       <button class="tab" data-tab="goods" type="button" title="Inventory"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span class="tab-label">Inventory</span></button>
+      <button class="tab hide" data-tab="assets" type="button" title="Asset" aria-hidden="true"><i class="fa-solid fa-building" aria-hidden="true"></i><span class="tab-label">Asset</span></button>
       <button class="tab" id="loansTabBtn" type="button" data-tab="loans" title="Loans">
         <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="tab-label">Loans</span>
       </button>
@@ -2545,6 +2547,9 @@
                       <button class="menu-item" type="button" data-section-csv-download="inventory">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
+                      <button class="menu-item" type="button" id="downloadInventoryFullPdfBtn" title="Summary, brands, all items, stock and detailed inventory PDF">
+                        <i class="fa-solid fa-file-pdf"></i> Download PDF report
+                      </button>
                       <button class="menu-item" type="button" id="downloadInventoryAuditReportBtn" title="Download inventory audit report as Excel">
                         <i class="fa-solid fa-file-excel"></i> Audit Report
                       </button>
@@ -2585,6 +2590,13 @@
               </label>
             </div>
             <div class="filter-inline-row inventory-filter-row">
+              <div class="filter-inline-section inventory-filter-layout">
+                <span class="filter-inline-label">View</span>
+                <div class="inventory-layout-switch" role="tablist" aria-label="Inventory view">
+                  <button type="button" class="inventory-layout-btn active" data-inventory-layout="category" role="tab" aria-selected="true">Category</button>
+                  <button type="button" class="inventory-layout-btn" data-inventory-layout="list" role="tab" aria-selected="false">List</button>
+                </div>
+              </div>
               <div class="filter-inline-section inventory-filter-search">
                 <span class="filter-inline-label">Search</span>
                 <input id="searchGoods" class="input filter-inline-input" placeholder="Item, brand, variant…" />
@@ -2652,6 +2664,57 @@
             </div>
             <div id="inventoryOutstandingList" class="list inventory-outstanding-list-root"></div>
           </div>
+        </div>
+      </section>
+
+      <section id="assetsPanel" class="panel">
+        <div class="card section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Asset Management</h3>
+                  <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="assets" title="Assets summary and graphs">
+                    <i class="fa-solid fa-chart-pie"></i> Details
+                  </button>
+                  <div class="menu-wrap">
+                    <button class="btn ghost menu-trigger" type="button" data-entry-menu="assets" aria-haspopup="menu" aria-expanded="false">Actions ▾</button>
+                    <div class="menu-dropdown" data-entry-menu-panel="assets">
+                      <button type="button" class="menu-item" id="openAddAssetBtnMenu">
+                        <i class="fa-solid fa-plus"></i> Add Asset
+                      </button>
+                      <button type="button" class="menu-item" id="downloadAssetsSummaryPdfBtn" title="Portfolio summary PDF">
+                        <i class="fa-solid fa-file-pdf"></i> Download PDF · Summary
+                      </button>
+                      <button type="button" class="menu-item" id="downloadAssetsDetailsPdfBtn" title="Detailed portfolio PDF with charts">
+                        <i class="fa-solid fa-file-pdf"></i> Download PDF · Detailed
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p>Track assets from purchase through expenses, revenue, and sale or disposal — with ownership duration and full financial performance.</p>
+              </div>
+              <div class="tools">
+                <button class="btn primary" id="openAddAssetBtn" type="button"><i class="fa-solid fa-plus"></i> Add Asset</button>
+              </div>
+            </div>
+            <div class="filter-inline-row compact-filter-row">
+              <div class="compact-filter-main">
+                <div class="filter-inline-section compact-filter-search">
+                  <span class="filter-inline-label">Search</span>
+                  <input id="searchAssets" class="input filter-inline-input" placeholder="Name, type, notes" />
+                </div>
+                <div class="filter-inline-section">
+                  <span class="filter-inline-label">Status</span>
+                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="all" checked /> All</label>
+                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="active" /> Active</label>
+                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="sold" /> Sold</label>
+                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="disposed" /> Disposed</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="assetsList" class="list assets-list"></div>
         </div>
       </section>
 
@@ -3926,6 +3989,151 @@
     </div>
   </div>
 
+  <div id="assetFormModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="assetFormModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="assetFormTitle">Add Asset</h3>
+          <p class="help">Record purchase details to begin ownership tracking.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="assetFormModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="asset-form-grid">
+          <div class="form-group form-span-2">
+            <label class="form-label" for="assetFormName">Asset name</label>
+            <input id="assetFormName" class="input" maxlength="160" placeholder="e.g. Downtown apartment" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetFormType">Asset type</label>
+            <select id="assetFormType" class="input select"></select>
+          </div>
+          <div class="form-group hide" id="assetFormTypeOtherWrap">
+            <label class="form-label" for="assetFormTypeOther">Other type</label>
+            <input id="assetFormTypeOther" class="input" maxlength="80" placeholder="Describe type" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetFormCurrency">Currency</label>
+            <select id="assetFormCurrency" class="input select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetFormPurchaseDate">Purchase date</label>
+            <input id="assetFormPurchaseDate" class="input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetFormPurchasePrice">Purchase price</label>
+            <input id="assetFormPurchasePrice" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group form-span-2">
+            <label class="form-label" for="assetFormDescription">Details / description</label>
+            <textarea id="assetFormDescription" class="input" rows="3" placeholder="Optional notes about the asset"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" type="button" data-close-modal="assetFormModal">Cancel</button>
+          <button class="btn primary" type="button" id="assetFormSaveBtn">Save asset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="assetDetailModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="assetDetailModal"></div>
+    <div class="modal-dialog asset-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="assetDetailTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="assetDetailTitle">Asset</h3>
+          <p id="assetDetailSubtitle" class="help">Financial performance and ownership lifecycle</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="assetDetailModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="assetDetailBody"></div>
+    </div>
+  </div>
+
+  <div id="assetTxModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="assetTxModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="assetTxFormTitle">Add transaction</h3>
+          <p class="help">Record maintenance, repairs, operating costs, investments, or revenue.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="assetTxModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="asset-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="assetTxType">Type</label>
+            <select id="assetTxType" class="input select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetTxAmount">Amount</label>
+            <input id="assetTxAmount" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetTxDate">Date</label>
+            <input id="assetTxDate" class="input" type="date" />
+          </div>
+          <div class="form-group form-span-2">
+            <label class="form-label" for="assetTxNotes">Notes / details</label>
+            <textarea id="assetTxNotes" class="input" rows="3" placeholder="Optional details"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" type="button" data-close-modal="assetTxModal">Cancel</button>
+          <button class="btn primary" type="button" id="assetTxSaveBtn">Save transaction</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="assetSaleModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="assetSaleModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Sell / dispose asset</h3>
+          <p class="help">Mark ownership end and include sale proceeds in financial totals.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="assetSaleModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="asset-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="assetSaleStatus">Status</label>
+            <select id="assetSaleStatus" class="input select">
+              <option value="sold">Sold</option>
+              <option value="disposed">Disposed</option>
+              <option value="active">Active / Owned</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetSaleDate">Sale / disposal date</label>
+            <input id="assetSaleDate" class="input" type="date" />
+          </div>
+          <div class="form-group" id="assetSalePriceWrap">
+            <label class="form-label" for="assetSalePrice">Sale price</label>
+            <input id="assetSalePrice" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="assetSaleCosts">Sale-related costs</label>
+            <input id="assetSaleCosts" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group form-span-2">
+            <label class="form-label" for="assetSaleNotes">Notes</label>
+            <textarea id="assetSaleNotes" class="input" rows="3" placeholder="Optional sale notes"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" type="button" data-close-modal="assetSaleModal">Cancel</button>
+          <button class="btn primary" type="button" id="assetSaleSaveBtn">Save status</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="reminderAlertModal" class="modal hide reminder-alert-modal" aria-hidden="true" role="alertdialog" aria-modal="true" aria-labelledby="reminderAlertTitle" aria-describedby="reminderAlertBody">
     <div class="modal-backdrop" data-reminder-alert-dismiss="done"></div>
     <div class="modal-dialog compact-entry-dialog reminder-alert-dialog">
@@ -4654,6 +4862,7 @@
   <script src="Assets/app/lib/tax-math.js"></script>
   <script src="Assets/app/lib/loan-math.js"></script>
   <script src="Assets/app/lib/permissions.js"></script>
+  <script src="Assets/app/lib/asset-math.js"></script>
   <script src="Assets/app/lib/admin-backup.js"></script>
   <script src="Assets/app/domain-ledger.js"></script>
   <script src="Assets/app/core/01-config-constants.js"></script>
@@ -4679,6 +4888,7 @@
   <script src="Assets/app/auth/02-auth-welcome-trial.js"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
   <script src="Assets/app/notes/01-notes.js"></script>
+  <script src="Assets/app/assets/01-assets.js"></script>
   <script src="Assets/app/admin/01-admin.js"></script>
   <script src="Assets/app/messaging/01-messaging.js"></script>
   <script src="Assets/app/boot.js"></script>
