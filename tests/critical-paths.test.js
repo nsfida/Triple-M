@@ -8,6 +8,7 @@ const tax = require(path.join(__dirname, "..", "Assets", "app", "lib", "tax-math
 const loan = require(path.join(__dirname, "..", "Assets", "app", "lib", "loan-math.js"));
 const perms = require(path.join(__dirname, "..", "Assets", "app", "lib", "permissions.js"));
 const backup = require(path.join(__dirname, "..", "Assets", "app", "lib", "admin-backup.js"));
+const assetMath = require(path.join(__dirname, "..", "Assets", "app", "lib", "asset-math.js"));
 const {
   resolveMigrationFiles,
   buildFullSchema,
@@ -108,7 +109,7 @@ describe("permissions", () => {
     assert.ok(set.has("pdf_export"));
   });
 
-  it("guest cannot access admin_panel or pdf_export", () => {
+  it("guest cannot access admin_panel, pdf_export, or assets", () => {
     assert.equal(
       perms.evaluateUserPermission({ moduleName: "loans", action: "view", isGuest: true }),
       true
@@ -119,6 +120,10 @@ describe("permissions", () => {
     );
     assert.equal(
       perms.evaluateUserPermission({ moduleName: "pdf_export", action: "export", isGuest: true }),
+      false
+    );
+    assert.equal(
+      perms.evaluateUserPermission({ moduleName: "assets", action: "view", isGuest: true }),
       false
     );
   });
@@ -172,6 +177,26 @@ describe("permissions", () => {
       }),
       false
     );
+    assert.equal(
+      perms.evaluateUserPermission({
+        moduleName: "assets",
+        action: "view",
+        sessionUser: { role: "user" },
+        assignedModules: assigned,
+        permissions: [],
+      }),
+      false
+    );
+    assert.equal(
+      perms.evaluateUserPermission({
+        moduleName: "assets",
+        action: "view",
+        sessionUser: { role: "user" },
+        assignedModules: perms.normalizeAssignedModules(["assets"]),
+        permissions: [],
+      }),
+      true
+    );
   });
 
   it("teamCapability restricts members only", () => {
@@ -190,6 +215,49 @@ describe("permissions", () => {
       }),
       true
     );
+  });
+});
+
+describe("asset-math", () => {
+  it("computes expenses, income, and net without double-counting purchase", () => {
+    const asset = {
+      purchase_price: 100000,
+      purchase_date: "2024-01-01",
+      status: "sold",
+      sale_price: 120000,
+      sale_costs: 2000,
+      sale_date: "2025-01-01",
+    };
+    const txs = [
+      { tx_type: "maintenance", amount: 500, tx_date: "2024-06-01" },
+      { tx_type: "repair", amount: 1500, tx_date: "2024-08-01" },
+      { tx_type: "revenue", amount: 12000, tx_date: "2024-12-01" },
+    ];
+    const sum = assetMath.summarizeAsset(asset, txs);
+    assert.equal(sum.purchasePrice, 100000);
+    assert.equal(sum.maintenance, 500);
+    assert.equal(sum.repair, 1500);
+    assert.equal(sum.revenue, 12000);
+    assert.equal(sum.salePrice, 120000);
+    assert.equal(sum.saleCosts, 2000);
+    assert.equal(sum.totalExpenses, 104000);
+    assert.equal(sum.totalIncome, 132000);
+    assert.equal(sum.net, 28000);
+    assert.equal(sum.ownership.days, 366);
+  });
+
+  it("shows zero revenue and ongoing ownership for active assets", () => {
+    const asset = {
+      purchase_price: 50,
+      purchase_date: "2026-01-01",
+      status: "active",
+    };
+    const sum = assetMath.summarizeAsset(asset, [], { now: new Date(2026, 6, 1) });
+    assert.equal(sum.revenue, 0);
+    assert.equal(sum.totalIncome, 0);
+    assert.equal(sum.net, -50);
+    assert.ok(sum.ownership.ongoing);
+    assert.ok(sum.ownership.days > 0);
   });
 });
 
