@@ -517,6 +517,7 @@
 .expense-wallet-pressing,
 .expense-wallet-pressing *,
 html.expense-wallet-drag-lock,
+html.expense-wallet-drag-lock body,
 html.expense-wallet-drag-lock *{
   user-select:none !important;
   -webkit-user-select:none !important;
@@ -524,8 +525,18 @@ html.expense-wallet-drag-lock *{
   -ms-user-select:none !important;
   -webkit-touch-callout:none !important;
 }
+html.expense-wallet-drag-lock,
+html.expense-wallet-drag-lock body{
+  touch-action:none !important;
+  overscroll-behavior:none !important;
+}
 .expense-wallet-reordering{
-  touch-action:none;
+  touch-action:none !important;
+}
+.expense-wallet-reordering .summary.wallet-details-card,
+.expense-wallet-reordering .expense-wallet-card-wrap,
+.expense-wallet-reordering .expense-wallet-card{
+  touch-action:none !important;
 }
 .summary.wallet-details-card,
 .expense-wallet-card-wrap,
