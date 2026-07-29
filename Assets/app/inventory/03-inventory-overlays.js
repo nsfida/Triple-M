@@ -2792,6 +2792,7 @@ function ensureInventorySectionReorder(host){
   host.dataset.inventoryGridReorderBound = "1";
 
   const LONG_MS = 450;
+  const MOVE_CANCEL_PX = 14;
   const itemSelector = ".inventory-section-card[data-inventory-section]:not(.inventory-section-add-card)";
 
   let pressTimer = null;
@@ -2801,6 +2802,11 @@ function ensureInventorySectionReorder(host){
   let ghost = null;
   let lastOver = null;
   let pressCard = null;
+  let lastX = 0;
+  let lastY = 0;
+  const dragSession = typeof createCardReorderDragSession === "function"
+    ? createCardReorderDragSession("inventory-grid-drag-lock")
+    : null;
 
   const getGrid = () => host.querySelector(".inventory-sections-grid:not(.inventory-search-sections-grid)");
 
@@ -2835,7 +2841,9 @@ function ensureInventorySectionReorder(host){
     lastOver = null;
     const grid = getGrid();
     grid?.classList.remove("inventory-grid-reordering");
+    dragSession?.stop();
     document.documentElement.classList.remove("inventory-grid-drag-lock");
+    document.body.classList.remove("inventory-grid-drag-lock");
     host.querySelectorAll(".inventory-grid-drag-source, .inventory-grid-drop-target").forEach(el => {
       el.classList.remove("inventory-grid-drag-source", "inventory-grid-drop-target");
     });
@@ -2849,7 +2857,7 @@ function ensureInventorySectionReorder(host){
     return Array.from(grid.querySelectorAll(itemSelector));
   };
 
-  const beginDrag = (el, e) => {
+  const beginDrag = (el, point) => {
     clearSelection();
     dragging = true;
     suppressClick = true;
@@ -2857,8 +2865,14 @@ function ensureInventorySectionReorder(host){
     const grid = getGrid();
     grid?.classList.add("inventory-grid-reordering");
     document.documentElement.classList.add("inventory-grid-drag-lock");
+    document.body.classList.add("inventory-grid-drag-lock");
     el.classList.add("inventory-grid-drag-source");
-    try { el.setPointerCapture?.(e.pointerId); } catch (_) {}
+    try {
+      if (point?.pointerId != null) el.setPointerCapture?.(point.pointerId);
+    } catch (_) {}
+    try {
+      if (navigator.vibrate) navigator.vibrate(12);
+    } catch (_) {}
 
     ghost = el.cloneNode(true);
     ghost.classList.add("inventory-grid-drag-ghost");
@@ -2867,18 +2881,33 @@ function ensureInventorySectionReorder(host){
     });
     ghost.style.width = `${el.getBoundingClientRect().width}px`;
     document.body.appendChild(ghost);
-    ghost.style.left = `${e.clientX - 24}px`;
-    ghost.style.top = `${e.clientY - 24}px`;
+    const gx = Number(point?.clientX ?? lastX);
+    const gy = Number(point?.clientY ?? lastY);
+    ghost.style.left = `${gx - 24}px`;
+    ghost.style.top = `${gy - 24}px`;
+    const syncDropFromPoint = (x, y) => {
+      const over = findDropTarget(x, y);
+      if (lastOver && lastOver !== over) lastOver.classList.remove("inventory-grid-drop-target");
+      if (over) {
+        over.classList.add("inventory-grid-drop-target");
+        applyLiveReorder(over);
+      }
+      lastOver = over;
+    };
+    dragSession?.start(grid || host, gy, {
+      clientX: gx,
+      onAutoScroll: (x, y) => syncDropFromPoint(x, y)
+    });
   };
 
-  const moveGhost = (e) => {
+  const moveGhost = (clientX, clientY) => {
     if (!ghost) return;
-    ghost.style.left = `${e.clientX - 24}px`;
-    ghost.style.top = `${e.clientY - 24}px`;
+    ghost.style.left = `${clientX - 24}px`;
+    ghost.style.top = `${clientY - 24}px`;
   };
 
-  const findDropTarget = (e) => {
-    const under = document.elementFromPoint(e.clientX, e.clientY);
+  const findDropTarget = (clientX, clientY) => {
+    const under = document.elementFromPoint(clientX, clientY);
     const target = under?.closest?.(itemSelector);
     const grid = getGrid();
     if (!target || !grid || !grid.contains(target) || target === sourceEl) return null;
@@ -2928,25 +2957,33 @@ function ensureInventorySectionReorder(host){
 
     const startX = e.clientX;
     const startY = e.clientY;
+    lastX = startX;
+    lastY = startY;
+    const activePointerId = e.pointerId;
+
     pressTimer = setTimeout(() => {
       pressTimer = null;
-      beginDrag(card, e);
+      beginDrag(card, { clientX: lastX, clientY: lastY, pointerId: activePointerId });
     }, LONG_MS);
 
     const onMove = (ev) => {
+      if (activePointerId != null && ev.pointerId != null && ev.pointerId !== activePointerId) return;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
       if (!dragging) {
         const dx = Math.abs(ev.clientX - startX);
         const dy = Math.abs(ev.clientY - startY);
-        if (dx > 10 || dy > 10) {
+        if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
           clearPress();
           clearPressUi();
         }
         return;
       }
-      ev.preventDefault();
+      if (ev.cancelable) ev.preventDefault();
       clearSelection();
-      moveGhost(ev);
-      const over = findDropTarget(ev);
+      moveGhost(ev.clientX, ev.clientY);
+      dragSession?.update(ev.clientX, ev.clientY);
+      const over = findDropTarget(ev.clientX, ev.clientY);
       if (lastOver && lastOver !== over) lastOver.classList.remove("inventory-grid-drop-target");
       if (over) {
         over.classList.add("inventory-grid-drop-target");
@@ -2955,10 +2992,11 @@ function ensureInventorySectionReorder(host){
       lastOver = over;
     };
 
-    const onUp = () => {
-      host.removeEventListener("pointermove", onMove);
-      host.removeEventListener("pointerup", onUp);
-      host.removeEventListener("pointercancel", onUp);
+    const onUp = (ev) => {
+      if (activePointerId != null && ev?.pointerId != null && ev.pointerId !== activePointerId) return;
+      document.removeEventListener("pointermove", onMove, true);
+      document.removeEventListener("pointerup", onUp, true);
+      document.removeEventListener("pointercancel", onUp, true);
       if (dragging) finishDrag();
       else {
         clearPress();
@@ -2966,9 +3004,9 @@ function ensureInventorySectionReorder(host){
       }
     };
 
-    host.addEventListener("pointermove", onMove, { passive: false });
-    host.addEventListener("pointerup", onUp);
-    host.addEventListener("pointercancel", onUp);
+    document.addEventListener("pointermove", onMove, { passive: false, capture: true });
+    document.addEventListener("pointerup", onUp, { capture: true });
+    document.addEventListener("pointercancel", onUp, { capture: true });
   }, { passive: true });
 
   host.addEventListener("click", (e) => {
