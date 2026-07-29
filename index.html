@@ -2101,6 +2101,7 @@
             <input id="importJsonInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
             <input id="sectionCsvInput" type="file" accept=".csv,text/csv,text/plain" class="hide" data-section="" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
+            <button class="menu-item" id="defaultStartPageBtn" type="button"><i class="fa-solid fa-house-chimney"></i> Default Start Page</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item hide" id="companyTeamBtn" type="button"><i class="fa-solid fa-users"></i> Company Team</button>
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
@@ -2166,14 +2167,15 @@
     </div>
 
     <section class="tabs">
-      <button class="tab active" data-tab="expenses" type="button"><i class="fa-solid fa-coins"></i> Expenses</button>
-      <button class="tab" data-tab="goods" type="button"><i class="fa-solid fa-cart-shopping"></i> Inventory</button>
-      <button class="tab" id="loansTabBtn" type="button" data-tab="loans">
-        <i class="fa-solid fa-hand-holding-dollar"></i> Loans
+      <button class="tab active" data-tab="dashboard" type="button" title="Detailed Dashboard"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span class="tab-label">Dashboard</span></button>
+      <button class="tab" data-tab="expenses" type="button" title="Expenses"><i class="fa-solid fa-coins" aria-hidden="true"></i><span class="tab-label">Expenses</span></button>
+      <button class="tab" data-tab="goods" type="button" title="Inventory"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span class="tab-label">Inventory</span></button>
+      <button class="tab" id="loansTabBtn" type="button" data-tab="loans" title="Loans">
+        <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="tab-label">Loans</span>
       </button>
-      <button class="tab" data-tab="installments" type="button"><i class="fa-solid fa-calendar-days"></i> Installment Plans</button>
-      <button class="tab" data-tab="notes" type="button"><i class="fa-solid fa-sticky-note"></i> Notes</button>
-      <button class="tab" data-tab="bitcoin" type="button"><i class="fa-brands fa-bitcoin"></i> Bitcoin</button>
+      <button class="tab" data-tab="installments" type="button" title="Installment Plans"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span class="tab-label">Installments</span></button>
+      <button class="tab" data-tab="notes" type="button" title="Notes"><i class="fa-solid fa-sticky-note" aria-hidden="true"></i><span class="tab-label">Notes</span></button>
+      <button class="tab" data-tab="bitcoin" type="button" title="Bitcoin"><i class="fa-brands fa-bitcoin" aria-hidden="true"></i><span class="tab-label">Bitcoin</span></button>
       <button class="tab hide" data-tab="messages" type="button" aria-hidden="true" tabindex="-1"><i class="fa-solid fa-comments"></i> Messages</button>
       <button class="tab hide" data-tab="admin" type="button"><i class="fa-solid fa-user-shield"></i> Admin</button>
       <button class="tab hide" data-tab="about" type="button" aria-hidden="true" tabindex="-1"><i class="fa-solid fa-info-circle"></i> About</button>
@@ -2653,7 +2655,23 @@
         </div>
       </section>
 
-      <section id="expensesPanel" class="panel active">
+      <section id="dashboardPanel" class="panel active">
+        <div class="card section dashboard-section">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Detailed Dashboard</h3>
+                </div>
+                <p>Polished live charts for wallets, inventory, loans, and installments — each block has its own currency focus and candle trends.</p>
+              </div>
+            </div>
+          </div>
+          <div id="dashboardRoot" class="dashboard-root"></div>
+        </div>
+      </section>
+
+      <section id="expensesPanel" class="panel">
         <div class="card section">
           <div class="section-head">
             <div class="section-head-top">
