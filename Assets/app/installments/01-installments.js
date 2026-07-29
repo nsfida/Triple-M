@@ -91,6 +91,9 @@ function openSectionDetailsOverlay(section, options = {}){
   if (key === "inventory") {
     inventoryDetailsSelectedCurrency = "";
     inventoryDetailsItemTypeFilter = String(options.itemType || "").trim();
+  } else if (key === "expenses") {
+    expenseDetailsSelectedCurrency = "";
+    inventoryDetailsItemTypeFilter = "";
   } else {
     inventoryDetailsItemTypeFilter = "";
   }
@@ -102,7 +105,7 @@ function openSectionDetailsOverlay(section, options = {}){
           desc: `Live stock, sales, profit, and invoice summary for the ${inventoryDetailsItemTypeFilter} category.`
         }
       : { title: "Inventory details", desc: "Live stock, sales, profit, and outstanding invoice summary by currency." },
-    expenses: { title: "Expenses details", desc: "Live wallet top-ups, spending, and balances." },
+    expenses: { title: "Expenses details", desc: "Live wallet top-ups, spending, and balances by currency." },
     installments: { title: "Installment details", desc: "Live plan progress, overdue status, and payment activity." }
   };
   const meta = titles[key] || { title: "Details", desc: "Summary and graphs from live section records." };
