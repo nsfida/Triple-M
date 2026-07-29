@@ -3436,7 +3436,8 @@ const dashboardSectionCurrency = {
   expenses: "",
   inventory: "",
   loans: "",
-  installments: ""
+  installments: "",
+  assets: ""
 };
 let dashboardActiveSection = "expenses";
 const dashboardChartInstances = [];
@@ -3444,15 +3445,41 @@ const dashboardChartsBySection = {
   expenses: [],
   inventory: [],
   loans: [],
-  installments: []
+  installments: [],
+  assets: []
 };
 
 const DASHBOARD_SECTION_OPTIONS = [
-  { id: "expenses", label: "Expenses", icon: "fa-solid fa-coins", openTab: "expenses" },
-  { id: "inventory", label: "Inventory", icon: "fa-solid fa-cart-shopping", openTab: "goods" },
-  { id: "loans", label: "Loans", icon: "fa-solid fa-hand-holding-dollar", openTab: "loans" },
-  { id: "installments", label: "Installments", icon: "fa-solid fa-calendar-days", openTab: "installments" }
+  { id: "expenses", label: "Expenses", icon: "fa-solid fa-coins", openTab: "expenses", module: "expenses" },
+  { id: "inventory", label: "Inventory", icon: "fa-solid fa-cart-shopping", openTab: "goods", module: "inventory" },
+  { id: "assets", label: "Assets", icon: "fa-solid fa-building", openTab: "assets", module: "assets" },
+  { id: "loans", label: "Loans", icon: "fa-solid fa-hand-holding-dollar", openTab: "loans", module: "loans" },
+  { id: "installments", label: "Installments", icon: "fa-solid fa-calendar-days", openTab: "installments", module: "installments" }
 ];
+
+/** Honor admin Allowed tabs — hide dashboard blocks the user cannot open. */
+function isDashboardSectionAllowed(sectionId){
+  const meta = DASHBOARD_SECTION_OPTIONS.find(s => s.id === sectionId);
+  if (!meta) return false;
+  if (meta.module === "assets") {
+    if (typeof canUseAssetsFeature === "function") return !!canUseAssetsFeature();
+    try {
+      return !isGuestMode() && !!userHasPermission("assets", "view");
+    } catch (_) {
+      return false;
+    }
+  }
+  try {
+    if (isGuestMode()) return true;
+    return !!userHasPermission(meta.module, "view");
+  } catch (_) {
+    return true;
+  }
+}
+
+function getAllowedDashboardSections(){
+  return DASHBOARD_SECTION_OPTIONS.filter(s => isDashboardSectionAllowed(s.id));
+}
 
 function destroyDashboardCharts(){
   while (dashboardChartInstances.length) {
@@ -3484,23 +3511,25 @@ function trackDashboardChart(section, chart){
 }
 
 function getDashboardActiveSection(){
-  const allowed = new Set(DASHBOARD_SECTION_OPTIONS.map(s => s.id));
-  if (allowed.has(dashboardActiveSection)) return dashboardActiveSection;
+  const allowed = getAllowedDashboardSections();
+  const allowedIds = new Set(allowed.map(s => s.id));
+  if (allowedIds.has(dashboardActiveSection)) return dashboardActiveSection;
   try {
     const uid = String(state.sessionUser?.id || state.currentUsername || "guest").trim() || "guest";
     const stored = String(localStorage.getItem(`triplem-dashboard-section-v1:${uid}`) || "").trim();
-    if (allowed.has(stored)) {
+    if (allowedIds.has(stored)) {
       dashboardActiveSection = stored;
       return stored;
     }
   } catch (_) {}
-  dashboardActiveSection = "expenses";
-  return "expenses";
+  const fallback = allowed[0]?.id || "expenses";
+  dashboardActiveSection = fallback;
+  return fallback;
 }
 
 function saveDashboardActiveSection(section){
   const next = String(section || "").trim();
-  if (!DASHBOARD_SECTION_OPTIONS.some(s => s.id === next)) return;
+  if (!getAllowedDashboardSections().some(s => s.id === next)) return;
   dashboardActiveSection = next;
   try {
     const uid = String(state.sessionUser?.id || state.currentUsername || "guest").trim() || "guest";
@@ -3510,13 +3539,27 @@ function saveDashboardActiveSection(section){
 
 async function warmDashboardData(){
   const loads = [];
-  if (typeof ensureTabDataLoaded !== "function") return;
+  const allowed = new Set(getAllowedDashboardSections().map(s => s.id));
+  const loadAssets = () => {
+    if (!allowed.has("assets")) return;
+    if (typeof loadAssetsFromDatabase === "function") {
+      loads.push(loadAssetsFromDatabase().catch(() => {}));
+    }
+  };
+  if (typeof ensureTabDataLoaded !== "function") {
+    loadAssets();
+    await Promise.all(loads);
+    return;
+  }
   if (!isDashboardMobileLayout()) {
-    loads.push(ensureTabDataLoaded("expenses").catch(() => {}));
-    loads.push(ensureTabDataLoaded("goods").catch(() => {}));
-    loads.push(ensureTabDataLoaded("installments").catch(() => {}));
-    loads.push(ensureTabDataLoaded("given").catch(() => {}));
-    loads.push(ensureTabDataLoaded("taken").catch(() => {}));
+    if (allowed.has("expenses")) loads.push(ensureTabDataLoaded("expenses").catch(() => {}));
+    if (allowed.has("inventory")) loads.push(ensureTabDataLoaded("goods").catch(() => {}));
+    if (allowed.has("installments")) loads.push(ensureTabDataLoaded("installments").catch(() => {}));
+    if (allowed.has("loans")) {
+      loads.push(ensureTabDataLoaded("given").catch(() => {}));
+      loads.push(ensureTabDataLoaded("taken").catch(() => {}));
+    }
+    loadAssets();
   } else {
     const section = getDashboardActiveSection();
     if (section === "expenses") loads.push(ensureTabDataLoaded("expenses").catch(() => {}));
@@ -3525,6 +3568,8 @@ async function warmDashboardData(){
     else if (section === "loans") {
       loads.push(ensureTabDataLoaded("given").catch(() => {}));
       loads.push(ensureTabDataLoaded("taken").catch(() => {}));
+    } else if (section === "assets") {
+      loadAssets();
     }
   }
   await Promise.all(loads);
@@ -3902,6 +3947,13 @@ function loadDashboardSectionPayload(section, currencyHint = ""){
     dashboardSelectedCurrency = currency || dashboardSelectedCurrency;
     return { section, currency, data: buildInventoryDetailsPayload(currency, "") };
   }
+  if (section === "assets" && typeof buildAssetsDashboardPayload === "function") {
+    const universe = buildAssetsDashboardPayload("");
+    const currency = resolveDashboardSectionCurrency("assets", universe?.currencies || [], currencyHint || dashboardSectionCurrency.assets);
+    dashboardSectionCurrency.assets = currency;
+    dashboardSelectedCurrency = currency || dashboardSelectedCurrency;
+    return { section, currency, data: buildAssetsDashboardPayload(currency) };
+  }
   if (section === "loans") {
     const universe = buildLoansDashboardPayload("");
     const currency = resolveDashboardSectionCurrency("loans", universe?.currencies || [], currencyHint || dashboardSectionCurrency.loans);
@@ -3920,9 +3972,11 @@ function loadDashboardSectionPayload(section, currencyHint = ""){
 }
 
 function dashboardSectionSwitcherHtml(active){
+  const sections = getAllowedDashboardSections();
+  if (!sections.length) return "";
   return `
     <div class="dashboard-section-switch" role="tablist" aria-label="Dashboard section">
-      ${DASHBOARD_SECTION_OPTIONS.map(opt => `
+      ${sections.map(opt => `
         <button
           type="button"
           class="dashboard-section-switch-btn${opt.id === active ? " active" : ""}"
@@ -3954,6 +4008,16 @@ function dashboardHeroCardHtml(section, currency, data){
       </article>
     `;
   }
+  if (section === "assets") {
+    const netTone = Number(data?.metrics?.netValue || 0) >= 0 ? "is-up" : "is-down";
+    return `
+      <article class="dashboard-hero-card is-assets ${netTone}" data-dashboard-hero-card="assets">
+        <small>Asset net P/L</small>
+        <strong>${escapeHtml(data?.metrics?.net || "—")}</strong>
+        <div class="dashboard-hero-meta">${escapeHtml(currency || "All currencies")} · ${escapeHtml(String(data?.metrics?.active || 0))} active · ${escapeHtml(String(data?.metrics?.assets || 0))} total</div>
+      </article>
+    `;
+  }
   if (section === "loans") {
     return `
       <article class="dashboard-hero-card is-loans" data-dashboard-hero-card="loans">
@@ -3980,13 +4044,12 @@ function dashboardHeroHtml(section, currency, data){
   `;
 }
 
-function dashboardDesktopHeroHtml(payloads){
+function dashboardDesktopHeroHtml(payloads, sections){
+  const list = Array.isArray(sections) ? sections : getAllowedDashboardSections();
+  if (!list.length) return "";
   return `
-    <div class="dashboard-hero" data-dashboard-hero="1">
-      ${dashboardHeroCardHtml("expenses", payloads.expenses?.currency, payloads.expenses?.data)}
-      ${dashboardHeroCardHtml("inventory", payloads.inventory?.currency, payloads.inventory?.data)}
-      ${dashboardHeroCardHtml("loans", payloads.loans?.currency, payloads.loans?.data)}
-      ${dashboardHeroCardHtml("installments", payloads.installments?.currency, payloads.installments?.data)}
+    <div class="dashboard-hero" data-dashboard-hero="1" style="--dashboard-hero-cols:${list.length}">
+      ${list.map(opt => dashboardHeroCardHtml(opt.id, payloads[opt.id]?.currency, payloads[opt.id]?.data)).join("")}
     </div>
   `;
 }
@@ -4003,6 +4066,11 @@ function updateDashboardHeroCard(root, section, currency, data){
   } else if (section === "inventory") {
     if (strong) strong.textContent = data?.metrics?.profitTotal || "—";
     if (meta) meta.textContent = `${currency || "All currencies"} · ${data?.metrics?.items || 0} items`;
+  } else if (section === "assets") {
+    if (strong) strong.textContent = data?.metrics?.net || "—";
+    if (meta) meta.textContent = `${currency || "All currencies"} · ${data?.metrics?.active || 0} active · ${data?.metrics?.assets || 0} total`;
+    card.classList.toggle("is-up", Number(data?.metrics?.netValue || 0) >= 0);
+    card.classList.toggle("is-down", Number(data?.metrics?.netValue || 0) < 0);
   } else if (section === "loans") {
     if (strong) strong.textContent = data?.metrics?.givenOpen || "—";
     if (meta) meta.textContent = `Given open · Taken open ${data?.metrics?.takenOpen || "—"}`;
@@ -4033,6 +4101,16 @@ function dashboardSectionMetricsHtml(section, data){
       sectionDetailsMetricHtml("Profit", escapeHtml(data.metrics.profitTotal), "success")
     ].join("");
   }
+  if (section === "assets") {
+    return [
+      sectionDetailsMetricHtml("Assets", escapeHtml(String(data.metrics.assets)), "primary"),
+      sectionDetailsMetricHtml("Active", escapeHtml(String(data.metrics.active)), "success"),
+      sectionDetailsMetricHtml("Sold", escapeHtml(String(data.metrics.sold))),
+      sectionDetailsMetricHtml("Invested", escapeHtml(data.metrics.invested), "warning"),
+      sectionDetailsMetricHtml("Revenue", escapeHtml(data.metrics.revenue), "success"),
+      sectionDetailsMetricHtml("Net P/L", escapeHtml(data.metrics.net), Number(data.metrics.netValue || 0) >= 0 ? "success" : "danger")
+    ].join("");
+  }
   if (section === "loans") {
     return [
       sectionDetailsMetricHtml("People", escapeHtml(String(data.metrics.people)), "primary"),
@@ -4053,6 +4131,59 @@ function dashboardSectionMetricsHtml(section, data){
   ].join("");
 }
 
+function dashboardAssetsDetailsTableHtml(data){
+  const rows = Array.isArray(data?.rows) ? data.rows.slice(0, 8) : [];
+  if (!rows.length) {
+    return `<div class="dashboard-empty">No assets in this currency yet.</div>`;
+  }
+  const cur = data.selectedCurrency || "";
+  const fmt = (n) => {
+    if (typeof formatReportAmount === "function") {
+      return cur ? formatReportAmount(n, cur) : formatReportAmount(n, "");
+    }
+    return String(n || 0);
+  };
+  return `
+    <div class="dashboard-assets-details">
+      <h5>Asset details</h5>
+      <div class="table-scroll">
+        <table class="dashboard-assets-table">
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Status</th>
+              <th class="num">Spent</th>
+              <th class="num">Revenue</th>
+              <th class="num">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => {
+              const a = row.asset || {};
+              const s = row.sum || {};
+              const net = Number(s.net || 0);
+              const netClass = net > 0 ? "is-success" : net < 0 ? "is-danger" : "";
+              const typeLabel = typeof assetTypeLabel === "function"
+                ? assetTypeLabel(a.asset_type, a.asset_type_other)
+                : (a.asset_type || "");
+              const statusLabel = typeof assetStatusLabel === "function"
+                ? assetStatusLabel(a.status)
+                : (a.status || "");
+              return `<tr>
+                <td><strong>${escapeHtml(a.name || "Asset")}</strong><div class="help">${escapeHtml(typeLabel)}</div></td>
+                <td>${escapeHtml(statusLabel)}</td>
+                <td class="num">${escapeHtml(fmt(s.totalExpenses || 0))}</td>
+                <td class="num">${escapeHtml(fmt(s.revenue || 0))}</td>
+                <td class="num ${netClass}">${escapeHtml(fmt(net))}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function dashboardSectionChartsHtml(section){
   if (section === "expenses") {
     return `
@@ -4069,6 +4200,16 @@ function dashboardSectionChartsHtml(section){
         ${dashboardChartCardHtml("Stock status", "dashboardChartInventoryStatus")}
         ${dashboardChartCardHtml("Sales vs profit", "dashboardChartInventoryLine")}
         ${dashboardChartCardHtml("Trading candles", "dashboardChartInventoryCandle", { wide: true, candle: true })}
+      </div>
+    `;
+  }
+  if (section === "assets") {
+    return `
+      <div class="dashboard-charts">
+        ${dashboardChartCardHtml("Status mix", "dashboardChartAssetsStatus")}
+        ${dashboardChartCardHtml("Income vs invested", "dashboardChartAssetsMix")}
+        ${dashboardChartCardHtml("Monthly performance", "dashboardChartAssetsLine")}
+        ${dashboardChartCardHtml("Asset cashflow candles", "dashboardChartAssetsCandle", { wide: true, candle: true })}
       </div>
     `;
   }
@@ -4112,7 +4253,9 @@ function dashboardSectionBlockHtml(section, currency, data, opts = {}){
   const wide = opts.forceWide
     || section === "loans"
     || section === "installments"
+    || section === "assets"
     || opts.mobile === true;
+  const detailsFooter = section === "assets" ? dashboardAssetsDetailsTableHtml(data) : "";
 
   return `
     <section class="dashboard-block${wide ? " is-wide" : ""}" data-dashboard-block="${escapeHtml(section)}">
@@ -4124,6 +4267,7 @@ function dashboardSectionBlockHtml(section, currency, data, opts = {}){
       ${loansSplit}
       <div class="section-details-metrics" data-dashboard-metrics>${dashboardSectionMetricsHtml(section, data)}</div>
       <div data-dashboard-section-body>${dashboardSectionChartsHtml(section)}</div>
+      ${detailsFooter ? `<div data-dashboard-section-details>${detailsFooter}</div>` : ""}
     </section>
   `;
 }
@@ -4273,6 +4417,63 @@ function paintDashboardSectionCharts(section, data){
     return;
   }
 
+  if (section === "assets") {
+    const status = data.statusCounts || {};
+    makeChart(document.getElementById("dashboardChartAssetsStatus"), {
+      type: "doughnut",
+      data: {
+        labels: ["Active", "Sold", "Disposed"],
+        datasets: [sectionDetailsDoughnutDataset(
+          [status.active || 0, status.sold || 0, status.disposed || 0],
+          [colors.sky, colors.primary, colors.black]
+        )]
+      },
+      options: sectionDetailsDoughnutOptions(quietOptions, "62%")
+    });
+    makeChart(document.getElementById("dashboardChartAssetsMix"), {
+      type: "doughnut",
+      data: {
+        labels: ["Invested", "Revenue", "Sale proceeds"],
+        datasets: [sectionDetailsDoughnutDataset(
+          [
+            Math.max(0, Number(data.metrics?.investedValue || 0)),
+            Math.max(0, Number(data.metrics?.revenueValue || 0)),
+            Math.max(0, Number(data.metrics?.saleValue || 0))
+          ],
+          [colors.pink, colors.sky, colors.primary]
+        )]
+      },
+      options: sectionDetailsDoughnutOptions(quietOptions, "64%")
+    });
+    const assetMonths = sectionDetailsSortedMonthKeys(data.monthMap?.keys?.() || []);
+    makeChart(document.getElementById("dashboardChartAssetsLine"), {
+      type: "line",
+      data: {
+        labels: assetMonths.length ? assetMonths.map(sectionDetailsMonthLabel) : ["—"],
+        datasets: [
+          sectionDetailsLineDataset("Revenue", assetMonths.map(k => Number(data.monthMap.get(k)?.revenue || 0)), colors.sky),
+          sectionDetailsLineDataset("Expenses", assetMonths.map(k => Number(data.monthMap.get(k)?.expense || 0)), colors.danger)
+        ]
+      },
+      options: quietOptions
+    });
+    if (assetMonths.length) {
+      createDashboardCandlestickChart(
+        document.getElementById("dashboardChartAssetsCandle"),
+        assetMonths.map(sectionDetailsMonthLabel),
+        buildCashflowCandles(
+          assetMonths,
+          data.monthMap,
+          row => Number(row.revenue || 0),
+          row => Number(row.expense || 0)
+        ),
+        quietOptions,
+        section
+      );
+    }
+    return;
+  }
+
   const statusLabels = ["Open", "Partial", "Overdue", "Closed"];
   const statusValues = statusLabels.map(label => Number(data.statusCounts[label] || 0));
   makeChart(document.getElementById("dashboardChartInstallStatus"), {
@@ -4364,6 +4565,11 @@ function refreshDashboardSection(sectionKey, { soft = false, currencyHint = "" }
   const body = block.querySelector("[data-dashboard-section-body]");
   if (body) body.innerHTML = dashboardSectionChartsHtml(section);
   paintDashboardSectionCharts(section, data);
+
+  const detailsHost = block.querySelector("[data-dashboard-section-details]");
+  if (detailsHost) {
+    detailsHost.innerHTML = section === "assets" ? dashboardAssetsDetailsTableHtml(data) : "";
+  }
 
   if (soft) {
     requestAnimationFrame(() => {
@@ -4467,8 +4673,16 @@ function renderDetailedDashboard(options = {}){
   destroyDashboardCharts();
   const wasHydrated = root.classList.contains("is-hydrated");
   const mobile = isDashboardMobileLayout();
+  const allowedSections = getAllowedDashboardSections();
   root.classList.toggle("is-mobile-layout", mobile);
   root.classList.toggle("is-desktop-layout", !mobile);
+
+  if (!allowedSections.length) {
+    root.innerHTML = `<div class="dashboard-empty">No dashboard sections are enabled for your account.</div>`;
+    root.classList.add("is-hydrated");
+    if (scrollY != null) requestAnimationFrame(() => window.scrollTo(0, scrollY));
+    return;
+  }
 
   if (mobile) {
     const section = getDashboardActiveSection();
@@ -4488,30 +4702,24 @@ function renderDetailedDashboard(options = {}){
     bindDashboardSectionInteractions(root);
     paintDashboardSectionCharts(section, data);
   } else {
-    const payloads = {
-      expenses: loadDashboardSectionPayload("expenses"),
-      inventory: loadDashboardSectionPayload("inventory"),
-      loans: loadDashboardSectionPayload("loans"),
-      installments: loadDashboardSectionPayload("installments")
-    };
+    const payloads = {};
+    allowedSections.forEach(opt => {
+      payloads[opt.id] = loadDashboardSectionPayload(opt.id);
+    });
     root.innerHTML = `
       <div class="dashboard-dynamic" data-dashboard-dynamic>
-        ${dashboardDesktopHeroHtml(payloads)}
+        ${dashboardDesktopHeroHtml(payloads, allowedSections)}
         <div class="dashboard-grid" data-dashboard-section-host>
-          ${dashboardSectionBlockHtml("expenses", payloads.expenses.currency, payloads.expenses.data)}
-          ${dashboardSectionBlockHtml("inventory", payloads.inventory.currency, payloads.inventory.data)}
-          ${dashboardSectionBlockHtml("loans", payloads.loans.currency, payloads.loans.data)}
-          ${dashboardSectionBlockHtml("installments", payloads.installments.currency, payloads.installments.data)}
+          ${allowedSections.map(opt => dashboardSectionBlockHtml(opt.id, payloads[opt.id].currency, payloads[opt.id].data)).join("")}
         </div>
       </div>
     `;
     if (wasHydrated) root.classList.add("is-hydrated");
     delete root.dataset.dashboardBound;
     bindDashboardSectionInteractions(root);
-    paintDashboardSectionCharts("expenses", payloads.expenses.data);
-    paintDashboardSectionCharts("inventory", payloads.inventory.data);
-    paintDashboardSectionCharts("loans", payloads.loans.data);
-    paintDashboardSectionCharts("installments", payloads.installments.data);
+    allowedSections.forEach(opt => {
+      paintDashboardSectionCharts(opt.id, payloads[opt.id].data);
+    });
   }
 
   root.classList.add("is-hydrated");
