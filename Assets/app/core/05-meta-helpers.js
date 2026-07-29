@@ -321,6 +321,121 @@ function walletLogoStorageObjectPath(url){
   }
 }
 
+/** Scrollable ancestors used while long-press-dragging cards on mobile. */
+function findCardReorderScrollParents(startEl){
+  const list = [];
+  let el = startEl instanceof Element ? startEl : null;
+  while (el && el !== document.documentElement) {
+    if (el instanceof HTMLElement) {
+      try {
+        const style = window.getComputedStyle(el);
+        const oy = style.overflowY || style.overflow;
+        const canY = /(auto|scroll|overlay)/i.test(oy);
+        if (canY && el.scrollHeight > el.clientHeight + 1) list.push(el);
+      } catch (_) {}
+    }
+    el = el.parentElement;
+  }
+  const root = document.scrollingElement || document.documentElement;
+  if (root && !list.includes(root)) list.push(root);
+  return list;
+}
+
+/**
+ * Mobile-safe drag scroll lock:
+ * - blocks native page scroll via non-passive touchmove while a card is lifted
+ * - programmatically scrolls near top/bottom so the list follows the finger
+ */
+function createCardReorderDragSession(lockClass = "card-reorder-drag-lock"){
+  let active = false;
+  let raf = 0;
+  let scrollParents = [];
+  let lastClientX = 0;
+  let lastClientY = 0;
+  let onAutoScroll = null;
+
+  const blockNativeScroll = (e) => {
+    if (!active) return;
+    if (e.cancelable) e.preventDefault();
+  };
+
+  const tickAutoScroll = () => {
+    raf = 0;
+    if (!active) return;
+    const vh = window.innerHeight || 0;
+    if (vh < 80) return;
+    const edge = Math.min(96, Math.max(56, Math.floor(vh * 0.2)));
+    const maxStep = 28;
+    let dy = 0;
+    if (lastClientY < edge) {
+      dy = -Math.max(6, Math.ceil((1 - Math.max(0, lastClientY) / edge) * maxStep));
+    } else if (lastClientY > vh - edge) {
+      const dist = Math.max(0, vh - lastClientY);
+      dy = Math.max(6, Math.ceil((1 - dist / edge) * maxStep));
+    }
+    if (dy) {
+      for (const scroller of scrollParents) {
+        if (!scroller) continue;
+        if (
+          scroller === document.documentElement
+          || scroller === document.body
+          || scroller === document.scrollingElement
+        ) {
+          window.scrollBy(0, dy);
+        } else {
+          scroller.scrollTop += dy;
+        }
+      }
+      try { onAutoScroll?.(lastClientX, lastClientY); } catch (_) {}
+    }
+    // Keep edge scrolling continuous while finger is held in the zone.
+    const nearEdge = lastClientY < edge || lastClientY > vh - edge;
+    if (nearEdge) raf = requestAnimationFrame(tickAutoScroll);
+  };
+
+  return {
+    get active(){ return active; },
+    start(anchorEl, clientY = 0, options = {}){
+      if (active) this.stop();
+      active = true;
+      lastClientX = Number(options.clientX) || 0;
+      lastClientY = Number(clientY) || 0;
+      onAutoScroll = typeof options.onAutoScroll === "function" ? options.onAutoScroll : null;
+      scrollParents = findCardReorderScrollParents(anchorEl);
+      document.documentElement.classList.add(lockClass);
+      document.body.classList.add(lockClass);
+      document.addEventListener("touchmove", blockNativeScroll, { passive: false, capture: true });
+      document.addEventListener("gesturestart", blockNativeScroll, { passive: false, capture: true });
+    },
+    update(clientX, clientY){
+      if (!active) return;
+      lastClientX = Number(clientX) || 0;
+      lastClientY = Number(clientY) || 0;
+      const vh = window.innerHeight || 0;
+      const edge = Math.min(96, Math.max(56, Math.floor(vh * 0.2)));
+      const nearEdge = lastClientY < edge || lastClientY > vh - edge;
+      if (nearEdge && !raf) raf = requestAnimationFrame(tickAutoScroll);
+      if (!nearEdge && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    },
+    stop(){
+      active = false;
+      onAutoScroll = null;
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      document.documentElement.classList.remove(lockClass);
+      document.body.classList.remove(lockClass);
+      document.removeEventListener("touchmove", blockNativeScroll, { capture: true });
+      document.removeEventListener("gesturestart", blockNativeScroll, { capture: true });
+      scrollParents = [];
+    }
+  };
+}
+
 function overviewWatermarkGoods(){
   return `<div class="summary-watermark summary-watermark-goods" aria-hidden="true">🛒</div>`;
 }
