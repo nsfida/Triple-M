@@ -13,52 +13,53 @@ function openTrialSignupModal(){
     : ["AED", "SAR", "PKR", "USD", "BTC"];
   modal.innerHTML = `
     <div class="modal-backdrop" data-trial-close="1"></div>
-    <div class="modal-dialog" style="width:min(520px,100%)">
-      <div class="modal-head">
+    <div class="modal-dialog trial-signup-dialog" role="dialog" aria-modal="true" aria-labelledby="trialSignupTitle">
+      <div class="modal-head trial-signup-head">
         <div>
-          <h3>Start your free 14-day trial</h3>
-          <p>Create your own account with full workspace access for 14 days.</p>
+          <p class="trial-signup-kicker"><i class="fa-solid fa-gift" aria-hidden="true"></i> 14-day free trial</p>
+          <h3 id="trialSignupTitle">Create your trial account</h3>
+          <p>Add your details below to open a full private workspace — no card required.</p>
         </div>
-        <button type="button" class="btn ghost" data-trial-close="1" aria-label="Close">✕</button>
+        <button type="button" class="btn ghost trial-signup-close" data-trial-close="1" aria-label="Close">✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body trial-signup-body">
         <div class="form-group">
-          <label class="form-label">Username</label>
+          <label class="form-label" for="trialUsername">Username</label>
           <input id="trialUsername" class="input" autocomplete="username" placeholder="Choose a username" />
         </div>
         <div class="form-group">
-          <label class="form-label">Display name</label>
-          <input id="trialDisplayName" class="input" autocomplete="name" placeholder="Your name or business" />
+          <label class="form-label" for="trialDisplayName">Your name</label>
+          <input id="trialDisplayName" class="input" autocomplete="name" placeholder="Add your name" />
         </div>
         <div class="form-group">
-          <label class="form-label">Email</label>
-          <input id="trialEmail" class="input" type="email" autocomplete="email" placeholder="Shown on PDFs" />
+          <label class="form-label" for="trialEmail">Email address</label>
+          <input id="trialEmail" class="input" type="email" autocomplete="email" placeholder="Add your email address" />
         </div>
         <div class="form-group">
-          <label class="form-label">Mobile</label>
-          <input id="trialMobile" class="input" type="tel" autocomplete="tel" placeholder="Shown on PDFs" />
+          <label class="form-label" for="trialMobile">Mobile number</label>
+          <input id="trialMobile" class="input" type="tel" autocomplete="tel" placeholder="Add your mobile number" />
         </div>
         <div class="form-group">
-          <label class="form-label">Address</label>
-          <input id="trialAddress" class="input" autocomplete="street-address" placeholder="Shown on PDFs" />
+          <label class="form-label" for="trialAddress">Address</label>
+          <input id="trialAddress" class="input" autocomplete="street-address" placeholder="Add your address" />
         </div>
         <div class="form-group">
-          <label class="form-label">Company name (optional)</label>
-          <input id="trialCompany" class="input" placeholder="Shown on PDFs and header" />
+          <label class="form-label" for="trialCompany">Company name <span class="trial-optional">(optional)</span></label>
+          <input id="trialCompany" class="input" placeholder="Add your company name" />
         </div>
         <div class="form-group">
-          <label class="form-label">TRN (optional)</label>
-          <input id="trialTrn" class="input" placeholder="Tax registration number" />
+          <label class="form-label" for="trialTrn">TRN <span class="trial-optional">(optional)</span></label>
+          <input id="trialTrn" class="input" placeholder="Add tax registration number" />
         </div>
         <div class="form-group">
-          <label class="form-label">Company logo (optional)</label>
+          <label class="form-label" for="trialLogoFile">Company logo <span class="trial-optional">(optional)</span></label>
           <div class="admin-logo-row">
             <input id="trialLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" />
             <input id="trialLogoUrl" class="input" type="hidden" value="" />
           </div>
           <div class="admin-logo-preview-wrap">
             <img id="trialLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" />
-            <span id="trialLogoStatus" class="help">Optional — PNG/JPG up to 2MB. Used on PDFs and the app header.</span>
+            <span id="trialLogoStatus" class="help">Optional — PNG/JPG up to 2MB.</span>
           </div>
         </div>
         <div class="form-group">
@@ -67,22 +68,22 @@ function openTrialSignupModal(){
           <p class="help">Select at least one currency for your workspace.</p>
         </div>
         <div class="form-group">
-          <label class="form-label">Password</label>
+          <label class="form-label" for="trialPassword">Password</label>
           <div class="admin-password-row">
             <input id="trialPassword" class="input" type="password" autocomplete="new-password" placeholder="8+ chars, upper, lower, number" />
             <button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPassword" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Confirm password</label>
+          <label class="form-label" for="trialPasswordConfirm">Confirm password</label>
           <div class="admin-password-row">
-            <input id="trialPasswordConfirm" class="input" type="password" autocomplete="new-password" placeholder="Repeat password" />
+            <input id="trialPasswordConfirm" class="input" type="password" autocomplete="new-password" placeholder="Repeat your password" />
             <button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPasswordConfirm" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
           </div>
         </div>
-        <p class="help">Email, mobile, and address appear on your PDFs. Company name, TRN, and logo are optional. After 14 days you keep normal access during a grace period, then a one-day lock, then auto-disable unless an administrator renews your plan.</p>
+        <p class="help trial-signup-note">After 14 days you keep access during a grace period, then a short lock, then auto-disable unless an administrator renews your plan.</p>
         <div id="trialSignupError" class="lock-error"></div>
-        <div class="modal-footer">
+        <div class="modal-footer trial-signup-footer">
           <button type="button" class="btn ghost" data-trial-close="1">Cancel</button>
           <button type="button" class="btn primary" id="trialSignupSave">Create trial account</button>
         </div>
@@ -93,12 +94,23 @@ function openTrialSignupModal(){
   const close = () => {
     modal.classList.add("hide");
     modal.setAttribute("aria-hidden", "true");
+    try { document.body.style.overflow = ""; } catch (_) {}
+    try { document.removeEventListener("keydown", onTrialEsc, true); } catch (_) {}
+  };
+  const onTrialEsc = (e) => {
+    if (e.key !== "Escape") return;
+    if (modal.classList.contains("hide")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    close();
   };
   modal.querySelectorAll("[data-trial-close]").forEach(el => {
     el.onclick = close;
   });
+  document.addEventListener("keydown", onTrialEsc, true);
   modal.classList.remove("hide");
   modal.setAttribute("aria-hidden", "false");
+  try { document.body.style.overflow = "hidden"; } catch (_) {}
   bindAdminLogoPicker("trial", null);
   modal.querySelector("#trialUsername")?.focus();
   bindAdminFormPasswordToggle(modal);
@@ -123,7 +135,7 @@ function openTrialSignupModal(){
         throw new Error("Please enter a valid email address.");
       }
       if (!mobile || mobile.length < 6) throw new Error("Please enter a valid mobile number.");
-      if (!address || address.length < 4) throw new Error("Please enter your address for PDFs.");
+      if (!address || address.length < 4) throw new Error("Please enter your address.");
       if (!currencies.length) throw new Error("Select at least one currency.");
       assertPasswordPolicy(password);
       if (password !== confirm) throw new Error("Passwords do not match.");
