@@ -3548,7 +3548,298 @@ a.landing-mobile-item{
 }
 
 .modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:14px;}
-#trialSignupModal.modal{z-index:9600;}
+#trialSignupModal.modal{
+  z-index:9600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  box-sizing:border-box;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+#trialSignupModal.modal::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;
+}
+#trialSignupModal.modal.hide{display:none !important;}
+#trialSignupModal .modal-dialog.trial-signup-dialog{
+  position:relative;
+  width:min(380px, calc(100% - 8px));
+  max-width:calc(100vw - 32px);
+  max-height:min(90dvh, calc(100% - 8px));
+  margin:auto;
+  overflow:auto;
+  overflow-x:hidden;
+  border-radius:16px;
+  background:#fff;
+  border:1px solid rgba(208,213,221,.9);
+  box-shadow:0 28px 72px rgba(15,23,42,.28);
+  box-sizing:border-box;
+  scrollbar-width:none;          /* Firefox */
+  -ms-overflow-style:none;       /* legacy Edge/IE */
+}
+#trialSignupModal .modal-dialog.trial-signup-dialog::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;                  /* Chrome / Safari */
+}
+#trialSignupModal .trial-signup-head{
+  padding:10px 12px 0;
+  gap:8px;
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:linear-gradient(#fff 70%, rgba(255,255,255,.92));
+}
+#trialSignupModal .trial-signup-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  margin:0 0 2px;
+  color:#047857;
+  font-size:.6rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+#trialSignupModal .trial-signup-head h3{
+  margin:0;
+  font-size:.92rem;
+  font-weight:700;
+  letter-spacing:-.02em;
+  line-height:1.25;
+}
+#trialSignupModal .trial-signup-head p{
+  font-size:.68rem;
+  font-weight:450;
+  line-height:1.35;
+  margin:3px 0 0;
+}
+#trialSignupModal .trial-signup-close{
+  min-width:28px;
+  min-height:28px;
+  width:28px;
+  height:28px;
+  padding:0;
+  border-radius:999px;
+  flex:0 0 auto;
+  font-size:.78rem;
+  font-weight:600;
+}
+#trialSignupModal .trial-signup-body{
+  padding:8px 12px 12px;
+  display:grid;
+  gap:7px;
+}
+#trialSignupModal .trial-signup-body .form-group{
+  margin:0;
+  gap:3px;
+}
+#trialSignupModal .trial-signup-body .form-label{
+  font-size:.66rem;
+  font-weight:600;
+  margin:0;
+  color:var(--muted);
+  letter-spacing:0;
+}
+#trialSignupModal .trial-optional{
+  color:var(--muted);
+  font-weight:500;
+  font-size:.62rem;
+  text-transform:none;
+  letter-spacing:0;
+}
+#trialSignupModal .trial-signup-body .input,
+#trialSignupModal .trial-signup-body .select,
+#trialSignupModal .trial-signup-body input.input,
+#trialSignupModal .trial-signup-body select.input{
+  min-height:30px;
+  height:30px;
+  padding:4px 9px;
+  font-size:.76rem;
+  font-weight:450;
+  border-radius:8px;
+  line-height:1.25;
+  box-shadow:none;
+}
+#trialSignupModal .trial-signup-body .input:focus,
+#trialSignupModal .trial-signup-body .select:focus,
+#trialSignupModal .trial-signup-body input.input:focus{
+  box-shadow:0 0 0 2px rgba(36,87,214,.14);
+  transform:none;
+}
+#trialSignupModal .trial-signup-body .help,
+#trialSignupModal .trial-signup-note,
+#trialSignupModal #trialLogoStatus{
+  margin:0;
+  font-size:.62rem;
+  font-weight:450;
+  line-height:1.35;
+}
+#trialSignupModal .trial-signup-note{
+  margin-top:2px;
+}
+#trialSignupModal .admin-check-grid{
+  grid-template-columns:repeat(auto-fill, minmax(88px, 1fr));
+  gap:4px;
+  padding:6px;
+  border-radius:8px;
+}
+#trialSignupModal .admin-check-item{
+  font-size:.7rem;
+  font-weight:500;
+  gap:5px;
+  line-height:1.2;
+}
+#trialSignupModal .admin-check-item input{
+  margin-top:1px;
+  width:13px;
+  height:13px;
+}
+#trialSignupModal .admin-password-row{
+  gap:4px;
+}
+#trialSignupModal .admin-password-row .pw-eye-btn,
+#trialSignupModal .pw-eye-btn{
+  width:30px;
+  height:30px;
+  min-width:30px;
+  border-radius:8px;
+  font-size:.72rem;
+}
+#trialSignupModal .admin-logo-row{
+  gap:6px;
+}
+#trialSignupModal .admin-logo-row .input[type="file"]{
+  height:auto;
+  min-height:30px;
+  padding:4px 8px;
+  font-size:.7rem;
+}
+#trialSignupModal .admin-logo-preview{
+  max-height:36px;
+  width:auto;
+}
+#trialSignupModal .admin-logo-preview-wrap{
+  gap:4px;
+  margin-top:2px;
+}
+#trialSignupModal .lock-error{
+  font-size:.7rem;
+  margin:0;
+}
+#trialSignupModal .trial-signup-footer{
+  margin-top:4px;
+  gap:6px;
+}
+#trialSignupModal .trial-signup-footer .btn,
+#trialSignupModal .trial-signup-body .btn{
+  min-height:30px;
+  height:30px;
+  padding:0 12px;
+  font-size:.74rem;
+  font-weight:650;
+  border-radius:8px;
+  box-shadow:none;
+  transform:none;
+}
+#trialSignupModal .trial-signup-footer .btn:hover,
+#trialSignupModal .trial-signup-body .btn:hover{
+  transform:none;
+  box-shadow:none;
+}
+#trialSignupModal .trial-signup-footer .btn.primary{
+  box-shadow:none;
+}
+@media (max-width: 560px){
+  #trialSignupModal.modal{
+    padding:
+      max(8px, env(safe-area-inset-top, 0px))
+      max(8px, env(safe-area-inset-right, 0px))
+      max(8px, env(safe-area-inset-bottom, 0px))
+      max(8px, env(safe-area-inset-left, 0px));
+  }
+  #trialSignupModal .modal-dialog.trial-signup-dialog{
+    width:min(340px, calc(100% - 4px));
+    max-width:calc(100vw - 16px);
+    max-height:min(90dvh, calc(100% - 4px));
+    border-radius:14px;
+    margin:auto;
+  }
+  #trialSignupModal .trial-signup-head{
+    padding:8px 10px 0;
+  }
+  #trialSignupModal .trial-signup-kicker{
+    font-size:.56rem;
+  }
+  #trialSignupModal .trial-signup-head h3{
+    font-size:.86rem;
+  }
+  #trialSignupModal .trial-signup-head p{
+    font-size:.64rem;
+  }
+  #trialSignupModal .trial-signup-close{
+    min-width:26px;
+    min-height:26px;
+    width:26px;
+    height:26px;
+    font-size:.72rem;
+  }
+  #trialSignupModal .trial-signup-body{
+    padding:6px 10px 10px;
+    gap:6px;
+  }
+  #trialSignupModal .trial-signup-body .form-label{
+    font-size:.62rem;
+  }
+  #trialSignupModal .trial-signup-body .input,
+  #trialSignupModal .trial-signup-body .select,
+  #trialSignupModal .trial-signup-body input.input{
+    min-height:28px;
+    height:28px;
+    padding:3px 8px;
+    font-size:.72rem;
+    border-radius:7px;
+  }
+  #trialSignupModal .trial-signup-body .input::placeholder{
+    font-size:.7rem;
+  }
+  #trialSignupModal .admin-password-row .pw-eye-btn,
+  #trialSignupModal .pw-eye-btn{
+    width:28px;
+    height:28px;
+    min-width:28px;
+  }
+  #trialSignupModal .admin-check-grid{
+    grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
+    gap:3px;
+    padding:5px;
+  }
+  #trialSignupModal .admin-check-item{
+    font-size:.66rem;
+  }
+  #trialSignupModal .trial-signup-footer .btn,
+  #trialSignupModal .trial-signup-body .btn{
+    min-height:28px;
+    height:28px;
+    padding:0 10px;
+    font-size:.7rem;
+    flex:1 1 auto;
+  }
+  #trialSignupModal .trial-signup-note,
+  #trialSignupModal .trial-signup-body .help,
+  #trialSignupModal #trialLogoStatus{
+    font-size:.58rem;
+  }
+}
 /*
   Inventory overlay stack (siblings under body — higher must win when nested flows open):
   section → customer/goods → item details → edit/brands → cart/wizard → qty/add-items
