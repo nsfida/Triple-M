@@ -14,6 +14,9 @@
     selected: new Set(),
     search: "",
     statusFilter: "all", // all | in_stock | out
+    printQtyMode: "one", // one | stock | manual
+    printQtyManual: 1,
+    qtyByGroup: {}, // optional per-item override
     loaded: false,
     loading: false
   };
@@ -133,13 +136,30 @@
 
   function productDisplayName(group) {
     if (!group) return "Product";
-    const parts = [
+    const company = String(companyLabelName() || "").trim().toLowerCase();
+    const skip = (v) => {
+      const s = String(v || "").trim();
+      if (!s) return false;
+      if (company && s.toLowerCase() === company) return false;
+      return true;
+    };
+    // Prefer catalog fields (brand / line / storage) — never company or owner name.
+    const catalog = [
       group.brand,
-      group.productLine || group.variantLabel,
-      group.person_name
-    ].map(v => String(v || "").trim()).filter(Boolean);
-    if (parts.length) return parts.slice(0, 2).join(" · ");
-    return String(group.person_name || group.itemCode || "Product");
+      group.subBrand,
+      group.productLine,
+      group.variantLabel,
+      group.variantStorage,
+      group.variantColor
+    ].filter(skip);
+    if (catalog.length) return catalog.slice(0, 2).join(" · ");
+    if (typeof formatInventoryReceiptLineName === "function") {
+      const named = String(formatInventoryReceiptLineName(group) || "").trim();
+      if (named && named !== "Item" && (!company || named.toLowerCase() !== company)) return named;
+    }
+    const person = String(group.person_name || "").trim();
+    if (person && (!company || person.toLowerCase() !== company)) return person;
+    return String(group.itemCode || "Product");
   }
 
   function getInventoryProductGroups() {
@@ -374,29 +394,65 @@
     return canvas;
   }
 
+  function resolveLabelCopyCount(row) {
+    const override = barcodeUi.qtyByGroup[row.groupId];
+    if (override != null && String(override).trim() !== "") {
+      const n = Math.floor(Number(override));
+      return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : 1;
+    }
+    if (barcodeUi.printQtyMode === "stock") {
+      const stock = Math.ceil(Number(row.remainingQty || 0));
+      return Math.max(1, Math.min(stock > 0 ? stock : 1, 500));
+    }
+    if (barcodeUi.printQtyMode === "manual") {
+      const n = Math.floor(Number(barcodeUi.printQtyManual || 1));
+      return Math.max(1, Math.min(Number.isFinite(n) ? n : 1, 500));
+    }
+    return 1;
+  }
+
+  function expandRowsForLabelPrint(rows) {
+    const out = [];
+    (rows || []).forEach(row => {
+      if (!row) return;
+      const copies = resolveLabelCopyCount(row);
+      for (let i = 0; i < copies; i += 1) out.push(row);
+    });
+    return out;
+  }
+
   async function downloadProductBarcodeLabelsPDF(rows) {
     if (!window.jspdf) {
       alert("PDF library loading. Please try again in a moment.");
       return;
     }
-    const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
-    if (!list.length) {
+    const source = Array.isArray(rows) ? rows.filter(Boolean) : [];
+    if (!source.length) {
       alert("No products to print.");
       return;
     }
-    const company = companyLabelName();
+    const list = expandRowsForLabelPrint(source);
+    if (!list.length) {
+      alert("No labels to print.");
+      return;
+    }
+    if (list.length > 3000) {
+      alert(`Too many labels (${list.length}). Reduce quantity (max 3000).`);
+      return;
+    }
+
     const { jsPDF } = window.jspdf;
-    // Compact stickers, but barcode keeps native aspect ratio (no squash = no mixed bars).
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const labelW = 50;
-    const labelH = company ? 28 : 25;
-    const gapX = 4;
-    const gapY = 4;
-    const marginX = 8;
-    const marginY = 8;
-    const cols = Math.max(1, Math.floor((pageW - marginX * 2 + gapX) / (labelW + gapX)));
+    // Exactly 6 labels per row on A4 — compact sticker size
+    const cols = 6;
+    const marginX = 5;
+    const marginY = 6;
+    const gapX = 1.6;
+    const gapY = 2.2;
+    const labelW = (pageW - marginX * 2 - gapX * (cols - 1)) / cols;
+    const labelH = 21;
     const rowsPerPage = Math.max(1, Math.floor((pageH - marginY * 2 + gapY) / (labelH + gapY)));
     const perPage = cols * rowsPerPage;
 
@@ -409,38 +465,30 @@
       const y = marginY + row * (labelH + gapY);
       const item = list[i];
       const code = normalizeBarcodeValue(item.barcode);
-      let ty = y + 2.6;
+      let ty = y + 2.2;
 
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.12);
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.1);
       doc.rect(x, y, labelW, labelH);
 
-      if (company) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(doc.splitTextToSize(company, labelW - 3).slice(0, 1), x + labelW / 2, ty, { align: "center" });
-        ty += 2.8;
-      }
-
+      // Product name only (no company)
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(6);
+      doc.setFontSize(5.2);
       doc.setTextColor(15, 23, 42);
-      const name = doc.splitTextToSize(String(item.itemName || "Product"), labelW - 3);
-      doc.text(name.slice(0, 1), x + labelW / 2, ty, { align: "center" });
-      ty += 3.0;
+      const nameLines = doc.splitTextToSize(String(item.itemName || "Product"), labelW - 2.2);
+      doc.text(nameLines.slice(0, 1), x + labelW / 2, ty, { align: "center" });
+      ty += 2.8;
 
       try {
-        // High-res modules so small stickers still decode cleanly.
         const canvas = drawBarcodeCanvas(code, {
-          moduleWidth: 3,
-          barHeight: 72,
-          margin: 14,
+          moduleWidth: 2,
+          barHeight: 48,
+          margin: 10,
           displayValue: false
         });
         const img = canvas.toDataURL("image/png");
-        const maxW = labelW - 4;
-        const maxH = 11.5;
+        const maxW = labelW - 2;
+        const maxH = 9.2;
         const aspect = canvas.height / Math.max(canvas.width, 1);
         let imgW = maxW;
         let imgH = imgW * aspect;
@@ -448,30 +496,25 @@
           imgH = maxH;
           imgW = imgH / aspect;
         }
-        // Prefer using full width for thicker effective modules when possible
-        if (imgW < maxW * 0.92) {
-          imgW = maxW;
-          imgH = Math.min(maxH, imgW * aspect);
-        }
         const imgX = x + (labelW - imgW) / 2;
         doc.addImage(img, "PNG", imgX, ty, imgW, imgH, undefined, "NONE");
-        ty += imgH + 1.6;
+        ty += imgH + 1.3;
       } catch (_) {
-        ty += 8;
+        ty += 7;
       }
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(6);
+      doc.setFontSize(5);
       doc.setTextColor(30, 41, 59);
       doc.text(code, x + labelW / 2, ty, { align: "center" });
-      ty += 3.2;
+      ty += 2.6;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
+      doc.setFontSize(5.8);
       doc.setTextColor(15, 23, 42);
       doc.text(moneySafe(item.unitPrice, item.currency, { forPdf: true }), x + labelW / 2, ty, { align: "center" });
     }
 
-    doc.save(`Product_Barcodes_${list.length}.pdf`);
+    doc.save(`Product_Barcodes_${source.length}x_${list.length}labels.pdf`);
   }
 
   async function renderInventoryBarcodesSection() {
@@ -492,6 +535,10 @@
       return;
     }
     const allSelected = rows.length && rows.every(r => barcodeUi.selected.has(r.groupId));
+    const previewCount = rows.reduce((sum, r) => sum + resolveLabelCopyCount(r), 0);
+    const selectedPreview = rows
+      .filter(r => barcodeUi.selected.has(r.groupId))
+      .reduce((sum, r) => sum + resolveLabelCopyCount(r), 0);
     root.innerHTML = `
       <div class="inv-barcode-toolbar">
         <label class="inv-barcode-search">
@@ -506,28 +553,45 @@
             <option value="out" ${barcodeUi.statusFilter === "out" ? "selected" : ""}>Out / sold</option>
           </select>
         </label>
+        <label class="inv-barcode-filter">
+          <span>Labels / item</span>
+          <select id="inventoryBarcodeQtyMode" class="select">
+            <option value="one" ${barcodeUi.printQtyMode === "one" ? "selected" : ""}>1 each</option>
+            <option value="stock" ${barcodeUi.printQtyMode === "stock" ? "selected" : ""}>Match stock</option>
+            <option value="manual" ${barcodeUi.printQtyMode === "manual" ? "selected" : ""}>Manual qty</option>
+          </select>
+        </label>
+        <label class="inv-barcode-filter ${barcodeUi.printQtyMode === "manual" ? "" : "hide"}" id="invBarcodeQtyManualWrap">
+          <span>Qty</span>
+          <input type="number" id="inventoryBarcodeQtyManual" class="input" min="1" max="500" step="1" value="${escapeHtml(String(barcodeUi.printQtyManual || 1))}" />
+        </label>
         <div class="inv-barcode-actions">
           <button type="button" class="tiny ghost" id="invBarcodeSelectAllBtn">${allSelected ? "Clear" : "Select all"}</button>
-          <button type="button" class="tiny soft" id="invBarcodePrintSelectedBtn"><i class="fa-solid fa-barcode"></i> Selected</button>
-          <button type="button" class="tiny primary" id="invBarcodePrintAllBtn"><i class="fa-solid fa-print"></i> All labels</button>
+          <button type="button" class="tiny soft" id="invBarcodePrintSelectedBtn" title="Print selected"><i class="fa-solid fa-barcode"></i> Selected (${selectedPreview})</button>
+          <button type="button" class="tiny primary" id="invBarcodePrintAllBtn" title="Print all filtered"><i class="fa-solid fa-print"></i> PDF (${previewCount})</button>
         </div>
       </div>
+      <div class="inv-barcode-qty-hint">6 labels per row · set Labels/item, or type a count on a row to override.</div>
       ${pending ? `<div class="inv-barcode-sync-banner">Offline queue: ${pending} barcode update${pending === 1 ? "" : "s"} will sync when online.</div>` : ""}
       <div class="inv-barcode-list">
-        ${rows.length ? rows.map(row => `
+        ${rows.length ? rows.map(row => {
+          const copies = resolveLabelCopyCount(row);
+          const overrideVal = barcodeUi.qtyByGroup[row.groupId];
+          return `
           <label class="inv-barcode-row">
             <input type="checkbox" data-barcode-select="${escapeHtml(row.groupId)}" ${barcodeUi.selected.has(row.groupId) ? "checked" : ""} />
             <div class="inv-barcode-main">
               <strong>${escapeHtml(row.itemName)}</strong>
-              <span>${escapeHtml(row.itemCode || "—")} · ${escapeHtml(row.barcode)}</span>
+              <span>${escapeHtml(row.itemCode || "—")} · ${escapeHtml(row.barcode)} · stock ${escapeHtml(String(Math.max(0, Math.ceil(Number(row.remainingQty || 0)))))}</span>
             </div>
             <div class="inv-barcode-meta">
               <em class="${row.status === "in_stock" ? "is-ok" : "is-out"}">${row.status === "in_stock" ? "In stock" : "Out / sold"}</em>
               <strong>${escapeHtml(moneySafe(row.unitPrice, row.currency))}</strong>
             </div>
-            <button type="button" class="tiny ghost" data-barcode-one="${escapeHtml(row.groupId)}" title="Print this label"><i class="fa-solid fa-print"></i></button>
-          </label>
-        `).join("") : `<div class="empty">No products match this filter.</div>`}
+            <input type="number" class="input inv-barcode-qty-input" data-barcode-qty="${escapeHtml(row.groupId)}" min="1" max="500" step="1" placeholder="${copies}" value="${overrideVal != null && String(overrideVal).trim() !== "" ? escapeHtml(String(overrideVal)) : ""}" title="Labels for this item (overrides mode)" aria-label="Label count" />
+            <button type="button" class="tiny ghost" data-barcode-one="${escapeHtml(row.groupId)}" title="Print this product"><i class="fa-solid fa-print"></i></button>
+          </label>`;
+        }).join("") : `<div class="empty">No products match this filter.</div>`}
       </div>
     `;
 
@@ -537,6 +601,15 @@
     });
     root.querySelector("#inventoryBarcodeStatusFilter")?.addEventListener("change", e => {
       barcodeUi.statusFilter = e.target.value || "all";
+      paintBarcodeList();
+    });
+    root.querySelector("#inventoryBarcodeQtyMode")?.addEventListener("change", e => {
+      barcodeUi.printQtyMode = e.target.value || "one";
+      paintBarcodeList();
+    });
+    root.querySelector("#inventoryBarcodeQtyManual")?.addEventListener("change", e => {
+      const n = Math.floor(Number(e.target.value || 1));
+      barcodeUi.printQtyManual = Math.max(1, Math.min(Number.isFinite(n) ? n : 1, 500));
       paintBarcodeList();
     });
     root.querySelector("#invBarcodeSelectAllBtn")?.addEventListener("click", () => {
@@ -557,6 +630,19 @@
         const id = input.getAttribute("data-barcode-select");
         if (input.checked) barcodeUi.selected.add(id);
         else barcodeUi.selected.delete(id);
+        paintBarcodeList();
+      });
+    });
+    root.querySelectorAll("[data-barcode-qty]").forEach(input => {
+      input.addEventListener("change", () => {
+        const id = input.getAttribute("data-barcode-qty");
+        const raw = String(input.value || "").trim();
+        if (!raw) delete barcodeUi.qtyByGroup[id];
+        else {
+          const n = Math.floor(Number(raw));
+          barcodeUi.qtyByGroup[id] = Math.max(1, Math.min(Number.isFinite(n) ? n : 1, 500));
+        }
+        paintBarcodeList();
       });
     });
     root.querySelectorAll("[data-barcode-one]").forEach(btn => {
