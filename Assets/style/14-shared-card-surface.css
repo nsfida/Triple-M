@@ -541,3 +541,108 @@
     linear-gradient(160deg, #3b82f6, #2563eb 55%, #1d4ed8);
   box-shadow:0 4px 12px rgba(37,99,235,.2);
 }
+
+/* ── Sign-in, Smart Pin, entry/edit & key overlay dialogs ──────────────── */
+.modal-dialog,
+.login-glass-panel--overlay,
+.guest-restriction-dialog,
+.trial-promo-card,
+.reminder-alert-dialog,
+.transfer-success-content,
+.secret-pin-dialog,
+.smart-pin-confirm-dialog,
+#trialSignupModal .modal-dialog.trial-signup-dialog{
+  --triplem-card-accent:var(--triplem-orb-1);
+  position:relative;
+  isolation:isolate;
+  border:1px solid rgba(208,213,221,.72) !important;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 12%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94)) !important;
+  box-shadow:0 18px 48px rgba(15,23,42,.14) !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+/* Outer sign-in wrapper stays clear; inner panel carries the surface */
+.signin-overlay-card{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+.modal-dialog::after,
+.login-glass-panel--overlay::after,
+.guest-restriction-dialog::after,
+.trial-promo-card::after,
+.reminder-alert-dialog::after,
+.transfer-success-content::after,
+#trialSignupModal .modal-dialog.trial-signup-dialog::after{
+  content:"";
+  position:absolute;
+  inset:auto -16% -36% auto;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:var(--triplem-card-accent,#60a5fa);
+  opacity:.11;
+  pointer-events:none;
+  z-index:0;
+}
+.modal-dialog > *,
+.login-glass-panel--overlay > *,
+.guest-restriction-dialog > *,
+.trial-promo-card > *,
+.reminder-alert-dialog > *,
+.transfer-success-content > *,
+#trialSignupModal .modal-dialog.trial-signup-dialog > *{
+  position:relative;
+  z-index:1;
+}
+
+/* Soft per-overlay accents */
+#signInOverlay .login-glass-panel--overlay,
+#entryModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-1); } /* light blue */
+#secretPinGateModal .modal-dialog,
+#smartPinManageModal .modal-dialog,
+#noteReminderModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-2); } /* light pink */
+#smartPinConfirmModal .modal-dialog,
+#installmentEditModal .modal-dialog,
+#installmentPlanModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-3); } /* soft rose */
+#editModal .modal-dialog,
+#noteEditModal .modal-dialog,
+#inventoryEditItemModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-4); } /* soft violet */
+#sectionDetailsModal .modal-dialog,
+#assetDetailModal .modal-dialog,
+#depAssetDetailModal .modal-dialog,
+#assetFormModal .modal-dialog,
+#depAssetFormModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-5); } /* soft mint */
+#expenseModal .modal-dialog,
+#assetTxModal .modal-dialog,
+#assetSaleModal .modal-dialog,
+#depAssetDisposeModal .modal-dialog,
+#depAssetReportModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-6); } /* soft peach */
+#goodsModal .modal-dialog,
+#goodsSettlementModal .modal-dialog,
+#inventoryCustomerModal .modal-dialog,
+#inventorySectionModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-1); }
+#inventorySaleDraftModal .modal-dialog,
+#inventoryQtyPromptModal .modal-dialog,
+#inventoryAddItemWizardModal .modal-dialog,
+#inventoryReceiptEditModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-5); }
+#trialSignupModal .modal-dialog,
+.trial-promo-card{ --triplem-card-accent:var(--triplem-orb-5); }
+.guest-restriction-dialog,
+#trialExpiredOverlay .guest-restriction-dialog{ --triplem-card-accent:var(--triplem-orb-3); }
+.reminder-alert-dialog{ --triplem-card-accent:var(--triplem-orb-6); }
+.transfer-success-content{ --triplem-card-accent:var(--triplem-orb-5); }
+
+/* Sticky modal heads keep a soft tint instead of flat white */
+.modal-dialog .modal-head,
+#trialSignupModal .trial-signup-head{
+  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.78)) !important;
+}
+.compact-entry-dialog .modal-head,
+.secret-pin-dialog .modal-head,
+.smart-pin-confirm-dialog .smart-pin-confirm-head{
+  background:transparent;
+}
+
