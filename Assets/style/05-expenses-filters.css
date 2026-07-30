@@ -737,7 +737,7 @@
 .installment-plan-card:has(.menu-dropdown.open),
 .installment-plan-card:has(.menu-wrap.open),
 .installment-plan-card:has(.menu-trigger[aria-expanded="true"]){
-  z-index:20;
+  z-index:10050;
 }
 .installment-plan-card:focus-visible{
   outline:2px solid rgba(37,99,235,.45);
