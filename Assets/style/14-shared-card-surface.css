@@ -2,35 +2,37 @@
    Loaded last so it wins over per-section flat white card backgrounds. */
 
 :root{
-  --triplem-card-accent:#2563eb;
+  --triplem-card-accent:#60a5fa;
+  /* Soft rotating orb palette for multi-card lists */
+  --triplem-orb-1:#60a5fa; /* light blue */
+  --triplem-orb-2:#f9a8d4; /* light pink */
+  --triplem-orb-3:#fb7185; /* light rose */
+  --triplem-orb-4:#c4b5fd; /* soft violet */
+  --triplem-orb-5:#5eead4; /* soft mint */
+  --triplem-orb-6:#fdba74; /* soft peach */
 }
 
-/* Per-tab accent colors (same palette as dashboard hero cards) */
-#expensesPanel,
-#dashboardPanel{ --triplem-card-accent:#2563eb; }
-#goodsPanel{ --triplem-card-accent:#0ea5e9; }
-#assetsPanel{ --triplem-card-accent:#059669; }
-#givenPanel,
-#receivedPanel,
-#takenPanel,
-#returnedPanel{ --triplem-card-accent:#ec4899; }
-#installmentsPanel{ --triplem-card-accent:#e11d48; }
-#notesPanel{ --triplem-card-accent:#7c3aed; }
-#bitcoinPanel{ --triplem-card-accent:#f59e0b; }
-#messagesPanel,
-#adminPanel{ --triplem-card-accent:#2563eb; }
+/* Section shell accents stay soft; list cards get rotating orbs below */
+#expensesPanel > .card.section,
+#dashboardPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-1); }
+#goodsPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-1); }
+#assetsPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-5); }
+#givenPanel > .card.section,
+#receivedPanel > .card.section,
+#takenPanel > .card.section,
+#returnedPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-2); }
+#installmentsPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-3); }
+#notesPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-4); }
+#bitcoinPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-6); }
+#messagesPanel > .card.section,
+#adminPanel > .card.section{ --triplem-card-accent:var(--triplem-orb-1); }
 
-/* Metric / KPI accents inside panels */
-.dashboard-block.is-expenses,
-.dashboard-hero-card.is-expenses{ --triplem-card-accent:#2563eb; }
-.dashboard-block.is-inventory,
-.dashboard-hero-card.is-inventory{ --triplem-card-accent:#0ea5e9; }
-.dashboard-block.is-assets,
-.dashboard-hero-card.is-assets{ --triplem-card-accent:#059669; }
-.dashboard-block.is-loans,
-.dashboard-hero-card.is-loans{ --triplem-card-accent:#ec4899; }
-.dashboard-block.is-installments,
-.dashboard-hero-card.is-installments{ --triplem-card-accent:#e11d48; }
+/* Soft semantic accents for dashboard hero / blocks (overridden by cycle when siblings) */
+.dashboard-block.is-expenses{ --triplem-card-accent:var(--triplem-orb-1); }
+.dashboard-block.is-inventory{ --triplem-card-accent:#38bdf8; }
+.dashboard-block.is-assets{ --triplem-card-accent:var(--triplem-orb-5); }
+.dashboard-block.is-loans{ --triplem-card-accent:var(--triplem-orb-2); }
+.dashboard-block.is-installments{ --triplem-card-accent:var(--triplem-orb-3); }
 
 .card.section,
 .dashboard-block,
@@ -57,7 +59,7 @@
   border:1px solid rgba(208,213,221,.72);
   border-radius:14px;
   background:
-    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#2563eb) 8%, transparent), transparent 55%),
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 12%, transparent), transparent 55%),
     linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
   box-shadow:0 6px 16px rgba(15,23,42,.03);
 }
@@ -88,8 +90,8 @@
   width:90px;
   height:90px;
   border-radius:50%;
-  background:var(--triplem-card-accent,#2563eb);
-  opacity:.07;
+  background:var(--triplem-card-accent,#60a5fa);
+  opacity:.11;
   pointer-events:none;
   z-index:0;
 }
@@ -110,7 +112,7 @@
   width:140px;
   height:140px;
   inset:auto -12% -28% auto;
-  opacity:.055;
+  opacity:.09;
 }
 
 /* Keep interactive content above the orb */
@@ -190,8 +192,253 @@
   box-shadow:0 6px 16px rgba(15,23,42,.03);
 }
 .dashboard-hero-card::after{
-  opacity:.07;
+  opacity:.11;
 }
+
+/* Rotate soft orb / wash colors across sibling cards */
+.list > .loan:nth-child(6n+1),
+.list > .installment-plan-card:nth-child(6n+1),
+.list > .asset-card:nth-child(6n+1),
+.list > .dep-asset-card:nth-child(6n+1),
+.assets-list > .asset-card:nth-child(6n+1),
+.dep-assets-list > .dep-asset-card:nth-child(6n+1),
+.dep-assets-summary > .dep-summary-card:nth-child(6n+1),
+.overview-grid > .summary:nth-child(6n+1),
+.dashboard-grid > .dashboard-block:nth-child(6n+1),
+.dashboard-hero > .dashboard-hero-card:nth-child(6n+1),
+.asset-kpi-grid > .asset-kpi:nth-child(6n+1),
+.ip-card-metrics > .ip-metric:nth-child(6n+1),
+.section-details-metrics > .section-details-metric:nth-child(6n+1),
+.section-details-charts > .section-details-chart-card:nth-child(6n+1),
+#notesList > .card:nth-child(6n+1),
+.expense-wallet-card-wrap:nth-child(6n+1) .expense-wallet-card,
+.inventory-sections-grid > .inventory-section-card:nth-child(6n+1),
+.inventory-sku-grid > .inventory-sku-card:nth-child(6n+1),
+.inventory-drafts-list > .inventory-draft-card:nth-child(6n+1),
+.btc-wallets-list > .btc-wallet-card:nth-child(6n+1),
+.btc-wallets-list > .btc-wallet-details:nth-child(6n+1){
+  --triplem-card-accent:var(--triplem-orb-1);
+}
+.list > .loan:nth-child(6n+2),
+.list > .installment-plan-card:nth-child(6n+2),
+.list > .asset-card:nth-child(6n+2),
+.list > .dep-asset-card:nth-child(6n+2),
+.assets-list > .asset-card:nth-child(6n+2),
+.dep-assets-list > .dep-asset-card:nth-child(6n+2),
+.dep-assets-summary > .dep-summary-card:nth-child(6n+2),
+.overview-grid > .summary:nth-child(6n+2),
+.dashboard-grid > .dashboard-block:nth-child(6n+2),
+.dashboard-hero > .dashboard-hero-card:nth-child(6n+2),
+.asset-kpi-grid > .asset-kpi:nth-child(6n+2),
+.ip-card-metrics > .ip-metric:nth-child(6n+2),
+.section-details-metrics > .section-details-metric:nth-child(6n+2),
+.section-details-charts > .section-details-chart-card:nth-child(6n+2),
+#notesList > .card:nth-child(6n+2),
+.expense-wallet-card-wrap:nth-child(6n+2) .expense-wallet-card,
+.inventory-sections-grid > .inventory-section-card:nth-child(6n+2),
+.inventory-sku-grid > .inventory-sku-card:nth-child(6n+2),
+.inventory-drafts-list > .inventory-draft-card:nth-child(6n+2),
+.btc-wallets-list > .btc-wallet-card:nth-child(6n+2),
+.btc-wallets-list > .btc-wallet-details:nth-child(6n+2){
+  --triplem-card-accent:var(--triplem-orb-2);
+}
+.list > .loan:nth-child(6n+3),
+.list > .installment-plan-card:nth-child(6n+3),
+.list > .asset-card:nth-child(6n+3),
+.list > .dep-asset-card:nth-child(6n+3),
+.assets-list > .asset-card:nth-child(6n+3),
+.dep-assets-list > .dep-asset-card:nth-child(6n+3),
+.dep-assets-summary > .dep-summary-card:nth-child(6n+3),
+.overview-grid > .summary:nth-child(6n+3),
+.dashboard-grid > .dashboard-block:nth-child(6n+3),
+.dashboard-hero > .dashboard-hero-card:nth-child(6n+3),
+.asset-kpi-grid > .asset-kpi:nth-child(6n+3),
+.ip-card-metrics > .ip-metric:nth-child(6n+3),
+.section-details-metrics > .section-details-metric:nth-child(6n+3),
+.section-details-charts > .section-details-chart-card:nth-child(6n+3),
+#notesList > .card:nth-child(6n+3),
+.expense-wallet-card-wrap:nth-child(6n+3) .expense-wallet-card,
+.inventory-sections-grid > .inventory-section-card:nth-child(6n+3),
+.inventory-sku-grid > .inventory-sku-card:nth-child(6n+3),
+.inventory-drafts-list > .inventory-draft-card:nth-child(6n+3),
+.btc-wallets-list > .btc-wallet-card:nth-child(6n+3),
+.btc-wallets-list > .btc-wallet-details:nth-child(6n+3){
+  --triplem-card-accent:var(--triplem-orb-3);
+}
+.list > .loan:nth-child(6n+4),
+.list > .installment-plan-card:nth-child(6n+4),
+.list > .asset-card:nth-child(6n+4),
+.list > .dep-asset-card:nth-child(6n+4),
+.assets-list > .asset-card:nth-child(6n+4),
+.dep-assets-list > .dep-asset-card:nth-child(6n+4),
+.dep-assets-summary > .dep-summary-card:nth-child(6n+4),
+.overview-grid > .summary:nth-child(6n+4),
+.dashboard-grid > .dashboard-block:nth-child(6n+4),
+.dashboard-hero > .dashboard-hero-card:nth-child(6n+4),
+.asset-kpi-grid > .asset-kpi:nth-child(6n+4),
+.ip-card-metrics > .ip-metric:nth-child(6n+4),
+.section-details-metrics > .section-details-metric:nth-child(6n+4),
+.section-details-charts > .section-details-chart-card:nth-child(6n+4),
+#notesList > .card:nth-child(6n+4),
+.expense-wallet-card-wrap:nth-child(6n+4) .expense-wallet-card,
+.inventory-sections-grid > .inventory-section-card:nth-child(6n+4),
+.inventory-sku-grid > .inventory-sku-card:nth-child(6n+4),
+.inventory-drafts-list > .inventory-draft-card:nth-child(6n+4),
+.btc-wallets-list > .btc-wallet-card:nth-child(6n+4),
+.btc-wallets-list > .btc-wallet-details:nth-child(6n+4){
+  --triplem-card-accent:var(--triplem-orb-4);
+}
+.list > .loan:nth-child(6n+5),
+.list > .installment-plan-card:nth-child(6n+5),
+.list > .asset-card:nth-child(6n+5),
+.list > .dep-asset-card:nth-child(6n+5),
+.assets-list > .asset-card:nth-child(6n+5),
+.dep-assets-list > .dep-asset-card:nth-child(6n+5),
+.dep-assets-summary > .dep-summary-card:nth-child(6n+5),
+.overview-grid > .summary:nth-child(6n+5),
+.dashboard-grid > .dashboard-block:nth-child(6n+5),
+.dashboard-hero > .dashboard-hero-card:nth-child(6n+5),
+.asset-kpi-grid > .asset-kpi:nth-child(6n+5),
+.ip-card-metrics > .ip-metric:nth-child(6n+5),
+.section-details-metrics > .section-details-metric:nth-child(6n+5),
+.section-details-charts > .section-details-chart-card:nth-child(6n+5),
+#notesList > .card:nth-child(6n+5),
+.expense-wallet-card-wrap:nth-child(6n+5) .expense-wallet-card,
+.inventory-sections-grid > .inventory-section-card:nth-child(6n+5),
+.inventory-sku-grid > .inventory-sku-card:nth-child(6n+5),
+.inventory-drafts-list > .inventory-draft-card:nth-child(6n+5),
+.btc-wallets-list > .btc-wallet-card:nth-child(6n+5),
+.btc-wallets-list > .btc-wallet-details:nth-child(6n+5){
+  --triplem-card-accent:var(--triplem-orb-5);
+}
+.list > .loan:nth-child(6n),
+.list > .installment-plan-card:nth-child(6n),
+.list > .asset-card:nth-child(6n),
+.list > .dep-asset-card:nth-child(6n),
+.assets-list > .asset-card:nth-child(6n),
+.dep-assets-list > .dep-asset-card:nth-child(6n),
+.dep-assets-summary > .dep-summary-card:nth-child(6n),
+.overview-grid > .summary:nth-child(6n),
+.dashboard-grid > .dashboard-block:nth-child(6n),
+.dashboard-hero > .dashboard-hero-card:nth-child(6n),
+.asset-kpi-grid > .asset-kpi:nth-child(6n),
+.ip-card-metrics > .ip-metric:nth-child(6n),
+.section-details-metrics > .section-details-metric:nth-child(6n),
+.section-details-charts > .section-details-chart-card:nth-child(6n),
+#notesList > .card:nth-child(6n),
+.expense-wallet-card-wrap:nth-child(6n) .expense-wallet-card,
+.inventory-sections-grid > .inventory-section-card:nth-child(6n),
+.inventory-sku-grid > .inventory-sku-card:nth-child(6n),
+.inventory-drafts-list > .inventory-draft-card:nth-child(6n),
+.btc-wallets-list > .btc-wallet-card:nth-child(6n),
+.btc-wallets-list > .btc-wallet-details:nth-child(6n){
+  --triplem-card-accent:var(--triplem-orb-6);
+}
+
+/* Also cycle when cards are direct siblings (not only under .list) */
+.loan:nth-child(6n+1),
+.installment-plan-card:nth-child(6n+1),
+.asset-card:nth-child(6n+1),
+.dep-asset-card:nth-child(6n+1),
+.dep-summary-card:nth-child(6n+1),
+.summary.currency-summary:nth-child(6n+1),
+.dashboard-block:nth-child(6n+1),
+.asset-kpi:nth-child(6n+1),
+.ip-metric:nth-child(6n+1),
+.section-details-metric:nth-child(6n+1),
+.section-details-chart-card:nth-child(6n+1),
+.inventory-section-card:nth-child(6n+1),
+.inventory-sku-card:nth-child(6n+1),
+.inventory-draft-card:nth-child(6n+1),
+.btc-wallet-card:nth-child(6n+1),
+.btc-wallet-details:nth-child(6n+1){ --triplem-card-accent:var(--triplem-orb-1); }
+.loan:nth-child(6n+2),
+.installment-plan-card:nth-child(6n+2),
+.asset-card:nth-child(6n+2),
+.dep-asset-card:nth-child(6n+2),
+.dep-summary-card:nth-child(6n+2),
+.summary.currency-summary:nth-child(6n+2),
+.dashboard-block:nth-child(6n+2),
+.asset-kpi:nth-child(6n+2),
+.ip-metric:nth-child(6n+2),
+.section-details-metric:nth-child(6n+2),
+.section-details-chart-card:nth-child(6n+2),
+.inventory-section-card:nth-child(6n+2),
+.inventory-sku-card:nth-child(6n+2),
+.inventory-draft-card:nth-child(6n+2),
+.btc-wallet-card:nth-child(6n+2),
+.btc-wallet-details:nth-child(6n+2){ --triplem-card-accent:var(--triplem-orb-2); }
+.loan:nth-child(6n+3),
+.installment-plan-card:nth-child(6n+3),
+.asset-card:nth-child(6n+3),
+.dep-asset-card:nth-child(6n+3),
+.dep-summary-card:nth-child(6n+3),
+.summary.currency-summary:nth-child(6n+3),
+.dashboard-block:nth-child(6n+3),
+.asset-kpi:nth-child(6n+3),
+.ip-metric:nth-child(6n+3),
+.section-details-metric:nth-child(6n+3),
+.section-details-chart-card:nth-child(6n+3),
+.inventory-section-card:nth-child(6n+3),
+.inventory-sku-card:nth-child(6n+3),
+.inventory-draft-card:nth-child(6n+3),
+.btc-wallet-card:nth-child(6n+3),
+.btc-wallet-details:nth-child(6n+3){ --triplem-card-accent:var(--triplem-orb-3); }
+.loan:nth-child(6n+4),
+.installment-plan-card:nth-child(6n+4),
+.asset-card:nth-child(6n+4),
+.dep-asset-card:nth-child(6n+4),
+.dep-summary-card:nth-child(6n+4),
+.summary.currency-summary:nth-child(6n+4),
+.dashboard-block:nth-child(6n+4),
+.asset-kpi:nth-child(6n+4),
+.ip-metric:nth-child(6n+4),
+.section-details-metric:nth-child(6n+4),
+.section-details-chart-card:nth-child(6n+4),
+.inventory-section-card:nth-child(6n+4),
+.inventory-sku-card:nth-child(6n+4),
+.inventory-draft-card:nth-child(6n+4),
+.btc-wallet-card:nth-child(6n+4),
+.btc-wallet-details:nth-child(6n+4){ --triplem-card-accent:var(--triplem-orb-4); }
+.loan:nth-child(6n+5),
+.installment-plan-card:nth-child(6n+5),
+.asset-card:nth-child(6n+5),
+.dep-asset-card:nth-child(6n+5),
+.dep-summary-card:nth-child(6n+5),
+.summary.currency-summary:nth-child(6n+5),
+.dashboard-block:nth-child(6n+5),
+.asset-kpi:nth-child(6n+5),
+.ip-metric:nth-child(6n+5),
+.section-details-metric:nth-child(6n+5),
+.section-details-chart-card:nth-child(6n+5),
+.inventory-section-card:nth-child(6n+5),
+.inventory-sku-card:nth-child(6n+5),
+.inventory-draft-card:nth-child(6n+5),
+.btc-wallet-card:nth-child(6n+5),
+.btc-wallet-details:nth-child(6n+5){ --triplem-card-accent:var(--triplem-orb-5); }
+.loan:nth-child(6n),
+.installment-plan-card:nth-child(6n),
+.asset-card:nth-child(6n),
+.dep-asset-card:nth-child(6n),
+.dep-summary-card:nth-child(6n),
+.summary.currency-summary:nth-child(6n),
+.dashboard-block:nth-child(6n),
+.asset-kpi:nth-child(6n),
+.ip-metric:nth-child(6n),
+.section-details-metric:nth-child(6n),
+.section-details-chart-card:nth-child(6n),
+.inventory-section-card:nth-child(6n),
+.inventory-sku-card:nth-child(6n),
+.inventory-draft-card:nth-child(6n),
+.btc-wallet-card:nth-child(6n),
+.btc-wallet-details:nth-child(6n){ --triplem-card-accent:var(--triplem-orb-6); }
+
+/* Keep dashboard hero semantic accents when present (override cycle) */
+.dashboard-hero-card.is-expenses{ --triplem-card-accent:#60a5fa; --dash-accent:#60a5fa; }
+.dashboard-hero-card.is-inventory{ --triplem-card-accent:#38bdf8; --dash-accent:#38bdf8; }
+.dashboard-hero-card.is-assets{ --triplem-card-accent:#5eead4; --dash-accent:#5eead4; }
+.dashboard-hero-card.is-loans{ --triplem-card-accent:#f9a8d4; --dash-accent:#f9a8d4; }
+.dashboard-hero-card.is-installments{ --triplem-card-accent:#fb7185; --dash-accent:#fb7185; }
 
 /* ── Main tabs banner (sticky nav) ─────────────────────────────────────── */
 .tabs{
