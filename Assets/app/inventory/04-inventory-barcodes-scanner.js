@@ -5,9 +5,9 @@
 
   const BARCODE_CACHE_KEY = "triplem-inventory-barcodes-v1";
   const BARCODE_SYNC_QUEUE_KEY = "triplem-inventory-barcode-sync-queue-v1";
-  const SCAN_COOLDOWN_SAME_MS = 750;
-  const SCAN_COOLDOWN_OTHER_MS = 280;
-  const SCAN_TICK_MS = 55;
+  const SCAN_COOLDOWN_SAME_MS = 650;
+  const SCAN_COOLDOWN_OTHER_MS = 180;
+  const SCAN_TICK_MS = 45;
   const THERMAL_FOOTER = "Thank you for shopping with us";
 
   const barcodeUi = {
@@ -888,7 +888,7 @@
         <header class="inv-scanner-head">
           <div>
             <h3 id="invScannerTitle">Scanner</h3>
-            <p id="invScannerStatus">Align barcode inside the frame</p>
+            <p id="invScannerStatus">Show barcode to the camera</p>
             <span id="invScannerOnlineBadge" class="inv-scanner-online">Online</span>
           </div>
           <button type="button" class="icon-btn ghost" id="invScannerCloseBtn" aria-label="Close scanner"><i class="fa-solid fa-xmark"></i></button>
@@ -1337,65 +1337,18 @@
     return canvas;
   }
 
-  function mapFrameToVideoPixels(video, frameEl) {
+  function mapFrameToVideoPixels(video) {
     const vw = video.videoWidth || 0;
     const vh = video.videoHeight || 0;
     if (vw < 40 || vh < 40) return null;
-    const videoRect = video.getBoundingClientRect();
-    const frameRect = (frameEl || document.querySelector("#inventoryBarcodeScannerOverlay .inv-scanner-frame"))?.getBoundingClientRect();
-    if (!frameRect || !videoRect.width || !videoRect.height) {
-      // Fallback: center band of the video
-      const bandH = Math.max(90, Math.floor(vh * 0.28));
-      return {
-        sx: Math.floor(vw * 0.08),
-        sy: Math.floor((vh - bandH) / 2),
-        sw: Math.floor(vw * 0.84),
-        sh: bandH
-      };
-    }
-
-    const videoAspect = vw / vh;
-    const elemAspect = videoRect.width / videoRect.height;
-    let drawW;
-    let drawH;
-    let offsetX;
-    let offsetY;
-    // object-fit: cover mapping
-    if (videoAspect > elemAspect) {
-      drawH = videoRect.height;
-      drawW = drawH * videoAspect;
-      offsetX = (videoRect.width - drawW) / 2;
-      offsetY = 0;
-    } else {
-      drawW = videoRect.width;
-      drawH = drawW / videoAspect;
-      offsetX = 0;
-      offsetY = (videoRect.height - drawH) / 2;
-    }
-
-    const relLeft = frameRect.left - videoRect.left;
-    const relTop = frameRect.top - videoRect.top;
-    const scaleX = vw / drawW;
-    const scaleY = vh / drawH;
-
-    let sx = (relLeft - offsetX) * scaleX;
-    let sy = (relTop - offsetY) * scaleY;
-    let sw = frameRect.width * scaleX;
-    let sh = frameRect.height * scaleY;
-
-    // Small pad so thin bars aren't clipped, but stay inside the aiming frame.
-    const padX = sw * 0.04;
-    const padY = sh * 0.2;
-    sx -= padX;
-    sy -= padY;
-    sw += padX * 2;
-    sh += padY * 2;
-
-    sx = Math.max(0, Math.floor(sx));
-    sy = Math.max(0, Math.floor(sy));
-    sw = Math.max(40, Math.min(vw - sx, Math.ceil(sw)));
-    sh = Math.max(30, Math.min(vh - sy, Math.ceil(sh)));
-    return { sx, sy, sw, sh };
+    // Use almost the full camera view — scan as soon as a barcode appears in front.
+    // Keep a tiny edge crop to avoid UI chrome / extreme lens distortion.
+    return {
+      sx: Math.floor(vw * 0.02),
+      sy: Math.floor(vh * 0.08),
+      sw: Math.floor(vw * 0.96),
+      sh: Math.floor(vh * 0.72)
+    };
   }
 
   function grabScanFrameCanvas(video) {
@@ -1403,14 +1356,15 @@
     if (!region) return null;
     if (!scannerUi.decodeCanvas) scannerUi.decodeCanvas = document.createElement("canvas");
     const canvas = scannerUi.decodeCanvas;
-    // Upscale crop so thin CODE128 modules stay readable to the decoder.
-    const targetW = Math.max(480, Math.min(1200, region.sw * 2.5));
-    const scale = targetW / region.sw;
-    canvas.width = Math.floor(region.sw * scale);
-    canvas.height = Math.floor(region.sh * scale);
+    // Cap decode size for speed while keeping enough detail for CODE128.
+    const maxW = 960;
+    const scale = Math.min(1.8, maxW / Math.max(region.sw, 1));
+    canvas.width = Math.max(320, Math.floor(region.sw * scale));
+    canvas.height = Math.max(160, Math.floor(region.sh * scale));
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(
       video,
       region.sx, region.sy, region.sw, region.sh,
@@ -1422,18 +1376,10 @@
   function acceptDetectedCode(raw) {
     const code = normalizeBarcodeValue(raw);
     if (!code || code.length < 4) return null;
-    // Require 2 consecutive identical reads for camera (filters flicker / neighbor labels).
-    if (code === scannerUi.confirmCode) {
-      scannerUi.confirmHits += 1;
-    } else {
-      scannerUi.confirmCode = code;
-      scannerUi.confirmHits = 1;
-    }
-    if (scannerUi.confirmHits >= 2) {
-      scannerUi.confirmHits = 0;
-      return code;
-    }
-    return null;
+    // Instant accept — no double-confirm delay.
+    scannerUi.confirmCode = code;
+    scannerUi.confirmHits = 1;
+    return code;
   }
 
   async function scanTick() {
@@ -1448,21 +1394,13 @@
       const text = await decodeBarcodeFromCanvas(canvas);
       if (text) {
         const accepted = acceptDetectedCode(text);
-        if (accepted) {
-          // Don't await cart update — keep the decode loop hot for the next item.
-          handleScannedBarcode(accepted, { fromCamera: true });
-        } else {
-          scannerUi.status = "Locking… hold in the frame";
-          paintScannerChrome();
-        }
+        if (accepted) handleScannedBarcode(accepted, { fromCamera: true });
       } else {
-        scannerUi.confirmCode = "";
-        scannerUi.confirmHits = 0;
         const now = Date.now();
-        if (now - (scannerUi.lastMissAt || 0) > 1800 && now - (scannerUi.lastAt || 0) > 1200) {
+        if (now - (scannerUi.lastMissAt || 0) > 2200 && now - (scannerUi.lastAt || 0) > 1000) {
           scannerUi.lastMissAt = now;
           if (!String(scannerUi.status || "").startsWith("Added") && !String(scannerUi.status || "").startsWith("Not found")) {
-            scannerUi.status = "Align barcode inside the green frame";
+            scannerUi.status = "Show barcode to the camera";
             paintScannerChrome();
           }
         }
@@ -1496,7 +1434,7 @@
     await ensureInventoryBarcodes();
     const overlay = ensureScannerOverlay();
     scannerUi.open = true;
-    scannerUi.status = "Align barcode inside the frame — adds automatically";
+    scannerUi.status = "Show barcode to the camera — adds automatically";
     overlay.classList.remove("hide");
     overlay.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -1534,11 +1472,10 @@
         video.srcObject = scannerUi.stream;
         await video.play().catch(() => {});
       }
-      // Give the first frames a moment to stabilize before decoding.
       setTimeout(() => {
         if (scannerUi.open) startScanLoop();
-      }, 180);
-      scannerUi.status = "Ready — place barcode in the frame";
+      }, 120);
+      scannerUi.status = "Ready — show any barcode to the camera";
       paintScannerChrome();
     } catch (err) {
       scannerUi.status = "Camera blocked — type barcode / name below";
