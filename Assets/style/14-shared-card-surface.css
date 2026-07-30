@@ -1,0 +1,296 @@
+/* Shared soft card surface + accent orb — matches Dashboard hero cards site-wide.
+   Loaded last so it wins over per-section flat white card backgrounds. */
+
+:root{
+  --triplem-card-accent:#2563eb;
+}
+
+/* Per-tab accent colors (same palette as dashboard hero cards) */
+#expensesPanel,
+#dashboardPanel{ --triplem-card-accent:#2563eb; }
+#goodsPanel{ --triplem-card-accent:#0ea5e9; }
+#assetsPanel{ --triplem-card-accent:#059669; }
+#givenPanel,
+#receivedPanel,
+#takenPanel,
+#returnedPanel{ --triplem-card-accent:#ec4899; }
+#installmentsPanel{ --triplem-card-accent:#e11d48; }
+#notesPanel{ --triplem-card-accent:#7c3aed; }
+#bitcoinPanel{ --triplem-card-accent:#f59e0b; }
+#messagesPanel,
+#adminPanel{ --triplem-card-accent:#2563eb; }
+
+/* Metric / KPI accents inside panels */
+.dashboard-block.is-expenses,
+.dashboard-hero-card.is-expenses{ --triplem-card-accent:#2563eb; }
+.dashboard-block.is-inventory,
+.dashboard-hero-card.is-inventory{ --triplem-card-accent:#0ea5e9; }
+.dashboard-block.is-assets,
+.dashboard-hero-card.is-assets{ --triplem-card-accent:#059669; }
+.dashboard-block.is-loans,
+.dashboard-hero-card.is-loans{ --triplem-card-accent:#ec4899; }
+.dashboard-block.is-installments,
+.dashboard-hero-card.is-installments{ --triplem-card-accent:#e11d48; }
+
+.card.section,
+.dashboard-block,
+.loan,
+.installment-plan-card,
+.asset-card,
+.dep-asset-card,
+.dep-summary-card,
+.expense-wallet-card,
+.inventory-section-card,
+.inventory-sku-card,
+.inventory-draft-card,
+.summary.currency-summary,
+.asset-kpi,
+.ip-metric,
+.dep-preview-grid > div,
+.section-details-metric,
+.section-details-chart-card,
+.btc-wallet-card,
+.btc-wallet-details,
+#notesList > .card{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(208,213,221,.72);
+  border-radius:14px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#2563eb) 8%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
+  box-shadow:0 6px 16px rgba(15,23,42,.03);
+}
+
+/* Accent orb (same placement/size language as .dashboard-hero-card::after) */
+.card.section::after,
+.dashboard-block::after,
+.loan::after,
+.installment-plan-card::after,
+.asset-card::after,
+.dep-asset-card::after,
+.dep-summary-card::after,
+.expense-wallet-card::after,
+.inventory-section-card::after,
+.inventory-sku-card::after,
+.inventory-draft-card::after,
+.summary.currency-summary::after,
+.asset-kpi::after,
+.ip-metric::after,
+.section-details-metric::after,
+.section-details-chart-card::after,
+.btc-wallet-card::after,
+.btc-wallet-details::after,
+#notesList > .card::after{
+  content:"";
+  position:absolute;
+  inset:auto -20% -40% auto;
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  background:var(--triplem-card-accent,#2563eb);
+  opacity:.07;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* Smaller orbs for compact metric tiles */
+.asset-kpi::after,
+.ip-metric::after,
+.dep-summary-card::after,
+.section-details-metric::after{
+  width:56px;
+  height:56px;
+  inset:auto -18% -38% auto;
+}
+
+/* Larger shell sections get a bigger orb */
+.card.section::after,
+.dashboard-block::after{
+  width:140px;
+  height:140px;
+  inset:auto -12% -28% auto;
+  opacity:.055;
+}
+
+/* Keep interactive content above the orb */
+.card.section > *,
+.dashboard-block > *,
+.loan > *,
+.installment-plan-card > *,
+.asset-card > *,
+.dep-asset-card > *,
+.expense-wallet-card > *,
+.inventory-section-card > *,
+.inventory-sku-card > *,
+.summary.currency-summary > *:not(.summary-watermark),
+.btc-wallet-card > *,
+.btc-wallet-details > *,
+#notesList > .card > *{
+  position:relative;
+  z-index:1;
+}
+.summary.currency-summary > .summary-watermark{
+  z-index:0;
+}
+
+/* Inner fillers were solid white — let the shared surface show through */
+.installment-plan-card .ip-card,
+.loan .loan-top,
+.loan .ip-card{
+  background:transparent;
+}
+.loan-top:hover{
+  background:rgba(248,250,252,.55);
+}
+.loan .detail{
+  background:rgba(248,250,252,.42);
+}
+.asset-card-main,
+.asset-card-stats,
+.asset-card-aside{
+  background:transparent;
+}
+
+/* Preserve dashed “add” inventory tile (don’t force filled surface) */
+.inventory-section-add-card{
+  background:rgba(248,250,252,.55);
+  box-shadow:none;
+}
+.inventory-section-add-card::after{
+  display:none;
+}
+
+/* Selected wallet still reads clearly on the soft surface */
+.expense-wallet-radio:checked + .expense-wallet-card{
+  border-color:rgba(36,87,214,.5);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(36,87,214,.10), transparent 55%),
+    linear-gradient(160deg, rgba(239,246,255,.98), rgba(248,250,255,.94));
+  box-shadow:0 0 0 2px rgba(36,87,214,.08);
+}
+
+/* Hover polish aligned with dashboard cards */
+.asset-card:hover,
+.asset-card:focus-within,
+.loan:hover,
+.installment-plan-card:hover,
+.inventory-section-card:hover,
+.inventory-sku-card:hover,
+.expense-wallet-card:hover{
+  border-color:color-mix(in srgb, var(--triplem-card-accent,#2563eb) 35%, rgba(208,213,221,.72));
+  box-shadow:0 10px 24px rgba(15,23,42,.06);
+}
+
+.dashboard-hero-card{
+  --triplem-card-accent:var(--dash-accent,#2563eb);
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--dash-accent,#2563eb) 8%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
+  box-shadow:0 6px 16px rgba(15,23,42,.03);
+}
+.dashboard-hero-card::after{
+  opacity:.07;
+}
+
+/* ── Main tabs banner (sticky nav) ─────────────────────────────────────── */
+.tabs{
+  position:sticky;
+  overflow:hidden;
+  border:1px solid rgba(208,213,221,.72);
+  border-radius:16px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(37,99,235,.08), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(248,250,252,.94));
+  box-shadow:0 8px 22px rgba(15,23,42,.05);
+  backdrop-filter:blur(8px);
+}
+.tabs::after{
+  content:"";
+  position:absolute;
+  inset:auto -18% -55% auto;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:#2563eb;
+  opacity:.07;
+  pointer-events:none;
+  z-index:0;
+}
+.tabs > .tab{
+  position:relative;
+  z-index:1;
+}
+.tab:hover:not(:disabled):not(.guest-disabled){
+  color:var(--text);
+  background:rgba(37,99,235,.07);
+}
+.tab.active{
+  color:#fff;
+  background:
+    linear-gradient(160deg, #3b82f6, #2563eb 55%, #1d4ed8);
+  box-shadow:0 6px 16px rgba(37,99,235,.22);
+}
+.tab.active:hover:not(:disabled){
+  color:#fff;
+  background:
+    linear-gradient(160deg, #60a5fa, #2563eb 50%, #1d4ed8);
+}
+.tab:disabled,
+.tab.guest-disabled{
+  background:rgba(248,250,252,.72);
+}
+
+/* Secondary in-section tab strips (Loans mode / Assets modules) */
+.loan-mode-switch,
+.assets-module-tabs{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(208,213,221,.72);
+  border-radius:14px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(37,99,235,.07), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(248,250,252,.94));
+  box-shadow:0 4px 14px rgba(15,23,42,.03);
+}
+.assets-module-tabs{
+  padding:4px;
+  margin:0 0 10px;
+  border-bottom:1px solid rgba(208,213,221,.72);
+  width:fit-content;
+  max-width:100%;
+}
+.loan-mode-switch::after,
+.assets-module-tabs::after{
+  content:"";
+  position:absolute;
+  inset:auto -22% -60% auto;
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  background:var(--triplem-card-accent,#2563eb);
+  opacity:.07;
+  pointer-events:none;
+  z-index:0;
+}
+.loan-mode-switch > *,
+.assets-module-tabs > *{
+  position:relative;
+  z-index:1;
+}
+.loan-mode-btn.active{
+  background:
+    linear-gradient(160deg, #3b82f6, #2563eb 55%, #1d4ed8);
+  color:#fff;
+  border-color:transparent;
+  box-shadow:0 4px 12px rgba(37,99,235,.2);
+}
+.loan-mode-btn.active:hover{
+  color:#fff;
+}
+.assets-module-tab.is-active{
+  color:#fff;
+  background:
+    linear-gradient(160deg, #3b82f6, #2563eb 55%, #1d4ed8);
+  box-shadow:0 4px 12px rgba(37,99,235,.2);
+}
