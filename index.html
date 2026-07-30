@@ -314,6 +314,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="Assets/style/01-tokens.css" />
   <link rel="stylesheet" href="Assets/style/02-base.css" />
@@ -2698,6 +2699,12 @@
                       <button class="menu-item" type="button" id="openInventoryDraftBtn">
                         <i class="fa-solid fa-cart-shopping"></i> Open cart
                       </button>
+                      <button class="menu-item" type="button" id="openInventoryScannerMenuBtn">
+                        <i class="fa-solid fa-camera"></i> Scanner
+                      </button>
+                      <button class="menu-item" type="button" id="openInventoryBarcodesMenuBtn">
+                        <i class="fa-solid fa-barcode"></i> Product Barcodes
+                      </button>
                       <button class="menu-item" type="button" id="openInventoryDraftsMenuBtn">
                         <i class="fa-solid fa-folder-open"></i> Saved carts
                       </button>
@@ -2730,6 +2737,12 @@
               </button>
               <button class="tiny ghost" type="button" id="openInventoryCustomersBtn" title="Open customers and invoices">
                 Customers <i class="fa-solid fa-arrow-right"></i>
+              </button>
+              <button class="tiny ghost" type="button" id="openInventoryBarcodesBtn" title="Product barcodes and label printing">
+                <i class="fa-solid fa-barcode"></i> Product Barcodes
+              </button>
+              <button class="tiny ghost" type="button" id="openInventoryScannerBtn" title="Scan barcodes into cart">
+                <i class="fa-solid fa-camera"></i> Scanner
               </button>
               <button class="tiny ghost inventoryAddCustomerBtn" type="button" title="Save a customer record with or without a sale">
                 <i class="fa-solid fa-user-plus"></i> Add Customer
@@ -2820,6 +2833,40 @@
               </div>
             </div>
             <div id="inventoryOutstandingList" class="list inventory-outstanding-list-root"></div>
+          </div>
+          <div id="inventoryBarcodesView" class="inventory-subview inventory-barcodes-view hide">
+            <div class="inventory-customers-toolbar">
+              <div class="inventory-customers-toolbar-nav">
+                <button class="tiny ghost inventoryBackToStockBtn" type="button" title="Back to inventory stock">
+                  <i class="fa-solid fa-arrow-left"></i> Inventory
+                </button>
+                <button class="tiny soft" type="button" id="inventoryScannerFromBarcodesBtn" title="Open camera barcode scanner">
+                  <i class="fa-solid fa-camera"></i> Scanner
+                </button>
+              </div>
+              <div class="inventory-customers-toolbar-title">
+                <strong>Product Barcodes</strong>
+                <span>Unique barcode per stock product — print compact price stickers. Works with sold &amp; out-of-stock items too.</span>
+              </div>
+            </div>
+            <div id="inventoryBarcodesList" class="list inventory-barcodes-list-root"></div>
+          </div>
+          <div id="inventoryScannerView" class="inventory-subview inventory-scanner-view hide">
+            <div class="inventory-customers-toolbar">
+              <div class="inventory-customers-toolbar-nav">
+                <button class="tiny ghost inventoryBackToStockBtn" type="button" title="Back to inventory stock">
+                  <i class="fa-solid fa-arrow-left"></i> Inventory
+                </button>
+                <button class="tiny soft" type="button" id="inventoryBarcodesFromScannerBtn" title="Open product barcodes">
+                  <i class="fa-solid fa-barcode"></i> Product Barcodes
+                </button>
+              </div>
+              <div class="inventory-customers-toolbar-title">
+                <strong>Scanner</strong>
+                <span>Continuous camera / wedge scanning into cart. Offline-safe — syncs barcodes when connection returns.</span>
+              </div>
+            </div>
+            <div id="inventoryScannerHost" class="inventory-scanner-host"></div>
           </div>
         </div>
       </section>
@@ -5052,6 +5099,7 @@
   <script src="Assets/app/inventory/01-inventory-meta-stock.js"></script>
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js"></script>
+  <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
   <script src="Assets/app/expenses/01-expenses-wallets.js"></script>
   <script src="Assets/app/ui/01-render-navigation.js"></script>
   <script src="Assets/app/installments/01-installments.js"></script>
