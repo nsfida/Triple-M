@@ -848,6 +848,9 @@ function activate(tab){
   // Load assets when Asset tab is activated
   if (tab === "assets") {
     loadAssetsFromDatabase().catch(err => console.error("Assets load failed:", err));
+    if (typeof loadDepreciationAssetsFromDatabase === "function") {
+      loadDepreciationAssetsFromDatabase().catch(err => console.error("Depreciation assets load failed:", err));
+    }
   }
   
   // Load Bitcoin wallets from database when Bitcoin tab is activated
