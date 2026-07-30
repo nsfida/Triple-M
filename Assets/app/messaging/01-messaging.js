@@ -1644,6 +1644,7 @@ async function boot(){
   btcBindUI();
   notesBindUI();
   if (typeof assetsBindUI === "function") assetsBindUI();
+  if (typeof depreciationAssetsBindUI === "function") depreciationAssetsBindUI();
   applyPermissionGates();
   try { bindNonRememberedSessionUnloadGuard(); } catch (_) {}
   await autoLogin();
