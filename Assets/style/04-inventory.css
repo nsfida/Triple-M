@@ -3685,21 +3685,30 @@ html.inventory-grid-drag-lock body{
   width:100%;
   flex:0 0 auto;
   object-fit:cover;
-  height:148px;
-  max-height:22vh;
+  height:176px;
+  max-height:28vh;
   background:#0f172a;
 }
 .inv-scanner-frame{
   pointer-events:none;
   position:absolute;
   left:50%;
-  top:74px;
-  width:min(70%, 200px);
-  height:56px;
+  top:78px;
+  width:min(86%, 260px);
+  height:58px;
   transform:translate(-50%,-50%);
   border:1.5px solid color-mix(in srgb, var(--primary, #0d9488) 85%, white);
   border-radius:8px;
   box-shadow:0 0 0 999px rgba(0,0,0,.22);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.inv-scanner-frame.is-ok{
+  border-color:#059669;
+  box-shadow:0 0 0 999px rgba(5,150,105,.18);
+}
+.inv-scanner-frame.is-miss{
+  border-color:#dc2626;
+  box-shadow:0 0 0 999px rgba(220,38,38,.14);
 }
 .inv-scanner-manual{
   display:grid;
@@ -3979,13 +3988,13 @@ html.inventory-grid-drag-lock body{
     border-bottom:1px solid var(--line);
   }
   .inv-scanner-camera video{
-    height:120px;
-    max-height:18vh;
+    height:150px;
+    max-height:24vh;
   }
   .inv-scanner-frame{
-    top:60px;
-    height:48px;
-    width:min(68%, 180px);
+    top:68px;
+    height:52px;
+    width:min(88%, 240px);
   }
   .inv-scanner-progress{
     max-height:none;
