@@ -2874,6 +2874,15 @@
 
       <section id="assetsPanel" class="panel">
         <div class="card section">
+          <div class="assets-module-tabs" role="tablist" aria-label="Asset modules">
+            <button type="button" class="assets-module-tab is-active" role="tab" aria-selected="true" data-assets-module="owned">
+              Assets
+            </button>
+            <button type="button" class="assets-module-tab" role="tab" aria-selected="false" data-assets-module="depreciation">
+              Depreciation Assets
+            </button>
+          </div>
+          <div id="assetsOwnedView" class="assets-module-view" data-assets-module-view="owned">
           <div class="section-head">
             <div class="section-head-top">
               <div class="title-group">
@@ -2920,6 +2929,54 @@
             </div>
           </div>
           <div id="assetsList" class="list assets-list"></div>
+          </div>
+          <div id="assetsDepreciationView" class="assets-module-view hide" data-assets-module-view="depreciation">
+            <div class="section-head">
+              <div class="section-head-top">
+                <div class="title-group">
+                  <div class="title-row">
+                    <h3>Depreciation Assets</h3>
+                    <div class="menu-wrap">
+                      <button class="btn ghost menu-trigger" type="button" data-entry-menu="depreciation-assets" aria-haspopup="menu" aria-expanded="false">Reports ▾</button>
+                      <div class="menu-dropdown" data-entry-menu-panel="depreciation-assets">
+                        <button type="button" class="menu-item" data-dep-report="monthly"><i class="fa-solid fa-calendar"></i> Monthly depreciation</button>
+                        <button type="button" class="menu-item" data-dep-report="yearly"><i class="fa-solid fa-calendar-days"></i> Yearly depreciation</button>
+                        <button type="button" class="menu-item" data-dep-report="valuation"><i class="fa-solid fa-scale-balanced"></i> Asset valuation</button>
+                        <button type="button" class="menu-item" data-dep-report="disposal"><i class="fa-solid fa-box-archive"></i> Asset disposal</button>
+                      </div>
+                    </div>
+                  </div>
+                  <p>Straight-line depreciation tracking — separate from Asset Management P/L assets.</p>
+                </div>
+                <div class="tools">
+                  <button class="btn primary" id="openAddDepAssetBtn" type="button"><i class="fa-solid fa-plus"></i> Add depreciation asset</button>
+                </div>
+              </div>
+              <div class="filter-inline-row compact-filter-row">
+                <div class="compact-filter-main">
+                  <div class="filter-inline-section compact-filter-search">
+                    <span class="filter-inline-label">Search</span>
+                    <input id="searchDepAssets" class="input filter-inline-input" placeholder="Name, type, description" />
+                  </div>
+                  <div class="filter-inline-section">
+                    <span class="filter-inline-label">Type</span>
+                    <select id="depAssetTypeFilter" class="select filter-inline-select" aria-label="Filter by asset type">
+                      <option value="all">All types</option>
+                    </select>
+                  </div>
+                  <div class="filter-inline-section">
+                    <span class="filter-inline-label">Status</span>
+                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="all" checked /> All</label>
+                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="active" /> Active</label>
+                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="sold" /> Sold</label>
+                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="disposed" /> Disposed</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="depAssetsSummary" class="dep-assets-summary"></div>
+            <div id="depAssetsList" class="list dep-assets-list"></div>
+          </div>
         </div>
       </section>
 
@@ -4358,6 +4415,168 @@
     </div>
   </div>
 
+  <!-- Depreciation Assets (independent module — does not use app_assets) -->
+  <div id="depAssetFormModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="depAssetFormModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="depAssetFormTitle">Add depreciation asset</h3>
+          <p class="help">Straight-line depreciation. Separate from Asset Management P/L assets.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="depAssetFormModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="asset-form-grid">
+          <div class="form-group form-span-2">
+            <label class="form-label" for="depAssetFormName">Asset name</label>
+            <input id="depAssetFormName" class="input" maxlength="160" placeholder="e.g. Delivery van" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormType">Asset type</label>
+            <select id="depAssetFormType" class="input select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormCurrency">Currency</label>
+            <select id="depAssetFormCurrency" class="input select">
+              <option value="AED">AED</option>
+              <option value="SAR">SAR</option>
+              <option value="PKR">PKR</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormPurchaseDate">Purchase date</label>
+            <input id="depAssetFormPurchaseDate" class="input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormPurchasePrice">Purchase price</label>
+            <input id="depAssetFormPurchasePrice" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormSalvage">Salvage value</label>
+            <input id="depAssetFormSalvage" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormLifeYears">Useful life (years)</label>
+            <input id="depAssetFormLifeYears" class="input" type="number" min="0.01" step="any" placeholder="5" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormMethod">Depreciation method</label>
+            <select id="depAssetFormMethod" class="input select" disabled>
+              <option value="straight_line">Straight-line</option>
+            </select>
+          </div>
+          <div class="form-group form-span-2">
+            <label class="form-label" for="depAssetFormDescription">Description</label>
+            <textarea id="depAssetFormDescription" class="input" rows="2" placeholder="Optional description"></textarea>
+          </div>
+        </div>
+        <div id="depAssetFormPreview" class="dep-form-preview" aria-live="polite"></div>
+        <div class="modal-footer" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" type="button" data-close-modal="depAssetFormModal">Cancel</button>
+          <button class="btn primary" type="button" id="depAssetFormSaveBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="depAssetDetailModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="depAssetDetailModal"></div>
+    <div class="modal-dialog asset-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="depAssetDetailTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="depAssetDetailTitle">Depreciation asset</h3>
+          <p id="depAssetDetailSubtitle" class="help">Book value, schedule, and history</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="depAssetDetailModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="depAssetDetailBody"></div>
+    </div>
+  </div>
+
+  <div id="depAssetDisposeModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="depAssetDisposeModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3>Sell / dispose depreciation asset</h3>
+          <p class="help">Stops further depreciation after the disposal date.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="depAssetDisposeModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="asset-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="depAssetDisposeStatus">Status</label>
+            <select id="depAssetDisposeStatus" class="input select">
+              <option value="sold">Sold</option>
+              <option value="disposed">Disposed</option>
+              <option value="active">Active</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetDisposeDate">Date</label>
+            <input id="depAssetDisposeDate" class="input" type="date" />
+          </div>
+          <div class="form-group form-span-2">
+            <label class="form-label" for="depAssetDisposeNotes">Notes</label>
+            <textarea id="depAssetDisposeNotes" class="input" rows="3" placeholder="Optional notes"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" type="button" data-close-modal="depAssetDisposeModal">Cancel</button>
+          <button class="btn primary" type="button" id="depAssetDisposeSaveBtn">Save status</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="depAssetReportModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="depAssetReportModal"></div>
+    <div class="modal-dialog compact-entry-dialog">
+      <div class="modal-head">
+        <div>
+          <h3 id="depAssetReportTitle">Depreciation report</h3>
+          <p class="help">Filter then download PDF.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="depAssetReportModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="depAssetReportKind" value="monthly" />
+        <div class="asset-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="depAssetReportFrom">From date</label>
+            <input id="depAssetReportFrom" class="input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetReportTo">To date</label>
+            <input id="depAssetReportTo" class="input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetReportType">Asset type</label>
+            <select id="depAssetReportType" class="input select">
+              <option value="all">All types</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetReportStatus">Status</label>
+            <select id="depAssetReportStatus" class="input select">
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="sold">Sold</option>
+              <option value="disposed">Disposed</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" type="button" data-close-modal="depAssetReportModal">Cancel</button>
+          <button class="btn primary" type="button" id="depAssetReportRunBtn">Download PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="reminderAlertModal" class="modal hide reminder-alert-modal" aria-hidden="true" role="alertdialog" aria-modal="true" aria-labelledby="reminderAlertTitle" aria-describedby="reminderAlertBody">
     <div class="modal-backdrop" data-reminder-alert-dismiss="done"></div>
     <div class="modal-dialog compact-entry-dialog reminder-alert-dialog">
@@ -5114,6 +5333,7 @@
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
   <script src="Assets/app/notes/01-notes.js"></script>
   <script src="Assets/app/assets/01-assets.js"></script>
+  <script src="Assets/app/assets/02-depreciation-assets.js"></script>
   <script src="Assets/app/admin/01-admin.js"></script>
   <script src="Assets/app/messaging/01-messaging.js"></script>
   <script src="Assets/app/boot.js"></script>
