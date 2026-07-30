@@ -5,8 +5,9 @@
 
   const BARCODE_CACHE_KEY = "triplem-inventory-barcodes-v1";
   const BARCODE_SYNC_QUEUE_KEY = "triplem-inventory-barcode-sync-queue-v1";
-  const SCAN_COOLDOWN_MS = 900;
-  const SCAN_TICK_MS = 90;
+  const SCAN_COOLDOWN_SAME_MS = 750;
+  const SCAN_COOLDOWN_OTHER_MS = 280;
+  const SCAN_TICK_MS = 55;
   const THERMAL_FOOTER = "Thank you for shopping with us";
 
   const barcodeUi = {
@@ -29,9 +30,13 @@
     detector: null,
     zxingReader: null,
     decodeCanvas: null,
+    enhanceCanvas: null,
+    decodeBusy: false,
     lastCode: "",
     lastAt: 0,
     lastMissAt: 0,
+    confirmCode: "",
+    confirmHits: 0,
     status: "Point camera at a product barcode",
     busy: false,
     online: typeof navigator !== "undefined" ? navigator.onLine !== false : true
@@ -883,7 +888,7 @@
         <header class="inv-scanner-head">
           <div>
             <h3 id="invScannerTitle">Scanner</h3>
-            <p id="invScannerStatus">Point camera at a product barcode</p>
+            <p id="invScannerStatus">Align barcode inside the frame</p>
             <span id="invScannerOnlineBadge" class="inv-scanner-online">Online</span>
           </div>
           <button type="button" class="icon-btn ghost" id="invScannerCloseBtn" aria-label="Close scanner"><i class="fa-solid fa-xmark"></i></button>
@@ -1162,7 +1167,8 @@
     const code = normalizeBarcodeValue(rawCode);
     if (!code) return;
     const now = Date.now();
-    if (code === scannerUi.lastCode && now - scannerUi.lastAt < SCAN_COOLDOWN_MS) return;
+    if (code === scannerUi.lastCode && now - scannerUi.lastAt < SCAN_COOLDOWN_SAME_MS) return;
+    if (code !== scannerUi.lastCode && now - scannerUi.lastAt < SCAN_COOLDOWN_OTHER_MS) return;
     if (scannerUi.busy) return;
     scannerUi.busy = true;
     scannerUi.lastCode = code;
@@ -1190,7 +1196,7 @@
         scannerUi.status = result.error || "Could not add";
         flashScannerFrame(false);
       } else {
-        scannerUi.status = `Added ${result.name} · qty ${result.qty}${isOnline() ? "" : " (offline)"}`;
+        scannerUi.status = `Added ${result.name} · qty ${result.qty} — next…`;
         flashScannerFrame(true);
       }
       paintScannerProgress();
@@ -1200,7 +1206,7 @@
   }
 
   function flashScannerFrame(ok) {
-    const frame = document.querySelector(".inv-scanner-frame");
+    const frame = document.querySelector("#inventoryBarcodeScannerOverlay .inv-scanner-frame");
     if (!frame) return;
     frame.classList.remove("is-ok", "is-miss");
     frame.classList.add(ok ? "is-ok" : "is-miss");
@@ -1220,6 +1226,8 @@
         ZX.BarcodeFormat.UPC_A,
         ZX.BarcodeFormat.UPC_E,
         ZX.BarcodeFormat.CODE_39,
+        ZX.BarcodeFormat.ITF,
+        ZX.BarcodeFormat.CODABAR,
         ZX.BarcodeFormat.QR_CODE
       ].filter(Boolean);
       if (ZX.DecodeHintType?.POSSIBLE_FORMATS) {
@@ -1237,75 +1245,232 @@
     }
   }
 
-  function decodeBarcodeFromCanvas(canvas) {
-    return new Promise(async resolve => {
-      let text = "";
+  function decodeWithZXing(canvas) {
+    const ZX = window.ZXing;
+    const reader = getZXingReader();
+    if (!ZX || !reader) return "";
+    const tryDecode = (source) => {
+      reader.reset?.();
+      const bitmap = new ZX.BinaryBitmap(new ZX.HybridBinarizer(source));
+      const result = reader.decode(bitmap);
+      return String(result?.getText?.() || result?.text || "").trim();
+    };
+    try {
+      return tryDecode(new ZX.HTMLCanvasElementLuminanceSource(canvas));
+    } catch (_) {
       try {
-        if (scannerUi.detector) {
-          const codes = await scannerUi.detector.detect(canvas);
-          if (codes?.length) text = String(codes[0].rawValue || "").trim();
+        if (ZX.InvertedLuminanceSource) {
+          const base = new ZX.HTMLCanvasElementLuminanceSource(canvas);
+          return tryDecode(new ZX.InvertedLuminanceSource(base));
         }
-      } catch (_) {}
-      if (text) {
-        resolve(text);
-        return;
+      } catch (__) {}
+      try { reader.reset?.(); } catch (___) {}
+      return "";
+    }
+  }
+
+  function pickBestDetectorCode(codes, canvasW, canvasH) {
+    if (!codes?.length) return "";
+    if (codes.length === 1) return String(codes[0].rawValue || "").trim();
+    // Prefer the barcode whose center is closest to the crop center (frame middle).
+    const cx = canvasW / 2;
+    const cy = canvasH / 2;
+    let best = null;
+    let bestScore = Infinity;
+    codes.forEach(code => {
+      const box = code.boundingBox || {};
+      const bx = Number(box.x || 0) + Number(box.width || 0) / 2;
+      const by = Number(box.y || 0) + Number(box.height || 0) / 2;
+      const area = Math.max(1, Number(box.width || 1) * Number(box.height || 1));
+      const dist = Math.hypot(bx - cx, by - cy);
+      const score = dist - Math.sqrt(area) * 0.15;
+      if (score < bestScore) {
+        bestScore = score;
+        best = code;
       }
-      try {
-        const ZX = window.ZXing;
-        const reader = getZXingReader();
-        if (ZX && reader) {
-          const luminance = new ZX.HTMLCanvasElementLuminanceSource(canvas);
-          const binary = new ZX.BinaryBitmap(new ZX.HybridBinarizer(luminance));
-          const result = reader.decode(binary);
-          text = String(result?.getText?.() || result?.text || "").trim();
-        }
-      } catch (_) {
-        try { reader.reset?.(); } catch (__) {}
-        // no code in frame — normal
-      }
-      resolve(text);
     });
+    return String(best?.rawValue || codes[0].rawValue || "").trim();
+  }
+
+  async function decodeBarcodeFromCanvas(canvas) {
+    let text = "";
+    try {
+      if (scannerUi.detector) {
+        const codes = await scannerUi.detector.detect(canvas);
+        text = pickBestDetectorCode(codes, canvas.width, canvas.height);
+      }
+    } catch (_) {}
+    if (text) return text;
+    text = decodeWithZXing(canvas);
+    if (text) return text;
+    // Second pass: contrast-boosted copy (helps faint sticker prints)
+    try {
+      const boosted = boostCanvasContrast(canvas);
+      if (boosted) {
+        if (scannerUi.detector) {
+          const codes = await scannerUi.detector.detect(boosted);
+          text = pickBestDetectorCode(codes, boosted.width, boosted.height);
+        }
+        if (!text) text = decodeWithZXing(boosted);
+      }
+    } catch (_) {}
+    return text || "";
+  }
+
+  function boostCanvasContrast(source) {
+    if (!source) return null;
+    if (!scannerUi.enhanceCanvas) scannerUi.enhanceCanvas = document.createElement("canvas");
+    const canvas = scannerUi.enhanceCanvas;
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(source, 0, 0);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = img.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const g = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      const v = g < 140 ? 0 : 255;
+      data[i] = data[i + 1] = data[i + 2] = v;
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  function mapFrameToVideoPixels(video, frameEl) {
+    const vw = video.videoWidth || 0;
+    const vh = video.videoHeight || 0;
+    if (vw < 40 || vh < 40) return null;
+    const videoRect = video.getBoundingClientRect();
+    const frameRect = (frameEl || document.querySelector("#inventoryBarcodeScannerOverlay .inv-scanner-frame"))?.getBoundingClientRect();
+    if (!frameRect || !videoRect.width || !videoRect.height) {
+      // Fallback: center band of the video
+      const bandH = Math.max(90, Math.floor(vh * 0.28));
+      return {
+        sx: Math.floor(vw * 0.08),
+        sy: Math.floor((vh - bandH) / 2),
+        sw: Math.floor(vw * 0.84),
+        sh: bandH
+      };
+    }
+
+    const videoAspect = vw / vh;
+    const elemAspect = videoRect.width / videoRect.height;
+    let drawW;
+    let drawH;
+    let offsetX;
+    let offsetY;
+    // object-fit: cover mapping
+    if (videoAspect > elemAspect) {
+      drawH = videoRect.height;
+      drawW = drawH * videoAspect;
+      offsetX = (videoRect.width - drawW) / 2;
+      offsetY = 0;
+    } else {
+      drawW = videoRect.width;
+      drawH = drawW / videoAspect;
+      offsetX = 0;
+      offsetY = (videoRect.height - drawH) / 2;
+    }
+
+    const relLeft = frameRect.left - videoRect.left;
+    const relTop = frameRect.top - videoRect.top;
+    const scaleX = vw / drawW;
+    const scaleY = vh / drawH;
+
+    let sx = (relLeft - offsetX) * scaleX;
+    let sy = (relTop - offsetY) * scaleY;
+    let sw = frameRect.width * scaleX;
+    let sh = frameRect.height * scaleY;
+
+    // Small pad so thin bars aren't clipped, but stay inside the aiming frame.
+    const padX = sw * 0.04;
+    const padY = sh * 0.2;
+    sx -= padX;
+    sy -= padY;
+    sw += padX * 2;
+    sh += padY * 2;
+
+    sx = Math.max(0, Math.floor(sx));
+    sy = Math.max(0, Math.floor(sy));
+    sw = Math.max(40, Math.min(vw - sx, Math.ceil(sw)));
+    sh = Math.max(30, Math.min(vh - sy, Math.ceil(sh)));
+    return { sx, sy, sw, sh };
   }
 
   function grabScanFrameCanvas(video) {
-    const w = video.videoWidth || 0;
-    const h = video.videoHeight || 0;
-    if (w < 40 || h < 40) return null;
+    const region = mapFrameToVideoPixels(video);
+    if (!region) return null;
     if (!scannerUi.decodeCanvas) scannerUi.decodeCanvas = document.createElement("canvas");
     const canvas = scannerUi.decodeCanvas;
-    // Crop a wide center band — linear barcodes need horizontal resolution.
-    const bandH = Math.max(80, Math.floor(h * 0.42));
-    const bandY = Math.floor((h - bandH) / 2);
-    canvas.width = w;
-    canvas.height = bandH;
+    // Upscale crop so thin CODE128 modules stay readable to the decoder.
+    const targetW = Math.max(480, Math.min(1200, region.sw * 2.5));
+    const scale = targetW / region.sw;
+    canvas.width = Math.floor(region.sw * scale);
+    canvas.height = Math.floor(region.sh * scale);
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
-    ctx.drawImage(video, 0, bandY, w, bandH, 0, 0, w, bandH);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      video,
+      region.sx, region.sy, region.sw, region.sh,
+      0, 0, canvas.width, canvas.height
+    );
     return canvas;
+  }
+
+  function acceptDetectedCode(raw) {
+    const code = normalizeBarcodeValue(raw);
+    if (!code || code.length < 4) return null;
+    // Require 2 consecutive identical reads for camera (filters flicker / neighbor labels).
+    if (code === scannerUi.confirmCode) {
+      scannerUi.confirmHits += 1;
+    } else {
+      scannerUi.confirmCode = code;
+      scannerUi.confirmHits = 1;
+    }
+    if (scannerUi.confirmHits >= 2) {
+      scannerUi.confirmHits = 0;
+      return code;
+    }
+    return null;
   }
 
   async function scanTick() {
     if (!scannerUi.open) return;
+    if (scannerUi.decodeBusy || scannerUi.busy) return;
     const video = document.getElementById("invScannerVideo");
     if (!video || video.readyState < 2) return;
-    if (scannerUi.busy) return;
+    scannerUi.decodeBusy = true;
     try {
       const canvas = grabScanFrameCanvas(video);
       if (!canvas) return;
       const text = await decodeBarcodeFromCanvas(canvas);
       if (text) {
-        await handleScannedBarcode(text, { fromCamera: true });
+        const accepted = acceptDetectedCode(text);
+        if (accepted) {
+          // Don't await cart update — keep the decode loop hot for the next item.
+          handleScannedBarcode(accepted, { fromCamera: true });
+        } else {
+          scannerUi.status = "Locking… hold in the frame";
+          paintScannerChrome();
+        }
       } else {
+        scannerUi.confirmCode = "";
+        scannerUi.confirmHits = 0;
         const now = Date.now();
-        if (now - (scannerUi.lastMissAt || 0) > 2500 && now - (scannerUi.lastAt || 0) > 2500) {
+        if (now - (scannerUi.lastMissAt || 0) > 1800 && now - (scannerUi.lastAt || 0) > 1200) {
           scannerUi.lastMissAt = now;
           if (!String(scannerUi.status || "").startsWith("Added") && !String(scannerUi.status || "").startsWith("Not found")) {
-            scannerUi.status = "Hold barcode steady in the frame…";
+            scannerUi.status = "Align barcode inside the green frame";
             paintScannerChrome();
           }
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      scannerUi.decodeBusy = false;
+    }
   }
 
   function startScanLoop() {
@@ -1322,15 +1487,16 @@
     }
     cancelAnimationFrame(scannerUi.raf);
     scannerUi.raf = 0;
+    scannerUi.decodeBusy = false;
+    scannerUi.confirmCode = "";
+    scannerUi.confirmHits = 0;
   }
 
   async function openInventoryBarcodeScanner() {
     await ensureInventoryBarcodes();
     const overlay = ensureScannerOverlay();
     scannerUi.open = true;
-    scannerUi.status = isOnline()
-      ? "Point barcode at the camera — adds instantly"
-      : "Offline — camera scan still works from local barcodes";
+    scannerUi.status = "Align barcode inside the frame — adds automatically";
     overlay.classList.remove("hide");
     overlay.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -1341,16 +1507,12 @@
       if ("BarcodeDetector" in window) {
         try {
           const supported = (await window.BarcodeDetector.getSupportedFormats?.()) || [];
-          const wanted = ["code_128", "ean_13", "ean_8", "upc_a", "upc_e", "code_39", "qr_code"];
+          const wanted = ["code_128", "ean_13", "ean_8", "upc_a", "upc_e", "code_39", "itf", "codabar", "qr_code"];
           const formats = wanted.filter(f => !supported.length || supported.includes(f));
           scannerUi.detector = new window.BarcodeDetector({ formats: formats.length ? formats : wanted });
         } catch (_) {
           try { scannerUi.detector = new window.BarcodeDetector(); } catch (__) {}
         }
-      }
-      if (!scannerUi.detector && !window.ZXing) {
-        scannerUi.status = "Loading scanner engine… use typed barcode if needed";
-        paintScannerChrome();
       }
       if (scannerUi.stream) {
         scannerUi.stream.getTracks().forEach(t => t.stop());
@@ -1361,7 +1523,7 @@
           facingMode: { ideal: "environment" },
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          focusMode: { ideal: "continuous" }
+          advanced: [{ focusMode: "continuous" }]
         },
         audio: false
       });
@@ -1372,15 +1534,17 @@
         video.srcObject = scannerUi.stream;
         await video.play().catch(() => {});
       }
-      startScanLoop();
-      scannerUi.status = "Ready — show barcode to add";
+      // Give the first frames a moment to stabilize before decoding.
+      setTimeout(() => {
+        if (scannerUi.open) startScanLoop();
+      }, 180);
+      scannerUi.status = "Ready — place barcode in the frame";
       paintScannerChrome();
     } catch (err) {
       scannerUi.status = "Camera blocked — type barcode / name below";
       paintScannerProgress();
       console.warn(err);
     }
-    document.getElementById("invScannerManualInput")?.focus();
   }
 
   function closeInventoryBarcodeScanner() {
