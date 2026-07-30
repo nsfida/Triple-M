@@ -5,7 +5,8 @@
 
   const BARCODE_CACHE_KEY = "triplem-inventory-barcodes-v1";
   const BARCODE_SYNC_QUEUE_KEY = "triplem-inventory-barcode-sync-queue-v1";
-  const SCAN_COOLDOWN_MS = 1200;
+  const SCAN_COOLDOWN_MS = 900;
+  const SCAN_TICK_MS = 90;
   const THERMAL_FOOTER = "Thank you for shopping with us";
 
   const barcodeUi = {
@@ -21,9 +22,13 @@
     open: false,
     stream: null,
     raf: 0,
+    tickTimer: 0,
     detector: null,
+    zxingReader: null,
+    decodeCanvas: null,
     lastCode: "",
     lastAt: 0,
+    lastMissAt: 0,
     status: "Point camera at a product barcode",
     busy: false,
     online: typeof navigator !== "undefined" ? navigator.onLine !== false : true
@@ -96,9 +101,23 @@
   }
 
   function generateBarcodeForGroup(groupId) {
-    const hex = String(groupId || "").replace(/-/g, "").toUpperCase();
-    const body = (hex || String(Date.now())).slice(0, 12).padEnd(12, "0");
-    return `TM${body}`;
+    // Short numeric CODE128 (12 digits) — thicker bars on small stickers, camera-friendly.
+    const hex = String(groupId || "").replace(/-/g, "").toLowerCase();
+    let n = 0;
+    for (let i = 0; i < hex.length; i += 1) {
+      n = ((n * 33) + hex.charCodeAt(i)) >>> 0;
+    }
+    const a = (n % 1000000).toString().padStart(6, "0");
+    let m = 0;
+    for (let i = hex.length - 1; i >= 0; i -= 1) {
+      m = ((m * 37) + hex.charCodeAt(i)) >>> 0;
+    }
+    const b = (m % 1000000).toString().padStart(6, "0");
+    return `${a}${b}`;
+  }
+
+  function normalizeBarcodeValue(code) {
+    return String(code || "").trim().toUpperCase().replace(/\s+/g, "");
   }
 
   function companyLabelName() {
@@ -204,6 +223,15 @@
     return synced;
   }
 
+  function isLegacyHardBarcode(code) {
+    const c = normalizeBarcodeValue(code);
+    if (!c) return true;
+    // Old TM+hex codes are long/dense and camera scanners struggle on small stickers.
+    if (/^TM[0-9A-F]{8,}$/i.test(c)) return true;
+    if (/[A-Z]/.test(c) && c.length > 12) return true;
+    return false;
+  }
+
   async function ensureInventoryBarcodes({ force = false } = {}) {
     if (barcodeUi.loading) return barcodeUi.rows;
     barcodeUi.loading = true;
@@ -218,7 +246,7 @@
         if (!gid) return;
         byGroup[gid] = {
           groupId: gid,
-          barcode: String(row.barcode || "").toUpperCase(),
+          barcode: normalizeBarcodeValue(row.barcode),
           itemName: row.item_name || row.itemName || "",
           itemCode: row.item_code || row.itemCode || "",
           currency: row.currency || "",
@@ -226,14 +254,21 @@
         };
       });
 
-      const used = new Set(Object.values(byGroup).map(r => String(r.barcode || "").toUpperCase()).filter(Boolean));
+      const used = new Set(
+        Object.values(byGroup)
+          .map(r => normalizeBarcodeValue(r.barcode))
+          .filter(c => c && !isLegacyHardBarcode(c))
+      );
       for (const group of groups) {
         const gid = String(group.group_id || "");
         if (!gid) continue;
         let entry = byGroup[gid];
-        if (!entry?.barcode) {
+        const needsNew = !entry?.barcode || isLegacyHardBarcode(entry.barcode);
+        if (needsNew) {
           let code = generateBarcodeForGroup(gid);
-          while (used.has(code)) code = `${code}X`.slice(0, 18);
+          while (used.has(code)) {
+            code = String((Number(code) + 1) % 1000000000000).padStart(12, "0");
+          }
           used.add(code);
           entry = {
             groupId: gid,
@@ -246,6 +281,7 @@
           byGroup[gid] = entry;
           await upsertBarcodeOnServer(entry);
         } else if (force) {
+          entry.barcode = normalizeBarcodeValue(entry.barcode);
           entry.itemName = productDisplayName(group);
           entry.itemCode = group.itemCode || entry.itemCode || "";
           entry.currency = group.currency || entry.currency || "AED";
@@ -263,7 +299,7 @@
         const rem = Number(group.remainingQty || 0);
         return {
           groupId: gid,
-          barcode: String(entry.barcode || "").toUpperCase(),
+          barcode: normalizeBarcodeValue(entry.barcode),
           itemName: productDisplayName(group),
           itemCode: group.itemCode || entry.itemCode || "",
           currency: group.currency || entry.currency || "AED",
@@ -292,11 +328,150 @@
   }
 
   function resolveGroupByBarcode(code) {
-    const needle = String(code || "").trim().toUpperCase();
+    const needle = normalizeBarcodeValue(code);
     if (!needle) return null;
-    const hit = barcodeUi.rows.find(r => r.barcode === needle);
+    const hit = barcodeUi.rows.find(r => normalizeBarcodeValue(r.barcode) === needle);
     if (hit) return getInventoryProductGroups().find(g => String(g.group_id) === hit.groupId) || null;
-    return getInventoryProductGroups().find(g => String(g.itemCode || "").toUpperCase() === needle) || null;
+    return getInventoryProductGroups().find(g => normalizeBarcodeValue(g.itemCode) === needle) || null;
+  }
+
+  function ensureJsBarcode() {
+    return !!window.JsBarcode;
+  }
+
+  function drawBarcodeCanvas(code, {
+    moduleWidth = 2,
+    barHeight = 64,
+    margin = 10,
+    displayValue = false
+  } = {}) {
+    const value = normalizeBarcodeValue(code) || "000000000000";
+    const canvas = document.createElement("canvas");
+    if (!ensureJsBarcode()) {
+      const ctx = canvas.getContext("2d");
+      canvas.width = 320;
+      canvas.height = 72;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#000000";
+      ctx.font = "bold 14px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(value, canvas.width / 2, 40);
+      return canvas;
+    }
+    // Sharp modules + quiet zone. Never use margin:0 (unreadable on printers/cameras).
+    window.JsBarcode(canvas, value, {
+      format: "CODE128",
+      width: moduleWidth,
+      height: barHeight,
+      displayValue,
+      fontSize: 12,
+      textMargin: 2,
+      margin,
+      background: "#ffffff",
+      lineColor: "#000000"
+    });
+    return canvas;
+  }
+
+  async function downloadProductBarcodeLabelsPDF(rows) {
+    if (!window.jspdf) {
+      alert("PDF library loading. Please try again in a moment.");
+      return;
+    }
+    const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+    if (!list.length) {
+      alert("No products to print.");
+      return;
+    }
+    const company = companyLabelName();
+    const { jsPDF } = window.jspdf;
+    // Compact stickers, but barcode keeps native aspect ratio (no squash = no mixed bars).
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const labelW = 50;
+    const labelH = company ? 28 : 25;
+    const gapX = 4;
+    const gapY = 4;
+    const marginX = 8;
+    const marginY = 8;
+    const cols = Math.max(1, Math.floor((pageW - marginX * 2 + gapX) / (labelW + gapX)));
+    const rowsPerPage = Math.max(1, Math.floor((pageH - marginY * 2 + gapY) / (labelH + gapY)));
+    const perPage = cols * rowsPerPage;
+
+    for (let i = 0; i < list.length; i += 1) {
+      if (i > 0 && i % perPage === 0) doc.addPage();
+      const idx = i % perPage;
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      const x = marginX + col * (labelW + gapX);
+      const y = marginY + row * (labelH + gapY);
+      const item = list[i];
+      const code = normalizeBarcodeValue(item.barcode);
+      let ty = y + 2.6;
+
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.12);
+      doc.rect(x, y, labelW, labelH);
+
+      if (company) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(doc.splitTextToSize(company, labelW - 3).slice(0, 1), x + labelW / 2, ty, { align: "center" });
+        ty += 2.8;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(15, 23, 42);
+      const name = doc.splitTextToSize(String(item.itemName || "Product"), labelW - 3);
+      doc.text(name.slice(0, 1), x + labelW / 2, ty, { align: "center" });
+      ty += 3.0;
+
+      try {
+        // High-res modules so small stickers still decode cleanly.
+        const canvas = drawBarcodeCanvas(code, {
+          moduleWidth: 3,
+          barHeight: 72,
+          margin: 14,
+          displayValue: false
+        });
+        const img = canvas.toDataURL("image/png");
+        const maxW = labelW - 4;
+        const maxH = 11.5;
+        const aspect = canvas.height / Math.max(canvas.width, 1);
+        let imgW = maxW;
+        let imgH = imgW * aspect;
+        if (imgH > maxH) {
+          imgH = maxH;
+          imgW = imgH / aspect;
+        }
+        // Prefer using full width for thicker effective modules when possible
+        if (imgW < maxW * 0.92) {
+          imgW = maxW;
+          imgH = Math.min(maxH, imgW * aspect);
+        }
+        const imgX = x + (labelW - imgW) / 2;
+        doc.addImage(img, "PNG", imgX, ty, imgW, imgH, undefined, "NONE");
+        ty += imgH + 1.6;
+      } catch (_) {
+        ty += 8;
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(30, 41, 59);
+      doc.text(code, x + labelW / 2, ty, { align: "center" });
+      ty += 3.2;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
+      doc.text(moneySafe(item.unitPrice, item.currency, { forPdf: true }), x + labelW / 2, ty, { align: "center" });
+    }
+
+    doc.save(`Product_Barcodes_${list.length}.pdf`);
   }
 
   async function renderInventoryBarcodesSection() {
@@ -392,111 +567,6 @@
         if (row) downloadProductBarcodeLabelsPDF([row]);
       });
     });
-  }
-
-  function ensureJsBarcode() {
-    return !!window.JsBarcode;
-  }
-
-  function drawBarcodeCanvas(code, { width = 1.4, height = 36, displayValue = false } = {}) {
-    const canvas = document.createElement("canvas");
-    if (!ensureJsBarcode()) {
-      const ctx = canvas.getContext("2d");
-      canvas.width = 220;
-      canvas.height = 48;
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#111";
-      ctx.font = "12px monospace";
-      ctx.fillText(String(code || ""), 8, 28);
-      return canvas;
-    }
-    window.JsBarcode(canvas, String(code || "0000"), {
-      format: "CODE128",
-      width,
-      height,
-      displayValue,
-      margin: 0,
-      background: "#ffffff",
-      lineColor: "#0f172a"
-    });
-    return canvas;
-  }
-
-  async function downloadProductBarcodeLabelsPDF(rows) {
-    if (!window.jspdf) {
-      alert("PDF library loading. Please try again in a moment.");
-      return;
-    }
-    const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
-    if (!list.length) {
-      alert("No products to print.");
-      return;
-    }
-    const company = companyLabelName();
-    const { jsPDF } = window.jspdf;
-    // Compact sticker sheet (~48×30mm) for product labels
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const labelW = 48;
-    const labelH = company ? 30 : 27;
-    const gapX = 3;
-    const gapY = 3;
-    const marginX = 8;
-    const marginY = 8;
-    const cols = Math.max(1, Math.floor((pageW - marginX * 2 + gapX) / (labelW + gapX)));
-    const rowsPerPage = Math.max(1, Math.floor((pageH - marginY * 2 + gapY) / (labelH + gapY)));
-    const perPage = cols * rowsPerPage;
-
-    for (let i = 0; i < list.length; i += 1) {
-      if (i > 0 && i % perPage === 0) doc.addPage();
-      const idx = i % perPage;
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const x = marginX + col * (labelW + gapX);
-      const y = marginY + row * (labelH + gapY);
-      const item = list[i];
-      let ty = y + 3.2;
-
-      doc.setDrawColor(210, 210, 210);
-      doc.setLineWidth(0.12);
-      doc.rect(x, y, labelW, labelH);
-
-      if (company) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(5.2);
-        doc.setTextColor(100, 116, 139);
-        doc.text(doc.splitTextToSize(company, labelW - 3).slice(0, 1), x + labelW / 2, ty, { align: "center" });
-        ty += 3.2;
-      }
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.4);
-      doc.setTextColor(15, 23, 42);
-      const name = doc.splitTextToSize(String(item.itemName || "Product"), labelW - 3);
-      doc.text(name.slice(0, 2), x + labelW / 2, ty, { align: "center" });
-      ty += Math.min(name.length, 2) * 3.1 + 0.8;
-
-      try {
-        const canvas = drawBarcodeCanvas(item.barcode, { width: 1.1, height: 30, displayValue: false });
-        const img = canvas.toDataURL("image/png");
-        doc.addImage(img, "PNG", x + 2.5, ty, labelW - 5, 9);
-      } catch (_) {}
-      ty += 10.2;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(5.2);
-      doc.setTextColor(71, 85, 105);
-      doc.text(String(item.barcode || ""), x + labelW / 2, ty, { align: "center" });
-      ty += 3.4;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(15, 23, 42);
-      doc.text(moneySafe(item.unitPrice, item.currency, { forPdf: true }), x + labelW / 2, ty, { align: "center" });
-    }
-
-    doc.save(`Product_Barcodes_${list.length}.pdf`);
   }
 
   /* ── Scanner → cart ───────────────────────────────────────────────────── */
@@ -1002,8 +1072,8 @@
     paintScannerChrome();
   }
 
-  async function handleScannedBarcode(rawCode) {
-    const code = String(rawCode || "").trim();
+  async function handleScannedBarcode(rawCode, { fromCamera = false } = {}) {
+    const code = normalizeBarcodeValue(rawCode);
     if (!code) return;
     const now = Date.now();
     if (code === scannerUi.lastCode && now - scannerUi.lastAt < SCAN_COOLDOWN_MS) return;
@@ -1012,29 +1082,160 @@
     scannerUi.lastCode = code;
     scannerUi.lastAt = now;
     try {
-      await submitScannerLookup(code, { preferHighlight: false });
+      if (!barcodeUi.loaded) await ensureInventoryBarcodes();
+      let group = resolveGroupByBarcode(code);
+      if (!group && isOnline() && typeof supabaseRpc === "function") {
+        try {
+          const res = typeof unwrapRpcJson === "function"
+            ? unwrapRpcJson(await supabaseRpc("app_find_goods_by_barcode", { p_barcode: code }))
+            : await supabaseRpc("app_find_goods_by_barcode", { p_barcode: code });
+          const gid = res?.row?.group_id || res?.data?.row?.group_id;
+          if (gid) group = getInventoryProductGroups().find(g => String(g.group_id) === String(gid)) || null;
+        } catch (_) {}
+      }
+      if (!group) {
+        scannerUi.status = `Not found: ${code}`;
+        paintScannerProgress();
+        flashScannerFrame(false);
+        return;
+      }
+      const result = await addScannedGroupToCart(group, 1);
+      if (!result.ok) {
+        scannerUi.status = result.error || "Could not add";
+        flashScannerFrame(false);
+      } else {
+        scannerUi.status = `Added ${result.name} · qty ${result.qty}${isOnline() ? "" : " (offline)"}`;
+        flashScannerFrame(true);
+      }
+      paintScannerProgress();
     } finally {
       scannerUi.busy = false;
     }
   }
 
-  async function scanVideoFrame() {
+  function flashScannerFrame(ok) {
+    const frame = document.querySelector(".inv-scanner-frame");
+    if (!frame) return;
+    frame.classList.remove("is-ok", "is-miss");
+    frame.classList.add(ok ? "is-ok" : "is-miss");
+    setTimeout(() => frame.classList.remove("is-ok", "is-miss"), 420);
+  }
+
+  function getZXingReader() {
+    if (scannerUi.zxingReader) return scannerUi.zxingReader;
+    const ZX = window.ZXing;
+    if (!ZX?.MultiFormatReader) return null;
+    try {
+      const hints = new Map();
+      const formats = [
+        ZX.BarcodeFormat.CODE_128,
+        ZX.BarcodeFormat.EAN_13,
+        ZX.BarcodeFormat.EAN_8,
+        ZX.BarcodeFormat.UPC_A,
+        ZX.BarcodeFormat.UPC_E,
+        ZX.BarcodeFormat.CODE_39,
+        ZX.BarcodeFormat.QR_CODE
+      ].filter(Boolean);
+      if (ZX.DecodeHintType?.POSSIBLE_FORMATS) {
+        hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, formats);
+      }
+      if (ZX.DecodeHintType?.TRY_HARDER) {
+        hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+      }
+      const reader = new ZX.MultiFormatReader();
+      if (hints.size && reader.setHints) reader.setHints(hints);
+      scannerUi.zxingReader = reader;
+      return reader;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function decodeBarcodeFromCanvas(canvas) {
+    return new Promise(async resolve => {
+      let text = "";
+      try {
+        if (scannerUi.detector) {
+          const codes = await scannerUi.detector.detect(canvas);
+          if (codes?.length) text = String(codes[0].rawValue || "").trim();
+        }
+      } catch (_) {}
+      if (text) {
+        resolve(text);
+        return;
+      }
+      try {
+        const ZX = window.ZXing;
+        const reader = getZXingReader();
+        if (ZX && reader) {
+          const luminance = new ZX.HTMLCanvasElementLuminanceSource(canvas);
+          const binary = new ZX.BinaryBitmap(new ZX.HybridBinarizer(luminance));
+          const result = reader.decode(binary);
+          text = String(result?.getText?.() || result?.text || "").trim();
+        }
+      } catch (_) {
+        try { reader.reset?.(); } catch (__) {}
+        // no code in frame — normal
+      }
+      resolve(text);
+    });
+  }
+
+  function grabScanFrameCanvas(video) {
+    const w = video.videoWidth || 0;
+    const h = video.videoHeight || 0;
+    if (w < 40 || h < 40) return null;
+    if (!scannerUi.decodeCanvas) scannerUi.decodeCanvas = document.createElement("canvas");
+    const canvas = scannerUi.decodeCanvas;
+    // Crop a wide center band — linear barcodes need horizontal resolution.
+    const bandH = Math.max(80, Math.floor(h * 0.42));
+    const bandY = Math.floor((h - bandH) / 2);
+    canvas.width = w;
+    canvas.height = bandH;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, bandY, w, bandH, 0, 0, w, bandH);
+    return canvas;
+  }
+
+  async function scanTick() {
     if (!scannerUi.open) return;
     const video = document.getElementById("invScannerVideo");
-    if (!video || video.readyState < 2) {
-      scannerUi.raf = requestAnimationFrame(scanVideoFrame);
-      return;
-    }
+    if (!video || video.readyState < 2) return;
+    if (scannerUi.busy) return;
     try {
-      if (scannerUi.detector) {
-        const codes = await scannerUi.detector.detect(video);
-        if (codes?.length) {
-          const text = String(codes[0].rawValue || "").trim();
-          if (text) await handleScannedBarcode(text);
+      const canvas = grabScanFrameCanvas(video);
+      if (!canvas) return;
+      const text = await decodeBarcodeFromCanvas(canvas);
+      if (text) {
+        await handleScannedBarcode(text, { fromCamera: true });
+      } else {
+        const now = Date.now();
+        if (now - (scannerUi.lastMissAt || 0) > 2500 && now - (scannerUi.lastAt || 0) > 2500) {
+          scannerUi.lastMissAt = now;
+          if (!String(scannerUi.status || "").startsWith("Added") && !String(scannerUi.status || "").startsWith("Not found")) {
+            scannerUi.status = "Hold barcode steady in the frame…";
+            paintScannerChrome();
+          }
         }
       }
     } catch (_) {}
-    scannerUi.raf = requestAnimationFrame(scanVideoFrame);
+  }
+
+  function startScanLoop() {
+    stopScanLoop();
+    scannerUi.tickTimer = setInterval(() => {
+      scanTick();
+    }, SCAN_TICK_MS);
+  }
+
+  function stopScanLoop() {
+    if (scannerUi.tickTimer) {
+      clearInterval(scannerUi.tickTimer);
+      scannerUi.tickTimer = 0;
+    }
+    cancelAnimationFrame(scannerUi.raf);
+    scannerUi.raf = 0;
   }
 
   async function openInventoryBarcodeScanner() {
@@ -1042,40 +1243,54 @@
     const overlay = ensureScannerOverlay();
     scannerUi.open = true;
     scannerUi.status = isOnline()
-      ? "Scan barcode, or type barcode / item name"
-      : "Offline — scan, type barcode, or search by name (cart stays local)";
+      ? "Point barcode at the camera — adds instantly"
+      : "Offline — camera scan still works from local barcodes";
     overlay.classList.remove("hide");
     overlay.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
     paintScannerProgress();
 
     try {
+      scannerUi.detector = null;
       if ("BarcodeDetector" in window) {
-        const formats = ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"];
-        scannerUi.detector = new window.BarcodeDetector({ formats });
-      } else {
-        scannerUi.detector = null;
-        scannerUi.status = "Camera barcode API unavailable — use typed / wedge scan below";
+        try {
+          const supported = (await window.BarcodeDetector.getSupportedFormats?.()) || [];
+          const wanted = ["code_128", "ean_13", "ean_8", "upc_a", "upc_e", "code_39", "qr_code"];
+          const formats = wanted.filter(f => !supported.length || supported.includes(f));
+          scannerUi.detector = new window.BarcodeDetector({ formats: formats.length ? formats : wanted });
+        } catch (_) {
+          try { scannerUi.detector = new window.BarcodeDetector(); } catch (__) {}
+        }
+      }
+      if (!scannerUi.detector && !window.ZXing) {
+        scannerUi.status = "Loading scanner engine… use typed barcode if needed";
+        paintScannerChrome();
+      }
+      if (scannerUi.stream) {
+        scannerUi.stream.getTracks().forEach(t => t.stop());
+        scannerUi.stream = null;
       }
       scannerUi.stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: { ideal: "continuous" }
         },
         audio: false
       });
       const video = document.getElementById("invScannerVideo");
       if (video) {
+        video.setAttribute("playsinline", "true");
+        video.muted = true;
         video.srcObject = scannerUi.stream;
         await video.play().catch(() => {});
       }
-      if (scannerUi.detector) {
-        cancelAnimationFrame(scannerUi.raf);
-        scannerUi.raf = requestAnimationFrame(scanVideoFrame);
-      }
+      startScanLoop();
+      scannerUi.status = "Ready — show barcode to add";
+      paintScannerChrome();
     } catch (err) {
-      scannerUi.status = "Camera blocked — use typed / wedge barcode input";
+      scannerUi.status = "Camera blocked — type barcode / name below";
       paintScannerProgress();
       console.warn(err);
     }
@@ -1084,9 +1299,9 @@
 
   function closeInventoryBarcodeScanner() {
     scannerUi.open = false;
-    cancelAnimationFrame(scannerUi.raf);
-    scannerUi.raf = 0;
+    stopScanLoop();
     scannerUi.detector = null;
+    scannerUi.zxingReader = null;
     if (scannerUi.stream) {
       scannerUi.stream.getTracks().forEach(t => t.stop());
       scannerUi.stream = null;
