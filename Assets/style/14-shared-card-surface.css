@@ -54,86 +54,52 @@
 .btc-wallet-card,
 .btc-wallet-details,
 #notesList > .card{
+  --triplem-card-accent:var(--triplem-card-accent, var(--triplem-orb-1));
   position:relative;
-  overflow:hidden;
   border:1px solid rgba(208,213,221,.72);
   border-radius:14px;
+  /* Soft wash + corner orb via backgrounds only (no ::after / no child z-index = menus stay on top) */
   background:
+    radial-gradient(88px 88px at 100% 100%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 22%, transparent), transparent 72%),
     radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 12%, transparent), transparent 55%),
     linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
   box-shadow:0 6px 16px rgba(15,23,42,.03);
 }
 
-/* Accent orb (same placement/size language as .dashboard-hero-card::after) */
-.card.section::after,
-.dashboard-block::after,
-.loan::after,
-.installment-plan-card::after,
-.asset-card::after,
-.dep-asset-card::after,
-.dep-summary-card::after,
-.expense-wallet-card::after,
-.inventory-section-card::after,
-.inventory-sku-card::after,
-.inventory-draft-card::after,
-.summary.currency-summary::after,
-.asset-kpi::after,
-.ip-metric::after,
-.section-details-metric::after,
-.section-details-chart-card::after,
-.btc-wallet-card::after,
-.btc-wallet-details::after,
-#notesList > .card::after{
-  content:"";
-  position:absolute;
-  inset:auto -20% -40% auto;
-  width:90px;
-  height:90px;
-  border-radius:50%;
-  background:var(--triplem-card-accent,#60a5fa);
-  opacity:.11;
-  pointer-events:none;
-  z-index:0;
+/* Section shells keep a slightly larger corner glow */
+.card.section,
+.dashboard-block{
+  background:
+    radial-gradient(130px 130px at 100% 100%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 18%, transparent), transparent 72%),
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 10%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
 }
 
-/* Smaller orbs for compact metric tiles */
-.asset-kpi::after,
-.ip-metric::after,
-.dep-summary-card::after,
-.section-details-metric::after{
-  width:56px;
-  height:56px;
-  inset:auto -18% -38% auto;
+/* Compact metric tiles */
+.asset-kpi,
+.ip-metric,
+.dep-summary-card,
+.section-details-metric{
+  background:
+    radial-gradient(52px 52px at 100% 100%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 22%, transparent), transparent 72%),
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 10%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
 }
 
-/* Larger shell sections get a bigger orb */
-.card.section::after,
-.dashboard-block::after{
-  width:140px;
-  height:140px;
-  inset:auto -12% -28% auto;
-  opacity:.09;
+/* Installment menus need overflow visible; other list cards keep sensible clipping */
+.installment-plan-card{
+  overflow:visible;
 }
-
-/* Keep interactive content above the orb */
-.card.section > *,
-.dashboard-block > *,
-.loan > *,
-.installment-plan-card > *,
-.asset-card > *,
-.dep-asset-card > *,
-.expense-wallet-card > *,
-.inventory-section-card > *,
-.inventory-sku-card > *,
-.summary.currency-summary > *:not(.summary-watermark),
-.btc-wallet-card > *,
-.btc-wallet-details > *,
-#notesList > .card > *{
-  position:relative;
-  z-index:1;
-}
-.summary.currency-summary > .summary-watermark{
-  z-index:0;
+.loan:not(.installment-plan-card),
+.asset-card,
+.dep-asset-card,
+.expense-wallet-card,
+.inventory-section-card,
+.inventory-sku-card,
+.summary.currency-summary,
+.dashboard-block,
+.card.section{
+  overflow:hidden;
 }
 
 /* Inner fillers were solid white — let the shared surface show through */
@@ -159,9 +125,6 @@
   background:rgba(248,250,252,.55);
   box-shadow:none;
 }
-.inventory-section-add-card::after{
-  display:none;
-}
 
 /* Selected wallet still reads clearly on the soft surface */
 .expense-wallet-radio:checked + .expense-wallet-card{
@@ -185,14 +148,15 @@
 }
 
 .dashboard-hero-card{
-  --triplem-card-accent:var(--dash-accent,#2563eb);
+  --triplem-card-accent:var(--dash-accent,#60a5fa);
   background:
-    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--dash-accent,#2563eb) 8%, transparent), transparent 55%),
+    radial-gradient(88px 88px at 100% 100%, color-mix(in srgb, var(--dash-accent,#60a5fa) 22%, transparent), transparent 72%),
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--dash-accent,#60a5fa) 10%, transparent), transparent 55%),
     linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94));
   box-shadow:0 6px 16px rgba(15,23,42,.03);
 }
 .dashboard-hero-card::after{
-  opacity:.11;
+  display:none;
 }
 
 /* Rotate soft orb / wash colors across sibling cards */
@@ -447,22 +411,15 @@
   border:1px solid rgba(208,213,221,.72);
   border-radius:16px;
   background:
+    radial-gradient(100px 100px at 100% 100%, rgba(96,165,250,.18), transparent 72%),
     radial-gradient(120% 90% at 100% 0%, rgba(37,99,235,.08), transparent 55%),
     linear-gradient(160deg, rgba(255,255,255,.99), rgba(248,250,252,.94));
   box-shadow:0 8px 22px rgba(15,23,42,.05);
   backdrop-filter:blur(8px);
+  z-index:30;
 }
 .tabs::after{
-  content:"";
-  position:absolute;
-  inset:auto -18% -55% auto;
-  width:120px;
-  height:120px;
-  border-radius:50%;
-  background:#2563eb;
-  opacity:.07;
-  pointer-events:none;
-  z-index:0;
+  display:none;
 }
 .tabs > .tab{
   position:relative;
@@ -496,6 +453,7 @@
   border:1px solid rgba(208,213,221,.72);
   border-radius:14px;
   background:
+    radial-gradient(72px 72px at 100% 100%, rgba(96,165,250,.16), transparent 72%),
     radial-gradient(120% 90% at 100% 0%, rgba(37,99,235,.07), transparent 55%),
     linear-gradient(160deg, rgba(255,255,255,.99), rgba(248,250,252,.94));
   box-shadow:0 4px 14px rgba(15,23,42,.03);
@@ -509,21 +467,7 @@
 }
 .loan-mode-switch::after,
 .assets-module-tabs::after{
-  content:"";
-  position:absolute;
-  inset:auto -22% -60% auto;
-  width:72px;
-  height:72px;
-  border-radius:50%;
-  background:var(--triplem-card-accent,#2563eb);
-  opacity:.07;
-  pointer-events:none;
-  z-index:0;
-}
-.loan-mode-switch > *,
-.assets-module-tabs > *{
-  position:relative;
-  z-index:1;
+  display:none;
 }
 .loan-mode-btn.active{
   background:
@@ -542,32 +486,29 @@
   box-shadow:0 4px 12px rgba(37,99,235,.2);
 }
 
-/* ── Sign-in, Smart Pin, entry/edit & key overlay dialogs ──────────────── */
+/* ── Sign-in / Smart Pin / entry overlays: soft surface only (no orb pseudo, no stacking traps) ── */
 .modal-dialog,
 .login-glass-panel--overlay,
 .guest-restriction-dialog,
 .trial-promo-card,
 .reminder-alert-dialog,
 .transfer-success-content,
-.secret-pin-dialog,
-.smart-pin-confirm-dialog,
 #trialSignupModal .modal-dialog.trial-signup-dialog{
   --triplem-card-accent:var(--triplem-orb-1);
-  position:relative;
-  isolation:isolate;
   border:1px solid rgba(208,213,221,.72) !important;
   background:
-    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 12%, transparent), transparent 55%),
-    linear-gradient(160deg, rgba(255,255,255,.99), rgba(252,253,255,.94)) !important;
+    radial-gradient(110px 110px at 100% 100%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 20%, transparent), transparent 72%),
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--triplem-card-accent,#60a5fa) 10%, transparent), transparent 55%),
+    linear-gradient(160deg, rgba(255,255,255,.995), rgba(252,253,255,.96)) !important;
   box-shadow:0 18px 48px rgba(15,23,42,.14) !important;
   backdrop-filter:none !important;
   -webkit-backdrop-filter:none !important;
 }
-/* Outer sign-in wrapper stays clear; inner panel carries the surface */
 .signin-overlay-card{
   background:transparent !important;
   border:0 !important;
   box-shadow:none !important;
+  overflow:visible !important;
 }
 .modal-dialog::after,
 .login-glass-panel--overlay::after,
@@ -576,50 +517,32 @@
 .reminder-alert-dialog::after,
 .transfer-success-content::after,
 #trialSignupModal .modal-dialog.trial-signup-dialog::after{
-  content:"";
-  position:absolute;
-  inset:auto -16% -36% auto;
-  width:120px;
-  height:120px;
-  border-radius:50%;
-  background:var(--triplem-card-accent,#60a5fa);
-  opacity:.11;
-  pointer-events:none;
-  z-index:0;
-}
-.modal-dialog > *,
-.login-glass-panel--overlay > *,
-.guest-restriction-dialog > *,
-.trial-promo-card > *,
-.reminder-alert-dialog > *,
-.transfer-success-content > *,
-#trialSignupModal .modal-dialog.trial-signup-dialog > *{
-  position:relative;
-  z-index:1;
+  content:none !important;
+  display:none !important;
 }
 
 /* Soft per-overlay accents */
 #signInOverlay .login-glass-panel--overlay,
-#entryModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-1); } /* light blue */
+#entryModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-1); }
 #secretPinGateModal .modal-dialog,
 #smartPinManageModal .modal-dialog,
-#noteReminderModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-2); } /* light pink */
+#noteReminderModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-2); }
 #smartPinConfirmModal .modal-dialog,
 #installmentEditModal .modal-dialog,
-#installmentPlanModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-3); } /* soft rose */
+#installmentPlanModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-3); }
 #editModal .modal-dialog,
 #noteEditModal .modal-dialog,
-#inventoryEditItemModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-4); } /* soft violet */
+#inventoryEditItemModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-4); }
 #sectionDetailsModal .modal-dialog,
 #assetDetailModal .modal-dialog,
 #depAssetDetailModal .modal-dialog,
 #assetFormModal .modal-dialog,
-#depAssetFormModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-5); } /* soft mint */
+#depAssetFormModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-5); }
 #expenseModal .modal-dialog,
 #assetTxModal .modal-dialog,
 #assetSaleModal .modal-dialog,
 #depAssetDisposeModal .modal-dialog,
-#depAssetReportModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-6); } /* soft peach */
+#depAssetReportModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-6); }
 #goodsModal .modal-dialog,
 #goodsSettlementModal .modal-dialog,
 #inventoryCustomerModal .modal-dialog,
@@ -635,14 +558,42 @@
 .reminder-alert-dialog{ --triplem-card-accent:var(--triplem-orb-6); }
 .transfer-success-content{ --triplem-card-accent:var(--triplem-orb-5); }
 
-/* Sticky modal heads keep a soft tint instead of flat white */
-.modal-dialog .modal-head,
-#trialSignupModal .trial-signup-head{
-  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.78)) !important;
+/* ── Dropdown menus must sit above sticky tabs / cards / banners ───────── */
+.menu-dropdown,
+.asset-card-dropdown,
+.menu-dropdown.open,
+.asset-card-dropdown.open{
+  z-index:10060 !important;
 }
-.compact-entry-dialog .modal-head,
-.secret-pin-dialog .modal-head,
-.smart-pin-confirm-dialog .smart-pin-confirm-head{
-  background:transparent;
+.menu-wrap:has(.menu-dropdown.open),
+.menu-wrap.open,
+.menu-wrap:has(.asset-card-dropdown.open),
+.loan:has(.menu-dropdown.open),
+.loan:has(.menu-trigger[aria-expanded="true"]),
+.installment-plan-card:has(.menu-dropdown.open),
+.installment-plan-card:has(.menu-trigger[aria-expanded="true"]),
+.asset-card:has(.menu-dropdown.open),
+.asset-card:has(.asset-card-dropdown.open),
+.dep-asset-card:has(.menu-dropdown.open),
+.dep-asset-card:has(.asset-card-dropdown.open),
+.expense-wallet-card-wrap:has(.menu-dropdown.open),
+.inventory-section-card:has(.menu-dropdown.open),
+.inventory-sku-card:has(.menu-dropdown.open),
+.btc-wallet-card:has(.menu-dropdown.open),
+#notesList > .card:has(.menu-dropdown.open),
+.title-row .menu-wrap:has(.menu-dropdown.open),
+.section-head .menu-wrap:has(.menu-dropdown.open),
+.ip-card-actions .menu-wrap:has(.menu-dropdown.open),
+.asset-card-menu.open,
+.asset-card-menu:has(.asset-card-dropdown.open){
+  position:relative;
+  z-index:10050 !important;
 }
+/* Legacy installment raise was only z-index:20 — below sticky tabs */
+.installment-plan-card:has(.menu-dropdown.open),
+.installment-plan-card:has(.menu-wrap.open),
+.installment-plan-card:has(.menu-trigger[aria-expanded="true"]){
+  z-index:10050 !important;
+}
+
 
