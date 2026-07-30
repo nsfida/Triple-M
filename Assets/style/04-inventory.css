@@ -3530,12 +3530,19 @@ html.inventory-grid-drag-lock body{
   color:var(--muted);
   font-weight:550;
 }
-.inv-barcode-filter .select{
+.inv-barcode-filter .select,
+.inv-barcode-filter .input{
   min-height:28px;
   height:28px;
   font-size:.72rem;
   padding:2px 8px;
   border-radius:7px;
+  width:100%;
+  box-sizing:border-box;
+}
+.inv-barcode-filter .input{
+  min-width:72px;
+  max-width:96px;
 }
 .inv-barcode-actions{
   display:flex;
@@ -3556,9 +3563,24 @@ html.inventory-grid-drag-lock body{
   display:grid;
   gap:4px;
 }
+.inv-barcode-qty-hint{
+  font-size:.64rem;
+  color:var(--muted);
+  margin:-2px 0 6px;
+}
+.inv-barcode-qty-input{
+  width:64px;
+  min-width:56px;
+  min-height:26px;
+  height:26px;
+  padding:2px 6px;
+  font-size:.68rem;
+  border-radius:7px;
+  text-align:center;
+}
 .inv-barcode-row{
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto auto;
+  grid-template-columns:auto minmax(0,1fr) auto auto auto;
   gap:8px;
   align-items:center;
   border:1px solid var(--line);
@@ -4016,13 +4038,13 @@ html.inventory-grid-drag-lock body{
 }
 @media (max-width: 860px){
   .inv-barcode-row{
-    grid-template-columns:auto minmax(0,1fr) auto;
+    grid-template-columns:auto minmax(0,1fr) auto auto;
     grid-template-areas:
-      "check main print"
-      "check meta print";
+      "check main print qty"
+      "check meta print qty";
     gap:4px 8px;
   }
-  .inv-barcode-row input{ grid-area:check; }
+  .inv-barcode-row input[type="checkbox"]{ grid-area:check; }
   .inv-barcode-main{ grid-area:main; }
   .inv-barcode-meta{
     grid-area:meta;
@@ -4031,6 +4053,7 @@ html.inventory-grid-drag-lock body{
     gap:8px;
     align-items:center;
   }
+  .inv-barcode-qty-input{ grid-area:qty; }
   .inv-barcode-row .tiny{ grid-area:print; }
 }
 
