@@ -1454,7 +1454,7 @@
                 <details>
                   <summary>How does asset profit and loss work?</summary>
                   <div class="faq-answer">
-                    <p>Total expenses include purchase price plus maintenance, repairs, operating costs, other expenses, additional investment, and sale costs. Total income includes revenue plus sale proceeds. Net P/L is income minus expenses, so you can see whether an asset made or lost money over its ownership period.</p>
+                    <p>Invested / spent covers maintenance, repairs, operating costs, other expenses, additional investment, and sale costs — purchase price is shown separately. Net P/L is (revenue + sale proceeds) minus (purchase price + invested / spent).</p>
                   </div>
                 </details>
                 <details>
@@ -3348,10 +3348,10 @@
                 </div>
                 <p>Create login accounts, assign currencies and tabs, view credentials, and edit every user’s access settings.</p>
               </div>
-              <div class="tools">
+              <div class="tools admin-panel-tools">
                 <div class="menu-wrap hide" id="adminBackupWrap">
-                  <button class="btn soft tiny menu-trigger" id="adminBackupBtn" type="button" data-entry-menu="admin-backup" aria-haspopup="menu" aria-expanded="false" title="Backup &amp; Restore">
-                    <i class="fa-solid fa-database"></i> Backup
+                  <button class="btn soft tiny menu-trigger admin-tool-btn" id="adminBackupBtn" type="button" data-entry-menu="admin-backup" aria-haspopup="menu" aria-expanded="false" title="Backup &amp; Restore">
+                    <i class="fa-solid fa-database" aria-hidden="true"></i> Backup
                   </button>
                   <div class="menu-dropdown admin-backup-dropdown" data-entry-menu-panel="admin-backup">
                     <button type="button" class="menu-item" id="adminBackupDownloadJsonBtn"><i class="fa-solid fa-file-code"></i> Download Backup (JSON)</button>
@@ -3362,14 +3362,21 @@
                     <p class="admin-backup-status" id="adminBackupStatus" aria-live="polite"></p>
                   </div>
                 </div>
-                <button class="btn primary" id="adminRefreshUsersBtn" type="button"><i class="fa-solid fa-rotate"></i> Refresh</button>
-                <button class="btn soft" id="adminCreateUserBtn" type="button"><i class="fa-solid fa-user-plus"></i> Create User</button>
+                <button class="btn soft tiny admin-tool-btn" id="adminStorageMgmtBtn" type="button" title="Storage Management">
+                  <i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Storage
+                </button>
+                <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminRefreshUsersBtn" type="button" title="Refresh users" aria-label="Refresh users">
+                  <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                </button>
+                <button class="btn soft tiny admin-tool-btn" id="adminCreateUserBtn" type="button" title="Create user">
+                  <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Create
+                </button>
               </div>
             </div>
           </div>
           <div class="admin-legend">
-            <span><i class="fa-solid fa-key"></i> Password &amp; Smart Pin stay masked until you tap the eye</span>
-            <span><i class="fa-solid fa-chevron-down"></i> Tap a row to expand credentials &amp; actions</span>
+            <span><i class="fa-solid fa-lock"></i> Credentials stay locked — tap the lock icon to reveal</span>
+            <span><i class="fa-solid fa-chevron-down"></i> Tap a row to expand details &amp; actions</span>
             <span><i class="fa-solid fa-calendar-check"></i> Plan → extend or reduce access</span>
           </div>
           <div id="adminUsersList" class="admin-users-list">
