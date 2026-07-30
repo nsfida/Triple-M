@@ -901,3 +901,170 @@
     gap: 0;
   }
 }
+
+/* ── Depreciation Assets module (additive; independent of P/L assets) ── */
+.assets-module-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 0 10px;
+  margin: 0 0 4px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.assets-module-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 650;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.assets-module-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent, #0ea5e9) 8%, transparent);
+}
+
+.assets-module-tab.is-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent, #0ea5e9) 14%, transparent);
+}
+
+.assets-module-view.hide {
+  display: none !important;
+}
+
+.dep-assets-summary {
+  margin: 8px 0 10px;
+}
+
+.dep-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dep-summary-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--card, #fff);
+  min-width: 0;
+}
+
+.dep-summary-card small {
+  display: block;
+  color: var(--muted);
+  font-size: .62rem;
+  font-weight: 650;
+  margin-bottom: 2px;
+}
+
+.dep-summary-card strong {
+  font-size: .88rem;
+  font-weight: 700;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.dep-summary-note {
+  margin: 6px 0 0;
+  font-size: .68rem;
+}
+
+.dep-assets-list {
+  display: grid;
+  gap: 6px;
+}
+
+.dep-form-preview {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #0ea5e9) 4%, transparent);
+}
+
+.dep-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.dep-preview-grid small {
+  display: block;
+  color: var(--muted);
+  font-size: .6rem;
+  font-weight: 650;
+}
+
+.dep-preview-grid strong {
+  font-size: .78rem;
+}
+
+.dep-kpi-grid {
+  margin-bottom: 10px;
+}
+
+.dep-history-title {
+  margin: 14px 0 8px;
+  font-size: .85rem;
+}
+
+.dep-history-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.dep-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .72rem;
+}
+
+.dep-history-table th,
+.dep-history-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.dep-history-table th {
+  background: color-mix(in srgb, var(--accent, #0ea5e9) 6%, transparent);
+  font-weight: 700;
+  font-size: .65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.dep-history-table tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .dep-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .assets-module-tabs {
+    gap: 2px;
+  }
+  .assets-module-tab {
+    font-size: .72rem;
+    padding: 5px 8px;
+  }
+  .dep-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
