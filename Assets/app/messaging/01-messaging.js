@@ -476,12 +476,12 @@ async function loadAdminMessagesPreview(){
   try {
     const admin = isAppAdminSession();
     const result = admin
-      ? await supabaseRpc("app_admin_list_inquiries", { p_status: "open", p_limit: 12 })
+      ? await supabaseRpc("app_admin_list_inquiries", { p_status: null, p_limit: 12 })
       : await supabaseRpc("app_list_my_inquiries", {});
     const items = (Array.isArray(result?.items) ? result.items : []).slice(0, 12);
     adminCommsState.inquiryPreview = items;
     if (!items.length) {
-      list.innerHTML = `<div class="admin-comms-empty">${admin ? "No open inquiries" : "No messages yet"}</div>`;
+      list.innerHTML = `<div class="admin-comms-empty">${admin ? "No conversations yet" : "No messages yet"}</div>`;
       return;
     }
     list.innerHTML = items.map(item => {
@@ -560,8 +560,15 @@ async function prepareMessagesComposer(){
     select.innerHTML = `<option value="">Loading users…</option>`;
     select.disabled = true;
     try {
-      const users = await supabaseRpc("app_admin_list_users", {});
-      const list = Array.isArray(users) ? users : (Array.isArray(users?.items) ? users.items : []);
+      let list = [];
+      try {
+        const recipients = await supabaseRpc("app_admin_list_message_recipients", {});
+        list = Array.isArray(recipients?.items) ? recipients.items : [];
+      } catch (_) {
+        // Fallback if migration 089 not applied yet
+        const users = await supabaseRpc("app_admin_list_users", {});
+        list = Array.isArray(users) ? users : (Array.isArray(users?.items) ? users.items : []);
+      }
       const myId = state.sessionUser?.id;
       const options = list
         .filter(u => u?.id && u.id !== myId)
@@ -649,13 +656,17 @@ async function renderMessagesPanel(options = {}){
       } else {
         messagingLiveState.lastThreadSig = nextThreadSig;
       }
-    } else if (!silent && items.length && admin) {
+    } else if (!silent && items.length && admin && !isMessagesMobileLayout()) {
       await openInquiryThread(items[0].id);
       messagingLiveState.lastThreadSig = selectedThreadSignature(items, items[0].id);
     } else if (!silent && items.length && !admin && messagesUiState.selectedId && items.some(t => t.id === messagesUiState.selectedId)) {
       await openInquiryThread(messagesUiState.selectedId);
       messagingLiveState.lastThreadSig = selectedThreadSignature(items, messagesUiState.selectedId);
     } else if (!items.length || (messagesUiState.selectedId && !items.some(t => t.id === messagesUiState.selectedId))) {
+      showMessagesEmptyState();
+      messagingLiveState.lastThreadSig = null;
+    } else if (!silent && isMessagesMobileLayout() && !openId) {
+      // Mobile: stay on the thread list until the user opens a conversation.
       showMessagesEmptyState();
       messagingLiveState.lastThreadSig = null;
     }
@@ -705,11 +716,30 @@ function renderMessagesThreadList(container, items, isAdmin){
   }).join("");
 }
 
-function showMessagesEmptyState(){
+function isMessagesMobileLayout(){
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 900px)").matches;
+}
+
+function setMessagesMobileConversationMode(open){
+  const workspace = document.querySelector(".messages-workspace");
+  if (!workspace) return;
+  const shouldOpen = !!open && isMessagesMobileLayout();
+  workspace.classList.toggle("messages-conversation-open", shouldOpen);
+}
+
+function closeMessagesConversationView(){
   messagesUiState.selectedId = null;
   messagesUiState.canReply = false;
+  messagingLiveState.lastThreadSig = null;
+  document.querySelectorAll(".messages-thread-item.active").forEach(el => el.classList.remove("active"));
   document.getElementById("messagesThreadEmpty")?.classList.remove("hide");
   document.getElementById("messagesThreadActive")?.classList.add("hide");
+  setMessagesMobileConversationMode(false);
+}
+
+function showMessagesEmptyState(){
+  closeMessagesConversationView();
 }
 
 async function openInquiryThread(inquiryId, options = {}){
@@ -728,11 +758,22 @@ async function openInquiryThread(inquiryId, options = {}){
 
   empty?.classList.add("hide");
   active?.classList.remove("hide");
+  if (!silent) setMessagesMobileConversationMode(true);
+  else if (isMessagesMobileLayout()) setMessagesMobileConversationMode(true);
+
   const wasNearBottom = silent
     ? (scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 96)
     : true;
   if (!silent) {
-    header.innerHTML = `<div class="help">Loading conversation…</div>`;
+    header.innerHTML = `
+      <div class="messages-thread-header-top">
+        <button type="button" class="btn ghost messages-thread-back" data-messages-back aria-label="Back to conversations">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+      </div>
+      <div class="messages-thread-header-main">
+        <div class="help">Loading conversation…</div>
+      </div>`;
     scroll.innerHTML = "";
   }
 
@@ -750,6 +791,11 @@ async function openInquiryThread(inquiryId, options = {}){
     ].filter(Boolean).map(escapeHtml).join(" · ");
 
     header.innerHTML = `
+      <div class="messages-thread-header-top">
+        <button type="button" class="btn ghost messages-thread-back" data-messages-back aria-label="Back to conversations">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+      </div>
       <div class="messages-thread-header-main">
         <div>
           <h4>${escapeHtml(inquiry.subject || "Conversation")}</h4>
@@ -922,6 +968,15 @@ function bindMessagingUi(){
     openInquiryThread(btn.dataset.openThread);
   });
 
+  window.addEventListener("resize", () => {
+    if (!isMessagesMobileLayout()) {
+      document.querySelector(".messages-workspace")?.classList.remove("messages-conversation-open");
+    } else if (messagesUiState.selectedId
+      && !document.getElementById("messagesThreadActive")?.classList.contains("hide")) {
+      setMessagesMobileConversationMode(true);
+    }
+  });
+
   const markAllBtn = document.getElementById("adminNotifyMarkAllBtn");
   if (markAllBtn) {
     markAllBtn.addEventListener("click", async e => {
@@ -1088,10 +1143,16 @@ document.getElementById("adminMessagesPreviewList")?.addEventListener("click", a
   });
 
   document.getElementById("messagesThreadHeader")?.addEventListener("click", async e => {
+    const backBtn = e.target.closest("[data-messages-back]");
     const statusBtn = e.target.closest("[data-inquiry-status]");
     const adminDel = e.target.closest("[data-inquiry-delete]");
     const myDel = e.target.closest("[data-my-inquiry-delete]");
     try {
+      if (backBtn) {
+        e.preventDefault();
+        closeMessagesConversationView();
+        return;
+      }
       if (statusBtn) {
         await supabaseRpc("app_admin_set_inquiry_status", {
           p_inquiry_id: statusBtn.dataset.inquiryStatus,
@@ -1106,6 +1167,7 @@ document.getElementById("adminMessagesPreviewList")?.addEventListener("click", a
         await supabaseRpc("app_admin_delete_inquiry", { p_inquiry_id: adminDel.dataset.inquiryDelete });
         messagesUiState.selectedId = null;
         noteMessagingLocalMutation();
+        closeMessagesConversationView();
         await renderMessagesPanel();
         await refreshAdminCommsBadges();
         return;
@@ -1115,6 +1177,7 @@ document.getElementById("adminMessagesPreviewList")?.addEventListener("click", a
         await supabaseRpc("app_delete_my_inquiry", { p_inquiry_id: myDel.dataset.myInquiryDelete });
         messagesUiState.selectedId = null;
         noteMessagingLocalMutation();
+        closeMessagesConversationView();
         await renderMessagesPanel();
       }
     } catch (ex) {
