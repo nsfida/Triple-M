@@ -618,7 +618,7 @@ function inventoryOverviewAmountText(totals){
 
 function setMainOverviewHeading(mode){
   if (!els.mainOverview) return;
-  const title = els.mainOverview.querySelector(".overview-top h2");
+  const title = els.mainOverview.querySelector(".overview-top h2, .overview-top h3");
   const desc = els.mainOverview.querySelector(".overview-top p");
   if (mode === "inventory"){
     if (title) title.textContent = "Inventory Overview";
