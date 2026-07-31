@@ -1,0 +1,14 @@
+/* TEAM */
+Founder: Nadeem Shahzad Fida
+Site: https://triplem.vip/
+Location: UAE / Pakistan / Worldwide
+
+/* SITE */
+Standards: HTML5, CSS3, JavaScript
+Software: Triplem — private accounting software & finance setup
+Languages: English
+Doctype: HTML5
+Components: Expense tracking, invoices, inventory, assets, loans, wallets, PDF reports
+
+/* THANKS */
+Customers who keep their books clean with Triplem.

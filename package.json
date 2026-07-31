@@ -1,0 +1,13 @@
+{
+  "name": "triple-m",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Triple M by NSF — private finance workspace",
+  "scripts": {
+    "test": "node --test tests/critical-paths.test.js",
+    "build:schema": "node scripts/build_full_schema_sql.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
