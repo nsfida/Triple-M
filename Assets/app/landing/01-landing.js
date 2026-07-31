@@ -994,24 +994,44 @@ function initLandingScrollEffects(){
     const eagerSet = new Set(eagerSections);
     const scrollSections = revealList.filter((el) => !eagerSet.has(el));
 
+    // Stable reveal: show when entering view; only hide when fully out (debounced).
+    // Avoids IntersectionObserver thrash from opacity/transform toggles at the band edge.
+    const hideTimers = new WeakMap();
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        setRevealed(entry.target, entry.isIntersecting);
+        const el = entry.target;
+        const pending = hideTimers.get(el);
+        if (entry.isIntersecting && entry.intersectionRatio > 0) {
+          if (pending) {
+            clearTimeout(pending);
+            hideTimers.delete(el);
+          }
+          if (!el.classList.contains("is-landing-revealed")) setRevealed(el, true);
+          continue;
+        }
+        if (entry.intersectionRatio > 0) continue;
+        if (pending) clearTimeout(pending);
+        hideTimers.set(el, setTimeout(() => {
+          hideTimers.delete(el);
+          setRevealed(el, false);
+        }, 280));
       }
-    }, { root: scrollRoot, rootMargin: "-6% 0px -12% 0px", threshold: 0.12 });
+    }, { root: scrollRoot, rootMargin: "0px 0px -10% 0px", threshold: [0, 0.12, 0.35] });
 
     // Below-the-fold: reveal only while scrolling
     scrollSections.forEach((el) => observer.observe(el));
 
     // Top sections already animate via CSS on first paint — arm scroll replay after boot
     eagerSections.forEach((el) => {
-      const arm = () => {
+      const arm = (evt) => {
+        // Ignore bubbled animationend from nested decorative nodes
+        if (evt && evt.target !== el) return;
         if (el.classList.contains("landing-reveal-ready")) return;
         el.classList.add("landing-reveal-ready", "is-landing-revealed");
         observer.observe(el);
       };
-      el.addEventListener("animationend", arm, { once: true });
-      setTimeout(arm, 1600);
+      el.addEventListener("animationend", arm);
+      setTimeout(() => arm(null), 1600);
     });
   }
 
