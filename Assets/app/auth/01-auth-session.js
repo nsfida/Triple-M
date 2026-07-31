@@ -1071,8 +1071,10 @@ async function loadSecretPinPreferenceFromDatabase() {
 
   try {
     // Primary: server status (enabled + lockout). Hash is no longer returned after migration 085.
-    const status = await supabaseRpc("app_get_smart_pin_status", {});
-    state.smartPinLockStatus = status || null;
+    const status = unwrapRpcJson(await supabaseRpc("app_get_smart_pin_status", {}));
+    state.smartPinLockStatus = typeof normalizeSmartPinLockStatus === "function"
+      ? normalizeSmartPinLockStatus(status)
+      : (status || null);
     const enabled = !!status?.enabled;
     const hash = String(status?.smart_pin_hash || "").trim().toLowerCase();
     if (enabled || (hash && /^[a-f0-9]{64}$/.test(hash))) {
@@ -1103,6 +1105,18 @@ async function loadSecretPinPreferenceFromDatabase() {
     console.warn("Smart Pin preference could not be loaded.", err);
   }
   renderSecretPinMenu();
+}
+
+/** Fetch authoritative Smart PIN lockout status (works across refresh / devices). */
+async function syncSmartPinLockStatusFromServer() {
+  if (!runtimeConfig?.supabaseUrl || !runtimeConfig?.supabaseKey) return null;
+  try {
+    const status = unwrapRpcJson(await supabaseRpc("app_get_smart_pin_status", {}));
+    state.smartPinLockStatus = normalizeSmartPinLockStatus(status);
+    return state.smartPinLockStatus;
+  } catch (_) {
+    return state.smartPinLockStatus;
+  }
 }
 
 async function saveSecretPinPreferenceToDatabase(pin) {
@@ -1737,114 +1751,117 @@ function requestSecretPinUnlock() {
   input.value = "";
   error.textContent = "";
   if (recoverKey) recoverKey.value = "";
+
+  // Apply any known status immediately, then await server status so refresh / other
+  // devices show the locked overlay (countdown or admin-reset) instead of PIN entry.
   applySmartPinGateLockUi(modal, state.smartPinLockStatus);
-  refreshSmartPinGateLockStatus(modal).catch(() => {});
-  setTimeout(() => {
-    if (!input.disabled && !input.closest(".hide") && !input.hidden) input.focus();
-  }, 50);
 
-  return new Promise(resolve => {
-    const finish = (ok) => {
-      clearSmartPinGateCountdown();
-      modal.classList.add("hide");
-      modal.setAttribute("aria-hidden", "true");
-      document.body.style.overflow = "";
-      form.onsubmit = null;
-      forgotBtn.onclick = null;
-      logoutBtn.onclick = null;
-      if (recoverBtn) recoverBtn.onclick = null;
-      resolve(ok);
-    };
+  return (async () => {
+    try {
+      await refreshSmartPinGateLockStatus(modal);
+    } catch (_) { /* keep last known status */ }
 
-    form.onsubmit = async e => {
-      e.preventDefault();
-      if (input.disabled || input.hidden || input.closest(".hide")) return;
-      error.textContent = "";
-      const pin = String(input.value || "").trim();
-      if (!validateSecretPinValue(pin)) {
-        error.textContent = "Smart Pin must be exactly 4 or 6 digits.";
-        return;
-      }
-      try {
-        await verifySecretPin(pin);
-        state.secretPinVerified = true;
-        state.smartPinLockStatus = null;
-        finish(true);
-      } catch (verifyErr) {
-        input.value = "";
-        const payload = unwrapRpcJson(verifyErr?.smartPinResult)
-          || inferSmartPinLockFromMessage(formatSmartPinErrorMessage(verifyErr));
-        if (payload && (payload.locked || payload.temp_disabled)) {
-          error.textContent = "";
-          const normalized = normalizeSmartPinLockStatus(payload);
-          state.smartPinLockStatus = normalized;
-          applySmartPinGateLockUi(modal, normalized);
-        } else {
-          error.textContent = formatSmartPinErrorMessage(verifyErr);
-          // Still refresh in case server already escalated to lock.
-          const refreshed = await refreshSmartPinGateLockStatus(modal);
-          if (refreshed?.locked || refreshed?.temp_disabled) {
-            error.textContent = "";
-          }
-          if (!input.disabled && !input.hidden && !input.closest(".hide")) input.focus();
-          return;
-        }
-        // Refresh remaining time from server without clearing an active lock UI.
-        await refreshSmartPinGateLockStatus(modal);
-      }
-    };
+    setTimeout(() => {
+      if (!input.disabled && !input.closest(".hide") && !input.hidden) input.focus();
+    }, 50);
 
-    if (recoverBtn) {
-      recoverBtn.onclick = async () => {
+    return new Promise(resolve => {
+      const finish = (ok) => {
+        clearSmartPinGateCountdown();
+        modal.classList.add("hide");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+        form.onsubmit = null;
+        forgotBtn.onclick = null;
+        logoutBtn.onclick = null;
+        if (recoverBtn) recoverBtn.onclick = null;
+        resolve(ok);
+      };
+
+      form.onsubmit = async e => {
+        e.preventDefault();
+        if (input.disabled || input.hidden || input.closest(".hide")) return;
         error.textContent = "";
-        const key = String(recoverKey?.value || "").replace(/\D/g, "").slice(0, 15);
-        if (key.length !== 15) {
-          const hint = modal.querySelector("#secretPinGateLockHint");
-          if (hint) hint.textContent = "Enter your full 15-digit Admin Security Key to reopen.";
+        const pin = String(input.value || "").trim();
+        if (!validateSecretPinValue(pin)) {
+          error.textContent = "Smart Pin must be exactly 4 or 6 digits.";
           return;
         }
-        recoverBtn.disabled = true;
         try {
-          const reopen = await supabaseRpc("app_admin_security_key_reopen_own_smart_pin", { p_key: key });
-          if (reopen && reopen.ok === false) {
-            throw new Error(String(reopen.message || "Invalid security key.").trim());
-          }
-          if (recoverKey) recoverKey.value = "";
+          await verifySecretPin(pin);
+          state.secretPinVerified = true;
           state.smartPinLockStatus = null;
-          await refreshSmartPinGateLockStatus(modal);
-          const hint = modal.querySelector("#secretPinGateLockHint");
-          if (hint && modal.querySelector("#secretPinGateLockPanel")?.classList.contains("hide")) {
+          finish(true);
+        } catch (verifyErr) {
+          input.value = "";
+          const payload = unwrapRpcJson(verifyErr?.smartPinResult)
+            || inferSmartPinLockFromMessage(formatSmartPinErrorMessage(verifyErr));
+          if (payload && (payload.locked || payload.temp_disabled)) {
             error.textContent = "";
+            const normalized = normalizeSmartPinLockStatus(payload);
+            state.smartPinLockStatus = normalized;
+            applySmartPinGateLockUi(modal, normalized);
+          } else {
+            error.textContent = formatSmartPinErrorMessage(verifyErr);
+            const refreshed = await refreshSmartPinGateLockStatus(modal);
+            if (refreshed?.locked || refreshed?.temp_disabled) {
+              error.textContent = "";
+            }
+            if (!input.disabled && !input.hidden && !input.closest(".hide")) input.focus();
+            return;
           }
-          if (!input.disabled && !input.closest(".hide")) input.focus();
-        } catch (err) {
-          const hint = modal.querySelector("#secretPinGateLockHint");
-          if (hint) hint.textContent = formatSmartPinErrorMessage(err);
-          if (recoverKey) {
-            recoverKey.value = "";
-            recoverKey.focus();
-          }
-        } finally {
-          recoverBtn.disabled = false;
+          await refreshSmartPinGateLockStatus(modal);
         }
       };
-    }
 
-    forgotBtn.onclick = async () => {
-      try {
-        if (forgotBtn.disabled || forgotBtn.hidden || forgotBtn.classList.contains("hide")) return;
-        const ok = await handleForgotSecretPin();
-        if (ok) finish(true);
-      } catch (err) {
-        error.textContent = formatSmartPinErrorMessage(err);
+      if (recoverBtn) {
+        recoverBtn.onclick = async () => {
+          error.textContent = "";
+          const key = String(recoverKey?.value || "").replace(/\D/g, "").slice(0, 15);
+          if (key.length !== 15) {
+            const hint = modal.querySelector("#secretPinGateLockHint");
+            if (hint) hint.textContent = "Enter your full 15-digit Admin Security Key to reopen.";
+            return;
+          }
+          recoverBtn.disabled = true;
+          try {
+            const reopen = await supabaseRpc("app_admin_security_key_reopen_own_smart_pin", { p_key: key });
+            if (reopen && reopen.ok === false) {
+              throw new Error(String(reopen.message || "Invalid security key.").trim());
+            }
+            if (recoverKey) recoverKey.value = "";
+            state.smartPinLockStatus = null;
+            await refreshSmartPinGateLockStatus(modal);
+            if (!input.disabled && !input.hidden && !input.closest(".hide")) input.focus();
+          } catch (err) {
+            const hint = modal.querySelector("#secretPinGateLockHint");
+            if (hint) hint.textContent = formatSmartPinErrorMessage(err);
+            if (recoverKey) {
+              recoverKey.value = "";
+              recoverKey.focus();
+            }
+          } finally {
+            recoverBtn.disabled = false;
+          }
+        };
       }
-    };
 
-    logoutBtn.onclick = () => {
-      finish(false);
-      doLogout();
-    };
-  });
+      forgotBtn.onclick = async () => {
+        try {
+          if (forgotBtn.disabled || forgotBtn.hidden || forgotBtn.classList.contains("hide")) return;
+          const ok = await handleForgotSecretPin();
+          if (ok) finish(true);
+        } catch (err) {
+          error.textContent = formatSmartPinErrorMessage(err);
+        }
+      };
+
+      logoutBtn.onclick = () => {
+        finish(false);
+        doLogout();
+      };
+    });
+  })();
 }
 
 function ensureSmartPinConfirmModal() {
