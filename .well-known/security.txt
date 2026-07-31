@@ -1,0 +1,8 @@
+Contact: mailto:nadeemshahzadfida@outlook.com
+Contact: tel:+923339004564
+Contact: https://triplem.vip/
+Preferred-Languages: en, ur
+Canonical: https://triplem.vip/.well-known/security.txt
+Expires: 2027-07-30T00:00:00.000Z
+Policy: https://triplem.vip/
+Acknowledgments: https://triplem.vip/humans.txt
