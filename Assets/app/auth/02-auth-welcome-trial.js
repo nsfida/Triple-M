@@ -380,6 +380,9 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = fals
 
     if (!pinReadyFromProfile) {
       await loadSecretPinPreferenceFromDatabase();
+    } else if (state.secretPinHash && typeof syncSmartPinLockStatusFromServer === "function") {
+      // Profile already knew PIN is enabled — still load lockout status for refresh / other devices.
+      await syncSmartPinLockStatusFromServer();
     }
     if (state.secretPinHash && !state.secretPinVerified) {
       // Drop splash while PIN is shown so resume doesn't feel "stuck loading".
