@@ -390,8 +390,12 @@ async function handleAdminUserAction(action, user, opts = {}){
         return alert("Protected administrator access required.");
       }
       if (user.is_protected) return;
-      if (!confirm(`Clear Smart Pin for "${user.username}"? They can sign in without a pin until they set a new one.`)) return;
+      if (!confirm(`Clear Smart Pin for "${user.username}"? Lockout attempts will also reset so they can set a new pin immediately.`)) return;
       await supabaseRpc("app_admin_clear_user_smart_pin", { p_user_id: user.id });
+      // Belt-and-suspenders: ensure lockout row is cleared even if an older clear RPC is still deployed.
+      try {
+        await supabaseRpc("app_admin_reopen_smart_pin_lockout", { p_user_id: user.id });
+      } catch (_) { /* ignore if unavailable / already cleared */ }
       await loadAdminUsers();
       return;
     }
