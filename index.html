@@ -594,6 +594,8 @@
   <link rel="stylesheet" href="Assets/style/13-assets.css" />
   <link rel="stylesheet" href="Assets/style/14-shared-card-surface.css" />
   <link rel="stylesheet" href="Assets/style/15-seo-pages.css" />
+  <link rel="stylesheet" href="Assets/style/16-admin-security.css" />
+  <link rel="stylesheet" href="Assets/style/17-landing-motion.css" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -708,16 +710,26 @@
 
       <main id="top" class="landing-main landing-main--marketing">
         <div class="landing-offer-ticker" role="status" aria-live="polite">
+          <span class="landing-offer-sprinkles" aria-hidden="true">
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+            <i class="landing-offer-sprinkle"></i>
+          </span>
           <span class="landing-offer-ticker-pulse" aria-hidden="true">●</span>
           <p class="landing-offer-ticker-text">
-            <strong>🔥 14-DAY FREE TRIAL</strong>
+            <strong><i class="fa-solid fa-fire" aria-hidden="true"></i> 14-DAY FREE TRIAL</strong>
             <span class="landing-offer-ticker-sep" aria-hidden="true">·</span>
             <span class="landing-offer-ticker-detail">Full workspace · No card · Claim in under 2 minutes</span>
           </p>
           <button type="button" class="landing-offer-ticker-cta" data-landing-trial>Claim now →</button>
         </div>
 
-        <section class="landing-hero landing-hero-marketing" aria-labelledby="landingHeroTitle">
+        <section class="landing-hero landing-hero-marketing" aria-labelledby="landingHeroTitle" data-landing-reveal data-landing-reveal-eager data-landing-parallax>
           <div class="landing-hero-marketing-inner">
             <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private finance workspace</p>
             <h1 id="landingHeroTitle" class="landing-hero-title">
@@ -733,69 +745,75 @@
                 <i class="fa-solid fa-gift" aria-hidden="true"></i> Start free trial
               </button>
             </div>
-            <p class="landing-hero-trust"><span aria-hidden="true">🔒</span> Isolated accounts · <span aria-hidden="true">📄</span> PDF exports · <span aria-hidden="true">⚡</span> Browser-ready</p>
+            <p class="landing-hero-trust">
+              <span><i class="fa-solid fa-lock" aria-hidden="true"></i> Isolated accounts</span>
+              <span class="landing-hero-trust-sep" aria-hidden="true">·</span>
+              <span><i class="fa-solid fa-file-lines" aria-hidden="true"></i> PDF exports</span>
+              <span class="landing-hero-trust-sep" aria-hidden="true">·</span>
+              <span><i class="fa-solid fa-bolt" aria-hidden="true"></i> Browser-ready</span>
+            </p>
           </div>
         </section>
 
-        <section class="landing-trial-banner" id="landingTrialBanner" aria-labelledby="landingTrialBannerTitle">
+        <section class="landing-trial-banner" id="landingTrialBanner" aria-labelledby="landingTrialBannerTitle" data-landing-reveal data-landing-reveal-eager>
           <div class="landing-trial-banner-inner">
             <div class="landing-trial-banner-copy">
-              <p class="landing-trial-badge landing-trial-badge--blink"><span aria-hidden="true">🎁</span> Limited intro offer — blink &amp; grab it</p>
+              <p class="landing-trial-badge landing-trial-badge--blink"><i class="fa-solid fa-gift" aria-hidden="true"></i> Limited intro offer — blink &amp; grab it</p>
               <h2 id="landingTrialBannerTitle">14 days free. Full access. No card.</h2>
               <p>Open wallets, inventory, assets, invoices &amp; Bitcoin tools today. Login stays after trial — continue with a plan or admin grant.</p>
               <ul class="landing-trial-points">
-                <li><span aria-hidden="true">✅</span> Multi-currency wallets &amp; expenses</li>
-                <li><span aria-hidden="true">✅</span> Inventory, invoices &amp; balances</li>
-                <li><span aria-hidden="true">✅</span> Asset Management with live P/L</li>
-                <li><span aria-hidden="true">✅</span> Client-side Bitcoin send &amp; receive</li>
+                <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Multi-currency wallets &amp; expenses</li>
+                <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Inventory, invoices &amp; balances</li>
+                <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Asset Management with live P/L</li>
+                <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Client-side Bitcoin send &amp; receive</li>
               </ul>
               <div class="landing-trial-banner-actions">
                 <button type="button" class="btn primary landing-cta-pulse" data-landing-trial><i class="fa-solid fa-rocket" aria-hidden="true"></i> Claim free trial</button>
                 <button type="button" class="btn ghost" data-landing-section="pricing">See pricing</button>
               </div>
             </div>
-            <aside class="landing-trial-banner-card" aria-label="Why start today">
+            <aside class="landing-trial-banner-card landing-surface-card" aria-label="Why start today" data-landing-stagger>
               <strong>Why owners start today</strong>
-              <p><span aria-hidden="true">⏱️</span> Setup in minutes</p>
-              <p><span aria-hidden="true">🛡️</span> Private per-account data</p>
-              <p><span aria-hidden="true">📊</span> Charts &amp; PDFs included</p>
-              <p><span aria-hidden="true">💬</span> WhatsApp support ready</p>
-              <p class="landing-trial-urgency"><span aria-hidden="true">⏳</span> Offer active for new accounts</p>
+              <p><i class="fa-regular fa-clock" aria-hidden="true"></i> Setup in minutes</p>
+              <p><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private per-account data</p>
+              <p><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Charts &amp; PDFs included</p>
+              <p><i class="fa-solid fa-comments" aria-hidden="true"></i> WhatsApp support ready</p>
+              <p class="landing-trial-urgency"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Offer active for new accounts</p>
             </aside>
           </div>
         </section>
 
-        <section class="landing-convince" aria-labelledby="landingConvinceTitle">
+        <section class="landing-convince" aria-labelledby="landingConvinceTitle" data-landing-reveal>
           <header class="landing-convince-head">
             <p class="section-kicker">Built for real operators</p>
             <h2 id="landingConvinceTitle">Day-to-day money — without the chaos.</h2>
             <p>For merchants, shop owners &amp; careful individuals who want clarity that stays private.</p>
           </header>
-          <div class="landing-convince-grid">
-            <article class="landing-convince-card">
-              <span class="landing-convince-emoji" aria-hidden="true">💼</span>
+          <div class="landing-convince-grid" data-landing-stagger>
+            <article class="landing-convince-card landing-surface-card">
+              <span class="landing-convince-icon" aria-hidden="true"><i class="fa-solid fa-briefcase"></i></span>
               <h3>One private workspace</h3>
               <p>Wallets, loans, inventory, assets, invoices &amp; Bitcoin — searchable history, not scattered sheets.</p>
             </article>
-            <article class="landing-convince-card">
-              <span class="landing-convince-emoji" aria-hidden="true">📈</span>
+            <article class="landing-convince-card landing-surface-card">
+              <span class="landing-convince-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
               <h3>Decisions, not guesswork</h3>
               <p>Charts, asset P/L, inventory profit &amp; wallet balances — know where money went.</p>
             </article>
-            <article class="landing-convince-card">
-              <span class="landing-convince-emoji" aria-hidden="true">🔐</span>
+            <article class="landing-convince-card landing-surface-card">
+              <span class="landing-convince-icon" aria-hidden="true"><i class="fa-solid fa-user-lock"></i></span>
               <h3>Serious about privacy</h3>
               <p>Isolated accounts + Bitcoin keys that stay in your browser. Keys don’t leave your device.</p>
             </article>
-            <article class="landing-convince-card">
-              <span class="landing-convince-emoji" aria-hidden="true">🖨️</span>
+            <article class="landing-convince-card landing-surface-card">
+              <span class="landing-convince-icon" aria-hidden="true"><i class="fa-solid fa-print"></i></span>
               <h3>Export when you need it</h3>
               <p>Branded invoices, receipts, asset summaries &amp; BTC statements — ready for customers.</p>
             </article>
           </div>
         </section>
 
-        <section class="landing-seo-pillar" id="seoWhatIs" aria-labelledby="seoWhatIsTitle">
+        <section class="landing-seo-pillar" id="seoWhatIs" aria-labelledby="seoWhatIsTitle" data-landing-reveal>
           <header class="landing-seo-pillar-head">
             <p class="section-kicker">What is Triplem?</p>
             <h2 id="seoWhatIsTitle">Private accounting software for real-world money control.</h2>
@@ -805,37 +823,45 @@
               without spreadsheet chaos.
             </p>
           </header>
-          <div class="landing-seo-pillar-grid">
-            <article>
-              <h3><a href="seo/accounting-software.html">Accounting software</a></h3>
+          <div class="landing-seo-pillar-grid" data-landing-stagger>
+            <a class="landing-seo-card landing-surface-card" href="seo/accounting-software.html">
+              <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-book"></i></span>
+              <h3>Accounting software</h3>
               <p>Ledgers, wallets, invoices, and PDF statements in one private Triplem workspace.</p>
-            </article>
-            <article>
-              <h3><a href="seo/accounting-setup.html">Accounting setup</a></h3>
+              <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a class="landing-seo-card landing-surface-card" href="seo/accounting-setup.html">
+              <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-sliders"></i></span>
+              <h3>Accounting setup</h3>
               <p>Go from empty books to live expense tracking in minutes with a guided Triplem setup.</p>
-            </article>
-            <article>
-              <h3><a href="seo/expense-tracking.html">Expense tracking</a></h3>
+              <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a class="landing-seo-card landing-surface-card" href="seo/expense-tracking.html">
+              <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></span>
+              <h3>Expense tracking</h3>
               <p>Personal and business spend across cash, bank, card, and custom multi-currency wallets.</p>
-            </article>
-            <article>
-              <h3><a href="seo/finance-software.html">Finance software</a></h3>
+              <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a class="landing-seo-card landing-surface-card" href="seo/finance-software.html">
+              <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-chart-pie"></i></span>
+              <h3>Finance software</h3>
               <p>Inventory, assets, loans, Bitcoin tools, and reports—finance software that stays private.</p>
-            </article>
+              <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+            </a>
           </div>
           <p class="landing-seo-pillar-more"><a href="seo/">Browse all Triplem guides</a> · <a href="seo/triplem.html">Why search “Triplem”</a></p>
         </section>
       </main>
 
-      <section class="landing-demo-analytics" id="landingDemoAnalytics" aria-labelledby="landingDemoAnalyticsTitle">
+      <section class="landing-demo-analytics" id="landingDemoAnalytics" aria-labelledby="landingDemoAnalyticsTitle" data-landing-reveal>
         <header class="landing-demo-analytics-head">
           <p class="section-kicker">Product preview</p>
           <h2 id="landingDemoAnalyticsTitle">Clarity you can glance at.</h2>
           <p class="landing-demo-analytics-lead">Illustrative demo charts showing how Triplem surfaces expense trends, collections, wallet balances, and profit — sample data only, not live customer results.</p>
         </header>
 
-        <div class="landing-demo-analytics-grid">
-          <article class="landing-demo-chart-card">
+        <div class="landing-demo-analytics-grid" data-landing-stagger>
+          <article class="landing-demo-chart-card landing-surface-card">
             <header class="landing-demo-chart-head">
               <h3>Expense tracking</h3>
               <p>Monthly spend across wallets</p>
@@ -845,7 +871,7 @@
             </div>
           </article>
 
-          <article class="landing-demo-chart-card">
+          <article class="landing-demo-chart-card landing-surface-card">
             <header class="landing-demo-chart-head">
               <h3>Invoices &amp; collections</h3>
               <p>Issued vs collected over time</p>
@@ -855,7 +881,7 @@
             </div>
           </article>
 
-          <article class="landing-demo-chart-card">
+          <article class="landing-demo-chart-card landing-surface-card">
             <header class="landing-demo-chart-head">
               <h3>Wallet balance</h3>
               <p>Combined balance trend</p>
@@ -865,7 +891,7 @@
             </div>
           </article>
 
-          <article class="landing-demo-chart-card">
+          <article class="landing-demo-chart-card landing-surface-card">
             <header class="landing-demo-chart-head">
               <h3>Profit snapshot</h3>
               <p>Revenue mix this quarter</p>
@@ -879,72 +905,64 @@
         <p class="landing-demo-analytics-note">Fictional sample data for product illustration — your workspace charts reflect your own books.</p>
       </section>
 
-      <section class="landing-testimonials" aria-labelledby="landingTestimonialsTitle">
+      <section class="landing-testimonials" aria-labelledby="landingTestimonialsTitle" data-landing-reveal>
         <header class="landing-testimonials-head">
           <p class="section-kicker">Customer reviews</p>
           <h2 id="landingTestimonialsTitle">Trusted by people who keep their books clean.</h2>
           <p class="landing-testimonials-lead">Short notes from operators using Triplem for accounting, expense tracking, invoices, and day-to-day finance.</p>
         </header>
 
-        <div class="landing-testimonials-list">
-          <figure class="landing-testimonial">
+        <div class="landing-testimonials-list" data-landing-stagger>
+          <figure class="landing-testimonial landing-surface-card">
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar" src="Assets/logo/customers/danish.jpg" alt="Danish Rabbani" width="56" height="56" loading="lazy" decoding="async" />
+              <span class="landing-testimonial-name">Danish Rabbani</span>
+            </figcaption>
             <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
-              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
-                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
-              </svg>
+              <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
               <p>“Triplem replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace.”</p>
             </blockquote>
-            <figcaption class="landing-testimonial-person">
-              <img class="landing-testimonial-avatar" src="Assets/logo/customers/danish.jpg" alt="Danish Rabbani" width="48" height="48" loading="lazy" decoding="async" />
-              <span class="landing-testimonial-name">Danish Rabbani</span>
-            </figcaption>
           </figure>
 
-          <figure class="landing-testimonial">
+          <figure class="landing-testimonial landing-surface-card">
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar" src="Assets/logo/customers/bilal.jpg" alt="Muhammad Bilal" width="56" height="56" loading="lazy" decoding="async" />
+              <span class="landing-testimonial-name">Muhammad Bilal</span>
+            </figcaption>
             <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
-              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
-                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
-              </svg>
+              <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
               <p>“Invoices and inventory stay aligned, and customer balances are easy to follow. It feels like serious accounting software without the clutter.”</p>
             </blockquote>
-            <figcaption class="landing-testimonial-person">
-              <img class="landing-testimonial-avatar" src="Assets/logo/customers/bilal.jpg" alt="Muhammad Bilal" width="48" height="48" loading="lazy" decoding="async" />
-              <span class="landing-testimonial-name">Muhammad Bilal</span>
-            </figcaption>
           </figure>
 
-          <figure class="landing-testimonial">
+          <figure class="landing-testimonial landing-surface-card">
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar" src="Assets/logo/customers/sarah.png" alt="Sarah Elizabeth" width="56" height="56" loading="lazy" decoding="async" />
+              <span class="landing-testimonial-name">Sarah Elizabeth</span>
+            </figcaption>
             <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
-              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
-                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
-              </svg>
+              <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
               <p>“I use Triplem for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds.”</p>
             </blockquote>
-            <figcaption class="landing-testimonial-person">
-              <img class="landing-testimonial-avatar" src="Assets/logo/customers/sarah.png" alt="Sarah Elizabeth" width="48" height="48" loading="lazy" decoding="async" />
-              <span class="landing-testimonial-name">Sarah Elizabeth</span>
-            </figcaption>
           </figure>
 
-          <figure class="landing-testimonial">
+          <figure class="landing-testimonial landing-surface-card">
+            <figcaption class="landing-testimonial-person">
+              <img class="landing-testimonial-avatar landing-testimonial-avatar--logo" src="Assets/logo/customers/infonet.png" alt="Infonet Tech" width="56" height="56" loading="lazy" decoding="async" />
+              <span class="landing-testimonial-name">Infonet Tech</span>
+            </figcaption>
             <div class="landing-stars" role="img" aria-label="5 out of 5 stars">
-              <svg viewBox="0 0 120 24" width="108" height="22" aria-hidden="true" focusable="false">
-                <path fill="currentColor" d="M12 2.4l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L2.2 9.6l7.1-.6L12 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L26.2 9.6l7.1-.6L36 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L50.2 9.6l7.1-.6L60 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L74.2 9.6l7.1-.6L84 2.4zm24 0l2.7 6.6 7.1.6-5.4 4.7 1.7 7-6.1-3.7-6.1 3.7 1.7-7L98.2 9.6l7.1-.6L108 2.4z"/>
-              </svg>
+              <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
               <p>“Our team runs loans, invoices, and multi-currency finance in Triplem. Isolated workspaces and clear reports made handover far simpler.”</p>
             </blockquote>
-            <figcaption class="landing-testimonial-person">
-              <img class="landing-testimonial-avatar landing-testimonial-avatar--logo" src="Assets/logo/customers/infonet.png" alt="Infonet Tech" width="48" height="48" loading="lazy" decoding="async" />
-              <span class="landing-testimonial-name">Infonet Tech</span>
-            </figcaption>
           </figure>
         </div>
       </section>
@@ -3745,48 +3763,79 @@
       </section>
 
       <section id="adminPanel" class="panel">
-        <div class="card section">
-          <div class="section-head">
-            <div class="section-head-top">
-              <div class="title-group">
-                <div class="title-row">
-                  <h3>Admin · User Access Control</h3>
-                </div>
-                <p>Create login accounts, assign currencies and tabs, view credentials, and edit every user’s access settings.</p>
-              </div>
-              <div class="tools admin-panel-tools">
-                <div class="menu-wrap hide" id="adminBackupWrap">
-                  <button class="btn soft tiny menu-trigger admin-tool-btn" id="adminBackupBtn" type="button" data-entry-menu="admin-backup" aria-haspopup="menu" aria-expanded="false" title="Backup &amp; Restore">
-                    <i class="fa-solid fa-database" aria-hidden="true"></i> Backup
-                  </button>
-                  <div class="menu-dropdown admin-backup-dropdown" data-entry-menu-panel="admin-backup">
-                    <button type="button" class="menu-item" id="adminBackupDownloadJsonBtn"><i class="fa-solid fa-file-code"></i> Download Backup (JSON)</button>
-                    <button type="button" class="menu-item" id="adminBackupDownloadCsvBtn"><i class="fa-solid fa-file-csv"></i> Download Backup (CSV)</button>
-                    <label class="menu-item file-import-btn" for="adminBackupUploadInput"><i class="fa-solid fa-upload"></i> Upload Backup</label>
-                    <input id="adminBackupUploadInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
-                    <button type="button" class="menu-item" id="adminBackupDownloadSqlBtn"><i class="fa-solid fa-file-lines"></i> Download SQL</button>
-                    <p class="admin-backup-status" id="adminBackupStatus" aria-live="polite"></p>
+        <div id="adminSecurityLock" class="admin-security-lock hide" aria-hidden="true" hidden>
+          <div class="admin-security-lock-card" role="dialog" aria-modal="true" aria-labelledby="adminSecurityLockTitle">
+            <div class="admin-security-lock-icon" aria-hidden="true">
+              <i class="fa-solid fa-lock"></i>
+            </div>
+            <h3 id="adminSecurityLockTitle">Admin Access Protected</h3>
+            <p class="admin-security-lock-lead">Enter your 15-digit Admin Security Key to unlock the Admin section.</p>
+            <label class="form-label" for="adminSecurityUnlockInput">Security key</label>
+            <input
+              id="adminSecurityUnlockInput"
+              class="input admin-security-key-input"
+              type="password"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="15"
+              pattern="\d{15}"
+              placeholder="15-digit security key"
+              aria-describedby="adminSecurityUnlockError"
+            />
+            <p id="adminSecurityUnlockError" class="admin-security-error" role="alert" aria-live="polite"></p>
+            <button type="button" class="btn primary" id="adminSecurityUnlockBtn">
+              <i class="fa-solid fa-unlock-keyhole" aria-hidden="true"></i> Unlock
+            </button>
+          </div>
+        </div>
+
+        <div id="adminPanelContent" class="admin-panel-content">
+          <div class="card section">
+            <div class="section-head">
+              <div class="section-head-top">
+                <div class="title-group">
+                  <div class="title-row">
+                    <h3>Admin · User Access Control</h3>
                   </div>
+                  <p>Create login accounts, assign currencies and tabs, view credentials, and edit every user’s access settings.</p>
                 </div>
-                <button class="btn soft tiny admin-tool-btn" id="adminStorageMgmtBtn" type="button" title="Storage Management">
-                  <i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Storage
-                </button>
-                <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminRefreshUsersBtn" type="button" title="Refresh users" aria-label="Refresh users">
-                  <i class="fa-solid fa-rotate" aria-hidden="true"></i>
-                </button>
-                <button class="btn soft tiny admin-tool-btn" id="adminCreateUserBtn" type="button" title="Create user">
-                  <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Create
-                </button>
+                <div class="tools admin-panel-tools">
+                  <div class="menu-wrap hide" id="adminBackupWrap">
+                    <button class="btn soft tiny menu-trigger admin-tool-btn" id="adminBackupBtn" type="button" data-entry-menu="admin-backup" aria-haspopup="menu" aria-expanded="false" title="Backup &amp; Restore">
+                      <i class="fa-solid fa-database" aria-hidden="true"></i> Backup
+                    </button>
+                    <div class="menu-dropdown admin-backup-dropdown" data-entry-menu-panel="admin-backup">
+                      <button type="button" class="menu-item" id="adminBackupDownloadJsonBtn"><i class="fa-solid fa-file-code"></i> Download Backup (JSON)</button>
+                      <button type="button" class="menu-item" id="adminBackupDownloadCsvBtn"><i class="fa-solid fa-file-csv"></i> Download Backup (CSV)</button>
+                      <label class="menu-item file-import-btn" for="adminBackupUploadInput"><i class="fa-solid fa-upload"></i> Upload Backup</label>
+                      <input id="adminBackupUploadInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
+                      <button type="button" class="menu-item" id="adminBackupDownloadSqlBtn"><i class="fa-solid fa-file-lines"></i> Download SQL</button>
+                      <p class="admin-backup-status" id="adminBackupStatus" aria-live="polite"></p>
+                    </div>
+                  </div>
+                  <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon hide" id="adminSecurityKeyBtn" type="button" title="Admin Security Key" aria-label="Admin Security Key">
+                    <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                  </button>
+                  <button class="btn soft tiny admin-tool-btn" id="adminStorageMgmtBtn" type="button" title="Storage Management">
+                    <i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Storage
+                  </button>
+                  <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminRefreshUsersBtn" type="button" title="Refresh users" aria-label="Refresh users">
+                    <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                  </button>
+                  <button class="btn soft tiny admin-tool-btn" id="adminCreateUserBtn" type="button" title="Create user">
+                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Create
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="admin-legend">
-            <span><i class="fa-solid fa-lock"></i> Credentials stay locked — tap the lock icon to reveal</span>
-            <span><i class="fa-solid fa-chevron-down"></i> Tap a row to expand details &amp; actions</span>
-            <span><i class="fa-solid fa-calendar-check"></i> Plan → extend or reduce access</span>
-          </div>
-          <div id="adminUsersList" class="admin-users-list">
-            <div class="empty">Loading users…</div>
+            <div class="admin-legend">
+              <span><i class="fa-solid fa-lock"></i> Credentials stay locked — tap the lock icon to reveal</span>
+              <span><i class="fa-solid fa-chevron-down"></i> Tap a row to expand details &amp; actions</span>
+              <span><i class="fa-solid fa-calendar-check"></i> Plan → extend or reduce access</span>
+            </div>
+            <div id="adminUsersList" class="admin-users-list">
+              <div class="empty">Loading users…</div>
+            </div>
           </div>
         </div>
       </section>
@@ -5636,6 +5685,7 @@
   <script src="Assets/app/assets/01-assets.js"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js"></script>
   <script src="Assets/app/admin/01-admin.js"></script>
+  <script src="Assets/app/admin/02-admin-security.js"></script>
   <script src="Assets/app/messaging/01-messaging.js"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
