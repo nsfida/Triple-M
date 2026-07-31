@@ -1,75 +1,49 @@
-/* Visual parity when demoted section titles use h3 (no UI redesign) */
-.landing-section h3{
-  margin:0;
-  color:var(--text);
-  font-size:clamp(1.55rem, 2.4vw, 2.1rem);
-  line-height:1.12;
-  letter-spacing:0;
-}
-.landing-content-body .landing-section h3,
-.landing-content-body .landing-section-block h3{
-  margin:0 0 6px;
-  font-size:clamp(1.02rem, 2.1vw, 1.28rem);
-  font-weight:700;
-  line-height:1.28;
-  letter-spacing:-0.015em;
-  max-width:36ch;
-}
-.landing-content-head-copy h2,
-.landing-content-head-copy h3{
-  margin:0;
-}
-.landing-demo-analytics-head h3,
-.landing-testimonials-head h3,
-.landing-trial-banner-copy h3,
-.landing-convince-head h3{
-  margin:0;
-}
-.overview-top h2,
-.overview-top h3{font-size:inherit;font-weight:inherit;margin:0}
-.login-header h2,
-.login-header h3,
-.login-panel-top h2,
-.login-panel-top h3,
-.login-glass-panel--overlay h2,
-.login-glass-panel--overlay h3,
-.trial-promo-brand h2,
-.trial-promo-brand h3{
-  /* inherit existing companion rules from 08-landing-auth.css */
-}
-h2.welcome-title,
-h3.welcome-title{margin:0}
+/* SEO topic pages — scroll reveal (one-shot; no un-reveal thrash). UI only. */
+(function initSeoMotion(){
+  if (typeof document === "undefined") return;
+  const root = document.body;
+  if (!root || !root.classList.contains("seo-page")) return;
+  if (root.dataset.seoMotionBound === "1") return;
+  root.dataset.seoMotionBound = "1";
 
-.landing-footer-trust{
-  margin:12px 0 4px;
-  text-align:center;
-  color:var(--muted,#475569);
-  font-size:.8rem;
-  line-height:1.5;
-}
-.landing-footer-trust p{margin:0 0 6px}
-.landing-footer-trust .landing-footer-link{
-  margin:0 .35rem;
-}
-.landing-footer-security{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  flex-wrap:wrap;
-  color:#334155;
-  font-weight:600;
-}
-.landing-footer-security i{color:#2457d6}
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const revealList = Array.from(root.querySelectorAll("[data-seo-reveal]"));
+  const topRevealCount = 2;
 
-/* Responsive logo sizing helpers */
-.landing-brand picture,
-.landing-brand img{
-  display:block;
-  max-width:100%;
-  height:auto;
-}
-/* Keep avatar layout identical when wrapped in <picture> */
-.landing-testimonial-person picture{
-  display:contents;
-}
+  const setRevealed = (el, on) => {
+    el.classList.toggle("is-seo-revealed", on);
+  };
+
+  if (reduceMotion || typeof IntersectionObserver !== "function") {
+    revealList.forEach((el) => {
+      el.classList.add("seo-reveal-ready");
+      setRevealed(el, true);
+    });
+    return;
+  }
+
+  const marked = revealList.filter((el) => el.hasAttribute("data-seo-reveal-eager"));
+  const eagerSections = marked.length ? marked : revealList.slice(0, topRevealCount);
+  const eagerSet = new Set(eagerSections);
+  const scrollSections = revealList.filter((el) => !eagerSet.has(el));
+
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      setRevealed(entry.target, true);
+      observer.unobserve(entry.target);
+    }
+  }, { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+
+  scrollSections.forEach((el) => observer.observe(el));
+
+  eagerSections.forEach((el) => {
+    const arm = (evt) => {
+      if (evt && evt.target !== el) return;
+      if (el.classList.contains("seo-reveal-ready")) return;
+      el.classList.add("seo-reveal-ready", "is-seo-revealed");
+    };
+    el.addEventListener("animationend", arm);
+    setTimeout(() => arm(null), 1600);
+  });
+})();
