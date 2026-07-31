@@ -1707,6 +1707,15 @@
   background: rgba(255,255,255,.92);
   backdrop-filter: blur(6px);
 }
+.messages-thread-header-top{
+  display: none;
+  margin-bottom: 8px;
+}
+.messages-thread-back{
+  padding: 6px 10px;
+  font-size: .82rem;
+  gap: 6px;
+}
 .messages-thread-header-main{
   display: flex;
   justify-content: space-between;
@@ -1833,4 +1842,47 @@
 .message-status-pill.archived{
   background: #f1f5f9;
   color: #64748b;
+}
+
+@media (max-width: 900px){
+  .messages-workspace{
+    grid-template-columns: 1fr;
+    min-height: min(70vh, 640px);
+    position: relative;
+  }
+  .messages-sidebar{
+    border-right: none;
+    border-bottom: none;
+    max-height: none;
+    min-height: min(70vh, 640px);
+  }
+  .messages-conversation{
+    display: none;
+  }
+  .messages-workspace.messages-conversation-open .messages-sidebar{
+    display: none;
+  }
+  .messages-workspace.messages-conversation-open .messages-conversation{
+    display: flex;
+    min-height: min(70vh, 640px);
+    height: min(70vh, 640px);
+  }
+  .messages-workspace.messages-conversation-open .messages-thread-active{
+    height: 100%;
+  }
+  .messages-workspace.messages-conversation-open .messages-chat-scroll{
+    min-height: 0;
+    flex: 1;
+  }
+  .messages-thread-header-top{
+    display: flex;
+    align-items: center;
+  }
+  .messages-thread-header-actions{
+    gap: 4px;
+  }
+  .messages-thread-header-actions .btn{
+    font-size: .75rem;
+    padding: 6px 8px;
+  }
 }
