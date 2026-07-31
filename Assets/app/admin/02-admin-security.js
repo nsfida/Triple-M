@@ -303,6 +303,13 @@ async function ensureAdminSecurityAccess(){
       return true;
     }
 
+    // Honor server unlock session — do not force-lock when already unlocked
+    if (status?.unlocked) {
+      adminSecurityState.unlocked = true;
+      setAdminSecurityLockVisible(false);
+      return true;
+    }
+
     adminSecurityState.unlocked = false;
     setAdminSecurityLockVisible(true);
     return false;
