@@ -1,4 +1,4 @@
-/* SEO topic pages — scroll reveal (replays on scroll up/down). UI only. */
+/* SEO topic pages — scroll reveal (one-shot; no un-reveal thrash). UI only. */
 (function initSeoMotion(){
   if (typeof document === "undefined") return;
   const root = document.body;
@@ -27,27 +27,13 @@
   const eagerSet = new Set(eagerSections);
   const scrollSections = revealList.filter((el) => !eagerSet.has(el));
 
-  const hideTimers = new WeakMap();
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {
-      const el = entry.target;
-      const pending = hideTimers.get(el);
-      if (entry.isIntersecting && entry.intersectionRatio > 0) {
-        if (pending) {
-          clearTimeout(pending);
-          hideTimers.delete(el);
-        }
-        if (!el.classList.contains("is-seo-revealed")) setRevealed(el, true);
-        continue;
-      }
-      if (entry.intersectionRatio > 0) continue;
-      if (pending) clearTimeout(pending);
-      hideTimers.set(el, setTimeout(() => {
-        hideTimers.delete(el);
-        setRevealed(el, false);
-      }, 280));
+      if (!entry.isIntersecting) continue;
+      setRevealed(entry.target, true);
+      observer.unobserve(entry.target);
     }
-  }, { root: null, rootMargin: "0px 0px -10% 0px", threshold: [0, 0.12, 0.35] });
+  }, { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
 
   scrollSections.forEach((el) => observer.observe(el));
 
@@ -56,7 +42,6 @@
       if (evt && evt.target !== el) return;
       if (el.classList.contains("seo-reveal-ready")) return;
       el.classList.add("seo-reveal-ready", "is-seo-revealed");
-      observer.observe(el);
     };
     el.addEventListener("animationend", arm);
     setTimeout(() => arm(null), 1600);
