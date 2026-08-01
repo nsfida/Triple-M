@@ -2315,7 +2315,9 @@ let adminStorageState = {
   selectedUserId: "all",
   listQuery: "",
   listFilter: "top5",
-  scopeQuery: ""
+  scopeQuery: "",
+  analytics: null,
+  analyticsBusy: false
 };
 
 function destroyAdminStorageCharts(){
@@ -2415,6 +2417,27 @@ async function openAdminStorageManagementModal(){
         </div>
         <div class="admin-storage-scope" id="adminStorageUserPicks"></div>
         <div class="admin-storage-summary" id="adminStorageSummary"></div>
+        <section class="admin-storage-analytics" id="adminStorageAnalytics" aria-labelledby="adminStorageAnalyticsTitle">
+          <div class="admin-storage-analytics-head">
+            <div>
+              <h4 id="adminStorageAnalyticsTitle">Analytics Storage</h4>
+              <p class="admin-storage-analytics-lead">Site analytics tables only — user ledgers stay untouched.</p>
+            </div>
+            <span class="admin-storage-analytics-status" id="adminStorageAnalyticsStatus">Loading…</span>
+          </div>
+          <div class="admin-storage-summary admin-storage-analytics-summary" id="adminStorageAnalyticsSummary">
+            <div class="admin-storage-stat"><span>Records</span><strong>—</strong></div>
+            <div class="admin-storage-stat"><span>Used</span><strong>—</strong></div>
+            <div class="admin-storage-stat"><span>Of database</span><strong>—</strong></div>
+          </div>
+          <div class="admin-storage-analytics-actions" id="adminStorageAnalyticsActions">
+            <button type="button" class="btn soft tiny" data-analytics-cleanup="3">Older than 3 days</button>
+            <button type="button" class="btn soft tiny" data-analytics-cleanup="7">Older than 7 days</button>
+            <button type="button" class="btn soft tiny" data-analytics-cleanup="14">Older than 14 days</button>
+            <button type="button" class="btn soft tiny" data-analytics-cleanup="30">Older than 30 days</button>
+            <button type="button" class="btn soft tiny danger-text" data-analytics-cleanup="all">Delete all analytics</button>
+          </div>
+        </section>
         <div class="admin-storage-charts">
           <div class="admin-storage-chart-card">
             <h4 id="adminStorageMixTitle">Storage mix</h4>
@@ -2450,6 +2473,11 @@ async function openAdminStorageManagementModal(){
   };
   modal.querySelectorAll("[data-admin-storage-close]").forEach(el => { el.onclick = close; });
   modal.querySelector("#adminStorageRefreshBtn").onclick = () => loadAdminStorageUsage(modal);
+  modal.querySelector("#adminStorageAnalyticsActions")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-analytics-cleanup]");
+    if (!btn || adminStorageState.analyticsBusy) return;
+    runAdminAnalyticsStorageCleanup(modal, btn.getAttribute("data-analytics-cleanup"));
+  });
   const listSearch = modal.querySelector("#adminStorageListSearch");
   const listFilter = modal.querySelector("#adminStorageListFilter");
   if (listSearch) {
@@ -2468,6 +2496,93 @@ async function openAdminStorageManagementModal(){
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
   await loadAdminStorageUsage(modal);
+}
+
+function renderAdminAnalyticsStorageSection(modal, stats){
+  const summary = modal?.querySelector("#adminStorageAnalyticsSummary");
+  const status = modal?.querySelector("#adminStorageAnalyticsStatus");
+  if (!summary) return;
+  const data = stats || adminStorageState.analytics || {};
+  const records = Number(data.records || 0);
+  const bytes = Number(data.bytes || 0);
+  const percent = Number(data.percent || 0);
+  const breakdown = data.breakdown || {};
+  summary.innerHTML = `
+    <div class="admin-storage-stat"><span>Records</span><strong>${escapeHtml(String(records.toLocaleString()))}</strong></div>
+    <div class="admin-storage-stat"><span>Used</span><strong>${escapeHtml(formatStorageBytes(bytes))}</strong></div>
+    <div class="admin-storage-stat"><span>Of database</span><strong>${escapeHtml(percent.toFixed(2))}%</strong></div>`;
+  if (status) {
+    const parts = [
+      `S ${Number(breakdown.sessions || 0)}`,
+      `PV ${Number(breakdown.pageviews || 0)}`,
+      `Ev ${Number(breakdown.events || 0)}`
+    ];
+    status.textContent = data.generated_at
+      ? `${parts.join(" · ")} · ${formatAdminDate(data.generated_at)}`
+      : parts.join(" · ");
+  }
+}
+
+async function loadAdminAnalyticsStorageStats(modal){
+  const status = modal?.querySelector("#adminStorageAnalyticsStatus");
+  if (status && !adminStorageState.analytics) status.textContent = "Loading…";
+  try {
+    const data = await supabaseRpc("app_admin_analytics_storage_stats", {});
+    adminStorageState.analytics = data || null;
+    renderAdminAnalyticsStorageSection(modal, data);
+  } catch (err) {
+    if (status) {
+      status.textContent = err?.message || "Analytics storage unavailable (run migration 091)";
+    }
+  }
+}
+
+async function refreshAdminAnalyticsDashboardIfOpen(){
+  try {
+    const analyticsModal = document.getElementById("adminAnalyticsModal");
+    if (!analyticsModal || analyticsModal.classList.contains("hide")) return;
+    if (typeof loadAdminAnalyticsSummary === "function") {
+      await loadAdminAnalyticsSummary({ silent: true });
+    }
+  } catch (_) {}
+}
+
+async function runAdminAnalyticsStorageCleanup(modal, mode){
+  const key = String(mode || "");
+  const isAll = key === "all";
+  const days = isAll ? null : Number(key);
+  if (!isAll && ![3, 7, 14, 30].includes(days)) return;
+
+  const confirmMsg = isAll
+    ? "Delete ALL analytics records?\n\nThis only removes site analytics tables. User ledgers and other app data are not affected.\n\nThis cannot be undone."
+    : `Delete analytics records older than ${days} days?\n\nOnly site analytics data will be removed. User ledgers and other app data stay untouched.`;
+  if (!confirm(confirmMsg)) return;
+
+  adminStorageState.analyticsBusy = true;
+  const status = modal?.querySelector("#adminStorageAnalyticsStatus");
+  const actions = modal?.querySelector("#adminStorageAnalyticsActions");
+  actions?.querySelectorAll("button").forEach(b => { b.disabled = true; });
+  if (status) status.textContent = "Cleaning analytics…";
+  try {
+    const result = await supabaseRpc("app_admin_analytics_storage_cleanup", {
+      p_older_than_days: isAll ? null : days
+    });
+    const deleted = Number(result?.deleted?.total || 0);
+    adminStorageState.analytics = result?.stats || null;
+    if (adminStorageState.analytics) {
+      renderAdminAnalyticsStorageSection(modal, adminStorageState.analytics);
+    } else {
+      await loadAdminAnalyticsStorageStats(modal);
+    }
+    if (status) status.textContent = `Removed ${deleted.toLocaleString()} analytics row${deleted === 1 ? "" : "s"}`;
+    await refreshAdminAnalyticsDashboardIfOpen();
+  } catch (err) {
+    alert(err?.message || "Could not clean analytics storage.");
+    if (status) status.textContent = "Cleanup failed";
+  } finally {
+    adminStorageState.analyticsBusy = false;
+    actions?.querySelectorAll("button").forEach(b => { b.disabled = false; });
+  }
 }
 
 function renderAdminStorageUserPicks(modal){
@@ -2672,6 +2787,7 @@ async function loadAdminStorageUsage(modal){
   const tableWrap = modal.querySelector("#adminStorageTableWrap");
   if (hint) hint.textContent = "Refreshing…";
   if (tableWrap) tableWrap.innerHTML = `<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading storage…</div>`;
+  const analyticsPromise = loadAdminAnalyticsStorageStats(modal).catch(() => {});
   try {
     const data = await supabaseRpc("app_admin_storage_usage", {});
     adminStorageState.totals = data?.totals || {};
@@ -2697,6 +2813,8 @@ async function loadAdminStorageUsage(modal){
     if (tableWrap) {
       tableWrap.innerHTML = `<div class="empty">${escapeHtml(err.message || "Could not load storage usage. Run migration 078_admin_storage_management.sql.")}</div>`;
     }
+  } finally {
+    await analyticsPromise;
   }
 }
 
