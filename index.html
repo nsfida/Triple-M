@@ -583,7 +583,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260801-analytics-storage" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260801-data-loading" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -2680,6 +2680,16 @@
           <button class="btn ghost" id="trialExpiredLogoutBtn" type="button">Logout</button>
           <a class="btn soft" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp admin</a>
         </div>
+      </div>
+    </div>
+
+    <div id="appDataLoadingOverlay" class="app-data-loading hide" aria-hidden="true" aria-live="polite" role="status">
+      <div class="app-data-loading-card">
+        <div class="app-data-loading-spinner" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <p class="app-data-loading-title" id="appDataLoadingTitle">Your data is loading…</p>
+        <p class="app-data-loading-sub" id="appDataLoadingSub">Please wait a moment</p>
       </div>
     </div>
 
@@ -5720,18 +5730,19 @@
   <script src="Assets/app/core/04-entries-api.js"></script>
   <script src="Assets/app/utils/01-currency-money.js"></script>
   <script src="Assets/app/core/05-meta-helpers.js"></script>
+  <script src="Assets/app/core/06-app-loading.js?v=20260801-data-loading"></script>
   <script src="Assets/app/inventory/01-inventory-meta-stock.js"></script>
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js"></script>
-  <script src="Assets/app/ui/01-render-navigation.js"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260801-data-loading"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260801-data-loading"></script>
   <script src="Assets/app/installments/01-installments.js"></script>
   <script src="Assets/app/loans/01-loans-payments.js"></script>
   <script src="Assets/app/reports/01-pdf.js"></script>
   <script src="Assets/app/reports/02-exports.js"></script>
   <script src="Assets/app/expenses/02-transfers.js"></script>
-  <script src="Assets/app/ui/02-bindings.js"></script>
+  <script src="Assets/app/ui/02-bindings.js?v=20260801-data-loading"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260801-fraud-alert"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260731-smartpin-lock3"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
@@ -5739,8 +5750,8 @@
   <script src="Assets/app/assets/01-assets.js"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js"></script>
   <script src="Assets/app/admin/01-admin.js?v=20260801-analytics-storage"></script>
-  <script src="Assets/app/admin/02-admin-security.js"></script>
-  <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-analytics"></script>
+  <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
+  <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
   <script src="Assets/app/messaging/01-messaging.js?v=20260801-fraud-alert"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
