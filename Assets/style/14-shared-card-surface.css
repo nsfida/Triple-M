@@ -528,7 +528,8 @@
 #secretPinGateModal .modal-dialog,
 #smartPinManageModal .modal-dialog,
 #noteReminderModal .modal-dialog,
-#adminSecurityKeyModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-2); }
+#adminSecurityKeyModal .modal-dialog,
+#adminAnalyticsModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-2); }
 #smartPinConfirmModal .modal-dialog,
 #installmentEditModal .modal-dialog,
 #installmentPlanModal .modal-dialog{ --triplem-card-accent:var(--triplem-orb-3); }
