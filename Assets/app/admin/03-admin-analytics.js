@@ -352,7 +352,15 @@ async function openAdminAnalyticsModal(){
   modal.classList.remove("hide");
   modal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
-  await loadAdminAnalyticsSummary({ silent: false });
+  const load = () => loadAdminAnalyticsSummary({ silent: false });
+  if (typeof withAppDataLoad === "function") {
+    await withAppDataLoad(
+      { title: "Loading analytics…", sub: "Gathering traffic insights" },
+      load
+    );
+  } else {
+    await load();
+  }
   startAdminAnalyticsPolling();
 }
 
