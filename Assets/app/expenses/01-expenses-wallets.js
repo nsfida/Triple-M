@@ -3709,7 +3709,10 @@ function ledgerScopeContainers(scope){
 }
 
 function loadingStateHtml(label){
-  return `<div class="empty"><i class="fa-solid fa-spinner btn-loader"></i> Loading ${escapeHtml(label)}...</div>`;
+  return `<div class="empty app-inline-loading">
+    <span class="app-inline-loading-spinner" aria-hidden="true"></span>
+    <span>Loading ${escapeHtml(label)}…</span>
+  </div>`;
 }
 
 function errorStateHtml(label, err){
