@@ -583,7 +583,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260801-analytics" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260801-fraud-alert" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -1891,6 +1891,9 @@
   <div id="signInOverlay" class="signin-overlay hide" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <div class="signin-overlay-backdrop" data-signin-dismiss tabindex="-1" aria-hidden="true"></div>
     <div class="signin-overlay-card">
+      <button type="button" class="signin-overlay-info" id="signInInfoBtn" aria-label="Important notices" title="Important notices">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      </button>
       <button type="button" class="signin-overlay-close" data-signin-dismiss aria-label="Close sign in">&times;</button>
       <aside id="login" class="login-glass-panel login-glass-panel--overlay" aria-labelledby="loginTitle">
         <div class="login-panel-top">
@@ -2009,6 +2012,43 @@
         <button type="button" class="btn ghost" id="trialPromoLaterBtn" data-trial-promo-dismiss>Maybe later</button>
       </div>
       <p class="trial-promo-cta-hint">Get now — no payment details needed</p>
+    </div>
+  </div>
+
+  <!-- Fraud Alert (shown after trial promo close / info sequence) -->
+  <div id="fraudAlertOverlay" class="fraud-alert-overlay hide" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="fraudAlertTitle">
+    <div class="fraud-alert-backdrop" data-fraud-alert-dismiss></div>
+    <div class="fraud-alert-card">
+      <button type="button" class="fraud-alert-close" id="fraudAlertCloseBtn" aria-label="Dismiss fraud alert" data-fraud-alert-dismiss>&times;</button>
+      <div class="fraud-alert-brand">
+        <div class="fraud-alert-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+          <p class="fraud-alert-kicker">Security notice</p>
+          <h3 id="fraudAlertTitle">Fraud Alert</h3>
+        </div>
+      </div>
+      <p class="fraud-alert-lead">For your security, please note that the only official Triplem communication channels are:</p>
+      <ul class="fraud-alert-channels">
+        <li>
+          <i class="fa-solid fa-comments" aria-hidden="true"></i>
+          <span><strong>In-app chat support</strong></span>
+        </li>
+        <li>
+          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+          <span><strong>WhatsApp:</strong> <a href="https://wa.me/923339004564" target="_blank" rel="noopener noreferrer">+92 333 900 4564</a></span>
+        </li>
+        <li>
+          <i class="fa-brands fa-facebook" aria-hidden="true"></i>
+          <span><strong>Facebook:</strong> <a href="https://www.facebook.com/triplemvip" target="_blank" rel="noopener noreferrer">facebook.com/triplemvip</a></span>
+        </li>
+      </ul>
+      <p class="fraud-alert-warn">Any person, phone number, social media account, or platform claiming to represent Triplem outside these official channels should be considered fraudulent.</p>
+      <p class="fraud-alert-note">Never share your password, verification codes, or sensitive business information with anyone.</p>
+      <div class="fraud-alert-actions">
+        <button type="button" class="btn primary fraud-alert-cta" id="fraudAlertAckBtn" data-fraud-alert-dismiss>
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> I understand
+        </button>
+      </div>
     </div>
   </div>
 
@@ -5692,7 +5732,7 @@
   <script src="Assets/app/reports/02-exports.js"></script>
   <script src="Assets/app/expenses/02-transfers.js"></script>
   <script src="Assets/app/ui/02-bindings.js"></script>
-  <script src="Assets/app/landing/01-landing.js"></script>
+  <script src="Assets/app/landing/01-landing.js?v=20260801-fraud-alert"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260731-smartpin-lock3"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
   <script src="Assets/app/notes/01-notes.js"></script>
@@ -5701,7 +5741,7 @@
   <script src="Assets/app/admin/01-admin.js?v=20260731-smartpin-lock3"></script>
   <script src="Assets/app/admin/02-admin-security.js"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-analytics"></script>
-  <script src="Assets/app/messaging/01-messaging.js?v=20260731-msgs-comms"></script>
+  <script src="Assets/app/messaging/01-messaging.js?v=20260801-fraud-alert"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
 </html>
