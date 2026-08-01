@@ -6,6 +6,6 @@
  *   TRIPLEM_GA4_MEASUREMENT_ID=G-XXXXXXXXXX
  */
 window.TRIPLEM_PUBLIC_CONFIG = Object.assign({}, window.TRIPLEM_PUBLIC_CONFIG, {
-  // Google Analytics 4 measurement ID (e.g. "G-XXXXXXXXXX"). Leave empty to disable.
+  // Google Analytics 4 measurement ID (e.g. "G-TBKZB3FEVZ"). Leave empty to disable fallback loader.
   GA4_MEASUREMENT_ID: ""
 });
