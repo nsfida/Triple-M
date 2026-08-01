@@ -15,12 +15,16 @@ function isHigherLandingModalOpen(){
   const android = document.getElementById("androidDownloadOverlay");
   const trial = document.getElementById("trialSignupModal");
   const signIn = document.getElementById("signInOverlay");
+  const fraud = document.getElementById("fraudAlertOverlay");
+  const trialPromo = document.getElementById("trialPromoOverlay");
   return !!(
     (inquiry && !inquiry.classList.contains("hide")) ||
     (ios && !ios.classList.contains("hide")) ||
     (android && !android.classList.contains("hide")) ||
     (trial && !trial.classList.contains("hide")) ||
-    (signIn && !signIn.classList.contains("hide"))
+    (signIn && !signIn.classList.contains("hide")) ||
+    (fraud && !fraud.classList.contains("hide")) ||
+    (trialPromo && !trialPromo.classList.contains("hide"))
   );
 }
 
@@ -33,7 +37,8 @@ function openSignInOverlay(){
   const overlay = document.getElementById("signInOverlay");
   if (!overlay) return;
   try { setLandingMobileMenuOpen(false); } catch (_) {}
-  try { if (typeof dismissTrialPromoOverlay === "function") dismissTrialPromoOverlay(); } catch (_) {}
+  try { if (typeof dismissTrialPromoOverlay === "function") dismissTrialPromoOverlay({ showFraud: false }); } catch (_) {}
+  try { if (typeof dismissFraudAlertOverlay === "function") dismissFraudAlertOverlay(); } catch (_) {}
   try { closeLandingContentOverlay({ clearHash: true, focusLogin: false }); } catch (_) {}
   overlay.classList.remove("hide");
   overlay.setAttribute("aria-hidden", "false");
@@ -47,10 +52,7 @@ function closeSignInOverlay(){
   overlay.setAttribute("aria-hidden", "true");
   // Don't clear body overflow if another modal is open
   if (!isHigherLandingModalOpen() && !isLandingContentOverlayOpen()) {
-    const trialPromo = document.getElementById("trialPromoOverlay");
-    if (!trialPromo || trialPromo.classList.contains("hide")) {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = "";
   }
 }
 
