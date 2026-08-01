@@ -828,98 +828,97 @@ function activate(tab){
     }
   }
 
-  if (tab === "admin") {
-    const openAdmin = async () => {
+  try { updateSaleDraftDock(); } catch (_) {}
+
+  // Async DB loads with global loading feedback (does not block tab UI switch above)
+  void activateTabDataLoad(tab);
+}
+
+async function activateTabDataLoad(tab){
+  const msg = typeof appDataLoadingMessageForTab === "function"
+    ? appDataLoadingMessageForTab(tab)
+    : { title: "Your data is loading…", sub: "Please wait a moment" };
+  const useLoader = typeof beginAppDataLoad === "function"
+    && (typeof appTabLikelyNeedsFetch !== "function" || appTabLikelyNeedsFetch(tab));
+
+  if (useLoader) beginAppDataLoad(msg);
+
+  try {
+    if (tab === "admin") {
       let allowed = true;
       if (typeof ensureAdminSecurityAccess === "function") {
         allowed = await ensureAdminSecurityAccess();
       }
       if (!allowed) return;
-      loadAdminUsers().catch(err => {
+      try {
+        await loadAdminUsers();
+      } catch (err) {
         if (typeof isAdminSecurityKeyError === "function" && isAdminSecurityKeyError(err)) {
           ensureAdminSecurityAccess().catch(() => {});
-          return;
+        } else {
+          console.error("Admin users load failed:", err);
         }
-        console.error("Admin users load failed:", err);
-      });
-      refreshAdminCommsBadges().catch(() => {});
-    };
-    openAdmin().catch(err => console.error("Admin security gate failed:", err));
-  } else if (tab === "messages") {
-    if (state.trialLocked) hideTrialExpiredOverlay();
-    renderMessagesPanel().catch(err => console.error("Messages load failed:", err));
-  } else if (tab === "dashboard") {
-    if (state.trialLocked) showTrialExpiredOverlay();
-    warmDashboardData().then(() => renderDetailedDashboard()).catch(err => {
-      console.error("Dashboard load failed:", err);
-      renderDetailedDashboard();
-    });
-  } else {
-    if (state.trialLocked) showTrialExpiredOverlay();
-    ensureTabDataLoaded(tab).catch(err => console.error("Tab data load failed:", err));
-  }
-
-  try { updateSaleDraftDock(); } catch (_) {}
-
-  // Load notes from database when Notes tab is activated
-  if (tab === "notes") {
-    loadNotesFromDatabase().catch(err => console.error("Notes load failed:", err));
-  }
-
-  // Load assets when Asset tab is activated
-  if (tab === "assets") {
-    loadAssetsFromDatabase().catch(err => console.error("Assets load failed:", err));
-    if (typeof loadDepreciationAssetsFromDatabase === "function") {
-      loadDepreciationAssetsFromDatabase().catch(err => console.error("Depreciation assets load failed:", err));
-    }
-  }
-  
-  // Load Bitcoin wallets from database when Bitcoin tab is activated
-  if (tab === "bitcoin") {
-    loadBitcoinWalletsFromDatabase().catch(err => console.error("Bitcoin wallet load failed:", err));
-  }
-  
-  // Fetch Bitcoin price when expense tab is activated to ensure USD values are displayed
-  if (tab === "expenses") {
-    // Always fetch fresh price when expense tab loads
-    btcFetchPrice().then(priceData => {
-      if (priceData) {
-        console.log('Bitcoin price fetched for expense section:', priceData);
-        // Update expense wallets to show BTC USD equivalents
-        renderExpenseWalletBar(getExpenseAccounts());
-        
-        // Force update USD values after a delay
-        setTimeout(() => {
-          const accounts = getExpenseAccounts({ applyUiFilters: false });
-          const btcAccounts = accounts.filter(a => a.currency === 'BTC');
-          btcAccounts.forEach(account => {
-            const balance = Number(account.balance || 0);
-            if (balance > 0 && priceData.price) {
-              const usdValue = (balance * priceData.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              console.log(`Updating BTC wallet ${account.group_id} with USD value: $${usdValue}`);
-              
-              // Find and update the USD equivalent element
-              const walletCard = document.querySelector(`[data-group-id="${account.group_id}"]`);
-              if (walletCard) {
-                const usdElement = walletCard.querySelector('.btc-usd-equivalent');
-                if (usdElement) {
-                  usdElement.innerHTML = `<span class="btc-usd-equivalent"><em>≈ $</em> <strong>${usdValue}</strong></span>`;
-                } else {
-                  // Create USD element if it doesn't exist
-                  const statsDiv = walletCard.querySelector('.expense-wallet-stats');
-                  if (statsDiv) {
-                    const usdSpan = document.createElement('span');
-                    usdSpan.className = 'btc-usd-equivalent';
-                    usdSpan.innerHTML = `<em>≈ $</em> <strong>${usdValue}</strong>`;
-                    statsDiv.appendChild(usdSpan);
-                  }
-                }
-              }
-            }
-          });
-        }, 500);
       }
-    }).catch(err => console.error('Failed to fetch Bitcoin price:', err));
+      refreshAdminCommsBadges().catch(() => {});
+      return;
+    }
+
+    if (tab === "messages") {
+      if (state.trialLocked) hideTrialExpiredOverlay();
+      await renderMessagesPanel();
+      return;
+    }
+
+    if (tab === "dashboard") {
+      if (state.trialLocked) showTrialExpiredOverlay();
+      try {
+        await warmDashboardData();
+      } catch (err) {
+        console.error("Dashboard load failed:", err);
+      }
+      renderDetailedDashboard();
+      return;
+    }
+
+    if (state.trialLocked) showTrialExpiredOverlay();
+
+    try {
+      await ensureTabDataLoaded(tab);
+    } catch (err) {
+      console.error("Tab data load failed:", err);
+    }
+
+    if (tab === "notes") {
+      try { await loadNotesFromDatabase(); }
+      catch (err) { console.error("Notes load failed:", err); }
+    }
+
+    if (tab === "assets") {
+      try { await loadAssetsFromDatabase(); }
+      catch (err) { console.error("Assets load failed:", err); }
+      if (typeof loadDepreciationAssetsFromDatabase === "function") {
+        try { await loadDepreciationAssetsFromDatabase(); }
+        catch (err) { console.error("Depreciation assets load failed:", err); }
+      }
+    }
+
+    if (tab === "bitcoin") {
+      try { await loadBitcoinWalletsFromDatabase(); }
+      catch (err) { console.error("Bitcoin wallet load failed:", err); }
+    }
+
+    if (tab === "expenses" && typeof btcFetchPrice === "function") {
+      try {
+        const priceData = await btcFetchPrice();
+        if (priceData && typeof renderExpenseWalletBar === "function") {
+          renderExpenseWalletBar(getExpenseAccounts());
+        }
+      } catch (err) {
+        console.error("Failed to fetch Bitcoin price:", err);
+      }
+    }
+  } finally {
+    if (useLoader && typeof endAppDataLoad === "function") endAppDataLoad();
   }
 }
 
@@ -4646,12 +4645,19 @@ function switchDashboardActiveSection(nextSection){
   requestAnimationFrame(() => content.classList.remove("is-switching"));
 
   if (typeof warmDashboardData === "function") {
-    warmDashboardData()
+    const warm = () => warmDashboardData()
       .then(() => {
         if (getDashboardActiveSection() !== section) return;
         refreshDashboardSection(section, { soft: true });
-      })
-      .catch(() => {});
+      });
+    if (typeof withAppDataLoad === "function") {
+      withAppDataLoad(
+        { title: "Preparing your dashboard…", sub: "Updating this section" },
+        warm
+      ).catch(() => {});
+    } else {
+      warm().catch(() => {});
+    }
   }
 }
 
