@@ -378,7 +378,14 @@ async function handleAdminSecurityUnlockClick(){
     setAdminSecurityLockVisible(false);
     updateAdminSecurityKeyButtonVisibility();
     if (typeof loadAdminUsers === "function") {
-      await loadAdminUsers();
+      if (typeof withAppDataLoad === "function") {
+        await withAppDataLoad(
+          { title: "Loading admin…", sub: "Fetching account controls" },
+          () => loadAdminUsers()
+        );
+      } else {
+        await loadAdminUsers();
+      }
     }
     if (typeof refreshAdminCommsBadges === "function") {
       refreshAdminCommsBadges().catch(() => {});
