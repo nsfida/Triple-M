@@ -583,7 +583,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260731-msgs-comms" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260801-analytics" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3817,6 +3817,9 @@
                   <button class="btn soft tiny admin-tool-btn" id="adminStorageMgmtBtn" type="button" title="Storage Management">
                     <i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Storage
                   </button>
+                  <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminAnalyticsBtn" type="button" title="Analytics" aria-label="Analytics">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                  </button>
                   <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminRefreshUsersBtn" type="button" title="Refresh users" aria-label="Refresh users">
                     <i class="fa-solid fa-rotate" aria-hidden="true"></i>
                   </button>
@@ -5662,6 +5665,7 @@
 
   <script src="Assets/config/public-config.js"></script>
   <script src="Assets/app/core/00-analytics.js"></script>
+  <script src="Assets/app/analytics/01-site-tracker.js?v=20260801-analytics"></script>
   <script src="Assets/app/lib/tax-math.js"></script>
   <script src="Assets/app/lib/loan-math.js"></script>
   <script src="Assets/app/lib/permissions.js"></script>
@@ -5696,6 +5700,7 @@
   <script src="Assets/app/assets/02-depreciation-assets.js"></script>
   <script src="Assets/app/admin/01-admin.js?v=20260731-smartpin-lock3"></script>
   <script src="Assets/app/admin/02-admin-security.js"></script>
+  <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-analytics"></script>
   <script src="Assets/app/messaging/01-messaging.js?v=20260731-msgs-comms"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
