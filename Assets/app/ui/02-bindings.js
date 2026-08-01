@@ -848,24 +848,42 @@ window.addEventListener("resize", () => {
   if (els.refreshBtn){
     els.refreshBtn.addEventListener("click", () => {
       (async () => {
-        if (isGuestMode()) {
-          loadEntries();
-          return;
-        }
-        if (state.dataSource === "supabase" || databaseSessionCanLoad()) {
-          resetLazyDataState({ clearEntries: true });
-          await loadPageCurrencyPreferenceFromDatabase();
-          await loadTaxSettingsPreferenceFromDatabase();
-          updateCurrencyFiltersFromConfig();
-          await loadEntriesFromSupabase({ force: true });
+        const run = async () => {
+          if (isGuestMode()) {
+            loadEntries();
+            return;
+          }
+          if (state.dataSource === "supabase" || databaseSessionCanLoad()) {
+            resetLazyDataState({ clearEntries: true });
+            await loadPageCurrencyPreferenceFromDatabase();
+            await loadTaxSettingsPreferenceFromDatabase();
+            updateCurrencyFiltersFromConfig();
+            await loadEntriesFromSupabase({ force: true });
+          } else {
+            loadEntries();
+          }
+          if (getActiveTabKey() === "notes" || state.notesLoaded) {
+            await loadNotesFromDatabase({ force: true }).catch(err => console.error("Notes refresh failed:", err));
+          }
+          if (getActiveTabKey() === "bitcoin" || state.bitcoinWalletsLoaded) {
+            await loadBitcoinWalletsFromDatabase({ force: true }).catch(err => console.error("Bitcoin refresh failed:", err));
+          }
+          if (getActiveTabKey() === "dashboard" && typeof warmDashboardData === "function") {
+            await warmDashboardData().catch(() => {});
+            if (typeof renderDetailedDashboard === "function") renderDetailedDashboard();
+          }
+          if (getActiveTabKey() === "assets" && typeof loadAssetsFromDatabase === "function") {
+            await loadAssetsFromDatabase({ force: true }).catch(() => {});
+          }
+        };
+        if (typeof withAppDataLoad === "function") {
+          await withAppDataLoad(
+            { title: "Refreshing your data…", sub: "Syncing the latest records" },
+            run,
+            { immediate: true }
+          );
         } else {
-          loadEntries();
-        }
-        if (getActiveTabKey() === "notes" || state.notesLoaded) {
-          await loadNotesFromDatabase({ force: true }).catch(err => console.error("Notes refresh failed:", err));
-        }
-        if (getActiveTabKey() === "bitcoin" || state.bitcoinWalletsLoaded) {
-          await loadBitcoinWalletsFromDatabase({ force: true }).catch(err => console.error("Bitcoin refresh failed:", err));
+          await run();
         }
       })().catch(err => alert(err.message || err));
     });
