@@ -1724,6 +1724,11 @@ async function boot(){
 }
 
 // 14-day free trial promo overlay (landing / sign-in)
+const trialPromoUiState = {
+  showFraudAfterDismiss: false,
+  infoSequenceActive: false
+};
+
 function hasStoredSignInDetails(){
   try {
     if (localStorage.getItem(SESSION_ENCRYPTED_STORAGE_KEY)) return true;
@@ -1742,7 +1747,7 @@ function hasStoredSignInDetails(){
   return false;
 }
 
-function dismissTrialPromoOverlay(){
+function dismissTrialPromoOverlay(options = {}){
   const overlay = document.getElementById("trialPromoOverlay");
   if (!overlay) return;
   overlay.classList.add("hide");
@@ -1750,29 +1755,94 @@ function dismissTrialPromoOverlay(){
   try {
     sessionStorage.setItem(TRIAL_PROMO_DISMISS_KEY, "1");
   } catch {}
+  let showFraud = false;
+  if (options.showFraud === true) showFraud = true;
+  else if (options.showFraud === false) showFraud = false;
+  else showFraud = !!(trialPromoUiState.showFraudAfterDismiss || trialPromoUiState.infoSequenceActive);
+  trialPromoUiState.showFraudAfterDismiss = false;
+  trialPromoUiState.infoSequenceActive = false;
+  if (showFraud && typeof showFraudAlertOverlay === "function") {
+    window.setTimeout(() => showFraudAlertOverlay(), 180);
+  }
 }
 
 function showTrialPromoOverlay(){
   const overlay = document.getElementById("trialPromoOverlay");
   if (!overlay) return;
+  try { if (typeof dismissFraudAlertOverlay === "function") dismissFraudAlertOverlay(); } catch (_) {}
   overlay.classList.remove("hide");
   overlay.setAttribute("aria-hidden", "false");
   document.getElementById("trialPromoStartBtn")?.focus();
+}
+
+function dismissFraudAlertOverlay(){
+  const overlay = document.getElementById("fraudAlertOverlay");
+  if (!overlay) return;
+  overlay.classList.add("hide");
+  overlay.setAttribute("aria-hidden", "true");
+}
+
+function showFraudAlertOverlay(){
+  const overlay = document.getElementById("fraudAlertOverlay");
+  if (!overlay) return;
+  overlay.classList.remove("hide");
+  overlay.setAttribute("aria-hidden", "false");
+  document.getElementById("fraudAlertAckBtn")?.focus();
+}
+
+function openTrialFraudInfoSequence(){
+  trialPromoUiState.infoSequenceActive = true;
+  trialPromoUiState.showFraudAfterDismiss = true;
+  try { closeSignInOverlay(); } catch (_) {}
+  showTrialPromoOverlay();
+}
+
+function initFraudAlertOverlay(){
+  const overlay = document.getElementById("fraudAlertOverlay");
+  if (!overlay || overlay.dataset.fraudBound === "1") return;
+  overlay.dataset.fraudBound = "1";
+
+  overlay.querySelectorAll("[data-fraud-alert-dismiss]").forEach(el => {
+    el.addEventListener("click", () => dismissFraudAlertOverlay());
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (overlay.classList.contains("hide")) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    dismissFraudAlertOverlay();
+  }, true);
 }
 
 async function initTrialPromoOverlay(){
   const overlay = document.getElementById("trialPromoOverlay");
   if (!overlay) return;
 
+  initFraudAlertOverlay();
+
+  const closeBtn = document.getElementById("trialPromoCloseBtn");
+  if (closeBtn && closeBtn.dataset.fraudHook !== "1") {
+    closeBtn.dataset.fraudHook = "1";
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissTrialPromoOverlay({ showFraud: true });
+    });
+  }
+
   const dismissors = overlay.querySelectorAll("[data-trial-promo-dismiss]");
   dismissors.forEach(el => {
+    if (el === closeBtn) return; // Cross button handled above → Fraud Alert
     el.addEventListener("click", () => dismissTrialPromoOverlay());
   });
 
   const startBtn = document.getElementById("trialPromoStartBtn");
   if (startBtn) {
     startBtn.addEventListener("click", () => {
-      dismissTrialPromoOverlay();
+      trialPromoUiState.showFraudAfterDismiss = false;
+      trialPromoUiState.infoSequenceActive = false;
+      dismissTrialPromoOverlay({ showFraud: false });
       openTrialSignupModal();
     });
   }
@@ -1780,10 +1850,22 @@ async function initTrialPromoOverlay(){
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (overlay.classList.contains("hide")) return;
+    const fraud = document.getElementById("fraudAlertOverlay");
+    if (fraud && !fraud.classList.contains("hide")) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     dismissTrialPromoOverlay();
   }, true);
+
+  const infoBtn = document.getElementById("signInInfoBtn");
+  if (infoBtn && infoBtn.dataset.fraudSeqBound !== "1") {
+    infoBtn.dataset.fraudSeqBound = "1";
+    infoBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openTrialFraudInfoSequence();
+    });
+  }
 
   if (state.unlocked) return;
   try {
