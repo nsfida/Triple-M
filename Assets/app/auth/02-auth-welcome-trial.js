@@ -81,8 +81,9 @@ function openTrialSignupModal(){
             <button type="button" class="pw-eye-btn" data-toggle-form-pw="trialPasswordConfirm" aria-label="Show password" title="Show password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
           </div>
         </div>
-        <p class="help trial-signup-note">After or during the trial period, you can request full access through the app or contact in-app support to continue using the service.</p>
-        <div id="trialSignupError" class="lock-error"></div>
+<p class="help trial-signup-note">
+  After or during the trial period, you can <strong style="color: green;">request full access</strong> through the app or contact <strong style="color: green;">in-app support</strong> to continue using the service.
+</p>        <div id="trialSignupError" class="lock-error"></div>
         <div class="modal-footer trial-signup-footer">
           <button type="button" class="btn ghost" data-trial-close="1">Cancel</button>
           <button type="button" class="btn primary" id="trialSignupSave">Create trial account</button>
