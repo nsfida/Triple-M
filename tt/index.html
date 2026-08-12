@@ -14,12 +14,27 @@
 
     <meta
         name="description"
-        content="Triplem by NSF TikTok Video Downloader. Download available TikTok video streams in HD, SD, original and watermark formats."
+        content="Triplem by NSF is a fast TikTok video downloader for downloading available TikTok video qualities including HD, SD, original source and watermark versions. Paste a TikTok video link and choose the available quality."
     >
 
     <meta
         name="keywords"
-        content="TikTok downloader, TikTok video downloader, TikTok no watermark, TikTok HD downloader, Triplem, NSF"
+        content="TikTok video downloader, TikTok downloader, TikTok video download, TikTok no watermark downloader, TikTok HD downloader, TikTok SD downloader, download TikTok videos, TikTok MP4 downloader, Triplem TikTok downloader"
+    >
+
+    <meta
+        name="author"
+        content="NSF"
+    >
+
+    <meta
+        name="robots"
+        content="index, follow, max-image-preview:large"
+    >
+
+    <meta
+        name="googlebot"
+        content="index, follow, max-image-preview:large"
     >
 
     <meta
@@ -27,116 +42,293 @@
         content="#ffffff"
     >
 
-    <meta
-        name="apple-mobile-web-app-capable"
-        content="yes"
+    <!--
+        IMPORTANT:
+        Replace this with your actual public URL if different.
+    -->
+    <link
+        rel="canonical"
+        href="https://triplem.vip/tt/"
     >
+
+    <!-- Open Graph -->
+    <meta
+        property="og:type"
+        content="website"
+    >
+
+    <meta
+        property="og:title"
+        content="Triplem by NSF - TikTok Video Downloader"
+    >
+
+    <meta
+        property="og:description"
+        content="Download available TikTok video qualities including HD, SD, original and watermark versions with Triplem by NSF."
+    >
+
+    <meta
+        property="og:url"
+        content="https://triplem.vip/tt/"
+    >
+
+    <meta
+        property="og:site_name"
+        content="Triplem by NSF"
+    >
+
+    <meta
+        property="og:image"
+        content="https://triplem.vip/Assets/logo/logo.png"
+    >
+
+    <!-- Twitter -->
+    <meta
+        name="twitter:card"
+        content="summary_large_image"
+    >
+
+    <meta
+        name="twitter:title"
+        content="Triplem by NSF - TikTok Video Downloader"
+    >
+
+    <meta
+        name="twitter:description"
+        content="Download available TikTok video qualities with Triplem by NSF."
+    >
+
+    <meta
+        name="twitter:image"
+        content="https://triplem.vip/Assets/logo/logo.png"
+    >
+
+    <!-- Favicon -->
+    <link
+        rel="icon"
+        type="image/png"
+        href="../Assets/logo/logo.png"
+    >
+
+    <!--
+        ============================================================
+        STRUCTURED DATA
+        ============================================================
+    -->
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+
+            {
+                "@type": "WebSite",
+                "@id": "https://triplem.vip/tt/#website",
+                "url": "https://triplem.vip/tt/",
+                "name": "Triplem by NSF - TikTok Video Downloader",
+                "description": "TikTok video downloader providing available video quality options.",
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Triplem by NSF",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": "https://triplem.vip/Assets/logo/logo.png"
+                    }
+                }
+            },
+
+            {
+                "@type": "WebPage",
+                "@id": "https://triplem.vip/tt/#webpage",
+                "url": "https://triplem.vip/tt/",
+                "name": "Triplem by NSF - TikTok Video Downloader",
+                "description": "Download available TikTok video streams in HD, SD, original and watermark quality."
+            },
+
+            {
+                "@type": "SoftwareApplication",
+                "name": "Triplem TikTok Video Downloader",
+                "applicationCategory": "MultimediaApplication",
+                "operatingSystem": "Web Browser",
+                "description": "A browser-based interface for retrieving available TikTok video download streams.",
+                "author": {
+                    "@type": "Organization",
+                    "name": "Triplem by NSF"
+                }
+            },
+
+            {
+                "@type": "FAQPage",
+                "mainEntity": [
+
+                    {
+                        "@type": "Question",
+                        "name": "How do I download a TikTok video?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Paste the TikTok video URL into Triplem's downloader and select one of the available video quality options."
+                        }
+                    },
+
+                    {
+                        "@type": "Question",
+                        "name": "Can I download a TikTok video in HD?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "If an HD stream is returned by the video source service, Triplem displays it as a separate HD download option."
+                        }
+                    },
+
+                    {
+                        "@type": "Question",
+                        "name": "Does Triplem convert or compress videos?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "No. Triplem does not process video frames in the browser. The downloader uses the media source returned by the upstream service."
+                        }
+                    },
+
+                    {
+                        "@type": "Question",
+                        "name": "Can I choose between watermark and no-watermark versions?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "When multiple streams are returned, Triplem separates watermark and no-watermark sources into different download options."
+                        }
+                    }
+
+                ]
+            }
+
+        ]
+    }
+    </script>
+
 
     <style>
 
-        /* =========================================================
+        /* ============================================================
            ROOT
-        ========================================================= */
+        ============================================================ */
 
         :root {
 
-            --black: #090909;
-            --black-2: #111111;
-            --black-3: #181818;
+            --bg:
+                #f7f7f8;
 
-            --white: #ffffff;
+            --surface:
+                rgba(255,255,255,.92);
 
-            --text: #111111;
-            --text-soft: #555555;
-            --muted: #858585;
-            --muted-2: #aaaaaa;
+            --surface-solid:
+                #ffffff;
 
-            --border: #e8e8e8;
-            --border-strong: #d8d8d8;
+            --surface-soft:
+                #f2f2f4;
 
-            --surface: #fafafa;
-            --surface-2: #f4f4f4;
+            --text:
+                #111111;
 
-            --green: #16a05d;
-            --green-soft: #eefaf3;
+            --text-soft:
+                #565656;
 
-            --blue: #2563eb;
-            --blue-soft: #eff6ff;
+            --muted:
+                #8a8a8f;
 
-            --purple: #7c3aed;
-            --purple-soft: #f5f3ff;
+            --line:
+                #e7e7e9;
 
-            --orange: #c56b00;
-            --orange-soft: #fff6e9;
+            --line-dark:
+                #d7d7da;
 
-            --red: #dc3545;
-            --red-soft: #fff1f2;
+            --black:
+                #111111;
 
-            --cyan: #00a8a8;
+            --green:
+                #16a05d;
 
-            --radius-sm: 10px;
-            --radius: 16px;
-            --radius-lg: 22px;
+            --green-soft:
+                #ecf9f2;
+
+            --blue:
+                #2563eb;
+
+            --blue-soft:
+                #eff6ff;
+
+            --purple:
+                #7c3aed;
+
+            --purple-soft:
+                #f5f3ff;
+
+            --orange:
+                #c46b08;
+
+            --orange-soft:
+                #fff5e8;
+
+            --red:
+                #dc3545;
+
+            --red-soft:
+                #fff1f2;
 
             --shadow:
-                0 20px 70px rgba(0, 0, 0, .07);
+                0 18px 55px rgba(0,0,0,.07);
 
             --shadow-small:
-                0 8px 30px rgba(0, 0, 0, .055);
+                0 8px 25px rgba(0,0,0,.055);
+
+            --radius:
+                18px;
+
+            --radius-small:
+                12px;
 
         }
 
 
-        /* =========================================================
+        /* ============================================================
            RESET
-        ========================================================= */
+        ============================================================ */
 
         *,
         *::before,
         *::after {
-
             box-sizing: border-box;
-
-            margin: 0;
-            padding: 0;
-
         }
 
 
         html {
-
             scroll-behavior: smooth;
-
         }
 
 
         body {
 
+            margin: 0;
+
             min-height: 100vh;
 
             background:
-
                 radial-gradient(
-                    circle at 10% 5%,
-                    rgba(37, 244, 238, .045),
-                    transparent 25%
+                    circle at 15% 0%,
+                    rgba(0,0,0,.035),
+                    transparent 28%
                 ),
-
                 radial-gradient(
-                    circle at 90% 10%,
-                    rgba(254, 44, 85, .045),
-                    transparent 25%
+                    circle at 90% 80%,
+                    rgba(0,0,0,.03),
+                    transparent 30%
                 ),
-
-                linear-gradient(
-                    180deg,
-                    #ffffff 0%,
-                    #fafafa 100%
-                );
+                var(--bg);
 
             color: var(--text);
 
             font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
                 -apple-system,
                 BlinkMacSystemFont,
                 "Segoe UI",
@@ -152,82 +344,34 @@
         }
 
 
-        body::before {
-
-            content: "";
-
-            position: fixed;
-
-            inset: 0;
-
-            pointer-events: none;
-
-            background-image:
-                linear-gradient(
-                    rgba(0,0,0,.018) 1px,
-                    transparent 1px
-                ),
-                linear-gradient(
-                    90deg,
-                    rgba(0,0,0,.018) 1px,
-                    transparent 1px
-                );
-
-            background-size: 40px 40px;
-
-            mask-image:
-                linear-gradient(
-                    to bottom,
-                    black,
-                    transparent 55%
-                );
-
-            z-index: -1;
-
-        }
-
-
         button,
         input {
-
             font: inherit;
-
         }
 
 
         button {
-
             border: 0;
-
         }
 
 
         a {
-
             color: inherit;
-
             text-decoration: none;
-
         }
 
 
         img {
-
             max-width: 100%;
-
         }
 
 
-        /* =========================================================
+        /* ============================================================
            PAGE
-        ========================================================= */
+        ============================================================ */
 
         .page {
-
-            width: 100%;
-
             min-height: 100vh;
-
         }
 
 
@@ -235,146 +379,163 @@
 
             width:
                 min(
-                    1180px,
-                    calc(100% - 36px)
+                    1120px,
+                    calc(100% - 32px)
                 );
 
-            margin: 0 auto;
+            margin:
+                0 auto;
 
         }
 
 
-        /* =========================================================
+        /* ============================================================
            HEADER
-        ========================================================= */
+        ============================================================ */
 
-        .topbar {
+        .header {
 
-            height: 76px;
+            height: 72px;
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            justify-content: space-between;
+            justify-content:
+                space-between;
 
             border-bottom:
-                1px solid rgba(0,0,0,.055);
+                1px solid rgba(0,0,0,.06);
 
         }
 
 
         .brand {
 
-            display: inline-flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            gap: 11px;
+            gap:
+                10px;
 
         }
 
 
         .brand-logo {
 
-            width: 42px;
+            width:
+                39px;
 
-            height: 42px;
+            height:
+                39px;
 
-            object-fit: contain;
+            object-fit:
+                contain;
 
-            border-radius: 12px;
-
-            background: #fff;
+            border-radius:
+                11px;
 
         }
 
 
-        .brand-text {
+        .brand-copy {
 
-            display: flex;
+            display:
+                flex;
 
-            flex-direction: column;
+            flex-direction:
+                column;
 
-            gap: 1px;
+            line-height:
+                1.05;
 
         }
 
 
         .brand-name {
 
-            font-size: 14px;
+            font-size:
+                14px;
 
-            line-height: 1;
+            font-weight:
+                800;
 
-            font-weight: 800;
-
-            letter-spacing: -.35px;
-
-        }
-
-
-        .brand-by {
-
-            font-size: 9px;
-
-            line-height: 1;
-
-            color: var(--muted);
-
-            margin-top: 4px;
+            letter-spacing:
+                -.4px;
 
         }
 
 
-        .header-right {
+        .brand-sub {
 
-            display: flex;
+            margin-top:
+                4px;
 
-            align-items: center;
+            color:
+                var(--muted);
 
-            gap: 8px;
+            font-size:
+                9px;
+
+            font-weight:
+                600;
 
         }
 
 
-        .secure-pill {
+        .header-badge {
 
-            display: inline-flex;
+            display:
+                inline-flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            gap: 7px;
+            gap:
+                7px;
 
             padding:
-                8px 11px;
+                7px 11px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: 999px;
+            border-radius:
+                999px;
 
             background:
-                rgba(255,255,255,.85);
+                rgba(255,255,255,.75);
 
-            color: #666;
+            color:
+                #68686b;
 
-            font-size: 9px;
+            font-size:
+                9px;
 
-            font-weight: 700;
+            font-weight:
+                700;
 
         }
 
 
-        .secure-dot {
+        .live-dot {
 
-            width: 6px;
+            width:
+                6px;
 
-            height: 6px;
+            height:
+                6px;
 
-            border-radius: 50%;
+            border-radius:
+                50%;
 
-            background: var(--green);
+            background:
+                var(--green);
 
             box-shadow:
                 0 0 0 4px rgba(22,160,93,.08);
@@ -382,264 +543,257 @@
         }
 
 
-        /* =========================================================
+        /* ============================================================
            HERO
-        ========================================================= */
+        ============================================================ */
 
         .hero {
 
-            text-align: center;
-
             padding:
-                74px 0
-                45px;
+                52px 0 28px;
+
+            text-align:
+                center;
 
         }
 
 
         .hero-icon {
 
-            width: 78px;
+            width:
+                62px;
 
-            height: 78px;
+            height:
+                62px;
 
             margin:
-                0 auto
-                22px;
+                0 auto 17px;
 
-            border-radius: 24px;
+            border-radius:
+                18px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
 
             background:
-                #080808;
+                #111;
 
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            position: relative;
+            color:
+                white;
 
             box-shadow:
-
-                9px 9px 0
-                rgba(37,244,238,.13),
-
-                -9px -9px 0
-                rgba(254,44,85,.10),
-
-                0 18px 45px
-                rgba(0,0,0,.13);
+                9px 9px 0 rgba(37,244,238,.10),
+                -9px -9px 0 rgba(254,44,85,.08);
 
         }
 
 
-        .hero-icon::after {
+        .hero-icon svg {
 
-            content: "";
+            width:
+                31px;
 
-            position: absolute;
-
-            inset: 7px;
-
-            border:
-                1px solid
-                rgba(255,255,255,.08);
-
-            border-radius: 18px;
+            height:
+                31px;
 
         }
 
 
-        .tiktok-logo {
+        .eyebrow {
 
-            width: 39px;
+            display:
+                inline-flex;
 
-            height: 39px;
-
-            position: relative;
-
-            z-index: 1;
-
-        }
-
-
-        .hero-eyebrow {
-
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 7px;
+            align-items:
+                center;
 
             padding:
-                7px 11px;
+                6px 9px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: 999px;
-
-            color: #666;
+            border-radius:
+                999px;
 
             background:
-                rgba(255,255,255,.75);
+                white;
 
-            font-size: 9px;
+            color:
+                #777;
 
-            font-weight: 750;
+            font-size:
+                9px;
 
-            letter-spacing: .25px;
+            font-weight:
+                750;
 
-            margin-bottom: 15px;
-
-        }
-
-
-        .hero-eyebrow-dot {
-
-            width: 5px;
-
-            height: 5px;
-
-            border-radius: 50%;
-
-            background: #111;
+            letter-spacing:
+                .2px;
 
         }
 
 
-        .hero h1 {
+        h1 {
 
-            max-width: 900px;
+            max-width:
+                850px;
 
-            margin: 0 auto;
+            margin:
+                15px auto 0;
 
             font-size:
                 clamp(
-                    35px,
+                    30px,
                     6vw,
-                    65px
+                    53px
                 );
 
-            line-height: .98;
+            line-height:
+                1.02;
 
-            letter-spacing: -3.5px;
+            letter-spacing:
+                -2.2px;
 
-            font-weight: 850;
+            font-weight:
+                850;
 
         }
 
 
-        .hero h1 .light {
-
-            color: #8a8a8a;
-
-            font-weight: 750;
-
+        .hero-highlight {
+            color:
+                #777;
         }
 
 
         .hero-description {
 
-            max-width: 660px;
+            max-width:
+                690px;
 
             margin:
-                20px auto 0;
+                15px auto 0;
 
-            color: var(--muted);
+            color:
+                var(--text-soft);
 
-            font-size: 13px;
+            font-size:
+                13px;
 
-            line-height: 1.75;
-
-        }
-
-
-        .feature-row {
-
-            display: flex;
-
-            justify-content: center;
-
-            flex-wrap: wrap;
-
-            gap: 7px;
-
-            margin-top: 23px;
+            line-height:
+                1.7;
 
         }
 
 
-        .feature {
+        .hero-features {
 
-            display: inline-flex;
+            margin-top:
+                18px;
 
-            align-items: center;
+            display:
+                flex;
 
-            gap: 6px;
+            justify-content:
+                center;
+
+            flex-wrap:
+                wrap;
+
+            gap:
+                6px;
+
+        }
+
+
+        .hero-feature {
+
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            gap:
+                6px;
 
             padding:
-                8px 11px;
+                7px 10px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: 999px;
-
-            background:
-                rgba(255,255,255,.75);
-
-            color: #666;
-
-            font-size: 9px;
-
-            font-weight: 700;
-
-        }
-
-
-        .feature svg {
-
-            width: 12px;
-
-            height: 12px;
-
-        }
-
-
-        /* =========================================================
-           DOWNLOADER
-        ========================================================= */
-
-        .downloader {
-
-            max-width: 900px;
-
-            margin: 0 auto;
-
-        }
-
-
-        .input-panel {
-
-            position: relative;
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 8px;
-
-            padding: 8px;
+            border-radius:
+                999px;
 
             background:
-                rgba(255,255,255,.96);
+                rgba(255,255,255,.7);
+
+            color:
+                #666;
+
+            font-size:
+                9px;
+
+            font-weight:
+                700;
+
+        }
+
+
+        .hero-feature svg {
+
+            width:
+                12px;
+
+            height:
+                12px;
+
+        }
+
+
+        /* ============================================================
+           MAIN DOWNLOADER
+        ============================================================ */
+
+        .main {
+
+            width:
+                min(
+                    920px,
+                    100%
+                );
+
+            margin:
+                0 auto;
+
+        }
+
+
+        /* ============================================================
+           SEARCH BAR
+        ============================================================ */
+
+        .search-card {
+
+            padding:
+                8px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: 18px;
+            border-radius:
+                17px;
+
+            background:
+                var(--surface-solid);
 
             box-shadow:
                 var(--shadow);
@@ -647,257 +801,284 @@
         }
 
 
-        .link-box {
+        .search-inner {
 
-            width: 44px;
+            min-height:
+                52px;
 
-            height: 44px;
+            display:
+                flex;
 
-            flex:
-                0 0 44px;
+            align-items:
+                center;
 
-            border-radius: 12px;
-
-            background:
-                var(--surface);
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            color: #555;
+            gap:
+                8px;
 
         }
 
 
-        .link-box svg {
+        .url-symbol {
 
-            width: 18px;
+            width:
+                42px;
 
-            height: 18px;
+            height:
+                42px;
+
+            flex:
+                0 0 42px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            border-radius:
+                11px;
+
+            background:
+                var(--surface-soft);
+
+            color:
+                #555;
+
+        }
+
+
+        .url-symbol svg {
+
+            width:
+                18px;
+
+            height:
+                18px;
 
         }
 
 
         .url-input {
 
-            min-width: 0;
+            flex:
+                1;
 
-            flex: 1;
+            min-width:
+                0;
 
-            height: 44px;
+            height:
+                44px;
 
-            border: 0;
+            border:
+                0;
 
-            outline: 0;
+            outline:
+                0;
 
-            background: transparent;
+            background:
+                transparent;
 
-            color: #111;
+            color:
+                var(--text);
 
-            font-size: 13px;
+            font-size:
+                13px;
 
         }
 
 
         .url-input::placeholder {
-
-            color: #aaa;
-
+            color:
+                #aaa;
         }
 
 
         .url-input.error {
-
-            color: var(--red);
-
+            color:
+                var(--red);
         }
 
 
         .get-button {
 
-            height: 44px;
+            min-width:
+                112px;
+
+            height:
+                44px;
 
             padding:
-                0 19px;
+                0 15px;
 
-            border-radius: 12px;
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            gap:
+                7px;
+
+            border-radius:
+                11px;
 
             background:
-                #0b0b0b;
+                #111;
 
-            color: #fff;
+            color:
+                white;
 
-            cursor: pointer;
+            cursor:
+                pointer;
 
-            display: inline-flex;
+            font-size:
+                10px;
 
-            align-items: center;
-
-            justify-content: center;
-
-            gap: 8px;
-
-            font-size: 11px;
-
-            font-weight: 800;
+            font-weight:
+                800;
 
             transition:
-                transform .16s ease,
-                opacity .16s ease,
-                box-shadow .16s ease;
-
-            box-shadow:
-                0 8px 18px rgba(0,0,0,.12);
+                .18s ease;
 
         }
 
 
         .get-button:hover {
-
-            opacity: .92;
-
-            box-shadow:
-                0 10px 25px rgba(0,0,0,.16);
-
+            transform:
+                translateY(-1px);
+            opacity:
+                .92;
         }
 
 
         .get-button:active {
-
-            transform: scale(.98);
-
+            transform:
+                scale(.98);
         }
 
 
         .get-button:disabled {
-
-            opacity: .5;
-
-            cursor: wait;
-
+            opacity:
+                .55;
+            cursor:
+                wait;
         }
 
 
         .get-button svg {
 
-            width: 15px;
+            width:
+                15px;
 
-            height: 15px;
+            height:
+                15px;
 
         }
 
 
-        /* =========================================================
+        /* ============================================================
            MESSAGE
-        ========================================================= */
+        ============================================================ */
 
         .message {
 
-            display: none;
+            display:
+                none;
 
-            margin-top: 10px;
+            margin-top:
+                9px;
 
             padding:
-                11px 13px;
+                10px 12px;
 
-            border-radius: 10px;
+            border-radius:
+                10px;
 
-            font-size: 10px;
+            font-size:
+                10px;
 
-            line-height: 1.55;
-
-            text-align: left;
+            line-height:
+                1.5;
 
         }
 
 
         .message.show {
+            display:
+                block;
+        }
 
-            display: block;
+
+        .message.info {
+
+            background:
+                #f3f3f4;
+
+            border:
+                1px solid var(--line);
+
+            color:
+                #666;
 
         }
 
 
         .message.error {
 
-            color: var(--red);
-
-            background: var(--red-soft);
+            background:
+                var(--red-soft);
 
             border:
-                1px solid #ffd7dc;
+                1px solid #ffd6da;
+
+            color:
+                var(--red);
 
         }
 
 
-        .message.info {
-
-            color: #666;
-
-            background: var(--surface);
-
-            border:
-                1px solid var(--border);
-
-        }
-
-
-        .message.success {
-
-            color: var(--green);
-
-            background: var(--green-soft);
-
-            border:
-                1px solid #d8f1e3;
-
-        }
-
-
-        /* =========================================================
+        /* ============================================================
            RESULTS
-        ========================================================= */
+        ============================================================ */
 
         .results {
 
-            display: none;
+            display:
+                none;
 
-            margin-top: 38px;
+            margin-top:
+                23px;
 
         }
 
 
         .results.show {
 
-            display: block;
+            display:
+                block;
 
             animation:
-                resultsIn .4s ease both;
+                resultIn .3s ease both;
 
         }
 
 
-        @keyframes resultsIn {
+        @keyframes resultIn {
 
             from {
-
                 opacity: 0;
-
-                transform:
-                    translateY(15px);
-
+                transform: translateY(9px);
             }
 
             to {
-
                 opacity: 1;
-
-                transform:
-                    translateY(0);
-
+                transform: translateY(0);
             }
 
         }
@@ -905,45 +1086,56 @@
 
         .results-top {
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            justify-content: space-between;
+            justify-content:
+                space-between;
 
-            gap: 15px;
-
-            margin-bottom: 12px;
-
-        }
-
-
-        .results-title-area {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 9px;
+            margin-bottom:
+                9px;
 
         }
 
 
         .results-title {
 
-            font-size: 14px;
+            display:
+                flex;
 
-            font-weight: 800;
+            align-items:
+                center;
+
+            gap:
+                7px;
 
         }
 
 
-        .ready-badge {
+        .results-title h2 {
+
+            margin:
+                0;
+
+            font-size:
+                13px;
+
+            font-weight:
+                800;
+
+        }
+
+
+        .ready {
 
             padding:
-                4px 7px;
+                3px 6px;
 
-            border-radius: 5px;
+            border-radius:
+                5px;
 
             background:
                 var(--green-soft);
@@ -951,99 +1143,52 @@
             color:
                 var(--green);
 
-            font-size: 8px;
+            font-size:
+                7px;
 
-            font-weight: 800;
-
-        }
-
-
-        .results-actions {
-
-            display: flex;
-
-            gap: 6px;
+            font-weight:
+                800;
 
         }
 
 
-        .mini-button {
+        .result-count {
 
-            height: 29px;
+            color:
+                #999;
 
-            padding:
-                0 9px;
-
-            border:
-                1px solid var(--border);
-
-            border-radius: 7px;
-
-            background: #fff;
-
-            color: #666;
-
-            cursor: pointer;
-
-            font-size: 8px;
-
-            font-weight: 700;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 5px;
+            font-size:
+                9px;
 
         }
 
 
-        .mini-button:hover {
+        /* ============================================================
+           COMPACT PREVIEW
+        ============================================================ */
 
-            border-color:
-                var(--border-strong);
+        .preview-card {
 
-            background:
-                var(--surface);
-
-        }
-
-
-        .mini-button svg {
-
-            width: 11px;
-
-            height: 11px;
-
-        }
-
-
-        /* =========================================================
-           MAIN GRID
-        ========================================================= */
-
-        .results-grid {
-
-            display: grid;
+            display:
+                grid;
 
             grid-template-columns:
-                minmax(0, .85fr)
-                minmax(0, 1.15fr);
+                116px minmax(0,1fr);
 
-            gap: 13px;
+            gap:
+                13px;
 
-        }
-
-
-        .card {
-
-            background:
-                rgba(255,255,255,.96);
+            padding:
+                10px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: var(--radius);
+            border-radius:
+                15px;
+
+            background:
+                white;
 
             box-shadow:
                 var(--shadow-small);
@@ -1051,416 +1196,617 @@
         }
 
 
-        /* =========================================================
-           VIDEO CARD
-        ========================================================= */
+        .thumbnail {
 
-        .preview-card {
+            position:
+                relative;
 
-            overflow: hidden;
+            width:
+                116px;
 
-        }
+            height:
+                116px;
 
+            overflow:
+                hidden;
 
-        .video-container {
-
-            position: relative;
-
-            min-height: 420px;
-
-            background:
-                #090909;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            overflow: hidden;
-
-        }
-
-
-        .video-container::before {
-
-            content: "";
-
-            position: absolute;
-
-            width: 180px;
-
-            height: 180px;
-
-            border-radius: 50%;
+            border-radius:
+                11px;
 
             background:
-                rgba(37,244,238,.05);
-
-            filter: blur(20px);
+                #111;
 
         }
 
 
-        .video {
+        .thumbnail img {
 
-            width: 100%;
+            width:
+                100%;
 
-            height: 100%;
+            height:
+                100%;
 
-            min-height: 420px;
+            display:
+                block;
 
-            max-height: 650px;
-
-            object-fit: contain;
-
-            background: #090909;
-
-            position: relative;
-
-            z-index: 1;
+            object-fit:
+                cover;
 
         }
 
 
-        .video-meta {
+        .thumbnail-placeholder {
 
-            padding: 15px;
+            width:
+                100%;
 
-        }
+            height:
+                100%;
 
+            display:
+                flex;
 
-        .creator {
+            align-items:
+                center;
 
-            display: flex;
-
-            align-items: center;
-
-            gap: 9px;
-
-        }
-
-
-        .creator-avatar {
-
-            width: 32px;
-
-            height: 32px;
-
-            border-radius: 50%;
+            justify-content:
+                center;
 
             background:
                 linear-gradient(
                     135deg,
                     #111,
-                    #333
+                    #2c2c2c
                 );
 
-            color: #fff;
+            color:
+                white;
 
-            display: flex;
+        }
 
-            align-items: center;
 
-            justify-content: center;
+        .thumbnail-placeholder svg {
 
-            font-size: 9px;
+            width:
+                29px;
 
-            font-weight: 800;
+            height:
+                29px;
 
-            flex: 0 0 32px;
+        }
+
+
+        .thumb-label {
+
+            position:
+                absolute;
+
+            left:
+                7px;
+
+            bottom:
+                7px;
+
+            padding:
+                4px 6px;
+
+            border-radius:
+                5px;
+
+            background:
+                rgba(0,0,0,.7);
+
+            color:
+                white;
+
+            font-size:
+                7px;
+
+            font-weight:
+                800;
+
+            backdrop-filter:
+                blur(5px);
+
+        }
+
+
+        .preview-info {
+
+            min-width:
+                0;
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            justify-content:
+                center;
+
+        }
+
+
+        .creator-row {
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                7px;
+
+            margin-bottom:
+                7px;
+
+        }
+
+
+        .avatar {
+
+            width:
+                29px;
+
+            height:
+                29px;
+
+            flex:
+                0 0 29px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            border-radius:
+                50%;
+
+            background:
+                #f0f0f1;
+
+            color:
+                #555;
+
+            font-size:
+                8px;
+
+            font-weight:
+                800;
 
         }
 
 
         .creator-name {
 
-            font-size: 10px;
+            font-size:
+                10px;
 
-            font-weight: 800;
+            font-weight:
+                800;
 
         }
 
 
         .creator-label {
 
-            margin-top: 2px;
+            margin-top:
+                2px;
 
-            color: #aaa;
+            color:
+                #999;
 
-            font-size: 8px;
+            font-size:
+                8px;
 
         }
 
 
         .video-title {
 
-            margin-top: 10px;
+            display:
+                -webkit-box;
 
-            color: #666;
+            -webkit-line-clamp:
+                3;
 
-            font-size: 9px;
+            -webkit-box-orient:
+                vertical;
 
-            line-height: 1.6;
+            overflow:
+                hidden;
 
-            display: -webkit-box;
+            color:
+                #666;
 
-            -webkit-line-clamp: 3;
+            font-size:
+                9px;
 
-            -webkit-box-orient: vertical;
-
-            overflow: hidden;
-
-        }
-
-
-        /* =========================================================
-           QUALITY CARD
-        ========================================================= */
-
-        .quality-card {
-
-            padding: 15px;
+            line-height:
+                1.55;
 
         }
 
 
-        .quality-header {
+        .preview-note {
 
-            display: flex;
+            margin-top:
+                8px;
 
-            align-items: center;
+            color:
+                #999;
 
-            justify-content: space-between;
+            font-size:
+                8px;
 
-            padding-bottom: 12px;
+        }
 
-            margin-bottom: 10px;
+
+        /* ============================================================
+           QUALITY SECTIONS
+        ============================================================ */
+
+        .quality-area {
+
+            margin-top:
+                12px;
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            gap:
+                10px;
+
+        }
+
+
+        .quality-section {
+
+            border:
+                1px solid var(--line);
+
+            border-radius:
+                14px;
+
+            background:
+                white;
+
+            overflow:
+                hidden;
+
+        }
+
+
+        .quality-section-header {
+
+            min-height:
+                43px;
+
+            padding:
+                8px 10px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            background:
+                #fafafa;
 
             border-bottom:
-                1px solid var(--border);
+                1px solid var(--line);
 
         }
 
 
-        .quality-header-title {
+        .quality-section-title {
 
-            font-size: 13px;
+            display:
+                flex;
 
-            font-weight: 800;
+            align-items:
+                center;
 
-        }
-
-
-        .quality-header-sub {
-
-            margin-top: 3px;
-
-            color: #999;
-
-            font-size: 8px;
+            gap:
+                7px;
 
         }
 
 
-        .quality-count {
+        .quality-section-icon {
 
-            color: #999;
+            width:
+                27px;
 
-            font-size: 8px;
+            height:
+                27px;
 
-            font-weight: 650;
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            border-radius:
+                7px;
+
+            background:
+                #111;
+
+            color:
+                white;
+
+            font-size:
+                7px;
+
+            font-weight:
+                900;
 
         }
 
 
-        .quality-list {
+        .section-name {
 
-            display: flex;
+            font-size:
+                10px;
 
-            flex-direction: column;
+            font-weight:
+                800;
 
-            gap: 7px;
+        }
+
+
+        .section-description {
+
+            margin-top:
+                2px;
+
+            color:
+                #999;
+
+            font-size:
+                7px;
+
+        }
+
+
+        .section-count {
+
+            color:
+                #999;
+
+            font-size:
+                8px;
+
+        }
+
+
+        .quality-items {
+
+            padding:
+                7px;
+
+            display:
+                grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fit,
+                    minmax(
+                        250px,
+                        1fr
+                    )
+                );
+
+            gap:
+                6px;
 
         }
 
 
         .quality-option {
 
-            width: 100%;
+            min-height:
+                55px;
 
-            min-height: 68px;
+            width:
+                100%;
 
             padding:
-                9px;
+                7px 8px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            gap:
+                8px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: 11px;
+            border-radius:
+                10px;
 
-            background: #fff;
+            background:
+                white;
 
-            cursor: pointer;
+            cursor:
+                pointer;
 
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            gap: 10px;
-
-            text-align: left;
+            text-align:
+                left;
 
             transition:
-                background .15s ease,
-                border-color .15s ease,
-                transform .12s ease;
+                .15s ease;
 
         }
 
 
         .quality-option:hover {
 
+            border-color:
+                #bdbdc1;
+
             background:
                 #fcfcfc;
 
-            border-color:
-                #cfcfcf;
-
-        }
-
-
-        .quality-option:active {
-
             transform:
-                scale(.995);
+                translateY(-1px);
 
         }
 
 
         .quality-option:disabled {
 
-            opacity: .55;
+            opacity:
+                .55;
 
-            cursor: wait;
-
-        }
-
-
-        .quality-option.best {
-
-            border-color:
-                #111;
-
-            box-shadow:
-                inset 0 0 0 1px #111;
+            cursor:
+                wait;
 
         }
 
 
-        .quality-left {
+        .quality-main {
 
-            min-width: 0;
+            min-width:
+                0;
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            gap: 9px;
+            gap:
+                8px;
 
         }
 
 
         .quality-icon {
 
-            width: 40px;
+            width:
+                34px;
 
-            height: 40px;
+            height:
+                34px;
 
             flex:
-                0 0 40px;
+                0 0 34px;
 
-            border-radius: 10px;
+            display:
+                flex;
 
-            background:
-                var(--surface);
+            align-items:
+                center;
 
-            color: #555;
+            justify-content:
+                center;
 
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-size: 8px;
-
-            font-weight: 900;
-
-        }
-
-
-        .quality-option.best
-        .quality-icon {
-
-            color: #fff;
+            border-radius:
+                8px;
 
             background:
-                #111;
+                var(--surface-soft);
+
+            color:
+                #444;
+
+            font-size:
+                7px;
+
+            font-weight:
+                900;
 
         }
 
 
         .quality-info {
-
-            min-width: 0;
-
+            min-width:
+                0;
         }
 
 
         .quality-name {
 
-            display: flex;
+            display:
+                flex;
 
-            align-items: center;
+            align-items:
+                center;
 
-            flex-wrap: wrap;
+            flex-wrap:
+                wrap;
 
-            gap: 5px;
+            gap:
+                4px;
 
-            font-size: 10px;
+            font-size:
+                9px;
 
-            font-weight: 800;
+            font-weight:
+                800;
 
         }
 
 
-        .quality-description {
+        .quality-meta {
 
-            margin-top: 3px;
+            margin-top:
+                3px;
 
-            color: #999;
+            color:
+                #999;
 
-            font-size: 8px;
+            font-size:
+                7px;
 
-            white-space: nowrap;
+            white-space:
+                nowrap;
 
-            overflow: hidden;
+            overflow:
+                hidden;
 
-            text-overflow: ellipsis;
+            text-overflow:
+                ellipsis;
 
         }
 
 
         .quality-tags {
 
-            display: flex;
+            margin-top:
+                4px;
 
-            gap: 4px;
+            display:
+                flex;
 
-            margin-top: 4px;
+            gap:
+                3px;
 
         }
 
@@ -1470,29 +1816,19 @@
             padding:
                 2px 5px;
 
-            border-radius: 4px;
+            border-radius:
+                4px;
 
-            font-size: 6.5px;
+            font-size:
+                6px;
 
-            font-weight: 850;
-
-            letter-spacing: .2px;
-
-        }
-
-
-        .tag.original {
-
-            background:
-                var(--green-soft);
-
-            color:
-                var(--green);
+            font-weight:
+                800;
 
         }
 
 
-        .tag.hd {
+        .tag-hd {
 
             background:
                 var(--blue-soft);
@@ -1503,7 +1839,7 @@
         }
 
 
-        .tag.sd {
+        .tag-sd {
 
             background:
                 var(--purple-soft);
@@ -1514,7 +1850,18 @@
         }
 
 
-        .tag.watermark {
+        .tag-original {
+
+            background:
+                var(--green-soft);
+
+            color:
+                var(--green);
+
+        }
+
+
+        .tag-watermark {
 
             background:
                 var(--orange-soft);
@@ -1525,180 +1872,325 @@
         }
 
 
-        .best-badge {
+        .best {
+
+            background:
+                #111;
+
+            color:
+                white;
 
             padding:
                 2px 5px;
 
-            border-radius: 4px;
+            border-radius:
+                4px;
 
-            background:
-                #111;
+            font-size:
+                6px;
 
-            color: #fff;
-
-            font-size: 6.5px;
-
-            font-weight: 850;
+            font-weight:
+                900;
 
         }
 
 
-        .download-action {
+        .download-button {
 
             flex:
                 0 0 auto;
 
-            min-width: 76px;
-
-            height: 31px;
+            height:
+                32px;
 
             padding:
-                0 8px;
+                0 9px;
 
-            border-radius: 7px;
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            gap:
+                5px;
+
+            border-radius:
+                8px;
 
             background:
                 #111;
 
-            color: #fff;
+            color:
+                white;
 
-            display: inline-flex;
+            font-size:
+                7px;
 
-            align-items: center;
+            font-weight:
+                800;
 
-            justify-content: center;
-
-            gap: 5px;
-
-            font-size: 8px;
-
-            font-weight: 800;
+            white-space:
+                nowrap;
 
         }
 
 
-        .download-action svg {
+        .download-button svg {
 
-            width: 12px;
+            width:
+                12px;
 
-            height: 12px;
-
-        }
-
-
-        /* =========================================================
-           DETAILS
-        ========================================================= */
-
-        .details-grid {
-
-            display: grid;
-
-            grid-template-columns:
-                repeat(4, 1fr);
-
-            gap: 7px;
-
-            margin-top: 10px;
+            height:
+                12px;
 
         }
 
 
-        .detail {
-
-            padding:
-                10px;
-
-            border:
-                1px solid var(--border);
-
-            border-radius: 9px;
-
-            background: #fff;
-
-            text-align: center;
-
-        }
-
-
-        .detail strong {
-
-            display: block;
-
-            font-size: 9px;
-
-            font-weight: 800;
-
-        }
-
-
-        .detail span {
-
-            display: block;
-
-            margin-top: 3px;
-
-            color: #999;
-
-            font-size: 7px;
-
-        }
-
-
-        /* =========================================================
-           NOTICE
-        ========================================================= */
+        /* ============================================================
+           STATUS / INFORMATION
+        ============================================================ */
 
         .notice {
 
-            margin-top: 10px;
+            margin-top:
+                9px;
 
             padding:
-                11px 12px;
+                10px 11px;
 
             border:
-                1px solid var(--border);
+                1px solid var(--line);
 
-            border-radius: 10px;
+            border-radius:
+                10px;
 
             background:
-                rgba(255,255,255,.75);
+                #fafafa;
 
-            color: #777;
+            color:
+                #777;
 
-            font-size: 8px;
+            font-size:
+                8px;
 
-            line-height: 1.6;
+            line-height:
+                1.6;
 
         }
 
 
         .notice strong {
+            color:
+                #444;
+        }
 
-            color: #444;
+
+        /* ============================================================
+           SEO CONTENT
+        ============================================================ */
+
+        .seo-content {
+
+            margin-top:
+                35px;
+
+            padding:
+                23px;
+
+            border:
+                1px solid var(--line);
+
+            border-radius:
+                16px;
+
+            background:
+                rgba(255,255,255,.85);
 
         }
 
 
-        /* =========================================================
-           LOADING
-        ========================================================= */
+        .seo-content h2 {
+
+            margin:
+                0 0 9px;
+
+            font-size:
+                17px;
+
+            letter-spacing:
+                -.4px;
+
+        }
+
+
+        .seo-content h3 {
+
+            margin:
+                22px 0 7px;
+
+            font-size:
+                13px;
+
+        }
+
+
+        .seo-content p {
+
+            margin:
+                0;
+
+            color:
+                #666;
+
+            font-size:
+                10px;
+
+            line-height:
+                1.8;
+
+        }
+
+
+        .seo-list {
+
+            margin:
+                9px 0 0;
+
+            padding-left:
+                17px;
+
+            color:
+                #666;
+
+            font-size:
+                10px;
+
+            line-height:
+                1.9;
+
+        }
+
+
+        /* ============================================================
+           FAQ
+        ============================================================ */
+
+        .faq {
+
+            margin-top:
+                12px;
+
+            display:
+                grid;
+
+            gap:
+                6px;
+
+        }
+
+
+        .faq details {
+
+            border:
+                1px solid var(--line);
+
+            border-radius:
+                10px;
+
+            background:
+                white;
+
+            padding:
+                11px 12px;
+
+        }
+
+
+        .faq summary {
+
+            cursor:
+                pointer;
+
+            font-size:
+                10px;
+
+            font-weight:
+                800;
+
+        }
+
+
+        .faq p {
+
+            margin:
+                8px 0 0;
+
+            color:
+                #777;
+
+            font-size:
+                9px;
+
+            line-height:
+                1.65;
+
+        }
+
+
+        /* ============================================================
+           FOOTER
+        ============================================================ */
+
+        footer {
+
+            padding:
+                36px 0 24px;
+
+            text-align:
+                center;
+
+            color:
+                #999;
+
+            font-size:
+                8px;
+
+            line-height:
+                1.7;
+
+        }
+
+
+        footer strong {
+            color:
+                #555;
+        }
+
+
+        /* ============================================================
+           SPINNER
+        ============================================================ */
 
         .spinner {
 
-            width: 13px;
+            width:
+                12px;
 
-            height: 13px;
+            height:
+                12px;
 
             border:
-                1.5px solid
-                rgba(255,255,255,.3);
+                1.5px solid rgba(255,255,255,.35);
 
             border-top-color:
-                #fff;
+                white;
 
-            border-radius: 50%;
+            border-radius:
+                50%;
 
             animation:
                 spin .7s linear infinite;
@@ -1707,225 +2199,98 @@
 
 
         @keyframes spin {
-
             to {
-
                 transform:
                     rotate(360deg);
-
             }
-
         }
 
 
-        /* =========================================================
-           FOOTER
-        ========================================================= */
-
-        footer {
-
-            padding:
-                65px 0
-                30px;
-
-            text-align: center;
-
-            color: #aaa;
-
-            font-size: 8px;
-
-        }
-
-
-        footer strong {
-
-            color: #555;
-
-        }
-
-
-        footer .footer-line {
-
-            margin-top: 7px;
-
-            color: #aaa;
-
-        }
-
-
-        /* =========================================================
+        /* ============================================================
            MOBILE
-        ========================================================= */
+        ============================================================ */
 
-        @media (max-width: 820px) {
-
-            .results-grid {
-
-                grid-template-columns: 1fr;
-
-            }
-
-
-            .video-container,
-            .video {
-
-                min-height: 360px;
-
-            }
-
-        }
-
-
-        @media (max-width: 600px) {
+        @media (max-width: 700px) {
 
             .container {
 
                 width:
-                    calc(100% - 20px);
+                    calc(100% - 18px);
 
             }
 
 
-            .topbar {
-
-                height: 65px;
-
+            .header {
+                height:
+                    62px;
             }
 
 
-            .secure-pill {
-
-                display: none;
-
+            .header-badge {
+                display:
+                    none;
             }
 
 
             .hero {
 
                 padding:
-                    48px 0
-                    32px;
+                    34px 0 22px;
 
             }
 
 
             .hero-icon {
 
-                width: 65px;
+                width:
+                    54px;
 
-                height: 65px;
+                height:
+                    54px;
 
-                border-radius: 20px;
-
-            }
-
-
-            .tiktok-logo {
-
-                width: 33px;
-
-                height: 33px;
+                border-radius:
+                    15px;
 
             }
 
 
-            .hero h1 {
+            .hero-icon svg {
 
-                font-size: 36px;
+                width:
+                    27px;
 
-                letter-spacing: -1.8px;
+                height:
+                    27px;
+
+            }
+
+
+            h1 {
+
+                font-size:
+                    29px;
+
+                letter-spacing:
+                    -1.2px;
 
             }
 
 
             .hero-description {
 
-                padding: 0 10px;
-
-                font-size: 11px;
-
-            }
-
-
-            .input-panel {
-
-                padding: 6px;
-
-                border-radius: 14px;
-
-            }
-
-
-            .link-box {
-
-                display: none;
-
-            }
-
-
-            .url-input {
-
-                height: 40px;
-
-                font-size: 11px;
-
-            }
-
-
-            .get-button {
-
-                height: 40px;
+                font-size:
+                    10px;
 
                 padding:
-                    0 13px;
+                    0 8px;
 
             }
 
 
-            .results-top {
+            .hero-feature {
 
-                align-items: flex-start;
-
-            }
-
-
-            .results-actions {
-
-                display: none;
-
-            }
-
-
-            .video-container,
-            .video {
-
-                min-height: 320px;
-
-            }
-
-
-            .details-grid {
-
-                grid-template-columns:
-                    repeat(2, 1fr);
-
-            }
-
-        }
-
-
-        @media (max-width: 390px) {
-
-            .hero h1 {
-
-                font-size: 31px;
-
-            }
-
-
-            .feature {
-
-                font-size: 8px;
+                font-size:
+                    7px;
 
                 padding:
                     6px 8px;
@@ -1933,33 +2298,165 @@
             }
 
 
+            .search-inner {
+
+                min-height:
+                    46px;
+
+            }
+
+
+            .url-symbol {
+
+                display:
+                    none;
+
+            }
+
+
+            .url-input {
+
+                height:
+                    40px;
+
+                font-size:
+                    11px;
+
+            }
+
+
+            .get-button {
+
+                min-width:
+                    43px;
+
+                width:
+                    43px;
+
+                height:
+                    40px;
+
+                padding:
+                    0;
+
+            }
+
+
+            .get-button span {
+                display:
+                    none;
+            }
+
+
+            .preview-card {
+
+                grid-template-columns:
+                    88px minmax(0,1fr);
+
+                padding:
+                    8px;
+
+                gap:
+                    9px;
+
+            }
+
+
+            .thumbnail {
+
+                width:
+                    88px;
+
+                height:
+                    88px;
+
+            }
+
+
+            .preview-note {
+                display:
+                    none;
+            }
+
+
+            .quality-items {
+
+                grid-template-columns:
+                    1fr;
+
+            }
+
+
             .quality-option {
 
-                min-height: 62px;
+                min-height:
+                    53px;
 
             }
 
 
-            .download-action {
+            .download-button {
 
-                min-width: 34px;
+                width:
+                    31px;
 
-                width: 34px;
-
-                padding: 0;
+                padding:
+                    0;
 
             }
 
 
-            .download-action span {
+            .download-button span {
+                display:
+                    none;
+            }
 
-                display: none;
+
+            .seo-content {
+
+                padding:
+                    17px;
+
+            }
+
+        }
+
+
+        @media (max-width: 370px) {
+
+            .quality-icon {
+
+                width:
+                    30px;
+
+                height:
+                    30px;
+
+                flex-basis:
+                    30px;
+
+            }
+
+
+            .quality-name {
+
+                font-size:
+                    8px;
+
+            }
+
+
+            .quality-meta {
+
+                font-size:
+                    6px;
 
             }
 
         }
 
     </style>
+
 </head>
 
 
@@ -1969,41 +2466,32 @@
 
     <div class="container">
 
-        <!-- =====================================================
-             HEADER
-        ====================================================== -->
 
-        <header class="topbar">
+        <!-- ========================================================
+             HEADER
+        ========================================================= -->
+
+        <header class="header">
 
             <a
                 href="../index.html"
                 class="brand"
-                aria-label="Triplem Home"
+                aria-label="Triplem by NSF"
             >
-
-                <!--
-                    CORRECT LOGO PATH:
-
-                    Triple-M/tt/index.html
-                    ->
-                    ../
-                    ->
-                    Assets/logo/logo.png
-                -->
 
                 <img
                     src="../Assets/logo/logo.png"
-                    alt="Triplem by NSF"
+                    alt="Triplem by NSF logo"
                     class="brand-logo"
                 >
 
-                <span class="brand-text">
+                <span class="brand-copy">
 
                     <span class="brand-name">
                         Triplem
                     </span>
 
-                    <span class="brand-by">
+                    <span class="brand-sub">
                         by NSF
                     </span>
 
@@ -2012,81 +2500,55 @@
             </a>
 
 
-            <div class="header-right">
+            <div class="header-badge">
 
-                <div class="secure-pill">
+                <span class="live-dot"></span>
 
-                    <span class="secure-dot"></span>
-
-                    Fast &amp; Secure
-
-                </div>
+                Online Downloader
 
             </div>
 
         </header>
 
 
-        <!-- =====================================================
+        <!-- ========================================================
              HERO
-        ====================================================== -->
+        ========================================================= -->
 
         <section class="hero">
 
-            <div class="hero-icon">
-
-                <!-- TikTok musical note -->
+            <div
+                class="hero-icon"
+                aria-hidden="true"
+            >
 
                 <svg
-                    class="tiktok-logo"
                     viewBox="0 0 24 24"
                     fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-label="TikTok"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                 >
 
-                    <!-- cyan offset -->
+                    <path d="M14 4v10.2a4 4 0 1 1-2.4-3.66"/>
 
-                    <path
-                        d="M14.4 3.1C15 5.5 16.5 7 19.2 7.3V10.5C17.5 10.4 15.8 9.9 14.4 8.9V15.2C14.4 19.1 11.8 21.2 8.7 21.2C5.7 21.2 3.4 19.2 3.4 16.3C3.4 13.1 6.1 10.9 9.4 11.2V14.4C7.8 14.3 6.6 15.1 6.6 16.4C6.6 17.5 7.4 18.2 8.6 18.2C10 18.2 11.2 17.3 11.2 15V3.1H14.4Z"
-                        fill="#25F4EE"
-                        transform="translate(-1.1, 0.8)"
-                    />
-
-                    <!-- red offset -->
-
-                    <path
-                        d="M14.4 3.1C15 5.5 16.5 7 19.2 7.3V10.5C17.5 10.4 15.8 9.9 14.4 8.9V15.2C14.4 19.1 11.8 21.2 8.7 21.2C5.7 21.2 3.4 19.2 3.4 16.3C3.4 13.1 6.1 10.9 9.4 11.2V14.4C7.8 14.3 6.6 15.1 6.6 16.4C6.6 17.5 7.4 18.2 8.6 18.2C10 18.2 11.2 17.3 11.2 15V3.1H14.4Z"
-                        fill="#FE2C55"
-                        transform="translate(1.1, -0.8)"
-                    />
-
-                    <!-- main white note -->
-
-                    <path
-                        d="M14.4 3.1C15 5.5 16.5 7 19.2 7.3V10.5C17.5 10.4 15.8 9.9 14.4 8.9V15.2C14.4 19.1 11.8 21.2 8.7 21.2C5.7 21.2 3.4 19.2 3.4 16.3C3.4 13.1 6.1 10.9 9.4 11.2V14.4C7.8 14.3 6.6 15.1 6.6 16.4C6.6 17.5 7.4 18.2 8.6 18.2C10 18.2 11.2 17.3 11.2 15V3.1H14.4Z"
-                        fill="#FFFFFF"
-                    />
+                    <path d="M14 4c1.1 2.6 2.7 3.8 5.5 4"/>
 
                 </svg>
 
             </div>
 
 
-            <div class="hero-eyebrow">
-
-                <span class="hero-eyebrow-dot"></span>
-
-                TRIPLE-M VIDEO TOOLS
-
+            <div class="eyebrow">
+                FAST • SIMPLE • QUALITY OPTIONS
             </div>
 
 
             <h1>
 
                 TikTok Video
-
-                <span class="light">
+                <span class="hero-highlight">
                     Downloader
                 </span>
 
@@ -2095,86 +2557,64 @@
 
             <p class="hero-description">
 
-                Paste a TikTok video link and retrieve the
-                available media streams. Choose from the
-                highest available quality, HD, SD and
-                watermark versions.
+                Download available TikTok video streams with
+                Triplem by NSF. Paste a TikTok video URL and
+                choose from the available original, HD, SD,
+                high-quality watermark and low-quality watermark
+                versions returned by the video service.
 
             </p>
 
 
-            <div class="feature-row">
+            <div class="hero-features">
 
-                <div class="feature">
+                <div class="hero-feature">
 
                     <svg
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
                     >
-
-                        <path d="M20 6L9 17l-5-5"/>
-
+                        <path d="M5 12l4 4L19 6"/>
                     </svg>
 
-                    No Watermark
+                    No browser conversion
 
                 </div>
 
 
-                <div class="feature">
+                <div class="hero-feature">
 
                     <svg
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
                     >
-
-                        <rect
-                            x="3"
-                            y="3"
-                            width="18"
-                            height="18"
-                            rx="3"
-                        />
-
-                        <path d="M8 12h8"/>
-
-                        <path d="M12 8v8"/>
-
+                        <path d="M12 3v18"/>
+                        <path d="M3 12h18"/>
                     </svg>
 
-                    Multiple Quality
+                    Multiple qualities
 
                 </div>
 
 
-                <div class="feature">
+                <div class="hero-feature">
 
                     <svg
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
                     >
-
-                        <path d="M12 3v13"/>
-
-                        <path d="m7 11 5 5 5-5"/>
-
-                        <path d="M4 21h16"/>
-
+                        <path d="M12 3v12"/>
+                        <path d="m7 10 5 5 5-5"/>
+                        <path d="M5 21h14"/>
                     </svg>
 
-                    Direct Stream
+                    Direct media source
 
                 </div>
 
@@ -2183,82 +2623,86 @@
         </section>
 
 
-        <!-- =====================================================
+        <!-- ========================================================
              DOWNLOADER
-        ====================================================== -->
+        ========================================================= -->
 
-        <main class="downloader">
+        <main class="main">
+
 
             <form
                 id="form"
-                class="input-panel"
+                class="search-card"
             >
 
-                <div class="link-box">
+                <div class="search-inner">
 
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
+
+                    <div class="url-symbol">
+
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+
+                            <path
+                                d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"
+                            />
+
+                            <path
+                                d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.15-1.15"
+                            />
+
+                        </svg>
+
+                    </div>
+
+
+                    <input
+                        id="url"
+                        class="url-input"
+                        type="url"
+                        inputmode="url"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="Paste TikTok video URL here..."
+                        aria-label="TikTok video URL"
+                        required
                     >
 
-                        <path
-                            d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"
-                        />
 
-                        <path
-                            d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.15-1.15"
-                        />
+                    <button
+                        id="getButton"
+                        class="get-button"
+                        type="submit"
+                    >
 
-                    </svg>
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+
+                            <path d="M12 3v13"/>
+                            <path d="m7 11 5 5 5-5"/>
+                            <path d="M4 21h16"/>
+
+                        </svg>
+
+                        <span>
+                            Get Video
+                        </span>
+
+                    </button>
 
                 </div>
-
-
-                <input
-                    id="url"
-                    class="url-input"
-                    type="text"
-                    inputmode="url"
-                    placeholder="Paste TikTok video URL here..."
-                    autocomplete="off"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    aria-label="TikTok video URL"
-                >
-
-
-                <button
-                    id="getButton"
-                    class="get-button"
-                    type="submit"
-                >
-
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-
-                        <path d="M12 3v13"/>
-
-                        <path d="m7 11 5 5 5-5"/>
-
-                        <path d="M4 21h16"/>
-
-                    </svg>
-
-                    <span>
-                        Get Video
-                    </span>
-
-                </button>
 
             </form>
 
@@ -2266,196 +2710,142 @@
             <div
                 id="message"
                 class="message"
+                role="status"
+                aria-live="polite"
             ></div>
 
 
-            <!-- =================================================
+            <!-- =====================================================
                  RESULTS
-            ================================================== -->
+            ====================================================== -->
 
             <section
                 id="results"
                 class="results"
+                aria-label="TikTok video download results"
             >
+
 
                 <div class="results-top">
 
-                    <div class="results-title-area">
+                    <div class="results-title">
 
-                        <h2 class="results-title">
+                        <h2>
                             Available Downloads
                         </h2>
 
-                        <span
-                            id="availableBadge"
-                            class="ready-badge"
-                        >
+                        <span class="ready">
                             READY
                         </span>
 
                     </div>
 
 
-                    <div class="results-actions">
-
-                        <button
-                            id="copyButton"
-                            type="button"
-                            class="mini-button"
-                        >
-
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-
-                                <rect
-                                    x="9"
-                                    y="9"
-                                    width="11"
-                                    height="11"
-                                    rx="2"
-                                />
-
-                                <path
-                                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                                />
-
-                            </svg>
-
-                            Copy URL
-
-                        </button>
-
-
-                        <button
-                            id="resetButton"
-                            type="button"
-                            class="mini-button"
-                        >
-
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-
-                                <path
-                                    d="M3 12a9 9 0 1 0 3-6.7"
-                                />
-
-                                <path
-                                    d="M3 4v5h5"
-                                />
-
-                            </svg>
-
-                            New Video
-
-                        </button>
-
-                    </div>
+                    <span
+                        id="resultCount"
+                        class="result-count"
+                    ></span>
 
                 </div>
 
 
-                <div class="results-grid">
+                <!-- COMPACT THUMBNAIL -->
 
-                    <!-- =========================================
-                         VIDEO PREVIEW
-                    ========================================== -->
-
-                    <div class="card preview-card">
-
-                        <div class="video-container">
-
-                            <video
-                                id="video"
-                                class="video"
-                                controls
-                                playsinline
-                                preload="metadata"
-                            ></video>
-
-                        </div>
+                <div class="preview-card">
 
 
-                        <div class="video-meta">
+                    <div class="thumbnail">
 
-                            <div class="creator">
-
-                                <div
-                                    id="creatorAvatar"
-                                    class="creator-avatar"
-                                >
-                                    TT
-                                </div>
+                        <img
+                            id="thumbnailImage"
+                            alt="TikTok video thumbnail"
+                            hidden
+                        >
 
 
-                                <div>
+                        <div
+                            id="thumbnailPlaceholder"
+                            class="thumbnail-placeholder"
+                        >
 
-                                    <div
-                                        id="creator"
-                                        class="creator-name"
-                                    >
-                                        TikTok Video
-                                    </div>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
 
-                                    <div class="creator-label">
-                                        TikTok video preview
-                                    </div>
+                                <rect
+                                    x="4"
+                                    y="3"
+                                    width="16"
+                                    height="18"
+                                    rx="3"
+                                />
 
-                                </div>
+                                <path
+                                    d="M10 8.5v7l5-3.5z"
+                                />
 
-                            </div>
-
-
-                            <div
-                                id="videoTitle"
-                                class="video-title"
-                            ></div>
+                            </svg>
 
                         </div>
+
+
+                        <span class="thumb-label">
+                            PREVIEW
+                        </span>
 
                     </div>
 
 
-                    <!-- =========================================
-                         QUALITY
-                    ========================================== -->
+                    <div class="preview-info">
 
-                    <div class="card quality-card">
 
-                        <div class="quality-header">
+                        <div class="creator-row">
 
-                            <div>
-
-                                <div class="quality-header-title">
-                                    Download Quality
-                                </div>
-
-                                <div class="quality-header-sub">
-                                    Select the media stream you want
-                                </div>
-
+                            <div
+                                id="creatorAvatar"
+                                class="avatar"
+                            >
+                                TT
                             </div>
 
 
-                            <div
-                                id="qualityCount"
-                                class="quality-count"
-                            ></div>
+                            <div>
+
+                                <div
+                                    id="creator"
+                                    class="creator-name"
+                                >
+                                    TikTok Video
+                                </div>
+
+                                <div class="creator-label">
+                                    Video information
+                                </div>
+
+                            </div>
 
                         </div>
 
 
                         <div
-                            id="qualityList"
-                            class="quality-list"
-                        ></div>
+                            id="videoTitle"
+                            class="video-title"
+                        >
+                            TikTok video
+                        </div>
+
+
+                        <div class="preview-note">
+
+                            Video playback is intentionally disabled.
+                            Only a compact thumbnail is displayed.
+
+                        </div>
 
                     </div>
 
@@ -2463,88 +2853,208 @@
 
 
                 <!-- =================================================
-                     DETAILS
+                     QUALITY GROUPS
                 ================================================== -->
 
-                <div class="details-grid">
-
-                    <div class="detail">
-
-                        <strong>
-                            Original
-                        </strong>
-
-                        <span>
-                            When supplied by source
-                        </span>
-
-                    </div>
-
-
-                    <div class="detail">
-
-                        <strong>
-                            HD
-                        </strong>
-
-                        <span>
-                            Highest HD stream
-                        </span>
-
-                    </div>
-
-
-                    <div class="detail">
-
-                        <strong>
-                            SD
-                        </strong>
-
-                        <span>
-                            Standard stream
-                        </span>
-
-                    </div>
-
-
-                    <div class="detail">
-
-                        <strong>
-                            MP4
-                        </strong>
-
-                        <span>
-                            Direct media file
-                        </span>
-
-                    </div>
-
-                </div>
+                <div
+                    id="qualityArea"
+                    class="quality-area"
+                ></div>
 
 
                 <div class="notice">
 
-                    <strong>
-                        Quality note:
-                    </strong>
+                    <strong>Quality note:</strong>
+                    Triplem does not invent or manufacture a higher
+                    quality stream. The options shown here are based
+                    on the media sources returned by the upstream
+                    video service. If an original or HD source is
+                    unavailable, it cannot be recreated from a
+                    lower-quality file without reducing quality.
 
-                    Triplem does not re-encode or artificially
-                    upscale the video. The downloaded file is the
-                    exact media stream supplied by the selected
-                    source URL. If an API does not provide an
-                    original-quality stream, the browser cannot
-                    create one from a lower-quality stream.
+                </div>
+
+
+            </section>
+
+
+            <!-- =====================================================
+                 SEO CONTENT
+            ====================================================== -->
+
+            <section class="seo-content">
+
+                <h2>
+                    TikTok Video Downloader by Triplem
+                </h2>
+
+
+                <p>
+
+                    Triplem by NSF provides a simple web interface
+                    for downloading available TikTok video streams.
+                    Instead of playing the video directly inside the
+                    page, the downloader displays a compact thumbnail
+                    and organizes available media sources into clear
+                    quality categories.
+
+                </p>
+
+
+                <h3>
+                    Choose the TikTok video quality you need
+                </h3>
+
+
+                <p>
+
+                    Depending on the source returned for a TikTok
+                    video, you may see separate download choices for
+                    original or source quality, HD video, SD video,
+                    high-quality watermark video and lower-quality
+                    watermark video.
+
+                </p>
+
+
+                <ul class="seo-list">
+
+                    <li>
+                        Original or source quality when available
+                    </li>
+
+                    <li>
+                        HD video streams
+                    </li>
+
+                    <li>
+                        SD and standard-quality streams
+                    </li>
+
+                    <li>
+                        High-quality watermark streams
+                    </li>
+
+                    <li>
+                        Low-quality watermark streams
+                    </li>
+
+                    <li>
+                        Resolution and file-size information when supplied
+                    </li>
+
+                </ul>
+
+
+                <h3>
+                    TikTok download without unnecessary browser processing
+                </h3>
+
+
+                <p>
+
+                    Triplem does not use a canvas to redraw the video,
+                    does not resize the video in the browser and does
+                    not re-encode the selected media stream. The
+                    selected download uses the media URL returned by
+                    the upstream service.
+
+                </p>
+
+
+                <h3>
+                    How to download a TikTok video
+                </h3>
+
+
+                <p>
+
+                    Copy the URL of a TikTok video, paste it into the
+                    downloader above and select Get Video. Once the
+                    available media streams are returned, choose the
+                    quality category and download option that best
+                    matches your needs.
+
+                </p>
+
+
+                <div class="faq">
+
+                    <details>
+
+                        <summary>
+                            Is Triplem a TikTok product?
+                        </summary>
+
+                        <p>
+
+                            No. Triplem by NSF is an independent web
+                            tool and is not presented as an official
+                            TikTok service.
+
+                        </p>
+
+                    </details>
+
+
+                    <details>
+
+                        <summary>
+                            Why are some quality options missing?
+                        </summary>
+
+                        <p>
+
+                            Available streams depend on the source
+                            service and the particular video. Triplem
+                            cannot create an original or HD source if
+                            the upstream service does not provide one.
+
+                        </p>
+
+                    </details>
+
+
+                    <details>
+
+                        <summary>
+                            Does the page play the TikTok video?
+                        </summary>
+
+                        <p>
+
+                            No. This version intentionally uses a
+                            compact square thumbnail rather than an
+                            embedded video player.
+
+                        </p>
+
+                    </details>
+
+
+                    <details>
+
+                        <summary>
+                            Does Triplem compress downloaded videos?
+                        </summary>
+
+                        <p>
+
+                            The browser does not re-encode or compress
+                            the selected media. It requests the exact
+                            source URL supplied for the selected option.
+
+                        </p>
+
+                    </details>
 
                 </div>
 
             </section>
 
+
         </main>
 
-
-        <!-- =====================================================
-             FOOTER
-        ====================================================== -->
 
         <footer>
 
@@ -2556,11 +3066,13 @@
 
             TikTok Video Downloader
 
-            <div class="footer-line">
-                Download only content you have permission to save.
-            </div>
+            <br>
+
+            Independent third-party tool. TikTok is a trademark
+            of its respective owner.
 
         </footer>
+
 
     </div>
 
@@ -2569,24 +3081,31 @@
 
 <script>
 
-/* =============================================================
-   TRIPLE-M BY NSF
+/* ================================================================
+   TRIPLEM BY NSF
    TIKTOK VIDEO DOWNLOADER
-
-   Frontend only.
+   ================================================================
 
    IMPORTANT:
-   This page does NOT re-encode, resize, compress or canvas-capture
-   the video.
 
-   It downloads the exact media URL returned by the API.
+   This frontend does not manufacture video quality.
 
-============================================================= */
+   It displays the media streams supplied by the API.
+
+   No canvas.
+   No video re-encoding.
+   No resizing.
+   No compression.
+
+   The selected source URL is downloaded directly whenever
+   the browser and CDN allow it.
+
+================================================================ */
 
 
-/* =============================================================
+/* ================================================================
    ELEMENTS
-============================================================= */
+================================================================ */
 
 const form =
     document.getElementById("form");
@@ -2603,9 +3122,6 @@ const message =
 const results =
     document.getElementById("results");
 
-const video =
-    document.getElementById("video");
-
 const creator =
     document.getElementById("creator");
 
@@ -2615,51 +3131,71 @@ const creatorAvatar =
 const videoTitle =
     document.getElementById("videoTitle");
 
-const qualityList =
-    document.getElementById("qualityList");
+const thumbnailImage =
+    document.getElementById("thumbnailImage");
 
-const qualityCount =
-    document.getElementById("qualityCount");
+const thumbnailPlaceholder =
+    document.getElementById("thumbnailPlaceholder");
 
-const copyButton =
-    document.getElementById("copyButton");
+const qualityArea =
+    document.getElementById("qualityArea");
 
-const resetButton =
-    document.getElementById("resetButton");
+const resultCount =
+    document.getElementById("resultCount");
 
 
-/* =============================================================
+/* ================================================================
    API
-============================================================= */
+================================================================ */
 
 const API_URL =
     "https://www.tikwm.com/api/?url=";
 
 
-/* =============================================================
+/* ================================================================
    STATE
-============================================================= */
+================================================================ */
 
 let currentSources = [];
 
-let currentTikTokURL = "";
 
+/* ================================================================
+   VALIDATE URL
+================================================================ */
 
-/* =============================================================
-   VALIDATE TIKTOK URL
-============================================================= */
+function isTikTokURL(value) {
 
-function isTikTokURL(url) {
+    try {
 
-    return /^(https?:\/\/)?(www\.)?(tiktok\.com|m\.tiktok\.com|vm\.tiktok\.com|vt\.tiktok\.com)\//i
-        .test(url);
+        const url =
+            new URL(
+                value
+            );
+
+        const host =
+            url.hostname
+                .toLowerCase()
+                .replace(/^www\./, "");
+
+        return (
+            host === "tiktok.com" ||
+            host === "m.tiktok.com" ||
+            host === "vm.tiktok.com" ||
+            host === "vt.tiktok.com"
+        );
+
+    } catch {
+
+        return false;
+
+    }
 
 }
 
 
-/* =============================================================
+/* ================================================================
    MESSAGE
-============================================================= */
+================================================================ */
 
 function showMessage(
     text,
@@ -2670,7 +3206,8 @@ function showMessage(
         text;
 
     message.className =
-        "message show " + type;
+        "message show " +
+        type;
 
 }
 
@@ -2686,9 +3223,9 @@ function hideMessage() {
 }
 
 
-/* =============================================================
-   RESET RESULTS
-============================================================= */
+/* ================================================================
+   RESET
+================================================================ */
 
 function resetResults() {
 
@@ -2696,20 +3233,11 @@ function resetResults() {
         "show"
     );
 
-    qualityList.innerHTML =
+    qualityArea.innerHTML =
         "";
 
     currentSources =
         [];
-
-    currentTikTokURL =
-        "";
-
-    video.removeAttribute(
-        "src"
-    );
-
-    video.load();
 
     creator.textContent =
         "TikTok Video";
@@ -2718,69 +3246,108 @@ function resetResults() {
         "TT";
 
     videoTitle.textContent =
+        "TikTok video";
+
+    resultCount.textContent =
         "";
 
-    qualityCount.textContent =
-        "";
+    thumbnailImage.hidden =
+        true;
+
+    thumbnailImage.removeAttribute(
+        "src"
+    );
+
+    thumbnailPlaceholder.style.display =
+        "flex";
 
 }
 
 
-/* =============================================================
+/* ================================================================
    ESCAPE HTML
-============================================================= */
+================================================================ */
 
-function escapeHTML(value) {
+function escapeHTML(
+    value
+) {
 
-    return String(value || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    return String(
+        value || ""
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 
 }
 
 
-/* =============================================================
+/* ================================================================
    FILE SIZE
-============================================================= */
+================================================================ */
 
-function formatSize(bytes) {
+function formatSize(
+    bytes
+) {
 
     const value =
-        Number(bytes || 0);
-
+        Number(
+            bytes || 0
+        );
 
     if (!value) {
-
         return "";
-
     }
 
 
     if (value < 1024) {
 
-        return value + " B";
+        return value +
+            " B";
 
     }
 
 
-    if (value < 1024 * 1024) {
+    if (
+        value <
+        1024 * 1024
+    ) {
 
         return (
             value / 1024
-        ).toFixed(0) + " KB";
+        ).toFixed(0) +
+        " KB";
 
     }
 
 
-    if (value < 1024 * 1024 * 1024) {
+    if (
+        value <
+        1024 * 1024 * 1024
+    ) {
 
         return (
             value /
             (1024 * 1024)
-        ).toFixed(2) + " MB";
+        ).toFixed(2) +
+        " MB";
 
     }
 
@@ -2788,36 +3355,31 @@ function formatSize(bytes) {
     return (
         value /
         (1024 * 1024 * 1024)
-    ).toFixed(2) + " GB";
+    ).toFixed(2) +
+    " GB";
 
 }
 
 
-/* =============================================================
+/* ================================================================
    RESOLUTION
-============================================================= */
+================================================================ */
 
-function getResolution(item) {
-
-    if (!item) {
-
-        return "";
-
-    }
-
+function getResolution(
+    source
+) {
 
     const width =
         Number(
-            item.width ||
-            item.w ||
+            source.width ||
+            source.w ||
             0
         );
 
-
     const height =
         Number(
-            item.height ||
-            item.h ||
+            source.height ||
+            source.h ||
             0
         );
 
@@ -2838,81 +3400,60 @@ function getResolution(item) {
 
     if (height) {
 
-        return height + "p";
+        return height +
+            "p";
 
     }
 
 
-    if (item.resolution) {
-
-        return String(
-            item.resolution
-        );
-
-    }
-
-
-    return "";
+    return (
+        source.resolution ||
+        ""
+    );
 
 }
 
 
-/* =============================================================
-   GET HEIGHT
-============================================================= */
+/* ================================================================
+   HEIGHT
+================================================================ */
 
-function getHeight(source) {
+function getHeight(
+    source
+) {
 
-    if (
-        source.height
-    ) {
-
-        return Number(
-            source.height
+    const direct =
+        Number(
+            source.height ||
+            source.h ||
+            0
         );
 
+
+    if (direct) {
+        return direct;
     }
 
 
-    const resolution =
-        String(
-            source.resolution ||
-            ""
-        );
-
-
-    const resolutionMatch =
-        resolution.match(
-            /(\d{3,4})p/i
-        );
-
-
-    if (resolutionMatch) {
-
-        return Number(
-            resolutionMatch[1]
-        );
-
-    }
-
-
-    const label =
+    const text =
         String(
             source.label ||
+            source.quality ||
+            source.name ||
             ""
         );
 
 
-    const labelMatch =
-        label.match(
-            /(\d{3,4})p/i
+    const match =
+        text.match(
+            /(\d{3,4})\s*p/i
         );
 
 
-    if (labelMatch) {
+    if (match) {
 
         return Number(
-            labelMatch[1]
+            match[1]
         );
 
     }
@@ -2923,15 +3464,63 @@ function getHeight(source) {
 }
 
 
-/* =============================================================
-   CLASSIFY SOURCE
-============================================================= */
+/* ================================================================
+   QUALITY SCORE
+================================================================ */
 
-function classifySource(source) {
+function qualityScore(
+    source
+) {
+
+    const width =
+        Number(
+            source.width ||
+            source.w ||
+            0
+        );
+
+    const height =
+        Number(
+            source.height ||
+            source.h ||
+            0
+        );
+
+
+    const pixels =
+        width *
+        height;
+
+
+    if (pixels) {
+        return pixels;
+    }
+
+
+    const h =
+        getHeight(
+            source
+        );
+
+
+    return h * h;
+
+}
+
+
+/* ================================================================
+   CLASSIFICATION
+================================================================ */
+
+function classifySource(
+    source
+) {
 
     const label =
         String(
             source.label ||
+            source.quality ||
+            source.name ||
             ""
         )
         .toLowerCase();
@@ -2951,21 +3540,43 @@ function classifySource(source) {
     if (
         source.watermark === true ||
         label.includes("watermark") ||
-        label.includes("wm")
+        label.includes(" wm") ||
+        label.startsWith("wm")
     ) {
 
-        return "watermark";
+        const score =
+            qualityScore(
+                source
+            );
+
+
+        if (
+            score >=
+            720 * 1280
+        ) {
+
+            return "watermark-high";
+
+        }
+
+
+        return "watermark-low";
 
     }
 
 
     const height =
-        getHeight(source);
+        getHeight(
+            source
+        );
 
 
     if (
+        height >= 720 ||
         label.includes("hd") ||
-        height >= 720
+        label.includes("1080") ||
+        label.includes("2k") ||
+        label.includes("4k")
     ) {
 
         return "hd";
@@ -2978,121 +3589,115 @@ function classifySource(source) {
 }
 
 
-/* =============================================================
-   ADD SOURCE
-============================================================= */
+/* ================================================================
+   SOURCE COLLECTION
+================================================================ */
 
-function addSource(
-    sources,
-    seen,
-    url,
-    label,
-    options = {}
+function collectSources(
+    data
 ) {
 
-    if (!url) {
-
-        return;
-
-    }
-
-
-    if (
-        typeof url !== "string"
-    ) {
-
-        return;
-
-    }
-
-
-    if (
-        !/^https?:\/\//i.test(url)
-    ) {
-
-        return;
-
-    }
-
-
-    if (
-        seen.has(url)
-    ) {
-
-        return;
-
-    }
-
-
-    seen.add(url);
-
-
-    sources.push({
-
-        url: url,
-
-        label:
-            label ||
-            "Video",
-
-        size:
-            Number(
-                options.size ||
-                0
-            ),
-
-        width:
-            Number(
-                options.width ||
-                0
-            ),
-
-        height:
-            Number(
-                options.height ||
-                0
-            ),
-
-        resolution:
-            options.resolution ||
-            "",
-
-        watermark:
-            options.watermark === true,
-
-        original:
-            options.original === true,
-
-        priority:
-            Number(
-                options.priority ||
-                0
-            )
-
-    });
-
-}
-
-
-/* =============================================================
-   COLLECT SOURCES
-============================================================= */
-
-function collectSources(data) {
-
-    const sources = [];
+    const sources =
+        [];
 
     const seen =
         new Set();
 
 
-    /*
-        Highest-quality stream
-    */
+    function add(
+        url,
+        label,
+        options = {}
+    ) {
 
-    addSource(
-        sources,
-        seen,
+        if (
+            typeof url !==
+            "string"
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            !/^https?:\/\//i.test(
+                url
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            seen.has(url)
+        ) {
+
+            return;
+
+        }
+
+
+        seen.add(
+            url
+        );
+
+
+        sources.push({
+
+            url,
+
+            label:
+                label ||
+                "Video",
+
+            size:
+                Number(
+                    options.size ||
+                    0
+                ),
+
+            width:
+                Number(
+                    options.width ||
+                    0
+                ),
+
+            height:
+                Number(
+                    options.height ||
+                    0
+                ),
+
+            resolution:
+                options.resolution ||
+                "",
+
+            watermark:
+                options.watermark === true,
+
+            original:
+                options.original === true,
+
+            priority:
+                Number(
+                    options.priority ||
+                    0
+                )
+
+        });
+
+    }
+
+
+    /* ============================================================
+       KNOWN TIKWM FIELDS
+    ============================================================ */
+
+
+    add(
         data.hdplay,
         "HD",
         {
@@ -3109,18 +3714,12 @@ function collectSources(data) {
                 data.hd_resolution,
 
             priority:
-                900
+                1000
         }
     );
 
 
-    /*
-        Standard no-watermark stream
-    */
-
-    addSource(
-        sources,
-        seen,
+    add(
         data.play,
         "SD / Standard",
         {
@@ -3137,18 +3736,12 @@ function collectSources(data) {
                 data.resolution,
 
             priority:
-                600
+                700
         }
     );
 
 
-    /*
-        Watermark stream
-    */
-
-    addSource(
-        sources,
-        seen,
+    add(
         data.wmplay,
         "Watermark",
         {
@@ -3168,29 +3761,23 @@ function collectSources(data) {
                 true,
 
             priority:
-                100
+                300
         }
     );
 
 
-    /*
-        Generic arrays returned by some API versions
-    */
+    /* ============================================================
+       GENERIC ARRAYS
+    ============================================================ */
 
     const arrays = [
 
         data.videos,
-
         data.video,
-
         data.sources,
-
         data.qualities,
-
         data.downloads,
-
         data.video_list,
-
         data.video_sources
 
     ];
@@ -3200,7 +3787,9 @@ function collectSources(data) {
         list => {
 
             if (
-                !Array.isArray(list)
+                !Array.isArray(
+                    list
+                )
             ) {
 
                 return;
@@ -3212,24 +3801,21 @@ function collectSources(data) {
                 item => {
 
                     if (!item) {
-
                         return;
-
                     }
 
 
                     if (
-                        typeof item === "string"
+                        typeof item ===
+                        "string"
                     ) {
 
-                        addSource(
-                            sources,
-                            seen,
+                        add(
                             item,
                             "Available",
                             {
                                 priority:
-                                    300
+                                    500
                             }
                         );
 
@@ -3238,7 +3824,7 @@ function collectSources(data) {
                     }
 
 
-                    const sourceURL =
+                    const url =
                         item.url ||
                         item.src ||
                         item.play ||
@@ -3247,10 +3833,8 @@ function collectSources(data) {
                         item.video_url;
 
 
-                    if (!sourceURL) {
-
+                    if (!url) {
                         return;
-
                     }
 
 
@@ -3262,10 +3846,14 @@ function collectSources(data) {
                         "Available";
 
 
-                    addSource(
-                        sources,
-                        seen,
-                        sourceURL,
+                    const text =
+                        String(
+                            label
+                        ).toLowerCase();
+
+
+                    add(
+                        url,
                         label,
                         {
 
@@ -3287,24 +3875,26 @@ function collectSources(data) {
 
                             watermark:
                                 item.watermark === true ||
-                                String(label)
-                                    .toLowerCase()
-                                    .includes(
-                                        "watermark"
-                                    ),
+                                text.includes(
+                                    "watermark"
+                                ) ||
+                                text.includes(
+                                    " wm"
+                                ),
 
                             original:
                                 item.original === true ||
-                                String(label)
-                                    .toLowerCase()
-                                    .includes(
-                                        "original"
-                                    ),
+                                text.includes(
+                                    "original"
+                                ) ||
+                                text.includes(
+                                    "source"
+                                ),
 
                             priority:
                                 Number(
                                     item.priority ||
-                                    300
+                                    500
                                 )
 
                         }
@@ -3317,84 +3907,78 @@ function collectSources(data) {
     );
 
 
-    /*
-        Sort by actual dimensions first.
-    */
+    /* ============================================================
+       SORT
+    ============================================================ */
 
     sources.sort(
-        (a, b) => {
+        (
+            a,
+            b
+        ) => {
 
-            const aPixels =
-                a.width *
-                a.height;
-
-
-            const bPixels =
-                b.width *
-                b.height;
-
-
-            /*
-                Explicit original source
-            */
-
-            if (
-                a.original !==
-                b.original
-            ) {
-
-                return b.original
-                    ? 1
-                    : -1;
-
-            }
-
-
-            /*
-                Actual pixel count
-            */
-
-            if (
-                aPixels &&
-                bPixels &&
-                aPixels !== bPixels
-            ) {
-
-                return (
-                    bPixels -
-                    aPixels
+            const aClass =
+                classifySource(
+                    a
                 );
 
-            }
+            const bClass =
+                classifySource(
+                    b
+                );
 
 
-            /*
-                Height
-            */
+            const order = {
 
-            const aHeight =
-                getHeight(a);
+                "original":
+                    100,
 
-            const bHeight =
-                getHeight(b);
+                "hd":
+                    90,
+
+                "sd":
+                    70,
+
+                "watermark-high":
+                    50,
+
+                "watermark-low":
+                    40
+
+            };
+
+
+            const classDifference =
+                (
+                    order[bClass] || 0
+                ) -
+                (
+                    order[aClass] || 0
+                );
 
 
             if (
-                aHeight !==
-                bHeight
+                classDifference
             ) {
 
-                return (
-                    bHeight -
-                    aHeight
-                );
+                return classDifference;
 
             }
 
 
-            /*
-                API priority
-            */
+            const resolutionDifference =
+                qualityScore(b) -
+                qualityScore(a);
+
+
+            if (
+                resolutionDifference
+            ) {
+
+                return resolutionDifference;
+
+            }
+
 
             return (
                 b.priority -
@@ -3410,137 +3994,83 @@ function collectSources(data) {
 }
 
 
-/* =============================================================
-   DISPLAY NAME
-============================================================= */
+/* ================================================================
+   CATEGORY DEFINITIONS
+================================================================ */
 
-function displayName(
-    source
-) {
+const CATEGORY_DEFINITIONS = {
 
-    const category =
-        classifySource(
-            source
-        );
+    original: {
 
+        title:
+            "Original / Source",
 
-    if (
-        source.original
-    ) {
+        description:
+            "Highest available source-quality stream",
 
-        return "Original / Source";
+        icon:
+            "SRC"
 
-    }
+    },
 
+    hd: {
 
-    if (
-        category === "watermark"
-    ) {
+        title:
+            "HD Quality",
 
-        return "Watermark";
+        description:
+            "High-definition video streams",
 
-    }
+        icon:
+            "HD"
 
+    },
 
-    const height =
-        getHeight(source);
+    sd: {
 
+        title:
+            "SD Quality",
 
-    if (
-        category === "hd"
-    ) {
+        description:
+            "Standard-definition video streams",
 
-        return height
-            ? "HD · " + height + "p"
-            : "HD";
+        icon:
+            "SD"
 
-    }
+    },
 
+    "watermark-high": {
 
-    if (height) {
+        title:
+            "Watermark • High Quality",
 
-        return (
-            "SD · " +
-            height +
-            "p"
-        );
+        description:
+            "Higher-resolution watermark streams",
 
-    }
+        icon:
+            "WM"
 
+    },
 
-    return (
-        source.label ||
-        "Video"
-    );
+    "watermark-low": {
 
-}
+        title:
+            "Watermark • Low Quality",
 
+        description:
+            "Lower-resolution watermark streams",
 
-/* =============================================================
-   TAG HTML
-============================================================= */
-
-function tagHTML(
-    source
-) {
-
-    const category =
-        classifySource(
-            source
-        );
-
-
-    if (
-        category === "original"
-    ) {
-
-        return `
-            <span class="tag original">
-                ORIGINAL
-            </span>
-        `;
+        icon:
+            "WM"
 
     }
 
-
-    if (
-        category === "watermark"
-    ) {
-
-        return `
-            <span class="tag watermark">
-                WATERMARK
-            </span>
-        `;
-
-    }
+};
 
 
-    if (
-        category === "hd"
-    ) {
-
-        return `
-            <span class="tag hd">
-                HD
-            </span>
-        `;
-
-    }
-
-
-    return `
-        <span class="tag sd">
-            SD
-        </span>
-    `;
-
-}
-
-
-/* =============================================================
+/* ================================================================
    DOWNLOAD ICON
-============================================================= */
+================================================================ */
 
 function downloadIcon() {
 
@@ -3555,17 +4085,11 @@ function downloadIcon() {
             stroke-linejoin="round"
         >
 
-            <path
-                d="M12 3v12"
-            />
+            <path d="M12 3v12"/>
 
-            <path
-                d="m7 10 5 5 5-5"
-            />
+            <path d="m7 10 5 5 5-5"/>
 
-            <path
-                d="M5 21h14"
-            />
+            <path d="M5 21h14"/>
 
         </svg>
 
@@ -3574,47 +4098,120 @@ function downloadIcon() {
 }
 
 
-/* =============================================================
-   RENDER QUALITY OPTIONS
-============================================================= */
+/* ================================================================
+   RENDER CATEGORY
+================================================================ */
 
-function renderSources(
+function renderCategory(
+    category,
     sources
 ) {
 
-    qualityList.innerHTML =
-        "";
+    const definition =
+        CATEGORY_DEFINITIONS[
+            category
+        ];
 
 
     if (
+        !definition ||
         !sources.length
     ) {
-
-        showMessage(
-            "No downloadable video streams were returned.",
-            "error"
-        );
 
         return;
 
     }
 
 
-    currentSources =
-        sources;
-
-
-    qualityCount.textContent =
-        sources.length +
-        (
-            sources.length === 1
-                ? " option"
-                : " options"
+    const section =
+        document.createElement(
+            "section"
         );
 
 
+    section.className =
+        "quality-section";
+
+
+    const header =
+        document.createElement(
+            "div"
+        );
+
+
+    header.className =
+        "quality-section-header";
+
+
+    header.innerHTML = `
+
+        <div class="quality-section-title">
+
+            <div class="quality-section-icon">
+
+                ${escapeHTML(
+                    definition.icon
+                )}
+
+            </div>
+
+            <div>
+
+                <div class="section-name">
+
+                    ${escapeHTML(
+                        definition.title
+                    )}
+
+                </div>
+
+                <div class="section-description">
+
+                    ${escapeHTML(
+                        definition.description
+                    )}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="section-count">
+
+            ${sources.length}
+            ${
+                sources.length === 1
+                    ? "option"
+                    : "options"
+            }
+
+        </div>
+
+    `;
+
+
+    section.appendChild(
+        header
+    );
+
+
+    const items =
+        document.createElement(
+            "div"
+        );
+
+
+    items.className =
+        "quality-items";
+
+
     sources.forEach(
-        (source, index) => {
+        (
+            source,
+            index
+        ) => {
 
             const button =
                 document.createElement(
@@ -3627,16 +4224,11 @@ function renderSources(
 
 
             button.className =
-                "quality-option" +
-                (
-                    index === 0
-                        ? " best"
-                        : ""
-                );
+                "quality-option";
 
 
-            const name =
-                displayName(
+            const height =
+                getHeight(
                     source
                 );
 
@@ -3654,82 +4246,136 @@ function renderSources(
                 );
 
 
-            const meta = [];
+            const meta =
+                [];
 
 
             if (resolution) {
-
                 meta.push(
                     resolution
                 );
+            }
+
+
+            if (height) {
+
+                if (
+                    !resolution ||
+                    !resolution.includes(
+                        "p"
+                    )
+                ) {
+
+                    meta.push(
+                        height + "p"
+                    );
+
+                }
 
             }
 
 
             if (size) {
-
                 meta.push(
                     size
                 );
-
             }
 
 
             if (!meta.length) {
 
                 meta.push(
-                    "Direct MP4 stream"
+                    "MP4 video"
                 );
 
             }
 
 
-            const best =
-                index === 0
-                    ? `
-                        <span class="best-badge">
-                            BEST
-                        </span>
-                    `
-                    : "";
+            let tagClass =
+                "tag-sd";
 
-
-            let icon =
+            let tagText =
                 "SD";
 
 
             if (
-                source.original
+                category ===
+                "original"
             ) {
 
-                icon =
-                    "SRC";
+                tagClass =
+                    "tag-original";
+
+                tagText =
+                    "ORIGINAL";
 
             }
+
             else if (
-                source.watermark
+                category ===
+                "hd"
             ) {
 
-                icon =
-                    "WM";
+                tagClass =
+                    "tag-hd";
 
-            }
-            else if (
-                getHeight(source) >= 720
-            ) {
-
-                icon =
+                tagText =
                     "HD";
 
             }
 
+            else if (
+                category.includes(
+                    "watermark"
+                )
+            ) {
+
+                tagClass =
+                    "tag-watermark";
+
+                tagText =
+                    "WATERMARK";
+
+            }
+
+
+            const best =
+                category ===
+                "original" &&
+                index === 0
+                    ? `<span class="best">BEST</span>`
+                    : (
+                        category === "hd" &&
+                        index === 0
+                            ? `<span class="best">BEST</span>`
+                            : ""
+                    );
+
+
+            const icon =
+                category ===
+                "original"
+                    ? "SRC"
+                    :
+                category ===
+                "hd"
+                    ? "HD"
+                    :
+                category.includes(
+                    "watermark"
+                )
+                    ? "WM"
+                    : "SD";
+
 
             button.innerHTML = `
 
-                <span class="quality-left">
+                <span class="quality-main">
 
                     <span class="quality-icon">
+
                         ${icon}
+
                     </span>
 
 
@@ -3737,17 +4383,24 @@ function renderSources(
 
                         <span class="quality-name">
 
-                            ${escapeHTML(name)}
+                            ${escapeHTML(
+                                getDisplayName(
+                                    source,
+                                    category
+                                )
+                            )}
 
                             ${best}
 
                         </span>
 
 
-                        <span class="quality-description">
+                        <span class="quality-meta">
 
                             ${escapeHTML(
-                                meta.join(" · ")
+                                meta.join(
+                                    " · "
+                                )
                             )}
 
                         </span>
@@ -3755,7 +4408,13 @@ function renderSources(
 
                         <span class="quality-tags">
 
-                            ${tagHTML(source)}
+                            <span
+                                class="tag ${tagClass}"
+                            >
+
+                                ${tagText}
+
+                            </span>
 
                         </span>
 
@@ -3764,7 +4423,7 @@ function renderSources(
                 </span>
 
 
-                <span class="download-action">
+                <span class="download-button">
 
                     ${downloadIcon()}
 
@@ -3790,19 +4449,214 @@ function renderSources(
             );
 
 
-            qualityList.appendChild(
+            items.appendChild(
                 button
             );
 
         }
     );
 
+
+    section.appendChild(
+        items
+    );
+
+
+    qualityArea.appendChild(
+        section
+    );
+
 }
 
 
-/* =============================================================
-   DOWNLOAD SOURCE
-============================================================= */
+/* ================================================================
+   DISPLAY NAME
+================================================================ */
+
+function getDisplayName(
+    source,
+    category
+) {
+
+    const height =
+        getHeight(
+            source
+        );
+
+
+    if (
+        category ===
+        "original"
+    ) {
+
+        return "Original / Source";
+
+    }
+
+
+    if (
+        category ===
+        "watermark-high"
+    ) {
+
+        return height
+            ? `High Quality · ${height}p`
+            : "High Quality";
+
+    }
+
+
+    if (
+        category ===
+        "watermark-low"
+    ) {
+
+        return height
+            ? `Low Quality · ${height}p`
+            : "Low Quality";
+
+    }
+
+
+    if (
+        category ===
+        "hd"
+    ) {
+
+        return height
+            ? `HD · ${height}p`
+            : "HD Video";
+
+    }
+
+
+    if (
+        category ===
+        "sd"
+    ) {
+
+        return height
+            ? `SD · ${height}p`
+            : "SD Video";
+
+    }
+
+
+    return (
+        source.label ||
+        "Video"
+    );
+
+}
+
+
+/* ================================================================
+   RENDER ALL SOURCES
+================================================================ */
+
+function renderSources(
+    sources
+) {
+
+    qualityArea.innerHTML =
+        "";
+
+
+    if (!sources.length) {
+
+        showMessage(
+            "No downloadable video streams were returned.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    currentSources =
+        sources;
+
+
+    const groups = {
+
+        original: [],
+
+        hd: [],
+
+        sd: [],
+
+        "watermark-high": [],
+
+        "watermark-low": []
+
+    };
+
+
+    sources.forEach(
+        source => {
+
+            const category =
+                classifySource(
+                    source
+                );
+
+
+            if (
+                groups[category]
+            ) {
+
+                groups[category].push(
+                    source
+                );
+
+            }
+
+        }
+    );
+
+
+    const order = [
+
+        "original",
+
+        "hd",
+
+        "sd",
+
+        "watermark-high",
+
+        "watermark-low"
+
+    ];
+
+
+    order.forEach(
+        category => {
+
+            renderCategory(
+                category,
+                groups[category]
+            );
+
+        }
+    );
+
+
+    resultCount.textContent =
+        sources.length +
+        (
+            sources.length === 1
+                ? " quality option"
+                : " quality options"
+        );
+
+}
+
+
+/* ================================================================
+   DOWNLOAD
+================================================================ */
 
 async function downloadSource(
     source,
@@ -3811,18 +4665,11 @@ async function downloadSource(
 
     const action =
         button.querySelector(
-            ".download-action"
+            ".download-button"
         );
 
 
-    if (!action) {
-
-        return;
-
-    }
-
-
-    const originalHTML =
+    const original =
         action.innerHTML;
 
 
@@ -3834,33 +4681,30 @@ async function downloadSource(
 
         <span class="spinner"></span>
 
-        <span>
-            Downloading
-        </span>
-
     `;
 
 
     try {
 
         /*
-            First attempt:
-
-            Fetch the exact media URL.
-
-            No canvas.
-            No conversion.
-            No compression.
-            No resizing.
-        */
+         * IMPORTANT:
+         *
+         * Fetching the media as a Blob does not change
+         * the video bytes. There is no canvas or encoding.
+         *
+         * However, the browser can only do this when the
+         * CDN permits cross-origin access.
+         */
 
         const response =
             await fetch(
                 source.url,
                 {
-                    method: "GET",
-                    mode: "cors",
-                    credentials: "omit"
+                    method:
+                        "GET",
+
+                    mode:
+                        "cors"
                 }
             );
 
@@ -3870,7 +4714,7 @@ async function downloadSource(
         ) {
 
             throw new Error(
-                "Browser could not access the media stream."
+                "Direct browser download is unavailable."
             );
 
         }
@@ -3941,28 +4785,21 @@ async function downloadSource(
 
 
         showMessage(
-            "Download started. The selected media stream was saved without browser-side re-encoding.",
-            "success"
+            "Download started using the selected media source.",
+            "info"
         );
 
-    }
-    catch (error) {
 
-        console.warn(
-            "Direct blob download unavailable:",
-            error
-        );
-
+    } catch (
+        error
+    ) {
 
         /*
-            Fallback:
-
-            Open the EXACT source URL.
-
-            We deliberately do NOT switch to another
-            quality because that would defeat the user's
-            selected quality.
-        */
+         * CDN CORS fallback.
+         *
+         * We deliberately open the EXACT selected URL.
+         * We do NOT replace it with another quality.
+         */
 
         const link =
             document.createElement(
@@ -3982,10 +4819,6 @@ async function downloadSource(
             "noopener noreferrer";
 
 
-        link.style.display =
-            "none";
-
-
         document.body.appendChild(
             link
         );
@@ -3998,28 +4831,29 @@ async function downloadSource(
 
 
         showMessage(
-            "Your browser blocked direct file access from this page, so the exact selected video stream was opened directly.",
+            "The CDN does not allow browser Blob downloads. The exact selected video source has been opened directly.",
             "info"
         );
 
     }
+
+
     finally {
 
         button.disabled =
             false;
 
-
         action.innerHTML =
-            originalHTML;
+            original;
 
     }
 
 }
 
 
-/* =============================================================
-   CREATE FILENAME
-============================================================= */
+/* ================================================================
+   FILENAME
+================================================================ */
 
 function createFilename(
     source
@@ -4031,14 +4865,18 @@ function createFilename(
         );
 
 
+    let quality =
+        category
+            .replace(
+                /-/g,
+                "_"
+            );
+
+
     const height =
         getHeight(
             source
         );
-
-
-    let quality =
-        category;
 
 
     if (height) {
@@ -4062,9 +4900,73 @@ function createFilename(
 }
 
 
-/* =============================================================
+/* ================================================================
+   THUMBNAIL
+================================================================ */
+
+function setThumbnail(
+    data
+) {
+
+    const thumbnail =
+        data.cover ||
+        data.origin_cover ||
+        data.ai_dynamic_cover ||
+        data.dynamic_cover ||
+        data.thumbnail ||
+        "";
+
+
+    if (
+        typeof thumbnail !==
+        "string" ||
+        !thumbnail
+    ) {
+
+        thumbnailImage.hidden =
+            true;
+
+        thumbnailPlaceholder.style.display =
+            "flex";
+
+        return;
+
+    }
+
+
+    thumbnailImage.src =
+        thumbnail;
+
+
+    thumbnailImage.onload =
+        () => {
+
+            thumbnailImage.hidden =
+                false;
+
+            thumbnailPlaceholder.style.display =
+                "none";
+
+        };
+
+
+    thumbnailImage.onerror =
+        () => {
+
+            thumbnailImage.hidden =
+                true;
+
+            thumbnailPlaceholder.style.display =
+                "flex";
+
+        };
+
+}
+
+
+/* ================================================================
    PROCESS VIDEO
-============================================================= */
+================================================================ */
 
 async function processVideo() {
 
@@ -4083,10 +4985,12 @@ async function processVideo() {
             "error"
         );
 
+
         showMessage(
             "Please paste a TikTok video URL.",
             "error"
         );
+
 
         return;
 
@@ -4094,17 +4998,21 @@ async function processVideo() {
 
 
     if (
-        !isTikTokURL(url)
+        !isTikTokURL(
+            url
+        )
     ) {
 
         urlInput.classList.add(
             "error"
         );
 
+
         showMessage(
-            "That does not appear to be a valid TikTok video URL.",
+            "Please enter a valid TikTok video URL.",
             "error"
         );
+
 
         return;
 
@@ -4114,10 +5022,6 @@ async function processVideo() {
     urlInput.classList.remove(
         "error"
     );
-
-
-    currentTikTokURL =
-        url;
 
 
     getButton.disabled =
@@ -4137,10 +5041,6 @@ async function processVideo() {
 
     try {
 
-        /*
-            Request metadata and available streams.
-        */
-
         const response =
             await fetch(
                 API_URL +
@@ -4148,8 +5048,8 @@ async function processVideo() {
                     url
                 ),
                 {
-                    method: "GET",
-                    mode: "cors"
+                    method:
+                        "GET"
                 }
             );
 
@@ -4186,9 +5086,9 @@ async function processVideo() {
             result.data;
 
 
-        /* =====================================================
+        /* ========================================================
            CREATOR
-        ====================================================== */
+        ======================================================== */
 
         const nickname =
             data.author?.nickname ||
@@ -4211,9 +5111,9 @@ async function processVideo() {
                 : "TT";
 
 
-        /* =====================================================
+        /* ========================================================
            TITLE
-        ====================================================== */
+        ======================================================== */
 
         videoTitle.textContent =
             data.title ||
@@ -4221,9 +5121,18 @@ async function processVideo() {
             "TikTok video";
 
 
-        /* =====================================================
-           COLLECT SOURCES
-        ====================================================== */
+        /* ========================================================
+           THUMBNAIL
+        ======================================================== */
+
+        setThumbnail(
+            data
+        );
+
+
+        /* ========================================================
+           SOURCES
+        ======================================================== */
 
         const sources =
             collectSources(
@@ -4236,29 +5145,15 @@ async function processVideo() {
         ) {
 
             throw new Error(
-                "No downloadable video quality was returned by the video service."
+                "No downloadable video quality was returned for this video."
             );
 
         }
 
 
-        /* =====================================================
-           PREVIEW
-        ====================================================== */
-
-        /*
-            The first source is the highest-ranked stream.
-        */
-
-        video.src =
-            sources[0].url;
-
-        video.load();
-
-
-        /* =====================================================
+        /* ========================================================
            RENDER
-        ====================================================== */
+        ======================================================== */
 
         renderSources(
             sources
@@ -4270,21 +5165,23 @@ async function processVideo() {
         );
 
 
-        /*
-            Mobile scroll
-        */
-
         if (
-            window.innerWidth < 760
+            window.innerWidth <
+            700
         ) {
 
             setTimeout(
                 () => {
 
-                    results.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start"
-                    });
+                    results.scrollIntoView(
+                        {
+                            behavior:
+                                "smooth",
+
+                            block:
+                                "start"
+                        }
+                    );
 
                 },
                 100
@@ -4292,8 +5189,10 @@ async function processVideo() {
 
         }
 
-    }
-    catch (error) {
+
+    } catch (
+        error
+    ) {
 
         console.error(
             "Triplem TikTok Downloader:",
@@ -4308,6 +5207,8 @@ async function processVideo() {
         );
 
     }
+
+
     finally {
 
         getButton.disabled =
@@ -4344,67 +5245,9 @@ async function processVideo() {
 }
 
 
-/* =============================================================
-   COPY URL
-============================================================= */
-
-async function copyURL() {
-
-    if (
-        !currentTikTokURL
-    ) {
-
-        return;
-
-    }
-
-
-    try {
-
-        await navigator.clipboard.writeText(
-            currentTikTokURL
-        );
-
-
-        showMessage(
-            "TikTok URL copied to clipboard.",
-            "success"
-        );
-
-    }
-    catch {
-
-        showMessage(
-            "Unable to copy the URL automatically.",
-            "error"
-        );
-
-    }
-
-}
-
-
-/* =============================================================
-   RESET BUTTON
-============================================================= */
-
-function resetPage() {
-
-    urlInput.value =
-        "";
-
-    hideMessage();
-
-    resetResults();
-
-    urlInput.focus();
-
-}
-
-
-/* =============================================================
+/* ================================================================
    EVENTS
-============================================================= */
+================================================================ */
 
 form.addEventListener(
     "submit",
@@ -4415,18 +5258,6 @@ form.addEventListener(
         processVideo();
 
     }
-);
-
-
-copyButton.addEventListener(
-    "click",
-    copyURL
-);
-
-
-resetButton.addEventListener(
-    "click",
-    resetPage
 );
 
 
@@ -4454,48 +5285,56 @@ urlInput.addEventListener(
 
 
 urlInput.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key === "Escape"
-        ) {
-
-            resetPage();
-
-        }
-
-    }
-);
-
-
-/* =============================================================
-   PASTE SUPPORT
-============================================================= */
-
-urlInput.addEventListener(
     "paste",
     () => {
 
         setTimeout(
             () => {
 
-                urlInput.value =
+                const value =
                     urlInput.value.trim();
 
+
+                if (
+                    isTikTokURL(
+                        value
+                    )
+                ) {
+
+                    urlInput.classList.remove(
+                        "error"
+                    );
+
+                }
+
             },
-            0
+            50
         );
 
     }
 );
 
 
-/* =============================================================
-   INITIAL STATE
-============================================================= */
+urlInput.addEventListener(
+    "keydown",
+    event => {
 
-resetResults();
+        if (
+            event.key ===
+            "Escape"
+        ) {
+
+            urlInput.value =
+                "";
+
+            hideMessage();
+
+            resetResults();
+
+        }
+
+    }
+);
 
 </script>
 
