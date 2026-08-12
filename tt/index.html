@@ -130,6 +130,10 @@
         .download-button svg { width: 12px; height: 12px; }
         .notice { margin-top: 9px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 10px; background: #fafafa; color: #777; font-size: 8px; line-height: 1.6; }
         .notice strong { color: #444; }
+        .section-note { padding: 7px 10px; background: #fff8ec; border-top: 1px dashed var(--line); color: #8a6d1f; font-size: 7px; line-height: 1.6; }
+        .verified-best { background: linear-gradient(135deg,#111,#333); color: white; padding: 2px 5px; border-radius: 4px; font-size: 6px; font-weight: 900; }
+        .verify-banner { display: flex; align-items: center; gap: 7px; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #f3f3f4; color: #666; font-size: 8px; }
+        .verify-banner .spinner { border-color: rgba(0,0,0,.15); border-top-color: #666; }
         footer { padding: 36px 0 24px; text-align: center; color: #999; font-size: 8px; line-height: 1.7; }
         footer strong { color: #555; }
         .spinner { width: 12px; height: 12px; border: 1.5px solid rgba(255,255,255,.35); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
@@ -591,6 +595,101 @@ function collectSources(data) {
 }
 
 /* ================================================================
+   REAL QUALITY VERIFICATION
+
+   tikwm's `hdplay` field is not always a genuinely different file
+   from `play` — for videos where TikTok never generated a separate
+   high-bitrate encode, both fields point at the same source, and
+   in some cases the *watermarked* stream (rendered from the true
+   source file) is actually higher quality than either "clean"
+   stream. Rather than guess, we check the real file size of each
+   candidate over the network and label things honestly.
+================================================================ */
+
+async function getRemoteSize(url) {
+    // Try a HEAD request first (cheap, no body transferred).
+    try {
+        const response = await fetch(url, { method: "HEAD", mode: "cors" });
+        if (response.ok) {
+            const len = response.headers.get("content-length");
+            if (len) return Number(len);
+        }
+    } catch (e) {
+        // Ignored — CDN may not allow HEAD or CORS from this origin.
+    }
+
+    // Fallback: ask for a single byte range and read the reported
+    // total size from Content-Range, if the CDN supports it.
+    try {
+        const response = await fetch(url, {
+            method: "GET",
+            mode: "cors",
+            headers: { Range: "bytes=0-0" }
+        });
+
+        const contentRange = response.headers.get("content-range");
+        if (contentRange) {
+            const total = contentRange.split("/")[1];
+            if (total && total !== "*") return Number(total);
+        }
+
+        const len = response.headers.get("content-length");
+        if (len && response.status === 200) return Number(len);
+    } catch (e) {
+        // CDN blocked the request entirely — size stays unknown.
+    }
+
+    return null;
+}
+
+async function verifySources(sources) {
+    const videoSources = sources.filter(s => s.type !== "audio");
+
+    await Promise.all(
+        videoSources.map(async source => {
+            const realSize = await getRemoteSize(source.url);
+            if (realSize) source.verifiedSize = realSize;
+        })
+    );
+
+    return sources;
+}
+
+function buildAnnotations(sources) {
+    const videoSources = sources.filter(s => s.type !== "audio");
+
+    const known = videoSources.filter(s => Number(s.verifiedSize) > 0);
+
+    // Detect whether the "original/HD" stream is actually the same
+    // file as the standard stream (same URL, or matching verified size).
+    const originalSrc = sources.find(s => classifySource(s) === "original");
+    const sdSrc = sources.find(s => classifySource(s) === "sd");
+
+    let noDistinctHD = false;
+
+    if (originalSrc && sdSrc) {
+        const sameUrl = originalSrc.url === sdSrc.url;
+        const sameVerifiedSize =
+            originalSrc.verifiedSize &&
+            sdSrc.verifiedSize &&
+            Math.abs(originalSrc.verifiedSize - sdSrc.verifiedSize) < 2048; // within 2KB
+
+        if (sameUrl || sameVerifiedSize) noDistinctHD = true;
+    }
+
+    // Find the genuinely largest real video file across every
+    // category — including watermarked ones.
+    let bestOverallUrl = null;
+
+    if (known.length) {
+        const best = known.reduce((a, b) => (b.verifiedSize > a.verifiedSize ? b : a));
+        bestOverallUrl = best.url;
+    }
+
+    return { noDistinctHD, bestOverallUrl, verified: known.length > 0 };
+}
+
+/* ================================================================
    CATEGORY DEFINITIONS
 ================================================================ */
 const CATEGORY_DEFINITIONS = {
@@ -618,7 +717,7 @@ function downloadIcon() {
 /* ================================================================
    RENDER CATEGORY
 ================================================================ */
-function renderCategory(category, sources) {
+function renderCategory(category, sources, annotations = {}) {
     const definition = CATEGORY_DEFINITIONS[category];
     if (!definition || !sources.length) return;
 
@@ -649,7 +748,7 @@ function renderCategory(category, sources) {
 
         const height = getHeight(source);
         const resolution = source.resolution || getResolution(source);
-        const size = formatSize(source.size);
+        const size = formatSize(source.verifiedSize || source.size);
 
         const meta = [];
         if (category === "audio") {
@@ -669,8 +768,16 @@ function renderCategory(category, sources) {
         else if (category.includes("watermark")) { tagClass = "tag-watermark"; tagText = "WATERMARK"; }
         else if (category === "audio") { tagClass = "tag-audio"; tagText = "MP3"; }
 
-        const best = (category === "original" || category === "hd") && index === 0
+        const isVerifiedBest =
+            annotations.bestOverallUrl &&
+            source.url === annotations.bestOverallUrl &&
+            annotations.verified;
+
+        const guessBest = !isVerifiedBest && (category === "original" || category === "hd") && index === 0
             ? `<span class="best">BEST</span>` : "";
+
+        const verifiedBadge = isVerifiedBest
+            ? `<span class="verified-best">VERIFIED HIGHEST</span>` : "";
 
         const icon = category === "original" ? "SRC"
             : category === "hd" ? "HD"
@@ -684,7 +791,7 @@ function renderCategory(category, sources) {
                 <span class="quality-info">
                     <span class="quality-name">
                         ${escapeHTML(getDisplayName(source, category))}
-                        ${best}
+                        ${guessBest}${verifiedBadge}
                     </span>
                     <span class="quality-meta">${escapeHTML(meta.join(" · "))}</span>
                     <span class="quality-tags">
@@ -703,6 +810,19 @@ function renderCategory(category, sources) {
     });
 
     section.appendChild(items);
+
+    // Honest note: tell the user plainly when "Original/HD" is not
+    // actually a distinct file from the standard stream for this video.
+    if ((category === "original" || category === "hd") && annotations.noDistinctHD) {
+        const note = document.createElement("div");
+        note.className = "section-note";
+        note.textContent =
+            "TikTok did not generate a separate high-bitrate encode for this video — " +
+            "this stream is the same file as SD / Standard. The Watermark option below may " +
+            "actually be closer to the true source quality.";
+        section.appendChild(note);
+    }
+
     qualityArea.appendChild(section);
 }
 
@@ -725,7 +845,7 @@ function getDisplayName(source, category) {
 /* ================================================================
    RENDER ALL SOURCES
 ================================================================ */
-function renderSources(sources) {
+function renderSources(sources, annotations = {}) {
     qualityArea.innerHTML = "";
 
     if (!sources.length) {
@@ -745,7 +865,7 @@ function renderSources(sources) {
     });
 
     const order = ["original", "hd", "sd", "watermark-high", "watermark-low", "audio"];
-    order.forEach(category => renderCategory(category, groups[category]));
+    order.forEach(category => renderCategory(category, groups[category], annotations));
 
     resultCount.textContent = sources.length + (sources.length === 1 ? " quality option" : " quality options");
 }
@@ -886,8 +1006,29 @@ async function processVideo() {
             throw new Error("No downloadable media was returned for this video.");
         }
 
-        renderSources(sources);
+        // Show the preview and a temporary "checking real quality" state
+        // immediately, then upgrade it once verification finishes — the
+        // network checks below can take a second or two per stream.
+        renderSources(sources, {});
         results.classList.add("show");
+
+        showMessage("Checking the real file size of each stream — this confirms which one is actually the highest quality.", "info");
+
+        try {
+            await verifySources(sources);
+            const annotations = buildAnnotations(sources);
+            renderSources(sources, annotations);
+
+            if (annotations.verified) {
+                hideMessage();
+            } else {
+                showMessage("The video CDN blocked direct size checks from the browser, so quality labels below are estimates from TikTok's own metadata rather than verified byte counts.", "info");
+            }
+        } catch (verifyError) {
+            console.error("Triplem quality verification:", verifyError);
+            // Verification is a best-effort enhancement — if it fails,
+            // the already-rendered unverified list is still usable.
+        }
 
         if (window.innerWidth < 700) {
             setTimeout(() => {
