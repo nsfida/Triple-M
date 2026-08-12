@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Triplem by NSF - TikTok Video Downloader (No Watermark)</title>
     <meta name="description" content="Triplem by NSF is a fast TikTok video downloader for downloading available TikTok video qualities including HD, SD, original source, watermark versions, and MP3 audio. Paste a TikTok video link and choose the available quality.">
     <link rel="icon" type="image/png" href="../Assets/logo/logo.png">
@@ -32,9 +32,13 @@
             --shadow-small: 0 8px 25px rgba(0,0,0,.055);
         }
         * , *::before, *::after { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        html {
+            scroll-behavior: smooth;
+            touch-action: pan-x pan-y;
+        }
         body {
             margin: 0; min-height: 100vh;
+            touch-action: pan-x pan-y;
             background: radial-gradient(circle at 15% 0%, rgba(0,0,0,.035), transparent 28%),
                         radial-gradient(circle at 90% 80%, rgba(0,0,0,.03), transparent 30%), var(--bg);
             color: var(--text);
@@ -151,7 +155,7 @@
             .hero-feature { font-size: 7px; padding: 6px 8px; }
             .search-inner { min-height: 46px; }
             .url-symbol { display: none; }
-            .url-input { height: 40px; font-size: 11px; }
+            .url-input { height: 40px; font-size: 16px; }
             .get-button { min-width: 43px; width: 43px; height: 40px; padding: 0; }
             .get-button span { display: none; }
             .preview-card { grid-template-columns: 88px minmax(0,1fr); padding: 8px; gap: 9px; }
@@ -1053,6 +1057,51 @@ async function processVideo() {
 /* ================================================================
    EVENTS
 ================================================================ */
+/* ================================================================
+   ZOOM LOCK
+
+   The viewport meta tag and touch-action CSS handle most browsers,
+   but Safari on iOS fires its own gesture events for pinch-zoom
+   that ignore both, and some Android browsers still allow
+   double-tap-to-zoom regardless of viewport settings. This blocks
+   both explicitly.
+================================================================ */
+
+// Safari-specific pinch gesture events (not standard, iOS only).
+["gesturestart", "gesturechange", "gestureend"].forEach(eventName => {
+    document.addEventListener(eventName, event => {
+        event.preventDefault();
+    });
+});
+
+// Generic pinch-zoom fallback: block any touchmove involving
+// more than one finger (a pinch), while leaving normal one-finger
+// scrolling untouched.
+document.addEventListener(
+    "touchmove",
+    event => {
+        if (event.touches && event.touches.length > 1) {
+            event.preventDefault();
+        }
+    },
+    { passive: false }
+);
+
+// Block double-tap-to-zoom without breaking normal tap/click
+// handling on buttons, links, and inputs.
+let lastTouchEnd = 0;
+document.addEventListener(
+    "touchend",
+    event => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    },
+    { passive: false }
+);
+
 form.addEventListener("submit", event => {
     event.preventDefault();
     processVideo();
