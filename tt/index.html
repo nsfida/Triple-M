@@ -2,5341 +2,940 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    >
-
-    <title>
-        Triplem by NSF - TikTok Video Downloader (No Watermark)
-    </title>
-
-    <meta
-        name="description"
-        content="Triplem by NSF is a fast TikTok video downloader for downloading available TikTok video qualities including HD, SD, original source and watermark versions. Paste a TikTok video link and choose the available quality."
-    >
-
-    <meta
-        name="keywords"
-        content="TikTok video downloader, TikTok downloader, TikTok video download, TikTok no watermark downloader, TikTok HD downloader, TikTok SD downloader, download TikTok videos, TikTok MP4 downloader, Triplem TikTok downloader"
-    >
-
-    <meta
-        name="author"
-        content="NSF"
-    >
-
-    <meta
-        name="robots"
-        content="index, follow, max-image-preview:large"
-    >
-
-    <meta
-        name="googlebot"
-        content="index, follow, max-image-preview:large"
-    >
-
-    <meta
-        name="theme-color"
-        content="#ffffff"
-    >
-
-    <!--
-        IMPORTANT:
-        Replace this with your actual public URL if different.
-    -->
-    <link
-        rel="canonical"
-        href="https://triplem.vip/tt/"
-    >
-
-    <!-- Open Graph -->
-    <meta
-        property="og:type"
-        content="website"
-    >
-
-    <meta
-        property="og:title"
-        content="Triplem by NSF - TikTok Video Downloader"
-    >
-
-    <meta
-        property="og:description"
-        content="Download available TikTok video qualities including HD, SD, original and watermark versions with Triplem by NSF."
-    >
-
-    <meta
-        property="og:url"
-        content="https://triplem.vip/tt/"
-    >
-
-    <meta
-        property="og:site_name"
-        content="Triplem by NSF"
-    >
-
-    <meta
-        property="og:image"
-        content="https://triplem.vip/Assets/logo/logo.png"
-    >
-
-    <!-- Twitter -->
-    <meta
-        name="twitter:card"
-        content="summary_large_image"
-    >
-
-    <meta
-        name="twitter:title"
-        content="Triplem by NSF - TikTok Video Downloader"
-    >
-
-    <meta
-        name="twitter:description"
-        content="Download available TikTok video qualities with Triplem by NSF."
-    >
-
-    <meta
-        name="twitter:image"
-        content="https://triplem.vip/Assets/logo/logo.png"
-    >
-
-    <!-- Favicon -->
-    <link
-        rel="icon"
-        type="image/png"
-        href="../Assets/logo/logo.png"
-    >
-
-    <!--
-        ============================================================
-        STRUCTURED DATA
-        ============================================================
-    -->
-
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@graph": [
-
-            {
-                "@type": "WebSite",
-                "@id": "https://triplem.vip/tt/#website",
-                "url": "https://triplem.vip/tt/",
-                "name": "Triplem by NSF - TikTok Video Downloader",
-                "description": "TikTok video downloader providing available video quality options.",
-                "publisher": {
-                    "@type": "Organization",
-                    "name": "Triplem by NSF",
-                    "logo": {
-                        "@type": "ImageObject",
-                        "url": "https://triplem.vip/Assets/logo/logo.png"
-                    }
-                }
-            },
-
-            {
-                "@type": "WebPage",
-                "@id": "https://triplem.vip/tt/#webpage",
-                "url": "https://triplem.vip/tt/",
-                "name": "Triplem by NSF - TikTok Video Downloader",
-                "description": "Download available TikTok video streams in HD, SD, original and watermark quality."
-            },
-
-            {
-                "@type": "SoftwareApplication",
-                "name": "Triplem TikTok Video Downloader",
-                "applicationCategory": "MultimediaApplication",
-                "operatingSystem": "Web Browser",
-                "description": "A browser-based interface for retrieving available TikTok video download streams.",
-                "author": {
-                    "@type": "Organization",
-                    "name": "Triplem by NSF"
-                }
-            },
-
-            {
-                "@type": "FAQPage",
-                "mainEntity": [
-
-                    {
-                        "@type": "Question",
-                        "name": "How do I download a TikTok video?",
-                        "acceptedAnswer": {
-                            "@type": "Answer",
-                            "text": "Paste the TikTok video URL into Triplem's downloader and select one of the available video quality options."
-                        }
-                    },
-
-                    {
-                        "@type": "Question",
-                        "name": "Can I download a TikTok video in HD?",
-                        "acceptedAnswer": {
-                            "@type": "Answer",
-                            "text": "If an HD stream is returned by the video source service, Triplem displays it as a separate HD download option."
-                        }
-                    },
-
-                    {
-                        "@type": "Question",
-                        "name": "Does Triplem convert or compress videos?",
-                        "acceptedAnswer": {
-                            "@type": "Answer",
-                            "text": "No. Triplem does not process video frames in the browser. The downloader uses the media source returned by the upstream service."
-                        }
-                    },
-
-                    {
-                        "@type": "Question",
-                        "name": "Can I choose between watermark and no-watermark versions?",
-                        "acceptedAnswer": {
-                            "@type": "Answer",
-                            "text": "When multiple streams are returned, Triplem separates watermark and no-watermark sources into different download options."
-                        }
-                    }
-
-                ]
-            }
-
-        ]
-    }
-    </script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Triplem by NSF - TikTok Video Downloader (No Watermark)</title>
+    <meta name="description" content="Triplem by NSF is a fast TikTok video downloader for downloading available TikTok video qualities including HD, SD, original source, watermark versions, and MP3 audio. Paste a TikTok video link and choose the available quality.">
+    <link rel="icon" type="image/png" href="../Assets/logo/logo.png">
 
     <style>
-
-        /* ============================================================
-           ROOT
-        ============================================================ */
-
         :root {
-
-            --bg:
-                #f7f7f8;
-
-            --surface:
-                rgba(255,255,255,.92);
-
-            --surface-solid:
-                #ffffff;
-
-            --surface-soft:
-                #f2f2f4;
-
-            --text:
-                #111111;
-
-            --text-soft:
-                #565656;
-
-            --muted:
-                #8a8a8f;
-
-            --line:
-                #e7e7e9;
-
-            --line-dark:
-                #d7d7da;
-
-            --black:
-                #111111;
-
-            --green:
-                #16a05d;
-
-            --green-soft:
-                #ecf9f2;
-
-            --blue:
-                #2563eb;
-
-            --blue-soft:
-                #eff6ff;
-
-            --purple:
-                #7c3aed;
-
-            --purple-soft:
-                #f5f3ff;
-
-            --orange:
-                #c46b08;
-
-            --orange-soft:
-                #fff5e8;
-
-            --red:
-                #dc3545;
-
-            --red-soft:
-                #fff1f2;
-
-            --shadow:
-                0 18px 55px rgba(0,0,0,.07);
-
-            --shadow-small:
-                0 8px 25px rgba(0,0,0,.055);
-
-            --radius:
-                18px;
-
-            --radius-small:
-                12px;
-
+            --bg: #f7f7f8;
+            --surface-solid: #ffffff;
+            --surface-soft: #f2f2f4;
+            --text: #111111;
+            --text-soft: #565656;
+            --muted: #8a8a8f;
+            --line: #e7e7e9;
+            --green: #16a05d;
+            --green-soft: #ecf9f2;
+            --blue: #2563eb;
+            --blue-soft: #eff6ff;
+            --purple: #7c3aed;
+            --purple-soft: #f5f3ff;
+            --orange: #c46b08;
+            --orange-soft: #fff5e8;
+            --pink: #db2777;
+            --pink-soft: #fdf2f8;
+            --red: #dc3545;
+            --red-soft: #fff1f2;
+            --shadow: 0 18px 55px rgba(0,0,0,.07);
+            --shadow-small: 0 8px 25px rgba(0,0,0,.055);
         }
-
-
-        /* ============================================================
-           RESET
-        ============================================================ */
-
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-
+        * , *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
-
-            margin: 0;
-
-            min-height: 100vh;
-
-            background:
-                radial-gradient(
-                    circle at 15% 0%,
-                    rgba(0,0,0,.035),
-                    transparent 28%
-                ),
-                radial-gradient(
-                    circle at 90% 80%,
-                    rgba(0,0,0,.03),
-                    transparent 30%
-                ),
-                var(--bg);
-
+            margin: 0; min-height: 100vh;
+            background: radial-gradient(circle at 15% 0%, rgba(0,0,0,.035), transparent 28%),
+                        radial-gradient(circle at 90% 80%, rgba(0,0,0,.03), transparent 30%), var(--bg);
             color: var(--text);
-
-            font-family:
-                Inter,
-                ui-sans-serif,
-                system-ui,
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                Roboto,
-                Helvetica,
-                Arial,
-                sans-serif;
-
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
-
-            text-rendering: optimizeLegibility;
-
         }
-
-
-        button,
-        input {
-            font: inherit;
-        }
-
-
-        button {
-            border: 0;
-        }
-
-
-        a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-
-        img {
-            max-width: 100%;
-        }
-
-
-        /* ============================================================
-           PAGE
-        ============================================================ */
-
-        .page {
-            min-height: 100vh;
-        }
-
-
-        .container {
-
-            width:
-                min(
-                    1120px,
-                    calc(100% - 32px)
-                );
-
-            margin:
-                0 auto;
-
-        }
-
-
-        /* ============================================================
-           HEADER
-        ============================================================ */
-
-        .header {
-
-            height: 72px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            border-bottom:
-                1px solid rgba(0,0,0,.06);
-
-        }
-
-
-        .brand {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                10px;
-
-        }
-
-
-        .brand-logo {
-
-            width:
-                39px;
-
-            height:
-                39px;
-
-            object-fit:
-                contain;
-
-            border-radius:
-                11px;
-
-        }
-
-
-        .brand-copy {
-
-            display:
-                flex;
-
-            flex-direction:
-                column;
-
-            line-height:
-                1.05;
-
-        }
-
-
-        .brand-name {
-
-            font-size:
-                14px;
-
-            font-weight:
-                800;
-
-            letter-spacing:
-                -.4px;
-
-        }
-
-
-        .brand-sub {
-
-            margin-top:
-                4px;
-
-            color:
-                var(--muted);
-
-            font-size:
-                9px;
-
-            font-weight:
-                600;
-
-        }
-
-
-        .header-badge {
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            gap:
-                7px;
-
-            padding:
-                7px 11px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                999px;
-
-            background:
-                rgba(255,255,255,.75);
-
-            color:
-                #68686b;
-
-            font-size:
-                9px;
-
-            font-weight:
-                700;
-
-        }
-
-
-        .live-dot {
-
-            width:
-                6px;
-
-            height:
-                6px;
-
-            border-radius:
-                50%;
-
-            background:
-                var(--green);
-
-            box-shadow:
-                0 0 0 4px rgba(22,160,93,.08);
-
-        }
-
-
-        /* ============================================================
-           HERO
-        ============================================================ */
-
-        .hero {
-
-            padding:
-                52px 0 28px;
-
-            text-align:
-                center;
-
-        }
-
-
-        .hero-icon {
-
-            width:
-                62px;
-
-            height:
-                62px;
-
-            margin:
-                0 auto 17px;
-
-            border-radius:
-                18px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            background:
-                #111;
-
-            color:
-                white;
-
-            box-shadow:
-                9px 9px 0 rgba(37,244,238,.10),
-                -9px -9px 0 rgba(254,44,85,.08);
-
-        }
-
-
-        .hero-icon svg {
-
-            width:
-                31px;
-
-            height:
-                31px;
-
-        }
-
-
-        .eyebrow {
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            padding:
-                6px 9px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                999px;
-
-            background:
-                white;
-
-            color:
-                #777;
-
-            font-size:
-                9px;
-
-            font-weight:
-                750;
-
-            letter-spacing:
-                .2px;
-
-        }
-
-
-        h1 {
-
-            max-width:
-                850px;
-
-            margin:
-                15px auto 0;
-
-            font-size:
-                clamp(
-                    30px,
-                    6vw,
-                    53px
-                );
-
-            line-height:
-                1.02;
-
-            letter-spacing:
-                -2.2px;
-
-            font-weight:
-                850;
-
-        }
-
-
-        .hero-highlight {
-            color:
-                #777;
-        }
-
-
-        .hero-description {
-
-            max-width:
-                690px;
-
-            margin:
-                15px auto 0;
-
-            color:
-                var(--text-soft);
-
-            font-size:
-                13px;
-
-            line-height:
-                1.7;
-
-        }
-
-
-        .hero-features {
-
-            margin-top:
-                18px;
-
-            display:
-                flex;
-
-            justify-content:
-                center;
-
-            flex-wrap:
-                wrap;
-
-            gap:
-                6px;
-
-        }
-
-
-        .hero-feature {
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            gap:
-                6px;
-
-            padding:
-                7px 10px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                999px;
-
-            background:
-                rgba(255,255,255,.7);
-
-            color:
-                #666;
-
-            font-size:
-                9px;
-
-            font-weight:
-                700;
-
-        }
-
-
-        .hero-feature svg {
-
-            width:
-                12px;
-
-            height:
-                12px;
-
-        }
-
-
-        /* ============================================================
-           MAIN DOWNLOADER
-        ============================================================ */
-
-        .main {
-
-            width:
-                min(
-                    920px,
-                    100%
-                );
-
-            margin:
-                0 auto;
-
-        }
-
-
-        /* ============================================================
-           SEARCH BAR
-        ============================================================ */
-
-        .search-card {
-
-            padding:
-                8px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                17px;
-
-            background:
-                var(--surface-solid);
-
-            box-shadow:
-                var(--shadow);
-
-        }
-
-
-        .search-inner {
-
-            min-height:
-                52px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                8px;
-
-        }
-
-
-        .url-symbol {
-
-            width:
-                42px;
-
-            height:
-                42px;
-
-            flex:
-                0 0 42px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            border-radius:
-                11px;
-
-            background:
-                var(--surface-soft);
-
-            color:
-                #555;
-
-        }
-
-
-        .url-symbol svg {
-
-            width:
-                18px;
-
-            height:
-                18px;
-
-        }
-
-
-        .url-input {
-
-            flex:
-                1;
-
-            min-width:
-                0;
-
-            height:
-                44px;
-
-            border:
-                0;
-
-            outline:
-                0;
-
-            background:
-                transparent;
-
-            color:
-                var(--text);
-
-            font-size:
-                13px;
-
-        }
-
-
-        .url-input::placeholder {
-            color:
-                #aaa;
-        }
-
-
-        .url-input.error {
-            color:
-                var(--red);
-        }
-
-
-        .get-button {
-
-            min-width:
-                112px;
-
-            height:
-                44px;
-
-            padding:
-                0 15px;
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            gap:
-                7px;
-
-            border-radius:
-                11px;
-
-            background:
-                #111;
-
-            color:
-                white;
-
-            cursor:
-                pointer;
-
-            font-size:
-                10px;
-
-            font-weight:
-                800;
-
-            transition:
-                .18s ease;
-
-        }
-
-
-        .get-button:hover {
-            transform:
-                translateY(-1px);
-            opacity:
-                .92;
-        }
-
-
-        .get-button:active {
-            transform:
-                scale(.98);
-        }
-
-
-        .get-button:disabled {
-            opacity:
-                .55;
-            cursor:
-                wait;
-        }
-
-
-        .get-button svg {
-
-            width:
-                15px;
-
-            height:
-                15px;
-
-        }
-
-
-        /* ============================================================
-           MESSAGE
-        ============================================================ */
-
-        .message {
-
-            display:
-                none;
-
-            margin-top:
-                9px;
-
-            padding:
-                10px 12px;
-
-            border-radius:
-                10px;
-
-            font-size:
-                10px;
-
-            line-height:
-                1.5;
-
-        }
-
-
-        .message.show {
-            display:
-                block;
-        }
-
-
-        .message.info {
-
-            background:
-                #f3f3f4;
-
-            border:
-                1px solid var(--line);
-
-            color:
-                #666;
-
-        }
-
-
-        .message.error {
-
-            background:
-                var(--red-soft);
-
-            border:
-                1px solid #ffd6da;
-
-            color:
-                var(--red);
-
-        }
-
-
-        /* ============================================================
-           RESULTS
-        ============================================================ */
-
-        .results {
-
-            display:
-                none;
-
-            margin-top:
-                23px;
-
-        }
-
-
-        .results.show {
-
-            display:
-                block;
-
-            animation:
-                resultIn .3s ease both;
-
-        }
-
-
-        @keyframes resultIn {
-
-            from {
-                opacity: 0;
-                transform: translateY(9px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-        }
-
-
-        .results-top {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            margin-bottom:
-                9px;
-
-        }
-
-
-        .results-title {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                7px;
-
-        }
-
-
-        .results-title h2 {
-
-            margin:
-                0;
-
-            font-size:
-                13px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .ready {
-
-            padding:
-                3px 6px;
-
-            border-radius:
-                5px;
-
-            background:
-                var(--green-soft);
-
-            color:
-                var(--green);
-
-            font-size:
-                7px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .result-count {
-
-            color:
-                #999;
-
-            font-size:
-                9px;
-
-        }
-
-
-        /* ============================================================
-           COMPACT PREVIEW
-        ============================================================ */
-
-        .preview-card {
-
-            display:
-                grid;
-
-            grid-template-columns:
-                116px minmax(0,1fr);
-
-            gap:
-                13px;
-
-            padding:
-                10px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                15px;
-
-            background:
-                white;
-
-            box-shadow:
-                var(--shadow-small);
-
-        }
-
-
-        .thumbnail {
-
-            position:
-                relative;
-
-            width:
-                116px;
-
-            height:
-                116px;
-
-            overflow:
-                hidden;
-
-            border-radius:
-                11px;
-
-            background:
-                #111;
-
-        }
-
-
-        .thumbnail img {
-
-            width:
-                100%;
-
-            height:
-                100%;
-
-            display:
-                block;
-
-            object-fit:
-                cover;
-
-        }
-
-
-        .thumbnail-placeholder {
-
-            width:
-                100%;
-
-            height:
-                100%;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #111,
-                    #2c2c2c
-                );
-
-            color:
-                white;
-
-        }
-
-
-        .thumbnail-placeholder svg {
-
-            width:
-                29px;
-
-            height:
-                29px;
-
-        }
-
-
-        .thumb-label {
-
-            position:
-                absolute;
-
-            left:
-                7px;
-
-            bottom:
-                7px;
-
-            padding:
-                4px 6px;
-
-            border-radius:
-                5px;
-
-            background:
-                rgba(0,0,0,.7);
-
-            color:
-                white;
-
-            font-size:
-                7px;
-
-            font-weight:
-                800;
-
-            backdrop-filter:
-                blur(5px);
-
-        }
-
-
-        .preview-info {
-
-            min-width:
-                0;
-
-            display:
-                flex;
-
-            flex-direction:
-                column;
-
-            justify-content:
-                center;
-
-        }
-
-
-        .creator-row {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                7px;
-
-            margin-bottom:
-                7px;
-
-        }
-
-
-        .avatar {
-
-            width:
-                29px;
-
-            height:
-                29px;
-
-            flex:
-                0 0 29px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            border-radius:
-                50%;
-
-            background:
-                #f0f0f1;
-
-            color:
-                #555;
-
-            font-size:
-                8px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .creator-name {
-
-            font-size:
-                10px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .creator-label {
-
-            margin-top:
-                2px;
-
-            color:
-                #999;
-
-            font-size:
-                8px;
-
-        }
-
-
-        .video-title {
-
-            display:
-                -webkit-box;
-
-            -webkit-line-clamp:
-                3;
-
-            -webkit-box-orient:
-                vertical;
-
-            overflow:
-                hidden;
-
-            color:
-                #666;
-
-            font-size:
-                9px;
-
-            line-height:
-                1.55;
-
-        }
-
-
-        .preview-note {
-
-            margin-top:
-                8px;
-
-            color:
-                #999;
-
-            font-size:
-                8px;
-
-        }
-
-
-        /* ============================================================
-           QUALITY SECTIONS
-        ============================================================ */
-
-        .quality-area {
-
-            margin-top:
-                12px;
-
-            display:
-                flex;
-
-            flex-direction:
-                column;
-
-            gap:
-                10px;
-
-        }
-
-
-        .quality-section {
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                14px;
-
-            background:
-                white;
-
-            overflow:
-                hidden;
-
-        }
-
-
-        .quality-section-header {
-
-            min-height:
-                43px;
-
-            padding:
-                8px 10px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            background:
-                #fafafa;
-
-            border-bottom:
-                1px solid var(--line);
-
-        }
-
-
-        .quality-section-title {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                7px;
-
-        }
-
-
-        .quality-section-icon {
-
-            width:
-                27px;
-
-            height:
-                27px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            border-radius:
-                7px;
-
-            background:
-                #111;
-
-            color:
-                white;
-
-            font-size:
-                7px;
-
-            font-weight:
-                900;
-
-        }
-
-
-        .section-name {
-
-            font-size:
-                10px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .section-description {
-
-            margin-top:
-                2px;
-
-            color:
-                #999;
-
-            font-size:
-                7px;
-
-        }
-
-
-        .section-count {
-
-            color:
-                #999;
-
-            font-size:
-                8px;
-
-        }
-
-
-        .quality-items {
-
-            padding:
-                7px;
-
-            display:
-                grid;
-
-            grid-template-columns:
-                repeat(
-                    auto-fit,
-                    minmax(
-                        250px,
-                        1fr
-                    )
-                );
-
-            gap:
-                6px;
-
-        }
-
-
-        .quality-option {
-
-            min-height:
-                55px;
-
-            width:
-                100%;
-
-            padding:
-                7px 8px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                space-between;
-
-            gap:
-                8px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                10px;
-
-            background:
-                white;
-
-            cursor:
-                pointer;
-
-            text-align:
-                left;
-
-            transition:
-                .15s ease;
-
-        }
-
-
-        .quality-option:hover {
-
-            border-color:
-                #bdbdc1;
-
-            background:
-                #fcfcfc;
-
-            transform:
-                translateY(-1px);
-
-        }
-
-
-        .quality-option:disabled {
-
-            opacity:
-                .55;
-
-            cursor:
-                wait;
-
-        }
-
-
-        .quality-main {
-
-            min-width:
-                0;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                8px;
-
-        }
-
-
-        .quality-icon {
-
-            width:
-                34px;
-
-            height:
-                34px;
-
-            flex:
-                0 0 34px;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            border-radius:
-                8px;
-
-            background:
-                var(--surface-soft);
-
-            color:
-                #444;
-
-            font-size:
-                7px;
-
-            font-weight:
-                900;
-
-        }
-
-
-        .quality-info {
-            min-width:
-                0;
-        }
-
-
-        .quality-name {
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            flex-wrap:
-                wrap;
-
-            gap:
-                4px;
-
-            font-size:
-                9px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .quality-meta {
-
-            margin-top:
-                3px;
-
-            color:
-                #999;
-
-            font-size:
-                7px;
-
-            white-space:
-                nowrap;
-
-            overflow:
-                hidden;
-
-            text-overflow:
-                ellipsis;
-
-        }
-
-
-        .quality-tags {
-
-            margin-top:
-                4px;
-
-            display:
-                flex;
-
-            gap:
-                3px;
-
-        }
-
-
-        .tag {
-
-            padding:
-                2px 5px;
-
-            border-radius:
-                4px;
-
-            font-size:
-                6px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .tag-hd {
-
-            background:
-                var(--blue-soft);
-
-            color:
-                var(--blue);
-
-        }
-
-
-        .tag-sd {
-
-            background:
-                var(--purple-soft);
-
-            color:
-                var(--purple);
-
-        }
-
-
-        .tag-original {
-
-            background:
-                var(--green-soft);
-
-            color:
-                var(--green);
-
-        }
-
-
-        .tag-watermark {
-
-            background:
-                var(--orange-soft);
-
-            color:
-                var(--orange);
-
-        }
-
-
-        .best {
-
-            background:
-                #111;
-
-            color:
-                white;
-
-            padding:
-                2px 5px;
-
-            border-radius:
-                4px;
-
-            font-size:
-                6px;
-
-            font-weight:
-                900;
-
-        }
-
-
-        .download-button {
-
-            flex:
-                0 0 auto;
-
-            height:
-                32px;
-
-            padding:
-                0 9px;
-
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            justify-content:
-                center;
-
-            gap:
-                5px;
-
-            border-radius:
-                8px;
-
-            background:
-                #111;
-
-            color:
-                white;
-
-            font-size:
-                7px;
-
-            font-weight:
-                800;
-
-            white-space:
-                nowrap;
-
-        }
-
-
-        .download-button svg {
-
-            width:
-                12px;
-
-            height:
-                12px;
-
-        }
-
-
-        /* ============================================================
-           STATUS / INFORMATION
-        ============================================================ */
-
-        .notice {
-
-            margin-top:
-                9px;
-
-            padding:
-                10px 11px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                10px;
-
-            background:
-                #fafafa;
-
-            color:
-                #777;
-
-            font-size:
-                8px;
-
-            line-height:
-                1.6;
-
-        }
-
-
-        .notice strong {
-            color:
-                #444;
-        }
-
-
-        /* ============================================================
-           SEO CONTENT
-        ============================================================ */
-
-        .seo-content {
-
-            margin-top:
-                35px;
-
-            padding:
-                23px;
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                16px;
-
-            background:
-                rgba(255,255,255,.85);
-
-        }
-
-
-        .seo-content h2 {
-
-            margin:
-                0 0 9px;
-
-            font-size:
-                17px;
-
-            letter-spacing:
-                -.4px;
-
-        }
-
-
-        .seo-content h3 {
-
-            margin:
-                22px 0 7px;
-
-            font-size:
-                13px;
-
-        }
-
-
-        .seo-content p {
-
-            margin:
-                0;
-
-            color:
-                #666;
-
-            font-size:
-                10px;
-
-            line-height:
-                1.8;
-
-        }
-
-
-        .seo-list {
-
-            margin:
-                9px 0 0;
-
-            padding-left:
-                17px;
-
-            color:
-                #666;
-
-            font-size:
-                10px;
-
-            line-height:
-                1.9;
-
-        }
-
-
-        /* ============================================================
-           FAQ
-        ============================================================ */
-
-        .faq {
-
-            margin-top:
-                12px;
-
-            display:
-                grid;
-
-            gap:
-                6px;
-
-        }
-
-
-        .faq details {
-
-            border:
-                1px solid var(--line);
-
-            border-radius:
-                10px;
-
-            background:
-                white;
-
-            padding:
-                11px 12px;
-
-        }
-
-
-        .faq summary {
-
-            cursor:
-                pointer;
-
-            font-size:
-                10px;
-
-            font-weight:
-                800;
-
-        }
-
-
-        .faq p {
-
-            margin:
-                8px 0 0;
-
-            color:
-                #777;
-
-            font-size:
-                9px;
-
-            line-height:
-                1.65;
-
-        }
-
-
-        /* ============================================================
-           FOOTER
-        ============================================================ */
-
-        footer {
-
-            padding:
-                36px 0 24px;
-
-            text-align:
-                center;
-
-            color:
-                #999;
-
-            font-size:
-                8px;
-
-            line-height:
-                1.7;
-
-        }
-
-
-        footer strong {
-            color:
-                #555;
-        }
-
-
-        /* ============================================================
-           SPINNER
-        ============================================================ */
-
-        .spinner {
-
-            width:
-                12px;
-
-            height:
-                12px;
-
-            border:
-                1.5px solid rgba(255,255,255,.35);
-
-            border-top-color:
-                white;
-
-            border-radius:
-                50%;
-
-            animation:
-                spin .7s linear infinite;
-
-        }
-
-
-        @keyframes spin {
-            to {
-                transform:
-                    rotate(360deg);
-            }
-        }
-
-
-        /* ============================================================
-           MOBILE
-        ============================================================ */
+        button, input { font: inherit; }
+        button { border: 0; cursor: pointer; }
+        a { color: inherit; text-decoration: none; }
+        .container { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+        .header { height: 72px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0,0,0,.06); }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand-logo { width: 39px; height: 39px; object-fit: contain; border-radius: 11px; }
+        .brand-copy { display: flex; flex-direction: column; line-height: 1.05; }
+        .brand-name { font-size: 14px; font-weight: 800; letter-spacing: -.4px; }
+        .brand-sub { margin-top: 4px; color: var(--muted); font-size: 9px; font-weight: 600; }
+        .header-badge { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.75); color: #68686b; font-size: 9px; font-weight: 700; }
+        .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(22,160,93,.08); }
+        .hero { padding: 52px 0 28px; text-align: center; }
+        .hero-icon { width: 62px; height: 62px; margin: 0 auto 17px; border-radius: 18px; display: flex; align-items: center; justify-content: center; background: #111; color: white; box-shadow: 9px 9px 0 rgba(37,244,238,.10), -9px -9px 0 rgba(254,44,85,.08); }
+        .hero-icon svg { width: 31px; height: 31px; }
+        .eyebrow { display: inline-flex; align-items: center; padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: white; color: #777; font-size: 9px; font-weight: 750; }
+        h1 { max-width: 850px; margin: 15px auto 0; font-size: clamp(30px,6vw,53px); line-height: 1.02; letter-spacing: -2.2px; font-weight: 850; }
+        .hero-highlight { color: #777; }
+        .hero-description { max-width: 690px; margin: 15px auto 0; color: var(--text-soft); font-size: 13px; line-height: 1.7; }
+        .hero-features { margin-top: 18px; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; }
+        .hero-feature { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.7); color: #666; font-size: 9px; font-weight: 700; }
+        .hero-feature svg { width: 12px; height: 12px; }
+        .main { width: min(920px, 100%); margin: 0 auto; }
+        .search-card { padding: 8px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface-solid); box-shadow: var(--shadow); }
+        .search-inner { min-height: 52px; display: flex; align-items: center; gap: 8px; }
+        .url-symbol { width: 42px; height: 42px; flex: 0 0 42px; display: flex; align-items: center; justify-content: center; border-radius: 11px; background: var(--surface-soft); color: #555; }
+        .url-symbol svg { width: 18px; height: 18px; }
+        .url-input { flex: 1; min-width: 0; height: 44px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 13px; }
+        .url-input::placeholder { color: #aaa; }
+        .url-input.error { color: var(--red); }
+        .get-button { min-width: 112px; height: 44px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 11px; background: #111; color: white; font-size: 10px; font-weight: 800; transition: .18s ease; }
+        .get-button:hover { transform: translateY(-1px); opacity: .92; }
+        .get-button:active { transform: scale(.98); }
+        .get-button:disabled { opacity: .55; cursor: wait; }
+        .get-button svg { width: 15px; height: 15px; }
+        .message { display: none; margin-top: 9px; padding: 10px 12px; border-radius: 10px; font-size: 10px; line-height: 1.5; }
+        .message.show { display: block; }
+        .message.info { background: #f3f3f4; border: 1px solid var(--line); color: #666; }
+        .message.error { background: var(--red-soft); border: 1px solid #ffd6da; color: var(--red); }
+        .results { display: none; margin-top: 23px; }
+        .results.show { display: block; animation: resultIn .3s ease both; }
+        @keyframes resultIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+        .results-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+        .results-title { display: flex; align-items: center; gap: 7px; }
+        .results-title h2 { margin: 0; font-size: 13px; font-weight: 800; }
+        .ready { padding: 3px 6px; border-radius: 5px; background: var(--green-soft); color: var(--green); font-size: 7px; font-weight: 800; }
+        .result-count { color: #999; font-size: 9px; }
+        .preview-card { display: grid; grid-template-columns: 116px minmax(0,1fr); gap: 13px; padding: 10px; border: 1px solid var(--line); border-radius: 15px; background: white; box-shadow: var(--shadow-small); }
+        .thumbnail { position: relative; width: 116px; height: 116px; overflow: hidden; border-radius: 11px; background: #111; }
+        .thumbnail img { width: 100%; height: 100%; display: block; object-fit: cover; }
+        .thumbnail-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#111,#2c2c2c); color: white; }
+        .thumbnail-placeholder svg { width: 29px; height: 29px; }
+        .thumb-label { position: absolute; left: 7px; bottom: 7px; padding: 4px 6px; border-radius: 5px; background: rgba(0,0,0,.7); color: white; font-size: 7px; font-weight: 800; backdrop-filter: blur(5px); }
+        .preview-info { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+        .creator-row { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+        .avatar { width: 29px; height: 29px; flex: 0 0 29px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #f0f0f1; color: #555; font-size: 8px; font-weight: 800; }
+        .creator-name { font-size: 10px; font-weight: 800; }
+        .creator-label { margin-top: 2px; color: #999; font-size: 8px; }
+        .video-title { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: #666; font-size: 9px; line-height: 1.55; }
+        .preview-note { margin-top: 8px; color: #999; font-size: 8px; }
+        .quality-area { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .quality-section { border: 1px solid var(--line); border-radius: 14px; background: white; overflow: hidden; }
+        .quality-section-header { min-height: 43px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; background: #fafafa; border-bottom: 1px solid var(--line); }
+        .quality-section-title { display: flex; align-items: center; gap: 7px; }
+        .quality-section-icon { width: 27px; height: 27px; display: flex; align-items: center; justify-content: center; border-radius: 7px; background: #111; color: white; font-size: 7px; font-weight: 900; }
+        .section-name { font-size: 10px; font-weight: 800; }
+        .section-description { margin-top: 2px; color: #999; font-size: 7px; }
+        .section-count { color: #999; font-size: 8px; }
+        .quality-items { padding: 7px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 6px; }
+        .quality-option { min-height: 55px; width: 100%; padding: 7px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: white; text-align: left; transition: .15s ease; }
+        .quality-option:hover { border-color: #bdbdc1; background: #fcfcfc; transform: translateY(-1px); }
+        .quality-option:disabled { opacity: .55; cursor: wait; }
+        .quality-main { min-width: 0; display: flex; align-items: center; gap: 8px; }
+        .quality-icon { width: 34px; height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--surface-soft); color: #444; font-size: 7px; font-weight: 900; }
+        .quality-info { min-width: 0; }
+        .quality-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 9px; font-weight: 800; }
+        .quality-meta { margin-top: 3px; color: #999; font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .quality-tags { margin-top: 4px; display: flex; gap: 3px; }
+        .tag { padding: 2px 5px; border-radius: 4px; font-size: 6px; font-weight: 800; }
+        .tag-hd { background: var(--blue-soft); color: var(--blue); }
+        .tag-sd { background: var(--purple-soft); color: var(--purple); }
+        .tag-original { background: var(--green-soft); color: var(--green); }
+        .tag-watermark { background: var(--orange-soft); color: var(--orange); }
+        .tag-audio { background: var(--pink-soft); color: var(--pink); }
+        .best { background: #111; color: white; padding: 2px 5px; border-radius: 4px; font-size: 6px; font-weight: 900; }
+        .download-button { flex: 0 0 auto; height: 32px; padding: 0 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; background: #111; color: white; font-size: 7px; font-weight: 800; white-space: nowrap; }
+        .download-button svg { width: 12px; height: 12px; }
+        .notice { margin-top: 9px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 10px; background: #fafafa; color: #777; font-size: 8px; line-height: 1.6; }
+        .notice strong { color: #444; }
+        footer { padding: 36px 0 24px; text-align: center; color: #999; font-size: 8px; line-height: 1.7; }
+        footer strong { color: #555; }
+        .spinner { width: 12px; height: 12px; border: 1.5px solid rgba(255,255,255,.35); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 700px) {
-
-            .container {
-
-                width:
-                    calc(100% - 18px);
-
-            }
-
-
-            .header {
-                height:
-                    62px;
-            }
-
-
-            .header-badge {
-                display:
-                    none;
-            }
-
-
-            .hero {
-
-                padding:
-                    34px 0 22px;
-
-            }
-
-
-            .hero-icon {
-
-                width:
-                    54px;
-
-                height:
-                    54px;
-
-                border-radius:
-                    15px;
-
-            }
-
-
-            .hero-icon svg {
-
-                width:
-                    27px;
-
-                height:
-                    27px;
-
-            }
-
-
-            h1 {
-
-                font-size:
-                    29px;
-
-                letter-spacing:
-                    -1.2px;
-
-            }
-
-
-            .hero-description {
-
-                font-size:
-                    10px;
-
-                padding:
-                    0 8px;
-
-            }
-
-
-            .hero-feature {
-
-                font-size:
-                    7px;
-
-                padding:
-                    6px 8px;
-
-            }
-
-
-            .search-inner {
-
-                min-height:
-                    46px;
-
-            }
-
-
-            .url-symbol {
-
-                display:
-                    none;
-
-            }
-
-
-            .url-input {
-
-                height:
-                    40px;
-
-                font-size:
-                    11px;
-
-            }
-
-
-            .get-button {
-
-                min-width:
-                    43px;
-
-                width:
-                    43px;
-
-                height:
-                    40px;
-
-                padding:
-                    0;
-
-            }
-
-
-            .get-button span {
-                display:
-                    none;
-            }
-
-
-            .preview-card {
-
-                grid-template-columns:
-                    88px minmax(0,1fr);
-
-                padding:
-                    8px;
-
-                gap:
-                    9px;
-
-            }
-
-
-            .thumbnail {
-
-                width:
-                    88px;
-
-                height:
-                    88px;
-
-            }
-
-
-            .preview-note {
-                display:
-                    none;
-            }
-
-
-            .quality-items {
-
-                grid-template-columns:
-                    1fr;
-
-            }
-
-
-            .quality-option {
-
-                min-height:
-                    53px;
-
-            }
-
-
-            .download-button {
-
-                width:
-                    31px;
-
-                padding:
-                    0;
-
-            }
-
-
-            .download-button span {
-                display:
-                    none;
-            }
-
-
-            .seo-content {
-
-                padding:
-                    17px;
-
-            }
-
+            .container { width: calc(100% - 18px); }
+            .header { height: 62px; }
+            .header-badge { display: none; }
+            .hero { padding: 34px 0 22px; }
+            .hero-icon { width: 54px; height: 54px; border-radius: 15px; }
+            .hero-icon svg { width: 27px; height: 27px; }
+            h1 { font-size: 29px; letter-spacing: -1.2px; }
+            .hero-description { font-size: 10px; padding: 0 8px; }
+            .hero-feature { font-size: 7px; padding: 6px 8px; }
+            .search-inner { min-height: 46px; }
+            .url-symbol { display: none; }
+            .url-input { height: 40px; font-size: 11px; }
+            .get-button { min-width: 43px; width: 43px; height: 40px; padding: 0; }
+            .get-button span { display: none; }
+            .preview-card { grid-template-columns: 88px minmax(0,1fr); padding: 8px; gap: 9px; }
+            .thumbnail { width: 88px; height: 88px; }
+            .preview-note { display: none; }
+            .quality-items { grid-template-columns: 1fr; }
+            .quality-option { min-height: 53px; }
+            .download-button { width: 31px; padding: 0; }
+            .download-button span { display: none; }
         }
-
-
-        @media (max-width: 370px) {
-
-            .quality-icon {
-
-                width:
-                    30px;
-
-                height:
-                    30px;
-
-                flex-basis:
-                    30px;
-
-            }
-
-
-            .quality-name {
-
-                font-size:
-                    8px;
-
-            }
-
-
-            .quality-meta {
-
-                font-size:
-                    6px;
-
-            }
-
-        }
-
     </style>
-
 </head>
-
-
 <body>
-
 <div class="page">
-
     <div class="container">
 
-
-        <!-- ========================================================
-             HEADER
-        ========================================================= -->
-
         <header class="header">
-
-            <a
-                href="../index.html"
-                class="brand"
-                aria-label="Triplem by NSF"
-            >
-
-                <img
-                    src="../Assets/logo/logo.png"
-                    alt="Triplem by NSF logo"
-                    class="brand-logo"
-                >
-
+            <a href="../index.html" class="brand" aria-label="Triplem by NSF">
+                <img src="../Assets/logo/logo.png" alt="Triplem by NSF logo" class="brand-logo">
                 <span class="brand-copy">
-
-                    <span class="brand-name">
-                        Triplem
-                    </span>
-
-                    <span class="brand-sub">
-                        by NSF
-                    </span>
-
+                    <span class="brand-name">Triplem</span>
+                    <span class="brand-sub">by NSF</span>
                 </span>
-
             </a>
-
-
-            <div class="header-badge">
-
-                <span class="live-dot"></span>
-
-                Online Downloader
-
-            </div>
-
+            <div class="header-badge"><span class="live-dot"></span>Online Downloader</div>
         </header>
 
-
-        <!-- ========================================================
-             HERO
-        ========================================================= -->
-
         <section class="hero">
-
-            <div
-                class="hero-icon"
-                aria-hidden="true"
-            >
-
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-
+            <div class="hero-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 4v10.2a4 4 0 1 1-2.4-3.66"/>
-
                     <path d="M14 4c1.1 2.6 2.7 3.8 5.5 4"/>
-
                 </svg>
-
             </div>
-
-
-            <div class="eyebrow">
-                FAST • SIMPLE • QUALITY OPTIONS
-            </div>
-
-
-            <h1>
-
-                TikTok Video
-                <span class="hero-highlight">
-                    Downloader
-                </span>
-
-            </h1>
-
-
+            <div class="eyebrow">FAST • SIMPLE • QUALITY OPTIONS</div>
+            <h1>TikTok Video <span class="hero-highlight">Downloader</span></h1>
             <p class="hero-description">
-
-                Download available TikTok video streams with
-                Triplem by NSF. Paste a TikTok video URL and
-                choose from the available original, HD, SD,
-                high-quality watermark and low-quality watermark
-                versions returned by the video service.
-
+                Download available TikTok video streams with Triplem by NSF. Paste a TikTok video URL and
+                choose from the available original, HD, SD, watermark, and MP3 audio versions returned by
+                the video service.
             </p>
-
-
             <div class="hero-features">
-
                 <div class="hero-feature">
-
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path d="M5 12l4 4L19 6"/>
-                    </svg>
-
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4L19 6"/></svg>
                     No browser conversion
-
                 </div>
-
-
                 <div class="hero-feature">
-
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path d="M12 3v18"/>
-                        <path d="M3 12h18"/>
-                    </svg>
-
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M3 12h18"/></svg>
                     Multiple qualities
-
                 </div>
-
-
                 <div class="hero-feature">
-
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path d="M12 3v12"/>
-                        <path d="m7 10 5 5 5-5"/>
-                        <path d="M5 21h14"/>
-                    </svg>
-
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
                     Direct media source
-
                 </div>
-
             </div>
-
         </section>
-
-
-        <!-- ========================================================
-             DOWNLOADER
-        ========================================================= -->
 
         <main class="main">
 
-
-            <form
-                id="form"
-                class="search-card"
-            >
-
+            <form id="form" class="search-card">
                 <div class="search-inner">
-
-
                     <div class="url-symbol">
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.8"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-
-                            <path
-                                d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"
-                            />
-
-                            <path
-                                d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.15-1.15"
-                            />
-
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15"/>
+                            <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.15-1.15"/>
                         </svg>
-
                     </div>
-
-
-                    <input
-                        id="url"
-                        class="url-input"
-                        type="url"
-                        inputmode="url"
-                        autocomplete="off"
-                        spellcheck="false"
-                        placeholder="Paste TikTok video URL here..."
-                        aria-label="TikTok video URL"
-                        required
-                    >
-
-
-                    <button
-                        id="getButton"
-                        class="get-button"
-                        type="submit"
-                    >
-
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-
-                            <path d="M12 3v13"/>
-                            <path d="m7 11 5 5 5-5"/>
-                            <path d="M4 21h16"/>
-
+                    <input id="url" class="url-input" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste TikTok video URL here..." aria-label="TikTok video URL" required>
+                    <button id="getButton" class="get-button" type="submit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/>
                         </svg>
-
-                        <span>
-                            Get Video
-                        </span>
-
+                        <span>Get Video</span>
                     </button>
-
                 </div>
-
             </form>
 
+            <div id="message" class="message" role="status" aria-live="polite"></div>
 
-            <div
-                id="message"
-                class="message"
-                role="status"
-                aria-live="polite"
-            ></div>
-
-
-            <!-- =====================================================
-                 RESULTS
-            ====================================================== -->
-
-            <section
-                id="results"
-                class="results"
-                aria-label="TikTok video download results"
-            >
-
+            <section id="results" class="results" aria-label="TikTok video download results">
 
                 <div class="results-top">
-
                     <div class="results-title">
-
-                        <h2>
-                            Available Downloads
-                        </h2>
-
-                        <span class="ready">
-                            READY
-                        </span>
-
+                        <h2>Available Downloads</h2>
+                        <span class="ready">READY</span>
                     </div>
-
-
-                    <span
-                        id="resultCount"
-                        class="result-count"
-                    ></span>
-
+                    <span id="resultCount" class="result-count"></span>
                 </div>
-
-
-                <!-- COMPACT THUMBNAIL -->
 
                 <div class="preview-card">
-
-
                     <div class="thumbnail">
-
-                        <img
-                            id="thumbnailImage"
-                            alt="TikTok video thumbnail"
-                            hidden
-                        >
-
-
-                        <div
-                            id="thumbnailPlaceholder"
-                            class="thumbnail-placeholder"
-                        >
-
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-
-                                <rect
-                                    x="4"
-                                    y="3"
-                                    width="16"
-                                    height="18"
-                                    rx="3"
-                                />
-
-                                <path
-                                    d="M10 8.5v7l5-3.5z"
-                                />
-
+                        <img id="thumbnailImage" alt="TikTok video thumbnail" hidden>
+                        <div id="thumbnailPlaceholder" class="thumbnail-placeholder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="3" width="16" height="18" rx="3"/>
+                                <path d="M10 8.5v7l5-3.5z"/>
                             </svg>
-
                         </div>
-
-
-                        <span class="thumb-label">
-                            PREVIEW
-                        </span>
-
+                        <span class="thumb-label">PREVIEW</span>
                     </div>
-
-
                     <div class="preview-info">
-
-
                         <div class="creator-row">
-
-                            <div
-                                id="creatorAvatar"
-                                class="avatar"
-                            >
-                                TT
-                            </div>
-
-
+                            <div id="creatorAvatar" class="avatar">TT</div>
                             <div>
-
-                                <div
-                                    id="creator"
-                                    class="creator-name"
-                                >
-                                    TikTok Video
-                                </div>
-
-                                <div class="creator-label">
-                                    Video information
-                                </div>
-
+                                <div id="creator" class="creator-name">TikTok Video</div>
+                                <div class="creator-label">Video information</div>
                             </div>
-
                         </div>
-
-
-                        <div
-                            id="videoTitle"
-                            class="video-title"
-                        >
-                            TikTok video
-                        </div>
-
-
-                        <div class="preview-note">
-
-                            Video playback is intentionally disabled.
-                            Only a compact thumbnail is displayed.
-
-                        </div>
-
+                        <div id="videoTitle" class="video-title">TikTok video</div>
+                        <div class="preview-note">Video playback is intentionally disabled. Only a compact thumbnail is displayed.</div>
                     </div>
-
                 </div>
 
-
-                <!-- =================================================
-                     QUALITY GROUPS
-                ================================================== -->
-
-                <div
-                    id="qualityArea"
-                    class="quality-area"
-                ></div>
-
+                <div id="qualityArea" class="quality-area"></div>
 
                 <div class="notice">
-
                     <strong>Quality note:</strong>
-                    Triplem does not invent or manufacture a higher
-                    quality stream. The options shown here are based
-                    on the media sources returned by the upstream
-                    video service. If an original or HD source is
-                    unavailable, it cannot be recreated from a
-                    lower-quality file without reducing quality.
-
-                </div>
-
-
-            </section>
-
-
-            <!-- =====================================================
-                 SEO CONTENT
-            ====================================================== -->
-
-            <section class="seo-content">
-
-                <h2>
-                    TikTok Video Downloader by Triplem
-                </h2>
-
-
-                <p>
-
-                    Triplem by NSF provides a simple web interface
-                    for downloading available TikTok video streams.
-                    Instead of playing the video directly inside the
-                    page, the downloader displays a compact thumbnail
-                    and organizes available media sources into clear
-                    quality categories.
-
-                </p>
-
-
-                <h3>
-                    Choose the TikTok video quality you need
-                </h3>
-
-
-                <p>
-
-                    Depending on the source returned for a TikTok
-                    video, you may see separate download choices for
-                    original or source quality, HD video, SD video,
-                    high-quality watermark video and lower-quality
-                    watermark video.
-
-                </p>
-
-
-                <ul class="seo-list">
-
-                    <li>
-                        Original or source quality when available
-                    </li>
-
-                    <li>
-                        HD video streams
-                    </li>
-
-                    <li>
-                        SD and standard-quality streams
-                    </li>
-
-                    <li>
-                        High-quality watermark streams
-                    </li>
-
-                    <li>
-                        Low-quality watermark streams
-                    </li>
-
-                    <li>
-                        Resolution and file-size information when supplied
-                    </li>
-
-                </ul>
-
-
-                <h3>
-                    TikTok download without unnecessary browser processing
-                </h3>
-
-
-                <p>
-
-                    Triplem does not use a canvas to redraw the video,
-                    does not resize the video in the browser and does
-                    not re-encode the selected media stream. The
-                    selected download uses the media URL returned by
-                    the upstream service.
-
-                </p>
-
-
-                <h3>
-                    How to download a TikTok video
-                </h3>
-
-
-                <p>
-
-                    Copy the URL of a TikTok video, paste it into the
-                    downloader above and select Get Video. Once the
-                    available media streams are returned, choose the
-                    quality category and download option that best
-                    matches your needs.
-
-                </p>
-
-
-                <div class="faq">
-
-                    <details>
-
-                        <summary>
-                            Is Triplem a TikTok product?
-                        </summary>
-
-                        <p>
-
-                            No. Triplem by NSF is an independent web
-                            tool and is not presented as an official
-                            TikTok service.
-
-                        </p>
-
-                    </details>
-
-
-                    <details>
-
-                        <summary>
-                            Why are some quality options missing?
-                        </summary>
-
-                        <p>
-
-                            Available streams depend on the source
-                            service and the particular video. Triplem
-                            cannot create an original or HD source if
-                            the upstream service does not provide one.
-
-                        </p>
-
-                    </details>
-
-
-                    <details>
-
-                        <summary>
-                            Does the page play the TikTok video?
-                        </summary>
-
-                        <p>
-
-                            No. This version intentionally uses a
-                            compact square thumbnail rather than an
-                            embedded video player.
-
-                        </p>
-
-                    </details>
-
-
-                    <details>
-
-                        <summary>
-                            Does Triplem compress downloaded videos?
-                        </summary>
-
-                        <p>
-
-                            The browser does not re-encode or compress
-                            the selected media. It requests the exact
-                            source URL supplied for the selected option.
-
-                        </p>
-
-                    </details>
-
+                    Triplem does not invent or manufacture a higher quality stream. The options shown here are
+                    based on the media sources returned by the upstream video service. If an original or HD
+                    source is unavailable for a particular video, it cannot be recreated from a lower-quality file.
                 </div>
 
             </section>
-
 
         </main>
 
-
         <footer>
-
-            <strong>
-                Triplem by NSF
-            </strong>
-
-            &nbsp;•&nbsp;
-
-            TikTok Video Downloader
-
+            <strong>Triplem by NSF</strong>&nbsp;•&nbsp;TikTok Video Downloader
             <br>
-
-            Independent third-party tool. TikTok is a trademark
-            of its respective owner.
-
+            Independent third-party tool. TikTok is a trademark of its respective owner.
         </footer>
 
-
     </div>
-
 </div>
 
-
 <script>
-
 /* ================================================================
-   TRIPLEM BY NSF
-   TIKTOK VIDEO DOWNLOADER
+   TRIPLEM BY NSF — TIKTOK VIDEO DOWNLOADER
    ================================================================
+   FIX NOTES (why SD-only was happening before):
 
-   IMPORTANT:
+   1. The tikwm.com API only populates `hdplay` (true HD / original
+      bitrate stream) when the request explicitly includes `&hd=1`.
+      Without that flag, `hdplay` is empty, so the old code silently
+      fell through to `play` (the standard/SD stream) for every
+      "quality" option. That is now fixed in API_URL below.
 
-   This frontend does not manufacture video quality.
+   2. `data.music` / `data.music_info.play` holds the original sound
+      track (MP3-compatible audio stream) — this is now surfaced as
+      its own downloadable "Audio / MP3" category.
 
-   It displays the media streams supplied by the API.
-
-   No canvas.
-   No video re-encoding.
-   No resizing.
-   No compression.
-
-   The selected source URL is downloaded directly whenever
-   the browser and CDN allow it.
-
+   3. Category classification and sorting were tightened so Original,
+      HD, SD, Watermark and Audio never collide with each other.
 ================================================================ */
 
+const form = document.getElementById("form");
+const urlInput = document.getElementById("url");
+const getButton = document.getElementById("getButton");
+const message = document.getElementById("message");
+const results = document.getElementById("results");
+const creator = document.getElementById("creator");
+const creatorAvatar = document.getElementById("creatorAvatar");
+const videoTitle = document.getElementById("videoTitle");
+const thumbnailImage = document.getElementById("thumbnailImage");
+const thumbnailPlaceholder = document.getElementById("thumbnailPlaceholder");
+const qualityArea = document.getElementById("qualityArea");
+const resultCount = document.getElementById("resultCount");
 
 /* ================================================================
-   ELEMENTS
+   API — hd=1 is REQUIRED to unlock the true HD / original stream
 ================================================================ */
-
-const form =
-    document.getElementById("form");
-
-const urlInput =
-    document.getElementById("url");
-
-const getButton =
-    document.getElementById("getButton");
-
-const message =
-    document.getElementById("message");
-
-const results =
-    document.getElementById("results");
-
-const creator =
-    document.getElementById("creator");
-
-const creatorAvatar =
-    document.getElementById("creatorAvatar");
-
-const videoTitle =
-    document.getElementById("videoTitle");
-
-const thumbnailImage =
-    document.getElementById("thumbnailImage");
-
-const thumbnailPlaceholder =
-    document.getElementById("thumbnailPlaceholder");
-
-const qualityArea =
-    document.getElementById("qualityArea");
-
-const resultCount =
-    document.getElementById("resultCount");
-
-
-/* ================================================================
-   API
-================================================================ */
-
-const API_URL =
-    "https://www.tikwm.com/api/?url=";
-
-
-/* ================================================================
-   STATE
-================================================================ */
+const API_URL = "https://www.tikwm.com/api/?hd=1&url=";
 
 let currentSources = [];
-
 
 /* ================================================================
    VALIDATE URL
 ================================================================ */
-
 function isTikTokURL(value) {
-
     try {
-
-        const url =
-            new URL(
-                value
-            );
-
-        const host =
-            url.hostname
-                .toLowerCase()
-                .replace(/^www\./, "");
-
+        const url = new URL(value);
+        const host = url.hostname.toLowerCase().replace(/^www\./, "");
         return (
             host === "tiktok.com" ||
             host === "m.tiktok.com" ||
             host === "vm.tiktok.com" ||
             host === "vt.tiktok.com"
         );
-
     } catch {
-
         return false;
-
     }
-
 }
-
 
 /* ================================================================
    MESSAGE
 ================================================================ */
-
-function showMessage(
-    text,
-    type = "info"
-) {
-
-    message.textContent =
-        text;
-
-    message.className =
-        "message show " +
-        type;
-
+function showMessage(text, type = "info") {
+    message.textContent = text;
+    message.className = "message show " + type;
 }
-
-
 function hideMessage() {
-
-    message.textContent =
-        "";
-
-    message.className =
-        "message";
-
+    message.textContent = "";
+    message.className = "message";
 }
-
 
 /* ================================================================
    RESET
 ================================================================ */
-
 function resetResults() {
-
-    results.classList.remove(
-        "show"
-    );
-
-    qualityArea.innerHTML =
-        "";
-
-    currentSources =
-        [];
-
-    creator.textContent =
-        "TikTok Video";
-
-    creatorAvatar.textContent =
-        "TT";
-
-    videoTitle.textContent =
-        "TikTok video";
-
-    resultCount.textContent =
-        "";
-
-    thumbnailImage.hidden =
-        true;
-
-    thumbnailImage.removeAttribute(
-        "src"
-    );
-
-    thumbnailPlaceholder.style.display =
-        "flex";
-
+    results.classList.remove("show");
+    qualityArea.innerHTML = "";
+    currentSources = [];
+    creator.textContent = "TikTok Video";
+    creatorAvatar.textContent = "TT";
+    videoTitle.textContent = "TikTok video";
+    resultCount.textContent = "";
+    thumbnailImage.hidden = true;
+    thumbnailImage.removeAttribute("src");
+    thumbnailPlaceholder.style.display = "flex";
 }
-
 
 /* ================================================================
    ESCAPE HTML
 ================================================================ */
-
-function escapeHTML(
-    value
-) {
-
-    return String(
-        value || ""
-    )
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-
+function escapeHTML(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
-
 
 /* ================================================================
    FILE SIZE
 ================================================================ */
-
-function formatSize(
-    bytes
-) {
-
-    const value =
-        Number(
-            bytes || 0
-        );
-
-    if (!value) {
-        return "";
-    }
-
-
-    if (value < 1024) {
-
-        return value +
-            " B";
-
-    }
-
-
-    if (
-        value <
-        1024 * 1024
-    ) {
-
-        return (
-            value / 1024
-        ).toFixed(0) +
-        " KB";
-
-    }
-
-
-    if (
-        value <
-        1024 * 1024 * 1024
-    ) {
-
-        return (
-            value /
-            (1024 * 1024)
-        ).toFixed(2) +
-        " MB";
-
-    }
-
-
-    return (
-        value /
-        (1024 * 1024 * 1024)
-    ).toFixed(2) +
-    " GB";
-
+function formatSize(bytes) {
+    const value = Number(bytes || 0);
+    if (!value) return "";
+    if (value < 1024) return value + " B";
+    if (value < 1024 * 1024) return (value / 1024).toFixed(0) + " KB";
+    if (value < 1024 * 1024 * 1024) return (value / (1024 * 1024)).toFixed(2) + " MB";
+    return (value / (1024 * 1024 * 1024)).toFixed(2) + " GB";
 }
 
-
 /* ================================================================
-   RESOLUTION
+   RESOLUTION / HEIGHT
 ================================================================ */
-
-function getResolution(
-    source
-) {
-
-    const width =
-        Number(
-            source.width ||
-            source.w ||
-            0
-        );
-
-    const height =
-        Number(
-            source.height ||
-            source.h ||
-            0
-        );
-
-
-    if (
-        width &&
-        height
-    ) {
-
-        return (
-            width +
-            " × " +
-            height
-        );
-
-    }
-
-
-    if (height) {
-
-        return height +
-            "p";
-
-    }
-
-
-    return (
-        source.resolution ||
-        ""
-    );
-
+function getResolution(source) {
+    const width = Number(source.width || source.w || 0);
+    const height = Number(source.height || source.h || 0);
+    if (width && height) return width + " × " + height;
+    if (height) return height + "p";
+    return source.resolution || "";
 }
 
-
-/* ================================================================
-   HEIGHT
-================================================================ */
-
-function getHeight(
-    source
-) {
-
-    const direct =
-        Number(
-            source.height ||
-            source.h ||
-            0
-        );
-
-
-    if (direct) {
-        return direct;
-    }
-
-
-    const text =
-        String(
-            source.label ||
-            source.quality ||
-            source.name ||
-            ""
-        );
-
-
-    const match =
-        text.match(
-            /(\d{3,4})\s*p/i
-        );
-
-
-    if (match) {
-
-        return Number(
-            match[1]
-        );
-
-    }
-
-
+function getHeight(source) {
+    const direct = Number(source.height || source.h || 0);
+    if (direct) return direct;
+    const text = String(source.label || source.quality || source.name || "");
+    const match = text.match(/(\d{3,4})\s*p/i);
+    if (match) return Number(match[1]);
     return 0;
-
 }
 
-
-/* ================================================================
-   QUALITY SCORE
-================================================================ */
-
-function qualityScore(
-    source
-) {
-
-    const width =
-        Number(
-            source.width ||
-            source.w ||
-            0
-        );
-
-    const height =
-        Number(
-            source.height ||
-            source.h ||
-            0
-        );
-
-
-    const pixels =
-        width *
-        height;
-
-
-    if (pixels) {
-        return pixels;
-    }
-
-
-    const h =
-        getHeight(
-            source
-        );
-
-
+function qualityScore(source) {
+    const width = Number(source.width || source.w || 0);
+    const height = Number(source.height || source.h || 0);
+    const pixels = width * height;
+    if (pixels) return pixels;
+    const h = getHeight(source);
     return h * h;
-
 }
-
 
 /* ================================================================
    CLASSIFICATION
 ================================================================ */
+function classifySource(source) {
+    if (source.type === "audio") return "audio";
 
-function classifySource(
-    source
-) {
+    const label = String(source.label || source.quality || source.name || "").toLowerCase();
 
-    const label =
-        String(
-            source.label ||
-            source.quality ||
-            source.name ||
-            ""
-        )
-        .toLowerCase();
-
-
-    if (
-        source.original === true ||
-        label.includes("original") ||
-        label.includes("source")
-    ) {
-
+    if (source.original === true || label.includes("original") || label.includes("source")) {
         return "original";
-
     }
 
-
-    if (
-        source.watermark === true ||
-        label.includes("watermark") ||
-        label.includes(" wm") ||
-        label.startsWith("wm")
-    ) {
-
-        const score =
-            qualityScore(
-                source
-            );
-
-
-        if (
-            score >=
-            720 * 1280
-        ) {
-
-            return "watermark-high";
-
-        }
-
-
-        return "watermark-low";
-
+    if (source.watermark === true || label.includes("watermark") || label.includes(" wm") || label.startsWith("wm")) {
+        const score = qualityScore(source);
+        return score >= 720 * 1280 ? "watermark-high" : "watermark-low";
     }
 
-
-    const height =
-        getHeight(
-            source
-        );
-
-
-    if (
-        height >= 720 ||
-        label.includes("hd") ||
-        label.includes("1080") ||
-        label.includes("2k") ||
-        label.includes("4k")
-    ) {
-
+    const height = getHeight(source);
+    if (height >= 720 || label.includes("hd") || label.includes("1080") || label.includes("2k") || label.includes("4k")) {
         return "hd";
-
     }
-
 
     return "sd";
-
 }
-
 
 /* ================================================================
    SOURCE COLLECTION
 ================================================================ */
+function collectSources(data) {
+    const sources = [];
+    const seen = new Set();
 
-function collectSources(
-    data
-) {
-
-    const sources =
-        [];
-
-    const seen =
-        new Set();
-
-
-    function add(
-        url,
-        label,
-        options = {}
-    ) {
-
-        if (
-            typeof url !==
-            "string"
-        ) {
-
-            return;
-
-        }
-
-
-        if (
-            !/^https?:\/\//i.test(
-                url
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        if (
-            seen.has(url)
-        ) {
-
-            return;
-
-        }
-
-
-        seen.add(
-            url
-        );
-
+    function add(url, label, options = {}) {
+        if (typeof url !== "string") return;
+        if (!/^https?:\/\//i.test(url)) return;
+        if (seen.has(url)) return;
+        seen.add(url);
 
         sources.push({
-
             url,
-
-            label:
-                label ||
-                "Video",
-
-            size:
-                Number(
-                    options.size ||
-                    0
-                ),
-
-            width:
-                Number(
-                    options.width ||
-                    0
-                ),
-
-            height:
-                Number(
-                    options.height ||
-                    0
-                ),
-
-            resolution:
-                options.resolution ||
-                "",
-
-            watermark:
-                options.watermark === true,
-
-            original:
-                options.original === true,
-
-            priority:
-                Number(
-                    options.priority ||
-                    0
-                )
-
+            label: label || "Video",
+            size: Number(options.size || 0),
+            width: Number(options.width || 0),
+            height: Number(options.height || 0),
+            resolution: options.resolution || "",
+            watermark: options.watermark === true,
+            original: options.original === true,
+            type: options.type || "video",
+            priority: Number(options.priority || 0)
         });
-
     }
-
 
     /* ============================================================
        KNOWN TIKWM FIELDS
+       - hdplay  -> true HD / original-bitrate, no watermark (needs hd=1)
+       - play    -> standard/SD, no watermark
+       - wmplay  -> watermark-burned version
+       - music / music_info.play -> original audio track
     ============================================================ */
 
+    // Original / HD (highest bitrate, watermark-free). tikwm labels
+    // this the "original" source once hd=1 is requested.
+    add(data.hdplay, "Original / HD", {
+        size: data.hd_size,
+        width: data.hd_width,
+        height: data.hd_height || 1080,
+        resolution: data.hd_resolution,
+        original: true,
+        priority: 1000
+    });
 
-    add(
-        data.hdplay,
-        "HD",
-        {
-            size:
-                data.hd_size,
+    // Standard quality, watermark-free
+    add(data.play, "SD / Standard", {
+        size: data.size,
+        width: data.width,
+        height: data.height || 540,
+        resolution: data.resolution,
+        priority: 700
+    });
 
-            width:
-                data.hd_width,
+    // Watermarked version
+    add(data.wmplay, "Watermark", {
+        size: data.wm_size,
+        width: data.wm_width,
+        height: data.wm_height,
+        resolution: data.wm_resolution,
+        watermark: true,
+        priority: 300
+    });
 
-            height:
-                data.hd_height,
+    // Audio / MP3 (original sound)
+    const musicUrl =
+        data.music ||
+        (data.music_info && data.music_info.play) ||
+        "";
 
-            resolution:
-                data.hd_resolution,
-
-            priority:
-                1000
-        }
-    );
-
-
-    add(
-        data.play,
-        "SD / Standard",
-        {
-            size:
-                data.size,
-
-            width:
-                data.width,
-
-            height:
-                data.height,
-
-            resolution:
-                data.resolution,
-
-            priority:
-                700
-        }
-    );
-
-
-    add(
-        data.wmplay,
-        "Watermark",
-        {
-            size:
-                data.wm_size,
-
-            width:
-                data.wm_width,
-
-            height:
-                data.wm_height,
-
-            resolution:
-                data.wm_resolution,
-
-            watermark:
-                true,
-
-            priority:
-                300
-        }
-    );
-
+    add(musicUrl, data.music_info?.title || "Original Audio (MP3)", {
+        size: data.music_info?.size,
+        type: "audio",
+        priority: 900
+    });
 
     /* ============================================================
-       GENERIC ARRAYS
+       GENERIC ARRAYS (covers alternate API shapes/mirrors)
     ============================================================ */
-
     const arrays = [
-
-        data.videos,
-        data.video,
-        data.sources,
-        data.qualities,
-        data.downloads,
-        data.video_list,
-        data.video_sources
-
+        data.videos, data.video, data.sources, data.qualities,
+        data.downloads, data.video_list, data.video_sources
     ];
 
+    arrays.forEach(list => {
+        if (!Array.isArray(list)) return;
 
-    arrays.forEach(
-        list => {
+        list.forEach(item => {
+            if (!item) return;
 
-            if (
-                !Array.isArray(
-                    list
-                )
-            ) {
-
+            if (typeof item === "string") {
+                add(item, "Available", { priority: 500 });
                 return;
-
             }
 
+            const url = item.url || item.src || item.play || item.download || item.link || item.video_url;
+            if (!url) return;
 
-            list.forEach(
-                item => {
+            const label = item.quality || item.label || item.name || item.type || "Available";
+            const text = String(label).toLowerCase();
 
-                    if (!item) {
-                        return;
-                    }
-
-
-                    if (
-                        typeof item ===
-                        "string"
-                    ) {
-
-                        add(
-                            item,
-                            "Available",
-                            {
-                                priority:
-                                    500
-                            }
-                        );
-
-                        return;
-
-                    }
-
-
-                    const url =
-                        item.url ||
-                        item.src ||
-                        item.play ||
-                        item.download ||
-                        item.link ||
-                        item.video_url;
-
-
-                    if (!url) {
-                        return;
-                    }
-
-
-                    const label =
-                        item.quality ||
-                        item.label ||
-                        item.name ||
-                        item.type ||
-                        "Available";
-
-
-                    const text =
-                        String(
-                            label
-                        ).toLowerCase();
-
-
-                    add(
-                        url,
-                        label,
-                        {
-
-                            size:
-                                item.size ||
-                                item.filesize ||
-                                item.file_size,
-
-                            width:
-                                item.width ||
-                                item.w,
-
-                            height:
-                                item.height ||
-                                item.h,
-
-                            resolution:
-                                item.resolution,
-
-                            watermark:
-                                item.watermark === true ||
-                                text.includes(
-                                    "watermark"
-                                ) ||
-                                text.includes(
-                                    " wm"
-                                ),
-
-                            original:
-                                item.original === true ||
-                                text.includes(
-                                    "original"
-                                ) ||
-                                text.includes(
-                                    "source"
-                                ),
-
-                            priority:
-                                Number(
-                                    item.priority ||
-                                    500
-                                )
-
-                        }
-                    );
-
-                }
-            );
-
-        }
-    );
-
+            add(url, label, {
+                size: item.size || item.filesize || item.file_size,
+                width: item.width || item.w,
+                height: item.height || item.h,
+                resolution: item.resolution,
+                watermark: item.watermark === true || text.includes("watermark") || text.includes(" wm"),
+                original: item.original === true || text.includes("original") || text.includes("source"),
+                type: text.includes("mp3") || text.includes("audio") ? "audio" : "video",
+                priority: Number(item.priority || 500)
+            });
+        });
+    });
 
     /* ============================================================
        SORT
     ============================================================ */
+    sources.sort((a, b) => {
+        const aClass = classifySource(a);
+        const bClass = classifySource(b);
 
-    sources.sort(
-        (
-            a,
-            b
-        ) => {
+        const order = {
+            "original": 100,
+            "hd": 90,
+            "sd": 70,
+            "watermark-high": 50,
+            "watermark-low": 40,
+            "audio": 30
+        };
 
-            const aClass =
-                classifySource(
-                    a
-                );
+        const classDifference = (order[bClass] || 0) - (order[aClass] || 0);
+        if (classDifference) return classDifference;
 
-            const bClass =
-                classifySource(
-                    b
-                );
+        const resolutionDifference = qualityScore(b) - qualityScore(a);
+        if (resolutionDifference) return resolutionDifference;
 
-
-            const order = {
-
-                "original":
-                    100,
-
-                "hd":
-                    90,
-
-                "sd":
-                    70,
-
-                "watermark-high":
-                    50,
-
-                "watermark-low":
-                    40
-
-            };
-
-
-            const classDifference =
-                (
-                    order[bClass] || 0
-                ) -
-                (
-                    order[aClass] || 0
-                );
-
-
-            if (
-                classDifference
-            ) {
-
-                return classDifference;
-
-            }
-
-
-            const resolutionDifference =
-                qualityScore(b) -
-                qualityScore(a);
-
-
-            if (
-                resolutionDifference
-            ) {
-
-                return resolutionDifference;
-
-            }
-
-
-            return (
-                b.priority -
-                a.priority
-            );
-
-        }
-    );
-
+        return b.priority - a.priority;
+    });
 
     return sources;
-
 }
-
 
 /* ================================================================
    CATEGORY DEFINITIONS
 ================================================================ */
-
 const CATEGORY_DEFINITIONS = {
-
-    original: {
-
-        title:
-            "Original / Source",
-
-        description:
-            "Highest available source-quality stream",
-
-        icon:
-            "SRC"
-
-    },
-
-    hd: {
-
-        title:
-            "HD Quality",
-
-        description:
-            "High-definition video streams",
-
-        icon:
-            "HD"
-
-    },
-
-    sd: {
-
-        title:
-            "SD Quality",
-
-        description:
-            "Standard-definition video streams",
-
-        icon:
-            "SD"
-
-    },
-
-    "watermark-high": {
-
-        title:
-            "Watermark • High Quality",
-
-        description:
-            "Higher-resolution watermark streams",
-
-        icon:
-            "WM"
-
-    },
-
-    "watermark-low": {
-
-        title:
-            "Watermark • Low Quality",
-
-        description:
-            "Lower-resolution watermark streams",
-
-        icon:
-            "WM"
-
-    }
-
+    original: { title: "Original / HD Quality", description: "Highest available bitrate, no watermark", icon: "SRC" },
+    hd: { title: "HD Quality", description: "High-definition video streams", icon: "HD" },
+    sd: { title: "SD Quality", description: "Standard-definition video streams", icon: "SD" },
+    "watermark-high": { title: "Watermark • High Quality", description: "Higher-resolution watermark streams", icon: "WM" },
+    "watermark-low": { title: "Watermark • Low Quality", description: "Lower-resolution watermark streams", icon: "WM" },
+    audio: { title: "Audio / MP3", description: "Original sound track from the video", icon: "MP3" }
 };
 
-
 /* ================================================================
-   DOWNLOAD ICON
+   ICONS
 ================================================================ */
-
 function downloadIcon() {
-
     return `
-
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-        >
-
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3v12"/>
-
             <path d="m7 10 5 5 5-5"/>
-
             <path d="M5 21h14"/>
-
         </svg>
-
     `;
-
 }
-
 
 /* ================================================================
    RENDER CATEGORY
 ================================================================ */
+function renderCategory(category, sources) {
+    const definition = CATEGORY_DEFINITIONS[category];
+    if (!definition || !sources.length) return;
 
-function renderCategory(
-    category,
-    sources
-) {
+    const section = document.createElement("section");
+    section.className = "quality-section";
 
-    const definition =
-        CATEGORY_DEFINITIONS[
-            category
-        ];
-
-
-    if (
-        !definition ||
-        !sources.length
-    ) {
-
-        return;
-
-    }
-
-
-    const section =
-        document.createElement(
-            "section"
-        );
-
-
-    section.className =
-        "quality-section";
-
-
-    const header =
-        document.createElement(
-            "div"
-        );
-
-
-    header.className =
-        "quality-section-header";
-
-
+    const header = document.createElement("div");
+    header.className = "quality-section-header";
     header.innerHTML = `
-
         <div class="quality-section-title">
-
-            <div class="quality-section-icon">
-
-                ${escapeHTML(
-                    definition.icon
-                )}
-
-            </div>
-
+            <div class="quality-section-icon">${escapeHTML(definition.icon)}</div>
             <div>
-
-                <div class="section-name">
-
-                    ${escapeHTML(
-                        definition.title
-                    )}
-
-                </div>
-
-                <div class="section-description">
-
-                    ${escapeHTML(
-                        definition.description
-                    )}
-
-                </div>
-
+                <div class="section-name">${escapeHTML(definition.title)}</div>
+                <div class="section-description">${escapeHTML(definition.description)}</div>
             </div>
-
         </div>
-
-
-        <div class="section-count">
-
-            ${sources.length}
-            ${
-                sources.length === 1
-                    ? "option"
-                    : "options"
-            }
-
-        </div>
-
+        <div class="section-count">${sources.length} ${sources.length === 1 ? "option" : "options"}</div>
     `;
-
-
-    section.appendChild(
-        header
-    );
-
-
-    const items =
-        document.createElement(
-            "div"
-        );
-
-
-    items.className =
-        "quality-items";
-
-
-    sources.forEach(
-        (
-            source,
-            index
-        ) => {
-
-            const button =
-                document.createElement(
-                    "button"
-                );
-
-
-            button.type =
-                "button";
-
-
-            button.className =
-                "quality-option";
-
-
-            const height =
-                getHeight(
-                    source
-                );
-
-
-            const resolution =
-                source.resolution ||
-                getResolution(
-                    source
-                );
-
-
-            const size =
-                formatSize(
-                    source.size
-                );
-
-
-            const meta =
-                [];
-
-
-            if (resolution) {
-                meta.push(
-                    resolution
-                );
-            }
-
-
-            if (height) {
-
-                if (
-                    !resolution ||
-                    !resolution.includes(
-                        "p"
-                    )
-                ) {
-
-                    meta.push(
-                        height + "p"
-                    );
-
-                }
-
-            }
-
-
-            if (size) {
-                meta.push(
-                    size
-                );
-            }
-
-
-            if (!meta.length) {
-
-                meta.push(
-                    "MP4 video"
-                );
-
-            }
-
-
-            let tagClass =
-                "tag-sd";
-
-            let tagText =
-                "SD";
-
-
-            if (
-                category ===
-                "original"
-            ) {
-
-                tagClass =
-                    "tag-original";
-
-                tagText =
-                    "ORIGINAL";
-
-            }
-
-            else if (
-                category ===
-                "hd"
-            ) {
-
-                tagClass =
-                    "tag-hd";
-
-                tagText =
-                    "HD";
-
-            }
-
-            else if (
-                category.includes(
-                    "watermark"
-                )
-            ) {
-
-                tagClass =
-                    "tag-watermark";
-
-                tagText =
-                    "WATERMARK";
-
-            }
-
-
-            const best =
-                category ===
-                "original" &&
-                index === 0
-                    ? `<span class="best">BEST</span>`
-                    : (
-                        category === "hd" &&
-                        index === 0
-                            ? `<span class="best">BEST</span>`
-                            : ""
-                    );
-
-
-            const icon =
-                category ===
-                "original"
-                    ? "SRC"
-                    :
-                category ===
-                "hd"
-                    ? "HD"
-                    :
-                category.includes(
-                    "watermark"
-                )
-                    ? "WM"
-                    : "SD";
-
-
-            button.innerHTML = `
-
-                <span class="quality-main">
-
-                    <span class="quality-icon">
-
-                        ${icon}
-
-                    </span>
-
-
-                    <span class="quality-info">
-
-                        <span class="quality-name">
-
-                            ${escapeHTML(
-                                getDisplayName(
-                                    source,
-                                    category
-                                )
-                            )}
-
-                            ${best}
-
-                        </span>
-
-
-                        <span class="quality-meta">
-
-                            ${escapeHTML(
-                                meta.join(
-                                    " · "
-                                )
-                            )}
-
-                        </span>
-
-
-                        <span class="quality-tags">
-
-                            <span
-                                class="tag ${tagClass}"
-                            >
-
-                                ${tagText}
-
-                            </span>
-
-                        </span>
-
-                    </span>
-
-                </span>
-
-
-                <span class="download-button">
-
-                    ${downloadIcon()}
-
-                    <span>
-                        Download
-                    </span>
-
-                </span>
-
-            `;
-
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    downloadSource(
-                        source,
-                        button
-                    );
-
-                }
-            );
-
-
-            items.appendChild(
-                button
-            );
-
+    section.appendChild(header);
+
+    const items = document.createElement("div");
+    items.className = "quality-items";
+
+    sources.forEach((source, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "quality-option";
+
+        const height = getHeight(source);
+        const resolution = source.resolution || getResolution(source);
+        const size = formatSize(source.size);
+
+        const meta = [];
+        if (category === "audio") {
+            meta.push("MP3 / M4A audio");
+        } else {
+            if (resolution) meta.push(resolution);
+            if (height && (!resolution || !resolution.includes("p"))) meta.push(height + "p");
         }
-    );
+        if (size) meta.push(size);
+        if (!meta.length) meta.push(category === "audio" ? "Audio track" : "MP4 video");
 
+        let tagClass = "tag-sd";
+        let tagText = "SD";
 
-    section.appendChild(
-        items
-    );
+        if (category === "original") { tagClass = "tag-original"; tagText = "ORIGINAL"; }
+        else if (category === "hd") { tagClass = "tag-hd"; tagText = "HD"; }
+        else if (category.includes("watermark")) { tagClass = "tag-watermark"; tagText = "WATERMARK"; }
+        else if (category === "audio") { tagClass = "tag-audio"; tagText = "MP3"; }
 
+        const best = (category === "original" || category === "hd") && index === 0
+            ? `<span class="best">BEST</span>` : "";
 
-    qualityArea.appendChild(
-        section
-    );
+        const icon = category === "original" ? "SRC"
+            : category === "hd" ? "HD"
+            : category.includes("watermark") ? "WM"
+            : category === "audio" ? "MP3"
+            : "SD";
 
+        button.innerHTML = `
+            <span class="quality-main">
+                <span class="quality-icon">${icon}</span>
+                <span class="quality-info">
+                    <span class="quality-name">
+                        ${escapeHTML(getDisplayName(source, category))}
+                        ${best}
+                    </span>
+                    <span class="quality-meta">${escapeHTML(meta.join(" · "))}</span>
+                    <span class="quality-tags">
+                        <span class="tag ${tagClass}">${tagText}</span>
+                    </span>
+                </span>
+            </span>
+            <span class="download-button">
+                ${downloadIcon()}
+                <span>Download</span>
+            </span>
+        `;
+
+        button.addEventListener("click", () => downloadSource(source, button));
+        items.appendChild(button);
+    });
+
+    section.appendChild(items);
+    qualityArea.appendChild(section);
 }
-
 
 /* ================================================================
    DISPLAY NAME
 ================================================================ */
+function getDisplayName(source, category) {
+    const height = getHeight(source);
 
-function getDisplayName(
-    source,
-    category
-) {
+    if (category === "original") return height ? `Original / HD · ${height}p` : "Original / HD";
+    if (category === "watermark-high") return height ? `High Quality · ${height}p` : "High Quality";
+    if (category === "watermark-low") return height ? `Low Quality · ${height}p` : "Low Quality";
+    if (category === "hd") return height ? `HD · ${height}p` : "HD Video";
+    if (category === "sd") return height ? `SD · ${height}p` : "SD Video";
+    if (category === "audio") return source.label || "Original Audio";
 
-    const height =
-        getHeight(
-            source
-        );
-
-
-    if (
-        category ===
-        "original"
-    ) {
-
-        return "Original / Source";
-
-    }
-
-
-    if (
-        category ===
-        "watermark-high"
-    ) {
-
-        return height
-            ? `High Quality · ${height}p`
-            : "High Quality";
-
-    }
-
-
-    if (
-        category ===
-        "watermark-low"
-    ) {
-
-        return height
-            ? `Low Quality · ${height}p`
-            : "Low Quality";
-
-    }
-
-
-    if (
-        category ===
-        "hd"
-    ) {
-
-        return height
-            ? `HD · ${height}p`
-            : "HD Video";
-
-    }
-
-
-    if (
-        category ===
-        "sd"
-    ) {
-
-        return height
-            ? `SD · ${height}p`
-            : "SD Video";
-
-    }
-
-
-    return (
-        source.label ||
-        "Video"
-    );
-
+    return source.label || "Video";
 }
-
 
 /* ================================================================
    RENDER ALL SOURCES
 ================================================================ */
-
-function renderSources(
-    sources
-) {
-
-    qualityArea.innerHTML =
-        "";
-
+function renderSources(sources) {
+    qualityArea.innerHTML = "";
 
     if (!sources.length) {
-
-        showMessage(
-            "No downloadable video streams were returned.",
-            "error"
-        );
-
+        showMessage("No downloadable video streams were returned.", "error");
         return;
-
     }
 
-
-    currentSources =
-        sources;
-
+    currentSources = sources;
 
     const groups = {
-
-        original: [],
-
-        hd: [],
-
-        sd: [],
-
-        "watermark-high": [],
-
-        "watermark-low": []
-
+        original: [], hd: [], sd: [], "watermark-high": [], "watermark-low": [], audio: []
     };
 
+    sources.forEach(source => {
+        const category = classifySource(source);
+        if (groups[category]) groups[category].push(source);
+    });
 
-    sources.forEach(
-        source => {
+    const order = ["original", "hd", "sd", "watermark-high", "watermark-low", "audio"];
+    order.forEach(category => renderCategory(category, groups[category]));
 
-            const category =
-                classifySource(
-                    source
-                );
-
-
-            if (
-                groups[category]
-            ) {
-
-                groups[category].push(
-                    source
-                );
-
-            }
-
-        }
-    );
-
-
-    const order = [
-
-        "original",
-
-        "hd",
-
-        "sd",
-
-        "watermark-high",
-
-        "watermark-low"
-
-    ];
-
-
-    order.forEach(
-        category => {
-
-            renderCategory(
-                category,
-                groups[category]
-            );
-
-        }
-    );
-
-
-    resultCount.textContent =
-        sources.length +
-        (
-            sources.length === 1
-                ? " quality option"
-                : " quality options"
-        );
-
+    resultCount.textContent = sources.length + (sources.length === 1 ? " quality option" : " quality options");
 }
-
 
 /* ================================================================
    DOWNLOAD
 ================================================================ */
+async function downloadSource(source, button) {
+    const action = button.querySelector(".download-button");
+    const original = action.innerHTML;
 
-async function downloadSource(
-    source,
-    button
-) {
-
-    const action =
-        button.querySelector(
-            ".download-button"
-        );
-
-
-    const original =
-        action.innerHTML;
-
-
-    button.disabled =
-        true;
-
-
-    action.innerHTML = `
-
-        <span class="spinner"></span>
-
-    `;
-
+    button.disabled = true;
+    action.innerHTML = `<span class="spinner"></span>`;
 
     try {
+        const response = await fetch(source.url, { method: "GET", mode: "cors" });
+        if (!response.ok) throw new Error("Direct browser download is unavailable.");
 
-        /*
-         * IMPORTANT:
-         *
-         * Fetching the media as a Blob does not change
-         * the video bytes. There is no canvas or encoding.
-         *
-         * However, the browser can only do this when the
-         * CDN permits cross-origin access.
-         */
+        const blob = await response.blob();
+        if (!blob.size) throw new Error("The returned file is empty.");
 
-        const response =
-            await fetch(
-                source.url,
-                {
-                    method:
-                        "GET",
-
-                    mode:
-                        "cors"
-                }
-            );
-
-
-        if (
-            !response.ok
-        ) {
-
-            throw new Error(
-                "Direct browser download is unavailable."
-            );
-
-        }
-
-
-        const blob =
-            await response.blob();
-
-
-        if (
-            !blob.size
-        ) {
-
-            throw new Error(
-                "The returned video file is empty."
-            );
-
-        }
-
-
-        const blobURL =
-            URL.createObjectURL(
-                blob
-            );
-
-
-        const link =
-            document.createElement(
-                "a"
-            );
-
-
-        link.href =
-            blobURL;
-
-
-        link.download =
-            createFilename(
-                source
-            );
-
-
-        link.style.display =
-            "none";
-
-
-        document.body.appendChild(
-            link
-        );
-
-
+        const blobURL = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobURL;
+        link.download = createFilename(source);
+        link.style.display = "none";
+        document.body.appendChild(link);
         link.click();
-
-
         link.remove();
 
+        setTimeout(() => URL.revokeObjectURL(blobURL), 15000);
 
-        setTimeout(
-            () => {
+        showMessage("Download started using the selected media source.", "info");
 
-                URL.revokeObjectURL(
-                    blobURL
-                );
-
-            },
-            15000
-        );
-
-
-        showMessage(
-            "Download started using the selected media source.",
-            "info"
-        );
-
-
-    } catch (
-        error
-    ) {
-
-        /*
-         * CDN CORS fallback.
-         *
-         * We deliberately open the EXACT selected URL.
-         * We do NOT replace it with another quality.
-         */
-
-        const link =
-            document.createElement(
-                "a"
-            );
-
-
-        link.href =
-            source.url;
-
-
-        link.target =
-            "_blank";
-
-
-        link.rel =
-            "noopener noreferrer";
-
-
-        document.body.appendChild(
-            link
-        );
-
-
+    } catch (error) {
+        // CDN CORS fallback — opens the EXACT selected URL, never a
+        // different quality than what the user clicked.
+        const link = document.createElement("a");
+        link.href = source.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        document.body.appendChild(link);
         link.click();
-
-
         link.remove();
 
-
-        showMessage(
-            "The CDN does not allow browser Blob downloads. The exact selected video source has been opened directly.",
-            "info"
-        );
-
+        showMessage("The CDN does not allow browser Blob downloads. The exact selected source has been opened directly.", "info");
+    } finally {
+        button.disabled = false;
+        action.innerHTML = original;
     }
-
-
-    finally {
-
-        button.disabled =
-            false;
-
-        action.innerHTML =
-            original;
-
-    }
-
 }
-
 
 /* ================================================================
    FILENAME
 ================================================================ */
+function createFilename(source) {
+    const category = classifySource(source);
+    let quality = category.replace(/-/g, "_");
 
-function createFilename(
-    source
-) {
+    const height = getHeight(source);
+    if (height && category !== "audio") quality += "_" + height + "p";
 
-    const category =
-        classifySource(
-            source
-        );
+    const extension = category === "audio" ? ".mp3" : ".mp4";
 
-
-    let quality =
-        category
-            .replace(
-                /-/g,
-                "_"
-            );
-
-
-    const height =
-        getHeight(
-            source
-        );
-
-
-    if (height) {
-
-        quality +=
-            "_" +
-            height +
-            "p";
-
-    }
-
-
-    return (
-        "Triplem_TikTok_" +
-        quality +
-        "_" +
-        Date.now() +
-        ".mp4"
-    );
-
+    return "Triplem_TikTok_" + quality + "_" + Date.now() + extension;
 }
-
 
 /* ================================================================
    THUMBNAIL
 ================================================================ */
+function setThumbnail(data) {
+    const thumbnail = data.cover || data.origin_cover || data.ai_dynamic_cover || data.dynamic_cover || data.thumbnail || "";
 
-function setThumbnail(
-    data
-) {
-
-    const thumbnail =
-        data.cover ||
-        data.origin_cover ||
-        data.ai_dynamic_cover ||
-        data.dynamic_cover ||
-        data.thumbnail ||
-        "";
-
-
-    if (
-        typeof thumbnail !==
-        "string" ||
-        !thumbnail
-    ) {
-
-        thumbnailImage.hidden =
-            true;
-
-        thumbnailPlaceholder.style.display =
-            "flex";
-
+    if (typeof thumbnail !== "string" || !thumbnail) {
+        thumbnailImage.hidden = true;
+        thumbnailPlaceholder.style.display = "flex";
         return;
-
     }
 
-
-    thumbnailImage.src =
-        thumbnail;
-
-
-    thumbnailImage.onload =
-        () => {
-
-            thumbnailImage.hidden =
-                false;
-
-            thumbnailPlaceholder.style.display =
-                "none";
-
-        };
-
-
-    thumbnailImage.onerror =
-        () => {
-
-            thumbnailImage.hidden =
-                true;
-
-            thumbnailPlaceholder.style.display =
-                "flex";
-
-        };
-
+    thumbnailImage.src = thumbnail;
+    thumbnailImage.onload = () => {
+        thumbnailImage.hidden = false;
+        thumbnailPlaceholder.style.display = "none";
+    };
+    thumbnailImage.onerror = () => {
+        thumbnailImage.hidden = true;
+        thumbnailPlaceholder.style.display = "flex";
+    };
 }
-
 
 /* ================================================================
    PROCESS VIDEO
 ================================================================ */
-
 async function processVideo() {
-
-    const url =
-        urlInput.value.trim();
-
+    const url = urlInput.value.trim();
 
     hideMessage();
-
     resetResults();
 
-
     if (!url) {
-
-        urlInput.classList.add(
-            "error"
-        );
-
-
-        showMessage(
-            "Please paste a TikTok video URL.",
-            "error"
-        );
-
-
+        urlInput.classList.add("error");
+        showMessage("Please paste a TikTok video URL.", "error");
         return;
-
     }
 
-
-    if (
-        !isTikTokURL(
-            url
-        )
-    ) {
-
-        urlInput.classList.add(
-            "error"
-        );
-
-
-        showMessage(
-            "Please enter a valid TikTok video URL.",
-            "error"
-        );
-
-
+    if (!isTikTokURL(url)) {
+        urlInput.classList.add("error");
+        showMessage("Please enter a valid TikTok video URL.", "error");
         return;
-
     }
 
-
-    urlInput.classList.remove(
-        "error"
-    );
-
-
-    getButton.disabled =
-        true;
-
-
-    getButton.innerHTML = `
-
-        <span class="spinner"></span>
-
-        <span>
-            Processing
-        </span>
-
-    `;
-
+    urlInput.classList.remove("error");
+    getButton.disabled = true;
+    getButton.innerHTML = `<span class="spinner"></span><span>Processing</span>`;
 
     try {
+        const response = await fetch(API_URL + encodeURIComponent(url), { method: "GET" });
+        if (!response.ok) throw new Error("The video service could not be reached.");
 
-        const response =
-            await fetch(
-                API_URL +
-                encodeURIComponent(
-                    url
-                ),
-                {
-                    method:
-                        "GET"
-                }
-            );
+        const result = await response.json();
 
-
-        if (
-            !response.ok
-        ) {
-
-            throw new Error(
-                "The video service could not be reached."
-            );
-
+        if (result.code !== 0 || !result.data) {
+            throw new Error(result.msg || "Unable to retrieve this TikTok video.");
         }
 
+        const data = result.data;
 
-        const result =
-            await response.json();
+        const nickname = data.author?.nickname || data.author?.unique_id || data.author?.uniqueId || "";
+        creator.textContent = nickname ? "@" + nickname : "TikTok Video";
+        creatorAvatar.textContent = nickname ? nickname.charAt(0).toUpperCase() : "TT";
 
+        videoTitle.textContent = data.title || data.desc || "TikTok video";
 
-        if (
-            result.code !== 0 ||
-            !result.data
-        ) {
+        setThumbnail(data);
 
-            throw new Error(
-                result.msg ||
-                "Unable to retrieve this TikTok video."
-            );
-
+        const sources = collectSources(data);
+        if (!sources.length) {
+            throw new Error("No downloadable media was returned for this video.");
         }
 
+        renderSources(sources);
+        results.classList.add("show");
 
-        const data =
-            result.data;
-
-
-        /* ========================================================
-           CREATOR
-        ======================================================== */
-
-        const nickname =
-            data.author?.nickname ||
-            data.author?.unique_id ||
-            data.author?.uniqueId ||
-            "";
-
-
-        creator.textContent =
-            nickname
-                ? "@" + nickname
-                : "TikTok Video";
-
-
-        creatorAvatar.textContent =
-            nickname
-                ? nickname
-                    .charAt(0)
-                    .toUpperCase()
-                : "TT";
-
-
-        /* ========================================================
-           TITLE
-        ======================================================== */
-
-        videoTitle.textContent =
-            data.title ||
-            data.desc ||
-            "TikTok video";
-
-
-        /* ========================================================
-           THUMBNAIL
-        ======================================================== */
-
-        setThumbnail(
-            data
-        );
-
-
-        /* ========================================================
-           SOURCES
-        ======================================================== */
-
-        const sources =
-            collectSources(
-                data
-            );
-
-
-        if (
-            !sources.length
-        ) {
-
-            throw new Error(
-                "No downloadable video quality was returned for this video."
-            );
-
+        if (window.innerWidth < 700) {
+            setTimeout(() => {
+                results.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
         }
 
-
-        /* ========================================================
-           RENDER
-        ======================================================== */
-
-        renderSources(
-            sources
-        );
-
-
-        results.classList.add(
-            "show"
-        );
-
-
-        if (
-            window.innerWidth <
-            700
-        ) {
-
-            setTimeout(
-                () => {
-
-                    results.scrollIntoView(
-                        {
-                            behavior:
-                                "smooth",
-
-                            block:
-                                "start"
-                        }
-                    );
-
-                },
-                100
-            );
-
-        }
-
-
-    } catch (
-        error
-    ) {
-
-        console.error(
-            "Triplem TikTok Downloader:",
-            error
-        );
-
-
-        showMessage(
-            error.message ||
-            "Unable to process this TikTok video.",
-            "error"
-        );
-
-    }
-
-
-    finally {
-
-        getButton.disabled =
-            false;
-
-
+    } catch (error) {
+        console.error("Triplem TikTok Downloader:", error);
+        showMessage(error.message || "Unable to process this TikTok video.", "error");
+    } finally {
+        getButton.disabled = false;
         getButton.innerHTML = `
-
-            <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-
-                <path d="M12 3v13"/>
-
-                <path d="m7 11 5 5 5-5"/>
-
-                <path d="M4 21h16"/>
-
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/>
             </svg>
-
-            <span>
-                Get Video
-            </span>
-
+            <span>Get Video</span>
         `;
-
     }
-
 }
-
 
 /* ================================================================
    EVENTS
 ================================================================ */
+form.addEventListener("submit", event => {
+    event.preventDefault();
+    processVideo();
+});
 
-form.addEventListener(
-    "submit",
-    event => {
+urlInput.addEventListener("input", () => {
+    urlInput.classList.remove("error");
+    if (message.classList.contains("error")) hideMessage();
+});
 
-        event.preventDefault();
+urlInput.addEventListener("paste", () => {
+    setTimeout(() => {
+        const value = urlInput.value.trim();
+        if (isTikTokURL(value)) urlInput.classList.remove("error");
+    }, 50);
+});
 
-        processVideo();
-
+urlInput.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+        urlInput.value = "";
+        hideMessage();
+        resetResults();
     }
-);
-
-
-urlInput.addEventListener(
-    "input",
-    () => {
-
-        urlInput.classList.remove(
-            "error"
-        );
-
-
-        if (
-            message.classList.contains(
-                "error"
-            )
-        ) {
-
-            hideMessage();
-
-        }
-
-    }
-);
-
-
-urlInput.addEventListener(
-    "paste",
-    () => {
-
-        setTimeout(
-            () => {
-
-                const value =
-                    urlInput.value.trim();
-
-
-                if (
-                    isTikTokURL(
-                        value
-                    )
-                ) {
-
-                    urlInput.classList.remove(
-                        "error"
-                    );
-
-                }
-
-            },
-            50
-        );
-
-    }
-);
-
-
-urlInput.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key ===
-            "Escape"
-        ) {
-
-            urlInput.value =
-                "";
-
-            hideMessage();
-
-            resetResults();
-
-        }
-
-    }
-);
-
+});
 </script>
-
 </body>
 </html>
