@@ -1684,7 +1684,199 @@
                 .footer-extra p { font-size: 0.58rem; }
                 .footer-meta { font-size: 0.54rem; }
             }
+/* Keep donor details normal weight */
+.entry-place,
+.entry-phone,
+.entry-location,
+.location-badge{
+    font-weight: 400 !important;
+}
 
+/* =========================================================
+   THREE-DOT ENTRY ACTION MENU
+   ========================================================= */
+
+/* =========================================================
+   THREE-DOT ENTRY ACTION MENU
+   ========================================================= */
+
+.entry {
+    position: relative;
+    overflow: visible !important;
+}
+
+.entry-list,
+.group-entries,
+.group-entries-inner,
+.admin-entry-actions {
+    overflow: visible !important;
+}
+
+.entry-actions-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.entry-actions-menu.open {
+    z-index: 10000;
+}
+
+.entry:has(.entry-actions-menu.open) {
+    z-index: 10000;
+}
+
+.entry-menu-trigger {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: var(--muted) !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem !important;
+    box-shadow: none !important;
+}
+
+.entry-menu-trigger:hover {
+    background: rgba(15, 23, 42, 0.06) !important;
+    color: var(--text) !important;
+}
+
+.entry-menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    width: 110px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid rgba(203, 213, 225, 0.8);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+    z-index: 10001;
+    display: none;
+}
+
+.entry-actions-menu.open .entry-menu-dropdown {
+    display: block;
+}
+
+.entry-menu-dropdown button {
+    width: 100%;
+    min-height: 29px;
+    padding: 5px 7px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.entry-menu-dropdown button:hover {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+.entry-menu-dropdown .delete-action {
+    color: var(--danger);
+}
+
+.entry-menu-trigger {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: var(--muted) !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem !important;
+    box-shadow: none !important;
+}
+
+.entry-menu-trigger:hover {
+    background: rgba(15, 23, 42, 0.06) !important;
+    color: var(--text) !important;
+}
+
+.entry-menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    width: 110px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid rgba(203, 213, 225, 0.8);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+    z-index: 999;
+    display: none;
+}
+
+.entry-actions-menu.open .entry-menu-dropdown {
+    display: block;
+}
+
+.entry-menu-dropdown button {
+    width: 100%;
+    min-height: 29px;
+    padding: 5px 7px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.entry-menu-dropdown button:hover {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+.entry-menu-dropdown .delete-action {
+    color: var(--danger);
+}
+
+@media (max-width: 480px) {
+    .entry-menu-trigger {
+        width: 25px !important;
+        height: 25px !important;
+        min-width: 25px !important;
+        font-size: 0.68rem !important;
+    }
+
+    .entry-menu-dropdown {
+        width: 100px;
+    }
+
+    .entry-menu-dropdown button {
+        min-height: 27px;
+        font-size: 0.62rem;
+    }
+}
         </style>
     </head>
     <body>
@@ -2608,8 +2800,16 @@
                 );
             }
             function entryCard(entry, index) {
-                const actions = accessProfile && (accessProfile.is_admin || accessProfile.can_edit || accessProfile.can_delete)
-                    ? `<div class="admin-entry-actions">${accessProfile.is_admin || accessProfile.can_edit ? `<button class="small-icon" type="button" data-edit="${entry.id}" title="Edit entry" aria-label="Edit ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-pen"></i></button>` : ""}${accessProfile.is_admin || accessProfile.can_delete ? `<button class="small-icon delete" type="button" data-delete="${entry.id}" title="Delete entry" aria-label="Delete ${escapeHtml(entry.full_name)}"><i class="fa-solid fa-trash"></i></button>` : ""}</div>` : "";
+const actions = accessProfile && (accessProfile.is_admin || accessProfile.can_edit || accessProfile.can_delete)
+    ? `<div class="admin-entry-actions entry-actions-menu">
+        <button class="small-icon entry-menu-trigger" type="button" title="More actions" aria-label="More actions">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+        <div class="entry-menu-dropdown">
+            ${accessProfile.is_admin || accessProfile.can_edit ? `<button type="button" data-edit="${entry.id}"><i class="fa-solid fa-pen"></i> Edit</button>` : ""}
+            ${accessProfile.is_admin || accessProfile.can_delete ? `<button type="button" class="delete-action" data-delete="${entry.id}"><i class="fa-solid fa-trash"></i> Delete</button>` : ""}
+        </div>
+    </div>` : "";
                 const locationStatus = normalizeLocationStatus(entry.location_status);
                                 const locationClass = locationStatus === "Khawrai" ? "khawrai" : locationStatus === "Out Of Country" ? "out-of-country" : "";
                                 return `<article class="entry" style="--i:${index}"><div class="entry-cell entry-name"><span class="entry-label">Name</span>${escapeHtml(entry.full_name)}</div><div class="entry-cell entry-place"><span class="entry-label">Mohallah</span><i class="fa-solid fa-location-dot"></i>${escapeHtml(entry.mohallah)}</div><div class="entry-cell"><span class="entry-label">Group</span><span class="blood-badge">${escapeHtml(entry.blood_group)}</span></div><div class="entry-cell entry-location"><span class="entry-label">Location</span><i class="fa-solid fa-earth-asia"></i><span class="location-badge ${locationClass}">${locationStatus}</span></div><a class="entry-cell entry-phone phone" href="tel:${encodeURIComponent(entry.mobile_number)}"><span class="entry-label">Mobile</span><i class="fa-solid fa-phone"></i>${escapeHtml(entry.mobile_number)}</a>${actions}</article>`;
@@ -3599,9 +3799,30 @@
             document.addEventListener("keydown", (event) => {
                 if (event.key === "Escape") closeModals();
             });
-            updateAdminButton();
-            restoreAccessSession();
-            loadEntries();
-        </script>
+document.addEventListener("click", (event) => {
+    const trigger = event.target.closest(".entry-menu-trigger");
+
+    // Close all currently open menus
+    document.querySelectorAll(".entry-actions-menu.open").forEach((menu) => {
+        if (!trigger || !menu.contains(trigger)) {
+            menu.classList.remove("open");
+        }
+    });
+
+    // Open the clicked menu
+    if (trigger) {
+        event.stopPropagation();
+
+        const menu = trigger.closest(".entry-actions-menu");
+
+        if (menu) {
+            menu.classList.toggle("open");
+        }
+    }
+});
+
+updateAdminButton();
+restoreAccessSession();
+loadEntries();        </script>
     </body>
 </html>
