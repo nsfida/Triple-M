@@ -817,7 +817,6 @@
             }
             .tool-actions {
                 display: flex;
-                flex-wrap: wrap;
                 gap: 8px;
             }
             .tool-actions select {
@@ -935,7 +934,6 @@
                     min-width: 0;
                 }
                 .tool-actions .btn {
-                    grid-column: 1 / -1;
                     padding-inline: 8px;
                     font-size: 0.8rem;
                 }
@@ -1267,424 +1265,6 @@
                 .summary-stat span { font-size:.61rem; }
                 .summary-note { font-size:.66rem; }
             }
-            .hero { opacity: 0; animation: entry-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 0.05s; }
-            .hero-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-            .hero-stat { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.72); border: 1px solid rgba(203,213,225,.7); font-size: .78rem; font-weight: 800; color: #29415f; }
-            .hero-stat i { color: var(--primary); }
-            @media (max-width: 640px) {
-                .hero-stats { gap: 6px; margin-top: 12px; }
-                .hero-stat { padding: 6px 9px; font-size: .68rem; }
-            }
-
-            /* =========================================================
-               COMPACT PROFESSIONAL UI OVERRIDES
-               Visual-only refinement. Database schema and SQL/RPC
-               contracts are intentionally unchanged.
-               ========================================================= */
-            .shell {
-                --compact-font: 0.78rem;
-                max-width: 1180px;
-                padding: 12px 14px 20px;
-            }
-
-            .header {
-                margin: 0 0 10px;
-                padding: 7px 10px;
-                border-radius: 12px;
-                gap: 10px;
-            }
-
-            .brand { gap: 9px; }
-            .logo {
-                width: 40px;
-                height: 40px;
-                border-radius: 9px;
-                padding: 2px;
-            }
-            .brand h1 {
-                font-size: 0.98rem;
-                font-weight: 750;
-                letter-spacing: -0.025em;
-            }
-            .brand p {
-                margin-top: 1px;
-                font-size: 0.68rem;
-            }
-
-            .header-actions { gap: 5px; }
-            .header-actions .btn {
-                min-height: 32px;
-                height: 32px;
-                padding: 5px 8px;
-                border-radius: 8px;
-                font-size: 0.68rem;
-                gap: 5px;
-                box-shadow: none;
-            }
-            .header-actions .btn-icon {
-                width: 32px;
-                min-width: 32px;
-                padding: 5px;
-            }
-
-            .hero.compact-hero {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 14px;
-                padding: 10px 12px;
-                margin-bottom: 9px;
-                border-radius: 11px;
-                box-shadow: 0 4px 12px rgba(15,23,42,.045);
-            }
-            .compact-hero-main { min-width: 0; }
-            .compact-hero .eyebrow {
-                font-size: 0.62rem;
-                gap: 4px;
-            }
-            .compact-hero h2 {
-                margin: 2px 0 2px;
-                font-size: clamp(0.95rem, 2vw, 1.2rem);
-                font-weight: 750;
-                letter-spacing: -0.03em;
-            }
-            .compact-hero p {
-                margin: 0;
-                font-size: 0.68rem;
-                line-height: 1.35;
-                max-width: 560px;
-            }
-            .hero-stats {
-                flex: 0 0 auto;
-                gap: 4px;
-                margin-top: 0;
-                justify-content: flex-end;
-            }
-            .hero-stat {
-                padding: 5px 7px;
-                font-size: 0.61rem;
-                font-weight: 700;
-                gap: 4px;
-                box-shadow: none;
-            }
-
-            .workspace-tabs {
-                margin-bottom: 7px;
-                gap: 2px;
-                padding: 2px;
-                border-radius: 9px;
-            }
-            .workspace-tabs .tab,
-            .tabs .tab {
-                padding: 5px 8px;
-                font-size: 0.67rem;
-                font-weight: 700;
-                border-radius: 7px;
-            }
-
-            .card {
-                padding: 11px;
-                border-radius: 11px;
-                box-shadow: 0 5px 15px rgba(15,23,42,.055);
-            }
-            .section-head {
-                margin-bottom: 7px;
-                padding-bottom: 7px;
-                gap: 7px;
-            }
-            .section-head h3 {
-                font-size: 0.82rem;
-                font-weight: 750;
-            }
-            .section-head h3 i { margin-right: 4px; }
-            .count {
-                padding: 3px 6px;
-                font-size: 0.61rem;
-                font-weight: 750;
-            }
-
-            .tabs {
-                gap: 4px;
-                padding: 1px 1px 7px;
-                margin: 0;
-            }
-
-            .directory-tools.compact-tools {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr) auto;
-                align-items: center;
-                gap: 6px;
-                padding: 5px;
-                margin: 0 0 7px;
-                border-radius: 8px;
-            }
-            .compact-search .input {
-                min-height: 32px;
-                height: 32px;
-                padding: 6px 8px 6px 27px;
-                border-radius: 7px;
-                font-size: 0.72rem;
-            }
-            .compact-search .input-wrap > i,
-            .compact-search > i {
-                left: 9px;
-                font-size: 0.66rem;
-            }
-            .compact-tool-actions {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                flex-wrap: nowrap;
-            }
-            .compact-filter-menu {
-                width: 142px;
-                min-width: 142px;
-                min-height: 32px;
-                height: 32px;
-                padding: 5px 7px;
-                border-radius: 7px;
-                font-size: 0.67rem;
-                font-weight: 650;
-            }
-            .compact-action {
-                min-width: 32px;
-                width: auto;
-                height: 32px;
-                min-height: 32px;
-                padding: 5px 7px !important;
-                border-radius: 7px;
-                font-size: 0.66rem !important;
-                gap: 4px;
-                box-shadow: none !important;
-            }
-            .compact-action i { font-size: 0.7rem; }
-            .legacy-control {
-                position: absolute !important;
-                width: 1px !important;
-                height: 1px !important;
-                padding: 0 !important;
-                margin: -1px !important;
-                overflow: hidden !important;
-                clip: rect(0,0,0,0) !important;
-                white-space: nowrap !important;
-                border: 0 !important;
-            }
-
-            .entry-list { gap: 4px; }
-            .group-heading {
-                margin: 8px 0 3px;
-                padding: 5px 7px;
-                border-radius: 7px;
-                font-size: 0.68rem;
-                font-weight: 750;
-            }
-            .group-entries-inner { gap: 3px; }
-
-            .entry-column-headings,
-            .entry {
-                column-gap: 8px;
-            }
-            .entry-column-headings {
-                padding: 0 8px 3px;
-                font-size: 0.57rem;
-            }
-            .entry {
-                padding: 7px 8px;
-                border-radius: 7px;
-            }
-            .entry-name {
-                font-size: 0.72rem;
-                font-weight: 700;
-            }
-            .entry-place,
-            .entry-phone,
-            .entry-location {
-                font-size: 0.67rem;
-            }
-            .location-badge {
-                min-width: 58px;
-                padding: 3px 4px;
-                border-radius: 5px;
-                font-size: 0.58rem;
-                font-weight: 750;
-            }
-            .blood-badge {
-                min-width: 36px;
-                padding: 3px 5px;
-                border-radius: 5px;
-                font-size: 0.63rem;
-                font-weight: 800;
-            }
-            .small-icon {
-                width: 25px;
-                height: 25px;
-                border-radius: 6px;
-                font-size: 0.62rem;
-            }
-
-            .footer {
-                margin-top: 10px;
-                padding: 10px 5px 0;
-                font-size: 0.66rem;
-                line-height: 1.4;
-            }
-            .footer-extra {
-                max-width: 760px;
-                margin: 0 auto 8px;
-                padding: 9px 11px;
-                border: 1px solid rgba(203,213,225,.68);
-                border-radius: 9px;
-                background: rgba(255,255,255,.5);
-                text-align: left;
-            }
-            .footer-title {
-                color: var(--text);
-                font-size: 0.7rem;
-                font-weight: 750;
-                margin-bottom: 3px;
-            }
-            .footer-title i { color: var(--primary); margin-right: 4px; }
-            .footer-extra p {
-                margin: 3px 0;
-                color: var(--muted);
-                font-size: 0.64rem;
-            }
-            .footer-note i { color: #b54708; margin-right: 3px; }
-            .footer-meta {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 5px 12px;
-                margin-top: 6px;
-                color: var(--muted);
-                font-size: 0.59rem;
-            }
-            .footer-meta i { color: var(--primary); margin-right: 3px; }
-            .footer-credit { font-size: 0.62rem; }
-
-            /* Remove excessive entrance delay so the useful list appears higher/faster. */
-            .header .brand,
-            .header .header-actions,
-            .shell > .workspace-tabs,
-            .card .section-head,
-            .card #bloodTabs,
-            .card .directory-tools,
-            .footer,
-            .hero,
-            .group-heading,
-            .entry {
-                animation-duration: .28s;
-            }
-            .entry {
-                animation-delay: 0s !important;
-            }
-
-            @media (max-width: 760px) {
-                .shell {
-                    padding: 8px 8px 16px;
-                }
-                .header {
-                    padding: 6px 8px;
-                    margin-bottom: 7px;
-                }
-                .header-actions {
-                    width: auto;
-                    margin-left: auto;
-                }
-                .header-actions .btn .action-label { display: none; }
-
-                .hero.compact-hero {
-                    display: block;
-                    padding: 8px 9px;
-                }
-                .compact-hero p { max-width: none; }
-                .hero-stats {
-                    margin-top: 6px;
-                    justify-content: flex-start;
-                }
-
-                .directory-tools.compact-tools {
-                    grid-template-columns: minmax(0, 1fr) auto;
-                }
-                .compact-filter-menu {
-                    width: 128px;
-                    min-width: 128px;
-                }
-                .compact-action .action-label { display: none; }
-
-                .card {
-                    padding: 8px;
-                    border-radius: 9px;
-                }
-                .section-head { padding-bottom: 6px; }
-                .tabs { padding-bottom: 5px; }
-                .group-heading {
-                    margin-top: 6px;
-                    padding: 4px 5px;
-                    font-size: 0.64rem;
-                }
-            }
-
-            @media (max-width: 480px) {
-                .brand h1 { font-size: 0.88rem; }
-                .brand p { font-size: 0.61rem; }
-                .logo { width: 34px; height: 34px; }
-                .header-actions .btn {
-                    width: 30px;
-                    min-width: 30px;
-                    padding: 4px;
-                }
-                .header-actions .btn.primary {
-                    width: auto;
-                    min-width: 30px;
-                    padding-inline: 7px;
-                }
-
-                .compact-hero h2 { font-size: 0.88rem; }
-                .compact-hero p { font-size: 0.61rem; }
-                .hero-stat { font-size: 0.55rem; padding: 4px 5px; }
-
-                .directory-tools.compact-tools {
-                    gap: 4px;
-                    padding: 4px;
-                }
-                .compact-search .input {
-                    height: 29px;
-                    min-height: 29px;
-                    font-size: 0.66rem;
-                }
-                .compact-filter-menu {
-                    width: 108px;
-                    min-width: 108px;
-                    height: 29px;
-                    min-height: 29px;
-                    font-size: 0.6rem;
-                }
-                .compact-action {
-                    width: 29px;
-                    min-width: 29px;
-                    height: 29px;
-                    min-height: 29px;
-                    padding: 4px !important;
-                }
-
-                .entry {
-                    padding: 5px 5px;
-                    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) 29px 43px minmax(0, .92fr) auto;
-                    gap: 3px;
-                }
-                .entry-name { font-size: 0.6rem; }
-                .entry-place,
-                .entry-phone,
-                .entry-location { font-size: 0.55rem; }
-                .location-badge { font-size: 0.5rem; }
-                .blood-badge { font-size: 0.54rem; min-width: 27px; }
-                .small-icon { width: 20px; height: 20px; }
-                .footer-extra { padding: 7px 8px; }
-                .footer-extra p { font-size: 0.58rem; }
-                .footer-meta { font-size: 0.54rem; }
-            }
-
         </style>
     </head>
     <body>
@@ -1719,19 +1299,6 @@
                 </div>
             </header>
 
-            <section class="hero compact-hero">
-                <div class="compact-hero-main">
-                    <span class="eyebrow"><i class="fa-solid fa-hand-holding-heart"></i> Khawrai Unity</span>
-                    <h2>Blood Donor Directory</h2>
-                    <p>Find donors quickly by blood group, Mohallah, mobile number, or location.</p>
-                </div>
-                <div class="hero-stats">
-                    <span class="hero-stat"><i class="fa-solid fa-droplet"></i> 8 Groups</span>
-                    <span class="hero-stat"><i class="fa-solid fa-earth-asia"></i> Local &amp; Worldwide</span>
-                    <span class="hero-stat"><i class="fa-solid fa-shield-heart"></i> Verified Records</span>
-                </div>
-            </section>
-
             <nav class="workspace-tabs" aria-label="Directory workspaces"><button id="bloodWorkspaceTab" class="tab active" type="button"><i class="fa-solid fa-droplet"></i> Blood Groups</button><button id="professionalsWorkspaceTab" class="tab" type="button" hidden><i class="fa-solid fa-user-tie"></i> Khawrai Professionals</button></nav>
             <section id="bloodWorkspace" class="card" aria-labelledby="directory-title">
                 <div class="section-head">
@@ -1745,48 +1312,35 @@
                     class="tabs"
                     aria-label="Filter donors by blood group"
                 ></div>
-                <div class="directory-tools compact-tools">
-                    <div class="input-wrap compact-search">
-                        <i class="fa-solid fa-magnifying-glass"></i><input
+                <div class="directory-tools">
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i
+                        ><input
                             class="input"
                             id="searchEntries"
                             type="search"
-                            placeholder="Search donor..."
+                            placeholder="Search name, Mohallah or mobile"
                             aria-label="Search blood entries"
                         />
                     </div>
-                    <div class="tool-actions compact-tool-actions">
-                        <select id="directoryFilterMenu" class="compact-filter-menu" aria-label="Directory filters and sorting">
-                            <option value="all">Filters &amp; Sort</option>
-                            <optgroup label="Location">
-                                <option value="location:all">All Locations</option>
-                                <option value="location:Khawrai">Khawrai</option>
-                                <option value="location:Within Pakistan">Within Pakistan</option>
-                                <option value="location:Out Of Country">Out Of Country</option>
-                            </optgroup>
-                            <optgroup label="Sort">
-                                <option value="sort:newest">Newest first</option>
-                                <option value="sort:oldest">Oldest first</option>
-                                <option value="sort:name-asc">Name: A–Z</option>
-                                <option value="sort:name-desc">Name: Z–A</option>
-                                <option value="sort:mohallah-asc">Mohallah: A–Z</option>
-                            </optgroup>
-                        </select>
-                        <select id="filterLocationEntries" class="legacy-control" aria-hidden="true" tabindex="-1">
-                            <option value="all">All Locations</option>
-                            <option value="Khawrai">Khawrai</option>
-                            <option value="Within Pakistan">Within Pakistan</option>
-                            <option value="Out Of Country">Out Of Country</option>
-                        </select>
-                        <select id="sortEntries" class="legacy-control" aria-hidden="true" tabindex="-1">
+                    <div class="tool-actions">
+                        <select
+                            id="sortEntries"
+                            aria-label="Sort blood entries"
+                        >
                             <option value="newest">Newest first</option>
                             <option value="oldest">Oldest first</option>
                             <option value="name-asc">Name: A to Z</option>
                             <option value="name-desc">Name: Z to A</option>
-                            <option value="mohallah-asc">Mohallah: A to Z</option>
-                        </select>
-                        <button id="downloadPdfButton" class="btn ghost compact-action" type="button" title="Download PDF" aria-label="Download PDF">
-                            <i class="fa-solid fa-file-pdf"></i><span class="action-label">PDF</span>
+                            <option value="mohallah-asc">
+                                Mohallah: A to Z
+                            </option></select
+                        ><button
+                            id="downloadPdfButton"
+                            class="btn ghost"
+                            type="button"
+                        >
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF
                         </button>
                     </div>
                 </div>
@@ -1803,27 +1357,20 @@
                     <span id="professionalCount" class="count">0 records</span>
                 </div>
                 <div id="professionalTabs" class="tabs" aria-label="Filter professionals by blood group"></div>
-                <div class="directory-tools compact-tools">
-                    <div class="input-wrap compact-search">
-                        <i class="fa-solid fa-magnifying-glass"></i><input class="input" id="searchProfessionals" type="search" placeholder="Search professional..." aria-label="Search professionals" />
+                <div class="directory-tools">
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i><input class="input" id="searchProfessionals" type="search" placeholder="Search name, Mohallah, qualification or mobile" aria-label="Search professionals" />
                     </div>
-                    <div class="tool-actions compact-tool-actions">
-                        <select id="professionalFilterMenu" class="compact-filter-menu" aria-label="Professional sorting">
-                            <option value="sort:newest">Sort: Newest</option>
-                            <option value="sort:oldest">Sort: Oldest</option>
-                            <option value="sort:name-asc">Name: A–Z</option>
-                            <option value="sort:name-desc">Name: Z–A</option>
-                            <option value="sort:mohallah-asc">Mohallah: A–Z</option>
-                        </select>
-                        <select id="sortProfessionals" class="legacy-control" aria-hidden="true" tabindex="-1">
+                    <div class="tool-actions">
+                        <select id="sortProfessionals" aria-label="Sort professionals">
                             <option value="newest">Newest first</option>
                             <option value="oldest">Oldest first</option>
                             <option value="name-asc">Name: A to Z</option>
                             <option value="name-desc">Name: Z to A</option>
                             <option value="mohallah-asc">Mohallah: A to Z</option>
                         </select>
-                        <button id="professionalPdfButton" class="btn ghost compact-action" type="button" title="Download PDF" aria-label="Download professional PDF"><i class="fa-solid fa-file-pdf"></i><span class="action-label">PDF</span></button>
-                        <button id="newProfessionalButton" class="btn primary compact-action" type="button" title="Add professional" aria-label="Add professional"><i class="fa-solid fa-user-plus"></i><span class="action-label">Add</span></button>
+                        <button id="professionalPdfButton" class="btn ghost" type="button"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                        <button id="newProfessionalButton" class="btn primary" type="button"><i class="fa-solid fa-user-plus"></i> Add</button>
                     </div>
                 </div>
                 <div id="professionalsList" class="entry-list" aria-live="polite">
@@ -1933,17 +1480,13 @@
             </section>
             <section id="professionalEntryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="professionalEntryTitle"><div class="modal-box"><div class="modal-head"><h3 id="professionalEntryTitle"><i class="fa-solid fa-user-tie"></i> Add Professional</h3><button class="modal-close" type="button" data-close-modal aria-label="Close">&times;</button></div><form id="professionalEntryForm" class="form-grid"><input id="professionalId" type="hidden" /><div class="field"><label for="professionalName">Name</label><div class="input-wrap"><i class="fa-solid fa-user"></i><input class="input" id="professionalName" required maxlength="100" /></div></div><div class="field"><label for="professionalAge">Age</label><div class="input-wrap"><i class="fa-solid fa-cake-candles"></i><input class="input" id="professionalAge" required type="number" min="1" max="120" inputmode="numeric" /></div></div><div class="field"><label for="professionalMohallah">Mohallah</label><div class="input-wrap"><i class="fa-solid fa-location-dot"></i><input class="input" id="professionalMohallah" required maxlength="100" /></div></div><div class="field"><label for="professionalQualification">Qualification</label><div class="input-wrap"><i class="fa-solid fa-graduation-cap"></i><input class="input" id="professionalQualification" required maxlength="160" /></div></div><div class="field"><label for="professionalCountry">Current Residence Country</label><div class="input-wrap"><i class="fa-solid fa-earth-americas"></i><input class="input" id="professionalCountry" required maxlength="100" /></div></div><div class="field"><label for="professionalMobile">Mobile Number</label><div class="input-wrap"><i class="fa-solid fa-mobile-screen-button"></i><input class="input" id="professionalMobile" required maxlength="25" inputmode="tel" /></div></div><div class="field"><label for="professionalBloodGroup">Blood Group</label><div class="input-wrap"><i class="fa-solid fa-droplet"></i><select id="professionalBloodGroup" required><option value="">Select blood group</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div></div><p id="professionalStatus" class="form-status"></p><button class="btn primary" type="submit">Save Professional</button></form></div></section>
             <footer class="footer">
-                <div class="footer-extra">
-                    <div class="footer-title"><i class="fa-solid fa-circle-info"></i> About Khawrai Unity</div>
-                    <p>One community directory for blood donors and, where enabled, Khawrai professionals. Search by blood group, Mohallah, mobile number, or location and contact donors directly.</p>
-                    <p class="footer-note"><i class="fa-solid fa-triangle-exclamation"></i> Always confirm current health status and availability with the donor directly before any transfusion. This directory is a contact list, not a medical guarantee.</p>
-                    <div class="footer-meta">
-                        <span><i class="fa-solid fa-droplet"></i> 8 blood groups</span>
-                        <span><i class="fa-solid fa-earth-asia"></i> Khawrai · Pakistan · Abroad</span>
-                        <span><i class="fa-solid fa-shield-heart"></i> Admin-verified records</span>
-                    </div>
-                </div>
-                <div class="footer-credit">Powered by <a href="https://www.facebook.com/nadeemshahzadfida" target="_blank" rel="noopener noreferrer">Nadeem Shahzad Fida</a></div>
+                Powered by
+                <a
+                    href="https://www.facebook.com/nadeemshahzadfida"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Nadeem Shahzad Fida</a
+                >
             </footer>
         </main>
 
@@ -2298,7 +1841,6 @@
             let entries = [],
                 professionals = [],
                 activeGroup = "all",
-                activeLocationFilter = "all",
                 activeProfessionalGroup = "all",
                 adminKey = localStorage.getItem("khawraiBloodAdminKey") || "",
                 accessProfile = null,
@@ -2551,17 +2093,11 @@
 
             function getVisibleEntries() {
                 const query = $("#searchEntries").value.trim().toLowerCase();
-                const groupFiltered =
+                const selected =
                     activeGroup === "all"
                         ? entries
                         : entries.filter(
                               (entry) => entry.blood_group === activeGroup,
-                          );
-                const selected =
-                    activeLocationFilter === "all"
-                        ? groupFiltered
-                        : groupFiltered.filter(
-                              (entry) => normalizeLocationStatus(entry.location_status) === activeLocationFilter,
                           );
                 const filtered = selected.filter(
                     (entry) =>
@@ -3078,9 +2614,9 @@
                 pdf.text(`${filtered.length} professional record${filtered.length === 1 ? "" : "s"}  •  ${generatedDetails}`, margin + 4, y + 5.5);
                 y += 16;
                 people.forEach((person, index) => {
-                    const nameLines = pdf.splitTextToSize(`${index + 1}. ${person.full_name.toUpperCase()}`, contentWidth);
+                    const nameLines = pdf.splitTextToSize(`${index + 1}. ${person.full_name}`, contentWidth);
                     const detailLines = [
-                        `Mohallah: ${person.mohallah.toUpperCase()}     |     Age: ${person.age ?? "—"}     |     Blood Group: ${person.blood_group || "—"}`,
+                        `Mohallah: ${person.mohallah}     |     Age: ${person.age ?? "—"}     |     Blood Group: ${person.blood_group || "—"}`,
                         `Qualification: ${person.qualification}`,
                         `Country: ${person.current_residence_country}     |     Mobile: ${person.mobile_number}`,
                     ].flatMap((line) => pdf.splitTextToSize(line, contentWidth));
@@ -3183,31 +2719,6 @@
             $("#changeKeyForm").addEventListener("submit", changeAdminKey);
             $("#searchEntries").addEventListener("input", renderDirectory);
             $("#sortEntries").addEventListener("change", renderDirectory);
-            $("#directoryFilterMenu").addEventListener("change", (event) => {
-                const value = event.target.value;
-                if (value === "all") return;
-                const [type, selected] = value.split(":");
-                if (type === "location") {
-                    $("#filterLocationEntries").value = selected;
-                    activeLocationFilter = selected;
-                    renderDirectory();
-                } else if (type === "sort") {
-                    $("#sortEntries").value = selected;
-                    renderDirectory();
-                }
-            });
-            $("#professionalFilterMenu").addEventListener("change", (event) => {
-                const value = event.target.value;
-                const [type, selected] = value.split(":");
-                if (type === "sort") {
-                    $("#sortProfessionals").value = selected;
-                    renderProfessionalsDirectory();
-                }
-            });
-            $("#filterLocationEntries").addEventListener("change", () => {
-                activeLocationFilter = $("#filterLocationEntries").value;
-                renderDirectory();
-            });
             $("#searchProfessionals").addEventListener("input", renderProfessionalsDirectory);
             $("#sortProfessionals").addEventListener("change", renderProfessionalsDirectory);
             $("#downloadPdfButton").addEventListener("click", downloadPdf);
