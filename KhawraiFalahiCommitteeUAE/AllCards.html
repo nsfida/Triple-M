@@ -537,7 +537,7 @@ body.dark-mode .footer { color: #cbd5e1; }
 <div id="appShell" class="app-shell">
   <header class="top-header no-print">
     <div class="logo-area">
-      <a href="https://livenews.live/KFC" aria-label="Home">
+      <a href="https://triplem.vip/KhawraiFalahiCommitteeUAE" aria-label="Home">
         <img src="logo.png" alt="KFC Logo" class="dancing-logo" onerror="this.style.display='none'">
       </a>
       <div class="header-title">
@@ -985,7 +985,7 @@ async function renderPage(pageNumber) {
       });
     }
 
-    const url = 'https://livenews.live/KFC/verify.html?card=' + encodeCard(card.CNo);
+    const url = 'https://triplem.vip/KhawraiFalahiCommitteeUAE/verify.html?card=' + encodeCard(card.CNo);
     const qrImgEl = personDiv.querySelector('.verify-qr-img');
     if (qrImgEl) await loadQrIntoImage(url, qrImgEl);
   }
@@ -1066,7 +1066,7 @@ function startApp() {
   appStarted = true;
   appShell.style.display = 'block';
 
-  fetch('https://livenews.live/KFC/cards.json')
+  fetch('https://triplem.vip/KhawraiFalahiCommitteeUAE/cards.json')
     .then(r => r.json())
     .then(async data => {
       allCards = (Array.isArray(data) ? data : []).filter(c => c && c.CNo);
