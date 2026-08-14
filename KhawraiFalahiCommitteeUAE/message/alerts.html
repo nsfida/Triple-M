@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Alerts — Khawrai Falahi Committee UAE</title>
+
+  <link rel="stylesheet" href="https://livenews.live/KFC/main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    @font-face {
+      font-family: "UrduFont";
+      src: url("https://livenews.live/KFC/static/fonts/urdu.ttf") format("truetype");
+      font-display: swap;
+    }
+
+    .alerts-page-shell {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .alerts-hero {
+      padding: 22px 24px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      text-align: center;
+    }
+
+    .alerts-hero h2 {
+      margin-bottom: 0;
+    }
+
+    .alerts-hero p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--soft-light);
+      max-width: 860px;
+    }
+
+    body.dark-mode .alerts-hero p {
+      color: var(--soft-dark);
+    }
+
+    .alerts-section {
+      padding: 18px;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+
+    .alerts-section h2 {
+      margin-bottom: 10px;
+    }
+
+    .alerts-section p {
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--soft-light);
+    }
+
+    body.dark-mode .alerts-section p {
+      color: var(--soft-dark);
+    }
+
+    .alerts-list {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .alert-card {
+      position: relative;
+      overflow: hidden;
+      padding: 16px 18px 14px;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      direction: inherit;
+      text-align: inherit;
+    }
+
+    .alert-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .alert-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("https://livenews.live/KFC/logo.png") center/180px no-repeat;
+      opacity: 0.05;
+      pointer-events: none;
+    }
+
+    .alert-card-top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .alert-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .alert-date {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--brand);
+    }
+
+    body.dark-mode .alert-date {
+      color: #9bc2ff;
+    }
+
+    .alert-title-en {
+      font-size: 15px;
+      font-weight: bold;
+      color: var(--brand);
+      word-break: break-word;
+    }
+
+    body.dark-mode .alert-title-en {
+      color: #9bc2ff;
+    }
+
+    .alert-title-ur {
+      font-size: 17px;
+      font-weight: bold;
+      color: #301934;
+      direction: rtl;
+      font-family: "UrduFont", serif;
+      word-break: break-word;
+    }
+
+    body.dark-mode .alert-title-ur {
+      color: #eef4ff;
+    }
+
+    .alert-share {
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
+      border: none;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff6ec4, #7873f5);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      position: relative;
+      z-index: 3;
+    }
+
+    .alert-share:hover {
+      transform: scale(1.08);
+      opacity: 0.95;
+    }
+
+    .alert-body {
+      position: relative;
+      z-index: 2;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.45s ease;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 1px dashed transparent;
+      font-size: 14px;
+      line-height: 1.9;
+      color: #333;
+      white-space: pre-line;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .alert-body[lang="ur"] {
+      font-size: 17px;
+      direction: rtl;
+      font-family: "UrduFont", serif;
+      text-align: right;
+    }
+
+    .alert-card.active .alert-body {
+      max-height: 1200px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top-color: rgba(120, 115, 245, 0.35);
+    }
+
+    body.dark-mode .alert-body {
+      color: #d9e6ff;
+    }
+
+    body.dark-mode .alert-card.active .alert-body {
+      border-top-color: rgba(167, 139, 250, 0.55);
+    }
+
+    .alert-footer-line {
+      position: relative;
+      z-index: 2;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      text-align: center;
+      font-size: 10px;
+      color: #888;
+    }
+
+    body.dark-mode .alert-footer-line {
+      border-top-color: rgba(255, 255, 255, 0.08);
+      color: #c9d5ea;
+    }
+
+    .alerts-empty {
+      padding: 22px 18px;
+      text-align: center;
+      font-size: 14px;
+      color: var(--soft-light);
+    }
+
+    body.dark-mode .alerts-empty {
+      color: var(--soft-dark);
+    }
+
+    .alert-login-note {
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--soft-light);
+    }
+
+    body.dark-mode .alert-login-note {
+      color: var(--soft-dark);
+    }
+
+    @media (max-width: 600px) {
+      .alerts-page-shell {
+        padding: 0 12px 50px;
+      }
+
+      .alerts-hero,
+      .alerts-section {
+        padding: 16px;
+      }
+
+      .alert-title-en {
+        font-size: 14px;
+      }
+
+      .alert-title-ur {
+        font-size: 16px;
+      }
+
+      .alert-body {
+        font-size: 13px;
+        line-height: 1.85;
+      }
+
+      .alert-body[lang="ur"] {
+        font-size: 16px;
+      }
+
+      .alert-share {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+  </div>
+
+  <header class="top-header">
+    <div class="logo-area">
+      <a href="https://livenews.live/KFC" aria-label="Go to KFC home page">
+        <img src="https://livenews.live/KFC/logo.png" alt="KFC Logo" class="dancing-logo">
+      </a>
+      <div class="logo-text"></div>
+    </div>
+
+    <div class="user-area" id="userArea">
+      <button class="notification-wrapper theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <i class="fa-solid fa-moon" id="themeToggleIcon" aria-hidden="true"></i>
+      </button>
+
+      <button class="notification-wrapper translate-toggle-btn" id="translateToggleBtn" type="button" aria-label="Translate page to Urdu" title="Translate page to Urdu">
+        <i class="fa-solid fa-language" id="translateToggleIcon" aria-hidden="true"></i>
+      </button>
+
+      <div class="notification-wrapper" id="msgBtn">
+        <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+        <span class="notification-badge" id="msgBadge" style="display:none;">!</span>
+
+        <div class="notification-dropdown glass" id="msgDropdown">
+          <div class="noti-header">Personal Messages</div>
+          <div id="msgList" class="noti-list">
+            <p class="noti-loading">Loading messages...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="notification-wrapper" id="notificationBtn">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        <span class="notification-badge" id="notiBadge" style="display:none;">!</span>
+
+        <div class="notification-dropdown glass" id="notiDropdown">
+          <div class="noti-header">Recent Alerts</div>
+          <div id="notiList" class="noti-list">
+            <p class="noti-loading">Loading alerts...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-profile-img-container">
+        <img
+          id="headerProfileImg"
+          src="https://livenews.live/KFC/static/images/photos/default.png"
+          alt="User"
+          class="header-profile-img"
+          style="display:none;"
+        >
+        <i class="fa-solid fa-user-circle" id="headerUserIcon" aria-hidden="true"></i>
+      </div>
+
+      <span id="username">Welcome, Guest</span>
+      <i class="fa-solid fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
+    </div>
+  </header>
+
+  <div id="infoBanner" class="info-banner">
+    <div class="marquee">
+      🕭 Dear members: The Khawrai Falahi Committee can now send personal messages to all members privately. Please log in to your Committee account to view your messages and recent alerts. Stay updated.
+    </div>
+  </div>
+
+  <div id="userDropdown" class="user-dropdown glass">
+    <div id="guestView">
+      <h3>Welcome Guest</h3>
+      <p>Please sign in to access your account</p>
+      <button id="openLoginBtn" type="button">
+        <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Sign In
+      </button>
+    </div>
+
+    <div id="userView" style="display:none; flex-direction:column; align-items:center; gap:6px;">
+      <div class="dropdown-photo-area">
+        <img id="dropdownProfileImg" src="" alt="Profile Photo" class="dropdown-profile-img">
+      </div>
+
+      <h3 id="userFullName"></h3>
+
+      <div class="user-info">
+        <p id="userCard"></p>
+        <p id="userDesg"></p>
+        <p id="userBlood"></p>
+        <p id="userMobile"></p>
+      </div>
+
+      <div class="user-buttons" style="display:flex; flex-direction:column; gap:8px; width:100%; align-items:center;">
+        <button id="viewPhotoBtn" type="button">
+          <i class="fa-solid fa-image" aria-hidden="true"></i> View Photo
+        </button>
+        <a id="viewCardBtn" href="#" target="_blank" rel="noopener noreferrer">View Card</a>
+        <button id="logoutBtn" type="button">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="photoOverlay" class="overlay" aria-hidden="true">
+    <div class="photo-viewer-box glass">
+      <div class="leaders-header">
+        <h2>Profile Photo</h2>
+        <i class="fa-solid fa-xmark" id="closePhotoOverlay" aria-hidden="true"></i>
+      </div>
+      <img
+        id="fullProfileImg"
+        src=""
+        alt="User Photo"
+        style="width:100%; border-radius:15px; box-shadow:0 5px 15px rgba(0,0,0,0.2);"
+      >
+    </div>
+  </div>
+
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true">
+    <div class="login-box glass">
+      <h2><i class="fa-solid fa-user-lock" aria-hidden="true"></i> Secure Login</h2>
+      <input type="text" id="loginUsername" placeholder="Enter Username" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Enter Password" autocomplete="current-password">
+      <button id="loginBtn" type="button">Login</button>
+      <p id="loginError" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div id="welcomePopup" class="welcome-popup" aria-live="polite">
+    <p id="welcomeText"></p>
+  </div>
+
+  <div class="dashboard-container">
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <h2>Main Menu</h2>
+        <i class="fa-solid fa-bars" id="sidebarToggle" aria-hidden="true"></i>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <a href="https://livenews.live/KFC/index.html"><i class="fa-solid fa-house" aria-hidden="true"></i> Dashboard</a>
+        <a href="https://livenews.live/KFC/message/president.html"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> President's Message</a>
+        <a href="https://livenews.live/KFC/message/alerts.html"><i class="fa-solid fa-bell" aria-hidden="true"></i> Alerts</a>
+        <a href="https://livenews.live/KFC/database.html"><i class="fa-solid fa-database" aria-hidden="true"></i> Member Database</a>
+        <a href="https://livenews.live/KFC/message/cabinet.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Cabinet Members</a>
+        <a href="https://livenews.live/KFC/message/Gallery/gallery.html"><i class="fa-solid fa-images" aria-hidden="true"></i> Gallery</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <section class="alerts-hero glass">
+        <h2>Alerts</h2>
+        <p>
+          Official announcements, committee notices, and important updates are published here for members.
+          Please sign in to view the latest alerts.
+        </p>
+      </section>
+
+      <section class="alerts-section glass">
+        <h2>Latest Alerts</h2>
+        <p>
+          Click any alert card to expand the full message. Use the share icon to download the alert as an image.
+        </p>
+      </section>
+
+      <div id="alertsContainer" class="alerts-list"></div>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>© 2026 Khawrai Falahi Committee United Arab Emirates | All Rights Reserved</p>
+  </footer>
+
+  <div id="google_translate_element" class="translate-host" aria-hidden="true"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://livenews.live/KFC/main.js"></script>
+
+  <script>
+    "use strict";
+
+    const ALERTS_URL = "https://livenews.live/KFC/message/alerts.json";
+    const SESSION_KEY = "kfcUser";
+    const ROOT_VIEWCARD_BASE = "https://livenews.live/KFC/viewcard.html?card=";
+
+    const alertsContainer = document.getElementById("alertsContainer");
+
+    function normalizeText(value) {
+      return (value || "").toString().trim();
+    }
+
+    function escapeHTML(str) {
+      return String(str || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function parseAlertDate(dateValue) {
+      const raw = normalizeText(dateValue);
+      if (!raw) return new Date(0);
+
+      const parts = raw.split(/[-/]/).map(v => parseInt(v, 10));
+      if (parts.length >= 3 && parts.every(n => !Number.isNaN(n))) {
+        const [d, m, y] = parts;
+        return new Date(y, m - 1, d);
+      }
+
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
+    }
+
+    function formatDateValue(value) {
+      return normalizeText(value) || "No date";
+    }
+
+    function getSessionUser() {
+      try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function syncRootViewCardLink() {
+      const btn = document.getElementById("viewCardBtn");
+      if (!btn || !currentUser || !currentUser.CNo) return;
+      btn.href = `${ROOT_VIEWCARD_BASE}${btoa(String(currentUser.CNo))}`;
+    }
+
+    if (typeof renderUserToUI === "function") {
+      const originalRenderUserToUI = renderUserToUI;
+      renderUserToUI = function (user) {
+        originalRenderUserToUI(user);
+        syncRootViewCardLink();
+        loadAlertsPage();
+      };
+    }
+
+    function buildLoginPrompt() {
+      if (!alertsContainer) return;
+      alertsContainer.innerHTML = `
+        <div class="glass alerts-empty">
+          <div class="alert-login-note">
+            Please sign in to view the latest alerts and announcements.
+          </div>
+        </div>
+      `;
+    }
+
+    async function downloadAlertAsImage(cardEl, fileName) {
+      if (typeof html2canvas === "undefined") return;
+
+      await document.fonts.ready;
+      await new Promise(resolve => setTimeout(resolve, 120));
+
+      const canvas = await html2canvas(cardEl, {
+        scale: 4,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        scrollX: 0,
+        scrollY: 0
+      });
+
+      const finalCanvas = document.createElement("canvas");
+      const ctx = finalCanvas.getContext("2d");
+      const padding = 40;
+
+      finalCanvas.width = canvas.width + padding * 2;
+      finalCanvas.height = canvas.height + padding * 2;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+      ctx.shadowColor = "rgba(0,0,0,0.25)";
+      ctx.shadowBlur = 30;
+      ctx.shadowOffsetY = 10;
+      ctx.drawImage(canvas, padding, padding);
+
+      finalCanvas.toBlob(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, "image/png");
+    }
+
+    function renderAlertCard(item) {
+      const card = document.createElement("div");
+      card.className = "alert-card glass";
+
+      const titleEn = normalizeText(item.title_en || item.title || "Alert");
+      const titleUr = normalizeText(item.title_ur || item.title || "اعلان");
+      const bodyEn = normalizeText(item.body_en || item.body || "");
+      const bodyUr = normalizeText(item.body_ur || item.body || "");
+
+      card.innerHTML = `
+        <div class="alert-card-top">
+          <div class="alert-meta">
+            <div class="alert-date"><i class="fa-solid fa-calendar-days"></i> ${escapeHTML(formatDateValue(item.date))}</div>
+            <div class="alert-title-en">${escapeHTML(titleEn)}</div>
+            <div class="alert-title-ur" lang="ur">${escapeHTML(titleUr)}</div>
+          </div>
+          <button class="alert-share" type="button" title="Download alert as image" aria-label="Download alert as image">
+            <i class="fa-solid fa-share-nodes"></i>
+          </button>
+        </div>
+
+        <div class="alert-body" lang="ur">${escapeHTML(bodyUr || bodyEn)}</div>
+
+        <div class="alert-footer-line">Khawrai Falahi Committee UAE</div>
+      `;
+
+      const shareBtn = card.querySelector(".alert-share");
+
+      card.addEventListener("click", () => {
+        card.classList.toggle("active");
+      });
+
+      shareBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const cleanDate = String(item.date || "alert").replace(/[^\w\-]+/g, "_");
+        await downloadAlertAsImage(card, `Alert_${cleanDate}.png`);
+      });
+
+      return card;
+    }
+
+    async function loadAlertsPage() {
+      if (!alertsContainer) return;
+
+      const sessionUser = getSessionUser();
+      if (!sessionUser) {
+        buildLoginPrompt();
+        const loginOverlayEl = document.getElementById("loginOverlay");
+        if (loginOverlayEl) loginOverlayEl.classList.add("show");
+        return;
+      }
+
+      alertsContainer.innerHTML = `
+        <div class="glass alerts-empty">Loading alerts...</div>
+      `;
+
+      try {
+        const response = await fetch(ALERTS_URL, { cache: "no-store" });
+        const data = await response.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+          alertsContainer.innerHTML = `
+            <div class="glass alerts-empty">No alerts found.</div>
+          `;
+          return;
+        }
+
+        const sorted = [...data].sort((a, b) => parseAlertDate(b.date) - parseAlertDate(a.date));
+        alertsContainer.innerHTML = "";
+
+        sorted.forEach(item => {
+          alertsContainer.appendChild(renderAlertCard(item));
+        });
+      } catch (error) {
+        console.error("Failed to load alerts:", error);
+        alertsContainer.innerHTML = `
+          <div class="glass alerts-empty">Error loading alerts.</div>
+        `;
+      }
+    }
+
+    function initAlertsPage() {
+      syncRootViewCardLink();
+      loadAlertsPage();
+
+      const loginBtnEl = document.getElementById("loginBtn");
+      if (loginBtnEl) {
+        loginBtnEl.addEventListener("click", () => {
+          setTimeout(() => {
+            syncRootViewCardLink();
+            loadAlertsPage();
+          }, 150);
+        });
+      }
+
+      document.addEventListener("keydown", e => {
+        const loginOverlayEl = document.getElementById("loginOverlay");
+        if (e.key === "Enter" && loginOverlayEl && loginOverlayEl.classList.contains("show")) {
+          setTimeout(() => {
+            syncRootViewCardLink();
+            loadAlertsPage();
+          }, 150);
+        }
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initAlertsPage);
+    } else {
+      initAlertsPage();
+    }
+  </script>
+</body>
+</html>

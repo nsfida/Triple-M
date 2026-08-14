@@ -1,0 +1,2183 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gallery - Khawrai Falahi Committee UAE</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    :root{
+      --bg-light-1:#e0eaff;--bg-light-2:#ffffff;
+      --bg-dark-1:#07111f;--bg-dark-2:#0e1a2d;
+      --text-light:#1a1a1a;--text-dark:#eef4ff;
+      --soft-light:#3c3c3c;--soft-dark:#c9d5ea;
+      --brand:#0d3c91;--accent:#7873f5;--accent-2:#ff6ec4;
+      --glass-light:rgba(255,255,255,0.25);
+      --glass-dark:rgba(10,18,33,0.58);
+      --glass-border-light:rgba(255,255,255,0.3);
+      --glass-border-dark:rgba(255,255,255,0.12);
+      --shadow-light:0 8px 30px rgba(0,0,0,0.1);
+      --shadow-dark:0 18px 45px rgba(0,0,0,0.32);
+      --header-h:60px;--safe-gap:16px;
+    }
+    body{
+      font-family:Calibri,sans-serif;
+      background:linear-gradient(135deg,var(--bg-light-1),var(--bg-light-2));
+      min-height:100vh;color:var(--text-light);overflow-x:hidden;
+      transition:background .5s,color .5s;
+    }
+    body.dark-mode{
+      background:radial-gradient(circle at top left,rgba(80,98,255,.24),transparent 28%),radial-gradient(circle at bottom right,rgba(255,110,196,.14),transparent 30%),linear-gradient(135deg,var(--bg-dark-1),var(--bg-dark-2));
+      color:var(--text-dark);
+    }
+    .glass{
+      background:var(--glass-light);backdrop-filter:blur(18px);border-radius:20px;
+      border:1px solid var(--glass-border-light);box-shadow:var(--shadow-light);
+      position:relative;overflow:hidden;
+    }
+    body.dark-mode .glass{
+      background:var(--glass-dark);border:1px solid var(--glass-border-dark);box-shadow:var(--shadow-dark);
+    }
+    .floating-circles{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+    .floating-circles .circle{position:absolute;border-radius:50%;animation:floatMove 20s ease-in-out infinite alternate;box-shadow:inset -10px -10px 20px rgba(0,0,0,.15),inset 10px 10px 20px rgba(255,255,255,.6),0 10px 25px rgba(0,0,0,.2)}
+    .circle:nth-child(1){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,105,180,.4));width:180px;height:180px;top:10%;left:15%;filter:blur(3px)}
+    .circle:nth-child(2){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(0,191,255,.4));width:90px;height:90px;top:50%;left:25%;filter:blur(3px)}
+    .circle:nth-child(3){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,20,147,.4));width:150px;height:150px;top:30%;left:70%;filter:blur(3px)}
+    .circle:nth-child(4){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(30,144,255,.4));width:100px;height:100px;top:80%;left:40%;filter:blur(3px)}
+    .circle:nth-child(5){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,182,193,.4));width:80px;height:80px;top:60%;left:80%;filter:blur(3px)}
+    .circle:nth-child(6){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(0,255,200,.28));width:110px;height:110px;top:18%;left:55%;filter:blur(3px)}
+    .circle:nth-child(7){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,180,0,.22));width:70px;height:70px;top:72%;left:12%;filter:blur(2px)}
+    .circle:nth-child(8){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(180,110,255,.24));width:130px;height:130px;top:8%;left:82%;filter:blur(3px)}
+    .circle:nth-child(9){background:radial-gradient(circle,rgba(255,255,255,.8),rgba(255,90,120,.24));width:95px;height:95px;top:84%;left:68%;filter:blur(3px)}
+    @keyframes floatMove{0%{transform:translate(0,0) scale(1)}33%{transform:translate(100px,-50px) scale(1.2)}66%{transform:translate(-80px,120px) scale(.8)}100%{transform:translate(50px,20px) scale(1.1)}}
+    body *{opacity:0;transform:translateY(-24px);transition:all .5s ease}
+    body.loaded *{opacity:1;transform:translateY(0)}
+    .top-header{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;background:var(--glass-light);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border-light);position:sticky;top:0;z-index:100;gap:10px;transition:background .5s,border-color .5s}
+    body.dark-mode .top-header{background:var(--glass-dark);border-bottom:1px solid var(--glass-border-dark)}
+    .logo-area{display:flex;align-items:center;gap:10px}
+    .dancing-logo{width:50px;animation:logoZoomFade 3s ease-in-out infinite;cursor:pointer;transition:.3s}
+    @keyframes logoZoomFade{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.2)}}
+    .user-area{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:bold;position:relative}
+    .user-area i{font-size:24px;color:var(--accent)}
+    .dropdown-arrow{font-size:10px}
+    .header-profile-img-container{width:35px;height:35px;border-radius:50%;overflow:hidden;display:flex;justify-content:center;align-items:center}
+    .header-profile-img{width:100%;height:100%;object-fit:cover}
+    .notification-wrapper{position:relative;margin-right:5px;display:flex;align-items:center;justify-content:center;z-index:1000}
+    .notification-wrapper i{font-size:20px;color:#7873f5;cursor:pointer}
+    .notification-badge{position:absolute;top:-8px;right:-8px;background:#ff4d4d;color:#fff;font-size:10px;padding:2px 6px;border-radius:50%;font-weight:bold;border:2px solid #fff}
+    .theme-toggle-btn,.translate-toggle-btn{border:none;outline:none;background:transparent;padding:0;cursor:pointer}
+    .theme-toggle-btn i,.translate-toggle-btn i{pointer-events:none}
+    .translate-toggle-btn i{font-size:17px;color:#7873f5}
+    .translate-toggle-btn.active i{color:#ff6ec4}
+    .notification-dropdown{position:fixed;top:calc(var(--header-h) + 6px);inset-inline-end:var(--safe-gap);width:min(320px,calc(100vw - 24px));max-height:min(500px,calc(100vh - 90px));background:#ffffff !important;border:1px solid #ccc;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:none;flex-direction:column;padding:15px;z-index:2000;overflow-y:auto;overflow-x:hidden;direction:ltr;text-align:left}
+    .notification-dropdown.show{display:flex}
+    body.dark-mode .notification-dropdown{background:#0f172a !important;border:1px solid rgba(255,255,255,.12)}
+    .noti-header{font-weight:bold;font-size:15px;color:#0d3c91;border-bottom:2px solid #eee;padding-bottom:8px;margin-bottom:5px;text-align:center}
+    body.dark-mode .noti-header{color:#9bc2ff;border-bottom-color:rgba(255,255,255,.08)}
+    .noti-item{background:#f9f9f9;padding:12px;border-radius:18px;margin-bottom:8px;cursor:pointer;border-right:5px solid #7873f5;transition:all .3s;position:relative;overflow:hidden;width:100%}
+    body.dark-mode .noti-item{background:#111d31;border-right-color:#a78bfa}
+    .noti-top-row{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%}
+    .noti-body{display:none;font-size:12px;color:#333;line-height:1.8;margin-top:10px;padding-top:10px;border-top:1px dashed #7873f5;white-space:pre-line;word-break:break-word}
+    .noti-item.expanded .noti-body{display:block}
+    body.dark-mode .noti-body{color:#d9e6ff;border-top-color:rgba(167,139,250,.6)}
+    #notiList,#msgList{direction:ltr;text-align:left}
+    .user-dropdown{position:fixed;top:calc(var(--header-h) + 2px);inset-inline-end:var(--safe-gap);width:min(240px,calc(100vw - 24px));padding:15px;display:none;flex-direction:column;height:auto;max-height:550px;z-index:999}
+    .user-dropdown.show{display:flex}
+    .user-dropdown h3{margin-bottom:5px;text-align:center}
+    .user-dropdown p{font-size:10px;margin:2px 0}
+    .user-dropdown .user-info{display:flex;flex-direction:column;gap:4px;align-items:center;font-weight:bold}
+    body.dark-mode .user-dropdown p,body.dark-mode .user-dropdown h3{color:#eef4ff}
+    .dropdown-photo-area{width:100px;height:100px;border-radius:40%;overflow:hidden;margin-bottom:10px;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+    .dropdown-profile-img{width:100%;height:100%;object-fit:cover}
+    .user-dropdown button#logoutBtn,.user-dropdown a#viewCardBtn{margin-top:2px;align-self:center;width:70%;padding:10px 0;border:none;border-radius:50px;background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;font-weight:bold;cursor:pointer;transition:.3s;text-align:center;text-decoration:none;font-size:14px}
+    .user-dropdown button#logoutBtn:hover,.user-dropdown a#viewCardBtn:hover{opacity:.9;transform:translateY(-2px)}
+    #viewPhotoBtn{margin-top:5px;width:60%;padding:8px 0;border:1px solid var(--accent);border-radius:40px;background:transparent;color:var(--accent);font-weight:bold;cursor:pointer;transition:.3s}
+    #viewPhotoBtn:hover{background:var(--accent);color:#fff}
+    #openLoginBtn{display:flex;justify-content:center;align-items:center;gap:8px;margin:15px auto 0;padding:10px 20px;border:none;border-radius:25px;background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;font-weight:bold;cursor:pointer;font-size:16px}
+    #openLoginBtn:hover{opacity:.9;transform:translateY(-2px);transition:.3s}
+    .login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;justify-content:center;align-items:center;z-index:2000}
+    .login-overlay.show{display:flex}
+    .login-box{width:90%;max-width:360px;padding:25px;text-align:center}
+    .login-box h2{margin-bottom:10px}
+    .login-box input,.login-box textarea{width:100%;padding:10px;margin-bottom:10px;border:none;border-radius:10px;font-family:inherit}
+    .login-box button{width:100%;padding:10px;border:none;border-radius:20px;background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;cursor:pointer;font-weight:bold}
+    body.dark-mode .login-box input,body.dark-mode .login-box textarea{background:#fff;color:#111}
+    #loginError{color:#ff4d4d;font-size:12px;margin-top:6px}
+    .overlay{position:fixed;inset:0;background:rgba(255,255,255,.25);backdrop-filter:blur(10px);display:none;justify-content:center;align-items:center;z-index:3000}
+    body.dark-mode .overlay{background:rgba(0,0,0,.45)}
+    .overlay.show{display:flex}
+    .photo-viewer-box{width:50%;max-width:400px;padding:40px;text-align:center}
+    .leaders-box{width:90%;max-width:420px;padding:20px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:40px;border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 35px rgba(0,0,0,.15);max-height:70vh;overflow-y:auto}
+    body.dark-mode .leaders-box{background:rgba(10,18,33,.68);border-color:rgba(255,255,255,.12)}
+    .leaders-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .leaders-header i{color:#0d3c91;transition:.3s;cursor:pointer}
+    body.dark-mode .leaders-header i{color:#9bc2ff}
+    .leaders-header i:hover{color:#ff4d4d;transform:scale(1.2)}
+    .leader-item{padding:12px;border-radius:14px;background:rgba(255,255,255,.34);margin-bottom:10px;border:1px solid rgba(255,255,255,.35)}
+    body.dark-mode .leader-item{background:rgba(12,19,34,.55);border-color:rgba(255,255,255,.08)}
+    .leader-item h4{font-size:15px;margin-bottom:4px;color:var(--brand);text-align:center}
+    body.dark-mode .leader-item h4{color:#9bc2ff}
+    .leader-item p{font-size:13px;text-align:center;color:var(--soft-light)}
+    body.dark-mode .leader-item p{color:var(--soft-dark)}
+    .leader-phone{margin-top:6px;display:flex;justify-content:center;align-items:center;gap:6px}
+    .welcome-popup{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;padding:12px 25px;border-radius:25px;display:none;z-index:3000}
+    .welcome-popup.show{display:block}
+    .info-banner{background:rgba(167,199,203,.15);backdrop-filter:blur(15px);border:1px solid rgba(255,255,255,.3);color:#501AB0;font-weight:bold;font-size:20px;padding:5px 20px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;width:100%;position:relative;z-index:50}
+    .info-banner .marquee{display:inline-block;padding-left:100%;animation:scrollBanner 25s linear infinite}
+    @keyframes scrollBanner{0%{transform:translateX(0%)}100%{transform:translateX(-100%)}}
+    @keyframes scrollBannerRtl{0%{transform:translateX(0%)}100%{transform:translateX(100%)}}
+    .info-banner:hover .marquee{animation-play-state:paused}
+    body.dark-mode .info-banner{color:#d9c8ff;background:rgba(255,255,255,.06)}
+    .translate-host{position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden}
+    h1,h2,h3{background:linear-gradient(90deg,#0d3c91,#0d3c91);display:inline-block;-webkit-background-clip:text;-webkit-text-fill-color:transparent;width:100%;text-align:center}
+    body.dark-mode h1,body.dark-mode h2,body.dark-mode h3{background:linear-gradient(90deg,#9bc2ff,#9bc2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .dashboard-container{display:flex;flex-direction:row;min-height:calc(100vh - var(--header-h))}
+    .sidebar{width:250px;padding:20px;background:var(--glass-light);backdrop-filter:blur(18px);transition:.3s;display:flex;flex-direction:column;z-index:500;position:relative}
+    body.dark-mode .sidebar{background:var(--glass-dark)}
+    .sidebar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+    .sidebar-nav{display:flex;flex-direction:column;gap:8px}
+    .sidebar-nav a{text-decoration:none;padding:10px;border-radius:10px;color:#333;display:flex;align-items:center;gap:10px;transition:.3s}
+    body.dark-mode .sidebar-nav a{color:#fff}
+    .sidebar-nav a:hover,.sidebar-nav a.active{background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff}
+    .main-content{flex:1;padding:20px;position:relative;z-index:1}
+    .footer{text-align:center;padding:10px;background:var(--glass-light);margin-top:20px;font-size:10px;position:relative;z-index:2}
+    body.dark-mode .footer{background:var(--glass-dark)}
+    .goog-te-banner-frame.skiptranslate,.goog-te-balloon-frame,#goog-gt-tt{display:none !important}
+    body{top:0 !important}
+    button,a{-webkit-tap-highlight-color:transparent}
+    body.page-rtl{direction:rtl}
+    body.page-rtl .top-header,body.page-rtl .dashboard-container,body.page-rtl .user-dropdown,body.page-rtl .login-box,body.page-rtl .leaders-box{direction:rtl}
+    body.page-rtl .user-area{flex-direction:row-reverse}
+    body.page-rtl .sidebar-nav a{flex-direction:row-reverse;justify-content:flex-end}
+    body.page-rtl .info-banner{direction:rtl}
+    body.page-rtl .info-banner .marquee{padding-left:0;padding-right:100%;animation:scrollBannerRtl 25s linear infinite}
+    body.page-rtl .notification-dropdown{direction:rtl;text-align:right}
+    body.page-rtl #notiList,body.page-rtl #msgList{direction:rtl !important;text-align:right !important}
+    .back-btn-wrap{padding:0 0 14px}
+    .back-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:50px;background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;font-weight:bold;font-size:13px;text-decoration:none;transition:.3s;border:none;cursor:pointer}
+    .back-btn:hover{opacity:.88;transform:translateY(-2px);box-shadow:0 6px 18px rgba(120,115,245,.35)}
+    .gallery-banner{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:22px 20px 16px;text-align:center;margin-bottom:22px}
+    .gallery-banner-icon{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#ff6ec4,#7873f5);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(120,115,245,.35)}
+    .gallery-banner-icon i{color:#fff;font-size:22px}
+    .gallery-banner p{font-size:13px;color:#666;margin:4px 0 0}
+    body.dark-mode .gallery-banner p{color:#a0b4cc}
+    .feed-wrapper{max-width:720px;margin:0 auto;padding:0 0 30px;display:flex;flex-direction:column;gap:20px}
+    .composer-card,.post-card,.notice-card{border-radius:20px;overflow:hidden;background:var(--glass-light);backdrop-filter:blur(18px);border:1px solid var(--glass-border-light);box-shadow:var(--shadow-light);transition:box-shadow .3s}
+    body.dark-mode .composer-card,body.dark-mode .post-card,body.dark-mode .notice-card{background:var(--glass-dark);border-color:var(--glass-border-dark);box-shadow:var(--shadow-dark)}
+    .composer-card{padding:16px}
+    .composer-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .composer-title h2{font-size:18px;width:auto;text-align:left}
+    .composer-body{display:grid;gap:10px}
+    .composer-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+    .composer-text{min-height:92px;resize:vertical;padding:12px;border:none;border-radius:14px;background:rgba(255,255,255,.82);color:#111;font:inherit;line-height:1.6}
+    body.dark-mode .composer-text{background:#fff}
+    .composer-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+    .file-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px dashed rgba(120,115,245,.4);border-radius:999px;color:#555;cursor:pointer}
+    body.dark-mode .file-pill{color:#dbe6ff}
+    .composer-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .primary-btn,.secondary-btn,.danger-btn,.ghost-btn{
+      border:none;border-radius:999px;padding:10px 14px;font-weight:700;cursor:pointer;transition:.2s;text-decoration:none;display:inline-flex;align-items:center;gap:8px
+    }
+    .primary-btn{background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff}
+    .secondary-btn{background:rgba(120,115,245,.12);color:#7873f5;border:1px solid rgba(120,115,245,.18)}
+    .danger-btn{background:rgba(255,77,77,.12);color:#d33;border:1px solid rgba(255,77,77,.18)}
+    .ghost-btn{background:transparent;color:#666;border:1px solid rgba(120,115,245,.16)}
+    body.dark-mode .secondary-btn{background:rgba(120,115,245,.18);color:#a78bfa;border-color:rgba(167,139,250,.22)}
+    body.dark-mode .ghost-btn{color:#cdd8ed;border-color:rgba(255,255,255,.14)}
+    .helper-text{font-size:12px;color:#6e6e6e;line-height:1.6}
+    body.dark-mode .helper-text{color:#b0c4d8}
+    .feed-loading,.empty-state,.sign-in-state{text-align:center;padding:40px 22px;color:#888;font-size:15px}
+    .feed-loading i,.empty-state i,.sign-in-state i{font-size:34px;color:#7873f5;display:block;margin-bottom:10px}
+    .feed-end-marker{text-align:center;padding:24px 0;color:#aaa;font-size:13px}
+    .feed-end-marker i{display:block;font-size:22px;color:#ddd;margin-bottom:6px}
+    body.dark-mode .feed-end-marker{color:#4a5568}
+    body.dark-mode .feed-end-marker i{color:#2d3748}
+    .post-card{animation:postFade .5s ease both}
+    @keyframes postFade{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    .post-card.highlighted{box-shadow:0 0 0 3px rgba(120,115,245,.45),0 12px 32px rgba(0,0,0,.15)}
+    body.dark-mode .post-card.highlighted{box-shadow:0 0 0 3px rgba(167,139,250,.45),0 12px 32px rgba(0,0,0,.4)}
+    .post-header{display:flex;align-items:center;gap:12px;padding:14px 16px 10px}
+    .post-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(120,115,245,.4)}
+    .post-header-info{flex:1;min-width:0}
+    .post-org-name{font-weight:700;font-size:14px;color:#0d3c91;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;-webkit-text-fill-color:unset;display:block;width:auto;text-align:left}
+    body.dark-mode .post-org-name{color:#9bc2ff}
+    .author-name-btn{
+      border:none;
+      background:transparent;
+      padding:0;
+      margin:0;
+      font:inherit;
+      font-weight:700;
+      font-size:14px;
+      color:inherit;
+      cursor:pointer;
+      text-align:left;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      width:100%;
+    }
+    .author-name-btn:hover{opacity:.9;text-decoration:underline}
+    body.dark-mode .author-name-btn{color:inherit}
+    .post-meta{display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap}
+    .post-date{font-size:11px;color:#888}
+    body.dark-mode .post-date{color:#7a90a8}
+    .post-badge{font-size:10px;padding:1px 8px;border-radius:50px;font-weight:600;background:linear-gradient(90deg,rgba(255,110,196,.15),rgba(120,115,245,.15));color:#7873f5;border:1px solid rgba(120,115,245,.25)}
+    body.dark-mode .post-badge{background:rgba(120,115,245,.2);color:#a78bfa}
+    .viewer-badge{font-size:10px;padding:1px 8px;border-radius:50px;font-weight:600;background:rgba(13,60,145,.12);color:#0d3c91;border:1px solid rgba(13,60,145,.18)}
+    body.dark-mode .viewer-badge{background:rgba(155,194,255,.14);color:#9bc2ff}
+    .post-title{font-size:15px;font-weight:700;color:#1a1a1a;padding:0 16px 8px;line-height:1.4;background:none;-webkit-text-fill-color:unset;display:block;width:auto;text-align:left}
+    body.dark-mode .post-title{color:#eef4ff}
+    .post-author{padding:0 16px 8px;font-size:12px;line-height:1.7;color:#555}
+    body.dark-mode .post-author{color:#c7d5e9}
+    .post-author strong{color:#0d3c91}
+    body.dark-mode .post-author strong{color:#9bc2ff}
+    .post-caption-wrap{padding:0 16px 10px}
+    .post-caption{font-size:13px;line-height:1.7;color:#444;display:block;white-space:pre-wrap}
+    body.dark-mode .post-caption{color:#b0c4d8}
+    .post-caption.clamped{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .read-more-btn{background:none;border:none;color:#7873f3;font-size:12px;font-weight:600;cursor:pointer;padding:0;margin-top:3px;display:inline-block}
+    .read-more-btn:hover{color:#ff6ec4}
+    .post-media{width:100%;background:#000;line-height:0;position:relative;overflow:hidden}
+    .media-single{width:100%}
+    .media-grid{display:grid;gap:4px;width:100%;background:#000}
+    .media-grid.count-1{grid-template-columns:1fr}
+    .media-grid.count-2{grid-template-columns:repeat(2,1fr)}
+    .media-grid.count-3,.media-grid.count-4,.media-grid.count-5,.media-grid.count-6{grid-template-columns:repeat(2,1fr)}
+    .media-tile{position:relative;width:100%;border:0;padding:0;margin:0;overflow:hidden;background:#111;cursor:pointer;display:block;aspect-ratio:1/1}
+    .media-grid.count-1 .media-tile{aspect-ratio:auto}
+    .media-grid.count-2 .media-tile{aspect-ratio:1/1}
+    .media-grid.count-3 .media-tile:first-child{grid-row:span 2;aspect-ratio:auto;min-height:260px}
+    .media-grid.count-3 .media-tile:nth-child(2),.media-grid.count-3 .media-tile:nth-child(3){aspect-ratio:1/1}
+    .media-grid.count-4 .media-tile,.media-grid.count-5 .media-tile,.media-grid.count-6 .media-tile{aspect-ratio:1/1}
+    .media-thumb,.media-video-poster,.media-tile img,.media-video{width:100%;height:100%;display:block;object-fit:cover}
+    .media-video{background:#000;object-fit:contain;aspect-ratio:16/9}
+    .media-play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;z-index:2;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.22))}
+    .media-play-circle{width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,#ff6ec4,#7873f5);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 26px rgba(120,115,245,.55)}
+    .media-play-circle i{color:#fff;font-size:24px;margin-left:4px}
+    .media-play-label{color:#fff;font-size:13px;font-weight:700;text-shadow:0 2px 10px rgba(0,0,0,.65)}
+    .media-count-badge{position:absolute;top:10px;left:10px;z-index:3;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(6px)}
+    .video-thumb-canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;display:block}
+    .post-footer{padding:10px 16px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid rgba(120,115,245,.12);margin-top:4px}
+    body.dark-mode .post-footer{border-top-color:rgba(120,115,245,.2)}
+    .post-tag{font-size:11px;color:#7873f5;background:rgba(120,115,245,.1);border-radius:50px;padding:3px 10px;font-weight:600}
+    body.dark-mode .post-tag{background:rgba(120,115,245,.2);color:#a78bfa}
+    .post-type-icon{font-size:14px;color:#ccc}
+    .post-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:auto}
+    .post-action-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:rgba(120,115,245,.1);color:#7873f5;font-size:10px;font-weight:700;border:1px solid rgba(120,115,245,.18);cursor:pointer;transition:.22s;text-decoration:none}
+    .post-action-btn:hover{background:rgba(255,110,196,.14);color:#ff6ec4;border-color:rgba(255,110,196,.28)}
+    body.dark-mode .post-action-btn{background:rgba(120,115,245,.18);color:#a78bfa;border-color:rgba(167,139,250,.22)}
+    .post-action-btn i{font-size:9px}
+    .post-action-btn.active{background:rgba(255,110,196,.18);border-color:rgba(255,110,196,.35);color:#ff6ec4}
+    .comments-wrap{display:none;padding:0 16px 16px;border-top:1px solid rgba(120,115,245,.1)}
+    body.dark-mode .comments-wrap{border-top-color:rgba(120,115,245,.14)}
+    .comments-wrap.show{display:block}
+    .comment-form{display:grid;gap:8px;margin-top:12px}
+    .comment-input{width:100%;min-height:70px;resize:vertical;padding:10px 12px;border-radius:14px;border:1px solid rgba(120,115,245,.18);font:inherit;line-height:1.6;background:rgba(255,255,255,.88)}
+    body.dark-mode .comment-input{background:#fff;color:#111}
+    .comment-row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .comments-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+    .comment-item{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.55);border:1px solid rgba(120,115,245,.12)}
+    body.dark-mode .comment-item{background:rgba(12,19,34,.48);border-color:rgba(255,255,255,.08)}
+    .comment-meta{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:4px;font-size:11px;color:#777}
+    body.dark-mode .comment-meta{color:#9fb3c7}
+    .comment-author{font-weight:700;color:#0d3c91}
+    body.dark-mode .comment-author{color:#9bc2ff}
+    .comment-text{font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap}
+    body.dark-mode .comment-text{color:#d8e4f2}
+    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.93);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:9000;padding:20px}
+    .lightbox.show{display:flex}
+    .lightbox-inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px;max-width:96vw}
+    .lightbox-img{max-width:94vw;max-height:82vh;border-radius:12px;box-shadow:0 10px 50px rgba(0,0,0,.6);object-fit:contain;display:block}
+    .lightbox-close{position:fixed;top:18px;right:22px;color:#fff;font-size:28px;cursor:pointer;transition:.2s;z-index:9002}
+    .lightbox-close:hover{color:#ff6ec4;transform:scale(1.2)}
+    .lightbox-bar{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+    .lightbox-meta{color:rgba(255,255,255,.7);font-size:12px;font-family:Calibri,sans-serif}
+    .lightbox-copy-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:999px;background:rgba(120,115,245,.25);color:#fff;font-size:12px;font-weight:700;border:1px solid rgba(120,115,245,.4);cursor:pointer;transition:.22s;font-family:Calibri,sans-serif}
+    .lightbox-copy-btn:hover{background:rgba(255,110,196,.28);border-color:rgba(255,110,196,.4)}
+    .lightbox-nav{position:fixed;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);border:none;color:#fff;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9002;font-size:18px;transition:.2s}
+    .lightbox-nav:hover{background:rgba(120,115,245,.6)}
+    .lightbox-nav.prev{left:12px}
+    .lightbox-nav.next{right:12px}
+    .lightbox-nav.hidden{display:none}
+    .lightbox-video{max-width:94vw;max-height:82vh;border-radius:12px;box-shadow:0 10px 50px rgba(0,0,0,.6);display:block;background:#000}
+    .lightbox-iframe-wrap{position:relative;width:min(860px,94vw);padding-bottom:min(483px,53vw);height:0;border-radius:12px;overflow:hidden;box-shadow:0 10px 50px rgba(0,0,0,.6)}
+    .lightbox-iframe-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+    .hidden{display:none !important}
+    .profile-mini{display:flex;align-items:center;gap:10px}
+    .profile-mini .mini-photo{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(120,115,245,.25)}
+    .profile-mini .mini-lines{display:flex;flex-direction:column;gap:2px;min-width:0}
+    .profile-mini .mini-name{font-weight:700;color:#0d3c91;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    body.dark-mode .profile-mini .mini-name{color:#9bc2ff}
+    .profile-mini .mini-sub{font-size:11px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    body.dark-mode .profile-mini .mini-sub{color:#a9bed6}
+    .author-details-text{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      font-size:13px;
+      line-height:1.7;
+      color:#333;
+      margin-top:4px;
+    }
+    body.dark-mode .author-details-text{color:#d8e4f2}
+    .author-details-item{
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.55);
+      border:1px solid rgba(120,115,245,.12);
+      margin-top:8px;
+    }
+    body.dark-mode .author-details-item{
+      background:rgba(12,19,34,.48);
+      border-color:rgba(255,255,255,.08);
+    }
+    .author-details-btn{
+      width:100%;
+      margin-top:10px;
+      justify-content:center;
+    }
+    @media(max-width:1024px){
+      .dashboard-container{flex-direction:column}
+      .sidebar{width:100%;flex-direction:row;overflow-x:auto;padding:10px}
+      .sidebar-nav{flex-direction:row;gap:10px}
+      .sidebar-nav a{flex-shrink:0;white-space:nowrap;padding:8px 12px;font-size:13px;border-radius:15px}
+      .composer-row{grid-template-columns:1fr}
+    }
+    @media(max-width:600px){
+      .top-header{padding:10px 12px;gap:8px}
+      .user-area{gap:4px}
+      .user-area i{font-size:20px}
+      .notification-wrapper{width:34px;height:34px}
+      .notification-wrapper i{font-size:16px}
+      .header-profile-img-container{width:30px;height:30px}
+      .info-banner{font-size:12px;padding:3px 8px;min-height:28px}
+      .info-banner .marquee{animation:scrollBanner 18s linear infinite}
+      .feed-wrapper{max-width:100%;padding:0 0 24px}
+      .post-card{border-radius:16px}
+      .sidebar{display:none !important;position:fixed;top:var(--header-h);left:0;height:calc(100vh - var(--header-h));width:200px;flex-direction:column !important;background:var(--glass-light);backdrop-filter:blur(18px);padding:20px;z-index:999}
+      body.dark-mode .sidebar{background:var(--glass-dark)}
+      .notification-dropdown{position:fixed !important;left:50% !important;right:50% !important;top:calc(var(--header-h) + 8px) !important;transform:translateX(-50%) !important;width:min(92vw,320px) !important;max-height:calc(100vh - 96px) !important;margin:0 !important;z-index:9999 !important}
+      .user-dropdown{width:min(280px,calc(100vw - 16px));inset-inline-end:8px;top:calc(var(--header-h) - 4px);max-height:470px}
+      .media-grid.count-3 .media-tile:first-child{min-height:180px}
+      .lightbox-nav.prev{left:6px}
+      .lightbox-nav.next{right:6px}
+      .composer-actions,.comment-row{flex-direction:column;align-items:stretch}
+      .primary-btn,.secondary-btn,.danger-btn,.ghost-btn{width:100%;justify-content:center}
+    }
+  </style>
+</head>
+<body>
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div><div class="circle"></div><div class="circle"></div>
+    <div class="circle"></div><div class="circle"></div><div class="circle"></div>
+    <div class="circle"></div><div class="circle"></div><div class="circle"></div>
+  </div>
+
+  <header class="top-header">
+    <div class="logo-area">
+      <a href="https://livenews.live/KFC" aria-label="Home">
+        <img src="https://livenews.live/KFC/logo.png" alt="KFC Logo" class="dancing-logo">
+      </a>
+    </div>
+    <div class="user-area" id="userArea">
+      <button class="notification-wrapper theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">
+        <i class="fa-solid fa-moon" id="themeToggleIcon"></i>
+      </button>
+      <button class="notification-wrapper translate-toggle-btn" id="translateToggleBtn" type="button" aria-label="Translate to Urdu">
+        <i class="fa-solid fa-language" id="translateToggleIcon"></i>
+      </button>
+      <div class="notification-wrapper" id="msgBtn">
+        <i class="fa-solid fa-envelope"></i>
+        <span class="notification-badge" id="msgBadge" style="display:none;">!</span>
+        <div class="notification-dropdown glass" id="msgDropdown">
+          <div class="noti-header">Personal Messages</div>
+          <div id="msgList"><p style="text-align:center;padding:10px;color:#888;">Loading...</p></div>
+        </div>
+      </div>
+      <div class="notification-wrapper" id="notificationBtn">
+        <i class="fa-solid fa-bell"></i>
+        <span class="notification-badge" id="notiBadge" style="display:none;">!</span>
+        <div class="notification-dropdown glass" id="notiDropdown">
+          <div class="noti-header">Recent Alerts</div>
+          <div id="notiList"><p style="text-align:center;padding:10px;color:#888;">Loading...</p></div>
+        </div>
+      </div>
+      <div class="header-profile-img-container">
+        <img id="headerProfileImg" src="https://livenews.live/KFC/static/images/photos/default.png" alt="User" class="header-profile-img" style="display:none;">
+        <i class="fa-solid fa-user-circle" id="headerUserIcon"></i>
+      </div>
+      <span id="username">Welcome, Guest</span>
+      <i class="fa-solid fa-chevron-down dropdown-arrow"></i>
+    </div>
+  </header>
+
+  <div id="infoBanner" class="info-banner">
+    <div class="marquee">📷 Committee Gallery — Member-only posts, photos, and status updates from Khawrai Falahi Committee UAE.</div>
+  </div>
+
+  <div id="userDropdown" class="user-dropdown glass">
+    <div id="guestView">
+      <h3>Welcome Guest</h3>
+      <p>Please sign in to access your account</p>
+      <button id="openLoginBtn" type="button"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+    </div>
+    <div id="userView" style="display:none;flex-direction:column;align-items:center;gap:6px;">
+      <div class="dropdown-photo-area"><img id="dropdownProfileImg" src="" alt="Profile" class="dropdown-profile-img"></div>
+      <h3 id="userFullName"></h3>
+      <div class="user-info"><p id="userCard"></p><p id="userDesg"></p><p id="userBlood"></p><p id="userMobile"></p></div>
+      <div style="display:flex;flex-direction:column;gap:8px;width:100%;align-items:center;">
+        <button id="viewPhotoBtn" type="button"><i class="fa-solid fa-image"></i> View Photo</button>
+        <a id="viewCardBtn" href="#" target="_blank" rel="noopener">View Card</a>
+        <button id="logoutBtn" type="button"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="photoOverlay" class="overlay">
+    <div class="photo-viewer-box glass">
+      <div class="leaders-header"><h2>Profile Photo</h2><i class="fa-solid fa-xmark" id="closePhotoOverlay"></i></div>
+      <img id="fullProfileImg" src="" alt="User Photo" style="width:100%;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.2);">
+    </div>
+  </div>
+
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-box glass">
+      <h2><i class="fa-solid fa-user-lock"></i> Secure Login</h2>
+      <input type="text" id="loginUsername" placeholder="Enter Username" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Enter Password" autocomplete="current-password">
+      <button id="loginBtn" type="button">Login</button>
+      <p id="loginError" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div id="welcomePopup" class="welcome-popup"><p id="welcomeText"></p></div>
+
+  <div id="leadersOverlay" class="overlay">
+    <div class="leaders-box glass">
+      <div class="leaders-header"><h2>Committee Leaders</h2><i class="fa-solid fa-xmark" id="closeLeaders"></i></div>
+      <div id="leadersList"></div>
+    </div>
+  </div>
+
+  <div id="authorDetailsOverlay" class="overlay">
+    <div class="leaders-box glass" style="max-width:460px;">
+      <div class="leaders-header"><h2>User Details</h2><i class="fa-solid fa-xmark" id="closeAuthorDetails"></i></div>
+      <div id="authorDetailsBody"></div>
+    </div>
+  </div>
+
+  <div id="lightbox" class="lightbox" role="dialog" aria-label="Media viewer">
+    <i class="fa-solid fa-xmark lightbox-close" id="lightboxClose" aria-label="Close"></i>
+    <button class="lightbox-nav prev" id="lbPrev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+    <button class="lightbox-nav next" id="lbNext" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+    <div class="lightbox-inner" id="lightboxInner"></div>
+  </div>
+
+  <div class="dashboard-container">
+    <aside class="sidebar glass" id="sidebar">
+      <div class="sidebar-header"><h2>Main Menu</h2><i class="fa-solid fa-bars" id="sidebarToggle"></i></div>
+      <nav class="sidebar-nav">
+        <a href="https://livenews.live/KFC"><i class="fa-solid fa-house"></i> Dashboard</a>
+        <a href="https://livenews.live/KFC/message/president.html"><i class="fa-solid fa-user-tie"></i> President's Message</a>
+        <a href="https://livenews.live/KFC/message/alerts.html"><i class="fa-solid fa-bell"></i> Alerts</a>
+        <a href="https://livenews.live/KFC/database.html"><i class="fa-solid fa-database"></i> Member Database</a>
+        <a href="https://livenews.live/KFC/message/cabinet.html"><i class="fa-solid fa-users"></i> Cabinet Members</a>
+        <a href="https://livenews.live/KFC/message/Gallery/gallery.html" class="active"><i class="fa-solid fa-images"></i> Gallery</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div class="back-btn-wrap">
+        <a class="back-btn" href="https://livenews.live/KFC"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+      </div>
+
+      <div class="gallery-banner glass">
+        <div class="gallery-banner-icon"><i class="fa-solid fa-images"></i></div>
+        <h1>Community Gallery</h1>
+        <p>Member-only photos, status updates, and legacy gallery posts</p>
+      </div>
+
+      <div class="feed-wrapper" id="feedWrapper">
+        <div class="feed-loading" id="feedLoader">
+          <i class="fa-solid fa-spinner"></i>Loading gallery…
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="footer"><p>© 2026 Khawrai Falahi Committee United Arab Emirates | All Rights Reserved</p></footer>
+  <div id="google_translate_element" class="translate-host"></div>
+
+  <script>
+  (function(){
+    "use strict";
+
+    const API_BASE = "https://livenews.live/KFC";
+    const PHOTOS_BASE = `${API_BASE}/static/images/photos/`;
+    const DEFAULT_PHOTO = `${PHOTOS_BASE}default.png`;
+    const LEGACY_GALLERY_JSON = `${API_BASE}/message/Gallery/gallery.json`;
+    const USERS_JSON = `${API_BASE}/cards.json`;
+
+    const SUPABASE_URL = "https://pyjcrlastiwpjsziaulk.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5amNybGFzdGl3cGpzemlhdWxrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NDY3MDIsImV4cCI6MjA5MjMyMjcwMn0.4MiJNQILIydeSXab7fbt-NPQ45npiWl63ijpzSLu77A";
+    const SUPABASE_HEADERS = {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json"
+    };
+    const SUPABASE_REST = `${SUPABASE_URL}/rest/v1`;
+    const STORAGE_BUCKET = "kfc-gallery";
+    const ADMIN_CARD = "746-210-011";
+    const COMMITTEE_NAME = "Khawrai Falahi Committee UAE";
+    const COMMITTEE_PHOTO = "https://livenews.live/KFC/logo.png";
+
+    const LK = "kfcPageLanguage";
+    const TK = "kfcTheme";
+
+    const els = {};
+    function id(x){ return document.getElementById(x); }
+    function norm(v){ return (v ?? "").toString().trim(); }
+    function esc(s){
+      return String(s ?? "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    }
+    function isAdmin(card){ return norm(card).replace(/\D/g,"") === ADMIN_CARD.replace(/\D/g,""); }
+    function firstName(name){
+      const n = norm(name).replace(/\s+/g," ");
+      if(!n) return "User";
+      return n.split(" ")[0];
+    }
+    function maskCard(card){
+      const d = norm(card).replace(/\D/g,"");
+      if(!d) return "***";
+      const first3 = d.slice(0, 3);
+      return `${first3}${"*".repeat(Math.max(0, d.length - 3))}`;
+    }
+    function shortDate(raw){
+      if(!raw) return "";
+      const d = new Date(raw);
+      if(Number.isNaN(d.getTime())) return String(raw);
+      return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    }
+    function longDateTime(raw){
+      if(!raw) return "";
+      const d = new Date(raw);
+      if(Number.isNaN(d.getTime())) return String(raw);
+      return d.toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    }
+    function avatarUrl(card){
+      const c = norm(card);
+      if(!c) return DEFAULT_PHOTO;
+      return `${PHOTOS_BASE}${encodeURIComponent(c)}.png`;
+    }
+    function cleanAlphaNum(v){
+      return norm(v).toLowerCase().replace(/[^a-z0-9]/g,"");
+    }
+    function isCommitteeIdentity(value){
+      const v = cleanAlphaNum(value);
+      return v === cleanAlphaNum(COMMITTEE_NAME) || v === "committeeuser" || v === "committee";
+    }
+    function committeeAvatarUrl(){
+      return COMMITTEE_PHOTO;
+    }
+    function displayCommitteeName(name){
+      if(isCommitteeIdentity(name) || !norm(name)) return COMMITTEE_NAME;
+      return norm(name);
+    }
+    function genUserName(n){
+      const parts = norm(n).toLowerCase().split(/\s+/).filter(Boolean);
+      if(!parts.length) return "";
+      const first = cleanAlphaNum(parts[0]);
+      const last = cleanAlphaNum(parts[parts.length - 1]);
+      return (first + last).replace(/[^a-z0-9]/g,"");
+    }
+    function genPass(c){
+      const digits = String(c || "").replace(/\D/g,"");
+      return digits.slice(-3);
+    }
+    function normalizeUserRow(row){
+      row = row || {};
+      const name = norm(row.name || row.Name || row.full_name || row.fullName || row.user_name || row.username || row.UserName || row.author_name || row.authorName || "");
+      const card = norm(row.CNo || row.cno || row.cardNumber || row.card_no || row.card || row.CardNumber || row.cardnumber || row.cardNo || row.cardno || "");
+      const desg = norm(row.Desg || row.desg || row.designation || row.Designation || row.job || row.role || "");
+      const bg = norm(row.BG || row.bg || row.bloodGroup || row.blood_group || row.blood || "");
+      const mobile = norm(row.mobile || row.Mobile || row.phone || row.Phone || row.mobileNumber || row.mobile_number || "");
+      const status = norm(row.Status || row.status || row.state || "");
+      const username = norm(row.username || row.user_name || row.userName || row.loginUsername || row.login_username || "");
+      const password = norm(row.password || row.pass || row.loginPassword || row.login_password || "");
+      return {...row, name, CNo: card, Desg: desg, BG: bg, mobile, Status: status, username, password};
+    }
+    function infoMsg(t){
+      return `<div class="empty-state"><i class="fa-solid fa-circle-info"></i>${esc(t)}</div>`;
+    }
+    function postHash(input){
+      let h = 2166136261;
+      const s = String(input || "");
+      for(let i=0;i<s.length;i++){
+        h ^= s.charCodeAt(i);
+        h += (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24);
+      }
+      return (h >>> 0).toString(16);
+    }
+    function normalizeCreated(v){
+      const d = new Date(v || 0);
+      return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    function stripHtmlishText(value){
+      return norm(value).replace(/\r\n/g,"\n");
+    }
+    function buildPostKeyForJson(item, idx){
+      const base = JSON.stringify({
+        idx,
+        title: norm(item.title || item.heading || ""),
+        caption: norm(item.caption || item.body || item.description || ""),
+        date: norm(item.date || item.created_at || item.time || ""),
+        media: item.media || item.src || item.srcs || item.images || item.videos || ""
+      });
+      return `json:${postHash(base)}`;
+    }
+    function isFB(url){ return /facebook\.com|fb\.watch/i.test(url || ""); }
+    function fbEmbed(url){ return "https://www.facebook.com/plugins/video.php?href=" + encodeURIComponent(url) + "&show_text=false&width=560&mute=0&autoplay=0"; }
+    function detectMediaType(url, fallback){
+      const u = String(url || "").toLowerCase().split("?")[0].split("#")[0];
+      if(/\.(mp4|webm|ogg|mov|m4v|m3u8)$/.test(u)) return "video";
+      if(/\.(jpg|jpeg|png|gif|webp|bmp|avif|svg)$/.test(u)) return "image";
+      return fallback || "image";
+    }
+    function splitMultiValue(v){
+      if(Array.isArray(v)) return v.flatMap(splitMultiValue);
+      if(typeof v !== "string") return [];
+      const s = v.trim();
+      if(!s) return [];
+      if(s.includes("||")) return s.split("||").map(x=>x.trim()).filter(Boolean);
+      if(s.includes("\n")) return s.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+      return [s];
+    }
+    function normalizeMedia(item){
+      const out = [];
+      const pushMedia = (m, fallbackType) => {
+        if(!m) return;
+        if(typeof m === "string"){
+          const parts = splitMultiValue(m);
+          if(parts.length > 1){
+            parts.forEach(part => pushMedia({type: detectMediaType(part, fallbackType), src: part}, fallbackType));
+            return;
+          }
+          out.push({type: detectMediaType(m, fallbackType), src: m});
+          return;
+        }
+        if(typeof m === "object" && m.src){
+          const sParts = splitMultiValue(m.src);
+          if(sParts.length > 1){
+            sParts.forEach(part => pushMedia({
+              type: m.type || detectMediaType(part, fallbackType),
+              src: part,
+              thumbnail: m.thumbnail || m.poster || "",
+              mime: m.mime || "",
+              caption: m.caption || ""
+            }, fallbackType));
+            return;
+          }
+          out.push({
+            type: m.type || detectMediaType(m.src, fallbackType),
+            src: m.src,
+            thumbnail: m.thumbnail || m.poster || "",
+            mime: m.mime || "",
+            caption: m.caption || ""
+          });
+        }
+      };
+      if(Array.isArray(item.media)) item.media.forEach(m => pushMedia(m, item.type));
+      else if(Array.isArray(item.srcs)) item.srcs.forEach(m => pushMedia(m, item.type));
+      else if(Array.isArray(item.images)) item.images.forEach(m => pushMedia(typeof m === "string" ? {type:"image",src:m} : m, "image"));
+      else if(Array.isArray(item.videos)) item.videos.forEach(m => pushMedia(typeof m === "string" ? {type:"video",src:m} : m, "video"));
+      else if(item.media_url) pushMedia({type:item.media_type || detectMediaType(item.media_url, "image"), src:item.media_url, thumbnail:item.thumbnail || item.poster || "", mime:item.mime || ""}, "image");
+      else if(item.src) pushMedia({type:item.type || detectMediaType(item.src, "image"), src:item.src, thumbnail:item.thumbnail || item.poster || "", mime:item.mime || ""}, "image");
+      return out.filter(Boolean);
+    }
+    function fmtCaptionText(item){
+      return stripHtmlishText(item.caption || item.body || item.description || item.text || "");
+    }
+    function sbPath(path){ return `${SUPABASE_REST}/${path}`; }
+    async function sbFetch(path, options = {}){
+      const res = await fetch(sbPath(path), {
+        method: options.method || "GET",
+        headers: {
+          ...SUPABASE_HEADERS,
+          ...(options.headers || {})
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+      const text = await res.text();
+      if(!res.ok) throw new Error(text || `Supabase request failed (${res.status})`);
+      if(!text) return null;
+      try{ return JSON.parse(text); }catch{ return text; }
+    }
+    async function sbPost(path, body){
+      return sbFetch(path, {
+        method:"POST",
+        body,
+        headers:{Prefer:"return=representation"}
+      });
+    }
+    async function uploadToStorage(file, folder){
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeFolder = norm(folder || "posts").replace(/[^a-zA-Z0-9/_-]/g,"");
+      const fileName = `${safeFolder}/${Date.now()}-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}.${ext}`;
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${fileName}`,{
+        method:"POST",
+        headers:{
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "x-upsert":"true",
+          "Content-Type": file.type || "application/octet-stream"
+        },
+        body:file
+      });
+      const txt = await res.text();
+      if(!res.ok) throw new Error(txt || "Upload failed");
+      return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${fileName}`;
+    }
+    function publicAvatarForUser(user){
+      if(user && isCommitteeIdentity(user.name)) return COMMITTEE_PHOTO;
+      return avatarUrl(user.CNo);
+    }
+
+    let users = [];
+    let currentUser = null;
+    let lang = localStorage.getItem(LK) === "ur" ? "ur" : "en";
+    let gtPromise = null;
+    let gtPending = null;
+    let fixTimer = null;
+    let fixRunning = false;
+    let lightboxItems = [];
+    let lightboxIndex = 0;
+    const state = {
+      posts: [],
+      hiddenKeys: new Set(),
+      likesCount: new Map(),
+      likedByMe: new Set(),
+      commentsByPost: new Map(),
+      cardMap: new Map()
+    };
+
+    function cache(){
+      const ids = [
+        "userArea","username","userDropdown","guestView","userView","openLoginBtn","loginOverlay","loginBtn","loginUsername","loginPassword","loginError","logoutBtn",
+        "userFullName","userCard","userDesg","userBlood","userMobile","welcomePopup","welcomeText","headerProfileImg","headerUserIcon","dropdownProfileImg","viewPhotoBtn",
+        "photoOverlay","fullProfileImg","closePhotoOverlay","notificationBtn","notiDropdown","notiBadge","notiList","msgBtn","msgDropdown","msgBadge","msgList",
+        "leadersOverlay","closeLeaders","leadersList","themeToggleBtn","themeToggleIcon","translateToggleBtn","google_translate_element","lightbox","lightboxInner","lightboxClose","lbPrev","lbNext",
+        "feedWrapper","feedLoader","sidebarToggle","authorDetailsOverlay","closeAuthorDetails","authorDetailsBody"
+      ];
+      ids.forEach(x => els[x] = id(x));
+    }
+
+    function setHeaderForSession(user){
+      if(!user){
+        if(els.headerProfileImg) els.headerProfileImg.style.display = "none";
+        if(els.headerUserIcon) els.headerUserIcon.style.display = "block";
+        if(els.username) els.username.innerText = "Welcome, Guest";
+        return;
+      }
+      if(els.headerProfileImg){
+        els.headerProfileImg.src = publicAvatarForUser(user);
+        els.headerProfileImg.style.display = "block";
+      }
+      if(els.headerUserIcon) els.headerUserIcon.style.display = "none";
+      if(els.username) els.username.innerText = `Welcome, ${firstName(user.name)}`;
+    }
+
+    function applyTheme(mode){
+      const dark = mode === "dark";
+      document.body.classList.toggle("dark-mode", dark);
+      localStorage.setItem(TK, dark ? "dark" : "light");
+      if(els.themeToggleIcon) els.themeToggleIcon.className = dark ? "fa-solid fa-sun" : "fa-solid fa-moon";
+    }
+    function initTheme(){
+      const s = localStorage.getItem(TK);
+      if(s === "dark" || s === "light"){ applyTheme(s); return; }
+      applyTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    function toggleTheme(){ applyTheme(document.body.classList.contains("dark-mode") ? "light" : "dark"); }
+
+    function setDir(){
+      const rtl = lang === "ur";
+      document.documentElement.lang = rtl ? "ur" : "en";
+      document.documentElement.dir = rtl ? "rtl" : "ltr";
+      document.body.classList.toggle("page-rtl", rtl);
+      if(els.translateToggleBtn) els.translateToggleBtn.classList.toggle("active", rtl);
+    }
+    function fixTerms(root){
+      if(!root) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      const replacements = lang === "ur"
+        ? [["Khawrai Falahi Committee","خاورئی فلاحی کمیٹی"],["Khawarai Welfare Committee","خاورئی فلاحی کمیٹی"],["Khawrai","خاورئی"]]
+        : [["Khawarai Welfare Committee","Khawrai Falahi Committee"],["Recipe (English)","Constitution (English)"],["Order (Translated)","Constitution (Translated)"]];
+      const texts = [];
+      while(walker.nextNode()) texts.push(walker.currentNode);
+      texts.forEach(node => {
+        let t = node.nodeValue;
+        if(!t) return;
+        replacements.forEach(([from,to]) => { if(t.includes(from)) t = t.split(from).join(to); });
+        if(t !== node.nodeValue) node.nodeValue = t;
+      });
+    }
+    function schedFix(){
+      clearTimeout(fixTimer);
+      fixTimer = setTimeout(() => {
+        if(fixRunning) return;
+        fixRunning = true;
+        try{ fixTerms(document.body); } finally { setTimeout(() => fixRunning = false, 0); }
+      }, 120);
+    }
+    function applyGT(l){
+      const c = document.querySelector(".goog-te-combo");
+      if(!c) return false;
+      c.value = l;
+      c.dispatchEvent(new Event("change"));
+      lang = l;
+      localStorage.setItem(LK, l);
+      setDir();
+      return true;
+    }
+    function applyGTR(l, a = 0){
+      if(applyGT(l)){
+        setTimeout(() => fixTerms(document.body), 250);
+        return;
+      }
+      if(a < 20) setTimeout(() => applyGTR(l, a + 1), 200);
+      else gtPending = l;
+    }
+    function ensureGT(){
+      if(gtPromise) return gtPromise;
+      gtPromise = new Promise((res, rej) => {
+        if(window.google && window.google.translate && document.querySelector(".goog-te-combo")){ res(); return; }
+        window.googleTranslateElementInit = function(){
+          try{
+            if(els["google_translate_element"]) els["google_translate_element"].innerHTML = "";
+            new google.translate.TranslateElement({pageLanguage:"en",includedLanguages:"ur,en",autoDisplay:false}, "google_translate_element");
+            res();
+            if(gtPending){
+              const p = gtPending;
+              gtPending = null;
+              setTimeout(() => applyGTR(p), 250);
+            }
+          }catch(e){ rej(e); }
+        };
+        if(!document.getElementById("kfc-gt-script")){
+          const s = document.createElement("script");
+          s.id = "kfc-gt-script";
+          s.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+          s.async = true;
+          s.onerror = () => rej(new Error("Translator failed"));
+          document.head.appendChild(s);
+        }
+      });
+      return gtPromise;
+    }
+    async function toggleTrans(){
+      const t = lang === "ur" ? "en" : "ur";
+      gtPending = t;
+      try{
+        await ensureGT();
+        applyGTR(t);
+      }catch(e){
+        console.error(e);
+      }
+    }
+
+    function showOut(){
+      if(els.msgBtn) els.msgBtn.style.display = "none";
+      if(els.notificationBtn) els.notificationBtn.style.display = "none";
+      if(els.headerProfileImg) els.headerProfileImg.style.display = "none";
+      if(els.headerUserIcon) els.headerUserIcon.style.display = "block";
+      if(els.guestView) els.guestView.style.display = "block";
+      if(els.userView) els.userView.style.display = "none";
+      if(els.username) els.username.innerText = "Welcome, Guest";
+    }
+    function showIn(){
+      if(els.msgBtn) els.msgBtn.style.display = "flex";
+      if(els.notificationBtn) els.notificationBtn.style.display = "flex";
+      if(els.guestView) els.guestView.style.display = "none";
+      if(els.userView) els.userView.style.display = "flex";
+    }
+    function applyPic(cardNumber){
+      const src = isCommitteeIdentity(currentUser && currentUser.name) ? COMMITTEE_PHOTO : avatarUrl(cardNumber);
+      if(els.headerProfileImg) els.headerProfileImg.src = src;
+      if(els.dropdownProfileImg) els.dropdownProfileImg.src = src;
+      if(els.fullProfileImg) els.fullProfileImg.src = src;
+    }
+    function renderUser(u){
+      if(!u) return;
+      if(els.username) els.username.innerText = `Welcome, ${firstName(u.name)}`;
+      if(els.userFullName) els.userFullName.innerText = `Welcome, ${displayCommitteeName(u.name)}`;
+      if(els.userCard) els.userCard.innerText = `Card Number: ${u.CNo || "Not available"}`;
+      if(els.userDesg) els.userDesg.innerText = `Designation: ${u.Desg}`;
+      if(els.userBlood) els.userBlood.innerText = `Blood Group: ${u.BG || "Not available"}`;
+      if(els.userMobile) els.userMobile.innerText = `Registered Mobile: ${u.mobile || "Not available"}`;
+      applyPic(u.CNo);
+      const vcb = id("viewCardBtn");
+      if(vcb){
+        vcb.href = `https://livenews.live/KFC/viewcard.html?card=${btoa(String(u.CNo))}`;
+        vcb.target = "_blank";
+      }
+      showIn();
+      schedFix();
+    }
+    function showWelcome(name){
+      if(!els.welcomePopup || !els.welcomeText) return;
+      els.welcomeText.innerText = `Welcome, ${displayCommitteeName(name)} 👋`;
+      els.welcomePopup.classList.add("show");
+      setTimeout(() => els.welcomePopup.classList.remove("show"), 2500);
+      schedFix();
+    }
+    function saveS(u){ localStorage.setItem("kfcUser", JSON.stringify(u)); }
+    function clearS(){ localStorage.removeItem("kfcUser"); }
+
+    function checkSession(){
+      const s = localStorage.getItem("kfcUser");
+      if(!s){ currentUser = null; showOut(); setHeaderForSession(null); return; }
+      try{
+        const p = JSON.parse(s);
+        if(p && !String(p.Status || "").toLowerCase().includes("cancel")){
+          currentUser = p;
+          renderUser(p);
+          setHeaderForSession(p);
+          return;
+        }
+        clearS();
+        currentUser = null;
+        showOut();
+        setHeaderForSession(null);
+      }catch(e){
+        clearS();
+        currentUser = null;
+        showOut();
+        setHeaderForSession(null);
+      }
+    }
+    async function login(){
+      if(els.loginError) els.loginError.innerText = "";
+      const u = cleanAlphaNum(els.loginUsername && els.loginUsername.value);
+      const p = String(norm(els.loginPassword && els.loginPassword.value)).replace(/\D/g,"").slice(-3);
+      if(!u || !p){
+        if(els.loginError) els.loginError.innerText = "Enter username and password";
+        return;
+      }
+      if(!users.length){
+        await loadUsers();
+      }
+      const user = users.find(x => {
+        const candidates = [
+          cleanAlphaNum(x.username),
+          cleanAlphaNum(x.user_name),
+          cleanAlphaNum(x.userName),
+          genUserName(x.name)
+        ].filter(Boolean);
+        const passCandidates = [
+          genPass(x.CNo),
+          String(norm(x.password || x.pass || x.loginPassword || x.login_password || "")).replace(/\D/g,"").slice(-3)
+        ].filter(Boolean);
+        return candidates.includes(u) && passCandidates.includes(p);
+      });
+      if(!user){
+        if(els.loginError) els.loginError.innerText = "Invalid credentials";
+        return;
+      }
+      if(String(user.Status || "").toLowerCase().includes("cancel")){
+        if(els.loginError) els.loginError.innerText = "This account is cancelled";
+        return;
+      }
+      currentUser = user;
+      saveS(user);
+      renderUser(user);
+      setHeaderForSession(user);
+      showWelcome(user.name);
+      if(els.loginOverlay) els.loginOverlay.classList.remove("show");
+      loadGallery();
+    }
+
+    async function fetchAlerts(){
+      try{
+        const r = await fetch(`${API_BASE}/message/alerts.json`, {cache:"no-store"});
+        const al = await r.json();
+        if(!els.notiList) return;
+        els.notiList.innerHTML = "";
+        if(!Array.isArray(al) || !al.length){
+          els.notiList.innerHTML = infoMsg("No alerts found.");
+          return;
+        }
+        [...al].reverse().slice(0,3).forEach(a => {
+          const item = document.createElement("div");
+          item.className = "noti-item";
+          const tr = document.createElement("div");
+          tr.className = "noti-top-row";
+          const ti = document.createElement("span");
+          ti.style.cssText = "font-weight:bold;color:#0d3c91;font-size:14px;";
+          ti.textContent = a.title_en || a.title || "Alert";
+          const dt = document.createElement("span");
+          dt.style.cssText = "font-size:11px;color:#888;";
+          dt.textContent = a.date || "";
+          tr.appendChild(ti); tr.appendChild(dt);
+          const bd = document.createElement("div");
+          bd.className = "noti-body";
+          bd.textContent = a.body_en || a.body || "";
+          item.appendChild(tr); item.appendChild(bd);
+          item.addEventListener("click", () => {
+            const open = bd.style.display === "block";
+            document.querySelectorAll(".noti-body").forEach(el => el.style.display = "none");
+            if(!open) bd.style.display = "block";
+          });
+          els.notiList.appendChild(item);
+        });
+        const btn = document.createElement("button");
+        btn.className = "primary-btn";
+        btn.style.width = "100%";
+        btn.style.marginTop = "10px";
+        btn.textContent = "See all alerts";
+        btn.onclick = () => location.href = "https://livenews.live/KFC/message/alerts.html";
+        els.notiList.appendChild(btn);
+      }catch(e){
+        if(els.notiList) els.notiList.innerHTML = infoMsg("Error loading alerts.");
+      }
+    }
+
+    async function fetchMessages(){
+      try{
+        const r = await fetch(`${API_BASE}/messages.json`, {cache:"no-store"});
+        const ms = await r.json();
+        if(!els.msgList) return;
+        els.msgList.innerHTML = "";
+        if(!currentUser){
+          els.msgList.innerHTML = infoMsg("Please sign in to view messages.");
+          return;
+        }
+        const mine = (Array.isArray(ms) ? ms : []).filter(m => norm(m.cardNumber).toLowerCase() === norm(currentUser.CNo).toLowerCase() || norm(m.cardNumber).toLowerCase() === "all");
+        if(!mine.length){
+          els.msgList.innerHTML = infoMsg("No messages found.");
+          return;
+        }
+        mine.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
+        mine.forEach(m => {
+          const item = document.createElement("div");
+          item.className = "noti-item";
+          const tr = document.createElement("div");
+          tr.className = "noti-top-row";
+          const ti = document.createElement("strong");
+          ti.style.cssText = "color:#0d3c91;font-size:14px;";
+          ti.textContent = m.title_en || m.title || "Message";
+          const dt = document.createElement("span");
+          dt.style.cssText = "font-size:11px;color:#888;";
+          dt.textContent = m.date || "";
+          tr.appendChild(ti); tr.appendChild(dt);
+          const bd = document.createElement("div");
+          bd.className = "noti-body";
+          bd.textContent = m.body_en || m.body || "";
+          item.appendChild(tr); item.appendChild(bd);
+          item.addEventListener("click", () => {
+            const open = bd.style.display === "block";
+            document.querySelectorAll(".noti-body").forEach(el => el.style.display = "none");
+            if(!open) bd.style.display = "block";
+          });
+          els.msgList.appendChild(item);
+        });
+      }catch(e){
+        if(els.msgList) els.msgList.innerHTML = infoMsg("Error loading messages.");
+      }
+    }
+
+    function showLeaders(){
+      if(!els.leadersList) return;
+      els.leadersList.innerHTML = "";
+      const roles = ["president","acting president","vice president","committee guardian","committee guardian (ex-pr)","general secretary","finance manager","joint finance secretary","media manager"];
+      const leaders = users.filter(u => roles.includes(norm(u.Desg).toLowerCase())).sort((a,b) => roles.indexOf(norm(a.Desg).toLowerCase()) - roles.indexOf(norm(b.Desg).toLowerCase()));
+      if(!leaders.length){
+        els.leadersList.innerHTML = `<p style="text-align:center;color:#888;padding:15px;">No leaders found.</p>`;
+        return;
+      }
+      leaders.forEach(l => {
+        const d = document.createElement("div");
+        d.className = "leader-item";
+        d.innerHTML = `<h4>${esc(displayCommitteeName(l.name))}</h4><p>${esc(l.Desg)}</p><p class="leader-phone"><i class="fa-solid fa-phone"></i> ${esc(l.mobile || "Not available")}</p>`;
+        els.leadersList.appendChild(d);
+      });
+    }
+
+    function closeAll(){
+      if(els.userDropdown) els.userDropdown.classList.remove("show");
+      if(els.notiDropdown) els.notiDropdown.classList.remove("show");
+      if(els.msgDropdown) els.msgDropdown.classList.remove("show");
+    }
+
+    function parseGalleryMedia(item){
+      const media = normalizeMedia(item);
+      const out = [];
+      media.forEach((m, idx) => {
+        if(!m || !m.src) return;
+        out.push({
+          type: m.type || detectMediaType(m.src, "image"),
+          src: m.src,
+          thumbnail: m.thumbnail || "",
+          mime: m.mime || "",
+          caption: m.caption || "",
+          index: idx
+        });
+      });
+      return out;
+    }
+
+    function mapDbPost(row){
+      const rawAuthor = norm(row.author_name || row.authorName || "");
+      return {
+        sourceType: "db",
+        postKey: row.post_key || row.id,
+        id: row.id,
+        ownerCard: row.owner_card || "",
+        authorName: displayCommitteeName(rawAuthor || COMMITTEE_NAME),
+        authorDesg: row.author_desg || "",
+        authorBlood: row.author_blood || "",
+        authorMobile: row.author_mobile || "",
+        title: row.title || "",
+        body: row.body || row.caption || "",
+        jsonUsername: row.json_username || "",
+        media: row.media_url ? [{
+          type: row.media_type || detectMediaType(row.media_url, "image"),
+          src: row.media_url,
+          thumbnail: row.media_thumbnail || "",
+          mime: row.mime || ""
+        }] : [],
+        createdAt: row.created_at || row.updated_at || new Date().toISOString(),
+        createdSort: normalizeCreated(row.created_at || row.updated_at || 0),
+        raw: row
+      };
+    }
+
+    function mapLegacyPost(item, idx){
+      const media = parseGalleryMedia(item);
+      const username = norm(item.username || item.user_name || "");
+      const authorRaw = norm(item.name || item.author || item.user_full_name || username || COMMITTEE_NAME);
+      const author = displayCommitteeName(authorRaw);
+      return {
+        sourceType: "json",
+        postKey: buildPostKeyForJson(item, idx),
+        ownerCard: norm(item.CNo || item.cardNumber || item.card || ""),
+        authorName: author,
+        authorDesg: norm(item.Desg || item.desg || ""),
+        authorBlood: norm(item.BG || item.blood || ""),
+        authorMobile: norm(item.mobile || item.phone || ""),
+        title: norm(item.title || item.heading || ""),
+        body: fmtCaptionText(item),
+        jsonUsername: username,
+        media,
+        createdAt: item.date || item.created_at || item.time || new Date().toISOString(),
+        createdSort: normalizeCreated(item.date || item.created_at || item.time || 0),
+        raw: item
+      };
+    }
+
+    function canSeeFull(post){
+      if(!currentUser) return false;
+      if(isAdmin(currentUser.CNo)) return true;
+      return norm(post.ownerCard) && norm(post.ownerCard) === norm(currentUser.CNo);
+    }
+
+    function authorDisplayName(post){
+      const raw = norm(post.authorName || post.jsonUsername || "");
+      if(isCommitteeIdentity(raw)) return COMMITTEE_NAME;
+      if(post.sourceType === "json" && post.jsonUsername && isCommitteeIdentity(post.jsonUsername)) return COMMITTEE_NAME;
+      if(post.sourceType === "json" && post.jsonUsername && !raw) return COMMITTEE_NAME;
+      if(canSeeFull(post)) return displayCommitteeName(post.authorName || COMMITTEE_NAME);
+      return firstName(displayCommitteeName(post.authorName || post.jsonUsername || COMMITTEE_NAME));
+    }
+
+    function openAuthorDetails(post){
+      if(!currentUser || !isAdmin(currentUser.CNo)) return;
+      if(!els.authorDetailsOverlay || !els.authorDetailsBody) return;
+      const fullName = displayCommitteeName(post.authorName || COMMITTEE_NAME);
+      const details = [];
+      details.push(`<div class="author-details-item"><strong>Name:</strong> ${esc(fullName)}</div>`);
+      details.push(`<div class="author-details-item"><strong>Card Number:</strong> ${esc(post.ownerCard || "Not available")}</div>`);
+      if(post.authorDesg) details.push(`<div class="author-details-item"><strong>Designation:</strong> ${esc(post.authorDesg)}</div>`);
+      if(post.authorBlood) details.push(`<div class="author-details-item"><strong>Blood Group:</strong> ${esc(post.authorBlood)}</div>`);
+      if(post.authorMobile) details.push(`<div class="author-details-item"><strong>Mobile:</strong> ${esc(post.authorMobile)}</div>`);
+      if(post.sourceType === "json" && post.jsonUsername) details.push(`<div class="author-details-item"><strong>Username:</strong> ${esc(post.jsonUsername)}</div>`);
+      els.authorDetailsBody.innerHTML = details.join("");
+      els.authorDetailsOverlay.classList.add("show");
+    }
+
+    function canDelete(post){
+      if(!currentUser) return false;
+      if(isAdmin(currentUser.CNo)) return true;
+      return post.sourceType === "db" && norm(post.ownerCard) === norm(currentUser.CNo);
+    }
+
+    function setCounterText(el, label, count, active){
+      if(!el) return;
+      el.innerHTML = `${active ? `<i class="fa-solid fa-heart"></i>` : `<i class="fa-regular fa-heart"></i>`} ${label} (${count || 0})`;
+      el.classList.toggle("active", !!active);
+    }
+
+    function ensureMapArray(map, key){
+      if(!map.has(key)) map.set(key, []);
+      return map.get(key);
+    }
+
+    async function loadPostReactions(keys){
+      state.likesCount.clear();
+      state.likedByMe.clear();
+      state.commentsByPost.clear();
+      if(!keys.length) return;
+
+      const [likesRows, commentsRows, hiddenRows] = await Promise.all([
+        sbFetch(`kfc_post_likes?select=post_key,member_card,member_name,created_at&post_key=in.(${keys.map(encodeURIComponent).join(",")})`, {}),
+        sbFetch(`kfc_post_comments?select=post_key,member_card,member_name,comment_text,created_at&post_key=in.(${keys.map(encodeURIComponent).join(",")})&order=created_at.asc`, {}),
+        sbFetch(`kfc_hidden_post_keys?select=post_key`, {})
+      ]);
+
+      state.hiddenKeys = new Set((Array.isArray(hiddenRows) ? hiddenRows : []).map(r => norm(r.post_key)));
+      (Array.isArray(likesRows) ? likesRows : []).forEach(row => {
+        const key = norm(row.post_key);
+        if(!key) return;
+        state.likesCount.set(key, (state.likesCount.get(key) || 0) + 1);
+        if(currentUser && norm(row.member_card) === norm(currentUser.CNo)) state.likedByMe.add(key);
+      });
+      (Array.isArray(commentsRows) ? commentsRows : []).forEach(row => {
+        const key = norm(row.post_key);
+        if(!key) return;
+        const arr = ensureMapArray(state.commentsByPost, key);
+        arr.push({
+          member_card: row.member_card || "",
+          member_name: row.member_name || "Member",
+          comment_text: row.comment_text || "",
+          created_at: row.created_at || new Date().toISOString()
+        });
+      });
+      state.commentsByPost.forEach(arr => arr.sort((a,b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)));
+    }
+
+    function getVisibleComments(postKey){
+      return state.commentsByPost.get(postKey) || [];
+    }
+
+    function updateCardStats(postKey){
+      const record = state.cardMap.get(postKey);
+      if(!record) return;
+      const likes = state.likesCount.get(postKey) || 0;
+      const liked = state.likedByMe.has(postKey);
+      setCounterText(record.likeBtn, "Like", likes, liked);
+      if(record.commentCountEl){
+        const cCount = getVisibleComments(postKey).length;
+        record.commentCountEl.textContent = `Comments (${cCount})`;
+      }
+    }
+
+    function renderComments(post){
+      const record = state.cardMap.get(post.postKey);
+      if(!record) return;
+      const list = record.commentList;
+      if(!list) return;
+      const comments = getVisibleComments(post.postKey);
+      list.innerHTML = "";
+      if(!comments.length){
+        const empty = document.createElement("div");
+        empty.className = "helper-text";
+        empty.style.padding = "6px 0";
+        empty.textContent = "No comments yet. Be the first to comment.";
+        list.appendChild(empty);
+        return;
+      }
+      comments.forEach(c => {
+        const item = document.createElement("div");
+        item.className = "comment-item";
+        const meta = document.createElement("div");
+        meta.className = "comment-meta";
+        const name = document.createElement("span");
+        const sameUser = currentUser && norm(c.member_card) === norm(currentUser.CNo);
+        const visibleName = (isAdmin(currentUser && currentUser.CNo) || sameUser) ? (c.member_name || "Member") : firstName(c.member_name || "Member");
+        name.className = "comment-author";
+        name.textContent = visibleName;
+        const time = document.createElement("span");
+        time.textContent = longDateTime(c.created_at);
+        meta.appendChild(name);
+        meta.appendChild(time);
+        const text = document.createElement("div");
+        text.className = "comment-text";
+        text.textContent = c.comment_text || "";
+        item.appendChild(meta);
+        item.appendChild(text);
+        list.appendChild(item);
+      });
+    }
+
+    function renderPostMedia(post, postCard, lbItems){
+      const mediaList = Array.isArray(post.media) ? post.media : [];
+      if(!mediaList.length) return null;
+
+      if(mediaList.length === 1){
+        const wrap = document.createElement("div");
+        wrap.className = "post-media media-single";
+        wrap.appendChild(makeMediaTile(mediaList[0], lbItems, 0, post.title || "", post.postKey));
+        return wrap;
+      }
+      const grid = document.createElement("div");
+      grid.className = `post-media media-grid count-${Math.min(mediaList.length,6)}`;
+      mediaList.forEach((m,i) => grid.appendChild(makeMediaTile(m, lbItems, i, post.title || "", post.postKey)));
+      return grid;
+    }
+
+    function makeLbItems(post, mediaList){
+      return mediaList.map((m, mi) => ({
+        type: m.type,
+        src: m.src,
+        thumbnail: m.thumbnail || "",
+        thumbnailDataUrl: "",
+        mime: m.mime || "",
+        postTitle: post.title || "",
+        token: `m:${post.postKey}:${mi}`,
+        postToken: `g:${post.postKey}`
+      }));
+    }
+
+    function generateVideoThumbnail(videoSrc, posterImg, tileBg, lbItem){
+      if(!videoSrc) return;
+      const vid = document.createElement("video");
+      vid.muted = true;
+      vid.autoplay = false;
+      vid.playsInline = true;
+      vid.preload = "metadata";
+      vid.crossOrigin = "anonymous";
+      vid.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      let done = false;
+      function cleanup(){ if(vid.parentNode) vid.parentNode.removeChild(vid); }
+      function captureFrame(){
+        if(done) return;
+        done = true;
+        try{
+          canvas.width = vid.videoWidth || 320;
+          canvas.height = vid.videoHeight || 180;
+          ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          if(dataUrl && dataUrl !== "data:,"){
+            posterImg.src = dataUrl;
+            posterImg.style.display = "block";
+            if(lbItem) lbItem.thumbnailDataUrl = dataUrl;
+          }
+        }catch(err){}finally{ cleanup(); }
+      }
+      vid.addEventListener("loadedmetadata", function(){
+        const dur = vid.duration;
+        if(!dur || !isFinite(dur) || dur < 0.5) vid.currentTime = 0.5;
+        else{
+          const min = dur * 0.10;
+          const max = dur * 0.60;
+          vid.currentTime = min + Math.random() * (max - min);
+        }
+      }, {once:true});
+      vid.addEventListener("seeked", captureFrame, {once:true});
+      const timeout = setTimeout(function(){ if(!done){ done = true; cleanup(); } }, 8000);
+      vid.addEventListener("seeked", function(){ clearTimeout(timeout); }, {once:true});
+      vid.addEventListener("error", function(){ if(!done){ done = true; cleanup(); } }, {once:true});
+      const src = document.createElement("source");
+      src.src = videoSrc;
+      vid.appendChild(src);
+      document.body.appendChild(vid);
+      vid.load();
+    }
+
+    function makeMediaTile(media, lbItemsArr, tileIdx, postTitle, postKey){
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "media-tile";
+      btn.setAttribute("aria-label", media.type === "video" ? "Open video" : "Open image");
+      if(media.type === "image"){
+        const img = document.createElement("img");
+        img.className = "media-thumb";
+        img.src = media.src;
+        img.alt = postTitle || "Gallery photo";
+        img.loading = "lazy";
+        img.onerror = () => { btn.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#fff;font-size:13px;padding:18px;text-align:center;">Image unavailable</div>`; };
+        btn.appendChild(img);
+        btn.addEventListener("click", () => openLightbox(lbItemsArr, tileIdx));
+        return btn;
+      }
+      btn.style.background = "linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)";
+      const posterImg = document.createElement("img");
+      posterImg.className = "video-thumb-canvas";
+      posterImg.alt = postTitle || "Video thumbnail";
+      posterImg.loading = "lazy";
+      posterImg.style.display = "none";
+      const lbItem = lbItemsArr[tileIdx];
+      if(media.thumbnail){
+        posterImg.src = media.thumbnail;
+        posterImg.style.display = "block";
+        if(lbItem) lbItem.thumbnailDataUrl = media.thumbnail;
+        posterImg.onerror = () => {
+          posterImg.style.display = "none";
+          if(!isFB(media.src)) generateVideoThumbnail(media.src, posterImg, btn, lbItem);
+        };
+      }else if(!isFB(media.src)){
+        generateVideoThumbnail(media.src, posterImg, btn, lbItem);
+      }
+      btn.appendChild(posterImg);
+      const overlay = document.createElement("div");
+      overlay.className = "media-play-overlay";
+      overlay.innerHTML = `<div class="media-play-circle"><i class="fa-solid fa-play"></i></div><div class="media-play-label">Play</div>`;
+      btn.appendChild(overlay);
+      btn.addEventListener("click", () => openLightbox(lbItemsArr, tileIdx));
+      return btn;
+    }
+
+    function lightboxRender(){
+      if(!els.lightboxInner || !lightboxItems.length) return;
+      const item = lightboxItems[lightboxIndex];
+      els.lightboxInner.innerHTML = "";
+      if(els.lbPrev) els.lbPrev.classList.toggle("hidden", lightboxItems.length <= 1);
+      if(els.lbNext) els.lbNext.classList.toggle("hidden", lightboxItems.length <= 1);
+      let mediaEl = null;
+      if(item.type === "image"){
+        const img = document.createElement("img");
+        img.className = "lightbox-img";
+        img.src = item.src;
+        img.alt = item.postTitle || "Gallery image";
+        img.onerror = () => { img.alt = "Image could not be loaded"; };
+        mediaEl = img;
+      }else if(item.type === "video"){
+        if(isFB(item.src)){
+          const wrap = document.createElement("div");
+          wrap.className = "lightbox-iframe-wrap";
+          const iframe = document.createElement("iframe");
+          iframe.src = fbEmbed(item.src);
+          iframe.setAttribute("allow","autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share");
+          iframe.setAttribute("allowfullscreen","true");
+          iframe.setAttribute("scrolling","no");
+          iframe.setAttribute("frameborder","0");
+          iframe.title = item.postTitle || "Video";
+          wrap.appendChild(iframe);
+          mediaEl = wrap;
+        }else{
+          const video = document.createElement("video");
+          video.className = "lightbox-video";
+          video.controls = true;
+          video.autoplay = true;
+          video.preload = "metadata";
+          video.setAttribute("playsinline","");
+          if(item.thumbnailDataUrl) video.poster = item.thumbnailDataUrl;
+          else if(item.thumbnail) video.poster = item.thumbnail;
+          const source = document.createElement("source");
+          source.src = item.src;
+          source.type = item.mime || "video/mp4";
+          video.appendChild(source);
+          video.onerror = () => { video.outerHTML = `<div style="padding:40px;text-align:center;color:#fff;font-size:14px;line-height:1.7;">Video could not be loaded.</div>`; };
+          mediaEl = video;
+        }
+      }
+      if(mediaEl) els.lightboxInner.appendChild(mediaEl);
+      const bar = document.createElement("div");
+      bar.className = "lightbox-bar";
+      if(lightboxItems.length > 1){
+        const counter = document.createElement("span");
+        counter.className = "lightbox-meta";
+        counter.textContent = `${lightboxIndex + 1} / ${lightboxItems.length}`;
+        bar.appendChild(counter);
+      }
+      if(item.postTitle){
+        const title = document.createElement("span");
+        title.className = "lightbox-meta";
+        title.style.fontWeight = "600";
+        title.textContent = item.postTitle;
+        bar.appendChild(title);
+      }
+      if(item.token){
+        const url = `${location.origin}${location.pathname}#${encodeURIComponent(item.token)}`;
+        const btn = document.createElement("button");
+        btn.className = "lightbox-copy-btn";
+        btn.innerHTML = `<i class="fa-solid fa-link"></i> Copy Link`;
+        btn.addEventListener("click", e => { e.stopPropagation(); copyToClipboard(url, btn); });
+        bar.appendChild(btn);
+      }
+      if(item.postToken){
+        const url = `${location.origin}${location.pathname}#${encodeURIComponent(item.postToken)}`;
+        const btn2 = document.createElement("button");
+        btn2.className = "lightbox-copy-btn";
+        btn2.innerHTML = `<i class="fa-solid fa-layer-group"></i> Copy Post Link`;
+        btn2.addEventListener("click", e => { e.stopPropagation(); copyToClipboard(url, btn2); });
+        bar.appendChild(btn2);
+      }
+      els.lightboxInner.appendChild(bar);
+    }
+    function openLightbox(items, startIdx){
+      lightboxItems = items || [];
+      lightboxIndex = Math.max(0, Math.min(startIdx || 0, lightboxItems.length - 1));
+      if(els.lightbox) els.lightbox.classList.add("show");
+      document.body.style.overflow = "hidden";
+      lightboxRender();
+    }
+    function closeLightbox(){
+      if(els.lightbox) els.lightbox.classList.remove("show");
+      document.body.style.overflow = "";
+      const vid = els.lightboxInner && els.lightboxInner.querySelector("video");
+      if(vid) vid.pause();
+      if(els.lightboxInner) els.lightboxInner.innerHTML = "";
+      lightboxItems = [];
+      lightboxIndex = 0;
+    }
+    function navLightbox(dir){
+      if(!lightboxItems.length) return;
+      lightboxIndex = (lightboxIndex + dir + lightboxItems.length) % lightboxItems.length;
+      const vid = els.lightboxInner && els.lightboxInner.querySelector("video");
+      if(vid) vid.pause();
+      lightboxRender();
+    }
+    async function copyToClipboard(url, btn){
+      if(!btn) return;
+      const orig = btn.innerHTML;
+      try{
+        if(navigator.clipboard && window.isSecureContext){
+          await navigator.clipboard.writeText(url);
+        }else{
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+        setTimeout(() => { btn.innerHTML = orig; }, 1600);
+      }catch(e){
+        btn.innerHTML = `<i class="fa-solid fa-xmark"></i> Failed`;
+        setTimeout(() => { btn.innerHTML = orig; }, 1600);
+      }
+    }
+
+    function renderNotice(text){
+      if(!els.feedWrapper) return;
+      els.feedWrapper.innerHTML = `<div class="notice-card">${infoMsg(text)}</div>`;
+    }
+
+    function createPostCard(post){
+      const card = document.createElement("div");
+      card.className = "post-card";
+      card.dataset.postKey = post.postKey;
+
+      const header = document.createElement("div");
+      header.className = "post-header";
+
+      const avatar = document.createElement("img");
+      avatar.className = "post-avatar";
+      avatar.src = isCommitteeIdentity(post.authorName) || isCommitteeIdentity(post.jsonUsername) ? COMMITTEE_PHOTO : (post.ownerCard ? avatarUrl(post.ownerCard) : DEFAULT_PHOTO);
+      avatar.alt = authorDisplayName(post);
+      avatar.onerror = () => { avatar.src = DEFAULT_PHOTO; };
+
+      const info = document.createElement("div");
+      info.className = "post-header-info";
+
+      const orgName = document.createElement("div");
+      orgName.className = "post-org-name";
+
+      if(currentUser && isAdmin(currentUser.CNo)){
+        const nameBtn = document.createElement("button");
+        nameBtn.type = "button";
+        nameBtn.className = "author-name-btn";
+        nameBtn.textContent = displayCommitteeName(post.authorName || COMMITTEE_NAME);
+        nameBtn.addEventListener("click", () => openAuthorDetails(post));
+        orgName.appendChild(nameBtn);
+      }else{
+        orgName.textContent = authorDisplayName(post);
+      }
+
+      const meta = document.createElement("div");
+      meta.className = "post-meta";
+
+      const dateEl = document.createElement("span");
+      dateEl.className = "post-date";
+      dateEl.textContent = shortDate(post.createdAt) || "";
+
+      const badge = document.createElement("span");
+      badge.className = "post-badge";
+      badge.textContent = post.media && post.media.length > 1 ? "Gallery" : (post.media && post.media[0] && post.media[0].type === "video" ? "Video" : "Photo / Status");
+
+      const viewerBadge = document.createElement("span");
+      viewerBadge.className = "viewer-badge";
+      viewerBadge.textContent = post.sourceType === "json" ? "ADMIN" : "User Post";
+
+      meta.appendChild(dateEl);
+      meta.appendChild(badge);
+      meta.appendChild(viewerBadge);
+
+      info.appendChild(orgName);
+      info.appendChild(meta);
+      header.appendChild(avatar);
+      header.appendChild(info);
+      card.appendChild(header);
+
+      const authorLine = document.createElement("div");
+      authorLine.className = "post-author";
+
+      if(currentUser && isAdmin(currentUser.CNo)){
+        const hint = document.createElement("div");
+        hint.className = "helper-text";
+        hint.style.marginTop = "2px";
+        hint.textContent = "Tap the name to view full details.";
+        authorLine.appendChild(hint);
+      }
+
+      card.appendChild(authorLine);
+
+      const capText = fmtCaptionText(post);
+      const titleText = norm(post.title);
+
+      if(post.sourceType !== "db" && titleText && titleText !== capText){
+        const t = document.createElement("div");
+        t.className = "post-title";
+        t.textContent = titleText;
+        card.appendChild(t);
+      }
+
+      if(capText){
+        const capWrap = document.createElement("div");
+        capWrap.className = "post-caption-wrap";
+        const cap = document.createElement("span");
+        cap.className = "post-caption";
+        cap.textContent = capText;
+        capWrap.appendChild(cap);
+        card.appendChild(capWrap);
+      }
+
+      const mediaList = Array.isArray(post.media) ? post.media : [];
+      const lbItems = makeLbItems(post, mediaList);
+      const mediaEl = renderPostMedia(post, card, lbItems);
+      if(mediaEl) card.appendChild(mediaEl);
+
+      const footer = document.createElement("div");
+      footer.className = "post-footer";
+
+      if(post.sourceType === "json"){
+        const tag = document.createElement("span");
+        tag.className = "post-tag";
+        tag.textContent = "# legacy";
+        footer.appendChild(tag);
+      }
+
+      const typeIcon = document.createElement("span");
+      typeIcon.className = "post-type-icon";
+      typeIcon.innerHTML = mediaList.length && mediaList[0].type === "video"
+        ? `<i class="fa-solid fa-film" title="Video"></i>`
+        : `<i class="fa-solid fa-camera" title="Photo"></i>`;
+      footer.appendChild(typeIcon);
+
+      const actions = document.createElement("div");
+      actions.className = "post-actions";
+
+      const likeBtn = document.createElement("button");
+      likeBtn.className = "post-action-btn";
+      likeBtn.type = "button";
+      likeBtn.addEventListener("click", () => toggleLike(post));
+      actions.appendChild(likeBtn);
+
+      const commentBtn = document.createElement("button");
+      commentBtn.className = "post-action-btn";
+      commentBtn.type = "button";
+      commentBtn.innerHTML = `<i class="fa-regular fa-comment"></i> Comments (0)`;
+      actions.appendChild(commentBtn);
+
+      if(canDelete(post)){
+        const delBtn = document.createElement("button");
+        delBtn.className = "post-action-btn";
+        delBtn.type = "button";
+        delBtn.style.background = "rgba(255,77,77,.12)";
+        delBtn.style.color = "#d33";
+        delBtn.style.borderColor = "rgba(255,77,77,.18)";
+        delBtn.innerHTML = `<i class="fa-solid fa-trash"></i> Delete`;
+        delBtn.addEventListener("click", () => deletePost(post, card));
+        actions.appendChild(delBtn);
+      }
+
+      footer.appendChild(actions);
+      card.appendChild(footer);
+
+      const commentsWrap = document.createElement("div");
+      commentsWrap.className = "comments-wrap";
+      commentsWrap.innerHTML = `
+        <div class="comment-row" style="margin-top:12px">
+          <span class="helper-text" style="font-weight:700;color:#0d3c91">Write a comment</span>
+          <button type="button" class="ghost-btn comment-toggle-close">Hide comments</button>
+        </div>
+        <div class="comments-list"></div>
+        <div class="comment-form">
+          <textarea class="comment-input" placeholder="Write your comment..."></textarea>
+          <div class="comment-row">
+            <span class="helper-text">Comments are visible to committee members only.</span>
+            <button type="button" class="primary-btn comment-submit"><i class="fa-solid fa-paper-plane"></i> Comment</button>
+          </div>
+        </div>
+      `;
+      card.appendChild(commentsWrap);
+
+      const likeCount = state.likesCount.get(post.postKey) || 0;
+      const liked = state.likedByMe.has(post.postKey);
+      setCounterText(likeBtn, "Like", likeCount, liked);
+
+      const cCount = getVisibleComments(post.postKey).length;
+      commentBtn.innerHTML = `<i class="fa-regular fa-comment"></i> Comments (${cCount})`;
+
+      const commentList = commentsWrap.querySelector(".comments-list");
+      const commentInput = commentsWrap.querySelector(".comment-input");
+      const commentSubmit = commentsWrap.querySelector(".comment-submit");
+      const commentClose = commentsWrap.querySelector(".comment-toggle-close");
+
+      renderCommentsToList(post, commentList);
+
+      commentBtn.addEventListener("click", () => {
+        const open = commentsWrap.classList.contains("show");
+        commentsWrap.classList.toggle("show", !open);
+        if(!open){
+          renderCommentsToList(post, commentList);
+          commentInput.focus();
+          commentsWrap.scrollIntoView({behavior:"smooth", block:"nearest"});
+        }
+      });
+      commentClose.addEventListener("click", () => commentsWrap.classList.remove("show"));
+
+      commentSubmit.addEventListener("click", () => addComment(post, commentInput, commentList, commentBtn));
+      commentInput.addEventListener("keydown", e => {
+        if(e.key === "Enter" && (e.ctrlKey || e.metaKey)){
+          e.preventDefault();
+          addComment(post, commentInput, commentList, commentBtn);
+        }
+      });
+
+      const record = {card, likeBtn, commentBtn, commentList, commentsWrap, commentInput};
+      state.cardMap.set(post.postKey, record);
+      return card;
+    }
+
+    function renderCommentsToList(post, list){
+      if(!list) return;
+      const comments = getVisibleComments(post.postKey);
+      list.innerHTML = "";
+      if(!comments.length){
+        const empty = document.createElement("div");
+        empty.className = "helper-text";
+        empty.style.padding = "6px 0";
+        empty.textContent = "No comments yet. Be the first to comment.";
+        list.appendChild(empty);
+        return;
+      }
+      comments.forEach(c => {
+        const item = document.createElement("div");
+        item.className = "comment-item";
+        const meta = document.createElement("div");
+        meta.className = "comment-meta";
+        const name = document.createElement("span");
+        name.className = "comment-author";
+        const same = currentUser && norm(c.member_card) === norm(currentUser.CNo);
+        const visibleName = isAdmin(currentUser && currentUser.CNo) || same ? (c.member_name || "Member") : firstName(c.member_name || "Member");
+        name.textContent = visibleName;
+        const time = document.createElement("span");
+        time.textContent = longDateTime(c.created_at);
+        meta.appendChild(name);
+        meta.appendChild(time);
+        const text = document.createElement("div");
+        text.className = "comment-text";
+        text.textContent = c.comment_text || "";
+        item.appendChild(meta);
+        item.appendChild(text);
+        list.appendChild(item);
+      });
+    }
+
+    async function toggleLike(post){
+      if(!currentUser) return;
+      const key = post.postKey;
+      const liked = state.likedByMe.has(key);
+      const card = state.cardMap.get(key);
+      try{
+        if(liked){
+          await sbFetch(`kfc_post_likes?post_key=eq.${encodeURIComponent(key)}&member_card=eq.${encodeURIComponent(currentUser.CNo)}`, {method:"DELETE", headers:{Prefer:"return=minimal"}});
+          state.likedByMe.delete(key);
+          state.likesCount.set(key, Math.max(0, (state.likesCount.get(key) || 1) - 1));
+        }else{
+          await sbPost("kfc_post_likes", {
+            post_key: key,
+            member_card: currentUser.CNo,
+            member_name: currentUser.name
+          });
+          state.likedByMe.add(key);
+          state.likesCount.set(key, (state.likesCount.get(key) || 0) + 1);
+        }
+        if(card) setCounterText(card.likeBtn, "Like", state.likesCount.get(key) || 0, state.likedByMe.has(key));
+      }catch(e){
+        alert("Could not update like right now.");
+        console.error(e);
+      }
+    }
+
+    async function addComment(post, input, list, commentBtn){
+      if(!currentUser) return;
+      const text = norm(input.value);
+      if(!text) return;
+      input.disabled = true;
+      try{
+        const row = await sbPost("kfc_post_comments", {
+          post_key: post.postKey,
+          member_card: currentUser.CNo,
+          member_name: currentUser.name,
+          comment_text: text
+        });
+        const saved = Array.isArray(row) ? row[0] : row;
+        const arr = ensureMapArray(state.commentsByPost, post.postKey);
+        arr.push({
+          member_card: saved.member_card || currentUser.CNo,
+          member_name: saved.member_name || currentUser.name,
+          comment_text: saved.comment_text || text,
+          created_at: saved.created_at || new Date().toISOString()
+        });
+        arr.sort((a,b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+        input.value = "";
+        renderCommentsToList(post, list);
+        if(commentBtn) commentBtn.innerHTML = `<i class="fa-regular fa-comment"></i> Comments (${arr.length})`;
+      }catch(e){
+        alert("Could not save comment right now.");
+        console.error(e);
+      }finally{
+        input.disabled = false;
+      }
+    }
+
+    async function deletePost(post, card){
+      if(!currentUser) return;
+      const ok = confirm(isAdmin(currentUser.CNo) ? "Delete this post?" : "Delete your post?");
+      if(!ok) return;
+      try{
+        if(post.sourceType === "db"){
+          await Promise.all([
+            sbFetch(`kfc_gallery_posts?post_key=eq.${encodeURIComponent(post.postKey)}`, {method:"DELETE", headers:{Prefer:"return=minimal"}}),
+            sbFetch(`kfc_post_likes?post_key=eq.${encodeURIComponent(post.postKey)}`, {method:"DELETE", headers:{Prefer:"return=minimal"}}),
+            sbFetch(`kfc_post_comments?post_key=eq.${encodeURIComponent(post.postKey)}`, {method:"DELETE", headers:{Prefer:"return=minimal"}})
+          ]);
+        }else{
+          await sbPost("kfc_hidden_post_keys", {
+            post_key: post.postKey,
+            hidden_by_card: currentUser.CNo,
+            hidden_by_name: currentUser.name,
+            reason: "admin hide"
+          });
+        }
+        if(card && card.parentNode) card.parentNode.removeChild(card);
+        state.cardMap.delete(post.postKey);
+        state.posts = state.posts.filter(p => p.postKey !== post.postKey);
+      }catch(e){
+        alert("Could not delete this post.");
+        console.error(e);
+      }
+    }
+
+    async function loadUsers(){
+      try{
+        const r = await fetch(USERS_JSON, {cache:"no-store"});
+        const data = await r.json();
+        users = Array.isArray(data) ? data.map(normalizeUserRow).filter(u => u.name || u.CNo) : [];
+      }catch(e){
+        console.error(e);
+        users = [];
+      }
+    }
+
+    async function loadAllPostsData(){
+      state.posts = [];
+      state.cardMap.clear();
+      if(!currentUser){
+        renderNotice("Please sign in with a committee user account to view gallery posts.");
+        if(els.feedLoader) els.feedLoader.remove();
+        return;
+      }
+      if(els.feedLoader) els.feedLoader.remove();
+      if(els.feedWrapper) els.feedWrapper.innerHTML = "";
+
+      const composer = document.createElement("div");
+      composer.className = "composer-card";
+      composer.innerHTML = `
+        <div class="composer-title">
+          <div style="display:flex;align-items:center;gap:10px">
+            <img src="${escapeAttr(publicAvatarForUser(currentUser))}" alt="My photo" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid rgba(120,115,245,.25)" onerror="this.src='${DEFAULT_PHOTO}'">
+            <div>
+              <h2>Share a Status</h2>
+              <div class="helper-text">${isAdmin(currentUser.CNo) ? "Admin access enabled" : "Photo or text status only"}</div>
+            </div>
+          </div>
+          <span class="viewer-badge">${isAdmin(currentUser.CNo) ? "Admin" : "Member"}</span>
+        </div>
+        <div class="composer-body">
+          <textarea id="statusText" class="composer-text" placeholder="Write a status update or caption..."></textarea>
+          <div class="composer-controls">
+            <label class="file-pill" for="statusPhoto"><i class="fa-solid fa-image"></i> Add Photo</label>
+            <input id="statusPhoto" type="file" accept="image/*" class="hidden">
+            <div class="composer-actions">
+              <button type="button" id="clearPhotoBtn" class="secondary-btn"><i class="fa-solid fa-xmark"></i> Remove Photo</button>
+              <button type="button" id="postStatusBtn" class="primary-btn"><i class="fa-solid fa-paper-plane"></i> Post</button>
+            </div>
+          </div>
+          <div id="photoHint" class="helper-text">A status can be text-only, photo-only, or both.</div>
+          <div id="selectedPhotoName" class="helper-text"></div>
+        </div>
+      `;
+      els.feedWrapper.appendChild(composer);
+
+      const statusText = composer.querySelector("#statusText");
+      const statusPhoto = composer.querySelector("#statusPhoto");
+      const postStatusBtn = composer.querySelector("#postStatusBtn");
+      const clearPhotoBtn = composer.querySelector("#clearPhotoBtn");
+      const selectedPhotoName = composer.querySelector("#selectedPhotoName");
+
+      let pickedFile = null;
+      statusPhoto.addEventListener("change", () => {
+        pickedFile = statusPhoto.files && statusPhoto.files[0] ? statusPhoto.files[0] : null;
+        selectedPhotoName.textContent = pickedFile ? `Selected: ${pickedFile.name}` : "";
+      });
+      clearPhotoBtn.addEventListener("click", () => {
+        pickedFile = null;
+        statusPhoto.value = "";
+        selectedPhotoName.textContent = "";
+      });
+
+      postStatusBtn.addEventListener("click", async () => {
+        const text = norm(statusText.value);
+        if(!text && !pickedFile){
+          alert("Please write a status or select a photo.");
+          return;
+        }
+        postStatusBtn.disabled = true;
+        try{
+          let mediaUrl = "";
+          let mediaType = null;
+          if(pickedFile){
+            mediaUrl = await uploadToStorage(pickedFile, `posts/${currentUser.CNo}`);
+            mediaType = "image";
+          }
+          const postKey = `post:${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+          await sbPost("kfc_gallery_posts", {
+            post_key: postKey,
+            source_type: "user",
+            owner_card: currentUser.CNo,
+            author_name: currentUser.name,
+            author_desg: currentUser.Desg || "",
+            author_blood: currentUser.BG || "",
+            author_mobile: currentUser.mobile || "",
+            title: text.slice(0, 70),
+            body: text,
+            media_url: mediaUrl || null,
+            media_type: mediaType,
+            json_username: null
+          });
+          statusText.value = "";
+          pickedFile = null;
+          statusPhoto.value = "";
+          selectedPhotoName.textContent = "";
+          await loadGallery();
+          window.scrollTo({top:0, behavior:"smooth"});
+        }catch(e){
+          console.error(e);
+          alert("Could not post right now.");
+        }finally{
+          postStatusBtn.disabled = false;
+        }
+      });
+
+      const loading = document.createElement("div");
+      loading.className = "feed-loading";
+      loading.id = "galleryLoading";
+      loading.innerHTML = `<i class="fa-solid fa-spinner"></i>Loading gallery posts…`;
+      els.feedWrapper.appendChild(loading);
+
+      try{
+        const [dbRows, legacyRows, hiddenRows] = await Promise.all([
+          sbFetch("kfc_gallery_posts?select=*&source_type=eq.user&order=created_at.desc", {}),
+          fetch(LEGACY_GALLERY_JSON, {cache:"no-store"}).then(r => r.json()).catch(() => []),
+          sbFetch("kfc_hidden_post_keys?select=post_key", {})
+        ]);
+
+        state.hiddenKeys = new Set((Array.isArray(hiddenRows) ? hiddenRows : []).map(r => norm(r.post_key)));
+
+        const posts = [];
+        (Array.isArray(dbRows) ? dbRows : []).forEach(row => posts.push(mapDbPost(row)));
+        (Array.isArray(legacyRows) ? legacyRows : []).forEach((item, idx) => posts.push(mapLegacyPost(item, idx)));
+
+        const visible = posts.filter(p => !state.hiddenKeys.has(norm(p.postKey))).sort((a,b) => (b.createdSort || 0) - (a.createdSort || 0));
+        state.posts = visible;
+
+        const keys = visible.map(p => p.postKey);
+        await loadPostReactions(keys);
+
+        if(loading.parentNode) loading.remove();
+
+        if(!visible.length){
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.innerHTML = `<i class="fa-solid fa-images"></i>No posts found yet.`;
+          els.feedWrapper.appendChild(empty);
+          return;
+        }
+
+        visible.forEach((post, idx) => {
+          const card = createPostCard(post);
+          card.style.animationDelay = `${idx * 0.05}s`;
+          els.feedWrapper.appendChild(card);
+        });
+
+        const end = document.createElement("div");
+        end.className = "feed-end-marker";
+        end.innerHTML = `<i class="fa-solid fa-check-circle"></i>You're all caught up`;
+        els.feedWrapper.appendChild(end);
+
+        visible.forEach(p => updateCardStats(p.postKey));
+      }catch(e){
+        console.error(e);
+        if(loading.parentNode) loading.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="animation:none;color:#e55;"></i>Failed to load the gallery. Please try again later.`;
+      }
+    }
+
+    function escapeAttr(v){
+      return String(v ?? "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    async function loadGallery(){
+      if(!currentUser){
+        renderNotice("Please sign in with a committee user account to view gallery posts.");
+        if(els.feedLoader) els.feedLoader.remove();
+        return;
+      }
+      await loadAllPostsData();
+    }
+
+    function bindEvents(){
+      if(els.userArea) els.userArea.addEventListener("click", e => {
+        e.stopPropagation();
+        if(els.notiDropdown) els.notiDropdown.classList.remove("show");
+        if(els.msgDropdown) els.msgDropdown.classList.remove("show");
+        if(els.userDropdown) els.userDropdown.classList.toggle("show");
+      });
+      if(els.themeToggleBtn) els.themeToggleBtn.addEventListener("click", e => { e.stopPropagation(); toggleTheme(); });
+      if(els.translateToggleBtn) els.translateToggleBtn.addEventListener("click", e => { e.stopPropagation(); toggleTrans(); });
+
+      if(els.notificationBtn) els.notificationBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        if(els.userDropdown) els.userDropdown.classList.remove("show");
+        if(els.msgDropdown) els.msgDropdown.classList.remove("show");
+        if(els.notiDropdown) els.notiDropdown.classList.toggle("show");
+        if(!currentUser){
+          if(els.notiList) els.notiList.innerHTML = infoMsg("Please sign in to view alerts.");
+          return;
+        }
+        fetchAlerts();
+        if(els.notiBadge) els.notiBadge.style.display = "none";
+      });
+
+      if(els.msgBtn) els.msgBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        if(els.userDropdown) els.userDropdown.classList.remove("show");
+        if(els.notiDropdown) els.notiDropdown.classList.remove("show");
+        if(els.msgDropdown) els.msgDropdown.classList.toggle("show");
+        if(!currentUser){
+          if(els.msgList) els.msgList.innerHTML = infoMsg("Please sign in to view messages.");
+          return;
+        }
+        fetchMessages();
+      });
+
+      if(els.viewPhotoBtn) els.viewPhotoBtn.addEventListener("click", () => {
+        if(els.photoOverlay) els.photoOverlay.classList.add("show");
+        if(els.userDropdown) els.userDropdown.classList.remove("show");
+      });
+      if(els.closePhotoOverlay) els.closePhotoOverlay.addEventListener("click", () => { if(els.photoOverlay) els.photoOverlay.classList.remove("show"); });
+      if(els.photoOverlay) els.photoOverlay.addEventListener("click", e => { if(e.target === els.photoOverlay) els.photoOverlay.classList.remove("show"); });
+
+      if(els.logoutBtn) els.logoutBtn.addEventListener("click", () => { clearS(); currentUser = null; location.reload(); });
+      if(els.openLoginBtn) els.openLoginBtn.addEventListener("click", () => { if(els.loginOverlay) els.loginOverlay.classList.add("show"); });
+      if(els.loginOverlay) els.loginOverlay.addEventListener("click", e => { if(e.target === els.loginOverlay) els.loginOverlay.classList.remove("show"); });
+      if(els.loginBtn) els.loginBtn.addEventListener("click", login);
+
+      if(els.lightboxClose) els.lightboxClose.addEventListener("click", closeLightbox);
+      if(els.lightbox) els.lightbox.addEventListener("click", e => { if(e.target === els.lightbox) closeLightbox(); });
+      if(els.lbPrev) els.lbPrev.addEventListener("click", e => { e.stopPropagation(); navLightbox(-1); });
+      if(els.lbNext) els.lbNext.addEventListener("click", e => { e.stopPropagation(); navLightbox(+1); });
+
+      document.addEventListener("keydown", e => {
+        if(e.key === "Enter" && els.loginOverlay && els.loginOverlay.classList.contains("show")) login();
+        if(e.key === "Escape"){
+          if(els.lightbox && els.lightbox.classList.contains("show")) closeLightbox();
+          else{
+            if(els.photoOverlay && els.photoOverlay.classList.contains("show")) els.photoOverlay.classList.remove("show");
+            if(els.userDropdown) els.userDropdown.classList.remove("show");
+            if(els.notiDropdown) els.notiDropdown.classList.remove("show");
+            if(els.msgDropdown) els.msgDropdown.classList.remove("show");
+            if(els.authorDetailsOverlay) els.authorDetailsOverlay.classList.remove("show");
+          }
+        }
+        if(e.key === "ArrowLeft" && els.lightbox && els.lightbox.classList.contains("show")) navLightbox(-1);
+        if(e.key === "ArrowRight" && els.lightbox && els.lightbox.classList.contains("show")) navLightbox(+1);
+      });
+
+      let touchStartX = 0;
+      if(els.lightbox){
+        els.lightbox.addEventListener("touchstart", e => { touchStartX = e.changedTouches[0].clientX; }, {passive:true});
+        els.lightbox.addEventListener("touchend", e => {
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          if(Math.abs(dx) > 50) navLightbox(dx < 0 ? 1 : -1);
+        }, {passive:true});
+      }
+
+      document.addEventListener("click", closeAll);
+      [els.userDropdown, els.notiDropdown, els.msgDropdown].forEach(b => { if(b) b.addEventListener("click", e => e.stopPropagation()); });
+      if(els.closeLeaders) els.closeLeaders.addEventListener("click", () => { if(els.leadersOverlay) els.leadersOverlay.classList.remove("show"); });
+      if(els.leadersOverlay) els.leadersOverlay.addEventListener("click", e => { if(e.target === els.leadersOverlay) els.leadersOverlay.classList.remove("show"); });
+
+      if(els.closeAuthorDetails) els.closeAuthorDetails.addEventListener("click", () => { if(els.authorDetailsOverlay) els.authorDetailsOverlay.classList.remove("show"); });
+      if(els.authorDetailsOverlay) els.authorDetailsOverlay.addEventListener("click", e => { if(e.target === els.authorDetailsOverlay) els.authorDetailsOverlay.classList.remove("show"); });
+
+      if(els.sidebarToggle) els.sidebarToggle.addEventListener("click", e => {
+        e.stopPropagation();
+        const sidebar = id("sidebar");
+        if(!sidebar) return;
+        sidebar.style.display = sidebar.style.display === "flex" ? "none" : "flex";
+      });
+
+      window.addEventListener("hashchange", () => {
+        const token = (location.hash || "").replace(/^#/,"");
+        if(!token){
+          if(els.lightbox && els.lightbox.classList.contains("show")) closeLightbox();
+          return;
+        }
+      });
+
+      window.addEventListener("load", () => document.body.classList.add("loaded"));
+    }
+
+    async function init(){
+      cache();
+      initTheme();
+      setDir();
+      bindEvents();
+      if(lang === "ur"){
+        ensureGT().then(() => applyGTR("ur")).catch(e => console.error(e));
+      }
+      await loadUsers();
+      checkSession();
+      schedFix();
+      if(currentUser) await loadGallery();
+      else renderNotice("Please sign in with a committee user account to view gallery posts.");
+    }
+
+    if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+    else init();
+  })();
+  </script>
+</body>
+</html>
