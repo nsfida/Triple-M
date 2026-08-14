@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Emirates ID Search - Khawrai Falahi Committee UAE</title>
+  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* ── Emirates ID page-specific styles ── */
+
+    .eid-search-wrapper {
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto 28px;
+    }
+
+    .eid-tab-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .eid-tab {
+      flex: 1;
+      min-width: 130px;
+      padding: 11px 14px;
+      border: 2px solid transparent;
+      border-radius: 30px;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(10px);
+      color: #0d3c91;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    body.dark-mode .eid-tab {
+      color: #9bc2ff;
+      background: rgba(10,18,33,0.45);
+    }
+
+    .eid-tab.active,
+    .eid-tab:hover {
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .eid-search-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .eid-search-input {
+      flex: 1;
+      min-width: 180px;
+      padding: 12px 18px;
+      border: 1.5px solid rgba(120,115,245,0.35);
+      border-radius: 30px;
+      font-size: 15px;
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(10px);
+      color: #1a1a1a;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    body.dark-mode .eid-search-input {
+      background: rgba(10,18,33,0.55);
+      color: #eef4ff;
+      border-color: rgba(120,115,245,0.45);
+    }
+
+    .eid-search-input:focus {
+      border-color: #7873f5;
+      box-shadow: 0 0 0 3px rgba(120,115,245,0.15);
+    }
+
+    .eid-search-btn {
+      padding: 12px 26px;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.3s, transform 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eid-search-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    .eid-results-area {
+      margin-top: 24px;
+    }
+
+    .eid-result-card {
+      background: rgba(255,255,255,0.28);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 18px;
+      padding: 18px 22px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    body.dark-mode .eid-result-card {
+      background: rgba(10,18,33,0.58);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .eid-result-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(0,0,0,0.13);
+    }
+
+    .eid-result-info {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .eid-result-name {
+      font-size: 17px;
+      font-weight: bold;
+      color: #0d3c91;
+    }
+
+    body.dark-mode .eid-result-name {
+      color: #9bc2ff;
+    }
+
+    .eid-result-meta {
+      font-size: 13px;
+      color: #555;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    body.dark-mode .eid-result-meta {
+      color: #c9d5ea;
+    }
+
+    .eid-result-meta span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .eid-view-btn {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 25px;
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.3s, transform 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eid-view-btn:hover {
+      opacity: 0.88;
+      transform: translateY(-2px);
+    }
+
+    .eid-no-results {
+      text-align: center;
+      padding: 35px 20px;
+      color: #888;
+      font-size: 15px;
+    }
+
+    body.dark-mode .eid-no-results {
+      color: #c9d5ea;
+    }
+
+    /* ── Access Gate Banners ── */
+    .eid-access-gate {
+      border-radius: 20px;
+      padding: 40px 28px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: fadeInUp 0.45s ease both;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .eid-access-gate .gate-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      margin-bottom: 4px;
+    }
+
+    .eid-access-gate.gate-login .gate-icon {
+      background: linear-gradient(135deg, rgba(120,115,245,0.15), rgba(255,110,196,0.15));
+      color: #7873f5;
+      border: 2px solid rgba(120,115,245,0.3);
+    }
+
+    .eid-access-gate.gate-denied .gate-icon {
+      background: linear-gradient(135deg, rgba(229,62,62,0.12), rgba(255,110,196,0.12));
+      color: #e53e3e;
+      border: 2px solid rgba(229,62,62,0.25);
+    }
+
+    .eid-access-gate h3 {
+      font-size: 19px;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .eid-access-gate.gate-login h3 {
+      background: linear-gradient(90deg, #0d3c91, #7873f5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    body.dark-mode .eid-access-gate.gate-login h3 {
+      background: linear-gradient(90deg, #9bc2ff, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .eid-access-gate.gate-denied h3 {
+      color: #c53030;
+    }
+
+    body.dark-mode .eid-access-gate.gate-denied h3 {
+      color: #fc8181;
+    }
+
+    .eid-access-gate p {
+      font-size: 14px;
+      color: #666;
+      max-width: 420px;
+      line-height: 1.65;
+      margin: 0;
+    }
+
+    body.dark-mode .eid-access-gate p {
+      color: #c9d5ea;
+    }
+
+    .gate-signin-btn {
+      margin-top: 6px;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(90deg, #7873f5, #ff6ec4);
+      color: #fff;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      transition: opacity 0.3s, transform 0.2s;
+      box-shadow: 0 4px 18px rgba(120,115,245,0.35);
+    }
+
+    .gate-signin-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    /* denied badge strip */
+    .gate-denied-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 30px;
+      background: rgba(229,62,62,0.08);
+      border: 1px solid rgba(229,62,62,0.22);
+      font-size: 13px;
+      font-weight: bold;
+      color: #c53030;
+    }
+
+    body.dark-mode .gate-denied-strip {
+      background: rgba(229,62,62,0.14);
+      color: #fc8181;
+    }
+
+    /* Top access status indicator bar */
+    #eidAccessBar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 18px;
+      border-radius: 14px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      animation: fadeInUp 0.4s ease both;
+    }
+
+    #eidAccessBar.bar-allowed {
+      background: rgba(56,161,105,0.1);
+      border: 1px solid rgba(56,161,105,0.28);
+      color: #276749;
+      display: flex;
+    }
+
+    #eidAccessBar.bar-denied {
+      background: rgba(229,62,62,0.09);
+      border: 1px solid rgba(229,62,62,0.25);
+      color: #c53030;
+      display: flex;
+    }
+
+    body.dark-mode #eidAccessBar.bar-allowed { color: #68d391; background: rgba(56,161,105,0.14); }
+    body.dark-mode #eidAccessBar.bar-denied  { color: #fc8181; background: rgba(229,62,62,0.16); }
+
+    /* ── Password Modal ── */
+    .pwd-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 4000;
+    }
+
+    .pwd-overlay.show {
+      display: flex;
+    }
+
+    .pwd-box {
+      width: 90%;
+      max-width: 380px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+      padding: 32px 28px;
+      text-align: center;
+      position: relative;
+    }
+
+    body.dark-mode .pwd-box {
+      background: rgba(10,22,40,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .pwd-box-icon {
+      font-size: 42px;
+      margin-bottom: 14px;
+      color: #7873f5;
+    }
+
+    .pwd-box h3 {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      background: linear-gradient(90deg, #0d3c91, #7873f5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .pwd-box p {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    body.dark-mode .pwd-box p {
+      color: #c9d5ea;
+    }
+
+    .pwd-input-row {
+      position: relative;
+      margin-bottom: 14px;
+    }
+
+    .pwd-input {
+      width: 100%;
+      padding: 12px 46px 12px 18px;
+      border: 1.5px solid rgba(120,115,245,0.4);
+      border-radius: 25px;
+      font-size: 15px;
+      background: rgba(255,255,255,0.7);
+      color: #1a1a1a;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.3s;
+    }
+
+    body.dark-mode .pwd-input {
+      background: rgba(10,18,33,0.7);
+      color: #eef4ff;
+      border-color: rgba(120,115,245,0.45);
+    }
+
+    .pwd-input:focus {
+      border-color: #7873f5;
+      box-shadow: 0 0 0 3px rgba(120,115,245,0.15);
+    }
+
+    .pwd-eye-btn {
+      position: absolute;
+      right: 14px;
+      top: 0%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #7873f5;
+      font-size: 16px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .pwd-submit-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 25px;
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity 0.3s, transform 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .pwd-submit-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    .pwd-error {
+      color: #e53e3e;
+      font-size: 13px;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    .pwd-close-btn {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #0d3c91;
+      line-height: 1;
+      transition: color 0.3s, transform 0.2s;
+    }
+
+    body.dark-mode .pwd-close-btn {
+      color: #9bc2ff;
+    }
+
+    .pwd-close-btn:hover {
+      color: #ff4d4d;
+      transform: scale(1.2);
+    }
+
+    /* ── Emirates ID Viewer Overlay ── */
+    .eid-viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(12px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 5000;
+    }
+
+    body.dark-mode .eid-viewer-overlay {
+      background: rgba(0,0,0,0.55);
+    }
+
+    .eid-viewer-overlay.show {
+      display: flex;
+    }
+
+    .eid-viewer-box {
+      width: 92%;
+      max-width: 600px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.55);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      padding: 22px;
+      position: relative;
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+
+    body.dark-mode .eid-viewer-box {
+      background: rgba(10,22,40,0.94);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .eid-viewer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .eid-viewer-header h2 {
+      background: linear-gradient(90deg, #0d3c91, #7873f5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 18px;
+    }
+
+    body.dark-mode .eid-viewer-header h2 {
+      background: linear-gradient(90deg, #9bc2ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .eid-viewer-close {
+      color: #0d3c91;
+      font-size: 22px;
+      cursor: pointer;
+      transition: color 0.3s, transform 0.2s;
+    }
+
+    body.dark-mode .eid-viewer-close {
+      color: #9bc2ff;
+    }
+
+    .eid-viewer-close:hover {
+      color: #ff4d4d;
+      transform: scale(1.2);
+    }
+
+    .eid-viewer-member-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      background: rgba(120,115,245,0.08);
+      border-radius: 14px;
+      border: 1px solid rgba(120,115,245,0.18);
+    }
+
+    .eid-viewer-member-info i {
+      font-size: 28px;
+      color: #7873f5;
+    }
+
+    .eid-viewer-member-info .info-text h4 {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0d3c91;
+      margin: 0 0 3px;
+      -webkit-text-fill-color: #0d3c91;
+      background: none;
+    }
+
+    body.dark-mode .eid-viewer-member-info .info-text h4 {
+      color: #9bc2ff;
+      -webkit-text-fill-color: #9bc2ff;
+    }
+
+    .eid-viewer-member-info .info-text p {
+      font-size: 13px;
+      color: #555;
+      margin: 0;
+    }
+
+    body.dark-mode .eid-viewer-member-info .info-text p {
+      color: #c9d5ea;
+    }
+
+    #eidImageContainer {
+      width: 100%;
+      text-align: center;
+    }
+
+    #eidImageContainer img {
+      width: 100%;
+      border-radius: 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+    }
+
+    .eid-loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 35px;
+      color: #7873f5;
+    }
+
+    .eid-loading-spinner i {
+      font-size: 36px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .eid-load-error {
+      text-align: center;
+      padding: 30px;
+      color: #e53e3e;
+      font-size: 15px;
+    }
+
+    /* ── Page hero banner ── */
+    .eid-hero {
+      padding: 22px;
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .eid-hero-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ff6ec4, #7873f5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .eid-hero-icon i {
+      font-size: 28px;
+      color: #fff;
+    }
+
+    .eid-hero-text h2 {
+      font-size: 20px;
+      text-align: left;
+    }
+
+    .eid-hero-text p {
+      font-size: 13px;
+      color: #555;
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    body.dark-mode .eid-hero-text p {
+      color: #c9d5ea;
+    }
+
+    /* ── Download button inside viewer ── */
+    .eid-download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 10px 22px;
+      border: none;
+      border-radius: 25px;
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      transition: opacity 0.3s, transform 0.2s;
+    }
+
+    .eid-download-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+
+    /* ── Spinner on view button ── */
+    .btn-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Responsive tweaks ── */
+    @media (max-width: 500px) {
+      .eid-result-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .eid-view-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .eid-tab-row {
+        flex-direction: column;
+      }
+
+      .eid-search-box {
+        flex-direction: column;
+      }
+
+      .eid-search-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Floating background circles ── -->
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+  </div>
+
+  <!-- ── Top Header ── -->
+  <header class="top-header">
+    <div class="logo-area">
+      <a href="https://livenews.live/KFC" aria-label="Go to KFC home page">
+        <img src="logo.png" alt="KFC Logo" class="dancing-logo">
+      </a>
+      <div class="logo-text"></div>
+    </div>
+
+    <div class="user-area" id="userArea">
+      <button class="notification-wrapper theme-toggle-btn" id="themeToggleBtn" type="button"
+        aria-label="Toggle dark mode" title="Toggle dark mode">
+        <i class="fa-solid fa-moon" id="themeToggleIcon" aria-hidden="true"></i>
+      </button>
+      <button class="notification-wrapper translate-toggle-btn" id="translateToggleBtn" type="button"
+        aria-label="Translate page to Urdu" title="Translate page to Urdu">
+        <i class="fa-solid fa-language" id="translateToggleIcon" aria-hidden="true"></i>
+      </button>
+
+      <div class="notification-wrapper" id="msgBtn">
+        <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+        <span class="notification-badge" id="msgBadge" style="display:none;">!</span>
+        <div class="notification-dropdown glass" id="msgDropdown">
+          <div class="noti-header">Personal Messages</div>
+          <div id="msgList" class="noti-list">
+            <p class="noti-loading">Loading messages...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="notification-wrapper" id="notificationBtn">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        <span class="notification-badge" id="notiBadge" style="display:none;">!</span>
+        <div class="notification-dropdown glass" id="notiDropdown">
+          <div class="noti-header">Recent Alerts</div>
+          <div id="notiList" class="noti-list">
+            <p class="noti-loading">Loading alerts...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-profile-img-container">
+        <img id="headerProfileImg" src="https://livenews.live/KFC/static/images/photos/default.png"
+          alt="User" class="header-profile-img" style="display:none;">
+        <i class="fa-solid fa-user-circle" id="headerUserIcon" aria-hidden="true"></i>
+      </div>
+      <span id="username">Welcome, Guest</span>
+      <i class="fa-solid fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
+    </div>
+  </header>
+
+  <!-- ── Info Marquee Banner ── -->
+  <div id="infoBanner" class="info-banner">
+    <div class="marquee">
+      🪪 Emirates ID Search — Look up any member's Emirates ID securely. A password is required to view the ID image. Please ensure you have the correct authorization before proceeding.
+    </div>
+  </div>
+
+  <!-- ── User Dropdown ── -->
+  <div id="userDropdown" class="user-dropdown glass">
+    <div id="guestView">
+      <h3>Welcome Guest</h3>
+      <p>Please sign in to access your account</p>
+      <button id="openLoginBtn" type="button">
+        <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Sign In
+      </button>
+    </div>
+    <div id="userView" style="display:none; flex-direction:column; align-items:center; gap:6px;">
+      <div class="dropdown-photo-area">
+        <img id="dropdownProfileImg" src="" alt="Profile Photo" class="dropdown-profile-img">
+      </div>
+      <h3 id="userFullName"></h3>
+      <div class="user-info">
+        <p id="userCard"></p>
+        <p id="userDesg"></p>
+        <p id="userBlood"></p>
+        <p id="userMobile"></p>
+      </div>
+      <div class="user-buttons" style="display:flex; flex-direction:column; gap:8px; width:100%; align-items:center;">
+        <button id="viewPhotoBtn" type="button">
+          <i class="fa-solid fa-image" aria-hidden="true"></i> View Photo
+        </button>
+        <a id="viewCardBtn" href="#" target="_blank" rel="noopener noreferrer">View Card</a>
+        <button id="logoutBtn" type="button">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Profile Photo Overlay ── -->
+  <div id="photoOverlay" class="overlay" aria-hidden="true">
+    <div class="photo-viewer-box glass">
+      <div class="leaders-header">
+        <h2>Profile Photo</h2>
+        <i class="fa-solid fa-xmark" id="closePhotoOverlay" aria-hidden="true"></i>
+      </div>
+      <img id="fullProfileImg" src="" alt="User Photo"
+        style="width:100%; border-radius:15px; box-shadow:0 5px 15px rgba(0,0,0,0.2);">
+    </div>
+  </div>
+
+  <!-- ── Login Overlay ── -->
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true">
+    <div class="login-box glass">
+      <h2><i class="fa-solid fa-user-lock" aria-hidden="true"></i> Secure Login</h2>
+      <input type="text" id="loginUsername" placeholder="Enter Username" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Enter Password" autocomplete="current-password">
+      <button id="loginBtn" type="button">Login</button>
+      <p id="loginError" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- ── Welcome Popup ── -->
+  <div id="welcomePopup" class="welcome-popup" aria-live="polite">
+    <p id="welcomeText"></p>
+  </div>
+
+  <!-- ── Leaders Overlay ── -->
+  <div id="leadersOverlay" class="overlay" aria-hidden="true">
+    <div class="leaders-box glass">
+      <div class="leaders-header">
+        <h2>Committee Leaders</h2>
+        <i class="fa-solid fa-xmark" id="closeLeaders" aria-hidden="true"></i>
+      </div>
+      <div id="leadersList" class="leaders-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Password Modal ── -->
+  <div id="pwdOverlay" class="pwd-overlay" role="dialog" aria-modal="true" aria-labelledby="pwdTitle">
+    <div class="pwd-box">
+      <button class="pwd-close-btn" id="pwdCloseBtn" type="button" aria-label="Close password dialog">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="pwd-box-icon">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h3 id="pwdTitle">Protected Archive</h3>
+      <p>Enter the password to unlock the Emirates ID archive and view the image.</p>
+      <div class="pwd-input-row">
+        <input type="password" id="pwdInput" class="pwd-input"
+          placeholder="Enter archive password" autocomplete="off">
+        <button class="pwd-eye-btn" id="pwdEyeBtn" type="button" aria-label="Toggle password visibility">
+          <i class="fa-solid fa-eye" id="pwdEyeIcon"></i>
+        </button>
+      </div>
+      <button class="pwd-submit-btn" id="pwdSubmitBtn" type="button">
+        <i class="fa-solid fa-unlock"></i>
+        Unlock &amp; View ID
+      </button>
+      <p class="pwd-error" id="pwdError" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- ── Emirates ID Viewer Overlay ── -->
+  <div id="eidViewerOverlay" class="eid-viewer-overlay" aria-hidden="true">
+    <div class="eid-viewer-box glass">
+      <div class="eid-viewer-header">
+        <h2><i class="fa-solid fa-id-card"></i>&nbsp; Emirates ID</h2>
+        <i class="fa-solid fa-xmark eid-viewer-close" id="eidViewerClose" aria-hidden="true"></i>
+      </div>
+      <div class="eid-viewer-member-info" id="eidViewerMemberInfo">
+        <i class="fa-solid fa-user-circle"></i>
+        <div class="info-text">
+          <h4 id="eidViewerName">—</h4>
+          <p id="eidViewerCard">—</p>
+        </div>
+      </div>
+      <div id="eidImageContainer">
+        <!-- image or spinner injected here -->
+      </div>
+      <div style="text-align:center;">
+        <button class="eid-download-btn" id="eidDownloadBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-download"></i> Download Image
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main Layout ── -->
+  <div class="dashboard-container">
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <h2>Main Menu</h2>
+        <i class="fa-solid fa-bars" id="sidebarToggle" aria-hidden="true"></i>
+      </div>
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <a href="https://livenews.live/KFC"><i class="fa-solid fa-house" aria-hidden="true"></i> Dashboard</a>
+        <a href="https://livenews.live/KFC/message/president.html"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> President's Message</a>
+        <a href="https://livenews.live/KFC/message/alerts.html"><i class="fa-solid fa-bell" aria-hidden="true"></i> Alerts</a>
+        <a href="https://livenews.live/KFC/database.html"><i class="fa-solid fa-database" aria-hidden="true"></i> Member Database</a>
+        <a href="https://livenews.live/KFC/message/cabinet.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Cabinet Members</a>
+        <a href="https://livenews.live/KFC/message/Gallery/gallery.html"><i class="fa-solid fa-images" aria-hidden="true"></i> Gallery</a>
+        <a href="#" class="active" style="background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;">
+          <i class="fa-solid fa-id-card" aria-hidden="true"></i> Emirates ID
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- Hero Banner -->
+      <section class="eid-hero glass">
+        <div class="eid-hero-icon">
+          <i class="fa-solid fa-id-card"></i>
+        </div>
+        <div class="eid-hero-text">
+          <h2>Emirates ID Search</h2>
+          <p>
+            Search for any registered member's Emirates ID by their full name or card number.
+            A secure password is required to unlock and view the Emirates ID image from the protected archive.
+          </p>
+        </div>
+      </section>
+
+      <!-- Search Section -->
+      <section class="glass" style="padding:22px; margin-bottom:22px;">
+
+        <!-- Access Status Bar (shown after login) -->
+        <div id="eidAccessBar" role="status" aria-live="polite"></div>
+
+        <div class="eid-search-wrapper">
+
+          <!-- Tab selector -->
+          <div class="eid-tab-row" role="tablist">
+            <button class="eid-tab active" id="tabByName" role="tab" aria-selected="true" type="button">
+              <i class="fa-solid fa-user"></i> Search by Name
+            </button>
+            <button class="eid-tab" id="tabByCard" role="tab" aria-selected="false" type="button">
+              <i class="fa-solid fa-id-badge"></i> Search by Card Number
+            </button>
+          </div>
+
+          <!-- Search input row -->
+          <div class="eid-search-box">
+            <input
+              type="text"
+              id="eidSearchInput"
+              class="eid-search-input"
+              placeholder="Enter full name to search..."
+              autocomplete="off"
+              aria-label="Search input"
+            >
+            <button class="eid-search-btn" id="eidSearchBtn" type="button">
+              <i class="fa-solid fa-magnifying-glass"></i> Search
+            </button>
+          </div>
+
+          <!-- Hint text -->
+          <p id="eidSearchHint" style="font-size:12px; color:#888; margin-top:9px; padding-left:4px;">
+            Tip: Enter at least 2 characters to search by name.
+          </p>
+        </div>
+
+        <!-- Results -->
+        <div class="eid-results-area" id="eidResultsArea" aria-live="polite"></div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>© 2026 Khawrai Falahi Committee United Arab Emirates | All Rights Reserved</p>
+  </footer>
+
+  <div id="google_translate_element" class="translate-host" aria-hidden="true"></div>
+
+  <!-- zip.js — full build with AES-256 encryption support -->
+  <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.52/dist/zip-full.min.js"></script>
+
+  <script>
+  /* ════════════════════════════════════════════════════════
+     SECTION 1 — Shared constants & utilities
+  ════════════════════════════════════════════════════════ */
+
+  const API_BASE      = "https://livenews.live/KFC";
+  const PHOTOS_BASE   = `${API_BASE}/static/images/photos/`;
+  const DEFAULT_PHOTO = `${PHOTOS_BASE}default.png`;
+  const CARD_LOGO     = "logo.png";
+  const EMIRATES_ZIP  = `${API_BASE}/emirates.zip`;
+
+  const THEME_STORAGE_KEY       = "kfcTheme";
+  const TRANSLATION_STORAGE_KEY = "kfcPageLanguage";
+
+  /* ── Authorised card numbers that may use Emirates ID Search ── */
+  const EID_ALLOWED_CARDS = new Set([
+    "746-210-001",
+    "746-210-011",
+    "746-210-006",
+    "746-210-040",
+    "746-210-008",
+    "746-210-007",
+    "746-210-021"
+  ]);
+
+  let users       = [];
+  let currentUser = null;
+
+  let currentPageLanguage         = localStorage.getItem(TRANSLATION_STORAGE_KEY) === "ur" ? "ur" : "en";
+  let googleTranslateLoadPromise  = null;
+  let translatePending            = null;
+  let translationRefreshTimer     = null;
+  let translationMutationObserver = null;
+  let translationFixRunning       = false;
+
+  /* ── Cached Elements ── */
+  let userArea, usernameText, dropdown, guestView, userView,
+      openLoginBtn, loginOverlay, loginBtn, loginUsername, loginPassword,
+      loginError, logoutBtn, userFullName, userCard, userDesg, userBlood,
+      userMobile, welcomePopup, welcomeText,
+      headerProfileImg, headerUserIcon, dropdownProfileImg,
+      viewPhotoBtn, photoOverlay, fullProfileImg, closePhotoOverlay,
+      notificationBtn, notiDropdown, notiBadge, notiList,
+      msgBtn, msgDropdown, msgBadge, msgList,
+      leadersOverlay, closeLeaders, leadersList,
+      themeToggleBtn, themeToggleIcon,
+      translateToggleBtn, translateToggleIcon, translateHost;
+
+  function cacheElements() {
+    userArea          = document.getElementById("userArea");
+    usernameText      = document.getElementById("username");
+    dropdown          = document.getElementById("userDropdown");
+    guestView         = document.getElementById("guestView");
+    userView          = document.getElementById("userView");
+    openLoginBtn      = document.getElementById("openLoginBtn");
+    loginOverlay      = document.getElementById("loginOverlay");
+    loginBtn          = document.getElementById("loginBtn");
+    loginUsername     = document.getElementById("loginUsername");
+    loginPassword     = document.getElementById("loginPassword");
+    loginError        = document.getElementById("loginError");
+    logoutBtn         = document.getElementById("logoutBtn");
+    userFullName      = document.getElementById("userFullName");
+    userCard          = document.getElementById("userCard");
+    userDesg          = document.getElementById("userDesg");
+    userBlood         = document.getElementById("userBlood");
+    userMobile        = document.getElementById("userMobile");
+    welcomePopup      = document.getElementById("welcomePopup");
+    welcomeText       = document.getElementById("welcomeText");
+    headerProfileImg  = document.getElementById("headerProfileImg");
+    headerUserIcon    = document.getElementById("headerUserIcon");
+    dropdownProfileImg= document.getElementById("dropdownProfileImg");
+    viewPhotoBtn      = document.getElementById("viewPhotoBtn");
+    photoOverlay      = document.getElementById("photoOverlay");
+    fullProfileImg    = document.getElementById("fullProfileImg");
+    closePhotoOverlay = document.getElementById("closePhotoOverlay");
+    notificationBtn   = document.getElementById("notificationBtn");
+    notiDropdown      = document.getElementById("notiDropdown");
+    notiBadge         = document.getElementById("notiBadge");
+    notiList          = document.getElementById("notiList");
+    msgBtn            = document.getElementById("msgBtn");
+    msgDropdown       = document.getElementById("msgDropdown");
+    msgBadge          = document.getElementById("msgBadge");
+    msgList           = document.getElementById("msgList");
+    leadersOverlay    = document.getElementById("leadersOverlay");
+    closeLeaders      = document.getElementById("closeLeaders");
+    leadersList       = document.getElementById("leadersList");
+    themeToggleBtn    = document.getElementById("themeToggleBtn");
+    themeToggleIcon   = document.getElementById("themeToggleIcon");
+    translateToggleBtn  = document.getElementById("translateToggleBtn");
+    translateToggleIcon = document.getElementById("translateToggleIcon");
+    translateHost       = document.getElementById("google_translate_element");
+  }
+
+  /* ── Helpers ── */
+  function normalizeText(v) { return (v || "").toString().trim(); }
+
+  function isCancelledStatus(s) {
+    const v = normalizeText(s).toLowerCase();
+    return v === "cancel" || v === "cancelled";
+  }
+
+  function generateUsername(name) {
+    const parts = normalizeText(name).toLowerCase().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return normalizeText(name).toLowerCase();
+    return (parts[0] + parts[parts.length - 1]).replace(/\s/g, "");
+  }
+
+  function generatePassword(card) {
+    if (!card) return "";
+    const parts = String(card).split("-");
+    return parts[parts.length - 1] || "";
+  }
+
+  function escapeHTML(str) {
+    return String(str || "")
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  function formatDateValue(v) { return normalizeText(v) || "No date"; }
+
+  function buildCenteredInfoMessage(text) {
+    return `<p style="text-align:center;padding:20px;color:#888;">${escapeHTML(text)}</p>`;
+  }
+
+  function safeCardNo(c) { return encodeURIComponent(String(c || "")); }
+
+  function getCardImageCandidates(cardNo) {
+    const c = safeCardNo(cardNo);
+    return [`${PHOTOS_BASE}${c}.png`, `${PHOTOS_BASE}${c}.jpg`, DEFAULT_PHOTO];
+  }
+
+  function setImageWithFallback(img, sources, fallbackIconEl) {
+    if (!img) return;
+    let idx = 0;
+    img.onerror = () => { tryNext(); };
+    img.onload  = () => {
+      img.style.display = "block";
+      if (fallbackIconEl) fallbackIconEl.style.display = "none";
+    };
+    function tryNext() {
+      if (idx >= sources.length) {
+        img.style.display = "none";
+        if (fallbackIconEl) fallbackIconEl.style.display = "block";
+        return;
+      }
+      img.src = sources[idx++];
+    }
+    tryNext();
+  }
+
+  function applyProfileImage(cardNo) {
+    const s = getCardImageCandidates(cardNo);
+    setImageWithFallback(headerProfileImg, s, headerUserIcon);
+    setImageWithFallback(dropdownProfileImg, s, null);
+    setImageWithFallback(fullProfileImg, s, null);
+  }
+
+  /* ── Theme ── */
+  function applyTheme(mode) {
+    const dark = mode === "dark";
+    document.body.classList.toggle("dark-mode", dark);
+    localStorage.setItem(THEME_STORAGE_KEY, dark ? "dark" : "light");
+    if (themeToggleIcon)
+      themeToggleIcon.className = dark ? "fa-solid fa-sun" : "fa-solid fa-moon";
+  }
+
+  function initTheme() {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "dark" || saved === "light") { applyTheme(saved); return; }
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme:dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+
+  function toggleTheme() {
+    applyTheme(document.body.classList.contains("dark-mode") ? "light" : "dark");
+  }
+
+  /* ── Translation (Google Translate) ── */
+  function setDocumentDirection() {
+    const rtl = currentPageLanguage === "ur";
+    document.documentElement.lang = rtl ? "ur" : "en";
+    document.documentElement.dir  = rtl ? "rtl" : "ltr";
+    document.body.classList.toggle("page-rtl", rtl);
+    if (translateToggleBtn) {
+      translateToggleBtn.classList.toggle("active", rtl);
+      translateToggleBtn.setAttribute("aria-label", rtl ? "Switch to English" : "Translate page to Urdu");
+      translateToggleBtn.title = rtl ? "Switch to English" : "Translate page to Urdu";
+    }
+  }
+
+  function setPageLanguage(lang) {
+    currentPageLanguage = lang === "ur" ? "ur" : "en";
+    localStorage.setItem(TRANSLATION_STORAGE_KEY, currentPageLanguage);
+    setDocumentDirection();
+    scheduleTranslationNormalization();
+  }
+
+  function applyTranslationFixes(root = document.body) {
+    if (!root || translationFixRunning) return;
+    translationFixRunning = true;
+    try {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      const replacements = currentPageLanguage === "ur"
+        ? [["Khawrai Falahi Committee","خاورئی فلاحی کمیٹی"],["Khawarai Welfare Committee","خاورئی فلاحی کمیٹی"],
+           ["Khawrai","خاورئی"],["Constitution","دستور"]]
+        : [["Khawarai Welfare Committee","Khawrai Falahi Committee"],
+           ["Khawarai Welfare Committee UAE","Khawrai Falahi Committee UAE"],
+           ["Recipe (English)","Constitution (English)"],["Order (Translated)","Constitution (Translated)"]];
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(n => {
+        let t = n.nodeValue; if (!t) return;
+        let u = t;
+        replacements.forEach(([f,r]) => { if (u.includes(f)) u = u.split(f).join(r); });
+        if (u !== t) n.nodeValue = u;
+      });
+    } finally {
+      setTimeout(() => { translationFixRunning = false; }, 0);
+    }
+  }
+
+  function scheduleTranslationNormalization() {
+    clearTimeout(translationRefreshTimer);
+    translationRefreshTimer = setTimeout(() => applyTranslationFixes(document.body), 120);
+  }
+
+  function refreshTranslatedView() { scheduleTranslationNormalization(); }
+
+  function startTranslationObserver() {
+    if (translationMutationObserver || !window.MutationObserver || !document.body) return;
+    translationMutationObserver = new MutationObserver(() => {
+      if (!translationFixRunning) scheduleTranslationNormalization();
+    });
+    translationMutationObserver.observe(document.body, { subtree:true, childList:true, characterData:true });
+  }
+
+  function applyGoogleTranslation(lang) {
+    const combo = document.querySelector(".goog-te-combo");
+    if (!combo) return false;
+    combo.value = lang;
+    combo.dispatchEvent(new Event("change"));
+    setPageLanguage(lang);
+    return true;
+  }
+
+  function applyGoogleTranslationWithRetry(lang, attempt = 0) {
+    if (applyGoogleTranslation(lang)) {
+      setTimeout(() => applyTranslationFixes(document.body), 250);
+      return;
+    }
+    if (attempt < 20) setTimeout(() => applyGoogleTranslationWithRetry(lang, attempt + 1), 200);
+    else translatePending = lang;
+  }
+
+  function ensureGoogleTranslateWidget() {
+    if (googleTranslateLoadPromise) return googleTranslateLoadPromise;
+    googleTranslateLoadPromise = new Promise((resolve, reject) => {
+      if (window.google && window.google.translate && document.querySelector(".goog-te-combo")) {
+        resolve(); return;
+      }
+      window.googleTranslateElementInit = function () {
+        try {
+          if (translateHost) translateHost.innerHTML = "";
+          new google.translate.TranslateElement(
+            { pageLanguage:"en", includedLanguages:"ur,en", autoDisplay:false },
+            "google_translate_element"
+          );
+          resolve();
+          if (translatePending) {
+            const p = translatePending; translatePending = null;
+            setTimeout(() => applyGoogleTranslationWithRetry(p), 250);
+          }
+        } catch(e) { reject(e); }
+      };
+      if (document.getElementById("kfc-google-translate-script")) return;
+      const s = document.createElement("script");
+      s.id    = "kfc-google-translate-script";
+      s.src   = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+      s.async = true;
+      s.onerror = () => reject(new Error("Translator unavailable"));
+      document.head.appendChild(s);
+    });
+    return googleTranslateLoadPromise;
+  }
+
+  async function toggleTranslation() {
+    const target = currentPageLanguage === "ur" ? "en" : "ur";
+    translatePending = target;
+    try {
+      await ensureGoogleTranslateWidget();
+      applyGoogleTranslationWithRetry(target);
+    } catch(e) { console.error("Translation error:", e); }
+  }
+
+  /* ── Session & Login ── */
+  function saveSession(u) { localStorage.setItem("kfcUser", JSON.stringify(u)); }
+  function clearSession()  { localStorage.removeItem("kfcUser"); }
+
+  function showLoggedOutUI() {
+    if (msgBtn) msgBtn.style.display = "none";
+    if (notificationBtn) notificationBtn.style.display = "none";
+    if (headerProfileImg) headerProfileImg.style.display = "none";
+    if (headerUserIcon) headerUserIcon.style.display = "block";
+    if (guestView) guestView.style.display = "block";
+    if (userView) userView.style.display = "none";
+    if (usernameText) usernameText.innerText = "Welcome, Guest";
+  }
+
+  function showLoggedInUI() {
+    if (msgBtn) msgBtn.style.display = "flex";
+    if (notificationBtn) notificationBtn.style.display = "flex";
+    if (guestView) guestView.style.display = "none";
+    if (userView) userView.style.display = "flex";
+  }
+
+  function renderUserToUI(user) {
+    if (!user) return;
+    const firstName = normalizeText(user.name).split(" ")[0] || "User";
+    if (usernameText) usernameText.innerText = `Welcome, ${firstName}`;
+    if (userFullName) userFullName.innerText = `Welcome, ${user.name}`;
+    if (userCard)     userCard.innerText  = `Card Number: ${user.CNo}`;
+    if (userDesg)     userDesg.innerText  = `Designation: ${user.Desg}`;
+    if (userBlood)    userBlood.innerText = `Blood Group: ${user.BG || "Not available"}`;
+    if (userMobile)   userMobile.innerText= `Registered Mobile: ${user.mobile || "Not available"}`;
+    applyProfileImage(user.CNo);
+    const vcb = document.getElementById("viewCardBtn");
+    if (vcb) { vcb.href = `viewcard.html?card=${btoa(String(user.CNo))}`; vcb.target = "_blank"; }
+    showLoggedInUI();
+    refreshTranslatedView();
+    /* Refresh access UI whenever login state changes */
+    updateEidAccessUI();
+  }
+
+  function showWelcome(name) {
+    if (!welcomePopup || !welcomeText) return;
+    welcomeText.innerText = `Welcome, ${name} 👋`;
+    welcomePopup.classList.add("show");
+    setTimeout(() => welcomePopup.classList.remove("show"), 2500);
+  }
+
+  function login() {
+    if (loginError) loginError.innerText = "";
+    const uname = normalizeText(loginUsername?.value).toLowerCase();
+    const pass  = normalizeText(loginPassword?.value);
+    if (!uname || !pass) { if (loginError) loginError.innerText = "Enter username and password"; return; }
+    const user = users.find(u => {
+      return generateUsername(u.name) === uname && generatePassword(u.CNo) === pass;
+    });
+    if (!user) { if (loginError) loginError.innerText = "Invalid credentials"; return; }
+    if (isCancelledStatus(user.Status)) {
+      if (loginError) loginError.innerText = "This account cannot log in because the card is cancelled";
+      return;
+    }
+    currentUser = user;
+    saveSession(user);
+    renderUserToUI(user);
+    showWelcome(user.name);
+    if (loginOverlay) loginOverlay.classList.remove("show");
+  }
+
+  function checkSession() {
+    const saved = localStorage.getItem("kfcUser");
+    if (!saved) { currentUser = null; showLoggedOutUI(); updateEidAccessUI(); return; }
+    try {
+      const p = JSON.parse(saved);
+      if (p && !isCancelledStatus(p.Status)) { currentUser = p; renderUserToUI(p); }
+      else { clearSession(); currentUser = null; showLoggedOutUI(); }
+    } catch(e) { clearSession(); currentUser = null; showLoggedOutUI(); }
+    updateEidAccessUI();
+  }
+
+  async function loadUsers() {
+    try {
+      const r = await fetch(`${API_BASE}/cards.json`, { cache:"no-store" });
+      users = await r.json();
+    } catch(e) { console.error("Error loading users:", e); }
+  }
+
+  /* ── Notifications / Alerts ── */
+  function createCardTopStripe() {
+    const d = document.createElement("div");
+    d.style.cssText = "background-color:#0d3c91;height:6px;";
+    return d;
+  }
+
+  function createCardBackgroundLogo() {
+    const img = document.createElement("img");
+    img.src  = CARD_LOGO;
+    img.alt  = "";
+    img.setAttribute("aria-hidden","true");
+    img.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;opacity:0.08;z-index:1;pointer-events:none;user-select:none;";
+    return img;
+  }
+
+  async function fetchAlerts() {
+    try {
+      const res    = await fetch(`${API_BASE}/message/alerts.json`, { cache:"no-store" });
+      const alerts = await res.json();
+      if (!notiList) return;
+      notiList.innerHTML = "";
+      if (!Array.isArray(alerts) || alerts.length === 0) {
+        notiList.innerHTML = buildCenteredInfoMessage("No alerts found.");
+        return;
+      }
+      const sorted = [...alerts].reverse();
+      sorted.slice(0,3).forEach(a => {
+        const item = document.createElement("div");
+        item.className = "noti-item";
+        item.style.cssText = "position:relative;background:#fff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:10px;overflow:hidden;";
+        item.appendChild(createCardTopStripe());
+        item.appendChild(createCardBackgroundLogo());
+        const top = document.createElement("div");
+        top.className = "noti-top-row";
+        top.style.cssText = "padding:12px 15px;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2;cursor:pointer;";
+        const t = document.createElement("span");
+        t.style.cssText = "font-weight:bold;color:#0d3c91;font-size:15px;";
+        t.textContent = normalizeText(a.title_en || a.title || "Alert");
+        const ds = document.createElement("span");
+        ds.style.cssText = "font-size:11px;color:#888;";
+        ds.textContent = formatDateValue(a.date);
+        top.appendChild(t); top.appendChild(ds);
+        const body = document.createElement("div");
+        body.className = "noti-body";
+        body.style.cssText = "display:none;padding:15px;border-top:1px dashed #eee;white-space:pre-line;position:relative;z-index:2;font-size:14px;line-height:1.8;color:#333;";
+        body.textContent = normalizeText(a.body_en || a.body || "");
+        item.appendChild(top); item.appendChild(body);
+        item.addEventListener("click", () => {
+          const vis = body.style.display === "block";
+          document.querySelectorAll(".noti-body").forEach(b => b.style.display = "none");
+          if (!vis) body.style.display = "block";
+        });
+        notiList.appendChild(item);
+      });
+      const btn = document.createElement("div");
+      btn.style.cssText = "margin-top:12px;text-align:center;";
+      btn.innerHTML = `<button onclick="window.location.href='${API_BASE}/message/alerts.html'"
+        style="width:100%;padding:10px 14px;border:none;border-radius:999px;background:linear-gradient(90deg,#ff6ec4,#7873f5);color:#fff;font-weight:bold;cursor:pointer;font-size:13px;">
+        Click here to see all alerts</button>`;
+      notiList.appendChild(btn);
+    } catch(e) {
+      if (notiList) notiList.innerHTML = buildCenteredInfoMessage("Error loading alerts.");
+    }
+  }
+
+  async function fetchPersonalMessages() {
+    try {
+      const res  = await fetch(`${API_BASE}/messages.json`, { cache:"no-store" });
+      const msgs = await res.json();
+      if (!msgList) return;
+      msgList.innerHTML = "";
+      if (!currentUser) {
+        msgList.innerHTML = buildCenteredInfoMessage("Please sign in to view your messages");
+        return;
+      }
+      const mine = (Array.isArray(msgs) ? msgs : []).filter(m => {
+        const c = normalizeText(m.cardNumber).toLowerCase();
+        return c === normalizeText(currentUser.CNo).toLowerCase() || c === "all";
+      });
+      if (mine.length === 0) { msgList.innerHTML = buildCenteredInfoMessage("No messages found."); return; }
+      mine.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+      mine.forEach(msg => {
+        const item = document.createElement("div");
+        item.className = "noti-item msg-item";
+        item.style.cssText = "position:relative;background:#fff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:10px;overflow:hidden;cursor:pointer;";
+        item.appendChild(createCardTopStripe());
+        item.appendChild(createCardBackgroundLogo());
+        const top = document.createElement("div");
+        top.style.cssText = "padding:12px 15px;display:flex;flex-direction:column;gap:4px;position:relative;z-index:2;";
+        const ds = document.createElement("span");
+        ds.style.cssText = "font-size:11px;color:#888;";
+        ds.textContent = formatDateValue(msg.date);
+        const tt = document.createElement("strong");
+        tt.style.cssText = "color:#0d3c91;font-size:15px;";
+        tt.textContent = normalizeText(msg.title_en || msg.title || "Message");
+        top.appendChild(ds); top.appendChild(tt);
+        const body = document.createElement("div");
+        body.style.cssText = "display:none;padding:15px;border-top:1px dashed #ccc;position:relative;z-index:2;font-size:13px;color:#444;line-height:1.8;white-space:pre-line;";
+        body.textContent = normalizeText(msg.body_en || msg.body || "");
+        item.appendChild(top); item.appendChild(body);
+        item.addEventListener("click", () => {
+          const vis = body.style.display === "block";
+          document.querySelectorAll(".msg-body").forEach(b => b.style.display="none");
+          if (!vis) body.style.display = "block";
+        });
+        msgList.appendChild(item);
+      });
+    } catch(e) {
+      if (msgList) msgList.innerHTML = buildCenteredInfoMessage("Error loading messages.");
+    }
+  }
+
+  /* ── Leaders ── */
+  function showLeaders() {
+    if (!leadersList) return;
+    leadersList.innerHTML = "";
+    const roles = ["president","acting president","vice president","committee guardian",
+      "committee guardian (ex-pr)","general secretary","finance manager",
+      "joint finance secretary","media manager"];
+    const leaders = users
+      .filter(u => u.Desg && roles.includes(normalizeText(u.Desg).toLowerCase()))
+      .sort((a,b) => roles.indexOf(normalizeText(a.Desg).toLowerCase()) -
+                     roles.indexOf(normalizeText(b.Desg).toLowerCase()));
+    if (!leaders.length) {
+      leadersList.innerHTML = `<p style="text-align:center;color:#888;padding:15px;">No leaders found.</p>`;
+      return;
+    }
+    leaders.forEach(l => {
+      const d = document.createElement("div");
+      d.className = "leader-item";
+      d.innerHTML = `<h4>${escapeHTML(l.name||"")}</h4>
+        <p>${escapeHTML(l.Desg||"")}</p>
+        <p class="leader-phone"><i class="fa-solid fa-phone"></i> ${escapeHTML(l.mobile||"Not available")}</p>`;
+      leadersList.appendChild(d);
+    });
+  }
+
+  /* ── Close all dropdowns ── */
+  function closeAllDropdowns() {
+    if (dropdown)    dropdown.classList.remove("show");
+    if (notiDropdown)notiDropdown.classList.remove("show");
+    if (msgDropdown) msgDropdown.classList.remove("show");
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SECTION 2 — Emirates ID Access Control
+  ════════════════════════════════════════════════════════ */
+
+  /**
+   * Returns one of three access states:
+   *   "guest"   — no user is logged in
+   *   "allowed" — user is logged in AND their card number is in the allowed list
+   *   "denied"  — user is logged in BUT their card number is NOT in the allowed list
+   */
+  function getEidAccessState() {
+    if (!currentUser) return "guest";
+    const card = normalizeText(currentUser.CNo);
+    return EID_ALLOWED_CARDS.has(card) ? "allowed" : "denied";
+  }
+
+  /**
+   * Updates the access status bar above the search UI and clears
+   * the results area whenever the access state changes.
+   */
+  function updateEidAccessUI() {
+    const bar         = document.getElementById("eidAccessBar");
+    const resultsArea = document.getElementById("eidResultsArea");
+    const state       = getEidAccessState();
+
+    /* Reset bar classes */
+    if (bar) {
+      bar.className = "";
+      bar.innerHTML = "";
+
+      if (state === "allowed") {
+        bar.className = "bar-allowed";
+        bar.innerHTML =
+          `<i class="fa-solid fa-circle-check" style="font-size:16px;"></i>
+           Access granted — you are authorised to search Emirates IDs.`;
+      } else if (state === "denied") {
+        bar.className = "bar-denied";
+        bar.innerHTML =
+          `<i class="fa-solid fa-ban" style="font-size:16px;"></i>
+           Access restricted — your account is not authorised to use this section.`;
+      }
+      /* "guest" state — bar stays hidden (no class, no content) */
+    }
+
+    /* Clear any existing results whenever access state refreshes */
+    if (resultsArea) resultsArea.innerHTML = "";
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SECTION 3 — Emirates ID Search
+  ════════════════════════════════════════════════════════ */
+
+  let eidSearchMode  = "name";   /* "name" | "card" */
+  let eidPendingUser = null;     /* member awaiting password unlock */
+  let cachedZipBlob  = null;     /* cached Blob of emirates.zip after first fetch */
+
+  const tabByName       = document.getElementById("tabByName");
+  const tabByCard       = document.getElementById("tabByCard");
+  const eidSearchInput  = document.getElementById("eidSearchInput");
+  const eidSearchBtn    = document.getElementById("eidSearchBtn");
+  const eidSearchHint   = document.getElementById("eidSearchHint");
+  const eidResultsArea  = document.getElementById("eidResultsArea");
+
+  const pwdOverlay   = document.getElementById("pwdOverlay");
+  const pwdInput     = document.getElementById("pwdInput");
+  const pwdEyeBtn    = document.getElementById("pwdEyeBtn");
+  const pwdEyeIcon   = document.getElementById("pwdEyeIcon");
+  const pwdSubmitBtn = document.getElementById("pwdSubmitBtn");
+  const pwdError     = document.getElementById("pwdError");
+  const pwdCloseBtn  = document.getElementById("pwdCloseBtn");
+
+  const eidViewerOverlay  = document.getElementById("eidViewerOverlay");
+  const eidViewerClose    = document.getElementById("eidViewerClose");
+  const eidViewerName     = document.getElementById("eidViewerName");
+  const eidViewerCard     = document.getElementById("eidViewerCard");
+  const eidImageContainer = document.getElementById("eidImageContainer");
+  const eidDownloadBtn    = document.getElementById("eidDownloadBtn");
+
+  /* Switch tabs */
+  function setSearchMode(mode) {
+    eidSearchMode = mode;
+    eidSearchInput.value = "";
+    eidResultsArea.innerHTML = "";
+
+    if (mode === "name") {
+      tabByName.classList.add("active");
+      tabByCard.classList.remove("active");
+      tabByName.setAttribute("aria-selected","true");
+      tabByCard.setAttribute("aria-selected","false");
+      eidSearchInput.placeholder = "Enter full name to search…";
+      eidSearchHint.textContent  = "Tip: Enter at least 2 characters to search by name.";
+    } else {
+      tabByCard.classList.add("active");
+      tabByName.classList.remove("active");
+      tabByCard.setAttribute("aria-selected","true");
+      tabByName.setAttribute("aria-selected","false");
+      eidSearchInput.placeholder = "Enter card number e.g. 746-210-011";
+      eidSearchHint.textContent  = "Tip: Enter the full or partial card number.";
+    }
+    eidSearchInput.focus();
+  }
+
+  /**
+   * Renders an access gate in the results area and stops the search.
+   * Returns true if access should be blocked, false if search may proceed.
+   */
+  function checkAndRenderAccessGate() {
+    const state = getEidAccessState();
+
+    if (state === "guest") {
+      eidResultsArea.innerHTML = `
+        <div class="eid-access-gate gate-login glass">
+          <div class="gate-icon">
+            <i class="fa-solid fa-user-lock"></i>
+          </div>
+          <h3>Sign In Required</h3>
+          <p>
+            You need to be signed in to search Emirates IDs.
+            Please log in with your registered account to continue.
+          </p>
+          <button class="gate-signin-btn" id="gateSignInBtn" type="button">
+            <i class="fa-solid fa-right-to-bracket"></i> Sign In to Continue
+          </button>
+        </div>`;
+      /* Wire the inline sign-in button to open the login overlay */
+      const gateBtn = document.getElementById("gateSignInBtn");
+      if (gateBtn && loginOverlay) {
+        gateBtn.addEventListener("click", () => loginOverlay.classList.add("show"));
+      }
+      return true; /* block search */
+    }
+
+    if (state === "denied") {
+      const firstName = normalizeText(currentUser.name).split(" ")[0] || "User";
+      eidResultsArea.innerHTML = `
+        <div class="eid-access-gate gate-denied glass">
+          <div class="gate-icon">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <h3>Access Not Permitted</h3>
+          <p>
+            Hello <strong>${escapeHTML(firstName)}</strong>, your account
+            (<strong>${escapeHTML(normalizeText(currentUser.CNo))}</strong>) does not have
+            permission to access the Emirates ID search. This section is restricted to
+            authorised CABINET MEMBERS only.
+          </p>
+          <div class="gate-denied-strip">
+            <i class="fa-solid fa-ban"></i>
+            Your card is not on the approved access list.
+          </div>
+        </div>`;
+      return true; /* block search */
+    }
+
+    return false; /* access allowed — proceed with search */
+  }
+
+  /* Perform search and render results */
+  function performSearch() {
+    eidResultsArea.innerHTML = "";
+
+    /* ── Access gate check — must pass before any search logic runs ── */
+    if (checkAndRenderAccessGate()) return;
+
+    const q = normalizeText(eidSearchInput.value).toLowerCase();
+
+    if (q.length < 2) {
+      eidResultsArea.innerHTML = buildEidInfoBox(
+        "fa-circle-info", "#7873f5",
+        "Please enter at least 2 characters to search."
+      );
+      return;
+    }
+
+    let results = [];
+    if (eidSearchMode === "name") {
+      results = users.filter(u => normalizeText(u.name).toLowerCase().includes(q));
+    } else {
+      results = users.filter(u => normalizeText(u.CNo).toLowerCase().includes(q));
+    }
+
+    if (results.length === 0) {
+      eidResultsArea.innerHTML = buildEidInfoBox(
+        "fa-user-slash", "#e53e3e",
+        "No member found matching your search. Please check the input and try again."
+      );
+      return;
+    }
+
+    const countBadge = document.createElement("p");
+    countBadge.style.cssText = "font-size:13px;color:#888;margin-bottom:12px;padding-left:4px;";
+    countBadge.textContent = `${results.length} result${results.length !== 1 ? "s" : ""} found`;
+    eidResultsArea.appendChild(countBadge);
+
+    results.forEach(member => eidResultsArea.appendChild(buildResultCard(member)));
+  }
+
+  function buildEidInfoBox(icon, color, text) {
+    return `
+      <div class="eid-no-results">
+        <i class="fa-solid ${escapeHTML(icon)}" style="font-size:36px;color:${escapeHTML(color)};margin-bottom:10px;display:block;"></i>
+        <p>${escapeHTML(text)}</p>
+      </div>`;
+  }
+
+  function buildResultCard(member) {
+    const card = document.createElement("div");
+    card.className = "eid-result-card";
+
+    const info = document.createElement("div");
+    info.className = "eid-result-info";
+
+    const name = document.createElement("div");
+    name.className = "eid-result-name";
+    name.innerHTML = `<i class="fa-solid fa-user" style="margin-right:7px;color:#7873f5;font-size:14px;"></i>${escapeHTML(member.name || "—")}`;
+
+    const meta = document.createElement("div");
+    meta.className = "eid-result-meta";
+
+    const cardSpan = document.createElement("span");
+    cardSpan.innerHTML = `<i class="fa-solid fa-id-badge" style="color:#7873f5;"></i> ${escapeHTML(member.CNo || "—")}`;
+
+    const desgSpan = document.createElement("span");
+    desgSpan.innerHTML = `<i class="fa-solid fa-briefcase" style="color:#ff6ec4;"></i> ${escapeHTML(member.Desg || "—")}`;
+
+    const statusSpan = document.createElement("span");
+    const isActive = normalizeText(member.Status).toLowerCase() === "active";
+    statusSpan.innerHTML = `<i class="fa-solid fa-circle" style="font-size:9px;color:${isActive ? "#38a169" : "#e53e3e"};"></i> ${escapeHTML(member.Status || "—")}`;
+
+    meta.appendChild(cardSpan);
+    meta.appendChild(desgSpan);
+    meta.appendChild(statusSpan);
+    info.appendChild(name);
+    info.appendChild(meta);
+
+    const btn = document.createElement("button");
+    btn.className = "eid-view-btn";
+    btn.type = "button";
+    btn.innerHTML = `<i class="fa-solid fa-id-card"></i> View Emirates ID`;
+    btn.addEventListener("click", () => openPasswordModal(member));
+
+    card.appendChild(info);
+    card.appendChild(btn);
+    return card;
+  }
+
+  /* ── Password Modal ── */
+  function openPasswordModal(member) {
+    eidPendingUser       = member;
+    pwdInput.value       = "";
+    pwdError.textContent = "";
+    pwdOverlay.classList.add("show");
+    setTimeout(() => pwdInput.focus(), 100);
+    closeAllDropdowns();
+  }
+
+  function closePwdModal() {
+    pwdOverlay.classList.remove("show");
+    eidPendingUser       = null;
+    pwdInput.value       = "";
+    pwdError.textContent = "";
+  }
+
+  /* Toggle password visibility */
+  pwdEyeBtn.addEventListener("click", () => {
+    const hidden = pwdInput.type === "password";
+    pwdInput.type        = hidden ? "text" : "password";
+    pwdEyeIcon.className = hidden ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+  });
+
+  pwdCloseBtn.addEventListener("click", closePwdModal);
+
+  pwdOverlay.addEventListener("click", e => {
+    if (e.target === pwdOverlay) closePwdModal();
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { closePwdModal(); closeEidViewer(); }
+    if (e.key === "Enter" && pwdOverlay.classList.contains("show")) attemptUnlock();
+  });
+
+  pwdSubmitBtn.addEventListener("click", attemptUnlock);
+
+  /* ════════════════════════════════════════════════════════
+     AES-encrypted ZIP decryption via zip.js
+  ════════════════════════════════════════════════════════ */
+
+  async function attemptUnlock() {
+    if (!eidPendingUser) return;
+
+    const password = normalizeText(pwdInput.value);
+    if (!password) {
+      pwdError.textContent = "Please enter the password.";
+      return;
+    }
+
+    /* Disable button + show spinner */
+    pwdSubmitBtn.innerHTML = `<span class="btn-spinner"></span> Unlocking…`;
+    pwdSubmitBtn.disabled  = true;
+    pwdError.textContent   = "";
+
+    const member = eidPendingUser;
+    const cardNo = normalizeText(member.CNo);
+
+    try {
+      /* ── Step 1: Download the ZIP (cached after first fetch) ── */
+      if (!cachedZipBlob) {
+        const res = await fetch(EMIRATES_ZIP, { cache: "no-store" });
+        if (!res.ok) throw new Error(`Could not download the archive (HTTP ${res.status}).`);
+        cachedZipBlob = await res.blob();
+      }
+
+      /* ── Step 2: Open the ZIP with zip.js (AES-256 supported) ── */
+      const { ZipReader, BlobReader, BlobWriter } = zip;
+
+      const zipReader = new ZipReader(
+        new BlobReader(cachedZipBlob),
+        { password }
+      );
+
+      let entries;
+      try {
+        entries = await zipReader.getEntries();
+      } catch (e) {
+        await zipReader.close().catch(() => {});
+        throw new Error("Could not read the archive. The file may be corrupted.");
+      }
+
+      /* ── Step 3: Locate the member's image inside the ZIP ── */
+      const lowerCard = cardNo.toLowerCase();
+      const IMAGE_EXTS = ["jpg", "jpeg", "png"];
+
+      const entryMap = new Map();
+      for (const entry of entries) {
+        if (!entry.directory) {
+          const base = entry.filename.split("/").pop().toLowerCase();
+          entryMap.set(base, entry);
+        }
+      }
+
+      let targetEntry = null;
+      let targetExt   = "jpg";
+
+      for (const ext of IMAGE_EXTS) {
+        const candidate = `${lowerCard}.${ext}`;
+        if (entryMap.has(candidate)) {
+          targetEntry = entryMap.get(candidate);
+          targetExt   = ext === "jpeg" ? "jpg" : ext;
+          break;
+        }
+      }
+
+      if (!targetEntry) {
+        for (const [base, entry] of entryMap) {
+          const dotIdx = base.lastIndexOf(".");
+          const stem   = dotIdx !== -1 ? base.slice(0, dotIdx) : base;
+          const ext    = dotIdx !== -1 ? base.slice(dotIdx + 1) : "";
+          if (stem === lowerCard && IMAGE_EXTS.includes(ext)) {
+            targetEntry = entry;
+            targetExt   = ext === "jpeg" ? "jpg" : ext;
+            break;
+          }
+        }
+      }
+
+      if (!targetEntry) {
+        await zipReader.close().catch(() => {});
+        throw new Error(
+          `No Emirates ID image found for card "${cardNo}" inside the archive. ` +
+          `Expected a file named ${cardNo}.jpg or ${cardNo}.png.`
+        );
+      }
+
+      /* ── Step 4: Decrypt + decompress → Blob ── */
+      let imageBlob;
+      try {
+        const mimeType = targetExt === "png" ? "image/png" : "image/jpeg";
+        imageBlob = await targetEntry.getData(new BlobWriter(mimeType), { password });
+      } catch (decryptErr) {
+        await zipReader.close().catch(() => {});
+        const msg = (decryptErr && decryptErr.message) ? decryptErr.message.toLowerCase() : "";
+        if (msg.includes("password") || msg.includes("decrypt") || msg.includes("invalid") || msg.includes("wrong")) {
+          throw new Error("Incorrect password. Please try again.");
+        }
+        throw new Error("Decryption failed. Please check the password and try again.");
+      }
+
+      await zipReader.close().catch(() => {});
+
+      /* ── Step 5: Create object URL and show the viewer ── */
+      const objectURL = URL.createObjectURL(imageBlob);
+      closePwdModal();
+      openEidViewer(member, objectURL, targetExt);
+
+    } catch (err) {
+      pwdError.textContent = err.message || "An unexpected error occurred. Please try again.";
+      cachedZipBlob = null;
+    } finally {
+      pwdSubmitBtn.innerHTML = `<i class="fa-solid fa-unlock"></i> Unlock &amp; View ID`;
+      pwdSubmitBtn.disabled  = false;
+    }
+  }
+
+  /* ── Emirates ID Viewer ── */
+  let currentObjectURL = null;
+
+  function openEidViewer(member, objectURL, ext) {
+    if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+    currentObjectURL = objectURL;
+
+    eidViewerName.textContent = member.name || "—";
+    eidViewerCard.textContent = `Card No: ${member.CNo || "—"} · ${member.Desg || "—"}`;
+
+    eidImageContainer.innerHTML = `
+      <div class="eid-loading-spinner">
+        <i class="fa-solid fa-spinner"></i>
+        <p>Loading Emirates ID image…</p>
+      </div>`;
+    eidDownloadBtn.style.display = "none";
+
+    eidViewerOverlay.classList.add("show");
+
+    const img = document.createElement("img");
+    img.alt = `Emirates ID of ${member.name}`;
+    img.style.cssText = "width:100%;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,0.14);display:block;";
+
+    img.onload = () => {
+      eidImageContainer.innerHTML = "";
+      eidImageContainer.appendChild(img);
+      eidDownloadBtn.style.display = "inline-flex";
+    };
+
+    img.onerror = () => {
+      eidImageContainer.innerHTML = `
+        <div class="eid-load-error">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size:36px;margin-bottom:10px;display:block;"></i>
+          <p>Failed to display the image. The file may be corrupted.</p>
+        </div>`;
+    };
+
+    img.src = objectURL;
+
+    eidDownloadBtn.onclick = () => {
+      const a = document.createElement("a");
+      a.href     = objectURL;
+      a.download = `EmiratesID_${normalizeText(member.CNo)}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+  }
+
+  function closeEidViewer() {
+    eidViewerOverlay.classList.remove("show");
+    if (currentObjectURL) {
+      URL.revokeObjectURL(currentObjectURL);
+      currentObjectURL = null;
+    }
+    eidImageContainer.innerHTML = "";
+    eidDownloadBtn.style.display = "none";
+  }
+
+  eidViewerClose.addEventListener("click", closeEidViewer);
+  eidViewerOverlay.addEventListener("click", e => {
+    if (e.target === eidViewerOverlay) closeEidViewer();
+  });
+
+  /* ════════════════════════════════════════════════════════
+     SECTION 4 — Event Bindings
+  ════════════════════════════════════════════════════════ */
+
+  function bindEvents() {
+    if (userArea) {
+      userArea.addEventListener("click", e => {
+        e.stopPropagation();
+        if (notiDropdown) notiDropdown.classList.remove("show");
+        if (msgDropdown)  msgDropdown.classList.remove("show");
+        if (dropdown)     dropdown.classList.toggle("show");
+      });
+    }
+
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener("click", e => { e.stopPropagation(); toggleTheme(); });
+    }
+
+    if (translateToggleBtn) {
+      translateToggleBtn.addEventListener("click", e => { e.stopPropagation(); toggleTranslation(); });
+    }
+
+    if (notificationBtn) {
+      notificationBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (dropdown)    dropdown.classList.remove("show");
+        if (msgDropdown) msgDropdown.classList.remove("show");
+        if (notiDropdown)notiDropdown.classList.toggle("show");
+        if (!currentUser) {
+          if (notiList) notiList.innerHTML = buildCenteredInfoMessage("Please sign in to view recent alerts");
+          if (notiBadge) notiBadge.style.display = "none";
+          return;
+        }
+        fetchAlerts();
+        if (notiBadge) notiBadge.style.display = "none";
+      });
+    }
+
+    if (msgBtn) {
+      msgBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (dropdown)     dropdown.classList.remove("show");
+        if (notiDropdown) notiDropdown.classList.remove("show");
+        if (msgDropdown)  msgDropdown.classList.toggle("show");
+        if (!currentUser) {
+          if (msgList) msgList.innerHTML = buildCenteredInfoMessage("Please sign in to view your messages");
+          if (msgBadge) msgBadge.style.display = "none";
+          return;
+        }
+        fetchPersonalMessages();
+      });
+    }
+
+    if (viewPhotoBtn) {
+      viewPhotoBtn.addEventListener("click", () => {
+        if (photoOverlay) photoOverlay.classList.add("show");
+        if (dropdown) dropdown.classList.remove("show");
+      });
+    }
+
+    if (closePhotoOverlay) {
+      closePhotoOverlay.addEventListener("click", () => {
+        if (photoOverlay) photoOverlay.classList.remove("show");
+      });
+    }
+
+    if (photoOverlay) {
+      photoOverlay.addEventListener("click", e => {
+        if (e.target === photoOverlay) photoOverlay.classList.remove("show");
+      });
+    }
+
+    document.addEventListener("click", () => closeAllDropdowns());
+
+    [dropdown, notiDropdown, msgDropdown].forEach(box => {
+      if (box) box.addEventListener("click", e => e.stopPropagation());
+    });
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        clearSession();
+        currentUser = null;
+        /* Update access UI immediately on logout without full page reload */
+        showLoggedOutUI();
+        updateEidAccessUI();
+        if (eidResultsArea) eidResultsArea.innerHTML = "";
+        if (eidSearchInput) eidSearchInput.value = "";
+        closeAllDropdowns();
+      });
+    }
+
+    if (openLoginBtn) {
+      openLoginBtn.addEventListener("click", () => { if (loginOverlay) loginOverlay.classList.add("show"); });
+    }
+
+    if (loginOverlay) {
+      loginOverlay.addEventListener("click", e => { if (e.target === loginOverlay) loginOverlay.classList.remove("show"); });
+    }
+
+    if (loginBtn) loginBtn.addEventListener("click", login);
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Enter" && loginOverlay && loginOverlay.classList.contains("show")) login();
+    });
+
+    if (leadersOverlay && closeLeaders && leadersList) {
+      closeLeaders.addEventListener("click", e => { e.stopPropagation(); leadersOverlay.classList.remove("show"); });
+      leadersOverlay.addEventListener("click", e => { if (e.target === leadersOverlay) leadersOverlay.classList.remove("show"); });
+    }
+
+    /* ── Emirates ID search bindings ── */
+    tabByName.addEventListener("click", () => setSearchMode("name"));
+    tabByCard.addEventListener("click", () => setSearchMode("card"));
+
+    eidSearchBtn.addEventListener("click", performSearch);
+
+    eidSearchInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") performSearch();
+    });
+
+    let liveTimer = null;
+    eidSearchInput.addEventListener("input", () => {
+      clearTimeout(liveTimer);
+      liveTimer = setTimeout(() => {
+        if (eidSearchInput.value.trim().length >= 2) performSearch();
+        else eidResultsArea.innerHTML = "";
+      }, 320);
+    });
+
+    window.addEventListener("load", () => document.body.classList.add("loaded"));
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SECTION 5 — Initialise
+  ════════════════════════════════════════════════════════ */
+
+  async function init() {
+    cacheElements();
+    initTheme();
+    setDocumentDirection();
+    bindEvents();
+    startTranslationObserver();
+
+    if (currentPageLanguage === "ur") {
+      ensureGoogleTranslateWidget()
+        .then(() => applyGoogleTranslationWithRetry("ur"))
+        .catch(e => console.error("Translator init error:", e));
+    }
+
+    await loadUsers();
+    checkSession();
+    scheduleTranslationNormalization();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+  </script>
+</body>
+</html>

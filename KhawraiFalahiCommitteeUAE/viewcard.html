@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Khawrai Falahi Committee UAE e-Card</title>
+
+<style>
+@font-face { font-family:'UrduFont'; src:url('static/fonts/Urdu.ttf') format('truetype'); }
+
+body{ margin:0; font-family:Calibri,sans-serif; background-color:#e4fffc; }
+
+.card-wrapper{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-width: 610px; 
+}
+
+.ecard-container{
+  position:relative;
+  width:610px;
+  min-width: 610px; 
+  height:400px;
+  margin:50px auto 10px auto;
+  border-radius:40px;
+  box-shadow:0px 0px 10px rgba(0,0,0,0.5);
+  overflow:hidden;
+}
+
+/* Absolute positioned images */
+.bg-img { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.watermark-img { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0.1; z-index:1; }
+
+.logo{ position:absolute; top:10px; right:20px; width:100px; opacity:0.8; z-index:10; }
+.logo1{ position:absolute; top:30px; left:28px; width:55px; z-index:10; }
+.logo2{ position:absolute; top:30px; left:70px; width:55px; z-index:10; }
+.center-logo{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:200px; opacity:0.08; z-index:2; }
+
+.ecard-label{ position:absolute; top:110px; left:50%; transform:translateX(-50%); font-size:24px; font-weight:bold; color:#f36d21; z-index:15; text-align:center; }
+
+.photo{ position:absolute; bottom:25px; right:40px; width:130px; z-index:3; }
+.photo-small{ position:absolute; bottom:195px; left:150px; width:40px; opacity:0.2; border-radius:10%; z-index:3; }
+
+.photosticker{ position:absolute; bottom:25px; right:40px; width:130px; height:160px; opacity:0.1; z-index:9; }
+.photo-logo{ position:absolute; bottom:40px; right:30px; width:100px; opacity:0.1; pointer-events:none; z-index:8; }
+.photo-logo2{ position:absolute; bottom:195px; left:150px; width:40px; height:50px; border-radius:10%; opacity:0.1; z-index:8; }
+.photo-logo3{ position:absolute; bottom:-91px; left:-100px; width:810px; opacity:0.6; pointer-events:none; z-index:7; }
+
+.stamp{ position:absolute; bottom:8px; right:140px; width:135px; z-index:11; }
+.qr-code{ position:absolute; bottom:230px; left:37px; width:80px; z-index:11; }
+.signature{ position:absolute; bottom:8px; left:250px; width:170px; transform:rotate(-15deg); z-index:11; }
+
+.text-container{ position:absolute; bottom:60px; top:180px; left:40px; font-family:"Courier New", monospace; color:#00427a; font-weight:bold; line-height:1.7; z-index:5; }
+.text-container p{ margin:2px 0; }
+.text-urdu{ font-family:'UrduFont'; font-size:10px; color:#00427a; font-weight:bold; }
+.designation{ color:purple; font-weight:bold; }
+
+.header-text{ position:absolute; top:40px; left:50%; transform:translateX(-50%); text-align:center; color:#301934; font-size:14px; font-weight:auto; font-family:'Times'; z-index:15; white-space:nowrap; }
+.header-text-urdu{ position:absolute; top:70px; left:50%; transform:translateX(-50%); text-align:center; font-family:'UrduFont'; color:#301934; font-size:18px; font-weight:regular; line-height:1; z-index:12; }
+
+.strip-hole{ position:absolute; top:9px; left:50%; transform:translateX(-50%); width:71px; height:10px; background-color:grey; border-radius:5px; z-index:11; }
+.strip-hole2{ position:absolute; top:10px; left:50%; transform:translateX(-50%); width:70px; height:9.3px; background-color:white; border-radius:5px; z-index:11; }
+
+.date{ position:absolute; top:150px; right:35px; font-family:"Courier New", monospace; font-size:10px; color:green; font-weight:bold; z-index:12; }
+.valid-till{ position:absolute; top:170px; right:36px; font-family:"Courier New", monospace; font-size:9px; color:red; font-weight:bold; z-index:12; }
+.issuance{ margin-top:10px; font-family:"Courier New", monospace; font-size:15px; color:#00427a; font-weight:bold; line-height:1; }
+
+.back-overlay-logo{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:220px; opacity:0.08; z-index:2;}
+
+.verify-box{
+  position:absolute;
+  top:30px;
+  left:50%;
+  transform:translateX(-50%);
+  text-align:center;
+  font-size:12px;
+  font-family:Calibri;
+  z-index:10;
+}
+
+.verify-box img{ width:70px; margin-top:5px; }
+
+.verify-name{ margin-top:5px; font-weight:bold; }
+
+.verify-photo{ width:60px; opacity:0.15; margin-top:5px; border-radius:6px; }
+
+.verify-qr-wrap{
+  position:relative;
+  width:70px;
+  height:70px;
+  margin:5px auto 0 auto;
+}
+
+.verify-qr-wrap img{
+  width:70px;
+  height:70px;
+  margin-top:0;
+  display:block;
+}
+
+.qr-mask-emoji{
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:32px;
+  line-height:1;
+  background:rgba(255,255,255,0.85);
+  border-radius:10px;
+  z-index:2;
+  pointer-events:none;
+}
+
+.center-text{ position:absolute; top:135px; left:50px; right:50px; text-align:center; font-size:10.5px; font-family:Calibri; color:#222; line-height:1.4; z-index:10; }
+.urdu-text { font-family:'UrduFont', sans-serif; font-size:11px; direction:rtl; line-height:1.5; margin-top:8px; }
+.contacts{ position:absolute; bottom:30px; left:40px; font-size:12px; font-family:Calibri; color:black; line-height:1.6; z-index:10;}
+
+.action-buttons{
+  position:absolute;
+  top:14px;
+  right:14px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  margin:0;
+  z-index:50;
+}
+
+button{
+  background-color:#4a90e2;
+  color:white;
+  border:none;
+  border-radius:30px;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+button:hover{ background-color:#357ab7; }
+
+.icon-btn{
+  width:30px;
+  height:30px;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  z-index:20;
+  background-color:rgba(74,144,226,0.95);
+  box-shadow:0 0 6px rgba(0,0,0,0.25);
+}
+
+.icon-btn:hover{
+  background-color:#357ab7;
+}
+
+.cancel-banner{
+  position:absolute;
+  top:60%;
+  left:0;
+  width:100%;
+  transform:translateY(-50%) rotate(-0deg);
+  background:rgba(220,0,0,0.85);
+  color:white;
+  text-align:center;
+  font-size:50px;
+  font-weight:bold;
+  padding:50px 0;
+  z-index:999;
+  letter-spacing:2px;
+  text-transform:auto;
+  box-shadow:0 0 10px rgba(0,0,0,0.5);
+  pointer-events:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="pdfArea" class="card-wrapper">
+
+  <div class="ecard-container" id="ecard">
+    <img src="static/images/background.png" class="bg-img" id="frontBg">
+    <img src="static/images/watermark.png" class="watermark-img">
+
+    <div class="strip-hole"></div>
+    <div class="strip-hole2"></div>
+
+    <img src="static/images/logo1.png" class="logo1">
+    <img src="static/images/logo2.png" class="logo2">
+    <img src="static/images/logo.png" class="logo">
+    <img src="static/images/logo.png" class="center-logo">
+    
+    <img id="stampImg" src="static/images/stamp.png" class="stamp">
+
+    <img id="userPhoto" class="photo">
+    <img id="photoSmall" class="photo-small">
+
+    <img src="static/images/sticker.png" class="photosticker">
+    <img src="static/images/logo.png" class="photo-logo">
+    <img src="static/images/sticker.png" class="photo-logo2">
+    <img src="static/images/shadow.png" class="photo-logo3">
+
+    <div class="ecard-label" id="ecardLabel">e-Card</div>
+
+    <img src="static/images/qrcode.png" class="qr-code">
+    
+    <img id="signatureImg" src="static/images/signature.png" class="signature">
+
+    <div class="text-container">
+      <p id="nameText"></p>
+      <p><span>Urdu Name: </span><span id="urduText" class="text-urdu"></span></p>
+      <p id="designationText" class="designation"></p>
+      <p id="cardNumberText"></p>
+      <p id="bloodText"></p>
+      <p id="contactText"></p>
+      <p class="issuance">Issuance Authority: ___________________</p>
+    </div>
+
+    <div class="header-text">KHAWRAI FALAHI COMMITTEE UAE</div>
+    <div class="header-text-urdu">خاورئی فلاحی کمیٹی متحدہ عرب امارات</div>
+
+    <div class="date" id="currentDate"></div>
+    <div class="valid-till" id="validTillDate"></div>
+    <div id="cancelBanner" class="cancel-banner" style="display:none;">
+      e-Card CANCELLED
+    </div>
+
+    <div class="action-buttons no-print">
+      <button id="homeBtn" class="icon-btn" type="button" title="Home">🏠</button>
+      <button id="toggleMaskBtn" class="icon-btn" type="button">👁</button>
+      <button id="saveBtn" class="icon-btn" type="button" title="Save PDF">💾</button>
+    </div>
+  </div>
+
+  <div class="ecard-container" id="ecardBack">
+    <img src="static/images/background.png" class="bg-img" id="backBg">
+    <img src="static/images/watermark.png" class="watermark-img">
+    <img src="static/images/logo.png" class="back-overlay-logo">
+
+    <div class="verify-box">
+      <div>Verification QR</div>
+      <div class="verify-qr-wrap">
+        <img id="verifyQR">
+        <div id="qrMaskEmoji" class="qr-mask-emoji">✘</div>
+      </div>
+      <div id="verifyName" class="verify-name"></div>
+      <img id="verifyPhoto" class="verify-photo">
+    </div>
+
+    <div class="center-text">
+      <p>
+        The Khawrai Falahi Committee UAE was established in December 2016. 
+        The purpose of the committee is to address the issues faced by residents 
+        of Khawrai in the United Arab Emirates and its surroundings, and to 
+        resolve them in a timely and professional manner. The leadership of 
+        the committee is committed to serving the residents of Khawrai in 
+        the United Arab Emirates and is determined to address and resolve 
+        their various issues promptly.
+      </p>
+      <p class="urdu-text">
+        متحدہ عرب امارات میں خاورئی فلاحی کمیٹی دسمبر 2016 میں قائم کی گئی تھی۔ کمیٹی کا مقصد متحدہ عرب امارات میں خاورئی اور اس کے گردونواح کے رہائشیوں کو درپیش مسائل کو حل کرنا اور انہیں بروقت اور پیشہ ورانہ انداز میں حل کرنا ہے۔ کمیٹی کی قیادت متحدہ عرب امارات میں خاورئی کے رہائشیوں کی خدمت کے لیے پرعزم ہے اور ان کے مختلف مسائل کو فوری طور پر حل کرنے کے لیے پُرعزم ہے۔
+      </p>
+    </div>
+
+    <div class="contacts">
+      Arbab Rizwan (President): +971 55 735 3212<br>
+      Salar Khan (Vice President): +971 58 884 0090<br>
+      Ahmad Aman (Acting President): +971 56 803 9690
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const encodedCard = params.get("card");
+
+function decodeCard(encoded){ try{ return atob(encoded); } catch(e){ return null; } }
+function encodeCard(raw){ return btoa(raw); }
+
+const cardNo = decodeCard(encodedCard);
+
+// DOM refs
+const nameText = document.getElementById("nameText");
+const urduText = document.getElementById("urduText");
+const designationText = document.getElementById("designationText");
+const cardNumberText = document.getElementById("cardNumberText");
+const bloodText = document.getElementById("bloodText");
+const contactText = document.getElementById("contactText");
+const userPhoto = document.getElementById("userPhoto");
+const photoSmall = document.getElementById("photoSmall");
+const frontBg = document.getElementById("frontBg");
+const backBg = document.getElementById("backBg");
+const ecardLabel = document.getElementById("ecardLabel");
+const verifyQR = document.getElementById("verifyQR");
+const verifyName = document.getElementById("verifyName");
+const verifyPhoto = document.getElementById("verifyPhoto");
+const currentDateEl = document.getElementById("currentDate");
+const stampImg = document.getElementById("stampImg");
+const signatureImg = document.getElementById("signatureImg");
+const toggleMaskBtn = document.getElementById("toggleMaskBtn");
+const qrMaskEmoji = document.getElementById("qrMaskEmoji");
+const homeBtn = document.getElementById("homeBtn");
+
+const qrTemp = document.createElement("div");
+qrTemp.style.position = "absolute";
+qrTemp.style.left = "-9999px";
+qrTemp.style.top = "0";
+qrTemp.style.width = "200px";
+qrTemp.style.height = "200px";
+document.body.appendChild(qrTemp);
+
+let currentCardData = null;
+let currentUrduName = "";
+let isMasked = false;
+
+function fitCardOnMobile(){
+  const isMobile = window.innerWidth <= 768;
+  const scale = isMobile ? Math.min((window.innerWidth - 20) / 610, 1) : 1;
+
+  document.body.style.overflowX = isMobile ? "hidden" : "";
+
+  const wrapper = document.getElementById("pdfArea");
+  wrapper.style.minWidth = isMobile ? "0" : "";
+
+  document.querySelectorAll(".ecard-container").forEach(card => {
+    card.style.transformOrigin = "top center";
+    card.style.transform = isMobile ? `scale(${scale})` : "";
+    card.style.marginLeft = "auto";
+    card.style.marginRight = "auto";
+  });
+}
+window.addEventListener("resize", fitCardOnMobile);
+window.addEventListener("orientationchange", fitCardOnMobile);
+fitCardOnMobile();
+
+function maskName(name){
+  if(!name) return "";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if(parts.length <= 1) return "***";
+  if(parts.length === 2) return "*** ***";
+  return ["***", ...parts.slice(1, -1), "***"].join(" ");
+}
+
+function maskCardNumber(cardNoValue){
+  if(!cardNoValue) return "";
+  return cardNoValue.replace(/(\d{3})(?!.*\d)/, "***");
+}
+
+function maskMobile(mobileValue){
+  if(!mobileValue) return "";
+  return mobileValue.replace(/(\d{4})(?!.*\d)/, "****");
+}
+
+function renderMaskedState(){
+  if(!currentCardData) return;
+
+  if(isMasked){
+    nameText.textContent = "Name: " + maskName(currentCardData.name);
+    urduText.textContent = maskName(currentUrduName);
+    cardNumberText.textContent = "Card No.: " + maskCardNumber(currentCardData.CNo);
+    contactText.textContent = "Contact: " + maskMobile(currentCardData.mobile);
+    verifyName.textContent = maskName(currentCardData.name);
+    qrMaskEmoji.style.display = "none";
+    toggleMaskBtn.textContent = "🙈";
+  } else {
+    nameText.textContent = "Name: " + currentCardData.name;
+    urduText.textContent = currentUrduName;
+    cardNumberText.textContent = "Card No.: " + currentCardData.CNo;
+    contactText.textContent = "Contact: " + currentCardData.mobile;
+    verifyName.textContent = currentCardData.name;
+    qrMaskEmoji.style.display = "none";
+    toggleMaskBtn.textContent = "👁";
+  }
+}
+
+toggleMaskBtn.addEventListener("click", function(){
+  isMasked = !isMasked;
+  renderMaskedState();
+});
+
+homeBtn.addEventListener("click", function(){
+  window.location.href = "https://livenews.live/KFC";
+});
+
+async function translateToUrdu(text){
+  try{
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ur&dt=t&q=${encodeURIComponent(text)}`);
+    const data = await res.json();
+    return data[0][0][0];
+  }catch(err){ return text; }
+}
+
+fetch("https://livenews.live/KFC/cards.json")
+.then(res => res.json())
+.then(async data => {
+
+  if(!cardNo){ alert("Invalid access."); window.location.href="index.html"; return; }
+  const card = data.find(c => c.CNo === cardNo);
+  currentCardData = card;
+
+// Cancel banner logic
+const cancelBanner = document.getElementById("cancelBanner");
+
+if(card.Status && card.Status.toLowerCase() === "cancel"){
+  cancelBanner.style.display = "block";
+}
+  if(!card){ alert("Card not found."); window.location.href="index.html"; return; }
+
+  designationText.textContent = "Desg: " + card.Desg;
+  bloodText.textContent = "B-Group: " + card.BG;
+
+  // --- UPDATED AUTHORITY LOGIC ---
+  const defaultStamp = "static/images/stamp.png";
+  const defaultSign = "static/images/signature.png";
+
+  if (card.Authority && card.Authority.trim() !== "") {
+    const authFolder = card.Authority.toLowerCase();
+    const stampPath = `static/images/photos/${authFolder}/stamp.png`;
+    const signaturePath = `static/images/photos/${authFolder}/signature.png`;
+
+    // Attempt to load authority-specific images
+    stampImg.src = stampPath;
+    signatureImg.src = signaturePath;
+
+    // Reliability: If the specific image doesn't exist, revert to default
+    stampImg.onerror = function() {
+      this.src = defaultStamp;
+      this.onerror = null; // Prevent infinite loop
+    };
+    signatureImg.onerror = function() {
+      this.src = defaultSign;
+      this.onerror = null; // Prevent infinite loop
+    };
+  } else {
+    stampImg.src = defaultStamp;
+    signatureImg.src = defaultSign;
+  }
+
+  function setPhoto(imgEl, src, fallback){
+      const tempImg = new Image();
+      tempImg.onload = () => { imgEl.src = src; };
+      tempImg.onerror = () => { imgEl.src = fallback; };
+      tempImg.src = src;
+  }
+
+  const cardPhoto = `static/images/photos/${card.CNo}.png`;
+  const fallbackPhoto = "static/images/photos/photo.png";
+  setPhoto(userPhoto, cardPhoto, fallbackPhoto);
+  setPhoto(photoSmall, cardPhoto, fallbackPhoto);
+  setPhoto(verifyPhoto, cardPhoto, fallbackPhoto);
+
+  if(card.urduName && card.urduName.trim()!==""){
+    currentUrduName = card.urduName;
+  } else {
+    currentUrduName = await translateToUrdu(card.name);
+  }
+
+const desg = (card.Desg || "").toLowerCase();
+
+const isActingPresident = desg.includes("acting president");
+const isVicePresident = desg.includes("vice president");
+const isPresident = desg.includes("president") && !isVicePresident && !isActingPresident;
+
+if (isActingPresident) {
+  frontBg.src = "static/images/background2.png";
+  backBg.src = "static/images/background2.png";
+  ecardLabel.textContent = "Acting President's e-Card";
+
+} else if (isVicePresident) {
+  frontBg.src = "static/images/background2.png";
+  backBg.src = "static/images/background2.png";
+  ecardLabel.textContent = "Vice President's e-Card";
+
+} else if (isPresident) {
+  frontBg.src = "static/images/background2.png";
+  backBg.src = "static/images/background2.png";
+  ecardLabel.textContent = "President's e-Card";
+
+} else {
+  frontBg.src = "static/images/background.png";
+  backBg.src = "static/images/background.png";
+  ecardLabel.textContent = "e-Card";
+}
+
+  const encoded = encodeCard(card.CNo);
+  const url = "https://livenews.live/KFC/verify.html?card=" + encoded;
+
+  qrTemp.innerHTML = "";
+  new QRCode(qrTemp, {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: "#000000",
+    colorLight: "#0000",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  const qrCanvas = qrTemp.querySelector("canvas");
+  if (qrCanvas) {
+    verifyQR.src = qrCanvas.toDataURL("image/png");
+  } else {
+    const qrImg = qrTemp.querySelector("img");
+    if (qrImg) verifyQR.src = qrImg.src;
+  }
+
+  currentDateEl.textContent = "ISSUE DATE: "+card.Issue;
+  
+  document.getElementById("validTillDate").textContent = "VALIDITY: " + (card.Validity || "UAE VISA EXPIRY").toUpperCase();
+
+  renderMaskedState();
+})
+.catch(err=>{ window.location.href="index.html"; });
+
+document.getElementById("saveBtn").addEventListener("click", function(){
+  const element=document.getElementById("pdfArea");
+  const opt={
+    margin:0,
+    filename:`${nameText.textContent.replace("Name: ","")} e-Card.pdf`,
+    image:{type:'jpeg',quality:1},
+    html2canvas:{
+      scale:5,
+      useCORS:true,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
+      ignoreElements: function(el){
+        return el.classList && el.classList.contains("no-print");
+      }
+    },
+    jsPDF:{unit:'mm',format:[180,270],orientation:'portrait'}
+  };
+  html2pdf().set(opt).from(element).save();
+});
+</script>
+
+</body>
+</html>

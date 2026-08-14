@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Constitution (Urdu) - Khawrai Falahi Committee UAE</title>
+
+  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* ── PDF Viewer Page Overrides ───────────────────────── */
+
+    /* Page-level breadcrumb bar */
+    .pdf-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      font-size: 13px;
+      color: var(--soft-light);
+      border-bottom: 1px solid var(--glass-border-light);
+      background: var(--glass-light);
+      backdrop-filter: blur(10px);
+      flex-wrap: wrap;
+    }
+
+    body.dark-mode .pdf-breadcrumb {
+      color: var(--soft-dark);
+      border-bottom: 1px solid var(--glass-border-dark);
+      background: var(--glass-dark);
+    }
+
+    .pdf-breadcrumb a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .pdf-breadcrumb a:hover {
+      text-decoration: underline;
+    }
+
+    .pdf-breadcrumb .sep {
+      color: #aaa;
+    }
+
+    /* Main PDF section wrapper */
+    .pdf-section {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header card above the PDF */
+    .pdf-header-card {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 18px 22px;
+      flex-wrap: wrap;
+    }
+
+    .pdf-header-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #ff6ec4, #7873f5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .pdf-header-icon i {
+      font-size: 26px;
+      color: #fff;
+    }
+
+    .pdf-header-text h2 {
+      margin-bottom: 4px;
+      text-align: left !important;
+      font-size: 20px;
+    }
+
+    .pdf-header-text p {
+      font-size: 13px;
+      color: var(--soft-light);
+      line-height: 1.5;
+      text-align: left !important;
+      margin: 0;
+    }
+
+    body.dark-mode .pdf-header-text p {
+      color: var(--soft-dark);
+    }
+
+    /* Toolbar row: zoom + download */
+    .pdf-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 18px;
+      flex-wrap: wrap;
+    }
+
+    .pdf-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pdf-toolbar-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--soft-light);
+    }
+
+    body.dark-mode .pdf-toolbar-label {
+      color: var(--soft-dark);
+    }
+
+    .pdf-zoom-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pdf-zoom-btn {
+      border: 1px solid var(--glass-border-light);
+      background: var(--glass-light);
+      color: var(--accent);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+      flex-shrink: 0;
+    }
+
+    body.dark-mode .pdf-zoom-btn {
+      border-color: var(--glass-border-dark);
+      background: var(--glass-dark);
+    }
+
+    .pdf-zoom-btn:hover {
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .pdf-zoom-label {
+      font-size: 13px;
+      font-weight: bold;
+      min-width: 42px;
+      text-align: center;
+      color: var(--accent);
+    }
+
+    .pdf-download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(90deg, #ff6ec4, #7873f5);
+      color: #fff;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: 0.3s;
+      flex-shrink: 0;
+    }
+
+    .pdf-download-btn:hover {
+      opacity: 0.88;
+      transform: translateY(-2px);
+    }
+
+    /* The PDF frame container */
+    .pdf-frame-wrap {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border-light);
+      box-shadow: var(--shadow-light);
+      background: #525659;
+      min-height: 75vh;
+    }
+
+    body.dark-mode .pdf-frame-wrap {
+      border-color: var(--glass-border-dark);
+      box-shadow: var(--shadow-dark);
+    }
+
+    #pdfIframe {
+      width: 100%;
+      height: 80vh;
+      border: none;
+      display: block;
+      transition: height 0.3s ease;
+    }
+
+    /* Loading overlay while iframe loads */
+    .pdf-loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      gap: 16px;
+      z-index: 10;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.5s ease;
+    }
+
+    body.dark-mode .pdf-loading-overlay {
+      background: rgba(7, 17, 31, 0.5);
+    }
+
+    .pdf-loading-overlay.hidden {
+      opacity: 0;
+    }
+
+    .pdf-spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(120, 115, 245, 0.2);
+      border-top-color: #7873f5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .pdf-loading-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Mobile fallback card – shown only when PDF can't render */
+    .pdf-mobile-fallback {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 36px 24px;
+      text-align: center;
+    }
+
+    .pdf-mobile-fallback i {
+      font-size: 54px;
+      color: var(--accent);
+    }
+
+    .pdf-mobile-fallback h3 {
+      font-size: 18px;
+    }
+
+    .pdf-mobile-fallback p {
+      font-size: 13px;
+      color: var(--soft-light);
+      line-height: 1.6;
+      max-width: 300px;
+    }
+
+    body.dark-mode .pdf-mobile-fallback p {
+      color: var(--soft-dark);
+    }
+
+    /* Info note below PDF */
+    .pdf-note {
+      font-size: 12px;
+      color: var(--soft-light);
+      text-align: center;
+      padding: 6px 0 4px;
+    }
+
+    body.dark-mode .pdf-note {
+      color: var(--soft-dark);
+    }
+
+    /* ── Sidebar toggle for mobile (shared pattern from main site) ── */
+    #sidebarToggle {
+      cursor: pointer;
+    }
+
+    @media (max-width: 1024px) {
+      .pdf-header-text h2 {
+        font-size: 17px;
+      }
+
+      #pdfIframe {
+        height: 72vh;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .pdf-section {
+        padding: 12px;
+      }
+
+      .pdf-header-card {
+        padding: 14px 14px;
+        gap: 12px;
+      }
+
+      .pdf-header-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+      }
+
+      .pdf-header-icon i {
+        font-size: 20px;
+      }
+
+      .pdf-header-text h2 {
+        font-size: 15px;
+      }
+
+      .pdf-toolbar {
+        padding: 10px 12px;
+        gap: 10px;
+      }
+
+      .pdf-toolbar-left {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      /* On very small screens, hide iframe and show fallback */
+      #pdfIframe {
+        height: 68vh;
+      }
+
+      .pdf-mobile-fallback {
+        padding: 28px 16px;
+      }
+
+      .pdf-frame-wrap {
+        min-height: 60vh;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .pdf-breadcrumb {
+        font-size: 12px;
+        padding: 8px 12px;
+      }
+
+      #pdfIframe {
+        height: 60vh;
+      }
+    }
+
+    /* Fix: h2 text-align override for pdf-header-text */
+    .pdf-header-text h2,
+    .pdf-header-text p {
+      -webkit-text-fill-color: unset;
+      background: linear-gradient(90deg, #0d3c91, #0d3c91);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    body.dark-mode .pdf-header-text h2 {
+      background: linear-gradient(90deg, #9bc2ff, #9bc2ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    body.dark-mode .pdf-header-text p {
+      background: none;
+      -webkit-background-clip: unset;
+      -webkit-text-fill-color: var(--soft-dark);
+      color: var(--soft-dark);
+    }
+
+    .pdf-header-text p {
+      background: none;
+      -webkit-background-clip: unset;
+      -webkit-text-fill-color: var(--soft-light);
+      color: var(--soft-light);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating background circles (identical to dashboard) -->
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TOP HEADER  (100% identical to dashboard)
+  ════════════════════════════════════════════ -->
+  <header class="top-header">
+    <div class="logo-area">
+      <a href="https://livenews.live/KFC" aria-label="Go to KFC home page">
+        <img src="logo.png" alt="KFC Logo" class="dancing-logo">
+      </a>
+      <div class="logo-text"></div>
+    </div>
+
+    <div class="user-area" id="userArea">
+      <!-- Theme toggle -->
+      <button class="notification-wrapper theme-toggle-btn" id="themeToggleBtn" type="button"
+              aria-label="Toggle dark mode" title="Toggle dark mode">
+        <i class="fa-solid fa-moon" id="themeToggleIcon" aria-hidden="true"></i>
+      </button>
+
+      <!-- Translate toggle -->
+      <button class="notification-wrapper translate-toggle-btn" id="translateToggleBtn" type="button"
+              aria-label="Translate page to Urdu" title="Translate page to Urdu">
+        <i class="fa-solid fa-language" id="translateToggleIcon" aria-hidden="true"></i>
+      </button>
+
+      <!-- Personal messages -->
+      <div class="notification-wrapper" id="msgBtn">
+        <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+        <span class="notification-badge" id="msgBadge" style="display:none;">!</span>
+        <div class="notification-dropdown glass" id="msgDropdown">
+          <div class="noti-header">Personal Messages</div>
+          <div id="msgList" class="noti-list">
+            <p class="noti-loading">Loading messages...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts / notifications -->
+      <div class="notification-wrapper" id="notificationBtn">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        <span class="notification-badge" id="notiBadge" style="display:none;">!</span>
+        <div class="notification-dropdown glass" id="notiDropdown">
+          <div class="noti-header">Recent Alerts</div>
+          <div id="notiList" class="noti-list">
+            <p class="noti-loading">Loading alerts...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile image / icon -->
+      <div class="header-profile-img-container">
+        <img
+          id="headerProfileImg"
+          src="https://livenews.live/KFC/static/images/photos/default.png"
+          alt="User"
+          class="header-profile-img"
+          style="display:none;"
+        >
+        <i class="fa-solid fa-user-circle" id="headerUserIcon" aria-hidden="true"></i>
+      </div>
+
+      <span id="username">Welcome, Guest</span>
+      <i class="fa-solid fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════
+       INFO BANNER  (identical to dashboard)
+  ════════════════════════════════════════════ -->
+  <div id="infoBanner" class="info-banner">
+    <div class="marquee">
+      🕭 Dear members: The Khawrai Falahi Committee can now send personal messages to all members privately. Please log in to your Committee account to view your messages and recent alerts. Stay updated.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       USER DROPDOWN
+  ════════════════════════════════════════════ -->
+  <div id="userDropdown" class="user-dropdown glass">
+    <div id="guestView">
+      <h3>Welcome Guest</h3>
+      <p>Please sign in to access your account</p>
+      <button id="openLoginBtn" type="button">
+        <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Sign In
+      </button>
+    </div>
+
+    <div id="userView" style="display:none; flex-direction:column; align-items:center; gap:6px;">
+      <div class="dropdown-photo-area">
+        <img id="dropdownProfileImg" src="" alt="Profile Photo" class="dropdown-profile-img">
+      </div>
+      <h3 id="userFullName"></h3>
+      <div class="user-info">
+        <p id="userCard"></p>
+        <p id="userDesg"></p>
+        <p id="userBlood"></p>
+        <p id="userMobile"></p>
+      </div>
+      <div class="user-buttons" style="display:flex; flex-direction:column; gap:8px; width:100%; align-items:center;">
+        <button id="viewPhotoBtn" type="button">
+          <i class="fa-solid fa-image" aria-hidden="true"></i> View Photo
+        </button>
+        <a id="viewCardBtn" href="#" target="_blank" rel="noopener noreferrer">View Card</a>
+        <button id="logoutBtn" type="button">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Photo viewer overlay -->
+  <div id="photoOverlay" class="overlay" aria-hidden="true">
+    <div class="photo-viewer-box glass">
+      <div class="leaders-header">
+        <h2>Profile Photo</h2>
+        <i class="fa-solid fa-xmark" id="closePhotoOverlay" aria-hidden="true"></i>
+      </div>
+      <img id="fullProfileImg" src="" alt="User Photo"
+           style="width:100%; border-radius:15px; box-shadow:0 5px 15px rgba(0,0,0,0.2);">
+    </div>
+  </div>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true">
+    <div class="login-box glass">
+      <h2><i class="fa-solid fa-user-lock" aria-hidden="true"></i> Secure Login</h2>
+      <input type="text"     id="loginUsername" placeholder="Enter Username" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Enter Password" autocomplete="current-password">
+      <button id="loginBtn" type="button">Login</button>
+      <p id="loginError" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- Welcome popup -->
+  <div id="welcomePopup" class="welcome-popup" aria-live="polite">
+    <p id="welcomeText"></p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       MAIN LAYOUT : SIDEBAR + CONTENT
+  ════════════════════════════════════════════ -->
+  <div class="dashboard-container">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar glass" id="mainSidebar">
+      <div class="sidebar-header">
+        <h2>Main Menu</h2>
+        <i class="fa-solid fa-bars" id="sidebarToggle" aria-label="Toggle menu" role="button" tabindex="0"></i>
+      </div>
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <a href="https://livenews.live/KFC/">
+          <i class="fa-solid fa-house" aria-hidden="true"></i> Dashboard
+        </a>
+        <a href="https://livenews.live/KFC/message/president.html">
+          <i class="fa-solid fa-user-tie" aria-hidden="true"></i> President's Message
+        </a>
+        <a href="https://livenews.live/KFC/message/alerts.html">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i> Alerts
+        </a>
+        <a href="https://livenews.live/KFC/database.html">
+          <i class="fa-solid fa-database" aria-hidden="true"></i> Member Database
+        </a>
+        <a href="https://livenews.live/KFC/message/cabinet.html">
+          <i class="fa-solid fa-users" aria-hidden="true"></i> Cabinet Members
+        </a>
+        <a href="https://livenews.live/KFC/message/Gallery/gallery.html">
+          <i class="fa-solid fa-images" aria-hidden="true"></i> Gallery
+        </a>
+        <a href="english.html">
+          <i class="fa-regular fa-file-pdf" aria-hidden="true"></i> Constitution (English)
+        </a>
+        <a href="https://livenews.live/KFC/urdu.html" class="active-nav-link">
+          <i class="fa-regular fa-file-pdf" aria-hidden="true"></i> Constitution (Urdu)
+        </a>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- Breadcrumb -->
+      <div class="pdf-breadcrumb glass" style="border-radius:14px; margin-bottom:0;">
+        <a href="https://livenews.live/KFC/">
+          <i class="fa-solid fa-house" style="margin-right:4px;" aria-hidden="true"></i>Dashboard
+        </a>
+        <span class="sep">›</span>
+        <span>Constitution (Urdu)</span>
+      </div>
+
+      <!-- PDF Section -->
+      <div class="pdf-section">
+
+        <!-- Header card -->
+        <div class="pdf-header-card glass">
+          <div class="pdf-header-icon">
+            <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+          </div>
+          <div class="pdf-header-text">
+            <h2>Committee Constitution — Urdu Version</h2>
+            <p>
+              Official Urdu translation of the Khawrai Falahi Committee UAE Constitution.
+              Use the toolbar below to zoom in/out or download the document.
+            </p>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="pdf-toolbar glass">
+          <div class="pdf-toolbar-left">
+            <span class="pdf-toolbar-label">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true" style="margin-right:4px;"></i>Zoom
+            </span>
+            <div class="pdf-zoom-group" role="group" aria-label="PDF zoom controls">
+              <button class="pdf-zoom-btn" id="zoomOut"  type="button" aria-label="Zoom out"  title="Zoom out">−</button>
+              <span   class="pdf-zoom-label" id="zoomLabel">100%</span>
+              <button class="pdf-zoom-btn" id="zoomIn"   type="button" aria-label="Zoom in"   title="Zoom in" >+</button>
+              <button class="pdf-zoom-btn" id="zoomReset" type="button" aria-label="Reset zoom" title="Reset zoom"
+                      style="font-size:12px; width:auto; padding:0 10px; font-weight:bold;">Reset</button>
+            </div>
+          </div>
+
+          <a class="pdf-download-btn"
+             href="https://livenews.live/KFC/Urdu.pdf"
+             download="KFC-Constitution-Urdu.pdf"
+             target="_blank"
+             rel="noopener noreferrer"
+             aria-label="Download Urdu Constitution PDF">
+            <i class="fa-solid fa-download" aria-hidden="true"></i>
+            Download PDF
+          </a>
+        </div>
+
+        <!-- PDF Frame -->
+        <div class="pdf-frame-wrap glass" id="pdfFrameWrap">
+
+          <!-- Loading spinner -->
+          <div class="pdf-loading-overlay" id="pdfLoadingOverlay">
+            <div class="pdf-spinner"></div>
+            <span class="pdf-loading-text">Loading PDF document…</span>
+          </div>
+
+          <!-- Desktop iframe -->
+          <iframe
+            id="pdfIframe"
+            src="https://livenews.live/KFC/Urdu.pdf#toolbar=1&navpanes=1&scrollbar=1&view=FitH"
+            title="Khawrai Falahi Committee Constitution - Urdu"
+            aria-label="Urdu Constitution PDF viewer"
+            loading="lazy"
+          ></iframe>
+
+          <!-- Mobile / fallback card (shown via JS if iframe fails) -->
+          <div class="pdf-mobile-fallback glass" id="pdfFallback">
+            <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+            <h3>Open Constitution (Urdu)</h3>
+            <p>
+              Your browser does not support inline PDF viewing.
+              Tap the button below to open or download the document.
+            </p>
+            <a class="pdf-download-btn"
+               href="https://livenews.live/KFC/Urdu.pdf"
+               target="_blank"
+               rel="noopener noreferrer">
+              <i class="fa-solid fa-external-link-alt" aria-hidden="true"></i>
+              Open PDF
+            </a>
+          </div>
+        </div>
+
+        <!-- Note below -->
+        <p class="pdf-note">
+          <i class="fa-solid fa-circle-info" aria-hidden="true" style="margin-right:4px;"></i>
+          If the PDF does not load, please use the <strong>Download PDF</strong> button above or
+          <a href="https://livenews.live/KFC/Urdu.pdf" target="_blank" rel="noopener noreferrer">click here</a> to open it directly.
+        </p>
+
+      </div><!-- /pdf-section -->
+    </main>
+  </div><!-- /dashboard-container -->
+
+  <footer class="footer">
+    <p>© 2026 Khawrai Falahi Committee United Arab Emirates | All Rights Reserved</p>
+  </footer>
+
+  <!-- Google Translate host (hidden) -->
+  <div id="google_translate_element" class="translate-host" aria-hidden="true"></div>
+
+  <!-- Leaders overlay (kept for parity – main.js may reference it) -->
+  <div id="leadersOverlay" class="overlay" aria-hidden="true">
+    <div class="leaders-box glass">
+      <div class="leaders-header">
+        <h2>Committee Leaders</h2>
+        <i class="fa-solid fa-xmark" id="closeLeaders" aria-hidden="true"></i>
+      </div>
+      <div id="leadersList" class="leaders-list"></div>
+    </div>
+  </div>
+
+  <!-- html2canvas (needed by main.js for notification downloads) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Shared dashboard logic -->
+  <script src="main.js"></script>
+
+  <!-- ── Page-specific JS ─────────────────────────────── -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ───── PDF Viewer ───────────────────────────────── */
+      const iframe        = document.getElementById('pdfIframe');
+      const loadOverlay   = document.getElementById('pdfLoadingOverlay');
+      const fallbackCard  = document.getElementById('pdfFallback');
+      const frameWrap     = document.getElementById('pdfFrameWrap');
+      const zoomInBtn     = document.getElementById('zoomIn');
+      const zoomOutBtn    = document.getElementById('zoomOut');
+      const zoomResetBtn  = document.getElementById('zoomReset');
+      const zoomLabel     = document.getElementById('zoomLabel');
+
+      const PDF_URL       = 'https://livenews.live/KFC/Urdu.pdf';
+      const ZOOM_STEP     = 10;
+      const ZOOM_MIN      = 50;
+      const ZOOM_MAX      = 200;
+      let   currentZoom   = 100;
+      let   loadTimer;
+
+      /* Hide spinner once iframe loads */
+      function onIframeLoad() {
+        clearTimeout(loadTimer);
+        if (loadOverlay) {
+          loadOverlay.classList.add('hidden');
+          setTimeout(() => { loadOverlay.style.display = 'none'; }, 600);
+        }
+      }
+
+      /* Show fallback if iframe errors or times out */
+      function showFallback() {
+        clearTimeout(loadTimer);
+        if (iframe)       iframe.style.display       = 'none';
+        if (loadOverlay)  loadOverlay.style.display  = 'none';
+        if (fallbackCard) fallbackCard.style.display = 'flex';
+        if (frameWrap)    frameWrap.style.minHeight  = 'auto';
+      }
+
+      if (iframe) {
+        iframe.addEventListener('load',  onIframeLoad);
+        iframe.addEventListener('error', showFallback);
+
+        /* Safety timeout – if PDF doesn't load in 15 s show fallback */
+        loadTimer = setTimeout(function () {
+          /* Only show fallback if spinner is still visible */
+          if (loadOverlay && !loadOverlay.classList.contains('hidden')) {
+            showFallback();
+          }
+        }, 15000);
+      }
+
+      /* ── Zoom controls (scales iframe via CSS transform) ── */
+      function applyZoom(zoom) {
+        currentZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+        if (zoomLabel) zoomLabel.textContent = currentZoom + '%';
+
+        if (!iframe) return;
+
+        const scale   = currentZoom / 100;
+        const baseH   = window.innerWidth <= 600 ? 60 : 80; /* vh */
+
+        iframe.style.transformOrigin = 'top center';
+        iframe.style.transform       = `scale(${scale})`;
+        /* Compensate container height so content isn't clipped */
+        iframe.style.height          = `${baseH}vh`;
+        iframe.style.marginBottom    = `${(scale - 1) * baseH}vh`;
+
+        if (frameWrap) {
+          frameWrap.style.overflow = currentZoom > 100 ? 'auto' : 'hidden';
+        }
+      }
+
+      if (zoomInBtn)    zoomInBtn.addEventListener('click',  () => applyZoom(currentZoom + ZOOM_STEP));
+      if (zoomOutBtn)   zoomOutBtn.addEventListener('click', () => applyZoom(currentZoom - ZOOM_STEP));
+      if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => applyZoom(100));
+
+      /* ── Keyboard shortcuts for zoom ── */
+      document.addEventListener('keydown', function (e) {
+        if (e.ctrlKey || e.metaKey) {
+          if (e.key === '=' || e.key === '+') { e.preventDefault(); applyZoom(currentZoom + ZOOM_STEP); }
+          if (e.key === '-')                  { e.preventDefault(); applyZoom(currentZoom - ZOOM_STEP); }
+          if (e.key === '0')                  { e.preventDefault(); applyZoom(100); }
+        }
+      });
+
+      /* ── Sidebar mobile toggle ────────────────────────── */
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const mainSidebar   = document.getElementById('mainSidebar');
+
+      if (sidebarToggle && mainSidebar) {
+        sidebarToggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const isOpen = mainSidebar.style.display === 'flex';
+          mainSidebar.style.display = isOpen ? 'none' : 'flex';
+        });
+
+        /* Close sidebar when clicking outside */
+        document.addEventListener('click', function (e) {
+          if (window.innerWidth <= 600) {
+            if (!mainSidebar.contains(e.target) && e.target !== sidebarToggle) {
+              mainSidebar.style.display = 'none';
+            }
+          }
+        });
+
+        /* Keyboard accessibility */
+        sidebarToggle.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            sidebarToggle.click();
+          }
+        });
+      }
+
+      /* ── Mark active nav link ─────────────────────────── */
+      document.querySelectorAll('.sidebar-nav a').forEach(function (link) {
+        if (link.href === window.location.href) {
+          link.style.background = 'linear-gradient(90deg,#ff6ec4,#7873f5)';
+          link.style.color      = '#fff';
+          link.style.borderRadius = '10px';
+        }
+      });
+
+    })();
+  </script>
+
+  <!-- Active nav-link style (inject once DOM ready) -->
+  <style>
+    .active-nav-link {
+      background: linear-gradient(90deg, #ff6ec4, #7873f5) !important;
+      color: #fff !important;
+      border-radius: 10px;
+    }
+  </style>
+
+</body>
+</html>
