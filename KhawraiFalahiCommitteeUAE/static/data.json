@@ -1,0 +1,40 @@
+{
+  "projects": [
+    {
+      "id": 1,
+      "title": "Live News Platform",
+      "description": "A modern live news website delivering real-time updates with a clean UI, dynamic content system, and responsive design.",
+      "link": "https://livenews.live",
+      "category": "Web Development",
+      "tech": ["HTML", "CSS", "JavaScript"],
+      "status": "Active"
+    },
+    {
+      "id": 2,
+      "title": "Khawrai Falahi Committee UAE Database",
+      "description": "A structured static database system for managing and displaying member information with verification features.",
+      "link": "https://livenews.live/KFC",
+      "category": "Database / Web App",
+      "tech": ["HTML", "CSS", "JavaScript"],
+      "status": "Completed"
+    },
+    {
+      "id": 3,
+      "title": "NSF Photography Portfolio",
+      "description": "A professional photography showcase featuring curated shots and visual storytelling captured across different environments.",
+      "link": "https://livenews.live/NSFClix",
+      "category": "Photography",
+      "tech": ["Photography", "Editing"],
+      "status": "Active"
+    },
+    {
+      "id": 4,
+      "title": "3D Interactive Portfolio",
+      "description": "A modern 3D personal portfolio with animations, parallax effects, glass UI, and dynamic data loading.",
+      "link": "#",
+      "category": "Web Development",
+      "tech": ["HTML", "CSS", "JavaScript"],
+      "status": "In Progress"
+    }
+  ]
+}
