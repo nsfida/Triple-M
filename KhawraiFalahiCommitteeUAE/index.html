@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Khawrai Falahi Committee UAE - Dashboard</title>
+
+  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div class="floating-circles" aria-hidden="true">
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+  </div>
+
+  <header class="top-header">
+    <div class="logo-area">
+      <a href="https://livenews.live/KFC" aria-label="Go to KFC home page">
+        <img src="logo.png" alt="KFC Logo" class="dancing-logo">
+      </a>
+
+      <div class="logo-text">
+      </div>
+    </div>
+
+    <div class="user-area" id="userArea">
+      <button class="notification-wrapper theme-toggle-btn" id="themeToggleBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <i class="fa-solid fa-moon" id="themeToggleIcon" aria-hidden="true"></i>
+      </button>
+      <button class="notification-wrapper translate-toggle-btn" id="translateToggleBtn" type="button" aria-label="Translate page to Urdu" title="Translate page to Urdu">
+        <i class="fa-solid fa-language" id="translateToggleIcon" aria-hidden="true"></i>
+      </button>
+      <div class="notification-wrapper" id="msgBtn">
+        <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+        <span class="notification-badge" id="msgBadge" style="display:none;">!</span>
+
+        <div class="notification-dropdown glass" id="msgDropdown">
+          <div class="noti-header">Personal Messages</div>
+          <div id="msgList" class="noti-list">
+            <p class="noti-loading">Loading messages...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="notification-wrapper" id="notificationBtn">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        <span class="notification-badge" id="notiBadge" style="display:none;">!</span>
+
+        <div class="notification-dropdown glass" id="notiDropdown">
+          <div class="noti-header">Recent Alerts</div>
+          <div id="notiList" class="noti-list">
+            <p class="noti-loading">Loading alerts...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-profile-img-container">
+        <img
+          id="headerProfileImg"
+          src="https://livenews.live/KFC/static/images/photos/default.png"
+          alt="User"
+          class="header-profile-img"
+          style="display:none;"
+        >
+        <i class="fa-solid fa-user-circle" id="headerUserIcon" aria-hidden="true"></i>
+      </div>
+
+      <span id="username">Welcome, Guest</span>
+      <i class="fa-solid fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
+    </div>
+  </header>
+
+  <div id="infoBanner" class="info-banner">
+    <div class="marquee">
+      🕭 Dear members: The Khawrai Falahi Committee can now send personal messages to all members privately. Please log in to your Committee account to view your messages and recent alerts. Stay updated.
+    </div>
+  </div>
+
+  <div id="userDropdown" class="user-dropdown glass">
+    <div id="guestView">
+      <h3>Welcome Guest</h3>
+      <p>Please sign in to access your account</p>
+      <button id="openLoginBtn" type="button">
+        <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Sign In
+      </button>
+    </div>
+
+    <div id="userView" style="display:none; flex-direction:column; align-items:center; gap:6px;">
+      <div class="dropdown-photo-area">
+        <img id="dropdownProfileImg" src="" alt="Profile Photo" class="dropdown-profile-img">
+      </div>
+
+      <h3 id="userFullName"></h3>
+
+      <div class="user-info">
+        <p id="userCard"></p>
+        <p id="userDesg"></p>
+        <p id="userBlood"></p>
+        <p id="userMobile"></p>
+      </div>
+
+      <div class="user-buttons" style="display:flex; flex-direction:column; gap:8px; width:100%; align-items:center;">
+        <button id="viewPhotoBtn" type="button">
+          <i class="fa-solid fa-image" aria-hidden="true"></i> View Photo
+        </button>
+        <a id="viewCardBtn" href="#" target="_blank" rel="noopener noreferrer">View Card</a>
+        <button id="logoutBtn" type="button">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="photoOverlay" class="overlay" aria-hidden="true">
+    <div class="photo-viewer-box glass">
+      <div class="leaders-header">
+        <h2>Profile Photo</h2>
+        <i class="fa-solid fa-xmark" id="closePhotoOverlay" aria-hidden="true"></i>
+      </div>
+      <img
+        id="fullProfileImg"
+        src=""
+        alt="User Photo"
+        style="width:100%; border-radius:15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);"
+      >
+    </div>
+  </div>
+
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true">
+    <div class="login-box glass">
+      <h2><i class="fa-solid fa-user-lock" aria-hidden="true"></i> Secure Login</h2>
+      <input type="text" id="loginUsername" placeholder="Enter Username" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Enter Password" autocomplete="current-password">
+      <button id="loginBtn" type="button">Login</button>
+      <p id="loginError" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div id="welcomePopup" class="welcome-popup" aria-live="polite">
+    <p id="welcomeText"></p>
+  </div>
+
+  <div class="dashboard-container">
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <h2>Main Menu</h2>
+        <i class="fa-solid fa-bars" id="sidebarToggle" aria-hidden="true"></i>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <a href="#"><i class="fa-solid fa-house" aria-hidden="true"></i> Dashboard</a>
+        <a href="https://livenews.live/KFC/message/president.html"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> President's Message</a>
+        <a href="https://livenews.live/KFC/message/alerts.html"><i class="fa-solid fa-bell" aria-hidden="true"></i> Alerts</a>
+        <a href="https://livenews.live/KFC/database.html"><i class="fa-solid fa-database" aria-hidden="true"></i> Member Database</a>
+        <a href="https://livenews.live/KFC/message/cabinet.html"><i class="fa-solid fa-users" aria-hidden="true"></i> Cabinet Members</a>
+        <a href="https://livenews.live/KFC/message/Gallery/gallery.html"><i class="fa-solid fa-images" aria-hidden="true"></i> Gallery</a>
+      </nav>
+
+      <div class="sidebar-app-links">
+        <h3>Mobile Apps</h3>
+
+        <a class="sidebar-app-link" href="https://livenews.live/KFC/Apps/Khawrai.apk" download="Khawrai.apk" target="_blank" rel="noopener noreferrer">
+          <i class="fa-brands fa-android" aria-hidden="true"></i>
+          <span>
+            <strong>Android App</strong>
+            <small>Download APK</small>
+          </span>
+          <i class="fa-solid fa-download sidebar-link-download" aria-hidden="true"></i>
+        </a>
+
+        <a class="sidebar-app-link" href="https://livenews.live/KFC/Apps/KhawraiFalahi.mobileconfig" download="KhawraiFalahi.mobileconfig" target="_blank" rel="noopener noreferrer">
+          <i class="fa-brands fa-apple" aria-hidden="true"></i>
+          <span>
+            <strong>iOS App</strong>
+            <small>Download Profile</small>
+          </span>
+          <i class="fa-solid fa-download sidebar-link-download" aria-hidden="true"></i>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <section class="welcome-section glass">
+        <div class="welcome-text">
+          <h2>Welcome to Khawrai Falahi Committee United Arab Emirates</h2>
+          <p>
+            This official platform connects Khawrai Falahi Committee members across the UAE through a secure,
+            transparent, and responsive dashboard. Access your membership details, view committee updates, alerts,
+            and the gallery from any device.
+          </p>
+          <p>
+            This platform has been designed to gather all members in one place so they can review information,
+            receive announcements, and stay connected with committee activity.
+          </p>
+        </div>
+
+        <div class="welcome-image">
+          <img src="logo.png" alt="KFC Logo">
+        </div>
+      </section>
+
+      <section class="stats-section">
+        <div class="stat glass">
+          <h3>👤 Total Members</h3>
+          <p id="totalMembers">Loading...</p>
+        </div>
+
+        <div class="stat glass">
+          <h3>✔ Active Members</h3>
+          <p id="activeMembers">Loading...</p>
+        </div>
+
+        <div class="stat glass">
+          <h3 id="leadersBtn" class="clickable">🤴🏻 Committee Leaders</h3>
+          <p id="leadersCount">Loading...</p>
+        </div>
+      </section>
+
+      <section class="cards-section">
+        <div class="card glass">
+          <i class="fa-solid fa-user-tie" aria-hidden="true"></i>
+          <h3>President's Message</h3>
+          <p>Official message from leadership</p>
+          <a href="https://livenews.live/KFC/message/president.html">Open</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-regular fa-bell" aria-hidden="true"></i>
+          <h3>Alerts</h3>
+          <p>Latest announcements</p>
+          <a href="https://livenews.live/KFC/message/alerts.html">View</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+          <h3>Database</h3>
+          <p>Secure member records</p>
+          <a href="https://livenews.live/KFC/database.html">Access</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-solid fa-users" aria-hidden="true"></i>
+          <h3>Cabinet</h3>
+          <p>Leadership and structure</p>
+          <a href="https://livenews.live/KFC/message/cabinet.html">Open</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-regular fa-images" aria-hidden="true"></i>
+          <h3>Gallery</h3>
+          <p>Community events and memories</p>
+          <a href="https://livenews.live/KFC/message/Gallery/gallery.html">View</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+          <h3>Constitution (English)</h3>
+          <p>English Version</p>
+          <a href="https://livenews.live/KFC/english.html">View</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+          <h3>Constitution (Translated)</h3>
+          <p>Second Language Version</p>
+          <a href="https://livenews.live/KFC/urdu.html">View</a>
+        </div>
+
+        <div class="card glass">
+          <i class="fa-regular fa-comment" aria-hidden="true"></i>
+          <h3>Chat Portal</h3>
+          <p>Khawrai Falahi Committee Chatting Portal</p>
+          <a href="https://livenews.live/KFC/securednetworkinbox.html">Open</a>
+        </div>
+      </section>
+
+      <section class="info-section glass">
+        <h2>ⓘ About the Committee</h2>
+        <p>
+          The Khawrai Falahi Committee UAE was established in December 2016. The purpose of the committee is to
+          address the issues faced by residents of Khawrai in the United Arab Emirates and its surroundings, and to
+          resolve them in a timely and professional manner. The leadership of the committee is committed to serving
+          the residents of Khawrai in the United Arab Emirates and remains determined to resolve their concerns with
+          speed and responsibility.
+        </p>
+      </section>
+
+      <section class="info-section glass">
+        <h2>✔ Mission</h2>
+        <p>
+          Residents of Khawrai village and the surrounding areas who live in the United Arab Emirates may face serious
+          situations that are difficult to resolve alone. At times, unexpected emergencies arise where financial
+          assistance, timely community support, and other essential resources become necessary, and these cannot be
+          managed by a single person or a small group alone. With this need in mind, the Khawrai Falahi Committee
+          was formed. The committee includes essential measures intended to support our community members in the UAE
+          and provide timely solutions to their difficulties. The core mission of the committee focuses on three
+          critical areas: a member suffering a heart attack, the passing of a member, and cases involving a member's
+          appendicitis. Further details are available in the committee constitution.
+        </p>
+      </section>
+
+      <section class="info-section glass">
+        <h2>⌯⌲ Vision</h2>
+        <p>To build a digitally accessible, strong, and self-supporting Khawrai community in the UAE.</p>
+      </section>
+
+      <section class="info-section glass">
+        <h2>💎 Member Benefits</h2>
+        <ul>
+          <li>✓ Emergency support and communication</li>
+          <li>✓ Community event access and gallery</li>
+          <li>✓ Secure digital identity and login</li>
+          <li>✓ Direct updates from leadership</li>
+          <li>✓ Access to member database</li>
+        </ul>
+      </section>
+
+      <section class="info-section glass">
+        <h2>System Features</h2>
+        <p>
+          Fully responsive dashboard, secure username and password login, persistent session across refresh, dynamic
+          statistics, and a mobile-friendly interface.
+        </p>
+      </section>
+
+      <section class="apps-section glass" id="appsDownloadSection">
+        <h2>📱 Mobile App Downloads</h2>
+        <p class="apps-intro">
+          Scan the QR code or use the download button for Android and iPhone installation files.
+        </p>
+
+        <div class="apps-grid">
+          <div class="app-download-card glass">
+            <div class="app-download-head">
+              <i class="fa-brands fa-android" aria-hidden="true"></i>
+              <div class="app-download-head-text">
+                <h3>Android App</h3>
+                <p>Khawrai.apk</p>
+              </div>
+            </div>
+
+            <div id="androidQrMain" class="qr-box" aria-label="Android app QR code"></div>
+
+            <a
+              id="androidMainDownload"
+              class="app-download-btn"
+              href="https://livenews.live/KFC/Apps/Khawrai.apk"
+              download="Khawrai.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i class="fa-solid fa-download" aria-hidden="true"></i>
+              Download Android App
+            </a>
+          </div>
+
+          <div class="app-download-card glass">
+            <div class="app-download-head">
+              <i class="fa-brands fa-apple" aria-hidden="true"></i>
+              <div class="app-download-head-text">
+                <h3>iOS App</h3>
+                <p>KhawraiFalahi.mobileconfig</p>
+              </div>
+            </div>
+
+            <div id="iosQrMain" class="qr-box" aria-label="iOS app QR code"></div>
+
+            <a
+              id="iosMainDownload"
+              class="app-download-btn"
+              href="https://livenews.live/KFC/Apps/KhawraiFalahi.mobileconfig"
+              download="KhawraiFalahi.mobileconfig"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i class="fa-solid fa-download" aria-hidden="true"></i>
+              Download iOS App
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>© 2026 Khawrai Falahi Committee United Arab Emirates | All Rights Reserved</p>
+  </footer>
+
+  <div id="google_translate_element" class="translate-host" aria-hidden="true"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="main.js"></script>
+
+  <div id="leadersOverlay" class="overlay" aria-hidden="true">
+    <div class="leaders-box glass">
+      <div class="leaders-header">
+        <h2>Committee Leaders</h2>
+        <i class="fa-solid fa-xmark" id="closeLeaders" aria-hidden="true"></i>
+      </div>
+      <div id="leadersList" class="leaders-list"></div>
+    </div>
+  </div>
+
+</body>
+</html>
