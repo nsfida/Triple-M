@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Nadeem Shahzad Fida">
+<meta name="description" content="Nadeem Shahzad Fida — Operations Manager, AI-Assisted Developer, Vibe Coder, Product Builder and Published Author.">
+<title>Nadeem Shahzad Fida — Professional CV</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+<style>
+/* =========================================================
+   NADЕEM SHAHZAD FIDA — A4 MULTI-PAGE CV
+   Print architecture:
+   - Every .page is exactly 210mm × 297mm.
+   - Content is deliberately split into pages.
+   - Each page repeats the same visual system.
+   - No page depends on another page for its layout.
+   ========================================================= */
+
+:root{
+  --ink:#171b20;
+  --muted:#5e6871;
+  --cyan:#25a8ce;
+  --cyan-dark:#087595;
+  --cyan-pale:#eaf7fb;
+  --cyan-line:#b9dce7;
+  --paper:#ffffff;
+  --bg:#dfe7eb;
+  --dark:#10161a;
+  --dark-2:#172126;
+  --gold:#d4a92c;
+  --page-w:210mm;
+  --page-h:297mm;
+  --pad-x:14mm;
+  --pad-top:12mm;
+  --pad-bottom:12mm;
+}
+
+*{box-sizing:border-box}
+
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Inter",Arial,sans-serif;
+  line-height:1.42;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+
+body{
+  padding:12mm 0;
+}
+
+a{
+  color:inherit;
+  text-decoration:none;
+}
+
+.page{
+  position:relative;
+  width:var(--page-w);
+  height:var(--page-h);
+  margin:0 auto 8mm;
+  background:var(--paper);
+  overflow:hidden;
+  box-shadow:0 8px 35px rgba(16,35,44,.16);
+  page-break-after:always;
+  break-after:page;
+}
+
+.page:last-child{
+  page-break-after:auto;
+  break-after:auto;
+}
+
+.page-inner{
+  position:relative;
+  z-index:2;
+  height:100%;
+  padding:var(--pad-top) var(--pad-x) var(--pad-bottom);
+  display:flex;
+  flex-direction:column;
+}
+
+.corner{
+  position:absolute;
+  z-index:1;
+  pointer-events:none;
+  background:var(--cyan);
+}
+
+.corner.tr{
+  top:0;
+  right:0;
+  width:52mm;
+  height:25mm;
+  clip-path:polygon(35% 0,100% 0,100% 100%);
+}
+
+.corner.bl{
+  left:0;
+  bottom:0;
+  width:48mm;
+  height:20mm;
+  clip-path:polygon(0 0,62% 100%,0 100%);
+}
+
+.page-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  min-height:8mm;
+  padding-bottom:4mm;
+  border-bottom:1px solid var(--cyan-line);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:7.5pt;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.brand-mark{
+  width:8mm;
+  height:8mm;
+  border-radius:2.2mm;
+  display:grid;
+  place-items:center;
+  color:white;
+  background:var(--dark);
+  font-size:9pt;
+}
+
+.page-label{
+  color:var(--cyan-dark);
+  font-size:7pt;
+  font-weight:800;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+.page-content{
+  flex:1;
+  min-height:0;
+  padding-top:5mm;
+}
+
+.page-footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding-top:3mm;
+  border-top:1px solid #dbe8ed;
+  color:#66717a;
+  font-size:6.8pt;
+  flex:0 0 auto;
+}
+
+.page-footer strong{color:var(--ink)}
+.page-footer .page-no{
+  color:var(--cyan-dark);
+  font-weight:900;
+}
+
+/* ---------- Cover / profile ---------- */
+
+.cover-head{
+  display:grid;
+  grid-template-columns:43mm 1fr;
+  gap:9mm;
+  align-items:start;
+}
+
+.photo-frame{
+  position:relative;
+  width:40mm;
+  height:49mm;
+}
+
+.photo-frame::after{
+  content:"";
+  position:absolute;
+  inset:2.5mm -2mm -2.5mm 2mm;
+  border:1.1mm solid var(--cyan);
+  border-radius:3mm;
+  z-index:-1;
+  opacity:.72;
+}
+
+.photo{
+  width:40mm;
+  height:49mm;
+  object-fit:cover;
+  object-position:center top;
+  border-radius:2.2mm;
+  display:block;
+  background:#edf2f4;
+  box-shadow:0 4mm 10mm rgba(0,0,0,.14);
+}
+
+.eyebrow{
+  color:var(--cyan-dark);
+  font-size:7.3pt;
+  font-weight:900;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  margin:1mm 0 2mm;
+}
+
+h1{
+  font-family:"Manrope",sans-serif;
+  margin:0;
+  font-size:34pt;
+  line-height:.88;
+  letter-spacing:-.065em;
+  text-transform:uppercase;
+}
+
+.name-accent{color:var(--cyan-dark)}
+
+.headline{
+  margin:4mm 0 3mm;
+  font-size:8pt;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.045em;
+}
+
+.headline span{color:var(--cyan-dark)}
+
+.profile-lead{
+  margin:0;
+  font-size:8.2pt;
+  line-height:1.55;
+  color:#303940;
+}
+
+.contact-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:2mm;
+  margin-top:5mm;
+}
+
+.contact{
+  min-height:10mm;
+  display:flex;
+  align-items:flex-start;
+  gap:2.2mm;
+  padding:2.2mm 2.4mm;
+  border:1px solid #d7e7ec;
+  border-radius:2.3mm;
+  background:var(--cyan-pale);
+  font-size:6.9pt;
+}
+
+.contact i{
+  width:4mm;
+  color:var(--cyan-dark);
+  text-align:center;
+  margin-top:.5mm;
+  flex:0 0 auto;
+}
+
+.contact span,.contact a{overflow-wrap:anywhere}
+
+.section{
+  margin-top:5.5mm;
+  break-inside:avoid;
+}
+
+.section-title{
+  display:flex;
+  align-items:center;
+  gap:2.5mm;
+  margin:0 0 3mm;
+  font-family:"Manrope",sans-serif;
+  font-size:12.5pt;
+  line-height:1;
+  text-transform:uppercase;
+  letter-spacing:-.02em;
+}
+
+.section-title i{
+  color:var(--cyan-dark);
+  font-size:10.5pt;
+}
+
+.section-title::after{
+  content:"";
+  height:.45mm;
+  background:linear-gradient(90deg,var(--cyan),var(--cyan-line),transparent);
+  flex:1;
+}
+
+.two{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5mm;
+}
+
+.profile-box{
+  border-left:1.1mm solid var(--cyan);
+  padding:2.5mm 3.2mm;
+  background:linear-gradient(90deg,#f2fafc,transparent);
+}
+
+.profile-box p{
+  margin:0 0 2mm;
+  font-size:7.6pt;
+  line-height:1.52;
+}
+
+.profile-box p:last-child{margin-bottom:0}
+
+.mini-title{
+  margin:0 0 2mm;
+  font-size:7.6pt;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:1.4mm;
+}
+
+.tag{
+  display:inline-flex;
+  align-items:center;
+  gap:1mm;
+  padding:1.25mm 1.8mm;
+  border:1px solid #cfe8ef;
+  background:#eff9fc;
+  color:#155c70;
+  border-radius:99px;
+  font-size:6.3pt;
+  font-weight:800;
+}
+
+/* ---------- Timeline ---------- */
+
+.timeline{
+  position:relative;
+  margin-left:4mm;
+  padding-left:5mm;
+}
+
+.timeline::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:1mm;
+  bottom:1mm;
+  width:.55mm;
+  background:linear-gradient(var(--cyan),#d8edf2);
+}
+
+.job{
+  position:relative;
+  margin-bottom:4.5mm;
+  break-inside:avoid;
+}
+
+.job:last-child{margin-bottom:0}
+
+.job::before{
+  content:"";
+  position:absolute;
+  left:-6.15mm;
+  top:1mm;
+  width:2.5mm;
+  height:2.5mm;
+  border:.75mm solid var(--cyan);
+  border-radius:50%;
+  background:white;
+  box-shadow:0 0 0 1mm #eaf7fb;
+}
+
+.job-date{
+  color:var(--cyan-dark);
+  font-size:6.8pt;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+}
+
+.job-title{
+  margin:.8mm 0 .5mm;
+  font-size:9.1pt;
+  font-weight:900;
+  text-transform:uppercase;
+}
+
+.job-company{
+  color:#4f5961;
+  font-size:7pt;
+  font-style:italic;
+  font-weight:700;
+}
+
+.job ul{
+  margin:1.2mm 0 0;
+  padding-left:4.2mm;
+}
+
+.job li{
+  margin:.75mm 0;
+  font-size:7.1pt;
+  line-height:1.42;
+  color:#394249;
+}
+
+.job li::marker{color:var(--cyan-dark)}
+
+/* ---------- Education / cards ---------- */
+
+.edu{
+  border-left:1.1mm solid var(--cyan);
+  padding:2.4mm 3mm;
+  background:linear-gradient(90deg,#f2fafc,transparent);
+  margin-bottom:2.3mm;
+  break-inside:avoid;
+}
+
+.edu:last-child{margin-bottom:0}
+
+.edu-date{
+  color:var(--cyan-dark);
+  font-size:6.7pt;
+  font-weight:900;
+}
+
+.edu strong{
+  display:block;
+  margin-top:.5mm;
+  font-size:8pt;
+  line-height:1.3;
+}
+
+.edu span{
+  display:block;
+  color:var(--muted);
+  font-size:6.8pt;
+  margin-top:.4mm;
+}
+
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:2.7mm;
+}
+
+.card{
+  border:1px solid #dce8ed;
+  border-radius:2.8mm;
+  padding:2.8mm;
+  background:white;
+  break-inside:avoid;
+}
+
+.card h3{
+  margin:0 0 1.5mm;
+  display:flex;
+  gap:1.8mm;
+  align-items:center;
+  font-size:7.5pt;
+  text-transform:uppercase;
+  letter-spacing:.035em;
+}
+
+.card h3 i{color:var(--cyan-dark)}
+
+.card p,.card li{
+  margin:0;
+  color:#424b52;
+  font-size:6.9pt;
+  line-height:1.45;
+}
+
+.card ul{
+  margin:1mm 0 0;
+  padding-left:3.7mm;
+}
+
+.card li{margin:.6mm 0}
+
+.card .tags{margin-top:1.8mm}
+
+/* ---------- Featured project ---------- */
+
+.project{
+  position:relative;
+  border:1px solid #cde7ef;
+  border-radius:4mm;
+  padding:4.5mm;
+  background:
+    radial-gradient(circle at 92% 8%,rgba(37,168,206,.16),transparent 27%),
+    linear-gradient(135deg,#fbfeff,#eef8fb);
+  overflow:hidden;
+  break-inside:avoid;
+}
+
+.project-badge{
+  position:absolute;
+  top:0;
+  right:0;
+  padding:1.8mm 3mm;
+  background:var(--cyan);
+  color:white;
+  font-size:5.7pt;
+  font-weight:900;
+  letter-spacing:.12em;
+  border-bottom-left-radius:2.5mm;
+}
+
+.project-head{
+  display:grid;
+  grid-template-columns:13mm 1fr;
+  gap:3mm;
+  align-items:center;
+  padding-right:27mm;
+}
+
+.project-icon{
+  width:12mm;
+  height:12mm;
+  border-radius:3.2mm;
+  display:grid;
+  place-items:center;
+  background:var(--dark);
+  color:white;
+  font-size:14pt;
+}
+.project-photo-wrap{overflow:hidden}
+.project-photo{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.project h3{
+  margin:0;
+  font-family:"Manrope",sans-serif;
+  font-size:16pt;
+  line-height:1;
+}
+
+.project-sub{
+  margin-top:1mm;
+  color:var(--cyan-dark);
+  font-size:6.6pt;
+  font-weight:900;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+
+.project p{
+  margin:3mm 0 0;
+  font-size:7.2pt;
+  line-height:1.48;
+  color:#38444b;
+}
+
+.project ul{
+  margin:2.2mm 0 0;
+  padding-left:4.1mm;
+  columns:2;
+  column-gap:5mm;
+}
+
+.project li{
+  font-size:6.7pt;
+  line-height:1.4;
+  margin:.75mm 0;
+  break-inside:avoid;
+}
+
+.project li::marker{color:var(--cyan-dark)}
+
+.project-stats{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:1.8mm;
+  margin-top:3mm;
+}
+
+.stat{
+  text-align:center;
+  border:1px solid #dce9ed;
+  border-radius:2.2mm;
+  background:white;
+  padding:1.8mm;
+}
+
+.stat strong{
+  display:block;
+  color:var(--cyan-dark);
+  font-family:"Manrope",sans-serif;
+  font-size:12pt;
+}
+
+.stat span{
+  display:block;
+  color:#68737a;
+  font-size:5.6pt;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+/* ---------- Dark vibe section ---------- */
+
+.vibe{
+  position:relative;
+  display:grid;
+  grid-template-columns:31mm 1fr;
+  gap:4mm;
+  padding:4mm;
+  background:linear-gradient(135deg,#0e1519,#18252b);
+  border-radius:4mm;
+  color:#e8f6f9;
+  overflow:hidden;
+  break-inside:avoid;
+}
+
+.vibe::after{
+  content:"</>";
+  position:absolute;
+  right:2mm;
+  bottom:-9mm;
+  font:900 65pt/1 monospace;
+  color:rgba(37,168,206,.12);
+}
+
+.vibe-badge{
+  align-self:start;
+  text-align:center;
+  padding:5mm 2mm;
+  border:1px solid rgba(95,211,239,.3);
+  border-radius:3mm;
+  background:rgba(37,168,206,.09);
+}
+
+.vibe-badge i{
+  color:#68d6f1;
+  font-size:25pt;
+}
+
+.vibe-badge strong{
+  display:block;
+  margin-top:2mm;
+  font-size:6pt;
+  line-height:1.35;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+
+.vibe h3{
+  margin:0 0 1.8mm;
+  font-family:"Manrope",sans-serif;
+  font-size:14pt;
+  line-height:1;
+}
+
+.vibe p,.vibe li{
+  color:#c8d7dc;
+  font-size:6.8pt;
+  line-height:1.48;
+}
+
+.vibe p{margin:0 0 2mm}
+.vibe ul{margin:1mm 0 0;padding-left:4mm}
+.vibe li{margin:.75mm 0}
+
+/* ---------- Skills matrix ---------- */
+
+.skill-matrix{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2.5mm;
+}
+
+.skill{
+  border:1px solid #dce8ed;
+  border-radius:2.6mm;
+  padding:2.8mm;
+  background:#fff;
+  break-inside:avoid;
+}
+
+.skill h3{
+  margin:0 0 1.4mm;
+  font-size:7.2pt;
+  text-transform:uppercase;
+  letter-spacing:.035em;
+}
+
+.skill h3 i{
+  color:var(--cyan-dark);
+  margin-right:1mm;
+}
+
+.skill p{
+  margin:0;
+  font-size:6.5pt;
+  color:#4a545b;
+  line-height:1.43;
+}
+
+.skill .tags{margin-top:1.7mm}
+
+/* ---------- Languages / strengths ---------- */
+
+.language-list{
+  display:grid;
+  gap:1.7mm;
+}
+
+.language{
+  display:grid;
+  grid-template-columns:28mm 1fr 35mm;
+  align-items:center;
+  gap:2mm;
+  padding:1.7mm 2.2mm;
+  border:1px solid #e0eaee;
+  border-radius:2mm;
+}
+
+.language b{font-size:7.1pt}
+.stars{color:var(--gold);font-size:7.5pt;letter-spacing:1px}
+.level{
+  color:#667078;
+  text-align:right;
+  font-size:6.2pt;
+}
+
+.strengths{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1.8mm 5mm;
+}
+
+.strength{
+  display:grid;
+  grid-template-columns:4mm 1fr;
+  gap:1.5mm;
+  font-size:6.8pt;
+  color:#414b52;
+}
+
+.strength i{
+  color:var(--cyan-dark);
+  margin-top:.3mm;
+}
+
+.book-feature{
+  display:grid;
+  grid-template-columns:30mm 1fr;
+  gap:4.5mm;
+  padding:3.5mm;
+  border:1px solid #cfe5eb;
+  border-radius:3.5mm;
+  background:linear-gradient(135deg,#fbfeff,#eff8fb);
+  break-inside:avoid;
+}
+.book-cover{
+  width:29mm;
+  height:40mm;
+  border-radius:2.2mm;
+  overflow:hidden;
+  background:#e8f2f5;
+  box-shadow:0 3mm 8mm rgba(0,0,0,.13);
+}
+.book-cover img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.book-copy h3{
+  margin:1mm 0 1mm;
+  font-family:"Manrope",sans-serif;
+  font-size:15pt;
+  line-height:1;
+}
+.book-kicker{
+  color:var(--cyan-dark);
+  font-size:5.7pt;
+  font-weight:900;
+  letter-spacing:.1em;
+  line-height:1.3;
+}
+.book-copy p{
+  margin:1.8mm 0 0;
+  font-size:6.7pt;
+  line-height:1.43;
+  color:#414b52;
+}
+.book-meta{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1.4mm;
+  margin-top:2.3mm;
+}
+.book-meta div{
+  display:grid;
+  grid-template-columns:4mm 1fr;
+  column-gap:1mm;
+  border-top:1px solid #d7e7ec;
+  padding-top:1.3mm;
+}
+.book-meta i{grid-row:span 2;color:var(--cyan-dark);font-size:7pt}
+.book-meta strong{
+  font-size:5.9pt;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.book-meta span{font-size:6pt;color:#657079}
+.book-themes{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:2mm;
+  margin-top:2.5mm;
+}
+.book-themes .card{
+  padding:2.2mm;
+}
+.book-themes .card h3{
+  font-size:6.5pt;
+  margin-bottom:1.2mm;
+}
+.book-themes .card p{
+  font-size:6.1pt;
+  line-height:1.4;
+}
+.book-note{margin-top:2.5mm}
+.book-note p{font-size:6.5pt}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin:3mm 0}.role-card{border:1px solid #d7e8ed;border-radius:2.5mm;background:#f8fcfd;padding:2.4mm}.role-card h4{margin:0 0 1mm;font-size:7pt;font-weight:900}.role-card h4 i{color:var(--cyan-dark);width:4mm}.role-card p{margin:0;font-size:6.25pt;line-height:1.4;color:#4d5860}.timeline-item{position:relative;padding:0 0 3.2mm 5mm;border-left:1.4px solid var(--cyan-line)}.timeline-item:last-child{border-left-color:transparent}.timeline-dot{position:absolute;left:-1.45mm;top:1.1mm;width:2.7mm;height:2.7mm;border-radius:50%;background:var(--cyan);border:1.2mm solid #fff;box-shadow:0 0 0 .4px var(--cyan-dark)}.timeline-meta{color:var(--cyan-dark);font-size:6.1pt;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.timeline-item h3{margin:.7mm 0 1.1mm;font-family:"Manrope",sans-serif;font-size:8.7pt;line-height:1.15}.timeline-item p{margin:0 0 1.5mm;font-size:6.45pt;line-height:1.4}.timeline-item.compact{padding-bottom:2mm}.bullet-list{margin:1.5mm 0 0;padding-left:4mm}.bullet-list li{margin:.65mm 0;font-size:6.15pt;line-height:1.35}.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.2mm;margin-top:3mm}.tool-card{border:1px solid #d5e7ec;border-radius:3mm;padding:2.8mm;background:linear-gradient(145deg,#ffffff,#f4fafc);break-inside:avoid}.tool-icon{width:8mm;height:8mm;border-radius:2.1mm;display:grid;place-items:center;background:var(--dark);color:#fff;float:left;margin:0 2mm 1mm 0;font-size:9pt}.tool-card h3{margin:.4mm 0 1.5mm;font-family:"Manrope",sans-serif;font-size:8pt;line-height:1.1}.tool-card p{clear:both;margin:1.8mm 0 0;font-size:6.2pt;line-height:1.38;color:#4d5860}.chips{display:flex;flex-wrap:wrap;gap:1mm}.chips span{display:inline-block;padding:.7mm 1.2mm;border-radius:1.4mm;background:var(--cyan-pale);border:1px solid #c8e6ee;color:var(--cyan-dark);font-size:5.65pt;font-weight:800;line-height:1}.workflow-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.7mm}.workflow-step{border:1px solid #d7e8ed;border-radius:2.2mm;padding:2.1mm;background:#fbfeff}.workflow-step b{display:block;font-size:6.2pt;color:var(--cyan-dark);margin-bottom:.8mm}.workflow-step span{display:block;font-size:5.85pt;line-height:1.34;color:#4d5860}
+.hobbies{
+  display:grid;
+  grid-template-columns:repeat(8,1fr);
+  gap:1.3mm;
+}
+
+.hobby{
+  text-align:center;
+  padding:2.2mm 1mm;
+  border-top:1px solid var(--cyan-line);
+  color:#4c565e;
+  font-size:5.8pt;
+}
+
+.hobby i{
+  display:block;
+  color:var(--cyan-dark);
+  font-size:13pt;
+  margin-bottom:1mm;
+}
+
+/* ---------- print button ---------- */
+
+.print-button{
+  position:fixed;
+  right:15px;
+  bottom:15px;
+  z-index:999;
+  border:0;
+  border-radius:999px;
+  padding:11px 15px;
+  background:#11191e;
+  color:#fff;
+  cursor:pointer;
+  box-shadow:0 10px 28px rgba(0,0,0,.25);
+  font:800 12px "Inter",sans-serif;
+}
+
+.print-button:hover{transform:translateY(-1px)}
+
+
+/* Page-specific density controls: these keep the intentionally detailed
+   content inside one physical A4 sheet without changing the overall design. */
+.page:nth-of-type(1) .page-content{padding-top:4mm}
+.page:nth-of-type(1) .section{margin-top:3.6mm}
+.page:nth-of-type(1) .photo-frame,
+.page:nth-of-type(1) .photo{width:37mm;height:45mm}
+.page:nth-of-type(1) h1{font-size:30pt}
+.page:nth-of-type(1) .profile-lead{font-size:7.5pt;line-height:1.42}
+.page:nth-of-type(1) .contact-grid{margin-top:3.2mm;gap:1.5mm}
+.page:nth-of-type(1) .contact{min-height:8.5mm;padding:1.7mm 2mm;font-size:6.4pt}
+.page:nth-of-type(1) .profile-box{padding:2mm 2.8mm}
+.page:nth-of-type(1) .profile-box p{font-size:7pt;line-height:1.42;margin-bottom:1.5mm}
+.page:nth-of-type(1) .card{padding:2.1mm}
+.page:nth-of-type(1) .card p{font-size:6.5pt;line-height:1.35}
+.page:nth-of-type(1) .tag{padding:1mm 1.5mm;font-size:5.9pt}
+.page:nth-of-type(1) .tags{gap:1mm}
+
+.page:nth-of-type(5) .page-content{padding-top:4mm}
+.page:nth-of-type(5) .section{margin-top:4mm}
+.page:nth-of-type(5) .skill-matrix{gap:1.8mm}
+.page:nth-of-type(5) .skill{padding:2.1mm;border-radius:2.2mm}
+.page:nth-of-type(5) .skill h3{font-size:6.8pt;margin-bottom:1mm}
+.page:nth-of-type(5) .skill p{font-size:6pt;line-height:1.32}
+.page:nth-of-type(5) .skill .tags{margin-top:1.1mm;gap:1mm}
+.page:nth-of-type(5) .skill .tag{padding:.85mm 1.2mm;font-size:5.5pt}
+.page:nth-of-type(5) .two{gap:3.5mm}
+.page:nth-of-type(5) .card{padding:2.1mm}
+.page:nth-of-type(5) .card p,.page:nth-of-type(5) .card li{font-size:6.3pt;line-height:1.35}
+.page:nth-of-type(5) .edu{padding:1.8mm 2.5mm;margin-bottom:1.6mm}
+.page:nth-of-type(5) .edu strong{font-size:7.4pt}
+.page:nth-of-type(5) .edu span,.page:nth-of-type(5) .edu-date{font-size:6.2pt}
+
+.page:nth-of-type(8) .section{margin-top:4mm}
+.page:nth-of-type(8) .book-feature{padding:3.2mm}
+.page:nth-of-type(8) .book-copy p{font-size:6.5pt;line-height:1.4}
+.page:nth-of-type(8) .profile-box{padding:2.2mm 2.8mm}
+.page:nth-of-type(8) .profile-box p{font-size:6.5pt;line-height:1.4;margin-bottom:1.5mm}
+.page:nth-of-type(8) .card{padding:2.2mm}
+.page:nth-of-type(8) .card p{font-size:6.3pt;line-height:1.38}
+.page:nth-of-type(8) .book-themes{gap:1.7mm}
+
+@media(max-width:900px){
+  body{padding:0}
+  .page{
+    width:100%;
+    height:auto;
+    min-height:297mm;
+    margin:0 0 5mm;
+  }
+}
+
+/* Page 2 print-fit correction: preserve all content while keeping a safe footer clearance. */
+.experience-page .page-content{
+  transform:scale(.94);
+  transform-origin:top left;
+  width:106.383%;
+}
+.experience-page .section{margin-top:4mm;}
+.experience-page .section-title{margin-bottom:2.5mm;}
+
+@media print{
+  @page{
+    size:A4 portrait;
+    margin:0;
+  }
+
+  html,body{
+    width:210mm;
+    background:#fff;
+  }
+
+  body{padding:0}
+
+  .page{
+    width:210mm !important;
+    height:297mm !important;
+    min-height:297mm !important;
+    max-height:297mm !important;
+    margin:0 !important;
+    box-shadow:none !important;
+    overflow:hidden !important;
+  }
+
+  .print-button{display:none !important}
+
+  *{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<button class="print-button" onclick="window.print()">
+  <i class="fa-solid fa-file-pdf"></i>&nbsp; Print / Save PDF
+</button>
+
+<!-- =========================================================
+     PAGE 1 — PROFILE
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Professional Curriculum Vitae</div>
+    </header>
+
+    <main class="page-content">
+      <div class="cover-head">
+        <div class="photo-frame">
+          <img class="photo" src="photo.png" alt="Nadeem Shahzad Fida"
+               onerror="this.style.opacity='.3';this.alt='Place photo.png beside index.html';">
+        </div>
+
+        <div>
+          <div class="eyebrow"><i class="fa-solid fa-id-badge"></i> Accounts · Technology · Product</div>
+          <h1>Nadeem<br><span class="name-accent">Shahzad Fida</span></h1>
+          <div class="headline">
+            Accounts Professional <span>|</span> AI-Assisted Developer <span>|</span>
+            Vibe Coder <span>|</span> Product Builder <span>|</span> Published Author
+          </div>
+          <p class="profile-lead">
+            I am a multidisciplinary professional with 8+ years of UAE experience in accounts, financial
+            record-keeping, operational problem solving, customer-facing work, data analysis and process improvement.
+            I also have a Bachelor of Computer Science and a strong hands-on practice of building practical digital
+            products with modern AI-assisted development methods. I created Triplem VIP, my own accounting and money-management
+            platform, to turn real financial workflows into a structured, private and usable software experience.
+          </p>
+        </div>
+      </div>
+
+      <div class="contact-grid">
+        <div class="contact"><i class="fa-solid fa-location-dot"></i><span>Dubai, United Arab Emirates</span></div>
+        <div class="contact"><i class="fa-solid fa-calendar-day"></i><span>21 April 1993</span></div>
+        <div class="contact"><i class="fa-solid fa-phone"></i><span>+971 55 92 16 280</span></div>
+        <div class="contact"><i class="fa-solid fa-envelope"></i><a href="mailto:nadeemshahzadfida@outlook.com">nadeemshahzadfida@outlook.com</a></div>
+        <div class="contact"><i class="fa-brands fa-linkedin"></i><a href="https://ae.linkedin.com/in/nadeem-shahzad-fida-09654b300" target="_blank">linkedin.com/in/nadeem-shahzad-fida-09654b300</a></div>
+        <div class="contact"><i class="fa-solid fa-globe"></i><a href="https://triplem.vip/" target="_blank">triplem.vip</a></div>
+      </div>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-user"></i> About Me</h2>
+        <div class="two">
+          <div class="profile-box">
+            <p>
+              I work comfortably between finance and technology. My professional experience has taught me how
+              financial records are created, checked, reconciled, explained and used for decisions, while my
+              Computer Science background gives me the technical foundation to think about the same workflows as
+              systems, interfaces, data structures and repeatable processes.
+            </p>
+            <p>
+              I naturally look for ways to remove unnecessary manual work. When I encounter a repeated process,
+              a confusing spreadsheet, a difficult report or a workflow that depends too heavily on memory,
+              I think about how it can be organized, simplified or converted into a better digital experience.
+            </p>
+          </div>
+          <div class="profile-box">
+            <p>
+              I am particularly interested in building software that solves problems I understand personally.
+              This is why Triplem VIP is important to my professional identity: it is not only a software project;
+              it is an example of how I combine accounting knowledge, analytical thinking, product design,
+              AI-assisted coding, testing and continuous improvement.
+            </p>
+            <p>
+              I also bring communication skills from my earlier teaching experience and creative discipline from
+              my work as a published author. I enjoy learning, experimenting, explaining complicated ideas clearly
+              and turning an initial concept into something people can actually use.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-bullseye"></i> My Professional Identity</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3><i class="fa-solid fa-calculator"></i> Finance & Accounts</h3>
+            <p>I understand day-to-day accounting operations, financial records, discrepancies, customer accounts,
+              reporting, documentation and the importance of accuracy.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-chart-line"></i> Analysis & Data</h3>
+            <p>I use structured thinking to interpret information, investigate problems, validate records and turn
+              data into practical observations and decisions.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-code"></i> AI-Assisted Development</h3>
+            <p>I use AI as a development multiplier while keeping product decisions, validation, testing and quality
+              control firmly under my own direction.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-rocket"></i> Product Building</h3>
+            <p>I enjoy taking an idea from requirements through interface design, implementation, debugging,
+              iteration and a usable finished product.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-tags"></i> Core Keywords</h2>
+        <div class="tags">
+          <span class="tag">Accounts Management</span><span class="tag">Financial Records</span>
+          <span class="tag">Business Operations</span><span class="tag">Customer Accounts</span>
+          <span class="tag">Data Analysis</span><span class="tag">Reporting</span>
+          <span class="tag">Problem Solving</span><span class="tag">Process Improvement</span>
+          <span class="tag">AI-Assisted Coding</span><span class="tag">Vibe Coding</span>
+          <span class="tag">Web Applications</span><span class="tag">Product Design</span>
+          <span class="tag">Finance Software</span><span class="tag">Bitcoin Workflows</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Nadeem Shahzad Fida</strong> · Accounts Professional / AI-Assisted Developer</span>
+      <span class="page-no">01 / 08</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 2 — EXPERIENCE
+     ========================================================= -->
+<section class="page experience-page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Professional Experience</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-briefcase"></i> My Professional Experience</h2>
+
+        <article class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-meta">2024 — Present · Dubai, UAE</div>
+          <h3>Operations Manager — Premium Car Rentals DMCC</h3>
+          <p>I currently work as an <strong>Operations Manager</strong>, where my role extends far beyond accounting. I coordinate the day-to-day business operation, help drive sales, supervise operational workflows and lead teams that keep the business running smoothly. I work across <strong>sales, vehicle maintenance, accounts, customer service, administration and general operations</strong>, connecting these functions so that information, people and tasks move efficiently.</p>
+          <div class="role-grid">
+            <div class="role-card"><h4><i class="fa-solid fa-chart-line"></i> Sales & Business Growth</h4><p>I manage and support sales activities, follow up with customers and leads, coordinate quotations and commercial requirements, maintain customer relationships and look for opportunities to improve revenue and repeat business.</p></div>
+            <div class="role-card"><h4><i class="fa-solid fa-screwdriver-wrench"></i> Maintenance Leadership</h4><p>I lead and coordinate the maintenance team, monitor vehicle-related requirements, follow up on repairs, service schedules and operational issues, and make sure maintenance information is communicated clearly between the relevant teams.</p></div>
+            <div class="role-card"><h4><i class="fa-solid fa-calculator"></i> Accounts Team Coordination</h4><p>I supervise and coordinate accounting-related workflows, review financial information, support reconciliation and record accuracy, and make sure the accounts function remains aligned with the wider operational requirements of the business.</p></div>
+            <div class="role-card"><h4><i class="fa-solid fa-users-gear"></i> Team & Operations Management</h4><p>I coordinate people, priorities and recurring tasks, resolve operational bottlenecks, investigate issues and keep different functions aligned around practical business objectives and service quality.</p></div>
+          </div>
+          <ul class="bullet-list">
+            <li>I coordinate cross-functional work between sales, maintenance, accounts and administration.</li>
+            <li>I monitor operational issues, identify causes and push practical corrective actions.</li>
+            <li>I use reports, spreadsheets, digital tools and business systems to improve visibility and control.</li>
+            <li>I communicate with customers, vendors, colleagues and team members to keep workflows moving.</li>
+            <li>I continuously look for repetitive manual processes that can be simplified, standardized or automated.</li>
+            <li>I bring an analytical and technology-oriented mindset to operational decision-making.</li>
+          </ul>
+        </article>
+
+        <article class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-meta">February 2018 — 2024 · Dubai, UAE</div>
+          <h3>Accounts Executive — Premium Car Rentals DMCC</h3>
+          <p>I previously worked as an <strong>Accounts Executive</strong>, building a strong foundation in accounting, financial records, customer accounts, reconciliation, documentation and operational reporting. This role gave me the financial discipline that I now combine with broader operations and team management.</p>
+          <ul class="bullet-list">
+            <li>I maintained accounting and statutory records with strong attention to accuracy and traceability.</li>
+            <li>I worked with customer accounts, follow-ups, discrepancies, balances and financial documentation.</li>
+            <li>I supported reporting, reconciliation and business planning through organized financial information.</li>
+            <li>I investigated financial and operational discrepancies and worked toward practical solutions.</li>
+            <li>I used spreadsheets, databases and office software to organize information and improve reporting visibility.</li>
+            <li>I contributed to customer relationship development, networking and identification of new business opportunities.</li>
+          </ul>
+        </article>
+
+        <article class="timeline-item compact"><div class="timeline-dot"></div><div class="timeline-meta">July 2017 — December 2017 · Baluchistan, Pakistan</div><h3>Senior Data Coordinator — GATRON (Industries) Limited</h3><p>I collected, validated, interpreted and organized project data according to company standards. I developed disciplined habits around data quality, document control, structured information and efficient retrieval.</p></article>
+        <article class="timeline-item compact"><div class="timeline-dot"></div><div class="timeline-meta">March 2015 — July 2017 · Islamabad, Pakistan</div><h3>Customer Analytics & Reporting Specialist — Zong Telecommunication</h3><p>I worked within the Customer Growth Division, delivering analysis-based projects, interpreting customer information and converting raw data into useful reports, observations and decision-support material.</p></article>
+        <article class="timeline-item compact"><div class="timeline-dot"></div><div class="timeline-meta">April 2014 — March 2015 · Jehangira, KP, Pakistan</div><h3>Senior Mathematics Teacher — Roshan Education System</h3><p>I designed lesson plans and teaching materials, explained mathematical concepts clearly and developed communication, presentation, structured reasoning and instructional-design skills.</p></article>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-arrows-to-circle"></i> How My Experience Connects</h2>
+        <div class="two">
+          <div class="profile-box"><p><strong>Operations taught me leadership.</strong> I learned to coordinate people, priorities, sales activity, maintenance requirements and financial workflows while keeping the wider business objective in view.</p><p><strong>Finance taught me accuracy.</strong> I learned that small mistakes in records can become larger operational problems, so I naturally pay attention to consistency, dates, balances, documentation and traceability.</p></div>
+          <div class="profile-box"><p><strong>Analytics taught me to question data.</strong> I learned to look beyond a number and ask what it means, where it came from and what decision it should support.</p><p><strong>Teaching taught me clarity.</strong> I learned how to break complicated ideas into understandable steps and communicate with people who have different levels of knowledge.</p><p><strong>Product development lets me combine all of these skills.</strong> I can understand a business workflow, reason about its data, communicate the requirement and build a digital solution around it.</p></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Nadeem Shahzad Fida</strong> · Professional Experience</span>
+      <span class="page-no">02 / 08</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 3 — TRIPLEM
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Featured Product · Triplem VIP</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-rocket"></i> My Product — Triplem VIP</h2>
+
+        <article class="project">
+          <div class="project-badge">FOUNDER · CREATOR · DEVELOPER</div>
+
+          <div class="project-head">
+            <div class="project-icon project-photo-wrap">
+              <img src="photo3.png" alt="Triplem VIP" class="project-photo"
+                   onerror="this.style.display='none';this.parentElement.innerHTML='<i class="fa-solid fa-wallet"></i>';">
+            </div>
+            <div>
+              <h3>Triplem VIP</h3>
+              <div class="project-sub">Accounting Software & Private Finance Workspace</div>
+              <a href="https://triplem.vip/" target="_blank" style="color:var(--cyan-dark);font-size:6.7pt;font-weight:900;">https://triplem.vip/</a>
+            </div>
+          </div>
+
+          <p>
+            I created and developed Triplem VIP as a proprietary accounting and money-management platform for people who
+            want their daily financial records organized in one private workspace instead of scattered across spreadsheets,
+            notes and disconnected tools. I designed it around real-world financial behavior: expenses happen across
+            different wallets, customers pay partially, loans return in stages, inventory moves every day, assets create
+            both costs and revenue, and owners need invoices, receipts and statements when they actually need them.
+          </p>
+
+          <p>
+            I wanted Triplem to feel like a calm, serious operating system for money rather than a complicated enterprise
+            accounting package. I therefore focused on searchable history, clear dashboards, practical workflows,
+            multi-currency records, PDF-ready reporting, private workspaces and a user experience that remains understandable.
+          </p>
+
+          <ul>
+            <li>I built expense wallets for cash, bank, card and custom financial accounts.</li>
+            <li>I designed wallet top-ups, transfers, transactions and wallet-level statements.</li>
+            <li>I implemented multi-currency workflows covering AED, SAR, PKR, USD and BTC.</li>
+            <li>I designed loan-given, received-back, loan-taken and returned-payment workflows.</li>
+            <li>I built installment planning with schedules, partial payments and remaining balances.</li>
+            <li>I designed inventory workflows covering purchases, sales, stock, low-stock alerts and customer balances.</li>
+            <li>I created asset management for cars, property, equipment and investments, including maintenance, revenue, disposal and P/L.</li>
+            <li>I developed invoice, receipt, customer statement and financial-report export concepts.</li>
+            <li>I added JSON/CSV backup and reporting workflows for operational continuity.</li>
+            <li>I incorporated client-side Bitcoin functionality where sensitive private-key material remains in the browser.</li>
+            <li>I designed isolated workspaces and access-control concepts for private financial records.</li>
+            <li>I shaped responsive browser-based workflows for desktop and mobile use.</li>
+          </ul>
+
+          <div class="project-stats">
+            <div class="stat"><strong>8+</strong><span>Years UAE Experience</span></div>
+            <div class="stat"><strong>5</strong><span>Core Currencies</span></div>
+            <div class="stat"><strong>10+</strong><span>Finance Modules</span></div>
+            <div class="stat"><strong>AI</strong><span>Development Multiplier</span></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-diagram-project"></i> What I Solve With Triplem VIP</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3><i class="fa-solid fa-file-excel"></i> Spreadsheet Chaos</h3>
+            <p>I replace fragmented sheets with structured records, searchable history, dashboards and dedicated workflows.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-coins"></i> Scattered Money</h3>
+            <p>I bring cash, bank, cards, custom wallets and multiple currencies into a single financial view.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-boxes-stacked"></i> Inventory Visibility</h3>
+            <p>I connect stock, purchases, sales, customer balances, low-stock states and profit-oriented records.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-car"></i> Asset Lifecycle</h3>
+            <p>I track purchase cost, ownership, maintenance, operating expenses, revenue, disposal and net P/L.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Triplem VIP</strong> · Proprietary accounting & money-management product created by me</span>
+      <span class="page-no">03 / 08</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 4 — VIBE CODING
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Vibe Coding · AI-Assisted Development</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> My Approach to Modern Development</h2>
+
+        <div class="vibe">
+          <div class="vibe-badge">
+            <i class="fa-solid fa-code"></i>
+            <strong>Think · Prompt · Build · Test · Refine</strong>
+          </div>
+
+          <div>
+            <h3>My approach to modern development is strongly AI-assisted and iteration-driven.</h3>
+
+            <p>
+              I use AI as a development multiplier rather than as a replacement for product thinking. My process begins
+              with the problem I want to solve. I describe the business context, the user journey, the information that
+              must be stored, the decisions the interface should support and the edge cases that could cause problems.
+              I then use AI to accelerate exploration, implementation, debugging, refactoring, documentation and repetitive
+              development work while I remain responsible for the final product direction.
+            </p>
+
+            <p>
+              I call this style of working <strong>vibe coding</strong> because I can move rapidly between an idea,
+              a visual concept, a working prototype and a refined feature. However, I do not treat generated code as
+              automatically correct. I inspect the result, test it, challenge assumptions, look for edge cases,
+              correct the implementation and iterate until the behavior matches the actual requirement.
+            </p>
+
+            <ul>
+              <li><strong>I start with the problem:</strong> I define what the user needs to accomplish before deciding how the code should be written.</li>
+              <li><strong>I translate business logic into software:</strong> I turn accounting, finance and operational rules into screens, records, calculations and workflows.</li>
+              <li><strong>I prototype quickly:</strong> I use AI to explore layouts, interactions, components and implementation alternatives without spending unnecessary time on boilerplate.</li>
+              <li><strong>I stay hands-on:</strong> I read, test and modify the generated implementation instead of blindly accepting it.</li>
+              <li><strong>I iterate visually:</strong> I refine spacing, hierarchy, responsive behavior, tables, forms, dashboards, exports and print layouts based on the actual result.</li>
+              <li><strong>I debug systematically:</strong> I isolate failures, explain the desired behavior, test fixes and verify that changes do not break other workflows.</li>
+              <li><strong>I think about data:</strong> I consider validation, consistency, relationships, backups, exports, access boundaries and the consequences of incorrect records.</li>
+              <li><strong>I think about security:</strong> I pay attention to authentication, workspace isolation, sensitive information, client-side key handling and safe user workflows.</li>
+              <li><strong>I build for real use:</strong> I care about what happens when a user enters incomplete information, edits an old record, prints a report or encounters an unexpected situation.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-repeat"></i> My Development Loop</h2>
+        <div class="card-grid">
+          <div class="card"><h3><i class="fa-solid fa-1"></i> Understand</h3><p>I clarify the problem, users, business rules, desired output and constraints.</p></div>
+          <div class="card"><h3><i class="fa-solid fa-2"></i> Design</h3><p>I decide the information architecture, interface hierarchy, data flow and user journey.</p></div>
+          <div class="card"><h3><i class="fa-solid fa-3"></i> Generate</h3><p>I use AI-assisted coding to accelerate the first implementation and explore practical alternatives.</p></div>
+          <div class="card"><h3><i class="fa-solid fa-4"></i> Test</h3><p>I run the feature, inspect the behavior, test edge cases and compare the result with the requirement.</p></div>
+          <div class="card"><h3><i class="fa-solid fa-5"></i> Refine</h3><p>I improve usability, correctness, responsiveness, performance, visual hierarchy and maintainability.</p></div>
+          <div class="card"><h3><i class="fa-solid fa-6"></i> Ship</h3><p>I turn the refined result into a practical product experience and continue improving it through feedback.</p></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-lightbulb"></i> What Vibe Coding Means to Me</h2>
+        <div class="profile-box">
+          <p>
+            For me, vibe coding is not simply asking an AI to write a large amount of code. It is a modern way of
+            collaborating with an AI system while I provide the product judgment, context, constraints and quality
+            expectations. It allows me to move from concept to usable software much faster, but the responsibility
+            for deciding whether the software is actually useful, correct and appropriate remains with me.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>My development philosophy</strong> · AI accelerates my execution; I own the product decisions and quality.</span>
+      <span class="page-no">04 / 08</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 5 — TECHNICAL / EDUCATION
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Technical Skills · Education</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-layer-group"></i> My Technical & Product Skills</h2>
+
+        <div class="skill-matrix">
+          <div class="skill">
+            <h3><i class="fa-solid fa-code"></i> Web Development</h3>
+            <p>I build responsive browser-based interfaces and interactive workflows using modern HTML, CSS and JavaScript.</p>
+            <div class="tags"><span class="tag">HTML5</span><span class="tag">CSS3</span><span class="tag">JavaScript ES6+</span><span class="tag">Responsive UI</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-database"></i> Data Management</h3>
+            <p>I work with structured records, validation, searchable history, backups, exports and database-oriented workflows.</p>
+            <div class="tags"><span class="tag">JSON</span><span class="tag">CSV</span><span class="tag">Excel</span><span class="tag">Data Validation</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-chart-column"></i> Dashboards & Reporting</h3>
+            <p>I create decision-oriented dashboards and reporting experiences that make financial information easier to understand.</p>
+            <div class="tags"><span class="tag">Chart.js</span><span class="tag">PDF Reports</span><span class="tag">Statements</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-calculator"></i> Finance Systems</h3>
+            <p>I understand finance workflows from both an operator's perspective and a product-builder's perspective.</p>
+            <div class="tags"><span class="tag">Expenses</span><span class="tag">Loans</span><span class="tag">Inventory</span><span class="tag">Assets</span><span class="tag">Invoices</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-bitcoin-sign"></i> Bitcoin</h3>
+            <p>I have hands-on product experience with Bitcoin wallets, balances, transaction history, send/receive flows and browser-side key handling.</p>
+            <div class="tags"><span class="tag">BTC Wallets</span><span class="tag">Addresses</span><span class="tag">Transactions</span><span class="tag">Client-Side Keys</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-shield-halved"></i> Security Mindset</h3>
+            <p>I design with privacy, authentication, isolated workspaces, sensitive-data handling and safe user workflows in mind.</p>
+            <div class="tags"><span class="tag">HTTPS</span><span class="tag">Access Control</span><span class="tag">Workspace Isolation</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-file-export"></i> Export & Backup</h3>
+            <p>I build workflows around PDF, CSV and JSON exports so financial records remain portable and reviewable.</p>
+            <div class="tags"><span class="tag">PDF</span><span class="tag">CSV</span><span class="tag">JSON</span><span class="tag">Audit Exports</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-palette"></i> UI / UX</h3>
+            <p>I focus on hierarchy, clarity, responsive behavior, calm visual design, practical forms and readable information density.</p>
+            <div class="tags"><span class="tag">UX Thinking</span><span class="tag">Responsive Design</span><span class="tag">Visual Systems</span></div>
+          </div>
+
+          <div class="skill">
+            <h3><i class="fa-solid fa-robot"></i> AI Development</h3>
+            <p>I use AI to accelerate coding, debugging, refactoring, documentation, prototyping and technical exploration.</p>
+            <div class="tags"><span class="tag">AI Coding</span><span class="tag">Prompt Engineering</span><span class="tag">Rapid Prototyping</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-screwdriver-wrench"></i> Software & Hardware</h2>
+        <div class="two">
+          <div class="card">
+            <h3><i class="fa-solid fa-laptop-code"></i> Software</h3>
+            <div class="tags">
+              <span class="tag">Microsoft Office</span><span class="tag">Spreadsheets</span><span class="tag">QuickBooks</span>
+              <span class="tag">Google Drive</span><span class="tag">Database Management</span><span class="tag">OpenOffice</span>
+              <span class="tag">CarPro</span><span class="tag">Email</span><span class="tag">Social Media Ads</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-computer"></i> Hardware</h3>
+            <ul>
+              <li>I can assemble and maintain computers and troubleshoot hardware/software problems.</li>
+              <li>I can install and configure peripherals, components, drivers and user applications.</li>
+              <li>I have practical knowledge of motherboards, monitor circuit concepts and printer troubleshooting.</li>
+              <li>I understand computer maintenance as a practical problem-solving discipline.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-graduation-cap"></i> My Education & Certifications</h2>
+        <div class="two">
+          <div>
+            <div class="edu">
+              <div class="edu-date">September 2014 — December 2017</div>
+              <strong>Bachelor of Computer Science</strong>
+              <span>Northern University · Nowshera, KP, Pakistan</span>
+            </div>
+            <div class="edu">
+              <div class="edu-date">June 2012 — July 2014</div>
+              <strong>Intermediate</strong>
+              <span>Pakistan Degree College · Nowshera, KP, Pakistan</span>
+            </div>
+            <div class="edu">
+              <div class="edu-date">March 2008 — May 2010</div>
+              <strong>Matriculation</strong>
+              <span>Iqra School & College · Jehangira, KP, Pakistan</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="edu">
+              <div class="edu-date">May 2010 — May 2012</div>
+              <strong>Microsoft Certified Security Engineer — Microsoft Certified Professional</strong>
+              <span>Microsoft Institute of Excellence · Islamabad, Pakistan</span>
+            </div>
+            <div class="edu">
+              <div class="edu-date">April 2008 — May 2010</div>
+              <strong>Computer Hardware & Microsoft Office Program</strong>
+              <span>Ittehad Computer College · Jehangira, KP, Pakistan</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Technical profile</strong> · I bridge business workflows, finance and software.</span>
+      <span class="page-no">05 / 08</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 6 — SOFTWARE, AI & DIGITAL TOOLKIT
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top"><div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div><div class="page-label">Software · AI · Databases · Digital Tools</div></header>
+    <main class="page-content">
+      <section class="section" style="margin-top:0"><h2 class="section-title"><i class="fa-solid fa-microchip"></i> My Software, AI & Digital Toolkit</h2>
+        <div class="profile-box"><p>I work comfortably across traditional business software and modern AI-assisted development tools. I do not treat software as a collection of isolated applications; I use the right combination of editors, AI models, databases, spreadsheets, reporting tools and browser technologies to move from an idea to a working, testable and maintainable solution.</p><p>My current workflow is strongly centered around <strong>AI-assisted engineering, rapid prototyping, structured prompting, codebase-aware agents, database-backed applications and iterative testing</strong>. I use AI to accelerate implementation while retaining responsibility for architecture, business logic, data integrity, security, testing and the final result.</p></div>
+      </section>
+      <div class="tool-grid">
+        <div class="tool-card"><div class="tool-icon"><i class="fa-solid fa-terminal"></i></div><h3>AI Coding & IDEs</h3><div class="chips"><span>Cursor</span><span>Cursor Agent</span><span>Claude Code</span><span>ChatGPT</span><span>Gemini</span><span>VS Code</span><span>Git</span><span>GitHub</span></div><p>I use AI coding environments for codebase exploration, multi-file changes, debugging, refactoring, documentation, feature implementation, testing and rapid iteration.</p></div>
+        <div class="tool-card"><div class="tool-icon"><i class="fa-solid fa-database"></i></div><h3>Databases & Backend</h3><div class="chips"><span>Supabase</span><span>PostgreSQL</span><span>SQL</span><span>JSON</span><span>REST APIs</span><span>Auth</span><span>Storage</span><span>Realtime</span></div><p>I can design structured data models, relationships, validation rules, queries and application workflows. I am comfortable using Supabase as a Postgres-backed application platform and connecting database logic to authentication, storage and application interfaces.</p></div>
+        <div class="tool-card"><div class="tool-icon"><i class="fa-solid fa-code"></i></div><h3>Web Engineering</h3><div class="chips"><span>HTML5</span><span>CSS3</span><span>JavaScript</span><span>ES6+</span><span>DOM</span><span>Responsive UI</span><span>Browser APIs</span><span>Web Storage</span></div><p>I build polished browser applications, dashboards, forms, data views, interactive components and responsive interfaces, with strong attention to usability and visual hierarchy.</p></div>
+        <div class="tool-card"><div class="tool-icon"><i class="fa-solid fa-file-excel"></i></div><h3>Business & Office Software</h3><div class="chips"><span>Microsoft Excel</span><span>Word</span><span>PowerPoint</span><span>QuickBooks</span><span>Google Drive</span><span>Google Sheets</span><span>OpenOffice</span><span>PDF Workflows</span></div><p>I use spreadsheets and business software for financial records, reporting, reconciliation, analysis, documentation, presentations, operational tracking and structured information management.</p></div>
+        <div class="tool-card"><div class="tool-icon"><i class="fa-solid fa-chart-column"></i></div><h3>Analytics & Reporting</h3><div class="chips"><span>Excel Analytics</span><span>Chart.js</span><span>Dashboards</span><span>PDF Reports</span><span>Statements</span><span>CSV</span><span>JSON</span><span>Data Validation</span></div><p>I transform raw operational and financial data into readable reports, dashboards and decision-support views. I focus on accuracy, useful metrics and clear presentation rather than visual complexity for its own sake.</p></div>
+        <div class="tool-card"><div class="tool-icon"><i class="fa-solid fa-shield-halved"></i></div><h3>Security & Engineering Discipline</h3><div class="chips"><span>HTTPS</span><span>Authentication</span><span>Access Control</span><span>Validation</span><span>Workspace Isolation</span><span>Backups</span><span>Exports</span><span>Privacy Mindset</span></div><p>I consider data sensitivity, access boundaries, validation, backups, exportability and failure scenarios while designing business applications, especially when working with financial or account-related information.</p></div>
+      </div>
+      <section class="section"><h2 class="section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> My Expert-Level AI Workflow</h2><div class="workflow-grid"><div class="workflow-step"><b>01 · Plan</b><span>I define the requirement, constraints, user flow and expected result.</span></div><div class="workflow-step"><b>02 · Context</b><span>I provide the AI with the relevant code, files, architecture and business rules.</span></div><div class="workflow-step"><b>03 · Build</b><span>I use AI agents to generate and apply multi-file implementation changes.</span></div><div class="workflow-step"><b>04 · Verify</b><span>I run the application, inspect errors, test behavior and review the generated work.</span></div><div class="workflow-step"><b>05 · Refine</b><span>I iterate on UX, edge cases, performance, data handling and maintainability.</span></div><div class="workflow-step"><b>06 · Ship</b><span>I package the final result into a usable product or operational workflow.</span></div></div></section>
+      <section class="section"><h2 class="section-title"><i class="fa-solid fa-bolt"></i> What I Mean by Expert AI-Assisted Development</h2><div class="two"><div class="profile-box"><p>I am comfortable moving between <strong>Cursor Agent, Claude Code, ChatGPT and Gemini</strong> depending on the task. I use these systems for different stages of the engineering loop: planning, exploration, implementation, debugging, refactoring, documentation, research and review.</p><p>I understand that AI output is not automatically correct. My responsibility is to provide context, challenge assumptions, inspect changes, test the result and make the final engineering decisions.</p></div><div class="profile-box"><p>I use <strong>Supabase/PostgreSQL</strong> when an application needs persistent structured data, and I think about tables, relationships, validation, authentication, storage and application state as part of one system rather than as separate pieces.</p><p>This combination allows me to build substantially faster while still keeping the product grounded in real business requirements, reliable data and a coherent user experience.</p></div></div></section>
+    </main>
+    <footer class="page-footer"><span><strong>Nadeem Shahzad Fida</strong> · Software & AI Toolkit</span><span class="page-no">06 / 08</span></footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 7 — STRENGTHS / LANGUAGES / HOBBIES / ONLINE PRESENCE
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Strengths · Languages · Interests · Online Presence</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-star"></i> My Professional Strengths</h2>
+
+        <div class="strengths">
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I communicate clearly in both written and spoken environments.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I analyze problems logically before deciding on a solution.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I pay close attention to accuracy, detail and record consistency.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I organize work carefully and prioritize deadlines.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I remain comfortable working under pressure.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I adapt quickly when requirements, tools or workflows change.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I can work independently while also contributing effectively to a team.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I enjoy turning technical concepts into clear practical explanations.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I approach repetitive tasks with an automation and process-improvement mindset.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I take responsibility for the quality of the work I deliver.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I enjoy learning new tools and experimenting with better ways to solve problems.</span></div>
+          <div class="strength"><i class="fa-solid fa-check"></i><span>I combine creative thinking with structured analysis.</span></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-language"></i> Languages</h2>
+        <div class="language-list">
+          <div class="language"><b>English</b><span class="stars">★★★★★</span><span class="level">Reading · Writing · Speaking</span></div>
+          <div class="language"><b>Pashto</b><span class="stars">★★★★★</span><span class="level">Native · Reading · Writing · Speaking</span></div>
+          <div class="language"><b>Urdu</b><span class="stars">★★★★★</span><span class="level">National · Reading · Writing · Speaking</span></div>
+          <div class="language"><b>Punjabi</b><span class="stars">★★★★★</span><span class="level">Reading · Writing · Speaking</span></div>
+          <div class="language"><b>Hindi</b><span class="stars">★★★★★</span><span class="level">Speaking</span></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-heart"></i> My Interests & Hobbies</h2>
+        <div class="hobbies">
+          <div class="hobby"><i class="fa-solid fa-users"></i>Social</div>
+          <div class="hobby"><i class="fa-solid fa-futbol"></i>Football</div>
+          <div class="hobby"><i class="fa-solid fa-laptop"></i>Computers</div>
+          <div class="hobby"><i class="fa-solid fa-music"></i>Piano / Music</div>
+          <div class="hobby"><i class="fa-solid fa-bicycle"></i>Cycling</div>
+          <div class="hobby"><i class="fa-solid fa-fish"></i>Fishing</div>
+          <div class="hobby"><i class="fa-solid fa-plane"></i>Traveling</div>
+          <div class="hobby"><i class="fa-solid fa-camera"></i>Photography</div>
+          <div class="hobby"><i class="fa-solid fa-tv"></i>Television</div>
+          <div class="hobby"><i class="fa-solid fa-book"></i>Books</div>
+          <div class="hobby"><i class="fa-solid fa-globe"></i>Internet</div>
+          <div class="hobby"><i class="fa-solid fa-gamepad"></i>Games</div>
+          <div class="hobby"><i class="fa-solid fa-magnifying-glass"></i>Exploration</div>
+          <div class="hobby"><i class="fa-solid fa-utensils"></i>Cooking</div>
+          <div class="hobby"><i class="fa-solid fa-chess-knight"></i>Chess</div>
+          <div class="hobby"><i class="fa-solid fa-pen"></i>Writing</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-link"></i> My Online Presence</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3><i class="fa-brands fa-linkedin"></i> LinkedIn</h3>
+            <p>I maintain a public LinkedIn profile associated with Premium Car Rentals in Dubai.</p>
+            <a href="https://ae.linkedin.com/in/nadeem-shahzad-fida-09654b300" target="_blank" style="display:block;margin-top:1.5mm;color:var(--cyan-dark);font-size:6.6pt;font-weight:900;">View LinkedIn →</a>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-globe"></i> Triplem VIP</h3>
+            <p>I use Triplem VIP as the public home for my proprietary accounting and money-management product.</p>
+            <a href="https://triplem.vip/" target="_blank" style="display:block;margin-top:1.5mm;color:var(--cyan-dark);font-size:6.6pt;font-weight:900;">Visit Triplem →</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="profile-box">
+          <p style="font-size:7pt">
+            <strong>My professional direction:</strong> I want to continue combining finance, data, AI-assisted
+            development and product thinking to build useful software, improve real-world workflows and create
+            technology that is practical rather than unnecessarily complicated.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Nadeem Shahzad Fida</strong> · Dubai, UAE · nadeemshahzadfida@outlook.com</span>
+      <span class="page-no">07 / 08</span>
+    </footer>
+  </div>
+</section>
+
+
+<!-- =========================================================
+     PAGE 8 — BOOK / NEERANG-E-HIKMAT
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Author · Neerang-e-Hikmat</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-book-open"></i> My Book — Neerang-e-Hikmat</h2>
+
+        <div class="book-feature">
+          <div class="book-cover">
+            <img src="photo2.png" alt="Neerang-e-Hikmat by Nadeem Shahzad Fida"
+                 onerror="this.style.opacity='.35';this.alt='Place photo2.png beside index.html';">
+          </div>
+
+          <div class="book-copy">
+            <div class="book-kicker">AUTHOR · URDU LITERATURE · ISLAMIC WISDOM · PHILOSOPHICAL REFLECTION</div>
+            <h3>Neerang-e-Hikmat</h3>
+            <p>
+              <strong>Neerang-e-Hikmat</strong> is my published Urdu work in which Islamic wisdom, philosophy,
+              spirituality and reflective thought meet in a single literary journey. At its heart is a sustained
+              contemplation of the Oneness of Allah, the mysteries of the universe, the relationship between creation
+              and the Creator, the purpose of human existence and the soul's deeper connection with its Divine source.
+            </p>
+            <p>
+              I wrote the book not merely to present information, but to invite the reader into reflection. Its
+              approach moves between faith, intellect, intuition, metaphysical questions, love, existence and the
+              meaning of human life, while using eloquent Urdu prose and thought-provoking poetry to give the ideas
+              both intellectual and emotional dimensions.
+            </p>
+            <div class="book-meta">
+              <div><i class="fa-solid fa-pen-nib"></i><strong>Author</strong><span>Nadeem Shahzad Fida</span></div>
+              <div><i class="fa-solid fa-building"></i><strong>Publisher</strong><span>PaperCraft Publishers</span></div>
+              <div><i class="fa-solid fa-barcode"></i><strong>ISBN</strong><span>9786277771232</span></div>
+              <div><i class="fa-solid fa-book"></i><strong>Format</strong><span>Paperback · A5</span></div>
+              <div><i class="fa-solid fa-file-lines"></i><strong>Length</strong><span>170+ pages</span></div>
+              <div><i class="fa-solid fa-language"></i><strong>Language</strong><span>Urdu</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-compass"></i> The Intellectual & Spiritual Scope</h2>
+        <div class="two">
+          <div class="profile-box">
+            <p><strong>Divine Oneness:</strong> The book explores the intellectual and reflective dimensions of Tawhid and considers what Divine Oneness means for our understanding of existence, creation and the human condition.</p>
+            <p><strong>Universe & Existence:</strong> It reflects upon the mysteries of the cosmos through the relationship between intellect, intuition, creation and the Creator, encouraging the reader to look beyond the merely visible.</p>
+            <p><strong>Creation & Human Purpose:</strong> The work asks deeper questions about why human beings exist, what gives life meaning and how the soul relates to its origin and ultimate purpose.</p>
+          </div>
+          <div class="profile-box">
+            <p><strong>Ishq & Spirituality:</strong> The concept of Ishq is used to explore the distinction between worldly attachment and deeper, more enduring love, giving spiritual reflection a distinctly human dimension.</p>
+            <p><strong>Faith & Reflection:</strong> Rather than treating faith and thought as isolated domains, the book encourages contemplation in which reason, intuition, spirituality and literary expression can work together.</p>
+            <p><strong>Poetry & Literary Expression:</strong> Thought-provoking poetry accompanies the reflective material, allowing difficult ideas to be approached not only through argument, but also through feeling and imagination.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-layer-group"></i> Core Themes</h2>
+        <div class="book-themes">
+          <div class="card">
+            <h3><i class="fa-solid fa-circle-dot"></i> Oneness of Allah</h3>
+            <p>A detailed reflection on Divine Oneness and its implications for understanding existence and the Creator.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-atom"></i> Universe & Existence</h3>
+            <p>A contemplative exploration of cosmic mystery, creation, intellect and intuition.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-heart"></i> Ishq & Spirituality</h3>
+            <p>A distinction between worldly and true love, examined through spiritual and philosophical reflection.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-person"></i> Purpose of Creation</h3>
+            <p>A deeper inquiry into human purpose, the soul and the questions beneath ordinary life.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-feather-pointed"></i> Authorial Intent</h2>
+        <div class="profile-box book-note">
+          <p>
+            <strong>Neerang-e-Hikmat</strong> was conceived as a work that asks the reader to both feel and think.
+            Its intended audience includes readers interested in Islamic studies, metaphysical questions,
+            philosophical thought and Quranic concepts, especially those who appreciate literature that leaves room
+            for contemplation rather than offering only quick conclusions.
+          </p>
+          <p>
+            The book seeks to bring spiritual inquiry into conversation with intellectual curiosity. Its central
+            impulse is reflective: to examine existence, faith, love, the universe and the human journey through a
+            literary lens rooted in Islamic thought.
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-circle-info"></i> Publication & Availability</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3><i class="fa-solid fa-print"></i> Published Edition</h3>
+            <p>The book is published as an Urdu paperback in A5 format. Public publisher information lists it at more than 170 pages and identifies ISBN 9786277771232.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-store"></i> Public Listing</h3>
+            <p>The book is publicly listed by PaperCraft Publishers and is also available through an online retail listing under my authorship.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Nadeem Shahzad Fida</strong> · Author of Neerang-e-Hikmat</span>
+      <span class="page-no">08 / 08</span>
+    </footer>
+  </div>
+</section>
+
+<script>
+  // Keep all external links safe.
+  document.querySelectorAll('a[target="_blank"]').forEach(function(a){
+    a.setAttribute('rel','noopener noreferrer');
+  });
+</script>
+
+</body>
+</html>
