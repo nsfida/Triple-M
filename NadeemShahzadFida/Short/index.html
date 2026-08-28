@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Nadeem Shahzad Fida">
+<meta name="description" content="Nadeem Shahzad Fida — concise two-page professional CV.">
+<title>Nadeem Shahzad Fida — 2 Page CV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<style>
+:root{
+  --ink:#171b20;--muted:#5e6871;--cyan:#25a8ce;--cyan-dark:#087595;
+  --cyan-pale:#eaf7fb;--cyan-line:#b9dce7;--paper:#fff;--bg:#dfe7eb;
+  --dark:#10161a;--gold:#d4a92c;--page-w:210mm;--page-h:297mm;
+  --pad-x:13mm;--pad-top:10mm;--pad-bottom:10mm;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:"Inter",Arial,sans-serif;line-height:1.38;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{padding:12mm 0}
+a{color:inherit;text-decoration:none}
+.page{position:relative;width:var(--page-w);height:var(--page-h);margin:0 auto 8mm;background:var(--paper);overflow:hidden;box-shadow:0 8px 35px rgba(16,35,44,.16);page-break-after:always;break-after:page}
+.page:last-child{page-break-after:auto;break-after:auto}
+.page-inner{position:relative;z-index:2;height:100%;padding:var(--pad-top) var(--pad-x) var(--pad-bottom);display:flex;flex-direction:column}
+.corner{position:absolute;z-index:1;pointer-events:none;background:var(--cyan)}
+.corner.tr{top:0;right:0;width:52mm;height:25mm;clip-path:polygon(35% 0,100% 0,100% 100%)}
+.corner.bl{left:0;bottom:0;width:48mm;height:20mm;clip-path:polygon(0 0,62% 100%,0 100%)}
+.page-top{display:flex;justify-content:space-between;align-items:center;min-height:8mm;padding-bottom:3.5mm;border-bottom:1px solid var(--cyan-line)}
+.brand{display:flex;align-items:center;gap:7px;font-size:7.8pt;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.brand-mark{width:8mm;height:8mm;border-radius:2.2mm;display:grid;place-items:center;color:#fff;background:var(--dark);font-size:9pt}
+.page-label{color:var(--cyan-dark);font-size:7.1pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.page-content{flex:1;min-height:0;padding-top:4.2mm}
+.page-footer{display:flex;justify-content:space-between;align-items:center;padding-top:2.5mm;border-top:1px solid #dbe8ed;color:#66717a;font-size:7pt;flex:0 0 auto}
+.page-footer strong{color:var(--ink)} .page-no{color:var(--cyan-dark);font-weight:900}
+
+.cover-head{display:grid;grid-template-columns:37mm 1fr;gap:8mm;align-items:start}
+.photo-frame{position:relative;width:36mm;height:44mm}
+.photo-frame::after{content:"";position:absolute;inset:2.2mm -1.8mm -2.2mm 1.8mm;border:1mm solid var(--cyan);border-radius:3mm;z-index:-1;opacity:.72}
+.photo{width:36mm;height:44mm;object-fit:cover;object-position:center top;border-radius:2.2mm;display:block;background:#edf2f4;box-shadow:0 4mm 10mm rgba(0,0,0,.14)}
+.eyebrow{color:var(--cyan-dark);font-size:7.2pt;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:.6mm 0 1.6mm}
+h1{font-family:"Manrope",sans-serif;margin:0;font-size:29pt;line-height:.9;letter-spacing:-.055em;text-transform:uppercase}
+.name-accent{color:var(--cyan-dark)}
+.headline{margin:3mm 0 2.2mm;font-size:7.6pt;font-weight:900;text-transform:uppercase;letter-spacing:.03em}
+.headline span{color:var(--cyan-dark)}
+.profile-lead{margin:0;font-size:7.7pt;line-height:1.48;color:#303940}
+.contact-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5mm;margin-top:3.5mm}
+.contact{min-height:8.4mm;display:flex;align-items:center;gap:1.8mm;padding:1.7mm 2mm;border:1px solid #d7e7ec;border-radius:2.3mm;background:var(--cyan-pale);font-size:7pt}
+.contact i{width:4mm;color:var(--cyan-dark);text-align:center;flex:0 0 auto}.contact span,.contact a{overflow-wrap:anywhere}
+.section{margin-top:4.2mm;break-inside:avoid}
+.section-title{display:flex;align-items:center;gap:2.3mm;margin:0 0 2.5mm;font-family:"Manrope",sans-serif;font-size:11.2pt;line-height:1;text-transform:uppercase;letter-spacing:-.015em}
+.section-title i{color:var(--cyan-dark);font-size:9.5pt}.section-title::after{content:"";height:.45mm;background:linear-gradient(90deg,var(--cyan),var(--cyan-line),transparent);flex:1}
+.profile-box{border-left:1.1mm solid var(--cyan);padding:2.2mm 2.8mm;background:linear-gradient(90deg,#f2fafc,transparent)}
+.profile-box p{margin:0;font-size:7.3pt;line-height:1.45}
+.tags{display:flex;flex-wrap:wrap;gap:1mm}.tag{display:inline-flex;align-items:center;padding:.9mm 1.35mm;border:1px solid #cfe8ef;background:#eff9fc;color:#155c70;border-radius:99px;font-size:6.6pt;font-weight:800}
+
+.timeline{position:relative;margin-left:3mm;padding-left:4.5mm}.timeline::before{content:"";position:absolute;left:0;top:1mm;bottom:1mm;width:.5mm;background:linear-gradient(var(--cyan),#d8edf2)}
+.job{position:relative;margin-bottom:2.5mm;break-inside:avoid}.job:last-child{margin-bottom:0}.job::before{content:"";position:absolute;left:-5.55mm;top:1mm;width:2.3mm;height:2.3mm;border:.65mm solid var(--cyan);border-radius:50%;background:#fff;box-shadow:0 0 0 .8mm #eaf7fb}
+.job-date{color:var(--cyan-dark);font-size:6.8pt;font-weight:900;text-transform:uppercase;letter-spacing:.05em}.job-title{margin:.5mm 0 .35mm;font-size:8.4pt;font-weight:900;text-transform:uppercase}.job-company{color:#4f5961;font-size:7pt;font-style:italic;font-weight:700}.job p{margin:.7mm 0 0;color:#3f494f;font-size:7.1pt;line-height:1.38}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:4mm;align-items:start}.stack{display:grid;gap:3.4mm}.card{border:1px solid #dce8ed;border-radius:2.8mm;padding:2.5mm;background:#fff;break-inside:avoid}.card h3{margin:0 0 1.2mm;display:flex;gap:1.5mm;align-items:center;font-size:7.5pt;text-transform:uppercase;letter-spacing:.025em}.card h3 i{color:var(--cyan-dark)}.card p,.card li{margin:0;color:#424b52;font-size:7pt;line-height:1.4}.card ul{margin:1mm 0 0;padding-left:3.6mm}.card li{margin:.45mm 0}.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:2mm}.mini{border:1px solid #dce8ed;border-radius:2.2mm;padding:2mm;background:#fbfeff}.mini b{display:block;color:var(--cyan-dark);font-size:7pt;margin-bottom:.6mm}.mini span{display:block;font-size:6.9pt;line-height:1.36;color:#4a545b}
+.project{position:relative;border:1px solid #cde7ef;border-radius:3.5mm;padding:3mm;background:radial-gradient(circle at 92% 8%,rgba(37,168,206,.16),transparent 27%),linear-gradient(135deg,#fbfeff,#eef8fb);overflow:hidden}.project-badge{position:absolute;top:0;right:0;padding:1.5mm 2.4mm;background:var(--cyan);color:#fff;font-size:6.6pt;font-weight:900;letter-spacing:.08em;border-bottom-left-radius:2.5mm}.project-head{display:grid;grid-template-columns:11mm 1fr;gap:2.4mm;align-items:center;padding-right:25mm}.project-icon{width:10mm;height:10mm;border-radius:2.6mm;display:grid;place-items:center;background:var(--dark);color:#fff;font-size:11pt;overflow:hidden}.project-icon img{width:100%;height:100%;object-fit:cover}.project h3{margin:0;font-family:"Manrope",sans-serif;font-size:13pt;line-height:1}.project-sub{margin-top:.7mm;color:var(--cyan-dark);font-size:6.8pt;font-weight:900;letter-spacing:.05em;text-transform:uppercase}.project p{margin:2mm 0 0;font-size:7.1pt;line-height:1.4;color:#38444b}.project ul{margin:1.6mm 0 0;padding-left:3.8mm;columns:2;column-gap:4mm}.project li{font-size:6.9pt;line-height:1.35;margin:.45mm 0;break-inside:avoid}.project li::marker{color:var(--cyan-dark)}
+.edu{border-left:1mm solid var(--cyan);padding:1.8mm 2.4mm;background:linear-gradient(90deg,#f2fafc,transparent);margin-bottom:1.5mm}.edu:last-child{margin-bottom:0}.edu-date{color:var(--cyan-dark);font-size:6.6pt;font-weight:900}.edu strong{display:block;margin-top:.35mm;font-size:7.5pt;line-height:1.25}.edu span{display:block;color:var(--muted);font-size:6.8pt;margin-top:.25mm}.edu-note{font-size:6.6pt!important;color:#7a858c!important;opacity:.85}
+.book-feature{display:grid;grid-template-columns:25mm 1fr;gap:3mm;padding:2.6mm;border:1px solid #cfe5eb;border-radius:3mm;background:linear-gradient(135deg,#fbfeff,#eff8fb)}.book-cover{width:24mm;height:33mm;border-radius:2mm;overflow:hidden;background:#e8f2f5;box-shadow:0 2mm 6mm rgba(0,0,0,.12)}.book-cover img{width:100%;height:100%;object-fit:cover}.book-kicker{color:var(--cyan-dark);font-size:6.6pt;font-weight:900;letter-spacing:.07em}.book-copy h3{margin:.8mm 0 .8mm;font-family:"Manrope",sans-serif;font-size:12.5pt}.book-copy p{margin:0;font-size:6.9pt;line-height:1.4;color:#414b52}
+.info-line{font-size:7pt;line-height:1.45;color:#424b52}.info-line strong{color:var(--ink)}
+.language-row{display:grid;grid-template-columns:repeat(5,1fr);gap:1mm}.language{padding:1.5mm;border:1px solid #e0eaee;border-radius:2mm;text-align:center}.language b{display:block;font-size:7pt}.language span{font-size:6.6pt;color:#667078}.stars{color:var(--gold)!important;letter-spacing:.4px}
+.hobby-line{font-size:6.8pt;line-height:1.55;color:#4c565e}
+.print-button{position:fixed;right:15px;bottom:15px;z-index:999;border:0;border-radius:999px;padding:11px 15px;background:#11191e;color:#fff;cursor:pointer;box-shadow:0 10px 28px rgba(0,0,0,.25);font:800 12px "Inter",sans-serif}
+
+/* Page-specific balance without shrinking text */
+.page.one .section{margin-top:3.6mm}.page.one .page-content{padding-top:3.5mm}.page.one .experience-section{margin-top:3.2mm}
+.page.two .page-content{padding-top:3.5mm}.page.two .section{margin-top:3.3mm}
+
+@media screen and (max-width:900px){html,body{width:100%;overflow-x:hidden}body{padding:0}.page{width:210mm;height:297mm;min-height:297mm;max-height:297mm;margin-left:0;margin-right:0;transform-origin:top center}}
+@media print{@page{size:A4 portrait;margin:0}html,body{width:210mm;background:#fff}body{padding:0}.page{width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;box-shadow:none!important;overflow:hidden!important}.print-button{display:none!important}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+</style>
+</head>
+<body>
+<button class="print-button" onclick="window.print()"><i class="fa-solid fa-file-pdf"></i>&nbsp; Print / Save PDF</button>
+
+<section class="page one">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Professional Curriculum Vitae</div>
+    </header>
+    <main class="page-content">
+      <div class="cover-head">
+        <div class="photo-frame"><img class="photo" src="photo.png" alt="Nadeem Shahzad Fida" onerror="this.style.opacity='.3';this.alt='Place photo.png beside this CV';"></div>
+        <div>
+          <div class="eyebrow"><i class="fa-solid fa-id-badge"></i> Accounts · Operations · Technology · Product</div>
+          <h1>Nadeem<br><span class="name-accent">Shahzad Fida</span></h1>
+          <div class="headline">Operations Manager <span>|</span> Accounts Professional <span>|</span> AI-Assisted Developer <span>|</span> Product Builder <span>|</span> Photographer / Videographer <span>|</span> Published Author</div>
+          <p class="profile-lead">Multidisciplinary professional with 8+ years of UAE experience across accounts, business operations, sales, customer service, data analysis and process improvement. I combine real-world finance knowledge with Computer Science studies, AI-assisted development and product thinking, including the creation of Triplem VIP, my proprietary accounting and money-management platform.</p>
+        </div>
+      </div>
+
+      <div class="contact-grid">
+        <div class="contact"><i class="fa-solid fa-location-dot"></i><span>Dubai, United Arab Emirates</span></div>
+        <div class="contact"><i class="fa-solid fa-calendar-day"></i><span>21 April 1993</span></div>
+        <div class="contact"><i class="fa-solid fa-phone"></i><span>+971 55 92 16 280</span></div>
+        <div class="contact"><i class="fa-solid fa-envelope"></i><a href="mailto:nadeemshahzadfida@outlook.com">nadeemshahzadfida@outlook.com</a></div>
+        <div class="contact"><i class="fa-brands fa-facebook"></i><a href="https://www.facebook.com/nadeemshahzadfida" target="_blank">facebook.com/nadeemshahzadfida</a></div>
+        <div class="contact"><i class="fa-brands fa-instagram"></i><a href="https://www.instagram.com/fidanadeemshahzad/" target="_blank">instagram.com/fidanadeemshahzad</a></div>
+      </div>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-user"></i> Professional Profile</h2>
+        <div class="profile-box"><p>I work naturally between finance and technology: organizing records, reconciling information, resolving operational problems, coordinating teams and improving repeated workflows. My earlier analytics and teaching experience strengthened structured reasoning and communication; my current development practice lets me translate business rules into practical digital systems while personally validating usability, data integrity and quality.</p></div>
+      </section>
+
+      <section class="section experience-section">
+        <h2 class="section-title"><i class="fa-solid fa-briefcase"></i> Professional Experience</h2>
+        <div class="timeline">
+          <article class="job"><div class="job-date">2024 — Present · Dubai, UAE</div><div class="job-title">Operations Manager</div><div class="job-company">Premium Car Rentals DMCC</div><p>Lead day-to-day operations across sales, vehicle maintenance, accounts, customer service and administration. Coordinate teams and priorities, support business growth, review financial and operational information, resolve bottlenecks and improve recurring workflows through reporting, digital tools and automation-minded process design.</p></article>
+          <article class="job"><div class="job-date">February 2018 — 2024 · Dubai, UAE</div><div class="job-title">Accounts Executive</div><div class="job-company">Premium Car Rentals DMCC</div><p>Managed accounting and statutory records, customer accounts, balances, reconciliation, documentation and operational reporting; investigated discrepancies and used spreadsheets, databases and office systems to improve financial visibility, traceability and business support.</p></article>
+          <article class="job"><div class="job-date">July 2017 — December 2017 · Baluchistan, Pakistan</div><div class="job-title">Senior Data Coordinator</div><div class="job-company">GATRON (Industries) Limited</div><p>Collected, validated, interpreted and organized project data with emphasis on data quality, document control and efficient retrieval.</p></article>
+          <article class="job"><div class="job-date">March 2015 — July 2017 · Islamabad, Pakistan</div><div class="job-title">Customer Analytics & Reporting Specialist</div><div class="job-company">Zong Telecommunication</div><p>Delivered analysis-based projects within Customer Growth, converting raw customer information into reports, observations and decision-support material.</p></article>
+          <article class="job"><div class="job-date">April 2014 — March 2015 · Jehangira, KP, Pakistan</div><div class="job-title">Senior Mathematics Teacher</div><div class="job-company">Roshan Education System</div><p>Designed lesson plans and explained mathematical concepts, developing strong presentation, communication and structured-reasoning skills.</p></article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-tags"></i> Core Strengths</h2>
+        <div class="tags">
+          <span class="tag">Business Operations</span><span class="tag">Accounts & Reconciliation</span><span class="tag">Sales Support</span><span class="tag">Data Analysis</span><span class="tag">Reporting</span><span class="tag">Problem Solving</span><span class="tag">Process Improvement</span><span class="tag">Team Coordination</span><span class="tag">AI-Assisted Development</span><span class="tag">Product Design</span>
+        </div>
+      </section>
+    </main>
+    <footer class="page-footer"><span><strong>Nadeem Shahzad Fida</strong> · Operations · Accounts · Technology · Product</span><span class="page-no">01 / 02</span></footer>
+  </div>
+</section>
+
+<section class="page two">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Projects · Skills · Education · Creative Work</div>
+    </header>
+    <main class="page-content">
+      <div class="two-col">
+        <div class="stack">
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-rocket"></i> Triplem VIP</h2>
+            <article class="project">
+              <div class="project-badge">FOUNDER · CREATOR · DEVELOPER</div>
+              <div class="project-head"><div class="project-icon"><img src="photo3.png" alt="Triplem VIP" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=&quot;fa-solid fa-wallet&quot;></i>';"></div><div><h3>Triplem VIP</h3><div class="project-sub">Accounting Software & Private Finance Workspace</div><a href="https://triplem.vip/" target="_blank" style="color:var(--cyan-dark);font-size:6.9pt;font-weight:900">triplem.vip</a></div></div>
+              <p>I created Triplem VIP to organize real financial workflows in one private, browser-based workspace instead of fragmented spreadsheets and notes.</p>
+              <ul>
+                <li>Wallets, expenses, transfers and searchable transactions</li><li>AED, SAR, PKR, USD and BTC workflows</li><li>Loans, repayments and installment schedules</li><li>Inventory, purchases, sales and customer balances</li><li>Assets, maintenance, revenue, disposal and P/L</li><li>Invoices, receipts, statements and PDF reporting</li><li>JSON/CSV backup and export workflows</li><li>Private workspaces, access control and responsive UI</li><li>Client-side Bitcoin functionality with sensitive key material kept in-browser</li>
+              </ul>
+            </article>
+          </section>
+
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-microchip"></i> Technical & AI Toolkit</h2>
+            <div class="card"><h3><i class="fa-solid fa-code"></i> Development & Data</h3><p>HTML5, CSS3, JavaScript ES6+, DOM, responsive UI, browser APIs, Web Storage, Supabase, PostgreSQL, SQL, JSON, CSV, REST APIs, authentication, storage, realtime workflows and data validation.</p></div>
+            <div class="card" style="margin-top:2mm"><h3><i class="fa-solid fa-robot"></i> AI Coding & Engineering</h3><p>Cursor, Cursor Agent, Claude Code, ChatGPT, Gemini, VS Code, Git and GitHub. I use AI for planning, codebase exploration, prototyping, implementation, debugging, refactoring, documentation and review while retaining responsibility for architecture, testing, security and final quality.</p></div>
+            <div class="card" style="margin-top:2mm"><h3><i class="fa-solid fa-chart-column"></i> Business, Reporting & Systems</h3><p>Microsoft Excel, Word, PowerPoint, QuickBooks, Google Drive, Google Sheets, OpenOffice, CarPro, Chart.js, dashboards, PDF reports, statements, database management, hardware assembly and troubleshooting.</p></div>
+          </section>
+
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-language"></i> Languages & Interests</h2>
+            <div class="language-row">
+              <div class="language"><b>English</b><span class="stars">★★★★★</span><span>R/W/S</span></div>
+              <div class="language"><b>Pashto</b><span class="stars">★★★★★</span><span>Native</span></div>
+              <div class="language"><b>Urdu</b><span class="stars">★★★★★</span><span>R/W/S</span></div>
+              <div class="language"><b>Punjabi</b><span class="stars">★★★★★</span><span>R/W/S</span></div>
+              <div class="language"><b>Hindi</b><span class="stars">★★★★★</span><span>Speaking</span></div>
+            </div>
+            <p class="hobby-line" style="margin:1.7mm 0 0"><strong>Interests:</strong> Photography, videography, computers, writing, books, cycling, football, travel, exploration, piano/music, fishing, cooking, chess, games and social engagement.</p>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-graduation-cap"></i> Education & Credentials</h2>
+            <div class="edu"><div class="edu-date">September 2014 — December 2017</div><strong>BSc Computer Science Studies</strong><span>Northern University · Nowshera, KP, Pakistan</span><span class="edu-note">Final-year studies pursued; degree not completed due to financial circumstances.</span></div>
+            <div class="edu"><div class="edu-date">June 2012 — July 2014</div><strong>Intermediate</strong><span>Pakistan Degree College · Nowshera, KP, Pakistan</span></div>
+            <div class="edu"><div class="edu-date">March 2008 — May 2010</div><strong>Matriculation</strong><span>Iqra School & College · Jehangira, KP, Pakistan</span></div>
+            <div class="edu"><div class="edu-date">May 2010 — May 2012</div><strong>Microsoft Certified Security Engineer · Microsoft Certified Professional</strong><span>Microsoft Institute of Excellence · Islamabad, Pakistan</span></div>
+            <div class="edu"><div class="edu-date">April 2008 — May 2010</div><strong>Computer Hardware & Microsoft Office Program</strong><span>Ittehad Computer College · Jehangira, KP, Pakistan</span></div>
+          </section>
+
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-camera-retro"></i> Photography & Drone</h2>
+            <div class="card"><h3><i class="fa-solid fa-helicopter"></i> UAE Drone Pilot</h3><p>I hold UAE drone pilot certification and a license to fly a drone and record permitted aerial photography and video. Photography and videography are a serious non-professional creative practice focused on composition, perspective, colour, texture and visual storytelling.</p></div>
+            <div class="card" style="margin-top:2mm"><h3><i class="fa-solid fa-trophy"></i> Turquoise Boundary</h3><p>My aerial photograph <strong>Turquoise Boundary</strong>, captured at The Palm Jumeirah, Dubai with a DJI Mini 5 Pro at 124 MP, participated in <strong>America's Favorite Photos</strong> in the USA and advanced to the Quarter Finals. <a href="https://americasfavoritephotos.com/v/m3z6db" target="_blank" style="color:var(--cyan-dark);font-weight:900">View entry</a></p></div>
+          </section>
+
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-book-open"></i> Published Author</h2>
+            <div class="book-feature">
+              <div class="book-cover"><img src="photo2.png" alt="Neerang-e-Hikmat" onerror="this.style.opacity='.35'"></div>
+              <div class="book-copy"><div class="book-kicker">URDU LITERATURE · ISLAMIC WISDOM · PHILOSOPHY</div><h3>Neerang-e-Hikmat</h3><p>My published Urdu book explores Tawhid, the universe and creation, human purpose, spirituality, Ishq, faith, intellect and metaphysical reflection through literary prose and poetry. Published by PaperCraft Publishers; ISBN 9786277771232; A5 paperback; 170+ pages.</p></div>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="section-title"><i class="fa-solid fa-bullseye"></i> Professional Direction</h2>
+            <div class="profile-box"><p>I aim to keep combining finance, operations, data, AI-assisted development and product thinking to simplify real workflows and build practical, reliable software. My working philosophy is simple: understand the problem, structure the data, build rapidly, test critically, refine carefully and ship something genuinely usable.</p></div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <footer class="page-footer"><span><strong>Nadeem Shahzad Fida</strong> · Dubai, UAE · nadeemshahzadfida@outlook.com</span><span class="page-no">02 / 02</span></footer>
+  </div>
+</section>
+
+<script>
+document.querySelectorAll('a[target="_blank"]').forEach(function(a){a.setAttribute('rel','noopener noreferrer')});
+(function(){
+  var A4_WIDTH_PX=210/25.4*96, A4_HEIGHT_PX=297/25.4*96;
+  function fitPages(){
+    var pages=document.querySelectorAll('.page');
+    pages.forEach(function(page){page.style.transform='';page.style.marginBottom='';page.style.marginLeft='';page.style.marginRight=''});
+    if(!window.matchMedia('screen').matches||window.matchMedia('print').matches||window.innerWidth>A4_WIDTH_PX)return;
+    var viewportWidth=document.documentElement.clientWidth||window.innerWidth;
+    var scale=Math.min(1,viewportWidth/A4_WIDTH_PX), scaledWidth=A4_WIDTH_PX*scale, scaledHeight=A4_HEIGHT_PX*scale, gap=8*96/25.4*scale;
+    var leftOffset=Math.max(0,(viewportWidth-scaledWidth)/2);
+    document.documentElement.style.overflowX='hidden';document.body.style.overflowX='hidden';
+    pages.forEach(function(page){page.style.transform='scale('+scale+')';page.style.transformOrigin='top left';page.style.marginLeft=leftOffset+'px';page.style.marginRight='0';page.style.marginBottom=(scaledHeight-A4_HEIGHT_PX+gap)+'px'});
+  }
+  window.addEventListener('resize',fitPages,{passive:true});window.addEventListener('orientationchange',fitPages,{passive:true});
+  window.addEventListener('beforeprint',function(){document.querySelectorAll('.page').forEach(function(page){page.style.transform='';page.style.marginBottom=''})});
+  window.addEventListener('afterprint',fitPages);fitPages();
+})();
+</script>
+</body>
+</html>
