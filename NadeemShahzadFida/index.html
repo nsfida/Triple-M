@@ -457,6 +457,12 @@ h1{
   font-size:6.8pt;
   margin-top:.4mm;
 }
+.edu .edu-note{
+  color:#87939a;
+  font-size:5.5pt;
+  margin-top:.8mm;
+  opacity:.78;
+}
 
 .card-grid{
   display:grid;
@@ -924,22 +930,37 @@ h1{
 .page:nth-of-type(5) .edu strong{font-size:7.4pt}
 .page:nth-of-type(5) .edu span,.page:nth-of-type(5) .edu-date{font-size:6.2pt}
 
-.page:nth-of-type(8) .section{margin-top:4mm}
-.page:nth-of-type(8) .book-feature{padding:3.2mm}
-.page:nth-of-type(8) .book-copy p{font-size:6.5pt;line-height:1.4}
-.page:nth-of-type(8) .profile-box{padding:2.2mm 2.8mm}
-.page:nth-of-type(8) .profile-box p{font-size:6.5pt;line-height:1.4;margin-bottom:1.5mm}
-.page:nth-of-type(8) .card{padding:2.2mm}
-.page:nth-of-type(8) .card p{font-size:6.3pt;line-height:1.38}
-.page:nth-of-type(8) .book-themes{gap:1.7mm}
+.page:nth-of-type(10) .section{margin-top:4mm}
+.page:nth-of-type(10) .book-feature{padding:3.2mm}
+.page:nth-of-type(10) .book-copy p{font-size:6.5pt;line-height:1.4}
+.page:nth-of-type(10) .profile-box{padding:2.2mm 2.8mm}
+.page:nth-of-type(10) .profile-box p{font-size:6.5pt;line-height:1.4;margin-bottom:1.5mm}
+.page:nth-of-type(10) .card{padding:2.2mm}
+.page:nth-of-type(10) .card p{font-size:6.3pt;line-height:1.38}
+.page:nth-of-type(10) .book-themes{gap:1.7mm}
 
-@media(max-width:900px){
-  body{padding:0}
-  .page{
+/* Responsive screen view: preserve the exact A4 desktop composition and
+   scale the complete page proportionally instead of reflowing its layout.
+   This keeps typography, columns, spacing, cards and graphics identical
+   on phones, tablets and desktop screens. */
+@media screen and (max-width:900px){
+  html,body{
     width:100%;
-    height:auto;
+    overflow-x:hidden;
+  }
+
+  body{
+    padding:0;
+  }
+
+  .page{
+    width:210mm;
+    height:297mm;
     min-height:297mm;
-    margin:0 0 5mm;
+    max-height:297mm;
+    margin-left:0;
+    margin-right:0;
+    transform-origin:top center;
   }
 }
 
@@ -1014,7 +1035,7 @@ h1{
           <h1>Nadeem<br><span class="name-accent">Shahzad Fida</span></h1>
           <div class="headline">
             Accounts Professional <span>|</span> AI-Assisted Developer <span>|</span>
-            Vibe Coder <span>|</span> Product Builder <span>|</span> Published Author
+            Vibe Coder <span>|</span> Product Builder <span>|</span> Photographer / Videographer <span>|</span> Published Author
           </div>
           <p class="profile-lead">
             I am a multidisciplinary professional with 8+ years of UAE experience in accounts, financial
@@ -1031,8 +1052,8 @@ h1{
         <div class="contact"><i class="fa-solid fa-calendar-day"></i><span>21 April 1993</span></div>
         <div class="contact"><i class="fa-solid fa-phone"></i><span>+971 55 92 16 280</span></div>
         <div class="contact"><i class="fa-solid fa-envelope"></i><a href="mailto:nadeemshahzadfida@outlook.com">nadeemshahzadfida@outlook.com</a></div>
-        <div class="contact"><i class="fa-brands fa-linkedin"></i><a href="https://ae.linkedin.com/in/nadeem-shahzad-fida-09654b300" target="_blank">linkedin.com/in/nadeem-shahzad-fida-09654b300</a></div>
-        <div class="contact"><i class="fa-solid fa-globe"></i><a href="https://triplem.vip/" target="_blank">triplem.vip</a></div>
+        <div class="contact"><i class="fa-brands fa-facebook"></i><a href="https://www.facebook.com/nadeemshahzadfida" target="_blank">facebook.com/nadeemshahzadfida</a></div>
+        <div class="contact"><i class="fa-brands fa-instagram"></i><a href="https://www.instagram.com/fidanadeemshahzad/" target="_blank">instagram.com/fidanadeemshahzad</a></div>
       </div>
 
       <section class="section">
@@ -1090,6 +1111,10 @@ h1{
             <p>I enjoy taking an idea from requirements through interface design, implementation, debugging,
               iteration and a usable finished product.</p>
           </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-camera"></i> Photography & Aerial Video</h3>
+            <p>I also create photography and aerial video as a serious creative pursuit. I hold UAE drone pilot certification and a license to fly a drone and record aerial footage.</p>
+          </div>
         </div>
       </section>
 
@@ -1109,7 +1134,7 @@ h1{
 
     <footer class="page-footer">
       <span><strong>Nadeem Shahzad Fida</strong> · Accounts Professional / AI-Assisted Developer</span>
-      <span class="page-no">01 / 08</span>
+      <span class="page-no">01 / 10</span>
     </footer>
   </div>
 </section>
@@ -1181,7 +1206,7 @@ h1{
 
     <footer class="page-footer">
       <span><strong>Nadeem Shahzad Fida</strong> · Professional Experience</span>
-      <span class="page-no">02 / 08</span>
+      <span class="page-no">02 / 10</span>
     </footer>
   </div>
 </section>
@@ -1279,7 +1304,7 @@ h1{
 
     <footer class="page-footer">
       <span><strong>Triplem VIP</strong> · Proprietary accounting & money-management product created by me</span>
-      <span class="page-no">03 / 08</span>
+      <span class="page-no">03 / 10</span>
     </footer>
   </div>
 </section>
@@ -1365,13 +1390,13 @@ h1{
 
     <footer class="page-footer">
       <span><strong>My development philosophy</strong> · AI accelerates my execution; I own the product decisions and quality.</span>
-      <span class="page-no">04 / 08</span>
+      <span class="page-no">04 / 10</span>
     </footer>
   </div>
 </section>
 
 <!-- =========================================================
-     PAGE 5 — TECHNICAL / EDUCATION
+     PAGE 5 — TECHNICAL / PRODUCT SKILLS
      ========================================================= -->
 <section class="page">
   <div class="corner tr"></div><div class="corner bl"></div>
@@ -1465,14 +1490,36 @@ h1{
         </div>
       </section>
 
-      <section class="section">
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Technical profile</strong> · I bridge business workflows, finance and software.</span>
+      <span class="page-no">05 / 10</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 6 — EDUCATION / CERTIFICATIONS
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Education · Certifications · Credentials</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
         <h2 class="section-title"><i class="fa-solid fa-graduation-cap"></i> My Education & Certifications</h2>
         <div class="two">
           <div>
             <div class="edu">
               <div class="edu-date">September 2014 — December 2017</div>
-              <strong>Bachelor of Computer Science</strong>
+              <strong>BSc Computer Science</strong>
               <span>Northern University · Nowshera, KP, Pakistan</span>
+              <span class="edu-note">Final-year studies pursued; degree not completed due to financial circumstances.</span>
             </div>
             <div class="edu">
               <div class="edu-date">June 2012 — July 2014</div>
@@ -1500,17 +1547,41 @@ h1{
           </div>
         </div>
       </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-camera-retro"></i> Photography, Videography & Drone Certification</h2>
+        <div class="two">
+          <div class="card">
+            <h3><i class="fa-solid fa-helicopter"></i> UAE Drone Pilot</h3>
+            <p>I hold UAE drone pilot certification and a license to fly a drone and record aerial photography and video.</p>
+            <div class="tags"><span class="tag">Drone Pilot</span><span class="tag">Aerial Photography</span><span class="tag">Aerial Video</span></div>
+          </div>
+          <div class="card">
+            <h3><i class="fa-solid fa-camera"></i> Creative Practice</h3>
+            <p>I am an active photographer and videographer on a non-professional basis, creating visual work for personal, documentary and creative purposes.</p>
+            <div class="tags"><span class="tag">Photography</span><span class="tag">Videography</span><span class="tag">Visual Storytelling</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-medal"></i> Credential Summary</h2>
+        <div class="profile-box">
+          <p><strong>Academic foundation:</strong> Computer Science studies through the final year provided the technical grounding behind my later hands-on work in software, databases, web development and AI-assisted product building.</p>
+          <p><strong>Professional certification:</strong> Microsoft Certified Security Engineer credentials complement my practical computing background, while my UAE drone certification adds a separate capability in permitted aerial photography and videography.</p>
+        </div>
+      </section>
     </main>
 
     <footer class="page-footer">
-      <span><strong>Technical profile</strong> · I bridge business workflows, finance and software.</span>
-      <span class="page-no">05 / 08</span>
+      <span><strong>Nadeem Shahzad Fida</strong> · Education & Certifications</span>
+      <span class="page-no">06 / 10</span>
     </footer>
   </div>
 </section>
 
 <!-- =========================================================
-     PAGE 6 — SOFTWARE, AI & DIGITAL TOOLKIT
+     PAGE 7 — SOFTWARE, AI & DIGITAL TOOLKIT
      ========================================================= -->
 <section class="page">
   <div class="corner tr"></div><div class="corner bl"></div>
@@ -1531,12 +1602,12 @@ h1{
       <section class="section"><h2 class="section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> My Expert-Level AI Workflow</h2><div class="workflow-grid"><div class="workflow-step"><b>01 · Plan</b><span>I define the requirement, constraints, user flow and expected result.</span></div><div class="workflow-step"><b>02 · Context</b><span>I provide the AI with the relevant code, files, architecture and business rules.</span></div><div class="workflow-step"><b>03 · Build</b><span>I use AI agents to generate and apply multi-file implementation changes.</span></div><div class="workflow-step"><b>04 · Verify</b><span>I run the application, inspect errors, test behavior and review the generated work.</span></div><div class="workflow-step"><b>05 · Refine</b><span>I iterate on UX, edge cases, performance, data handling and maintainability.</span></div><div class="workflow-step"><b>06 · Ship</b><span>I package the final result into a usable product or operational workflow.</span></div></div></section>
       <section class="section"><h2 class="section-title"><i class="fa-solid fa-bolt"></i> What I Mean by Expert AI-Assisted Development</h2><div class="two"><div class="profile-box"><p>I am comfortable moving between <strong>Cursor Agent, Claude Code, ChatGPT and Gemini</strong> depending on the task. I use these systems for different stages of the engineering loop: planning, exploration, implementation, debugging, refactoring, documentation, research and review.</p><p>I understand that AI output is not automatically correct. My responsibility is to provide context, challenge assumptions, inspect changes, test the result and make the final engineering decisions.</p></div><div class="profile-box"><p>I use <strong>Supabase/PostgreSQL</strong> when an application needs persistent structured data, and I think about tables, relationships, validation, authentication, storage and application state as part of one system rather than as separate pieces.</p><p>This combination allows me to build substantially faster while still keeping the product grounded in real business requirements, reliable data and a coherent user experience.</p></div></div></section>
     </main>
-    <footer class="page-footer"><span><strong>Nadeem Shahzad Fida</strong> · Software & AI Toolkit</span><span class="page-no">06 / 08</span></footer>
+    <footer class="page-footer"><span><strong>Nadeem Shahzad Fida</strong> · Software & AI Toolkit</span><span class="page-no">07 / 10</span></footer>
   </div>
 </section>
 
 <!-- =========================================================
-     PAGE 7 — STRENGTHS / LANGUAGES / HOBBIES / ONLINE PRESENCE
+     PAGE 8 — STRENGTHS / LANGUAGES / HOBBIES / ONLINE PRESENCE
      ========================================================= -->
 <section class="page">
   <div class="corner tr"></div><div class="corner bl"></div>
@@ -1603,9 +1674,14 @@ h1{
         <h2 class="section-title"><i class="fa-solid fa-link"></i> My Online Presence</h2>
         <div class="card-grid">
           <div class="card">
-            <h3><i class="fa-brands fa-linkedin"></i> LinkedIn</h3>
-            <p>I maintain a public LinkedIn profile associated with Premium Car Rentals in Dubai.</p>
-            <a href="https://ae.linkedin.com/in/nadeem-shahzad-fida-09654b300" target="_blank" style="display:block;margin-top:1.5mm;color:var(--cyan-dark);font-size:6.6pt;font-weight:900;">View LinkedIn →</a>
+            <h3><i class="fa-brands fa-facebook"></i> Facebook</h3>
+            <p>My public Facebook profile, where I share personal, creative and professional work.</p>
+            <a href="https://www.facebook.com/nadeemshahzadfida" target="_blank" style="display:block;margin-top:1.5mm;color:var(--cyan-dark);font-size:6.6pt;font-weight:900;">Visit Facebook →</a>
+          </div>
+          <div class="card">
+            <h3><i class="fa-brands fa-instagram"></i> Instagram</h3>
+            <p>My Instagram profile for photography, visual work and selected personal updates.</p>
+            <a href="https://www.instagram.com/fidanadeemshahzad/" target="_blank" style="display:block;margin-top:1.5mm;color:var(--cyan-dark);font-size:6.6pt;font-weight:900;">Visit Instagram →</a>
           </div>
           <div class="card">
             <h3><i class="fa-solid fa-globe"></i> Triplem VIP</h3>
@@ -1628,14 +1704,92 @@ h1{
 
     <footer class="page-footer">
       <span><strong>Nadeem Shahzad Fida</strong> · Dubai, UAE · nadeemshahzadfida@outlook.com</span>
-      <span class="page-no">07 / 08</span>
+      <span class="page-no">08 / 10</span>
     </footer>
   </div>
 </section>
 
 
 <!-- =========================================================
-     PAGE 8 — BOOK / NEERANG-E-HIKMAT
+     PAGE 9 — PHOTOGRAPHY / AERIAL VISUAL WORK
+     ========================================================= -->
+<section class="page">
+  <div class="corner tr"></div><div class="corner bl"></div>
+  <div class="page-inner">
+    <header class="page-top">
+      <div class="brand"><span class="brand-mark">NS</span> Nadeem Shahzad Fida</div>
+      <div class="page-label">Photography · Videography · Aerial Work</div>
+    </header>
+
+    <main class="page-content">
+      <section class="section" style="margin-top:0">
+        <h2 class="section-title"><i class="fa-solid fa-camera-retro"></i> Photography & Aerial Visual Work</h2>
+
+        <div class="vibe" style="grid-template-columns:34mm 1fr">
+          <div class="vibe-badge">
+            <i class="fa-solid fa-helicopter"></i>
+            <strong>UAE Drone Certified<br>Photography · Video</strong>
+          </div>
+          <div>
+            <h3>Turquoise Boundary</h3>
+            <p><strong>Where Water Learns the Shape of Stone</strong></p>
+            <p>Seen from above, turquoise water drifts into a shore of time-worn pebbles. The meeting feels deliberate and serene, a quiet dialogue of colour and texture where nature reveals its refined order and meditative balance.</p>
+            <div class="role-grid">
+              <div class="role-card"><h4><i class="fa-solid fa-user"></i> Photographer</h4><p>Nadeem Shahzad Fida (NS Fida)</p></div>
+              <div class="role-card"><h4><i class="fa-solid fa-drone"></i> Device</h4><p>DJI Mini 5 Pro (Drone)</p></div>
+              <div class="role-card"><h4><i class="fa-solid fa-location-dot"></i> Location</h4><p>The Palm Jumeirah, Dubai, UAE</p></div>
+              <div class="role-card"><h4><i class="fa-solid fa-expand"></i> Resolution</h4><p>124 MP · 8120 × 15360</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-trophy"></i> International Photo Participation</h2>
+        <div class="project">
+          <div class="project-badge">QUARTER FINALIST</div>
+          <div class="project-head">
+            <div class="project-icon"><i class="fa-solid fa-image"></i></div>
+            <div>
+              <h3>America's Favorite Photos</h3>
+              <div class="project-sub">Turquoise Boundary · International Participation</div>
+              <a href="https://americasfavoritephotos.com/v/m3z6db" target="_blank" style="color:var(--cyan-dark);font-size:6.7pt;font-weight:900;">View Photo Entry →</a>
+            </div>
+          </div>
+          <p>Turquoise Boundary was submitted to America's Favorite Photos in the USA and advanced to the Quarter Finals.</p>
+          <div class="project-stats">
+            <div class="stat"><strong>USA</strong><span>Photo Competition</span></div>
+            <div class="stat"><strong>QF</strong><span>Quarter Finals</span></div>
+            <div class="stat"><strong>124 MP</strong><span>Original Capture</span></div>
+            <div class="stat"><strong>DJI</strong><span>Mini 5 Pro</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><i class="fa-solid fa-film"></i> Visual Practice</h2>
+        <div class="two">
+          <div class="profile-box">
+            <p><strong>Photography:</strong> I practise photography as a creative pursuit, with particular interest in composition, perspective, natural geometry, texture, colour and aerial viewpoints.</p>
+            <p><strong>Videography:</strong> I also create video footage, including aerial recordings made within the permissions and licensing requirements applicable to my UAE drone operation.</p>
+          </div>
+          <div class="profile-box">
+            <p><strong>Drone Work:</strong> My UAE drone certification and licensing enable me to operate a drone for permitted aerial photography and video recording.</p>
+            <p><strong>Original quality:</strong> The original high-quality file for Turquoise Boundary can be shared separately through its source or accompanying post where available.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span><strong>Nadeem Shahzad Fida</strong> · Photography / Videography / Aerial Work</span>
+      <span class="page-no">09 / 10</span>
+    </footer>
+  </div>
+</section>
+
+<!-- =========================================================
+     PAGE 10 — BOOK / NEERANG-E-HIKMAT
      ========================================================= -->
 <section class="page">
   <div class="corner tr"></div><div class="corner bl"></div>
@@ -1754,7 +1908,7 @@ h1{
 
     <footer class="page-footer">
       <span><strong>Nadeem Shahzad Fida</strong> · Author of Neerang-e-Hikmat</span>
-      <span class="page-no">08 / 08</span>
+      <span class="page-no">10 / 10</span>
     </footer>
   </div>
 </section>
@@ -1764,6 +1918,64 @@ h1{
   document.querySelectorAll('a[target="_blank"]').forEach(function(a){
     a.setAttribute('rel','noopener noreferrer');
   });
+
+  // On smaller screens, scale the complete A4 page as one visual canvas.
+  // Nothing inside the page is reflowed, so mobile/tablet appearance remains
+  // geometrically identical to the desktop/print version.
+  (function(){
+    var A4_WIDTH_PX = 210 / 25.4 * 96;
+    var A4_HEIGHT_PX = 297 / 25.4 * 96;
+
+    function fitPages(){
+      var isScreen = window.matchMedia('screen').matches;
+      var isPrint = window.matchMedia('print').matches;
+      var pages = document.querySelectorAll('.page');
+
+      pages.forEach(function(page){
+        page.style.transform = '';
+        page.style.marginBottom = '';
+        page.style.marginLeft = '';
+        page.style.marginRight = '';
+      });
+
+      if(!isScreen || isPrint || window.innerWidth > A4_WIDTH_PX){
+        return;
+      }
+
+      // Use the actual CSS viewport width, then position the scaled A4 canvas
+      // from the viewport's left edge. This avoids the browser's auto-margin
+      // behavior for an unscaled 210mm element, which can leave the left side
+      // empty while clipping the right side on narrow screens.
+      var viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      var scale = Math.min(1, viewportWidth / A4_WIDTH_PX);
+      var scaledWidth = A4_WIDTH_PX * scale;
+      var scaledHeight = A4_HEIGHT_PX * scale;
+      var gap = 8 * 96 / 25.4 * scale;
+      var leftOffset = Math.max(0, (viewportWidth - scaledWidth) / 2);
+
+      document.documentElement.style.overflowX = 'hidden';
+      document.body.style.overflowX = 'hidden';
+
+      pages.forEach(function(page){
+        page.style.transform = 'scale(' + scale + ')';
+        page.style.transformOrigin = 'top left';
+        page.style.marginLeft = leftOffset + 'px';
+        page.style.marginRight = '0';
+        page.style.marginBottom = (scaledHeight - A4_HEIGHT_PX + gap) + 'px';
+      });
+    }
+
+    window.addEventListener('resize', fitPages, {passive:true});
+    window.addEventListener('orientationchange', fitPages, {passive:true});
+    window.addEventListener('beforeprint', function(){
+      document.querySelectorAll('.page').forEach(function(page){
+        page.style.transform = '';
+        page.style.marginBottom = '';
+      });
+    });
+    window.addEventListener('afterprint', fitPages);
+    fitPages();
+  })();
 </script>
 
 </body>
