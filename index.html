@@ -43,9 +43,25 @@
   <link rel="mask-icon" href="https://triplem.vip/Assets/logo/logo.png" color="#2457d6" />
   <link rel="sitemap" type="application/xml" title="Sitemap" href="https://triplem.vip/sitemap.xml" />
   <script>
-    /* Remember Me: hide landing immediately so resume never flashes the sign-in page. */
+    /* Apply non-sensitive visual preference before paint and hide login during session resume. */
     (function () {
       try {
+        var allowedThemes = ["default", "neon", "navy", "red", "pink", "green"];
+        var savedTheme = String(localStorage.getItem("triplem-theme-v1") || "default").toLowerCase();
+        var activeTheme = allowedThemes.indexOf(savedTheme) >= 0 ? savedTheme : "default";
+        var earlyThemeTokens = {
+          neon: { bg: "#ecfff8", text: "#123b30", muted: "#5c8174", line: "rgba(39,143,111,.28)", surface: "#fbfffd", "surface-elevated": "#f1fff9", primary: "#0d9f78" },
+          navy: { bg: "#071326", text: "#edf5ff", muted: "#9db0ca", line: "rgba(108,143,190,.28)", surface: "#0d203b", "surface-elevated": "#122b4e", primary: "#4f8cff" },
+          red: { bg: "#fff2f3", text: "#4a1d22", muted: "#89616a", line: "rgba(203,83,98,.28)", surface: "#fffafb", "surface-elevated": "#fff3f4", primary: "#d9364d" },
+          pink: { bg: "#fff0f6", text: "#4d1832", muted: "#8d5d74", line: "rgba(220,116,159,.30)", surface: "#fffafd", "surface-elevated": "#fff3f9", primary: "#db2777" },
+          green: { bg: "#effbf4", text: "#153c26", muted: "#5e806c", line: "rgba(53,142,86,.28)", surface: "#fbfffc", "surface-elevated": "#f1fcf5", primary: "#19974f" }
+        };
+        document.documentElement.dataset.triplemTheme = activeTheme;
+        document.documentElement.style.colorScheme = activeTheme === "navy" ? "dark" : "light";
+        var tokens = earlyThemeTokens[activeTheme];
+        if (tokens) Object.keys(tokens).forEach(function (name) {
+          document.documentElement.style.setProperty("--" + name, tokens[name]);
+        });
         if (localStorage.getItem("loanledger-session-credential-v4")) {
           document.documentElement.classList.add("auth-resuming");
         }
@@ -58,7 +74,7 @@
       display: none !important;
     }
     html.auth-resuming body {
-      background: #edf1f7;
+      background: var(--bg, #edf1f7);
     }
     html.auth-resuming #authResumeSplash {
       opacity: 1;
@@ -73,8 +89,8 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background: #edf1f7;
-      color: #1e293b;
+      background: var(--bg, #edf1f7);
+      color: var(--text, #1e293b);
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       opacity: 0;
       visibility: hidden;
@@ -99,8 +115,8 @@
       border-radius: 20px;
       display: grid;
       place-items: center;
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: var(--surface, #fff);
+      border: 1px solid var(--line, #e2e8f0);
     }
     #authResumeSplash img {
       width: 44px;
@@ -111,29 +127,29 @@
       font-size: 1.28rem;
       font-weight: 800;
       letter-spacing: 0.04em;
-      color: #0f172a;
+      color: var(--text, #0f172a);
     }
     #authResumeSplash .auth-resume-brand .brand-m-triple {
-      color: #2457d6;
+      color: var(--primary, #2457d6);
     }
     #authResumeSplash .auth-resume-title {
       margin: 0;
       font-size: 1.02rem;
       font-weight: 600;
-      color: #334155;
+      color: var(--text, #334155);
     }
     #authResumeSplash .auth-resume-hint {
       margin: 0;
       font-size: 0.82rem;
       line-height: 1.4;
-      color: #64748b;
+      color: var(--muted, #64748b);
       max-width: 260px;
     }
     #authResumeSplash .auth-resume-track {
       width: min(200px, 68vw);
       height: 3px;
       border-radius: 999px;
-      background: #dbe3ef;
+      background: var(--surface-elevated, #dbe3ef);
       overflow: hidden;
       margin-top: 2px;
     }
@@ -141,7 +157,7 @@
       height: 100%;
       width: 40%;
       border-radius: inherit;
-      background: #2457d6;
+      background: var(--primary, #2457d6);
       transform: translateX(-120%);
       animation: authResumeBar 0.9s linear infinite;
       will-change: transform;
@@ -583,7 +599,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260801-data-loading" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -643,7 +659,7 @@
             <div class="menu-dropdown landing-projects-dropdown" data-entry-menu-panel="landing-projects" role="menu" aria-label="Other projects">
               <a class="menu-item" role="menuitem" href="https://triplem.vip/KhawraiUnity" target="_blank" rel="noopener noreferrer" data-landing-project-link>Khawrai Blood Group Directory</a>
               <a class="menu-item" role="menuitem" href="https://triplem.vip/tt" target="_blank" rel="noopener noreferrer" data-landing-project-link>TikTok Video Downloader (No Watermark)</a>
-              <a class="menu-item" role="menuitem" href="https://livenews.live/KFC" target="_blank" rel="noopener noreferrer" data-landing-project-link>Khawrai Falahi Committee UAE</a>
+              <a class="menu-item" role="menuitem" href="https://triplem.vip/KhawraiFalahiCommitteeUAE" target="_blank" rel="noopener noreferrer" data-landing-project-link>Khawrai Falahi Committee UAE</a>
             </div>
           </div>
         </nav>
@@ -2578,6 +2594,10 @@
         <button class="btn ghost top-icon-btn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
+        <button class="btn ghost top-icon-btn offline-sync-status hide" id="offlineSyncStatus" type="button" title="Pending synchronization" aria-label="Pending synchronization">
+          <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>
+          <span class="offline-sync-count" id="offlineSyncCount">0</span>
+        </button>
         <div class="menu-wrap">
           <button class="btn ghost menu-trigger top-icon-btn" id="recycleBinBtn" type="button" data-entry-menu="recyclebin" aria-haspopup="menu" aria-expanded="false" title="Recycle Bin">
             <i class="fa-solid fa-trash-can"></i>
@@ -2619,6 +2639,7 @@
             <input id="sectionCsvInput" type="file" accept=".csv,text/csv,text/plain" class="hide" data-section="" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
             <button class="menu-item" id="defaultStartPageBtn" type="button"><i class="fa-solid fa-house-chimney"></i> Default Start Page</button>
+            <button class="menu-item" id="themeSettingsBtn" type="button"><i class="fa-solid fa-palette"></i> Theme</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item hide" id="companyTeamBtn" type="button"><i class="fa-solid fa-users"></i> Company Team</button>
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
@@ -3442,7 +3463,7 @@
 
       <section id="notesPanel" class="panel">
         <div class="card section">
-          <div class="section-head">
+          <div class="section-head notes-section-head">
             <div class="section-head-top">
               <div class="title-group">
                 <div class="title-row">
@@ -3459,10 +3480,13 @@
                     </div>
                   </div>
                 </div>
-                <p>Keep track of your notes with date and time stamps.</p>
+                <p>Capture ideas, decisions, and reminders in one organized workspace.</p>
               </div>
-              <div class="tools">
+              <div class="tools notes-head-actions">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="notes" title="Move all meta-tag notes into the notes table">Fix all on this page</button>
+                <button id="newNoteBtn" class="btn primary" type="button">
+                  <i class="fa-solid fa-plus" aria-hidden="true"></i> New Note
+                </button>
               </div>
             </div>
             <div class="filter-inline-row compact-filter-row">
@@ -3474,17 +3498,8 @@
               </div>
             </div>
           </div>
-          
-          <!-- Note Input Section -->
-          <div style="padding: 14px; border-bottom: 1px solid var(--line); margin-bottom: 14px;">
-            <div style="margin-bottom: 12px;">
-              <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">New Note</label>
-              <textarea id="noteInput" class="input" placeholder="Write your note here..." style="min-height:80px;resize:vertical;"></textarea>
-            </div>
-            <button id="saveNoteBtn" class="btn primary" type="button">Save Note</button>
-          </div>
-          
-          <div id="notesList" class="list"></div>
+
+          <div id="notesList" class="notes-grid" aria-live="polite"></div>
         </div>
       </section>
 
@@ -4601,9 +4616,64 @@
     </div>
   </div>
 
-  <div id="noteReminderModal" class="modal hide" aria-hidden="true">
+  <div id="noteCreateModal" class="modal note-workspace-modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="noteCreateModal"></div>
+    <div class="modal-dialog compact-entry-dialog note-create-dialog" role="dialog" aria-modal="true" aria-labelledby="noteCreateTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="noteCreateTitle">Create a new note</h3>
+          <p>Give it a clear title, add the details, and optionally schedule a reminder.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="noteCreateModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="noteCreateForm">
+          <div class="modal-grid note-create-grid">
+            <div class="field w12">
+              <label for="noteCreateTitleInput">Note title</label>
+              <input class="input" id="noteCreateTitleInput" name="title" maxlength="120" autocomplete="off" required placeholder="e.g. Month-end follow-up" />
+            </div>
+            <div class="field w12">
+              <label for="noteCreateText">Note text</label>
+              <textarea class="input note-textarea" id="noteCreateText" name="content" rows="8" maxlength="20000" required placeholder="Write your note…"></textarea>
+              <div class="note-field-hint">Use a short, searchable title. Your full note stays inside the detail view.</div>
+            </div>
+            <div class="field w12 note-create-reminder-card">
+              <label class="note-reminder-toggle" for="noteCreateReminderToggle">
+                <span class="note-reminder-toggle-icon"><i class="fa-solid fa-bell" aria-hidden="true"></i></span>
+                <span class="note-reminder-toggle-copy">
+                  <strong>Add a reminder</strong>
+                  <small id="noteCreateReminderHint">Get notified at a date and time you choose.</small>
+                </span>
+                <input type="checkbox" id="noteCreateReminderToggle" />
+                <span class="note-toggle-control" aria-hidden="true"></span>
+              </label>
+              <div id="noteCreateReminderFields" class="note-create-reminder-fields hide">
+                <div class="field">
+                  <label for="noteCreateReminderAt">Remind at</label>
+                  <input class="input" type="datetime-local" id="noteCreateReminderAt" name="remind_at" />
+                </div>
+                <div class="field">
+                  <label for="noteCreateReminderMessage">Reminder message <span class="optional-label">optional</span></label>
+                  <input class="input" id="noteCreateReminderMessage" name="reminder_message" maxlength="400" placeholder="What should the reminder say?" />
+                </div>
+              </div>
+            </div>
+            <div class="field w12 modal-footer note-create-footer">
+              <button class="btn ghost" type="button" data-close-modal="noteCreateModal">Cancel</button>
+              <button class="btn primary" type="submit" id="noteCreateSaveBtn">
+                <i class="fa-solid fa-check" aria-hidden="true"></i> Create note
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="noteReminderModal" class="modal note-workspace-modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="noteReminderModal"></div>
-    <div class="modal-dialog compact-entry-dialog">
+    <div class="modal-dialog compact-entry-dialog" role="dialog" aria-modal="true" aria-labelledby="noteReminderTitle">
       <div class="modal-head">
         <div>
           <h3 id="noteReminderTitle">Set reminder</h3>
@@ -4637,30 +4707,63 @@
     </div>
   </div>
 
-  <div id="noteEditModal" class="modal hide" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="noteEditModal"></div>
-    <div class="modal-dialog compact-entry-dialog">
+  <div id="noteDetailModal" class="modal note-workspace-modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="noteDetailModal"></div>
+    <div class="modal-dialog compact-entry-dialog note-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="noteDetailTitle">
       <div class="modal-head">
-        <div>
-          <h3 id="noteEditTitle">Edit note</h3>
-          <p class="help">Update the note content.</p>
+        <div class="note-detail-heading">
+          <div class="note-detail-kicker"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> Note</div>
+          <h3 id="noteDetailTitle">Note details</h3>
+          <p id="noteDetailMeta" class="help"></p>
         </div>
-        <button class="icon-btn ghost" type="button" data-close-modal="noteEditModal" aria-label="Close">×</button>
+        <button class="icon-btn ghost" type="button" data-close-modal="noteDetailModal" aria-label="Close">×</button>
       </div>
       <div class="modal-body">
-        <form id="noteEditForm">
+        <div id="noteDetailView" class="note-detail-view">
+          <div id="noteDetailContent" class="note-detail-content"></div>
+          <div id="noteDetailReminderStatus" class="note-detail-reminder-status hide">
+            <i class="fa-solid fa-bell" aria-hidden="true"></i>
+            <span>A reminder is set for this note.</span>
+          </div>
+          <div id="noteDetailLegacyAction" class="note-detail-legacy-action hide"></div>
+        </div>
+
+        <form id="noteEditForm" class="hide">
           <input type="hidden" name="note_id" id="noteEditNoteId" />
           <div class="modal-grid">
             <div class="field w12">
-              <label>Note</label>
-              <textarea class="input" name="content" id="noteEditContent" rows="6" required placeholder="Write your note…"></textarea>
+              <label for="noteEditTitleInput">Note title</label>
+              <input class="input" name="title" id="noteEditTitleInput" maxlength="120" required />
             </div>
-            <div class="field w12 modal-footer">
-              <button class="btn ghost" type="button" data-close-modal="noteEditModal">Cancel</button>
-              <button class="btn primary" type="submit" id="noteEditSaveBtn">Save</button>
+            <div class="field w12">
+              <label for="noteEditContent">Note text</label>
+              <textarea class="input note-textarea" name="content" id="noteEditContent" rows="9" maxlength="20000" required placeholder="Write your note…"></textarea>
+            </div>
+            <div class="field w12 modal-footer note-edit-footer">
+              <button class="btn ghost" type="button" id="noteEditCancelBtn">Cancel</button>
+              <button class="btn primary" type="submit" id="noteEditSaveBtn">Save changes</button>
             </div>
           </div>
         </form>
+
+        <div id="noteDeleteConfirm" class="note-delete-confirm hide" role="alert">
+          <div class="note-delete-confirm-icon"><i class="fa-solid fa-trash" aria-hidden="true"></i></div>
+          <div>
+            <strong>Delete this note?</strong>
+            <p>This action cannot be undone. Any reminder attached to this note will also be removed.</p>
+          </div>
+          <div class="note-delete-confirm-actions">
+            <button class="btn ghost" type="button" id="noteDeleteCancelBtn">Keep note</button>
+            <button class="btn danger" type="button" id="noteDeleteConfirmBtn">Delete note</button>
+          </div>
+        </div>
+
+        <div id="noteDetailActions" class="note-detail-actions">
+          <button class="btn soft" type="button" id="noteDetailReminderBtn"><i class="fa-solid fa-bell" aria-hidden="true"></i> Set reminder</button>
+          <button class="btn soft" type="button" id="noteDetailEditBtn"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button>
+          <button class="btn ghost note-detail-delete-btn" type="button" id="noteDetailDeleteBtn"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete</button>
+          <button class="btn ghost note-detail-close-btn" type="button" data-close-modal="noteDetailModal">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5721,33 +5824,36 @@
   <script src="Assets/app/lib/permissions.js"></script>
   <script src="Assets/app/lib/asset-math.js"></script>
   <script src="Assets/app/lib/admin-backup.js"></script>
-  <script src="Assets/app/domain-ledger.js"></script>
+  <script src="Assets/app/domain-ledger.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/core/01-config-constants.js"></script>
   <script src="Assets/app/core/02-state.js"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
-  <script src="Assets/app/core/03-els.js"></script>
-  <script src="Assets/app/auth/01-auth-session.js?v=20260731-smartpin-lock3"></script>
-  <script src="Assets/app/core/04-entries-api.js"></script>
+  <script src="Assets/app/core/03-els.js?v=20260828-notes-workspace"></script>
+  <script src="Assets/app/auth/01-auth-session.js?v=20260828-performance"></script>
+  <script src="Assets/app/core/04-entries-api.js?v=20260828-performance"></script>
   <script src="Assets/app/utils/01-currency-money.js"></script>
-  <script src="Assets/app/core/05-meta-helpers.js"></script>
+  <script src="Assets/app/core/05-meta-helpers.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/core/06-app-loading.js?v=20260801-data-loading"></script>
+  <script src="Assets/app/core/07-theme.js?v=20260828-performance"></script>
+  <script src="Assets/app/core/08-offline-sync.js?v=20260828-performance"></script>
   <script src="Assets/app/inventory/01-inventory-meta-stock.js"></script>
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260801-data-loading"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260828-notes-workspace"></script>
+  <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260828-performance"></script>
   <script src="Assets/app/installments/01-installments.js"></script>
   <script src="Assets/app/loans/01-loans-payments.js"></script>
-  <script src="Assets/app/reports/01-pdf.js"></script>
+  <script src="Assets/app/reports/01-pdf.js?v=20260828-performance"></script>
   <script src="Assets/app/reports/02-exports.js"></script>
-  <script src="Assets/app/expenses/02-transfers.js"></script>
-  <script src="Assets/app/ui/02-bindings.js?v=20260801-data-loading"></script>
+  <script src="Assets/app/expenses/02-transfers.js?v=20260828-notes-workspace"></script>
+  <script src="Assets/app/ui/02-bindings.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260801-fraud-alert"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260731-smartpin-lock3"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
-  <script src="Assets/app/notes/01-notes.js"></script>
-  <script src="Assets/app/assets/01-assets.js"></script>
+  <script src="Assets/app/notes/01-notes.js?v=20260828-notes-workspace"></script>
+  <script src="Assets/app/assets/01-assets.js?v=20260828-performance"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js"></script>
   <script src="Assets/app/admin/01-admin.js?v=20260801-analytics-storage"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
