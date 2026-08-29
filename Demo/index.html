@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="../Assets/style/app.bundle.css?v=20260830-demo-parity" />
-  <link rel="stylesheet" href="style.css?v=20260830-demo-v2" />
+  <link rel="stylesheet" href="style.css?v=20260830-demo-v3" />
   <script type="application/ld+json">
   {
     "@context":"https://schema.org",
@@ -117,7 +117,7 @@
         <button type="button" id="nextBtn" aria-label="Next chapter" title="Next"><i class="fa-solid fa-forward-step" aria-hidden="true"></i></button>
         <button type="button" id="restartBtn" aria-label="Restart chapter" title="Restart"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></button>
       </div>
-      <label class="controller-select speed-select" for="speedSelect"><span>Speed</span><select id="speedSelect" aria-label="Demo speed"><option value="0.8">Relaxed</option><option value="1" selected>Normal</option><option value="1.2">Brisk</option></select></label>
+      <label class="controller-select speed-select" for="speedSelect"><span>Speed</span><select id="speedSelect" aria-label="Demo speed"><option value="0.65">Relaxed</option><option value="0.8" selected>Normal</option><option value="1">Brisk</option></select></label>
       <div class="progress-wrap">
         <div class="progress-copy"><span id="progressTitle">Dashboard</span><strong id="progressValue">0%</strong></div>
         <div class="progress-track" role="progressbar" aria-label="Chapter progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progressBar"></span></div>
@@ -137,6 +137,6 @@
 
   <div class="demo-toast" id="demoToast" role="status" aria-live="polite"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span></span></div>
   <div class="demo-cursor" id="demoCursor" aria-hidden="true"><span></span></div>
-  <script src="script.js?v=20260830-demo-v2"></script>
+  <script src="script.js?v=20260830-demo-v3"></script>
 </body>
 </html>
