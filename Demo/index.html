@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" data-demo-theme="default">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive Demo · Triplem</title>
+  <meta name="description" content="A safe, interactive product walkthrough of the Triplem finance workspace using fictional local data." />
+  <meta name="theme-color" content="#2457d6" />
+  <link rel="icon" type="image/png" href="../Assets/logo/logo.png" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="demo-app" id="demoApp">
+    <header class="demo-topbar">
+      <a class="demo-brand" href="../" aria-label="Back to Triplem">
+        <img src="../Assets/logo/logo2.png" alt="Triplem" onerror="this.onerror=null;this.src='../Assets/logo/logo.png'" />
+        <span><strong>TRIPLEM</strong><small>Interactive product demo</small></span>
+      </a>
+      <div class="demo-top-actions">
+        <span class="demo-safe-badge"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Fictional local data</span>
+        <span class="demo-tour-badge" title="Completed demo chapters"><i class="fa-solid fa-route" aria-hidden="true"></i><strong id="demoCompletedCount">0</strong><span>/ 12 explored</span></span>
+        <label class="theme-control" for="demoThemeSelect">
+          <span>Theme</span>
+          <select id="demoThemeSelect" aria-label="Demo theme">
+            <option value="default">Default</option>
+            <option value="neon">Neon</option>
+            <option value="navy">Navy</option>
+            <option value="red">Red</option>
+            <option value="pink">Pink</option>
+            <option value="green">Green</option>
+          </select>
+        </label>
+        <a class="icon-link" href="../" aria-label="Exit demo" title="Exit demo"><i class="fa-solid fa-xmark" aria-hidden="true"></i></a>
+      </div>
+    </header>
+
+    <nav class="demo-module-tabs" id="demoModuleTabs" aria-label="Demo modules"></nav>
+
+    <main class="demo-layout">
+      <section class="workspace-shell" aria-label="Triplem demo workspace">
+        <header class="workspace-head">
+          <div>
+            <p class="workspace-kicker" id="workspaceKicker">Detailed Dashboard</p>
+            <h1 id="workspaceTitle">Financial Overview</h1>
+            <p id="workspaceDescription">Live sample summaries across the workspace.</p>
+          </div>
+          <div class="workspace-head-actions" id="workspaceActions"></div>
+        </header>
+        <div class="workspace-content" id="workspaceContent" aria-live="polite"></div>
+      </section>
+
+      <aside class="demo-coach" aria-live="polite" aria-atomic="true">
+        <div class="coach-icon" id="coachIcon"><i class="fa-solid fa-compass" aria-hidden="true"></i></div>
+        <span class="coach-chapter" id="coachChapter">Chapter 1 of 12</span>
+        <p class="coach-label">Now demonstrating</p>
+        <h2 id="coachTitle">Ready when you are</h2>
+        <p id="coachText">Press Play to watch this Triplem workflow with safe sample data.</p>
+        <div class="coach-state" id="coachState"><span class="state-dot"></span><span>Ready</span></div>
+        <div class="chapter-map" id="chapterMap" aria-label="Demo chapter progress"></div>
+        <ul class="coach-facts">
+          <li><i class="fa-solid fa-database" aria-hidden="true"></i> No production database</li>
+          <li><i class="fa-solid fa-user-lock" aria-hidden="true"></i> No sign-in required</li>
+          <li><i class="fa-solid fa-rotate" aria-hidden="true"></i> State resets per chapter</li>
+        </ul>
+      </aside>
+    </main>
+
+    <div class="demo-controller" role="region" aria-label="Demo playback controls">
+      <label class="module-select-wrap" for="moduleSelect"><span>Chapter</span><select id="moduleSelect"></select></label>
+      <div class="transport-controls">
+        <button type="button" id="prevBtn" aria-label="Previous chapter" title="Previous"><i class="fa-solid fa-backward-step" aria-hidden="true"></i></button>
+        <button type="button" class="play-btn" id="playPauseBtn" aria-label="Play chapter"><i class="fa-solid fa-play" aria-hidden="true"></i><span>Play</span></button>
+        <button type="button" id="nextBtn" aria-label="Next chapter" title="Next"><i class="fa-solid fa-forward-step" aria-hidden="true"></i></button>
+        <button type="button" id="restartBtn" aria-label="Restart chapter" title="Restart"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></button>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-copy"><span id="progressTitle">Dashboard Overview</span><strong id="progressValue">0%</strong></div>
+        <div class="progress-track" role="progressbar" aria-label="Chapter progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progressBar"></span></div>
+        <div class="shortcut-hint"><kbd>Space</kbd> play / pause <span>·</span> <kbd>←</kbd><kbd>→</kbd> switch chapter</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-modal hide" id="demoModal" aria-hidden="true">
+    <div class="demo-modal-backdrop" data-demo-close></div>
+    <section class="demo-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
+      <header><div><p id="demoModalKicker">New entry</p><h2 id="demoModalTitle">Form</h2></div><button type="button" data-demo-close aria-label="Close">×</button></header>
+      <div class="demo-modal-body" id="demoModalBody"></div>
+      <footer class="demo-modal-actions" id="demoModalActions"></footer>
+    </section>
+  </div>
+
+  <div class="demo-toast" id="demoToast" role="status" aria-live="polite"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span></span></div>
+  <div class="demo-cursor" id="demoCursor" aria-hidden="true"><span></span></div>
+  <script src="script.js"></script>
+</body>
+</html>
