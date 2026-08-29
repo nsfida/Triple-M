@@ -1,8 +1,8 @@
-# Triple M by NSF
+# Triplem VIP
 
-![Triple M by NSF](Assets/logo/logo.png)
+![Triplem VIP](Assets/logo/logo.png)
 
-Triple M by NSF is a private business finance dashboard created and maintained by Nadeem Shahzad Fida. It is designed as a polished web-based workspace for approved users who need a controlled, organized, and professional way to manage financial records.
+Triplem VIP is a private personal and business finance dashboard created and maintained by Nadeem Shahzad Fida. It is designed as a polished web-based workspace for approved users who need a controlled, organized, and professional way to manage financial records.
 
 This repository contains the public project files for the web application. Sensitive access details, private operating procedures, and internal configuration information are intentionally not documented here.
 
@@ -57,7 +57,7 @@ Administrators manage users, passwords, and per-module permissions from the in-a
 
 ## Intended Use
 
-Triple M by NSF is intended for approved users and managed deployments only. The source files in this repository should be handled carefully because the application supports private business workflows and financial records.
+Triplem VIP is intended for approved users and managed deployments only. The source files in this repository should be handled carefully because the application supports private business workflows and financial records.
 
 ## Deployment Notes
 
@@ -84,7 +84,7 @@ Recommended repository hygiene:
 
 ## Ownership
 
-Triple M by NSF is created and maintained by:
+Triplem VIP is created and maintained by:
 
 **Nadeem Shahzad Fida**
 
@@ -98,7 +98,7 @@ For access, support, or business inquiries, contact the project owner through th
 
 <div align="center">
 
-**Triple M by NSF**  
+**Triplem VIP**  
 Private finance workspace for approved users.
 
 </div>
