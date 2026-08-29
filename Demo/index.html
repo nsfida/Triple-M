@@ -1,140 +1,142 @@
 <!DOCTYPE html>
-<html lang="en" data-demo-theme="default">
+<html lang="en" data-demo-theme="default" data-triplem-theme="default">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Triplem VIP Interactive Demo | Finance Workspace Walkthrough</title>
-  <meta name="description" content="Explore a safe Triplem VIP finance workspace demo with fictional local data across wallets, expenses, inventory, assets, loans, reports, and Bitcoin records." />
+  <title>Triplem VIP Interactive Demo | Full Product Walkthrough</title>
+  <meta name="description" content="Explore a device-responsive Triplem VIP walkthrough with detailed fictional workflows across Dashboard, Expenses, Inventory, Assets, Loans, Installments, Notes, Bitcoin, Messages, and reports." />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
   <meta name="theme-color" content="#2457d6" />
   <link rel="canonical" href="https://triplem.vip/Demo/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Triplem VIP" />
-  <meta property="og:title" content="Triplem VIP Interactive Finance Demo" />
-  <meta property="og:description" content="Walk through wallets, expenses, inventory, assets, loans, reports, and Bitcoin records using fictional local data." />
+  <meta property="og:title" content="Triplem VIP Interactive Product Demo" />
+  <meta property="og:description" content="A detailed, device-responsive walkthrough of the Triplem VIP workspace using fictional local demo data." />
   <meta property="og:url" content="https://triplem.vip/Demo/" />
   <meta property="og:image" content="https://triplem.vip/Assets/logo/logo.png" />
-  <meta property="og:image:alt" content="Triplem VIP interactive finance demo" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Triplem VIP Interactive Finance Demo" />
-  <meta name="twitter:description" content="Explore finance workflows safely with fictional local data and no production database connection." />
+  <meta name="twitter:title" content="Triplem VIP Interactive Product Demo" />
+  <meta name="twitter:description" content="Explore the complete Triplem VIP workflow safely with fictional local data." />
   <meta name="twitter:image" content="https://triplem.vip/Assets/logo/logo.png" />
-  <meta name="twitter:image:alt" content="Triplem VIP interactive finance demo" />
   <link rel="icon" type="image/png" href="../Assets/logo/logo.png" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="../Assets/style/app.bundle.css?v=20260830-demo-parity" />
+  <link rel="stylesheet" href="style.css?v=20260830-demo-v2" />
   <script type="application/ld+json">
   {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebPage",
-        "@id": "https://triplem.vip/Demo/#webpage",
-        "url": "https://triplem.vip/Demo/",
-        "name": "Triplem VIP Interactive Demo | Finance Workspace Walkthrough",
-        "description": "A safe interactive Triplem VIP finance workspace walkthrough using fictional local data.",
-        "isPartOf": { "@id": "https://triplem.vip/#website" },
-        "about": { "@id": "https://triplem.vip/#software" },
-        "breadcrumb": { "@id": "https://triplem.vip/Demo/#breadcrumb" },
-        "dateModified": "2026-08-29",
-        "inLanguage": "en"
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://triplem.vip/Demo/#breadcrumb",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://triplem.vip/" },
-          { "@type": "ListItem", "position": 2, "name": "Interactive Demo", "item": "https://triplem.vip/Demo/" }
-        ]
-      }
-    ]
+    "@context":"https://schema.org",
+    "@type":"WebPage",
+    "url":"https://triplem.vip/Demo/",
+    "name":"Triplem VIP Interactive Demo | Full Product Walkthrough",
+    "description":"A detailed device-responsive Triplem VIP walkthrough using fictional local demo data.",
+    "dateModified":"2026-08-30",
+    "inLanguage":"en"
   }
   </script>
 </head>
-<body>
-  <div class="demo-app" id="demoApp">
+<body class="demo-body">
+  <div class="floating-circles demo-floating-circles" aria-hidden="true">
+    <span class="circle"></span><span class="circle"></span><span class="circle"></span><span class="circle"></span><span class="circle"></span><span class="circle"></span>
+  </div>
+
+  <div class="demo-page" id="demoPage">
     <header class="demo-topbar">
       <a class="demo-brand" href="../" aria-label="Back to Triplem VIP">
         <img src="../Assets/logo/logo2.png" alt="Triplem VIP" onerror="this.onerror=null;this.src='../Assets/logo/logo.png'" />
-        <span><strong>TRIPLEM VIP</strong><small>Interactive product demo</small></span>
+        <span><strong>TRIPLEM VIP</strong><small>Guided product walkthrough</small></span>
       </a>
       <div class="demo-top-actions">
-        <span class="demo-safe-badge"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Fictional local data</span>
-        <span class="demo-tour-badge" title="Completed demo chapters"><i class="fa-solid fa-route" aria-hidden="true"></i><strong id="demoCompletedCount">0</strong><span>/ 12 explored</span></span>
-        <label class="theme-control" for="demoThemeSelect">
-          <span>Theme</span>
-          <select id="demoThemeSelect" aria-label="Demo theme">
-            <option value="default">Default</option>
-            <option value="neon">Neon</option>
-            <option value="navy">Navy</option>
-            <option value="red">Red</option>
-            <option value="pink">Pink</option>
-            <option value="green">Green</option>
-          </select>
-        </label>
-        <a class="icon-link" href="../" aria-label="Exit demo" title="Exit demo"><i class="fa-solid fa-xmark" aria-hidden="true"></i></a>
+        <span class="demo-safe-badge"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Fictional local data</span></span>
+        <span class="demo-device-badge" id="demoDeviceBadge"><i class="fa-solid fa-desktop" aria-hidden="true"></i><span>Desktop view</span></span>
+        <span class="demo-tour-badge" title="Completed demo chapters"><i class="fa-solid fa-route" aria-hidden="true"></i><strong id="demoCompletedCount">0</strong><span id="demoChapterTotal">/ 14 explored</span></span>
+        <label class="theme-control" for="demoThemeSelect"><span>Theme</span><select id="demoThemeSelect" aria-label="Demo theme"><option value="default">Default</option><option value="neon">Neon</option><option value="navy">Dark Navy</option><option value="red">Red</option><option value="pink">Pink</option><option value="green">Green</option></select></label>
+        <a class="demo-exit" href="../" aria-label="Exit demo" title="Exit demo"><i class="fa-solid fa-xmark" aria-hidden="true"></i></a>
       </div>
     </header>
 
-    <nav class="demo-module-tabs" id="demoModuleTabs" aria-label="Demo modules"></nav>
+    <nav class="demo-module-tabs" id="demoModuleTabs" aria-label="Demo chapters"></nav>
 
     <main class="demo-layout">
-      <section class="workspace-shell" aria-label="Triplem VIP demo workspace">
-        <header class="workspace-head">
-          <div>
-            <p class="workspace-kicker" id="workspaceKicker">Detailed Dashboard</p>
-            <h1 id="workspaceTitle">Financial Overview</h1>
-            <p id="workspaceDescription">Live sample summaries across the workspace.</p>
+      <section class="demo-stage" aria-label="Triplem VIP product demo">
+        <div class="demo-stage-meta">
+          <div><span class="stage-eyebrow">Live walkthrough</span><strong id="stageTitle">Dashboard</strong></div>
+          <span class="stage-note"><i class="fa-solid fa-display" aria-hidden="true"></i> Layout follows this device</span>
+        </div>
+
+        <div class="product-viewport" id="productViewport" data-device="desktop">
+          <div id="app" class="shell demo-product-shell">
+            <header class="header demo-product-header">
+              <div class="brand">
+                <img class="mark" src="../Assets/logo/logo2.png" alt="Triplem VIP logo" onerror="this.onerror=null;this.src='../Assets/logo/logo.png'" />
+                <div><p>Money Management Module (Powered by Nadeem Shahzad Fida)</p></div>
+              </div>
+              <div class="chips demo-product-chips">
+                <button class="btn ghost top-icon-btn" type="button" title="Notifications" aria-label="Notifications"><i class="fa-solid fa-bell"></i></button>
+                <button class="btn ghost top-icon-btn" type="button" title="Messages" aria-label="Messages"><i class="fa-solid fa-comments"></i></button>
+                <button class="btn ghost top-icon-btn" type="button" title="Page Currency" aria-label="Page Currency"><i class="fa-solid fa-money-bill-wave"></i></button>
+                <button class="btn ghost top-icon-btn" type="button" title="Refresh" aria-label="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="btn ghost top-icon-btn" type="button" title="Recycle Bin" aria-label="Recycle Bin"><i class="fa-solid fa-trash-can"></i></button>
+                <button class="btn ghost top-icon-btn" type="button" title="About Triplem VIP" aria-label="About Triplem VIP"><i class="fa-solid fa-circle-info"></i></button>
+                <button class="btn ghost top-icon-btn" type="button" title="Account" aria-label="Account"><i class="fa-solid fa-user"></i></button>
+              </div>
+            </header>
+
+            <section class="tabs demo-product-tabs" id="productTabs" aria-label="Triplem VIP sections"></section>
+            <div class="demo-product-content" id="productContent" aria-live="polite"></div>
           </div>
-          <div class="workspace-head-actions" id="workspaceActions"></div>
-        </header>
-        <div class="workspace-content" id="workspaceContent" aria-live="polite"></div>
+        </div>
       </section>
 
-      <aside class="demo-coach" aria-live="polite" aria-atomic="true">
-        <div class="coach-icon" id="coachIcon"><i class="fa-solid fa-compass" aria-hidden="true"></i></div>
-        <span class="coach-chapter" id="coachChapter">Chapter 1 of 12</span>
+      <aside class="demo-coach" aria-live="polite" aria-atomic="false">
+        <div class="coach-topline"><div class="coach-icon" id="coachIcon"><i class="fa-solid fa-compass" aria-hidden="true"></i></div><span class="coach-chapter" id="coachChapter">Chapter 1 of 14</span></div>
         <p class="coach-label">Now demonstrating</p>
         <h2 id="coachTitle">Ready when you are</h2>
-        <p id="coachText">Press Play to watch this Triplem VIP workflow with safe sample data.</p>
+        <p id="coachText">Press Play to watch a complete, paced workflow. Every move is also described below.</p>
         <div class="coach-state" id="coachState"><span class="state-dot"></span><span>Ready</span></div>
         <div class="chapter-map" id="chapterMap" aria-label="Demo chapter progress"></div>
-        <ul class="coach-facts">
-          <li><i class="fa-solid fa-database" aria-hidden="true"></i> No production database</li>
-          <li><i class="fa-solid fa-user-lock" aria-hidden="true"></i> No sign-in required</li>
-          <li><i class="fa-solid fa-rotate" aria-hidden="true"></i> State resets per chapter</li>
-        </ul>
+
+        <section class="text-tutorial" aria-labelledby="tutorialTitle">
+          <div class="tutorial-head"><div><span>Text tutorial</span><strong id="tutorialTitle">Dashboard steps</strong></div><i class="fa-solid fa-list-check" aria-hidden="true"></i></div>
+          <ol class="tutorial-steps" id="tutorialSteps"></ol>
+        </section>
+
+        <div class="coach-facts">
+          <span><i class="fa-solid fa-database" aria-hidden="true"></i>No production database</span>
+          <span><i class="fa-solid fa-user-lock" aria-hidden="true"></i>No sign-in required</span>
+          <span><i class="fa-solid fa-rotate" aria-hidden="true"></i>Chapter state resets safely</span>
+        </div>
       </aside>
     </main>
 
     <div class="demo-controller" role="region" aria-label="Demo playback controls">
-      <label class="module-select-wrap" for="moduleSelect"><span>Chapter</span><select id="moduleSelect"></select></label>
+      <label class="controller-select" for="moduleSelect"><span>Chapter</span><select id="moduleSelect"></select></label>
       <div class="transport-controls">
         <button type="button" id="prevBtn" aria-label="Previous chapter" title="Previous"><i class="fa-solid fa-backward-step" aria-hidden="true"></i></button>
         <button type="button" class="play-btn" id="playPauseBtn" aria-label="Play chapter"><i class="fa-solid fa-play" aria-hidden="true"></i><span>Play</span></button>
         <button type="button" id="nextBtn" aria-label="Next chapter" title="Next"><i class="fa-solid fa-forward-step" aria-hidden="true"></i></button>
         <button type="button" id="restartBtn" aria-label="Restart chapter" title="Restart"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></button>
       </div>
+      <label class="controller-select speed-select" for="speedSelect"><span>Speed</span><select id="speedSelect" aria-label="Demo speed"><option value="0.8">Relaxed</option><option value="1" selected>Normal</option><option value="1.2">Brisk</option></select></label>
       <div class="progress-wrap">
-        <div class="progress-copy"><span id="progressTitle">Dashboard Overview</span><strong id="progressValue">0%</strong></div>
+        <div class="progress-copy"><span id="progressTitle">Dashboard</span><strong id="progressValue">0%</strong></div>
         <div class="progress-track" role="progressbar" aria-label="Chapter progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progressBar"></span></div>
-        <div class="shortcut-hint"><kbd>Space</kbd> play / pause <span>·</span> <kbd>←</kbd><kbd>→</kbd> switch chapter</div>
+        <div class="shortcut-hint"><kbd>Space</kbd> play / pause <span>·</span> <kbd>←</kbd><kbd>→</kbd> chapter</div>
       </div>
     </div>
   </div>
 
   <div class="demo-modal hide" id="demoModal" aria-hidden="true">
-    <div class="demo-modal-backdrop" data-demo-close></div>
-    <section class="demo-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
-      <header><div><p id="demoModalKicker">New entry</p><h2 id="demoModalTitle">Form</h2></div><button type="button" data-demo-close aria-label="Close">×</button></header>
-      <div class="demo-modal-body" id="demoModalBody"></div>
-      <footer class="demo-modal-actions" id="demoModalActions"></footer>
+    <div class="modal-backdrop demo-modal-backdrop" data-demo-close></div>
+    <section class="modal-dialog demo-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
+      <div class="modal-head"><div><p id="demoModalKicker">New entry</p><h3 id="demoModalTitle">Form</h3></div><button type="button" class="icon-btn ghost" data-demo-close aria-label="Close">×</button></div>
+      <div class="modal-body" id="demoModalBody"></div>
+      <div class="modal-actions" id="demoModalActions"></div>
     </section>
   </div>
 
   <div class="demo-toast" id="demoToast" role="status" aria-live="polite"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span></span></div>
   <div class="demo-cursor" id="demoCursor" aria-hidden="true"><span></span></div>
-  <script src="script.js"></script>
+  <script src="script.js?v=20260830-demo-v2"></script>
 </body>
 </html>
