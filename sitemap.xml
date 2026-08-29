@@ -4,69 +4,87 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://triplem.vip/</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/" />
     <image:image>
       <image:loc>https://triplem.vip/Assets/logo/logo.png</image:loc>
-      <image:title>Triplem accounting software logo</image:title>
-      <image:caption>Triplem private accounting software and finance setup</image:caption>
+      <image:title>Triplem VIP accounting software logo</image:title>
+      <image:caption>Triplem VIP personal and business finance workspace</image:caption>
     </image:image>
   </url>
   <url>
     <loc>https://triplem.vip/seo/</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://triplem.vip/seo/triplem.html</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://triplem.vip/seo/accounting-software.html</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://triplem.vip/seo/accounting-setup.html</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://triplem.vip/seo/expense-tracking.html</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://triplem.vip/seo/finance-software.html</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://triplem.vip/llms.txt</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
     <loc>https://triplem.vip/humans.txt</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   <url>
     <loc>https://triplem.vip/site.webmanifest</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://triplem.vip/Demo/</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://triplem.vip/Founder/</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.65</priority>
+  </url>
+  <url>
+    <loc>https://triplem.vip/Triplem%20VIP%20Technical%20Security%20%26%20Infrastructure.html</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.55</priority>
   </url>
 </urlset>
