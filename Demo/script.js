@@ -172,6 +172,24 @@ const MODULES = [
   }
 ];
 
+const CHAPTER_REVIEW_COPY = {
+  dashboard: "Pause on the completed dashboard and connect each hero total to the detailed section beneath it.",
+  wallets: "Review the final wallet balances, top-up totals, spending, and transfer result before moving on.",
+  expenses: "Review the saved transaction, wallet impact, expanded history, and report controls together.",
+  inventory: "Review the category grid, stock quantities, pricing, filters, and item actions as one inventory workflow.",
+  sales: "Review the finalized cart, invoice totals, customer balance, stock reduction, and wallet collection together.",
+  customers: "Review how invoices, payments, receipts, and the remaining customer balance stay connected in one record.",
+  assets: "Review purchase value, current position, net performance, status, and reporting controls on the asset cards.",
+  depreciation: "Review original cost, accumulated depreciation, book value, useful life, and schedule context together.",
+  loans: "Review given and taken directions separately, then compare principal, paid movement, remaining balance, and status.",
+  installments: "Review the plan total, paid amount, remaining amount, next installment context, and completion progress.",
+  notes: "Review note content, reminder state, searchability, and the opened note view before leaving the chapter.",
+  bitcoin: "Review wallet type, balance, receive address, transaction history, and the browser-side security boundary together.",
+  messages: "Review the conversation thread, sent message, and administrator reply as one continuous support history.",
+  reports: "Review scope, detail level, generated totals, and the final report preview before downloading the safe sample."
+};
+MODULES.forEach(module => module.steps.push(["Review the completed state", CHAPTER_REVIEW_COPY[module.key] || "Review the final state and how each action changed the visible workspace."]));
+
 function baseState() {
   return {
     wallets: [
@@ -222,7 +240,8 @@ function baseState() {
     reportGenerated: false,
     expenseHistoryOpen: false,
     expenseDownloadOpen: false,
-    inventoryMenuOpen: false
+    inventoryMenuOpen: false,
+    walletsCollapsed: false
   };
 }
 
@@ -230,7 +249,7 @@ let state = baseState();
 let currentIndex = 0;
 let currentTutorialStep = -1;
 let toastTimer = null;
-let playbackSpeed = 1;
+let playbackSpeed = 0.8;
 const playback = { token: 0, running: false, paused: false };
 const completedModules = new Set();
 
@@ -245,12 +264,13 @@ function stockValue() { return state.inventory.reduce((sum, row) => sum + row.qt
 
 function prepareChapter(key) {
   state = baseState();
-  if (["inventory", "sales", "customers"].includes(key)) {
+  if (["sales", "customers"].includes(key)) {
     state.inventory.push({ id: "item-scanner", name: "Wireless Scanner", brand: "Triplem Supply", qty: 12, cost: 120, sell: 190, category: "Electronics", sku: "TM-SCN-01" });
   }
   if (["sales", "customers"].includes(key)) {
     state.sales.push({ id: "sale-alpine", item: "Wireless Scanner", customer: "Alpine Retail", qty: 2, total: 380, paid: 200, profit: 140 });
   }
+  if (key === "wallets") state.walletsCollapsed = true;
   currentTutorialStep = -1;
 }
 
@@ -290,6 +310,7 @@ function renderTutorial() {
 }
 
 function renderModule() {
+  hidePointerLabel();
   const module = currentModule();
   $("#stageTitle").textContent = module.label;
   $("#progressTitle").textContent = module.label;
@@ -313,55 +334,96 @@ function metricCard(label, value, note) {
 }
 
 function renderDashboard() {
-  return `<section id="dashboardPanel" class="panel active"><div class="card section">
-    ${sectionHead("Detailed Dashboard", "Live summaries across wallets, expenses, inventory, assets, loans, installments, and customer balances.", '<button class="tiny ghost" id="dashboardDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button>')}
-    <div class="demo-dashboard-grid">
-      ${metricCard("Wallet balance", money(totalWalletBalance()), "3 active AED wallets")}
-      ${metricCard("Recorded expenses", money(totalExpenses()), `${state.expenses.length} transactions`) }
-      ${metricCard("Asset valuation", money(totalAssetValue()), `${state.assets.length} active assets`) }
-      ${metricCard("Outstanding", money(totalOutstanding()), "Loans + customer invoices")}
-    </div>
-    <div class="demo-dashboard-columns">
-      <article class="demo-chart-card"><div class="demo-card-head"><strong>Cash Flow</strong><div class="demo-actions"><button class="tiny primary" id="dashboardCurrencyBtn">AED</button><button class="tiny ghost">SAR</button><button class="tiny ghost">USD</button></div></div><div class="demo-chart-bars" id="dashboardChart"><span style="--h:44%" data-label="Mar"></span><span style="--h:68%" data-label="Apr"></span><span style="--h:55%" data-label="May"></span><span style="--h:82%" data-label="Jun"></span><span style="--h:66%" data-label="Jul"></span><span style="--h:91%" data-label="Aug"></span></div></article>
-      <article class="demo-activity-card"><div class="demo-card-head"><strong>Latest Activity</strong><span class="demo-badge green">Live sample</span></div><div class="demo-activity-list" id="dashboardActivity">
-        <div class="demo-activity-row"><i class="fa-solid fa-arrow-down"></i><span><strong>Invoice payment</strong><small>Horizon Trading · Emirates NBD</small></span><span class="demo-positive">+1,500</span></div>
-        <div class="demo-activity-row"><i class="fa-solid fa-cart-shopping"></i><span><strong>Office rent</strong><small>Expenses · Emirates NBD</small></span><span class="demo-negative">−1,800</span></div>
-        <div class="demo-activity-row"><i class="fa-solid fa-box"></i><span><strong>Stock purchase</strong><small>Inventory · 12 units</small></span><span class="demo-negative">−1,020</span></div>
-        <div class="demo-activity-row"><i class="fa-solid fa-calendar-check"></i><span><strong>Installment received</strong><small>Laptop Plan</small></span><span class="demo-positive">+600</span></div>
-      </div></article>
+  const outstandingLoans = state.loans.reduce((sum, row) => sum + row.remaining, 0);
+  const installmentTotal = state.installments.reduce((sum, row) => sum + row.total, 0);
+  const installmentPaid = state.installments.reduce((sum, row) => sum + row.paid, 0);
+  const installmentPct = installmentTotal ? Math.round((installmentPaid / installmentTotal) * 100) : 0;
+  const hero = [
+    ["expenses","Wallet balance",money(totalWalletBalance()),`AED · ${state.wallets.length} wallets`],
+    ["inventory","Inventory profit",money(state.inventory.reduce((sum,row)=>sum + Math.max(0,(row.sell-row.cost)*Math.max(1,row.qty)),0)),`AED · ${state.inventory.length} items`],
+    ["assets","Asset net P/L",money(totalAssetValue()-state.assets.reduce((sum,row)=>sum+row.purchase,0)),`AED · ${state.assets.length} active · ${state.assets.length} total`],
+    ["loans","Loans outstanding",money(outstandingLoans),`Given and taken open balances`],
+    ["installments","Installment progress",`${installmentPct}%`,`${state.installments.filter(row=>row.paid<row.total).length} active · 0 overdue`]
+  ];
+  const heroHtml = hero.map((row,index)=>`<article class="dashboard-hero-card is-${row[0]} ${index < 4 ? 'demo-summary-card' : ''}" data-dashboard-hero-card="${row[0]}"><small>${row[1]}</small><strong>${row[2]}</strong><div class="dashboard-hero-meta">${row[3]}</div></article>`).join("");
+  return `<section id="dashboardPanel" class="panel active"><div class="card section dashboard-section">
+    ${sectionHead("Detailed Dashboard", "Live charts for wallets, inventory, assets, loans, and installments — each block follows the production dashboard hierarchy and currency focus.")}
+    <div id="dashboardRoot" class="dashboard-root is-hydrated is-desktop-layout">
+      <div class="dashboard-section-switch" role="tablist" aria-label="Dashboard section">
+        <button class="dashboard-section-switch-btn active" type="button"><i class="fa-solid fa-coins"></i><span>Expenses</span></button>
+        <button class="dashboard-section-switch-btn" type="button"><i class="fa-solid fa-cart-shopping"></i><span>Inventory</span></button>
+        <button class="dashboard-section-switch-btn" type="button"><i class="fa-solid fa-building"></i><span>Assets</span></button>
+        <button class="dashboard-section-switch-btn" type="button"><i class="fa-solid fa-hand-holding-dollar"></i><span>Loans</span></button>
+        <button class="dashboard-section-switch-btn" type="button"><i class="fa-solid fa-calendar-days"></i><span>Installments</span></button>
+      </div>
+      <div class="dashboard-hero" style="--dashboard-hero-cols:5">${heroHtml}</div>
+      <div class="dashboard-grid">
+        <section class="dashboard-block is-expenses" data-dashboard-block="expenses">
+          <header class="dashboard-block-head"><h4><i class="fa-solid fa-coins"></i> Expenses & Wallets</h4><button class="tiny ghost" id="dashboardDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Open</button></header>
+          <div class="section-details-currency-bar"><button class="tiny primary" id="dashboardCurrencyBtn">AED</button><button class="tiny ghost">SAR</button><button class="tiny ghost">USD</button></div>
+          <div class="section-details-metrics">
+            <div class="section-details-metric is-primary"><small>Wallets</small><strong>${state.wallets.length}</strong></div>
+            <div class="section-details-metric is-success"><small>Active</small><strong>${state.wallets.length}</strong></div>
+            <div class="section-details-metric"><small>Topped up</small><strong>${money(state.wallets.reduce((s,r)=>s+r.topups,0))}</strong></div>
+            <div class="section-details-metric is-warning"><small>Spent</small><strong>${money(totalExpenses())}</strong></div>
+            <div class="section-details-metric is-success"><small>Balance</small><strong>${money(totalWalletBalance())}</strong></div>
+          </div>
+          <div class="dashboard-charts">
+            <article class="dashboard-chart-card"><h5>Monthly cash <span class="dashboard-chart-badge">AED</span></h5><div class="demo-chart-bars" id="dashboardChart"><span style="--h:44%" data-label="Mar"></span><span style="--h:68%" data-label="Apr"></span><span style="--h:55%" data-label="May"></span><span style="--h:82%" data-label="Jun"></span><span style="--h:66%" data-label="Jul"></span><span style="--h:91%" data-label="Aug"></span></div></article>
+            <article class="dashboard-chart-card"><h5>Latest activity <span class="dashboard-chart-badge">Live sample</span></h5><div class="demo-activity-list" id="dashboardActivity"><div class="demo-activity-row"><i class="fa-solid fa-arrow-down"></i><span><strong>Invoice payment</strong><small>Horizon Trading · Emirates NBD</small></span><span class="demo-positive">+1,500</span></div><div class="demo-activity-row"><i class="fa-solid fa-coins"></i><span><strong>Office rent</strong><small>Expenses · Emirates NBD</small></span><span class="demo-negative">−1,800</span></div><div class="demo-activity-row"><i class="fa-solid fa-box"></i><span><strong>Stock purchase</strong><small>Inventory · 12 units</small></span><span class="demo-negative">−1,020</span></div></div></article>
+          </div>
+        </section>
+        <section class="dashboard-block is-loans is-wide" data-dashboard-block="loans"><header class="dashboard-block-head"><h4><i class="fa-solid fa-hand-holding-dollar"></i> Loans</h4><button class="tiny ghost">Open</button></header><div class="dashboard-loan-split"><div class="dashboard-loan-pill is-given"><small>Given · principal / open</small><strong>${money(state.loans.filter(r=>r.direction==='given').reduce((s,r)=>s+r.principal,0))} · ${money(state.loans.filter(r=>r.direction==='given').reduce((s,r)=>s+r.remaining,0))}</strong></div><div class="dashboard-loan-pill is-taken"><small>Taken · principal / open</small><strong>${money(state.loans.filter(r=>r.direction==='taken').reduce((s,r)=>s+r.principal,0))} · ${money(state.loans.filter(r=>r.direction==='taken').reduce((s,r)=>s+r.remaining,0))}</strong></div></div><div class="section-details-metrics"><div class="section-details-metric is-primary"><small>People</small><strong>${state.loans.length}</strong></div><div class="section-details-metric is-warning"><small>Given open</small><strong>${money(state.loans.filter(r=>r.direction==='given').reduce((s,r)=>s+r.remaining,0))}</strong></div><div class="section-details-metric is-danger"><small>Taken open</small><strong>${money(state.loans.filter(r=>r.direction==='taken').reduce((s,r)=>s+r.remaining,0))}</strong></div></div></section>
+      </div>
     </div>
   </div></section>`;
 }
 
 function walletCards() {
-  return `<div class="demo-wallet-grid">${state.wallets.map(wallet => `<article class="demo-wallet-card" id="wallet-${wallet.id}"><div class="demo-wallet-top"><span class="demo-badge">${wallet.type}</span>${wallet.id === "studio" ? '<button class="tiny ghost" id="editWalletBtn"><i class="fa-solid fa-pen"></i></button>' : '<i class="fa-solid fa-wallet" style="color:var(--primary)"></i>'}</div><h4>${wallet.name}</h4><p>${wallet.currency} ${wallet.type} account</p><strong class="demo-wallet-balance">${money(wallet.balance, wallet.currency)}</strong><div class="demo-wallet-meta"><span>Top-up ${money(wallet.topups, wallet.currency)}</span><span>Spent ${money(wallet.spent, wallet.currency)}</span></div></article>`).join("")}</div>`;
+  return `<div class="expense-wallet-scroll demo-real-wallet-scroll">${state.wallets.map((wallet,index)=>`<div class="expense-wallet-card-wrap"><input type="radio" id="wallet-radio-${wallet.id}" name="demo_wallet" class="filter-radio expense-wallet-radio" ${index===0?'checked':''}><label for="wallet-radio-${wallet.id}" class="expense-wallet-card wallet-details-card" id="wallet-${wallet.id}" data-wallet-details="${wallet.id}"><span class="expense-wallet-title"><i class="fa-solid ${wallet.type==='Bank'?'fa-building-columns':wallet.type==='Card'?'fa-credit-card':'fa-wallet'}"></i> ${wallet.name} (${money(wallet.balance,wallet.currency)})</span><span class="expense-wallet-sub">${wallet.type} · ${wallet.currency}</span><div class="expense-wallet-stats"><span><small>Topped up</small><strong>${money(wallet.topups,wallet.currency)}</strong></span><span><small>Spent</small><strong>${money(wallet.spent,wallet.currency)}</strong></span><span><small>Balance</small><strong>${money(wallet.balance,wallet.currency)}</strong></span></div></label><div class="expense-wallet-actions"><button class="icon-btn ghost tiny" type="button" title="Wallet statement"><i class="fa-solid fa-file-lines"></i></button>${wallet.id==='studio'?'<button class="icon-btn ghost tiny" id="editWalletBtn" type="button"><i class="fa-solid fa-pen"></i></button>':''}</div></div>`).join("")}</div>`;
 }
 
 function renderWallets() {
-  return `<section id="expensesPanel" class="panel active"><section class="overview wallets-overview-section" id="walletsOverviewSection"><div class="overview-top"><div><h3>Wallets Overview</h3><p>Account balances and expense tracking by wallet.</p></div><div class="tools"><button class="icon-btn ghost" id="toggleWalletsBtn" title="Collapse Wallets Overview">▼</button></div></div><div class="wallets-content" id="walletsContent">${walletCards()}</div></section>
-    <div class="card section" style="margin-top:8px!important">${sectionHead("Expenses", "Wallet accounts, transaction history, transfers, and spending records.", `<div class="menu-wrap"><button class="tiny ghost menu-trigger" id="walletNewEntryBtn">New Entry ▾</button><div class="menu-dropdown ${state.inventoryMenuOpen ? "demo-visible-menu" : ""}" id="walletEntryMenu"><button class="menu-item" id="addWalletAction">Add Account</button><button class="menu-item" id="addMoneyAction">Add Money</button><button class="menu-item" id="transferAction">Transfer Money</button></div></div>`)}${filterRow("Item, wallet, note", '<div class="filter-inline-section"><span class="filter-inline-label">Wallet</span><select class="select filter-inline-select" id="walletFilter"><option>All wallets</option>' + state.wallets.map(w => `<option>${w.name}</option>`).join("") + '</select></div>')}<div class="empty" style="margin-top:8px">Wallet chapter focuses on account setup before expense history.</div></div></section>`;
+  const menuClass = state.inventoryMenuOpen ? "demo-visible-menu" : "";
+  return `<section id="expensesPanel" class="panel active">
+    <section class="overview wallets-overview-section" id="walletsOverviewSection"><div class="overview-top" id="walletsBanner"><div><h3>Wallets Overview</h3><p>Account balances and expense tracking by wallet.</p></div><div class="tools"><button class="icon-btn ghost" id="toggleWalletsBtn" title="${state.walletsCollapsed ? 'Expand' : 'Collapse'} Wallets Overview">${state.walletsCollapsed ? '▶' : '▼'}</button></div></div><div class="wallets-content ${state.walletsCollapsed ? 'hide' : ''}" id="walletsContent"><div id="expenseOverviewWallets">${walletCards()}</div></div></section>
+    <div class="card section demo-real-section-gap">${sectionHead("Expenses", "Wallets show top-up, spent, and balance. The statement below follows the same wallet-aware structure as the production workspace.", `<div class="menu-wrap"><button class="tiny ghost menu-trigger" id="walletNewEntryBtn">New Entry ▾</button><div class="menu-dropdown ${menuClass}" id="walletEntryMenu"><button class="menu-item" id="addWalletAction">Add Account</button><button class="menu-item" id="addMoneyAction">Add Money</button><button class="menu-item" id="transferAction">Transfer Money</button><button class="menu-item"><i class="fa-solid fa-file-pdf"></i> Download PDF</button></div></div>`)}
+      <div class="filter-inline-row compact-filter-row"><div class="compact-filter-main"><div class="filter-inline-section compact-filter-search"><span class="filter-inline-label">Search</span><input class="input filter-inline-input" placeholder="Item, wallet, note"></div><div class="filter-inline-section"><span class="filter-inline-label">Wallet</span><select class="select filter-inline-select" id="walletFilter"><option>All wallets</option>${state.wallets.map(row=>`<option>${row.name}</option>`).join("")}</select></div><div class="filter-inline-section"><span class="filter-inline-label">Balance</span><select class="select filter-inline-select"><option>All</option><option>Active Balance</option><option>Zero Balance</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>All</option><option>AED</option></select></div></div></div>
+      <div class="expense-wallet-block"><div class="filter-block-label">Wallets</div>${walletCards()}</div>
+      <div class="empty demo-wallet-hint">This chapter demonstrates account creation, top-ups, transfers, filtering, and balance reconciliation before the transaction-history chapter.</div>
+    </div>
+  </section>`;
 }
 
-function renderExpenseRows() {
-  return state.expenses.map(row => `<tr id="expense-${row.id}"><td>${row.date}</td><td><strong>${row.item}</strong></td><td>${walletName(row.wallet)}</td><td>${row.note}</td><td class="demo-negative">−${money(row.amount)}</td><td><div class="demo-actions">${row.id === "exp-demo" ? '<button class="tiny ghost" id="editExpenseBtn">✎</button>' : '<button class="tiny ghost">↗</button>'}<button class="tiny danger">×</button></div></td></tr>`).join("");
+function renderExpenseHistoryGroups() {
+  return state.expenses.map(row => `<details class="loan expense-item-row" id="expense-${row.id}" open>
+    <summary><div class="loan-top"><div class="lt-main"><div class="loan-name">${row.item}</div><div class="loan-sub"><span class="badge blue">Other</span><span>1 transaction</span><span>AED</span></div></div><div class="cell expense-item-total"><small>Total spent</small><strong>${money(row.amount)}</strong></div><div class="lt-action"><button class="icon-btn ghost" type="button" title="Download PDF"><i class="fa-solid fa-download"></i></button></div></div></summary>
+    <div class="detail"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>Notes</th><th>Action</th></tr></thead><tbody><tr><td>${row.date}</td><td>${walletName(row.wallet)}</td><td><span class="badge blue">Expense</span></td><td class="demo-negative">−${money(row.amount)}</td><td>${row.note}</td><td><div class="demo-actions">${row.id === "exp-demo" ? '<button class="tiny ghost" id="editExpenseBtn"><i class="fa-solid fa-pen"></i></button>' : '<button class="tiny ghost"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>'}<button class="tiny danger"><i class="fa-solid fa-xmark"></i></button></div></td></tr></tbody></table></div></div>
+  </details>`).join("");
 }
 
 function renderExpenses() {
-  const downloadMenu = state.expenseDownloadOpen ? "demo-visible-menu" : "";
+  const downloadMenuClass = state.expenseDownloadOpen ? "" : "hide";
   return `<section id="expensesPanel" class="panel active"><div class="card section">
-    ${sectionHead("Expenses", "Track spending by wallet with searchable transaction history and report downloads.", `<button class="tiny ghost" id="expensesDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap"><button class="tiny ghost menu-trigger" id="expenseEntryBtn">New Entry ▾</button><div class="menu-dropdown" id="expenseEntryMenu"><button class="menu-item" id="addExpenseAction">Expense</button><button class="menu-item">Add Money</button><button class="menu-item">Transfer Money</button></div></div>`)}
-    ${filterRow("Item, wallet, note", '<div class="filter-inline-section"><span class="filter-inline-label">Wallet</span><select class="select filter-inline-select"><option>All wallets</option><option>Cash</option><option>Emirates NBD</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>AED</option><option>All</option></select></div>')}
-    <div class="demo-wallet-overview" style="margin-top:8px">${walletCards()}</div>
-    <details class="demo-expense-group" id="transactionsHistorySection" ${state.expenseHistoryOpen ? "open" : ""}><summary id="transactionHistorySummary"><div class="demo-expense-summary"><div><h4><i class="fa-solid fa-clock-rotate-left"></i> Transaction History</h4><p>Expenses sorted newest first with wallet and note detail.</p></div><div class="demo-expense-total"><small>Total expenses</small><strong>${money(totalExpenses())}</strong></div><div class="demo-actions"><div class="menu-wrap"><button class="icon-btn ghost" id="expenseDownloadBtn" title="Download report"><i class="fa-solid fa-download"></i></button><div class="menu-dropdown ${downloadMenu}" id="expenseDownloadMenu"><button class="menu-item" id="summaryReportOption"><i class="fa-solid fa-file-lines"></i> Summary Report</button><button class="menu-item" id="detailedReportOption"><i class="fa-solid fa-file-circle-check"></i> Detailed Report</button></div></div><span class="expand-icon">${state.expenseHistoryOpen ? "▼" : "▶"}</span></div></div></summary><div class="demo-expense-content"><div class="demo-table-wrap"><table class="demo-table"><thead><tr><th>Date</th><th>Item</th><th>Wallet</th><th>Note</th><th>Amount</th><th>Action</th></tr></thead><tbody>${renderExpenseRows()}</tbody></table></div></div></details>
+    ${sectionHead("Expenses", "Wallets show top-up, spent, and balance. The list is an expense statement by item; open Transaction History for wallet-level records.", `<button class="tiny ghost" id="expensesDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap"><button class="tiny ghost menu-trigger" id="expenseEntryBtn">New Entry ▾</button><div class="menu-dropdown" id="expenseEntryMenu"><button class="menu-item" id="addExpenseAction">Add Expense</button><button class="menu-item">Add Account</button><button class="menu-item">Add Money</button><button class="menu-item"><i class="fa-solid fa-download"></i> Download CSV</button><button class="menu-item"><i class="fa-solid fa-file-pdf"></i> Download PDF</button></div></div>`)}
+    <div class="filter-inline-row compact-filter-row"><div class="compact-filter-main"><div class="filter-inline-section compact-filter-search"><span class="filter-inline-label">Search</span><input class="input filter-inline-input" placeholder="Item, wallet, note"></div><div class="filter-inline-section"><span class="filter-inline-label">Balance</span><select class="select filter-inline-select"><option>All</option><option>Active Balance</option><option>Zero Balance</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>All</option><option>AED</option></select></div></div><div class="filter-inline-section compact-filter-dates"><span class="filter-inline-label">Date</span><input type="date" class="input filter-inline-date"><span class="compact-date-sep">to</span><input type="date" class="input filter-inline-date"><button class="btn ghost filter-inline-btn">Clear</button></div></div>
+    <div class="expense-wallet-block"><div class="filter-block-label">Wallets</div>${walletCards()}</div>
+    <details class="expense-collapsible-section" id="transactionsHistorySection" ${state.expenseHistoryOpen ? "open" : ""}>
+      <summary class="expense-collapsible-header expense-history-header" id="transactionHistorySummary"><h4 class="expense-section-title"><i class="fa-solid fa-list-ul"></i> Transactions History</h4><span class="expense-history-controls"><button class="tiny ghost expense-history-range-btn active">Today</button><button class="tiny ghost expense-history-range-btn">Last 7 Days</button><button class="tiny ghost expense-history-range-btn">This Month</button><button class="tiny ghost expense-history-range-btn">All</button><span class="expense-history-download-wrap"><button type="button" class="icon-btn ghost expenseActionBtn expense-history-download" id="expenseDownloadBtn" title="Download Transactions History PDF"><i class="fa-solid fa-download"></i></button><div class="expense-history-pdf-menu ${downloadMenuClass}" id="expenseDownloadMenu"><button type="button" class="expense-history-pdf-option" id="detailedReportOption"><strong>Detailed PDF</strong><span>Each item with full transaction list</span></button><button type="button" class="expense-history-pdf-option" id="summaryReportOption"><strong>Summarize PDF</strong><span>Totals per item for the selected dates</span></button></div></span></span><span class="expand-icon">${state.expenseHistoryOpen ? "▼" : "▶"}</span></summary>
+      <div class="expense-collapsible-content"><div class="expense-section-toolbar expense-history-toolbar"><span class="expense-toolbar-hint">Showing all sample dates. ${state.expenses.length} transaction(s) in this selection.</span></div>${renderExpenseHistoryGroups()}</div>
+    </details>
   </div></section>`;
 }
 
 function renderInventory() {
+  const categories = {};
+  state.inventory.forEach(row => { if(!categories[row.category]) categories[row.category]=[]; categories[row.category].push(row); });
+  const cards = Object.entries(categories).map(([category,rows])=>{ const stock=rows.reduce((s,r)=>s+r.qty,0); const brands=new Set(rows.map(r=>r.brand)).size; const target=rows.find(r=>r.id==='item-scanner'); return `<article class="inventory-section-card" ${target?'id="item-scanner"':''} data-inventory-section="${category}" role="button" tabindex="0"><div class="inventory-section-card-top"><strong>${category}</strong><span class="badge ${stock<10?'orange':'green'}">${stock<10?'Low stock':'In stock'}</span></div><div class="inventory-section-card-meta"><span>${rows.length} item${rows.length===1?'':'s'}</span><span>${brands} brand${brands===1?'':'s'}</span><span>Stock ${stock}</span></div><div class="inventory-section-card-actions"><button class="tiny ghost">Open</button><button class="tiny ghost">+ Add</button><button class="btn soft tiny inventory-section-cart-btn"><i class="fa-solid fa-cart-shopping"></i><span>Cart</span></button>${target?'<button class="tiny ghost" id="editInventoryBtn"><i class="fa-solid fa-pen"></i></button><button class="tiny ghost" id="restockInventoryBtn"><i class="fa-solid fa-boxes-stacked"></i></button>':''}</div><div class="demo-inventory-products">${rows.map(r=>`<span><strong>${r.name}</strong><small>${r.brand} · ${r.sku} · ${r.qty} units · ${money(r.sell)}</small></span>`).join('')}</div></article>`; }).join('');
   return `<section id="goodsPanel" class="panel active"><div class="card section">
-    ${sectionHead("Inventory", "Category → Brand → Type → Variant, with stock, carts, customers, barcodes, scanner, reports, and audit tools.", `<button class="tiny ghost" id="inventoryDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap inventory-actions-wrap"><button class="icon-btn menu-trigger" id="inventoryActionsBtn"><i class="fa-solid fa-plus"></i></button><div class="menu-dropdown inventory-actions-menu ${state.inventoryMenuOpen ? "demo-visible-menu" : ""}" id="inventoryActionsMenu"><button class="menu-item" id="addInventoryAction"><i class="fa-solid fa-box"></i> Add item</button><button class="menu-item"><i class="fa-solid fa-cash-register"></i> Create sale</button><button class="menu-item"><i class="fa-solid fa-cart-shopping"></i> Open cart</button><button class="menu-item"><i class="fa-solid fa-camera"></i> Scanner</button><button class="menu-item"><i class="fa-solid fa-barcode"></i> Product Barcodes</button><button class="menu-item"><i class="fa-solid fa-folder-open"></i> Saved carts</button><button class="menu-item"><i class="fa-solid fa-download"></i> Download CSV</button><button class="menu-item"><i class="fa-solid fa-file-pdf"></i> Download PDF report</button><button class="menu-item"><i class="fa-solid fa-file-excel"></i> Audit Report</button></div></div>`)}
-    <div class="demo-inventory-summary">${metricCard("Items", String(state.inventory.length), "Active catalog records")}${metricCard("Units in stock", String(state.inventory.reduce((s,r)=>s+r.qty,0)), "Across all items")}${metricCard("Stock cost", money(stockValue()), "Quantity × unit cost")}${metricCard("Low stock", String(state.inventory.filter(r=>r.qty<8).length), "Below 8 units")}</div>
-    ${filterRow("Item, brand, variant", '<div class="filter-inline-section"><span class="filter-inline-label">Brand</span><select class="select filter-inline-select"><option>All brands</option><option>Noor</option><option>Triplem Supply</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Stock</span><select class="select filter-inline-select"><option>All</option><option>In stock</option><option>Low stock</option></select></div>')}
-    <div class="demo-stock-grid" style="margin-top:8px">${state.inventory.map(row => `<article class="demo-stock-card" id="${row.id}"><div class="demo-stock-card-head"><span class="demo-badge ${row.qty<8?'orange':'green'}">${row.qty<8?'Low stock':'In stock'}</span>${row.id==='item-scanner'?'<div class="demo-actions"><button class="tiny ghost" id="editInventoryBtn">✎</button><button class="tiny ghost" id="restockInventoryBtn"><i class="fa-solid fa-boxes-stacked"></i></button></div>':'<i class="fa-solid fa-box" style="color:var(--primary)"></i>'}</div><h4>${row.name}</h4><p>${row.brand} · ${row.category} · SKU ${row.sku}</p><strong>${row.qty} units</strong><div class="demo-stock-meta"><span>Cost ${money(row.cost)}</span><span>Sell ${money(row.sell)}</span></div></article>`).join("")}</div>
+    ${sectionHead("Inventory", "Category → Brand → Type → Variant — add to cart, save proforma, then finalize.", `<button class="tiny ghost" id="inventoryDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap inventory-actions-wrap"><button class="icon-btn menu-trigger" id="inventoryActionsBtn"><i class="fa-solid fa-plus"></i></button><div class="menu-dropdown inventory-actions-menu ${state.inventoryMenuOpen ? 'demo-visible-menu' : ''}" id="inventoryActionsMenu"><button class="menu-item" id="addInventoryAction"><i class="fa-solid fa-box"></i> Add item</button><button class="menu-item"><i class="fa-solid fa-cash-register"></i> Create sale</button><button class="menu-item"><i class="fa-solid fa-cart-shopping"></i> Open cart</button><button class="menu-item"><i class="fa-solid fa-camera"></i> Scanner</button><button class="menu-item"><i class="fa-solid fa-barcode"></i> Product Barcodes</button><button class="menu-item"><i class="fa-solid fa-folder-open"></i> Saved carts</button><button class="menu-item"><i class="fa-solid fa-download"></i> Download CSV</button><button class="menu-item"><i class="fa-solid fa-file-pdf"></i> Download PDF report</button><button class="menu-item"><i class="fa-solid fa-file-excel"></i> Audit Report</button></div></div>`)}
+    <div class="inventory-stock-toolbar"><button class="tiny ghost"><i class="fa-solid fa-cart-flatbed"></i> Carts</button><button class="tiny ghost">Customers <i class="fa-solid fa-arrow-right"></i></button><button class="tiny ghost"><i class="fa-solid fa-barcode"></i> Product Barcodes</button><button class="tiny ghost"><i class="fa-solid fa-camera"></i> Scanner</button><button class="tiny ghost"><i class="fa-solid fa-user-plus"></i> Add Customer</button><label class="inventory-grid-sort"><span class="inventory-grid-sort-label"><i class="fa-solid fa-arrow-down-short-wide"></i> Arrange</span><select class="select filter-inline-select"><option>Custom order</option><option>Name A–Z</option></select></label></div>
+    <div class="filter-inline-row inventory-filter-row"><div class="filter-inline-section inventory-filter-layout"><span class="filter-inline-label">View</span><div class="inventory-layout-switch"><button class="inventory-layout-btn active">Category</button><button class="inventory-layout-btn">List</button></div></div><div class="filter-inline-section inventory-filter-search"><span class="filter-inline-label">Search</span><input class="input filter-inline-input" placeholder="Item, brand, variant…"></div><div class="filter-inline-section inventory-filter-brand"><span class="filter-inline-label">Brand</span><select class="select filter-inline-select"><option>All brands</option></select></div><div class="filter-inline-section inventory-filter-type"><span class="filter-inline-label">Type</span><select class="select filter-inline-select"><option>All</option></select></div><div class="filter-inline-section inventory-filter-status"><span class="filter-inline-label">Status</span><select class="select filter-inline-select"><option>In Stock</option><option>Low Stock</option><option>Sold</option></select></div></div>
+    <div id="goodsList" class="list"><div class="inventory-sections-grid">${cards}<article class="inventory-section-card inventory-section-add-card"><div class="inventory-section-add-inner"><span class="inventory-section-add-plus">+</span><strong>Add category</strong><span>Create a new grid</span></div></article></div></div>
   </div></section>`;
 }
 
@@ -376,69 +438,77 @@ function renderSales() {
 }
 
 function renderCustomers() {
+  const totalOpen = state.customers.reduce((sum,row)=>sum+row.outstanding,0);
   return `<section id="goodsPanel" class="panel active"><div class="card section">
-    ${sectionHead("Customers / Invoices", "Customer records, invoice history, outstanding balances, payments, and receipts.", '<button class="tiny ghost"><i class="fa-solid fa-arrow-left"></i> Inventory</button><button class="btn primary tiny" id="addCustomerBtn"><i class="fa-solid fa-user-plus"></i> Add Customer</button>')}
-    ${filterRow("Customer, company, phone", '<div class="filter-inline-section"><span class="filter-inline-label">Balance</span><select class="select filter-inline-select"><option>All</option><option>Outstanding</option><option>Paid</option></select></div>')}
-    <div class="demo-asset-grid" style="margin-top:8px">${state.customers.map(row=>`<article class="demo-record-card" id="${row.id}"><div class="demo-record-card-head"><span class="demo-badge ${row.outstanding===0?'green':'orange'}">${row.outstanding===0?'Paid':'Outstanding'}</span><i class="fa-solid fa-user" style="color:var(--primary)"></i></div><h4>${row.name}</h4><p>${row.company}<br>${row.phone}</p><strong class="demo-record-value">${money(row.outstanding)}</strong><div class="demo-record-meta"><span>${row.history.length} history entries</span>${row.id==='customer-alpine'?'<button class="tiny ghost" id="openCustomerBtn">Open</button>':'<button class="tiny ghost">View</button>'}</div></article>`).join("")}</div>
+    <div class="inventory-customers-toolbar"><div class="inventory-customers-toolbar-nav"><button class="tiny ghost" type="button"><i class="fa-solid fa-arrow-left"></i> Inventory</button><button class="tiny ghost" type="button" id="addCustomerBtn"><i class="fa-solid fa-user-plus"></i> Add Customer</button></div><div class="inventory-customers-toolbar-title"><strong>Customers / Invoices</strong><span>Track outstanding payment invoices, settle balances, and open customer records.</span></div></div>
+    <details class="inventory-outstanding-banner inventory-outstanding-panel" open><summary class="inventory-outstanding-top"><div><p>${state.customers.length} customers · ${state.customers.reduce((n,r)=>n+r.history.length,0)} history entries · ${state.customers.filter(r=>r.outstanding>0).length} open.</p></div><div class="inventory-outstanding-top-actions"><div class="inventory-outstanding-total"><small>Open balance</small><strong>${money(totalOpen)}</strong></div></div></summary>
+      <div class="inventory-outstanding-body"><div class="inventory-outstanding-search"><div class="inventory-outstanding-search-box"><i class="fa-solid fa-magnifying-glass"></i><input class="input inventoryOutstandingSearchInput filter-inline-input" type="search" placeholder="Search name, mobile, company, email, invoice, or item"></div><button class="tiny" type="button">Search</button><button class="tiny ghost" type="button">Clear</button></div><div class="inventory-outstanding-members">
+        ${state.customers.map(row=>{const total=row.outstanding+(row.name==='Alpine Retail'?200:row.name==='Horizon Trading'?1500:0);const paid=Math.max(0,total-row.outstanding);return `<details class="inventory-outstanding-member" id="${row.id}" open><summary><button class="inventory-outstanding-name" ${row.id==='customer-alpine'?'id="openCustomerBtn"':''} type="button">${row.name}</button><strong>${row.history.length} entries · ${row.outstanding>0?`${money(row.outstanding)} open`:'paid'}</strong></summary><div class="inventory-outstanding-list"><div class="inventory-outstanding-row"><div class="inventory-outstanding-main"><strong>${row.outstanding>0?'Customer invoices':'Paid customer record'}</strong><span>${row.company} · ${row.phone}</span></div><div class="inventory-outstanding-money"><small>Total</small><strong>${money(total)}</strong></div><div class="inventory-outstanding-money"><small>Paid</small><strong>${money(paid)}</strong></div><div class="inventory-outstanding-money ${row.outstanding>0?'is-due':''}"><small>Balance</small><strong>${money(row.outstanding)}</strong></div><div class="inventory-outstanding-actions"><button class="tiny" type="button">Open</button><button class="tiny ghost" type="button">Statement</button>${row.outstanding>0?'<button class="tiny ghost" type="button">Settle</button>':''}</div></div></div></details>`}).join("")}
+      </div></div>
+    </details>
   </div></section>`;
 }
 
 function renderAssets() {
-  return `<section id="assetsPanel" class="panel active"><div class="assets-module-switch demo-mode-switch"><button class="active" id="ownedAssetsModeBtn">Assets</button><button id="depAssetsModeBtn">Depreciation Assets</button></div><div class="card section">
-    ${sectionHead("Assets", "Track purchase value, current valuation, performance, and portfolio records.", '<button class="tiny ghost" id="assetsDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap"><button class="tiny ghost">Reports ▾</button></div><button class="btn primary tiny" id="addAssetBtn"><i class="fa-solid fa-plus"></i> Add Asset</button>')}
-    ${filterRow("Name, type, notes", '<div class="filter-inline-section"><span class="filter-inline-label">Status</span><label class="demo-badge"><input type="radio" name="assetStatus" checked> All</label><label class="demo-badge"><input type="radio" name="assetStatus"> Active</label></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>AED</option><option>All</option></select></div>')}
-    <div class="demo-asset-grid" style="margin-top:8px">${state.assets.map(row=>`<article class="demo-record-card" id="${row.id}"><div class="demo-record-card-head"><span class="demo-badge green">${row.status}</span>${row.id==='asset-camera'?'<button class="tiny ghost" id="editAssetBtn">✎</button>':'<i class="fa-solid fa-building" style="color:var(--primary)"></i>'}</div><h4>${row.name}</h4><p>${row.type} · Purchase ${money(row.purchase)}</p><strong class="demo-record-value">${money(row.value)}</strong><div class="demo-record-meta"><span>Current valuation</span><span class="demo-positive">Tracked</span></div></article>`).join("")}</div>
+  return `<section id="assetsPanel" class="panel active"><div class="card section"><div class="assets-module-tabs" role="tablist"><button class="assets-module-tab is-active" id="ownedAssetsModeBtn">Assets</button><button class="assets-module-tab" id="depAssetsModeBtn">Depreciation Assets</button></div>
+    ${sectionHead("Assets", "Track owned assets, purchase value, invested/spent movement, revenue, sale position, net performance, and reports.", `<button class="tiny ghost" id="assetsDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap"><button class="tiny ghost">Reports ▾</button></div><button class="btn primary tiny" id="addAssetBtn"><i class="fa-solid fa-plus"></i> Add Asset</button>`)}
+    ${filterRow("Name, type, notes", '<div class="filter-inline-section"><span class="filter-inline-label">Status</span><label class="filter-chip"><input type="radio" name="assetStatusFilter" value="all" checked> All</label><label class="filter-chip"><input type="radio" name="assetStatusFilter" value="active"> Active</label><label class="filter-chip"><input type="radio" name="assetStatusFilter" value="sold"> Sold</label><label class="filter-chip"><input type="radio" name="assetStatusFilter" value="disposed"> Disposed</label></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>All</option><option>AED</option></select></div>')}
+    <div class="assets-list" style="margin-top:8px">${state.assets.map(row=>{const net=row.value-row.purchase; const tone=net>=0?'profit':'loss'; return `<article class="asset-card" id="${row.id}"><div class="asset-card-top"><button class="asset-card-main" type="button"><h4 class="asset-card-title">${row.name}</h4><div class="asset-card-meta"><span>${row.type}</span><span class="asset-status asset-status-active">${row.status}</span><span class="asset-card-owned">Owned · ongoing</span></div></button><div class="asset-card-aside"><div class="asset-card-net asset-net-${tone}"><small>Net</small><strong>${money(net)}</strong></div>${row.id==='asset-camera'?'<button class="icon-btn ghost tiny" id="editAssetBtn"><i class="fa-solid fa-pen"></i></button>':'<button class="icon-btn ghost tiny"><i class="fa-solid fa-ellipsis-vertical"></i></button>'}</div></div><button class="asset-card-stats" type="button"><span><em>Buy</em> ${money(row.purchase)}</span><span><em>Spent</em> ${money(Math.round(row.purchase*.05))}</span><span><em>Revenue</em> ${money(Math.max(0,Math.round(row.value-row.purchase*.82)))}</span><span><em>Current</em> ${money(row.value)}</span></button></article>`}).join('')}</div>
   </div></section>`;
 }
 
 function renderDepreciation() {
-  return `<section id="assetsPanel" class="panel active"><div class="assets-module-switch demo-mode-switch"><button id="ownedAssetsModeBtn">Assets</button><button class="active" id="depAssetsModeBtn">Depreciation Assets</button></div><div class="card section">
-    ${sectionHead("Depreciation Assets", "Track depreciable cost, salvage value, useful life, accumulated depreciation, and current book value.", '<button class="tiny ghost" id="depReportBtn"><i class="fa-solid fa-file-pdf"></i> Report</button><button class="btn primary tiny" id="addDepAssetBtn"><i class="fa-solid fa-plus"></i> Add Asset</button>')}
+  return `<section id="assetsPanel" class="panel active"><div class="card section"><div class="assets-module-tabs" role="tablist"><button class="assets-module-tab" id="ownedAssetsModeBtn">Assets</button><button class="assets-module-tab is-active" id="depAssetsModeBtn">Depreciation Assets</button></div>
+    ${sectionHead("Depreciation Assets", "Track depreciable cost, salvage value, useful life, accumulated depreciation, current book value, and schedule reporting.", '<button class="tiny ghost" id="depReportBtn"><i class="fa-solid fa-file-pdf"></i> Report</button><button class="btn primary tiny" id="addDepAssetBtn"><i class="fa-solid fa-plus"></i> Add Asset</button>')}
     ${filterRow("Name, type, description", '<div class="filter-inline-section"><span class="filter-inline-label">Method</span><select class="select filter-inline-select"><option>All methods</option><option>Straight line</option></select></div>')}
-    <div class="demo-asset-grid" style="margin-top:8px">${state.depreciation.map(row=>`<article class="demo-record-card" id="${row.id}"><div class="demo-record-card-head"><span class="demo-badge">${row.method}</span><i class="fa-solid fa-arrow-trend-down" style="color:var(--warning)"></i></div><h4>${row.name}</h4><p>${row.type} · Useful life ${row.life} years</p><strong class="demo-record-value">Book value ${money(row.book)}</strong><div class="demo-record-meta"><span>Cost ${money(row.cost)}</span><span>Accum. ${money(row.accumulated)}</span></div><div class="demo-progress"><span style="--p:${Math.round((row.accumulated/(row.cost-row.salvage))*100)}%"></span></div>${row.id==='dep-camera'?'<div class="demo-actions" style="margin-top:8px"><button class="tiny ghost" id="openDepScheduleBtn">Schedule</button></div>':''}</article>`).join("")}</div>
+    <div class="assets-list" style="margin-top:8px">${state.depreciation.map(row=>{const pct=Math.round((row.accumulated/Math.max(1,row.cost-row.salvage))*100);return `<article class="asset-card dep-asset-card" id="${row.id}"><div class="asset-card-top"><button class="asset-card-main" type="button"><h4 class="asset-card-title">${row.name}</h4><div class="asset-card-meta"><span>${row.type}</span><span class="badge blue">${row.method}</span><span class="asset-card-owned">Useful life ${row.life} years</span></div></button><div class="asset-card-aside"><div class="asset-card-net"><small>Book value</small><strong>${money(row.book)}</strong></div><button class="icon-btn ghost tiny"><i class="fa-solid fa-ellipsis-vertical"></i></button></div></div><button class="asset-card-stats" type="button"><span><em>Cost</em> ${money(row.cost)}</span><span><em>Salvage</em> ${money(row.salvage)}</span><span><em>Accumulated</em> ${money(row.accumulated)}</span><span><em>Progress</em> ${pct}%</span></button>${row.id==='dep-camera'?'<div class="demo-actions demo-card-footer-actions"><button class="tiny ghost" id="openDepScheduleBtn"><i class="fa-solid fa-list-ol"></i> Schedule</button></div>':''}</article>`}).join('')}</div>
   </div></section>`;
 }
 
 function loanCards(mode) {
-  return state.loans.filter(row=>row.direction===mode).map(row=>{const paid=row.principal-row.remaining;const p=Math.min(100,Math.round(paid/row.principal*100));const action=row.id==='loan-demo-given'?'givenPaymentBtn':row.id==='loan-demo-taken'?'takenPaymentBtn':'';return `<article class="demo-record-card" id="${row.id}"><div class="demo-record-card-head"><span class="demo-badge ${row.remaining===0?'green':'orange'}">${row.remaining===0?'Closed':row.status}</span>${action&&row.remaining>0?`<button class="tiny ghost" id="${action}"><i class="fa-solid fa-plus"></i></button>`:'<i class="fa-solid fa-hand-holding-dollar" style="color:var(--primary)"></i>'}</div><h4>${row.name}</h4><p>${mode==='given'?'Loan Given / Received Back':'Loan Taken / Returned Back'}</p><strong class="demo-record-value">Remaining ${money(row.remaining)}</strong><div class="demo-record-meta"><span>Principal ${money(row.principal)}</span><span>${p}% settled</span></div><div class="demo-progress"><span style="--p:${p}%"></span></div></article>`}).join("");
+  return state.loans.filter(row=>row.direction===mode).map(row=>{const paid=row.principal-row.remaining;const p=Math.min(100,Math.round(paid/row.principal*100));const action=row.id==='loan-demo-given'?'givenPaymentBtn':row.id==='loan-demo-taken'?'takenPaymentBtn':'';const status=row.remaining===0?'Closed':row.status;const statusClass=status==='Closed'?'green':status==='Partial'?'orange':'blue';return `<details class="loan" id="${row.id}" open><summary><div class="loan-top"><div class="lt-main"><div class="loan-name"><i class="fa-solid fa-user"></i> ${row.name}</div><div class="loan-sub"><span>30 Aug 2026</span><span>AED</span><span class="badge ${statusClass}">${status}</span></div></div><div class="cell lt-status"><small>Status</small><strong><span class="badge ${statusClass}">${status}</span></strong></div><div class="cell lt-principal"><small>Principal</small><strong>${money(row.principal)}</strong></div><div class="cell lt-movement"><small>${mode==='given'?'Received back':'Returned back'}</small><strong>${money(paid)}</strong></div><div class="cell lt-remaining"><small>Remaining</small><strong>${money(row.remaining)}</strong></div><div class="lt-action"><div class="card-action-grid loan-inline-actions">${action&&row.remaining>0?`<button class="icon-btn ghost" id="${action}" type="button" title="Record payment"><i class="fa-solid fa-plus"></i></button>`:''}<button class="icon-btn ghost" type="button">▾</button><button class="icon-btn ghost" type="button">☰</button></div></div></div></summary><div class="detail"><div class="detail-head"><div><h4>Timeline</h4><p>Oldest to newest inside this loan record.</p></div><span class="badge ${statusClass}">${p}% settled</span></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Remaining</th><th>Notes</th></tr></thead><tbody><tr><td>12 Aug 2026</td><td><span class="badge blue">Principal</span></td><td>${money(row.principal)}</td><td>${money(row.principal)}</td><td>Opening loan</td></tr>${paid?`<tr><td>26 Aug 2026</td><td><span class="badge green">${mode==='given'?'Received':'Returned'}</span></td><td>${money(paid)}</td><td>${money(row.remaining)}</td><td>Partial settlement</td></tr>`:''}</tbody></table></div></div></details>`}).join('');
 }
 
 function renderLoans() {
   const mode=state.loanMode;
-  return `<section class="overview main-overview-section" id="mainOverview"><div class="overview-top"><div><h3>Loans Overview</h3><p>Loan balances shown by currency.</p></div><div class="tools"><span class="demo-badge">AED ${state.loans.reduce((s,r)=>s+r.remaining,0).toLocaleString()}</span><button class="icon-btn ghost">▼</button></div></div></section><section id="${mode==='given'?'givenPanel':'takenPanel'}" class="panel active" style="margin-top:8px"><div class="demo-mode-switch" role="tablist"><button class="${mode==='given'?'active':''}" id="givenModeBtn">Loan Given / Received Back</button><button class="${mode==='taken'?'active':''}" id="takenModeBtn">Loan Taken / Returned Back</button></div><div class="card section">
+  const open=state.loans.reduce((s,r)=>s+r.remaining,0);
+  return `<section class="overview main-overview-section" id="mainOverview"><div class="overview-top"><div><h3>Loans Overview</h3><p>Loan balances shown by currency.</p></div><div class="tools"><span class="badge blue">AED ${open.toLocaleString()}</span><button class="icon-btn ghost">▼</button></div></div><div class="main-overview-content"><div class="overview-grid"><div class="summary"><small>Given open</small><strong>${money(state.loans.filter(r=>r.direction==='given').reduce((s,r)=>s+r.remaining,0))}</strong></div><div class="summary"><small>Taken open</small><strong>${money(state.loans.filter(r=>r.direction==='taken').reduce((s,r)=>s+r.remaining,0))}</strong></div></div></div></section><section id="${mode==='given'?'givenPanel':'takenPanel'}" class="panel active demo-real-section-gap"><div class="card section"><div class="loan-mode-switch" role="tablist"><button class="loan-mode-btn ${mode==='given'?'active':''}" id="givenModeBtn">Loan Given / Received Back</button><button class="loan-mode-btn ${mode==='taken'?'active':''}" id="takenModeBtn">Loan Taken / Returned Back</button></div>
     ${sectionHead(mode==='given'?"Loan Given / Received Back":"Loan Taken / Returned Back", "Loans are sorted by the latest user-entered payment date, newest first.", `<button class="tiny ghost" id="loansDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap"><button class="tiny ghost" id="newLoanBtn">New Entry ▾</button></div>`)}
-    ${filterRow("Name or note", '<div class="filter-inline-section"><span class="filter-inline-label">Status</span><select class="select filter-inline-select"><option>All</option><option>Open/Partial</option><option>Closed</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>AED</option><option>All</option></select></div>')}
-    <div class="demo-loan-grid" style="margin-top:8px">${loanCards(mode)}</div>
+    ${filterRow("Name or note", '<div class="filter-inline-section"><span class="filter-inline-label">Status</span><select class="select filter-inline-select"><option>All</option><option>Open/Partial</option><option>Closed</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>All</option><option>AED</option></select></div>')}
+    <div class="list demo-loan-list" style="margin-top:8px">${loanCards(mode)}</div>
   </div></section>`;
 }
 
 function renderInstallments() {
   return `<section id="installmentsPanel" class="panel active"><div class="card section">
-    ${sectionHead("Installment Plans", "People moved here from taken loans can be tracked as installment plans.", '<button class="tiny ghost" id="installmentDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><button class="tiny ghost" id="addInstallmentBtn">New Entry ▾</button>')}
-    ${filterRow("Name or note", '<div class="filter-inline-section"><span class="filter-inline-label">Status</span><select class="select filter-inline-select"><option>All</option><option>Open/Partial</option><option>Closed</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>AED</option><option>All</option></select></div>')}
-    <div class="demo-plan-grid" style="margin-top:8px">${state.installments.map(row=>{const rem=Math.max(0,row.total-row.paid);const p=Math.round(row.paid/row.total*100);return `<article class="demo-record-card" id="${row.id}"><div class="demo-record-card-head"><span class="demo-badge ${rem===0?'green':'orange'}">${rem===0?'Completed':row.status}</span>${row.id==='plan-equipment'&&rem>0?'<button class="tiny ghost" id="installmentPaymentBtn"><i class="fa-solid fa-plus"></i></button>':'<i class="fa-solid fa-calendar-days" style="color:var(--primary)"></i>'}</div><h4>${row.name}</h4><p>${row.count} installments · Total ${money(row.total)}</p><strong class="demo-record-value">Remaining ${money(rem)}</strong><div class="demo-record-meta"><span>Paid ${money(row.paid)}</span><span>${p}%</span></div><div class="demo-progress"><span style="--p:${p}%"></span></div></article>`}).join("")}</div>
+    ${sectionHead("Installment Plans", "People moved here from taken loans can be tracked as installment plans with schedule, payment, reminder, and statement actions.", '<button class="tiny ghost" id="installmentDetailsBtn"><i class="fa-solid fa-chart-pie"></i> Details</button><div class="menu-wrap"><button class="tiny ghost" id="addInstallmentBtn">New Entry ▾</button></div>')}
+    ${filterRow("Name or note", '<div class="filter-inline-section"><span class="filter-inline-label">Status</span><select class="select filter-inline-select"><option>All</option><option>Open/Partial</option><option>Closed</option></select></div><div class="filter-inline-section"><span class="filter-inline-label">Currency</span><select class="select filter-inline-select"><option>All</option><option>AED</option></select></div>')}
+    <div id="installmentsList" class="list demo-installment-list">${state.installments.map(row=>{const rem=Math.max(0,row.total-row.paid);const pct=Math.round(row.paid/row.total*100);const paidCount=Math.round((row.count||1)*pct/100);return `<article class="loan installment-plan-card" id="${row.id}" tabindex="0"><div class="ip-card"><div class="ip-card-head"><div class="ip-card-title"><div class="loan-name"><i class="fa-solid fa-calendar-check"></i><span>${row.name}</span><span class="badge ${rem===0?'green':'orange'}">${rem===0?'Closed':row.status}</span></div><div class="ip-card-meta"><span>12 Aug 2026</span><span>AED</span><span>${paidCount}/${row.count} paid</span><span>${money(row.total/row.count)} / mo</span></div></div><div class="ip-card-actions"><div class="menu-wrap">${row.id==='plan-equipment'&&rem>0?'<button class="icon-btn ghost menu-trigger person-menu-btn" id="installmentPaymentBtn"><i class="fa-solid fa-plus"></i></button>':'<button class="icon-btn ghost menu-trigger person-menu-btn">☰</button>'}</div></div></div><div class="ip-card-metrics"><div class="ip-metric"><small>Total</small><strong>${money(row.total)}</strong></div><div class="ip-metric"><small>Paid</small><strong>${money(row.paid)}</strong></div><div class="ip-metric"><small>Remaining</small><strong>${money(rem)}</strong></div><div class="ip-metric"><small>Next</small><strong>${rem?'#'+Math.min(row.count,paidCount+1)+' · 30 Sep':'Paid in full'}</strong></div></div><div class="ip-progress"><div class="ip-progress-track"><div class="ip-progress-fill" style="width:${pct}%"></div></div><div class="ip-progress-label"><span>${pct}% paid</span><span>Tap to open</span></div></div></div></article>`}).join('')}</div>
   </div></section>`;
 }
 
 function renderNotes() {
   return `<section id="notesPanel" class="panel active"><div class="card section">
-    ${sectionHead("Notes", "Keep important context, decisions, and reminders close to your work.", '<button class="btn primary tiny" id="newNoteBtn"><i class="fa-solid fa-plus"></i> New Note</button>')}
-    ${filterRow("Search notes...")}
-    <div class="demo-note-grid" style="margin-top:8px">${state.notes.map(row=>`<article class="card note-grid-card demo-record-card" id="${row.id}"><div class="demo-record-card-head"><span class="demo-badge ${row.reminder?'orange':''}">${row.reminder?'Reminder':'Note'}</span><i class="fa-solid fa-note-sticky" style="color:var(--primary)"></i></div><h4>${row.title}</h4><p>${row.body}</p><div class="demo-record-meta"><span>${row.reminder?'<i class="fa-solid fa-bell"></i> '+row.time:'No reminder'}</span>${row.id==='note-demo'?'<button class="tiny ghost" id="openNoteBtn">Open</button>':'<button class="tiny ghost">Open</button>'}</div></article>`).join("")}</div>
+    <div class="section-head notes-section-head"><div class="section-head-top"><div class="title-group"><div class="title-row"><h3>Notes</h3><div class="menu-wrap"><button class="btn ghost menu-trigger" type="button">Actions ▾</button></div></div><p>Capture ideas, decisions, and reminders in one organized workspace.</p></div><div class="tools notes-head-actions"><button id="newNoteBtn" class="btn primary" type="button"><i class="fa-solid fa-plus"></i> New Note</button></div></div><div class="filter-inline-row compact-filter-row"><div class="compact-filter-main"><div class="filter-inline-section compact-filter-search"><span class="filter-inline-label">Search</span><input id="searchNotes" class="input filter-inline-input" placeholder="Search notes..."></div></div></div></div>
+    <div id="notesList" class="notes-grid" aria-live="polite">${state.notes.map(row=>`<div class="card note-grid-card" ${row.id==='note-demo'?'id="openNoteBtn"':''} role="button" tabindex="0" title="${row.title}"><span class="note-grid-title">${row.title}</span>${row.reminder?'<i class="fa-solid fa-bell demo-note-reminder" aria-hidden="true"></i>':''}</div>`).join("")}</div>
   </div></section>`;
 }
 
 function renderBitcoin() {
   return `<section id="bitcoinPanel" class="panel active"><div class="card section">
-    ${sectionHead("Bitcoin Wallet", "Client-side wallet control with address views, receive/send workflows, and per-wallet transaction statements.", '<button class="tiny ghost" id="btcStatementBtn"><i class="fa-solid fa-file-lines"></i> Statement</button>')}
-    <div class="demo-btc-layout"><article class="demo-btc-wallet"><div class="demo-record-card-head"><span class="demo-badge green">Watch-only demo</span><i class="fa-brands fa-bitcoin" style="color:#f59e0b;font-size:1rem"></i></div><h4 style="margin:8px 0 2px">Operations BTC</h4><p style="margin:0;color:var(--muted);font-size:.54rem">Native SegWit · Mainnet</p><div class="demo-btc-balance"><strong>0.042816 BTC</strong><span>Sample value · USD 4,612.18</span></div><div class="demo-address-box" id="bitcoinAddress">bc1qtriplemdemo7safewatchonly9q4v8x2</div><div class="demo-actions" style="margin-top:8px"><button class="btn primary tiny" id="receiveBitcoinBtn"><i class="fa-solid fa-qrcode"></i> Receive Bitcoin</button><button class="btn ghost tiny" id="copyBitcoinBtn"><i class="fa-solid fa-copy"></i> Copy</button></div><div class="demo-key-warning" id="bitcoinKeyNotice"><i class="fa-solid fa-key"></i><span>Private keys and seed phrases are intentionally absent from this public demo. Production sensitive key handling remains browser-side.</span></div></article><article class="demo-btc-activity"><div class="demo-card-head"><strong>Transaction History</strong><span class="demo-badge">Confirmed</span></div><div class="demo-activity-list"><div class="demo-activity-row"><i class="fa-solid fa-arrow-down"></i><span><strong>Received</strong><small>28 Aug · 8 confirmations</small></span><span class="demo-positive">+0.0125</span></div><div class="demo-activity-row"><i class="fa-solid fa-arrow-up"></i><span><strong>Sent</strong><small>24 Aug · Confirmed</small></span><span class="demo-negative">−0.0042</span></div><div class="demo-activity-row"><i class="fa-solid fa-arrow-down"></i><span><strong>Received</strong><small>17 Aug · Confirmed</small></span><span class="demo-positive">+0.0345</span></div></div></article></div>
+    ${sectionHead("Bitcoin Wallet", "Import a WIF, use watch-only mode, or create a wallet. Sensitive key operations remain client-side; this public demo uses a watch-only fictional address.", '<div class="menu-wrap"><button class="btn ghost tiny">Actions ▾</button></div><button class="tiny ghost" id="btcStatementBtn"><i class="fa-solid fa-file-lines"></i> Statement</button>')}
+    <div class="demo-btc-security"><i class="fa-solid fa-triangle-exclamation"></i><span>This demo never exposes a private key or seed phrase. Production key material remains in the browser on the user’s device.</span></div>
+    <div class="btc-wallet-type-grid demo-btc-types"><button class="btn ghost btc-wallet-type-btn">WIF</button><button class="btn primary btc-wallet-type-btn active">Watch</button><button class="btn ghost btc-wallet-type-btn">Seed</button></div>
+    <div class="btc-wallets-list demo-btc-real-grid"><article class="btc-wallet-card demo-btc-wallet"><div class="loan-top"><div class="lt-main"><div class="loan-name"><i class="fa-brands fa-bitcoin"></i> Operations BTC <span class="badge green">Watch-only</span></div><div class="loan-sub"><span>Native SegWit</span><span>Mainnet</span><span>Updated now</span></div></div><div class="cell lt-principal"><small>Balance</small><strong>0.042816 BTC</strong></div><div class="cell lt-movement"><small>Sample value</small><strong>USD 4,612.18</strong></div></div><div class="btc-wallet-details is-watch-only"><div class="btc-detail-line"><span class="btc-detail-label">Receive address</span><div class="btc-detail-address" id="bitcoinAddress">bc1qtriplemdemo7safewatchonly9q4v8x2</div></div><div class="demo-actions"><button class="btn primary tiny" id="receiveBitcoinBtn"><i class="fa-solid fa-qrcode"></i> Receive Bitcoin</button><button class="btn ghost tiny" id="copyBitcoinBtn"><i class="fa-solid fa-copy"></i> Copy</button></div><div class="demo-key-warning" id="bitcoinKeyNotice"><i class="fa-solid fa-key"></i><span>Private keys and seed phrases are intentionally absent from this public demo.</span></div></div></article>
+    <article class="loan demo-btc-transactions"><div class="detail-head"><div><h4>Transaction History</h4><p>Confirmed incoming and outgoing Bitcoin activity for this wallet.</p></div><span class="badge green">Confirmed</span></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Status</th><th>Amount</th></tr></thead><tbody><tr class="btc-transaction-row"><td>28 Aug</td><td>Received</td><td><span class="badge green">8 confirmations</span></td><td class="demo-positive">+0.0125 BTC</td></tr><tr class="btc-transaction-row"><td>24 Aug</td><td>Sent</td><td><span class="badge green">Confirmed</span></td><td class="demo-negative">−0.0042 BTC</td></tr><tr class="btc-transaction-row"><td>17 Aug</td><td>Received</td><td><span class="badge green">Confirmed</span></td><td class="demo-positive">+0.0345 BTC</td></tr></tbody></table></div></article></div>
   </div></section>`;
 }
 
 function renderMessages() {
-  return `<section id="messagesPanel" class="panel active"><div class="card section">
-    ${sectionHead("Messages", "Conversations with the administrator stay attached to their thread and remain available for follow-up.", '<button class="btn primary tiny" id="newMessageBtn"><i class="fa-solid fa-pen-to-square"></i> New Message</button>')}
-    <div class="demo-messages-layout"><aside class="demo-thread-list"><div class="demo-thread-search"><input class="input" placeholder="Search conversations" /></div><div class="demo-thread-item active" id="supportThread"><div class="demo-thread-avatar">TV</div><span><strong>Triplem VIP Support</strong><small>Inventory audit report guidance</small></span><time>09:18</time></div><div class="demo-thread-item"><div class="demo-thread-avatar">AC</div><span><strong>Account</strong><small>Workspace access confirmation</small></span><time>Yesterday</time></div></aside><section class="demo-conversation"><header class="demo-conversation-head"><div><strong>Triplem VIP Support</strong><div style="color:var(--muted);font-size:.48rem">Administrator conversation</div></div><span class="demo-badge green">Open</span></header><div class="demo-chat-scroll" id="messagesChatScroll">${state.messages.map(m=>`<div class="demo-message ${m.mine?'me':''}">${m.text}<small>${m.who} · ${m.time}</small></div>`).join("")}</div><div class="demo-compose"><input class="input" id="messageComposer" placeholder="Write a message..." /><button class="btn primary" id="sendMessageBtn"><i class="fa-solid fa-paper-plane"></i></button></div></section></div>
+  return `<section id="messagesPanel" class="panel active"><div class="card section messages-section"><div class="section-head"><div class="section-head-top"><div class="title-group"><div class="title-row"><h3 id="messagesPanelTitle">Messages</h3></div><p id="messagesPanelSubtitle">Message the administrator — replies appear in this conversation view.</p></div><div class="tools"><button class="btn soft" id="messagesNewBtn" type="button"><i class="fa-solid fa-pen-to-square"></i> New message</button><button class="btn ghost" type="button"><i class="fa-solid fa-rotate"></i> Refresh</button></div></div></div>
+    <div class="messages-workspace messages-conversation-open"><aside class="messages-sidebar"><div id="messagesThreadList" class="messages-thread-list"><button type="button" class="messages-thread-item active unread" id="supportThread"><div class="thread-item-top"><strong>Triplem VIP Support</strong><span class="thread-time">09:18</span></div><div class="thread-item-subject">Inventory audit report guidance</div><div class="thread-item-preview">Open Inventory, use the + menu, then choose Audit Report.</div><div class="thread-item-meta"><span class="message-status-pill open">open</span><span class="thread-unread-dot"></span></div></button><button type="button" class="messages-thread-item"><div class="thread-item-top"><strong>Account</strong><span class="thread-time">Yesterday</span></div><div class="thread-item-subject">Workspace access confirmation</div><div class="thread-item-preview">Your workspace is ready.</div><div class="thread-item-meta"><span class="message-status-pill read">read</span></div></button></div></aside>
+      <section class="messages-conversation" id="messagesConversation"><div id="messagesThreadActive" class="messages-thread-active"><header class="messages-thread-header" id="messagesThreadHeader"><div class="messages-thread-header-top"><button type="button" class="btn ghost messages-thread-back"><i class="fa-solid fa-arrow-left"></i> Back</button></div><div class="messages-thread-header-main"><div><h4>Inventory audit report guidance</h4><p>Triplem VIP Support · Administrator</p></div><span class="message-status-pill open">open</span></div></header><div class="messages-chat-scroll" id="messagesChatScroll">${state.messages.map(m=>`<div class="chat-bubble-row ${m.mine?'mine':'theirs'}"><div class="chat-bubble ${m.mine?'from-user':'from-admin'}"><div class="chat-bubble-meta"><strong>${m.who}</strong><span>${m.time}</span></div><div class="chat-bubble-body">${m.text}</div></div></div>`).join("")}</div><footer class="messages-reply-bar" id="messagesReplyBar"><textarea id="messagesReplyInput" class="input" rows="2" maxlength="4000" placeholder="Write a reply…"></textarea><div class="messages-reply-actions"><button type="button" class="btn primary" id="messagesReplySendBtn"><i class="fa-solid fa-paper-plane"></i> Send</button></div></footer></div></section>
+    </div>
   </div></section>`;
 }
 
@@ -516,19 +586,69 @@ async function wait(ms, token) {
   }
 }
 
+function ensurePointerLabel() {
+  let label = $("#demoPointerLabel");
+  if (!label) {
+    label = document.createElement("div");
+    label.id = "demoPointerLabel";
+    label.className = "demo-pointer-label";
+    label.setAttribute("aria-hidden", "true");
+    document.body.appendChild(label);
+  }
+  return label;
+}
+
+function hidePointerLabel() {
+  const label = $("#demoPointerLabel");
+  if (label) label.classList.remove("show");
+}
+
+function visiblePointFor(el) {
+  const rect = el.getBoundingClientRect();
+  const margin = 16;
+  const left = Math.max(margin, rect.left);
+  const right = Math.min(window.innerWidth - margin, rect.right);
+  const top = Math.max(margin, rect.top);
+  const bottom = Math.min(window.innerHeight - margin, rect.bottom);
+  const x = left <= right ? left + Math.max(3, (right-left) * 0.5) : Math.max(margin, Math.min(window.innerWidth-margin, rect.left + rect.width/2));
+  const y = top <= bottom ? top + Math.max(3, (bottom-top) * 0.5) : Math.max(margin, Math.min(window.innerHeight-margin, rect.top + rect.height/2));
+  return { x, y, rect };
+}
+
+function positionPointerLabel(el) {
+  const label = ensurePointerLabel();
+  const module = currentModule();
+  const item = module.steps[currentTutorialStep] || [module.label, "Follow the highlighted control in the live product preview."];
+  label.innerHTML = `<strong>${item[0]}</strong><span>${item[1]}</span>`;
+  label.classList.add("show");
+  const { rect } = visiblePointFor(el);
+  const box = label.getBoundingClientRect();
+  let left = rect.left + Math.min(rect.width * .18, 28);
+  let top = rect.bottom + 10;
+  if (top + box.height > window.innerHeight - 10) top = rect.top - box.height - 10;
+  if (top < 8) top = 8;
+  left = Math.max(8, Math.min(window.innerWidth - box.width - 8, left));
+  label.style.left = `${left}px`;
+  label.style.top = `${top}px`;
+}
+
 async function moveCursor(selector, token) {
   assertToken(token);
   const el = $(selector);
   if (!el) return null;
   el.scrollIntoView({ block: "center", inline: "center", behavior: reducedMotion ? "auto" : "smooth" });
-  await wait(420, token);
-  const rect = el.getBoundingClientRect();
-  const x = Math.max(7, Math.min(window.innerWidth - 28, rect.left + Math.max(5, Math.min(rect.width * .66, rect.width - 5))));
-  const y = Math.max(7, Math.min(window.innerHeight - 32, rect.top + Math.max(5, Math.min(rect.height * .55, rect.height - 4))));
+  await wait(reducedMotion ? 280 : 620, token);
+  assertToken(token);
+  const { x, y } = visiblePointFor(el);
   const cursor = $("#demoCursor");
   cursor.classList.add("visible");
-  cursor.style.transform = `translate3d(${x}px,${y}px,0)`;
-  await wait(reducedMotion ? 260 : 760, token);
+  cursor.style.left = `${Math.round(x)}px`;
+  cursor.style.top = `${Math.round(y)}px`;
+  cursor.style.transform = "translate3d(-2px,-2px,0)";
+  el.classList.add("demo-hover-target");
+  positionPointerLabel(el);
+  await wait(reducedMotion ? 360 : 920, token);
+  el.classList.remove("demo-hover-target");
   return el;
 }
 
@@ -565,7 +685,7 @@ async function demoSelect(selector, value, token) {
   await wait(420, token);
 }
 
-async function step(index, percent, token, pause = 1150) { setCue(index, percent); await wait(pause, token); }
+async function step(index, percent, token, pause = 1650) { setCue(index, percent); await wait(pause, token); }
 
 async function runDashboard(token) {
   await step(0, 6, token); await demoClick(".demo-summary-card:nth-child(1)", token);
@@ -576,7 +696,7 @@ async function runDashboard(token) {
 }
 
 async function runWallets(token) {
-  await step(0, 5, token); await demoClick("#toggleWalletsBtn",token);
+  await step(0, 5, token); await demoClick("#toggleWalletsBtn",token); state.walletsCollapsed=false; renderModule(); await wait(700,token);
   await step(1, 18, token); state.inventoryMenuOpen=true; renderModule(); await demoClick("#addWalletAction",token); openForm({title:"Add Expense Account",body:`${field("walletName","Account name")}${selectField("walletType","Account type",'<option value="Bank">Bank</option><option value="Cash">Cash</option>')}${selectField("walletCurrency","Currency",'<option>AED</option><option>SAR</option><option>USD</option>')}${field("walletOpening","Opening balance","number")}`}); await demoType("#walletName","Petty Cash",token); await demoSelect("#walletType","Cash",token); await demoType("#walletOpening","2500",token); await demoClick("#modalSaveBtn",token); closeModal(); state.wallets.push({id:"studio",name:"Petty Cash",type:"Cash",currency:"AED",balance:2500,topups:2500,spent:0}); state.inventoryMenuOpen=false; renderModule(); showToast("Wallet created successfully");
   await step(2, 38, token); state.inventoryMenuOpen=true; renderModule(); await demoClick("#addMoneyAction",token); openForm({title:"Add Money",body:`${selectField("topupWallet","Wallet",walletOptions("studio"))}${field("topupAmount","Amount","number")}${field("topupDate","Date","date","2026-08-30")}`}); await demoType("#topupAmount","600",token); await demoClick("#modalSaveBtn",token); closeModal(); {const w=state.wallets.find(r=>r.id==='studio');w.balance+=600;w.topups+=600;} state.inventoryMenuOpen=false; renderModule(); showToast("Money added to Petty Cash");
   await step(3, 58, token); state.inventoryMenuOpen=true; renderModule(); await demoClick("#transferAction",token); openForm({title:"Transfer Money",body:`${selectField("transferFrom","From wallet",walletOptions("studio"))}${selectField("transferTo","To wallet",walletOptions("bank"))}${field("transferAmount","Amount","number")}${field("transferNote","Note")}`,primary:"Transfer"}); await demoSelect("#transferFrom","studio",token); await demoSelect("#transferTo","bank",token); await demoType("#transferAmount","400",token); await demoType("#transferNote","Till settlement",token); await demoClick("#modalSaveBtn",token); closeModal(); state.wallets.find(r=>r.id==='studio').balance-=400;state.wallets.find(r=>r.id==='bank').balance+=400;state.transfers.unshift({date:"30 Aug 2026",from:"studio",to:"bank",amount:400,note:"Till settlement"});state.inventoryMenuOpen=false;renderModule();showToast("AED 400.00 transferred successfully");
@@ -613,7 +733,7 @@ async function runSales(token) {
 }
 
 async function runCustomers(token) {
-  await step(0, 7, token); await demoClick(".section-head h3",token);
+  await step(0, 7, token); await demoClick(".inventory-customers-toolbar-title strong",token);
   await step(1, 24, token); await demoClick("#addCustomerBtn",token); openForm({title:"Add Customer",body:`${field("customerName","Customer name")}${field("customerCompany","Company")}${field("customerPhone","Mobile")}${field("customerEmail","Email","email")}`}); await demoType("#customerName","Noor Studio",token); await demoType("#customerCompany","Noor Studio LLC",token); await demoType("#customerPhone","+971 50 882 1402",token); await demoClick("#modalSaveBtn",token); closeModal();state.customers.push({id:"customer-noor",name:"Noor Studio",company:"Noor Studio LLC",phone:"+971 50 882 1402",outstanding:0,history:[]});renderModule();showToast("Customer record created");
   await step(2, 43, token); await demoClick("#openCustomerBtn",token); openInfoModal({title:"Alpine Retail",body:`<div class="demo-report-summary"><div><small>Outstanding</small><strong>${money(180)}</strong></div><div><small>History</small><strong>2 entries</strong></div><div><small>Status</small><strong>Partial</strong></div></div><div class="demo-table-wrap"><table class="demo-table"><thead><tr><th>Type</th><th>Reference</th><th>Amount</th></tr></thead><tbody><tr><td>Invoice</td><td>INV-7D21AA</td><td>${money(380)}</td></tr><tr><td>Payment</td><td>Emirates NBD</td><td>${money(200)}</td></tr></tbody></table></div>`,primary:"Record payment",primaryId:"recordCustomerPaymentBtn"});
   await step(3, 66, token); await demoClick("#recordCustomerPaymentBtn",token); closeModal();openForm({title:"Customer Payment",body:`${field("customerPayment","Amount received","number")}${selectField("customerPaymentWallet","Add to wallet",walletOptions("bank"))}${field("customerPaymentNote","Note","text","",true)}`,primary:"Save payment"});await demoType("#customerPayment","180",token);await demoType("#customerPaymentNote","Invoice settled",token);await demoClick("#modalSaveBtn",token);closeModal();const alpine=state.customers.find(r=>r.id==='customer-alpine');alpine.outstanding=0;alpine.history.push("Payment · AED 180.00");state.wallets.find(r=>r.id==='bank').balance+=180;renderModule();showToast("Customer balance settled in full");
@@ -623,7 +743,7 @@ async function runCustomers(token) {
 async function runAssets(token) {
   await step(0, 6, token); await demoClick("#ownedAssetsModeBtn",token);
   await step(1, 22, token); await demoClick("#addAssetBtn",token);openForm({title:"Add Asset",body:`${field("assetName","Asset name")}${selectField("assetType","Type",'<option>Equipment</option><option>Vehicle</option><option>Property</option>')}${field("assetDate","Purchase date","date","2026-08-30")}${field("assetPurchase","Purchase price","number")}${field("assetValue","Current valuation","number")}${field("assetDescription","Description","text","",true)}`});await demoType("#assetName","Camera Kit",token);await demoType("#assetPurchase","9500",token);await demoType("#assetValue","9500",token);await demoClick("#modalSaveBtn",token);closeModal();state.assets.push({id:"asset-camera",name:"Camera Kit",type:"Equipment",purchase:9500,value:9500,status:"Active"});renderModule();showToast("Asset added · Portfolio value updated");
-  await step(2, 40, token); await demoClick("input[name='assetStatus']",token);
+  await step(2, 40, token); await demoClick("input[name='assetStatusFilter'][value='active']",token);
   await step(3, 55, token); await demoClick("#asset-camera",token);openInfoModal({title:"Camera Kit",body:`<div class="demo-report-summary"><div><small>Purchase price</small><strong>${money(9500)}</strong></div><div><small>Current value</small><strong>${money(9500)}</strong></div><div><small>Status</small><strong>Active</strong></div></div><p style="color:var(--muted);font-size:.7rem;line-height:1.6">Equipment asset purchased on 30 Aug 2026. Valuation can be updated independently of the purchase record.</p>`,primary:"Edit Asset",primaryId:"editAssetFromDetail"});await wait(1100,token);closeModal();
   await step(4, 73, token); await demoClick("#editAssetBtn",token);openForm({kicker:"Edit",title:"Camera Kit",body:`${field("assetEditName","Asset name","text","Camera Kit")}${field("assetEditValue","Current valuation","number","9500")}`,primary:"Save changes"});await demoType("#assetEditValue","10200",token);await demoClick("#modalSaveBtn",token);closeModal();state.assets.find(r=>r.id==='asset-camera').value=10200;renderModule();showToast("Valuation increased to AED 10,200.00");
   await step(5, 91, token); await demoClick("#assetsDetailsBtn",token);openInfoModal({title:"Assets Portfolio Details",body:`<div class="demo-report-summary"><div><small>Portfolio value</small><strong>${money(totalAssetValue())}</strong></div><div><small>Assets</small><strong>${state.assets.length}</strong></div><div><small>Currency</small><strong>AED</strong></div></div><div class="demo-chart-bars" style="height:160px"><span style="--h:82%" data-label="Vehicle"></span><span style="--h:34%" data-label="Equipment"></span><span style="--h:19%" data-label="Camera"></span></div>`});await wait(1500,token);closeModal();
@@ -633,7 +753,7 @@ async function runDepreciation(token) {
   await step(0, 6, token); await demoClick("#depAssetsModeBtn",token);
   await step(1, 22, token); await demoClick("#addDepAssetBtn",token);openForm({title:"Add Depreciation Asset",body:`${field("depName","Asset name")}${field("depCost","Cost","number")}${field("depSalvage","Salvage value","number")}${field("depLife","Useful life (years)","number")}${selectField("depMethod","Method",'<option>Straight line</option><option>Declining balance</option>')}${field("depDate","Acquisition date","date","2026-08-30")}`});await demoType("#depName","Camera Body",token);await demoType("#depCost","15000",token);await demoType("#depSalvage","3000",token);await demoType("#depLife","4",token);await demoClick("#modalSaveBtn",token);closeModal();state.depreciation.push({id:"dep-camera",name:"Camera Body",type:"Electronics",cost:15000,salvage:3000,life:4,accumulated:3000,book:12000,method:"Straight line"});renderModule();showToast("Depreciation asset created");
   await step(2, 42, token); await demoClick("#dep-camera",token);
-  await step(3, 58, token); await demoClick("#dep-camera .demo-record-value",token);
+  await step(3, 58, token); await demoClick("#dep-camera .asset-card-net",token);
   await step(4, 74, token); await demoClick("#openDepScheduleBtn",token);openInfoModal({title:"Camera Body · Depreciation Schedule",body:`<div class="demo-table-wrap"><table class="demo-table"><thead><tr><th>Year</th><th>Opening</th><th>Depreciation</th><th>Closing</th></tr></thead><tbody><tr><td>1</td><td>${money(15000)}</td><td>${money(3000)}</td><td>${money(12000)}</td></tr><tr><td>2</td><td>${money(12000)}</td><td>${money(3000)}</td><td>${money(9000)}</td></tr><tr><td>3</td><td>${money(9000)}</td><td>${money(3000)}</td><td>${money(6000)}</td></tr><tr><td>4</td><td>${money(6000)}</td><td>${money(3000)}</td><td>${money(3000)}</td></tr></tbody></table></div>`});await wait(1600,token);closeModal();
   await step(5, 92, token); await demoClick("#depReportBtn",token);showToast("Depreciation report preview prepared");
 }
@@ -652,7 +772,7 @@ async function runInstallments(token) {
   await step(0, 5, token); await demoClick("#addInstallmentBtn",token);openForm({title:"Installment Plan",body:`${field("planName","Plan / person")}${field("planTotal","Total amount","number")}${field("planCount","Number of installments","number")}${field("planStart","Start date","date","2026-08-30")}`});await demoType("#planName","Equipment Plan",token);await demoType("#planTotal","4800",token);await demoType("#planCount","4",token);await demoClick("#modalSaveBtn",token);closeModal();state.installments.push({id:"plan-equipment",name:"Equipment Plan",total:4800,paid:0,count:4,status:"Open"});renderModule();showToast("Installment plan created");
   await step(1, 24, token); await demoClick("#plan-equipment",token);
   await step(2, 42, token); await demoClick("#installmentPaymentBtn",token);openForm({title:"Payment / Installment Received",body:`${field("planPayment","Amount","number")}${selectField("planWallet","Add to wallet",walletOptions("bank"))}`,primary:"Record payment"});await demoType("#planPayment","1200",token);await demoClick("#modalSaveBtn",token);closeModal();state.installments.find(r=>r.id==='plan-equipment').paid=1200;state.installments.find(r=>r.id==='plan-equipment').status="Partial";renderModule();showToast("AED 1,200.00 recorded · AED 3,600 remaining");
-  await step(3, 60, token); await demoClick("#plan-equipment .demo-progress",token);
+  await step(3, 60, token); await demoClick("#plan-equipment .ip-progress",token);
   await step(4, 76, token); await demoClick("#installmentPaymentBtn",token);openForm({title:"Payment / Installment Received",body:`${field("planFinalPayment","Remaining amount","number","3600")}`,primary:"Complete plan"});await demoClick("#modalSaveBtn",token);closeModal();state.installments.find(r=>r.id==='plan-equipment').paid=4800;state.installments.find(r=>r.id==='plan-equipment').status="Completed";renderModule();showToast("Plan paid in full · Completed");
   await step(5, 93, token); await demoClick("#installmentDetailsBtn",token);showToast("Installment details and export tools are available here");
 }
@@ -669,7 +789,7 @@ async function runBitcoin(token) {
   await step(0, 5, token); await demoClick("#bitcoinPanel .section-head h3",token);
   await step(1, 22, token); await demoClick("#bitcoinAddress",token);
   await step(2, 40, token); await demoClick("#receiveBitcoinBtn",token);openInfoModal({title:"Receive Bitcoin",body:`<div class="demo-qr">${Array.from({length:49},()=>"<span></span>").join("")}</div><div class="demo-address-box">bc1qtriplemdemo7safewatchonly9q4v8x2</div><p style="text-align:center;color:var(--muted);font-size:.62rem">Sample receive address · never send real funds to this demo address</p>`});await wait(1600,token);closeModal();
-  await step(3, 58, token); await demoClick(".demo-btc-activity .demo-activity-row:nth-child(1)",token);
+  await step(3, 58, token); await demoClick(".demo-btc-transactions .btc-transaction-row:nth-child(1)",token);
   await step(4, 75, token); await demoClick("#bitcoinKeyNotice",token);
   await step(5, 92, token); await demoClick("#btcStatementBtn",token);showToast("Per-wallet statement tools opened visually");
 }
@@ -677,10 +797,10 @@ async function runBitcoin(token) {
 async function runMessages(token) {
   await step(0, 6, token); await demoClick("#messagesPanel .section-head h3",token);
   await step(1, 22, token); await demoClick("#supportThread",token);
-  await step(2, 40, token); await demoClick("#newMessageBtn",token);openForm({title:"New Message",body:`${selectField("messageRecipient","To",'<option>Administrator</option>')}${field("messageSubject","Subject")}${textareaField("newMessageBody","Message")}`,primary:"Open Composer"});await demoType("#messageSubject","Inventory audit report",token);await demoType("#newMessageBody","Could you please confirm what is included in the inventory audit workbook?",token);await demoClick("#modalSaveBtn",token);closeModal();renderModule();
-  await step(3, 59, token); await demoType("#messageComposer","Thank you. I can see the audit report option now.",token);
-  await step(4, 76, token); await demoClick("#sendMessageBtn",token);state.messages.push({who:"You",mine:true,text:"Thank you. I can see the audit report option now.",time:"Now"});renderModule();showToast("Message sent to administrator");
-  await step(5, 91, token); await wait(900,token);state.messages.push({who:"Admin",mine:false,text:"Perfect. The workbook includes stock, costs, prices, quantities, brands, and audit-ready detail.",time:"Now"});renderModule();await demoClick("#messagesChatScroll .demo-message:last-child",token);showToast("Administrator reply received in the same thread");
+  await step(2, 40, token); await demoClick("#messagesNewBtn",token);openForm({title:"New Message",body:`${selectField("messageRecipient","To",'<option>Administrator</option>')}${field("messageSubject","Subject")}${textareaField("newMessageBody","Message")}`,primary:"Open Composer"});await demoType("#messageSubject","Inventory audit report",token);await demoType("#newMessageBody","Could you please confirm what is included in the inventory audit workbook?",token);await demoClick("#modalSaveBtn",token);closeModal();renderModule();
+  await step(3, 59, token); await demoType("#messagesReplyInput","Thank you. I can see the audit report option now.",token);
+  await step(4, 76, token); await demoClick("#messagesReplySendBtn",token);state.messages.push({who:"You",mine:true,text:"Thank you. I can see the audit report option now.",time:"Now"});renderModule();showToast("Message sent to administrator");
+  await step(5, 91, token); await wait(900,token);state.messages.push({who:"Admin",mine:false,text:"Perfect. The workbook includes stock, costs, prices, quantities, brands, and audit-ready detail.",time:"Now"});renderModule();await demoClick("#messagesChatScroll .chat-bubble-row:last-child .chat-bubble",token);showToast("Administrator reply received in the same thread");
 }
 
 async function runReports(token) {
@@ -707,11 +827,14 @@ function cancelPlayback() {
   updatePlayButton();
   closeModal();
   $("#demoCursor").classList.remove("visible","clicking");
+  $$(".demo-hover-target", $("#productContent")).forEach(el => el.classList.remove("demo-hover-target"));
+  hidePointerLabel();
 }
 
 async function runCurrent() {
   cancelPlayback();
   const token = playback.token;
+  const startedAt = performance.now();
   prepareChapter(currentModule().key);
   renderModule();
   setProgress(0);
@@ -723,6 +846,21 @@ async function runCurrent() {
   try {
     await RUNNERS[currentModule().key](token);
     assertToken(token);
+    const reviewIndex = currentModule().steps.length - 1;
+    setCue(reviewIndex, 96);
+    const reviewTarget = $("#productContent .panel.active") || $("#productContent");
+    if (reviewTarget) {
+      reviewTarget.classList.add("demo-review-state");
+      reviewTarget.scrollIntoView({ block:"center", behavior: reducedMotion ? "auto" : "smooth" });
+      positionPointerLabel(reviewTarget);
+    }
+    await wait(2300, token);
+    if (reviewTarget) reviewTarget.classList.remove("demo-review-state");
+    const profile = deviceProfile();
+    const minDuration = profile.key === "mobile" ? 34000 : profile.key === "tablet" ? 32000 : 30000;
+    const elapsed = performance.now() - startedAt;
+    if (elapsed < minDuration) await wait((minDuration - elapsed) * playbackSpeed, token);
+    assertToken(token);
     playback.running = false;
     playback.paused = false;
     completedModules.add(currentModule().key);
@@ -731,12 +869,14 @@ async function runCurrent() {
     renderTutorial();
     updatePlayButton();
     setProgress(100);
+    hidePointerLabel();
     $("#coachTitle").textContent = "Chapter complete";
     $("#coachText").textContent = "This workflow is complete. Choose another chapter or use Next to continue through the product.";
     $("#coachState").className = "coach-state";
     $("#coachState span:last-child").textContent = "Complete";
     $("#demoCursor").classList.remove("visible");
   } catch (error) {
+    hidePointerLabel();
     if (!(error instanceof Cancelled)) {
       console.error(error);
       playback.running = false;
@@ -768,10 +908,21 @@ function firstModuleForTab(tab) {
   return index >= 0 ? index : 0;
 }
 
+function deviceProfile() {
+  const width = window.innerWidth || document.documentElement.clientWidth || 1280;
+  if (width <= 700) return { key:"mobile", label:"Mobile view", icon:"fa-mobile-screen-button" };
+  if (width <= 1100) return { key:"tablet", label:"Tablet view", icon:"fa-tablet-screen-button" };
+  return { key:"desktop", label:"Desktop view", icon:"fa-desktop" };
+}
+
 function syncDeviceMode() {
-  const mobile = window.matchMedia("(max-width: 700px)").matches;
-  $("#productViewport").dataset.device = mobile ? "mobile" : "desktop";
-  $("#demoDeviceBadge").innerHTML = mobile ? '<i class="fa-solid fa-mobile-screen-button"></i><span>Mobile view</span>' : '<i class="fa-solid fa-desktop"></i><span>Desktop view</span>';
+  const profile = deviceProfile();
+  const viewport = $("#productViewport");
+  viewport.dataset.device = profile.key;
+  document.body.dataset.demoDevice = profile.key;
+  $("#demoDeviceBadge").innerHTML = `<i class="fa-solid ${profile.icon}"></i><span>${profile.label}</span>`;
+  $(".stage-note").innerHTML = `<i class="fa-solid ${profile.icon}" aria-hidden="true"></i> ${profile.label} · production responsive rules`;
+  hidePointerLabel();
 }
 
 function downloadSamplePdf() {
@@ -789,12 +940,60 @@ function downloadSamplePdf() {
   showToast("Triplem_VIP_Demo_Report.pdf downloaded");
 }
 
+function showManualHoverHelp(el) {
+  if (!el || playback.running) return;
+  const label = ensurePointerLabel();
+  const title = String(
+    el.getAttribute("aria-label")
+    || el.getAttribute("title")
+    || el.querySelector(".loan-name,.asset-card-title,.expense-wallet-title,.note-grid-title,.thread-item-subject,h4,strong")?.textContent
+    || el.textContent
+    || "Demo control"
+  ).replace(/\s+/g," ").trim().slice(0,90);
+  const nearestCopy = el.querySelector(".loan-sub,.asset-card-meta,.expense-wallet-sub,.thread-item-preview,.ip-card-meta")?.textContent
+    || el.closest(".card,.section,.overview")?.querySelector(".title-group p,.inventory-customers-toolbar-title span,.detail-head p")?.textContent
+    || "Explore this production-style control. Guided playback explains its effect with fictional demo data.";
+  label.innerHTML = `<strong>${title || "Demo detail"}</strong><span>${String(nearestCopy).replace(/\s+/g," ").trim().slice(0,240)}</span>`;
+  label.classList.add("show");
+  const rect = el.getBoundingClientRect();
+  const box = label.getBoundingClientRect();
+  let left = Math.max(8, Math.min(window.innerWidth - box.width - 8, rect.left + Math.min(rect.width * .15, 24)));
+  let top = rect.bottom + 9;
+  if (top + box.height > window.innerHeight - 8) top = Math.max(8, rect.top - box.height - 9);
+  label.style.left = `${left}px`;
+  label.style.top = `${top}px`;
+  el.classList.add("demo-hover-target");
+}
+
+const manualHoverSelector = "button,.inventory-section-card,.expense-wallet-card,.asset-card,.loan,.installment-plan-card,.note-grid-card,.messages-thread-item,.btc-wallet-card,.inventory-outstanding-member";
+$("#productContent").addEventListener("mouseover", event => {
+  if (playback.running) return;
+  const el = event.target.closest(manualHoverSelector);
+  if (!el || !$("#productContent").contains(el)) return;
+  showManualHoverHelp(el);
+});
+$("#productContent").addEventListener("mouseout", event => {
+  if (playback.running) return;
+  const el = event.target.closest(manualHoverSelector);
+  if (!el) return;
+  if (event.relatedTarget && el.contains(event.relatedTarget)) return;
+  el.classList.remove("demo-hover-target");
+  hidePointerLabel();
+});
+
 document.addEventListener("click", event => {
   const tab = event.target.closest("[data-module-index]");
   if (tab) { setChapter(tab.dataset.moduleIndex); return; }
   const productTab = event.target.closest("[data-product-tab]");
   if (productTab) { setChapter(firstModuleForTab(productTab.dataset.productTab)); return; }
   if (event.target.closest("[data-demo-close]") || event.target.closest("#modalCloseBtn")) { closeModal(); return; }
+  if (event.target.closest("#toggleWalletsBtn") && !playback.running) { state.walletsCollapsed = !state.walletsCollapsed; renderModule(); return; }
+  if (event.target.closest("#walletNewEntryBtn") && !playback.running) { state.inventoryMenuOpen = !state.inventoryMenuOpen; renderModule(); return; }
+  if (event.target.closest("#expenseEntryBtn") && !playback.running) { event.preventDefault(); event.stopPropagation(); $("#expenseEntryMenu")?.classList.toggle("demo-visible-menu"); return; }
+  if (event.target.closest("#givenModeBtn") && !playback.running) { state.loanMode = "given"; renderModule(); return; }
+  if (event.target.closest("#takenModeBtn") && !playback.running) { state.loanMode = "taken"; renderModule(); return; }
+  if (event.target.closest("#ownedAssetsModeBtn") && !playback.running && currentModule().key !== "assets") { setChapter(MODULES.findIndex(m=>m.key==="assets")); return; }
+  if (event.target.closest("#depAssetsModeBtn") && !playback.running && currentModule().key !== "depreciation") { setChapter(MODULES.findIndex(m=>m.key==="depreciation")); return; }
   if (event.target.closest("#generateReportBtn")) { state.reportGenerated = true; renderModule(); showToast("Detailed report generated"); return; }
   if (event.target.closest("#downloadReportBtn")) { downloadSamplePdf(); return; }
   if (event.target.closest("#copyBitcoinBtn")) { showToast("Sample Bitcoin address copied visually"); return; }
