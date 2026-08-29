@@ -1,4 +1,4 @@
-# Triplem — https://triplem.vip/
+# Triplem VIP — https://triplem.vip/
 # Advanced crawl policy for search & AI discovery
 
 User-agent: *
