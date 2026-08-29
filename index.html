@@ -11,17 +11,16 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Triplem | Accounting &amp; Expense Tracking</title>
-  <meta name="description" content="Triplem is private accounting software for expense tracking, invoices, wallets, inventory, assets, and PDF reports—secure finance setup for owners. Start a free trial." />
-  <meta name="keywords" content="Triplem, Triple M, Triple-M, TRIPLEM, accounting software, accounting solution, accounting setup, finance software, finance solution, bookkeeping software, personal expense tracking, expense tracker, expense management software, invoices, receipts, financial reports, transaction history, loans, inventory management, asset management, multi-currency wallets, money management software, business finance dashboard, PDF statements, private finance software" />
+  <title>Triplem VIP | Personal &amp; Business Finance Management</title>
+  <meta name="description" content="Triplem VIP brings income and expense tracking, multi-currency wallets, loans, inventory, assets, invoices, and reports into one private finance workspace." />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <meta name="bingbot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <meta name="author" content="Nadeem Shahzad Fida" />
   <meta name="creator" content="Nadeem Shahzad Fida" />
-  <meta name="publisher" content="Triplem" />
-  <meta name="application-name" content="Triplem" />
-  <meta name="apple-mobile-web-app-title" content="Triplem" />
+  <meta name="publisher" content="Triplem VIP" />
+  <meta name="application-name" content="Triplem VIP" />
+  <meta name="apple-mobile-web-app-title" content="Triplem VIP" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#2457d6" />
@@ -36,32 +35,20 @@
   <meta name="subject" content="Accounting software, expense tracking, and private finance setup" />
   <meta name="category" content="Finance, Accounting, Business Software" />
   <meta name="coverage" content="Worldwide" />
-  <meta name="copyright" content="Triplem" />
+  <meta name="copyright" content="Triplem VIP" />
   <link rel="author" href="https://triplem.vip/humans.txt" />
   <link rel="manifest" href="https://triplem.vip/site.webmanifest" />
   <link rel="apple-touch-icon" href="https://triplem.vip/Assets/logo/logo.png" />
   <link rel="mask-icon" href="https://triplem.vip/Assets/logo/logo.png" color="#2457d6" />
   <link rel="sitemap" type="application/xml" title="Sitemap" href="https://triplem.vip/sitemap.xml" />
   <script>
-    /* Apply non-sensitive visual preference before paint and hide login during session resume. */
+    /* Public landing always paints in Triplem VIP Default. The workspace-only
+       "triplem-theme-v1" preference is restored after authentication completes. */
     (function () {
       try {
-        var allowedThemes = ["default", "neon", "navy", "red", "pink", "green"];
-        var savedTheme = String(localStorage.getItem("triplem-theme-v1") || "default").toLowerCase();
-        var activeTheme = allowedThemes.indexOf(savedTheme) >= 0 ? savedTheme : "default";
-        var earlyThemeTokens = {
-          neon: { bg: "#ecfff8", text: "#123b30", muted: "#5c8174", line: "rgba(39,143,111,.28)", surface: "#fbfffd", "surface-elevated": "#f1fff9", primary: "#0d9f78" },
-          navy: { bg: "#071326", text: "#edf5ff", muted: "#9db0ca", line: "rgba(108,143,190,.28)", surface: "#0d203b", "surface-elevated": "#122b4e", primary: "#4f8cff" },
-          red: { bg: "#fff2f3", text: "#4a1d22", muted: "#89616a", line: "rgba(203,83,98,.28)", surface: "#fffafb", "surface-elevated": "#fff3f4", primary: "#d9364d" },
-          pink: { bg: "#fff0f6", text: "#4d1832", muted: "#8d5d74", line: "rgba(220,116,159,.30)", surface: "#fffafd", "surface-elevated": "#fff3f9", primary: "#db2777" },
-          green: { bg: "#effbf4", text: "#153c26", muted: "#5e806c", line: "rgba(53,142,86,.28)", surface: "#fbfffc", "surface-elevated": "#f1fcf5", primary: "#19974f" }
-        };
-        document.documentElement.dataset.triplemTheme = activeTheme;
-        document.documentElement.style.colorScheme = activeTheme === "navy" ? "dark" : "light";
-        var tokens = earlyThemeTokens[activeTheme];
-        if (tokens) Object.keys(tokens).forEach(function (name) {
-          document.documentElement.style.setProperty("--" + name, tokens[name]);
-        });
+        var earlyThemeTokens = { theme: "default", colorScheme: "light" };
+        document.documentElement.dataset.triplemTheme = earlyThemeTokens.theme;
+        document.documentElement.style.colorScheme = earlyThemeTokens.colorScheme;
         if (localStorage.getItem("loanledger-session-credential-v4")) {
           document.documentElement.classList.add("auth-resuming");
         }
@@ -172,24 +159,24 @@
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="en_GB" />
-  <meta property="og:title" content="Triplem | Accounting &amp; Expense Tracking" />
-  <meta property="og:description" content="Triplem is private accounting software for expense tracking, invoices, wallets, inventory, assets, and PDF reports—secure finance setup for owners. Start a free trial." />
+  <meta property="og:title" content="Triplem VIP | Personal &amp; Business Finance Management" />
+  <meta property="og:description" content="Triplem VIP brings income and expense tracking, multi-currency wallets, loans, inventory, assets, invoices, and reports into one private finance workspace." />
   <meta property="og:url" content="https://triplem.vip/" />
-  <meta property="og:site_name" content="Triplem" />
+  <meta property="og:site_name" content="Triplem VIP" />
   <meta property="og:image" content="https://triplem.vip/Assets/logo/logo.png" />
   <meta property="og:image:secure_url" content="https://triplem.vip/Assets/logo/logo.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="512" />
   <meta property="og:image:height" content="512" />
-  <meta property="og:image:alt" content="Triplem accounting software and finance solution logo" />
+  <meta property="og:image:alt" content="Triplem VIP personal and business finance management logo" />
   <meta property="og:see_also" content="https://triplem.vip/seo/" />
   <meta property="og:see_also" content="https://triplem.vip/seo/accounting-software.html" />
   <meta property="business:contact_data:website" content="https://triplem.vip/" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Triplem | Accounting &amp; Expense Tracking" />
-  <meta name="twitter:description" content="Triplem is private accounting software for expense tracking, invoices, wallets, inventory, assets, and PDF reports—secure finance setup for owners. Start a free trial." />
+  <meta name="twitter:title" content="Triplem VIP | Personal &amp; Business Finance Management" />
+  <meta name="twitter:description" content="Triplem VIP brings income and expense tracking, multi-currency wallets, loans, inventory, assets, invoices, and reports into one private finance workspace." />
   <meta name="twitter:image" content="https://triplem.vip/Assets/logo/logo.png" />
-  <meta name="twitter:image:alt" content="Triplem accounting software and finance solution logo" />
+  <meta name="twitter:image:alt" content="Triplem VIP personal and business finance management logo" />
   <meta name="twitter:label1" content="Category" />
   <meta name="twitter:data1" content="Accounting &amp; Finance Software" />
   <meta name="twitter:label2" content="Trial" />
@@ -206,22 +193,21 @@
       {
         "@type": "Organization",
         "@id": "https://triplem.vip/#organization",
-        "name": "Triplem",
-        "legalName": "Triplem",
-        "alternateName": ["TRIPLEM", "Triple M", "Triple-M", "Triplem VIP", "Triplem Finance"],
+        "name": "Triplem VIP",
+        "alternateName": ["Triplem", "TRIPLEM", "Triple M", "Triple-M", "Triplem Finance"],
         "url": "https://triplem.vip/",
         "logo": {
           "@type": "ImageObject",
           "@id": "https://triplem.vip/#logo",
           "url": "https://triplem.vip/Assets/logo/logo.png",
           "contentUrl": "https://triplem.vip/Assets/logo/logo.png",
-          "caption": "Triplem accounting software and finance solution logo",
+          "caption": "Triplem VIP personal and business finance management logo",
           "width": 512,
           "height": 512
         },
         "image": { "@id": "https://triplem.vip/#logo" },
         "slogan": "Private accounting software and finance setup in one dashboard.",
-        "description": "Triplem builds private accounting software and finance setup tools for personal expense tracking, invoices, receipts, reports, transactions, loans, inventory, asset management, and multi-currency wallets.",
+        "description": "Triplem VIP provides personal and business finance management with income and expense tracking, invoices, receipts, reports, loans, inventory, asset management, and multi-currency wallets.",
         "foundingDate": "2024",
         "founder": {
           "@type": "Person",
@@ -269,8 +255,8 @@
       {
         "@type": "Brand",
         "@id": "https://triplem.vip/#brand",
-        "name": "Triplem",
-        "alternateName": ["TRIPLEM", "Triple M", "Triple-M"],
+        "name": "Triplem VIP",
+        "alternateName": ["Triplem", "TRIPLEM", "Triple M", "Triple-M"],
         "logo": "https://triplem.vip/Assets/logo/logo.png",
         "url": "https://triplem.vip/",
         "slogan": "Books, wallets, inventory, assets & Bitcoin — one private dashboard."
@@ -278,13 +264,13 @@
       {
         "@type": "WebSite",
         "@id": "https://triplem.vip/#website",
-        "name": "Triplem",
-        "alternateName": ["Triplem Accounting Software", "Triplem Finance"],
+        "name": "Triplem VIP",
+        "alternateName": ["Triplem VIP Accounting Software", "Triplem VIP Finance", "Triplem"],
         "url": "https://triplem.vip/",
-        "description": "Official Triplem website for accounting software, accounting setup, personal expense tracking, invoices, receipts, reports, loans, inventory, and private finance software sign-in.",
+        "description": "Official Triplem VIP website for personal and business finance management, accounting setup, income and expense tracking, invoices, reports, loans, inventory, assets, and wallet management.",
         "publisher": { "@id": "https://triplem.vip/#organization" },
         "inLanguage": "en",
-        "keywords": "Triplem, accounting software, accounting setup, expense tracking, finance software",
+        "keywords": "Triplem VIP, personal finance management, business finance tools, accounting software, income and expense tracking, wallet management",
         "potentialAction": [
           {
             "@type": "ReadAction",
@@ -292,7 +278,7 @@
           },
           {
             "@type": "ViewAction",
-            "name": "Explore Triplem guides",
+            "name": "Explore Triplem VIP guides",
             "target": "https://triplem.vip/seo/"
           }
         ]
@@ -301,8 +287,8 @@
         "@type": "WebPage",
         "@id": "https://triplem.vip/#webpage",
         "url": "https://triplem.vip/",
-        "name": "Triplem | Accounting & Expense Tracking",
-        "description": "Sign in to Triplem—private accounting software for expense tracking, invoices, receipts, reports, loans, inventory, assets, wallets, and PDF statements.",
+        "name": "Triplem VIP | Personal & Business Finance Management",
+        "description": "Explore Triplem VIP for income and expense tracking, multi-currency wallets, loans, inventory, assets, invoices, reports, and private finance organization.",
         "isPartOf": { "@id": "https://triplem.vip/#website" },
         "about": [
           { "@id": "https://triplem.vip/#software" },
@@ -323,7 +309,7 @@
           "https://triplem.vip/seo/triplem.html"
         ],
         "inLanguage": "en",
-        "dateModified": "2026-07-31"
+        "dateModified": "2026-08-29"
       },
       {
         "@type": "BreadcrumbList",
@@ -332,7 +318,7 @@
           {
             "@type": "ListItem",
             "position": 1,
-            "name": "Triplem Home",
+            "name": "Triplem VIP Home",
             "item": "https://triplem.vip/"
           }
         ]
@@ -340,8 +326,10 @@
       {
         "@type": ["SoftwareApplication", "WebApplication"],
         "@id": "https://triplem.vip/#software",
-        "name": "Triplem",
+        "name": "Triplem VIP",
         "alternateName": [
+          "Triplem VIP Money Management Module",
+          "Triplem",
           "TRIPLEM Money Management Module",
           "Triplem Finance Solution",
           "Triplem Accounting Software",
@@ -353,12 +341,10 @@
         "browserRequirements": "Requires JavaScript. Modern browser recommended.",
         "softwareVersion": "2026",
         "url": "https://triplem.vip/",
-        "downloadUrl": "https://triplem.vip/",
         "installUrl": "https://triplem.vip/",
         "image": "https://triplem.vip/Assets/logo/logo.png",
-        "screenshot": "https://triplem.vip/Assets/logo/logo.png",
-        "description": "Triplem is accounting software and private finance setup for personal expense tracking, invoices, receipts, reports, transaction history, loans, inventory, asset management, multi-currency wallets, Bitcoin records, and downloadable PDF statements.",
-        "keywords": "Triplem, accounting software, accounting setup, personal expense tracking, finance software, invoices, receipts, reports, loans, inventory, asset management, wallets, bookkeeping software",
+        "description": "Triplem VIP is personal and business finance management software for income and expense tracking, invoices, receipts, reports, transaction history, loans, inventory, asset management, multi-currency wallets, Bitcoin records, and downloadable PDF statements.",
+        "keywords": "Triplem VIP, personal finance management, business finance tools, accounting software, income tracking, expense tracking, loan management, inventory management, asset management, wallet management",
         "featureList": [
           "Accounting software and private finance workspace",
           "Guided accounting setup for wallets and ledgers",
@@ -399,7 +385,7 @@
             "@type": "Review",
             "author": { "@type": "Person", "name": "Danish Rabbani" },
             "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
-            "reviewBody": "Triplem replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace."
+            "reviewBody": "Triplem VIP replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace."
           },
           {
             "@type": "Review",
@@ -411,13 +397,13 @@
             "@type": "Review",
             "author": { "@type": "Person", "name": "Sarah Elizabeth" },
             "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
-            "reviewBody": "I use Triplem for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds."
+            "reviewBody": "I use Triplem VIP for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds."
           },
           {
             "@type": "Review",
             "author": { "@type": "Organization", "name": "Infonet Tech" },
             "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
-            "reviewBody": "Our team runs loans, invoices, and multi-currency finance in Triplem. Isolated workspaces and clear reports made handover far simpler."
+            "reviewBody": "Our team runs loans, invoices, and multi-currency finance in Triplem VIP. Isolated workspaces and clear reports made handover far simpler."
           }
         ],
         "isAccessibleForFree": false,
@@ -426,7 +412,7 @@
       {
         "@type": "ItemList",
         "@id": "https://triplem.vip/#feature-list",
-        "name": "Triplem accounting and finance capabilities",
+        "name": "Triplem VIP accounting and finance capabilities",
         "itemListOrder": "https://schema.org/ItemListOrderAscending",
         "numberOfItems": 8,
         "itemListElement": [
@@ -443,8 +429,8 @@
       {
         "@type": "HowTo",
         "@id": "https://triplem.vip/#accounting-setup",
-        "name": "How to set up accounting in Triplem",
-        "description": "Quick accounting setup in Triplem: open a private workspace, add wallets, track expenses, and export PDF statements.",
+        "name": "How to set up accounting in Triplem VIP",
+        "description": "Quick accounting setup in Triplem VIP: open a private workspace, add wallets, track income and expenses, and export PDF statements.",
         "totalTime": "PT15M",
         "estimatedCost": {
           "@type": "MonetaryAmount",
@@ -452,7 +438,7 @@
           "value": "0"
         },
         "tool": [
-          { "@type": "HowToTool", "name": "Triplem web app" },
+          { "@type": "HowToTool", "name": "Triplem VIP web app" },
           { "@type": "HowToTool", "name": "Modern browser" }
         ],
         "step": [
@@ -460,7 +446,7 @@
             "@type": "HowToStep",
             "position": 1,
             "name": "Start trial or request access",
-            "text": "Open triplem.vip, claim the free trial or request private credentials for your Triplem workspace."
+            "text": "Open triplem.vip, claim the free trial or request private credentials for your Triplem VIP workspace."
           },
           {
             "@type": "HowToStep",
@@ -488,47 +474,47 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "What is Triplem?",
+            "name": "What is Triplem VIP?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Triplem (also written Triple M or Triple-M) is private accounting software and finance setup for expense tracking, invoices, receipts, reports, loans, inventory, asset management, multi-currency wallets, and PDF statements in one secure dashboard."
+              "text": "Triplem VIP, formerly known as Triplem and also searched as Triple M or Triple-M, is personal and business finance management software for income and expense tracking, invoices, reports, loans, inventory, assets, and multi-currency wallets."
             }
           },
           {
             "@type": "Question",
-            "name": "Is Triplem accounting software or just an expense tracker?",
+            "name": "Is Triplem VIP accounting software or just an expense tracker?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Triplem is full accounting software with expense tracking at the core—plus invoices, receipts, reports, loans, inventory, asset management, wallets, and downloadable PDF statements for business and personal finance."
+              "text": "Triplem VIP combines accounting and expense tracking with invoices, receipts, reports, loans, inventory, asset management, wallets, and downloadable PDF statements for business and personal finance."
             }
           },
           {
             "@type": "Question",
-            "name": "How do I complete accounting setup in Triplem?",
+            "name": "How do I complete accounting setup in Triplem VIP?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Start a free trial or request access, add your wallets, record expenses and invoices, then export PDF statements. Most owners complete a basic Triplem accounting setup in under 15 minutes."
+              "text": "Start a free trial or request access, add your wallets, record income, expenses, and invoices, then export PDF statements using the guided Triplem VIP workspace setup."
             }
           },
           {
             "@type": "Question",
-            "name": "What accounting and finance features does Triplem include?",
+            "name": "What accounting and finance features does Triplem VIP include?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Triplem is an accounting solution and finance software for personal expense tracking, invoices, receipts, reports, transaction history, loans, inventory, asset management, multi-currency wallets, Bitcoin records, notes, and downloadable PDF statements in one private dashboard."
+              "text": "Triplem VIP provides personal and business finance management for income and expense tracking, invoices, receipts, reports, transaction history, loans, inventory, assets, multi-currency wallets, Bitcoin records, notes, and downloadable PDF statements."
             }
           },
           {
             "@type": "Question",
-            "name": "Can Triplem track personal expenses, wallets, and transaction history?",
+            "name": "Can Triplem VIP track personal expenses, wallets, and transaction history?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. Triplem supports personal expense tracking with cash, bank, card, and custom wallets, plus transfers, top-ups, categorized expenses, multi-currency balances, and searchable transaction history for everyday money management."
+              "text": "Yes. Triplem VIP supports personal expense tracking with cash, bank, card, and custom wallets, plus transfers, top-ups, categorized expenses, multi-currency balances, and searchable transaction history for everyday money management."
             }
           },
           {
             "@type": "Question",
-            "name": "Does Triplem include Asset Management?",
+            "name": "Does Triplem VIP include Asset Management?",
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Yes. Asset Management tracks owned assets such as cars, property, equipment, and investments with purchase details, ownership duration, maintenance and operating costs, revenue, sale or disposal, net profit/loss, charts, and PDF summaries. Admins can enable the Assets tab per user."
@@ -536,15 +522,15 @@
           },
           {
             "@type": "Question",
-            "name": "Does Triplem create invoices, receipts, and financial reports?",
+            "name": "Does Triplem VIP create invoices, receipts, and financial reports?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. Triplem generates professional PDF invoices, receipts, customer statements, inventory invoices, loan reports, expense reports, asset summaries, Bitcoin statements, and broader financial reports for business and personal finance records."
+              "text": "Yes. Triplem VIP generates professional PDF invoices, receipts, customer statements, inventory invoices, loan reports, expense reports, asset summaries, Bitcoin statements, and broader financial reports for business and personal finance records."
             }
           },
           {
             "@type": "Question",
-            "name": "How is user data protected in Triplem?",
+            "name": "How is user data protected in Triplem VIP?",
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Access is protected through private credentials, isolated customer workspaces, secure database connections, local backup options, Smart Pin confirmation for sensitive actions, and careful handling of sensitive Bitcoin wallet data in the browser."
@@ -552,31 +538,31 @@
           },
           {
             "@type": "Question",
-            "name": "Are Bitcoin private keys stored on Triplem servers?",
+            "name": "Are Bitcoin private keys stored on Triplem VIP servers?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "No. Bitcoin control in Triplem is client-side. Private keys and other sensitive key material stay in the browser on your device and do not leave the browser to Triplem servers. You can send and receive Bitcoin directly from Triplem, and review transaction statements for each Bitcoin wallet."
+              "text": "No. Bitcoin control in Triplem VIP is client-side. Private keys and other sensitive key material stay in the browser on your device and do not leave the browser for Triplem VIP servers. You can send and receive Bitcoin directly from Triplem VIP and review transaction statements for each Bitcoin wallet."
             }
           },
           {
             "@type": "Question",
-            "name": "Who is Triplem for?",
+            "name": "Who is Triplem VIP for?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Triplem is built for merchants, shop owners, service businesses, individuals, and finance operators who need a private accounting and expense tracking system for invoices, receipts, reports, transactions, inventory, assets, loans, and wallets."
+              "text": "Triplem VIP is built for merchants, shop owners, service businesses, individuals, and finance operators who need private accounting and expense tracking for invoices, receipts, reports, transactions, inventory, assets, loans, and wallets."
             }
           },
           {
             "@type": "Question",
-            "name": "Does Triplem support multiple currencies and Bitcoin?",
+            "name": "Does Triplem VIP support multiple currencies and Bitcoin?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. Triplem supports common business currencies such as AED, SAR, PKR, and USD, plus Bitcoin wallets with client-side key control, send and receive from the app, blockchain balances, and per-wallet transaction statements depending on your configured setup."
+              "text": "Yes. Triplem VIP supports common business currencies such as AED, SAR, PKR, and USD, plus Bitcoin wallets with client-side key control, send and receive from the app, blockchain balances, and per-wallet transaction statements depending on your configured setup."
             }
           },
           {
             "@type": "Question",
-            "name": "How do I get access to Triplem?",
+            "name": "How do I get access to Triplem VIP?",
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Request a private login through the inquiry form or WhatsApp support, or start the available free trial from Secure Sign in or the trial offer. After approval you receive credentials for your own workspace."
@@ -589,9 +575,9 @@
   </script>
   <noscript>
     <div style="max-width:720px;margin:24px auto;padding:16px;font-family:Segoe UI,system-ui,sans-serif;line-height:1.5;color:#0f172a">
-      <h1>Triplem — Accounting Software &amp; Expense Tracking</h1>
-      <p>Triplem (Triple M / Triple-M) is private accounting software and finance setup for personal expense tracking, invoices, receipts, reports, loans, inventory, asset management, and multi-currency wallets.</p>
-      <p>Explore guides: <a href="https://triplem.vip/seo/">SEO hub</a>, <a href="https://triplem.vip/seo/accounting-software.html">accounting software</a>, <a href="https://triplem.vip/seo/accounting-setup.html">accounting setup</a>, <a href="https://triplem.vip/seo/expense-tracking.html">expense tracking</a>, <a href="https://triplem.vip/seo/finance-software.html">finance software</a>, <a href="https://triplem.vip/seo/triplem.html">what is Triplem</a>.</p>
+      <h2>Triplem VIP — Personal &amp; Business Finance Management</h2>
+      <p>Triplem VIP, formerly known as Triplem, is private finance software for income and expense tracking, invoices, reports, loans, inventory, asset management, and multi-currency wallets.</p>
+      <p>Explore guides: <a href="https://triplem.vip/seo/">finance guides</a>, <a href="https://triplem.vip/seo/accounting-software.html">accounting software</a>, <a href="https://triplem.vip/seo/accounting-setup.html">accounting setup</a>, <a href="https://triplem.vip/seo/expense-tracking.html">expense tracking</a>, <a href="https://triplem.vip/seo/finance-software.html">finance software</a>, <a href="https://triplem.vip/seo/triplem.html">about Triplem VIP</a>.</p>
     </div>
   </noscript>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
@@ -599,7 +585,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate-20260829-auth-scope" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -621,7 +607,7 @@
         <img src="Assets/logo/logo.png" alt="" />
       </div>
       <div class="auth-resume-brand" aria-hidden="true">TRIPLE<span class="brand-m-triple">M</span></div>
-      <p class="auth-resume-title">Triplem is loading. . .</p>
+      <p class="auth-resume-title">Triplem VIP is loading. . .</p>
       <p class="auth-resume-hint">Restoring your secure session</p>
       <div class="auth-resume-track" role="progressbar" aria-label="Loading">
         <div class="auth-resume-bar"></div>
@@ -631,9 +617,9 @@
   <div id="lockScreen" class="lock">
     <div class="landing-shell">
       <header class="landing-nav" aria-label="Public navigation">
-        <a class="landing-brand" href="#top" data-landing-home aria-label="TRIPLEM home">
-          <img src="Assets/logo/logo2.png" alt="Triplem accounting solution and finance software logo" width="148" height="42" decoding="async" fetchpriority="high" onerror="this.onerror=null;this.src='Assets/logo/logo.png';" />
-          <span class="landing-brand-mark" aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></span>
+        <a class="landing-brand" href="#top" data-landing-home aria-label="Triplem VIP home">
+          <img src="Assets/logo/logo2.png" alt="Triplem VIP accounting and finance management logo" width="148" height="42" decoding="async" fetchpriority="high" onerror="this.onerror=null;this.src='Assets/logo/logo.png';" />
+          <span class="landing-brand-mark" aria-label="Triplem VIP">TRIPLE<span class="brand-m-triple">M</span> VIP</span>
           <span id="lockScreenSubtitle" class="landing-brand-subtitle" hidden></span>
         </a>
 
@@ -737,7 +723,7 @@
           <div class="landing-hero-marketing-inner">
             <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private finance workspace</p>
             <h1 id="landingHeroTitle" class="landing-hero-title">
-              <span class="landing-brand-name" aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></span>
+              <span class="landing-brand-name" aria-label="Triplem VIP">TRIPLE<span class="brand-m-triple">M</span> VIP</span>
               <span class="landing-tagline">Accounting software &amp; private finance setup — books, wallets, inventory, assets &amp; Bitcoin in one dashboard.</span>
             </h1>
             <p class="landing-lead">Ditch scattered sheets. Track spend, invoices, loans, stock, assets, and client-side Bitcoin with PDF-ready reports—clear accounting setup without the clutter.</p>
@@ -748,6 +734,12 @@
               <button type="button" class="btn soft landing-cta" id="landingHeroTrialBtn" data-landing-trial>
                 <i class="fa-solid fa-gift" aria-hidden="true"></i> Start free trial
               </button>
+              <a class="btn ghost landing-cta landing-cta--public" href="Demo/">
+                <i class="fa-solid fa-circle-play" aria-hidden="true"></i> Explore Demo
+              </a>
+              <a class="btn ghost landing-cta landing-cta--public" href="Founder/">
+                <i class="fa-solid fa-user-tie" aria-hidden="true"></i> Meet the Founder
+              </a>
             </div>
             <p class="landing-hero-trust">
               <span><i class="fa-solid fa-lock" aria-hidden="true"></i> Isolated accounts</span>
@@ -819,10 +811,10 @@
 
         <section class="landing-seo-pillar" id="seoWhatIs" aria-labelledby="seoWhatIsTitle" data-landing-reveal>
           <header class="landing-seo-pillar-head">
-            <p class="section-kicker">What is Triplem?</p>
+            <p class="section-kicker">What is Triplem VIP?</p>
             <h2 id="seoWhatIsTitle">Private accounting software for real-world money control.</h2>
             <p id="seoWhatIsBody">
-              <strong>Triplem</strong> (also searched as Triple M or Triple-M) is accounting software and finance setup for personal expense tracking,
+              <strong>Triplem VIP</strong>, formerly known as Triplem and also searched as Triple M or Triple-M, is finance management software for income and expense tracking,
               invoices, receipts, reports, loans, inventory, asset management, and multi-currency wallets—built for owners who want serious books
               without spreadsheet chaos.
             </p>
@@ -831,13 +823,13 @@
             <a class="landing-seo-card landing-surface-card" href="seo/accounting-software.html">
               <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-book"></i></span>
               <h3>Accounting software</h3>
-              <p>Ledgers, wallets, invoices, and PDF statements in one private Triplem workspace.</p>
+              <p>Ledgers, wallets, invoices, and PDF statements in one private Triplem VIP workspace.</p>
               <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
             </a>
             <a class="landing-seo-card landing-surface-card" href="seo/accounting-setup.html">
               <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-solid fa-sliders"></i></span>
               <h3>Accounting setup</h3>
-              <p>Go from empty books to live expense tracking in minutes with a guided Triplem setup.</p>
+              <p>Go from empty books to live expense tracking with a guided Triplem VIP setup.</p>
               <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
             </a>
             <a class="landing-seo-card landing-surface-card" href="seo/expense-tracking.html">
@@ -853,7 +845,7 @@
               <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
             </a>
           </div>
-          <p class="landing-seo-pillar-more"><a href="seo/">Browse all Triplem guides</a> · <a href="seo/triplem.html">Why search “Triplem”</a></p>
+          <p class="landing-seo-pillar-more"><a href="seo/">Browse all Triplem VIP guides</a> · <a href="seo/triplem.html">About Triplem VIP</a></p>
         </section>
       </main>
 
@@ -861,7 +853,7 @@
         <header class="landing-demo-analytics-head">
           <p class="section-kicker">Product preview</p>
           <h2 id="landingDemoAnalyticsTitle">Clarity you can glance at.</h2>
-          <p class="landing-demo-analytics-lead">Illustrative demo charts showing how Triplem surfaces expense trends, collections, wallet balances, and profit — sample data only, not live customer results.</p>
+          <p class="landing-demo-analytics-lead">Illustrative demo charts showing how Triplem VIP surfaces expense trends, collections, wallet balances, and profit — sample data only, not live customer results.</p>
         </header>
 
         <div class="landing-demo-analytics-grid" data-landing-stagger>
@@ -913,7 +905,7 @@
         <header class="landing-testimonials-head">
           <p class="section-kicker">Customer reviews</p>
           <h2 id="landingTestimonialsTitle">Trusted by people who keep their books clean.</h2>
-          <p class="landing-testimonials-lead">Short notes from operators using Triplem for accounting, expense tracking, invoices, and day-to-day finance.</p>
+          <p class="landing-testimonials-lead">Short notes from operators using Triplem VIP for accounting, expense tracking, invoices, and day-to-day finance.</p>
         </header>
 
         <div class="landing-testimonials-list" data-landing-stagger>
@@ -926,7 +918,7 @@
               <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
-              <p>“Triplem replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace.”</p>
+              <p>“Triplem VIP replaced our scattered sheets. Expense wallets, receipts, and month-end reports finally live in one private workspace.”</p>
             </blockquote>
           </figure>
 
@@ -952,7 +944,7 @@
               <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
-              <p>“I use Triplem for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds.”</p>
+              <p>“I use Triplem VIP for personal expense tracking and PDF statements. The layout is calm, and I can find any transaction history in seconds.”</p>
             </blockquote>
           </figure>
 
@@ -965,7 +957,7 @@
               <i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i><i class="fa-solid fa-star" aria-hidden="true"></i>
             </div>
             <blockquote>
-              <p>“Our team runs loans, invoices, and multi-currency finance in Triplem. Isolated workspaces and clear reports made handover far simpler.”</p>
+              <p>“Our team runs loans, invoices, and multi-currency finance in Triplem VIP. Isolated workspaces and clear reports made handover far simpler.”</p>
             </blockquote>
           </figure>
         </div>
@@ -974,9 +966,9 @@
       <footer class="landing-footer landing-footer--centered" aria-label="Landing footer">
         <div class="landing-footer-inner">
           <div class="landing-footer-brand">
-            <img src="Assets/logo/logo.png" alt="Triplem" width="28" height="28" loading="lazy" decoding="async" />
+            <img src="Assets/logo/logo.png" alt="Triplem VIP" width="28" height="28" loading="lazy" decoding="async" />
             <div>
-              <strong aria-label="TRIPLEM">TRIPLE<span class="brand-m-triple">M</span></strong>
+              <strong aria-label="Triplem VIP">TRIPLE<span class="brand-m-triple">M</span> VIP</strong>
               <p>Private accounting &amp; finance solution</p>
             </div>
           </div>
@@ -996,10 +988,10 @@
             <a class="landing-footer-link" href="seo/accounting-setup.html">Accounting setup</a>
             <a class="landing-footer-link" href="seo/expense-tracking.html">Expense tracking</a>
             <a class="landing-footer-link" href="seo/finance-software.html">Finance software</a>
-            <a class="landing-footer-link" href="seo/triplem.html">About Triplem</a>
+            <a class="landing-footer-link" href="seo/triplem.html">About Triplem VIP</a>
           </nav>
           <div class="landing-footer-trust">
-            <p><strong>Triplem</strong> · Private accounting &amp; finance software · Founder: Nadeem Shahzad Fida</p>
+            <p><strong>Triplem VIP</strong> · Private accounting &amp; finance software · Founder: Nadeem Shahzad Fida</p>
             <p>
               <a class="landing-footer-link" href="mailto:nadeemshahzadfida@outlook.com">Email support</a>
               <a class="landing-footer-link" href="https://wa.me/923339004564" target="_blank" rel="noopener noreferrer">WhatsApp +92 333 9004564</a>
@@ -1008,7 +1000,7 @@
             </p>
             <p class="landing-footer-security"><i class="fa-solid fa-lock" aria-hidden="true"></i> TLS encrypted connection · Isolated private accounts · Client-side Bitcoin key control</p>
           </div>
-          <p class="landing-footer-copy">&copy; <span id="landingFooterYear"></span> Triplem · Money Management Module</p>
+          <p class="landing-footer-copy">&copy; <span id="landingFooterYear"></span> Triplem VIP · Money Management Module</p>
         </div>
       </footer>
 
@@ -1051,11 +1043,11 @@
                 <div>
                   <p class="section-kicker">About</p>
                   <h2 id="aboutTitle">An accounting solution built for owners who need clear books every day.</h2>
-                  <p>Triplem is a proprietary accounting and finance solution created by Nadeem Shahzad Fida. It brings personal expense tracking, multi-currency wallets, inventory, asset management, invoices, receipts, loans, reports, and searchable transaction history into one private workspace—so shop owners, merchants, and careful operators stop juggling disconnected spreadsheets.</p>
-                  <p>Whether you track daily float, customer balances, or month-end statements, Triplem is designed as a calm, high-control finance dashboard that feels like serious business software without the clutter.</p>
+                  <p>Triplem VIP is a proprietary accounting and finance solution created by Nadeem Shahzad Fida. It brings income and expense tracking, multi-currency wallets, inventory, asset management, invoices, receipts, loans, reports, and searchable transaction history into one private workspace—so shop owners, merchants, and careful operators stop juggling disconnected spreadsheets.</p>
+                  <p>Whether you track daily float, customer balances, or month-end statements, Triplem VIP is designed as a calm, high-control finance dashboard that feels like serious business software without the clutter.</p>
                 </div>
                 <div class="landing-about-card">
-                  <img src="Assets/logo/logo.png" alt="Triplem expense tracking and accounting brand mark" />
+                  <img src="Assets/logo/logo.png" alt="Triplem VIP expense tracking and accounting brand mark" />
                   <div>
                     <h3>Money Management Module</h3>
                     <p>Accounting clarity, personal expense tracking, loans, inventory, asset management, invoices, receipts, reports, Bitcoin records, and PDF statements in one private dashboard.</p>
@@ -1066,13 +1058,13 @@
               <div class="landing-section-block" id="overview" aria-labelledby="overviewTitle">
                 <p class="section-kicker">Project overview</p>
                 <h3 id="overviewTitle">A private operating system for daily money control.</h3>
-                <p>Triplem organizes the full money lifecycle: expense wallets, loan records, inventory sales, owned assets, customer invoices, receipts, installment activity, notes, Bitcoin wallets, and downloadable statements. It is built for people who need accounting clarity and finance visibility without spreadsheets becoming a second job.</p>
+                <p>Triplem VIP organizes the full money lifecycle: income and expense wallets, loan records, inventory sales, owned assets, customer invoices, receipts, installment activity, notes, Bitcoin wallets, and downloadable statements. It is built for people who need accounting clarity and finance visibility without spreadsheets becoming a second job.</p>
                 <div class="landing-card-grid three" style="margin-top:16px">
                   <article class="landing-card"><i class="fa-solid fa-book"></i><h3>Accounting solution</h3><p>Structured ledgers for wallets, loans, inventory, assets, and customer balances so day-to-day books stay decision-ready.</p></article>
                   <article class="landing-card"><i class="fa-solid fa-receipt"></i><h3>Expense tracking</h3><p>Personal and business spend across cash, bank, card, and custom wallets with transfers, history, and statements.</p></article>
                   <article class="landing-card"><i class="fa-solid fa-briefcase"></i><h3>Business finance</h3><p>Invoices, receipts, reports, asset P/L, and PDF exports for owners who need polished records at the end of every shift.</p></article>
                 </div>
-                <div class="showcase-card" aria-label="Triplem dashboard preview" style="margin-top:16px">
+                <div class="showcase-card" aria-label="Triplem VIP dashboard preview" style="margin-top:16px">
                   <div class="showcase-bar"><span></span><span></span><span></span></div>
                   <div class="showcase-metric"><small>Available Balance</small><strong>AED 48,250.00</strong></div>
                   <div class="showcase-lines"><span style="width:92%"></span><span style="width:68%"></span><span style="width:81%"></span></div>
@@ -1083,7 +1075,7 @@
               <div class="landing-section-block landing-product-demo" aria-labelledby="aboutWalletsDemoTitle">
                 <p class="section-kicker">Sample wallets</p>
                 <h3 id="aboutWalletsDemoTitle">Multi-currency wallets for real business money.</h3>
-                <p class="landing-product-demo-lead">Fictional demo wallets — the same layout owners use for banks, cash, cards, and crypto inside a private Triplem workspace.</p>
+                <p class="landing-product-demo-lead">Fictional demo wallets — the same layout owners use for banks, cash, cards, and crypto inside a private Triplem VIP workspace.</p>
                 <div class="landing-demo-wallet-grid" role="list" aria-label="Sample about wallets">
                   <article class="landing-demo-wallet" role="listitem">
                     <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Emirates%20NBD.png" alt="Emirates NBD wallet logo" width="40" height="40" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';" />
@@ -1139,7 +1131,7 @@
               <div class="landing-section-block landing-product-demo" aria-labelledby="aboutChartsDemoTitle">
                 <p class="section-kicker">Finance preview</p>
                 <h3 id="aboutChartsDemoTitle">Expense trends and cashflow at a glance.</h3>
-                <p class="landing-product-demo-lead">Illustrative Chart.js previews — sample data only, mirroring how Triplem surfaces accounting and expense tracking in the live dashboard.</p>
+                <p class="landing-product-demo-lead">Illustrative Chart.js previews — sample data only, mirroring how Triplem VIP surfaces accounting and expense tracking in the live dashboard.</p>
                 <div class="landing-demo-chart-grid">
                   <article class="landing-demo-mock-card">
                     <header class="landing-demo-mock-head">
@@ -1167,7 +1159,7 @@
                 <p class="section-kicker">Brand story</p>
                 <h3 id="storyTitle">Built for finance that happens in real life.</h3>
                 <div class="landing-story">
-                  <p>Triplem was shaped around practical business workflows: customers paying partially, inventory moving daily, owned assets earning or costing money, loans coming back in pieces, wallets changing across currencies, and owners needing reliable invoices, receipts, reports, and statements at the end of the day.</p>
+                  <p>Triplem VIP was shaped around practical business workflows: customers paying partially, inventory moving daily, owned assets earning or costing money, loans coming back in pieces, wallets changing across currencies, and owners needing reliable invoices, receipts, reports, and statements at the end of the day.</p>
                   <p>The result is a calm, premium dashboard where financial records, transactions, and history feel structured, searchable, and ready for action. It supports careful operators who want a private accounting solution that looks polished and behaves like a serious business tool.</p>
                 </div>
               </div>
@@ -1182,7 +1174,7 @@
                 <article class="landing-card"><i class="fa-solid fa-boxes-stacked"></i><h3>Inventory</h3><p>Control purchased stock, sales receipts, low-stock items, customer balances, outstanding invoices, and profit records.</p></article>
                 <article class="landing-card"><i class="fa-solid fa-building"></i><h3>Asset Management</h3><p>Track cars, property, equipment, and investments with purchase cost, ownership duration, maintenance, revenue, sale or disposal, net P/L, charts, and PDF summaries.</p></article>
                 <article class="landing-card"><i class="fa-solid fa-file-invoice-dollar"></i><h3>Invoices and receipts</h3><p>Download professional PDFs for sales invoices, receipts, customer statements, transaction records, and financial reports.</p></article>
-                <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallets</h3><p>Client-side Bitcoin control: send and receive from Triplem, review per-wallet statements, and keep private keys in the browser—sensitive key material does not leave your device.</p></article>
+                <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallets</h3><p>Client-side Bitcoin control: send and receive from Triplem VIP, review per-wallet statements, and keep private keys in the browser—sensitive key material does not leave your device.</p></article>
                 <article class="landing-card"><i class="fa-solid fa-note-sticky"></i><h3>Notes and records</h3><p>Keep operational notes beside your finance solution so important context stays close to the numbers and history.</p></article>
               </div>
 
@@ -1347,7 +1339,7 @@
                 <div class="landing-card-grid three">
                   <article class="landing-card"><i class="fa-solid fa-user-shield"></i><h3>Private account access</h3><p>Each workspace is opened only with assigned credentials and private configuration, keeping financial records away from public access.</p></article>
                   <article class="landing-card"><i class="fa-solid fa-database"></i><h3>Separated data handling</h3><p>Customer data is kept organized through existing secure storage calls and private setup files, with no shared manual spreadsheet exposure.</p></article>
-                  <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Client-side Bitcoin control: private keys stay in the browser and do not leave your device. Send and receive from Triplem, and review per-wallet transaction statements.</p></article>
+                  <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Client-side Bitcoin control: private keys stay in the browser and do not leave your device. Send and receive from Triplem VIP, and review per-wallet transaction statements.</p></article>
                 </div>
               </div>
 
@@ -1355,7 +1347,7 @@
                 <div>
                   <p class="section-kicker">Data protection highlights</p>
                   <h3 id="protectionTitle">Designed to protect records, exports, and wallet workflows.</h3>
-                  <p>Triplem supports local backups, PDF exports, private login, careful browser-side wallet handling, and structured records that can be restored or reviewed without rebuilding ledgers manually.</p>
+                  <p>Triplem VIP supports local backups, PDF exports, private login, careful browser-side wallet handling, and structured records that can be restored or reviewed without rebuilding ledgers manually.</p>
                 </div>
                 <div class="landing-check-list">
                   <span><i class="fa-solid fa-check"></i> JSON and CSV backup options</span>
@@ -1584,7 +1576,7 @@
             <section id="security" class="landing-section landing-content-panel hide" data-landing-panel="security" aria-labelledby="securityPanelTitle" hidden>
               <p class="section-kicker">Credential security</p>
               <h3 id="securityPanelTitle">Your private account is protected by design—not shared across users.</h3>
-              <p class="landing-product-demo-lead">Triplem treats sign-in credentials, session tokens, and Smart PIN preferences as private account controls. Every layer below exists to keep your workspace isolated and your access path secure.</p>
+              <p class="landing-product-demo-lead">Triplem VIP treats sign-in credentials, session tokens, and Smart PIN preferences as private account controls. Every layer below exists to keep your workspace isolated and your access path secure.</p>
 
               <div class="landing-card-grid three" style="margin-top:18px">
                 <article class="landing-card"><i class="fa-solid fa-lock"></i><h3>Credential hashing</h3><p>Account passwords are stored using one-way hashing so your sign-in secret is never kept as plain text in the application database.</p></article>
@@ -1600,7 +1592,7 @@
                   <div>
                     <p class="section-kicker">Protection checklist</p>
                     <h3 id="securityChecklistTitle">Built to keep your credentials and books private.</h3>
-                    <p>From hashed passwords to encrypted sessions and isolated workspaces, Triplem is framed around protecting the owner’s private account—not exposing access details to other people on the platform.</p>
+                    <p>From hashed passwords to encrypted sessions and isolated workspaces, Triplem VIP is framed around protecting the owner’s private account—not exposing access details to other people on the platform.</p>
                     <div class="landing-check-list" style="margin-top:14px">
                       <span><i class="fa-solid fa-check"></i> One-way password hashing at rest</span>
                       <span><i class="fa-solid fa-check"></i> Encrypted session credential storage</span>
@@ -1647,7 +1639,7 @@
               <h2 id="pricingTitle">Simple plans in the currencies you already use.</h2>
               <p class="landing-pricing-intro">Monthly and yearly access, shown clearly in PKR, SAR, AED, and USD. Installation support included on eligible setup.</p>
 
-              <div class="pricing-compose" aria-label="Triplem pricing by currency">
+              <div class="pricing-compose" aria-label="Triplem VIP pricing by currency">
                 <div class="pricing-billing-grid">
                   <article class="pricing-plan">
                     <header class="pricing-plan-head">
@@ -1724,18 +1716,18 @@
             <section id="faq" class="landing-section landing-content-panel hide" data-landing-panel="faq" aria-labelledby="faqTitle" hidden>
               <p class="section-kicker">FAQ</p>
               <h2 id="faqTitle">Clear answers before you dive in.</h2>
-              <p>Practical questions about Triplem access, accounting workflows, wallets, inventory, assets, Bitcoin, security, and exports.</p>
+              <p>Practical questions about Triplem VIP access, accounting workflows, wallets, inventory, assets, Bitcoin, security, and exports.</p>
               <div class="faq-list">
                 <p class="faq-group-label">Getting started</p>
                 <details>
-                  <summary>What is Triplem?</summary>
+                  <summary>What is Triplem VIP?</summary>
                   <div class="faq-answer">
-                    <p>Triplem is a private accounting and money-management workspace for owners and careful operators. It brings expense wallets, loans, inventory, asset management, invoices, receipts, customer balances, notes, Bitcoin wallets, searchable history, and PDF reports into one calm dashboard.</p>
+                    <p>Triplem VIP is a private accounting and money-management workspace for owners and careful operators. It brings income and expense tracking, wallets, loans, inventory, asset management, invoices, receipts, customer balances, notes, Bitcoin wallets, searchable history, and PDF reports into one calm dashboard.</p>
                     <p>It is built to replace messy spreadsheets with structured day-to-day books you can actually trust.</p>
                   </div>
                 </details>
                 <details>
-                  <summary>Who is Triplem for?</summary>
+                  <summary>Who is Triplem VIP for?</summary>
                   <div class="faq-answer">
                     <p>Shop owners, merchants, service businesses, private lenders, and individuals who need clear finance records without enterprise clutter.</p>
                     <ul>
@@ -1755,7 +1747,7 @@
                 <details>
                   <summary>Do I need to install an app?</summary>
                   <div class="faq-answer">
-                    <p>No. Triplem runs in the browser on desktop and mobile. Optional iOS/Android install helpers are available if you want a home-screen style shortcut, but the full workspace works without a store install.</p>
+                    <p>No. Triplem VIP runs in the browser on desktop and mobile. Optional iOS/Android install helpers are available if you want a home-screen style shortcut, but the full workspace works without a store install.</p>
                   </div>
                 </details>
 
@@ -1773,7 +1765,7 @@
                   </div>
                 </details>
                 <details>
-                  <summary>What is Asset Management in Triplem?</summary>
+                  <summary>What is Asset Management in Triplem VIP?</summary>
                   <div class="faq-answer">
                     <p>Asset Management tracks owned assets—cars, property, equipment, investments, and more—through the full ownership lifecycle.</p>
                     <ul>
@@ -1806,17 +1798,17 @@
                   </div>
                 </details>
                 <details>
-                  <summary>Does Triplem handle loans and installments?</summary>
+                  <summary>Does Triplem VIP handle loans and installments?</summary>
                   <div class="faq-answer">
                     <p>Yes. Track money given, received back, loans taken, repayments, and installment plans with settlement visibility so open balances stay easy to follow.</p>
                   </div>
                 </details>
                 <details>
-                  <summary>How does Bitcoin work in Triplem?</summary>
+                  <summary>How does Bitcoin work in Triplem VIP?</summary>
                   <div class="faq-answer">
-                    <p>Bitcoin in Triplem is designed for client-side control. Private keys and other sensitive key material remain in the browser on your device—they do not leave the browser to Triplem servers.</p>
+                    <p>Bitcoin in Triplem VIP is designed for client-side control. Private keys and other sensitive key material remain in the browser on your device—they do not leave the browser for Triplem VIP servers.</p>
                     <ul>
-                      <li>Send Bitcoin directly from Triplem</li>
+                      <li>Send Bitcoin directly from Triplem VIP</li>
                       <li>Receive Bitcoin to your wallet addresses</li>
                       <li>Review transaction statements for each Bitcoin wallet</li>
                       <li>Watch balances and history alongside your other finance records</li>
@@ -1827,7 +1819,7 @@
                 <details>
                   <summary>Do Bitcoin private keys leave my browser?</summary>
                   <div class="faq-answer">
-                    <p>No. Sensitive Bitcoin key material is handled client-side in the browser. Private keys are not uploaded to Triplem servers for custody. Signing and key use stay on your device; the network sees normal broadcast transactions when you send.</p>
+                    <p>No. Sensitive Bitcoin key material is handled client-side in the browser. Private keys are not uploaded to Triplem VIP servers for custody. Signing and key use stay on your device; the network sees normal broadcast transactions when you send.</p>
                   </div>
                 </details>
                 <details>
@@ -1842,7 +1834,7 @@
                 <details>
                   <summary>Is my data private?</summary>
                   <div class="faq-answer">
-                    <p>Triplem is designed as a private workspace for approved users. Financial records power the features you use in the dashboard and are not meant for public sharing.</p>
+                    <p>Triplem VIP is designed as a private workspace for approved users. Financial records power the features you use in the dashboard and are not meant for public sharing.</p>
                     <p>Protect your login, Smart Pin, and device access. Admins can manage team permissions where enabled.</p>
                   </div>
                 </details>
@@ -1913,7 +1905,7 @@
       <button type="button" class="signin-overlay-close" data-signin-dismiss aria-label="Close sign in">&times;</button>
       <aside id="login" class="login-glass-panel login-glass-panel--overlay" aria-labelledby="loginTitle">
         <div class="login-panel-top">
-          <img src="Assets/logo/logo.png" alt="Triplem sign-in logo" />
+          <img src="Assets/logo/logo.png" alt="Triplem VIP sign-in logo" />
           <div>
             <p class="login-kicker">Secure portal</p>
             <h3 id="loginTitle">Sign in</h3>
@@ -1944,8 +1936,8 @@
           <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
         </form>
         <div class="landing-downloads" aria-label="App downloads">
-          <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem for iOS"><i class="fa-brands fa-apple"></i></button>
-          <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triplem for Android"><i class="fa-brands fa-google-play"></i></button>
+          <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem VIP for iOS"><i class="fa-brands fa-apple"></i></button>
+          <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triplem VIP for Android"><i class="fa-brands fa-google-play"></i></button>
           <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener">WhatsApp support</a>
         </div>
         <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Each account has an isolated workspace secured by database authentication.</div>
@@ -1960,7 +1952,7 @@
     <div class="trial-promo-card">
       <button type="button" class="trial-promo-close" id="trialPromoCloseBtn" aria-label="Dismiss trial offer" data-trial-promo-dismiss>&times;</button>
       <div class="trial-promo-brand">
-        <img src="Assets/logo/logo.png" alt="Triplem" width="40" height="40" />
+        <img src="Assets/logo/logo.png" alt="Triplem VIP" width="40" height="40" />
         <div>
           <p class="trial-promo-kicker">New here?</p>
           <h3 id="trialPromoTitle">14-day free trial</h3>
@@ -1968,7 +1960,7 @@
       </div>
       <p class="trial-promo-lead">
         <span class="trial-promo-lead-short">Open a private workspace — wallets, inventory, invoices, and audit-ready reports included. No card required to start.</span>
-        <span class="trial-promo-lead-full">Open a private Triple-M workspace with full access for 14 days — wallets, inventory, branded invoices, and audit-ready reports. No card required to start.</span>
+        <span class="trial-promo-lead-full">Open a private Triplem VIP workspace with full access for 14 days — wallets, inventory, branded invoices, and audit-ready reports. No card required to start.</span>
       </p>
       <ul class="trial-promo-benefits">
         <li>
@@ -2043,7 +2035,7 @@
           <h3 id="fraudAlertTitle">Fraud Alert</h3>
         </div>
       </div>
-      <p class="fraud-alert-lead">For your security, please note that the only official Triplem communication channels are:</p>
+      <p class="fraud-alert-lead">For your security, please note that the only official Triplem VIP communication channels are:</p>
       <ul class="fraud-alert-channels">
         <li>
           <i class="fa-solid fa-comments" aria-hidden="true"></i>
@@ -2058,7 +2050,7 @@
           <span><strong>Facebook:</strong> <a href="https://www.facebook.com/triplemvip" target="_blank" rel="noopener noreferrer">facebook.com/triplemvip</a></span>
         </li>
       </ul>
-      <p class="fraud-alert-warn">Any person, phone number, social media account, or platform claiming to represent Triplem outside these official channels should be considered fraudulent.</p>
+      <p class="fraud-alert-warn">Any person, phone number, social media account, or platform claiming to represent Triplem VIP outside these official channels should be considered fraudulent.</p>
       <p class="fraud-alert-note">Never share your password, verification codes, or sensitive business information with anyone.</p>
       <div class="fraud-alert-actions">
         <button type="button" class="btn primary fraud-alert-cta" id="fraudAlertAckBtn" data-fraud-alert-dismiss>
@@ -2157,9 +2149,9 @@
             <li>Tap the notification that appears to open the configuration profile</li>
             <li>Tap "Allow" to download the configuration profile</li>
             <li>Go to Settings > General > VPN & Device Management</li>
-            <li>Find and tap on "Triple M by NSF" profile</li>
+            <li>Find and tap on the "Triplem VIP" profile</li>
             <li>Tap "Install" and enter your device passcode if prompted</li>
-            <li>Trust the app: Settings > General > VPN & Device Management > Trust "Triple M by NSF"</li>
+            <li>Trust the app: Settings &gt; General &gt; VPN &amp; Device Management &gt; Trust "Triplem VIP"</li>
             <li>The app is now ready to use on your device!</li>
           </ol>
           
@@ -2221,7 +2213,7 @@
         <div class="brand">
           <img class="mark" src="Assets/logo/logo.png" alt="Triplem logo" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
           <div>
-            <div class="brand-title">Triplem</div>
+            <div class="brand-title">Triplem VIP</div>
             <p id="standaloneAboutSubtitle">Money Management Module (Powered by Nadeem Shahzad Fida)</p>
           </div>
         </div>
@@ -2237,7 +2229,7 @@
             <h4 style="margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text);"><i class="fa-solid fa-list-check"></i> Overview</h4>
             <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
               <p style="margin: 0 0 12px; line-height: 1.6; color: var(--text);">
-                <strong>Triplem</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
+                <strong>Triplem VIP</strong> (Money Management Module) is a comprehensive financial tracking application designed and developed by Nadeem Shahzad Fida. This powerful tool helps individuals and businesses manage their finances with precision and ease.
               </p>
               <p style="margin: 0; line-height: 1.6; color: var(--text);">
                 The application provides a secure cloud-based solution with server storage for expenses, loans, and goods transactions, ensuring data safety and accessibility. Additionally, it offers cryptocurrency management through Bitcoin wallet integration with local backup options.
@@ -2307,7 +2299,7 @@
               <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
                 <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-brands fa-bitcoin"></i> Bitcoin Blockchain Integration</h5>
                 <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
-                  Client-side Bitcoin control with send and receive from Triplem, per-wallet transaction statements, and blockchain balances. Private keys and sensitive key material stay in the browser and do not leave your device.
+                  Client-side Bitcoin control with send and receive from Triplem VIP, per-wallet transaction statements, and blockchain balances. Private keys and sensitive key material stay in the browser and do not leave your device.
                 </p>
               </div>
             </div>
@@ -2362,7 +2354,7 @@
         <div class="brand">
           <img class="mark" src="Assets/logo/logo.png" alt="Triplem logo" onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjMjQ1N2Q2IiByeD0iMTIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxNiIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+TkY8L3RleHQ+PC9zdmc+'" />
           <div>
-            <div class="brand-title">Triplem</div>
+            <div class="brand-title">Triplem VIP</div>
             <p>Pricing Plans for Small Business Merchants</p>
           </div>
         </div>
@@ -5834,7 +5826,7 @@
   <script src="Assets/app/utils/01-currency-money.js"></script>
   <script src="Assets/app/core/05-meta-helpers.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/core/06-app-loading.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/core/07-theme.js?v=20260828-performance"></script>
+  <script src="Assets/app/core/07-theme.js?v=20260829-auth-scoped-theme"></script>
   <script src="Assets/app/core/08-offline-sync.js?v=20260828-performance"></script>
   <script src="Assets/app/inventory/01-inventory-meta-stock.js"></script>
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
@@ -5850,7 +5842,7 @@
   <script src="Assets/app/expenses/02-transfers.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260801-fraud-alert"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260731-smartpin-lock3"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260829-theme-lifecycle"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
   <script src="Assets/app/notes/01-notes.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/assets/01-assets.js?v=20260828-performance"></script>
