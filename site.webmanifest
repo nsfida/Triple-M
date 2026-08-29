@@ -1,7 +1,7 @@
 {
-  "name": "Triplem",
-  "short_name": "Triplem",
-  "description": "Private accounting software and finance setup for expense tracking, invoices, inventory, assets, loans, and multi-currency wallets.",
+  "name": "Triplem VIP",
+  "short_name": "Triplem VIP",
+  "description": "Personal and business finance management for income and expense tracking, wallets, invoices, inventory, assets, loans, and reports.",
   "id": "https://triplem.vip/",
   "start_url": "/?utm_source=pwa&utm_medium=manifest",
   "scope": "/",
@@ -24,14 +24,14 @@
     {
       "name": "Secure Sign in",
       "short_name": "Sign in",
-      "description": "Open Triplem secure sign-in",
+      "description": "Open Triplem VIP secure sign-in",
       "url": "/#login",
       "icons": [{ "src": "https://triplem.vip/Assets/logo/logo.png", "sizes": "512x512" }]
     },
     {
       "name": "Accounting guides",
       "short_name": "Guides",
-      "description": "Triplem accounting software and setup guides",
+      "description": "Triplem VIP accounting and finance guides",
       "url": "/seo/",
       "icons": [{ "src": "https://triplem.vip/Assets/logo/logo.png", "sizes": "512x512" }]
     }
