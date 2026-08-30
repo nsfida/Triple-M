@@ -655,7 +655,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads7" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260830-record-view-filter" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3495,8 +3495,20 @@
                 </div>
                 <p>Wallets show top-up, spent, and balance. The list is an expense statement by item; open an item for wallet-level transactions.</p>
               </div>
-              <div class="tools">
+              <div class="tools expenses-head-tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="expenses" title="Move all meta-tag expense rows into section tables">Fix all on this page</button>
+                <label class="expense-record-view-control" for="expenseRecordsViewFilter" title="Choose which expense record panel to display">
+                  <span class="expense-record-view-label"><i class="fa-solid fa-filter" aria-hidden="true"></i> Records</span>
+                  <span class="expense-record-view-select-wrap">
+                    <select id="expenseRecordsViewFilter" class="select expense-record-view-select" aria-label="Expense records view">
+                      <option value="history" selected>Transaction History</option>
+                      <option value="topups">Top-Up Records</option>
+                      <option value="transfers">Transfer Records</option>
+                      <option value="btc">BTC Blockchain Transactions</option>
+                    </select>
+                    <i class="fa-solid fa-chevron-down expense-record-view-chevron" aria-hidden="true"></i>
+                  </span>
+                </label>
               </div>
             </div>
             <div class="filter-inline-row compact-filter-row">
@@ -5921,7 +5933,7 @@
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js?v=20260829-theme-refine2"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260829-theme-refine2"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260830-record-view-filter"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
   <script src="Assets/app/ui/01-render-navigation.js?v=20260829-theme-refine2&amp;fix=20260830-installment-menu"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260829-theme-refine2"></script>
@@ -5929,7 +5941,7 @@
   <script src="Assets/app/reports/01-pdf.js?v=20260829-theme-refine2"></script>
   <script src="Assets/app/reports/02-exports.js"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260828-notes-workspace"></script>
-  <script src="Assets/app/ui/02-bindings.js?v=20260828-notes-workspace"></script>
+  <script src="Assets/app/ui/02-bindings.js?v=20260830-record-view-filter"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260829-theme-refine2"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260829-theme-lifecycle"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js"></script>
@@ -5939,7 +5951,7 @@
   <script src="Assets/app/admin/01-admin.js?v=20260830-admin-storage-theme"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/messaging/01-messaging.js?v=20260830-messenger-heads7"></script>
+  <script src="Assets/app/messaging/01-messaging.js?v=20260830-messenger-heads8"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
 </html>
