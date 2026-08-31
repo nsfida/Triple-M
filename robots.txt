@@ -1,39 +1,106 @@
 # Triplem VIP — https://triplem.vip/
-# Advanced crawl policy for search & AI discovery
+# Public discovery policy for search engines and answer engines.
 
 User-agent: *
 Allow: /
 Allow: /seo/
-Allow: /Assets/logo/
-Allow: /Assets/style/15-seo-pages.css
+Allow: /Demo/
+Allow: /Founder/
 Allow: /llms.txt
 Allow: /humans.txt
+Allow: /.well-known/security.txt
 Allow: /site.webmanifest
 Allow: /sitemap.xml
-
-# Keep private / non-product trees out of the index
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
 Disallow: /.cursor/
 Disallow: /node_modules/
 
-# Google
-User-agent: Googlebot
+# OpenAI search discovery. GPTBot is separately listed because it serves a different purpose.
+User-agent: OAI-SearchBot
 Allow: /
 Allow: /seo/
+Allow: /Demo/
+Allow: /Founder/
+Allow: /llms.txt
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
 
-User-agent: Googlebot-Image
-Allow: /Assets/logo/
+User-agent: ChatGPT-User
+Allow: /
+Allow: /seo/
+Allow: /llms.txt
+Disallow: /Backup/
+Disallow: /ad/
+Disallow: /migrations/
+Disallow: /scripts/
+Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
 
-# Bing
+User-agent: GPTBot
+Allow: /
+Allow: /seo/
+Allow: /llms.txt
+Disallow: /Backup/
+Disallow: /ad/
+Disallow: /migrations/
+Disallow: /scripts/
+Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
+
+# Other answer-engine and discovery crawlers.
+User-agent: ClaudeBot
+Allow: /
+Allow: /seo/
+Allow: /llms.txt
+Disallow: /Backup/
+Disallow: /ad/
+Disallow: /migrations/
+Disallow: /scripts/
+Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
+
+User-agent: anthropic-ai
+Allow: /
+Allow: /seo/
+Allow: /llms.txt
+Disallow: /Backup/
+Disallow: /ad/
+Disallow: /migrations/
+Disallow: /scripts/
+Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /seo/
+Allow: /llms.txt
+Disallow: /Backup/
+Disallow: /ad/
+Disallow: /migrations/
+Disallow: /scripts/
+Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
+
+User-agent: Applebot
+Allow: /
+Allow: /seo/
+
 User-agent: Bingbot
 Allow: /
 Allow: /seo/
@@ -42,46 +109,7 @@ Disallow: /ad/
 Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /Assets/app/
+Disallow: /Assets/sql/
+Disallow: /Assets/config/
 
-# AI / answer-engine crawlers (brand discovery)
-User-agent: GPTBot
-Allow: /
-Allow: /seo/
-Allow: /llms.txt
-Disallow: /Backup/
-Disallow: /ad/
-Disallow: /Assets/app/
-
-User-agent: ChatGPT-User
-Allow: /
-Allow: /seo/
-Allow: /llms.txt
-
-User-agent: ClaudeBot
-Allow: /
-Allow: /seo/
-Allow: /llms.txt
-Disallow: /Backup/
-Disallow: /ad/
-
-User-agent: anthropic-ai
-Allow: /
-Allow: /seo/
-Allow: /llms.txt
-
-User-agent: PerplexityBot
-Allow: /
-Allow: /seo/
-Allow: /llms.txt
-
-User-agent: Applebot
-Allow: /
-Allow: /seo/
-
-User-agent: DuckDuckBot
-Allow: /
-Allow: /seo/
-
-# Host & sitemap
-Host: https://triplem.vip
 Sitemap: https://triplem.vip/sitemap.xml
