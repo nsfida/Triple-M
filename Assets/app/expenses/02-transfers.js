@@ -634,6 +634,39 @@ function normalizeSectionCsvKey(section){
   return s;
 }
 
+function installmentCsvRowHasSourceIdentity(entry){
+  if (!entry) return false;
+  const direction = String(entry.direction || "").trim().toLowerCase();
+  // Installment plans are always stored as taken. Never reinterpret a Loans Given row.
+  if (direction && direction !== "taken") return false;
+
+  const notes = String(entry.notes || "");
+  const domainTable = String(entry.domain_table || "").trim().toLowerCase();
+  const hasDomainIdentity = domainTable === "installment_plans" || domainTable === "installment_payments";
+  const hasMetaIdentity = /\[(?:ICNT|IAMT|ILAST|IFREQ|ISTART|IALLOC|IDOWN|IFIN|IPTYPE):/i.test(notes);
+  return hasInstallmentTag(notes) || hasDomainIdentity || hasMetaIdentity;
+}
+
+function filterInstallmentCsvRowsByGroupIntegrity(entries){
+  const list = Array.isArray(entries) ? entries : [];
+  const importedPrincipalGroups = new Set(
+    list
+      .filter(entry => entry?.entry_kind === "principal" && entry.group_id)
+      .map(entry => String(entry.group_id))
+  );
+  const existingPrincipalGroups = new Set(
+    state.entries
+      .filter(entry => entry?.entry_kind === "principal" && entryBelongsToLedgerScope(entry, LEDGER_SCOPE_INSTALLMENTS) && entry.group_id)
+      .map(entry => String(entry.group_id))
+  );
+
+  return list.filter(entry => {
+    if (entry?.entry_kind === "principal") return true;
+    const groupId = String(entry?.group_id || "").trim();
+    return !!groupId && (importedPrincipalGroups.has(groupId) || existingPrincipalGroups.has(groupId));
+  });
+}
+
 function ensureEntryTagsForSection(entry, scope){
   const row = { ...entry };
   if (scope === LEDGER_SCOPE_INSTALLMENTS) {
@@ -1861,13 +1894,37 @@ async function importSectionCsv(file, sectionKey){
     await loadLedgerScopeFromSupabase(scope, { force: true }).catch(() => {});
   }
 
+  // Critical safety rule: validate Installment source identity BEFORE adding section tags.
+  // Previously every uploaded row was first forced to direction=taken + [INSTALLMENT], which
+  // could silently convert unrelated loan rows into installment plans.
+  if (scope === LEDGER_SCOPE_INSTALLMENTS) {
+    const sourceRows = parsed.filter(installmentCsvRowHasSourceIdentity);
+    const rejected = parsed.length - sourceRows.length;
+    if (rejected > 0) {
+      console.warn(`Installment CSV import rejected ${rejected} row(s) without installment source identity.`);
+    }
+    parsed = sourceRows;
+    if (!parsed.length) {
+      throw new Error("No genuine installment rows were found in this CSV. Loan or unrelated rows were not imported.");
+    }
+  }
+
   parsed = assignMissingIdsAndGroupIds(parsed, { existingEntries: state.entries });
-  const prepared = parsed
+  let prepared = parsed
     .map(entry => ensureEntryTagsForSection(entry, scope))
     .filter(entry => entryBelongsToLedgerScope(entry, scope));
 
+  if (scope === LEDGER_SCOPE_INSTALLMENTS) {
+    const beforeIntegrityCheck = prepared.length;
+    prepared = filterInstallmentCsvRowsByGroupIntegrity(prepared);
+    const rejectedOrphans = beforeIntegrityCheck - prepared.length;
+    if (rejectedOrphans > 0) {
+      console.warn(`Installment CSV import rejected ${rejectedOrphans} orphan payment row(s) without a matching plan.`);
+    }
+  }
+
   if (!prepared.length) {
-    throw new Error("No rows matched this section after normalizing tags/direction. Check the CSV.");
+    throw new Error("No valid rows matched this section after validation. Check the CSV and try again.");
   }
 
   // Principals first so FK group_id targets exist in domain tables
