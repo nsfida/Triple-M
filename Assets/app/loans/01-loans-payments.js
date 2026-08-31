@@ -274,6 +274,153 @@ async function createPayment(form){
   state.modalInstallment = false;
 }
 
+function reconcileInstallmentPaymentRows(principalEntry, paymentEntries = []){
+  const principal = principalEntry || null;
+  if (!principal) throw new Error("Installment plan could not be found.");
+  const currency = principal.currency || "AED";
+  const payments = (paymentEntries || [])
+    .filter(entry => entry && entry.entry_kind !== "principal")
+    .slice();
+
+  const scheduled = hasInstallmentSchedule(principal);
+  if (scheduled) {
+    const remapped = remapInstallmentPaymentsToSchedule(principal, payments);
+    if (remapped.leftoverTotal > 0.00000001) {
+      throw new Error(`Payments exceed the installment plan by ${moneyText(remapped.leftoverTotal, currency)}.`);
+    }
+    const byId = new Map(remapped.remaps.map(row => [row.id, row]));
+    return payments.map(payment => {
+      if (isInstallmentDownPayment(payment)) return payment;
+      const mapped = byId.get(payment.id);
+      if (!mapped) return payment;
+      return {
+        ...payment,
+        entry_kind: mapped.entry_kind,
+        notes: mapped.notes
+      };
+    });
+  }
+
+  const principalMeta = installmentMetaFromNotes(principal.notes);
+  const downPayment = normalizeInstallmentDownPayment(
+    principal.principal_amount,
+    principalMeta.downPayment,
+    currency
+  );
+  const available = roundInstallmentMoney(
+    Math.max(Number(principal.principal_amount || 0) - downPayment, 0),
+    currency
+  );
+  const regularPayments = payments
+    .filter(payment => !isInstallmentDownPayment(payment))
+    .slice()
+    .sort((a, b) => dateStamp(a.action_date || a.created_at) - dateStamp(b.action_date || b.created_at));
+  const total = roundInstallmentMoney(
+    regularPayments.reduce((sum, payment) => sum + Number(payment.action_amount || 0), 0),
+    currency
+  );
+  if (total > available + 0.00000001) {
+    throw new Error(`Payments exceed the remaining plan amount by ${moneyText(total - available, currency)}.`);
+  }
+
+  let running = 0;
+  const updatedById = new Map();
+  for (const payment of regularPayments) {
+    running = roundInstallmentMoney(running + Number(payment.action_amount || 0), currency);
+    updatedById.set(payment.id, {
+      ...payment,
+      entry_kind: running >= available - 0.00000001 ? "full" : "partial",
+      notes: normalizeInstallmentNote(cleanInstallmentDisplayNote(payment.notes), true)
+    });
+  }
+  return payments.map(payment => updatedById.get(payment.id) || payment);
+}
+
+function applyInstallmentPaymentRows(groupId, rows, options = {}){
+  const nextById = new Map((rows || []).filter(row => row?.id).map(row => [row.id, row]));
+  state.entries = state.entries.map(entry => {
+    if (entry.group_id !== groupId || entry.entry_kind === "principal") return entry;
+    return nextById.get(entry.id) || entry;
+  });
+
+  if (isBackupMode()) return;
+  const label = options.label || "Installment payment";
+  for (const row of rows || []) {
+    if (!row?.id || isInstallmentDownPayment(row)) continue;
+    queueDatabasePatch(row.id, {
+      action_amount: row.action_amount,
+      action_date: row.action_date,
+      entry_kind: row.entry_kind,
+      notes: row.notes
+    }, label, row, { silent: true });
+  }
+}
+
+async function deleteInstallmentPayment(entryId){
+  const id = String(entryId || "").trim();
+  if (!id) return false;
+  if (!teamCapability("can_delete_entries")) {
+    alert("You do not have permission to delete entries.");
+    return false;
+  }
+
+  const entry = state.entries.find(row => row.id === id);
+  if (!entry || entry.entry_kind === "principal" || !hasInstallmentTag(entry.notes)) {
+    alert("Installment payment not found.");
+    return false;
+  }
+  if (isInstallmentDownPayment(entry)) {
+    alert("Change the down payment from Edit plan / schedule.");
+    return false;
+  }
+
+  const principal = state.entries.find(row => row.group_id === entry.group_id && row.entry_kind === "principal" && hasInstallmentTag(row.notes));
+  if (!principal) {
+    alert("Installment plan could not be found.");
+    return false;
+  }
+
+  const ok = await appConfirmDelete(
+    `Delete this installment payment of ${moneyText(entry.action_amount || 0, entry.currency)} dated ${displayDate(entry.action_date || "—")}? The remaining schedule will be recalculated automatically.`,
+    { title: "Delete installment payment?", confirmLabel: "Delete payment" }
+  );
+  if (!ok) return false;
+
+  const remainingPayments = state.entries.filter(row =>
+    row.group_id === entry.group_id &&
+    row.entry_kind !== "principal" &&
+    row.id !== entry.id &&
+    hasInstallmentTag(row.notes) &&
+    !hasDeletedTag(row.notes)
+  );
+  const reconciled = reconcileInstallmentPaymentRows(principal, remainingPayments);
+
+  addToRecycleBin(entry);
+  unmarkDbSnapshotRows([entry]);
+  state.entries = state.entries.filter(row => row.id !== entry.id);
+  applyInstallmentPaymentRows(entry.group_id, reconciled, { label: "Installment payment delete" });
+
+  if (!isBackupMode()) {
+    persistDeleteEntry(entry, { label: "Installment payment delete" }).catch(err => {
+      console.error("Installment payment delete sync failed.", err);
+    });
+  }
+
+  if (typeof invalidateDashboardSummary === "function") {
+    invalidateDashboardSummary({ refreshIfVisible: true });
+  }
+  if (isBackupMode()) refreshBackupView();
+  else renderAll();
+  renderRecycleBinDropdown();
+  logCompanyActivity(
+    "delete",
+    "installments",
+    `Deleted installment payment for "${principal.person_name || "Installment plan"}" (${moneyText(entry.action_amount || 0, entry.currency)})`,
+    { entityType: "installment_payment", entityId: entry.id, meta: { groupId: entry.group_id } }
+  );
+  return true;
+}
+
 async function submitEdit(){
   const id = state.editId;
   if (!id) return;
@@ -288,6 +435,49 @@ async function submitEdit(){
   const amt = finiteMoney(document.getElementById('editAmount').value);
   const dt = document.getElementById('editDate').value;
   const nt = document.getElementById('editNotes').value.trim() || null;
+
+  const editingInstallmentPayment =
+    currentEntry.entry_kind !== "principal" &&
+    hasInstallmentTag(currentEntry.notes) &&
+    !hasGoodsTag(currentEntry.notes) &&
+    !hasExpenseAccountTag(currentEntry.notes) &&
+    !isInstallmentDownPayment(currentEntry);
+
+  if (editingInstallmentPayment) {
+    if (!(amt > 0) || !dt) throw new Error("Complete required fields.");
+    const principal = state.entries.find(entry =>
+      entry.group_id === currentEntry.group_id &&
+      entry.entry_kind === "principal" &&
+      hasInstallmentTag(entry.notes)
+    );
+    if (!principal) throw new Error("Installment plan could not be found.");
+
+    const editedPayment = {
+      ...currentEntry,
+      action_amount: roundInstallmentMoney(amt, currentEntry.currency),
+      action_date: dt,
+      notes: normalizeInstallmentNote(cleanInstallmentDisplayNote(nt), true)
+    };
+    const draftPayments = state.entries
+      .filter(entry =>
+        entry.group_id === currentEntry.group_id &&
+        entry.entry_kind !== "principal" &&
+        hasInstallmentTag(entry.notes) &&
+        !hasDeletedTag(entry.notes)
+      )
+      .map(entry => entry.id === currentEntry.id ? editedPayment : entry);
+    const reconciled = reconcileInstallmentPaymentRows(principal, draftPayments);
+    const reconciledCurrent = reconciled.find(row => row.id === currentEntry.id) || editedPayment;
+
+    state.entries = state.entries.map(entry => entry.id === currentEntry.id ? editedPayment : entry);
+    applyInstallmentPaymentRows(currentEntry.group_id, reconciled, { label: "Installment payment edit" });
+
+    closeModal("editModal");
+    if (isBackupMode()) refreshBackupView();
+    else renderAll();
+    logEntryUpdated(reconciledCurrent);
+    return;
+  }
 
   if(state.editKind === "principal"){
     const nm = document.getElementById('editName').value.trim();
