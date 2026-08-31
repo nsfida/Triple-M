@@ -27441,3 +27441,163 @@ html[data-triplem-theme] .inquiry-close-btn:focus-visible{
   border-color:color-mix(in srgb,var(--primary) 42%,var(--line)) !important;
 }
 
+/* ========================================================================== */
+/* 2026-08-31 overlay parity pass: installment schedule + app info + inquiry. */
+/* Keep these body-level overlays on the active workspace theme while Default */
+/* remains optically pure white with only a restrained glass treatment.       */
+/* ========================================================================== */
+
+/* Installment schedule is mounted outside #app, so legacy literal whites must
+   be normalized here instead of relying on authenticated #app descendants. */
+html[data-triplem-theme] #installmentPlanModal .installment-plan-dialog{
+  color:var(--text) !important;
+  border-color:var(--line) !important;
+}
+html[data-triplem-theme] #installmentPlanModal .installment-plan-dialog :is(
+  .installment-plan-dialog-title h3,.ipo-summary strong,.ipo-row-main strong,.ipo-row-amt strong
+){color:var(--text) !important;}
+html[data-triplem-theme] #installmentPlanModal .installment-plan-dialog :is(
+  .installment-plan-dialog-title p,.ipo-summary small,.ipo-progress-meta,.ipo-muted,.ipo-row-amt em
+){color:var(--muted) !important;}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .installment-plan-dialog{
+  background:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
+  background-image:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass)) !important;
+  border-color:color-mix(in srgb,var(--glass-border) 72%,transparent) !important;
+  box-shadow:var(--shadow-strong) !important;
+  backdrop-filter:blur(20px) saturate(1.06);
+  -webkit-backdrop-filter:blur(20px) saturate(1.06);
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal :is(
+  .ipo-summary > div,.ipo-row,.ip-empty
+){
+  background:var(--surface-glass) !important;
+  background-image:none !important;
+  border-color:var(--line) !important;
+  color:var(--text) !important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .ipo-tabs{
+  background:var(--control-bg) !important;
+  border:1px solid var(--line) !important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .ipo-tab{
+  background:transparent !important;
+  color:var(--muted) !important;
+  box-shadow:none !important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .ipo-tab:hover{
+  background:var(--control-hover) !important;
+  color:var(--text) !important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .ipo-tab.active{
+  background:var(--surface-elevated) !important;
+  color:var(--text) !important;
+  box-shadow:inset 0 1px 0 var(--glass-highlight),0 1px 5px color-mix(in srgb,var(--text) 10%,transparent) !important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .ip-progress-track{
+  background:var(--surface-elevated) !important;
+  border-color:var(--line) !important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #installmentPlanModal .ip-progress-fill{
+  background:var(--primary) !important;
+}
+
+/* Default installment overlay: white, not grey, with subtle translucency. */
+html[data-triplem-theme="default"] #installmentPlanModal .installment-plan-dialog{
+  background:linear-gradient(160deg,rgba(255,255,255,.995),rgba(255,255,255,.965)) !important;
+  background-image:linear-gradient(160deg,rgba(255,255,255,.995),rgba(255,255,255,.965)) !important;
+  border-color:rgba(148,163,184,.20) !important;
+  box-shadow:0 20px 48px rgba(15,23,42,.13) !important;
+  backdrop-filter:blur(18px) saturate(1.04);
+  -webkit-backdrop-filter:blur(18px) saturate(1.04);
+}
+html[data-triplem-theme="default"] #installmentPlanModal .ipo-summary > div,
+html[data-triplem-theme="default"] #installmentPlanModal .ipo-row,
+html[data-triplem-theme="default"] #installmentPlanModal .ip-empty{
+  background:rgba(255,255,255,.94) !important;
+  background-image:none !important;
+  border-color:rgba(148,163,184,.16) !important;
+  color:var(--text) !important;
+}
+html[data-triplem-theme="default"] #installmentPlanModal .ipo-tabs{
+  background:rgba(248,250,252,.74) !important;
+  border:1px solid rgba(148,163,184,.14) !important;
+}
+html[data-triplem-theme="default"] #installmentPlanModal .ipo-tab{color:var(--muted) !important;}
+html[data-triplem-theme="default"] #installmentPlanModal .ipo-tab.active{
+  background:#fff !important;
+  color:var(--text) !important;
+  box-shadow:0 1px 4px rgba(15,23,42,.08) !important;
+}
+
+/* Authenticated About / Information overlay: Default must read as pure white,
+   while retaining the soft depth of the glass system. */
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay .landing-content-sheet{
+  background:linear-gradient(160deg,rgba(255,255,255,.995),rgba(255,255,255,.965)) !important;
+  border-color:rgba(148,163,184,.20) !important;
+  color:#17212b !important;
+  box-shadow:0 22px 54px rgba(15,23,42,.13) !important;
+  backdrop-filter:blur(20px) saturate(1.04);
+  -webkit-backdrop-filter:blur(20px) saturate(1.04);
+}
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay :is(
+  .landing-content-head,.landing-content-tabs,.landing-content-body
+){color:#17212b !important;}
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay .landing-content-body :is(
+  h1,h2,h3,h4,h5,h6,strong,summary
+){color:#17212b !important;}
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay .landing-content-body :is(
+  p,li,small,.muted,.help
+){color:#667085 !important;}
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay :is(
+  .showcase-card,.landing-card,.pricing-panel,.pricing-plan,.landing-service-row article,
+  .landing-policy-grid article,.landing-about-card,.faq-list details,.landing-demo-wallet,
+  .landing-demo-mock-card,.landing-demo-inventory,.landing-overlay-kpi,.landing-overlay-activity,
+  .landing-demo-invoice-mock,.landing-demo-support-panel,.landing-demo-support-strip,.landing-demo-audit-mock,
+  .landing-demo-audit-table,.landing-demo-audit-metrics > div,.landing-demo-invoice-lines li
+){
+  background:rgba(255,255,255,.90) !important;
+  background-image:none !important;
+  border-color:rgba(148,163,184,.16) !important;
+  color:#17212b !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.92) !important;
+}
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay .landing-content-tab:not([aria-selected="true"]):not(.is-active),
+html[data-triplem-theme="default"] .landing-content-overlay.is-app-overlay .landing-content-close{
+  background:rgba(255,255,255,.90) !important;
+  border-color:rgba(148,163,184,.18) !important;
+}
+
+/* Request Access overlay: use a crisp white glass sheet in Default rather than
+   allowing the translucent token stack to pick up a grey backdrop cast. */
+html[data-triplem-theme="default"] .inquiry-modal{
+  background:linear-gradient(160deg,rgba(255,255,255,.995),rgba(255,255,255,.965)) !important;
+  border-color:rgba(148,163,184,.20) !important;
+  color:#17212b !important;
+  box-shadow:0 22px 54px rgba(15,23,42,.13) !important;
+  backdrop-filter:blur(20px) saturate(1.04);
+  -webkit-backdrop-filter:blur(20px) saturate(1.04);
+}
+html[data-triplem-theme="default"] .inquiry-header{
+  background:rgba(255,255,255,.78) !important;
+  border-color:rgba(148,163,184,.16) !important;
+}
+html[data-triplem-theme="default"] .inquiry-modal :is(.form-label,label,strong){color:#17212b !important;}
+html[data-triplem-theme="default"] .inquiry-modal :is(p,small,.help){color:#667085 !important;}
+html[data-triplem-theme="default"] #inquiryForm .input{
+  color:#17212b !important;
+  background:rgba(255,255,255,.94) !important;
+  border-color:rgba(148,163,184,.20) !important;
+}
+html[data-triplem-theme="default"] #inquiryForm .input:focus{
+  background:#fff !important;
+  border-color:rgba(36,87,214,.38) !important;
+  box-shadow:0 0 0 3px rgba(36,87,214,.09) !important;
+}
+html[data-triplem-theme="default"] #inquiryForm .input::placeholder,
+html[data-triplem-theme="default"] #inquiryForm .input-icon{color:#667085 !important;}
+html[data-triplem-theme="default"] .inquiry-close-btn{
+  color:#17212b !important;
+  background:rgba(255,255,255,.94) !important;
+  border-color:rgba(148,163,184,.20) !important;
+}
+
