@@ -250,6 +250,12 @@ function renderInstallmentPlanOverlayBody(plan){
     const allocText = alloc.length
       ? alloc.map(a => `#${a.index}`).join(" · ")
       : (isDownPayment ? "Before schedule" : (schedule ? "—" : "Balance"));
+    const paymentActions = !isDownPayment && row.id
+      ? `<div class="card-action-grid" role="group" aria-label="Payment actions">
+          ${teamCanShowEdit("entries") ? `<button class="icon-btn ghost installmentPaymentEditBtn" type="button" data-payment-id="${escapeHtml(row.id)}" title="Edit payment" aria-label="Edit payment"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></button>` : ""}
+          ${teamCanShowDelete("entries") ? `<button class="icon-btn ghost installmentPaymentDeleteBtn" type="button" data-payment-id="${escapeHtml(row.id)}" data-group-id="${escapeHtml(plan.group_id)}" title="Delete payment" aria-label="Delete payment"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
+        </div>`
+      : "";
     return `
       <div class="ipo-row">
         <div class="ipo-row-main">
@@ -257,7 +263,10 @@ function renderInstallmentPlanOverlayBody(plan){
           <span>${escapeHtml(isDownPayment ? "Down payment" : (row.entry_kind === "full" ? "Final" : "Partial"))}</span>
           <span class="ipo-muted">${escapeHtml(allocText)}</span>
         </div>
-        <div class="ipo-row-amt"><strong>${money(row.action_amount || 0, currency)}</strong></div>
+        <div class="ipo-row-amt">
+          <strong>${money(row.action_amount || 0, currency)}</strong>
+          ${paymentActions}
+        </div>
       </div>
     `;
   }).join("") || `<div class="ip-empty">No payments yet.</div>`;
@@ -336,6 +345,27 @@ function openInstallmentPlanOverlay(groupId){
     btn.addEventListener("click", () => {
       closeModal("installmentPlanModal");
       openInstallmentPaymentModal(btn.dataset.groupId, Number(btn.dataset.amount || 0));
+    });
+  });
+  els.installmentPlanBody.querySelectorAll(".installmentPaymentEditBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      closeModal("installmentPlanModal");
+      openEditModal(btn.dataset.paymentId);
+    });
+  });
+  els.installmentPlanBody.querySelectorAll(".installmentPaymentDeleteBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const groupId = btn.dataset.groupId;
+      const deleted = await deleteInstallmentPayment(btn.dataset.paymentId);
+      if (!deleted) return;
+      const refreshedPlan = getInstallmentPlanGroup(groupId);
+      if (!refreshedPlan) {
+        closeModal("installmentPlanModal");
+        return;
+      }
+      openInstallmentPlanOverlay(groupId);
+      const paymentsTab = els.installmentPlanBody.querySelector('[data-ipo-tab="payments"]');
+      if (paymentsTab) paymentsTab.click();
     });
   });
 
@@ -2101,6 +2131,13 @@ function openEditModal(id) {
   }
   state.editId = id;
   state.editKind = entry.entry_kind;
+  const isInstallmentPayment = entry.entry_kind !== "principal" && hasInstallmentTag(entry.notes) && !isInstallmentDownPayment(entry);
+  const editHeadTitle = els.editModal?.querySelector(".modal-head h3");
+  const editHeadDesc = els.editModal?.querySelector(".modal-head p");
+  if (editHeadTitle) editHeadTitle.textContent = isInstallmentPayment ? "Edit installment payment" : "Edit entry";
+  if (editHeadDesc) editHeadDesc.textContent = isInstallmentPayment
+    ? "Update this payment. The remaining installment schedule will recalculate automatically."
+    : "Update the record details below.";
   const isExpenseAccountPrincipal = entry.entry_kind === "principal" && hasExpenseAccountTag(entry.notes);
   const accountTypeGroup = document.getElementById("editAccountTypeGroup");
   const accountTypeSelect = document.getElementById("editAccountType");
@@ -2155,7 +2192,7 @@ function openEditModal(id) {
   }
   document.getElementById('editNotes').value = hasExpenseAccountTag(entry.notes)
     ? cleanExpenseNoteForEdit(entry.notes)
-    : (entry.notes || "");
+    : (isInstallmentPayment ? cleanInstallmentDisplayNote(entry.notes) : (entry.notes || ""));
   syncEditTaxControls(entry);
 
   els.editModal.classList.remove("hide");
