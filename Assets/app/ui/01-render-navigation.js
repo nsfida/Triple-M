@@ -53,7 +53,7 @@ function renderInstallmentPlans(){
     const statusClass = installmentStatusBadgeClass(status);
     const downPayment = Number(plan.downPayment || schedule?.downPayment || 0);
     const monthlyLabel = schedule
-      ? `${moneyText(schedule.installmentAmount, plan.currency)}${schedule.lastAmount !== schedule.installmentAmount ? ` · last ${moneyText(schedule.lastAmount, plan.currency)}` : ""}`
+      ? `${money(schedule.installmentAmount, plan.currency)}${schedule.lastAmount !== schedule.installmentAmount ? ` · last ${money(schedule.lastAmount, plan.currency)}` : ""}`
       : "Open balance";
     const progressLabel = schedule
       ? `${schedule.paidCount}/${schedule.count} paid`
@@ -82,8 +82,8 @@ function renderInstallmentPlans(){
                 <span>${escapeHtml(displayDate(plan.loan_date || "—"))}</span>
                 <span>${currencySymbolHtml(plan.currency || "")}</span>
                 <span>${escapeHtml(progressLabel)}</span>
-                <span>${schedule ? `${escapeHtml(monthlyLabel)} / mo` : escapeHtml(monthlyLabel)}</span>
-                ${downPayment > 0 ? `<span>Down ${moneyText(downPayment, plan.currency)}</span>` : ""}
+                <span>${schedule ? `${monthlyLabel} / mo` : escapeHtml(monthlyLabel)}</span>
+                ${downPayment > 0 ? `<span>Down ${money(downPayment, plan.currency)}</span>` : ""}
               </div>
             </div>
             <div class="ip-card-actions">
@@ -236,7 +236,7 @@ function renderInstallmentPlanOverlayBody(plan){
           <div class="ipo-row-amt">
             <span>${money(slot.paid, currency)} / ${money(slot.scheduled, currency)}</span>
             ${slot.balance > 0.00000001
-              ? `<button class="tiny ghost installmentPayBalanceBtn" type="button" data-group-id="${escapeHtml(plan.group_id)}" data-amount="${slot.balance}">Pay ${moneyText(slot.balance, currency)}</button>`
+              ? `<button class="tiny ghost installmentPayBalanceBtn" type="button" data-group-id="${escapeHtml(plan.group_id)}" data-amount="${slot.balance}">Pay ${money(slot.balance, currency)}</button>`
               : `<em>Clear</em>`}
           </div>
         </div>
@@ -283,7 +283,7 @@ function renderInstallmentPlanOverlayBody(plan){
       <div class="ip-progress-track"><div class="ip-progress-fill" style="width:${paidPct}%"></div></div>
       <div class="ipo-progress-meta">
         <span>${paidPct}% · ${escapeHtml(progressLabel)}</span>
-        <span>${next ? `Next #${next.index} · ${moneyText(next.balance, currency)}` : (remaining > 0 ? "Open balance" : "Complete")}</span>
+        <span>${next ? `Next #${next.index} · ${money(next.balance, currency)}` : (remaining > 0 ? "Open balance" : "Complete")}</span>
       </div>
     </div>
     <div class="ipo-actions">
@@ -310,9 +310,9 @@ function openInstallmentPlanOverlay(groupId){
   if (els.installmentPlanDesc) {
     const started = displayDate(plan.loan_date || "—");
     const downPayment = Number(plan.downPayment || plan.schedule?.downPayment || 0);
-    els.installmentPlanDesc.textContent = plan.schedule
-      ? `${plan.schedule.count} installments${downPayment > 0 ? ` · down payment ${moneyText(downPayment, plan.currency)}` : ""} · started ${started}`
-      : `Legacy plan · started ${started}`;
+    els.installmentPlanDesc.innerHTML = plan.schedule
+      ? `${escapeHtml(String(plan.schedule.count))} installments${downPayment > 0 ? ` · down payment ${money(downPayment, plan.currency)}` : ""} · started ${escapeHtml(started)}`
+      : `Legacy plan · started ${escapeHtml(started)}`;
   }
   els.installmentPlanBody.innerHTML = renderInstallmentPlanOverlayBody(plan);
   els.installmentPlanBody.dataset.groupId = plan.group_id;
@@ -1004,8 +1004,10 @@ function openEntryModal(mode, direction, options = {}){
     }
     els.principalModalForm.reset();
     els.principalModalForm.querySelector('input[name="direction"]').value = direction;
+    const principalPersonLabel = document.getElementById("principalPersonLabel");
+    if (principalPersonLabel) principalPersonLabel.textContent = state.modalInstallment ? "Installment Plan Name" : "Person Name";
     els.principalModalForm.querySelector('input[name="person_name"]').placeholder =
-      state.modalInstallment ? "Lender / plan name" : (direction === "given" ? "Full name" : "Lender name");
+      state.modalInstallment ? "Installment plan name" : (direction === "given" ? "Full name" : "Lender name");
     setCurrencyChoice(els.principalModalForm, state.lastCurrency || "AED");
     if (principalDate) principalDate.value = todayISO();
     defaultDateInputs(els.principalModalForm);
@@ -1043,6 +1045,8 @@ function openEntryModal(mode, direction, options = {}){
       principalDate.removeAttribute("required");
     }
     els.paymentModalForm.reset();
+    const paymentRelatedLabel = document.getElementById("paymentRelatedLabel");
+    if (paymentRelatedLabel) paymentRelatedLabel.textContent = state.modalInstallment ? "Related Installment Plan" : "Related Loan";
     els.paymentModalForm.querySelector('input[name="direction"]').value = direction;
     els.multiEntryCount.value = 1;
     renderMultiEntries(1);
@@ -1070,7 +1074,10 @@ function openEntryModal(mode, direction, options = {}){
     if (selectedGroup) {
       const principalEntry = state.entries.find(e => e.group_id === selectedGroup && e.entry_kind === "principal");
       if (principalEntry) loanCurrency = principalEntry.currency;
-      if (options.groupId) els.modalLoanSelect.value = options.groupId;
+      if (options.groupId) {
+        els.modalLoanSelect.value = options.groupId;
+        syncCurrencySelectFonts(els.modalLoanSelect);
+      }
     }
     populateLoanWalletSelector(loanCurrency, document.getElementById("modalPaymentWalletSelect"));
     if (options.amount != null && Number(options.amount) > 0) {
@@ -1120,6 +1127,7 @@ function updateInstallmentPlanPreview(){
     lastAmount: scheduleMeta.lastAmount
   };
   previewInput.value = `${moneyText(amounts.installmentAmount, currency)} × ${count - 1} + last ${moneyText(amounts.lastAmount, currency)}`;
+  applyCurrencyFontClass(previewInput, currency);
   const sample = Array.from({ length: Math.min(count, 4) }, (_, i) => {
     const due = addMonthsToISODate(startDate, i);
     const amt = i === count - 1 ? amounts.lastAmount : amounts.installmentAmount;
@@ -1144,6 +1152,7 @@ function syncInstallmentPaymentFormFields(preferredGroupId = "", preferredAmount
   }
   if (preferredGroupId && els.modalLoanSelect) {
     els.modalLoanSelect.value = preferredGroupId;
+    syncCurrencySelectFonts(els.modalLoanSelect);
   }
   if (preferredAmount != null && Number(preferredAmount) > 0) {
     const amountInput = els.paymentModalForm?.querySelector('[name="action_amount_0"]');
@@ -1264,6 +1273,7 @@ function updateInstallmentEditPreview(){
   };
   if (monthlyInput) {
     monthlyInput.value = `${moneyText(amounts.installmentAmount, currency)} × ${count - 1} + last ${moneyText(amounts.lastAmount, currency)}`;
+    applyCurrencyFontClass(monthlyInput, currency);
   }
   const draftPrincipal = {
     ...(plan?.principal || {}),
@@ -2230,7 +2240,10 @@ function updateInventoryEditItemTotals(){
   const preview = document.getElementById("inventoryEditTaxPreview");
   const currency = String(form.querySelector('[name="currency"]')?.value || "AED");
   if (totalInput) totalInput.value = breakdown.total ? trimInventoryNumber(breakdown.total) : "";
-  if (preview) preview.textContent = formatTaxSummary(breakdown, currency);
+  if (preview) {
+    preview.textContent = formatTaxSummary(breakdown, currency);
+    applyCurrencyFontClass(preview, currency);
+  }
 }
 
 function syncInventoryEditItemCategoryFields(){
@@ -2578,6 +2591,7 @@ function updateEditTaxPreview(amountValue = null, currencyValue = null) {
   const rate = normalizeTaxRate(document.getElementById("editTaxRate")?.value);
   const mode = normalizeTaxMode(document.getElementById("editTaxMode")?.value);
   preview.textContent = formatTaxSummary(calculateTaxBreakdownFromGross(amount, rate, mode, applied), currency);
+  applyCurrencyFontClass(preview, currency);
 }
 
 function getEditTaxMeta(entry, amount) {
@@ -4086,7 +4100,7 @@ function dashboardHeroCardHtml(section, currency, data){
     return `
       <article class="dashboard-hero-card is-expenses" data-dashboard-hero-card="expenses">
         <small>Wallet balance</small>
-        <strong>${escapeHtml(data?.metrics?.balance || "—")}</strong>
+        <strong>${currencyTextHtml(data?.metrics?.balance || "—", currency)}</strong>
         <div class="dashboard-hero-meta">${escapeHtml(currency || "All currencies")} · ${escapeHtml(String(data?.metrics?.wallets || 0))} wallets</div>
       </article>
     `;
@@ -4095,7 +4109,7 @@ function dashboardHeroCardHtml(section, currency, data){
     return `
       <article class="dashboard-hero-card is-inventory" data-dashboard-hero-card="inventory">
         <small>Inventory profit</small>
-        <strong>${escapeHtml(data?.metrics?.profitTotal || "—")}</strong>
+        <strong>${currencyTextHtml(data?.metrics?.profitTotal || "—", currency)}</strong>
         <div class="dashboard-hero-meta">${escapeHtml(currency || "All currencies")} · ${escapeHtml(String(data?.metrics?.items || 0))} items</div>
       </article>
     `;
@@ -4105,7 +4119,7 @@ function dashboardHeroCardHtml(section, currency, data){
     return `
       <article class="dashboard-hero-card is-assets ${netTone}" data-dashboard-hero-card="assets">
         <small>Asset net P/L</small>
-        <strong>${escapeHtml(data?.metrics?.net || "—")}</strong>
+        <strong>${currencyTextHtml(data?.metrics?.net || "—", currency)}</strong>
         <div class="dashboard-hero-meta">${escapeHtml(currency || "All currencies")} · ${escapeHtml(String(data?.metrics?.active || 0))} active · ${escapeHtml(String(data?.metrics?.assets || 0))} total</div>
       </article>
     `;
@@ -4114,8 +4128,8 @@ function dashboardHeroCardHtml(section, currency, data){
     return `
       <article class="dashboard-hero-card is-loans" data-dashboard-hero-card="loans">
         <small>Loans outstanding</small>
-        <strong>${escapeHtml(data?.metrics?.givenOpen || "—")}</strong>
-        <div class="dashboard-hero-meta">Given open · Taken open ${escapeHtml(data?.metrics?.takenOpen || "—")}</div>
+        <strong>${currencyTextHtml(data?.metrics?.givenOpen || "—", currency)}</strong>
+        <div class="dashboard-hero-meta">Given open · Taken open ${currencyTextHtml(data?.metrics?.takenOpen || "—", currency)}</div>
       </article>
     `;
   }
@@ -4153,19 +4167,19 @@ function updateDashboardHeroCard(root, section, currency, data){
   const strong = card.querySelector("strong");
   const meta = card.querySelector(".dashboard-hero-meta");
   if (section === "expenses") {
-    if (strong) strong.textContent = data?.metrics?.balance || "—";
+    if (strong) { strong.textContent = data?.metrics?.balance || "—"; applyCurrencyFontClass(strong, currency); }
     if (meta) meta.textContent = `${currency || "All currencies"} · ${data?.metrics?.wallets || 0} wallets`;
   } else if (section === "inventory") {
-    if (strong) strong.textContent = data?.metrics?.profitTotal || "—";
+    if (strong) { strong.textContent = data?.metrics?.profitTotal || "—"; applyCurrencyFontClass(strong, currency); }
     if (meta) meta.textContent = `${currency || "All currencies"} · ${data?.metrics?.items || 0} items`;
   } else if (section === "assets") {
-    if (strong) strong.textContent = data?.metrics?.net || "—";
+    if (strong) { strong.textContent = data?.metrics?.net || "—"; applyCurrencyFontClass(strong, currency); }
     if (meta) meta.textContent = `${currency || "All currencies"} · ${data?.metrics?.active || 0} active · ${data?.metrics?.assets || 0} total`;
     card.classList.toggle("is-up", Number(data?.metrics?.netValue || 0) >= 0);
     card.classList.toggle("is-down", Number(data?.metrics?.netValue || 0) < 0);
   } else if (section === "loans") {
-    if (strong) strong.textContent = data?.metrics?.givenOpen || "—";
-    if (meta) meta.textContent = `Given open · Taken open ${data?.metrics?.takenOpen || "—"}`;
+    if (strong) { strong.textContent = data?.metrics?.givenOpen || "—"; applyCurrencyFontClass(strong, currency); }
+    if (meta) { meta.textContent = `Given open · Taken open ${data?.metrics?.takenOpen || "—"}`; applyCurrencyFontClass(meta, currency); }
   } else {
     if (strong) strong.textContent = `${data?.metrics?.progressPct ?? 0}%`;
     if (meta) meta.textContent = `${data?.metrics?.active || 0} active · ${data?.metrics?.overdue || 0} overdue`;
@@ -4180,9 +4194,9 @@ function dashboardSectionMetricsHtml(section, data){
     return [
       sectionDetailsMetricHtml("Wallets", escapeHtml(String(data.metrics.wallets)), "primary"),
       sectionDetailsMetricHtml("Active", escapeHtml(String(data.metrics.activeWallets)), "success"),
-      sectionDetailsMetricHtml("Topped up", escapeHtml(data.metrics.toppedUp)),
-      sectionDetailsMetricHtml("Spent", escapeHtml(data.metrics.spent), "warning"),
-      sectionDetailsMetricHtml("Balance", escapeHtml(data.metrics.balance), "success")
+      sectionDetailsMetricHtml("Topped up", currencyTextHtml(data.metrics.toppedUp, data.selectedCurrency)),
+      sectionDetailsMetricHtml("Spent", currencyTextHtml(data.metrics.spent, data.selectedCurrency), "warning"),
+      sectionDetailsMetricHtml("Balance", currencyTextHtml(data.metrics.balance, data.selectedCurrency), "success")
     ].join("");
   }
   if (section === "inventory") {
@@ -4190,10 +4204,10 @@ function dashboardSectionMetricsHtml(section, data){
       sectionDetailsMetricHtml("Items", escapeHtml(String(data.metrics.items)), "primary"),
       sectionDetailsMetricHtml("In stock", escapeHtml(String(data.metrics.inStock)), "success"),
       sectionDetailsMetricHtml("Low stock", escapeHtml(String(data.metrics.lowStock)), "warning"),
-      sectionDetailsMetricHtml("Stock value", escapeHtml(data.metrics.stockValue)),
-      sectionDetailsMetricHtml("Sales", escapeHtml(data.metrics.salesTotal)),
-      sectionDetailsMetricHtml("Profit", escapeHtml(data.metrics.profitTotal), "success"),
-      sectionDetailsMetricHtml("Customer balance", escapeHtml(data.metrics.outstanding), data.metrics.outstandingCount ? "warning" : "")
+      sectionDetailsMetricHtml("Stock value", currencyTextHtml(data.metrics.stockValue, data.selectedCurrency)),
+      sectionDetailsMetricHtml("Sales", currencyTextHtml(data.metrics.salesTotal, data.selectedCurrency)),
+      sectionDetailsMetricHtml("Profit", currencyTextHtml(data.metrics.profitTotal, data.selectedCurrency), "success"),
+      sectionDetailsMetricHtml("Customer balance", currencyTextHtml(data.metrics.outstanding, data.selectedCurrency), data.metrics.outstandingCount ? "warning" : "")
     ].join("");
   }
   if (section === "assets") {
@@ -4201,32 +4215,32 @@ function dashboardSectionMetricsHtml(section, data){
       sectionDetailsMetricHtml("Assets", escapeHtml(String(data.metrics.assets)), "primary"),
       sectionDetailsMetricHtml("Active", escapeHtml(String(data.metrics.active)), "success"),
       sectionDetailsMetricHtml("Sold", escapeHtml(String(data.metrics.sold))),
-      sectionDetailsMetricHtml("Invested", escapeHtml(data.metrics.invested), "warning"),
-      sectionDetailsMetricHtml("Revenue", escapeHtml(data.metrics.revenue), "success"),
-      sectionDetailsMetricHtml("Net P/L", escapeHtml(data.metrics.net), Number(data.metrics.netValue || 0) >= 0 ? "success" : "danger")
+      sectionDetailsMetricHtml("Invested", currencyTextHtml(data.metrics.invested, data.selectedCurrency), "warning"),
+      sectionDetailsMetricHtml("Revenue", currencyTextHtml(data.metrics.revenue, data.selectedCurrency), "success"),
+      sectionDetailsMetricHtml("Net P/L", currencyTextHtml(data.metrics.net, data.selectedCurrency), Number(data.metrics.netValue || 0) >= 0 ? "success" : "danger")
     ];
     if (data.metrics.bookValue != null) {
-      rows.push(sectionDetailsMetricHtml("Depreciation book value", escapeHtml(data.metrics.bookValue)));
-      rows.push(sectionDetailsMetricHtml("Accumulated depreciation", escapeHtml(data.metrics.accumulatedDepreciation), "warning"));
+      rows.push(sectionDetailsMetricHtml("Depreciation book value", currencyTextHtml(data.metrics.bookValue, data.selectedCurrency)));
+      rows.push(sectionDetailsMetricHtml("Accumulated depreciation", currencyTextHtml(data.metrics.accumulatedDepreciation, data.selectedCurrency), "warning"));
     }
     return rows.join("");
   }
   if (section === "loans") {
     return [
       sectionDetailsMetricHtml("People", escapeHtml(String(data.metrics.people)), "primary"),
-      sectionDetailsMetricHtml("Given open", escapeHtml(data.metrics.givenOpen), "warning"),
-      sectionDetailsMetricHtml("Taken open", escapeHtml(data.metrics.takenOpen), "danger"),
-      sectionDetailsMetricHtml("Received back", escapeHtml(data.metrics.givenPaid), "success"),
-      sectionDetailsMetricHtml("Returned back", escapeHtml(data.metrics.takenPaid), "success")
+      sectionDetailsMetricHtml("Given open", currencyTextHtml(data.metrics.givenOpen, data.selectedCurrency), "warning"),
+      sectionDetailsMetricHtml("Taken open", currencyTextHtml(data.metrics.takenOpen, data.selectedCurrency), "danger"),
+      sectionDetailsMetricHtml("Received back", currencyTextHtml(data.metrics.givenPaid, data.selectedCurrency), "success"),
+      sectionDetailsMetricHtml("Returned back", currencyTextHtml(data.metrics.takenPaid, data.selectedCurrency), "success")
     ].join("");
   }
   return [
     sectionDetailsMetricHtml("Plans", escapeHtml(String(data.metrics.plans)), "primary"),
     sectionDetailsMetricHtml("Active", escapeHtml(String(data.metrics.active)), "success"),
     sectionDetailsMetricHtml("Overdue", escapeHtml(String(data.metrics.overdue)), data.metrics.overdue ? "danger" : ""),
-    sectionDetailsMetricHtml("Principal", escapeHtml(data.metrics.principal)),
-    sectionDetailsMetricHtml("Paid", escapeHtml(data.metrics.paid), "success"),
-    sectionDetailsMetricHtml("Remaining", escapeHtml(data.metrics.remaining), "warning"),
+    sectionDetailsMetricHtml("Principal", currencyTextHtml(data.metrics.principal, data.selectedCurrency)),
+    sectionDetailsMetricHtml("Paid", currencyTextHtml(data.metrics.paid, data.selectedCurrency), "success"),
+    sectionDetailsMetricHtml("Remaining", currencyTextHtml(data.metrics.remaining, data.selectedCurrency), "warning"),
     sectionDetailsMetricHtml("Progress", escapeHtml(`${data.metrics.progressPct}%`), "primary")
   ].join("");
 }
@@ -4272,9 +4286,9 @@ function dashboardAssetsDetailsTableHtml(data){
               return `<tr>
                 <td><strong>${escapeHtml(a.name || "Asset")}</strong><div class="help">${escapeHtml(typeLabel)}</div></td>
                 <td>${escapeHtml(statusLabel)}</td>
-                <td class="num">${escapeHtml(fmt(s.investedSpent || 0))}</td>
-                <td class="num">${escapeHtml(fmt(s.revenue || 0))}</td>
-                <td class="num ${netClass}">${escapeHtml(fmt(net))}</td>
+                <td class="num">${currencyTextHtml(fmt(s.investedSpent || 0), cur)}</td>
+                <td class="num">${currencyTextHtml(fmt(s.revenue || 0), cur)}</td>
+                <td class="num ${netClass}">${currencyTextHtml(fmt(net), cur)}</td>
               </tr>`;
             }).join("")}
           </tbody>
@@ -4342,11 +4356,11 @@ function dashboardSectionBlockHtml(section, currency, data, opts = {}){
     <div class="dashboard-loan-split" data-dashboard-loan-split>
       <div class="dashboard-loan-pill is-given">
         <small>Given · principal / open</small>
-        <strong data-dashboard-loan-given>${escapeHtml(data?.metrics?.givenPrincipal || "—")} · ${escapeHtml(data?.metrics?.givenOpen || "—")}</strong>
+        <strong data-dashboard-loan-given>${currencyTextHtml(data?.metrics?.givenPrincipal || "—", currency)} · ${currencyTextHtml(data?.metrics?.givenOpen || "—", currency)}</strong>
       </div>
       <div class="dashboard-loan-pill is-taken">
         <small>Taken · principal / open</small>
-        <strong data-dashboard-loan-taken>${escapeHtml(data?.metrics?.takenPrincipal || "—")} · ${escapeHtml(data?.metrics?.takenOpen || "—")}</strong>
+        <strong data-dashboard-loan-taken>${currencyTextHtml(data?.metrics?.takenPrincipal || "—", currency)} · ${currencyTextHtml(data?.metrics?.takenOpen || "—", currency)}</strong>
       </div>
     </div>
   ` : "";
@@ -4653,10 +4667,10 @@ function refreshDashboardSection(sectionKey, { soft = false, currencyHint = "" }
   const givenEl = block.querySelector("[data-dashboard-loan-given]");
   const takenEl = block.querySelector("[data-dashboard-loan-taken]");
   if (givenEl && data?.metrics) {
-    givenEl.textContent = `${data.metrics.givenPrincipal || "—"} · ${data.metrics.givenOpen || "—"}`;
+    givenEl.innerHTML = `${currencyTextHtml(data.metrics.givenPrincipal || "—", currency)} · ${currencyTextHtml(data.metrics.givenOpen || "—", currency)}`;
   }
   if (takenEl && data?.metrics) {
-    takenEl.textContent = `${data.metrics.takenPrincipal || "—"} · ${data.metrics.takenOpen || "—"}`;
+    takenEl.innerHTML = `${currencyTextHtml(data.metrics.takenPrincipal || "—", currency)} · ${currencyTextHtml(data.metrics.takenOpen || "—", currency)}`;
   }
 
   const metrics = block.querySelector("[data-dashboard-metrics]");
@@ -5066,7 +5080,7 @@ function walletDetailsActivityHtml(data){
           <strong>${escapeHtml(ev.label)}</strong>
           <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(ev.note || "—")}</span>
         </div>
-        <div class="section-details-activity-amt">${sign}${escapeHtml(formatReportAmount(Math.abs(ev.amount), currency))}</div>
+        <div class="section-details-activity-amt">${sign}${money(Math.abs(ev.amount), currency)}</div>
       </div>
     `;
   }).join("");
@@ -5087,11 +5101,11 @@ function renderWalletDetailsOverlay(groupId){
   const inLabel = data.isBtcLive ? "Received" : "Topped up";
   const outLabel = data.isBtcLive ? "Sent" : "Spent";
   const metricsHtml = [
-    sectionDetailsMetricHtml("Balance", escapeHtml(formatReportAmount(m.balance, cur)), "success"),
-    sectionDetailsMetricHtml(inLabel, escapeHtml(formatReportAmount(m.toppedUp, cur)), "primary"),
-    sectionDetailsMetricHtml(outLabel, escapeHtml(formatReportAmount(m.spent, cur)), "warning"),
-    sectionDetailsMetricHtml("Transfers in", escapeHtml(formatReportAmount(m.transferIn, cur)), "success"),
-    sectionDetailsMetricHtml("Transfers out", escapeHtml(formatReportAmount(m.transferOut, cur)), "danger"),
+    sectionDetailsMetricHtml("Balance", money(m.balance, cur), "success"),
+    sectionDetailsMetricHtml(inLabel, money(m.toppedUp, cur), "primary"),
+    sectionDetailsMetricHtml(outLabel, money(m.spent, cur), "warning"),
+    sectionDetailsMetricHtml("Transfers in", money(m.transferIn, cur), "success"),
+    sectionDetailsMetricHtml("Transfers out", money(m.transferOut, cur), "danger"),
     sectionDetailsMetricHtml("Status", escapeHtml(m.status), m.status === "Open" ? "success" : ""),
     sectionDetailsMetricHtml("Currency", escapeHtml(cur || "—")),
     sectionDetailsMetricHtml("Type", escapeHtml(m.accountType || "—")),
@@ -5243,7 +5257,7 @@ async function openWalletDetailsOverlay(groupId){
     }
     if (els.sectionDetailsDesc) {
       const typeBit = account.accountType ? `${account.accountType} · ` : "";
-      els.sectionDetailsDesc.textContent = `${typeBit}${account.currency || "—"} · Balance ${formatReportAmount(account.balance, account.currency)}`;
+      els.sectionDetailsDesc.innerHTML = `${escapeHtml(typeBit)}${escapeHtml(account.currency || "—")} · Balance ${money(account.balance, account.currency)}`;
     }
     if (!sectionDetailsEnsureChartLib()) {
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
@@ -5435,7 +5449,7 @@ function inventoryItemActivityHtml(data){
           <strong>${escapeHtml(ev.label)}${qtyBit}</strong>
           <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(ev.note || "—")}</span>
         </div>
-        <div class="section-details-activity-amt">${escapeHtml(formatReportAmount(ev.amount, currency))}</div>
+        <div class="section-details-activity-amt">${money(ev.amount, currency)}</div>
       </div>
     `;
   }).join("");
@@ -5462,17 +5476,17 @@ function renderInventoryItemDetailsOverlay(groupId){
     sectionDetailsMetricHtml("Sold qty", escapeHtml(inventoryQtyLabel(m.soldQty, cat, g))),
     sectionDetailsMetricHtml("Remaining", escapeHtml(inventoryQtyLabel(m.remainingQty, cat, g)), data.stockStatus.tone),
     sectionDetailsMetricHtml("Status", escapeHtml(m.status), data.stockStatus.tone),
-    sectionDetailsMetricHtml("Unit cost", escapeHtml(formatReportAmount(m.unitCost, cur))),
-    sectionDetailsMetricHtml("Default sell", escapeHtml(formatReportAmount(m.unitSold, cur))),
-    sectionDetailsMetricHtml("Purchase total", escapeHtml(formatReportAmount(m.purchaseTotal, cur))),
-    sectionDetailsMetricHtml("Sales total", escapeHtml(formatReportAmount(m.salesTotal, cur)), "success"),
-    sectionDetailsMetricHtml(pnlLabel, escapeHtml(formatReportAmount(Math.abs(m.profitLoss), cur)), pnlTone),
-    sectionDetailsMetricHtml("Stock value", escapeHtml(formatReportAmount(m.stockValue, cur))),
-    sectionDetailsMetricHtml("Paid", escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
-    sectionDetailsMetricHtml("Due", escapeHtml(formatReportAmount(m.balanceTotal, cur)), m.balanceTotal > 0 ? "warning" : ""),
-    sectionDetailsMetricHtml("Purchase VAT", escapeHtml(formatReportAmount(m.purchaseVat, cur))),
-    sectionDetailsMetricHtml("Sales VAT", escapeHtml(formatReportAmount(m.salesVat, cur))),
-    sectionDetailsMetricHtml("VAT total", escapeHtml(formatReportAmount(m.vatTotal, cur)))
+    sectionDetailsMetricHtml("Unit cost", money(m.unitCost, cur)),
+    sectionDetailsMetricHtml("Default sell", money(m.unitSold, cur)),
+    sectionDetailsMetricHtml("Purchase total", money(m.purchaseTotal, cur)),
+    sectionDetailsMetricHtml("Sales total", money(m.salesTotal, cur), "success"),
+    sectionDetailsMetricHtml(pnlLabel, money(Math.abs(m.profitLoss), cur), pnlTone),
+    sectionDetailsMetricHtml("Stock value", money(m.stockValue, cur)),
+    sectionDetailsMetricHtml("Paid", money(m.paidTotal, cur), "success"),
+    sectionDetailsMetricHtml("Due", money(m.balanceTotal, cur), m.balanceTotal > 0 ? "warning" : ""),
+    sectionDetailsMetricHtml("Purchase VAT", money(m.purchaseVat, cur)),
+    sectionDetailsMetricHtml("Sales VAT", money(m.salesVat, cur)),
+    sectionDetailsMetricHtml("VAT total", money(m.vatTotal, cur))
   ].join("");
 
   els.sectionDetailsBody.innerHTML = `
@@ -5708,7 +5722,7 @@ function loanDetailsActivityHtml(data){
           <strong>${escapeHtml(ev.label)}</strong>
           <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(String(ev.note || "—"))}</span>
         </div>
-        <div class="section-details-activity-amt">${escapeHtml(formatReportAmount(ev.amount, currency))}</div>
+        <div class="section-details-activity-amt">${money(ev.amount, currency)}</div>
       </div>
     `;
   }).join("");
@@ -5730,9 +5744,9 @@ function renderLoanDetailsOverlay(personName, direction){
   const paidLabel = data.direction === "given" ? "Received back" : "Returned back";
   const statusTone = m.status === "Closed" ? "success" : m.status === "Partial" ? "warning" : "primary";
   const metricsHtml = [
-    sectionDetailsMetricHtml("Principal", escapeHtml(formatReportAmount(m.principalTotal, cur)), "primary"),
-    sectionDetailsMetricHtml(paidLabel, escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
-    sectionDetailsMetricHtml("Remaining", escapeHtml(formatReportAmount(m.remaining, cur)), m.remaining > 0 ? "warning" : "success"),
+    sectionDetailsMetricHtml("Principal", money(m.principalTotal, cur), "primary"),
+    sectionDetailsMetricHtml(paidLabel, money(m.paidTotal, cur), "success"),
+    sectionDetailsMetricHtml("Remaining", money(m.remaining, cur), m.remaining > 0 ? "warning" : "success"),
     sectionDetailsMetricHtml("Status", escapeHtml(m.status), statusTone),
     sectionDetailsMetricHtml("Currency", escapeHtml(cur || "—")),
     sectionDetailsMetricHtml("Counterpart", escapeHtml(data.person_name || "—")),
@@ -5845,7 +5859,7 @@ function openLoanDetailsOverlay(personName, direction){
       els.sectionDetailsTitle.innerHTML = `<i class="fa-solid fa-user"></i><span class="section-details-title-text">${escapeHtml(data.person_name)}</span>`;
     }
     if (els.sectionDetailsDesc) {
-      els.sectionDetailsDesc.textContent = `${dirLabel} · ${data.metrics.status} · Remaining ${formatReportAmount(data.metrics.remaining, data.currency)} · ${data.currency || "—"}`;
+      els.sectionDetailsDesc.innerHTML = `${escapeHtml(dirLabel)} · ${escapeHtml(data.metrics.status)} · Remaining ${money(data.metrics.remaining, data.currency)} · ${escapeHtml(data.currency || "—")}`;
     }
     if (!sectionDetailsEnsureChartLib()) {
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
@@ -5951,7 +5965,7 @@ function installmentItemActivityHtml(data){
         <strong>${escapeHtml(ev.label)}</strong>
         <span>${escapeHtml(displayDate(ev.date))} · ${escapeHtml(ev.note || "—")}</span>
       </div>
-      <div class="section-details-activity-amt">${escapeHtml(formatReportAmount(ev.amount, currency))}</div>
+      <div class="section-details-activity-amt">${money(ev.amount, currency)}</div>
     </div>
   `).join("");
   return `<div class="section-details-activity">${rows}</div>`;
@@ -5971,16 +5985,16 @@ function renderInstallmentItemDetailsOverlay(groupId){
   const statusTone = m.completed ? "success" : m.overdue ? "danger" : "primary";
   const metricsHtml = [
     sectionDetailsMetricHtml("Progress", escapeHtml(`${m.progressPct}%`), "primary"),
-    sectionDetailsMetricHtml("Principal", escapeHtml(formatReportAmount(m.principalTotal, cur))),
-    ...(m.downPayment > 0 ? [sectionDetailsMetricHtml("Down payment", escapeHtml(formatReportAmount(m.downPayment, cur)), "success")] : []),
-    sectionDetailsMetricHtml("Paid", escapeHtml(formatReportAmount(m.paidTotal, cur)), "success"),
-    sectionDetailsMetricHtml("Remaining", escapeHtml(formatReportAmount(m.remaining, cur)), m.remaining > 0 ? "warning" : "success"),
+    sectionDetailsMetricHtml("Principal", money(m.principalTotal, cur)),
+    ...(m.downPayment > 0 ? [sectionDetailsMetricHtml("Down payment", money(m.downPayment, cur), "success")] : []),
+    sectionDetailsMetricHtml("Paid", money(m.paidTotal, cur), "success"),
+    sectionDetailsMetricHtml("Remaining", money(m.remaining, cur), m.remaining > 0 ? "warning" : "success"),
     sectionDetailsMetricHtml("Status", escapeHtml(m.status), statusTone),
     sectionDetailsMetricHtml("Currency", escapeHtml(cur || "—")),
     sectionDetailsMetricHtml("Counterpart", escapeHtml(data.plan.person_name || "—")),
     sectionDetailsMetricHtml("Installments", escapeHtml(m.installmentCount ? `${m.paidCount}/${m.installmentCount}` : String(m.paymentCount))),
     sectionDetailsMetricHtml("Next due", escapeHtml(m.nextDue ? displayDate(m.nextDue) : (m.completed ? "Complete" : "—"))),
-    sectionDetailsMetricHtml("Next amount", escapeHtml(m.nextAmount ? formatReportAmount(m.nextAmount, cur) : "—"))
+    sectionDetailsMetricHtml("Next amount", m.nextAmount ? money(m.nextAmount, cur) : "—")
   ].join("");
 
   const hasScheduleMix = (data.scheduleMix.paid + data.scheduleMix.open + data.scheduleMix.overdue) > 0;
