@@ -679,6 +679,13 @@ function inventoryOverviewAmountText(totals){
     : "0";
 }
 
+function inventoryOverviewAmountHtml(totals){
+  const rows = Object.entries(totals || {}).filter(([, amount]) => Number(amount || 0));
+  return rows.length
+    ? rows.map(([currency, amount]) => money(amount, currency)).join(' <span aria-hidden="true">|</span> ')
+    : "0";
+}
+
 function setMainOverviewHeading(mode){
   if (!els.mainOverview) return;
   const title = els.mainOverview.querySelector(".overview-top h2, .overview-top h3");
@@ -700,12 +707,24 @@ function renderInventoryOverviewCards(){
   const soldItemCount = goodsAll.filter(group => Number(group.soldQty || 0) > 0).length;
   const profitGroups = goodsAll.filter(group => Number(group.profitLoss || 0) > 0);
   const lossGroups = goodsAll.filter(group => Number(group.profitLoss || 0) < 0);
-  const purchaseTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.bought));
-  const salesTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.soldTotal));
-  const paidTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.paidTotal));
-  const balanceTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(goodsAll, group => group.balanceTotal));
-  const profitTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(profitGroups, group => Math.max(Number(group.profitLoss || 0), 0)));
-  const lossTotalText = inventoryOverviewAmountText(inventoryOverviewTotals(lossGroups, group => Math.abs(Number(group.profitLoss || 0))));
+  const purchaseTotals = inventoryOverviewTotals(goodsAll, group => group.bought);
+  const salesTotals = inventoryOverviewTotals(goodsAll, group => group.soldTotal);
+  const paidTotals = inventoryOverviewTotals(goodsAll, group => group.paidTotal);
+  const balanceTotals = inventoryOverviewTotals(goodsAll, group => group.balanceTotal);
+  const profitTotals = inventoryOverviewTotals(profitGroups, group => Math.max(Number(group.profitLoss || 0), 0));
+  const lossTotals = inventoryOverviewTotals(lossGroups, group => Math.abs(Number(group.profitLoss || 0)));
+  const purchaseTotalText = inventoryOverviewAmountText(purchaseTotals);
+  const salesTotalText = inventoryOverviewAmountText(salesTotals);
+  const paidTotalText = inventoryOverviewAmountText(paidTotals);
+  const balanceTotalText = inventoryOverviewAmountText(balanceTotals);
+  const profitTotalText = inventoryOverviewAmountText(profitTotals);
+  const lossTotalText = inventoryOverviewAmountText(lossTotals);
+  const purchaseTotalHtml = inventoryOverviewAmountHtml(purchaseTotals);
+  const salesTotalHtml = inventoryOverviewAmountHtml(salesTotals);
+  const paidTotalHtml = inventoryOverviewAmountHtml(paidTotals);
+  const balanceTotalHtml = inventoryOverviewAmountHtml(balanceTotals);
+  const profitTotalHtml = inventoryOverviewAmountHtml(profitTotals);
+  const lossTotalHtml = inventoryOverviewAmountHtml(lossTotals);
   const boughtQty = inventoryQtySummary(goodsAll, "boughtQty");
   const soldQty = inventoryQtySummary(goodsAll, "soldQty");
   const stockQty = inventoryQtySummary(goodsAll, "remainingQty");
@@ -716,7 +735,7 @@ function renderInventoryOverviewCards(){
       <div class="currency-head"><i class="fa-solid fa-boxes-stacked"></i></div>
       ${overviewOneLine("Purchased items:", `<strong>${escapeHtml(boughtCount)}</strong>`)}
       ${overviewOneLine("Purchase qty:", `<strong>${escapeHtml(boughtQty)}</strong>`)}
-      ${overviewOneLine("Purchase total:", `<strong>${escapeHtml(purchaseTotalText)}</strong>`)}
+      ${overviewOneLine("Purchase total:", `<strong>${purchaseTotalHtml}</strong>`)}
       ${overviewOneLine("In stock qty:", `<strong>${escapeHtml(stockQty)}</strong>`)}
       <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
         <button class="tiny ghost" onclick="window.location.href='#goodsPanel'">View Inventory</button>
@@ -728,24 +747,24 @@ function renderInventoryOverviewCards(){
       <div class="currency-head"><i class="fa-solid fa-cash-register"></i></div>
       ${overviewOneLine("Sold items:", `<strong>${escapeHtml(soldItemCount)}</strong>`)}
       ${overviewOneLine("Sold qty:", `<strong>${escapeHtml(soldQty)}</strong>`)}
-      ${overviewOneLine("Sales total:", `<strong>${escapeHtml(salesTotalText)}</strong>`)}
-      ${overviewOneLine("Paid total:", `<strong>${escapeHtml(paidTotalText)}</strong>`)}
+      ${overviewOneLine("Sales total:", `<strong>${salesTotalHtml}</strong>`)}
+      ${overviewOneLine("Paid total:", `<strong>${paidTotalHtml}</strong>`)}
     </div>
     <div class="summary currency-summary goods-overview">
       ${overviewWatermarkGoods()}
       <div class="currency-head"><i class="fa-solid fa-arrow-trend-up"></i></div>
       ${overviewOneLine("Profit items:", `<strong>${escapeHtml(profitGroups.length)}</strong>`)}
-      ${overviewOneLine("Profit total:", `<strong>${escapeHtml(profitTotalText)}</strong>`)}
-      ${overviewOneLine("Balance due:", `<strong>${escapeHtml(balanceTotalText)}</strong>`)}
+      ${overviewOneLine("Profit total:", `<strong>${profitTotalHtml}</strong>`)}
+      ${overviewOneLine("Balance due:", `<strong>${balanceTotalHtml}</strong>`)}
       ${overviewOneLine("Net stock:", `<strong>${escapeHtml(stockQty)}</strong>`)}
     </div>
     <div class="summary currency-summary goods-overview">
       ${overviewWatermarkGoods()}
       <div class="currency-head"><i class="fa-solid fa-arrow-trend-down"></i></div>
       ${overviewOneLine("Loss items:", `<strong>${escapeHtml(lossGroups.length)}</strong>`)}
-      ${overviewOneLine("Loss total:", `<strong>${escapeHtml(lossTotalText)}</strong>`)}
-      ${overviewOneLine("Sales total:", `<strong>${escapeHtml(salesTotalText)}</strong>`)}
-      ${overviewOneLine("Balance due:", `<strong>${escapeHtml(balanceTotalText)}</strong>`)}
+      ${overviewOneLine("Loss total:", `<strong>${lossTotalHtml}</strong>`)}
+      ${overviewOneLine("Sales total:", `<strong>${salesTotalHtml}</strong>`)}
+      ${overviewOneLine("Balance due:", `<strong>${balanceTotalHtml}</strong>`)}
       <div class="overview-card-actions" style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
         <button class="tiny ghost" onclick="downloadGoodsPDF()"><i class="fa-solid fa-download"></i></button>
       </div>
