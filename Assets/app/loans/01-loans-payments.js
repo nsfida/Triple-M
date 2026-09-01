@@ -47,6 +47,38 @@ function refreshBackupView(){
   applyEntries(state.entries, "backup");
 }
 
+async function createWalletEntryForInstallmentDownPayment(walletGroupId, amount, date, planName, currency) {
+  const value = finiteMoney(amount);
+  if (!walletGroupId || !(value > 0)) return;
+  const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletGroupId);
+  if (!account) throw new Error("Selected wallet was not found.");
+  if (account.currency === "BTC") throw new Error("BTC wallet balances and transactions are loaded directly from the blockchain.");
+  if (account.currency !== currency) throw new Error("Selected wallet currency does not match the installment currency.");
+  if (value > Number(account.balance || 0)) {
+    throw new Error(`Insufficient wallet balance. Available: ${formatReportAmount(account.balance, account.currency)}.`);
+  }
+
+  const payload = {
+    group_id: walletGroupId,
+    direction: "taken",
+    entry_kind: "partial",
+    person_name: account.person_name,
+    currency: account.currency,
+    principal_amount: null,
+    action_amount: value,
+    loan_date: account.principal?.loan_date || date,
+    action_date: date,
+    notes: upsertExpenseMetaInNote(`Installment down payment — ${planName}`, {
+      accountType: account.accountType,
+      rowType: "EXPENSE",
+      itemName: planName,
+      expenseType: "Installment Down Payment"
+    })
+  };
+
+  await saveEntriesImmediately(payload, { label: "Installment down payment wallet deduction", awaitSync: true });
+}
+
 async function createPrincipal(form){
   const fd = new FormData(form);
   const direction = String(fd.get("direction") || "");
@@ -94,8 +126,17 @@ async function createPrincipal(form){
   // Validate currency
   validateCurrencyForForm(fd);
 
-  // Validate wallet balance before saving (loan given = money out)
-  if (walletId && direction === "given") {
+  // Validate the linked wallet before saving. Loan Given deducts the full
+  // principal; an installment plan deducts only its optional down payment.
+  if (walletId && state.modalInstallment) {
+    if (!(downPayment > 0)) {
+      throw new Error("Enter a down payment amount before selecting a wallet, or choose Skip wallet entry.");
+    }
+    const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletId);
+    if (!account) throw new Error("Selected wallet was not found.");
+    if (account.currency !== payload.currency) throw new Error("Selected wallet currency does not match the installment currency.");
+    if (downPayment > account.balance) throw new Error(`Insufficient wallet balance. Available: ${formatReportAmount(account.balance, account.currency)}.`);
+  } else if (walletId && direction === "given") {
     const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === walletId);
     if (account) {
       if (account.currency !== payload.currency) throw new Error("Selected wallet currency does not match the loan currency.");
@@ -128,10 +169,15 @@ async function createPrincipal(form){
   // Create linked wallet entry (loan already saved — surface wallet sync failures clearly)
   if (walletId) {
     try {
-      await createWalletEntryForLoanPrincipal(walletId, payload.principal_amount, payload.loan_date, payload.person_name, direction, payload.currency);
+      if (state.modalInstallment) {
+        await createWalletEntryForInstallmentDownPayment(walletId, downPayment, payload.loan_date, payload.person_name, payload.currency);
+      } else {
+        await createWalletEntryForLoanPrincipal(walletId, payload.principal_amount, payload.loan_date, payload.person_name, direction, payload.currency);
+      }
     } catch (err) {
       console.error("Linked wallet entry failed after loan save.", err);
-      alert(`Loan was saved, but the linked wallet update failed: ${err?.message || err}. Check the wallet balance and add a matching expense/top-up if needed.`);
+      const recordLabel = state.modalInstallment ? "Installment plan" : "Loan";
+      alert(`${recordLabel} was saved, but the linked wallet update failed: ${err?.message || err}. Check the wallet balance and add a matching wallet entry if needed.`);
     }
   }
 
