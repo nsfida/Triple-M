@@ -1639,7 +1639,7 @@ function renderAssetsDetailsOverlay(preferredCurrency = "") {
 
   const cur = data.selectedCurrency || "AED";
   const t = data.totals;
-  const mText = (n) => escapeHtml(moneyText(n || 0, cur));
+  const mText = (n) => money(n || 0, cur);
   const metricsHtml = [
     sectionDetailsMetricHtml("Assets", escapeHtml(String(data.count)), "primary"),
     sectionDetailsMetricHtml("Active", escapeHtml(String(t.status.active || 0)), "success"),
