@@ -70,7 +70,7 @@ function openInstallmentItemDetailsOverlay(groupId){
     }
     if (els.sectionDetailsDesc) {
       const pct = data?.metrics?.progressPct ?? 0;
-      els.sectionDetailsDesc.textContent = `${data?.metrics?.status || plan.status} · ${pct}% paid · Remaining ${formatReportAmount(plan.remaining, plan.currency)} · ${plan.currency || "—"}`;
+      els.sectionDetailsDesc.innerHTML = `${escapeHtml(data?.metrics?.status || plan.status)} · ${escapeHtml(String(pct))}% paid · Remaining ${money(plan.remaining, plan.currency)} · ${escapeHtml(plan.currency || "—")}`;
     }
     renderInstallmentDetailsActions(plan);
     if (!sectionDetailsEnsureChartLib()) {
