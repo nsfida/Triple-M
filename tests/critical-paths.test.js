@@ -404,12 +404,80 @@ describe("migrations + schema build smoke", () => {
     assert.match(result.sql, /BEGIN migrations\/070_inventory_category_taxonomy_meta\.sql/);
     assert.match(result.sql, /BEGIN migrations\/071_admin_backup_table_coverage\.sql/);
     assert.match(result.sql, /BEGIN migrations\/072_fix_backup_restore_password_and_reminder_fk\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/093_security_hardening_session_login_rpc\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/094_expense_item_history_accuracy\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/095_expense_global_smart_search\.sql/);
+    assert.match(result.sql, /app_login_throttle/);
     assert.match(result.sql, /app_admin_export_full_backup/);
     assert.match(result.sql, /app_admin_import_full_backup/);
     assert.match(result.sql, /app_admin_backup_sanitize_fk_rows/);
     assert.match(result.sql, /goods_category_config/);
     assert.match(result.sql, /goods_sub_brands/);
     assert.ok(result.sql.length > 50_000);
+  });
+
+  it("093 security hardening is additive and closes direct session minting", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "..", "migrations", "093_security_hardening_session_login_rpc.sql"),
+      "utf8"
+    );
+    const executable = migration.replace(/--.*$/gm, "");
+    assert.match(migration, /revoke all on function public\.app_create_session\(uuid, text, text, boolean\)[\s\S]*from public, anon, authenticated/i);
+    assert.match(migration, /grant execute on function public\.app_create_session\(uuid, text, text, boolean\)[\s\S]*to service_role/i);
+    assert.match(migration, /app\.session_create_authorized/);
+    assert.match(migration, /create table if not exists public\.app_login_throttle/i);
+    assert.ok(migration.includes("safe_fragment text := $frag$'smart_pin_hash', ''$frag$;"));
+    assert.doesNotMatch(executable, /\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+    const loginClient = fs.readFileSync(
+      path.join(__dirname, "..", "Assets", "app", "auth", "02-auth-welcome-trial.js"),
+      "utf8"
+    );
+    assert.match(loginClient, /result\?\.ok === false/);
+    assert.match(loginClient, /Invalid username or password/);
+  });
+
+  it("094 expense item history is read-only and keeps grouped totals independent of lazy pages", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "..", "migrations", "094_expense_item_history_accuracy.sql"),
+      "utf8"
+    );
+    const executable = migration.replace(/--.*$/gm, "");
+    assert.match(migration, /app_list_my_expense_item_summaries/i);
+    assert.match(migration, /app_list_my_expense_item_history_page/i);
+    assert.match(migration, /app_has_permission\('expenses',\s*'view'\)/i);
+    assert.doesNotMatch(executable, /\binsert\s+into\b|\bupdate\s+public\.|\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+    const expensesClient = fs.readFileSync(
+      path.join(__dirname, "..", "Assets", "app", "expenses", "01-expenses-wallets.js"),
+      "utf8"
+    );
+    assert.match(expensesClient, /mergeExactExpenseItemSummaries/);
+    assert.match(expensesClient, /transactionCount\s*\?\?/);
+    assert.match(expensesClient, /ensureExpenseItemHistoryLoaded/);
+  });
+
+  it("095 expense search is global, read-only, and matches smart fields", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "..", "migrations", "095_expense_global_smart_search.sql"),
+      "utf8"
+    );
+    const executable = migration.replace(/--.*$/gm, "");
+    assert.match(migration, /app_expense_search_matches/i);
+    assert.match(migration, /app_list_my_expense_activity_page/i);
+    assert.match(migration, /e\.amount::text/i);
+    assert.match(migration, /e\.currency/i);
+    assert.match(migration, /e\.expense_date::text/i);
+    assert.match(migration, /app_has_permission\('expenses',\s*'view'\)/i);
+    assert.doesNotMatch(executable, /\binsert\s+into\b|\bupdate\s+public\.|\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+    const expensesClient = fs.readFileSync(
+      path.join(__dirname, "..", "Assets", "app", "expenses", "01-expenses-wallets.js"),
+      "utf8"
+    );
+    assert.match(expensesClient, /label:\s*"All history",\s*mode:\s*"search"/);
+    assert.match(expensesClient, /fetchExpenseGlobalSearchActivityRpc/);
+    assert.match(expensesClient, /if \(String\(state\.search\.expenses \|\| ""\)\.trim\(\)\) return true/);
   });
 
   it("schema reset drops inventory catalog and reminder tables", () => {
