@@ -578,10 +578,10 @@
     const cur = input.currency;
     host.innerHTML = `
       <div class="dep-preview-grid">
-        <div><small>Monthly</small><strong>${esc(moneyPlain(calc.monthly_depreciation, cur))}</strong></div>
-        <div><small>Annual</small><strong>${esc(moneyPlain(calc.annual_depreciation, cur))}</strong></div>
-        <div><small>Accumulated</small><strong>${esc(moneyPlain(calc.accumulated_depreciation, cur))}</strong></div>
-        <div><small>Book value</small><strong>${esc(moneyPlain(calc.current_book_value, cur))}</strong></div>
+        <div><small>Monthly</small><strong>${moneyHtml(calc.monthly_depreciation, cur)}</strong></div>
+        <div><small>Annual</small><strong>${moneyHtml(calc.annual_depreciation, cur)}</strong></div>
+        <div><small>Accumulated</small><strong>${moneyHtml(calc.accumulated_depreciation, cur)}</strong></div>
+        <div><small>Book value</small><strong>${moneyHtml(calc.current_book_value, cur)}</strong></div>
         <div><small>Remaining life</small><strong>${esc(calc.remaining_label)}</strong></div>
       </div>`;
   }
@@ -799,9 +799,9 @@
             <tbody>
               ${hist.map(h => `<tr>
                 <td>${esc(String(h.period_date).slice(0, 10))}</td>
-                <td>${esc(moneyPlain(h.depreciation_amount, cur))}</td>
-                <td>${esc(moneyPlain(h.book_value_before, cur))}</td>
-                <td>${esc(moneyPlain(h.book_value_after, cur))}</td>
+                <td>${moneyHtml(h.depreciation_amount, cur)}</td>
+                <td>${moneyHtml(h.book_value_before, cur)}</td>
+                <td>${moneyHtml(h.book_value_after, cur)}</td>
               </tr>`).join("")}
             </tbody>
           </table></div>`
