@@ -804,36 +804,6 @@ window.addEventListener("resize", () => {
     });
   }
 
-  const expenseBalanceCurrencyFilter = document.getElementById("expensesBalanceCurrencyFilter");
-  const syncExpenseBalanceCurrencyFilter = () => {
-    if (!expenseBalanceCurrencyFilter) return;
-    const desired = `${state.statusFilter.expenses || "All"}|${state.currencyFilter.expenses || "All"}`;
-    const exact = Array.from(expenseBalanceCurrencyFilter.options).find(option => !option.disabled && !option.hidden && option.value === desired);
-    if (exact) {
-      expenseBalanceCurrencyFilter.value = desired;
-      return;
-    }
-    const sameBalance = Array.from(expenseBalanceCurrencyFilter.options).find(option => {
-      const [balance] = String(option.value || "").split("|");
-      return !option.disabled && !option.hidden && balance === (state.statusFilter.expenses || "All");
-    });
-    const fallback = sameBalance || Array.from(expenseBalanceCurrencyFilter.options).find(option => !option.disabled && !option.hidden);
-    if (fallback) expenseBalanceCurrencyFilter.value = fallback.value;
-  };
-  syncExpenseBalanceCurrencyFilter();
-  if (expenseBalanceCurrencyFilter) {
-    expenseBalanceCurrencyFilter.addEventListener("change", e => {
-      const [balanceRaw, currencyRaw] = String(e.target.value || "All|All").split("|");
-      const balance = ["All", "Active", "Closed"].includes(balanceRaw) ? balanceRaw : "All";
-      const currency = ["All", "AED", "SAR", "PKR", "USD", "BTC"].includes(currencyRaw) ? currencyRaw : "All";
-      state.statusFilter.expenses = balance;
-      if (isPageCurrencyAll()) state.currencyFilter.expenses = currency;
-      else syncSectionCurrencyFiltersWithPage();
-      syncExpenseBalanceCurrencyFilter();
-      renderSearchResults("expenses");
-    });
-  }
-
   const expenseDateRangeFilter = document.getElementById("expenseDateRangeFilter");
   const expenseCustomDateFrom = document.getElementById("expenseCustomDateFrom");
   const expenseCustomDateTo = document.getElementById("expenseCustomDateTo");
