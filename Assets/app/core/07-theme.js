@@ -19,9 +19,9 @@ detectTriplemLowPowerUi();
 
 const TRIPLEM_THEME_STORAGE_KEY = "triplem-theme-v1";
 const TRIPLEM_THEMES = Object.freeze([
-  { id: "default", label: "Default", color: "#2457d6", description: "Original Triplem VIP blue" },
+  { id: "default", label: "Default", color: "#2457d6", swatch: "#ffffff", description: "Original Triplem VIP blue" },
   { id: "neon", label: "Neon", color: "#0284c7", description: "Light sky blue with a clean cyan glow" },
-  { id: "navy", label: "Dark Navy Blue", color: "#4f8cff", description: "Deep navy with crisp blue accents" },
+  { id: "navy", label: "Dark Navy Blue", color: "#4f8cff", swatch: "#122b4e", description: "Deep navy with crisp blue accents" },
   { id: "red", label: "Red", color: "#c1121f", description: "Confident crimson with warm red surfaces" },
   { id: "pink", label: "Pink", color: "#db2777", description: "Light rose surfaces with a romantic touch" },
   { id: "green", label: "Dark Green", color: "#19974f", description: "Refined green financial workspace" }
@@ -94,85 +94,56 @@ function applySavedTriplemWorkspaceTheme(){
   return applyTriplemTheme(readTriplemTheme(), { persist: false, forceWorkspace: true });
 }
 
-function ensureThemeModal(){
-  let modal = document.getElementById("themeModal");
-  if (modal) return modal;
-  modal = document.createElement("div");
-  modal.id = "themeModal";
-  modal.className = "modal hide theme-modal";
-  modal.setAttribute("aria-hidden", "true");
-  modal.innerHTML = `
-    <div class="modal-backdrop" data-theme-close></div>
-    <div class="modal-dialog theme-dialog" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
-      <div class="modal-head">
-        <div>
-          <h3 id="themeModalTitle">Theme</h3>
-          <p>Choose a complete workspace appearance. Your choice is remembered on this device.</p>
-        </div>
-        <button class="icon-btn ghost" type="button" data-theme-close aria-label="Close">×</button>
+function renderThemeDropdown(){
+  const dropdown = document.getElementById("themeDropdown");
+  if (!dropdown) return null;
+  if (dropdown.dataset.themeRendered !== "1") {
+    dropdown.innerHTML = `
+      <div class="theme-menu-heading" aria-hidden="true">
+        <span>Theme</span>
+        <small>Workspace appearance</small>
       </div>
-      <div class="modal-body">
-        <div class="theme-choice-grid" role="radiogroup" aria-label="Application theme">
-          ${TRIPLEM_THEMES.map(theme => `
-            <button class="theme-choice" type="button" role="radio" data-theme-choice="${theme.id}" aria-checked="false">
-              <span class="theme-choice-preview theme-choice-preview-${theme.id}" aria-hidden="true">
-                <span></span><span></span><span></span>
-              </span>
-              <span class="theme-choice-copy"><strong>${theme.label}</strong><small>${theme.description}</small></span>
-              <i class="fa-solid fa-circle-check theme-choice-check" aria-hidden="true"></i>
-            </button>
-          `).join("")}
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn primary" type="button" data-theme-close>Done</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-  modal.querySelectorAll("[data-theme-close]").forEach(el => {
-    el.addEventListener("click", () => closeThemeModal());
-  });
-  modal.querySelectorAll("[data-theme-choice]").forEach(button => {
-    button.addEventListener("click", () => applyTriplemTheme(button.dataset.themeChoice));
-  });
-  modal.addEventListener("keydown", event => {
-    if (event.key === "Escape") closeThemeModal();
-  });
-  return modal;
-}
-
-function openThemeModal(){
-  if (!isTriplemWorkspaceAuthenticated()) {
-    applyTriplemPublicTheme();
-    return;
+      <div class="theme-menu-options" role="radiogroup" aria-label="Application theme">
+        ${TRIPLEM_THEMES.map(theme => `
+          <button class="theme-menu-choice" type="button" role="radio" data-theme-choice="${theme.id}" aria-checked="false" style="--theme-swatch:${theme.swatch || theme.color}">
+            <span class="theme-menu-swatch" aria-hidden="true"></span>
+            <span class="theme-menu-copy">
+              <strong>${theme.label}</strong>
+            </span>
+            <i class="fa-solid fa-check theme-menu-check" aria-hidden="true"></i>
+          </button>
+        `).join("")}
+      </div>`;
+    dropdown.dataset.themeRendered = "1";
+    dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
+      button.addEventListener("click", event => {
+        event.stopPropagation();
+        if (!isTriplemWorkspaceAuthenticated()) {
+          applyTriplemPublicTheme();
+          return;
+        }
+        applyTriplemTheme(button.dataset.themeChoice);
+        dropdown.classList.remove("open");
+        const trigger = document.getElementById("themeSettingsBtn");
+        trigger?.setAttribute("aria-expanded", "false");
+        trigger?.focus({ preventScroll: true });
+      });
+    });
   }
-  document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
-  const modal = ensureThemeModal();
-  applySavedTriplemWorkspaceTheme();
-  modal.classList.remove("hide");
-  modal.setAttribute("aria-hidden", "false");
-  document.body.style.overflow = "hidden";
-  requestAnimationFrame(() => modal.querySelector(".theme-choice.is-selected")?.focus());
-}
-
-function closeThemeModal(){
-  const modal = document.getElementById("themeModal");
-  if (!modal) return;
-  modal.classList.add("hide");
-  modal.setAttribute("aria-hidden", "true");
-  document.body.style.overflow = "";
-  document.getElementById("themeSettingsBtn")?.focus();
+  const activeTheme = isTriplemWorkspaceAuthenticated() ? readTriplemTheme() : "default";
+  dropdown.querySelectorAll("[data-theme-choice]").forEach(button => {
+    const selected = button.dataset.themeChoice === activeTheme;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-checked", selected ? "true" : "false");
+  });
+  return dropdown;
 }
 
 function initThemeSystem(){
   // Public pages always start in Triplem VIP Default. The saved preference is
   // restored only after completeAuthenticatedUnlock marks the workspace ready.
   applyTriplemPublicTheme();
-  const button = document.getElementById("themeSettingsBtn");
-  if (button && button.dataset.themeBound !== "1") {
-    button.dataset.themeBound = "1";
-    button.addEventListener("click", openThemeModal);
-  }
+  renderThemeDropdown();
   window.addEventListener("triplemthemechange", () => {
     requestAnimationFrame(() => {
       if (typeof renderDetailedDashboard === "function"
