@@ -813,32 +813,7 @@ function syncSectionCurrencyFiltersWithPage() {
     state.currencyFilter[filterKey] = select.value || "All";
   });
 
-  const expenseCombined = document.getElementById("expensesBalanceCurrencyFilter");
-  if (expenseCombined) {
-    Array.from(expenseCombined.options).forEach(option => {
-      const [, currency = "All"] = String(option.value || "All|All").split("|");
-      const visible = currency === "All"
-        ? (isAllSelected || scopedCurrencies.size > 1)
-        : scopedCurrencies.has(normalizeCurrencyCode(currency));
-      option.hidden = !visible;
-      option.disabled = !visible;
-    });
-    const desired = `${state.statusFilter.expenses || "All"}|${state.currencyFilter.expenses || "All"}`;
-    let match = Array.from(expenseCombined.options).find(option => !option.disabled && !option.hidden && option.value === desired);
-    if (!match) {
-      match = Array.from(expenseCombined.options).find(option => {
-        const [balance] = String(option.value || "").split("|");
-        return !option.disabled && !option.hidden && balance === (state.statusFilter.expenses || "All");
-      });
-    }
-    if (!match) match = Array.from(expenseCombined.options).find(option => !option.disabled && !option.hidden);
-    if (match) {
-      expenseCombined.value = match.value;
-      const [balance, currency] = String(match.value || "All|All").split("|");
-      state.statusFilter.expenses = balance || "All";
-      state.currencyFilter.expenses = currency || "All";
-    }
-  }
+
 }
 
 function applyPageCurrencySelection(currency) {
