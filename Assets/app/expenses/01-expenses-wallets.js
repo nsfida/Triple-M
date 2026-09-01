@@ -1403,13 +1403,13 @@ function renderExpenseWalletBar(accounts){
         ${walletLogoPhotoMenuHtml(a.group_id, a.person_name || "Wallet", { hasCustomLogo: !!String(a.customLogoUrl || "").trim() })}
         <input type="radio" id="${rid}" name="f_exp_wallet" value="${gid}" class="filter-radio expense-wallet-radio" ${ck}>
         <label for="${rid}" class="expense-wallet-card wallet-details-card" data-group-id="${gid}" data-wallet-details="${gid}" title="View wallet details · Long-press to reorder">
-          <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18, a.customLogoUrl || "")} ${escapeHtml(a.person_name || "Wallet")} (${escapeHtml(formatReportAmount(titleAmount, a.currency))})</span>
+          <span class="expense-wallet-title">${getWalletIconHtml(a.person_name || "Wallet", 18, a.customLogoUrl || "")} ${escapeHtml(a.person_name || "Wallet")} (${money(titleAmount, a.currency)})</span>
           ${walletAddressLine}
           <span class="expense-wallet-sub">${escapeHtml(a.accountType || "")} · ${currencySymbolHtml(a.currency)}${isBtcLive ? " · Live blockchain" : ""}</span>
           <div class="expense-wallet-stats">
-            <span><em>${inLabel}</em> <strong>${escapeHtml(formatReportAmount(totalTopup, a.currency))}</strong></span>
-            <span><em>${outLabel}</em> <strong>${escapeHtml(formatReportAmount(a.spentMoney, a.currency))}</strong></span>
-            <span class="available-label"><em style="color: var(--success) !important;">Available</em> <strong class="available-amount">${escapeHtml(formatReportAmount(a.balance, a.currency))}</strong></span>
+            <span><em>${inLabel}</em> <strong>${money(totalTopup, a.currency)}</strong></span>
+            <span><em>${outLabel}</em> <strong>${money(a.spentMoney, a.currency)}</strong></span>
+            <span class="available-label"><em style="color: var(--success) !important;">Available</em> <strong class="available-amount">${money(a.balance, a.currency)}</strong></span>
             ${btcUsdEquivalent}
             ${btcStatusLine}
           </div>
@@ -1823,14 +1823,16 @@ function renderExpenseAccountSelectors(){
   }, {});
 
   els.expenseTopupAccountSelect.innerHTML = accounts.length
-    ? `<option value="">Choose account</option>${accounts.map(a => `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(formatReportAmount(a.balance, a.currency))}</option>`).join("")}`
+    ? `<option value="">Choose account</option>${accounts.map(a => `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(formatReportAmount(a.balance, a.currency))}</option>`).join("")}`
     : `<option value="">No accounts found</option>`;
+  syncCurrencySelectFonts(els.expenseTopupAccountSelect);
 
   const chosenCurrency = els.expenseCurrencySelect.value || "AED";
   const currencyAccounts = byCurrency[chosenCurrency] || [];
   els.expenseSpendAccountSelect.innerHTML = currencyAccounts.length
-    ? `<option value="">Choose account</option>${currencyAccounts.map(a => `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(formatReportAmount(a.balance, a.currency))}</option>`).join("")}`
+    ? `<option value="">Choose account</option>${currencyAccounts.map(a => `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(formatReportAmount(a.balance, a.currency))}</option>`).join("")}`
     : `<option value="">No account in ${escapeHtml(chosenCurrency)}</option>`;
+  syncCurrencySelectFonts(els.expenseSpendAccountSelect);
 }
 
 function syncExpenseTaxDefaults(force = false) {
@@ -1859,6 +1861,7 @@ function updateExpenseTaxPreview() {
   const currency = String(els.expenseCurrencySelect?.value || state.lastCurrency || "AED");
   const breakdown = getExpenseTaxBreakdown();
   els.expenseTaxPreview.textContent = formatTaxSummary(breakdown, currency);
+  applyCurrencyFontClass(els.expenseTaxPreview, currency);
 }
 
 function openExpenseModal(mode, presetGroupId = ""){
@@ -1914,7 +1917,10 @@ function openExpenseModal(mode, presetGroupId = ""){
     if (topupDate) topupDate.value = todayISO();
     defaultDateInputs(els.expenseTopupForm);
     if (topupDate && !topupDate.value) topupDate.value = todayISO();
-    if (presetGroupId) els.expenseTopupAccountSelect.value = presetGroupId;
+    if (presetGroupId) {
+      els.expenseTopupAccountSelect.value = presetGroupId;
+      syncCurrencySelectFonts(els.expenseTopupAccountSelect);
+    }
   } else {
     els.expenseModalTitle.textContent = "Add Expense";
     els.expenseEntryForm.reset();
@@ -1925,7 +1931,10 @@ function openExpenseModal(mode, presetGroupId = ""){
     if (entryDate) entryDate.value = todayISO();
     defaultDateInputs(els.expenseEntryForm);
     if (entryDate && !entryDate.value) entryDate.value = todayISO();
-    if (presetGroupId) els.expenseSpendAccountSelect.value = presetGroupId;
+    if (presetGroupId) {
+      els.expenseSpendAccountSelect.value = presetGroupId;
+      syncCurrencySelectFonts(els.expenseSpendAccountSelect);
+    }
     const intentAdd = els.expenseEntryForm.querySelector('input[name="expense_item_intent"][value="additional"]');
     if (intentAdd) intentAdd.checked = true;
     if (els.expenseItemIntentWrap) els.expenseItemIntentWrap.classList.add("hide");
