@@ -20,17 +20,19 @@ function openTransferModal(fromGroupId, fromWalletName, currency) {
   
   // Set from wallet (all wallets)
   els.transferFromWallet.innerHTML = accounts.map(a => 
-    `<option value="${escapeHtml(a.group_id)}" ${a.group_id === fromGroupId ? 'selected' : ''}>${escapeHtml(a.person_name)} (${escapeHtml(formatReportAmount(a.balance, a.currency))}) - ${escapeHtml(a.currency)}</option>`
+    `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}" ${a.group_id === fromGroupId ? 'selected' : ''}>${escapeHtml(a.person_name)} (${escapeHtml(formatReportAmount(a.balance, a.currency))}) - ${escapeHtml(a.currency)}</option>`
   ).join("");
   
   // Set to wallet (exclude from wallet)
   els.transferToWallet.innerHTML = accounts.filter(a => a.group_id !== fromGroupId).map(a => 
-    `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(formatReportAmount(a.balance, a.currency))}) - ${escapeHtml(a.currency)}</option>`
+    `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(formatReportAmount(a.balance, a.currency))}) - ${escapeHtml(a.currency)}</option>`
   ).join("");
   
   if (els.transferToWallet.options.length === 0) {
     els.transferToWallet.innerHTML = '<option value="">No other wallets available</option>';
   }
+  syncCurrencySelectFonts(els.transferFromWallet);
+  syncCurrencySelectFonts(els.transferToWallet);
   
   // Set currency indicators
   updateTransferCurrencyIndicators();
