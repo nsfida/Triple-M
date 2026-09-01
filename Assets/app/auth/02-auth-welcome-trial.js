@@ -828,8 +828,9 @@ function populateLoanWalletSelector(currency, selectEl) {
   selectEl.innerHTML = `<option value="">Skip wallet entry</option>` +
     matchingAccounts.map(a => {
       const balDisplay = formatReportAmount(a.balance, a.currency);
-      return `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) — ${escapeHtml(balDisplay)}</option>`;
+      return `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) — ${escapeHtml(balDisplay)}</option>`;
     }).join("");
+  syncCurrencySelectFonts(selectEl);
 }
 
 function populateInventoryWalletSelector(selectEl, currency, placeholder, emptyLabel){
@@ -841,13 +842,14 @@ function populateInventoryWalletSelector(selectEl, currency, placeholder, emptyL
   if (!cur){
     selectEl.innerHTML = `<option value="">${escapeHtml(emptyLabel || placeholder)}</option>`;
     selectEl.disabled = true;
+    syncCurrencySelectFonts(selectEl);
     return;
   }
   selectEl.disabled = false;
   selectEl.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` +
     accounts.map(a => {
       const balDisplay = formatReportAmount(a.balance, a.currency);
-      return `<option value="${escapeHtml(a.group_id)}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(balDisplay)}</option>`;
+      return `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) - ${escapeHtml(balDisplay)}</option>`;
     }).join("");
   if (currentValue && accounts.some(a => a.group_id === currentValue)){
     selectEl.value = currentValue;
@@ -856,6 +858,7 @@ function populateInventoryWalletSelector(selectEl, currency, placeholder, emptyL
     selectEl.innerHTML = `<option value="">No wallet in ${escapeHtml(cur)}</option>`;
     selectEl.disabled = true;
   }
+  syncCurrencySelectFonts(selectEl);
 }
 
 function updateGoodsPurchaseWalletSelector(){
