@@ -842,12 +842,10 @@ function buildExpenseAccountsUnfiltered(){
       let spentMoney = spends.reduce((sum, row) => sum + finiteMoney(row.action_amount), 0);
       let balance = openingBalance + addedMoney - spentMoney;
 
-      // Prefer SQL aggregate balances in lazy mode so wallet figures stay accurate
-      // even when only a date-scoped activity window is loaded in memory.
-      // While a wallet mutation is still syncing, keep local/optimistic figures.
-      const hasPendingWalletMutation = [group.principal, ...(group.actions || [])]
-        .some(row => row?.id && state.pendingDbSyncIds.has(row.id));
-      const lazySummary = isExpenseLazyMode() && !hasPendingWalletMutation
+      // Prefer the lazy aggregate whenever it exists. Expense mutations update
+      // this summary optimistically before the database write begins, so using it
+      // during pending sync prevents a transient date-scoped balance from flashing.
+      const lazySummary = isExpenseLazyMode()
         ? state.expenseLazy.summaryByGroupId.get(String(group.group_id || ""))
         : null;
       if (lazySummary && !isBtcLive) {
