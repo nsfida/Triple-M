@@ -1004,8 +1004,8 @@ function openEntryModal(mode, direction, options = {}){
     }
     els.principalModalForm.reset();
     els.principalModalForm.querySelector('input[name="direction"]').value = direction;
-    const principalPersonLabel = document.getElementById("principalPersonLabel");
-    if (principalPersonLabel) principalPersonLabel.textContent = state.modalInstallment ? "Installment Plan Name" : "Person Name";
+    const principalPersonLabel = els.principalModalForm.querySelector("#principalPersonLabel");
+    if (principalPersonLabel) principalPersonLabel.textContent = state.modalInstallment ? "Installment Name" : "Person Name";
     els.principalModalForm.querySelector('input[name="person_name"]').placeholder =
       state.modalInstallment ? "Installment plan name" : (direction === "given" ? "Full name" : "Lender name");
     setCurrencyChoice(els.principalModalForm, state.lastCurrency || "AED");
@@ -1023,12 +1023,19 @@ function openEntryModal(mode, direction, options = {}){
         walletBadge.className = "badge orange";
       } else {
         walletBadge.textContent = state.modalInstallment
-          ? "Installment Plan → Add to wallet"
+          ? "Installment Plan → Down Payment Deduction from wallet"
           : "Loan Taken → Add to wallet";
-        walletBadge.className = "badge green";
+        walletBadge.className = state.modalInstallment ? "badge orange" : "badge green";
       }
     }
-    populateLoanWalletSelector(state.lastCurrency || "AED", document.getElementById("modalLoanWalletSelect"));
+    const principalWalletSelect = document.getElementById("modalLoanWalletSelect");
+    populateLoanWalletSelector(state.lastCurrency || "AED", principalWalletSelect);
+    // Installment wallet integration is optional and applies only to the down
+    // payment. Never carry a wallet selection into a fresh plan.
+    if (state.modalInstallment && principalWalletSelect) {
+      principalWalletSelect.value = "";
+      syncCurrencySelectFonts(principalWalletSelect);
+    }
   } else {
     if (state.modalInstallment) {
       els.modalTitle.textContent = "Installment payment";
