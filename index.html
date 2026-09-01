@@ -769,7 +769,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-theme-swatches-loan-parity3" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -2932,6 +2932,12 @@
         <button class="btn ghost top-icon-btn" id="appAboutInfoBtn" type="button" title="About Triplem VIP" aria-label="About Triplem VIP">
           <i class="fa-solid fa-circle-info"></i>
         </button>
+        <div class="menu-wrap theme-menu-wrap">
+          <button class="btn ghost menu-trigger top-icon-btn" id="themeSettingsBtn" type="button" data-entry-menu="theme" aria-haspopup="menu" aria-expanded="false" title="Theme" aria-label="Choose theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <div class="menu-dropdown theme-menu-dropdown" id="themeDropdown" data-entry-menu-panel="theme" role="menu" aria-label="Theme selection"></div>
+        </div>
         <div class="menu-wrap">
           <button class="btn ghost menu-trigger top-icon-btn" id="accountMenuBtn" type="button" data-entry-menu="account" aria-haspopup="menu" aria-expanded="false" title="Account" aria-label="Account menu">
             <i class="fa-solid fa-user"></i>
@@ -2949,7 +2955,6 @@
             <input id="sectionCsvInput" type="file" accept=".csv,text/csv,text/plain" class="hide" data-section="" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
             <button class="menu-item" id="defaultStartPageBtn" type="button"><i class="fa-solid fa-house-chimney"></i> Default Start Page</button>
-            <button class="menu-item" id="themeSettingsBtn" type="button"><i class="fa-solid fa-palette"></i> Theme</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item hide" id="companyTeamBtn" type="button"><i class="fa-solid fa-users"></i> Company Team</button>
             <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
@@ -3751,33 +3756,23 @@
                   <span class="filter-inline-label">Search</span>
                   <input id="searchExpenses" class="input filter-inline-input" placeholder="Item, wallet, note" />
                 </div>
-                <div class="filter-inline-section expense-balance-currency-control">
-                  <span class="filter-inline-label">Balance / Currency</span>
-                  <select id="expensesBalanceCurrencyFilter" class="select filter-inline-select expense-combined-filter-select" aria-label="Filter expenses by balance and currency">
-                    <optgroup label="All balances">
-                      <option value="All|All" selected>All · All</option>
-                      <option value="All|AED">All · AED</option>
-                      <option value="All|SAR">All · SAR</option>
-                      <option value="All|PKR">All · PKR</option>
-                      <option value="All|USD">All · USD</option>
-                      <option value="All|BTC">All · BTC</option>
-                    </optgroup>
-                    <optgroup label="Active balance">
-                      <option value="Active|All">Active · All</option>
-                      <option value="Active|AED">Active · AED</option>
-                      <option value="Active|SAR">Active · SAR</option>
-                      <option value="Active|PKR">Active · PKR</option>
-                      <option value="Active|USD">Active · USD</option>
-                      <option value="Active|BTC">Active · BTC</option>
-                    </optgroup>
-                    <optgroup label="Zero balance">
-                      <option value="Closed|All">Zero · All</option>
-                      <option value="Closed|AED">Zero · AED</option>
-                      <option value="Closed|SAR">Zero · SAR</option>
-                      <option value="Closed|PKR">Zero · PKR</option>
-                      <option value="Closed|USD">Zero · USD</option>
-                      <option value="Closed|BTC">Zero · BTC</option>
-                    </optgroup>
+                <div class="filter-inline-section expense-balance-control">
+                  <span class="filter-inline-label">Balance</span>
+                  <select id="expensesBalanceFilter" class="select filter-inline-select currency-filter-select expense-balance-filter-select" data-currency-filter="expenses" aria-label="Filter expenses by balance currency">
+                    <option value="All" selected>All Balances</option>
+                    <option value="AED">AED</option>
+                    <option value="SAR">SAR</option>
+                    <option value="PKR">PKR</option>
+                    <option value="USD">USD</option>
+                    <option value="BTC">BTC</option>
+                  </select>
+                </div>
+                <div class="filter-inline-section expense-status-control">
+                  <span class="filter-inline-label">Status</span>
+                  <select id="expensesStatusFilter" class="select filter-inline-select status-filter-select expense-status-filter-select" data-filter="expenses" aria-label="Filter expense wallets by status">
+                    <option value="All" selected>All Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Closed">Inactive</option>
                   </select>
                 </div>
                 <div class="filter-inline-section expense-date-range-control">
@@ -6176,18 +6171,18 @@
   <script src="Assets/app/core/02-state.js"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
   <script src="Assets/app/core/03-els.js?v=20260831-compact-delete-icons"></script>
-  <script src="Assets/app/auth/01-auth-session.js?v=20260828-performance"></script>
+  <script src="Assets/app/auth/01-auth-session.js?v=20260901-expense-filters"></script>
   <script src="Assets/app/core/04-entries-api.js?v=20260831-expense-smooth"></script>
   <script src="Assets/app/utils/01-currency-money.js"></script>
   <script src="Assets/app/core/05-meta-helpers.js?v=20260831-wallet-watermark&amp;fix=20260830-installment-menu"></script>
   <script src="Assets/app/core/06-app-loading.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/core/07-theme.js?v=20260831-low-power-ui"></script>
+  <script src="Assets/app/core/07-theme.js?v=20260901-theme-swatches3"></script>
   <script src="Assets/app/core/08-offline-sync.js?v=20260828-performance"></script>
   <script src="Assets/app/inventory/01-inventory-meta-stock.js"></script>
-  <script src="Assets/app/inventory/02-inventory-sales-drafts.js"></script>
+  <script src="Assets/app/inventory/02-inventory-sales-drafts.js?v=20260901-loan-installment-parity2"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js?v=20260829-theme-refine2"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260831-smooth-grid-filters"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-wallet-balance-stability"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
   <script src="Assets/app/ui/01-render-navigation.js?v=20260829-theme-refine2&amp;fix=20260831-installment-payment-actions"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260829-theme-refine2"></script>
@@ -6195,7 +6190,7 @@
   <script src="Assets/app/reports/01-pdf.js?v=20260829-theme-refine2"></script>
   <script src="Assets/app/reports/02-exports.js"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260831-installment-csv-safety"></script>
-  <script src="Assets/app/ui/02-bindings.js?v=20260831-consolidated-filters"></script>
+  <script src="Assets/app/ui/02-bindings.js?v=20260901-expense-filters"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260831-pricing-access-fix"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260829-theme-lifecycle"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe"></script>
