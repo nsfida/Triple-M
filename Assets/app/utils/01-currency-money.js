@@ -81,6 +81,33 @@ function applyCurrencyFontClass(element, currency){
   element.classList.add(currencyFontClass(currency, sampleText));
 }
 
+function currencyTextHtml(text, currency){
+  const value = String(text ?? "");
+  return `<span class="${currencyFontClass(currency, value)}">${escapeHtml(value)}</span>`;
+}
+
+function syncCurrencySelectFonts(selectEl){
+  if (!selectEl) return;
+  const fontClasses = ["currency-font-aed", "currency-font-sar", "currency-font-usd", "currency-font-mixed", "currency-font-normal"];
+  Array.from(selectEl.options || []).forEach(option => {
+    option.classList.remove(...fontClasses);
+    const optionCurrency = normalizeCurrencyCode(option.dataset.currency || "");
+    option.classList.add(currencyFontClass(optionCurrency, option.textContent || ""));
+  });
+
+  const applySelectedFont = () => {
+    const selected = selectEl.options?.[selectEl.selectedIndex] || null;
+    const selectedCurrency = normalizeCurrencyCode(selected?.dataset?.currency || selectEl.dataset.currency || "");
+    applyCurrencyFontClass(selectEl, selectedCurrency);
+  };
+
+  if (selectEl.dataset.currencyFontBound !== "1") {
+    selectEl.dataset.currencyFontBound = "1";
+    selectEl.addEventListener("change", applySelectedFont);
+  }
+  applySelectedFont();
+}
+
 function moneyText(amount, currency, options = {}){
   return formatCurrencyAmountText(amount, currency, options);
 }
