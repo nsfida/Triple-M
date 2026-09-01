@@ -4,11 +4,13 @@
   font-family:"DirhamSymbol";
   src:url("fonts/AED.ttf") format("truetype");
   font-display:swap;
+  unicode-range:U+007E;
 }
 @font-face{
   font-family:"RiyalSymbol";
   src:url("fonts/SAR.otf") format("opentype");
   font-display:swap;
+  unicode-range:U+0024;
 }
 
 :root{
