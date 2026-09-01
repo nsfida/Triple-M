@@ -494,7 +494,8 @@ function openInventoryReceiptEditor(entryId){
   if (dateEl) dateEl.value = String(saleEntry.action_date || todayISO()).slice(0, 10);
   if (paidEl) paidEl.value = trimInventoryNumber(receiptData.paidTotal || 0);
   if (linesEl) {
-    linesEl.textContent = `${receiptData.saleRows.length} line(s) · Total ${formatInventoryTotalsByCurrency(receiptData.totalsByCurrency, "total") || moneyText(receiptData.totalAmount, receiptData.currency)}. PDF keeps every pour as its own row.`;
+    const totalHtml = formatInventoryTotalsByCurrencyHtml(receiptData.totalsByCurrency, "total") || money(receiptData.totalAmount, receiptData.currency);
+    linesEl.innerHTML = `${escapeHtml(String(receiptData.saleRows.length))} line(s) · Total ${totalHtml}. PDF keeps every pour as its own row.`;
   }
   form.onsubmit = async e => {
     e.preventDefault();
