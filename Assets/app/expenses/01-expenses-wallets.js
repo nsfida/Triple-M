@@ -1865,8 +1865,10 @@ function updateExpenseTaxPreview() {
 }
 
 function openExpenseModal(mode, presetGroupId = ""){
-  if ((mode === "topup" || mode === "expense") && presetGroupId) {
-    const presetAccount = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === presetGroupId);
+  const presetAccount = ((mode === "topup" || mode === "expense") && presetGroupId)
+    ? getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === presetGroupId)
+    : null;
+  if (presetAccount) {
     if (presetAccount?.currency === "BTC") {
       alert("BTC wallet balances and transactions are loaded directly from the blockchain.");
       return;
@@ -1925,13 +1927,17 @@ function openExpenseModal(mode, presetGroupId = ""){
     els.expenseModalTitle.textContent = "Add Expense";
     els.expenseEntryForm.reset();
     els.expenseEntryForm.dataset.taxManual = "false";
-    els.expenseCurrencySelect.value = state.lastCurrency || "AED";
+    // When opened from a wallet card, that wallet is authoritative. Set its
+    // currency before rebuilding the account options so the clicked wallet is
+    // actually present in the filtered selector instead of inheriting the
+    // currency from the previous expense entry.
+    els.expenseCurrencySelect.value = presetAccount?.currency || state.lastCurrency || "AED";
     renderExpenseAccountSelectors();
     syncExpenseTaxDefaults(true);
     if (entryDate) entryDate.value = todayISO();
     defaultDateInputs(els.expenseEntryForm);
     if (entryDate && !entryDate.value) entryDate.value = todayISO();
-    if (presetGroupId) {
+    if (presetAccount) {
       els.expenseSpendAccountSelect.value = presetGroupId;
       syncCurrencySelectFonts(els.expenseSpendAccountSelect);
     }
