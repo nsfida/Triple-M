@@ -1504,6 +1504,14 @@ function inventoryCurrencyTotalsText(totals, options = {}){
     .join(" | ");
 }
 
+function inventoryCurrencyTotalsHtml(totals){
+  const rows = totals instanceof Map ? Array.from(totals.entries()) : Object.entries(totals || {});
+  return rows
+    .filter(([, amount]) => Math.abs(Number(amount || 0)) > 0.00000001)
+    .map(([currency, amount]) => money(amount, currency))
+    .join(' <span aria-hidden="true">|</span> ');
+}
+
 function collectOutstandingInventoryInvoices(){
   const seenReceipts = new Set();
   const saleEntries = state.entries.filter(e => e.entry_kind !== "principal" && hasGoodsTag(e.notes) && isInventorySaleAction(e));
@@ -1629,7 +1637,7 @@ function renderInventoryOutstandingBanner(){
         <div class="inventory-outstanding-top-actions">
           <div class="inventory-outstanding-total">
             <small>Open balance</small>
-            <strong>${escapeHtml(inventoryCurrencyTotalsText(totalBalance) || "0")}</strong>
+            <strong>${inventoryCurrencyTotalsHtml(totalBalance) || "0"}</strong>
           </div>
         </div>
       </summary>
@@ -1645,16 +1653,17 @@ function renderInventoryOutstandingBanner(){
         <div class="inventory-outstanding-members">
         ${memberRows.map(member => {
           const balanceText = inventoryCurrencyTotalsText(member.balanceByCurrency) || "0";
-          const statusLabel = !member.hasInvoices
+          const balanceHtml = inventoryCurrencyTotalsHtml(member.balanceByCurrency) || "0";
+          const statusHtml = !member.hasInvoices
             ? "No invoices yet"
             : member.outstandingCount
-              ? `${member.outstandingCount} open · ${balanceText}`
-              : `${member.invoiceCount} paid`;
+              ? `${escapeHtml(String(member.outstandingCount))} open · ${balanceHtml}`
+              : `${escapeHtml(String(member.invoiceCount))} paid`;
           return `
           <details class="inventory-outstanding-member" data-search="${escapeHtml(member.searchText)}">
             <summary>
               <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
-              <strong>${escapeHtml(String(member.invoiceCount))} invoice${member.invoiceCount === 1 ? "" : "s"} · ${escapeHtml(statusLabel)}</strong>
+              <strong>${escapeHtml(String(member.invoiceCount))} invoice${member.invoiceCount === 1 ? "" : "s"} · ${statusHtml}</strong>
             </summary>
             <div class="inventory-outstanding-list">
               <div class="inventory-outstanding-row">
@@ -1664,9 +1673,9 @@ function renderInventoryOutstandingBanner(){
                     ? `${escapeHtml(member.invoiceCount)} invoice${member.invoiceCount === 1 ? "" : "s"} for ${escapeHtml(member.name)}${member.outstandingCount ? " · open balances listed in record" : ""}`
                     : `No invoices yet for ${escapeHtml(member.name)}. Customer details are saved and ready for a future sale.`}</span>
                 </div>
-                <div class="inventory-outstanding-money"><small>Total</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.totalByCurrency) || "0")}</strong></div>
-                <div class="inventory-outstanding-money"><small>Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(member.paidByCurrency) || "0")}</strong></div>
-                <div class="inventory-outstanding-money${member.outstandingCount ? " is-due" : ""}"><small>Balance</small><strong>${escapeHtml(balanceText)}</strong></div>
+                <div class="inventory-outstanding-money"><small>Total</small><strong>${inventoryCurrencyTotalsHtml(member.totalByCurrency) || "0"}</strong></div>
+                <div class="inventory-outstanding-money"><small>Paid</small><strong>${inventoryCurrencyTotalsHtml(member.paidByCurrency) || "0"}</strong></div>
+                <div class="inventory-outstanding-money${member.outstandingCount ? " is-due" : ""}"><small>Balance</small><strong>${balanceHtml}</strong></div>
                 <div class="inventory-outstanding-actions">
                   <button class="tiny inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open invoices & receipts">Open</button>
                   <button class="tiny ghost inventoryOutstandingCustomerStatementBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Download full customer statement">Statement</button>
@@ -1975,8 +1984,10 @@ function inventoryReceiptSettlementGroups(receiptData){
   rows.forEach((group, index) => {
     const paymentRow = paymentRows.find(row => row.receiptNumber === group.paymentReceiptNumber) || paymentRows[index];
     if (paymentRow){
-      group.balanceText = formatReportAmount(paymentRow.balanceAfter || 0, paymentRow.currency || group.currency || receiptData.currency);
-      group.balancePdfText = formatPdfAmount(paymentRow.balanceAfter || 0, paymentRow.currency || group.currency || receiptData.currency);
+      const paymentCurrency = paymentRow.currency || group.currency || receiptData.currency;
+      group.balanceText = formatReportAmount(paymentRow.balanceAfter || 0, paymentCurrency);
+      group.balanceHtml = money(paymentRow.balanceAfter || 0, paymentCurrency);
+      group.balancePdfText = formatPdfAmount(paymentRow.balanceAfter || 0, paymentCurrency);
     }
   });
   return rows;
@@ -2010,6 +2021,10 @@ function getInventoryCustomerRecord(customerName){
       debitText: invoice.totalText,
       creditText: "-",
       balanceText: invoice.totalText,
+      taxHtml: formatInventoryTotalsByCurrencyHtml(invoice.totalsByCurrency, "tax") || "-",
+      debitHtml: formatInventoryTotalsByCurrencyHtml(invoice.totalsByCurrency, "total") || "-",
+      creditHtml: "-",
+      balanceHtml: formatInventoryTotalsByCurrencyHtml(invoice.totalsByCurrency, "total") || "-",
       taxPdfText: formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "tax", { forPdf: true }) || "-",
       debitPdfText: formatInventoryTotalsByCurrency(invoice.totalsByCurrency, "total", { forPdf: true }) || "-",
       creditPdfText: "-",
@@ -2038,6 +2053,10 @@ function getInventoryCustomerRecord(customerName){
         debitText: "-",
         creditText: initialPaidText,
         balanceText: inventoryCurrencyTotalsText(initialBalanceByCurrency) || "-",
+        taxHtml: "-",
+        debitHtml: "-",
+        creditHtml: inventoryCurrencyTotalsHtml(initialPaidByCurrency) || "-",
+        balanceHtml: inventoryCurrencyTotalsHtml(initialBalanceByCurrency) || "-",
         taxPdfText: "-",
         debitPdfText: "-",
         creditPdfText: inventoryCurrencyTotalsText(initialPaidByCurrency, { forPdf: true }),
@@ -2058,6 +2077,10 @@ function getInventoryCustomerRecord(customerName){
         debitText: "-",
         creditText: inventoryCurrencyTotalsText(payment.amountByCurrency),
         balanceText: payment.balanceText || "",
+        taxHtml: "-",
+        debitHtml: "-",
+        creditHtml: inventoryCurrencyTotalsHtml(payment.amountByCurrency) || "-",
+        balanceHtml: payment.balanceHtml || (payment.balanceText ? escapeHtml(payment.balanceText) : "-"),
         taxPdfText: "-",
         debitPdfText: "-",
         creditPdfText: inventoryCurrencyTotalsText(payment.amountByCurrency, { forPdf: true }),
@@ -2148,10 +2171,10 @@ function renderInventoryCustomerRecord(record){
   return `
     ${renderInventoryCustomerEditCard(record)}
     <div class="inventory-customer-summary">
-      <div><small>Total Invoiced</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.totalByCurrency) || "0")}</strong></div>
-      <div><small>Total VAT</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.taxByCurrency) || "0")}</strong></div>
-      <div><small>Total Paid</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.paidByCurrency) || "0")}</strong></div>
-      <div><small>Outstanding</small><strong>${escapeHtml(inventoryCurrencyTotalsText(record.balanceByCurrency) || "0")}</strong></div>
+      <div><small>Total Invoiced</small><strong>${inventoryCurrencyTotalsHtml(record.totalByCurrency) || "0"}</strong></div>
+      <div><small>Total VAT</small><strong>${inventoryCurrencyTotalsHtml(record.taxByCurrency) || "0"}</strong></div>
+      <div><small>Total Paid</small><strong>${inventoryCurrencyTotalsHtml(record.paidByCurrency) || "0"}</strong></div>
+      <div><small>Outstanding</small><strong>${inventoryCurrencyTotalsHtml(record.balanceByCurrency) || "0"}</strong></div>
     </div>
     <div class="inventory-customer-contact">
       <span><strong>Bill To:</strong> ${escapeHtml(record.customerName)}</span>
@@ -2168,10 +2191,10 @@ function renderInventoryCustomerRecord(record){
                 <td>${escapeHtml(displayDate(invoice.oldestDate || invoice.date || "-"))}</td>
                 <td>${escapeHtml(invoice.invoiceNumber || invoice.receiptNumber)}</td>
                 <td>${escapeHtml(invoice.itemSummary || `${invoice.lineCount} item${invoice.lineCount === 1 ? "" : "s"}`)}</td>
-                <td>${escapeHtml(invoice.taxText || "-")}</td>
-                <td>${escapeHtml(invoice.totalText)}</td>
-                <td>${escapeHtml(invoice.paidText)}</td>
-                <td>${escapeHtml(invoice.balanceText || "-")}</td>
+                <td>${formatInventoryTotalsByCurrencyHtml(invoice.totalsByCurrency, "tax") || "-"}</td>
+                <td>${formatInventoryTotalsByCurrencyHtml(invoice.totalsByCurrency, "total") || money(invoice.totalAmount, invoice.currency)}</td>
+                <td>${formatInventoryTotalsByCurrencyHtml(invoice.totalsByCurrency, "paid") || money(invoice.paidTotal, invoice.currency)}</td>
+                <td>${inventoryCurrencyTotalsHtml(invoice.balanceByCurrency) || money(invoice.balanceTotal, invoice.currency)}</td>
                 <td>
                   <div class="inventory-history-actions">
                     <button class="tiny inventoryCustomerInvoicePdfBtn" type="button" data-entry-id="${escapeHtml(invoice.entryId)}" title="Download invoice PDF"><i class="fa-solid fa-download"></i></button>
@@ -2198,10 +2221,10 @@ function renderInventoryCustomerRecord(record){
                 <td>${escapeHtml(row.type)}</td>
                 <td>${escapeHtml(row.receiptNumber)}</td>
                 <td class="inventory-stmt-details" title="${escapeHtml(row.details || "")}">${escapeHtml(row.details || "-")}</td>
-                <td>${escapeHtml(row.taxText || "-")}</td>
-                <td>${escapeHtml(row.debitText || "-")}</td>
-                <td>${escapeHtml(row.creditText || "-")}</td>
-                <td>${escapeHtml(row.balanceText || "-")}</td>
+                <td>${row.taxHtml || escapeHtml(row.taxText || "-")}</td>
+                <td>${row.debitHtml || escapeHtml(row.debitText || "-")}</td>
+                <td>${row.creditHtml || escapeHtml(row.creditText || "-")}</td>
+                <td>${row.balanceHtml || escapeHtml(row.balanceText || "-")}</td>
                 <td>
                   <div class="inventory-history-actions">
                     ${row.action === "invoice"
@@ -3009,6 +3032,7 @@ function syncGoodsPurchaseLineMeta(line){
     ? `VAT ${formatReportAmount(Number(totalInput.dataset.rawTax || 0), currency)}`
     : "";
   meta.textContent = [totalText, taxBit, currency].filter(Boolean).join(" · ") || "Enter purchase details";
+  applyCurrencyFontClass(meta, currency);
 }
 
 function updateGoodsPurchaseLine(line, sourceEl = null){
