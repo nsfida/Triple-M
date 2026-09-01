@@ -31,7 +31,7 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                 <span>${currencySymbolHtml(group.currency || "")}</span>
                 <span>${escapeHtml(`${group.groupCount || 1} loan${(group.groupCount || 1) > 1 ? "s" : ""}`)}</span>
                 ${hasUnsynced ? `<span class="badge orange">Not in DB (${unsyncedEntries.length})</span>` : ""}
-                ${openOnly ? '<span class="badge orange">Open</span>' : '<span class="badge green">Closed</span>'}
+                ${openOnly ? '<span class="badge blue">Open</span>' : '<span class="badge green">Closed</span>'}
                 ${(() => {
                   const memberEntries = group.entries || [];
                   const legacy = window.DomainLedger?.groupHasLegacyMeta?.(memberEntries);
