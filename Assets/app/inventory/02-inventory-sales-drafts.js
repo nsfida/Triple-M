@@ -308,11 +308,12 @@ function renderLoanSelectors(){
   const makeOptions = groups => groups.length
     ? `<option value="">Choose one</option>` + groups.map(g => {
         const remaining = calculateLoan(g).remaining;
-        return `<option value="${escapeHtml(g.group_id)}">${escapeHtml(g.person_name)} — ${escapeHtml(formatReportAmount(remaining, g.currency))} remaining</option>`;
+        return `<option value="${escapeHtml(g.group_id)}" data-currency="${escapeHtml(g.currency || "")}">${escapeHtml(g.person_name)} — ${escapeHtml(formatReportAmount(remaining, g.currency))} remaining</option>`;
       }).join("")
     : `<option value="">No open ${state.modalInstallment ? "installment plans" : "loans"} available</option>`;
 
   els.modalLoanSelect.innerHTML = state.modalDirection === "given" ? makeOptions(givenGroups) : makeOptions(takenGroups);
+  syncCurrencySelectFonts(els.modalLoanSelect);
 
   const hasOptions = (state.modalDirection === "given" ? givenGroups : takenGroups).length > 0;
   els.modalLoanSelect.disabled = !hasOptions;
@@ -483,6 +484,7 @@ function syncGoodsSaleLineMeta(line){
     ? `VAT ${formatReportAmount(Number(totalInput.dataset.rawTax || 0), group.currency)}`
     : "";
   meta.textContent = [totalText, taxBit, `${group.currency} · ${stockText}`].filter(Boolean).join(" · ");
+  applyCurrencyFontClass(meta, group.currency);
 }
 
 function getGoodsSaleTotalsByCurrency(){
@@ -507,6 +509,16 @@ function formatInventoryTotalsByCurrency(totalsByCurrency, key = null, options =
     .filter(([, value]) => key ? Number.isFinite(Number(value?.[key])) : Number(value || 0))
     .map(([currency, value]) => moneyText(key ? value[key] : value, currency, options))
     .join(" | ");
+}
+
+function formatInventoryTotalsByCurrencyHtml(totalsByCurrency, key = null){
+  const rows = totalsByCurrency instanceof Map
+    ? Array.from(totalsByCurrency.entries())
+    : Object.entries(totalsByCurrency || {});
+  return rows
+    .filter(([, value]) => key ? Number.isFinite(Number(value?.[key])) : Number(value || 0))
+    .map(([currency, value]) => money(key ? value[key] : value, currency))
+    .join(' <span aria-hidden="true">|</span> ');
 }
 
 function updateGoodsSalePaymentFields(totalsByCurrency = getGoodsSaleTotalsByCurrency()){
@@ -1866,7 +1878,7 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
         const lineSell = bottlePrice * bottles;
         priceEl.innerHTML = `
           <strong>This line: ${money(lineSell, group.currency)}</strong>
-          <span>${escapeHtml(`${moneyText(bottlePrice, group.currency)} / bottle`)}</span>
+          <span>${money(bottlePrice, group.currency)} / bottle</span>
         `;
         return;
       }
@@ -1888,11 +1900,11 @@ function promptInventoryAddQty(group, { title = "Add to cart" } = {}){
       const lineSell = sellPerBase * baseQty;
       const rate = inventoryLineRateForDisplay(sellPerBase, baseQty, category, unit);
       const rateLabel = category === INVENTORY_CATEGORY_VOLUME && unit === INVENTORY_UNIT_ML
-        ? `${moneyText(rate, group.currency)} / ml`
-        : `${moneyText(sellPerBase, group.currency)} / ${inventoryBaseUnitForCategory(category)}`;
+        ? `${money(rate, group.currency)} / ml`
+        : `${money(sellPerBase, group.currency)} / ${escapeHtml(inventoryBaseUnitForCategory(category))}`;
       priceEl.innerHTML = `
         <strong>This line: ${money(lineSell, group.currency)}</strong>
-        <span>${escapeHtml(rateLabel)}</span>
+        <span>${rateLabel}</span>
       `;
     };
     let settled = false;
