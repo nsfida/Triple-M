@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Builds Assets/sql/triplem_full_schema.sql from migrations/schema.sql + migrations/0*.sql.
  * Run: node scripts/build_full_schema_sql.js
  *
@@ -129,6 +129,7 @@ const CANONICAL_MIGRATION_FILES = [
   "104_live_chat_transfer_notifications_bulk_records.sql",
   "105_live_chat_lifecycle_reconciliation.sql",
   "106_live_chat_transfer_delivery_read_state_and_records.sql",
+  "107_admin_live_chat_sync_visibility.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
