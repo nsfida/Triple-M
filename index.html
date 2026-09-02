@@ -800,7 +800,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260902-polish107" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -906,6 +906,9 @@
           <button type="button" class="landing-mobile-item landing-mobile-item-cta" role="menuitem" data-landing-inquiry>
             <i class="fa-solid fa-envelope" aria-hidden="true"></i> Request Access
           </button>
+          <button type="button" class="landing-mobile-item landing-mobile-item-cta landing-mobile-live-chat" role="menuitem" data-live-chat-open>
+            <svg class="live-chat-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14a2.25 2.25 0 0 1 2.25 2.25v7.5A2.25 2.25 0 0 1 19 17.75H11l-4.8 3.1c-.5.32-1.2-.04-1.2-.64v-2.46A2.25 2.25 0 0 1 2.75 15.5V8A2.25 2.25 0 0 1 5 5.75Z"/><path d="M7.4 10.2h9.2M7.4 13.35h6.1"/></svg> Live Chat Support
+          </button>
           <div class="landing-mobile-divider" role="separator" aria-hidden="true"></div>
           <details class="landing-mobile-projects" id="landingMobileProjects">
             <summary class="landing-mobile-item landing-mobile-projects-summary">Other Projects</summary>
@@ -932,11 +935,11 @@
           </span>
           <span class="landing-offer-ticker-pulse" aria-hidden="true">●</span>
           <p class="landing-offer-ticker-text">
-            <strong><i class="fa-solid fa-fire" aria-hidden="true"></i> 14-DAY FREE TRIAL</strong>
+            <strong><i class="fa-solid fa-fire" aria-hidden="true"></i> LIMITED PRO OFFERS</strong>
             <span class="landing-offer-ticker-sep" aria-hidden="true">·</span>
-            <span class="landing-offer-ticker-detail">Full workspace · No card · Claim in under 2 minutes</span>
+            <span class="landing-offer-ticker-detail">Pro Month + 30 Days Free · Pro Year + 60 Days Free</span>
           </p>
-          <button type="button" class="landing-offer-ticker-cta" data-landing-trial>Claim now →</button>
+          <button type="button" class="landing-offer-ticker-cta" data-landing-trial>Free Sign-up →</button>
         </div>
 
         <section class="landing-hero landing-hero-marketing" aria-labelledby="landingHeroTitle" data-landing-reveal data-landing-reveal-eager data-landing-parallax>
@@ -952,7 +955,7 @@
                 <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Secure Sign in
               </button>
               <button type="button" class="btn soft landing-cta" id="landingHeroTrialBtn" data-landing-trial>
-                <i class="fa-solid fa-gift" aria-hidden="true"></i> Start free trial
+                <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Free Sign-up
               </button>
               <a class="btn ghost landing-cta landing-cta--public" href="Demo/">
                 <i class="fa-solid fa-circle-play" aria-hidden="true"></i> Explore Demo
@@ -963,6 +966,10 @@
               <a class="btn ghost landing-cta landing-cta--public" href="/Security/">
                 <i class="fa-solid fa-shield" aria-hidden="true"></i> Security Architecture
               </a>
+              <button type="button" class="btn soft landing-cta landing-live-chat-mobile-cta" data-live-chat-open>
+                <svg class="live-chat-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14a2.25 2.25 0 0 1 2.25 2.25v7.5A2.25 2.25 0 0 1 19 17.75H11l-4.8 3.1c-.5.32-1.2-.04-1.2-.64v-2.46A2.25 2.25 0 0 1 2.75 15.5V8A2.25 2.25 0 0 1 5 5.75Z"/><path d="M7.4 10.2h9.2M7.4 13.35h6.1"/></svg>
+                Live Chat Support
+              </button>
             </div>
             <p class="landing-hero-trust">
               <span><i class="fa-solid fa-lock" aria-hidden="true"></i> Isolated accounts</span>
@@ -1020,8 +1027,20 @@
                 <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Client-side Bitcoin send &amp; receive</li>
               </ul>
               <div class="landing-trial-banner-actions">
-                <button type="button" class="btn primary landing-cta-pulse" data-landing-trial><i class="fa-solid fa-rocket" aria-hidden="true"></i> Claim free trial</button>
+                <button type="button" class="btn primary landing-cta-pulse" data-landing-trial><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Free Sign-up</button>
                 <button type="button" class="btn ghost" data-landing-section="pricing">See pricing</button>
+              </div>
+              <div class="landing-pro-offer-mini-grid" aria-label="Limited Pro subscription offers">
+                <button type="button" class="landing-pro-offer-mini is-monthly" data-landing-trial data-signup-plan-prefill="monthly">
+                  <span class="landing-pro-offer-mini-icon"><i class="fa-solid fa-calendar-check"></i></span>
+                  <span><small>Limited Pro offer</small><strong>Pro Month + 30 Days Free</strong><em>One-time bonus after first approval</em></span>
+                  <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="landing-pro-offer-mini is-yearly" data-landing-trial data-signup-plan-prefill="yearly">
+                  <span class="landing-pro-offer-mini-icon"><i class="fa-solid fa-crown"></i></span>
+                  <span><small>Best-value Pro offer</small><strong>Pro Year + 60 Days Free</strong><em>One-time bonus after first approval</em></span>
+                  <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </button>
               </div>
             </div>
             <aside class="landing-trial-banner-card landing-surface-card" aria-label="Why start today" data-landing-stagger>
@@ -1986,9 +2005,18 @@
 
               <div class="pricing-compose" aria-label="Triplem VIP pricing by currency">
                 <div class="pricing-billing-grid">
-                  <article class="pricing-plan">
+                  <article class="pricing-plan pricing-plan-offer-monthly">
+                    <div class="pricing-offer-ribbon" aria-label="Limited offer: 30 days free">
+                      <svg viewBox="0 0 240 58" role="img" aria-hidden="true">
+                        <defs><linearGradient id="monthlyOfferGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f766e"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+                        <path d="M8 8h211l13 21-13 21H8l10-21L8 8Z" fill="url(#monthlyOfferGradient)"/>
+                        <path d="M19 29h202" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+                        <text x="120" y="24" text-anchor="middle" class="pricing-offer-svg-kicker">LIMITED OFFER</text>
+                        <text x="120" y="42" text-anchor="middle" class="pricing-offer-svg-main">+ 30 DAYS FREE</text>
+                      </svg>
+                    </div>
                     <header class="pricing-plan-head">
-                      <h3>Monthly</h3>
+                      <h3>Pro Monthly</h3>
                       <p>Flexible month-to-month access for growing teams.</p>
                     </header>
                     <ul class="pricing-rate-list">
@@ -2013,13 +2041,22 @@
                         <span class="pricing-rate-period">/ month</span>
                       </li>
                     </ul>
-                    <p class="pricing-plan-note">Includes free installation and one free month on eligible setup.</p>
+                    <p class="pricing-plan-note">Pay for one Pro month and receive 30 additional days free on your first approved subscription.</p>
                   </article>
 
-                  <article class="pricing-plan pricing-plan-featured">
+                  <article class="pricing-plan pricing-plan-featured pricing-plan-offer-yearly">
+                    <div class="pricing-offer-ribbon" aria-label="Limited offer: 60 days free">
+                      <svg viewBox="0 0 240 58" role="img" aria-hidden="true">
+                        <defs><linearGradient id="yearlyOfferGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d4ed8"/><stop offset=".55" stop-color="#7c3aed"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>
+                        <path d="M8 8h211l13 21-13 21H8l10-21L8 8Z" fill="url(#yearlyOfferGradient)"/>
+                        <path d="M19 29h202" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+                        <text x="120" y="24" text-anchor="middle" class="pricing-offer-svg-kicker">BEST VALUE · LIMITED</text>
+                        <text x="120" y="42" text-anchor="middle" class="pricing-offer-svg-main">+ 60 DAYS FREE</text>
+                      </svg>
+                    </div>
                     <header class="pricing-plan-head">
                       <div class="pricing-plan-badge">Best value</div>
-                      <h3>Yearly</h3>
+                      <h3>Pro Yearly</h3>
                       <p>Continuous access with stronger long-term value.</p>
                     </header>
                     <ul class="pricing-rate-list">
@@ -2044,7 +2081,7 @@
                         <span class="pricing-rate-period">/ year</span>
                       </li>
                     </ul>
-                    <p class="pricing-plan-note">Includes free installation and two free months on eligible setup.</p>
+                    <p class="pricing-plan-note">Pay for one Pro year and receive 60 additional days free on your first approved subscription.</p>
                   </article>
                 </div>
 
@@ -2278,7 +2315,7 @@
             <span>Remember me</span>
           </label>
           <button id="unlockBtn" class="btn primary landing-login-submit" type="button">Sign In</button>
-          <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Get free 14-day trial</button>
+          <button id="trialSignupBtn" class="btn ghost landing-guest-submit" type="button"><i class="fa-solid fa-gift"></i> Free Sign-up</button>
         </form>
         <div class="landing-downloads" aria-label="App downloads">
           <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem VIP for iOS"><i class="fa-brands fa-apple"></i></button>
@@ -2361,7 +2398,7 @@
       </div>
       <p class="trial-promo-note">Full workspace access for 14 days. After that your login stays — unlock continues with an admin grant.</p>
       <div class="trial-promo-actions">
-        <button type="button" class="btn primary trial-promo-cta" id="trialPromoStartBtn"><i class="fa-solid fa-gift" aria-hidden="true"></i> Start free trial</button>
+        <button type="button" class="btn primary trial-promo-cta" id="trialPromoStartBtn"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Free Sign-up</button>
         <button type="button" class="btn ghost" id="trialPromoLaterBtn" data-trial-promo-dismiss>Maybe later</button>
       </div>
       <p class="trial-promo-cta-hint">Get now — no payment details needed</p>
@@ -2468,6 +2505,51 @@
           <p id="inquiryErrorText">Failed to send inquiry. Please try again.</p>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Landing Live Chat Support -->
+  <button id="landingLiveChatLauncher" class="landing-live-chat-launcher" type="button" data-live-chat-open aria-label="Open Triplem VIP Live Chat Support" title="Live Chat Support">
+    <svg class="live-chat-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14a2.25 2.25 0 0 1 2.25 2.25v7.5A2.25 2.25 0 0 1 19 17.75H11l-4.8 3.1c-.5.32-1.2-.04-1.2-.64v-2.46A2.25 2.25 0 0 1 2.75 15.5V8A2.25 2.25 0 0 1 5 5.75Z"/><path d="M7.4 10.2h9.2M7.4 13.35h6.1"/></svg>
+    <span class="landing-live-chat-launcher-status" aria-hidden="true"></span>
+    <span class="landing-live-chat-launcher-label">Live support</span>
+  </button>
+
+  <div id="landingLiveChatPanel" class="landing-live-chat-panel hide" aria-hidden="true" role="dialog" aria-modal="false" aria-labelledby="landingLiveChatTitle">
+    <div class="landing-live-chat-head">
+      <div class="landing-live-chat-brand">
+        <span class="landing-live-chat-brand-icon"><svg class="live-chat-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14a2.25 2.25 0 0 1 2.25 2.25v7.5A2.25 2.25 0 0 1 19 17.75H11l-4.8 3.1c-.5.32-1.2-.04-1.2-.64v-2.46A2.25 2.25 0 0 1 2.75 15.5V8A2.25 2.25 0 0 1 5 5.75Z"/><path d="M7.4 10.2h9.2M7.4 13.35h6.1"/></svg></span>
+        <div><strong id="landingLiveChatTitle">Triplem VIP Live Support</strong><small id="landingLiveChatAvailability">10:00 AM – 5:00 PM GST</small></div>
+      </div>
+      <button type="button" class="landing-live-chat-close" data-live-chat-close aria-label="Minimize live chat"><i class="fa-solid fa-minus"></i></button>
+    </div>
+    <div class="landing-live-chat-status" id="landingLiveChatStatus"><span class="landing-live-chat-status-dot"></span><div><strong>Checking support availability…</strong><small>Gulf Standard Time</small></div></div>
+
+    <div id="landingLiveChatStartView" class="landing-live-chat-start">
+      <p class="landing-live-chat-intro">Talk directly with the Triplem VIP administrator. Your browser keeps this conversation available for two hours after you start.</p>
+      <form id="landingLiveChatStartForm" autocomplete="on">
+        <div class="landing-live-chat-fields">
+          <label><span>Name</span><input id="landingLiveChatName" class="input" type="text" autocomplete="name" required placeholder="Your name" /></label>
+          <label><span>Contact number</span><input id="landingLiveChatPhone" class="input" type="tel" autocomplete="tel" required placeholder="Mobile / WhatsApp" /></label>
+          <label class="wide"><span>Email</span><input id="landingLiveChatEmail" class="input" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+          <label class="wide"><span>How can we help?</span><textarea id="landingLiveChatMessage" class="input" rows="3" required placeholder="Write your message…"></textarea></label>
+        </div>
+        <p id="landingLiveChatStartError" class="landing-live-chat-error hide"></p>
+        <button id="landingLiveChatStartButton" type="submit" class="btn primary landing-live-chat-start-btn"><i class="fa-solid fa-paper-plane"></i> Start live chat</button>
+        <small class="landing-live-chat-privacy"><i class="fa-solid fa-lock"></i> This temporary browser chat expires automatically after 2 hours.</small>
+      </form>
+    </div>
+
+    <div id="landingLiveChatConversation" class="landing-live-chat-conversation hide">
+      <div id="landingLiveChatMessages" class="landing-live-chat-messages" role="log" aria-live="polite"></div>
+      <div class="landing-live-chat-expiry"><i class="fa-regular fa-clock"></i><span id="landingLiveChatExpiryText">Temporary chat</span></div>
+      <form id="landingLiveChatReplyForm" class="landing-live-chat-reply">
+        <textarea id="landingLiveChatReply" rows="1" placeholder="Write a message…" aria-label="Live chat message"></textarea>
+        <button id="landingLiveChatReplyButton" type="submit" aria-label="Send message"><i class="fa-solid fa-paper-plane"></i></button>
+      </form>
+      <p id="landingLiveChatReplyError" class="landing-live-chat-error hide"></p>
+      <button id="landingLiveChatRestartButton" type="button" class="btn soft tiny landing-live-chat-restart hide"><i class="fa-solid fa-rotate-right"></i> Start a new chat</button>
+      <button type="button" class="landing-live-chat-reset" data-live-chat-reset>End temporary chat</button>
     </div>
   </div>
 
@@ -2985,6 +3067,7 @@
             <input id="importJsonInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
             <input id="sectionCsvInput" type="file" accept=".csv,text/csv,text/plain" class="hide" data-section="" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
+            <button class="menu-item" id="planSubscriptionBtn" type="button"><i class="fa-solid fa-crown"></i> Plan &amp; Subscription</button>
             <button class="menu-item" id="defaultStartPageBtn" type="button"><i class="fa-solid fa-house-chimney"></i> Default Start Page</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item hide" id="companyTeamBtn" type="button"><i class="fa-solid fa-users"></i> Company Team</button>
@@ -3018,29 +3101,15 @@
           <h3 id="trialExpiredTitle">Your access period has ended</h3>
           <p id="trialExpiredMessage">Your grace period has ended and the workspace is locked for one day. Request a renewal below — the account auto-disables after this lock day unless renewed.</p>
           <div class="trial-renewal-box" id="trialExpiredRenewalBox">
-            <div class="settings-renew-row">
-              <select id="trialExpiredPeriod" class="input settings-input">
-                <option value="week">1 week</option>
-                <option value="month" selected>1 month</option>
-                <option value="year">1 year</option>
-                <option value="custom">Custom days</option>
-                <option value="date">Until date</option>
-              </select>
-              <input id="trialExpiredDays" class="input settings-input settings-days hide" type="number" min="1" max="3650" value="30" />
-              <input id="trialExpiredUntil" class="input settings-input settings-date hide" type="date" />
-              <button class="btn primary tiny" id="trialExpiredRenewBtn" type="button">Request</button>
-            </div>
-            <input id="trialExpiredNote" class="input settings-input" type="text" placeholder="Optional note to admin" style="margin-top:6px;width:100%" />
-            <p class="settings-status" id="trialExpiredRenewStatus"></p>
+            <strong>Renew with Pro Monthly or Pro Yearly</strong>
+            <p class="settings-status">Choose your plan, transfer to the available bank account, and submit the private receipt for approval.</p>
+            <button class="btn primary" id="trialExpiredSettingsBtn" type="button" style="margin-top:8px;width:100%"><i class="fa-solid fa-crown"></i> Open Plan &amp; Subscription</button>
           </div>
           <a class="guest-restriction-contact" href="https://wa.me/923339004564" target="_blank" rel="noopener">
             <i class="fa-brands fa-whatsapp"></i> Contact admin on WhatsApp
           </a>
           <button class="btn soft" id="trialExpiredMessagesBtn" type="button" style="margin-top:10px;width:100%">
             <i class="fa-solid fa-comments"></i> Send in-app inquiry
-          </button>
-          <button class="btn ghost" id="trialExpiredSettingsBtn" type="button" style="margin-top:8px;width:100%">
-            <i class="fa-solid fa-user-gear"></i> Open Account Settings
           </button>
         </div>
         <div class="trial-expired-actions">
@@ -4255,6 +4324,12 @@
                   <button class="btn soft tiny admin-tool-btn" id="adminStorageMgmtBtn" type="button" title="Storage Management">
                     <i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Storage
                   </button>
+                  <button class="btn soft tiny admin-tool-btn" id="adminLiveChatAgentsBtn" type="button" title="Live Chat Support routing">
+                    <i class="fa-solid fa-headset" aria-hidden="true"></i> Live Chat
+                  </button>
+                  <button class="btn soft tiny admin-tool-btn" id="adminLiveChatRecordsBtn" type="button" title="Live Chat conversation records">
+                    <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Chat Records
+                  </button>
                   <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminAnalyticsBtn" type="button" title="Analytics" aria-label="Analytics">
                     <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
                   </button>
@@ -4269,8 +4344,16 @@
             </div>
             <div class="admin-legend">
               <span><i class="fa-solid fa-lock"></i> Credentials stay locked — tap the lock icon to reveal</span>
-              <span><i class="fa-solid fa-chevron-down"></i> Tap a row to expand details &amp; actions</span>
+              <span><i class="fa-solid fa-user"></i> Tap a user icon to open full account controls</span>
               <span><i class="fa-solid fa-calendar-check"></i> Plan → extend or reduce access</span>
+            </div>
+            <div class="admin-user-search-toolbar">
+              <label class="admin-user-search-box" for="adminUsersSearch">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input id="adminUsersSearch" class="input" type="search" autocomplete="off" placeholder="Search username or full name…" aria-label="Search users by username or full name" />
+                <button type="button" class="admin-user-search-clear hide" id="adminUsersSearchClear" aria-label="Clear user search"><i class="fa-solid fa-xmark"></i></button>
+              </label>
+              <span id="adminUsersSearchMeta" class="admin-user-search-meta" aria-live="polite"></span>
             </div>
             <div id="adminUsersList" class="admin-users-list">
               <div class="empty">Loading users…</div>
@@ -6201,12 +6284,12 @@
   <script src="Assets/app/core/01-config-constants.js"></script>
   <script src="Assets/app/core/02-state.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
-  <script src="Assets/app/core/03-els.js?v=20260901-expense-item-history1"></script>
+  <script src="Assets/app/core/03-els.js?v=20260902-login-tdz-fix1"></script>
   <script src="Assets/app/auth/01-auth-session.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/core/04-entries-api.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/utils/01-currency-money.js?v=20260901-select-stable2"></script>
   <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1"></script>
-  <script src="Assets/app/core/06-app-loading.js?v=20260801-data-loading"></script>
+  <script src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
   <script src="Assets/app/core/07-theme.js?v=20260901-theme-swatches3"></script>
   <script src="Assets/app/core/08-offline-sync.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/inventory/01-inventory-meta-stock.js?v=20260901-currency-font-audit1"></script>
@@ -6215,23 +6298,24 @@
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
   <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-global-search2"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260901-auth-resume-fix2"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260902-dashboard-empty1"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1"></script>
   <script src="Assets/app/loans/01-loans-payments.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/reports/01-pdf.js?v=20260829-theme-refine2"></script>
   <script src="Assets/app/reports/02-exports.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1"></script>
-  <script src="Assets/app/ui/02-bindings.js?v=20260901-expense-filters"></script>
-  <script src="Assets/app/landing/01-landing.js?v=20260831-pricing-access-fix"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260901-security-hardening1"></script>
+  <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1"></script>
+  <script src="Assets/app/landing/01-landing.js?v=20260902-livechat099"></script>
+  <script src="Assets/app/landing/02-live-chat.js?v=20260902-polish107"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260902-livechat099"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe"></script>
-  <script src="Assets/app/notes/01-notes.js?v=20260901-auth-resume-fix2"></script>
+  <script src="Assets/app/notes/01-notes.js?v=20260902-credential-vault103"></script>
   <script src="Assets/app/assets/01-assets.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2"></script>
-  <script src="Assets/app/admin/01-admin.js?v=20260830-admin-storage-theme"></script>
+  <script src="Assets/app/admin/01-admin.js?v=20260902-raw-live-record106"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/messaging/01-messaging.js?v=20260901-auth-resume-fix2"></script>
+  <script src="Assets/app/messaging/01-messaging.js?v=20260902-polish107"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
 </html>
