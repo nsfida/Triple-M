@@ -876,3 +876,21 @@ it("post-106 live chat polish preserves dropdown scroll and toggle semantics", (
   assert.match(css, /z-index:2147483600/);
   assert.match(css, /message-float-transfer.*background:var\(--surface-elevated\)/s);
 });
+
+it("107 keeps Main Admin-owned Live Chat in live sync and removes guest-poll timestamp churn", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(
+    path.join(projectRoot, "migrations", "107_admin_live_chat_sync_visibility.sql"),
+    "utf8"
+  );
+  const topLevel = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/--.*$/gm, "");
+  assert.match(migration, /create or replace function public\.app_messaging_sync_state/i);
+  assert.match(migration, /r\.assigned_user_id<>uid/i);
+  assert.match(migration, /create or replace function public\.app_public_live_chat_thread/i);
+  assert.match(migration, /has_unread_support/i);
+  assert.doesNotMatch(migration, /set\s+user_last_read_at=now\(\)\s*,\s*updated_at=now\(\)/i);
+  assert.doesNotMatch(topLevel, /\binsert\s+into\b|\bupdate\s+public\.app_|\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts", "build_full_schema_sql.js"), "utf8");
+  assert.match(builder, /107_admin_live_chat_sync_visibility\.sql/);
+});
