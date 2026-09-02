@@ -504,7 +504,11 @@ function normalizeCachedMessage(message){
   return {
     id: String(message.id || `cached-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
     sender_role: String(message.sender_role || ""),
+    sender_id: message.sender_id || null,
     sender_label: String(message.sender_label || message.sender_role || ""),
+    support_actor: String(message.support_actor || ""),
+    message_actor: String(message.message_actor || ""),
+    is_ai: message.is_ai === true,
     body: String(message.body || ""),
     created_at: message.created_at || new Date().toISOString(),
     _summary: message._summary === true
@@ -3059,8 +3063,11 @@ function renderMessagesThreadList(container, items, isAdmin){
       ? Number(item.unread_for_admin || 0) > 0
       : Number(item.unread_for_user || 0) > 0;
     const active = item.id === messagesUiState.selectedId ? "active" : "";
+    const aiMode = String(item.support_ai_mode || "").toLowerCase();
     const sourceBadge = isLandingLiveChatThread(item)
-      ? `<span class="thread-source-badge live-chat"><i class="fa-solid fa-headset"></i> Live chat</span>`
+      ? aiMode === "human_pending"
+        ? `<span class="thread-source-badge live-chat ai-handoff"><i class="fa-solid fa-user-clock"></i> AI handoff</span>`
+        : `<span class="thread-source-badge live-chat"><i class="fa-solid fa-headset"></i> Live chat</span>`
       : "";
     const who = isAdmin || supportThread
       ? (item.sender_display_name || item.guest_name || item.sender_username || "Guest")
@@ -3169,6 +3176,10 @@ async function openInquiryThread(inquiryId, options = {}){
     markFloatingThreadLocallyRead(inquiry);
     const admin = isAppAdminSession();
     const supportThread = isAssignedSupportThread(inquiry);
+    const supportAiMode = String(inquiry.support_ai_mode || "").toLowerCase();
+    const liveChatIdentityNote = supportAiMode === "human_pending"
+      ? " · AI handoff requested"
+      : supportAiMode === "human" ? " · Human support" : "";
 
     const contactBits = [
       inquiry.sender_email,
@@ -3185,7 +3196,7 @@ async function openInquiryThread(inquiryId, options = {}){
       <div class="messages-thread-header-main">
         <div>
           <h4>${admin ? escapeHtml(inquiry.subject || "Conversation") : supportThread ? escapeHtml(inquiry.sender_display_name || inquiry.guest_name || "Live Chat Guest") : "Triplem VIP Admin"}</h4>
-          <p>${admin ? `${escapeHtml(inquiry.sender_display_name || "Guest")}${inquiry.sender_username ? ` · @${escapeHtml(inquiry.sender_username)}` : ""}${isLandingLiveChatThread(inquiry) ? " · Landing live chat" : (inquiry.source === "landing" ? " · Login page request" : "")}` : supportThread ? "Triplem VIP Live Support · visitor conversation" : "Private conversation · Continue here whenever you need assistance."}</p>
+          <p>${admin ? `${escapeHtml(inquiry.sender_display_name || "Guest")}${inquiry.sender_username ? ` · @${escapeHtml(inquiry.sender_username)}` : ""}${isLandingLiveChatThread(inquiry) ? ` · Landing live chat${liveChatIdentityNote}` : (inquiry.source === "landing" ? " · Login page request" : "")}` : supportThread ? `Triplem VIP Live Support · visitor conversation${liveChatIdentityNote}` : "Private conversation · Continue here whenever you need assistance."}</p>
           ${(admin || supportThread) && contactBits ? `<p class="messages-thread-contact">${contactBits}</p>` : ""}
         </div>
         ${admin || supportThread ? `<span class="message-status-pill ${escapeHtml(inquiry.status || "open")}">${escapeHtml(inquiry.status || "open")}</span>` : ""}
@@ -3198,13 +3209,19 @@ async function openInquiryThread(inquiryId, options = {}){
       </div>`;
 
     scroll.innerHTML = messages.map(m => {
-      const mine = admin || supportThread ? m.sender_role === "admin" : m.sender_role !== "admin";
-      const roleClass = m.sender_role === "admin" ? "from-admin" : (m.sender_role === "guest" ? "from-guest" : "from-user");
+      const actor = String(m.message_actor || m.support_actor || (m.sender_role === "admin" && m.sender_id ? "agent" : "")).toLowerCase();
+      const isAiMessage = actor === "ai" || m.is_ai === true;
+      const isHumanMessage = actor === "agent";
+      const mine = admin || supportThread ? (m.sender_role === "admin" && !isAiMessage) : m.sender_role !== "admin";
+      const roleClass = isAiMessage ? "from-ai" : (m.sender_role === "admin" ? "from-admin" : (m.sender_role === "guest" ? "from-guest" : "from-user"));
+      const actorBadge = isAiMessage
+        ? `<em class="chat-actor-badge is-ai">AI Assistant</em>`
+        : isHumanMessage ? `<em class="chat-actor-badge is-human">Human</em>` : "";
       return `
         <div class="chat-bubble-row ${mine ? "mine" : "theirs"}">
           <div class="chat-bubble ${roleClass}">
             <div class="chat-bubble-meta">
-              <strong>${escapeHtml(m.sender_label || m.sender_role)}</strong>
+              <span class="chat-bubble-who"><strong>${escapeHtml(m.sender_label || m.sender_role)}</strong>${actorBadge}</span>
               <span>${escapeHtml(formatRelativeTime(m.created_at))}</span>
             </div>
             <div class="chat-bubble-body">${escapeHtml(m.body)}</div>
@@ -3217,7 +3234,9 @@ async function openInquiryThread(inquiryId, options = {}){
       const replyInput = document.getElementById("messagesReplyInput");
       if (replyInput && !admin) replyInput.placeholder = supportThread ? "Reply to live-chat visitor…" : "Write a message to Admin…";
       const note = (admin || supportThread) && isLandingLiveChatThread(inquiry)
-        ? "Triplem VIP Live Support · replies appear seamlessly in the visitor’s temporary chat."
+        ? supportAiMode === "human_pending"
+          ? "AI Assistant paused · your reply will clearly identify you to the visitor as a real Triplem VIP support representative."
+          : "Triplem VIP Live Support · replies appear seamlessly in the visitor’s temporary chat."
         : (inquiry.source === "landing" && admin
           ? "Guest request from the login page — you can reply here for internal notes; the guest is not logged in."
           : "");
