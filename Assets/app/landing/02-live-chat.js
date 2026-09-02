@@ -1,4 +1,4 @@
-/* Triplem VIP landing Live Chat Support — temporary two-hour guest conversation. */
+/* Triplem VIP landing AI + Human Live Support — temporary two-hour guest conversation. */
 (() => {
   "use strict";
 
@@ -11,6 +11,10 @@
   let lastRenderSignature = "";
   let lastSeenAdminMessageId = "";
   let availability = null;
+  let startSending = false;
+  let replySending = false;
+  let aiGenerating = false;
+  let aiGenerationStartedAt = 0;
 
   const $ = (id) => document.getElementById(id);
   const els = {};
@@ -69,6 +73,8 @@
       expires_at: new Date(expiresMs).toISOString(),
       contact: raw.contact && typeof raw.contact === "object" ? raw.contact : {},
       messages: Array.isArray(raw.messages) ? raw.messages.slice(-200) : [],
+      support_mode: safeText(raw.support_mode || "legacy_human").trim() || "legacy_human",
+      support_label: safeText(raw.support_label || "").trim(),
       closed: raw.closed === true,
       saved_at: Number(raw.saved_at) || Date.now()
     };
@@ -97,6 +103,8 @@
     session = null;
     lastRenderSignature = "";
     lastSeenAdminMessageId = "";
+    aiGenerating = false;
+    aiGenerationStartedAt = 0;
     try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
     document.body.classList.remove("landing-live-chat-active");
     els.launcher?.classList.remove("has-unread");
@@ -111,10 +119,46 @@
     if (els.status) {
       els.status.classList.toggle("is-open", open);
       els.status.classList.toggle("is-closed", !open);
-      els.status.innerHTML = `<span class="landing-live-chat-status-dot"></span><div><strong>${escape(availability.status_label || (open ? "Support is online" : "Support is currently offline"))}</strong><small>${escape(availability.wait_label || "10:00 AM – 5:00 PM GST")}</small></div>`;
+      const humanState = open ? "Human support is online" : "Human support is currently offline";
+      const humanWait = availability.wait_label || "Human support hours: 10:00 AM – 5:00 PM GST";
+      els.status.innerHTML = `<span class="landing-live-chat-status-dot"></span><div><strong>${escape(humanState)}</strong><small>${escape(`AI available 24/7 · ${humanWait}`)}</small></div>`;
     }
-    if (els.availability) els.availability.textContent = availability.hours_label || "10:00 AM – 5:00 PM GST";
+    if (els.availability) els.availability.textContent = "AI available 24/7 · Human support 10:00 AM – 5:00 PM GST";
     els.launcher?.classList.toggle("is-online", open);
+  }
+
+  function setSupportIdentity(mode, label = "") {
+    if (!els.identity) return;
+    const state = safeText(mode || "ai").trim().toLowerCase();
+    let title = "Triplem VIP AI Assistant";
+    let detail = "AI-generated replies · Triplem VIP only · ask for a human agent anytime";
+    let icon = "fa-wand-magic-sparkles";
+    let stateClass = "is-ai";
+
+    if (state === "human_pending") {
+      title = "Human support requested";
+      detail = "AI replies are paused · waiting for a real support agent";
+      icon = "fa-user-clock";
+      stateClass = "is-pending";
+    } else if (state === "human") {
+      title = label || "Triplem VIP Support Agent";
+      detail = "Real Triplem VIP support representative · live conversation";
+      icon = "fa-headset";
+      stateClass = "is-human";
+    } else if (state === "closed") {
+      title = "Support conversation ended";
+      detail = "Start a new chat whenever you need further assistance";
+      icon = "fa-circle-check";
+      stateClass = "is-closed";
+    } else if (state === "legacy_human") {
+      title = label || "Triplem VIP Live Support";
+      detail = "Existing human-support conversation";
+      icon = "fa-headset";
+      stateClass = "is-human";
+    }
+
+    els.identity.className = `landing-live-chat-identity ${stateClass}`;
+    els.identity.innerHTML = `<span class="landing-live-chat-identity-icon" aria-hidden="true"><i class="fa-solid ${escape(icon)}"></i></span><div><strong>${escape(title)}</strong><small>${escape(detail)}</small></div>`;
   }
 
   function showError(el, message) {
@@ -146,6 +190,7 @@
   }
 
   function showStartView() {
+    setSupportIdentity("ai", "Triplem VIP AI Assistant");
     els.startView?.classList.remove("hide");
     els.conversation?.classList.add("hide");
     if (session?.contact) {
@@ -160,12 +205,43 @@
     document.body.classList.add("landing-live-chat-active");
     els.startView?.classList.add("hide");
     els.conversation?.classList.remove("hide");
+    setSupportIdentity(session.support_mode, session.support_label);
     updateExpiryLabel();
     renderMessages(session.messages || []);
   }
 
+  function isAiMessage(message) {
+    const actor = safeText(message?.message_actor || message?.support_actor || "").toLowerCase();
+    return actor === "ai" || message?.is_ai === true;
+  }
+
   function messageSignature(messages) {
-    return (messages || []).map(m => `${m.id || ""}:${m.sender_role || ""}:${m.created_at || ""}:${m.body || ""}`).join("|");
+    const rows = (messages || []).map(m => `${m.id || ""}:${m.sender_role || ""}:${m.message_actor || m.support_actor || ""}:${m.sender_label || ""}:${m.created_at || ""}:${m.body || ""}`).join("|");
+    return `${rows}|ai-generating:${aiGenerating ? "1" : "0"}`;
+  }
+
+  function aiThinkingMarkup() {
+    return `<div class="landing-live-chat-message-row is-admin is-ai is-thinking" role="status" aria-live="polite"><span class="landing-live-chat-avatar is-brand is-ai" aria-hidden="true"><img src="Assets/logo/logo.png" alt="" /></span><div class="landing-live-chat-message is-admin is-ai landing-live-chat-thinking"><div class="landing-live-chat-message-meta"><span class="landing-live-chat-message-who"><strong>Triplem VIP AI Assistant</strong><em class="landing-live-chat-actor-badge is-ai">AI</em></span><span>Generating</span></div><p><span>Generating a response</span><span class="landing-live-chat-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span></p></div></div>`;
+  }
+
+  function setAiGenerating(active) {
+    const next = active === true;
+    if (next && !aiGenerating) aiGenerationStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (!next) aiGenerationStartedAt = 0;
+    aiGenerating = next;
+    lastRenderSignature = "";
+    if (session) renderMessages(session.messages || []);
+  }
+
+  function aiThinkingDelay(question, answer) {
+    const qLen = safeText(question).trim().length;
+    const aLen = safeText(answer).trim().length;
+    const complexity = Math.min(850, qLen * 7) + Math.min(950, aLen * 2.1);
+    return Math.round(Math.max(1250, Math.min(3300, 900 + complexity)));
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, Math.max(0, Number(ms) || 0)));
   }
 
   function renderMessages(messages) {
@@ -177,15 +253,21 @@
     const previousAdmin = lastSeenAdminMessageId;
     const latestAdmin = [...rows].reverse().find(m => String(m.sender_role || "") === "admin");
     lastSeenAdminMessageId = latestAdmin?.id || lastSeenAdminMessageId;
-    els.messages.innerHTML = rows.length ? rows.map(m => {
+    const messageHtml = rows.length ? rows.map(m => {
       const fromGuest = String(m.sender_role || "") !== "admin";
-      const label = fromGuest ? "You" : "Triplem VIP Support";
+      const actor = fromGuest ? "visitor" : safeText(m.message_actor || m.support_actor || (m.sender_id ? "agent" : "system")).toLowerCase();
+      const isAi = actor === "ai" || m.is_ai === true;
+      const isHuman = actor === "agent";
+      const label = fromGuest ? "You" : (m.sender_label || (isAi ? "Triplem VIP AI Assistant" : isHuman ? "Triplem VIP Support Agent" : "Triplem VIP Support"));
+      const badge = fromGuest ? "" : `<em class="landing-live-chat-actor-badge ${isAi ? "is-ai" : isHuman ? "is-human" : "is-system"}">${isAi ? "AI" : isHuman ? "Human" : "System"}</em>`;
       const when = formatChatTime(m.created_at);
       const avatar = fromGuest
         ? `<span class="landing-live-chat-avatar is-user" aria-hidden="true"><i class="fa-solid fa-user"></i></span>`
-        : `<span class="landing-live-chat-avatar is-brand" aria-hidden="true"><img src="Assets/logo/logo.png" alt="" /></span>`;
-      return `<div class="landing-live-chat-message-row ${fromGuest ? "is-guest" : "is-admin"}">${fromGuest ? "" : avatar}<div class="landing-live-chat-message ${fromGuest ? "is-guest" : "is-admin"}"><div class="landing-live-chat-message-meta"><strong>${escape(label)}</strong><span>${escape(when)}</span></div><p>${escape(m.body)}</p></div>${fromGuest ? avatar : ""}</div>`;
-    }).join("") : `<div class="landing-live-chat-empty">No messages yet.</div>`;
+        : `<span class="landing-live-chat-avatar is-brand ${isAi ? "is-ai" : isHuman ? "is-human" : "is-system"}" aria-hidden="true"><img src="Assets/logo/logo.png" alt="" /></span>`;
+      const actorClass = fromGuest ? "is-guest" : isAi ? "is-ai" : isHuman ? "is-human" : "is-system";
+      return `<div class="landing-live-chat-message-row ${fromGuest ? "is-guest" : "is-admin"} ${actorClass}">${fromGuest ? "" : avatar}<div class="landing-live-chat-message ${fromGuest ? "is-guest" : "is-admin"} ${actorClass}"><div class="landing-live-chat-message-meta"><span class="landing-live-chat-message-who"><strong>${escape(label)}</strong>${badge}</span><span>${escape(when)}</span></div><p>${escape(m.body)}</p></div>${fromGuest ? avatar : ""}</div>`;
+    }).join("") : (aiGenerating ? "" : `<div class="landing-live-chat-empty">No messages yet.</div>`);
+    els.messages.innerHTML = messageHtml + (aiGenerating ? aiThinkingMarkup() : "");
     lastRenderSignature = signature;
     if (wasNearBottom || !previousAdmin) requestAnimationFrame(() => { els.messages.scrollTop = els.messages.scrollHeight; });
     if (previousAdmin && latestAdmin?.id && latestAdmin.id !== previousAdmin && els.panel?.classList.contains("hide")) {
@@ -228,7 +310,7 @@
   }
 
   async function refreshThread({ silent = false } = {}) {
-    if (!session) return;
+    if (!session || aiGenerating) return;
     if (new Date(session.expires_at).getTime() <= Date.now()) {
       clearSession({ keepPanel: true });
       return;
@@ -240,9 +322,13 @@
       });
       if (result?.expires_at) session.expires_at = result.expires_at;
       if (Array.isArray(result?.messages)) session.messages = result.messages.slice(-200);
+      if (result?.support_mode) session.support_mode = safeText(result.support_mode);
+      if (result?.support_label) session.support_label = safeText(result.support_label);
       session.closed = result?.chat_closed === true;
+      if (session.closed) session.support_mode = "closed";
       if (result?.availability) setAvailability(result.availability);
       persistSession();
+      setSupportIdentity(session.support_mode, session.support_label);
       renderMessages(session.messages);
       updateExpiryLabel();
       updateReplyState();
@@ -261,9 +347,14 @@
     const closed = session?.closed === true;
     if (els.reply) {
       els.reply.disabled = closed;
-      els.reply.placeholder = closed ? "This chat has ended" : "Write a message…";
+      const mode = safeText(session?.support_mode || "legacy_human");
+      els.reply.placeholder = closed ? "This chat has ended"
+        : aiGenerating ? "AI is generating a response…"
+        : mode === "ai" ? "Ask the Triplem VIP AI Assistant…"
+        : mode === "human_pending" ? "Add a message for the human support agent…"
+        : "Write a message to Triplem VIP Support…";
     }
-    if (els.replyButton) els.replyButton.disabled = closed;
+    if (els.replyButton) els.replyButton.disabled = closed || replySending || startSending;
     if (els.restartButton) els.restartButton.classList.toggle("hide", !closed);
     if (closed) showError(els.replyError, "This live chat has ended. You can start a new conversation whenever you need further assistance.");
     else if (els.replyError?.textContent?.includes("live chat has ended")) showError(els.replyError, "");
@@ -275,6 +366,10 @@
     const tick = async () => {
       if (!session) return;
       updateExpiryLabel();
+      if (replySending || startSending || aiGenerating) {
+        pollTimer = window.setTimeout(tick, 800);
+        return;
+      }
       await refreshThread({ silent: true });
       if (!session) return;
       const delay = document.hidden ? POLL_HIDDEN_MS : POLL_OPEN_MS;
@@ -290,6 +385,7 @@
 
   async function startChat(event) {
     event.preventDefault();
+    if (startSending) return;
     showError(els.startError, "");
     const name = safeText(els.name?.value).trim();
     const phone = safeText(els.phone?.value).trim();
@@ -300,6 +396,7 @@
       return;
     }
     const button = els.startButton;
+    startSending = true;
     if (button) { button.disabled = true; button.classList.add("loading"); }
     try {
       const result = await supabaseRpc("app_public_live_chat_start", {
@@ -309,57 +406,137 @@
         p_message: message
       });
       const expiresAt = result?.expires_at || new Date(Date.now() + FALLBACK_TTL_MS).toISOString();
+      const returnedMessages = Array.isArray(result?.messages) ? result.messages.slice(-200) : [];
+      const initialAi = [...returnedMessages].reverse().find(isAiMessage) || null;
+      const visibleMessages = initialAi
+        ? returnedMessages.filter(m => String(m.id || "") !== String(initialAi.id || ""))
+        : returnedMessages;
       session = normalizeSession({
         inquiry_id: result?.inquiry_id,
         guest_token: result?.guest_token,
         expires_at: expiresAt,
         contact: { name, phone, email },
-        messages: Array.isArray(result?.messages) ? result.messages : []
+        messages: visibleMessages,
+        support_mode: result?.support_mode || (result?.ai_available === true ? "ai" : "legacy_human"),
+        support_label: result?.support_label || (result?.ai_available === true ? "Triplem VIP AI Assistant" : "Triplem VIP Live Support")
       });
       if (!session) throw new Error("Live chat could not be started.");
       if (result?.availability) setAvailability(result.availability);
       persistSession();
       showConversationView();
       updateReplyState();
-      startPolling();
       if (els.message) els.message.value = "";
+
+      if (initialAi) {
+        setAiGenerating(true);
+        updateReplyState();
+        const planned = aiThinkingDelay(message, initialAi.body);
+        const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - aiGenerationStartedAt;
+        await wait(Math.max(0, planned - elapsed));
+        if (!session) return;
+        const rows = Array.isArray(session.messages) ? session.messages.slice() : [];
+        if (!rows.some(m => String(m.id) === String(initialAi.id))) rows.push(initialAi);
+        session.messages = rows.slice(-200);
+        setAiGenerating(false);
+        persistSession();
+        setSupportIdentity(session.support_mode, session.support_label);
+        updateReplyState();
+        renderMessages(session.messages);
+      }
+
+      startPolling();
       requestAnimationFrame(() => els.reply?.focus({ preventScroll: true }));
     } catch (error) {
       showError(els.startError, error?.message || "Live chat could not be started. Please try again.");
     } finally {
+      startSending = false;
       if (button) { button.disabled = false; button.classList.remove("loading"); }
+      updateReplyState();
     }
   }
 
   async function sendReply(event) {
     event.preventDefault();
-    if (!session || session.closed) return;
+    if (replySending || !session || session.closed) return;
     const body = safeText(els.reply?.value).trim();
     if (!body) return;
     showError(els.replyError, "");
+    replySending = true;
+    stopPolling();
     if (els.replyButton) els.replyButton.disabled = true;
+
+    const modeBeforeSend = safeText(session.support_mode || "legacy_human").toLowerCase();
+    const optimisticId = `local-guest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const optimisticMessage = {
+      id: optimisticId,
+      sender_role: "guest",
+      body,
+      created_at: new Date().toISOString(),
+      message_actor: "visitor"
+    };
+    session.messages = [...(Array.isArray(session.messages) ? session.messages : []), optimisticMessage].slice(-200);
+    if (els.reply) {
+      els.reply.value = "";
+      els.reply.style.height = "38px";
+    }
+    renderMessages(session.messages);
+    requestAnimationFrame(() => { if (els.messages) els.messages.scrollTop = els.messages.scrollHeight; });
+    if (modeBeforeSend === "ai") setAiGenerating(true);
+    updateReplyState();
+
     try {
       const result = await supabaseRpc("app_public_live_chat_reply", {
         p_inquiry_id: session.inquiry_id,
         p_guest_token: session.guest_token,
         p_body: body
       });
-      if (result?.message) {
-        const messages = Array.isArray(session.messages) ? session.messages.slice() : [];
-        if (!messages.some(m => String(m.id) === String(result.message.id))) messages.push(result.message);
+
+      let messages = (Array.isArray(session.messages) ? session.messages : []).filter(m => String(m.id) !== optimisticId);
+      if (result?.message && !messages.some(m => String(m.id) === String(result.message.id))) messages.push(result.message);
+      session.messages = messages.slice(-200);
+      if (result?.support_mode) session.support_mode = safeText(result.support_mode);
+      if (result?.support_label) session.support_label = safeText(result.support_label);
+      persistSession();
+      setSupportIdentity(session.support_mode, session.support_label);
+      renderMessages(session.messages);
+
+      const aiMessage = result?.ai_message || null;
+      if (aiMessage) {
+        if (!aiGenerating) setAiGenerating(true);
+        updateReplyState();
+        const planned = aiThinkingDelay(body, aiMessage.body);
+        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const elapsed = aiGenerationStartedAt ? now - aiGenerationStartedAt : 0;
+        await wait(Math.max(0, planned - elapsed));
+        if (!session) return;
+        messages = Array.isArray(session.messages) ? session.messages.slice() : [];
+        if (!messages.some(m => String(m.id) === String(aiMessage.id))) messages.push(aiMessage);
         session.messages = messages.slice(-200);
       }
-      if (els.reply) els.reply.value = "";
+
+      setAiGenerating(false);
       persistSession();
+      setSupportIdentity(session.support_mode, session.support_label);
+      updateReplyState();
       renderMessages(session.messages);
       requestAnimationFrame(() => { if (els.messages) els.messages.scrollTop = els.messages.scrollHeight; });
-      refreshThread({ silent: true }).catch(() => {});
     } catch (error) {
+      if (session) {
+        session.messages = (Array.isArray(session.messages) ? session.messages : []).filter(m => String(m.id) !== optimisticId);
+      }
+      setAiGenerating(false);
+      if (els.reply && !els.reply.value) {
+        els.reply.value = body;
+        els.reply.dispatchEvent(new Event("input", { bubbles: true }));
+      }
       const message = error?.message || "Message could not be sent.";
       showError(els.replyError, message);
       if (/expired|unavailable/i.test(message)) clearSession({ keepPanel: true });
+      else if (session) renderMessages(session.messages);
     } finally {
-      if (els.replyButton) els.replyButton.disabled = false;
+      replySending = false;
+      updateReplyState();
+      if (session) startPolling();
     }
   }
 
@@ -367,7 +544,7 @@
     if (!session) return clearSession({ keepPanel: true });
     let proceed = true;
     if (typeof window.appConfirmDelete === "function") {
-      proceed = await window.appConfirmDelete("End this temporary landing-page chat? The administrator will retain the support record, but this browser will forget the two-hour guest access token.", {
+      proceed = await window.appConfirmDelete("End this temporary landing-page chat? Triplem VIP will retain the support record, but this browser will forget the two-hour guest access token.", {
         title: "End live chat?",
         confirmLabel: "End chat"
       });
@@ -382,6 +559,7 @@
     els.launcher = $("landingLiveChatLauncher");
     els.status = $("landingLiveChatStatus");
     els.availability = $("landingLiveChatAvailability");
+    els.identity = $("landingLiveChatIdentity");
     els.startView = $("landingLiveChatStartView");
     els.conversation = $("landingLiveChatConversation");
     els.startForm = $("landingLiveChatStartForm");
@@ -417,10 +595,21 @@
       clearSession({ keepPanel: true });
       window.setTimeout(() => els.name?.focus(), 60);
     });
-    els.reply?.addEventListener("input", () => {
+    const resizeReply = () => {
+      if (!els.reply) return;
       els.reply.style.height = "auto";
       els.reply.style.height = `${Math.min(96, Math.max(38, els.reply.scrollHeight))}px`;
-    });
+    };
+    const submitOnEnter = (event, form) => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      if (event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      if (typeof form?.requestSubmit === "function") form.requestSubmit();
+      else form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    };
+    els.message?.addEventListener("keydown", event => submitOnEnter(event, els.startForm));
+    els.reply?.addEventListener("keydown", event => submitOnEnter(event, els.replyForm));
+    els.reply?.addEventListener("input", resizeReply);
     document.addEventListener("visibilitychange", () => {
       if (session) startPolling();
     });
