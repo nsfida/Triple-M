@@ -117,6 +117,16 @@
 --   100. migrations/098_subscription_receipt_archive_and_details.sql
 --   101. migrations/099_live_chat_support_and_message_flexibility.sql
 --   102. migrations/100_live_chat_routing_agents_and_idle_followup.sql
+--   103. migrations/101_live_chat_agent_workbench_and_records.sql
+--   104. migrations/102_live_chat_transfer_and_stable_read.sql
+--   105. migrations/103_live_chat_admin_queue_ui_and_encrypted_credentials.sql
+--   106. migrations/104_live_chat_transfer_notifications_bulk_records.sql
+--   107. migrations/105_live_chat_lifecycle_reconciliation.sql
+--   108. migrations/106_live_chat_transfer_delivery_read_state_and_records.sql
+--   109. migrations/107_admin_live_chat_sync_visibility.sql
+--   110. migrations/108_live_chat_ai_assistant.sql
+--   111. migrations/109_live_chat_ai_intelligence_and_input.sql
+--   112. migrations/110_live_chat_ai_intent_engine_and_thinking_state.sql
 -- ============================================================================
 
 -- ============================================================================
@@ -36131,6 +36141,5387 @@ notify pgrst, 'reload schema';
 
 -- ############################################################################
 -- END migrations/100_live_chat_routing_agents_and_idle_followup.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/101_live_chat_agent_workbench_and_records.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 101_live_chat_agent_workbench_and_records.sql
+-- Live Chat agent accept/decline workflow, acceptance introduction, and
+-- administrator Live Chat records/transcript management.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 100.
+--   * Creates/replaces RPC definitions only; no existing user/business rows are
+--     changed when this migration is installed.
+--   * Does NOT insert/update/delete/truncate existing user, financial, wallet,
+--     expense, inventory, subscription, receipt, inquiry, or message data at
+--     migration-install time.
+--   * Runtime writes occur only when an agent accepts/declines a NEW chat, when
+--     support sends messages, or when Admin explicitly confirms permanent chat
+--     deletion later.
+-- ============================================================================
+
+-- Explicit decline for one assigned support user. The chat remains pending for
+-- every other assigned agent and for Admin.
+create or replace function public.app_live_chat_decline_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  route public.app_live_chat_routes;
+  n public.app_user_notifications;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  if not exists(select 1 from public.app_users where id=uid and is_active=true) then
+    raise exception 'Authentication required';
+  end if;
+  if not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='accepted' then raise exception 'This live chat has already been accepted'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+
+  update public.app_user_notifications
+     set is_read=true,
+         read_at=coalesce(read_at,now()),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','declined','declined_at',now())
+   where owner_id=uid
+     and kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text
+   returning * into n;
+
+  return jsonb_build_object('ok',true,'declined',true,'inquiry_id',p_inquiry_id);
+end
+$fn$;
+revoke all on function public.app_live_chat_decline_assignment(uuid) from public;
+grant execute on function public.app_live_chat_decline_assignment(uuid) to anon, authenticated, service_role;
+
+-- Atomically accept one chat. Only the winner can acquire it. The visitor gets
+-- exactly one human introduction identifying the accepting representative.
+create or replace function public.app_live_chat_accept_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  inquiry_row public.app_inquiries;
+  expiry timestamptz;
+  intro public.app_inquiry_messages;
+  was_pending boolean := false;
+  intro_text text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  if not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+  if route.status='accepted' and route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat has already been accepted by another support agent';
+  end if;
+  if route.status='accepted' and route.assigned_user_id=uid then
+    select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+    return jsonb_build_object('ok',true,'accepted',true,'already_accepted',true,'inquiry',public.app_inquiry_public_row(inquiry_row));
+  end if;
+
+  select expires_at into expiry from public.app_live_chat_guest_access where inquiry_id=p_inquiry_id;
+  if expiry is null or expiry<=now() then raise exception 'This live chat has expired'; end if;
+  was_pending := route.status='pending';
+
+  update public.app_live_chat_routes
+     set assigned_user_id=uid,status='accepted',accepted_at=now(),closed_at=null,updated_at=now()
+   where inquiry_id=p_inquiry_id and status='pending'
+   returning * into route;
+  if route is null then raise exception 'This live chat was accepted by another support agent'; end if;
+
+  -- Clear every stale assignment alert once one agent wins the chat.
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+           'assignment_status',case when owner_id=uid then 'accepted' else 'taken' end,
+           'accepted_by',uid,'accepted_at',now())
+   where kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text;
+
+  intro_text := format(
+    'Thank you for your message. This is %s from Triplem VIP Support. How can I help you today?',
+    coalesce(nullif(trim(coalesce(u.display_name,'')),''),u.username)
+  );
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,intro_text) returning * into intro;
+
+  update public.app_inquiries
+     set admin_last_read_at=now(),status='read',last_message_at=now(),updated_at=now(),
+         read_at=coalesce(read_at,now()),read_by=coalesce(read_by,uid)
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object(
+    'ok',true,'accepted',true,'already_accepted',false,
+    'representative_name',coalesce(nullif(trim(coalesce(u.display_name,'')),''),u.username),
+    'intro_message',public.app_message_public_row(intro),
+    'inquiry',public.app_inquiry_public_row(inquiry_row)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_assignment(uuid) from public;
+grant execute on function public.app_live_chat_accept_assignment(uuid) to anon, authenticated, service_role;
+
+-- Admin-only permanent records list. No records are changed by reading it.
+create or replace function public.app_admin_live_chat_records(
+  p_limit integer default 100,
+  p_offset integer default 0,
+  p_search text default null
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin();
+  lim int := greatest(1,least(coalesce(p_limit,100),250));
+  off int := greatest(0,coalesce(p_offset,0));
+  q text := lower(trim(coalesce(p_search,'')));
+  items jsonb := '[]'::jsonb;
+  total int := 0;
+begin
+  select count(*)::int into total
+  from public.app_inquiries i
+  left join public.app_live_chat_routes r on r.inquiry_id=i.id
+  left join public.app_users a on a.id=r.assigned_user_id
+  where lower(coalesce(i.subject,''))='live chat support'
+    and coalesce(i.source,'')='landing'
+    and (q='' or lower(concat_ws(' ',i.guest_name,i.guest_email,i.guest_phone,a.display_name,a.username,i.body,i.status,r.status)) like '%'||q||'%');
+
+  select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.last_message_at desc),'[]'::jsonb) into items
+  from (
+    select
+      i.id,
+      coalesce(i.guest_name,'') as guest_name,
+      coalesce(i.guest_email,'') as guest_email,
+      coalesce(i.guest_phone,'') as guest_phone,
+      i.status,
+      coalesce(r.status,'') as routing_status,
+      r.assigned_user_id,
+      coalesce(a.display_name,a.username,'') as agent_name,
+      coalesce(a.username,'') as agent_username,
+      r.accepted_at,
+      r.closed_at,
+      i.created_at,
+      coalesce(i.last_message_at,i.updated_at,i.created_at) as last_message_at,
+      (select count(*)::int from public.app_inquiry_messages m where m.inquiry_id=i.id) as message_count,
+      left(coalesce((select m.body from public.app_inquiry_messages m where m.inquiry_id=i.id order by m.created_at desc limit 1),i.body,''),220) as last_message_preview
+    from public.app_inquiries i
+    left join public.app_live_chat_routes r on r.inquiry_id=i.id
+    left join public.app_users a on a.id=r.assigned_user_id
+    where lower(coalesce(i.subject,''))='live chat support'
+      and coalesce(i.source,'')='landing'
+      and (q='' or lower(concat_ws(' ',i.guest_name,i.guest_email,i.guest_phone,a.display_name,a.username,i.body,i.status,r.status)) like '%'||q||'%')
+    order by coalesce(i.last_message_at,i.updated_at,i.created_at) desc
+    limit lim offset off
+  ) x;
+
+  return jsonb_build_object('ok',true,'items',items,'total',total,'limit',lim,'offset',off,'has_more',(off+lim)<total);
+end
+$fn$;
+revoke all on function public.app_admin_live_chat_records(integer,integer,text) from public;
+grant execute on function public.app_admin_live_chat_records(integer,integer,text) to anon, authenticated, service_role;
+
+create or replace function public.app_admin_live_chat_transcript(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin();
+  i public.app_inquiries;
+  r public.app_live_chat_routes;
+  a public.app_users;
+  msgs jsonb := '[]'::jsonb;
+begin
+  select * into i from public.app_inquiries
+   where id=p_inquiry_id and lower(coalesce(subject,''))='live chat support' and coalesce(source,'')='landing';
+  if i is null then raise exception 'Live chat record not found'; end if;
+  select * into r from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  if r.assigned_user_id is not null then select * into a from public.app_users where id=r.assigned_user_id; end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',m.id,'sender_role',m.sender_role,'sender_id',m.sender_id,
+    'sender_name',case
+      when m.sender_role='guest' then coalesce(i.guest_name,'Visitor')
+      when m.sender_id is not null then coalesce((select coalesce(u.display_name,u.username) from public.app_users u where u.id=m.sender_id),'Triplem VIP Support')
+      else 'Triplem VIP Support' end,
+    'body',m.body,'created_at',m.created_at
+  ) order by m.created_at asc),'[]'::jsonb) into msgs
+  from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id;
+
+  return jsonb_build_object(
+    'ok',true,
+    'chat',jsonb_build_object(
+      'id',i.id,'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),'guest_phone',coalesce(i.guest_phone,''),
+      'status',i.status,'routing_status',coalesce(r.status,''),'created_at',i.created_at,
+      'accepted_at',r.accepted_at,'closed_at',r.closed_at,
+      'agent_id',r.assigned_user_id,'agent_name',coalesce(a.display_name,a.username,''),'agent_username',coalesce(a.username,'')
+    ),
+    'messages',msgs
+  );
+end
+$fn$;
+revoke all on function public.app_admin_live_chat_transcript(uuid) from public;
+grant execute on function public.app_admin_live_chat_transcript(uuid) to anon, authenticated, service_role;
+
+-- Explicit, Admin-only permanent deletion for Live Chat records. This function
+-- does nothing unless Admin deliberately calls it after a UI confirmation.
+create or replace function public.app_admin_delete_live_chat_record(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin();
+begin
+  if not exists(
+    select 1 from public.app_inquiries
+    where id=p_inquiry_id and lower(coalesce(subject,''))='live chat support' and coalesce(source,'')='landing'
+  ) then raise exception 'Live chat record not found'; end if;
+  delete from public.app_user_notifications
+   where kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text;
+  delete from public.app_inquiries where id=p_inquiry_id;
+  return jsonb_build_object('ok',true,'deleted_id',p_inquiry_id);
+end
+$fn$;
+revoke all on function public.app_admin_delete_live_chat_record(uuid) from public;
+grant execute on function public.app_admin_delete_live_chat_record(uuid) to anon, authenticated, service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/101_live_chat_agent_workbench_and_records.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/102_live_chat_transfer_and_stable_read.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 102_live_chat_transfer_and_stable_read.sql
+-- Stable messaging reads, floating assignment offers, and agent-to-agent Live
+-- Chat transfer workflow.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 101.
+--   * Creates one isolated Live Chat transfer-audit table and replaces RPC
+--     definitions only.
+--   * Does NOT insert/update/delete/truncate existing user, financial, wallet,
+--     expense, inventory, subscription, receipt, inquiry, message, credential,
+--     session, or business rows when this migration is installed.
+--   * Runtime writes occur only after a support representative explicitly
+--     accepts/declines/transfers an active Live Chat or reads newly unread chat.
+-- ============================================================================
+
+create table if not exists public.app_live_chat_transfers (
+  id uuid primary key default gen_random_uuid(),
+  inquiry_id uuid not null references public.app_inquiries(id) on delete cascade,
+  from_user_id uuid references public.app_users(id) on delete set null,
+  to_user_id uuid references public.app_users(id) on delete set null,
+  status text not null default 'pending' check (status in ('pending','accepted','declined','cancelled')),
+  requested_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists app_live_chat_transfers_one_pending_idx
+  on public.app_live_chat_transfers(inquiry_id) where status='pending';
+create index if not exists app_live_chat_transfers_target_idx
+  on public.app_live_chat_transfers(to_user_id,status,requested_at desc);
+alter table public.app_live_chat_transfers enable row level security;
+revoke all on table public.app_live_chat_transfers from public, anon, authenticated;
+
+do $policy$
+begin
+  if not exists(
+    select 1 from pg_policies
+    where schemaname='public' and tablename='app_live_chat_transfers' and policyname='app_live_chat_transfers_deny_all'
+  ) then
+    execute 'create policy app_live_chat_transfers_deny_all on public.app_live_chat_transfers for all to anon, authenticated using (false) with check (false)';
+  end if;
+end
+$policy$;
+
+-- Public inquiry shape now carries transfer state so the assigned agent UI can
+-- disable replies during a pending handoff without exposing unrelated data.
+create or replace function public.app_inquiry_public_row(i public.app_inquiries)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  sender public.app_users;
+  assigned public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  transfer_target public.app_users;
+  msg_count int := 0;
+  last_preview text := '';
+  last_role text := null;
+  unread_admin int := 0;
+  unread_user int := 0;
+begin
+  if i.sender_id is not null then select * into sender from public.app_users where id=i.sender_id; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=i.id;
+  if route.assigned_user_id is not null then select * into assigned from public.app_users where id=route.assigned_user_id; end if;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=i.id and status='pending' order by requested_at desc limit 1;
+  if transfer.to_user_id is not null then select * into transfer_target from public.app_users where id=transfer.to_user_id; end if;
+  select count(*)::int into msg_count from public.app_inquiry_messages m where m.inquiry_id=i.id;
+  select m.body,m.sender_role into last_preview,last_role from public.app_inquiry_messages m where m.inquiry_id=i.id order by m.created_at desc limit 1;
+  if last_preview is null then last_preview:=i.body; end if;
+  select count(*)::int into unread_admin from public.app_inquiry_messages m where m.inquiry_id=i.id and m.sender_role in ('user','guest') and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at);
+  select count(*)::int into unread_user from public.app_inquiry_messages m where m.inquiry_id=i.id and m.sender_role='admin' and (i.user_last_read_at is null or m.created_at>i.user_last_read_at);
+  return jsonb_build_object(
+    'id',i.id,'sender_id',i.sender_id,'sender_username',coalesce(sender.username,''),
+    'sender_display_name',coalesce(nullif(trim(coalesce(i.guest_name,'')),''),sender.display_name,sender.username,'Guest'),
+    'sender_email',coalesce(nullif(trim(coalesce(i.guest_email,'')),''),sender.company_email,''),
+    'sender_phone',coalesce(nullif(trim(coalesce(i.guest_phone,'')),''),sender.company_phone,''),
+    'sender_company',coalesce(sender.company_name,''),'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),'guest_phone',coalesce(i.guest_phone,''),
+    'source',coalesce(i.source,'app'),'subject',i.subject,'body',i.body,'status',i.status,'admin_note',coalesce(i.admin_note,''),
+    'message_count',msg_count,'last_message_preview',left(coalesce(last_preview,''),180),'last_message_role',last_role,
+    'last_message_at',coalesce(i.last_message_at,i.updated_at,i.created_at),'unread_for_admin',unread_admin,'unread_for_user',unread_user,
+    'support_assignment_status',coalesce(route.status,''),'support_assigned_to',route.assigned_user_id,
+    'support_assigned_username',coalesce(assigned.username,''),'support_assigned_name',coalesce(assigned.display_name,assigned.username,''),
+    'support_transfer_status',coalesce(transfer.status,''),'support_transfer_id',transfer.id,
+    'support_transfer_to',transfer.to_user_id,'support_transfer_to_name',coalesce(transfer_target.display_name,transfer_target.username,''),
+    'created_at',i.created_at,'updated_at',i.updated_at,'read_at',i.read_at
+  );
+end
+$fn$;
+revoke all on function public.app_inquiry_public_row(public.app_inquiries) from public, anon, authenticated;
+
+-- Atomic initial acceptance. Other agents receive an informational notification
+-- naming the representative who won the assignment; their actionable offer is
+-- simultaneously removed.
+create or replace function public.app_live_chat_accept_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  inquiry_row public.app_inquiries;
+  expiry timestamptz;
+  intro public.app_inquiry_messages;
+  intro_text text;
+  rep_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  if not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+  rep_name:=coalesce(nullif(trim(coalesce(u.display_name,'')),''),u.username);
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+  if route.status='accepted' and route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat has already been accepted by %',coalesce((select coalesce(nullif(trim(a.display_name),''),a.username) from public.app_users a where a.id=route.assigned_user_id),'another support agent');
+  end if;
+  if route.status='accepted' and route.assigned_user_id=uid then
+    select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+    return jsonb_build_object('ok',true,'accepted',true,'already_accepted',true,'representative_name',rep_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+  end if;
+
+  select expires_at into expiry from public.app_live_chat_guest_access where inquiry_id=p_inquiry_id;
+  if expiry is null or expiry<=now() then raise exception 'This live chat has expired'; end if;
+
+  update public.app_live_chat_routes
+     set assigned_user_id=uid,status='accepted',accepted_at=now(),closed_at=null,updated_at=now()
+   where inquiry_id=p_inquiry_id and status='pending'
+   returning * into route;
+  if route is null then raise exception 'This live chat was accepted by another support agent'; end if;
+
+  update public.app_user_notifications
+     set is_read=case when owner_id=uid then true else false end,
+         read_at=case when owner_id=uid then coalesce(read_at,now()) else null end,
+         title=case when owner_id=uid then 'Live chat accepted' else 'Live chat taken' end,
+         body=case when owner_id=uid
+           then format('You are now assisting this visitor as %s.',rep_name)
+           else format('%s has accepted this Live Chat conversation.',rep_name) end,
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+           'assignment_status',case when owner_id=uid then 'accepted' else 'taken' end,
+           'accepted_by',uid,'accepted_by_name',rep_name,'accepted_at',now())
+   where kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text;
+
+  intro_text:=format(
+    'Thank you for contacting Triplem VIP Support. My name is %s, and I will be assisting you today. How may I help you?',
+    rep_name
+  );
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,intro_text) returning * into intro;
+
+  update public.app_inquiries
+     set admin_last_read_at=now(),status='read',last_message_at=now(),updated_at=now(),
+         read_at=coalesce(read_at,now()),read_by=coalesce(read_by,uid)
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object(
+    'ok',true,'accepted',true,'already_accepted',false,'representative_name',rep_name,
+    'intro_message',public.app_message_public_row(intro),'inquiry',public.app_inquiry_public_row(inquiry_row)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_assignment(uuid) from public;
+grant execute on function public.app_live_chat_accept_assignment(uuid) to anon, authenticated, service_role;
+
+-- Candidate list is visible only to the currently assigned representative or a
+-- protected administrator. It exposes no passwords, contact details, or data.
+create or replace function public.app_live_chat_transfer_candidates(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  allowed boolean:=false;
+  items jsonb:='[]'::jsonb;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  allowed:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false) or u.role='admin';
+  if not allowed then raise exception 'This live chat is not assigned to you'; end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',a.user_id,'username',au.username,'display_name',coalesce(nullif(trim(au.display_name),''),au.username),
+    'active_chats',(select count(*)::int from public.app_live_chat_routes rr where rr.status='accepted' and rr.assigned_user_id=a.user_id)
+  ) order by lower(coalesce(nullif(trim(au.display_name),''),au.username))),'[]'::jsonb)
+  into items
+  from public.app_live_chat_agents a
+  join public.app_users au on au.id=a.user_id and au.is_active=true
+  where a.enabled=true and a.user_id is distinct from route.assigned_user_id;
+
+  return jsonb_build_object('ok',true,'items',items);
+end
+$fn$;
+revoke all on function public.app_live_chat_transfer_candidates(uuid) from public;
+grant execute on function public.app_live_chat_transfer_candidates(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_request_transfer(p_inquiry_id uuid,p_target_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  source_user public.app_users;
+  target_user public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  auto_msg public.app_inquiry_messages;
+  source_name text;
+  target_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into source_user from public.app_users where id=uid and is_active=true;
+  if source_user is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat is not assigned to you';
+  end if;
+  if exists(select 1 from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending') then
+    raise exception 'A transfer is already awaiting acceptance';
+  end if;
+  if p_target_user_id is null or p_target_user_id=uid then raise exception 'Choose another support agent'; end if;
+  select u.* into target_user from public.app_users u
+  join public.app_live_chat_agents a on a.user_id=u.id and a.enabled=true
+  where u.id=p_target_user_id and u.is_active=true;
+  if target_user is null then raise exception 'The selected support agent is unavailable'; end if;
+
+  source_name:=coalesce(nullif(trim(coalesce(source_user.display_name,'')),''),source_user.username);
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username);
+
+  insert into public.app_live_chat_transfers(inquiry_id,from_user_id,to_user_id,status,requested_at,created_at,updated_at)
+  values(p_inquiry_id,uid,p_target_user_id,'pending',now(),now(),now()) returning * into transfer;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',null,
+    'Your conversation is being transferred to another Triplem VIP Support representative. They will join you shortly. Thank you for your patience while we make the handoff.')
+  returning * into auto_msg;
+
+  update public.app_inquiries set last_message_at=now(),updated_at=now(),status='read' where id=p_inquiry_id returning * into inquiry_row;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(
+    p_target_user_id,'system','Live chat transfer',
+    format('%s is transferring a Live Chat conversation to you. Review the visitor message and accept or decline the handoff.',source_name),
+    jsonb_build_object('type','live_chat_transfer','transfer_id',transfer.id,'inquiry_id',p_inquiry_id,
+      'from_user_id',uid,'from_agent_name',source_name,'target_agent_name',target_name,
+      'guest_name',coalesce(inquiry_row.guest_name,''),'guest_email',coalesce(inquiry_row.guest_email,''),
+      'guest_phone',coalesce(inquiry_row.guest_phone,''),'message',left(coalesce(inquiry_row.body,''),220),
+      'assignment_status','pending'),
+    'live-chat-transfer:'||transfer.id::text||':'||p_target_user_id::text
+  );
+
+  return jsonb_build_object('ok',true,'transfer_id',transfer.id,'target_user_id',p_target_user_id,
+    'target_name',target_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_request_transfer(uuid,uuid) from public;
+grant execute on function public.app_live_chat_request_transfer(uuid,uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_accept_transfer(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  new_agent public.app_users;
+  old_agent public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  intro public.app_inquiry_messages;
+  new_name text;
+  old_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into new_agent from public.app_users where id=uid and is_active=true;
+  if new_agent is null then raise exception 'Authentication required'; end if;
+  if not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then raise exception 'You are not assigned to Live Chat Support'; end if;
+
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' for update;
+  if transfer is null then raise exception 'This transfer is no longer available'; end if;
+  if transfer.to_user_id is distinct from uid then raise exception 'This transfer is assigned to another support agent'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from transfer.from_user_id then
+    raise exception 'This conversation has already moved to another representative';
+  end if;
+
+  select * into old_agent from public.app_users where id=transfer.from_user_id;
+  new_name:=coalesce(nullif(trim(coalesce(new_agent.display_name,'')),''),new_agent.username);
+  old_name:=coalesce(nullif(trim(coalesce(old_agent.display_name,'')),''),old_agent.username,'Previous representative');
+
+  update public.app_live_chat_transfers set status='accepted',resolved_at=now(),updated_at=now() where id=transfer.id;
+  update public.app_live_chat_routes set assigned_user_id=uid,updated_at=now() where inquiry_id=p_inquiry_id;
+
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),title='Live chat transfer accepted',
+         body=format('You accepted the Live Chat transfer from %s.',old_name),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','accepted','accepted_at',now(),'accepted_by_name',new_name)
+   where owner_id=uid and kind='system' and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=transfer.id::text;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(transfer.from_user_id,'system','Live chat transferred',format('%s accepted your Live Chat transfer and is now assisting the visitor.',new_name),
+    jsonb_build_object('type','live_chat_transfer_complete','inquiry_id',p_inquiry_id,'transfer_id',transfer.id,'accepted_by',uid,'accepted_by_name',new_name),
+    'live-chat-transfer-complete:'||transfer.id::text)
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,format(
+    'Thank you for your patience. My name is %s from Triplem VIP Support, and I have taken over your conversation. Please allow me a moment to review the previous messages so I can assist you accurately and without asking you to repeat yourself.',
+    new_name)) returning * into intro;
+
+  update public.app_inquiries set admin_last_read_at=now(),last_message_at=now(),updated_at=now(),status='read' where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object('ok',true,'accepted',true,'representative_name',new_name,
+    'intro_message',public.app_message_public_row(intro),'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_transfer(uuid) from public;
+grant execute on function public.app_live_chat_accept_transfer(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_decline_transfer(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  transfer public.app_live_chat_transfers;
+  source_user public.app_users;
+  target_user public.app_users;
+  source_name text;
+  target_name text;
+  inquiry_row public.app_inquiries;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' for update;
+  if transfer is null then raise exception 'This transfer is no longer available'; end if;
+  if transfer.to_user_id is distinct from uid then raise exception 'This transfer is assigned to another support agent'; end if;
+  select * into target_user from public.app_users where id=uid and is_active=true;
+  if target_user is null then raise exception 'Authentication required'; end if;
+  select * into source_user from public.app_users where id=transfer.from_user_id;
+  source_name:=coalesce(nullif(trim(coalesce(source_user.display_name,'')),''),source_user.username,'Support representative');
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username);
+
+  update public.app_live_chat_transfers set status='declined',resolved_at=now(),updated_at=now() where id=transfer.id;
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),title='Live chat transfer declined',
+         body='You declined this Live Chat transfer.',
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','declined','declined_at',now())
+   where owner_id=uid and kind='system' and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=transfer.id::text;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(transfer.from_user_id,'system','Transfer unavailable',format('%s is currently unable to accept the Live Chat transfer. The conversation remains assigned to you.',target_name),
+    jsonb_build_object('type','live_chat_transfer_declined','inquiry_id',p_inquiry_id,'transfer_id',transfer.id,'declined_by',uid,'declined_by_name',target_name),
+    'live-chat-transfer-declined:'||transfer.id::text)
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',null,
+    'The requested handoff is not available at the moment. Your current Triplem VIP Support representative will continue assisting you without interruption. Thank you for your patience.');
+  update public.app_inquiries set last_message_at=now(),updated_at=now() where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object('ok',true,'declined',true,'source_agent_name',source_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_decline_transfer(uuid) from public;
+grant execute on function public.app_live_chat_decline_transfer(uuid) to anon, authenticated, service_role;
+
+-- Stable read: reading an already-read thread no longer writes updated_at. This
+-- breaks the read -> fingerprint -> refresh -> read feedback loop that caused
+-- blinking dropdowns and scroll resets.
+create or replace function public.app_get_inquiry_thread(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  row public.app_inquiries;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  msgs jsonb:='[]'::jsonb;
+  is_admin boolean:=false;
+  is_support boolean:=false;
+  has_unread boolean:=false;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  is_admin:=(u.role='admin' and u.is_active);
+  select * into row from public.app_inquiries where id=p_inquiry_id;
+  if row is null then raise exception 'Conversation not found'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' order by requested_at desc limit 1;
+  is_support:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false);
+  if not is_admin and not is_support and row.sender_id is distinct from uid then raise exception 'Access denied'; end if;
+
+  if is_admin or is_support then
+    select exists(select 1 from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id and m.sender_role in ('user','guest') and (row.admin_last_read_at is null or m.created_at>row.admin_last_read_at)) into has_unread;
+    if has_unread or (is_admin and row.status='open') then
+      update public.app_inquiries
+         set admin_last_read_at=case when has_unread then now() else admin_last_read_at end,
+             status=case when status='open' then 'read' else status end,
+             read_at=case when status='open' then coalesce(read_at,now()) else read_at end,
+             read_by=case when status='open' then coalesce(read_by,uid) else read_by end
+       where id=p_inquiry_id returning * into row;
+    end if;
+    if is_admin then
+      update public.app_admin_notifications set is_read=true,read_at=coalesce(read_at,now()),read_by=uid
+       where related_inquiry_id=p_inquiry_id and is_read=false;
+    end if;
+  else
+    select exists(select 1 from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id and m.sender_role='admin' and (row.user_last_read_at is null or m.created_at>row.user_last_read_at)) into has_unread;
+    if has_unread then
+      update public.app_inquiries set user_last_read_at=now() where id=p_inquiry_id returning * into row;
+    end if;
+  end if;
+
+  select coalesce(jsonb_agg(public.app_message_public_row(m) order by m.created_at asc),'[]'::jsonb) into msgs from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id;
+  return jsonb_build_object(
+    'inquiry',public.app_inquiry_public_row(row),
+    'messages',msgs,
+    'can_reply',(
+      (is_support and transfer.id is null)
+      or (is_admin and not coalesce(route.status='accepted' and route.assigned_user_id is not null,true))
+      or (row.sender_id=uid and row.source='app' and row.status<>'archived')
+    )
+  );
+end
+$fn$;
+revoke all on function public.app_get_inquiry_thread(uuid) from public;
+grant execute on function public.app_get_inquiry_thread(uuid) to anon,authenticated,service_role;
+
+-- Mirror the stable-read transfer lock on writes so a stale browser cannot send
+-- after initiating a transfer.
+create or replace function public.app_reply_inquiry(p_inquiry_id uuid,p_body text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id(); u public.app_users; row public.app_inquiries; route public.app_live_chat_routes; transfer public.app_live_chat_transfers; msg text:=trim(coalesce(p_body,'')); new_msg public.app_inquiry_messages; role text; is_admin boolean:=false; is_support boolean:=false;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  is_admin:=(u.role='admin');
+  if char_length(msg)<1 then raise exception 'Please write a reply'; end if;
+  if char_length(msg)>4000 then raise exception 'Reply is too long'; end if;
+  select * into row from public.app_inquiries where id=p_inquiry_id for update;
+  if row is null then raise exception 'Conversation not found'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' order by requested_at desc limit 1;
+  is_support:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false);
+  if is_support and transfer.id is not null then raise exception 'This live chat is awaiting transfer acceptance'; end if;
+  if is_admin and coalesce(route.status='accepted' and route.assigned_user_id is not null,false) and not is_support then
+    raise exception 'This live chat is assigned to its support agent';
+  end if;
+  if is_admin or is_support then role:='admin';
+  elsif row.sender_id=uid and row.source='app' then role:='user';
+  else raise exception 'You cannot reply to this conversation'; end if;
+  if row.status='archived' and not is_admin then raise exception 'This conversation is closed'; end if;
+  if row.sender_id is null and not is_admin and not is_support then raise exception 'Access denied'; end if;
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body) values(p_inquiry_id,role,uid,msg) returning * into new_msg;
+  update public.app_inquiries set last_message_at=now(),updated_at=now(),status=case when (is_admin or is_support) and status='archived' then status when is_admin or is_support then 'read' else 'open' end,
+    admin_last_read_at=case when is_admin or is_support then now() else admin_last_read_at end,
+    user_last_read_at=case when not is_admin and not is_support then now() else user_last_read_at end,
+    body=case when role in ('user','guest') then msg else body end
+  where id=p_inquiry_id returning * into row;
+  if not is_admin and not is_support then perform public.app_notify_admins('inquiry','New reply',format('Reply on "%s" from %s',row.subject,coalesce(u.display_name,u.username)),uid,row.id,jsonb_build_object('subject',row.subject,'reply',true)); end if;
+  return jsonb_build_object('ok',true,'message',public.app_message_public_row(new_msg),'inquiry',public.app_inquiry_public_row(row));
+end
+$fn$;
+revoke all on function public.app_reply_inquiry(uuid,text) from public;
+grant execute on function public.app_reply_inquiry(uuid,text) to anon,authenticated,service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/102_live_chat_transfer_and_stable_read.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/103_live_chat_admin_queue_ui_and_encrypted_credentials.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 103_live_chat_admin_queue_ui_and_encrypted_credentials.sql
+-- Admin-inclusive Live Chat queue/transfer routing plus forward-only encrypted
+-- credential vault support for future password and Smart PIN writes.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 102. Existing migrations remain unchanged.
+--   * Installation creates a new isolated credential-vault table, trigger and RPC
+--     definitions only. It does NOT rewrite, migrate, delete, or decrypt any
+--     existing user, credential, financial, wallet, expense, inventory, message,
+--     subscription, receipt, session or Live Chat row.
+--   * Existing legacy admin-visible credentials remain untouched and continue as
+--     fallback. Hash-only passwords created by older public signup flows cannot be
+--     reconstructed; they enter the encrypted vault only after a future reset/change.
+-- ============================================================================
+
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.app_admin_credential_vault (
+  user_id uuid primary key references public.app_users(id) on delete cascade,
+  password_cipher bytea,
+  smart_pin_cipher bytea,
+  password_updated_at timestamptz,
+  smart_pin_updated_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.app_admin_credential_vault enable row level security;
+revoke all on table public.app_admin_credential_vault from public, anon, authenticated;
+drop policy if exists app_admin_credential_vault_deny_all on public.app_admin_credential_vault;
+create policy app_admin_credential_vault_deny_all on public.app_admin_credential_vault
+  for all to anon, authenticated using(false) with check(false);
+
+create or replace function public.app_admin_credential_encrypt(p_secret text)
+returns bytea language plpgsql volatile security definer
+set search_path=public,extensions as $fn$
+declare payload text;
+begin
+  if p_secret is null or p_secret='' then return null; end if;
+  payload:=encode(extensions.gen_random_bytes(16),'hex')||':'||p_secret;
+  return extensions.encrypt(convert_to(payload,'UTF8'),public.app_admin_security_get_pepper(),'aes');
+end
+$fn$;
+revoke all on function public.app_admin_credential_encrypt(text) from public,anon,authenticated;
+
+create or replace function public.app_admin_credential_decrypt(p_cipher bytea)
+returns text language plpgsql stable security definer
+set search_path=public,extensions as $fn$
+declare payload text; pos int;
+begin
+  if p_cipher is null then return null; end if;
+  payload:=convert_from(extensions.decrypt(p_cipher,public.app_admin_security_get_pepper(),'aes'),'UTF8');
+  pos:=strpos(payload,':');
+  if pos<1 then return null; end if;
+  return substring(payload from pos+1);
+exception when others then
+  return null;
+end
+$fn$;
+revoke all on function public.app_admin_credential_decrypt(bytea) from public,anon,authenticated;
+
+create or replace function public.app_admin_credential_vault_store(p_user_id uuid,p_kind text,p_secret text)
+returns void language plpgsql volatile security definer
+set search_path=public as $fn$
+declare k text:=lower(trim(coalesce(p_kind,''))); c bytea;
+begin
+  if p_user_id is null or p_secret is null or p_secret='' then return; end if;
+  if k not in ('password','smart_pin') then raise exception 'Invalid credential type'; end if;
+  c:=public.app_admin_credential_encrypt(p_secret);
+  insert into public.app_admin_credential_vault(user_id,password_cipher,smart_pin_cipher,password_updated_at,smart_pin_updated_at,created_at,updated_at)
+  values(p_user_id,case when k='password' then c end,case when k='smart_pin' then c end,
+    case when k='password' then now() end,case when k='smart_pin' then now() end,now(),now())
+  on conflict(user_id) do update set
+    password_cipher=case when k='password' then excluded.password_cipher else app_admin_credential_vault.password_cipher end,
+    smart_pin_cipher=case when k='smart_pin' then excluded.smart_pin_cipher else app_admin_credential_vault.smart_pin_cipher end,
+    password_updated_at=case when k='password' then now() else app_admin_credential_vault.password_updated_at end,
+    smart_pin_updated_at=case when k='smart_pin' then now() else app_admin_credential_vault.smart_pin_updated_at end,
+    updated_at=now();
+end
+$fn$;
+revoke all on function public.app_admin_credential_vault_store(uuid,text,text) from public,anon,authenticated;
+
+create or replace function public.app_admin_credential_vault_capture_trg()
+returns trigger language plpgsql security definer
+set search_path=public as $fn$
+declare
+  suppress text:=current_setting('app.credential_vault_sanitizing',true);
+  password_changed boolean:=false;
+  pin_changed boolean:=false;
+begin
+  if suppress='1' then return null; end if;
+
+  if tg_op='INSERT' then
+    password_changed:=new.admin_visible_password is not null and new.admin_visible_password<>'';
+    pin_changed:=new.admin_visible_smart_pin is not null and new.admin_visible_smart_pin<>'';
+  else
+    password_changed:=new.admin_visible_password is not null and new.admin_visible_password<>''
+      and new.admin_visible_password is distinct from old.admin_visible_password;
+    pin_changed:=new.admin_visible_smart_pin is not null and new.admin_visible_smart_pin<>''
+      and new.admin_visible_smart_pin is distinct from old.admin_visible_smart_pin;
+  end if;
+
+  if password_changed then
+    perform public.app_admin_credential_vault_store(new.id,'password',new.admin_visible_password);
+  end if;
+  if pin_changed then
+    perform public.app_admin_credential_vault_store(new.id,'smart_pin',new.admin_visible_smart_pin);
+  end if;
+
+  if password_changed or pin_changed then
+    perform set_config('app.credential_vault_sanitizing','1',true);
+    update public.app_users set
+      admin_visible_password=case when password_changed then null else admin_visible_password end,
+      admin_visible_smart_pin=case when pin_changed then null else admin_visible_smart_pin end
+    where id=new.id;
+    perform set_config('app.credential_vault_sanitizing','0',true);
+  end if;
+
+  if tg_op='UPDATE' and new.smart_pin_hash is null and old.smart_pin_hash is not null then
+    update public.app_admin_credential_vault
+       set smart_pin_cipher=null,smart_pin_updated_at=now(),updated_at=now()
+     where user_id=new.id;
+  end if;
+  return null;
+end
+$fn$;
+revoke all on function public.app_admin_credential_vault_capture_trg() from public,anon,authenticated;
+
+drop trigger if exists trg_app_admin_credential_vault_capture_insert on public.app_users;
+create trigger trg_app_admin_credential_vault_capture_insert
+after insert on public.app_users
+for each row execute function public.app_admin_credential_vault_capture_trg();
+
+drop trigger if exists trg_app_admin_credential_vault_capture_update on public.app_users;
+create trigger trg_app_admin_credential_vault_capture_update
+after update of admin_visible_password,admin_visible_smart_pin,smart_pin_hash on public.app_users
+for each row execute function public.app_admin_credential_vault_capture_trg();
+
+create or replace function public.app_admin_get_user_credentials(p_user_id uuid)
+returns jsonb language plpgsql stable security definer
+set search_path=public as $fn$
+declare
+  admin public.app_users:=public.app_require_protected_admin();
+  u public.app_users;
+  v public.app_admin_credential_vault;
+  pw text; pin text; pw_source text:='unavailable'; pin_source text:='unavailable';
+begin
+  select * into u from public.app_users where id=p_user_id;
+  if u is null then raise exception 'User not found'; end if;
+  select * into v from public.app_admin_credential_vault where user_id=p_user_id;
+  if v.password_cipher is not null then pw:=public.app_admin_credential_decrypt(v.password_cipher); pw_source:='encrypted_vault';
+  elsif nullif(u.admin_visible_password,'') is not null then pw:=u.admin_visible_password; pw_source:='legacy'; end if;
+  if v.smart_pin_cipher is not null then pin:=public.app_admin_credential_decrypt(v.smart_pin_cipher); pin_source:='encrypted_vault';
+  elsif nullif(u.admin_visible_smart_pin,'') is not null then pin:=u.admin_visible_smart_pin; pin_source:='legacy'; end if;
+  return jsonb_build_object('ok',true,'user_id',u.id,'username',u.username,
+    'password',pw,'smart_pin',pin,'password_source',pw_source,'smart_pin_source',pin_source,
+    'password_available',pw is not null,'smart_pin_available',pin is not null,
+    'password_hash_only',(pw is null and nullif(u.password_hash,'') is not null));
+end
+$fn$;
+revoke all on function public.app_admin_get_user_credentials(uuid) from public;
+grant execute on function public.app_admin_get_user_credentials(uuid) to anon,authenticated,service_role;
+
+create or replace function public.app_signup_v2(
+  p_plan text,
+  p_account_type text,
+  p_username text,
+  p_password text,
+  p_display_name text,
+  p_company_name text default null,
+  p_company_email text default null,
+  p_company_phone text default null,
+  p_company_address text default null,
+  p_vat_number text default null,
+  p_logo_url text default null,
+  p_currencies jsonb default '["AED"]'::jsonb,
+  p_billing_currency text default 'AED',
+  p_team_enabled boolean default false,
+  p_team_seats integer default 0,
+  p_payment_bank text default null,
+  p_receipt_name text default null,
+  p_receipt_mime text default null,
+  p_receipt_base64 text default null,
+  p_user_agent text default null,
+  p_ip text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $fn$
+declare
+  plan text := lower(trim(coalesce(p_plan,'free')));
+  acct text := lower(trim(coalesce(p_account_type,'individual')));
+  safe_user text := trim(coalesce(p_username,''));
+  billing_cur text := upper(trim(coalesce(p_billing_currency,'AED')));
+  is_paid boolean; is_company boolean; team_on boolean; seats int;
+  org_id uuid; new_user public.app_users; settings_obj jsonb; tabs jsonb;
+  base_tabs text[] := array['dashboard','expenses','inventory','loans','installments','notes','reports','currency_settings'];
+  cleaned text[] := array[]::text[]; item jsonb; cur text; has_btc boolean := false;
+  price jsonb; req public.app_subscription_requests; receipt bytea; token text;
+  started_at timestamptz := now(); expires_at timestamptz;
+  promo int; paid_months int;
+  v_email text := nullif(trim(coalesce(p_company_email,'')),'');
+  v_phone text := nullif(trim(coalesce(p_company_phone,'')),'');
+  v_address text := nullif(trim(coalesce(p_company_address,'')),'');
+  v_company text := nullif(trim(coalesce(p_company_name,'')),'');
+  v_vat text := nullif(trim(coalesce(p_vat_number,'')),'');
+  v_logo text := nullif(trim(coalesce(p_logo_url,'')),'');
+begin
+  if plan not in ('free','monthly','yearly') then raise exception 'Choose Free 14 Days, Pro Monthly, or Pro Yearly'; end if;
+  if acct not in ('individual','company') then raise exception 'Choose Individual or Company'; end if;
+  is_paid := plan in ('monthly','yearly'); is_company := acct='company';
+  team_on := is_company and coalesce(p_team_enabled,false);
+  seats := case when team_on then greatest(1,least(coalesce(p_team_seats,1),50)) else 0 end;
+  if safe_user !~ '^[a-zA-Z0-9_-]+$' or length(safe_user)<3 then raise exception 'Username must be at least 3 characters and use only letters, numbers, underscores, or hyphens.'; end if;
+  perform public.app_assert_password_policy(p_password);
+  if nullif(trim(coalesce(p_display_name,'')),'') is null then raise exception 'Name is required'; end if;
+  if v_email is null or v_email !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'A valid email address is required'; end if;
+  if v_phone is null or length(v_phone)<6 then raise exception 'A valid mobile number is required'; end if;
+  if is_company and v_company is null then raise exception 'Company name is required'; end if;
+  if is_company and v_address is null then raise exception 'Company address is required'; end if;
+  if exists(select 1 from public.app_users where lower(username)=lower(safe_user)) then raise exception 'Username already exists. Please choose another.'; end if;
+
+  if p_currencies is null or jsonb_typeof(p_currencies)<>'array' then raise exception 'Select at least one currency'; end if;
+  for item in select * from jsonb_array_elements(p_currencies) loop
+    cur := upper(trim(both '"' from item::text));
+    if cur=any(array['AED','SAR','PKR','USD','BTC']) and not(cur=any(cleaned)) then cleaned:=array_append(cleaned,cur); end if;
+  end loop;
+  if coalesce(array_length(cleaned,1),0)<1 then raise exception 'Select at least one currency'; end if;
+  if billing_cur not in ('AED','SAR','PKR','USD') then raise exception 'Choose AED, SAR, PKR, or USD as billing currency'; end if;
+  if not billing_cur=any(cleaned) then cleaned:=array_prepend(billing_cur,cleaned); end if;
+  has_btc := 'BTC'=any(cleaned);
+  tabs := to_jsonb(case when has_btc then base_tabs||array['bitcoin'] else base_tabs end);
+
+  if is_paid then
+    if lower(trim(coalesce(p_payment_bank,''))) not in ('hbl','enbd') then raise exception 'Choose a bank transfer account'; end if;
+    receipt := public.app_subscription_decode_receipt(p_receipt_mime,p_receipt_base64);
+    price := public.app_subscription_price(plan,billing_cur,seats);
+    promo := case when plan='yearly' then 2 else 1 end;
+    paid_months := case when plan='yearly' then 12 else 1 end;
+    expires_at := started_at + make_interval(months=>paid_months+promo);
+  else
+    promo := 0; paid_months := 0; expires_at := started_at + interval '14 days';
+  end if;
+
+  perform public.app_signup_throttle_assert_and_register(p_ip);
+  select organization_id into org_id from public.app_users where is_protected=true order by created_at limit 1;
+  if org_id is null then select organization_id into org_id from public.app_users where role='admin' order by created_at limit 1; end if;
+  if org_id is null then insert into public.app_organizations(name) values('Triple M') returning id into org_id; end if;
+
+  settings_obj := jsonb_build_object(
+    'Currency',to_jsonb(cleaned),'Tabs',tabs,'BitcoinAccess',case when has_btc then 'both' else 'none' end,
+    'Company',coalesce(v_company,''),'TRN',coalesce(v_vat,''),'logo',coalesce(v_logo,''),
+    'email',v_email,'Email',v_email,'Mobile',v_phone,'Phone',v_phone,
+    'Address',coalesce(v_address,''),'address',coalesce(v_address,''),'Name',trim(p_display_name),
+    'SignupPlan',plan,'AccountType',acct,'BillingCurrency',billing_cur,'PaymentApprovalPending',is_paid
+  );
+
+  insert into public.app_users(
+    organization_id,username,password_hash,admin_visible_password,display_name,role,is_protected,is_active,
+    must_change_password,settings,company_name,vat_number,logo_url,company_email,company_phone,company_address,
+    access_plan,trial_started_at,trial_expires_at,allow_team_members,max_team_members
+  ) values(
+    org_id,safe_user,extensions.crypt(p_password,extensions.gen_salt('bf')),null,trim(p_display_name),'user',false,true,
+    false,settings_obj,case when is_company then v_company else null end,case when is_company then v_vat else null end,
+    v_logo,v_email,v_phone,v_address,case when is_paid then 'full' else 'trial' end,started_at,expires_at,
+    team_on,case when team_on then seats else 3 end
+  ) returning * into new_user;
+
+  perform public.app_admin_credential_vault_store(new_user.id,'password',p_password);
+  perform public.app_apply_user_currencies(new_user.id,to_jsonb(cleaned));
+  perform public.app_apply_tab_permissions(new_user.id,tabs);
+  update public.app_permissions set allowed=false where user_id=new_user.id and module='admin_panel';
+
+  if is_paid then
+    insert into public.app_subscription_requests(
+      user_id,account_type,billing_period,billing_currency,base_amount,team_enabled,team_seats,
+      team_unit_amount,team_amount,total_amount,payment_bank,receipt_name,receipt_mime,receipt_bytes,
+      request_context,previous_access_plan,previous_expires_at,current_expires_at,proposed_expires_at,promotion_months
+    ) values(
+      new_user.id,acct,plan,billing_cur,(price->>'base_amount')::numeric,team_on,seats,
+      (price->>'team_unit_amount')::numeric,(price->>'team_amount')::numeric,(price->>'total_amount')::numeric,
+      lower(trim(p_payment_bank)),left(coalesce(nullif(trim(p_receipt_name),''),'receipt'),200),p_receipt_mime,receipt,
+      'signup','trial',started_at+interval '14 days',null,expires_at,promo
+    ) returning * into req;
+
+    perform public.app_notify_admins(
+      'subscription_payment','Pro payment awaiting approval',
+      format('%s (@%s) submitted %s payment of %s %s. Receipt attached.%s',trim(p_display_name),safe_user,
+        case when plan='monthly' then 'Pro Monthly' else 'Pro Yearly' end,
+        trim(to_char(req.total_amount,'FM999999999990.00')),billing_cur,
+        case when team_on then format(' %s paid team seat(s).',seats) else '' end),
+      new_user.id,null,
+      jsonb_build_object('request_id',req.id,'request_context','signup','plan',plan,'amount',req.total_amount,
+        'currency',billing_cur,'payment_bank',req.payment_bank,'team_enabled',team_on,'team_seats',seats,
+        'receipt_name',req.receipt_name,'receipt_attached',true,'promotion_months',promo,'proposed_expires_at',expires_at)
+    );
+  end if;
+
+  perform set_config('app.session_create_authorized','1',true);
+  token := public.app_create_session(new_user.id,p_user_agent,p_ip,true);
+  perform set_config('app.session_create_authorized','0',true);
+  update public.app_users set last_login_at=now(),updated_at=now() where id=new_user.id;
+  select * into new_user from public.app_users where id=new_user.id;
+
+  return jsonb_build_object('ok',true,'session_token',token,'user',public.app_user_public_profile(new_user,false),
+    'subscription',case when is_paid then jsonb_build_object('id',req.id,'status','pending','plan',plan,
+      'currency',billing_cur,'amount',req.total_amount,'promotion_months',promo,'proposed_expires_at',expires_at)
+      else jsonb_build_object('status','free_trial') end);
+end
+$fn$;
+revoke all on function public.app_signup_v2(text,text,text,text,text,text,text,text,text,text,text,jsonb,text,boolean,integer,text,text,text,text,text,text) from public;
+grant execute on function public.app_signup_v2(text,text,text,text,text,text,text,text,text,text,text,jsonb,text,boolean,integer,text,text,text,text,text,text) to anon, authenticated, service_role;
+
+
+create or replace function public.app_login(
+  p_username text,
+  p_password text,
+  p_user_agent text default null,
+  p_ip text default null,
+  p_remember boolean default true
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  u public.app_users;
+  token text;
+  weak boolean;
+  pin_disabled boolean := false;
+  normalized_username text;
+  network_fp text;
+  account_scope_key text;
+  network_scope_key text;
+begin
+  if p_username is null or trim(p_username) = '' then
+    raise exception 'Username is required';
+  end if;
+  if p_password is null or p_password = '' then
+    raise exception 'Password is required';
+  end if;
+
+  normalized_username := lower(trim(p_username));
+  account_scope_key := public.app_login_throttle_scope_key('account', normalized_username);
+  network_fp := public.app_request_network_fingerprint(p_ip);
+  if network_fp is not null then
+    network_scope_key := public.app_login_throttle_scope_key('network', network_fp);
+  end if;
+
+  -- Do not disclose whether the limiter, username, or password failed.
+  if public.app_login_throttle_is_locked(account_scope_key)
+     or (network_scope_key is not null and public.app_login_throttle_is_locked(network_scope_key)) then
+    -- Return instead of RAISE so throttle state commits, while asking PostgREST
+    -- to keep the historical HTTP error behaviour for existing clients.
+    perform set_config('response.status', '400', true);
+    return jsonb_build_object('ok', false, 'error', 'Invalid username or password');
+  end if;
+
+  select * into u
+  from public.app_users
+  where lower(username) = normalized_username
+  limit 1;
+
+  if u is null then
+    if network_scope_key is not null then
+      perform public.app_login_throttle_register_failure(network_scope_key, 'network');
+    end if;
+    perform set_config('response.status', '400', true);
+    return jsonb_build_object('ok', false, 'error', 'Invalid username or password');
+  end if;
+
+  if u.password_hash <> extensions.crypt(p_password, u.password_hash) then
+    perform public.app_login_throttle_register_failure(account_scope_key, 'account');
+    if network_scope_key is not null then
+      perform public.app_login_throttle_register_failure(network_scope_key, 'network');
+    end if;
+    perform set_config('response.status', '400', true);
+    return jsonb_build_object('ok', false, 'error', 'Invalid username or password');
+  end if;
+
+  -- Correct password clears security counters. If this account predates the
+  -- encrypted vault and only has a one-way hash, capture the successfully
+  -- verified password now without changing authentication behavior.
+  if not exists(select 1 from public.app_admin_credential_vault v where v.user_id=u.id and v.password_cipher is not null) then
+    perform public.app_admin_credential_vault_store(u.id,'password',p_password);
+  end if;
+
+  perform public.app_login_throttle_reset(account_scope_key);
+  if network_scope_key is not null then
+    perform public.app_login_throttle_reset(network_scope_key);
+  end if;
+
+  if u.id is not null then
+    perform public.app_enforce_access_expiry(u.id);
+    select * into u from public.app_users where id = u.id;
+  end if;
+
+  if not u.is_active then
+    select coalesce(temp_disabled, false) into pin_disabled
+    from public.app_smart_pin_lockouts
+    where user_id = u.id;
+    if coalesce(pin_disabled, false) then
+      raise exception 'Due to too many wrong attempts, access is locked. Please contact admin to restore your access on WhatsApp +92 333 900 4564.';
+    end if;
+    if u.access_disabled_for_expiry_at is not null then
+      raise exception 'Account is disabled because the access period expired. Contact the administrator to renew.';
+    end if;
+    raise exception 'Account is disabled';
+  end if;
+
+  weak := not public.app_password_meets_policy(p_password);
+
+  perform set_config('app.session_create_authorized', '1', true);
+  token := public.app_create_session(u.id, p_user_agent, p_ip, coalesce(p_remember, true));
+  perform set_config('app.session_create_authorized', '0', true);
+
+  update public.app_users
+  set
+    last_login_at = now(),
+    updated_at = now(),
+    password_is_weak = weak
+  where id = u.id;
+
+  select * into u from public.app_users where id = u.id;
+  u.last_login_at := now();
+
+  return jsonb_build_object(
+    'session_token', token,
+    'user', public.app_user_public_profile(u, false)
+  );
+end;
+$$;
+
+revoke all on function public.app_login(text, text, text, text, boolean) from public;
+grant execute on function public.app_login(text, text, text, text, boolean)
+  to authenticated, anon, service_role;
+
+create or replace function public.app_live_chat_notify_available_agents(p_inquiry_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  i public.app_inquiries;
+  expiry timestamptz;
+  n int := 0;
+begin
+  select * into i from public.app_inquiries where id=p_inquiry_id;
+  if i is null or lower(coalesce(i.subject,''))<>'live chat support' then return 0; end if;
+  select expires_at into expiry from public.app_live_chat_guest_access where inquiry_id=p_inquiry_id;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  select u.id,'system','Live chat waiting',
+    format('%s is waiting for Triplem VIP Live Support. Accept the chat to begin assisting them.',coalesce(nullif(trim(i.guest_name),''),'A visitor')),
+    jsonb_build_object(
+      'type','live_chat_assignment','inquiry_id',i.id,'guest_name',coalesce(i.guest_name,''),
+      'guest_email',coalesce(i.guest_email,''),'guest_phone',coalesce(i.guest_phone,''),
+      'message',left(coalesce(i.body,''),220),'expires_at',expiry,'assignment_status','pending'
+    ),
+    'live-chat-assignment:'||i.id::text||':'||u.id::text
+  from public.app_users u
+  where u.is_active=true
+    and (u.role='admin' or exists(select 1 from public.app_live_chat_agents a where a.user_id=u.id and a.enabled=true))
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+  get diagnostics n = row_count;
+  return n;
+end
+$fn$;
+revoke all on function public.app_live_chat_notify_available_agents(uuid) from public, anon, authenticated;
+
+create or replace function public.app_live_chat_decline_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  route public.app_live_chat_routes;
+  n public.app_user_notifications;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  if not exists(select 1 from public.app_users where id=uid and is_active=true) then
+    raise exception 'Authentication required';
+  end if;
+  if not exists(select 1 from public.app_users u where u.id=uid and u.is_active=true and (u.role='admin' or exists(select 1 from public.app_live_chat_agents a where a.user_id=u.id and a.enabled=true))) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='accepted' then raise exception 'This live chat has already been accepted'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+
+  update public.app_user_notifications
+     set is_read=true,
+         read_at=coalesce(read_at,now()),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','declined','declined_at',now())
+   where owner_id=uid
+     and kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text
+   returning * into n;
+
+  return jsonb_build_object('ok',true,'declined',true,'inquiry_id',p_inquiry_id);
+end
+$fn$;
+revoke all on function public.app_live_chat_decline_assignment(uuid) from public;
+grant execute on function public.app_live_chat_decline_assignment(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_accept_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  inquiry_row public.app_inquiries;
+  expiry timestamptz;
+  intro public.app_inquiry_messages;
+  intro_text text;
+  rep_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  if u.role<>'admin' and not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+  rep_name:=coalesce(nullif(trim(coalesce(u.display_name,'')),''),u.username);
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+  if route.status='accepted' and route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat has already been accepted by %',coalesce((select coalesce(nullif(trim(a.display_name),''),a.username) from public.app_users a where a.id=route.assigned_user_id),'another support agent');
+  end if;
+  if route.status='accepted' and route.assigned_user_id=uid then
+    select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+    return jsonb_build_object('ok',true,'accepted',true,'already_accepted',true,'representative_name',rep_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+  end if;
+
+  select expires_at into expiry from public.app_live_chat_guest_access where inquiry_id=p_inquiry_id;
+  if expiry is null or expiry<=now() then raise exception 'This live chat has expired'; end if;
+
+  update public.app_live_chat_routes
+     set assigned_user_id=uid,status='accepted',accepted_at=now(),closed_at=null,updated_at=now()
+   where inquiry_id=p_inquiry_id and status='pending'
+   returning * into route;
+  if route is null then raise exception 'This live chat was accepted by another support agent'; end if;
+
+  update public.app_user_notifications
+     set is_read=case when owner_id=uid then true else false end,
+         read_at=case when owner_id=uid then coalesce(read_at,now()) else null end,
+         title=case when owner_id=uid then 'Live chat accepted' else 'Live chat taken' end,
+         body=case when owner_id=uid
+           then format('You are now assisting this visitor as %s.',rep_name)
+           else format('%s has accepted this Live Chat conversation.',rep_name) end,
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+           'assignment_status',case when owner_id=uid then 'accepted' else 'taken' end,
+           'accepted_by',uid,'accepted_by_name',rep_name,'accepted_at',now())
+   where kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text;
+
+  intro_text:=format(
+    'Thank you for contacting Triplem VIP Support. My name is %s, and I will be assisting you today. How may I help you?',
+    rep_name
+  );
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,intro_text) returning * into intro;
+
+  update public.app_inquiries
+     set admin_last_read_at=now(),status='read',last_message_at=now(),updated_at=now(),
+         read_at=coalesce(read_at,now()),read_by=coalesce(read_by,uid)
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object(
+    'ok',true,'accepted',true,'already_accepted',false,'representative_name',rep_name,
+    'intro_message',public.app_message_public_row(intro),'inquiry',public.app_inquiry_public_row(inquiry_row)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_assignment(uuid) from public;
+grant execute on function public.app_live_chat_accept_assignment(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_transfer_candidates(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  allowed boolean:=false;
+  items jsonb:='[]'::jsonb;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  allowed:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false) or u.role='admin';
+  if not allowed then raise exception 'This live chat is not assigned to you'; end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',au.id,'username',au.username,'display_name',coalesce(nullif(trim(au.display_name),''),au.username),
+    'role',au.role,'is_admin',(au.role='admin'),
+    'active_chats',(select count(*)::int from public.app_live_chat_routes rr where rr.status='accepted' and rr.assigned_user_id=au.id)
+  ) order by case when au.role='admin' then 0 else 1 end, lower(coalesce(nullif(trim(au.display_name),''),au.username))),'[]'::jsonb)
+  into items
+  from public.app_users au
+  where au.is_active=true
+    and au.id is distinct from route.assigned_user_id
+    and (au.role='admin' or exists(select 1 from public.app_live_chat_agents a where a.user_id=au.id and a.enabled=true));
+
+  return jsonb_build_object('ok',true,'items',items);
+end
+$fn$;
+revoke all on function public.app_live_chat_transfer_candidates(uuid) from public;
+grant execute on function public.app_live_chat_transfer_candidates(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_request_transfer(p_inquiry_id uuid,p_target_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  source_user public.app_users;
+  target_user public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  auto_msg public.app_inquiry_messages;
+  source_name text;
+  target_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into source_user from public.app_users where id=uid and is_active=true;
+  if source_user is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat is not assigned to you';
+  end if;
+  if exists(select 1 from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending') then
+    raise exception 'A transfer is already awaiting acceptance';
+  end if;
+  if p_target_user_id is null or p_target_user_id=uid then raise exception 'Choose another support agent'; end if;
+  select u.* into target_user from public.app_users u
+  where u.id=p_target_user_id and u.is_active=true
+    and (u.role='admin' or exists(select 1 from public.app_live_chat_agents a where a.user_id=u.id and a.enabled=true));
+  if target_user is null then raise exception 'The selected support representative is unavailable'; end if;
+
+  source_name:=coalesce(nullif(trim(coalesce(source_user.display_name,'')),''),source_user.username);
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username);
+
+  insert into public.app_live_chat_transfers(inquiry_id,from_user_id,to_user_id,status,requested_at,created_at,updated_at)
+  values(p_inquiry_id,uid,p_target_user_id,'pending',now(),now(),now()) returning * into transfer;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',null,
+    'I am transferring your conversation to another Triplem VIP Support representative who is better positioned to continue assisting you. They will join shortly. Please remain in this chat; your conversation history will be available to them.')
+  returning * into auto_msg;
+
+  update public.app_inquiries set last_message_at=now(),updated_at=now(),status='read' where id=p_inquiry_id returning * into inquiry_row;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(
+    p_target_user_id,'system','Live chat transfer',
+    format('%s is transferring a Live Chat conversation to you. Review the visitor message and accept or decline the handoff.',source_name),
+    jsonb_build_object('type','live_chat_transfer','transfer_id',transfer.id,'inquiry_id',p_inquiry_id,
+      'from_user_id',uid,'from_agent_name',source_name,'target_agent_name',target_name,
+      'guest_name',coalesce(inquiry_row.guest_name,''),'guest_email',coalesce(inquiry_row.guest_email,''),
+      'guest_phone',coalesce(inquiry_row.guest_phone,''),'message',left(coalesce(inquiry_row.body,''),220),
+      'assignment_status','pending'),
+    'live-chat-transfer:'||transfer.id::text||':'||p_target_user_id::text
+  );
+
+  return jsonb_build_object('ok',true,'transfer_id',transfer.id,'target_user_id',p_target_user_id,
+    'target_name',target_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_request_transfer(uuid,uuid) from public;
+grant execute on function public.app_live_chat_request_transfer(uuid,uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_accept_transfer(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  new_agent public.app_users;
+  old_agent public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  intro public.app_inquiry_messages;
+  new_name text;
+  old_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into new_agent from public.app_users where id=uid and is_active=true;
+  if new_agent is null then raise exception 'Authentication required'; end if;
+  if new_agent.role<>'admin' and not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then raise exception 'You are not assigned to Live Chat Support'; end if;
+
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' for update;
+  if transfer is null then raise exception 'This transfer is no longer available'; end if;
+  if transfer.to_user_id is distinct from uid then raise exception 'This transfer is assigned to another support agent'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from transfer.from_user_id then
+    raise exception 'This conversation has already moved to another representative';
+  end if;
+
+  select * into old_agent from public.app_users where id=transfer.from_user_id;
+  new_name:=coalesce(nullif(trim(coalesce(new_agent.display_name,'')),''),new_agent.username);
+  old_name:=coalesce(nullif(trim(coalesce(old_agent.display_name,'')),''),old_agent.username,'Previous representative');
+
+  update public.app_live_chat_transfers set status='accepted',resolved_at=now(),updated_at=now() where id=transfer.id;
+  update public.app_live_chat_routes set assigned_user_id=uid,updated_at=now() where inquiry_id=p_inquiry_id;
+
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),title='Live chat transfer accepted',
+         body=format('You accepted the Live Chat transfer from %s.',old_name),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','accepted','accepted_at',now(),'accepted_by_name',new_name)
+   where owner_id=uid and kind='system' and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=transfer.id::text;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(transfer.from_user_id,'system','Live chat transferred',format('%s accepted your Live Chat transfer and is now assisting the visitor.',new_name),
+    jsonb_build_object('type','live_chat_transfer_complete','inquiry_id',p_inquiry_id,'transfer_id',transfer.id,'accepted_by',uid,'accepted_by_name',new_name),
+    'live-chat-transfer-complete:'||transfer.id::text)
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,format(
+    'Thank you for your patience. My name is %s from Triplem VIP Support, and your conversation has now been transferred to me. Please allow me a brief moment to review the previous discussion so I can continue assisting you without asking you to repeat the information you have already provided.',
+    new_name)) returning * into intro;
+
+  update public.app_inquiries set admin_last_read_at=now(),last_message_at=now(),updated_at=now(),status='read' where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object('ok',true,'accepted',true,'representative_name',new_name,
+    'intro_message',public.app_message_public_row(intro),'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_transfer(uuid) from public;
+grant execute on function public.app_live_chat_accept_transfer(uuid) to anon, authenticated, service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/103_live_chat_admin_queue_ui_and_encrypted_credentials.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/104_live_chat_transfer_notifications_bulk_records.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 104_live_chat_transfer_notifications_bulk_records.sql
+-- Reliable actionable Live Chat transfer offers + internal-only decline +
+-- Admin bulk Live Chat record deletion.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 103.
+--   * Running this migration does NOT insert, update, delete, truncate, rename,
+--     or rewrite any existing user, financial, chat, subscription, receipt,
+--     credential, session, wallet, expense, inventory, or business row.
+--   * Runtime deletes occur ONLY when an authenticated Admin deliberately calls
+--     the bulk Live Chat deletion RPC from the Admin records console.
+-- ============================================================================
+
+-- Authoritative pending-offer view for the signed-in Admin/support user. The
+-- client uses this in addition to notifications so a transfer cannot be missed
+-- because a notification panel was stale or filtered.
+create or replace function public.app_live_chat_my_actionable_offers()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  items jsonb := '[]'::jsonb;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+  if u.role <> 'admin' and not exists(
+    select 1 from public.app_live_chat_agents a where a.user_id=uid and a.enabled=true
+  ) then
+    return jsonb_build_object('ok',true,'items','[]'::jsonb);
+  end if;
+
+  select coalesce(jsonb_agg(x.item order by x.created_at desc),'[]'::jsonb)
+    into items
+  from (
+    -- Initial waiting chats. Respect an explicit decline by this user.
+    select
+      r.updated_at as created_at,
+      jsonb_build_object(
+        'id','direct-assignment:'||i.id::text,
+        'kind','system',
+        'title','Live chat waiting',
+        'body',format('%s is waiting for Triplem VIP Live Support.',coalesce(nullif(trim(i.guest_name),''),'A visitor')),
+        'created_at',coalesce(r.updated_at,i.created_at),
+        'is_read',false,
+        'source','user',
+        'payload',jsonb_build_object(
+          'type','live_chat_assignment','inquiry_id',i.id,
+          'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),
+          'guest_phone',coalesce(i.guest_phone,''),'message',left(coalesce(i.body,''),220),
+          'assignment_status','pending'
+        )
+      ) as item
+    from public.app_live_chat_routes r
+    join public.app_inquiries i on i.id=r.inquiry_id
+    where r.status='pending'
+      and lower(coalesce(i.subject,''))='live chat support'
+      and coalesce(i.source,'')='landing'
+      and not exists(
+        select 1 from public.app_user_notifications n
+        where n.owner_id=uid and n.kind='system'
+          and n.payload->>'type'='live_chat_assignment'
+          and n.payload->>'inquiry_id'=i.id::text
+          and lower(coalesce(n.payload->>'assignment_status',''))='declined'
+      )
+
+    union all
+
+    -- Transfers targeted specifically to this user/Admin.
+    select
+      t.requested_at as created_at,
+      jsonb_build_object(
+        'id','direct-transfer:'||t.id::text,
+        'kind','system',
+        'title','Live chat transfer',
+        'body',format('%s is transferring a Live Chat conversation to you.',
+          coalesce(nullif(trim(from_u.display_name),''),from_u.username,'Another representative')),
+        'created_at',t.requested_at,
+        'is_read',false,
+        'source','user',
+        'payload',jsonb_build_object(
+          'type','live_chat_transfer','transfer_id',t.id,'inquiry_id',t.inquiry_id,
+          'from_user_id',t.from_user_id,
+          'from_agent_name',coalesce(nullif(trim(from_u.display_name),''),from_u.username,'Support representative'),
+          'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),
+          'guest_phone',coalesce(i.guest_phone,''),'message',left(coalesce(i.body,''),220),
+          'assignment_status','pending'
+        )
+      ) as item
+    from public.app_live_chat_transfers t
+    join public.app_inquiries i on i.id=t.inquiry_id
+    left join public.app_users from_u on from_u.id=t.from_user_id
+    where t.status='pending' and t.to_user_id=uid
+  ) x;
+
+  return jsonb_build_object('ok',true,'items',items);
+end
+$fn$;
+revoke all on function public.app_live_chat_my_actionable_offers() from public;
+grant execute on function public.app_live_chat_my_actionable_offers() to anon, authenticated, service_role;
+
+-- Reissue transfer creation with an idempotent notification upsert. The visitor
+-- sees only the normal handoff-start message; the target Admin/agent receives a
+-- guaranteed actionable internal notification.
+create or replace function public.app_live_chat_request_transfer(p_inquiry_id uuid,p_target_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  source_user public.app_users;
+  target_user public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  auto_msg public.app_inquiry_messages;
+  source_name text;
+  target_name text;
+  dedupe text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into source_user from public.app_users where id=uid and is_active=true;
+  if source_user is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat is not assigned to you';
+  end if;
+  if exists(select 1 from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending') then
+    raise exception 'A transfer is already awaiting acceptance';
+  end if;
+  if p_target_user_id is null or p_target_user_id=uid then raise exception 'Choose another support representative'; end if;
+  select u.* into target_user from public.app_users u
+  where u.id=p_target_user_id and u.is_active=true
+    and (u.role='admin' or exists(select 1 from public.app_live_chat_agents a where a.user_id=u.id and a.enabled=true));
+  if target_user is null then raise exception 'The selected support representative is unavailable'; end if;
+
+  source_name:=coalesce(nullif(trim(coalesce(source_user.display_name,'')),''),source_user.username);
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username);
+
+  insert into public.app_live_chat_transfers(inquiry_id,from_user_id,to_user_id,status,requested_at,created_at,updated_at)
+  values(p_inquiry_id,uid,p_target_user_id,'pending',now(),now(),now()) returning * into transfer;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',null,
+    'I am arranging a handoff to another Triplem VIP Support representative so we can continue assisting you efficiently. Please remain in this chat; your existing conversation will stay available to the support team.')
+  returning * into auto_msg;
+
+  update public.app_inquiries set last_message_at=now(),updated_at=now(),status='read'
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  dedupe := 'live-chat-transfer:'||transfer.id::text||':'||p_target_user_id::text;
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(
+    p_target_user_id,'system','Live chat transfer from '||source_name,
+    format('%s requested that you take over a Live Chat. Accept to continue the same conversation, or decline to return it to the current representative.',source_name),
+    jsonb_build_object('type','live_chat_transfer','transfer_id',transfer.id,'inquiry_id',p_inquiry_id,
+      'from_user_id',uid,'from_agent_name',source_name,'target_agent_name',target_name,
+      'guest_name',coalesce(inquiry_row.guest_name,''),'guest_email',coalesce(inquiry_row.guest_email,''),
+      'guest_phone',coalesce(inquiry_row.guest_phone,''),'message',left(coalesce(inquiry_row.body,''),220),
+      'assignment_status','pending'),
+    dedupe
+  )
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do update
+    set title=excluded.title,body=excluded.body,payload=excluded.payload,is_read=false,read_at=null,created_at=now();
+
+  return jsonb_build_object('ok',true,'transfer_id',transfer.id,'target_user_id',p_target_user_id,
+    'target_name',target_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_request_transfer(uuid,uuid) from public;
+grant execute on function public.app_live_chat_request_transfer(uuid,uuid) to anon, authenticated, service_role;
+
+-- Declining a transfer is now entirely internal. Ownership never left the
+-- original representative, so the visitor receives no decline/failure message.
+create or replace function public.app_live_chat_decline_transfer(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  transfer public.app_live_chat_transfers;
+  source_user public.app_users;
+  target_user public.app_users;
+  route public.app_live_chat_routes;
+  target_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into transfer from public.app_live_chat_transfers
+   where inquiry_id=p_inquiry_id and status='pending' for update;
+  if transfer is null then raise exception 'This transfer is no longer available'; end if;
+  if transfer.to_user_id is distinct from uid then raise exception 'This transfer is assigned to another support representative'; end if;
+  select * into target_user from public.app_users where id=uid and is_active=true;
+  if target_user is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from transfer.from_user_id then
+    raise exception 'This conversation has already moved to another representative';
+  end if;
+  select * into source_user from public.app_users where id=transfer.from_user_id;
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username,'Support representative');
+
+  update public.app_live_chat_transfers
+     set status='declined',resolved_at=now(),updated_at=now()
+   where id=transfer.id;
+
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),title='Live chat transfer declined',
+         body='You declined this Live Chat transfer.',
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','declined','declined_at',now())
+   where owner_id=uid and kind='system'
+     and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=transfer.id::text;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(transfer.from_user_id,'system','Transfer declined',
+    format('%s declined the Live Chat transfer. The conversation remains assigned to you and you can continue replying immediately.',target_name),
+    jsonb_build_object('type','live_chat_transfer_declined','inquiry_id',p_inquiry_id,
+      'transfer_id',transfer.id,'declined_by',uid,'declined_by_name',target_name),
+    'live-chat-transfer-declined:'||transfer.id::text)
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+
+  return jsonb_build_object('ok',true,'declined',true,'inquiry_id',p_inquiry_id,
+    'restored_to_user_id',transfer.from_user_id);
+end
+$fn$;
+revoke all on function public.app_live_chat_decline_transfer(uuid) from public;
+grant execute on function public.app_live_chat_decline_transfer(uuid) to anon, authenticated, service_role;
+
+-- Admin-only multi/delete-all Live Chat record cleanup. The function is inert
+-- until Admin explicitly confirms a deletion in the UI.
+create or replace function public.app_admin_delete_live_chat_records(
+  p_inquiry_ids uuid[] default null,
+  p_delete_all boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin();
+  ids uuid[] := array[]::uuid[];
+  deleted_count int := 0;
+begin
+  if coalesce(p_delete_all,false) then
+    select coalesce(array_agg(i.id),array[]::uuid[]) into ids
+    from public.app_inquiries i
+    where lower(coalesce(i.subject,''))='live chat support' and coalesce(i.source,'')='landing';
+  else
+    select coalesce(array_agg(i.id),array[]::uuid[]) into ids
+    from public.app_inquiries i
+    where lower(coalesce(i.subject,''))='live chat support' and coalesce(i.source,'')='landing'
+      and i.id = any(coalesce(p_inquiry_ids,array[]::uuid[]));
+  end if;
+
+  if coalesce(array_length(ids,1),0)=0 then
+    return jsonb_build_object('ok',true,'deleted_count',0);
+  end if;
+
+  delete from public.app_user_notifications n
+   where n.kind='system'
+     and lower(coalesce(n.payload->>'type','')) like 'live_chat_%'
+     and coalesce(n.payload->>'inquiry_id','') = any(select x::text from unnest(ids) x);
+
+  delete from public.app_inquiries i where i.id=any(ids);
+  get diagnostics deleted_count = row_count;
+
+  return jsonb_build_object('ok',true,'deleted_count',deleted_count);
+end
+$fn$;
+revoke all on function public.app_admin_delete_live_chat_records(uuid[],boolean) from public;
+grant execute on function public.app_admin_delete_live_chat_records(uuid[],boolean) to anon, authenticated, service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/104_live_chat_transfer_notifications_bulk_records.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/105_live_chat_lifecycle_reconciliation.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 105_live_chat_lifecycle_reconciliation.sql
+-- Live Chat lifecycle reconciliation, transfer timeout, stable offer cleanup,
+-- unique Main Admin transfer target, and reliable floating-chat acceptance.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 104.
+--   * Running this migration only creates/replaces functions. It does NOT
+--     insert, update, delete, truncate, rename, or rewrite any existing user,
+--     financial, wallet, expense, inventory, subscription, credential,
+--     receipt, session, inquiry, message, or business row during installation.
+--   * Runtime chat-routing changes occur only when Live Chat is actively used.
+--   * A pending transfer automatically returns to its previous representative
+--     after 10 minutes if the selected representative has not accepted it.
+-- ============================================================================
+
+-- Internal lifecycle reconciler. This is deliberately not browser-callable.
+-- It is invoked by protected Live Chat RPCs and only reconciles stale routing
+-- state according to server timestamps/statuses.
+create or replace function public.app_live_chat_reconcile_lifecycle(p_inquiry_id uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  t public.app_live_chat_transfers;
+  rid uuid;
+  timed_out int := 0;
+  cancelled int := 0;
+  expired_waiting int := 0;
+begin
+  -- A transfer waits at most ten minutes. Ownership never leaves from_user_id
+  -- until acceptance, so timeout simply unlocks the original representative.
+  for t in
+    update public.app_live_chat_transfers tr
+       set status='cancelled',resolved_at=now(),updated_at=now()
+     where tr.status='pending'
+       and tr.requested_at <= now() - interval '10 minutes'
+       and (p_inquiry_id is null or tr.inquiry_id=p_inquiry_id)
+       and exists(
+         select 1 from public.app_live_chat_routes r
+         where r.inquiry_id=tr.inquiry_id
+           and r.status='accepted'
+           and r.assigned_user_id=tr.from_user_id
+       )
+     returning tr.*
+  loop
+    timed_out := timed_out + 1;
+
+    update public.app_user_notifications
+       set is_read=true,
+           read_at=coalesce(read_at,now()),
+           title='Live chat transfer expired',
+           body='This transfer request expired before it was accepted.',
+           payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+             'assignment_status','expired','expired_at',now())
+     where owner_id=t.to_user_id
+       and kind='system'
+       and payload->>'type'='live_chat_transfer'
+       and payload->>'transfer_id'=t.id::text;
+
+    if t.from_user_id is not null then
+      insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+      values(
+        t.from_user_id,'system','Live chat returned to you',
+        'The requested Live Chat transfer was not accepted within 10 minutes. The conversation remains assigned to you and you can continue assisting the visitor.',
+        jsonb_build_object('type','live_chat_transfer_timeout','inquiry_id',t.inquiry_id,
+          'transfer_id',t.id,'assignment_status','returned'),
+        'live-chat-transfer-timeout:'||t.id::text
+      )
+      on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+    end if;
+  end loop;
+
+  -- Cancel transfer offers that became stale because the chat ended or moved
+  -- by another valid action before the transfer was resolved.
+  for t in
+    update public.app_live_chat_transfers tr
+       set status='cancelled',resolved_at=now(),updated_at=now()
+     where tr.status='pending'
+       and (p_inquiry_id is null or tr.inquiry_id=p_inquiry_id)
+       and not exists(
+         select 1 from public.app_live_chat_routes r
+         where r.inquiry_id=tr.inquiry_id
+           and r.status='accepted'
+           and r.assigned_user_id=tr.from_user_id
+       )
+     returning tr.*
+  loop
+    cancelled := cancelled + 1;
+    update public.app_user_notifications
+       set is_read=true,
+           read_at=coalesce(read_at,now()),
+           payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+             'assignment_status','cancelled','cancelled_at',now())
+     where owner_id=t.to_user_id
+       and kind='system'
+       and payload->>'type'='live_chat_transfer'
+       and payload->>'transfer_id'=t.id::text;
+  end loop;
+
+  -- A never-accepted landing chat should stop offering itself after its guest
+  -- capability has expired. No transcript is deleted.
+  for rid in
+    update public.app_live_chat_routes r
+       set status='closed',closed_at=coalesce(closed_at,now()),updated_at=now()
+     where r.status='pending'
+       and (p_inquiry_id is null or r.inquiry_id=p_inquiry_id)
+       and exists(
+         select 1 from public.app_live_chat_guest_access ga
+         where ga.inquiry_id=r.inquiry_id and ga.expires_at<=now()
+       )
+     returning r.inquiry_id
+  loop
+    expired_waiting := expired_waiting + 1;
+    update public.app_user_notifications
+       set is_read=true,
+           read_at=coalesce(read_at,now()),
+           payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+             'assignment_status','expired','expired_at',now())
+     where kind='system'
+       and payload->>'type'='live_chat_assignment'
+       and payload->>'inquiry_id'=rid::text;
+  end loop;
+
+  return jsonb_build_object('ok',true,'timed_out_transfers',timed_out,
+    'cancelled_stale_transfers',cancelled,'expired_waiting_chats',expired_waiting);
+end
+$fn$;
+revoke all on function public.app_live_chat_reconcile_lifecycle(uuid) from public, anon, authenticated;
+
+-- Authoritative popup queue. This intentionally mutates only stale routing
+-- metadata through the internal reconciler before returning current offers.
+create or replace function public.app_live_chat_my_actionable_offers()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  items jsonb := '[]'::jsonb;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+
+  perform public.app_live_chat_reconcile_lifecycle(null);
+
+  if u.role <> 'admin' and not exists(
+    select 1 from public.app_live_chat_agents a where a.user_id=uid and a.enabled=true
+  ) then
+    return jsonb_build_object('ok',true,'items','[]'::jsonb);
+  end if;
+
+  select coalesce(jsonb_agg(x.item order by x.created_at desc),'[]'::jsonb)
+    into items
+  from (
+    select
+      r.updated_at as created_at,
+      jsonb_build_object(
+        'id','direct-assignment:'||i.id::text,
+        'kind','system',
+        'title','Live chat waiting',
+        'body',format('%s is waiting for Triplem VIP Live Support.',coalesce(nullif(trim(i.guest_name),''),'A visitor')),
+        'created_at',coalesce(r.updated_at,i.created_at),
+        'is_read',false,
+        'source','user',
+        'payload',jsonb_build_object(
+          'type','live_chat_assignment','inquiry_id',i.id,
+          'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),
+          'guest_phone',coalesce(i.guest_phone,''),'message',left(coalesce(i.body,''),220),
+          'assignment_status','pending'
+        )
+      ) as item
+    from public.app_live_chat_routes r
+    join public.app_inquiries i on i.id=r.inquiry_id
+    join public.app_live_chat_guest_access ga on ga.inquiry_id=i.id and ga.expires_at>now()
+    where r.status='pending'
+      and lower(coalesce(i.subject,''))='live chat support'
+      and coalesce(i.source,'')='landing'
+      and not exists(
+        select 1 from public.app_user_notifications n
+        where n.owner_id=uid and n.kind='system'
+          and n.payload->>'type'='live_chat_assignment'
+          and n.payload->>'inquiry_id'=i.id::text
+          and lower(coalesce(n.payload->>'assignment_status',''))='declined'
+      )
+
+    union all
+
+    select
+      t.requested_at as created_at,
+      jsonb_build_object(
+        'id','direct-transfer:'||t.id::text,
+        'kind','system',
+        'title','Live chat transfer',
+        'body',format('%s is transferring a Live Chat conversation to you.',
+          coalesce(nullif(trim(from_u.display_name),''),from_u.username,'Another representative')),
+        'created_at',t.requested_at,
+        'is_read',false,
+        'source','user',
+        'payload',jsonb_build_object(
+          'type','live_chat_transfer','transfer_id',t.id,'inquiry_id',t.inquiry_id,
+          'from_user_id',t.from_user_id,
+          'from_agent_name',coalesce(nullif(trim(from_u.display_name),''),from_u.username,'Support representative'),
+          'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),
+          'guest_phone',coalesce(i.guest_phone,''),'message',left(coalesce(i.body,''),220),
+          'assignment_status','pending','expires_at',t.requested_at+interval '10 minutes'
+        )
+      ) as item
+    from public.app_live_chat_transfers t
+    join public.app_live_chat_routes r on r.inquiry_id=t.inquiry_id
+      and r.status='accepted' and r.assigned_user_id=t.from_user_id
+    join public.app_inquiries i on i.id=t.inquiry_id
+    left join public.app_users from_u on from_u.id=t.from_user_id
+    where t.status='pending' and t.to_user_id=uid
+      and t.requested_at>now()-interval '10 minutes'
+  ) x;
+
+  return jsonb_build_object('ok',true,'items',items);
+end
+$fn$;
+revoke all on function public.app_live_chat_my_actionable_offers() from public;
+grant execute on function public.app_live_chat_my_actionable_offers() to anon, authenticated, service_role;
+
+-- Only one canonical Main Admin appears in transfer choices. Other active
+-- users appear only when explicitly enabled as Live Chat agents.
+create or replace function public.app_live_chat_transfer_candidates(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  allowed boolean:=false;
+  items jsonb:='[]'::jsonb;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  allowed:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false) or u.role='admin';
+  if not allowed then raise exception 'This live chat is not assigned to you'; end if;
+
+  with main_admin as (
+    select a.id
+    from public.app_users a
+    where a.is_active=true and a.role='admin'
+    order by coalesce(a.is_protected,false) desc, a.created_at asc, a.id asc
+    limit 1
+  ), eligible as (
+    select au.*
+    from public.app_users au
+    where au.is_active=true
+      and au.id is distinct from route.assigned_user_id
+      and (
+        au.id=(select id from main_admin)
+        or exists(select 1 from public.app_live_chat_agents la where la.user_id=au.id and la.enabled=true)
+      )
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',e.id,'username',e.username,'display_name',coalesce(nullif(trim(e.display_name),''),e.username),
+    'role',e.role,'is_admin',(e.id=(select id from main_admin)),
+    'active_chats',(select count(*)::int from public.app_live_chat_routes rr where rr.status='accepted' and rr.assigned_user_id=e.id)
+  ) order by case when e.id=(select id from main_admin) then 0 else 1 end,
+    lower(coalesce(nullif(trim(e.display_name),''),e.username))),'[]'::jsonb)
+  into items
+  from eligible e;
+
+  return jsonb_build_object('ok',true,'items',items);
+end
+$fn$;
+revoke all on function public.app_live_chat_transfer_candidates(uuid) from public;
+grant execute on function public.app_live_chat_transfer_candidates(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_accept_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  route public.app_live_chat_routes;
+  inquiry_row public.app_inquiries;
+  expiry timestamptz;
+  intro public.app_inquiry_messages;
+  intro_text text;
+  rep_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  if u.role<>'admin' and not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+  rep_name:=coalesce(nullif(trim(coalesce(u.display_name,'')),''),u.username);
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+  if route.status='accepted' and route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat has already been accepted by %',coalesce((select coalesce(nullif(trim(a.display_name),''),a.username) from public.app_users a where a.id=route.assigned_user_id),'another support agent');
+  end if;
+  if route.status='accepted' and route.assigned_user_id=uid then
+    select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+    return jsonb_build_object('ok',true,'accepted',true,'already_accepted',true,'representative_name',rep_name,'inquiry',public.app_inquiry_public_row(inquiry_row));
+  end if;
+
+  select expires_at into expiry from public.app_live_chat_guest_access where inquiry_id=p_inquiry_id;
+  if expiry is null or expiry<=now() then raise exception 'This live chat has expired'; end if;
+
+  update public.app_live_chat_routes
+     set assigned_user_id=uid,status='accepted',accepted_at=now(),closed_at=null,updated_at=now()
+   where inquiry_id=p_inquiry_id and status='pending'
+   returning * into route;
+  if route is null then raise exception 'This live chat was accepted by another support agent'; end if;
+
+  update public.app_user_notifications
+     set is_read=case when owner_id=uid then true else false end,
+         read_at=case when owner_id=uid then coalesce(read_at,now()) else null end,
+         title=case when owner_id=uid then 'Live chat accepted' else 'Live chat taken' end,
+         body=case when owner_id=uid
+           then format('You are now assisting this visitor as %s.',rep_name)
+           else format('%s has accepted this Live Chat conversation.',rep_name) end,
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object(
+           'assignment_status',case when owner_id=uid then 'accepted' else 'taken' end,
+           'accepted_by',uid,'accepted_by_name',rep_name,'accepted_at',now())
+   where kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text;
+
+  intro_text:=format(
+    'Thank you for contacting Triplem VIP Support. My name is %s, and I will be assisting you today. How may I help you?',
+    rep_name
+  );
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,intro_text) returning * into intro;
+
+  update public.app_inquiries
+     set admin_last_read_at=now(),status='read',last_message_at=now(),updated_at=now(),
+         read_at=coalesce(read_at,now()),read_by=coalesce(read_by,uid)
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object(
+    'ok',true,'accepted',true,'already_accepted',false,'representative_name',rep_name,
+    'intro_message',public.app_message_public_row(intro),'inquiry',public.app_inquiry_public_row(inquiry_row)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_assignment(uuid) from public;
+grant execute on function public.app_live_chat_accept_assignment(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_decline_assignment(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  route public.app_live_chat_routes;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  if not exists(select 1 from public.app_users u where u.id=uid and u.is_active=true and (u.role='admin' or exists(select 1 from public.app_live_chat_agents a where a.user_id=u.id and a.enabled=true))) then
+    raise exception 'You are not assigned to Live Chat Support';
+  end if;
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null then raise exception 'Live chat assignment is unavailable'; end if;
+  if route.status='accepted' then raise exception 'This live chat has already been accepted'; end if;
+  if route.status='closed' then raise exception 'This live chat has already ended'; end if;
+
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','declined','declined_at',now())
+   where owner_id=uid and kind='system'
+     and payload->>'type'='live_chat_assignment'
+     and payload->>'inquiry_id'=p_inquiry_id::text;
+
+  return jsonb_build_object('ok',true,'declined',true,'inquiry_id',p_inquiry_id);
+end
+$fn$;
+revoke all on function public.app_live_chat_decline_assignment(uuid) from public;
+grant execute on function public.app_live_chat_decline_assignment(uuid) to anon, authenticated, service_role;
+
+-- Reissue transfer creation so overdue handoffs are reconciled before a new
+-- transfer is requested and only the canonical Main Admin / enabled agents are
+-- valid targets.
+create or replace function public.app_live_chat_request_transfer(p_inquiry_id uuid,p_target_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  source_user public.app_users;
+  target_user public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  auto_msg public.app_inquiry_messages;
+  source_name text;
+  target_name text;
+  dedupe text;
+  main_admin_id uuid;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into source_user from public.app_users where id=uid and is_active=true;
+  if source_user is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat is not assigned to you';
+  end if;
+  if exists(select 1 from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending') then
+    raise exception 'A transfer is already awaiting acceptance';
+  end if;
+  if p_target_user_id is null or p_target_user_id=uid then raise exception 'Choose another support representative'; end if;
+
+  select a.id into main_admin_id from public.app_users a
+   where a.is_active=true and a.role='admin'
+   order by coalesce(a.is_protected,false) desc,a.created_at asc,a.id asc limit 1;
+
+  select u.* into target_user from public.app_users u
+  where u.id=p_target_user_id and u.is_active=true
+    and (u.id=main_admin_id or exists(select 1 from public.app_live_chat_agents a where a.user_id=u.id and a.enabled=true));
+  if target_user is null then raise exception 'The selected support representative is unavailable'; end if;
+
+  source_name:=coalesce(nullif(trim(coalesce(source_user.display_name,'')),''),source_user.username);
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username);
+
+  insert into public.app_live_chat_transfers(inquiry_id,from_user_id,to_user_id,status,requested_at,created_at,updated_at)
+  values(p_inquiry_id,uid,p_target_user_id,'pending',now(),now(),now()) returning * into transfer;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',null,
+    'I am arranging a handoff to another Triplem VIP Support representative so we can continue assisting you efficiently. Please remain in this chat; your existing conversation will stay available to the support team.')
+  returning * into auto_msg;
+
+  update public.app_inquiries set last_message_at=now(),updated_at=now(),status='read'
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  dedupe := 'live-chat-transfer:'||transfer.id::text||':'||p_target_user_id::text;
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(
+    p_target_user_id,'system','Live chat transfer from '||source_name,
+    format('%s requested that you take over a Live Chat. Accept to continue the same conversation, or decline to return it to the current representative.',source_name),
+    jsonb_build_object('type','live_chat_transfer','transfer_id',transfer.id,'inquiry_id',p_inquiry_id,
+      'from_user_id',uid,'from_agent_name',source_name,'target_agent_name',target_name,
+      'guest_name',coalesce(inquiry_row.guest_name,''),'guest_email',coalesce(inquiry_row.guest_email,''),
+      'guest_phone',coalesce(inquiry_row.guest_phone,''),'message',left(coalesce(inquiry_row.body,''),220),
+      'assignment_status','pending','expires_at',now()+interval '10 minutes'),
+    dedupe
+  )
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do update
+    set title=excluded.title,body=excluded.body,payload=excluded.payload,is_read=false,read_at=null,created_at=now();
+
+  return jsonb_build_object('ok',true,'transfer_id',transfer.id,'target_user_id',p_target_user_id,
+    'target_name',target_name,'expires_at',transfer.requested_at+interval '10 minutes',
+    'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_request_transfer(uuid,uuid) from public;
+grant execute on function public.app_live_chat_request_transfer(uuid,uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_accept_transfer(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  new_agent public.app_users;
+  old_agent public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  inquiry_row public.app_inquiries;
+  intro public.app_inquiry_messages;
+  new_name text;
+  old_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into new_agent from public.app_users where id=uid and is_active=true;
+  if new_agent is null then raise exception 'Authentication required'; end if;
+  if new_agent.role<>'admin' and not exists(select 1 from public.app_live_chat_agents where user_id=uid and enabled=true) then raise exception 'You are not assigned to Live Chat Support'; end if;
+
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' for update;
+  if transfer is null then raise exception 'This transfer is no longer available'; end if;
+  if transfer.to_user_id is distinct from uid then raise exception 'This transfer is assigned to another support representative'; end if;
+  if transfer.requested_at<=now()-interval '10 minutes' then
+    perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+    raise exception 'This transfer request has expired and the previous representative has resumed the chat';
+  end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from transfer.from_user_id then
+    raise exception 'This conversation has already moved to another representative';
+  end if;
+
+  select * into old_agent from public.app_users where id=transfer.from_user_id;
+  new_name:=coalesce(nullif(trim(coalesce(new_agent.display_name,'')),''),new_agent.username);
+  old_name:=coalesce(nullif(trim(coalesce(old_agent.display_name,'')),''),old_agent.username,'Previous representative');
+
+  update public.app_live_chat_transfers set status='accepted',resolved_at=now(),updated_at=now() where id=transfer.id;
+  update public.app_live_chat_routes set assigned_user_id=uid,updated_at=now() where inquiry_id=p_inquiry_id;
+
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),title='Live chat transfer accepted',
+         body=format('You accepted the Live Chat transfer from %s.',old_name),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','accepted','accepted_at',now(),'accepted_by_name',new_name)
+   where owner_id=uid and kind='system' and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=transfer.id::text;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(transfer.from_user_id,'system','Live chat transferred',format('%s accepted your Live Chat transfer and is now assisting the visitor.',new_name),
+    jsonb_build_object('type','live_chat_transfer_complete','inquiry_id',p_inquiry_id,'transfer_id',transfer.id,'accepted_by',uid,'accepted_by_name',new_name),
+    'live-chat-transfer-complete:'||transfer.id::text)
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',uid,format(
+    'Thank you for your patience. My name is %s from Triplem VIP Support, and your conversation has now been transferred to me. Please allow me a brief moment to review the previous discussion so I can continue assisting you without asking you to repeat information you have already provided.',
+    new_name)) returning * into intro;
+
+  update public.app_inquiries set admin_last_read_at=now(),last_message_at=now(),updated_at=now(),status='read'
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  return jsonb_build_object('ok',true,'accepted',true,'representative_name',new_name,
+    'intro_message',public.app_message_public_row(intro),'inquiry',public.app_inquiry_public_row(inquiry_row));
+end
+$fn$;
+revoke all on function public.app_live_chat_accept_transfer(uuid) from public;
+grant execute on function public.app_live_chat_accept_transfer(uuid) to anon, authenticated, service_role;
+
+create or replace function public.app_live_chat_decline_transfer(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  transfer public.app_live_chat_transfers;
+  target_user public.app_users;
+  route public.app_live_chat_routes;
+  target_name text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' for update;
+  if transfer is null then raise exception 'This transfer is no longer available'; end if;
+  if transfer.to_user_id is distinct from uid then raise exception 'This transfer is assigned to another support representative'; end if;
+  select * into target_user from public.app_users where id=uid and is_active=true;
+  if target_user is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from transfer.from_user_id then
+    raise exception 'This conversation has already moved to another representative';
+  end if;
+  target_name:=coalesce(nullif(trim(coalesce(target_user.display_name,'')),''),target_user.username,'Support representative');
+
+  update public.app_live_chat_transfers set status='declined',resolved_at=now(),updated_at=now() where id=transfer.id;
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),title='Live chat transfer declined',
+         body='You declined this Live Chat transfer.',
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','declined','declined_at',now())
+   where owner_id=uid and kind='system' and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=transfer.id::text;
+
+  insert into public.app_user_notifications(owner_id,kind,title,body,payload,dedupe_key)
+  values(transfer.from_user_id,'system','Transfer declined',
+    format('%s declined the Live Chat transfer. The conversation remains assigned to you and you can continue replying immediately.',target_name),
+    jsonb_build_object('type','live_chat_transfer_declined','inquiry_id',p_inquiry_id,'transfer_id',transfer.id,'declined_by',uid,'declined_by_name',target_name),
+    'live-chat-transfer-declined:'||transfer.id::text)
+  on conflict(owner_id,dedupe_key) where dedupe_key is not null do nothing;
+
+  return jsonb_build_object('ok',true,'declined',true,'inquiry_id',p_inquiry_id,'restored_to_user_id',transfer.from_user_id);
+end
+$fn$;
+revoke all on function public.app_live_chat_decline_transfer(uuid) from public;
+grant execute on function public.app_live_chat_decline_transfer(uuid) to anon, authenticated, service_role;
+
+-- Closing a Live Chat now also cancels any unresolved transfer offer so no
+-- target representative can retain a stale popup for an ended conversation.
+create or replace function public.app_live_chat_agent_end(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  route public.app_live_chat_routes;
+  m public.app_inquiry_messages;
+  t public.app_live_chat_transfers;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route is null or route.status<>'accepted' or route.assigned_user_id is distinct from uid then
+    raise exception 'This live chat is not assigned to you';
+  end if;
+
+  for t in
+    update public.app_live_chat_transfers
+       set status='cancelled',resolved_at=now(),updated_at=now()
+     where inquiry_id=p_inquiry_id and status='pending'
+     returning *
+  loop
+    update public.app_user_notifications
+       set is_read=true,read_at=coalesce(read_at,now()),
+           payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','cancelled','cancelled_at',now())
+     where owner_id=t.to_user_id and kind='system'
+       and payload->>'type'='live_chat_transfer' and payload->>'transfer_id'=t.id::text;
+  end loop;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'admin',null,'This live chat has been closed. If you need further assistance, you can start a new chat and our support team will be happy to help.') returning * into m;
+  update public.app_live_chat_routes set status='closed',closed_at=now(),updated_at=now() where inquiry_id=p_inquiry_id;
+  update public.app_inquiries set status='archived',last_message_at=now(),updated_at=now() where id=p_inquiry_id;
+
+  update public.app_user_notifications
+     set is_read=true,read_at=coalesce(read_at,now()),
+         payload=coalesce(payload,'{}'::jsonb)||jsonb_build_object('assignment_status','closed','closed_at',now())
+   where kind='system' and payload->>'type'='live_chat_assignment' and payload->>'inquiry_id'=p_inquiry_id::text;
+
+  return jsonb_build_object('ok',true,'closed',true,'message',public.app_message_public_row(m));
+end
+$fn$;
+revoke all on function public.app_live_chat_agent_end(uuid) from public;
+grant execute on function public.app_live_chat_agent_end(uuid) to anon, authenticated, service_role;
+
+-- Reconcile transfer timeout before deciding whether a support representative
+-- is temporarily reply-locked.
+create or replace function public.app_reply_inquiry(p_inquiry_id uuid,p_body text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id(); u public.app_users; row public.app_inquiries; route public.app_live_chat_routes; transfer public.app_live_chat_transfers; msg text:=trim(coalesce(p_body,'')); new_msg public.app_inquiry_messages; role text; is_admin boolean:=false; is_support boolean:=false;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  is_admin:=(u.role='admin');
+  if char_length(msg)<1 then raise exception 'Please write a reply'; end if;
+  if char_length(msg)>4000 then raise exception 'Reply is too long'; end if;
+  select * into row from public.app_inquiries where id=p_inquiry_id for update;
+  if row is null then raise exception 'Conversation not found'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' order by requested_at desc limit 1;
+  is_support:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false);
+  if is_support and transfer.id is not null then raise exception 'This live chat is awaiting transfer acceptance'; end if;
+  if is_admin and coalesce(route.status='accepted' and route.assigned_user_id is not null,false) and not is_support then raise exception 'This live chat is assigned to its support agent'; end if;
+  if is_admin or is_support then role:='admin';
+  elsif row.sender_id=uid and row.source='app' then role:='user';
+  else raise exception 'You cannot reply to this conversation'; end if;
+  if row.status='archived' and not is_admin then raise exception 'This conversation is closed'; end if;
+  if row.sender_id is null and not is_admin and not is_support then raise exception 'Access denied'; end if;
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body) values(p_inquiry_id,role,uid,msg) returning * into new_msg;
+  update public.app_inquiries set last_message_at=now(),updated_at=now(),status=case when (is_admin or is_support) and status='archived' then status when is_admin or is_support then 'read' else 'open' end,
+    admin_last_read_at=case when is_admin or is_support then now() else admin_last_read_at end,
+    user_last_read_at=case when not is_admin and not is_support then now() else user_last_read_at end,
+    body=case when role in ('user','guest') then msg else body end
+  where id=p_inquiry_id returning * into row;
+  if not is_admin and not is_support then perform public.app_notify_admins('inquiry','New reply',format('Reply on "%s" from %s',row.subject,coalesce(u.display_name,u.username)),uid,row.id,jsonb_build_object('subject',row.subject,'reply',true)); end if;
+  return jsonb_build_object('ok',true,'message',public.app_message_public_row(new_msg),'inquiry',public.app_inquiry_public_row(row));
+end
+$fn$;
+revoke all on function public.app_reply_inquiry(uuid,text) from public;
+grant execute on function public.app_reply_inquiry(uuid,text) to anon,authenticated,service_role;
+
+create or replace function public.app_get_inquiry_thread(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  row public.app_inquiries;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  msgs jsonb:='[]'::jsonb;
+  is_admin boolean:=false;
+  is_support boolean:=false;
+  has_unread boolean:=false;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  perform public.app_live_chat_reconcile_lifecycle(p_inquiry_id);
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  is_admin:=(u.role='admin' and u.is_active);
+  select * into row from public.app_inquiries where id=p_inquiry_id;
+  if row is null then raise exception 'Conversation not found'; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=p_inquiry_id and status='pending' order by requested_at desc limit 1;
+  is_support:=coalesce(route.status='accepted' and route.assigned_user_id=uid,false);
+  if not is_admin and not is_support and row.sender_id is distinct from uid then raise exception 'Access denied'; end if;
+
+  if is_admin or is_support then
+    select exists(select 1 from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id and m.sender_role in ('user','guest') and (row.admin_last_read_at is null or m.created_at>row.admin_last_read_at)) into has_unread;
+    if has_unread or (is_admin and row.status='open') then
+      update public.app_inquiries
+         set admin_last_read_at=case when has_unread then now() else admin_last_read_at end,
+             status=case when status='open' then 'read' else status end,
+             read_at=case when status='open' then coalesce(read_at,now()) else read_at end,
+             read_by=case when status='open' then coalesce(read_by,uid) else read_by end
+       where id=p_inquiry_id returning * into row;
+    end if;
+    if is_admin then
+      update public.app_admin_notifications set is_read=true,read_at=coalesce(read_at,now()),read_by=uid
+       where related_inquiry_id=p_inquiry_id and is_read=false;
+    end if;
+  else
+    select exists(select 1 from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id and m.sender_role='admin' and (row.user_last_read_at is null or m.created_at>row.user_last_read_at)) into has_unread;
+    if has_unread then update public.app_inquiries set user_last_read_at=now() where id=p_inquiry_id returning * into row; end if;
+  end if;
+
+  select coalesce(jsonb_agg(public.app_message_public_row(m) order by m.created_at asc),'[]'::jsonb) into msgs from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id;
+  return jsonb_build_object(
+    'inquiry',public.app_inquiry_public_row(row),
+    'messages',msgs,
+    'can_reply',(
+      (is_support and transfer.id is null)
+      or (is_admin and not coalesce(route.status='accepted' and route.assigned_user_id is not null,true))
+      or (row.sender_id=uid and row.source='app' and row.status<>'archived')
+    )
+  );
+end
+$fn$;
+revoke all on function public.app_get_inquiry_thread(uuid) from public;
+grant execute on function public.app_get_inquiry_thread(uuid) to anon,authenticated,service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/105_live_chat_lifecycle_reconciliation.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/106_live_chat_transfer_delivery_read_state_and_records.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 106_live_chat_transfer_delivery_read_state_and_records.sql
+-- Reliable transfer acceptance for Admin/agents, lightweight read-state sync,
+-- and richer read-only Live Chat audit transcripts.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 105.
+--   * Installation only CREATE OR REPLACEs functions and adjusts grants.
+--   * It does NOT insert, update, delete, truncate, rename, drop, or rewrite any
+--     existing user, financial, wallet, expense, inventory, subscription,
+--     credential, receipt, session, inquiry, message, or business row.
+--   * Runtime writes are limited to read markers when an authorized participant
+--     opens a conversation. No transcript or business data is removed.
+-- ============================================================================
+
+-- Admin's normal Messages inbox should include unassigned waiting chats and chats
+-- assigned to THIS Admin, while chats accepted by another support agent belong in
+-- that agent's Messages and remain available to Admin through Chat Records.
+create or replace function public.app_admin_list_inquiries(
+  p_status text default null,
+  p_limit int default 100
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin_comms();
+  items jsonb := '[]'::jsonb;
+  lim int := greatest(1,least(coalesce(p_limit,100),300));
+  st text := nullif(trim(coalesce(p_status,'')),'');
+begin
+  select coalesce(jsonb_agg(public.app_inquiry_public_row(i) order by coalesce(i.last_message_at,i.created_at) desc),'[]'::jsonb)
+    into items
+  from (
+    select q.*
+    from public.app_inquiries q
+    left join public.app_live_chat_routes r on r.inquiry_id=q.id
+    where (st is null or q.status=st)
+      and (
+        not (coalesce(q.source,'')='landing' and lower(coalesce(q.subject,''))='live chat support')
+        or r.inquiry_id is null
+        or r.status='pending'
+        or (r.status='accepted' and r.assigned_user_id=admin.id)
+      )
+    order by coalesce(q.last_message_at,q.created_at) desc
+    limit lim
+  ) i;
+
+  return jsonb_build_object('items',items);
+end
+$fn$;
+revoke all on function public.app_admin_list_inquiries(text,integer) from public;
+grant execute on function public.app_admin_list_inquiries(text,integer) to anon, authenticated, service_role;
+
+-- Keep the Admin Messages badge aligned with the same ownership rule. A Live Chat
+-- accepted by another agent must not continue generating an Admin unread badge.
+create or replace function public.app_admin_unread_counts()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin_comms();
+  notif_count int := 0;
+  inquiry_unread int := 0;
+begin
+  select count(*)::int into notif_count
+  from public.app_admin_notifications
+  where is_read=false;
+
+  select count(*)::int into inquiry_unread
+  from public.app_inquiries i
+  left join public.app_live_chat_routes r on r.inquiry_id=i.id
+  where (
+      not (coalesce(i.source,'')='landing' and lower(coalesce(i.subject,''))='live chat support')
+      or r.inquiry_id is null
+      or r.status='pending'
+      or (r.status='accepted' and r.assigned_user_id=admin.id)
+    )
+    and (
+      exists (
+        select 1 from public.app_inquiry_messages m
+        where m.inquiry_id=i.id
+          and m.sender_role in ('user','guest')
+          and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+      )
+      or i.status='open'
+    );
+
+  return jsonb_build_object(
+    'notifications',notif_count,
+    'inquiries',inquiry_unread,
+    'total',notif_count+inquiry_unread
+  );
+end
+$fn$;
+revoke all on function public.app_admin_unread_counts() from public;
+grant execute on function public.app_admin_unread_counts() to anon, authenticated, service_role;
+
+-- Lightweight read acknowledgement. This deliberately avoids fetching the full
+-- transcript. It only advances the correct read marker if there is actually an
+-- unread message, and never changes updated_at merely because a chat is open.
+create or replace function public.app_mark_inquiry_read(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  i public.app_inquiries;
+  r public.app_live_chat_routes;
+  is_admin boolean := false;
+  is_support boolean := false;
+  is_owner boolean := false;
+  has_unread boolean := false;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+
+  select * into i from public.app_inquiries where id=p_inquiry_id;
+  if i is null then raise exception 'Conversation not found'; end if;
+  select * into r from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+
+  is_admin := u.role='admin';
+  is_support := coalesce(r.status='accepted' and r.assigned_user_id=uid,false);
+  is_owner := i.sender_id=uid and coalesce(i.source,'app')='app';
+
+  if not is_admin and not is_support and not is_owner then raise exception 'Access denied'; end if;
+  if is_admin and coalesce(r.status='accepted' and r.assigned_user_id is not null and r.assigned_user_id<>uid,false) then
+    raise exception 'This live chat is assigned to another support representative';
+  end if;
+
+  if is_admin or is_support then
+    select exists(
+      select 1 from public.app_inquiry_messages m
+      where m.inquiry_id=p_inquiry_id
+        and m.sender_role in ('user','guest')
+        and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+    ) into has_unread;
+    if has_unread or i.status='open' then
+      update public.app_inquiries
+         set admin_last_read_at=case when has_unread then now() else admin_last_read_at end,
+             status=case when status='open' then 'read' else status end,
+             read_at=case when status='open' then coalesce(read_at,now()) else read_at end,
+             read_by=case when status='open' then coalesce(read_by,uid) else read_by end
+       where id=p_inquiry_id
+       returning * into i;
+    end if;
+  else
+    select exists(
+      select 1 from public.app_inquiry_messages m
+      where m.inquiry_id=p_inquiry_id
+        and m.sender_role='admin'
+        and (i.user_last_read_at is null or m.created_at>i.user_last_read_at)
+    ) into has_unread;
+    if has_unread then
+      update public.app_inquiries set user_last_read_at=now()
+       where id=p_inquiry_id returning * into i;
+    end if;
+  end if;
+
+  return jsonb_build_object('ok',true,'inquiry',public.app_inquiry_public_row(i));
+end
+$fn$;
+revoke all on function public.app_mark_inquiry_read(uuid) from public;
+grant execute on function public.app_mark_inquiry_read(uuid) to anon, authenticated, service_role;
+
+-- Enrich the permanent Admin transcript with the immutable routing/handoff audit
+-- trail. Existing transcript rows remain untouched; this is read-only output.
+create or replace function public.app_admin_live_chat_transcript(p_inquiry_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin();
+  i public.app_inquiries;
+  r public.app_live_chat_routes;
+  a public.app_users;
+  msgs jsonb := '[]'::jsonb;
+  handoffs jsonb := '[]'::jsonb;
+begin
+  select * into i from public.app_inquiries
+   where id=p_inquiry_id
+     and lower(coalesce(subject,''))='live chat support'
+     and coalesce(source,'')='landing';
+  if i is null then raise exception 'Live chat record not found'; end if;
+
+  select * into r from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  if r.assigned_user_id is not null then select * into a from public.app_users where id=r.assigned_user_id; end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',m.id,'sender_role',m.sender_role,'sender_id',m.sender_id,
+    'sender_name',case
+      when m.sender_role='guest' then coalesce(i.guest_name,'Visitor')
+      when m.sender_id is not null then coalesce((select coalesce(nullif(trim(u.display_name),''),u.username) from public.app_users u where u.id=m.sender_id),'Triplem VIP Support')
+      else 'Triplem VIP Support' end,
+    'body',m.body,'created_at',m.created_at
+  ) order by m.created_at asc),'[]'::jsonb) into msgs
+  from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id',t.id,'status',t.status,'requested_at',t.requested_at,'resolved_at',t.resolved_at,
+    'from_user_id',t.from_user_id,'from_name',coalesce(nullif(trim(fu.display_name),''),fu.username,'Support representative'),
+    'to_user_id',t.to_user_id,'to_name',coalesce(nullif(trim(tu.display_name),''),tu.username,'Support representative')
+  ) order by t.requested_at asc),'[]'::jsonb) into handoffs
+  from public.app_live_chat_transfers t
+  left join public.app_users fu on fu.id=t.from_user_id
+  left join public.app_users tu on tu.id=t.to_user_id
+  where t.inquiry_id=p_inquiry_id;
+
+  return jsonb_build_object(
+    'ok',true,
+    'chat',jsonb_build_object(
+      'id',i.id,'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),'guest_phone',coalesce(i.guest_phone,''),
+      'status',i.status,'routing_status',coalesce(r.status,''),'created_at',i.created_at,
+      'accepted_at',r.accepted_at,'closed_at',r.closed_at,
+      'agent_id',r.assigned_user_id,'agent_name',coalesce(a.display_name,a.username,''),'agent_username',coalesce(a.username,'')
+    ),
+    'messages',msgs,
+    'transfers',handoffs
+  );
+end
+$fn$;
+revoke all on function public.app_admin_live_chat_transcript(uuid) from public;
+grant execute on function public.app_admin_live_chat_transcript(uuid) to anon, authenticated, service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/106_live_chat_transfer_delivery_read_state_and_records.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/107_admin_live_chat_sync_visibility.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 107_admin_live_chat_sync_visibility.sql
+-- Keep Main Admin-owned Live Chats inside the live messaging fingerprint and
+-- stop guest polling from mutating inquiry timestamps when nothing changed.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 106.
+--   * Installation only CREATE OR REPLACEs functions and adjusts grants.
+--   * It does NOT insert, update, delete, truncate, rename, drop, or rewrite any
+--     existing user, financial, wallet, expense, inventory, subscription,
+--     credential, receipt, session, inquiry, message, or business row.
+--   * Runtime writes remain limited to normal read markers / actual chat events.
+-- ============================================================================
+
+-- The Admin inbox was corrected in 106 to keep accepted chats assigned to the
+-- current Admin. app_messaging_sync_state still used the older 100-era filter,
+-- which excluded every accepted chat with an assignee, including THIS Admin.
+-- That meant a visitor reply was stored, but the Admin browser fingerprint did
+-- not change and therefore did not refresh until some unrelated event occurred.
+create or replace function public.app_messaging_sync_state()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  is_admin boolean:=false;
+  notif_count int:=0;
+  inquiry_unread int:=0;
+  user_unread int:=0;
+  user_notif_unread int:=0;
+  inquiry_count int:=0;
+  open_count int:=0;
+  message_total bigint:=0;
+  latest_msg_at timestamptz;
+  latest_updated_at timestamptz;
+  latest_notif_at timestamptz;
+  latest_user_notif_at timestamptz;
+  fp text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  is_admin:=(u.role='admin' and coalesce(u.access_plan,'full')<>'trial');
+
+  select count(*)::int,max(created_at)
+    into user_notif_unread,latest_user_notif_at
+  from public.app_user_notifications
+  where owner_id=uid and is_read=false;
+  if latest_user_notif_at is null then
+    select max(created_at) into latest_user_notif_at
+    from public.app_user_notifications where owner_id=uid;
+  end if;
+
+  if is_admin then
+    select count(*)::int into notif_count
+    from public.app_admin_notifications n
+    where n.is_read=false
+      and not(coalesce(n.payload->>'source','')='live_chat');
+
+    select max(created_at) into latest_notif_at
+    from public.app_admin_notifications n
+    where not(coalesce(n.payload->>'source','')='live_chat');
+
+    -- Visible to Main Admin when unassigned/pending, a normal inquiry, or an
+    -- accepted Live Chat owned by this Admin. Only chats owned by another
+    -- representative are excluded from the live Admin inbox/fingerprint.
+    select count(*)::int into inquiry_unread
+    from public.app_inquiries i
+    where not exists(
+      select 1
+      from public.app_live_chat_routes r
+      where r.inquiry_id=i.id
+        and r.status='accepted'
+        and r.assigned_user_id is not null
+        and r.assigned_user_id<>uid
+    )
+      and (
+        exists(
+          select 1 from public.app_inquiry_messages m
+          where m.inquiry_id=i.id
+            and m.sender_role in ('user','guest')
+            and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+        )
+        or i.status='open'
+      );
+
+    select count(*)::int,
+           count(*) filter(where i.status='open')::int,
+           max(coalesce(i.last_message_at,i.created_at)),
+           max(i.updated_at)
+      into inquiry_count,open_count,latest_msg_at,latest_updated_at
+    from public.app_inquiries i
+    where not exists(
+      select 1
+      from public.app_live_chat_routes r
+      where r.inquiry_id=i.id
+        and r.status='accepted'
+        and r.assigned_user_id is not null
+        and r.assigned_user_id<>uid
+    );
+
+    select count(*)::bigint into message_total
+    from public.app_inquiry_messages m
+    join public.app_inquiries i on i.id=m.inquiry_id
+    where not exists(
+      select 1
+      from public.app_live_chat_routes r
+      where r.inquiry_id=i.id
+        and r.status='accepted'
+        and r.assigned_user_id is not null
+        and r.assigned_user_id<>uid
+    );
+
+    fp:=format(
+      'a|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+      notif_count,inquiry_unread,inquiry_count,open_count,coalesce(message_total,0),
+      coalesce(extract(epoch from latest_msg_at)::bigint,0),
+      coalesce(extract(epoch from latest_updated_at)::bigint,0),
+      coalesce(extract(epoch from latest_notif_at)::bigint,0),
+      user_notif_unread,
+      coalesce(extract(epoch from latest_user_notif_at)::bigint,0)
+    );
+
+    return jsonb_build_object(
+      'role','admin','fingerprint',fp,
+      'notifications',notif_count+user_notif_unread,
+      'admin_notifications',notif_count,
+      'user_notifications',user_notif_unread,
+      'inquiries',inquiry_unread,
+      'inquiry_count',inquiry_count,
+      'open_count',open_count,
+      'message_total',coalesce(message_total,0),
+      'latest_message_at',latest_msg_at,
+      'latest_notification_at',greatest(latest_notif_at,latest_user_notif_at)
+    );
+  end if;
+
+  -- Existing registered-user / assigned-agent behaviour is preserved.
+  select count(*)::int,max(coalesce(i.last_message_at,i.updated_at,i.created_at)),max(i.updated_at)
+    into inquiry_count,latest_msg_at,latest_updated_at
+  from public.app_inquiries i
+  where i.sender_id=uid
+     or exists(
+       select 1 from public.app_live_chat_routes r
+       where r.inquiry_id=i.id and r.status='accepted' and r.assigned_user_id=uid
+     );
+
+  select count(*)::bigint into message_total
+  from public.app_inquiry_messages m
+  join public.app_inquiries i on i.id=m.inquiry_id
+  where i.sender_id=uid
+     or exists(
+       select 1 from public.app_live_chat_routes r
+       where r.inquiry_id=i.id and r.status='accepted' and r.assigned_user_id=uid
+     );
+
+  select coalesce(sum(x.c),0)::int into user_unread
+  from (
+    select count(*)::int c
+    from public.app_inquiries i
+    join public.app_inquiry_messages m on m.inquiry_id=i.id
+    where i.sender_id=uid
+      and m.sender_role='admin'
+      and (i.user_last_read_at is null or m.created_at>i.user_last_read_at)
+    union all
+    select count(*)::int c
+    from public.app_inquiries i
+    join public.app_live_chat_routes r on r.inquiry_id=i.id
+    join public.app_inquiry_messages m on m.inquiry_id=i.id
+    where r.status='accepted'
+      and r.assigned_user_id=uid
+      and m.sender_role='guest'
+      and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+  ) x;
+
+  fp:=format(
+    'u|%s|%s|%s|%s|%s|%s|%s',
+    user_unread,inquiry_count,coalesce(message_total,0),
+    coalesce(extract(epoch from latest_msg_at)::bigint,0),
+    coalesce(extract(epoch from latest_updated_at)::bigint,0),
+    user_notif_unread,
+    coalesce(extract(epoch from latest_user_notif_at)::bigint,0)
+  );
+
+  return jsonb_build_object(
+    'role','user','fingerprint',fp,
+    'notifications',user_notif_unread,
+    'user_notifications',user_notif_unread,
+    'inquiries',user_unread,
+    'user_unread',user_unread,
+    'inquiry_count',inquiry_count,
+    'message_total',coalesce(message_total,0),
+    'latest_message_at',latest_msg_at,
+    'latest_notification_at',latest_user_notif_at
+  );
+end
+$fn$;
+revoke all on function public.app_messaging_sync_state() from public;
+grant execute on function public.app_messaging_sync_state() to anon,authenticated,service_role;
+
+-- Public guest polling previously changed app_inquiries.updated_at on every poll.
+-- Once Main Admin-owned chats are correctly included in the sync fingerprint,
+-- that heartbeat would cause needless Admin UI refreshes. Only advance the
+-- visitor read marker when a genuinely unread support message exists, and do not
+-- touch the business/activity timestamp merely because the browser polled.
+create or replace function public.app_public_live_chat_thread(
+  p_inquiry_id uuid,
+  p_guest_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  access_row public.app_live_chat_guest_access;
+  inquiry_row public.app_inquiries;
+  route public.app_live_chat_routes;
+  messages jsonb:='[]'::jsonb;
+  idle jsonb;
+  has_unread_support boolean:=false;
+begin
+  access_row:=public.app_live_chat_validate_guest(p_inquiry_id,p_guest_token);
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+  if inquiry_row is null or inquiry_row.subject<>'Live Chat Support' then
+    raise exception 'Live chat session is unavailable';
+  end if;
+
+  insert into public.app_live_chat_routes(inquiry_id,status,created_at,updated_at)
+  values(p_inquiry_id,'pending',now(),now())
+  on conflict(inquiry_id) do nothing;
+  if found then perform public.app_live_chat_notify_available_agents(p_inquiry_id); end if;
+
+  idle:=public.app_live_chat_maybe_idle_followup(p_inquiry_id);
+
+  select exists(
+    select 1
+    from public.app_inquiry_messages m
+    where m.inquiry_id=p_inquiry_id
+      and m.sender_role='admin'
+      and (inquiry_row.user_last_read_at is null or m.created_at>inquiry_row.user_last_read_at)
+  ) into has_unread_support;
+
+  if has_unread_support then
+    update public.app_inquiries
+       set user_last_read_at=now()
+     where id=p_inquiry_id
+     returning * into inquiry_row;
+  end if;
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  select coalesce(jsonb_agg(public.app_message_public_row(m) order by m.created_at asc),'[]'::jsonb)
+    into messages
+  from public.app_inquiry_messages m
+  where m.inquiry_id=p_inquiry_id;
+
+  return jsonb_build_object(
+    'ok',true,
+    'expires_at',access_row.expires_at,
+    'availability',public.app_live_chat_availability(),
+    'inquiry',public.app_inquiry_public_row(inquiry_row),
+    'messages',messages,
+    'chat_closed',coalesce(route.status='closed',inquiry_row.status='archived')
+  );
+end
+$fn$;
+revoke all on function public.app_public_live_chat_thread(uuid,text) from public;
+grant execute on function public.app_public_live_chat_thread(uuid,text) to anon,authenticated,service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/107_admin_live_chat_sync_visibility.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/108_live_chat_ai_assistant.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 108_live_chat_ai_assistant.sql
+-- Triplem VIP zero-cost, domain-constrained AI Assistant for landing Live Chat.
+--
+-- LIVE-DATABASE SAFETY
+--   * Forward-only after 107.
+--   * No destructive reset, DELETE, TRUNCATE, DROP TABLE, DROP COLUMN, data
+--     rewrite, account recreation, credential change, or financial-row mutation.
+--   * Existing live chats remain on their existing human-support flow because
+--     AI automation activates only for chats that receive a row in the new
+--     app_live_chat_ai_state table after this migration is installed.
+--   * No external/metred AI API, API key, paid model, Edge Function, or third-
+--     party inference service is required. Responses are generated entirely in
+--     PostgreSQL from a closed Triplem VIP knowledge/intention policy.
+-- ============================================================================
+
+-- Explicit actor metadata lets the visitor and staff distinguish AI-generated
+-- support text from a real human representative. Existing rows stay NULL.
+alter table public.app_inquiry_messages
+  add column if not exists support_actor text;
+
+comment on column public.app_inquiry_messages.support_actor is
+  'Optional support provenance. 108 uses ai for automated Triplem VIP AI Assistant messages; NULL preserves legacy/human/system semantics.';
+
+-- Per-chat automation state. This table is isolated from user/business/finance
+-- data and is created empty, so installing 108 does not alter an existing chat.
+create table if not exists public.app_live_chat_ai_state (
+  inquiry_id uuid primary key references public.app_inquiries(id) on delete cascade,
+  mode text not null default 'ai' check (mode in ('ai','human_pending','human','closed')),
+  last_intent text,
+  last_confidence numeric(5,4),
+  last_ai_message_at timestamptz,
+  human_requested_at timestamptz,
+  human_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists app_live_chat_ai_state_mode_idx
+  on public.app_live_chat_ai_state(mode, updated_at desc);
+
+alter table public.app_live_chat_ai_state enable row level security;
+revoke all on table public.app_live_chat_ai_state from public, anon, authenticated;
+drop policy if exists app_live_chat_ai_state_deny_all on public.app_live_chat_ai_state;
+create policy app_live_chat_ai_state_deny_all
+  on public.app_live_chat_ai_state for all to anon, authenticated
+  using (false) with check (false);
+
+-- Message serializer with explicit AI / human / system identity. The signature
+-- is unchanged, so every existing caller remains compatible.
+create or replace function public.app_message_public_row(m public.app_inquiry_messages)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  sender public.app_users;
+  label text;
+  actor text;
+begin
+  if m.sender_id is not null then
+    select * into sender from public.app_users where id=m.sender_id;
+  end if;
+
+  actor := case
+    when m.sender_role='guest' then 'visitor'
+    when m.sender_role='user' then 'user'
+    when m.sender_role='admin' and lower(coalesce(m.support_actor,''))='ai' then 'ai'
+    when m.sender_role='admin' and m.sender_id is not null then 'agent'
+    else 'system'
+  end;
+
+  label := case actor
+    when 'ai' then 'Triplem VIP AI Assistant'
+    when 'agent' then coalesce(nullif(trim(coalesce(sender.display_name,'')),''),sender.username,'Support Agent')
+    when 'system' then 'Triplem VIP Support'
+    when 'visitor' then 'Guest'
+    else coalesce(nullif(trim(coalesce(sender.display_name,'')),''),sender.username,'User')
+  end;
+
+  return jsonb_build_object(
+    'id',m.id,
+    'inquiry_id',m.inquiry_id,
+    'sender_role',m.sender_role,
+    'sender_id',m.sender_id,
+    'sender_label',label,
+    'support_actor',nullif(lower(trim(coalesce(m.support_actor,''))),''),
+    'message_actor',actor,
+    'is_ai',(actor='ai'),
+    'body',m.body,
+    'created_at',m.created_at
+  );
+end
+$fn$;
+revoke all on function public.app_message_public_row(public.app_inquiry_messages) from public, anon, authenticated;
+
+-- Closed-scope conversion sentence shared by normal AI responses. It never
+-- claims a certification/guarantee and reflects the current production plans.
+create or replace function public.app_live_chat_ai_cta()
+returns text
+language sql
+immutable
+set search_path = public
+as $fn$
+  select 'You can start with Triplem VIP''s 14-day free trial with full workspace access and no card, then continue with Pro Monthly or Pro Yearly when you are ready.'::text
+$fn$;
+revoke all on function public.app_live_chat_ai_cta() from public, anon, authenticated;
+
+-- High-confidence direct request for a real person. This deliberately requires
+-- transfer language or a direct human preference, avoiding false positives when
+-- somebody merely asks what Live Support is.
+create or replace function public.app_live_chat_ai_human_requested(p_message text)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+begin
+  if q='' then return false; end if;
+  return
+    q ~ '(^|[^a-z])(transfer|handover|hand over|connect|speak|talk|chat)([^a-z].*)?(human|agent|representative|real person|real support|administrator|admin|someone)' 
+    or q ~ '(^|[^a-z])(human|agent|representative|real person|real support|administrator|admin)([^a-z].*)?(please|now|instead|only|wanted|want|need|prefer|connect|transfer|speak|talk)'
+    or q ~ '(do not|don''t|dont|no) (want|need) (ai|bot)'
+    or q ~ '(stop|disable) (the )?(ai|bot)'
+    or q in ('human','agent','real agent','support agent','administrator','admin','human please','agent please');
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_human_requested(text) from public, anon, authenticated;
+
+-- Cases where the assistant must not guess because resolution depends on a
+-- private account, payment verification, security event, or production defect.
+create or replace function public.app_live_chat_ai_sensitive_handoff_reason(p_message text)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+begin
+  if q ~ '(forgot|reset|change).*(password|smart pin)|password.*(forgot|reset|not working)|smart pin.*(locked|forgot|reset)' then
+    return 'account_access';
+  end if;
+  if q ~ '((cannot|can''t|cant|unable|failed|problem|issue|not working).*(sign in|signin|log in|login)|(sign in|signin|log in|login).*(cannot|can''t|cant|unable|failed|problem|issue|not working)|account.*locked)' then
+    return 'account_access';
+  end if;
+  if q ~ '(payment|receipt|bank transfer).*(pending|approval|approve|rejected|reject|verify|verification)|refund|charged|chargeback' then
+    return 'payment_review';
+  end if;
+  if q ~ '(my|our).*(data|record|records|expense|wallet|inventory|loan|asset).*(missing|lost|deleted|wrong|corrupt|disappeared|not showing)' then
+    return 'account_data';
+  end if;
+  if q ~ '(hacked|breach|breached|stolen credential|security incident|unauthori[sz]ed|suspicious login)' then
+    return 'security';
+  end if;
+  if q ~ '((bug|error|broken|not working|doesn''t work|does not work|crash|stuck).*(app|dashboard|triplem|chat|wallet|expense|inventory|loan|asset|report|invoice)|(app|dashboard|triplem|chat|wallet|expense|inventory|loan|asset|report|invoice).*(bug|error|broken|not working|doesn''t work|does not work|crash|stuck))' then
+    return 'technical_issue';
+  end if;
+  if q ~ '(delete|close|cancel).*(my|our).*(account|workspace|subscription)' then
+    return 'account_action';
+  end if;
+  return null;
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_sensitive_handoff_reason(text) from public, anon, authenticated;
+
+-- Domain-constrained response engine. It intentionally does NOT attempt a
+-- general-world answer: unmatched/off-topic prompts are redirected to supported
+-- Triplem VIP topics. This deterministic scope is what prevents hallucinated
+-- external advice while keeping the implementation free of paid AI services.
+create or replace function public.app_live_chat_ai_answer(
+  p_message text,
+  p_guest_name text default null
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+  guest text := coalesce(nullif(trim(coalesce(p_guest_name,'')),''),'there');
+  intent text := 'scope';
+  confidence numeric(5,4) := 0.5500;
+  handoff boolean := false;
+  reason text := null;
+  answer text;
+  cta text := public.app_live_chat_ai_cta();
+  monthly_aed text;
+  monthly_sar text;
+  monthly_pkr text;
+  monthly_usd text;
+  yearly_aed text;
+  yearly_sar text;
+  yearly_pkr text;
+  yearly_usd text;
+begin
+  if public.app_live_chat_ai_human_requested(q) then
+    handoff:=true;
+    reason:='visitor_requested';
+    intent:='human_handoff';
+    confidence:=1.0000;
+    answer:='Absolutely. I am the Triplem VIP AI Assistant, and I am pausing my automated replies now. I have placed this conversation in the human-support queue so a real Triplem VIP support representative can continue with you. Human Live Support operates from 10:00 AM to 5:00 PM Gulf Standard Time. '||cta;
+    return jsonb_build_object('intent',intent,'confidence',confidence,'handoff',handoff,'handoff_reason',reason,'response',answer);
+  end if;
+
+  reason:=public.app_live_chat_ai_sensitive_handoff_reason(q);
+  if reason is not null then
+    handoff:=true;
+    intent:='protected_handoff';
+    confidence:=0.9900;
+    answer:=case reason
+      when 'account_access' then 'I can explain Triplem VIP generally, but I should not guess about private login credentials, password resets, Smart PIN lockouts, or a specific account. I am transferring this chat to a real Triplem VIP support representative for secure assistance.'
+      when 'payment_review' then 'Payment receipts, subscription approvals, refunds, and account-specific billing reviews require a real Triplem VIP representative to verify the correct record. I am transferring this chat to human support now.'
+      when 'account_data' then 'I cannot inspect or make assumptions about private workspace records from this public chat. I am transferring you to a real Triplem VIP support representative so the specific record can be checked safely.'
+      when 'security' then 'A possible account-security incident should be handled by a real representative rather than an automated answer. I am transferring this conversation to Triplem VIP human support now.'
+      when 'technical_issue' then 'That sounds like a product-specific technical issue that may need the exact browser, account, and reproduction details. I am transferring this chat to a real Triplem VIP support representative rather than guessing.'
+      else 'That request requires a real Triplem VIP representative to review the specific account action. I am transferring this chat to human support now.'
+    end;
+    answer:=answer||' Human Live Support operates from 10:00 AM to 5:00 PM Gulf Standard Time. '||cta;
+    return jsonb_build_object('intent',intent,'confidence',confidence,'handoff',handoff,'handoff_reason',reason,'response',answer);
+  end if;
+
+  if q ~ '(are you|r u|is this).*(ai|bot|robot|human)|who are you|your identity' then
+    intent:='ai_identity'; confidence:=0.9950;
+    answer:='Yes. You are chatting with the Triplem VIP AI Assistant, not a human agent. I am intentionally restricted to Triplem VIP plans, features, setup, security, and product guidance. You can ask for a real support agent at any time and I will hand the conversation over. '||cta;
+
+  elsif q ~ '(ignore|forget|override).*(instruction|rules|scope|previous)|system prompt|jailbreak|act as|pretend to be' then
+    intent:='scope_guard'; confidence:=0.9900;
+    answer:='I cannot change or bypass my support scope. I only provide information about Triplem VIP and can help with its free trial, Pro plans, wallets, expenses, inventory, reports, security, and other product features. '||cta;
+
+  elsif q ~ '(^|[^a-z])(hello|hi|hey|salam|assalam|good morning|good afternoon|good evening)([^a-z]|$)' then
+    intent:='greeting'; confidence:=0.9300;
+    answer:='Hello, '||guest||'. I am the Triplem VIP AI Assistant. I can help you understand the product, choose a plan, explore features, or decide whether Triplem VIP fits your personal or business finance workflow. '||cta;
+
+  elsif q ~ '(payment method|how.*pay|pay.*(pro|subscription|plan)|bank transfer|upload.*receipt|subscription.*receipt)' then
+    intent:='payment_method'; confidence:=0.9600;
+    answer:='Pro Monthly and Pro Yearly subscription requests use the bank-transfer and receipt-upload workflow built into Triplem VIP. The receipt is kept in the protected subscription-review flow for administrator verification. If you are asking about a particular pending receipt, approval, rejection, refund, or account charge, I will transfer you to a real representative rather than guessing about your private record. '||cta;
+  elsif q ~ '(price|pricing|cost|monthly|yearly|annual|subscription|pro plan|how much|charges|fee)' then
+    intent:='pricing'; confidence:=0.9800;
+    monthly_aed:=coalesce(public.app_subscription_price('monthly','AED',0)->>'base_amount','49.00');
+    monthly_sar:=coalesce(public.app_subscription_price('monthly','SAR',0)->>'base_amount','49.00');
+    monthly_pkr:=coalesce(public.app_subscription_price('monthly','PKR',0)->>'base_amount','1799.00');
+    monthly_usd:=coalesce(public.app_subscription_price('monthly','USD',0)->>'base_amount','13.99');
+    yearly_aed:=coalesce(public.app_subscription_price('yearly','AED',0)->>'base_amount','449.00');
+    yearly_sar:=coalesce(public.app_subscription_price('yearly','SAR',0)->>'base_amount','449.00');
+    yearly_pkr:=coalesce(public.app_subscription_price('yearly','PKR',0)->>'base_amount','19999.00');
+    yearly_usd:=coalesce(public.app_subscription_price('yearly','USD',0)->>'base_amount','149.00');
+    answer:=format('Triplem VIP currently offers a 14-day free trial with no card. Pro Monthly is AED %s, SAR %s, PKR %s, or USD %s. Pro Yearly is AED %s, SAR %s, PKR %s, or USD %s. The current introductory offer adds 30 extra days after the first approved monthly payment, or 60 extra days after the first approved yearly payment. You can select the billing currency during sign-up. ',monthly_aed,monthly_sar,monthly_pkr,monthly_usd,yearly_aed,yearly_sar,yearly_pkr,yearly_usd);
+    if q ~ '(team|member|staff|employee|seat)' then
+      answer:=answer||format('For Company workspaces, each additional paid team seat is currently AED %s, SAR %s, PKR %s, or USD %s monthly; yearly it is AED %s, SAR %s, PKR %s, or USD %s per seat. ',
+        coalesce(public.app_subscription_price('monthly','AED',1)->>'team_unit_amount','10.00'),
+        coalesce(public.app_subscription_price('monthly','SAR',1)->>'team_unit_amount','10.00'),
+        coalesce(public.app_subscription_price('monthly','PKR',1)->>'team_unit_amount','75.00'),
+        coalesce(public.app_subscription_price('monthly','USD',1)->>'team_unit_amount','4.00'),
+        coalesce(public.app_subscription_price('yearly','AED',1)->>'team_unit_amount','80.00'),
+        coalesce(public.app_subscription_price('yearly','SAR',1)->>'team_unit_amount','80.00'),
+        coalesce(public.app_subscription_price('yearly','PKR',1)->>'team_unit_amount','7000.00'),
+        coalesce(public.app_subscription_price('yearly','USD',1)->>'team_unit_amount','40.00'));
+    end if;
+    answer:=answer||cta;
+
+
+  elsif q ~ '(free trial|free sign|trial|try it|test it|sign up|signup|register|create.*account|get started)' then
+    intent:='trial_signup'; confidence:=0.9800;
+    answer:='Triplem VIP provides a 14-day free trial with full workspace access and no card. On the homepage, choose Free Sign-up, select Free 14 Days, choose Individual or Company, then complete your workspace details. It is a practical way to test your own wallet, expense, inventory, asset, invoice, and reporting workflow before choosing a paid plan. '||cta;
+
+  elsif q ~ '(excel|spreadsheet|replace.*sheet|instead of.*sheet|why.*use.*(software|triplem)|business.*benefit|help.*business)' then
+    intent:='business_value'; confidence:=0.9450;
+    answer:='Triplem VIP is most useful when a spreadsheet starts becoming several disconnected ledgers. Wallet balances, expenses, transfers, inventory and customer balances, loans, installments, assets, invoices, receipts, reminders, and reports can stay linked inside one structured workspace. That reduces duplicate entry and makes older transactions easier to understand because their account, currency, date, and related records remain connected. '||cta;
+
+  elsif q ~ '(what is triplem|what does triplem|what.*triplem.*do|about triplem|why triplem|use case|who is it for)' then
+    intent:='overview'; confidence:=0.9700;
+    answer:='Triplem VIP is a private browser-based accounting and finance workspace for individuals, merchants, service businesses, and small teams. It brings wallets, income and expenses, transfers, inventory and sales, loans, installment plans, assets, notes, Bitcoin tools, invoices, reports, and searchable transaction history into one account-isolated workspace. It is designed to replace scattered spreadsheets with connected records and a clearer daily operating view. '||cta;
+
+  elsif q ~ '(demo|walkthrough|preview|see.*before|try.*demo)' then
+    intent:='demo'; confidence:=0.9500;
+    answer:='Yes. Triplem VIP includes an interactive public Demo from the homepage so you can preview the workflow before creating an account. For the most meaningful evaluation, compare the demo with your real routine, then use the 14-day free trial to test your own wallets, expenses, reports, and other records. '||cta;
+
+  elsif q ~ '(recover|restore|recycle bin|recycle|deleted record|deleted item|purged)' then
+    intent:='record_recovery'; confidence:=0.9300;
+    answer:='Many Triplem VIP records use recycle-bin or soft-delete workflows so an item can be restored before permanent removal. A record that has been deliberately and permanently purged cannot be promised recoverable. If you mean a specific record that disappeared from your own workspace, I will transfer you to a real support representative rather than making assumptions about private data. '||cta;
+
+  elsif q ~ '(smart pin|smartpin)' then
+    intent:='smart_pin'; confidence:=0.9500;
+    answer:='Smart PIN is an additional in-workspace confirmation layer used for protected or destructive actions. It complements the signed-in session and helps reduce accidental or unauthorized permanent changes. If your own Smart PIN is forgotten, locked, or needs a reset, that becomes an account-specific matter and I will hand it to a real representative. '||cta;
+
+  elsif q ~ '(secure|security|privacy|private|rls|row level|password|smart pin|credential|data protection|isolated|supabase|postgres|database|cloud)' then
+    intent:='security'; confidence:=0.9650;
+    answer:='Triplem VIP is designed around isolated private accounts. The application uses Supabase/PostgreSQL with Row Level Security, server-side session controls, and hashed passwords rather than exposing credentials as plain text. Public support chat also uses a temporary guest token whose raw value is not stored in the database. Bitcoin private-key workflows are designed to stay client-side in the browser. For architecture details, the public Security page explains the design further. '||cta;
+
+  elsif q ~ '(wallet|cash account|bank account|card account|multi.?currency|currency|top.?up|transfer money|money transfer)' then
+    intent:='wallets'; confidence:=0.9550;
+    answer:='Triplem VIP supports multi-currency wallets for cash, bank, card, crypto-wallet, and custom money-account workflows. You can keep balances separated by account, top up a wallet, transfer money between wallets, relate expenses to the correct wallet, use custom wallet logos, and retain traceable transaction history. Supported workspace currencies include AED, SAR, PKR, USD, and BTC where enabled. '||cta;
+
+  elsif q ~ '(expense|spending|transaction history|search transaction|category|income tracking)' then
+    intent:='expenses'; confidence:=0.9550;
+    answer:='The Expenses workspace connects spending records to their wallet, currency, date, description, category, and detailed history. Triplem VIP also keeps wallet top-ups and transfers traceable and provides searchable transaction history, editing controls, and downloadable reporting so old entries remain easier to understand later. '||cta;
+
+  elsif q ~ '(inventory|stock|product|brand|variant|barcode|customer|sale|sales|shop)' then
+    intent:='inventory'; confidence:=0.9550;
+    answer:='Triplem VIP includes inventory and sales management for stock records, categories, brands, product lines and variants, barcodes, customers, sales, balance tracking, and invoice workflows. It is intended to connect operational stock activity with the wider finance workspace instead of keeping inventory in a separate spreadsheet. '||cta;
+
+  elsif q ~ '(^|[^a-z])loan(s)?([^a-z]|$)|borrow|lent|lending|repayment' then
+    intent:='loans'; confidence:=0.9500;
+    answer:='The Loans section tracks money given or taken, repayments and returned amounts, remaining balances, dates, currencies, and loan status. This gives you a structured history of obligations and recoveries instead of relying on separate notes or manual calculations. '||cta;
+
+  elsif q ~ '(installment|instalment|payment schedule|down payment|due payment)' then
+    intent:='installments'; confidence:=0.9500;
+    answer:='Triplem VIP supports installment plans with financed amounts, down payments, scheduled payments, due tracking, manual reminders, and payment history. It is useful when you need to follow an obligation across multiple dates rather than record one simple transaction. '||cta;
+
+  elsif q ~ '(^|[^a-z])asset(s)?([^a-z]|$)|depreciation|profit.*loss|p/l|sale.*asset' then
+    intent:='assets'; confidence:=0.9500;
+    answer:='Asset Management records purchase value, related costs and revenue, sale or disposal details, and profit/loss views. Triplem VIP also includes depreciation-asset workflows where applicable, helping you keep asset performance connected to the rest of your financial records. '||cta;
+
+  elsif q ~ '(import|csv|json backup|backup file|move.*data)' then
+    intent:='import_backup'; confidence:=0.9250;
+    answer:='Triplem VIP includes JSON/CSV import and export-oriented workflows for supported workspace data, together with downloadable backup-style records. Import capability varies by section and file structure, so use the format produced or expected by the relevant Triplem VIP workflow rather than an arbitrary spreadsheet layout. For a large migration from another system, a human representative can help confirm the safest route before you change live records. '||cta;
+
+  elsif q ~ '(invoice|receipt|pdf|statement|report|export|download)' then
+    intent:='reports'; confidence:=0.9550;
+    answer:='Triplem VIP can produce downloadable finance records such as PDF statements, receipts, invoices, and summaries. Reporting is connected to the underlying workspace data, so you can review records digitally and keep professional copies for your own business or accounting workflow. '||cta;
+
+  elsif q ~ '(note|notes|reminder|remind me|notification.*note)' then
+    intent:='notes'; confidence:=0.9400;
+    answer:='The Notes workspace lets you keep private notes alongside your finance environment and attach reminders when needed. It is useful for follow-ups that belong near the financial workflow without forcing you into a separate notes application. '||cta;
+
+  elsif q ~ '(bitcoin|btc|crypto|private key|wif|receive bitcoin|send bitcoin|blockchain)' then
+    intent:='bitcoin'; confidence:=0.9600;
+    answer:='Triplem VIP includes Bitcoin tools for wallet/address workflows, sending and receiving, and related records. Sensitive private-key or WIF signing workflows are designed to remain client-side in the browser rather than being treated as ordinary server-held account data. Use Bitcoin features only on devices you trust. '||cta;
+
+  elsif q ~ '(team|team member|staff|employee|company account|business account|company branding|logo|trn)' then
+    intent:='company_team'; confidence:=0.9450;
+    answer:='Triplem VIP supports both Individual and Company workspaces. Company setup can include company identity and branding, contact details, TRN information, and controlled team-member access. Team members can work inside the company workspace under assigned permissions while the owner keeps the primary account structure. '||cta;
+
+  elsif q ~ '(mobile|iphone|ios|android|desktop|browser|phone|tablet|responsive)' then
+    intent:='platforms'; confidence:=0.9400;
+    answer:='Triplem VIP is browser-based and designed for modern desktop and mobile use, with responsive layouts for phones, tablets, and larger screens. The public site also provides the current iOS and Android installation/download options. '||cta;
+
+  elsif q ~ '(theme|dark mode|navy|pink|green|appearance|personalize|customize)' then
+    intent:='personalization'; confidence:=0.9250;
+    answer:='Triplem VIP includes a personalized workspace experience with multiple visual themes and company/wallet branding options. The aim is to keep the interface professional while allowing a user or business to make the workspace feel recognizably their own. '||cta;
+
+  elsif q ~ '(backup|offline|internet|connection|sync|export my data)' then
+    intent:='continuity'; confidence:=0.9000;
+    answer:='Triplem VIP includes export and backup-oriented workflows so important records can be retained outside the live interface. The application also contains reconnect/synchronization handling for supported queued changes. For any account-specific recovery or missing-data concern, ask me for a human agent so the exact case can be reviewed safely. '||cta;
+
+  elsif q ~ '(founder|nadeem|who made|who built|creator|owner)' then
+    intent:='founder'; confidence:=0.9600;
+    answer:='Triplem VIP was created and is maintained by Nadeem Shahzad Fida. The public Founder page explains his professional background and why the product was built around practical finance, operations, accounts, inventory, loans, assets, invoices, receipts, and reporting needs. '||cta;
+
+  elsif q ~ '(support hour|support time|when.*support|live support|contact|email|whatsapp|help desk)' then
+    intent:='support'; confidence:=0.9500;
+    answer:='I am the automated Triplem VIP AI Assistant and can respond at any time. Human Live Support operates from 10:00 AM to 5:00 PM Gulf Standard Time. If you want a real representative, simply tell me to transfer you to an agent and I will pause AI replies and place the chat in the human-support queue. '||cta;
+
+  else
+    intent:='scope'; confidence:=0.6000;
+    answer:='I am restricted to Triplem VIP, so I will not provide unrelated general-world answers. I can help you with Triplem VIP pricing, the free trial, wallets and expenses, inventory and sales, loans and installments, assets, Bitcoin tools, reports and invoices, security, company/team setup, themes, or the product demo. Tell me which Triplem VIP area you would like to explore. '||cta;
+  end if;
+
+  return jsonb_build_object(
+    'intent',intent,
+    'confidence',confidence,
+    'handoff',handoff,
+    'handoff_reason',reason,
+    'response',answer
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_answer(text,text) from public, anon, authenticated;
+
+-- Internal one-message automation. Handoff is atomic: AI mode is paused before
+-- human notifications are emitted, preventing another automated reply while the
+-- visitor waits for an agent.
+create or replace function public.app_live_chat_ai_process(
+  p_inquiry_id uuid,
+  p_message text,
+  p_guest_name text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  decision jsonb;
+  ai_msg public.app_inquiry_messages;
+  next_mode text;
+  notices int := 0;
+  h_reason text;
+  intent text;
+  confidence numeric(5,4);
+  response_text text;
+  inquiry_row public.app_inquiries;
+  route_row public.app_live_chat_routes;
+  current_ai public.app_live_chat_ai_state;
+begin
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+  if inquiry_row is null or coalesce(inquiry_row.source,'')<>'landing' or lower(coalesce(inquiry_row.subject,''))<>'live chat support' then
+    raise exception 'Live chat session is unavailable';
+  end if;
+
+  -- Serialize AI ownership against human acceptance. The route row is the same
+  -- lock used by the established acceptance flow, so a visitor can never race a
+  -- newly accepted representative into continuing automated replies.
+  select * into route_row from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route_row.status='accepted' and route_row.assigned_user_id is not null then
+    return jsonb_build_object('ok',true,'mode','human','handoff',false,'support_queue',0,'message',null);
+  end if;
+  if route_row.status='closed' or inquiry_row.status='archived' then
+    return jsonb_build_object('ok',true,'mode','closed','handoff',false,'support_queue',0,'message',null);
+  end if;
+
+  select * into current_ai from public.app_live_chat_ai_state where inquiry_id=p_inquiry_id for update;
+  if current_ai.inquiry_id is not null and current_ai.mode<>'ai' then
+    return jsonb_build_object(
+      'ok',true,'mode',current_ai.mode,'handoff',(current_ai.mode='human_pending'),
+      'support_queue',0,'message',null
+    );
+  end if;
+
+  decision:=public.app_live_chat_ai_answer(p_message,p_guest_name);
+  h_reason:=nullif(decision->>'handoff_reason','');
+  intent:=coalesce(nullif(decision->>'intent',''),'scope');
+  confidence:=coalesce((decision->>'confidence')::numeric,0.5000);
+  response_text:=trim(coalesce(decision->>'response',''));
+  -- The first automated answer self-identifies even if frontend assets are being
+  -- rolled out immediately after this migration, preventing identity ambiguity.
+  if current_ai.inquiry_id is null and position('ai assistant' in lower(response_text))=0 then
+    response_text:='I am the Triplem VIP AI Assistant. '||response_text;
+  end if;
+  next_mode:=case when coalesce((decision->>'handoff')::boolean,false) then 'human_pending' else 'ai' end;
+
+  insert into public.app_live_chat_ai_state(
+    inquiry_id,mode,last_intent,last_confidence,last_ai_message_at,
+    human_requested_at,human_reason,created_at,updated_at
+  ) values(
+    p_inquiry_id,next_mode,intent,confidence,now(),
+    case when next_mode='human_pending' then now() else null end,
+    case when next_mode='human_pending' then coalesce(h_reason,'visitor_requested') else null end,
+    now(),now()
+  )
+  on conflict(inquiry_id) do update set
+    mode=excluded.mode,
+    last_intent=excluded.last_intent,
+    last_confidence=excluded.last_confidence,
+    last_ai_message_at=excluded.last_ai_message_at,
+    human_requested_at=case when excluded.mode='human_pending' then coalesce(app_live_chat_ai_state.human_requested_at,excluded.human_requested_at) else app_live_chat_ai_state.human_requested_at end,
+    human_reason=case when excluded.mode='human_pending' then excluded.human_reason else app_live_chat_ai_state.human_reason end,
+    updated_at=now();
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body,support_actor,created_at)
+  values(p_inquiry_id,'admin',null,response_text,'ai',clock_timestamp()+interval '1 millisecond')
+  returning * into ai_msg;
+
+  update public.app_inquiries
+     set last_message_at=now(),updated_at=now(),
+         status=case when next_mode='human_pending' then 'open' else status end
+   where id=p_inquiry_id;
+
+  if next_mode='human_pending' then
+    -- Reuse the established Live Support offer/notification path. This keeps
+    -- the Main Admin and agents on the same routing workflow without creating
+    -- a second notification stream for the same handoff.
+    notices:=public.app_live_chat_notify_available_agents(p_inquiry_id);
+  end if;
+
+  return jsonb_build_object(
+    'ok',true,
+    'mode',next_mode,
+    'intent',intent,
+    'confidence',confidence,
+    'handoff',(next_mode='human_pending'),
+    'support_queue',notices,
+    'message',public.app_message_public_row(ai_msg)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_process(uuid,text,text) from public, anon, authenticated;
+
+-- Future human replies automatically take ownership of an AI-originated chat.
+-- The trigger is inert for every existing row at migration time.
+create or replace function public.app_live_chat_ai_on_message_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if new.sender_role='admin' and new.sender_id is not null then
+    update public.app_live_chat_ai_state
+       set mode='human',updated_at=now()
+     where inquiry_id=new.inquiry_id and mode in ('ai','human_pending');
+  end if;
+  return new;
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_on_message_insert() from public, anon, authenticated;
+
+drop trigger if exists trg_app_live_chat_ai_human_message on public.app_inquiry_messages;
+create trigger trg_app_live_chat_ai_human_message
+  after insert on public.app_inquiry_messages
+  for each row
+  execute function public.app_live_chat_ai_on_message_insert();
+
+-- Route acceptance/closure also synchronizes the AI state, including existing
+-- human-transfer RPCs. Again, this affects only future route changes.
+create or replace function public.app_live_chat_ai_on_route_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if new.status='accepted' and new.assigned_user_id is not null then
+    update public.app_live_chat_ai_state set mode='human',updated_at=now()
+     where inquiry_id=new.inquiry_id and mode<>'closed';
+  elsif new.status='closed' then
+    update public.app_live_chat_ai_state set mode='closed',updated_at=now()
+     where inquiry_id=new.inquiry_id;
+  end if;
+  return new;
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_on_route_change() from public, anon, authenticated;
+
+drop trigger if exists trg_app_live_chat_ai_route_change on public.app_live_chat_routes;
+create trigger trg_app_live_chat_ai_route_change
+  after insert or update of status,assigned_user_id on public.app_live_chat_routes
+  for each row
+  execute function public.app_live_chat_ai_on_route_change();
+
+-- Preserve the complete 102 transfer metadata while adding the AI mode to the
+-- existing inquiry serializer used by Admin/agent Messages.
+create or replace function public.app_inquiry_public_row(i public.app_inquiries)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  sender public.app_users;
+  assigned public.app_users;
+  route public.app_live_chat_routes;
+  transfer public.app_live_chat_transfers;
+  transfer_target public.app_users;
+  ai public.app_live_chat_ai_state;
+  msg_count int := 0;
+  last_preview text := '';
+  last_role text := null;
+  unread_admin int := 0;
+  unread_user int := 0;
+  support_mode text := '';
+begin
+  if i.sender_id is not null then select * into sender from public.app_users where id=i.sender_id; end if;
+  select * into route from public.app_live_chat_routes where inquiry_id=i.id;
+  if route.assigned_user_id is not null then select * into assigned from public.app_users where id=route.assigned_user_id; end if;
+  select * into transfer from public.app_live_chat_transfers where inquiry_id=i.id and status='pending' order by requested_at desc limit 1;
+  if transfer.to_user_id is not null then select * into transfer_target from public.app_users where id=transfer.to_user_id; end if;
+  select * into ai from public.app_live_chat_ai_state where inquiry_id=i.id;
+
+  support_mode:=case
+    when route.status='closed' or i.status='archived' then 'closed'
+    when route.status='accepted' and route.assigned_user_id is not null then 'human'
+    when ai.mode is not null then ai.mode
+    when coalesce(i.source,'')='landing' and lower(coalesce(i.subject,''))='live chat support' then 'legacy_human'
+    else ''
+  end;
+
+  select count(*)::int into msg_count from public.app_inquiry_messages m where m.inquiry_id=i.id;
+  select m.body,m.sender_role into last_preview,last_role from public.app_inquiry_messages m where m.inquiry_id=i.id order by m.created_at desc limit 1;
+  if last_preview is null then last_preview:=i.body; end if;
+  select count(*)::int into unread_admin from public.app_inquiry_messages m where m.inquiry_id=i.id and m.sender_role in ('user','guest') and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at);
+  select count(*)::int into unread_user from public.app_inquiry_messages m where m.inquiry_id=i.id and m.sender_role='admin' and (i.user_last_read_at is null or m.created_at>i.user_last_read_at);
+
+  return jsonb_build_object(
+    'id',i.id,'sender_id',i.sender_id,'sender_username',coalesce(sender.username,''),
+    'sender_display_name',coalesce(nullif(trim(coalesce(i.guest_name,'')),''),sender.display_name,sender.username,'Guest'),
+    'sender_email',coalesce(nullif(trim(coalesce(i.guest_email,'')),''),sender.company_email,''),
+    'sender_phone',coalesce(nullif(trim(coalesce(i.guest_phone,'')),''),sender.company_phone,''),
+    'sender_company',coalesce(sender.company_name,''),'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),'guest_phone',coalesce(i.guest_phone,''),
+    'source',coalesce(i.source,'app'),'subject',i.subject,'body',i.body,'status',i.status,'admin_note',coalesce(i.admin_note,''),
+    'message_count',msg_count,'last_message_preview',left(coalesce(last_preview,''),180),'last_message_role',last_role,
+    'last_message_at',coalesce(i.last_message_at,i.updated_at,i.created_at),'unread_for_admin',unread_admin,'unread_for_user',unread_user,
+    'support_assignment_status',coalesce(route.status,''),'support_assigned_to',route.assigned_user_id,
+    'support_assigned_username',coalesce(assigned.username,''),'support_assigned_name',coalesce(assigned.display_name,assigned.username,''),
+    'support_transfer_status',coalesce(transfer.status,''),'support_transfer_id',transfer.id,
+    'support_transfer_to',transfer.to_user_id,'support_transfer_to_name',coalesce(transfer_target.display_name,transfer_target.username,''),
+    'support_ai_mode',support_mode,
+    'support_ai_intent',coalesce(ai.last_intent,''),
+    'support_ai_confidence',ai.last_confidence,
+    'created_at',i.created_at,'updated_at',i.updated_at,'read_at',i.read_at
+  );
+end
+$fn$;
+revoke all on function public.app_inquiry_public_row(public.app_inquiries) from public, anon, authenticated;
+
+-- New chats start with AI. Existing pre-108 chats have no AI-state row and are
+-- therefore untouched by this behavior.
+create or replace function public.app_public_live_chat_start(
+  p_name text,
+  p_mobile text,
+  p_email text,
+  p_message text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $fn$
+declare
+  v_name text:=trim(coalesce(p_name,''));
+  v_mobile text:=trim(coalesce(p_mobile,''));
+  v_email text:=lower(trim(coalesce(p_email,'')));
+  v_msg text:=trim(coalesce(p_message,''));
+  inquiry_row public.app_inquiries;
+  raw_token text;
+  expires timestamptz:=now()+interval '2 hours';
+  availability jsonb:=public.app_live_chat_availability();
+  ai_result jsonb;
+  messages jsonb:='[]'::jsonb;
+begin
+  if char_length(v_name)<2 then raise exception 'Please enter your full name'; end if;
+  if char_length(v_mobile)<6 then raise exception 'Please enter a valid contact number'; end if;
+  if v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' then raise exception 'Please enter a valid email address'; end if;
+  if char_length(v_msg)<1 then raise exception 'Please write a message'; end if;
+  if char_length(v_msg)>4000 then raise exception 'Message is too long (max 4000 characters)'; end if;
+
+  perform public.app_live_chat_assert_start_limit(v_email);
+
+  insert into public.app_inquiries(
+    sender_id,subject,body,status,source,guest_name,guest_email,guest_phone,last_message_at,user_last_read_at
+  ) values(
+    null,'Live Chat Support',v_msg,'open','landing',v_name,v_email,v_mobile,now(),now()
+  ) returning * into inquiry_row;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(inquiry_row.id,'guest',null,v_msg);
+
+  raw_token:=encode(extensions.gen_random_bytes(32),'hex');
+  insert into public.app_live_chat_guest_access(
+    inquiry_id,token_hash,expires_at,last_guest_message_at,guest_message_count
+  ) values(
+    inquiry_row.id,public.app_hash_token(raw_token),expires,now(),1
+  );
+
+  -- Keep the proven routing object, but do not offer it to humans until AI asks
+  -- for a handoff. This preserves the existing acceptance/transfer machinery.
+  insert into public.app_live_chat_routes(inquiry_id,status,created_at,updated_at)
+  values(inquiry_row.id,'pending',now(),now())
+  on conflict(inquiry_id) do nothing;
+
+  ai_result:=public.app_live_chat_ai_process(inquiry_row.id,v_msg,v_name);
+
+  select * into inquiry_row from public.app_inquiries where id=inquiry_row.id;
+  select coalesce(jsonb_agg(public.app_message_public_row(m) order by m.created_at asc),'[]'::jsonb)
+    into messages
+  from public.app_inquiry_messages m where m.inquiry_id=inquiry_row.id;
+
+  return jsonb_build_object(
+    'ok',true,
+    'inquiry_id',inquiry_row.id,
+    'guest_token',raw_token,
+    'expires_at',expires,
+    'availability',availability,
+    'inquiry',public.app_inquiry_public_row(inquiry_row),
+    'messages',messages,
+    'support_mode',coalesce(ai_result->>'mode','ai'),
+    'support_label',case when ai_result->>'mode'='human_pending' then 'Waiting for a human support agent' else 'Triplem VIP AI Assistant' end,
+    'ai_available',true,
+    'support_queue',coalesce((ai_result->>'support_queue')::int,0)
+  );
+end
+$fn$;
+revoke all on function public.app_public_live_chat_start(text,text,text,text) from public;
+grant execute on function public.app_public_live_chat_start(text,text,text,text) to anon,authenticated,service_role;
+
+-- Public polling reports identity without producing notifications for AI-active
+-- chats. Legacy chats remain legacy_human and keep their previous human flow.
+create or replace function public.app_public_live_chat_thread(
+  p_inquiry_id uuid,
+  p_guest_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  access_row public.app_live_chat_guest_access;
+  inquiry_row public.app_inquiries;
+  route public.app_live_chat_routes;
+  ai public.app_live_chat_ai_state;
+  assigned public.app_users;
+  messages jsonb:='[]'::jsonb;
+  idle jsonb;
+  has_unread_support boolean:=false;
+  support_mode text;
+  support_label text;
+begin
+  access_row:=public.app_live_chat_validate_guest(p_inquiry_id,p_guest_token);
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+  if inquiry_row is null or inquiry_row.subject<>'Live Chat Support' then
+    raise exception 'Live chat session is unavailable';
+  end if;
+
+  insert into public.app_live_chat_routes(inquiry_id,status,created_at,updated_at)
+  values(p_inquiry_id,'pending',now(),now())
+  on conflict(inquiry_id) do nothing;
+  -- A route can be missing only for a legacy/pre-routing chat. Preserve the
+  -- established behavior for that historical case; new AI chats already create
+  -- their route during app_public_live_chat_start and never enter this branch.
+  if found then perform public.app_live_chat_notify_available_agents(p_inquiry_id); end if;
+
+  idle:=public.app_live_chat_maybe_idle_followup(p_inquiry_id);
+
+  select exists(
+    select 1 from public.app_inquiry_messages m
+    where m.inquiry_id=p_inquiry_id
+      and m.sender_role='admin'
+      and (inquiry_row.user_last_read_at is null or m.created_at>inquiry_row.user_last_read_at)
+  ) into has_unread_support;
+
+  if has_unread_support then
+    update public.app_inquiries set user_last_read_at=now()
+     where id=p_inquiry_id returning * into inquiry_row;
+  end if;
+
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id;
+  select * into ai from public.app_live_chat_ai_state where inquiry_id=p_inquiry_id;
+  if route.assigned_user_id is not null then select * into assigned from public.app_users where id=route.assigned_user_id; end if;
+
+  support_mode:=case
+    when route.status='closed' or inquiry_row.status='archived' then 'closed'
+    when route.status='accepted' and route.assigned_user_id is not null then 'human'
+    when ai.mode is not null then ai.mode
+    else 'legacy_human'
+  end;
+  -- Read/idle handling may advance state; serialize the current inquiry row.
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+
+  support_label:=case support_mode
+    when 'ai' then 'Triplem VIP AI Assistant'
+    when 'human_pending' then 'Waiting for a human support agent'
+    when 'human' then coalesce(nullif(trim(coalesce(assigned.display_name,'')),''),assigned.username,'Triplem VIP Support Agent')
+    when 'closed' then 'Chat ended'
+    else 'Triplem VIP Live Support'
+  end;
+
+  select coalesce(jsonb_agg(public.app_message_public_row(m) order by m.created_at asc),'[]'::jsonb)
+    into messages
+  from public.app_inquiry_messages m where m.inquiry_id=p_inquiry_id;
+
+  return jsonb_build_object(
+    'ok',true,
+    'expires_at',access_row.expires_at,
+    'availability',public.app_live_chat_availability(),
+    'inquiry',public.app_inquiry_public_row(inquiry_row),
+    'messages',messages,
+    'chat_closed',(support_mode='closed'),
+    'support_mode',support_mode,
+    'support_label',support_label,
+    'ai_available',true,
+    'human_support_active',(support_mode='human')
+  );
+end
+$fn$;
+revoke all on function public.app_public_live_chat_thread(uuid,text) from public;
+grant execute on function public.app_public_live_chat_thread(uuid,text) to anon,authenticated,service_role;
+
+-- Visitor reply stores the guest message exactly as before. AI responds only
+-- while THIS chat has explicit mode=ai. Legacy chats and human-owned chats never
+-- acquire AI replies accidentally.
+create or replace function public.app_public_live_chat_reply(
+  p_inquiry_id uuid,
+  p_guest_token text,
+  p_body text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  access_row public.app_live_chat_guest_access;
+  inquiry_row public.app_inquiries;
+  route public.app_live_chat_routes;
+  ai public.app_live_chat_ai_state;
+  msg text:=trim(coalesce(p_body,''));
+  new_msg public.app_inquiry_messages;
+  ai_result jsonb;
+  support_mode text;
+  support_label text;
+begin
+  if char_length(msg)<1 then raise exception 'Please write a message'; end if;
+  if char_length(msg)>4000 then raise exception 'Message is too long (max 4000 characters)'; end if;
+
+  access_row:=public.app_live_chat_validate_guest(p_inquiry_id,p_guest_token);
+
+  -- Historical chats can predate the routing table. Recreate only the missing
+  -- routing shell at runtime and preserve their existing human-support offer.
+  insert into public.app_live_chat_routes(inquiry_id,status,created_at,updated_at)
+  values(p_inquiry_id,'pending',now(),now())
+  on conflict(inquiry_id) do nothing;
+  if found then perform public.app_live_chat_notify_available_agents(p_inquiry_id); end if;
+
+  -- Match the existing human-acceptance lock order: route first, inquiry second.
+  -- This prevents a visitor reply and an agent acceptance from deadlocking while
+  -- still guaranteeing that AI cannot answer after a representative takes over.
+  select * into route from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id for update;
+  select * into access_row from public.app_live_chat_guest_access where inquiry_id=p_inquiry_id for update;
+  if inquiry_row is null or inquiry_row.subject<>'Live Chat Support' then raise exception 'Live chat session is unavailable'; end if;
+  if access_row.guest_message_count>=250 then raise exception 'This live chat has reached its message limit'; end if;
+  if access_row.last_guest_message_at is not null and access_row.last_guest_message_at>now()-interval '500 milliseconds' then
+    raise exception 'Please wait a moment before sending another message';
+  end if;
+  if inquiry_row.status='archived' or route.status='closed' then
+    raise exception 'This live chat has ended. Please start a new chat if you still need help.';
+  end if;
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body)
+  values(p_inquiry_id,'guest',null,msg) returning * into new_msg;
+
+  update public.app_inquiries
+     set body=msg,
+         status=case when route.status='accepted' then 'read' else 'open' end,
+         last_message_at=now(),user_last_read_at=now(),updated_at=now()
+   where id=p_inquiry_id returning * into inquiry_row;
+
+  update public.app_live_chat_guest_access
+     set last_guest_message_at=now(),guest_message_count=guest_message_count+1
+   where inquiry_id=p_inquiry_id;
+
+  select * into ai from public.app_live_chat_ai_state where inquiry_id=p_inquiry_id;
+  if route.status='accepted' and route.assigned_user_id is not null then
+    support_mode:='human';
+  elsif ai.mode='ai' then
+    ai_result:=public.app_live_chat_ai_process(p_inquiry_id,msg,inquiry_row.guest_name);
+    support_mode:=coalesce(ai_result->>'mode','ai');
+  elsif ai.mode is not null then
+    support_mode:=ai.mode;
+  else
+    support_mode:='legacy_human';
+  end if;
+
+  -- AI processing can add the automated response and advance activity metadata.
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+
+  support_label:=case support_mode
+    when 'ai' then 'Triplem VIP AI Assistant'
+    when 'human_pending' then 'Waiting for a human support agent'
+    when 'human' then coalesce((select coalesce(nullif(trim(u.display_name),''),u.username) from public.app_users u where u.id=route.assigned_user_id),'Triplem VIP Support Agent')
+    else 'Triplem VIP Live Support'
+  end;
+
+  return jsonb_build_object(
+    'ok',true,
+    'message',public.app_message_public_row(new_msg),
+    'ai_message',case when ai_result is null then null else ai_result->'message' end,
+    'inquiry',public.app_inquiry_public_row(inquiry_row),
+    'support_mode',support_mode,
+    'support_label',support_label,
+    'ai_available',true,
+    'handoff',coalesce((ai_result->>'handoff')::boolean,false),
+    'support_queue',coalesce((ai_result->>'support_queue')::int,0)
+  );
+end
+$fn$;
+revoke all on function public.app_public_live_chat_reply(uuid,text,text) from public;
+grant execute on function public.app_public_live_chat_reply(uuid,text,text) to anon,authenticated,service_role;
+
+-- Agent popup queue: AI-active chats are intentionally invisible until the AI
+-- state becomes human_pending. Legacy pending chats remain visible exactly as
+-- before, and ordinary agent-to-agent transfers are unchanged.
+create or replace function public.app_live_chat_my_actionable_offers()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid := public.current_app_user_id();
+  u public.app_users;
+  items jsonb := '[]'::jsonb;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid and is_active=true;
+  if u is null then raise exception 'Authentication required'; end if;
+
+  perform public.app_live_chat_reconcile_lifecycle(null);
+
+  if u.role <> 'admin' and not exists(
+    select 1 from public.app_live_chat_agents a where a.user_id=uid and a.enabled=true
+  ) then
+    return jsonb_build_object('ok',true,'items','[]'::jsonb);
+  end if;
+
+  select coalesce(jsonb_agg(x.item order by x.created_at desc),'[]'::jsonb) into items
+  from (
+    select
+      r.updated_at as created_at,
+      jsonb_build_object(
+        'id','direct-assignment:'||i.id::text,
+        'kind','system',
+        'title','Live chat waiting',
+        'body',format('%s is waiting for Triplem VIP Live Support.',coalesce(nullif(trim(i.guest_name),''),'A visitor')),
+        'created_at',coalesce(r.updated_at,i.created_at),
+        'is_read',false,
+        'source','user',
+        'payload',jsonb_build_object(
+          'type','live_chat_assignment','inquiry_id',i.id,
+          'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),
+          'guest_phone',coalesce(i.guest_phone,''),'message',left(coalesce(i.body,''),220),
+          'assignment_status','pending'
+        )
+      ) as item
+    from public.app_live_chat_routes r
+    join public.app_inquiries i on i.id=r.inquiry_id
+    join public.app_live_chat_guest_access ga on ga.inquiry_id=i.id and ga.expires_at>now()
+    left join public.app_live_chat_ai_state ai on ai.inquiry_id=i.id
+    where r.status='pending'
+      and lower(coalesce(i.subject,''))='live chat support'
+      and coalesce(i.source,'')='landing'
+      and coalesce(ai.mode,'legacy_human')<>'ai'
+      and not exists(
+        select 1 from public.app_user_notifications n
+        where n.owner_id=uid and n.kind='system'
+          and n.payload->>'type'='live_chat_assignment'
+          and n.payload->>'inquiry_id'=i.id::text
+          and lower(coalesce(n.payload->>'assignment_status',''))='declined'
+      )
+
+    union all
+
+    select
+      t.requested_at as created_at,
+      jsonb_build_object(
+        'id','direct-transfer:'||t.id::text,
+        'kind','system',
+        'title','Live chat transfer',
+        'body',format('%s is transferring a Live Chat conversation to you.',
+          coalesce(nullif(trim(from_u.display_name),''),from_u.username,'Another representative')),
+        'created_at',t.requested_at,
+        'is_read',false,
+        'source','user',
+        'payload',jsonb_build_object(
+          'type','live_chat_transfer','transfer_id',t.id,'inquiry_id',t.inquiry_id,
+          'from_user_id',t.from_user_id,
+          'from_agent_name',coalesce(nullif(trim(from_u.display_name),''),from_u.username,'Support representative'),
+          'guest_name',coalesce(i.guest_name,''),'guest_email',coalesce(i.guest_email,''),
+          'guest_phone',coalesce(i.guest_phone,''),'message',left(coalesce(i.body,''),220),
+          'assignment_status','pending','expires_at',t.requested_at+interval '10 minutes'
+        )
+      ) as item
+    from public.app_live_chat_transfers t
+    join public.app_live_chat_routes r on r.inquiry_id=t.inquiry_id
+      and r.status='accepted' and r.assigned_user_id=t.from_user_id
+    join public.app_inquiries i on i.id=t.inquiry_id
+    left join public.app_users from_u on from_u.id=t.from_user_id
+    where t.status='pending' and t.to_user_id=uid
+      and t.requested_at>now()-interval '10 minutes'
+  ) x;
+
+  return jsonb_build_object('ok',true,'items',items);
+end
+$fn$;
+revoke all on function public.app_live_chat_my_actionable_offers() from public;
+grant execute on function public.app_live_chat_my_actionable_offers() to anon,authenticated,service_role;
+
+-- Main Admin Messages: retain complete records, but do not turn an AI-handled
+-- conversation into an unread human-support task until escalation is requested.
+create or replace function public.app_admin_list_inquiries(
+  p_status text default null,
+  p_limit int default 100
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin_comms();
+  items jsonb := '[]'::jsonb;
+  lim int := greatest(1,least(coalesce(p_limit,100),300));
+  st text := nullif(trim(coalesce(p_status,'')),'');
+begin
+  select coalesce(jsonb_agg(public.app_inquiry_public_row(i) order by coalesce(i.last_message_at,i.created_at) desc),'[]'::jsonb)
+    into items
+  from (
+    select q.*
+    from public.app_inquiries q
+    left join public.app_live_chat_routes r on r.inquiry_id=q.id
+    left join public.app_live_chat_ai_state ai on ai.inquiry_id=q.id
+    where (st is null or q.status=st)
+      and (
+        not (coalesce(q.source,'')='landing' and lower(coalesce(q.subject,''))='live chat support')
+        or r.inquiry_id is null
+        or (
+          coalesce(ai.mode,'legacy_human')<>'ai'
+          and (r.status='pending' or (r.status='accepted' and r.assigned_user_id=admin.id))
+        )
+      )
+    order by coalesce(q.last_message_at,q.created_at) desc
+    limit lim
+  ) i;
+
+  return jsonb_build_object('items',items);
+end
+$fn$;
+revoke all on function public.app_admin_list_inquiries(text,integer) from public;
+grant execute on function public.app_admin_list_inquiries(text,integer) to anon,authenticated,service_role;
+
+create or replace function public.app_admin_unread_counts()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  admin public.app_users := public.app_require_admin_comms();
+  notif_count int := 0;
+  inquiry_unread int := 0;
+begin
+  select count(*)::int into notif_count
+  from public.app_admin_notifications
+  where is_read=false;
+
+  select count(*)::int into inquiry_unread
+  from public.app_inquiries i
+  left join public.app_live_chat_routes r on r.inquiry_id=i.id
+  left join public.app_live_chat_ai_state ai on ai.inquiry_id=i.id
+  where (
+      not (coalesce(i.source,'')='landing' and lower(coalesce(i.subject,''))='live chat support')
+      or r.inquiry_id is null
+      or (
+        coalesce(ai.mode,'legacy_human')<>'ai'
+        and (r.status='pending' or (r.status='accepted' and r.assigned_user_id=admin.id))
+      )
+    )
+    and (
+      exists(
+        select 1 from public.app_inquiry_messages m
+        where m.inquiry_id=i.id
+          and m.sender_role in ('user','guest')
+          and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+      )
+      or i.status='open'
+    );
+
+  return jsonb_build_object('notifications',notif_count,'inquiries',inquiry_unread,'total',notif_count+inquiry_unread);
+end
+$fn$;
+revoke all on function public.app_admin_unread_counts() from public;
+grant execute on function public.app_admin_unread_counts() to anon,authenticated,service_role;
+
+-- Preserve 107 Main-Admin live sync while excluding only mode=ai conversations
+-- from the Admin badge/fingerprint. Human-pending, human-owned, legacy, regular
+-- user inquiries, agent inboxes, and transfer behavior remain unchanged.
+create or replace function public.app_messaging_sync_state()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  uid uuid:=public.current_app_user_id();
+  u public.app_users;
+  is_admin boolean:=false;
+  notif_count int:=0;
+  inquiry_unread int:=0;
+  user_unread int:=0;
+  user_notif_unread int:=0;
+  inquiry_count int:=0;
+  open_count int:=0;
+  message_total bigint:=0;
+  latest_msg_at timestamptz;
+  latest_updated_at timestamptz;
+  latest_notif_at timestamptz;
+  latest_user_notif_at timestamptz;
+  fp text;
+begin
+  if uid is null then raise exception 'Authentication required'; end if;
+  select * into u from public.app_users where id=uid;
+  if u is null or not u.is_active then raise exception 'Authentication required'; end if;
+  is_admin:=(u.role='admin' and coalesce(u.access_plan,'full')<>'trial');
+
+  select count(*)::int,max(created_at) into user_notif_unread,latest_user_notif_at
+  from public.app_user_notifications where owner_id=uid and is_read=false;
+  if latest_user_notif_at is null then
+    select max(created_at) into latest_user_notif_at from public.app_user_notifications where owner_id=uid;
+  end if;
+
+  if is_admin then
+    select count(*)::int into notif_count
+    from public.app_admin_notifications n
+    where n.is_read=false
+      and not(coalesce(n.payload->>'source','')='live_chat');
+
+    select max(created_at) into latest_notif_at
+    from public.app_admin_notifications n
+    where not(coalesce(n.payload->>'source','')='live_chat');
+
+    select count(*)::int into inquiry_unread
+    from public.app_inquiries i
+    left join public.app_live_chat_ai_state ai on ai.inquiry_id=i.id
+    where coalesce(ai.mode,'legacy_human')<>'ai'
+      and not exists(
+        select 1 from public.app_live_chat_routes r
+        where r.inquiry_id=i.id
+          and r.status='accepted'
+          and r.assigned_user_id is not null
+          and r.assigned_user_id<>uid
+      )
+      and (
+        exists(
+          select 1 from public.app_inquiry_messages m
+          where m.inquiry_id=i.id
+            and m.sender_role in ('user','guest')
+            and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+        )
+        or i.status='open'
+      );
+
+    select count(*)::int,
+           count(*) filter(where i.status='open')::int,
+           max(coalesce(i.last_message_at,i.created_at)),
+           max(i.updated_at)
+      into inquiry_count,open_count,latest_msg_at,latest_updated_at
+    from public.app_inquiries i
+    left join public.app_live_chat_ai_state ai on ai.inquiry_id=i.id
+    where coalesce(ai.mode,'legacy_human')<>'ai'
+      and not exists(
+        select 1 from public.app_live_chat_routes r
+        where r.inquiry_id=i.id
+          and r.status='accepted'
+          and r.assigned_user_id is not null
+          and r.assigned_user_id<>uid
+      );
+
+    select count(*)::bigint into message_total
+    from public.app_inquiry_messages m
+    join public.app_inquiries i on i.id=m.inquiry_id
+    left join public.app_live_chat_ai_state ai on ai.inquiry_id=i.id
+    where coalesce(ai.mode,'legacy_human')<>'ai'
+      and not exists(
+        select 1 from public.app_live_chat_routes r
+        where r.inquiry_id=i.id
+          and r.status='accepted'
+          and r.assigned_user_id is not null
+          and r.assigned_user_id<>uid
+      );
+
+    fp:=format(
+      'a|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+      notif_count,inquiry_unread,inquiry_count,open_count,coalesce(message_total,0),
+      coalesce(extract(epoch from latest_msg_at)::bigint,0),
+      coalesce(extract(epoch from latest_updated_at)::bigint,0),
+      coalesce(extract(epoch from latest_notif_at)::bigint,0),
+      user_notif_unread,
+      coalesce(extract(epoch from latest_user_notif_at)::bigint,0)
+    );
+
+    return jsonb_build_object(
+      'role','admin','fingerprint',fp,
+      'notifications',notif_count+user_notif_unread,
+      'admin_notifications',notif_count,
+      'user_notifications',user_notif_unread,
+      'inquiries',inquiry_unread,
+      'inquiry_count',inquiry_count,
+      'open_count',open_count,
+      'message_total',coalesce(message_total,0),
+      'latest_message_at',latest_msg_at,
+      'latest_notification_at',greatest(latest_notif_at,latest_user_notif_at)
+    );
+  end if;
+
+  select count(*)::int,max(coalesce(i.last_message_at,i.updated_at,i.created_at)),max(i.updated_at)
+    into inquiry_count,latest_msg_at,latest_updated_at
+  from public.app_inquiries i
+  where i.sender_id=uid
+     or exists(
+       select 1 from public.app_live_chat_routes r
+       where r.inquiry_id=i.id and r.status='accepted' and r.assigned_user_id=uid
+     );
+
+  select count(*)::bigint into message_total
+  from public.app_inquiry_messages m
+  join public.app_inquiries i on i.id=m.inquiry_id
+  where i.sender_id=uid
+     or exists(
+       select 1 from public.app_live_chat_routes r
+       where r.inquiry_id=i.id and r.status='accepted' and r.assigned_user_id=uid
+     );
+
+  select coalesce(sum(x.c),0)::int into user_unread
+  from (
+    select count(*)::int c
+    from public.app_inquiries i
+    join public.app_inquiry_messages m on m.inquiry_id=i.id
+    where i.sender_id=uid
+      and m.sender_role='admin'
+      and (i.user_last_read_at is null or m.created_at>i.user_last_read_at)
+    union all
+    select count(*)::int c
+    from public.app_inquiries i
+    join public.app_live_chat_routes r on r.inquiry_id=i.id
+    join public.app_inquiry_messages m on m.inquiry_id=i.id
+    where r.status='accepted'
+      and r.assigned_user_id=uid
+      and m.sender_role='guest'
+      and (i.admin_last_read_at is null or m.created_at>i.admin_last_read_at)
+  ) x;
+
+  fp:=format(
+    'u|%s|%s|%s|%s|%s|%s|%s',
+    user_unread,inquiry_count,coalesce(message_total,0),
+    coalesce(extract(epoch from latest_msg_at)::bigint,0),
+    coalesce(extract(epoch from latest_updated_at)::bigint,0),
+    user_notif_unread,
+    coalesce(extract(epoch from latest_user_notif_at)::bigint,0)
+  );
+
+  return jsonb_build_object(
+    'role','user','fingerprint',fp,
+    'notifications',user_notif_unread,
+    'user_notifications',user_notif_unread,
+    'inquiries',user_unread,
+    'user_unread',user_unread,
+    'inquiry_count',inquiry_count,
+    'message_total',coalesce(message_total,0),
+    'latest_message_at',latest_msg_at,
+    'latest_notification_at',latest_user_notif_at
+  );
+end
+$fn$;
+revoke all on function public.app_messaging_sync_state() from public;
+grant execute on function public.app_messaging_sync_state() to anon,authenticated,service_role;
+
+notify pgrst, 'reload schema';
+
+-- ############################################################################
+-- END migrations/108_live_chat_ai_assistant.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/109_live_chat_ai_intelligence_and_input.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 109_live_chat_ai_intelligence_and_input.sql
+-- Triplem VIP zero-cost Live Chat AI intelligence refinement.
+--
+-- LIVE-DATABASE SAFETY
+--   * Run after 108.
+--   * CREATE OR REPLACE functions only. No table/data migration is required.
+--   * No INSERT, UPDATE, DELETE, TRUNCATE, DROP TABLE, DROP COLUMN, account
+--     rewrite, credential rewrite, or financial-record mutation occurs when this
+--     migration is installed.
+--   * No paid or metered AI API is introduced. The assistant remains a closed,
+--     deterministic Triplem VIP support intelligence layer inside PostgreSQL.
+-- ============================================================================
+
+-- Keep conversion language persuasive but compact enough for live chat.
+create or replace function public.app_live_chat_ai_cta()
+returns text
+language sql
+immutable
+set search_path = public
+as $fn$
+  select 'Start free for 14 days with no card; upgrade to Pro Monthly or Pro Yearly anytime.'::text
+$fn$;
+revoke all on function public.app_live_chat_ai_cta() from public, anon, authenticated;
+
+-- Never expose operational secrets, implementation internals, exploit guidance,
+-- source code, credentials, database internals, or security weaknesses through
+-- the public automated assistant. Public product/security principles remain OK.
+create or replace function public.app_live_chat_ai_confidential_request(p_message text)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+begin
+  if q='' then return false; end if;
+
+  return
+    q ~ '((show|give|reveal|share|expose|print|dump|send|provide|list|disclose|tell me).{0,70}(source code|codebase|repository|repo|api key|secret key|service role|environment variable|env file|database schema|table name|column name|rpc name|sql function|admin password|smart pin|session token|guest token|credential|password hash|pepper|encryption key|private key))'
+    or q ~ '(vulnerabilit|security weakness|security flaw|exploit|bypass|sql injection|xss|csrf|privilege escalation|break into|circumvent security|disable security|hack triplem|hack the app)'
+    or q ~ '(how|ways?|method).{0,35}(bypass|hack|exploit|break into|circumvent).{0,60}(triplem|admin|login|auth|security|database|account)'
+    or q ~ '(internal|private).{0,30}(architecture|endpoint|api|database|schema|implementation|security configuration)';
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_confidential_request(text) from public, anon, authenticated;
+
+-- Explicit privacy guard for attempts to obtain another person's information.
+-- Account-specific recovery/issues still use the established human handoff path.
+create or replace function public.app_live_chat_ai_private_data_request(p_message text)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+begin
+  if q='' then return false; end if;
+
+  return
+    q ~ '((show|give|reveal|share|list|fetch|read|access|send|provide|disclose).{0,65}(another user|other user|all users|customer|visitor|member).{0,65}(data|record|email|phone|password|smart pin|wallet|expense|loan|asset|message|chat|profile))'
+    or q ~ '(user database|customer database|visitor emails|visitor phone|all passwords|all smart pins|private messages|other users.{0,20}(wallet|expense|loan|asset|data|record))';
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_private_data_request(text) from public, anon, authenticated;
+
+-- Context-aware deterministic support engine. p_previous_intent makes terse
+-- follow-ups such as "and yearly?", "tell me more", or "how does that work?"
+-- useful without sending any content to an external model.
+create or replace function public.app_live_chat_ai_answer(
+  p_message text,
+  p_guest_name text,
+  p_previous_intent text
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+  q_words text;
+  previous_intent text := lower(trim(coalesce(p_previous_intent,'')));
+  guest text := coalesce(nullif(trim(coalesce(p_guest_name,'')),''),'there');
+  intent text := 'scope';
+  confidence numeric(5,4) := 0.5500;
+  handoff boolean := false;
+  reason text := null;
+  answer text;
+  cta text := public.app_live_chat_ai_cta();
+  monthly_aed text;
+  monthly_sar text;
+  monthly_pkr text;
+  monthly_usd text;
+  yearly_aed text;
+  yearly_sar text;
+  yearly_pkr text;
+  yearly_usd text;
+  brand_related boolean := false;
+begin
+  q := replace(replace(replace(q,'’',''''),'“','"'),'”','"');
+  q_words := regexp_replace(q,'[^a-z0-9%+./ -]+',' ','g');
+  q_words := regexp_replace(q_words,'\s+',' ','g');
+  brand_related := q_words ~ '(triplem|triple m|tripplem|tripleem|vip|wallet|expense|inventory|loan|installment|instalment|asset|bitcoin|btc|invoice|report|trial|subscription|smart pin|team|workspace|dashboard|live support)';
+
+  -- Carry the previous domain only for genuinely terse conversational follow-ups.
+  if char_length(q_words)<=80
+     and previous_intent<>''
+     and q_words ~ '^(and |what about |how about )?(tell me more|more|more details|explain|explain more|how does that work|how does it work|what about that|that one|this one|and that|why|how|monthly|yearly|annual|price|cost|team|members?)\??$' then
+    q_words := trim(q_words||' '||replace(previous_intent,'_',' '));
+  end if;
+
+  if public.app_live_chat_ai_human_requested(q) then
+    handoff:=true;
+    reason:='visitor_requested';
+    intent:='human_handoff';
+    confidence:=1.0000;
+    answer:='Certainly. AI replies are paused and your chat is now waiting for a real Triplem VIP support agent. Human support operates 10:00 AM to 5:00 PM GST.';
+    return jsonb_build_object('intent',intent,'confidence',confidence,'handoff',handoff,'handoff_reason',reason,'response',answer);
+  end if;
+
+  reason:=public.app_live_chat_ai_sensitive_handoff_reason(q);
+  if reason is not null then
+    handoff:=true;
+    intent:='protected_handoff';
+    confidence:=0.9950;
+    answer:=case reason
+      when 'account_access' then 'For your privacy, login, password, or Smart PIN account issues require a real support agent. I have transferred this chat securely.'
+      when 'payment_review' then 'A real support agent must verify account-specific payments, receipts, approvals, refunds, or charges. I have transferred this chat securely.'
+      when 'account_data' then 'I cannot inspect private workspace records in public AI chat. I have transferred this case to a real support agent.'
+      when 'security' then 'Account-security incidents require human review rather than an automated guess. I have transferred this chat to a real support agent.'
+      when 'technical_issue' then 'That looks like a specific product issue that needs your exact case checked. I have transferred this chat to a real support agent.'
+      else 'That account action requires a real Triplem VIP support agent. I have transferred this chat securely.'
+    end;
+    return jsonb_build_object('intent',intent,'confidence',confidence,'handoff',handoff,'handoff_reason',reason,'response',answer);
+  end if;
+
+  if public.app_live_chat_ai_private_data_request(q) then
+    intent:='privacy_guard'; confidence:=1.0000;
+    answer:='I cannot access or disclose another user''s private data, messages, credentials, or financial records. I can explain public Triplem VIP features or help with your own account through human support.';
+
+  elsif public.app_live_chat_ai_confidential_request(q) then
+    intent:='confidentiality_guard'; confidence:=1.0000;
+    answer:='I can explain Triplem VIP''s public security principles, but I will not reveal source code, credentials, keys, database internals, vulnerabilities, or bypass methods. For a legitimate security concern, ask for a human agent.';
+
+  elsif q_words ~ '(ignore|forget|override).*(instruction|rules|scope|previous)|system prompt|jailbreak|act as|pretend to be' then
+    intent:='scope_guard'; confidence:=0.9950;
+    answer:='I cannot override my Triplem VIP support and privacy rules. I can still help with verified product features, plans, setup, trial, or human support.';
+
+  elsif q_words ~ '(are you|r u|is this).*(ai|bot|robot|human)|who are you|your identity' then
+    intent:='ai_identity'; confidence:=0.9950;
+    answer:='You are chatting with the Triplem VIP AI Assistant, not a human agent. I handle Triplem VIP product guidance and can transfer you to a real agent anytime.';
+
+  elsif q_words ~ '^(hello|hi|hey|salam|assalam|good morning|good afternoon|good evening)( there| triplem| team)?[.! ]*$' then
+    intent:='greeting'; confidence:=0.9400;
+    answer:='Hello, '||guest||'. I can quickly explain Triplem VIP, its features, pricing, or the free trial. '||cta;
+
+  elsif q_words ~ '(payment method|how.*pay|pay.*(pro|subscription|plan)|bank transfer|upload.*receipt|subscription.*receipt)' then
+    intent:='payment_method'; confidence:=0.9750;
+    answer:='Pro subscriptions use Triplem VIP''s bank-transfer and receipt-verification flow. For a specific payment status, I will transfer you to a human agent; otherwise, '||lower(cta);
+
+  elsif q_words ~ '(price|pricing|cost|monthly|yearly|annual|subscription|pro plan|how much|charges|fee)' then
+    intent:='pricing'; confidence:=0.9850;
+    monthly_aed:=coalesce(public.app_subscription_price('monthly','AED',0)->>'base_amount','49.00');
+    monthly_sar:=coalesce(public.app_subscription_price('monthly','SAR',0)->>'base_amount','49.00');
+    monthly_pkr:=coalesce(public.app_subscription_price('monthly','PKR',0)->>'base_amount','1799.00');
+    monthly_usd:=coalesce(public.app_subscription_price('monthly','USD',0)->>'base_amount','13.99');
+    yearly_aed:=coalesce(public.app_subscription_price('yearly','AED',0)->>'base_amount','449.00');
+    yearly_sar:=coalesce(public.app_subscription_price('yearly','SAR',0)->>'base_amount','449.00');
+    yearly_pkr:=coalesce(public.app_subscription_price('yearly','PKR',0)->>'base_amount','19999.00');
+    yearly_usd:=coalesce(public.app_subscription_price('yearly','USD',0)->>'base_amount','149.00');
+    answer:=format('Pro Monthly: AED %s / SAR %s / PKR %s / USD %s. Pro Yearly: AED %s / SAR %s / PKR %s / USD %s. ',monthly_aed,monthly_sar,monthly_pkr,monthly_usd,yearly_aed,yearly_sar,yearly_pkr,yearly_usd);
+    if q_words ~ '(team|member|staff|employee|seat)' then
+      answer:=answer||format('Extra Company seats start at AED %s monthly or AED %s yearly per seat. ',
+        coalesce(public.app_subscription_price('monthly','AED',1)->>'team_unit_amount','10.00'),
+        coalesce(public.app_subscription_price('yearly','AED',1)->>'team_unit_amount','80.00'));
+    end if;
+    answer:=answer||cta;
+
+  elsif q_words ~ '(free trial|free sign|trial|try it|test it|sign up|signup|register|create.*account|get started|card required|credit card)' then
+    intent:='trial_signup'; confidence:=0.9850;
+    answer:='Triplem VIP gives you the full workspace free for 14 days with no card required. Sign up as Individual or Company, test it with your own workflow, then choose Pro Monthly or Pro Yearly if it fits.';
+
+  elsif q_words ~ '(how|what).*(does|do|can).*(triplem|triple m|tripplem|it|this).*(work|works|working|function|operate|help)|((triplem|triple m|tripplem).*(work|works|working|workflow|function|operate))|how it works|how does it work|workflow|overview|feature|features|capabilit|what can it do|what do i get|what is included|what is triplem|what does triplem|what.*triplem.*do|about triplem|why triplem|use case|who is it for' then
+    intent:='overview'; confidence:=0.9850;
+    answer:='Triplem VIP connects wallets, expenses, transfers, inventory, loans, installments, assets, invoices and reports in one private workspace. Record activity once and related balances, history and reporting stay connected. '||cta;
+
+  elsif q_words ~ '(excel|spreadsheet|replace.*sheet|instead of.*sheet|why.*use.*(software|triplem)|business.*benefit|business value|help.*business|manage.*business|daily operation|accounting|bookkeeping|money management|financial management|all in one|one place)' then
+    intent:='business_value'; confidence:=0.9650;
+    answer:='Triplem VIP replaces scattered spreadsheets with one connected finance and operations workspace, so balances, stock, obligations, documents and history remain easier to track. '||cta;
+
+  elsif q_words ~ '(demo|walkthrough|preview|see.*before|try.*demo)' then
+    intent:='demo'; confidence:=0.9650;
+    answer:='The public Demo shows how Triplem VIP works before signup. Then use the 14-day free trial to test the same workflow with your own data, no card required.';
+
+  elsif q_words ~ '(recover|restore|recycle bin|recycle|deleted record|deleted item|purged|record recovery)' then
+    intent:='record_recovery'; confidence:=0.9500;
+    answer:='Supported records can use recycle or restore workflows before permanent removal. For a specific missing record, I will transfer you to human support rather than inspect or guess about private data.';
+
+  elsif q_words ~ '(smart pin|smartpin)' then
+    intent:='smart_pin'; confidence:=0.9700;
+    answer:='Smart PIN adds an extra confirmation layer for protected actions inside Triplem VIP. If your own PIN is forgotten or locked, I will transfer you to a real support agent.';
+
+  elsif q_words ~ '(secure|security|privacy|private|data protection|isolated|cloud|account protection)' then
+    intent:='security'; confidence:=0.9750;
+    answer:='Triplem VIP keeps each account in an isolated private workspace with server-side access controls. I can explain public security principles, but I never disclose internal code, credentials, private user data, vulnerabilities, or bypass details.';
+
+  elsif q_words ~ '(wallet|cash account|bank account|card account|multi.?currency|currency|top.?up|transfer money|money transfer)' then
+    intent:='wallets'; confidence:=0.9700;
+    answer:='Wallets keep cash, bank, card, crypto or custom money accounts separated by balance and currency, while top-ups, transfers and expenses remain traceable. '||cta;
+
+  elsif q_words ~ '(expense|spending|transaction history|search transaction|category|income tracking)' then
+    intent:='expenses'; confidence:=0.9700;
+    answer:='Expenses connect each transaction to its wallet, currency, date, category and history, with search, editing and reporting for easier reconciliation. '||cta;
+
+  elsif q_words ~ '(inventory|stock|product|brand|variant|barcode|customer|sale|sales|shop)' then
+    intent:='inventory'; confidence:=0.9700;
+    answer:='Inventory links stock, brands, variants, barcodes, customers, sales, balances and invoices inside the same finance workspace. '||cta;
+
+  elsif q_words ~ '(^|[^a-z])loan(s)?([^a-z]|$)|borrow|lent|lending|repayment' then
+    intent:='loans'; confidence:=0.9650;
+    answer:='Loans track money given or taken, repayments, remaining balance, currency, dates and status in one structured history. '||cta;
+
+  elsif q_words ~ '(installment|instalment|payment schedule|down payment|due payment)' then
+    intent:='installments'; confidence:=0.9650;
+    answer:='Installments track financed amounts, down payments, due schedules, reminders and payment history across multiple dates. '||cta;
+
+  elsif q_words ~ '(^|[^a-z])asset(s)?([^a-z]|$)|depreciation|profit.*loss|p/l|sale.*asset' then
+    intent:='assets'; confidence:=0.9650;
+    answer:='Assets track purchase value, costs, revenue, sale or disposal details, depreciation workflows and profit/loss views. '||cta;
+
+  elsif q_words ~ '(import|csv|json backup|backup file|move.*data|migration from)' then
+    intent:='import_backup'; confidence:=0.9450;
+    answer:='Triplem VIP supports section-specific import, export and backup workflows using expected JSON/CSV formats. For a large live-data migration, human support can help confirm the safest route first.';
+
+  elsif q_words ~ '(invoice|receipt|pdf|statement|report|export|download)' then
+    intent:='reports'; confidence:=0.9700;
+    answer:='Triplem VIP creates professional invoices, receipts, statements, summaries and downloadable reports from your connected workspace records. '||cta;
+
+  elsif q_words ~ '(note|notes|reminder|remind me|notification.*note)' then
+    intent:='notes'; confidence:=0.9550;
+    answer:='Notes keep private operational information and reminders beside your finance workspace, so follow-ups stay close to the records they support. '||cta;
+
+  elsif q_words ~ '(bitcoin|btc|crypto|receive bitcoin|send bitcoin|blockchain)' then
+    intent:='bitcoin'; confidence:=0.9700;
+    answer:='Triplem VIP includes Bitcoin wallet/address, send/receive and transaction-record tools. Sensitive key material is never something this public AI chat will request or disclose.';
+
+  elsif q_words ~ '(team|team member|staff|employee|company account|business account|company branding|logo|trn|company team)' then
+    intent:='company_team'; confidence:=0.9600;
+    answer:='Company workspaces support business identity, branding and controlled team-member access while keeping the owner''s workspace structure central. '||cta;
+
+  elsif q_words ~ '(mobile|iphone|ios|android|desktop|browser|phone|tablet|responsive|platforms)' then
+    intent:='platforms'; confidence:=0.9550;
+    answer:='Triplem VIP is browser-based and responsive across desktop, phone and tablet, with the site also providing its current iOS and Android installation options. '||cta;
+
+  elsif q_words ~ '(theme|dark mode|navy|pink|green|appearance|personalize|customize|personalization)' then
+    intent:='personalization'; confidence:=0.9500;
+    answer:='Themes, company branding and wallet visuals let individuals and businesses personalize the workspace without changing its financial structure. '||cta;
+
+  elsif q_words ~ '(backup|offline|internet|connection|sync|export my data|continuity)' then
+    intent:='continuity'; confidence:=0.9300;
+    answer:='Triplem VIP includes export/backup workflows and reconnect handling for supported queued changes. For missing private data, I will transfer you to human support rather than guess.';
+
+  elsif q_words ~ '(founder|nadeem|who made|who built|creator|owner)' then
+    intent:='founder'; confidence:=0.9750;
+    answer:='Triplem VIP was created by Nadeem Shahzad Fida around practical finance, accounts, inventory, loans, assets, documents and reporting needs. '||cta;
+
+  elsif q_words ~ '(support hour|support time|when.*support|live support|contact|email|whatsapp|help desk)' then
+    intent:='support'; confidence:=0.9700;
+    answer:='AI support is available 24/7. Human Live Support operates 10:00 AM to 5:00 PM GST; ask me for a real agent anytime.';
+
+  elsif brand_related then
+    intent:='triplem_clarify'; confidence:=0.7600;
+    answer:='That sounds Triplem VIP-related, but I do not want to invent a feature or guess. Ask the capability a little more specifically, and I will give you a short verified answer or connect you with human support.';
+
+  else
+    intent:='scope'; confidence:=0.8000;
+    answer:='I am dedicated to Triplem VIP support, so I cannot answer unrelated topics. Ask me about any Triplem VIP feature, pricing, setup, trial, or plan.';
+  end if;
+
+  return jsonb_build_object(
+    'intent',intent,
+    'confidence',confidence,
+    'handoff',handoff,
+    'handoff_reason',reason,
+    'response',answer
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_answer(text,text,text) from public, anon, authenticated;
+
+-- Preserve the original two-argument internal signature for compatibility.
+create or replace function public.app_live_chat_ai_answer(
+  p_message text,
+  p_guest_name text default null
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select public.app_live_chat_ai_answer(p_message,p_guest_name,null::text)
+$fn$;
+revoke all on function public.app_live_chat_ai_answer(text,text) from public, anon, authenticated;
+
+-- Use the last successful intent as lightweight conversational context. No chat
+-- content leaves PostgreSQL and no external AI/model service is contacted.
+create or replace function public.app_live_chat_ai_process(
+  p_inquiry_id uuid,
+  p_message text,
+  p_guest_name text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  decision jsonb;
+  ai_msg public.app_inquiry_messages;
+  next_mode text;
+  notices int := 0;
+  h_reason text;
+  intent text;
+  confidence numeric(5,4);
+  response_text text;
+  inquiry_row public.app_inquiries;
+  route_row public.app_live_chat_routes;
+  current_ai public.app_live_chat_ai_state;
+begin
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+  if inquiry_row is null or coalesce(inquiry_row.source,'')<>'landing' or lower(coalesce(inquiry_row.subject,''))<>'live chat support' then
+    raise exception 'Live chat session is unavailable';
+  end if;
+
+  select * into route_row from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route_row.status='accepted' and route_row.assigned_user_id is not null then
+    return jsonb_build_object('ok',true,'mode','human','handoff',false,'support_queue',0,'message',null);
+  end if;
+  if route_row.status='closed' or inquiry_row.status='archived' then
+    return jsonb_build_object('ok',true,'mode','closed','handoff',false,'support_queue',0,'message',null);
+  end if;
+
+  select * into current_ai from public.app_live_chat_ai_state where inquiry_id=p_inquiry_id for update;
+  if current_ai.inquiry_id is not null and current_ai.mode<>'ai' then
+    return jsonb_build_object(
+      'ok',true,'mode',current_ai.mode,'handoff',(current_ai.mode='human_pending'),
+      'support_queue',0,'message',null
+    );
+  end if;
+
+  decision:=public.app_live_chat_ai_answer(
+    p_message,
+    p_guest_name,
+    case when current_ai.inquiry_id is not null then current_ai.last_intent else null end
+  );
+  h_reason:=nullif(decision->>'handoff_reason','');
+  intent:=coalesce(nullif(decision->>'intent',''),'scope');
+  confidence:=coalesce((decision->>'confidence')::numeric,0.5000);
+  response_text:=trim(coalesce(decision->>'response',''));
+
+  if current_ai.inquiry_id is null and position('ai assistant' in lower(response_text))=0 then
+    response_text:='I am the Triplem VIP AI Assistant. '||response_text;
+  end if;
+  next_mode:=case when coalesce((decision->>'handoff')::boolean,false) then 'human_pending' else 'ai' end;
+
+  insert into public.app_live_chat_ai_state(
+    inquiry_id,mode,last_intent,last_confidence,last_ai_message_at,
+    human_requested_at,human_reason,created_at,updated_at
+  ) values(
+    p_inquiry_id,next_mode,intent,confidence,now(),
+    case when next_mode='human_pending' then now() else null end,
+    case when next_mode='human_pending' then coalesce(h_reason,'visitor_requested') else null end,
+    now(),now()
+  )
+  on conflict(inquiry_id) do update set
+    mode=excluded.mode,
+    last_intent=excluded.last_intent,
+    last_confidence=excluded.last_confidence,
+    last_ai_message_at=excluded.last_ai_message_at,
+    human_requested_at=case when excluded.mode='human_pending' then coalesce(app_live_chat_ai_state.human_requested_at,excluded.human_requested_at) else app_live_chat_ai_state.human_requested_at end,
+    human_reason=case when excluded.mode='human_pending' then excluded.human_reason else app_live_chat_ai_state.human_reason end,
+    updated_at=now();
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body,support_actor,created_at)
+  values(p_inquiry_id,'admin',null,response_text,'ai',clock_timestamp()+interval '1 millisecond')
+  returning * into ai_msg;
+
+  update public.app_inquiries
+     set last_message_at=now(),updated_at=now(),
+         status=case when next_mode='human_pending' then 'open' else status end
+   where id=p_inquiry_id;
+
+  if next_mode='human_pending' then
+    notices:=public.app_live_chat_notify_available_agents(p_inquiry_id);
+  end if;
+
+  return jsonb_build_object(
+    'ok',true,
+    'mode',next_mode,
+    'intent',intent,
+    'confidence',confidence,
+    'handoff',(next_mode='human_pending'),
+    'support_queue',notices,
+    'message',public.app_message_public_row(ai_msg)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_process(uuid,text,text) from public, anon, authenticated;
+
+-- ############################################################################
+-- END migrations/109_live_chat_ai_intelligence_and_input.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/110_live_chat_ai_intent_engine_and_thinking_state.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 110_live_chat_ai_intent_engine_and_thinking_state.sql
+-- Triplem VIP zero-cost Live Chat AI: weighted intent understanding + context.
+--
+-- LIVE-DATABASE SAFETY
+--   * Run after 109.
+--   * CREATE OR REPLACE functions only. No schema/table/data migration required.
+--   * No installation-time INSERT, UPDATE, DELETE, TRUNCATE, DROP TABLE, DROP
+--     COLUMN, user rewrite, financial-record rewrite, or credential rewrite.
+--   * No paid/metred AI API, external model, browser model download, or third-
+--     party inference endpoint is introduced. All intent work stays in PostgreSQL.
+-- ============================================================================
+
+-- Compact verified product fragments used by the response composer. Keeping the
+-- knowledge in one internal function makes multi-intent answers consistent and
+-- prevents the public assistant from inventing unsupported product capabilities.
+create or replace function public.app_live_chat_ai_feature_summary(p_intent text)
+returns text
+language plpgsql
+immutable
+set search_path = public
+as $fn$
+begin
+  return case lower(trim(coalesce(p_intent,'')))
+    when 'overview' then 'Triplem VIP connects wallets, expenses, transfers, inventory, loans, installments, assets, documents and reports in one private workspace.'
+    when 'business_value' then 'It replaces scattered finance records with one connected workspace where balances, stock, obligations, documents and history remain easier to follow.'
+    when 'wallets' then 'Wallets separate cash, bank, card, crypto or custom money accounts by balance and currency, with traceable top-ups, transfers and expenses.'
+    when 'expenses' then 'Expenses keep wallet, currency, date, category, description and transaction history connected for search, editing and reporting.'
+    when 'inventory' then 'Inventory connects stock, brands, variants, barcodes, customers, sales, balances and invoice workflows.'
+    when 'loans' then 'Loans track money given or taken, repayments, remaining balance, currency, dates and status in one history.'
+    when 'installments' then 'Installments track financed amounts, down payments, due schedules, reminders and payment history.'
+    when 'assets' then 'Assets track purchase value, costs, revenue, sale or disposal details, depreciation workflows and profit/loss views where supported.'
+    when 'reports' then 'Reports turn connected workspace records into professional invoices, receipts, statements, summaries and downloadable documents.'
+    when 'notes' then 'Notes and reminders keep operational follow-ups beside the finance workspace without exposing them to public support chat.'
+    when 'bitcoin' then 'Bitcoin tools cover wallet/address and send/receive transaction workflows; sensitive key material is never requested or disclosed in public AI chat.'
+    when 'company_team' then 'Company workspaces support business identity, branding and controlled team-member access around the owner workspace.'
+    when 'platforms' then 'Triplem VIP is browser-based and responsive across modern desktop, phone and tablet use.'
+    when 'personalization' then 'Themes, company branding and wallet visuals personalize the workspace without changing its financial structure.'
+    when 'security' then 'Triplem VIP uses isolated private workspaces and server-side access controls; this public AI never exposes credentials, private records or security internals.'
+    when 'continuity' then 'Supported export, backup and reconnect workflows help preserve continuity; missing private records are handled by human support rather than guessed about.'
+    when 'demo' then 'The public Demo shows the workflow before signup, and the free trial lets you test it with your own realistic records.'
+    when 'smart_pin' then 'Smart PIN adds an extra confirmation layer for protected actions; account-specific PIN problems are handled by human support.'
+    when 'import_backup' then 'Supported sections provide expected import, export and backup workflows using the formats offered by the product.'
+    when 'payment_method' then 'Pro subscriptions use Triplem VIP''s bank-transfer and receipt-verification workflow; account-specific payment status requires human review.'
+    when 'support' then 'AI support is available 24/7, while human Live Support operates 10:00 AM to 5:00 PM GST.'
+    when 'founder' then 'Triplem VIP was created by Nadeem Shahzad Fida around practical finance, accounts, inventory, loans, assets, documents and reporting needs.'
+    else null
+  end;
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_feature_summary(text) from public, anon, authenticated;
+
+-- Weighted intent engine. It evaluates several plausible intentions rather than
+-- stopping on the first regex hit, so natural and compound visitor questions can
+-- be answered by their actual purpose. Previous intent/message are used only for
+-- short follow-ups and never leave the database.
+create or replace function public.app_live_chat_ai_answer(
+  p_message text,
+  p_guest_name text,
+  p_previous_intent text,
+  p_previous_message text
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $fn$
+declare
+  q text := lower(regexp_replace(trim(coalesce(p_message,'')),'\s+',' ','g'));
+  q_words text;
+  previous_intent text := lower(trim(coalesce(p_previous_intent,'')));
+  previous_words text := lower(regexp_replace(trim(coalesce(p_previous_message,'')),'\s+',' ','g'));
+  context_words text;
+  guest text := coalesce(nullif(trim(coalesce(p_guest_name,'')),''),'there');
+  brand_related boolean := false;
+  followup boolean := false;
+  explicit_capability_question boolean := false;
+  unverified_feature boolean := false;
+  scores jsonb;
+  primary_intent text;
+  secondary_intent text;
+  primary_score int := 0;
+  secondary_score int := 0;
+  confidence numeric(5,4) := 0.6000;
+  handoff boolean := false;
+  reason text := null;
+  answer text := '';
+  secondary_text text := null;
+  monthly_aed text;
+  monthly_sar text;
+  monthly_pkr text;
+  monthly_usd text;
+  yearly_aed text;
+  yearly_sar text;
+  yearly_pkr text;
+  yearly_usd text;
+
+  s_overview int := 0;
+  s_business int := 0;
+  s_pricing int := 0;
+  s_trial int := 0;
+  s_wallets int := 0;
+  s_expenses int := 0;
+  s_inventory int := 0;
+  s_loans int := 0;
+  s_installments int := 0;
+  s_assets int := 0;
+  s_reports int := 0;
+  s_notes int := 0;
+  s_bitcoin int := 0;
+  s_team int := 0;
+  s_platforms int := 0;
+  s_personalization int := 0;
+  s_security int := 0;
+  s_continuity int := 0;
+  s_demo int := 0;
+  s_smart_pin int := 0;
+  s_import int := 0;
+  s_payment int := 0;
+  s_support int := 0;
+  s_founder int := 0;
+begin
+  q := replace(replace(replace(q,'’',''''),'“','"'),'”','"');
+  q_words := regexp_replace(q,'[^a-z0-9%+./'' -]+',' ','g');
+  q_words := regexp_replace(q_words,'\s+',' ','g');
+  previous_words := regexp_replace(previous_words,'[^a-z0-9%+./'' -]+',' ','g');
+  previous_words := regexp_replace(previous_words,'\s+',' ','g');
+
+  brand_related := q_words ~ '(triplem|triple m|tripplem|tripleem|vip|wallet|expense|inventory|stock|loan|installment|instalment|asset|bitcoin|btc|invoice|receipt|report|trial|subscription|smart pin|team|workspace|dashboard|live support|finance workspace)';
+  followup := char_length(q_words)<=130
+    and previous_intent<>''
+    and (
+      q_words ~ '^(and |also |what about |how about )?(it|this|that|those|they|them|tell me more|more|more details|explain|explain more|how|why|how does it work|how does that work|can it|does it|is it|what about that|what about it|monthly|yearly|annual|price|cost|team|members?|yes|no|okay|ok)[ ?.!]*$'
+      or q_words ~ '^(can|does|is|how|what|why) (it|this|that)( |$)'
+    );
+  context_words := q_words;
+  if followup and previous_words<>'' then
+    context_words := q_words||' '||left(previous_words,500);
+  end if;
+
+  -- Human request and protected-account cases keep the proven handoff path.
+  if public.app_live_chat_ai_human_requested(q) then
+    return jsonb_build_object(
+      'intent','human_handoff','confidence',1.0000,'handoff',true,'handoff_reason','visitor_requested',
+      'response','Certainly. I have paused AI replies and placed this chat in the human-support queue. A real Triplem VIP support agent will continue from here.'
+    );
+  end if;
+
+  reason:=public.app_live_chat_ai_sensitive_handoff_reason(q);
+  if reason is not null then
+    answer:=case reason
+      when 'account_access' then 'For your privacy, login, password or Smart PIN account issues need a real support agent. I have transferred this chat securely.'
+      when 'payment_review' then 'A real support agent needs to verify account-specific payments, receipts, approvals, refunds or charges. I have transferred this chat securely.'
+      when 'account_data' then 'I cannot inspect private workspace records in public AI chat. I have transferred your case to a real support agent.'
+      when 'security' then 'Account-security incidents need human review rather than an automated guess. I have transferred this chat to a real support agent.'
+      when 'technical_issue' then 'That appears to be a specific product issue that needs your exact case checked. I have transferred this chat to a real support agent.'
+      else 'That account action needs a real Triplem VIP support agent. I have transferred this chat securely.'
+    end;
+    return jsonb_build_object('intent','protected_handoff','confidence',0.9950,'handoff',true,'handoff_reason',reason,'response',answer);
+  end if;
+
+  if public.app_live_chat_ai_private_data_request(q) then
+    return jsonb_build_object(
+      'intent','privacy_guard','confidence',1.0000,'handoff',false,'handoff_reason',null,
+      'response','I cannot access or disclose another user''s private data, messages, credentials or financial records. I can explain public Triplem VIP features, or a human agent can help with your own account.'
+    );
+  end if;
+
+  if public.app_live_chat_ai_confidential_request(q) then
+    return jsonb_build_object(
+      'intent','confidentiality_guard','confidence',1.0000,'handoff',false,'handoff_reason',null,
+      'response','I can explain Triplem VIP''s public security principles, but I will not reveal source code, credentials, keys, database internals, vulnerabilities or bypass methods. A legitimate security concern can be escalated to a human agent.'
+    );
+  end if;
+
+  if q_words ~ '(ignore|forget|override).*(instruction|rules|scope|previous)|system prompt|jailbreak|act as|pretend to be' then
+    return jsonb_build_object(
+      'intent','scope_guard','confidence',0.9950,'handoff',false,'handoff_reason',null,
+      'response','I cannot override my Triplem VIP support, privacy or security rules. I can still help with verified product features, plans, setup, trial or human support.'
+    );
+  end if;
+
+  if q_words ~ '(are you|r u|is this).*(ai|bot|robot|human)|who are you|your identity' then
+    return jsonb_build_object(
+      'intent','ai_identity','confidence',0.9950,'handoff',false,'handoff_reason',null,
+      'response','I am the Triplem VIP AI Assistant, not a human agent. I generate answers only from verified Triplem VIP product knowledge and can transfer you to a real agent anytime.'
+    );
+  end if;
+
+  if q_words ~ '^(hello|hi|hey|salam|assalam|good morning|good afternoon|good evening)( there| triplem| team)?[.! ]*$' then
+    return jsonb_build_object(
+      'intent','greeting','confidence',0.9600,'handoff',false,'handoff_reason',null,
+      'response','Hello, '||guest||'. I am Triplem VIP''s AI Assistant. Ask me how the product works, what it can manage, pricing, the free trial, or whether it fits your workflow.'
+    );
+  end if;
+
+  explicit_capability_question := q_words ~ '(^| )(can|could|does|do|is|are|have|has|support|supports|offer|offers|include|includes)( |.* )(it|triplem|triple m|vip|this|that)|(^| )(can i|can we|do you have|does it have|is there)( | )';
+  unverified_feature := q_words ~ '(payroll|salary processing|tax filing|vat filing|automatic bank feed|bank sync|bank synchronization|crm|customer relationship management|e.?commerce integration|shopify|woocommerce|point of sale|(^| )pos( |$)|public api|open api|api integration|direct bank integration|automatic reconciliation)';
+
+  -- Unsupported capability questions are intercepted before conversational-memory
+  -- boosts, so a previous topic can never make the AI claim an unverified feature.
+  if unverified_feature and explicit_capability_question then
+    answer:='I cannot verify that as a current Triplem VIP feature, so I will not guess. The verified workspace covers wallets, expenses, inventory, loans, installments, assets, documents and reports; a human agent can confirm a specific requirement.';
+    return jsonb_build_object('intent','unverified_capability','confidence',0.9500,'handoff',false,'handoff_reason',null,'response',answer);
+  end if;
+
+  -- Current-message scoring. Strong topic words outweigh broad product words.
+  if q_words ~ '(triplem|triple m|tripplem|tripleem|vip)' then s_overview:=s_overview+2; s_business:=s_business+1; end if;
+  if q_words ~ '(how.*(triplem|triple m|it|this).*(work|works|working|operate|function)|how it works|workflow|what is triplem|what does triplem|about triplem|overview|what can it do|what do i get|what is included|feature|features|capabilit)' then s_overview:=s_overview+10; end if;
+  if q_words ~ '(why triplem|why.*use|benefit|business value|replace.*(excel|spreadsheet|sheet)|instead of.*(excel|spreadsheet)|manage.*business|manage.*finance|accounting|bookkeeping|money management|financial management|all in one|one place|suitable|good for|fit.*business|for my business|for a business|for my company|for a company|small business|personal use|individual use|compare|comparison|versus|(^| )vs( |$))' then s_business:=s_business+9; end if;
+  if q_words ~ '(price|pricing|cost|how much|monthly|yearly|annual|subscription|pro plan|charges|fee)' then s_pricing:=s_pricing+11; end if;
+  if q_words ~ '(free trial|free sign|trial|try it|test it|sign up|signup|register|create.*account|get started|card required|credit card|need.*card|is (it|this) free|free plan)' then s_trial:=s_trial+11; end if;
+  if q_words ~ '(wallet|cash account|bank account|card account|multi.?currency|currency|top.?up|transfer money|money transfer)' then s_wallets:=s_wallets+10; end if;
+  if q_words ~ '(expense|spending|transaction history|search transaction|expense category|income tracking|record transaction)' then s_expenses:=s_expenses+10; end if;
+  if q_words ~ '(inventory|stock|product|brand|variant|barcode|customer|sale|sales|shop|goods)' then s_inventory:=s_inventory+10; end if;
+  if q_words ~ '(^|[^a-z])loan(s)?([^a-z]|$)|borrow|lent|lending|repayment' then s_loans:=s_loans+10; end if;
+  if q_words ~ '(installment|instalment|payment schedule|down payment|due payment|due schedule)' then s_installments:=s_installments+10; end if;
+  if q_words ~ '(^|[^a-z])asset(s)?([^a-z]|$)|depreciation|profit.*loss|p/l|sale.*asset|dispose.*asset' then s_assets:=s_assets+10; end if;
+  if q_words ~ '(invoice|receipt|pdf|statement|report|export|download|summary document)' then s_reports:=s_reports+9; end if;
+  if q_words ~ '(note|notes|reminder|remind me|notification.*note)' then s_notes:=s_notes+9; end if;
+  if q_words ~ '(bitcoin|btc|crypto|receive bitcoin|send bitcoin|blockchain)' then s_bitcoin:=s_bitcoin+10; end if;
+  if q_words ~ '(team|team member|staff|employee|company account|business account|company branding|logo|trn|member access|seat)' then s_team:=s_team+9; end if;
+  if q_words ~ '(mobile|iphone|ios|android|desktop|browser|phone|tablet|responsive|platform)' then s_platforms:=s_platforms+9; end if;
+  if q_words ~ '(theme|dark mode|navy|pink|green|appearance|personalize|customize|personalization|colour|color)' then s_personalization:=s_personalization+9; end if;
+  if q_words ~ '(secure|security|privacy|private|data protection|isolated|account protection|safe|trust|protect.*data)' then s_security:=s_security+10; end if;
+  if q_words ~ '(backup|offline|internet|connection|sync|export my data|continuity|reconnect)' then s_continuity:=s_continuity+8; end if;
+  if q_words ~ '(demo|walkthrough|preview|see.*before|try.*demo)' then s_demo:=s_demo+10; end if;
+  if q_words ~ '(smart pin|smartpin)' then s_smart_pin:=s_smart_pin+11; end if;
+  if q_words ~ '(import|csv|json backup|backup file|move.*data|migration from)' then s_import:=s_import+9; end if;
+  if q_words ~ '(payment method|how.*pay|pay.*(pro|subscription|plan)|bank transfer|upload.*receipt|subscription.*receipt)' then s_payment:=s_payment+11; end if;
+  if q_words ~ '(support hour|support time|when.*support|live support|contact|email support|whatsapp|help desk|agent)' then s_support:=s_support+9; end if;
+  if q_words ~ '(founder|nadeem|who made|who built|creator|owner)' then s_founder:=s_founder+10; end if;
+
+  -- Question-shape boosts improve natural language such as "Can it make invoices?"
+  -- or "How do stock and sales work together?" without relying on exact phrases.
+  if q_words ~ '^(how|what|why|can|does|do|is|are|where|when|who)( |$)' then
+    s_overview:=s_overview+case when s_overview>0 then 2 else 0 end;
+    s_business:=s_business+case when s_business>0 then 2 else 0 end;
+  end if;
+  if q_words ~ '(create|make|generate).*(invoice|receipt|report|statement)' then s_reports:=s_reports+5; end if;
+  if q_words ~ '(track|manage|record).*(stock|inventory|sale|product)' then s_inventory:=s_inventory+4; end if;
+  if q_words ~ '(track|manage|record).*(loan|repayment)' then s_loans:=s_loans+4; end if;
+  if q_words ~ '(track|manage|record).*(installment|instalment|due)' then s_installments:=s_installments+4; end if;
+  if q_words ~ '(track|manage|record).*(asset|depreciation)' then s_assets:=s_assets+4; end if;
+  if q_words ~ '(track|manage|record).*(expense|spending|transaction)' then s_expenses:=s_expenses+4; end if;
+  if q_words ~ '(team|employee|staff).*(access|use|login|permission)' then s_team:=s_team+4; end if;
+
+  -- The immediately preceding guest turn contributes only a small contextual
+  -- signal. The current question and explicit previous intent still dominate.
+  if followup and previous_words<>'' then
+    if previous_words ~ '(wallet|cash account|bank account|currency)' then s_wallets:=s_wallets+2; end if;
+    if previous_words ~ '(expense|transaction|spending)' then s_expenses:=s_expenses+2; end if;
+    if previous_words ~ '(inventory|stock|product|sale|barcode)' then s_inventory:=s_inventory+2; end if;
+    if previous_words ~ '(^|[^a-z])loan(s)?([^a-z]|$)|repayment' then s_loans:=s_loans+2; end if;
+    if previous_words ~ '(installment|instalment|due payment)' then s_installments:=s_installments+2; end if;
+    if previous_words ~ '(^|[^a-z])asset(s)?([^a-z]|$)|depreciation' then s_assets:=s_assets+2; end if;
+    if previous_words ~ '(invoice|receipt|report|statement)' then s_reports:=s_reports+2; end if;
+    if previous_words ~ '(price|pricing|monthly|yearly|subscription)' then s_pricing:=s_pricing+2; end if;
+    if previous_words ~ '(trial|sign up|signup|register)' then s_trial:=s_trial+2; end if;
+    if previous_words ~ '(team|staff|employee|company)' then s_team:=s_team+2; end if;
+  end if;
+
+  -- Lightweight conversational memory: only a short follow-up gets a strong
+  -- previous-intent boost. This avoids dragging an old topic into a new question.
+  if followup then
+    case previous_intent
+      when 'overview' then s_overview:=s_overview+10;
+      when 'business_value' then s_business:=s_business+10;
+      when 'pricing' then s_pricing:=s_pricing+10;
+      when 'trial_signup' then s_trial:=s_trial+10;
+      when 'wallets' then s_wallets:=s_wallets+10;
+      when 'expenses' then s_expenses:=s_expenses+10;
+      when 'inventory' then s_inventory:=s_inventory+10;
+      when 'loans' then s_loans:=s_loans+10;
+      when 'installments' then s_installments:=s_installments+10;
+      when 'assets' then s_assets:=s_assets+10;
+      when 'reports' then s_reports:=s_reports+10;
+      when 'notes' then s_notes:=s_notes+10;
+      when 'bitcoin' then s_bitcoin:=s_bitcoin+10;
+      when 'company_team' then s_team:=s_team+10;
+      when 'platforms' then s_platforms:=s_platforms+10;
+      when 'personalization' then s_personalization:=s_personalization+10;
+      when 'security' then s_security:=s_security+10;
+      when 'continuity' then s_continuity:=s_continuity+10;
+      when 'demo' then s_demo:=s_demo+10;
+      when 'smart_pin' then s_smart_pin:=s_smart_pin+10;
+      when 'import_backup' then s_import:=s_import+10;
+      when 'payment_method' then s_payment:=s_payment+10;
+      when 'support' then s_support:=s_support+10;
+      when 'founder' then s_founder:=s_founder+10;
+      else s_overview:=s_overview;
+    end case;
+  end if;
+
+  scores:=jsonb_build_object(
+    'overview',s_overview,'business_value',s_business,'pricing',s_pricing,'trial_signup',s_trial,
+    'wallets',s_wallets,'expenses',s_expenses,'inventory',s_inventory,'loans',s_loans,
+    'installments',s_installments,'assets',s_assets,'reports',s_reports,'notes',s_notes,
+    'bitcoin',s_bitcoin,'company_team',s_team,'platforms',s_platforms,'personalization',s_personalization,
+    'security',s_security,'continuity',s_continuity,'demo',s_demo,'smart_pin',s_smart_pin,
+    'import_backup',s_import,'payment_method',s_payment,'support',s_support,'founder',s_founder
+  );
+
+  select e.key,e.value::int into primary_intent,primary_score
+    from jsonb_each_text(scores) e
+    order by e.value::int desc, e.key asc limit 1;
+  select e.key,e.value::int into secondary_intent,secondary_score
+    from jsonb_each_text(scores) e
+    where e.key<>primary_intent
+    order by e.value::int desc, e.key asc limit 1;
+
+  if coalesce(primary_score,0)<5 then
+    if unverified_feature or (brand_related and explicit_capability_question) then
+      answer:='I cannot verify that as a current Triplem VIP feature, so I will not guess. The verified workspace covers wallets, expenses, inventory, loans, installments, assets, documents and reports; a human agent can confirm a specific requirement.';
+      return jsonb_build_object('intent','unverified_capability','confidence',0.9000,'handoff',false,'handoff_reason',null,'response',answer);
+    elsif brand_related or followup then
+      answer:='Tell me what you want to achieve in Triplem VIP, for example tracking money, stock, loans, assets, invoices, reports, team access or pricing. I will answer the exact workflow rather than give you a generic feature list.';
+      return jsonb_build_object('intent','triplem_clarify','confidence',0.7800,'handoff',false,'handoff_reason',null,'response',answer);
+    else
+      answer:='I am the Triplem VIP AI Assistant, so I keep answers focused on Triplem VIP. If you are asking whether it fits a particular business or workflow, describe what you need to manage and I will assess it against verified features.';
+      return jsonb_build_object('intent','scope','confidence',0.8600,'handoff',false,'handoff_reason',null,'response',answer);
+    end if;
+  end if;
+
+  confidence:=least(0.9950,0.7000+(least(primary_score,20)::numeric/70));
+
+  -- Primary response is adapted to the visitor's question shape, not merely the
+  -- matched topic. Sales language remains subtle and appears only when relevant.
+  if primary_intent='overview' then
+    if q_words ~ '(how.*work|workflow|operate|function)' then
+      answer:='You set up your workspace and wallets, then record expenses, transfers, stock, loans, installments or assets. Triplem VIP keeps the related balances, history, invoices and reports connected, so the workflow stays in one place. You can test it free for 14 days with no card.';
+    elsif q_words ~ '(who.*for|personal|individual|business|company)' then
+      answer:='Triplem VIP is a private finance workspace for individuals and businesses that need wallets, expenses, inventory, loans, installments, assets and reporting kept together. You can test the full workflow free for 14 days with no card.';
+    else
+      answer:='Triplem VIP is a private browser-based finance and operations workspace that connects day-to-day money records with inventory, loans, installments, assets, invoices and reports. It is designed to keep related records together instead of scattered across separate sheets.';
+    end if;
+  elsif primary_intent='business_value' then
+    if q_words ~ '(for my business|for a business|for my company|for a company|suitable|good for|fit)' then
+      answer:='If your workflow needs money records, stock or sales, loans, installments, assets, invoices or reports kept together, Triplem VIP is designed for that kind of operation. The 14-day free trial is the safest way to test it against your real workflow, with no card required.';
+    elsif q_words ~ '(excel|spreadsheet|sheet)' then
+      answer:='Triplem VIP is designed to replace scattered finance spreadsheets with connected records, searchable history and structured reports. The advantage is less manual cross-checking between wallets, transactions, stock, obligations and documents.';
+    else
+      answer:=public.app_live_chat_ai_feature_summary('business_value')||' You can test the workflow free for 14 days with no card.';
+    end if;
+  elsif primary_intent='pricing' then
+    monthly_aed:=coalesce(public.app_subscription_price('monthly','AED',0)->>'base_amount','49.00');
+    monthly_sar:=coalesce(public.app_subscription_price('monthly','SAR',0)->>'base_amount','49.00');
+    monthly_pkr:=coalesce(public.app_subscription_price('monthly','PKR',0)->>'base_amount','1799.00');
+    monthly_usd:=coalesce(public.app_subscription_price('monthly','USD',0)->>'base_amount','13.99');
+    yearly_aed:=coalesce(public.app_subscription_price('yearly','AED',0)->>'base_amount','449.00');
+    yearly_sar:=coalesce(public.app_subscription_price('yearly','SAR',0)->>'base_amount','449.00');
+    yearly_pkr:=coalesce(public.app_subscription_price('yearly','PKR',0)->>'base_amount','19999.00');
+    yearly_usd:=coalesce(public.app_subscription_price('yearly','USD',0)->>'base_amount','149.00');
+    if q_words ~ '(yearly|annual)' and q_words !~ '(monthly)' then
+      answer:=format('Pro Yearly is AED %s, SAR %s, PKR %s or USD %s. You can first use the full 14-day free trial with no card.',yearly_aed,yearly_sar,yearly_pkr,yearly_usd);
+    elsif q_words ~ '(monthly)' and q_words !~ '(yearly|annual)' then
+      answer:=format('Pro Monthly is AED %s, SAR %s, PKR %s or USD %s. You can first use the full 14-day free trial with no card.',monthly_aed,monthly_sar,monthly_pkr,monthly_usd);
+    else
+      answer:=format('Pro Monthly is AED %s / SAR %s / PKR %s / USD %s; Pro Yearly is AED %s / SAR %s / PKR %s / USD %s. The full 14-day trial requires no card.',monthly_aed,monthly_sar,monthly_pkr,monthly_usd,yearly_aed,yearly_sar,yearly_pkr,yearly_usd);
+    end if;
+  elsif primary_intent='trial_signup' then
+    answer:='The free trial gives you the full Triplem VIP workspace for 14 days with no card required. Create an Individual or Company account, test your real workflow, then move to Pro Monthly or Pro Yearly only if it fits.';
+  elsif primary_intent='payment_method' then
+    answer:=public.app_live_chat_ai_feature_summary('payment_method')||' I can explain the process, but I cannot inspect a private receipt or payment status here.';
+  elsif primary_intent='support' then
+    answer:=public.app_live_chat_ai_feature_summary('support')||' Ask for a real agent at any time and I will pause AI replies.';
+  elsif primary_intent='security' then
+    answer:=public.app_live_chat_ai_feature_summary('security')||' For an account-specific security concern, I will transfer you to a real agent instead of guessing.';
+  elsif primary_intent='founder' then
+    answer:=public.app_live_chat_ai_feature_summary('founder');
+  elsif primary_intent='demo' then
+    answer:=public.app_live_chat_ai_feature_summary('demo')||' The trial is free for 14 days with no card.';
+  else
+    answer:=public.app_live_chat_ai_feature_summary(primary_intent);
+    if answer is null then answer:='I can help with that Triplem VIP area, but I do not want to invent details that are not verified.'; end if;
+    if explicit_capability_question and primary_intent not in ('security','support','founder','continuity','import_backup') then
+      answer:='Yes. '||answer;
+    end if;
+  end if;
+
+  -- A strong second intent is included only when the visitor actually combined
+  -- topics. This handles questions such as inventory + invoices without bloating
+  -- every answer into a catalogue of features.
+  if secondary_score>=8 and secondary_intent<>primary_intent then
+    if secondary_intent='pricing' then
+      secondary_text:='If you also need pricing, I can give the current Monthly and Yearly amounts.';
+    elsif secondary_intent='trial_signup' then
+      secondary_text:='The full workspace can be tested free for 14 days with no card.';
+    elsif secondary_intent not in ('overview','business_value','security','support','founder') then
+      secondary_text:=public.app_live_chat_ai_feature_summary(secondary_intent);
+    end if;
+  end if;
+
+  if secondary_text is not null and position(lower(secondary_text) in lower(answer))=0 then
+    answer:=trim(answer)||' '||trim(secondary_text);
+  end if;
+
+  -- Keep live-chat answers concise even when two intentions are combined.
+  if char_length(answer)>720 then answer:=left(answer,717)||'...'; end if;
+
+  return jsonb_build_object(
+    'intent',primary_intent,
+    'secondary_intent',case when secondary_score>=8 then secondary_intent else null end,
+    'confidence',confidence,
+    'handoff',handoff,
+    'handoff_reason',reason,
+    'response',answer
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_answer(text,text,text,text) from public, anon, authenticated;
+
+-- Preserve the 109 three-argument signature.
+create or replace function public.app_live_chat_ai_answer(
+  p_message text,
+  p_guest_name text,
+  p_previous_intent text
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select public.app_live_chat_ai_answer(p_message,p_guest_name,p_previous_intent,null::text)
+$fn$;
+revoke all on function public.app_live_chat_ai_answer(text,text,text) from public, anon, authenticated;
+
+-- Preserve the original two-argument internal signature.
+create or replace function public.app_live_chat_ai_answer(
+  p_message text,
+  p_guest_name text default null
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select public.app_live_chat_ai_answer(p_message,p_guest_name,null::text,null::text)
+$fn$;
+revoke all on function public.app_live_chat_ai_answer(text,text) from public, anon, authenticated;
+
+-- Process uses one prior guest turn as local conversational context. Nothing is
+-- exported to an external model or API; the public transcript remains unchanged.
+create or replace function public.app_live_chat_ai_process(
+  p_inquiry_id uuid,
+  p_message text,
+  p_guest_name text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  decision jsonb;
+  ai_msg public.app_inquiry_messages;
+  next_mode text;
+  notices int := 0;
+  h_reason text;
+  intent text;
+  confidence numeric(5,4);
+  response_text text;
+  inquiry_row public.app_inquiries;
+  route_row public.app_live_chat_routes;
+  current_ai public.app_live_chat_ai_state;
+  prior_guest_message text := null;
+begin
+  select * into inquiry_row from public.app_inquiries where id=p_inquiry_id;
+  if inquiry_row is null or coalesce(inquiry_row.source,'')<>'landing' or lower(coalesce(inquiry_row.subject,''))<>'live chat support' then
+    raise exception 'Live chat session is unavailable';
+  end if;
+
+  select * into route_row from public.app_live_chat_routes where inquiry_id=p_inquiry_id for update;
+  if route_row.status='accepted' and route_row.assigned_user_id is not null then
+    return jsonb_build_object('ok',true,'mode','human','handoff',false,'support_queue',0,'message',null);
+  end if;
+  if route_row.status='closed' or inquiry_row.status='archived' then
+    return jsonb_build_object('ok',true,'mode','closed','handoff',false,'support_queue',0,'message',null);
+  end if;
+
+  select * into current_ai from public.app_live_chat_ai_state where inquiry_id=p_inquiry_id for update;
+  if current_ai.inquiry_id is not null and current_ai.mode<>'ai' then
+    return jsonb_build_object(
+      'ok',true,'mode',current_ai.mode,'handoff',(current_ai.mode='human_pending'),
+      'support_queue',0,'message',null
+    );
+  end if;
+
+  select m.body into prior_guest_message
+    from public.app_inquiry_messages m
+    where m.inquiry_id=p_inquiry_id and m.sender_role='guest'
+    order by m.created_at desc
+    offset 1 limit 1;
+
+  decision:=public.app_live_chat_ai_answer(
+    p_message,
+    p_guest_name,
+    case when current_ai.inquiry_id is not null then current_ai.last_intent else null end,
+    prior_guest_message
+  );
+  h_reason:=nullif(decision->>'handoff_reason','');
+  intent:=coalesce(nullif(decision->>'intent',''),'scope');
+  confidence:=coalesce((decision->>'confidence')::numeric,0.5000);
+  response_text:=trim(coalesce(decision->>'response',''));
+
+  if current_ai.inquiry_id is null and position('ai assistant' in lower(response_text))=0 then
+    response_text:='I am the Triplem VIP AI Assistant. '||response_text;
+  end if;
+  next_mode:=case when coalesce((decision->>'handoff')::boolean,false) then 'human_pending' else 'ai' end;
+
+  insert into public.app_live_chat_ai_state(
+    inquiry_id,mode,last_intent,last_confidence,last_ai_message_at,
+    human_requested_at,human_reason,created_at,updated_at
+  ) values(
+    p_inquiry_id,next_mode,intent,confidence,now(),
+    case when next_mode='human_pending' then now() else null end,
+    case when next_mode='human_pending' then coalesce(h_reason,'visitor_requested') else null end,
+    now(),now()
+  )
+  on conflict(inquiry_id) do update set
+    mode=excluded.mode,
+    last_intent=excluded.last_intent,
+    last_confidence=excluded.last_confidence,
+    last_ai_message_at=excluded.last_ai_message_at,
+    human_requested_at=case when excluded.mode='human_pending' then coalesce(app_live_chat_ai_state.human_requested_at,excluded.human_requested_at) else app_live_chat_ai_state.human_requested_at end,
+    human_reason=case when excluded.mode='human_pending' then excluded.human_reason else app_live_chat_ai_state.human_reason end,
+    updated_at=now();
+
+  insert into public.app_inquiry_messages(inquiry_id,sender_role,sender_id,body,support_actor,created_at)
+  values(p_inquiry_id,'admin',null,response_text,'ai',clock_timestamp()+interval '1 millisecond')
+  returning * into ai_msg;
+
+  update public.app_inquiries
+     set last_message_at=now(),updated_at=now(),
+         status=case when next_mode='human_pending' then 'open' else status end
+   where id=p_inquiry_id;
+
+  if next_mode='human_pending' then
+    notices:=public.app_live_chat_notify_available_agents(p_inquiry_id);
+  end if;
+
+  return jsonb_build_object(
+    'ok',true,
+    'mode',next_mode,
+    'intent',intent,
+    'secondary_intent',decision->>'secondary_intent',
+    'confidence',confidence,
+    'handoff',(next_mode='human_pending'),
+    'support_queue',notices,
+    'message',public.app_message_public_row(ai_msg)
+  );
+end
+$fn$;
+revoke all on function public.app_live_chat_ai_process(uuid,text,text) from public, anon, authenticated;
+
+-- ############################################################################
+-- END migrations/110_live_chat_ai_intent_engine_and_thinking_state.sql
 -- ############################################################################
 
 -- ============================================================================
