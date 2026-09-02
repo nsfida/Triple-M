@@ -3518,3 +3518,14 @@ body.message-float-page-locked{
 html[data-triplem-theme] .message-float-transfer,html[data-triplem-theme] .message-float-open{background:var(--surface-elevated)!important;color:var(--text)!important;border-color:var(--line)!important;}
 html[data-triplem-theme] .message-float-transfer:hover,html[data-triplem-theme] .message-float-open:hover{background:color-mix(in srgb,var(--primary) 8%,var(--surface-elevated))!important;color:var(--primary)!important;}
 @media(max-width:560px){.message-float-actions .btn{height:25px!important;min-height:25px!important;padding:3px 6px!important;font-size:.51rem!important;}}
+
+/* 108 — AI-to-human support transcript provenance */
+.chat-bubble.from-ai{
+  background:color-mix(in srgb,var(--primary) 6%,var(--surface-glass-strong,#fff));
+  border-color:color-mix(in srgb,var(--primary) 24%,var(--line));
+}
+.chat-bubble-who{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.chat-bubble-who strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-actor-badge{display:inline-flex;align-items:center;padding:2px 5px;border:1px solid var(--line);border-radius:999px;font-size:.52rem;font-style:normal;font-weight:850;line-height:1;text-transform:uppercase;letter-spacing:.03em}
+.chat-actor-badge.is-ai{color:var(--primary);border-color:color-mix(in srgb,var(--primary) 34%,var(--line));background:color-mix(in srgb,var(--primary) 8%,var(--surface-elevated))}
+.chat-actor-badge.is-human{color:#067647;border-color:color-mix(in srgb,#12b76a 34%,var(--line));background:color-mix(in srgb,#12b76a 8%,var(--surface-elevated))}
