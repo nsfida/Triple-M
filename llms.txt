@@ -25,6 +25,10 @@ Triplem VIP currently presents public information about these connected workspac
 - Asset management, including value and profit/loss views where supported.
 - Notes and reminders.
 - Private in-app user/admin messaging.
+- Optional Authenticator App 2FA using standards-based TOTP, with QR/manual setup and single-use recovery codes.
+- Opt-in secure Web Push notifications for supported desktop and mobile browser environments.
+- Guided public visitor Live Support with AI assistance and explicit Agent handoff.
+- Authenticated Triplem VIP user support chat with notification integration.
 - Client-side Bitcoin tools; sensitive key workflows are designed to remain in the browser rather than being treated as normal server-held account data.
 - Responsive use across modern desktop and mobile browsers.
 
@@ -35,6 +39,7 @@ Triplem VIP currently presents public information about these connected workspac
 - [Expense tracking](https://triplem.vip/seo/expense-tracking.html): What useful expense records contain, why wallet context matters and when a basic expense list becomes insufficient.
 - [Finance software](https://triplem.vip/seo/finance-software.html): How operational finance, obligations, assets, inventory, reporting and multi-currency records can fit into one workspace.
 - [What is Triplem VIP?](https://triplem.vip/seo/triplem.html): Product identity, current brand name and supported use cases.
+- [Security, 2FA, notifications and support](https://triplem.vip/seo/security-and-support.html): Public guide to Authenticator 2FA, recovery codes, Web Push, visitor Live Support and private user messaging.
 
 ## Common user questions
 
