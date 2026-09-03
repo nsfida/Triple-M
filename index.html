@@ -800,7 +800,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-bgnotify117" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-webpush118" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -2975,12 +2975,18 @@
                 <h4>Notifications</h4>
                 <span class="admin-comms-subtitle" id="adminNotifySubtitle">Reminders, dues &amp; alerts</span>
               </div>
-              <button class="btn ghost admin-comms-action" id="adminNotifyMarkAllBtn" type="button" title="Mark all as read">
-                <i class="fa-solid fa-check-double"></i>
+              <button class="btn ghost admin-comms-read-all" id="adminNotifyMarkAllBtn" type="button" title="Mark all notifications as read">
+                <i class="fa-solid fa-check-double" aria-hidden="true"></i><span>Read all</span>
               </button>
             </div>
             <div class="admin-comms-items" id="adminNotifyList">
               <div class="admin-comms-empty">No notifications yet</div>
+            </div>
+            <div class="admin-comms-device-footer">
+              <button type="button" class="admin-comms-device-toggle" id="pushNotificationToggleBtn">
+                <i class="fa-solid fa-bell-slash" aria-hidden="true"></i><span>Enable device notifications</span>
+              </button>
+              <span id="pushNotificationStatus">Receive alerts when Triplem VIP is closed.</span>
             </div>
           </div>
         </div>
@@ -4330,6 +4336,9 @@
                   </button>
                   <button class="btn soft tiny admin-tool-btn" id="adminLiveChatRecordsBtn" type="button" title="Live Chat conversation records">
                     <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Chat Records
+                  </button>
+                  <button class="btn soft tiny admin-tool-btn hide" id="adminPushNotificationsBtn" type="button" title="Send Web Push notifications">
+                    <i class="fa-solid fa-bell" aria-hidden="true"></i> Push Center
                   </button>
                   <button class="btn soft tiny admin-tool-btn admin-tool-btn--icon" id="adminAnalyticsBtn" type="button" title="Analytics" aria-label="Analytics">
                     <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
@@ -6307,8 +6316,8 @@
   <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260902-livechat099"></script>
-  <script src="Assets/app/landing/02-live-chat.js?v=20260903-livechat117"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260902-livechat099"></script>
+  <script src="Assets/app/landing/02-live-chat.js?v=20260903-webpush118"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260903-webpush118"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe"></script>
   <script src="Assets/app/notes/01-notes.js?v=20260902-credential-vault103"></script>
   <script src="Assets/app/assets/01-assets.js?v=20260901-auth-resume-fix2"></script>
@@ -6316,7 +6325,8 @@
   <script src="Assets/app/admin/01-admin.js?v=20260902-raw-live-record106"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/messaging/01-messaging.js?v=20260903-livechat117"></script>
+  <script src="Assets/app/messaging/01-messaging.js?v=20260903-webpush118"></script>
+  <script src="Assets/app/notifications/01-web-push.js?v=20260903-webpush118"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
 </html>
