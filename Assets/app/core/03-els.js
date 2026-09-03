@@ -1222,6 +1222,8 @@ function ensureAppConfirmDialog(){
   modal = document.createElement("div");
   modal.id = "appConfirmDialog";
   modal.className = "modal hide app-confirm-modal";
+  modal.style.setProperty("z-index", "2147483647", "important");
+  modal.style.setProperty("isolation", "isolate");
   modal.setAttribute("aria-hidden", "true");
   modal.innerHTML = `
     <div class="modal-backdrop app-confirm-backdrop" data-app-confirm-cancel></div>
@@ -1259,6 +1261,11 @@ function appConfirm(options = {}){
     // Keep the shared confirmation portal as the last body child so it always
     // paints above dynamically-created Admin/chat overlays in every browser.
     if (modal.parentElement === document.body) document.body.appendChild(modal);
+    // The generic .modal rule is declared later in the stylesheet and can otherwise
+    // reset this portal below Admin overlays. Pin the destructive confirmation to
+    // the browser's top stacking layer as an inline important style as well as CSS.
+    modal.style.setProperty("z-index", "2147483647", "important");
+    modal.style.setProperty("isolation", "isolate");
     const title = modal.querySelector("#appConfirmTitle");
     const message = modal.querySelector("#appConfirmMessage");
     const note = modal.querySelector("#appConfirmNote");
