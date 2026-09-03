@@ -4137,6 +4137,24 @@ const adminCommsState = {
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   };
+  const liveRecordLifecycleEvent = (message) => {
+    const body = String(message?.body || "").trim();
+    if (!body) return null;
+    const role = String(message?.sender_role || "").toLowerCase();
+    const automated = role !== "guest" && !message?.sender_id;
+    if (!automated) return null;
+    const rules = [
+      [/^this live chat has (?:now )?closed(?: due to inactivity)?[.!]?/i, "Chat closed", "fa-circle-check"],
+      [/^we have not heard back from you yet[.!]?/i, "Inactivity notice", "fa-clock"],
+      [/^this live chat has ended[.!]?/i, "Chat ended", "fa-circle-check"],
+      [/^this conversation has (?:been )?transferred/i, "Support transfer", "fa-right-left"],
+      [/^a (?:real )?triplem vip support agent/i, "Agent update", "fa-headset"]
+    ];
+    for (const [pattern, label, icon] of rules) {
+      if (pattern.test(body)) return { label, icon, body };
+    }
+    return null;
+  };
   const ensureRecordsModal = () => {
     let modal = document.getElementById("adminLiveChatRecordsModal");
     if (modal) return modal;
@@ -4188,6 +4206,10 @@ const adminCommsState = {
         ${transfers.length ? `<div class="admin-live-record-handoffs"><div class="admin-live-record-handoffs-title"><i class="fa-solid fa-right-left"></i><strong>Support handoff history</strong><span>${transfers.length} transfer${transfers.length === 1 ? "" : "s"}</span></div>${transfers.map(t => `<div class="admin-live-record-handoff"><span class="admin-live-record-handoff-route"><strong>${escapeHtml(t.from_name || "Support")}</strong><i class="fa-solid fa-arrow-right"></i><strong>${escapeHtml(t.to_name || "Support")}</strong></span><span class="admin-live-record-handoff-status ${escapeHtml(String(t.status || "").toLowerCase())}">${escapeHtml(t.status || "unknown")}</span><small>${escapeHtml(fmt(t.requested_at))}${t.resolved_at ? ` · resolved ${escapeHtml(fmt(t.resolved_at))}` : ""}</small></div>`).join("")}</div>` : ""}
         <div class="admin-live-record-transcript" role="log">${messages.length ? messages.map(m => {
           const guest = String(m.sender_role || "").toLowerCase() === "guest";
+          const lifecycle = liveRecordLifecycleEvent(m);
+          if (lifecycle) {
+            return `<div class="admin-live-record-event"><i class="fa-solid ${escapeHtml(lifecycle.icon)}" aria-hidden="true"></i><div><strong>${escapeHtml(lifecycle.label)}</strong><span>${escapeHtml(lifecycle.body)}</span></div><time>${escapeHtml(fmt(m.created_at))}</time></div>`;
+          }
           return `<div class="admin-live-record-msg ${guest ? "guest" : "support"}"><div class="admin-live-record-msg-meta"><strong>${escapeHtml(m.sender_name || (guest ? chat.guest_name : "Triplem VIP Support"))}</strong><span>${escapeHtml(fmt(m.created_at))}</span></div><p>${escapeHtml(m.body || "")}</p></div>`;
         }).join("") : `<div class="empty">No messages stored in this record.</div>`}</div>
         <div class="admin-live-record-thread-actions">
