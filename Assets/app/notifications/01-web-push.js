@@ -1,8 +1,8 @@
-/* Triplem VIP secure Web Push client + Main Admin notification center — v119 */
+/* Triplem VIP secure Web Push client + Main Admin notification center — v120 */
 (() => {
   "use strict";
 
-  const SW_URL = "/service-worker.js?v=119";
+  const SW_URL = "/service-worker.js?v=120";
   const FUNCTION_NAME = "push-notifications";
   const stateLocal = {
     config: null,
@@ -533,9 +533,18 @@
       if (errorEl) {
         errorEl.classList.add("is-success");
         const delivery = result?.delivery;
-        errorEl.textContent = delivery
-          ? `Notification processed for ${Number(result?.recipient_count) || 0} user${Number(result?.recipient_count) === 1 ? "" : "s"}: ${Number(delivery.sent) || 0} device push${Number(delivery.sent) === 1 ? "" : "es"} accepted${Number(delivery.failed) ? `, ${Number(delivery.failed)} failed` : ""}.`
-          : `Queued securely for ${Number(result?.recipient_count) || 0} user${Number(result?.recipient_count) === 1 ? "" : "s"}. In-app notifications are available immediately; Web Push continues in the background.`;
+        const recipientCount = Number(result?.recipient_count) || 0;
+        const inAppCount = Number(result?.notification_count ?? recipientCount) || 0;
+        if (delivery) {
+          const failed = Number(delivery.failed) || 0;
+          const firstFailure = Array.isArray(delivery.failures) ? delivery.failures[0] : null;
+          const failureHint = failed && firstFailure
+            ? ` (${safe(firstFailure.host || "push service")}${Number(firstFailure.status) ? ` HTTP ${Number(firstFailure.status)}` : ""})`
+            : "";
+          errorEl.textContent = `${inAppCount} in-app notification${inAppCount === 1 ? "" : "s"} created; ${Number(delivery.sent) || 0} device push${Number(delivery.sent) === 1 ? "" : "es"} accepted${failed ? `, ${failed} failed${failureHint}` : ""}.`;
+        } else {
+          errorEl.textContent = `${inAppCount} in-app notification${inAppCount === 1 ? "" : "s"} created for ${recipientCount} user${recipientCount === 1 ? "" : "s"}; Web Push delivery continues securely in the background.`;
+        }
       }
       if (typeof refreshAdminCommsBadges === "function") refreshAdminCommsBadges().catch(() => {});
     } catch (error) {
