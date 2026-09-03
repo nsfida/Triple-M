@@ -28992,3 +28992,104 @@ html[data-triplem-theme]:not([data-triplem-theme="default"]) .push-consent-card{
   .admin-live-record-msg{max-width:91%;padding:6px 7px}.admin-live-record-msg p{font-size:.54rem}
   .admin-live-record-thread-actions{gap:4px}.admin-live-record-thread-actions .btn{padding:4px 6px!important;font-size:.48rem!important}
 }
+
+/* 2026-09-03 v126 · Live Chat transcript structural correction + topmost confirmation portal */
+/* The shared .settings-sheet-body rule is declared later than the original Live Chat
+   rules. Force this body back to a flex column so short transcripts do not expand
+   into large grid rows or stretch the footer controls. */
+#adminLiveChatTranscriptModal .admin-live-record-thread-sheet{
+  height:auto!important;
+  max-height:min(84dvh,720px)!important;
+  grid-template-rows:auto minmax(0,1fr)!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-thread-body{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:7px!important;
+  min-height:0!important;
+  max-height:calc(min(84dvh,720px) - 52px)!important;
+  overflow:hidden!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-summary,
+#adminLiveChatTranscriptModal .admin-live-record-handoffs,
+#adminLiveChatTranscriptModal .admin-live-record-thread-actions{
+  flex:0 0 auto!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-transcript{
+  flex:0 1 auto!important;
+  min-height:90px!important;
+  max-height:min(48dvh,400px)!important;
+  overflow:auto!important;
+  align-content:flex-start!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-thread-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  align-self:stretch!important;
+  min-height:0!important;
+  height:auto!important;
+  margin:0!important;
+  padding:6px 0 0!important;
+  gap:6px!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-thread-actions>.btn{
+  flex:0 0 auto!important;
+  align-self:center!important;
+  width:auto!important;
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  padding:4px 8px!important;
+  line-height:1!important;
+}
+/* The generic .modal rule appears later than the original confirmation rule in the
+   bundle, so use a more specific final rule at the maximum practical stacking level. */
+.modal.app-confirm-modal{
+  z-index:2147483647!important;
+  isolation:isolate!important;
+  transform:none!important;
+}
+.modal.app-confirm-modal .app-confirm-backdrop,
+.modal.app-confirm-modal .app-confirm-dialog{
+  pointer-events:auto!important;
+}
+@media(max-width:900px){
+  #adminLiveChatTranscriptModal .admin-live-record-thread-sheet{
+    width:min(100%,calc(100vw - 28px))!important;
+    height:auto!important;
+    max-height:calc(100dvh - 28px)!important;
+    margin:auto!important;
+  }
+  #adminLiveChatTranscriptModal .admin-live-record-thread-body{
+    max-height:calc(100dvh - 86px)!important;
+  }
+  #adminLiveChatTranscriptModal .admin-live-record-transcript{
+    min-height:100px!important;
+    max-height:min(52dvh,430px)!important;
+  }
+}
+@media(max-width:480px){
+  #adminLiveChatTranscriptModal.modal{
+    padding:max(14px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) max(14px,env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px))!important;
+  }
+  #adminLiveChatTranscriptModal .admin-live-record-thread-sheet{
+    width:100%!important;
+    max-height:calc(100dvh - 28px)!important;
+    border-radius:15px!important;
+  }
+  #adminLiveChatTranscriptModal .admin-live-record-summary{
+    grid-template-columns:1fr 1fr!important;
+  }
+  #adminLiveChatTranscriptModal .admin-live-record-thread-actions{
+    padding-top:5px!important;
+  }
+  #adminLiveChatTranscriptModal .admin-live-record-thread-actions>.btn{
+    height:27px!important;
+    min-height:27px!important;
+    max-height:27px!important;
+    padding:4px 7px!important;
+  }
+}
+
