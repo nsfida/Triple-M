@@ -886,3 +886,7 @@ html.expense-wallet-drag-lock body{
   .app-confirm-actions .app-confirm-action-btn{width:30px;min-width:30px;height:30px;min-height:30px;}
 }
 @media(prefers-reduced-motion:reduce){.app-confirm-dialog,.app-confirm-glint::after{animation:none !important;}}
+
+/* 2026-09-03 v126 · shared confirmation must outrank every Admin overlay */
+.modal.app-confirm-modal{z-index:2147483647!important;isolation:isolate!important;transform:none!important}
+
