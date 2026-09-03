@@ -1,5 +1,13 @@
-/* Triplem VIP Web Push Service Worker — v118 */
+/* Triplem VIP Web Push Service Worker — v120 */
 "use strict";
+
+self.addEventListener("install", event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", event => {
+  event.waitUntil(self.clients.claim());
+});
 
 self.addEventListener("push", event => {
   event.waitUntil((async () => {
