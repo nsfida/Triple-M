@@ -760,7 +760,7 @@ describe("migrations + schema build smoke", () => {
     assert.match(messaging, /directResult\?\.available/);
     assert.match(messaging, /openAcceptedLiveChatImmediately/);
     assert.match(styles, /live-support-offer-close/);
-    assert.match(index, /live-chat(?:106|=20260902-(?:polish107|ai108)|=20260903-(?:ai(?:111|113|114)|bgnotify117))|polish107|ai108|ai111|ai113|ai114|bgnotify117/);
+    assert.match(index, /live-chat(?:106|=20260902-(?:polish107|ai108)|=20260903-(?:ai(?:111|113|114)|bgnotify117|webpush(?:118|119|120|123|124)))|polish107|ai108|ai111|ai113|ai114|bgnotify117|webpush(?:118|119|120|123|124)/);
   });
 
   it("106 keeps accepted transfers visible, clears open-chat unread state, and is installation-safe", () => {
@@ -788,7 +788,7 @@ describe("migrations + schema build smoke", () => {
     assert.match(admin, /Support handoff history/);
     assert.match(styles, /admin-raw-empty-state/);
     assert.match(styles, /live-chat-quick-item>span>small/);
-    assert.match(index, /live-chat(?:106|=20260902-(?:polish107|ai108)|=20260903-(?:ai(?:111|113|114)|bgnotify117))|polish107|ai108|ai111|ai113|ai114|bgnotify117/);
+    assert.match(index, /live-chat(?:106|=20260902-(?:polish107|ai108)|=20260903-(?:ai(?:111|113|114)|bgnotify117|webpush(?:118|119|120|123|124)))|polish107|ai108|ai111|ai113|ai114|bgnotify117|webpush(?:118|119|120|123|124)/);
   });
 
   it("schema reset drops inventory catalog and reminder tables", () => {
@@ -873,7 +873,7 @@ it("post-106 live chat polish preserves dropdown scroll and toggle semantics", (
   assert.match(messaging, /previousScrollTop/);
   assert.match(messaging, /isAssignedSupportThread\(thread\) && floatingMessageState\.openIds\.has/);
   assert.match(landing, /launcherToggle && panelOpen/);
-  assert.match(css, /z-index:2147483600/);
+  assert.match(css, /z-index:2147483646/);
   assert.match(css, /message-float-transfer.*background:var\(--surface-elevated\)/s);
 });
 
@@ -961,7 +961,7 @@ it("109 makes zero-cost Live Chat AI more conversational, concise, confidential,
   assert.match(landing, /requestSubmit/);
   assert.match(css, /landing-live-chat-reply textarea\{[^}]*scrollbar-width:none/i);
   assert.match(css, /landing-live-chat-reply textarea::\-webkit\-scrollbar\{[^}]*display:none/i);
-  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:109|110|111|112|113|114)|livechat117)/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:109|110|111|112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
   assert.match(builder, /109_live_chat_ai_intelligence_and_input\.sql/);
 });
 
@@ -995,8 +995,8 @@ it("110 adds weighted multi-intent Live Chat AI with visible generation state an
   assert.match(landing, /modeBeforeSend === "ai"/);
   assert.match(css, /landingLiveChatAiThink/);
   assert.match(css, /landing-live-chat-thinking-dots/);
-  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:110|111|112|113|114)|livechat117)/);
-  assert.match(index, /livechat=20260903-(?:ai(?:110|111|112|113|114)|bgnotify117)/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:110|111|112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /livechat=20260903-(?:ai(?:110|111|112|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
   assert.match(builder, /110_live_chat_ai_intent_engine_and_thinking_state\.sql/);
 });
 
@@ -1034,9 +1034,9 @@ it("111 deepens local-context AI, auto-hands repeated uncertainty to online agen
   assert.match(visitorCss, /landing-live-chat-message p\{font-size:\.82rem;line-height:1\.48;\}/i);
   assert.match(agentCss, /message-float-vv-width/i);
   assert.match(agentCss, /message-float-dock\.has-open-card\{[\s\S]*transform:none !important;[\s\S]*will-change:auto !important;/i);
-  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:111|112|113|114)|livechat117)/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:ai(?:111|113|114)|livechat(?:115|116|117))/);
-  assert.match(index, /livechat=20260903-(?:ai(?:111|113|114)|bgnotify117)/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:111|112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /01-messaging\.js\?v=20260903-(?:ai(?:111|113|114)|livechat(?:115|116|117)|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /livechat=20260903-(?:ai(?:111|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
   assert.match(builder, /111_live_chat_ai_context_confidence_and_mobile_polish\.sql/);
 });
 
@@ -1086,7 +1086,7 @@ it("112 uses real local transformer semantic understanding with grounded server 
   assert.match(migration, /guarded_server_policy/);
   assert.doesNotMatch(topLevel, /\binsert\s+into\b|\bupdate\s+public\.app_|\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
   assert.doesNotMatch(semantic, /api\.openai\.com|generativelanguage\.googleapis|api\.groq\.com|api\.huggingface\.co/i);
-  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:112|113|114)|livechat117)/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
   assert.match(builder, /112_live_chat_neural_semantic_ai\.sql/);
 });
 
@@ -1115,8 +1115,8 @@ it("113 fixes neural ESM loading, contextual transcript failures, Agent terminol
   assert.match(landing, /Agent support requested/);
   assert.match(messaging, />Agent<\/em>/);
   assert.match(index, /AI available 24\/7 · Agent support 10:00 AM/);
-  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:113|114)|livechat117)/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:ai113|livechat(?:115|116|117))/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:113|114)|livechat117|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /01-messaging\.js\?v=20260903-(?:ai113|livechat(?:115|116|117)|webpush(?:118|119|120|123|124))/);
   assert.match(builder, /113_live_chat_ai_contextual_neural_agent_refinement\.sql/);
   assert.doesNotMatch(topLevel, /\binsert\s+into\b|\bupdate\s+public\.app_|\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
   assert.doesNotMatch(semantic, /api\.openai\.com|generativelanguage\.googleapis|api\.groq\.com|api\.huggingface\.co/i);
@@ -1154,8 +1154,8 @@ it("114 replaces free-form visitor AI prompts with guided questions and unlocks 
   assert.match(index, /landingLiveChatGuided/);
   assert.doesNotMatch(index, /id="landingLiveChatMessage"/);
   assert.doesNotMatch(index, /01-live-chat-semantic-ai\.js/);
-  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai114|livechat117)/);
-  assert.match(index, /livechat=20260903-(?:ai114|bgnotify117)/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai114|livechat117|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /livechat=20260903-(?:ai114|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
   assert.match(landing, /app_public_live_chat_start_guided/);
   assert.match(landing, /app_public_live_chat_choose/);
   assert.match(landing, /const canType = !closed && \(mode === "human" \|\| mode === "legacy_human"\)/);
@@ -1185,7 +1185,7 @@ it("116 loops the OPUS Agent Live Chat invitation sound and stops/dismisses imme
   assert.match(messaging, /refreshAdminCommsBadges\(\)\.catch/);
   assert.match(messaging, /startLiveChatRealtimeBridge\(\)/);
   assert.match(messaging, /stopLiveChatRealtimeBridge\(\)/);
-  assert.match(index, /01-messaging\.js\?v=20260903-livechat(?:116|117)/);
+  assert.match(index, /01-messaging\.js\?v=20260903-(?:livechat(?:116|117)|webpush(?:118|119|120|123|124))/);
 });
 
 
@@ -1213,7 +1213,293 @@ it("117 wakes minimized Agent tabs through Realtime Broadcast and makes stale be
   assert.match(messaging, /app_live_chat_decline_transfer/);
   assert.match(messaging, /data-live-assignment-close><i class="fa-solid fa-check"><\/i> Done/);
   assert.match(css, /live-chat-assignment-resolution/);
-  assert.match(index, /02-live-chat\.js\?v=20260903-livechat117/);
-  assert.match(index, /01-messaging\.js\?v=20260903-livechat117/);
-  assert.match(index, /livechat=20260903-bgnotify117/);
+  assert.match(index, /02-live-chat\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /01-messaging\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124))/);
+  assert.match(index, /livechat=20260903-(?:bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
+});
+
+
+it("118 implements secure opt-in Web Push, Main Admin multi-user broadcasts, closed-browser Agent alerts, and compact bell controls", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "118_secure_web_push_notifications.sql"), "utf8");
+  const edge = fs.readFileSync(path.join(projectRoot, "supabase/functions/push-notifications/index.ts"), "utf8");
+  const sw = fs.readFileSync(path.join(projectRoot, "service-worker.js"), "utf8");
+  const pushClient = fs.readFileSync(path.join(projectRoot, "Assets/app/notifications/01-web-push.js"), "utf8");
+  const landing = fs.readFileSync(path.join(projectRoot, "Assets/app/landing/02-live-chat.js"), "utf8");
+  const messaging = fs.readFileSync(path.join(projectRoot, "Assets/app/messaging/01-messaging.js"), "utf8");
+  const auth = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/02-auth-welcome-trial.js"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8");
+
+  const installOnly = migration
+    .replace(/\$fn\$[\s\S]*?\$fn\$/g, "")
+    .replace(/--.*$/gm, "");
+  assert.match(migration, /create table if not exists public\.app_push_subscriptions/i);
+  assert.match(migration, /alter table public\.app_push_subscriptions enable row level security/i);
+  assert.match(migration, /app_register_push_subscription/i);
+  assert.match(migration, /app_unregister_push_subscription/i);
+  assert.match(migration, /app_set_push_client_presence/i);
+  assert.match(migration, /app_push_admin_prepare_custom_notification/i);
+  assert.match(migration, /app_require_protected_admin\(\)/i);
+  assert.match(migration, /app_push_service_live_chat_recipients/i);
+  assert.match(migration, /app_live_chat_validate_guest\(p_inquiry_id,p_guest_token\)/i);
+  assert.match(migration, /route_row\.status<>'pending'/i);
+  assert.match(migration, /ai_row\.mode<>'human_pending'/i);
+  assert.match(migration, /app_push_service_subscriptions_for_users/i);
+  assert.match(migration, /app_push_live_chat_dispatches/i);
+  assert.match(migration, /should_send/i);
+  assert.match(migration, /fcm\\.googleapis|fcm\.googleapis/i);
+  assert.match(migration, /revoke all on table public\.app_push_subscriptions from public, anon, authenticated/i);
+  assert.doesNotMatch(installOnly, /\bupdate\s+public\.app_|\bdelete\s+from\s+public\.app_|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+  assert.match(edge, /@pushforge\/builder@2\.0\.5/);
+  assert.match(edge, /VAPID_PRIVATE_KEY/);
+  assert.match(edge, /X-Session-Token/i);
+  assert.match(edge, /app_push_admin_prepare_custom_notification/);
+  assert.match(edge, /app_push_service_live_chat_recipients/);
+  assert.match(edge, /authorized\?\.should_send === false/);
+  assert.match(edge, /EdgeRuntime/);
+  assert.match(edge, /waitUntil/);
+  assert.match(edge, /suppressWhenOpen:\s*(?:true|false)/);
+  assert.match(edge, /body:\s*"A visitor is waiting for an Agent\./);
+  assert.doesNotMatch(pushClient, /VAPID_PRIVATE_KEY|privateJWK/);
+
+  assert.match(sw, /self\.addEventListener\("push"/);
+  assert.match(sw, /clients\.matchAll\(\{ type: "window", includeUncontrolled: true \}\)/);
+  assert.match(sw, /registration\.showNotification/);
+  assert.match(sw, /notificationclick/);
+
+  assert.match(pushClient, /Notification\.requestPermission\(\)/);
+  assert.match(pushClient, /pushManager\.subscribe/);
+  assert.match(pushClient, /app_register_push_subscription/);
+  assert.match(pushClient, /startClientPresence/);
+  assert.match(pushClient, /app_set_push_client_presence/);
+  assert.match(pushClient, /pagehide/);
+  assert.match(pushClient, /keepalive:\s*true/);
+  assert.match(pushClient, /adminPushNotificationsBtn/);
+  assert.match(pushClient, /data-admin-push-mode="all"/);
+  assert.match(pushClient, /data-admin-push-mode="selected"/);
+  assert.match(pushClient, /adminPushUserSearch/);
+  assert.match(pushClient, /selectedUsers:\s*new Set\(\)/);
+  assert.match(pushClient, /requestLiveChatAgentPush/);
+  assert.match(landing, /requestClosedBrowserAgentPush\(session\.inquiry_id\)/);
+  assert.match(auth, /TriplemPush\?\.syncExistingSubscription/);
+  assert.match(index, /service-worker\.js|01-web-push\.js\?v=20260903-webpush(?:118|119|120|123|124)/);
+  assert.match(index, /adminPushNotificationsBtn/);
+  assert.match(index, /pushNotificationToggleBtn/);
+  assert.match(index, /admin-comms-read-all/);
+  assert.match(messaging, /admin-notif-read-btn/);
+  assert.match(css, /admin-push-dialog/);
+  assert.match(css, /admin-comms-device-toggle/);
+  assert.match(builder, /118_secure_web_push_notifications\.sql/);
+});
+
+
+it("119 makes Web Push delivery window-state reliable, self-heals VAPID subscriptions, and notifies private Messages", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "119_web_push_delivery_reliability_and_messages.sql"), "utf8");
+  const edge = fs.readFileSync(path.join(projectRoot, "supabase/functions/push-notifications/index.ts"), "utf8");
+  const sw = fs.readFileSync(path.join(projectRoot, "service-worker.js"), "utf8");
+  const pushClient = fs.readFileSync(path.join(projectRoot, "Assets/app/notifications/01-web-push.js"), "utf8");
+  const messaging = fs.readFileSync(path.join(projectRoot, "Assets/app/messaging/01-messaging.js"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8");
+
+  const installOnly = migration
+    .replace(/\$fn\$[\s\S]*?\$fn\$/g, "")
+    .replace(/--.*$/gm, "");
+
+  assert.match(migration, /create table if not exists public\.app_push_message_dispatches/i);
+  assert.match(migration, /app_push_prepare_message_dispatch/i);
+  assert.match(migration, /latest\.sender_id is distinct from uid/i);
+  assert.match(migration, /latest\.sender_role='user'/i);
+  assert.match(migration, /latest\.sender_role='admin'/i);
+  assert.match(migration, /on conflict\(message_id\) do nothing/i);
+  assert.match(migration, /coalesce\(inquiry_row\.source,'app'\) <> 'app'/i);
+  assert.doesNotMatch(installOnly, /\bupdate\s+public\.app_|\bdelete\s+from\s+public\.app_|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+  assert.match(edge, /publicVapidKeyFromPrivateJWK/);
+  assert.match(edge, /configured_public_key_matches_private/);
+  assert.match(edge, /action === "message_notify"/);
+  assert.match(edge, /app_push_prepare_message_dispatch/);
+  assert.match(edge, /Web Push delivery summary/);
+  assert.match(edge, /recipients\.length <= 25/);
+  assert.doesNotMatch(edge, /closedOnly/);
+  assert.doesNotMatch(edge, /row\.client_open !== true/);
+
+  assert.match(pushClient, /ensureSubscriptionForVapid/);
+  assert.match(pushClient, /subscriptionUsesPublicKey/);
+  assert.match(pushClient, /app_unregister_push_subscription/);
+  assert.match(pushClient, /requestMessagePush/);
+  assert.match(pushClient, /invoke\("message_notify"/);
+  assert.match(pushClient, /service-worker\.js\?v=(?:119|120|123)/);
+
+  assert.match(messaging, /TriplemPush\?\.requestMessagePush/);
+  assert.match(sw, /Web Push Service Worker — v(?:119|120|123)/);
+  assert.match(sw, /registration\.showNotification/);
+  assert.match(index, /01-messaging\.js\?v=20260903-webpush(?:119|120|123|124)/);
+  assert.match(index, /01-web-push\.js\?v=20260903-webpush(?:119|120|123|124)/);
+  assert.match(builder, /119_web_push_delivery_reliability_and_messages\.sql/);
+});
+
+
+it("120 exposes Admin broadcasts in the bell and adds dual Web Push transport verification", () => {
+  const migration = fs.readFileSync(path.join(__dirname, "..", "migrations", "120_web_push_transport_and_notification_center_fix.sql"), "utf8");
+  const messaging = fs.readFileSync(path.join(__dirname, "..", "Assets", "app", "messaging", "01-messaging.js"), "utf8");
+  const pushClient = fs.readFileSync(path.join(__dirname, "..", "Assets", "app", "notifications", "01-web-push.js"), "utf8");
+  const edge = fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", "push-notifications", "index.ts"), "utf8");
+  const sw = fs.readFileSync(path.join(__dirname, "..", "service-worker.js"), "utf8");
+  const index = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+
+  assert.match(migration, /notification_count integer/i);
+  assert.match(migration, /get diagnostics notification_count = row_count/i);
+  assert.match(migration, /notification_count <> recipient_count/i);
+  assert.doesNotMatch(migration, /^\s*(update|delete|truncate)\s+public\.(app_users|app_inquiries|app_inquiry_messages|app_user_notifications)/im);
+
+  assert.match(messaging, /function isAdminBroadcastNotification\(item\)/);
+  assert.match(messaging, /admin_broadcast/);
+  assert.match(messaging, /\|\| isAdminBroadcastNotification\(item\)/);
+
+  assert.match(edge, /@pushforge\/builder@2\.0\.5/);
+  assert.match(edge, /@block65\/webcrypto-web-push@1\.0\.2/);
+  assert.match(edge, /sendWithPushForge/);
+  assert.match(edge, /sendWithWebCrypto/);
+  assert.match(edge, /webcrypto-fallback/);
+  assert.match(edge, /Web Push accepted on fallback/);
+
+  assert.match(sw, /skipWaiting\(\)/);
+  assert.match(sw, /clients\.claim\(\)/);
+  assert.match(pushClient, /service-worker\.js\?v=(?:120|123)/);
+  assert.match(index, /01-messaging\.js\?v=20260903-webpush(?:120|123|124)/);
+  assert.match(index, /01-web-push\.js\?v=20260903-webpush(?:120|123|124)/);
+});
+
+
+it("121 uses direct protected subscription-table lookup after recipient authorization", () => {
+  const edge = fs.readFileSync(path.join(__dirname, "..", "supabase", "functions", "push-notifications", "index.ts"), "utf8");
+  assert.match(edge, /from\("app_push_subscriptions"\)/);
+  assert.match(edge, /select\("id,owner_id,endpoint,p256dh,auth_secret"\)/);
+  assert.doesNotMatch(edge, /adminClient\.rpc\("app_push_service_subscriptions_for_users"/);
+  assert.match(edge, /Web Push subscription lookup/);
+});
+
+
+it('web push omits Topic header for Apple Web Push endpoints', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'push-notifications', 'index.ts'), 'utf8');
+  assert.match(src, /host === ["']web\.push\.apple\.com["']/);
+  assert.match(src, /filter\(\(\[key\]\) => key !== ["']topic["']\)/);
+  assert.match(src, /sendWithPushForge\(subscription, payload, deliveryOptions, privateJWK\)/);
+  assert.match(src, /sendWithWebCrypto\(subscription, payload, deliveryOptions, privateJWK\)/);
+});
+
+
+it("123 adds opt-in login/landing consent, compact bell switch, foreground push, and anonymous visitor broadcasts", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "123_push_consent_foreground_and_visitor_subscribers.sql"), "utf8");
+  const pushClient = fs.readFileSync(path.join(projectRoot, "Assets/app/notifications/01-web-push.js"), "utf8");
+  const edge = fs.readFileSync(path.join(projectRoot, "supabase/functions/push-notifications/index.ts"), "utf8");
+  const sw = fs.readFileSync(path.join(projectRoot, "service-worker.js"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8");
+
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/--.*$/gm, "");
+  assert.match(migration, /create table if not exists public\.app_push_visitor_subscriptions/i);
+  assert.match(migration, /visitor_token_hash/i);
+  assert.match(migration, /app_push_service_register_visitor_subscription/i);
+  assert.match(migration, /app_push_admin_prepare_visitor_notification/i);
+  assert.match(migration, /app_push_admin_visitor_subscriber_count/i);
+  assert.match(migration, /app_require_protected_admin\(\)/i);
+  assert.match(migration, /delete from public\.app_push_visitor_subscriptions where endpoint=ep/i);
+  assert.doesNotMatch(installOnly, /\b(update|delete|truncate)\s+public\.(app_users|app_inquiries|app_inquiry_messages|app_user_notifications|wallets|expenses)/i);
+
+  assert.match(pushClient, /USER_PUSH_PREF_PREFIX/);
+  assert.match(pushClient, /VISITOR_PUSH_PREF_KEY/);
+  assert.match(pushClient, /enableVisitorNotifications/);
+  assert.match(pushClient, /syncVisitorSubscription/);
+  assert.match(pushClient, /maybePromptSignedInUser/);
+  assert.match(pushClient, /maybePromptVisitor/);
+  assert.match(pushClient, /pushConsentModal/);
+  assert.match(pushClient, /data-admin-push-mode="visitors"/);
+  assert.match(pushClient, /admin_visitor_count/);
+  assert.match(pushClient, /audience:\s*stateLocal\.adminMode === "visitors"/);
+  assert.match(pushClient, /service-worker\.js\?v=123/);
+
+  assert.match(edge, /action === "visitor_register"/);
+  assert.match(edge, /app_push_service_register_visitor_subscription/);
+  assert.match(edge, /action === "admin_visitor_count"/);
+  assert.match(edge, /app_push_admin_prepare_visitor_notification/);
+  assert.match(edge, /fanOutVisitors/);
+  assert.match(edge, /from\("app_push_visitor_subscriptions"\)/);
+  assert.doesNotMatch(edge, /suppressWhenOpen:\s*true/);
+
+  assert.match(sw, /Web Push Service Worker — v123/);
+  assert.match(sw, /TRIPLEM_PUSH_RECEIVED/);
+  assert.match(sw, /registration\.showNotification/);
+  assert.doesNotMatch(sw, /suppressWhenOpen && windowClients\.length > 0/);
+
+  assert.match(index, /pushQuickToggleBtn/);
+  assert.match(index, /01-web-push\.js\?v=20260903-webpush(?:123|124)/);
+  assert.match(css, /push-quick-toggle/);
+  assert.match(css, /push-consent-overlay/);
+  assert.match(css, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(builder, /123_push_consent_foreground_and_visitor_subscribers\.sql/);
+});
+
+it("124 stabilizes Admin Live Chat records, notification prompt placement, and user logos", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const core = fs.readFileSync(path.join(projectRoot, "Assets/app/core/03-els.js"), "utf8");
+  const admin = fs.readFileSync(path.join(projectRoot, "Assets/app/admin/01-admin.js"), "utf8");
+  const push = fs.readFileSync(path.join(projectRoot, "Assets/app/notifications/01-web-push.js"), "utf8");
+  const auth = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/02-auth-welcome-trial.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+
+  assert.match(core, /document\.body\.appendChild\(modal\)/);
+  assert.match(css, /z-index:2147483646/);
+  assert.match(css, /#adminLiveChatRecordsModal\.modal\{z-index:2147483300!important\}/);
+  assert.match(css, /#adminLiveChatTranscriptModal\.modal\{z-index:2147483400!important\}/);
+  assert.match(css, /admin-live-records-sheet\{[^}]*height:min\(78dvh,720px\)/);
+  assert.match(css, /admin-live-records-list[^}]*scrollbar-width:none/);
+  assert.match(css, /admin-live-records-list::-webkit-scrollbar/);
+
+  assert.match(admin, /const btn = e\.currentTarget;[\s\S]*await appConfirmDelete\("Permanently delete this complete Live Chat record/);
+  assert.match(admin, /if \(btn\?\.isConnected\) btn\.disabled = false/);
+  assert.match(admin, /function adminUserLogoUrl\(user\)/);
+  assert.match(admin, /Assets\/logo\/logo\.png/);
+  assert.match(admin, /admin-user-tile-logo/);
+  assert.match(admin, /admin-live-agent-logo/);
+  assert.match(push, /adminPushUserLogo/);
+  assert.match(push, /promptAfterLogin/);
+  assert.match(push, /Keep off for now/);
+  assert.match(push, /important security updates/);
+  assert.match(auth, /TriplemPush\?\.promptAfterLogin/);
+
+  const togglePos = index.indexOf('id="pushQuickToggleBtn"');
+  const bellPos = index.indexOf('id="adminNotifyBtn"');
+  assert.ok(togglePos >= 0 && bellPos >= 0 && togglePos < bellPos, "notification toggle should render left of the bell");
+  assert.match(index, /01-web-push\.js\?v=20260903-webpush124/);
+  assert.match(index, /01-admin\.js\?v=20260903-admin-ui(?:124|125)/);
+});
+
+
+it("125 compacts Live Chat transcripts and keeps mobile record overlays centered with safe margins", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const admin = fs.readFileSync(path.join(projectRoot, "Assets/app/admin/01-admin.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+
+  assert.match(admin, /liveRecordLifecycleEvent/);
+  assert.match(admin, /admin-live-record-event/);
+  assert.match(admin, /Chat closed/);
+  assert.match(admin, /Inactivity notice/);
+  assert.match(css, /v125 · Live Chat transcript compact audit styling \+ mobile centering/);
+  assert.match(css, /\.admin-live-record-summary>div\{[\s\S]*?border:0!important/);
+  assert.match(css, /\.admin-live-record-event\{/);
+  assert.match(css, /#adminLiveChatRecordsModal\.modal,#adminLiveChatTranscriptModal\.modal\{[\s\S]*?align-items:center;justify-content:center/);
+  assert.match(css, /width:min\(100%,calc\(100vw - 24px\)\)!important/);
+  assert.match(css, /scrollbar-width:none/);
+  assert.match(index, /livechat=20260903-ui125/);
+  assert.match(index, /01-admin\.js\?v=20260903-admin-ui125/);
 });
