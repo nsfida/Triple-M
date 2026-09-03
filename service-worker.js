@@ -1,4 +1,4 @@
-/* Triplem VIP Web Push Service Worker — v120 */
+/* Triplem VIP Web Push Service Worker — v123 */
 "use strict";
 
 self.addEventListener("install", event => {
@@ -17,15 +17,14 @@ self.addEventListener("push", event => {
       try { payload = { body: event.data ? event.data.text() : "" }; } catch (_) { payload = {}; }
     }
 
+    // Foreground delivery is intentional in v123. Open Triplem VIP windows are
+    // notified so their bell/messages can refresh immediately, while the OS
+    // notification is still displayed. Users therefore receive the same push
+    // whether the browser is open, minimized or fully closed.
     const windowClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    const suppressWhenOpen = payload && payload.suppressWhenOpen === true;
-
-    if (suppressWhenOpen && windowClients.length > 0) {
-      windowClients.forEach(client => {
-        try { client.postMessage({ type: "TRIPLEM_PUSH_SUPPRESSED_OPEN", payload }); } catch (_) {}
-      });
-      return;
-    }
+    windowClients.forEach(client => {
+      try { client.postMessage({ type: "TRIPLEM_PUSH_RECEIVED", payload }); } catch (_) {}
+    });
 
     const title = String(payload?.title || "Triplem VIP");
     const data = payload?.data && typeof payload.data === "object" ? payload.data : { url: "/" };
