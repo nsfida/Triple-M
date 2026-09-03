@@ -635,6 +635,11 @@ function isLiveChatRoutingNotification(item){
   return String(notificationPayloadObject(item).type || "").toLowerCase().startsWith("live_chat_");
 }
 
+function isAdminBroadcastNotification(item){
+  if (!item || String(item.kind || "").toLowerCase() !== "system") return false;
+  return String(notificationPayloadObject(item).type || "").toLowerCase() === "admin_broadcast";
+}
+
 function isLiveChatOfferNotification(item){
   return isLiveChatAssignmentNotification(item) || isLiveChatTransferNotification(item);
 }
@@ -644,6 +649,7 @@ function notificationBelongsInBell(item){
   return NOTIFICATION_CENTER_KINDS.has(String(item.kind || "").toLowerCase())
     || isMemberAccessRequestNotification(item)
     || isSubscriptionUserNotification(item)
+    || isAdminBroadcastNotification(item)
     || isLiveChatRoutingNotification(item);
 }
 
