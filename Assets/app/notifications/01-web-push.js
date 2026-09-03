@@ -1,8 +1,8 @@
-/* Triplem VIP secure Web Push client + Main Admin notification center — v118 */
+/* Triplem VIP secure Web Push client + Main Admin notification center — v119 */
 (() => {
   "use strict";
 
-  const SW_URL = "/service-worker.js?v=118";
+  const SW_URL = "/service-worker.js?v=119";
   const FUNCTION_NAME = "push-notifications";
   const stateLocal = {
     config: null,
@@ -84,6 +84,47 @@
     if (!supported()) throw new Error("Web notifications are not supported by this browser.");
     await navigator.serviceWorker.register(SW_URL, { scope: "/", updateViaCache: "none" });
     return navigator.serviceWorker.ready;
+  }
+
+  function bytesEqual(a, b) {
+    if (!a || !b) return false;
+    const left = new Uint8Array(a instanceof ArrayBuffer ? a : a.buffer || a);
+    const right = b instanceof Uint8Array ? b : new Uint8Array(b);
+    if (left.length !== right.length) return false;
+    for (let i = 0; i < left.length; i += 1) if (left[i] !== right[i]) return false;
+    return true;
+  }
+
+  function subscriptionUsesPublicKey(subscription, publicKey) {
+    if (!subscription || !publicKey) return false;
+    const currentKey = subscription?.options?.applicationServerKey;
+    if (!currentKey) return false;
+    try { return bytesEqual(currentKey, base64UrlToUint8Array(publicKey)); }
+    catch (_) { return false; }
+  }
+
+  async function unregisterEndpoint(endpoint) {
+    const ep = safe(endpoint).trim();
+    if (!ep || typeof window.supabaseRpc !== "function" || !(typeof state !== "undefined" && state?.sessionToken)) return false;
+    await window.supabaseRpc("app_unregister_push_subscription", { p_endpoint: ep }).catch(() => {});
+    return true;
+  }
+
+  async function ensureSubscriptionForVapid(registration, publicKey) {
+    let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !subscriptionUsesPublicKey(subscription, publicKey)) {
+      const oldEndpoint = safe(subscription.endpoint).trim();
+      await unregisterEndpoint(oldEndpoint).catch(() => false);
+      await subscription.unsubscribe().catch(() => false);
+      subscription = null;
+    }
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(publicKey)
+      });
+    }
+    return subscription;
   }
 
   function subscriptionKeys(subscription) {
@@ -226,13 +267,7 @@
     if (permission !== "granted") throw new Error("Notification permission was not granted by this browser.");
 
     const registration = await serviceWorkerRegistration();
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(cfg.vapid_public_key)
-      });
-    }
+    const subscription = await ensureSubscriptionForVapid(registration, cfg.vapid_public_key);
     await registerSubscriptionWithAccount(subscription);
     stateLocal.presenceEndpoint = safe(subscription?.endpoint).trim();
     await startClientPresence().catch(() => false);
@@ -263,7 +298,10 @@
     if (!(typeof state !== "undefined" && state?.unlocked && state?.sessionToken && state?.sessionUser)) return false;
     stateLocal.syncing = true;
     try {
-      const subscription = await currentSubscription();
+      const cfg = await getPushConfig(true);
+      if (!cfg?.enabled || !cfg?.vapid_public_key) return false;
+      const registration = await serviceWorkerRegistration();
+      const subscription = await ensureSubscriptionForVapid(registration, cfg.vapid_public_key);
       if (!subscription) return false;
       await registerSubscriptionWithAccount(subscription);
       stateLocal.presenceEndpoint = safe(subscription?.endpoint).trim();
@@ -494,7 +532,10 @@
       if (bodyCount) bodyCount.textContent = "0/600";
       if (errorEl) {
         errorEl.classList.add("is-success");
-        errorEl.textContent = `Queued securely for ${Number(result?.recipient_count) || 0} user${Number(result?.recipient_count) === 1 ? "" : "s"}. In-app notifications are available immediately; Web Push continues in the background.`;
+        const delivery = result?.delivery;
+        errorEl.textContent = delivery
+          ? `Notification processed for ${Number(result?.recipient_count) || 0} user${Number(result?.recipient_count) === 1 ? "" : "s"}: ${Number(delivery.sent) || 0} device push${Number(delivery.sent) === 1 ? "" : "es"} accepted${Number(delivery.failed) ? `, ${Number(delivery.failed)} failed` : ""}.`
+          : `Queued securely for ${Number(result?.recipient_count) || 0} user${Number(result?.recipient_count) === 1 ? "" : "s"}. In-app notifications are available immediately; Web Push continues in the background.`;
       }
       if (typeof refreshAdminCommsBadges === "function") refreshAdminCommsBadges().catch(() => {});
     } catch (error) {
@@ -550,6 +591,18 @@
     }
   }
 
+  async function requestMessagePush(inquiryId) {
+    const id = safe(inquiryId).trim();
+    if (!id || !(typeof state !== "undefined" && state?.sessionToken && state?.sessionUser)) return false;
+    try {
+      const result = await invoke("message_notify", { inquiry_id: id }, { sessionToken: state.sessionToken });
+      return result?.ok === true;
+    } catch (error) {
+      console.warn("Triplem VIP message push could not be queued", error?.message || error);
+      return false;
+    }
+  }
+
   function bind() {
     bindUserToggle();
     bindAdminPush();
@@ -572,8 +625,17 @@
       window.addEventListener("beforeunload", closeClientPresence, { passive: true });
       navigator.serviceWorker?.addEventListener?.("message", event => {
         const msg = event.data || {};
-        if (msg.type === "TRIPLEM_PUSH_SUPPRESSED_OPEN" && msg.payload?.data?.type === "live_chat_agent_request") {
+        if (msg.type !== "TRIPLEM_PUSH_SUPPRESSED_OPEN") return;
+        if (msg.payload?.data?.type === "live_chat_agent_request") {
           if (typeof reconcileLiveChatOffersFromRealtime === "function") reconcileLiveChatOffersFromRealtime(msg.payload?.data?.inquiry_id || null).catch(() => {});
+          return;
+        }
+        if (msg.payload?.data?.type === "private_message") {
+          if (typeof noteMessagingLocalMutation === "function") noteMessagingLocalMutation();
+          if (typeof refreshAdminCommsBadges === "function") refreshAdminCommsBadges().catch(() => {});
+          if (typeof getActiveTabKey === "function" && getActiveTabKey() === "messages" && typeof renderMessagesPanel === "function") {
+            renderMessagesPanel({ silent: true }).catch(() => {});
+          }
         }
       });
     }
@@ -587,6 +649,7 @@
     refreshControl,
     startClientPresence,
     requestLiveChatAgentPush,
+    requestMessagePush,
     openAdminPushModal,
     refreshUi: bind
   };
