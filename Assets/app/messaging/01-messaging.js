@@ -1870,6 +1870,7 @@ async function sendFloatingMessageReply(threadId){
   const optimisticId = appendOptimisticFloatingReply(id, body);
   try {
     const result = await supabaseRpc("app_reply_inquiry", { p_inquiry_id: id, p_body: body });
+    window.TriplemPush?.requestMessagePush?.(id)?.catch?.(() => {});
     removeOptimisticFloatingReply(id, optimisticId);
     const cache = floatingMessageState.historyMap.get(id) || {
       inquiry: {}, messages: [], can_reply: true, server_message_count: 0, thread_signature: "", cached_at: Date.now()
@@ -3738,6 +3739,7 @@ async function sendInquiryReply(){
         p_subject: "Conversation with Admin",
         p_body: body
       });
+      window.TriplemPush?.requestMessagePush?.(created?.id)?.catch?.(() => {});
       optimisticRow?.remove();
       messagesUiState.userStarter = false;
       messagesUiState.pendingOpenId = created?.id || null;
@@ -3750,6 +3752,7 @@ async function sendInquiryReply(){
       p_inquiry_id: threadId,
       p_body: body
     });
+    window.TriplemPush?.requestMessagePush?.(threadId)?.catch?.(() => {});
     resetFloatingRuntimeForAccount();
     const cache = floatingMessageState.historyMap.get(threadId) || {
       inquiry: {}, messages: [], can_reply: true, server_message_count: 0, thread_signature: "", cached_at: Date.now()
@@ -3835,6 +3838,7 @@ function bindMessagingUi(){
             p_body: bodyEl?.value || ""
           });
         }
+        window.TriplemPush?.requestMessagePush?.(created?.id)?.catch?.(() => {});
         if (subjectEl) subjectEl.value = "";
         if (bodyEl) bodyEl.value = "";
         if (userSelect) userSelect.value = "";
