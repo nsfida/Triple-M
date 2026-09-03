@@ -996,7 +996,7 @@ it("110 adds weighted multi-intent Live Chat AI with visible generation state an
   assert.match(css, /landingLiveChatAiThink/);
   assert.match(css, /landing-live-chat-thinking-dots/);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:110|111|112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
-  assert.match(index, /livechat=20260903-(?:ai(?:110|111|112|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
+  assert.match(index, /livechat=20260903-(?:ai(?:110|111|112|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125|ui126)/);
   assert.match(builder, /110_live_chat_ai_intent_engine_and_thinking_state\.sql/);
 });
 
@@ -1036,7 +1036,7 @@ it("111 deepens local-context AI, auto-hands repeated uncertainty to online agen
   assert.match(agentCss, /message-float-dock\.has-open-card\{[\s\S]*transform:none !important;[\s\S]*will-change:auto !important;/i);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:111|112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
   assert.match(index, /01-messaging\.js\?v=20260903-(?:ai(?:111|113|114)|livechat(?:115|116|117)|webpush(?:118|119|120|123|124))/);
-  assert.match(index, /livechat=20260903-(?:ai(?:111|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
+  assert.match(index, /livechat=20260903-(?:ai(?:111|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125|ui126)/);
   assert.match(builder, /111_live_chat_ai_context_confidence_and_mobile_polish\.sql/);
 });
 
@@ -1155,7 +1155,7 @@ it("114 replaces free-form visitor AI prompts with guided questions and unlocks 
   assert.doesNotMatch(index, /id="landingLiveChatMessage"/);
   assert.doesNotMatch(index, /01-live-chat-semantic-ai\.js/);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai114|livechat117|webpush(?:118|119|120|123|124))/);
-  assert.match(index, /livechat=20260903-(?:ai114|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
+  assert.match(index, /livechat=20260903-(?:ai114|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125|ui126)/);
   assert.match(landing, /app_public_live_chat_start_guided/);
   assert.match(landing, /app_public_live_chat_choose/);
   assert.match(landing, /const canType = !closed && \(mode === "human" \|\| mode === "legacy_human"\)/);
@@ -1215,7 +1215,7 @@ it("117 wakes minimized Agent tabs through Realtime Broadcast and makes stale be
   assert.match(css, /live-chat-assignment-resolution/);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124))/);
   assert.match(index, /01-messaging\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124))/);
-  assert.match(index, /livechat=20260903-(?:bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125)/);
+  assert.match(index, /livechat=20260903-(?:bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125|ui126)/);
 });
 
 
@@ -1480,7 +1480,7 @@ it("124 stabilizes Admin Live Chat records, notification prompt placement, and u
   const bellPos = index.indexOf('id="adminNotifyBtn"');
   assert.ok(togglePos >= 0 && bellPos >= 0 && togglePos < bellPos, "notification toggle should render left of the bell");
   assert.match(index, /01-web-push\.js\?v=20260903-webpush124/);
-  assert.match(index, /01-admin\.js\?v=20260903-admin-ui(?:124|125)/);
+  assert.match(index, /01-admin\.js\?v=20260903-admin-ui(?:124|125|126)/);
 });
 
 
@@ -1500,6 +1500,24 @@ it("125 compacts Live Chat transcripts and keeps mobile record overlays centered
   assert.match(css, /#adminLiveChatRecordsModal\.modal,#adminLiveChatTranscriptModal\.modal\{[\s\S]*?align-items:center;justify-content:center/);
   assert.match(css, /width:min\(100%,calc\(100vw - 24px\)\)!important/);
   assert.match(css, /scrollbar-width:none/);
-  assert.match(index, /livechat=20260903-ui125/);
-  assert.match(index, /01-admin\.js\?v=20260903-admin-ui125/);
+  assert.match(index, /livechat=20260903-ui(?:125|126)/);
+  assert.match(index, /01-admin\.js\?v=20260903-admin-ui(?:125|126)/);
+});
+
+
+it("126 fixes transcript sizing and guarantees confirmation stacking", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const core = fs.readFileSync(path.join(projectRoot, "Assets/app/core/03-els.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+
+  assert.match(css, /v126 · Live Chat transcript structural correction \+ topmost confirmation portal/);
+  assert.match(css, /#adminLiveChatTranscriptModal \.admin-live-record-thread-body\{[\s\S]*?display:flex!important/);
+  assert.match(css, /#adminLiveChatTranscriptModal \.admin-live-record-thread-sheet\{[\s\S]*?height:auto!important/);
+  assert.match(css, /#adminLiveChatTranscriptModal \.admin-live-record-transcript\{[\s\S]*?max-height:min\(48dvh,400px\)!important/);
+  assert.match(css, /#adminLiveChatTranscriptModal \.admin-live-record-thread-actions>\.btn\{[\s\S]*?height:28px!important/);
+  assert.match(css, /\.modal\.app-confirm-modal\{[\s\S]*?z-index:2147483647!important/);
+  assert.match(core, /modal\.style\.setProperty\("z-index", "2147483647", "important"\)/);
+  assert.match(index, /livechat=20260903-ui126/);
+  assert.match(index, /03-els\.js\?v=20260903-admin-overlay126/);
 });
