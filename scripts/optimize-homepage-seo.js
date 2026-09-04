@@ -44,6 +44,7 @@ function buildCssBundle() {
     "19-notes-workspace.css",
     "20-themes-performance.css",
     "21-public-security-parity.css",
+    "26-account-recovery.css",
   ];
   const parts = files.map((f) => {
     const p = path.join(root, "Assets", "style", f);
