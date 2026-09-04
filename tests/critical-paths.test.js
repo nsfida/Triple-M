@@ -1966,3 +1966,26 @@ it("133 uses standard WebAuthn for cross-platform biometric sign-in and never pr
   assert.match(builder, /133_standard_webauthn_quick_signin\.sql/);
 });
 
+
+it("142 stabilizes mobile Expenses custom dates and themes the Inventory category overlay without database changes", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const sourceCss = fs.readFileSync(path.join(projectRoot, "Assets/style/30-expenses-inventory-mobile-polish.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts", "optimize-homepage-seo.js"), "utf8");
+
+  assert.match(sourceCss, /#expensesPanel \.compact-filter-main\{/);
+  assert.match(sourceCss, /grid-template-columns:minmax\(0,1fr\) minmax\(104px,118px\)/);
+  assert.match(sourceCss, /#expensesPanel \.expense-date-custom-range\{/);
+  assert.match(sourceCss, /grid-column:1 \/ -1!important/);
+  assert.match(sourceCss, /#inventorySectionModal \.inventory-section-modal-dialog/);
+  assert.match(sourceCss, /#inventorySectionModal :is\([\s\S]*\.inventory-brand-row/);
+  assert.match(sourceCss, /background:var\(--surface-elevated\)!important/);
+  assert.match(css, /30-expenses-inventory-mobile-polish\.css/);
+  assert.match(index, /mobilepolish=20260905-v142/);
+  assert.match(builder, /30-expenses-inventory-mobile-polish\.css/);
+
+  const migrations = fs.readdirSync(path.join(projectRoot, "migrations")).filter(name => /^\d+.*\.sql$/i.test(name));
+  assert.ok(migrations.includes("133_standard_webauthn_quick_signin.sql"));
+  assert.ok(!migrations.some(name => /^134[_-]/i.test(name)), "Build 142 is frontend-only and adds no migration 134");
+});
