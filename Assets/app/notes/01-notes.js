@@ -307,7 +307,9 @@ const reminderAlertState = {
   bound: false,
   deferUntilNoteModalClose: false,
   prevBodyOverflow: "",
-  escapeHandler: null
+  escapeHandler: null,
+  audioUnlockCleanup: null,
+  audioUnlockPending: false
 };
 
 function ensureNoteReminderToastHost(){
@@ -323,7 +325,14 @@ function ensureNoteReminderToastHost(){
   return host;
 }
 
+function clearReminderAlertAudioUnlock(){
+  try { reminderAlertState.audioUnlockCleanup?.(); } catch (_) {}
+  reminderAlertState.audioUnlockCleanup = null;
+  reminderAlertState.audioUnlockPending = false;
+}
+
 function stopReminderAlertSound(){
+  clearReminderAlertAudioUnlock();
   const audio = reminderAlertState.audio;
   if (!audio) return;
   try {
@@ -333,43 +342,49 @@ function stopReminderAlertSound(){
 }
 
 function unlockReminderAlertAudio(){
+  // iOS can leak an audible frame from muted pre-play. Therefore this function
+  // only retries while a real reminder overlay is visibly active.
+  if (!reminderAlertState.isOpen || !reminderAlertState.current) return;
+  let audio = reminderAlertState.audio;
+  if (!audio) {
+    audio = new Audio(REMINDER_ALERT_SOUND_SRC);
+    audio.preload = "auto";
+    reminderAlertState.audio = audio;
+  }
+  audio.muted = false;
+  audio.loop = true;
   try {
-    let audio = reminderAlertState.audio;
-    if (!audio) {
-      audio = new Audio(REMINDER_ALERT_SOUND_SRC);
-      audio.preload = "auto";
-      reminderAlertState.audio = audio;
-    }
-    const prevMuted = audio.muted;
-    audio.muted = true;
     const p = audio.play();
-    const finish = () => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.muted = prevMuted;
-      } catch (_) {}
-    };
-    if (p && typeof p.then === "function") p.then(finish).catch(finish);
-    else finish();
+    if (p && typeof p.then === "function") {
+      p.then(() => clearReminderAlertAudioUnlock()).catch(() => {});
+    }
   } catch (_) {}
 }
 
 function ensureReminderAlertAudioUnlocked(){
-  if (reminderAlertState.audioUnlocked) return;
-  const unlock = () => {
-    reminderAlertState.audioUnlocked = true;
-    unlockReminderAlertAudio();
+  // Called by legacy login/bootstrap code too; remain deliberately inert until
+  // there is an actual reminder to announce.
+  if (!reminderAlertState.isOpen || !reminderAlertState.current || reminderAlertState.audioUnlockCleanup) return;
+  const cleanup = () => {
     document.removeEventListener("pointerdown", unlock, true);
     document.removeEventListener("keydown", unlock, true);
+    reminderAlertState.audioUnlockCleanup = null;
+    reminderAlertState.audioUnlockPending = false;
   };
+  const unlock = () => {
+    if (!reminderAlertState.isOpen || !reminderAlertState.current) { cleanup(); return; }
+    if (reminderAlertState.audioUnlockPending) return;
+    reminderAlertState.audioUnlockPending = true;
+    try { unlockReminderAlertAudio(); } finally { reminderAlertState.audioUnlockPending = false; }
+  };
+  reminderAlertState.audioUnlockCleanup = cleanup;
   document.addEventListener("pointerdown", unlock, true);
   document.addEventListener("keydown", unlock, true);
 }
 
 function startReminderAlertSound(){
   stopReminderAlertSound();
-  ensureReminderAlertAudioUnlocked();
+  if (!reminderAlertState.isOpen || !reminderAlertState.current) return;
   try {
     let audio = reminderAlertState.audio;
     if (!audio) {
@@ -382,11 +397,13 @@ function startReminderAlertSound(){
     const playPromise = audio.play();
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.catch(() => {
-        // Autoplay blocked until a user gesture unlocks audio.
+        // Only a real visible reminder may register a gesture retry.
         ensureReminderAlertAudioUnlocked();
       });
     }
-  } catch (_) {}
+  } catch (_) {
+    ensureReminderAlertAudioUnlocked();
+  }
 }
 
 function reminderAlertDedupeKey(item){
