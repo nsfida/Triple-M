@@ -141,6 +141,7 @@
 --   124. migrations/130_self_service_password_recovery_passkey_key_trusted_device.sql
 --   125. migrations/131_account_security_quick_signin_devices.sql
 --   126. migrations/132_account_security_recovery_ui_reliability.sql
+--   127. migrations/133_standard_webauthn_quick_signin.sql
 -- ============================================================================
 
 -- ============================================================================
@@ -48121,6 +48122,283 @@ revoke all on table public.app_account_recovery_device_requests from public,anon
 
 -- ############################################################################
 -- END migrations/132_account_security_recovery_ui_reliability.sql
+-- ############################################################################
+
+-- ############################################################################
+-- BEGIN migrations/133_standard_webauthn_quick_signin.sql
+-- ############################################################################
+
+-- Triplem VIP Build 141
+-- Standard WebAuthn passkeys for cross-platform biometric quick sign-in and
+-- biometric verification before Smart PIN. This is additive and leaves the
+-- existing PRF-based recovery passkey flow from migrations 130/131 intact.
+
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.app_account_security_passkeys (
+  id uuid primary key default extensions.gen_random_uuid(),
+  user_id uuid not null references public.app_users(id) on delete cascade,
+  credential_id text not null,
+  public_key_spki text not null,
+  algorithm integer not null,
+  rp_id text not null,
+  label text not null default 'Passkey',
+  quick_sign_in_enabled boolean not null default false,
+  smart_pin_bypass_enabled boolean not null default false,
+  sign_count bigint not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  constraint app_account_security_passkeys_algorithm_chk check (algorithm in (-7,-257))
+);
+
+create unique index if not exists app_account_security_passkeys_credential_active_idx
+  on public.app_account_security_passkeys(credential_id)
+  where revoked_at is null;
+create index if not exists app_account_security_passkeys_user_idx
+  on public.app_account_security_passkeys(user_id, created_at desc);
+
+create table if not exists public.app_account_security_webauthn_challenges (
+  id uuid primary key default extensions.gen_random_uuid(),
+  token_hash text not null unique,
+  challenge text not null,
+  purpose text not null,
+  user_id uuid references public.app_users(id) on delete cascade,
+  origin text not null,
+  rp_id text not null,
+  network_hash text,
+  attempts integer not null default 0,
+  expires_at timestamptz not null default (now() + interval '5 minutes'),
+  created_at timestamptz not null default now(),
+  used_at timestamptz,
+  constraint app_account_security_webauthn_purpose_chk check (purpose in ('register','quick_signin','workspace_unlock'))
+);
+
+create index if not exists app_account_security_webauthn_challenges_exp_idx
+  on public.app_account_security_webauthn_challenges(expires_at);
+create index if not exists app_account_security_webauthn_challenges_user_idx
+  on public.app_account_security_webauthn_challenges(user_id, created_at desc);
+create index if not exists app_account_security_webauthn_challenges_network_idx
+  on public.app_account_security_webauthn_challenges(network_hash, created_at desc)
+  where network_hash is not null;
+
+do $do$
+declare t text;
+begin
+  foreach t in array array['app_account_security_passkeys','app_account_security_webauthn_challenges'] loop
+    execute format('alter table public.%I enable row level security',t);
+    execute format('revoke all on table public.%I from public,anon,authenticated',t);
+    execute format('drop policy if exists %I on public.%I',t||'_deny_all',t);
+    execute format('create policy %I on public.%I for all to anon,authenticated using (false) with check (false)',t||'_deny_all',t);
+  end loop;
+end
+$do$;
+
+-- The Edge Function uses this RPC through the existing X-Session-Token path.
+-- Password confirmation is required only for enrollment/configuration.
+create or replace function public.app_account_security_webauthn_context(
+  p_password text default null,
+  p_require_password boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public,extensions
+as $fn$
+declare
+  u public.app_users:=public.current_app_user();
+  s public.app_sessions:=public.current_app_session();
+begin
+  if u is null or s is null then raise exception 'Authentication required'; end if;
+  if coalesce(p_require_password,false) then
+    if p_password is null or p_password='' or u.password_hash<>extensions.crypt(p_password,u.password_hash) then
+      raise exception 'Current password is incorrect';
+    end if;
+  end if;
+  return jsonb_build_object(
+    'ok',true,
+    'user_id',u.id,
+    'username',u.username,
+    'display_name',coalesce(nullif(trim(u.display_name),''),u.username),
+    'smart_pin_enabled',coalesce(u.smart_pin_hash,'')<>'',
+    'session_id',s.id
+  );
+end
+$fn$;
+revoke all on function public.app_account_security_webauthn_context(text,boolean) from public;
+grant execute on function public.app_account_security_webauthn_context(text,boolean) to anon,authenticated,service_role;
+
+-- Account-level biometric preferences. All active standard WebAuthn credentials
+-- follow the same preference so adding a second device behaves predictably.
+create or replace function public.app_account_security_set_standard_biometric_preferences(
+  p_password text,
+  p_quick_sign_in boolean,
+  p_smart_pin_bypass boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public,extensions
+as $fn$
+declare
+  u public.app_users:=public.current_app_user();
+  active_count integer:=0;
+begin
+  if u is null then raise exception 'Authentication required'; end if;
+  if p_password is null or p_password='' or u.password_hash<>extensions.crypt(p_password,u.password_hash) then
+    raise exception 'Current password is incorrect';
+  end if;
+  select count(*)::int into active_count
+  from public.app_account_security_passkeys
+  where user_id=u.id and revoked_at is null;
+  if (coalesce(p_quick_sign_in,false) or coalesce(p_smart_pin_bypass,false)) and active_count=0 then
+    raise exception 'Set up a biometric passkey before enabling this option';
+  end if;
+  update public.app_account_security_passkeys
+  set quick_sign_in_enabled=coalesce(p_quick_sign_in,false),
+      smart_pin_bypass_enabled=coalesce(p_smart_pin_bypass,false),
+      updated_at=now()
+  where user_id=u.id and revoked_at is null;
+  update public.app_users
+  set settings=coalesce(settings,'{}'::jsonb)||jsonb_build_object(
+      'security_biometric_quick_sign_in',coalesce(p_quick_sign_in,false),
+      'security_biometric_smart_pin_bypass',coalesce(p_smart_pin_bypass,false)
+    ),
+    updated_at=now()
+  where id=u.id;
+  return jsonb_build_object(
+    'ok',true,
+    'quick_sign_in_enabled',coalesce(p_quick_sign_in,false),
+    'smart_pin_bypass_enabled',coalesce(p_smart_pin_bypass,false),
+    'credential_count',active_count
+  );
+end
+$fn$;
+revoke all on function public.app_account_security_set_standard_biometric_preferences(text,boolean,boolean) from public;
+grant execute on function public.app_account_security_set_standard_biometric_preferences(text,boolean,boolean) to anon,authenticated,service_role;
+
+
+-- Service-only preference synchronization after a password-authorized registration
+-- ceremony. The Edge Function calls this only after the WebAuthn create challenge
+-- has been validated for the signed-in account.
+create or replace function public.app_account_security_webauthn_sync_preferences(
+  p_user_id uuid,
+  p_quick_sign_in boolean,
+  p_smart_pin_bypass boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public
+as $fn$
+begin
+  update public.app_account_security_passkeys
+  set quick_sign_in_enabled=coalesce(p_quick_sign_in,false),
+      smart_pin_bypass_enabled=coalesce(p_smart_pin_bypass,false),
+      updated_at=now()
+  where user_id=p_user_id and revoked_at is null;
+  update public.app_users
+  set settings=coalesce(settings,'{}'::jsonb)||jsonb_build_object(
+      'security_biometric_quick_sign_in',coalesce(p_quick_sign_in,false),
+      'security_biometric_smart_pin_bypass',coalesce(p_smart_pin_bypass,false)
+    ),
+    updated_at=now()
+  where id=p_user_id;
+  if not found then raise exception 'Account is unavailable'; end if;
+  return jsonb_build_object('ok',true,'quick_sign_in_enabled',coalesce(p_quick_sign_in,false),'smart_pin_bypass_enabled',coalesce(p_smart_pin_bypass,false));
+end
+$fn$;
+revoke all on function public.app_account_security_webauthn_sync_preferences(uuid,boolean,boolean) from public,anon,authenticated;
+grant execute on function public.app_account_security_webauthn_sync_preferences(uuid,boolean,boolean) to service_role;
+
+-- Edge-only session minting after a verified WebAuthn assertion.
+create or replace function public.app_account_security_webauthn_issue_session(
+  p_user_id uuid,
+  p_user_agent text default null,
+  p_ip text default null,
+  p_remember boolean default true
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public,extensions
+as $fn$
+declare
+  u public.app_users;
+  token text;
+begin
+  -- Browser roles have no EXECUTE privilege on this RPC. app_create_session
+  -- independently verifies the service-role context before minting a token.
+  select * into u from public.app_users where id=p_user_id and is_active=true;
+  if u is null or u.must_change_password then raise exception 'Password sign-in is required for this account'; end if;
+  token:=public.app_create_session(u.id,p_user_agent,p_ip,coalesce(p_remember,true));
+  update public.app_sessions set auth_method='biometric_passkey' where token_hash=public.app_hash_token(token);
+  update public.app_users set last_login_at=now(),updated_at=now() where id=u.id;
+  select * into u from public.app_users where id=u.id;
+  return jsonb_build_object('ok',true,'session_token',token,'user',public.app_user_public_profile(u,false),'auth_method','biometric_passkey');
+end
+$fn$;
+revoke all on function public.app_account_security_webauthn_issue_session(uuid,text,text,boolean) from public,anon,authenticated;
+grant execute on function public.app_account_security_webauthn_issue_session(uuid,text,text,boolean) to service_role;
+
+-- Account Security summary now reports the broadly compatible standard WebAuthn
+-- credential. Recovery passkeys remain reported by app_account_recovery_status.
+create or replace function public.app_account_security_status(p_two_factor_device_secret text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public
+as $fn$
+declare
+  u public.app_users:=public.current_app_user();
+  factor_enabled boolean:=false;
+  passkey public.app_account_security_passkeys;
+  trusted_count integer:=0;
+  current_trusted boolean:=false;
+  active_sessions integer:=0;
+  passkey_count integer:=0;
+begin
+  if u is null then raise exception 'Authentication required'; end if;
+  select coalesce(enabled,false) into factor_enabled from public.app_two_factor_accounts where user_id=u.id;
+  select * into passkey from public.app_account_security_passkeys where user_id=u.id and revoked_at is null order by created_at desc limit 1;
+  select count(*)::int into passkey_count from public.app_account_security_passkeys where user_id=u.id and revoked_at is null;
+  select count(*)::int into trusted_count from public.app_two_factor_trusted_devices where user_id=u.id and revoked_at is null and expires_at>now();
+  if nullif(trim(coalesce(p_two_factor_device_secret,'')),'') is not null then
+    select exists(select 1 from public.app_two_factor_trusted_devices where user_id=u.id and revoked_at is null and expires_at>now() and device_hash=public.app_two_factor_trusted_hash(u.id,p_two_factor_device_secret)) into current_trusted;
+  end if;
+  select count(*)::int into active_sessions from public.app_sessions where user_id=u.id and revoked_at is null and expires_at>now();
+  return jsonb_build_object(
+    'ok',true,
+    'two_factor_enabled',coalesce(factor_enabled,false),
+    'smart_pin_enabled',coalesce(u.smart_pin_hash,'')<>'',
+    'passkey_enabled',passkey.id is not null,
+    'passkey_label',coalesce(passkey.label,''),
+    'passkey_count',passkey_count,
+    'quick_sign_in_enabled',coalesce(passkey.quick_sign_in_enabled,false),
+    'smart_pin_bypass_enabled',coalesce(passkey.smart_pin_bypass_enabled,false),
+    'trusted_two_factor_count',trusted_count,
+    'current_browser_trusted_for_two_factor',coalesce(current_trusted,false),
+    'active_session_count',active_sessions
+  );
+end
+$fn$;
+revoke all on function public.app_account_security_status(text) from public;
+grant execute on function public.app_account_security_status(text) to anon,authenticated,service_role;
+
+-- Retire only the migration-131 PRF-based *sign-in* RPC surface. Recovery
+-- passkey RPCs are intentionally untouched. The old verifier rows remain stored
+-- so existing recovery configuration is preserved.
+revoke all on function public.app_biometric_quick_signin_begin() from anon,authenticated;
+revoke all on function public.app_biometric_quick_signin_complete(text,text,text,text,text,boolean) from anon,authenticated;
+revoke all on function public.app_biometric_workspace_begin() from anon,authenticated;
+revoke all on function public.app_biometric_workspace_complete(text,text,text) from anon,authenticated;
+revoke all on function public.app_account_security_set_biometric_preferences(text,boolean,boolean) from anon,authenticated;
+
+notify pgrst,'reload schema';
+
+-- ############################################################################
+-- END migrations/133_standard_webauthn_quick_signin.sql
 -- ############################################################################
 
 -- ============================================================================
