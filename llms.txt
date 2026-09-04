@@ -1,6 +1,6 @@
 # Triplem VIP
 
-> Triplem VIP, formerly Triplem and sometimes searched as Triple M or Triple-M, is a private browser-based accounting and finance workspace for individuals, merchants, service businesses and small teams. It combines day-to-day money records with operational finance tools in one account-isolated interface.
+> Triplem VIP, formerly Triplem and sometimes searched as Triple M or Triple-M, is a private browser-based accounting and finance workspace for individuals, merchants, service businesses and small teams. It combines day-to-day money records with layered account protection, visitor Live Support and authenticated in-app customer care in one account-isolated interface.
 
 Triplem VIP is designed for people who want to move beyond scattered spreadsheets or disconnected finance apps while retaining a clear transaction history, downloadable records and a responsive desktop/mobile workspace. This file is a concise discovery guide to public Triplem VIP resources; it is not a search-ranking directive.
 
@@ -24,11 +24,11 @@ Triplem VIP currently presents public information about these connected workspac
 - Loan records, repayments and installment-plan tracking.
 - Asset management, including value and profit/loss views where supported.
 - Notes and reminders.
-- Private in-app user/admin messaging.
-- Optional Authenticator App 2FA using standards-based TOTP, with QR/manual setup and single-use recovery codes.
-- Opt-in secure Web Push notifications for supported desktop and mobile browser environments.
-- Guided public visitor Live Support with AI assistance and explicit Agent handoff.
-- Authenticated Triplem VIP user support chat with notification integration.
+- Authenticated in-app support and user/admin messaging for registered businesses and individuals where enabled.
+- Optional Authenticator App 2FA using standards-based TOTP. TOTP secrets are encrypted server-side with pgcrypto AES-256 and recovery codes are stored as SHA-256 hashes bound to the user.
+- Opt-in Web Push notifications for supported desktop and mobile browser environments, with the prompt decision remembered locally per browser/device and reversible from the available notification control.
+- Guided public visitor Live Support with AI assistance, explicit Agent handoff and a hashed guest capability boundary.
+- Protected password and Smart PIN recovery. Current account passwords use bcrypt hashes; Smart PIN verification uses a username-bound SHA-256 hash with server-side lockout tiers; 2FA-enabled recovery can verify an Authenticator code or unused recovery code.
 - Client-side Bitcoin tools; sensitive key workflows are designed to remain in the browser rather than being treated as normal server-held account data.
 - Responsive use across modern desktop and mobile browsers.
 
@@ -39,7 +39,7 @@ Triplem VIP currently presents public information about these connected workspac
 - [Expense tracking](https://triplem.vip/seo/expense-tracking.html): What useful expense records contain, why wallet context matters and when a basic expense list becomes insufficient.
 - [Finance software](https://triplem.vip/seo/finance-software.html): How operational finance, obligations, assets, inventory, reporting and multi-currency records can fit into one workspace.
 - [What is Triplem VIP?](https://triplem.vip/seo/triplem.html): Product identity, current brand name and supported use cases.
-- [Security, 2FA, notifications and support](https://triplem.vip/seo/security-and-support.html): Public guide to Authenticator 2FA, recovery codes, Web Push, visitor Live Support and private user messaging.
+- [Security, 2FA, notifications and support](https://triplem.vip/seo/security-and-support.html): Public guide to bcrypt password hashing, AES-256 encrypted Authenticator 2FA, hashed recovery codes, Smart PIN protection, Web Push consent, visitor Live Support and authenticated in-app care.
 
 ## Common user questions
 
@@ -60,6 +60,19 @@ Test the real workflow you expect to repeat: create wallets, add money and expen
 
 ### Can one workspace cover personal and business finance tasks?
 Triplem VIP is presented for both individual and business use. The appropriate setup depends on the user's accounting responsibilities and the records they need to maintain.
+
+
+### How does Triplem VIP protect passwords and Authenticator 2FA?
+Current password authentication verifies pgcrypto-backed bcrypt hashes rather than readable permanent passwords. Optional TOTP Authenticator secrets are encrypted server-side with AES-256, while one-time recovery codes are stored as SHA-256 hashes bound to the account.
+
+### How does account recovery work without revealing the old password?
+For 2FA-enabled accounts, supported password and Smart PIN recovery can verify a valid Authenticator code or unused recovery code. When administrator-assisted temporary-password recovery is required, the old password hash is replaced, prior sessions are revoked and the user must create a new permanent password before normal workspace entry.
+
+### What support is available to visitors and registered users?
+Public visitors can use guided Live Support and request a real Agent. Registered businesses and individuals can use the authenticated in-app support channel where enabled. Support does not require disclosure of a permanent password, Smart PIN, Authenticator enrollment secret or recovery code.
+
+### Why are notification and theme preferences handled differently?
+Browser notification permission and push subscriptions belong to a specific device, so the prompt decision is remembered locally and the device can later turn notifications on or off. The authenticated workspace theme is an account presentation preference and can be stored in the existing account settings record so it follows the user to another browser or device.
 
 ## Public facts and citation guidance
 
