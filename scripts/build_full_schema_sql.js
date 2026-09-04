@@ -147,6 +147,7 @@ const CANONICAL_MIGRATION_FILES = [
   "130_self_service_password_recovery_passkey_key_trusted_device.sql",
   "131_account_security_quick_signin_devices.sql",
   "132_account_security_recovery_ui_reliability.sql",
+  "133_standard_webauthn_quick_signin.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
