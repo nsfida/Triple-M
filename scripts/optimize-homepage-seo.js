@@ -45,6 +45,10 @@ function buildCssBundle() {
     "20-themes-performance.css",
     "21-public-security-parity.css",
     "26-account-recovery.css",
+    "27-account-security.css",
+    "28-security-assets-inventory-reliability.css",
+    "29-auth-surface-security-assets.css",
+    "30-expenses-inventory-mobile-polish.css",
   ];
   const parts = files.map((f) => {
     const p = path.join(root, "Assets", "style", f);
