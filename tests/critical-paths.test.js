@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
@@ -1036,7 +1036,7 @@ it("111 deepens local-context AI, auto-hands repeated uncertainty to online agen
   assert.match(agentCss, /message-float-vv-width/i);
   assert.match(agentCss, /message-float-dock\.has-open-card\{[\s\S]*transform:none !important;[\s\S]*will-change:auto !important;/i);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:111|112|113|114)|livechat117|webpush(?:118|119|120|123|124))/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:ai(?:111|113|114)|livechat(?:115|116|117)|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)/);
+  assert.match(index, /(?:01-messaging\.js\?v=20260903-(?:ai(?:111|113|114)|livechat(?:115|116|117)|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)|01-messaging\.js\?v=20260904-reliability139|01-messaging\.js\?v=20260905-audio141)/);
   assert.match(index, /livechat=20260903-(?:ai(?:111|113|114)|bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125|ui126)/);
   assert.match(builder, /111_live_chat_ai_context_confidence_and_mobile_polish\.sql/);
 });
@@ -1117,7 +1117,7 @@ it("113 fixes neural ESM loading, contextual transcript failures, Agent terminol
   assert.match(messaging, />Agent<\/em>/);
   assert.match(index, /AI available 24\/7 · Agent support 10:00 AM/);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:ai(?:113|114)|livechat117|webpush(?:118|119|120|123|124))/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:ai113|livechat(?:115|116|117)|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)/);
+  assert.match(index, /(?:01-messaging\.js\?v=20260903-(?:ai113|livechat(?:115|116|117)|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)|01-messaging\.js\?v=20260904-reliability139|01-messaging\.js\?v=20260905-audio141)/);
   assert.match(builder, /113_live_chat_ai_contextual_neural_agent_refinement\.sql/);
   assert.doesNotMatch(topLevel, /\binsert\s+into\b|\bupdate\s+public\.app_|\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
   assert.doesNotMatch(semantic, /api\.openai\.com|generativelanguage\.googleapis|api\.groq\.com|api\.huggingface\.co/i);
@@ -1186,7 +1186,7 @@ it("116 loops the OPUS Agent Live Chat invitation sound and stops/dismisses imme
   assert.match(messaging, /refreshAdminCommsBadges\(\)\.catch/);
   assert.match(messaging, /startLiveChatRealtimeBridge\(\)/);
   assert.match(messaging, /stopLiveChatRealtimeBridge\(\)/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:livechat(?:116|117)|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)/);
+  assert.match(index, /(?:01-messaging\.js\?v=20260903-(?:livechat(?:116|117)|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)|01-messaging\.js\?v=20260904-reliability139|01-messaging\.js\?v=20260905-audio141)/);
 });
 
 
@@ -1215,7 +1215,7 @@ it("117 wakes minimized Agent tabs through Realtime Broadcast and makes stale be
   assert.match(messaging, /data-live-assignment-close><i class="fa-solid fa-check"><\/i> Done/);
   assert.match(css, /live-chat-assignment-resolution/);
   assert.match(index, /02-live-chat\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)/);
+  assert.match(index, /(?:01-messaging\.js\?v=20260903-(?:livechat117|webpush(?:118|119|120|123|124)|fastnotify127|recovery129)|01-messaging\.js\?v=20260904-reliability139|01-messaging\.js\?v=20260905-audio141)/);
   assert.match(index, /livechat=20260903-(?:bgnotify117|webpush(?:118|119|120|123|124)|ui124|ui125|ui126)/);
 });
 
@@ -1286,7 +1286,7 @@ it("118 implements secure opt-in Web Push, Main Admin multi-user broadcasts, clo
   assert.match(pushClient, /requestLiveChatAgentPush/);
   assert.match(landing, /requestClosedBrowserAgentPush\(session\.inquiry_id\)/);
   assert.match(auth, /TriplemPush\?\.syncExistingSubscription/);
-  assert.match(index, /service-worker\.js|01-web-push\.js\?v=20260903-(?:webpush(?:118|119|120|123|124)|pushux127)/);
+  assert.match(index, /service-worker\.js|01-web-push\.js\?v=(?:20260903-(?:webpush(?:118|119|120|123|124)|pushux127)|20260904-reliability139|20260905-audio141)/);
   assert.match(index, /adminPushNotificationsBtn/);
   assert.match(index, /pushNotificationToggleBtn/);
   assert.match(index, /admin-comms-read-all/);
@@ -1339,8 +1339,8 @@ it("119 makes Web Push delivery window-state reliable, self-heals VAPID subscrip
   assert.match(messaging, /TriplemPush\?\.requestMessagePush/);
   assert.match(sw, /Web Push Service Worker — v(?:119|120|123)/);
   assert.match(sw, /registration\.showNotification/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:webpush(?:119|120|123|124)|fastnotify127|recovery129)/);
-  assert.match(index, /01-web-push\.js\?v=20260903-(?:webpush(?:119|120|123|124)|pushux127)/);
+  assert.match(index, /01-messaging\.js\?v=(?:20260903-(?:webpush(?:119|120|123|124)|fastnotify127|recovery129)|20260904-reliability139|20260905-audio141)/);
+  assert.match(index, /01-web-push\.js\?v=(?:20260903-(?:webpush(?:119|120|123|124)|pushux127)|20260904-reliability139|20260905-audio141)/);
   assert.match(builder, /119_web_push_delivery_reliability_and_messages\.sql/);
 });
 
@@ -1372,8 +1372,8 @@ it("120 exposes Admin broadcasts in the bell and adds dual Web Push transport ve
   assert.match(sw, /skipWaiting\(\)/);
   assert.match(sw, /clients\.claim\(\)/);
   assert.match(pushClient, /service-worker\.js\?v=(?:120|123)/);
-  assert.match(index, /01-messaging\.js\?v=20260903-(?:webpush(?:120|123|124)|fastnotify127|recovery129)/);
-  assert.match(index, /01-web-push\.js\?v=20260903-(?:webpush(?:120|123|124)|pushux127)/);
+  assert.match(index, /01-messaging\.js\?v=(?:20260903-(?:webpush(?:120|123|124)|fastnotify127|recovery129)|20260904-reliability139|20260905-audio141)/);
+  assert.match(index, /01-web-push\.js\?v=(?:20260903-(?:webpush(?:120|123|124)|pushux127)|20260904-reliability139|20260905-audio141)/);
 });
 
 
@@ -1441,7 +1441,7 @@ it("123 adds opt-in login/landing consent, compact bell switch, foreground push,
   assert.doesNotMatch(sw, /suppressWhenOpen && windowClients\.length > 0/);
 
   assert.match(index, /pushQuickToggleBtn/);
-  assert.match(index, /01-web-push\.js\?v=20260903-(?:webpush(?:123|124)|pushux127)/);
+  assert.match(index, /01-web-push\.js\?v=(?:20260903-(?:webpush(?:123|124)|pushux127)|20260904-reliability139|20260905-audio141)/);
   assert.match(css, /push-quick-toggle/);
   assert.match(css, /push-consent-overlay/);
   assert.match(css, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
@@ -1480,8 +1480,8 @@ it("124 stabilizes Admin Live Chat records, notification prompt placement, and u
   const togglePos = index.indexOf('id="pushQuickToggleBtn"');
   const bellPos = index.indexOf('id="adminNotifyBtn"');
   assert.ok(togglePos >= 0 && bellPos >= 0 && togglePos < bellPos, "notification toggle should render left of the bell");
-  assert.match(index, /01-web-push\.js\?v=20260903-(?:webpush124|pushux127)/);
-  assert.match(index, /01-admin\.js\?v=20260903-(?:admin-ui(?:124|125|126)|auth2fa127|account-security128|recovery129)/);
+  assert.match(index, /01-web-push\.js\?v=(?:20260903-(?:webpush124|pushux127)|20260904-reliability139|20260905-audio141)/);
+  assert.match(index, /01-admin\.js\?v=(?:20260903-(?:admin-ui(?:124|125|126)|auth2fa127|account-security128|recovery129)|20260904-(?:self-recovery137|account-security138|reliability139))/);
 });
 
 
@@ -1502,7 +1502,7 @@ it("125 compacts Live Chat transcripts and keeps mobile record overlays centered
   assert.match(css, /width:min\(100%,calc\(100vw - 24px\)\)!important/);
   assert.match(css, /scrollbar-width:none/);
   assert.match(index, /livechat=20260903-ui(?:125|126)/);
-  assert.match(index, /01-admin\.js\?v=20260903-(?:admin-ui(?:125|126)|auth2fa127|account-security128|recovery129)/);
+  assert.match(index, /01-admin\.js\?v=(?:20260903-(?:admin-ui(?:125|126)|auth2fa127|account-security128|recovery129)|20260904-(?:self-recovery137|account-security138|reliability139))/);
 });
 
 
@@ -1565,8 +1565,8 @@ it("127 adds free TOTP Authenticator App 2FA with trusted Remember Me sessions a
   assert.doesNotMatch(twoFactor, /localStorage[^\n]*(secret|recovery)/i);
   assert.match(auth, /result\?\.two_factor_required === true/);
   assert.match(auth, /requestTwoFactorLogin/);
-  assert.match(admin, /(?:twoFactorSettingsCardHtml|openTwoFactorManagement)/);
-  assert.match(index, /auth\/03-two-factor\.js\?v=20260903-(?:auth2fa(?:127|128)|auth-recovery129)/);
+  assert.match(admin, /accountSecurityBtn/);
+  assert.match(index, /auth\/03-two-factor\.js\?v=(?:20260903-(?:auth2fa(?:127|128)|auth-recovery129)|20260904-(?:self-recovery137|account-security138))/);
   assert.match(builder, /127_authenticator_app_2fa_and_ux_performance\.sql/);
 
   assert.match(messaging, /requestIdleCallback/);
@@ -1598,7 +1598,7 @@ it("128 redesigns Account Settings, renders one TOTP QR, and removes recoverable
   assert.match(admin, /openAccountProfileEditModal/);
   assert.match(admin, /openAccountCompanyEditModal/);
   assert.match(admin, /openAccountPasswordChangeModal/);
-  assert.match(admin, /accountTwoFactorBtn/);
+  assert.match(admin, /accountSecurityBtn/);
   assert.doesNotMatch(admin, /data-admin-action="view_credentials"/);
   assert.doesNotMatch(admin, /#adminEditPassword/);
   assert.doesNotMatch(admin, /Shown to administrators only when revealed/);
@@ -1615,10 +1615,10 @@ it("128 redesigns Account Settings, renders one TOTP QR, and removes recoverable
   assert.match(migration, /'password_hash',admin\.password_hash/i);
   assert.doesNotMatch(migration, /'admin_visible_password',\s*coalesce\(admin\.admin_visible_password/i);
   assert.match(builder, /128_account_settings_and_nonrecoverable_credentials\.sql/);
-  assert.match(index, /auth\/03-two-factor\.js\?v=20260903-(?:auth2fa128|auth-recovery129)/);
-  assert.match(index, /01-admin\.js\?v=20260903-(?:account-security128|recovery129)/);
-  assert.match(index, /auth\/01-auth-session\.js\?v=20260903-(?:credential-privacy128|auth-recovery129)/);
-  assert.match(index, /notes\/01-notes\.js\?v=20260903-credential-privacy128/);
+  assert.match(index, /auth\/03-two-factor\.js\?v=(?:20260903-(?:auth2fa128|auth-recovery129)|20260904-(?:self-recovery137|account-security138))/);
+  assert.match(index, /01-admin\.js\?v=(?:20260903-(?:account-security128|recovery129)|20260904-(?:self-recovery137|account-security138|reliability139))/);
+  assert.match(index, /auth\/01-auth-session\.js\?v=(?:20260903-(?:credential-privacy128|auth-recovery129)|20260904-(?:account-security138|authsurface140)|20260905-audio141)/);
+  assert.match(index, /notes\/01-notes\.js\?v=(?:20260903-credential-privacy128|20260905-audio141)/);
   assert.match(css, /v128 · Account Settings hierarchy \+ credential privacy polish/);
   assert.match(css, /account-settings-edit-icon/);
   assert.match(css, /account-settings-action-row/);
@@ -1688,3 +1688,281 @@ it("129 adds Authenticator recovery, protected Admin temporary passwords, and re
   assert.match(llms, /Security, 2FA, notifications and support/);
   assert.match(builder, /129_authenticator_recovery_admin_temp_password_and_experience\.sql/);
 });
+
+
+it("130 adds zero-cost self-service password recovery without mutating existing accounts", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "130_self_service_password_recovery_passkey_key_trusted_device.sql"), "utf8");
+  const recovery = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/04-account-recovery.js"), "utf8");
+  const twoFactor = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/03-two-factor.js"), "utf8");
+  const signup = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/02-auth-welcome-trial.js"), "utf8");
+  const admin = fs.readFileSync(path.join(projectRoot, "Assets/app/admin/01-admin.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8");
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/\$do\$[\s\S]*?\$do\$/g, "").replace(/--.*$/gm, "");
+
+  assert.match(migration, /create table if not exists public\.app_account_recovery_keys/i);
+  assert.match(migration, /create table if not exists public\.app_account_recovery_passkeys/i);
+  assert.match(migration, /create table if not exists public\.app_account_recovery_trusted_devices/i);
+  assert.match(migration, /create table if not exists public\.app_account_self_recovery_challenges/i);
+  assert.match(migration, /create table if not exists public\.app_account_recovery_device_requests/i);
+  assert.match(migration, /create table if not exists public\.app_account_recovery_audit/i);
+  assert.match(migration, /app_account_recovery_new_key/i);
+  assert.match(migration, /gen_random_bytes\(20\)/i);
+  assert.match(migration, /app_account_recovery_key_hash/i);
+  assert.match(migration, /app_account_recovery_passkey_upsert/i);
+  assert.match(migration, /app_account_recovery_trust_device/i);
+  assert.match(migration, /app_account_self_recovery_begin/i);
+  assert.match(migration, /app_request_network_fingerprint\(null\)/i);
+  assert.match(migration, /app_login_throttle_scope_key\('account','recovery:'\|\|normalized_username\)/i);
+  assert.match(migration, /app_login_throttle_scope_key\('network','recovery:'\|\|network_fp\)/i);
+  assert.doesNotMatch(migration, /update public\.app_account_recovery_device_requests set status='denied'[\s\S]{0,180}status='pending' and expires_at>now\(\)/i);
+  assert.match(migration, /app_account_self_recovery_complete_key/i);
+  assert.match(migration, /app_account_self_recovery_complete_passkey/i);
+  assert.match(migration, /app_account_self_recovery_complete_device/i);
+  assert.match(migration, /update public\.app_sessions set revoked_at=now\(\) where user_id=p_user_id/i);
+  assert.match(migration, /for all to anon, authenticated using \(false\) with check \(false\)/i);
+  assert.match(migration, /fail_count integer not null default 0/i);
+  assert.match(migration, /locked_until timestamptz/i);
+  assert.doesNotMatch(installOnly, /\b(update|delete|truncate)\s+public\.(app_users|app_sessions|expense_entries|expense_accounts|goods_items|loans|app_assets|app_inquiries|app_inquiry_messages)\b/i);
+  assert.doesNotMatch(installOnly, /\bdrop\s+(table|column)\b/i);
+
+  assert.match(recovery, /Recover with 2FA/);
+  assert.match(recovery, /Recover with Passkey/);
+  assert.match(recovery, /Recover with Recovery Key/);
+  assert.match(recovery, /Approve from another signed-in device/);
+  assert.match(recovery, /Contact Administrator/);
+  assert.match(recovery, /PublicKeyCredential/);
+  assert.match(recovery, /extensions:\s*\{\s*prf:/);
+  assert.match(recovery, /app_account_self_recovery_begin/);
+  assert.match(recovery, /app_account_recovery_key_generate/);
+  assert.match(recovery, /app_account_recovery_pending_device_requests/);
+  assert.match(recovery, /recoveryDevicePrefix/);
+  assert.doesNotMatch(recovery, /localStorage\.setItem\([^\n]*(recovery[_-]?key|prf)/i);
+  assert.match(twoFactor, /openTwoFactorPasswordRecovery/);
+  assert.match(twoFactor, /openUnifiedPasswordRecovery/);
+  assert.doesNotMatch(twoFactor, /Add a free authenticator app as a second sign-in factor[\s\S]{0,160}refreshAccountTwoFactorSummary\(\)/);
+  assert.match(twoFactor, /refreshAccountRecoverySummary/);
+
+  assert.match(admin, /id="accountSecurityBtn"/);
+  assert.match(admin, /refreshAccountSecuritySummary/);
+  assert.match(signup, /id="trialRecoverySetup"/);
+  assert.match(signup, /openPostSignupRecoverySetup/);
+  assert.match(css, /26-account-recovery\.css/);
+  assert.match(css, /#unifiedPasswordRecoveryModal\.modal/);
+  assert.match(css, /#twoFactorManagementModal\.modal\{z-index:2147483642!important\}/);
+  assert.match(recovery, /Project-owner fallback/);
+  assert.match(index, /auth\/04-account-recovery\.js\?v=20260904-(?:self-recovery137|reliability139)/);
+  assert.ok(index.indexOf("auth/03-two-factor.js") < index.indexOf("auth/04-account-recovery.js"));
+  assert.ok(index.indexOf("auth/04-account-recovery.js") < index.indexOf("auth/02-auth-welcome-trial.js"));
+  assert.match(builder, /130_self_service_password_recovery_passkey_key_trusted_device\.sql/);
+});
+
+
+it("131 adds verified recovery identity, trusted 2FA browsers, biometric quick sign-in, Smart PIN integration, and device history", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "131_account_security_quick_signin_devices.sql"), "utf8");
+  const security = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/05-account-security.js"), "utf8");
+  const recovery = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/04-account-recovery.js"), "utf8");
+  const auth = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/02-auth-welcome-trial.js"), "utf8");
+  const twoFactor = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/03-two-factor.js"), "utf8");
+  const smartPin = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/01-auth-session.js"), "utf8");
+  const admin = fs.readFileSync(path.join(projectRoot, "Assets/app/admin/01-admin.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts", "build_full_schema_sql.js"), "utf8");
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/\$do\$[\s\S]*?\$do\$/g, "").replace(/--.*$/gm, "");
+
+  assert.match(migration, /identity_verified_at timestamptz/i);
+  assert.match(migration, /app_account_self_recovery_identity_verify/i);
+  assert.match(migration, /p_username text,p_email text,p_mobile text,p_full_name text/i);
+  assert.match(migration, /app_account_self_recovery_complete_key_v2/i);
+  assert.match(migration, /app_account_self_recovery_complete_passkey_v2/i);
+  assert.match(migration, /app_account_self_recovery_complete_two_factor_v2/i);
+  assert.match(migration, /app_account_self_recovery_device_begin_v2/i);
+  assert.match(migration, /create table if not exists public\.app_two_factor_trusted_devices/i);
+  assert.match(migration, /app_two_factor_complete_trusted_login/i);
+  assert.match(migration, /trg_revoke_two_factor_trusted_on_password_change/i);
+  assert.match(migration, /create table if not exists public\.app_biometric_auth_challenges/i);
+  assert.match(migration, /app_biometric_quick_signin_complete/i);
+  assert.match(migration, /app_biometric_workspace_complete/i);
+  assert.match(migration, /app_account_security_sessions/i);
+  assert.match(migration, /app_account_security_revoke_session/i);
+  assert.match(migration, /auth_method text not null default 'password'/i);
+  assert.doesNotMatch(installOnly, /\b(update|delete|truncate)\s+public\.(app_users|app_sessions|expense_entries|expense_accounts|goods_items|loans|app_assets|app_inquiries|app_inquiry_messages)\b/i);
+  assert.doesNotMatch(installOnly, /\bdrop\s+(table|column)\b/i);
+
+  assert.match(security, /Verify registered details/);
+  assert.match(security, /p_full_name:full/);
+  assert.match(security, /only recovery methods already configured/i);
+  assert.match(security, /attemptTrustedTwoFactorLogin/);
+  assert.match(security, /Trust this browser/);
+  assert.match(security, /performBiometricQuickSignIn/);
+  assert.match(security, /tryBiometricWorkspaceUnlock/);
+  assert.match(security, /Logged-in devices/);
+  assert.match(security, /Login history/);
+  assert.match(security, /app_account_recovery_pending_device_requests/);
+  assert.match(recovery, /createPasskeyProof: createPasskeyRecoveryProof/);
+  assert.match(twoFactor, /twoFactorTrustBrowser/);
+  assert.match(auth, /attemptTrustedTwoFactorLogin/);
+  assert.match(auth, /tryBiometricWorkspaceUnlock/);
+  assert.match(smartPin, /TriplemSmartPinSecurity/);
+  assert.match(admin, /Account Security/);
+  assert.match(admin, /accountSecurityBtn/);
+  assert.match(css, /Triplem VIP unified Account Security v138/);
+  assert.match(index, /auth\/05-account-security\.js\?v=(?:20260904-(?:account-security138|reliability139|authsurface140)|20260905-webauthn141)/);
+  assert.ok(index.indexOf("auth/04-account-recovery.js") < index.indexOf("auth/05-account-security.js"));
+  assert.ok(index.indexOf("auth/05-account-security.js") < index.indexOf("auth/02-auth-welcome-trial.js"));
+  assert.match(builder, /131_account_security_quick_signin_devices\.sql/);
+});
+
+it("132 hardens trusted-browser recovery, Account Security stacking, Assets menus, keyboard parity, and Inventory themes", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "132_account_security_recovery_ui_reliability.sql"), "utf8");
+  const security = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/05-account-security.js"), "utf8");
+  const recovery = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/04-account-recovery.js"), "utf8");
+  const welcome = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/02-auth-welcome-trial.js"), "utf8");
+  const admin = fs.readFileSync(path.join(projectRoot, "Assets/app/admin/01-admin.js"), "utf8");
+  const assets = fs.readFileSync(path.join(projectRoot, "Assets/app/assets/01-assets.js"), "utf8");
+  const messaging = fs.readFileSync(path.join(projectRoot, "Assets/app/messaging/01-messaging.js"), "utf8");
+  const push = fs.readFileSync(path.join(projectRoot, "Assets/app/notifications/01-web-push.js"), "utf8");
+  const edge = fs.readFileSync(path.join(projectRoot, "supabase/functions/push-notifications/index.ts"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8");
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/\$do\$[\s\S]*?\$do\$/g, "").replace(/--.*$/gm, "");
+
+  assert.match(migration, /push_dispatch_count integer not null default 0/i);
+  assert.match(migration, /interval '15 minutes'/i);
+  assert.match(migration, /security_recovery_approval/i);
+  assert.match(migration, /app_push_service_security_recovery_dispatch/i);
+  assert.match(migration, /grant execute on function public\.app_push_service_security_recovery_dispatch\(text\) to service_role/i);
+  assert.doesNotMatch(migration, /grant execute on function public\.app_push_service_security_recovery_dispatch\(text\) to (?:anon|authenticated)/i);
+  assert.doesNotMatch(installOnly, /\b(update|delete|truncate)\s+public\.(app_users|app_sessions|expense_entries|expense_accounts|goods_items|loans|app_assets|app_inquiries|app_inquiry_messages)\b/i);
+  assert.doesNotMatch(installOnly, /\bdrop\s+(table|column)\b/i);
+
+  assert.match(security, /requestSecurityRecoveryPush/);
+  assert.match(security, /Number\.isFinite\(expiresMs\)/);
+  assert.match(security, /openTrustedRecoveryApprovalById/);
+  assert.match(security, /currentFullyTrusted/);
+  assert.match(security, /This browser is trusted/);
+  assert.doesNotMatch(security, /fa-laptop-shield|fa-dial/);
+  assert.match(recovery, /This browser is trusted/);
+  assert.match(recovery, /const existing = readLocalRecoveryDevice\(\)/);
+
+  assert.match(welcome, /submitForcedPassword/);
+  assert.match(welcome, /event\.key === "Enter"/);
+  assert.match(admin, /submitAccountPasswordChange/);
+  assert.match(admin, /event\.key === "Enter"/);
+
+  assert.match(assets, /assetUi\.bound/);
+  assert.match(assets, /asset-card-dropdown-portal/);
+  assert.match(assets, /DOMContentLoaded", assetsBindUI/);
+  assert.match(messaging, /security_recovery_approval/);
+  assert.match(messaging, /openTrustedRecoveryApprovalById/);
+  assert.match(push, /requestSecurityRecoveryPush/);
+  assert.match(push, /security_recovery_request/);
+  assert.match(edge, /action === "security_recovery_request"/);
+  assert.match(edge, /app_push_service_security_recovery_dispatch/);
+
+  assert.match(css, /28-security-assets-inventory-reliability\.css/);
+  assert.match(css, /#accountSecurityCenterModal\.account-security-center-modal\.modal\{z-index:2147483300!important\}/);
+  assert.match(css, /asset-card-dropdown\.asset-card-dropdown-portal/);
+  assert.match(css, /inventory-brand-card/);
+  assert.match(css, /scrollbar-width:none!important/);
+  assert.match(index, /reliability139/);
+  assert.match(builder, /132_account_security_recovery_ui_reliability\.sql/);
+});
+
+
+it("140 unifies recovery and Smart PIN inside sign-in, embeds password eyes, fixes Assets binding, and stabilizes Account Security layout", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const ui = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/06-auth-ui.js"), "utf8");
+  const security = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/05-account-security.js"), "utf8");
+  const session = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/01-auth-session.js"), "utf8");
+  const landing = fs.readFileSync(path.join(projectRoot, "Assets/app/landing/01-landing.js"), "utf8");
+  const assets = fs.readFileSync(path.join(projectRoot, "Assets/app/assets/01-assets.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/app.bundle.css"), "utf8");
+  const sourceCss = fs.readFileSync(path.join(projectRoot, "Assets/style/29-auth-surface-security-assets.css"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+
+  assert.match(ui, /window\.TriplemAuthSurface/);
+  assert.match(ui, /beginRecovery/);
+  assert.match(ui, /beginSmartPin/);
+  assert.match(ui, /--triplem-auth-panel-height/);
+  assert.match(ui, /MutationObserver/);
+  assert.match(ui, /triplem-password-eye/);
+  assert.match(security, /TriplemAuthSurface\?\.beginRecovery/);
+  assert.match(security, /TriplemAuthSurface\.recoveryShell/);
+  assert.match(session, /TriplemAuthSurface\?\.beginSmartPin/);
+  assert.match(landing, /TriplemAuthSurface\?\.cancelActive/);
+
+  assert.match(assets, /function bindRenderedAssetCardInteractions/);
+  assert.match(assets, /bindRenderedAssetCardInteractions\(listEl\)/);
+  assert.match(assets, /root\.querySelectorAll\("\[data-asset-menu-trigger\]"\)/);
+  assert.match(assets, /card\.onclick = event/);
+
+  assert.match(sourceCss, /#accountSecurityCenterModal \.account-security-dialog/);
+  assert.match(sourceCss, /width:min\(650px,calc\(100vw - 32px\)\)/);
+  assert.match(sourceCss, /scrollbar-width:none!important/);
+  assert.match(sourceCss, /width:calc\(100vw - 30px\)!important/);
+  assert.match(sourceCss, /\.smart-pin-security-actions \.btn/);
+  assert.match(sourceCss, /\.triplem-password-eye/);
+  assert.match(css, /Triplem VIP Build 140/);
+  assert.match(index, /auth\/06-auth-ui\.js\?v=20260904-authsurface140/);
+  assert.match(index, /assets\/01-assets\.js\?v=20260904-assets140/);
+  assert.match(index, /authsurface=20260904-v140/);
+});
+
+it("133 uses standard WebAuthn for cross-platform biometric sign-in and never primes alert audio on login", () => {
+  const projectRoot = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(projectRoot, "migrations", "133_standard_webauthn_quick_signin.sql"), "utf8");
+  const security = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/05-account-security.js"), "utf8");
+  const messaging = fs.readFileSync(path.join(projectRoot, "Assets/app/messaging/01-messaging.js"), "utf8");
+  const notes = fs.readFileSync(path.join(projectRoot, "Assets/app/notes/01-notes.js"), "utf8");
+  const authSession = fs.readFileSync(path.join(projectRoot, "Assets/app/auth/01-auth-session.js"), "utf8");
+  const edge = fs.readFileSync(path.join(projectRoot, "supabase/functions/account-security-webauthn/index.ts"), "utf8");
+  const index = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(projectRoot, "scripts/build_full_schema_sql.js"), "utf8");
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/\$do\$[\s\S]*?\$do\$/g, "").replace(/--.*$/gm, "");
+
+  assert.match(migration, /create table if not exists public\.app_account_security_passkeys/i);
+  assert.match(migration, /create table if not exists public\.app_account_security_webauthn_challenges/i);
+  assert.match(migration, /enable row level security/i);
+  assert.match(migration, /app_account_security_set_standard_biometric_preferences/i);
+  assert.match(migration, /app_account_security_webauthn_issue_session/i);
+  assert.match(migration, /revoke all on function public\.app_biometric_quick_signin_complete/i);
+  assert.doesNotMatch(installOnly, /\b(update|delete|truncate)\s+public\.(app_users|app_sessions|expense_entries|expense_accounts|goods_items|loans|app_assets|app_inquiries|app_inquiry_messages)\b/i);
+  assert.doesNotMatch(installOnly, /\bdrop\s+(table|column)\b/i);
+
+  assert.match(security, /STANDARD_WEBAUTHN_FUNCTION = "account-security-webauthn"/);
+  assert.match(security, /navigator\.credentials\.create/);
+  assert.match(security, /pubKeyCredParams:\[\{type:"public-key",alg:-7\}\]/);
+  assert.match(security, /navigator\.credentials\.get/);
+  assert.match(security, /app_account_security_set_standard_biometric_preferences/);
+  assert.match(security, /Turning on Quick Sign-In or biometric Smart PIN verification will securely create a standard device passkey first/);
+  assert.doesNotMatch(security, /securityQuickToggle[^\n]+disabled/);
+  assert.doesNotMatch(security, /securityPinBypassToggle[^\n]+disabled/);
+
+  assert.match(edge, /webauthn\.create/);
+  assert.match(edge, /webauthn\.get/);
+  assert.match(edge, /Biometric or device verification is required/);
+  assert.match(edge, /crypto\.subtle\.verify/);
+  assert.match(edge, /app_account_security_webauthn_issue_session/);
+  assert.match(edge, /quick-signin-complete/);
+  assert.match(edge, /workspace-complete/);
+  assert.match(edge, /This passkey is already registered to another account/);
+
+  assert.doesNotMatch(messaging, /audio\.muted\s*=\s*true/);
+  assert.match(messaging, /Only after a real pending offer was blocked/);
+  assert.doesNotMatch(notes, /audio\.muted\s*=\s*true/);
+  assert.doesNotMatch(authSession, /ensureReminderAlertAudioUnlocked\s*\(\s*\)/, "auth-session does not prime reminder audio");
+  assert.match(notes, /remain deliberately inert until/);
+  assert.match(index, /auth\/01-auth-session\.js\?v=20260905-audio141/);
+  assert.match(index, /auth\/05-account-security\.js\?v=20260905-webauthn141/);
+  assert.match(index, /notes\/01-notes\.js\?v=20260905-audio141/);
+  assert.match(index, /messaging\/01-messaging\.js\?v=20260905-audio141/);
+  assert.match(builder, /133_standard_webauthn_quick_signin\.sql/);
+});
+
