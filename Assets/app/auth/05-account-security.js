@@ -108,53 +108,104 @@
 
   function passkeyApi() {
     const api=window.TriplemAccountRecovery;
-    if (!api?.getPasskeyProof || !api?.createPasskeyProof) throw new Error("Passkey security module is unavailable. Refresh and try again.");
+    if (!api?.getPasskeyProof || !api?.createPasskeyProof) throw new Error("Passkey recovery module is unavailable. Refresh and try again.");
     return api;
+  }
+
+  const STANDARD_WEBAUTHN_FUNCTION = "account-security-webauthn";
+  function webauthnSupported() {
+    return !!(window.isSecureContext && window.PublicKeyCredential && navigator.credentials && crypto?.subtle);
+  }
+  function bytesToBase64Url(value) {
+    const bytes=value instanceof Uint8Array?value:new Uint8Array(value||0); let binary="";
+    for(let i=0;i<bytes.length;i+=0x8000) binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));
+    return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+  }
+  function base64UrlToBytes(value) {
+    const raw=safe(value).trim(), padded=raw.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-raw.length%4)%4);
+    const binary=atob(padded), out=new Uint8Array(binary.length); for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i); return out;
+  }
+  function standardPasskeyLabel(){return `Passkey · ${deviceLabel()}`.slice(0,80);}
+  function webauthnConfig(){
+    if(typeof window.getSupabaseConfig!=="function")throw new Error("Supabase configuration is unavailable.");
+    const cfg=window.getSupabaseConfig(),base=safe(cfg?.supabaseUrl).replace(/\/$/,""),key=safe(cfg?.supabaseKey).trim();
+    if(!base||!key)throw new Error("Supabase configuration is unavailable."); return{base,key};
+  }
+  async function invokeStandardWebAuthn(action,payload={},authenticated=true){
+    const{base,key}=webauthnConfig(); const headers={apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};
+    let token=""; try{token=safe(typeof state!=="undefined"?state?.sessionToken:window.state?.sessionToken).trim();}catch(_){}
+    if(authenticated){if(!token)throw new Error("Authentication required.");headers["X-Session-Token"]=token;}
+    const response=await fetch(`${base}/functions/v1/${STANDARD_WEBAUTHN_FUNCTION}`,{method:"POST",headers,body:JSON.stringify({action,...payload}),cache:"no-store"});
+    const text=await response.text();let data=null;try{data=text?JSON.parse(text):null;}catch(_){}
+    if(!response.ok||data?.ok===false)throw new Error(data?.error||`Biometric service request failed (${response.status}).`); return data||{};
+  }
+  function standardAssertionPayload(assertion){
+    if(!assertion?.rawId||!assertion?.response?.clientDataJSON||!assertion?.response?.authenticatorData||!assertion?.response?.signature)throw new Error("The selected passkey did not return a complete verification response.");
+    return{credentialId:bytesToBase64Url(assertion.rawId),clientDataJSON:bytesToBase64Url(assertion.response.clientDataJSON),authenticatorData:bytesToBase64Url(assertion.response.authenticatorData),signature:bytesToBase64Url(assertion.response.signature)};
+  }
+  async function createStandardSecurityPasskey(password,{quick=true,bypass=false}={}){
+    if(!webauthnSupported())throw new Error("Face ID, Touch ID, Windows Hello or Passkeys require a secure HTTPS browser with WebAuthn support.");
+    const begin=await invokeStandardWebAuthn("register-begin",{password:safe(password)}); if(!begin?.challenge_token||!begin?.challenge||!begin?.rp_id)throw new Error("Biometric setup could not start.");
+    const credential=await navigator.credentials.create({publicKey:{
+      challenge:base64UrlToBytes(begin.challenge),rp:{name:"Triplem VIP",id:begin.rp_id},
+      user:{id:new TextEncoder().encode(safe(begin.user_id)),name:safe(begin.username),displayName:safe(begin.display_name||begin.username)},
+      pubKeyCredParams:[{type:"public-key",alg:-7}],timeout:90000,
+      authenticatorSelection:{residentKey:"required",requireResidentKey:true,userVerification:"required"},attestation:"none"
+    }});
+    if(!credential)throw new Error("Biometric passkey setup was cancelled.");
+    const response=credential.response,publicKey=response?.getPublicKey?.(),algorithm=Number(response?.getPublicKeyAlgorithm?.());
+    if(!publicKey||![-7,-257].includes(algorithm))throw new Error("This browser created a passkey but cannot expose the standard public-key data required for secure sign-in. Update the browser and try again.");
+    const completed=await invokeStandardWebAuthn("register-complete",{
+      challengeToken:begin.challenge_token,credentialId:bytesToBase64Url(credential.rawId),clientDataJSON:bytesToBase64Url(response.clientDataJSON),
+      publicKeySpki:bytesToBase64Url(publicKey),algorithm,label:standardPasskeyLabel(),quickSignIn:quick===true,smartPinBypass:bypass===true
+    });
+    setQuickSignInLocal(quick===true);
+    const u=user();if(u?.settings){u.settings.security_biometric_quick_sign_in=quick===true;u.settings.security_biometric_smart_pin_bypass=bypass===true;}
+    return completed;
+  }
+  async function setStandardBiometricPreferences(password,quick,bypass){
+    const result=await rpc("app_account_security_set_standard_biometric_preferences",{p_password:password,p_quick_sign_in:quick===true,p_smart_pin_bypass:bypass===true});
+    if(result?.ok===false)throw new Error(result.error||"Could not update biometric settings.");
+    setQuickSignInLocal(quick===true);const u=user();if(u?.settings){u.settings.security_biometric_quick_sign_in=quick===true;u.settings.security_biometric_smart_pin_bypass=bypass===true;}return result;
   }
 
   function quickSignInLocalEnabled() { try { return localStorage.getItem(QUICK_SIGNIN_LOCAL)==="1"; } catch (_) { return false; } }
   function setQuickSignInLocal(enabled) { try { enabled ? localStorage.setItem(QUICK_SIGNIN_LOCAL,"1") : localStorage.removeItem(QUICK_SIGNIN_LOCAL); } catch (_) {} updateQuickSignInButton(); }
 
   async function performBiometricQuickSignIn() {
-    const btn=document.getElementById("biometricQuickSignInBtn"); const err=document.getElementById("lockError");
-    if (btn) btn.disabled=true; if (err){err.textContent="";err.classList.remove("show");}
-    try {
-      const begin=await rpc("app_biometric_quick_signin_begin",{}); if(!begin?.challenge_token) throw new Error("Biometric sign-in could not start.");
-      const proof=await passkeyApi().getPasskeyProof();
-      const remember=typeof window.readRememberMePreference==="function" ? !!window.readRememberMePreference() : !!document.getElementById("rememberMeCheckbox")?.checked;
-      const result=await rpc("app_biometric_quick_signin_complete",{p_challenge_token:begin.challenge_token,p_credential_id:proof.credentialId,p_prf_secret:proof.prfSecret,p_user_agent:navigator.userAgent||"",p_ip:null,p_remember:remember});
-      if(result?.ok===false) throw new Error(result.error||"Biometric sign-in failed.");
-      if(!result?.session_token || !result?.user?.id) throw new Error("Biometric sign-in could not be completed.");
-      try { if (typeof state!=="undefined") state.sessionToken=result.session_token; } catch (_) {}
-      if(typeof window.completeAuthenticatedUnlock!=="function") throw new Error("Sign-in module is unavailable. Refresh and try again.");
-      const ok=await window.completeAuthenticatedUnlock(result.user,result.session_token,{remember,silentResume:false,biometricVerified:true});
-      if(!ok) throw new Error("Sign-in was cancelled.");
-    } catch(e) {
-      if(err){err.textContent=e?.message||"Biometric sign-in failed.";err.classList.add("show");}
-    } finally { if(btn?.isConnected) btn.disabled=false; }
+    const btn=document.getElementById("biometricQuickSignInBtn"),err=document.getElementById("lockError");
+    if(btn)btn.disabled=true;if(err){err.textContent="";err.classList.remove("show");}
+    try{
+      if(!webauthnSupported())throw new Error("Passkey Quick Sign-In is not supported by this browser.");
+      const begin=await invokeStandardWebAuthn("quick-signin-begin",{},false);if(!begin?.challenge_token||!begin?.challenge)throw new Error("Biometric sign-in could not start.");
+      const assertion=await navigator.credentials.get({publicKey:{challenge:base64UrlToBytes(begin.challenge),rpId:begin.rp_id,timeout:90000,userVerification:"required"}});
+      const remember=typeof window.readRememberMePreference==="function"?!!window.readRememberMePreference():!!document.getElementById("rememberMeCheckbox")?.checked;
+      const result=await invokeStandardWebAuthn("quick-signin-complete",{challengeToken:begin.challenge_token,...standardAssertionPayload(assertion),userAgent:navigator.userAgent||"",remember},false);
+      if(!result?.session_token||!result?.user?.id)throw new Error("Biometric sign-in could not be completed.");
+      try{if(typeof state!=="undefined")state.sessionToken=result.session_token;}catch(_){}
+      if(typeof window.completeAuthenticatedUnlock!=="function")throw new Error("Sign-in module is unavailable. Refresh and try again.");
+      const ok=await window.completeAuthenticatedUnlock(result.user,result.session_token,{remember,silentResume:false,biometricVerified:true});if(!ok)throw new Error("Sign-in was cancelled.");
+    }catch(e){if(err){err.textContent=e?.message||"Biometric sign-in failed.";err.classList.add("show");}}
+    finally{if(btn?.isConnected)btn.disabled=false;}
   }
 
-  function updateQuickSignInButton() {
-    const btn=document.getElementById("biometricQuickSignInBtn"); if(!btn)return;
-    btn.classList.toggle("hide",!quickSignInLocalEnabled());
-  }
-  function installQuickSignInButton() {
-    if(document.getElementById("biometricQuickSignInBtn")) { updateQuickSignInButton(); return; }
-    const signIn=document.getElementById("unlockBtn"); if(!signIn)return;
-    const btn=document.createElement("button"); btn.id="biometricQuickSignInBtn"; btn.type="button"; btn.className="btn biometric-quick-signin-btn hide";
+  function updateQuickSignInButton(){const btn=document.getElementById("biometricQuickSignInBtn");if(!btn)return;btn.classList.toggle("hide",!quickSignInLocalEnabled()||!webauthnSupported());}
+  function installQuickSignInButton(){
+    if(document.getElementById("biometricQuickSignInBtn")){updateQuickSignInButton();return;}
+    const signIn=document.getElementById("unlockBtn");if(!signIn)return;
+    const btn=document.createElement("button");btn.id="biometricQuickSignInBtn";btn.type="button";btn.className="btn biometric-quick-signin-btn hide";
     btn.innerHTML='<i class="fa-solid fa-fingerprint" aria-hidden="true"></i><span>Face ID / Passkey</span><small>Quick sign-in</small>';
-    btn.addEventListener("click",performBiometricQuickSignIn); signIn.insertAdjacentElement("afterend",btn); updateQuickSignInButton();
+    btn.addEventListener("click",performBiometricQuickSignIn);signIn.insertAdjacentElement("afterend",btn);updateQuickSignInButton();
   }
 
-  async function tryBiometricWorkspaceUnlock() {
-    const u=user(); const settings=u?.settings||{};
-    if(!u?.id || settings.security_biometric_smart_pin_bypass!==true) return false;
-    try {
-      const begin=await rpc("app_biometric_workspace_begin",{}); if(!begin?.ok || !begin?.challenge_token) return false;
-      const proof=await passkeyApi().getPasskeyProof();
-      const result=await rpc("app_biometric_workspace_complete",{p_challenge_token:begin.challenge_token,p_credential_id:proof.credentialId,p_prf_secret:proof.prfSecret});
-      return !!result?.verified;
-    } catch (_) { return false; }
+  async function tryBiometricWorkspaceUnlock(){
+    const u=user(),settings=u?.settings||{};if(!u?.id||settings.security_biometric_smart_pin_bypass!==true||!webauthnSupported())return false;
+    try{
+      const begin=await invokeStandardWebAuthn("workspace-begin",{},true);if(!begin?.challenge_token||!begin?.challenge)return false;
+      const allow=(Array.isArray(begin.allow_credentials)?begin.allow_credentials:[]).map(id=>({type:"public-key",id:base64UrlToBytes(id)}));
+      const assertion=await navigator.credentials.get({publicKey:{challenge:base64UrlToBytes(begin.challenge),rpId:begin.rp_id,timeout:60000,userVerification:"required",allowCredentials:allow}});
+      const result=await invokeStandardWebAuthn("workspace-complete",{challengeToken:begin.challenge_token,...standardAssertionPayload(assertion)},true);return !!result?.verified;
+    }catch(_){return false;}
   }
 
   // ── Recovery flow: username -> registered identity -> configured methods ──
@@ -322,9 +373,10 @@
       <section class="account-security-card"><div class="account-security-section-title"><span><i class="fa-solid fa-key"></i></span><div><strong>Password</strong><small>Your primary account credential.</small></div></div><button class="account-security-row" id="securityChangePassword" type="button"><span>Change password</span><i class="fa-solid fa-chevron-right"></i></button></section>
       <section class="account-security-card"><div class="account-security-section-title"><span><i class="fa-solid fa-mobile-screen-button"></i></span><div><strong>Authenticator App 2FA</strong><small>Require an authenticator on untrusted browsers.</small></div>${securityStatusBadge(s.two_factor_enabled)}</div><button class="account-security-row" id="securityManage2fa" type="button"><span>${s.two_factor_enabled?"Manage authenticator":"Set up authenticator"}</span><i class="fa-solid fa-chevron-right"></i></button></section>
       <section class="account-security-card biometric-security-card"><div class="account-security-section-title"><span><i class="fa-solid fa-fingerprint"></i></span><div><strong>Biometric &amp; Passkey</strong><small>Face ID, Touch ID, Windows Hello or compatible device passkeys.</small></div>${securityStatusBadge(s.passkey_enabled,"Configured","Not set")}</div>
-        <button class="account-security-row" id="securitySetupPasskey" type="button"><span>${s.passkey_enabled?"Replace / refresh passkey":"Set up biometric passkey"}</span><i class="fa-solid fa-chevron-right"></i></button>
-        <label class="account-security-toggle-row"><span><strong>Quick sign-in</strong><small>Sign in without typing your password on this browser.</small></span><input id="securityQuickToggle" type="checkbox" ${s.quick_sign_in_enabled?"checked":""} ${s.passkey_enabled?"":"disabled"}><i></i></label>
-        <label class="account-security-toggle-row"><span><strong>Biometric before Smart PIN</strong><small>If biometric succeeds, Smart PIN is skipped. If it fails, Smart PIN is shown.</small></span><input id="securityPinBypassToggle" type="checkbox" ${s.smart_pin_bypass_enabled?"checked":""} ${s.passkey_enabled?"":"disabled"}><i></i></label>
+        <button class="account-security-row" id="securitySetupPasskey" type="button"><span>${s.passkey_enabled?"Add / refresh biometric passkey":"Set up biometric sign-in"}</span><i class="fa-solid fa-chevron-right"></i></button>
+        ${s.passkey_enabled?"":`<p class="account-security-fineprint"><i class="fa-solid fa-circle-info"></i><span>Turning on Quick Sign-In or biometric Smart PIN verification will securely create a standard device passkey first.</span></p>`}
+        <label class="account-security-toggle-row"><span><strong>Quick sign-in</strong><small>Sign in without typing your password on this browser.</small></span><input id="securityQuickToggle" type="checkbox" ${s.quick_sign_in_enabled?"checked":""}><i></i></label>
+        <label class="account-security-toggle-row"><span><strong>Biometric before Smart PIN</strong><small>If biometric succeeds, Smart PIN is skipped. If it fails, Smart PIN is shown.</small></span><input id="securityPinBypassToggle" type="checkbox" ${s.smart_pin_bypass_enabled?"checked":""}><i></i></label>
       </section>
       <section class="account-security-card smart-pin-security-card"><div class="account-security-section-title"><span><i class="fa-solid fa-key"></i></span><div><strong>Smart PIN</strong><small>Fast workspace lock after account sign-in.</small></div>${securityStatusBadge(s.smart_pin_enabled,"Enabled","Not set")}</div><div class="account-security-inline-actions smart-pin-security-actions"><button class="btn soft tiny" id="securityManageSmartPin" type="button"><i class="fa-solid ${s.smart_pin_enabled?"fa-pen":"fa-plus"}" aria-hidden="true"></i>${s.smart_pin_enabled?"Change Smart PIN":"Set Smart PIN"}</button>${s.smart_pin_enabled?`<button class="btn ghost tiny smart-pin-remove-btn" id="securityRemoveSmartPin" type="button"><i class="fa-solid fa-trash-can" aria-hidden="true"></i>Remove</button>`:""}</div></section>
       <section class="account-security-card"><div class="account-security-section-title"><span><i class="fa-solid fa-life-ring"></i></span><div><strong>Password Recovery</strong><small>Recovery Key, Passkey and trusted-browser approval.</small></div>${securityStatusBadge(!!(r.recovery_key_enabled||r.passkey_enabled||r.trusted_device_count),"Protected","Review")}</div><button class="account-security-row" id="securityManageRecovery" type="button"><span>Manage recovery methods</span><i class="fa-solid fa-chevron-right"></i></button></section>
@@ -340,8 +392,20 @@
     modal.querySelector("#securityManageRecovery")?.addEventListener("click",()=>window.openAccountRecoveryManagement?.());
     modal.querySelector("#securityManageSmartPin")?.addEventListener("click",async()=>{try{await window.TriplemSmartPinSecurity?.manage?.();await refreshSecurityCenter(modal,options);}catch(_){}});
     modal.querySelector("#securityRemoveSmartPin")?.addEventListener("click",async()=>{try{await window.TriplemSmartPinSecurity?.remove?.();await refreshSecurityCenter(modal,options);}catch(_){}});
-    modal.querySelector("#securitySetupPasskey")?.addEventListener("click",async e=>{const b=e.currentTarget;try{const pw=options.currentPassword||await promptCurrentPassword("Set up biometric passkey");if(!pw)return;b.disabled=true;const proof=await passkeyApi().createPasskeyProof(user());await rpc("app_account_recovery_passkey_upsert",{p_password:pw,p_credential_id:proof.credentialId,p_prf_secret:proof.prfSecret,p_rp_id:proof.rpId,p_label:proof.label});await rpc("app_account_security_set_biometric_preferences",{p_password:pw,p_quick_sign_in:true,p_smart_pin_bypass:!!s.smart_pin_enabled});setQuickSignInLocal(true);if(options.currentPassword)options.currentPassword=pw;await refreshSecurityCenter(modal,options);}catch(err){setError(modal,"accountSecurityCenterError",err?.message||"Passkey setup failed.");}finally{if(b?.isConnected)b.disabled=false;}});
-    ["securityQuickToggle","securityPinBypassToggle"].forEach(id=>modal.querySelector(`#${id}`)?.addEventListener("change",async e=>{const quick=!!modal.querySelector("#securityQuickToggle")?.checked,bypass=!!modal.querySelector("#securityPinBypassToggle")?.checked;try{const pw=options.currentPassword||await promptCurrentPassword("Confirm biometric settings");if(!pw){e.target.checked=!e.target.checked;return;}await rpc("app_account_security_set_biometric_preferences",{p_password:pw,p_quick_sign_in:quick,p_smart_pin_bypass:bypass});setQuickSignInLocal(quick);if(user()?.settings){user().settings.security_biometric_quick_sign_in=quick;user().settings.security_biometric_smart_pin_bypass=bypass;}if(options.currentPassword)options.currentPassword=pw;await refreshSecurityCenter(modal,options);}catch(err){e.target.checked=!e.target.checked;setError(modal,"accountSecurityCenterError",err?.message||"Could not update biometric settings.");}}));
+    modal.querySelector("#securitySetupPasskey")?.addEventListener("click",async e=>{const b=e.currentTarget;try{setError(modal,"accountSecurityCenterError","");const pw=options.currentPassword||await promptCurrentPassword("Set up biometric sign-in","Confirm your password, then your device will ask for Face ID, Touch ID, Windows Hello, fingerprint or another passkey verification method.");if(!pw)return;b.disabled=true;await createStandardSecurityPasskey(pw,{quick:true,bypass:!!s.smart_pin_bypass_enabled});if(options.currentPassword)options.currentPassword=pw;await refreshSecurityCenter(modal,options);}catch(err){setError(modal,"accountSecurityCenterError",err?.message||"Biometric passkey setup failed.");}finally{if(b?.isConnected)b.disabled=false;}});
+    ["securityQuickToggle","securityPinBypassToggle"].forEach(id=>modal.querySelector(`#${id}`)?.addEventListener("change",async e=>{
+      const changed=e.target,previous=!changed.checked,quick=!!modal.querySelector("#securityQuickToggle")?.checked,bypass=!!modal.querySelector("#securityPinBypassToggle")?.checked;
+      try{
+        setError(modal,"accountSecurityCenterError","");
+        if(bypass&&!s.smart_pin_enabled)throw new Error("Set up Smart PIN first before enabling biometric verification before Smart PIN.");
+        const pw=options.currentPassword||await promptCurrentPassword(s.passkey_enabled?"Confirm biometric settings":"Set up biometric sign-in","Confirm your password to protect this security change.");
+        if(!pw){changed.checked=previous;return;}
+        if(!s.passkey_enabled&&(quick||bypass))await createStandardSecurityPasskey(pw,{quick,bypass});
+        else await setStandardBiometricPreferences(pw,quick,bypass);
+        if(options.currentPassword)options.currentPassword=pw;
+        await refreshSecurityCenter(modal,options);
+      }catch(err){changed.checked=previous;setError(modal,"accountSecurityCenterError",err?.message||"Could not update biometric settings.");}
+    }));
     modal.querySelector("#securityTrustCurrent")?.addEventListener("click",async e=>{const b=e.currentTarget;try{const pw=options.currentPassword||await promptCurrentPassword("Trust this browser","This browser will be allowed to approve recovery requests. If 2FA is enabled, it can also skip Authenticator for 30 days.");if(!pw)return;b.disabled=true;const existingRecovery=recoveryLocal(user()?.id),existingTwoFactor=readTrusted2fa(user()?.username);const secret=existingRecovery?.secret||existingTwoFactor?.secret||randomSecret(),label=existingRecovery?.label||existingTwoFactor?.label||deviceLabel();let trusted2fa=null;if(s.two_factor_enabled){trusted2fa=await rpc("app_two_factor_trust_device",{p_password:pw,p_device_secret:secret,p_label:label,p_user_agent:navigator.userAgent||"",p_days:30});writeTrusted2fa(user()?.username,secret,label,trusted2fa?.expires_at||"");}await rpc("app_account_recovery_trust_device",{p_password:pw,p_device_secret:secret,p_label:label,p_user_agent:navigator.userAgent||""});writeRecoveryLocal(secret,label,user()?.id);if(options.currentPassword)options.currentPassword=pw;startAccountSecurityBackground();await refreshSecurityCenter(modal,options);}catch(err){setError(modal,"accountSecurityCenterError",err?.message||"Could not trust this browser.");}finally{if(b?.isConnected)b.disabled=false;}});
     modal.querySelector("#securityRefreshTrusted")?.addEventListener("click",()=>refreshSecurityCenter(modal,options));
     modal.querySelectorAll("[data-revoke-2fa-device]").forEach(btn=>btn.onclick=async()=>{try{const pw=await promptCurrentPassword("Remove trusted browser");if(!pw)return;const id=btn.dataset.revoke2faDevice;const wasCurrent=Array.isArray(data.twoDevices?.devices)&&data.twoDevices.devices.some(d=>d.id===id&&d.current);await rpc("app_two_factor_revoke_trusted_device",{p_password:pw,p_device_id:id});if(wasCurrent)clearTrusted2fa(user()?.username);await refreshSecurityCenter(modal,options);}catch(err){setError(modal,"accountSecurityCenterError",err?.message||"Could not remove trusted browser.");}});
