@@ -830,7 +830,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140" />
   <link rel="stylesheet" href="Assets/style/22-landing-hero-polish.css?v=20260904-landing134" />
 </head>
 <body>
@@ -2348,7 +2348,7 @@
                 </details>
                 <details>
                   <summary>How does protected password recovery work?</summary>
-                  <div class="faq-answer"><p>When 2FA is enabled, supported password and Smart PIN recovery can require the Authenticator App or an unused recovery code. For an account without 2FA password recovery, an authorized administrator can issue a temporary password after identity checks. Existing sessions are revoked and temporary access forces a new permanent password.</p></div>
+                  <div class="faq-answer"><p>Password recovery can use an enabled Authenticator App or single-use 2FA recovery code, a saved high-entropy Triplem VIP Recovery Key, a compatible passkey, or approval from a browser that the user explicitly trusted while signed in. If no self-service proof is available, an authorized administrator can still issue a temporary password after identity checks. A successful self-service reset revokes existing sessions and never reveals the previous password.</p></div>
                 </details>
                 <details>
                   <summary>Will the notification permission popup keep returning?</summary>
@@ -3194,7 +3194,7 @@
             <button class="menu-item" id="defaultStartPageBtn" type="button"><i class="fa-solid fa-house-chimney"></i> Default Start Page</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
             <button class="menu-item hide" id="companyTeamBtn" type="button"><i class="fa-solid fa-users"></i> Company Team</button>
-            <button class="menu-item" id="secretPinBtn" type="button">Set Smart Pin</button>
+            <button class="menu-item hide" id="secretPinBtn" type="button">Set Smart Pin</button>
             <button class="menu-item danger hide" id="deleteSmartPinBtn" type="button">Delete Smart Pin</button>
             <button class="menu-item" id="taxSettingsBtn" type="button"><i class="fa-solid fa-percent"></i> VAT Settings</button>
             <button class="menu-item" id="logoutBtn" type="button">Logout</button>
@@ -6414,8 +6414,11 @@
   <script src="Assets/app/core/02-state.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
   <script src="Assets/app/core/03-els.js?v=20260903-admin-overlay126"></script>
-  <script src="Assets/app/auth/01-auth-session.js?v=20260903-auth-recovery129"></script>
-  <script src="Assets/app/auth/03-two-factor.js?v=20260903-auth-recovery129"></script>
+  <script src="Assets/app/auth/01-auth-session.js?v=20260904-authsurface140"></script>
+  <script src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138"></script>
+  <script src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139"></script>
+  <script src="Assets/app/auth/05-account-security.js?v=20260904-authsurface140"></script>
+  <script src="Assets/app/auth/06-auth-ui.js?v=20260904-authsurface140"></script>
   <script src="Assets/app/core/04-entries-api.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/utils/01-currency-money.js?v=20260901-select-stable2"></script>
   <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1"></script>
@@ -6435,18 +6438,18 @@
   <script src="Assets/app/reports/02-exports.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1"></script>
-  <script src="Assets/app/landing/01-landing.js?v=20260902-livechat099"></script>
+  <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260903-webpush118"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260903-recovery129&ui=20260904-131"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260904-authsurface140"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe"></script>
   <script src="Assets/app/notes/01-notes.js?v=20260903-credential-privacy128"></script>
-  <script src="Assets/app/assets/01-assets.js?v=20260901-auth-resume-fix2"></script>
+  <script src="Assets/app/assets/01-assets.js?v=20260904-assets140"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2"></script>
-  <script src="Assets/app/admin/01-admin.js?v=20260903-recovery129&ui=20260904-130"></script>
+  <script src="Assets/app/admin/01-admin.js?v=20260904-reliability139"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/messaging/01-messaging.js?v=20260903-recovery129"></script>
-  <script src="Assets/app/notifications/01-web-push.js?v=20260903-pushux127&pref=20260904-once-toggle131"></script>
+  <script src="Assets/app/messaging/01-messaging.js?v=20260904-reliability139"></script>
+  <script src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139"></script>
   <script src="Assets/app/boot.js"></script>
 </body>
 </html>
