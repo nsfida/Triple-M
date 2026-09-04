@@ -91,6 +91,8 @@ const liveChatNotificationState = {
   playing: false,
   unlocked: false,
   unlockBound: false,
+  unlockPending: false,
+  unlockCleanup: null,
   audioErrorLogged: false,
   offerInquiryIds: new Set(),
   realtime: {
@@ -130,39 +132,49 @@ function liveChatNotificationAudio(){
 }
 
 async function primeLiveChatNotificationAudio(){
-  if (liveChatNotificationState.unlocked) return;
+  // Never pre-play media merely to unlock iOS audio. Only an actual pending
+  // Live Support offer is allowed to start this sound.
+  if (!liveChatNotificationState.shouldPlay) return false;
   const audio = liveChatNotificationAudio();
   try {
-    if (liveChatNotificationState.shouldPlay) {
-      audio.muted = false;
-      await audio.play();
-      liveChatNotificationState.unlocked = true;
-      return;
-    }
-    audio.muted = true;
+    audio.muted = false;
     await audio.play();
-    audio.pause();
-    try { audio.currentTime = 0; } catch (_) {}
-    audio.muted = false;
     liveChatNotificationState.unlocked = true;
+    liveChatNotificationState.playing = true;
+    return true;
   } catch (_) {
-    audio.muted = false;
+    liveChatNotificationState.playing = false;
+    return false;
   }
 }
 
+function clearLiveChatNotificationAudioUnlock(){
+  try { liveChatNotificationState.unlockCleanup?.(); } catch (_) {}
+  liveChatNotificationState.unlockCleanup = null;
+  liveChatNotificationState.unlockBound = false;
+  liveChatNotificationState.unlockPending = false;
+}
+
 function bindLiveChatNotificationAudioUnlock(){
-  if (liveChatNotificationState.unlockBound) return;
+  if (liveChatNotificationState.unlockBound || !liveChatNotificationState.shouldPlay) return;
   liveChatNotificationState.unlockBound = true;
+  const cleanup = () => {
+    document.removeEventListener("pointerdown", unlock, true);
+    document.removeEventListener("keydown", unlock, true);
+    liveChatNotificationState.unlockBound = false;
+    liveChatNotificationState.unlockCleanup = null;
+  };
   const unlock = () => {
+    if (!liveChatNotificationState.shouldPlay) { cleanup(); return; }
+    if (liveChatNotificationState.unlockPending) return;
+    liveChatNotificationState.unlockPending = true;
     primeLiveChatNotificationAudio().finally(() => {
-      if (!liveChatNotificationState.unlocked) return;
-      document.removeEventListener("pointerdown", unlock, true);
-      document.removeEventListener("touchstart", unlock, true);
-      document.removeEventListener("keydown", unlock, true);
+      liveChatNotificationState.unlockPending = false;
+      if (liveChatNotificationState.unlocked || !liveChatNotificationState.shouldPlay) cleanup();
     });
   };
-  document.addEventListener("pointerdown", unlock, { capture: true, passive: true });
-  document.addEventListener("touchstart", unlock, { capture: true, passive: true });
+  liveChatNotificationState.unlockCleanup = cleanup;
+  document.addEventListener("pointerdown", unlock, true);
   document.addEventListener("keydown", unlock, true);
 }
 
@@ -178,15 +190,17 @@ function startLiveChatNotificationSound(){
       liveChatNotificationState.unlocked = true;
       liveChatNotificationState.playing = true;
     }).catch(() => {
-      // Browser autoplay rules may block media before the first user gesture.
-      // The capture listeners above will immediately start it on the next interaction.
+      // Only after a real pending offer was blocked by autoplay rules do we
+      // wait for the next user gesture. No login-time audio priming occurs.
       liveChatNotificationState.playing = false;
+      bindLiveChatNotificationAudioUnlock();
     });
   }
 }
 
 function stopLiveChatNotificationSound(){
   liveChatNotificationState.shouldPlay = false;
+  clearLiveChatNotificationAudioUnlock();
   const audio = liveChatNotificationState.audio;
   if (!audio) return;
   try {
@@ -401,7 +415,6 @@ function broadcastLiveChatOfferResolved(inquiryId){
   });
 }
 
-bindLiveChatNotificationAudioUnlock();
 
 function liveChatOfferKey(item){
   const p = notificationPayloadObject(item);
