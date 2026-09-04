@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Builds Assets/sql/triplem_full_schema.sql from migrations/schema.sql + migrations/0*.sql.
  * Run: node scripts/build_full_schema_sql.js
  *
@@ -144,6 +144,9 @@ const CANONICAL_MIGRATION_FILES = [
   "127_authenticator_app_2fa_and_ux_performance.sql",
   "128_account_settings_and_nonrecoverable_credentials.sql",
   "129_authenticator_recovery_admin_temp_password_and_experience.sql",
+  "130_self_service_password_recovery_passkey_key_trusted_device.sql",
+  "131_account_security_quick_signin_devices.sql",
+  "132_account_security_recovery_ui_reliability.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
@@ -229,6 +232,11 @@ const MUST_HAVE_MARKERS = [
   "app_admin_import_full_backup",
   "app_login",
   "app_login_throttle",
+  "app_account_recovery_keys",
+  "app_account_recovery_passkeys",
+  "app_account_recovery_trusted_devices",
+  "app_account_self_recovery_challenges",
+  "app_account_recovery_device_requests",
   "smart_pin",
   "custom_logo_url",
   "drop table if exists public.goods_brands",
@@ -255,6 +263,13 @@ drop table if exists public.app_plan_renewal_requests cascade;
 drop table if exists public.app_activity_log cascade;
 drop table if exists public.app_team_permissions cascade;
 drop table if exists public.app_permissions cascade;
+drop table if exists public.app_account_recovery_device_requests cascade;
+drop table if exists public.app_account_self_recovery_challenges cascade;
+drop table if exists public.app_account_self_recovery_throttle cascade;
+drop table if exists public.app_account_recovery_trusted_devices cascade;
+drop table if exists public.app_account_recovery_passkeys cascade;
+drop table if exists public.app_account_recovery_keys cascade;
+drop table if exists public.app_account_recovery_audit cascade;
 drop table if exists public.app_sessions cascade;
 drop table if exists public.app_login_throttle cascade;
 drop table if exists public.app_note_reminders cascade;
