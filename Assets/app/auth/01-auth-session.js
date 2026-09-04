@@ -2941,7 +2941,7 @@ function applyPermissionGates(){
     refreshAdminCommsBadges().catch(() => {});
     startInstallmentDueChecker();
     startMessagingLiveSync();
-    if (typeof ensureReminderAlertAudioUnlocked === "function") ensureReminderAlertAudioUnlocked();
+    // Alert audio is intentionally not primed during sign-in. Real reminder events start audio on demand.
     if (typeof bootstrapReminderDeliveryOnUnlock === "function") {
       bootstrapReminderDeliveryOnUnlock().catch(() => {});
     }
