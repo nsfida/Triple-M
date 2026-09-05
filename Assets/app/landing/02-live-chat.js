@@ -181,6 +181,7 @@
   }
 
   async function invokeAziz(message, messages = [], turnId = "") {
+    try { if (window.TRIPLEM_REGIONAL_CURRENCY_READY) await window.TRIPLEM_REGIONAL_CURRENCY_READY; } catch (_) {}
     if (typeof window.getSupabaseConfig !== "function") throw new Error("Aziz support configuration is unavailable.");
     const cfg = window.getSupabaseConfig();
     const base = safeText(cfg?.supabaseUrl).replace(/\/$/, "");
@@ -202,7 +203,9 @@
           history,
           chatId: safeText(session?.aziz_chat_id || session?.inquiry_id || ""),
           inquiryId: safeText(session?.inquiry_id || ""),
-          turnId: safeText(turnId).slice(0, 120)
+          turnId: safeText(turnId).slice(0, 120),
+          countryCode: typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ",
+          regionalCurrency: typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD"
         }),
         cache: "no-store",
         ...(controller ? { signal: controller.signal } : {})
@@ -695,14 +698,23 @@
   }
 
   async function chooseGuidedRpc(choiceId) {
+    try { if (window.TRIPLEM_REGIONAL_CURRENCY_READY) await window.TRIPLEM_REGIONAL_CURRENCY_READY; } catch (_) {}
+    const baseArgs = {
+      p_inquiry_id: session.inquiry_id,
+      p_guest_token: session.guest_token,
+      p_choice: choiceId
+    };
     try {
-      return await supabaseRpc("app_public_live_chat_choose", {
-        p_inquiry_id: session.inquiry_id,
-        p_guest_token: session.guest_token,
-        p_choice: choiceId
+      return await supabaseRpc("app_public_live_chat_choose_v2", {
+        ...baseArgs,
+        p_country_code: typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ"
       });
-    } catch (error) {
-      if (!isMissingGuidedRpc(error)) throw error;
+    } catch (regionalError) {
+      if (!isMissingGuidedRpc(regionalError)) throw regionalError;
+      try { return await supabaseRpc("app_public_live_chat_choose", baseArgs); }
+      catch (error) {
+        if (!isMissingGuidedRpc(error)) throw error;
+      }
       const label = guidedLabel(choiceId);
       const aiAnalysis = await analyzeVisitorQuestion(label, session.messages || []);
       const result = await replyLiveChatRpc({
