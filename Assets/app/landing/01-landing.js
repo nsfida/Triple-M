@@ -1,4 +1,99 @@
 /* Modularized from script.js lines 27707-28569 — landing page. Load order must be preserved. */
+
+/* Build 156 — localize public pricing and illustrative landing money without changing dashboard currency capability. */
+function landingRegionalCurrency(){
+  return typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
+}
+
+function landingIllustrativeValues(values, fromCurrency = "AED"){
+  const target = landingRegionalCurrency();
+  return (Array.isArray(values) ? values : []).map(value => convertIllustrativeCurrencyAmount(value, fromCurrency, target));
+}
+
+function landingLocalizedMoneyFromText(rawText){
+  const raw = String(rawText || "").trim();
+  const match = raw.match(/^([+−-]\s*)?(AED|SAR|PKR|USD|Rs\.)\s*([0-9][0-9,]*(?:\.[0-9]+)?)(k)?$/i);
+  if (!match) return "";
+  const prefix = match[1] || "";
+  const sourceToken = match[2].toUpperCase();
+  const sourceCurrency = sourceToken === "RS." ? "PKR" : sourceToken;
+  const sourceAmount = Number(String(match[3]).replace(/,/g, ""));
+  if (!Number.isFinite(sourceAmount)) return "";
+  const target = landingRegionalCurrency();
+  const converted = convertIllustrativeCurrencyAmount(sourceAmount, sourceCurrency, target);
+  const suffixK = !!match[4];
+  const maximumFractionDigits = target === "PKR" ? (suffixK ? 1 : 0) : (suffixK ? 2 : 2);
+  const amountMarkup = regionalMoneyHtml(converted, target, { maximumFractionDigits, minimumFractionDigits: 0 });
+  return `${escapeHtml(prefix)}${amountMarkup}${suffixK ? "k" : ""}`;
+}
+
+function applyLandingRegionalCurrency(){
+  const currency = landingRegionalCurrency();
+
+  const heroMonthly = document.querySelector(".landing-plan-option.is-monthly .landing-plan-copy strong");
+  const heroYearly = document.querySelector(".landing-plan-option.is-yearly .landing-plan-copy strong");
+  if (heroMonthly) heroMonthly.innerHTML = `${regionalMoneyHtml(publicPlanPrice("monthly", currency), currency)} <b>+ 30 Days Free</b>`;
+  if (heroYearly) heroYearly.innerHTML = `${regionalMoneyHtml(publicPlanPrice("yearly", currency), currency)} <b>+ 60 Days Free</b>`;
+
+  const pricingIntro = document.querySelector(".landing-pricing-intro");
+  if (pricingIntro) pricingIntro.textContent = `Monthly and yearly access, shown clearly in your regional ${currency} currency. Installation support included on eligible setup.`;
+
+  document.querySelectorAll(".pricing-rate-list").forEach(list => {
+    list.querySelectorAll("li").forEach(row => {
+      const code = String(row.querySelector(".pricing-rate-code")?.textContent || "").trim().toUpperCase();
+      const show = code === currency;
+      row.hidden = !show;
+      if (!show) return;
+      const amount = row.querySelector(".pricing-rate-amount");
+      const plan = row.closest(".pricing-plan-offer-yearly") ? "yearly" : "monthly";
+      if (amount) amount.innerHTML = regionalMoneyHtml(publicPlanPrice(plan, currency), currency);
+    });
+  });
+
+  const legacyCardCurrency = {
+    "Pakistani Rupee": "PKR",
+    "Saudi Riyal": "SAR",
+    "UAE Dirham": "AED",
+    "US Dollar": "USD"
+  };
+  document.querySelectorAll(".pricing-grid .pricing-card").forEach(card => {
+    const cardCurrency = legacyCardCurrency[String(card.querySelector("h5")?.textContent || "").trim()] || "";
+    if (!cardCurrency) return;
+    card.hidden = cardCurrency !== currency;
+    if (cardCurrency === currency) {
+      const period = /per year/i.test(card.textContent || "") ? "yearly" : "monthly";
+      const amount = Array.from(card.querySelectorAll("div")).find(el => /^\s*(?:AED|SAR|PKR|USD|Rs\.)\s*[0-9]/i.test(el.textContent || "") && el.children.length === 0);
+      if (amount) amount.innerHTML = regionalMoneyHtml(publicPlanPrice(period, currency), currency);
+    }
+  });
+
+  const roots = [document.querySelector(".landing-shell"), document.getElementById("trialPromoOverlay")].filter(Boolean);
+  roots.forEach(root => {
+    root.querySelectorAll("strong,b,span,div").forEach(el => {
+      if (el.children.length) return;
+      if (el.closest(".landing-plan-option,.pricing-rate-list,.pricing-grid")) return;
+      if (!el.dataset.regionalOriginalMoney && landingLocalizedMoneyFromText(el.textContent)) el.dataset.regionalOriginalMoney = el.textContent.trim();
+      if (!el.dataset.regionalOriginalMoney) return;
+      const localized = landingLocalizedMoneyFromText(el.dataset.regionalOriginalMoney);
+      if (localized) el.innerHTML = localized;
+    });
+  });
+
+  const shortLabels = document.querySelectorAll(".landing-demo-wallet-copy p,.landing-demo-mock-head p,.landing-demo-wallet-card p,.landing-demo-account-card p");
+  shortLabels.forEach(el => {
+    if (!el.dataset.regionalOriginalLabel) el.dataset.regionalOriginalLabel = el.textContent || "";
+    el.textContent = el.dataset.regionalOriginalLabel.replace(/\b(AED|SAR|PKR|USD)\b/g, currency);
+  });
+  const promoMeta = document.querySelector("#trialPromoOverlay .trial-promo-mini-meta");
+  if (promoMeta) promoMeta.textContent = `3 active · ${currency}`;
+
+  landingDemoChartsReady = false;
+  while (landingDemoCharts.length) { try { landingDemoCharts.pop()?.destroy?.(); } catch (_) {} }
+  if (document.getElementById("landingDemoAnalytics") && !document.getElementById("landingDemoAnalytics")?.closest(".hide")) buildLandingDemoCharts();
+  const activeOverlay = document.querySelector("#landingContentOverlay [data-landing-panel]:not(.hide)");
+  if (activeOverlay?.dataset?.landingPanel) syncLandingOverlayDemoCharts(activeOverlay.dataset.landingPanel);
+}
+
 function resolveLandingSection(value){
   const key = String(value || "").replace(/^#/, "").trim().toLowerCase();
   return LANDING_SECTION_ALIASES[key] || null;
@@ -423,7 +518,7 @@ function buildLandingFeaturesDemoCharts(){
       datasets: [
         {
           label: "Operations",
-          data: [2100, 1980, 2450, 2320, 2180, 2560],
+          data: landingIllustrativeValues([2100, 1980, 2450, 2320, 2180, 2560]),
           borderColor: c.primary,
           backgroundColor: c.primarySoft,
           fill: true,
@@ -434,7 +529,7 @@ function buildLandingFeaturesDemoCharts(){
         },
         {
           label: "Personal",
-          data: [980, 1120, 1040, 1280, 1190, 1350],
+          data: landingIllustrativeValues([980, 1120, 1040, 1280, 1190, 1350]),
           borderColor: c.warning,
           backgroundColor: c.warningSoft,
           fill: true,
@@ -578,8 +673,8 @@ function buildLandingServicesDemoCharts(){
     data: {
       labels: ["In", "Low", "Sold"],
       datasets: [{
-        label: "Stock value (AED k)",
-        data: [28.4, 11.2, 8.6],
+        label: `Stock value (${landingRegionalCurrency()} k)`,
+        data: landingIllustrativeValues([28.4, 11.2, 8.6]),
         backgroundColor: [c.successSoft, "rgba(181,71,8,.18)", "rgba(102,112,133,.18)"],
         borderColor: [c.success, c.warning, c.slate],
         borderWidth: 1.5,
@@ -620,7 +715,7 @@ function buildLandingAboutDemoCharts(){
       datasets: [
         {
           label: "Money in",
-          data: [9200, 10100, 9800, 11200, 12050, 12800],
+          data: landingIllustrativeValues([9200, 10100, 9800, 11200, 12050, 12800]),
           backgroundColor: c.successSoft,
           borderColor: c.success,
           borderWidth: 1.5,
@@ -629,7 +724,7 @@ function buildLandingAboutDemoCharts(){
         },
         {
           label: "Money out",
-          data: [6400, 7100, 6900, 7600, 8200, 7900],
+          data: landingIllustrativeValues([6400, 7100, 6900, 7600, 8200, 7900]),
           backgroundColor: c.primarySoft,
           borderColor: c.primary,
           borderWidth: 1.5,
@@ -691,8 +786,8 @@ function buildLandingAboutDemoCharts(){
     data: {
       labels: ["ENBD", "ADCB", "Cash", "HBL", "Meezan"],
       datasets: [{
-        label: "Available value (AED k equivalent)",
-        data: [18.6, 9.2, 1.85, 8.1, 3.6],
+        label: `Available value (${landingRegionalCurrency()} k equivalent)`,
+        data: landingIllustrativeValues([18.6, 9.2, 1.85, 8.1, 3.6]),
         backgroundColor: [c.primarySoft, c.primarySoft, c.successSoft, c.warningSoft, c.successSoft],
         borderColor: [c.primary, c.primary, c.success, c.warning, c.success],
         borderWidth: 1.5,
@@ -715,8 +810,8 @@ function buildLandingAboutDemoCharts(){
     data: {
       labels: ["1", "5", "10", "15", "20", "25", "30"],
       datasets: [
-        { label: "Income", data: [1.6, 2.8, 2.1, 3.4, 2.9, 4.2, 3.8], borderColor: c.success, backgroundColor: c.successSoft, fill: true, tension: .34, pointRadius: 2.5, borderWidth: 2.2 },
-        { label: "Expenses", data: [1.1, 1.7, 1.4, 2.2, 1.8, 2.6, 2.1], borderColor: c.primary, backgroundColor: c.primarySoft, fill: true, tension: .34, pointRadius: 2.5, borderWidth: 2.2 }
+        { label: "Income", data: landingIllustrativeValues([1.6, 2.8, 2.1, 3.4, 2.9, 4.2, 3.8]), borderColor: c.success, backgroundColor: c.successSoft, fill: true, tension: .34, pointRadius: 2.5, borderWidth: 2.2 },
+        { label: "Expenses", data: landingIllustrativeValues([1.1, 1.7, 1.4, 2.2, 1.8, 2.6, 2.1]), borderColor: c.primary, backgroundColor: c.primarySoft, fill: true, tension: .34, pointRadius: 2.5, borderWidth: 2.2 }
       ]
     },
     options: {
@@ -909,8 +1004,8 @@ function buildLandingDemoCharts(){
     data: {
       labels: months,
       datasets: [{
-        label: "Expenses (AED)",
-        data: [4200, 3850, 5100, 4600, 3900, 4450],
+        label: `Expenses (${landingRegionalCurrency()})`,
+        data: landingIllustrativeValues([4200, 3850, 5100, 4600, 3900, 4450]),
         borderColor: c.primary,
         backgroundColor: c.primarySoft,
         fill: true,
@@ -933,7 +1028,7 @@ function buildLandingDemoCharts(){
       datasets: [
         {
           label: "Invoiced",
-          data: [8200, 9100, 8800, 10400, 11200, 12100],
+          data: landingIllustrativeValues([8200, 9100, 8800, 10400, 11200, 12100]),
           backgroundColor: c.primarySoft,
           borderColor: c.primary,
           borderWidth: 1.5,
@@ -942,7 +1037,7 @@ function buildLandingDemoCharts(){
         },
         {
           label: "Collected",
-          data: [6400, 7800, 7200, 9100, 9800, 10900],
+          data: landingIllustrativeValues([6400, 7800, 7200, 9100, 9800, 10900]),
           backgroundColor: c.successSoft,
           borderColor: c.success,
           borderWidth: 1.5,
@@ -969,8 +1064,8 @@ function buildLandingDemoCharts(){
     data: {
       labels: months,
       datasets: [{
-        label: "Wallet balance (AED)",
-        data: [18600, 19250, 17800, 21400, 23100, 24850],
+        label: `Wallet balance (${landingRegionalCurrency()})`,
+        data: landingIllustrativeValues([18600, 19250, 17800, 21400, 23100, 24850]),
         borderColor: c.success,
         backgroundColor: c.successSoft,
         fill: true,
@@ -1145,6 +1240,11 @@ function initLandingScrollEffects(){
 function bindLandingAnchorScroll(){
   bindLandingContentNav();
   bindSignInOverlay();
+  applyLandingRegionalCurrency();
+  if (!window.__triplemRegionalLandingBound) {
+    window.__triplemRegionalLandingBound = true;
+    window.addEventListener("triplem:regional-currency", applyLandingRegionalCurrency);
+  }
   initLandingDemoCharts();
   initLandingScrollEffects();
   const yearEl = document.getElementById("landingFooterYear");
