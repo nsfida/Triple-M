@@ -30,8 +30,8 @@ const MESSAGE_HISTORY_CACHE_MAX_MESSAGES = 360;
 const MESSAGE_FLOAT_DISMISS_RADIUS = 82;
 
 const LIVE_CHAT_QUICK_REPLIES = Object.freeze([
-  { key: "monthly", icon: "fa-calendar-check", label: "Pro Monthly plan", hint: "Price, full access & 30 days free", text: "Pro Monthly provides full Triplem VIP access for one month. Current base pricing is AED 49, SAR 49, PKR 1,799, or USD 13.99. Your first approved Pro Monthly subscription currently includes an additional 30 days free. Company team-member charges are calculated separately in the selected billing currency." },
-  { key: "yearly", icon: "fa-calendar-days", label: "Pro Yearly plan", hint: "Annual price, full access & 60 days free", text: "Pro Yearly provides full Triplem VIP access for 12 months. Current base pricing is AED 449, SAR 449, PKR 19,999, or USD 149. Your first approved Pro Yearly subscription currently includes an additional 60 days free. Company team-member charges are calculated separately in the selected billing currency." },
+  { key: "monthly", icon: "fa-calendar-check", label: "Pro Monthly plan", hint: "Price, full access & 30 days free", text: "regional-monthly" },
+  { key: "yearly", icon: "fa-calendar-days", label: "Pro Yearly plan", hint: "Annual price, full access & 60 days free", text: "regional-yearly" },
   { key: "trial", icon: "fa-gift", label: "14-Day Free trial", hint: "What is included and how to upgrade", text: "Triplem VIP includes a 14-day free trial so you can explore the workspace before choosing a paid plan. During the trial you can use the available Triplem VIP workspace normally and upgrade from Plan & Subscription whenever you are ready." },
   { key: "payment", icon: "fa-building-columns", label: "Bank transfer payment", hint: "How to pay and upload a receipt", text: "Pro subscriptions are currently activated through bank transfer. Choose Monthly or Yearly in Plan & Subscription, select the available bank account, complete the transfer and upload your receipt. Your request is recorded immediately and remains pending until the payment is verified." },
   { key: "approval", icon: "fa-circle-check", label: "Payment approval process", hint: "Pending, approved and declined requests", text: "After you submit a Pro payment receipt, Triplem VIP records the request immediately. Once the payment is verified, your subscription is approved and you receive an in-app confirmation with the activated plan and expiry. If verification is unsuccessful, you also receive a clear status notification." },
@@ -77,7 +77,19 @@ function toggleLiveChatQuickMenu(toggle) {
 }
 
 function liveChatQuickReplyText(key) {
-  return LIVE_CHAT_QUICK_REPLIES.find(item => item.key === String(key || ""))?.text || "";
+  const normalized = String(key || "");
+  if (normalized === "monthly" || normalized === "yearly") {
+    const currency = typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
+    const period = normalized;
+    const price = typeof publicPlanPrice === "function" ? publicPlanPrice(period, currency) : 0;
+    const team = typeof publicTeamPrice === "function" ? publicTeamPrice(period, currency) : 0;
+    const planName = period === "monthly" ? "Pro Monthly" : "Pro Yearly";
+    const duration = period === "monthly" ? "one month" : "12 months";
+    const bonus = period === "monthly" ? 30 : 60;
+    const cadence = period === "monthly" ? "per month" : "per year";
+    return `${planName} provides full Triplem VIP access for ${duration}. Current regional base pricing is ${currency} ${regionalMoneyText(price, currency)}. The first approved ${planName} subscription currently includes an additional ${bonus} days free. Company team-member access is ${currency} ${regionalMoneyText(team, currency)} per member ${cadence}.`;
+  }
+  return LIVE_CHAT_QUICK_REPLIES.find(item => item.key === normalized)?.text || "";
 }
 
 const liveChatOfferState = { signature: "", pendingIds: new Set(), busyIds: new Set(), dismissedKeys: new Set(), initialized: false };
@@ -2865,7 +2877,7 @@ async function openSubscriptionNotificationDetails(notification){
   const planValue = details?.plan || payload.plan || "";
   const planLabel = planValue === "yearly" ? "Pro Yearly" : planValue === "monthly" ? "Pro Monthly" : "Plan access";
   const expiry = details?.proposed_expires_at || payload.expires_at || details?.access?.trial_expires_at || null;
-  const amount = details?.amount != null ? `${details.currency || ""} ${Number(details.amount).toLocaleString(undefined,{maximumFractionDigits:2})}`.trim() : "";
+  const amount = details?.amount != null ? regionalMoneyHtml(details.amount, details.currency || "USD") : "";
   const promo = Number(details?.promotion_months ?? payload.promotion_months ?? 0) || 0;
   const decisionAt = details?.resolved_at || notification.created_at || null;
   const note = String(details?.admin_note || payload.admin_note || "").trim();
@@ -2894,7 +2906,7 @@ async function openSubscriptionNotificationDetails(notification){
         <div class="subscription-notification-grid">
           <div><span>Decision</span><strong>${escapeHtml(statusLabel)}</strong></div>
           <div><span>Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
-          ${amount ? `<div><span>Payment</span><strong>${escapeHtml(amount)}</strong></div>` : ""}
+          ${amount ? `<div><span>Payment</span><strong>${amount}</strong></div>` : ""}
           <div><span>Request</span><strong>${escapeHtml(context)}</strong></div>
           ${approved && expiry ? `<div><span>Activated until</span><strong>${escapeHtml(formatTrialExpiry(expiry))}</strong></div>` : ""}
           ${!approved && currentExpiry ? `<div><span>Current access until</span><strong>${escapeHtml(formatTrialExpiry(currentExpiry))}</strong></div>` : ""}
@@ -3123,7 +3135,7 @@ async function loadAdminNotificationsDropdown(){
         : n.kind === "renewal_request"
         ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.period_label || accessPeriodLabel(payload.requested_period, payload.requested_days, payload.requested_until ? toInputDateValue(payload.requested_until) : null))}</strong>${payload.current_expires_at ? ` · current ${escapeHtml(formatTrialExpiry(payload.current_expires_at))}` : ""}${payload.message ? ` · “${escapeHtml(payload.message)}”` : ""}</p>`
         : n.kind === "subscription_payment"
-          ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.plan === "yearly" ? "Pro Yearly" : "Pro Monthly")}</strong>${payload.amount ? ` · ${escapeHtml(payload.currency || "")} ${escapeHtml(String(payload.amount))}` : ""}${payload.team_seats ? ` · ${escapeHtml(String(payload.team_seats))} team seat(s)` : ""}</p>`
+          ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.plan === "yearly" ? "Pro Yearly" : "Pro Monthly")}</strong>${payload.amount ? ` · ${regionalMoneyHtml(payload.amount, payload.currency || "USD")}` : ""}${payload.team_seats ? ` · ${escapeHtml(String(payload.team_seats))} team seat(s)` : ""}</p>`
         : (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled")
           ? `<p class="admin-comms-item-body">${payload.trial_expires_at ? `Expired ${escapeHtml(formatTrialExpiry(payload.trial_expires_at))}` : ""}${payload.access_disable_at ? ` · disable ${escapeHtml(formatTrialExpiry(payload.access_disable_at))}` : ""}</p>`
           : (reminderPreview
