@@ -157,6 +157,7 @@ const CANONICAL_MIGRATION_FILES = [
   "140_aziz_durable_turn_handoff_and_records.sql",
   "141_live_chat_multilingual_presence_and_closure.sql",
   "142_live_chat_closed_thread_and_record_dedupe.sql",
+  "143_regional_public_billing_currency.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
