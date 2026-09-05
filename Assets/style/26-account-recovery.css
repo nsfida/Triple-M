@@ -183,7 +183,7 @@
 
 /* Sign-up opt-in uses the exact current theme, not a hard-coded light card. */
 .signup-recovery-setup-card{
-  display:grid;grid-template-columns:auto 38px minmax(0,1fr) 24px;align-items:center;gap:9px;
+  display:grid;grid-template-columns:38px minmax(0,1fr) 24px;align-items:center;gap:9px;
   margin-top:10px;padding:10px 11px;border:1px solid color-mix(in srgb,var(--primary) 22%,var(--line));border-radius:12px;
   background:color-mix(in srgb,var(--primary) 6%,var(--surface-soft));color:var(--text);cursor:pointer;min-width:0;
 }
