@@ -559,7 +559,7 @@ function adminReceiptArchiveRowHtml(row){
     </label>
     <div class="admin-receipt-record-main">
       <div class="admin-receipt-record-title"><strong>${escapeHtml(row.display_name || row.username || "User")}</strong><code>@${escapeHtml(row.username || "")}</code><span class="admin-receipt-status is-${escapeHtml(status)}">${escapeHtml(status)}</span></div>
-      <p>${escapeHtml(plan)} · ${escapeHtml(row.billing_currency || "")} ${escapeHtml(String(row.total_amount ?? ""))} · ${escapeHtml(context)} · ${escapeHtml(String(row.payment_bank || "").toUpperCase())}</p>
+      <p>${escapeHtml(plan)} · ${regionalMoneyHtml(row.total_amount, row.billing_currency || "USD")} · ${escapeHtml(context)} · ${escapeHtml(String(row.payment_bank || "").toUpperCase())}</p>
       <small>${escapeHtml(row.receipt_name || "Receipt")}${row.created_at ? ` · ${escapeHtml(formatAdminDate(row.created_at))}` : ""}${!stored && row.receipt_deleted_at ? ` · deleted ${escapeHtml(formatAdminDate(row.receipt_deleted_at))}` : ""}</small>
     </div>
     <div class="admin-receipt-record-actions">
@@ -695,7 +695,7 @@ function openAdminSubscriptionReviewModal(request){
       <div class="modal-body settings-sheet-body admin-subscription-review">
         <div class="admin-subscription-grid">
           <div class="admin-subscription-kv"><span>Plan</span><strong>${escapeHtml(plan)}</strong></div>
-          <div class="admin-subscription-kv"><span>Amount</span><strong>${escapeHtml(request.billing_currency)} ${escapeHtml(String(request.total_amount))}</strong></div>
+          <div class="admin-subscription-kv"><span>Amount</span><strong>${regionalMoneyHtml(request.total_amount, request.billing_currency || "USD")}</strong></div>
           <div class="admin-subscription-kv"><span>Account</span><strong>${escapeHtml(request.account_type || "individual")}</strong></div>
           <div class="admin-subscription-kv"><span>Team</span><strong>${escapeHtml(teamText)}</strong></div>
           <div class="admin-subscription-kv"><span>Request</span><strong>${escapeHtml(requestContext)}</strong></div>
@@ -791,17 +791,11 @@ async function openAdminSubscriptionReviewById(requestId){
   openAdminSubscriptionReviewModal(request);
 }
 
-const TRIPLEM_SUBSCRIPTION_PRICES = Object.freeze({
-  monthly: Object.freeze({ AED: 49, SAR: 49, PKR: 1799, USD: 13.99 }),
-  yearly: Object.freeze({ AED: 449, SAR: 449, PKR: 19999, USD: 149 })
-});
-const TRIPLEM_TEAM_PRICES = Object.freeze({
-  monthly: Object.freeze({ AED: 10, SAR: 10, PKR: 75, USD: 4 }),
-  yearly: Object.freeze({ AED: 80, SAR: 80, PKR: 7000, USD: 40 })
-});
+const TRIPLEM_SUBSCRIPTION_PRICES = TRIPLEM_PUBLIC_PLAN_PRICES;
+const TRIPLEM_TEAM_PRICES = TRIPLEM_PUBLIC_TEAM_PRICES;
 
 function subscriptionMoney(value, currency){
-  return `${currency} ${Number(value || 0).toLocaleString(undefined,{maximumFractionDigits:2})}`;
+  return regionalMoneyHtml(value, currency);
 }
 
 function subscriptionFileBase64(file){
@@ -827,6 +821,7 @@ async function openPlanSubscriptionModal(){
   let sub;
   try { sub = await supabaseRpc("app_my_subscription_status", {}); }
   catch (e) { modal.querySelector(".settings-sheet-body").innerHTML=`<div class="lock-error show">${escapeHtml(e.message || "Could not load subscription details.")}</div>`; return; }
+  try { if (window.TRIPLEM_REGIONAL_CURRENCY_READY) await window.TRIPLEM_REGIONAL_CURRENCY_READY; } catch (_) {}
   const body=modal.querySelector(".settings-sheet-body");
   const access=sub?.access || getUserAccessFlags();
   const isTeamMember=sub?.account_type === "team_member" || isTeamMemberAccount(state.sessionUser);
@@ -839,13 +834,14 @@ async function openPlanSubscriptionModal(){
   const promotionAvailable=sub?.promotion_available !== false;
   const pendingPlan=sub?.plan === "yearly" ? "Pro Yearly" : "Pro Monthly";
   const pendingExpiry=sub?.proposed_expires_at ? formatTrialExpiry(sub.proposed_expires_at) : currentExpiry;
+  const regionalCurrency = typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
 
   body.innerHTML = `
     <div class="plan-sub-current-card">
       <div><span class="section-kicker">Current access</span><h4>${escapeHtml(currentLabel)}</h4><p>${escapeHtml(currentExpiry)}</p></div>
       <span class="settings-pill ${pending ? "warn" : "ok"}">${pending ? "Payment pending" : "Active"}</span>
     </div>
-    ${pending ? `<div class="plan-sub-pending"><i class="fa-solid fa-clock"></i><div><strong>Payment approval pending</strong><p>${escapeHtml(pendingPlan)} · ${escapeHtml(sub.currency || "")} ${escapeHtml(String(sub.amount ?? ""))}${sub.team_enabled ? ` · ${escapeHtml(String(sub.team_seats))} team member${Number(sub.team_seats)===1?"":"s"}` : ""}</p><p>Proposed expiry: <strong>${escapeHtml(pendingExpiry)}</strong>. Your workspace remains available while the administrator verifies the receipt.</p></div></div>` : ""}
+    ${pending ? `<div class="plan-sub-pending"><i class="fa-solid fa-clock"></i><div><strong>Payment approval pending</strong><p>${escapeHtml(pendingPlan)} · ${regionalMoneyHtml(sub.amount, sub.currency || regionalCurrency)}${sub.team_enabled ? ` · ${escapeHtml(String(sub.team_seats))} team member${Number(sub.team_seats)===1?"":"s"}` : ""}</p><p>Proposed expiry: <strong>${escapeHtml(pendingExpiry)}</strong>. Your workspace remains available while the administrator verifies the receipt.</p></div></div>` : ""}
     ${isTeamMember ? `<div class="plan-sub-managed"><i class="fa-solid fa-building-shield"></i><div><strong>Managed by company account</strong><p>Your plan and paid team access are controlled by the company main account.</p></div></div>` : ""}
     ${isProtected ? `<div class="plan-sub-managed"><i class="fa-solid fa-shield-halved"></i><div><strong>Protected administrator</strong><p>This account does not require self-service subscription renewal.</p></div></div>` : ""}
     ${(!pending && !isTeamMember && !isProtected) ? `
@@ -855,7 +851,7 @@ async function openPlanSubscriptionModal(){
         <button type="button" class="plan-sub-card" data-plan-period="yearly"><i class="fa-solid fa-crown"></i><strong>Pro Yearly</strong><span id="planYearlyPrice"></span><small>${promotionAvailable ? "First approval includes 2 additional months free" : "Adds 12 months from your current expiry"}</small></button>
       </div>
       <div class="plan-sub-controls">
-        <label class="settings-field">Payment currency<select id="planBillingCurrency" class="input settings-input"><option>AED</option><option>SAR</option><option>PKR</option><option>USD</option></select></label>
+        <label class="settings-field">Payment currency<select id="planBillingCurrency" class="input settings-input" aria-label="Regional billing currency"><option value="${escapeHtml(regionalCurrency)}">${escapeHtml(regionalCurrency)}</option></select></label>
         <div class="plan-sub-team-summary ${sub?.team_enabled ? "" : "hide"}"><i class="fa-solid fa-users"></i><div><strong>${escapeHtml(String(sub?.team_seats || 0))} paid team member${Number(sub?.team_seats)===1?"":"s"}</strong><small id="planTeamPrice"></small></div></div>
       </div>
       <div class="plan-sub-total" id="planSubscriptionTotal"></div>
@@ -871,22 +867,21 @@ async function openPlanSubscriptionModal(){
   if (pending || isTeamMember || isProtected) return;
 
   let selectedPeriod="monthly";
-  const currency=body.querySelector("#planBillingCurrency");
   const seats=Number(sub?.team_seats || 0);
   const updatePrice=()=>{
-    const cur=currency.value;
-    body.querySelector("#planMonthlyPrice").textContent=subscriptionMoney(TRIPLEM_SUBSCRIPTION_PRICES.monthly[cur],cur);
-    body.querySelector("#planYearlyPrice").textContent=subscriptionMoney(TRIPLEM_SUBSCRIPTION_PRICES.yearly[cur],cur);
+    const cur=regionalCurrency;
+    body.querySelector("#planMonthlyPrice").innerHTML=subscriptionMoney(TRIPLEM_SUBSCRIPTION_PRICES.monthly[cur],cur);
+    body.querySelector("#planYearlyPrice").innerHTML=subscriptionMoney(TRIPLEM_SUBSCRIPTION_PRICES.yearly[cur],cur);
     const teamUnit=TRIPLEM_TEAM_PRICES[selectedPeriod][cur];
     const teamAmount=seats*teamUnit;
     const base=TRIPLEM_SUBSCRIPTION_PRICES[selectedPeriod][cur];
-    if (body.querySelector("#planTeamPrice")) body.querySelector("#planTeamPrice").textContent=`${subscriptionMoney(teamUnit,cur)} each · ${subscriptionMoney(teamAmount,cur)} total`;
+    if (body.querySelector("#planTeamPrice")) body.querySelector("#planTeamPrice").innerHTML=`${subscriptionMoney(teamUnit,cur)} each · ${subscriptionMoney(teamAmount,cur)} total`;
     const bonus=promotionAvailable ? (selectedPeriod === "yearly" ? 2 : 1) : 0;
-    body.querySelector("#planSubscriptionTotal").innerHTML=`<span>Total to transfer</span><strong>${escapeHtml(subscriptionMoney(base+teamAmount,cur))}</strong><small>${bonus ? `On approval: ${selectedPeriod === "yearly" ? "12" : "1"} paid month${selectedPeriod==="yearly"?"s":""} + ${bonus} bonus month${bonus===1?"":"s"}` : `On approval: ${selectedPeriod === "yearly" ? "12 months" : "1 month"} added to your plan`}</small>`;
+    body.querySelector("#planSubscriptionTotal").innerHTML=`<span>Total to transfer</span><strong>${subscriptionMoney(base+teamAmount,cur)}</strong><small>${bonus ? `On approval: ${selectedPeriod === "yearly" ? "12" : "1"} paid month${selectedPeriod==="yearly"?"s":""} + ${bonus} bonus month${bonus===1?"":"s"}` : `On approval: ${selectedPeriod === "yearly" ? "12 months" : "1 month"} added to your plan`}</small>`;
   };
   body.querySelectorAll("[data-plan-period]").forEach(card=>card.onclick=()=>{ selectedPeriod=card.dataset.planPeriod; body.querySelectorAll("[data-plan-period]").forEach(x=>x.classList.toggle("selected",x===card)); updatePrice(); });
   body.querySelectorAll('input[name="planPaymentBank"]').forEach(r=>r.onchange=()=>body.querySelectorAll(".plan-bank-grid .signup-bank-card").forEach(x=>x.classList.toggle("selected",!!x.querySelector("input")?.checked)));
-  currency.onchange=updatePrice; updatePrice();
+  updatePrice();
   const submit=body.querySelector("#planSubscriptionSubmit");
   submit.onclick=async()=>{
     const err=body.querySelector("#planSubscriptionError"); err.textContent=""; err.classList.remove("show");
@@ -896,11 +891,20 @@ async function openPlanSubscriptionModal(){
       if (file.size>5*1024*1024) throw new Error("Payment receipt must be 5MB or smaller.");
       if (!["image/png","image/jpeg","image/webp","application/pdf"].includes(file.type)) throw new Error("Receipt must be PNG, JPG, WebP, or PDF.");
       submit.disabled=true; submit.innerHTML=`<i class="fa-solid fa-spinner btn-loader"></i> Submitting…`;
-      await supabaseRpc("app_request_pro_subscription",{
-        p_period:selectedPeriod,p_billing_currency:currency.value,
+      const paymentPayload={
+        p_period:selectedPeriod,p_billing_currency:regionalCurrency,
         p_payment_bank:body.querySelector('input[name="planPaymentBank"]:checked')?.value || "hbl",
-        p_receipt_name:file.name,p_receipt_mime:file.type,p_receipt_base64:await subscriptionFileBase64(file)
-      });
+        p_receipt_name:file.name,p_receipt_mime:file.type,p_receipt_base64:await subscriptionFileBase64(file),
+        p_country_code:typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ"
+      };
+      try {
+        await supabaseRpc("app_request_pro_subscription_v2",paymentPayload);
+      } catch (regionalPaymentError) {
+        const message=String(regionalPaymentError?.message || regionalPaymentError || "");
+        if (!/app_request_pro_subscription_v2|function.*does not exist|could not find the function|pgrst202|schema cache/i.test(message)) throw regionalPaymentError;
+        const fallbackPayload={...paymentPayload}; delete fallbackPayload.p_country_code;
+        await supabaseRpc("app_request_pro_subscription",fallbackPayload);
+      }
       try { const validated=await supabaseRpc("app_validate_session",{}); if(validated?.user) applyUserProfileToConfig(validated.user); } catch (_) {}
       updateAccessBanner();
       close();
