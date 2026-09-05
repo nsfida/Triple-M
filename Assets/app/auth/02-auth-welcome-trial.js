@@ -1,6 +1,7 @@
 /* Modularized from script.js lines 28570-29321 — trial/welcome + loan wallet helpers. Load order must be preserved. */
-function openTrialSignupModal(preferredPlan = "free"){
+async function openTrialSignupModal(preferredPlan = "free"){
   try { if (typeof closeSignInOverlay === "function") closeSignInOverlay(); } catch (_) {}
+  try { if (window.TRIPLEM_REGIONAL_CURRENCY_READY) await window.TRIPLEM_REGIONAL_CURRENCY_READY; } catch (_) {}
   let modal = document.getElementById("trialSignupModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -10,18 +11,13 @@ function openTrialSignupModal(preferredPlan = "free"){
   }
 
   const workspaceCurrencies = ["AED", "SAR", "PKR", "USD", "BTC"];
-  const prices = {
-    monthly: { AED: 49, SAR: 49, PKR: 1799, USD: 13.99 },
-    yearly: { AED: 449, SAR: 449, PKR: 19999, USD: 149 }
-  };
-  const teamPrices = {
-    monthly: { AED: 10, SAR: 10, PKR: 75, USD: 4 },
-    yearly: { AED: 80, SAR: 80, PKR: 7000, USD: 40 }
-  };
+  const regionalCurrency = typeof getRegionalCurrency === "function" ? getRegionalCurrency() : "USD";
+  const prices = TRIPLEM_PUBLIC_PLAN_PRICES;
+  const teamPrices = TRIPLEM_PUBLIC_TEAM_PRICES;
   const normalizedPreferredPlan = ["free","monthly","yearly"].includes(String(preferredPlan || "").toLowerCase()) ? String(preferredPlan).toLowerCase() : "free";
   const stateSignup = { step: 1, plan: normalizedPreferredPlan, accountType: "individual", receiptBase64: "" };
-  const money = (v, c) => `${c} ${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  const priceLines = period => ["AED","SAR","PKR","USD"].map(c => `<span><b>${c}</b> ${money(prices[period][c], c).replace(c+" ","")}</span>`).join("");
+  const money = (v, c = regionalCurrency) => regionalMoneyHtml(v, c);
+  const priceLines = period => `<span><b>${escapeHtml(regionalCurrency)}</b> ${money(prices[period][regionalCurrency], regionalCurrency)}</span>`;
 
   modal.innerHTML = `
     <div class="modal-backdrop" data-trial-close="1"></div>
@@ -108,8 +104,8 @@ function openTrialSignupModal(preferredPlan = "free"){
             <div class="signup-detail-section">
               <div class="signup-detail-head"><span><i class="fa-solid fa-sliders"></i></span><div><strong>Workspace setup</strong><small>Currency, identity mark and company team</small></div></div>
               <div class="signup-v2-form-grid">
-                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, ["AED"])}<p class="help">Choose one or more. BTC also enables the Bitcoin section.</p></div>
-                <div class="form-group"><label class="form-label" for="trialBillingCurrency">Primary / billing currency</label><select id="trialBillingCurrency" class="input"><option>AED</option><option>SAR</option><option>PKR</option><option>USD</option></select></div>
+                <div class="form-group signup-span-2"><label class="form-label">Workspace currencies</label>${checkboxGridHtml("trialCurrencies", workspaceCurrencies, [regionalCurrency])}<p class="help">Choose one or more. BTC also enables the Bitcoin section.</p></div>
+                <div class="form-group"><label class="form-label" for="trialBillingCurrency">Primary / billing currency</label><select id="trialBillingCurrency" class="input" aria-label="Regional billing currency"><option value="${escapeHtml(regionalCurrency)}">${escapeHtml(regionalCurrency)}</option></select></div>
                 <div class="form-group"><label class="form-label" for="trialLogoFile">Logo <span class="trial-optional">optional</span></label><input id="trialLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" /><input id="trialLogoUrl" type="hidden" value="" /><div class="admin-logo-preview-wrap"><img id="trialLogoPreview" class="admin-logo-preview hide" src="" alt="Logo preview" /><span id="trialLogoStatus" class="help">PNG, JPG, WebP or GIF.</span></div></div>
                 <div class="form-group company-signup-field signup-span-2 signup-team-field hide">
                   <label class="signup-team-toggle" for="trialTeamEnabled"><input id="trialTeamEnabled" type="checkbox" /><span><strong>Add paid team members</strong><small>Team members share this company workspace and inherit its approved plan.</small></span></label>
@@ -189,14 +185,14 @@ function openTrialSignupModal(preferredPlan = "free"){
     const hint = modal.querySelector("#trialTeamPriceHint");
     if (!hint) return;
     if (stateSignup.plan === "free") { hint.textContent = "Team seats are included during the 14-day free period."; return; }
-    const c = modal.querySelector("#trialBillingCurrency")?.value || "AED";
+    const c = regionalCurrency;
     const seats = currentTeamSeats();
     const unit = teamPrices[stateSignup.plan][c];
-    hint.textContent = `${money(unit, c)} per team member ${stateSignup.plan === "monthly" ? "monthly" : "yearly"} · ${seats} seat${seats === 1 ? "" : "s"} = ${money(unit * seats, c)}`;
+    hint.innerHTML = `${money(unit, c)} per team member ${stateSignup.plan === "monthly" ? "monthly" : "yearly"} · ${seats} seat${seats === 1 ? "" : "s"} = ${money(unit * seats, c)}`;
   };
   const updatePaymentSummary = () => {
     const el = modal.querySelector("#trialPaymentSummary"); if (!el || stateSignup.plan === "free") return;
-    const c = modal.querySelector("#trialBillingCurrency")?.value || "AED";
+    const c = regionalCurrency;
     const seats = currentTeamSeats();
     const base = prices[stateSignup.plan][c];
     const unit = teamPrices[stateSignup.plan][c];
@@ -233,7 +229,6 @@ function openTrialSignupModal(preferredPlan = "free"){
   });
   modal.querySelector("#trialTeamEnabled").onchange = updateTeamPrice;
   modal.querySelector("#trialTeamSeats").oninput = updateTeamPrice;
-  modal.querySelector("#trialBillingCurrency").onchange = () => { updateTeamPrice(); updatePaymentSummary(); };
 
   const validateDetails = () => {
     const username = modal.querySelector("#trialUsername").value.trim();
@@ -288,9 +283,9 @@ function openTrialSignupModal(preferredPlan = "free"){
       saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner btn-loader"></i> Creating…`;
       const billingCurrency = modal.querySelector("#trialBillingCurrency").value;
       let currencies = readCheckboxGrid(modal, "trialCurrencies");
-      if (!currencies.includes(billingCurrency)) currencies.unshift(billingCurrency);
+      currencies = [billingCurrency, ...currencies.filter(currency => currency !== billingCurrency)];
       const teamEnabled = stateSignup.accountType === "company" && !!modal.querySelector("#trialTeamEnabled").checked;
-      const result = await supabaseRpc("app_signup_v2", {
+      const signupPayload = {
         p_plan: stateSignup.plan,
         p_account_type: stateSignup.accountType,
         p_username: modal.querySelector("#trialUsername").value.trim(),
@@ -311,8 +306,19 @@ function openTrialSignupModal(preferredPlan = "free"){
         p_receipt_mime: paid ? receiptFile.type : null,
         p_receipt_base64: paid ? await fileToBase64(receiptFile) : null,
         p_user_agent: navigator.userAgent || "",
-        p_ip: null
-      });
+        p_ip: null,
+        p_country_code: typeof getRegionalCountryCode === "function" ? getRegionalCountryCode() : "ZZ"
+      };
+      let result;
+      try {
+        result = await supabaseRpc("app_signup_v3", signupPayload);
+      } catch (regionalSignupError) {
+        const message = String(regionalSignupError?.message || regionalSignupError || "");
+        if (!/app_signup_v3|function.*does not exist|could not find the function|pgrst202|schema cache/i.test(message)) throw regionalSignupError;
+        const fallbackPayload = { ...signupPayload };
+        delete fallbackPayload.p_country_code;
+        result = await supabaseRpc("app_signup_v2", fallbackPayload);
+      }
       const sessionToken = result?.session_token || "";
       const user = result?.user || null;
       if (!sessionToken || !user?.id) throw new Error("Sign-up could not be completed. Please try again.");
