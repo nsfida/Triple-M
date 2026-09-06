@@ -41,6 +41,7 @@
   <link rel="apple-touch-icon" href="https://triplem.vip/Assets/logo/logo.png" />
   <link rel="mask-icon" href="https://triplem.vip/Assets/logo/logo.png" color="#2457d6" />
   <link rel="sitemap" type="application/xml" title="Sitemap" href="https://triplem.vip/sitemap.xml" />
+  <script src="Assets/config/themes.js?v=20260906-theme-registry-001&build010=001"></script>
   <script>
     /* Public landing always paints in Triplem VIP Default. The workspace-only
        "triplem-theme-v1" preference is restored after authentication completes. */
@@ -830,11 +831,16 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001" />
+  <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
   <link rel="stylesheet" href="Assets/style/31-aziz-live-support.css?v=20260905-v143" />
   <link rel="stylesheet" href="Assets/style/32-aziz-chat-agent-polish.css?v=20260905-v153" />
   <link rel="stylesheet" href="Assets/style/33-live-chat-records-polish.css?v=20260905-v152" />
+  <link rel="stylesheet" href="Assets/style/34-build010-upgrades.css?v=20260906-build010-final" />
   <link rel="stylesheet" href="Assets/style/22-landing-hero-polish.css?v=20260906-region157" />
+  <link rel="stylesheet" href="Assets/style/36-build012-notes-redesign.css?v=20260906-build012-notes001" />
+  <link rel="stylesheet" href="Assets/style/37-build013-filter-cleanup.css?v=20260906-build013-filter001" />
+  <link rel="stylesheet" href="Assets/style/38-build014-inventory-overview-polish.css?v=20260906-build014-001" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3295,7 +3301,7 @@
         <div class="tools">
           <button class="btn primary hide" id="uploadBackupBtn" type="button">Upload to Database</button>
           <button class="btn ghost hide" id="connectSupabaseBtn" type="button">Connect Supabase</button>
-          <button class="icon-btn ghost" id="toggleMainOverviewBtn" type="button" title="Expand Loans Overview">▶</button>
+          <button class="icon-btn ghost overview-expand-btn" id="toggleMainOverviewBtn" type="button" title="Expand Loans Overview" aria-expanded="false" aria-label="Expand Loans Overview"><i class="fa-solid fa-chevron-right overview-expand-chevron" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="main-overview-content" id="mainOverviewContent">
@@ -3311,7 +3317,7 @@
           <p>Account balances and expense tracking by wallet.</p>
         </div>
         <div class="tools">
-          <button class="icon-btn ghost" id="toggleWalletsBtn" type="button" title="Expand Wallets Overview">▶</button>
+          <button class="icon-btn ghost overview-expand-btn" id="toggleWalletsBtn" type="button" title="Expand Wallets Overview" aria-expanded="false" aria-label="Expand Wallets Overview"><i class="fa-solid fa-chevron-right overview-expand-chevron" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="wallets-content" id="walletsContent">
@@ -3707,10 +3713,10 @@
             <div class="filter-inline-row inventory-filter-row">
               <div class="filter-inline-section inventory-filter-layout">
                 <span class="filter-inline-label">View</span>
-                <div class="inventory-layout-switch" role="tablist" aria-label="Inventory view">
-                  <button type="button" class="inventory-layout-btn active" data-inventory-layout="category" role="tab" aria-selected="true">Category</button>
-                  <button type="button" class="inventory-layout-btn" data-inventory-layout="list" role="tab" aria-selected="false">List</button>
-                </div>
+                <select id="inventoryLayoutSelect" class="select filter-inline-select inventory-layout-select" aria-label="Inventory view">
+                  <option value="category" selected>Category</option>
+                  <option value="list">List</option>
+                </select>
               </div>
               <div class="filter-inline-section inventory-filter-search">
                 <span class="filter-inline-label">Search</span>
@@ -3862,12 +3868,14 @@
                   <span class="filter-inline-label">Search</span>
                   <input id="searchAssets" class="input filter-inline-input" placeholder="Name, type, notes" />
                 </div>
-                <div class="filter-inline-section">
+                <div class="filter-inline-section asset-status-control">
                   <span class="filter-inline-label">Status</span>
-                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="all" checked /> All</label>
-                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="active" /> Active</label>
-                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="sold" /> Sold</label>
-                  <label class="filter-chip"><input type="radio" name="assetStatusFilter" value="disposed" /> Disposed</label>
+                  <select id="assetStatusFilter" class="select filter-inline-select status-filter-select asset-status-filter-select" aria-label="Filter assets by status">
+                    <option value="all" selected>All Status</option>
+                    <option value="active">Active</option>
+                    <option value="sold">Sold</option>
+                    <option value="disposed">Disposed</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -3908,12 +3916,14 @@
                       <option value="all">All types</option>
                     </select>
                   </div>
-                  <div class="filter-inline-section">
+                  <div class="filter-inline-section dep-asset-status-control">
                     <span class="filter-inline-label">Status</span>
-                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="all" checked /> All</label>
-                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="active" /> Active</label>
-                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="sold" /> Sold</label>
-                    <label class="filter-chip"><input type="radio" name="depAssetStatusFilter" value="disposed" /> Disposed</label>
+                    <select id="depAssetStatusFilter" class="select filter-inline-select status-filter-select dep-asset-status-filter-select" aria-label="Filter depreciation assets by status">
+                      <option value="all" selected>All Status</option>
+                      <option value="active">Active</option>
+                      <option value="sold">Sold</option>
+                      <option value="disposed">Disposed</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -4109,10 +4119,9 @@
           </div>
 
           <!-- Security Notice -->
-          <div style="background:#fffbeb;border:1px solid #ef4444;border-radius:4px;padding:6px;margin-bottom:12px;">
-            <p style="margin:0;color:#dc2626;font-size:.68rem;font-weight:500;line-height:1.3;">
-              ⚠️ This application does not store, transmit, or share any information outside your browser. If you create a wallet, please ensure that you securely copy and store your private key (WIF) in a safe location. If the key is lost, the wallet cannot be recovered under any circumstances.
-            </p>
+          <div class="btc-security-notice">
+            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+            <p>This application does not store, transmit, or share private wallet material outside your browser. Securely back up private keys and seed phrases; lost keys cannot be recovered.</p>
           </div>
 
           <!-- Wallet Login Section -->
@@ -4121,13 +4130,18 @@
               <!-- Wallet Type Selection -->
               <div style="margin-bottom:12px;">
                 <label style="display:block;margin-bottom:6px;font-size:.84rem;font-weight:600;color:var(--text);">Wallet Type</label>
-                <div class="btc-wallet-type-grid">
-                  <button id="btcFullWalletBtn" class="btn primary">WIF</button>
-                  <button id="btcWatchWalletBtn" class="btn ghost">Watch</button>
-                  <button id="btcSeedWalletBtn" class="btn ghost">Seed</button>
-                  <button id="btcBrainWalletBtn" class="btn ghost">Brain</button>
-                  <button id="btcBulkWalletBtn" class="btn ghost">Bulk</button>
-                  <button id="btcHexWalletBtn" class="btn ghost">Hex</button>
+                <div class="menu-wrap btc-wallet-access-wrap">
+                  <button class="btn primary menu-trigger btc-wallet-access-trigger" id="btcWalletAccessMenuBtn" type="button" data-entry-menu="btc-wallet-access" aria-haspopup="menu" aria-expanded="false">
+                    <span><i class="fa-solid fa-wallet"></i> <span id="btcWalletAccessLabel">WIF wallet</span></span><i class="fa-solid fa-chevron-down"></i>
+                  </button>
+                  <div class="menu-dropdown btc-wallet-access-menu" data-entry-menu-panel="btc-wallet-access" role="menu">
+                    <button id="btcFullWalletBtn" class="btc-wallet-access-option primary" type="button" role="menuitem"><i class="fa-solid fa-key"></i><span><strong>WIF wallet</strong><small>Create or unlock with a private key</small></span></button>
+                    <button id="btcSeedWalletBtn" class="btc-wallet-access-option" type="button" role="menuitem"><i class="fa-solid fa-seedling"></i><span><strong>Seed phrase</strong><small>Create or restore 12/24-word wallet</small></span></button>
+                    <button id="btcWatchWalletBtn" class="btc-wallet-access-option" type="button" role="menuitem"><i class="fa-solid fa-eye"></i><span><strong>Watch-only</strong><small>Track an address without private keys</small></span></button>
+                    <button id="btcHexWalletBtn" class="btc-wallet-access-option" type="button" role="menuitem"><i class="fa-solid fa-code"></i><span><strong>Hex private key</strong><small>Import a raw hexadecimal key</small></span></button>
+                    <button id="btcBrainWalletBtn" class="btc-wallet-access-option" type="button" role="menuitem"><i class="fa-solid fa-brain"></i><span><strong>Brain wallet</strong><small>Derive a wallet from a passphrase</small></span></button>
+                    <button id="btcBulkWalletBtn" class="btc-wallet-access-option" type="button" role="menuitem"><i class="fa-solid fa-file-import"></i><span><strong>Bulk import</strong><small>Open multiple saved wallet records</small></span></button>
+                  </div>
                   <input id="btcBulkWalletFileInput" class="hide" type="file" accept=".txt,text/plain" />
                 </div>
               </div>
@@ -5524,7 +5538,7 @@
       <div class="modal-head">
         <div>
           <h3 id="depAssetFormTitle">Add depreciation asset</h3>
-          <p class="help">Straight-line depreciation. Separate from Asset Management P/L assets.</p>
+          <p class="help">IAS 16-oriented tracking with explicit cost, residual value, useful life, in-service date and depreciation method.</p>
         </div>
         <button class="icon-btn ghost" type="button" data-close-modal="depAssetFormModal" aria-label="Close">×</button>
       </div>
@@ -5564,10 +5578,29 @@
             <input id="depAssetFormLifeYears" class="input" type="number" min="0.01" step="any" placeholder="5" />
           </div>
           <div class="form-group">
+            <label class="form-label" for="depAssetFormInServiceDate">In-service date</label>
+            <input id="depAssetFormInServiceDate" class="input" type="date" />
+          </div>
+          <div class="form-group">
             <label class="form-label" for="depAssetFormMethod">Depreciation method</label>
-            <select id="depAssetFormMethod" class="input select" disabled>
+            <select id="depAssetFormMethod" class="input select">
               <option value="straight_line">Straight-line</option>
+              <option value="diminishing_balance">Diminishing balance</option>
+              <option value="units_of_production">Units of production</option>
             </select>
+            <small class="help" id="depAssetMethodHint">Equal depreciation over useful life.</small>
+          </div>
+          <div class="form-group hide" id="depDecliningRateField">
+            <label class="form-label" for="depAssetFormDecliningRate">Annual rate (%)</label>
+            <input id="depAssetFormDecliningRate" class="input" type="number" min="0.01" max="100" step="0.01" placeholder="e.g. 20" />
+          </div>
+          <div class="form-group hide" id="depUnitsCapacityField">
+            <label class="form-label" for="depAssetFormUnitsCapacity">Expected total production units</label>
+            <input id="depAssetFormUnitsCapacity" class="input" type="number" min="0.00000001" step="any" placeholder="e.g. 100000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetFormLastReviewDate">Last residual / useful-life review</label>
+            <input id="depAssetFormLastReviewDate" class="input" type="date" />
           </div>
           <div class="form-group form-span-2">
             <label class="form-label" for="depAssetFormDescription">Description</label>
@@ -5620,6 +5653,10 @@
           <div class="form-group">
             <label class="form-label" for="depAssetDisposeDate">Date</label>
             <input id="depAssetDisposeDate" class="input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="depAssetDisposeProceeds">Disposal / sale proceeds</label>
+            <input id="depAssetDisposeProceeds" class="input" type="number" min="0" step="any" placeholder="0" />
           </div>
           <div class="form-group form-span-2">
             <label class="form-label" for="depAssetDisposeNotes">Notes</label>
@@ -6423,7 +6460,7 @@
   <script src="Assets/app/lib/loan-math.js"></script>
   <script src="Assets/app/lib/permissions.js"></script>
   <script src="Assets/app/lib/asset-math.js"></script>
-  <script src="Assets/app/lib/admin-backup.js"></script>
+  <script src="Assets/app/lib/admin-backup.js?build010=001"></script>
   <script src="Assets/app/domain-ledger.js?v=20260828-notes-workspace"></script>
   <script src="Assets/app/core/01-config-constants.js"></script>
   <script src="Assets/app/core/02-state.js?v=20260901-expense-item-history1"></script>
@@ -6438,29 +6475,29 @@
   <script src="Assets/app/utils/01-currency-money.js?v=20260901-select-stable2&regional=157&currency=004"></script>
   <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002"></script>
   <script src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
-  <script src="Assets/app/core/07-theme.js?v=20260904-account-sync131"></script>
-  <script src="Assets/app/core/08-offline-sync.js?v=20260901-auth-resume-fix2"></script>
+  <script src="Assets/app/core/07-theme.js?v=20260906-theme-centralized-001"></script>
+  <script src="Assets/app/core/08-offline-sync.js?v=20260901-auth-resume-fix2&build010=001"></script>
   <script src="Assets/app/inventory/01-inventory-meta-stock.js?v=20260901-currency-font-audit1"></script>
-  <script src="Assets/app/inventory/02-inventory-sales-drafts.js?v=20260901-offline-confirm-sync1"></script>
+  <script src="Assets/app/inventory/02-inventory-sales-drafts.js?build011=001&v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-global-search2&currency=002"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-global-search2&currency=002&build011=001"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260902-dashboard-empty1"></script>
-  <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260902-dashboard-empty1&build011=001"></script>
+  <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script src="Assets/app/loans/01-loans-payments.js?v=20260901-auth-resume-fix2"></script>
-  <script src="Assets/app/reports/01-pdf.js?v=20260829-theme-refine2"></script>
-  <script src="Assets/app/reports/02-exports.js?v=20260901-expense-item-history1"></script>
-  <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1"></script>
-  <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1"></script>
+  <script src="Assets/app/reports/01-pdf.js?v=20260829-theme-refine2&build010=001"></script>
+  <script src="Assets/app/reports/02-exports.js?v=20260901-expense-item-history1&build010=001"></script>
+  <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1&build014=001"></script>
+  <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260904-authsurface140&regional=156&currency=001"></script>
-  <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002"></script>
-  <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001"></script>
-  <script src="Assets/app/assets/01-assets.js?v=20260904-assets140"></script>
-  <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2"></script>
-  <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156"></script>
+  <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002&build010=001&build011=001"></script>
+  <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes001"></script>
+  <script src="Assets/app/assets/01-assets.js?v=20260904-assets140&build011=001&build013=filter001"></script>
+  <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001"></script>
+  <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
   <script src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156"></script>
