@@ -1,0 +1,180 @@
+{
+  "slices": [
+    {
+      "rel": "core/01-config-constants.js",
+      "start": 1,
+      "end": 623,
+      "note": "CONFIG + constants + early helpers",
+      "lines": 623
+    },
+    {
+      "rel": "core/02-state.js",
+      "start": 624,
+      "end": 766,
+      "note": "shared application state",
+      "lines": 143
+    },
+    {
+      "rel": "core/03-els.js",
+      "start": 767,
+      "end": 1854,
+      "note": "DOM element map (els)",
+      "lines": 1088
+    },
+    {
+      "rel": "auth/01-auth-session.js",
+      "start": 1855,
+      "end": 4265,
+      "note": "auth/session through before write-queue",
+      "lines": 2411
+    },
+    {
+      "rel": "core/04-entries-api.js",
+      "start": 4266,
+      "end": 4479,
+      "note": "DB write queue + saveEntriesImmediately",
+      "lines": 214
+    },
+    {
+      "rel": "utils/01-currency-money.js",
+      "start": 4480,
+      "end": 4573,
+      "note": "currency + money + overview watermark helpers",
+      "lines": 94
+    },
+    {
+      "rel": "core/05-meta-helpers.js",
+      "start": 4574,
+      "end": 5588,
+      "note": "debounce, installment/goods meta helpers",
+      "lines": 1015
+    },
+    {
+      "rel": "inventory/01-inventory-meta-stock.js",
+      "start": 5589,
+      "end": 8997,
+      "note": "inventory meta + stock helpers",
+      "lines": 3409
+    },
+    {
+      "rel": "inventory/02-inventory-sales-drafts.js",
+      "start": 8998,
+      "end": 12029,
+      "note": "sales drafts / cart",
+      "lines": 3032
+    },
+    {
+      "rel": "inventory/03-inventory-overlays.js",
+      "start": 12030,
+      "end": 14144,
+      "note": "section overlays + catalog menus",
+      "lines": 2115
+    },
+    {
+      "rel": "expenses/01-expenses-wallets.js",
+      "start": 14145,
+      "end": 17622,
+      "note": "expense wallets + lazy summaries",
+      "lines": 3478
+    },
+    {
+      "rel": "ui/01-render-navigation.js",
+      "start": 17623,
+      "end": 21688,
+      "note": "renderAll and navigation shell",
+      "lines": 4066
+    },
+    {
+      "rel": "installments/01-installments.js",
+      "start": 21689,
+      "end": 21805,
+      "note": "installment details/actions",
+      "lines": 117
+    },
+    {
+      "rel": "loans/01-loans-payments.js",
+      "start": 21806,
+      "end": 22600,
+      "note": "loans create/payment/edit",
+      "lines": 795
+    },
+    {
+      "rel": "reports/01-pdf.js",
+      "start": 22601,
+      "end": 24016,
+      "note": "PDF generators",
+      "lines": 1416
+    },
+    {
+      "rel": "reports/02-exports.js",
+      "start": 24017,
+      "end": 24603,
+      "note": "CSV/PDF export helpers for expenses history",
+      "lines": 587
+    },
+    {
+      "rel": "expenses/02-transfers.js",
+      "start": 24604,
+      "end": 26701,
+      "note": "wallet transfers",
+      "lines": 2098
+    },
+    {
+      "rel": "ui/02-bindings.js",
+      "start": 26702,
+      "end": 27706,
+      "note": "event bindings / overview toggles",
+      "lines": 1005
+    },
+    {
+      "rel": "landing/01-landing.js",
+      "start": 27707,
+      "end": 28569,
+      "note": "landing page",
+      "lines": 863
+    },
+    {
+      "rel": "auth/02-auth-welcome-trial.js",
+      "start": 28570,
+      "end": 29321,
+      "note": "trial/welcome + loan wallet helpers",
+      "lines": 752
+    },
+    {
+      "rel": "bitcoin/01-bitcoin.js",
+      "start": 29322,
+      "end": 32933,
+      "note": "Bitcoin wallets",
+      "lines": 3612
+    },
+    {
+      "rel": "notes/01-notes.js",
+      "start": 32934,
+      "end": 35230,
+      "note": "Notes",
+      "lines": 2297
+    },
+    {
+      "rel": "admin/01-admin.js",
+      "start": 35231,
+      "end": 37377,
+      "note": "Admin RAW + backup",
+      "lines": 2147
+    },
+    {
+      "rel": "messaging/01-messaging.js",
+      "start": 37378,
+      "end": 39297,
+      "note": "Messaging + overlay helpers",
+      "lines": 1920
+    },
+    {
+      "rel": "boot.js",
+      "start": 39298,
+      "end": 39310,
+      "note": "DOM ready + boot()",
+      "lines": 13
+    }
+  ],
+  "symbolCount": 1284
+}
