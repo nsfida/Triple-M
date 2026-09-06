@@ -830,11 +830,11 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145" />
   <link rel="stylesheet" href="Assets/style/31-aziz-live-support.css?v=20260905-v143" />
   <link rel="stylesheet" href="Assets/style/32-aziz-chat-agent-polish.css?v=20260905-v153" />
   <link rel="stylesheet" href="Assets/style/33-live-chat-records-polish.css?v=20260905-v152" />
-  <link rel="stylesheet" href="Assets/style/22-landing-hero-polish.css?v=20260905-offer155" />
+  <link rel="stylesheet" href="Assets/style/22-landing-hero-polish.css?v=20260906-region157" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -994,7 +994,14 @@
 
         <section class="landing-hero landing-hero-marketing" aria-labelledby="landingHeroTitle" data-landing-reveal data-landing-reveal-eager data-landing-parallax>
           <div class="landing-hero-marketing-inner">
-            <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private finance workspace</p>
+            <div class="landing-eyebrow-row">
+              <p class="landing-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Private finance workspace</p>
+              <label class="landing-region-picker" for="landingRegionSelect">
+                <span class="sr-only">Website region</span>
+                <select id="landingRegionSelect" aria-label="Website region"></select>
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </label>
+            </div>
             <h1 id="landingHeroTitle" class="landing-hero-title">
               <span class="landing-brand-name" aria-label="Triplem VIP">TRIPLE<span class="brand-m-triple">M</span> VIP</span>
               <span class="landing-tagline">Private accounting with layered security, live human care, expenses, wallets, invoices, inventory, loans, assets and reports in one protected workspace.</span>
@@ -4288,7 +4295,7 @@
                   <div class="summary">
                     <div style="font-size:.74rem;color:var(--muted);margin-bottom:4px;">Transaction count</div>
                     <div id="btcTxCountValue" style="font-size:1rem;font-weight:700;">—</div>
-                    <div style="font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px;" id="btcPriceDisplay">BTC: $—</div>
+                    <div style="font-size:.8rem;color:var(--muted);font-weight:500;margin-top:2px;" id="btcPriceDisplay">BTC: <span class="currency-font-usd" data-currency-symbol="USD">$</span>—</div>
                   </div>
                 </div>
                 <div class="tools">
@@ -6410,6 +6417,7 @@
 
   <script src="Assets/config/public-config.js"></script>
   <script src="Assets/app/core/00-analytics.js"></script>
+  <script src="Assets/app/core/00-currency-registry.js?v=20260906-003"></script>
   <script src="Assets/app/analytics/01-site-tracker.js?v=20260801-analytics"></script>
   <script src="Assets/app/lib/tax-math.js"></script>
   <script src="Assets/app/lib/loan-math.js"></script>
@@ -6421,14 +6429,14 @@
   <script src="Assets/app/core/02-state.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
   <script src="Assets/app/core/03-els.js?v=20260903-admin-overlay126"></script>
-  <script src="Assets/app/auth/01-auth-session.js?v=20260905-audio141"></script>
+  <script src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001"></script>
   <script src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138"></script>
   <script src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139"></script>
   <script src="Assets/app/auth/05-account-security.js?v=20260905-webauthn141"></script>
   <script src="Assets/app/auth/06-auth-ui.js?v=20260904-authsurface140"></script>
   <script src="Assets/app/core/04-entries-api.js?v=20260901-auth-resume-fix2"></script>
-  <script src="Assets/app/utils/01-currency-money.js?v=20260901-select-stable2&regional=156"></script>
-  <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1"></script>
+  <script src="Assets/app/utils/01-currency-money.js?v=20260901-select-stable2&regional=157&currency=004"></script>
+  <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002"></script>
   <script src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
   <script src="Assets/app/core/07-theme.js?v=20260904-account-sync131"></script>
   <script src="Assets/app/core/08-offline-sync.js?v=20260901-auth-resume-fix2"></script>
@@ -6436,7 +6444,7 @@
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js?v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-global-search2"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-global-search2&currency=002"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
   <script src="Assets/app/ui/01-render-navigation.js?v=20260902-dashboard-empty1"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1"></script>
@@ -6445,11 +6453,11 @@
   <script src="Assets/app/reports/02-exports.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1"></script>
-  <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=156"></script>
-  <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260904-authsurface140&regional=156"></script>
-  <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe"></script>
-  <script src="Assets/app/notes/01-notes.js?v=20260905-audio141"></script>
+  <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
+  <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260904-authsurface140&regional=156&currency=001"></script>
+  <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002"></script>
+  <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001"></script>
   <script src="Assets/app/assets/01-assets.js?v=20260904-assets140"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156"></script>
@@ -6457,6 +6465,6 @@
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
   <script src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156"></script>
   <script src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139"></script>
-  <script src="Assets/app/boot.js"></script>
+  <script src="Assets/app/boot.js?v=20260906-currency001"></script>
 </body>
 </html>
