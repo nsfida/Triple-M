@@ -1,0 +1,101 @@
+/* Triplem VIP Build 013 — clean finance filters.
+   Filter wrappers are layout-only. The actual form controls remain themed surfaces. */
+
+html.triplem-workspace-themed #app :is(
+  #expensesPanel,
+  #givenPanel,
+  #receivedPanel,
+  #takenPanel,
+  #returnedPanel,
+  #installmentsPanel,
+  #assetsPanel
+) :is(.compact-filter-row,.compact-filter-main){
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+html.triplem-workspace-themed #app :is(
+  #expensesPanel,
+  #givenPanel,
+  #receivedPanel,
+  #takenPanel,
+  #returnedPanel,
+  #installmentsPanel,
+  #assetsPanel
+) .compact-filter-row .filter-inline-section{
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+html.triplem-workspace-themed #app :is(
+  #expensesPanel,
+  #givenPanel,
+  #receivedPanel,
+  #takenPanel,
+  #returnedPanel,
+  #installmentsPanel,
+  #assetsPanel
+) .compact-filter-row .filter-inline-section:is(:hover,:focus-within,:active){
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+}
+
+/* Keep only the real controls as visible filter surfaces. */
+html.triplem-workspace-themed #app :is(
+  #expensesPanel,
+  #givenPanel,
+  #receivedPanel,
+  #takenPanel,
+  #returnedPanel,
+  #installmentsPanel,
+  #assetsPanel
+) .compact-filter-row :is(.filter-inline-input,.filter-inline-select,.filter-inline-date){
+  background:var(--control-bg)!important;
+  color:var(--text)!important;
+  border:1px solid var(--line)!important;
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--glass-highlight) 32%,transparent)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+html.triplem-workspace-themed #app :is(
+  #expensesPanel,
+  #givenPanel,
+  #receivedPanel,
+  #takenPanel,
+  #returnedPanel,
+  #installmentsPanel,
+  #assetsPanel
+) .compact-filter-row :is(.filter-inline-input,.filter-inline-select,.filter-inline-date):is(:hover,:focus,:focus-visible){
+  background:var(--control-hover)!important;
+  border-color:var(--line-strong)!important;
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 11%,transparent)!important;
+}
+
+/* Assets status is one compact dropdown instead of a row of chips. */
+#assetsPanel :is(.asset-status-filter-select,.dep-asset-status-filter-select){
+  min-width:106px!important;
+  max-width:124px!important;
+}
+
+/* No rounded filter band at section boundaries. */
+#expensesPanel .section-head,
+#givenPanel .section-head,
+#receivedPanel .section-head,
+#takenPanel .section-head,
+#returnedPanel .section-head,
+#installmentsPanel .section-head,
+#assetsPanel .section-head{
+  overflow:visible;
+}
