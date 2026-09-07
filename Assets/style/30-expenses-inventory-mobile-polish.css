@@ -1,0 +1,223 @@
+/* ========================================================================== 
+   Triplem VIP Build 142
+   Expenses mobile custom-date stability + Inventory category modal theme parity.
+   Front-end only. No data or logic changes.
+   ========================================================================== */
+
+/* ── Expenses: custom range must become its own stable mobile row ───────── */
+@media (max-width:768px){
+  #expensesPanel .compact-filter-row{
+    overflow:visible!important;
+    padding-bottom:8px!important;
+  }
+  #expensesPanel .compact-filter-main{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(104px,118px)!important;
+    align-items:center!important;
+    gap:6px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  #expensesPanel .compact-filter-main > .filter-inline-section{
+    min-width:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+  }
+  #expensesPanel .compact-filter-search{
+    grid-column:1!important;
+    grid-row:1!important;
+    min-width:0!important;
+    width:100%!important;
+  }
+  #expensesPanel .compact-filter-search .filter-inline-input{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+  }
+  #expensesPanel .expense-date-range-control{
+    grid-column:2!important;
+    grid-row:1!important;
+  }
+  #expensesPanel .expense-balance-control{
+    grid-column:1!important;
+    grid-row:2!important;
+  }
+  #expensesPanel .expense-status-control{
+    grid-column:2!important;
+    grid-row:2!important;
+  }
+  #expensesPanel .compact-filter-row :is(
+    .expense-balance-filter-select,.expense-status-filter-select,.expense-date-range-select
+  ){
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    flex:1 1 auto!important;
+  }
+  #expensesPanel .expense-date-custom-range{
+    grid-column:1 / -1!important;
+    grid-row:3!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    align-items:center!important;
+    gap:5px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+  }
+  #expensesPanel .expense-date-custom-range.hide{display:none!important}
+  #expensesPanel .expense-date-custom-range .filter-inline-date{
+    display:block!important;
+    inline-size:100%!important;
+    width:100%!important;
+    min-inline-size:0!important;
+    min-width:0!important;
+    max-width:none!important;
+    box-sizing:border-box!important;
+    font-size:.68rem!important;
+    padding:2px 5px!important;
+  }
+  #expensesPanel .expense-date-custom-range .compact-date-sep{
+    display:none!important;
+  }
+  #expensesPanel .expense-date-custom-range #applyExpenseCustomDateBtn{
+    grid-column:1 / -1!important;
+    justify-self:stretch!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    margin:0!important;
+  }
+}
+
+@media (max-width:380px){
+  #expensesPanel .compact-filter-main{
+    grid-template-columns:minmax(0,1fr) minmax(94px,104px)!important;
+    gap:5px!important;
+  }
+  #expensesPanel .expense-date-custom-range{
+    gap:4px!important;
+  }
+  #expensesPanel .expense-date-custom-range .filter-inline-date{
+    font-size:.64rem!important;
+    padding-inline:4px!important;
+  }
+}
+
+/* ── Inventory: category-open modal follows active theme at every depth ── */
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal{
+  color:var(--text)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal .inventory-section-modal-dialog{
+  background:linear-gradient(155deg,var(--surface-glass-strong),var(--surface-glass))!important;
+  color:var(--text)!important;
+  border-color:var(--line)!important;
+  box-shadow:var(--shadow-strong)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(.modal-head,.modal-body){
+  background:transparent!important;
+  color:var(--text)!important;
+  border-color:var(--line)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  .inventory-brand-row,.inventory-variant-row,.inventory-section-item-row,
+  .inventory-variant-metrics,.inventory-variant-metrics>div,.inventory-multi-inline-editor,.inventory-inline-editor,
+  .inventory-inline-stock-form,.inventory-inline-stock-size-lock,.inventory-add-category-card,
+  .inventory-add-items-row,.inventory-qty-prompt-item,.inventory-qty-prompt-price,.inventory-search-sections,
+  .inventory-section-item-index,.empty,.inventory-catalog-menu-wrap .menu-dropdown
+){
+  background:var(--surface-elevated)!important;
+  background-image:none!important;
+  color:var(--text)!important;
+  border-color:var(--line)!important;
+  box-shadow:inset 0 1px 0 var(--glass-highlight)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  .inventory-brand-row:hover,.inventory-variant-row:hover,.inventory-section-item-row:hover
+){
+  background:var(--surface-hover)!important;
+  border-color:color-mix(in srgb,var(--primary) 30%,var(--line))!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  h3,h4,strong,label,.form-label,.inventory-brand-row-hit,.inventory-brand-row-main,
+  .inventory-variant-identity,.inventory-section-detail-head
+){
+  color:var(--text)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  .help,.muted,small,.inventory-brand-row-main span,.inventory-brand-chevron,
+  .inventory-variant-metrics small,.inventory-section-item-sub
+){
+  color:var(--muted)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  input,select,textarea,.input,.select
+){
+  background:var(--control-bg,var(--surface-elevated))!important;
+  color:var(--text)!important;
+  -webkit-text-fill-color:var(--text)!important;
+  border-color:var(--line)!important;
+  box-shadow:none!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal option{
+  background:var(--surface-elevated)!important;
+  color:var(--text)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  .tiny.ghost,.btn.ghost,.icon-btn.ghost,.inventory-catalog-menu-btn,.menu-trigger
+){
+  background:var(--control-bg,var(--surface-elevated))!important;
+  color:var(--text)!important;
+  border-color:var(--line)!important;
+  box-shadow:none!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal :is(
+  .tiny.ghost,.btn.ghost,.icon-btn.ghost,.inventory-catalog-menu-btn,.menu-trigger
+):hover{
+  background:var(--surface-hover)!important;
+  color:var(--text)!important;
+  border-color:color-mix(in srgb,var(--primary) 28%,var(--line))!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal .inventory-catalog-menu-wrap .menu-item{
+  background:transparent!important;
+  color:var(--text)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal .inventory-catalog-menu-wrap .menu-item:hover{
+  background:var(--surface-hover)!important;
+  color:var(--text)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal .inventory-inline-stock{
+  border-color:var(--line)!important;
+}
+html[data-triplem-theme]:not([data-triplem-theme="default"]) #inventorySectionModal .inventory-inline-editor-save{
+  background:var(--primary)!important;
+  color:#fff!important;
+  border-color:var(--primary)!important;
+}
+
+@media (max-width:620px){
+  #inventorySectionModal.modal{
+    padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))!important;
+  }
+  #inventorySectionModal .inventory-section-modal-dialog{
+    width:calc(100vw - 20px)!important;
+    max-width:calc(100vw - 20px)!important;
+    max-height:calc(100dvh - 20px)!important;
+    margin:0 auto!important;
+    overflow:hidden!important;
+  }
+  #inventorySectionModal .inventory-section-modal-body{
+    min-height:0!important;
+    max-height:none!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    scrollbar-width:none!important;
+  }
+  #inventorySectionModal .inventory-section-modal-body::-webkit-scrollbar{display:none!important}
+}
