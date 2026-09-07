@@ -1,6 +1,6 @@
 # Triplem VIP
 
-> Triplem VIP, formerly Triplem and sometimes searched as Triple M or Triple-M, is a private browser-based accounting and finance workspace for individuals, merchants, service businesses and small teams. It combines day-to-day money records with layered account protection, visitor Live Support and authenticated in-app customer care in one account-isolated interface.
+> Triplem VIP, formerly Triplem and sometimes searched as Triple M or Triple-M, is a private browser-based accounting and business-finance workspace for individuals, merchants, service businesses and small teams. It combines an administrator-controlled double-entry Accounting ERP with day-to-day operational finance modules, layered account protection, visitor Live Support and authenticated in-app customer care in one account-isolated interface.
 
 Triplem VIP is designed for people who want to move beyond scattered spreadsheets or disconnected finance apps while retaining a clear transaction history, downloadable records and a responsive desktop/mobile workspace. This file is a concise discovery guide to public Triplem VIP resources; it is not a search-ranking directive.
 
@@ -14,30 +14,51 @@ Triplem VIP is designed for people who want to move beyond scattered spreadsheet
 
 ## Product capabilities
 
-Triplem VIP currently presents public information about these connected workspace capabilities:
+Triplem VIP currently presents public information about these workspace capabilities. The formal Accounting ERP is deliberately separate from legacy operational modules in the current build, so enabling Accounting does not silently rewrite existing Expenses, Wallets, Inventory, Assets or Loans into journal entries. The main administrator can enable or disable Accounting per user.
 
+- Double-entry Accounting ERP with a Chart of Accounts, balanced Journal Entries, draft-to-post lifecycle and reversal-based correction of posted journals.
+- Sales accounting workflows for quotations, sales orders, delivery notes, sales invoices, credit notes and sales returns.
+- Purchase accounting workflows for purchase orders, purchase receipts, supplier bills, debit notes, purchase returns and expense invoices.
+- Accounts receivable and accounts payable with customer receipts, supplier payments, open balances and aging reports.
+- Bank reconciliation using manual or imported CSV/XLSX statement rows, duplicate-import controls and explicit matching to posted journals.
+- Accounting tax analysis with configurable tax codes, Input Tax, Output Tax, Net VAT and VAT Summary. Corporate Tax is a configurable management estimate only, not an electronic filing or legal determination.
+- Accounting dimensions for cost centres, departments, projects and branches.
+- Accounting Audit history and an owner-controlled Books Lock Date for finalized periods.
+- Accounting reports including Trial Balance, Profit & Loss, Balance Sheet, General Ledger, Cash Flow Activity, AR/AP Aging, customer/supplier balances, dimension profitability, bank reconciliation status, sales/purchase registers and VAT Summary.
+- Accounting report export to PDF and CSV.
 - Multi-currency wallets for cash, bank, card and custom money accounts.
 - Income and expense tracking with dates, descriptions, categories, wallet relationships and transaction history.
 - Wallet top-ups and transfers with traceable records.
 - Downloadable PDF statements, receipts, invoices and finance summaries.
 - Inventory, stock, sales, customers and invoice workflows.
-- Loan records, repayments and installment-plan tracking.
-- Asset management, including value and profit/loss views where supported.
-- Notes and reminders.
+- Loan management for loans given and taken, supported operational-wallet context, linked repayments or returns and settlement history.
+- Asset management for acquisition cost, optional wallet deduction, revenue, expenses, sale or disposal, charts and PDF reports, plus Depreciation Assets with monthly and annual depreciation, accumulated depreciation, book value, remaining life and specialist PDFs.
+- Searchable sticky-style Notes with scheduled reminders, reminder messages and rescheduling.
 - Authenticated in-app support and user/admin messaging for registered businesses and individuals where enabled.
 - Optional Authenticator App 2FA using standards-based TOTP. TOTP secrets are encrypted server-side with pgcrypto AES-256 and recovery codes are stored as SHA-256 hashes bound to the user.
 - Opt-in Web Push notifications for supported desktop and mobile browser environments, with the prompt decision remembered locally per browser/device and reversible from the available notification control.
 - Guided public visitor Live Support with AI assistance, explicit Agent handoff and a hashed guest capability boundary.
 - Protected password and Smart PIN recovery. Current account passwords use bcrypt hashes; Smart PIN verification uses a username-bound SHA-256 hash with server-side lockout tiers; 2FA-enabled recovery can verify an Authenticator code or unused recovery code.
-- Client-side Bitcoin tools; sensitive key workflows are designed to remain in the browser rather than being treated as normal server-held account data.
+- Client-side Bitcoin tools with watch-only monitoring, supported private-key/seed wallet access, multiple address types, send and receive workflows, transaction history and PDF records; sensitive key workflows are designed to remain in the browser rather than being treated as normal server-held account data.
 - Responsive use across modern desktop and mobile browsers.
 
 ## High-value guides
 
+- [Accounting ERP](https://triplem.vip/seo/accounting-erp.html): Complete overview of the double-entry workspace, sales and purchase posting, AR/AP, bank reconciliation, tax, dimensions, audit controls and financial reports.
+- [Double-entry accounting](https://triplem.vip/seo/double-entry-accounting.html): Debits, credits, balanced journals, posting, automatic accounting effects and reversal-based correction.
+- [Chart of Accounts](https://triplem.vip/seo/chart-of-accounts.html): How assets, liabilities, equity, income, expenses and control accounts structure the ledger.
+- [Accounts receivable and payable](https://triplem.vip/seo/accounts-receivable-payable.html): Customer and supplier balances, receipts, payments, linked adjustments and aging.
+- [Bank reconciliation](https://triplem.vip/seo/bank-reconciliation.html): CSV/XLSX statement imports, duplicate controls and explicit matching of bank evidence to posted journals.
+- [Financial reports](https://triplem.vip/seo/financial-reports.html): Trial Balance, Profit & Loss, Balance Sheet, General Ledger, Cash Flow Activity, aging, registers, VAT and reconciliation reports.
+- [VAT accounting](https://triplem.vip/seo/vat-accounting.html): Configurable tax codes, Input Tax, Output Tax, Net VAT, VAT Summary and management-estimate limitations.
 - [Accounting software](https://triplem.vip/seo/accounting-software.html): Why people use accounting software, where spreadsheets become limiting, connected financial records, reporting and selection questions.
-- [Accounting setup](https://triplem.vip/seo/accounting-setup.html): Practical setup order for wallets, categories, balances, expenses, invoices and maintainable records.
+- [Accounting setup](https://triplem.vip/seo/accounting-setup.html): Practical ERP setup order for access, base books, Chart of Accounts, opening balances, contacts, live posting, reconciliation and period close.
 - [Expense tracking](https://triplem.vip/seo/expense-tracking.html): What useful expense records contain, why wallet context matters and when a basic expense list becomes insufficient.
 - [Finance software](https://triplem.vip/seo/finance-software.html): How operational finance, obligations, assets, inventory, reporting and multi-currency records can fit into one workspace.
+- [Loan management](https://triplem.vip/seo/loan-management.html): Loans given and taken, operational wallet context, linked repayments and settlement history.
+- [Asset management and depreciation](https://triplem.vip/seo/asset-management.html): Purchases, revenue, expenses, sale or disposal, depreciation schedules, book value and asset PDF reports.
+- [Notes and reminders](https://triplem.vip/seo/notes-management.html): Searchable sticky-style notes, reminder scheduling and reschedulable follow-ups.
+- [Bitcoin wallet tools](https://triplem.vip/seo/bitcoin-wallet.html): Watch-only monitoring, client-side wallet access, multiple address types, send/receive flows, history and PDF records.
 - [What is Triplem VIP?](https://triplem.vip/seo/triplem.html): Product identity, current brand name and supported use cases.
 - [Security, 2FA, notifications and support](https://triplem.vip/seo/security-and-support.html): Public guide to bcrypt password hashing, AES-256 encrypted Authenticator 2FA, hashed recovery codes, Smart PIN protection, Web Push consent, visitor Live Support and authenticated in-app care.
 
@@ -73,6 +94,18 @@ Public visitors can use guided Live Support and request a real Agent. Registered
 
 ### Why are notification and theme preferences handled differently?
 Browser notification permission and push subscriptions belong to a specific device, so the prompt decision is remembered locally and the device can later turn notifications on or off. The authenticated workspace theme is an account presentation preference and can be stored in the existing account settings record so it follows the user to another browser or device.
+
+### What is the Accounting ERP in Triplem VIP?
+The Accounting ERP is the formal double-entry workspace. It includes Chart of Accounts, Journal Entries, customers and suppliers, sales and purchase documents, receivables and payables, payments, bank reconciliation, tax analysis, dimensions, audit history and financial reports.
+
+### Does Accounting automatically convert old operational records?
+No. The current Accounting workspace is intentionally separate from legacy Expenses, Wallets, Inventory, Assets and Loans so existing user data and workflows are not silently rewritten. Businesses adopting formal Accounting should establish opening balances and use Accounting workflows for transactions that need to appear in Accounting reports.
+
+### Can the main administrator control Accounting access?
+Yes. Accounting can be enabled or disabled per user. When it is disabled, the Accounting tab does not appear for that user and the related access path is restricted.
+
+### Which financial reports are available?
+The current report selector includes Trial Balance, Profit & Loss, Balance Sheet, General Ledger, Cash Flow Activity, Accounts Receivable Aging, Accounts Payable Aging, Customer Balances, Supplier Balances, Dimension Profitability, Bank Reconciliation Status, Sales Register, Purchase Register and VAT Summary. Accounting reports can be exported to PDF and CSV.
 
 ## Public facts and citation guidance
 
