@@ -838,9 +838,11 @@
   <link rel="stylesheet" href="Assets/style/33-live-chat-records-polish.css?v=20260905-v152" />
   <link rel="stylesheet" href="Assets/style/34-build010-upgrades.css?v=20260906-build010-final" />
   <link rel="stylesheet" href="Assets/style/22-landing-hero-polish.css?v=20260906-region157" />
-  <link rel="stylesheet" href="Assets/style/36-build012-notes-redesign.css?v=20260906-build012-notes001" />
+  <link rel="stylesheet" href="Assets/style/36-build012-notes-redesign.css?v=20260907-notes-sticky-receipt002" />
   <link rel="stylesheet" href="Assets/style/37-build013-filter-cleanup.css?v=20260906-build013-filter001" />
   <link rel="stylesheet" href="Assets/style/38-build014-inventory-overview-polish.css?v=20260906-build014-001" />
+  <link rel="stylesheet" href="Assets/style/39-assets-depreciation-fixes.css?v=20260907-assets-dep-002" />
+  <link rel="stylesheet" href="Assets/style/40-account-security-session-refinement.css?v=20260907-security147&amp;mobile=20260907-v149" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -5407,7 +5409,12 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="assetFormCurrency">Currency</label>
-            <select id="assetFormCurrency" class="input select"></select>
+            <select id="assetFormCurrency" class="input select">
+              <option value="AED">AED</option>
+              <option value="SAR">SAR</option>
+              <option value="PKR">PKR</option>
+              <option value="USD">USD</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label" for="assetFormPurchaseDate">Purchase date</label>
@@ -5416,6 +5423,13 @@
           <div class="form-group">
             <label class="form-label" for="assetFormPurchasePrice">Purchase price</label>
             <input id="assetFormPurchasePrice" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group form-span-2" id="assetFormWalletWrap">
+            <label class="form-label" for="assetFormWallet">Purchase payment</label>
+            <select id="assetFormWallet" class="input select">
+              <option value="">Skip wallet deduction</option>
+            </select>
+            <p class="help asset-wallet-help" id="assetFormWalletHelp">Optionally deduct the purchase price from a wallet in the same currency.</p>
           </div>
           <div class="form-group form-span-2">
             <label class="form-label" for="assetFormDescription">Details / description</label>
@@ -5568,6 +5582,13 @@
           <div class="form-group">
             <label class="form-label" for="depAssetFormPurchasePrice">Purchase price</label>
             <input id="depAssetFormPurchasePrice" class="input" type="number" min="0" step="any" placeholder="0" />
+          </div>
+          <div class="form-group form-span-2" id="depAssetFormWalletWrap">
+            <label class="form-label" for="depAssetFormWallet">Purchase payment</label>
+            <select id="depAssetFormWallet" class="input select">
+              <option value="">Skip wallet deduction</option>
+            </select>
+            <p class="help asset-wallet-help" id="depAssetFormWalletHelp">Optionally deduct the purchase price from a wallet in the same currency.</p>
           </div>
           <div class="form-group">
             <label class="form-label" for="depAssetFormSalvage">Salvage value</label>
@@ -6467,9 +6488,9 @@
   <script src="Assets/app/inventory-catalog.js"></script>
   <script src="Assets/app/core/03-els.js?v=20260903-admin-overlay126"></script>
   <script src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001"></script>
-  <script src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138"></script>
+  <script src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138&security=146"></script>
   <script src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139"></script>
-  <script src="Assets/app/auth/05-account-security.js?v=20260905-webauthn141"></script>
+  <script src="Assets/app/auth/05-account-security.js?v=20260907-webauthn148&security=148"></script>
   <script src="Assets/app/auth/06-auth-ui.js?v=20260904-authsurface140"></script>
   <script src="Assets/app/core/04-entries-api.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/utils/01-currency-money.js?v=20260901-select-stable2&regional=157&currency=004"></script>
@@ -6492,11 +6513,11 @@
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260904-authsurface140&regional=156&currency=001"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260907-security146&regional=156&currency=001"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002&build010=001&build011=001"></script>
-  <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes001"></script>
-  <script src="Assets/app/assets/01-assets.js?v=20260904-assets140&build011=001&build013=filter001"></script>
-  <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001"></script>
+  <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002"></script>
+  <script src="Assets/app/assets/01-assets.js?v=20260904-assets140&build011=001&build013=filter001&build016=assets-wallet-currency002"></script>
+  <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001&build016=dep-wallet002"></script>
   <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
