@@ -160,6 +160,9 @@ const CANONICAL_MIGRATION_FILES = [
   "143_regional_public_billing_currency.sql",
   "144_build010_secure_photo_maintenance.sql",
   "145_build010_depreciation_model.sql",
+  "146_account_security_history_trusted_sessions.sql",
+  "147_account_security_bulk_trusted_browser_revocation.sql",
+  "148_account_security_trusted_browser_controls_reliability.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
