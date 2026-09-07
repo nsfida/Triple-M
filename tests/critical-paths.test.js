@@ -1882,7 +1882,7 @@ it("131 adds verified recovery identity, trusted 2FA browsers, biometric quick s
   assert.match(admin, /Account Security/);
   assert.match(admin, /accountSecurityBtn/);
   assert.match(css, /Triplem VIP unified Account Security v138/);
-  assert.match(index, /auth\/05-account-security\.js\?v=(?:20260904-(?:account-security138|reliability139|authsurface140)|20260905-webauthn141)/);
+  assert.match(index, /auth\/05-account-security\.js\?v=(?:20260904-(?:account-security138|reliability139|authsurface140)|20260905-webauthn141|20260907-webauthn148)/);
   assert.ok(index.indexOf("auth/04-account-recovery.js") < index.indexOf("auth/05-account-security.js"));
   assert.ok(index.indexOf("auth/05-account-security.js") < index.indexOf("auth/02-auth-welcome-trial.js"));
   assert.match(builder, /131_account_security_quick_signin_devices\.sql/);
@@ -2031,7 +2031,7 @@ it("133 uses standard WebAuthn for cross-platform biometric sign-in and never pr
   assert.doesNotMatch(authSession, /ensureReminderAlertAudioUnlocked\s*\(\s*\)/, "auth-session does not prime reminder audio");
   assert.match(notes, /remain deliberately inert until/);
   assert.match(index, /auth\/01-auth-session\.js\?v=20260905-audio141/);
-  assert.match(index, /auth\/05-account-security\.js\?v=20260905-webauthn141/);
+  assert.match(index, /auth\/05-account-security\.js\?v=(?:20260905-webauthn141|20260907-webauthn148)/);
   assert.match(index, /notes\/01-notes\.js\?v=20260905-audio141/);
   assert.match(index, /messaging\/01-messaging\.js\?v=20260905-(?:audio141|v146|v153|v154)/);
   assert.match(builder, /133_standard_webauthn_quick_signin\.sql/);
@@ -2509,6 +2509,60 @@ it("154 fixes Agent end-chat rendering, reopens closed chats read-only, and cano
   assert.match(builder, /142_live_chat_closed_thread_and_record_dedupe\.sql/);
 });
 
+it("147 removes every other trusted browser atomically while preserving the verified current browser", () => {
+  const root = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(root, "migrations/147_account_security_bulk_trusted_browser_revocation.sql"), "utf8");
+  const security = fs.readFileSync(path.join(root, "Assets/app/auth/05-account-security.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "Assets/style/40-account-security-session-refinement.css"), "utf8");
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(root, "scripts/build_full_schema_sql.js"), "utf8");
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/--.*$/gm, "");
+
+  assert.match(migration, /app_account_security_revoke_other_trusted_browsers/);
+  assert.match(migration, /device_hash<>two_hash/);
+  assert.match(migration, /device_hash<>recovery_hash/);
+  assert.match(migration, /This browser is not currently trusted/);
+  assert.match(migration, /Current password is incorrect/);
+  assert.doesNotMatch(installOnly, /\b(?:delete\s+from|truncate\s+table|drop\s+table|update\s+public\.app_users)\b/i);
+  assert.match(security, /securityRemoveOtherTrustedBrowsers/);
+  assert.match(security, /Remove all other trusted browsers/);
+  assert.match(security, /app_account_security_revoke_other_trusted_browsers/);
+  assert.match(css, /account-security-center-modal\.modal\{[\s\S]*padding:24px 20px!important/);
+  assert.match(css, /max-height:calc\(100dvh - 48px\)!important/);
+  assert.match(index, /40-account-security-session-refinement\.css\?v=20260907-security147/);
+  assert.match(index, /05-account-security\.js\?v=20260907-webauthn148&security=148/);
+  assert.match(builder, /147_account_security_bulk_trusted_browser_revocation\.sql/);
+});
+
+
+it("148 makes trusted-browser bulk removal always discoverable and avoids the legacy schema-cache RPC", () => {
+  const root = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(root, "migrations/148_account_security_trusted_browser_controls_reliability.sql"), "utf8");
+  const security = fs.readFileSync(path.join(root, "Assets/app/auth/05-account-security.js"), "utf8");
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const builder = fs.readFileSync(path.join(root, "scripts/build_full_schema_sql.js"), "utf8");
+  const installOnly = migration.replace(/\$fn\$[\s\S]*?\$fn\$/g, "").replace(/--.*$/gm, "");
+
+  assert.match(migration, /app_account_security_revoke_trusted_browser_v2/);
+  assert.match(migration, /app_account_security_revoke_other_trusted_browsers_v2/);
+  assert.match(migration, /insert into public\.app_account_recovery_trusted_devices/);
+  assert.match(migration, /insert into public\.app_two_factor_trusted_devices/);
+  assert.match(migration, /device_hash<>two_hash/);
+  assert.match(migration, /device_hash<>recovery_hash/);
+  assert.match(migration, /notify pgrst,'reload schema'/);
+  assert.doesNotMatch(installOnly, /\b(?:delete\s+from|truncate\s+table|drop\s+table|update\s+public\.app_users)\b/i);
+
+  assert.match(security, /id="securityRemoveOtherTrustedBrowsers"/);
+  assert.match(security, /Remove all other trusted browsers/);
+  assert.match(security, /app_account_security_revoke_other_trusted_browsers_v2/);
+  assert.match(security, /app_account_security_revoke_trusted_browser_v2/);
+  assert.doesNotMatch(security, /rpc\("app_two_factor_revoke_trusted_device"/);
+  assert.match(security, /Trusted browser record is unavailable/);
+  assert.match(security, /latest Account Security database update is not installed yet/);
+  assert.match(index, /05-account-security\.js\?v=20260907-webauthn148&security=148/);
+  assert.match(builder, /148_account_security_trusted_browser_controls_reliability\.sql/);
+});
+
 it("Build 010 secures logo cleanup and revalidates unused-photo deletion", () => {
   const root = path.join(__dirname, "..");
   const migration = fs.readFileSync(path.join(root, "migrations/144_build010_secure_photo_maintenance.sql"), "utf8");
@@ -2572,7 +2626,7 @@ it("Build 010 exposes the upgraded transaction, loan, Bitcoin, Notes, and unifie
   assert.match(ui, /Full statement/);
   assert.match(pdf, /downloadLoanTransactionsSelectionPDF/);
   assert.match(index, /btc-wallet-access-menu/);
-  assert.match(notes, /note-card-mark/);
+  assert.match(notes, /note-grid-preview/);
   assert.match(dep, /drawAssetPdfPageChrome/);
   assert.match(dep, /assetPdfTableTheme/);
 });
@@ -2609,20 +2663,23 @@ it("Build 011 elevates transaction menus, refines photo deletion, loans, notes, 
   assert.match(targetFiles, /fa-solid fa-file-pdf/);
 });
 
-it("Build 012 keeps Notes title-only and two-column on mobile", () => {
+it("Notes use clean sticky cards with thermal-receipt typography and a two-column mobile grid", () => {
   const root = path.join(__dirname, "..");
   const notes = fs.readFileSync(path.join(root, "Assets/app/notes/01-notes.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "Assets/style/36-build012-notes-redesign.css"), "utf8");
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
-  assert.match(notes, /note-card-mark/);
+  assert.match(notes, /note-grid-preview/);
+  assert.doesNotMatch(notes, /note-card-mark/);
   assert.doesNotMatch(notes, /note-paper-pencil/);
-  assert.doesNotMatch(notes, /note-paper-preview/);
-  assert.doesNotMatch(notes, /note-paper-foot/);
+  assert.match(css, /--note-receipt-font:ui-monospace/);
+  assert.match(css, /#notesList > \.note-grid-card::before\{content:none!important\}/);
   assert.match(css, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
   assert.match(css, /#notesList \.note-grid-title/);
-  assert.match(index, /36-build012-notes-redesign\.css/);
-  assert.match(index, /build012=notes001/);
+  assert.match(css, /#notesList \.note-grid-preview/);
+  assert.match(css, /\.note-detail-content/);
+  assert.match(index, /36-build012-notes-redesign\.css\?v=20260907-notes-sticky-receipt002/);
+  assert.match(index, /build012=notes002/);
 });
 
 it("Build 014 cleans Inventory filters, merges View into a select, and makes overview chevrons deterministic", () => {
