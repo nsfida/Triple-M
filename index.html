@@ -832,7 +832,7 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003" />
   <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
   <link rel="stylesheet" href="Assets/style/31-aziz-live-support.css?v=20260905-v143" />
   <link rel="stylesheet" href="Assets/style/32-aziz-chat-agent-polish.css?v=20260905-v153&knowledge=157" />
@@ -846,6 +846,7 @@
   <link rel="stylesheet" href="Assets/style/40-account-security-session-refinement.css?v=20260907-mobile-close151" />
   <link rel="stylesheet" href="Assets/style/41-accounting-suite.css?v=20260907-accounting149-002" />
   <link rel="stylesheet" href="Assets/style/42-public-accounting-seo.css?v=20260907-public-accounting-001" />
+  <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-transfer-overlay-001" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -4119,7 +4120,6 @@
                       <option value="history" selected>Transaction History</option>
                       <option value="topups">Top-Up Records</option>
                       <option value="transfers">Transfer Records</option>
-                      <option value="btc">BTC Blockchain Transactions</option>
                     </select>
                     <i class="fa-solid fa-chevron-down expense-record-view-chevron" aria-hidden="true"></i>
                   </span>
@@ -4130,17 +4130,12 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchExpenses" class="input filter-inline-input" placeholder="Item, wallet, note" />
+                  <input id="searchExpenses" class="input filter-inline-input" placeholder="Item, wallet, note, reference" />
                 </div>
-                <div class="filter-inline-section expense-balance-control">
-                  <span class="filter-inline-label">Balance</span>
-                  <select id="expensesBalanceFilter" class="select filter-inline-select currency-filter-select expense-balance-filter-select" data-currency-filter="expenses" aria-label="Filter expenses by balance currency">
-                    <option value="All" selected>All Balances</option>
-                    <option value="AED">AED</option>
-                    <option value="SAR">SAR</option>
-                    <option value="PKR">PKR</option>
-                    <option value="USD">USD</option>
-                    <option value="BTC">BTC</option>
+                <div class="filter-inline-section expense-wallet-select-control">
+                  <span class="filter-inline-label">Wallet</span>
+                  <select id="expenseWalletSelectFilter" class="select filter-inline-select expense-wallet-select-filter" aria-label="Filter expense records by wallet">
+                    <option value="all" selected>All Wallets</option>
                   </select>
                 </div>
                 <div class="filter-inline-section expense-status-control">
@@ -5976,6 +5971,24 @@
               <label>Amount to add</label>
               <input class="input" name="amount" type="number" step="0.01" required placeholder="0.00" />
             </div>
+            <details class="expense-optional-details field w12">
+              <summary><span><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Money source</span><small>Optional record details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+              <div class="expense-optional-grid">
+                <div class="field"><label>Source type <span class="optional-label">(Optional)</span></label><select class="select" name="detail_source_type"><option value="">Select source</option><option>Salary / Income</option><option>Customer Payment</option><option>Owner Contribution</option><option>Sale Proceeds</option><option>Refund / Reimbursement</option><option>Loan Received</option><option>Investment / Capital</option><option>Wallet Transfer</option><option>Cash Deposit</option><option>Bank Deposit</option><option>Other</option></select></div>
+                <div class="field"><label>From whom / source <span class="optional-label">(Optional)</span></label><input class="input" name="detail_source_name" placeholder="Customer, employer, owner, bank…" /></div>
+                <div class="field"><label>How received <span class="optional-label">(Optional)</span></label><select class="select" name="detail_payment_method"><option value="">Select method</option><option>Cash</option><option>Bank Transfer</option><option>Cash Deposit</option><option>Cheque</option><option>Card Refund</option><option>Digital Wallet</option><option>Mobile Payment</option><option>Crypto Conversion</option><option>Other</option></select></div>
+                <div class="field"><label>Channel <span class="optional-label">(Optional)</span></label><select class="select" name="detail_channel"><option value="">Select channel</option><option>Online Banking</option><option>Mobile App</option><option>Bank Branch</option><option>ATM / CDM</option><option>Cash Handover</option><option>POS / Terminal</option><option>Other</option></select></div>
+                <div class="field"><label>Bank / institution <span class="optional-label">(Optional)</span></label><input class="input" name="detail_institution" placeholder="Bank or payment provider" /></div>
+                <div class="field"><label>Reference / transaction no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_reference" placeholder="Transfer reference" /></div>
+                <div class="field"><label>Receipt / deposit slip no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_receipt_no" placeholder="Receipt or slip number" /></div>
+                <div class="field"><label>Payer name <span class="optional-label">(Optional)</span></label><input class="input" name="detail_payer_name" placeholder="Name on payment" /></div>
+                <div class="field"><label>Payer contact <span class="optional-label">(Optional)</span></label><input class="input" name="detail_payer_contact" placeholder="Phone or email" /></div>
+                <div class="field"><label>Purpose <span class="optional-label">(Optional)</span></label><input class="input" name="detail_purpose" placeholder="Why the money was received" /></div>
+                <div class="field"><label>Location <span class="optional-label">(Optional)</span></label><input class="input" name="detail_location" placeholder="Branch, city, counter…" /></div>
+                <div class="field"><label>Tags <span class="optional-label">(Optional)</span></label><input class="input" name="detail_tags" placeholder="e.g. client, cash, September" /></div>
+                <div class="field expense-optional-wide"><label>Document reference <span class="optional-label">(Optional)</span></label><input class="input" name="detail_document_ref" placeholder="Receipt file name, voucher ID, external reference…" /></div>
+              </div>
+            </details>
             <div class="field w12">
               <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
@@ -6059,6 +6072,27 @@
                 </label>
               </div>
             </div>
+            <details class="expense-optional-details field w12">
+              <summary><span><i class="fa-solid fa-receipt" aria-hidden="true"></i> Payment details</span><small>Optional record details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+              <div class="expense-optional-grid">
+                <div class="field"><label>Merchant / vendor <span class="optional-label">(Optional)</span></label><input class="input" name="detail_merchant" placeholder="Store, supplier, service provider" /></div>
+                <div class="field"><label>Paid to <span class="optional-label">(Optional)</span></label><input class="input" name="detail_paid_to" placeholder="Person or company paid" /></div>
+                <div class="field"><label>Payment method <span class="optional-label">(Optional)</span></label><select class="select" name="detail_payment_method"><option value="">Select method</option><option>Cash</option><option>Bank Transfer</option><option>Debit Card</option><option>Credit Card</option><option>Cheque</option><option>Digital Wallet</option><option>Mobile Payment</option><option>Direct Debit</option><option>Other</option></select></div>
+                <div class="field"><label>Payment channel <span class="optional-label">(Optional)</span></label><select class="select" name="detail_channel"><option value="">Select channel</option><option>Online</option><option>Mobile App</option><option>POS / Terminal</option><option>Bank Branch</option><option>ATM</option><option>Cash Counter</option><option>Other</option></select></div>
+                <div class="field"><label>Reference / transaction no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_reference" placeholder="Payment reference" /></div>
+                <div class="field"><label>Invoice no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_invoice_no" placeholder="Supplier invoice number" /></div>
+                <div class="field"><label>Receipt no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_receipt_no" placeholder="Receipt / voucher number" /></div>
+                <div class="field"><label>Project / job <span class="optional-label">(Optional)</span></label><input class="input" name="detail_project" placeholder="Project, vehicle, job or case" /></div>
+                <div class="field"><label>Cost center / department <span class="optional-label">(Optional)</span></label><input class="input" name="detail_cost_center" placeholder="Department or cost center" /></div>
+                <div class="field"><label>Beneficiary / used for <span class="optional-label">(Optional)</span></label><input class="input" name="detail_beneficiary" placeholder="Employee, customer, asset…" /></div>
+                <div class="field"><label>Location <span class="optional-label">(Optional)</span></label><input class="input" name="detail_location" placeholder="Shop, city, branch…" /></div>
+                <div class="field"><label>Quantity <span class="optional-label">(Optional)</span></label><input class="input" name="detail_quantity" type="number" min="0" step="any" placeholder="e.g. 2" /></div>
+                <div class="field"><label>Unit <span class="optional-label">(Optional)</span></label><input class="input" name="detail_unit" placeholder="pcs, km, hours, liters…" /></div>
+                <div class="field"><label>Business purpose <span class="optional-label">(Optional)</span></label><input class="input" name="detail_business_purpose" placeholder="Reason / business purpose" /></div>
+                <div class="field"><label>Tags <span class="optional-label">(Optional)</span></label><input class="input" name="detail_tags" placeholder="e.g. office, travel, urgent" /></div>
+                <div class="field expense-optional-wide"><label>Document reference <span class="optional-label">(Optional)</span></label><input class="input" name="detail_document_ref" placeholder="Receipt file name, voucher ID, external document reference…" /></div>
+              </div>
+            </details>
             <div class="field w12">
               <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
@@ -6077,7 +6111,7 @@
 <!-- Transfer Modal -->
 <div id="transferModal" class="modal hide" aria-hidden="true">
   <div class="modal-backdrop" data-close-modal="transferModal"></div>
-  <div class="modal-dialog">
+  <div class="modal-dialog compact-entry-dialog transfer-entry-dialog">
     <div class="modal-head">
       <div>
         <h3 id="transferModalTitle">Transfer Money</h3>
@@ -6087,39 +6121,57 @@
     </div>
     <div class="modal-body">
       <form id="transferForm">
-        <div class="modal-grid">
+        <div class="modal-grid goods-sale-form-grid">
           <div class="field w6">
-            <label>From Wallet</label>
+            <label>From wallet</label>
             <select class="select" name="from_wallet" id="transferFromWallet" required></select>
           </div>
           <div class="field w6">
-            <label>To Wallet</label>
+            <label>To wallet</label>
             <select class="select" name="to_wallet" id="transferToWallet" required></select>
           </div>
           <div class="field w6">
-            <label>Amount</label>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <input class="input" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" style="flex: 1;" />
-              <span id="fromCurrencyIndicator" style="font-size: 0.8rem; color: var(--muted); min-width: 30px;">AED</span>
+            <label>Amount to transfer</label>
+            <div class="transfer-money-input">
+              <input class="input" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
+              <span id="fromCurrencyIndicator" class="transfer-currency-indicator">AED</span>
             </div>
           </div>
           <div class="field w6">
-            <label>Conversion Rate <span id="conversionHelp" style="font-size: 0.7rem; color: var(--muted);">(1 From = ? To)</span></label>
+            <label>Amount received</label>
+            <div class="transfer-money-input">
+              <input class="input transfer-readonly-amount" name="received_amount" type="number" min="0.01" step="0.01" readonly placeholder="0.00" />
+              <span id="toCurrencyIndicator" class="transfer-currency-indicator">AED</span>
+            </div>
+          </div>
+          <div class="field w6" id="transferConversionField">
+            <label>Conversion rate <span id="conversionHelp" class="transfer-conversion-help">(1 From = ? To)</span></label>
             <input class="input" name="conversion_rate" type="number" min="0.000001" step="0.000001" placeholder="1.000000" id="conversionRateInput" />
-          </div>
-          <div class="field w6">
-            <label>Received Amount</label>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <input class="input" name="received_amount" type="number" min="0.01" step="0.01" readonly placeholder="0.00" style="flex: 1; background: var(--panel-bg);" />
-              <span id="toCurrencyIndicator" style="font-size: 0.8rem; color: var(--muted); min-width: 30px;">AED</span>
-            </div>
           </div>
           <div class="field w6">
             <label>Date</label>
             <input class="input" name="date" type="date" required data-default-today="true" />
           </div>
+          <details class="expense-optional-details field w12">
+            <summary><span><i class="fa-solid fa-right-left" aria-hidden="true"></i> Transfer details</span><small>Optional record details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+            <div class="expense-optional-grid">
+              <div class="field"><label>Transfer method <span class="optional-label">(Optional)</span></label><select class="select" name="detail_transfer_method"><option value="">Select method</option><option>Bank Transfer</option><option>Cash Movement</option><option>Cash Deposit</option><option>Cash Withdrawal / Deposit</option><option>Cheque</option><option>Card Transfer</option><option>Digital Wallet</option><option>Mobile Payment</option><option>Internal Adjustment</option><option>Other</option></select></div>
+              <div class="field"><label>Transfer channel <span class="optional-label">(Optional)</span></label><select class="select" name="detail_channel"><option value="">Select channel</option><option>Online Banking</option><option>Mobile App</option><option>Bank Branch</option><option>ATM / CDM</option><option>Cash Handover</option><option>POS / Terminal</option><option>Other</option></select></div>
+              <div class="field"><label>Bank / institution <span class="optional-label">(Optional)</span></label><input class="input" name="detail_institution" placeholder="Bank or payment provider" /></div>
+              <div class="field"><label>Reference / transaction no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_reference" placeholder="Transfer reference" /></div>
+              <div class="field"><label>Receipt / voucher no. <span class="optional-label">(Optional)</span></label><input class="input" name="detail_receipt_no" placeholder="Receipt or voucher number" /></div>
+              <div class="field"><label>Purpose <span class="optional-label">(Optional)</span></label><input class="input" name="detail_purpose" placeholder="Reason for transfer" /></div>
+              <div class="field"><label>Initiated by <span class="optional-label">(Optional)</span></label><input class="input" name="detail_initiated_by" placeholder="Person who initiated it" /></div>
+              <div class="field"><label>Recipient / beneficiary <span class="optional-label">(Optional)</span></label><input class="input" name="detail_recipient" placeholder="Person or beneficiary" /></div>
+              <div class="field"><label>Project / job <span class="optional-label">(Optional)</span></label><input class="input" name="detail_project" placeholder="Project, vehicle, job or case" /></div>
+              <div class="field"><label>Cost center / department <span class="optional-label">(Optional)</span></label><input class="input" name="detail_cost_center" placeholder="Department or cost center" /></div>
+              <div class="field"><label>Location <span class="optional-label">(Optional)</span></label><input class="input" name="detail_location" placeholder="Branch, city, counter…" /></div>
+              <div class="field"><label>Tags <span class="optional-label">(Optional)</span></label><input class="input" name="detail_tags" placeholder="e.g. internal, bank, project" /></div>
+              <div class="field expense-optional-wide"><label>Document reference <span class="optional-label">(Optional)</span></label><input class="input" name="detail_document_ref" placeholder="Receipt file, voucher ID or external document" /></div>
+            </div>
+          </details>
           <div class="field w12">
-            <label>Notes</label>
+            <label>Notes <span class="optional-label">(Optional)</span></label>
             <input class="input" name="notes" placeholder="Optional transfer note" />
           </div>
           <div class="field w12 modal-footer">
@@ -6411,6 +6463,12 @@
                 <small class="tax-preview" id="editTaxPreview">VAT is not applied.</small>
               </div>
             </div>
+            <div id="editExpenseDetailsGroup" class="field w12 hide">
+              <details class="expense-optional-details" open>
+                <summary><span><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Transaction details</span><small>All fields are optional</small></summary>
+                <div id="editExpenseDetailsFields" class="expense-optional-grid"></div>
+              </details>
+            </div>
             <div class="field w12">
               <label>Notes</label>
               <input class="input" id="editNotes" placeholder="Optional note" />
@@ -6630,15 +6688,15 @@
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js?build011=001&v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260901-global-search2&currency=002&build011=001"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260908-pdf-signs2&currency=002&build011=003"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
   <script src="Assets/app/ui/01-render-navigation.js?v=20260902-dashboard-empty1&build011=001&accounting=149001"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script src="Assets/app/loans/01-loans-payments.js?v=20260901-auth-resume-fix2"></script>
-  <script src="Assets/app/reports/01-pdf.js?v=20260829-theme-refine2&build010=001"></script>
-  <script src="Assets/app/reports/02-exports.js?v=20260901-expense-item-history1&build010=001"></script>
+  <script src="Assets/app/reports/01-pdf.js?v=20260908-pdf-minus-fix&build010=001"></script>
+  <script src="Assets/app/reports/02-exports.js?v=20260908-pdf-signs2&build010=002"></script>
   <script src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
-  <script src="Assets/app/expenses/02-transfers.js?v=20260901-offline-confirm-sync1&build014=001"></script>
+  <script src="Assets/app/expenses/02-transfers.js?v=20260908-transfer-details1&build014=001"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
