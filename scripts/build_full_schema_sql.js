@@ -167,6 +167,7 @@ const CANONICAL_MIGRATION_FILES = [
   "150_accounting_backup_restore_integrity.sql",
   "151_expense_transaction_details.sql",
   "152_expense_public_reference_search.sql",
+  "153_expense_account_details.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
