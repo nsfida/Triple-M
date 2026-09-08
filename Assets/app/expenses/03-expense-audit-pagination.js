@@ -385,8 +385,34 @@
   }
   window.ExpensePagination = {prepare,slice,html,setPage,getPage,PAGE_SIZE};
 
-  document.addEventListener("click", e => {
-    const btn=e.target.closest?.("[data-expense-page-key][data-expense-page]"); if(!btn) return;
-    e.preventDefault(); const key=btn.dataset.expensePageKey; const page=Number(btn.dataset.expensePage||1); setPage(key,page,999999); if(typeof renderExpensesList==="function") renderExpensesList();
+  document.addEventListener("click", async e => {
+    const btn=e.target.closest?.("[data-expense-page-key][data-expense-page]");
+    if(!btn || btn.disabled || btn.closest(".expense-pagination")?.classList.contains("is-loading")) return;
+    e.preventDefault();
+    const key=String(btn.dataset.expensePageKey || "");
+    const page=Math.max(1, Number(btn.dataset.expensePage||1));
+    const previous=getPage(key);
+    if(page===previous) return;
+    const pager=btn.closest(".expense-pagination");
+    pager?.classList.add("is-loading");
+    pager?.setAttribute("aria-busy","true");
+    setPage(key,page,999999);
+    try {
+      if(key === "history-items" && typeof window.loadExpenseItemSummariesForCurrentQuery === "function") {
+        await window.loadExpenseItemSummariesForCurrentQuery({ page, force:false });
+      } else if(key.startsWith("history:") && typeof window.ensureExpenseItemHistoryLoaded === "function") {
+        const itemKey=key.slice("history:".length);
+        const loaded=await window.ensureExpenseItemHistoryLoaded(itemKey,{page});
+        if(!loaded) setPage(key,previous,999999);
+      }
+      if(typeof renderExpensesList==="function") renderExpensesList();
+    } catch (error) {
+      setPage(key,previous,999999);
+      console.warn("Expense page could not be loaded.", error);
+      if(typeof renderExpensesList==="function") renderExpensesList();
+    } finally {
+      pager?.classList.remove("is-loading");
+      pager?.removeAttribute("aria-busy");
+    }
   });
 })();
