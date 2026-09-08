@@ -3412,7 +3412,8 @@ function saveInventoryCustomerDetails(oldName, details){
 
 function buildTransferEvents(accountsOverride = null){
   const wf = state.expenseWalletFilter;
-  const accounts = accountsOverride || getExpenseAccounts({ applyUiFilters: false });
+  const baseAccounts = accountsOverride || getExpenseAccounts({ applyUiFilters: false });
+  const accounts = window.ExpenseAudit ? ExpenseAudit.appendInactiveToAccounts(baseAccounts) : baseAccounts;
   const accountsByGroup = new Map(accounts.map(a => [a.group_id, a]));
   const out = [];
   for (const account of accounts){
@@ -3445,7 +3446,12 @@ function buildTransferEvents(accountsOverride = null){
         rate: p.rate,
         sameCurrency: p.sameCurrency,
         notesExpense: row.notes,
-        notesTopup: partner?.notes || ""
+        notesTopup: partner?.notes || "",
+        auditStatus: (() => {
+          const a = String(row?._expenseAuditStatus || "").toLowerCase();
+          const b = String(partner?._expenseAuditStatus || "").toLowerCase();
+          return (a === "archived" || b === "archived") ? "archived" : (a === "deleted" || b === "deleted") ? "deleted" : "";
+        })()
       });
     }
   }
@@ -3471,7 +3477,8 @@ function getTransferRowsForCurrency(cur, events){
         otherLegPdfDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtIn, ev.curIn, { forPdf: true })}`,
         notes: cleanExpenseNote(ev.notesExpense),
         eventId: ev.expenseId,
-        editId: ev.expenseId
+        editId: ev.expenseId,
+        auditStatus: ev.auditStatus || ""
       });
     }
     if (ev.curIn === cur){
@@ -3489,7 +3496,8 @@ function getTransferRowsForCurrency(cur, events){
         otherLegPdfDisplay: ev.sameCurrency || !showOtherCurrencyLeg ? "—" : `${moneyText(ev.amtOut, ev.curOut, { forPdf: true })}`,
         notes: cleanExpenseNote(ev.notesTopup || ev.notesExpense),
         eventId: ev.expenseId,
-        editId: ev.topupId || ev.expenseId
+        editId: ev.topupId || ev.expenseId,
+        auditStatus: ev.auditStatus || ""
       });
     }
   }
@@ -3500,6 +3508,7 @@ function transferCurrencyTotals(cur, events){
   let sent = 0;
   let received = 0;
   for (const ev of events){
+    if (ev.auditStatus) continue;
     if (ev.curOut === cur) sent += Number(ev.amtOut || 0);
     if (ev.curIn === cur) received += Number(ev.amtIn || 0);
   }
@@ -3534,6 +3543,13 @@ function collectTopupTransactionsFlat(accounts){
         accountType: account.accountType,
         isTopup: true
       });
+    }
+  }
+  if (window.ExpenseAudit) {
+    for (const row of ExpenseAudit.inactiveTopupsForAccounts(accounts)) {
+      if (wf !== "all" && String(row.group_id || "") !== String(wf)) continue;
+      if (!isInDateRange(row.action_date)) continue;
+      if (!topupTransactions.some(existing => String(existing.id) === String(row.id))) topupTransactions.push(row);
     }
   }
   return topupTransactions;
