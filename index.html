@@ -846,7 +846,7 @@
   <link rel="stylesheet" href="Assets/style/40-account-security-session-refinement.css?v=20260907-mobile-close151" />
   <link rel="stylesheet" href="Assets/style/41-accounting-suite.css?v=20260907-accounting149-002" />
   <link rel="stylesheet" href="Assets/style/42-public-accounting-seo.css?v=20260907-public-accounting-001" />
-  <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-transfer-overlay-001" />
+  <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-card-last4-001" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -5906,6 +5906,7 @@
             <div class="field w6">
               <label>Account type</label>
               <select class="select" name="account_type" required>
+                <option value="" selected disabled>Select account type</option>
                 <option value="Bank Account">Bank Account</option>
                 <option value="Cash Account">Cash Account</option>
                 <option value="Travel Card">Travel Card</option>
@@ -5933,6 +5934,10 @@
               <label>Available balance</label>
               <input class="input" name="opening_balance" type="number" step="0.01" required placeholder="0.00" />
             </div>
+            <details class="expense-optional-details field w12 hide" id="expenseAccountDetailsSection">
+              <summary><span><i class="fa-solid fa-address-card" aria-hidden="true"></i> <span id="expenseAccountOptionalDetailsTitle">Account details</span></span><small>Optional account details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+              <div class="expense-optional-grid" id="expenseAccountDetailsFields"></div>
+            </details>
             <div class="field w12 hide" id="expenseBtcAddressField">
               <label>Bitcoin wallet address</label>
               <input class="input" name="btc_address" type="text" placeholder="bc1... or 1..." autocomplete="off" spellcheck="false" />
@@ -6125,10 +6130,12 @@
           <div class="field w6">
             <label>From wallet</label>
             <select class="select" name="from_wallet" id="transferFromWallet" required></select>
+            <div id="transferFromAccountMini" class="transfer-account-mini hide" aria-live="polite"></div>
           </div>
           <div class="field w6">
             <label>To wallet</label>
             <select class="select" name="to_wallet" id="transferToWallet" required></select>
+            <div id="transferToAccountMini" class="transfer-account-mini hide" aria-live="polite"></div>
           </div>
           <div class="field w6">
             <label>Amount to transfer</label>
@@ -6463,6 +6470,12 @@
                 <small class="tax-preview" id="editTaxPreview">VAT is not applied.</small>
               </div>
             </div>
+            <div id="editExpenseAccountDetailsGroup" class="field w12 hide">
+              <details class="expense-optional-details">
+                <summary><span><i class="fa-solid fa-address-card" aria-hidden="true"></i> <span data-expense-account-edit-title>Account details</span></span><small>Optional account details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+                <div id="editExpenseAccountDetailsFields" class="expense-optional-grid"></div>
+              </details>
+            </div>
             <div id="editExpenseDetailsGroup" class="field w12 hide">
               <details class="expense-optional-details" open>
                 <summary><span><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Transaction details</span><small>All fields are optional</small></summary>
@@ -6648,6 +6661,20 @@
     </div>
   </div>
 
+  <div id="expenseAccountDetailsModal" class="modal hide" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="expenseAccountDetailsModal"></div>
+    <div class="modal-dialog expense-account-details-dialog" role="dialog" aria-modal="true" aria-labelledby="expenseAccountDetailsTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="expenseAccountDetailsTitle">Account Details</h3>
+          <p id="expenseAccountDetailsDesc">Optional wallet information.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="expenseAccountDetailsModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="expenseAccountDetailsBody"></div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -6668,7 +6695,7 @@
   <script src="Assets/app/lib/permissions.js?accounting=149001"></script>
   <script src="Assets/app/lib/asset-math.js"></script>
   <script src="Assets/app/lib/admin-backup.js?build010=001&accounting=149001"></script>
-  <script src="Assets/app/domain-ledger.js?v=20260828-notes-workspace"></script>
+  <script src="Assets/app/domain-ledger.js?v=20260908-card-last4-1"></script>
   <script src="Assets/app/core/01-config-constants.js?accounting=149001"></script>
   <script src="Assets/app/core/02-state.js?v=20260901-expense-item-history1"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
@@ -6684,19 +6711,19 @@
   <script src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
   <script src="Assets/app/core/07-theme.js?v=20260906-theme-centralized-001"></script>
   <script src="Assets/app/core/08-offline-sync.js?v=20260901-auth-resume-fix2&build010=001"></script>
-  <script src="Assets/app/inventory/01-inventory-meta-stock.js?v=20260901-currency-font-audit1"></script>
+  <script src="Assets/app/inventory/01-inventory-meta-stock.js?v=20260908-account-details1"></script>
   <script src="Assets/app/inventory/02-inventory-sales-drafts.js?build011=001&v=20260901-offline-confirm-sync1"></script>
   <script src="Assets/app/inventory/03-inventory-overlays.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
-  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260908-overlay-reset1&currency=002&build011=003"></script>
+  <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260908-card-last4-1&currency=002&build011=003"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260908-expense-symbols1&build011=001&accounting=149001"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260908-account-details1&build011=001&accounting=149001"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
-  <script src="Assets/app/loans/01-loans-payments.js?v=20260901-auth-resume-fix2"></script>
+  <script src="Assets/app/loans/01-loans-payments.js?v=20260908-account-details1"></script>
   <script src="Assets/app/reports/01-pdf.js?v=20260908-pdf-minus-fix&build010=001"></script>
-  <script src="Assets/app/reports/02-exports.js?v=20260908-pdf-signs2&build010=002"></script>
+  <script src="Assets/app/reports/02-exports.js?v=20260908-account-details1&build010=002"></script>
   <script src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
-  <script src="Assets/app/expenses/02-transfers.js?v=20260908-transfer-details1&build014=001"></script>
+  <script src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
