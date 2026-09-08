@@ -2588,6 +2588,7 @@ function openExpenseModal(mode, presetGroupId = ""){
   } else if (mode === "topup"){
     els.expenseModalTitle.textContent = "Add Money";
     els.expenseTopupForm.reset();
+    els.expenseTopupForm.querySelectorAll("details.expense-optional-details").forEach(details => { details.open = false; });
     if (topupDate) topupDate.value = todayISO();
     defaultDateInputs(els.expenseTopupForm);
     if (topupDate && !topupDate.value) topupDate.value = todayISO();
@@ -2598,6 +2599,7 @@ function openExpenseModal(mode, presetGroupId = ""){
   } else {
     els.expenseModalTitle.textContent = "Add Expense";
     els.expenseEntryForm.reset();
+    els.expenseEntryForm.querySelectorAll("details.expense-optional-details").forEach(details => { details.open = false; });
     els.expenseEntryForm.dataset.taxManual = "false";
     // When opened from a wallet card, that wallet is authoritative. Set its
     // currency before rebuilding the account options so the clicked wallet is
