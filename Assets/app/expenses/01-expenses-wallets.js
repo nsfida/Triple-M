@@ -195,44 +195,111 @@ function expenseItemHistoryKey(currency, itemName){
 
 function isExpenseItemHistoryRpcMissingError(err){
   const msg = String(err?.message || err || "");
-  return /app_list_my_expense_item_summaries|app_list_my_expense_item_history_page|Could not find the function|PGRST202|404/i.test(msg);
+  return /app_list_my_expense_item_summaries(?:_page)?|app_list_my_expense_item_history_page(?:_v2)?|Could not find the function|PGRST202|404/i.test(msg);
 }
 
-async function fetchExpenseItemSummariesRpc({ from = null, to = null, search = "", groupId = "" } = {}){
-  const res = unwrapRpcJson(await supabaseRpc("app_list_my_expense_item_summaries", {
-    p_from: from || null,
-    p_to: to || null,
-    p_search: search || null,
-    p_group_id: groupId || null
-  }));
-  return Array.isArray(res?.items) ? res.items : [];
+async function fetchExpenseItemSummariesRpc({ from = null, to = null, search = "", groupId = "", limit = 10, offset = 0 } = {}){
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
+  const safeOffset = Math.max(0, Number(offset) || 0);
+  try {
+    const res = unwrapRpcJson(await supabaseRpc("app_list_my_expense_item_summaries_page", {
+      p_from: from || null,
+      p_to: to || null,
+      p_search: search || null,
+      p_group_id: groupId || null,
+      p_limit: safeLimit,
+      p_offset: safeOffset
+    }));
+    const items = Array.isArray(res?.items) ? res.items : [];
+    const total = Math.max(0, Number(res?.total_count) || 0);
+    return {
+      items,
+      total,
+      totalPages: Math.max(1, Number(res?.total_pages) || Math.ceil(total / safeLimit) || 1),
+      hasMore: res?.has_more === true,
+      serverPaged: true
+    };
+  } catch (error) {
+    if (!/app_list_my_expense_item_summaries_page|Could not find the function|PGRST202|404/i.test(String(error?.message || error || ""))) throw error;
+    const legacy = unwrapRpcJson(await supabaseRpc("app_list_my_expense_item_summaries", {
+      p_from: from || null,
+      p_to: to || null,
+      p_search: search || null,
+      p_group_id: groupId || null
+    }));
+    const all = Array.isArray(legacy?.items) ? legacy.items : [];
+    const items = all.slice(safeOffset, safeOffset + safeLimit);
+    return {
+      items,
+      total: all.length,
+      totalPages: Math.max(1, Math.ceil(all.length / safeLimit)),
+      hasMore: safeOffset + items.length < all.length,
+      serverPaged: false
+    };
+  }
 }
 
-async function fetchExpenseItemHistoryPageRpc({ itemName, currency, from = null, to = null, search = "", groupId = "", limit = 500, offset = 0 } = {}){
-  const page = unwrapRpcJson(await supabaseRpc("app_list_my_expense_item_history_page", {
+async function fetchExpenseItemHistoryPageRpc({ itemName, currency, from = null, to = null, search = "", groupId = "", limit = 10, offset = 0 } = {}){
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
+  const safeOffset = Math.max(0, Number(offset) || 0);
+  const args = {
     p_item_name: String(itemName || ""),
     p_currency: String(currency || ""),
     p_from: from || null,
     p_to: to || null,
     p_search: search || null,
     p_group_id: groupId || null,
-    p_limit: Math.min(500, Math.max(1, Number(limit) || 500)),
-    p_offset: Math.max(0, Number(offset) || 0)
-  }));
-  const items = Array.isArray(page?.items) ? page.items : [];
-  return { items, hasMore: page?.has_more === true };
+    p_limit: safeLimit,
+    p_offset: safeOffset
+  };
+  try {
+    const page = unwrapRpcJson(await supabaseRpc("app_list_my_expense_item_history_page_v2", args));
+    const items = Array.isArray(page?.items) ? page.items : [];
+    const total = Math.max(0, Number(page?.total_count) || 0);
+    return {
+      items,
+      hasMore: page?.has_more === true,
+      total,
+      totalPages: Math.max(1, Number(page?.total_pages) || Math.ceil(total / safeLimit) || 1),
+      serverPaged: true
+    };
+  } catch (error) {
+    if (!/app_list_my_expense_item_history_page_v2|Could not find the function|PGRST202|404/i.test(String(error?.message || error || ""))) throw error;
+    const page = unwrapRpcJson(await supabaseRpc("app_list_my_expense_item_history_page", args));
+    const items = Array.isArray(page?.items) ? page.items : [];
+    return { items, hasMore: page?.has_more === true, total: 0, totalPages: 1, serverPaged: false };
+  }
 }
 
-async function loadExpenseItemSummariesForCurrentQuery({ force = false } = {}){
+async function loadExpenseItemSummariesForCurrentQuery({ force = false, page = null } = {}){
   if (!isExpenseLazyMode() || state.expenseLazy.itemHistoryRpcAvailable === false) return null;
   const queryKey = expenseLazyActivityQueryKey();
-  if (!force && state.expenseLazy.itemSummaryQueryKey === queryKey) return state.expenseLazy.itemSummaries || [];
+  const queryChanged = state.expenseLazy.itemSummaryQueryKey !== queryKey;
+  const requestedPage = Math.max(1, Number(page || (queryChanged ? 1 : state.expenseLazy.itemSummaryPage) || 1));
+  const pageSize = window.ExpensePagination?.PAGE_SIZE || 10;
+  const cacheKey = `${queryKey}::summary-page:${requestedPage}`;
+  if (!force && !queryChanged && state.expenseLazy.itemSummaryPageCache?.has?.(cacheKey)) {
+    const cached = state.expenseLazy.itemSummaryPageCache.get(cacheKey);
+    state.expenseLazy.itemSummaryPage = requestedPage;
+    state.expenseLazy.itemSummaries = cached.items || [];
+    state.expenseLazy.itemSummaryByKey = new Map(state.expenseLazy.itemSummaries.map(item => [
+      expenseItemHistoryKey(item.currency, item.item_name), item
+    ]));
+    state.expenseLazy.itemSummaryTotal = Number(cached.total || 0);
+    state.expenseLazy.itemSummaryTotalPages = Math.max(1, Number(cached.totalPages || 1));
+    return state.expenseLazy.itemSummaries;
+  }
   const bounds = expenseActivityQueryBounds();
   if (bounds.mode === "history" && state.expenseHistoryRange === "custom" && !bounds.from && !bounds.to) {
     state.expenseLazy.itemSummaryQueryKey = queryKey;
     state.expenseLazy.itemSummaries = [];
     state.expenseLazy.itemSummaryByKey = new Map();
+    state.expenseLazy.itemSummaryPage = 1;
+    state.expenseLazy.itemSummaryTotal = 0;
+    state.expenseLazy.itemSummaryTotalPages = 1;
+    state.expenseLazy.itemSummaryPageCache = new Map();
     state.expenseLazy.itemDetailCache = new Map();
+    state.expenseLazy.itemDetailPageMeta = new Map();
     return [];
   }
   try {
@@ -240,23 +307,43 @@ async function loadExpenseItemSummariesForCurrentQuery({ force = false } = {}){
     const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all"
       ? String(state.expenseWalletFilter)
       : "";
-    const items = await fetchExpenseItemSummariesRpc({
+    const result = await fetchExpenseItemSummariesRpc({
       from: bounds.from || null,
       to: bounds.to || null,
       search,
-      groupId
+      groupId,
+      limit: pageSize,
+      offset: (requestedPage - 1) * pageSize
     });
     state.expenseLazy.itemHistoryRpcAvailable = true;
+    state.expenseLazy.itemServerPaging = result.serverPaged === true;
+    if (queryChanged) {
+      state.expenseLazy.itemSummaryPageCache = new Map();
+      state.expenseLazy.itemDetailCache = new Map();
+      state.expenseLazy.itemDetailPageMeta = new Map();
+      state.expenseLazy.itemDetailLoading = new Map();
+    }
     state.expenseLazy.itemSummaryQueryKey = queryKey;
-    state.expenseLazy.itemSummaries = items;
-    state.expenseLazy.itemSummaryByKey = new Map(items.map(item => [
+    state.expenseLazy.itemSummaryPage = requestedPage;
+    state.expenseLazy.itemSummaries = result.items || [];
+    state.expenseLazy.itemSummaryByKey = new Map(state.expenseLazy.itemSummaries.map(item => [
       expenseItemHistoryKey(item.currency, item.item_name), item
     ]));
-    state.expenseLazy.itemDetailCache = new Map();
-    return items;
+    state.expenseLazy.itemSummaryTotal = Math.max(0, Number(result.total || 0));
+    state.expenseLazy.itemSummaryTotalPages = Math.max(1, Number(result.totalPages || 1));
+    state.expenseLazy.itemSummaryPageCache.set(cacheKey, {
+      items: state.expenseLazy.itemSummaries,
+      total: state.expenseLazy.itemSummaryTotal,
+      totalPages: state.expenseLazy.itemSummaryTotalPages
+    });
+    if (window.ExpensePagination) {
+      ExpensePagination.setPage("history-items", requestedPage, state.expenseLazy.itemSummaryTotalPages);
+    }
+    return state.expenseLazy.itemSummaries;
   } catch (err) {
     if (isExpenseItemHistoryRpcMissingError(err)) {
       state.expenseLazy.itemHistoryRpcAvailable = false;
+      state.expenseLazy.itemServerPaging = false;
       state.expenseLazy.itemSummaries = [];
       state.expenseLazy.itemSummaryByKey = new Map();
       console.warn("Expense item-summary RPCs unavailable; using paged activity totals.", err);
@@ -266,6 +353,7 @@ async function loadExpenseItemSummariesForCurrentQuery({ force = false } = {}){
     return null;
   }
 }
+window.loadExpenseItemSummariesForCurrentQuery = loadExpenseItemSummariesForCurrentQuery;
 
 async function fetchExpenseWalletDetailRpc(groupId, limit = 2000){
   const res = unwrapRpcJson(await supabaseRpc("app_list_my_expense_wallet_detail", {
@@ -347,7 +435,8 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
       : "";
     const queryChanged = state.expenseLazy.activityQueryKey !== queryKey;
     if (force || queryChanged || !append) state.expenseLazy.activityOffset = 0;
-    const limit = Number(state.expenseLazy.activityPageSize || 250);
+    const historyServerWindow = !search && state.expenseRecordView === "history" && state.expenseLazy.itemHistoryRpcAvailable !== false;
+    const limit = historyServerWindow ? 10 : Number(state.expenseLazy.activityPageSize || 250);
     const offset = append ? Number(state.expenseLazy.activityOffset || 0) : 0;
     const page = search && !append
       ? await fetchExpenseGlobalSearchActivityRpc({ search, groupId, maxRows: 5000 })
@@ -376,9 +465,11 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     state.expenseLazy.activityOffset = offset + nextActions.length;
     state.expenseLazy.activityHasMore = page.hasMore;
     if (!append) {
-      try { await loadExpenseItemSummariesForCurrentQuery({ force: force || queryChanged }); }
-      catch (summaryError) { console.warn("Expense item totals could not be refreshed.", summaryError); }
-      if (window.ExpenseAudit) {
+      if (state.expenseRecordView === "history") {
+        try { await loadExpenseItemSummariesForCurrentQuery({ force: force || queryChanged }); }
+        catch (summaryError) { console.warn("Expense item totals could not be refreshed.", summaryError); }
+      }
+      if (window.ExpenseAudit && !(state.expenseRecordView === "history" && state.expenseLazy.itemServerPaging === true)) {
         try { await ExpenseAudit.refreshInactiveForCurrentQuery({ force: true }); }
         catch (auditError) { console.warn("Expense audit activity could not be refreshed.", auditError); }
       }
@@ -2123,6 +2214,13 @@ function expenseTransactionRecordById(txId){
     const tx = (item.txs || []).find(t => String(t.id) === id);
     if (tx) return { ...tx, itemName: item.displayName, currency: item.currency };
   }
+  for (const rows of state.expenseLazy?.itemDetailCache?.values?.() || []) {
+    const row = (Array.isArray(rows) ? rows : []).find(candidate => String(candidate?.id || "") === id);
+    if (!row) continue;
+    const key = expenseItemHistoryKey(row.currency, row.item_name);
+    const summary = state.expenseLazy.itemSummaryByKey?.get?.(key) || { item_name: row.item_name, expense_type: row.expense_type, currency: row.currency };
+    return expenseItemHistoryRowToTransaction(row, summary);
+  }
   if (window.ExpenseAudit) return ExpenseAudit.inactiveExpenseTransactionById(id);
   return null;
 }
@@ -2224,46 +2322,118 @@ function openExpenseTransactionDetail(txId){
 }
 window.openExpenseTransactionDetail = openExpenseTransactionDetail;
 
+function expenseItemHistoryRowToTransaction(row, summary = {}){
+  const r = row || {};
+  const entry = expenseActivityToEntry(r);
+  const meta = entry?._expenseMeta || expenseMetaFromNotes(entry?.notes || r.notes || "");
+  const gross = Number(r.amount ?? entry?.action_amount ?? 0);
+  const tax = taxBreakdownFromMeta(meta, gross);
+  const details = normalizeExpenseDetails(r.details || meta.details || {});
+  return {
+    id: r.id,
+    date: r.activity_date || entry?.action_date,
+    createdAt: r.created_at || r.updated_at || entry?.created_at || null,
+    wallet: r.account_name || entry?.person_name || "Wallet",
+    group_id: r.group_id || entry?.group_id,
+    amount: gross,
+    netAmount: Number(tax.net || 0),
+    taxAmount: Number(tax.tax || 0),
+    taxRate: Number(tax.rate || 0),
+    taxMode: tax.mode,
+    expenseType: r.expense_type || summary.expense_type || meta.expenseType || "Other",
+    itemName: r.item_name || summary.item_name || meta.itemName || "Expense",
+    currency: r.currency || summary.currency || entry?.currency || "AED",
+    notes: cleanExpenseNote(r.notes || entry?.notes || ""),
+    details,
+    auditStatus: String(r.audit_status || "").toLowerCase(),
+    editCount: Math.max(0, Number(r.edit_count || 0)),
+    statusAt: r.status_at || null
+  };
+}
+
+function expenseItemPageCacheKey(itemKey, page){
+  return `${expenseLazyActivityQueryKey()}::${itemKey}::page:${Math.max(1, Number(page) || 1)}`;
+}
+
+function currentExpenseItemPageRows(itemKey){
+  const page = window.ExpensePagination ? ExpensePagination.getPage(`history:${itemKey}`) : 1;
+  return state.expenseLazy.itemDetailCache?.get?.(expenseItemPageCacheKey(itemKey, page)) || null;
+}
+
 function mergeExactExpenseItemSummaries(items){
   if (!isExpenseLazyMode() || state.expenseLazy.itemHistoryRpcAvailable !== true) return items;
   if (state.expenseLazy.itemSummaryQueryKey !== expenseLazyActivityQueryKey()) return items;
-  const byKey = new Map((items || []).map(item => [item.key, item]));
-  for (const summary of state.expenseLazy.itemSummaries || []) {
+  const localByKey = new Map((items || []).map(item => [item.key, item]));
+  const summaries = state.expenseLazy.itemSummaries || [];
+  return summaries.map(summary => {
     const key = expenseItemHistoryKey(summary.currency, summary.item_name);
-    const count = Math.max(0, Number(summary.transaction_count) || 0);
-    let item = byKey.get(key);
-    if (!item) {
-      item = {
-        key,
-        displayName: String(summary.item_name || "Expense"),
-        expenseType: String(summary.expense_type || "Other"),
-        currency: String(summary.currency || "AED"),
-        total: 0,
-        taxTotal: 0,
-        netTotal: 0,
-        txs: []
-      };
-      byKey.set(key, item);
-    }
-    item.displayName = String(summary.item_name || item.displayName || "Expense");
-    item.expenseType = String(summary.expense_type || item.expenseType || "Other");
-    item.currency = String(summary.currency || item.currency || "AED");
-    item.total = Number(summary.total_amount || 0);
-    item.taxTotal = Number(summary.tax_total || 0);
-    item.netTotal = Number(summary.net_total || 0);
-    item.transactionCount = count;
-    item.detailComplete = item.txs.length >= count;
-  }
-  return [...byKey.values()].sort((a, b) => Number(b.total || 0) - Number(a.total || 0));
+    const local = localByKey.get(key);
+    const activeCount = Math.max(0, Number(summary.transaction_count) || 0);
+    const inactiveCount = Math.max(0, Number(summary.inactive_count) || 0);
+    const recordCount = Math.max(activeCount + inactiveCount, Number(summary.record_count) || 0);
+    const cachedRows = currentExpenseItemPageRows(key);
+    const txs = cachedRows
+      ? cachedRows.map(row => expenseItemHistoryRowToTransaction(row, summary))
+      : [];
+    return {
+      key,
+      displayName: String(summary.item_name || local?.displayName || "Expense"),
+      expenseType: String(summary.expense_type || local?.expenseType || "Other"),
+      currency: String(summary.currency || local?.currency || "AED"),
+      total: Number(summary.total_amount || 0),
+      taxTotal: Number(summary.tax_total || 0),
+      netTotal: Number(summary.net_total || 0),
+      transactionCount: activeCount,
+      inactiveCount,
+      recordCount,
+      txs,
+      detailComplete: !!cachedRows
+    };
+  });
 }
 
-async function ensureExpenseItemHistoryLoaded(itemKey, { force = false } = {}){
+async function ensureExpenseItemHistoryLoaded(itemKey, { force = false, page = null, all = false } = {}){
   if (!isExpenseLazyMode() || state.expenseLazy.itemHistoryRpcAvailable !== true) return false;
   const summary = state.expenseLazy.itemSummaryByKey?.get?.(itemKey);
   if (!summary) return false;
-  const queryKey = expenseLazyActivityQueryKey();
-  const cacheKey = `${queryKey}::${itemKey}`;
-  if (!force && state.expenseLazy.itemDetailCache?.has?.(cacheKey)) return true;
+  if (all) {
+    const bounds = expenseActivityQueryBounds();
+    const search = String(state.search.expenses || "").trim();
+    const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all"
+      ? String(state.expenseWalletFilter)
+      : "";
+    const exportRows = [];
+    let offset = 0;
+    const exportPageSize = 100;
+    while (true) {
+      const result = await fetchExpenseItemHistoryPageRpc({
+        itemName: summary.item_name, currency: summary.currency,
+        from: bounds.from || null, to: bounds.to || null, search, groupId,
+        limit: exportPageSize, offset
+      });
+      exportRows.push(...(result.items || []));
+      offset += (result.items || []).length;
+      if (!result.hasMore || !(result.items || []).length) break;
+    }
+    const detailActions = exportRows.filter(row => !row.audit_status).map(expenseActivityToEntry);
+    if (detailActions.length) {
+      const principals = state.entries.filter(e => entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind === "principal");
+      const currentActions = state.entries.filter(e => entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind !== "principal");
+      const byId = new Map(currentActions.concat(detailActions).filter(Boolean).map(row => [row.id, row]));
+      applyExpenseLazyEntries(principals, [...byId.values()]);
+    }
+    return true;
+  }
+  const pageSize = window.ExpensePagination?.PAGE_SIZE || 10;
+  const requestedPage = Math.max(1, Number(page || (window.ExpensePagination ? ExpensePagination.getPage(`history:${itemKey}`) : 1) || 1));
+  const cacheKey = expenseItemPageCacheKey(itemKey, requestedPage);
+  if (!force && state.expenseLazy.itemDetailCache?.has?.(cacheKey)) {
+    if (window.ExpensePagination) {
+      const total = Math.max(0, Number(summary.record_count) || Number(summary.transaction_count || 0) + Number(summary.inactive_count || 0));
+      ExpensePagination.setPage(`history:${itemKey}`, requestedPage, Math.max(1, Math.ceil(total / pageSize)));
+    }
+    return true;
+  }
   if (state.expenseLazy.itemDetailLoading?.has?.(cacheKey)) {
     return state.expenseLazy.itemDetailLoading.get(cacheKey);
   }
@@ -2274,46 +2444,49 @@ async function ensureExpenseItemHistoryLoaded(itemKey, { force = false } = {}){
     const groupId = state.expenseWalletFilter && state.expenseWalletFilter !== "all"
       ? String(state.expenseWalletFilter)
       : "";
-    const pageSize = 500;
-    let offset = 0;
-    const rows = [];
     try {
-      while (true) {
-        const page = await fetchExpenseItemHistoryPageRpc({
-          itemName: summary.item_name,
-          currency: summary.currency,
-          from: bounds.from || null,
-          to: bounds.to || null,
-          search,
-          groupId,
-          limit: pageSize,
-          offset
-        });
-        rows.push(...page.items);
-        offset += page.items.length;
-        if (!page.hasMore || page.items.length === 0) break;
-      }
+      const result = await fetchExpenseItemHistoryPageRpc({
+        itemName: summary.item_name,
+        currency: summary.currency,
+        from: bounds.from || null,
+        to: bounds.to || null,
+        search,
+        groupId,
+        limit: pageSize,
+        offset: (requestedPage - 1) * pageSize
+      });
+      const rows = result.items || [];
+      state.expenseLazy.itemServerPaging = state.expenseLazy.itemServerPaging !== false && result.serverPaged === true;
       state.expenseLazy.itemDetailCache.set(cacheKey, rows);
+      const summaryTotal = Math.max(0, Number(summary.record_count) || Number(summary.transaction_count || 0) + Number(summary.inactive_count || 0));
+      const total = Math.max(summaryTotal, Number(result.total || 0));
+      const totalPages = Math.max(1, Number(result.totalPages || 0), Math.ceil(total / pageSize));
+      state.expenseLazy.itemDetailPageMeta.set(`${expenseLazyActivityQueryKey()}::${itemKey}`, {
+        page: requestedPage, total, totalPages
+      });
+      if (window.ExpensePagination) ExpensePagination.setPage(`history:${itemKey}`, requestedPage, totalPages);
 
-      // Merge the on-demand rows into the normal expense entry snapshot so existing
-      // edit/delete/offline actions continue to work exactly as they do for paged rows.
-      const detailActions = rows.map(expenseActivityToEntry);
-      const principals = state.entries.filter(e =>
-        entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind === "principal"
-      );
-      const currentActions = state.entries.filter(e =>
-        entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind !== "principal"
-      );
-      const byId = new Map(currentActions.concat(detailActions).filter(Boolean).map(row => [row.id, row]));
-      applyExpenseLazyEntries(principals, [...byId.values()]);
+      // Keep only the active rows needed for actions/detail overlays in the normal snapshot.
+      // Deleted/archived rows remain outside balance calculations and are supplied by the audit read path.
+      const detailActions = rows.filter(row => !row.audit_status).map(expenseActivityToEntry);
+      if (detailActions.length) {
+        const principals = state.entries.filter(e =>
+          entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind === "principal"
+        );
+        const currentActions = state.entries.filter(e =>
+          entryBelongsToLedgerScope(e, LEDGER_SCOPE_EXPENSES) && e.entry_kind !== "principal"
+        );
+        const byId = new Map(currentActions.concat(detailActions).filter(Boolean).map(row => [row.id, row]));
+        applyExpenseLazyEntries(principals, [...byId.values()]);
+      }
       return true;
     } catch (err) {
       if (isExpenseItemHistoryRpcMissingError(err)) {
         state.expenseLazy.itemHistoryRpcAvailable = false;
-        console.warn("Complete expense item history RPC unavailable; retaining paged history.", err);
+        console.warn("Paged expense item history RPC unavailable; retaining the currently loaded history.", err);
         return false;
       }
-      console.warn("Complete expense item history could not be loaded.", err);
+      console.warn("Expense item history page could not be loaded.", err);
       return false;
     } finally {
       state.expenseLazy.itemDetailLoading.delete(cacheKey);
@@ -2322,6 +2495,7 @@ async function ensureExpenseItemHistoryLoaded(itemKey, { force = false } = {}){
   state.expenseLazy.itemDetailLoading.set(cacheKey, task);
   return task;
 }
+window.ensureExpenseItemHistoryLoaded = ensureExpenseItemHistoryLoaded;
 
 function walletRadioSafeId(groupId){
   return String(groupId || "").replace(/[^a-zA-Z0-9-]/g, "-");
@@ -4500,7 +4674,9 @@ function renderExpensesList(){
     : filterExpenseHistoryRows(spendAttached);
   let items = groupExpenseItems(historySpendAttached);
   items = mergeExactExpenseItemSummaries(items);
-  if (window.ExpenseAudit) items = ExpenseAudit.mergeInactiveItems(items);
+  if (window.ExpenseAudit && !(isExpenseLazyMode() && state.expenseLazy.itemServerPaging === true)) {
+    items = ExpenseAudit.mergeInactiveItems(items);
+  }
   
   // Apply search filtering to expense items
   if (!isExpenseLazyMode() && state.search.expenses && state.search.expenses.trim() !== "") {
@@ -4522,7 +4698,19 @@ function renderExpensesList(){
       html += items.map(item => {
         const inactiveCount = Number(item.inactiveCount || (item.txs || []).filter(tx => tx.auditStatus).length);
         const activeCount = Number(item.transactionCount ?? Math.max(0, (item.txs || []).length - inactiveCount));
-        const historyPage = window.ExpensePagination ? ExpensePagination.slice(`history:${item.key}`, item.txs || []) : { items:item.txs || [], page:1, totalPages:1, total:(item.txs || []).length };
+        const serverItemPaging = isExpenseLazyMode() && state.expenseLazy.itemHistoryRpcAvailable === true;
+        const itemRecordCount = Math.max(activeCount + inactiveCount, Number(item.recordCount || 0));
+        const currentItemPage = window.ExpensePagination ? ExpensePagination.getPage(`history:${item.key}`) : 1;
+        const historyPage = serverItemPaging
+          ? {
+              items: item.txs || [],
+              page: currentItemPage,
+              totalPages: Math.max(1, Math.ceil(itemRecordCount / (window.ExpensePagination?.PAGE_SIZE || 10))),
+              total: itemRecordCount,
+              start: (currentItemPage - 1) * (window.ExpensePagination?.PAGE_SIZE || 10),
+              end: Math.min(itemRecordCount, currentItemPage * (window.ExpensePagination?.PAGE_SIZE || 10))
+            }
+          : (window.ExpensePagination ? ExpensePagination.slice(`history:${item.key}`, item.txs || []) : { items:item.txs || [], page:1, totalPages:1, total:(item.txs || []).length });
         const visibleHistoryTxs = historyPage.items;
         return `
       <details class="loan expense-item-row" data-expense-details-id="history-${escapeHtml(item.key)}" data-expense-item-key="${escapeHtml(item.key)}" data-expense-item-complete="${item.detailComplete === false ? "0" : "1"}">
@@ -4551,7 +4739,7 @@ function renderExpensesList(){
             <table>
               <thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>VAT</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
-                ${item.detailComplete === false ? `<tr class="expense-item-lazy-status"><td colspan="7"><i class="fa-solid fa-circle-notch"></i> Open this item to load its complete transaction history.</td></tr>` : ""}
+                ${item.detailComplete === false ? `<tr class="expense-item-lazy-status"><td colspan="7"><i class="fa-solid fa-circle-notch"></i> Open this item to load the first 10 transactions.</td></tr>` : ""}
                 ${visibleHistoryTxs.map(tx => `
                   <tr class="expense-tx-row ${tx.auditStatus ? `expense-record-disabled ${tx.auditStatus === "archived" ? "is-archived" : "is-deleted"}` : ""}" data-expense-tx-id="${escapeHtml(tx.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(item.displayName)} transaction details">
                     <td>${escapeHtml(displayDate(tx.date || "—"))}</td>
@@ -4580,10 +4768,18 @@ function renderExpensesList(){
         </div>
       </details>
     `; }).join("");
+      if (isExpenseLazyMode() && state.expenseLazy.itemHistoryRpcAvailable === true && window.ExpensePagination) {
+        const itemPageInfo = {
+          page: Math.max(1, Number(state.expenseLazy.itemSummaryPage || 1)),
+          totalPages: Math.max(1, Number(state.expenseLazy.itemSummaryTotalPages || 1)),
+          total: Math.max(0, Number(state.expenseLazy.itemSummaryTotal || items.length))
+        };
+        html += ExpensePagination.html("history-items", itemPageInfo);
+      }
     } else {
       html += `<div class="empty" style="padding:0.75rem 0;">No transactions in ${escapeHtml(expenseHistoryRangeText())}.</div>`;
     }
-    if (isExpenseLazyMode() && state.expenseLazy.activityHasMore) {
+    if (isExpenseLazyMode() && state.expenseLazy.activityHasMore && !(expenseRecordView === "history" && state.expenseLazy.itemHistoryRpcAvailable === true)) {
       html += `<div class="lazy-load-more">
         <button type="button" class="btn soft expense-load-more" ${state.expenseLazy.loadingActivity ? "disabled" : ""}>
           ${state.expenseLazy.loadingActivity ? "Loading…" : "Load more transactions"}
@@ -4614,9 +4810,11 @@ function ensureExpensesListDelegation(){
     if (details.dataset.expenseItemComplete !== "0" || details.dataset.expenseItemLoading === "1") return;
     details.dataset.expenseItemLoading = "1";
     const status = details.querySelector(".expense-item-lazy-status td");
-    if (status) status.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Loading complete transaction history…';
+    if (status) status.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Loading transaction page…';
     try {
-      const loaded = await ensureExpenseItemHistoryLoaded(details.dataset.expenseItemKey || "");
+      const itemKey = details.dataset.expenseItemKey || "";
+      const page = window.ExpensePagination ? ExpensePagination.getPage(`history:${itemKey}`) : 1;
+      const loaded = await ensureExpenseItemHistoryLoaded(itemKey, { page });
       if (loaded) renderExpensesList();
       else if (status) status.textContent = "Complete history could not be loaded. The currently loaded transactions remain available.";
     } finally {
