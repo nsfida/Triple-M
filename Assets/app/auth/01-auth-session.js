@@ -463,112 +463,143 @@ function getVisibleRecycleBinItems() {
 async function restoreFromRecycleBin(entryId) {
   const recycleIndex = state.recycleBin.findIndex(item => item.id === entryId);
   if (recycleIndex === -1) return;
-
   const deletedItem = state.recycleBin[recycleIndex];
-  
-  // Remove from recycle bin
+
+  if (!isBackupMode() && window.ExpenseAudit && ExpenseAudit.isAuditableRecycleItem(deletedItem)) {
+    const ids = ExpenseAudit.relatedRecycleIds(deletedItem);
+    const recycleRows = state.recycleBin.filter(item => ids.includes(String(item.id || "")));
+    try {
+      await ExpenseAudit.restoreIds(ids);
+      const restoreTasks = recycleRows.map(item => {
+        const updatedNotes = removeDeletedTag(item?.notes || "");
+        return supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(item.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ notes: updatedNotes })
+        }).catch(err => console.warn("Restore ledger entry skipped/failed.", err));
+      });
+      await Promise.all(restoreTasks);
+      const idSet = new Set(ids);
+      state.recycleBin = state.recycleBin.filter(item => !idSet.has(String(item.id || "")));
+      state.entries = state.entries.filter(row => !idSet.has(String(row.id || "")));
+      saveRecycleBinToStorage();
+      await ExpenseAudit.refreshAfterLifecycle();
+      if (typeof invalidateDashboardSummary === "function") invalidateDashboardSummary({ refreshIfVisible: true });
+      renderAll();
+      renderRecycleBinDropdown();
+      return;
+    } catch (err) {
+      alert(err?.message || "This transaction could not be restored.");
+      renderRecycleBinDropdown();
+      return;
+    }
+  }
+
+  // Legacy/non-Expenses restore path remains unchanged.
   state.recycleBin.splice(recycleIndex, 1);
   saveRecycleBinToStorage();
-
-  // Restore to entries
   if (isBackupMode()) {
-    // For backup mode, just add it back to state.entries
     const { deletedAt, originalSection, ...restoredEntry } = deletedItem;
     state.entries.push(restoredEntry);
     refreshBackupView();
     renderAll();
   } else {
-    // Clear is_deleted on domain AND remove [DELETED] on ledger (dual-store restore)
     const updatedNotes = removeDeletedTag(deletedItem?.notes || "");
     const { deletedAt, originalSection, ...restoredEntryBase } = deletedItem;
     const restoredEntry = { ...restoredEntryBase, notes: updatedNotes, is_deleted: false };
     state.entries.unshift(restoredEntry);
     const restoreTasks = [];
     if (window.DomainLedger) {
-      restoreTasks.push(
-        DomainLedger.restoreDomainEntry(restoredEntry).catch(err => {
-          console.warn("Restore domain entry skipped/failed.", err);
-        })
-      );
+      restoreTasks.push(DomainLedger.restoreDomainEntry(restoredEntry).catch(err => console.warn("Restore domain entry skipped/failed.", err)));
     }
-    restoreTasks.push(
-      supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ notes: updatedNotes })
-      }).catch(err => {
-        console.warn("Restore ledger entry skipped/failed.", err);
-      })
-    );
+    restoreTasks.push(supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, {
+      method: "PATCH", body: JSON.stringify({ notes: updatedNotes })
+    }).catch(err => console.warn("Restore ledger entry skipped/failed.", err)));
     Promise.all(restoreTasks).finally(() => {
-      if (typeof invalidateDashboardSummary === "function") {
-        invalidateDashboardSummary({ refreshIfVisible: true });
-      }
-      renderAll();
-      renderExpensesList();
+      if (typeof invalidateDashboardSummary === "function") invalidateDashboardSummary({ refreshIfVisible: true });
+      renderAll(); renderExpensesList();
     });
   }
-  
   renderRecycleBinDropdown();
 }
 
 async function permanentDeleteFromRecycleBin(entryId) {
-  if (!(await appConfirmDelete("Permanently delete this item? This action cannot be undone.", { title: "Delete permanently?", confirmLabel: "Delete permanently", note: "This item will be removed permanently and cannot be restored." }))) return;
-
   const recycleIndex = state.recycleBin.findIndex(item => item.id === entryId);
   if (recycleIndex === -1) return;
-
   const deletedItem = state.recycleBin[recycleIndex];
-  
-  // Remove from recycle bin
+  const isExpenseAuditItem = !isBackupMode() && window.ExpenseAudit && ExpenseAudit.isAuditableRecycleItem(deletedItem);
+  const prompt = isExpenseAuditItem
+    ? "Permanently remove this transaction from the recycle bin? It will remain as a locked audit record and can never be restored."
+    : "Permanently delete this item? This action cannot be undone.";
+  if (!(await appConfirmDelete(prompt, {
+    title: isExpenseAuditItem ? "Permanently remove transaction?" : "Delete permanently?",
+    confirmLabel: isExpenseAuditItem ? "Remove permanently" : "Delete permanently",
+    note: isExpenseAuditItem ? "Financial history will be preserved as an immutable permanently deleted record." : "This item will be removed permanently and cannot be restored."
+  }))) return;
+
+  if (isExpenseAuditItem) {
+    const ids = ExpenseAudit.relatedRecycleIds(deletedItem);
+    try {
+      await ExpenseAudit.archiveIds(ids);
+      const idSet = new Set(ids);
+      state.recycleBin = state.recycleBin.filter(item => !idSet.has(String(item.id || "")));
+      saveRecycleBinToStorage();
+      await ExpenseAudit.refreshAfterLifecycle();
+      renderRecycleBinDropdown();
+      return;
+    } catch (err) {
+      alert(err?.message || "The transaction could not be permanently archived.");
+      renderRecycleBinDropdown();
+      return;
+    }
+  }
+
   state.recycleBin.splice(recycleIndex, 1);
   saveRecycleBinToStorage();
-
-  // Permanently delete from every store dual-read can load
   if (!isBackupMode()) {
-    if (window.DomainLedger) {
-      await DomainLedger.hardDeleteDomainEntry(deletedItem).catch(err => {
-        console.warn("Permanent domain delete skipped/failed.", err);
-      });
-    }
-    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, { method: "DELETE" }).catch(err => {
-      console.warn("Permanent ledger delete skipped/failed.", err);
-    });
+    if (window.DomainLedger) await DomainLedger.hardDeleteDomainEntry(deletedItem).catch(err => console.warn("Permanent domain delete skipped/failed.", err));
+    await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(entryId)}`, { method: "DELETE" }).catch(err => console.warn("Permanent ledger delete skipped/failed.", err));
   }
-  
   renderRecycleBinDropdown();
 }
 
 async function emptyRecycleBin() {
   const items = getVisibleRecycleBinItems();
   if (!items.length) return;
-
-  if (!(await appConfirmDelete(`Permanently delete all ${items.length} item${items.length === 1 ? "" : "s"} in the recycle bin? This action cannot be undone.`, { title: "Empty recycle bin?", confirmLabel: "Delete all permanently", note: "Every visible item in the recycle bin will be removed permanently." }))) return;
+  if (!(await appConfirmDelete(`Permanently remove all ${items.length} item${items.length === 1 ? "" : "s"} in the recycle bin? This action cannot be undone.`, {
+    title: "Empty recycle bin?", confirmLabel: "Remove all permanently",
+    note: "Expense transactions will be retained only as locked audit records; other item types keep their existing permanent-delete behavior."
+  }))) return;
 
   const emptyBtn = document.getElementById('emptyRecycleBinBtn');
   if (emptyBtn) emptyBtn.disabled = true;
-
   try {
     if (!isBackupMode()) {
+      const expenseIds = new Set();
       for (const item of items) {
-        if (!item?.id) continue;
-        if (window.DomainLedger) {
-          await DomainLedger.hardDeleteDomainEntry(item).catch(err => {
-            console.warn("Empty-bin domain delete skipped/failed.", err);
-          });
+        if (window.ExpenseAudit && ExpenseAudit.isAuditableRecycleItem(item)) {
+          ExpenseAudit.relatedRecycleIds(item).forEach(id => expenseIds.add(String(id)));
         }
-        await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(item.id)}`, { method: "DELETE" }).catch(err => {
-          console.warn("Empty-bin ledger delete skipped/failed.", err);
-        });
       }
-      await loadEntriesFromSupabase();
+      if (expenseIds.size) await ExpenseAudit.archiveIds([...expenseIds]);
+
+      for (const item of items) {
+        if (!item?.id || expenseIds.has(String(item.id))) continue;
+        if (window.DomainLedger) await DomainLedger.hardDeleteDomainEntry(item).catch(err => console.warn("Empty-bin domain delete skipped/failed.", err));
+        await supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(item.id)}`, { method: "DELETE" }).catch(err => console.warn("Empty-bin ledger delete skipped/failed.", err));
+      }
+      if (expenseIds.size && window.ExpenseAudit) await ExpenseAudit.refreshAfterLifecycle();
+      else await loadEntriesFromSupabase();
     }
 
-    const visibleIds = new Set(items.map(item => item.id).filter(Boolean));
-    state.recycleBin = state.recycleBin.filter(item => !visibleIds.has(item.id));
-    saveRecycleBinToStorage();
-    if (isBackupMode()) {
-      refreshBackupView();
+    const visibleIds = new Set(items.map(item => String(item.id || "")).filter(Boolean));
+    if (!isBackupMode() && window.ExpenseAudit) {
+      for (const item of items) {
+        if (ExpenseAudit.isAuditableRecycleItem(item)) ExpenseAudit.relatedRecycleIds(item).forEach(id => visibleIds.add(String(id)));
+      }
     }
+    state.recycleBin = state.recycleBin.filter(item => !visibleIds.has(String(item.id || "")));
+    saveRecycleBinToStorage();
+    if (isBackupMode()) refreshBackupView();
     renderRecycleBinDropdown();
   } catch (err) {
     alert(`Failed to empty recycle bin: ${err.message || err}`);
