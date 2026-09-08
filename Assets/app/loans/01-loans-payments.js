@@ -684,7 +684,14 @@ async function persistDeleteEntry(entry, options = {}) {
   const label = options.label || "Delete";
   const deletedNotes = addDeletedTag(entry.notes || "");
 
-  if (window.DomainLedger) {
+  if (window.ExpenseAudit && ExpenseAudit.isAuditableEntry(entry)) {
+    try {
+      await ExpenseAudit.softDeleteIds([entry.id]);
+    } catch (err) {
+      console.warn(`${label}: audited expense soft-delete failed for ${entry.id}`, err);
+      throw err;
+    }
+  } else if (window.DomainLedger) {
     try {
       await DomainLedger.softDeleteDomainEntry(entry);
     } catch (err) {
@@ -922,17 +929,28 @@ async function deleteTransfer(entry) {
   if (!(await appConfirmDelete(confirmMessage, { title: "Delete transfer records?", confirmLabel: "Move both to recycle bin" }))) return false;
   
   // Move both transfer records to recycle bin
-  addToRecycleBin(entry);
-  addToRecycleBin(transferPartner);
+  addToRecycleBin({ ...entry, _expenseRecyclePairId: transferPartner.id });
+  addToRecycleBin({ ...transferPartner, _expenseRecyclePairId: entry.id });
   unmarkDbSnapshotRows([entry, transferPartner]);
   state.entries = state.entries.filter(e => e.id !== entry.id && e.id !== transferPartner.id);
   if (isBackupMode()) {
     refreshBackupView();
   } else {
-    Promise.all([
-      persistDeleteEntry(entry, { label: "Delete" }),
-      persistDeleteEntry(transferPartner, { label: "Delete" })
-    ]).catch(err => console.error(err));
+    (async () => {
+      if (window.ExpenseAudit && ExpenseAudit.isAuditableEntry(entry) && ExpenseAudit.isAuditableEntry(transferPartner)) {
+        await ExpenseAudit.softDeleteIds([entry.id, transferPartner.id]);
+        await Promise.all([entry, transferPartner].map(row =>
+          supabase(`${CONFIG.table}?id=eq.${encodeURIComponent(row.id)}`, {
+            method: "PATCH", body: JSON.stringify({ notes: addDeletedTag(row.notes || "") })
+          }).catch(err => console.warn("Transfer ledger delete tag skipped/failed.", err))
+        ));
+      } else {
+        await Promise.all([
+          persistDeleteEntry(entry, { label: "Delete" }),
+          persistDeleteEntry(transferPartner, { label: "Delete" })
+        ]);
+      }
+    })().catch(err => console.error(err));
   }
   const fromName = transferType === "expense" ? entry.person_name : transferPartner.person_name;
   const toName = transferType === "expense" ? transferPartner.person_name : entry.person_name;
