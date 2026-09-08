@@ -964,3 +964,36 @@ button.expense-audit-badge{font:inherit;cursor:pointer}
   .expense-pagination{padding-top:.58rem}
   .expense-page-nav{height:30px;min-width:38px}
 }
+
+/* Build 155 — unmistakable, motion-safe Expenses paging and clickable history affordance. */
+.expense-page-number,.expense-page-nav{
+  cursor:pointer;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,opacity .16s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.expense-page-number:not(.is-active):not(:disabled):hover,
+.expense-page-nav:not(:disabled):hover{
+  background:color-mix(in srgb,var(--panel,#fff) 88%,var(--text,#242936) 12%);
+  border-color:color-mix(in srgb,var(--border,#dce0e7) 55%,var(--text,#242936) 45%);
+  box-shadow:0 3px 10px color-mix(in srgb,var(--text,#242936) 12%,transparent);
+}
+.expense-page-number:not(:disabled):active,.expense-page-nav:not(:disabled):active{
+  background:color-mix(in srgb,var(--panel,#fff) 82%,var(--text,#242936) 18%);
+  box-shadow:none;
+}
+.expense-page-number:focus-visible,.expense-page-nav:focus-visible{
+  outline:2px solid color-mix(in srgb,var(--text,#242936) 70%,transparent);
+  outline-offset:2px;
+}
+.expense-page-number.is-active{cursor:default;box-shadow:0 2px 7px color-mix(in srgb,var(--text,#242936) 14%,transparent)}
+.expense-pagination.is-loading .expense-page-number,
+.expense-pagination.is-loading .expense-page-nav{pointer-events:none;opacity:.55;cursor:progress}
+.expense-tx-row[role="button"]{cursor:pointer;transition:background-color .14s ease,box-shadow .14s ease}
+.expense-tx-row[role="button"]:hover td{background:color-mix(in srgb,var(--panel,#fff) 91%,var(--text,#242936) 9%)}
+.expense-tx-row[role="button"]:focus-visible{outline:2px solid color-mix(in srgb,var(--text,#242936) 68%,transparent);outline-offset:-2px}
+.expense-item-row>summary{cursor:pointer}
+.expense-item-row>summary:hover{background:color-mix(in srgb,var(--panel,#fff) 94%,var(--text,#242936) 6%)}
+@media(max-width:680px){
+  .expense-page-number,.expense-page-nav{box-shadow:none}
+  .expense-tx-row[role="button"]:hover td,.expense-item-row>summary:hover{background:inherit}
+}
