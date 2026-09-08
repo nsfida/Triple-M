@@ -332,6 +332,11 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     );
     applyExpenseLazyEntries(principals, []);
     state.expenseLazy.activityQueryKey = queryKey;
+    if (window.ExpenseAudit) {
+      state.entries = state.entries.filter(row => !row?._expenseAuditInactive);
+      state.expenseAudit.inactiveEntries = [];
+      state.expenseAudit.inactiveQueryKey = "";
+    }
     return [];
   }
   state.expenseLazy.loadingActivity = true;
@@ -373,6 +378,10 @@ async function loadExpenseActivityForCurrentQuery({ force = false, append = fals
     if (!append) {
       try { await loadExpenseItemSummariesForCurrentQuery({ force: force || queryChanged }); }
       catch (summaryError) { console.warn("Expense item totals could not be refreshed.", summaryError); }
+      if (window.ExpenseAudit) {
+        try { await ExpenseAudit.refreshInactiveForCurrentQuery({ force: true }); }
+        catch (auditError) { console.warn("Expense audit activity could not be refreshed.", auditError); }
+      }
     }
     return actions;
   } catch (err) {
@@ -1959,7 +1968,9 @@ function expenseTopupRecordById(txId){
     notes: cleanExpenseNote(row.notes),
     details: normalizeExpenseDetails(meta.details || {}),
     isOpeningBalance,
-    isTransfer
+    isTransfer,
+    auditStatus: String(row._expenseAuditStatus || ""),
+    editCount: Number(row._expenseAuditEditCount || 0)
   };
 }
 window.getExpenseTopupByIdForExport = expenseTopupRecordById;
@@ -1979,12 +1990,14 @@ function expenseTransferEventById(recordId){
       ...expenseMetaFromNotes(topupEntry?.notes || "").details,
       ...expenseMetaFromNotes(expenseEntry?.notes || "").details
     }),
-    createdAt: expenseEntry?.created_at || topupEntry?.created_at || null
+    createdAt: expenseEntry?.created_at || topupEntry?.created_at || null,
+    auditStatus: event.auditStatus || String(expenseEntry?._expenseAuditStatus || topupEntry?._expenseAuditStatus || "")
   };
 }
 window.getExpenseTransferByIdForExport = expenseTransferEventById;
 
-function expenseRecordMenuHtml(type, id, { allowEdit = true, allowDelete = true } = {}){
+function expenseRecordMenuHtml(type, id, { allowEdit = true, allowDelete = true, status = "" } = {}){
+  if (status) { allowEdit = false; allowDelete = false; }
   const safeType = escapeHtml(type || "expense");
   const safeId = escapeHtml(id || "");
   return `<div class="expense-tx-action-wrap">
@@ -1998,6 +2011,8 @@ function expenseRecordMenuHtml(type, id, { allowEdit = true, allowDelete = true 
 }
 
 async function runExpenseRecordEdit(type, id){
+  const current = type === "transfer" ? expenseTransferEventById(id) : expenseTopupRecordById(id);
+  if (current?.auditStatus) { alert("Deleted transactions are read-only."); return; }
   if (type === "transfer" && typeof openTransferEditModal === "function") { openTransferEditModal(id); return; }
   openEditModal(id);
 }
@@ -2034,9 +2049,13 @@ function openExpenseRecordDetail(type, id){
   const recordType = String(type || "expense").toLowerCase();
   if (recordType === "expense") return openExpenseTransactionDetail(id);
   const modal = ensureExpenseTransactionDetailModal();
+  let detailAuditStatus = "";
+  let detailAuditIds = [];
   if (recordType === "transfer") {
     const ev = expenseTransferEventById(id);
     if (!ev) return;
+    detailAuditStatus = ev.auditStatus || "";
+    detailAuditIds = [ev.expenseId, ev.topupId].filter(Boolean);
     const recordedText = expenseRecordedText(ev.createdAt);
     modal.querySelector("#expenseTxDetailTitle").textContent = "Wallet transfer";
     modal.querySelector("#expenseTxDetailMeta").textContent = `Recorded ${recordedText}`;
@@ -2059,13 +2078,15 @@ function openExpenseRecordDetail(type, id){
       <div class="expense-tx-note"><small>Notes / description</small><p>${escapeHtml(cleanExpenseNote(ev.notesExpense || ev.notesTopup || "") || "No additional notes")}</p></div>
       ${expenseDetailGridHtml(expenseDetailsForDisplay(ev.details, "transfer"))}
       <div class="expense-tx-actions">
-        ${teamCanShowEdit("entries") ? `<button class="btn ghost expense-tx-action-icon" type="button" data-expense-record-edit="${escapeHtml(ev.expenseId)}" data-expense-record-type="transfer" aria-label="Edit transfer" title="Edit transfer"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ""}
+        ${!ev.auditStatus && teamCanShowEdit("entries") ? `<button class="btn ghost expense-tx-action-icon" type="button" data-expense-record-edit="${escapeHtml(ev.expenseId)}" data-expense-record-type="transfer" aria-label="Edit transfer" title="Edit transfer"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ""}
         <button class="btn ghost expense-tx-action-icon" type="button" data-expense-record-pdf="${escapeHtml(ev.expenseId)}" data-expense-record-type="transfer" aria-label="Download PDF" title="Download PDF"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></button>
-        ${teamCanShowDelete("entries") ? `<button class="btn danger expense-tx-action-icon" type="button" data-expense-record-delete="${escapeHtml(ev.expenseId)}" data-expense-record-type="transfer" aria-label="Delete transfer" title="Delete transfer"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
+        ${!ev.auditStatus && teamCanShowDelete("entries") ? `<button class="btn danger expense-tx-action-icon" type="button" data-expense-record-delete="${escapeHtml(ev.expenseId)}" data-expense-record-type="transfer" aria-label="Delete transfer" title="Delete transfer"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
       </div>`;
   } else {
     const tx = expenseTopupRecordById(id);
     if (!tx) return;
+    detailAuditStatus = tx.auditStatus || "";
+    detailAuditIds = [tx.id];
     const recordedText = expenseRecordedText(tx.createdAt);
     const customLogo = customLogoForWalletName(tx.wallet);
     modal.querySelector("#expenseTxDetailTitle").textContent = tx.isOpeningBalance ? "Opening balance" : "Money added";
@@ -2081,15 +2102,16 @@ function openExpenseRecordDetail(type, id){
       ${expenseDetailGridHtml(expenseDetailsForDisplay(tx.details, tx.isTransfer ? "transfer" : "topup"))}
       <div class="expense-tx-note"><small>Notes / description</small><p>${escapeHtml(tx.notes && tx.notes !== "—" ? tx.notes : "No additional notes")}</p></div>
       <div class="expense-tx-actions">
-        ${teamCanShowEdit("entries") ? `<button class="btn ghost expense-tx-action-icon" type="button" data-expense-record-edit="${escapeHtml(tx.id)}" data-expense-record-type="${tx.isOpeningBalance ? "opening" : "topup"}" aria-label="${tx.isOpeningBalance ? "Edit wallet" : "Edit money added"}" title="${tx.isOpeningBalance ? "Edit wallet" : "Edit money added"}"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ""}
+        ${!tx.auditStatus && teamCanShowEdit("entries") ? `<button class="btn ghost expense-tx-action-icon" type="button" data-expense-record-edit="${escapeHtml(tx.id)}" data-expense-record-type="${tx.isOpeningBalance ? "opening" : "topup"}" aria-label="${tx.isOpeningBalance ? "Edit wallet" : "Edit money added"}" title="${tx.isOpeningBalance ? "Edit wallet" : "Edit money added"}"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ""}
         <button class="btn ghost expense-tx-action-icon" type="button" data-expense-record-pdf="${escapeHtml(tx.id)}" data-expense-record-type="${tx.isOpeningBalance ? "opening" : "topup"}" aria-label="Download PDF" title="Download PDF"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></button>
-        ${!tx.isOpeningBalance && teamCanShowDelete("entries") ? `<button class="btn danger expense-tx-action-icon" type="button" data-expense-record-delete="${escapeHtml(tx.id)}" data-expense-record-type="topup" aria-label="Delete money added" title="Delete money added"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
+        ${!tx.auditStatus && !tx.isOpeningBalance && teamCanShowDelete("entries") ? `<button class="btn danger expense-tx-action-icon" type="button" data-expense-record-delete="${escapeHtml(tx.id)}" data-expense-record-type="topup" aria-label="Delete money added" title="Delete money added"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
       </div>`;
   }
   modal.querySelectorAll("[data-expense-record-edit]").forEach(btn => btn.addEventListener("click", async e => { const b=e.currentTarget; closeModal("expenseTransactionDetailModal"); await runExpenseRecordEdit(b.dataset.expenseRecordType,b.dataset.expenseRecordEdit); }));
   modal.querySelectorAll("[data-expense-record-pdf]").forEach(btn => btn.addEventListener("click", async e => { const b=e.currentTarget; await runExpenseRecordPdf(b.dataset.expenseRecordType,b.dataset.expenseRecordPdf); }));
   modal.querySelectorAll("[data-expense-record-delete]").forEach(btn => btn.addEventListener("click", async e => { const b=e.currentTarget; closeModal("expenseTransactionDetailModal"); await runExpenseRecordDelete(b.dataset.expenseRecordType,b.dataset.expenseRecordDelete); }));
   modal.classList.remove("hide"); modal.setAttribute("aria-hidden","false"); document.body.style.overflow="hidden";
+  if (window.ExpenseAudit) ExpenseAudit.decorateDetailModal(modal, { ids:detailAuditIds, status:detailAuditStatus, recordType, recordId:id });
 }
 window.openExpenseRecordDetail = openExpenseRecordDetail;
 
@@ -2101,6 +2123,7 @@ function expenseTransactionRecordById(txId){
     const tx = (item.txs || []).find(t => String(t.id) === id);
     if (tx) return { ...tx, itemName: item.displayName, currency: item.currency };
   }
+  if (window.ExpenseAudit) return ExpenseAudit.inactiveExpenseTransactionById(id);
   return null;
 }
 window.getExpenseTransactionByIdForExport = expenseTransactionRecordById;
@@ -2189,14 +2212,15 @@ function openExpenseTransactionDetail(txId){
     ${expenseDetailGridHtml(expenseDetailsForDisplay(tx.details, "expense"))}
     <div class="expense-tx-note"><small>Notes / description</small><p>${escapeHtml(tx.notes || "No additional notes")}</p></div>
     <div class="expense-tx-actions">
-      ${teamCanShowEdit("entries") ? `<button class="btn ghost expense-tx-action-icon" type="button" data-expense-tx-edit="${escapeHtml(tx.id)}" aria-label="Edit transaction" title="Edit transaction"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ""}
+      ${!tx.auditStatus && teamCanShowEdit("entries") ? `<button class="btn ghost expense-tx-action-icon" type="button" data-expense-tx-edit="${escapeHtml(tx.id)}" aria-label="Edit transaction" title="Edit transaction"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ""}
       <button class="btn ghost expense-tx-action-icon" type="button" data-expense-tx-pdf="${escapeHtml(tx.id)}" aria-label="Download PDF" title="Download PDF"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i></button>
-      ${teamCanShowDelete("entries") ? `<button class="btn danger expense-tx-action-icon" type="button" data-expense-tx-delete="${escapeHtml(tx.id)}" aria-label="Delete transaction" title="Delete transaction"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
+      ${!tx.auditStatus && teamCanShowDelete("entries") ? `<button class="btn danger expense-tx-action-icon" type="button" data-expense-tx-delete="${escapeHtml(tx.id)}" aria-label="Delete transaction" title="Delete transaction"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>` : ""}
     </div>`;
   modal.querySelector("[data-expense-tx-edit]")?.addEventListener("click", e => { closeModal("expenseTransactionDetailModal"); openEditModal(e.currentTarget.dataset.expenseTxEdit); });
   modal.querySelector("[data-expense-tx-pdf]")?.addEventListener("click", async e => { if(typeof downloadExpenseTransactionPDF==="function") await downloadExpenseTransactionPDF(e.currentTarget.dataset.expenseTxPdf); });
   modal.querySelector("[data-expense-tx-delete]")?.addEventListener("click", e => { closeModal("expenseTransactionDetailModal"); deleteEntry(e.currentTarget.dataset.expenseTxDelete); });
   modal.classList.remove("hide"); modal.setAttribute("aria-hidden","false"); document.body.style.overflow="hidden";
+  if (window.ExpenseAudit) ExpenseAudit.decorateDetailModal(modal, { ids:[tx.id], status:tx.auditStatus || "", recordType:"expense", recordId:tx.id });
 }
 window.openExpenseTransactionDetail = openExpenseTransactionDetail;
 
@@ -4130,7 +4154,10 @@ function filterExpensesBySearch(expenses, searchTerm){
         expense.curOut,
         expense.curIn,
         expense.rate,
-        expense.date
+        expense.date,
+        expensePublicTransactionReference(expense.expenseId || expense.id || ""),
+        expensePublicTransactionReference(expense.topupId || ""),
+        expense.auditStatus || ""
       ), searchTerm);
     }
 
@@ -4145,7 +4172,9 @@ function filterExpensesBySearch(expenses, searchTerm){
         expense.currency,
         expense.isOpeningBalance ? "opening balance" : "top-up",
         expense.action_date,
-        expense.loan_date
+        expense.loan_date,
+        expensePublicTransactionReference(expense.id),
+        expense.auditStatus || ""
       ), searchTerm);
     }
 
@@ -4207,6 +4236,7 @@ function restoreExpenseDetailsOpenState(openDetails){
 }
 
 function renderExpensesList(){
+  if (window.ExpensePagination) ExpensePagination.prepare();
   // Currency is no longer a visible Expenses filter. Clear any value persisted by older builds
   // so users cannot inherit a hidden currency scope after upgrading.
   if (state.currencyFilter?.expenses && state.currencyFilter.expenses !== "All") state.currencyFilter.expenses = "All";
@@ -4289,7 +4319,11 @@ function renderExpensesList(){
         </div>`;
     for (const cur of topupCurrencies){
       const txs = topupByCurrency.get(cur).slice().sort((a, b) => dateStamp(b.action_date || b.loan_date) - dateStamp(a.action_date || a.loan_date));
-      const totalCur = txs.reduce((sum, tx) => sum + Number(tx.action_amount || 0), 0);
+      const activeTxs = txs.filter(tx => !tx.auditStatus);
+      const inactiveTxs = txs.filter(tx => !!tx.auditStatus);
+      const totalCur = activeTxs.reduce((sum, tx) => sum + Number(tx.action_amount || 0), 0);
+      const topupPage = window.ExpensePagination ? ExpensePagination.slice(`topup:${cur}`, txs) : { items:txs, page:1, totalPages:1, total:txs.length };
+      const visibleTopups = topupPage.items;
       html += `
       <details class="loan expense-item-row expense-by-currency" data-expense-details-id="topup-${escapeHtml(cur)}">
         <summary>
@@ -4298,7 +4332,7 @@ function renderExpensesList(){
               <div class="loan-name">Top-Up — ${currencySymbolHtml(cur)}</div>
               <div class="loan-sub">
                 <span class="badge green">Money In</span>
-                <span>${txs.length} transaction(s)</span>
+                <span>${activeTxs.length} active${inactiveTxs.length ? ` · ${inactiveTxs.length} deleted` : ""}</span>
                 ${currencySymbolHtml(cur)}
               </div>
             </div>
@@ -4316,17 +4350,17 @@ function renderExpensesList(){
             <table>
               <thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
-                ${txs.map(tx => `
-                  <tr class="expense-record-row" data-expense-record-type="${tx.isOpeningBalance ? "opening" : "topup"}" data-expense-record-id="${escapeHtml(tx.id)}" tabindex="0" role="button" aria-label="Open ${tx.isOpeningBalance ? "opening balance" : "top-up"} transaction details">
+                ${visibleTopups.map(tx => `
+                  <tr class="expense-record-row ${tx.auditStatus ? `expense-record-disabled ${tx.auditStatus === "archived" ? "is-archived" : "is-deleted"}` : ""}" data-expense-record-type="${tx.isOpeningBalance ? "opening" : "topup"}" data-expense-record-id="${escapeHtml(tx.id)}" tabindex="0" role="button" aria-label="Open ${tx.isOpeningBalance ? "opening balance" : "top-up"} transaction details">
                     <td>${escapeHtml(displayDate(tx.action_date || tx.loan_date || "—"))}</td>
                     <td>${getWalletIconHtml(tx.person_name || "Wallet", 16, walletLogo(tx.person_name))} ${escapeHtml(tx.person_name || "—")} (${escapeHtml(tx.accountType || "")})</td>
-                    <td><span class="badge green">${tx.isOpeningBalance ? "Opening Balance" : "Top-up"}</span></td>
+                    <td><span class="badge green">${tx.isOpeningBalance ? "Opening Balance" : "Top-up"}</span>${window.ExpenseAudit && tx.auditStatus ? ExpenseAudit.badgeHtml(tx.auditStatus) : ""}</td>
                     <td style="color: var(--success);">${money(tx.action_amount, cur)}</td>
                     <td class="expense-item-detail-note">${escapeHtml(cleanExpenseNote(tx.notes))}</td>
                     <td>
                       <div class="expense-record-action-cell">
-                        ${typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(tx.id) : ""}
-                        ${expenseRecordMenuHtml(tx.isOpeningBalance ? "opening" : "topup", tx.id, { allowEdit: true, allowDelete: !tx.isOpeningBalance })}
+                        ${!tx.auditStatus && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(tx.id) : ""}
+                        ${expenseRecordMenuHtml(tx.isOpeningBalance ? "opening" : "topup", tx.id, { allowEdit: true, allowDelete: !tx.isOpeningBalance, status: tx.auditStatus || "" })}
                       </div>
                     </td>
                   </tr>
@@ -4334,6 +4368,7 @@ function renderExpensesList(){
               </tbody>
             </table>
           </div>
+          ${window.ExpensePagination ? ExpensePagination.html(`topup:${cur}`, topupPage) : ""}
         </div>
       </details>`;
     }
@@ -4383,6 +4418,10 @@ function renderExpensesList(){
     for (const cur of transferCurrencies){
       const rows = getTransferRowsForCurrency(cur, transferEvents);
       if (!rows.length) continue;
+      const activeRows = rows.filter(row => !row.auditStatus);
+      const inactiveRows = rows.filter(row => !!row.auditStatus);
+      const transferPage = window.ExpensePagination ? ExpensePagination.slice(`transfer:${cur}`, rows) : { items:rows, page:1, totalPages:1, total:rows.length };
+      const visibleTransferRows = transferPage.items;
       const { sent, received } = transferCurrencyTotals(cur, transferEvents);
       html += `
       <details class="loan expense-item-row expense-by-currency" data-expense-details-id="transfer-${escapeHtml(cur)}">
@@ -4392,7 +4431,7 @@ function renderExpensesList(){
               <div class="loan-name">Transfers — ${currencySymbolHtml(cur)}</div>
               <div class="loan-sub">
                 <span class="badge orange">Money moved</span>
-                <span>${rows.length} row(s)</span>
+                <span>${activeRows.length} active${inactiveRows.length ? ` · ${inactiveRows.length} deleted` : ""}</span>
                 ${currencySymbolHtml(cur)}
               </div>
             </div>
@@ -4410,13 +4449,13 @@ function renderExpensesList(){
             <table>
               <thead><tr><th>Date</th><th>Type</th><th>Wallet</th><th>With</th><th>Amount</th><th>Rate<br/><span style="font-weight:normal">(1 From = ? To)</span></th><th>Converted leg</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
-                ${rows.map(r => {
+                ${visibleTransferRows.map(r => {
                   const amountStyle = r.kind === "Sent" ? "color: var(--danger);" : "color: var(--success);";
                   const badgeCls = r.kind === "Sent" ? "orange" : "green";
                   return `
-                    <tr class="expense-record-row" data-expense-record-type="transfer" data-expense-record-id="${escapeHtml(r.eventId || r.editId)}" tabindex="0" role="button" aria-label="Open transfer details">
+                    <tr class="expense-record-row ${r.auditStatus ? `expense-record-disabled ${r.auditStatus === "archived" ? "is-archived" : "is-deleted"}` : ""}" data-expense-record-type="transfer" data-expense-record-id="${escapeHtml(r.eventId || r.editId)}" tabindex="0" role="button" aria-label="Open transfer details">
                       <td>${escapeHtml(displayDate(r.date || "—"))}</td>
-                      <td><span class="badge ${badgeCls}">${escapeHtml(r.kind)}</span></td>
+                      <td><span class="badge ${badgeCls}">${escapeHtml(r.kind)}</span>${window.ExpenseAudit && r.auditStatus ? ExpenseAudit.badgeHtml(r.auditStatus) : ""}</td>
                       <td>${getWalletIconHtml(r.walletName || "Wallet", 16, walletLogo(r.walletName))} ${escapeHtml(r.walletLabel)}</td>
                       <td>${escapeHtml(r.counterparty || "—")}</td>
                       <td style="${amountStyle}">${money(r.amount, cur)}</td>
@@ -4425,8 +4464,8 @@ function renderExpensesList(){
                       <td class="expense-item-detail-note">${escapeHtml(r.notes)}</td>
                       <td>
                         <div class="expense-record-action-cell">
-                          ${typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(r.editId) : ""}
-                          ${expenseRecordMenuHtml("transfer", r.eventId || r.editId)}
+                          ${!r.auditStatus && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(r.editId) : ""}
+                          ${expenseRecordMenuHtml("transfer", r.eventId || r.editId, { status:r.auditStatus || "" })}
                         </div>
                       </td>
                     </tr>`;
@@ -4434,6 +4473,7 @@ function renderExpensesList(){
               </tbody>
             </table>
           </div>
+          ${window.ExpensePagination ? ExpensePagination.html(`transfer:${cur}`, transferPage) : ""}
         </div>
       </details>`;
     }
@@ -4460,6 +4500,7 @@ function renderExpensesList(){
     : filterExpenseHistoryRows(spendAttached);
   let items = groupExpenseItems(historySpendAttached);
   items = mergeExactExpenseItemSummaries(items);
+  if (window.ExpenseAudit) items = ExpenseAudit.mergeInactiveItems(items);
   
   // Apply search filtering to expense items
   if (!isExpenseLazyMode() && state.search.expenses && state.search.expenses.trim() !== "") {
@@ -4478,7 +4519,12 @@ function renderExpensesList(){
       <div class="expense-collapsible-content">
       ${renderExpenseHistoryToolbar(visibleTransactionCount)}`;
     if (items.length) {
-      html += items.map(item => `
+      html += items.map(item => {
+        const inactiveCount = Number(item.inactiveCount || (item.txs || []).filter(tx => tx.auditStatus).length);
+        const activeCount = Number(item.transactionCount ?? Math.max(0, (item.txs || []).length - inactiveCount));
+        const historyPage = window.ExpensePagination ? ExpensePagination.slice(`history:${item.key}`, item.txs || []) : { items:item.txs || [], page:1, totalPages:1, total:(item.txs || []).length };
+        const visibleHistoryTxs = historyPage.items;
+        return `
       <details class="loan expense-item-row" data-expense-details-id="history-${escapeHtml(item.key)}" data-expense-item-key="${escapeHtml(item.key)}" data-expense-item-complete="${item.detailComplete === false ? "0" : "1"}">
         <summary>
           <div class="loan-top">
@@ -4486,7 +4532,7 @@ function renderExpensesList(){
               <div class="loan-name">${escapeHtml(item.displayName)}</div>
               <div class="loan-sub">
                 ${item.expenseType ? `<span class="badge blue">${escapeHtml(item.expenseType)}</span>` : `<span class="badge blue">Other</span>`}
-                <span>${Number(item.transactionCount ?? item.txs.length)} transaction(s)</span>
+                <span>${activeCount} active${inactiveCount ? ` · ${inactiveCount} deleted` : ""}</span>
                 <span>${currencySymbolHtml(item.currency || "")}</span>
               </div>
             </div>
@@ -4506,22 +4552,22 @@ function renderExpensesList(){
               <thead><tr><th>Date</th><th>Wallet</th><th>Type</th><th>Amount</th><th>VAT</th><th>Notes</th><th>Action</th></tr></thead>
               <tbody>
                 ${item.detailComplete === false ? `<tr class="expense-item-lazy-status"><td colspan="7"><i class="fa-solid fa-circle-notch"></i> Open this item to load its complete transaction history.</td></tr>` : ""}
-                ${item.txs.map(tx => `
-                  <tr class="expense-tx-row" data-expense-tx-id="${escapeHtml(tx.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(item.displayName)} transaction details">
+                ${visibleHistoryTxs.map(tx => `
+                  <tr class="expense-tx-row ${tx.auditStatus ? `expense-record-disabled ${tx.auditStatus === "archived" ? "is-archived" : "is-deleted"}` : ""}" data-expense-tx-id="${escapeHtml(tx.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(item.displayName)} transaction details">
                     <td>${escapeHtml(displayDate(tx.date || "—"))}</td>
                     <td>${getWalletIconHtml(tx.wallet || "Wallet", 16, walletLogo(tx.wallet))} ${escapeHtml(tx.wallet || "—")}</td>
-                    <td>${escapeHtml(tx.expenseType || "—")}</td>
+                    <td>${escapeHtml(tx.expenseType || "—")}${window.ExpenseAudit && tx.auditStatus ? ExpenseAudit.badgeHtml(tx.auditStatus) : ""}</td>
                     <td>${money(tx.amount, item.currency)}</td>
                     <td>${tx.taxAmount ? `${money(tx.taxAmount, item.currency)} (${escapeHtml(trimInventoryNumber(tx.taxRate, 2))}%)` : "-"}</td>
                     <td class="expense-item-detail-note">${escapeHtml(tx.notes)}</td>
                     <td>
                       <div class="expense-tx-action-wrap">
-                        ${typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(tx.id) : ""}
+                        ${!tx.auditStatus && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(tx.id) : ""}
                         <button type="button" class="icon-btn ghost expense-tx-menu-btn" data-expense-tx-menu="${escapeHtml(tx.id)}" aria-haspopup="menu" aria-expanded="false" title="Transaction actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         <div class="expense-tx-menu" data-expense-tx-menu-panel="${escapeHtml(tx.id)}" role="menu">
-                          ${teamCanShowEdit("entries") ? `<button type="button" role="menuitem" data-expense-tx-edit-menu="${escapeHtml(tx.id)}"><i class="fa-solid fa-pen"></i><span>Edit</span></button>` : ""}
+                          ${!tx.auditStatus && teamCanShowEdit("entries") ? `<button type="button" role="menuitem" data-expense-tx-edit-menu="${escapeHtml(tx.id)}"><i class="fa-solid fa-pen"></i><span>Edit</span></button>` : ""}
                           <button type="button" role="menuitem" data-expense-tx-pdf-menu="${escapeHtml(tx.id)}"><i class="fa-solid fa-file-pdf"></i><span>Download PDF</span></button>
-                          ${teamCanShowDelete("entries") ? `<button type="button" class="is-danger" role="menuitem" data-expense-tx-delete-menu="${escapeHtml(tx.id)}"><i class="fa-solid fa-trash"></i><span>Delete</span></button>` : ""}
+                          ${!tx.auditStatus && teamCanShowDelete("entries") ? `<button type="button" class="is-danger" role="menuitem" data-expense-tx-delete-menu="${escapeHtml(tx.id)}"><i class="fa-solid fa-trash"></i><span>Delete</span></button>` : ""}
                         </div>
                       </div>
                     </td>
@@ -4530,9 +4576,10 @@ function renderExpensesList(){
               </tbody>
             </table>
           </div>
+          ${window.ExpensePagination ? ExpensePagination.html(`history:${item.key}`, historyPage) : ""}
         </div>
       </details>
-    `).join("");
+    `; }).join("");
     } else {
       html += `<div class="empty" style="padding:0.75rem 0;">No transactions in ${escapeHtml(expenseHistoryRangeText())}.</div>`;
     }
