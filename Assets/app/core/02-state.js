@@ -58,6 +58,19 @@ const state = {
   expenseHistoryCustomFrom: "",
   expenseHistoryCustomTo: "",
   expenseBtcCache: {},
+  expenseAudit: {
+    rpcAvailable: null,
+    inactiveQueryKey: "",
+    inactiveEntries: [],
+    historyCache: new Map(),
+    loading: false,
+    lastError: ""
+  },
+  expensePagination: {
+    signature: "",
+    pages: new Map(),
+    pageSize: 10
+  },
   expenseLazy: {
     enabled: false,
     rpcAvailable: null,
