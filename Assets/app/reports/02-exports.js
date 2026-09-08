@@ -1230,7 +1230,7 @@ window.downloadExpenseTransferTransactionPDF = downloadExpenseTransferTransactio
 
 async function downloadExpenseItemPDF(itemKey){
   if (typeof ensureExpenseItemHistoryLoaded === "function" && typeof isExpenseLazyMode === "function" && isExpenseLazyMode()) {
-    try { await ensureExpenseItemHistoryLoaded(itemKey); }
+    try { await ensureExpenseItemHistoryLoaded(itemKey, { all: true }); }
     catch (error) { console.warn("Complete expense item history was unavailable for PDF export.", error); }
   }
   if (!window.jspdf){
