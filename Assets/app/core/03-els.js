@@ -449,10 +449,16 @@ function resetExpenseLazyState(){
     historyPreferOpen: true,
     detailCache: new Map(),
     itemHistoryRpcAvailable: state.expenseLazy?.itemHistoryRpcAvailable ?? null,
+    itemServerPaging: state.expenseLazy?.itemServerPaging ?? null,
     itemSummaryQueryKey: "",
     itemSummaries: [],
     itemSummaryByKey: new Map(),
+    itemSummaryPage: 1,
+    itemSummaryTotal: 0,
+    itemSummaryTotalPages: 1,
+    itemSummaryPageCache: new Map(),
     itemDetailCache: new Map(),
+    itemDetailPageMeta: new Map(),
     itemDetailLoading: new Map(),
     lastError: ""
   };
@@ -480,7 +486,8 @@ function expenseLazyActivityQueryKey(){
     search,
     groupId,
     state.expenseDateFrom || "",
-    state.expenseDateTo || ""
+    state.expenseDateTo || "",
+    state.expenseRecordView || "history"
   ].join("|");
 }
 
