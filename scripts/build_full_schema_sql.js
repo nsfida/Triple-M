@@ -168,6 +168,7 @@ const CANONICAL_MIGRATION_FILES = [
   "151_expense_transaction_details.sql",
   "152_expense_public_reference_search.sql",
   "153_expense_account_details.sql",
+  "154_expense_transaction_audit_lifecycle.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
@@ -311,6 +312,7 @@ drop table if exists public.goods_category_config cascade;
 drop table if exists public.goods_events cascade;
 drop table if exists public.goods_sales cascade;
 drop table if exists public.goods_items cascade;
+drop table if exists public.expense_transaction_audit_events cascade;
 drop table if exists public.expense_transfers cascade;
 drop table if exists public.expense_entries cascade;
 drop table if exists public.expense_topups cascade;
