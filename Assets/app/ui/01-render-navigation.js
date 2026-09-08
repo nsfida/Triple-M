@@ -3419,12 +3419,15 @@ function renderExpenseDetailsOverlay(preferredCurrency = ""){
   expenseDetailsSelectedCurrency = data.selectedCurrency || "";
   const m = data.metrics;
   const curLabel = data.selectedCurrency ? ` · ${data.selectedCurrency}` : "";
+  const metricMoneyHtml = (value, fallbackText) => data.selectedCurrency
+    ? money(value, data.selectedCurrency)
+    : escapeHtml(fallbackText);
   const metricsHtml = [
     sectionDetailsMetricHtml("Wallets", escapeHtml(String(m.wallets)), "primary"),
     sectionDetailsMetricHtml("Active wallets", escapeHtml(String(m.activeWallets)), "success"),
-    sectionDetailsMetricHtml("Topped up", escapeHtml(m.toppedUp)),
-    sectionDetailsMetricHtml("Spent", escapeHtml(m.spent), "warning"),
-    sectionDetailsMetricHtml("Wallet balances", escapeHtml(m.balance), "success")
+    sectionDetailsMetricHtml("Topped up", metricMoneyHtml(m.toppedUpValue, m.toppedUp)),
+    sectionDetailsMetricHtml("Spent", metricMoneyHtml(m.spentValue, m.spent), "warning"),
+    sectionDetailsMetricHtml("Wallet balances", metricMoneyHtml(m.balanceValue, m.balance), "success")
   ].join("");
 
   els.sectionDetailsBody.innerHTML = `
