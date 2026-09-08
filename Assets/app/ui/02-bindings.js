@@ -789,11 +789,15 @@ window.addEventListener("resize", () => {
   const expenseRecordsViewFilter = document.getElementById("expenseRecordsViewFilter");
   if (expenseRecordsViewFilter) {
     expenseRecordsViewFilter.value = state.expenseRecordView || "history";
-    expenseRecordsViewFilter.addEventListener("change", e => {
+    expenseRecordsViewFilter.addEventListener("change", async e => {
       const allowed = new Set(["history", "topups", "transfers"]);
       const nextView = allowed.has(e.target.value) ? e.target.value : "history";
       state.expenseRecordView = nextView;
       e.target.value = nextView;
+      if (typeof loadExpenseActivityForCurrentQuery === "function" && typeof isExpenseLazyMode === "function" && isExpenseLazyMode()) {
+        try { await loadExpenseActivityForCurrentQuery({ force: true }); }
+        catch (error) { console.warn("Expense record view could not be refreshed.", error); }
+      }
       if (typeof renderExpensesList === "function") renderExpensesList();
     });
   }
