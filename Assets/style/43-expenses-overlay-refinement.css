@@ -594,3 +594,311 @@
     padding-inline:10px!important;
   }
 }
+
+/* 2026-09-08 Wallet account particulars: entry/edit parity, protected detail view and transfer verification. */
+#expenseModal:has(#expenseAccountForm:not(.hide)) .modal-body{
+  scrollbar-width:none!important;
+  -ms-overflow-style:none!important;
+}
+#expenseModal:has(#expenseAccountForm:not(.hide)) .modal-body::-webkit-scrollbar{
+  width:0!important;
+  height:0!important;
+  display:none!important;
+}
+#expenseAccountForm .modal-footer{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex-wrap:nowrap!important;
+  gap:8px!important;
+  margin-top:4px!important;
+  padding:4px 0 1px!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  border:0!important;
+}
+#expenseAccountForm .modal-footer .btn{
+  flex:0 0 auto!important;
+  min-width:96px!important;
+  min-height:34px!important;
+  height:34px!important;
+  padding:0 15px!important;
+  border-radius:999px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  white-space:nowrap!important;
+  font-size:.72rem!important;
+  line-height:1!important;
+}
+#expenseAccountForm .expense-optional-details,
+#editExpenseAccountDetailsGroup .expense-optional-details{
+  border-radius:13px!important;
+}
+#expenseAccountForm .expense-optional-details>summary,
+#editExpenseAccountDetailsGroup .expense-optional-details>summary{
+  min-height:36px!important;
+  padding:6px 10px!important;
+  gap:7px!important;
+  font-size:.76rem!important;
+  line-height:1.15!important;
+}
+#expenseAccountForm .expense-optional-details>summary::after,
+#editExpenseAccountDetailsGroup .expense-optional-details>summary::after{
+  display:none!important;
+  content:none!important;
+}
+#expenseAccountForm .expense-optional-details>summary>small,
+#editExpenseAccountDetailsGroup .expense-optional-details>summary>small{
+  font-size:.62rem!important;
+  line-height:1.12!important;
+}
+#expenseAccountForm .expense-optional-chevron,
+#editExpenseAccountDetailsGroup .expense-optional-chevron{
+  width:18px!important;
+  height:18px!important;
+  flex:0 0 18px!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  color:var(--primary)!important;
+  font-size:.72rem!important;
+}
+#expenseAccountForm .expense-chevron-down,
+#editExpenseAccountDetailsGroup .expense-chevron-down{display:none}
+#expenseAccountForm .expense-optional-details[open] .expense-chevron-right,
+#editExpenseAccountDetailsGroup .expense-optional-details[open] .expense-chevron-right{display:none}
+#expenseAccountForm .expense-optional-details[open] .expense-chevron-down,
+#editExpenseAccountDetailsGroup .expense-optional-details[open] .expense-chevron-down{display:inline-block}
+#expenseAccountForm .expense-optional-grid,
+#editExpenseAccountDetailsGroup .expense-optional-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:9px 10px!important;
+  align-items:stretch!important;
+}
+#expenseAccountForm .expense-optional-grid>.field,
+#editExpenseAccountDetailsGroup .expense-optional-grid>.field{
+  grid-column:span 1!important;
+  display:flex!important;
+  flex-direction:column!important;
+  min-width:0!important;
+}
+#expenseAccountForm .expense-optional-grid>.field>label,
+#editExpenseAccountDetailsGroup .expense-optional-grid>.field>label{
+  min-height:1.45em!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  column-gap:3px!important;
+}
+#expenseAccountForm .expense-optional-grid .optional-label,
+#editExpenseAccountDetailsGroup .expense-optional-grid .optional-label{
+  flex:0 0 auto!important;
+  margin:0!important;
+  white-space:nowrap!important;
+  color:var(--muted)!important;
+  font-style:normal!important;
+  font-weight:650!important;
+  text-transform:none!important;
+  letter-spacing:0!important;
+}
+#expenseAccountForm .expense-optional-grid :is(.input,.select),
+#editExpenseAccountDetailsGroup .expense-optional-grid :is(.input,.select){width:100%!important}
+
+.transfer-account-mini{
+  margin-top:5px;
+  padding:6px 7px;
+  border:1px solid color-mix(in srgb,var(--line) 82%,transparent);
+  border-radius:10px;
+  background:color-mix(in srgb,var(--surface-soft) 84%,transparent);
+}
+.transfer-account-mini-inner{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px 8px;
+}
+.transfer-account-mini-inner>span{min-width:0;display:flex;flex-direction:column;gap:1px}
+.transfer-account-mini-inner small{color:var(--muted);font-size:.54rem;font-weight:700;line-height:1.05;text-transform:uppercase;letter-spacing:.02em}
+.transfer-account-mini-inner strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-size:.64rem;line-height:1.15;font-weight:750}
+
+#expenseAccountDetailsModal.modal{
+  place-items:center!important;
+  z-index:1185!important;
+  padding:24px!important;
+}
+#expenseAccountDetailsModal .expense-account-details-dialog{
+  width:min(590px,calc(100vw - 48px))!important;
+  max-width:590px!important;
+  max-height:calc(100dvh - 48px)!important;
+  margin:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  border-radius:20px!important;
+}
+#expenseAccountDetailsModal .modal-head{padding:12px 14px 9px!important}
+#expenseAccountDetailsModal .modal-head h3{font-size:1rem!important}
+#expenseAccountDetailsModal .modal-head p{margin-top:2px!important;font-size:.70rem!important}
+#expenseAccountDetailsModal .modal-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:10px 14px 14px!important;
+  scrollbar-width:none!important;
+  -ms-overflow-style:none!important;
+}
+#expenseAccountDetailsModal .modal-body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+.expense-account-details-hero{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface-soft);
+}
+.expense-account-details-logo{
+  width:46px;height:46px;flex:0 0 46px;
+  display:grid;place-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--surface-elevated);
+}
+.expense-account-details-logo img{max-width:38px;max-height:38px;object-fit:contain}
+.expense-account-details-hero>div{min-width:0;display:flex;flex-direction:column;gap:2px}
+.expense-account-details-hero small{color:var(--primary);font-size:.59rem;font-weight:850;letter-spacing:.06em}
+.expense-account-details-hero strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-strong);font-size:.94rem}
+.expense-account-details-hero span{color:var(--muted);font-size:.69rem}
+.expense-account-details-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:9px;
+}
+.expense-account-detail-card{
+  min-width:0;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface-elevated);
+}
+.expense-account-detail-card>small{display:block;margin-bottom:3px;color:var(--muted);font-size:.61rem;font-weight:700}
+.expense-account-detail-card>div{min-width:0;display:flex;align-items:center;gap:6px}
+.expense-account-detail-card strong{min-width:0;overflow-wrap:anywhere;color:var(--text-strong);font-size:.78rem;line-height:1.22}
+.expense-account-detail-card.is-sensitive strong{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em}
+.expense-account-reveal{width:28px!important;min-width:28px!important;height:28px!important;flex:0 0 28px!important;border-radius:50%!important;font-size:.68rem!important}
+.expense-account-details-empty{display:flex;align-items:flex-start;gap:8px;margin-top:9px;padding:10px 11px;border:1px dashed var(--line-strong);border-radius:11px;background:var(--surface-soft);color:var(--muted);font-size:.72rem;line-height:1.35}
+.expense-account-details-empty i{margin-top:1px;color:var(--primary)}
+.wallet-account-details-btn{white-space:nowrap}
+
+@media(max-width:720px){
+  #expenseAccountForm .field>label{font-size:.64rem!important;line-height:1.18!important}
+  #expenseAccountForm :is(.input,.select){min-height:34px!important;height:34px!important;padding:5px 7px!important;font-size:.70rem!important;line-height:1.15!important}
+  #expenseAccountForm .modal-footer .btn{min-width:90px!important;min-height:32px!important;height:32px!important;padding:0 12px!important;font-size:.67rem!important}
+  #expenseAccountForm .expense-optional-details>summary,
+  #editExpenseAccountDetailsGroup .expense-optional-details>summary{min-height:32px!important;padding:5px 8px!important;gap:5px!important;font-size:.64rem!important}
+  #expenseAccountForm .expense-optional-details>summary>small,
+  #editExpenseAccountDetailsGroup .expense-optional-details>summary>small{max-width:44%!important;font-size:.51rem!important}
+  #expenseAccountForm .expense-optional-chevron,
+  #editExpenseAccountDetailsGroup .expense-optional-chevron{width:16px!important;height:16px!important;flex-basis:16px!important;font-size:.64rem!important}
+  #expenseAccountForm .expense-optional-grid,
+  #editExpenseAccountDetailsGroup .expense-optional-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px 7px!important;padding:5px 8px 9px!important}
+  #expenseAccountForm .expense-optional-grid>.field>label,
+  #editExpenseAccountDetailsGroup .expense-optional-grid>.field>label{min-height:2.35em!important;margin-bottom:3px!important;font-size:.60rem!important;line-height:1.16!important}
+  .transfer-account-mini{padding:5px 6px;border-radius:9px}
+  .transfer-account-mini-inner{gap:3px 6px}
+  .transfer-account-mini-inner small{font-size:.48rem}
+  .transfer-account-mini-inner strong{font-size:.57rem}
+  #expenseAccountDetailsModal.modal{
+    padding:max(18px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) max(18px,env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px))!important;
+  }
+  #expenseAccountDetailsModal .expense-account-details-dialog{width:100%!important;max-width:100%!important;max-height:calc(100dvh - 36px)!important;margin:auto!important;border-radius:18px!important}
+  #expenseAccountDetailsModal .modal-head{padding:10px 11px 7px!important}
+  #expenseAccountDetailsModal .modal-body{padding:8px 10px 10px!important}
+  .expense-account-details-hero{padding:9px 10px;gap:9px;border-radius:12px}
+  .expense-account-details-logo{width:40px;height:40px;flex-basis:40px;border-radius:11px}
+  .expense-account-details-logo img{max-width:34px;max-height:34px}
+  .expense-account-details-grid{gap:6px;margin-top:7px}
+  .expense-account-detail-card{padding:7px 8px;border-radius:10px}
+  .expense-account-detail-card>small{font-size:.55rem}
+  .expense-account-detail-card strong{font-size:.69rem}
+}
+@media(max-width:720px){
+  #expenseAccountForm .modal-grid{gap:6px!important}
+  #expenseAccountForm .field{gap:3px!important;min-width:0!important}
+  #expenseAccountForm .optional-label{font-size:.54rem!important}
+}
+@media(max-width:560px){
+  #expenseAccountForm .modal-grid>.field.w6{grid-column:span 6!important}
+  #expenseAccountForm .modal-grid>.field.w12,
+  #expenseAccountForm .modal-grid>.expense-optional-details{grid-column:span 12!important}
+}
+@media(max-width:360px){
+  #expenseAccountForm .modal-footer{gap:6px!important}
+  #expenseAccountForm .modal-footer .btn{min-width:84px!important;padding-inline:10px!important}
+}
+
+/* Payment-card safety: the app never accepts a full PAN; only the final four digits are editable. */
+#expenseAccountForm .expense-card-last4-input,
+#editExpenseAccountDetailsGroup .expense-card-last4-input{
+  width:100%;
+  min-width:0;
+  min-height:38px;
+  display:grid;
+  grid-template-columns:auto minmax(56px,1fr);
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--surface);
+  overflow:hidden;
+  transition:border-color .16s ease,box-shadow .16s ease;
+}
+#expenseAccountForm .expense-card-last4-input:focus-within,
+#editExpenseAccountDetailsGroup .expense-card-last4-input:focus-within{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 12%,transparent);
+}
+#expenseAccountForm .expense-card-last4-input>span,
+#editExpenseAccountDetailsGroup .expense-card-last4-input>span{
+  padding-left:10px;
+  color:var(--muted);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.74rem;
+  font-weight:700;
+  letter-spacing:.015em;
+  white-space:nowrap;
+  pointer-events:none;
+}
+#expenseAccountForm .expense-card-last4-input>.input,
+#editExpenseAccountDetailsGroup .expense-card-last4-input>.input{
+  width:100%!important;
+  min-width:0!important;
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 9px 0 2px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  outline:0!important;
+  color:var(--text-strong)!important;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.78rem!important;
+  font-weight:800!important;
+  letter-spacing:.08em;
+}
+@media (max-width:720px){
+  #expenseAccountForm .expense-card-last4-input,
+  #editExpenseAccountDetailsGroup .expense-card-last4-input{min-height:34px;border-radius:9px}
+  #expenseAccountForm .expense-card-last4-input>span,
+  #editExpenseAccountDetailsGroup .expense-card-last4-input>span{padding-left:8px;font-size:.62rem}
+  #expenseAccountForm .expense-card-last4-input>.input,
+  #editExpenseAccountDetailsGroup .expense-card-last4-input>.input{height:32px!important;min-height:32px!important;padding-right:7px!important;font-size:.68rem!important}
+}
