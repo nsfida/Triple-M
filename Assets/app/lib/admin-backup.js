@@ -38,6 +38,7 @@
     "expense_topups",
     "expense_entries",
     "expense_transfers",
+    "expense_transaction_audit_events",
     "bitcoin_wallets",
     "app_notes",
     "app_user_notifications",
