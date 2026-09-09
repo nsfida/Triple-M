@@ -848,6 +848,7 @@
   <link rel="stylesheet" href="Assets/style/42-public-accounting-seo.css?v=20260907-public-accounting-001" />
   <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-server-pagination-155" />
   <link rel="stylesheet" href="Assets/style/44-financial-audit-report.css?v=20260909-audit-executive-sections-158" />
+  <link rel="stylesheet" href="Assets/style/45-triplem-ai.css?v=20260909-triplem-ai-158" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3413,6 +3414,7 @@
       <button class="tab" data-tab="expenses" type="button" title="Expenses"><i class="fa-solid fa-coins" aria-hidden="true"></i><span class="tab-label">Expenses</span></button>
       <button class="tab" data-tab="goods" type="button" title="Inventory"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span class="tab-label">Inventory</span></button>
       <button class="tab" data-tab="audit" type="button" title="Audit Report"><i class="fa-solid fa-file-shield" aria-hidden="true"></i><span class="tab-label">Audit Report</span></button>
+      <button class="tab hide" data-tab="triplem-ai" type="button" title="Triplem AI" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="tab-label">Triplem AI</span></button>
       <button class="tab hide" data-tab="assets" type="button" title="Asset" aria-hidden="true"><i class="fa-solid fa-building" aria-hidden="true"></i><span class="tab-label">Asset</span></button>
       <button class="tab" id="loansTabBtn" type="button" data-tab="loans" title="Loans">
         <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="tab-label">Loans</span>
@@ -4128,6 +4130,14 @@
               <i class="fa-solid fa-file-shield" aria-hidden="true"></i>
               <div><strong>Choose a period and run the audit.</strong><span>Triplem VIP will inspect every permitted financial module and keep currencies separated.</span></div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="triplem-aiPanel" class="panel">
+        <div class="card section triplem-ai-section">
+          <div id="triplemAiRoot" class="triplem-ai-root">
+            <div class="triplem-ai-unavailable"><i class="fa-solid fa-lock"></i><strong>Verifying Triplem AI access…</strong></div>
           </div>
         </div>
       </section>
@@ -6748,10 +6758,10 @@
   <script src="Assets/app/lib/admin-backup.js?build010=001&accounting=149001&audit=154"></script>
   <script src="Assets/app/domain-ledger.js?v=20260908-card-last4-1"></script>
   <script src="Assets/app/core/01-config-constants.js?accounting=149001"></script>
-  <script src="Assets/app/core/02-state.js?v=20260908-server-pagination-155"></script>
+  <script src="Assets/app/core/02-state.js?v=20260909-triplem-ai-158"></script>
   <script src="Assets/app/inventory-catalog.js"></script>
   <script src="Assets/app/core/03-els.js?v=20260903-admin-overlay126&pagination=155"></script>
-  <script src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154"></script>
+  <script src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158"></script>
   <script src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138&security=146"></script>
   <script src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139"></script>
   <script src="Assets/app/auth/05-account-security.js?v=20260907-webauthn148&security=148"></script>
@@ -6768,7 +6778,7 @@
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
   <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260908-server-pagination-155&currency=002&build011=003"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260908-account-details1&build011=001&accounting=149001"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260909-triplem-ai-158&build011=001&accounting=149001"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script src="Assets/app/reports/01-pdf.js?v=20260908-pdf-minus-fix&build010=001"></script>
@@ -6777,15 +6787,16 @@
   <script src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
   <script src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155"></script>
   <script src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
+  <script src="Assets/app/ai/02-triplem-ai.js?v=20260909-triplem-ai-158"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260907-security146&regional=156&currency=001"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260909-triplem-ai-158&regional=156&currency=001"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002&build010=001&build011=001"></script>
   <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002&accounting=149001"></script>
   <script src="Assets/app/assets/01-assets.js?v=20260904-assets140&build011=001&build013=filter001&build016=assets-wallet-currency002"></script>
   <script src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001&build016=dep-wallet002"></script>
-  <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002"></script>
+  <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
   <script src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156"></script>
