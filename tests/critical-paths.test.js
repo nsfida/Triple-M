@@ -2860,6 +2860,88 @@ it("157 expands Aziz product knowledge without weakening handoff, regional prici
   assert.match(index, /02-live-chat\.js\?v=20260905-aziz153&regional=156&currency=002&knowledge=157/);
 });
 
+it("159 keeps Triplem AI concise, workspace-complete, session-scoped, and cross-user isolated", () => {
+  const root = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(root, "migrations/159_triplem_ai_workspace_coverage_privacy.sql"), "utf8");
+  const edge = fs.readFileSync(path.join(root, "supabase/functions/triplem-ai/index.ts"), "utf8");
+  const client = fs.readFileSync(path.join(root, "Assets/app/ai/02-triplem-ai.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "Assets/style/45-triplem-ai.css"), "utf8");
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+
+  assert.match(migration, /app_triplem_ai_workspace_search/);
+  assert.match(migration, /actor_id uuid := public\.current_app_user_id\(\)/);
+  assert.match(migration, /data_owner uuid := public\.app_data_owner_id\(\)/);
+  assert.doesNotMatch(migration, /\bp_(?:user|owner)_id\b/i);
+  assert.match(migration, /l\.owner_id = data_owner/);
+  assert.match(migration, /public\.app_has_permission\('loans','view'\)/);
+  assert.match(migration, /'loans', 'loan'/);
+  assert.match(migration, /'installments', 'installment_plan'/);
+  assert.match(migration, /'assets', 'depreciation_asset'/);
+  assert.match(migration, /'notes', 'reminder'/);
+  assert.match(migration, /'accounting', 'document'/);
+  assert.match(migration, /'accounting', 'bank_transaction'/);
+  assert.doesNotMatch(migration, /vault\.decrypted_secrets|password_hash|smart_pin_hash|recovery_key/i);
+
+  assert.match(edge, /name: "search_workspace_records"/);
+  assert.match(edge, /app_triplem_ai_workspace_search/);
+  assert.match(edge, /Never provide, identify, summarize or speculate about any other Triplem VIP user/);
+  assert.match(edge, /Do not answer unrelated general-knowledge/);
+  assert.match(edge, /Do not use asterisks, Markdown bullets/);
+  assert.match(edge, /maxOutputTokens: 700/);
+  assert.match(edge, /cleanAssistantAnswer/);
+
+  assert.match(client, /Triplem AI is typing/);
+  assert.match(client, /formatAssistantText/);
+  assert.match(client, /triplem-ai-answer-summary/);
+  assert.match(client, /Shift \+ Enter for a new line/);
+  assert.doesNotMatch(index, /Private Gemini-powered financial intelligence grounded in your authorized Triplem VIP workspace\./);
+  assert.doesNotMatch(index, /triplem-ai-readonly/);
+  assert.match(css, /\.triplem-ai-root\{min-height:640px\}/);
+  assert.match(css, /height:min\(64vh,680px\)/);
+});
+
+it("160 adds isolated AI Draft actions, exact record references, durable provenance, and compact AI controls without mutating existing ledgers", () => {
+  const root = path.join(__dirname, "..");
+  const migration = fs.readFileSync(path.join(root, "migrations/160_triplem_ai_actions_references_and_drafts.sql"), "utf8");
+  const edge = fs.readFileSync(path.join(root, "supabase/functions/triplem-ai/index.ts"), "utf8");
+  const client = fs.readFileSync(path.join(root, "Assets/app/ai/02-triplem-ai.js"), "utf8");
+  const accounting = fs.readFileSync(path.join(root, "Assets/app/accounting/01-accounting-suite.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "Assets/style/45-triplem-ai.css"), "utf8");
+
+  assert.match(migration, /create table if not exists public\.app_triplem_ai_drafts/i);
+  assert.match(migration, /create table if not exists public\.app_triplem_ai_provenance/i);
+  assert.match(migration, /actor_id uuid := public\.current_app_user_id\(\)/);
+  assert.match(migration, /data_owner uuid := public\.app_data_owner_id\(\)/);
+  assert.doesNotMatch(migration, /\bp_(?:user|owner)_id\b/i);
+  assert.match(migration, /delete from public\.app_triplem_ai_drafts d/i);
+  assert.match(migration, /Intentional physical DELETE/);
+  assert.match(migration, /app_triplem_ai_mark_finalized/);
+  assert.match(migration, /from public\.expense_entries e where e\.id=p_record_id/);
+  assert.match(migration, /from public\.goods_sales g where g\.id=p_record_id/);
+  assert.match(migration, /from public\.app_assets a where a\.id=p_record_id/);
+  assert.doesNotMatch(migration, /(?:update|delete from)\s+public\.(?:expense_entries|expense_topups|loans|installment_plans|goods_items|goods_sales|app_assets|app_notes)\b/i);
+  assert.match(migration, /public\.app_has_permission\(module,'view'\)/);
+
+  assert.match(edge, /name: "create_ai_draft"/);
+  assert.match(edge, /AI Draft is isolated from balances, reports, VAT, stock and accounting until the user reviews and presses Finalize/);
+  assert.match(edge, /action === "list_drafts"/);
+  assert.match(edge, /action === "mark_finalized"/);
+  assert.match(edge, /records: result\.records, references: result\.references, drafts: result\.drafts/);
+
+  assert.match(client, /renderRecordCards/);
+  assert.match(client, /renderReferences/);
+  assert.match(client, /openTriplemAiRecord/);
+  assert.match(client, /inventory_sale/);
+  assert.match(client, /Delete this AI Draft permanently/);
+  assert.match(client, /Normal edit and delete audit rules now apply/);
+  assert.match(client, /triplemAiEntryEye/);
+  assert.match(accounting, /viewDocument: openDocumentView/);
+  assert.match(accounting, /viewJournal: openJournalView/);
+  assert.match(css, /\.triplem-ai-send\{right:30px;top:20px;width:32px;height:32px/);
+  assert.match(css, /\.triplem-ai-composer-foot\{left:35px;right:35px;bottom:7px/);
+  assert.match(css, /\.triplem-ai-settings-actions \.btn\{min-height:31px/);
+});
+
 it("Delivered source contains no prohibited competitor branding", () => {
   const root = path.join(__dirname, "..");
   const prohibited = String.fromCharCode(109,97,122,101,101,100);
