@@ -616,6 +616,41 @@
     return prompts.map(([label, prompt]) => `<button type="button" class="triplem-ai-suggestion" data-triplem-ai-prompt="${esc(prompt)}"><i class="fa-solid fa-arrow-trend-up"></i><span>${esc(label)}</span></button>`).join("");
   }
 
+  let triplemAiViewportBound = false;
+  let triplemAiViewportRaf = 0;
+
+  function syncTriplemAiViewport() {
+    const panel = document.getElementById("triplem-aiPanel");
+    const section = panel?.querySelector(".triplem-ai-section");
+    if (!panel || !section || panel.hidden || panel.classList.contains("hide")) return;
+    const style = window.getComputedStyle(panel);
+    if (style.display === "none" || style.visibility === "hidden") return;
+    const rect = section.getBoundingClientRect();
+    const visualViewport = window.visualViewport;
+    const viewportTop = visualViewport ? visualViewport.offsetTop : 0;
+    const viewportBottom = visualViewport ? visualViewport.offsetTop + visualViewport.height : window.innerHeight;
+    const bottomGap = window.matchMedia("(max-width: 720px)").matches ? 8 : 14;
+    const available = Math.floor(viewportBottom - Math.max(rect.top, viewportTop) - bottomGap);
+    if (available > 0) section.style.setProperty("--triplem-ai-viewport-height", `${Math.max(240, available)}px`);
+  }
+
+  function scheduleTriplemAiViewportSync() {
+    if (triplemAiViewportRaf) cancelAnimationFrame(triplemAiViewportRaf);
+    triplemAiViewportRaf = requestAnimationFrame(() => {
+      triplemAiViewportRaf = 0;
+      syncTriplemAiViewport();
+    });
+  }
+
+  function ensureTriplemAiViewportBinding() {
+    if (triplemAiViewportBound) return;
+    triplemAiViewportBound = true;
+    window.addEventListener("resize", scheduleTriplemAiViewportSync, { passive: true });
+    window.addEventListener("scroll", scheduleTriplemAiViewportSync, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleTriplemAiViewportSync, { passive: true });
+    window.visualViewport?.addEventListener("scroll", scheduleTriplemAiViewportSync, { passive: true });
+  }
+
   function chatWorkspaceHtml(ai) {
     const messages = ai.messages.length ? ai.messages : [{ role: "assistant", text: assistantWelcome(), seed: true }];
     return `<div class="triplem-ai-shell">
@@ -648,7 +683,9 @@
     }
     root.innerHTML = ai.configured ? chatWorkspaceHtml(ai) : setupCardHtml();
     bindWorkspace(root);
+    ensureTriplemAiViewportBinding();
     requestAnimationFrame(() => {
+      syncTriplemAiViewport();
       const thread = root.querySelector("#triplemAiThread");
       if (thread) thread.scrollTop = thread.scrollHeight;
     });
@@ -680,6 +717,21 @@
     const form = root.querySelector("#triplemAiComposer");
     const input = root.querySelector("#triplemAiInput");
     const count = root.querySelector("#triplemAiCharCount");
+    const shell = root.querySelector(".triplem-ai-shell");
+    const thread = root.querySelector("#triplemAiThread");
+    shell?.addEventListener("wheel", event => {
+      if (!thread || event.ctrlKey || event.metaKey) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("textarea, input, select, .triplem-ai-drafts.is-compact")) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const maxScroll = Math.max(0, thread.scrollHeight - thread.clientHeight);
+      if (maxScroll <= 0) {
+        event.preventDefault();
+        return;
+      }
+      thread.scrollTop = Math.max(0, Math.min(maxScroll, thread.scrollTop + event.deltaY));
+      event.preventDefault();
+    }, { passive: false });
     input?.addEventListener("input", () => {
       resizeTextarea(input);
       if (count) count.textContent = `${input.value.length} / 6000`;
@@ -758,7 +810,7 @@
     ${configured ? `<div class="triplem-ai-settings-status-grid"><div><span>Last tested</span><strong>${esc(fmtDate(ai.lastTestedAt))}</strong></div><div><span>Last used</span><strong>${esc(fmtDate(ai.lastUsedAt))}</strong></div></div>` : ""}
     <div class="triplem-ai-key-entry ${configured ? "is-replace" : ""}">
       <label for="triplemAiApiKey">${configured ? "Replace API key" : "Gemini API key"}</label>
-      <div class="triplem-ai-secret-input"><input class="input" id="triplemAiApiKey" type="password" autocomplete="new-password" spellcheck="false" placeholder="${configured ? "Enter a new key only if you want to replace it" : "Paste Gemini API key"}" /><button type="button" class="icon-btn ghost" id="triplemAiEntryEye" aria-label="Show key while typing" title="Show while typing"><i class="fa-solid fa-eye"></i></button></div>
+      <div class="triplem-ai-secret-input"><input class="input" id="triplemAiApiKey" name="triplem_ai_gemini_key" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" placeholder="${configured ? "Enter a new key only if you want to replace it" : "Paste Gemini API key"}" /><button type="button" class="icon-btn ghost triplem-ai-key-eye" id="triplemAiEntryEye" aria-label="Show key while typing" title="Show while typing"><i class="fa-solid fa-eye"></i></button></div>
       <p>The key is never written to browser storage. After saving, only the masked identifier above can be displayed.</p>
     </div>
     <div class="triplem-ai-settings-notice"><i class="fa-solid fa-circle-info"></i><span>Triplem AI can prepare isolated AI Drafts only when you explicitly ask it to record something. Drafts never affect live finances until you review and finalize them.</span></div>
@@ -769,7 +821,7 @@
     const ai = aiState();
     modal.innerHTML = `<div class="modal-backdrop" data-triplem-ai-settings-close></div>
       <div class="modal-dialog settings-sheet triplem-ai-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="triplemAiSettingsTitle">
-        <div class="settings-sheet-head"><div><span class="triplem-ai-settings-kicker">Bring your own AI</span><h3 id="triplemAiSettingsTitle">Triplem AI Settings</h3><p>Private Gemini integration for your authenticated workspace.</p></div><button type="button" class="btn ghost tiny" data-triplem-ai-settings-close aria-label="Close">✕</button></div>
+        <div class="settings-sheet-head"><div><span class="triplem-ai-settings-kicker">Bring your own AI</span><h3 id="triplemAiSettingsTitle">Triplem AI Settings</h3><p>Private Gemini integration for your authenticated workspace.</p></div><button type="button" class="icon-btn ghost triplem-ai-settings-close" data-triplem-ai-settings-close aria-label="Close" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
         <div class="modal-body settings-sheet-body">${settingsBodyHtml(ai)}</div>
         <div class="modal-footer triplem-ai-settings-actions">
           ${ai.configured ? `<button type="button" class="btn ghost triplem-ai-delete-key" id="triplemAiDeleteKey"><i class="fa-solid fa-trash-can"></i> Delete Key</button><button type="button" class="btn ghost" id="triplemAiTestKey"><i class="fa-solid fa-plug-circle-check"></i> Test Connection</button>` : ""}
