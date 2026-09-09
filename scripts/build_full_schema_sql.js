@@ -171,6 +171,7 @@ const CANONICAL_MIGRATION_FILES = [
   "154_expense_transaction_audit_lifecycle.sql",
   "155_expense_server_pagination.sql",
   "156_financial_audit_report.sql",
+  "157_financial_audit_section_summary.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
