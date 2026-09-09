@@ -847,6 +847,7 @@
   <link rel="stylesheet" href="Assets/style/41-accounting-suite.css?v=20260907-accounting149-002" />
   <link rel="stylesheet" href="Assets/style/42-public-accounting-seo.css?v=20260907-public-accounting-001" />
   <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-server-pagination-155" />
+  <link rel="stylesheet" href="Assets/style/44-financial-audit-report.css?v=20260909-audit-report-156" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3411,6 +3412,7 @@
       <button class="tab active" data-tab="dashboard" type="button" title="Detailed Dashboard"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span class="tab-label">Dashboard</span></button>
       <button class="tab" data-tab="expenses" type="button" title="Expenses"><i class="fa-solid fa-coins" aria-hidden="true"></i><span class="tab-label">Expenses</span></button>
       <button class="tab" data-tab="goods" type="button" title="Inventory"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span class="tab-label">Inventory</span></button>
+      <button class="tab" data-tab="audit" type="button" title="Audit Report"><i class="fa-solid fa-file-shield" aria-hidden="true"></i><span class="tab-label">Audit Report</span></button>
       <button class="tab hide" data-tab="assets" type="button" title="Asset" aria-hidden="true"><i class="fa-solid fa-building" aria-hidden="true"></i><span class="tab-label">Asset</span></button>
       <button class="tab" id="loansTabBtn" type="button" data-tab="loans" title="Loans">
         <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span class="tab-label">Loans</span>
@@ -4078,6 +4080,39 @@
             </div>
           </div>
           <div id="dashboardRoot" class="dashboard-root"></div>
+        </div>
+      </section>
+
+
+      <section id="auditPanel" class="panel">
+        <div class="card section financial-audit-section">
+          <div class="section-head financial-audit-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row">
+                  <h3>Financial Audit Report</h3>
+                  <span class="financial-audit-readonly"><i class="fa-solid fa-lock" aria-hidden="true"></i> Read-only</span>
+                </div>
+                <p>Consolidated financial control report across wallets, expenses, inventory, loans, installments, assets and Accounting.</p>
+              </div>
+              <div class="tools financial-audit-export-tools">
+                <button class="btn ghost" type="button" id="downloadFinancialAuditExcelBtn" disabled><i class="fa-solid fa-file-excel" aria-hidden="true"></i> Excel</button>
+                <button class="btn ghost" type="button" id="downloadFinancialAuditPdfBtn" disabled><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF</button>
+              </div>
+            </div>
+            <div class="financial-audit-runbar" aria-label="Audit report controls">
+              <label><span>From</span><input class="input" type="date" id="financialAuditFrom" /></label>
+              <label><span>To</span><input class="input" type="date" id="financialAuditTo" /></label>
+              <label><span>Currency</span><select class="select" id="financialAuditCurrency"><option value="ALL">All currencies</option><option value="AED">AED</option><option value="SAR">SAR</option><option value="PKR">PKR</option><option value="USD">USD</option><option value="BTC">BTC</option></select></label>
+              <button class="btn primary financial-audit-run-btn" type="button" id="runFinancialAuditBtn"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Run Audit</button>
+            </div>
+          </div>
+          <div id="financialAuditRoot" class="financial-audit-root">
+            <div class="financial-audit-welcome">
+              <i class="fa-solid fa-file-shield" aria-hidden="true"></i>
+              <div><strong>Choose a period and run the audit.</strong><span>Triplem VIP will inspect every permitted financial module and keep currencies separated.</span></div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -6725,6 +6760,7 @@
   <script src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
   <script src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155"></script>
+  <script src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-export-cleanup-157"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
