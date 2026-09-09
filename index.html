@@ -847,7 +847,7 @@
   <link rel="stylesheet" href="Assets/style/41-accounting-suite.css?v=20260907-accounting149-002" />
   <link rel="stylesheet" href="Assets/style/42-public-accounting-seo.css?v=20260907-public-accounting-001" />
   <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-server-pagination-155" />
-  <link rel="stylesheet" href="Assets/style/44-financial-audit-report.css?v=20260909-audit-report-156" />
+  <link rel="stylesheet" href="Assets/style/44-financial-audit-report.css?v=20260909-audit-executive-sections-158" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -4096,13 +4096,29 @@
                 <p>Consolidated financial control report across wallets, expenses, inventory, loans, installments, assets and Accounting.</p>
               </div>
               <div class="tools financial-audit-export-tools">
-                <button class="btn ghost" type="button" id="downloadFinancialAuditExcelBtn" disabled><i class="fa-solid fa-file-excel" aria-hidden="true"></i> Excel</button>
-                <button class="btn ghost" type="button" id="downloadFinancialAuditPdfBtn" disabled><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF</button>
+                <div class="financial-audit-export-menu">
+                  <button class="btn ghost financial-audit-export-toggle" type="button" id="downloadFinancialAuditExcelBtn" aria-haspopup="menu" aria-expanded="false" disabled><i class="fa-solid fa-file-excel" aria-hidden="true"></i> Excel <i class="fa-solid fa-angle-down financial-audit-export-angle" aria-hidden="true"></i></button>
+                  <div class="financial-audit-export-dropdown" role="menu" aria-label="Excel audit export options">
+                    <button type="button" role="menuitem" data-audit-export-kind="excel" data-audit-export-mode="detailed"><i class="fa-solid fa-table-list" aria-hidden="true"></i><span><strong>Detailed Audit Report</strong><small>Executive summary plus complete activity sheets</small></span></button>
+                    <button type="button" role="menuitem" data-audit-export-kind="excel" data-audit-export-mode="executive"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span><strong>Executive Summary</strong><small>Section-wise income, expense and VAT only</small></span></button>
+                  </div>
+                </div>
+                <div class="financial-audit-export-menu">
+                  <button class="btn ghost financial-audit-export-toggle" type="button" id="downloadFinancialAuditPdfBtn" aria-haspopup="menu" aria-expanded="false" disabled><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF <i class="fa-solid fa-angle-down financial-audit-export-angle" aria-hidden="true"></i></button>
+                  <div class="financial-audit-export-dropdown" role="menu" aria-label="PDF audit export options">
+                    <button type="button" role="menuitem" data-audit-export-kind="pdf" data-audit-export-mode="detailed"><i class="fa-solid fa-file-lines" aria-hidden="true"></i><span><strong>Detailed Audit Report</strong><small>Executive summary plus complete audit activity</small></span></button>
+                    <button type="button" role="menuitem" data-audit-export-kind="pdf" data-audit-export-mode="executive"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span><strong>Executive Summary</strong><small>Compact management summary of selected sections</small></span></button>
+                  </div>
+                </div>
               </div>
             </div>
+            <div class="financial-audit-section-selector-wrap">
+              <div class="financial-audit-section-selector-head"><span>Report Sections</span><small id="financialAuditSelectionHint">All permitted sections selected</small></div>
+              <div id="financialAuditSectionSelector" class="financial-audit-section-selector" aria-label="Choose Audit Report sections"></div>
+            </div>
             <div class="financial-audit-runbar" aria-label="Audit report controls">
-              <label><span>From</span><input class="input" type="date" id="financialAuditFrom" /></label>
-              <label><span>To</span><input class="input" type="date" id="financialAuditTo" /></label>
+              <label class="financial-audit-date-field"><span>From</span><input class="input" type="date" id="financialAuditFrom" /></label>
+              <label class="financial-audit-date-field"><span>To</span><input class="input" type="date" id="financialAuditTo" /></label>
               <label><span>Currency</span><select class="select" id="financialAuditCurrency"><option value="ALL">All currencies</option><option value="AED">AED</option><option value="SAR">SAR</option><option value="PKR">PKR</option><option value="USD">USD</option><option value="BTC">BTC</option></select></label>
               <button class="btn primary financial-audit-run-btn" type="button" id="runFinancialAuditBtn"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Run Audit</button>
             </div>
@@ -6760,7 +6776,7 @@
   <script src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
   <script src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155"></script>
-  <script src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-export-cleanup-157"></script>
+  <script src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
