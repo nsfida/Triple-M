@@ -76,3 +76,142 @@
 @media(max-width:720px){.triplem-ai-composer{padding:9px 10px 21px}.triplem-ai-composer textarea{min-height:52px;padding:11px 45px 25px 12px}.triplem-ai-send{right:18px;top:16px;width:31px;height:31px}.triplem-ai-composer-foot{left:23px;right:23px;bottom:6px}.triplem-ai-draft-form{grid-template-columns:1fr}.triplem-ai-draft-field.is-wide,.triplem-ai-draft-form .triplem-ai-settings-message{grid-column:auto}.triplem-ai-draft-actions{flex-wrap:wrap}.triplem-ai-draft-actions>div{margin-left:0}.triplem-ai-settings-actions{flex-wrap:wrap}.triplem-ai-settings-actions .triplem-ai-delete-key{margin-right:0}.triplem-ai-record-copy em{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
 .triplem-ai-record-detail-dialog{width:min(620px,calc(100vw - 24px));max-height:calc(100dvh - 34px);overflow:hidden}.triplem-ai-record-detail-dialog .modal-head{padding:13px 15px}.triplem-ai-record-detail-dialog .modal-head h3{display:flex;align-items:center;gap:7px;margin:3px 0}.triplem-ai-record-detail-dialog .modal-head p{margin:2px 0 0;font-size:.65rem;color:var(--muted);text-transform:capitalize}.triplem-ai-record-detail-dialog .modal-body{padding:12px 15px;overflow:auto}.triplem-ai-record-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.triplem-ai-record-detail-grid>div{min-width:0;border:1px solid var(--line);border-radius:11px;background:var(--panel-2);padding:8px 9px;display:grid;gap:3px}.triplem-ai-record-detail-grid span{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.triplem-ai-record-detail-grid strong{font-size:.7rem;line-height:1.4;overflow-wrap:anywhere}.triplem-ai-record-detail-dialog .modal-footer{padding:9px 13px}.triplem-ai-record-detail-dialog .modal-footer .btn{min-height:31px;padding:6px 10px;font-size:.65rem}
 @media(max-width:720px){.triplem-ai-record-detail-grid{grid-template-columns:1fr}.triplem-ai-record-detail-dialog{width:calc(100vw - 18px)}}
+
+/* Triplem AI · viewport-bound chat and compact settings refinement */
+#triplem-aiPanel .triplem-ai-section{
+  height:var(--triplem-ai-viewport-height,calc(100dvh - 132px));
+  min-height:0!important;
+  max-height:var(--triplem-ai-viewport-height,calc(100dvh - 132px));
+  display:flex;
+  flex-direction:column;
+  overscroll-behavior:contain;
+  contain:layout paint;
+}
+#triplem-aiPanel .triplem-ai-root{
+  flex:1 1 auto;
+  width:100%;
+  height:100%;
+  min-height:0!important;
+  overflow:hidden;
+}
+#triplem-aiPanel .triplem-ai-shell{
+  width:100%;
+  height:100%;
+  min-height:0!important;
+  max-height:100%;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#triplem-aiPanel .triplem-ai-console-head,
+#triplem-aiPanel .triplem-ai-pending,
+#triplem-aiPanel .triplem-ai-suggestions,
+#triplem-aiPanel .triplem-ai-composer{flex:0 0 auto;position:relative;z-index:2}
+#triplem-aiPanel .triplem-ai-thread{
+  flex:1 1 auto;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--muted) 32%,transparent) transparent;
+  position:relative;
+  z-index:1;
+}
+#triplem-aiPanel .triplem-ai-thread::-webkit-scrollbar{display:block;width:6px}
+#triplem-aiPanel .triplem-ai-thread::-webkit-scrollbar-track{background:transparent}
+#triplem-aiPanel .triplem-ai-thread::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 26%,transparent);border-radius:999px}
+#triplem-aiPanel .triplem-ai-thread:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 42%,transparent)}
+#triplem-aiPanel .triplem-ai-console-head{box-shadow:0 8px 24px rgba(15,23,42,.025)}
+#triplem-aiPanel .triplem-ai-composer{box-shadow:0 -10px 28px rgba(15,23,42,.035)}
+
+.triplem-ai-settings-dialog{
+  width:min(560px,calc(100vw - 24px))!important;
+  max-height:calc(100dvh - 28px)!important;
+  overflow:hidden;
+  border-radius:18px;
+}
+.triplem-ai-settings-dialog .settings-sheet-head{
+  min-height:0;
+  padding:11px 13px!important;
+  gap:12px;
+  align-items:center;
+}
+.triplem-ai-settings-dialog .settings-sheet-head>div{min-width:0}
+.triplem-ai-settings-dialog .settings-sheet-head h3{font-size:.92rem!important;line-height:1.2;margin:2px 0!important}
+.triplem-ai-settings-dialog .settings-sheet-head p{font-size:.59rem!important;line-height:1.35;margin:2px 0 0!important}
+.triplem-ai-settings-kicker{font-size:.56rem;letter-spacing:.1em}
+.triplem-ai-settings-close{width:28px!important;height:28px!important;min-width:28px;border-radius:9px!important;font-size:.72rem}
+.triplem-ai-settings-dialog .settings-sheet-body{
+  padding:10px 13px!important;
+  gap:8px!important;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.triplem-ai-settings-hero{
+  margin:0 0 9px!important;
+  padding:8px 9px!important;
+  gap:8px!important;
+  align-items:center!important;
+  border-radius:12px!important;
+}
+.triplem-ai-settings-icon{width:30px!important;height:30px!important;min-width:30px!important;flex-basis:30px!important;border-radius:9px!important;font-size:.7rem}
+.triplem-ai-settings-hero strong{font-size:.67rem!important;line-height:1.25;margin:0!important}
+.triplem-ai-settings-hero p{font-size:.57rem!important;line-height:1.35!important;margin:2px 0 0!important}
+.triplem-ai-settings-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:8px!important;align-items:start}
+.triplem-ai-settings-field{gap:4px!important;min-width:0}
+.triplem-ai-settings-field>label,.triplem-ai-settings-field>span,.triplem-ai-key-entry>label{font-size:.59rem!important;line-height:1.2}
+.triplem-ai-settings-field>small{font-size:.54rem!important;line-height:1.3;min-height:1.3em}
+.triplem-ai-settings-field .input,.triplem-ai-key-entry .input{height:34px!important;min-height:34px!important;padding:6px 9px!important;border-radius:10px;font-size:.66rem!important}
+.triplem-ai-key-display{height:44px;min-height:44px!important;padding:6px 8px!important;gap:8px!important;border-radius:10px!important}
+.triplem-ai-key-display>i{width:18px;text-align:center;font-size:.7rem}
+.triplem-ai-key-display strong{font-size:.64rem!important;line-height:1.2}
+.triplem-ai-key-display small{font-size:.52rem!important;line-height:1.25;margin-top:1px}
+.triplem-ai-settings-status-grid{margin-top:8px!important;gap:7px!important}
+.triplem-ai-settings-status-grid>div{padding:6px 8px!important;border-radius:10px!important;gap:1px!important}
+.triplem-ai-settings-status-grid span{font-size:.51rem!important}
+.triplem-ai-settings-status-grid strong{font-size:.62rem!important;line-height:1.25}
+.triplem-ai-key-entry{margin-top:9px!important}
+.triplem-ai-secret-input{display:block!important;position:relative!important;margin-top:5px!important;width:100%}
+.triplem-ai-secret-input .input{width:100%;padding-right:39px!important}
+.triplem-ai-secret-input .triplem-ai-key-eye{
+  position:absolute!important;
+  top:50%!important;
+  right:4px!important;
+  transform:translateY(-50%)!important;
+  width:27px!important;
+  height:27px!important;
+  min-width:27px!important;
+  margin:0!important;
+  border-radius:8px!important;
+  font-size:.66rem;
+  z-index:3;
+}
+#triplemAiApiKey::-ms-reveal,#triplemAiApiKey::-ms-clear{display:none!important;width:0!important;height:0!important}
+#triplemAiApiKey::-webkit-credentials-auto-fill-button{visibility:hidden!important;display:none!important;pointer-events:none!important;position:absolute!important;right:0!important}
+.triplem-ai-key-entry>p{font-size:.54rem!important;line-height:1.35!important;margin:4px 1px 0!important}
+.triplem-ai-settings-notice{margin-top:8px!important;padding:7px 8px!important;gap:7px!important;border-radius:10px!important;font-size:.55rem!important;line-height:1.35!important}
+.triplem-ai-settings-notice>i{margin-top:1px;flex:0 0 auto}
+.triplem-ai-settings-message{min-height:14px!important;margin-top:5px!important;font-size:.59rem!important;line-height:1.3}
+.triplem-ai-settings-actions{padding:8px 11px!important;gap:5px!important;min-height:0;align-items:center!important}
+.triplem-ai-settings-actions .btn{height:29px!important;min-height:29px!important;padding:5px 8px!important;border-radius:8px!important;font-size:.6rem!important;gap:5px}
+.triplem-ai-settings-actions .btn i{font-size:.62rem}
+.triplem-ai-settings-actions .triplem-ai-delete-key{margin-right:auto!important}
+
+@media(max-width:720px){
+  #triplem-aiPanel .triplem-ai-section{height:var(--triplem-ai-viewport-height,calc(100dvh - 96px));max-height:var(--triplem-ai-viewport-height,calc(100dvh - 96px))}
+  #triplem-aiPanel .triplem-ai-thread{scrollbar-gutter:auto;scrollbar-width:none}
+  #triplem-aiPanel .triplem-ai-thread::-webkit-scrollbar{display:none}
+  .triplem-ai-settings-dialog{width:calc(100vw - 16px)!important;max-height:calc(100dvh - 16px)!important;border-radius:16px}
+  .triplem-ai-settings-grid,.triplem-ai-settings-status-grid{grid-template-columns:1fr!important}
+  .triplem-ai-settings-dialog .settings-sheet-head{padding:10px 11px!important}
+  .triplem-ai-settings-dialog .settings-sheet-body{padding:9px 11px!important}
+  .triplem-ai-settings-actions{padding:7px 9px!important;flex-wrap:nowrap!important}
+  .triplem-ai-settings-actions .btn{white-space:nowrap;padding-inline:7px!important}
+  .triplem-ai-settings-actions .triplem-ai-delete-key{margin-right:auto!important}
+}
+
