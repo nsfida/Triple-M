@@ -582,6 +582,7 @@ function tabIsAllowed(tab){
     dashboard: "dashboard",
     expenses: "expenses",
     goods: "inventory",
+    audit: "reports",
     accounting: "accounting",
     assets: "assets",
     given: "loans",
@@ -604,7 +605,7 @@ function tabIsAllowed(tab){
 function resolveStartupTab(){
   const preferred = getPreferredDefaultTab() || getActiveTabKey() || "dashboard";
   if (tabIsAllowed(preferred)) return preferred === "loans" ? "given" : preferred;
-  const fallbacks = ["dashboard", "expenses", "given", "goods", "accounting", "notes", "bitcoin", "messages"];
+  const fallbacks = ["dashboard", "expenses", "audit", "given", "goods", "accounting", "notes", "bitcoin", "messages"];
   for (const tab of fallbacks) {
     if (tabIsAllowed(tab)) return tab;
   }
@@ -632,6 +633,7 @@ function listDefaultStartPageOptions(){
     { id: "dashboard", label: "Detailed Dashboard", icon: "fa-solid fa-chart-line" },
     { id: "expenses", label: "Expenses", icon: "fa-solid fa-coins" },
     { id: "goods", label: "Inventory", icon: "fa-solid fa-cart-shopping" },
+    { id: "audit", label: "Audit Report", icon: "fa-solid fa-file-shield" },
     { id: "accounting", label: "Accounting", icon: "fa-solid fa-calculator" },
     { id: "assets", label: "Asset", icon: "fa-solid fa-building" },
     { id: "loans", label: "Loans", icon: "fa-solid fa-hand-holding-dollar" },
@@ -817,6 +819,7 @@ function activate(tab){
     dashboard: "dashboard",
     expenses: "expenses",
     goods: "inventory",
+    audit: "reports",
     accounting: "accounting",
     assets: "assets",
     given: "loans",
@@ -870,7 +873,7 @@ function activate(tab){
   }
 
   if (walletsOverview) {
-    if (tab === "bitcoin" || tab === "notes" || tab === "admin" || tab === "about" || tab === "messages" || tab === "dashboard" || tab === "assets") {
+    if (tab === "bitcoin" || tab === "notes" || tab === "admin" || tab === "about" || tab === "messages" || tab === "dashboard" || tab === "assets" || tab === "audit") {
       walletsOverview.style.display = "none";
     } else if (tab === "expenses") {
       walletsOverview.style.display = "block";
@@ -924,6 +927,15 @@ async function activateTabDataLoad(tab){
     }
 
     if (state.trialLocked) showTrialExpiredOverlay();
+
+    if (tab === "audit") {
+      try {
+        if (typeof window.prepareFinancialAuditReport === "function") window.prepareFinancialAuditReport();
+      } catch (err) {
+        console.error("Audit report prepare failed:", err);
+      }
+      return;
+    }
 
     try {
       await ensureTabDataLoaded(tab);
