@@ -1,0 +1,6425 @@
+{
+  "count": 1284,
+  "functions": [
+    {
+      "line": 29,
+      "name": "getEmbeddedSupabaseConfig",
+      "async": false
+    },
+    {
+      "line": 51,
+      "name": "sanitizeUsername",
+      "async": false
+    },
+    {
+      "line": 60,
+      "name": "bytesToHex",
+      "async": false
+    },
+    {
+      "line": 64,
+      "name": "bytesToBase64",
+      "async": false
+    },
+    {
+      "line": 73,
+      "name": "base64ToBytes",
+      "async": false
+    },
+    {
+      "line": 82,
+      "name": "openCredentialDb",
+      "async": false
+    },
+    {
+      "line": 99,
+      "name": "credentialStoreOperation",
+      "async": true
+    },
+    {
+      "line": 124,
+      "name": "getCredentialEncryptionKey",
+      "async": true
+    },
+    {
+      "line": 135,
+      "name": "saveEncryptedSessionCredential",
+      "async": true
+    },
+    {
+      "line": 152,
+      "name": "loadEncryptedSessionCredential",
+      "async": true
+    },
+    {
+      "line": 178,
+      "name": "deleteCredentialEncryptionKey",
+      "async": true
+    },
+    {
+      "line": 184,
+      "name": "clearLegacyZipStorage",
+      "async": false
+    },
+    {
+      "line": 191,
+      "name": "removeStoredSessionCredentials",
+      "async": false
+    },
+    {
+      "line": 251,
+      "name": "normalizeCurrencyCode",
+      "async": false
+    },
+    {
+      "line": 265,
+      "name": "getAllowedCurrencies",
+      "async": false
+    },
+    {
+      "line": 289,
+      "name": "preferenceRowsForCurrentUser",
+      "async": false
+    },
+    {
+      "line": 300,
+      "name": "normalizePageCurrencyList",
+      "async": false
+    },
+    {
+      "line": 318,
+      "name": "getPageCurrencyMenuOptions",
+      "async": false
+    },
+    {
+      "line": 325,
+      "name": "normalizePageCurrencySelection",
+      "async": false
+    },
+    {
+      "line": 330,
+      "name": "getPageCurrencySelection",
+      "async": false
+    },
+    {
+      "line": 334,
+      "name": "getSelectedPageCurrencies",
+      "async": false
+    },
+    {
+      "line": 341,
+      "name": "isPageCurrencyAll",
+      "async": false
+    },
+    {
+      "line": 345,
+      "name": "getPageScopedCurrencies",
+      "async": false
+    },
+    {
+      "line": 349,
+      "name": "entryMatchesPageCurrency",
+      "async": false
+    },
+    {
+      "line": 354,
+      "name": "pageCurrencyFromMetaNotes",
+      "async": false
+    },
+    {
+      "line": 359,
+      "name": "isPageCurrencyPreferenceRow",
+      "async": false
+    },
+    {
+      "line": 364,
+      "name": "buildPageCurrencyPreferenceNotes",
+      "async": false
+    },
+    {
+      "line": 368,
+      "name": "normalizeTaxRate",
+      "async": false
+    },
+    {
+      "line": 372,
+      "name": "normalizeTaxMode",
+      "async": false
+    },
+    {
+      "line": 376,
+      "name": "cloneTaxSettings",
+      "async": false
+    },
+    {
+      "line": 388,
+      "name": "taxSettingsFromMetaNotes",
+      "async": false
+    },
+    {
+      "line": 404,
+      "name": "buildTaxSettingsPreferenceNotes",
+      "async": false
+    },
+    {
+      "line": 413,
+      "name": "isTaxSettingsPreferenceRow",
+      "async": false
+    },
+    {
+      "line": 418,
+      "name": "loadTaxSettingsPreferenceFromStorage",
+      "async": false
+    },
+    {
+      "line": 427,
+      "name": "saveTaxSettingsPreferenceToStorage",
+      "async": false
+    },
+    {
+      "line": 433,
+      "name": "loadTaxSettingsPreferenceFromDatabase",
+      "async": true
+    },
+    {
+      "line": 456,
+      "name": "saveTaxSettingsPreferenceToDatabase",
+      "async": true
+    },
+    {
+      "line": 499,
+      "name": "getTaxSettingForCurrency",
+      "async": false
+    },
+    {
+      "line": 504,
+      "name": "roundTaxMoney",
+      "async": false
+    },
+    {
+      "line": 509,
+      "name": "finiteMoney",
+      "async": false
+    },
+    {
+      "line": 517,
+      "name": "parseVatAppliedToken",
+      "async": false
+    },
+    {
+      "line": 521,
+      "name": "isTaxAppliedFromMeta",
+      "async": false
+    },
+    {
+      "line": 525,
+      "name": "calculateTaxBreakdown",
+      "async": false
+    },
+    {
+      "line": 529,
+      "name": "calculateTaxBreakdownFromGross",
+      "async": false
+    },
+    {
+      "line": 533,
+      "name": "taxMetaFromBreakdown",
+      "async": false
+    },
+    {
+      "line": 537,
+      "name": "taxBreakdownFromMeta",
+      "async": false
+    },
+    {
+      "line": 541,
+      "name": "formatTaxModeLabel",
+      "async": false
+    },
+    {
+      "line": 545,
+      "name": "formatTaxSummary",
+      "async": false
+    },
+    {
+      "line": 553,
+      "name": "secretPinHashFromMetaNotes",
+      "async": false
+    },
+    {
+      "line": 558,
+      "name": "smartPinDisabledFromMetaNotes",
+      "async": false
+    },
+    {
+      "line": 562,
+      "name": "isSecretPinPreferenceRow",
+      "async": false
+    },
+    {
+      "line": 567,
+      "name": "buildSecretPinPreferenceNotes",
+      "async": false
+    },
+    {
+      "line": 571,
+      "name": "buildSmartPinDisabledPreferenceNotes",
+      "async": false
+    },
+    {
+      "line": 575,
+      "name": "systemPreferenceQuery",
+      "async": false
+    },
+    {
+      "line": 583,
+      "name": "currentOwnerId",
+      "async": false
+    },
+    {
+      "line": 589,
+      "name": "ownerIdQuery",
+      "async": false
+    },
+    {
+      "line": 595,
+      "name": "rowBelongsToCurrentUser",
+      "async": false
+    },
+    {
+      "line": 606,
+      "name": "shouldPreserveLocalLedgerEntry",
+      "async": false
+    },
+    {
+      "line": 618,
+      "name": "filterRowsForCurrentUser",
+      "async": false
+    },
+    {
+      "line": 1131,
+      "name": "resetLazyDataState",
+      "async": false
+    },
+    {
+      "line": 1149,
+      "name": "resetInventoryLazyState",
+      "async": false
+    },
+    {
+      "line": 1164,
+      "name": "isInventoryLazyMode",
+      "async": false
+    },
+    {
+      "line": 1168,
+      "name": "resetExpenseLazyState",
+      "async": false
+    },
+    {
+      "line": 1183,
+      "name": "isExpenseLazyMode",
+      "async": false
+    },
+    {
+      "line": 1187,
+      "name": "expenseLazyActivityQueryKey",
+      "async": false
+    },
+    {
+      "line": 1202,
+      "name": "isGuestMode",
+      "async": false
+    },
+    {
+      "line": 1206,
+      "name": "getUserAccessFlags",
+      "async": false
+    },
+    {
+      "line": 1316,
+      "name": "accessPeriodDaysFromUi",
+      "async": false
+    },
+    {
+      "line": 1325,
+      "name": "accessPeriodLabel",
+      "async": false
+    },
+    {
+      "line": 1335,
+      "name": "toInputDateValue",
+      "async": false
+    },
+    {
+      "line": 1349,
+      "name": "minExtendDateValue",
+      "async": false
+    },
+    {
+      "line": 1355,
+      "name": "addCalendarDaysToDateValue",
+      "async": false
+    },
+    {
+      "line": 1368,
+      "name": "formatAccessDateShort",
+      "async": false
+    },
+    {
+      "line": 1379,
+      "name": "formatAccessDateTimeShort",
+      "async": false
+    },
+    {
+      "line": 1391,
+      "name": "adminAccessActionLabel",
+      "async": false
+    },
+    {
+      "line": 1399,
+      "name": "adminPlanStatusMeta",
+      "async": false
+    },
+    {
+      "line": 1419,
+      "name": "buildManagePlanBody",
+      "async": false
+    },
+    {
+      "line": 1504,
+      "name": "loadAdminAccessHistory",
+      "async": true
+    },
+    {
+      "line": 1540,
+      "name": "closeAdminManagePlanModal",
+      "async": false
+    },
+    {
+      "line": 1547,
+      "name": "mergeAdminUserCache",
+      "async": false
+    },
+    {
+      "line": 1557,
+      "name": "openAdminManagePlanModal",
+      "async": false
+    },
+    {
+      "line": 1677,
+      "name": "submitPlanRenewalRequest",
+      "async": true
+    },
+    {
+      "line": 1703,
+      "name": "isTrialExpired",
+      "async": false
+    },
+    {
+      "line": 1708,
+      "name": "isDataAccessAllowed",
+      "async": false
+    },
+    {
+      "line": 1716,
+      "name": "formatTrialExpiry",
+      "async": false
+    },
+    {
+      "line": 1725,
+      "name": "hideTrialExpiredOverlay",
+      "async": false
+    },
+    {
+      "line": 1733,
+      "name": "showTrialExpiredOverlay",
+      "async": false
+    },
+    {
+      "line": 1759,
+      "name": "passwordMeetsPolicy",
+      "async": false
+    },
+    {
+      "line": 1764,
+      "name": "assertPasswordPolicy",
+      "async": false
+    },
+    {
+      "line": 1770,
+      "name": "sessionHasWeakPassword",
+      "async": false
+    },
+    {
+      "line": 1779,
+      "name": "updateWeakPasswordBanner",
+      "async": false
+    },
+    {
+      "line": 1786,
+      "name": "updateAccessBanner",
+      "async": false
+    },
+    {
+      "line": 1825,
+      "name": "backupStorageKey",
+      "async": false
+    },
+    {
+      "line": 1831,
+      "name": "recycleBinStorageKey",
+      "async": false
+    },
+    {
+      "line": 1837,
+      "name": "readStoredArray",
+      "async": false
+    },
+    {
+      "line": 1847,
+      "name": "writeStoredArray",
+      "async": false
+    },
+    {
+      "line": 1855,
+      "name": "clearGuestStorageArtifacts",
+      "async": false
+    },
+    {
+      "line": 1862,
+      "name": "resetGuestSessionData",
+      "async": false
+    },
+    {
+      "line": 1870,
+      "name": "loadGuestNotesFromStorage",
+      "async": false
+    },
+    {
+      "line": 1874,
+      "name": "saveGuestNotesToStorage",
+      "async": false
+    },
+    {
+      "line": 1878,
+      "name": "loadGuestBitcoinWalletsFromStorage",
+      "async": false
+    },
+    {
+      "line": 1883,
+      "name": "saveGuestBitcoinWalletsToStorage",
+      "async": false
+    },
+    {
+      "line": 1887,
+      "name": "ensureGuestRestrictionOverlay",
+      "async": false
+    },
+    {
+      "line": 1924,
+      "name": "showGuestRestrictionOverlay",
+      "async": false
+    },
+    {
+      "line": 1939,
+      "name": "isGuestRestrictedDownloadTarget",
+      "async": false
+    },
+    {
+      "line": 1977,
+      "name": "handleGuestRestrictedClick",
+      "async": false
+    },
+    {
+      "line": 1986,
+      "name": "getLoggedInUserDisplayName",
+      "async": false
+    },
+    {
+      "line": 1994,
+      "name": "updateUserIdentityUi",
+      "async": false
+    },
+    {
+      "line": 2006,
+      "name": "updateGuestModeUi",
+      "async": false
+    },
+    {
+      "line": 2043,
+      "name": "initFloatingCurrencyBackground",
+      "async": false
+    },
+    {
+      "line": 2083,
+      "name": "escapeHtml",
+      "async": false
+    },
+    {
+      "line": 2089,
+      "name": "todayISO",
+      "async": false
+    },
+    {
+      "line": 2093,
+      "name": "displayDate",
+      "async": false
+    },
+    {
+      "line": 2107,
+      "name": "dateStamp",
+      "async": false
+    },
+    {
+      "line": 2112,
+      "name": "unwrapCsvDateCell",
+      "async": false
+    },
+    {
+      "line": 2128,
+      "name": "normalizeDateForDb",
+      "async": false
+    },
+    {
+      "line": 2208,
+      "name": "formatCsvDate",
+      "async": false
+    },
+    {
+      "line": 2215,
+      "name": "entrySignature",
+      "async": false
+    },
+    {
+      "line": 2236,
+      "name": "isEntryInRecycleBin",
+      "async": false
+    },
+    {
+      "line": 2240,
+      "name": "getActiveEntries",
+      "async": false
+    },
+    {
+      "line": 2265,
+      "name": "addToRecycleBin",
+      "async": false
+    },
+    {
+      "line": 2275,
+      "name": "getEntrySection",
+      "async": false
+    },
+    {
+      "line": 2283,
+      "name": "saveRecycleBinToStorage",
+      "async": false
+    },
+    {
+      "line": 2295,
+      "name": "loadRecycleBinFromStorage",
+      "async": false
+    },
+    {
+      "line": 2313,
+      "name": "getVisibleRecycleBinItems",
+      "async": false
+    },
+    {
+      "line": 2317,
+      "name": "restoreFromRecycleBin",
+      "async": true
+    },
+    {
+      "line": 2365,
+      "name": "permanentDeleteFromRecycleBin",
+      "async": true
+    },
+    {
+      "line": 2392,
+      "name": "emptyRecycleBin",
+      "async": true
+    },
+    {
+      "line": 2432,
+      "name": "renderRecycleBinDropdown",
+      "async": false
+    },
+    {
+      "line": 2497,
+      "name": "renderPageCurrencySelector",
+      "async": false
+    },
+    {
+      "line": 2540,
+      "name": "ensureTaxSettingsModal",
+      "async": false
+    },
+    {
+      "line": 2577,
+      "name": "openTaxSettingsModal",
+      "async": false
+    },
+    {
+      "line": 2599,
+      "name": "saveTaxSettingsFromModal",
+      "async": true
+    },
+    {
+      "line": 2624,
+      "name": "syncSectionCurrencyFiltersWithPage",
+      "async": false
+    },
+    {
+      "line": 2667,
+      "name": "applyPageCurrencySelection",
+      "async": false
+    },
+    {
+      "line": 2686,
+      "name": "loadPageCurrencyPreferenceFromDatabase",
+      "async": true
+    },
+    {
+      "line": 2708,
+      "name": "savePageCurrencyPreferenceToDatabase",
+      "async": true
+    },
+    {
+      "line": 2751,
+      "name": "setPageCurrencySelection",
+      "async": true
+    },
+    {
+      "line": 2798,
+      "name": "validateSecretPinValue",
+      "async": false
+    },
+    {
+      "line": 2802,
+      "name": "hashSecretPin",
+      "async": true
+    },
+    {
+      "line": 2812,
+      "name": "verifySecretPin",
+      "async": true
+    },
+    {
+      "line": 2818,
+      "name": "renderSecretPinMenu",
+      "async": false
+    },
+    {
+      "line": 2842,
+      "name": "loadSecretPinPreferenceFromDatabase",
+      "async": true
+    },
+    {
+      "line": 2889,
+      "name": "saveSecretPinPreferenceToDatabase",
+      "async": true
+    },
+    {
+      "line": 2908,
+      "name": "ensureSmartPinManageModal",
+      "async": false
+    },
+    {
+      "line": 2956,
+      "name": "openSmartPinManageModal",
+      "async": false
+    },
+    {
+      "line": 3081,
+      "name": "getExpenseWalletChallengeData",
+      "async": true
+    },
+    {
+      "line": 3092,
+      "name": "handleForgotSecretPin",
+      "async": true
+    },
+    {
+      "line": 3113,
+      "name": "handleSecretPinMenuAction",
+      "async": true
+    },
+    {
+      "line": 3128,
+      "name": "deleteSecretPinPreferenceFromDatabase",
+      "async": true
+    },
+    {
+      "line": 3147,
+      "name": "handleDeleteSmartPinAction",
+      "async": true
+    },
+    {
+      "line": 3163,
+      "name": "ensureSecretPinModal",
+      "async": false
+    },
+    {
+      "line": 3204,
+      "name": "requestSecretPinUnlock",
+      "async": false
+    },
+    {
+      "line": 3266,
+      "name": "ensureSmartPinConfirmModal",
+      "async": false
+    },
+    {
+      "line": 3309,
+      "name": "requireSmartPinConfirm",
+      "async": false
+    },
+    {
+      "line": 3420,
+      "name": "getSupabaseConfig",
+      "async": false
+    },
+    {
+      "line": 3430,
+      "name": "supabaseRpc",
+      "async": true
+    },
+    {
+      "line": 3443,
+      "name": "unwrapRpcJson",
+      "async": false
+    },
+    {
+      "line": 3463,
+      "name": "logCompanyActivity",
+      "async": true
+    },
+    {
+      "line": 3478,
+      "name": "activityModuleForEntry",
+      "async": false
+    },
+    {
+      "line": 3487,
+      "name": "activitySummaryForEntry",
+      "async": false
+    },
+    {
+      "line": 3524,
+      "name": "logEntriesCreated",
+      "async": false
+    },
+    {
+      "line": 3533,
+      "name": "logEntryUpdated",
+      "async": false
+    },
+    {
+      "line": 3541,
+      "name": "logEntryDeleted",
+      "async": false
+    },
+    {
+      "line": 3557,
+      "name": "companyTeamPermCheckboxesHtml",
+      "async": false
+    },
+    {
+      "line": 3566,
+      "name": "readCompanyTeamPermCheckboxes",
+      "async": false
+    },
+    {
+      "line": 3574,
+      "name": "resetCompanyTeamAddPermDefaults",
+      "async": false
+    },
+    {
+      "line": 3582,
+      "name": "ensureCompanyTeamModal",
+      "async": false
+    },
+    {
+      "line": 3593,
+      "name": "closeCompanyTeamModal",
+      "async": false
+    },
+    {
+      "line": 3601,
+      "name": "isCompanyTeamModalOpen",
+      "async": false
+    },
+    {
+      "line": 3606,
+      "name": "openCompanyTeamModal",
+      "async": true
+    },
+    {
+      "line": 3791,
+      "name": "updateCompanyTeamSeatsUi",
+      "async": false
+    },
+    {
+      "line": 3807,
+      "name": "loadCompanyTeamMembers",
+      "async": true
+    },
+    {
+      "line": 3826,
+      "name": "renderCompanyTeamMemberCard",
+      "async": false
+    },
+    {
+      "line": 3852,
+      "name": "wireCompanyTeamMemberActions",
+      "async": false
+    },
+    {
+      "line": 3894,
+      "name": "openCompanyTeamMemberPermissionsEditor",
+      "async": false
+    },
+    {
+      "line": 3930,
+      "name": "loadCompanyTeamActivity",
+      "async": true
+    },
+    {
+      "line": 3991,
+      "name": "applyUserProfileToConfig",
+      "async": false
+    },
+    {
+      "line": 4055,
+      "name": "normalizeAssignedModules",
+      "async": false
+    },
+    {
+      "line": 4059,
+      "name": "getSessionAssignedModules",
+      "async": false
+    },
+    {
+      "line": 4070,
+      "name": "userHasPermission",
+      "async": false
+    },
+    {
+      "line": 4083,
+      "name": "isTeamMemberAccount",
+      "async": false
+    },
+    {
+      "line": 4086,
+      "name": "isTeamOwnerAccount",
+      "async": false
+    },
+    {
+      "line": 4089,
+      "name": "canManageCompanyTeam",
+      "async": false
+    },
+    {
+      "line": 4092,
+      "name": "teamCapability",
+      "async": false
+    },
+    {
+      "line": 4095,
+      "name": "assertTeamCapability",
+      "async": false
+    },
+    {
+      "line": 4102,
+      "name": "teamCanShowEdit",
+      "async": false
+    },
+    {
+      "line": 4105,
+      "name": "teamCanShowDelete",
+      "async": false
+    },
+    {
+      "line": 4109,
+      "name": "applyPermissionGates",
+      "async": false
+    },
+    {
+      "line": 4184,
+      "name": "apiHeaders",
+      "async": false
+    },
+    {
+      "line": 4199,
+      "name": "supabase",
+      "async": true
+    },
+    {
+      "line": 4225,
+      "name": "asEntryArray",
+      "async": false
+    },
+    {
+      "line": 4229,
+      "name": "withLocalEntryIdentity",
+      "async": false
+    },
+    {
+      "line": 4240,
+      "name": "databaseInsertPayload",
+      "async": false
+    },
+    {
+      "line": 4247,
+      "name": "markDbSnapshotRows",
+      "async": false
+    },
+    {
+      "line": 4257,
+      "name": "unmarkDbSnapshotRows",
+      "async": false
+    },
+    {
+      "line": 4268,
+      "name": "enqueueDatabaseWrite",
+      "async": false
+    },
+    {
+      "line": 4274,
+      "name": "queueDatabaseInsert",
+      "async": false
+    },
+    {
+      "line": 4375,
+      "name": "saveEntriesImmediately",
+      "async": false
+    },
+    {
+      "line": 4440,
+      "name": "queueDatabasePatch",
+      "async": false
+    },
+    {
+      "line": 4487,
+      "name": "currencySymbol",
+      "async": false
+    },
+    {
+      "line": 4497,
+      "name": "currencySymbolForPdf",
+      "async": false
+    },
+    {
+      "line": 4503,
+      "name": "pdfCurrencyLabel",
+      "async": false
+    },
+    {
+      "line": 4508,
+      "name": "stripPdfCurrencyMarkers",
+      "async": false
+    },
+    {
+      "line": 4512,
+      "name": "hasPdfCurrencyMarkers",
+      "async": false
+    },
+    {
+      "line": 4516,
+      "name": "currencyDecimals",
+      "async": false
+    },
+    {
+      "line": 4522,
+      "name": "formatCurrencyAmountText",
+      "async": false
+    },
+    {
+      "line": 4536,
+      "name": "currencySymbolHtml",
+      "async": false
+    },
+    {
+      "line": 4546,
+      "name": "currencyFontClass",
+      "async": false
+    },
+    {
+      "line": 4555,
+      "name": "applyCurrencyFontClass",
+      "async": false
+    },
+    {
+      "line": 4562,
+      "name": "moneyText",
+      "async": false
+    },
+    {
+      "line": 4566,
+      "name": "money",
+      "async": false
+    },
+    {
+      "line": 4574,
+      "name": "shortId",
+      "async": false
+    },
+    {
+      "line": 4578,
+      "name": "groupSortStamp",
+      "async": false
+    },
+    {
+      "line": 4582,
+      "name": "groupByLoan",
+      "async": false
+    },
+    {
+      "line": 4658,
+      "name": "calculateLoan",
+      "async": false
+    },
+    {
+      "line": 4662,
+      "name": "summarizeCurrency",
+      "async": false
+    },
+    {
+      "line": 4683,
+      "name": "summarizeExpenseByCurrency",
+      "async": false
+    },
+    {
+      "line": 4691,
+      "name": "overviewOneLine",
+      "async": false
+    },
+    {
+      "line": 4700,
+      "name": "overviewAvailableLine",
+      "async": false
+    },
+    {
+      "line": 4711,
+      "name": "overviewExpenseLine",
+      "async": false
+    },
+    {
+      "line": 4715,
+      "name": "overviewWatermarkCurrency",
+      "async": false
+    },
+    {
+      "line": 4725,
+      "name": "getExpenseAccountsSyncCache",
+      "async": false
+    },
+    {
+      "line": 4738,
+      "name": "invalidateExpenseAccountsSyncCache",
+      "async": false
+    },
+    {
+      "line": 4743,
+      "name": "applyOptimisticExpenseLazySummaryForRows",
+      "async": false
+    },
+    {
+      "line": 4771,
+      "name": "debounce",
+      "async": false
+    },
+    {
+      "line": 4787,
+      "name": "walletLogoFilePath",
+      "async": false
+    },
+    {
+      "line": 4792,
+      "name": "escapeLogoSrc",
+      "async": false
+    },
+    {
+      "line": 4802,
+      "name": "getWalletCustomLogoMap",
+      "async": false
+    },
+    {
+      "line": 4815,
+      "name": "customLogoForWalletName",
+      "async": false
+    },
+    {
+      "line": 4821,
+      "name": "resolveWalletLogoSrc",
+      "async": false
+    },
+    {
+      "line": 4827,
+      "name": "walletLogoOnErrorHandler",
+      "async": false
+    },
+    {
+      "line": 4833,
+      "name": "overviewWatermarkWallet",
+      "async": false
+    },
+    {
+      "line": 4847,
+      "name": "getWalletIconHtml",
+      "async": false
+    },
+    {
+      "line": 4860,
+      "name": "overviewWatermarkGoods",
+      "async": false
+    },
+    {
+      "line": 4864,
+      "name": "overviewWatermarkExpenses",
+      "async": false
+    },
+    {
+      "line": 4872,
+      "name": "hash01",
+      "async": false
+    },
+    {
+      "line": 4883,
+      "name": "overviewWatermarkFloatingWalletLogos",
+      "async": false
+    },
+    {
+      "line": 4923,
+      "name": "expenseOverviewWalletCardHtml",
+      "async": false
+    },
+    {
+      "line": 4976,
+      "name": "getActiveTabKey",
+      "async": false
+    },
+    {
+      "line": 4984,
+      "name": "inventoryOverviewTotals",
+      "async": false
+    },
+    {
+      "line": 4994,
+      "name": "inventoryOverviewAmountText",
+      "async": false
+    },
+    {
+      "line": 5001,
+      "name": "setMainOverviewHeading",
+      "async": false
+    },
+    {
+      "line": 5016,
+      "name": "renderInventoryOverviewCards",
+      "async": false
+    },
+    {
+      "line": 5075,
+      "name": "renderOverviewCards",
+      "async": false
+    },
+    {
+      "line": 5115,
+      "name": "matchesSearch",
+      "async": false
+    },
+    {
+      "line": 5121,
+      "name": "hasInstallmentTag",
+      "async": false
+    },
+    {
+      "line": 5125,
+      "name": "hasGoodsTag",
+      "async": false
+    },
+    {
+      "line": 5129,
+      "name": "normalizeInstallmentNote",
+      "async": false
+    },
+    {
+      "line": 5135,
+      "name": "installmentMetaTagCleanRegex",
+      "async": false
+    },
+    {
+      "line": 5139,
+      "name": "installmentMetaFromNotes",
+      "async": false
+    },
+    {
+      "line": 5161,
+      "name": "upsertInstallmentMetaInNote",
+      "async": false
+    },
+    {
+      "line": 5174,
+      "name": "cleanInstallmentDisplayNote",
+      "async": false
+    },
+    {
+      "line": 5182,
+      "name": "roundInstallmentMoney",
+      "async": false
+    },
+    {
+      "line": 5189,
+      "name": "computeInstallmentAmounts",
+      "async": false
+    },
+    {
+      "line": 5203,
+      "name": "addMonthsToISODate",
+      "async": false
+    },
+    {
+      "line": 5221,
+      "name": "hasInstallmentSchedule",
+      "async": false
+    },
+    {
+      "line": 5227,
+      "name": "parseInstallmentAllocation",
+      "async": false
+    },
+    {
+      "line": 5239,
+      "name": "formatInstallmentAllocation",
+      "async": false
+    },
+    {
+      "line": 5246,
+      "name": "buildInstallmentSchedule",
+      "async": false
+    },
+    {
+      "line": 5369,
+      "name": "collectInstallmentSlotNotes",
+      "async": false
+    },
+    {
+      "line": 5409,
+      "name": "allocateInstallmentPayment",
+      "async": false
+    },
+    {
+      "line": 5425,
+      "name": "buildInstallmentScheduleMeta",
+      "async": false
+    },
+    {
+      "line": 5437,
+      "name": "remapInstallmentPaymentsToSchedule",
+      "async": false
+    },
+    {
+      "line": 5516,
+      "name": "getInstallmentPlanGroup",
+      "async": false
+    },
+    {
+      "line": 5551,
+      "name": "getInstallmentPlanGroups",
+      "async": false
+    },
+    {
+      "line": 5589,
+      "name": "normalizeGoodsNote",
+      "async": false
+    },
+    {
+      "line": 5595,
+      "name": "goodsMetaFromNotes",
+      "async": false
+    },
+    {
+      "line": 5651,
+      "name": "goodsMetaTagCleanRegex",
+      "async": false
+    },
+    {
+      "line": 5655,
+      "name": "upsertGoodsMetaInNote",
+      "async": false
+    },
+    {
+      "line": 5702,
+      "name": "cleanGoodsDisplayNote",
+      "async": false
+    },
+    {
+      "line": 5710,
+      "name": "normalizeInventoryItemType",
+      "async": false
+    },
+    {
+      "line": 5715,
+      "name": "getInventoryItemTypes",
+      "async": false
+    },
+    {
+      "line": 5725,
+      "name": "inventoryItemTypeOptionsHtml",
+      "async": false
+    },
+    {
+      "line": 5742,
+      "name": "readGoodsBoughtItemType",
+      "async": false
+    },
+    {
+      "line": 5753,
+      "name": "syncInventoryItemTypeFields",
+      "async": false
+    },
+    {
+      "line": 5783,
+      "name": "syncGoodsBoughtItemTypeFields",
+      "async": false
+    },
+    {
+      "line": 5787,
+      "name": "refreshInventoryTypeFilterOptions",
+      "async": false
+    },
+    {
+      "line": 5801,
+      "name": "hasExpenseAccountTag",
+      "async": false
+    },
+    {
+      "line": 5805,
+      "name": "hasDeletedTag",
+      "async": false
+    },
+    {
+      "line": 5809,
+      "name": "addDeletedTag",
+      "async": false
+    },
+    {
+      "line": 5815,
+      "name": "removeDeletedTag",
+      "async": false
+    },
+    {
+      "line": 5822,
+      "name": "expenseMetaFromNotes",
+      "async": false
+    },
+    {
+      "line": 5851,
+      "name": "upsertExpenseMetaInNote",
+      "async": false
+    },
+    {
+      "line": 5897,
+      "name": "cleanExpenseNote",
+      "async": false
+    },
+    {
+      "line": 5906,
+      "name": "cleanExpenseNoteForEdit",
+      "async": false
+    },
+    {
+      "line": 5911,
+      "name": "wrapTextForPdf",
+      "async": false
+    },
+    {
+      "line": 5929,
+      "name": "expenseBtcTrimAmount",
+      "async": false
+    },
+    {
+      "line": 5935,
+      "name": "expenseBtcCacheKey",
+      "async": false
+    },
+    {
+      "line": 5939,
+      "name": "expenseBtcGetCache",
+      "async": false
+    },
+    {
+      "line": 5943,
+      "name": "expenseBtcSetCache",
+      "async": false
+    },
+    {
+      "line": 5951,
+      "name": "expenseBtcIsCacheFresh",
+      "async": false
+    },
+    {
+      "line": 5955,
+      "name": "expenseBtcDetectNetwork",
+      "async": false
+    },
+    {
+      "line": 5973,
+      "name": "expenseBtcNetworkFromMeta",
+      "async": false
+    },
+    {
+      "line": 5978,
+      "name": "fetchExpenseBtcWalletData",
+      "async": true
+    },
+    {
+      "line": 6010,
+      "name": "fetchExpenseBtcAllWalletData",
+      "async": true
+    },
+    {
+      "line": 6044,
+      "name": "refreshExpenseBtcWallets",
+      "async": false
+    },
+    {
+      "line": 6089,
+      "name": "syncExpenseBtcAccountFields",
+      "async": false
+    },
+    {
+      "line": 6124,
+      "name": "previewExpenseBtcBalance",
+      "async": true
+    },
+    {
+      "line": 6153,
+      "name": "sortCurrenciesList",
+      "async": false
+    },
+    {
+      "line": 6164,
+      "name": "findTransferPartnerForExpense",
+      "async": false
+    },
+    {
+      "line": 6177,
+      "name": "parseTransferExpenseDetails",
+      "async": false
+    },
+    {
+      "line": 6209,
+      "name": "inferGoodsActionType",
+      "async": false
+    },
+    {
+      "line": 6215,
+      "name": "isInventorySaleAction",
+      "async": false
+    },
+    {
+      "line": 6220,
+      "name": "isInventorySettlementAction",
+      "async": false
+    },
+    {
+      "line": 6224,
+      "name": "isInventoryCustomerOnlyEntry",
+      "async": false
+    },
+    {
+      "line": 6228,
+      "name": "getExistingInventoryCodes",
+      "async": false
+    },
+    {
+      "line": 6238,
+      "name": "getExistingInventoryReceipts",
+      "async": false
+    },
+    {
+      "line": 6246,
+      "name": "getExistingInventoryDocumentNumbers",
+      "async": false
+    },
+    {
+      "line": 6264,
+      "name": "randomHex12",
+      "async": false
+    },
+    {
+      "line": 6274,
+      "name": "nextPrefixedHexCode",
+      "async": false
+    },
+    {
+      "line": 6284,
+      "name": "nextInventoryCode",
+      "async": false
+    },
+    {
+      "line": 6288,
+      "name": "nextInvoiceNumber",
+      "async": false
+    },
+    {
+      "line": 6292,
+      "name": "nextPaymentReceiptNumber",
+      "async": false
+    },
+    {
+      "line": 6296,
+      "name": "nextReceiptNumber",
+      "async": false
+    },
+    {
+      "line": 6300,
+      "name": "stableInventoryHex12",
+      "async": false
+    },
+    {
+      "line": 6314,
+      "name": "inventoryInvoiceNumberFromMeta",
+      "async": false
+    },
+    {
+      "line": 6318,
+      "name": "inventoryPaymentReceiptNumberFromMeta",
+      "async": false
+    },
+    {
+      "line": 6325,
+      "name": "normalizeInventoryCategory",
+      "async": false
+    },
+    {
+      "line": 6347,
+      "name": "inventoryCategoryLabel",
+      "async": false
+    },
+    {
+      "line": 6355,
+      "name": "inventoryIsDecimalCategory",
+      "async": false
+    },
+    {
+      "line": 6362,
+      "name": "inventoryQtyFieldLabel",
+      "async": false
+    },
+    {
+      "line": 6370,
+      "name": "inventoryPurchasePriceLabel",
+      "async": false
+    },
+    {
+      "line": 6378,
+      "name": "inventorySellingPriceLabel",
+      "async": false
+    },
+    {
+      "line": 6386,
+      "name": "inventorySalePricePlaceholder",
+      "async": false
+    },
+    {
+      "line": 6394,
+      "name": "parseInventorySizeHint",
+      "async": false
+    },
+    {
+      "line": 6404,
+      "name": "inventoryVolumeBottleLabels",
+      "async": false
+    },
+    {
+      "line": 6416,
+      "name": "inventoryVolumeBottleCostLabels",
+      "async": false
+    },
+    {
+      "line": 6426,
+      "name": "inventoryVolumePriceToPerLiter",
+      "async": false
+    },
+    {
+      "line": 6434,
+      "name": "inventoryBottlePriceToPerLiter",
+      "async": false
+    },
+    {
+      "line": 6441,
+      "name": "resolveInventoryItemCategory",
+      "async": false
+    },
+    {
+      "line": 6475,
+      "name": "inventoryLineRateForDisplay",
+      "async": false
+    },
+    {
+      "line": 6488,
+      "name": "inventoryDisplayRateToUnitPrice",
+      "async": false
+    },
+    {
+      "line": 6501,
+      "name": "inventoryBaseUnitForCategory",
+      "async": false
+    },
+    {
+      "line": 6509,
+      "name": "inventoryUnitSelectOptionsHtml",
+      "async": false
+    },
+    {
+      "line": 6535,
+      "name": "normalizeInventoryUnit",
+      "async": false
+    },
+    {
+      "line": 6553,
+      "name": "trimInventoryNumber",
+      "async": false
+    },
+    {
+      "line": 6561,
+      "name": "normalizeInventoryQuantityInput",
+      "async": false
+    },
+    {
+      "line": 6577,
+      "name": "normalizeStoredInventoryQty",
+      "async": false
+    },
+    {
+      "line": 6587,
+      "name": "formatInventoryQty",
+      "async": false
+    },
+    {
+      "line": 6599,
+      "name": "inventoryQtyLabel",
+      "async": false
+    },
+    {
+      "line": 6603,
+      "name": "inventoryQtyInUnit",
+      "async": false
+    },
+    {
+      "line": 6614,
+      "name": "preferredDraftQtyUnit",
+      "async": false
+    },
+    {
+      "line": 6622,
+      "name": "inventoryCustomerDirectory",
+      "async": false
+    },
+    {
+      "line": 6646,
+      "name": "inventoryQtySummary",
+      "async": false
+    },
+    {
+      "line": 6666,
+      "name": "inventoryLinePaidAmount",
+      "async": false
+    },
+    {
+      "line": 6675,
+      "name": "inventoryLineBalanceAmount",
+      "async": false
+    },
+    {
+      "line": 6686,
+      "name": "inventoryPaymentStatus",
+      "async": false
+    },
+    {
+      "line": 6693,
+      "name": "getInventoryReceiptEntries",
+      "async": false
+    },
+    {
+      "line": 6734,
+      "name": "dedupeInventoryActionEntries",
+      "async": false
+    },
+    {
+      "line": 6757,
+      "name": "dedupeSaleDraftLines",
+      "async": false
+    },
+    {
+      "line": 6771,
+      "name": "getInventoryReceiptData",
+      "async": false
+    },
+    {
+      "line": 6939,
+      "name": "addCurrencyTotal",
+      "async": false
+    },
+    {
+      "line": 6944,
+      "name": "inventoryCurrencyTotalsText",
+      "async": false
+    },
+    {
+      "line": 6952,
+      "name": "collectOutstandingInventoryInvoices",
+      "async": false
+    },
+    {
+      "line": 7015,
+      "name": "renderInventoryOutstandingBanner",
+      "async": false
+    },
+    {
+      "line": 7118,
+      "name": "applyInventoryOutstandingSearch",
+      "async": false
+    },
+    {
+      "line": 7135,
+      "name": "openInventoryAddCustomer",
+      "async": false
+    },
+    {
+      "line": 7140,
+      "name": "bindInventoryAddCustomerButtons",
+      "async": false
+    },
+    {
+      "line": 7152,
+      "name": "bindInventoryOutstandingBanner",
+      "async": false
+    },
+    {
+      "line": 7178,
+      "name": "setInventorySubView",
+      "async": true
+    },
+    {
+      "line": 7214,
+      "name": "renderInventoryOutstandingSection",
+      "async": false
+    },
+    {
+      "line": 7223,
+      "name": "outstandingInvoicesForCustomer",
+      "async": false
+    },
+    {
+      "line": 7230,
+      "name": "downloadOutstandingCustomerInvoicePDF",
+      "async": true
+    },
+    {
+      "line": 7305,
+      "name": "normalizeInventoryCustomerKey",
+      "async": false
+    },
+    {
+      "line": 7309,
+      "name": "getInventoryCustomerInvoices",
+      "async": false
+    },
+    {
+      "line": 7357,
+      "name": "inventoryReceiptSettlementGroups",
+      "async": false
+    },
+    {
+      "line": 7395,
+      "name": "getInventoryCustomerRecord",
+      "async": false
+    },
+    {
+      "line": 7492,
+      "name": "renderInventoryCustomerEditCard",
+      "async": false
+    },
+    {
+      "line": 7540,
+      "name": "renderInventoryCustomerRecord",
+      "async": false
+    },
+    {
+      "line": 7632,
+      "name": "bindInventoryCustomerRecordActions",
+      "async": false
+    },
+    {
+      "line": 7685,
+      "name": "openInventoryCustomerModal",
+      "async": false
+    },
+    {
+      "line": 7703,
+      "name": "downloadInventoryPaymentReceiptPDF",
+      "async": true
+    },
+    {
+      "line": 7819,
+      "name": "downloadInventoryCustomerStatementPDF",
+      "async": true
+    },
+    {
+      "line": 7883,
+      "name": "inventoryTaxDefaultsForGroup",
+      "async": false
+    },
+    {
+      "line": 7890,
+      "name": "inventoryPurchaseCurrencyOptionsHtml",
+      "async": false
+    },
+    {
+      "line": 7899,
+      "name": "getInventoryBrandCatalog",
+      "async": false
+    },
+    {
+      "line": 7903,
+      "name": "findInventoryBrandById",
+      "async": false
+    },
+    {
+      "line": 7909,
+      "name": "inventoryBrandOptionsHtml",
+      "async": false
+    },
+    {
+      "line": 7922,
+      "name": "inventoryVariantOptionsHtml",
+      "async": false
+    },
+    {
+      "line": 7942,
+      "name": "readGoodsPurchaseLineBrand",
+      "async": false
+    },
+    {
+      "line": 7971,
+      "name": "applyInventoryVariantToPurchaseLine",
+      "async": false
+    },
+    {
+      "line": 8007,
+      "name": "syncGoodsPurchaseLineBrandFields",
+      "async": false
+    },
+    {
+      "line": 8031,
+      "name": "ensureInventoryBrandsLoaded",
+      "async": true
+    },
+    {
+      "line": 8060,
+      "name": "refreshInventoryBrandFilterOptions",
+      "async": false
+    },
+    {
+      "line": 8078,
+      "name": "getInventoryBrandNamesFromState",
+      "async": false
+    },
+    {
+      "line": 8082,
+      "name": "openInventoryBrandsModal",
+      "async": true
+    },
+    {
+      "line": 8199,
+      "name": "renderInventoryBrandsList",
+      "async": false
+    },
+    {
+      "line": 8234,
+      "name": "readGoodsPurchaseLineItemType",
+      "async": false
+    },
+    {
+      "line": 8245,
+      "name": "syncGoodsPurchaseLineTypeFields",
+      "async": false
+    },
+    {
+      "line": 8274,
+      "name": "syncGoodsPurchaseTaxDefaults",
+      "async": false
+    },
+    {
+      "line": 8283,
+      "name": "getGoodsPurchaseTotalsByCurrency",
+      "async": false
+    },
+    {
+      "line": 8295,
+      "name": "updateGoodsBoughtTotal",
+      "async": false
+    },
+    {
+      "line": 8306,
+      "name": "syncGoodsPurchaseLineCategoryFields",
+      "async": false
+    },
+    {
+      "line": 8344,
+      "name": "buildGoodsPurchaseLine",
+      "async": false
+    },
+    {
+      "line": 8404,
+      "name": "syncGoodsPurchaseLineMeta",
+      "async": false
+    },
+    {
+      "line": 8422,
+      "name": "updateGoodsPurchaseLine",
+      "async": false
+    },
+    {
+      "line": 8532,
+      "name": "addGoodsPurchaseLine",
+      "async": false
+    },
+    {
+      "line": 8546,
+      "name": "inventoryPurchaseLineSeedPrefill",
+      "async": false
+    },
+    {
+      "line": 8557,
+      "name": "syncGoodsPurchaseAddButtonLabel",
+      "async": false
+    },
+    {
+      "line": 8565,
+      "name": "toggleGoodsPurchaseRemoveButtons",
+      "async": false
+    },
+    {
+      "line": 8582,
+      "name": "renderGoodsPurchaseLines",
+      "async": false
+    },
+    {
+      "line": 8593,
+      "name": "collectGoodsPurchaseLines",
+      "async": false
+    },
+    {
+      "line": 8629,
+      "name": "getInventoryCustomerNames",
+      "async": false
+    },
+    {
+      "line": 8654,
+      "name": "getInventoryCustomerContact",
+      "async": false
+    },
+    {
+      "line": 8674,
+      "name": "inventoryCustomerEntriesForName",
+      "async": false
+    },
+    {
+      "line": 8684,
+      "name": "applyInventoryCustomerDetailsToNote",
+      "async": false
+    },
+    {
+      "line": 8697,
+      "name": "saveInventoryCustomerDetails",
+      "async": false
+    },
+    {
+      "line": 8757,
+      "name": "buildTransferEvents",
+      "async": false
+    },
+    {
+      "line": 8797,
+      "name": "getTransferRowsForCurrency",
+      "async": false
+    },
+    {
+      "line": 8835,
+      "name": "transferCurrencyTotals",
+      "async": false
+    },
+    {
+      "line": 8845,
+      "name": "collectTopupTransactionsFlat",
+      "async": false
+    },
+    {
+      "line": 8878,
+      "name": "filterPrincipal",
+      "async": false
+    },
+    {
+      "line": 8883,
+      "name": "groupByPerson",
+      "async": false
+    },
+    {
+      "line": 8982,
+      "name": "getFilteredGroups",
+      "async": false
+    },
+    {
+      "line": 8998,
+      "name": "renderLoanCards",
+      "async": false
+    },
+    {
+      "line": 9185,
+      "name": "ensureLoanCardsDelegation",
+      "async": false
+    },
+    {
+      "line": 9229,
+      "name": "positionNotePopover",
+      "async": false
+    },
+    {
+      "line": 9256,
+      "name": "ensureNoteBackdrop",
+      "async": false
+    },
+    {
+      "line": 9271,
+      "name": "updateNoteBackdropVisibility",
+      "async": false
+    },
+    {
+      "line": 9277,
+      "name": "repositionOpenNotePopovers",
+      "async": false
+    },
+    {
+      "line": 9286,
+      "name": "renderLoanSelectors",
+      "async": false
+    },
+    {
+      "line": 9312,
+      "name": "getInventorySelectableGroups",
+      "async": false
+    },
+    {
+      "line": 9316,
+      "name": "getSelectedGoodsSaleGroupIds",
+      "async": false
+    },
+    {
+      "line": 9326,
+      "name": "inventorySaleItemOptionsHtml",
+      "async": false
+    },
+    {
+      "line": 9338,
+      "name": "refreshGoodsSaleItemOptions",
+      "async": false
+    },
+    {
+      "line": 9353,
+      "name": "inventoryGroupOptionLabel",
+      "async": false
+    },
+    {
+      "line": 9358,
+      "name": "renderGoodsCustomerOptions",
+      "async": false
+    },
+    {
+      "line": 9370,
+      "name": "syncGoodsCustomerFields",
+      "async": false
+    },
+    {
+      "line": 9393,
+      "name": "getSelectedGoodsCustomerName",
+      "async": false
+    },
+    {
+      "line": 9401,
+      "name": "getSelectedGoodsCustomerContact",
+      "async": false
+    },
+    {
+      "line": 9415,
+      "name": "inventorySaleUnitOptions",
+      "async": false
+    },
+    {
+      "line": 9419,
+      "name": "buildGoodsSaleLine",
+      "async": false
+    },
+    {
+      "line": 9457,
+      "name": "syncGoodsSaleLineMeta",
+      "async": false
+    },
+    {
+      "line": 9478,
+      "name": "getGoodsSaleTotalsByCurrency",
+      "async": false
+    },
+    {
+      "line": 9492,
+      "name": "formatInventoryTotalsByCurrency",
+      "async": false
+    },
+    {
+      "line": 9502,
+      "name": "updateGoodsSalePaymentFields",
+      "async": false
+    },
+    {
+      "line": 9539,
+      "name": "updateGoodsSaleGrandTotal",
+      "async": false
+    },
+    {
+      "line": 9550,
+      "name": "updateGoodsSaleLine",
+      "async": false
+    },
+    {
+      "line": 9627,
+      "name": "addGoodsSaleLine",
+      "async": false
+    },
+    {
+      "line": 9642,
+      "name": "toggleGoodsSaleRemoveButtons",
+      "async": false
+    },
+    {
+      "line": 9651,
+      "name": "renderGoodsSaleLines",
+      "async": false
+    },
+    {
+      "line": 9660,
+      "name": "collectGoodsSaleLines",
+      "async": false
+    },
+    {
+      "line": 9687,
+      "name": "getGoodsGroups",
+      "async": false
+    },
+    {
+      "line": 9834,
+      "name": "renderGoodsSelectors",
+      "async": false
+    },
+    {
+      "line": 9841,
+      "name": "downloadGoodsItemPDF",
+      "async": true
+    },
+    {
+      "line": 9978,
+      "name": "downloadGoodsSoldReceiptPDF",
+      "async": true
+    },
+    {
+      "line": 9982,
+      "name": "renderGoodsList",
+      "async": false
+    },
+    {
+      "line": 10113,
+      "name": "downloadInventoryReceiptPDF",
+      "async": true
+    },
+    {
+      "line": 10252,
+      "name": "createEmptySaleDraft",
+      "async": false
+    },
+    {
+      "line": 10274,
+      "name": "nextProformaNumber",
+      "async": false
+    },
+    {
+      "line": 10285,
+      "name": "cloneSaleDraft",
+      "async": false
+    },
+    {
+      "line": 10289,
+      "name": "loadSaleDraftLibrary",
+      "async": false
+    },
+    {
+      "line": 10304,
+      "name": "persistSaleDraftLibrary",
+      "async": false
+    },
+    {
+      "line": 10310,
+      "name": "loadSaleDraftFromStorage",
+      "async": false
+    },
+    {
+      "line": 10344,
+      "name": "persistSaleDraft",
+      "async": false
+    },
+    {
+      "line": 10352,
+      "name": "ensureSaleDraftShape",
+      "async": false
+    },
+    {
+      "line": 10366,
+      "name": "getSaleDraftQtyForGroup",
+      "async": false
+    },
+    {
+      "line": 10373,
+      "name": "saleDraftLineCount",
+      "async": false
+    },
+    {
+      "line": 10377,
+      "name": "saleDraftQtyCount",
+      "async": false
+    },
+    {
+      "line": 10381,
+      "name": "saleDraftMoneySummary",
+      "async": false
+    },
+    {
+      "line": 10394,
+      "name": "saleDraftMoneySummaryHtml",
+      "async": false
+    },
+    {
+      "line": 10406,
+      "name": "clearSaleDraft",
+      "async": false
+    },
+    {
+      "line": 10418,
+      "name": "getSaleDraftLineStockInfo",
+      "async": false
+    },
+    {
+      "line": 10447,
+      "name": "saleDraftHasStockIssues",
+      "async": false
+    },
+    {
+      "line": 10455,
+      "name": "upsertSaleDraftInLibrary",
+      "async": false
+    },
+    {
+      "line": 10472,
+      "name": "removeSaleDraftFromLibrary",
+      "async": false
+    },
+    {
+      "line": 10478,
+      "name": "saveCurrentSaleDraft",
+      "async": false
+    },
+    {
+      "line": 10496,
+      "name": "startNewSaleDraft",
+      "async": true
+    },
+    {
+      "line": 10512,
+      "name": "openSavedSaleDraft",
+      "async": false
+    },
+    {
+      "line": 10540,
+      "name": "deleteSavedSaleDraft",
+      "async": false
+    },
+    {
+      "line": 10565,
+      "name": "renderInventoryDraftsSection",
+      "async": false
+    },
+    {
+      "line": 10632,
+      "name": "ensureInventoryQtyPromptModal",
+      "async": false
+    },
+    {
+      "line": 10680,
+      "name": "promptInventoryAddQty",
+      "async": false
+    },
+    {
+      "line": 10901,
+      "name": "addGroupToSaleDraft",
+      "async": true
+    },
+    {
+      "line": 10996,
+      "name": "refreshSaleDraftLineTax",
+      "async": false
+    },
+    {
+      "line": 11017,
+      "name": "updateSaleDraftLineFields",
+      "async": false
+    },
+    {
+      "line": 11082,
+      "name": "updateSaleDraftLineQty",
+      "async": false
+    },
+    {
+      "line": 11086,
+      "name": "removeSaleDraftLine",
+      "async": false
+    },
+    {
+      "line": 11094,
+      "name": "ensureSaleDraftDock",
+      "async": false
+    },
+    {
+      "line": 11121,
+      "name": "updateSaleDraftDock",
+      "async": false
+    },
+    {
+      "line": 11132,
+      "name": "ensureSaleDraftModal",
+      "async": false
+    },
+    {
+      "line": 11165,
+      "name": "applySaleDraftCustomerToForm",
+      "async": false
+    },
+    {
+      "line": 11178,
+      "name": "syncSaleDraftCustomerModeUi",
+      "async": false
+    },
+    {
+      "line": 11193,
+      "name": "renderSaleDraftCustomerResults",
+      "async": false
+    },
+    {
+      "line": 11250,
+      "name": "bindSaleDraftCustomerUi",
+      "async": false
+    },
+    {
+      "line": 11280,
+      "name": "renderSaleDraftModalBody",
+      "async": false
+    },
+    {
+      "line": 11514,
+      "name": "syncSaleDraftFormFromModal",
+      "async": false
+    },
+    {
+      "line": 11561,
+      "name": "openSaleDraftModal",
+      "async": true
+    },
+    {
+      "line": 11572,
+      "name": "ensureSaleDraftAddItemsModal",
+      "async": false
+    },
+    {
+      "line": 11620,
+      "name": "renderSaleDraftAddItemsList",
+      "async": false
+    },
+    {
+      "line": 11676,
+      "name": "openSaleDraftAddItemsPicker",
+      "async": false
+    },
+    {
+      "line": 11687,
+      "name": "downloadSaleDraftPDF",
+      "async": true
+    },
+    {
+      "line": 11779,
+      "name": "finalizeSaleDraft",
+      "async": true
+    },
+    {
+      "line": 11860,
+      "name": "commitInventorySaleInvoice",
+      "async": true
+    },
+    {
+      "line": 12030,
+      "name": "getInventorySections",
+      "async": false
+    },
+    {
+      "line": 12047,
+      "name": "sortInventorySectionItems",
+      "async": false
+    },
+    {
+      "line": 12056,
+      "name": "buildInventoryGroupHistoryRows",
+      "async": false
+    },
+    {
+      "line": 12152,
+      "name": "inventoryHistoryRowsHtml",
+      "async": false
+    },
+    {
+      "line": 12180,
+      "name": "bindInventorySectionHistoryButtons",
+      "async": false
+    },
+    {
+      "line": 12206,
+      "name": "deleteInventoryReceipt",
+      "async": true
+    },
+    {
+      "line": 12279,
+      "name": "ensureInventoryReceiptEditModal",
+      "async": false
+    },
+    {
+      "line": 12339,
+      "name": "openInventoryReceiptEditor",
+      "async": false
+    },
+    {
+      "line": 12420,
+      "name": "fillInventorySectionHistoryPanel",
+      "async": true
+    },
+    {
+      "line": 12461,
+      "name": "ensureInventorySectionModal",
+      "async": false
+    },
+    {
+      "line": 12493,
+      "name": "closeInventorySectionModal",
+      "async": false
+    },
+    {
+      "line": 12500,
+      "name": "inventoryBrandKey",
+      "async": false
+    },
+    {
+      "line": 12504,
+      "name": "collectInventoryGroupIdsMatching",
+      "async": false
+    },
+    {
+      "line": 12514,
+      "name": "snapshotInventoryGroupsByIds",
+      "async": false
+    },
+    {
+      "line": 12522,
+      "name": "softDeleteInventoryGroupSnapshots",
+      "async": true
+    },
+    {
+      "line": 12533,
+      "name": "purgeInventoryEntriesForBrand",
+      "async": true
+    },
+    {
+      "line": 12546,
+      "name": "purgeInventoryEntriesForProductLine",
+      "async": true
+    },
+    {
+      "line": 12561,
+      "name": "purgeInventoryEntriesForCategory",
+      "async": true
+    },
+    {
+      "line": 12582,
+      "name": "getInventorySectionBrandGroups",
+      "async": false
+    },
+    {
+      "line": 12603,
+      "name": "inventoryVariantDisplayName",
+      "async": false
+    },
+    {
+      "line": 12610,
+      "name": "openInventorySectionOverlay",
+      "async": true
+    },
+    {
+      "line": 12636,
+      "name": "updateInventorySkuAddButton",
+      "async": false
+    },
+    {
+      "line": 12642,
+      "name": "bindInventorySectionVariantActions",
+      "async": false
+    },
+    {
+      "line": 12776,
+      "name": "inventoryGroupBottlePriceDisplay",
+      "async": false
+    },
+    {
+      "line": 12797,
+      "name": "renderInventoryVariantRowsHtml",
+      "async": false
+    },
+    {
+      "line": 12855,
+      "name": "renderInventoryCatalogVariantRowsHtml",
+      "async": false
+    },
+    {
+      "line": 12886,
+      "name": "inventoryInlineStockFormHtml",
+      "async": false
+    },
+    {
+      "line": 12959,
+      "name": "openInventoryInlineStockEditor",
+      "async": false
+    },
+    {
+      "line": 13084,
+      "name": "inventoryInlineEditorRowHtml",
+      "async": false
+    },
+    {
+      "line": 13094,
+      "name": "bindInventoryInlineEditor",
+      "async": false
+    },
+    {
+      "line": 13140,
+      "name": "teamCanManageInventoryCatalog",
+      "async": false
+    },
+    {
+      "line": 13149,
+      "name": "inventoryCatalogRowMenuHtml",
+      "async": false
+    },
+    {
+      "line": 13170,
+      "name": "bindInventoryCatalogMenus",
+      "async": false
+    },
+    {
+      "line": 13218,
+      "name": "inventoryResolveBrandCatalogId",
+      "async": false
+    },
+    {
+      "line": 13225,
+      "name": "syncInventoryCatalogMetaOnEntries",
+      "async": false
+    },
+    {
+      "line": 13257,
+      "name": "openInventoryInlineRename",
+      "async": false
+    },
+    {
+      "line": 13271,
+      "name": "renderInventorySectionOverlayBody",
+      "async": true
+    },
+    {
+      "line": 13772,
+      "name": "inventorySearchMatchScore",
+      "async": false
+    },
+    {
+      "line": 13789,
+      "name": "rankInventorySearchMatches",
+      "async": false
+    },
+    {
+      "line": 13801,
+      "name": "renderInventorySearchResults",
+      "async": false
+    },
+    {
+      "line": 13853,
+      "name": "getInventorySectionsForGrid",
+      "async": false
+    },
+    {
+      "line": 13865,
+      "name": "renderInventorySectionsGrid",
+      "async": false
+    },
+    {
+      "line": 14033,
+      "name": "renderInventoryList",
+      "async": false
+    },
+    {
+      "line": 14074,
+      "name": "syncInventoryInvoicesBtn",
+      "async": false
+    },
+    {
+      "line": 14080,
+      "name": "ensureInventoryItemDetailsDelegation",
+      "async": false
+    },
+    {
+      "line": 14145,
+      "name": "buildExpenseAccountSearchBlob",
+      "async": false
+    },
+    {
+      "line": 14174,
+      "name": "expenseSummaryToPrincipalEntry",
+      "async": false
+    },
+    {
+      "line": 14205,
+      "name": "expenseActivityToEntry",
+      "async": false
+    },
+    {
+      "line": 14245,
+      "name": "applyExpenseLazyEntries",
+      "async": false
+    },
+    {
+      "line": 14269,
+      "name": "fetchExpenseWalletSummariesRpc",
+      "async": true
+    },
+    {
+      "line": 14274,
+      "name": "fetchExpenseActivityRpc",
+      "async": true
+    },
+    {
+      "line": 14285,
+      "name": "fetchExpenseWalletDetailRpc",
+      "async": true
+    },
+    {
+      "line": 14296,
+      "name": "isExpenseLazyRpcMissingError",
+      "async": false
+    },
+    {
+      "line": 14301,
+      "name": "loadExpenseWalletSummaries",
+      "async": true
+    },
+    {
+      "line": 14334,
+      "name": "loadExpenseActivityForCurrentQuery",
+      "async": true
+    },
+    {
+      "line": 14390,
+      "name": "ensureExpenseWalletDetailLoaded",
+      "async": true
+    },
+    {
+      "line": 14411,
+      "name": "invalidateAndRefreshExpenseLazy",
+      "async": true
+    },
+    {
+      "line": 14429,
+      "name": "loadExpensesScopeLazyOrFull",
+      "async": true
+    },
+    {
+      "line": 14455,
+      "name": "inventorySummaryToPrincipalEntry",
+      "async": false
+    },
+    {
+      "line": 14506,
+      "name": "inventorySaleRowToEntry",
+      "async": false
+    },
+    {
+      "line": 14539,
+      "name": "inventoryEventRowToEntry",
+      "async": false
+    },
+    {
+      "line": 14577,
+      "name": "applyInventoryLazyEntries",
+      "async": false
+    },
+    {
+      "line": 14600,
+      "name": "isInventoryLazyRpcMissingError",
+      "async": false
+    },
+    {
+      "line": 14605,
+      "name": "repairLedgerGoodsSalesOnce",
+      "async": true
+    },
+    {
+      "line": 14621,
+      "name": "loadInventorySalesForCustomers",
+      "async": true
+    },
+    {
+      "line": 14681,
+      "name": "fetchInventorySummariesRpc",
+      "async": true
+    },
+    {
+      "line": 14692,
+      "name": "buildInventoryItemDetailLocalFallback",
+      "async": false
+    },
+    {
+      "line": 14746,
+      "name": "fetchInventoryItemDetailRpc",
+      "async": true
+    },
+    {
+      "line": 14765,
+      "name": "loadInventorySummaries",
+      "async": true
+    },
+    {
+      "line": 14805,
+      "name": "ensureInventoryItemDetailLoaded",
+      "async": true
+    },
+    {
+      "line": 14883,
+      "name": "invalidateAndRefreshInventoryLazy",
+      "async": true
+    },
+    {
+      "line": 14897,
+      "name": "loadGoodsScopeLazyOrFull",
+      "async": true
+    },
+    {
+      "line": 14918,
+      "name": "buildExpenseAccountsUnfiltered",
+      "async": false
+    },
+    {
+      "line": 14987,
+      "name": "getExpenseAccounts",
+      "async": false
+    },
+    {
+      "line": 15011,
+      "name": "getExistingItemNamesLowerForCurrency",
+      "async": false
+    },
+    {
+      "line": 15025,
+      "name": "refreshExpenseItemIntentUi",
+      "async": false
+    },
+    {
+      "line": 15043,
+      "name": "isInDateRange",
+      "async": false
+    },
+    {
+      "line": 15052,
+      "name": "localDateInputValue",
+      "async": false
+    },
+    {
+      "line": 15058,
+      "name": "addLocalDays",
+      "async": false
+    },
+    {
+      "line": 15064,
+      "name": "monthStartISO",
+      "async": false
+    },
+    {
+      "line": 15068,
+      "name": "expenseHistoryRangeBounds",
+      "async": false
+    },
+    {
+      "line": 15090,
+      "name": "expenseHistoryRangeText",
+      "async": false
+    },
+    {
+      "line": 15098,
+      "name": "isInExpenseHistoryRange",
+      "async": false
+    },
+    {
+      "line": 15109,
+      "name": "filterExpenseHistoryRows",
+      "async": false
+    },
+    {
+      "line": 15124,
+      "name": "setExpenseHistoryRange",
+      "async": true
+    },
+    {
+      "line": 15147,
+      "name": "collectExpenseSpendRows",
+      "async": false
+    },
+    {
+      "line": 15161,
+      "name": "btcTxDirectionForAddress",
+      "async": false
+    },
+    {
+      "line": 15187,
+      "name": "expenseBtcExplorerUrl",
+      "async": false
+    },
+    {
+      "line": 15194,
+      "name": "expenseBtcTxDateIso",
+      "async": false
+    },
+    {
+      "line": 15200,
+      "name": "expenseBtcAccountsForCurrentFilters",
+      "async": false
+    },
+    {
+      "line": 15214,
+      "name": "renderExpenseBtcTransactionsSection",
+      "async": false
+    },
+    {
+      "line": 15306,
+      "name": "groupExpenseItems",
+      "async": false
+    },
+    {
+      "line": 15360,
+      "name": "walletRadioSafeId",
+      "async": false
+    },
+    {
+      "line": 15364,
+      "name": "renderExpenseWalletBar",
+      "async": false
+    },
+    {
+      "line": 15483,
+      "name": "ensureExpenseWalletBarDelegation",
+      "async": false
+    },
+    {
+      "line": 15532,
+      "name": "renderExpenseAccountSelectors",
+      "async": false
+    },
+    {
+      "line": 15552,
+      "name": "syncExpenseTaxDefaults",
+      "async": false
+    },
+    {
+      "line": 15564,
+      "name": "getExpenseTaxBreakdown",
+      "async": false
+    },
+    {
+      "line": 15573,
+      "name": "updateExpenseTaxPreview",
+      "async": false
+    },
+    {
+      "line": 15580,
+      "name": "openExpenseModal",
+      "async": false
+    },
+    {
+      "line": 15652,
+      "name": "uploadWalletLogoToStorage",
+      "async": true
+    },
+    {
+      "line": 15681,
+      "name": "readFileAsDataUrl",
+      "async": false
+    },
+    {
+      "line": 15690,
+      "name": "compressWalletLogoDataUrl",
+      "async": true
+    },
+    {
+      "line": 15711,
+      "name": "resolveWalletCustomLogoFromForm",
+      "async": true
+    },
+    {
+      "line": 15727,
+      "name": "syncExpenseAccountCustomLogoFields",
+      "async": false
+    },
+    {
+      "line": 15744,
+      "name": "bindExpenseAccountCustomLogoUi",
+      "async": false
+    },
+    {
+      "line": 15764,
+      "name": "saveExpenseAccount",
+      "async": true
+    },
+    {
+      "line": 15812,
+      "name": "saveExpenseTopup",
+      "async": true
+    },
+    {
+      "line": 15845,
+      "name": "saveExpenseEntry",
+      "async": true
+    },
+    {
+      "line": 15893,
+      "name": "downloadExpenseAccountPDF",
+      "async": true
+    },
+    {
+      "line": 15992,
+      "name": "expenseBtcWalletPdfContext",
+      "async": false
+    },
+    {
+      "line": 16003,
+      "name": "getExpenseBtcAccountForPdf",
+      "async": true
+    },
+    {
+      "line": 16027,
+      "name": "downloadExpenseBtcStatementPDF",
+      "async": true
+    },
+    {
+      "line": 16040,
+      "name": "downloadExpenseBtcTransactionReceiptPDF",
+      "async": true
+    },
+    {
+      "line": 16055,
+      "name": "downloadExpenseBtcAccountPDF",
+      "async": true
+    },
+    {
+      "line": 16059,
+      "name": "expenseSearchBlob",
+      "async": false
+    },
+    {
+      "line": 16071,
+      "name": "filterExpensesBySearch",
+      "async": false
+    },
+    {
+      "line": 16144,
+      "name": "renderExpenseHistoryRangeControls",
+      "async": false
+    },
+    {
+      "line": 16173,
+      "name": "renderExpenseHistoryToolbar",
+      "async": false
+    },
+    {
+      "line": 16185,
+      "name": "getExpenseDetailsOpenState",
+      "async": false
+    },
+    {
+      "line": 16196,
+      "name": "restoreExpenseDetailsOpenState",
+      "async": false
+    },
+    {
+      "line": 16204,
+      "name": "renderExpensesList",
+      "async": false
+    },
+    {
+      "line": 16493,
+      "name": "ensureExpensesListDelegation",
+      "async": false
+    },
+    {
+      "line": 16624,
+      "name": "defaultDateInputs",
+      "async": false
+    },
+    {
+      "line": 16630,
+      "name": "renderMultiEntries",
+      "async": false
+    },
+    {
+      "line": 16651,
+      "name": "parseEntriesPayload",
+      "async": false
+    },
+    {
+      "line": 16657,
+      "name": "csvEscape",
+      "async": false
+    },
+    {
+      "line": 16663,
+      "name": "toCsv",
+      "async": false
+    },
+    {
+      "line": 16690,
+      "name": "parseCsvLine",
+      "async": false
+    },
+    {
+      "line": 16714,
+      "name": "parseCsvRows",
+      "async": false
+    },
+    {
+      "line": 16742,
+      "name": "parseEntriesCsv",
+      "async": false
+    },
+    {
+      "line": 16788,
+      "name": "saveBackupEntries",
+      "async": false
+    },
+    {
+      "line": 16800,
+      "name": "loadBackupEntriesFromStorage",
+      "async": false
+    },
+    {
+      "line": 16811,
+      "name": "updateUploadButtonVisibility",
+      "async": false
+    },
+    {
+      "line": 16816,
+      "name": "updateConnectButtonVisibility",
+      "async": false
+    },
+    {
+      "line": 16821,
+      "name": "applyEntries",
+      "async": false
+    },
+    {
+      "line": 16841,
+      "name": "databaseSessionCanLoad",
+      "async": false
+    },
+    {
+      "line": 16850,
+      "name": "normalizeLedgerScope",
+      "async": false
+    },
+    {
+      "line": 16854,
+      "name": "ledgerScopeForTab",
+      "async": false
+    },
+    {
+      "line": 16863,
+      "name": "ledgerScopeForSection",
+      "async": false
+    },
+    {
+      "line": 16867,
+      "name": "ledgerScopeLabel",
+      "async": false
+    },
+    {
+      "line": 16875,
+      "name": "ledgerScopeContainers",
+      "async": false
+    },
+    {
+      "line": 16884,
+      "name": "loadingStateHtml",
+      "async": false
+    },
+    {
+      "line": 16888,
+      "name": "errorStateHtml",
+      "async": false
+    },
+    {
+      "line": 16892,
+      "name": "setLedgerScopeLoading",
+      "async": false
+    },
+    {
+      "line": 16900,
+      "name": "entryBelongsToLedgerScope",
+      "async": false
+    },
+    {
+      "line": 16927,
+      "name": "encodedTagValue",
+      "async": false
+    },
+    {
+      "line": 16931,
+      "name": "selectedCurrencyQuery",
+      "async": false
+    },
+    {
+      "line": 16944,
+      "name": "ledgerScopeQuery",
+      "async": false
+    },
+    {
+      "line": 16969,
+      "name": "mergeRecycleBinRowsForScope",
+      "async": false
+    },
+    {
+      "line": 16986,
+      "name": "fixLegacyMetaEntry",
+      "async": true
+    },
+    {
+      "line": 17016,
+      "name": "sectionHasLegacyToFix",
+      "async": false
+    },
+    {
+      "line": 17046,
+      "name": "syncLegacyFixAllButtons",
+      "async": false
+    },
+    {
+      "line": 17056,
+      "name": "fixLegacySectionBatch",
+      "async": true
+    },
+    {
+      "line": 17091,
+      "name": "mergeLedgerRowsFromSupabase",
+      "async": false
+    },
+    {
+      "line": 17145,
+      "name": "loadEntries",
+      "async": true
+    },
+    {
+      "line": 17165,
+      "name": "loadAllEntriesFromSupabase",
+      "async": true
+    },
+    {
+      "line": 17193,
+      "name": "loadLedgerScopeFromSupabase",
+      "async": true
+    },
+    {
+      "line": 17297,
+      "name": "loadEntriesFromSupabase",
+      "async": true
+    },
+    {
+      "line": 17306,
+      "name": "ensureTabDataLoaded",
+      "async": true
+    },
+    {
+      "line": 17319,
+      "name": "ensureSectionDataLoaded",
+      "async": true
+    },
+    {
+      "line": 17327,
+      "name": "ensureAllLedgerDataLoaded",
+      "async": true
+    },
+    {
+      "line": 17334,
+      "name": "ensureInventoryItemCodesForRows",
+      "async": true
+    },
+    {
+      "line": 17385,
+      "name": "renderExpenseOverviewWallets",
+      "async": false
+    },
+    {
+      "line": 17479,
+      "name": "ensureExpenseOverviewWalletDelegation",
+      "async": false
+    },
+    {
+      "line": 17507,
+      "name": "updateWalletsLayoutOnResize",
+      "async": false
+    },
+    {
+      "line": 17590,
+      "name": "renderSearchResults",
+      "async": false
+    },
+    {
+      "line": 17623,
+      "name": "renderAll",
+      "async": false
+    },
+    {
+      "line": 17644,
+      "name": "installmentStatusBadgeClass",
+      "async": false
+    },
+    {
+      "line": 17652,
+      "name": "renderInstallmentPlans",
+      "async": false
+    },
+    {
+      "line": 17804,
+      "name": "renderInstallmentPlanOverlayBody",
+      "async": false
+    },
+    {
+      "line": 17891,
+      "name": "openInstallmentPlanOverlay",
+      "async": false
+    },
+    {
+      "line": 17943,
+      "name": "downloadInstallmentPlanPDF",
+      "async": true
+    },
+    {
+      "line": 18112,
+      "name": "syncLoanModeSwitch",
+      "async": false
+    },
+    {
+      "line": 18121,
+      "name": "activate",
+      "async": false
+    },
+    {
+      "line": 18252,
+      "name": "setInitialOverviewForExpenses",
+      "async": false
+    },
+    {
+      "line": 18260,
+      "name": "setCurrencyChoice",
+      "async": false
+    },
+    {
+      "line": 18277,
+      "name": "openEntryModal",
+      "async": false
+    },
+    {
+      "line": 18381,
+      "name": "syncInstallmentPlanFormFields",
+      "async": false
+    },
+    {
+      "line": 18393,
+      "name": "updateInstallmentPlanPreview",
+      "async": false
+    },
+    {
+      "line": 18426,
+      "name": "syncInstallmentPaymentFormFields",
+      "async": false
+    },
+    {
+      "line": 18444,
+      "name": "updateInstallmentPaymentPreview",
+      "async": false
+    },
+    {
+      "line": 18475,
+      "name": "openInstallmentPaymentModal",
+      "async": false
+    },
+    {
+      "line": 18479,
+      "name": "openInstallmentEditModal",
+      "async": false
+    },
+    {
+      "line": 18525,
+      "name": "updateInstallmentEditPreview",
+      "async": false
+    },
+    {
+      "line": 18572,
+      "name": "submitInstallmentEdit",
+      "async": true
+    },
+    {
+      "line": 18662,
+      "name": "openGoodsModal",
+      "async": true
+    },
+    {
+      "line": 18817,
+      "name": "saveGoodsBought",
+      "async": true
+    },
+    {
+      "line": 19020,
+      "name": "saveInventoryCustomerOnly",
+      "async": false
+    },
+    {
+      "line": 19051,
+      "name": "saveGoodsSold",
+      "async": true
+    },
+    {
+      "line": 19079,
+      "name": "addInventorySettlementPayloads",
+      "async": false
+    },
+    {
+      "line": 19125,
+      "name": "renderGoodsSettlementInvoiceList",
+      "async": false
+    },
+    {
+      "line": 19144,
+      "name": "selectedGoodsSettlementInvoices",
+      "async": false
+    },
+    {
+      "line": 19157,
+      "name": "updateGoodsSettlementSelectionTotals",
+      "async": false
+    },
+    {
+      "line": 19182,
+      "name": "openGoodsSettlementModal",
+      "async": false
+    },
+    {
+      "line": 19226,
+      "name": "openGoodsCustomerSettlementModal",
+      "async": false
+    },
+    {
+      "line": 19250,
+      "name": "saveGoodsSettlement",
+      "async": true
+    },
+    {
+      "line": 19318,
+      "name": "openEditModal",
+      "async": false
+    },
+    {
+      "line": 19399,
+      "name": "getInventoryEditItemGroup",
+      "async": false
+    },
+    {
+      "line": 19407,
+      "name": "getInventoryEditTaxBreakdown",
+      "async": false
+    },
+    {
+      "line": 19421,
+      "name": "updateInventoryEditItemTotals",
+      "async": false
+    },
+    {
+      "line": 19432,
+      "name": "syncInventoryEditItemCategoryFields",
+      "async": false
+    },
+    {
+      "line": 19463,
+      "name": "renderInventoryEditItemSummary",
+      "async": false
+    },
+    {
+      "line": 19477,
+      "name": "openInventoryEditItemModal",
+      "async": false
+    },
+    {
+      "line": 19552,
+      "name": "submitInventoryEditItem",
+      "async": true
+    },
+    {
+      "line": 19669,
+      "name": "syncEditTaxControls",
+      "async": false
+    },
+    {
+      "line": 19693,
+      "name": "updateEditTaxPreview",
+      "async": false
+    },
+    {
+      "line": 19705,
+      "name": "getEditTaxMeta",
+      "async": false
+    },
+    {
+      "line": 19717,
+      "name": "destroySectionDetailsCharts",
+      "async": false
+    },
+    {
+      "line": 19724,
+      "name": "clearSectionDetailsActions",
+      "async": false
+    },
+    {
+      "line": 19732,
+      "name": "sectionDetailsThemeColors",
+      "async": false
+    },
+    {
+      "line": 19773,
+      "name": "sectionDetailsColorAlpha",
+      "async": false
+    },
+    {
+      "line": 19791,
+      "name": "sectionDetailsAreaFill",
+      "async": false
+    },
+    {
+      "line": 19808,
+      "name": "sectionDetailsProChartDefaults",
+      "async": false
+    },
+    {
+      "line": 19885,
+      "name": "sectionDetailsChartDefaults",
+      "async": false
+    },
+    {
+      "line": 19889,
+      "name": "sectionDetailsLineDataset",
+      "async": false
+    },
+    {
+      "line": 19913,
+      "name": "sectionDetailsCandleBarDataset",
+      "async": false
+    },
+    {
+      "line": 19928,
+      "name": "sectionDetailsDoughnutDataset",
+      "async": false
+    },
+    {
+      "line": 19940,
+      "name": "sectionDetailsDoughnutOptions",
+      "async": false
+    },
+    {
+      "line": 19952,
+      "name": "sectionDetailsMetricHtml",
+      "async": false
+    },
+    {
+      "line": 19957,
+      "name": "sectionDetailsMonthKey",
+      "async": false
+    },
+    {
+      "line": 19963,
+      "name": "sectionDetailsMonthLabel",
+      "async": false
+    },
+    {
+      "line": 19970,
+      "name": "sectionDetailsSortedMonthKeys",
+      "async": false
+    },
+    {
+      "line": 19974,
+      "name": "sectionDetailsEnsureChartLib",
+      "async": false
+    },
+    {
+      "line": 19978,
+      "name": "createSectionDetailsChart",
+      "async": false
+    },
+    {
+      "line": 19989,
+      "name": "resolveInventoryDetailsCurrency",
+      "async": false
+    },
+    {
+      "line": 20004,
+      "name": "inventoryDetailsCurrencyChipsHtml",
+      "async": false
+    },
+    {
+      "line": 20022,
+      "name": "isInventoryLowStockGroup",
+      "async": false
+    },
+    {
+      "line": 20028,
+      "name": "buildInventoryDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 20131,
+      "name": "buildExpenseDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 20201,
+      "name": "buildInstallmentDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 20270,
+      "name": "renderInventoryDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 20389,
+      "name": "renderExpenseDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 20476,
+      "name": "renderInstallmentDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 20557,
+      "name": "isWalletTransferTopup",
+      "async": false
+    },
+    {
+      "line": 20561,
+      "name": "isWalletTransferSpend",
+      "async": false
+    },
+    {
+      "line": 20565,
+      "name": "buildWalletDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 20699,
+      "name": "walletDetailsActivityHtml",
+      "async": false
+    },
+    {
+      "line": 20720,
+      "name": "renderWalletDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 20858,
+      "name": "openWalletDetailsOverlay",
+      "async": true
+    },
+    {
+      "line": 20899,
+      "name": "inventoryItemStockStatus",
+      "async": false
+    },
+    {
+      "line": 20905,
+      "name": "buildInventoryItemDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 21043,
+      "name": "inventoryItemActivityHtml",
+      "async": false
+    },
+    {
+      "line": 21067,
+      "name": "renderInventoryItemDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 21188,
+      "name": "openInventoryItemDetailsOverlay",
+      "async": true
+    },
+    {
+      "line": 21227,
+      "name": "buildLoanPersonDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 21318,
+      "name": "loanDetailsActivityHtml",
+      "async": false
+    },
+    {
+      "line": 21338,
+      "name": "renderLoanDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 21446,
+      "name": "openLoanDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 21479,
+      "name": "buildInstallmentItemDetailsPayload",
+      "async": false
+    },
+    {
+      "line": 21554,
+      "name": "installmentItemActivityHtml",
+      "async": false
+    },
+    {
+      "line": 21571,
+      "name": "renderInstallmentItemDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 21689,
+      "name": "renderInstallmentDetailsActions",
+      "async": false
+    },
+    {
+      "line": 21739,
+      "name": "openInstallmentItemDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 21773,
+      "name": "openSectionDetailsOverlay",
+      "async": false
+    },
+    {
+      "line": 21806,
+      "name": "closeModal",
+      "async": false
+    },
+    {
+      "line": 21841,
+      "name": "isBackupMode",
+      "async": false
+    },
+    {
+      "line": 21845,
+      "name": "refreshBackupView",
+      "async": false
+    },
+    {
+      "line": 21849,
+      "name": "createPrincipal",
+      "async": true
+    },
+    {
+      "line": 21917,
+      "name": "createPayment",
+      "async": true
+    },
+    {
+      "line": 22048,
+      "name": "submitEdit",
+      "async": true
+    },
+    {
+      "line": 22149,
+      "name": "renamePersonRecords",
+      "async": true
+    },
+    {
+      "line": 22201,
+      "name": "persistDeleteEntry",
+      "async": true
+    },
+    {
+      "line": 22229,
+      "name": "persistDeleteGroup",
+      "async": true
+    },
+    {
+      "line": 22265,
+      "name": "deleteEntry",
+      "async": true
+    },
+    {
+      "line": 22360,
+      "name": "deleteTransfer",
+      "async": true
+    },
+    {
+      "line": 22450,
+      "name": "deletePersonRecords",
+      "async": true
+    },
+    {
+      "line": 22492,
+      "name": "movePersonToInstallments",
+      "async": true
+    },
+    {
+      "line": 22569,
+      "name": "getBase64ImageFromUrl",
+      "async": true
+    },
+    {
+      "line": 22585,
+      "name": "measureImageDataUrl",
+      "async": true
+    },
+    {
+      "line": 22601,
+      "name": "loadPdfLogoAsset",
+      "async": true
+    },
+    {
+      "line": 22612,
+      "name": "pdfLogoDataUrl",
+      "async": false
+    },
+    {
+      "line": 22618,
+      "name": "fitPdfImageBox",
+      "async": false
+    },
+    {
+      "line": 22631,
+      "name": "drawFittedPdfImage",
+      "async": false
+    },
+    {
+      "line": 22658,
+      "name": "getPdfCompanyContact",
+      "async": false
+    },
+    {
+      "line": 22696,
+      "name": "getPdfLogo",
+      "async": true
+    },
+    {
+      "line": 22713,
+      "name": "pdfImageFormatFromDataUrl",
+      "async": false
+    },
+    {
+      "line": 22721,
+      "name": "drawPdfWatermark",
+      "async": false
+    },
+    {
+      "line": 22751,
+      "name": "updateLogosFromConfig",
+      "async": false
+    },
+    {
+      "line": 22775,
+      "name": "updateCurrencyFiltersFromConfig",
+      "async": false
+    },
+    {
+      "line": 22833,
+      "name": "updateCurrencySelectElements",
+      "async": false
+    },
+    {
+      "line": 22867,
+      "name": "updateCurrencyButtons",
+      "async": false
+    },
+    {
+      "line": 22904,
+      "name": "validateCurrencyForForm",
+      "async": false
+    },
+    {
+      "line": 22920,
+      "name": "updateHeaderTextFromConfig",
+      "async": false
+    },
+    {
+      "line": 22943,
+      "name": "pdfTextContainsCurrencyMarkers",
+      "async": false
+    },
+    {
+      "line": 22948,
+      "name": "splitPdfMarkedTextToSize",
+      "async": false
+    },
+    {
+      "line": 22966,
+      "name": "tokenizePdfCurrencyText",
+      "async": false
+    },
+    {
+      "line": 22995,
+      "name": "installPdfCurrencyTextRenderer",
+      "async": false
+    },
+    {
+      "line": 23064,
+      "name": "pdfCellTextValue",
+      "async": false
+    },
+    {
+      "line": 23071,
+      "name": "isPdfMoneyLike",
+      "async": false
+    },
+    {
+      "line": 23077,
+      "name": "pdfOwnerBlockBottom",
+      "async": false
+    },
+    {
+      "line": 23081,
+      "name": "pdfClampLines",
+      "async": false
+    },
+    {
+      "line": 23090,
+      "name": "drawInventoryPdfDetailLines",
+      "async": false
+    },
+    {
+      "line": 23107,
+      "name": "drawInventoryPdfPartiesAndMeta",
+      "async": false
+    },
+    {
+      "line": 23225,
+      "name": "drawInventoryPdfTotals",
+      "async": false
+    },
+    {
+      "line": 23252,
+      "name": "pdfContentStartY",
+      "async": false
+    },
+    {
+      "line": 23260,
+      "name": "installProfessionalPdfTableDefaults",
+      "async": false
+    },
+    {
+      "line": 23342,
+      "name": "applyProfessionalPdfDefaults",
+      "async": false
+    },
+    {
+      "line": 23356,
+      "name": "drawPdfHeader",
+      "async": false
+    },
+    {
+      "line": 23402,
+      "name": "drawPdfOwnerBlock",
+      "async": false
+    },
+    {
+      "line": 23455,
+      "name": "drawPdfFooter",
+      "async": false
+    },
+    {
+      "line": 23507,
+      "name": "drawPdfHeaderAndFooter",
+      "async": false
+    },
+    {
+      "line": 23518,
+      "name": "buildPersonPdfData",
+      "async": false
+    },
+    {
+      "line": 23564,
+      "name": "downloadPersonPDF",
+      "async": true
+    },
+    {
+      "line": 23633,
+      "name": "sectionLabel",
+      "async": false
+    },
+    {
+      "line": 23645,
+      "name": "formatReportAmount",
+      "async": false
+    },
+    {
+      "line": 23650,
+      "name": "formatPdfAmount",
+      "async": false
+    },
+    {
+      "line": 23654,
+      "name": "buildSectionReportRows",
+      "async": false
+    },
+    {
+      "line": 23698,
+      "name": "exportSectionPDF",
+      "async": true
+    },
+    {
+      "line": 23772,
+      "name": "loadCustomFontsForPdf",
+      "async": true
+    },
+    {
+      "line": 23814,
+      "name": "downloadCurrencyPDF",
+      "async": true
+    },
+    {
+      "line": 23923,
+      "name": "downloadGoodsPDF",
+      "async": true
+    },
+    {
+      "line": 24017,
+      "name": "getExpenseHistoryItemsForExport",
+      "async": false
+    },
+    {
+      "line": 24026,
+      "name": "flattenExpenseHistoryItems",
+      "async": false
+    },
+    {
+      "line": 24047,
+      "name": "expenseHistoryRangeSlug",
+      "async": false
+    },
+    {
+      "line": 24051,
+      "name": "expenseHistoryPdfNewPageIfNeeded",
+      "async": false
+    },
+    {
+      "line": 24059,
+      "name": "expenseItemTxPeriodLabel",
+      "async": false
+    },
+    {
+      "line": 24070,
+      "name": "closeExpenseHistoryPdfMenus",
+      "async": false
+    },
+    {
+      "line": 24077,
+      "name": "downloadExpenseTransactionsHistoryPDF",
+      "async": true
+    },
+    {
+      "line": 24277,
+      "name": "downloadAllTopupsPDF",
+      "async": true
+    },
+    {
+      "line": 24384,
+      "name": "downloadAllTransfersPDF",
+      "async": true
+    },
+    {
+      "line": 24493,
+      "name": "downloadExpenseItemPDF",
+      "async": true
+    },
+    {
+      "line": 24557,
+      "name": "deleteExpenseWallet",
+      "async": true
+    },
+    {
+      "line": 24604,
+      "name": "openTransferModal",
+      "async": false
+    },
+    {
+      "line": 24647,
+      "name": "updateTransferCurrencyIndicators",
+      "async": false
+    },
+    {
+      "line": 24686,
+      "name": "calculateReceivedAmount",
+      "async": false
+    },
+    {
+      "line": 24694,
+      "name": "saveTransfer",
+      "async": true
+    },
+    {
+      "line": 24775,
+      "name": "showTransferSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24797,
+      "name": "closeTransferSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24804,
+      "name": "showMoneyAddedSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24824,
+      "name": "closeMoneyAddedSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24830,
+      "name": "ensureSalesInvoiceSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24886,
+      "name": "showSalesInvoiceSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24904,
+      "name": "closeSalesInvoiceSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24913,
+      "name": "closeBtcTransactionSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24918,
+      "name": "showBtcTransactionSuccessOverlay",
+      "async": false
+    },
+    {
+      "line": 24938,
+      "name": "downloadExpensesPDF",
+      "async": true
+    },
+    {
+      "line": 24942,
+      "name": "exportAllSectionsPDF",
+      "async": true
+    },
+    {
+      "line": 25052,
+      "name": "downloadJsonBackup",
+      "async": true
+    },
+    {
+      "line": 25078,
+      "name": "downloadCsvBackup",
+      "async": true
+    },
+    {
+      "line": 25096,
+      "name": "importJsonBackup",
+      "async": true
+    },
+    {
+      "line": 25147,
+      "name": "importCsvBackup",
+      "async": true
+    },
+    {
+      "line": 25183,
+      "name": "assignMissingIdsAndGroupIds",
+      "async": false
+    },
+    {
+      "line": 25227,
+      "name": "normalizeSectionCsvKey",
+      "async": false
+    },
+    {
+      "line": 25239,
+      "name": "ensureEntryTagsForSection",
+      "async": false
+    },
+    {
+      "line": 25265,
+      "name": "entriesForSectionCsv",
+      "async": false
+    },
+    {
+      "line": 25313,
+      "name": "triggerCsvDownload",
+      "async": false
+    },
+    {
+      "line": 25325,
+      "name": "inventoryAuditStatusLabel",
+      "async": false
+    },
+    {
+      "line": 25331,
+      "name": "auditReportRound",
+      "async": false
+    },
+    {
+      "line": 25338,
+      "name": "auditReportIsoDate",
+      "async": false
+    },
+    {
+      "line": 25351,
+      "name": "auditReportSheetName",
+      "async": false
+    },
+    {
+      "line": 25358,
+      "name": "auditReportEntityInfo",
+      "async": false
+    },
+    {
+      "line": 25389,
+      "name": "auditReportTitleBlock",
+      "async": false
+    },
+    {
+      "line": 25411,
+      "name": "auditReportColWidths",
+      "async": false
+    },
+    {
+      "line": 25415,
+      "name": "auditReportPushTotalRow",
+      "async": false
+    },
+    {
+      "line": 25431,
+      "name": "auditReportSettlementPaidForSale",
+      "async": false
+    },
+    {
+      "line": 25442,
+      "name": "auditReportFindLinkedWallet",
+      "async": false
+    },
+    {
+      "line": 25472,
+      "name": "collectInventoryAuditPurchaseLines",
+      "async": false
+    },
+    {
+      "line": 25551,
+      "name": "collectInventoryAuditSalesLines",
+      "async": false
+    },
+    {
+      "line": 25614,
+      "name": "buildInventoryAuditDetailSheet",
+      "async": false
+    },
+    {
+      "line": 25638,
+      "name": "buildInventoryAuditReportSheets",
+      "async": false
+    },
+    {
+      "line": 26121,
+      "name": "escapeXmlText",
+      "async": false
+    },
+    {
+      "line": 26129,
+      "name": "triggerBinaryDownload",
+      "async": false
+    },
+    {
+      "line": 26140,
+      "name": "downloadInventoryAuditReportWithSheetJs",
+      "async": false
+    },
+    {
+      "line": 26163,
+      "name": "downloadInventoryAuditReportSpreadsheetMl",
+      "async": false
+    },
+    {
+      "line": 26188,
+      "name": "downloadInventoryAuditReportExcel",
+      "async": true
+    },
+    {
+      "line": 26207,
+      "name": "downloadSectionCsv",
+      "async": true
+    },
+    {
+      "line": 26233,
+      "name": "upsertSectionCsvEntry",
+      "async": true
+    },
+    {
+      "line": 26297,
+      "name": "importNotesSectionCsv",
+      "async": true
+    },
+    {
+      "line": 26354,
+      "name": "importBitcoinSectionCsv",
+      "async": true
+    },
+    {
+      "line": 26429,
+      "name": "importSectionCsv",
+      "async": true
+    },
+    {
+      "line": 26500,
+      "name": "openSectionCsvUpload",
+      "async": false
+    },
+    {
+      "line": 26511,
+      "name": "importBackupFile",
+      "async": true
+    },
+    {
+      "line": 26532,
+      "name": "sanitizeEntryForSupabase",
+      "async": false
+    },
+    {
+      "line": 26558,
+      "name": "updateDbSnapshot",
+      "async": false
+    },
+    {
+      "line": 26565,
+      "name": "getUnsyncedEntriesForPerson",
+      "async": false
+    },
+    {
+      "line": 26586,
+      "name": "refreshDbSnapshot",
+      "async": true
+    },
+    {
+      "line": 26592,
+      "name": "uploadBackupToDatabase",
+      "async": true
+    },
+    {
+      "line": 26640,
+      "name": "savePersonRecordsToDatabase",
+      "async": true
+    },
+    {
+      "line": 26672,
+      "name": "expandWalletsOverview",
+      "async": false
+    },
+    {
+      "line": 26679,
+      "name": "collapseWalletsOverview",
+      "async": false
+    },
+    {
+      "line": 26686,
+      "name": "toggleWalletsOverview",
+      "async": false
+    },
+    {
+      "line": 26695,
+      "name": "expandMainOverview",
+      "async": false
+    },
+    {
+      "line": 26702,
+      "name": "collapseMainOverview",
+      "async": false
+    },
+    {
+      "line": 26709,
+      "name": "toggleMainOverview",
+      "async": false
+    },
+    {
+      "line": 26718,
+      "name": "attachEvents",
+      "async": false
+    },
+    {
+      "line": 27589,
+      "name": "focusUnlockForm",
+      "async": false
+    },
+    {
+      "line": 27605,
+      "name": "showStandaloneAbout",
+      "async": false
+    },
+    {
+      "line": 27618,
+      "name": "hideStandaloneAbout",
+      "async": false
+    },
+    {
+      "line": 27633,
+      "name": "showStandalonePricing",
+      "async": false
+    },
+    {
+      "line": 27645,
+      "name": "hideStandalonePricing",
+      "async": false
+    },
+    {
+      "line": 27661,
+      "name": "handleUrlHash",
+      "async": false
+    },
+    {
+      "line": 27707,
+      "name": "resolveLandingSection",
+      "async": false
+    },
+    {
+      "line": 27712,
+      "name": "isLandingContentOverlayOpen",
+      "async": false
+    },
+    {
+      "line": 27717,
+      "name": "isHigherLandingModalOpen",
+      "async": false
+    },
+    {
+      "line": 27730,
+      "name": "setLandingMobileMenuOpen",
+      "async": false
+    },
+    {
+      "line": 27753,
+      "name": "syncLandingNavActive",
+      "async": false
+    },
+    {
+      "line": 27764,
+      "name": "openLandingContentOverlay",
+      "async": false
+    },
+    {
+      "line": 27823,
+      "name": "closeLandingContentOverlay",
+      "async": false
+    },
+    {
+      "line": 27856,
+      "name": "bindLandingContentNav",
+      "async": false
+    },
+    {
+      "line": 27985,
+      "name": "destroyLandingOverlayCharts",
+      "async": false
+    },
+    {
+      "line": 27992,
+      "name": "createLandingOverlayChart",
+      "async": false
+    },
+    {
+      "line": 28003,
+      "name": "buildLandingFeaturesDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28087,
+      "name": "buildLandingServicesDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28200,
+      "name": "buildLandingAboutDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28280,
+      "name": "buildLandingSecurityDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28321,
+      "name": "syncLandingOverlayDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28335,
+      "name": "landingDemoChartPalette",
+      "async": false
+    },
+    {
+      "line": 28350,
+      "name": "landingDemoBaseOptions",
+      "async": false
+    },
+    {
+      "line": 28393,
+      "name": "createLandingDemoChart",
+      "async": false
+    },
+    {
+      "line": 28402,
+      "name": "buildLandingDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28536,
+      "name": "initLandingDemoCharts",
+      "async": false
+    },
+    {
+      "line": 28563,
+      "name": "bindLandingAnchorScroll",
+      "async": false
+    },
+    {
+      "line": 28570,
+      "name": "openTrialSignupModal",
+      "async": false
+    },
+    {
+      "line": 28740,
+      "name": "startGuestMode",
+      "async": false
+    },
+    {
+      "line": 28745,
+      "name": "doLogout",
+      "async": false
+    },
+    {
+      "line": 28806,
+      "name": "autoLogin",
+      "async": true
+    },
+    {
+      "line": 28816,
+      "name": "completeAuthenticatedUnlock",
+      "async": true
+    },
+    {
+      "line": 28890,
+      "name": "requestForcedPasswordChange",
+      "async": true
+    },
+    {
+      "line": 28997,
+      "name": "attemptUnlock",
+      "async": true
+    },
+    {
+      "line": 29068,
+      "name": "showWelcomeAndTransitionToApp",
+      "async": true
+    },
+    {
+      "line": 29114,
+      "name": "populateLoanWalletSelector",
+      "async": false
+    },
+    {
+      "line": 29128,
+      "name": "populateInventoryWalletSelector",
+      "async": false
+    },
+    {
+      "line": 29154,
+      "name": "updateGoodsPurchaseWalletSelector",
+      "async": false
+    },
+    {
+      "line": 29174,
+      "name": "updateGoodsSaleWalletSelector",
+      "async": false
+    },
+    {
+      "line": 29191,
+      "name": "updateGoodsSettlementWalletSelector",
+      "async": false
+    },
+    {
+      "line": 29207,
+      "name": "validateInventoryWallet",
+      "async": false
+    },
+    {
+      "line": 29218,
+      "name": "createWalletEntryForInventory",
+      "async": true
+    },
+    {
+      "line": 29250,
+      "name": "createWalletEntryForLoanPrincipal",
+      "async": true
+    },
+    {
+      "line": 29286,
+      "name": "createWalletEntryForPayment",
+      "async": true
+    },
+    {
+      "line": 29370,
+      "name": "btcAddressTypeInfo",
+      "async": false
+    },
+    {
+      "line": 29374,
+      "name": "btcNetworkBech32Hrp",
+      "async": false
+    },
+    {
+      "line": 29378,
+      "name": "btcSha256Digest",
+      "async": false
+    },
+    {
+      "line": 29385,
+      "name": "btcTaggedHash",
+      "async": false
+    },
+    {
+      "line": 29391,
+      "name": "btcBech32Polymod",
+      "async": false
+    },
+    {
+      "line": 29403,
+      "name": "btcBech32HrpExpand",
+      "async": false
+    },
+    {
+      "line": 29411,
+      "name": "btcBech32CreateChecksum",
+      "async": false
+    },
+    {
+      "line": 29418,
+      "name": "btcBech32VerifyChecksum",
+      "async": false
+    },
+    {
+      "line": 29425,
+      "name": "btcBech32Encode",
+      "async": false
+    },
+    {
+      "line": 29430,
+      "name": "btcBech32Decode",
+      "async": false
+    },
+    {
+      "line": 29448,
+      "name": "btcConvertBits",
+      "async": false
+    },
+    {
+      "line": 29470,
+      "name": "btcEncodeWitnessAddress",
+      "async": false
+    },
+    {
+      "line": 29476,
+      "name": "btcDecodeWitnessAddress",
+      "async": false
+    },
+    {
+      "line": 29490,
+      "name": "btcWitnessScriptPubKey",
+      "async": false
+    },
+    {
+      "line": 29495,
+      "name": "btcAddressToOutputScript",
+      "async": false
+    },
+    {
+      "line": 29506,
+      "name": "btcMod",
+      "async": false
+    },
+    {
+      "line": 29511,
+      "name": "btcModPow",
+      "async": false
+    },
+    {
+      "line": 29523,
+      "name": "btcPointNeg",
+      "async": false
+    },
+    {
+      "line": 29527,
+      "name": "btcPointAdd",
+      "async": false
+    },
+    {
+      "line": 29539,
+      "name": "btcPointMultiply",
+      "async": false
+    },
+    {
+      "line": 29551,
+      "name": "btcPointFromPrivateKeyBytes",
+      "async": false
+    },
+    {
+      "line": 29555,
+      "name": "btcXOnlyBytesFromPoint",
+      "async": false
+    },
+    {
+      "line": 29559,
+      "name": "btcTaprootOutputData",
+      "async": false
+    },
+    {
+      "line": 29580,
+      "name": "btcCreateWalletAddressRows",
+      "async": false
+    },
+    {
+      "line": 29636,
+      "name": "btcBuildWalletFromPrivateKey",
+      "async": false
+    },
+    {
+      "line": 29668,
+      "name": "btcGetWalletAddressType",
+      "async": false
+    },
+    {
+      "line": 29674,
+      "name": "btcGetSelectedWalletAddress",
+      "async": false
+    },
+    {
+      "line": 29679,
+      "name": "btcSetSelectedWalletAddressType",
+      "async": false
+    },
+    {
+      "line": 29706,
+      "name": "btcWalletCopyValue",
+      "async": false
+    },
+    {
+      "line": 29719,
+      "name": "btcSatToBtc",
+      "async": false
+    },
+    {
+      "line": 29723,
+      "name": "btcFormatBtcFromSat",
+      "async": false
+    },
+    {
+      "line": 29728,
+      "name": "formatPdfBtcFromSat",
+      "async": false
+    },
+    {
+      "line": 29732,
+      "name": "formatPdfSignedBtcFromSat",
+      "async": false
+    },
+    {
+      "line": 29739,
+      "name": "btcBtcToSat",
+      "async": false
+    },
+    {
+      "line": 29747,
+      "name": "btcMaskWif",
+      "async": false
+    },
+    {
+      "line": 29754,
+      "name": "btcFormatDate",
+      "async": false
+    },
+    {
+      "line": 29766,
+      "name": "btcShortHash",
+      "async": false
+    },
+    {
+      "line": 29772,
+      "name": "btcSetWalletStatus",
+      "async": false
+    },
+    {
+      "line": 29778,
+      "name": "btcSetSendStatus",
+      "async": false
+    },
+    {
+      "line": 29784,
+      "name": "btcGetNetworkInfo",
+      "async": false
+    },
+    {
+      "line": 29788,
+      "name": "btcClearQR",
+      "async": false
+    },
+    {
+      "line": 29793,
+      "name": "btcRenderQR",
+      "async": false
+    },
+    {
+      "line": 29807,
+      "name": "btcCopyText",
+      "async": true
+    },
+    {
+      "line": 29830,
+      "name": "btcSummarizeUtxoBalance",
+      "async": false
+    },
+    {
+      "line": 29834,
+      "name": "btcFetchJson",
+      "async": true
+    },
+    {
+      "line": 29849,
+      "name": "btcFetchText",
+      "async": true
+    },
+    {
+      "line": 29865,
+      "name": "btcFetchPrice",
+      "async": true
+    },
+    {
+      "line": 29884,
+      "name": "btcUpdatePriceDisplay",
+      "async": false
+    },
+    {
+      "line": 29901,
+      "name": "btcBtcToUsd",
+      "async": false
+    },
+    {
+      "line": 29907,
+      "name": "btcUsdToBtc",
+      "async": false
+    },
+    {
+      "line": 29914,
+      "name": "btcTrimAmount",
+      "async": false
+    },
+    {
+      "line": 29920,
+      "name": "btcFormatPlainBtcFromSat",
+      "async": false
+    },
+    {
+      "line": 29924,
+      "name": "btcMaskBulkValue",
+      "async": false
+    },
+    {
+      "line": 29931,
+      "name": "btcBulkYield",
+      "async": false
+    },
+    {
+      "line": 29935,
+      "name": "btcEnsurePrice",
+      "async": true
+    },
+    {
+      "line": 29946,
+      "name": "btcGetRecipientRows",
+      "async": false
+    },
+    {
+      "line": 29950,
+      "name": "btcRecipientHasAnyInput",
+      "async": false
+    },
+    {
+      "line": 29958,
+      "name": "btcCreateRecipientRow",
+      "async": false
+    },
+    {
+      "line": 29986,
+      "name": "btcUpdateRecipientRows",
+      "async": false
+    },
+    {
+      "line": 30000,
+      "name": "btcAddRecipientRow",
+      "async": false
+    },
+    {
+      "line": 30009,
+      "name": "btcRemoveRecipientRow",
+      "async": false
+    },
+    {
+      "line": 30017,
+      "name": "btcSyncRecipientAmount",
+      "async": false
+    },
+    {
+      "line": 30042,
+      "name": "btcSyncAllRecipientConversions",
+      "async": false
+    },
+    {
+      "line": 30052,
+      "name": "btcResetRecipientRows",
+      "async": false
+    },
+    {
+      "line": 30066,
+      "name": "btcGetGuestServiceFeeSat",
+      "async": false
+    },
+    {
+      "line": 30077,
+      "name": "btcUpdateGuestFeeDisplay",
+      "async": false
+    },
+    {
+      "line": 30090,
+      "name": "btcUpdateGuestBitcoinUi",
+      "async": false
+    },
+    {
+      "line": 30118,
+      "name": "btcUpdateSendPreview",
+      "async": false
+    },
+    {
+      "line": 30161,
+      "name": "btcUpdateUsdValues",
+      "async": false
+    },
+    {
+      "line": 30216,
+      "name": "btcStartPriceUpdates",
+      "async": false
+    },
+    {
+      "line": 30246,
+      "name": "btcStopPriceUpdates",
+      "async": false
+    },
+    {
+      "line": 30253,
+      "name": "btcAddressStatsFromRow",
+      "async": false
+    },
+    {
+      "line": 30261,
+      "name": "btcRenderWalletDetails",
+      "async": false
+    },
+    {
+      "line": 30281,
+      "name": "btcAddressTypeRowHtml",
+      "async": false
+    },
+    {
+      "line": 30307,
+      "name": "btcRenderAddressTypes",
+      "async": false
+    },
+    {
+      "line": 30334,
+      "name": "btcUpdateSelectedSummary",
+      "async": false
+    },
+    {
+      "line": 30354,
+      "name": "btcFlashCopied",
+      "async": false
+    },
+    {
+      "line": 30377,
+      "name": "btcHandleWalletCopyClick",
+      "async": true
+    },
+    {
+      "line": 30397,
+      "name": "btcSelectAddressType",
+      "async": true
+    },
+    {
+      "line": 30410,
+      "name": "btcRenderReceiveModal",
+      "async": false
+    },
+    {
+      "line": 30434,
+      "name": "btcOpenReceiveModal",
+      "async": false
+    },
+    {
+      "line": 30442,
+      "name": "btcToggleWalletType",
+      "async": false
+    },
+    {
+      "line": 30460,
+      "name": "btcWatchAddress",
+      "async": true
+    },
+    {
+      "line": 30504,
+      "name": "btcUpdateWalletView",
+      "async": false
+    },
+    {
+      "line": 30539,
+      "name": "btcCurrentApi",
+      "async": false
+    },
+    {
+      "line": 30543,
+      "name": "btcClearView",
+      "async": false
+    },
+    {
+      "line": 30588,
+      "name": "btcUpdateWalletView",
+      "async": false
+    },
+    {
+      "line": 30628,
+      "name": "btcDetectAndLoadWallet",
+      "async": false
+    },
+    {
+      "line": 30652,
+      "name": "btcNormalizePrivateKeyHex",
+      "async": false
+    },
+    {
+      "line": 30661,
+      "name": "btcDetectAndLoadHexPrivateKey",
+      "async": false
+    },
+    {
+      "line": 30672,
+      "name": "btcDetectAndLoadWalletQuiet",
+      "async": false
+    },
+    {
+      "line": 30693,
+      "name": "btcBulkStatsFromAddressData",
+      "async": false
+    },
+    {
+      "line": 30704,
+      "name": "btcFetchAddressStats",
+      "async": true
+    },
+    {
+      "line": 30726,
+      "name": "btcUpdateAddressRowStats",
+      "async": true
+    },
+    {
+      "line": 30747,
+      "name": "btcBulkWalletRowHtml",
+      "async": false
+    },
+    {
+      "line": 30781,
+      "name": "btcUpdateBulkImportStatus",
+      "async": false
+    },
+    {
+      "line": 30800,
+      "name": "btcRenderBulkWallets",
+      "async": false
+    },
+    {
+      "line": 30814,
+      "name": "btcUpdateBulkWalletRow",
+      "async": false
+    },
+    {
+      "line": 30850,
+      "name": "btcClearBulkWallets",
+      "async": false
+    },
+    {
+      "line": 30857,
+      "name": "btcBuildBulkWalletRowsFromText",
+      "async": true
+    },
+    {
+      "line": 30915,
+      "name": "btcFetchBulkWalletStats",
+      "async": true
+    },
+    {
+      "line": 30921,
+      "name": "btcProcessBulkWalletStats",
+      "async": true
+    },
+    {
+      "line": 30966,
+      "name": "btcPromptBulkWalletImport",
+      "async": false
+    },
+    {
+      "line": 30976,
+      "name": "btcHandleBulkWalletFileChange",
+      "async": true
+    },
+    {
+      "line": 31023,
+      "name": "btcLoadBulkWallet",
+      "async": true
+    },
+    {
+      "line": 31056,
+      "name": "btcBytesToHex",
+      "async": false
+    },
+    {
+      "line": 31060,
+      "name": "btcIsValidPrivateKeyBytes",
+      "async": false
+    },
+    {
+      "line": 31067,
+      "name": "btcSha256DataBytes",
+      "async": true
+    },
+    {
+      "line": 31078,
+      "name": "btcSha256Bytes",
+      "async": true
+    },
+    {
+      "line": 31083,
+      "name": "btcConcatBytes",
+      "async": false
+    },
+    {
+      "line": 31095,
+      "name": "btcUint32Bytes",
+      "async": false
+    },
+    {
+      "line": 31104,
+      "name": "btcBigIntFromBytes",
+      "async": false
+    },
+    {
+      "line": 31109,
+      "name": "btcBytesFromBigInt",
+      "async": false
+    },
+    {
+      "line": 31117,
+      "name": "btcHmacSha512",
+      "async": true
+    },
+    {
+      "line": 31129,
+      "name": "btcPbkdf2Sha512",
+      "async": true
+    },
+    {
+      "line": 31152,
+      "name": "btcBytesToBitString",
+      "async": false
+    },
+    {
+      "line": 31156,
+      "name": "btcSeedWordsFromInput",
+      "async": false
+    },
+    {
+      "line": 31173,
+      "name": "btcValidateSeedWords",
+      "async": true
+    },
+    {
+      "line": 31193,
+      "name": "btcEntropyToMnemonic",
+      "async": true
+    },
+    {
+      "line": 31209,
+      "name": "btcGenerateSeedPhrase",
+      "async": true
+    },
+    {
+      "line": 31217,
+      "name": "btcNormalizeSeedPhrase",
+      "async": true
+    },
+    {
+      "line": 31222,
+      "name": "btcMnemonicToSeedBytes",
+      "async": true
+    },
+    {
+      "line": 31226,
+      "name": "btcDeriveBip32Child",
+      "async": true
+    },
+    {
+      "line": 31249,
+      "name": "btcDeriveSeedWallet",
+      "async": true
+    },
+    {
+      "line": 31283,
+      "name": "btcDeriveBrainWallet",
+      "async": true
+    },
+    {
+      "line": 31298,
+      "name": "btcEstimateLegacyP2PKHSize",
+      "async": false
+    },
+    {
+      "line": 31302,
+      "name": "btcSelectedInputVbytes",
+      "async": false
+    },
+    {
+      "line": 31307,
+      "name": "btcSelectedOutputVbytes",
+      "async": false
+    },
+    {
+      "line": 31312,
+      "name": "btcEstimateSpendVbytes",
+      "async": false
+    },
+    {
+      "line": 31317,
+      "name": "btcHexToBytes",
+      "async": false
+    },
+    {
+      "line": 31331,
+      "name": "btcBuildSpendPlan",
+      "async": false
+    },
+    {
+      "line": 31348,
+      "name": "btcUint64Bytes",
+      "async": false
+    },
+    {
+      "line": 31358,
+      "name": "btcUint32BytesLE",
+      "async": false
+    },
+    {
+      "line": 31363,
+      "name": "btcVarInt",
+      "async": false
+    },
+    {
+      "line": 31371,
+      "name": "btcReverseBytes",
+      "async": false
+    },
+    {
+      "line": 31375,
+      "name": "btcHash256",
+      "async": false
+    },
+    {
+      "line": 31379,
+      "name": "btcSerializeOutput",
+      "async": false
+    },
+    {
+      "line": 31384,
+      "name": "btcSerializeOutpoint",
+      "async": false
+    },
+    {
+      "line": 31388,
+      "name": "btcSerializeTransaction",
+      "async": false
+    },
+    {
+      "line": 31417,
+      "name": "btcBytesXor",
+      "async": false
+    },
+    {
+      "line": 31423,
+      "name": "btcSchnorrSign",
+      "async": false
+    },
+    {
+      "line": 31442,
+      "name": "btcTaprootSignatureHash",
+      "async": false
+    },
+    {
+      "line": 31468,
+      "name": "btcBuildTaprootTransaction",
+      "async": false
+    },
+    {
+      "line": 31507,
+      "name": "btcTxDirection",
+      "async": false
+    },
+    {
+      "line": 31512,
+      "name": "btcRenderHistory",
+      "async": false
+    },
+    {
+      "line": 31656,
+      "name": "btcGetTransactionAddresses",
+      "async": false
+    },
+    {
+      "line": 31682,
+      "name": "btcLoadMoreTransactions",
+      "async": true
+    },
+    {
+      "line": 31724,
+      "name": "btcUpdateLoadMoreButton",
+      "async": false
+    },
+    {
+      "line": 31775,
+      "name": "btcRenderMoreTransactions",
+      "async": true
+    },
+    {
+      "line": 31917,
+      "name": "btcDownloadTransactionPDF",
+      "async": true
+    },
+    {
+      "line": 32014,
+      "name": "btcFetchWalletData",
+      "async": true
+    },
+    {
+      "line": 32086,
+      "name": "btcImportWif",
+      "async": true
+    },
+    {
+      "line": 32130,
+      "name": "btcImportHex",
+      "async": true
+    },
+    {
+      "line": 32165,
+      "name": "btcLoadSeedWallet",
+      "async": true
+    },
+    {
+      "line": 32182,
+      "name": "btcImportSeedWallet",
+      "async": true
+    },
+    {
+      "line": 32196,
+      "name": "btcCreateSeedWallet",
+      "async": true
+    },
+    {
+      "line": 32207,
+      "name": "btcImportBrainWallet",
+      "async": true
+    },
+    {
+      "line": 32237,
+      "name": "btcGenerateWallet",
+      "async": true
+    },
+    {
+      "line": 32263,
+      "name": "btcGenerateQRCodeDataURL",
+      "async": false
+    },
+    {
+      "line": 32298,
+      "name": "generatePaperWalletBackground",
+      "async": true
+    },
+    {
+      "line": 32317,
+      "name": "btcWalletPrivateKeyHex",
+      "async": false
+    },
+    {
+      "line": 32323,
+      "name": "btcDrawWatchOnlyWifNotice",
+      "async": false
+    },
+    {
+      "line": 32336,
+      "name": "btcDrawWalletPdfExtraDetails",
+      "async": false
+    },
+    {
+      "line": 32374,
+      "name": "btcDownloadWalletPdf",
+      "async": true
+    },
+    {
+      "line": 32468,
+      "name": "btcClearSession",
+      "async": false
+    },
+    {
+      "line": 32489,
+      "name": "saveBitcoinWallet",
+      "async": true
+    },
+    {
+      "line": 32558,
+      "name": "deleteBitcoinWallet",
+      "async": true
+    },
+    {
+      "line": 32605,
+      "name": "loadBitcoinWalletsFromDatabase",
+      "async": true
+    },
+    {
+      "line": 32716,
+      "name": "renderExistingAddressesDropdown",
+      "async": false
+    },
+    {
+      "line": 32775,
+      "name": "checkIfAddressExists",
+      "async": false
+    },
+    {
+      "line": 32781,
+      "name": "promptToSaveWallet",
+      "async": true
+    },
+    {
+      "line": 32794,
+      "name": "updateSaveButtonVisibility",
+      "async": false
+    },
+    {
+      "line": 32828,
+      "name": "updateSavedAddressesVisibility",
+      "async": false
+    },
+    {
+      "line": 32845,
+      "name": "loadSelectedAddress",
+      "async": true
+    },
+    {
+      "line": 32883,
+      "name": "renderBitcoinWallets",
+      "async": false
+    },
+    {
+      "line": 32889,
+      "name": "loadSavedBitcoinWallet",
+      "async": true
+    },
+    {
+      "line": 32928,
+      "name": "deleteSavedBitcoinWallet",
+      "async": true
+    },
+    {
+      "line": 32935,
+      "name": "saveNote",
+      "async": true
+    },
+    {
+      "line": 33015,
+      "name": "clearNoteReminderWakeTimer",
+      "async": false
+    },
+    {
+      "line": 33023,
+      "name": "locallyDueNoteReminders",
+      "async": false
+    },
+    {
+      "line": 33032,
+      "name": "openNoteReminderNotifyPanel",
+      "async": false
+    },
+    {
+      "line": 33057,
+      "name": "ensureNoteReminderToastHost",
+      "async": false
+    },
+    {
+      "line": 33070,
+      "name": "stopReminderAlertSound",
+      "async": false
+    },
+    {
+      "line": 33079,
+      "name": "unlockReminderAlertAudio",
+      "async": false
+    },
+    {
+      "line": 33102,
+      "name": "ensureReminderAlertAudioUnlocked",
+      "async": false
+    },
+    {
+      "line": 33114,
+      "name": "startReminderAlertSound",
+      "async": false
+    },
+    {
+      "line": 33136,
+      "name": "reminderAlertDedupeKey",
+      "async": false
+    },
+    {
+      "line": 33149,
+      "name": "extractPlanGroupIdFromReminderRaw",
+      "async": false
+    },
+    {
+      "line": 33164,
+      "name": "isInstallmentManualReminderRaw",
+      "async": false
+    },
+    {
+      "line": 33177,
+      "name": "normalizeReminderAlertItem",
+      "async": false
+    },
+    {
+      "line": 33273,
+      "name": "resolveReminderNotificationId",
+      "async": false
+    },
+    {
+      "line": 33315,
+      "name": "ensureReminderAlertModal",
+      "async": false
+    },
+    {
+      "line": 33363,
+      "name": "bindReminderAlertModal",
+      "async": false
+    },
+    {
+      "line": 33387,
+      "name": "hideReminderAlertModalShell",
+      "async": false
+    },
+    {
+      "line": 33400,
+      "name": "resetReminderAlertUi",
+      "async": false
+    },
+    {
+      "line": 33406,
+      "name": "fillReminderAlertModal",
+      "async": false
+    },
+    {
+      "line": 33453,
+      "name": "presentNextReminderAlert",
+      "async": false
+    },
+    {
+      "line": 33479,
+      "name": "enqueueReminderAlerts",
+      "async": false
+    },
+    {
+      "line": 33494,
+      "name": "dismissReminderAlert",
+      "async": true
+    },
+    {
+      "line": 33572,
+      "name": "showNoteReminderToast",
+      "async": false
+    },
+    {
+      "line": 33581,
+      "name": "showNoteReminderToasts",
+      "async": false
+    },
+    {
+      "line": 33585,
+      "name": "mergeUserNotificationsIntoCommsCache",
+      "async": false
+    },
+    {
+      "line": 33602,
+      "name": "fetchMyNotificationsList",
+      "async": true
+    },
+    {
+      "line": 33610,
+      "name": "notificationRowToReminderAlertRaw",
+      "async": false
+    },
+    {
+      "line": 33656,
+      "name": "presentUnreadReminderAlertsFromNotifications",
+      "async": true
+    },
+    {
+      "line": 33673,
+      "name": "bootstrapReminderDeliveryOnUnlock",
+      "async": true
+    },
+    {
+      "line": 33688,
+      "name": "scheduleNoteReminderWake",
+      "async": false
+    },
+    {
+      "line": 33727,
+      "name": "ensurePendingNoteReminderMap",
+      "async": true
+    },
+    {
+      "line": 33768,
+      "name": "renderNotes",
+      "async": true
+    },
+    {
+      "line": 33907,
+      "name": "saveEditedNoteContent",
+      "async": true
+    },
+    {
+      "line": 33944,
+      "name": "loadNotesFromDatabase",
+      "async": true
+    },
+    {
+      "line": 34033,
+      "name": "escapeHtml",
+      "async": false
+    },
+    {
+      "line": 34039,
+      "name": "btcCollectRecipientOutputs",
+      "async": false
+    },
+    {
+      "line": 34089,
+      "name": "btcBuildGuestServiceFeeOutput",
+      "async": false
+    },
+    {
+      "line": 34106,
+      "name": "btcUpdateSendFromAddress",
+      "async": false
+    },
+    {
+      "line": 34123,
+      "name": "btcOpenSendModal",
+      "async": true
+    },
+    {
+      "line": 34154,
+      "name": "btcUseMaxAmount",
+      "async": true
+    },
+    {
+      "line": 34198,
+      "name": "btcDownloadPDF",
+      "async": true
+    },
+    {
+      "line": 34393,
+      "name": "btcSetWifQrStatus",
+      "async": false
+    },
+    {
+      "line": 34399,
+      "name": "btcStopWifQrScanner",
+      "async": false
+    },
+    {
+      "line": 34417,
+      "name": "btcQrCameraErrorMessage",
+      "async": false
+    },
+    {
+      "line": 34434,
+      "name": "btcExtractWifFromQrText",
+      "async": false
+    },
+    {
+      "line": 34450,
+      "name": "btcIsValidBitcoinAddress",
+      "async": false
+    },
+    {
+      "line": 34463,
+      "name": "btcDetectAddressNetworkKey",
+      "async": false
+    },
+    {
+      "line": 34474,
+      "name": "btcExtractAddressFromQrText",
+      "async": false
+    },
+    {
+      "line": 34493,
+      "name": "btcQrScannerMeta",
+      "async": false
+    },
+    {
+      "line": 34512,
+      "name": "btcSetQrScannerContextStatus",
+      "async": false
+    },
+    {
+      "line": 34521,
+      "name": "btcUpdateQrScannerModalCopy",
+      "async": false
+    },
+    {
+      "line": 34530,
+      "name": "btcHandleScannedQrText",
+      "async": false
+    },
+    {
+      "line": 34586,
+      "name": "btcScanWifQrFrame",
+      "async": true
+    },
+    {
+      "line": 34614,
+      "name": "btcOpenWifQrScanner",
+      "async": true
+    },
+    {
+      "line": 34666,
+      "name": "btcBuildAndBroadcast",
+      "async": true
+    },
+    {
+      "line": 34863,
+      "name": "btcBindUI",
+      "async": false
+    },
+    {
+      "line": 34991,
+      "name": "notesBindUI",
+      "async": false
+    },
+    {
+      "line": 35069,
+      "name": "btcClearSession",
+      "async": false
+    },
+    {
+      "line": 35118,
+      "name": "formatAdminDate",
+      "async": false
+    },
+    {
+      "line": 35127,
+      "name": "userAllowedCurrencies",
+      "async": false
+    },
+    {
+      "line": 35135,
+      "name": "userAllowedTabs",
+      "async": false
+    },
+    {
+      "line": 35151,
+      "name": "permissionMapFromUser",
+      "async": false
+    },
+    {
+      "line": 35181,
+      "name": "checkboxGridHtml",
+      "async": false
+    },
+    {
+      "line": 35194,
+      "name": "readCheckboxGrid",
+      "async": false
+    },
+    {
+      "line": 35200,
+      "name": "adminCredentialBlock",
+      "async": false
+    },
+    {
+      "line": 35231,
+      "name": "adminMetaChips",
+      "async": false
+    },
+    {
+      "line": 35246,
+      "name": "groupAdminUsersForDisplay",
+      "async": false
+    },
+    {
+      "line": 35265,
+      "name": "renderAdminUserCardHtml",
+      "async": false
+    },
+    {
+      "line": 35367,
+      "name": "loadAdminUsers",
+      "async": true
+    },
+    {
+      "line": 35489,
+      "name": "handleAdminUserAction",
+      "async": true
+    },
+    {
+      "line": 35581,
+      "name": "ensureAdminRawModal",
+      "async": false
+    },
+    {
+      "line": 35667,
+      "name": "closeAdminRawDataOverlay",
+      "async": false
+    },
+    {
+      "line": 35675,
+      "name": "openAdminRawDataOverlay",
+      "async": false
+    },
+    {
+      "line": 35699,
+      "name": "renderAdminRawSectionFilters",
+      "async": false
+    },
+    {
+      "line": 35722,
+      "name": "loadAdminRawData",
+      "async": true
+    },
+    {
+      "line": 35773,
+      "name": "renderAdminRawTable",
+      "async": false
+    },
+    {
+      "line": 35865,
+      "name": "closeAdminRawEditSheet",
+      "async": false
+    },
+    {
+      "line": 35874,
+      "name": "openAdminRawEditSheet",
+      "async": false
+    },
+    {
+      "line": 35957,
+      "name": "saveAdminRawEdit",
+      "async": true
+    },
+    {
+      "line": 36005,
+      "name": "passwordEyeButtonHtml",
+      "async": false
+    },
+    {
+      "line": 36010,
+      "name": "setPasswordEyeState",
+      "async": false
+    },
+    {
+      "line": 36021,
+      "name": "bindAdminFormPasswordToggle",
+      "async": false
+    },
+    {
+      "line": 36035,
+      "name": "buildAdminUserFormFields",
+      "async": false
+    },
+    {
+      "line": 36192,
+      "name": "uploadCompanyLogoToStorage",
+      "async": true
+    },
+    {
+      "line": 36221,
+      "name": "bindAccessPeriodFields",
+      "async": false
+    },
+    {
+      "line": 36235,
+      "name": "bindAdminTeamLimitControl",
+      "async": false
+    },
+    {
+      "line": 36269,
+      "name": "readAccessPeriodPayload",
+      "async": false
+    },
+    {
+      "line": 36277,
+      "name": "applyAdminAccessPeriod",
+      "async": true
+    },
+    {
+      "line": 36304,
+      "name": "bindAdminLogoPicker",
+      "async": false
+    },
+    {
+      "line": 36332,
+      "name": "openAdminCreateUserModal",
+      "async": false
+    },
+    {
+      "line": 36431,
+      "name": "openAdminEditUserModal",
+      "async": false
+    },
+    {
+      "line": 36626,
+      "name": "openAccountSettingsModal",
+      "async": false
+    },
+    {
+      "line": 36972,
+      "name": "isAppAdminSession",
+      "async": false
+    },
+    {
+      "line": 36982,
+      "name": "isProtectedAdminSession",
+      "async": false
+    },
+    {
+      "line": 36991,
+      "name": "updateAdminBackupVisibility",
+      "async": false
+    },
+    {
+      "line": 37006,
+      "name": "setAdminBackupStatus",
+      "async": false
+    },
+    {
+      "line": 37015,
+      "name": "requireProtectedAdminBackup",
+      "async": false
+    },
+    {
+      "line": 37024,
+      "name": "triggerAdminBackupDownload",
+      "async": false
+    },
+    {
+      "line": 37039,
+      "name": "canonicalizeAdminBackupPayload",
+      "async": false
+    },
+    {
+      "line": 37043,
+      "name": "fetchAdminFullBackupPayload",
+      "async": true
+    },
+    {
+      "line": 37053,
+      "name": "downloadAdminBackupJson",
+      "async": true
+    },
+    {
+      "line": 37068,
+      "name": "adminBackupCsvEncodeCell",
+      "async": false
+    },
+    {
+      "line": 37072,
+      "name": "adminBackupCsvDecodeCell",
+      "async": false
+    },
+    {
+      "line": 37076,
+      "name": "adminBackupTableColumnOrder",
+      "async": false
+    },
+    {
+      "line": 37080,
+      "name": "adminBackupTablesToCsv",
+      "async": false
+    },
+    {
+      "line": 37084,
+      "name": "parseAdminBackupCsv",
+      "async": false
+    },
+    {
+      "line": 37088,
+      "name": "downloadAdminBackupCsv",
+      "async": true
+    },
+    {
+      "line": 37106,
+      "name": "sqlLiteral",
+      "async": false
+    },
+    {
+      "line": 37112,
+      "name": "sqlUuidLiteral",
+      "async": false
+    },
+    {
+      "line": 37124,
+      "name": "fetchProtectedAdminCredentialsForSql",
+      "async": true
+    },
+    {
+      "line": 37159,
+      "name": "buildProtectedAdminCredentialsSql",
+      "async": false
+    },
+    {
+      "line": 37229,
+      "name": "downloadAdminBackupSql",
+      "async": true
+    },
+    {
+      "line": 37266,
+      "name": "detectAdminBackupKind",
+      "async": false
+    },
+    {
+      "line": 37275,
+      "name": "normalizeAdminBackupPayload",
+      "async": false
+    },
+    {
+      "line": 37279,
+      "name": "uploadAdminBackupFile",
+      "async": true
+    },
+    {
+      "line": 37327,
+      "name": "bindAdminBackupEvents",
+      "async": false
+    },
+    {
+      "line": 37355,
+      "name": "formatRelativeTime",
+      "async": false
+    },
+    {
+      "line": 37395,
+      "name": "stopAdminCommsPolling",
+      "async": false
+    },
+    {
+      "line": 37399,
+      "name": "startAdminCommsPolling",
+      "async": false
+    },
+    {
+      "line": 37403,
+      "name": "stopMessagingLiveSync",
+      "async": false
+    },
+    {
+      "line": 37415,
+      "name": "messagingLiveEligible",
+      "async": false
+    },
+    {
+      "line": 37419,
+      "name": "messagingLivePollIntervalMs",
+      "async": false
+    },
+    {
+      "line": 37423,
+      "name": "scheduleMessagingLivePoll",
+      "async": false
+    },
+    {
+      "line": 37438,
+      "name": "startMessagingLiveSync",
+      "async": false
+    },
+    {
+      "line": 37446,
+      "name": "bindMessagingLiveVisibility",
+      "async": false
+    },
+    {
+      "line": 37462,
+      "name": "threadListFingerprint",
+      "async": false
+    },
+    {
+      "line": 37474,
+      "name": "selectedThreadSignature",
+      "async": false
+    },
+    {
+      "line": 37481,
+      "name": "isAdminCommsDropdownOpen",
+      "async": false
+    },
+    {
+      "line": 37486,
+      "name": "applyAdminBadgeCounts",
+      "async": false
+    },
+    {
+      "line": 37493,
+      "name": "queueMessagingLiveUiRefresh",
+      "async": false
+    },
+    {
+      "line": 37503,
+      "name": "applyMessagingLiveUiRefresh",
+      "async": true
+    },
+    {
+      "line": 37525,
+      "name": "fetchMessagingSyncState",
+      "async": true
+    },
+    {
+      "line": 37542,
+      "name": "fetchMessagingFallbackFingerprint",
+      "async": true
+    },
+    {
+      "line": 37578,
+      "name": "dispatchDueNoteRemindersThrottled",
+      "async": true
+    },
+    {
+      "line": 37615,
+      "name": "runMessagingLivePoll",
+      "async": true
+    },
+    {
+      "line": 37667,
+      "name": "noteMessagingLocalMutation",
+      "async": false
+    },
+    {
+      "line": 37672,
+      "name": "setHeaderBadge",
+      "async": false
+    },
+    {
+      "line": 37679,
+      "name": "updateAdminCommsVisibility",
+      "async": false
+    },
+    {
+      "line": 37700,
+      "name": "refreshAdminCommsBadges",
+      "async": true
+    },
+    {
+      "line": 37737,
+      "name": "notificationIconClass",
+      "async": false
+    },
+    {
+      "line": 37747,
+      "name": "notificationIcon",
+      "async": false
+    },
+    {
+      "line": 37758,
+      "name": "loadAdminNotificationsDropdown",
+      "async": true
+    },
+    {
+      "line": 37841,
+      "name": "loadAdminMessagesPreview",
+      "async": true
+    },
+    {
+      "line": 37878,
+      "name": "goToMessagesTab",
+      "async": false
+    },
+    {
+      "line": 37892,
+      "name": "setMessagesComposerVisible",
+      "async": false
+    },
+    {
+      "line": 37897,
+      "name": "prepareMessagesComposer",
+      "async": true
+    },
+    {
+      "line": 37951,
+      "name": "renderMessagesPanel",
+      "async": true
+    },
+    {
+      "line": 38038,
+      "name": "renderMessagesThreadList",
+      "async": false
+    },
+    {
+      "line": 38070,
+      "name": "showMessagesEmptyState",
+      "async": false
+    },
+    {
+      "line": 38077,
+      "name": "openInquiryThread",
+      "async": true
+    },
+    {
+      "line": 38177,
+      "name": "sendInquiryReply",
+      "async": true
+    },
+    {
+      "line": 38199,
+      "name": "bindMessagingUi",
+      "async": false
+    },
+    {
+      "line": 38481,
+      "name": "toDatetimeLocalValue",
+      "async": false
+    },
+    {
+      "line": 38489,
+      "name": "parseDatetimeLocalInput",
+      "async": false
+    },
+    {
+      "line": 38496,
+      "name": "datetimeLocalInputToTimestamptz",
+      "async": false
+    },
+    {
+      "line": 38506,
+      "name": "formatNoteReminderWhen",
+      "async": false
+    },
+    {
+      "line": 38512,
+      "name": "setNoteReminderFormMode",
+      "async": false
+    },
+    {
+      "line": 38526,
+      "name": "resetNoteReminderForm",
+      "async": false
+    },
+    {
+      "line": 38546,
+      "name": "fillNoteReminderFormForEdit",
+      "async": false
+    },
+    {
+      "line": 38566,
+      "name": "renderNoteReminderExistingList",
+      "async": false
+    },
+    {
+      "line": 38602,
+      "name": "loadNoteReminderExistingList",
+      "async": true
+    },
+    {
+      "line": 38623,
+      "name": "loadInstallmentReminderExistingList",
+      "async": true
+    },
+    {
+      "line": 38664,
+      "name": "pendingItemsForWake",
+      "async": false
+    },
+    {
+      "line": 38668,
+      "name": "installmentReminderPreviewText",
+      "async": false
+    },
+    {
+      "line": 38744,
+      "name": "saveNoteReminder",
+      "async": true
+    },
+    {
+      "line": 38861,
+      "name": "stopInstallmentDueChecker",
+      "async": false
+    },
+    {
+      "line": 38868,
+      "name": "startInstallmentDueChecker",
+      "async": false
+    },
+    {
+      "line": 38874,
+      "name": "scheduleInstallmentDueCheck",
+      "async": false
+    },
+    {
+      "line": 38888,
+      "name": "daysUntilISODate",
+      "async": false
+    },
+    {
+      "line": 38898,
+      "name": "runInstallmentDueCheck",
+      "async": true
+    },
+    {
+      "line": 38971,
+      "name": "bindAdminPanelEvents",
+      "async": false
+    },
+    {
+      "line": 38985,
+      "name": "boot",
+      "async": true
+    },
+    {
+      "line": 39007,
+      "name": "hasStoredSignInDetails",
+      "async": false
+    },
+    {
+      "line": 39025,
+      "name": "dismissTrialPromoOverlay",
+      "async": false
+    },
+    {
+      "line": 39035,
+      "name": "showTrialPromoOverlay",
+      "async": false
+    },
+    {
+      "line": 39043,
+      "name": "initTrialPromoOverlay",
+      "async": true
+    },
+    {
+      "line": 39086,
+      "name": "initInquiryOverlay",
+      "async": false
+    },
+    {
+      "line": 39170,
+      "name": "initAppDownloadOverlay",
+      "async": false
+    },
+    {
+      "line": 39224,
+      "name": "showIosDownloadOverlay",
+      "async": false
+    },
+    {
+      "line": 39254,
+      "name": "showAndroidDownloadOverlay",
+      "async": false
+    },
+    {
+      "line": 39284,
+      "name": "hideIosDownloadOverlay",
+      "async": false
+    },
+    {
+      "line": 39291,
+      "name": "hideAndroidDownloadOverlay",
+      "async": false
+    }
+  ]
+}
