@@ -849,6 +849,7 @@
   <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-server-pagination-155" />
   <link rel="stylesheet" href="Assets/style/44-financial-audit-report.css?v=20260909-audit-executive-sections-158" />
   <link rel="stylesheet" href="Assets/style/45-triplem-ai.css?v=20260909-triplem-ai-158" />
+  <link rel="stylesheet" href="Assets/style/47-section-keyboard-shortcuts.css?v=20260909-sections002" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3472,11 +3473,12 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Loan Given / Received Back</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="givenShortcutsBtn" type="button" data-shortcut-trigger="given" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
                     <button class="tiny ghost menu-trigger" type="button" data-entry-menu="given" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="given">
-                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="given">Loan Given</button>
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given">Received Back</button>
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="given" aria-keyshortcuts="Control+Alt+G">Loan Given</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given" aria-keyshortcuts="Control+Alt+R">Received Back</button>
                       <button type="button" class="menu-item" data-section-csv-download="loans-given" title="Download loans given as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -3499,11 +3501,11 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchGiven" class="input filter-inline-input" placeholder="Name or note" />
+                  <input id="searchGiven" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name or note" />
                 </div>
                 <div class="filter-inline-section">
                   <span class="filter-inline-label">Status</span>
-                  <select id="givenStatusFilter" class="select filter-inline-select status-filter-select" data-filter="given" aria-label="Filter given loans by status">
+                  <select id="givenStatusFilter" class="select filter-inline-select status-filter-select" aria-keyshortcuts="Control+Alt+O" data-filter="given" aria-label="Filter given loans by status">
                     <option value="All" selected>All</option>
                     <option value="Active">Open/Partial</option>
                     <option value="Closed">Closed</option>
@@ -3534,10 +3536,11 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Received Back</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="receivedShortcutsBtn" type="button" data-shortcut-trigger="received" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
                     <button class="tiny ghost menu-trigger" type="button" data-entry-menu="received" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="received">
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given">Received Back</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="given" aria-keyshortcuts="Control+Alt+R">Received Back</button>
                       <button type="button" class="menu-item" id="downloadReceivedPdfBtn" title="Download received back PDF">
                         <i class="fa-solid fa-file-pdf"></i> Download PDF
                       </button>
@@ -3552,11 +3555,11 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchReceived" class="input filter-inline-input" placeholder="Name or note" />
+                  <input id="searchReceived" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name or note" />
                 </div>
                 <div class="filter-inline-section">
                   <span class="filter-inline-label">Status</span>
-                  <select id="receivedStatusFilter" class="select filter-inline-select status-filter-select" data-filter="received" aria-label="Filter received by status">
+                  <select id="receivedStatusFilter" class="select filter-inline-select status-filter-select" aria-keyshortcuts="Control+Alt+O" data-filter="received" aria-label="Filter received by status">
                     <option value="All" selected>All</option>
                     <option value="Active">Open/Partial</option>
                     <option value="Closed">Closed</option>
@@ -3591,11 +3594,12 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Loan Taken / Returned Back</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="takenShortcutsBtn" type="button" data-shortcut-trigger="taken" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
                     <button class="tiny ghost menu-trigger" type="button" data-entry-menu="taken" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="taken">
-                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken">Loan Taken</button>
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken">Returned Back</button>
+                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken" aria-keyshortcuts="Control+Alt+T">Loan Taken</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" aria-keyshortcuts="Control+Alt+B">Returned Back</button>
                       <button type="button" class="menu-item" data-section-csv-download="loans-taken" title="Download loans taken as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -3618,11 +3622,11 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchTaken" class="input filter-inline-input" placeholder="Name or note" />
+                  <input id="searchTaken" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name or note" />
                 </div>
                 <div class="filter-inline-section">
                   <span class="filter-inline-label">Status</span>
-                  <select id="takenStatusFilter" class="select filter-inline-select status-filter-select" data-filter="taken" aria-label="Filter taken loans by status">
+                  <select id="takenStatusFilter" class="select filter-inline-select status-filter-select" aria-keyshortcuts="Control+Alt+O" data-filter="taken" aria-label="Filter taken loans by status">
                     <option value="All" selected>All</option>
                     <option value="Active">Open/Partial</option>
                     <option value="Closed">Closed</option>
@@ -3653,10 +3657,11 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Returned Back</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="returnedShortcutsBtn" type="button" data-shortcut-trigger="returned" title="Loan keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
                     <button class="tiny ghost menu-trigger" type="button" data-entry-menu="returned" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="returned">
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken">Returned Back</button>
+                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" aria-keyshortcuts="Control+Alt+B">Returned Back</button>
                       <button type="button" class="menu-item" id="downloadReturnedPdfBtn" title="Download returned back PDF">
                         <i class="fa-solid fa-file-pdf"></i> Download PDF
                       </button>
@@ -3671,11 +3676,11 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchReturned" class="input filter-inline-input" placeholder="Name or note" />
+                  <input id="searchReturned" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name or note" />
                 </div>
                 <div class="filter-inline-section">
                   <span class="filter-inline-label">Status</span>
-                  <select id="returnedStatusFilter" class="select filter-inline-select status-filter-select" data-filter="returned" aria-label="Filter returned by status">
+                  <select id="returnedStatusFilter" class="select filter-inline-select status-filter-select" aria-keyshortcuts="Control+Alt+O" data-filter="returned" aria-label="Filter returned by status">
                     <option value="All" selected>All</option>
                     <option value="Active">Open/Partial</option>
                     <option value="Closed">Closed</option>
@@ -3706,6 +3711,7 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Installment Plans</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="installmentsShortcutsBtn" type="button" data-shortcut-trigger="installments" title="Installment keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="installments" title="Installments summary and graphs">
                     <i class="fa-solid fa-chart-pie"></i> Details
                   </button>
@@ -3733,7 +3739,7 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchInstallments" class="input filter-inline-input" placeholder="Name or note" />
+                  <input id="searchInstallments" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name or note" />
                 </div>
                 <div class="filter-inline-section">
                   <span class="filter-inline-label">Status</span>
@@ -3973,6 +3979,7 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Asset Management</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="assetsShortcutsBtn" type="button" data-shortcut-trigger="assets" title="Asset keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="assets" title="Assets summary and graphs">
                     <i class="fa-solid fa-chart-pie"></i> Details
                   </button>
@@ -4001,7 +4008,7 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchAssets" class="input filter-inline-input" placeholder="Name, type, notes" />
+                  <input id="searchAssets" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name, type, notes" />
                 </div>
                 <div class="filter-inline-section asset-status-control">
                   <span class="filter-inline-label">Status</span>
@@ -4023,6 +4030,7 @@
                 <div class="title-group">
                   <div class="title-row">
                     <h3>Depreciation Assets</h3>
+                    <button class="tiny ghost section-shortcuts-tag" id="depAssetsShortcutsBtn" type="button" data-shortcut-trigger="assets" title="Asset keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                     <div class="menu-wrap">
                       <button class="tiny ghost menu-trigger" type="button" data-entry-menu="depreciation-assets" aria-haspopup="menu" aria-expanded="false">Reports ▾</button>
                       <div class="menu-dropdown" data-entry-menu-panel="depreciation-assets">
@@ -4043,7 +4051,7 @@
                 <div class="compact-filter-main">
                   <div class="filter-inline-section compact-filter-search">
                     <span class="filter-inline-label">Search</span>
-                    <input id="searchDepAssets" class="input filter-inline-input" placeholder="Name, type, description" />
+                    <input id="searchDepAssets" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Name, type, description" />
                   </div>
                   <div class="filter-inline-section">
                     <span class="filter-inline-label">Type</span>
@@ -4152,12 +4160,15 @@
                   <button class="tiny ghost sectionDetailsBtn" type="button" data-section-details="expenses" title="Expenses summary and graphs">
                     <i class="fa-solid fa-chart-pie"></i> Details
                   </button>
+                  <button class="tiny ghost section-shortcuts-tag" id="expenseShortcutsBtn" type="button" data-shortcut-trigger="expenses" title="Expense keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal">
+                    <i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span>
+                  </button>
                   <div class="menu-wrap">
                     <button class="tiny ghost menu-trigger" type="button" data-entry-menu="expenses" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="expenses">
                       <button type="button" class="menu-item" id="openExpenseAccountBtn">Add Account</button>
-                      <button type="button" class="menu-item" id="openExpenseTopupBtn">Add Money</button>
-                      <button type="button" class="menu-item" id="openExpenseEntryBtn">Add Expense</button>
+                      <button type="button" class="menu-item" id="openExpenseTopupBtn" aria-keyshortcuts="Control+Alt+A">Add Money</button>
+                      <button type="button" class="menu-item" id="openExpenseEntryBtn" aria-keyshortcuts="Control+Alt+N">Add Expense</button>
                       <button type="button" class="menu-item" data-section-csv-download="expenses" title="Download expenses as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -4191,7 +4202,7 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchExpenses" class="input filter-inline-input" placeholder="Item, wallet, note, reference" />
+                  <input id="searchExpenses" class="input filter-inline-input" placeholder="Item, wallet, note, reference" aria-keyshortcuts="Control+Alt+F" />
                 </div>
                 <div class="filter-inline-section expense-wallet-select-control">
                   <span class="filter-inline-label">Wallet</span>
@@ -4242,6 +4253,7 @@
               <div class="title-group">
                 <div class="title-row">
                   <h3>Notes</h3>
+                  <button class="tiny ghost section-shortcuts-tag" id="notesShortcutsBtn" type="button" data-shortcut-trigger="notes" title="Notes keyboard shortcuts" aria-haspopup="dialog" aria-controls="sectionShortcutsModal"><i class="fa-solid fa-keyboard" aria-hidden="true"></i><span>Shortcuts</span></button>
                   <div class="menu-wrap">
                     <button class="btn ghost menu-trigger" type="button" data-entry-menu="notes" aria-haspopup="menu" aria-expanded="false">Actions ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="notes">
@@ -4258,7 +4270,7 @@
               </div>
               <div class="tools notes-head-actions">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="notes" title="Move all meta-tag notes into the notes table">Fix all on this page</button>
-                <button id="newNoteBtn" class="btn primary" type="button">
+                <button id="newNoteBtn" class="btn primary" type="button" aria-keyshortcuts="Control+Alt+N">
                   <i class="fa-solid fa-plus" aria-hidden="true"></i> New Note
                 </button>
               </div>
@@ -4267,7 +4279,7 @@
               <div class="compact-filter-main">
                 <div class="filter-inline-section compact-filter-search">
                   <span class="filter-inline-label">Search</span>
-                  <input id="searchNotes" class="input filter-inline-input" placeholder="Search notes..." />
+                  <input id="searchNotes" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Search notes..." />
                 </div>
               </div>
             </div>
@@ -5942,6 +5954,21 @@
     </div>
   </div>
 
+  <div id="sectionShortcutsModal" class="modal hide section-shortcuts-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="sectionShortcutsTitle">
+    <div class="modal-backdrop" data-close-modal="sectionShortcutsModal"></div>
+    <div class="modal-dialog section-shortcuts-dialog">
+      <div class="modal-head section-shortcuts-head">
+        <div>
+          <h3 id="sectionShortcutsTitle"><i class="fa-solid fa-keyboard" aria-hidden="true"></i> Keyboard Shortcuts</h3>
+          <p id="sectionShortcutsSubtitle">Available only while this section is open on a computer.</p>
+        </div>
+        <button class="icon-btn ghost" type="button" data-close-modal="sectionShortcutsModal" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body section-shortcuts-body" id="sectionShortcutsList"></div>
+      <div class="section-shortcuts-foot"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Shortcuts pause while another dialog or input field is active.</span></div>
+    </div>
+  </div>
+
   <div id="expenseModal" class="modal hide" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="expenseModal"></div>
     <div class="modal-dialog compact-entry-dialog" id="expenseModalDialog">
@@ -6789,6 +6816,7 @@
   <script src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
   <script src="Assets/app/ai/02-triplem-ai.js?v=20260909-triplem-ai-158"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155"></script>
+  <script src="Assets/app/ui/03-section-shortcuts.js?v=20260909-sections002"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
   <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260909-triplem-ai-158&regional=156&currency=001"></script>
