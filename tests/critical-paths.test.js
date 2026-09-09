@@ -2942,6 +2942,66 @@ it("160 adds isolated AI Draft actions, exact record references, durable provena
   assert.match(css, /\.triplem-ai-settings-actions \.btn\{min-height:31px/);
 });
 
+it("Section keyboard shortcuts are browser-safe, section-scoped, loan-mode aware, searchable, and hidden on mobile", () => {
+  const root = path.join(__dirname, "..");
+  const shortcuts = fs.readFileSync(path.join(root, "Assets/app/ui/03-section-shortcuts.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "Assets/style/47-section-keyboard-shortcuts.css"), "utf8");
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+
+  assert.match(index, /id="sectionShortcutsModal"/);
+  assert.match(index, /id="expenseShortcutsBtn"/);
+  assert.match(index, /id="givenShortcutsBtn"/);
+  assert.match(index, /id="takenShortcutsBtn"/);
+  assert.match(index, /id="installmentsShortcutsBtn"/);
+  assert.match(index, /id="assetsShortcutsBtn"/);
+  assert.match(index, /id="notesShortcutsBtn"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+N"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+A"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+G"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+R"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+T"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+B"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+O"/);
+  assert.match(index, /aria-keyshortcuts="Control\+Alt\+F"/);
+  assert.doesNotMatch(index, /aria-keyshortcuts="Control\+N"/);
+  assert.doesNotMatch(index, /aria-keyshortcuts="Control\+Alt\+M"/);
+
+  assert.match(shortcuts, /registerSectionShortcuts\("expenses"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("given"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("received"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("taken"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("returned"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("installments"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("assets"/);
+  assert.match(shortcuts, /registerSectionShortcuts\("notes"/);
+  assert.match(shortcuts, /descriptor\("n"\).*Add Expense/s);
+  assert.match(shortcuts, /descriptor\("a"\).*Add Money/s);
+  assert.match(shortcuts, /descriptor\("t"\).*Transfer Money/s);
+  assert.match(shortcuts, /descriptor\("g"\).*Loan Given/s);
+  assert.match(shortcuts, /descriptor\("r"\).*Received Back/s);
+  assert.match(shortcuts, /descriptor\("t"\).*Loan Taken/s);
+  assert.match(shortcuts, /descriptor\("b"\).*Loan Returned/s);
+  assert.match(shortcuts, /descriptor\("o"\).*Open \/ Partial Only/s);
+  assert.match(shortcuts, /descriptor\("f"\).*Search/s);
+  assert.match(shortcuts, /newNoteBtn/);
+  assert.match(shortcuts, /searchInstallments/);
+  assert.match(shortcuts, /searchAssets/);
+  assert.match(shortcuts, /searchDepAssets/);
+  assert.match(shortcuts, /filterOpenPartial/);
+  assert.match(shortcuts, /select\.value = "Active"/);
+  assert.match(shortcuts, /blockingModalOpen\(\)/);
+  assert.match(shortcuts, /isEditableTarget\(event\.target\)/);
+  assert.match(shortcuts, /window\.matchMedia\(DESKTOP_SHORTCUT_MEDIA\)/);
+  assert.doesNotMatch(shortcuts, /ctrl:\s*true,\s*alt:\s*false/);
+  assert.doesNotMatch(shortcuts, /aliases:/);
+  assert.doesNotMatch(shortcuts, /Control\+N|Ctrl\s*\+\s*N/);
+
+  assert.match(css, /\.section-shortcuts-tag\{display:none!important\}/);
+  assert.match(css, /@media \(min-width:900px\) and \(any-hover:hover\) and \(any-pointer:fine\)/);
+  assert.match(css, /@media \(max-width:899px\),\(any-hover:none\),\(any-pointer:coarse\)/);
+  assert.match(css, /\.section-shortcuts-modal\{display:none!important\}/);
+});
+
 it("Delivered source contains no prohibited competitor branding", () => {
   const root = path.join(__dirname, "..");
   const prohibited = String.fromCharCode(109,97,122,101,101,100);
