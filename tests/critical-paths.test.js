@@ -2896,8 +2896,8 @@ it("159 keeps Triplem AI concise, workspace-complete, session-scoped, and cross-
   assert.match(client, /Shift \+ Enter for a new line/);
   assert.doesNotMatch(index, /Private Gemini-powered financial intelligence grounded in your authorized Triplem VIP workspace\./);
   assert.doesNotMatch(index, /triplem-ai-readonly/);
-  assert.match(css, /\.triplem-ai-root\{min-height:640px\}/);
-  assert.match(css, /height:min\(64vh,680px\)/);
+  assert.match(css, /#triplem-aiPanel \.triplem-ai-root\{[\s\S]*min-height:0!important/);
+  assert.match(css, /#triplem-aiPanel \.triplem-ai-thread\{[\s\S]*height:auto!important;[\s\S]*min-height:0!important;[\s\S]*overflow-y:auto/);
 });
 
 it("160 adds isolated AI Draft actions, exact record references, durable provenance, and compact AI controls without mutating existing ledgers", () => {
@@ -2940,6 +2940,28 @@ it("160 adds isolated AI Draft actions, exact record references, durable provena
   assert.match(css, /\.triplem-ai-send\{right:30px;top:20px;width:32px;height:32px/);
   assert.match(css, /\.triplem-ai-composer-foot\{left:35px;right:35px;bottom:7px/);
   assert.match(css, /\.triplem-ai-settings-actions \.btn\{min-height:31px/);
+});
+
+it("Triplem AI settings and chat remain compact, viewport-bound, and internally scrollable", () => {
+  const root = path.join(__dirname, "..");
+  const client = fs.readFileSync(path.join(root, "Assets/app/ai/02-triplem-ai.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "Assets/style/45-triplem-ai.css"), "utf8");
+
+  assert.match(client, /function syncTriplemAiViewport\(\)/);
+  assert.match(client, /--triplem-ai-viewport-height/);
+  assert.match(client, /visualViewport/);
+  assert.match(client, /shell\?\.addEventListener\("wheel"/);
+  assert.match(client, /event\.preventDefault\(\)/);
+  assert.match(client, /data-lpignore="true" data-1p-ignore="true" data-bwignore="true"/);
+  assert.match(client, /class="icon-btn ghost triplem-ai-key-eye" id="triplemAiEntryEye"/);
+  assert.match(client, /class="icon-btn ghost triplem-ai-settings-close"/);
+
+  assert.match(css, /#triplem-aiPanel \.triplem-ai-section\{[\s\S]*height:var\(--triplem-ai-viewport-height/);
+  assert.match(css, /#triplem-aiPanel \.triplem-ai-shell\{[\s\S]*height:100%;[\s\S]*overflow:hidden/);
+  assert.match(css, /#triplem-aiPanel \.triplem-ai-thread\{[\s\S]*flex:1 1 auto;[\s\S]*min-height:0!important;[\s\S]*overflow-y:auto;[\s\S]*overscroll-behavior-y:contain/);
+  assert.match(css, /\.triplem-ai-secret-input\{display:block!important;position:relative!important/);
+  assert.match(css, /#triplemAiApiKey::-ms-reveal/);
+  assert.match(css, /\.triplem-ai-settings-actions \.btn\{height:29px!important;min-height:29px!important/);
 });
 
 it("Section keyboard shortcuts are browser-safe, section-scoped, loan-mode aware, searchable, and hidden on mobile", () => {
