@@ -2909,6 +2909,7 @@ function applyPermissionGates(){
     dashboard: "dashboard",
     expenses: "expenses",
     goods: "inventory",
+    audit: "reports",
     accounting: "accounting",
     assets: "assets",
     loans: "loans",
@@ -2954,7 +2955,7 @@ function applyPermissionGates(){
   const canExport = isGuestMode() ? false : (userHasPermission("pdf_export", "export") || userHasPermission("reports", "export"));
   const canImport = isGuestMode() ? false : userHasPermission("settings", "import");
   document.querySelectorAll(
-    "#downloadGivenPdfBtn, #downloadReceivedPdfBtn, #downloadTakenPdfBtn, #downloadReturnedPdfBtn, #downloadExpensesPdfBtn, #downloadAllSectionsPdfBtn, #btcDownloadPdfBtn, #btcDownloadWalletPdfBtn, #downloadAllDataJsonBtn, #downloadAllDataCsvBtn, #downloadAssetsSummaryPdfBtn, #downloadAssetsDetailsPdfBtn, #downloadInventoryFullPdfBtn"
+    "#downloadGivenPdfBtn, #downloadReceivedPdfBtn, #downloadTakenPdfBtn, #downloadReturnedPdfBtn, #downloadExpensesPdfBtn, #downloadAllSectionsPdfBtn, #btcDownloadPdfBtn, #btcDownloadWalletPdfBtn, #downloadAllDataJsonBtn, #downloadAllDataCsvBtn, #downloadAssetsSummaryPdfBtn, #downloadAssetsDetailsPdfBtn, #downloadInventoryFullPdfBtn, #downloadFinancialAuditPdfBtn, #downloadFinancialAuditExcelBtn"
   ).forEach(btn => {
     if (!btn || isGuestMode()) return;
     btn.classList.toggle("perm-disabled", !canExport);
