@@ -1,0 +1,250 @@
+/* Triplem VIP public Accounting ERP + SEO expansion — 2026-09-07
+   Public-facing only. No authenticated workspace behavior is defined here. */
+
+/* Landing accounting spotlight */
+.landing-accounting-suite,
+.landing-accounting-feature-spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.landing-accounting-suite {
+  width: min(1180px, calc(100% - 32px));
+  margin: clamp(38px, 6vw, 76px) auto;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 60%, transparent);
+  border-radius: clamp(24px, 3vw, 34px);
+  background:
+    radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--primary, #2457d6) 13%, transparent), transparent 32%),
+    linear-gradient(145deg, color-mix(in srgb, var(--panel, #fff) 92%, transparent), color-mix(in srgb, var(--panel-2, #f8fafc) 82%, transparent));
+  box-shadow: 0 24px 70px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.58);
+  overflow: hidden;
+}
+.landing-accounting-suite::after {
+  content: "";
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: -130px;
+  bottom: -170px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary, #2457d6) 12%, transparent);
+  filter: blur(2px);
+  z-index: -1;
+}
+.landing-accounting-suite-head { max-width: 850px; }
+.landing-accounting-suite-head h2 { margin: 8px 0 10px; }
+.landing-accounting-suite-head > p:last-child { color: var(--muted, #64748b); line-height: 1.75; }
+.landing-accounting-suite-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+.landing-accounting-suite-card {
+  min-width: 0;
+  padding: 19px;
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 58%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--panel, #fff) 78%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.landing-accounting-suite-card i {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  color: var(--primary, #2457d6);
+  background: color-mix(in srgb, var(--primary, #2457d6) 11%, transparent);
+}
+.landing-accounting-suite-card h3 { margin: 0 0 7px; font-size: 1rem; }
+.landing-accounting-suite-card p { margin: 0; color: var(--muted, #64748b); font-size: .88rem; line-height: 1.65; }
+.landing-accounting-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.landing-accounting-flow span {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 52%, transparent);
+  border-radius: 15px;
+  color: var(--text, #0f172a);
+  background: color-mix(in srgb, var(--panel, #fff) 72%, transparent);
+  font-size: .82rem;
+  font-weight: 700;
+}
+.landing-accounting-flow span i { color: var(--primary, #2457d6); }
+.landing-accounting-suite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 20px;
+}
+.landing-accounting-suite-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: .85rem;
+  font-weight: 750;
+  color: var(--text, #0f172a);
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 58%, transparent);
+  background: color-mix(in srgb, var(--panel, #fff) 76%, transparent);
+}
+.landing-accounting-suite-actions a:first-child {
+  color: #fff;
+  border-color: transparent;
+  background: var(--primary, #2457d6);
+}
+.landing-accounting-suite-note {
+  margin: 16px 0 0;
+  padding: 11px 14px;
+  border-radius: 14px;
+  color: var(--muted, #64748b);
+  background: color-mix(in srgb, var(--primary, #2457d6) 7%, transparent);
+  font-size: .8rem;
+  line-height: 1.55;
+}
+.landing-accounting-feature-spotlight {
+  margin-top: 20px;
+  padding: clamp(18px, 3vw, 26px);
+  border: 1px solid color-mix(in srgb, var(--primary, #2457d6) 26%, var(--line, #cbd5e1));
+  border-radius: 22px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary, #2457d6) 8%, var(--panel, #fff)), color-mix(in srgb, var(--panel-2, #f8fafc) 86%, transparent));
+}
+.landing-accounting-feature-spotlight .landing-card-grid { margin-top: 16px; }
+
+/* Public SEO accounting pages */
+.erp-summary-grid,
+.erp-feature-grid,
+.erp-report-grid,
+.erp-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.45rem;
+}
+.erp-feature-card,
+.erp-report-card,
+.erp-guide-card,
+.erp-ledger-example,
+.erp-callout {
+  border: 1px solid rgba(139,164,205,.18);
+  border-radius: 1.15rem;
+  background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.035));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.erp-feature-card,
+.erp-report-card,
+.erp-guide-card { padding: 1.15rem; }
+.erp-feature-card > i,
+.erp-report-card > i,
+.erp-guide-card > i {
+  width: 2.55rem;
+  height: 2.55rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: .85rem;
+  border-radius: .85rem;
+  color: #8fb0ff;
+  background: rgba(69,110,214,.14);
+  border: 1px solid rgba(105,143,237,.16);
+}
+.erp-feature-card h3,
+.erp-report-card h3,
+.erp-guide-card h3 { margin: 0 0 .45rem; font-size: 1rem; }
+.erp-feature-card p,
+.erp-report-card p,
+.erp-guide-card p { margin: 0; color: var(--muted, #9aa9bf); line-height: 1.68; font-size: .88rem; }
+.erp-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .7rem;
+  margin-top: 1.45rem;
+}
+.erp-flow-step {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(139,164,205,.18);
+  border-radius: 1rem;
+  background: rgba(255,255,255,.045);
+}
+.erp-flow-step small { display: block; color: #7f9ee8; text-transform: uppercase; letter-spacing: .08em; font-size: .66rem; font-weight: 800; }
+.erp-flow-step strong { display: block; margin: .35rem 0; font-size: .92rem; }
+.erp-flow-step span { color: var(--muted, #9aa9bf); font-size: .78rem; line-height: 1.5; }
+.erp-ledger-example { padding: 1.2rem; margin-top: 1.35rem; overflow: hidden; }
+.erp-ledger-example h3 { margin: 0 0 .8rem; }
+.erp-ledger-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.erp-ledger-table th,
+.erp-ledger-table td { padding: .75rem .7rem; border-bottom: 1px solid rgba(139,164,205,.14); text-align: left; vertical-align: top; }
+.erp-ledger-table th { color: #93a8cf; font-size: .69rem; letter-spacing: .06em; text-transform: uppercase; }
+.erp-ledger-table td.num,
+.erp-ledger-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.erp-callout { margin-top: 1.35rem; padding: 1.05rem 1.15rem; }
+.erp-callout strong { color: #dce7ff; }
+.erp-callout p { margin: .4rem 0 0; color: var(--muted, #9aa9bf); line-height: 1.65; }
+.erp-inline-links { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.15rem; }
+.erp-inline-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .58rem .76rem;
+  border: 1px solid rgba(139,164,205,.18);
+  border-radius: .75rem;
+  color: #dbe7ff;
+  background: rgba(255,255,255,.045);
+  text-decoration: none;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.erp-inline-links a:hover { border-color: rgba(105,143,237,.44); background: rgba(69,110,214,.10); }
+.erp-guide-card { display: block; color: inherit; text-decoration: none; transition: transform .2s ease, border-color .2s ease; }
+.erp-guide-card:hover { transform: translateY(-3px); border-color: rgba(105,143,237,.38); }
+.erp-guide-card .erp-guide-route { display: inline-flex; align-items: center; gap: .4rem; margin-top: .8rem; color: #91b0ff; font-size: .75rem; font-weight: 800; }
+
+@media (max-width: 900px) {
+  .landing-accounting-suite-grid,
+  .erp-summary-grid,
+  .erp-feature-grid,
+  .erp-report-grid,
+  .erp-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .landing-accounting-flow,
+  .erp-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .landing-accounting-suite { width: calc(100% - 24px); margin: 28px 12px; padding: 18px 14px; border-radius: 22px; }
+  .landing-accounting-suite-grid,
+  .landing-accounting-flow,
+  .erp-summary-grid,
+  .erp-feature-grid,
+  .erp-report-grid,
+  .erp-guide-grid,
+  .erp-flow { grid-template-columns: 1fr; }
+  .landing-accounting-suite-card { padding: 16px; }
+  .landing-accounting-suite-actions { align-items: stretch; }
+  .landing-accounting-suite-actions a { justify-content: center; width: 100%; }
+  .erp-ledger-example { padding: .85rem; overflow-x: auto; scrollbar-width: none; }
+  .erp-ledger-example::-webkit-scrollbar { display: none; }
+  .erp-ledger-table { min-width: 580px; }
+}
+
+
+/* Triplem VIP public SEO expansion — Triplem AI, Audit, account details and shortcuts — 2026-09-09 */
+.erp-ledger-table kbd, .erp-feature-card kbd {
+  display:inline-flex;align-items:center;justify-content:center;min-width:1.8rem;padding:.18rem .42rem;margin:0 .08rem;border:1px solid rgba(143,176,255,.32);border-bottom-color:rgba(143,176,255,.55);border-radius:.42rem;background:rgba(9,19,39,.62);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 0 rgba(6,13,27,.55);color:#dbe7ff;font:700 .72rem/1.2 Inter,system-ui,sans-serif;white-space:nowrap;
+}
+.seo-primary-guide { border-color:rgba(92,137,255,.44)!important;background:linear-gradient(145deg,rgba(69,110,214,.16),rgba(255,255,255,.045))!important; }
+.seo-primary-guide > i { color:#dce7ff!important;background:rgba(69,110,214,.24)!important; }
+.seo-fresh-tag { display:inline-flex;align-items:center;gap:.36rem;margin:.45rem 0 .1rem;padding:.28rem .52rem;border:1px solid rgba(74,222,128,.22);border-radius:999px;background:rgba(74,222,128,.08);color:#86efac;font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
