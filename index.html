@@ -905,8 +905,9 @@
   <link rel="stylesheet" href="Assets/style/42-public-accounting-seo.css?v=20260907-public-accounting-001" />
   <link rel="stylesheet" href="Assets/style/43-expenses-overlay-refinement.css?v=20260908-server-pagination-155" />
   <link rel="stylesheet" href="Assets/style/44-financial-audit-report.css?v=20260909-audit-executive-sections-158" />
-  <link rel="stylesheet" href="Assets/style/45-triplem-ai.css?v=20260909-triplem-ai-ui-polish001" />
+  <link rel="stylesheet" href="Assets/style/45-triplem-ai.css?v=20260910-triplem-ai-precision001" />
   <link rel="stylesheet" href="Assets/style/47-section-keyboard-shortcuts.css?v=20260909-sections002" />
+  <link rel="stylesheet" href="Assets/style/48-installment-bought-sold.css?v=20260910-installments163" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -3820,8 +3821,8 @@
                   <div class="menu-wrap">
                     <button class="tiny ghost menu-trigger" type="button" data-entry-menu="installments" aria-haspopup="menu" aria-expanded="false">New Entry ▾</button>
                     <div class="menu-dropdown" data-entry-menu-panel="installments">
-                      <button type="button" class="menu-item" data-open-modal="principal" data-direction="taken" data-installment="1">Installment Plan</button>
-                      <button type="button" class="menu-item" data-open-modal="payment" data-direction="taken" data-installment="1">Payment / Installment Received</button>
+                      <button type="button" class="menu-item" id="installmentNewPlanBtn"><i class="fa-solid fa-calendar-plus"></i> New Bought Plan</button>
+                      <button type="button" class="menu-item" id="installmentNewPaymentBtn"><i class="fa-solid fa-money-bill-wave"></i> Pay Installment</button>
                       <button type="button" class="menu-item" data-section-csv-download="installments" title="Download installment plans as CSV">
                         <i class="fa-solid fa-download"></i> Download CSV
                       </button>
@@ -3831,11 +3832,15 @@
                     </div>
                   </div>
                 </div>
-                <p>People moved here from taken loans are tracked as installment plans.</p>
+                <p id="installmentsSectionDesc">Track purchases you pay over time. Existing installment records remain Bought plans.</p>
               </div>
               <div class="tools">
                 <button class="btn soft legacy-fix-all-btn hide" type="button" hidden data-legacy-fix-section="installments" title="Move all meta-tag installment rows into section tables">Fix all on this page</button>
               </div>
+            </div>
+            <div class="installment-plan-mode" role="tablist" aria-label="Installment plan type">
+              <button class="installment-plan-mode-btn active" type="button" data-installment-plan-view="bought" role="tab" aria-selected="true"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span>Installment Plans (Bought)</span></button>
+              <button class="installment-plan-mode-btn" type="button" data-installment-plan-view="sold" role="tab" aria-selected="false"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i><span>Installment Plans (Sold)</span></button>
             </div>
             <div class="filter-inline-row compact-filter-row">
               <div class="compact-filter-main">
@@ -4291,9 +4296,9 @@
                   <span class="expense-record-view-label"><i class="fa-solid fa-filter" aria-hidden="true"></i> Records</span>
                   <span class="expense-record-view-select-wrap">
                     <select id="expenseRecordsViewFilter" class="select expense-record-view-select" aria-label="Expense records view">
-                      <option value="history" selected>Transaction History</option>
-                      <option value="topups">Top-Up Records</option>
-                      <option value="transfers">Transfer Records</option>
+                      <option value="history" selected>Expenses</option>
+                      <option value="topups">Receiving</option>
+                      <option value="transfers">Internal Transfers</option>
                     </select>
                     <i class="fa-solid fa-chevron-down expense-record-view-chevron" aria-hidden="true"></i>
                   </span>
@@ -5493,11 +5498,11 @@
               </select>
             </div>
             <div class="field w6">
-              <label>Total amount</label>
+              <label id="installmentEditAmountLabel">Total amount</label>
               <input class="input" name="principal_amount" id="installmentEditAmount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w6">
-              <label>Down payment <span class="optional-label">optional</span></label>
+              <label id="installmentDownPaymentLabel">Down payment <span class="optional-label">optional</span></label>
               <input class="input" name="down_payment" id="installmentEditDownPayment" type="number" min="0" step="0.01" placeholder="0.00" />
             </div>
             <div class="field w6">
@@ -5505,7 +5510,7 @@
               <input class="input" name="installment_count" id="installmentEditCount" type="number" min="2" max="120" step="1" required placeholder="e.g. 12" />
             </div>
             <div class="field w6">
-              <label>Monthly installment after down payment</label>
+              <label id="installmentEditMonthlyLabel">Monthly installment after down payment</label>
               <input class="input" id="installmentEditMonthly" type="text" readonly placeholder="—" />
             </div>
             <div class="field w12">
@@ -5513,6 +5518,24 @@
                 <strong>Updated schedule</strong>
                 <p>Enter total amount and installment count to preview how existing payments apply.</p>
               </div>
+            </div>
+            <div class="field w12" id="installmentEditOptionalDetailsSection">
+              <details class="expense-optional-details installment-optional-details">
+                <summary><span><i class="fa-solid fa-address-card" aria-hidden="true"></i> <span id="installmentEditOptionalDetailsTitle">Optional details</span></span><small>Contact, agreement and item details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+                <div class="expense-optional-grid installment-optional-grid">
+                  <div class="field"><label>Party type</label><select class="select" name="installment_edit_detail_party_type"><option value="">Not specified</option><option value="Person">Person</option><option value="Company">Company</option></select></div>
+                  <div class="field"><label>Mobile / phone</label><input class="input" name="installment_edit_detail_phone" autocomplete="tel" placeholder="Optional" /></div>
+                  <div class="field"><label>Email</label><input class="input" name="installment_edit_detail_email" type="email" autocomplete="email" placeholder="Optional" /></div>
+                  <div class="field"><label>Agreement / reference</label><input class="input" name="installment_edit_detail_reference" placeholder="Optional" /></div>
+                  <div class="field expense-optional-wide"><label>Address</label><input class="input" name="installment_edit_detail_address" placeholder="Optional address" /></div>
+                  <div class="field"><label>Product / service</label><input class="input" name="installment_edit_detail_item" placeholder="What was bought or sold" /></div>
+                  <div class="field"><label>ID / TRN / VAT No.</label><input class="input" name="installment_edit_detail_tax_id" placeholder="Optional" /></div>
+                  <div class="field"><label>Guarantor</label><input class="input" name="installment_edit_detail_guarantor" placeholder="Optional" /></div>
+                  <div class="field"><label>Guarantor contact</label><input class="input" name="installment_edit_detail_guarantor_contact" placeholder="Optional" /></div>
+                  <div class="field expense-optional-wide"><label>Payment terms</label><input class="input" name="installment_edit_detail_terms" placeholder="Optional terms or conditions" /></div>
+                  <div class="field expense-optional-wide"><label>Document reference</label><input class="input" name="installment_edit_detail_document_ref" placeholder="Invoice, agreement or document number" /></div>
+                </div>
+              </details>
             </div>
             <div class="field w12">
               <label>Notes <span class="optional-label">optional</span></label>
@@ -6133,6 +6156,24 @@
               <input class="input" name="btc_address" type="text" placeholder="bc1... or 1..." autocomplete="off" spellcheck="false" />
               <small class="expense-btc-help" id="expenseBtcBalanceStatus">Balance and transactions will be loaded directly from the blockchain.</small>
             </div>
+            <div class="field w12 hide" id="installmentOptionalDetailsSection">
+              <details class="expense-optional-details installment-optional-details">
+                <summary><span><i class="fa-solid fa-address-card" aria-hidden="true"></i> <span id="installmentOptionalDetailsTitle">Optional details</span></span><small>Contact, agreement and item details</small><span class="expense-optional-chevron" aria-hidden="true"><i class="fa-solid fa-angle-right expense-chevron-right"></i><i class="fa-solid fa-angle-down expense-chevron-down"></i></span></summary>
+                <div class="expense-optional-grid installment-optional-grid">
+                  <div class="field"><label>Party type</label><select class="select" name="installment_detail_party_type"><option value="">Not specified</option><option value="Person">Person</option><option value="Company">Company</option></select></div>
+                  <div class="field"><label>Mobile / phone</label><input class="input" name="installment_detail_phone" autocomplete="tel" placeholder="Optional" /></div>
+                  <div class="field"><label>Email</label><input class="input" name="installment_detail_email" type="email" autocomplete="email" placeholder="Optional" /></div>
+                  <div class="field"><label>Agreement / reference</label><input class="input" name="installment_detail_reference" placeholder="Optional" /></div>
+                  <div class="field expense-optional-wide"><label>Address</label><input class="input" name="installment_detail_address" placeholder="Optional address" /></div>
+                  <div class="field"><label>Product / service</label><input class="input" name="installment_detail_item" placeholder="What was bought or sold" /></div>
+                  <div class="field"><label>ID / TRN / VAT No.</label><input class="input" name="installment_detail_tax_id" placeholder="Optional" /></div>
+                  <div class="field"><label>Guarantor</label><input class="input" name="installment_detail_guarantor" placeholder="Optional" /></div>
+                  <div class="field"><label>Guarantor contact</label><input class="input" name="installment_detail_guarantor_contact" placeholder="Optional" /></div>
+                  <div class="field expense-optional-wide"><label>Payment terms</label><input class="input" name="installment_detail_terms" placeholder="Optional terms or conditions" /></div>
+                  <div class="field expense-optional-wide"><label>Document reference</label><input class="input" name="installment_detail_document_ref" placeholder="Invoice, agreement or document number" /></div>
+                </div>
+              </details>
+            </div>
             <div class="field w12">
               <label>Notes <span class="optional-label">optional</span></label>
               <input class="input" name="notes" placeholder="Optional note" />
@@ -6499,7 +6540,7 @@
               </select>
             </div>
             <div class="field w6">
-              <label>Amount</label>
+              <label id="installmentPrincipalAmountLabel">Amount</label>
               <input class="input" name="principal_amount" type="number" min="0" step="0.01" required placeholder="0.00" />
             </div>
             <div class="field w6 hide" id="installmentDownPaymentGroup">
@@ -6511,7 +6552,7 @@
               <input class="input" name="installment_count" id="installmentCountInput" type="number" min="2" max="120" step="1" placeholder="e.g. 12" />
             </div>
             <div class="field w6 hide" id="installmentMonthlyPreviewField">
-              <label>Monthly installment after down payment</label>
+              <label id="installmentMonthlyLabel">Monthly installment after down payment</label>
               <input class="input" id="installmentMonthlyPreview" type="text" readonly placeholder="—" />
             </div>
             <div class="field w12 hide" id="installmentSchedulePreviewWrap">
@@ -6907,16 +6948,17 @@
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js"></script>
   <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260908-server-pagination-155&currency=002&build011=003"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260909-triplem-ai-158&build011=001&accounting=149001"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260910-triplem-ai-precision001&build011=001&accounting=149001"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
+  <script src="Assets/app/installments/02-bought-sold-plans.js?v=20260910-installments163"></script>
   <script src="Assets/app/reports/01-pdf.js?v=20260908-pdf-minus-fix&build010=001"></script>
   <script src="Assets/app/reports/02-exports.js?v=20260908-account-details1&build010=002&pagination=155"></script>
   <script src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
   <script src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
   <script src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155"></script>
   <script src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
-  <script src="Assets/app/ai/02-triplem-ai.js?v=20260909-triplem-ai-ui-polish001"></script>
+  <script src="Assets/app/ai/02-triplem-ai.js?v=20260910-triplem-ai-precision001"></script>
   <script src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155"></script>
   <script src="Assets/app/ui/03-section-shortcuts.js?v=20260909-sections002"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
