@@ -1,0 +1,625 @@
+/* Triplem VIP public Accounting ERP + SEO expansion — 2026-09-07
+   Public-facing only. No authenticated workspace behavior is defined here. */
+
+/* Landing accounting spotlight */
+.landing-accounting-suite,
+.landing-accounting-feature-spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.landing-accounting-suite {
+  width: min(1180px, calc(100% - 32px));
+  margin: clamp(38px, 6vw, 76px) auto;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 60%, transparent);
+  border-radius: clamp(24px, 3vw, 34px);
+  background:
+    radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--primary, #2457d6) 13%, transparent), transparent 32%),
+    linear-gradient(145deg, color-mix(in srgb, var(--panel, #fff) 92%, transparent), color-mix(in srgb, var(--panel-2, #f8fafc) 82%, transparent));
+  box-shadow: 0 24px 70px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.58);
+  overflow: hidden;
+}
+.landing-accounting-suite::after {
+  content: "";
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: -130px;
+  bottom: -170px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary, #2457d6) 12%, transparent);
+  filter: blur(2px);
+  z-index: -1;
+}
+.landing-accounting-suite-head { max-width: 850px; }
+.landing-accounting-suite-head h2 { margin: 8px 0 10px; }
+.landing-accounting-suite-head > p:last-child { color: var(--muted, #64748b); line-height: 1.75; }
+.landing-accounting-suite-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+.landing-accounting-suite-card {
+  min-width: 0;
+  padding: 19px;
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 58%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--panel, #fff) 78%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.landing-accounting-suite-card i {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  color: var(--primary, #2457d6);
+  background: color-mix(in srgb, var(--primary, #2457d6) 11%, transparent);
+}
+.landing-accounting-suite-card h3 { margin: 0 0 7px; font-size: 1rem; }
+.landing-accounting-suite-card p { margin: 0; color: var(--muted, #64748b); font-size: .88rem; line-height: 1.65; }
+.landing-accounting-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.landing-accounting-flow span {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 52%, transparent);
+  border-radius: 15px;
+  color: var(--text, #0f172a);
+  background: color-mix(in srgb, var(--panel, #fff) 72%, transparent);
+  font-size: .82rem;
+  font-weight: 700;
+}
+.landing-accounting-flow span i { color: var(--primary, #2457d6); }
+.landing-accounting-suite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 20px;
+}
+.landing-accounting-suite-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: .85rem;
+  font-weight: 750;
+  color: var(--text, #0f172a);
+  border: 1px solid color-mix(in srgb, var(--line, #cbd5e1) 58%, transparent);
+  background: color-mix(in srgb, var(--panel, #fff) 76%, transparent);
+}
+.landing-accounting-suite-actions a:first-child {
+  color: #fff;
+  border-color: transparent;
+  background: var(--primary, #2457d6);
+}
+.landing-accounting-suite-note {
+  margin: 16px 0 0;
+  padding: 11px 14px;
+  border-radius: 14px;
+  color: var(--muted, #64748b);
+  background: color-mix(in srgb, var(--primary, #2457d6) 7%, transparent);
+  font-size: .8rem;
+  line-height: 1.55;
+}
+.landing-accounting-feature-spotlight {
+  margin-top: 20px;
+  padding: clamp(18px, 3vw, 26px);
+  border: 1px solid color-mix(in srgb, var(--primary, #2457d6) 26%, var(--line, #cbd5e1));
+  border-radius: 22px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary, #2457d6) 8%, var(--panel, #fff)), color-mix(in srgb, var(--panel-2, #f8fafc) 86%, transparent));
+}
+.landing-accounting-feature-spotlight .landing-card-grid { margin-top: 16px; }
+
+/* Public SEO accounting pages — Security Architecture visual parity — 2026-09-10 */
+.architecture-page {
+  --seo-surface: linear-gradient(155deg, rgba(255,255,255,.88), rgba(248,250,252,.69));
+  --seo-surface-strong: linear-gradient(155deg, rgba(255,255,255,.94), rgba(242,247,255,.76));
+  --seo-border: rgba(255,255,255,.78);
+  --seo-hover-border: rgba(36,87,214,.28);
+  --seo-link-bg: rgba(36,87,214,.075);
+  --seo-link-bg-hover: rgba(36,87,214,.12);
+}
+
+.erp-summary-grid,
+.erp-feature-grid,
+.erp-report-grid,
+.erp-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.45rem;
+}
+
+.architecture-page .erp-feature-card,
+.architecture-page .erp-report-card,
+.architecture-page .erp-guide-card,
+.architecture-page .erp-flow-step,
+.architecture-page .erp-ledger-example,
+.architecture-page .erp-callout,
+.architecture-page .seo-definition {
+  color: var(--text-primary);
+  border: 1px solid var(--seo-border);
+  background: var(--seo-surface);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.88);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+}
+.architecture-page .erp-feature-card,
+.architecture-page .erp-report-card,
+.architecture-page .erp-guide-card {
+  padding: 1.15rem;
+  border-radius: 17px;
+}
+.architecture-page .erp-flow-step {
+  min-width: 0;
+  padding: 1rem;
+  border-radius: 16px;
+}
+.architecture-page .erp-ledger-example,
+.architecture-page .erp-callout,
+.architecture-page .seo-definition {
+  border-radius: 17px;
+}
+.architecture-page .erp-feature-card,
+.architecture-page .erp-report-card,
+.architecture-page .erp-guide-card,
+.architecture-page .erp-flow-step {
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease, background .22s ease;
+}
+.architecture-page .erp-feature-card:hover,
+.architecture-page .erp-report-card:hover,
+.architecture-page .erp-guide-card:hover,
+.architecture-page .erp-flow-step:hover {
+  transform: translateY(-2px);
+  border-color: var(--seo-hover-border);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,.92);
+  background: var(--seo-surface-strong);
+}
+
+.architecture-page .erp-feature-card > i,
+.architecture-page .erp-report-card > i,
+.architecture-page .erp-guide-card > i {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 11px;
+  border-radius: 12px;
+  color: var(--brand-blue);
+  background: var(--brand-blue-pale);
+  border: 1px solid rgba(36,87,214,.11);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.72);
+}
+.architecture-page .erp-feature-card h3,
+.architecture-page .erp-report-card h3,
+.architecture-page .erp-guide-card h3 {
+  margin: 0 0 7px;
+  color: var(--text-primary);
+  font-size: .94rem;
+}
+.architecture-page .erp-feature-card p,
+.architecture-page .erp-report-card p,
+.architecture-page .erp-guide-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.65;
+  font-size: .73rem;
+}
+
+.erp-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .7rem;
+  margin-top: 1.45rem;
+}
+.architecture-page .erp-flow-step small {
+  display: block;
+  color: var(--brand-blue);
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  font-size: .60rem;
+  font-weight: 850;
+}
+.architecture-page .erp-flow-step strong {
+  display: block;
+  margin: .4rem 0;
+  color: var(--text-primary);
+  font-size: .84rem;
+}
+.architecture-page .erp-flow-step span {
+  color: var(--text-muted);
+  font-size: .69rem;
+  line-height: 1.55;
+}
+
+.architecture-page .erp-ledger-example {
+  padding: 1.2rem;
+  margin-top: 1.35rem;
+  overflow: hidden;
+}
+.architecture-page .erp-ledger-example h3 {
+  margin: 0 0 .8rem;
+  color: var(--text-primary);
+}
+.erp-ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-secondary);
+  font-size: .82rem;
+}
+.erp-ledger-table th,
+.erp-ledger-table td {
+  padding: .75rem .7rem;
+  border-bottom: 1px solid rgba(36,87,214,.10);
+  text-align: left;
+  vertical-align: top;
+}
+.erp-ledger-table th {
+  color: var(--text-muted);
+  background: rgba(36,87,214,.045);
+  font-size: .66rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.erp-ledger-table td { color: var(--text-secondary); }
+.erp-ledger-table tbody tr:hover td { background: rgba(36,87,214,.035); }
+.erp-ledger-table td.num,
+.erp-ledger-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.architecture-page .erp-callout,
+.architecture-page .seo-definition {
+  margin-top: 1.35rem;
+  padding: 1.05rem 1.15rem;
+  border-color: rgba(255,255,255,.80);
+  background:
+    radial-gradient(180px 100px at 100% 0%, rgba(36,87,214,.055), transparent 72%),
+    linear-gradient(155deg, rgba(255,255,255,.91), rgba(244,248,255,.72));
+}
+.architecture-page .erp-callout strong,
+.architecture-page .seo-definition strong {
+  color: var(--text-primary);
+}
+.architecture-page .erp-callout p,
+.architecture-page .seo-definition p {
+  margin: .38rem 0 0;
+  color: var(--text-muted);
+  font-size: .74rem;
+  line-height: 1.65;
+}
+
+.erp-inline-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  margin-top: 1.15rem;
+}
+.architecture-page .erp-inline-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 36px;
+  padding: .52rem .72rem;
+  border: 1px solid rgba(36,87,214,.14);
+  border-radius: 11px;
+  color: var(--brand-blue);
+  background: var(--seo-link-bg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.70);
+  text-decoration: none;
+  font-size: .72rem;
+  font-weight: 800;
+  transition: color .2s ease, background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.architecture-page .erp-inline-links a:hover,
+.architecture-page .erp-inline-links a:focus-visible {
+  color: var(--brand-blue-dark);
+  border-color: rgba(36,87,214,.28);
+  background: var(--seo-link-bg-hover);
+  transform: translateY(-1px);
+}
+
+.architecture-page .erp-guide-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.architecture-page .erp-guide-card .erp-guide-route,
+.architecture-page .guide-card-route {
+  display: inline-flex;
+  align-items: center;
+  gap: .38rem;
+  width: fit-content;
+  margin-top: .8rem;
+  padding: .34rem .52rem;
+  border: 1px solid rgba(36,87,214,.12);
+  border-radius: 999px;
+  color: var(--brand-blue);
+  background: rgba(36,87,214,.065);
+  font-size: .68rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+.architecture-page .erp-guide-card:hover .erp-guide-route,
+.architecture-page .guide-card-link:hover .guide-card-route {
+  color: var(--brand-blue-dark);
+  border-color: rgba(36,87,214,.20);
+  background: rgba(36,87,214,.10);
+}
+
+.architecture-page .erp-ledger-table kbd,
+.architecture-page .erp-feature-card kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  padding: .18rem .42rem;
+  margin: 0 .08rem;
+  border: 1px solid rgba(36,87,214,.20);
+  border-bottom-color: rgba(36,87,214,.34);
+  border-radius: .42rem;
+  color: var(--brand-blue-dark);
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(232,238,251,.90));
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(36,87,214,.12);
+  font: 700 .72rem/1.2 Inter, system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.architecture-page .seo-primary-guide {
+  border-color: rgba(36,87,214,.24) !important;
+  background:
+    radial-gradient(210px 130px at 100% 0%, rgba(97,232,247,.09), transparent 72%),
+    linear-gradient(155deg, rgba(255,255,255,.94), rgba(235,243,255,.78)) !important;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,.94) !important;
+}
+.architecture-page .seo-primary-guide > i {
+  color: #fff !important;
+  background: linear-gradient(145deg, var(--brand-blue), var(--brand-blue-light)) !important;
+  border-color: rgba(36,87,214,.18) !important;
+  box-shadow: 0 9px 20px rgba(36,87,214,.18), inset 0 1px 0 rgba(255,255,255,.26) !important;
+}
+.architecture-page .seo-primary-guide h3 { color: var(--text-primary); }
+.architecture-page .seo-primary-guide p { color: var(--text-muted); }
+
+.architecture-page .seo-fresh-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: .34rem;
+  width: fit-content;
+  margin: .12rem 0 .6rem;
+  padding: .30rem .56rem;
+  border: 1px solid rgba(36,87,214,.14);
+  border-radius: 999px;
+  color: var(--brand-blue);
+  background: linear-gradient(145deg, rgba(36,87,214,.10), rgba(97,232,247,.055));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.70);
+  font-size: .60rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.architecture-page .seo-fresh-tag i { color: currentColor; }
+
+/* Ensure directory/footer redirect links remain legible on light surfaces. */
+.architecture-page .security-source-note a {
+  color: var(--brand-blue);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(36,87,214,.26);
+  text-underline-offset: 2px;
+}
+.architecture-page .security-source-note a:hover {
+  color: var(--brand-blue-dark);
+  text-decoration-color: currentColor;
+}
+
+/* Dark-band prose: Security/style.css defines .security-prose for light sections.
+   Override it explicitly here so SEO dark bands never inherit black/light-surface text. */
+.architecture-page .security-dark-section .security-prose {
+  color: rgba(245,248,255,.84);
+}
+.architecture-page .security-dark-section .security-prose p,
+.architecture-page .security-dark-section .security-prose li,
+.architecture-page .security-dark-section .security-prose span {
+  color: rgba(245,248,255,.78);
+}
+.architecture-page .security-dark-section .security-prose p:first-child {
+  color: rgba(255,255,255,.92);
+}
+.architecture-page .security-dark-section .security-prose strong,
+.architecture-page .security-dark-section .security-prose b,
+.architecture-page .security-dark-section .security-prose em {
+  color: #fff;
+}
+.architecture-page .security-dark-section .security-prose a {
+  color: #b9d2ff;
+  text-decoration-color: rgba(185,210,255,.40);
+}
+.architecture-page .security-dark-section .security-prose a:hover {
+  color: #fff;
+  text-decoration-color: currentColor;
+}
+
+/* Triplem AI privacy cards: correct high-contrast treatment inside the dark security band. */
+.security-dark-section .security-rail-card {
+  color: #f4f7ff;
+  border-color: rgba(162,190,255,.18);
+  background: linear-gradient(150deg, rgba(18,37,70,.92), rgba(10,25,49,.86));
+  box-shadow: 0 14px 34px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.security-dark-section .security-rail-card > i {
+  color: #dce8ff;
+  background: rgba(91,137,255,.18);
+  border: 1px solid rgba(143,176,255,.20);
+}
+.security-dark-section .security-rail-card small { color: #a9c5ff; }
+.security-dark-section .security-rail-card strong { color: #fff; }
+.security-dark-section .security-rail-card span { color: rgba(233,240,255,.76); }
+.security-dark-section .security-rail-card:hover {
+  border-color: rgba(143,176,255,.34);
+  background: linear-gradient(150deg, rgba(24,47,86,.96), rgba(12,30,58,.90));
+}
+
+/* Pale text belongs only on genuinely dark sections. */
+.architecture-page .security-dark-section .erp-feature-card,
+.architecture-page .security-dark-section .erp-report-card,
+.architecture-page .security-dark-section .erp-guide-card,
+.architecture-page .security-dark-section .erp-flow-step,
+.architecture-page .security-dark-section .erp-ledger-example,
+.architecture-page .security-dark-section .erp-callout,
+.architecture-page .security-dark-section .seo-definition {
+  color: #fff;
+  border-color: rgba(255,255,255,.11);
+  background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.architecture-page .security-dark-section .erp-feature-card:hover,
+.architecture-page .security-dark-section .erp-report-card:hover,
+.architecture-page .security-dark-section .erp-guide-card:hover,
+.architecture-page .security-dark-section .erp-flow-step:hover {
+  border-color: rgba(143,176,255,.28);
+  background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.05));
+  box-shadow: 0 14px 30px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.architecture-page .security-dark-section .erp-feature-card h3,
+.architecture-page .security-dark-section .erp-report-card h3,
+.architecture-page .security-dark-section .erp-guide-card h3,
+.architecture-page .security-dark-section .erp-flow-step strong,
+.architecture-page .security-dark-section .erp-ledger-example h3,
+.architecture-page .security-dark-section .erp-callout strong,
+.architecture-page .security-dark-section .seo-definition strong {
+  color: #fff;
+}
+.architecture-page .security-dark-section .erp-feature-card p,
+.architecture-page .security-dark-section .erp-report-card p,
+.architecture-page .security-dark-section .erp-guide-card p,
+.architecture-page .security-dark-section .erp-flow-step span,
+.architecture-page .security-dark-section .erp-callout p,
+.architecture-page .security-dark-section .seo-definition p,
+.architecture-page .security-dark-section .erp-ledger-table td {
+  color: rgba(255,255,255,.68);
+}
+.architecture-page .security-dark-section .erp-flow-step small,
+.architecture-page .security-dark-section .erp-ledger-table th {
+  color: #a8c8ff;
+}
+.architecture-page .security-dark-section .erp-ledger-table th {
+  background: rgba(255,255,255,.045);
+}
+.architecture-page .security-dark-section .erp-ledger-table th,
+.architecture-page .security-dark-section .erp-ledger-table td {
+  border-bottom-color: rgba(255,255,255,.09);
+}
+.architecture-page .security-dark-section .erp-feature-card > i,
+.architecture-page .security-dark-section .erp-report-card > i,
+.architecture-page .security-dark-section .erp-guide-card > i {
+  color: #a8c8ff;
+  background: rgba(143,176,255,.10);
+  border-color: rgba(143,176,255,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.architecture-page .security-dark-section .erp-inline-links a,
+.architecture-page .security-dark-section .erp-guide-card .erp-guide-route,
+.architecture-page .security-dark-section .guide-card-route,
+.architecture-page .security-dark-section .security-source-note a {
+  color: #b9d2ff;
+}
+.architecture-page .security-dark-section .erp-inline-links a,
+.architecture-page .security-dark-section .erp-guide-card .erp-guide-route,
+.architecture-page .security-dark-section .guide-card-route {
+  border-color: rgba(168,200,255,.16);
+  background: rgba(255,255,255,.055);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.architecture-page .security-dark-section .erp-inline-links a:hover,
+.architecture-page .security-dark-section .erp-guide-card:hover .erp-guide-route,
+.architecture-page .security-dark-section .guide-card-link:hover .guide-card-route {
+  color: #fff;
+  border-color: rgba(168,200,255,.28);
+  background: rgba(143,176,255,.10);
+}
+.architecture-page .security-dark-section .seo-fresh-tag {
+  color: #b9d2ff;
+  border-color: rgba(168,200,255,.17);
+  background: rgba(143,176,255,.075);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.architecture-page .security-dark-section .seo-primary-guide {
+  border-color: rgba(143,176,255,.25) !important;
+  background: linear-gradient(145deg, rgba(74,112,207,.16), rgba(255,255,255,.045)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+.architecture-page .security-dark-section .seo-primary-guide h3 { color: #fff; }
+.architecture-page .security-dark-section .seo-primary-guide p { color: rgba(255,255,255,.68); }
+.architecture-page .security-dark-section .erp-ledger-table kbd,
+.architecture-page .security-dark-section .erp-feature-card kbd {
+  color: #e6efff;
+  background: rgba(6,15,31,.62);
+  border-color: rgba(143,176,255,.24);
+  border-bottom-color: rgba(143,176,255,.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 2px 0 rgba(0,0,0,.30);
+}
+
+.architecture-page .erp-guide-card:focus-visible,
+.architecture-page .erp-inline-links a:focus-visible,
+.architecture-page .guide-card-link:focus-visible,
+.architecture-page .guide-question-link:focus-visible {
+  outline: 3px solid rgba(36,87,214,.20);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .landing-accounting-suite-grid,
+  .erp-summary-grid,
+  .erp-feature-grid,
+  .erp-report-grid,
+  .erp-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .landing-accounting-flow,
+  .erp-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .landing-accounting-suite { width: calc(100% - 24px); margin: 28px 12px; padding: 18px 14px; border-radius: 22px; }
+  .landing-accounting-suite-grid,
+  .landing-accounting-flow,
+  .erp-summary-grid,
+  .erp-feature-grid,
+  .erp-report-grid,
+  .erp-guide-grid,
+  .erp-flow { grid-template-columns: 1fr; }
+  .landing-accounting-suite-card { padding: 16px; }
+  .landing-accounting-suite-actions { align-items: stretch; }
+  .landing-accounting-suite-actions a { justify-content: center; width: 100%; }
+  .architecture-page .erp-feature-card,
+  .architecture-page .erp-report-card,
+  .architecture-page .erp-guide-card,
+  .architecture-page .erp-flow-step,
+  .architecture-page .erp-callout,
+  .architecture-page .seo-definition { border-radius: 16px; }
+  .architecture-page .erp-feature-card,
+  .architecture-page .erp-report-card,
+  .architecture-page .erp-guide-card { padding: 1rem; }
+  .architecture-page .erp-inline-links a { min-height: 38px; padding: .55rem .70rem; }
+  .erp-ledger-example { padding: .85rem; overflow-x: auto; scrollbar-width: none; }
+  .erp-ledger-example::-webkit-scrollbar { display: none; }
+  .erp-ledger-table { min-width: 580px; }
+}
