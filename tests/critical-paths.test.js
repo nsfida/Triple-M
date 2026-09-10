@@ -3024,6 +3024,22 @@ it("Section keyboard shortcuts are browser-safe, section-scoped, loan-mode aware
   assert.match(css, /\.section-shortcuts-modal\{display:none!important\}/);
 });
 
+it("Triplem AI efficiently batches workspace tools and never exposes its internal orchestration ceiling", () => {
+  const root = path.join(__dirname, "..");
+  const edge = fs.readFileSync(path.join(root, "supabase/functions/triplem-ai/index.ts"), "utf8");
+
+  assert.match(edge, /use one precise tool call whenever possible/);
+  assert.match(edge, /request them together in the same model turn/);
+  assert.match(edge, /const toolCache = new Map<string, any>\(\)/);
+  assert.match(edge, /const maxToolExecutions = 16/);
+  assert.match(edge, /for \(let turn = 0; turn < 5; turn \+= 1\)/);
+  assert.match(edge, /calls\.slice\(0, 5\)/);
+  assert.match(edge, /toolCache\.has\(cacheKey\)/);
+  assert.match(edge, /The workspace lookup phase is complete\. Do not request any more tools\./);
+  assert.match(edge, /generationConfig: \{ temperature: 0\.08, maxOutputTokens: 700 \}/);
+  assert.doesNotMatch(edge, /Triplem AI reached its safe tool-call limit/);
+});
+
 it("Delivered source contains no prohibited competitor branding", () => {
   const root = path.join(__dirname, "..");
   const prohibited = String.fromCharCode(109,97,122,101,101,100);
@@ -3041,4 +3057,153 @@ it("Delivered source contains no prohibited competitor branding", () => {
       assert.equal(text.includes(prohibited), false, `Prohibited branding found in ${path.relative(root, full)}`);
     }
   }
+});
+
+
+it('161 gives Triplem AI repayment-adjusted loan positions and strict viewport-scoped chat', () => {
+  const root = path.join(__dirname, '..');
+  const readFile = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const migration = readFile('migrations/161_triplem_ai_precise_loan_positions.sql');
+  const edge = readFile('supabase/functions/triplem-ai/index.ts');
+  const aiJs = readFile('Assets/app/ai/02-triplem-ai.js');
+  const aiCss = readFile('Assets/style/45-triplem-ai.css');
+  const nav = readFile('Assets/app/ui/01-render-navigation.js');
+
+  assert.match(migration, /app_triplem_ai_loan_positions/);
+  assert.match(migration, /greatest\(principal-paid,0\)/);
+  assert.match(migration, /status in \('Open','Partial'\)/);
+  assert.match(migration, /owner_id=data_owner/);
+  assert.match(migration, /app_has_permission\('loans','view'\)/);
+  assert.doesNotMatch(migration, /update public\.loans|delete from public\.loans/i);
+
+  assert.match(edge, /name: "get_loan_positions"/);
+  assert.match(edge, /app_triplem_ai_loan_positions/);
+  assert.match(edge, /do NOT broaden to unrelated records/);
+  assert.match(edge, /never include Closed positions/);
+  assert.match(edge, /genericQueries/);
+  assert.match(edge, /slice\(0, 8\)/);
+
+  assert.match(aiJs, /void loadAiDrafts\(\)\.then/);
+  assert.match(aiJs, /setTriplemAiPageLock/);
+  assert.match(aiJs, /panel\.style\.setProperty\("--triplem-ai-viewport-height"/);
+  assert.match(nav, /setTriplemAiPageLock\(tab === "triplem-ai"\)/);
+  assert.match(aiCss, /body\.triplem-ai-workspace-active/);
+  assert.match(aiCss, /overflow:hidden!important/);
+  assert.match(aiCss, /\.triplem-ai-thread\{flex:1 1 0!important/);
+});
+
+
+it('Triplem AI keeps loan direction strict, opens native overlays in-place, validates drafts, and uses exact AI provenance', () => {
+  const root = path.join(__dirname, '..');
+  const readFile = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const edge = readFile('supabase/functions/triplem-ai/index.ts');
+  const aiJs = readFile('Assets/app/ai/02-triplem-ai.js');
+  const expenses = readFile('Assets/app/expenses/01-expenses-wallets.js');
+
+  assert.match(edge, /inferLoanDirectionFromRequest/);
+  assert.match(edge, /pay me back/);
+  assert.match(edge, /artifacts\?\.loanDirection/);
+  assert.match(edge, /row\.module !== "loans"/);
+  assert.match(edge, /normalizeDraftPayload/);
+  assert.match(edge, /requireOne\(\[p\.wallet_id,p\.wallet_name\], "Wallet"\)/);
+  assert.match(edge, /Loan direction is required as given or taken/);
+  assert.match(edge, /requireOne\(\[p\.item_group_id,p\.item_name\], "Inventory item"\)/);
+
+  const openFn = aiJs.slice(aiJs.indexOf('async function openTriplemAiRecord'), aiJs.indexOf('async function loadAiDrafts'));
+  assert.doesNotMatch(openFn, /activate\(/);
+  assert.match(openFn, /openExpenseTransactionDetail/);
+  assert.match(openFn, /openLoanTransactionDetail/);
+  assert.match(openFn, /openInventoryReceiptEditor/);
+  assert.match(openFn, /openAssetDetail/);
+
+  assert.match(aiJs, /if \(rid\) return String\(origin\?\.record_id \|\| ""\) === rid/);
+  assert.match(expenses, /isTriplemAiOrigin\("expenses", tx\.id\)/);
+  assert.doesNotMatch(expenses, /isTriplemAiOrigin\("expenses", tx\.id, tx\.groupId/);
+});
+
+
+it('162 separates Expenses, Internal Transfers, and Receiving without mutating historical financial rows', () => {
+  const root = path.join(__dirname, '..');
+  const readFile = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const index = readFile('index.html');
+  const expenses = readFile('Assets/app/expenses/01-expenses-wallets.js');
+  const inventory = readFile('Assets/app/inventory/01-inventory-meta-stock.js');
+  const reports = readFile('Assets/app/reports/02-exports.js');
+  const domain = readFile('Assets/app/domain-ledger.js');
+  const migration = readFile('migrations/162_expense_record_classification.sql');
+
+  assert.match(index, /<option value="history" selected>Expenses<\/option>/);
+  assert.match(index, /<option value="topups">Receiving<\/option>/);
+  assert.match(index, /<option value="transfers">Internal Transfers<\/option>/);
+
+  assert.match(expenses, /function isInternalExpenseTransferRow\(row\)/);
+  assert.match(expenses, /if \(isInternalExpenseTransferRow\(row\)\) continue/);
+  assert.match(expenses, /function receivingKindForTopupRow\(row\)/);
+  assert.match(expenses, /return "internal-transfer"/);
+  assert.match(expenses, /return "add-money"/);
+  assert.match(expenses, /\.filter\(tx => !tx\.isOpeningBalance && isExpenseReceivingTopupRow\(tx\)\)/);
+  assert.match(expenses, /> Receiving<\/h4>/);
+  assert.match(expenses, /> Internal Transfers<\/h4>/);
+  assert.match(expenses, /> Expenses<\/h4>/);
+  assert.match(expenses, /transferEvent\?\.expenseId \|\| tx\.id/);
+
+  const transferRows = inventory.slice(inventory.indexOf('function getTransferRowsForCurrency'), inventory.indexOf('function transferCurrencyTotals'));
+  assert.match(transferRows, /kind: "Transfer"/);
+  assert.doesNotMatch(transferRows, /kind: "Received"/);
+  assert.doesNotMatch(transferRows, /if \(ev\.curIn === cur\)/);
+
+  assert.match(reports, /Receiving - \$\{pdfCurrencyLabel\(currencyFilter\)\}/);
+  assert.match(reports, /Internal Transfers - \$\{pdfCurrencyLabel\(currencyFilter\)\}/);
+  assert.match(reports, /\.filter\(t => !t\.isOpeningBalance/);
+  assert.match(domain, /toLowerCase\(\) === "transfer" \? ""/);
+
+  assert.equal((migration.match(/create or replace function public\.app_list_my_expense_item_/g) || []).length, 4);
+  assert.match(migration, /<> 'transfer'/);
+  assert.doesNotMatch(migration, /\b(update|delete|insert)\s+(?:into\s+)?public\.(?:expense_entries|expense_topups|expense_accounts|expense_transfers)\b/i);
+});
+
+it('163 adds Bought and Sold installment plans with isolated wallet direction and structured optional details', () => {
+  const root = path.join(__dirname, '..');
+  const readFile = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const index = readFile('index.html');
+  const feature = readFile('Assets/app/installments/02-bought-sold-plans.js');
+  const css = readFile('Assets/style/48-installment-bought-sold.css');
+  const domain = readFile('Assets/app/domain-ledger.js');
+  const helpers = readFile('Assets/app/core/05-meta-helpers.js');
+  const migration = readFile('migrations/163_installment_bought_sold_optional_details.sql');
+
+  assert.match(index, /Installment Plans \(Bought\)/);
+  assert.match(index, /Installment Plans \(Sold\)/);
+  assert.match(index, /id="installmentOptionalDetailsSection"/);
+  assert.match(index, /installment_detail_phone/);
+  assert.match(index, /installment_detail_reference/);
+  assert.match(index, /installment_detail_guarantor/);
+  assert.match(index, /installment_edit_detail_phone/);
+
+  assert.match(feature, /typeDirection\(type\).*"given".*"taken"/s);
+  assert.match(feature, /Advance received → Add to wallet/);
+  assert.match(feature, /Down payment → Deduct from wallet/);
+  assert.match(feature, /Installment received → Add to wallet/);
+  assert.match(feature, /Installment payment → Deduct from wallet/);
+  assert.match(feature, /rowType:sold\?"TOPUP":"EXPENSE"/);
+  assert.match(feature, /installment_details:collectDetails/);
+  assert.match(feature, /Outstanding receivable/);
+  assert.match(feature, /Buyer \/ sale details/);
+  assert.match(feature, /Seller \/ purchase details/);
+
+  assert.match(domain, /installment_plan_type/);
+  assert.match(domain, /installment_details/);
+  assert.match(domain, /plan_type:/);
+  assert.match(domain, /details:/);
+  assert.match(helpers, /function normalizeInstallmentPlanType/);
+  assert.match(helpers, /function normalizeInstallmentDetails/);
+  assert.match(helpers, /plan_type: installmentPlanTypeOf\(principal\)/);
+
+  assert.match(migration, /add column if not exists plan_type text not null default 'bought'/);
+  assert.match(migration, /add column if not exists details jsonb not null default '\{\}'::jsonb/);
+  assert.match(migration, /check \(plan_type in \('bought','sold'\)\)/);
+  assert.doesNotMatch(migration, /\b(update|delete|insert|truncate)\s+(?:into\s+)?public\.installment_/i);
+
+  assert.match(css, /\.installment-plan-mode/);
+  assert.match(css, /@media \(max-width:640px\)/);
 });
