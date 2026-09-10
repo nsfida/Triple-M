@@ -175,6 +175,9 @@ const CANONICAL_MIGRATION_FILES = [
   "158_triplem_ai_private_financial_assistant.sql",
   "159_triplem_ai_workspace_coverage_privacy.sql",
   "160_triplem_ai_actions_references_and_drafts.sql",
+  "161_triplem_ai_precise_loan_positions.sql",
+  "162_expense_record_classification.sql",
+  "163_installment_bought_sold_optional_details.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
