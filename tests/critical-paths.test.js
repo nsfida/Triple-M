@@ -3332,11 +3332,13 @@ it('SEO refresh covers Financial Timeline, Bought/Sold installments, current exp
   assert.doesNotMatch(robots, /Disallow:\s*\/Assets\/style\//);
   assert.doesNotMatch(robots, /Disallow:\s*\/Assets\/app\//);
   assert.match(llms, /Financial Timeline/);
-  assert.match(llms, /Installment Plans Bought and Sold/);
-  assert.match(llms, /Expenses contains pure expenses only/);
-  assert.match(llms, /No Notes feature redesign is described in this SEO refresh/);
+  assert.match(llms, /International currency availability/);
+  assert.match(llms, /seo\/index\.md/);
+  assert.match(llms, /EUR and INR/);
   assert.match(llmsFull, /Financial Timeline/);
   assert.match(llmsFull, /Installment Plans Sold/);
+  assert.match(llmsFull, /International currency availability/);
+  assert.match(llmsFull, /India can use INR/);
   assert.match(sitemap, /https:\/\/triplem\.vip\/seo\/financial-timeline\.html/);
   assert.match(sitemap, /https:\/\/triplem\.vip\/seo\/installment-plans\.html/);
 
@@ -3345,8 +3347,63 @@ it('SEO refresh covers Financial Timeline, Bought/Sold installments, current exp
   for (const page of seoPages) {
     const html = readFile(path.join('seo', page));
     assert.match(html, /42-public-accounting-seo\.css\?v=20260910-security-parity006/, `${page} should use the unified SEO visual stylesheet`);
+    assert.match(html, /id="global-currency-support"/, `${page} should expose international currency availability`);
+    assert.match(html, /rel="alternate" type="text\/markdown"/, `${page} should expose its Markdown counterpart`);
+    assert.match(html, /(?:href="https:\/\/triplem\.vip\/seo\/llms\.txt" rel="describedby"|rel="describedby" href="https:\/\/triplem\.vip\/seo\/llms\.txt")/, `${page} should point to the subtree discovery map`);
   }
   assert.doesNotMatch(css, /#(?:8fb0ff|7f9ee8|93a8cf|91b0ff|86efac|dbe7ff|dce7ff)/i);
   assert.match(css, /\.architecture-page \.seo-fresh-tag[\s\S]*?color:\s*var\(--brand-blue\)/);
   assert.match(css, /\.architecture-page \.erp-guide-card \.erp-guide-route[\s\S]*?color:\s*var\(--brand-blue\)/);
+});
+
+
+it('166 polishes the signup plan cards and keeps signup progress inside the scrolling body', () => {
+  const root = path.join(__dirname, '..');
+  const signup = fs.readFileSync(path.join(root, 'Assets/app/auth/02-auth-welcome-trial.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'Assets/style/08-landing-auth.css'), 'utf8');
+  const bundle = fs.readFileSync(path.join(root, 'Assets/style/app.bundle.css'), 'utf8');
+
+  assert.match(signup, /signup-plan-title">Free 14 Days/);
+  assert.match(signup, /signup-plan-title">Pro Monthly/);
+  assert.match(signup, /signup-plan-title">Pro Yearly/);
+  assert.match(signup, /signup-v2-body">\s*<div class="signup-v2-progress"/);
+  assert.match(css, /\.signup-v2-progress\{[^}]*position:static/);
+  assert.match(css, /@media\(min-width:821px\)\{\.signup-plan-card\{padding:17px!important;min-height:164px!important\}\.signup-plan-badge\{left:auto!important;right:14px;top:14px/);
+  assert.match(css, /\.signup-plan-title\{font-size:1\.02rem!important;font-weight:900!important/);
+  assert.equal(bundle.includes('.signup-plan-title{font-size:1.02rem!important;font-weight:900!important'), true);
+});
+
+it('167 publishes current international SEO and answer-engine discovery assets without exposing implementation paths as content', () => {
+  const root = path.join(__dirname, '..');
+  const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const index = read('index.html');
+  const robots = read('robots.txt');
+  const sitemap = read('sitemap.xml');
+  const rootLlms = read('llms.txt');
+  const seoLlms = read('seo/llms.txt');
+  const rootMd = read('index.md');
+  const pkg = JSON.parse(read('package.json'));
+
+  assert.match(index, /AED, SAR, PKR, USD, EUR and INR/);
+  assert.match(index, /If your local currency is not yet available/);
+  assert.match(index, /rel="alternate" type="text\/markdown" href="https:\/\/triplem\.vip\/index\.md"/);
+  assert.match(robots, /User-agent: OAI-SearchBot/);
+  assert.match(robots, /User-agent: PerplexityBot/);
+  assert.match(robots, /Allow: \/seo\/\*\.md\$/);
+  assert.match(robots, /Disallow: \/migrations\//);
+  assert.match(robots, /Disallow: \/Assets\/sql\//);
+  assert.match(sitemap, /<loc>https:\/\/triplem\.vip\/seo\/accounting-software\.html<\/loc>\s*<lastmod>2026-09-11<\/lastmod>/);
+  assert.match(rootLlms, /International currency availability/);
+  assert.match(seoLlms, /India can use INR/);
+  assert.match(seoLlms, /Belgium and other euro-using countries/);
+  assert.match(rootMd, /users in any country/i);
+  assert.equal(pkg.scripts['seo:indexnow'], 'node scripts/submit_indexnow.js --all');
+  assert.equal(fs.existsSync(path.join(root, 'scripts', 'submit_indexnow.js')), true);
+
+  const htmlPages = fs.readdirSync(path.join(root, 'seo')).filter(name => name.endsWith('.html'));
+  const mdPages = fs.readdirSync(path.join(root, 'seo')).filter(name => name.endsWith('.md'));
+  assert.equal(mdPages.length, htmlPages.length);
+  for (const htmlName of htmlPages) {
+    assert.equal(fs.existsSync(path.join(root, 'seo', htmlName.replace(/\.html$/, '.md'))), true);
+  }
 });
