@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<meta content="Understand Triplem VIP security, 2FA, recovery, trusted browsers, visitor/in-app support and Triplem AI privacy: administrator-gated access, Vault-stored Gemini keys and workspace-only data retrieval." name="description"/>
+<meta content="Nadeem Shahzad Fida" name="author"/>
+<meta content="Nadeem Shahzad Fida" name="creator"/>
+<meta content="Triplem VIP" name="publisher"/>
+<meta content="Triplem VIP" name="application-name"/>
+<meta content="#2457d6" name="theme-color"/>
+<meta content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" name="robots"/>
+<title>Triplem VIP Security, 2FA, Account Recovery &amp; Live Support</title>
+<link href="https://triplem.vip/seo/security-and-support.html" rel="canonical"/>
+<link href="https://triplem.vip/seo/security-and-support.md" rel="alternate" type="text/markdown"/>
+<link href="https://triplem.vip/seo/llms.txt" rel="describedby"/>
+<link href="https://triplem.vip/seo/security-and-support.html" hreflang="en" rel="alternate"/>
+<link href="https://triplem.vip/seo/security-and-support.html" hreflang="x-default" rel="alternate"/>
+<link href="../Assets/logo/logo.png" rel="icon" type="image/png"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Playfair+Display:ital,wght@0,700;0,800;1,600&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet"/>
+<meta content="article" property="og:type"/>
+<meta content="en_US" property="og:locale"/>
+<meta content="Triplem VIP" property="og:site_name"/>
+<meta content="Triplem VIP Security, 2FA, Account Recovery &amp; Live Support" property="og:title"/>
+<meta content="Understand Triplem VIP security, 2FA, recovery, trusted browsers, visitor/in-app support and Triplem AI privacy: administrator-gated access, Vault-stored Gemini keys and workspace-only data retrieval." property="og:description"/>
+<meta content="https://triplem.vip/seo/security-and-support.html" property="og:url"/>
+<meta content="https://triplem.vip/Assets/logo/logo.png" property="og:image"/>
+<meta content="Triplem VIP" property="og:image:alt"/>
+<meta content="summary_large_image" name="twitter:card"/>
+<meta content="Triplem VIP Security, Recovery &amp; Support" name="twitter:title"/>
+<meta content="Understand Triplem VIP security, 2FA, recovery, trusted browsers, visitor/in-app support and Triplem AI privacy: administrator-gated access, Vault-stored Gemini keys and workspace-only data retrieval." name="twitter:description"/>
+<meta content="https://triplem.vip/Assets/logo/logo.png" name="twitter:image"/>
+<meta content="Triplem VIP" name="twitter:image:alt"/>
+<script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "TechArticle",
+      "@id": "https://triplem.vip/seo/security-and-support.html#article",
+      "headline": "Triplem VIP Security, 2FA, Account Recovery and Live Support",
+      "description": "Detailed public guide to Triplem VIP password hashing, Authenticator App 2FA, Smart PIN protection, account recovery, Web Push consent and customer support boundaries.",
+      "dateModified": "2026-09-11",
+      "author": {
+        "@type": "Person",
+        "name": "Nadeem Shahzad Fida"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Triplem VIP",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://triplem.vip/Assets/logo/logo.png"
+        }
+      },
+      "mainEntityOfPage": "https://triplem.vip/seo/security-and-support.html",
+      "about": [
+        "bcrypt password hashing",
+        "Authenticator App 2FA",
+        "AES-256 TOTP secret encryption",
+        "SHA-256 recovery-code hashing",
+        "Smart PIN protection",
+        "account recovery",
+        "Web Push notifications",
+        "visitor Live Support",
+        "authenticated in-app support"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://triplem.vip/seo/security-and-support.html#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does Triplem VIP store readable passwords?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Current authentication verifies passwords against pgcrypto-backed bcrypt hashes rather than storing readable account passwords."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is the Authenticator App 2FA secret protected?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The TOTP secret is encrypted server-side with pgcrypto using AES-256 before it is stored."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Are 2FA recovery codes stored as readable codes?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Recovery codes are normalized, bound to the user and persisted as SHA-256 hashes. Used codes are marked consumed."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does Triplem VIP recover an account without revealing the old password?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Supported 2FA recovery verifies the Authenticator App or an unused recovery code. For accounts without that recovery route, an authorized administrator can issue a temporary password that replaces the old hash and forces creation of a new permanent password."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Triplem VIP offer live support to visitors and signed-in users?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Public visitors can use guided support and request a live Agent, while registered businesses and individuals can use an authenticated in-app support channel where enabled."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Will the browser notification prompt keep appearing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The prompt decision is remembered locally for that browser or device. Visitors and signed-in users can later change their device notification preference from the available controls."
+          }
+        }
+      ]
+    }
+  ]
+}</script>
+<link as="style" href="../Founder/style.css?v=20260829-cinematic-lens" rel="preload"/>
+<link href="../Founder/style.css?v=20260829-cinematic-lens" rel="stylesheet"/>
+<link href="../Security/style.css?v=20260904-security-support131" rel="stylesheet"/>
+<link href="../Assets/style/42-public-accounting-seo.css?v=20260910-security-parity006" rel="stylesheet"/>
+</head>
+<body class="founder-page architecture-page">
+<div aria-hidden="true" class="experience-progress"><span id="experienceProgress"></span></div>
+<div aria-hidden="true" class="ambient-stage"><span class="ambient-orb ambient-orb-a"></span><span class="ambient-orb ambient-orb-b"></span><span class="ambient-orb ambient-orb-c"></span><span class="ambient-prism"></span></div>
+<div aria-hidden="true" class="cursor-lens" id="cursorLens"></div>
+<nav aria-label="Triplem VIP guide navigation" class="nav"><div class="nav-inner"><a aria-label="Triplem VIP home" class="nav-logo" href="/"><img alt="Triplem VIP logo" src="../Assets/logo/logo.png"/><span class="nav-logo-text">Triplem VIP</span></a><ul class="nav-links"><li><a href="#credentials">Credential protection</a></li><li><a href="#two-factor">Authenticator App 2FA</a></li><li><a href="#recovery">Smart PIN &amp; recovery</a></li><li><a href="#support">Live Support boundaries</a></li><li><a href="#preferences">Notifications &amp; theme</a></li><li><a href="#accounting-access">Accounting access</a></li><li><a href="#questions">Security &amp; support FAQ</a></li></ul><button aria-controls="mobileNav" aria-expanded="false" aria-label="Open navigation" class="nav-toggle" id="navToggle" type="button"><span></span><span></span><span></span></button><a class="nav-back" href="/seo/"><i class="fa-solid fa-arrow-left"></i> All Guides</a></div></nav>
+<div aria-hidden="true" class="mobile-nav-panel" id="mobileNav"><div class="mobile-nav-glass"><a href="#credentials"><i class="fa-solid fa-key"></i><span>Credential protection</span></a><a href="#two-factor"><i class="fa-solid fa-mobile-screen-button"></i><span>Authenticator App 2FA</span></a><a href="#recovery"><i class="fa-solid fa-fingerprint"></i><span>Smart PIN &amp; recovery</span></a><a href="#support"><i class="fa-solid fa-headset"></i><span>Live Support boundaries</span></a><a href="#preferences"><i class="fa-solid fa-sliders"></i><span>Notifications &amp; theme</span></a><a href="#accounting-access"><i class="fa-solid fa-user-shield"></i><span>Accounting access</span></a><a href="#questions"><i class="fa-solid fa-circle-question"></i><span>Security &amp; support FAQ</span></a><a href="/Security/"><i class="fa-solid fa-book-open"></i><span>Technical Security &amp; Infrastructure</span></a><a href="/seo/accounting-software.html"><i class="fa-solid fa-book-open"></i><span>Accounting software</span></a><a href="/seo/expense-tracking.html"><i class="fa-solid fa-book-open"></i><span>Expense tracking</span></a><a href="/seo/finance-software.html"><i class="fa-solid fa-book-open"></i><span>Finance software</span></a></div></div>
+<main>
+<header class="hero"><div class="hero-inner"><div aria-hidden="true" class="architecture-hero-mark"><div class="architecture-logo-shell"><img alt="" src="../Assets/logo/logo.png"/></div><span class="architecture-node n1"><i class="fa-solid fa-shield-halved"></i></span><span class="architecture-node n2"><i class="fa-solid fa-fingerprint"></i></span><span class="architecture-node n3"><i class="fa-solid fa-mobile-screen-button"></i></span><span class="architecture-node n4"><i class="fa-solid fa-headset"></i></span></div><div class="hero-content"><div class="hero-eyebrow"><i class="fa-solid fa-circle" style="font-size:.5em;color:#4ade80"></i>  Security, recovery &amp; customer care</div><h1 class="hero-name">Layered account protection with human support that respects the security boundary.</h1><p class="hero-tagline">Triplem VIP combines hashed account credentials, optional Authenticator App 2FA, protected Smart PIN and recovery, explicit Web Push consent, visitor Live Support and authenticated in-app care while keeping each trust boundary deliberately separate.</p><div class="hero-pills"><span class="pill"><i class="fa-solid fa-key"></i> bcrypt passwords</span><span class="pill"><i class="fa-solid fa-mobile-screen-button"></i> Encrypted Authenticator 2FA</span><span class="pill"><i class="fa-solid fa-hashtag"></i> Hashed recovery codes</span><span class="pill"><i class="fa-solid fa-fingerprint"></i> Protected Smart PIN</span><span class="pill"><i class="fa-solid fa-headset"></i> Visitor Live Support</span><span class="pill"><i class="fa-solid fa-comments"></i> Authenticated in-app care</span></div><div class="hero-actions"><a class="hero-primary" href="/"><i class="fa-solid fa-user-plus"></i> Start 14-day free trial</a><a class="hero-secondary" href="/Security/"><i class="fa-solid fa-shield-halved"></i> Security architecture</a></div></div></div></header>
+<section class="section" data-section-index="01" id="credentials">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-key"></i> Credential protection</div>
+<h2 class="section-title fade-up">Verification without exposing existing permanent secrets.</h2>
+<p class="section-subtitle fade-up">Current account authentication separates passwords, sessions, Remember Me persistence and workspace ownership into distinct security controls.</p>
+<div class="security-layer-grid">
+<article class="security-layer fade-up"><div class="security-layer-head"><span class="security-layer-icon"><i class="fa-solid fa-key"></i></span><div><span class="layer-kicker">Protection layer</span><h3>Password hashing and managed users</h3></div></div><p>Current password authentication verifies PostgreSQL pgcrypto-backed bcrypt hashes. Password changes replace the stored hash rather than disclosing the old permanent secret.</p><ul><li><i class="fa-solid fa-check"></i><span>One-way bcrypt verification</span></li><li><i class="fa-solid fa-check"></i><span>No normal readable-password account view</span></li><li><i class="fa-solid fa-check"></i><span>Password replacement rather than recovery of the old secret</span></li></ul></article>
+<article class="security-layer fade-up fade-up-delay-1"><div class="security-layer-head"><span class="security-layer-icon"><i class="fa-solid fa-ticket"></i></span><div><span class="layer-kicker">Protection layer</span><h3>Opaque, revocable sessions</h3></div></div><p>Application sessions are server-side records with expiry and revocation state. The active browser credential is represented by a server-side hash rather than stored as a readable live token.</p><ul><li><i class="fa-solid fa-check"></i><span>Expiry and revocation state</span></li><li><i class="fa-solid fa-check"></i><span>Logout can revoke active access</span></li><li><i class="fa-solid fa-check"></i><span>Session boundary remains distinct from user identity</span></li></ul></article>
+<article class="security-layer fade-up fade-up-delay-2"><div class="security-layer-head"><span class="security-layer-icon"><i class="fa-solid fa-memory"></i></span><div><span class="layer-kicker">Protection layer</span><h3>Protected Remember Me</h3></div></div><p>When chosen, returning credentials are stored in an AES-GCM encrypted browser envelope using Web Crypto and a non-exportable IndexedDB key.</p><ul><li><i class="fa-solid fa-check"></i><span>AES-GCM browser envelope</span></li><li><i class="fa-solid fa-check"></i><span>Non-exportable local key</span></li><li><i class="fa-solid fa-check"></i><span>Durable persistence removed when not requested</span></li></ul></article>
+<article class="security-layer fade-up fade-up-delay-3"><div class="security-layer-head"><span class="security-layer-icon"><i class="fa-solid fa-user-lock"></i></span><div><span class="layer-kicker">Protection layer</span><h3>Owner-scoped workspace</h3></div></div><p>Financial records remain associated with the authorized account context and database access path instead of becoming public client state.</p><ul><li><i class="fa-solid fa-check"></i><span>Account-aware data access</span></li><li><i class="fa-solid fa-check"></i><span>Database ownership controls</span></li><li><i class="fa-solid fa-check"></i><span>Support access remains a separate boundary</span></li></ul></article>
+</div>
+</div>
+</section>
+<section class="section section-alt" data-section-index="02" id="two-factor">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-mobile-screen-button"></i> Authenticator App 2FA</div>
+<h2 class="section-title fade-up">A second factor is verified before a normal session is created.</h2>
+<p class="section-subtitle fade-up">When enabled, a correct password creates only a short-lived challenge. A valid Authenticator code or unused recovery code is still required before full workspace entry.</p>
+<div class="twofa-security-grid">
+<article class="twofa-security-card fade-up"><span><i class="fa-solid fa-lock"></i></span><div><small>Secret protection</small><h3>AES-256 encrypted TOTP secret</h3><p>The Authenticator enrollment secret is encrypted server-side with pgcrypto because restricted verification code must be able to reproduce TOTP values.</p></div></article>
+<article class="twofa-security-card fade-up fade-up-delay-1"><span><i class="fa-solid fa-hashtag"></i></span><div><small>Recovery material</small><h3>Hashed recovery codes</h3><p>Recovery codes are normalized, bound to the user and stored as SHA-256 hashes rather than readable copies.</p></div></article>
+<article class="twofa-security-card fade-up fade-up-delay-2"><span><i class="fa-solid fa-stopwatch"></i></span><div><small>Challenge boundary</small><h3>Short-lived challenges</h3><p>2FA login challenges expire and carry attempt controls, reducing the usefulness of a stale challenge token.</p></div></article>
+<article class="twofa-security-card fade-up fade-up-delay-3"><span><i class="fa-solid fa-rotate"></i></span><div><small>One-time recovery</small><h3>Consumed recovery codes</h3><p>A recovery code that verifies successfully is marked consumed so the same value cannot be reused.</p></div></article>
+</div>
+</div>
+</section>
+<section class="section" data-section-index="03" id="recovery">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-fingerprint"></i> Smart PIN &amp; recovery</div>
+<h2 class="section-title fade-up">Recovery is structured around verification and replacement, not disclosure.</h2>
+<p class="section-subtitle fade-up">Smart PIN protection, 2FA recovery and administrator-issued temporary passwords use separate guarded paths.</p>
+<div class="divider fade-up"></div>
+<div class="security-intro-grid">
+<div class="security-prose fade-up"><p>Smart PIN verification uses a username-bound SHA-256 hash and server-managed failure counters with progressive lockout tiers. Normal user profile responses do not expose the stored Smart PIN hash.</p><p>When 2FA is enabled, supported Smart PIN and password recovery can verify an Authenticator code or an unused recovery code. Where administrator-assisted recovery is needed, an authorized administrator can issue a high-entropy temporary password that replaces the old hash, revokes previous sessions and forces creation of a new permanent password before ordinary workspace entry.</p></div>
+<aside class="security-rail fade-up fade-up-delay-1">
+<div class="security-rail-card"><i class="fa-solid fa-fingerprint"></i><div><small>Smart PIN</small><strong>Hashed &amp; rate-limited</strong><span>Username-bound hashing and progressive lockout tiers protect the quick verification layer.</span></div></div>
+<div class="security-rail-card"><i class="fa-solid fa-mobile-screen-button"></i><div><small>2FA recovery</small><strong>Verify without revealing</strong><span>Authenticator codes or unused recovery codes can prove possession of the second factor where supported.</span></div></div>
+<div class="security-rail-card"><i class="fa-solid fa-key"></i><div><small>Temporary password</small><strong>Replace, never reveal</strong><span>Administrator recovery replaces the prior password hash and creates a temporary credential with expiry.</span></div></div>
+<div class="security-rail-card"><i class="fa-solid fa-arrows-rotate"></i><div><small>Session reset</small><strong>Previous access revoked</strong><span>Temporary-password recovery revokes existing sessions before normal access is restored.</span></div></div>
+</aside></div>
+</div>
+</section>
+<section class="section section-alt" data-section-index="04" id="support">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-headset"></i> Live Support boundaries</div>
+<h2 class="section-title fade-up">Public visitor care and authenticated user support are deliberately different channels.</h2>
+<p class="section-subtitle fade-up">Support can guide a visitor or registered user without requiring disclosure of passwords, Smart PINs, Authenticator secrets or recovery codes.</p>
+<div class="support-security-grid">
+<article class="support-security-card fade-up"><i class="fa-solid fa-user-secret"></i><h3>Public Live Support</h3><p>A visitor support session uses a guest capability rather than pretending the visitor is an authenticated account holder.</p></article>
+<article class="support-security-card fade-up fade-up-delay-1"><i class="fa-solid fa-user-shield"></i><h3>Authenticated Agent context</h3><p>Representative actions remain tied to authenticated support context and assignment rules.</p></article>
+<article class="support-security-card fade-up fade-up-delay-2"><i class="fa-solid fa-right-left"></i><h3>Transfer continuity</h3><p>Conversation transfers use explicit states while keeping the inquiry history attached to the same support thread.</p></article>
+<article class="support-security-card fade-up fade-up-delay-3"><i class="fa-solid fa-comments"></i><h3>Authenticated in-app support</h3><p>Registered businesses and individuals can use private in-app support messaging through a separate signed-in support channel where enabled.</p></article>
+<article class="support-security-card fade-up"><i class="fa-solid fa-brain"></i><h3>AI-to-Agent support</h3><p>Automated guidance can assist product questions while privileged actions remain behind normal authorization boundaries.</p></article>
+<article class="support-security-card fade-up fade-up-delay-1"><i class="fa-solid fa-user-lock"></i><h3>Core secrets stay private</h3><p>Support does not require a permanent password, Smart PIN, Authenticator enrollment secret or recovery code.</p></article>
+</div>
+</div>
+</section>
+<section class="section" data-section-index="05" id="preferences">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-sliders"></i> Notifications &amp; theme</div>
+<h2 class="section-title fade-up">A device permission and an account preference should not be synchronized the same way.</h2>
+<p class="section-subtitle fade-up">Push subscriptions belong to a browser or device, while a visual theme can safely follow an authenticated account across browsers.</p>
+<div class="preference-boundary-grid">
+<article class="preference-boundary-card fade-up"><i class="fa-solid fa-bell"></i><div><small>Device-scoped</small><h3>Notification preference</h3><p>The consent prompt is remembered locally after presentation. Users can later change the browser-level notification switch without altering another device.</p></div></article>
+<article class="preference-boundary-card fade-up fade-up-delay-1"><i class="fa-solid fa-palette"></i><div><small>Account-scoped</small><h3>Workspace theme</h3><p>The selected theme is stored in the existing authenticated account settings and restored after sign-in elsewhere without changing finance records.</p></div></article>
+</div>
+</div>
+</section>
+<section class="section section-alt" data-section-index="06" id="accounting-access">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-user-shield"></i> Accounting access control</div>
+<h2 class="section-title fade-up">Formal Accounting can be enabled only for the users who need it.</h2>
+<p class="section-subtitle fade-up">The main administrator controls whether the Accounting workspace appears for each user, adding a role-aware boundary around double-entry books, journals, receivables, payables, reconciliation, tax and reports.</p>
+<div class="erp-feature-grid">
+<article class="erp-feature-card fade-up"><i class="fa-solid fa-toggle-on"></i><h3>Per-user enablement</h3><p>Accounting can be turned on for a user whose work requires formal books without exposing the module to every account automatically.</p></article>
+<article class="erp-feature-card fade-up"><i class="fa-solid fa-eye-slash"></i><h3>Hidden when disabled</h3><p>When Accounting access is off, the Accounting tab is not shown for that user and the related permission path remains restricted.</p></article>
+<article class="erp-feature-card fade-up"><i class="fa-solid fa-lock"></i><h3>Posted-history controls</h3><p>Inside Accounting, posted journals are protected from ordinary editing and the owner can use Books Lock Date to protect finalized periods.</p></article>
+</div>
+<div class="erp-callout fade-up"><strong>Data-safety boundary</strong><p>Enabling Accounting does not silently rewrite legacy Expenses, Wallets, Inventory, Assets or Loans into journal entries. The present separation preserves existing user records and workflows while formal Accounting can be introduced deliberately.</p></div>
+</div>
+</section>
+<section class="section section-alt" data-section-index="97" id="operational-guides"><div class="section-inner"><div class="section-label fade-up"><i class="fa-solid fa-layer-group"></i> Operational modules</div><h2 class="section-title fade-up">Explore the wider Triplem VIP workspace beyond formal Accounting.</h2><p class="section-subtitle fade-up">Loans, assets, notes and Bitcoin tools remain first-class operational modules and are not removed when Accounting ERP is introduced.</p><div class="erp-guide-grid"><a class="erp-guide-card fade-up" href="loan-management.html"><i class="fa-solid fa-hand-holding-dollar"></i><h3>Loan management</h3><p>Given, taken, repayments and settlement history.</p><span class="erp-guide-route">Read guide <i class="fa-solid fa-arrow-right"></i></span></a><a class="erp-guide-card fade-up" href="asset-management.html"><i class="fa-solid fa-building"></i><h3>Assets &amp; depreciation</h3><p>Acquisition, income, costs, depreciation, book value and reports.</p><span class="erp-guide-route">Read guide <i class="fa-solid fa-arrow-right"></i></span></a><a class="erp-guide-card fade-up" href="notes-management.html"><i class="fa-solid fa-note-sticky"></i><h3>Notes &amp; reminders</h3><p>Searchable notes and scheduled follow-ups.</p><span class="erp-guide-route">Read guide <i class="fa-solid fa-arrow-right"></i></span></a><a class="erp-guide-card fade-up" href="bitcoin-wallet.html"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallet tools</h3><p>Watch-only, client-side wallet access, history and PDFs.</p><span class="erp-guide-route">Read guide <i class="fa-solid fa-arrow-right"></i></span></a></div></div></section>
+<section class="section section-alt" data-section-index="07" id="questions">
+<div class="section-inner">
+<div class="section-label fade-up"><i class="fa-solid fa-circle-question"></i> Security &amp; support FAQ</div>
+<h2 class="section-title fade-up">Clear answers at the trust boundary.</h2>
+<p class="section-subtitle fade-up">These answers distinguish hashing, encryption, authentication, browser permissions and support access.</p>
+<div class="security-faq-grid">
+<details class="security-faq-item fade-up"><summary>Does Triplem VIP store readable passwords?</summary><p>No. Current password authentication verifies pgcrypto-backed bcrypt hashes. Recovery replaces the hash rather than revealing the existing permanent password.</p></details>
+<details class="security-faq-item fade-up fade-up-delay-1"><summary>How is the Authenticator App secret protected?</summary><p>The TOTP secret is encrypted server-side with AES-256 and is decrypted only inside restricted verification functions that need it.</p></details>
+<details class="security-faq-item fade-up fade-up-delay-2"><summary>What happens to 2FA recovery codes?</summary><p>The server stores SHA-256 hashes bound to the account rather than readable recovery-code copies. A successfully used code is consumed.</p></details>
+<details class="security-faq-item fade-up fade-up-delay-3"><summary>Can support ask me for my password or recovery code?</summary><p>No support workflow requires disclosure of a permanent password, Smart PIN, Authenticator enrollment secret or recovery code.</p></details>
+<details class="security-faq-item fade-up"><summary>Why is notification preference local while theme preference syncs?</summary><p>Browser push subscriptions are device-specific permissions, while a visual theme is an account presentation preference that can be restored after authentication.</p></details>
+<details class="security-faq-item fade-up fade-up-delay-1"><summary>Where can I read the deeper architecture?</summary><p>The Technical Security &amp; Infrastructure page explains database, session, permission, 2FA, Smart PIN, Live Support, offline and Bitcoin trust boundaries in more detail.</p></details>
+</div>
+</div>
+</section>
+<section class="section section-alt" data-section-index="06" id="seo20260909-ai-security"><div class="section-inner"><div class="section-label fade-up"><i class="fa-solid fa-brain"></i> Triplem AI security boundary</div><h2 class="section-title fade-up">AI access is permissioned, key-isolated and workspace-scoped.</h2><div class="erp-feature-grid"><article class="erp-feature-card fade-up"><i class="fa-solid fa-user-shield"></i><h3>Admin eligibility</h3><p>Main Admin controls which users may access Triplem AI; it is not automatically enabled for every existing or new account.</p></article><article class="erp-feature-card fade-up"><i class="fa-solid fa-vault"></i><h3>Gemini key in Vault</h3><p>An eligible user supplies their own supported Gemini API key. The secret is stored server-side through Supabase Vault and only a mask is returned for display.</p></article><article class="erp-feature-card fade-up"><i class="fa-solid fa-database"></i><h3>Own workspace only</h3><p>AI workspace search derives its owner boundary from the authenticated session and has no parameter for selecting another user or tenant.</p></article><article class="erp-feature-card fade-up"><i class="fa-solid fa-file-pen"></i><h3>Draft before write</h3><p>AI-created financial activity is staged as an isolated Draft first, so balances, VAT, stock and live reports remain unchanged until explicit finalization.</p></article></div><div class="erp-inline-links"><a href="triplem-ai.html"><i class="fa-solid fa-arrow-right"></i> Full Triplem AI guide</a></div></div></section><section class="section" data-section-index="096" id="latest-guides"><div class="section-inner"><div class="section-label fade-up"><i class="fa-solid fa-sparkles"></i> Latest guides</div><div class="erp-inline-links"><a href="financial-timeline.html"><i class="fa-solid fa-clock-rotate-left"></i> Financial Timeline</a><a href="installment-plans.html"><i class="fa-solid fa-calendar-check"></i> Installment Plans Bought/Sold</a></div></div></section><section class="section section-alt" data-section-index="97" id="global-currency-support"><div class="section-inner"><div class="section-label fade-up"><i class="fa-solid fa-earth-europe"></i> Global currency support</div><h2 class="section-title fade-up">International finance for India, Europe and users worldwide.</h2><p class="section-subtitle fade-up">Triplem VIP is designed for international personal and business finance. Current supported currencies include AED, SAR, PKR, USD, EUR, INR and BTC where applicable, while regional subscription pricing can present a locally supported billing currency.</p><div class="erp-feature-grid"><article class="erp-feature-card fade-up"><i class="fa-solid fa-indian-rupee-sign"></i><h3>India with INR</h3><p>Users in India can work with Indian Rupee (INR / ₹) across supported multi-currency finance workflows and regional subscription pricing.</p></article><article class="erp-feature-card fade-up"><i class="fa-solid fa-euro-sign"></i><h3>Euro-region support</h3><p>Users in Belgium and other countries where the euro is used can work with EUR / € in supported finance workflows and regional subscription pricing.</p></article><article class="erp-feature-card fade-up"><i class="fa-solid fa-globe"></i><h3>Need another currency?</h3><p>Triplem VIP is built to serve users in any country. If your currency is not currently available, contact Triplem VIP and support can review adding it for your country.</p></article></div><p class="security-source-note">Currency availability can expand as user demand grows. USD remains the regional default where another supported local billing currency does not apply. Tax, reporting and statutory requirements still depend on the user’s jurisdiction.</p></div></section><section class="section section-alt" data-section-index="99" id="related"><div class="section-inner"><div class="section-label fade-up"><i class="fa-solid fa-book-open"></i> Related Triplem VIP guides</div><h2 class="section-title fade-up">Continue with the guide that matches your next decision.</h2><p class="section-subtitle fade-up">The public guides use the same product, security and workflow vocabulary so visitors can move between topics without changing visual context.</p><div class="security-contact fade-up"><div><h3>Explore more Triplem VIP guidance</h3><p>Read related finance, setup and security material, or return to the main Triplem VIP experience.</p></div><a href="/seo/"><i class="fa-solid fa-book-open"></i> View all guides</a></div><p class="security-source-note"><a href="/Security/">Technical Security &amp; Infrastructure</a>  ·  <a href="/seo/accounting-erp.html">Accounting ERP</a>  ·  <a href="/seo/accounting-software.html">Accounting software</a>  ·  <a href="/seo/expense-tracking.html">Expense tracking</a>  ·  <a href="/seo/finance-software.html">Finance software</a></p></div></section>
+</main>
+<footer class="footer"><div class="footer-logo"><img alt="Triplem VIP" src="../Assets/logo/logo.png"/><span class="footer-logo-text">Triplem VIP</span></div><div>Private accounting &amp; finance workspace · Public guide</div><div class="footer-divider"></div><div><a href="/">triplem.vip</a>  ·  <a href="/seo/">Guides</a>  ·  <a href="/Security/">Security</a>  ·  <a href="/Founder/">Founder</a></div><div style="margin-top:.75rem">© 2026 Triplem VIP · Created by Nadeem Shahzad Fida</div></footer>
+<button aria-label="Back to top" class="back-to-top" id="backToTop" type="button"><i class="fa-solid fa-arrow-up"></i></button>
+<script>
+(() => {
+  const root=document.documentElement,body=document.body;
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine=window.matchMedia('(pointer: fine)').matches;
+  body.classList.add('js-ready');
+  const reveal=[...document.querySelectorAll('.fade-up')];
+  if(reduced||!('IntersectionObserver' in window)){reveal.forEach(el=>el.classList.add('visible'));}
+  else{const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');io.unobserve(e.target);}}),{threshold:.11,rootMargin:'0px 0px -5% 0px'});reveal.forEach(el=>io.observe(el));}
+  const progress=document.getElementById('experienceProgress'),top=document.getElementById('backToTop'),nav=document.querySelector('.nav');
+  let ticking=false;
+  const update=()=>{const max=Math.max(1,document.documentElement.scrollHeight-innerHeight),ratio=Math.min(1,Math.max(0,scrollY/max));if(progress)progress.style.transform=`scaleX(${ratio})`;nav?.classList.toggle('nav-scrolled',scrollY>28);top?.classList.toggle('show',scrollY>650);ticking=false;};
+  addEventListener('scroll',()=>{if(!ticking){requestAnimationFrame(update);ticking=true;}},{passive:true});update();
+  top?.addEventListener('click',()=>scrollTo({top:0,behavior:reduced?'auto':'smooth'}));
+  const links=[...document.querySelectorAll('.nav-links a[href^="#"],.mobile-nav-panel a[href^="#"]')],map=new Map();
+  links.forEach(a=>{const target=document.querySelector(a.getAttribute('href'));if(target){if(!map.has(target))map.set(target,[]);map.get(target).push(a);}});
+  if('IntersectionObserver' in window){const io=new IntersectionObserver(entries=>{const hit=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];if(!hit)return;links.forEach(a=>{a.classList.remove('active');a.removeAttribute('aria-current');});(map.get(hit.target)||[]).forEach(a=>{a.classList.add('active');a.setAttribute('aria-current','location');});},{rootMargin:'-28% 0px -58% 0px',threshold:[0,.2,.5]});map.forEach((_,s)=>io.observe(s));}
+  const toggle=document.getElementById('navToggle'),mobile=document.getElementById('mobileNav');
+  const close=()=>{toggle?.classList.remove('is-open');toggle?.setAttribute('aria-expanded','false');mobile?.classList.remove('open');mobile?.setAttribute('aria-hidden','true');body.classList.remove('mobile-nav-open');};
+  toggle?.addEventListener('click',()=>{const open=!mobile?.classList.contains('open');toggle.classList.toggle('is-open',open);toggle.setAttribute('aria-expanded',String(open));mobile?.classList.toggle('open',open);mobile?.setAttribute('aria-hidden',String(!open));body.classList.toggle('mobile-nav-open',open);});
+  mobile?.querySelectorAll('a').forEach(a=>a.addEventListener('click',close));addEventListener('resize',()=>{if(innerWidth>900)close();},{passive:true});
+  const lens=document.getElementById('cursorLens');
+  if(fine&&!reduced){let px=innerWidth*.5,py=innerHeight*.3,tx=px,ty=py;addEventListener('pointermove',e=>{tx=e.clientX;ty=e.clientY;root.style.setProperty('--pointer-x',`${e.clientX/innerWidth*100}%`);root.style.setProperty('--pointer-y',`${e.clientY/innerHeight*100}%`);},{passive:true});const animate=()=>{px+=(tx-px)*.13;py+=(ty-py)*.13;if(lens)lens.style.transform=`translate3d(${px}px,${py}px,0) translate(-50%,-50%)`;requestAnimationFrame(animate);};animate();document.querySelectorAll('.security-layer,.security-principle,.resilience-card,.tech-chip,.boundary-card,.security-rail-card,.flow-node,.assessment-copy').forEach(card=>{card.classList.add('tilt-surface');card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;card.style.setProperty('--mx',`${x*100}%`);card.style.setProperty('--my',`${y*100}%`);card.style.transform=`perspective(950px) rotateX(${(.5-y)*3.5}deg) rotateY(${(x-.5)*4}deg) translateY(-2px)`;});card.addEventListener('pointerleave',()=>{card.style.transform='';card.style.removeProperty('--mx');card.style.removeProperty('--my');});});}
+  else if(lens){lens.style.display='none';}
+  addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+})();
+</script>
+<script defer="" src="../Assets/app/analytics/01-site-tracker.js?v=20260801-analytics"></script>
+</body>
+</html>
