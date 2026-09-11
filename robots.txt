@@ -1,6 +1,6 @@
 # Triplem VIP public discovery policy — https://triplem.vip/
-# robots.txt controls crawler access. It is not an authentication or data-isolation mechanism.
-# Private workspace security is enforced by application authentication, permissions, RLS/RPC boundaries and server-side controls.
+# Public HTML pages are canonical. Retrieval-oriented Markdown is available to answer engines.
+# robots.txt is a crawler directive, not an authentication or data-isolation mechanism.
 
 User-agent: *
 Allow: /
@@ -13,8 +13,8 @@ Allow: /llms-full.txt
 Allow: /humans.txt
 Allow: /.well-known/security.txt
 Allow: /site.webmanifest
-
-# Development, migration, backup and server implementation material are not public discovery targets.
+Disallow: /index.md
+Disallow: /seo/*.md$
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /docs/
@@ -29,44 +29,28 @@ Disallow: /.git/
 Disallow: /.github/
 Disallow: /*.zip$
 
-# Public search and answer-engine crawlers may access the same public product pages and rendering assets.
+# Search/answer crawlers may read concise Markdown mirrors while implementation and private-workspace paths remain excluded.
 User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: PerplexityBot
+User-agent: GPTBot
+User-agent: ClaudeBot
 Allow: /
+Allow: /index.md
+Allow: /seo/*.md$
+Allow: /seo/llms.txt
 Disallow: /Backup/
+Disallow: /ad/
 Disallow: /docs/
 Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /tests/
 Disallow: /supabase/
 Disallow: /Assets/sql/
-
-User-agent: ChatGPT-User
-Allow: /
-Disallow: /Backup/
-Disallow: /migrations/
-Disallow: /supabase/
-Disallow: /Assets/sql/
-
-User-agent: PerplexityBot
-Allow: /
-Disallow: /Backup/
-Disallow: /migrations/
-Disallow: /supabase/
-Disallow: /Assets/sql/
-
-# Existing public-content model crawlers retain the same access policy as the prior build.
-User-agent: GPTBot
-Allow: /
-Disallow: /Backup/
-Disallow: /migrations/
-Disallow: /supabase/
-Disallow: /Assets/sql/
-
-User-agent: ClaudeBot
-Allow: /
-Disallow: /Backup/
-Disallow: /migrations/
-Disallow: /supabase/
-Disallow: /Assets/sql/
+Disallow: /node_modules/
+Disallow: /.cursor/
+Disallow: /.git/
+Disallow: /.github/
+Disallow: /*.zip$
 
 Sitemap: https://triplem.vip/sitemap.xml
