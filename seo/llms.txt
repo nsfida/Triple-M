@@ -1,0 +1,45 @@
+# Triplem VIP Public Guide Library
+
+> Canonical HTML guides with retrieval-oriented Markdown mirrors.
+
+## Authority and methodology
+
+- [Editorial policy](https://triplem.vip/seo/editorial-policy.md)
+- [Finance workflow playbook](https://triplem.vip/seo/finance-workflow-playbook.md)
+- [Month-end close](https://triplem.vip/seo/month-end-close.md)
+- [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.md)
+
+## Product guides
+
+- [Bank, Wallet & Card Account Details | Triplem VIP](https://triplem.vip/seo/account-details.md)
+- [Accounting ERP Software | Double-Entry Books, AR/AP & Reports | Triplem VIP](https://triplem.vip/seo/accounting-erp.md)
+- [Accounting ERP Setup Guide | Opening Balances, COA & Go-Live | Triplem VIP](https://triplem.vip/seo/accounting-setup.md)
+- [Accounting Software for Small Business | Double-Entry ERP | Triplem VIP](https://triplem.vip/seo/accounting-software.md)
+- [Accounts Receivable & Payable vs Installment Receivables | Triplem VIP](https://triplem.vip/seo/accounts-receivable-payable.md)
+- [Asset Management & Depreciation Software | Triplem VIP](https://triplem.vip/seo/asset-management.md)
+- [Bank Reconciliation Software | CSV/XLSX Statement Matching | Triplem VIP](https://triplem.vip/seo/bank-reconciliation.md)
+- [Bitcoin Wallet Tools | Send, Receive, Watch-Only & PDF History | Triplem VIP](https://triplem.vip/seo/bitcoin-wallet.md)
+- [Chart of Accounts Guide | Assets, Liabilities, Equity, Income & Expenses | Triplem VIP](https://triplem.vip/seo/chart-of-accounts.md)
+- [Double-Entry Accounting Explained | Journals, Debits & Credits | Triplem VIP](https://triplem.vip/seo/double-entry-accounting.md)
+- [Expense Tracking | Expenses, Receiving & Internal Transfers | Triplem VIP](https://triplem.vip/seo/expense-tracking.md)
+- [Business Finance Software with AI, Timeline & Accounting ERP | Triplem VIP](https://triplem.vip/seo/finance-software.md)
+- [Financial Audit, VAT Review & Timeline Context | Triplem VIP](https://triplem.vip/seo/financial-audit.md)
+- [Financial Reports, Audit & Financial Timeline | Triplem VIP](https://triplem.vip/seo/financial-reports.md)
+- [Financial Timeline Dashboard | Unified Finance Activity | Triplem VIP](https://triplem.vip/seo/financial-timeline.md)
+- [Installment Plan Management | Bought & Sold Plans | Triplem VIP](https://triplem.vip/seo/installment-plans.md)
+- [Desktop Keyboard Shortcuts for Finance Workflows | Triplem VIP](https://triplem.vip/seo/keyboard-shortcuts.md)
+- [Loan Management Software | Given, Taken & Repayment History | Triplem VIP](https://triplem.vip/seo/loan-management.md)
+- [Business Notes & Reminder Software | Triplem VIP](https://triplem.vip/seo/notes-management.md)
+- [Triplem VIP Security, 2FA, Account Recovery & Live Support](https://triplem.vip/seo/security-and-support.md)
+- [Triplem AI Financial Assistant | Precise Private Workspace Intelligence](https://triplem.vip/seo/triplem-ai.md)
+- [What Is Triplem VIP? | AI, Financial Timeline & Accounting ERP](https://triplem.vip/seo/triplem.md)
+- [VAT Accounting Software | Input Tax, Output Tax & VAT Summary | Triplem VIP](https://triplem.vip/seo/vat-accounting.md)
+
+## International availability
+
+- [Worldwide hub](https://triplem.vip/regions/index.md)
+- [Regional llms map](https://triplem.vip/regions/llms.txt)
+
+## Regional currency notes
+
+India can use INR in supported finance workflows and regional subscription presentation. Belgium and other euro-using countries can use EUR where regional support applies. Users elsewhere can request review of an additional currency.

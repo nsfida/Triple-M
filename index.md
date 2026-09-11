@@ -3,7 +3,7 @@
 > Triplem VIP is a private browser-based accounting and business-finance workspace combining operational finance tools, formal Accounting ERP, reports, security controls, live support and permission-aware Triplem AI.
 
 Canonical page: https://triplem.vip/
-Last updated: 2026-09-11
+Last reviewed: 2026-09-11
 
 ## What Triplem VIP covers
 
@@ -32,3 +32,19 @@ Triplem VIP is intended for users in any country. If a required currency is not 
 - [Technical Security & Infrastructure](https://triplem.vip/Security/)
 - [Founder](https://triplem.vip/Founder/)
 - [Full public product reference](https://triplem.vip/llms-full.txt)
+
+## Worldwide availability
+
+- [Worldwide and regional guide hub](https://triplem.vip/regions/index.md)
+- [India](https://triplem.vip/regions/india.md)
+- [Belgium](https://triplem.vip/regions/belgium.md)
+- [United Arab Emirates](https://triplem.vip/regions/uae.md)
+- [Saudi Arabia](https://triplem.vip/regions/saudi-arabia.md)
+- [Pakistan](https://triplem.vip/regions/pakistan.md)
+
+## Practical authority guides
+
+- [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.md)
+- [Month-end close checklist](https://triplem.vip/seo/month-end-close.md)
+- [Finance workflow playbook](https://triplem.vip/seo/finance-workflow-playbook.md)
+- [Editorial policy](https://triplem.vip/seo/editorial-policy.md)

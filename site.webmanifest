@@ -1,7 +1,7 @@
 {
   "name": "Triplem VIP",
   "short_name": "Triplem VIP",
-  "description": "Personal and business finance management for income and expense tracking, wallets, invoices, inventory, assets, loans, and reports.",
+  "description": "Private Accounting ERP and business-finance workspace with Triplem AI, operational finance, reports, security and multi-currency support.",
   "id": "https://triplem.vip/",
   "start_url": "/?utm_source=pwa&utm_medium=manifest",
   "scope": "/",
@@ -11,7 +11,11 @@
   "theme_color": "#2457d6",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["finance", "business", "productivity"],
+  "categories": [
+    "finance",
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "https://triplem.vip/Assets/logo/logo.png",
@@ -26,14 +30,36 @@
       "short_name": "Sign in",
       "description": "Open Triplem VIP secure sign-in",
       "url": "/#login",
-      "icons": [{ "src": "https://triplem.vip/Assets/logo/logo.png", "sizes": "512x512" }]
+      "icons": [
+        {
+          "src": "https://triplem.vip/Assets/logo/logo.png",
+          "sizes": "512x512"
+        }
+      ]
     },
     {
       "name": "Accounting guides",
       "short_name": "Guides",
       "description": "Triplem VIP accounting and finance guides",
       "url": "/seo/",
-      "icons": [{ "src": "https://triplem.vip/Assets/logo/logo.png", "sizes": "512x512" }]
+      "icons": [
+        {
+          "src": "https://triplem.vip/Assets/logo/logo.png",
+          "sizes": "512x512"
+        }
+      ]
+    },
+    {
+      "name": "Worldwide availability",
+      "short_name": "Worldwide",
+      "description": "Regional and multi-currency availability for Triplem VIP",
+      "url": "/regions/",
+      "icons": [
+        {
+          "src": "https://triplem.vip/Assets/logo/logo.png",
+          "sizes": "512x512"
+        }
+      ]
     }
   ],
   "related_applications": [],

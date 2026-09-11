@@ -1,120 +1,286 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://triplem.vip/</loc>
     <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/" />
     <image:image>
-      <image:loc>https://triplem.vip/Assets/logo/logo.png</image:loc>
-      <image:title>Triplem VIP accounting and finance software logo</image:title>
-      <image:caption>Triplem VIP private AI, Accounting ERP and business finance workspace</image:caption>
+      <image:loc>https://triplem.vip/Assets/logo/logo-wide-seo.webp</image:loc>
+      <image:title>Triplem VIP accounting and business finance workspace</image:title>
+      <image:caption>Triplem VIP accounting, operational finance, reporting and multi-currency workspace.</image:caption>
     </image:image>
   </url>
   <url>
-    <loc>https://triplem.vip/seo/</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/triplem-ai.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/financial-timeline.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/installment-plans.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/financial-audit.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/account-details.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/keyboard-shortcuts.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/triplem.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/accounting-erp.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/double-entry-accounting.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/chart-of-accounts.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/accounts-receivable-payable.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/bank-reconciliation.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/financial-reports.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/vat-accounting.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/accounting-software.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/accounting-setup.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/expense-tracking.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/finance-software.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/security-and-support.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/loan-management.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/asset-management.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/notes-management.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
-    <loc>https://triplem.vip/seo/bitcoin-wallet.html</loc>
-    <lastmod>2026-09-11</lastmod>
-  </url>
-  <url>
     <loc>https://triplem.vip/Demo/</loc>
-    <lastmod>2026-08-29</lastmod>
+    <lastmod>2026-09-11</lastmod>
   </url>
   <url>
     <loc>https://triplem.vip/Founder/</loc>
     <lastmod>2026-08-29</lastmod>
   </url>
   <url>
+    <loc>https://triplem.vip/regions/</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/regions/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/belgium-fr.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-BE" href="https://triplem.vip/regions/belgium.html" />
+    <xhtml:link rel="alternate" hreflang="fr-BE" href="https://triplem.vip/regions/belgium-fr.html" />
+    <xhtml:link rel="alternate" hreflang="nl-BE" href="https://triplem.vip/regions/belgium-nl.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/belgium-nl.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-BE" href="https://triplem.vip/regions/belgium.html" />
+    <xhtml:link rel="alternate" hreflang="fr-BE" href="https://triplem.vip/regions/belgium-fr.html" />
+    <xhtml:link rel="alternate" hreflang="nl-BE" href="https://triplem.vip/regions/belgium-nl.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/belgium.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-BE" href="https://triplem.vip/regions/belgium.html" />
+    <xhtml:link rel="alternate" hreflang="fr-BE" href="https://triplem.vip/regions/belgium-fr.html" />
+    <xhtml:link rel="alternate" hreflang="nl-BE" href="https://triplem.vip/regions/belgium-nl.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/global.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/regions/global.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/india-hi.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://triplem.vip/regions/india.html" />
+    <xhtml:link rel="alternate" hreflang="hi-IN" href="https://triplem.vip/regions/india-hi.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/india.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="https://triplem.vip/regions/india.html" />
+    <xhtml:link rel="alternate" hreflang="hi-IN" href="https://triplem.vip/regions/india-hi.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/pakistan-ur.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-PK" href="https://triplem.vip/regions/pakistan.html" />
+    <xhtml:link rel="alternate" hreflang="ur-PK" href="https://triplem.vip/regions/pakistan-ur.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/pakistan.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-PK" href="https://triplem.vip/regions/pakistan.html" />
+    <xhtml:link rel="alternate" hreflang="ur-PK" href="https://triplem.vip/regions/pakistan-ur.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/saudi-arabia-ar.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-SA" href="https://triplem.vip/regions/saudi-arabia.html" />
+    <xhtml:link rel="alternate" hreflang="ar-SA" href="https://triplem.vip/regions/saudi-arabia-ar.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/saudi-arabia.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-SA" href="https://triplem.vip/regions/saudi-arabia.html" />
+    <xhtml:link rel="alternate" hreflang="ar-SA" href="https://triplem.vip/regions/saudi-arabia-ar.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/uae-ar.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-AE" href="https://triplem.vip/regions/uae.html" />
+    <xhtml:link rel="alternate" hreflang="ar-AE" href="https://triplem.vip/regions/uae-ar.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/regions/uae.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en-AE" href="https://triplem.vip/regions/uae.html" />
+    <xhtml:link rel="alternate" hreflang="ar-AE" href="https://triplem.vip/regions/uae-ar.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/regions/global.html" />
+  </url>
+  <url>
     <loc>https://triplem.vip/Security/</loc>
-    <lastmod>2026-09-07</lastmod>
+    <lastmod>2026-09-04</lastmod>
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/account-details.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/account-details.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/account-details.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/accounting-erp.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/accounting-erp.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/accounting-erp.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/accounting-setup.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/accounting-setup.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/accounting-setup.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/accounting-software.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/accounting-software.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/accounting-software.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/accounts-receivable-payable.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/accounts-receivable-payable.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/accounts-receivable-payable.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/asset-management.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/asset-management.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/asset-management.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/bank-reconciliation.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/bank-reconciliation.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/bank-reconciliation.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/bitcoin-wallet.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/bitcoin-wallet.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/bitcoin-wallet.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/chart-of-accounts.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/chart-of-accounts.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/chart-of-accounts.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/double-entry-accounting.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/double-entry-accounting.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/double-entry-accounting.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/editorial-policy.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/editorial-policy.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/editorial-policy.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/expense-tracking.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/expense-tracking.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/expense-tracking.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/finance-software.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/finance-software.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/finance-software.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/finance-workflow-playbook.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/finance-workflow-playbook.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/finance-workflow-playbook.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/financial-audit.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/financial-audit.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/financial-audit.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/financial-reports.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/financial-reports.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/financial-reports.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/financial-timeline.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/financial-timeline.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/financial-timeline.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/installment-plans.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/installment-plans.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/installment-plans.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/keyboard-shortcuts.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/keyboard-shortcuts.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/keyboard-shortcuts.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/loan-management.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/loan-management.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/loan-management.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/month-end-close.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/month-end-close.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/month-end-close.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/multi-currency-accounting.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/multi-currency-accounting.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/multi-currency-accounting.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/notes-management.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/notes-management.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/notes-management.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/security-and-support.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/security-and-support.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/security-and-support.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/triplem-ai.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/triplem-ai.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/triplem-ai.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/triplem.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/triplem.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/triplem.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/vat-accounting.html</loc>
+    <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/vat-accounting.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/vat-accounting.html" />
   </url>
 </urlset>

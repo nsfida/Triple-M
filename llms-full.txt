@@ -1,6 +1,6 @@
 # Triplem VIP — Full Public Product Reference
 
-Last updated: 2026-09-11
+Last reviewed: 2026-09-11
 Canonical site: https://triplem.vip/
 Public guide hub: https://triplem.vip/seo/
 
@@ -67,3 +67,20 @@ https://triplem.vip/seo/accounting-erp.html
 https://triplem.vip/seo/financial-reports.html
 https://triplem.vip/seo/accounts-receivable-payable.html
 https://triplem.vip/seo/security-and-support.html
+
+## Practical authority references
+
+Multi-currency guide: https://triplem.vip/seo/multi-currency-accounting.html
+Month-end close checklist: https://triplem.vip/seo/month-end-close.html
+Finance workflow playbook: https://triplem.vip/seo/finance-workflow-playbook.html
+Editorial policy: https://triplem.vip/seo/editorial-policy.html
+Worldwide availability: https://triplem.vip/regions/
+
+## Regional reference pages
+
+UAE: https://triplem.vip/regions/uae.html
+Saudi Arabia: https://triplem.vip/regions/saudi-arabia.html
+Pakistan: https://triplem.vip/regions/pakistan.html
+India: https://triplem.vip/regions/india.html
+Belgium: https://triplem.vip/regions/belgium.html
+Global: https://triplem.vip/regions/global.html

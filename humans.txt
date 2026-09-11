@@ -1,14 +1,20 @@
 /* TEAM */
 Founder: Nadeem Shahzad Fida
+Product: Triplem VIP
 Site: https://triplem.vip/
 Location: UAE / Pakistan / Worldwide
+Editorial policy: https://triplem.vip/seo/editorial-policy.html
 
 /* SITE */
 Standards: HTML5, CSS3, JavaScript
-Software: Triplem VIP — personal and business finance management
-Languages: English
-Doctype: HTML5
-Components: Expense tracking, invoices, inventory, assets, loans, wallets, PDF reports
+Software: Triplem VIP private Accounting ERP and business-finance workspace
+Public guide languages: English, Arabic, Urdu, Hindi, French, Dutch
+Canonical guide library: https://triplem.vip/seo/
+Worldwide availability: https://triplem.vip/regions/
+Public capabilities: Accounting ERP, Triplem AI, expenses, receiving, transfers, wallets, reports, inventory, loans, installments, assets, notes, security, multi-currency finance
+Last reviewed: 2026-09-11
 
-/* THANKS */
-Customers who keep their books clean with Triplem VIP.
+/* CONTENT PRINCIPLES */
+Product claims are maintained against the current public product and documented boundaries.
+Regional currency availability does not imply jurisdiction-specific tax filing or statutory certification.
+Material corrections should be reflected in canonical HTML and retrieval-oriented Markdown references.
