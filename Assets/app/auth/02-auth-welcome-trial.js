@@ -35,12 +35,6 @@ async function openTrialSignupModal(preferredPlan = "free"){
         <div><small>Limited-time membership offer</small><strong>Start with 14 days free, or unlock bonus Pro time after payment approval.</strong><p>Pro Monthly includes <b>30 additional days free</b>. Pro Yearly includes <b>60 additional days free</b>.</p></div>
         <span class="signup-offer-seal"><i class="fa-solid fa-shield-halved"></i> Secure setup</span>
       </div>
-      <div class="signup-v2-progress" aria-label="Signup progress">
-        <span class="active" data-signup-progress="1">1 <small>Plan</small></span>
-        <span data-signup-progress="2">2 <small>Account</small></span>
-        <span data-signup-progress="3">3 <small>Details</small></span>
-        <span data-signup-progress="4">4 <small>Payment</small></span>
-      </div>
       <div class="signup-v2-value-strip" aria-label="Triplem VIP account benefits">
         <span><i class="fa-solid fa-shield-halved"></i><b>Authenticator 2FA + Recovery</b><small>Encrypted TOTP protection</small></span>
         <span><i class="fa-solid fa-headset"></i><b>Support Care</b><small>Visitor + in-app channels</small></span>
@@ -48,24 +42,30 @@ async function openTrialSignupModal(preferredPlan = "free"){
         <span><i class="fa-solid fa-palette"></i><b>Personalized</b><small>Branding + themes</small></span>
       </div>
       <div class="modal-body trial-signup-body signup-v2-body">
+        <div class="signup-v2-progress" aria-label="Signup progress">
+          <span class="active" data-signup-progress="1">1 <small>Plan</small></span>
+          <span data-signup-progress="2">2 <small>Account</small></span>
+          <span data-signup-progress="3">3 <small>Details</small></span>
+          <span data-signup-progress="4">4 <small>Payment</small></span>
+        </div>
         <section class="signup-v2-step" data-signup-step="1">
           <div class="signup-plan-grid">
             <button type="button" class="signup-plan-card signup-plan-card--free ${stateSignup.plan === "free" ? "selected" : ""}" data-signup-plan="free">
               <span class="signup-plan-badge"><i class="fa-solid fa-star"></i> Start free</span>
-              <span class="signup-plan-icon"><i class="fa-solid fa-gift"></i></span><strong>Free 14 Days</strong>
+              <span class="signup-plan-icon"><i class="fa-solid fa-gift"></i></span><strong class="signup-plan-title">Free 14 Days</strong>
               <b>No payment · no card</b><small>Explore the complete workspace before choosing a paid plan.</small>
               <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Full workspace access</span>
             </button>
             <button type="button" class="signup-plan-card signup-plan-card--monthly ${stateSignup.plan === "monthly" ? "selected" : ""}" data-signup-plan="monthly">
               <span class="signup-plan-badge signup-plan-badge--offer"><i class="fa-solid fa-bolt"></i> +30 days free</span>
-              <span class="signup-plan-icon"><i class="fa-solid fa-calendar-check"></i></span><strong>Pro Monthly</strong>
+              <span class="signup-plan-icon"><i class="fa-solid fa-calendar-check"></i></span><strong class="signup-plan-title">Pro Monthly</strong>
               <div class="signup-price-lines">${priceLines("monthly")}</div>
               <small>Limited offer applied after administrator payment approval.</small>
               <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Flexible monthly membership</span>
             </button>
             <button type="button" class="signup-plan-card signup-plan-card--yearly ${stateSignup.plan === "yearly" ? "selected" : ""}" data-signup-plan="yearly">
               <span class="signup-plan-badge signup-plan-badge--best"><i class="fa-solid fa-crown"></i> Best value · +60 days</span>
-              <span class="signup-plan-icon"><i class="fa-solid fa-crown"></i></span><strong>Pro Yearly</strong>
+              <span class="signup-plan-icon"><i class="fa-solid fa-crown"></i></span><strong class="signup-plan-title">Pro Yearly</strong>
               <div class="signup-price-lines">${priceLines("yearly")}</div>
               <small>Limited offer applied after administrator payment approval.</small>
               <span class="signup-plan-benefit"><i class="fa-solid fa-check"></i> Longer uninterrupted access</span>
