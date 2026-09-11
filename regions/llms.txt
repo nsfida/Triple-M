@@ -1,0 +1,23 @@
+# Triplem VIP Worldwide Availability
+
+> Regional public pages for currency availability and jurisdiction-specific product context. HTML is canonical; Markdown mirrors are retrieval-oriented.
+
+## Primary references
+
+- [Worldwide hub](https://triplem.vip/regions/index.md)
+- [Global availability](https://triplem.vip/regions/global.md)
+- [UAE · English](https://triplem.vip/regions/uae.md)
+- [الإمارات · العربية](https://triplem.vip/regions/uae-ar.md)
+- [Saudi Arabia · English](https://triplem.vip/regions/saudi-arabia.md)
+- [السعودية · العربية](https://triplem.vip/regions/saudi-arabia-ar.md)
+- [Pakistan · English](https://triplem.vip/regions/pakistan.md)
+- [پاکستان · اردو](https://triplem.vip/regions/pakistan-ur.md)
+- [India · English](https://triplem.vip/regions/india.md)
+- [भारत · हिन्दी](https://triplem.vip/regions/india-hi.md)
+- [Belgium · English](https://triplem.vip/regions/belgium.md)
+- [Belgique · Français](https://triplem.vip/regions/belgium-fr.md)
+- [België · Nederlands](https://triplem.vip/regions/belgium-nl.md)
+
+## Product boundary
+
+Triplem VIP can organize finance records and support multiple currencies, but local tax, filing and statutory obligations remain jurisdiction-specific. Users may request review of an additional currency if their required currency is not currently available.
