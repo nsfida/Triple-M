@@ -1,63 +1,31 @@
-# Triplem VIP — Full Public Product Reference
+# Triplem VIP
 
-Last updated: 2026-09-10
-Canonical site: https://triplem.vip/
-Public guide hub: https://triplem.vip/seo/
+> Triplem VIP is a private browser-based accounting and business-finance workspace with operational finance modules, formal Accounting ERP, permission-aware Triplem AI, Financial Timeline, reporting, security controls and international multi-currency support.
 
-## Product definition
+This is a public product-discovery map. It contains no private workspace records or authentication secrets.
 
-Triplem VIP is a private browser-based finance and accounting workspace. It combines operational finance modules with a separate formal Accounting ERP. Triplem AI provides workspace-specific assistance for authorized users. Financial Timeline provides a read-only chronological view inside Dashboard.
+## Primary references
 
-## Current headline capabilities
+- [Homepage](https://triplem.vip/index.md): Concise public overview of Triplem VIP and international currency availability.
+- [Guide library](https://triplem.vip/seo/index.md): Retrieval-friendly directory of public product and accounting guides.
+- [SEO guide map](https://triplem.vip/seo/llms.txt): Structured map for the complete public guide subtree.
+- [Full public product reference](https://triplem.vip/llms-full.txt): Expanded product facts, semantics and feature boundaries.
 
-Triplem AI: private workspace search, precise named-record retrieval, repayment-aware loan positions, direction-aware loan questions, verified references, native source-record overlays, isolated AI Draft creation and explicit user finalization.
+## Key product guides
 
-Financial Timeline: a Dashboard sub-view beside Overview. It reads permitted records chronologically, groups activity by date, supports module/currency/period/search filters, shows currency-specific inflow/outflow/net summaries, and can open supported source records.
+- [Triplem AI](https://triplem.vip/seo/triplem-ai.md): Permission-aware workspace intelligence, verified record references and reviewable AI Draft workflows.
+- [Financial Timeline](https://triplem.vip/seo/financial-timeline.md): Read-only chronological visibility across permitted finance activity.
+- [Accounting ERP](https://triplem.vip/seo/accounting-erp.md): Double-entry books, Chart of Accounts, journals, AR/AP, reconciliation, VAT and financial reports.
+- [Expense tracking](https://triplem.vip/seo/expense-tracking.md): Expenses, receiving, internal transfers, wallets and multi-currency operations.
+- [Financial Audit](https://triplem.vip/seo/financial-audit.md): Cross-module evidence, classifications, VAT review and exports.
+- [Security and support](https://triplem.vip/seo/security-and-support.md): Security, 2FA, notifications and support, including public account-protection and recovery information.
 
-Expenses: the operational view now separates pure Expenses, Receiving and Internal Transfers. Expenses excludes Add Money and wallet-to-wallet transfers. Receiving includes Add Money and the incoming transfer leg. Internal Transfers shows the outgoing transfer once while the paired incoming ledger leg remains available for wallet-balance integrity.
+## International currency availability
 
-Installments: the module now has Installment Plans Bought and Installment Plans Sold. Bought is payable-oriented. Sold is operational-receivable-oriented. Both support structured optional details, schedule tracking, edit/detail views and direction-specific PDF statements.
+Triplem VIP currently supports finance workflows in AED, SAR, PKR, USD, EUR and INR, with BTC available for supported Bitcoin workflows. India is supported with INR. Belgium and other euro-using markets can use EUR where applicable. If a user in another country needs a currency that is not currently available, they can contact Triplem VIP and its addition can be reviewed. USD remains the regional default where no supported local billing currency applies.
 
-## Installment details
+## Optional public resources
 
-Required financial plan fields include counterpart, currency, amount, date and installment count. Bought can use an optional down payment. Sold can use an optional advance received. Structured optional fields can store party type, phone, email, address, agreement/reference, product/service, ID/TRN/VAT number, guarantor, guarantor contact, payment terms and document reference.
-
-A Bought payment can deduct actual money from a selected wallet. A Sold advance or installment receipt can add actual money to a selected wallet. Future receivable amounts are not treated as cash until received.
-
-## Financial Timeline classification
-
-Expenses are outflow. Receiving/Add Money is inflow. Internal Transfers are transfer movement and should not be interpreted as operating income or expense. Loan Given principal is outflow; Loan Taken principal is inflow; Received Back is inflow; Loan Returned is outflow. Bought installment payments are outflow; Sold installment receipts are inflow. Plan creation can be neutral. Formal Accounting records can appear as Accounting events without converting Timeline into a General Ledger.
-
-## Triplem AI privacy and precision
-
-Triplem AI cannot select another workspace by passing an external owner identifier. Retrieval uses authenticated context and module permissions. The assistant is intended to refuse unrelated outside topics. Private financial claims should come from Triplem VIP tools rather than conversational memory.
-
-For loan questions about money owed to the user, direction-aware retrieval constrains the answer to Loans Given and repayment-adjusted remaining positions. Settled balances can be excluded and partially settled balances can show the remaining amount. Specific named-record questions are designed to narrow retrieval and avoid broad unrelated result cards.
-
-AI-created finance actions remain Drafts until user finalization. Before finalization they are isolated from balances, VAT, stock, reports and Accounting. Deleting a Draft before finalization removes the Draft rather than creating a normal finalized deletion trail. After finalization, durable AI-origin provenance remains and normal native edit/delete rules apply.
-
-## Accounting separation
-
-Accounting ERP includes formal books such as Chart of Accounts, journals, sales/purchases, Accounts Receivable, Accounts Payable, reconciliation, VAT and financial reports. Operational modules do not automatically become formal Accounting entries unless the product explicitly bridges them. Installment Plans Sold is therefore not automatically the same as Accounts Receivable. Financial Timeline is not the General Ledger.
-
-## Tax and audit boundary
-
-Financial Audit & Control Report can classify permitted operational and Accounting evidence for selected periods, modules and currencies. Internal transfers are not business income/expense merely because money moved between wallets. VAT views support review and evidence; Triplem VIP does not electronically submit a VAT return and does not replace jurisdiction-specific professional tax review.
-
-## Notes status
-
-The Notes feature remains the existing searchable notes and reminders functionality in this release line. The 2026-09-10 SEO refresh does not claim a Notes redesign.
-
-## Public references
-
-https://triplem.vip/seo/triplem-ai.html
-https://triplem.vip/seo/financial-timeline.html
-https://triplem.vip/seo/installment-plans.html
-https://triplem.vip/seo/expense-tracking.html
-https://triplem.vip/seo/financial-audit.html
-https://triplem.vip/seo/account-details.html
-https://triplem.vip/seo/keyboard-shortcuts.html
-https://triplem.vip/seo/accounting-erp.html
-https://triplem.vip/seo/financial-reports.html
-https://triplem.vip/seo/accounts-receivable-payable.html
-https://triplem.vip/seo/security-and-support.html
+- [Interactive Demo](https://triplem.vip/Demo/): Browser-based product demonstration.
+- [Technical Security & Infrastructure](https://triplem.vip/Security/): Public security architecture.
+- [Founder](https://triplem.vip/Founder/): Founder background.
