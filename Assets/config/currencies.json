@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "defaultCurrency": "AED",
   "currencies": [
     {
@@ -24,7 +24,18 @@
         "teamMonthly": 4,
         "teamYearly": 40,
         "demoUnitsPerAED": 0.2723,
-        "billingEnabled": true
+        "billingEnabled": true,
+        "countryCodes": [],
+        "timeZones": [
+          "America/New_York",
+          "America/Chicago",
+          "America/Denver",
+          "America/Los_Angeles"
+        ]
+      },
+      "taxDefault": {
+        "rate": 0,
+        "mode": "ADD"
       }
     },
     {
@@ -51,7 +62,17 @@
         "teamMonthly": 75,
         "teamYearly": 7000,
         "demoUnitsPerAED": 76,
-        "billingEnabled": true
+        "billingEnabled": true,
+        "countryCodes": [
+          "PK"
+        ],
+        "timeZones": [
+          "Asia/Karachi"
+        ]
+      },
+      "taxDefault": {
+        "rate": 0,
+        "mode": "ADD"
       }
     },
     {
@@ -76,7 +97,17 @@
         "teamMonthly": 10,
         "teamYearly": 80,
         "demoUnitsPerAED": 1.02,
-        "billingEnabled": true
+        "billingEnabled": true,
+        "countryCodes": [
+          "SA"
+        ],
+        "timeZones": [
+          "Asia/Riyadh"
+        ]
+      },
+      "taxDefault": {
+        "rate": 0,
+        "mode": "ADD"
       }
     },
     {
@@ -103,7 +134,142 @@
         "teamMonthly": 10,
         "teamYearly": 80,
         "demoUnitsPerAED": 1,
-        "billingEnabled": true
+        "billingEnabled": true,
+        "countryCodes": [
+          "AE"
+        ],
+        "timeZones": [
+          "Asia/Dubai"
+        ]
+      },
+      "taxDefault": {
+        "rate": 0,
+        "mode": "ADD"
+      }
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "font": {
+        "family": "inherit",
+        "file": null
+      },
+      "decimals": 2,
+      "pdfDecimals": 2,
+      "aliases": [
+        "EURO",
+        "EUROS",
+        "EUR.",
+        "€"
+      ],
+      "enabled": true,
+      "taxDefault": {
+        "rate": 0,
+        "mode": "ADD"
+      },
+      "billing": {
+        "monthly": 11.5,
+        "yearly": 105.35,
+        "teamMonthly": 2.35,
+        "teamYearly": 18.77,
+        "demoUnitsPerAED": 0.234643,
+        "billingEnabled": true,
+        "countryCodes": [
+          "AT",
+          "BE",
+          "BG",
+          "HR",
+          "CY",
+          "EE",
+          "FI",
+          "FR",
+          "DE",
+          "GR",
+          "IE",
+          "IT",
+          "LV",
+          "LT",
+          "LU",
+          "MT",
+          "NL",
+          "PT",
+          "SK",
+          "SI",
+          "ES",
+          "AD",
+          "MC",
+          "SM",
+          "VA",
+          "ME",
+          "XK"
+        ],
+        "timeZones": [
+          "Europe/Vienna",
+          "Europe/Brussels",
+          "Europe/Sofia",
+          "Europe/Zagreb",
+          "Asia/Nicosia",
+          "Europe/Tallinn",
+          "Europe/Helsinki",
+          "Europe/Paris",
+          "Europe/Berlin",
+          "Europe/Athens",
+          "Europe/Dublin",
+          "Europe/Rome",
+          "Europe/Riga",
+          "Europe/Vilnius",
+          "Europe/Luxembourg",
+          "Europe/Malta",
+          "Europe/Amsterdam",
+          "Europe/Lisbon",
+          "Europe/Bratislava",
+          "Europe/Ljubljana",
+          "Europe/Madrid",
+          "Europe/Andorra",
+          "Europe/Monaco",
+          "Europe/San_Marino",
+          "Europe/Vatican",
+          "Europe/Podgorica",
+          "Europe/Belgrade"
+        ]
+      }
+    },
+    {
+      "code": "INR",
+      "name": "Indian Rupee",
+      "symbol": "₹",
+      "font": {
+        "family": "inherit",
+        "file": null
+      },
+      "decimals": 2,
+      "pdfDecimals": 2,
+      "aliases": [
+        "INR.",
+        "RUPEE",
+        "RUPEES",
+        "₹"
+      ],
+      "enabled": true,
+      "taxDefault": {
+        "rate": 0,
+        "mode": "ADD"
+      },
+      "billing": {
+        "monthly": 1277,
+        "yearly": 11700,
+        "teamMonthly": 261,
+        "teamYearly": 2085,
+        "demoUnitsPerAED": 26.0567,
+        "billingEnabled": true,
+        "countryCodes": [
+          "IN"
+        ],
+        "timeZones": [
+          "Asia/Kolkata",
+          "Asia/Calcutta"
+        ]
       }
     },
     {
@@ -123,14 +289,17 @@
       ],
       "enabled": true,
       "billing": {
-        "billingEnabled": false
+        "billingEnabled": false,
+        "countryCodes": [],
+        "timeZones": []
+      },
+      "taxDefault": {
+        "rate": 0,
+        "mode": "INCLUDE"
       }
     }
   ],
   "regionalBilling": {
-    "PK": "PKR",
-    "SA": "SAR",
-    "AE": "AED",
     "default": "USD"
   },
   "landingRegions": [
@@ -145,6 +314,10 @@
     {
       "code": "IN",
       "name": "India"
+    },
+    {
+      "code": "BE",
+      "name": "Belgium"
     },
     {
       "code": "AE",
