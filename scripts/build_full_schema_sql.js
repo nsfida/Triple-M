@@ -179,6 +179,7 @@ const CANONICAL_MIGRATION_FILES = [
   "162_expense_record_classification.sql",
   "163_installment_bought_sold_optional_details.sql",
   "164_dashboard_financial_timeline.sql",
+  "165_currency_registry_extensibility_eur_inr.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
