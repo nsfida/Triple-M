@@ -409,6 +409,7 @@ describe("migrations + schema build smoke", () => {
     assert.match(result.sql, /BEGIN migrations\/094_expense_item_history_accuracy\.sql/);
     assert.match(result.sql, /BEGIN migrations\/095_expense_global_smart_search\.sql/);
     assert.match(result.sql, /BEGIN migrations\/098_subscription_receipt_archive_and_details\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/165_currency_registry_extensibility_eur_inr\.sql/);
     assert.match(result.sql, /app_login_throttle/);
     assert.match(result.sql, /app_admin_export_full_backup/);
     assert.match(result.sql, /app_admin_import_full_backup/);
@@ -2148,14 +2149,17 @@ it("145 gives Aziz authoritative four-currency pricing and a real Live Support h
   assert.doesNotMatch(installOnly, /\b(update|delete|truncate)\s+public\.(app_users|app_sessions|expense_entries|expense_accounts|goods_items|loans|app_assets)\b/i);
   assert.doesNotMatch(installOnly, /\bdrop\s+(table|column)\b/i);
 
-  assert.match(edge, /PKR:\s*\{ monthly:\s*\{ base_amount:\s*1799/);
-  assert.match(edge, /USD:\s*\{ monthly:\s*\{ base_amount:\s*13\.99/);
+  assert.match(edge, /type BillingCurrency = string/);
+  assert.match(edge, /regional_billing\?: Record<string, string>/);
+  assert.match(edge, /default_currency\?: string/);
+  assert.match(edge, /symbols\?: Record<string, string>/);
+  assert.match(edge, /regionalBillingCurrency\(countryCode: string, catalog: PlanCatalog/);
   assert.match(edge, /pricingAnswer/);
   assert.match(edge, /explicitHumanRequest/);
   assert.match(edge, /app_aziz_plan_catalog/);
   assert.match(edge, /action:\s*"handoff"/);
   assert.match(edge, /AUTHORITATIVE LIVE FACTS/);
-  assert.match(edge, /Pakistan\/Pakistani pricing means PKR/);
+  assert.match(edge, /authoritative live facts/i);
   assert.match(edge, /visitor CAN request a real Triplem VIP support agent/i);
 
   assert.match(landing, /app_public_aziz_handoff/);
@@ -2167,6 +2171,46 @@ it("145 gives Aziz authoritative four-currency pricing and a real Live Support h
   assert.match(builder, /135_aziz_authoritative_pricing_and_human_handoff\.sql/);
 });
 
+
+
+it("165 makes currency support registry-driven and adds EUR/INR regional billing", () => {
+  const root = path.join(__dirname, "..");
+  const config = JSON.parse(fs.readFileSync(path.join(root, "Assets/config/currencies.json"), "utf8"));
+  const registry = fs.readFileSync(path.join(root, "Assets/app/core/00-currency-registry.js"), "utf8");
+  const money = fs.readFileSync(path.join(root, "Assets/app/utils/01-currency-money.js"), "utf8");
+  const pdf = fs.readFileSync(path.join(root, "Assets/app/reports/01-pdf.js"), "utf8");
+  const auth = fs.readFileSync(path.join(root, "Assets/app/auth/01-auth-session.js"), "utf8");
+  const migration = fs.readFileSync(path.join(root, "migrations/165_currency_registry_extensibility_eur_inr.sql"), "utf8");
+
+  const byCode = Object.fromEntries(config.currencies.map((row) => [row.code, row]));
+  assert.equal(byCode.EUR.symbol, "€");
+  assert.equal(byCode.EUR.font.family, "inherit");
+  assert.equal(byCode.INR.symbol, "₹");
+  assert.equal(byCode.INR.font.family, "inherit");
+  assert.deepEqual(byCode.INR.billing.countryCodes, ["IN"]);
+  for (const code of ["BE","DE","FR","IT","ES","NL","AT","BG","HR","IE","PT","FI","EE","LV","LT","LU","MT","CY","GR","SK","SI"]) {
+    assert.ok(byCode.EUR.billing.countryCodes.includes(code), `EUR billing must include ${code}`);
+  }
+  assert.equal(config.regionalBilling.default, "USD");
+  assert.equal(byCode.SAR.symbol, "$");
+  assert.match(byCode.SAR.font.file, /SAR\.otf$/);
+  assert.equal(byCode.AED.symbol, "~");
+  assert.match(byCode.AED.font.file, /AED\.ttf$/);
+
+  assert.match(registry, /billingCurrencyForCountry/);
+  assert.match(registry, /serverPayload/);
+  assert.match(money, /refreshPublicCurrencyTables/);
+  assert.match(pdf, /PDF_CURRENCY_CODES_BY_MARKER/);
+  assert.match(pdf, /currency\.font\.file/);
+  assert.match(auth, /app_admin_sync_currency_registry/);
+  assert.match(migration, /create table if not exists public\.app_currency_catalog/);
+  assert.match(migration, /app_currency_is_enabled/);
+  assert.match(migration, /app_currency_is_billing_enabled/);
+  assert.match(migration, /app_billing_currency_for_country/);
+  assert.match(migration, /app_admin_sync_currency_registry/);
+  assert.match(migration, /app_aziz_plan_catalog/);
+  assert.doesNotMatch(migration, /if billing_cur not in \('AED','SAR','PKR','USD'\)/);
+});
 
 it("146 keeps Aziz concise, moves Live Agent to the header, and professionalizes Agent chat closure", () => {
   const root = path.join(__dirname, "..");
