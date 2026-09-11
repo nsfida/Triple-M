@@ -5,7 +5,8 @@
   "description": "Triplem VIP — private personal and business finance workspace",
   "scripts": {
     "test": "node --test tests/critical-paths.test.js",
-    "build:schema": "node scripts/build_full_schema_sql.js"
+    "build:schema": "node scripts/build_full_schema_sql.js",
+    "seo:indexnow": "node scripts/submit_indexnow.js --all"
   },
   "engines": {
     "node": ">=18"
