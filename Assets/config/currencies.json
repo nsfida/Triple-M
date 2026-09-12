@@ -38,6 +38,42 @@
         "mode": "ADD"
       }
     },
+{
+  "code": "CNY",
+  "name": "Chinese Yuan",
+  "symbol": "¥",
+  "font": {
+    "family": "inherit",
+    "file": null
+  },
+  "decimals": 2,
+  "pdfDecimals": 2,
+  "aliases": [
+    "CNY.",
+    "RMB",
+    "YUAN"
+  ],
+  "enabled": true,
+  "billing": {
+    "monthly": 99.99,
+    "yearly": 999,
+    "teamMonthly": 28.5,
+    "teamYearly": 285,
+    "demoUnitsPerAED": 1.8262,
+    "billingEnabled": true,
+    "countryCodes": [
+      "CN"
+    ],
+    "timeZones": [
+      "Asia/Shanghai",
+      "Asia/Urumqi"
+    ]
+  },
+  "taxDefault": {
+    "rate": 0,
+    "mode": "ADD"
+  }
+},
     {
       "code": "PKR",
       "name": "Pakistani Rupee",
