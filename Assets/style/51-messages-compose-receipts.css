@@ -1,0 +1,143 @@
+/* Build 166: Messages compose overlay + private message delivery receipts. */
+
+#messagesNewComposer.messages-compose{
+  position:fixed;
+  inset:0;
+  z-index:1260;
+  display:grid;
+  place-items:center;
+  margin:0!important;
+  padding:clamp(14px,3vw,28px);
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+#messagesNewComposer.messages-compose.hide{display:none!important}
+.messages-compose-backdrop{
+  position:fixed;
+  inset:0;
+  background:color-mix(in srgb,#0f172a 48%,transparent);
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+#messagesNewComposer .messages-compose-card{
+  position:relative;
+  z-index:1;
+  width:min(620px,100%);
+  max-height:min(760px,calc(100dvh - 32px));
+  overflow:auto;
+  padding:20px;
+  border:1px solid color-mix(in srgb,var(--primary,#2457d6) 18%,var(--line));
+  border-radius:18px;
+  background:
+    radial-gradient(circle at top right,color-mix(in srgb,var(--primary,#2457d6) 7%,transparent),transparent 42%),
+    var(--panel,#fff);
+  box-shadow:0 28px 80px rgba(15,23,42,.26);
+}
+#messagesNewComposer .messages-compose-head{
+  margin-bottom:6px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--line);
+}
+#messagesNewComposer .messages-compose-head h4{
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+#messagesNewComposer .messages-compose-head h4::before{
+  content:"\f304";
+  font-family:"Font Awesome 6 Free";
+  font-weight:900;
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  background:color-mix(in srgb,var(--primary,#2457d6) 11%,var(--panel,#fff));
+  color:var(--primary,#2457d6);
+  font-size:.84rem;
+}
+#messagesNewComposer .messages-compose-head .btn{
+  width:36px;
+  height:36px;
+  min-width:36px;
+  padding:0;
+  border-radius:11px;
+}
+#messagesNewComposer .help{margin:10px 0 14px}
+#messagesNewComposer .form-group{margin-bottom:12px}
+#messagesNewComposer .messages-textarea{
+  min-height:132px;
+  max-height:260px;
+  resize:vertical;
+}
+#messagesNewComposer .messages-compose-actions{
+  position:sticky;
+  bottom:-20px;
+  margin:4px -20px -20px;
+  padding:12px 20px 16px;
+  border-top:1px solid var(--line);
+  background:color-mix(in srgb,var(--panel,#fff) 94%,transparent);
+  backdrop-filter:blur(8px);
+}
+#messagesNewComposer .messages-compose-actions .btn{
+  min-width:136px;
+  justify-content:center;
+}
+body.messages-compose-open{overflow:hidden!important}
+
+.chat-message-time-status{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:5px;
+  white-space:nowrap;
+}
+.message-delivery-tick{
+  display:inline-grid;
+  place-items:center;
+  width:15px;
+  height:15px;
+  font-size:.62rem;
+  line-height:1;
+  transition:color .2s ease,transform .2s ease;
+}
+.message-delivery-tick.is-sent{color:#94a3b8}
+.message-delivery-tick.is-delivered{color:#f97316}
+.message-delivery-tick.is-read{color:#166534}
+.message-delivery-tick.is-read i{transform:scale(1.04)}
+
+@media (max-width:900px){
+  #messagesNewComposer.messages-compose{
+    align-items:end;
+    padding:10px;
+  }
+  #messagesNewComposer .messages-compose-card{
+    width:100%;
+    max-height:calc(100dvh - 20px);
+    padding:16px;
+    border-radius:18px 18px 14px 14px;
+  }
+  #messagesNewComposer .messages-compose-actions{
+    bottom:-16px;
+    margin:4px -16px -16px;
+    padding:11px 16px calc(13px + env(safe-area-inset-bottom));
+  }
+  #messagesNewComposer .messages-compose-actions .btn{width:100%}
+  #messagesNewComposer .messages-textarea{min-height:120px;max-height:210px}
+}
+
+@media (max-width:520px){
+  #messagesNewComposer.messages-compose{padding:6px}
+  #messagesNewComposer .messages-compose-card{
+    max-height:calc(100dvh - 12px);
+    border-radius:16px;
+  }
+  #messagesNewComposer .messages-compose-head h4{font-size:.96rem}
+  #messagesNewComposer .help{font-size:.76rem;line-height:1.45}
+  #messagesNewComposer .form-label{font-size:.74rem}
+  #messagesNewComposer .input,
+  #messagesNewComposer .select,
+  #messagesNewComposer textarea{font-size:16px!important}
+  .chat-bubble{max-width:88%}
+  .chat-bubble-meta{gap:7px}
+}
