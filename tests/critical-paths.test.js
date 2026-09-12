@@ -3252,6 +3252,20 @@ it('163 adds Bought and Sold installment plans with isolated wallet direction an
   assert.match(css, /@media \(max-width:640px\)/);
 });
 
+it('Installment and loan wallet selectors hydrate wallet summaries on demand', () => {
+  const root = path.join(__dirname, '..');
+  const readFile = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const auth = readFile('Assets/app/auth/02-auth-welcome-trial.js');
+  const index = readFile('index.html');
+
+  assert.match(auth, /function ensureLoanWalletSelectorDataLoaded/);
+  assert.match(auth, /loadExpenseWalletSummaries\(\{ force: false \}\)/);
+  assert.match(auth, /loadLedgerScopeFromSupabase/);
+  assert.match(auth, /Loading \${normalizedCurrency \|\| "available"} wallets/);
+  assert.match(auth, /No \${normalizedCurrency} wallets available/);
+  assert.match(index, /20260913-wallet-selector-lazyfix1/);
+});
+
 it('164 adds a read-only permission-scoped Dashboard Financial Timeline with responsive themed UI', () => {
   const root = path.join(__dirname, '..');
   const readFile = rel => fs.readFileSync(path.join(root, rel), 'utf8');
@@ -3462,4 +3476,17 @@ it('168 hardens SEO/GEO with authority content, localization, structured-data cl
   assert.equal(fs.existsSync(path.join(root,'.github','workflows','seo-postdeploy.yml')), true);
   assert.equal(fs.existsSync(path.join(root,'Assets','logo','logo-seo-256.webp')), true);
   assert.equal(fs.existsSync(path.join(root,'Assets','logo','logo-wide-seo.webp')), true);
+});
+
+it('169 keeps the standalone 404 page centered, local and dependency-safe', () => {
+  const root = path.join(__dirname, '..');
+  const html = fs.readFileSync(path.join(root, '404.html'), 'utf8');
+
+  assert.match(html, /<meta name="robots" content="noindex,follow/);
+  assert.match(html, /src="\/Assets\/logo\/logo\.png"/);
+  assert.doesNotMatch(html, /Founder\/style\.css/);
+  assert.doesNotMatch(html, /fonts\.googleapis\.com|cdnjs\.cloudflare\.com|<script\b/i);
+  assert.match(html, /\.error-code\s*\{[\s\S]*?align-self:\s*center;[\s\S]*?justify-content:\s*center;/);
+  assert.match(html, /main\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/);
+  assert.match(html, /\.error-card\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?text-align:\s*center;/);
 });
