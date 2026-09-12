@@ -1206,19 +1206,79 @@ async function showWelcomeAndTransitionToApp(keepCurrentBackup) {
   await enterAppAfterUnlock(keepCurrentBackup, { instant: false });
 }
 
+let loanWalletSelectorLoadPromise = null;
+
+function renderLoanWalletSelectorOptions(currency, selectEl, options = {}) {
+  if (!selectEl) return { accounts: [], matchingAccounts: [] };
+  const normalizedCurrency = String(currency || "").trim();
+  const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency !== "BTC");
+  const matchingAccounts = normalizedCurrency
+    ? accounts.filter(a => a.currency === normalizedCurrency)
+    : accounts;
+  const rows = [`<option value="">Skip wallet entry</option>`];
+  rows.push(...matchingAccounts.map(a => {
+    const balDisplay = formatReportAmount(a.balance, a.currency);
+    return `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) — ${escapeHtml(balDisplay)}</option>`;
+  }));
+  if (!matchingAccounts.length) {
+    const label = options.loading
+      ? `Loading ${normalizedCurrency || "available"} wallets…`
+      : normalizedCurrency
+        ? `No ${normalizedCurrency} wallets available`
+        : "No wallets available";
+    rows.push(`<option value="" disabled>${escapeHtml(label)}</option>`);
+  }
+  const previous = String(options.preserveValue ?? selectEl.value ?? "");
+  selectEl.innerHTML = rows.join("");
+  if (previous && Array.from(selectEl.options).some(opt => opt.value === previous && !opt.disabled)) {
+    selectEl.value = previous;
+  }
+  syncCurrencySelectFonts(selectEl);
+  return { accounts, matchingAccounts };
+}
+
+async function ensureLoanWalletSelectorDataLoaded() {
+  const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency !== "BTC");
+  const expenseScopeLoaded = !!state.loadedLedgerScopes?.has?.(typeof LEDGER_SCOPE_EXPENSES !== "undefined" ? LEDGER_SCOPE_EXPENSES : "expenses");
+  const canLoad = typeof databaseSessionCanLoad === "function" ? databaseSessionCanLoad() : state.dataSource === "supabase";
+  if (accounts.length || expenseScopeLoaded || !canLoad || state.dataSource === "backup") return;
+  if (!loanWalletSelectorLoadPromise) {
+    loanWalletSelectorLoadPromise = (async () => {
+      let lazyResult = null;
+      if (typeof loadExpenseWalletSummaries === "function" && state.expenseLazy?.rpcAvailable !== false) {
+        lazyResult = await loadExpenseWalletSummaries({ force: false });
+      }
+      if (lazyResult === null && typeof loadLedgerScopeFromSupabase === "function") {
+        await loadLedgerScopeFromSupabase(
+          typeof LEDGER_SCOPE_EXPENSES !== "undefined" ? LEDGER_SCOPE_EXPENSES : "expenses",
+          { force: false, throwOnError: true }
+        );
+      }
+    })().finally(() => { loanWalletSelectorLoadPromise = null; });
+  }
+  await loanWalletSelectorLoadPromise;
+}
+
 function populateLoanWalletSelector(currency, selectEl) {
   if (!selectEl) return;
-  const accounts = getExpenseAccounts({ applyUiFilters: false }).filter(a => a.currency !== "BTC");
-  const matchingAccounts = currency
-    ? accounts.filter(a => a.currency === currency)
-    : accounts;
+  const normalizedCurrency = String(currency || "").trim();
+  const requestId = String((Number(selectEl.dataset.walletLoadRequest || 0) || 0) + 1);
+  selectEl.dataset.walletLoadRequest = requestId;
+  const previous = String(selectEl.value || "");
+  const rendered = renderLoanWalletSelectorOptions(normalizedCurrency, selectEl, { preserveValue: previous });
+  const expenseScopeLoaded = !!state.loadedLedgerScopes?.has?.(typeof LEDGER_SCOPE_EXPENSES !== "undefined" ? LEDGER_SCOPE_EXPENSES : "expenses");
+  const canLoad = typeof databaseSessionCanLoad === "function" ? databaseSessionCanLoad() : state.dataSource === "supabase";
+  if (rendered.accounts.length || expenseScopeLoaded || !canLoad || state.dataSource === "backup") return;
 
-  selectEl.innerHTML = `<option value="">Skip wallet entry</option>` +
-    matchingAccounts.map(a => {
-      const balDisplay = formatReportAmount(a.balance, a.currency);
-      return `<option value="${escapeHtml(a.group_id)}" data-currency="${escapeHtml(a.currency || "")}">${escapeHtml(a.person_name)} (${escapeHtml(a.accountType)}) — ${escapeHtml(balDisplay)}</option>`;
-    }).join("");
-  syncCurrencySelectFonts(selectEl);
+  renderLoanWalletSelectorOptions(normalizedCurrency, selectEl, { loading: true, preserveValue: previous });
+  ensureLoanWalletSelectorDataLoaded().then(() => {
+    if (!selectEl.isConnected || selectEl.dataset.walletLoadRequest !== requestId) return;
+    renderLoanWalletSelectorOptions(normalizedCurrency, selectEl, { preserveValue: previous });
+  }).catch(err => {
+    console.warn("Wallet selector refresh failed:", err);
+    if (!selectEl.isConnected || selectEl.dataset.walletLoadRequest !== requestId) return;
+    renderLoanWalletSelectorOptions(normalizedCurrency, selectEl, { preserveValue: previous });
+  });
 }
 
 function populateInventoryWalletSelector(selectEl, currency, placeholder, emptyLabel){
