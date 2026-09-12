@@ -152,16 +152,30 @@ async function fetchExpenseActivityRpc({ from = null, to = null, search = "", gr
   try {
     const page = unwrapRpcJson(await supabaseRpc("app_list_my_expense_activity_page", args));
     const items = Array.isArray(page?.items) ? page.items : [];
-    return { items, hasMore: page?.has_more === true || items.length >= limit };
+    const total = Math.max(0, Number(page?.total_count) || 0);
+    return {
+      items,
+      hasMore: page?.has_more === true || (!total && items.length >= limit),
+      total,
+      totalPages: Math.max(1, Number(page?.total_pages) || (total ? Math.ceil(total / Math.max(1, limit)) : 1)),
+      serverPaged: Number.isFinite(Number(page?.total_count))
+    };
   } catch (error) {
     if (!/app_list_my_expense_activity_page|Could not find the function|PGRST202|404/i.test(String(error?.message || error || ""))) throw error;
     const legacy = unwrapRpcJson(await supabaseRpc("app_list_my_expense_activity", {
       p_from: args.p_from, p_to: args.p_to, p_search: args.p_search,
-      p_group_id: args.p_group_id, p_limit: Math.min(2000, limit + args.p_offset)
+      p_group_id: args.p_group_id, p_limit: Math.min(2000, limit + args.p_offset + 1)
     }));
     const all = Array.isArray(legacy?.items) ? legacy.items : [];
     const items = all.slice(args.p_offset, args.p_offset + limit);
-    return { items, hasMore: all.length > args.p_offset + items.length || items.length >= limit };
+    const hasMore = all.length > args.p_offset + items.length || items.length >= limit;
+    return {
+      items,
+      hasMore,
+      total: hasMore ? 0 : all.length,
+      totalPages: hasMore ? Math.max(1, Math.ceil((args.p_offset + items.length + 1) / Math.max(1, limit))) : Math.max(1, Math.ceil(all.length / Math.max(1, limit))),
+      serverPaged: false
+    };
   }
 }
 
@@ -366,9 +380,35 @@ async function fetchExpenseWalletDetailRpc(groupId, limit = 2000){
   };
 }
 
+async function fetchExpenseWalletChartRpc(groupId){
+  const res = unwrapRpcJson(await supabaseRpc("app_get_my_expense_wallet_chart", {
+    p_group_id: String(groupId || "")
+  }));
+  return {
+    ok: res?.ok === true,
+    groupId: String(res?.group_id || groupId || ""),
+    source: String(res?.source || ""),
+    accountName: String(res?.account_name || ""),
+    accountType: String(res?.account_type || ""),
+    currency: String(res?.currency || ""),
+    openingBalance: Number(res?.opening_balance || 0),
+    pureTopupTotal: Number(res?.pure_topup_total || 0),
+    pureSpendTotal: Number(res?.pure_spend_total || 0),
+    transferInTotal: Number(res?.transfer_in_total || 0),
+    transferOutTotal: Number(res?.transfer_out_total || 0),
+    topupTotal: Number(res?.topup_total || 0),
+    spendTotal: Number(res?.spend_total || 0),
+    balance: Number(res?.balance || 0),
+    topupCount: Math.max(0, Number(res?.topup_count || 0)),
+    spendCount: Math.max(0, Number(res?.spend_count || 0)),
+    months: Array.isArray(res?.months) ? res.months : []
+  };
+}
+window.fetchExpenseWalletChartRpc = fetchExpenseWalletChartRpc;
+
 function isExpenseLazyRpcMissingError(err){
   const msg = String(err?.message || err || "");
-  return /app_list_my_expense_wallet_summaries|app_list_my_expense_activity|app_list_my_expense_wallet_detail|Could not find the function|PGRST202|404/i.test(msg);
+  return /app_list_my_expense_wallet_summaries|app_list_my_expense_activity|app_list_my_expense_wallet_detail|app_get_my_expense_wallet_chart|Could not find the function|PGRST202|404/i.test(msg);
 }
 
 async function loadExpenseWalletSummaries({ force = false } = {}){

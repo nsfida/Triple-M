@@ -4987,13 +4987,67 @@ function isWalletTransferSpend(row){
   return expenseMetaFromNotes(row?.notes).expenseType === "Transfer";
 }
 
-function buildWalletDetailsPayload(groupId){
+function buildWalletDetailsPayload(groupId, serverChart = null){
   const accounts = getExpenseAccounts({ applyUiFilters: false });
   const account = accounts.find(a => a.group_id === groupId);
   if (!account) return null;
 
   const currency = account.currency || "";
   const isBtcLive = currency === "BTC";
+
+  if (serverChart && serverChart.ok && Array.isArray(serverChart.months)) {
+    const chartCurrency = serverChart.currency || currency;
+    const monthMap = new Map();
+    serverChart.months.forEach(row => {
+      const key = String(row?.month || "").trim();
+      if (!key) return;
+      monthMap.set(key, {
+        topup: Number(row?.topup || 0),
+        spend: Number(row?.spend || 0),
+        transferIn: Number(row?.transfer_in || 0),
+        transferOut: Number(row?.transfer_out || 0)
+      });
+    });
+    const monthKeys = sectionDetailsSortedMonthKeys(monthMap.keys());
+    const monthEndBalance = [];
+    let monthRunning = 0;
+    monthKeys.forEach(key => {
+      const row = monthMap.get(key) || { topup: 0, spend: 0, transferIn: 0, transferOut: 0 };
+      monthRunning += Number(row.topup || 0) + Number(row.transferIn || 0) - Number(row.spend || 0) - Number(row.transferOut || 0);
+      monthEndBalance.push(monthRunning);
+    });
+    return {
+      account,
+      currency: chartCurrency,
+      isBtcLive: chartCurrency === "BTC",
+      metrics: {
+        balance: Number(serverChart.balance || 0),
+        toppedUp: Number(serverChart.topupTotal || 0),
+        spent: Number(serverChart.spendTotal || 0),
+        pureTopup: Number(serverChart.pureTopupTotal || 0),
+        pureSpend: Number(serverChart.pureSpendTotal || 0),
+        transferIn: Number(serverChart.transferInTotal || 0),
+        transferOut: Number(serverChart.transferOutTotal || 0),
+        status: Number(serverChart.balance || 0) > 0 ? "Open" : "Closed",
+        accountType: serverChart.accountType || account.accountType || "",
+        topupCount: Math.max(0, Number(serverChart.topupCount || 0)),
+        spendCount: Math.max(0, Number(serverChart.spendCount || 0)),
+        transferCount: 0
+      },
+      monthMap,
+      monthKeys,
+      monthEndBalance,
+      balancePoints: [],
+      recent: [],
+      composition: {
+        topup: Math.max(Number(serverChart.pureTopupTotal || 0), 0),
+        spend: Math.max(Number(serverChart.pureSpendTotal || 0), 0),
+        transferIn: Math.max(Number(serverChart.transferInTotal || 0), 0),
+        transferOut: Math.max(Number(serverChart.transferOutTotal || 0), 0)
+      }
+    };
+  }
+
   const opening = Number(account.openingBalance || 0);
   const topups = account.topups || [];
   const spends = account.spends || [];
@@ -5142,8 +5196,8 @@ function walletDetailsActivityHtml(data){
   return `<div class="section-details-activity">${rows}</div>`;
 }
 
-function renderWalletDetailsOverlay(groupId){
-  const data = buildWalletDetailsPayload(groupId);
+function renderWalletDetailsOverlay(groupId, serverChart = null){
+  const data = buildWalletDetailsPayload(groupId, serverChart);
   if (!data || !els.sectionDetailsBody) {
     if (els.sectionDetailsBody) {
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Wallet not found.</div>`;
@@ -5168,7 +5222,7 @@ function renderWalletDetailsOverlay(groupId){
   ].join("");
 
   els.sectionDetailsBody.innerHTML = `
-    <p class="section-details-note">Live records for this wallet only (all dates). Charts cover top-ups, spending, transfers, and balance flow.</p>
+    <p class="section-details-note">${isExpenseLazyMode() && !serverChart ? "Loading compact all-date chart totals…" : "Live totals for this wallet only (all dates). Charts use compact aggregates; transaction rows are loaded separately on demand."}</p>
     <div class="section-details-metrics">${metricsHtml}</div>
     <div class="section-details-charts">
       <div class="section-details-chart-card">
@@ -5183,10 +5237,6 @@ function renderWalletDetailsOverlay(groupId){
         <h4>Balance over time</h4>
         <div class="section-details-chart-wrap"><canvas id="walletDetailsChart3"></canvas></div>
       </div>
-    </div>
-    <div class="section-details-chart-card section-details-activity-card">
-      <h4>Recent activity</h4>
-      ${walletDetailsActivityHtml(data)}
     </div>
   `;
 
@@ -5288,12 +5338,155 @@ function renderWalletDetailsOverlay(groupId){
   });
 }
 
-function renderWalletDetailsAccountAction(groupId){
+const WALLET_DETAILS_TRANSACTION_PAGE_SIZE = 8;
+let walletDetailsTransactionRequestSeq = 0;
+
+function walletTransactionCleanNote(row){
+  const raw = String(row?.notes || "");
+  if (!raw) return "";
+  if (typeof cleanExpenseNote === "function") {
+    const cleaned = cleanExpenseNote(raw);
+    return cleaned === "—" ? "" : cleaned;
+  }
+  return raw
+    .replace(/\[(?:EXPENSE_ACCOUNT|AI_CREATED)\]/gi, "")
+    .replace(/\[(?:ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|CLOGO|VATP|VATR|VATM|VATA|NET|GROSS|WSORT|XDET|ADET):[^\]]*\]/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function walletTransactionMeta(row){
+  const rowType = String(row?.row_type || "").toUpperCase();
+  const note = walletTransactionCleanNote(row);
+  let parsed = {};
+  try { parsed = typeof expenseMetaFromNotes === "function" ? expenseMetaFromNotes(row?.notes || "") : {}; } catch (_) {}
+  const expenseType = String(row?.expense_type || parsed?.expenseType || "").trim();
+  const transfer = expenseType.toLowerCase() === "transfer" || /\btransfer\s+(?:from|to)\b/i.test(note);
+  const inbound = rowType === "TOPUP";
+  const itemName = String(row?.item_name || parsed?.itemName || "").trim();
+  const label = transfer
+    ? "Wallet transfer"
+    : inbound
+      ? "Money added"
+      : (itemName || expenseType || "Expense");
+  const typeLabel = transfer ? (inbound ? "Transfer received" : "Transfer sent") : (inbound ? "Top-up" : (expenseType || "Expense"));
+  const id = String(row?.id || "");
+  const reference = String(row?.public_reference || "").trim() || (id ? `TX-${id.replace(/-/g, "").slice(0, 10).toUpperCase()}` : "");
+  return { inbound, transfer, label, typeLabel, note, reference };
+}
+
+function walletTransactionRowsHtml(items){
+  if (!items.length) return `<div class="wallet-transactions-empty"><i class="fa-regular fa-folder-open"></i><strong>No transactions found</strong><span>This wallet has no transaction records on this page.</span></div>`;
+  return `<div class="wallet-transactions-list">${items.map(row => {
+    const meta = walletTransactionMeta(row);
+    const amount = Math.abs(Number(row?.amount || 0));
+    const currency = String(row?.currency || "");
+    const sign = meta.inbound ? "+" : "−";
+    const tone = meta.inbound ? "is-in" : "is-out";
+    const date = row?.activity_date ? displayDate(row.activity_date) : "—";
+    return `<article class="wallet-transaction-row ${tone}">
+      <div class="wallet-transaction-icon"><i class="fa-solid ${meta.transfer ? "fa-arrow-right-arrow-left" : meta.inbound ? "fa-arrow-down" : "fa-receipt"}"></i></div>
+      <div class="wallet-transaction-main">
+        <div class="wallet-transaction-title"><strong>${escapeHtml(meta.label)}</strong><span>${escapeHtml(meta.typeLabel)}</span></div>
+        <div class="wallet-transaction-meta"><span><i class="fa-regular fa-calendar"></i>${escapeHtml(date)}</span>${meta.reference ? `<span><i class="fa-solid fa-hashtag"></i>${escapeHtml(meta.reference)}</span>` : ""}</div>
+        ${meta.note ? `<p>${escapeHtml(meta.note)}</p>` : ""}
+      </div>
+      <div class="wallet-transaction-amount ${tone}">${sign}${money(amount, currency)}</div>
+    </article>`;
+  }).join("")}</div>`;
+}
+
+function walletTransactionPageNumbers(currentPage, totalPages){
+  const total = Math.max(1, Number(totalPages) || 1);
+  const current = Math.max(1, Math.min(total, Number(currentPage) || 1));
+  if (total <= 5) return Array.from({ length: total }, (_, index) => index + 1);
+  const wanted = new Set([1, 2, 3, current - 1, current, current + 1, total]);
+  return Array.from(wanted).filter(page => page >= 1 && page <= total).sort((a, b) => a - b);
+}
+
+function walletTransactionPaginationHtml(currentPage, totalPages, hasMore){
+  const current = Math.max(1, Number(currentPage) || 1);
+  const total = Math.max(current, Number(totalPages) || (hasMore ? current + 1 : current));
+  const pages = walletTransactionPageNumbers(current, total);
+  let previous = 0;
+  const numbered = pages.map(page => {
+    const gap = previous && page - previous > 1 ? `<span class="wallet-transaction-page-gap">…</span>` : "";
+    previous = page;
+    return `${gap}<button type="button" class="wallet-transaction-page-number${page === current ? " is-active" : ""}" data-wallet-transaction-page="${page}" ${page === current ? 'aria-current="page"' : ""}>${page}</button>`;
+  }).join("");
+  return `<nav class="wallet-transactions-pagination" aria-label="Wallet transaction pages">
+    <button type="button" class="wallet-transaction-page-nav" data-wallet-transaction-page="${Math.max(1,current-1)}"${current <= 1 ? " disabled" : ""}><i class="fa-solid fa-chevron-left"></i><span>Prev</span></button>
+    <div class="wallet-transaction-page-numbers">${numbered}</div>
+    <button type="button" class="wallet-transaction-page-nav" data-wallet-transaction-page="${current+1}"${current >= total && !hasMore ? " disabled" : ""}><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+  </nav>`;
+}
+
+function renderWalletDetailsActions(groupId, mode = "overview"){
   const host = els.sectionDetailsActions;
-  if (!host || typeof openExpenseAccountDetailsOverlay !== "function") return;
-  host.innerHTML = `<button type="button" class="btn ghost tiny wallet-account-details-btn" data-wallet-account-details="${escapeHtml(groupId)}"><i class="fa-solid fa-address-card"></i><span>Account Details</span></button>`;
-  host.classList.remove("hide");
+  if (!host) return;
+  const accountButton = typeof openExpenseAccountDetailsOverlay === "function"
+    ? `<button type="button" class="btn ghost tiny wallet-account-details-btn" data-wallet-account-details="${escapeHtml(groupId)}"><i class="fa-solid fa-address-card"></i><span>Account Details</span></button>`
+    : "";
+  const viewButton = mode === "transactions"
+    ? `<button type="button" class="btn ghost tiny wallet-transactions-btn is-active" data-wallet-overview="${escapeHtml(groupId)}"><i class="fa-solid fa-chart-line"></i><span>Overview</span></button>`
+    : `<button type="button" class="btn ghost tiny wallet-transactions-btn" data-wallet-transactions="${escapeHtml(groupId)}"><i class="fa-solid fa-list-ul"></i><span>Transactions</span></button>`;
+  host.innerHTML = accountButton + viewButton;
+  host.classList.toggle("hide", !host.innerHTML);
   host.querySelector("[data-wallet-account-details]")?.addEventListener("click", () => openExpenseAccountDetailsOverlay(groupId));
+  host.querySelector("[data-wallet-transactions]")?.addEventListener("click", () => renderWalletTransactionsPage(groupId, 1));
+  host.querySelector("[data-wallet-overview]")?.addEventListener("click", () => openWalletDetailsOverlay(groupId));
+}
+
+async function renderWalletTransactionsPage(groupId, page = 1){
+  if (!els.sectionDetailsModal || !els.sectionDetailsBody) return;
+  const id = String(groupId || "").trim();
+  const requestedPage = Math.max(1, Number(page) || 1);
+  if (!id || els.sectionDetailsModal.dataset.walletDetailsId !== id) return;
+  const requestSeq = ++walletDetailsTransactionRequestSeq;
+  destroySectionDetailsCharts();
+  els.sectionDetailsModal.dataset.walletView = "transactions";
+  renderWalletDetailsActions(id, "transactions");
+  if (els.sectionDetailsDesc) els.sectionDetailsDesc.textContent = "Transaction history · loaded eight records at a time";
+  els.sectionDetailsBody.innerHTML = `<div class="wallet-transactions-loading" role="status" aria-live="polite"><span class="wallet-transactions-spinner"></span><strong>Loading transactions…</strong><small>Requesting page ${requestedPage} from your wallet records.</small></div>`;
+
+  try {
+    if (typeof fetchExpenseActivityRpc !== "function") throw new Error("Wallet transaction service is unavailable.");
+    const result = await fetchExpenseActivityRpc({
+      from: null,
+      to: null,
+      search: "",
+      groupId: id,
+      limit: WALLET_DETAILS_TRANSACTION_PAGE_SIZE,
+      offset: (requestedPage - 1) * WALLET_DETAILS_TRANSACTION_PAGE_SIZE
+    });
+    if (requestSeq !== walletDetailsTransactionRequestSeq) return;
+    if (!els.sectionDetailsModal || els.sectionDetailsModal.classList.contains("hide")) return;
+    if (els.sectionDetailsModal.dataset.walletDetailsId !== id || els.sectionDetailsModal.dataset.walletView !== "transactions") return;
+    const items = Array.isArray(result?.items) ? result.items : [];
+    const total = Math.max(0, Number(result?.total) || 0);
+    const totalPages = Math.max(1, Number(result?.totalPages) || (result?.hasMore ? requestedPage + 1 : requestedPage));
+    const rangeStart = items.length ? ((requestedPage - 1) * WALLET_DETAILS_TRANSACTION_PAGE_SIZE) + 1 : 0;
+    const rangeEnd = items.length ? rangeStart + items.length - 1 : 0;
+    const countText = total
+      ? `${rangeStart}–${rangeEnd} of ${total}`
+      : (items.length ? `${rangeStart}–${rangeEnd}${result?.hasMore ? " · more available" : ""}` : "0 transactions");
+    els.sectionDetailsBody.innerHTML = `<section class="wallet-transactions-view">
+      <header class="wallet-transactions-head"><div><span>Wallet activity</span><strong>${escapeHtml(countText)}</strong></div><small>Only this page is loaded from the database.</small></header>
+      ${walletTransactionRowsHtml(items)}
+      ${walletTransactionPaginationHtml(requestedPage, totalPages, result?.hasMore === true)}
+    </section>`;
+    els.sectionDetailsBody.querySelectorAll("[data-wallet-transaction-page]").forEach(button => {
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        const nextPage = Math.max(1, Number(button.dataset.walletTransactionPage) || 1);
+        if (nextPage !== requestedPage) renderWalletTransactionsPage(id, nextPage);
+      });
+    });
+  } catch (error) {
+    if (requestSeq !== walletDetailsTransactionRequestSeq) return;
+    els.sectionDetailsBody.innerHTML = `<div class="wallet-transactions-empty is-error"><i class="fa-solid fa-triangle-exclamation"></i><strong>Transactions could not be loaded</strong><span>${escapeHtml(error?.message || "Please try again.")}</span><button type="button" class="btn ghost tiny" data-wallet-transactions-retry>Retry</button></div>`;
+    els.sectionDetailsBody.querySelector("[data-wallet-transactions-retry]")?.addEventListener("click", () => renderWalletTransactionsPage(id, requestedPage));
+  }
 }
 
 async function openWalletDetailsOverlay(groupId){
@@ -5303,8 +5496,9 @@ async function openWalletDetailsOverlay(groupId){
 
   destroySectionDetailsCharts();
   clearSectionDetailsActions();
+  walletDetailsTransactionRequestSeq += 1;
 
-  const paintWalletDetails = () => {
+  const paintWalletDetails = (serverChart = null) => {
     destroySectionDetailsCharts();
     invalidateExpenseAccountsSyncCache();
     const account = getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === id);
@@ -5314,6 +5508,7 @@ async function openWalletDetailsOverlay(groupId){
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Wallet not found.</div>`;
       return false;
     }
+    els.sectionDetailsModal.dataset.walletView = "overview";
     const name = account.person_name || "Wallet";
     if (els.sectionDetailsTitle) {
       els.sectionDetailsTitle.innerHTML = `${getWalletIconHtml(name, 22, account.customLogoUrl || "")}<span class="section-details-title-text">${escapeHtml(name)}</span>`;
@@ -5322,14 +5517,15 @@ async function openWalletDetailsOverlay(groupId){
       const typeBit = account.accountType ? `${account.accountType} · ` : "";
       els.sectionDetailsDesc.innerHTML = `${escapeHtml(typeBit)}${escapeHtml(account.currency || "—")} · Balance ${money(account.balance, account.currency)}`;
     }
-    renderWalletDetailsAccountAction(id);
+    renderWalletDetailsActions(id, "overview");
     if (!sectionDetailsEnsureChartLib()) {
       els.sectionDetailsBody.innerHTML = `<div class="section-details-empty">Chart library is still loading. Close and open Details again.</div>`;
       return true;
     }
-    renderWalletDetailsOverlay(id);
+    renderWalletDetailsOverlay(id, serverChart);
     return true;
   };
+
 
   // Open the overlay immediately — never block the click on a network round-trip.
   els.sectionDetailsModal.dataset.detailsKind = "wallet";
@@ -5340,15 +5536,23 @@ async function openWalletDetailsOverlay(groupId){
   els.sectionDetailsModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
-  // Lazy mode: if full wallet history isn't cached yet, load it in the background and refresh once.
-  if (isExpenseLazyMode() && !state.expenseLazy?.detailCache?.has?.(id)) {
-    ensureExpenseWalletDetailLoaded(id, { force: false })
-      .then(() => {
+  // Complete chart history is loaded as compact monthly aggregates only. Raw
+  // transaction rows are never hydrated here; the Transactions view fetches
+  // exactly eight records only after the user explicitly opens it.
+  if (isExpenseLazyMode() && typeof fetchExpenseWalletChartRpc === "function") {
+    fetchExpenseWalletChartRpc(id)
+      .then(chartData => {
         if (!els.sectionDetailsModal || els.sectionDetailsModal.classList.contains("hide")) return;
         if (els.sectionDetailsModal.dataset.walletDetailsId !== id) return;
-        paintWalletDetails();
+        if (els.sectionDetailsModal.dataset.walletView === "transactions") return;
+        paintWalletDetails(chartData);
       })
-      .catch(err => console.warn("Wallet detail load failed:", err));
+      .catch(err => {
+        console.warn("Wallet chart aggregate load failed:", err);
+        if (els.sectionDetailsDesc && els.sectionDetailsModal?.dataset.walletView === "overview") {
+          els.sectionDetailsDesc.textContent = "Wallet overview · compact chart totals unavailable";
+        }
+      });
   }
 }
 

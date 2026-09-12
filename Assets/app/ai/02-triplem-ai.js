@@ -347,58 +347,94 @@
     document.body.style.overflow="hidden";
   }
 
+  function triplemAiModalOpen(id) {
+    const modal = document.getElementById(id);
+    return !!modal && !modal.classList.contains("hide") && modal.getAttribute("aria-hidden") !== "true";
+  }
+
   async function openTriplemAiRecord(record) {
     if (!record) return;
     const module = String(record.module || "").toLowerCase();
     const type = String(record.record_type || "").toLowerCase();
     try {
-      // Never navigate away from Triplem AI. Load only the minimum module data
-      // needed by the app's existing native overlay, then open it over the chat.
+      // Load only the minimum module data needed by the existing native viewer.
+      // Every native attempt is verified; if the requested row is not present in
+      // that module cache, fall through to the verified generic record overlay.
       if (module === "expenses" || module === "wallets") {
         if (record.group_id && typeof ensureExpenseWalletDetailLoaded === "function") {
           try { await ensureExpenseWalletDetailLoaded(record.group_id, { force: true }); } catch (_) {}
         }
-        if (type === "wallet" && typeof openExpenseAccountDetailsOverlay === "function") return openExpenseAccountDetailsOverlay(record.group_id);
-        if (type === "expense" && typeof openExpenseTransactionDetail === "function") {
-          const opened = openExpenseTransactionDetail(record.record_id);
-          if (opened !== undefined || document.getElementById("expenseTransactionDetailModal")?.classList.contains("hide") === false) return opened;
+        if (type === "wallet" && typeof openExpenseAccountDetailsOverlay === "function") {
+          await Promise.resolve(openExpenseAccountDetailsOverlay(record.group_id));
+          if (triplemAiModalOpen("expenseAccountDetailsModal")) return;
         }
-        if (type === "top_up" && typeof openExpenseRecordDetail === "function") return openExpenseRecordDetail("topup", record.record_id);
-        if (type === "wallet_transfer" && typeof openExpenseRecordDetail === "function") return openExpenseRecordDetail("transfer", record.record_id);
+        if (type === "expense" && typeof openExpenseTransactionDetail === "function") {
+          await Promise.resolve(openExpenseTransactionDetail(record.record_id));
+          if (triplemAiModalOpen("expenseTransactionDetailModal")) return;
+        }
+        if (type === "top_up" && typeof openExpenseRecordDetail === "function") {
+          await Promise.resolve(openExpenseRecordDetail("topup", record.record_id));
+          if (triplemAiModalOpen("expenseTransactionDetailModal")) return;
+        }
+        if (type === "wallet_transfer" && typeof openExpenseRecordDetail === "function") {
+          await Promise.resolve(openExpenseRecordDetail("transfer", record.record_id));
+          if (triplemAiModalOpen("expenseTransactionDetailModal")) return;
+        }
       }
       if (module === "loans") {
         const person = record.details?.person || record.title;
         const direction = record.details?.direction || "taken";
         if (record.record_id && typeof window.openLoanTransactionDetail === "function") {
-          const opened = window.openLoanTransactionDetail(record.record_id, person, direction);
-          if (opened !== undefined || document.getElementById("loanTransactionDetailModal")?.classList.contains("hide") === false) return opened;
+          await Promise.resolve(window.openLoanTransactionDetail(record.record_id, person, direction));
+          if (triplemAiModalOpen("loanTransactionDetailModal")) return;
         }
       }
       if (module === "installments") {
-        if (type === "installment_plan" && record.group_id && typeof openInstallmentItemDetailsOverlay === "function") return openInstallmentItemDetailsOverlay(record.group_id);
+        if (type === "installment_plan" && record.group_id && typeof openInstallmentItemDetailsOverlay === "function") {
+          await Promise.resolve(openInstallmentItemDetailsOverlay(record.group_id));
+          if (triplemAiModalOpen("sectionDetailsModal")) return;
+        }
       }
       if (module === "inventory") {
-        if (type === "inventory_sale" && record.record_id && typeof openInventoryReceiptEditor === "function" && (typeof teamCanShowEdit !== "function" || teamCanShowEdit("invoices"))) return openInventoryReceiptEditor(record.record_id);
-        if (type === "inventory_item" && record.group_id && typeof openInventoryItemDetailsOverlay === "function") return openInventoryItemDetailsOverlay(record.group_id);
+        if (type === "inventory_sale" && record.record_id && typeof openInventoryReceiptEditor === "function" && (typeof teamCanShowEdit !== "function" || teamCanShowEdit("invoices"))) {
+          await Promise.resolve(openInventoryReceiptEditor(record.record_id));
+          if (triplemAiModalOpen("inventoryReceiptEditModal")) return;
+        }
+        if (type === "inventory_item" && record.group_id && typeof openInventoryItemDetailsOverlay === "function") {
+          await Promise.resolve(openInventoryItemDetailsOverlay(record.group_id));
+          if (triplemAiModalOpen("sectionDetailsModal")) return;
+        }
       }
       if (module === "assets") {
         if (typeof loadAssetsFromDatabase === "function") { try { await loadAssetsFromDatabase({ force: false }); } catch (_) {} }
         if (type === "asset") {
           const assetId = record.parent_id || record.record_id;
-          if (assetId && typeof openAssetDetail === "function") return openAssetDetail(assetId);
+          if (assetId && typeof openAssetDetail === "function") {
+            await Promise.resolve(openAssetDetail(assetId));
+            if (triplemAiModalOpen("assetDetailModal")) return;
+          }
         }
       }
       if (module === "notes") {
         if (typeof loadNotesFromDatabase === "function") { try { await loadNotesFromDatabase({ force: false }); } catch (_) {} }
         if (type === "note") {
           const noteId = record.parent_id || record.record_id;
-          if (noteId && typeof window.openNoteDetailModal === "function") return window.openNoteDetailModal(noteId);
+          if (noteId && typeof window.openNoteDetailModal === "function") {
+            await Promise.resolve(window.openNoteDetailModal(noteId));
+            if (triplemAiModalOpen("noteDetailModal")) return;
+          }
         }
       }
       if (module === "accounting") {
         if (window.TriplemAccounting?.load) { try { await window.TriplemAccounting.load({ force: false }); } catch (_) {} }
-        if (type === "journal" && record.record_id && window.TriplemAccounting?.viewJournal) return window.TriplemAccounting.viewJournal(record.record_id);
-        if (type === "document" && record.record_id && window.TriplemAccounting?.viewDocument) return window.TriplemAccounting.viewDocument(record.record_id);
+        if (type === "journal" && record.record_id && window.TriplemAccounting?.viewJournal) {
+          const opened = await Promise.resolve(window.TriplemAccounting.viewJournal(record.record_id));
+          if (opened !== false) return;
+        }
+        if (type === "document" && record.record_id && window.TriplemAccounting?.viewDocument) {
+          const opened = await Promise.resolve(window.TriplemAccounting.viewDocument(record.record_id));
+          if (opened !== false) return;
+        }
       }
     } catch (error) {
       console.warn("Triplem AI native record open failed:", error);

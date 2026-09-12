@@ -50,6 +50,60 @@
     ? escapeHtml(String(value == null ? "" : value))
     : String(value == null ? "" : value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 
+  const TIMELINE_EXPENSE_META_KEYS = "ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|CLOGO|VATP|VATR|VATM|VATA|NET|GROSS|WSORT|XDET|ADET";
+
+  function stripTimelineExpenseMetadata(value){
+    let text=String(value == null ? "" : value);
+    if (!text) return "";
+    const hadInternalNoise = /\[(?:EXPENSE_ACCOUNT|EXPENSES?_ACCOUNTS?|AI_CREATED|ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|CLOGO|VATP|VATR|VATM|VATA|NET|GROSS|WSORT|XDET|ADET)(?::|\]|\s)/i.test(text)
+      || /%5B(?:XDET|ADET|VATP|VATR|VATM|VATA|NET|GROSS)/i.test(text)
+      || /(?:%22|%2522)(?:%3A|%253A)|(?:%7B|%257B)|(?:%7D|%257D)/i.test(text);
+
+    // Current metadata is bracketed, but some older records contain incomplete
+    // markers or URL-encoded JSON fragments. Timeline display must never expose
+    // those implementation details to the user.
+    text=text
+      .replace(/\[(?:EXPENSE_ACCOUNT|EXPENSES?_ACCOUNTS?|AI_CREATED)\]/gi," ")
+      .replace(new RegExp(`\\[(?:${TIMELINE_EXPENSE_META_KEYS})(?::[^\\]]*)?\\]`,"gi")," ")
+      .replace(new RegExp(`\\[(?:${TIMELINE_EXPENSE_META_KEYS})(?::|\\s+)[^\\]]*$`,"gi")," ")
+      .replace(/%5B(?:EXPENSE_ACCOUNT|EXPENSES?_ACCOUNTS?|AI_CREATED)%5D/gi," ")
+      .replace(new RegExp(`%5B(?:${TIMELINE_EXPENSE_META_KEYS})(?:%3A|:).*?(?:%5D|$)`,"gi")," ");
+
+    // Encoded expense-detail JSON should never be rendered as a note/title.
+    // Remove only tokens that unmistakably look like encoded object metadata,
+    // leaving ordinary percentages such as "20% discount" untouched.
+    text=text
+      .replace(/\S*(?:(?:%22|%2522)(?:%3A|%253A)|(?:%7B|%257B)|(?:%7D|%257D))\S*/gi," ")
+      .replace(/(?:^|\s)[,{]?["']?(?:type|accountType|rowType|expenseType|taxRate|taxMode|details|accountDetails)["']?\s*[:=]\s*[{\[]?[^|·]*?(?=$|[|·])/gi," ");
+
+    // A lone percentage left beside leaked detail metadata is a legacy VAT
+    // artifact, not useful transaction narration. Preserve normal prose such
+    // as "20% discount" because it does not match this narrow case.
+    if (hadInternalNoise && /^\s*\d+(?:\.\d+)?\s*%\s*$/.test(text)) return "";
+    return text;
+  }
+
+  function cleanTimelineText(value, module = ""){
+    let text=String(value == null ? "" : value);
+    if (!text) return "";
+    if (String(module || "").toLowerCase()==="expenses") {
+      if (typeof cleanExpenseNote === "function") {
+        try {
+          const cleaned=cleanExpenseNote(text);
+          text=cleaned === "—" ? "" : cleaned;
+        } catch (_) {}
+      }
+      text=stripTimelineExpenseMetadata(text);
+    }
+    return text
+      .replace(/\[(?:EXPENSE_ACCOUNT|EXPENSES?_ACCOUNTS?|AI_CREATED)\]/gi," ")
+      .replace(new RegExp(`\\[(?:${TIMELINE_EXPENSE_META_KEYS})(?::[^\\]]*)?\\]`,"gi")," ")
+      .replace(/\s*[·|]\s*(?=[·|]|$)/g," ")
+      .replace(/\s{2,}/g," ")
+      .replace(/^[\s·|,:;-]+|[\s·|,:;-]+$/g,"")
+      .trim();
+  }
+
   function timelineRoots(){
     return {
       tabs: document.querySelector(".dashboard-main-tabs"),
@@ -166,12 +220,14 @@
     const secondary = item.secondary_amount != null && item.secondary_currency
       ? `<span class="timeline-secondary-amount">→ ${moneyHtml(item.secondary_amount,item.secondary_currency,"neutral")}</span>` : "";
     const status = item.status ? `<span class="timeline-status">${esc(String(item.status).replace(/_/g," "))}</span>` : "";
+    const title = cleanTimelineText(item.title || item.event_label || "Activity", item.module) || item.event_label || "Activity";
+    const subtitle = cleanTimelineText(item.subtitle, item.module);
     return `<button type="button" class="timeline-event-card is-${esc(item.flow || "neutral")}" data-timeline-key="${esc(item.event_key)}">
       <span class="timeline-event-icon"><i class="${esc(icon)}" aria-hidden="true"></i></span>
       <span class="timeline-event-main">
         <span class="timeline-event-kicker"><b>${esc(item.event_label || meta[1])}</b><em>${esc(meta[1])}</em>${status}</span>
-        <strong>${esc(item.title || item.event_label || "Activity")}</strong>
-        ${item.subtitle ? `<small>${esc(item.subtitle)}</small>` : ""}
+        <strong>${esc(title)}</strong>
+        ${subtitle ? `<small>${esc(subtitle)}</small>` : ""}
       </span>
       <span class="timeline-event-side">${amount}${secondary}<time>${esc(formatTimelineTime(item.event_ts))}</time></span>
       <i class="fa-solid fa-chevron-right timeline-event-open" aria-hidden="true"></i>
@@ -271,27 +327,64 @@
       clearTimeout(timelineState.searchTimer);
       timelineState.searchTimer=setTimeout(()=>loadTimeline({reset:true}),320);
     });
-    root.querySelectorAll("[data-timeline-key]").forEach(card=>card.addEventListener("click",()=>openEvent(card.dataset.timelineKey)));
+    root.querySelectorAll("[data-timeline-key]").forEach(card=>card.addEventListener("click",()=>openEvent(card.dataset.timelineKey,card)));
   }
 
-  async function openEvent(key){
+  function timelineRecordLoader(){
+    let loader=document.getElementById("timelineRecordLoader");
+    if (loader) return loader;
+    loader=document.createElement("div");
+    loader.id="timelineRecordLoader";
+    loader.className="timeline-record-loader hide";
+    loader.setAttribute("role","status");
+    loader.setAttribute("aria-live","polite");
+    loader.innerHTML=`<div class="timeline-record-loader-card"><span class="timeline-record-loader-spinner"></span><div><strong>Loading transaction details…</strong><small>Requesting the latest record from your workspace.</small></div></div>`;
+    document.body.appendChild(loader);
+    return loader;
+  }
+
+  function setTimelineRecordLoading(show, item, card){
+    const loader=timelineRecordLoader();
+    const strong=loader.querySelector("strong");
+    const small=loader.querySelector("small");
+    if (strong) strong.textContent=show ? `Opening ${item?.event_label || "transaction"}…` : "Loading transaction details…";
+    if (small) small.textContent=show ? "Requesting the latest record from your workspace." : "";
+    loader.classList.toggle("hide",!show);
+    card?.classList.toggle("is-opening",!!show);
+    if (card) card.setAttribute("aria-busy",show?"true":"false");
+  }
+
+  async function openEvent(key, card=null){
     const item=timelineState.items.find(row=>row.event_key===key);
-    if (!item) return;
+    if (!item || card?.classList.contains("is-opening")) return;
     const record={
       module:item.module,
       record_type:item.record_type,
       record_id:item.record_id,
       group_id:item.group_id,
       parent_id:item.parent_id,
-      title:item.title,
+      title:cleanTimelineText(item.title,item.module) || item.event_label,
       record_date:item.event_date,
       details:item.details||{},
       currency:item.currency,
       amount:item.amount,
       status:item.status
     };
-    if (typeof window.openTriplemAiRecord === "function") {
-      try { await window.openTriplemAiRecord(record); return; } catch (error) { console.warn("Timeline record overlay failed",error); }
+    setTimelineRecordLoading(true,item,card);
+    try {
+      if (typeof window.openTriplemAiRecord === "function") {
+        await window.openTriplemAiRecord(record);
+        return;
+      }
+      throw new Error("Record viewer is unavailable.");
+    } catch (error) {
+      console.warn("Timeline record overlay failed",error);
+      const loader=timelineRecordLoader();
+      loader.querySelector("strong").textContent="Could not open this record";
+      loader.querySelector("small").textContent=String(error?.message||"Please try again.");
+      await new Promise(resolve=>setTimeout(resolve,900));
+    } finally {
+      setTimelineRecordLoading(false,item,card);
     }
   }
 

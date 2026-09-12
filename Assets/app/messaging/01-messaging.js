@@ -3443,10 +3443,18 @@ const messagesUiState = {
   userStarter: false
 };
 
-function setMessagesComposerVisible(show){
+function ensureMessagesComposerPortal(){
   const composer = document.getElementById("messagesNewComposer");
-  // New-message composition is an Admin-only recipient picker. Keep it as a
-  // true overlay so opening it never changes the Messages workspace layout.
+  if (!composer || !document.body) return composer;
+  // Keep the composer outside the Messages workspace. Several themed workspace
+  // containers use transforms/containment, which can otherwise make a fixed
+  // child behave like it belongs to the previous conversation layout.
+  if (composer.parentElement !== document.body) document.body.appendChild(composer);
+  return composer;
+}
+
+function setMessagesComposerVisible(show){
+  const composer = ensureMessagesComposerPortal();
   const allowed = !!show && isAppAdminSession();
   if (composer) {
     composer.classList.toggle("hide", !allowed);
@@ -4029,6 +4037,7 @@ async function sendInquiryReply(){
 
 function bindMessagingUi(){
   ensureFloatingMessageDock();
+  ensureMessagesComposerPortal();
   bindMessagesFocusMode();
   const refreshBtn = document.getElementById("messagesRefreshBtn");
   if (refreshBtn) refreshBtn.addEventListener("click", () => renderMessagesPanel());
