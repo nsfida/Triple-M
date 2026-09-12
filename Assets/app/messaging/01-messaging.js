@@ -12,7 +12,12 @@ const messagingLiveState = {
   lastNoteReminderDispatchAt: 0,
   lastSubscriptionProfileRefreshKey: "",
   lastLiveChatPresenceSweepAt: 0,
-  liveChatPresenceSweepAvailable: null
+  liveChatPresenceSweepAvailable: null,
+  receiptRpcAvailable: null,
+  deliveryAckRpcAvailable: null,
+  lastReceiptRefreshAt: 0,
+  activeReceiptThreadId: "",
+  activeReceipts: null
 };
 
 const MESSAGING_LIVE_POLL_MS = 900;
@@ -752,6 +757,122 @@ function isIncomingPersonalMessage(item, admin = isAppAdminSession()){
   const role = String(item.last_message_role || "").toLowerCase();
   if (admin || isAssignedSupportThread(item)) return role === "user" || role === "guest";
   return role === "admin";
+}
+
+function receiptTimestampReached(marker, createdAt){
+  const markerMs = Date.parse(marker || "");
+  const createdMs = Date.parse(createdAt || "");
+  return Number.isFinite(markerMs) && Number.isFinite(createdMs) && markerMs >= createdMs;
+}
+
+function messageDeliveryState(message, receipts){
+  if (!message || !receipts) return "sent";
+  const role = String(message.sender_role || "").toLowerCase();
+  const createdAt = message.created_at;
+  if (role === "admin") {
+    if (receiptTimestampReached(receipts.user_last_read_at, createdAt)) return "read";
+    if (receiptTimestampReached(receipts.user_last_delivered_at, createdAt)) return "delivered";
+  } else if (role === "user") {
+    if (receiptTimestampReached(receipts.admin_last_read_at, createdAt)) return "read";
+    if (receiptTimestampReached(receipts.admin_last_delivered_at, createdAt)) return "delivered";
+  }
+  return "sent";
+}
+
+function deliveryStateLabel(stateName){
+  if (stateName === "read") return "Read";
+  if (stateName === "delivered") return "Delivered";
+  return "Sent";
+}
+
+function messageDeliveryTickHtml(message, receipts, mine, inquiry){
+  if (!mine || !isPersonalMessageThread(inquiry)) return "";
+  const role = String(message?.sender_role || "").toLowerCase();
+  if (role !== "admin" && role !== "user") return "";
+  const stateName = messageDeliveryState(message, receipts);
+  const label = deliveryStateLabel(stateName);
+  return `<span class="message-delivery-tick is-${stateName}" data-receipt-message="${escapeHtml(message.id || "")}" data-receipt-role="${escapeHtml(role)}" data-receipt-created-at="${escapeHtml(message.created_at || "")}" title="${label}" aria-label="${label}"><i class="fa-solid fa-check" aria-hidden="true"></i></span>`;
+}
+
+function applyReceiptStateToTick(tick, receipts){
+  if (!tick) return;
+  const stateName = messageDeliveryState({
+    sender_role: tick.dataset.receiptRole || "",
+    created_at: tick.dataset.receiptCreatedAt || ""
+  }, receipts);
+  tick.classList.remove("is-sent", "is-delivered", "is-read");
+  tick.classList.add(`is-${stateName}`);
+  const label = deliveryStateLabel(stateName);
+  tick.title = label;
+  tick.setAttribute("aria-label", label);
+}
+
+function updateActiveMessageReceiptTicks(receipts){
+  if (!receipts) return;
+  document.querySelectorAll("#messagesChatScroll .message-delivery-tick[data-receipt-message]").forEach(tick => {
+    applyReceiptStateToTick(tick, receipts);
+  });
+}
+
+function isReceiptRpcMissingError(err, functionName){
+  return new RegExp(`${functionName}|Could not find the function|404|PGRST202|schema cache`, "i").test(String(err?.message || err || ""));
+}
+
+async function fetchInquiryReceipts(inquiryId, options = {}){
+  const id = String(inquiryId || "");
+  if (!id || messagingLiveState.receiptRpcAvailable === false) return null;
+  const force = options.force === true;
+  if (!force && messagingLiveState.activeReceiptThreadId === id && messagingLiveState.activeReceipts) {
+    return messagingLiveState.activeReceipts;
+  }
+  try {
+    const receipts = unwrapRpcJson(await supabaseRpc("app_get_inquiry_receipts", { p_inquiry_id: id })) || null;
+    messagingLiveState.receiptRpcAvailable = true;
+    messagingLiveState.activeReceiptThreadId = id;
+    messagingLiveState.activeReceipts = receipts;
+    return receipts;
+  } catch (err) {
+    if (isReceiptRpcMissingError(err, "app_get_inquiry_receipts")) {
+      messagingLiveState.receiptRpcAvailable = false;
+      return null;
+    }
+    console.warn("Message receipt refresh failed:", err);
+    return null;
+  }
+}
+
+async function acknowledgePersonalMessageDelivery(threads, admin = isAppAdminSession()){
+  if (messagingLiveState.deliveryAckRpcAvailable === false) return 0;
+  const ids = (Array.isArray(threads) ? threads : [])
+    .filter(isPersonalMessageThread)
+    .filter(thread => personalMessageServerUnreadCount(thread, admin) > 0)
+    .map(thread => String(thread.id || ""))
+    .filter(Boolean);
+  if (!ids.length) return 0;
+  try {
+    const result = unwrapRpcJson(await supabaseRpc("app_mark_inquiries_delivered", { p_inquiry_ids: ids })) || {};
+    messagingLiveState.deliveryAckRpcAvailable = true;
+    return Math.max(0, Number(result.updated) || 0);
+  } catch (err) {
+    if (isReceiptRpcMissingError(err, "app_mark_inquiries_delivered")) {
+      messagingLiveState.deliveryAckRpcAvailable = false;
+      return 0;
+    }
+    console.warn("Message delivery acknowledgement failed:", err);
+    return 0;
+  }
+}
+
+async function refreshSelectedMessageReceipts(force = false){
+  if (getActiveTabKey() !== "messages" || !messagesUiState?.selectedId) return null;
+  const thread = (messagesUiState.threads || []).find(item => String(item.id) === String(messagesUiState.selectedId));
+  if (!isPersonalMessageThread(thread)) return null;
+  const now = Date.now();
+  if (!force && now - Number(messagingLiveState.lastReceiptRefreshAt || 0) < 1200) return messagingLiveState.activeReceipts;
+  messagingLiveState.lastReceiptRefreshAt = now;
+  const receipts = await fetchInquiryReceipts(messagesUiState.selectedId, { force: true });
+  if (receipts) updateActiveMessageReceiptTicks(receipts);
+  return receipts;
 }
 
 function personalThreadSignature(item){
@@ -2708,6 +2829,7 @@ async function runMessagingLivePoll(){
   if (!messagingLiveEligible() || document.hidden) return;
   try {
     await dispatchDueNoteRemindersThrottled(false);
+    await refreshSelectedMessageReceipts(false);
 
     // Build 153: authoritative visitor-presence reconciliation. The browser poll
     // is intentionally throttled so an Agent learns about a real website exit
@@ -2814,6 +2936,7 @@ async function refreshAdminCommsBadges(){
       fetchPersonalMessageThreads(300, null)
     ]);
     const admin = isAppAdminSession();
+    await acknowledgePersonalMessageDelivery(threads, admin);
     const subscriptionUpdate = !admin ? notifications.find(item => !item.is_read && isSubscriptionUserNotification(item)) : null;
     const subscriptionKey = subscriptionUpdate ? `${subscriptionUpdate.id}:${subscriptionUpdate.created_at || ""}` : "";
     if (subscriptionKey && messagingLiveState.lastSubscriptionProfileRefreshKey !== subscriptionKey) {
@@ -3322,10 +3445,14 @@ const messagesUiState = {
 
 function setMessagesComposerVisible(show){
   const composer = document.getElementById("messagesNewComposer");
-  // Registered users now use the same conversation surface as every reply.
-  // The separate compose card is an admin-only recipient picker.
+  // New-message composition is an Admin-only recipient picker. Keep it as a
+  // true overlay so opening it never changes the Messages workspace layout.
   const allowed = !!show && isAppAdminSession();
-  if (composer) composer.classList.toggle("hide", !allowed);
+  if (composer) {
+    composer.classList.toggle("hide", !allowed);
+    composer.setAttribute("aria-hidden", allowed ? "false" : "true");
+  }
+  document.body?.classList.toggle("messages-compose-open", allowed);
 }
 
 function preferredUserAdminThread(items){
@@ -3417,10 +3544,10 @@ async function prepareMessagesComposer(){
   const body = document.getElementById("inquiryBody");
   const err = document.getElementById("inquiryFormError");
 
-  if (title) title.textContent = admin ? "Message a user" : "Start a conversation";
+  if (title) title.textContent = admin ? "New message" : "Start a conversation";
   if (help) {
     help.textContent = admin
-      ? "Choose an existing account, then write a subject and first message."
+      ? "Choose the recipient, add a clear subject, and write your message."
       : "Describe your request clearly. The administrator can reply here in Messages.";
   }
   if (pickWrap) pickWrap.classList.toggle("hide", !admin);
@@ -3490,7 +3617,7 @@ async function renderMessagesPanel(options = {}){
     if (filters) filters.classList.toggle("hide", !admin);
     if (newBtn) {
       newBtn.classList.toggle("hide", !admin);
-      if (admin) newBtn.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Message user`;
+      if (admin) newBtn.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> New message`;
     }
     list.innerHTML = `<div class="empty">Loading…</div>`;
   }
@@ -3510,6 +3637,7 @@ async function renderMessagesPanel(options = {}){
       items = (Array.isArray(result?.items) ? result.items : []).filter(isUserVisibleMessageThread);
     }
     messagesUiState.threads = items;
+    acknowledgePersonalMessageDelivery(items, admin).catch(() => {});
     renderMessagesThreadList(list, items, admin);
 
     // User accounts deliberately behave like one continuing Admin conversation.
@@ -3710,6 +3838,7 @@ async function openInquiryThread(inquiryId, options = {}){
     }
     const inquiry = result?.inquiry || {};
     const messages = Array.isArray(result?.messages) ? result.messages : [];
+    const receipts = isPersonalMessageThread(inquiry) ? await fetchInquiryReceipts(inquiryId, { force: true }) : null;
     messagesUiState.canReply = !!result?.can_reply;
     markFloatingThreadLocallyRead(inquiry);
     const admin = isAppAdminSession();
@@ -3774,7 +3903,7 @@ async function openInquiryThread(inquiryId, options = {}){
           <div class="chat-bubble ${roleClass}">
             <div class="chat-bubble-meta">
               <span class="chat-bubble-who"><strong>${escapeHtml(m.sender_label || m.sender_role)}</strong>${actorBadge}</span>
-              <span>${escapeHtml(formatRelativeTime(m.created_at))}</span>
+              <span class="chat-message-time-status">${escapeHtml(formatRelativeTime(m.created_at))}${messageDeliveryTickHtml(m, receipts, mine, inquiry)}</span>
             </div>
             <div class="chat-bubble-body" dir="auto">${escapeHtml(m.body)}</div>
           </div>
@@ -3806,6 +3935,7 @@ async function openInquiryThread(inquiryId, options = {}){
       }
     }
 
+    if (receipts) updateActiveMessageReceiptTicks(receipts);
     if (!silent || wasNearBottom) {
       scroll.scrollTop = scroll.scrollHeight;
     }
@@ -3919,9 +4049,19 @@ function bindMessagingUi(){
       document.getElementById("messagesUserSelect")?.focus();
     });
   }
-  document.getElementById("messagesNewCancelBtn")?.addEventListener("click", () => {
-    setMessagesComposerVisible(false);
+  const messagesComposer = document.getElementById("messagesNewComposer");
+  messagesComposer?.addEventListener("click", e => {
+    if (e.target.closest("[data-messages-compose-close]")) setMessagesComposerVisible(false);
   });
+  if (!document.documentElement.dataset.messagesComposeEscapeBound) {
+    document.documentElement.dataset.messagesComposeEscapeBound = "1";
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && !document.getElementById("messagesNewComposer")?.classList.contains("hide")) {
+        setMessagesComposerVisible(false);
+        document.getElementById("messagesNewBtn")?.focus({ preventScroll: true });
+      }
+    });
+  }
 
   const submitBtn = document.getElementById("inquirySubmitBtn");
   if (submitBtn) {
