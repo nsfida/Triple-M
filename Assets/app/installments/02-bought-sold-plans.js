@@ -27,6 +27,11 @@
   function typeDirection(type){ return normalizeInstallmentPlanType(type) === "sold" ? "given" : "taken"; }
   function isSold(value){ return typeOf(value) === "sold"; }
   function detailPrefix(edit){ return edit ? "installment_edit_detail_" : "installment_detail_"; }
+  function closeInstallmentEntryMenus(){
+    document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+    document.querySelectorAll(".menu-wrap.open").forEach(wrap => wrap.classList.remove("open"));
+    document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+  }
 
   function collectDetails(form, edit=false){
     const prefix = detailPrefix(edit);
@@ -374,8 +379,8 @@
 
   document.addEventListener("DOMContentLoaded",()=>{
     document.querySelectorAll("[data-installment-plan-view]").forEach(btn=>btn.addEventListener("click",()=>setPlanView(btn.dataset.installmentPlanView)));
-    document.getElementById("installmentNewPlanBtn")?.addEventListener("click",()=>{ closeAllMenus(); global.openEntryModal("principal",typeDirection(activeType()),{installment:true,installmentType:activeType()}); });
-    document.getElementById("installmentNewPaymentBtn")?.addEventListener("click",()=>{ closeAllMenus(); global.openEntryModal("payment",typeDirection(activeType()),{installment:true,installmentType:activeType()}); });
+    document.getElementById("installmentNewPlanBtn")?.addEventListener("click",()=>{ closeInstallmentEntryMenus(); global.openEntryModal("principal",typeDirection(activeType()),{installment:true,installmentType:activeType()}); });
+    document.getElementById("installmentNewPaymentBtn")?.addEventListener("click",()=>{ closeInstallmentEntryMenus(); global.openEntryModal("payment",typeDirection(activeType()),{installment:true,installmentType:activeType()}); });
     syncModeUi();
   });
 })(window);
