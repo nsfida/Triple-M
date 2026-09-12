@@ -919,6 +919,7 @@
   <link rel="stylesheet" href="Assets/style/47-section-keyboard-shortcuts.css?v=20260909-sections002" />
   <link rel="stylesheet" href="Assets/style/48-installment-bought-sold.css?v=20260910-installments163" />
   <link rel="stylesheet" href="Assets/style/50-dashboard-financial-timeline.css?v=20260910-timeline164" />
+  <link rel="stylesheet" href="Assets/style/51-messages-compose-receipts.css?v=20260912-messages166" />
 </head>
 <body>
   <div class="floating-circles" aria-hidden="true">
@@ -4678,11 +4679,12 @@
             </div>
           </div>
 
-          <div id="messagesNewComposer" class="messages-compose hide">
-            <div class="messages-compose-card">
+          <div id="messagesNewComposer" class="messages-compose hide" role="dialog" aria-modal="true" aria-labelledby="messagesNewTitle" aria-hidden="true">
+            <div class="messages-compose-backdrop" data-messages-compose-close aria-hidden="true"></div>
+            <div class="messages-compose-card" role="document">
               <div class="messages-compose-head">
                 <h4 id="messagesNewTitle">Start a conversation</h4>
-                <button type="button" class="btn ghost" id="messagesNewCancelBtn" aria-label="Close composer"><i class="fa-solid fa-times"></i></button>
+                <button type="button" class="btn ghost" id="messagesNewCancelBtn" data-messages-compose-close aria-label="Close composer"><i class="fa-solid fa-times"></i></button>
               </div>
               <p class="help" id="messagesNewHelp">Describe your request clearly. The administrator can reply here in Messages.</p>
               <div class="form-group hide" id="messagesUserPickWrap">
@@ -6991,7 +6993,7 @@
   <script src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158"></script>
   <script src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
-  <script src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156"></script>
+  <script src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=166"></script>
   <script src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139"></script>
   <script src="Assets/app/boot.js?v=20260906-currency001"></script>
 </body>
