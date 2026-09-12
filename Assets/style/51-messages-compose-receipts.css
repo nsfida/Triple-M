@@ -1,87 +1,116 @@
-/* Build 166: Messages compose overlay + private message delivery receipts. */
+/* Build 166/167: Messages compose viewport overlay + private message receipts. */
 
-#messagesNewComposer.messages-compose{
+body > #messagesNewComposer.messages-compose{
   position:fixed;
   inset:0;
-  z-index:1260;
+  z-index:2147481800;
   display:grid;
   place-items:center;
   margin:0!important;
-  padding:clamp(14px,3vw,28px);
+  padding:14px;
   overflow:auto;
   overscroll-behavior:contain;
+  isolation:isolate;
 }
 #messagesNewComposer.messages-compose.hide{display:none!important}
-.messages-compose-backdrop{
-  position:fixed;
+#messagesNewComposer .messages-compose-backdrop{
+  position:absolute;
   inset:0;
-  background:color-mix(in srgb,#0f172a 48%,transparent);
-  backdrop-filter:blur(5px);
-  -webkit-backdrop-filter:blur(5px);
+  background:color-mix(in srgb,#0f172a 42%,transparent);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
 }
 #messagesNewComposer .messages-compose-card{
   position:relative;
   z-index:1;
-  width:min(620px,100%);
-  max-height:min(760px,calc(100dvh - 32px));
+  width:min(510px,calc(100vw - 28px));
+  max-height:min(620px,calc(100dvh - 28px));
   overflow:auto;
-  padding:20px;
-  border:1px solid color-mix(in srgb,var(--primary,#2457d6) 18%,var(--line));
-  border-radius:18px;
-  background:
-    radial-gradient(circle at top right,color-mix(in srgb,var(--primary,#2457d6) 7%,transparent),transparent 42%),
-    var(--panel,#fff);
-  box-shadow:0 28px 80px rgba(15,23,42,.26);
+  padding:15px;
+  border:1px solid color-mix(in srgb,var(--primary,#2457d6) 16%,var(--line));
+  border-radius:15px;
+  background:var(--panel,#fff);
+  box-shadow:0 22px 64px rgba(15,23,42,.24);
 }
 #messagesNewComposer .messages-compose-head{
-  margin-bottom:6px;
-  padding-bottom:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 7px;
+  padding:0 0 8px;
   border-bottom:1px solid var(--line);
 }
 #messagesNewComposer .messages-compose-head h4{
+  margin:0;
   display:flex;
   align-items:center;
-  gap:9px;
+  gap:8px;
+  font-size:.94rem;
 }
 #messagesNewComposer .messages-compose-head h4::before{
   content:"\f304";
   font-family:"Font Awesome 6 Free";
   font-weight:900;
-  width:34px;
-  height:34px;
+  width:28px;
+  height:28px;
   display:grid;
   place-items:center;
-  border-radius:11px;
-  background:color-mix(in srgb,var(--primary,#2457d6) 11%,var(--panel,#fff));
+  flex:0 0 28px;
+  border-radius:9px;
+  background:color-mix(in srgb,var(--primary,#2457d6) 10%,var(--panel,#fff));
   color:var(--primary,#2457d6);
-  font-size:.84rem;
+  font-size:.72rem;
 }
 #messagesNewComposer .messages-compose-head .btn{
-  width:36px;
-  height:36px;
-  min-width:36px;
+  width:30px;
+  height:30px;
+  min-width:30px;
+  min-height:30px;
   padding:0;
-  border-radius:11px;
+  border-radius:9px;
 }
-#messagesNewComposer .help{margin:10px 0 14px}
-#messagesNewComposer .form-group{margin-bottom:12px}
+#messagesNewComposer .help{
+  margin:7px 0 10px;
+  font-size:.72rem;
+  line-height:1.42;
+}
+#messagesNewComposer .form-group{margin-bottom:9px}
+#messagesNewComposer .form-label{
+  display:block;
+  margin-bottom:4px;
+  font-size:.71rem;
+  font-weight:750;
+}
+#messagesNewComposer .input,
+#messagesNewComposer .select{
+  min-height:36px;
+  padding-top:7px;
+  padding-bottom:7px;
+  border-radius:10px;
+  font-size:.78rem;
+}
 #messagesNewComposer .messages-textarea{
-  min-height:132px;
-  max-height:260px;
+  min-height:94px;
+  max-height:170px;
   resize:vertical;
+  line-height:1.42;
 }
+#messagesNewComposer #inquiryFormError{margin-top:2px}
 #messagesNewComposer .messages-compose-actions{
-  position:sticky;
-  bottom:-20px;
-  margin:4px -20px -20px;
-  padding:12px 20px 16px;
+  display:flex;
+  justify-content:flex-end;
+  margin:9px 0 0;
+  padding:9px 0 0;
   border-top:1px solid var(--line);
-  background:color-mix(in srgb,var(--panel,#fff) 94%,transparent);
-  backdrop-filter:blur(8px);
+  background:transparent;
 }
 #messagesNewComposer .messages-compose-actions .btn{
-  min-width:136px;
+  min-width:116px;
+  min-height:35px;
   justify-content:center;
+  border-radius:10px;
+  font-size:.75rem;
 }
 body.messages-compose-open{overflow:hidden!important}
 
@@ -106,35 +135,23 @@ body.messages-compose-open{overflow:hidden!important}
 .message-delivery-tick.is-read{color:#166534}
 .message-delivery-tick.is-read i{transform:scale(1.04)}
 
-@media (max-width:900px){
-  #messagesNewComposer.messages-compose{
-    align-items:end;
-    padding:10px;
+@media (max-width:600px){
+  body > #messagesNewComposer.messages-compose{
+    place-items:center;
+    padding:9px;
   }
   #messagesNewComposer .messages-compose-card{
-    width:100%;
-    max-height:calc(100dvh - 20px);
-    padding:16px;
-    border-radius:18px 18px 14px 14px;
+    width:min(100%,430px);
+    max-height:calc(100dvh - 18px);
+    padding:13px;
+    border-radius:14px;
   }
-  #messagesNewComposer .messages-compose-actions{
-    bottom:-16px;
-    margin:4px -16px -16px;
-    padding:11px 16px calc(13px + env(safe-area-inset-bottom));
-  }
-  #messagesNewComposer .messages-compose-actions .btn{width:100%}
-  #messagesNewComposer .messages-textarea{min-height:120px;max-height:210px}
-}
-
-@media (max-width:520px){
-  #messagesNewComposer.messages-compose{padding:6px}
-  #messagesNewComposer .messages-compose-card{
-    max-height:calc(100dvh - 12px);
-    border-radius:16px;
-  }
-  #messagesNewComposer .messages-compose-head h4{font-size:.96rem}
-  #messagesNewComposer .help{font-size:.76rem;line-height:1.45}
-  #messagesNewComposer .form-label{font-size:.74rem}
+  #messagesNewComposer .messages-compose-head{margin-bottom:6px;padding-bottom:7px}
+  #messagesNewComposer .help{margin:6px 0 9px;font-size:.69rem}
+  #messagesNewComposer .form-group{margin-bottom:8px}
+  #messagesNewComposer .messages-textarea{min-height:86px;max-height:145px}
+  #messagesNewComposer .messages-compose-actions{margin-top:8px;padding-top:8px}
+  #messagesNewComposer .messages-compose-actions .btn{width:100%;min-height:36px}
   #messagesNewComposer .input,
   #messagesNewComposer .select,
   #messagesNewComposer textarea{font-size:16px!important}

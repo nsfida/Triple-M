@@ -27,3 +27,16 @@
 @media(prefers-reduced-motion:reduce){.timeline-event-card,.dashboard-main-tab{transition:none}.timeline-loading span{animation:none}}
 .timeline-day-net{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;color:var(--muted);font-size:.61rem}.timeline-day-net .timeline-summary-currency{font-size:.61rem!important;padding:1px 4px;background:var(--panel-2)}
 @media(max-width:600px){.timeline-day-net{margin-left:auto;margin-top:0;justify-content:flex-end}}
+
+/* Build 167 — record-opening feedback and stable timeline interaction. */
+.timeline-event-card.is-opening{cursor:progress;pointer-events:none;opacity:.72;transform:none!important}
+.timeline-event-card.is-opening .timeline-event-open{display:none}
+.timeline-event-card.is-opening:after{content:"";position:absolute;right:9px;top:50%;width:11px;height:11px;margin-top:-6px;border-radius:50%;border:2px solid color-mix(in srgb,var(--primary) 18%,var(--line));border-top-color:var(--primary);animation:timelineRecordSpin .7s linear infinite}
+.timeline-record-loader{position:fixed;inset:0;z-index:2147481600;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#0f172a 10%,transparent);pointer-events:auto}
+.timeline-record-loader.hide{display:none!important}
+.timeline-record-loader-card{display:flex;align-items:center;gap:11px;width:min(340px,calc(100vw - 30px));padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:var(--panel);color:var(--text);box-shadow:0 16px 48px rgba(15,23,42,.2)}
+.timeline-record-loader-card>div{display:grid;gap:2px;min-width:0}.timeline-record-loader-card strong{font-size:.78rem}.timeline-record-loader-card small{font-size:.67rem;color:var(--muted);line-height:1.35}
+.timeline-record-loader-spinner{width:22px;height:22px;flex:0 0 22px;border-radius:50%;border:2px solid color-mix(in srgb,var(--primary) 18%,var(--line));border-top-color:var(--primary);animation:timelineRecordSpin .7s linear infinite}
+@keyframes timelineRecordSpin{to{transform:rotate(360deg)}}
+@media(max-width:600px){.timeline-record-loader-card{padding:12px;border-radius:11px}.timeline-record-loader-card strong{font-size:.75rem}}
+@media(prefers-reduced-motion:reduce){.timeline-event-card.is-opening:after,.timeline-record-loader-spinner{animation:none}}

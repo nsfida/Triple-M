@@ -997,3 +997,112 @@ button.expense-audit-badge{font:inherit;cursor:pointer}
   .expense-page-number,.expense-page-nav{box-shadow:none}
   .expense-tx-row[role="button"]:hover td,.expense-item-row>summary:hover{background:inherit}
 }
+
+/* Build 167 — wallet details transaction paging. */
+.section-details-actions .wallet-account-details-btn,
+.section-details-actions .wallet-transactions-btn{
+  min-height:30px!important;
+  padding:5px 9px!important;
+  border-radius:9px!important;
+  gap:5px;
+  white-space:nowrap;
+  font-size:.68rem!important;
+}
+.section-details-actions .wallet-transactions-btn.is-active{
+  color:var(--primary);
+  border-color:color-mix(in srgb,var(--primary) 35%,var(--line));
+  background:color-mix(in srgb,var(--primary) 7%,var(--panel));
+}
+.wallet-transactions-view{display:grid;gap:10px;min-width:0}
+.wallet-transactions-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+  padding:0 1px 2px;border-bottom:1px solid var(--line);
+}
+.wallet-transactions-head>div{display:grid;gap:2px}
+.wallet-transactions-head span{font-size:.65rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.045em}
+.wallet-transactions-head strong{font-size:.8rem;color:var(--text)}
+.wallet-transactions-head small{font-size:.67rem;color:var(--muted);text-align:right}
+.wallet-transactions-list{display:grid;gap:6px}
+.wallet-transaction-row{
+  display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;
+  min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:11px;
+  background:var(--panel);box-shadow:0 2px 7px rgba(0,0,0,.025);
+}
+.wallet-transaction-icon{
+  width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  color:var(--primary);background:color-mix(in srgb,var(--primary) 9%,transparent);font-size:.72rem;
+}
+.wallet-transaction-row.is-in .wallet-transaction-icon{color:var(--success);background:color-mix(in srgb,var(--success) 10%,transparent)}
+.wallet-transaction-row.is-out .wallet-transaction-icon{color:var(--danger);background:color-mix(in srgb,var(--danger) 9%,transparent)}
+.wallet-transaction-main{display:grid;gap:3px;min-width:0}
+.wallet-transaction-title{display:flex;align-items:center;gap:7px;min-width:0}
+.wallet-transaction-title strong{font-size:.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.wallet-transaction-title span{flex:0 0 auto;font-size:.59rem;font-weight:800;color:var(--muted);padding:2px 5px;border:1px solid var(--line);border-radius:999px;background:var(--panel-2)}
+.wallet-transaction-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px 10px;color:var(--muted);font-size:.63rem}
+.wallet-transaction-meta span{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.wallet-transaction-meta i{font-size:.58rem}
+.wallet-transaction-main p{margin:0;color:var(--muted);font-size:.66rem;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wallet-transaction-amount{font-size:.78rem;font-weight:850;white-space:nowrap;text-align:right}
+.wallet-transaction-amount.is-in{color:var(--success)}
+.wallet-transaction-amount.is-out{color:var(--danger)}
+.wallet-transactions-pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:3px 0 0}
+.wallet-transaction-page-numbers{display:flex;align-items:center;gap:4px}
+.wallet-transaction-page-number,.wallet-transaction-page-nav{
+  appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--text);
+  min-width:30px;height:30px;border-radius:8px;padding:0 8px;font:inherit;font-size:.68rem;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;box-shadow:none;
+}
+.wallet-transaction-page-number.is-active{background:var(--primary);border-color:var(--primary);color:#fff;cursor:default}
+.wallet-transaction-page-number:not(.is-active):hover,.wallet-transaction-page-nav:not(:disabled):hover{background:color-mix(in srgb,var(--primary) 7%,var(--panel));border-color:color-mix(in srgb,var(--primary) 30%,var(--line))}
+.wallet-transaction-page-nav:disabled{opacity:.38;cursor:not-allowed}
+.wallet-transaction-page-gap{color:var(--muted);font-size:.7rem;padding:0 1px}
+.wallet-transactions-loading,.wallet-transactions-empty{
+  min-height:210px;border:1px dashed var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel-2) 68%,transparent);
+  display:grid;place-items:center;align-content:center;text-align:center;gap:6px;padding:22px;color:var(--muted)
+}
+.wallet-transactions-loading strong,.wallet-transactions-empty strong{font-size:.82rem;color:var(--text)}
+.wallet-transactions-loading small,.wallet-transactions-empty span{font-size:.68rem;max-width:360px}
+.wallet-transactions-empty>i{font-size:1.05rem;color:var(--primary)}
+.wallet-transactions-empty.is-error>i{color:var(--danger)}
+.wallet-transactions-spinner{width:22px;height:22px;border-radius:50%;border:2px solid color-mix(in srgb,var(--primary) 18%,var(--line));border-top-color:var(--primary);animation:walletTransactionsSpin .72s linear infinite}
+@keyframes walletTransactionsSpin{to{transform:rotate(360deg)}}
+@media(max-width:680px){
+  .section-details-actions .wallet-account-details-btn,
+  .section-details-actions .wallet-transactions-btn{min-height:28px!important;padding:4px 7px!important;font-size:.63rem!important}
+  .section-details-actions .wallet-account-details-btn span,
+  .section-details-actions .wallet-transactions-btn span{display:inline}
+  .wallet-transactions-head{align-items:flex-start;display:grid;gap:2px}
+  .wallet-transactions-head small{text-align:left}
+  .wallet-transaction-row{grid-template-columns:30px minmax(0,1fr);gap:8px;padding:8px}
+  .wallet-transaction-icon{width:30px;height:30px;border-radius:8px}
+  .wallet-transaction-amount{grid-column:2/3;text-align:left;margin-top:1px;font-size:.74rem}
+  .wallet-transaction-main p{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .wallet-transaction-title{align-items:flex-start;flex-wrap:wrap;gap:4px 6px}
+  .wallet-transactions-pagination{gap:4px}
+  .wallet-transaction-page-number,.wallet-transaction-page-nav{height:29px;min-width:29px;padding:0 6px;font-size:.64rem}
+  .wallet-transaction-page-nav span{display:none}
+}
+@media(prefers-reduced-motion:reduce){.wallet-transactions-spinner{animation:none}}
+
+
+/* Wallet transaction overlay polish — preserve scrolling without visible bars. */
+#sectionDetailsBody:has(> .wallet-transactions-view){
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+#sectionDetailsBody:has(> .wallet-transactions-view)::-webkit-scrollbar{
+  display:none;
+  width:0;
+  height:0;
+}
+.section-details-actions .wallet-account-details-btn,
+.section-details-actions .wallet-transactions-btn{
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  gap:6px!important;
+}
+.section-details-actions .wallet-account-details-btn>i,
+.section-details-actions .wallet-transactions-btn>i{
+  flex:0 0 auto;
+}
