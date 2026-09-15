@@ -237,11 +237,23 @@
 
   const FRIENDLY_FIELDS = [
     ["amount","Amount"],["action_amount","Amount"],["expense_date","Date"],["topup_date","Date"],["action_date","Date"],
-    ["account_name","Wallet"],["item_name","Item"],["expense_type","Type"],["currency","Currency"],["notes","Notes"],["details","Optional details"]
+    ["account_name","Wallet"],["item_name","Item"],["expense_type","Type"],["currency","Currency"],["notes","Notes"]
   ];
+  function cleanAuditNote(value){
+    const raw = String(value || "");
+    if (!raw) return "—";
+    if (typeof cleanExpenseNote === "function") return cleanExpenseNote(raw);
+    const cleaned = raw
+      .replace(/\[EXPENSE_ACCOUNT\]/gi, "")
+      .replace(/\[AI_CREATED\]/gi, "")
+      .replace(/\[(?:ATYPE|ETYPE|ITEM|XTYPE|BADDR|BNET|CLOGO|VATP|VATR|VATM|VATA|NET|GROSS|WSORT|XDET|ADET):[^\]]*\]/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return cleaned || "—";
+  }
   function displayAuditValue(key,value){
     if (value == null || value === "") return "—";
-    if (key === "details" && typeof value === "object") return JSON.stringify(value);
+    if (key === "notes") return cleanAuditNote(value);
     if (/amount/.test(key)) return String(value);
     return String(value);
   }
@@ -250,9 +262,10 @@
     const seen = new Set(); const rows = [];
     for (const [key,label] of FRIENDLY_FIELDS){
       if (seen.has(label)) continue;
-      const a = before[key], b = after[key];
-      if (JSON.stringify(a) === JSON.stringify(b)) continue;
-      seen.add(label); rows.push({label, before:displayAuditValue(key,a), after:displayAuditValue(key,b)});
+      const a = displayAuditValue(key, before[key]);
+      const b = displayAuditValue(key, after[key]);
+      if (a === b) continue;
+      seen.add(label); rows.push({label, before:a, after:b});
     }
     return rows;
   }
@@ -264,8 +277,7 @@
       const when = expenseRecordedText(ev.created_at);
       return `<article class="expense-audit-event ${statusClass(ev.event_type)}">
         <header><span class="expense-audit-event-title">${esc(eventTitle(ev.event_type))}</span><small>${esc(when)} · ${esc(ev.actor || "System")}</small></header>
-        ${changes.length ? `<div class="expense-audit-diff">${changes.map(c => `<div><small>${esc(c.label)}</small><span>${esc(c.before)}</span><i class="fa-solid fa-arrow-right"></i><strong>${esc(c.after)}</strong></div>`).join("")}</div>` : `<p class="expense-audit-event-note">Lifecycle status changed; the financial values were preserved.</p>`}
-        <details class="expense-audit-raw"><summary>Raw record</summary><div><label>Before</label><pre>${esc(JSON.stringify(ev.snapshot_before || {}, null, 2))}</pre><label>After</label><pre>${esc(JSON.stringify(ev.snapshot_after || {}, null, 2))}</pre></div></details>
+        ${changes.length ? `<div class="expense-audit-diff">${changes.map(c => `<div><small>${esc(c.label)}</small><span>${esc(c.before)}</span><i class="fa-solid fa-arrow-right"></i><strong>${esc(c.after)}</strong></div>`).join("")}</div>` : `<p class="expense-audit-event-note">${ev.event_type === "edited" ? "Transaction details updated." : "Transaction status updated."}</p>`}
       </article>`;
     }).join("")}</div>`;
   }
