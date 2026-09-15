@@ -31447,3 +31447,44 @@ html.triplem-workspace-themed #themeDropdown .theme-menu-swatch{
   text-transform:none;
   letter-spacing:0;
 }
+
+/* 2026-09-15 — shared lightweight overlay entrance motion. Transform + opacity only for low-end-device smoothness. */
+@keyframes triplem-overlay-pop-in{
+  0%{opacity:0;transform:translate3d(0,9px,0) scale(.976)}
+  68%{opacity:1;transform:translate3d(0,-1px,0) scale(1.004)}
+  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes triplem-overlay-backdrop-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+.modal:not(.hide)>.modal-dialog,
+.modal:not(.hide)>.app-confirm-dialog,
+.signin-overlay:not(.hide)>.signin-overlay-card,
+.guest-restriction-overlay:not(.hide)>.guest-restriction-dialog,
+.app-download-overlay:not(.hide)>.app-download-modal,
+.transfer-success-overlay:not(.hide)>.transfer-success-content,
+.inquiry-overlay:not(.hide)>.inquiry-modal,
+.inv-scanner-overlay:not(.hide)>.inv-scanner-shell{
+  animation:triplem-overlay-pop-in .18s cubic-bezier(.16,1,.3,1) both;
+  transform-origin:center center;
+  backface-visibility:hidden;
+}
+.modal:not(.hide)>.modal-backdrop,
+.signin-overlay:not(.hide)>.signin-overlay-backdrop,
+.transfer-success-overlay:not(.hide)>.transfer-success-backdrop{
+  animation:triplem-overlay-backdrop-in .14s ease-out both;
+}
+@media (prefers-reduced-motion:reduce){
+  .modal:not(.hide)>.modal-dialog,
+  .modal:not(.hide)>.app-confirm-dialog,
+  .signin-overlay:not(.hide)>.signin-overlay-card,
+  .guest-restriction-overlay:not(.hide)>.guest-restriction-dialog,
+  .app-download-overlay:not(.hide)>.app-download-modal,
+  .transfer-success-overlay:not(.hide)>.transfer-success-content,
+  .inquiry-overlay:not(.hide)>.inquiry-modal,
+  .inv-scanner-overlay:not(.hide)>.inv-scanner-shell,
+  .modal:not(.hide)>.modal-backdrop,
+  .signin-overlay:not(.hide)>.signin-overlay-backdrop,
+  .transfer-success-overlay:not(.hide)>.transfer-success-backdrop{animation:none!important}
+}
