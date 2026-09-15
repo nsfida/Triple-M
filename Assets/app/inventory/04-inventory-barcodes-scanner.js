@@ -555,7 +555,7 @@
           <select id="inventoryBarcodeStatusFilter" class="select">
             <option value="all" ${barcodeUi.statusFilter === "all" ? "selected" : ""}>All</option>
             <option value="in_stock" ${barcodeUi.statusFilter === "in_stock" ? "selected" : ""}>In stock</option>
-            <option value="out" ${barcodeUi.statusFilter === "out" ? "selected" : ""}>Out / sold</option>
+            <option value="out" ${barcodeUi.statusFilter === "out" ? "selected" : ""}>Out of stock</option>
           </select>
         </label>
         <label class="inv-barcode-filter">
@@ -590,7 +590,7 @@
               <span>${escapeHtml(row.itemCode || "—")} · ${escapeHtml(row.barcode)} · stock ${escapeHtml(String(Math.max(0, Math.ceil(Number(row.remainingQty || 0)))))}</span>
             </div>
             <div class="inv-barcode-meta">
-              <em class="${row.status === "in_stock" ? "is-ok" : "is-out"}">${row.status === "in_stock" ? "In stock" : "Out / sold"}</em>
+              <em class="${row.status === "in_stock" ? "is-ok" : "is-out"}">${row.status === "in_stock" ? "In stock" : "Out of stock"}</em>
               <strong>${escapeHtml(moneySafe(row.unitPrice, row.currency))}</strong>
             </div>
             <input type="number" class="input inv-barcode-qty-input" data-barcode-qty="${escapeHtml(row.groupId)}" min="1" max="500" step="1" placeholder="${copies}" value="${overrideVal != null && String(overrideVal).trim() !== "" ? escapeHtml(String(overrideVal)) : ""}" title="Labels for this item (overrides mode)" aria-label="Label count" />

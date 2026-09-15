@@ -30,7 +30,7 @@ function inventorySectionStockMeta(items){
     else inStockCount += 1;
   });
   if (soldCount === list.length) {
-    return { inStockCount, lowStockCount, soldCount, stockKey: "sold", stockLabelBadge: "Sold", badgeClass: "badge-sold" };
+    return { inStockCount, lowStockCount, soldCount, stockKey: "sold", stockLabelBadge: "Out of stock", badgeClass: "badge-sold" };
   }
   if (lowStockCount > 0) {
     return { inStockCount, lowStockCount, soldCount, stockKey: "low", stockLabelBadge: "Low stock", badgeClass: "badge-low" };
@@ -1167,18 +1167,23 @@ function bindInventorySectionVariantActions(body, type){
       e.preventDefault();
       e.stopPropagation();
       const key = btn.dataset.sectionSkuMenu;
-      const panel = body.querySelector(`[data-section-sku-menu-panel="${key}"]`);
+      const panel = body.querySelector(`[data-section-sku-menu-panel="${key}"]`)
+        || Array.from(document.querySelectorAll("[data-section-sku-menu-panel]")).find(candidate => String(candidate.dataset.sectionSkuMenuPanel || "") === String(key));
       if (!panel) return;
       document.querySelectorAll(".menu-dropdown.open").forEach(openPanel => {
         if (openPanel !== panel) openPanel.classList.remove("open");
       });
       const nowOpen = panel.classList.toggle("open");
       btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+      if (!nowOpen) {
+        if (typeof restorePortaledFixedMenuDropdown === "function") restorePortaledFixedMenuDropdown(panel);
+        return;
+      }
       if (nowOpen) {
         panel.style.visibility = "hidden";
         panel.style.zIndex = "13000";
         if (typeof positionFixedMenuDropdown === "function") {
-          positionFixedMenuDropdown(panel, btn, { minWidth: 180, gap: 6 });
+          positionFixedMenuDropdown(panel, btn, { minWidth: 180, gap: 6, portal: true });
         }
         panel.style.visibility = "";
       }
@@ -1885,18 +1890,23 @@ function bindInventoryCatalogMenus(root, onAction){
       e.preventDefault();
       e.stopPropagation();
       const key = btn.dataset.catalogMenu;
-      const panel = root.querySelector(`[data-catalog-menu-panel="${key}"]`);
+      const panel = root.querySelector(`[data-catalog-menu-panel="${key}"]`)
+        || Array.from(document.querySelectorAll("[data-catalog-menu-panel]")).find(candidate => String(candidate.dataset.catalogMenuPanel || "") === String(key));
       if (!panel) return;
       document.querySelectorAll(".menu-dropdown.open").forEach(openPanel => {
         if (openPanel !== panel) openPanel.classList.remove("open");
       });
       const nowOpen = panel.classList.toggle("open");
       btn.setAttribute("aria-expanded", nowOpen ? "true" : "false");
+      if (!nowOpen) {
+        if (typeof restorePortaledFixedMenuDropdown === "function") restorePortaledFixedMenuDropdown(panel);
+        return;
+      }
       if (nowOpen) {
         panel.style.visibility = "hidden";
         panel.style.zIndex = "13000";
         if (typeof positionFixedMenuDropdown === "function") {
-          positionFixedMenuDropdown(panel, btn, { minWidth: 160, gap: 6 });
+          positionFixedMenuDropdown(panel, btn, { minWidth: 160, gap: 6, portal: true });
         }
         panel.style.visibility = "";
       }
@@ -1906,10 +1916,19 @@ function bindInventoryCatalogMenus(root, onAction){
     btn.addEventListener("click", async e => {
       e.preventDefault();
       e.stopPropagation();
-      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
-      const wrap = btn.closest(".menu-wrap");
-      const menuBtn = wrap?.querySelector("[data-catalog-menu]");
-      const row = btn.closest("[data-catalog-kind]") || btn.closest(".inventory-brand-row") || btn.closest(".inventory-variant-row") || btn.closest(".inventory-section-card");
+      const panel = btn.closest(".menu-dropdown");
+      const portaledHome = panel?.__triplemFixedMenuHome?.parent || null;
+      document.querySelectorAll(".menu-dropdown.open").forEach(openPanel => openPanel.classList.remove("open"));
+      const wrap = btn.closest(".menu-wrap") || portaledHome?.closest?.(".menu-wrap") || portaledHome;
+      const menuBtn = wrap?.querySelector?.("[data-catalog-menu]");
+      const row = btn.closest("[data-catalog-kind]")
+        || btn.closest(".inventory-brand-row")
+        || btn.closest(".inventory-variant-row")
+        || btn.closest(".inventory-section-card")
+        || portaledHome?.closest?.("[data-catalog-kind]")
+        || portaledHome?.closest?.(".inventory-brand-row")
+        || portaledHome?.closest?.(".inventory-variant-row")
+        || portaledHome?.closest?.(".inventory-section-card");
       try {
         await onAction?.(btn.dataset.action, {
           row,
@@ -3319,6 +3338,22 @@ function inventoryStockListItemName(group){
   return bits.join(" · ") || "Unnamed item";
 }
 
+function inventoryOperationalStatusMeta(group){
+  const remaining = Number(group?.remainingQty || 0);
+  if (remaining <= 0.00000001) return { label: "Out of stock", tone: "is-out" };
+  if (inventorySectionGroupIsLowStock(group)) return { label: "Low stock", tone: "is-low" };
+  return { label: "In stock", tone: "is-in" };
+}
+
+function updateInventoryStockListCartButton(btn, groupId){
+  if (!btn) return;
+  const count = getSaleDraftQtyForGroup(groupId);
+  const label = count ? `Cart · ${trimInventoryNumber(count, 3)}` : "Cart";
+  const text = btn.querySelector("span");
+  if (text) text.textContent = label;
+  btn.setAttribute("aria-label", count ? `${label}. Add more to cart` : "Add item to cart");
+}
+
 function renderInventoryStockListView(groups){
   const list = Array.isArray(groups) ? groups.slice() : [];
   list.sort((a, b) => inventoryStockListItemName(a).localeCompare(inventoryStockListItemName(b), undefined, { sensitivity: "base" }));
@@ -3336,48 +3371,86 @@ function renderInventoryStockListView(groups){
     const profit = pl > 0.00000001 ? money(pl, group.currency) : money(0, group.currency);
     const loss = pl < -0.00000001 ? money(Math.abs(pl), group.currency) : money(0, group.currency);
     const inStock = Number(group.remainingQty || 0) > 0.00000001;
+    const status = inventoryOperationalStatusMeta(group);
+    const inDraft = getSaleDraftQtyForGroup(group.group_id);
+    const sku = String(group.itemCode || "").trim();
     const pendingEntryId = typeof offlinePendingEntryIdForGroup === "function" ? offlinePendingEntryIdForGroup(group.group_id) : "";
     const pendingSave = pendingEntryId && typeof offlineSyncButtonHtml === "function" ? offlineSyncButtonHtml(pendingEntryId) : "";
     return `
-      <div class="inventory-stock-list-row-shell${pendingSave ? " has-local-save" : ""}">
-      <button type="button" class="inventory-stock-list-row${inStock ? "" : " is-sold"}" data-inventory-stock-open="${escapeHtml(group.group_id)}" title="${escapeHtml(name)}">
-        <span class="inventory-stock-list-name">${escapeHtml(name)} ${pendingEntryId && typeof offlinePendingBadgeHtml === "function" ? offlinePendingBadgeHtml(pendingEntryId) : ""}</span>
-        <span class="inventory-stock-list-cell" data-label="Total"><small>Total</small><strong>${escapeHtml(totalQty)}</strong></span>
-        <span class="inventory-stock-list-cell" data-label="Sold"><small>Sold</small><strong>${escapeHtml(soldQty)}</strong></span>
-        <span class="inventory-stock-list-cell" data-label="Stock"><small>In stock</small><strong class="${inStock ? "is-stock" : "is-empty"}">${escapeHtml(stockQty)}</strong></span>
-        <span class="inventory-stock-list-cell is-profit" data-label="Profit"><small>Profit</small><strong>${profit}</strong></span>
-        <span class="inventory-stock-list-cell is-loss" data-label="Loss"><small>Loss</small><strong>${loss}</strong></span>
-      </button>
-      ${pendingSave}
+      <div class="inventory-stock-list-row-shell${pendingSave ? " has-local-save" : ""}" role="row">
+        <div class="inventory-stock-list-row${inStock ? "" : " is-sold"}" data-inventory-stock-open="${escapeHtml(group.group_id)}" title="Open ${escapeHtml(name)} details" role="button" tabindex="0">
+          <span class="inventory-stock-list-name">
+            <strong>${escapeHtml(name)}</strong>
+            ${sku ? `<small>SKU ${escapeHtml(sku)}</small>` : `<small>No SKU</small>`}
+          </span>
+          <span class="inventory-stock-list-cell" data-label="Total"><small>Total</small><strong>${escapeHtml(totalQty)}</strong></span>
+          <span class="inventory-stock-list-cell" data-label="Sold"><small>Sold</small><strong>${escapeHtml(soldQty)}</strong></span>
+          <span class="inventory-stock-list-cell" data-label="On hand"><small>On hand</small><strong class="${inStock ? "is-stock" : "is-empty"}">${escapeHtml(stockQty)}</strong></span>
+          <span class="inventory-stock-list-cell is-profit" data-label="Profit"><small>Profit</small><strong>${profit}</strong></span>
+          <span class="inventory-stock-list-cell is-loss" data-label="Loss"><small>Loss</small><strong>${loss}</strong></span>
+          <span class="inventory-stock-list-action" data-label="Action">
+            <span class="inventory-stock-status ${escapeHtml(status.tone)}">${escapeHtml(status.label)}</span>
+            <button type="button" class="btn soft tiny inventory-stock-list-cart-btn" data-inventory-stock-cart="${escapeHtml(group.group_id)}" ${inStock ? "" : "disabled"} aria-label="${inStock ? "Add item to cart" : "Item is out of stock"}" title="${inStock ? "Add to cart" : "Out of stock"}">
+              <i class="fa-solid fa-cart-plus" aria-hidden="true"></i><span>${inDraft ? `Cart · ${escapeHtml(trimInventoryNumber(inDraft, 3))}` : "Cart"}</span>
+            </button>
+          </span>
+        </div>
+        ${pendingSave}
       </div>
     `;
   }).join("");
 
   els.goodsList.innerHTML = `
-    <div class="inventory-stock-list" role="list">
+    <div class="inventory-stock-list" role="table" aria-label="Inventory stock register">
       <div class="inventory-stock-list-head" aria-hidden="true">
-        <span class="inventory-stock-list-name">Item</span>
+        <span class="inventory-stock-list-name">Item / SKU</span>
         <span>Total</span>
         <span>Sold</span>
-        <span>In stock</span>
+        <span>On hand</span>
         <span>Profit</span>
         <span>Loss</span>
+        <span>Action</span>
       </div>
       ${rows}
     </div>
   `;
 
-  els.goodsList.querySelectorAll("[data-inventory-stock-open]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.inventoryStockOpen;
+  els.goodsList.querySelectorAll("[data-inventory-stock-cart]").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.disabled || btn.dataset.adding === "1") return;
+      btn.dataset.adding = "1";
+      btn.disabled = true;
+      try {
+        const groupId = btn.dataset.inventoryStockCart;
+        const ok = await addGroupToSaleDraft(groupId);
+        if (ok) updateInventoryStockListCartButton(btn, groupId);
+      } finally {
+        delete btn.dataset.adding;
+        const group = getGoodsGroups({ applyUiFilters: false }).find(g => g.group_id === btn.dataset.inventoryStockCart);
+        btn.disabled = !(Number(group?.remainingQty || 0) > 0.00000001);
+      }
+    });
+  });
+
+  els.goodsList.querySelectorAll("[data-inventory-stock-open]").forEach(row => {
+    const openDetails = e => {
+      if (e?.target?.closest?.("button, a, input, select, textarea")) return;
+      const id = row.dataset.inventoryStockOpen;
       if (!id) return;
       if (typeof openInventoryItemDetailsOverlay === "function") {
         Promise.resolve(openInventoryItemDetailsOverlay(id)).catch(() => {});
       }
+    };
+    row.addEventListener("click", openDetails);
+    row.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      openDetails(e);
     });
   });
 }
-
 
 function syncInventoryInvoicesBtn(details){
   if (!details) return;
