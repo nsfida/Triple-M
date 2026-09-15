@@ -100,3 +100,57 @@
   .installment-details-grid{grid-template-columns:1fr}
   #entryModal .modal-dialog.compact-entry-dialog,#installmentEditModal .modal-dialog{width:calc(100vw - 12px);max-width:none;max-height:calc(100dvh - 12px)}
 }
+
+/* 2026-09-15 — schedule calculation mode: installment count or fixed monthly amount. */
+.installment-calc-mode{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px;
+  width:min(100%,300px);
+  padding:3px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:color-mix(in srgb,var(--card) 94%,var(--muted) 6%);
+}
+.installment-calc-choice{margin:0!important;cursor:pointer;min-width:0}
+.installment-calc-choice>input{position:absolute;opacity:0;pointer-events:none}
+.installment-calc-choice>span{
+  min-height:31px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:5px 9px;
+  border-radius:7px;
+  color:var(--muted);
+  font-size:.71rem;
+  font-weight:760;
+  line-height:1;
+  transition:background .14s ease,color .14s ease,box-shadow .14s ease;
+}
+.installment-calc-choice>span i{
+  width:15px;
+  height:15px;
+  display:grid;
+  place-items:center;
+  border:1px solid color-mix(in srgb,var(--muted) 42%,transparent);
+  border-radius:50%;
+  font-size:.47rem;
+  color:transparent;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.installment-calc-choice>input:checked+span{
+  background:var(--card);
+  color:var(--primary);
+  box-shadow:0 1px 4px rgba(15,23,42,.08);
+}
+.installment-calc-choice>input:checked+span i{
+  color:#fff;
+  border-color:var(--primary);
+  background:var(--primary);
+}
+.installment-calc-choice>input:focus-visible+span{outline:2px solid color-mix(in srgb,var(--primary) 55%,transparent);outline-offset:1px}
+@media (max-width:640px){
+  .installment-calc-mode{width:100%}
+  .installment-calc-choice>span{min-height:30px;font-size:.68rem}
+}
