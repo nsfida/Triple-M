@@ -614,10 +614,10 @@ function expenseOverviewWalletCardHtml(a){
     ? `<span class="expense-wallet-address mono" title="${escapeHtml(a.btcAddress)}">${escapeHtml(a.btcAddress)}</span>`
     : "";
   const walletEditBtn = teamCanShowEdit("entries")
-    ? `<button class="tiny ghost" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')">Edit</button>`
+    ? `<button class="tiny ghost" title="Edit wallet" aria-label="Edit wallet" onclick="openEditModal('${escapeHtml(a.principal?.id || '')}')"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>`
     : "";
   const walletDeleteBtn = teamCanShowDelete("entries")
-    ? `<button class="tiny danger" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')">Delete Wallet</button>`
+    ? `<button class="tiny danger" title="Delete wallet" aria-label="Delete wallet" onclick="deleteExpenseWallet('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}')"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`
     : "";
   const actions = isBtcLive
     ? `
@@ -626,8 +626,8 @@ function expenseOverviewWalletCardHtml(a){
         ${walletDeleteBtn}
       `
     : `
-        <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Add Money</button>
-        <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Add Expense</button>
+        <button class="tiny ghost" onclick="openExpenseModal('topup', '${escapeHtml(a.group_id)}')">Receive</button>
+        <button class="tiny ghost" onclick="openExpenseModal('expense', '${escapeHtml(a.group_id)}')">Spend</button>
         <button class="tiny ghost" onclick="openTransferModal('${escapeHtml(a.group_id)}', '${escapeHtml(a.person_name || 'Wallet')}', '${escapeHtml(a.currency)}')">Transfer</button>
         <button class="tiny ghost walletDownloadPdfBtn" title="Download wallet transactions PDF" aria-label="Download wallet transactions PDF" onclick="downloadExpenseAccountPDF('${escapeHtml(a.group_id)}')"><i class="fa-solid fa-file-pdf"></i></button>
         ${walletEditBtn}
