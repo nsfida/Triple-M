@@ -899,14 +899,14 @@
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003&signupseo=20260911-001&uifix=20260915-001&amp;motion=20260915-overlay-001&inventory=20260915-standards-001&customerux=20260915-002&carttheme=20260915-002" />
+  <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003&signupseo=20260911-001&uifix=20260915-001&amp;motion=20260915-overlay-001&inventory=20260915-standards-001&customerux=20260915-002&carttheme=20260915-002&notesui=20260915-001&notesband=20260915-004" />
   <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
   <link rel="stylesheet" href="Assets/style/31-aziz-live-support.css?v=20260905-v143" />
   <link rel="stylesheet" href="Assets/style/32-aziz-chat-agent-polish.css?v=20260905-v153&knowledge=157" />
   <link rel="stylesheet" href="Assets/style/33-live-chat-records-polish.css?v=20260905-v152" />
   <link rel="stylesheet" href="Assets/style/34-build010-upgrades.css?v=20260906-build010-final" />
   <link rel="stylesheet" href="Assets/style/22-landing-hero-polish.css?v=20260906-region157" />
-  <link rel="stylesheet" href="Assets/style/36-build012-notes-redesign.css?v=20260907-notes-sticky-receipt002" />
+  <link rel="stylesheet" href="Assets/style/36-build012-notes-redesign.css?v=20260907-notes-sticky-receipt002&notesui=20260915-003&notesband=20260915-004" />
   <link rel="stylesheet" href="Assets/style/37-build013-filter-cleanup.css?v=20260906-build013-filter001" />
   <link rel="stylesheet" href="Assets/style/38-build014-inventory-overview-polish.css?v=20260906-build014-001" />
   <link rel="stylesheet" href="Assets/style/39-assets-depreciation-fixes.css?v=20260907-assets-dep-002" />
@@ -4402,12 +4402,10 @@
                 </button>
               </div>
             </div>
-            <div class="filter-inline-row compact-filter-row">
-              <div class="compact-filter-main">
-                <div class="filter-inline-section compact-filter-search">
-                  <span class="filter-inline-label">Search</span>
-                  <input id="searchNotes" class="input filter-inline-input" aria-keyshortcuts="Control+Alt+F" placeholder="Search notes..." />
-                </div>
+            <div class="notes-search-row">
+              <div class="notes-search-control">
+                <span class="notes-search-label">Search</span>
+                <input id="searchNotes" class="input notes-search-input" aria-keyshortcuts="Control+Alt+F" placeholder="Search notes..." />
               </div>
             </div>
           </div>
@@ -5615,7 +5613,7 @@
                 </div>
               </div>
             </div>
-            <div class="field w12 modal-footer note-create-footer">
+            <div class="note-create-footer note-action-row">
               <button class="btn ghost" type="button" data-close-modal="noteCreateModal">Cancel</button>
               <button class="btn primary" type="submit" id="noteCreateSaveBtn">
                 <i class="fa-solid fa-check" aria-hidden="true"></i> Create note
@@ -5695,7 +5693,7 @@
               <label for="noteEditContent">Note text</label>
               <textarea class="input note-textarea" name="content" id="noteEditContent" rows="9" maxlength="20000" required placeholder="Write your note…"></textarea>
             </div>
-            <div class="field w12 modal-footer note-edit-footer">
+            <div class="note-edit-footer note-action-row">
               <button class="btn ghost" type="button" id="noteEditCancelBtn">Cancel</button>
               <button class="btn primary" type="submit" id="noteEditSaveBtn">Save changes</button>
             </div>
