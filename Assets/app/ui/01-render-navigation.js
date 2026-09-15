@@ -1523,6 +1523,7 @@ async function openGoodsModal(mode, options = {}){
   const soldDateInline = document.getElementById("goodsSoldDateInline");
   const boughtDateInline = els.goodsBoughtDateInline || document.getElementById("goodsBoughtDateInline");
   dialog?.classList.add("goods-sale-dialog");
+  dialog?.classList.toggle("inventory-customer-create-dialog", mode === "sold" && options.addCustomer === true && !options.groupId && !options.seedFromGroupId);
   if (soldDateInline) {
     soldDateInline.classList.toggle("hide", mode !== "sold");
     soldDateInline.required = mode === "sold";
@@ -1637,16 +1638,20 @@ async function openGoodsModal(mode, options = {}){
   } else {
     const saleFocusId = options.groupId || seedFromGroupId;
     const addingCustomerOnly = options.addCustomer && !saleFocusId;
+    els.goodsSoldForm.classList.toggle("inventory-customer-only-form", !!addingCustomerOnly);
     els.goodsModalTitle.textContent = addingCustomerOnly ? "Add Customer" : "Create Sales Invoice";
     els.goodsModalDesc.textContent = addingCustomerOnly
-      ? "Save customer details now, or choose items if you also want to create an invoice."
+      ? "Save the customer profile and contact details."
       : "";
     els.goodsModalDesc.classList.toggle("hide", !addingCustomerOnly);
     els.goodsSoldForm.reset();
     els.goodsSoldForm.dataset.addCustomerOnly = addingCustomerOnly ? "1" : "0";
     const soldSubmit = els.goodsSoldForm.querySelector('button[type="submit"]');
     if (soldSubmit) soldSubmit.textContent = addingCustomerOnly ? "Save Customer" : "Save Sale";
-    if (soldDateInline) soldDateInline.value = todayISO();
+    if (soldDateInline) {
+      soldDateInline.value = todayISO();
+      soldDateInline.classList.toggle("hide", !!addingCustomerOnly);
+    }
     if (els.goodsReceiptNumber) els.goodsReceiptNumber.value = nextInvoiceNumber();
     if (els.goodsSalePaidAmount) {
       els.goodsSalePaidAmount.dataset.autoPaid = "true";
@@ -1875,6 +1880,7 @@ async function saveGoodsBought(form){
 }
 
 async function saveInventoryCustomerOnly(form, customerName, customerContact, fd){
+  const customerId = nextInventoryCustomerId(customerName);
   const today = String(fd.get("sold_date") || "") || todayISO();
   const allowedCurrencies = getPageScopedCurrencies();
   const currency = allowedCurrencies.includes(state.lastCurrency)
@@ -1892,6 +1898,7 @@ async function saveInventoryCustomerOnly(form, customerName, customerContact, fd
     action_date: today,
     notes: upsertGoodsMetaInNote(normalizeGoodsNote("Customer record", true), {
       customerName,
+      customerId,
       customerPhone: customerContact.phone || "",
       customerAddress: customerContact.address || "",
       customerCompany: customerContact.company || "",
@@ -1973,6 +1980,7 @@ function addInventorySettlementPayloads(payloads, receiptData, remainingSettleme
         itemCategory: row.itemCategory,
         quantityUnit: inventoryBaseUnitForCategory(row.itemCategory),
         customerName: receiptData.customerName,
+        customerId: receiptData.customerId || getInventoryCustomerId(receiptData.customerName),
         customerPhone: receiptData.customerPhone || "",
         customerAddress: receiptData.customerAddress || "",
         customerCompany: receiptData.customerCompany || "",
