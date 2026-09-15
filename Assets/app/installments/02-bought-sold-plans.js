@@ -33,6 +33,94 @@
     document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
   }
 
+  function installmentCalcMode(form=els.principalModalForm){
+    return form?.querySelector('input[name="installment_calc_mode"]:checked')?.value === "amount" ? "amount" : "count";
+  }
+
+  function buildInstallmentAmountScheduleMeta(totalAmount,targetAmount,currency,startDate,downPayment=0){
+    const total=roundInstallmentMoney(totalAmount,currency);
+    const down=normalizeInstallmentDownPayment(total,downPayment,currency);
+    const financed=installmentFinancedAmount(total,down,currency);
+    const target=roundInstallmentMoney(targetAmount,currency);
+    if(!(financed>0)||!(target>0)) return null;
+    const decimals=String(currency||"").toUpperCase()==="BTC"?8:2;
+    const factor=10**decimals;
+    const financedUnits=Math.round(financed*factor);
+    const targetUnits=Math.round(target*factor);
+    if(!(financedUnits>0)||!(targetUnits>0)) return null;
+    const count=Math.ceil(financedUnits/targetUnits);
+    const lastUnits=financedUnits-(targetUnits*Math.max(count-1,0));
+    const lastAmount=lastUnits/factor;
+    return {
+      count,
+      installmentAmount:targetUnits/factor,
+      lastAmount,
+      downPayment:down,
+      financedAmount:financed,
+      frequency:"monthly",
+      startDate:startDate||todayISO()
+    };
+  }
+
+  function preserveCustomInstallmentMeta(plan,totalAmount,count,currency,startDate,downPayment){
+    const principal=plan?.principal;
+    if(!principal) return null;
+    const previous=installmentMetaFromNotes(principal.notes);
+    const previousCount=Math.floor(Number(previous.count||0));
+    if(previousCount<2||count!==previousCount||!(Number(previous.installmentAmount)>0)||!(Number(previous.lastAmount)>0)) return null;
+    const previousCurrency=String(principal.currency||currency||"AED");
+    if(previousCurrency!==currency) return null;
+    const previousTotal=roundInstallmentMoney(principal.principal_amount||0,currency);
+    const nextTotal=roundInstallmentMoney(totalAmount,currency);
+    const previousDown=roundInstallmentMoney(previous.downPayment||0,currency);
+    const nextDown=roundInstallmentMoney(downPayment||0,currency);
+    if(previousTotal!==nextTotal||previousDown!==nextDown) return null;
+    const equalMeta=buildInstallmentScheduleMeta(previousTotal,previousCount,currency,principal.loan_date||startDate,previousDown);
+    const unit=String(currency||"").toUpperCase()==="BTC"?0.00000001:0.01;
+    const custom=Math.abs(Number(previous.installmentAmount)-Number(equalMeta.installmentAmount))>=unit/2||Math.abs(Number(previous.lastAmount)-Number(equalMeta.lastAmount))>=unit/2;
+    if(!custom) return null;
+    return {
+      count:previousCount,
+      installmentAmount:roundInstallmentMoney(previous.installmentAmount,currency),
+      lastAmount:roundInstallmentMoney(previous.lastAmount,currency),
+      downPayment:nextDown,
+      financedAmount:installmentFinancedAmount(nextTotal,nextDown,currency),
+      frequency:previous.frequency||"monthly",
+      startDate:startDate||principal.loan_date||todayISO()
+    };
+  }
+
+  function syncInstallmentCalcModeUi({reset=false}={}){
+    const form=els.principalModalForm;
+    const modeGroup=document.getElementById("installmentCalcModeGroup");
+    const countGroup=document.getElementById("installmentCountGroup");
+    const amountGroup=document.getElementById("installmentAmountGroup");
+    const countInput=document.getElementById("installmentCountInput");
+    const amountInput=document.getElementById("installmentTargetAmountInput");
+    const show=!!state.modalInstallment&&!!form&&!form.classList.contains("hide");
+    modeGroup?.classList.toggle("hide",!show);
+    if(!show){
+      amountGroup?.classList.add("hide");
+      if(amountInput) amountInput.required=false;
+      return;
+    }
+    if(reset){
+      const countRadio=form.querySelector('input[name="installment_calc_mode"][value="count"]');
+      if(countRadio) countRadio.checked=true;
+      if(amountInput) amountInput.value="";
+    }
+    const mode=installmentCalcMode(form);
+    countGroup?.classList.toggle("hide",mode!=="count");
+    amountGroup?.classList.toggle("hide",mode!=="amount");
+    if(countInput) countInput.required=mode==="count";
+    if(amountInput) amountInput.required=mode==="amount";
+    const monthly=document.getElementById("installmentMonthlyLabel");
+    const sold=normalizeInstallmentPlanType(state.modalInstallmentType)==="sold";
+    if(monthly) monthly.textContent=mode==="amount"
+      ? (sold?"Calculated receivable schedule":"Calculated payment schedule")
+      : (sold?"Monthly receivable after advance":"Monthly installment after down payment");
+  }
+
   function collectDetails(form, edit=false){
     const prefix = detailPrefix(edit);
     const out = {};
@@ -165,7 +253,7 @@
       direction = typeDirection(type);
     }
     baseOpenEntryModal(mode, direction, { ...options, installment });
-    if (!installment) return;
+    if (!installment) { syncInstallmentCalcModeUi(); return; }
     state.modalInstallmentType = type;
     const sold = type === "sold";
     const optional = document.getElementById("installmentOptionalDetailsSection");
@@ -182,6 +270,7 @@
       const odt = document.getElementById("installmentOptionalDetailsTitle"); if (odt) odt.textContent = sold ? "Buyer / sale details" : "Seller / purchase details";
       const badge = document.getElementById("principalWalletBadge");
       if (badge) { badge.textContent = sold ? "Advance received → Add to wallet" : "Down payment → Deduct from wallet"; badge.className = `badge ${sold ? "green" : "orange"}`; }
+      syncInstallmentCalcModeUi({reset:true});
     } else {
       if (els.modalTitle) els.modalTitle.textContent = sold ? "Receive installment" : "Pay installment";
       if (els.paymentSubmitBtn) els.paymentSubmitBtn.textContent = sold ? "Save receipt" : "Save payment";
@@ -189,6 +278,7 @@
       const badge = document.getElementById("paymentWalletBadge"); if (badge) { badge.textContent = sold ? "Installment received → Add to wallet" : "Installment payment → Deduct from wallet"; badge.className = `badge ${sold ? "green" : "orange"}`; }
       renderLoanSelectors();
       if (options.groupId) { els.modalLoanSelect.value = options.groupId; syncCurrencySelectFonts(els.modalLoanSelect); }
+      syncInstallmentCalcModeUi();
     }
     updateInstallmentPlanPreview();
   };
@@ -200,21 +290,56 @@
     const form = els.principalModalForm;
     const total = Number(form?.querySelector('[name="principal_amount"]')?.value || 0);
     const upfront = Math.max(0, Number(document.getElementById("installmentDownPaymentInput")?.value || 0));
-    const count = Math.floor(Number(document.getElementById("installmentCountInput")?.value || 0));
     const currency = String(form?.querySelector('[name="currency"]')?.value || "AED");
     const startDate = String(document.getElementById("entryPrincipalDateInline")?.value || todayISO());
     const sold = normalizeInstallmentPlanType(state.modalInstallmentType) === "sold";
-    if (!(total > 0) || count < 2 || upfront >= total) {
+    const mode = installmentCalcMode(form);
+    const countInput = document.getElementById("installmentCountInput");
+    let count = Math.floor(Number(countInput?.value || 0));
+    let meta = null;
+
+    if (!(total > 0) || upfront >= total) {
       previewInput.value = "";
-      previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount, an optional ${sold ? "advance" : "down payment"} below the total, and at least 2 installments.</p>`;
+      if (mode === "amount" && countInput) countInput.value = "";
+      previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount and an optional ${sold ? "advance" : "down payment"} below the total.</p>`;
       return;
     }
-    const meta = buildInstallmentScheduleMeta(total,count,currency,startDate,upfront);
+
+    if (mode === "amount") {
+      const target = Number(document.getElementById("installmentTargetAmountInput")?.value || 0);
+      meta = buildInstallmentAmountScheduleMeta(total,target,currency,startDate,upfront);
+      count = Number(meta?.count || 0);
+      if (countInput) countInput.value = count >= 2 && count <= 120 ? String(count) : "";
+      if (!meta || !(target > 0)) {
+        previewInput.value = "";
+        previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter the amount you want to ${sold ? "receive" : "pay"} each month.</p>`;
+        return;
+      }
+      if (count < 2) {
+        previewInput.value = "";
+        previewWrap.innerHTML = `<strong>Schedule preview</strong><p>The monthly amount must be lower than the ${sold ? "receivable" : "financed"} balance so the plan has at least 2 installments.</p>`;
+        return;
+      }
+      if (count > 120) {
+        previewInput.value = "";
+        previewWrap.innerHTML = `<strong>Schedule preview</strong><p>The monthly amount is too small. Increase it so the plan stays within 120 installments.</p>`;
+        return;
+      }
+    } else {
+      if (count < 2 || count > 120) {
+        previewInput.value = "";
+        previewWrap.innerHTML = `<strong>Schedule preview</strong><p>Enter total amount, an optional ${sold ? "advance" : "down payment"} below the total, and between 2 and 120 installments.</p>`;
+        return;
+      }
+      meta = buildInstallmentScheduleMeta(total,count,currency,startDate,upfront);
+    }
+
     previewInput.value = `${moneyText(meta.installmentAmount,currency)} × ${count-1} + last ${moneyText(meta.lastAmount,currency)}`;
     applyCurrencyFontClass(previewInput,currency);
     const sample = Array.from({length:Math.min(count,4)},(_,i)=>`<li><span>#${i+1} · ${escapeHtml(displayDate(addMonthsToISODate(startDate,i)))}</span><strong>${money(i===count-1?meta.lastAmount:meta.installmentAmount,currency)}</strong></li>`).join("");
     const more = count>4 ? `<li class="installment-preview-more">+ ${count-4} more monthly installments</li>` : "";
-    previewWrap.innerHTML = `<strong>${sold ? "Receivable" : "Payment"} schedule preview</strong><p>Total ${money(total,currency)} · ${sold ? "advance received" : "down payment"} ${money(meta.downPayment,currency)} · ${sold ? "receivable" : "financed"} ${money(meta.financedAmount,currency)} across ${count} months.</p><ul class="installment-preview-list">${sample}${more}</ul>`;
+    const modeText = mode === "amount" ? ` · ${money(meta.installmentAmount,currency)} per month` : "";
+    previewWrap.innerHTML = `<strong>${sold ? "Receivable" : "Payment"} schedule preview</strong><p>Total ${money(total,currency)} · ${sold ? "advance received" : "down payment"} ${money(meta.downPayment,currency)} · ${sold ? "receivable" : "financed"} ${money(meta.financedAmount,currency)} across ${count} months${modeText}.</p><ul class="installment-preview-list">${sample}${more}</ul>`;
   };
 
   async function createInstallmentWalletMovement(walletGroupId, amount, date, planName, currency, type, initial=false){
@@ -237,12 +362,24 @@
     const groupId=crypto.randomUUID(); const walletId=String(fd.get("loan_wallet_id")||"").trim();
     const upfront=roundInstallmentMoney(fd.get("down_payment"),String(fd.get("currency")||"AED"));
     const payload={group_id:groupId,direction,installment_plan_type:type,installment_details:collectDetails(form,false),entry_kind:"principal",person_name:String(fd.get("person_name")||"").trim(),currency:String(fd.get("currency")||"").trim(),principal_amount:finiteMoney(fd.get("principal_amount")),action_amount:null,loan_date:fd.get("loan_date"),action_date:null,notes:String(fd.get("notes")||"").trim()||null};
-    const count=Math.floor(finiteMoney(fd.get("installment_count")));
+    const calcMode=installmentCalcMode(form);
+    let count=Math.floor(finiteMoney(fd.get("installment_count")));
+    let scheduleMeta=null;
     if (!payload.person_name||!payload.currency||!(payload.principal_amount>0)||!payload.loan_date) throw new Error("Complete all required fields.");
-    if (count<2||count>120) throw new Error("Enter between 2 and 120 installments.");
     if (upfront<0||upfront>=payload.principal_amount) throw new Error(`${type==="sold"?"Advance received":"Down payment"} must be zero or less than the total plan amount.`);
+    if(calcMode==="amount"){
+      const target=roundInstallmentMoney(fd.get("installment_amount_target"),payload.currency);
+      if(!(target>0)) throw new Error("Enter a valid amount per month.");
+      scheduleMeta=buildInstallmentAmountScheduleMeta(payload.principal_amount,target,payload.currency,payload.loan_date,upfront);
+      count=Number(scheduleMeta?.count||0);
+      if(count<2) throw new Error(`Amount per month must be lower than the ${type==="sold"?"receivable":"financed"} balance so the plan has at least 2 installments.`);
+      if(count>120) throw new Error("Amount per month is too small. Increase it so the plan stays within 120 installments.");
+    }else{
+      if (count<2||count>120) throw new Error("Enter between 2 and 120 installments.");
+      scheduleMeta=buildInstallmentScheduleMeta(payload.principal_amount,count,payload.currency,payload.loan_date,upfront);
+    }
     validateCurrencyForForm(fd);
-    payload.notes=upsertInstallmentMetaInNote(payload.notes,buildInstallmentScheduleMeta(payload.principal_amount,count,payload.currency,payload.loan_date,upfront));
+    payload.notes=upsertInstallmentMetaInNote(payload.notes,scheduleMeta);
     if (walletId) {
       if (!(upfront>0)) throw new Error(`Enter an ${type==="sold"?"advance received":"down payment"} before selecting a wallet, or choose Skip wallet entry.`);
       const account=getExpenseAccounts({applyUiFilters:false}).find(a=>a.group_id===walletId); if(!account) throw new Error("Selected wallet was not found.");
@@ -302,7 +439,7 @@
     const personName=String(form.querySelector('[name="person_name"]')?.value||"").trim(); const currency=String(form.querySelector('[name="currency"]')?.value||"").trim(); const amount=Number(form.querySelector('[name="principal_amount"]')?.value||0); const loanDate=String(document.getElementById("installmentEditDateInline")?.value||"").trim(); const count=Math.floor(Number(form.querySelector('[name="installment_count"]')?.value||0)); const upfront=Math.max(0,Number(form.querySelector('[name="down_payment"]')?.value||0)); const displayNote=String(form.querySelector('[name="notes"]')?.value||"").trim(); const details=collectDetails(form,true);
     if(!personName||!currency||!(amount>0)||!loanDate) throw new Error("Complete all required fields."); if(count<2||count>120) throw new Error("Enter between 2 and 120 installments."); if(upfront>=amount) throw new Error(`${sold?"Advance received":"Down payment"} must be less than the total plan amount.`);
     const existingUpfront=plan.payments.find(isInstallmentDownPayment)||null; const regular=plan.payments.filter(r=>!isInstallmentDownPayment(r)); const regularTotal=regular.reduce((s,r)=>s+Number(r.action_amount||0),0); const financed=installmentFinancedAmount(amount,upfront,currency); if(financed+0.00000001<regularTotal) throw new Error(`${sold?"Receivable":"Financed"} amount cannot be less than installments already ${sold?"received":"paid"} (${moneyText(regularTotal,currency)}).`); if(existingUpfront&&!(upfront>0)) throw new Error(`A recorded ${sold?"advance":"down payment"} cannot be removed here.`);
-    const scheduleMeta=buildInstallmentScheduleMeta(amount,count,currency,loanDate,upfront); const principalNotes=upsertInstallmentMetaInNote(displayNote,scheduleMeta); const draftPrincipal={...plan.principal,direction,installment_plan_type:type,installment_details:details,person_name:personName,currency,principal_amount:amount,loan_date:loanDate,notes:principalNotes};
+    const scheduleMeta=preserveCustomInstallmentMeta(plan,amount,count,currency,loanDate,upfront)||buildInstallmentScheduleMeta(amount,count,currency,loanDate,upfront); const principalNotes=upsertInstallmentMetaInNote(displayNote,scheduleMeta); const draftPrincipal={...plan.principal,direction,installment_plan_type:type,installment_details:details,person_name:personName,currency,principal_amount:amount,loan_date:loanDate,notes:principalNotes};
     let nextUpfront=existingUpfront;
     if(upfront>0){ const upNotes=upsertInstallmentMetaInNote(cleanInstallmentDisplayNote(existingUpfront?.notes||(sold?"Advance received":"Down payment")),{paymentType:"down_payment"}); nextUpfront=existingUpfront?{...existingUpfront,direction,installment_plan_type:type,person_name:personName,currency,action_amount:upfront,loan_date:loanDate,action_date:existingUpfront.action_date||loanDate,entry_kind:"partial",notes:upNotes}:{id:crypto.randomUUID(),group_id:groupId,direction,installment_plan_type:type,entry_kind:"partial",person_name:personName,currency,principal_amount:null,action_amount:upfront,loan_date:loanDate,action_date:loanDate,notes:upNotes}; }
     const remapped=remapInstallmentPaymentsToSchedule(draftPrincipal,regular.concat(nextUpfront?[nextUpfront]:[])); if(remapped.leftoverTotal>0.00000001&&!confirm(`${moneyText(remapped.leftoverTotal,currency)} of existing ${sold?"receipts":"payments"} exceeds the new schedule. Continue?`)) return;
@@ -378,6 +515,9 @@
   };
 
   document.addEventListener("DOMContentLoaded",()=>{
+    document.querySelectorAll('input[name="installment_calc_mode"]').forEach(input=>input.addEventListener("change",()=>{ syncInstallmentCalcModeUi(); global.updateInstallmentPlanPreview(); }));
+    const targetAmountInput=document.getElementById("installmentTargetAmountInput");
+    if(targetAmountInput) ["input","change"].forEach(evt=>targetAmountInput.addEventListener(evt,global.updateInstallmentPlanPreview));
     document.querySelectorAll("[data-installment-plan-view]").forEach(btn=>btn.addEventListener("click",()=>setPlanView(btn.dataset.installmentPlanView)));
     document.getElementById("installmentNewPlanBtn")?.addEventListener("click",()=>{ closeInstallmentEntryMenus(); global.openEntryModal("principal",typeDirection(activeType()),{installment:true,installmentType:activeType()}); });
     document.getElementById("installmentNewPaymentBtn")?.addEventListener("click",()=>{ closeInstallmentEntryMenus(); global.openEntryModal("payment",typeDirection(activeType()),{installment:true,installmentType:activeType()}); });
