@@ -1,0 +1,5 @@
+/* DEPRECATED ENTRYPOINT — Triplem VIP modularization.
+ * The app loads Assets/style/01-*.css … 12-*.css directly from index.html
+ * in numeric order (same cascade as the former monolithic styles.css).
+ * This file is kept only as a pointer for old references; do not link it.
+ */
