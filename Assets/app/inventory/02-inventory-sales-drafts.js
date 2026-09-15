@@ -2489,7 +2489,7 @@ function renderSaleDraftCustomerResults(body, { append = false } = {}){
   const offset = Number(wrap[stateKey] || 0);
   const page = inventoryCustomerDirectory({ search, offset, limit: pageSize });
   const rowsHtml = page.items.map(item => {
-    const meta = [item.phone, item.company, item.email].filter(Boolean).join(" · ");
+    const meta = [item.customerId, item.phone, item.company, item.email].filter(Boolean).join(" · ");
     const selected = String(draft.customerName || "") === item.name;
     return `
       <button type="button" class="inventory-draft-customer-row ${selected ? "is-selected" : ""}" data-customer-name="${escapeHtml(item.name)}">
@@ -3225,6 +3225,7 @@ async function commitInventorySaleInvoice({
   saleLines
 }){
   const invoiceNumber = receiptNumber;
+  const customerId = getInventoryCustomerId(customerName) || nextInventoryCustomerId(customerName);
   const requestedQtyByGroup = new Map();
   for (const line of saleLines){
     requestedQtyByGroup.set(line.groupId, (requestedQtyByGroup.get(line.groupId) || 0) + Number(line.qty || 0));
@@ -3326,6 +3327,7 @@ async function commitInventorySaleInvoice({
         variantOther: line.principalMeta.variantOther || "",
         itemType: line.principalMeta.itemType || "",
         customerName,
+        customerId,
         customerPhone: customerContact.phone || "",
         customerAddress: customerContact.address || "",
         customerCompany: customerContact.company || "",

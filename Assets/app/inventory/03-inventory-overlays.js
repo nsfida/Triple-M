@@ -533,6 +533,7 @@ function openInventoryReceiptEditor(entryId){
       const nextMeta = {
         ...goodsMetaFromNotes(entry.notes),
         customerName,
+        customerId: getInventoryCustomerId(customerName) || nextInventoryCustomerId(customerName),
         customerPhone: phone,
         paidAmount: linePaid,
         balanceAmount: lineBalance,

@@ -26,6 +26,7 @@ function goodsMetaFromNotes(noteValue){
     itemDescription: readText("IDESC"),
     itemType: readText("ITYPE"),
     customerName: readText("CUST"),
+    customerId: readText("CUSID"),
     customerPhone: readText("CPHONE"),
     customerAddress: readText("CADDR"),
     customerCompany: readText("CCMP"),
@@ -70,7 +71,7 @@ function goodsMetaFromNotes(noteValue){
 }
 
 function goodsMetaTagCleanRegex(){
-  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|BRAND|VARIANT|BRANDID|VARIANTID|PLINE|PLINEID|SBRAND|SBRANDID|STOR|COLOR|VOTHER|SELLBY|BSIZE|BUNIT|CSLUG|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS|SLNO|SLID|SSET):[^\]]*\]/gi;
+  return /\[(BQTY|SQTY|UAP|USP|ICODE|IDESC|ITYPE|CUST|CUSID|CPHONE|CADDR|CCMP|CTRN|CEMAIL|RCPT|INV|PAYRCPT|TX|UCAT|UOM|BRAND|VARIANT|BRANDID|VARIANTID|PLINE|PLINEID|SBRAND|SBRANDID|STOR|COLOR|VOTHER|SELLBY|BSIZE|BUNIT|CSLUG|PAID|BAL|PSTAT|SID|SETID|VATP|VATR|VATM|VATA|NET|GROSS|SLNO|SLID|SSET):[^\]]*\]/gi;
 }
 
 function upsertGoodsMetaInNote(noteValue, meta = {}){
@@ -100,6 +101,7 @@ function upsertGoodsMetaInNote(noteValue, meta = {}){
   if (meta.bottleSizeUnit) tags.push(`[BUNIT:${String(meta.bottleSizeUnit).replace(/\]/g, "")}]`);
   if (meta.categorySlug) tags.push(`[CSLUG:${String(meta.categorySlug).replace(/\]/g, "")}]`);
   if (meta.customerName) tags.push(`[CUST:${String(meta.customerName).replace(/\]/g, "")}]`);
+  if (meta.customerId) tags.push(`[CUSID:${String(meta.customerId).replace(/\]/g, "")}]`);
   if (meta.customerPhone) tags.push(`[CPHONE:${String(meta.customerPhone).replace(/\]/g, "")}]`);
   if (meta.customerAddress) tags.push(`[CADDR:${String(meta.customerAddress).replace(/\]/g, "")}]`);
   if (meta.customerCompany) tags.push(`[CCMP:${String(meta.customerCompany).replace(/\]/g, "")}]`);
@@ -1213,7 +1215,8 @@ function inventoryCustomerDirectory({ search = "", offset = 0, limit = 20 } = {}
     ? names.filter(name => {
         if (name.toLowerCase().includes(q)) return true;
         const contact = getInventoryCustomerContact(name);
-        return [contact.phone, contact.company, contact.email, contact.trn]
+        const customerId = getInventoryCustomerId(name);
+        return [customerId, contact.phone, contact.company, contact.email, contact.trn]
           .some(v => String(v || "").toLowerCase().includes(q));
       })
     : names;
@@ -1225,7 +1228,7 @@ function inventoryCustomerDirectory({ search = "", offset = 0, limit = 20 } = {}
     hasMore: offset + slice.length < filtered.length,
     items: slice.map(name => {
       const contact = getInventoryCustomerContact(name);
-      return { name, ...contact };
+      return { name, customerId: getInventoryCustomerId(name), ...contact };
     })
   };
 }
@@ -1520,6 +1523,7 @@ function getInventoryReceiptData(receiptNumber, fallbackEntry = null){
     paidTotal: saleRows.reduce((sum, row) => sum + Number(row.paid || 0), 0),
     balanceTotal: saleRows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
     customerName: saleRows[0]?.entryMeta.customerName || goodsMetaFromNotes(fallbackEntry?.notes).customerName || "Walk-in customer",
+    customerId: saleRows.find(row => row.entryMeta.customerId)?.entryMeta.customerId || goodsMetaFromNotes(fallbackEntry?.notes).customerId || getInventoryCustomerId(saleRows[0]?.entryMeta.customerName || goodsMetaFromNotes(fallbackEntry?.notes).customerName || ""),
     customerPhone: saleRows.find(row => row.customerPhone)?.customerPhone || goodsMetaFromNotes(fallbackEntry?.notes).customerPhone || "",
     customerAddress: saleRows.find(row => row.customerAddress)?.customerAddress || goodsMetaFromNotes(fallbackEntry?.notes).customerAddress || "",
     customerCompany: saleRows.find(row => row.customerCompany)?.customerCompany || goodsMetaFromNotes(fallbackEntry?.notes).customerCompany || "",
@@ -1629,11 +1633,13 @@ function renderInventoryOutstandingBanner(){
       inv.balanceByCurrency?.forEach?.(amount => { bal += Number(amount || 0); });
       return bal > 0.00000001 || Number(inv.balanceTotal || 0) > 0.00000001;
     }).length;
+    const customerId = record.customerId || getInventoryCustomerId(record.customerName || name);
     const invoiceSearch = record.invoices.map(invoice =>
       `${invoice.invoiceNumber || invoice.receiptNumber} ${invoice.itemSummary} ${invoice.totalText} ${invoice.paidText} ${invoice.balanceText}`
     ).join(" ");
     return {
       name: record.customerName || name,
+      customerId,
       invoices: record.invoices,
       invoiceCount,
       outstandingCount,
@@ -1643,6 +1649,7 @@ function renderInventoryOutstandingBanner(){
       hasInvoices: invoiceCount > 0,
       searchText: [
         record.customerName || name,
+        customerId,
         invoiceSearch,
         record.contact?.phone || "",
         record.contact?.company || "",
@@ -1699,7 +1706,7 @@ function renderInventoryOutstandingBanner(){
           return `
           <details class="inventory-outstanding-member" data-search="${escapeHtml(member.searchText)}">
             <summary>
-              <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}</button>
+              <button class="inventory-outstanding-name inventoryOutstandingCustomerOpenBtn" type="button" data-customer="${escapeHtml(member.name)}" title="Open customer record">${escapeHtml(member.name)}${member.customerId ? `<small>${escapeHtml(member.customerId)}</small>` : ""}</button>
               <strong>${escapeHtml(String(member.invoiceCount))} invoice${member.invoiceCount === 1 ? "" : "s"} · ${statusHtml}</strong>
             </summary>
             <div class="inventory-outstanding-list">
@@ -1942,6 +1949,63 @@ function normalizeInventoryCustomerKey(name){
   return String(name || "").trim().toLowerCase();
 }
 
+function normalizeInventoryCustomerId(value){
+  const match = String(value || "").trim().toUpperCase().match(/^CUS-(\d+)$/);
+  if (!match) return "";
+  const number = Math.max(1, Number(match[1] || 0));
+  return `CUS-${String(number).padStart(4, "0")}`;
+}
+
+function inventoryCustomerIdDirectory(){
+  const names = getInventoryCustomerNames().filter(name => !/^walk-?in customer$/i.test(String(name || "").trim()));
+  const records = names.map(name => {
+    const key = normalizeInventoryCustomerKey(name);
+    const rows = state.entries
+      .filter(entry => entry.entry_kind !== "principal" && hasGoodsTag(entry.notes))
+      .map(entry => ({ entry, meta: goodsMetaFromNotes(entry.notes) }))
+      .filter(row => normalizeInventoryCustomerKey(row.meta.customerName || row.entry.person_name) === key);
+    const existingId = rows.map(row => normalizeInventoryCustomerId(row.meta.customerId)).find(Boolean) || "";
+    const firstStamp = rows.reduce((min, row) => {
+      const stamp = dateStamp(row.entry.action_date || row.entry.loan_date || row.entry.created_at || "");
+      return min == null || stamp < min ? stamp : min;
+    }, null);
+    return { name, key, existingId, firstStamp: firstStamp == null ? Number.MAX_SAFE_INTEGER : firstStamp };
+  });
+  const used = new Set();
+  records.forEach(record => {
+    const match = record.existingId.match(/(\d+)$/);
+    if (match) used.add(Number(match[1]));
+  });
+  records
+    .filter(record => !record.existingId)
+    .sort((a, b) => a.firstStamp - b.firstStamp || a.name.localeCompare(b.name))
+    .forEach(record => {
+      let next = 1;
+      while (used.has(next)) next += 1;
+      used.add(next);
+      record.existingId = `CUS-${String(next).padStart(4, "0")}`;
+    });
+  return new Map(records.map(record => [record.key, record.existingId]));
+}
+
+function getInventoryCustomerId(customerName){
+  const name = String(customerName || "").trim();
+  if (!name || /^walk-?in customer$/i.test(name)) return "";
+  return inventoryCustomerIdDirectory().get(normalizeInventoryCustomerKey(name)) || "";
+}
+
+function nextInventoryCustomerId(customerName = ""){
+  const existing = getInventoryCustomerId(customerName);
+  if (existing) return existing;
+  const directory = inventoryCustomerIdDirectory();
+  let max = 0;
+  directory.forEach(value => {
+    const match = String(value || "").match(/(\d+)$/);
+    if (match) max = Math.max(max, Number(match[1] || 0));
+  });
+  return `CUS-${String(max + 1).padStart(4, "0")}`;
+}
+
 function getInventoryCustomerInvoices(customerName){
   const target = normalizeInventoryCustomerKey(customerName);
   if (!target) return [];
@@ -2034,6 +2098,7 @@ function getInventoryCustomerRecord(customerName){
   const invoices = getInventoryCustomerInvoices(customerName);
   const customer = invoices[0]?.customerName || customerName || "Walk-in customer";
   const contact = getInventoryCustomerContact(customer);
+  const customerId = getInventoryCustomerId(customer);
   const totalByCurrency = new Map();
   const taxByCurrency = new Map();
   const paidByCurrency = new Map();
@@ -2136,7 +2201,7 @@ function getInventoryCustomerRecord(customerName){
     String(a.receiptNumber).localeCompare(String(b.receiptNumber))
   );
 
-  return { customerName: customer, contact, invoices, statementRows, totalByCurrency, taxByCurrency, paidByCurrency, balanceByCurrency };
+  return { customerName: customer, customerId, contact, invoices, statementRows, totalByCurrency, taxByCurrency, paidByCurrency, balanceByCurrency };
 }
 
 function renderInventoryCustomerEditCard(record){
@@ -2189,6 +2254,7 @@ function renderInventoryCustomerEditCard(record){
 
 function renderInventoryCustomerRecord(record){
   const contactBits = [
+    record.customerId ? `<span><strong>Customer ID:</strong> ${escapeHtml(record.customerId)}</span>` : "",
     record.contact.company ? `<span><strong>Company:</strong> ${escapeHtml(record.contact.company)}</span>` : "",
     record.contact.trn ? `<span><strong>TRN:</strong> ${escapeHtml(record.contact.trn)}</span>` : "",
     record.contact.phone ? `<span><strong>Mobile:</strong> ${escapeHtml(record.contact.phone)}</span>` : "",
@@ -2339,7 +2405,8 @@ function openInventoryCustomerModal(customerName){
   state.inventoryDraft.customerRecordName = record.customerName || customerName || "";
   if (els.inventoryCustomerTitle) els.inventoryCustomerTitle.textContent = record.customerName || "Customer record";
   if (els.inventoryCustomerDesc) {
-    els.inventoryCustomerDesc.textContent = `${record.invoices.length} invoice${record.invoices.length === 1 ? "" : "s"} sorted by date with receipts and payment statement.`;
+    const idPrefix = record.customerId ? `${record.customerId} · ` : "";
+    els.inventoryCustomerDesc.textContent = `${idPrefix}${record.invoices.length} invoice${record.invoices.length === 1 ? "" : "s"} sorted by date with receipts and payment statement.`;
   }
   if (els.inventoryCustomerBody) {
     els.inventoryCustomerBody.innerHTML = renderInventoryCustomerRecord(record);
@@ -2483,7 +2550,7 @@ async function downloadInventoryCustomerStatementPDF(customerName){
   await loadCustomFontsForPdf(doc);
   const logoData = await getPdfLogo();
   const title = "Inventory Customer Statement";
-  const subtitle = `Customer: ${record.customerName}`;
+  const subtitle = `Customer: ${record.customerName}${record.customerId ? ` · ${record.customerId}` : ""}`;
   drawPdfHeader(doc, logoData, title, subtitle);
   const partiesBottom = drawInventoryPdfPartiesAndMeta(doc, {
     customerName: record.customerName,
@@ -3312,7 +3379,7 @@ function getInventoryCustomerNames(){
 function getInventoryCustomerContact(name){
   const target = String(name || "").trim().toLowerCase();
   if (!target) {
-    return { phone: "", address: "", company: "", trn: "", email: "" };
+    return { id: "", phone: "", address: "", company: "", trn: "", email: "" };
   }
   const rows = state.entries
     .filter(e => hasGoodsTag(e.notes) && e.entry_kind !== "principal")
@@ -3321,6 +3388,7 @@ function getInventoryCustomerContact(name){
     .sort((a, b) => dateStamp(b.entry.action_date || b.entry.created_at) - dateStamp(a.entry.action_date || a.entry.created_at));
   const pick = (key) => rows.find(row => row.meta[key])?.meta[key] || "";
   return {
+    id: getInventoryCustomerId(name),
     phone: pick("customerPhone"),
     address: pick("customerAddress"),
     company: pick("customerCompany"),
@@ -3344,6 +3412,7 @@ function applyInventoryCustomerDetailsToNote(noteValue, details = {}){
   return upsertGoodsMetaInNote(noteValue, {
     ...existing,
     customerName: details.name || existing.customerName || "",
+    customerId: existing.customerId || getInventoryCustomerId(details.name || existing.customerName || "") || nextInventoryCustomerId(details.name || existing.customerName || ""),
     customerPhone: details.phone || "",
     customerAddress: details.address || "",
     customerCompany: details.company || "",
@@ -3376,6 +3445,7 @@ function saveInventoryCustomerDetails(oldName, details){
       action_date: today,
       notes: upsertGoodsMetaInNote(normalizeGoodsNote("Customer record", true), {
         customerName: nextName,
+        customerId: nextInventoryCustomerId(nextName),
         customerPhone: details.phone || "",
         customerAddress: details.address || "",
         customerCompany: details.company || "",
