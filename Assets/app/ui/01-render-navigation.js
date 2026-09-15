@@ -2202,6 +2202,12 @@ function openEditModal(id) {
     alert(isGoodsSaleEntry ? "You do not have permission to edit invoices." : "You do not have permission to edit entries.");
     return;
   }
+  if (entry.entry_kind !== "principal" && hasExpenseAccountTag(entry.notes || "") && typeof openExpenseTransactionEditModal === "function") {
+    const expenseMeta = expenseMetaFromNotes(entry.notes || "");
+    const rowType = String(expenseMeta.rowType || "").toUpperCase();
+    const isTransfer = String(expenseMeta.expenseType || "").toLowerCase() === "transfer";
+    if (!isTransfer && (rowType === "TOPUP" || rowType === "EXPENSE") && openExpenseTransactionEditModal(entry)) return;
+  }
   state.editId = id;
   state.editKind = entry.entry_kind;
   const isInstallmentPayment = entry.entry_kind !== "principal" && hasInstallmentTag(entry.notes) && !isInstallmentDownPayment(entry);
