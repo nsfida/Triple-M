@@ -2652,16 +2652,16 @@ function renderExpenseWalletBar(accounts){
       ? `
           <button type="button" class="expenseWalletQuick" data-action="details" data-group-id="${gid}">Details</button>
           <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
-          <button type="button" class="expenseWalletQuick" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Edit</button>
-          <button type="button" class="expenseWalletQuick danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Delete</button>
+          <button type="button" class="expenseWalletQuick expense-wallet-icon-action" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}" aria-label="Edit wallet" title="Edit wallet"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
+          <button type="button" class="expenseWalletQuick expense-wallet-icon-action danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}" aria-label="Delete wallet" title="Delete wallet"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
         `
       : `
           <button type="button" class="expenseWalletQuick" data-action="details" data-group-id="${gid}">Details</button>
-          <button type="button" class="expenseWalletQuick" data-action="topup" data-group-id="${gid}">Add money</button>
-          <button type="button" class="expenseWalletQuick" data-action="expense" data-group-id="${gid}">Add expense</button>
+          <button type="button" class="expenseWalletQuick" data-action="topup" data-group-id="${gid}">Receive</button>
+          <button type="button" class="expenseWalletQuick" data-action="expense" data-group-id="${gid}">Spend</button>
           <button type="button" class="expenseWalletQuick" data-action="pdf" data-group-id="${gid}">PDF</button>
-          <button type="button" class="expenseWalletQuick" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Edit</button>
-          <button type="button" class="expenseWalletQuick danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}">Delete</button>
+          <button type="button" class="expenseWalletQuick expense-wallet-icon-action" data-action="edit-account" data-entry-id="${escapeHtml(a.principal?.id || "")}" aria-label="Edit wallet" title="Edit wallet"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
+          <button type="button" class="expenseWalletQuick expense-wallet-icon-action danger" data-action="delete-account" data-entry-id="${escapeHtml(a.principal?.id || "")}" aria-label="Delete wallet" title="Delete wallet"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
         `;
     
     // Calculate USD equivalent for BTC wallets
@@ -3166,6 +3166,7 @@ function updateExpenseTaxPreview() {
 }
 
 function openExpenseModal(mode, presetGroupId = ""){
+  resetExpenseTransactionEditState();
   const presetAccount = ((mode === "topup" || mode === "expense") && presetGroupId)
     ? getExpenseAccounts({ applyUiFilters: false }).find(a => a.group_id === presetGroupId)
     : null;
@@ -3250,6 +3251,139 @@ function openExpenseModal(mode, presetGroupId = ""){
     if (intentAdd) intentAdd.checked = true;
     if (els.expenseItemIntentWrap) els.expenseItemIntentWrap.classList.add("hide");
     refreshExpenseItemIntentUi();
+  }
+}
+
+
+function resetExpenseTransactionEditState(){
+  const topupForm = els.expenseTopupForm;
+  const expenseForm = els.expenseEntryForm;
+  if (topupForm) {
+    delete topupForm.dataset.editEntryId;
+    const account = topupForm.querySelector('[name="group_id"]');
+    if (account) account.disabled = false;
+    const submit = topupForm.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = "Add Money";
+  }
+  if (expenseForm) {
+    delete expenseForm.dataset.editEntryId;
+    const account = expenseForm.querySelector('[name="group_id"]');
+    const currency = expenseForm.querySelector('[name="currency"]');
+    if (account) account.disabled = false;
+    if (currency) currency.disabled = false;
+    const submit = expenseForm.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = "Save Expense";
+  }
+}
+
+function fillExpenseDetailFields(form, details, kind){
+  const normalized = normalizeExpenseDetails(details || {});
+  expenseDetailFieldsFor(kind).forEach(field => {
+    const control = form?.querySelector(`[name="${field.form}"]`);
+    if (!control) return;
+    control.value = normalized[field.key] == null ? "" : String(normalized[field.key]);
+  });
+}
+
+function openExpenseTransactionEditModal(entryOrId){
+  const entry = typeof entryOrId === "string"
+    ? state.entries.find(row => String(row.id) === String(entryOrId))
+    : entryOrId;
+  if (!entry || entry.entry_kind === "principal" || !hasExpenseAccountTag(entry.notes || "")) return false;
+  const meta = expenseMetaFromNotes(entry.notes || "");
+  const rowType = String(meta.rowType || "").toUpperCase();
+  const expenseType = String(meta.expenseType || "").toLowerCase();
+  if (!["TOPUP","EXPENSE"].includes(rowType) || expenseType === "transfer") return false;
+
+  const mode = rowType === "TOPUP" ? "topup" : "expense";
+  openExpenseModal(mode, entry.group_id);
+  const form = mode === "topup" ? els.expenseTopupForm : els.expenseEntryForm;
+  if (!form) return false;
+  form.dataset.editEntryId = String(entry.id || "");
+
+  if (mode === "topup") {
+    els.expenseModalTitle.textContent = "Edit Money Added";
+    const account = form.querySelector('[name="group_id"]');
+    const amount = form.querySelector('[name="amount"]');
+    const date = document.getElementById("expenseTopupDateInline");
+    const notes = form.querySelector('[name="notes"]');
+    if (account) { account.value = entry.group_id || ""; account.disabled = true; }
+    if (amount) amount.value = entry.action_amount ?? "";
+    if (date) date.value = entry.action_date || todayISO();
+    if (notes) notes.value = cleanExpenseNoteForEdit(entry.notes || "");
+    fillExpenseDetailFields(form, meta.details, "topup");
+    const details = form.querySelector("details.expense-optional-details");
+    if (details) details.open = Object.keys(normalizeExpenseDetails(meta.details || {})).length > 0;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = "Update";
+  } else {
+    els.expenseModalTitle.textContent = "Edit Expense";
+    const item = form.querySelector('[name="item_name"]');
+    const amount = form.querySelector('[name="amount"]');
+    const currency = form.querySelector('[name="currency"]');
+    const account = form.querySelector('[name="group_id"]');
+    const type = form.querySelector('[name="expense_type"]');
+    const customType = form.querySelector('[name="custom_expense_type"]');
+    const date = document.getElementById("expenseEntryDateInline");
+    const notes = form.querySelector('[name="notes"]');
+    const taxMode = normalizeTaxMode(meta.taxMode || TAX_MODE_INCLUDE);
+    const storedTotal = Number(entry.action_amount || 0);
+    const editableAmount = meta.taxApplied && taxMode === TAX_MODE_ADD && Number(meta.netAmount) > 0
+      ? Number(meta.netAmount)
+      : storedTotal;
+
+    if (item) item.value = meta.itemName || "";
+    if (amount) amount.value = editableAmount || "";
+    if (currency) { currency.value = entry.currency || "AED"; currency.disabled = true; }
+    renderExpenseAccountSelectors();
+    if (account) { account.value = entry.group_id || ""; account.disabled = true; }
+    const typeIsKnown = type ? Array.from(type.options).some(option => option.value === meta.expenseType && option.value) : false;
+    if (type) type.value = typeIsKnown ? meta.expenseType : (meta.expenseType ? "Other" : "");
+    if (customType) customType.value = typeIsKnown || meta.expenseType === "Other" ? "" : (meta.expenseType || "");
+    if (els.expenseTaxApplied) els.expenseTaxApplied.checked = !!meta.taxApplied;
+    if (els.expenseTaxRate) els.expenseTaxRate.value = meta.taxRate != null ? trimInventoryNumber(meta.taxRate, 2) : "";
+    if (els.expenseTaxMode) els.expenseTaxMode.value = taxMode;
+    form.dataset.taxManual = "true";
+    if (date) date.value = entry.action_date || todayISO();
+    if (notes) notes.value = cleanExpenseNoteForEdit(entry.notes || "");
+    fillExpenseDetailFields(form, meta.details, "expense");
+    const details = form.querySelector("details.expense-optional-details");
+    if (details) details.open = Object.keys(normalizeExpenseDetails(meta.details || {})).length > 0;
+    const intentAdd = form.querySelector('input[name="expense_item_intent"][value="additional"]');
+    if (intentAdd) intentAdd.checked = true;
+    if (els.expenseItemIntentWrap) els.expenseItemIntentWrap.classList.add("hide");
+    updateExpenseTaxPreview();
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = "Update";
+  }
+  return true;
+}
+window.openExpenseTransactionEditModal = openExpenseTransactionEditModal;
+
+function finishExpenseTransactionEdit(currentEntry, updatedEntry, patchBody){
+  state.entries = state.entries.map(entry => entry.id === currentEntry.id ? updatedEntry : entry);
+  if (!isBackupMode()) queueDatabasePatch(currentEntry.id, patchBody, "Entry", updatedEntry);
+  closeModal("expenseModal");
+  resetExpenseTransactionEditState();
+  if (isBackupMode()) refreshBackupView();
+  else {
+    renderAll();
+    if (state.expenseLazy.rpcAvailable !== false) {
+      Promise.resolve()
+        .then(() => new Promise(resolve => setTimeout(resolve, 280)))
+        .then(() => invalidateAndRefreshExpenseLazy({ refreshActivity: true }))
+        .then(ok => {
+          if (!ok) return;
+          invalidateExpenseAccountsSyncCache();
+          renderExpenseOverviewWallets();
+          if (getActiveTabKey() === "expenses") renderExpensesList();
+        })
+        .catch(() => {});
+    }
+  }
+  logEntryUpdated(updatedEntry);
+  if (isBackupMode() && typeof showEntryConfirmation === "function") {
+    showEntryConfirmation("Transaction updated locally.", "success");
   }
 }
 
@@ -4063,7 +4197,9 @@ async function saveExpenseAccount(form){
 
 async function saveExpenseTopup(form){
   const fd = new FormData(form);
-  const groupId = String(fd.get("group_id") || "");
+  const editEntryId = String(form?.dataset?.editEntryId || "").trim();
+  const currentEntry = editEntryId ? state.entries.find(row => String(row.id) === editEntryId) : null;
+  const groupId = String(currentEntry?.group_id || fd.get("group_id") || "");
   const amount = finiteMoney(fd.get("amount"));
   const date = String(fd.get("date") || "");
   const notes = String(fd.get("notes") || "").trim() || null;
@@ -4072,6 +4208,30 @@ async function saveExpenseTopup(form){
   const principal = state.entries.find(e => e.group_id === groupId && e.direction === "taken" && e.entry_kind === "principal" && hasExpenseAccountTag(e.notes));
   if (!principal) throw new Error("Account not found.");
   if (principal.currency === "BTC") throw new Error("BTC wallet balances and transactions are loaded directly from the blockchain.");
+
+  if (currentEntry) {
+    const currentMeta = expenseMetaFromNotes(currentEntry.notes || "");
+    if (String(currentMeta.rowType || "").toUpperCase() !== "TOPUP") throw new Error("This transaction can no longer be edited here.");
+    const editedNotes = upsertExpenseMetaInNote(notes, {
+      ...currentMeta,
+      accountType: expenseMetaFromNotes(principal.notes).accountType || currentMeta.accountType || "Bank Account",
+      rowType: "TOPUP",
+      details
+    });
+    const updatedEntry = {
+      ...currentEntry,
+      action_amount: amount,
+      action_date: date,
+      notes: editedNotes
+    };
+    finishExpenseTransactionEdit(currentEntry, updatedEntry, {
+      action_amount: amount,
+      action_date: date,
+      notes: editedNotes
+    });
+    return;
+  }
+
   const payload = {
     group_id: groupId,
     direction: "taken",
@@ -4089,17 +4249,16 @@ async function saveExpenseTopup(form){
     })
   };
   saveEntriesImmediately(payload, { label: "Top-up" });
-  
-  // Show money added success overlay
   showMoneyAddedSuccessOverlay(principal.person_name, amount, principal.currency);
-  
   closeModal("expenseModal");
 }
 
 async function saveExpenseEntry(form){
   const fd = new FormData(form);
-  const groupId = String(fd.get("group_id") || "");
-  const selectedCurrency = String(fd.get("currency") || "").trim();
+  const editEntryId = String(form?.dataset?.editEntryId || "").trim();
+  const currentEntry = editEntryId ? state.entries.find(row => String(row.id) === editEntryId) : null;
+  const groupId = String(currentEntry?.group_id || fd.get("group_id") || "");
+  const selectedCurrency = String(currentEntry?.currency || fd.get("currency") || "").trim();
   const enteredAmount = finiteMoney(fd.get("amount"));
   const taxBreakdown = getExpenseTaxBreakdown();
   const amount = taxBreakdown.total;
@@ -4119,10 +4278,44 @@ async function saveExpenseEntry(form){
   }
   const nameLower = itemName.toLowerCase();
   const existingNames = getExistingItemNamesLowerForCurrency(account.currency);
-  if (existingNames.has(nameLower) && itemIntent === "new_distinct"){
+  const currentItemName = currentEntry ? String(expenseMetaFromNotes(currentEntry.notes || "").itemName || "").trim().toLowerCase() : "";
+  if (existingNames.has(nameLower) && itemIntent === "new_distinct" && nameLower !== currentItemName){
     throw new Error("This item name already exists. Either choose \"More spending on the same item\" or enter a different item name.");
   }
-  if (amount > account.balance) throw new Error(`Insufficient balance. Available: ${formatReportAmount(account.balance, account.currency)}.`);
+  const availableForEdit = account.balance + Number(currentEntry?.action_amount || 0);
+  if (amount > (currentEntry ? availableForEdit : account.balance)) {
+    const available = currentEntry ? availableForEdit : account.balance;
+    throw new Error(`Insufficient balance. Available: ${formatReportAmount(available, account.currency)}.`);
+  }
+
+  if (currentEntry) {
+    const currentMeta = expenseMetaFromNotes(currentEntry.notes || "");
+    if (String(currentMeta.rowType || "").toUpperCase() !== "EXPENSE" || String(currentMeta.expenseType || "").toLowerCase() === "transfer") {
+      throw new Error("This transaction can no longer be edited here.");
+    }
+    const editedNotes = upsertExpenseMetaInNote(notes, {
+      ...currentMeta,
+      accountType: account.accountType,
+      rowType: "EXPENSE",
+      itemName,
+      expenseType,
+      details,
+      ...taxMetaFromBreakdown(taxBreakdown)
+    });
+    const updatedEntry = {
+      ...currentEntry,
+      action_amount: amount,
+      action_date: date,
+      notes: editedNotes
+    };
+    finishExpenseTransactionEdit(currentEntry, updatedEntry, {
+      action_amount: amount,
+      action_date: date,
+      notes: editedNotes
+    });
+    return;
+  }
+
   const payload = {
     group_id: groupId,
     direction: "taken",
