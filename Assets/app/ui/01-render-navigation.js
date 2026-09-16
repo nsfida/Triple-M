@@ -607,43 +607,31 @@ function workspaceSectionCopy(key){
   return copy[key] || "Open this Triplem VIP workspace section.";
 }
 
-function workspaceSectionSvg(key){
-  const safe = String(key || "section").replace(/[^a-z0-9-]/gi, "");
-  const commonStart = `<svg class="workspace-card-svg" viewBox="0 0 160 160" preserveAspectRatio="xMidYMid meet" role="img" aria-hidden="true">
-    <defs>
-      <linearGradient id="wh-main-${safe}" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" style="stop-color:var(--wh-c1)"/>
-        <stop offset=".52" style="stop-color:var(--wh-c2)"/>
-        <stop offset="1" style="stop-color:var(--wh-c3)"/>
-      </linearGradient>
-      <radialGradient id="wh-glow-${safe}" cx="50%" cy="50%" r="50%">
-        <stop offset="0" style="stop-color:var(--wh-c1);stop-opacity:.24"/>
-        <stop offset=".58" style="stop-color:var(--wh-c2);stop-opacity:.08"/>
-        <stop offset="1" style="stop-color:var(--wh-c2);stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <g class="wh-svg-stage" transform="translate(0 21)">
-      <circle class="wh-gradient-halo" cx="80" cy="59" r="56" fill="url(#wh-glow-${safe})"/>
-      <g class="wh-particle-field">
-        <circle class="wh-particle wh-particle-one" cx="28" cy="42" r="2.8"/>
-        <circle class="wh-particle wh-particle-two" cx="132" cy="30" r="2.2"/>
-        <circle class="wh-particle wh-particle-three" cx="137" cy="86" r="2.6"/>
-      </g>`;
-  const end = `</g></svg>`;
-  const art = {
-    dashboard: `<g class="wh-main-shape"><rect class="wh-frame" x="19" y="18" width="122" height="82" rx="19"/><path class="wh-soft" d="M36 78V57M61 78V43M86 78V62M111 78V34M127 78V50"/><path class="wh-accent wh-draw" d="M33 72C50 61 56 66 70 50S96 61 126 34"/><circle class="wh-dot wh-orbit-dot" cx="126" cy="34" r="5"/><path class="wh-line wh-wave" d="M34 86h94"/></g>`,
-    expenses: `<g class="wh-main-shape"><rect class="wh-frame" x="31" y="17" width="98" height="84" rx="22"/><path class="wh-soft wh-float" d="M40 17V10h69a13 13 0 0 1 13 13v4H45a14 14 0 0 1-14-10Z"/><rect class="wh-accent wh-fill-soft" x="91" y="45" width="38" height="30" rx="12"/><circle class="wh-pulse" cx="106" cy="60" r="4.5"/><circle class="wh-soft wh-coin-one" cx="54" cy="58" r="13"/><circle class="wh-soft wh-coin-two" cx="69" cy="48" r="8"/><path class="wh-line wh-draw-short" d="M47 58h13m8-10h8"/><path class="wh-soft" d="M45 87h67"/></g>`,
-    goods: `<g class="wh-main-shape"><path class="wh-frame" d="m80 23 47 21v47L80 112 33 91V44Z"/><path class="wh-soft" d="m33 44 47 22 47-22M80 66v46"/><path class="wh-accent wh-float wh-fill-soft" d="m50 36 45 21 17-8-45-21Z"/><path class="wh-scan" d="M42 79h76"/><circle class="wh-pulse" cx="121" cy="82" r="6"/><path class="wh-line wh-draw-short" d="m46 50 34 16 34-16"/></g>`,
-    audit: `<g class="wh-main-shape"><path class="wh-frame" d="M80 15c16 12 31 15 45 18v29c0 23-16 39-45 49-29-10-45-26-45-49V33c14-3 29-6 45-18Z"/><path class="wh-soft" d="M59 48h42M59 61h31M59 74h22"/><path class="wh-accent wh-draw" d="m62 83 11 10 27-30"/><circle class="wh-pulse" cx="101" cy="63" r="5"/></g>`,
-    "triplem-ai": `<g class="wh-main-shape"><circle class="wh-frame wh-ai-core" cx="80" cy="60" r="24"/><circle class="wh-soft wh-node-one" cx="35" cy="35" r="8"/><circle class="wh-soft wh-node-two" cx="128" cy="37" r="7"/><circle class="wh-soft wh-node-three" cx="126" cy="91" r="8"/><circle class="wh-soft wh-node-four" cx="34" cy="89" r="7"/><path class="wh-line wh-draw" d="M42 39 60 50M120 41 100 51M119 87 101 72M41 85 60 71"/><path class="wh-accent wh-spark wh-fill-soft" d="m80 40 5 14 14 5-14 5-5 14-5-14-14-5 14-5Z"/><circle class="wh-ai-orbit wh-spin-reverse" cx="80" cy="60" r="33"/></g>`,
-    assets: `<g class="wh-main-shape"><path class="wh-frame" d="M29 101V51h40v50M76 101V27h51v74"/><path class="wh-soft" d="M41 63h10M41 76h10M41 89h10M90 42h10M108 42h8M90 57h10M108 57h8M90 72h10M108 72h8M90 87h10M108 87h8"/><path class="wh-accent wh-draw" d="M28 92c20-9 31-7 45-18 17-13 24-25 50-32"/><circle class="wh-pulse" cx="123" cy="42" r="5"/><path class="wh-line wh-rise" d="m102 49 21-7-7 20"/></g>`,
-    loans: `<g class="wh-main-shape"><circle class="wh-frame" cx="52" cy="58" r="25"/><circle class="wh-frame" cx="108" cy="58" r="25"/><path class="wh-accent wh-draw" d="M71 47h25l-8-8M89 70H64l8 8"/><path class="wh-soft wh-float" d="M44 58h16M52 50v16M100 58h16"/><circle class="wh-pulse" cx="80" cy="59" r="5"/><path class="wh-line wh-orbit-arc" d="M29 87c27 16 76 16 102-1"/></g>`,
-    installments: `<g class="wh-main-shape"><rect class="wh-frame" x="28" y="27" width="104" height="80" rx="17"/><path class="wh-soft" d="M28 49h104M53 20v16M107 20v16M49 66h15M73 66h15M97 66h15M49 83h15M73 83h15M97 83h15"/><path class="wh-accent wh-draw" d="m96 90 8 7 17-20"/><circle class="wh-pulse" cx="113" cy="79" r="4"/><rect class="wh-line wh-calendar-glow" x="45" y="62" width="22" height="8" rx="4"/></g>`,
-    notes: `<g class="wh-main-shape"><path class="wh-frame" d="M42 19h63l18 18v67H42Z"/><path class="wh-soft" d="M105 19v21h18M56 52h48M56 67h40M56 82h30"/><path class="wh-accent wh-float wh-fill-soft" d="m92 91 28-28 9 9-28 28-13 4Z"/><path class="wh-line" d="m113 70 9 9"/><path class="wh-line wh-draw-short" d="M55 94h25"/></g>`,
-    bitcoin: `<g class="wh-main-shape"><circle class="wh-frame" cx="80" cy="59" r="43"/><circle class="wh-soft wh-orbit-ring" cx="80" cy="59" r="53"/><path class="wh-accent" d="M67 36v46m0-41h18c18 0 18 20 2 20H67m0 0h20c18 0 18 21 0 21H67M76 31v10M88 31v10M76 82v10M88 82v10"/><circle class="wh-pulse" cx="126" cy="34" r="5"/></g>`,
-    admin: `<g class="wh-main-shape"><path class="wh-frame" d="M80 17c15 10 30 14 44 17v28c0 22-15 38-44 49-29-11-44-27-44-49V34c14-3 29-7 44-17Z"/><circle class="wh-soft wh-spin" cx="80" cy="62" r="17"/><circle class="wh-accent wh-fill-solid" cx="80" cy="62" r="7"/><path class="wh-soft" d="M80 37v8M80 79v8M55 62h8M97 62h8M62 44l6 6M92 74l6 6M98 44l-6 6M68 74l-6 6"/><circle class="wh-ai-orbit wh-spin-reverse" cx="80" cy="62" r="29"/></g>`
+function workspaceSectionIcon(key){
+  const iconMap = {
+    dashboard: "dashboard.png",
+    expenses: "expenses.png",
+    accounting: "accounting.png",
+    assets: "assets.png",
+    loans: "loans.png",
+    audit: "audit.png",
+    admin: "admin.png",
+    bitcoin: "bitcoin.png",
+    "triplem-ai": "triplem_ai.png",
+    goods: "inventory.png",
+    inventory: "inventory.png",
+    installments: "installments.png",
+    notes: "notes.png",
+    messages: "message.png",
+    message: "message.png"
   };
-  return commonStart + (art[key] || `<g class="wh-main-shape"><circle class="wh-frame" cx="80" cy="59" r="42"/><path class="wh-accent wh-draw" d="M54 59h52M80 33v52"/></g>`) + end;
+  const filename = iconMap[String(key || "").trim()] || "dashboard.png";
+  return `Assets/logo/icons/${filename}`;
+}
+
+function workspaceSectionIconHtml(key, label){
+  const src = workspaceSectionIcon(key);
+  return `<img class="workspace-card-icon" src="${escapeHtml(src)}" alt="" aria-hidden="true" loading="eager" decoding="async">`;
 }
 
 function ensureWorkspaceNavigationEvents(){
@@ -672,7 +660,7 @@ function renderWorkspaceHome(){
     const label = getWorkspaceSectionLabel(key);
     return `
       <button class="workspace-home-card workspace-home-card--${escapeHtml(key)}" type="button" data-workspace-tab="${escapeHtml(rawKey)}" style="--workspace-card-index:${index}">
-        <span class="workspace-card-art">${workspaceSectionSvg(key)}</span>
+        <span class="workspace-card-art">${workspaceSectionIconHtml(key, label)}</span>
         <span class="workspace-card-copy">
           <strong>${escapeHtml(label)}</strong>
           <small>${escapeHtml(workspaceSectionCopy(key))}</small>
