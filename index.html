@@ -900,6 +900,7 @@
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003&signupseo=20260911-001&uifix=20260915-001&amp;motion=20260915-overlay-001&inventory=20260915-standards-001&customerux=20260915-002&carttheme=20260915-002&notesui=20260915-001&notesband=20260915-004" />
+  <link rel="stylesheet" href="Assets/style/52-workspace-section-home.css?v=20260916-004&shellclean=20260916-005" />
   <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
   <link rel="stylesheet" href="Assets/style/31-aziz-live-support.css?v=20260905-v143" />
   <link rel="stylesheet" href="Assets/style/32-aziz-chat-agent-polish.css?v=20260905-v153&knowledge=157" />
@@ -3545,6 +3546,24 @@
       <button class="tab hide" data-tab="admin" type="button"><i class="fa-solid fa-user-shield"></i> Admin</button>
       <button class="tab hide" data-tab="about" type="button" aria-hidden="true" tabindex="-1"><i class="fa-solid fa-info-circle"></i> About</button>
     </section>
+
+    <section id="workspaceHome" class="workspace-home hide" aria-label="Triplem VIP workspace">
+      <div class="workspace-home-heading">
+        <div>
+          <span class="workspace-home-kicker">Workspace</span>
+          <p>Open any area of Triplem VIP from your personalized workspace.</p>
+        </div>
+      </div>
+      <div id="workspaceHomeGrid" class="workspace-home-grid" aria-label="Available Triplem VIP sections"></div>
+    </section>
+
+    <nav id="workspaceSectionNav" class="workspace-section-nav hide" aria-label="Section navigation">
+      <button id="workspaceHomeBackBtn" class="workspace-home-back" type="button" aria-label="Back to Triplem VIP Home" title="Back to Triplem VIP Home">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        <span>Triplem VIP Home</span>
+      </button>
+      <select id="workspaceSectionSelect" class="workspace-section-switch" aria-label="Quickly switch section" title="Switch section"></select>
+    </nav>
 
 <section class="overview main-overview-section collapsed" id="mainOverview">
       <div class="overview-top" id="mainOverviewBanner">
@@ -6974,7 +6993,7 @@
   <script src="Assets/app/auth/06-auth-ui.js?v=20260904-authsurface140"></script>
   <script src="Assets/app/core/04-entries-api.js?v=20260901-auth-resume-fix2"></script>
   <script src="Assets/app/utils/01-currency-money.js?v=20260911-001&regional=158&currency=005"></script>
-  <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002&walletactions=20260915-001"></script>
+  <script src="Assets/app/core/05-meta-helpers.js?v=20260901-currency-font-audit1&currency=002&walletactions=20260915-001&workspacehome=20260916-003"></script>
   <script src="Assets/app/core/06-app-loading.js?v=20260902-startup-loading1"></script>
   <script src="Assets/app/core/07-theme.js?v=20260906-theme-centralized-001"></script>
   <script src="Assets/app/core/08-offline-sync.js?v=20260901-auth-resume-fix2&build010=001"></script>
@@ -6984,7 +7003,7 @@
   <script src="Assets/app/inventory/04-inventory-barcodes-scanner.js?v=20260915-inventory-standards-001"></script>
   <script src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001"></script>
   <script src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script src="Assets/app/ui/01-render-navigation.js?v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001"></script>
+  <script src="Assets/app/ui/01-render-navigation.js?v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005"></script>
   <script src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
@@ -6999,7 +7018,7 @@
   <script src="Assets/app/ui/03-section-shortcuts.js?v=20260909-sections002"></script>
   <script src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
-  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260913-wallet-selector-lazyfix1&regional=156&currency=001"></script>
+  <script src="Assets/app/auth/02-auth-welcome-trial.js?v=20260913-wallet-selector-lazyfix1&regional=156&currency=001&workspacehome=20260916-001"></script>
   <script src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002&build010=001&build011=001"></script>
   <script src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002&accounting=149001"></script>
   <script src="Assets/app/dashboard/01-financial-timeline.js?v=20260912-timeline-clean002"></script>
