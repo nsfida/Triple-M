@@ -4,14 +4,17 @@
   "version": "1.0.0",
   "description": "Triplem VIP — private personal and business finance workspace",
   "scripts": {
-    "test": "node --test tests/critical-paths.test.js",
+    "test": "node --test tests/*.test.js",
     "build:schema": "node scripts/build_full_schema_sql.js",
     "seo:indexnow": "node scripts/submit_indexnow.js --all",
     "seo:build-sitemap": "node scripts/build_sitemap.js",
     "seo:audit": "node scripts/audit_seo.js",
     "seo:audit:live": "node scripts/audit_live_seo.js",
     "seo:prepare": "node scripts/build_sitemap.js && node scripts/audit_seo.js",
-    "seo:postdeploy": "node scripts/seo_postdeploy.js"
+    "seo:postdeploy": "node scripts/seo_postdeploy.js",
+    "build:styles": "node scripts/build_feature_css_bundle.js",
+    "audit:frontend": "node scripts/audit_frontend.js",
+    "verify": "npm run build:styles && npm run audit:frontend && npm test"
   },
   "engines": {
     "node": ">=18"
