@@ -14,7 +14,11 @@
     "seo:postdeploy": "node scripts/seo_postdeploy.js",
     "build:styles": "node scripts/build_feature_css_bundle.js",
     "audit:frontend": "node scripts/audit_frontend.js",
-    "verify": "npm run build:styles && npm run audit:frontend && npm test"
+    "verify": "npm run build:styles && npm run audit:frontend && npm run audit:syntax && npm run audit:security && npm test",
+    "audit:syntax": "node scripts/audit_active_javascript.js",
+    "audit:security": "node scripts/security_audit.js",
+    "build:production": "node scripts/build_production.js",
+    "verify:production": "npm run verify && npm run build:production"
   },
   "engines": {
     "node": ">=18"
