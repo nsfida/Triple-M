@@ -704,10 +704,12 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = fals
     // background work and cannot block the gate or the shell reveal.
     let warmTabLoad = null;
     if (silentResume && state.secretPinVerified) {
-      const warmTab = typeof resolveStartupTab === "function" ? resolveStartupTab() : "dashboard";
-      warmTabLoad = warmTab === "dashboard" && typeof warmDashboardData === "function"
-        ? warmDashboardData()
-        : ensureTabDataLoaded(warmTab || "dashboard", { force: true });
+      const warmTab = typeof resolveStartupTab === "function" ? resolveStartupTab() : "home";
+      warmTabLoad = warmTab === "home"
+        ? Promise.resolve()
+        : (warmTab === "dashboard" && typeof warmDashboardData === "function"
+          ? warmDashboardData()
+          : ensureTabDataLoaded(warmTab || "dashboard", { force: true }));
       warmTabLoad.catch(err => console.warn("Startup tab warm load failed:", err));
     }
 
@@ -1174,13 +1176,15 @@ async function enterAppAfterUnlock(keepCurrentBackup, { instant = false, deferTa
       showTrialExpiredOverlay();
     } else {
       hideTrialExpiredOverlay();
-      const startupTab = typeof resolveStartupTab === "function" ? resolveStartupTab() : "dashboard";
-      activate(startupTab || "dashboard");
+      const startupTab = typeof resolveStartupTab === "function" ? resolveStartupTab() : "home";
+      activate(startupTab || "home");
       const warm = state.__silentResumeTabLoad;
       state.__silentResumeTabLoad = null;
-      const loadPromise = warm || (startupTab === "dashboard"
-        ? (typeof warmDashboardData === "function" ? warmDashboardData() : Promise.resolve())
-        : ensureTabDataLoaded(startupTab || "dashboard", { force: true }));
+      const loadPromise = warm || (startupTab === "home"
+        ? Promise.resolve()
+        : (startupTab === "dashboard"
+          ? (typeof warmDashboardData === "function" ? warmDashboardData() : Promise.resolve())
+          : ensureTabDataLoaded(startupTab || "dashboard", { force: true })));
       if (deferTabLoad) {
         loadPromise.catch(err => console.warn("Startup tab load failed:", err));
       } else {
