@@ -1506,9 +1506,9 @@ body[data-theme="dark"] .workspace-card-art,
   .workspace-card-art{border-radius:13px}
   .workspace-card-icon{width:74%;height:74%}
 }
-html.triplem-low-power .workspace-card-icon{animation:none!important;transition:none!important;transform:none!important}
+html.triplem-low-power .workspace-card-icon{animation:none!important;transition:none!important}
 @media(prefers-reduced-motion:reduce){
-  .workspace-card-icon{animation:none!important;transition:none!important;transform:none!important}
+  .workspace-card-icon{animation:none!important;transition:none!important}
 }
 
 /* Triplem VIP Home PNG glass-lens refinement — 2026-09-16 rev 011
@@ -1615,5 +1615,23 @@ body[data-theme="dark"] .workspace-home-card .workspace-card-art,
     height:72%!important;
     max-width:72%!important;
     max-height:72%!important;
+  }
+}
+
+/* Triplem VIP Home mobile PNG centering fix — 2026-09-16 rev 012
+   Low-power/reduced-motion modes must not remove the translate used for geometric centering. */
+@media(max-width:820px){
+  .workspace-home-card .workspace-card-icon,
+  html.triplem-low-power .workspace-home-card .workspace-card-icon{
+    left:50%!important;
+    top:50%!important;
+    margin:0!important;
+    transform:translate3d(-50%,-50%,0)!important;
+    transform-origin:50% 50%!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-home-card .workspace-card-icon{
+    transform:translate3d(-50%,-50%,0)!important;
   }
 }
