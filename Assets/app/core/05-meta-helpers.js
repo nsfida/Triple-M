@@ -655,6 +655,7 @@ function expenseOverviewWalletCardHtml(a){
 }
 
 function getActiveTabKey(){
+  if (document.body.classList.contains("workspace-home-active")) return "home";
   const activePanel = document.querySelector(".panel.active");
   if (activePanel?.id && activePanel.id.endsWith("Panel")) {
     return activePanel.id.replace(/Panel$/, "");
