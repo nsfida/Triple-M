@@ -218,6 +218,15 @@ describe("permissions", () => {
       true
     );
   });
+
+  it("recognizes company administrators even before legacy team flags are enabled", () => {
+    const companyAdmin = { id: "company-1", company_name: "Acme LLC", allow_team_members: false };
+    assert.equal(perms.isCompanyMainAccount(companyAdmin), true);
+    assert.equal(perms.canManageCompanyTeam(companyAdmin), true);
+    assert.equal(perms.isCompanyMainAccount({ id: "solo-1", settings: { AccountType: "individual" } }), false);
+    assert.equal(perms.canManageCompanyTeam({ team_owner_id: "company-1", team_permissions: { can_manage_team: true } }), true);
+    assert.equal(perms.canManageCompanyTeam({ team_owner_id: "company-1", team_permissions: { can_manage_team: false } }), false);
+  });
 });
 
 describe("asset-math", () => {
@@ -410,6 +419,7 @@ describe("migrations + schema build smoke", () => {
     assert.match(result.sql, /BEGIN migrations\/095_expense_global_smart_search\.sql/);
     assert.match(result.sql, /BEGIN migrations\/098_subscription_receipt_archive_and_details\.sql/);
     assert.match(result.sql, /BEGIN migrations\/165_currency_registry_extensibility_eur_inr\.sql/);
+    assert.match(result.sql, /BEGIN migrations\/169_team_vat_password_push_regional_fixes\.sql/);
     assert.match(result.sql, /app_login_throttle/);
     assert.match(result.sql, /app_admin_export_full_backup/);
     assert.match(result.sql, /app_admin_import_full_backup/);
@@ -417,6 +427,74 @@ describe("migrations + schema build smoke", () => {
     assert.match(result.sql, /goods_category_config/);
     assert.match(result.sql, /goods_sub_brands/);
     assert.ok(result.sql.length > 50_000);
+  });
+
+  it("168 company team management is forward-only, paid-seat gated, and credential-safe", () => {
+    const migration = fs.readFileSync(
+      path.join(__dirname, "..", "migrations", "168_company_team_self_service_billing_titles_security.sql"),
+      "utf8"
+    );
+    const executable = migration.replace(/--.*$/gm, "");
+    assert.match(migration, /add column if not exists team_title text/i);
+    assert.match(migration, /add column if not exists team_seat_entitlement integer/i);
+    assert.match(migration, /create or replace function public\.app_team_create_member_v2/i);
+    assert.match(migration, /create or replace function public\.app_team_request_seat_addition/i);
+    assert.match(migration, /proration_fraction/i);
+    assert.match(migration, /coverage_until/i);
+    assert.match(migration, /coverage_until-now\(\)/i);
+    assert.match(migration, /request_context='team_seat_addition'[\s\S]*status='approved'[\s\S]*admin_action='approve'/i);
+    assert.match(migration, /update public\.app_sessions set revoked_at=now\(\)[\s\S]*where user_id=p_user_id/i);
+    assert.match(migration, /admin_visible_password=null/i);
+    assert.match(migration, /revoke all on function public\.app_team_create_member\(text,text,text,jsonb\)[\s\S]*from public,anon,authenticated/i);
+    assert.match(migration, /'account_title',[\s\S]*'Company Administrator'/i);
+    assert.match(migration, /'team_active_count'/i);
+    assert.match(migration, /'team_title'/i);
+    assert.doesNotMatch(executable, /\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+  });
+
+  it("169 fixes VAT, regional team billing, weak-password visibility and admin push without destructive data changes", () => {
+    const projectRoot = path.join(__dirname, "..");
+    const migration = fs.readFileSync(path.join(projectRoot, "migrations", "169_team_vat_password_push_regional_fixes.sql"), "utf8");
+    const auth = fs.readFileSync(path.join(projectRoot, "Assets", "app", "auth", "01-auth-session.js"), "utf8");
+    const admin = fs.readFileSync(path.join(projectRoot, "Assets", "app", "admin", "01-admin.js"), "utf8");
+    const pushClient = fs.readFileSync(path.join(projectRoot, "Assets", "app", "notifications", "01-web-push.js"), "utf8");
+    const pushEdge = fs.readFileSync(path.join(projectRoot, "supabase", "functions", "push-notifications", "index.ts"), "utf8");
+    const teamCss = fs.readFileSync(path.join(projectRoot, "Assets", "style", "53-company-team-management.css"), "utf8");
+    const executable = migration.replace(/--.*$/gm, "");
+
+    assert.match(migration, /''password_is_weak'', coalesce\(u\.password_is_weak, false\)/i);
+    assert.match(migration, /app_team_seat_quote_v2/i);
+    assert.match(migration, /app_team_request_seat_addition_v2/i);
+    assert.match(migration, /app_billing_currency_for_country\(requested_country\)/i);
+    assert.match(migration, /create table if not exists public\.app_admin_push_outbox/i);
+    assert.match(migration, /create or replace function public\.app_notify_admins/i);
+    assert.match(migration, /app_push_service_claim_admin_outbox/i);
+    assert.match(migration, /app_push_service_complete_admin_outbox/i);
+    assert.doesNotMatch(executable, /\bdelete\s+from\b|\btruncate\b|\bdrop\s+table\b|\bdrop\s+column\b/i);
+
+    const vatStart = auth.indexOf("function openTaxSettingsModal");
+    const vatEnd = auth.indexOf("async function saveTaxSettingsFromModal", vatStart);
+    assert.ok(vatStart >= 0 && vatEnd > vatStart);
+    assert.doesNotMatch(auth.slice(vatStart, vatEnd), /inlineAuthSurface/);
+    assert.match(auth, /app_team_seat_quote_v2/);
+    assert.match(auth, /app_team_request_seat_addition_v2/);
+    assert.match(auth, /p_country_code:[^\n]*getRegionalCountryCode\(\)|p_country_code:\s*regionalCountry/);
+
+    const tileStart = admin.indexOf("function renderAdminUserTileHtml");
+    const tileEnd = admin.indexOf("function ", tileStart + 20);
+    const tileSource = admin.slice(tileStart, tileEnd > tileStart ? tileEnd : tileStart + 2500);
+    assert.ok(tileSource.indexOf("admin-user-tile-count") < tileSource.indexOf("admin-user-tile-avatar"));
+
+    assert.match(teamCss, /#companyTeamModal \.company-team-body[\s\S]*overflow-y:\s*auto/i);
+    assert.match(teamCss, /scrollbar-width:\s*none/i);
+    assert.match(teamCss, /::-webkit-scrollbar/i);
+    assert.match(teamCss, /var\(--modal-bg\)|var\(--surface(?:-elevated)?\)/i);
+    assert.match(teamCss, /var\(--text\)/i);
+
+    assert.match(pushClient, /admin_inbox_flush/);
+    assert.match(pushClient, /scheduleAdminInboxFlush/);
+    assert.match(pushEdge, /action === "admin_inbox_flush"/);
+    assert.match(pushEdge, /app_push_service_claim_admin_outbox/);
   });
 
   it("093 security hardening is additive and closes direct session minting", () => {

@@ -182,6 +182,8 @@ const CANONICAL_MIGRATION_FILES = [
   "165_currency_registry_extensibility_eur_inr.sql",
   "166_message_delivery_receipts.sql",
   "167_wallet_transaction_pagination.sql",
+  "168_company_team_self_service_billing_titles_security.sql",
+  "169_team_vat_password_push_regional_fixes.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
