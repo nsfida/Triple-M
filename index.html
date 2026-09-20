@@ -901,7 +901,7 @@
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003&signupseo=20260911-001&uifix=20260915-001&amp;motion=20260915-overlay-001&inventory=20260915-standards-001&customerux=20260915-002&carttheme=20260915-002&notesui=20260915-001&notesband=20260915-004&amp;teamfix=20260917-169" />
-  <link rel="stylesheet" href="Assets/style/app.feature.bundle.css?v=20260917-company-team001&amp;teamfix=20260917-169" />
+  <link rel="stylesheet" href="Assets/style/app.feature.bundle.css?v=20260917-company-team001&amp;teamfix=20260917-169&amp;insurance=20260921-mycommission001" />
   <!-- Maintained source-style manifest. These inert references document the exact source order used by npm run build:styles.
   <link rel="stylesheet" href="Assets/style/52-workspace-section-home.css?v=20260916-004&shellclean=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&iconv2=20260916-008&iconfix=20260916-009&pngicons=20260916-010&iconglass=20260916-011&mobilecenter=20260916-012" />
   <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
@@ -925,6 +925,7 @@
   <link rel="stylesheet" href="Assets/style/50-dashboard-financial-timeline.css?v=20260912-timeline-openfix-167" />
   <link rel="stylesheet" href="Assets/style/51-messages-compose-receipts.css?v=20260912-messages-compact-167" />
   <link rel="stylesheet" href="Assets/style/53-company-team-management.css?v=20260917-company-team001&amp;teamfix=20260917-169" />
+  <link rel="stylesheet" href="Assets/style/54-insurance.css?v=20260921-insurance-mycommission001" />
   -->
   <!-- Deferred runtime is declared in <head> so downloads begin during HTML parsing; execution order and post-parse semantics remain unchanged. -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -945,7 +946,8 @@
   <script defer src="Assets/app/analytics/01-site-tracker.js?v=20260801-analytics"></script>
   <script defer src="Assets/app/lib/tax-math.js"></script>
   <script defer src="Assets/app/lib/loan-math.js"></script>
-  <script defer src="Assets/app/lib/permissions.js?accounting=149001&team=168001"></script>
+  <script defer src="Assets/app/lib/permissions.js?accounting=149001&team=168001&insurance=171001"></script>
+  <script defer src="Assets/app/lib/insurance-math.js?v=20260920-170001"></script>
   <script defer src="Assets/app/lib/asset-math.js"></script>
   <script defer src="Assets/app/lib/admin-backup.js?build010=001&accounting=149001&audit=154"></script>
   <script defer src="Assets/app/domain-ledger.js?v=20260908-card-last4-1"></script>
@@ -953,7 +955,7 @@
   <script defer src="Assets/app/core/02-state.js?v=20260909-triplem-ai-158"></script>
   <script defer src="Assets/app/inventory-catalog.js"></script>
   <script defer src="Assets/app/core/03-els.js?v=20260903-admin-overlay126&pagination=155"></script>
-  <script defer src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158&team=168001&amp;teamfix=20260917-169"></script>
+  <script defer src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001"></script>
   <script defer src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138&security=146"></script>
   <script defer src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139"></script>
   <script defer src="Assets/app/auth/05-account-security.js?v=20260907-webauthn148&security=148"></script>
@@ -975,6 +977,7 @@
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
   <script defer src="Assets/app/reports/01-pdf.js?v=20260908-pdf-minus-fix&build010=001"></script>
+  <script defer src="Assets/app/insurance/01-insurance.js?v=20260921-insurance-mycommission001"></script>
   <script defer src="Assets/app/reports/02-exports.js?v=20260908-account-details1&build010=002&pagination=155"></script>
   <script defer src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
@@ -991,7 +994,7 @@
   <script defer src="Assets/app/dashboard/01-financial-timeline.js?v=20260912-timeline-clean002"></script>
   <script defer src="Assets/app/assets/01-assets.js?v=20260904-assets140&build011=001&build013=filter001&build016=assets-wallet-currency002"></script>
   <script defer src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001&build016=dep-wallet002"></script>
-  <script defer src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158&team=168001&amp;teamfix=20260917-169"></script>
+  <script defer src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001"></script>
   <script defer src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script defer src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
   <script defer src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=167"></script>
@@ -3609,6 +3612,7 @@
       <button class="tab active" data-tab="dashboard" type="button" title="Detailed Dashboard"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span class="tab-label">Dashboard</span></button>
       <button class="tab" data-tab="expenses" type="button" title="Expenses"><i class="fa-solid fa-coins" aria-hidden="true"></i><span class="tab-label">Expenses</span></button>
       <button class="tab" data-tab="goods" type="button" title="Inventory"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span class="tab-label">Inventory</span></button>
+      <button class="tab hide" data-tab="insurance" type="button" title="Insurance" aria-hidden="true"><i class="fa-solid fa-shield-heart" aria-hidden="true"></i><span class="tab-label">Insurance</span></button>
       <button class="tab" data-tab="audit" type="button" title="Audit Report"><i class="fa-solid fa-file-shield" aria-hidden="true"></i><span class="tab-label">Audit Report</span></button>
       <button class="tab hide" data-tab="triplem-ai" type="button" title="Triplem AI" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="tab-label">Triplem AI</span></button>
       <button class="tab hide" data-tab="assets" type="button" title="Asset" aria-hidden="true"><i class="fa-solid fa-building" aria-hidden="true"></i><span class="tab-label">Asset</span></button>
@@ -4177,6 +4181,27 @@
             </div>
             <div id="inventoryScannerHost" class="inventory-scanner-host"></div>
           </div>
+        </div>
+      </section>
+
+
+      <section id="insurancePanel" class="panel">
+        <div class="card section insurance-shell">
+          <div class="section-head">
+            <div class="section-head-top">
+              <div class="title-group">
+                <div class="title-row"><h3>Insurance</h3></div>
+                <p class="help">Insurance companies, policies, sales, commissions and customer documents.</p>
+              </div>
+              <div class="insurance-head-actions">
+                <button class="btn ghost tiny" type="button" id="insuranceRefreshBtn"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+                <button class="btn primary tiny" type="button" id="insuranceMakeSaleBtn"><i class="fa-solid fa-file-circle-plus"></i> Make Sale</button>
+              </div>
+            </div>
+          </div>
+          <div id="insuranceKpis" class="insurance-kpis"></div>
+          <div id="insuranceViewTabs" class="insurance-view-tabs" role="tablist" aria-label="Insurance views"></div>
+          <div id="insuranceWorkspace"></div>
         </div>
       </section>
 

@@ -1,8 +1,8 @@
-/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v170. */
+/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v174-insurancecommission1. */
 "use strict";
 
 const STATIC_CACHE_PREFIX = "triplem-static-";
-const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v170`;
+const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v174-insurancecommission1`;
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 
 self.addEventListener("install", event => {
