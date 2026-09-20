@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "generatedBy": "scripts/build_feature_css_bundle.js",
+  "sources": [
+    {
+      "path": "Assets/style/52-workspace-section-home.css",
+      "bytes": 74390,
+      "sha256": "ed326f638f65bd7d8b648ad897e3f91fca234ed300644b1aa0a36a6fd8e7e5e1"
+    },
+    {
+      "path": "Assets/style/35-build011-refinements.css",
+      "bytes": 12756,
+      "sha256": "ffe680d01533741d9d3edd199f9d5937ca3a94775ae95578db7336faf5508c1c"
+    },
+    {
+      "path": "Assets/style/31-aziz-live-support.css",
+      "bytes": 4539,
+      "sha256": "92363c6c260b5354ae19d884b62b2ebccb78ceaa59d27b2e461fc2b53926fee1"
+    },
+    {
+      "path": "Assets/style/32-aziz-chat-agent-polish.css",
+      "bytes": 9944,
+      "sha256": "5449db31046edddaf26b81426cb64fc4dd359f00dce4e4a493f86c53592fdf85"
+    },
+    {
+      "path": "Assets/style/33-live-chat-records-polish.css",
+      "bytes": 15318,
+      "sha256": "e995e24a1b02be6ee2d7fbe7d1a2704f99936dfc683171197aef564c5543c952"
+    },
+    {
+      "path": "Assets/style/34-build010-upgrades.css",
+      "bytes": 12624,
+      "sha256": "e6033c1ef2316505bb47e071926190b26cd343755325dd7739b404f9cd66a767"
+    },
+    {
+      "path": "Assets/style/22-landing-hero-polish.css",
+      "bytes": 21712,
+      "sha256": "88f1557d9c091b4284018618563d496e5706c9ef4b2e5aec97402b569f25a610"
+    },
+    {
+      "path": "Assets/style/36-build012-notes-redesign.css",
+      "bytes": 18788,
+      "sha256": "cb8a91d20e28bcfdac07d5110574ad17ff8d4df17d67d6d17ba7635abdbfa8f4"
+    },
+    {
+      "path": "Assets/style/37-build013-filter-cleanup.css",
+      "bytes": 2921,
+      "sha256": "734d664718c6a94e399db715ff7e47e2ea1b224ccbda5959af25ad956900a69f"
+    },
+    {
+      "path": "Assets/style/38-build014-inventory-overview-polish.css",
+      "bytes": 3048,
+      "sha256": "8586c9e91fe089de42bfa660df54105632fc6c01987d42d3ffb213bb10b6de7f"
+    },
+    {
+      "path": "Assets/style/39-assets-depreciation-fixes.css",
+      "bytes": 6288,
+      "sha256": "cbd900b6792cd51e36b3dd01fabf768a575ee5c46ac3f618a1047e1f9cfaf548"
+    },
+    {
+      "path": "Assets/style/40-account-security-session-refinement.css",
+      "bytes": 23594,
+      "sha256": "7c53a3ba241bc2e67782725d4ad217d2e964845c890c9db63898ba39fc7f7ea0"
+    },
+    {
+      "path": "Assets/style/41-accounting-suite.css",
+      "bytes": 44269,
+      "sha256": "a99638153732a313cc152475cc520a9f6c6f8306ab8d24410de63a1353eee6d0"
+    },
+    {
+      "path": "Assets/style/42-public-accounting-seo.css",
+      "bytes": 24453,
+      "sha256": "5f0b6611c76829ff24d7a5cc9f909d06106012958a5c254557296ed3cad2c78b"
+    },
+    {
+      "path": "Assets/style/43-expenses-overlay-refinement.css",
+      "bytes": 46476,
+      "sha256": "2af2c4c127346fe1fdb0b0ec004bc95d197cd145fe31624c674d7347eb4c5577"
+    },
+    {
+      "path": "Assets/style/44-financial-audit-report.css",
+      "bytes": 16492,
+      "sha256": "93837ef60937d1bb4dd98dd86c4d0ac03f3a7606f7ca3a2d5eaf2427d9baa796"
+    },
+    {
+      "path": "Assets/style/45-triplem-ai.css",
+      "bytes": 35489,
+      "sha256": "8c667cafe2f9cf00c1820193631e1fe1f78a492e6bf4a9a07a8dbc9fb3fd052d"
+    },
+    {
+      "path": "Assets/style/47-section-keyboard-shortcuts.css",
+      "bytes": 2475,
+      "sha256": "fbe7566130eb2e7f09258b8e778581d725873f4eead3f28aca96305a2119698f"
+    },
+    {
+      "path": "Assets/style/48-installment-bought-sold.css",
+      "bytes": 6441,
+      "sha256": "aff3a55c23d030c775ada0b927d5889a8622bfb9059064ded79d51e041cbb565"
+    },
+    {
+      "path": "Assets/style/50-dashboard-financial-timeline.css",
+      "bytes": 11468,
+      "sha256": "a6faec58477b998cd8a6d4dcc4f853ab65fa8409c1a933b147987572ea1bba94"
+    },
+    {
+      "path": "Assets/style/51-messages-compose-receipts.css",
+      "bytes": 4255,
+      "sha256": "ed6e3db1e1410d4a64fdb6fb5e5253885d158635560139b6e286d9f8884be2c6"
+    },
+    {
+      "path": "Assets/style/53-company-team-management.css",
+      "bytes": 15541,
+      "sha256": "1157823f95a7167bf86ab5122a9091afebc805d8bf861e5ff4659368010bd864"
+    },
+    {
+      "path": "Assets/style/54-insurance.css",
+      "bytes": 52682,
+      "sha256": "81e390b516a113c895242b960d12a4282c388a8e0a5e606032775718e162091f"
+    }
+  ],
+  "bytes": 467819,
+  "sha256": "749b78e8724f9d54c8808e5d0ca1ffec9d81643e9fca7f22d3be09032b0da20d"
+}

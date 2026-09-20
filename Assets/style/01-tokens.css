@@ -1,0 +1,21 @@
+/* Split from styles.css lines 1-32 — @font-face + :root. Do not reorder relative to other 0N-*.css files. */
+@font-face{
+  font-family:"DirhamSymbol";
+  src:url("fonts/AED.ttf") format("truetype");
+  font-display:swap;
+  unicode-range:U+007E;
+}
+@font-face{
+  font-family:"RiyalSymbol";
+  src:url("fonts/SAR.otf") format("opentype");
+  font-display:swap;
+  unicode-range:U+0024;
+}
+
+:root{
+  /* Color and effect tokens are injected by Assets/config/themes.js before
+     the stylesheet loads. Keep this file limited to geometry and layout. */
+  --radius:14px;
+  --max:1240px;
+  --content-max:1040px;
+}

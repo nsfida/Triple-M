@@ -1,0 +1,72 @@
+/* Triplem VIP Build 014 — inventory filter cleanup + deterministic overview chevrons. */
+
+/* Inventory filters are layout-only. Remove the card-like band and section bubbles. */
+html.triplem-workspace-themed #app #goodsPanel .inventory-filter-row,
+html.triplem-workspace-themed #app #goodsPanel .inventory-filter-row .filter-inline-section {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.triplem-workspace-themed #app #goodsPanel .inventory-filter-row .filter-inline-section:is(:hover,:focus-within,:active) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html.triplem-workspace-themed #app #goodsPanel .inventory-filter-row :is(.filter-inline-input,.filter-inline-select) {
+  background: var(--control-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb,var(--glass-highlight) 32%,transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.triplem-workspace-themed #app #goodsPanel .inventory-filter-row :is(.filter-inline-input,.filter-inline-select):is(:hover,:focus,:focus-visible) {
+  background: var(--control-hover) !important;
+  border-color: var(--line-strong) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb,var(--primary) 11%,transparent) !important;
+}
+#goodsPanel .inventory-filter-layout {
+  flex: 0 0 auto !important;
+}
+#goodsPanel .inventory-layout-select {
+  min-width: 104px !important;
+  max-width: 128px !important;
+}
+@media (max-width:560px) {
+  #goodsPanel .inventory-filter-layout { flex: 0 0 auto !important; }
+  #goodsPanel .inventory-layout-select { width:auto !important; min-width:100px !important; }
+}
+
+/* Overview chevrons: no hover spin. A right chevron turns down exactly 90° only when open. */
+#toggleWalletsBtn.overview-expand-btn,
+#toggleMainOverviewBtn.overview-expand-btn,
+#toggleWalletsBtn.overview-expand-btn:hover,
+#toggleMainOverviewBtn.overview-expand-btn:hover,
+.wallets-overview-section.expanded #toggleWalletsBtn.overview-expand-btn,
+.main-overview-section.expanded #toggleMainOverviewBtn.overview-expand-btn {
+  transform: none !important;
+}
+.overview-expand-btn {
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease !important;
+}
+.overview-expand-chevron {
+  display:inline-block;
+  transform:rotate(0deg);
+  transform-origin:50% 50%;
+  transition:transform .18s ease;
+  will-change:transform;
+}
+.overview-expand-btn:hover .overview-expand-chevron {
+  transform:rotate(0deg);
+}
+.overview-expand-btn[aria-expanded="true"] .overview-expand-chevron,
+.overview-expand-btn[aria-expanded="true"]:hover .overview-expand-chevron {
+  transform:rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .overview-expand-chevron { transition:none !important; }
+}
