@@ -190,6 +190,9 @@ const CANONICAL_MIGRATION_FILES = [
   "173_insurance_customer_registry_menus_documents.sql",
   "174_insurance_my_commission_receivables.sql",
   "175_insurance_policy_cancellation_commission_deductions.sql",
+  "176_insurance_commission_opening_balances.sql",
+  "177_insurance_referrals_and_commission_history_fix.sql",
+  "178_insurance_referrer_directory_grouped_ledger.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
