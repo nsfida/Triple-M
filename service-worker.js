@@ -1,8 +1,8 @@
-/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v178-referrallayout3. */
+/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v186-windowsshortcutfix8. */
 "use strict";
 
 const STATIC_CACHE_PREFIX = "triplem-static-";
-const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v178-referrallayout3`;
+const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v186-windowsshortcutfix8`;
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 
 self.addEventListener("install", event => {

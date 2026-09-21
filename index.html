@@ -901,7 +901,7 @@
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="Assets/style/app.bundle.css?v=20260828-theme-immediate&amp;rev=20260830-admin-overlays-security2&amp;fix=20260830-form-admin-installment&amp;header=20260830-transparent&amp;tabs=20260830-founder-lens&amp;messages=20260830-messenger-heads8&adminui=20260830-admin-theme-photo2&expenses=20260831-smooth-grid-filters&amp;landing=20260831-fullscreen-seo&amp;confirm=20260831-themed-delete&amp;lens=20260831-founder-parity&amp;ui=20260831-arch-request-delete4&amp;overlayfix=20260831-theme-parity&amp;update=20260901-currency-font-audit1&amp;offline=20260901-offline-confirm-sync1&amp;mobilebtc=20260901-layout-theme-expense1&amp;searchtheme=20260901-global-expense-theme2&amp;signup=20260902-plan-lifecycle1&amp;subui=20260902-receipt-dashboard1&amp;livechat=20260903-ui126&amp;security=20260904-ui131&amp;notifyux=20260904-once-toggle131&amp;signupux=20260904-security-parity131&amp;recovery=20260904-v137&amp;accountsecurity=20260904-v138&amp;reliability=20260904-v139&amp;authsurface=20260904-v140&amp;mobilepolish=20260905-v142&amp;signuprecoverydesktop=20260905-v144&currencyfont=20260906-v004&notifytheme=20260906-v145&themes=20260906-centralized001&expensesrefine=20260908-003&signupseo=20260911-001&uifix=20260915-001&amp;motion=20260915-overlay-001&inventory=20260915-standards-001&customerux=20260915-002&carttheme=20260915-002&notesui=20260915-001&notesband=20260915-004&amp;teamfix=20260917-169" />
-  <link rel="stylesheet" href="Assets/style/app.feature.bundle.css?v=20260917-company-team001&amp;teamfix=20260917-169&amp;insurance=20260921-openingbalance001" />
+  <link rel="stylesheet" href="Assets/style/app.feature.bundle.css?v=20260917-company-team001&amp;teamfix=20260917-169&amp;insurance=20260921-openingbalance001&amp;apps=20260921-windows001" />
   <!-- Maintained source-style manifest. These inert references document the exact source order used by npm run build:styles.
   <link rel="stylesheet" href="Assets/style/52-workspace-section-home.css?v=20260916-004&shellclean=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&iconv2=20260916-008&iconfix=20260916-009&pngicons=20260916-010&iconglass=20260916-011&mobilecenter=20260916-012" />
   <link rel="stylesheet" href="Assets/style/35-build011-refinements.css?v=20260906-build011-001" />
@@ -926,6 +926,7 @@
   <link rel="stylesheet" href="Assets/style/51-messages-compose-receipts.css?v=20260912-messages-compact-167" />
   <link rel="stylesheet" href="Assets/style/53-company-team-management.css?v=20260917-company-team001&amp;teamfix=20260917-169" />
   <link rel="stylesheet" href="Assets/style/54-insurance.css?v=20260921-insurance-referral-layout003" />
+  <link rel="stylesheet" href="Assets/style/55-app-downloads.css?v=20260921-windows-app002" />
   -->
   <!-- Deferred runtime is declared in <head> so downloads begin during HTML parsing; execution order and post-parse semantics remain unchanged. -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -998,6 +999,7 @@
   <script defer src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script defer src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading"></script>
   <script defer src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=167"></script>
+  <script defer src="Assets/app/ui/04-app-downloads.js?v=20260921-windows-app002"></script>
   <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169"></script>
   <script defer src="Assets/app/boot.js?v=20260906-currency001"></script>
 </head>
@@ -2783,6 +2785,7 @@
         <div class="landing-downloads" aria-label="App downloads">
           <button id="iosDownloadBtn" class="landing-icon-btn" type="button" title="Download for iOS" aria-label="Download Triplem VIP for iOS"><i class="fa-brands fa-apple"></i></button>
           <button id="androidDownloadBtn" class="landing-icon-btn" type="button" title="Download for Android" aria-label="Download Triplem VIP for Android"><i class="fa-brands fa-google-play"></i></button>
+          <button id="windowsDownloadBtn" class="landing-icon-btn" type="button" title="Download for Windows" aria-label="Download Triplem VIP for Windows"><i class="fa-brands fa-windows"></i></button>
           <a class="landing-whatsapp" href="https://wa.me/923339004564" target="_blank" rel="noopener" aria-label="WhatsApp support"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp support</span></a>
         </div>
         <div class="login-panel-note"><i class="fa-solid fa-lock"></i> Each account has an isolated workspace secured by database authentication.</div>
@@ -3100,6 +3103,59 @@
             <p><strong>Note:</strong> This app requires Android 6.0 (Marshmallow) or later. You may need to enable installation from unknown sources in your device settings.</p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Triplem VIP App Download Hub (account + Windows landing download) -->
+  <div id="appDownloadHubOverlay" class="triplem-apps-overlay hide" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="appDownloadHubTitle">
+    <div class="triplem-apps-backdrop" data-app-download-dismiss></div>
+    <div class="triplem-apps-modal">
+      <div class="triplem-apps-header">
+        <div>
+          <p class="triplem-apps-kicker">Triplem VIP</p>
+          <h3 id="appDownloadHubTitle">Download App</h3>
+        </div>
+        <button id="closeAppDownloadHubBtn" class="triplem-apps-close" type="button" aria-label="Close app download"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="triplem-apps-body">
+        <div class="triplem-platform-grid" role="tablist" aria-label="Choose a platform">
+          <button class="triplem-platform-btn" type="button" role="tab" data-app-platform="android" aria-selected="false"><i class="fa-brands fa-android" aria-hidden="true"></i><span>Android</span></button>
+          <button class="triplem-platform-btn" type="button" role="tab" data-app-platform="ios" aria-selected="false"><i class="fa-brands fa-apple" aria-hidden="true"></i><span>iOS</span></button>
+          <button class="triplem-platform-btn" type="button" role="tab" data-app-platform="windows" aria-selected="false"><i class="fa-brands fa-windows" aria-hidden="true"></i><span>Windows</span></button>
+        </div>
+
+        <section class="triplem-platform-panel hide" data-app-panel="android">
+          <div class="triplem-app-summary"><i class="fa-brands fa-android" aria-hidden="true"></i><div><strong>Triplem VIP for Android</strong><span>Install the official APK and use the same live Triplem VIP workspace.</span></div></div>
+          <ol class="triplem-install-steps">
+            <li>Download the APK to your Android phone.</li>
+            <li>Open the downloaded file and allow installation from this source if Android asks.</li>
+            <li>Tap Install, then open Triplem VIP and sign in normally.</li>
+          </ol>
+          <a class="triplem-download-final" href="Assets/mobile_app/Android/Triple_M_by_NSF.apk" download="Triple_M_by_NSF.apk"><i class="fa-solid fa-download" aria-hidden="true"></i> Download Android APK</a>
+        </section>
+
+        <section class="triplem-platform-panel hide" data-app-panel="ios">
+          <div class="triplem-app-summary"><i class="fa-brands fa-apple" aria-hidden="true"></i><div><strong>Triplem VIP for iOS</strong><span>Install the Triplem VIP configuration profile and open the workspace from your iPhone.</span></div></div>
+          <ol class="triplem-install-steps">
+            <li>Download the configuration profile on your iPhone.</li>
+            <li>Open Settings, then General, then VPN &amp; Device Management.</li>
+            <li>Select the Triplem VIP profile and complete the installation prompts.</li>
+          </ol>
+          <a class="triplem-download-final" href="Assets/mobile_app/iOS/Triple_M_by_NSF.mobileconfig" download="Triple_M_by_NSF.mobileconfig"><i class="fa-solid fa-download" aria-hidden="true"></i> Download iOS Setup</a>
+        </section>
+
+        <section class="triplem-platform-panel hide" data-app-panel="windows">
+          <div class="triplem-app-summary"><img src="Assets/logo/logo.png" alt="Triplem VIP" /><div><strong>Triplem VIP for Windows</strong><span>A native Windows app with the Triplem VIP identity that securely loads the current live version of triplem.vip.</span></div></div>
+          <ol class="triplem-install-steps">
+            <li>Download and open <strong>TriplemVIP_Setup.exe</strong>.</li>
+            <li>Accept the license, choose the installation folder, then select your Desktop, Start Menu and taskbar preferences.</li>
+            <li>Review the Ready page and complete the guided installation.</li>
+            <li>If you selected taskbar pinning, approve the Windows confirmation after first launch.</li>
+            <li>Launch the native Triplem VIP Windows app and sign in with your normal Triplem VIP account.</li>
+          </ol>
+                    <a class="triplem-download-final" href="Assets/mobile_app/Windows/TriplemVIP_Setup.exe?v=20260921-shortcutfix8" download="TriplemVIP_Setup.exe"><i class="fa-brands fa-windows" aria-hidden="true"></i> Download Windows App</a>
+        </section>
       </div>
     </div>
   </div>
@@ -3541,6 +3597,7 @@
             <input id="importJsonInput" type="file" accept=".json,application/json,.csv,text/csv,text/plain" class="file-import-input" />
             <input id="sectionCsvInput" type="file" accept=".csv,text/csv,text/plain" class="hide" data-section="" />
             <button class="menu-item" id="accountSettingsBtn" type="button"><i class="fa-solid fa-user-gear"></i> Account Settings</button>
+            <button class="menu-item" id="downloadAppBtn" type="button"><i class="fa-solid fa-download"></i> Download App</button>
             <button class="menu-item" id="planSubscriptionBtn" type="button"><i class="fa-solid fa-crown"></i> Plan &amp; Subscription</button>
             <button class="menu-item" id="defaultStartPageBtn" type="button"><i class="fa-solid fa-house-chimney"></i> Default Start Page</button>
             <button class="menu-item" id="openMessagesMenuBtn" type="button"><i class="fa-solid fa-comments"></i> Messages</button>
