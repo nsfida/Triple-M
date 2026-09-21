@@ -54,6 +54,7 @@
     try { return new Date(`${value}T00:00:00`).toLocaleDateString(); } catch (_) { return String(value); }
   };
   const fmtTime = value => String(value || "").slice(0, 5);
+  const formatPolicyDuration = value => { const days=Math.max(0,Math.trunc(n(value))); if(days===0)return "Same day"; if(days===1)return "1 day"; return `${days.toLocaleString()} days`; };
   const currencyOptions = selected => {
     const allowed = typeof getAllowedCurrencies === "function" ? getAllowedCurrencies() : [];
     const list = allowed.length ? allowed : ["AED"];
@@ -196,6 +197,9 @@
           { label: "View", icon: "fa-eye", action: () => openSaleDetails(sale.id) },
           { label: "Download Invoice", icon: "fa-file-invoice", action: () => downloadCustomerDocumentPdf(buildDocumentData(sale,"invoice")) },
           { label: "Download Receipt", icon: "fa-receipt", action: () => downloadCustomerDocumentPdf(buildDocumentData(sale,"receipt")) },
+          sale.cancellation_id
+            ? { label: "View Cancellation", icon: "fa-ban", action: () => openCancellationDetails(sale.id) }
+            : (can("edit") ? { label: "Cancel Policy", icon: "fa-ban", action: () => openPolicyCancellation(sale) } : null),
           can(temp ? "edit" : "create") ? { label: temp ? "Edit Temporary Invoice" : "Create Temporary Invoice", icon: "fa-file-pen", action: () => openTempInvoiceEditor(sale,temp) } : null,
           temp ? { label: "Download Temporary Invoice", icon: "fa-file-pdf", action: () => downloadTempInvoicePdf(temp) } : null,
           can("delete") ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deleteSaleRecord(sale.id) } : null
@@ -205,7 +209,8 @@
         items = [
           { label: "View", icon: "fa-eye", action: () => openCommissionDetails(commission.id) },
           can("create") && n(commission.commission_outstanding) > 0 ? { label: "Receive Commission", icon: "fa-hand-holding-dollar", action: () => openCommissionReceiving(commission) } : null,
-          { label: "Payment History", icon: "fa-clock-rotate-left", action: () => openCommissionDetails(commission.id) }
+          can("create") && n(commission.commission_due) > 0 ? { label: "Add Deduction", icon: "fa-minus-circle", action: () => openCommissionDeduction(commission) } : null,
+          { label: "Payment / Deduction History", icon: "fa-clock-rotate-left", action: () => openCommissionDetails(commission.id) }
         ];
       } else if (kind === "commissionReceipt") {
         const receipt = S.commissionReceipts.find(x => x.id === id); if (!receipt) return;
@@ -354,7 +359,7 @@
 
   function salesToolbar({ report = false } = {}) {
     return `<div class="insurance-toolbar insurance-filter-toolbar ${report ? "insurance-report-filter-toolbar" : ""}">
-      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceFilterSearch" class="input" value="${esc(S.filters.search)}" placeholder="Reference, company, policy or customer"></div>
+      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceFilterSearch" class="input" value="${esc(S.filters.search)}" placeholder="Reference, policy no., company, policy or customer"></div>
       ${report ? `<div class="form-group insurance-filter-field insurance-report-view"><label class="form-label">Report</label><select id="insuranceReportView" class="select">${reportViewOptions()}</select></div>` : ""}
       <div class="form-group insurance-filter-field"><label class="form-label">From</label><input id="insuranceFilterStart" class="input" type="date" value="${esc(S.filters.start)}"></div>
       <div class="form-group insurance-filter-field"><label class="form-label">To</label><input id="insuranceFilterEnd" class="input" type="date" value="${esc(S.filters.end)}"></div>
@@ -409,8 +414,10 @@
   function saleRow(s, { report = false } = {}) {
     const profitClass = n(s.actual_profit) < 0 ? "insurance-amount-loss" : "";
     const customerNo = s.customer_number ? ` · #${esc(s.customer_number)}` : "";
-    return `<div class="insurance-row" data-insurance-sale-row="${esc(s.id)}">
-      <div class="insurance-row-main"><strong>${esc(s.reference_no)}</strong><small>${esc(s.company_name_snapshot)} · ${esc(s.policy_name_snapshot)} · ${fmtDate(s.transaction_date)} ${fmtTime(s.transaction_time)}</small></div>
+    const policyNo=s.policy_number?` · Policy #${esc(s.policy_number)}`:"";
+    const cancelMeta=s.cancellation_id?` · Cancelled · ${formatPolicyDuration(s.policy_used_days)} used`:"";
+    return `<div class="insurance-row ${s.cancellation_id?"insurance-sale-cancelled":""}" data-insurance-sale-row="${esc(s.id)}">
+      <div class="insurance-row-main"><strong>${esc(s.reference_no)}${s.cancellation_id?` <span class="insurance-cancelled-badge">Cancelled</span>`:""}</strong><small>${esc(s.company_name_snapshot)} · ${esc(s.policy_name_snapshot)}${policyNo} · ${fmtDate(s.transaction_date)} ${fmtTime(s.transaction_time)}${cancelMeta}</small></div>
       <div class="insurance-cell"><small>Customer</small><b>${esc(s.customer_name || "Walk-in Customer")}${customerNo}</b></div>
       <div class="insurance-cell"><small>${report ? "Gross / Sale" : "Sale Price"}</small><b>${report ? `${moneyHtml(s.gross_premium,s.currency)} / ${moneyHtml(s.sale_price,s.currency)}` : moneyHtml(s.sale_price,s.currency)}</b></div>
       <div class="insurance-cell"><small>User Commission</small><b class="${profitClass}">${moneyHtml(s.actual_profit,s.currency)}</b></div>
@@ -418,9 +425,16 @@
     </div>`;
   }
 
+  function enrichTemporaryDocument(temp) {
+    const base={...(temp?.invoice_data||{}),title:"Invoice",invoice_number:temp?.invoice_number||temp?.invoice_data?.invoice_number||""};
+    const saleId=temp?.sale_id||base.source_sale_id;const sale=S.sales.find(s=>s.id===saleId);
+    if(!sale)return base;
+    return {...base,policy_number:base.policy_number||sale.policy_number||"",cancellation_id:sale.cancellation_id||base.cancellation_id||null,cancellation_date:sale.cancellation_date||base.cancellation_date||null,cancellation_time:sale.cancellation_time||base.cancellation_time||null,policy_used_days:sale.policy_used_days??base.policy_used_days??0,cancellation_reason:sale.cancellation_reason||base.cancellation_reason||""};
+  }
+
   function downloadTempInvoicePdf(temp) {
     if (!temp) return notify("No temporary Invoice exists for this sale yet.", "error");
-    const d = { ...(temp.invoice_data || {}), title: "Invoice", invoice_number: temp.invoice_number || temp.invoice_data?.invoice_number || "" };
+    const d=enrichTemporaryDocument(temp);
     return downloadCustomerDocumentPdf({ ...d, reference: d.invoice_number, date: d.invoice_date });
   }
 
@@ -444,6 +458,7 @@
     outstanding: { label: "Outstanding", cls: "outstanding" },
     partial: { label: "Partially Received", cls: "partial" },
     received: { label: "Fully Received", cls: "received" },
+    settled: { label: "Fully Settled", cls: "settled" },
     no_commission: { label: "No Commission", cls: "none" }
   };
 
@@ -487,11 +502,11 @@
   function commissionToolbar() {
     const f = S.commissionFilters;
     return `<div class="insurance-toolbar insurance-filter-toolbar insurance-commission-filter-toolbar">
-      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceCommissionSearch" class="input" value="${esc(f.search)}" placeholder="Reference, company, policy or customer"></div>
+      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceCommissionSearch" class="input" value="${esc(f.search)}" placeholder="Reference, policy no., company, policy or customer"></div>
       <div class="form-group insurance-filter-field"><label class="form-label">From</label><input id="insuranceCommissionStart" class="input" type="date" value="${esc(f.start)}"></div>
       <div class="form-group insurance-filter-field"><label class="form-label">To</label><input id="insuranceCommissionEnd" class="input" type="date" value="${esc(f.end)}"></div>
       <div class="form-group insurance-filter-field"><label class="form-label">Company</label><select id="insuranceCommissionCompany" class="select"><option value="">All companies</option>${companyOptions(f.company)}</select></div>
-      <div class="form-group insurance-filter-field"><label class="form-label">Status</label><select id="insuranceCommissionStatus" class="select"><option value="" ${!f.status?"selected":""}>All statuses</option><option value="outstanding" ${f.status==="outstanding"?"selected":""}>Outstanding</option><option value="partial" ${f.status==="partial"?"selected":""}>Partially Received</option><option value="received" ${f.status==="received"?"selected":""}>Fully Received</option><option value="no_commission" ${f.status==="no_commission"?"selected":""}>No Commission / Loss</option></select></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Status</label><select id="insuranceCommissionStatus" class="select"><option value="" ${!f.status?"selected":""}>All statuses</option><option value="outstanding" ${f.status==="outstanding"?"selected":""}>Outstanding</option><option value="partial" ${f.status==="partial"?"selected":""}>Partially Received</option><option value="received" ${f.status==="received"?"selected":""}>Fully Received</option><option value="settled" ${f.status==="settled"?"selected":""}>Fully Settled</option><option value="no_commission" ${f.status==="no_commission"?"selected":""}>No Commission / Loss</option></select></div>
       <div class="insurance-toolbar-actions insurance-filter-actions insurance-commission-actions">
         <button class="btn primary tiny" id="insuranceCommissionApply" type="button"><i class="fa-solid fa-filter"></i><span>Apply</span></button>
         <button class="btn ghost tiny" id="insuranceCommissionClear" type="button"><i class="fa-solid fa-rotate-left"></i><span>Clear</span></button>
@@ -531,12 +546,13 @@
       <strong>${esc(r.currency)}</strong><span>${Number(r.sale_count||0)} sales</span>
       <span>My Commission <b>${moneyHtml(r.commission_due,r.currency)}</b></span>
       <span>Received <b>${moneyHtml(r.commission_received,r.currency)}</b></span>
+      <span>Deducted <b>${moneyHtml(r.commission_deducted||0,r.currency)}</b></span>
       <span>Outstanding <b>${moneyHtml(r.commission_outstanding,r.currency)}</b></span>
     </div>`).join("");
   }
 
   function commissionRow(row) {
-    const outstanding=n(row.commission_outstanding), received=n(row.commission_received), due=n(row.commission_due);
+    const outstanding=n(row.commission_outstanding), received=n(row.commission_received), deducted=n(row.commission_deducted), due=n(row.commission_due);
     return `<div class="insurance-commission-line insurance-commission-record" data-insurance-commission-row="${esc(row.id)}">
       <div class="insurance-commission-item"><strong>${esc(row.reference_no)}</strong><span>${esc(row.company_name_snapshot)} · ${esc(row.policy_name_snapshot)} · ${fmtDate(row.transaction_date)}</span></div>
       <div class="insurance-commission-value" data-label="Gross">${moneyHtml(row.gross_premium,row.currency)}</div>
@@ -544,6 +560,7 @@
       <div class="insurance-commission-value" data-label="Sold">${moneyHtml(row.sale_price,row.currency)}</div>
       <div class="insurance-commission-value" data-label="My Commission">${moneyHtml(due,row.currency)}</div>
       <div class="insurance-commission-value" data-label="Received">${moneyHtml(received,row.currency)}</div>
+      <div class="insurance-commission-value insurance-amount-deduction" data-label="Deducted">${moneyHtml(deducted,row.currency)}</div>
       <div class="insurance-commission-value ${outstanding>0?"insurance-amount-outstanding":""}" data-label="Outstanding">${moneyHtml(outstanding,row.currency)}</div>
       <div class="insurance-commission-status-cell">${commissionStatusBadge(row)}${row.last_received_date?`<small>${fmtDate(row.last_received_date)} ${fmtTime(row.last_received_time)}</small>`:""}</div>
       <div class="insurance-report-line-actions">${rowMenuButtonHtml("commission",row.id)}</div>
@@ -554,7 +571,7 @@
     const root=$("#insuranceWorkspace");if(!root)return;
     root.innerHTML=`${commissionToolbar()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>Commission receivable from Insurance Companies. Status is calculated from recorded receipts.</span></div></div>
       <div class="insurance-commission-table">
-        <div class="insurance-commission-line insurance-commission-head"><div>Insurance Sale</div><div>Gross</div><div>Purchase</div><div>Sold</div><div>My Commission</div><div>Received</div><div>Outstanding</div><div>Status</div><div></div></div>
+        <div class="insurance-commission-line insurance-commission-head"><div>Insurance Sale</div><div>Gross</div><div>Purchase</div><div>Sold</div><div>My Commission</div><div>Received</div><div>Deducted</div><div>Outstanding</div><div>Status</div><div></div></div>
         <div class="insurance-commission-list">${S.commissions.length?S.commissions.map(commissionRow).join(""):`<div class="insurance-empty"><i class="fa-solid fa-hand-holding-dollar"></i>No Insurance commission records found.</div>`}</div>
         <div class="insurance-commission-totals">${commissionSummaryHtml()}</div>
       </div>
@@ -570,54 +587,76 @@
       const res=await rpc("app_insurance_get_commission",{p_sale_id:id}),row=res?.item;if(!row)return;
       const payments=Array.isArray(row.payments)?row.payments:[];
       const paymentHtml=payments.length?payments.map(p=>`<div class="insurance-commission-payment-row"><div><strong>${esc(p.reference_no)}</strong><span>${fmtDate(p.received_date)} ${fmtTime(p.received_time)}${p.external_reference?` · ${esc(p.external_reference)}`:""}</span></div><b>${moneyHtml(p.amount_allocated,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission payment has been recorded for this sale.</div>`;
+      const deductions=Array.isArray(row.deductions)?row.deductions:[];
+      const deductionHtml=deductions.length?deductions.map(d=>`<div class="insurance-commission-payment-row"><div><strong>${esc(d.reference_no)}</strong><span>${fmtDate(d.deduction_date)} ${fmtTime(d.deduction_time)}${d.reason?` · ${esc(d.reason)}`:""}</span></div><b class="insurance-amount-deduction">− ${moneyHtml(d.amount,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission deduction has been recorded for this sale.</div>`;
       openModal({id:"insuranceCommissionDetailsModal",title:"My Commission",subtitle:row.reference_no,body:`<div class="insurance-detail-grid">
         <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(row.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Policy</span><strong>${esc(row.policy_name_snapshot)}</strong></div>
         <div class="insurance-detail"><span>Gross Premium</span><strong>${moneyHtml(row.gross_premium,row.currency)}</strong></div><div class="insurance-detail"><span>Purchase Price</span><strong>${moneyHtml(row.purchase_price,row.currency)}</strong></div>
         <div class="insurance-detail"><span>Sold Price</span><strong>${moneyHtml(row.sale_price,row.currency)}</strong></div><div class="insurance-detail"><span>My Commission</span><strong>${moneyHtml(row.commission_due,row.currency)}</strong></div>
-        <div class="insurance-detail"><span>Received</span><strong>${moneyHtml(row.commission_received,row.currency)}</strong></div><div class="insurance-detail"><span>Outstanding</span><strong>${moneyHtml(row.commission_outstanding,row.currency)}</strong></div>
-        <div class="insurance-detail insurance-detail-wide"><span>Status</span><strong>${commissionStatusBadge(row)}</strong></div>
-      </div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Receiving History</div>${paymentHtml}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${can("create")&&n(row.commission_outstanding)>0?`<button class="btn primary" id="insuranceCommissionReceiveFromDetails">Receive</button>`:""}`,onOpen(modal,close){$("#insuranceCommissionReceiveFromDetails",modal)?.addEventListener("click",()=>{close();openCommissionReceiving(row);});}});
+        <div class="insurance-detail"><span>Received</span><strong>${moneyHtml(row.commission_received,row.currency)}</strong></div><div class="insurance-detail"><span>Commission Deductions</span><strong>${moneyHtml(row.commission_deducted||0,row.currency)}</strong></div>
+        <div class="insurance-detail"><span>Outstanding</span><strong>${moneyHtml(row.commission_outstanding,row.currency)}</strong></div><div class="insurance-detail"><span>Status</span><strong>${commissionStatusBadge(row)}</strong></div>
+      </div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Receiving History</div>${paymentHtml}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Deduction History</div>${deductionHtml}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${can("create")&&n(row.commission_due)>0?`<button class="btn ghost" id="insuranceCommissionDeductFromDetails">Add Deduction</button>`:""}${can("create")&&n(row.commission_outstanding)>0?`<button class="btn primary" id="insuranceCommissionReceiveFromDetails">Receive</button>`:""}`,onOpen(modal,close){$("#insuranceCommissionDeductFromDetails",modal)?.addEventListener("click",()=>{close();openCommissionDeduction(row);});$("#insuranceCommissionReceiveFromDetails",modal)?.addEventListener("click",()=>{close();openCommissionReceiving(row);});}});
     }catch(err){notify(err.message||"Could not open commission details.","error");}
+  }
+
+  function openCommissionDeduction(row) {
+    if(!can("create"))return notify("Commission deduction is not permitted for this account.","error");
+    if(!row||n(row.commission_due)<=0)return notify("This sale has no positive commission to deduct from.","error");
+    openModal({id:"insuranceCommissionDeductionModal",title:"Add Commission Deduction",subtitle:`${row.reference_no} · ${row.company_name_snapshot}`,body:`<form id="insuranceCommissionDeductionForm" class="insurance-form-grid insurance-deduction-form">
+      <label>Deduction Amount<input class="input" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></label>
+      <label>Date<input class="input" name="deduction_date" type="date" value="${dateToday()}" required></label>
+      <label>Time<input class="input" name="deduction_time" type="time" value="${timeNow()}" required></label>
+      <label class="wide">Reason<input class="input" name="reason" maxlength="240" placeholder="Cancellation adjustment or other company deduction"></label>
+      <label class="wide insurance-check-line"><input type="checkbox" name="apply_to_sale" checked><span>Apply as much as possible to this sale now. Any unused deduction remains available for a later company commission settlement.</span></label>
+    </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceCommissionDeductionSave">Save</button>`,onOpen(modal,close){
+      const form=$("#insuranceCommissionDeductionForm",modal);
+      $("#insuranceCommissionDeductionSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),amount=n(fd.get("amount"));if(amount<=0)return notify("Deduction amount must be greater than zero.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_add_commission_deduction",{p_sale_id:row.id,p_amount:amount,p_deduction_date:fd.get("deduction_date"),p_deduction_time:fd.get("deduction_time"),p_reason:fd.get("reason")||null,p_apply_to_sale:fd.get("apply_to_sale")==="on"});close();await Promise.all([loadCommissions({reset:true}),loadCommissionSummary()]);if(S.view==="commission")renderMyCommission();notify(`Commission deduction ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not save commission deduction.","error");}finally{setBusy(e.currentTarget,false);}};
+    }});
   }
 
   async function openCommissionReceiving(prefill=null) {
     if(!can("create"))return notify("Commission receiving is not permitted for this account.","error");
     const selectedCompany=prefill?.company_id||"";
-    openModal({id:"insuranceCommissionReceiveModal",title:"Receive Commission",subtitle:"Allocate one company payment across one or more outstanding sale commissions.",body:`<form id="insuranceCommissionReceiveForm" class="insurance-form-grid insurance-commission-receive-form">
+    openModal({id:"insuranceCommissionReceiveModal",title:"Receive Commission",subtitle:"Settle one company payment across one or more commissions, with optional pending deductions.",body:`<form id="insuranceCommissionReceiveForm" class="insurance-form-grid insurance-commission-receive-form">
       <label>Insurance Company<select class="select" name="company_id" required><option value="">Select company</option>${companyOptions(selectedCompany)}</select></label>
       <label>Currency<select class="select" name="currency" required><option value="">Select currency</option></select></label>
       <div class="wide insurance-commission-selection-head"><span>Outstanding commissions</span><button class="btn ghost tiny" type="button" id="insuranceCommissionSelectAll">Select All</button></div>
       <div class="wide insurance-commission-candidate-list" id="insuranceCommissionCandidateList"><div class="insurance-commission-payment-empty">Select an Insurance Company.</div></div>
-      <div class="wide insurance-commission-selected-summary" id="insuranceCommissionSelectedSummary">0 selected</div>
-      <label>Amount Received<input class="input" name="amount_received" type="number" min="0.01" step="0.01" required></label>
+      <div class="wide insurance-commission-selection-head"><span>Pending deductions</span><button class="btn ghost tiny" type="button" id="insuranceDeductionSelectAll">Select All</button></div>
+      <div class="wide insurance-commission-candidate-list insurance-deduction-candidate-list" id="insuranceDeductionCandidateList"><div class="insurance-commission-payment-empty">Select an Insurance Company.</div></div>
+      <div class="wide insurance-commission-selected-summary" id="insuranceCommissionSelectedSummary">0 commissions selected</div>
+      <label>Amount Received<input class="input" name="amount_received" type="number" min="0" step="0.01" required></label>
       <label>Reference / Deposit No.<input class="input" name="external_reference" maxlength="120" placeholder="Optional"></label>
       <label>Received Date<input class="input" type="date" name="received_date" value="${dateToday()}" required></label>
       <label>Received Time<input class="input" type="time" name="received_time" value="${timeNow()}" required></label>
       <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional"></textarea></label>
-      <div class="wide insurance-commission-allocation-note">The payment is allocated to the selected commissions from oldest to newest. It may fully clear earlier sales and partially clear the final sale. Unpaid balances remain Outstanding.</div>
+      <div class="wide insurance-commission-allocation-note">Cash received is allocated first from the oldest selected commission. Selected pending deductions then reduce any remaining selected commission. Unused deduction balance remains available for a later settlement.</div>
     </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceCommissionReceiveSave">Save</button>`,onOpen(modal,close){
-      const form=$("#insuranceCommissionReceiveForm",modal),company=form.elements.company_id,currency=form.elements.currency,amount=form.elements.amount_received,list=$("#insuranceCommissionCandidateList",modal),summary=$("#insuranceCommissionSelectedSummary",modal);let candidates=[];let preferredId=prefill?.id||null;
+      const form=$("#insuranceCommissionReceiveForm",modal),company=form.elements.company_id,currency=form.elements.currency,amount=form.elements.amount_received,list=$("#insuranceCommissionCandidateList",modal),deductionList=$("#insuranceDeductionCandidateList",modal),summary=$("#insuranceCommissionSelectedSummary",modal);let candidates=[];let deductions=[];let preferredId=prefill?.id||null;
       const selectedRows=()=>$$('input[data-commission-select]:checked',list).map(input=>candidates.find(r=>r.id===input.value)).filter(Boolean);
-      const updateSelection=()=>{const rows=selectedRows(),total=rows.reduce((sum,r)=>sum+n(r.commission_outstanding),0);summary.innerHTML=`<span>${rows.length} selected</span><strong>${rows.length?moneyHtml(total,rows[0].currency):"0"} outstanding</strong>`;amount.value=rows.length?String(Number(total.toFixed(8))):"";};
-      const renderCandidates=()=>{const cur=currency.value;const rows=candidates.filter(r=>r.currency===cur&&n(r.commission_outstanding)>0);list.innerHTML=rows.length?rows.map(r=>`<label class="insurance-commission-candidate"><input type="checkbox" data-commission-select value="${esc(r.id)}" ${preferredId===r.id?"checked":""}><span><strong>${esc(r.reference_no)} · ${esc(r.policy_name_snapshot)}</strong><small>${fmtDate(r.transaction_date)} · ${esc(r.customer_name||"Walk-in Customer")}</small></span><b>${moneyHtml(r.commission_outstanding,r.currency)}</b></label>`).join(""):`<div class="insurance-commission-payment-empty">No outstanding commission in this currency.</div>`;$$('input[data-commission-select]',list).forEach(input=>input.addEventListener("change",()=>{preferredId=null;updateSelection();}));updateSelection();};
-      const loadCandidates=async()=>{const companyId=company.value;preferredId=prefill?.id&&companyId===prefill.company_id?prefill.id:null;if(!companyId){candidates=[];currency.innerHTML='<option value="">Select currency</option>';list.innerHTML='<div class="insurance-commission-payment-empty">Select an Insurance Company.</div>';updateSelection();return;}list.innerHTML='<div class="insurance-commission-payment-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading outstanding commissions…</div>';try{const res=await rpc("app_insurance_list_commissions",{p_start_date:null,p_end_date:null,p_search:null,p_company_id:companyId,p_status:"due",p_offset:0,p_limit:500});candidates=res?.items||[];const currencies=[...new Set(candidates.map(r=>r.currency).filter(Boolean))];currency.innerHTML='<option value="">Select currency</option>'+currencies.map(cur=>`<option value="${esc(cur)}" ${cur===(prefill?.currency||currencies[0])?"selected":""}>${esc(cur)}</option>`).join("");if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(currency);renderCandidates();}catch(err){candidates=[];list.innerHTML=`<div class="insurance-commission-payment-empty">${esc(err.message||"Could not load commissions.")}</div>`;}};
-      company.addEventListener("change",()=>{prefill=null;loadCandidates();});currency.addEventListener("change",()=>{preferredId=null;renderCandidates();});
+      const selectedDeductions=()=>$$('input[data-deduction-select]:checked',deductionList).map(input=>deductions.find(r=>r.id===input.value)).filter(Boolean);
+      const updateSelection=(suggest=true)=>{const rows=selectedRows(),deds=selectedDeductions(),total=rows.reduce((sum,r)=>sum+n(r.commission_outstanding),0),deductionTotal=deds.reduce((sum,r)=>sum+n(r.amount_remaining),0),usable=Math.min(total,deductionTotal),suggested=Math.max(total-usable,0);summary.innerHTML=`<span>${rows.length} commission${rows.length===1?"":"s"} · ${deds.length} deduction${deds.length===1?"":"s"}</span><strong>${rows.length?`${moneyHtml(total,rows[0].currency)} outstanding · − ${moneyHtml(usable,rows[0].currency)} deductions`:"0"}</strong>`;if(suggest)amount.value=rows.length?String(Number(suggested.toFixed(8))):"";};
+      const renderCandidates=()=>{const cur=currency.value;const rows=candidates.filter(r=>r.currency===cur&&n(r.commission_outstanding)>0);list.innerHTML=rows.length?rows.map(r=>`<label class="insurance-commission-candidate"><input type="checkbox" data-commission-select value="${esc(r.id)}" ${preferredId===r.id?"checked":""}><span><strong>${esc(r.reference_no)} · ${esc(r.policy_name_snapshot)}</strong><small>${fmtDate(r.transaction_date)} · ${esc(r.customer_name||"Walk-in Customer")}${r.policy_number?` · #${esc(r.policy_number)}`:""}</small></span><b>${moneyHtml(r.commission_outstanding,r.currency)}</b></label>`).join(""):`<div class="insurance-commission-payment-empty">No outstanding commission in this currency.</div>`;$$('input[data-commission-select]',list).forEach(input=>input.addEventListener("change",()=>{preferredId=null;updateSelection();}));
+        const drows=deductions.filter(d=>d.currency===cur&&n(d.amount_remaining)>0);deductionList.innerHTML=drows.length?drows.map(d=>`<label class="insurance-commission-candidate insurance-deduction-candidate"><input type="checkbox" data-deduction-select value="${esc(d.id)}"><span><strong>${esc(d.reference_no)}${d.source_sale_reference?` · ${esc(d.source_sale_reference)}`:""}</strong><small>${fmtDate(d.deduction_date)} · ${esc(d.reason||"Commission deduction")}</small></span><b>− ${moneyHtml(d.amount_remaining,d.currency)}</b></label>`).join(""):`<div class="insurance-commission-payment-empty">No pending deduction in this currency.</div>`;$$('input[data-deduction-select]',deductionList).forEach(input=>input.addEventListener("change",()=>updateSelection()));updateSelection();};
+      const loadCandidates=async()=>{const companyId=company.value;preferredId=prefill?.id&&companyId===prefill.company_id?prefill.id:null;if(!companyId){candidates=[];deductions=[];currency.innerHTML='<option value="">Select currency</option>';list.innerHTML='<div class="insurance-commission-payment-empty">Select an Insurance Company.</div>';deductionList.innerHTML='<div class="insurance-commission-payment-empty">Select an Insurance Company.</div>';updateSelection();return;}list.innerHTML=deductionList.innerHTML='<div class="insurance-commission-payment-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';try{const [cres,dres]=await Promise.all([rpc("app_insurance_list_commissions",{p_start_date:null,p_end_date:null,p_search:null,p_company_id:companyId,p_status:"due",p_offset:0,p_limit:500}),rpc("app_insurance_list_commission_deductions",{p_company_id:companyId,p_currency:null,p_status:"pending",p_offset:0,p_limit:500})]);candidates=cres?.items||[];deductions=(dres?.items||[]).filter(d=>n(d.amount_remaining)>0);const currencies=[...new Set(candidates.map(r=>r.currency).filter(Boolean))];currency.innerHTML='<option value="">Select currency</option>'+currencies.map(cur=>`<option value="${esc(cur)}" ${cur===(prefill?.currency||currencies[0])?"selected":""}>${esc(cur)}</option>`).join("");if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(currency);renderCandidates();}catch(err){candidates=[];deductions=[];list.innerHTML=deductionList.innerHTML=`<div class="insurance-commission-payment-empty">${esc(err.message||"Could not load settlement records.")}</div>`;}};
+      company.addEventListener("change",()=>{prefill=null;loadCandidates();});currency.addEventListener("change",()=>{preferredId=null;renderCandidates();});amount.addEventListener("input",()=>updateSelection(false));
       $("#insuranceCommissionSelectAll",modal).onclick=()=>{const boxes=$$('input[data-commission-select]',list);const shouldCheck=boxes.some(x=>!x.checked);boxes.forEach(x=>x.checked=shouldCheck);preferredId=null;updateSelection();};
+      $("#insuranceDeductionSelectAll",modal).onclick=()=>{const boxes=$$('input[data-deduction-select]',deductionList);const shouldCheck=boxes.some(x=>!x.checked);boxes.forEach(x=>x.checked=shouldCheck);updateSelection();};
       if(selectedCompany){company.value=selectedCompany;loadCandidates();}
-      $("#insuranceCommissionReceiveSave",modal).onclick=async e=>{if(!form.reportValidity())return;const rows=selectedRows();if(!rows.length)return notify("Select at least one outstanding commission.","error");const received=n(amount.value),selectedOutstanding=rows.reduce((sum,r)=>sum+n(r.commission_outstanding),0);if(received<=0)return notify("Received amount must be greater than zero.","error");if(received>selectedOutstanding+0.00000001)return notify("Received amount cannot exceed the selected outstanding commission total.","error");setBusy(e.currentTarget,true,"Saving");try{const fd=new FormData(form);const res=await rpc("app_insurance_receive_commission",{p_company_id:company.value,p_currency:currency.value,p_amount_received:received,p_sale_ids:rows.map(r=>r.id),p_received_date:fd.get("received_date"),p_received_time:fd.get("received_time"),p_external_reference:fd.get("external_reference")||null,p_notes:fd.get("notes")||null});close();await Promise.all([loadCommissions({reset:true}),loadCommissionSummary()]);renderMyCommission();notify(`Commission receipt ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not record commission receipt.","error");}finally{setBusy(e.currentTarget,false);}};
+      $("#insuranceCommissionReceiveSave",modal).onclick=async e=>{if(!form.reportValidity())return;const rows=selectedRows(),deds=selectedDeductions();if(!rows.length)return notify("Select at least one outstanding commission.","error");const received=n(amount.value),selectedOutstanding=rows.reduce((sum,r)=>sum+n(r.commission_outstanding),0);if(received<0)return notify("Received amount cannot be negative.","error");if(received>selectedOutstanding+0.00000001)return notify("Received amount cannot exceed the selected outstanding commission total.","error");if(received<=0&&!deds.length)return notify("Enter a received amount or select a pending deduction.","error");setBusy(e.currentTarget,true,"Saving");try{const fd=new FormData(form);const res=await rpc("app_insurance_receive_commission",{p_company_id:company.value,p_currency:currency.value,p_amount_received:received,p_sale_ids:rows.map(r=>r.id),p_deduction_ids:deds.map(d=>d.id),p_received_date:fd.get("received_date"),p_received_time:fd.get("received_time"),p_external_reference:fd.get("external_reference")||null,p_notes:fd.get("notes")||null});close();await Promise.all([loadCommissions({reset:true}),loadCommissionSummary()]);renderMyCommission();notify(`Commission settlement ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not record commission settlement.","error");}finally{setBusy(e.currentTarget,false);}};
     }});
   }
 
   async function openCommissionHistory(companyId=null) {
     try{
       const res=await rpc("app_insurance_list_commission_receipts",{p_company_id:companyId||null,p_start_date:null,p_end_date:null,p_offset:0,p_limit:200});S.commissionReceipts=res?.items||[];
-      openModal({id:"insuranceCommissionHistoryModal",title:"Commission Receiving History",subtitle:companyId?(S.companies.find(c=>c.id===companyId)?.company_name||""):"All Insurance Companies",body:`<div class="insurance-commission-receipt-list">${S.commissionReceipts.length?S.commissionReceipts.map(r=>`<div class="insurance-commission-receipt-row" data-insurance-commission-receipt-row="${esc(r.id)}"><div><strong>${esc(r.reference_no)}</strong><span>${esc(r.company_name_snapshot)} · ${fmtDate(r.received_date)} ${fmtTime(r.received_time)} · ${Number(r.allocation_count||0)} commission${Number(r.allocation_count||0)===1?"":"s"}</span></div><b>${moneyHtml(r.amount_received,r.currency)}</b><div>${rowMenuButtonHtml("commissionReceipt",r.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission receipts recorded.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);bindClickableRows(modal,'[data-insurance-commission-receipt-row]',row=>openCommissionReceiptDetails(S.commissionReceipts.find(r=>r.id===row.dataset.insuranceCommissionReceiptRow)));}});
+      openModal({id:"insuranceCommissionHistoryModal",title:"Commission Receiving History",subtitle:companyId?(S.companies.find(c=>c.id===companyId)?.company_name||""):"All Insurance Companies",body:`<div class="insurance-commission-receipt-list">${S.commissionReceipts.length?S.commissionReceipts.map(r=>`<div class="insurance-commission-receipt-row" data-insurance-commission-receipt-row="${esc(r.id)}"><div><strong>${esc(r.reference_no)}</strong><span>${esc(r.company_name_snapshot)} · ${fmtDate(r.received_date)} ${fmtTime(r.received_time)} · ${Number(r.allocation_count||0)} commission${Number(r.allocation_count||0)===1?"":"s"}${n(r.deduction_applied)>0?` · deductions ${moneyPlain(r.deduction_applied,r.currency)}`:""}</span></div><b>${moneyHtml(r.amount_received,r.currency)}</b><div>${rowMenuButtonHtml("commissionReceipt",r.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission receipts recorded.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);bindClickableRows(modal,'[data-insurance-commission-receipt-row]',row=>openCommissionReceiptDetails(S.commissionReceipts.find(r=>r.id===row.dataset.insuranceCommissionReceiptRow)));}});
     }catch(err){notify(err.message||"Could not load commission receiving history.","error");}
   }
 
   function openCommissionReceiptDetails(receipt) {
-    if(!receipt)return;const allocations=Array.isArray(receipt.allocations)?receipt.allocations:[];
-    openModal({id:"insuranceCommissionReceiptDetailsModal",title:"Commission Receipt",subtitle:receipt.reference_no,body:`<div class="insurance-detail-grid"><div class="insurance-detail"><span>Insurance Company</span><strong>${esc(receipt.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Amount Received</span><strong>${moneyHtml(receipt.amount_received,receipt.currency)}</strong></div><div class="insurance-detail"><span>Date</span><strong>${fmtDate(receipt.received_date)}</strong></div><div class="insurance-detail"><span>Time</span><strong>${fmtTime(receipt.received_time)}</strong></div>${receipt.external_reference?`<div class="insurance-detail insurance-detail-wide"><span>Reference</span><strong>${esc(receipt.external_reference)}</strong></div>`:""}${receipt.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(receipt.notes)}</strong></div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Allocated Commissions</div>${allocations.length?allocations.map(a=>`<div class="insurance-commission-payment-row"><div><strong>${esc(a.reference_no)}</strong><span>${esc(a.policy_name||"Insurance")} · ${fmtDate(a.transaction_date)}</span></div><b>${moneyHtml(a.amount_allocated,receipt.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No allocations.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`});
+    if(!receipt)return;const allocations=Array.isArray(receipt.allocations)?receipt.allocations:[],deductions=Array.isArray(receipt.deduction_allocations)?receipt.deduction_allocations:[];const deductionTotal=n(receipt.deduction_applied);
+    openModal({id:"insuranceCommissionReceiptDetailsModal",title:"Commission Settlement",subtitle:receipt.reference_no,body:`<div class="insurance-detail-grid"><div class="insurance-detail"><span>Insurance Company</span><strong>${esc(receipt.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Cash Received</span><strong>${moneyHtml(receipt.amount_received,receipt.currency)}</strong></div><div class="insurance-detail"><span>Deductions Applied</span><strong>${moneyHtml(deductionTotal,receipt.currency)}</strong></div><div class="insurance-detail"><span>Total Commission Cleared</span><strong>${moneyHtml(n(receipt.amount_received)+deductionTotal,receipt.currency)}</strong></div><div class="insurance-detail"><span>Date</span><strong>${fmtDate(receipt.received_date)}</strong></div><div class="insurance-detail"><span>Time</span><strong>${fmtTime(receipt.received_time)}</strong></div>${receipt.external_reference?`<div class="insurance-detail insurance-detail-wide"><span>Reference</span><strong>${esc(receipt.external_reference)}</strong></div>`:""}${receipt.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(receipt.notes)}</strong></div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Cash Allocations</div>${allocations.length?allocations.map(a=>`<div class="insurance-commission-payment-row"><div><strong>${esc(a.reference_no)}</strong><span>${esc(a.policy_name||"Insurance")} · ${fmtDate(a.transaction_date)}</span></div><b>${moneyHtml(a.amount_allocated,receipt.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No cash allocation in this settlement.</div>`}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Deduction Allocations</div>${deductions.length?deductions.map(d=>`<div class="insurance-commission-payment-row"><div><strong>${esc(d.deduction_reference_no||"Deduction")}</strong><span>${esc(d.sale_reference_no||"")}${d.reason?` · ${esc(d.reason)}`:""}</span></div><b class="insurance-amount-deduction">− ${moneyHtml(d.amount_applied,receipt.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No deduction allocation in this settlement.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`});
   }
 
   async function deleteCommissionReceipt(id) {
@@ -671,7 +710,7 @@
   function reportSaleRow(s) {
     const meta = activeReportMeta();
     return `<div class="insurance-report-line insurance-report-line-record insurance-report-cols-${meta.fields.length}" data-insurance-report-sale="${esc(s.id)}">
-      <div class="insurance-report-item"><strong>${esc(s.policy_name_snapshot || "Insurance")}</strong><span>${esc(s.reference_no)} · ${fmtDate(s.transaction_date)} · ${esc(s.company_name_snapshot)} · ${esc(s.customer_name || "Walk-in Customer")}</span></div>
+      <div class="insurance-report-item"><strong>${esc(s.policy_name_snapshot || "Insurance")}${s.cancellation_id?` <span class="insurance-cancelled-badge">Cancelled</span>`:""}</strong><span>${esc(s.reference_no)}${s.policy_number?` · Policy #${esc(s.policy_number)}`:""} · ${fmtDate(s.transaction_date)} · ${esc(s.company_name_snapshot)} · ${esc(s.customer_name || "Walk-in Customer")}${s.cancellation_id?` · ${formatPolicyDuration(s.policy_used_days)} used`:""}</span></div>
       ${meta.fields.map(key => reportFieldCell(key,s)).join("")}
       <div class="insurance-report-line-actions">${saleActionMenuHtml(s)}</div>
     </div>`;
@@ -842,6 +881,7 @@
     openModal({ id:"insuranceSaleModal", title:"Make Insurance Sale", subtitle:"Select the insurance provider and policy independently. Commission and profit are calculated automatically.", body:`<form id="insuranceSaleForm" class="insurance-form-grid insurance-sale-form">
       <label>Insurance Company<select class="select" name="company_id" id="insuranceSaleCompany" required><option value="">Select company</option>${companyOptions(firstCompany,true)}</select></label>
       <label>Insurance Policy<select class="select" name="policy_id" id="insuranceSalePolicy" required><option value="">Select policy</option>${policyOptions("",true)}</select></label>
+      <label class="wide insurance-policy-number-field">Policy Number<input class="input" name="policy_number" maxlength="160" placeholder="Optional policy / certificate number"></label>
       <div class="wide"><label class="form-label">Customer</label><div class="insurance-customer-modes"><button class="insurance-customer-mode active" type="button" data-customer-mode="walkin">Walk-in Customer</button><button class="insurance-customer-mode" type="button" data-customer-mode="existing">Existing Customer</button><button class="insurance-customer-mode" type="button" data-customer-mode="new">New Customer</button></div><input type="hidden" name="customer_type" value="walkin"></div>
       <div id="insuranceExistingCustomerFields" class="wide hide"><label class="form-label">Existing Customer</label><input class="input" id="insuranceExistingCustomerSearch" type="search" autocomplete="off" placeholder="Search name, 6-digit customer number, phone, email or company"><select class="select" id="insuranceExistingCustomerSelect" name="existing_customer" style="margin-top:6px">${customerOptionHtml(customers)}</select><div class="help" id="insuranceExistingCustomerHelp">Search or select from existing Inventory and Insurance customers.</div></div>
       <div id="insuranceCustomerFields" class="wide hide"><div class="insurance-form-grid"><label>Customer Name<input class="input" name="customer_name"></label><label>Customer Number<input class="input" name="customer_id" readonly placeholder="Auto-generated 6 digits"></label><label>Phone<input class="input" name="customer_phone"></label><label>Email<input class="input" type="email" name="customer_email"></label><label>Company<input class="input" name="customer_company"></label><label>TRN<input class="input" name="customer_trn"></label><label class="wide">Address<input class="input" name="customer_address"></label></div></div>
@@ -892,12 +932,57 @@
           };
           setBusy(e.currentTarget,true,"Saving");
           try{
-            const res=await rpc("app_insurance_create_sale",{p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_allow_duplicate_customer:allowDuplicate});
+            const res=await rpc("app_insurance_create_sale",{p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_allow_duplicate_customer:allowDuplicate,p_policy_number:String(fd.get("policy_number")||"").trim()||null});
             close();await reloadMasterAndView("sales");notify(math.isLoss?`Insurance sale saved with a loss of ${moneyPlain(math.lossAmount,fd.get("currency"))}.`:"Insurance sale completed.",math.isLoss?"error":"success");if(res?.item)openSaleDetails(res.item.id);
           }catch(err){notify(err.message||"Could not complete Insurance sale.","error");}
           finally{setBusy(e.currentTarget,false);}
         };
     }});
+  }
+
+  function policyUsedDays(startDate,endDate){
+    if(!startDate||!endDate)return 0;
+    const a=new Date(`${startDate}T00:00:00`),b=new Date(`${endDate}T00:00:00`);
+    if(Number.isNaN(a.getTime())||Number.isNaN(b.getTime()))return 0;
+    return Math.max(0,Math.round((b-a)/86400000));
+  }
+
+  function openPolicyCancellation(sale) {
+    if(!can("edit"))return notify("Policy cancellation is not permitted for this account.","error");
+    if(!sale)return;
+    if(sale.cancellation_id)return openCancellationDetails(sale.id);
+    openModal({id:"insuranceCancellationModal",title:"Cancel Insurance Policy",subtitle:`${sale.reference_no} · ${sale.policy_name_snapshot}`,body:`<form id="insuranceCancellationForm" class="insurance-form-grid insurance-cancellation-form">
+      <div class="wide insurance-cancellation-summary"><span><b>Policy</b>${esc(sale.policy_name_snapshot)}</span><span><b>Policy No.</b>${sale.policy_number?esc(sale.policy_number):"—"}</span><span><b>Insurance Company</b>${esc(sale.company_name_snapshot)}</span></div>
+      <label>Cancellation Date<input class="input" name="cancellation_date" type="date" min="${esc(sale.transaction_date)}" value="${dateToday()}" required></label>
+      <label>Cancellation Time<input class="input" name="cancellation_time" type="time" value="${timeNow()}" required></label>
+      <label>Policy Used<input class="input" id="insuranceCancellationDuration" value="${esc(formatPolicyDuration(policyUsedDays(sale.transaction_date,dateToday())))}" readonly></label>
+      <label>Commission Deduction<input class="input" name="commission_deduction" type="number" min="0" step="0.01" value="0" inputmode="decimal"></label>
+      <label class="wide">Cancellation Reason<input class="input" name="reason" maxlength="240" placeholder="Optional reason"></label>
+      <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional"></textarea></label>
+      <label class="wide insurance-check-line"><input type="checkbox" name="add_to_commission" checked><span>Add the cancellation commission deduction to the existing My Commission record for this sale. Any amount that cannot be applied to this sale remains available for a later settlement from the same Insurance Company.</span></label>
+    </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn danger" id="insuranceCancellationSave">Confirm Cancellation</button>`,onOpen(modal,close){
+      const form=$("#insuranceCancellationForm",modal),dateInput=form.elements.cancellation_date,duration=$("#insuranceCancellationDuration",modal);
+      const updateDuration=()=>{duration.value=formatPolicyDuration(policyUsedDays(sale.transaction_date,dateInput.value));};dateInput.addEventListener("change",updateDuration);updateDuration();
+      $("#insuranceCancellationSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),deduction=n(fd.get("commission_deduction"));if(fd.get("cancellation_date")<sale.transaction_date)return notify("Cancellation date cannot be before the Insurance sale date.","error");if(deduction<0)return notify("Commission deduction cannot be negative.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_cancel_sale",{p_sale_id:sale.id,p_cancellation_date:fd.get("cancellation_date"),p_cancellation_time:fd.get("cancellation_time"),p_commission_deduction:deduction,p_reason:fd.get("reason")||null,p_notes:fd.get("notes")||null,p_add_to_commission:fd.get("add_to_commission")==="on"});close();await reloadMasterAndView(S.view==="reports"?"reports":"sales");notify(`Policy cancellation ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not cancel Insurance policy.","error");}finally{setBusy(e.currentTarget,false);}};
+    }});
+  }
+
+  async function openCancellationDetails(saleId) {
+    try{
+      const res=await rpc("app_insurance_get_cancellation",{p_sale_id:saleId}),c=res?.item;if(!c)return;
+      openModal({id:"insuranceCancellationDetailsModal",title:"Policy Cancellation",subtitle:c.reference_no,body:`<div class="insurance-detail-grid">
+        <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(c.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Policy</span><strong>${esc(c.policy_name_snapshot)}</strong></div>
+        <div class="insurance-detail"><span>Policy Number</span><strong>${c.policy_number_snapshot?esc(c.policy_number_snapshot):"—"}</strong></div><div class="insurance-detail"><span>Policy Started</span><strong>${fmtDate(c.policy_start_date)}</strong></div>
+        <div class="insurance-detail"><span>Cancelled</span><strong>${fmtDate(c.cancellation_date)} ${fmtTime(c.cancellation_time)}</strong></div><div class="insurance-detail"><span>Policy Used</span><strong>${formatPolicyDuration(c.policy_used_days)}</strong></div>
+        <div class="insurance-detail"><span>Commission Deduction</span><strong>${moneyHtml(c.commission_deduction,currencyForCancellation(c))}</strong></div><div class="insurance-detail"><span>My Commission Entry</span><strong>${c.post_deduction_to_commission?"Added":"Not added"}</strong></div>
+        ${c.reason?`<div class="insurance-detail insurance-detail-wide"><span>Reason</span><strong>${esc(c.reason)}</strong></div>`:""}${c.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(c.notes)}</strong></div>`:""}
+        ${c.deduction_reference_no?`<div class="insurance-detail insurance-detail-wide"><span>Deduction Reference</span><strong>${esc(c.deduction_reference_no)}</strong></div>`:""}
+      </div>`,actions:`<button class="btn primary" data-insurance-close>Done</button>`});
+    }catch(err){notify(err.message||"Could not open policy cancellation.","error");}
+  }
+
+  function currencyForCancellation(c){
+    const sale=S.sales.find(s=>s.id===c.sale_id);return c?.currency||sale?.currency||currentCurrency();
   }
 
   async function deleteSaleRecord(id) {
@@ -917,11 +1002,13 @@
       const profit=n(s.actual_profit), isLoss=profit<0;
       openModal({ id:"insuranceDetailsModal",title:"Insurance Transaction",subtitle:s.reference_no,body:`<div class="insurance-detail-grid">
         <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(s.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Insurance Policy</span><strong>${esc(s.policy_name_snapshot)}</strong></div>
+        <div class="insurance-detail"><span>Policy Number</span><strong>${s.policy_number?esc(s.policy_number):"—"}</strong></div><div class="insurance-detail"><span>Policy Status</span><strong>${s.cancellation_id?`<span class="insurance-cancelled-badge">Cancelled</span>`:"Active / Sold"}</strong></div>
         <div class="insurance-detail"><span>Customer</span><strong>${esc(s.customer_name||"Walk-in Customer")}</strong></div><div class="insurance-detail"><span>Customer Number</span><strong>${s.customer_number?`#${esc(s.customer_number)}`:"—"}</strong></div>
         <div class="insurance-detail"><span>Date</span><strong>${fmtDate(s.transaction_date)}</strong></div><div class="insurance-detail"><span>Time</span><strong>${fmtTime(s.transaction_time)}</strong></div>
         <div class="insurance-detail"><span>Gross Premium</span><strong>${moneyHtml(s.gross_premium,s.currency)}</strong></div><div class="insurance-detail"><span>Purchase Price</span><strong>${moneyHtml(s.purchase_price,s.currency)}</strong></div>
         <div class="insurance-detail"><span>Sale Price</span><strong>${moneyHtml(s.sale_price,s.currency)}</strong></div><div class="insurance-detail"><span>Original Company Commission</span><strong>${moneyHtml(s.company_commission,s.currency)}</strong></div>
         <div class="insurance-detail"><span>Customer Discount</span><strong>${moneyHtml(s.customer_discount,s.currency)}</strong></div><div class="insurance-detail"><span>${isLoss?"Actual Loss":"Actual Commission / Profit"}</span><strong class="${isLoss?"insurance-amount-loss":""}">${moneyHtml(s.actual_profit,s.currency)}</strong></div>
+        ${s.cancellation_id?`<div class="insurance-detail"><span>Cancellation Date</span><strong>${fmtDate(s.cancellation_date)} ${fmtTime(s.cancellation_time)}</strong></div><div class="insurance-detail"><span>Policy Used</span><strong>${formatPolicyDuration(s.policy_used_days)}</strong></div><div class="insurance-detail"><span>Cancellation Commission Deduction</span><strong>${moneyHtml(s.cancellation_commission_deduction||0,s.currency)}</strong></div><div class="insurance-detail"><span>Added to My Commission</span><strong>${s.post_deduction_to_commission?"Yes":"No"}</strong></div>${s.cancellation_reason?`<div class="insurance-detail insurance-detail-wide"><span>Cancellation Reason</span><strong>${esc(s.cancellation_reason)}</strong></div>`:""}`:""}
         ${s.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(s.notes)}</strong></div>`:""}
         <div class="insurance-detail insurance-detail-wide"><span>Calculation</span><strong>Company Commission = Gross Premium − Purchase Price. Customer Discount = Gross Premium − Sale Price. Actual Profit = Sale Price − Purchase Price.${isLoss?` This sale records a loss of ${moneyPlain(Math.abs(profit),s.currency)}.`:""}</strong></div></div>`,actions:`<button class="btn primary" data-insurance-close>Done</button>`});
     } catch(err){notify(err.message||"Could not open Insurance transaction.","error");}
@@ -934,7 +1021,7 @@
 
   function buildDocumentData(s,type="invoice") {
     const discount=n(s.customer_discount);
-    return { type, title:type==="receipt"?"Receipt":"Invoice", reference:s.reference_no, date:s.transaction_date, customer_name:s.customer_name||"Walk-in Customer",customer_number:s.customer_number||"",customer_phone:s.customer_phone||"",customer_email:s.customer_email||"",customer_company:s.customer_company||"",customer_trn:s.customer_trn||"",customer_address:s.customer_address||"",insurance_company:s.company_name_snapshot,policy_name:s.policy_name_snapshot,currency:s.currency,gross_premium:n(s.gross_premium),customer_discount:discount,sale_price:n(s.sale_price),notes:s.notes||"" };
+    return { type, title:type==="receipt"?"Receipt":"Invoice", reference:s.reference_no, date:s.transaction_date, customer_name:s.customer_name||"Walk-in Customer",customer_number:s.customer_number||"",customer_phone:s.customer_phone||"",customer_email:s.customer_email||"",customer_company:s.customer_company||"",customer_trn:s.customer_trn||"",customer_address:s.customer_address||"",insurance_company:s.company_name_snapshot,policy_name:s.policy_name_snapshot,policy_number:s.policy_number||"",currency:s.currency,gross_premium:n(s.gross_premium),customer_discount:discount,sale_price:n(s.sale_price),notes:s.notes||"",cancellation_id:s.cancellation_id||null,cancellation_date:s.cancellation_date||null,cancellation_time:s.cancellation_time||null,policy_used_days:n(s.policy_used_days),cancellation_commission_deduction:n(s.cancellation_commission_deduction),cancellation_reason:s.cancellation_reason||"" };
   }
 
   function documentHtml(d) {
@@ -944,7 +1031,8 @@
     const customerLines=[d.customer_number?`Customer No. #${esc(d.customer_number)}`:"",d.customer_company?esc(d.customer_company):"",d.customer_trn?`TRN ${esc(d.customer_trn)}`:"",d.customer_phone?esc(d.customer_phone):"",d.customer_email?esc(d.customer_email):"",d.customer_address?esc(d.customer_address):""].filter(Boolean);
     return `<div class="insurance-document"><div class="insurance-document-head"><div><h2>${esc(d.title||"Invoice")}</h2><p class="doc-muted">${esc(d.reference||d.invoice_number||"")}</p></div><div class="insurance-document-date"><span>${d.title==="Receipt"?"Receipt Date":"Invoice Date"}</span><strong>${fmtDate(d.date||d.invoice_date)}</strong></div></div>
       <div class="insurance-document-party-row"><div class="insurance-document-party"><span>Company Details</span><strong>${esc(company.name)}</strong>${companyLines.map(line=>`<p>${line}</p>`).join("")}</div><div class="insurance-document-party"><span>Customer Details</span><strong>${esc(d.customer_name||"Walk-in Customer")}</strong>${customerLines.map(line=>`<p>${line}</p>`).join("")}</div></div>
-      <div class="insurance-document-context"><div><span>Insurance Company</span><strong>${esc(d.insurance_company||"")}</strong></div><div><span>Policy</span><strong>${esc(d.policy_name||d.description||"Insurance Policy")}</strong></div></div>
+      <div class="insurance-document-context"><div><span>Insurance Company</span><strong>${esc(d.insurance_company||"")}</strong></div><div><span>Policy</span><strong>${esc(d.policy_name||d.description||"Insurance Policy")}</strong></div><div><span>Policy Number</span><strong>${d.policy_number?esc(d.policy_number):"—"}</strong></div></div>
+      ${d.cancellation_id?`<div class="insurance-document-cancellation"><strong>Policy Cancelled</strong><span>${fmtDate(d.cancellation_date)} · ${formatPolicyDuration(d.policy_used_days)} used${d.cancellation_reason?` · ${esc(d.cancellation_reason)}`:""}</span></div>`:""}
       <table class="insurance-document-table"><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody><tr><td>${esc(d.policy_name||d.description||"Insurance Policy")}</td><td>${moneyHtml(d.gross_premium||d.sale_price,d.currency)}</td></tr></tbody></table><div class="insurance-document-total">${n(d.gross_premium)>0?`<div><span>Gross Premium</span><strong>${moneyHtml(d.gross_premium,d.currency)}</strong></div>`:""}${discountLine}<div class="grand"><span>${d.title==="Receipt"?"Amount Received":"Amount Due"}</span><strong>${moneyHtml(d.sale_price,d.currency)}</strong></div></div>${d.notes?`<p class="doc-muted insurance-document-note">${esc(d.notes)}</p>`:""}</div>`;
   }
 
@@ -974,39 +1062,42 @@
       box(left,"COMPANY DETAILS",company.name,[company.trn?`TRN ${company.trn}`:"",company.email,company.phone,company.address]);
       box(left+boxW+gap,"CUSTOMER DETAILS",d.customer_name||"Walk-in Customer",[d.customer_number?`Customer No. #${d.customer_number}`:"",d.customer_company,d.customer_trn?`TRN ${d.customer_trn}`:"",d.customer_phone||d.customer_email,d.customer_address]);
       const metaY=start+boxH+7;
-      doc.setFontSize(6.6);doc.setTextColor(100,116,139);doc.text("INSURANCE COMPANY",left,metaY);doc.text(d.title==="Receipt"?"RECEIPT DATE":"INVOICE DATE",left+boxW+gap,metaY);
-      doc.setFontSize(8);doc.setTextColor(22,25,29);doc.text(String(d.insurance_company||""),left,metaY+4.8,{maxWidth:boxW-4});doc.text(fmtDate(d.date||d.invoice_date),left+boxW+gap,metaY+4.8);
-      doc.autoTable({startY:metaY+10,head:[["Insurance Policy","Gross Premium","Discount","Amount"]],body:[[d.policy_name||d.description||"Insurance Policy",typeof formatPdfAmount==="function"?formatPdfAmount(d.gross_premium||d.sale_price,d.currency):moneyPlain(d.gross_premium||d.sale_price,d.currency),n(d.customer_discount)>0?(typeof formatPdfAmount==="function"?formatPdfAmount(d.customer_discount,d.currency):moneyPlain(d.customer_discount,d.currency)):"—",typeof formatPdfAmount==="function"?formatPdfAmount(d.sale_price,d.currency):moneyPlain(d.sale_price,d.currency)]],styles:{fontSize:7},headStyles:{fontSize:7},margin:{left,right,bottom:35}});
+      doc.setFontSize(6.4);doc.setTextColor(100,116,139);doc.text("INSURANCE COMPANY",left,metaY);doc.text("POLICY NUMBER",left+boxW*.82,metaY);doc.text(d.title==="Receipt"?"RECEIPT DATE":"INVOICE DATE",left+boxW+gap,metaY);
+      doc.setFontSize(7.7);doc.setTextColor(22,25,29);doc.text(String(d.insurance_company||""),left,metaY+4.8,{maxWidth:boxW*.76});doc.text(String(d.policy_number||"—"),left+boxW*.82,metaY+4.8,{maxWidth:boxW*.72});doc.text(fmtDate(d.date||d.invoice_date),left+boxW+gap,metaY+4.8);
+      let tableY=metaY+10;
+      if(d.cancellation_id){doc.setFillColor(254,242,242);doc.setDrawColor(245,190,190);doc.roundedRect(left,tableY,pageW-left-right,13,2,2,"FD");doc.setFontSize(7);doc.setTextColor(170,48,57);doc.text("POLICY CANCELLED",left+4,tableY+5);doc.setFontSize(6.6);doc.setTextColor(92,62,65);doc.text(`${fmtDate(d.cancellation_date)} · ${formatPolicyDuration(d.policy_used_days)} used${d.cancellation_reason?` · ${String(d.cancellation_reason)}`:""}`,left+4,tableY+9.7,{maxWidth:pageW-left-right-8});tableY+=17;}
+      doc.autoTable({startY:tableY,head:[["Insurance Policy","Policy Number","Gross Premium","Discount","Amount"]],body:[[d.policy_name||d.description||"Insurance Policy",d.policy_number||"—",typeof formatPdfAmount==="function"?formatPdfAmount(d.gross_premium||d.sale_price,d.currency):moneyPlain(d.gross_premium||d.sale_price,d.currency),n(d.customer_discount)>0?(typeof formatPdfAmount==="function"?formatPdfAmount(d.customer_discount,d.currency):moneyPlain(d.customer_discount,d.currency)):"—",typeof formatPdfAmount==="function"?formatPdfAmount(d.sale_price,d.currency):moneyPlain(d.sale_price,d.currency)]],styles:{fontSize:7},headStyles:{fontSize:7},margin:{left,right,bottom:35}});
       doc.save(`${(d.title||"Invoice").replace(/\s+/g,"_")}_${String(d.reference||d.invoice_number||"Insurance").replace(/[^a-z0-9_-]+/gi,"_")}.pdf`);
     }catch(err){notify(err.message||"Could not generate PDF.","error");}
   }
 
   function tempDataFromSale(s) {
     const d=buildDocumentData(s,"invoice");
-    return {...d,title:"Invoice",invoice_number:`TMP-${String(s.reference_no||"").replace(/^INS-/,"")}`,invoice_date:s.transaction_date,description:s.policy_name_snapshot,source_sale_id:s.id};
+    return {...d,title:"Invoice",invoice_number:`INV-${String(s.reference_no||"").replace(/^INS-/,"")}`,invoice_date:s.transaction_date,description:s.policy_name_snapshot,source_sale_id:s.id};
   }
 
   function openTempInvoiceEditor(sale=null,temp=null) {
     const action = temp ? "edit" : "create";
     if (!can(action)) return notify(`Your account does not have permission to ${action} temporary Insurance invoices.`, "error");
-    const d=temp?{...(temp.invoice_data||{}),invoice_number:temp.invoice_number}:tempDataFromSale(sale);
+    const d=temp?enrichTemporaryDocument(temp):tempDataFromSale(sale);
     openModal({id:"insuranceTempInvoiceModal",title:"Temporary Editable Invoice",subtitle:"Editable draft only. The customer-facing document title remains Invoice.",body:`<form id="insuranceTempForm" class="insurance-form-grid">
       <input type="hidden" name="customer_number" value="${esc(d.customer_number||"")}">
       <label>Invoice Number<input class="input" name="invoice_number" value="${esc(d.invoice_number||"")}"></label><label>Invoice Date<input class="input" type="date" name="invoice_date" value="${esc(d.invoice_date||dateToday())}"></label>
       <label>Customer Name<input class="input" name="customer_name" required value="${esc(d.customer_name||"")}"></label><label>Currency<select class="select" name="currency">${currencyOptions(d.currency||currentCurrency())}</select></label>
       <label>Insurance Company<input class="input" name="insurance_company" value="${esc(d.insurance_company||"")}"></label><label>Policy / Description<input class="input" name="policy_name" value="${esc(d.policy_name||d.description||"")}"></label>
+      <label class="wide">Policy Number<input class="input" name="policy_number" value="${esc(d.policy_number||"")}" placeholder="Optional"></label>
       <label>Gross Premium<input class="input" type="number" min="0" step="0.01" name="gross_premium" value="${esc(d.gross_premium??"")}"></label><label>Customer Discount<input class="input" type="number" step="0.01" name="customer_discount" value="${esc(d.customer_discount??0)}"></label>
       <label>Invoice Amount<input class="input" type="number" min="0" step="0.01" name="sale_price" required value="${esc(d.sale_price??"")}"></label><label class="wide">Notes<textarea class="input" name="notes" rows="2">${esc(d.notes||"")}</textarea></label>
     </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn ghost" id="insuranceTempPreview">Preview</button><button class="btn primary" id="insuranceTempSave">Save</button>`,onOpen(modal,close){
       const form=$("#insuranceTempForm",modal),tempCurrency=form.elements.currency;if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(tempCurrency);
-      const read=()=>{const fd=new FormData(form);return{title:"Invoice",invoice_number:String(fd.get("invoice_number")||"").trim(),invoice_date:fd.get("invoice_date"),customer_name:String(fd.get("customer_name")||"").trim(),customer_number:String(fd.get("customer_number")||d.customer_number||"").trim(),currency:fd.get("currency"),insurance_company:String(fd.get("insurance_company")||"").trim(),policy_name:String(fd.get("policy_name")||"").trim(),gross_premium:n(fd.get("gross_premium")),customer_discount:n(fd.get("customer_discount")),sale_price:n(fd.get("sale_price")),notes:String(fd.get("notes")||"").trim(),source_sale_id:sale?.id||temp?.sale_id||d.source_sale_id||null};};
+      const read=()=>{const fd=new FormData(form);return{title:"Invoice",invoice_number:String(fd.get("invoice_number")||"").trim(),invoice_date:fd.get("invoice_date"),customer_name:String(fd.get("customer_name")||"").trim(),customer_number:String(fd.get("customer_number")||d.customer_number||"").trim(),currency:fd.get("currency"),insurance_company:String(fd.get("insurance_company")||"").trim(),policy_name:String(fd.get("policy_name")||"").trim(),policy_number:String(fd.get("policy_number")||"").trim(),gross_premium:n(fd.get("gross_premium")),customer_discount:n(fd.get("customer_discount")),sale_price:n(fd.get("sale_price")),notes:String(fd.get("notes")||"").trim(),source_sale_id:sale?.id||temp?.sale_id||d.source_sale_id||null,cancellation_id:d.cancellation_id||null,cancellation_date:d.cancellation_date||null,cancellation_time:d.cancellation_time||null,policy_used_days:n(d.policy_used_days),cancellation_reason:d.cancellation_reason||""};};
       $("#insuranceTempPreview",modal).onclick=()=>{if(!form.reportValidity())return;previewTempInvoice({invoice_number:read().invoice_number,invoice_data:read()});};
       $("#insuranceTempSave",modal).onclick=async e=>{if(!form.reportValidity())return;const data=read();setBusy(e.currentTarget,true,"Saving");try{await rpc("app_insurance_upsert_temp_invoice",{p_id:temp?.id||null,p_sale_id:sale?.id||temp?.sale_id||d.source_sale_id||null,p_invoice_number:data.invoice_number||null,p_invoice_data:data});close();const r=await rpc("app_insurance_list_temp_invoices",{});S.tempInvoices=r?.items||[];if(S.view==="temporary")renderTemporaryInvoices();else if(S.view==="sales")renderSales();else if(S.view==="reports")renderReports();notify("Temporary Invoice saved. Permanent Insurance Sale remains unchanged.");}catch(err){notify(err.message||"Could not save temporary invoice.","error");}finally{setBusy(e.currentTarget,false);}};
     }});
   }
 
   function previewTempInvoice(temp) {
-    if(!temp)return;const d={...(temp.invoice_data||{}),title:"Invoice",invoice_number:temp.invoice_number||temp.invoice_data?.invoice_number||""};
+    if(!temp)return;const d=enrichTemporaryDocument(temp);
     openModal({id:"insuranceTempPreviewModal",title:"Invoice Preview",subtitle:"Temporary editable document",body:documentHtml(d),wide:true,actions:`<button class="btn ghost" data-insurance-close>Done</button><button class="btn primary" id="insuranceTempPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>`,onOpen(modal){$("#insuranceTempPdf",modal).onclick=()=>downloadCustomerDocumentPdf({...d,title:"Invoice",reference:d.invoice_number,date:d.invoice_date});}});
   }
 
@@ -1035,7 +1126,7 @@
       if(typeof drawPdfHeaderAndFooter==="function")drawPdfHeaderAndFooter(doc,logo,meta.title,range,true);
       const y=Math.max(82,Number(doc.__tripleMOwnerBlockBottom||75)+6);
       doc.setFontSize(7);doc.setTextColor(100,116,139);doc.text(`Selected dates: ${range}   ·   Records: ${rows.length}`,10,y-3);
-      doc.autoTable({startY:y,head:[["Item","Date","Company","Customer",...financial.map(c=>c.label)]],body:rows.map(r=>[r.policy_name_snapshot||"Insurance",fmtDate(r.transaction_date),r.company_name_snapshot,r.customer_name||"Walk-in Customer",...financial.map(c=>formatPdfAmount(r[c.key],r.currency))]),styles:{fontSize:6.2,cellPadding:2.2},headStyles:{fontSize:6.1},margin:{left:10,right:10,bottom:34}});
+      doc.autoTable({startY:y,head:[["Item","Policy No.","Status","Date","Company","Customer",...financial.map(c=>c.label)]],body:rows.map(r=>[r.policy_name_snapshot||"Insurance",r.policy_number||"—",r.cancellation_id?`Cancelled · ${formatPolicyDuration(r.policy_used_days)} used`:"Active / Sold",fmtDate(r.transaction_date),r.company_name_snapshot,r.customer_name||"Walk-in Customer",...financial.map(c=>formatPdfAmount(r[c.key],r.currency))]),styles:{fontSize:5.8,cellPadding:1.9},headStyles:{fontSize:5.8},margin:{left:10,right:10,bottom:34}});
       const totals=Array.isArray(S.summary.by_currency)?S.summary.by_currency:[];
       if(totals.length){
         const totalStart=(doc.lastAutoTable?.finalY||y)+6;
@@ -1046,7 +1137,7 @@
   }
 
   async function exportInsuranceReportCsv(){
-    try{const rows=await fetchAllReportRows();if(!rows.length)return notify("No Insurance records match this report.","error");const meta=activeReportMeta(),financial=reportExportColumns(),q=v=>`"${String(v??"").replace(/"/g,'""')}"`;const header=["Reference","Date","Time","Insurance Company","Policy","Customer","Currency",...financial.map(c=>c.label)];const lines=[header.map(q).join(","),...rows.map(r=>[r.reference_no,r.transaction_date,r.transaction_time,r.company_name_snapshot,r.policy_name_snapshot,r.customer_name,r.currency,...financial.map(c=>r[c.key])].map(q).join(","))];const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${meta.title.replace(/[^a-z0-9]+/gi,"_")}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}catch(err){notify(err.message||"Could not export Insurance CSV.","error");}
+    try{const rows=await fetchAllReportRows();if(!rows.length)return notify("No Insurance records match this report.","error");const meta=activeReportMeta(),financial=reportExportColumns(),q=v=>`"${String(v??"").replace(/"/g,'""')}"`;const header=["Reference","Policy Number","Status","Policy Used Days","Date","Time","Insurance Company","Policy","Customer","Currency",...financial.map(c=>c.label)];const lines=[header.map(q).join(","),...rows.map(r=>[r.reference_no,r.policy_number||"",r.cancellation_id?"Cancelled":"Active / Sold",r.cancellation_id?r.policy_used_days:"",r.transaction_date,r.transaction_time,r.company_name_snapshot,r.policy_name_snapshot,r.customer_name,r.currency,...financial.map(c=>r[c.key])].map(q).join(","))];const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${meta.title.replace(/[^a-z0-9]+/gi,"_")}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}catch(err){notify(err.message||"Could not export Insurance CSV.","error");}
   }
 
   async function reloadMasterAndView(nextView = null) {
