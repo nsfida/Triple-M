@@ -189,6 +189,7 @@ const CANONICAL_MIGRATION_FILES = [
   "172_insurance_independent_policies_compact_ui.sql",
   "173_insurance_customer_registry_menus_documents.sql",
   "174_insurance_my_commission_receivables.sql",
+  "175_insurance_policy_cancellation_commission_deductions.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
