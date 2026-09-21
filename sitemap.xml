@@ -14,6 +14,8 @@
   <url>
     <loc>https://triplem.vip/Demo/</loc>
     <lastmod>2026-09-11</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/" />
   </url>
   <url>
     <loc>https://triplem.vip/Founder/</loc>
@@ -117,7 +119,7 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/</loc>
-    <lastmod>2026-09-11</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/" />
   </url>
@@ -135,13 +137,13 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/accounting-setup.html</loc>
-    <lastmod>2026-09-11</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/accounting-setup.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/accounting-setup.html" />
   </url>
   <url>
     <loc>https://triplem.vip/seo/accounting-software.html</loc>
-    <lastmod>2026-09-11</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/accounting-software.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/accounting-software.html" />
   </url>
@@ -188,6 +190,12 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/editorial-policy.html" />
   </url>
   <url>
+    <loc>https://triplem.vip/seo/excel-to-triplem-vip.html</loc>
+    <lastmod>2026-09-21</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/excel-to-triplem-vip.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/excel-to-triplem-vip.html" />
+  </url>
+  <url>
     <loc>https://triplem.vip/seo/expense-tracking.html</loc>
     <lastmod>2026-09-11</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/expense-tracking.html" />
@@ -195,7 +203,7 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/finance-software.html</loc>
-    <lastmod>2026-09-11</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/finance-software.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/finance-software.html" />
   </url>
@@ -228,6 +236,18 @@
     <lastmod>2026-09-11</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/installment-plans.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/installment-plans.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/insurance-management.html</loc>
+    <lastmod>2026-09-21</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/insurance-management.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/insurance-management.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/inventory-management.html</loc>
+    <lastmod>2026-09-21</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/inventory-management.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/inventory-management.html" />
   </url>
   <url>
     <loc>https://triplem.vip/seo/keyboard-shortcuts.html</loc>
@@ -273,7 +293,7 @@
   </url>
   <url>
     <loc>https://triplem.vip/seo/triplem.html</loc>
-    <lastmod>2026-09-11</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/triplem.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/triplem.html" />
   </url>
@@ -282,5 +302,11 @@
     <lastmod>2026-09-11</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/vat-accounting.html" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/vat-accounting.html" />
+  </url>
+  <url>
+    <loc>https://triplem.vip/seo/windows-desktop-app.html</loc>
+    <lastmod>2026-09-21</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/seo/windows-desktop-app.html" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/seo/windows-desktop-app.html" />
   </url>
 </urlset>
