@@ -237,14 +237,14 @@ test('My Commission UI lists every sale with due received outstanding status and
   const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
   const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
   assert.match(source, /\["commission", "My Commission", "fa-hand-holding-dollar"\]/);
-  assert.match(source, /<div>Gross<\/div><div>Purchase<\/div><div>Sold<\/div><div>My Commission<\/div><div>Received<\/div><div>Outstanding<\/div><div>Status<\/div>/);
+  assert.match(source, /<div>Gross<\/div><div>Purchase<\/div><div>Sold<\/div><div>My Commission<\/div><div>Received<\/div><div>Deducted<\/div><div>Outstanding<\/div><div>Status<\/div>/);
   assert.match(source, /Outstanding/);
   assert.match(source, /Partially Received/);
   assert.match(source, /Fully Received/);
   assert.match(source, /app_insurance_receive_commission/);
   assert.match(source, /p_sale_ids:rows\.map\(r=>r\.id\)/);
   assert.match(source, /Select All/);
-  assert.match(source, /oldest to newest/);
+  assert.match(source, /oldest selected commission/);
   assert.match(source, /rowMenuButtonHtml\("commission",row\.id\)/);
   assert.match(css, /\.insurance-commission-line\{[\s\S]*?grid-template-columns:/);
   assert.match(css, /\.insurance-commission-status\.partial/);
@@ -258,7 +258,62 @@ test('commission payment history is auditable and deleting a receipt restores de
   assert.match(sql174, /app_insurance_get_commission\(p_sale_id uuid\)/i);
   assert.match(sql174, /update public\.insurance_commission_receipts[\s\S]*?set is_deleted=true/i);
   assert.match(source, /Commission Receiving History/);
-  assert.match(source, /Payment History/);
+  assert.match(source, /Payment \/ Deduction History/);
   assert.match(source, /Delete Entry/);
   assert.match(source, /outstanding balances recalculated/i);
+});
+
+
+test("Insurance migration 175 adds policy number and auditable cancellation deductions", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/175_insurance_policy_cancellation_commission_deductions.sql"), "utf8");
+  assert.match(sql, /add column if not exists policy_number text/i);
+  assert.match(sql, /create table if not exists public\.insurance_policy_cancellations/i);
+  assert.match(sql, /create table if not exists public\.insurance_commission_deductions/i);
+  assert.match(sql, /create table if not exists public\.insurance_commission_deduction_allocations/i);
+  assert.match(sql, /app_insurance_cancel_sale/i);
+  assert.match(sql, /policy_used_days/i);
+  assert.match(sql, /post_deduction_to_commission/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("Insurance policy number and cancellation are wired into sale documents", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(source, /name="policy_number"/);
+  assert.match(source, /p_policy_number:/);
+  assert.match(source, /Policy Number/);
+  assert.match(source, /Cancel Policy/);
+  assert.match(source, /app_insurance_cancel_sale/);
+  assert.match(source, /POLICY CANCELLED/);
+  assert.match(source, /policy_used_days/);
+});
+
+test("Insurance temporary invoices use INV prefix", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/175_insurance_policy_cancellation_commission_deductions.sql"), "utf8");
+  assert.match(source, /invoice_number:`INV-/);
+  assert.doesNotMatch(source, /invoice_number:`TMP-/);
+  assert.match(sql, /TMP-/);
+  assert.match(sql, /INV-/);
+  assert.match(sql, /if inv='' then inv:='INV-'/);
+});
+
+test("Insurance My Commission supports cancellation deductions and combined settlement", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/175_insurance_policy_cancellation_commission_deductions.sql"), "utf8");
+  assert.match(source, /Add Deduction/);
+  assert.match(source, /p_deduction_ids/);
+  assert.match(source, /Deducted<\/div><div>Outstanding/);
+  assert.match(sql, /p_deduction_ids uuid\[\]/i);
+  assert.match(sql, /amount_applied/i);
+  assert.match(sql, /commission_deducted/i);
+  assert.match(sql, /Fully Settled|settled/i);
+});
+
+test("Insurance mobile filters and commission columns include cancellation refinements", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(css, /insurance-cancelled-badge/);
+  assert.match(css, /insurance-document-cancellation/);
+  assert.match(css, /repeat\(7,minmax\(76px/);
+  assert.match(css, /@media\(max-width:480px\)/);
+  assert.match(css, /input\[type="date"\]/);
 });
