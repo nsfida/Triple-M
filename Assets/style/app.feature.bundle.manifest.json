@@ -114,10 +114,10 @@
     },
     {
       "path": "Assets/style/54-insurance.css",
-      "bytes": 52682,
-      "sha256": "81e390b516a113c895242b960d12a4282c388a8e0a5e606032775718e162091f"
+      "bytes": 58628,
+      "sha256": "8b474183019c93646e76ab43398b050d5aa93d8dbe497e6eefdde3d3ee7946da"
     }
   ],
-  "bytes": 467819,
-  "sha256": "749b78e8724f9d54c8808e5d0ca1ffec9d81643e9fca7f22d3be09032b0da20d"
+  "bytes": 473765,
+  "sha256": "0ee5c462d7181b840a589e8fbedbb7dfb8d121b4fa68d3e01b10c26d49752ae2"
 }
