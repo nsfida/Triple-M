@@ -242,9 +242,10 @@ test('My Commission UI lists every sale with due received outstanding status and
   assert.match(source, /Partially Received/);
   assert.match(source, /Fully Received/);
   assert.match(source, /app_insurance_receive_commission/);
-  assert.match(source, /p_sale_ids:rows\.map\(r=>r\.id\)/);
+  assert.match(source, /p_sale_ids:sales\.map\(r=>r\.id\)/);
+  assert.match(source, /p_opening_balance_ids:openings\.map\(r=>r\.id\)/);
   assert.match(source, /Select All/);
-  assert.match(source, /oldest selected commission/);
+  assert.match(source, /opening balances first/);
   assert.match(source, /rowMenuButtonHtml\("commission",row\.id\)/);
   assert.match(css, /\.insurance-commission-line\{[\s\S]*?grid-template-columns:/);
   assert.match(css, /\.insurance-commission-status\.partial/);
@@ -317,3 +318,150 @@ test("Insurance mobile filters and commission columns include cancellation refin
   assert.match(css, /@media\(max-width:480px\)/);
   assert.match(css, /input\[type="date"\]/);
 });
+
+
+test("Insurance migration 176 adds tenant-scoped opening commission balances without fake sales", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/176_insurance_commission_opening_balances.sql"), "utf8");
+  assert.match(sql, /create table if not exists public\.insurance_commission_opening_balances/i);
+  assert.match(sql, /create table if not exists public\.insurance_commission_opening_allocations/i);
+  assert.match(sql, /owner_id=public\.app_data_owner_id\(\).*app_has_insurance_permission\('view'\)/i);
+  assert.match(sql, /app_insurance_create_commission_opening_balance/i);
+  assert.match(sql, /opening outstanding balance must be greater than zero/i);
+  assert.match(sql, /opening_amount commission_due/i);
+  assert.match(sql, /p_opening_balance_ids uuid\[\]/i);
+  assert.match(sql, /Imported opening balances represent the oldest receivables and are cleared first/i);
+  assert.match(sql, /Opening balance cannot be edited after receiving has started/i);
+  assert.match(sql, /has_sales or has_opening/i);
+  assert.doesNotMatch(sql, /insert into public\.insurance_sales[\s\S]*opening/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("My Commission UI supports opening balances and shows the three requested top totals", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /id="insuranceAddOpeningBalance"/);
+  assert.match(source, /Add Opening Balance/);
+  assert.match(source, /Balance from previous insurance policies before moving to Triplem VIP/i);
+  assert.match(source, /Total Commission<\/span>/);
+  assert.match(source, /Total Commission Received<\/span>/);
+  assert.match(source, /Balance to Receive<\/span>/);
+  assert.match(source, /Opening Outstanding Balances/);
+  assert.match(source, /app_insurance_list_commission_opening_balances/);
+  assert.match(source, /p_opening_balance_ids:openings\.map\(r=>r\.id\)/);
+  assert.match(source, /source_type:"opening"/);
+  assert.match(css, /\.insurance-commission-summary-strip\{/);
+  assert.match(css, /\.insurance-opening-balance-row\{/);
+  assert.match(css, /@media\(max-width:600px\)[\s\S]*insurance-commission-summary-currency/);
+});
+
+test("commission receipt history includes opening-balance allocations", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/176_insurance_commission_opening_balances.sql"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(sql, /opening_allocation_count/i);
+  assert.match(sql, /opening_allocations/i);
+  assert.match(source, /openingAllocations/);
+  assert.match(source, /Opening Balance<\/strong>/);
+});
+
+test("Insurance migration 177 fixes My Commission x.created_at history regression", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/177_insurance_referrals_and_commission_history_fix.sql"), "utf8");
+  assert.match(sql, /create or replace function public\.app_insurance_get_commission\(p_sale_id uuid\)/i);
+  assert.match(sql, /d\.cancellation_id,d\.created_at/i);
+  assert.match(sql, /order by x\.deduction_date desc,x\.deduction_time desc,x\.created_at desc/i);
+  const deductionSelect = sql.slice(sql.indexOf("select coalesce(jsonb_agg(to_jsonb(x) order by x.deduction_date"), sql.indexOf("return jsonb_build_object('ok',true,'item'", sql.indexOf("select coalesce(jsonb_agg(to_jsonb(x) order by x.deduction_date")));
+  assert.match(deductionSelect, /d\.created_at/);
+});
+
+test("Insurance migration 177 adds referral payables without reducing My Commission", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/177_insurance_referrals_and_commission_history_fix.sql"), "utf8");
+  assert.match(sql, /add column if not exists referral_name text/i);
+  assert.match(sql, /add column if not exists referral_commission numeric/i);
+  assert.match(sql, /create table if not exists public\.insurance_referral_payments/i);
+  assert.match(sql, /create or replace function public\.app_insurance_create_sale_with_referral/i);
+  assert.match(sql, /Referral commission cannot exceed My Commission for this sale/i);
+  assert.match(sql, /create or replace function public\.app_insurance_list_referrals/i);
+  assert.match(sql, /create or replace function public\.app_insurance_pay_referral/i);
+  assert.match(sql, /referral_outstanding/i);
+  assert.match(sql, /referral_status/i);
+  const wrapper = sql.slice(sql.indexOf("create or replace function public.app_insurance_create_sale_with_referral"), sql.indexOf("-- --------------------------------------------------------------------------\n-- Referral payables list"));
+  assert.doesNotMatch(wrapper, /set\s+actual_profit\s*=/i);
+  assert.doesNotMatch(wrapper, /set\s+company_commission\s*=/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("Insurance sale form records optional referral and separate commission share", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(source, /name="referral_name"/);
+  assert.match(source, /insuranceReferralCommissionToggle/);
+  assert.match(source, /name="referral_commission"/);
+  assert.match(source, /app_insurance_create_sale_with_referral/);
+  assert.match(source, /p_referral_name:referralName\|\|null/);
+  assert.match(source, /p_referral_commission:referralCommission/);
+  assert.match(source, /Referral commission cannot exceed My Commission for this sale/);
+});
+
+test("Insurance Referrals section keeps separate payable status and settlement history", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /\["referrals", "Referrals", "fa-user-group"\]/);
+  assert.match(source, /app_insurance_list_referrer_accounts/);
+  assert.match(source, /app_insurance_referrer_summary/);
+  assert.match(source, /Pay Referral/);
+  assert.match(source, /app_insurance_pay_referral/);
+  assert.match(source, /Payment History/);
+  assert.match(source, /Partially Paid/);
+  assert.match(source, /Fully Paid/);
+  assert.match(source, /rowMenuButtonHtml\("referrer",row\.referral_id\)/);
+  assert.match(css, /\.insurance-referral-line\{/);
+  assert.match(css, /\.insurance-referral-entry\{/);
+  assert.match(css, /@media\(max-width:480px\)[\s\S]*insurance-referral-filter-toolbar/);
+});
+
+test("Insurance migration 178 adds reusable referrer directory and grouped ledger", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/178_insurance_referrer_directory_grouped_ledger.sql"), "utf8");
+  assert.match(sql, /create table if not exists public\.insurance_referrers/i);
+  assert.match(sql, /add column if not exists referral_id uuid/i);
+  assert.match(sql, /insurance_referrers_owner_name_uidx/i);
+  assert.match(sql, /Imported from existing Insurance referrals/i);
+  assert.match(sql, /create or replace function public\.app_insurance_list_referrer_directory/i);
+  assert.match(sql, /create or replace function public\.app_insurance_list_referrer_accounts/i);
+  assert.match(sql, /create or replace function public\.app_insurance_get_referrer_account/i);
+  assert.match(sql, /create or replace function public\.app_insurance_referrer_summary/i);
+  assert.match(sql, /set referral_id=rid,referral_name=rn,referral_commission=ra/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("Insurance sale referral control selects existing referrer or adds a new one", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(source, /id="insuranceReferralSelector"/);
+  assert.match(source, /\+ Add New Referral/);
+  assert.match(source, /app_insurance_list_referrer_directory/);
+  assert.match(source, /selectedReferralName/);
+  assert.match(source, /S\.referrerDirectory\.find/);
+});
+
+test("Referrals screen groups by referrer and opens a policy transaction ledger", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /app_insurance_list_referrer_accounts/);
+  assert.match(source, /openReferrerDetails/);
+  assert.match(source, /app_insurance_get_referrer_account/);
+  assert.match(source, /Referral ledger/);
+  assert.match(source, /rowMenuButtonHtml\("referralTransaction",tx\.id\)/);
+  assert.match(source, /Commission · Paid · Outstanding/);
+  assert.match(css, /\.insurance-referrer-ledger-row\{/);
+  assert.match(css, /\.insurance-referrer-money-line\{/);
+});
+
+test("Insurance new-referral control replaces the selector in-place without overflowing commission fields", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /id="insuranceReferralIdentityField"/);
+  assert.match(source, /id="insuranceNewReferralField" class="insurance-referral-new-control hide"/);
+  assert.match(source, /id="insuranceReferralChooseExisting"/);
+  assert.match(source, /referralSelector\?\.classList\.toggle\("hide",isNew\)/);
+  assert.match(css, /Insurance 178\.1/);
+  assert.match(css, /grid-template-columns:minmax\(0,1\.2fr\) minmax\(0,1fr\) minmax\(0,\.72fr\)/);
+  assert.match(css, /#insuranceReferralCommissionField\{min-width:0!important;max-width:100%!important\}/);
+});
+
