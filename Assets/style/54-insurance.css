@@ -1,0 +1,730 @@
+/* Triplem VIP Insurance module. Uses the existing theme variables and modal primitives. */
+.insurance-shell{display:grid;gap:12px}.insurance-head-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.insurance-view-tabs{display:flex;gap:6px;overflow:auto;scrollbar-width:none;padding:2px 0}.insurance-view-tabs::-webkit-scrollbar{display:none}.insurance-view-tab{white-space:nowrap}.insurance-view-tab.active{background:var(--accent);color:var(--accent-contrast,#fff);border-color:transparent}.insurance-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.insurance-kpi{border:1px solid var(--border);background:var(--panel-2);border-radius:14px;padding:10px 12px;min-width:0}.insurance-kpi span{display:block;color:var(--muted);font-size:.72rem;font-weight:700;letter-spacing:.02em}.insurance-kpi strong{display:block;margin-top:4px;font-size:1rem;line-height:1.2;overflow-wrap:anywhere}.insurance-kpi.loss strong,.insurance-amount-loss{color:var(--danger,#c83d4c)}.insurance-toolbar{display:flex;gap:7px;align-items:end;flex-wrap:wrap}.insurance-toolbar .form-group{margin:0;min-width:120px;flex:1 1 140px}.insurance-toolbar .insurance-search{flex:2 1 220px}.insurance-list{display:grid;gap:8px}.insurance-row{border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:11px 12px;display:grid;grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(100px,.8fr)) auto;gap:10px;align-items:center;transition:.18s ease}.insurance-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}.insurance-row-main{min-width:0}.insurance-row-main strong,.insurance-row-main small{display:block}.insurance-row-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.insurance-row-main small,.insurance-cell small{color:var(--muted);font-size:.72rem}.insurance-cell{min-width:0}.insurance-cell b{display:block;font-size:.83rem;overflow-wrap:anywhere}.insurance-actions{display:flex;gap:5px;justify-content:flex-end}.insurance-empty{border:1px dashed var(--border);border-radius:14px;padding:24px 14px;text-align:center;color:var(--muted)}.insurance-empty i{font-size:1.35rem;display:block;margin-bottom:7px}.insurance-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.insurance-form-grid .wide{grid-column:1/-1}.insurance-form-grid label{font-size:.76rem;font-weight:700;color:var(--muted)}.insurance-form-grid label .input,.insurance-form-grid label .select{margin-top:5px;width:100%}.insurance-customer-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.insurance-customer-mode{border:1px solid var(--border);border-radius:11px;padding:8px;background:var(--panel-2);font-size:.76rem;font-weight:700;cursor:pointer}.insurance-customer-mode.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.insurance-calc{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.insurance-calc-item{padding:9px;border-radius:11px;background:var(--panel-2);border:1px solid var(--border)}.insurance-calc-item span{display:block;color:var(--muted);font-size:.7rem}.insurance-calc-item strong{display:block;margin-top:3px;font-size:.9rem}.insurance-warning{grid-column:1/-1;border-radius:10px;padding:8px 10px;font-size:.75rem;background:color-mix(in srgb,var(--warning,#d89b24) 12%,transparent);border:1px solid color-mix(in srgb,var(--warning,#d89b24) 35%,var(--border))}.insurance-warning.loss{background:color-mix(in srgb,var(--danger,#c83d4c) 10%,transparent);border-color:color-mix(in srgb,var(--danger,#c83d4c) 35%,var(--border))}.insurance-modal .modal-dialog{max-width:660px}.insurance-modal .modal-body{max-height:min(76vh,720px);overflow:auto;scrollbar-width:none}.insurance-modal .modal-body::-webkit-scrollbar{display:none}.insurance-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.insurance-detail{border:1px solid var(--border);background:var(--panel-2);border-radius:11px;padding:9px}.insurance-detail span{display:block;color:var(--muted);font-size:.7rem}.insurance-detail strong{display:block;margin-top:3px;font-size:.84rem;overflow-wrap:anywhere}.insurance-detail-wide{grid-column:1/-1}.insurance-document{background:#fff;color:#16191d;border-radius:12px;padding:26px;min-height:520px}.insurance-document-head{display:flex;justify-content:space-between;gap:18px;border-bottom:1px solid #dce0e6;padding-bottom:16px}.insurance-document h2{margin:0;font-size:1.45rem}.insurance-document p{margin:3px 0;font-size:.78rem}.insurance-document .doc-muted{color:#68717d}.insurance-document-meta{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}.insurance-document-table{width:100%;border-collapse:collapse;font-size:.8rem}.insurance-document-table th,.insurance-document-table td{padding:9px 7px;border-bottom:1px solid #e7e9ed;text-align:left}.insurance-document-table th:last-child,.insurance-document-table td:last-child{text-align:right}.insurance-document-total{margin-left:auto;width:min(320px,100%);padding-top:14px}.insurance-document-total div{display:flex;justify-content:space-between;gap:15px;padding:5px 0}.insurance-document-total .grand{border-top:1px solid #cbd0d8;margin-top:5px;padding-top:10px;font-size:1rem;font-weight:800}.insurance-pager{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:9px}.insurance-report-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.insurance-temp-card{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--border);border-radius:13px;padding:10px 12px;background:var(--panel-2)}
+@media(max-width:860px){.insurance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.insurance-row{grid-template-columns:minmax(0,1fr) auto}.insurance-row .insurance-cell{grid-column:1/-1;display:grid;grid-template-columns:110px 1fr;gap:8px;padding-top:3px;border-top:1px solid var(--border)}.insurance-actions{grid-column:2;grid-row:1;align-self:start}.insurance-report-summary{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:600px){.insurance-shell{gap:9px}.insurance-kpis{grid-template-columns:1fr 1fr;gap:6px}.insurance-kpi{padding:8px 9px;border-radius:11px}.insurance-kpi strong{font-size:.88rem}.insurance-toolbar{display:grid;grid-template-columns:1fr 1fr}.insurance-toolbar .form-group,.insurance-toolbar .insurance-search{min-width:0}.insurance-toolbar .insurance-search{grid-column:1/-1}.insurance-toolbar .insurance-toolbar-actions{grid-column:1/-1;display:flex;gap:6px}.insurance-form-grid{grid-template-columns:1fr}.insurance-form-grid .wide,.insurance-calc{grid-column:1}.insurance-customer-modes{grid-template-columns:1fr}.insurance-calc{grid-template-columns:1fr 1fr}.insurance-calc-item:last-child{grid-column:1/-1}.insurance-detail-grid{grid-template-columns:1fr}.insurance-detail-wide{grid-column:1}.insurance-report-summary{grid-template-columns:1fr}.insurance-modal .modal-dialog{width:min(96vw,660px);max-height:96dvh}.insurance-document{padding:16px}.insurance-document-head,.insurance-document-meta{display:block}.insurance-document-meta>div+div{margin-top:12px}.insurance-temp-card{align-items:flex-start;flex-direction:column}}
+.insurance-report-record{border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:10px 12px;display:grid;gap:9px}.insurance-report-record-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.insurance-report-record-head>div{min-width:0}.insurance-report-record-head strong,.insurance-report-record-head small{display:block}.insurance-report-record-head small{color:var(--muted);font-size:.71rem;margin-top:2px;overflow-wrap:anywhere}.insurance-report-money-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}.insurance-report-money{border:1px solid var(--border);background:var(--panel-2);border-radius:10px;padding:7px 8px;min-width:0}.insurance-report-money span{display:block;color:var(--muted);font-size:.66rem;line-height:1.2}.insurance-report-money strong{display:block;margin-top:3px;font-size:.78rem;overflow-wrap:anywhere}
+@media(max-width:960px){.insurance-report-money-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.insurance-report-money-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.insurance-report-record{padding:9px}.insurance-report-money{padding:7px}}
+
+/* Admin Insurance access control: keep the long user form independently
+   scrollable while actions remain stable and reachable on desktop/mobile. */
+#adminCreateUserModal .admin-settings-sheet,
+#adminEditUserModal .admin-settings-sheet{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#adminCreateUserModal .admin-user-access-scroll,
+#adminEditUserModal .admin-user-access-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  max-height:none;
+  overflow:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:none;
+}
+#adminCreateUserModal .admin-user-access-scroll::-webkit-scrollbar,
+#adminEditUserModal .admin-user-access-scroll::-webkit-scrollbar{width:0;height:0}
+#adminCreateUserModal .admin-user-access-footer,
+#adminEditUserModal .admin-user-access-footer{
+  flex:0 0 auto;
+  margin:0;
+  padding:8px 10px 10px;
+  border-top:1px solid color-mix(in srgb,var(--line) 72%,transparent);
+  background:color-mix(in srgb,var(--panel) 94%,transparent);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+@media (max-width:560px){
+  #adminCreateUserModal .admin-user-access-footer,
+  #adminEditUserModal .admin-user-access-footer{padding:7px 8px calc(8px + env(safe-area-inset-bottom,0px))}
+}
+
+
+/* Insurance 172 — provider/policy separation and compact native overlays. */
+.insurance-policy-note{display:flex;align-items:center;gap:6px;flex:1 1 320px;min-width:0;color:var(--muted);font-size:.72rem;line-height:1.25}
+.insurance-policy-note i{color:var(--accent);font-size:.72rem;flex:0 0 auto}
+.insurance-modal .insurance-entry-dialog{width:min(620px,calc(100vw - 20px));max-width:620px;max-height:min(760px,calc(100dvh - 24px));border-radius:16px;overflow:hidden}
+.insurance-modal .insurance-entry-dialog .modal-head{padding:9px 12px 6px;gap:8px;align-items:center}
+.insurance-modal .insurance-entry-dialog .modal-head h3{font-size:.94rem;line-height:1.15}
+.insurance-modal .insurance-entry-dialog .modal-head p{margin:2px 0 0;font-size:.67rem;line-height:1.25;color:var(--muted)}
+.insurance-modal .insurance-entry-dialog .modal-body{padding:7px 12px 8px;max-height:none;min-height:0;overflow:auto;scrollbar-width:none}
+.insurance-modal .insurance-entry-dialog .modal-body::-webkit-scrollbar{display:none}
+.insurance-modal .insurance-entry-dialog .modal-footer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin:0;padding:7px 12px 10px;border-top:1px solid color-mix(in srgb,var(--border) 72%,transparent);background:color-mix(in srgb,var(--panel) 96%,transparent)}
+.insurance-modal .insurance-entry-dialog .modal-footer .btn{flex:0 0 auto;min-width:82px;min-height:30px;height:30px;padding:0 11px;border-radius:8px;font-size:.68rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.insurance-modal .insurance-form-grid{gap:7px 9px;align-items:start}
+.insurance-modal .insurance-form-grid label{display:block;min-width:0;font-size:.68rem;line-height:1.2;font-weight:700;color:var(--muted)}
+.insurance-modal .insurance-form-grid label .input,.insurance-modal .insurance-form-grid label .select{margin-top:3px;width:100%;min-height:31px;height:31px;padding:4px 8px;border-radius:8px;font-size:.74rem;line-height:1.1}
+.insurance-modal .insurance-form-grid label textarea.input{height:auto;min-height:50px;max-height:82px;resize:vertical;padding-top:6px;padding-bottom:6px}
+.insurance-modal .insurance-master-form{max-width:560px;margin:0 auto}
+.insurance-modal .insurance-customer-modes{gap:5px}
+.insurance-modal .insurance-customer-mode{min-height:30px;padding:4px 7px;border-radius:8px;font-size:.67rem;line-height:1.1}
+.insurance-modal .insurance-sale-meta,.insurance-modal .insurance-price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.insurance-modal .insurance-calc{gap:6px}
+.insurance-modal .insurance-calc-item{padding:7px 8px;border-radius:9px;min-height:48px}
+.insurance-modal .insurance-calc-item span{font-size:.62rem;line-height:1.15}
+.insurance-modal .insurance-calc-item strong{margin-top:3px;font-size:.78rem;line-height:1.15}
+.insurance-modal .insurance-warning{padding:6px 8px;border-radius:8px;font-size:.66rem;line-height:1.3}
+.insurance-modal #insuranceExistingCustomerFields .help{font-size:.62rem;line-height:1.2;margin-top:3px}
+.insurance-modal #insuranceExistingCustomerFields .select{margin-top:4px!important}
+.insurance-modal .insurance-detail{padding:7px 8px;border-radius:9px}
+.insurance-modal .insurance-detail span{font-size:.63rem}
+.insurance-modal .insurance-detail strong{font-size:.76rem;line-height:1.25}
+@media(max-width:600px){
+  .insurance-policy-note{grid-column:1/-1;font-size:.66rem}
+  .insurance-modal .insurance-entry-dialog{width:calc(100vw - 12px);max-width:none;max-height:calc(100dvh - 12px);border-radius:14px}
+  .insurance-modal .insurance-entry-dialog .modal-head{padding:8px 9px 5px}
+  .insurance-modal .insurance-entry-dialog .modal-body{padding:6px 9px 7px}
+  .insurance-modal .insurance-entry-dialog .modal-footer{padding:6px 9px calc(7px + env(safe-area-inset-bottom,0px));gap:5px}
+  .insurance-modal .insurance-entry-dialog .modal-footer .btn{min-width:76px;height:29px;min-height:29px;padding:0 9px;font-size:.65rem}
+  .insurance-modal .insurance-form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 7px}
+  .insurance-modal .insurance-form-grid .wide{grid-column:1/-1}
+  .insurance-modal .insurance-customer-modes{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .insurance-modal .insurance-sale-meta,.insurance-modal .insurance-price-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .insurance-modal .insurance-calc{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .insurance-modal .insurance-calc-item:last-child{grid-column:auto}
+  .insurance-modal .insurance-calc-item{padding:6px 5px;text-align:center}
+  .insurance-modal .insurance-calc-item span{font-size:.56rem}
+  .insurance-modal .insurance-calc-item strong{font-size:.7rem}
+  .insurance-modal .insurance-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .insurance-modal .insurance-detail-wide{grid-column:1/-1}
+}
+@media(max-width:390px){
+  .insurance-modal .insurance-sale-meta,.insurance-modal .insurance-price-grid{gap:4px}
+  .insurance-modal .insurance-form-grid label{font-size:.64rem}
+  .insurance-modal .insurance-form-grid label .input,.insurance-modal .insurance-form-grid label .select{font-size:.69rem;padding-inline:6px}
+  .insurance-modal .insurance-customer-mode{font-size:.61rem;padding-inline:4px}
+}
+
+/* Insurance records refinement — compact filters, per-sale document menu and report views. */
+.insurance-filter-toolbar{
+  display:grid;
+  grid-template-columns:minmax(180px,1.45fr) repeat(5,minmax(105px,.9fr)) auto;
+  gap:6px;
+  align-items:end;
+  padding:7px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);
+}
+.insurance-report-filter-toolbar{
+  grid-template-columns:minmax(175px,1.35fr) minmax(145px,1.05fr) repeat(5,minmax(102px,.82fr)) auto;
+}
+.insurance-filter-toolbar .insurance-filter-field{
+  min-width:0;
+  margin:0;
+  flex:none;
+}
+.insurance-filter-toolbar .insurance-search{min-width:0;flex:none}
+.insurance-filter-toolbar .form-label{
+  display:block;
+  margin:0 0 3px;
+  font-size:.61rem;
+  line-height:1;
+  font-weight:750;
+  color:var(--muted);
+  letter-spacing:.01em;
+}
+.insurance-filter-toolbar .input,
+.insurance-filter-toolbar .select{
+  width:100%;
+  min-width:0;
+  height:30px;
+  min-height:30px;
+  padding:3px 7px;
+  border-radius:8px;
+  font-size:.69rem;
+  line-height:1;
+}
+.insurance-filter-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
+  flex-wrap:nowrap;
+  min-height:30px;
+}
+.insurance-filter-actions .btn{
+  min-width:0;
+  height:30px;
+  min-height:30px;
+  padding:0 8px;
+  border-radius:8px;
+  font-size:.64rem;
+  line-height:1;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+}
+.insurance-filter-actions .btn i{font-size:.64rem}
+
+.insurance-sale-menu-wrap{position:relative;display:inline-flex;align-items:center}
+.insurance-sale-menu{
+  display:none;
+  position:absolute;
+  right:0;
+  top:calc(100% + 5px);
+  z-index:420;
+  width:max-content;
+  min-width:218px;
+  max-width:min(260px,calc(100vw - 22px));
+  padding:5px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--panel);
+  box-shadow:0 14px 34px rgba(0,0,0,.18);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+.insurance-sale-menu.is-open{display:grid;gap:2px}
+.insurance-sale-menu button{
+  width:100%;
+  min-height:31px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:var(--text);
+  display:grid;
+  grid-template-columns:18px minmax(0,1fr);
+  gap:7px;
+  align-items:center;
+  padding:6px 8px;
+  text-align:left;
+  font:inherit;
+  font-size:.68rem;
+  cursor:pointer;
+}
+.insurance-sale-menu button:hover,.insurance-sale-menu button:focus-visible{background:var(--panel-2);outline:none}
+.insurance-sale-menu button i{width:18px;text-align:center;color:var(--accent);font-size:.72rem}
+.insurance-sale-menu button span{white-space:nowrap}
+.insurance-actions{overflow:visible;position:relative}
+
+.insurance-report-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:8px 1px 5px;
+}
+.insurance-report-heading strong,.insurance-report-heading span{display:block}
+.insurance-report-heading strong{font-size:.76rem;line-height:1.15}
+.insurance-report-heading span{margin-top:1px;color:var(--muted);font-size:.62rem;line-height:1.2}
+.insurance-report-summary{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(225px,1fr));
+  gap:6px;
+  margin-bottom:7px;
+}
+.insurance-report-total-card{
+  min-width:0;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--panel-2);
+  padding:7px 8px;
+}
+.insurance-report-total-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+.insurance-report-total-head strong{font-size:.72rem}
+.insurance-report-total-head span{color:var(--muted);font-size:.59rem;white-space:nowrap}
+.insurance-report-total-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:4px}
+.insurance-report-total-values>div{min-width:0;border-radius:7px;background:color-mix(in srgb,var(--panel) 68%,transparent);padding:5px 6px}
+.insurance-report-total-values span,.insurance-report-total-values strong{display:block;min-width:0}
+.insurance-report-total-values span{font-size:.56rem;line-height:1.15;color:var(--muted)}
+.insurance-report-total-values strong{margin-top:2px;font-size:.69rem;line-height:1.15;overflow-wrap:anywhere}
+.insurance-report-list{gap:6px}
+.insurance-report-money-grid{gap:5px}
+.insurance-report-money-grid-1{grid-template-columns:minmax(150px,260px)}
+.insurance-report-money-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.insurance-report-money-grid-6{grid-template-columns:repeat(6,minmax(0,1fr))}
+
+@media(max-width:1180px){
+  .insurance-filter-toolbar,.insurance-report-filter-toolbar{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  .insurance-filter-toolbar .insurance-search{grid-column:span 2}
+  .insurance-filter-toolbar .insurance-filter-actions{grid-column:span 2;justify-content:flex-end}
+  .insurance-report-filter-toolbar .insurance-filter-actions{grid-column:1/-1;justify-content:center}
+}
+@media(max-width:700px){
+  .insurance-filter-toolbar,.insurance-report-filter-toolbar{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px;
+    padding:6px;
+    border-radius:10px;
+  }
+  .insurance-filter-toolbar .insurance-search,
+  .insurance-report-filter-toolbar .insurance-search,
+  .insurance-report-filter-toolbar .insurance-report-view{grid-column:1/-1}
+  .insurance-filter-toolbar .form-label{font-size:.58rem;margin-bottom:2px}
+  .insurance-filter-toolbar .input,.insurance-filter-toolbar .select{height:29px;min-height:29px;padding:3px 6px;font-size:.66rem}
+  .insurance-filter-toolbar .insurance-filter-actions,
+  .insurance-report-filter-toolbar .insurance-filter-actions{grid-column:1/-1;justify-content:center;gap:4px}
+  .insurance-filter-actions .btn{height:29px;min-height:29px;padding:0 8px;font-size:.61rem}
+  .insurance-report-heading{margin-top:7px}
+  .insurance-report-summary{grid-template-columns:1fr;gap:5px}
+  .insurance-report-total-card{padding:6px 7px}
+  .insurance-report-money-grid-1{grid-template-columns:1fr}
+  .insurance-report-money-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .insurance-sale-menu{right:0;min-width:210px}
+}
+@media(max-width:420px){
+  .insurance-filter-actions .btn span{display:none}
+  .insurance-filter-actions .btn{width:30px;padding:0}
+  .insurance-filter-actions .btn i{font-size:.7rem}
+  .insurance-report-money-grid-3{grid-template-columns:1fr}
+  .insurance-report-total-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Insurance UI refinement 2026-09-21 — compact controls, thin reports and complete theme parity. */
+#insurancePanel .insurance-shell,
+.insurance-modal{
+  --insurance-surface:var(--surface-elevated,var(--panel,#fff));
+  --insurance-soft:var(--surface-soft,var(--panel-2,var(--panel,#fff)));
+  --insurance-line:var(--line,var(--border,rgba(148,163,184,.25)));
+  --insurance-primary:var(--primary,var(--accent,#2457d6));
+  color:var(--text,#17212b);
+}
+#insurancePanel .insurance-shell :is(.insurance-kpi,.insurance-row,.insurance-report-table,.insurance-temp-card),
+.insurance-modal .modal-dialog{
+  color:var(--text,#17212b);
+  border-color:var(--insurance-line)!important;
+}
+#insurancePanel .insurance-kpi,
+#insurancePanel .insurance-temp-card,
+#insurancePanel .insurance-report-table,
+.insurance-modal .modal-dialog{background:var(--insurance-surface)!important}
+#insurancePanel .insurance-row,
+#insurancePanel .insurance-customer-mode,
+#insurancePanel .insurance-report-line-record,
+#insurancePanel .insurance-report-line-total,
+.insurance-modal :is(.insurance-detail,.insurance-calc-item,.insurance-customer-mode){background:var(--insurance-soft)!important;color:var(--text,#17212b)!important}
+#insurancePanel :is(.input,.select),
+.insurance-modal :is(.input,.select,input:not([type="hidden"]),select,textarea){
+  background:var(--control-bg,var(--insurance-surface))!important;
+  color:var(--text,#17212b)!important;
+  -webkit-text-fill-color:var(--text,#17212b)!important;
+  border-color:var(--insurance-line)!important;
+}
+#insurancePanel select option,.insurance-modal select option{background:var(--control-bg,var(--insurance-surface))!important;color:var(--text,#17212b)!important}
+#insurancePanel :is(.form-label,.insurance-row-main small,.insurance-cell small,.help),
+.insurance-modal :is(.form-label,label,.help,.modal-head p){color:var(--muted,#667085)!important}
+#insurancePanel .btn.ghost,.insurance-modal .btn.ghost,#insurancePanel .icon-btn.ghost,.insurance-modal .icon-btn.ghost{
+  background:var(--control-bg,var(--insurance-surface))!important;
+  color:var(--text,#17212b)!important;
+  border:1px solid var(--insurance-line)!important;
+  box-shadow:none!important;
+}
+#insurancePanel .btn.danger,.insurance-modal .btn.danger{
+  background:var(--danger-soft,color-mix(in srgb,var(--danger,#c83d4c) 10%,var(--insurance-surface)))!important;
+  color:var(--danger,#c83d4c)!important;
+  border:1px solid color-mix(in srgb,var(--danger,#c83d4c) 30%,var(--insurance-line))!important;
+}
+#insurancePanel .btn.primary,.insurance-modal .btn.primary{background:var(--insurance-primary)!important;color:var(--on-primary,var(--primary-contrast,#fff))!important;box-shadow:none!important}
+#insurancePanel .btn:hover,.insurance-modal .btn:hover,#insurancePanel .icon-btn:hover,.insurance-modal .icon-btn:hover{transform:none;box-shadow:none}
+
+/* Smaller, simpler Insurance actions everywhere. */
+#insurancePanel .btn,.insurance-modal .btn{
+  min-height:27px!important;height:27px!important;min-width:0!important;
+  padding:0 8px!important;border-radius:7px!important;font-size:.62rem!important;line-height:1!important;
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;font-weight:750;
+}
+#insurancePanel .btn i,.insurance-modal .btn i{font-size:.6rem}
+#insurancePanel .icon-btn,.insurance-modal .icon-btn{
+  width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;
+  border-radius:7px!important;font-size:.7rem!important;box-shadow:none!important;
+}
+#insurancePanel .insurance-head-actions,#insurancePanel .insurance-toolbar-actions,#insurancePanel .insurance-actions,.insurance-modal .modal-footer{gap:4px!important}
+#insurancePanel .insurance-view-tabs{gap:4px;padding:1px 0}
+#insurancePanel .insurance-view-tab{height:27px!important;padding:0 8px!important;border-radius:7px!important;font-size:.61rem!important}
+#insurancePanel .insurance-view-tab.active{background:var(--insurance-primary)!important;color:var(--on-primary,var(--primary-contrast,#fff))!important}
+#insurancePanel .insurance-pager{gap:5px;margin-top:6px}
+#insurancePanel .insurance-pager .help{font-size:.58rem}
+.insurance-modal .insurance-entry-dialog .modal-footer{padding:6px 10px 8px!important;background:var(--insurance-surface)!important}
+.insurance-modal .insurance-entry-dialog .modal-footer .btn{min-width:68px!important;height:27px!important;min-height:27px!important;padding:0 8px!important;font-size:.61rem!important}
+
+/* Compact filters and dropdowns. */
+.insurance-filter-toolbar,.insurance-report-filter-toolbar{
+  gap:4px!important;padding:5px!important;border-radius:9px!important;
+  background:var(--insurance-soft)!important;border-color:var(--insurance-line)!important;
+}
+.insurance-filter-toolbar .form-label{font-size:.56rem!important;margin-bottom:2px!important}
+.insurance-filter-toolbar .input,.insurance-filter-toolbar .select{
+  height:27px!important;min-height:27px!important;padding:2px 6px!important;border-radius:7px!important;font-size:.63rem!important;
+}
+.insurance-filter-actions{min-height:27px!important;gap:3px!important}
+.insurance-filter-actions .btn{height:27px!important;min-height:27px!important;padding:0 7px!important;font-size:.59rem!important}
+.insurance-sale-menu{
+  min-width:188px!important;max-width:min(220px,calc(100vw - 18px))!important;padding:4px!important;border-radius:9px!important;
+  background:var(--insurance-surface)!important;color:var(--text,#17212b)!important;border-color:var(--insurance-line)!important;
+  box-shadow:0 10px 24px color-mix(in srgb,#000 16%,transparent)!important;
+}
+.insurance-sale-menu button{
+  min-height:27px!important;padding:4px 6px!important;border-radius:6px!important;font-size:.61rem!important;
+  grid-template-columns:15px minmax(0,1fr)!important;gap:5px!important;color:var(--text,#17212b)!important;
+}
+.insurance-sale-menu button:hover,.insurance-sale-menu button:focus-visible{background:var(--insurance-soft)!important}
+.insurance-sale-menu button i{width:15px!important;font-size:.62rem!important;color:var(--insurance-primary)!important}
+
+/* Thin desktop financial report list. */
+.insurance-report-heading{margin:6px 1px 4px!important}
+.insurance-report-heading strong{font-size:.7rem!important}
+.insurance-report-heading span{font-size:.57rem!important;color:var(--muted,#667085)!important}
+.insurance-report-table{border:1px solid var(--insurance-line);border-radius:10px;padding:0;min-width:0}
+.insurance-report-list{display:grid;gap:0!important}
+.insurance-report-line{
+  display:grid;align-items:center;gap:5px;min-width:0;padding:5px 7px;border-bottom:1px solid var(--insurance-line);
+  color:var(--text,#17212b);
+}
+.insurance-report-cols-1{grid-template-columns:minmax(260px,2fr) minmax(105px,.72fr) 60px}
+.insurance-report-cols-3{grid-template-columns:minmax(260px,1.9fr) repeat(3,minmax(100px,.72fr)) 60px}
+.insurance-report-cols-6{grid-template-columns:minmax(250px,1.7fr) repeat(6,minmax(88px,.7fr)) 60px}
+.insurance-report-line-head{padding-top:5px;padding-bottom:5px;background:var(--insurance-soft)!important;color:var(--muted,#667085);font-size:.53rem;font-weight:850;text-transform:uppercase;letter-spacing:.025em;border-radius:9px 9px 0 0}
+.insurance-report-line-record{min-height:38px;background:var(--insurance-surface)!important}
+.insurance-report-line-record:hover{background:color-mix(in srgb,var(--insurance-primary) 4%,var(--insurance-surface))!important}
+.insurance-report-item{min-width:0;display:grid;gap:1px}
+.insurance-report-item strong{font-size:.64rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-report-item span{font-size:.53rem;line-height:1.15;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-report-line-value{min-width:0;text-align:right;font-size:.62rem;font-weight:780;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-report-line-value span{font-size:inherit}
+.insurance-report-line-actions{display:flex;align-items:center;justify-content:flex-end;gap:3px;min-width:0}
+.insurance-report-line-action-head{text-align:right}
+.insurance-report-totals{display:grid;gap:0}
+.insurance-report-line-total{min-height:36px;background:color-mix(in srgb,var(--insurance-primary) 6%,var(--insurance-soft))!important;font-weight:850;border-bottom:0}
+.insurance-report-line-total+.insurance-report-line-total{border-top:1px solid var(--insurance-line)}
+.insurance-report-line-total .insurance-report-item strong{color:var(--insurance-primary)}
+.insurance-report-total-empty{padding:7px;text-align:center;color:var(--muted,#667085);font-size:.59rem}
+/* Retire the old card-style report treatment without disturbing old markup fallbacks. */
+.insurance-report-summary,.insurance-report-record,.insurance-report-money-grid{display:none!important}
+
+/* Customer document preview: aligned issuer and customer boxes in one row. */
+.insurance-document{background:#fff!important;color:#16191d!important;padding:20px!important;min-height:480px}
+.insurance-document-head{align-items:flex-end;padding-bottom:10px!important;border-color:#dce0e6!important}
+.insurance-document-head h2{font-size:1.25rem!important}
+.insurance-document-date{display:grid;gap:2px;text-align:right}
+.insurance-document-date span,.insurance-document-party>span,.insurance-document-context span{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#68717d}
+.insurance-document-date strong{font-size:.74rem}
+.insurance-document-party-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 8px}
+.insurance-document-party{border:1px solid #dce0e6;border-radius:9px;padding:9px 10px;min-height:96px;background:#f9fafb}
+.insurance-document-party strong{display:block;margin:3px 0 4px;font-size:.8rem}
+.insurance-document-party p{margin:2px 0!important;font-size:.65rem!important;line-height:1.25;color:#4b5563}
+.insurance-document-context{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
+.insurance-document-context>div{border-bottom:1px solid #e7e9ed;padding:6px 2px}
+.insurance-document-context strong{display:block;margin-top:2px;font-size:.7rem}
+.insurance-document-table{font-size:.72rem!important}
+.insurance-document-table th,.insurance-document-table td{padding:7px 5px!important}
+.insurance-document-total{padding-top:10px!important}
+.insurance-document-total div{padding:4px 0!important;font-size:.72rem}
+.insurance-document-total .grand{font-size:.86rem!important;padding-top:8px!important}
+.insurance-document-note{margin-top:14px!important}
+
+@media(max-width:1180px){
+  .insurance-report-cols-6{grid-template-columns:minmax(220px,1.6fr) repeat(6,minmax(78px,.7fr)) 56px}
+  .insurance-report-line{gap:4px;padding-inline:6px}
+  .insurance-report-line-value{font-size:.58rem}
+}
+@media(max-width:700px){
+  #insurancePanel .btn,.insurance-modal .btn{height:26px!important;min-height:26px!important;font-size:.59rem!important;padding-inline:7px!important}
+  #insurancePanel .icon-btn,.insurance-modal .icon-btn{width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important}
+  .insurance-filter-toolbar,.insurance-report-filter-toolbar{gap:4px!important;padding:5px!important}
+  .insurance-filter-toolbar .input,.insurance-filter-toolbar .select{height:26px!important;min-height:26px!important;font-size:.61rem!important}
+  .insurance-report-line-head{display:none}
+  .insurance-report-line-record,.insurance-report-line-total{grid-template-columns:repeat(2,minmax(0,1fr))!important;position:relative;padding:7px 8px;gap:5px 7px;min-height:0}
+  .insurance-report-line-record+.insurance-report-line-record{border-top:0}
+  .insurance-report-item{grid-column:1/-1;padding-right:58px}
+  .insurance-report-line-value{text-align:left;display:grid;gap:1px;white-space:normal}
+  .insurance-report-line-value::before{content:attr(data-label);font-size:.5rem;color:var(--muted,#667085);font-weight:700}
+  .insurance-report-line-actions{position:absolute;right:7px;top:7px}
+  .insurance-report-line-total>div:last-child{display:none}
+  .insurance-document-party-row,.insurance-document-context{grid-template-columns:1fr}
+  .insurance-document-party{min-height:0}
+}
+@media(max-width:420px){
+  .insurance-sale-menu{min-width:178px!important}
+  .insurance-report-line-record,.insurance-report-line-total{grid-template-columns:1fr!important}
+  .insurance-report-item{padding-right:56px}
+}
+
+/* Final density pass: keep Insurance visually advanced but deliberately quiet. */
+#insurancePanel .insurance-shell{gap:8px!important}
+#insurancePanel .insurance-kpis{gap:5px!important}
+#insurancePanel .insurance-kpi{padding:7px 8px!important;border-radius:10px!important}
+#insurancePanel .insurance-kpi span{font-size:.59rem!important;letter-spacing:.01em!important}
+#insurancePanel .insurance-kpi strong{margin-top:2px!important;font-size:.78rem!important;color:var(--text,#17212b)}
+#insurancePanel .insurance-list{gap:5px}
+#insurancePanel .insurance-row{padding:7px 8px!important;border-radius:10px!important;gap:7px!important;transform:none!important}
+#insurancePanel .insurance-row-main strong{font-size:.72rem!important;color:var(--text,#17212b)}
+#insurancePanel .insurance-row-main small,#insurancePanel .insurance-cell small{font-size:.58rem!important}
+#insurancePanel .insurance-cell b{font-size:.67rem!important;color:var(--text,#17212b)}
+#insurancePanel .insurance-empty{padding:16px 10px!important;border-radius:10px!important;font-size:.65rem}
+#insurancePanel .insurance-empty i{font-size:1rem!important;margin-bottom:5px!important}
+#insurancePanel .insurance-temp-card{padding:7px 8px!important;border-radius:9px!important}
+#insurancePanel .insurance-temp-card strong{font-size:.69rem}
+#insurancePanel .insurance-temp-card .help{font-size:.57rem}
+#insurancePanel .insurance-customer-mode.active,.insurance-modal .insurance-customer-mode.active{
+  background:color-mix(in srgb,var(--insurance-primary) 9%,var(--insurance-surface))!important;
+  color:var(--insurance-primary)!important;border-color:color-mix(in srgb,var(--insurance-primary) 60%,var(--insurance-line))!important;
+}
+.insurance-modal .insurance-entry-dialog{width:min(590px,calc(100vw - 20px))!important;max-width:590px!important;border-radius:13px!important}
+.insurance-modal .insurance-entry-dialog .modal-head{padding:8px 10px 5px!important}
+.insurance-modal .insurance-entry-dialog .modal-head h3{font-size:.86rem!important}
+.insurance-modal .insurance-entry-dialog .modal-head p{font-size:.6rem!important}
+.insurance-modal .insurance-entry-dialog .modal-body{padding:6px 10px 7px!important}
+.insurance-modal .insurance-form-grid{gap:5px 7px!important}
+.insurance-modal .insurance-form-grid label{font-size:.61rem!important}
+.insurance-modal .insurance-form-grid label .input,.insurance-modal .insurance-form-grid label .select{
+  height:28px!important;min-height:28px!important;margin-top:2px!important;padding:3px 7px!important;border-radius:7px!important;font-size:.67rem!important;
+}
+.insurance-modal .insurance-form-grid label textarea.input{height:auto!important;min-height:44px!important;max-height:72px!important}
+.insurance-modal .insurance-customer-mode{height:27px!important;min-height:27px!important;padding:3px 6px!important;border-radius:7px!important;font-size:.6rem!important;color:var(--text,#17212b)}
+.insurance-modal .insurance-calc-item{padding:6px 7px!important;min-height:42px!important;border-radius:8px!important}
+.insurance-modal .insurance-calc-item span{font-size:.55rem!important}
+.insurance-modal .insurance-calc-item strong{font-size:.69rem!important}
+.insurance-modal .insurance-detail{padding:6px 7px!important;border-radius:8px!important}
+.insurance-modal .insurance-detail span{font-size:.56rem!important}
+.insurance-modal .insurance-detail strong{font-size:.68rem!important}
+@media(max-width:700px){
+  #insurancePanel .insurance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #insurancePanel .insurance-row{grid-template-columns:minmax(0,1fr) auto!important;gap:5px!important}
+  #insurancePanel .insurance-row .insurance-cell{display:none}
+  #insurancePanel .insurance-row-main small{white-space:normal;line-height:1.25}
+  .insurance-modal .insurance-entry-dialog{width:calc(100vw - 10px)!important;max-width:none!important;border-radius:11px!important}
+}
+
+/* Insurance 173 — floating row menus, compact document actions and customer duplicate guard. */
+#insurancePanel .insurance-clickable-row{cursor:pointer}
+#insurancePanel .insurance-clickable-row:focus-visible{outline:2px solid color-mix(in srgb,var(--insurance-primary,var(--accent)) 55%,transparent);outline-offset:1px}
+#insurancePanel .insurance-row-menu-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border-radius:6px!important;font-size:.62rem!important}
+
+.insurance-floating-menu{
+  position:fixed;z-index:2147483000;display:grid;gap:2px;
+  min-width:164px;max-width:min(220px,calc(100vw - 16px));padding:4px;
+  border:1px solid var(--insurance-line,var(--border));border-radius:9px;
+  background:var(--insurance-surface,var(--panel));color:var(--text,#17212b);
+  box-shadow:0 12px 30px color-mix(in srgb,#000 18%,transparent);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+}
+.insurance-floating-menu button{
+  width:100%;min-height:25px;border:0;border-radius:6px;background:transparent;color:inherit;
+  display:grid;grid-template-columns:14px minmax(0,1fr);gap:5px;align-items:center;
+  padding:4px 6px;text-align:left;font:inherit;font-size:.59rem;font-weight:700;cursor:pointer
+}
+.insurance-floating-menu button:hover,.insurance-floating-menu button:focus-visible{background:var(--insurance-soft,var(--panel-2));outline:none}
+.insurance-floating-menu button i{width:14px;text-align:center;font-size:.6rem;color:var(--insurance-primary,var(--accent))}
+.insurance-floating-menu button.danger,.insurance-floating-menu button.danger i{color:var(--danger,#c83d4c)}
+.insurance-floating-menu button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.insurance-modal .insurance-document-dialog{
+  width:min(760px,calc(100vw - 20px))!important;max-width:760px!important;
+  max-height:calc(100dvh - 20px);overflow:hidden;border-radius:13px!important
+}
+.insurance-modal .insurance-document-dialog .modal-head{padding:8px 10px 5px!important}
+.insurance-modal .insurance-document-dialog .modal-head h3{font-size:.84rem!important}
+.insurance-modal .insurance-document-dialog .modal-head p{font-size:.58rem!important;margin-top:1px!important}
+.insurance-modal .insurance-document-dialog .modal-body{padding:6px 10px!important;overflow:auto;min-height:0;scrollbar-width:none}
+.insurance-modal .insurance-document-dialog .modal-body::-webkit-scrollbar{display:none}
+.insurance-modal .insurance-document-dialog .modal-footer{
+  display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;
+  padding:6px 10px 8px!important;margin:0!important;border-top:1px solid var(--insurance-line,var(--border))!important;
+  background:var(--insurance-surface,var(--panel))!important
+}
+.insurance-modal .insurance-document-dialog .modal-footer .btn{
+  width:auto!important;min-width:54px!important;height:25px!important;min-height:25px!important;
+  padding:0 7px!important;border-radius:6px!important;font-size:.58rem!important;line-height:1!important
+}
+
+#insuranceDuplicateCustomerModal .insurance-entry-dialog{width:min(390px,calc(100vw - 18px))!important;max-width:390px!important}
+#insuranceDuplicateCustomerModal .modal-body{padding:6px 10px!important}
+#insuranceDuplicateCustomerModal .insurance-duplicate-box{display:grid;gap:7px;padding:1px 0}
+#insuranceDuplicateCustomerModal .insurance-duplicate-box p{margin:0;color:var(--text,#17212b);font-size:.64rem;line-height:1.3}
+#insuranceDuplicateCustomerModal .insurance-duplicate-box .form-label{font-size:.58rem;margin:0}
+#insuranceDuplicateCustomerModal .insurance-duplicate-box .select{height:27px!important;min-height:27px!important;margin-top:3px!important;font-size:.62rem!important}
+#insuranceDuplicateCustomerModal .modal-footer .btn{min-width:62px!important;height:25px!important;min-height:25px!important;font-size:.57rem!important;padding:0 7px!important}
+
+.insurance-modal input[readonly][name="customer_id"]{opacity:.82;cursor:default}
+
+@media(max-width:600px){
+  .insurance-floating-menu{min-width:154px;max-width:calc(100vw - 12px);padding:3px}
+  .insurance-floating-menu button{min-height:24px;font-size:.57rem;padding:4px 5px}
+  .insurance-modal .insurance-document-dialog{width:calc(100vw - 8px)!important;max-height:calc(100dvh - 8px);border-radius:10px!important}
+  .insurance-modal .insurance-document-dialog .modal-footer{padding-bottom:calc(7px + env(safe-area-inset-bottom,0px))!important}
+}
+
+/* Insurance 174 — My Commission receivables and settlement ledger. */
+.insurance-commission-filter-toolbar{grid-template-columns:minmax(190px,1.45fr) repeat(4,minmax(108px,.85fr)) auto}
+.insurance-commission-heading{margin:6px 1px 4px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.insurance-commission-heading strong{display:block;font-size:.7rem;color:var(--text,#17212b)}
+.insurance-commission-heading span{display:block;margin-top:1px;font-size:.56rem;color:var(--muted,#667085)}
+.insurance-commission-table{border:1px solid var(--insurance-line,var(--border));border-radius:10px;overflow:hidden;background:var(--insurance-surface,var(--panel))}
+.insurance-commission-list{display:grid;gap:0}
+.insurance-commission-line{display:grid;grid-template-columns:minmax(210px,1.65fr) repeat(6,minmax(78px,.66fr)) minmax(105px,.78fr) 34px;gap:5px;align-items:center;min-width:0;padding:5px 7px;border-bottom:1px solid var(--insurance-line,var(--border));color:var(--text,#17212b)}
+.insurance-commission-head{min-height:28px;background:var(--insurance-soft,var(--panel-2));color:var(--muted,#667085);font-size:.51rem;font-weight:850;text-transform:uppercase;letter-spacing:.02em}
+.insurance-commission-head>div:not(:first-child){text-align:right}.insurance-commission-head>div:nth-last-child(2){text-align:left}
+.insurance-commission-record{min-height:38px;background:var(--insurance-surface,var(--panel));cursor:pointer}
+.insurance-commission-record:hover{background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-surface,var(--panel)))}
+.insurance-commission-item{min-width:0;display:grid;gap:1px}.insurance-commission-item strong{font-size:.64rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-commission-item span{font-size:.52rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-commission-value{min-width:0;text-align:right;font-size:.61rem;font-weight:760;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-amount-outstanding{color:var(--warning,#b7791f)}
+.insurance-commission-status-cell{min-width:0;display:grid;justify-items:start;gap:2px}.insurance-commission-status-cell small{font-size:.48rem;color:var(--muted,#667085);white-space:nowrap}
+.insurance-commission-status{display:inline-flex;align-items:center;min-height:19px;padding:2px 6px;border-radius:999px;border:1px solid var(--insurance-line,var(--border));font-size:.5rem;font-weight:800;line-height:1;white-space:nowrap;background:var(--insurance-soft,var(--panel-2));color:var(--text,#17212b)}
+.insurance-commission-status.outstanding{color:var(--warning,#b7791f);border-color:color-mix(in srgb,var(--warning,#b7791f) 32%,var(--insurance-line));background:color-mix(in srgb,var(--warning,#b7791f) 8%,var(--insurance-surface))}
+.insurance-commission-status.partial{color:var(--insurance-primary,var(--accent));border-color:color-mix(in srgb,var(--insurance-primary,var(--accent)) 32%,var(--insurance-line));background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 8%,var(--insurance-surface))}
+.insurance-commission-status.received{color:var(--success,#20845c);border-color:color-mix(in srgb,var(--success,#20845c) 32%,var(--insurance-line));background:color-mix(in srgb,var(--success,#20845c) 8%,var(--insurance-surface))}
+.insurance-commission-status.none{color:var(--muted,#667085)}.insurance-commission-status.none.loss{color:var(--danger,#c83d4c)}
+.insurance-commission-totals{display:grid;gap:0;background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-soft,var(--panel-2)))}
+.insurance-commission-total-line{display:grid;grid-template-columns:56px 75px repeat(3,minmax(145px,1fr));gap:8px;align-items:center;padding:6px 8px;border-top:1px solid var(--insurance-line,var(--border));font-size:.56rem;color:var(--muted,#667085)}
+.insurance-commission-total-line strong{font-size:.62rem;color:var(--insurance-primary,var(--accent))}.insurance-commission-total-line span{white-space:nowrap}.insurance-commission-total-line b{color:var(--text,#17212b);font-size:.61rem;margin-left:3px}
+.insurance-commission-total-empty{padding:7px;text-align:center;color:var(--muted,#667085);font-size:.58rem}
+
+.insurance-commission-receive-form .insurance-commission-selection-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted,#667085);font-size:.6rem;font-weight:800}
+.insurance-commission-candidate-list{display:grid;gap:3px;max-height:210px;overflow:auto;scrollbar-width:none;border:1px solid var(--insurance-line,var(--border));border-radius:8px;padding:4px;background:var(--insurance-soft,var(--panel-2))}
+.insurance-commission-candidate-list::-webkit-scrollbar{display:none}
+.insurance-commission-candidate{display:grid!important;grid-template-columns:18px minmax(0,1fr) auto;gap:6px;align-items:center;min-height:35px;padding:4px 6px;border:1px solid transparent;border-radius:7px;background:var(--insurance-surface,var(--panel));cursor:pointer;color:var(--text,#17212b)!important}
+.insurance-commission-candidate:hover{border-color:color-mix(in srgb,var(--insurance-primary,var(--accent)) 28%,var(--insurance-line))}.insurance-commission-candidate input{width:14px;height:14px;margin:0;accent-color:var(--insurance-primary,var(--accent))}
+.insurance-commission-candidate span{min-width:0;display:grid;gap:1px}.insurance-commission-candidate strong{font-size:.61rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-commission-candidate small{font-size:.51rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-commission-candidate>b{font-size:.59rem;white-space:nowrap}
+.insurance-commission-selected-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:25px;padding:4px 7px;border-radius:7px;background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 6%,var(--insurance-surface));border:1px solid color-mix(in srgb,var(--insurance-primary,var(--accent)) 18%,var(--insurance-line));font-size:.56rem;color:var(--muted,#667085)}.insurance-commission-selected-summary strong{font-size:.62rem;color:var(--text,#17212b)}
+.insurance-commission-allocation-note{padding:6px 7px;border-radius:7px;border:1px solid var(--insurance-line,var(--border));background:var(--insurance-soft,var(--panel-2));color:var(--muted,#667085);font-size:.54rem;line-height:1.3}
+.insurance-commission-payment-history{margin-top:7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;overflow:hidden;background:var(--insurance-surface,var(--panel))}.insurance-commission-payment-title{padding:5px 7px;background:var(--insurance-soft,var(--panel-2));font-size:.56rem;font-weight:850;color:var(--muted,#667085)}
+.insurance-commission-payment-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 7px;border-top:1px solid var(--insurance-line,var(--border))}.insurance-commission-payment-row:first-of-type{border-top:0}.insurance-commission-payment-row>div{min-width:0;display:grid;gap:1px}.insurance-commission-payment-row strong{font-size:.61rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-commission-payment-row span{font-size:.51rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-commission-payment-row>b{font-size:.61rem;white-space:nowrap}.insurance-commission-payment-empty{padding:9px;text-align:center;color:var(--muted,#667085);font-size:.57rem}
+.insurance-commission-receipt-list{display:grid;gap:4px}.insurance-commission-receipt-row{display:grid;grid-template-columns:minmax(0,1fr) auto 28px;gap:8px;align-items:center;padding:6px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));cursor:pointer}.insurance-commission-receipt-row>div:first-child{min-width:0;display:grid;gap:1px}.insurance-commission-receipt-row strong{font-size:.62rem}.insurance-commission-receipt-row span{font-size:.51rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-commission-receipt-row>b{font-size:.62rem;white-space:nowrap}
+
+@media(max-width:1180px){.insurance-commission-line{grid-template-columns:minmax(190px,1.5fr) repeat(6,minmax(70px,.62fr)) minmax(96px,.72fr) 32px}.insurance-commission-value{font-size:.57rem}}
+@media(max-width:900px){.insurance-commission-filter-toolbar{grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(105px,.8fr))}.insurance-commission-filter-toolbar .insurance-search{grid-column:span 1}.insurance-commission-filter-toolbar .insurance-commission-actions{grid-column:1/-1}.insurance-commission-head{display:none}.insurance-commission-line{grid-template-columns:repeat(3,minmax(0,1fr)) 30px!important;position:relative;padding:7px 8px;gap:5px 7px}.insurance-commission-item{grid-column:1/-1;padding-right:36px}.insurance-commission-value{text-align:left;display:grid;gap:1px;white-space:normal}.insurance-commission-value::before{content:attr(data-label);font-size:.48rem;color:var(--muted,#667085);font-weight:700}.insurance-commission-status-cell{grid-column:1/3}.insurance-commission-record .insurance-report-line-actions{position:absolute;right:7px;top:7px}.insurance-commission-total-line{grid-template-columns:1fr 1fr;gap:4px 8px}.insurance-commission-total-line strong,.insurance-commission-total-line>span:nth-child(2){grid-column:auto}.insurance-commission-total-line>span:nth-child(n+3){grid-column:span 1}}
+@media(max-width:600px){.insurance-commission-filter-toolbar{grid-template-columns:1fr 1fr!important}.insurance-commission-filter-toolbar .insurance-search,.insurance-commission-filter-toolbar .insurance-commission-actions{grid-column:1/-1!important}.insurance-commission-filter-toolbar .insurance-commission-actions{justify-content:flex-start;flex-wrap:wrap}.insurance-commission-line{grid-template-columns:1fr 1fr 28px!important}.insurance-commission-item{grid-column:1/-1}.insurance-commission-status-cell{grid-column:1/3}.insurance-commission-total-line{grid-template-columns:1fr}.insurance-commission-total-line>*{grid-column:1!important}.insurance-commission-candidate{grid-template-columns:16px minmax(0,1fr)}.insurance-commission-candidate>b{grid-column:2}.insurance-commission-receipt-row{grid-template-columns:minmax(0,1fr) 28px}.insurance-commission-receipt-row>b{grid-column:1}.insurance-commission-receipt-row>div:last-child{grid-column:2;grid-row:1}}
+
+/* Insurance 175 — policy cancellation, commission deductions and mobile alignment. */
+.insurance-sale-cancelled{opacity:.96}
+.insurance-cancelled-badge{display:inline-flex;align-items:center;gap:4px;margin-left:5px;padding:2px 5px;border:1px solid color-mix(in srgb,var(--danger,#c83d4c) 35%,var(--insurance-line,var(--border)));border-radius:999px;background:color-mix(in srgb,var(--danger,#c83d4c) 9%,var(--insurance-surface,var(--panel)));color:var(--danger,#c83d4c);font-size:.51rem;font-weight:800;line-height:1.1;vertical-align:middle}
+.insurance-cancellation-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;grid-column:1/-1;padding:6px;border:1px solid color-mix(in srgb,var(--danger,#c83d4c) 22%,var(--insurance-line,var(--border)));border-radius:9px;background:color-mix(in srgb,var(--danger,#c83d4c) 5%,var(--insurance-surface-soft,var(--panel-2)))}
+.insurance-cancellation-summary>div{min-width:0}.insurance-cancellation-summary span{display:block;color:var(--muted);font-size:.57rem}.insurance-cancellation-summary strong{display:block;margin-top:2px;font-size:.7rem;overflow-wrap:anywhere}
+.insurance-check-line{display:flex!important;align-items:flex-start;gap:6px;padding:6px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-surface-soft,var(--panel-2));color:var(--text,#17212b)!important;font-size:.63rem!important;line-height:1.3!important;font-weight:650!important}.insurance-check-line input{width:14px;height:14px;flex:0 0 auto;margin:1px 0 0;accent-color:var(--insurance-primary,var(--accent))}
+.insurance-amount-deduction{color:var(--warning,#b7791f)!important}.insurance-commission-status.settled{color:var(--warning,#b7791f);background:color-mix(in srgb,var(--warning,#b7791f) 10%,var(--insurance-surface,var(--panel)));border-color:color-mix(in srgb,var(--warning,#b7791f) 34%,var(--insurance-line,var(--border)))}
+.insurance-document-cancellation{margin:0 0 9px;padding:6px 8px;border:1px solid #e2b9bd;border-radius:7px;background:#fff7f7;color:#792b34;font-size:.64rem;line-height:1.35}.insurance-document-cancellation strong{font-size:.67rem}
+.insurance-document-context{grid-template-columns:repeat(3,minmax(0,1fr))}
+.insurance-commission-line{grid-template-columns:minmax(210px,1.65fr) repeat(7,minmax(76px,.64fr)) minmax(105px,.78fr) 34px}
+.insurance-commission-total-line{grid-template-columns:56px 75px repeat(4,minmax(128px,1fr))}
+@media(max-width:1180px){.insurance-commission-line{grid-template-columns:minmax(185px,1.45fr) repeat(7,minmax(66px,.6fr)) minmax(94px,.7fr) 32px}}
+@media(max-width:900px){.insurance-commission-line{grid-template-columns:repeat(3,minmax(0,1fr)) 30px!important}.insurance-commission-total-line{grid-template-columns:1fr 1fr}.insurance-commission-total-line>span:nth-child(n+3){grid-column:span 1}}
+@media(max-width:700px){
+  .insurance-filter-toolbar,.insurance-report-filter-toolbar,.insurance-commission-filter-toolbar{align-items:end!important}
+  .insurance-filter-toolbar .insurance-filter-field,.insurance-report-filter-toolbar .insurance-filter-field,.insurance-commission-filter-toolbar .insurance-filter-field{min-width:0!important;width:100%}
+  .insurance-filter-toolbar input[type="date"],.insurance-filter-toolbar input[type="time"],.insurance-report-filter-toolbar input[type="date"],.insurance-report-filter-toolbar input[type="time"],.insurance-commission-filter-toolbar input[type="date"],.insurance-commission-filter-toolbar input[type="time"]{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+  .insurance-filter-toolbar .insurance-filter-actions,.insurance-report-filter-toolbar .insurance-filter-actions,.insurance-commission-filter-toolbar .insurance-commission-actions{width:100%;justify-content:center!important;align-items:center!important}
+  .insurance-cancellation-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:5px}
+  .insurance-document-context{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .insurance-filter-toolbar,.insurance-report-filter-toolbar,.insurance-commission-filter-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important;padding:5px!important}
+  .insurance-filter-toolbar .insurance-search,.insurance-report-filter-toolbar .insurance-search,.insurance-report-filter-toolbar .insurance-report-view,.insurance-commission-filter-toolbar .insurance-search,.insurance-commission-filter-toolbar .insurance-commission-actions{grid-column:1/-1!important}
+  .insurance-filter-toolbar .form-label,.insurance-report-filter-toolbar .form-label,.insurance-commission-filter-toolbar .form-label{font-size:.55rem!important;line-height:1.05!important;margin-bottom:2px!important}
+  .insurance-filter-toolbar .input,.insurance-filter-toolbar .select,.insurance-report-filter-toolbar .input,.insurance-report-filter-toolbar .select,.insurance-commission-filter-toolbar .input,.insurance-commission-filter-toolbar .select{height:27px!important;min-height:27px!important;padding:2px 5px!important;font-size:.61rem!important}
+  .insurance-filter-toolbar .insurance-filter-actions,.insurance-report-filter-toolbar .insurance-filter-actions{grid-column:1/-1!important}
+  .insurance-cancellation-summary{grid-template-columns:1fr 1fr}.insurance-cancellation-summary>div:last-child{grid-column:1/-1}
+}
+.insurance-cancellation-summary>span{display:block;min-width:0;padding:2px 3px;color:var(--text,#17212b);font-size:.66rem;line-height:1.25}.insurance-cancellation-summary>span b{display:block;margin-bottom:2px;color:var(--muted,#667085);font-size:.55rem;text-transform:uppercase;letter-spacing:.025em}
+@media(max-width:700px){
+  .insurance-modal .insurance-form-grid label{min-width:0}
+  .insurance-modal .insurance-form-grid :is(.input,.select,input[type="date"],input[type="time"],input[type="number"]){width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important}
+}
+
+/* Insurance 176 — imported opening commission balances and compact top totals. */
+.insurance-commission-summary-strip{display:grid;gap:4px;margin:5px 0 7px}
+.insurance-commission-summary-currency{display:grid;grid-template-columns:48px repeat(3,minmax(150px,1fr)) auto;gap:5px;align-items:center;padding:5px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:9px;background:var(--insurance-surface,var(--panel));color:var(--text,#17212b)}
+.insurance-commission-summary-code{display:flex;align-items:center;justify-content:center;min-height:27px;border-radius:7px;background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 9%,var(--insurance-soft,var(--panel-2)));color:var(--insurance-primary,var(--accent));font-size:.61rem;font-weight:900}
+.insurance-commission-summary-currency>div:not(.insurance-commission-summary-code){min-width:0;display:grid;gap:1px;padding:0 6px;border-left:1px solid var(--insurance-line,var(--border))}
+.insurance-commission-summary-currency span{font-size:.49rem;color:var(--muted,#667085);font-weight:750;white-space:nowrap}
+.insurance-commission-summary-currency strong{font-size:.67rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-commission-summary-currency>small{font-size:.49rem;color:var(--warning,#b7791f);white-space:nowrap}
+.insurance-commission-summary-empty{margin:5px 0 7px;padding:7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));text-align:center;color:var(--muted,#667085);font-size:.56rem}
+
+.insurance-opening-balance-section{margin:0 0 7px;border:1px solid var(--insurance-line,var(--border));border-radius:9px;overflow:hidden;background:var(--insurance-surface,var(--panel))}
+.insurance-opening-balance-title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 7px;background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-soft,var(--panel-2)))}
+.insurance-opening-balance-title>div{min-width:0;display:grid;gap:1px}.insurance-opening-balance-title strong{font-size:.62rem}.insurance-opening-balance-title span{font-size:.5rem;color:var(--muted,#667085)}.insurance-opening-balance-title>span{white-space:nowrap}
+.insurance-opening-balance-head,.insurance-opening-balance-row{display:grid;grid-template-columns:minmax(230px,1.6fr) repeat(3,minmax(88px,.7fr)) minmax(105px,.75fr) 30px;gap:5px;align-items:center;padding:5px 7px}
+.insurance-opening-balance-head{min-height:25px;border-top:1px solid var(--insurance-line,var(--border));border-bottom:1px solid var(--insurance-line,var(--border));background:var(--insurance-soft,var(--panel-2));color:var(--muted,#667085);font-size:.49rem;font-weight:850;text-transform:uppercase;letter-spacing:.02em}.insurance-opening-balance-head>div:not(:first-child){text-align:right}.insurance-opening-balance-head>div:nth-last-child(2){text-align:left}
+.insurance-opening-balance-list{display:grid}.insurance-opening-balance-row{min-height:36px;border-bottom:1px solid var(--insurance-line,var(--border));cursor:pointer;color:var(--text,#17212b)}.insurance-opening-balance-row:last-child{border-bottom:0}.insurance-opening-balance-row:hover{background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-surface,var(--panel)))}
+.insurance-opening-main{min-width:0;display:grid;gap:1px}.insurance-opening-main strong{font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-opening-main span{font-size:.5rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-opening-balance-row>div:not(.insurance-opening-main):not(.insurance-opening-status){text-align:right;font-size:.59rem;font-weight:760;white-space:nowrap}.insurance-opening-status{display:grid;justify-items:start;gap:2px}.insurance-opening-status small{font-size:.47rem;color:var(--muted,#667085);white-space:nowrap}
+.insurance-opening-candidate{border-color:color-mix(in srgb,var(--insurance-primary,var(--accent)) 14%,var(--insurance-line,var(--border)))!important;background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 3%,var(--insurance-surface,var(--panel)))!important}
+
+@media(max-width:900px){
+  .insurance-commission-summary-currency{grid-template-columns:42px repeat(3,minmax(0,1fr));gap:4px}.insurance-commission-summary-currency>small{grid-column:2/-1}
+  .insurance-opening-balance-head{display:none}.insurance-opening-balance-row{grid-template-columns:repeat(3,minmax(0,1fr)) 28px;position:relative;gap:5px 7px;padding:7px 8px}.insurance-opening-main{grid-column:1/-1;padding-right:34px}.insurance-opening-balance-row>div[data-label]{text-align:left!important;display:grid;gap:1px;white-space:normal}.insurance-opening-balance-row>div[data-label]::before{content:attr(data-label);font-size:.47rem;color:var(--muted,#667085);font-weight:700}.insurance-opening-status{grid-column:1/3}.insurance-opening-balance-row>div:last-child{position:absolute;right:7px;top:7px}
+}
+@media(max-width:600px){
+  .insurance-commission-summary-currency{grid-template-columns:40px 1fr 1fr;padding:5px}.insurance-commission-summary-code{grid-row:1/3}.insurance-commission-summary-currency>div:not(.insurance-commission-summary-code){padding:0 4px}.insurance-commission-summary-currency>div:nth-child(4){grid-column:2/4}.insurance-commission-summary-currency>small{grid-column:2/4;white-space:normal}
+  .insurance-opening-balance-title{align-items:flex-start}.insurance-opening-balance-title>span{font-size:.47rem}.insurance-opening-balance-row{grid-template-columns:1fr 1fr 28px}.insurance-opening-main{grid-column:1/-1}.insurance-opening-status{grid-column:1/3}
+}
+@media(max-width:480px){
+  .insurance-commission-summary-currency{grid-template-columns:36px 1fr 1fr;gap:3px}.insurance-commission-summary-currency span{font-size:.46rem}.insurance-commission-summary-currency strong{font-size:.61rem}
+  .insurance-opening-balance-title>div span{white-space:normal}.insurance-opening-balance-row{padding:6px}.insurance-opening-main span{white-space:normal;line-height:1.2}
+}
+
+/* Insurance 177 — separate referral payables and compact referral entry UI. */
+.insurance-referral-entry{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(190px,1fr) minmax(130px,.75fr);gap:6px;align-items:end;padding:5px 6px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));min-width:0}
+.insurance-referral-entry>label{min-width:0}.insurance-referral-toggle{min-height:28px;align-self:end;margin:0!important;padding:4px 6px!important;border-radius:7px!important;background:var(--insurance-surface,var(--panel));border:1px solid var(--insurance-line,var(--border));color:var(--text,#17212b)}
+.insurance-referral-toggle span{font-size:.58rem;line-height:1.2}.insurance-referral-toggle input{width:13px!important;height:13px!important;min-width:13px!important}
+
+.insurance-referral-filter-toolbar{grid-template-columns:minmax(210px,1.55fr) repeat(3,minmax(112px,.8fr)) auto}
+.insurance-referral-summary-strip{margin-top:5px}
+.insurance-referral-table{border:1px solid var(--insurance-line,var(--border));border-radius:10px;overflow:hidden;background:var(--insurance-surface,var(--panel));color:var(--text,#17212b)}
+.insurance-referral-head,.insurance-referral-line{display:grid;grid-template-columns:minmax(260px,1.7fr) repeat(3,minmax(100px,.72fr)) minmax(112px,.78fr) 30px;gap:6px;align-items:center;padding:5px 7px}
+.insurance-referral-head{min-height:27px;background:var(--insurance-soft,var(--panel-2));border-bottom:1px solid var(--insurance-line,var(--border));color:var(--muted,#667085);font-size:.49rem;font-weight:850;text-transform:uppercase;letter-spacing:.02em}
+.insurance-referral-head>div:not(:first-child){text-align:right}.insurance-referral-head>div:nth-last-child(2){text-align:left}
+.insurance-referral-list{display:grid}.insurance-referral-line{min-height:38px;border-bottom:1px solid var(--insurance-line,var(--border));cursor:pointer;background:var(--insurance-surface,var(--panel));transition:background .14s ease}.insurance-referral-line:last-child{border-bottom:0}.insurance-referral-line:hover{background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-surface,var(--panel)))}
+.insurance-referral-main{display:grid;gap:1px;min-width:0}.insurance-referral-main strong{font-size:.63rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#17212b)}.insurance-referral-main span{font-size:.5rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-referral-line>div[data-label]{text-align:right;font-size:.6rem;font-weight:760;white-space:nowrap;color:var(--text,#17212b)}.insurance-referral-status{display:grid;justify-items:start;gap:2px}.insurance-referral-status small{font-size:.47rem;color:var(--muted,#667085);white-space:nowrap}
+.insurance-referral-payment-form .insurance-referral-balance-card{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;min-height:34px;background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 5%,var(--insurance-surface,var(--panel)))}
+.insurance-referral-payment-form .insurance-referral-balance-card span{font-size:.57rem}.insurance-referral-payment-form .insurance-referral-balance-card strong{font-size:.72rem}
+
+@media(max-width:900px){
+  .insurance-referral-head{display:none}.insurance-referral-line{grid-template-columns:repeat(3,minmax(0,1fr)) 28px;position:relative;gap:5px 7px;padding:7px 8px}.insurance-referral-main{grid-column:1/-1;padding-right:34px}.insurance-referral-line>div[data-label]{text-align:left;display:grid;gap:1px;white-space:normal}.insurance-referral-line>div[data-label]::before{content:attr(data-label);font-size:.47rem;color:var(--muted,#667085);font-weight:700}.insurance-referral-status{grid-column:1/3}.insurance-referral-line>div:last-child{position:absolute;right:7px;top:7px}
+}
+@media(max-width:700px){
+  .insurance-referral-entry{grid-template-columns:1fr 1fr}.insurance-referral-entry>label:first-child{grid-column:1/-1}.insurance-referral-toggle{min-height:27px}.insurance-referral-filter-toolbar{align-items:end!important}.insurance-referral-filter-toolbar .insurance-filter-field{min-width:0!important;width:100%}.insurance-referral-filter-toolbar input[type="date"],.insurance-referral-filter-toolbar input[type="time"]{width:100%;min-width:0;max-width:100%;box-sizing:border-box}.insurance-referral-filter-toolbar .insurance-filter-actions{width:100%;justify-content:center!important}
+}
+@media(max-width:480px){
+  .insurance-referral-entry{grid-template-columns:1fr;padding:5px}.insurance-referral-entry>label:first-child{grid-column:auto}.insurance-referral-filter-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important;padding:5px!important}.insurance-referral-filter-toolbar .insurance-search,.insurance-referral-filter-toolbar .insurance-filter-actions{grid-column:1/-1!important}.insurance-referral-filter-toolbar .form-label{font-size:.55rem!important;line-height:1.05!important;margin-bottom:2px!important}.insurance-referral-filter-toolbar .input,.insurance-referral-filter-toolbar .select{height:27px!important;min-height:27px!important;padding:2px 5px!important;font-size:.61rem!important}.insurance-referral-line{grid-template-columns:1fr 1fr 28px;padding:6px}.insurance-referral-main{grid-column:1/-1}.insurance-referral-main span{white-space:normal;line-height:1.2}.insurance-referral-status{grid-column:1/3}
+}
+
+/* Insurance 178 — reusable referrer directory and grouped referral ledger. */
+.insurance-referral-entry{grid-template-columns:minmax(155px,1.05fr) minmax(155px,1.05fr) minmax(185px,1fr) minmax(120px,.72fr);gap:5px;padding:5px}
+.insurance-referral-entry>.hide{display:none!important}.insurance-referral-entry .select,.insurance-referral-entry .input{min-width:0;width:100%}
+.insurance-referrer-table{overflow:hidden}.insurance-referrer-head,.insurance-referrer-line{grid-template-columns:minmax(210px,1.05fr) minmax(360px,2fr) minmax(108px,.55fr) 30px}
+.insurance-referrer-head>div:nth-child(2){text-align:left}.insurance-referrer-line{min-height:42px}.insurance-referrer-line>.insurance-referrer-money{text-align:left!important;display:grid;gap:2px;min-width:0}
+.insurance-referrer-money-line{display:flex;align-items:center;gap:6px;min-width:0;font-size:.56rem;color:var(--text,#17212b)}.insurance-referrer-money-line>b{font-size:.48rem;min-width:26px;color:var(--muted,#667085)}.insurance-referrer-money-line>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-referrer-empty-money{color:var(--muted,#667085)}
+.insurance-referrer-ledger-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:5px;margin-bottom:6px}.insurance-referrer-ledger-totals>div{display:grid;grid-template-columns:auto 1fr;gap:1px 7px;align-items:center;padding:5px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));color:var(--text,#17212b)}.insurance-referrer-ledger-totals span{font-size:.5rem;font-weight:800;color:var(--muted,#667085)}.insurance-referrer-ledger-totals b{font-size:.68rem;text-align:right}.insurance-referrer-ledger-totals small{grid-column:1/-1;font-size:.48rem;color:var(--muted,#667085)}
+.insurance-referrer-ledger{border:1px solid var(--insurance-line,var(--border));border-radius:9px;overflow:hidden;background:var(--insurance-surface,var(--panel));color:var(--text,#17212b)}.insurance-referrer-ledger-head,.insurance-referrer-ledger-row{display:grid;grid-template-columns:minmax(260px,1.65fr) repeat(3,minmax(92px,.65fr)) minmax(105px,.65fr) 30px;gap:6px;align-items:center;padding:5px 7px}.insurance-referrer-ledger-head{background:var(--insurance-soft,var(--panel-2));border-bottom:1px solid var(--insurance-line,var(--border));font-size:.48rem;font-weight:850;color:var(--muted,#667085);text-transform:uppercase}.insurance-referrer-ledger-head>div:not(:first-child){text-align:right}.insurance-referrer-ledger-head>div:nth-last-child(2){text-align:left}.insurance-referrer-ledger-row{min-height:40px;border-bottom:1px solid var(--insurance-line,var(--border));cursor:pointer}.insurance-referrer-ledger-row:last-child{border-bottom:0}.insurance-referrer-ledger-row:hover{background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-surface,var(--panel)))}.insurance-referrer-ledger-row>div[data-label]{text-align:right;font-size:.58rem}.insurance-referrer-ledger-policy{display:grid;gap:1px;min-width:0}.insurance-referrer-ledger-policy strong{font-size:.61rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-referrer-ledger-policy span,.insurance-referrer-ledger-policy small{font-size:.48rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#insuranceReferrerDetailsModal .insurance-entry-dialog{width:min(920px,94vw)}
+
+@media(max-width:900px){
+  .insurance-referrer-head,.insurance-referrer-ledger-head{display:none}.insurance-referrer-line{grid-template-columns:1fr minmax(105px,.65fr) 28px;gap:5px;padding:7px 8px}.insurance-referrer-main{min-width:0}.insurance-referrer-line>.insurance-referrer-money{grid-column:1/-1}.insurance-referrer-line>.insurance-referral-status{grid-column:1/2}.insurance-referrer-line>div:last-child{position:absolute;right:7px;top:7px}
+  .insurance-referrer-ledger-row{position:relative;grid-template-columns:repeat(3,minmax(0,1fr)) 28px;gap:5px 7px;padding:7px 8px}.insurance-referrer-ledger-policy{grid-column:1/-1;padding-right:32px}.insurance-referrer-ledger-row>div[data-label]{text-align:left;display:grid;gap:1px}.insurance-referrer-ledger-row>div[data-label]::before{content:attr(data-label);font-size:.46rem;color:var(--muted,#667085);font-weight:700}.insurance-referrer-ledger-row>.insurance-referral-status{grid-column:1/3}.insurance-referrer-ledger-row>div:last-child{position:absolute;right:7px;top:7px}
+}
+@media(max-width:700px){.insurance-referral-entry{grid-template-columns:1fr 1fr}.insurance-referral-entry>label:first-child{grid-column:1/-1}.insurance-referral-entry .insurance-referral-toggle{grid-column:auto}.insurance-referrer-ledger-totals{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.insurance-referral-entry{grid-template-columns:1fr}.insurance-referral-entry>label:first-child{grid-column:auto}.insurance-referrer-line{grid-template-columns:1fr 28px}.insurance-referrer-line>.insurance-referrer-money,.insurance-referrer-line>.insurance-referral-status{grid-column:1/-1}.insurance-referrer-money-line{font-size:.53rem;white-space:normal}.insurance-referrer-ledger-totals{grid-template-columns:1fr}.insurance-referrer-ledger-row{grid-template-columns:1fr 1fr 28px}.insurance-referrer-ledger-row>.insurance-referral-status{grid-column:1/3}.insurance-referrer-ledger-policy span,.insurance-referrer-ledger-policy small{white-space:normal;line-height:1.2}}
+
+/* Insurance 178.1 — keep New Referral and commission controls inside the sale overlay. */
+.insurance-referral-entry{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.72fr)!important;gap:5px!important;align-items:end!important;min-width:0!important;max-width:100%!important;overflow:hidden}
+.insurance-referral-entry>label{min-width:0!important;max-width:100%!important}
+.insurance-referral-entry #insuranceReferralIdentityField{grid-column:auto!important}
+.insurance-referral-new-control{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px;align-items:center;margin-top:3px;min-width:0;max-width:100%}
+.insurance-referral-new-control.hide{display:none!important}
+.insurance-referral-new-control .input{margin-top:0!important;min-width:0!important;width:100%!important;max-width:100%!important}
+.insurance-referral-existing-btn{height:31px!important;min-height:31px!important;min-width:58px!important;padding:0 7px!important;border-radius:8px!important;font-size:.58rem!important;white-space:nowrap!important}
+.insurance-referral-toggle{min-width:0!important;max-width:100%!important;overflow:hidden}
+.insurance-referral-toggle span{white-space:normal!important;overflow-wrap:anywhere}
+#insuranceReferralCommissionField{min-width:0!important;max-width:100%!important}
+#insuranceReferralCommissionField .input{min-width:0!important;max-width:100%!important;width:100%!important;box-sizing:border-box!important}
+@media(max-width:700px){
+  .insurance-referral-entry{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  .insurance-referral-entry #insuranceReferralIdentityField{grid-column:1/-1!important}
+  .insurance-referral-toggle,#insuranceReferralCommissionField{grid-column:auto!important}
+}
+@media(max-width:480px){
+  .insurance-referral-entry{grid-template-columns:minmax(0,1fr)!important;padding:5px!important}
+  .insurance-referral-entry #insuranceReferralIdentityField,.insurance-referral-toggle,#insuranceReferralCommissionField{grid-column:1!important}
+  .insurance-referral-new-control{grid-template-columns:minmax(0,1fr) auto}
+  .insurance-referral-existing-btn{min-width:54px!important;padding-inline:6px!important}
+}
+
