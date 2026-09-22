@@ -3,7 +3,7 @@
 > Triplem VIP is a private browser-based accounting and business-finance workspace combining operational finance tools, formal Accounting ERP, reports, security controls, live support and permission-aware Triplem AI.
 
 Canonical page: https://triplem.vip/
-Last reviewed: 2026-09-11
+Last reviewed: 2026-09-22
 
 ## What Triplem VIP covers
 
@@ -48,3 +48,11 @@ Triplem VIP is intended for users in any country. If a required currency is not 
 - [Month-end close checklist](https://triplem.vip/seo/month-end-close.md)
 - [Finance workflow playbook](https://triplem.vip/seo/finance-workflow-playbook.md)
 - [Editorial policy](https://triplem.vip/seo/editorial-policy.md)
+
+## Official Triplem VIP contact
+
+Email: info@triplem.vip
+
+Facebook: https://fb.com/triplem.vip
+
+TikTok: https://www.tiktok.com/@triplem.vip
