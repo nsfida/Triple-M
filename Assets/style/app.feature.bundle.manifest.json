@@ -114,8 +114,8 @@
     },
     {
       "path": "Assets/style/54-insurance.css",
-      "bytes": 77810,
-      "sha256": "6d85e72859020e90e09100314fd4f1476d4805343f64f69e8bc4a8ca4d923454"
+      "bytes": 96583,
+      "sha256": "3200ea2f61d495caae4c755008a89f7b162306a41ff3cfe28fb2dbb5c77ad42a"
     },
     {
       "path": "Assets/style/55-app-downloads.css",
@@ -123,6 +123,6 @@
       "sha256": "7e051bbd66689aacbbe20c5690d13408c462bd5c45acaa62ef44a1cbaabeeb97"
     }
   ],
-  "bytes": 501566,
-  "sha256": "bdce0e4d8fb3cdbf9c1f9b5e1a0ea17589cb7c99abdc9c2d1f4644ce0b984faf"
+  "bytes": 520340,
+  "sha256": "6dc67ef0bced6a80329f090c6fb47aba1b70f4614faa64ab7cd95e220271e235"
 }

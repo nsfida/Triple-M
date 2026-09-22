@@ -497,7 +497,7 @@
 #insurancePanel .insurance-row-menu-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border-radius:6px!important;font-size:.62rem!important}
 
 .insurance-floating-menu{
-  position:fixed;z-index:2147483000;display:grid;gap:2px;
+  position:fixed;z-index:2147483647!important;display:grid;gap:2px;
   min-width:164px;max-width:min(220px,calc(100vw - 16px));padding:4px;
   border:1px solid var(--insurance-line,var(--border));border-radius:9px;
   background:var(--insurance-surface,var(--panel));color:var(--text,#17212b);
@@ -728,3 +728,126 @@
   .insurance-referral-existing-btn{min-width:54px!important;padding-inline:6px!important}
 }
 
+
+/* Insurance 179 — customer receivables, balances and payment history. */
+.insurance-customer-payment-entry{display:grid;grid-template-columns:minmax(150px,.65fr) minmax(280px,1.35fr);gap:5px;align-items:center;padding:5px 6px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));min-width:0;color:var(--text,#17212b)}
+.insurance-customer-payment-toggle{min-height:29px;margin:0!important;padding:4px 6px!important;border:1px solid var(--insurance-line,var(--border));border-radius:7px;background:var(--insurance-surface,var(--panel));font-size:.6rem;font-weight:780}.insurance-customer-payment-toggle span{white-space:nowrap}
+.insurance-customer-payment-fields{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,.85fr);gap:5px;align-items:end;min-width:0}.insurance-customer-payment-fields.hide{display:none!important}.insurance-customer-payment-fields label{min-width:0}.insurance-customer-payment-preview{display:grid;gap:1px;min-height:31px;padding:4px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:7px;background:var(--insurance-surface,var(--panel))}.insurance-customer-payment-preview span{font-size:.48rem;color:var(--muted,#667085);font-weight:750}.insurance-customer-payment-preview strong{font-size:.66rem;color:var(--warning,#b7791f)}
+.insurance-customer-payment-entry>small{grid-column:1/-1;font-size:.49rem;line-height:1.25;color:var(--muted,#667085)}
+
+.insurance-payment-status{display:inline-flex;align-items:center;justify-content:center;min-height:20px;padding:2px 7px;border-radius:999px;border:1px solid var(--insurance-line,var(--border));background:var(--insurance-soft,var(--panel-2));font-size:.49rem;font-weight:850;white-space:nowrap;color:var(--text,#17212b)}
+.insurance-payment-status.paid{border-color:color-mix(in srgb,var(--success,#15803d) 30%,var(--insurance-line,var(--border)));background:color-mix(in srgb,var(--success,#15803d) 8%,var(--insurance-surface,var(--panel)));color:var(--success,#15803d)}
+.insurance-payment-status.partial,.insurance-payment-status.outstanding{border-color:color-mix(in srgb,var(--warning,#b7791f) 35%,var(--insurance-line,var(--border)));background:color-mix(in srgb,var(--warning,#b7791f) 9%,var(--insurance-surface,var(--panel)));color:var(--warning,#b7791f)}
+.insurance-payment-status.unpaid{border-color:color-mix(in srgb,var(--danger,#b42318) 30%,var(--insurance-line,var(--border)));background:color-mix(in srgb,var(--danger,#b42318) 8%,var(--insurance-surface,var(--panel)));color:var(--danger,#b42318)}
+.insurance-amount-outstanding{color:var(--warning,#b7791f)!important}
+
+.insurance-customer-balance-toolbar{grid-template-columns:minmax(240px,1.5fr) minmax(150px,.65fr) auto!important;align-items:end!important}
+.insurance-customer-balance-table{margin-top:7px;border:1px solid var(--insurance-line,var(--border));border-radius:9px;overflow:hidden;background:var(--insurance-surface,var(--panel));color:var(--text,#17212b)}
+.insurance-customer-balance-head,.insurance-customer-balance-row{display:grid;grid-template-columns:minmax(230px,1.35fr) minmax(250px,1.15fr) minmax(120px,.55fr) 28px;gap:7px;align-items:center;padding:5px 8px}
+.insurance-customer-balance-head{min-height:27px;background:var(--insurance-soft,var(--panel-2));border-bottom:1px solid var(--insurance-line,var(--border));font-size:.48rem;font-weight:850;color:var(--muted,#667085);text-transform:uppercase;letter-spacing:.02em}.insurance-customer-balance-head>div:nth-child(2){text-align:left}
+.insurance-customer-balance-list{display:grid}.insurance-customer-balance-row{min-height:43px;border-bottom:1px solid var(--insurance-line,var(--border));cursor:pointer}.insurance-customer-balance-row:last-child{border-bottom:0}.insurance-customer-balance-row:hover{background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-surface,var(--panel)))}
+.insurance-customer-balance-main{display:grid;gap:1px;min-width:0}.insurance-customer-balance-main strong{font-size:.63rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-customer-balance-main span{font-size:.49rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insurance-customer-balance-outstanding{display:grid;gap:2px;min-width:0}.insurance-customer-balance-money{display:flex;align-items:center;gap:7px;min-width:0}.insurance-customer-balance-money>b{min-width:28px;font-size:.48rem;color:var(--muted,#667085)}.insurance-customer-balance-money>span{font-size:.61rem;font-weight:820;color:var(--warning,#b7791f);white-space:nowrap}.insurance-customer-balance-empty{color:var(--muted,#667085);font-size:.55rem}
+.insurance-customer-balance-status{display:grid;justify-items:start;gap:2px}.insurance-customer-balance-status small{font-size:.46rem;color:var(--muted,#667085);white-space:nowrap}.insurance-customer-balance-arrow{display:flex;align-items:center;justify-content:flex-end;min-width:0;font-size:.55rem;color:var(--muted,#667085);text-align:right}
+
+.insurance-customer-account-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:5px;margin-bottom:6px}.insurance-customer-account-totals>div{display:grid;grid-template-columns:auto 1fr;gap:1px 7px;align-items:center;padding:5px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));color:var(--text,#17212b)}.insurance-customer-account-totals span{font-size:.5rem;font-weight:850;color:var(--muted,#667085)}.insurance-customer-account-totals b{font-size:.69rem;text-align:right;color:var(--warning,#b7791f)}.insurance-customer-account-totals small{grid-column:1/-1;font-size:.48rem;color:var(--muted,#667085)}
+.insurance-customer-account-ledger{border:1px solid var(--insurance-line,var(--border));border-radius:9px;overflow:hidden;background:var(--insurance-surface,var(--panel));color:var(--text,#17212b)}
+.insurance-customer-account-head,.insurance-customer-account-row{display:grid;grid-template-columns:minmax(0,2.15fr) repeat(3,minmax(0,.82fr)) minmax(0,.9fr) minmax(88px,.9fr);gap:6px;align-items:center;padding:5px 7px;width:100%;min-width:0;box-sizing:border-box}.insurance-customer-account-head{background:var(--insurance-soft,var(--panel-2));border-bottom:1px solid var(--insurance-line,var(--border));font-size:.47rem;font-weight:850;color:var(--muted,#667085);text-transform:uppercase}.insurance-customer-account-head>div:not(:first-child){text-align:right}.insurance-customer-account-head>div:nth-last-child(2){text-align:left}.insurance-customer-account-row{min-height:42px;border-bottom:1px solid var(--insurance-line,var(--border));cursor:pointer}.insurance-customer-account-row:last-child{border-bottom:0}.insurance-customer-account-row:hover{background:color-mix(in srgb,var(--insurance-primary,var(--accent)) 4%,var(--insurance-surface,var(--panel)))}.insurance-customer-account-policy{display:grid;gap:1px;min-width:0}.insurance-customer-account-policy strong{font-size:.61rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-customer-account-policy span{font-size:.48rem;color:var(--muted,#667085);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-customer-account-head>div,.insurance-customer-account-row>div{min-width:0}.insurance-customer-account-row>div[data-label]{text-align:right;font-size:.58rem}.insurance-customer-account-status{display:grid;justify-items:start}.insurance-customer-account-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0;text-align:right;color:var(--muted,#667085);font-size:.48rem}
+#insuranceCustomerBalanceDetailsModal .insurance-entry-dialog{width:min(980px,94vw)}
+#insuranceCustomerBalanceDetailsModal .modal-body{overflow-x:hidden!important}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-account-ledger{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-account-head,#insuranceCustomerBalanceDetailsModal .insurance-customer-account-row{max-width:100%;overflow:visible}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-account-status{min-width:0;overflow:hidden}
+#insuranceCustomerBalanceDetailsModal .insurance-payment-status{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-account-actions,#insurancePanel .insurance-customer-balance-arrow{overflow:visible}
+#insuranceCustomerBalanceDetailsModal .modal-footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+
+.insurance-customer-payment-detail{display:grid!important;gap:5px!important}.insurance-customer-payment-history{border:1px solid var(--insurance-line,var(--border));border-radius:8px;overflow:hidden;background:var(--insurance-surface,var(--panel));font-weight:400!important}.insurance-customer-payment-history-head,.insurance-customer-payment-history-row{display:grid;grid-template-columns:minmax(190px,1.3fr) minmax(115px,.7fr) minmax(100px,.55fr);gap:6px;align-items:center;padding:5px 7px}.insurance-customer-payment-history-head{background:var(--insurance-soft,var(--panel-2));border-bottom:1px solid var(--insurance-line,var(--border));font-size:.46rem;font-weight:850;color:var(--muted,#667085);text-transform:uppercase}.insurance-customer-payment-history-head>div:last-child{text-align:right}.insurance-customer-payment-history-row{border-bottom:1px solid var(--insurance-line,var(--border))}.insurance-customer-payment-history-row:last-child{border-bottom:0}.insurance-customer-payment-history-row>div{display:grid;gap:1px;min-width:0}.insurance-customer-payment-history-row strong{font-size:.57rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.insurance-customer-payment-history-row small{font-size:.45rem;color:var(--muted,#667085);white-space:normal}.insurance-customer-payment-history-row>span{font-size:.5rem;color:var(--muted,#667085)}.insurance-customer-payment-history-row>b{text-align:right;font-size:.59rem}.insurance-customer-payment-history-empty{padding:7px;border:1px dashed var(--insurance-line,var(--border));border-radius:7px;color:var(--muted,#667085);font-size:.52rem;font-weight:500}
+.insurance-customer-payment-balance{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 8px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));color:var(--text,#17212b)}.insurance-customer-payment-balance span{font-size:.56rem;color:var(--muted,#667085)}.insurance-customer-payment-balance strong{font-size:.73rem;color:var(--warning,#b7791f)}
+
+@media(max-width:900px){
+  .insurance-customer-balance-head,.insurance-customer-account-head{display:none}.insurance-customer-balance-row{grid-template-columns:1fr minmax(115px,.7fr) 28px;position:relative;gap:5px 7px;padding:7px 8px}.insurance-customer-balance-main{grid-column:1/-1;padding-right:28px}.insurance-customer-balance-outstanding{grid-column:1/2}.insurance-customer-balance-status{grid-column:2/3}.insurance-customer-balance-arrow{position:absolute;right:8px;top:9px}
+  .insurance-customer-account-row{position:relative;grid-template-columns:repeat(3,minmax(0,1fr)) 28px;gap:5px 7px;padding:7px 8px}.insurance-customer-account-policy{grid-column:1/-1;padding-right:25px}.insurance-customer-account-row>div[data-label]{text-align:left;display:grid;gap:1px}.insurance-customer-account-row>div[data-label]::before{content:attr(data-label);font-size:.46rem;color:var(--muted,#667085);font-weight:700}.insurance-customer-account-status{grid-column:1/3}.insurance-customer-account-actions{position:absolute;right:8px;top:9px}
+}
+@media(max-width:700px){
+  .insurance-customer-payment-entry{grid-template-columns:1fr 1fr}.insurance-customer-payment-entry>small{grid-column:1/-1}.insurance-customer-payment-fields{grid-column:1/-1}.insurance-customer-balance-toolbar{grid-template-columns:1fr 1fr!important}.insurance-customer-balance-toolbar .insurance-search,.insurance-customer-balance-toolbar .insurance-filter-actions{grid-column:1/-1!important}.insurance-customer-account-totals{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .insurance-customer-payment-entry{grid-template-columns:1fr;padding:5px}.insurance-customer-payment-toggle,.insurance-customer-payment-fields,.insurance-customer-payment-entry>small{grid-column:1}.insurance-customer-payment-fields{grid-template-columns:1fr}.insurance-customer-payment-toggle span{white-space:normal}.insurance-customer-balance-toolbar{grid-template-columns:1fr!important}.insurance-customer-balance-toolbar .insurance-filter-field,.insurance-customer-balance-toolbar .insurance-search,.insurance-customer-balance-toolbar .insurance-filter-actions{grid-column:1!important}.insurance-customer-balance-row{grid-template-columns:1fr 28px;padding:6px}.insurance-customer-balance-outstanding,.insurance-customer-balance-status{grid-column:1/-1}.insurance-customer-balance-main span{white-space:normal;line-height:1.2}.insurance-customer-account-totals{grid-template-columns:1fr}.insurance-customer-account-row{grid-template-columns:1fr 1fr 28px}.insurance-customer-account-policy{grid-column:1/-1}.insurance-customer-account-status{grid-column:1/3}.insurance-customer-account-policy span{white-space:normal;line-height:1.2}.insurance-customer-payment-history-head{display:none}.insurance-customer-payment-history-row{grid-template-columns:1fr auto}.insurance-customer-payment-history-row>div{grid-column:1/-1}.insurance-customer-payment-history-row>span{grid-column:1}.insurance-customer-payment-history-row>b{grid-column:2}
+}
+
+/* Insurance A5 document polish — explicit customer-ledger document dropdown. */
+#insuranceCustomerBalanceDetailsModal .insurance-document-menu-btn{
+  position:relative;width:28px!important;height:24px!important;min-width:28px!important;min-height:24px!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:2px!important;
+  overflow:visible!important;border-radius:6px!important
+}
+#insuranceCustomerBalanceDetailsModal .insurance-document-menu-btn>i:first-child{font-size:.58rem!important}
+#insuranceCustomerBalanceDetailsModal .insurance-document-menu-caret{font-size:.38rem!important;transform:translateY(1px)}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-account-head>div:last-child{text-align:center!important;font-size:.43rem!important}
+.insurance-document-party-row-three{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.insurance-document-policy-notes{margin-top:5px;padding:5px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:7px;background:var(--insurance-soft,var(--panel-2));color:var(--muted,#667085);font-size:.55rem;line-height:1.3;overflow-wrap:anywhere}
+@media(max-width:700px){.insurance-document-party-row-three{grid-template-columns:1fr!important}}
+
+/* Customer statement transaction document controls — always visible and modal-safe.
+   The floating menu is appended to <body>; it must outrank the shared .modal layer (2147483646) on desktop. */
+.insurance-customer-account-document-hint{display:flex;align-items:flex-start;gap:6px;margin:0 0 6px;padding:5px 7px;border:1px solid var(--insurance-line,var(--border));border-radius:8px;background:var(--insurance-soft,var(--panel-2));color:var(--muted,#667085);font-size:.5rem;line-height:1.3}
+.insurance-customer-account-document-hint i{color:var(--insurance-primary,var(--accent));font-size:.55rem;margin-top:1px}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-transaction-docs{width:auto!important;height:24px!important;min-width:82px!important;min-height:24px!important;padding:3px 6px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;font-size:.49rem!important;font-weight:800!important;white-space:nowrap!important;overflow:visible!important}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-transaction-docs>span{display:inline!important;max-width:none!important;overflow:visible!important}
+#insuranceCustomerBalanceDetailsModal .insurance-customer-account-actions{min-width:88px!important;justify-content:center!important}
+@media(max-width:900px){#insuranceCustomerBalanceDetailsModal .insurance-customer-account-policy{padding-right:92px!important}#insuranceCustomerBalanceDetailsModal .insurance-customer-account-actions{right:8px!important;top:8px!important;min-width:82px!important}}
+@media(max-width:480px){#insuranceCustomerBalanceDetailsModal .insurance-customer-transaction-docs{min-width:31px!important;width:31px!important;padding:3px!important}#insuranceCustomerBalanceDetailsModal .insurance-customer-transaction-docs>span{display:none!important}#insuranceCustomerBalanceDetailsModal .insurance-customer-account-actions{min-width:31px!important}#insuranceCustomerBalanceDetailsModal .insurance-customer-account-policy{padding-right:39px!important}}
+
+/* Customer statement transaction Documents dropdown.
+   The ledger itself stays fluid inside the modal; the menu is a compact body-level floating panel so it never expands or clips the transaction row. */
+#insuranceCustomerBalanceDetailsModal{overflow:visible!important}
+.insurance-floating-menu.insurance-customer-documents-dropdown{
+  position:fixed!important;
+  z-index:2147483647!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-auto-flow:row!important;
+  width:196px!important;
+  min-width:196px!important;
+  max-width:min(220px,calc(100vw - 16px))!important;
+  height:auto!important;
+  padding:4px!important;
+  gap:2px!important;
+  overflow:visible!important;
+  box-sizing:border-box!important;
+  border-radius:9px;
+  box-shadow:0 12px 30px color-mix(in srgb,#000 18%,transparent);
+}
+.insurance-floating-menu.insurance-customer-documents-dropdown button{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:15px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:6px!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  min-height:28px!important;
+  height:auto!important;
+  padding:5px 7px!important;
+  margin:0!important;
+  border-radius:6px;
+  font-size:.58rem;
+  font-weight:750;
+  text-align:left!important;
+  white-space:nowrap;
+}
+.insurance-floating-menu.insurance-customer-documents-dropdown button i{
+  width:15px;
+  text-align:center;
+  font-size:.6rem;
+}
+.insurance-floating-menu.insurance-customer-documents-dropdown button span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+@media(max-width:600px){
+  .insurance-floating-menu.insurance-customer-documents-dropdown{min-width:170px;max-width:calc(100vw - 12px)}
+}
