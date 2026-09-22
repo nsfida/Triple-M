@@ -160,14 +160,17 @@ test('insurance desktop reports use thin financial lines with selected-date and 
   assert.match(css, /\.insurance-report-cols-6\{grid-template-columns:/);
 });
 
-test('insurance customer PDFs align company and customer details in equal side-by-side boxes', () => {
+test('insurance customer PDFs use one detailed A5 landscape document system', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
   const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
-  assert.match(source, /insurance-document-party-row/);
-  assert.match(source, /COMPANY DETAILS/);
-  assert.match(source, /CUSTOMER DETAILS/);
-  assert.match(source, /boxW=\(pageW-left-right-gap\)\/2/);
-  assert.match(css, /\.insurance-document-party-row\{display:grid;grid-template-columns:1fr 1fr/);
+  assert.match(source, /new jsPDF\(\{orientation:"landscape",unit:"mm",format:"a5"/);
+  assert.match(source, /drawInsurancePdfFrame/);
+  assert.match(source, /label:"ISSUER"/);
+  assert.match(source, /label:"CUSTOMER"/);
+  assert.match(source, /label:"INSURANCE COMPANY"/);
+  assert.match(source, /label:"POLICY DATE"/);
+  assert.match(source, /policy_description/);
+  assert.match(css, /\.insurance-document-party-row-three\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important\}/);
 });
 
 test('insurance controls explicitly inherit Triplem theme surfaces and remain compact', () => {
@@ -198,21 +201,23 @@ test('insurance 173 adds stable six-digit customer numbers with explicit duplica
 test('insurance row actions float above lists and company policy temp records are clickable', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
   const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
-  assert.match(source, /document\.body\.appendChild\(menu\)/);
+  assert.match(source, /isCustomerTransactionMenu \? document\.documentElement : document\.body/);
   assert.match(source, /rowMenuButtonHtml\("company"/);
   assert.match(source, /rowMenuButtonHtml\("policy"/);
   assert.match(source, /rowMenuButtonHtml\("temp"/);
   assert.match(source, /bindClickableRows\(root,'\[data-insurance-company-row\]'/);
   assert.match(source, /bindClickableRows\(root,'\[data-insurance-policy-row\]'/);
   assert.match(source, /bindClickableRows\(root,'\[data-insurance-temp-row\]'/);
-  assert.match(css, /\.insurance-floating-menu\{[\s\S]*?position:fixed[\s\S]*?z-index:2147483000/);
+  assert.match(css, /\.insurance-floating-menu\{[\s\S]*?position:fixed[\s\S]*?z-index:2147483647!important/);
 });
 
-test('insurance customer PDFs use one issuer block and compact centered document actions', () => {
+test('insurance customer documents share the A5 frame and compact centered document actions', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
   const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
-  assert.match(source, /drawPdfHeaderAndFooter\(doc,logo,d\.title\|\|"Invoice",d\.reference\|\|d\.invoice_number\|\|"",false\)/);
+  assert.match(source, /createInsuranceA5Pdf\(jsPDF\)/);
+  assert.match(source, /drawInsurancePdfFrame\(doc,logo,title,reference,docDate,1\)/);
   assert.match(source, /Customer No\. #\$\{d\.customer_number\}/);
+  assert.match(source, /System-generated Insurance document/);
   assert.match(css, /\.insurance-document-dialog \.modal-footer\{[\s\S]*?justify-content:center!important/);
   assert.match(css, /\.insurance-document-dialog \.modal-footer \.btn\{[\s\S]*?height:25px!important/);
 });
@@ -465,3 +470,103 @@ test("Insurance new-referral control replaces the selector in-place without over
   assert.match(css, /#insuranceReferralCommissionField\{min-width:0!important;max-width:100%!important\}/);
 });
 
+
+
+test("Insurance migration 179 adds customer receivables without rewriting prior sales", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/179_insurance_customer_balances_and_payments.sql"), "utf8");
+  assert.match(sql, /create table if not exists public\.insurance_customer_payments/i);
+  assert.match(sql, /Imported as fully paid from existing Insurance history/i);
+  assert.match(sql, /p_not_fully_paid boolean default false/i);
+  assert.match(sql, /p_amount_paid numeric default null/i);
+  assert.match(sql, /create or replace function public\.app_insurance_list_customer_balances/i);
+  assert.match(sql, /create or replace function public\.app_insurance_get_customer_account/i);
+  assert.match(sql, /create or replace function public\.app_insurance_record_customer_payment/i);
+  assert.match(sql, /customer_outstanding/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("Insurance sale form defaults to fully paid and exposes an explicit partial-payment path", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(source, /id="insuranceNotFullyPaid"/);
+  assert.doesNotMatch(source, /id="insuranceNotFullyPaid"[^>]*checked/i);
+  assert.match(source, /<span>Not fully paid<\/span>/);
+  assert.match(source, /name="amount_paid"/);
+  assert.match(source, /p_not_fully_paid:notFullyPaid/);
+  assert.match(source, /p_amount_paid:amountPaid/);
+  assert.match(source, /Select an existing or new customer before saving an outstanding balance|Choose an existing or new customer/);
+});
+
+test("Insurance Customers/Balances defaults to outstanding and preserves settled customer history", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /\["customers", "Customers\/Balances", "fa-users"\]/);
+  assert.match(source, /customerBalanceFilters:\s*\{\s*search:\s*"",\s*status:\s*"outstanding"\s*\}/);
+  assert.match(source, /Outstanding only/);
+  assert.match(source, /All customers/);
+  assert.match(source, /app_insurance_list_customer_balances/);
+  assert.match(source, /app_insurance_get_customer_account/);
+  assert.match(source, /Receive Customer Payment/);
+  assert.match(source, /app_insurance_record_customer_payment/);
+  assert.match(css, /\.insurance-customer-balance-toolbar\{/);
+  assert.match(css, /\.insurance-customer-account-row\{/);
+  assert.match(css, /@media\(max-width:480px\)[\s\S]*insurance-customer-balance-toolbar/);
+});
+
+
+test("Insurance customer balances expose statement PDF and per-transaction document menus", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /rowMenuButtonHtml\("customerBalance",row\.customer_number\)/);
+  assert.match(source, /Download Statement PDF/);
+  assert.match(source, /downloadCustomerStatementPdf/);
+  assert.match(source, /Customer Statement/);
+  assert.match(source, /documentMenuButtonHtml\("customerTransaction",tx\.id\)/);
+  assert.match(source, /aria-label="Invoice, receipt and temporary invoice options"/);
+  assert.match(source, /<span>Documents<\/span>/);
+  assert.match(source, /Invoice PDF/);
+  assert.match(source, /Receipt PDF/);
+  assert.match(source, /Create Temporary Invoice/);
+  assert.match(source, /Download Temporary Invoice/);
+  assert.match(source, /Receive Payment/);
+  assert.match(css, /#insuranceCustomerBalanceDetailsModal \.modal-body\{overflow-x:hidden!important\}/);
+  assert.match(css, /\.insurance-customer-account-actions\{/);
+  assert.match(css, /\.insurance-customer-transaction-docs\{/);
+  assert.match(source, /Use Documents on any transaction/);
+});
+
+
+test("customer statement transaction Documents uses a compact floating dropdown", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(source, /anchor\?\.dataset\?\.insuranceRowMenu === "customerTransaction"/);
+  assert.match(source, /menu\.classList\.add\("insurance-customer-documents-dropdown"\)/);
+  assert.match(source, /isCustomerTransactionMenu \? document\.documentElement : document\.body/);
+  assert.match(source, /anchor\.setAttribute\("aria-expanded", "true"\)/);
+  assert.doesNotMatch(source, /openCustomerTransactionInlineMenu/);
+  assert.doesNotMatch(css, /insurance-customer-transaction-inline-menu/);
+  assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{/);
+  assert.match(css, /min-width:196px!important/);
+  assert.match(css, /grid-template-columns:15px minmax\(0,1fr\)/);
+});
+
+
+test("customer statement desktop ledger keeps Documents column inside the modal", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  assert.match(css, /insurance-customer-account-head,\.insurance-customer-account-row\{display:grid;grid-template-columns:minmax\(0,2\.15fr\) repeat\(3,minmax\(0,\.82fr\)\) minmax\(0,\.9fr\) minmax\(88px,\.9fr\)/);
+  assert.match(css, /#insuranceCustomerBalanceDetailsModal \.insurance-customer-account-ledger\{width:100%;max-width:100%;min-width:0;box-sizing:border-box\}/);
+  assert.match(css, /#insuranceCustomerBalanceDetailsModal \.insurance-payment-status\{max-width:100%;overflow:hidden;text-overflow:ellipsis\}/);
+  assert.doesNotMatch(css, /insurance-customer-account-head,\.insurance-customer-account-row\{display:grid;grid-template-columns:minmax\(245px/);
+});
+
+
+test("customer statement Documents menu is forced to a compact root-level vertical dropdown", () => {
+  const js = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  const html = fs.readFileSync(path.join(projectRoot, "index.html"), "utf8");
+  assert.match(js, /document\.documentElement : document\.body/);
+  assert.match(js, /gridTemplateColumns: "minmax\(0, 1fr\)"/);
+  assert.match(js, /width: "196px"/);
+  assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
+  assert.match(html, /54-insurance\.css\?v=20260922-insurance-customerdropdown006/);
+  assert.match(html, /01-insurance\.js\?v=20260922-insurance-customerdropdown006/);
+});
