@@ -1,4 +1,4 @@
-/* Triplem VIP Insurance module, migration 170. */
+/* Triplem VIP Insurance module, migration 179. */
 (function (global) {
   "use strict";
 
@@ -6,6 +6,7 @@
     ["sales", "Sales", "fa-receipt"],
     ["commission", "My Commission", "fa-hand-holding-dollar"],
     ["referrals", "Referrals", "fa-user-group"],
+    ["customers", "Customers/Balances", "fa-users"],
     ["companies", "Companies", "fa-building-shield"],
     ["policies", "Policies", "fa-file-shield"],
     ["reports", "Reports", "fa-chart-column"],
@@ -25,7 +26,9 @@
     commissionFilters: { start: "", end: "", search: "", company: "", status: "" },
     commissionReceipts: [], openingBalances: [], openingBalanceTotal: 0,
     referrals: [], referralTransactions: [], referrerDirectory: [], referralTotal: 0, referralOffset: 0, referralLimit: 50, referralHasMore: false,
-    referralSummary: { total: 0, by_currency: [] }, referralFilters: { start: "", end: "", search: "", status: "" }
+    referralSummary: { total: 0, by_currency: [] }, referralFilters: { start: "", end: "", search: "", status: "" },
+    customerBalances: [], customerBalanceTotal: 0, customerBalanceOffset: 0, customerBalanceLimit: 50, customerBalanceHasMore: false,
+    customerBalanceFilters: { search: "", status: "outstanding" }, customerAccountTransactions: []
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -110,7 +113,7 @@
         <div class="modal-body">${body}</div>
         ${actions ? `<div class="modal-footer">${actions}</div>` : ""}
       </div>`;
-    const close = () => { modal.classList.add("hide"); modal.setAttribute("aria-hidden", "true"); };
+    const close = () => { closeInsuranceFloatingMenu(); modal.classList.add("hide"); modal.setAttribute("aria-hidden", "true"); };
     $$('[data-insurance-close]', modal).forEach(el => el.onclick = close);
     modal.classList.remove("hide"); modal.setAttribute("aria-hidden", "false");
     onOpen?.(modal, close);
@@ -120,6 +123,7 @@
   function closeInsuranceFloatingMenu() {
     const menu = document.getElementById("insuranceFloatingMenu");
     if (menu) menu.remove();
+    $$('[data-insurance-row-menu][aria-expanded="true"]').forEach(btn => btn.setAttribute("aria-expanded", "false"));
   }
 
   function positionInsuranceFloatingMenu(menu, anchor) {
@@ -145,9 +149,55 @@
     const menu = document.createElement("div");
     menu.id = "insuranceFloatingMenu";
     menu.className = "insurance-floating-menu";
+    const isCustomerTransactionMenu = anchor?.dataset?.insuranceRowMenu === "customerTransaction";
+    if (isCustomerTransactionMenu) {
+      menu.classList.add("insurance-customer-documents-dropdown");
+      // Critical desktop layout is also applied inline. This prevents a stale or
+      // partially cached stylesheet from ever turning the document dropdown into
+      // an in-row action strip inside the customer statement ledger.
+      Object.assign(menu.style, {
+        position: "fixed",
+        zIndex: "2147483647",
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr)",
+        gridAutoFlow: "row",
+        width: "196px",
+        minWidth: "196px",
+        maxWidth: "calc(100vw - 16px)",
+        padding: "4px",
+        gap: "2px",
+        boxSizing: "border-box"
+      });
+    }
     menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", isCustomerTransactionMenu ? "Transaction documents" : "Actions");
     menu.innerHTML = usable.map((item, index) => `<button type="button" role="menuitem" data-insurance-floating-action="${index}" class="${item.danger ? "danger" : ""}"><i class="fa-solid ${esc(item.icon || "fa-circle")}"></i><span>${esc(item.label)}</span></button>`).join("");
-    document.body.appendChild(menu);
+    if (isCustomerTransactionMenu) {
+      $$('[data-insurance-floating-action]', menu).forEach(button => Object.assign(button.style, {
+        display: "grid",
+        gridTemplateColumns: "15px minmax(0, 1fr)",
+        alignItems: "center",
+        width: "100%",
+        minHeight: "28px",
+        padding: "5px 7px",
+        gap: "6px",
+        boxSizing: "border-box",
+        textAlign: "left",
+        whiteSpace: "nowrap"
+      }));
+    }
+    const themeSource = anchor.closest?.(".insurance-modal") || anchor.closest?.("#insurancePanel") || anchor;
+    if (themeSource) {
+      const theme = getComputedStyle(themeSource);
+      ["--insurance-surface", "--insurance-soft", "--insurance-line", "--insurance-primary"].forEach(name => {
+        const value = theme.getPropertyValue(name).trim();
+        if (value) menu.style.setProperty(name, value);
+      });
+    }
+    // Customer transaction menus live at the document root so no body/modal
+    // stacking or overflow context can make them participate in the ledger row.
+    (isCustomerTransactionMenu ? document.documentElement : document.body).appendChild(menu);
+    anchor.setAttribute("aria-expanded", "true");
     positionInsuranceFloatingMenu(menu, anchor);
     $$('[data-insurance-floating-action]', menu).forEach(btn => btn.onclick = async e => {
       e.preventDefault(); e.stopPropagation();
@@ -167,6 +217,11 @@
 
   function rowMenuButtonHtml(kind, id) {
     return `<button class="icon-btn ghost insurance-row-menu-btn" type="button" data-insurance-row-menu="${esc(kind)}" data-insurance-row-id="${esc(id)}" aria-haspopup="menu" aria-label="Actions" title="Actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+  }
+
+  function documentMenuButtonHtml(kind, id) {
+    const isCustomerTransaction = kind === "customerTransaction";
+    return `<button class="${isCustomerTransaction ? "btn ghost tiny insurance-customer-transaction-docs" : "icon-btn ghost"} insurance-row-menu-btn insurance-document-menu-btn" type="button" data-insurance-row-menu="${esc(kind)}" data-insurance-row-id="${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="Invoice, receipt and temporary invoice options" title="Invoice, receipt and temporary invoice"><i class="fa-solid fa-file-arrow-down"></i>${isCustomerTransaction ? `<span>Documents</span>` : ""}<i class="fa-solid fa-caret-down insurance-document-menu-caret"></i></button>`;
   }
 
   function bindClickableRows(root, selector, callback) {
@@ -206,6 +261,23 @@
           can(temp ? "edit" : "create") ? { label: temp ? "Edit Temporary Invoice" : "Create Temporary Invoice", icon: "fa-file-pen", action: () => openTempInvoiceEditor(sale,temp) } : null,
           temp ? { label: "Download Temporary Invoice", icon: "fa-file-pdf", action: () => downloadTempInvoicePdf(temp) } : null,
           can("delete") ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deleteSaleRecord(sale.id) } : null
+        ];
+      } else if (kind === "customerBalance") {
+        const customer = S.customerBalances.find(x => x.customer_number === id); if (!customer) return;
+        items = [
+          { label: "View Account", icon: "fa-eye", action: () => openCustomerBalance(customer.customer_number) },
+          { label: "Download Statement PDF", icon: "fa-file-pdf", action: () => downloadCustomerStatementPdf(customer.customer_number) }
+        ];
+      } else if (kind === "customerTransaction") {
+        const sale = S.customerAccountTransactions.find(x => x.id === id); if (!sale) return;
+        const temp = tempInvoiceForSale(sale.id);
+        items = [
+          { label: "View Transaction", icon: "fa-eye", action: () => openSaleDetails(sale.id) },
+          { label: "Invoice PDF", icon: "fa-file-invoice", action: () => downloadCustomerDocumentPdf(buildDocumentData(sale,"invoice")) },
+          { label: "Receipt PDF", icon: "fa-receipt", action: () => downloadCustomerDocumentPdf(buildDocumentData(sale,"receipt")) },
+          can(temp ? "edit" : "create") ? { label: temp ? "Edit Temporary Invoice" : "Create Temporary Invoice", icon: "fa-file-pen", action: () => openTempInvoiceEditor(sale,temp) } : null,
+          temp ? { label: "Download Temporary Invoice", icon: "fa-file-pdf", action: () => downloadTempInvoicePdf(temp) } : null,
+          can("create") && n(sale.customer_outstanding) > 0 ? { label: "Receive Payment", icon: "fa-hand-holding-dollar", action: () => openCustomerPayment(sale) } : null
         ];
       } else if (kind === "commission") {
         const commission = S.commissions.find(x => x.id === id); if (!commission) return;
@@ -342,6 +414,34 @@
     S.hasMore = !!res?.has_more;
   }
 
+  async function loadCustomerBalances({ reset = true } = {}) {
+    if (reset) S.customerBalanceOffset = 0;
+    const f = S.customerBalanceFilters;
+    const res = await rpc("app_insurance_list_customer_balances", {
+      p_search: f.search || null,
+      p_status: f.status || "all",
+      p_offset: S.customerBalanceOffset,
+      p_limit: S.customerBalanceLimit
+    });
+    S.customerBalances = res?.items || [];
+    S.customerBalanceTotal = Number(res?.total || 0);
+    S.customerBalanceHasMore = !!res?.has_more;
+  }
+
+  const CUSTOMER_PAYMENT_STATUS = {
+    paid: { label: "Fully Paid", cls: "paid" },
+    partial: { label: "Partially Paid", cls: "partial" },
+    unpaid: { label: "Not Paid", cls: "unpaid" },
+    outstanding: { label: "Outstanding", cls: "outstanding" },
+    settled: { label: "Settled", cls: "paid" }
+  };
+
+  function customerPaymentStatusBadge(row) {
+    const key = row?.customer_payment_status || row?.balance_status || "paid";
+    const meta = CUSTOMER_PAYMENT_STATUS[key] || CUSTOMER_PAYMENT_STATUS.paid;
+    return `<span class="insurance-payment-status ${meta.cls}">${esc(meta.label)}</span>`;
+  }
+
   async function refreshSummaryForFilters() {
     S.summary = await rpc("app_insurance_summary", {
       p_start_date: S.filters.start || null,
@@ -453,9 +553,10 @@
 
   function enrichTemporaryDocument(temp) {
     const base={...(temp?.invoice_data||{}),title:"Invoice",invoice_number:temp?.invoice_number||temp?.invoice_data?.invoice_number||""};
-    const saleId=temp?.sale_id||base.source_sale_id;const sale=S.sales.find(s=>s.id===saleId);
+    const saleId=temp?.sale_id||base.source_sale_id;const sale=S.sales.find(s=>s.id===saleId)||S.customerAccountTransactions.find(s=>s.id===saleId);
     if(!sale)return base;
-    return {...base,policy_number:base.policy_number||sale.policy_number||"",cancellation_id:sale.cancellation_id||base.cancellation_id||null,cancellation_date:sale.cancellation_date||base.cancellation_date||null,cancellation_time:sale.cancellation_time||base.cancellation_time||null,policy_used_days:sale.policy_used_days??base.policy_used_days??0,cancellation_reason:sale.cancellation_reason||base.cancellation_reason||""};
+    const source=buildDocumentData(sale,"invoice");
+    return {...source,...base,title:"Invoice",company_id:sale.company_id||source.company_id||base.company_id||null,policy_id:sale.policy_id||source.policy_id||base.policy_id||null,policy_number:base.policy_number||sale.policy_number||"",cancellation_id:sale.cancellation_id||base.cancellation_id||null,cancellation_date:sale.cancellation_date||base.cancellation_date||null,cancellation_time:sale.cancellation_time||base.cancellation_time||null,policy_used_days:sale.policy_used_days??base.policy_used_days??0,cancellation_reason:sale.cancellation_reason||base.cancellation_reason||""};
   }
 
   function downloadTempInvoicePdf(temp) {
@@ -830,6 +931,178 @@
     try{await rpc("app_insurance_delete_referral_payment",{p_id:paymentId});await Promise.all([loadReferrals({reset:true}),loadReferralSummary()]);if(S.view==="referrals")renderReferrals();notify("Referral payment deleted and outstanding balance recalculated.");if(saleId)openReferralDetails(saleId);}catch(err){notify(err.message||"Could not delete referral payment.","error");}
   }
 
+  function customerBalanceToolbar() {
+    const f=S.customerBalanceFilters;
+    return `<div class="insurance-toolbar insurance-filter-toolbar insurance-customer-balance-toolbar">
+      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceCustomerBalanceSearch" class="input" value="${esc(f.search)}" placeholder="Customer name, number, phone, email or company"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Balance</label><select id="insuranceCustomerBalanceStatus" class="select"><option value="outstanding" ${f.status==="outstanding"?"selected":""}>Outstanding only</option><option value="all" ${f.status==="all"?"selected":""}>All customers</option><option value="settled" ${f.status==="settled"?"selected":""}>Settled only</option></select></div>
+      <div class="insurance-toolbar-actions insurance-filter-actions"><button class="btn primary tiny" id="insuranceCustomerBalanceApply" type="button"><i class="fa-solid fa-filter"></i><span>Apply</span></button><button class="btn ghost tiny" id="insuranceCustomerBalanceClear" type="button"><i class="fa-solid fa-rotate-left"></i><span>Reset</span></button></div>
+    </div>`;
+  }
+
+  function customerBalanceCurrencyLines(row) {
+    const totals=Array.isArray(row?.currency_totals)?row.currency_totals:[];
+    if(!totals.length)return `<span class="insurance-customer-balance-empty">—</span>`;
+    return totals.map(t=>`<span class="insurance-customer-balance-money"><b>${esc(t.currency)}</b><span>${moneyHtml(t.outstanding,t.currency)}</span></span>`).join("");
+  }
+
+  function customerBalanceRow(row) {
+    return `<div class="insurance-customer-balance-row" data-insurance-customer-balance="${esc(row.customer_number)}">
+      <div class="insurance-customer-balance-main"><strong>${esc(row.customer_name)}</strong><span>#${esc(row.customer_number)} · ${Number(row.transaction_count||0)} transaction${Number(row.transaction_count||0)===1?"":"s"}${row.company?` · ${esc(row.company)}`:""}</span></div>
+      <div class="insurance-customer-balance-outstanding" data-label="Outstanding">${customerBalanceCurrencyLines(row)}</div>
+      <div class="insurance-customer-balance-status">${customerPaymentStatusBadge(row)}<small>Latest ${fmtDate(row.last_transaction_date)}</small></div>
+      <div class="insurance-customer-balance-arrow">${rowMenuButtonHtml("customerBalance",row.customer_number)}</div>
+    </div>`;
+  }
+
+  function renderCustomerBalances() {
+    const root=$("#insuranceWorkspace");if(!root)return;
+    root.innerHTML=`${customerBalanceToolbar()}<div class="insurance-customer-balance-table"><div class="insurance-customer-balance-head"><div>Customer</div><div>Outstanding Balance</div><div>Status</div><div></div></div><div class="insurance-customer-balance-list">${S.customerBalances.length?S.customerBalances.map(customerBalanceRow).join(""):`<div class="insurance-empty"><i class="fa-solid fa-users"></i>No customers match this balance filter.</div>`}</div></div>${S.customerBalanceTotal?`<div class="insurance-pager"><button class="btn ghost tiny" id="insuranceCustomerBalancePrev" ${S.customerBalanceOffset<=0?"disabled":""}>Previous</button><span class="help">${Math.min(S.customerBalanceOffset+1,S.customerBalanceTotal)} to ${Math.min(S.customerBalanceOffset+S.customerBalances.length,S.customerBalanceTotal)} of ${S.customerBalanceTotal}</span><button class="btn ghost tiny" id="insuranceCustomerBalanceNext" ${!S.customerBalanceHasMore?"disabled":""}>Next</button></div>`:""}`;
+    const apply=async()=>{S.customerBalanceFilters={search:$("#insuranceCustomerBalanceSearch",root)?.value.trim()||"",status:$("#insuranceCustomerBalanceStatus",root)?.value||"outstanding"};await loadCustomerBalances({reset:true});renderCustomerBalances();};
+    $("#insuranceCustomerBalanceApply",root)?.addEventListener("click",apply);
+    $("#insuranceCustomerBalanceClear",root)?.addEventListener("click",async()=>{S.customerBalanceFilters={search:"",status:"outstanding"};await loadCustomerBalances({reset:true});renderCustomerBalances();});
+    $("#insuranceCustomerBalanceSearch",root)?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();apply();}});
+    $("#insuranceCustomerBalancePrev",root)?.addEventListener("click",async()=>{S.customerBalanceOffset=Math.max(0,S.customerBalanceOffset-S.customerBalanceLimit);await loadCustomerBalances({reset:false});renderCustomerBalances();});
+    $("#insuranceCustomerBalanceNext",root)?.addEventListener("click",async()=>{S.customerBalanceOffset+=S.customerBalanceLimit;await loadCustomerBalances({reset:false});renderCustomerBalances();});
+    bindInsuranceRowMenus(root);
+    bindClickableRows(root,'[data-insurance-customer-balance]',row=>openCustomerBalance(row.dataset.insuranceCustomerBalance));
+  }
+
+  function customerAccountTotalsHtml(account) {
+    const totals=Array.isArray(account?.currency_totals)?account.currency_totals:[];
+    if(!totals.length)return `<div class="insurance-commission-summary-empty">No Insurance transactions for this customer.</div>`;
+    return `<div class="insurance-customer-account-totals">${totals.map(t=>`<div><span>${esc(t.currency)}</span><b>${moneyHtml(t.outstanding,t.currency)}</b><small>Sales ${moneyHtml(t.sale_total,t.currency)} · Paid ${moneyHtml(t.amount_paid,t.currency)}</small></div>`).join("")}</div>`;
+  }
+
+  async function fetchCustomerAccount(customerNumber) {
+    const res=await rpc("app_insurance_get_customer_account",{p_customer_number:customerNumber});
+    return res?.item||null;
+  }
+
+  async function openCustomerBalance(customerNumber) {
+    try{
+      const [account,tempResult]=await Promise.all([fetchCustomerAccount(customerNumber),rpc("app_insurance_list_temp_invoices",{})]);if(!account)return;
+      S.tempInvoices=tempResult?.items||S.tempInvoices||[];
+      const txs=Array.isArray(account.transactions)?account.transactions:[];S.customerAccountTransactions=txs;
+      const contact=[account.phone,account.email,account.company].filter(Boolean).map(esc).join(" · ");
+      const rows=txs.length?txs.map(tx=>`<div class="insurance-customer-account-row" data-insurance-customer-sale="${esc(tx.id)}"><div class="insurance-customer-account-policy"><strong>${esc(tx.policy_name_snapshot)}${tx.policy_number?` · #${esc(tx.policy_number)}`:""}</strong><span>${esc(tx.company_name_snapshot)} · ${esc(tx.reference_no)} · ${fmtDate(tx.transaction_date)} ${fmtTime(tx.transaction_time)}</span></div><div data-label="Sale"><b>${moneyHtml(tx.sale_price,tx.currency)}</b></div><div data-label="Paid"><b>${moneyHtml(tx.customer_amount_paid,tx.currency)}</b></div><div data-label="Outstanding"><b class="${n(tx.customer_outstanding)>0?"insurance-amount-outstanding":""}">${moneyHtml(tx.customer_outstanding,tx.currency)}</b></div><div class="insurance-customer-account-status">${customerPaymentStatusBadge(tx)}</div><div class="insurance-customer-account-actions">${documentMenuButtonHtml("customerTransaction",tx.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No Insurance transactions found.</div>`;
+      openModal({id:"insuranceCustomerBalanceDetailsModal",title:account.name,subtitle:`Customer #${account.customer_number}${contact?` · ${contact}`:""}`,body:`${customerAccountTotalsHtml(account)}<div class="insurance-customer-account-document-hint"><i class="fa-solid fa-circle-info"></i><span>Use Documents on any transaction to download its Invoice PDF or Receipt PDF, or create, edit and download its Temporary Invoice.</span></div><div class="insurance-customer-account-ledger"><div class="insurance-customer-account-head"><div>Policy / Transaction</div><div>Sale</div><div>Paid</div><div>Outstanding</div><div>Status</div><div>Documents</div></div>${rows}</div>`,actions:`<button class="btn ghost" id="insuranceCustomerStatementPdf"><i class="fa-solid fa-file-pdf"></i> Statement PDF</button><button class="btn primary" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);bindClickableRows(modal,'[data-insurance-customer-sale]',row=>openSaleDetails(row.dataset.insuranceCustomerSale));$("#insuranceCustomerStatementPdf",modal)?.addEventListener("click",()=>downloadCustomerStatementPdf(account));}});
+    }catch(err){notify(err.message||"Could not open customer balance.","error");}
+  }
+
+  function insuranceProviderProfile(data={}) {
+    const current=S.companies.find(c=>c.id===(data.company_id||data.source_company_id));
+    return {
+      name:data.insurance_company||data.company_name_snapshot||current?.company_name||"Insurance Company",
+      contact:data.insurance_contact_name||current?.contact_name||"",
+      phone:data.insurance_phone||current?.phone||"",
+      email:data.insurance_email||current?.email||"",
+      address:data.insurance_address||current?.address||""
+    };
+  }
+
+  function insurancePolicyProfile(data={}) {
+    const current=S.policies.find(p=>p.id===(data.policy_id||data.source_policy_id));
+    return {
+      name:data.policy_name||data.policy_name_snapshot||data.description||current?.policy_name||"Insurance Policy",
+      number:data.policy_number||"",
+      description:data.policy_description||current?.description||"",
+      notes:data.policy_notes||current?.notes||""
+    };
+  }
+
+  function createInsuranceA5Pdf(jsPDF) {
+    return new jsPDF({orientation:"landscape",unit:"mm",format:"a5",compress:true});
+  }
+
+  function insurancePdfAmount(value,currency) {
+    return typeof formatPdfAmount==="function"?formatPdfAmount(value,currency):moneyPlain(value,currency);
+  }
+
+  function insurancePdfLines(doc,value,width,maxLines=2) {
+    if(value==null||String(value).trim()==="")return [];
+    return doc.splitTextToSize(String(value),width).slice(0,maxLines);
+  }
+
+  function drawInsurancePdfFrame(doc,logo,title,reference,date,pageNo=1) {
+    const pageW=doc.internal.pageSize.getWidth(),pageH=doc.internal.pageSize.getHeight(),company=documentCompanyProfile();
+    if(typeof applyProfessionalPdfDefaults==="function")applyProfessionalPdfDefaults(doc);
+    doc.setFillColor(15,23,42);doc.rect(0,0,pageW,4.2,"F");doc.setFillColor(36,87,214);doc.rect(0,4.2,pageW,1.1,"F");
+    if(logo&&typeof drawFittedPdfImage==="function")drawFittedPdfImage(doc,logo,8,7.2,34,12.5,{align:"left",valign:"middle"});
+    doc.setTextColor(15,23,42);doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(String(title||"Insurance Document"),48,12.2);
+    doc.setTextColor(71,85,105);doc.setFont("helvetica","normal");doc.setFontSize(6.2);doc.text(String(reference||""),48,16.9,{maxWidth:88});
+    doc.setTextColor(100,116,139);doc.setFontSize(5.6);doc.text("DATE",pageW-8,9.8,{align:"right"});doc.setTextColor(15,23,42);doc.setFontSize(7);doc.text(fmtDate(date)||"—",pageW-8,14.1,{align:"right"});
+    doc.setDrawColor(226,232,240);doc.setLineWidth(.2);doc.line(8,22,pageW-8,22);
+    doc.setDrawColor(226,232,240);doc.line(8,pageH-10,pageW-8,pageH-10);doc.setFont("helvetica","normal");doc.setFontSize(5.3);doc.setTextColor(100,116,139);
+    doc.text(String(company.name||"Triplem VIP"),8,pageH-6.1);doc.text("System-generated Insurance document",pageW/2,pageH-6.1,{align:"center"});doc.text(`Page ${pageNo}`,pageW-8,pageH-6.1,{align:"right"});
+  }
+
+  function drawInsurancePdfCard(doc,{x,y,w,h,label,title,lines=[]}) {
+    doc.setDrawColor(221,226,232);doc.setFillColor(249,250,251);doc.roundedRect(x,y,w,h,1.6,1.6,"FD");
+    doc.setFont("helvetica","bold");doc.setFontSize(5.4);doc.setTextColor(100,116,139);doc.text(String(label||""),x+3,y+4.2);
+    doc.setFontSize(7.1);doc.setTextColor(15,23,42);const titleLines=insurancePdfLines(doc,title,w-6,1);if(titleLines.length)doc.text(titleLines,x+3,y+8.8);
+    doc.setFont("helvetica","normal");doc.setTextColor(71,85,105);
+    const source=(lines||[]).filter(Boolean).map(String),available=Math.max(5,h-13.1);let fontSize=5.15,lineHeight=2.65,visual=[];
+    for(const size of [5.15,4.85,4.55]){doc.setFontSize(size);const candidate=source.flatMap(line=>doc.splitTextToSize(line,w-6));const lh=size<=4.55?2.35:size<=4.85?2.5:2.65;if(candidate.length*lh<=available+.25){fontSize=size;lineHeight=lh;visual=candidate;break;}visual=candidate;fontSize=size;lineHeight=lh;}
+    const maxLines=Math.max(1,Math.floor(available/lineHeight));if(visual.length>maxLines){visual=visual.slice(0,maxLines);const last=String(visual[maxLines-1]||"");visual[maxLines-1]=last.length>2?`${last.slice(0,-1)}…`:"…";}
+    doc.setFontSize(fontSize);if(visual.length)doc.text(visual,x+3,y+13,{lineHeightFactor:1.05});
+  }
+
+  function insuranceStatementTransactionRow(tx) {
+    const provider=insuranceProviderProfile(tx),policy=insurancePolicyProfile(tx);
+    const providerContact=[provider.contact,provider.phone,provider.email,provider.address].filter(Boolean).join("\n");
+    const policyDetail=[policy.number?`#${policy.number}`:"",policy.description,policy.notes].filter(Boolean).join("\n");
+    const status=(CUSTOMER_PAYMENT_STATUS[tx.customer_payment_status]||CUSTOMER_PAYMENT_STATUS.paid).label;
+    return [
+      `${fmtDate(tx.transaction_date)}\n${fmtTime(tx.transaction_time)}`,
+      tx.reference_no||"",
+      `${provider.name}${providerContact?`\n${providerContact}`:""}`,
+      `${policy.name}${policyDetail?`\n${policyDetail}`:""}`,
+      insurancePdfAmount(tx.sale_price,tx.currency),
+      insurancePdfAmount(tx.customer_amount_paid,tx.currency),
+      insurancePdfAmount(tx.customer_outstanding,tx.currency),
+      status
+    ];
+  }
+
+  async function downloadCustomerStatementPdf(customerOrAccount) {
+    if(!global.jspdf?.jsPDF)return notify("PDF library is still loading. Try again in a moment.","error");
+    try{
+      const account=typeof customerOrAccount==="string"?await fetchCustomerAccount(customerOrAccount):customerOrAccount;if(!account)return notify("Customer account could not be loaded.","error");
+      const txs=Array.isArray(account.transactions)?account.transactions:[],totals=Array.isArray(account.currency_totals)?account.currency_totals:[];
+      const {jsPDF}=global.jspdf,doc=createInsuranceA5Pdf(jsPDF);
+      if(typeof loadCustomFontsForPdf==="function")await loadCustomFontsForPdf(doc);
+      const logo=typeof getPdfLogo==="function"?await getPdfLogo():null,company=documentCompanyProfile(),pageW=doc.internal.pageSize.getWidth(),left=8,right=8,gap=4,cardW=(pageW-left-right-gap*2)/3;
+      const ref=`Customer #${account.customer_number||""}`,statementDate=dateToday();
+      drawInsurancePdfFrame(doc,logo,"Customer Statement",ref,statementDate,1);
+      const companyLines=[company.trn?`TRN ${company.trn}`:"",[company.email,company.phone].filter(Boolean).join(" · "),company.address].filter(Boolean);
+      const customerLines=[account.customer_number?`Customer No. #${account.customer_number}`:"",[account.company,account.trn?`TRN ${account.trn}`:""].filter(Boolean).join(" · "),[account.phone,account.email].filter(Boolean).join(" · "),account.address].filter(Boolean);
+      const summaryLines=totals.slice(0,4).map(t=>`${t.currency}: Sales ${insurancePdfAmount(t.sale_total,t.currency)} · Paid ${insurancePdfAmount(t.amount_paid,t.currency)} · Due ${insurancePdfAmount(t.outstanding,t.currency)}`);
+      if(totals.length>4)summaryLines.push(`+${totals.length-4} more currencies`);
+      drawInsurancePdfCard(doc,{x:left,y:26,w:cardW,h:28,label:"ISSUER",title:company.name,lines:companyLines});
+      drawInsurancePdfCard(doc,{x:left+cardW+gap,y:26,w:cardW,h:28,label:"CUSTOMER",title:account.name||"Customer",lines:customerLines});
+      drawInsurancePdfCard(doc,{x:left+(cardW+gap)*2,y:26,w:cardW,h:28,label:"ACCOUNT SUMMARY",title:`${txs.length} transaction${txs.length===1?"":"s"}`,lines:summaryLines.length?summaryLines:["No currency totals available"]});
+      const startY=59;
+      if(txs.length){
+        doc.autoTable({
+          startY,
+          head:[["Policy Date","Reference","Insurance Company","Policy Details","Sale","Paid","Balance","Status"]],
+          body:txs.map(insuranceStatementTransactionRow),
+          styles:{fontSize:5.05,cellPadding:1.15,overflow:"linebreak",valign:"middle",lineColor:[229,231,235],lineWidth:.08},
+          headStyles:{fontSize:5.05,fillColor:[15,23,42],textColor:255,fontStyle:"bold",halign:"left"},
+          columnStyles:{0:{cellWidth:18},1:{cellWidth:21},2:{cellWidth:34},3:{cellWidth:40},4:{cellWidth:20,halign:"right"},5:{cellWidth:20,halign:"right"},6:{cellWidth:20,halign:"right"},7:{cellWidth:17}},
+          margin:{left,right,top:26,bottom:13},
+          showHead:"everyPage",
+          willDrawPage:data=>{if(data.pageNumber>1)drawInsurancePdfFrame(doc,logo,"Customer Statement",ref,statementDate,data.pageNumber);}
+        });
+      }else{
+        doc.setFont("helvetica","normal");doc.setFontSize(6.2);doc.setTextColor(100,116,139);doc.text("No Insurance transactions found for this customer.",left,startY+5);
+      }
+      const safe=String(account.name||account.customer_number||"Customer").replace(/[^a-z0-9_-]+/gi,"_").replace(/^_+|_+$/g,"")||"Customer";
+      doc.save(`Insurance_Customer_Statement_${safe}_${String(account.customer_number||"").replace(/[^a-z0-9_-]+/gi,"_")}.pdf`);
+    }catch(err){notify(err.message||"Could not generate customer statement PDF.","error");}
+  }
+
   function renderCompanies() {
     const root = $("#insuranceWorkspace"); if (!root) return;
     root.innerHTML = `<div class="insurance-toolbar"><div class="insurance-toolbar-actions">${can("create") ? `<button class="btn primary tiny" id="insuranceAddCompany"><i class="fa-solid fa-plus"></i> Add Insurance Company</button>` : ""}</div></div>
@@ -920,6 +1193,7 @@
       if (view === "sales") { await loadSales({ reset: true }); renderSales(); }
       else if (view === "commission") { await Promise.all([loadCommissions({ reset: true }), loadOpeningBalances(), loadCommissionSummary()]); renderMyCommission(); }
       else if (view === "referrals") { await Promise.all([loadReferrals({ reset: true }), loadReferralSummary()]); renderReferrals(); }
+      else if (view === "customers") { await loadCustomerBalances({ reset: true }); renderCustomerBalances(); }
       else if (view === "companies") renderCompanies();
       else if (view === "policies") renderPolicies();
       else if (view === "reports") { await loadSales({ reset: true, report: true }); renderReports(); }
@@ -1054,10 +1328,14 @@
       <div id="insuranceCustomerFields" class="wide hide"><div class="insurance-form-grid"><label>Customer Name<input class="input" name="customer_name"></label><label>Customer Number<input class="input" name="customer_id" readonly placeholder="Auto-generated 6 digits"></label><label>Phone<input class="input" name="customer_phone"></label><label>Email<input class="input" type="email" name="customer_email"></label><label>Company<input class="input" name="customer_company"></label><label>TRN<input class="input" name="customer_trn"></label><label class="wide">Address<input class="input" name="customer_address"></label></div></div>
       <div class="wide insurance-sale-meta"><label>Currency<select class="select" name="currency" id="insuranceSaleCurrency">${currencyOptions(firstCurrency)}</select></label><label>Date<input class="input" type="date" name="transaction_date" value="${dateToday()}" required></label><label>Time<input class="input" type="time" name="transaction_time" value="${timeNow()}" required></label></div>
       <div class="wide insurance-price-grid"><label>Gross Premium<input class="input insurance-price" type="number" inputmode="decimal" min="0" step="0.01" name="gross_premium" required placeholder="1500"></label><label>Purchase Price<input class="input insurance-price" type="number" inputmode="decimal" min="0" step="0.01" name="purchase_price" required placeholder="1400"></label><label>Sale Price<input class="input insurance-price" type="number" inputmode="decimal" min="0" step="0.01" name="sale_price" required placeholder="1450"></label></div>
+      <div class="wide insurance-customer-payment-entry"><label class="insurance-check-line insurance-customer-payment-toggle"><input type="checkbox" id="insuranceNotFullyPaid"><span>Not fully paid</span></label><div id="insuranceAmountPaidField" class="insurance-customer-payment-fields hide"><label>Amount Paid<input class="input" name="amount_paid" type="number" inputmode="decimal" min="0" step="0.01" value="0"></label><div class="insurance-customer-payment-preview"><span>Outstanding after sale</span><strong id="insuranceCustomerOutstandingPreview">0</strong></div></div><small id="insuranceCustomerPaymentHelp">By default this sale is recorded as fully paid.</small></div>
       <div class="insurance-calc"><div class="insurance-calc-item"><span>Company Commission</span><strong id="insuranceCalcCompany">0</strong></div><div class="insurance-calc-item"><span>Customer Discount</span><strong id="insuranceCalcDiscount">0</strong></div><div class="insurance-calc-item"><span>Actual Commission / Profit</span><strong id="insuranceCalcProfit">0</strong></div></div><div id="insuranceCalcWarning" class="insurance-warning hide"></div>
       <label class="wide">Additional Details / Notes<textarea class="input" name="notes" rows="2"></textarea></label></form>`, actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceSaleSave"><i class="fa-solid fa-check"></i> Complete Sale</button>`, onOpen(modal,close){
         const form=$("#insuranceSaleForm",modal), cur=$("#insuranceSaleCurrency",modal);
         if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(cur);
+        const paymentToggle=$("#insuranceNotFullyPaid",modal),paymentField=$("#insuranceAmountPaidField",modal),paymentAmount=form.elements.amount_paid,paymentPreview=$("#insuranceCustomerOutstandingPreview",modal),paymentHelp=$("#insuranceCustomerPaymentHelp",modal);
+        const syncCustomerPayment=()=>{const enabled=!!paymentToggle?.checked,salePrice=Math.max(0,n(form.elements.sale_price.value)),paid=Math.max(0,n(paymentAmount?.value)),currency=form.elements.currency.value||firstCurrency,mode=String(form.elements.customer_type.value||"walkin");paymentField?.classList.toggle("hide",!enabled);if(paymentAmount){paymentAmount.disabled=!enabled;paymentAmount.max=String(salePrice);if(!enabled)paymentAmount.value="0";}if(paymentPreview)paymentPreview.innerHTML=moneyHtml(enabled?Math.max(salePrice-paid,0):0,currency);if(paymentHelp)paymentHelp.textContent=enabled?(mode==="walkin"?"Choose an existing or new customer so this outstanding balance can be tracked.":"Enter how much the customer paid now. The remaining balance will stay in Customers/Balances."):"By default this sale is recorded as fully paid.";};
+        paymentToggle?.addEventListener("change",syncCustomerPayment);paymentAmount?.addEventListener("input",syncCustomerPayment);
         const referralSelector=$("#insuranceReferralSelector",modal),newReferralField=$("#insuranceNewReferralField",modal),newReferralInput=form.elements.referral_name,chooseExisting=$("#insuranceReferralChooseExisting",modal),referralToggle=$("#insuranceReferralCommissionToggle",modal),referralField=$("#insuranceReferralCommissionField",modal),referralAmount=form.elements.referral_commission;
         const selectedReferralName=()=>{const value=referralSelector?.value||"";if(value==="__new__")return String(newReferralInput?.value||"").trim();return S.referrerDirectory.find(r=>r.id===value)?.name||"";};
         const syncReferralSelection=()=>{const isNew=referralSelector?.value==="__new__",hasReferral=!!referralSelector?.value;referralSelector?.classList.toggle("hide",isNew);newReferralField?.classList.toggle("hide",!isNew);if(newReferralInput)newReferralInput.required=isNew;referralToggle.disabled=!hasReferral;if(!hasReferral){referralToggle.checked=false;}syncReferralCommission();};
@@ -1066,19 +1344,23 @@
         const editableCustomerInputs=["customer_name","customer_phone","customer_email","customer_company","customer_trn","customer_address"].map(name=>form.elements[name]).filter(Boolean);
         const fillCustomer=c=>{form.elements.customer_name.value=c?.name||"";form.elements.customer_id.value=customerNumberOf(c);form.elements.customer_phone.value=c?.phone||"";form.elements.customer_email.value=c?.email||"";form.elements.customer_company.value=c?.company||"";form.elements.customer_trn.value=c?.trn||"";form.elements.customer_address.value=c?.address||"";};
         const clearCustomer=()=>fillCustomer({});
-        const setMode=mode=>{form.elements.customer_type.value=mode;modeButtons.forEach(b=>b.classList.toggle("active",b.dataset.customerMode===mode));existingWrap.classList.toggle("hide",mode!=="existing");fieldsWrap.classList.toggle("hide",mode==="walkin");editableCustomerInputs.forEach(input=>{input.readOnly=mode==="existing";});form.elements.customer_id.readOnly=true;if(mode==="existing"&&form.elements.existing_customer.value!==""){const c=customers[Number(form.elements.existing_customer.value)];if(c)fillCustomer(c);}if(mode==="new"||mode==="walkin")clearCustomer();};
+        const setMode=mode=>{form.elements.customer_type.value=mode;modeButtons.forEach(b=>b.classList.toggle("active",b.dataset.customerMode===mode));existingWrap.classList.toggle("hide",mode!=="existing");fieldsWrap.classList.toggle("hide",mode==="walkin");editableCustomerInputs.forEach(input=>{input.readOnly=mode==="existing";});form.elements.customer_id.readOnly=true;if(mode==="existing"&&form.elements.existing_customer.value!==""){const c=customers[Number(form.elements.existing_customer.value)];if(c)fillCustomer(c);}if(mode==="new"||mode==="walkin")clearCustomer();syncCustomerPayment();};
         modeButtons.forEach(b=>b.onclick=()=>setMode(b.dataset.customerMode));
         const customerSelect=$("#insuranceExistingCustomerSelect",modal),customerSearch=$("#insuranceExistingCustomerSearch",modal),customerHelp=$("#insuranceExistingCustomerHelp",modal);
         customerSelect.onchange=()=>{const raw=customerSelect.value;if(raw==="")return clearCustomer();const c=customers[Number(raw)];if(c)fillCustomer(c);};
         let customerSearchTimer=null;
         customerSearch.addEventListener("input",()=>{clearTimeout(customerSearchTimer);customerSearchTimer=setTimeout(async()=>{const query=customerSearch.value.trim();if(customerHelp)customerHelp.textContent="Searching customers…";try{const response=await rpc("app_insurance_list_customers",{p_search:query||null,p_limit:100});customers=mergeCustomerDirectory(response?.items||[],query);customerSelect.innerHTML=customerOptionHtml(customers);clearCustomer();if(customerHelp)customerHelp.textContent=customers.length?`${customers.length} matching customer${customers.length===1?"":"s"}. Select one below.`:"No matching customers found.";}catch(err){if(customerHelp)customerHelp.textContent=err.message||"Could not search customers.";}},220);});
         const calc=()=>{const gp=form.elements.gross_premium.value,pp=form.elements.purchase_price.value,sp=form.elements.sale_price.value,currency=form.elements.currency.value||firstCurrency;const warning=$("#insuranceCalcWarning",modal); if([gp,pp,sp].some(v=>v==="")){warning.classList.add("hide");return;} try{const r=global.TripleMInsuranceMath.calculateInsuranceFinancials(gp,pp,sp);$("#insuranceCalcCompany",modal).innerHTML=moneyHtml(r.companyCommission,currency);$("#insuranceCalcDiscount",modal).innerHTML=moneyHtml(r.customerDiscount,currency);const profit=$("#insuranceCalcProfit",modal);profit.innerHTML=moneyHtml(r.actualProfit,currency);profit.classList.toggle("insurance-amount-loss",r.isLoss);const msgs=[];if(r.purchasePrice>r.grossPremium)msgs.push("Purchase Price is above Gross Premium, so the original company commission is negative.");if(r.salePrice>r.grossPremium)msgs.push("Sale Price is above Gross Premium, so Customer Discount is negative and represents a markup.");if(r.isLoss)msgs.push(`This transaction creates a loss of ${moneyPlain(r.lossAmount,currency)}.`);warning.textContent=msgs.join(" ");warning.classList.toggle("hide",!msgs.length);warning.classList.toggle("loss",r.isLoss);}catch(err){warning.textContent=err.message;warning.classList.remove("hide");warning.classList.add("loss");}};
-        $$('.insurance-price',modal).forEach(i=>i.addEventListener("input",calc));cur.addEventListener("change",calc);
+        $$('.insurance-price',modal).forEach(i=>i.addEventListener("input",()=>{calc();syncCustomerPayment();}));cur.addEventListener("change",()=>{calc();syncCustomerPayment();});syncCustomerPayment();
         $("#insuranceSaleSave",modal).onclick=async e=>{
           if(!form.reportValidity())return;
           const fd=new FormData(form);let mode=String(fd.get("customer_type")||"walkin");
           if(mode!=="walkin"&&!String(fd.get("customer_name")||"").trim())return notify("Customer name is required.","error");
           let math;try{math=global.TripleMInsuranceMath.calculateInsuranceFinancials(fd.get("gross_premium"),fd.get("purchase_price"),fd.get("sale_price"));}catch(err){return notify(err.message,"error");}
+          const notFullyPaid=!!paymentToggle?.checked,amountPaid=notFullyPaid?n(fd.get("amount_paid")):math.salePrice;
+          if(notFullyPaid&&mode==="walkin")return notify("Select an existing or new customer before recording an outstanding balance.","error");
+          if(notFullyPaid&&math.salePrice<=0)return notify("A zero-value sale cannot have an outstanding balance.","error");
+          if(notFullyPaid&&(amountPaid<0||amountPaid>=math.salePrice))return notify("Amount Paid must be zero or more, and less than the Sale Price. If fully paid, leave Not fully paid unticked.","error");
           const referralName=selectedReferralName(),referralEnabled=!!referralToggle?.checked,referralCommission=referralEnabled?n(fd.get("referral_commission")):0;
           if(referralEnabled&&!referralName)return notify("Enter the referral name before assigning referral commission.","error");
           if(referralEnabled&&referralCommission<=0)return notify("Referral commission must be greater than zero.","error");
@@ -1107,7 +1389,7 @@
           };
           setBusy(e.currentTarget,true,"Saving");
           try{
-            const res=await rpc("app_insurance_create_sale_with_referral",{p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_allow_duplicate_customer:allowDuplicate,p_policy_number:String(fd.get("policy_number")||"").trim()||null,p_referral_name:referralName||null,p_referral_commission:referralCommission});
+            const res=await rpc("app_insurance_create_sale_with_referral",{p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_allow_duplicate_customer:allowDuplicate,p_policy_number:String(fd.get("policy_number")||"").trim()||null,p_referral_name:referralName||null,p_referral_commission:referralCommission,p_not_fully_paid:notFullyPaid,p_amount_paid:amountPaid});
             close();await reloadMasterAndView("sales");notify(math.isLoss?`Insurance sale saved with a loss of ${moneyPlain(math.lossAmount,fd.get("currency"))}.`:"Insurance sale completed.",math.isLoss?"error":"success");if(res?.item)openSaleDetails(res.item.id);
           }catch(err){notify(err.message||"Could not complete Insurance sale.","error");}
           finally{setBusy(e.currentTarget,false);}
@@ -1171,10 +1453,26 @@
     }catch(err){notify(err.message||"Could not delete sale.","error");}
   }
 
+  function customerPaymentHistoryHtml(s) {
+    const payments=Array.isArray(s?.customer_payments)?s.customer_payments:[];
+    if(!payments.length)return `<div class="insurance-customer-payment-history-empty">No customer payment entries.</div>`;
+    return `<div class="insurance-customer-payment-history"><div class="insurance-customer-payment-history-head"><div>Payment</div><div>Date</div><div>Amount</div></div>${payments.map(p=>`<div class="insurance-customer-payment-history-row"><div><strong>${esc(p.reference_no||"Payment")}</strong><small>${p.payment_kind==="initial"?"At sale":p.payment_kind==="historical"?"Existing settled sale":"Received later"}${p.notes?` · ${esc(p.notes)}`:""}</small></div><span>${fmtDate(p.payment_date)} ${fmtTime(p.payment_time)}</span><b>${moneyHtml(p.amount_paid,s.currency)}</b></div>`).join("")}</div>`;
+  }
+
+  async function openCustomerPayment(sale) {
+    if(!can("create"))return notify("Your account does not have permission to receive Insurance payments.","error");
+    const outstanding=n(sale?.customer_outstanding);
+    if(!sale?.id||!sale?.customer_number||outstanding<=0)return notify("This Insurance Sale has no outstanding customer balance.","error");
+    openModal({id:"insuranceCustomerPaymentModal",title:"Receive Customer Payment",subtitle:`${sale.customer_name} · ${sale.reference_no}`,body:`<form id="insuranceCustomerPaymentForm" class="insurance-form-grid insurance-customer-payment-form"><div class="wide insurance-customer-payment-balance"><span>Outstanding Balance</span><strong>${moneyHtml(outstanding,sale.currency)}</strong></div><label>Amount Received<input class="input" name="amount_paid" type="number" inputmode="decimal" min="0.01" max="${esc(outstanding)}" step="0.01" value="${esc(outstanding)}" required></label><label>Date<input class="input" name="payment_date" type="date" value="${dateToday()}" required></label><label>Time<input class="input" name="payment_time" type="time" value="${timeNow()}" required></label><label class="wide">Payment Details / Notes<textarea class="input" name="notes" rows="2" placeholder="Optional reference or payment note"></textarea></label></form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceCustomerPaymentSave"><i class="fa-solid fa-hand-holding-dollar"></i> Receive Payment</button>`,onOpen(modal,close){
+      const form=$("#insuranceCustomerPaymentForm",modal);
+      $("#insuranceCustomerPaymentSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),amount=n(fd.get("amount_paid"));if(amount<=0)return notify("Payment amount must be greater than zero.","error");if(amount>outstanding)return notify("Payment amount cannot exceed the outstanding balance.","error");setBusy(e.currentTarget,true,"Saving");try{await rpc("app_insurance_record_customer_payment",{p_sale_id:sale.id,p_amount_paid:amount,p_payment_date:fd.get("payment_date"),p_payment_time:fd.get("payment_time"),p_notes:String(fd.get("notes")||"").trim()||null});close();notify("Customer payment recorded.");if(S.view==="customers"){await loadCustomerBalances({reset:false});renderCustomerBalances();await openCustomerBalance(sale.customer_number);}else if(S.view==="sales"){await loadSales({reset:false});renderSales();await openSaleDetails(sale.id);}else if(S.view==="reports"){await loadSales({reset:false,report:true});renderReports();await openSaleDetails(sale.id);}else{await openSaleDetails(sale.id);}}catch(err){notify(err.message||"Could not record customer payment.","error");}finally{setBusy(e.currentTarget,false);}};
+    }});
+  }
+
   async function openSaleDetails(id) {
     try {
       const res=await rpc("app_insurance_get_sale",{p_id:id}), s=res?.item; if(!s)return;
-      const profit=n(s.actual_profit), isLoss=profit<0;
+      const profit=n(s.actual_profit), isLoss=profit<0, outstanding=n(s.customer_outstanding), paid=n(s.customer_amount_paid);
       openModal({ id:"insuranceDetailsModal",title:"Insurance Transaction",subtitle:s.reference_no,body:`<div class="insurance-detail-grid">
         <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(s.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Insurance Policy</span><strong>${esc(s.policy_name_snapshot)}</strong></div>
         <div class="insurance-detail"><span>Policy Number</span><strong>${s.policy_number?esc(s.policy_number):"—"}</strong></div><div class="insurance-detail"><span>Policy Status</span><strong>${s.cancellation_id?`<span class="insurance-cancelled-badge">Cancelled</span>`:"Active / Sold"}</strong></div>
@@ -1183,10 +1481,13 @@
         <div class="insurance-detail"><span>Gross Premium</span><strong>${moneyHtml(s.gross_premium,s.currency)}</strong></div><div class="insurance-detail"><span>Purchase Price</span><strong>${moneyHtml(s.purchase_price,s.currency)}</strong></div>
         <div class="insurance-detail"><span>Sale Price</span><strong>${moneyHtml(s.sale_price,s.currency)}</strong></div><div class="insurance-detail"><span>Original Company Commission</span><strong>${moneyHtml(s.company_commission,s.currency)}</strong></div>
         <div class="insurance-detail"><span>Customer Discount</span><strong>${moneyHtml(s.customer_discount,s.currency)}</strong></div><div class="insurance-detail"><span>${isLoss?"Actual Loss":"Actual Commission / Profit"}</span><strong class="${isLoss?"insurance-amount-loss":""}">${moneyHtml(s.actual_profit,s.currency)}</strong></div>
+        <div class="insurance-detail"><span>Payment Status</span><strong>${customerPaymentStatusBadge(s)}</strong></div><div class="insurance-detail"><span>Amount Paid</span><strong>${moneyHtml(paid,s.currency)}</strong></div>
+        <div class="insurance-detail"><span>Outstanding Balance</span><strong class="${outstanding>0?"insurance-amount-outstanding":""}">${moneyHtml(outstanding,s.currency)}</strong></div><div class="insurance-detail"><span>Payments</span><strong>${Array.isArray(s.customer_payments)?s.customer_payments.length:0}</strong></div>
         ${s.referral_name?`<div class="insurance-detail"><span>Referral</span><strong>${esc(s.referral_name)}</strong></div><div class="insurance-detail"><span>Referral Commission</span><strong>${moneyHtml(s.referral_commission||0,s.currency)}</strong></div>`:""}
         ${s.cancellation_id?`<div class="insurance-detail"><span>Cancellation Date</span><strong>${fmtDate(s.cancellation_date)} ${fmtTime(s.cancellation_time)}</strong></div><div class="insurance-detail"><span>Policy Used</span><strong>${formatPolicyDuration(s.policy_used_days)}</strong></div><div class="insurance-detail"><span>Cancellation Commission Deduction</span><strong>${moneyHtml(s.cancellation_commission_deduction||0,s.currency)}</strong></div><div class="insurance-detail"><span>Added to My Commission</span><strong>${s.post_deduction_to_commission?"Yes":"No"}</strong></div>${s.cancellation_reason?`<div class="insurance-detail insurance-detail-wide"><span>Cancellation Reason</span><strong>${esc(s.cancellation_reason)}</strong></div>`:""}`:""}
         ${s.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(s.notes)}</strong></div>`:""}
-        <div class="insurance-detail insurance-detail-wide"><span>Calculation</span><strong>Company Commission = Gross Premium − Purchase Price. Customer Discount = Gross Premium − Sale Price. Actual Profit = Sale Price − Purchase Price.${isLoss?` This sale records a loss of ${moneyPlain(Math.abs(profit),s.currency)}.`:""}</strong></div></div>`,actions:`<button class="btn primary" data-insurance-close>Done</button>`});
+        <div class="insurance-detail insurance-detail-wide insurance-customer-payment-detail"><span>Customer Payment History</span>${customerPaymentHistoryHtml(s)}</div>
+        <div class="insurance-detail insurance-detail-wide"><span>Calculation</span><strong>Company Commission = Gross Premium − Purchase Price. Customer Discount = Gross Premium − Sale Price. Actual Profit = Sale Price − Purchase Price.${isLoss?` This sale records a loss of ${moneyPlain(Math.abs(profit),s.currency)}.`:""}</strong></div></div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${outstanding>0&&s.customer_number&&can("create")?`<button class="btn primary" id="insuranceReceiveCustomerPayment"><i class="fa-solid fa-hand-holding-dollar"></i> Receive Payment</button>`:""}`,onOpen(modal){$("#insuranceReceiveCustomerPayment",modal)?.addEventListener("click",()=>openCustomerPayment(s));}});
     } catch(err){notify(err.message||"Could not open Insurance transaction.","error");}
   }
 
@@ -1196,20 +1497,24 @@
   }
 
   function buildDocumentData(s,type="invoice") {
-    const discount=n(s.customer_discount);
-    return { type, title:type==="receipt"?"Receipt":"Invoice", reference:s.reference_no, date:s.transaction_date, customer_name:s.customer_name||"Walk-in Customer",customer_number:s.customer_number||"",customer_phone:s.customer_phone||"",customer_email:s.customer_email||"",customer_company:s.customer_company||"",customer_trn:s.customer_trn||"",customer_address:s.customer_address||"",insurance_company:s.company_name_snapshot,policy_name:s.policy_name_snapshot,policy_number:s.policy_number||"",currency:s.currency,gross_premium:n(s.gross_premium),customer_discount:discount,sale_price:n(s.sale_price),notes:s.notes||"",cancellation_id:s.cancellation_id||null,cancellation_date:s.cancellation_date||null,cancellation_time:s.cancellation_time||null,policy_used_days:n(s.policy_used_days),cancellation_commission_deduction:n(s.cancellation_commission_deduction),cancellation_reason:s.cancellation_reason||"" };
+    const discount=n(s.customer_discount),provider=S.companies.find(c=>c.id===s.company_id),policy=S.policies.find(p=>p.id===s.policy_id);
+    const salePrice=n(s.sale_price),amountPaid=s.customer_amount_paid==null?salePrice:n(s.customer_amount_paid),outstanding=s.customer_outstanding==null?Math.max(salePrice-amountPaid,0):n(s.customer_outstanding);
+    return { type, title:type==="receipt"?"Receipt":"Invoice", reference:s.reference_no, date:s.transaction_date, transaction_time:s.transaction_time||"", company_id:s.company_id||null,policy_id:s.policy_id||null,customer_name:s.customer_name||"Walk-in Customer",customer_number:s.customer_number||"",customer_phone:s.customer_phone||"",customer_email:s.customer_email||"",customer_company:s.customer_company||"",customer_trn:s.customer_trn||"",customer_address:s.customer_address||"",insurance_company:s.company_name_snapshot||provider?.company_name||"",insurance_contact_name:provider?.contact_name||"",insurance_phone:provider?.phone||"",insurance_email:provider?.email||"",insurance_address:provider?.address||"",policy_name:s.policy_name_snapshot||policy?.policy_name||"",policy_number:s.policy_number||"",policy_description:policy?.description||"",policy_notes:policy?.notes||"",currency:s.currency,gross_premium:n(s.gross_premium),customer_discount:discount,sale_price:salePrice,amount_paid:amountPaid,outstanding,payment_status:s.customer_payment_status||((outstanding<=0)?"paid":amountPaid>0?"partial":"unpaid"),notes:s.notes||"",cancellation_id:s.cancellation_id||null,cancellation_date:s.cancellation_date||null,cancellation_time:s.cancellation_time||null,policy_used_days:n(s.policy_used_days),cancellation_commission_deduction:n(s.cancellation_commission_deduction),cancellation_reason:s.cancellation_reason||"" };
   }
 
   function documentHtml(d) {
-    const company=documentCompanyProfile();
+    const company=documentCompanyProfile(),provider=insuranceProviderProfile(d),policy=insurancePolicyProfile(d);
+    const paid=d.amount_paid==null?n(d.sale_price):n(d.amount_paid),outstanding=d.outstanding==null?Math.max(n(d.sale_price)-paid,0):n(d.outstanding);
     const discountLine=n(d.customer_discount)>0?`<div><span>Customer Discount</span><strong>− ${moneyHtml(d.customer_discount,d.currency)}</strong></div>`:"";
-    const companyLines=[company.trn?`TRN ${esc(company.trn)}`:"",company.email?esc(company.email):"",company.phone?esc(company.phone):"",company.address?esc(company.address):""].filter(Boolean);
-    const customerLines=[d.customer_number?`Customer No. #${esc(d.customer_number)}`:"",d.customer_company?esc(d.customer_company):"",d.customer_trn?`TRN ${esc(d.customer_trn)}`:"",d.customer_phone?esc(d.customer_phone):"",d.customer_email?esc(d.customer_email):"",d.customer_address?esc(d.customer_address):""].filter(Boolean);
+    const companyLines=[company.trn?`TRN ${esc(company.trn)}`:"",[company.email,company.phone].filter(Boolean).map(esc).join(" · "),company.address?esc(company.address):""].filter(Boolean);
+    const customerLines=[d.customer_number?`Customer No. #${esc(d.customer_number)}`:"",[d.customer_company,d.customer_trn?`TRN ${d.customer_trn}`:""].filter(Boolean).map(esc).join(" · "),[d.customer_phone,d.customer_email].filter(Boolean).map(esc).join(" · "),d.customer_address?esc(d.customer_address):""].filter(Boolean);
+    const providerLines=[provider.contact,[provider.phone,provider.email].filter(Boolean).join(" · "),provider.address].filter(Boolean).map(esc);
     return `<div class="insurance-document"><div class="insurance-document-head"><div><h2>${esc(d.title||"Invoice")}</h2><p class="doc-muted">${esc(d.reference||d.invoice_number||"")}</p></div><div class="insurance-document-date"><span>${d.title==="Receipt"?"Receipt Date":"Invoice Date"}</span><strong>${fmtDate(d.date||d.invoice_date)}</strong></div></div>
-      <div class="insurance-document-party-row"><div class="insurance-document-party"><span>Company Details</span><strong>${esc(company.name)}</strong>${companyLines.map(line=>`<p>${line}</p>`).join("")}</div><div class="insurance-document-party"><span>Customer Details</span><strong>${esc(d.customer_name||"Walk-in Customer")}</strong>${customerLines.map(line=>`<p>${line}</p>`).join("")}</div></div>
-      <div class="insurance-document-context"><div><span>Insurance Company</span><strong>${esc(d.insurance_company||"")}</strong></div><div><span>Policy</span><strong>${esc(d.policy_name||d.description||"Insurance Policy")}</strong></div><div><span>Policy Number</span><strong>${d.policy_number?esc(d.policy_number):"—"}</strong></div></div>
+      <div class="insurance-document-party-row insurance-document-party-row-three"><div class="insurance-document-party"><span>Issuer</span><strong>${esc(company.name)}</strong>${companyLines.map(line=>`<p>${line}</p>`).join("")}</div><div class="insurance-document-party"><span>Customer</span><strong>${esc(d.customer_name||"Walk-in Customer")}</strong>${customerLines.map(line=>`<p>${line}</p>`).join("")}</div><div class="insurance-document-party"><span>Insurance Company</span><strong>${esc(provider.name)}</strong>${providerLines.map(line=>`<p>${line}</p>`).join("")}</div></div>
+      <div class="insurance-document-context"><div><span>Policy</span><strong>${esc(policy.name)}</strong></div><div><span>Policy Number</span><strong>${policy.number?esc(policy.number):"—"}</strong></div><div><span>Policy Date</span><strong>${fmtDate(d.date||d.invoice_date)}${d.transaction_time?` · ${fmtTime(d.transaction_time)}`:""}</strong></div></div>
+      ${policy.description||policy.notes?`<div class="insurance-document-policy-notes">${esc([policy.description,policy.notes].filter(Boolean).join(" · "))}</div>`:""}
       ${d.cancellation_id?`<div class="insurance-document-cancellation"><strong>Policy Cancelled</strong><span>${fmtDate(d.cancellation_date)} · ${formatPolicyDuration(d.policy_used_days)} used${d.cancellation_reason?` · ${esc(d.cancellation_reason)}`:""}</span></div>`:""}
-      <table class="insurance-document-table"><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody><tr><td>${esc(d.policy_name||d.description||"Insurance Policy")}</td><td>${moneyHtml(d.gross_premium||d.sale_price,d.currency)}</td></tr></tbody></table><div class="insurance-document-total">${n(d.gross_premium)>0?`<div><span>Gross Premium</span><strong>${moneyHtml(d.gross_premium,d.currency)}</strong></div>`:""}${discountLine}<div class="grand"><span>${d.title==="Receipt"?"Amount Received":"Amount Due"}</span><strong>${moneyHtml(d.sale_price,d.currency)}</strong></div></div>${d.notes?`<p class="doc-muted insurance-document-note">${esc(d.notes)}</p>`:""}</div>`;
+      <table class="insurance-document-table"><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody><tr><td>${esc(policy.name)}</td><td>${moneyHtml(d.gross_premium||d.sale_price,d.currency)}</td></tr></tbody></table><div class="insurance-document-total">${n(d.gross_premium)>0?`<div><span>Gross Premium</span><strong>${moneyHtml(d.gross_premium,d.currency)}</strong></div>`:""}${discountLine}<div><span>Sale Amount</span><strong>${moneyHtml(d.sale_price,d.currency)}</strong></div><div class="grand"><span>${d.title==="Receipt"?"Amount Received":"Amount Paid"}</span><strong>${moneyHtml(paid,d.currency)}</strong></div><div><span>Balance Due</span><strong>${moneyHtml(outstanding,d.currency)}</strong></div></div>${d.notes?`<p class="doc-muted insurance-document-note">${esc(d.notes)}</p>`:""}</div>`;
   }
 
   function openCustomerDocument(s,type) {
@@ -1219,31 +1524,35 @@
 
   async function downloadCustomerDocumentPdf(d) {
     if(!global.jspdf?.jsPDF)return notify("PDF library is still loading. Try again in a moment.","error");
-    const {jsPDF}=global.jspdf,doc=new jsPDF();
     try{
+      const {jsPDF}=global.jspdf,doc=createInsuranceA5Pdf(jsPDF);
       if(typeof loadCustomFontsForPdf==="function")await loadCustomFontsForPdf(doc);
-      const logo=typeof getPdfLogo==="function"?await getPdfLogo():null;
-      if(typeof drawPdfHeaderAndFooter==="function")drawPdfHeaderAndFooter(doc,logo,d.title||"Invoice",d.reference||d.invoice_number||"",false);
-      const company=documentCompanyProfile();
-      const pageW=doc.internal.pageSize.getWidth(), left=14, right=14, gap=6, boxW=(pageW-left-right-gap)/2;
-      const start=Math.max(48,Number(doc.__tripleMOwnerBlockBottom||38)+8), boxH=40;
-      const box=(x,title,name,lines)=>{
-        doc.setDrawColor(218,222,228);doc.setFillColor(249,250,251);doc.roundedRect(x,start,boxW,boxH,2,2,"FD");
-        doc.setFontSize(6.5);doc.setTextColor(100,116,139);doc.text(title,x+4,start+5);
-        doc.setFontSize(8.3);doc.setTextColor(22,25,29);doc.text(String(name||""),x+4,start+10,{maxWidth:boxW-8});
-        doc.setFontSize(6.6);doc.setTextColor(71,85,105);
-        const compact=(lines||[]).filter(Boolean).slice(0,5);let y=start+15;
-        compact.forEach(line=>{const wrapped=doc.splitTextToSize(String(line),boxW-8).slice(0,1);doc.text(wrapped,x+4,y);y+=4.3;});
-      };
-      box(left,"COMPANY DETAILS",company.name,[company.trn?`TRN ${company.trn}`:"",company.email,company.phone,company.address]);
-      box(left+boxW+gap,"CUSTOMER DETAILS",d.customer_name||"Walk-in Customer",[d.customer_number?`Customer No. #${d.customer_number}`:"",d.customer_company,d.customer_trn?`TRN ${d.customer_trn}`:"",d.customer_phone||d.customer_email,d.customer_address]);
-      const metaY=start+boxH+7;
-      doc.setFontSize(6.4);doc.setTextColor(100,116,139);doc.text("INSURANCE COMPANY",left,metaY);doc.text("POLICY NUMBER",left+boxW*.82,metaY);doc.text(d.title==="Receipt"?"RECEIPT DATE":"INVOICE DATE",left+boxW+gap,metaY);
-      doc.setFontSize(7.7);doc.setTextColor(22,25,29);doc.text(String(d.insurance_company||""),left,metaY+4.8,{maxWidth:boxW*.76});doc.text(String(d.policy_number||"—"),left+boxW*.82,metaY+4.8,{maxWidth:boxW*.72});doc.text(fmtDate(d.date||d.invoice_date),left+boxW+gap,metaY+4.8);
-      let tableY=metaY+10;
-      if(d.cancellation_id){doc.setFillColor(254,242,242);doc.setDrawColor(245,190,190);doc.roundedRect(left,tableY,pageW-left-right,13,2,2,"FD");doc.setFontSize(7);doc.setTextColor(170,48,57);doc.text("POLICY CANCELLED",left+4,tableY+5);doc.setFontSize(6.6);doc.setTextColor(92,62,65);doc.text(`${fmtDate(d.cancellation_date)} · ${formatPolicyDuration(d.policy_used_days)} used${d.cancellation_reason?` · ${String(d.cancellation_reason)}`:""}`,left+4,tableY+9.7,{maxWidth:pageW-left-right-8});tableY+=17;}
-      doc.autoTable({startY:tableY,head:[["Insurance Policy","Policy Number","Gross Premium","Discount","Amount"]],body:[[d.policy_name||d.description||"Insurance Policy",d.policy_number||"—",typeof formatPdfAmount==="function"?formatPdfAmount(d.gross_premium||d.sale_price,d.currency):moneyPlain(d.gross_premium||d.sale_price,d.currency),n(d.customer_discount)>0?(typeof formatPdfAmount==="function"?formatPdfAmount(d.customer_discount,d.currency):moneyPlain(d.customer_discount,d.currency)):"—",typeof formatPdfAmount==="function"?formatPdfAmount(d.sale_price,d.currency):moneyPlain(d.sale_price,d.currency)]],styles:{fontSize:7},headStyles:{fontSize:7},margin:{left,right,bottom:35}});
-      doc.save(`${(d.title||"Invoice").replace(/\s+/g,"_")}_${String(d.reference||d.invoice_number||"Insurance").replace(/[^a-z0-9_-]+/gi,"_")}.pdf`);
+      const logo=typeof getPdfLogo==="function"?await getPdfLogo():null,company=documentCompanyProfile(),provider=insuranceProviderProfile(d),policy=insurancePolicyProfile(d);
+      const pageW=doc.internal.pageSize.getWidth(),left=8,right=8,gap=4,cardW=(pageW-left-right-gap*2)/3,title=d.title||"Invoice",reference=d.reference||d.invoice_number||"",docDate=d.date||d.invoice_date;
+      drawInsurancePdfFrame(doc,logo,title,reference,docDate,1);
+      const issuerLines=[company.trn?`TRN ${company.trn}`:"",[company.email,company.phone].filter(Boolean).join(" · "),company.address].filter(Boolean);
+      const customerLines=[d.customer_number?`Customer No. #${d.customer_number}`:"",[d.customer_company,d.customer_trn?`TRN ${d.customer_trn}`:""].filter(Boolean).join(" · "),[d.customer_phone,d.customer_email].filter(Boolean).join(" · "),d.customer_address].filter(Boolean);
+      const providerLines=[provider.contact,[provider.phone,provider.email].filter(Boolean).join(" · "),provider.address].filter(Boolean);
+      drawInsurancePdfCard(doc,{x:left,y:26,w:cardW,h:29,label:"ISSUER",title:company.name,lines:issuerLines});
+      drawInsurancePdfCard(doc,{x:left+cardW+gap,y:26,w:cardW,h:29,label:"CUSTOMER",title:d.customer_name||"Walk-in Customer",lines:customerLines});
+      drawInsurancePdfCard(doc,{x:left+(cardW+gap)*2,y:26,w:cardW,h:29,label:"INSURANCE COMPANY",title:provider.name,lines:providerLines});
+      const policyY=59,policyW=pageW-left-right;
+      doc.setDrawColor(221,226,232);doc.setFillColor(255,255,255);doc.roundedRect(left,policyY,policyW,22,1.6,1.6,"FD");
+      const policyCols=[
+        {label:"POLICY",value:policy.name,width:54},
+        {label:"POLICY NUMBER",value:policy.number||"—",width:37},
+        {label:"POLICY DATE",value:`${fmtDate(docDate)}${d.transaction_time?` · ${fmtTime(d.transaction_time)}`:""}`,width:42},
+        {label:"PAYMENT STATUS",value:(CUSTOMER_PAYMENT_STATUS[d.payment_status]||CUSTOMER_PAYMENT_STATUS.paid).label,width:37}
+      ];
+      let px=left+3;policyCols.forEach(col=>{doc.setFont("helvetica","bold");doc.setFontSize(5.2);doc.setTextColor(100,116,139);doc.text(col.label,px,policyY+4.6);doc.setFontSize(6.6);doc.setTextColor(15,23,42);doc.text(insurancePdfLines(doc,col.value,col.width-3,1),px,policyY+9.1);px+=col.width;});
+      const desc=[policy.description,policy.notes].filter(Boolean).join(" · ");doc.setFont("helvetica","normal");doc.setFontSize(5.2);doc.setTextColor(71,85,105);doc.text(insurancePdfLines(doc,desc||"Policy details recorded with this Insurance transaction.",policyW-6,2),left+3,policyY+16.2);
+      let tableY=85;
+      if(d.cancellation_id){doc.setFillColor(254,242,242);doc.setDrawColor(245,190,190);doc.roundedRect(left,tableY,pageW-left-right,9.5,1.5,1.5,"FD");doc.setFont("helvetica","bold");doc.setFontSize(5.6);doc.setTextColor(170,48,57);doc.text("POLICY CANCELLED",left+3,tableY+3.9);doc.setFont("helvetica","normal");doc.setTextColor(92,62,65);doc.text(insurancePdfLines(doc,`${fmtDate(d.cancellation_date)} · ${formatPolicyDuration(d.policy_used_days)} used${d.cancellation_reason?` · ${d.cancellation_reason}`:""}`,pageW-left-right-35,1),left+34,tableY+3.9);tableY+=12.5;}
+      const paidRaw=d.amount_paid==null?n(d.sale_price):Math.min(Math.max(n(d.amount_paid),0),Math.max(n(d.sale_price),0)),outstandingRaw=d.outstanding==null?Math.max(n(d.sale_price)-paidRaw,0):Math.max(n(d.outstanding),0);
+      doc.autoTable({startY:tableY,head:[["Policy / Description","Gross Premium","Discount","Sale Amount",title==="Receipt"?"Amount Received":"Amount Paid","Balance Due"]],body:[[policy.name,n(d.gross_premium)>0?insurancePdfAmount(d.gross_premium,d.currency):"—",n(d.customer_discount)>0?insurancePdfAmount(d.customer_discount,d.currency):"—",insurancePdfAmount(d.sale_price,d.currency),insurancePdfAmount(paidRaw,d.currency),insurancePdfAmount(outstandingRaw,d.currency)]],styles:{fontSize:5.65,cellPadding:1.45,overflow:"linebreak",valign:"middle",lineColor:[229,231,235],lineWidth:.08},headStyles:{fontSize:5.45,fillColor:[15,23,42],textColor:255,fontStyle:"bold"},columnStyles:{0:{cellWidth:59},1:{cellWidth:27,halign:"right"},2:{cellWidth:25,halign:"right"},3:{cellWidth:28,halign:"right"},4:{cellWidth:28,halign:"right"},5:{cellWidth:27,halign:"right"}},margin:{left,right,bottom:13}});
+      const after=doc.lastAutoTable?.finalY||tableY+14,notes=[d.notes?`Notes: ${d.notes}`:"",d.cancellation_id?`Cancellation: ${fmtDate(d.cancellation_date)} · ${formatPolicyDuration(d.policy_used_days)} used`:""].filter(Boolean).join("   ");
+      if(notes&&after<132){doc.setFont("helvetica","normal");doc.setFontSize(5.25);doc.setTextColor(71,85,105);doc.text(insurancePdfLines(doc,notes,pageW-left-right,2),left,Math.min(after+4,132));}
+      doc.save(`${title.replace(/\s+/g,"_")}_${String(reference||"Insurance").replace(/[^a-z0-9_-]+/gi,"_")}.pdf`);
     }catch(err){notify(err.message||"Could not generate PDF.","error");}
   }
 
