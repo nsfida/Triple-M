@@ -194,6 +194,9 @@ const CANONICAL_MIGRATION_FILES = [
   "177_insurance_referrals_and_commission_history_fix.sql",
   "178_insurance_referrer_directory_grouped_ledger.sql",
   "179_insurance_customer_balances_and_payments.sql",
+  "180_insurance_referral_commission_above_my_commission.sql",
+  "181_insurance_referral_commission_auto_calculation.sql",
+  "182_insurance_referral_commission_auto_fill_editable.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
