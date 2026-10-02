@@ -383,7 +383,7 @@ test("Insurance migration 177 adds referral payables without reducing My Commiss
   assert.match(sql, /add column if not exists referral_commission numeric/i);
   assert.match(sql, /create table if not exists public\.insurance_referral_payments/i);
   assert.match(sql, /create or replace function public\.app_insurance_create_sale_with_referral/i);
-  assert.match(sql, /Referral commission cannot exceed My Commission for this sale/i);
+  assert.match(sql, /ra>max_commission/i);
   assert.match(sql, /create or replace function public\.app_insurance_list_referrals/i);
   assert.match(sql, /create or replace function public\.app_insurance_pay_referral/i);
   assert.match(sql, /referral_outstanding/i);
@@ -398,11 +398,17 @@ test("Insurance sale form records optional referral and separate commission shar
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
   assert.match(source, /name="referral_name"/);
   assert.match(source, /insuranceReferralCommissionToggle/);
-  assert.match(source, /name="referral_commission"/);
   assert.match(source, /app_insurance_create_sale_with_referral/);
   assert.match(source, /p_referral_name:referralName\|\|null/);
   assert.match(source, /p_referral_commission:referralCommission/);
-  assert.match(source, /Referral commission cannot exceed My Commission for this sale/);
+  assert.doesNotMatch(source, /referralCommission>Math\.max\(math\.actualProfit,0\)/);
+  assert.match(source, /insuranceReferralCommissionAmount/);
+  assert.match(source, /referralCommissionValue=\(\)=>Math\.max\(0,n\(form\.elements\.gross_premium\?\.value\)-n\(form\.elements\.sale_price\?\.value\)\)/);
+  assert.match(source, /referralCommission=referralEnabled\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
+  assert.doesNotMatch(source, /name="referral_commission"/);
+  assert.match(source, /id="insuranceReferralCommissionAmount" type="number" inputmode="decimal" min="0" step="0\.01" value="0"/);
+  assert.doesNotMatch(source, /Automatically calculated: Gross Premium/);
+  assert.match(source, /referralCommission=referralEnabled\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
 });
 
 test("Insurance Referrals section keeps separate payable status and settlement history", () => {
@@ -420,6 +426,39 @@ test("Insurance Referrals section keeps separate payable status and settlement h
   assert.match(css, /\.insurance-referral-line\{/);
   assert.match(css, /\.insurance-referral-entry\{/);
   assert.match(css, /@media\(max-width:480px\)[\s\S]*insurance-referral-filter-toolbar/);
+});
+
+test("Insurance migration 180 allows referral commission above My Commission without changing sale accounting", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/180_insurance_referral_commission_above_my_commission.sql"), "utf8");
+  assert.match(sql, /create or replace function public\.app_insurance_create_sale_with_referral/i);
+  assert.doesNotMatch(sql, /max_commission/i);
+  assert.doesNotMatch(sql, /Referral commission cannot exceed My Commission for this sale/i);
+  assert.match(sql, /set referral_id=rid,referral_name=rn,referral_commission=ra/i);
+  assert.doesNotMatch(sql, /set\s+actual_profit\s*=/i);
+  assert.doesNotMatch(sql, /set\s+company_commission\s*=/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+
+
+test("Insurance migration 181 automatically calculates referral commission from Gross Premium minus Sales Price", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/181_insurance_referral_commission_auto_calculation.sql"), "utf8");
+  assert.match(sql, /create or replace function public\.app_insurance_create_sale_with_referral/i);
+  assert.match(sql, /ra numeric:=greatest\(coalesce\(p_gross_premium,0::numeric\)-coalesce\(p_sale_price,0::numeric\),0::numeric\)/i);
+  assert.doesNotMatch(sql, /Referral commission cannot exceed My Commission for this sale/i);
+  assert.doesNotMatch(sql, /set\s+actual_profit\s*=/i);
+  assert.doesNotMatch(sql, /set\s+company_commission\s*=/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("Insurance migration 182 keeps the auto-filled referral amount editable", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/182_insurance_referral_commission_auto_fill_editable.sql"), "utf8");
+  assert.match(sql, /create or replace function public\.app_insurance_create_sale_with_referral/i);
+  assert.match(sql, /ra numeric:=greatest\(coalesce\(p_referral_commission,0::numeric\),0::numeric\)/i);
+  assert.doesNotMatch(sql, /Referral commission cannot exceed My Commission for this sale/i);
+  assert.doesNotMatch(sql, /set\s+actual_profit\s*=/i);
+  assert.doesNotMatch(sql, /set\s+company_commission\s*=/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
 });
 
 test("Insurance migration 178 adds reusable referrer directory and grouped ledger", () => {
