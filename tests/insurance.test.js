@@ -107,7 +107,7 @@ test('insurance UI offers separate company and policy catalogues with compact ce
   const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
   assert.match(source, /Policies are independent from Insurance Companies/);
   assert.doesNotMatch(source, /insurancePolicyCompanyFilter/);
-  assert.match(source, /policyOptions\("",true\)/);
+  assert.match(source, /const policyOptionsHtml=/);
   assert.doesNotMatch(source, /comp\.onchange=.*policyOptions/);
   assert.match(source, /p_company_id:null/);
   assert.match(source, /insurance-entry-dialog compact-entry-dialog/);
@@ -247,10 +247,13 @@ test('My Commission UI lists every sale with due received outstanding status and
   assert.match(source, /Partially Received/);
   assert.match(source, /Fully Received/);
   assert.match(source, /app_insurance_receive_commission/);
-  assert.match(source, /p_sale_ids:sales\.map\(r=>r\.id\)/);
-  assert.match(source, /p_opening_balance_ids:openings\.map\(r=>r\.id\)/);
-  assert.match(source, /Select All/);
-  assert.match(source, /opening balances first/);
+  assert.match(source, /app_insurance_commission_summary/);
+  assert.match(source, /Total Outstanding Commission/);
+  assert.match(source, /p_currency:fd\.get\(\"currency\"\)/);
+  const receiveBlock=source.slice(source.indexOf('async function openCommissionReceiving'),source.indexOf('async function openCommissionHistory'));
+  assert.doesNotMatch(receiveBlock, /Insurance Company<select class=\"select\" name=\"company_id\"/);
+  assert.doesNotMatch(receiveBlock, /insuranceCommissionCandidateList/);
+  assert.doesNotMatch(receiveBlock, /insuranceDeductionCandidateList/);
   assert.match(source, /rowMenuButtonHtml\("commission",row\.id\)/);
   assert.match(css, /\.insurance-commission-line\{[\s\S]*?grid-template-columns:/);
   assert.match(css, /\.insurance-commission-status\.partial/);
@@ -303,11 +306,10 @@ test("Insurance temporary invoices use INV prefix", () => {
   assert.match(sql, /if inv='' then inv:='INV-'/);
 });
 
-test("Insurance My Commission supports cancellation deductions and combined settlement", () => {
+test("Insurance My Commission supports cancellation deductions with global settlement", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
   const sql = fs.readFileSync(path.join(projectRoot, "migrations/175_insurance_policy_cancellation_commission_deductions.sql"), "utf8");
   assert.match(source, /Add Deduction/);
-  assert.match(source, /p_deduction_ids/);
   assert.match(source, /Deducted<\/div><div>Outstanding/);
   assert.match(sql, /p_deduction_ids uuid\[\]/i);
   assert.match(sql, /amount_applied/i);
@@ -324,6 +326,21 @@ test("Insurance mobile filters and commission columns include cancellation refin
   assert.match(css, /input\[type="date"\]/);
 });
 
+
+test("Insurance migration 183 supports global automatic commission receiving across companies", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/183_insurance_commission_global_receive.sql"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(sql, /alter column company_id drop not null/i);
+  assert.match(sql, /create function public\.app_insurance_receive_commission\(\s*p_currency text,\s*p_amount_received numeric/i);
+  assert.match(sql, /order by sort_date,sort_time nulls first,case when source_type='opening' then 0 else 1 end/i);
+  assert.match(sql, /Multiple Insurance Companies/i);
+  assert.match(source, /id=\"insuranceCommissionOutstandingTotal\"/);
+  assert.match(source, /p_status:\"due\"/);
+  assert.match(source, /p_amount_received:received/);
+  const receiveBlock=source.slice(source.indexOf('async function openCommissionReceiving'),source.indexOf('async function openCommissionHistory'));
+  assert.doesNotMatch(receiveBlock, /name="company_id"/);
+  assert.doesNotMatch(receiveBlock, /Insurance Company<select/);
+});
 
 test("Insurance migration 176 adds tenant-scoped opening commission balances without fake sales", () => {
   const sql = fs.readFileSync(path.join(projectRoot, "migrations/176_insurance_commission_opening_balances.sql"), "utf8");
@@ -352,7 +369,7 @@ test("My Commission UI supports opening balances and shows the three requested t
   assert.match(source, /Balance to Receive<\/span>/);
   assert.match(source, /Opening Outstanding Balances/);
   assert.match(source, /app_insurance_list_commission_opening_balances/);
-  assert.match(source, /p_opening_balance_ids:openings\.map\(r=>r\.id\)/);
+  assert.match(source, /openCommissionReceiving\(\{\.\.\.row,source_type:"opening"\}\)/);
   assert.match(source, /source_type:"opening"/);
   assert.match(css, /\.insurance-commission-summary-strip\{/);
   assert.match(css, /\.insurance-opening-balance-row\{/);
@@ -406,7 +423,7 @@ test("Insurance sale form records optional referral and separate commission shar
   assert.match(source, /referralCommissionValue=\(\)=>Math\.max\(0,n\(form\.elements\.gross_premium\?\.value\)-n\(form\.elements\.sale_price\?\.value\)\)/);
   assert.match(source, /referralCommission=referralEnabled\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
   assert.doesNotMatch(source, /name="referral_commission"/);
-  assert.match(source, /id="insuranceReferralCommissionAmount" type="number" inputmode="decimal" min="0" step="0\.01" value="0"/);
+  assert.match(source, /id="insuranceReferralCommissionAmount" type="number" inputmode="decimal" min="0" step="0\.01" value="\$\{referralInputValue\}"/);
   assert.doesNotMatch(source, /Automatically calculated: Gross Premium/);
   assert.match(source, /referralCommission=referralEnabled\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
 });
@@ -524,10 +541,28 @@ test("Insurance migration 179 adds customer receivables without rewriting prior 
   assert.doesNotMatch(sql, /drop\s+table/i);
 });
 
+test("Insurance sales offer an editable dropdown action and save through the dedicated update RPC", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/184_insurance_sale_edit.sql"), "utf8");
+  assert.match(source, /can\("edit"\) && !sale\.cancellation_id \? \{ label: "Edit", icon: "fa-pen", action: \(\) => openSaleEditor\(sale\.id\) \} : null/);
+  assert.match(source, /async function openSaleEditor\(id\)/);
+  assert.match(source, /function openMakeSale\(editSale=null\)/);
+  assert.match(source, /rpc\(isEdit\?"app_insurance_update_sale_with_referral":"app_insurance_create_sale_with_referral"/);
+  assert.match(sql, /create or replace function public\.app_insurance_update_sale_with_referral/i);
+  assert.match(sql, /app_require_insurance_permission\('edit'\)/i);
+  assert.match(sql, /new_actual_profit:=p_sale_price-p_purchase_price/i);
+  assert.match(sql, /company_commission=p_gross_premium-p_purchase_price/i);
+  assert.match(sql, /customer_discount=p_gross_premium-p_sale_price/i);
+  assert.match(sql, /commission_received\+commission_deducted/i);
+  assert.match(sql, /referral_paid/i);
+  assert.match(sql, /customer_payment_count/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
 test("Insurance sale form defaults to fully paid and exposes an explicit partial-payment path", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
   assert.match(source, /id="insuranceNotFullyPaid"/);
-  assert.doesNotMatch(source, /id="insuranceNotFullyPaid"[^>]*checked/i);
+  assert.match(source, /const initialNotFullyPaid=isEdit\?editOutstanding>0:false/);
   assert.match(source, /<span>Not fully paid<\/span>/);
   assert.match(source, /name="amount_paid"/);
   assert.match(source, /p_not_fully_paid:notFullyPaid/);
