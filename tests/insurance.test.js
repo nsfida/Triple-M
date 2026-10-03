@@ -559,6 +559,15 @@ test("Insurance sales offer an editable dropdown action and save through the ded
   assert.doesNotMatch(sql, /drop\s+table/i);
 });
 
+test("Insurance sale currency remains editable after customer payment history exists", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/185_insurance_sale_currency_edit_after_payment.sql"), "utf8");
+  assert.match(sql, /create or replace function public\.app_insurance_update_sale_with_referral/i);
+  assert.match(sql, /new_currency<>s\.currency/);
+  assert.doesNotMatch(sql, /Currency cannot be changed after customer payment history has been recorded/i);
+  assert.match(sql, /insurance_customer_payments/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
 test("Insurance sale form defaults to fully paid and exposes an explicit partial-payment path", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
   assert.match(source, /id="insuranceNotFullyPaid"/);
