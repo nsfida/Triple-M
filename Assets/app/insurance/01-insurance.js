@@ -380,17 +380,16 @@
 
   async function loadMaster({ force = false } = {}) {
     if (S.ready && !force) return;
-    const [companies, policies, customers, temps, summary, referrers] = await Promise.all([
+    const [companies, policies, temps, summary, referrers] = await Promise.all([
       rpc("app_insurance_list_companies", {}),
       rpc("app_insurance_list_policies", { p_company_id: null }),
-      rpc("app_insurance_list_customers", { p_search: null, p_limit: 300 }),
       rpc("app_insurance_list_temp_invoices", {}),
       rpc("app_insurance_summary", { p_start_date: null, p_end_date: null }),
       rpc("app_insurance_list_referrer_directory", { p_search: null, p_limit: 250 })
     ]);
     S.companies = companies?.items || [];
     S.policies = policies?.items || [];
-    S.customers = customers?.items || [];
+    S.customers = [];
     S.tempInvoices = temps?.items || [];
     S.referrerDirectory = referrers?.items || [];
     S.summary = summary || { total: 0, by_currency: [] };
@@ -1258,31 +1257,6 @@
     return values.map(v=>String(v||"").trim()).find(v=>/^\d{6}$/.test(v))||"";
   }
 
-  function mergeCustomerDirectory(serverItems, search = "") {
-    const map = new Map();
-    const registeredNames = new Set();
-    const addRegistered = c => {
-      const name=String(c?.name||"").trim(); if(!name || /^walk-?in/i.test(name))return;
-      const number=customerNumberOf(c);
-      const key=number?`number:${number}`:`name:${name.toLowerCase()}`;
-      map.set(key,{...c,name,customer_number:number||c?.customer_number||""});
-      if(number)registeredNames.add(name.toLowerCase());
-    };
-    (serverItems||S.customers||[]).forEach(addRegistered);
-    try {
-      if (typeof inventoryCustomerDirectory === "function") {
-        inventoryCustomerDirectory({search,offset:0,limit:500}).items.forEach(c=>{
-          const name=String(c?.name||"").trim(); if(!name || /^walk-?in/i.test(name))return;
-          const nameKey=name.toLowerCase();
-          if(registeredNames.has(nameKey))return;
-          const key=`inventory:${nameKey}`;
-          if(!map.has(key))map.set(key,{...c,name});
-        });
-      }
-    } catch (_) {}
-    return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name)||customerNumberOf(a).localeCompare(customerNumberOf(b)));
-  }
-
   function duplicateCustomerPrompt(matches = []) {
     return new Promise(resolve => {
       let settled=false;
@@ -1305,12 +1279,9 @@
     if(!activeCompanies.length)return notify("Add an active Insurance Company first.","error");
     if(!activePolicies.length&&!editSale)return notify("Add an active Insurance Policy first.","error");
     const firstCompany=activeCompanies[0]?.id||editSale?.company_id,firstCurrency=editSale?.currency||currentCurrency();
-    let customers=mergeCustomerDirectory(S.customers);
-    if(editSale?.customer_number&&!customers.some(c=>customerNumberOf(c)===editSale.customer_number)){
-      customers.unshift({customer_number:editSale.customer_number,id:editSale.customer_number,name:editSale.customer_name||"Customer",phone:editSale.customer_phone||"",email:editSale.customer_email||"",company:editSale.customer_company||"",trn:editSale.customer_trn||"",address:editSale.customer_address||""});
-    }
-    const selectedCustomerIndex=editSale?.customer_number?customers.findIndex(c=>customerNumberOf(c)===editSale.customer_number):-1;
-    const customerOptionHtml=list=>`<option value="">Select customer</option>${list.map((c,i)=>`<option value="${i}" ${i===selectedCustomerIndex?"selected":""}>${customerNumberOf(c)?`#${esc(customerNumberOf(c))} · `:""}${esc(c.name)}</option>`).join("")}`;
+    let customers=[];
+    let selectedCustomer=editSale?.customer_number?{customer_number:editSale.customer_number,id:editSale.customer_number,name:editSale.customer_name||"Customer",phone:editSale.customer_phone||"",email:editSale.customer_email||"",company:editSale.customer_company||"",trn:editSale.customer_trn||"",address:editSale.customer_address||""}:null;
+    if(selectedCustomer)customers=[selectedCustomer];
     const selectedCompanyId=editSale?.company_id||firstCompany,selectedPolicyId=editSale?.policy_id||"";
     const companyList=S.companies.filter(c=>c.is_active!==false||c.id===selectedCompanyId),policyList=S.policies.filter(p=>p.is_active!==false||p.id===selectedPolicyId);
     const companyOptionsHtml=companyList.map(c=>`<option value="${esc(c.id)}" ${c.id===selectedCompanyId?"selected":""}>${esc(c.company_name)}${c.is_active===false?" (Inactive)":""}</option>`).join("");
@@ -1329,14 +1300,17 @@
     const initialAmountPaid=isEdit?editPaid:0;
     const initialGross=isEdit?editSale.gross_premium:"",initialPurchase=isEdit?editSale.purchase_price:"",initialSalePrice=isEdit?editSale.sale_price:"";
     const initialDate=isEdit?(editSale.transaction_date||dateToday()):dateToday(),initialTime=isEdit?(editSale.transaction_time||timeNow()):timeNow();
-    const referralInputValue=isEdit?n(editSale.referral_commission).toFixed(2):"0";
+    const storedReferralCommission=Math.max(0,n(editSale?.referral_commission));
+    const initialReferralFormula=Math.max(0,n(initialGross)-n(initialSalePrice));
+    const referralStoredManual=isEdit&&storedReferralCommission>0&&Math.abs(storedReferralCommission-initialReferralFormula)>0.000001;
+    const referralInputValue=isEdit?(referralStoredManual?storedReferralCommission:initialReferralFormula).toFixed(2):"0";
     openModal({id:"insuranceSaleModal",title:isEdit?"Edit Insurance Sale":"Make Insurance Sale",subtitle:"Select the insurance provider and policy independently. Commission and profit are calculated automatically.",body:`<form id="insuranceSaleForm" class="insurance-form-grid insurance-sale-form">
       <label>Insurance Company<select class="select" name="company_id" id="insuranceSaleCompany" required><option value="">Select company</option>${companyOptionsHtml}</select></label>
       <label>Insurance Policy<select class="select" name="policy_id" id="insuranceSalePolicy" required><option value="">Select policy</option>${policyOptionsHtml}</select></label>
       <label class="wide insurance-policy-number-field">Policy Number<input class="input" name="policy_number" maxlength="160" placeholder="Optional policy / certificate number" value="${esc(editSale?.policy_number||"")}"></label>
       <div class="wide insurance-referral-entry"><label id="insuranceReferralIdentityField">Referral<select class="select" name="referral_selector" id="insuranceReferralSelector"><option value="">No referral</option>${referralOptionsHtml}<option value="__new__">+ Add New Referral</option></select><div id="insuranceNewReferralField" class="insurance-referral-new-control hide"><input class="input" name="referral_name" maxlength="160" placeholder="New referral name"><button type="button" class="btn ghost insurance-referral-existing-btn" id="insuranceReferralChooseExisting">Existing</button></div></label><label class="insurance-check-line insurance-referral-toggle"><input type="checkbox" id="insuranceReferralCommissionToggle" ${initialReferralEnabled?"checked":""}><span>Give part of My Commission to referral</span></label><label id="insuranceReferralCommissionField" class="${initialReferralEnabled?"":"hide"}">Referral Commission<input class="input" id="insuranceReferralCommissionAmount" type="number" inputmode="decimal" min="0" step="0.01" value="${referralInputValue}"></label></div>
       <div class="wide"><label class="form-label">Customer</label><div class="insurance-customer-modes"><button class="insurance-customer-mode ${initialMode==="walkin"?"active":""}" type="button" data-customer-mode="walkin">Walk-in Customer</button><button class="insurance-customer-mode ${initialMode==="existing"?"active":""}" type="button" data-customer-mode="existing">Existing Customer</button><button class="insurance-customer-mode ${initialMode==="new"?"active":""}" type="button" data-customer-mode="new">New Customer</button></div><input type="hidden" name="customer_type" value="${esc(initialMode)}"></div>
-      <div id="insuranceExistingCustomerFields" class="wide ${initialMode==="existing"?"":"hide"}"><label class="form-label">Existing Customer</label><input class="input" id="insuranceExistingCustomerSearch" type="search" autocomplete="off" placeholder="Search name, 6-digit customer number, phone, email or company"><select class="select" id="insuranceExistingCustomerSelect" name="existing_customer" style="margin-top:6px">${customerOptionHtml(customers)}</select><div class="help" id="insuranceExistingCustomerHelp">Search or select from existing Inventory and Insurance customers.</div></div>
+      <div id="insuranceExistingCustomerFields" class="wide ${initialMode==="existing"?"":"hide"}"><label class="form-label">Existing Customer</label><div class="insurance-customer-search-wrap"><input class="input" id="insuranceExistingCustomerSearch" type="search" autocomplete="off" placeholder="Search name, 6-digit customer number, phone, email or company"><div id="insuranceExistingCustomerResults" class="insurance-customer-search-results" aria-live="polite"></div></div></div>
       <div id="insuranceCustomerFields" class="wide ${initialMode==="walkin"?"hide":""}"><div class="insurance-form-grid"><label>Customer Name<input class="input" name="customer_name" value="${esc(editSale?.customer_name&&initialMode!=="walkin"?editSale.customer_name:"")}"></label><label>Customer Number<input class="input" name="customer_id" readonly placeholder="Auto-generated 6 digits" value="${esc(editSale?.customer_number||"")}"></label><label>Phone<input class="input" name="customer_phone" value="${esc(editSale?.customer_phone&&initialMode!=="walkin"?editSale.customer_phone:"")}"></label><label>Email<input class="input" type="email" name="customer_email" value="${esc(editSale?.customer_email&&initialMode!=="walkin"?editSale.customer_email:"")}"></label><label>Company<input class="input" name="customer_company" value="${esc(editSale?.customer_company&&initialMode!=="walkin"?editSale.customer_company:"")}"></label><label>TRN<input class="input" name="customer_trn" value="${esc(editSale?.customer_trn&&initialMode!=="walkin"?editSale.customer_trn:"")}"></label><label class="wide">Address<input class="input" name="customer_address" value="${esc(editSale?.customer_address&&initialMode!=="walkin"?editSale.customer_address:"")}"></label></div></div>
       <div class="wide insurance-sale-meta"><label>Currency<select class="select" name="currency" id="insuranceSaleCurrency">${currencyOptions(firstCurrency)}</select></label><label>Date<input class="input" type="date" name="transaction_date" value="${esc(initialDate)}" required></label><label>Time<input class="input" type="time" name="transaction_time" value="${esc(initialTime)}" required></label></div>
       <div class="wide insurance-price-grid"><label>Gross Premium<input class="input insurance-price" type="number" inputmode="decimal" min="0" step="0.01" name="gross_premium" required placeholder="1500" value="${esc(initialGross)}"></label><label>Purchase Price<input class="input insurance-price" type="number" inputmode="decimal" min="0" step="0.01" name="purchase_price" required placeholder="1400" value="${esc(initialPurchase)}"></label><label>Sale Price<input class="input insurance-price" type="number" inputmode="decimal" min="0" step="0.01" name="sale_price" required placeholder="1450" value="${esc(initialSalePrice)}"></label></div>
@@ -1350,20 +1324,23 @@
         const referralSelector=$("#insuranceReferralSelector",modal),newReferralField=$("#insuranceNewReferralField",modal),newReferralInput=form.elements.referral_name,chooseExisting=$("#insuranceReferralChooseExisting",modal),referralToggle=$("#insuranceReferralCommissionToggle",modal),referralField=$("#insuranceReferralCommissionField",modal),referralAmount=$("#insuranceReferralCommissionAmount",modal);
         const selectedReferralName=()=>{const value=referralSelector?.value||"";if(value==="__new__")return String(newReferralInput?.value||"").trim();return S.referrerDirectory.find(r=>r.id===value)?.name||currentReferralName||"";};
         const selectedReferralId=()=>{const value=referralSelector?.value||"";return value&&value!=="__new__"?value:(isEdit?currentReferralId:null);};
-        const syncReferralSelection=()=>{const isNew=referralSelector?.value==="__new__",hasReferral=!!referralSelector?.value;referralSelector?.classList.toggle("hide",isNew);newReferralField?.classList.toggle("hide",!isNew);if(newReferralInput)newReferralInput.required=isNew;referralToggle.disabled=!hasReferral;if(!hasReferral)referralToggle.checked=false;syncReferralCommission();};
+        let referralCommissionManual=referralStoredManual;
         const referralCommissionValue=()=>Math.max(0,n(form.elements.gross_premium?.value)-n(form.elements.sale_price?.value));
-        const syncReferralCommission=()=>{const enabled=!!referralToggle?.checked&&!referralToggle.disabled;referralField?.classList.toggle("hide",!enabled);if(enabled&&referralAmount&&!isEdit)referralAmount.value=referralCommissionValue().toFixed(2);};
-        referralSelector?.addEventListener("change",()=>{syncReferralSelection();if(referralSelector.value==="__new__")requestAnimationFrame(()=>newReferralInput?.focus());});chooseExisting?.addEventListener("click",()=>{referralSelector.value="";if(newReferralInput)newReferralInput.value="";syncReferralSelection();referralSelector.classList.remove("hide");referralSelector.focus();});referralToggle?.addEventListener("change",syncReferralCommission);if(!isEdit){form.elements.gross_premium?.addEventListener("input",syncReferralCommission);form.elements.sale_price?.addEventListener("input",syncReferralCommission);}syncReferralSelection();
+        const syncReferralCommission=()=>{const enabled=!!referralToggle?.checked&&!referralToggle.disabled;referralField?.classList.toggle("hide",!enabled);if(enabled&&referralAmount&&!referralCommissionManual)referralAmount.value=referralCommissionValue().toFixed(2);};
+        const syncReferralSelection=()=>{const isNew=referralSelector?.value==="__new__",hasReferral=!!referralSelector?.value;referralSelector?.classList.toggle("hide",isNew);newReferralField?.classList.toggle("hide",!isNew);if(newReferralInput)newReferralInput.required=isNew;referralToggle.disabled=!hasReferral;if(!hasReferral)referralToggle.checked=false;referralCommissionManual=false;syncReferralCommission();};
+        referralSelector?.addEventListener("change",()=>{syncReferralSelection();if(referralSelector.value==="__new__")requestAnimationFrame(()=>newReferralInput?.focus());});chooseExisting?.addEventListener("click",()=>{referralSelector.value="";if(newReferralInput)newReferralInput.value="";syncReferralSelection();referralSelector.classList.remove("hide");referralSelector.focus();});referralToggle?.addEventListener("change",()=>{referralCommissionManual=false;syncReferralCommission();});referralAmount?.addEventListener("input",()=>{referralCommissionManual=true;});referralAmount?.addEventListener("change",()=>{referralCommissionManual=true;});[form.elements.gross_premium,form.elements.sale_price].forEach(input=>{input?.addEventListener("input",syncReferralCommission);input?.addEventListener("change",syncReferralCommission);});syncReferralSelection();
         const modeButtons=$$('[data-customer-mode]',modal),existingWrap=$("#insuranceExistingCustomerFields",modal),fieldsWrap=$("#insuranceCustomerFields",modal);
         const editableCustomerInputs=["customer_name","customer_phone","customer_email","customer_company","customer_trn","customer_address"].map(name=>form.elements[name]).filter(Boolean);
         const fillCustomer=c=>{form.elements.customer_name.value=c?.name||"";form.elements.customer_id.value=customerNumberOf(c);form.elements.customer_phone.value=c?.phone||"";form.elements.customer_email.value=c?.email||"";form.elements.customer_company.value=c?.company||"";form.elements.customer_trn.value=c?.trn||"";form.elements.customer_address.value=c?.address||"";};
         const clearCustomer=()=>fillCustomer({});
-        const setMode=mode=>{form.elements.customer_type.value=mode;modeButtons.forEach(b=>b.classList.toggle("active",b.dataset.customerMode===mode));existingWrap.classList.toggle("hide",mode!=="existing");fieldsWrap.classList.toggle("hide",mode==="walkin");editableCustomerInputs.forEach(input=>{input.readOnly=mode==="existing";});form.elements.customer_id.readOnly=true;if(mode==="existing"&&form.elements.existing_customer.value!==""){const c=customers[Number(form.elements.existing_customer.value)];if(c)fillCustomer(c);}if(mode==="walkin")clearCustomer();syncCustomerPayment();};
+        const customerSearch=$("#insuranceExistingCustomerSearch",modal),customerResults=$("#insuranceExistingCustomerResults",modal);
+        const renderCustomerResults=()=>{if(!customerResults)return;customerResults.innerHTML=customers.map((c,i)=>{const number=customerNumberOf(c),contact=[c?.phone,c?.email,c?.company].filter(v=>String(v||"").trim()).map(esc).join(" · ");return `<button type="button" class="insurance-customer-search-result ${selectedCustomer&&customerNumberOf(selectedCustomer)===number?"selected":""}" data-customer-index="${i}"><span><strong>${esc(c?.name||"Customer")}</strong>${contact?`<small>${contact}</small>`:""}</span><i class="fa-solid fa-chevron-right"></i></button>`;}).join("");};
+        const setMode=mode=>{form.elements.customer_type.value=mode;modeButtons.forEach(b=>b.classList.toggle("active",b.dataset.customerMode===mode));existingWrap.classList.toggle("hide",mode!=="existing");fieldsWrap.classList.toggle("hide",mode==="walkin");editableCustomerInputs.forEach(input=>{input.readOnly=mode==="existing";});form.elements.customer_id.readOnly=true;if(mode==="existing"&&selectedCustomer)fillCustomer(selectedCustomer);if(mode==="walkin"){selectedCustomer=null;clearCustomer();}syncCustomerPayment();renderCustomerResults();};
         modeButtons.forEach(b=>b.onclick=()=>setMode(b.dataset.customerMode));
-        const customerSelect=$("#insuranceExistingCustomerSelect",modal),customerSearch=$("#insuranceExistingCustomerSearch",modal),customerHelp=$("#insuranceExistingCustomerHelp",modal);
-        customerSelect.onchange=()=>{const raw=customerSelect.value;if(raw==="")return clearCustomer();const c=customers[Number(raw)];if(c)fillCustomer(c);};
-        let customerSearchTimer=null;customerSearch.addEventListener("input",()=>{clearTimeout(customerSearchTimer);customerSearchTimer=setTimeout(async()=>{const query=customerSearch.value.trim();if(customerHelp)customerHelp.textContent="Searching customers…";try{const response=await rpc("app_insurance_list_customers",{p_search:query||null,p_limit:100});customers=mergeCustomerDirectory(response?.items||[],query);customerSelect.innerHTML=customerOptionHtml(customers);clearCustomer();if(customerHelp)customerHelp.textContent=customers.length?`${customers.length} matching customer${customers.length===1?"":"s"}. Select one below.`:"No matching customers found.";}catch(err){if(customerHelp)customerHelp.textContent=err.message||"Could not search customers.";}},220);});
-        if(editSale&&initialMode==="existing"&&selectedCustomerIndex>=0)customerSelect.value=String(selectedCustomerIndex);if(editSale&&initialMode==="existing"&&selectedCustomerIndex>=0)fillCustomer(customers[selectedCustomerIndex]);if(editSale&&initialMode==="new")fillCustomer({number:editSale.customer_number,customer_number:editSale.customer_number,name:editSale.customer_name,phone:editSale.customer_phone,email:editSale.customer_email,company:editSale.customer_company,trn:editSale.customer_trn,address:editSale.customer_address});
+        let customerSearchTimer=null,customerSearchRequest=0;
+        customerSearch.addEventListener("input",()=>{const query=customerSearch.value.trim();clearTimeout(customerSearchTimer);const requestId=++customerSearchRequest;if(!query){selectedCustomer=editSale&&initialMode==="existing"?selectedCustomer:null;if(selectedCustomer)fillCustomer(selectedCustomer);else clearCustomer();customers=selectedCustomer?[selectedCustomer]:[];renderCustomerResults();return;}selectedCustomer=null;clearCustomer();customers=[];renderCustomerResults();customerSearchTimer=setTimeout(async()=>{try{const response=await rpc("app_insurance_search_customers",{p_search:query,p_offset:0,p_limit:25});if(requestId!==customerSearchRequest)return;customers=Array.isArray(response?.items)?response.items:[];renderCustomerResults();}catch(err){if(requestId!==customerSearchRequest)return;customers=[];renderCustomerResults();notify(err.message||"Could not search customers.","error");}},220);});
+        customerResults?.addEventListener("click",event=>{const button=event.target.closest("[data-customer-index]");if(!button||!customerResults.contains(button))return;const customer=customers[Number(button.dataset.customerIndex)];if(!customer)return;selectedCustomer=customer;customerSearch.value=customer.name||"";fillCustomer(customer);++customerSearchRequest;customers=[];customerResults.innerHTML="";});
+        if(editSale&&initialMode==="existing"&&selectedCustomer){customerSearch.value=selectedCustomer.name||"";fillCustomer(selectedCustomer);renderCustomerResults();}if(editSale&&initialMode==="new")fillCustomer({number:editSale.customer_number,customer_number:editSale.customer_number,name:editSale.customer_name,phone:editSale.customer_phone,email:editSale.customer_email,company:editSale.customer_company,trn:editSale.customer_trn,address:editSale.customer_address});
         const calc=()=>{const gp=form.elements.gross_premium.value,pp=form.elements.purchase_price.value,sp=form.elements.sale_price.value,currency=form.elements.currency.value||firstCurrency;const warning=$("#insuranceCalcWarning",modal);if([gp,pp,sp].some(v=>v==="")){warning.classList.add("hide");return;}try{const r=global.TripleMInsuranceMath.calculateInsuranceFinancials(gp,pp,sp);$("#insuranceCalcCompany",modal).innerHTML=moneyHtml(r.companyCommission,currency);$("#insuranceCalcDiscount",modal).innerHTML=moneyHtml(r.customerDiscount,currency);const profit=$("#insuranceCalcProfit",modal);profit.innerHTML=moneyHtml(r.actualProfit,currency);profit.classList.toggle("insurance-amount-loss",r.isLoss);const msgs=[];if(r.purchasePrice>r.grossPremium)msgs.push("Purchase Price is above Gross Premium, so the original company commission is negative.");if(r.salePrice>r.grossPremium)msgs.push("Sale Price is above Gross Premium, so Customer Discount is negative and represents a markup.");if(r.isLoss)msgs.push(`This transaction creates a loss of ${moneyPlain(r.lossAmount,currency)}.`);warning.textContent=msgs.join(" ");warning.classList.toggle("hide",!msgs.length);warning.classList.toggle("loss",r.isLoss);}catch(err){warning.textContent=err.message;warning.classList.remove("hide");warning.classList.add("loss");}};
         $$('.insurance-price',modal).forEach(i=>i.addEventListener("input",()=>{calc();syncCustomerPayment();}));cur.addEventListener("change",()=>{calc();syncCustomerPayment();});syncCustomerPayment();calc();
         $("#insuranceSaleSave",modal).onclick=async e=>{
@@ -1377,8 +1354,8 @@
           const referralEnabled=!!referralToggle?.checked,referralName=referralEnabled?selectedReferralName():"",referralCommission=referralEnabled?Math.max(0,n(referralAmount?.value)):0,referralId=referralEnabled?selectedReferralId():null;
           if(referralEnabled&&!referralName)return notify("Enter the referral name before assigning referral commission.","error");
           if(referralEnabled&&referralCommission<=0)return notify("Referral commission must be greater than zero.","error");
-          let selectedCustomer=null,allowDuplicate=false;
-          if(mode==="existing"){const raw=form.elements.existing_customer.value;selectedCustomer=raw===""?null:customers[Number(raw)];if(!selectedCustomer)return notify("Select an existing customer.","error");}
+          let allowDuplicate=false;
+          if(mode==="existing"){if(!selectedCustomer)return notify("Select an existing customer.","error");}
           if(!isEdit&&mode==="new"){
             try{const duplicate=await rpc("app_insurance_check_customer_duplicate",{p_name:String(fd.get("customer_name")||"").trim()});if(duplicate?.exists&&Array.isArray(duplicate.items)&&duplicate.items.length){const choice=await duplicateCustomerPrompt(duplicate.items);if(!choice)return;if(choice.choice==="existing"){mode="existing";selectedCustomer=choice.customer;}else allowDuplicate=true;}}
             catch(err){return notify(err.message||"Could not verify customer name.","error");}
@@ -1386,7 +1363,7 @@
           const customer={id:selectedCustomer?customerNumberOf(selectedCustomer):String(fd.get("customer_id")||"").trim(),name:selectedCustomer?.name||String(fd.get("customer_name")||"").trim(),phone:selectedCustomer?.phone||String(fd.get("customer_phone")||"").trim(),email:selectedCustomer?.email||String(fd.get("customer_email")||"").trim(),company:selectedCustomer?.company||String(fd.get("customer_company")||"").trim(),trn:selectedCustomer?.trn||String(fd.get("customer_trn")||"").trim(),address:selectedCustomer?.address||String(fd.get("customer_address")||"").trim()};
           setBusy(e.currentTarget,true,"Saving");
           try{
-            const payload={p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_policy_number:String(fd.get("policy_number")||"").trim()||null,p_referral_id:referralId,p_referral_name:referralName||null,p_referral_commission:referralCommission,p_not_fully_paid:notFullyPaid,p_amount_paid:amountPaid};
+            const payload={p_company_id:fd.get("company_id"),p_policy_id:fd.get("policy_id"),p_customer_type:mode,p_customer_id:customer.id||null,p_customer_name:mode==="walkin"?null:customer.name,p_customer_phone:mode==="walkin"?null:customer.phone||null,p_customer_email:mode==="walkin"?null:customer.email||null,p_customer_company:mode==="walkin"?null:customer.company||null,p_customer_trn:mode==="walkin"?null:customer.trn||null,p_customer_address:mode==="walkin"?null:customer.address||null,p_currency:fd.get("currency"),p_gross_premium:math.grossPremium,p_purchase_price:math.purchasePrice,p_sale_price:math.salePrice,p_transaction_date:fd.get("transaction_date"),p_transaction_time:fd.get("transaction_time"),p_notes:fd.get("notes")||null,p_policy_number:String(fd.get("policy_number")||"").trim()||null,p_referral_name:referralName||null,p_referral_commission:referralCommission,p_not_fully_paid:notFullyPaid,p_amount_paid:amountPaid};
             const res=await rpc(isEdit?"app_insurance_update_sale_with_referral":"app_insurance_create_sale_with_referral",isEdit?{p_sale_id:editSale.id,...payload,p_referral_id:referralId}:{...payload,p_allow_duplicate_customer:allowDuplicate});
             close();await reloadMasterAndView("sales");notify(isEdit?"Insurance Sale updated.":(math.isLoss?`Insurance sale saved with a loss of ${moneyPlain(math.lossAmount,fd.get("currency"))}.`:"Insurance sale completed."),isEdit?"success":(math.isLoss?"error":"success"));if(res?.item)openSaleDetails(res.item.id);
           }catch(err){notify(err.message||`Could not ${isEdit?"update":"complete"} Insurance sale.`,"error");}
@@ -1638,7 +1615,7 @@
   function bindStaticEvents() {
     const refresh=$("#insuranceRefreshBtn"), sale=$("#insuranceMakeSaleBtn");
     if(refresh&&refresh.dataset.boundInsurance!=="1"){refresh.dataset.boundInsurance="1";refresh.onclick=async()=>{setBusy(refresh,true,"Refreshing");try{await reloadMasterAndView();notify("Insurance workspace refreshed.");}catch(err){notify(err.message||"Could not refresh Insurance.","error");}finally{setBusy(refresh,false);}};}
-    if(sale&&sale.dataset.boundInsurance!=="1"){sale.dataset.boundInsurance="1";sale.onclick=openMakeSale;}
+    if(sale&&sale.dataset.boundInsurance!=="1"){sale.dataset.boundInsurance="1";sale.onclick=()=>openMakeSale();}
     if(sale)sale.classList.toggle("hide",!can("create"));
   }
 
