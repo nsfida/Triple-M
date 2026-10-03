@@ -24,7 +24,7 @@
     commissions: [], commissionTotal: 0, commissionOffset: 0, commissionLimit: 50, commissionHasMore: false,
     commissionSummary: { total: 0, by_currency: [] },
     commissionFilters: { start: "", end: "", search: "", company: "", status: "" },
-    commissionReceipts: [], openingBalances: [], openingBalanceTotal: 0,
+    commissionReceipts: [], commissionReceiptTotal: 0, openingBalances: [], openingBalanceTotal: 0, commissionTab: "commission",
     referrals: [], referralTransactions: [], referrerDirectory: [], referralTotal: 0, referralOffset: 0, referralLimit: 50, referralHasMore: false,
     referralSummary: { total: 0, by_currency: [] }, referralFilters: { start: "", end: "", search: "", status: "" },
     customerBalances: [], customerBalanceTotal: 0, customerBalanceOffset: 0, customerBalanceLimit: 50, customerBalanceHasMore: false,
@@ -241,7 +241,7 @@
     });
   }
 
-  function bindInsuranceRowMenus(root) {
+  function bindInsuranceRowMenus(root, receiptCollection = S.commissionReceipts) {
     $$('[data-insurance-row-menu]', root).forEach(btn => btn.onclick = e => {
       e.preventDefault(); e.stopPropagation();
       const kind = btn.dataset.insuranceRowMenu;
@@ -302,10 +302,12 @@
         const payment = referral?.payments?.find(p => p.id === id); if (!payment) return;
         items = [can("delete") ? { label: "Delete Payment", icon: "fa-trash", danger: true, action: () => deleteReferralPayment(payment.id, referral.id) } : null];
       } else if (kind === "commissionReceipt") {
-        const receipt = S.commissionReceipts.find(x => x.id === id); if (!receipt) return;
+        const receipt = receiptCollection.find(x => x.id === id); if (!receipt) return;
+        const isDeleted = !!receipt.is_deleted;
         items = [
           { label: "View", icon: "fa-eye", action: () => openCommissionReceiptDetails(receipt) },
-          can("delete") ? { label: "Delete Entry", icon: "fa-trash", danger: true, action: () => deleteCommissionReceipt(receipt.id) } : null
+          !isDeleted && can("edit") ? { label: "Edit", icon: "fa-pen", action: () => openCommissionReceiptEditor(receipt) } : null,
+          !isDeleted && can("delete") ? { label: "Delete Entry", icon: "fa-trash", danger: true, action: () => deleteCommissionReceipt(receipt.id) } : null
         ];
       } else if (kind === "openingBalance") {
         const balance = S.openingBalances.find(x => x.id === id); if (!balance) return;
@@ -640,6 +642,46 @@
     }) || { total: 0, by_currency: [] };
   }
 
+  async function loadCommissionReceipts({ limit = 500 } = {}) {
+    const res = await rpc("app_insurance_list_commission_receipts", {
+      p_company_id: null,
+      p_start_date: null,
+      p_end_date: null,
+      p_offset: 0,
+      p_limit: Math.min(Math.max(Number(limit) || 500, 1), 500)
+    });
+    S.commissionReceipts = res?.items || [];
+    S.commissionReceiptTotal = Number(res?.total || 0);
+  }
+
+  function commissionReceiptRow(receipt) {
+    const deleted = !!receipt.is_deleted;
+    return `<div class="insurance-commission-receipt-row${deleted ? " insurance-commission-receipt-deleted" : ""}" data-insurance-commission-receipt-row="${esc(receipt.id)}">
+      <div class="insurance-commission-receipt-main"><strong>${esc(receipt.reference_no)}${deleted ? ` <span class="insurance-commission-receipt-deleted-badge">Deleted</span>` : ""}</strong><span>${esc(receipt.company_name_snapshot || "Insurance Company")} · ${esc(receipt.currency)} · ${fmtDate(receipt.received_date)} ${fmtTime(receipt.received_time)}${receipt.external_reference ? ` · ${esc(receipt.external_reference)}` : ""}</span></div>
+      <div class="insurance-commission-receipt-reference" data-label="Payment Reference">${receipt.external_reference ? esc(receipt.external_reference) : "—"}</div>
+      <b>${moneyHtml(receipt.amount_received, receipt.currency)}</b>
+      <div>${rowMenuButtonHtml("commissionReceipt", receipt.id)}</div>
+    </div>`;
+  }
+
+  function receivedCommissionRecordsHtml() {
+    const rows = Array.isArray(S.commissionReceipts) ? S.commissionReceipts : [];
+    return `<div class="insurance-commission-receipts-section">
+      <div class="insurance-commission-receipts-header">
+        <div><strong>Received Payment Records</strong><span>${rows.length ? `${rows.length}${S.commissionReceiptTotal > rows.length ? ` of ${S.commissionReceiptTotal}` : ""} active payment${rows.length === 1 ? "" : "s"}` : "No active received payments"}</span></div>
+        <div class="insurance-toolbar-actions">
+          ${can("create") ? `<button class="btn primary tiny" id="insuranceReceiveCommission" type="button"><i class="fa-solid fa-hand-holding-dollar"></i><span>Receive</span></button>` : ""}
+          <button class="btn ghost tiny" id="insuranceCommissionHistory" type="button"><i class="fa-solid fa-clock-rotate-left"></i><span>History</span></button>
+          <button class="btn ghost tiny" id="insuranceCommissionStatementPdf" type="button"><i class="fa-solid fa-file-pdf"></i><span>Download Statement</span></button>
+        </div>
+      </div>
+      <div class="insurance-commission-receipts-table">
+        <div class="insurance-commission-receipts-head"><div>Payment</div><div>Payment Reference</div><div>Amount</div><div></div></div>
+        <div class="insurance-commission-receipt-list">${rows.length ? rows.map(commissionReceiptRow).join("") : `<div class="insurance-commission-payment-empty">No active received payments recorded.</div>`}</div>
+      </div>
+    </div>`;
+  }
+
   function commissionToolbar() {
     const f = S.commissionFilters;
     return `<div class="insurance-toolbar insurance-filter-toolbar insurance-commission-filter-toolbar">
@@ -651,8 +693,7 @@
       <div class="insurance-toolbar-actions insurance-filter-actions insurance-commission-actions">
         <button class="btn primary tiny" id="insuranceCommissionApply" type="button"><i class="fa-solid fa-filter"></i><span>Apply</span></button>
         <button class="btn ghost tiny" id="insuranceCommissionClear" type="button"><i class="fa-solid fa-rotate-left"></i><span>Clear</span></button>
-        ${can("create") ? `<button class="btn ghost tiny" id="insuranceAddOpeningBalance" type="button"><i class="fa-solid fa-scale-balanced"></i><span>Opening Balance</span></button><button class="btn primary tiny" id="insuranceReceiveCommission" type="button"><i class="fa-solid fa-hand-holding-dollar"></i><span>Receive</span></button>` : ""}
-        <button class="btn ghost tiny" id="insuranceCommissionHistory" type="button"><i class="fa-solid fa-clock-rotate-left"></i><span>History</span></button>
+        ${can("create") ? `<button class="btn ghost tiny" id="insuranceAddOpeningBalance" type="button"><i class="fa-solid fa-scale-balanced"></i><span>Opening Balance</span></button>` : ""}
       </div>
     </div>`;
   }
@@ -669,12 +710,12 @@
           status:$("#insuranceCommissionStatus",root)?.value||""
         };
         if(S.commissionFilters.start&&S.commissionFilters.end&&S.commissionFilters.start>S.commissionFilters.end)throw new Error("From date cannot be later than To date.");
-        await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary()]);renderMyCommission();
+        await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary(),loadCommissionReceipts()]);renderMyCommission();
       }catch(err){notify(err.message||"Could not filter commissions.","error");}finally{setBusy(btn,false);}
     });
     $("#insuranceCommissionClear",root)?.addEventListener("click",async()=>{
       S.commissionFilters={start:"",end:"",search:"",company:"",status:""};
-      await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary()]);renderMyCommission();
+      await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary(),loadCommissionReceipts()]);renderMyCommission();
     });
     $("#insuranceAddOpeningBalance",root)?.addEventListener("click",()=>openOpeningBalanceForm());
     $("#insuranceReceiveCommission",root)?.addEventListener("click",()=>openCommissionReceiving());
@@ -718,19 +759,36 @@
     </div>`;
   }
 
-  function renderMyCommission() {
-    const root=$("#insuranceWorkspace");if(!root)return;
-    root.innerHTML=`${commissionToolbar()}${commissionSummaryHtml()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>Live policy commission plus any opening outstanding balances brought into Triplem VIP.</span></div></div>${openingBalancesHtml()}
+  function commissionTabsHtml() {
+    return `<div class="insurance-commission-tabs" role="tablist" aria-label="My Commission"><button class="btn ghost tiny insurance-commission-tab ${S.commissionTab === "commission" ? "active" : ""}" type="button" role="tab" aria-selected="${S.commissionTab === "commission"}" data-insurance-commission-tab="commission"><i class="fa-solid fa-hand-holding-dollar"></i><span>My Commission</span></button><button class="btn ghost tiny insurance-commission-tab ${S.commissionTab === "received" ? "active" : ""}" type="button" role="tab" aria-selected="${S.commissionTab === "received"}" data-insurance-commission-tab="received"><i class="fa-solid fa-money-bill-transfer"></i><span>Received Payments</span></button></div>`;
+  }
+
+  function commissionSalesTabHtml() {
+    return `${commissionToolbar()}${commissionSummaryHtml()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>Live policy commission plus any opening outstanding balances brought into Triplem VIP.</span></div></div>${openingBalancesHtml()}
       <div class="insurance-commission-table">
         <div class="insurance-commission-line insurance-commission-head"><div>Insurance Sale</div><div>Gross</div><div>Purchase</div><div>Sold</div><div>My Commission</div><div>Received</div><div>Deducted</div><div>Outstanding</div><div>Status</div><div></div></div>
         <div class="insurance-commission-list">${S.commissions.length?S.commissions.map(commissionRow).join(""):`<div class="insurance-empty"><i class="fa-solid fa-hand-holding-dollar"></i>No Insurance sale commission records found.</div>`}</div>
       </div>
       ${S.commissionTotal?`<div class="insurance-pager"><button class="btn ghost tiny" id="insuranceCommissionPrev" ${S.commissionOffset<=0?"disabled":""}>Previous</button><span class="help">${Math.min(S.commissionOffset+1,S.commissionTotal)} to ${Math.min(S.commissionOffset+S.commissions.length,S.commissionTotal)} of ${S.commissionTotal}</span><button class="btn ghost tiny" id="insuranceCommissionNext" ${!S.commissionHasMore?"disabled":""}>Next</button></div>`:""}`;
-    bindCommissionFilters(root);bindInsuranceRowMenus(root);
-    bindClickableRows(root,'[data-insurance-commission-row]',row=>openCommissionDetails(row.dataset.insuranceCommissionRow));
-    bindClickableRows(root,'[data-insurance-opening-row]',row=>openOpeningBalanceDetails(row.dataset.insuranceOpeningRow));
-    $("#insuranceCommissionPrev",root)?.addEventListener("click",async()=>{S.commissionOffset=Math.max(0,S.commissionOffset-S.commissionLimit);await loadCommissions({reset:false});renderMyCommission();});
-    $("#insuranceCommissionNext",root)?.addEventListener("click",async()=>{S.commissionOffset+=S.commissionLimit;await loadCommissions({reset:false});renderMyCommission();});
+  }
+
+  function renderMyCommission() {
+    const root=$("#insuranceWorkspace");if(!root)return;
+    root.innerHTML=`${commissionTabsHtml()}<div class="insurance-commission-tab-panel" data-insurance-commission-panel="commission" ${S.commissionTab === "commission" ? "" : "hidden"}>${commissionSalesTabHtml()}</div><div class="insurance-commission-tab-panel" data-insurance-commission-panel="received" ${S.commissionTab === "received" ? "" : "hidden"}>${receivedCommissionRecordsHtml()}</div>`;
+    $$('[data-insurance-commission-tab]',root).forEach(btn=>btn.addEventListener("click",()=>{S.commissionTab=btn.dataset.insuranceCommissionTab||"commission";renderMyCommission();}));
+    if(S.commissionTab === "commission") {
+      bindCommissionFilters(root);bindInsuranceRowMenus(root);
+      bindClickableRows(root,'[data-insurance-commission-row]',row=>openCommissionDetails(row.dataset.insuranceCommissionRow));
+      bindClickableRows(root,'[data-insurance-opening-row]',row=>openOpeningBalanceDetails(row.dataset.insuranceOpeningRow));
+      $("#insuranceCommissionPrev",root)?.addEventListener("click",async()=>{S.commissionOffset=Math.max(0,S.commissionOffset-S.commissionLimit);await loadCommissions({reset:false});renderMyCommission();});
+      $("#insuranceCommissionNext",root)?.addEventListener("click",async()=>{S.commissionOffset+=S.commissionLimit;await loadCommissions({reset:false});renderMyCommission();});
+    } else {
+      bindInsuranceRowMenus(root);
+      bindClickableRows(root,'[data-insurance-commission-receipt-row]',row=>openCommissionReceiptDetails(S.commissionReceipts.find(r=>r.id===row.dataset.insuranceCommissionReceiptRow)));
+      $("#insuranceReceiveCommission",root)?.addEventListener("click",()=>openCommissionReceiving());
+      $("#insuranceCommissionHistory",root)?.addEventListener("click",()=>openCommissionHistory(null));
+      $("#insuranceCommissionStatementPdf",root)?.addEventListener("click",()=>downloadCommissionReceivedStatementPdf());
+    }
   }
 
   async function openCommissionDetails(id) {
@@ -805,27 +863,105 @@
       const setTotal=()=>{const row=totals.find(r=>r.currency===currency.value);totalEl.innerHTML=`<span>Total Outstanding Commission</span><strong>${row?moneyHtml(row.commission_outstanding,row.currency):"0"}</strong>`;};
       const loadTotals=async()=>{try{const res=await rpc("app_insurance_commission_summary",{p_start_date:null,p_end_date:null,p_search:null,p_company_id:null,p_status:"due"})||{by_currency:[]};totals=Array.isArray(res.by_currency)?res.by_currency:[];const preferred=prefill?.currency&&totals.some(r=>r.currency===prefill.currency)?prefill.currency:(totals.length===1?totals[0].currency:(totals.some(r=>r.currency===currentCurrency())?currentCurrency():totals[0]?.currency||""));currency.innerHTML='<option value="">Select currency</option>'+totals.map(r=>`<option value="${esc(r.currency)}" ${r.currency===preferred?"selected":""}>${esc(r.currency)}</option>`).join("");if(typeof syncCurrencySelectFonts==="function")syncCurrencySelectFonts(currency);setTotal();if(!totals.length)notify("No outstanding commission is available.","error");}catch(err){totals=[];currency.innerHTML='<option value="">Select currency</option>';setTotal();notify(err.message||"Could not load outstanding commission.","error");}};
       currency.addEventListener("change",setTotal);
-      $("#insuranceCommissionReceiveSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),received=n(fd.get("amount_received")),row=totals.find(r=>r.currency===currency.value),available=n(row?.commission_outstanding);if(received<=0)return notify("Received amount must be greater than zero.","error");if(received>available+0.00000001)return notify("Received amount exceeds the total outstanding commission.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_receive_commission",{p_currency:fd.get("currency"),p_amount_received:received,p_received_date:fd.get("received_date"),p_received_time:fd.get("received_time"),p_external_reference:fd.get("external_reference")||null,p_notes:fd.get("notes")||null});close();await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary()]);renderMyCommission();notify(`Commission settlement ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not record commission settlement.","error");}finally{setBusy(e.currentTarget,false);}};
+      $("#insuranceCommissionReceiveSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),received=n(fd.get("amount_received")),row=totals.find(r=>r.currency===currency.value),available=n(row?.commission_outstanding);if(received<=0)return notify("Received amount must be greater than zero.","error");if(received>available+0.00000001)return notify("Received amount exceeds the total outstanding commission.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_receive_commission",{p_currency:fd.get("currency"),p_amount_received:received,p_received_date:fd.get("received_date"),p_received_time:fd.get("received_time"),p_external_reference:fd.get("external_reference")||null,p_notes:fd.get("notes")||null});close();await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary(),loadCommissionReceipts()]);renderMyCommission();notify(`Commission settlement ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not record commission settlement.","error");}finally{setBusy(e.currentTarget,false);}};
       loadTotals();
     }});
   }
 
   async function openCommissionHistory(companyId=null) {
     try{
-      const res=await rpc("app_insurance_list_commission_receipts",{p_company_id:companyId||null,p_start_date:null,p_end_date:null,p_offset:0,p_limit:200});S.commissionReceipts=res?.items||[];
-      openModal({id:"insuranceCommissionHistoryModal",title:"Commission Receiving History",subtitle:companyId?(S.companies.find(c=>c.id===companyId)?.company_name||""):"All Insurance Companies",body:`<div class="insurance-commission-receipt-list">${S.commissionReceipts.length?S.commissionReceipts.map(r=>`<div class="insurance-commission-receipt-row" data-insurance-commission-receipt-row="${esc(r.id)}"><div><strong>${esc(r.reference_no)}</strong><span>${esc(r.company_name_snapshot)} · ${fmtDate(r.received_date)} ${fmtTime(r.received_time)} · ${Number(r.allocation_count||0)} receivable${Number(r.allocation_count||0)===1?"":"s"}${n(r.deduction_applied)>0?` · deductions ${moneyPlain(r.deduction_applied,r.currency)}`:""}</span></div><b>${moneyHtml(r.amount_received,r.currency)}</b><div>${rowMenuButtonHtml("commissionReceipt",r.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission receipts recorded.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);bindClickableRows(modal,'[data-insurance-commission-receipt-row]',row=>openCommissionReceiptDetails(S.commissionReceipts.find(r=>r.id===row.dataset.insuranceCommissionReceiptRow)));}});
+      const res=await rpc("app_insurance_list_commission_receipt_history",{p_company_id:companyId||null,p_offset:0,p_limit:500});
+      const historyItems=Array.isArray(res?.items)?res.items:[];
+      openModal({id:"insuranceCommissionHistoryModal",title:"Commission Receiving History",subtitle:companyId?(S.companies.find(c=>c.id===companyId)?.company_name||""):"All Insurance Companies",body:`<div class="insurance-commission-receipt-list">${historyItems.length?historyItems.map(commissionReceiptRow).join(""):`<div class="insurance-commission-payment-empty">No commission receipt records recorded.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button><button class="btn ghost" id="insuranceCommissionHistoryPdf"><i class="fa-solid fa-file-pdf"></i> Statement PDF</button>`,onOpen(modal){bindInsuranceRowMenus(modal,historyItems);bindClickableRows(modal,'[data-insurance-commission-receipt-row]',row=>openCommissionReceiptDetails(historyItems.find(r=>r.id===row.dataset.insuranceCommissionReceiptRow)));$("#insuranceCommissionHistoryPdf",modal)?.addEventListener("click",()=>downloadCommissionReceivedStatementPdf());}});
     }catch(err){notify(err.message||"Could not load commission receiving history.","error");}
+  }
+
+  function openCommissionReceiptEditor(receipt) {
+    if(!receipt||!can("edit"))return notify("Editing commission receipts is not permitted for this account.","error");
+    openModal({id:"insuranceCommissionReceiptEditModal",title:"Edit Received Payment",subtitle:receipt.reference_no,body:`<form id="insuranceCommissionReceiptEditForm" class="insurance-form-grid insurance-commission-receive-form">
+      <div class="insurance-detail-grid insurance-detail-grid-compact insurance-commission-receipt-edit-meta">
+        <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(receipt.company_name_snapshot||"Insurance Company")}</strong></div>
+        <div class="insurance-detail"><span>Currency</span><strong>${esc(receipt.currency)}</strong></div>
+      </div>
+      <label>Amount Received<input class="input" name="amount_received" type="number" min="0.01" step="0.01" required value="${esc(receipt.amount_received)}"></label>
+      <label>Received Date<input class="input" type="date" name="received_date" value="${esc(receipt.received_date||dateToday())}" required></label>
+      <label>Received Time<input class="input" type="time" name="received_time" value="${esc(fmtTime(receipt.received_time)||timeNow())}" required></label>
+      <label>Payment Reference<input class="input" name="external_reference" maxlength="120" value="${esc(receipt.external_reference||"")}" placeholder="Optional"></label>
+      <label class="wide">Notes<textarea class="input" name="notes" rows="3" maxlength="1000" placeholder="Optional">${esc(receipt.notes||"")}</textarea></label>
+    </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceCommissionReceiptEditSave">Save</button>`,onOpen(modal,close){
+      const form=$("#insuranceCommissionReceiptEditForm",modal);
+      $("#insuranceCommissionReceiptEditSave",modal).onclick=async e=>{
+        if(!form.reportValidity())return;
+        const fd=new FormData(form),amount=n(fd.get("amount_received"));
+        if(amount<=0)return notify("Received amount must be greater than zero.","error");
+        setBusy(e.currentTarget,true,"Saving");
+        try{
+          const res=await rpc("app_insurance_update_commission_receipt",{p_id:receipt.id,p_amount_received:amount,p_received_date:fd.get("received_date"),p_received_time:fd.get("received_time"),p_external_reference:fd.get("external_reference")||null,p_notes:fd.get("notes")||null});
+          close();
+          await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary(),loadCommissionReceipts()]);
+          renderMyCommission();
+          const historyModal=document.getElementById("insuranceCommissionHistoryModal");
+          if(historyModal&&!historyModal.classList.contains("hide"))await openCommissionHistory(S.commissionFilters.company||null);
+          notify(`Commission receipt ${res?.item?.reference_no||receipt.reference_no} updated.`);
+        }catch(err){notify(err.message||"Could not update commission receipt.","error");}finally{setBusy(e.currentTarget,false);}
+      };
+    }});
+  }
+
+  async function downloadCommissionReceivedStatementPdf() {
+    if(!global.jspdf?.jsPDF)return notify("PDF library is still loading. Try again in a moment.","error");
+    try{
+      const all=[];let offset=0;let hasMore=true;
+      while(hasMore){
+        const res=await rpc("app_insurance_list_commission_receipts",{p_company_id:null,p_start_date:null,p_end_date:null,p_offset:offset,p_limit:500});
+        const batch=Array.isArray(res?.items)?res.items:[];all.push(...batch);hasMore=!!res?.has_more&&batch.length>0;offset+=batch.length;
+      }
+      if(!all.length)return notify("No active received commission payments are available for the statement.","error");
+      const {jsPDF}=global.jspdf,doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4",compress:true});
+      if(typeof loadCustomFontsForPdf==="function")await loadCustomFontsForPdf(doc);
+      const logo=typeof getPdfLogo==="function"?await getPdfLogo():null,company=documentCompanyProfile();
+      const pageW=doc.internal.pageSize.getWidth(),pageH=doc.internal.pageSize.getHeight();
+      if(typeof applyProfessionalPdfDefaults==="function")applyProfessionalPdfDefaults(doc);
+      const drawHeader=()=>{
+        doc.setFillColor(15,23,42);doc.rect(0,0,pageW,4.2,"F");doc.setFillColor(36,87,214);doc.rect(0,4.2,pageW,1.1,"F");
+        if(logo&&typeof drawFittedPdfImage==="function")drawFittedPdfImage(doc,logo,9,8,34,12,{align:"left",valign:"middle"});
+        doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(15,23,42);doc.text("Received Commission Statement",50,13);
+        doc.setFont("helvetica","normal");doc.setFontSize(6.4);doc.setTextColor(71,85,105);doc.text(company.name||"Triplem VIP",50,17.5);
+        doc.setFontSize(5.8);doc.setTextColor(100,116,139);doc.text("Active received payments only",pageW-9,10,{align:"right"});doc.setFont("helvetica","bold");doc.setFontSize(6.6);doc.setTextColor(15,23,42);doc.text(dateToday(),pageW-9,14.3,{align:"right"});
+        doc.setDrawColor(226,232,240);doc.setLineWidth(.2);doc.line(9,23,pageW-9,23);
+      };
+      drawHeader();
+      const rows=all.map(r=>[fmtDate(r.received_date),fmtTime(r.received_time),r.reference_no||"—",r.company_name_snapshot||"Insurance Company",r.currency||"—",insurancePdfAmount(r.amount_received,r.currency),r.external_reference||"—",r.notes||"—"]);
+      doc.autoTable({startY:27,head:[["Date","Time","System Reference","Insurance Company","Currency","Amount Received","Payment Reference","Notes"]],body:rows,styles:{fontSize:6.1,cellPadding:2,overflow:"linebreak",valign:"middle",lineColor:[226,232,240],lineWidth:.08},headStyles:{fontSize:6,fillColor:[15,23,42],textColor:255,fontStyle:"bold"},columnStyles:{0:{cellWidth:22},1:{cellWidth:18},2:{cellWidth:39},3:{cellWidth:49},4:{cellWidth:19},5:{cellWidth:34,halign:"right"},6:{cellWidth:42},7:{cellWidth:49}},margin:{left:9,right:9,top:27,bottom:20},didDrawPage:()=>{
+        drawHeader();
+        doc.setDrawColor(226,232,240);doc.line(9,pageH-10,pageW-9,pageH-10);doc.setFont("helvetica","normal");doc.setFontSize(5.2);doc.setTextColor(100,116,139);doc.text(String(company.name||"Triplem VIP"),9,pageH-6);doc.text("Received Commission Statement",pageW/2,pageH-6,{align:"center"});doc.text(`Page ${doc.internal.getNumberOfPages()}`,pageW-9,pageH-6,{align:"right"});
+      }});
+      const totals=Object.entries(all.reduce((acc,r)=>{const cur=String(r.currency||"");acc[cur]=(acc[cur]||0)+n(r.amount_received);return acc;},{}));
+      let y=(doc.lastAutoTable?.finalY||27)+8;
+      if(y>pageH-28){doc.addPage();drawHeader();y=30;}
+      doc.setFont("helvetica","bold");doc.setFontSize(7.4);doc.setTextColor(15,23,42);doc.text("Totals by Currency",9,y);
+      y+=4.8;doc.setFont("helvetica","normal");doc.setFontSize(6.4);
+      totals.forEach(([cur,total])=>{doc.setTextColor(71,85,105);doc.text(cur,9,y);doc.setTextColor(15,23,42);doc.setFont("helvetica","bold");doc.text(insurancePdfAmount(total,cur),34,y);doc.setFont("helvetica","normal");y+=4.2;});
+      doc.save(`Received_Commission_Statement_${dateToday()}.pdf`);
+    }catch(err){notify(err.message||"Could not generate the received commission statement.","error");}
   }
 
   function openCommissionReceiptDetails(receipt) {
     if(!receipt)return;const allocations=Array.isArray(receipt.allocations)?receipt.allocations:[],openingAllocations=Array.isArray(receipt.opening_allocations)?receipt.opening_allocations:[],deductions=Array.isArray(receipt.deduction_allocations)?receipt.deduction_allocations:[];const deductionTotal=n(receipt.deduction_applied);
-    openModal({id:"insuranceCommissionReceiptDetailsModal",title:"Commission Settlement",subtitle:receipt.reference_no,body:`<div class="insurance-detail-grid"><div class="insurance-detail"><span>Insurance Company</span><strong>${esc(receipt.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Cash Received</span><strong>${moneyHtml(receipt.amount_received,receipt.currency)}</strong></div><div class="insurance-detail"><span>Deductions Applied</span><strong>${moneyHtml(deductionTotal,receipt.currency)}</strong></div><div class="insurance-detail"><span>Total Commission Cleared</span><strong>${moneyHtml(n(receipt.amount_received)+deductionTotal,receipt.currency)}</strong></div><div class="insurance-detail"><span>Date</span><strong>${fmtDate(receipt.received_date)}</strong></div><div class="insurance-detail"><span>Time</span><strong>${fmtTime(receipt.received_time)}</strong></div>${receipt.external_reference?`<div class="insurance-detail insurance-detail-wide"><span>Reference</span><strong>${esc(receipt.external_reference)}</strong></div>`:""}${receipt.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(receipt.notes)}</strong></div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Cash Allocations</div>${openingAllocations.map(a=>`<div class="insurance-commission-payment-row"><div><strong>${esc(a.reference_no)} · Opening Balance</strong><span>${fmtDate(a.balance_date)}${a.notes?` · ${esc(a.notes)}`:""}</span></div><b>${moneyHtml(a.amount_allocated,receipt.currency)}</b></div>`).join("")}${allocations.map(a=>`<div class="insurance-commission-payment-row"><div><strong>${esc(a.reference_no)}</strong><span>${esc(a.policy_name||"Insurance")} · ${fmtDate(a.transaction_date)}</span></div><b>${moneyHtml(a.amount_allocated,receipt.currency)}</b></div>`).join("")}${!openingAllocations.length&&!allocations.length?`<div class="insurance-commission-payment-empty">No cash allocation in this settlement.</div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Deduction Allocations</div>${deductions.length?deductions.map(d=>`<div class="insurance-commission-payment-row"><div><strong>${esc(d.deduction_reference_no||"Deduction")}</strong><span>${esc(d.sale_reference_no||"")}${d.reason?` · ${esc(d.reason)}`:""}</span></div><b class="insurance-amount-deduction">− ${moneyHtml(d.amount_applied,receipt.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No deduction allocation in this settlement.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`});
+    openModal({id:"insuranceCommissionReceiptDetailsModal",title:"Commission Settlement",subtitle:receipt.reference_no,body:`<div class="insurance-detail-grid"><div class="insurance-detail"><span>Insurance Company</span><strong>${esc(receipt.company_name_snapshot)}</strong></div>${receipt.is_deleted?`<div class="insurance-detail"><span>Status</span><strong>Deleted / Inactive</strong></div>`:""}<div class="insurance-detail"><span>Cash Received</span><strong>${moneyHtml(receipt.amount_received,receipt.currency)}</strong></div><div class="insurance-detail"><span>Deductions Applied</span><strong>${moneyHtml(deductionTotal,receipt.currency)}</strong></div><div class="insurance-detail"><span>Total Commission Cleared</span><strong>${moneyHtml(n(receipt.amount_received)+deductionTotal,receipt.currency)}</strong></div><div class="insurance-detail"><span>Date</span><strong>${fmtDate(receipt.received_date)}</strong></div><div class="insurance-detail"><span>Time</span><strong>${fmtTime(receipt.received_time)}</strong></div>${receipt.external_reference?`<div class="insurance-detail insurance-detail-wide"><span>Reference</span><strong>${esc(receipt.external_reference)}</strong></div>`:""}${receipt.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(receipt.notes)}</strong></div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Cash Allocations</div>${openingAllocations.map(a=>`<div class="insurance-commission-payment-row"><div><strong>${esc(a.reference_no)} · Opening Balance</strong><span>${fmtDate(a.balance_date)}${a.notes?` · ${esc(a.notes)}`:""}</span></div><b>${moneyHtml(a.amount_allocated,receipt.currency)}</b></div>`).join("")}${allocations.map(a=>`<div class="insurance-commission-payment-row"><div><strong>${esc(a.reference_no)}</strong><span>${esc(a.policy_name||"Insurance")} · ${fmtDate(a.transaction_date)}</span></div><b>${moneyHtml(a.amount_allocated,receipt.currency)}</b></div>`).join("")}${!openingAllocations.length&&!allocations.length?`<div class="insurance-commission-payment-empty">No cash allocation in this settlement.</div>`:""}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Deduction Allocations</div>${deductions.length?deductions.map(d=>`<div class="insurance-commission-payment-row"><div><strong>${esc(d.deduction_reference_no||"Deduction")}</strong><span>${esc(d.sale_reference_no||"")}${d.reason?` · ${esc(d.reason)}`:""}</span></div><b class="insurance-amount-deduction">− ${moneyHtml(d.amount_applied,receipt.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No deduction allocation in this settlement.</div>`}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>`});
   }
 
   async function deleteCommissionReceipt(id) {
     const receipt=S.commissionReceipts.find(r=>r.id===id);if(!receipt)return;
-    if(!global.confirm(`Delete commission receipt ${receipt.reference_no}? Its allocations will be removed from the received totals and the affected commissions will become outstanding again.`))return;
-    try{await rpc("app_insurance_delete_commission_receipt",{p_id:id});await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary()]);if(S.view==="commission")renderMyCommission();const historyModal=document.getElementById("insuranceCommissionHistoryModal");if(historyModal&&!historyModal.classList.contains("hide"))await openCommissionHistory(S.commissionFilters.company||null);notify("Commission receipt deleted and outstanding balances recalculated.");}catch(err){notify(err.message||"Could not delete commission receipt.","error");}
+    if(!global.confirm(`Delete commission receipt ${receipt.reference_no}? It will be preserved as an inactive historical record and excluded from commission totals and statements.`))return;
+    try{
+      await rpc("app_insurance_delete_commission_receipt",{p_id:id});
+      await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary(),loadCommissionReceipts()]);
+      if(S.view==="commission")renderMyCommission();
+      const historyModal=document.getElementById("insuranceCommissionHistoryModal");
+      if(historyModal&&!historyModal.classList.contains("hide"))await openCommissionHistory(S.commissionFilters.company||null);
+      notify("Commission receipt soft-deleted and outstanding balances recalculated.");
+    }catch(err){notify(err.message||"Could not delete commission receipt.","error");}
   }
 
   const REFERRAL_STATUS = {
@@ -1178,7 +1314,7 @@
     S.view = view; renderViewTabs();
     try {
       if (view === "sales") { await loadSales({ reset: true }); renderSales(); }
-      else if (view === "commission") { await Promise.all([loadCommissions({ reset: true }), loadOpeningBalances(), loadCommissionSummary()]); renderMyCommission(); }
+      else if (view === "commission") { await Promise.all([loadCommissions({ reset: true }), loadOpeningBalances(), loadCommissionSummary(), loadCommissionReceipts()]); renderMyCommission(); }
       else if (view === "referrals") { await Promise.all([loadReferrals({ reset: true }), loadReferralSummary()]); renderReferrals(); }
       else if (view === "customers") { await loadCustomerBalances({ reset: true }); renderCustomerBalances(); }
       else if (view === "companies") renderCompanies();
