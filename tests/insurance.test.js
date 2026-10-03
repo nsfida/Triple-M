@@ -411,7 +411,7 @@ test("Insurance migration 177 adds referral payables without reducing My Commiss
   assert.doesNotMatch(sql, /drop\s+table/i);
 });
 
-test("Insurance sale form records optional referral and separate commission share", () => {
+test("Insurance sale form records optional referral and editable auto-calculated commission share", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
   assert.match(source, /name="referral_name"/);
   assert.match(source, /insuranceReferralCommissionToggle/);
@@ -425,7 +425,14 @@ test("Insurance sale form records optional referral and separate commission shar
   assert.doesNotMatch(source, /name="referral_commission"/);
   assert.match(source, /id="insuranceReferralCommissionAmount" type="number" inputmode="decimal" min="0" step="0\.01" value="\$\{referralInputValue\}"/);
   assert.doesNotMatch(source, /Automatically calculated: Gross Premium/);
-  assert.match(source, /referralCommission=referralEnabled\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
+  assert.match(source, /let referralCommissionManual=referralStoredManual/);
+  assert.match(source, /referralAmount\?\.addEventListener\("input",\(\)=>\{referralCommissionManual=true;\}\)/);
+  assert.match(source, /referralAmount\?\.addEventListener\("change",\(\)=>\{referralCommissionManual=true;\}\)/);
+  assert.match(source, /if\(enabled&&referralAmount&&!referralCommissionManual\)referralAmount\.value=referralCommissionValue\(\)\.toFixed\(2\)/);
+  assert.match(source, /\[form\.elements\.gross_premium,form\.elements\.sale_price\]\.forEach/);
+  assert.match(source, /const storedReferralCommission=Math\.max\(0,n\(editSale\?\.referral_commission\)\)/);
+  assert.match(source, /const referralStoredManual=isEdit&&storedReferralCommission>0&&Math\.abs\(storedReferralCommission-initialReferralFormula\)>0\.000001/);
+  assert.doesNotMatch(source, /if\(!isEdit\)referralCommissionManual/);
 });
 
 test("Insurance Referrals section keeps separate payable status and settlement history", () => {
@@ -541,6 +548,19 @@ test("Insurance migration 179 adds customer receivables without rewriting prior 
   assert.doesNotMatch(sql, /drop\s+table/i);
 });
 
+test("Insurance Make Sale button opens create mode instead of passing the click event as an edit sale", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  assert.match(source, /sale\.onclick=\(\)=>openMakeSale\(\)/);
+  assert.doesNotMatch(source, /sale\.onclick=openMakeSale\s*;/);
+});
+
+test("Insurance new-sale RPC payload does not send the edit-only referral_id argument", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const block = source.slice(source.indexOf("const payload={p_company_id:fd.get(\"company_id\")"), source.indexOf("const res=await rpc(isEdit?\"app_insurance_update_sale_with_referral\":\"app_insurance_create_sale_with_referral\""));
+  assert.doesNotMatch(block, /p_referral_id:referralId/);
+  assert.match(source, /isEdit\?\{p_sale_id:editSale\.id,\.\.\.payload,p_referral_id:referralId\}:\{\.\.\.payload,p_allow_duplicate_customer:allowDuplicate\}/);
+});
+
 test("Insurance sales offer an editable dropdown action and save through the dedicated update RPC", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
   const sql = fs.readFileSync(path.join(projectRoot, "migrations/184_insurance_sale_edit.sql"), "utf8");
@@ -567,6 +587,46 @@ test("Insurance sale currency remains editable after customer payment history ex
   assert.match(sql, /insurance_customer_payments/i);
   assert.doesNotMatch(sql, /drop\s+table/i);
 });
+
+test("Insurance sale edit RPC has a self-contained install migration with the full named-argument signature", () => {
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/187_insurance_sale_edit_rpc_install.sql"), "utf8");
+  assert.match(sql, /create or replace function public\.app_insurance_update_sale_with_referral\(/i);
+  assert.match(sql, /p_sale_id uuid/i);
+  assert.match(sql, /p_company_id uuid/i);
+  assert.match(sql, /p_policy_id uuid/i);
+  assert.match(sql, /p_customer_type text default 'walkin'/i);
+  assert.match(sql, /p_amount_paid numeric default null/i);
+  assert.match(sql, /grant execute on function public\.app_insurance_update_sale_with_referral\(/i);
+  assert.match(sql, /notify pgrst,'reload schema'/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
+test("Insurance sale customer selection is lazy, searchable, and uses a single clickable result list", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "Assets/style/54-insurance.css"), "utf8");
+  const sql = fs.readFileSync(path.join(projectRoot, "migrations/186_insurance_lazy_customer_search.sql"), "utf8");
+  assert.doesNotMatch(source, /app_insurance_list_customers\", \{ p_search: null, p_limit: 300 \}/);
+  assert.match(source, /class="insurance-customer-search-wrap"/);
+  assert.match(source, /id="insuranceExistingCustomerResults"/);
+  assert.match(source, /rpc\("app_insurance_search_customers",\{p_search:query,p_offset:0,p_limit:25\}/);
+  assert.match(source, /customerResults\?\.addEventListener\("click"/);
+  assert.match(source, /selectedCustomer=customer;customerSearch\.value=customer\.name/);
+  assert.doesNotMatch(source, /let selectedCustomer=null,allowDuplicate=false/);
+  assert.match(source, /\+\+customerSearchRequest;customers=\[\];customerResults\.innerHTML=""/);
+  assert.doesNotMatch(source, /id="insuranceExistingCustomerSelect"/);
+  assert.doesNotMatch(source, /<strong>\$\{number\?`#\$\{esc\(number\)\} · `/);
+  assert.match(css, /\.insurance-customer-search-wrap\{position:relative/);
+  assert.match(css, /\.insurance-customer-search-results\{position:absolute/);
+  assert.match(css, /background-color:var\(--bg,#fff\)!important/);
+  assert.match(css, /background-image:none!important/);
+  assert.match(css, /backdrop-filter:none!important/);
+  assert.match(css, /\.insurance-customer-search-result\.selected/);
+  assert.match(sql, /create or replace function public\.app_insurance_search_customers/i);
+  assert.match(sql, /p_offset int default 0/i);
+  assert.match(sql, /p_limit int default 25/i);
+  assert.doesNotMatch(sql, /drop\s+table/i);
+});
+
 
 test("Insurance sale form defaults to fully paid and exposes an explicit partial-payment path", () => {
   const source = fs.readFileSync(path.join(projectRoot, "Assets/app/insurance/01-insurance.js"), "utf8");
@@ -650,6 +710,6 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /gridTemplateColumns: "minmax\(0, 1fr\)"/);
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
-  assert.match(html, /54-insurance\.css\?v=20260922-insurance-customerdropdown006/);
-  assert.match(html, /01-insurance\.js\?v=20260922-insurance-customerdropdown006/);
+  assert.match(html, /54-insurance\.css\?v=20261003-insurance-referralfix011/);
+  assert.match(html, /01-insurance\.js\?v=20261003-insurance-referralfix014/);
 });
