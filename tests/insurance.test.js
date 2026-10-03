@@ -272,6 +272,44 @@ test('commission payment history is auditable and deleting a receipt restores de
   assert.match(source, /outstanding balances recalculated/i);
 });
 
+test('My Commission is split into commission and received-payment tabs without changing the receipt RPCs', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
+  assert.match(source, /commissionTab:\s*["']commission["']/);
+  assert.match(source, /data-insurance-commission-tab="commission"/);
+  assert.match(source, /data-insurance-commission-tab="received"/);
+  assert.match(source, /data-insurance-commission-panel="commission"/);
+  assert.match(source, /data-insurance-commission-panel="received"/);
+  assert.match(source, /receivedCommissionRecordsHtml\(\)/);
+  assert.match(css, /insurance-commission-tabs/);
+  assert.match(css, /insurance-commission-tab-panel\[hidden\]/);
+});
+
+test('Insurance 188 adds editable soft-deleted received commission records without changing existing receipt tables', () => {
+  const sql188 = fs.readFileSync(path.join(projectRoot, 'migrations', '188_insurance_commission_receipt_edit.sql'), 'utf8');
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
+  assert.match(sql188, /create or replace function public\.app_insurance_update_commission_receipt\(/i);
+  assert.match(sql188, /app_require_insurance_permission\('edit'\)/i);
+  assert.match(sql188, /p_amount_received numeric/i);
+  assert.match(sql188, /p_external_reference text/i);
+  assert.match(sql188, /p_notes text/i);
+  assert.match(sql188, /set amount_received=new_amount/i);
+  assert.match(sql188, /delete from public\.insurance_commission_allocations/i);
+  assert.match(sql188, /delete from public\.insurance_commission_opening_allocations/i);
+  assert.doesNotMatch(sql188, /delete from public\.insurance_commission_receipts/i);
+  assert.doesNotMatch(sql188, /drop\s+table/i);
+  assert.match(sql188, /grant execute on function public\.app_insurance_update_commission_receipt/i);
+  assert.match(sql188, /notify pgrst,'reload schema'/i);
+  assert.match(source, /Received Payment Records/);
+  assert.match(source, /app_insurance_update_commission_receipt/);
+  assert.match(source, /label: "Edit", icon: "fa-pen", action: \(\) => openCommissionReceiptEditor/);
+  assert.match(source, /app_insurance_delete_commission_receipt/);
+  assert.match(source, /downloadCommissionReceivedStatementPdf/);
+  assert.match(source, /app_insurance_list_commission_receipts/);
+  assert.match(css, /insurance-commission-receipts-section/);
+});
+
 
 test("Insurance migration 175 adds policy number and auditable cancellation deductions", () => {
   const sql = fs.readFileSync(path.join(projectRoot, "migrations/175_insurance_policy_cancellation_commission_deductions.sql"), "utf8");
@@ -710,6 +748,57 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /gridTemplateColumns: "minmax\(0, 1fr\)"/);
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
-  assert.match(html, /54-insurance\.css\?v=20261003-insurance-referralfix011/);
-  assert.match(html, /01-insurance\.js\?v=20261003-insurance-referralfix014/);
+  assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
+  assert.match(html, /01-insurance\.js\?v=20261003-insurance-receipt189/);
+});
+
+
+test('Insurance 189 hardens global receive and receipt editing', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '189_insurance_commission_hardening.sql'), 'utf8');
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  const css = fs.readFileSync(path.join(projectRoot, 'Assets', 'style', '54-insurance.css'), 'utf8');
+  assert.match(sql, /from receivables r\s+where r\.outstanding>0/i);
+  assert.doesNotMatch(sql, /from receivables\s+where outstanding>0/i);
+  assert.match(sql, /insurance_commission_opening_allocations oa[\s\S]*?into cash_allocated/i);
+  assert.match(sql, /Received amount must be greater than zero/i);
+  assert.match(sql, /linked_company_count/i);
+  assert.match(sql, /app_insurance_list_commission_receipt_history/i);
+  assert.match(source, /app_insurance_list_commission_receipt_history/);
+  assert.match(source, /loadCommissionReceipts\(\)\]/);
+  assert.match(source, /!isDeleted && can\("edit"\)/);
+  assert.match(css, /insurance-commission-receipts-header \.btn\.primary span/);
+});
+
+test('Received Commission history does not overwrite the active received-payments collection', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  assert.match(source, /function bindInsuranceRowMenus\(root, receiptCollection = S\.commissionReceipts\)/);
+  assert.match(source, /const historyItems=Array\.isArray\(res\?\.items\)\?res\.items:\[\];/);
+  assert.match(source, /bindInsuranceRowMenus\(modal,historyItems\)/);
+  assert.match(source, /historyItems\.find\(r=>r\.id===row\.dataset\.insuranceCommissionReceiptRow\)/);
+  assert.doesNotMatch(source, /S\.commissionReceipts=res\?\.items\|\|\[\];\s*S\.commissionReceiptTotal/);
+});
+
+test('Received Commission edit refreshes an open history modal after the record is updated', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  assert.match(source, /const historyModal=document\.getElementById\("insuranceCommissionHistoryModal"\);/);
+  assert.match(source, /if\(historyModal&&\!historyModal\.classList\.contains\("hide"\)\)await openCommissionHistory\(S\.commissionFilters\.company\|\|null\);/);
+});
+
+test('Insurance 189 replaces the existing receive RPC instead of attempting a duplicate create', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations/189_insurance_commission_hardening.sql'), 'utf8');
+  assert.match(sql, /create or replace function public\.app_insurance_receive_commission\(/);
+  assert.match(sql, /grant execute on function public\.app_insurance_receive_commission\(text,numeric,date,time,text,text\)/);
+  assert.match(sql, /where r\.outstanding>0/i);
+  assert.doesNotMatch(sql, /where outstanding>0/i);
+});
+
+test('Received Commission history keeps soft-deleted records auditable while active PDF stays filtered', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '189_insurance_commission_hardening.sql'), 'utf8');
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  assert.match(sql, /create or replace function public\.app_insurance_list_commission_receipt_history/i);
+  assert.match(sql, /from public\.insurance_commission_receipts r\s+where r\.owner_id=own/i);
+  assert.match(source, /insurance-commission-receipt-deleted-badge/);
+  const pdfBlock=source.slice(source.indexOf('async function downloadCommissionReceivedStatementPdf'),source.indexOf('function openCommissionReceiptDetails'));
+  assert.match(pdfBlock, /app_insurance_list_commission_receipts/);
+  assert.doesNotMatch(pdfBlock, /app_insurance_list_commission_receipt_history/);
 });
