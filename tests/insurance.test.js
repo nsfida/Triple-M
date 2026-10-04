@@ -247,7 +247,7 @@ test('My Commission UI lists every sale with due received outstanding status and
   assert.match(source, /Partially Received/);
   assert.match(source, /Fully Received/);
   assert.match(source, /app_insurance_receive_commission/);
-  assert.match(source, /app_insurance_commission_summary/);
+  assert.match(source, /computeCommissionTotals/);
   assert.match(source, /Total Outstanding Commission/);
   assert.match(source, /p_currency:fd\.get\(\"currency\"\)/);
   const receiveBlock=source.slice(source.indexOf('async function openCommissionReceiving'),source.indexOf('async function openCommissionHistory'));
@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261003-insurance-receipt189/);
+  assert.match(html, /01-insurance\.js\?v=20261003-insurance-commission-pdf191/);
 });
 
 
@@ -801,4 +801,70 @@ test('Received Commission history keeps soft-deleted records auditable while act
   const pdfBlock=source.slice(source.indexOf('async function downloadCommissionReceivedStatementPdf'),source.indexOf('function openCommissionReceiptDetails'));
   assert.match(pdfBlock, /app_insurance_list_commission_receipts/);
   assert.doesNotMatch(pdfBlock, /app_insurance_list_commission_receipt_history/);
+});
+
+test('My Commission and Received Payments each offer one plain PDF button, portrait, with issuer details and opening balances', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  assert.doesNotMatch(source, /data-insurance-row-menu="commissionStatements"/);
+  assert.equal((source.match(/id="insuranceCommissionPdf"/g) || []).length, 2);
+  const block = source.slice(source.indexOf('async function fetchCommissionRecords'), source.indexOf('async function loadCommissionReceipts'));
+  ['app_insurance_list_commissions', 'app_insurance_list_commission_opening_balances'].forEach(name => assert.ok(block.includes(name), name));
+  const stmt = source.slice(source.indexOf('async function loadCommissionStatementData'), source.indexOf('async function renderCommissionPortraitPdf'));
+  assert.match(stmt, /fetchCommissionRecords\(commissionFilterArgs\(\)\)/);
+  assert.match(stmt, /computeCommissionTotals\(sales, openings\)/);
+  const layout = source.slice(source.indexOf('async function renderCommissionPortraitPdf'), source.indexOf('async function downloadCommissionStatementPdf'));
+  assert.match(layout, /orientation: "portrait"/);
+  assert.match(layout, /documentCompanyProfile\(\)/);
+  assert.match(layout, /ISSUED BY/);
+  assert.match(layout, /company\.trn/);
+  assert.match(layout, /payerLine/);
+  assert.match(source, /Total Commission = commission from policy sales/);
+});
+
+test('Total Commission = sales commission + opening balances, computed from the listed records', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  const fn = source.slice(source.indexOf('function computeCommissionTotals'), source.indexOf('async function fetchCommissionRecords'));
+  const compute = new Function('n', `${fn}; return computeCommissionTotals;`)(v => (Number.isFinite(Number(v)) ? Number(v) : 0));
+  const sales = [{ currency: 'AED', commission_due: 100, commission_received: 30, commission_deducted: 10, commission_outstanding: 60 }, { currency: 'AED', commission_due: 40, commission_received: 40, commission_deducted: 0, commission_outstanding: 0 }];
+  const openings = [{ currency: 'AED', opening_amount: 500, amount_received: 100, amount_outstanding: 400 }, { currency: 'USD', opening_amount: 50, amount_received: 0, amount_outstanding: 50 }];
+  const res = compute(sales, openings), aed = res.by_currency.find(r => r.currency === 'AED'), usd = res.by_currency.find(r => r.currency === 'USD');
+  assert.deepEqual([aed.sales_commission, aed.opening_balance, aed.commission_due, aed.commission_received, aed.commission_deducted, aed.commission_outstanding], [140, 500, 640, 170, 10, 460]);
+  assert.deepEqual([usd.sales_commission, usd.opening_balance, usd.commission_due, usd.commission_received, usd.commission_outstanding], [0, 50, 50, 0, 50]);
+  assert.doesNotMatch(source.slice(source.indexOf('async function loadCommissionStatementData'), source.indexOf('async function renderCommissionPortraitPdf')), /app_insurance_commission_summary/);
+});
+
+test('Date filters drive the UI lists, totals and PDFs for both commission tabs', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  assert.match(source, /function commissionFilterArgs/);
+  assert.match(source, /function receivedReceiptArgs/);
+  const recv = source.slice(source.indexOf('async function downloadCommissionReceivedStatementPdf'), source.indexOf('// ---- Referral statement PDF'));
+  assert.match(recv, /receivedReceiptArgs\(\)/);
+  assert.match(source, /id="insuranceReceivedApply"/);
+  assert.match(source, /id="insuranceReceivedStart"/);
+});
+
+test('Al Sarea Commercial Broker LLC is shown as payer without becoming an insurance company', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  assert.match(source, /COMMISSION_PARENT_COMPANY = "Al Sarea Commercial Broker LLC"/);
+  const receive = source.slice(source.indexOf('async function openCommissionReceiving'), source.indexOf('async function openCommissionHistory'));
+  assert.match(receive, /Received From/);
+  assert.match(receive, /COMMISSION_PARENT_COMPANY/);
+  assert.match(receive, /app_insurance_receive_commission/);
+  assert.doesNotMatch(receive, /name="company_id"/);
+  assert.doesNotMatch(receive, /companyOptions\(/);
+  assert.match(source.slice(source.indexOf('async function downloadCommissionStatementPdf'), source.indexOf('async function downloadCommissionReceivedStatementPdf')), /Commission paid by/);
+  assert.match(source.slice(source.indexOf('async function downloadCommissionReceivedStatementPdf'), source.indexOf('// ---- Referral statement PDF')), /Received from/);
+  const sqlHits = fs.readdirSync(path.join(projectRoot, 'migrations')).filter(f => /\.sql$/.test(f) && fs.readFileSync(path.join(projectRoot, 'migrations', f), 'utf8').includes('Al Sarea'));
+  assert.deepEqual(sqlHits, []);
+});
+
+test('Referral statement PDF is offered in the menu and overlay using the overlay RPC', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  const menu = source.slice(source.indexOf('kind === "referrer"'), source.indexOf('kind === "referralTransaction"'));
+  assert.match(menu, /Download PDF/);
+  assert.match(source, /id="insuranceReferrerStatementPdf"/);
+  const fn = source.slice(source.indexOf('async function downloadReferrerStatementPdf'), source.indexOf('function openCommissionReceiptDetails'));
+  assert.match(fn, /app_insurance_get_referrer_account/);
+  assert.match(fn, /S\.referralFilters/);
+  assert.match(fn, /currency_totals/);
 });
