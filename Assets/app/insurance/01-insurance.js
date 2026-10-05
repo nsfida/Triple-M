@@ -607,7 +607,7 @@
 
   function commissionStatusMeta(row) {
     const status = row?.commission_status || "outstanding";
-    if (status === "no_commission" && n(row?.actual_profit) < 0) return { label: "Loss / No Commission", cls: "none loss" };
+    if (status === "no_commission" && n(row?.company_commission) < 0) return { label: "Loss / No Commission", cls: "none loss" };
     return COMMISSION_STATUS[status] || COMMISSION_STATUS.outstanding;
   }
 
@@ -779,7 +779,7 @@
   }
 
   function commissionSalesTabHtml() {
-    return `${commissionToolbar()}${commissionSummaryHtml()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>Live policy commission plus any opening outstanding balances brought into Triplem VIP.</span></div></div>${openingBalancesHtml()}
+    return `${commissionToolbar()}${commissionSummaryHtml()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>My Commission = Gross Premium − Purchase Price per policy, plus any opening outstanding balances brought into Triplem VIP.</span></div></div>${openingBalancesHtml()}
       <div class="insurance-commission-table">
         <div class="insurance-commission-line insurance-commission-head"><div>Insurance Sale</div><div>Gross</div><div>Purchase</div><div>Sold</div><div>My Commission</div><div>Received</div><div>Deducted</div><div>Outstanding</div><div>Status</div><div></div></div>
         <div class="insurance-commission-list">${S.commissions.length?S.commissions.map(commissionRow).join(""):`<div class="insurance-empty"><i class="fa-solid fa-hand-holding-dollar"></i>No Insurance sale commission records found.</div>`}</div>
@@ -941,7 +941,7 @@
   }
 
   // ---- Shared portrait statement layout: reuses the app's standard PDF header, company details block and footer ----
-  const PDF_NOTE_TOTAL = "Total Commission = commission from policy sales (Sold Price - Purchase Price) + opening balances brought forward.";
+  const PDF_NOTE_TOTAL = "Total Commission = commission from policy sales (Gross Premium - Purchase Price) + opening balances brought forward.";
   const PDF_NOTE_BALANCE = "Balance to Receive = Total Commission - Commission Received - Commission Deductions.";
   const PDF_NOTE_PAYER = `Commission payments are received from ${COMMISSION_PARENT_COMPANY} against the commission invoices.`;
 
@@ -1776,7 +1776,7 @@
         ${s.cancellation_id?`<div class="insurance-detail"><span>Cancellation Date</span><strong>${fmtDate(s.cancellation_date)} ${fmtTime(s.cancellation_time)}</strong></div><div class="insurance-detail"><span>Policy Used</span><strong>${formatPolicyDuration(s.policy_used_days)}</strong></div><div class="insurance-detail"><span>Cancellation Commission Deduction</span><strong>${moneyHtml(s.cancellation_commission_deduction||0,s.currency)}</strong></div><div class="insurance-detail"><span>Added to My Commission</span><strong>${s.post_deduction_to_commission?"Yes":"No"}</strong></div>${s.cancellation_reason?`<div class="insurance-detail insurance-detail-wide"><span>Cancellation Reason</span><strong>${esc(s.cancellation_reason)}</strong></div>`:""}`:""}
         ${s.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(s.notes)}</strong></div>`:""}
         <div class="insurance-detail insurance-detail-wide insurance-customer-payment-detail"><span>Customer Payment History</span>${customerPaymentHistoryHtml(s)}</div>
-        <div class="insurance-detail insurance-detail-wide"><span>Calculation</span><strong>Company Commission = Gross Premium − Purchase Price. Customer Discount = Gross Premium − Sale Price. Actual Profit = Sale Price − Purchase Price.${isLoss?` This sale records a loss of ${moneyPlain(Math.abs(profit),s.currency)}.`:""}</strong></div></div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${outstanding>0&&s.customer_number&&can("create")?`<button class="btn primary" id="insuranceReceiveCustomerPayment"><i class="fa-solid fa-hand-holding-dollar"></i> Receive Payment</button>`:""}`,onOpen(modal){$("#insuranceReceiveCustomerPayment",modal)?.addEventListener("click",()=>openCustomerPayment(s));}});
+        <div class="insurance-detail insurance-detail-wide"><span>Calculation</span><strong>Company Commission = Gross Premium − Purchase Price (this is My Commission). Customer Discount = Gross Premium − Sale Price. Actual Profit = Sale Price − Purchase Price.${isLoss?` This sale records a loss of ${moneyPlain(Math.abs(profit),s.currency)}.`:""}</strong></div></div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${outstanding>0&&s.customer_number&&can("create")?`<button class="btn primary" id="insuranceReceiveCustomerPayment"><i class="fa-solid fa-hand-holding-dollar"></i> Receive Payment</button>`:""}`,onOpen(modal){$("#insuranceReceiveCustomerPayment",modal)?.addEventListener("click",()=>openCustomerPayment(s));}});
     } catch(err){notify(err.message||"Could not open Insurance transaction.","error");}
   }
 
