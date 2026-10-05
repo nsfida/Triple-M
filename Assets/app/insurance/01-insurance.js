@@ -301,10 +301,14 @@
         ];
       } else if (kind === "referrer") {
         const referrer = S.referrals.find(x => x.referral_id === id); if (!referrer) return;
+        const owes = (Array.isArray(referrer.currency_totals) ? referrer.currency_totals : []).some(t => n(t.referral_outstanding) > 0);
         items = [
           { label: "View", icon: "fa-eye", action: () => openReferrerDetails(referrer.referral_id) },
-          { label: "Download PDF", icon: "fa-file-pdf", action: () => downloadReferrerStatementPdf(referrer.referral_id) }
+          can("create") && owes ? { label: "Pay Referral", icon: "fa-money-bill-transfer", action: () => openReferrerPayment(referrer.referral_id, referrer.referral_name) } : null,
+          ...referrerStatementMenuItems(referrer.referral_id)
         ];
+      } else if (kind === "referrerStatements") {
+        items = referrerStatementMenuItems(id);
       } else if (kind === "referralTransaction") {
         const referral = S.referralTransactions.find(x => x.id === id); if (!referral) return;
         items = [
@@ -1094,26 +1098,134 @@
     } catch (err) { notify(err.message || "Could not generate the commission statement PDF.", "error"); }
   }
 
-  // ---- Referral statement PDF (same RPC and filters as the Referral statement overlay) ----
-  async function downloadReferrerStatementPdf(referrerId, loadedAccount = null) {
+  // ---- Referral statement PDFs: Full / Paid / Outstanding (same RPC and filters as the Referral statement overlay) ----
+  const REFERRER_STATEMENT_META = {
+    full: { title: "Full Referral Statement", label: "Full", file: "Referral_Full_Statement" },
+    paid: { title: "Paid Referral Statement", label: "Paid", file: "Referral_Paid_Statement" },
+    outstanding: { title: "Outstanding Referral Statement", label: "Outstanding", file: "Referral_Outstanding_Statement" }
+  };
+
+  function referrerStatementMenuItems(referrerId) {
+    return [
+      { label: "Full Statement PDF", icon: "fa-file-pdf", action: () => downloadReferrerStatementPdf(referrerId, "full") },
+      { label: "Paid Statement PDF", icon: "fa-circle-check", action: () => downloadReferrerStatementPdf(referrerId, "paid") },
+      { label: "Outstanding Statement PDF", icon: "fa-hourglass-half", action: () => downloadReferrerStatementPdf(referrerId, "outstanding") }
+    ];
+  }
+
+  async function downloadReferrerStatementPdf(referrerId, mode = "full") {
+    const meta = REFERRER_STATEMENT_META[mode];
+    if (!meta) return;
     if (!global.jspdf?.jsPDF) return notify("PDF library is still loading. Try again in a moment.", "error");
     try {
-      const f = S.referralFilters;
-      const account = loadedAccount || (await rpc("app_insurance_get_referrer_account", { p_referrer_id: referrerId, p_start_date: f.start || null, p_end_date: f.end || null }))?.item;
+      const f = S.referralFilters, args = { p_start_date: f.start || null, p_end_date: f.end || null };
+      const account = (await rpc("app_insurance_get_referrer_account", { p_referrer_id: referrerId, ...args }))?.item;
       if (!account) return notify("Referral statement is not available.", "error");
-      const txs = Array.isArray(account.transactions) ? account.transactions : [], totals = Array.isArray(account.currency_totals) ? account.currency_totals : [];
-      if (!txs.length) return notify("No referral transactions match the selected dates.", "error");
+      const allTx = Array.isArray(account.transactions) ? account.transactions : [], acctTotals = Array.isArray(account.currency_totals) ? account.currency_totals : [];
+      if (!allTx.length) return notify("No referral transactions match the selected dates.", "error");
       const amt = (v, cur) => insurancePdfAmount(v, cur), R = { halign: "right" };
       const range = (f.start || f.end) ? `${f.start ? fmtDate(f.start) : "Beginning"} to ${f.end ? fmtDate(f.end) : "Today"}` : "All dates";
+      const acctBy = Object.fromEntries(acctTotals.map(t => [t.currency, t]));
+      const payments = mode === "outstanding" ? [] : ((await rpc("app_insurance_list_referrer_payments", { p_referrer_id: referrerId, ...args }))?.items || []);
+      const sumRows = (rows, pick) => rows.reduce((acc, row) => { const cur = row.currency; const t = acc[cur] ||= { currency: cur, count: 0, commission: 0, paid: 0, outstanding: 0 }; t.count++; pick(t, row); return acc; }, {});
+      const mismatch = (a, b) => Math.abs(n(a) - n(b)) > 0.005;
+      // Paid totals from payment rows must equal the account's Paid totals (never emit a PDF that disagrees with the app).
+      const payTotals = sumRows(payments, (t, p) => { t.paid += n(p.amount_paid); });
+      if (mode !== "outstanding") {
+        new Set([...Object.keys(payTotals), ...acctTotals.map(t => t.currency)]).forEach(cur => { if (mismatch(payTotals[cur]?.paid || 0, acctBy[cur]?.referral_paid || 0)) throw new Error(`Referral payment totals for ${cur} do not match the referral statement. Refresh and try again.`); });
+      }
+      const txRows = mode === "outstanding" ? allTx.filter(tx => n(tx.referral_outstanding) > 0) : allTx;
+      const txTotals = sumRows(txRows, (t, tx) => { t.commission += n(tx.referral_commission); t.paid += n(tx.referral_paid); t.outstanding += n(tx.referral_outstanding); });
+      if (mode === "outstanding") {
+        if (!txRows.length) return notify("This referral has no outstanding commission for the selected dates.", "error");
+        new Set([...Object.keys(txTotals), ...acctTotals.map(t => t.currency)]).forEach(cur => { if (mismatch(txTotals[cur]?.outstanding || 0, acctBy[cur]?.referral_outstanding || 0)) throw new Error(`Outstanding totals for ${cur} do not match the referral statement. Refresh and try again.`); });
+      }
+      if (mode === "paid" && !payments.length) return notify("No referral payments have been recorded for the selected dates.", "error");
+      const countLabel = mode === "paid" ? "Payments" : "Transactions", countValue = mode === "paid" ? payments.length : txRows.length;
       const ctx = await beginInsuranceStatementPdf({
-        title: "Referral Statement", subtitle: `${account.name || "Referral"} · ${range}`,
+        title: meta.title, subtitle: `${account.name || "Referral"} · ${range}`,
         rightLabel: "REFERRAL", partyName: account.name || "Referral", partyPhone: account.phone || "", partyEmail: account.email || "",
-        meta: [{ label: "Period", value: range }, { label: "Transactions", value: String(txs.length) }, { label: "Generated", value: fmtDate(dateToday()) }]
+        meta: [{ label: "Statement", value: meta.label }, { label: "Period", value: range }, { label: countLabel, value: String(countValue) }, { label: "Generated", value: fmtDate(dateToday()) }]
       });
-      const body = txs.map(tx => [`${tx.reference_no || "—"}\n${fmtDate(tx.transaction_date)}`, `${tx.policy_name_snapshot || "Insurance"}${tx.policy_number ? ` · #${tx.policy_number}` : ""}\n${tx.company_name_snapshot || "—"} · ${tx.customer_name || "Walk-in Customer"}`, amt(tx.referral_commission, tx.currency), amt(tx.referral_paid, tx.currency), amt(tx.referral_outstanding, tx.currency), (REFERRAL_STATUS[tx.referral_status] || REFERRAL_STATUS.outstanding).label]);
-      ctx.doc.autoTable({ startY: ctx.y + 5, head: [["Sale / Date", "Policy / Insurance Company / Customer", "Referral Commission", "Paid", "Outstanding", "Status"]], body, columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 56 }, 2: { cellWidth: 28, ...R }, 3: { cellWidth: 22, ...R }, 4: { cellWidth: 24, ...R }, 5: { cellWidth: 22 } }, ...insuranceStatementTableStyle(ctx) });
-      finishInsuranceStatementPdf(ctx, { totalsHead: ["Currency", "Transactions", "Referral Commission", "Paid", "Outstanding"], totalsBody: totals.map(t => [t.currency, String(Number(t.transaction_count || 0)), amt(t.referral_commission, t.currency), amt(t.referral_paid, t.currency), amt(t.referral_outstanding, t.currency)]), totalsCols: { 0: { cellWidth: 26 }, 1: { cellWidth: 30, ...R }, 2: R, 3: R, 4: R }, notes: ["Referral Outstanding = Referral Commission - Referral Paid.", "Figures match the Referral statement shown in the application for the same dates."], file: `Referral_Statement_${String(account.name || "Referral").replace(/[^a-z0-9_-]+/gi, "_")}_${dateToday()}.pdf` });
+      const txBody = rows => rows.map(tx => [`${tx.reference_no || "—"}\n${fmtDate(tx.transaction_date)}`, `${tx.policy_name_snapshot || "Insurance"}${tx.policy_number ? ` · #${tx.policy_number}` : ""}\n${tx.company_name_snapshot || "—"} · ${tx.customer_name || "Walk-in Customer"}`, amt(tx.referral_commission, tx.currency), amt(tx.referral_paid, tx.currency), amt(tx.referral_outstanding, tx.currency), (REFERRAL_STATUS[tx.referral_status] || REFERRAL_STATUS.outstanding).label]);
+      const txHead = [["Sale / Date", "Policy / Insurance Company / Customer", "Referral Commission", "Paid", "Outstanding", "Status"]];
+      const txCols = { 0: { cellWidth: 30 }, 1: { cellWidth: 56 }, 2: { cellWidth: 28, ...R }, 3: { cellWidth: 22, ...R }, 4: { cellWidth: 24, ...R }, 5: { cellWidth: 22 } };
+      const payBody = rows => rows.map(p => [`${fmtDate(p.payment_date)}\n${fmtTime(p.payment_time)}`, p.reference_no || "—", `${p.policy_name_snapshot || "Insurance"}${p.policy_number ? ` · #${p.policy_number}` : ""}\n${p.sale_reference_no || "—"} · ${p.company_name_snapshot || "—"} · ${p.customer_name || "Walk-in Customer"}`, `${p.external_reference || "—"}${p.notes ? `\n${p.notes}` : ""}`, amt(p.amount_paid, p.currency)]);
+      const payHead = [["Payment Date / Time", "Payment Reference", "Sale / Policy / Insurance Company / Customer", "Reference / Notes", "Amount Paid"]];
+      const payCols = { 0: { cellWidth: 26 }, 1: { cellWidth: 38 }, 2: { cellWidth: 56 }, 3: { cellWidth: 32 }, 4: { cellWidth: 30, ...R } };
+      const sortedCur = obj => Object.values(obj).sort((a, b) => a.currency.localeCompare(b.currency));
+      let totalsHead, totalsBody, totalsCols, notes;
+      if (mode === "paid") {
+        ctx.doc.autoTable({ startY: ctx.y + 5, head: payHead, body: payBody(payments), columnStyles: payCols, ...insuranceStatementTableStyle(ctx) });
+        totalsHead = ["Currency", "Payments", "Total Paid"];
+        totalsBody = sortedCur(payTotals).map(t => [t.currency, String(t.count), amt(t.paid, t.currency)]);
+        totalsCols = { 0: { cellWidth: 34 }, 1: { cellWidth: 34, ...R }, 2: R };
+        notes = ["Only active (non-deleted) referral payments are listed and counted.", "Total Paid equals the Paid amount in the Referral statement for the same dates."];
+      } else {
+        ctx.doc.autoTable({ startY: ctx.y + 5, head: txHead, body: txBody(txRows), columnStyles: txCols, ...insuranceStatementTableStyle(ctx) });
+        if (mode === "full" && payments.length) {
+          let y = (ctx.doc.lastAutoTable?.finalY || ctx.y) + 8;
+          if (y + 28 > ctx.doc.internal.pageSize.getHeight() - 34) { ctx.doc.addPage(); ctx.paint(); y = 46; }
+          ctx.doc.setFont("helvetica", "bold"); ctx.doc.setFontSize(8.4); ctx.doc.setTextColor(15, 23, 42); ctx.doc.text("Payment History", 14, y);
+          ctx.doc.autoTable({ startY: y + 2, head: payHead, body: payBody(payments), columnStyles: payCols, ...insuranceStatementTableStyle(ctx) });
+        }
+        totalsHead = ["Currency", "Transactions", "Referral Commission", "Paid", "Outstanding"];
+        const rowsForTotals = mode === "full" ? acctTotals.map(t => ({ currency: t.currency, count: Number(t.transaction_count || 0), commission: n(t.referral_commission), paid: n(t.referral_paid), outstanding: n(t.referral_outstanding) })) : sortedCur(txTotals);
+        totalsBody = rowsForTotals.map(t => [t.currency, String(t.count), amt(t.commission, t.currency), amt(t.paid, t.currency), amt(t.outstanding, t.currency)]);
+        totalsCols = { 0: { cellWidth: 26 }, 1: { cellWidth: 30, ...R }, 2: R, 3: R, 4: R };
+        notes = mode === "full"
+          ? ["Referral Outstanding = Referral Commission - Referral Paid.", "Figures match the Referral statement shown in the application for the same dates.", "Only active (non-deleted) referral payments are counted."]
+          : ["Referral Outstanding = Referral Commission - Referral Paid.", "Only transactions with an outstanding balance are listed. Total Outstanding equals the Outstanding amount in the Referral statement for the same dates."];
+      }
+      finishInsuranceStatementPdf(ctx, { totalsHead, totalsBody, totalsCols, notes, file: `${meta.file}_${String(account.name || "Referral").replace(/[^a-z0-9_-]+/gi, "_")}_${dateToday()}.pdf` });
     } catch (err) { notify(err.message || "Could not generate the referral statement PDF.", "error"); }
+  }
+
+  // ---- Pay a referral (clears outstanding oldest sale first; one payment row per sale, existing payment table) ----
+  async function openReferrerPayment(referrerId, referrerName = "") {
+    if (!can("create")) return notify("Referral payment is not permitted for this account.", "error");
+    try {
+      const f = S.referralFilters, args = { p_start_date: f.start || null, p_end_date: f.end || null };
+      const account = (await rpc("app_insurance_get_referrer_account", { p_referrer_id: referrerId, ...args }))?.item;
+      const owing = (Array.isArray(account?.currency_totals) ? account.currency_totals : []).filter(t => n(t.referral_outstanding) > 0);
+      if (!owing.length) return notify("This referral has no outstanding commission.", "error");
+      const name = account.name || referrerName || "Referral", outstandingFor = cur => n(owing.find(t => t.currency === cur)?.referral_outstanding);
+      openModal({
+        id: "insuranceReferrerPaymentModal", title: "Pay Referral", subtitle: name,
+        body: `<form id="insuranceReferrerPaymentForm" class="insurance-form-grid insurance-referral-payment-form">
+          <label>Currency<select class="select" name="currency" required>${owing.map(t => `<option value="${esc(t.currency)}">${esc(t.currency)}</option>`).join("")}</select></label>
+          <div class="insurance-detail insurance-referral-balance-card"><span>Total Outstanding</span><strong id="insuranceReferrerPayOutstanding"></strong></div>
+          <label>Amount Paid<input class="input" type="number" name="amount_paid" min="0.01" step="0.01" required></label>
+          <label>Payment Date<input class="input" type="date" name="payment_date" value="${dateToday()}" required></label>
+          <label>Payment Time<input class="input" type="time" name="payment_time" value="${timeNow()}" required></label>
+          <label>Reference<input class="input" name="external_reference" maxlength="120" placeholder="Optional"></label>
+          <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional"></textarea></label>
+          <div class="wide help">The payment clears the oldest outstanding referral commissions first. Paid, Outstanding and status update automatically.</div>
+        </form>`,
+        actions: `<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceReferrerPaymentSave">Save</button>`,
+        onOpen(modal, close) {
+          const form = $("#insuranceReferrerPaymentForm", modal), curSel = form.elements.currency, amount = form.elements.amount_paid, out = $("#insuranceReferrerPayOutstanding", modal);
+          const sync = () => { const cur = curSel.value, total = outstandingFor(cur); out.innerHTML = moneyHtml(total, cur); amount.max = String(total); amount.value = String(Math.round(total * 100) / 100); };
+          curSel.addEventListener("change", sync); sync();
+          $("#insuranceReferrerPaymentSave", modal).onclick = async e => {
+            if (!form.reportValidity()) return;
+            const fd = new FormData(form), cur = String(fd.get("currency") || ""), value = n(fd.get("amount_paid")), total = outstandingFor(cur);
+            if (value <= 0 || value > total + 0.005) return notify("Enter a payment within the outstanding referral balance.", "error");
+            setBusy(e.currentTarget, true, "Saving");
+            try {
+              await rpc("app_insurance_pay_referrer", { p_referrer_id: referrerId, p_currency: cur, p_amount_paid: value, p_payment_date: fd.get("payment_date"), p_payment_time: fd.get("payment_time"), p_external_reference: fd.get("external_reference") || null, p_notes: fd.get("notes") || null, ...args });
+              close();
+              await Promise.all([loadReferrals({ reset: true }), loadReferralSummary()]);
+              if (S.view === "referrals") renderReferrals();
+              const ledger = document.getElementById("insuranceReferrerDetailsModal");
+              if (ledger && !ledger.classList.contains("hide")) await openReferrerDetails(referrerId);
+              notify("Referral payment recorded. Paid and outstanding balances are updated.");
+            } catch (err) { notify(err.message || "Could not record referral payment.", "error"); }
+            finally { setBusy(e.currentTarget, false); }
+          };
+        }
+      });
+    } catch (err) { notify(err.message || "Could not open referral payment.", "error"); }
   }
 
   function openCommissionReceiptDetails(receipt) {
@@ -1200,7 +1312,7 @@
       const totals=Array.isArray(account.currency_totals)?account.currency_totals:[];
       const totalsHtml=totals.length?`<div class="insurance-referrer-ledger-totals">${totals.map(t=>`<div><span>${esc(t.currency)}</span><b>${moneyHtml(t.referral_commission,t.currency)}</b><small>Paid ${moneyHtml(t.referral_paid,t.currency)} · Outstanding ${moneyHtml(t.referral_outstanding,t.currency)}</small></div>`).join("")}</div>`:"";
       const rows=transactions.length?transactions.map(tx=>`<div class="insurance-referrer-ledger-row" data-insurance-referral-transaction="${esc(tx.id)}"><div class="insurance-referrer-ledger-policy"><strong>${esc(tx.policy_name_snapshot)}${tx.policy_number?` · #${esc(tx.policy_number)}`:""}</strong><span>${esc(tx.company_name_snapshot)} · ${esc(tx.reference_no)} · ${fmtDate(tx.transaction_date)} ${fmtTime(tx.transaction_time)}</span><small>${esc(tx.customer_name||"Walk-in Customer")}</small></div><div data-label="Commission"><b>${moneyHtml(tx.referral_commission,tx.currency)}</b></div><div data-label="Paid"><b>${moneyHtml(tx.referral_paid,tx.currency)}</b></div><div data-label="Outstanding"><b class="${n(tx.referral_outstanding)>0?"insurance-amount-outstanding":""}">${moneyHtml(tx.referral_outstanding,tx.currency)}</b></div><div class="insurance-referral-status">${referralStatusBadge(tx)}</div><div>${rowMenuButtonHtml("referralTransaction",tx.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No referral transactions match the selected dates.</div>`;
-      openModal({id:"insuranceReferrerDetailsModal",title:account.name,subtitle:`Referral ledger · ${transactions.length} transaction${transactions.length===1?"":"s"}`,body:`${totalsHtml}<div class="insurance-referrer-ledger"><div class="insurance-referrer-ledger-head"><div>Policy / Transaction</div><div>Commission</div><div>Paid</div><div>Outstanding</div><div>Status</div><div></div></div>${rows}</div>`,actions:`<button class="btn ghost" id="insuranceReferrerStatementPdf" type="button"><i class="fa-solid fa-file-pdf"></i> Download PDF</button><button class="btn primary" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);$("#insuranceReferrerStatementPdf",modal)?.addEventListener("click",()=>downloadReferrerStatementPdf(referrerId,account));bindClickableRows(modal,'[data-insurance-referral-transaction]',row=>openReferralDetails(row.dataset.insuranceReferralTransaction));}});
+      openModal({id:"insuranceReferrerDetailsModal",title:account.name,subtitle:`Referral ledger · ${transactions.length} transaction${transactions.length===1?"":"s"}`,body:`${totalsHtml}<div class="insurance-referrer-ledger"><div class="insurance-referrer-ledger-head"><div>Policy / Transaction</div><div>Commission</div><div>Paid</div><div>Outstanding</div><div>Status</div><div></div></div>${rows}</div>`,actions:`${can("create")&&totals.some(t=>n(t.referral_outstanding)>0)?`<button class="btn ghost" id="insuranceReferrerPay" type="button"><i class="fa-solid fa-money-bill-transfer"></i> Pay Referral</button>`:""}<button class="btn ghost" id="insuranceReferrerStatementPdf" type="button" data-insurance-row-menu="referrerStatements" data-insurance-row-id="${esc(referrerId)}" aria-haspopup="menu" title="Referral PDF statements: Full, Paid, Outstanding"><i class="fa-solid fa-file-pdf"></i> PDF</button><button class="btn primary" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);$("#insuranceReferrerPay",modal)?.addEventListener("click",()=>openReferrerPayment(referrerId,account.name));bindClickableRows(modal,'[data-insurance-referral-transaction]',row=>openReferralDetails(row.dataset.insuranceReferralTransaction));}});
     }catch(err){notify(err.message||"Could not open referral ledger.","error");}
   }
 
