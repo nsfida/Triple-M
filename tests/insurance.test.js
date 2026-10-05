@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261004-insurance-commission192/);
+  assert.match(html, /01-insurance\.js\?v=20261005-insurance-referral193/);
 });
 
 
@@ -856,15 +856,44 @@ test('Opening balances are brought forward: migration 190 removes the date filte
   assert.match(sql, /insurance_commission_opening_balances b where b\.owner_id=own and not b\.is_deleted/);
 });
 
-test('Referral statement PDF is offered in the menu and overlay using the overlay RPC', () => {
+test('Referral section: Pay Referral plus Full / Paid / Outstanding PDF statements in the menu and overlay', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
   const menu = source.slice(source.indexOf('kind === "referrer"'), source.indexOf('kind === "referralTransaction"'));
-  assert.match(menu, /Download PDF/);
-  assert.match(source, /id="insuranceReferrerStatementPdf"/);
-  const fn = source.slice(source.indexOf('async function downloadReferrerStatementPdf'), source.indexOf('function openCommissionReceiptDetails'));
+  assert.match(menu, /label: "View"/);
+  assert.match(menu, /label: "Pay Referral"[^}]*openReferrerPayment/);
+  assert.match(menu, /referrerStatementMenuItems\(referrer\.referral_id\)/);
+  assert.match(menu, /kind === "referrerStatements"/);
+  const items = source.slice(source.indexOf('function referrerStatementMenuItems'), source.indexOf('async function downloadReferrerStatementPdf'));
+  assert.deepEqual([...items.matchAll(/label: "([^"]+)"/g)].map(m => m[1]), ['Full Statement PDF', 'Paid Statement PDF', 'Outstanding Statement PDF']);
+  assert.match(source, /id="insuranceReferrerPay"/);
+  assert.match(source, /id="insuranceReferrerStatementPdf" type="button" data-insurance-row-menu="referrerStatements"/);
+  const fn = source.slice(source.indexOf('async function downloadReferrerStatementPdf'), source.indexOf('async function openReferrerPayment'));
   assert.match(fn, /app_insurance_get_referrer_account/);
+  assert.match(fn, /app_insurance_list_referrer_payments/);
   assert.match(fn, /S\.referralFilters/);
   assert.match(fn, /currency_totals/);
+  assert.match(fn, /do not match the referral statement/);
+  assert.match(fn, /referral_outstanding\) > 0/);
+  const pay = source.slice(source.indexOf('async function openReferrerPayment'), source.indexOf('function openCommissionReceiptDetails'));
+  assert.match(pay, /app_insurance_pay_referrer/);
+  assert.match(pay, /p_start_date/);
+  assert.match(pay, /loadReferrals\(\{ reset: true \}\)/);
+  assert.match(pay, /loadReferralSummary\(\)/);
+});
+
+test('Migration 193 adds referrer payment and paid-list functions without touching existing referral logic', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '193_insurance_referrer_payment_and_statements.sql'), 'utf8');
+  assert.match(sql, /create or replace function public\.app_insurance_pay_referrer\(/);
+  assert.match(sql, /create or replace function public\.app_insurance_list_referrer_payments\(/);
+  assert.match(sql, /app_require_insurance_permission\('create'\)/);
+  assert.match(sql, /app_require_insurance_permission\('view'\)/);
+  assert.match(sql, /insert into public\.insurance_referral_payments/);
+  assert.match(sql, /order by s\.transaction_date,s\.transaction_time,s\.created_at,s\.id/);
+  assert.match(sql, /Referral payment exceeds the outstanding balance/);
+  assert.match(sql, /not p\.is_deleted/);
+  assert.doesNotMatch(sql, /\b(drop table|drop function|truncate|alter table|delete from|update public\.)/i);
+  assert.doesNotMatch(sql, /create or replace function public\.app_insurance_(pay_referral|get_referrer_account|list_referrer_accounts|delete_referral_payment)\(/);
+  assert.match(sql, /grant execute on function public\.app_insurance_pay_referrer\(uuid,text,numeric,date,time without time zone,text,text,date,date\)/);
 });
 
 test('Migration 191 repairs received-payment edits without touching data or other logic', () => {
