@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261004-insurance-statements191/);
+  assert.match(html, /01-insurance\.js\?v=20261004-insurance-commission192/);
 });
 
 
@@ -826,7 +826,7 @@ test('Commission and referral PDFs are portrait and reuse the standard header, c
   assert.match(begin, /drawPdfHeaderAndFooter\(/);
   const stmt = source.slice(source.indexOf('async function downloadCommissionReceivedStatementPdf'), source.indexOf('function openCommissionReceiptDetails'));
   assert.doesNotMatch(stmt, /orientation:\s*"landscape"/);
-  assert.match(stmt, /Total Commission = commission from policy sales \(Sold Price - Purchase Price\) \+ opening balances brought forward\./);
+  assert.match(stmt, /Total Commission = commission from policy sales \(Gross Premium - Purchase Price\) \+ opening balances brought forward\./);
   assert.match(stmt, /Balance to Receive = Total Commission - Commission Received - Commission Deductions\./);
 });
 
@@ -877,4 +877,26 @@ test('Migration 191 repairs received-payment edits without touching data or othe
   assert.doesNotMatch(sql, /min\(c\.company_id\)/);
   assert.doesNotMatch(sql, /\b(drop table|truncate|delete from public\.insurance_commission_receipts|alter table)\b/i);
   assert.match(sql, /grant execute on function public\.app_insurance_update_commission_receipt\(uuid,numeric,date,time,text,text\)/);
+});
+
+test('Migration 192 makes My Commission Gross Premium - Purchase Price everywhere commission is computed', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '192_insurance_my_commission_gross_minus_purchase.sql'), 'utf8');
+  [
+    'app_insurance_list_commissions', 'app_insurance_get_commission', 'app_insurance_commission_summary',
+    'app_insurance_receive_commission', 'app_insurance_update_commission_receipt',
+    'app_insurance_add_commission_deduction', 'app_insurance_cancel_sale', 'app_insurance_update_sale_with_referral'
+  ].forEach(name => assert.match(sql, new RegExp(`create or replace function public\\.${name}\\(`, 'i'), name));
+  assert.doesNotMatch(sql, /greatest\(\s*(s|rec)\.actual_profit\s*,\s*0/i);
+  assert.match(sql, /greatest\(s\.company_commission,0::numeric\) commission_due/);
+  assert.match(sql, /new_commission:=p_gross_premium-p_purchase_price/);
+  assert.match(sql, /greatest\(new_commission,0::numeric\)<commission_received\+commission_deducted/);
+  assert.match(sql, /actual_profit=new_actual_profit/);
+  assert.doesNotMatch(sql, /\b(drop table|drop function|truncate|alter table)\b/i);
+  assert.doesNotMatch(sql, /update public\.insurance_sales\s+set\s+(actual_profit|company_commission)\s*=/i);
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets', 'app', 'insurance', '01-insurance.js'), 'utf8');
+  assert.match(js, /Total Commission = commission from policy sales \(Gross Premium - Purchase Price\)/);
+  const math = require(path.join(projectRoot, 'Assets', 'app', 'lib', 'insurance-math.js'));
+  const r = math.calculateInsuranceFinancials(1500, 1400, 1450);
+  assert.equal(r.companyCommission, 100);
+  assert.equal(r.actualProfit, 50);
 });
