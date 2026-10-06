@@ -1,0 +1,285 @@
+/* Triplem VIP Build 151 · Admin Live Chat Records final layout polish */
+#adminLiveChatRecordsModal.modal,
+#adminLiveChatTranscriptModal.modal{
+  z-index:21000!important;
+  padding:clamp(12px,2vw,26px)!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+#adminLiveChatRecordsModal .admin-live-records-sheet{
+  width:min(980px,calc(100vw - 32px))!important;
+  height:min(86dvh,780px)!important;
+  max-height:calc(100dvh - 32px)!important;
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr)!important;
+  overflow:hidden!important;
+  border-radius:18px!important;
+}
+#adminLiveChatRecordsModal .admin-live-records-body{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  gap:10px!important;
+  overflow:hidden!important;
+  padding:12px!important;
+}
+#adminLiveChatRecordsModal .admin-live-records-toolbar,
+#adminLiveChatRecordsModal .admin-live-record-bulkbar,
+#adminLiveChatRecordsModal .admin-live-records-meta{
+  flex:0 0 auto!important;
+  min-width:0!important;
+}
+#adminLiveChatRecordsModal .admin-live-records-toolbar{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:9px!important;
+  align-items:center!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-search{
+  min-width:0!important;
+  width:100%!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-bulkbar{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:7px!important;
+  align-items:center!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-selected{margin-left:auto!important;white-space:nowrap!important}
+#adminLiveChatRecordsModal .admin-live-records-list{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-content:unset!important;
+  gap:8px!important;
+  padding:2px!important;
+  overscroll-behavior:contain!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-card{
+  flex:0 0 auto!important;
+  width:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:34px minmax(0,1fr) 70px!important;
+  align-items:stretch!important;
+  gap:0!important;
+  overflow:hidden!important;
+  border:1px solid var(--line)!important;
+  border-radius:14px!important;
+  background:var(--surface-elevated,var(--panel,#fff))!important;
+  box-sizing:border-box!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-check{
+  min-width:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border-right:1px solid color-mix(in srgb,var(--line) 72%,transparent)!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-main{
+  min-width:0!important;
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:38px minmax(0,1fr)!important;
+  gap:9px!important;
+  align-items:start!important;
+  padding:10px 11px!important;
+  text-align:left!important;
+  overflow:hidden!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-avatar{width:36px!important;height:36px!important;flex:0 0 36px!important}
+#adminLiveChatRecordsModal .admin-live-record-copy,
+#adminLiveChatRecordsModal .admin-live-record-top,
+#adminLiveChatRecordsModal .admin-live-record-contact,
+#adminLiveChatRecordsModal .admin-live-record-preview,
+#adminLiveChatRecordsModal .admin-live-record-foot{min-width:0!important;max-width:100%!important}
+#adminLiveChatRecordsModal .admin-live-record-top{display:flex!important;justify-content:space-between!important;gap:10px!important;align-items:baseline!important}
+#adminLiveChatRecordsModal .admin-live-record-top strong{font-size:.78rem!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+#adminLiveChatRecordsModal .admin-live-record-top time{font-size:.62rem!important;white-space:nowrap!important;color:var(--muted)!important}
+#adminLiveChatRecordsModal .admin-live-record-contact{font-size:.65rem!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:var(--muted)!important}
+#adminLiveChatRecordsModal .admin-live-record-preview{
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  overflow:hidden!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  line-height:1.35!important;
+  font-size:.69rem!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-foot{display:flex!important;flex-wrap:wrap!important;gap:5px 9px!important;align-items:center!important;margin-top:3px!important}
+#adminLiveChatRecordsModal .admin-live-record-foot em{font-size:.6rem!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+#adminLiveChatRecordsModal .admin-live-record-card-actions{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  align-items:stretch!important;
+  border-left:1px solid color-mix(in srgb,var(--line) 72%,transparent)!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-pdf,
+#adminLiveChatRecordsModal .admin-live-record-trash{
+  position:static!important;
+  inset:auto!important;
+  width:auto!important;
+  min-width:0!important;
+  height:auto!important;
+  min-height:100%!important;
+  border:0!important;
+  border-radius:0!important;
+  display:grid!important;
+  place-items:center!important;
+  background:transparent!important;
+  color:var(--muted)!important;
+  cursor:pointer!important;
+}
+#adminLiveChatRecordsModal .admin-live-record-pdf{color:var(--primary)!important;border-right:1px solid color-mix(in srgb,var(--line) 72%,transparent)!important}
+#adminLiveChatRecordsModal .admin-live-record-pdf:hover{background:color-mix(in srgb,var(--primary) 9%,transparent)!important}
+#adminLiveChatRecordsModal .admin-live-record-trash:hover{background:color-mix(in srgb,#dc2626 9%,transparent)!important;color:#dc2626!important}
+
+#adminLiveChatTranscriptModal .admin-live-record-thread-sheet{
+  width:min(820px,calc(100vw - 32px))!important;
+  height:min(88dvh,790px)!important;
+  max-height:calc(100dvh - 32px)!important;
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr)!important;
+  overflow:hidden!important;
+  border-radius:18px!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-thread-body{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:0!important;
+  max-height:none!important;
+  gap:10px!important;
+  padding:12px!important;
+  overflow:hidden!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-summary{
+  flex:0 0 auto!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border:1px solid var(--line)!important;
+  border-radius:12px!important;
+  background:var(--surface-elevated,var(--panel,#fff))!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-summary>div{min-width:0!important;padding:9px 10px!important;border:0!important;border-right:1px solid var(--line)!important}
+#adminLiveChatTranscriptModal .admin-live-record-summary>div:last-child{border-right:0!important}
+#adminLiveChatTranscriptModal .admin-live-record-summary span{font-size:.57rem!important;letter-spacing:.04em!important;color:var(--muted)!important}
+#adminLiveChatTranscriptModal .admin-live-record-summary strong{font-size:.7rem!important;line-height:1.25!important;overflow-wrap:anywhere!important}
+#adminLiveChatTranscriptModal .admin-live-record-summary small{font-size:.56rem!important;line-height:1.3!important;overflow-wrap:anywhere!important;color:var(--muted)!important}
+#adminLiveChatTranscriptModal .admin-live-record-handoffs{flex:0 0 auto!important;max-height:128px!important;overflow:auto!important;border:1px solid var(--line)!important;border-radius:11px!important;padding:8px!important}
+#adminLiveChatTranscriptModal .admin-live-record-transcript{
+  flex:1 1 auto!important;
+  min-height:150px!important;
+  max-height:none!important;
+  overflow:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-content:unset!important;
+  gap:8px!important;
+  padding:10px!important;
+  border:1px solid var(--line)!important;
+  border-radius:13px!important;
+  background:color-mix(in srgb,var(--surface-elevated,var(--panel,#fff)) 84%,transparent)!important;
+  overscroll-behavior:contain!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-msg{
+  flex:0 0 auto!important;
+  width:auto!important;
+  max-width:82%!important;
+  min-width:0!important;
+  padding:8px 10px!important;
+  border:1px solid var(--line)!important;
+  border-radius:13px!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-msg.guest{align-self:flex-start!important;background:color-mix(in srgb,var(--primary) 8%,var(--surface-elevated,var(--panel,#fff)))!important;border-color:color-mix(in srgb,var(--primary) 22%,var(--line))!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg.aziz{align-self:flex-end!important;background:color-mix(in srgb,#7c3aed 8%,var(--surface-elevated,var(--panel,#fff)))!important;border-color:color-mix(in srgb,#7c3aed 22%,var(--line))!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg.agent{align-self:flex-end!important;background:color-mix(in srgb,#159467 8%,var(--surface-elevated,var(--panel,#fff)))!important;border-color:color-mix(in srgb,#159467 22%,var(--line))!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg.support{align-self:center!important;max-width:90%!important;background:color-mix(in srgb,var(--muted) 6%,var(--surface-elevated,var(--panel,#fff)))!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg-meta{display:flex!important;justify-content:space-between!important;gap:12px!important;align-items:baseline!important;margin-bottom:4px!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg-meta strong{font-size:.65rem!important;overflow-wrap:anywhere!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg-meta span{font-size:.53rem!important;white-space:nowrap!important;color:var(--muted)!important}
+#adminLiveChatTranscriptModal .admin-live-record-msg p{margin:0!important;font-size:.68rem!important;line-height:1.5!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+#adminLiveChatTranscriptModal .admin-live-record-event{flex:0 0 auto!important;max-width:94%!important;overflow:hidden!important}
+#adminLiveChatTranscriptModal .admin-live-record-event span{white-space:normal!important;overflow-wrap:anywhere!important}
+#adminLiveChatTranscriptModal .admin-live-record-thread-actions{
+  flex:0 0 auto!important;
+  display:flex!important;
+  flex-wrap:wrap!important;
+  justify-content:flex-end!important;
+  gap:7px!important;
+  padding-top:8px!important;
+  border-top:1px solid var(--line)!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-thread-actions>.btn{height:auto!important;min-height:30px!important;max-height:none!important;padding:6px 10px!important;font-size:.58rem!important}
+#adminLiveChatTranscriptModal .admin-live-record-pdf-action{color:var(--primary)!important}
+
+@media(max-width:760px){
+  #adminLiveChatRecordsModal.modal,#adminLiveChatTranscriptModal.modal{padding:10px!important}
+  #adminLiveChatRecordsModal .admin-live-records-sheet,#adminLiveChatTranscriptModal .admin-live-record-thread-sheet{width:100%!important;height:calc(100dvh - 20px)!important;max-height:calc(100dvh - 20px)!important;border-radius:15px!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary{grid-template-columns:1fr 1fr!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary>div{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary>div:nth-child(2n){border-right:0!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary>div:nth-last-child(-n+2){border-bottom:0!important}
+  #adminLiveChatTranscriptModal .admin-live-record-msg{max-width:90%!important}
+}
+@media(max-width:520px){
+  #adminLiveChatRecordsModal .admin-live-records-body,#adminLiveChatTranscriptModal .admin-live-record-thread-body{padding:8px!important;gap:8px!important}
+  #adminLiveChatRecordsModal .admin-live-records-toolbar{grid-template-columns:minmax(0,1fr)!important}
+  #adminLiveChatRecordsModal .admin-live-records-toolbar>.btn{width:100%!important}
+  #adminLiveChatRecordsModal .admin-live-record-selected{width:100%!important;margin-left:0!important}
+  #adminLiveChatRecordsModal .admin-live-record-card{grid-template-columns:30px minmax(0,1fr) 58px!important}
+  #adminLiveChatRecordsModal .admin-live-record-main{grid-template-columns:30px minmax(0,1fr)!important;padding:8px!important;gap:7px!important}
+  #adminLiveChatRecordsModal .admin-live-record-avatar{width:29px!important;height:29px!important;flex-basis:29px!important}
+  #adminLiveChatRecordsModal .admin-live-record-top{display:grid!important;gap:2px!important}
+  #adminLiveChatRecordsModal .admin-live-record-top time{white-space:normal!important}
+  #adminLiveChatRecordsModal .admin-live-record-foot em{white-space:normal!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary{grid-template-columns:1fr!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary>div{border-right:0!important;border-bottom:1px solid var(--line)!important}
+  #adminLiveChatTranscriptModal .admin-live-record-summary>div:last-child{border-bottom:0!important}
+  #adminLiveChatTranscriptModal .admin-live-record-msg{max-width:94%!important}
+  #adminLiveChatTranscriptModal .admin-live-record-thread-actions{justify-content:stretch!important}
+  #adminLiveChatTranscriptModal .admin-live-record-thread-actions>.btn{flex:1 1 auto!important}
+}
+
+/* Build 152: explicit actor titles keep transcript identity unambiguous. */
+#adminLiveChatTranscriptModal .admin-live-record-msg-meta strong{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  min-width:0!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-msg-meta strong>span{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:inherit!important;
+  font-size:inherit!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-role-badge{
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:18px!important;
+  padding:2px 6px!important;
+  border-radius:999px!important;
+  font-style:normal!important;
+  font-size:.47rem!important;
+  font-weight:800!important;
+  line-height:1!important;
+  letter-spacing:.05em!important;
+  text-transform:uppercase!important;
+  border:1px solid currentColor!important;
+  background:color-mix(in srgb,currentColor 9%,transparent)!important;
+}
+#adminLiveChatTranscriptModal .admin-live-record-role-badge.guest{color:var(--primary)!important}
+#adminLiveChatTranscriptModal .admin-live-record-role-badge.aziz{color:#7c3aed!important}
+#adminLiveChatTranscriptModal .admin-live-record-role-badge.agent{color:#159467!important}
+#adminLiveChatTranscriptModal .admin-live-record-role-badge.support{color:var(--muted)!important}
