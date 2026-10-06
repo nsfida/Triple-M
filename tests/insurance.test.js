@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261005-insurance-referral193/);
+  assert.match(html, /01-insurance\.js\?v=20261006-insurance-cancel194/);
 });
 
 
@@ -928,4 +928,34 @@ test('Migration 192 makes My Commission Gross Premium - Purchase Price everywher
   const r = math.calculateInsuranceFinancials(1500, 1400, 1450);
   assert.equal(r.companyCommission, 100);
   assert.equal(r.actualProfit, 50);
+});
+
+test('Migration 194 adds the pending/confirmed cancellation workflow without touching referral commission or existing data', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '194_insurance_cancelled_policies_pending_confirmation.sql'), 'utf8');
+  // Existing one-step cancellations are preserved as confirmed.
+  assert.match(sql, /add column if not exists status text not null default 'confirmed'/);
+  assert.match(sql, /alter column status set default 'pending'/);
+  assert.match(sql, /set confirmation_date=cancellation_date/);
+  // Cancel is pending only and posts no deduction.
+  const cancel = sql.slice(sql.indexOf('function public.app_insurance_cancel_sale'), sql.indexOf('function public.app_insurance_confirm_cancellation'));
+  assert.doesNotMatch(cancel, /insert into public\.insurance_commission_deductions/);
+  assert.match(cancel, /'pending'/);
+  // Confirm posts the manual deduction; restore reverses it.
+  assert.match(sql, /function public\.app_insurance_confirm_cancellation/);
+  assert.match(sql, /insert into public\.insurance_commission_deductions/);
+  assert.match(sql, /function public\.app_insurance_restore_cancellation/);
+  assert.match(sql, /delete from public\.insurance_policy_cancellations where id=c\.id/);
+  // Referral commission is never referenced.
+  assert.doesNotMatch(sql.replace(/--.*$/gm, ''), /insurance_referral|referral_commission/i);
+  // No destructive DDL.
+  assert.doesNotMatch(sql, /drop table|truncate/i);
+});
+
+test('Insurance UI has the Cancelled Policies tab with Pending/Clear status, Confirm and Restore', () => {
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  assert.match(js, /\["cancelled", "Cancelled Policies"/);
+  assert.match(js, /app_insurance_list_cancellations/);
+  assert.match(js, /app_insurance_confirm_cancellation/);
+  assert.match(js, /app_insurance_restore_cancellation/);
+  assert.match(js, /Send Date[\s\S]*Policy No\.[\s\S]*Customer Name[\s\S]*Commission[\s\S]*Confirmation Date[\s\S]*Status/);
 });
