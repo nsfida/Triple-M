@@ -1,4 +1,4 @@
-/* Triplem VIP Insurance module, migration 179. */
+/* Triplem VIP Insurance module, migration 194. */
 (function (global) {
   "use strict";
 
@@ -10,7 +10,8 @@
     ["companies", "Companies", "fa-building-shield"],
     ["policies", "Policies", "fa-file-shield"],
     ["reports", "Reports", "fa-chart-column"],
-    ["temporary", "Temporary Invoices", "fa-file-pen"]
+    ["temporary", "Temporary Invoices", "fa-file-pen"],
+    ["cancelled", "Cancelled Policies", "fa-ban"]
   ];
   const S = {
     ready: false,
@@ -28,7 +29,9 @@
     referrals: [], referralTransactions: [], referrerDirectory: [], referralTotal: 0, referralOffset: 0, referralLimit: 50, referralHasMore: false,
     referralSummary: { total: 0, by_currency: [] }, referralFilters: { start: "", end: "", search: "", status: "" },
     customerBalances: [], customerBalanceTotal: 0, customerBalanceOffset: 0, customerBalanceLimit: 50, customerBalanceHasMore: false,
-    customerBalanceFilters: { search: "", status: "outstanding" }, customerAccountTransactions: []
+    customerBalanceFilters: { search: "", status: "outstanding" }, customerAccountTransactions: [],
+    cancellations: [], cancellationTotal: 0, cancellationOffset: 0, cancellationLimit: 50, cancellationHasMore: false,
+    cancellationCounts: { pending: 0, confirmed: 0 }, cancellationFilters: { search: "", status: "", start: "", end: "" }
   };
 
   // Parent / paying company for commission receipts. Presentation only: it is never stored
@@ -349,6 +352,14 @@
           can("edit") ? { label: "Edit", icon: "fa-pen", action: () => openPolicyForm(policy) } : null,
           can("delete") ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deletePolicy(policy.id) } : null
         ];
+      } else if (kind === "cancellation") {
+        const row = S.cancellations.find(x => x.id === id); if (!row) return;
+        items = [
+          { label: "View", icon: "fa-eye", action: () => openCancellationDetails(row.sale_id) },
+          { label: "Download PDF", icon: "fa-file-pdf", action: () => downloadCancellationPdf(row) },
+          can("edit") && row.status === "pending" ? { label: "Confirm Cancellation", icon: "fa-circle-check", action: () => openConfirmCancellation(row) } : null,
+          can("edit") ? { label: "Restore Policy", icon: "fa-rotate-left", danger: true, action: () => restoreCancellation(row) } : null
+        ];
       } else if (kind === "temp") {
         const temp = S.tempInvoices.find(x => x.id === id); if (!temp) return;
         items = [
@@ -561,7 +572,7 @@
     const profitClass = n(s.actual_profit) < 0 ? "insurance-amount-loss" : "";
     const customerNo = s.customer_number ? ` · #${esc(s.customer_number)}` : "";
     const policyNo=s.policy_number?` · Policy #${esc(s.policy_number)}`:"";
-    const cancelMeta=s.cancellation_id?` · Cancelled · ${formatPolicyDuration(s.policy_used_days)} used`:"";
+    const cancelMeta=s.cancellation_id?` · Cancelled${s.cancellation_status==="pending"?" (pending confirmation)":""} · ${formatPolicyDuration(s.policy_used_days)} used`:"";
     return `<div class="insurance-row ${s.cancellation_id?"insurance-sale-cancelled":""}" data-insurance-sale-row="${esc(s.id)}">
       <div class="insurance-row-main"><strong>${esc(s.reference_no)}${s.cancellation_id?` <span class="insurance-cancelled-badge">Cancelled</span>`:""}</strong><small>${esc(s.company_name_snapshot)} · ${esc(s.policy_name_snapshot)}${policyNo} · ${fmtDate(s.transaction_date)} ${fmtTime(s.transaction_time)}${cancelMeta}</small></div>
       <div class="insurance-cell"><small>Customer</small><b>${esc(s.customer_name || "Walk-in Customer")}${customerNo}</b></div>
@@ -762,14 +773,21 @@
     return `<div class="insurance-opening-balance-section"><div class="insurance-opening-balance-title"><div><strong>Opening Outstanding Balances</strong><span>Commission balances brought forward from policies recorded before Triplem VIP.</span></div><span>${Number(S.openingBalanceTotal||0)} record${Number(S.openingBalanceTotal||0)===1?"":"s"}</span></div><div class="insurance-opening-balance-head"><div>Opening Balance</div><div>Amount</div><div>Received</div><div>Outstanding</div><div>Status</div><div></div></div><div class="insurance-opening-balance-list">${S.openingBalances.map(openingBalanceRow).join("")}</div></div>`;
   }
 
+  function commissionCancelBadge(row) {
+    if (!row.cancellation_id) return "";
+    return row.cancellation_status === "pending"
+      ? ` <span class="insurance-cancelled-badge" title="Cancellation sent ${esc(fmtDate(row.cancellation_date))}. Commission unchanged until confirmed.">Cancelled · Pending</span>`
+      : ` <span class="insurance-cancelled-badge" title="Cancellation confirmed ${esc(fmtDate(row.cancellation_confirmation_date))}">Cancelled · Deducted ${esc(moneyPlain(n(row.cancellation_deduction),row.currency))}</span>`;
+  }
+
   function commissionRow(row) {
     const outstanding=n(row.commission_outstanding), received=n(row.commission_received), deducted=n(row.commission_deducted), due=n(row.commission_due);
     return `<div class="insurance-commission-line insurance-commission-record" data-insurance-commission-row="${esc(row.id)}">
-      <div class="insurance-commission-item"><strong>${esc(row.reference_no)}</strong><span>${esc(row.company_name_snapshot)} · ${esc(row.policy_name_snapshot)} · ${fmtDate(row.transaction_date)}</span></div>
+      <div class="insurance-commission-item"><strong>${esc(row.reference_no)}${commissionCancelBadge(row)}</strong><span>${esc(row.company_name_snapshot)} · ${esc(row.policy_name_snapshot)} · ${fmtDate(row.transaction_date)}</span></div>
       <div class="insurance-commission-value" data-label="Gross">${moneyHtml(row.gross_premium,row.currency)}</div>
       <div class="insurance-commission-value" data-label="Purchase">${moneyHtml(row.purchase_price,row.currency)}</div>
       <div class="insurance-commission-value" data-label="Sold">${moneyHtml(row.sale_price,row.currency)}</div>
-      <div class="insurance-commission-value" data-label="My Commission">${moneyHtml(due,row.currency)}</div>
+      <div class="insurance-commission-value" data-label="My Commission">${moneyHtml(due,row.currency)}${row.cancellation_status==="confirmed"&&n(row.cancellation_deduction)>0?`<small class="insurance-cancel-net">Net ${moneyHtml(due-n(row.cancellation_deduction),row.currency)}</small>`:""}</div>
       <div class="insurance-commission-value" data-label="Received">${moneyHtml(received,row.currency)}</div>
       <div class="insurance-commission-value insurance-amount-deduction" data-label="Deducted">${moneyHtml(deducted,row.currency)}</div>
       <div class="insurance-commission-value ${outstanding>0?"insurance-amount-outstanding":""}" data-label="Outstanding">${moneyHtml(outstanding,row.currency)}</div>
@@ -815,13 +833,14 @@
       const payments=Array.isArray(row.payments)?row.payments:[];
       const paymentHtml=payments.length?payments.map(p=>`<div class="insurance-commission-payment-row"><div><strong>${esc(p.reference_no)}</strong><span>${fmtDate(p.received_date)} ${fmtTime(p.received_time)}${p.external_reference?` · ${esc(p.external_reference)}`:""}</span></div><b>${moneyHtml(p.amount_allocated,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission payment has been recorded for this sale.</div>`;
       const deductions=Array.isArray(row.deductions)?row.deductions:[];
-      const deductionHtml=deductions.length?deductions.map(d=>`<div class="insurance-commission-payment-row"><div><strong>${esc(d.reference_no)}</strong><span>${fmtDate(d.deduction_date)} ${fmtTime(d.deduction_time)}${d.reason?` · ${esc(d.reason)}`:""}</span></div><b class="insurance-amount-deduction">− ${moneyHtml(d.amount,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission deduction has been recorded for this sale.</div>`;
+      const deductionHtml=deductions.length?deductions.map(d=>`<div class="insurance-commission-payment-row"><div><strong>${esc(d.reference_no)}${d.cancellation_id?` <span class="insurance-cancelled-badge">Cancellation</span>`:""}</strong><span>${fmtDate(d.deduction_date)} ${fmtTime(d.deduction_time)}${d.reason?` · ${esc(d.reason)}`:""}</span></div><b class="insurance-amount-deduction">− ${moneyHtml(d.amount,row.currency)}</b></div>`).join(""):`<div class="insurance-commission-payment-empty">No commission deduction has been recorded for this sale.</div>`;
       openModal({id:"insuranceCommissionDetailsModal",title:"My Commission",subtitle:row.reference_no,body:`<div class="insurance-detail-grid">
         <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(row.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Policy</span><strong>${esc(row.policy_name_snapshot)}</strong></div>
         <div class="insurance-detail"><span>Gross Premium</span><strong>${moneyHtml(row.gross_premium,row.currency)}</strong></div><div class="insurance-detail"><span>Purchase Price</span><strong>${moneyHtml(row.purchase_price,row.currency)}</strong></div>
         <div class="insurance-detail"><span>Sold Price</span><strong>${moneyHtml(row.sale_price,row.currency)}</strong></div><div class="insurance-detail"><span>My Commission</span><strong>${moneyHtml(row.commission_due,row.currency)}</strong></div>
         <div class="insurance-detail"><span>Received</span><strong>${moneyHtml(row.commission_received,row.currency)}</strong></div><div class="insurance-detail"><span>Commission Deductions</span><strong>${moneyHtml(row.commission_deducted||0,row.currency)}</strong></div>
         <div class="insurance-detail"><span>Outstanding</span><strong>${moneyHtml(row.commission_outstanding,row.currency)}</strong></div><div class="insurance-detail"><span>Status</span><strong>${commissionStatusBadge(row)}</strong></div>
+        ${row.cancellation?`<div class="insurance-detail"><span>Policy Cancellation</span><strong>${cancellationStatusBadge(row.cancellation)}</strong></div><div class="insurance-detail"><span>Cancellation Sent</span><strong>${fmtDate(row.cancellation.cancellation_date)} ${fmtTime(row.cancellation.cancellation_time)}</strong></div>${row.cancellation.status==="confirmed"?`<div class="insurance-detail"><span>Cancellation Confirmed</span><strong>${fmtDate(row.cancellation.confirmation_date)} ${fmtTime(row.cancellation.confirmation_time)}</strong></div><div class="insurance-detail"><span>Cancellation Deduction</span><strong class="insurance-amount-deduction">− ${moneyHtml(row.cancellation.commission_deduction,row.currency)}</strong></div><div class="insurance-detail"><span>Net Commission After Cancellation</span><strong>${moneyHtml(n(row.commission_due)-n(row.cancellation.commission_deduction),row.currency)}</strong></div>`:`<div class="insurance-detail insurance-detail-wide"><span>Commission Effect</span><strong>None until the cancellation is confirmed</strong></div>`}`:""}
       </div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Receiving History</div>${paymentHtml}</div><div class="insurance-commission-payment-history"><div class="insurance-commission-payment-title">Deduction History</div>${deductionHtml}</div>`,actions:`<button class="btn ghost" data-insurance-close>Done</button>${can("create")&&n(row.commission_due)>0?`<button class="btn ghost" id="insuranceCommissionDeductFromDetails">Add Deduction</button>`:""}${can("create")&&n(row.commission_outstanding)>0?`<button class="btn primary" id="insuranceCommissionReceiveFromDetails">Receive</button>`:""}`,onOpen(modal,close){$("#insuranceCommissionDeductFromDetails",modal)?.addEventListener("click",()=>{close();openCommissionDeduction(row);});$("#insuranceCommissionReceiveFromDetails",modal)?.addEventListener("click",()=>{close();openCommissionReceiving(row);});}});
     }catch(err){notify(err.message||"Could not open commission details.","error");}
   }
@@ -1591,6 +1610,129 @@
     bindClickableRows(root,'[data-insurance-temp-row]',row=>previewTempInvoice(S.tempInvoices.find(t=>t.id===row.dataset.insuranceTempRow)));
   }
 
+  // ---- Cancelled Policies tab: pending confirmation -> confirmed (Clear), or restore ----
+  async function loadCancellations({ reset = true } = {}) {
+    if (reset) S.cancellationOffset = 0;
+    const f = S.cancellationFilters;
+    const res = await rpc("app_insurance_list_cancellations", {
+      p_search: f.search || null, p_status: f.status || "all", p_start_date: f.start || null, p_end_date: f.end || null,
+      p_offset: S.cancellationOffset, p_limit: S.cancellationLimit
+    });
+    S.cancellations = res?.items || [];
+    S.cancellationTotal = Number(res?.total || 0);
+    S.cancellationHasMore = !!res?.has_more;
+    S.cancellationCounts = { pending: Number(res?.pending_count || 0), confirmed: Number(res?.confirmed_count || 0) };
+  }
+
+  const cancellationStatusBadge = row => row.status === "pending"
+    ? `<span class="insurance-cancel-status pending">Pending</span>`
+    : `<span class="insurance-cancel-status clear">Clear</span>`;
+
+  function cancellationToolbar() {
+    const f = S.cancellationFilters;
+    return `<div class="insurance-toolbar insurance-filter-toolbar insurance-cancel-filter-toolbar">
+      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceCancelSearch" class="input" value="${esc(f.search)}" placeholder="Policy no., customer, reference or company"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Sent From</label><input id="insuranceCancelStart" class="input" type="date" value="${esc(f.start)}"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Sent To</label><input id="insuranceCancelEnd" class="input" type="date" value="${esc(f.end)}"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Status</label><select id="insuranceCancelStatus" class="select"><option value="" ${!f.status ? "selected" : ""}>All</option><option value="pending" ${f.status === "pending" ? "selected" : ""}>Pending</option><option value="confirmed" ${f.status === "confirmed" ? "selected" : ""}>Clear</option></select></div>
+      <div class="insurance-toolbar-actions insurance-filter-actions">
+        <button class="btn primary tiny" id="insuranceCancelApply" type="button"><i class="fa-solid fa-filter"></i><span>Apply</span></button>
+        <button class="btn ghost tiny" id="insuranceCancelClear" type="button"><i class="fa-solid fa-rotate-left"></i><span>Clear</span></button>
+      </div>
+    </div>`;
+  }
+
+  function cancellationRow(row) {
+    const ded = n(row.commission_deduction);
+    return `<div class="insurance-cancel-line insurance-cancel-record ${row.status === "pending" ? "is-pending" : ""}" data-insurance-cancel-row="${esc(row.id)}">
+      <div class="insurance-cancel-cell" data-label="Send Date"><strong>${fmtDate(row.cancellation_date)}</strong><small>${fmtTime(row.cancellation_time)}</small></div>
+      <div class="insurance-cancel-cell" data-label="Policy No."><strong>${row.policy_number ? esc(row.policy_number) : "—"}</strong><small>${esc(row.company_name_snapshot)} · ${esc(row.policy_name_snapshot)}</small></div>
+      <div class="insurance-cancel-cell" data-label="Customer"><strong>${esc(row.customer_name || "Walk-in Customer")}</strong><small>${esc(row.sale_reference_no)}</small></div>
+      <div class="insurance-cancel-cell insurance-cancel-amount" data-label="Commission"><strong>${moneyHtml(row.commission, row.currency)}</strong>${row.status === "confirmed" && ded > 0 ? `<small class="insurance-amount-deduction">− ${moneyHtml(ded, row.currency)} deducted</small>` : ""}</div>
+      <div class="insurance-cancel-cell" data-label="Confirmation Date"><strong>${row.confirmation_date ? fmtDate(row.confirmation_date) : "—"}</strong>${row.confirmation_date ? `<small>${fmtTime(row.confirmation_time)}</small>` : `<small>Awaiting confirmation</small>`}</div>
+      <div class="insurance-cancel-cell" data-label="Status">${cancellationStatusBadge(row)}</div>
+      <div class="insurance-report-line-actions">${rowMenuButtonHtml("cancellation", row.id)}</div>
+    </div>`;
+  }
+
+  function renderCancelledPolicies() {
+    const root = $("#insuranceWorkspace"); if (!root) return;
+    const c = S.cancellationCounts;
+    root.innerHTML = `${cancellationToolbar()}<div class="insurance-commission-heading"><div><strong>Cancelled Policies</strong><span>${c.pending.toLocaleString()} pending confirmation · ${c.confirmed.toLocaleString()} clear. Commission is only deducted when a cancellation is confirmed.</span></div></div>
+      <div class="insurance-commission-table insurance-cancel-table">
+        <div class="insurance-cancel-line insurance-cancel-head"><div>Send Date</div><div>Policy No.</div><div>Customer Name</div><div>Commission</div><div>Confirmation Date</div><div>Status</div><div></div></div>
+        <div class="insurance-cancel-list">${S.cancellations.length ? S.cancellations.map(cancellationRow).join("") : `<div class="insurance-empty"><i class="fa-solid fa-ban"></i>No cancelled policies found.</div>`}</div>
+      </div>
+      ${S.cancellationTotal ? `<div class="insurance-pager"><button class="btn ghost tiny" id="insuranceCancelPrev" ${S.cancellationOffset <= 0 ? "disabled" : ""}>Previous</button><span class="help">${Math.min(S.cancellationOffset + 1, S.cancellationTotal)} to ${Math.min(S.cancellationOffset + S.cancellations.length, S.cancellationTotal)} of ${S.cancellationTotal}</span><button class="btn ghost tiny" id="insuranceCancelNext" ${!S.cancellationHasMore ? "disabled" : ""}>Next</button></div>` : ""}`;
+    bindInsuranceRowMenus(root);
+    bindClickableRows(root, "[data-insurance-cancel-row]", r => { const row = S.cancellations.find(x => x.id === r.dataset.insuranceCancelRow); if (row) openCancellationDetails(row.sale_id); });
+    $("#insuranceCancelApply", root)?.addEventListener("click", async e => {
+      const btn = e.currentTarget; setBusy(btn, true, "Loading");
+      try {
+        S.cancellationFilters = { search: $("#insuranceCancelSearch", root)?.value.trim() || "", status: $("#insuranceCancelStatus", root)?.value || "", start: $("#insuranceCancelStart", root)?.value || "", end: $("#insuranceCancelEnd", root)?.value || "" };
+        if (S.cancellationFilters.start && S.cancellationFilters.end && S.cancellationFilters.start > S.cancellationFilters.end) throw new Error("From date cannot be later than To date.");
+        await loadCancellations({ reset: true }); renderCancelledPolicies();
+      } catch (err) { notify(err.message || "Could not filter cancelled policies.", "error"); } finally { setBusy(btn, false); }
+    });
+    $("#insuranceCancelClear", root)?.addEventListener("click", async () => { S.cancellationFilters = { search: "", status: "", start: "", end: "" }; await loadCancellations({ reset: true }); renderCancelledPolicies(); });
+    $("#insuranceCancelPrev", root)?.addEventListener("click", async () => { S.cancellationOffset = Math.max(0, S.cancellationOffset - S.cancellationLimit); await loadCancellations({ reset: false }); renderCancelledPolicies(); });
+    $("#insuranceCancelNext", root)?.addEventListener("click", async () => { S.cancellationOffset += S.cancellationLimit; await loadCancellations({ reset: false }); renderCancelledPolicies(); });
+  }
+
+  async function downloadCancellationPdf(row) {
+    try {
+      const res = await rpc("app_insurance_get_sale", { p_id: row.sale_id }), sale = res?.item;
+      if (!sale) return;
+      await downloadCustomerDocumentPdf(buildDocumentData(sale, "invoice"));
+    } catch (err) { notify(err.message || "Could not download the cancelled policy PDF.", "error"); }
+  }
+
+  function openConfirmCancellation(row) {
+    if (!can("edit")) return notify("Cancellation confirmation is not permitted for this account.", "error");
+    if (!row || row.status !== "pending") return;
+    openModal({ id: "insuranceConfirmCancellationModal", title: "Confirm Cancellation", subtitle: `${row.policy_number ? "Policy " + row.policy_number + " · " : ""}${row.customer_name || "Walk-in Customer"} · ${row.sale_reference_no}`,
+      body: `<form id="insuranceConfirmCancellationForm" class="insurance-form-grid insurance-cancellation-form">
+        <div class="wide insurance-cancellation-summary"><span><b>Cancellation Sent</b>${fmtDate(row.cancellation_date)} ${fmtTime(row.cancellation_time)}</span><span><b>Policy Commission</b>${moneyHtml(row.commission, row.currency)}</span><span><b>Insurance Company</b>${esc(row.company_name_snapshot)}</span></div>
+        <label>Confirmation Date<input class="input" name="confirmation_date" type="date" min="${esc(row.cancellation_date)}" value="${dateToday() < row.cancellation_date ? esc(row.cancellation_date) : dateToday()}" required></label>
+        <label>Confirmation Time<input class="input" name="confirmation_time" type="time" value="${timeNow()}" required></label>
+        <label class="wide">Commission Deduction (${esc(row.currency)})<input class="input" name="commission_deduction" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Enter the amount deducted for this policy" required></label>
+        <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional"></textarea></label>
+        <div class="wide insurance-cancel-note"><i class="fa-solid fa-circle-info"></i><span>This amount is deducted from My Commission for this policy only. Any referral commission already given for this policy is not changed. Enter 0 if the insurance company deducts nothing.</span></div>
+      </form>`,
+      actions: `<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceConfirmCancellationSave"><i class="fa-solid fa-circle-check"></i> Confirm Cancellation</button>`,
+      onOpen(modal, close) {
+        const form = $("#insuranceConfirmCancellationForm", modal);
+        $("#insuranceConfirmCancellationSave", modal).onclick = async e => {
+          if (!form.reportValidity()) return;
+          const fd = new FormData(form), deduction = n(fd.get("commission_deduction"));
+          if (String(fd.get("commission_deduction") ?? "").trim() === "") return notify("Enter the commission deduction (0 if none).", "error");
+          if (deduction < 0) return notify("Commission deduction cannot be negative.", "error");
+          if (fd.get("confirmation_date") < row.cancellation_date) return notify("Confirmation date cannot be before the cancellation sent date.", "error");
+          setBusy(e.currentTarget, true, "Saving");
+          try {
+            await rpc("app_insurance_confirm_cancellation", { p_cancellation_id: row.id, p_confirmation_date: fd.get("confirmation_date"), p_confirmation_time: fd.get("confirmation_time"), p_commission_deduction: deduction, p_notes: fd.get("notes") || null });
+            close();
+            S.commissions = []; // force a fresh My Commission load next time it is opened
+            await loadCancellations({ reset: false }); renderCancelledPolicies();
+            notify("Cancellation confirmed. My Commission has been updated for this policy.");
+          } catch (err) { notify(err.message || "Could not confirm the cancellation.", "error"); } finally { setBusy(e.currentTarget, false); }
+        };
+      } });
+  }
+
+  async function restoreCancellation(row) {
+    if (!can("edit")) return notify("Restoring a policy is not permitted for this account.", "error");
+    const confirmed = row.status === "confirmed";
+    if (!global.confirm(`Restore ${row.policy_number ? "policy " + row.policy_number : row.sale_reference_no}? The sale returns to its original state${confirmed ? " and the commission deduction recorded for this cancellation is reversed" : ""}.`)) return;
+    try {
+      await rpc("app_insurance_restore_cancellation", { p_cancellation_id: row.id });
+      S.commissions = [];
+      S.ready = false; await loadMaster({ force: true }); await refreshSummaryForFilters(); renderKpis();
+      await loadCancellations({ reset: true }); renderCancelledPolicies();
+      notify("Policy restored to its original state.");
+    } catch (err) { notify(err.message || "Could not restore the policy.", "error"); }
+  }
+
   async function switchView(view) {
     if (!VIEWS.some(v => v[0] === view)) view = "sales";
     S.view = view; renderViewTabs();
@@ -1603,6 +1745,7 @@
       else if (view === "policies") renderPolicies();
       else if (view === "reports") { await loadSales({ reset: true, report: true }); renderReports(); }
       else if (view === "temporary") { const r = await rpc("app_insurance_list_temp_invoices",{}); S.tempInvoices = r?.items || []; renderTemporaryInvoices(); }
+      else if (view === "cancelled") { await loadCancellations({ reset: true }); renderCancelledPolicies(); }
     } catch (err) { notify(err.message || "Could not open Insurance view.", "error"); }
   }
 
@@ -1811,17 +1954,16 @@
     if(sale.cancellation_id)return openCancellationDetails(sale.id);
     openModal({id:"insuranceCancellationModal",title:"Cancel Insurance Policy",subtitle:`${sale.reference_no} · ${sale.policy_name_snapshot}`,body:`<form id="insuranceCancellationForm" class="insurance-form-grid insurance-cancellation-form">
       <div class="wide insurance-cancellation-summary"><span><b>Policy</b>${esc(sale.policy_name_snapshot)}</span><span><b>Policy No.</b>${sale.policy_number?esc(sale.policy_number):"—"}</span><span><b>Insurance Company</b>${esc(sale.company_name_snapshot)}</span></div>
-      <label>Cancellation Date<input class="input" name="cancellation_date" type="date" min="${esc(sale.transaction_date)}" value="${dateToday()}" required></label>
-      <label>Cancellation Time<input class="input" name="cancellation_time" type="time" value="${timeNow()}" required></label>
+      <label>Cancellation Sent Date<input class="input" name="cancellation_date" type="date" min="${esc(sale.transaction_date)}" value="${dateToday()}" required></label>
+      <label>Cancellation Sent Time<input class="input" name="cancellation_time" type="time" value="${timeNow()}" required></label>
       <label>Policy Used<input class="input" id="insuranceCancellationDuration" value="${esc(formatPolicyDuration(policyUsedDays(sale.transaction_date,dateToday())))}" readonly></label>
-      <label>Commission Deduction<input class="input" name="commission_deduction" type="number" min="0" step="0.01" value="0" inputmode="decimal"></label>
-      <label class="wide">Cancellation Reason<input class="input" name="reason" maxlength="240" placeholder="Optional reason"></label>
+      <label>Cancellation Reason<input class="input" name="reason" maxlength="240" placeholder="Optional reason"></label>
       <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional"></textarea></label>
-      <label class="wide insurance-check-line"><input type="checkbox" name="add_to_commission" checked><span>Add the cancellation commission deduction to the existing My Commission record for this sale. Any amount that cannot be applied to this sale remains available for a later settlement from the same Insurance Company.</span></label>
-    </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn danger" id="insuranceCancellationSave">Confirm Cancellation</button>`,onOpen(modal,close){
+      <div class="wide insurance-cancel-note"><i class="fa-solid fa-circle-info"></i><span>The cancellation is recorded as <b>Pending</b> under Cancelled Policies. Your commission is not changed until you confirm the cancellation there. You can restore the policy at any time.</span></div>
+    </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn danger" id="insuranceCancellationSave">Send Cancellation</button>`,onOpen(modal,close){
       const form=$("#insuranceCancellationForm",modal),dateInput=form.elements.cancellation_date,duration=$("#insuranceCancellationDuration",modal);
       const updateDuration=()=>{duration.value=formatPolicyDuration(policyUsedDays(sale.transaction_date,dateInput.value));};dateInput.addEventListener("change",updateDuration);updateDuration();
-      $("#insuranceCancellationSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),deduction=n(fd.get("commission_deduction"));if(fd.get("cancellation_date")<sale.transaction_date)return notify("Cancellation date cannot be before the Insurance sale date.","error");if(deduction<0)return notify("Commission deduction cannot be negative.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_cancel_sale",{p_sale_id:sale.id,p_cancellation_date:fd.get("cancellation_date"),p_cancellation_time:fd.get("cancellation_time"),p_commission_deduction:deduction,p_reason:fd.get("reason")||null,p_notes:fd.get("notes")||null,p_add_to_commission:fd.get("add_to_commission")==="on"});close();await reloadMasterAndView(S.view==="reports"?"reports":"sales");notify(`Policy cancellation ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not cancel Insurance policy.","error");}finally{setBusy(e.currentTarget,false);}};
+      $("#insuranceCancellationSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form);if(fd.get("cancellation_date")<sale.transaction_date)return notify("Cancellation date cannot be before the Insurance sale date.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_cancel_sale",{p_sale_id:sale.id,p_cancellation_date:fd.get("cancellation_date"),p_cancellation_time:fd.get("cancellation_time"),p_reason:fd.get("reason")||null,p_notes:fd.get("notes")||null});close();await reloadMasterAndView(S.view==="reports"?"reports":"sales");notify(`Cancellation ${res?.item?.reference_no||""} sent. It is pending confirmation under Cancelled Policies.`);}catch(err){notify(err.message||"Could not cancel Insurance policy.","error");}finally{setBusy(e.currentTarget,false);}};
     }});
   }
 
@@ -1831,8 +1973,9 @@
       openModal({id:"insuranceCancellationDetailsModal",title:"Policy Cancellation",subtitle:c.reference_no,body:`<div class="insurance-detail-grid">
         <div class="insurance-detail"><span>Insurance Company</span><strong>${esc(c.company_name_snapshot)}</strong></div><div class="insurance-detail"><span>Policy</span><strong>${esc(c.policy_name_snapshot)}</strong></div>
         <div class="insurance-detail"><span>Policy Number</span><strong>${c.policy_number_snapshot?esc(c.policy_number_snapshot):"—"}</strong></div><div class="insurance-detail"><span>Policy Started</span><strong>${fmtDate(c.policy_start_date)}</strong></div>
-        <div class="insurance-detail"><span>Cancelled</span><strong>${fmtDate(c.cancellation_date)} ${fmtTime(c.cancellation_time)}</strong></div><div class="insurance-detail"><span>Policy Used</span><strong>${formatPolicyDuration(c.policy_used_days)}</strong></div>
-        <div class="insurance-detail"><span>Commission Deduction</span><strong>${moneyHtml(c.commission_deduction,currencyForCancellation(c))}</strong></div><div class="insurance-detail"><span>My Commission Entry</span><strong>${c.post_deduction_to_commission?"Added":"Not added"}</strong></div>
+        <div class="insurance-detail"><span>Cancellation Sent</span><strong>${fmtDate(c.cancellation_date)} ${fmtTime(c.cancellation_time)}</strong></div><div class="insurance-detail"><span>Policy Used</span><strong>${formatPolicyDuration(c.policy_used_days)}</strong></div>
+        <div class="insurance-detail"><span>Status</span><strong>${cancellationStatusBadge(c)}</strong></div><div class="insurance-detail"><span>Confirmation Date</span><strong>${c.confirmation_date?`${fmtDate(c.confirmation_date)} ${fmtTime(c.confirmation_time)}`:"Awaiting confirmation"}</strong></div>
+        <div class="insurance-detail"><span>Commission Deduction</span><strong>${c.status==="pending"?"Not yet confirmed":moneyHtml(c.commission_deduction,currencyForCancellation(c))}</strong></div><div class="insurance-detail"><span>My Commission Entry</span><strong>${c.status==="pending"?"Not added":(c.post_deduction_to_commission?"Added":"No deduction")}</strong></div>
         ${c.reason?`<div class="insurance-detail insurance-detail-wide"><span>Reason</span><strong>${esc(c.reason)}</strong></div>`:""}${c.notes?`<div class="insurance-detail insurance-detail-wide"><span>Notes</span><strong>${esc(c.notes)}</strong></div>`:""}
         ${c.deduction_reference_no?`<div class="insurance-detail insurance-detail-wide"><span>Deduction Reference</span><strong>${esc(c.deduction_reference_no)}</strong></div>`:""}
       </div>`,actions:`<button class="btn primary" data-insurance-close>Done</button>`});
