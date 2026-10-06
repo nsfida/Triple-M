@@ -208,6 +208,7 @@ const CANONICAL_MIGRATION_FILES = [
   "191_insurance_receipt_edit_fix.sql",
   "192_insurance_my_commission_gross_minus_purchase.sql",
   "193_insurance_referrer_payment_and_statements.sql",
+  "194_insurance_cancelled_policies_pending_confirmation.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
