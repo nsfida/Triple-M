@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261006-insurance-cancel194/);
+  assert.match(html, /01-insurance\.js\?v=20261008-insurance-refundstab196/);
 });
 
 
@@ -958,4 +958,51 @@ test('Insurance UI has the Cancelled Policies tab with Pending/Clear status, Con
   assert.match(js, /app_insurance_confirm_cancellation/);
   assert.match(js, /app_insurance_restore_cancellation/);
   assert.match(js, /Send Date[\s\S]*Policy No\.[\s\S]*Customer Name[\s\S]*Commission[\s\S]*Confirmation Date[\s\S]*Status/);
+});
+
+test('Migration 195 excludes cancelled policies from totals, tracks refunds and pending deductions without touching existing data', () => {
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '195_insurance_cancellation_accuracy_refunds_deductions.sql'), 'utf8');
+  const code = sql.replace(/--.*$/gm, '');
+  // Totals exclude cancelled sales and report them separately.
+  const summary = code.slice(code.indexOf('function public.app_insurance_summary'), code.indexOf('function public.app_insurance_list_sales'));
+  assert.match(summary, /filter\(where c\.id is null\)/);
+  assert.match(summary, /cancelled_count/);
+  // Cancelled sales have nothing left to collect; payments are blocked.
+  assert.match(code, /case when c\.id is not null then 0::numeric else greatest\(s\.sale_price/);
+  assert.match(code, /Payments cannot be received on a cancelled policy/);
+  // Refund + pending deduction objects and RPCs exist.
+  for (const name of ['insurance_cancellation_refunds', 'insurance_commission_deduction_settlements',
+    'app_insurance_set_cancellation_refunds', 'app_insurance_record_cancellation_refund', 'app_insurance_delete_cancellation_refund',
+    'app_insurance_deduction_summary', 'app_insurance_apply_pending_deduction', 'app_insurance_settle_deduction_paid_back']) {
+    assert.ok(code.includes(name), name);
+  }
+  // Restore refuses to silently alter recorded refunds / paid-back entries.
+  const restore = code.slice(code.indexOf('function public.app_insurance_restore_cancellation'));
+  assert.match(restore, /Refund payments have been recorded/);
+  assert.match(restore, /paid back to the insurance company/);
+  // Referral commission untouched; no destructive DDL; no temp tables.
+  assert.doesNotMatch(code, /insurance_referr|referral_commission/i);
+  assert.doesNotMatch(code, /drop table|truncate|temporary table/i);
+  assert.doesNotMatch(code, /delete from public\.insurance_(sales|customer_payments|commission_receipts|commission_allocations)/);
+});
+
+test('Insurance UI shows cancelled-excluded totals, refunds and pending deductions', () => {
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  assert.match(js, /cancelled not counted/);
+  assert.match(js, /app_insurance_get_cancellation_refunds/);
+  assert.match(js, /app_insurance_apply_pending_deduction/);
+  assert.match(js, /app_insurance_settle_deduction_paid_back/);
+  assert.match(js, /app_insurance_deduction_summary/);
+  assert.match(js, /Refund payable/);
+});
+
+test('Refunds tab: dedicated view with status, amount tracking and a read-only migration', () => {
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  const sql = fs.readFileSync(path.join(projectRoot, 'migrations', '196_insurance_refunds_tab.sql'), 'utf8').replace(/--.*$/gm, '');
+  assert.match(js, /\["refunds", "Refunds"/);
+  assert.match(js, /app_insurance_list_refunds/);
+  assert.match(js, /not_set[\s\S]*pending[\s\S]*partial[\s\S]*completed/);
+  assert.match(js, /Record Refund Paid/);
+  assert.match(sql, /function public\.app_insurance_list_refunds/);
+  assert.doesNotMatch(sql, /insert into|update public|delete from|drop table|alter table|create table/i);
 });
