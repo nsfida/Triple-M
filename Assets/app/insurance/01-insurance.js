@@ -1,4 +1,4 @@
-/* Triplem VIP Insurance module, migration 194. */
+/* Triplem VIP Insurance module, migration 196. */
 (function (global) {
   "use strict";
 
@@ -11,7 +11,8 @@
     ["policies", "Policies", "fa-file-shield"],
     ["reports", "Reports", "fa-chart-column"],
     ["temporary", "Temporary Invoices", "fa-file-pen"],
-    ["cancelled", "Cancelled Policies", "fa-ban"]
+    ["cancelled", "Cancelled Policies", "fa-ban"],
+    ["refunds", "Refunds", "fa-money-bill-transfer"]
   ];
   const S = {
     ready: false,
@@ -31,7 +32,9 @@
     customerBalances: [], customerBalanceTotal: 0, customerBalanceOffset: 0, customerBalanceLimit: 50, customerBalanceHasMore: false,
     customerBalanceFilters: { search: "", status: "outstanding" }, customerAccountTransactions: [],
     cancellations: [], cancellationTotal: 0, cancellationOffset: 0, cancellationLimit: 50, cancellationHasMore: false,
-    cancellationCounts: { pending: 0, confirmed: 0 }, cancellationFilters: { search: "", status: "", start: "", end: "" }
+    cancellationCounts: { pending: 0, confirmed: 0 }, cancellationRefundTotals: [], pendingDeductions: { by_company: [] },
+    refunds: [], refundTotal: 0, refundOffset: 0, refundLimit: 50, refundHasMore: false, refundStatusCounts: {}, refundCurrencyTotals: [],
+    refundFilters: { search: "", type: "", status: "", start: "", end: "" }, cancellationFilters: { search: "", status: "", start: "", end: "" }
   };
 
   // Parent / paying company for commission receipts. Presentation only: it is never stored
@@ -352,12 +355,20 @@
           can("edit") ? { label: "Edit", icon: "fa-pen", action: () => openPolicyForm(policy) } : null,
           can("delete") ? { label: "Delete", icon: "fa-trash", danger: true, action: () => deletePolicy(policy.id) } : null
         ];
+      } else if (kind === "refund") {
+        const rf = S.refunds.find(x => x.key === id); if (!rf) return;
+        items = [
+          { label: "View / Update Refund", icon: "fa-pen-to-square", action: () => openCancellationRefunds({ id: rf.cancellation_id }) },
+          can("edit") && rf.refund_due != null && n(rf.refund_outstanding) > 0 ? { label: rf.direction === "customer" ? "Record Refund Paid" : "Record Refund Received", icon: "fa-money-bill-transfer", action: () => openRefundQuickPayment(rf) } : null,
+          { label: "View Cancellation", icon: "fa-ban", action: () => openCancellationDetails(rf.sale_id) }
+        ];
       } else if (kind === "cancellation") {
         const row = S.cancellations.find(x => x.id === id); if (!row) return;
         items = [
           { label: "View", icon: "fa-eye", action: () => openCancellationDetails(row.sale_id) },
           { label: "Download PDF", icon: "fa-file-pdf", action: () => downloadCancellationPdf(row) },
           can("edit") && row.status === "pending" ? { label: "Confirm Cancellation", icon: "fa-circle-check", action: () => openConfirmCancellation(row) } : null,
+          { label: "Refunds", icon: "fa-money-bill-transfer", action: () => openCancellationRefunds(row) },
           can("edit") ? { label: "Restore Policy", icon: "fa-rotate-left", danger: true, action: () => restoreCancellation(row) } : null
         ];
       } else if (kind === "temp") {
@@ -403,7 +414,7 @@
     if (!root) return;
     const lossCount = (S.summary.by_currency || []).reduce((sum, r) => sum + Number(r.loss_count || 0), 0);
     root.innerHTML = `
-      <div class="insurance-kpi"><span>Total Sales</span><strong>${Number(S.summary.total || 0).toLocaleString()}</strong></div>
+      <div class="insurance-kpi"><span>Total Sales</span><strong>${Number(S.summary.total || 0).toLocaleString()}</strong>${Number(S.summary.cancelled_total || 0) ? `<small class="insurance-kpi-note">${Number(S.summary.cancelled_total).toLocaleString()} cancelled not counted</small>` : ""}</div>
       <div class="insurance-kpi"><span>Gross Premium</span><strong>${summaryLines("gross_premium")}</strong></div>
       <div class="insurance-kpi"><span>Actual Commission / Profit</span><strong>${summaryLines("actual_profit")}</strong></div>
       <div class="insurance-kpi ${lossCount ? "loss" : ""}"><span>Loss Transactions</span><strong>${lossCount.toLocaleString()}</strong></div>`;
@@ -460,6 +471,8 @@
   }
 
   const CUSTOMER_PAYMENT_STATUS = {
+    cancelled: { label: "Cancelled", cls: "cancelled" },
+    refund_due: { label: "Refund Due", cls: "partial" },
     paid: { label: "Fully Paid", cls: "paid" },
     partial: { label: "Partially Paid", cls: "partial" },
     unpaid: { label: "Not Paid", cls: "unpaid" },
@@ -669,7 +682,9 @@
       p_company_id: S.commissionFilters.company || null,
       p_status: S.commissionFilters.status || null
     }) || { total: 0, by_currency: [] };
+    try { S.pendingDeductions = await rpc("app_insurance_deduction_summary", {}) || { by_company: [] }; } catch (_) { S.pendingDeductions = { by_company: [] }; }
   }
+
 
   async function loadCommissionReceipts({ limit = 500 } = {}) {
     const res = await rpc("app_insurance_list_commission_receipts", {
@@ -801,7 +816,7 @@
   }
 
   function commissionSalesTabHtml() {
-    return `${commissionToolbar()}${commissionSummaryHtml()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>My Commission = Gross Premium − Purchase Price per policy, plus any opening outstanding balances brought into Triplem VIP.</span></div></div>${openingBalancesHtml()}
+    return `${commissionToolbar()}${commissionSummaryHtml()}${pendingDeductionsHtml()}<div class="insurance-commission-heading"><div><strong>My Commission</strong><span>My Commission = Gross Premium − Purchase Price per policy, plus any opening outstanding balances brought into Triplem VIP.</span></div></div>${openingBalancesHtml()}
       <div class="insurance-commission-table">
         <div class="insurance-commission-line insurance-commission-head"><div>Insurance Sale</div><div>Gross</div><div>Purchase</div><div>Sold</div><div>My Commission</div><div>Received</div><div>Deducted</div><div>Outstanding</div><div>Status</div><div></div></div>
         <div class="insurance-commission-list">${S.commissions.length?S.commissions.map(commissionRow).join(""):`<div class="insurance-empty"><i class="fa-solid fa-hand-holding-dollar"></i>No Insurance sale commission records found.</div>`}</div>
@@ -815,6 +830,7 @@
     $$('[data-insurance-commission-tab]',root).forEach(btn=>btn.addEventListener("click",()=>{S.commissionTab=btn.dataset.insuranceCommissionTab||"commission";renderMyCommission();}));
     if(S.commissionTab === "commission") {
       bindCommissionFilters(root);bindInsuranceRowMenus(root);
+      $("#insurancePendingDeductionsBtn",root)?.addEventListener("click",()=>openPendingDeductions());
       bindClickableRows(root,'[data-insurance-commission-row]',row=>openCommissionDetails(row.dataset.insuranceCommissionRow));
       bindClickableRows(root,'[data-insurance-opening-row]',row=>openOpeningBalanceDetails(row.dataset.insuranceOpeningRow));
       $("#insuranceCommissionPrev",root)?.addEventListener("click",async()=>{S.commissionOffset=Math.max(0,S.commissionOffset-S.commissionLimit);await loadCommissions({reset:false});renderMyCommission();});
@@ -878,7 +894,7 @@
       <label>Date<input class="input" name="deduction_date" type="date" value="${dateToday()}" required></label>
       <label>Time<input class="input" name="deduction_time" type="time" value="${timeNow()}" required></label>
       <label class="wide">Reason<input class="input" name="reason" maxlength="240" placeholder="Cancellation adjustment or other company deduction"></label>
-      <label class="wide insurance-check-line"><input type="checkbox" name="apply_to_sale" checked><span>Apply as much as possible to this sale now. Any unused deduction remains available for a later company commission settlement.</span></label>
+      <label class="wide insurance-check-line"><input type="checkbox" name="apply_to_sale" checked><span>Apply as much as possible to this sale now. Any unused deduction appears under Pending Deductions in My Commission, where you can apply it to other outstanding commission or record it as paid back.</span></label>
     </form>`,actions:`<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceCommissionDeductionSave">Save</button>`,onOpen(modal,close){
       const form=$("#insuranceCommissionDeductionForm",modal);
       $("#insuranceCommissionDeductionSave",modal).onclick=async e=>{if(!form.reportValidity())return;const fd=new FormData(form),amount=n(fd.get("amount"));if(amount<=0)return notify("Deduction amount must be greater than zero.","error");setBusy(e.currentTarget,true,"Saving");try{const res=await rpc("app_insurance_add_commission_deduction",{p_sale_id:row.id,p_amount:amount,p_deduction_date:fd.get("deduction_date"),p_deduction_time:fd.get("deduction_time"),p_reason:fd.get("reason")||null,p_apply_to_sale:fd.get("apply_to_sale")==="on"});close();await Promise.all([loadCommissions({reset:true}),loadOpeningBalances(),loadCommissionSummary()]);if(S.view==="commission")renderMyCommission();notify(`Commission deduction ${res?.item?.reference_no||"saved"} recorded.`);}catch(err){notify(err.message||"Could not save commission deduction.","error");}finally{setBusy(e.currentTarget,false);}};
@@ -1367,7 +1383,7 @@
   function customerBalanceCurrencyLines(row) {
     const totals=Array.isArray(row?.currency_totals)?row.currency_totals:[];
     if(!totals.length)return `<span class="insurance-customer-balance-empty">—</span>`;
-    return totals.map(t=>`<span class="insurance-customer-balance-money"><b>${esc(t.currency)}</b><span>${moneyHtml(t.outstanding,t.currency)}</span></span>`).join("");
+    return totals.map(t=>`<span class="insurance-customer-balance-money"><b>${esc(t.currency)}</b><span>${moneyHtml(t.outstanding,t.currency)}</span></span>${n(t.refund_payable)>0?`<span class="insurance-customer-balance-money insurance-refund-line"><b>${esc(t.currency)}</b><span>Refund payable ${moneyHtml(t.refund_payable,t.currency)}</span></span>`:""}`).join("");
   }
 
   function customerBalanceRow(row) {
@@ -1395,7 +1411,7 @@
   function customerAccountTotalsHtml(account) {
     const totals=Array.isArray(account?.currency_totals)?account.currency_totals:[];
     if(!totals.length)return `<div class="insurance-commission-summary-empty">No Insurance transactions for this customer.</div>`;
-    return `<div class="insurance-customer-account-totals">${totals.map(t=>`<div><span>${esc(t.currency)}</span><b>${moneyHtml(t.outstanding,t.currency)}</b><small>Sales ${moneyHtml(t.sale_total,t.currency)} · Paid ${moneyHtml(t.amount_paid,t.currency)}</small></div>`).join("")}</div>`;
+    return `<div class="insurance-customer-account-totals">${totals.map(t=>`<div><span>${esc(t.currency)}</span><b>${moneyHtml(t.outstanding,t.currency)}</b><small>Sales ${moneyHtml(t.sale_total,t.currency)} · Paid ${moneyHtml(t.amount_paid,t.currency)}${Number(t.cancelled_count||0)?` · ${Number(t.cancelled_count)} cancelled`:""}</small>${n(t.refund_payable)>0?`<small class="insurance-refund-line">Refund payable to customer ${moneyHtml(t.refund_payable,t.currency)}</small>`:""}</div>`).join("")}</div>`;
   }
 
   async function fetchCustomerAccount(customerNumber) {
@@ -1409,7 +1425,7 @@
       S.tempInvoices=tempResult?.items||S.tempInvoices||[];
       const txs=Array.isArray(account.transactions)?account.transactions:[];S.customerAccountTransactions=txs;
       const contact=[account.phone,account.email,account.company].filter(Boolean).map(esc).join(" · ");
-      const rows=txs.length?txs.map(tx=>`<div class="insurance-customer-account-row" data-insurance-customer-sale="${esc(tx.id)}"><div class="insurance-customer-account-policy"><strong>${esc(tx.policy_name_snapshot)}${tx.policy_number?` · #${esc(tx.policy_number)}`:""}</strong><span>${esc(tx.company_name_snapshot)} · ${esc(tx.reference_no)} · ${fmtDate(tx.transaction_date)} ${fmtTime(tx.transaction_time)}</span></div><div data-label="Sale"><b>${moneyHtml(tx.sale_price,tx.currency)}</b></div><div data-label="Paid"><b>${moneyHtml(tx.customer_amount_paid,tx.currency)}</b></div><div data-label="Outstanding"><b class="${n(tx.customer_outstanding)>0?"insurance-amount-outstanding":""}">${moneyHtml(tx.customer_outstanding,tx.currency)}</b></div><div class="insurance-customer-account-status">${customerPaymentStatusBadge(tx)}</div><div class="insurance-customer-account-actions">${documentMenuButtonHtml("customerTransaction",tx.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No Insurance transactions found.</div>`;
+      const rows=txs.length?txs.map(tx=>`<div class="insurance-customer-account-row" data-insurance-customer-sale="${esc(tx.id)}"><div class="insurance-customer-account-policy"><strong>${esc(tx.policy_name_snapshot)}${tx.policy_number?` · #${esc(tx.policy_number)}`:""}</strong><span>${esc(tx.company_name_snapshot)} · ${esc(tx.reference_no)} · ${fmtDate(tx.transaction_date)} ${fmtTime(tx.transaction_time)}</span>${tx.cancellation_id?`<span class="insurance-refund-line">Cancelled ${fmtDate(tx.cancellation_date)}${tx.refund_review_needed?" · refund not set yet":(n(tx.customer_refund_due)>0?` · Refund ${moneyHtml(tx.customer_refund_paid,tx.currency)} of ${moneyHtml(tx.customer_refund_due,tx.currency)} paid`:"")}</span>`:""}</div><div data-label="Sale"><b>${moneyHtml(tx.sale_price,tx.currency)}</b></div><div data-label="Paid"><b>${moneyHtml(tx.customer_amount_paid,tx.currency)}</b></div><div data-label="Outstanding"><b class="${n(tx.customer_outstanding)>0?"insurance-amount-outstanding":""}">${moneyHtml(tx.customer_outstanding,tx.currency)}</b></div><div class="insurance-customer-account-status">${customerPaymentStatusBadge(tx)}</div><div class="insurance-customer-account-actions">${documentMenuButtonHtml("customerTransaction",tx.id)}</div></div>`).join(""):`<div class="insurance-commission-payment-empty">No Insurance transactions found.</div>`;
       openModal({id:"insuranceCustomerBalanceDetailsModal",title:account.name,subtitle:`Customer #${account.customer_number}${contact?` · ${contact}`:""}`,body:`${customerAccountTotalsHtml(account)}<div class="insurance-customer-account-document-hint"><i class="fa-solid fa-circle-info"></i><span>Use Documents on any transaction to download its Invoice PDF or Receipt PDF, or create, edit and download its Temporary Invoice.</span></div><div class="insurance-customer-account-ledger"><div class="insurance-customer-account-head"><div>Policy / Transaction</div><div>Sale</div><div>Paid</div><div>Outstanding</div><div>Status</div><div>Documents</div></div>${rows}</div>`,actions:`<button class="btn ghost" id="insuranceCustomerStatementPdf"><i class="fa-solid fa-file-pdf"></i> Statement PDF</button><button class="btn primary" data-insurance-close>Done</button>`,onOpen(modal){bindInsuranceRowMenus(modal);bindClickableRows(modal,'[data-insurance-customer-sale]',row=>openSaleDetails(row.dataset.insuranceCustomerSale));$("#insuranceCustomerStatementPdf",modal)?.addEventListener("click",()=>downloadCustomerStatementPdf(account));}});
     }catch(err){notify(err.message||"Could not open customer balance.","error");}
   }
@@ -1476,7 +1492,8 @@
     const provider=insuranceProviderProfile(tx),policy=insurancePolicyProfile(tx);
     const providerContact=[provider.contact,provider.phone,provider.email,provider.address].filter(Boolean).join("\n");
     const policyDetail=[policy.number?`#${policy.number}`:"",policy.description,policy.notes].filter(Boolean).join("\n");
-    const status=(CUSTOMER_PAYMENT_STATUS[tx.customer_payment_status]||CUSTOMER_PAYMENT_STATUS.paid).label;
+    let status=(CUSTOMER_PAYMENT_STATUS[tx.customer_payment_status]||CUSTOMER_PAYMENT_STATUS.paid).label;
+    if(tx.cancellation_id&&n(tx.customer_refund_due)>0)status+=`\nRefund ${insurancePdfAmount(tx.customer_refund_due,tx.currency)}\nPaid ${insurancePdfAmount(tx.customer_refund_paid,tx.currency)}`;
     return [
       `${fmtDate(tx.transaction_date)}\n${fmtTime(tx.transaction_time)}`,
       tx.reference_no||"",
@@ -1501,7 +1518,7 @@
       drawInsurancePdfFrame(doc,logo,"Customer Statement",ref,statementDate,1);
       const companyLines=[company.trn?`TRN ${company.trn}`:"",[company.email,company.phone].filter(Boolean).join(" · "),company.address].filter(Boolean);
       const customerLines=[account.customer_number?`Customer No. #${account.customer_number}`:"",[account.company,account.trn?`TRN ${account.trn}`:""].filter(Boolean).join(" · "),[account.phone,account.email].filter(Boolean).join(" · "),account.address].filter(Boolean);
-      const summaryLines=totals.slice(0,4).map(t=>`${t.currency}: Sales ${insurancePdfAmount(t.sale_total,t.currency)} · Paid ${insurancePdfAmount(t.amount_paid,t.currency)} · Due ${insurancePdfAmount(t.outstanding,t.currency)}`);
+      const summaryLines=totals.slice(0,4).map(t=>`${t.currency}: Sales ${insurancePdfAmount(t.sale_total,t.currency)} · Paid ${insurancePdfAmount(t.amount_paid,t.currency)} · Due ${insurancePdfAmount(t.outstanding,t.currency)}${n(t.refund_payable)>0?` · Refund payable ${insurancePdfAmount(t.refund_payable,t.currency)}`:""}`);
       if(totals.length>4)summaryLines.push(`+${totals.length-4} more currencies`);
       drawInsurancePdfCard(doc,{x:left,y:26,w:cardW,h:28,label:"ISSUER",title:company.name,lines:companyLines});
       drawInsurancePdfCard(doc,{x:left+cardW+gap,y:26,w:cardW,h:28,label:"CUSTOMER",title:account.name||"Customer",lines:customerLines});
@@ -1582,7 +1599,7 @@
     const meta = activeReportMeta();
     if (!totals.length) return `<div class="insurance-report-total-empty">No totals for the selected filters.</div>`;
     return totals.map(r => `<div class="insurance-report-line insurance-report-line-total insurance-report-cols-${meta.fields.length}">
-      <div class="insurance-report-item"><strong>Total · ${esc(r.currency)}</strong><span>${Number(r.sale_count||0)} sales${Number(r.loss_count||0) ? ` · ${Number(r.loss_count||0)} loss` : ""}</span></div>
+      <div class="insurance-report-item"><strong>Total · ${esc(r.currency)}</strong><span>${Number(r.sale_count||0)} sales${Number(r.loss_count||0) ? ` · ${Number(r.loss_count||0)} loss` : ""}${Number(r.cancelled_count||0) ? ` · ${Number(r.cancelled_count)} cancelled excluded` : ""}</span></div>
       ${meta.fields.map(key => reportFieldCell(key,r)).join("")}
       <div></div>
     </div>`).join("");
@@ -1622,6 +1639,7 @@
     S.cancellationTotal = Number(res?.total || 0);
     S.cancellationHasMore = !!res?.has_more;
     S.cancellationCounts = { pending: Number(res?.pending_count || 0), confirmed: Number(res?.confirmed_count || 0) };
+    S.cancellationRefundTotals = Array.isArray(res?.refund_totals) ? res.refund_totals : [];
   }
 
   const cancellationStatusBadge = row => row.status === "pending"
@@ -1642,12 +1660,25 @@
     </div>`;
   }
 
+  function cancellationRefundHint(row) {
+    if (row.refund_review_needed) return `<small class="insurance-cancel-warn">Customer refund not set</small>`;
+    if (n(row.customer_refund_outstanding) > 0) return `<small class="insurance-cancel-warn">Refund due ${moneyHtml(row.customer_refund_outstanding, row.currency)}</small>`;
+    if (n(row.company_refund_outstanding) > 0) return `<small class="insurance-cancel-warn">Insurer refund due ${moneyHtml(row.company_refund_outstanding, row.currency)}</small>`;
+    return "";
+  }
+
+  function cancellationRefundTotalsHtml() {
+    const rows = S.cancellationRefundTotals || [];
+    if (!rows.length) return "";
+    return `<div class="insurance-cancel-refund-strip">${rows.map(r => `<div><b>${esc(r.currency)}</b>${n(r.customer_refund_outstanding) > 0 ? `<span>Refunds payable to customers <strong>${moneyHtml(r.customer_refund_outstanding, r.currency)}</strong></span>` : ""}${n(r.company_refund_outstanding) > 0 ? `<span>Premium refunds due from insurers <strong>${moneyHtml(r.company_refund_outstanding, r.currency)}</strong></span>` : ""}</div>`).join("")}</div>`;
+  }
+
   function cancellationRow(row) {
     const ded = n(row.commission_deduction);
     return `<div class="insurance-cancel-line insurance-cancel-record ${row.status === "pending" ? "is-pending" : ""}" data-insurance-cancel-row="${esc(row.id)}">
       <div class="insurance-cancel-cell" data-label="Send Date"><strong>${fmtDate(row.cancellation_date)}</strong><small>${fmtTime(row.cancellation_time)}</small></div>
       <div class="insurance-cancel-cell" data-label="Policy No."><strong>${row.policy_number ? esc(row.policy_number) : "—"}</strong><small>${esc(row.company_name_snapshot)} · ${esc(row.policy_name_snapshot)}</small></div>
-      <div class="insurance-cancel-cell" data-label="Customer"><strong>${esc(row.customer_name || "Walk-in Customer")}</strong><small>${esc(row.sale_reference_no)}</small></div>
+      <div class="insurance-cancel-cell" data-label="Customer"><strong>${esc(row.customer_name || "Walk-in Customer")}</strong><small>${esc(row.sale_reference_no)}</small>${cancellationRefundHint(row)}</div>
       <div class="insurance-cancel-cell insurance-cancel-amount" data-label="Commission"><strong>${moneyHtml(row.commission, row.currency)}</strong>${row.status === "confirmed" && ded > 0 ? `<small class="insurance-amount-deduction">− ${moneyHtml(ded, row.currency)} deducted</small>` : ""}</div>
       <div class="insurance-cancel-cell" data-label="Confirmation Date"><strong>${row.confirmation_date ? fmtDate(row.confirmation_date) : "—"}</strong>${row.confirmation_date ? `<small>${fmtTime(row.confirmation_time)}</small>` : `<small>Awaiting confirmation</small>`}</div>
       <div class="insurance-cancel-cell" data-label="Status">${cancellationStatusBadge(row)}</div>
@@ -1658,7 +1689,7 @@
   function renderCancelledPolicies() {
     const root = $("#insuranceWorkspace"); if (!root) return;
     const c = S.cancellationCounts;
-    root.innerHTML = `${cancellationToolbar()}<div class="insurance-commission-heading"><div><strong>Cancelled Policies</strong><span>${c.pending.toLocaleString()} pending confirmation · ${c.confirmed.toLocaleString()} clear. Commission is only deducted when a cancellation is confirmed.</span></div></div>
+    root.innerHTML = `${cancellationToolbar()}<div class="insurance-commission-heading"><div><strong>Cancelled Policies</strong><span>${c.pending.toLocaleString()} pending confirmation · ${c.confirmed.toLocaleString()} clear. Commission is only deducted when a cancellation is confirmed.</span></div></div>${cancellationRefundTotalsHtml()}
       <div class="insurance-commission-table insurance-cancel-table">
         <div class="insurance-cancel-line insurance-cancel-head"><div>Send Date</div><div>Policy No.</div><div>Customer Name</div><div>Commission</div><div>Confirmation Date</div><div>Status</div><div></div></div>
         <div class="insurance-cancel-list">${S.cancellations.length ? S.cancellations.map(cancellationRow).join("") : `<div class="insurance-empty"><i class="fa-solid fa-ban"></i>No cancelled policies found.</div>`}</div>
@@ -1714,7 +1745,7 @@
             close();
             S.commissions = []; // force a fresh My Commission load next time it is opened
             await loadCancellations({ reset: false }); renderCancelledPolicies();
-            notify("Cancellation confirmed. My Commission has been updated for this policy.");
+            notify(n(row.customer_paid) > 0 && row.customer_refund_due == null ? "Cancellation confirmed. My Commission updated. Customer paid for this policy: set the customer refund under Refunds." : "Cancellation confirmed. My Commission has been updated for this policy.");
           } catch (err) { notify(err.message || "Could not confirm the cancellation.", "error"); } finally { setBusy(e.currentTarget, false); }
         };
       } });
@@ -1733,6 +1764,238 @@
     } catch (err) { notify(err.message || "Could not restore the policy.", "error"); }
   }
 
+  // ---- Refunds on a cancelled policy: customer refund + insurer premium refund ----
+  async function openCancellationRefunds(row) {
+    let data;
+    try { data = (await rpc("app_insurance_get_cancellation_refunds", { p_cancellation_id: row.id }))?.item; } catch (err) { return notify(err.message || "Could not load refunds.", "error"); }
+    if (!data) return;
+    const cur = data.currency, edit = can("edit");
+    const reopen = async () => { try { if (S.view === "refunds") { await loadRefunds({ reset: false }); renderRefunds(); } else { await loadCancellations({ reset: false }); if (S.view === "cancelled") renderCancelledPolicies(); } } catch (_) {} };
+    const section = (dir, title, hint, due, done, outstanding, suggestion) => {
+      const list = (data.payments || []).filter(x => x.direction === dir);
+      return `<div class="insurance-refund-section" data-refund-dir="${dir}">
+        <div class="insurance-refund-title"><strong>${title}</strong><span>${hint}</span></div>
+        <div class="insurance-detail-grid">
+          <div class="insurance-detail"><span>Refund Amount</span><strong>${due == null ? "Not set" : moneyHtml(due, cur)}</strong></div>
+          <div class="insurance-detail"><span>${dir === "customer" ? "Paid to Customer" : "Received from Insurer"}</span><strong>${moneyHtml(done, cur)}</strong></div>
+          <div class="insurance-detail"><span>Outstanding</span><strong class="${n(outstanding) > 0 ? "insurance-amount-outstanding" : ""}">${moneyHtml(outstanding, cur)}</strong></div>
+        </div>
+        ${edit ? `<label class="insurance-refund-field">Refund Amount (${esc(cur)})<input class="input" data-refund-due="${dir}" type="number" min="0" step="0.01" inputmode="decimal" value="${due == null ? "" : n(due)}" placeholder="${suggestion != null ? "Suggested " + n(suggestion).toFixed(2) : "0.00"}"></label>` : ""}
+        <div class="insurance-refund-history">${list.length ? list.map(x => `<div class="insurance-commission-payment-row"><div><strong>${esc(x.reference_no)}</strong><span>${fmtDate(x.refund_date)} ${fmtTime(x.refund_time)}${x.notes ? ` · ${esc(x.notes)}` : ""}</span></div><b>${moneyHtml(x.amount, cur)}</b>${edit ? `<button class="btn ghost tiny" type="button" data-refund-delete="${esc(x.id)}" title="Delete entry"><i class="fa-solid fa-trash"></i></button>` : ""}</div>`).join("") : `<div class="insurance-commission-payment-empty">No ${dir === "customer" ? "customer refund payments" : "insurer refunds"} recorded.</div>`}</div>
+        ${edit && due != null && n(outstanding) > 0 ? `<div class="insurance-refund-record"><input class="input" data-refund-amount="${dir}" type="number" min="0.01" step="0.01" inputmode="decimal" value="${n(outstanding).toFixed(2)}"><input class="input" data-refund-date="${dir}" type="date" value="${dateToday()}"><button class="btn primary tiny" type="button" data-refund-record="${dir}"><i class="fa-solid fa-plus"></i> ${dir === "customer" ? "Record Refund Paid" : "Record Refund Received"}</button></div>` : ""}
+      </div>`;
+    };
+    openModal({ id: "insuranceCancellationRefundsModal", title: "Cancellation Refunds", subtitle: `${data.policy_number ? "Policy " + data.policy_number + " · " : ""}${data.customer_name || "Walk-in Customer"} · ${data.sale_reference_no}`,
+      body: `<div class="insurance-cancellation-summary"><span><b>Customer Paid</b>${moneyHtml(data.customer_paid, cur)}</span><span><b>Sale Price</b>${moneyHtml(data.sale_price, cur)}</span><span><b>Purchase Price</b>${moneyHtml(data.purchase_price, cur)}</span></div>
+        ${data.refund_review_needed ? `<div class="insurance-cancel-note"><i class="fa-solid fa-triangle-exclamation"></i><span>The customer paid for this policy but no refund amount has been set. Enter the amount to return to the customer (0 if nothing is returned).</span></div>` : ""}
+        ${section("customer", "Customer Refund", "Money you return to the customer", data.customer_refund_due, data.customer_refund_paid, data.customer_refund_outstanding, data.refund_review_needed ? data.customer_paid : null)}
+        ${section("company", "Insurer Premium Refund", "Premium the insurance company returns to you", data.company_refund_due, data.company_refund_received, data.company_refund_outstanding, null)}
+        <div class="insurance-cancel-note"><i class="fa-solid fa-circle-info"></i><span>Refunds are tracked separately from My Commission and do not change referral commission. The customer's account shows any refund still payable.</span></div>`,
+      actions: `<button class="btn ghost" data-insurance-close>Close</button>${edit ? `<button class="btn primary" id="insuranceRefundSaveAmounts"><i class="fa-solid fa-floppy-disk"></i> Save Amounts</button>` : ""}`,
+      onOpen(modal, close) {
+        const val = dir => { const v = $(`[data-refund-due="${dir}"]`, modal)?.value; return v === "" || v == null ? null : n(v); };
+        $("#insuranceRefundSaveAmounts", modal)?.addEventListener("click", async e => {
+          const cust = val("customer"), comp = val("company");
+          if ((cust != null && cust < 0) || (comp != null && comp < 0)) return notify("Refund amounts cannot be negative.", "error");
+          if (cust != null && cust > n(data.customer_paid) + 0.00001) return notify(`Customer refund cannot exceed the amount the customer paid (${n(data.customer_paid).toFixed(2)}).`, "error");
+          setBusy(e.currentTarget, true, "Saving");
+          try { await rpc("app_insurance_set_cancellation_refunds", { p_cancellation_id: row.id, p_customer_refund_due: cust, p_company_refund_due: comp }); close(); await reopen(); notify("Refund amounts saved."); openCancellationRefunds(row); }
+          catch (err) { notify(err.message || "Could not save refund amounts.", "error"); } finally { setBusy(e.currentTarget, false); }
+        });
+        $$("[data-refund-record]", modal).forEach(btn => btn.addEventListener("click", async () => {
+          const dir = btn.dataset.refundRecord, amount = n($(`[data-refund-amount="${dir}"]`, modal)?.value), date = $(`[data-refund-date="${dir}"]`, modal)?.value || dateToday();
+          if (!(amount > 0)) return notify("Enter a refund amount greater than zero.", "error");
+          setBusy(btn, true, "Saving");
+          try { await rpc("app_insurance_record_cancellation_refund", { p_cancellation_id: row.id, p_direction: dir, p_amount: amount, p_refund_date: date, p_refund_time: timeNow(), p_notes: null }); close(); await reopen(); notify("Refund recorded."); openCancellationRefunds(row); }
+          catch (err) { notify(err.message || "Could not record the refund.", "error"); } finally { setBusy(btn, false); }
+        }));
+        $$("[data-refund-delete]", modal).forEach(btn => btn.addEventListener("click", async () => {
+          if (!global.confirm("Delete this refund entry?")) return;
+          try { await rpc("app_insurance_delete_cancellation_refund", { p_refund_id: btn.dataset.refundDelete }); close(); await reopen(); notify("Refund entry deleted."); openCancellationRefunds(row); }
+          catch (err) { notify(err.message || "Could not delete the refund entry.", "error"); }
+        }));
+      } });
+  }
+
+  // ---- Pending deductions (unapplied part of commission deductions) ----
+  function pendingDeductionsHtml() {
+    const rows = Array.isArray(S.pendingDeductions?.by_company) ? S.pendingDeductions.by_company : [];
+    if (!rows.length) return "";
+    const byCur = {};
+    rows.forEach(r => { byCur[r.currency] = (byCur[r.currency] || 0) + n(r.remaining); });
+    return `<div class="insurance-pending-ded"><i class="fa-solid fa-hourglass-half"></i><div><strong>Pending deductions to settle</strong><span>${Object.entries(byCur).map(([c, v]) => moneyHtml(v, c)).join(" · ")} still owed back to insurance companies. This is not yet applied to any commission.</span></div><button class="btn ghost tiny" type="button" id="insurancePendingDeductionsBtn"><i class="fa-solid fa-list-check"></i> Review</button></div>`;
+  }
+
+  async function openPendingDeductions() {
+    let items;
+    try { items = ((await rpc("app_insurance_list_commission_deductions", { p_company_id: null, p_currency: null, p_status: null, p_offset: 0, p_limit: 200 }))?.items || []).filter(d => n(d.amount_remaining) > 0.000001); }
+    catch (err) { return notify(err.message || "Could not load pending deductions.", "error"); }
+    const edit = can("edit");
+    const refreshAll = async () => { try { await Promise.all([loadCommissions({ reset: false }), loadCommissionSummary(), loadCommissionReceipts()]); if (S.view === "commission") renderMyCommission(); } catch (_) {} };
+    const card = d => `<div class="insurance-ded-card">
+      <div class="insurance-ded-head"><div><strong>${esc(d.reference_no)}</strong><span>${esc(d.company_name_snapshot)}${d.source_policy_number ? ` · Policy ${esc(d.source_policy_number)}` : ""}${d.source_customer_name ? ` · ${esc(d.source_customer_name)}` : ""}</span><span>${fmtDate(d.deduction_date)}${d.reason ? ` · ${esc(d.reason)}` : ""}</span></div><b class="insurance-amount-deduction">${moneyHtml(d.amount_remaining, d.currency)}<small>pending</small></b></div>
+      <div class="insurance-ded-figures"><span>Deduction ${moneyHtml(d.amount, d.currency)}</span><span>Applied to commission ${moneyHtml(d.amount_applied, d.currency)}</span><span>Paid back ${moneyHtml(d.amount_settled, d.currency)}</span></div>
+      ${(d.settlements || []).map(s => `<div class="insurance-ded-paid"><span>Paid back ${fmtDate(s.settled_date)} · ${esc(s.reference_no)} · ${moneyHtml(s.amount, d.currency)}</span>${edit ? `<button class="btn ghost tiny" type="button" data-ded-undo="${esc(s.id)}" title="Delete this paid-back entry"><i class="fa-solid fa-rotate-left"></i></button>` : ""}</div>`).join("")}
+      ${edit ? `<div class="insurance-ded-actions"><button class="btn primary tiny" type="button" data-ded-apply="${esc(d.id)}"><i class="fa-solid fa-scale-balanced"></i> Apply to Outstanding Commission</button><button class="btn ghost tiny" type="button" data-ded-payback="${esc(d.id)}"><i class="fa-solid fa-arrow-right-arrow-left"></i> Record Paid Back</button></div>` : ""}
+    </div>`;
+    openModal({ id: "insurancePendingDeductionsModal", title: "Pending Deductions", subtitle: "Unapplied cancellation and manual deductions",
+      body: `${items.length ? items.map(card).join("") : `<div class="insurance-commission-payment-empty">No pending deductions.</div>`}<div class="insurance-cancel-note"><i class="fa-solid fa-circle-info"></i><span><b>Apply</b> reduces other outstanding commission from the same insurance company (oldest first). <b>Record Paid Back</b> means you returned the money to the insurance company. Referral commission is never changed.</span></div>`,
+      actions: `<button class="btn primary" data-insurance-close>Done</button>`,
+      onOpen(modal, close) {
+        const again = async () => { close(); await refreshAll(); openPendingDeductions(); };
+        $$("[data-ded-apply]", modal).forEach(btn => btn.addEventListener("click", async () => {
+          const d = items.find(x => x.id === btn.dataset.dedApply); if (!d) return;
+          if (!global.confirm(`Apply ${n(d.amount_remaining).toFixed(2)} ${d.currency} of this deduction against other outstanding ${d.company_name_snapshot} commission?`)) return;
+          setBusy(btn, true, "Applying");
+          try { const res = await rpc("app_insurance_apply_pending_deduction", { p_deduction_id: d.id, p_amount: null }); notify(`${n(res?.applied).toFixed(2)} ${d.currency} applied to outstanding commission.`); await again(); }
+          catch (err) { notify(err.message || "Could not apply the deduction.", "error"); setBusy(btn, false); }
+        }));
+        $$("[data-ded-payback]", modal).forEach(btn => btn.addEventListener("click", () => {
+          const d = items.find(x => x.id === btn.dataset.dedPayback); if (!d) return;
+          close(); openDeductionPaidBack(d, refreshAll);
+        }));
+        $$("[data-ded-undo]", modal).forEach(btn => btn.addEventListener("click", async () => {
+          if (!global.confirm("Delete this paid-back entry? The amount becomes pending again.")) return;
+          try { await rpc("app_insurance_delete_deduction_settlement", { p_id: btn.dataset.dedUndo }); await again(); }
+          catch (err) { notify(err.message || "Could not delete the entry.", "error"); }
+        }));
+      } });
+  }
+
+  function openDeductionPaidBack(d, refreshAll) {
+    openModal({ id: "insuranceDeductionPaidBackModal", title: "Record Paid Back", subtitle: `${d.reference_no} · ${d.company_name_snapshot}`,
+      body: `<form id="insuranceDeductionPaidBackForm" class="insurance-form-grid">
+        <label class="wide">Amount Paid Back (${esc(d.currency)})<input class="input" name="amount" type="number" min="0.01" max="${n(d.amount_remaining)}" step="0.01" inputmode="decimal" value="${n(d.amount_remaining).toFixed(2)}" required></label>
+        <label>Date<input class="input" name="settled_date" type="date" value="${dateToday()}" required></label>
+        <label>Time<input class="input" name="settled_time" type="time" value="${timeNow()}" required></label>
+        <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional"></textarea></label>
+        <div class="wide insurance-cancel-note"><i class="fa-solid fa-circle-info"></i><span>Use this when you returned the money to the insurance company directly, so it is no longer pending. Pending balance: ${moneyHtml(d.amount_remaining, d.currency)}.</span></div>
+      </form>`,
+      actions: `<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceDeductionPaidBackSave">Save</button>`,
+      onOpen(modal, close) {
+        const form = $("#insuranceDeductionPaidBackForm", modal);
+        $("#insuranceDeductionPaidBackSave", modal).onclick = async e => {
+          if (!form.reportValidity()) return;
+          const fd = new FormData(form), amount = n(fd.get("amount"));
+          if (amount > n(d.amount_remaining) + 0.00001) return notify("Amount cannot exceed the pending balance.", "error");
+          setBusy(e.currentTarget, true, "Saving");
+          try { await rpc("app_insurance_settle_deduction_paid_back", { p_deduction_id: d.id, p_amount: amount, p_settled_date: fd.get("settled_date"), p_settled_time: fd.get("settled_time"), p_notes: fd.get("notes") || null }); close(); await refreshAll(); notify("Paid-back entry recorded."); }
+          catch (err) { notify(err.message || "Could not record the entry.", "error"); } finally { setBusy(e.currentTarget, false); }
+        };
+      } });
+  }
+
+  // ---- Refunds tab: customer refunds + insurer premium refunds of cancelled policies ----
+  const REFUND_STATUS = {
+    not_set: { label: "Not Set", cls: "notset" }, pending: { label: "Pending", cls: "pending" }, partial: { label: "Partial", cls: "partial" },
+    completed: { label: "Completed", cls: "clear" }, none: { label: "No Refund", cls: "none" }
+  };
+  const refundStatusBadge = row => { const m = REFUND_STATUS[row.refund_status] || REFUND_STATUS.pending; return `<span class="insurance-cancel-status ${m.cls}">${m.label}</span>`; };
+
+  async function loadRefunds({ reset = true } = {}) {
+    if (reset) S.refundOffset = 0;
+    const f = S.refundFilters;
+    const res = await rpc("app_insurance_list_refunds", {
+      p_search: f.search || null, p_type: f.type || null, p_status: f.status || null, p_start_date: f.start || null, p_end_date: f.end || null,
+      p_offset: S.refundOffset, p_limit: S.refundLimit
+    });
+    S.refunds = (res?.items || []).map(r => ({ ...r, key: `${r.cancellation_id}:${r.direction}` }));
+    S.refundTotal = Number(res?.total || 0);
+    S.refundHasMore = !!res?.has_more;
+    S.refundStatusCounts = res?.status_counts || {};
+    S.refundCurrencyTotals = Array.isArray(res?.currency_totals) ? res.currency_totals : [];
+  }
+
+  function refundToolbar() {
+    const f = S.refundFilters;
+    const opt = (v, label, cur) => `<option value="${v}" ${cur === v ? "selected" : ""}>${label}</option>`;
+    return `<div class="insurance-toolbar insurance-filter-toolbar insurance-cancel-filter-toolbar">
+      <div class="form-group insurance-filter-field insurance-search"><label class="form-label">Search</label><input id="insuranceRefundSearch" class="input" value="${esc(f.search)}" placeholder="Policy no., customer, reference or company"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Cancelled From</label><input id="insuranceRefundStart" class="input" type="date" value="${esc(f.start)}"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Cancelled To</label><input id="insuranceRefundEnd" class="input" type="date" value="${esc(f.end)}"></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Type</label><select id="insuranceRefundType" class="select">${opt("", "All", f.type)}${opt("customer", "Customer Refund", f.type)}${opt("company", "Insurer Refund", f.type)}</select></div>
+      <div class="form-group insurance-filter-field"><label class="form-label">Status</label><select id="insuranceRefundStatus" class="select">${opt("", "All", f.status)}${opt("not_set", "Not Set", f.status)}${opt("pending", "Pending", f.status)}${opt("partial", "Partial", f.status)}${opt("completed", "Completed", f.status)}${opt("none", "No Refund", f.status)}</select></div>
+      <div class="insurance-toolbar-actions insurance-filter-actions">
+        <button class="btn primary tiny" id="insuranceRefundApply" type="button"><i class="fa-solid fa-filter"></i><span>Apply</span></button>
+        <button class="btn ghost tiny" id="insuranceRefundClear" type="button"><i class="fa-solid fa-rotate-left"></i><span>Clear</span></button>
+      </div>
+    </div>`;
+  }
+
+  function refundRow(row) {
+    const isCust = row.direction === "customer", cur = row.currency;
+    return `<div class="insurance-cancel-line insurance-rf-line insurance-cancel-record ${row.refund_status === "pending" || row.refund_status === "not_set" ? "is-pending" : ""}" data-insurance-refund-row="${esc(row.key)}">
+      <div class="insurance-cancel-cell" data-label="Cancelled"><strong>${fmtDate(row.cancellation_date)}</strong><small>${row.last_refund_date ? "Last refund " + fmtDate(row.last_refund_date) : "No refund yet"}</small></div>
+      <div class="insurance-cancel-cell" data-label="Policy No."><strong>${row.policy_number ? esc(row.policy_number) : "—"}</strong><small>${esc(row.company_name_snapshot)} · ${esc(row.policy_name_snapshot)}</small></div>
+      <div class="insurance-cancel-cell" data-label="Customer"><strong>${esc(row.customer_name || "Walk-in Customer")}</strong><small>${esc(row.sale_reference_no)}</small></div>
+      <div class="insurance-cancel-cell" data-label="Type"><strong>${isCust ? "Customer Refund" : "Insurer Refund"}</strong><small>${isCust ? "You pay the customer" : "Insurer pays you"}${isCust && row.refund_due == null ? ` · customer paid ${moneyHtml(row.customer_paid, cur)}` : ""}</small></div>
+      <div class="insurance-cancel-cell insurance-cancel-amount" data-label="Refund Amount"><strong>${row.refund_due == null ? "—" : moneyHtml(row.refund_due, cur)}</strong></div>
+      <div class="insurance-cancel-cell insurance-cancel-amount" data-label="${isCust ? "Paid" : "Received"}"><strong>${moneyHtml(row.refund_done, cur)}</strong></div>
+      <div class="insurance-cancel-cell insurance-cancel-amount" data-label="Outstanding"><strong class="${n(row.refund_outstanding) > 0 ? "insurance-amount-outstanding" : ""}">${moneyHtml(row.refund_outstanding, cur)}</strong></div>
+      <div class="insurance-cancel-cell" data-label="Status">${refundStatusBadge(row)}</div>
+      <div class="insurance-report-line-actions">${rowMenuButtonHtml("refund", row.key)}</div>
+    </div>`;
+  }
+
+  function refundSummaryHtml() {
+    const c = S.refundStatusCounts || {};
+    const chips = Object.entries(REFUND_STATUS).filter(([k]) => Number(c[k] || 0) > 0).map(([k, m]) => `<span class="insurance-cancel-status ${m.cls}">${m.label} ${Number(c[k])}</span>`).join(" ");
+    const money = (S.refundCurrencyTotals || []).filter(r => n(r.customer_refund_outstanding) > 0 || n(r.company_refund_outstanding) > 0).map(r => `<div><b>${esc(r.currency)}</b>${n(r.customer_refund_outstanding) > 0 ? `<span>Payable to customers <strong>${moneyHtml(r.customer_refund_outstanding, r.currency)}</strong></span>` : ""}${n(r.company_refund_outstanding) > 0 ? `<span>Due from insurers <strong>${moneyHtml(r.company_refund_outstanding, r.currency)}</strong></span>` : ""}</div>`).join("");
+    return `${chips ? `<div class="insurance-rf-chips">${chips}</div>` : ""}${money ? `<div class="insurance-cancel-refund-strip">${money}</div>` : ""}`;
+  }
+
+  function renderRefunds() {
+    const root = $("#insuranceWorkspace"); if (!root) return;
+    root.innerHTML = `${refundToolbar()}<div class="insurance-commission-heading"><div><strong>Refunds</strong><span>Refunds for cancelled policies: money you return to customers and premium the insurance company returns to you. Open a row to set the amount or record payments.</span></div></div>${refundSummaryHtml()}
+      <div class="insurance-commission-table insurance-cancel-table">
+        <div class="insurance-cancel-line insurance-rf-line insurance-cancel-head"><div>Cancelled</div><div>Policy No.</div><div>Customer Name</div><div>Type</div><div>Refund Amount</div><div>Paid / Received</div><div>Outstanding</div><div>Status</div><div></div></div>
+        <div class="insurance-cancel-list">${S.refunds.length ? S.refunds.map(refundRow).join("") : `<div class="insurance-empty"><i class="fa-solid fa-money-bill-transfer"></i>No refunds to track. Refunds appear here once a policy is cancelled.</div>`}</div>
+      </div>
+      ${S.refundTotal ? `<div class="insurance-pager"><button class="btn ghost tiny" id="insuranceRefundPrev" ${S.refundOffset <= 0 ? "disabled" : ""}>Previous</button><span class="help">${Math.min(S.refundOffset + 1, S.refundTotal)} to ${Math.min(S.refundOffset + S.refunds.length, S.refundTotal)} of ${S.refundTotal}</span><button class="btn ghost tiny" id="insuranceRefundNext" ${!S.refundHasMore ? "disabled" : ""}>Next</button></div>` : ""}`;
+    bindInsuranceRowMenus(root);
+    bindClickableRows(root, "[data-insurance-refund-row]", r => { const rf = S.refunds.find(x => x.key === r.dataset.insuranceRefundRow); if (rf) openCancellationRefunds({ id: rf.cancellation_id }); });
+    const apply = async btn => {
+      if (btn) setBusy(btn, true, "Loading");
+      try {
+        S.refundFilters = { search: $("#insuranceRefundSearch", root)?.value.trim() || "", type: $("#insuranceRefundType", root)?.value || "", status: $("#insuranceRefundStatus", root)?.value || "", start: $("#insuranceRefundStart", root)?.value || "", end: $("#insuranceRefundEnd", root)?.value || "" };
+        if (S.refundFilters.start && S.refundFilters.end && S.refundFilters.start > S.refundFilters.end) throw new Error("From date cannot be later than To date.");
+        await loadRefunds({ reset: true }); renderRefunds();
+      } catch (err) { notify(err.message || "Could not filter refunds.", "error"); } finally { if (btn) setBusy(btn, false); }
+    };
+    $("#insuranceRefundApply", root)?.addEventListener("click", e => apply(e.currentTarget));
+    $("#insuranceRefundSearch", root)?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); apply(null); } });
+    $("#insuranceRefundClear", root)?.addEventListener("click", async () => { S.refundFilters = { search: "", type: "", status: "", start: "", end: "" }; await loadRefunds({ reset: true }); renderRefunds(); });
+    $("#insuranceRefundPrev", root)?.addEventListener("click", async () => { S.refundOffset = Math.max(0, S.refundOffset - S.refundLimit); await loadRefunds({ reset: false }); renderRefunds(); });
+    $("#insuranceRefundNext", root)?.addEventListener("click", async () => { S.refundOffset += S.refundLimit; await loadRefunds({ reset: false }); renderRefunds(); });
+  }
+
+  function openRefundQuickPayment(rf) {
+    if (!can("edit")) return notify("Recording refunds is not permitted for this account.", "error");
+    const isCust = rf.direction === "customer";
+    openModal({ id: "insuranceRefundQuickModal", title: isCust ? "Record Refund Paid" : "Record Refund Received", subtitle: `${rf.policy_number ? "Policy " + rf.policy_number + " · " : ""}${rf.customer_name || "Walk-in Customer"}`,
+      body: `<form id="insuranceRefundQuickForm" class="insurance-form-grid">
+        <div class="wide insurance-cancellation-summary"><span><b>Refund Amount</b>${moneyHtml(rf.refund_due, rf.currency)}</span><span><b>${isCust ? "Paid" : "Received"}</b>${moneyHtml(rf.refund_done, rf.currency)}</span><span><b>Outstanding</b>${moneyHtml(rf.refund_outstanding, rf.currency)}</span></div>
+        <label class="wide">Amount (${esc(rf.currency)})<input class="input" name="amount" type="number" min="0.01" max="${n(rf.refund_outstanding)}" step="0.01" inputmode="decimal" value="${n(rf.refund_outstanding).toFixed(2)}" required></label>
+        <label>Date<input class="input" name="refund_date" type="date" value="${dateToday()}" required></label>
+        <label>Time<input class="input" name="refund_time" type="time" value="${timeNow()}" required></label>
+        <label class="wide">Notes<textarea class="input" name="notes" rows="2" placeholder="Optional, e.g. bank transfer reference"></textarea></label>
+      </form>`,
+      actions: `<button class="btn ghost" data-insurance-close>Cancel</button><button class="btn primary" id="insuranceRefundQuickSave">Save</button>`,
+      onOpen(modal, close) {
+        const form = $("#insuranceRefundQuickForm", modal);
+        $("#insuranceRefundQuickSave", modal).onclick = async e => {
+          if (!form.reportValidity()) return;
+          const fd = new FormData(form), amount = n(fd.get("amount"));
+          if (amount > n(rf.refund_outstanding) + 0.00001) return notify("Amount cannot exceed the outstanding refund.", "error");
+          setBusy(e.currentTarget, true, "Saving");
+          try {
+            await rpc("app_insurance_record_cancellation_refund", { p_cancellation_id: rf.cancellation_id, p_direction: rf.direction, p_amount: amount, p_refund_date: fd.get("refund_date"), p_refund_time: fd.get("refund_time"), p_notes: fd.get("notes") || null });
+            close(); await loadRefunds({ reset: false }); renderRefunds(); notify("Refund recorded.");
+          } catch (err) { notify(err.message || "Could not record the refund.", "error"); } finally { setBusy(e.currentTarget, false); }
+        };
+      } });
+  }
+
   async function switchView(view) {
     if (!VIEWS.some(v => v[0] === view)) view = "sales";
     S.view = view; renderViewTabs();
@@ -1746,6 +2009,7 @@
       else if (view === "reports") { await loadSales({ reset: true, report: true }); renderReports(); }
       else if (view === "temporary") { const r = await rpc("app_insurance_list_temp_invoices",{}); S.tempInvoices = r?.items || []; renderTemporaryInvoices(); }
       else if (view === "cancelled") { await loadCancellations({ reset: true }); renderCancelledPolicies(); }
+      else if (view === "refunds") { await loadRefunds({ reset: true }); renderRefunds(); }
     } catch (err) { notify(err.message || "Could not open Insurance view.", "error"); }
   }
 
@@ -2161,6 +2425,8 @@
         const totalStart=(doc.lastAutoTable?.finalY||y)+6;
         doc.autoTable({startY:totalStart,head:[["TOTAL","Sales",...financial.map(c=>c.label)]],body:totals.map(r=>[r.currency,Number(r.sale_count||0),...financial.map(c=>formatPdfAmount(r[c.key],r.currency))]),styles:{fontSize:6.6,fontStyle:"bold",cellPadding:2.3},headStyles:{fontSize:6.2},margin:{left:10,right:10,bottom:34},theme:"grid"});
       }
+      const cancelledExcluded=totals.reduce((sum,r)=>sum+Number(r.cancelled_count||0),0);
+      if(cancelledExcluded){const noteY=(doc.lastAutoTable?.finalY||y)+4;doc.setFontSize(6.2);doc.setTextColor(100,116,139);doc.text(`Totals exclude ${cancelledExcluded} cancelled ${cancelledExcluded===1?"policy":"policies"}.`,10,noteY);}
       doc.save(`${meta.title.replace(/[^a-z0-9]+/gi,"_")}.pdf`);
     }catch(err){notify(err.message||"Could not export Insurance report PDF.","error");}
   }
