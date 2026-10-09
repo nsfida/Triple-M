@@ -10,7 +10,7 @@
     gtag('config', 'G-TBKZB3FEVZ');
   </script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Triplem VIP | Private AI Financial Assistant & Accounting ERP</title>
   <meta name="description" content="Triplem VIP combines Accounting ERP, Triplem AI, operational finance, reports, security and multi-currency tools in one private browser-based workspace." />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -27,7 +27,8 @@
   <meta name="color-scheme" content="light" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
-  <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'" />
+  <!-- Compatibility-aware CSP baseline. Also deploy the response headers in _headers; meta CSP cannot set frame-ancestors. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self' https://triplem.vip; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.coingecko.com https://api.country.is https://blockchair.com https://blockstream.info https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cas-bridge.xethub.hf.co; worker-src 'self' blob:; manifest-src 'self' https://triplem.vip; media-src 'self' data: blob: https:; frame-src 'self'; upgrade-insecure-requests" />
   <meta name="rating" content="general" />
   <meta name="distribution" content="global" />
   <meta name="geo.region" content="AE" />
@@ -978,7 +979,7 @@
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
   <script defer src="Assets/app/reports/01-pdf.js?v=20260908-pdf-minus-fix&build010=001"></script>
-  <script defer src="Assets/app/insurance/01-insurance.js?v=20261008-insurance-refundstab196"></script>
+  <script defer src="Assets/app/insurance/01-insurance.js?v=20261009-insurance-critical-fixes"></script>
   <script defer src="Assets/app/reports/02-exports.js?v=20260908-account-details1&build010=002&pagination=155"></script>
   <script defer src="Assets/app/accounting/01-accounting-suite.js?v=20260907-accounting149-002"></script>
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001"></script>
@@ -990,10 +991,10 @@
   <script defer src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
   <script defer src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157"></script>
   <script defer src="Assets/app/auth/02-auth-welcome-trial.js?v=20260913-wallet-selector-lazyfix1&regional=156&currency=001&workspacehome=20260916-001"></script>
-  <script defer src="Assets/app/bitcoin/01-bitcoin.js?v=20260831-price-dedupe&currency=002&build010=001&build011=001"></script>
+  <script defer src="Assets/app/bitcoin/01-bitcoin.js?v=20261009-bitcoin-critical-fixes&currency=002&build010=001&build011=001"></script>
   <script defer src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002&accounting=149001"></script>
   <script defer src="Assets/app/dashboard/01-financial-timeline.js?v=20260912-timeline-clean002"></script>
-  <script defer src="Assets/app/assets/01-assets.js?v=20260904-assets140&build011=001&build013=filter001&build016=assets-wallet-currency002"></script>
+  <script defer src="Assets/app/assets/01-assets.js?v=20261009-assets-critical-fixes&build011=001&build013=filter001&build016=assets-wallet-currency002"></script>
   <script defer src="Assets/app/assets/02-depreciation-assets.js?v=20260901-auth-resume-fix2&build010=001&build013=filter001&build016=dep-wallet002"></script>
   <script defer src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&billingcontact=20260922-001"></script>
   <script defer src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>

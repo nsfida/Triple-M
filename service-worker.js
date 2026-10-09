@@ -1,9 +1,26 @@
-/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v188-contacthelpbilling1. */
+/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v189-critical-hardening1. */
 "use strict";
 
 const STATIC_CACHE_PREFIX = "triplem-static-";
-const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v188-contacthelpbilling1`;
+const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v189-critical-hardening1`;
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font"]);
+
+/**
+ * Resolve a notification destination without permitting external origins or
+ * non-HTTP(S) schemes to be opened from a push notification.
+ */
+function resolveSafeNotificationUrl(rawUrl, origin = self.location.origin) {
+  try {
+    const fallback = new URL("/", origin);
+    const candidate = new URL(typeof rawUrl === "string" ? rawUrl : "/", origin);
+    if (candidate.origin !== fallback.origin) return fallback.href;
+    if (candidate.protocol !== "https:" && candidate.protocol !== "http:") return fallback.href;
+    return candidate.href;
+  } catch (_) {
+    try { return new URL("/", origin).href; }
+    catch (_) { return "/"; }
+  }
+}
 
 self.addEventListener("install", event => {
   event.waitUntil(self.skipWaiting());
@@ -121,7 +138,8 @@ self.addEventListener("push", event => {
 self.addEventListener("notificationclick", event => {
   event.notification.close();
   event.waitUntil((async () => {
-    const targetUrl = new URL(String(event.notification?.data?.url || "/"), self.location.origin).href;
+    const rawUrl = event.notification?.data?.url;
+    const targetUrl = resolveSafeNotificationUrl(rawUrl, self.location.origin);
     const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of allClients) {
       try {

@@ -24,6 +24,7 @@ Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /tests/
 Disallow: /supabase/
+Disallow: /developer-artifacts/
 Disallow: /Assets/sql/
 Disallow: /node_modules/
 Disallow: /.cursor/
@@ -51,6 +52,7 @@ Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /tests/
 Disallow: /supabase/
+Disallow: /developer-artifacts/
 Disallow: /Assets/sql/
 Disallow: /node_modules/
 Disallow: /.cursor/
@@ -74,6 +76,7 @@ Disallow: /migrations/
 Disallow: /scripts/
 Disallow: /tests/
 Disallow: /supabase/
+Disallow: /developer-artifacts/
 Disallow: /Assets/sql/
 Disallow: /node_modules/
 Disallow: /.cursor/
