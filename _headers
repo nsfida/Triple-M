@@ -1,0 +1,7 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://triplem.vip; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.coingecko.com https://api.country.is https://blockchair.com https://blockstream.info https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cas-bridge.xethub.hf.co; worker-src 'self' blob:; manifest-src 'self' https://triplem.vip; media-src 'self' data: blob: https:; frame-src 'self'; upgrade-insecure-requests
