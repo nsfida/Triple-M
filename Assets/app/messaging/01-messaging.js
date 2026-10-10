@@ -17,12 +17,27 @@ const messagingLiveState = {
   deliveryAckRpcAvailable: null,
   lastReceiptRefreshAt: 0,
   activeReceiptThreadId: "",
-  activeReceipts: null
+  activeReceipts: null,
+  lastActivityAt: Date.now(),
+  unchangedStreak: 0,
+  activityBound: false,
+  outboxSeededFor: ""
 };
 
-const MESSAGING_LIVE_POLL_MS = 900;
-const MESSAGING_LIVE_POLL_ACTIVE_MS = 550;
-const NOTE_REMINDER_DISPATCH_THROTTLE_MS = 5000;
+// Messaging sync is RPC polling, and EVERY poll is a request that Supabase logs
+// (API gateway + PostgREST + Postgres). These values were 900 ms / 550 ms, which
+// is 1-2 logged requests per second per open tab around the clock. Realtime
+// broadcast (live chat offers), Web Push (SW -> immediate refresh) and the
+// "refresh right after my own action" path (noteMessagingLocalMutation) already
+// cover latency-sensitive cases, so the background poll only needs to be a
+// safety net. Tune these constants to trade freshness for log volume.
+const MESSAGING_LIVE_POLL_MS = 8000;           // signed-in tab, not on Messages
+const MESSAGING_LIVE_POLL_ACTIVE_MS = 4000;    // Messages tab visible
+const MESSAGING_LIVE_POLL_IDLE_MS = 20000;     // no interaction + nothing changing
+const MESSAGING_LIVE_IDLE_AFTER_MS = 120000;   // "idle" = no user input for 2 min...
+const MESSAGING_LIVE_IDLE_MIN_UNCHANGED = 5;   // ...and 5 consecutive unchanged polls
+const NOTE_REMINDER_DISPATCH_THROTTLE_MS = 15000;
+const LIVE_CHAT_PRESENCE_SWEEP_MIN_MS = 15000;
 
 const MESSAGE_FLOAT_MAX_HEADS = 8;
 const MESSAGE_FLOAT_PEEK_MS = 4600;
@@ -2627,8 +2642,43 @@ function messagingLiveEligible(){
   return !!(state.unlocked && !isGuestMode() && state.sessionToken && state.sessionUser);
 }
 
+function messagingLiveIsIdle(){
+  return Date.now() - Number(messagingLiveState.lastActivityAt || 0) > MESSAGING_LIVE_IDLE_AFTER_MS
+    && Number(messagingLiveState.unchangedStreak || 0) >= MESSAGING_LIVE_IDLE_MIN_UNCHANGED;
+}
+
 function messagingLivePollIntervalMs(){
-  return getActiveTabKey() === "messages" ? MESSAGING_LIVE_POLL_ACTIVE_MS : MESSAGING_LIVE_POLL_MS;
+  const onMessages = getActiveTabKey() === "messages";
+  const base = onMessages ? MESSAGING_LIVE_POLL_ACTIVE_MS : MESSAGING_LIVE_POLL_MS;
+  if (!messagingLiveIsIdle()) return base;
+  // An untouched Messages tab still backs off, but never beyond the normal rate,
+  // so a conversation someone is reading stays reasonably current.
+  return onMessages ? Math.max(base, MESSAGING_LIVE_POLL_MS) : Math.max(base, MESSAGING_LIVE_POLL_IDLE_MS);
+}
+
+function noteMessagingUserActivity(){
+  const now = Date.now();
+  if (now - Number(messagingLiveState.lastActivityAt || 0) < 1000) return;
+  const wasIdle = messagingLiveIsIdle();
+  messagingLiveState.lastActivityAt = now;
+  // Returning from idle: catch up promptly instead of waiting out a long interval.
+  if (wasIdle && messagingLiveEligible() && !document.hidden) {
+    messagingLiveState.unchangedStreak = 0;
+    scheduleMessagingLivePoll(400);
+  }
+}
+
+/** Ask the Main Admin push module to flush its outbox (no-op for everyone else). */
+function requestAdminPushOutboxFlush(reason){
+  try { window.TriplemPush?.scheduleAdminInboxFlush?.({ reason: String(reason || "sync") }); } catch (_) {}
+}
+
+/** Drain queued Main Admin push items once per signed-in session (not per restart/local mutation). */
+function seedAdminPushOutboxFlushOncePerSession(){
+  const key = `${String(state?.sessionUser?.id || state?.sessionUser?.user_id || "")}|${String(state?.sessionToken || "").slice(-16)}`;
+  if (messagingLiveState.outboxSeededFor === key) return;
+  messagingLiveState.outboxSeededFor = key;
+  requestAdminPushOutboxFlush("seed");
 }
 
 function scheduleMessagingLivePoll(delayMs){
@@ -2649,6 +2699,8 @@ function scheduleMessagingLivePoll(delayMs){
 function startMessagingLiveSync(){
   stopMessagingLiveSync();
   if (!messagingLiveEligible()) return;
+  messagingLiveState.unchangedStreak = 0;
+  messagingLiveState.lastActivityAt = Date.now();
   startLiveChatRealtimeBridge();
   bindMessagingLiveVisibility();
   // Seed soon after login; first successful poll only stores fingerprint (no UI churn).
@@ -2665,6 +2717,12 @@ function startMessagingLiveSync(){
 }
 
 function bindMessagingLiveVisibility(){
+  if (!messagingLiveState.activityBound) {
+    messagingLiveState.activityBound = true;
+    ["pointerdown", "keydown", "touchstart", "wheel"].forEach(name => {
+      document.addEventListener(name, noteMessagingUserActivity, { passive: true, capture: true });
+    });
+  }
   if (messagingLiveState.visibilityBound) return;
   messagingLiveState.visibilityBound = true;
   document.addEventListener("visibilitychange", () => {
@@ -2676,6 +2734,8 @@ function bindMessagingLiveVisibility(){
       return;
     }
     if (!messagingLiveEligible()) return;
+    messagingLiveState.lastActivityAt = Date.now();
+    messagingLiveState.unchangedStreak = 0;
     reconcileLiveChatOffersFromRealtime().catch(() => {});
     scheduleMessagingLivePoll(120);
   });
@@ -2836,7 +2896,7 @@ async function runMessagingLivePoll(){
     // promptly without adding pressure to ordinary messaging synchronization.
     const presenceNow = Date.now();
     if (messagingLiveState.liveChatPresenceSweepAvailable !== false
-        && presenceNow - Number(messagingLiveState.lastLiveChatPresenceSweepAt || 0) >= 5000) {
+        && presenceNow - Number(messagingLiveState.lastLiveChatPresenceSweepAt || 0) >= LIVE_CHAT_PRESENCE_SWEEP_MIN_MS) {
       messagingLiveState.lastLiveChatPresenceSweepAt = presenceNow;
       try {
         const swept = await supabaseRpc("app_live_chat_presence_sweep", {});
@@ -2864,12 +2924,23 @@ async function runMessagingLivePoll(){
       );
       if (prev === null) {
         messagingLiveState.fingerprint = sync.fingerprint;
+        messagingLiveState.unchangedStreak = 0;
+        // First sync of this sign-in: drain any queued Main Admin push items once.
+        // (A local mutation also resets the fingerprint, so guard with a flag.)
+        seedAdminPushOutboxFlushOncePerSession();
         await refreshAdminCommsBadges();
         if (userUnread > 0) presentUnreadReminderAlertsFromNotifications().catch(() => {});
         return;
       }
-      if (prev === sync.fingerprint) return;
+      if (prev === sync.fingerprint) {
+        messagingLiveState.unchangedStreak = Math.min(1000, Number(messagingLiveState.unchangedStreak || 0) + 1);
+        return;
+      }
       messagingLiveState.fingerprint = sync.fingerprint;
+      messagingLiveState.unchangedStreak = 0;
+      // Something new for the Main Admin (notification, inquiry, message): flush
+      // the push outbox once, rate-limited inside the push module.
+      requestAdminPushOutboxFlush("sync-change");
       queueMessagingLiveUiRefresh("sync");
       if (userUnread > 0) presentUnreadReminderAlertsFromNotifications().catch(() => {});
       return;
@@ -2879,11 +2950,18 @@ async function runMessagingLivePoll(){
     const prevFb = messagingLiveState.fallbackFingerprint;
     if (prevFb === null) {
       messagingLiveState.fallbackFingerprint = fb;
+      messagingLiveState.unchangedStreak = 0;
+      seedAdminPushOutboxFlushOncePerSession();
       await refreshAdminCommsBadges();
       return;
     }
-    if (prevFb === fb) return;
+    if (prevFb === fb) {
+      messagingLiveState.unchangedStreak = Math.min(1000, Number(messagingLiveState.unchangedStreak || 0) + 1);
+      return;
+    }
     messagingLiveState.fallbackFingerprint = fb;
+    messagingLiveState.unchangedStreak = 0;
+    requestAdminPushOutboxFlush("sync-change");
     queueMessagingLiveUiRefresh("fallback");
   } catch (err) {
     console.warn("Messaging live poll failed:", err);
@@ -2894,6 +2972,8 @@ async function runMessagingLivePoll(){
 function noteMessagingLocalMutation(){
   messagingLiveState.fingerprint = null;
   messagingLiveState.fallbackFingerprint = null;
+  messagingLiveState.unchangedStreak = 0;
+  messagingLiveState.lastActivityAt = Date.now();
   if (messagingLiveEligible()) scheduleMessagingLivePoll(120);
 }
 
