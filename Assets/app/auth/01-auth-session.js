@@ -2114,9 +2114,12 @@ async function supabaseRpc(fnName, args = {}, options = {}){
       Prefer: "return=representation"
     }
   });
-  const value = unwrapRpcJson(data);
-  try { window.TriplemPush?.scheduleAdminInboxFlush?.(); } catch (_) {}
-  return value;
+  // NOTE: do not trigger background work from here. This wrapper runs for every
+  // RPC (messaging polls it several times per minute per open tab); a per-RPC
+  // push-outbox flush here previously generated an Edge Function request on
+  // nearly every poll for every user. The Main Admin outbox flush is event-driven
+  // from the messaging sync fingerprint in 01-web-push.js / 01-messaging.js.
+  return unwrapRpcJson(data);
 }
 
 /** Normalize PostgREST RPC payloads (object, single-element array, or JSON string). */
