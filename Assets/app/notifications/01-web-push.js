@@ -1,4 +1,4 @@
-/* Triplem VIP secure Web Push client + Main Admin/visitor notification center — v127 */
+/* Triplem VIP secure Web Push client + Main Admin/visitor notification center — v128 (log-ingestion hardening) */
 (() => {
   "use strict";
 
@@ -19,11 +19,38 @@
     presenceTimer: null,
     presenceEndpoint: "",
     adminInboxFlushTimer: null,
+    adminInboxFlushDueAt: 0,
     adminInboxFlushPromise: null,
     adminInboxLastFlushAt: 0,
+    adminInboxDirty: false,
+    adminInboxBlockedUntil: 0,
+    adminInboxFailures: 0,
+    adminInboxUserKey: "",
+    configAt: 0,
+    lastAccountSyncOkAt: 0,
+    lastAccountSyncAttemptAt: 0,
+    lastAccountSyncKey: "",
+    lastVisitorSyncOkAt: 0,
+    lastVisitorSyncAttemptAt: 0,
+    lastPresenceSentAt: 0,
     tabId: (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).slice(0, 80)
   };
 
+
+  // ---------------------------------------------------------------------------
+  // Request-volume controls. Every call below reaches Supabase (Edge Function,
+  // PostgREST and Postgres all write request logs), so none of these may run
+  // per-RPC, per-focus or on a sub-minute timer. Tune here, nowhere else.
+  // ---------------------------------------------------------------------------
+  const PUSH_CONFIG_TTL_MS = 30 * 60 * 1000;          // VAPID public key is static; re-read at most every 30 min
+  const SUBSCRIPTION_SYNC_TTL_MS = 20 * 60 * 1000;    // a verified subscription stays verified for 20 min
+  const SUBSCRIPTION_SYNC_RETRY_MS = 60 * 1000;       // failed sync attempts are not retried faster than 1/min
+  const PRESENCE_HEARTBEAT_MS = 180000;               // presence is informational only (no server decision reads it)
+  const ADMIN_FLUSH_MIN_INTERVAL_MS = 15000;          // never flush the admin outbox more than once per 15 s
+  const ADMIN_FLUSH_FIRST_DELAY_MS = 450;             // small coalescing delay for the first trigger
+  const ADMIN_FLUSH_RETRY_MS = 150000;                // > the 2-min server reclaim window for undelivered items
+  const ADMIN_FLUSH_DENIED_BACKOFF_MS = 30 * 60 * 1000; // 401/403: this session is not allowed to flush
+  const ADMIN_FLUSH_FAILURE_BACKOFF_MS = [30000, 120000, 600000];
 
   const USER_PUSH_PREF_PREFIX = "triplem_push_account_pref_v1:";
   const USER_PUSH_PROMPT_SEEN_PREFIX = "triplem_push_account_prompt_seen_v2:";
@@ -129,15 +156,21 @@
     const text = await response.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch (_) { data = null; }
-    if (!response.ok || data?.ok === false) throw new Error(data?.error || `Push service request failed (${response.status}).`);
+    if (!response.ok || data?.ok === false) {
+      const failure = new Error(data?.error || `Push service request failed (${response.status}).`);
+      failure.status = response.status;
+      throw failure;
+    }
     return data || {};
   }
 
   async function getPushConfig(force = false) {
-    if (!force && stateLocal.config) return stateLocal.config;
-    if (!force && stateLocal.configPromise) return stateLocal.configPromise;
+    const fresh = !!stateLocal.config && (Date.now() - Number(stateLocal.configAt || 0)) < PUSH_CONFIG_TTL_MS;
+    if (!force && fresh) return stateLocal.config;
+    if (stateLocal.configPromise) return stateLocal.configPromise;
     stateLocal.configPromise = invoke("config").then(config => {
       stateLocal.config = config;
+      stateLocal.configAt = Date.now();
       return config;
     }).finally(() => { stateLocal.configPromise = null; });
     return stateLocal.configPromise;
@@ -257,23 +290,35 @@
     const subscription = await ensureSubscriptionForVapid(registration, cfg.vapid_public_key);
     await registerSubscriptionAsVisitor(subscription);
     setVisitorPreference("on");
+    stateLocal.lastVisitorSyncOkAt = Date.now();
     return { ok: true, enabled: true };
   }
 
-  async function syncVisitorSubscription() {
+  async function syncVisitorSubscription({ force = false } = {}) {
     if (!supported() || Notification.permission !== "granted" || getVisitorPreference() !== "on" || !landingIsVisible()) return false;
+    // A visitor's subscription does not change between focus events. Re-verifying
+    // it on every focus/visibility change cost an Edge Function call plus a
+    // database write each time, so a verified subscription is trusted for a while.
+    const now = Date.now();
+    if (!force) {
+      if (stateLocal.lastVisitorSyncOkAt && now - stateLocal.lastVisitorSyncOkAt < SUBSCRIPTION_SYNC_TTL_MS) return true;
+      if (now - Number(stateLocal.lastVisitorSyncAttemptAt || 0) < SUBSCRIPTION_SYNC_RETRY_MS) return false;
+    }
+    stateLocal.lastVisitorSyncAttemptAt = now;
     try {
-      const cfg = await getPushConfig(true);
+      const cfg = await getPushConfig(false);
       if (!cfg?.enabled || !cfg?.vapid_public_key) return false;
       const registration = await serviceWorkerRegistration();
       const subscription = await ensureSubscriptionForVapid(registration, cfg.vapid_public_key);
       await registerSubscriptionAsVisitor(subscription);
+      stateLocal.lastVisitorSyncOkAt = Date.now();
       return true;
     } catch (_) { return false; }
   }
 
   async function disableVisitorNotifications() {
     setVisitorPreference("off");
+    stateLocal.lastVisitorSyncOkAt = 0;
     if (!supported()) return { ok: true, enabled: false };
     try {
       const registration = await serviceWorkerRegistration();
@@ -317,7 +362,7 @@
 
 
   const PRESENCE_TABS_KEY = "triplem_push_open_tabs_v1";
-  const PRESENCE_TAB_STALE_MS = 180000;
+  const PRESENCE_TAB_STALE_MS = 600000; // must comfortably exceed PRESENCE_HEARTBEAT_MS
 
   function readOpenTabs() {
     try {
@@ -360,6 +405,7 @@
     if (!keepalive) {
       if (typeof window.supabaseRpc !== "function") return false;
       await window.supabaseRpc("app_set_push_client_presence", { p_endpoint: endpoint, p_open: open === true });
+      stateLocal.lastPresenceSentAt = Date.now();
       return true;
     }
 
@@ -389,12 +435,18 @@
     stateLocal.presenceEndpoint = safe(subscription?.endpoint).trim();
     if (!stateLocal.presenceEndpoint) return false;
     touchOpenTab();
-    await setClientPresence(true).catch(() => false);
+    // pageshow / sync / enable can all call this within seconds of each other;
+    // only write presence immediately when the last write is not already fresh.
+    const presenceFresh = !!stateLocal.presenceTimer && Date.now() - Number(stateLocal.lastPresenceSentAt || 0) < 60000;
+    if (!presenceFresh) await setClientPresence(true).catch(() => false);
     if (stateLocal.presenceTimer) clearInterval(stateLocal.presenceTimer);
     stateLocal.presenceTimer = window.setInterval(() => {
       touchOpenTab();
+      // A hidden tab stays "open" server-side until the page-lifecycle close
+      // path flips it, so there is nothing to refresh while it is hidden.
+      if (document.hidden) return;
       setClientPresence(true).catch(() => {});
-    }, 45000);
+    }, PRESENCE_HEARTBEAT_MS);
     return true;
   }
 
@@ -423,6 +475,8 @@
     await registerSubscriptionWithAccount(subscription);
     setAccountPreference("on");
     stateLocal.presenceEndpoint = safe(subscription?.endpoint).trim();
+    stateLocal.lastAccountSyncKey = `${currentUserId()}|${safe(state.sessionToken).slice(-16)}`;
+    stateLocal.lastAccountSyncOkAt = Date.now();
     await startClientPresence().catch(() => false);
     await refreshControl();
     return { ok: true, enabled: true };
@@ -433,6 +487,7 @@
     // the remote subscription in the background. A server delay must never make
     // the bell switch feel sluggish.
     setAccountPreference("off");
+    stateLocal.lastAccountSyncOkAt = 0;
     setPushControlStatus({ enabled: false, label: "Device notifications off", detail: "Turn on anytime to receive alerts on this device." });
     const registration = await serviceWorkerRegistration();
     const subscription = await registration.pushManager.getSubscription();
@@ -453,13 +508,28 @@
     return { ok: true, enabled: false };
   }
 
-  async function syncExistingSubscription() {
+  async function syncExistingSubscription({ force = false } = {}) {
     if (stateLocal.syncing || !supported() || Notification.permission !== "granted") return false;
     if (!(typeof state !== "undefined" && state?.unlocked && state?.sessionToken && state?.sessionUser)) return false;
     if (getAccountPreference() === "off") return false;
+
+    // Re-association only matters when the browser's subscription actually
+    // changed. Doing the full verification (Edge config call + subscription
+    // upsert + presence write) on every focus/visibility/pageshow event was a
+    // steady source of request logs, so a verified subscription is trusted for
+    // SUBSCRIPTION_SYNC_TTL_MS per signed-in user. Sign-in as another user and
+    // explicit force=true still verify immediately.
+    const userKey = `${currentUserId()}|${safe(state.sessionToken).slice(-16)}`;
+    const now = Date.now();
+    if (!force) {
+      if (stateLocal.lastAccountSyncKey === userKey && stateLocal.lastAccountSyncOkAt && now - stateLocal.lastAccountSyncOkAt < SUBSCRIPTION_SYNC_TTL_MS) return true;
+      if (stateLocal.lastAccountSyncKey === userKey && now - Number(stateLocal.lastAccountSyncAttemptAt || 0) < SUBSCRIPTION_SYNC_RETRY_MS) return false;
+    }
     stateLocal.syncing = true;
+    stateLocal.lastAccountSyncAttemptAt = now;
+    stateLocal.lastAccountSyncKey = userKey;
     try {
-      const cfg = await getPushConfig(true);
+      const cfg = await getPushConfig(false);
       if (!cfg?.enabled || !cfg?.vapid_public_key) return false;
       const registration = await serviceWorkerRegistration();
       const subscription = await ensureSubscriptionForVapid(registration, cfg.vapid_public_key);
@@ -468,6 +538,7 @@
       setAccountPreference("on");
       stateLocal.presenceEndpoint = safe(subscription?.endpoint).trim();
       await startClientPresence().catch(() => false);
+      stateLocal.lastAccountSyncOkAt = Date.now();
       return true;
     } catch (_) {
       return false;
@@ -984,26 +1055,108 @@
     document.getElementById("adminPushSendBtn")?.addEventListener("click", () => sendAdminPush().catch(() => {}));
   }
 
+  // ---------------------------------------------------------------------------
+  // Main Admin push-outbox flush
+  //
+  // The outbox is claimed and delivered by the `admin_inbox_flush` Edge Function
+  // action, which (since the protected-admin hardening) only accepts the Main
+  // Admin's session. It used to be scheduled after EVERY supabaseRpc() call for
+  // EVERY signed-in user and anonymous visitor; with messaging polling several
+  // times per second that produced an Edge Function request (plus two nested
+  // REST calls, or a logged 403 for non-admins) every ~4 seconds per open tab.
+  //
+  // It is now:
+  //   - gated to a signed-in Main Admin (everyone else never calls the server),
+  //   - event-driven (messaging fingerprint change, tab becoming visible, retry
+  //     of undelivered items) instead of RPC-driven,
+  //   - coalesced + rate-limited (single flight, >= ADMIN_FLUSH_MIN_INTERVAL_MS
+  //     between calls, remembers new triggers that arrive mid-flight),
+  //   - self-limiting on errors (long back-off on 401/403, stepped back-off on
+  //     transient failures) so a broken session can never turn into a log storm.
+  // ---------------------------------------------------------------------------
+  function adminInboxFlushAllowed() {
+    return typeof state !== "undefined"
+      && !!state?.unlocked
+      && !!state?.sessionToken
+      && typeof isProtectedAdminSession === "function"
+      && isProtectedAdminSession() === true;
+  }
+
+  function resetAdminInboxBackoffForSession() {
+    // A different user/session must never inherit another session's back-off.
+    const key = `${currentUserId()}|${safe(typeof state !== "undefined" ? state?.sessionToken : "").slice(-16)}`;
+    if (stateLocal.adminInboxUserKey === key) return;
+    stateLocal.adminInboxUserKey = key;
+    stateLocal.adminInboxBlockedUntil = 0;
+    stateLocal.adminInboxFailures = 0;
+  }
+
   async function flushAdminInboxPushQueue() {
     if (stateLocal.adminInboxFlushPromise) return stateLocal.adminInboxFlushPromise;
+    if (!adminInboxFlushAllowed()) return { ok: false, queued: false, skipped: true };
+    resetAdminInboxBackoffForSession();
     stateLocal.adminInboxLastFlushAt = Date.now();
+    stateLocal.adminInboxDirty = false;
+    let retryNeeded = false;
     stateLocal.adminInboxFlushPromise = invoke("admin_inbox_flush", { limit: 20 })
+      .then(result => {
+        stateLocal.adminInboxFailures = 0;
+        stateLocal.adminInboxBlockedUntil = 0;
+        const results = Array.isArray(result?.results) ? result.results : [];
+        // Undelivered items are re-claimable by the server after ~2 minutes;
+        // schedule exactly one follow-up instead of polling for them.
+        retryNeeded = results.some(item => item && item.delivered === false);
+        return result;
+      })
       .catch(error => {
-        console.warn("Triplem VIP admin notification push flush skipped", error?.message || error);
+        const status = Number(error?.status) || 0;
+        if (status === 401 || status === 403) {
+          stateLocal.adminInboxBlockedUntil = Date.now() + ADMIN_FLUSH_DENIED_BACKOFF_MS;
+        } else {
+          const step = Math.min(stateLocal.adminInboxFailures, ADMIN_FLUSH_FAILURE_BACKOFF_MS.length - 1);
+          stateLocal.adminInboxBlockedUntil = Date.now() + ADMIN_FLUSH_FAILURE_BACKOFF_MS[step];
+          stateLocal.adminInboxFailures += 1;
+        }
         return { ok: false, queued: false };
       })
-      .finally(() => { stateLocal.adminInboxFlushPromise = null; });
+      .finally(() => {
+        // Follow-ups are scheduled only after the in-flight marker is cleared,
+        // otherwise scheduleAdminInboxFlush() would just mark the run "dirty".
+        stateLocal.adminInboxFlushPromise = null;
+        if (retryNeeded) scheduleAdminInboxFlush({ delay: ADMIN_FLUSH_RETRY_MS, reason: "retry" });
+        // Something new arrived while this call was in flight: flush once more
+        // (still subject to the minimum interval and any back-off).
+        if (stateLocal.adminInboxDirty) scheduleAdminInboxFlush({ reason: "dirty" });
+      });
     return stateLocal.adminInboxFlushPromise;
   }
 
-  function scheduleAdminInboxFlush() {
-    const elapsed = Date.now() - Number(stateLocal.adminInboxLastFlushAt || 0);
-    const delay = elapsed >= 4000 ? 450 : Math.max(450, 4000 - elapsed);
+  function scheduleAdminInboxFlush({ delay = null, reason = "" } = {}) {
+    if (!adminInboxFlushAllowed()) return false;
+    // A hidden tab is not polling; the visibility handler re-triggers on return.
+    if (document.hidden) return false;
+    resetAdminInboxBackoffForSession();
+    if (stateLocal.adminInboxFlushPromise) {
+      stateLocal.adminInboxDirty = true;
+      return true;
+    }
+    const now = Date.now();
+    const sinceLast = now - Number(stateLocal.adminInboxLastFlushAt || 0);
+    const rateWait = Math.max(0, ADMIN_FLUSH_MIN_INTERVAL_MS - sinceLast);
+    const backoffWait = Math.max(0, Number(stateLocal.adminInboxBlockedUntil || 0) - now);
+    const requested = Number.isFinite(Number(delay)) && delay !== null ? Math.max(0, Number(delay)) : ADMIN_FLUSH_FIRST_DELAY_MS;
+    const wait = Math.max(requested, rateWait, backoffWait);
+    const dueAt = now + wait;
+    // Keep whichever scheduled run is sooner so a distant retry never delays a
+    // fresh trigger, and repeated triggers never push the run further out.
+    if (stateLocal.adminInboxFlushTimer && stateLocal.adminInboxFlushDueAt <= dueAt) return true;
     if (stateLocal.adminInboxFlushTimer) clearTimeout(stateLocal.adminInboxFlushTimer);
+    stateLocal.adminInboxFlushDueAt = dueAt;
     stateLocal.adminInboxFlushTimer = setTimeout(() => {
       stateLocal.adminInboxFlushTimer = null;
+      stateLocal.adminInboxFlushDueAt = 0;
       flushAdminInboxPushQueue().catch(() => {});
-    }, delay);
+    }, wait);
     return true;
   }
 
@@ -1064,6 +1217,8 @@
           refreshControl().catch(() => {});
           refreshVisitorControl().catch(() => {});
           bindAdminPush();
+          // Drain anything queued while this admin tab was hidden (no-op for non-admins).
+          scheduleAdminInboxFlush({ reason: "visible" });
         }
       });
       window.addEventListener("focus", () => {
