@@ -1,8 +1,8 @@
-/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v189-critical-hardening1. */
+/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v190-lowlog-1. */
 "use strict";
 
 const STATIC_CACHE_PREFIX = "triplem-static-";
-const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v189-critical-hardening1`;
+const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v190-lowlog-1`;
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 
 /**
