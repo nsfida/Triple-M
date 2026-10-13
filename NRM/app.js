@@ -80,8 +80,11 @@ function autosize(){q('textarea').forEach(t=>{t.style.height='auto';t.style.heig
 q('[data-c=dob],[data-c=eidIssue],[data-c=eidExpiry],[data-c=licIssue],[data-c=licExpiry]').forEach(e=>{e.placeholder='dd-mm-yyyy';e.addEventListener('blur',()=>{let v=e.value.trim();if(!v)return;const d=v.replace(/\D/g,'');if(/^\d{8}$/.test(d)&&!/[\-\/.]/.test(v))e.value=`${d.slice(0,2)}-${d.slice(2,4)}-${d.slice(4)}`;else e.value=v.replace(/[\/\.]/g,'-');checkExp()});e.addEventListener('input',checkExp)});
 function pd(s){const m=/^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec((s||'').trim());return m?new Date(+m[3],+m[2]-1,+m[1],23,59):null}
 function checkExp(){const today=new Date(),ret=new Date($('retdt').value);q('label.exp').forEach(l=>{const d=pd(l.querySelector('input').value);l.classList.remove('bad','warn');if(!d)return;if(d<today)l.classList.add('bad');else if(!isNaN(ret)&&d<ret)l.classList.add('warn')})}
-function setCno(n){if($('cno'))$('cno').value=n;localStorage.setItem('nrm_cno',String(n))}$('cno').addEventListener('input',()=>setCno($('cno').value));
-function newContract(){if(!confirm('Start a new contract? All contract fields will be cleared and the contract number will go up by 1.'))return;const n=parseInt($('cno').value)||0;q('.page input:not(#cno):not(#cno2),.page textarea').forEach(e=>e.value='');state.currentVehicle=null;state.manualRate=false;$('plan').value='auto';$('rinfo').textContent='';$('total').textContent='0.00';$('signame').textContent='';$('name').dataset.driverId='';$('name').dataset.driverName='';$('pt1').value='Rental charges';setNowDefaults();setCno(isNaN(n)?'':n+1);autosize();checkExp();$('name').focus()}
+function setCno(n){if($('cno'))$('cno').value=n}
+async function loadSavedContractNo(){const r=await api('nrm_get_contract_no',{p_token:state.token});setCno(r?.contract_no??5846)}
+async function saveContractNo(){const raw=trim($('cno').value);if(!/^\d+$/.test(raw)){toast('Enter a valid whole contract number.');$('cno').focus();return}const btn=$('saveCnoBtn');btn.disabled=true;try{const r=await api('nrm_save_contract_no',{p_token:state.token,p_contract_no:Number(raw)});if(!r?.ok)throw new Error(r?.message||'Could not save contract number.');setCno(r.contract_no);toast('Contract number saved ✔')}catch(err){toast(err.message||'Could not save contract number.')}finally{btn.disabled=false}}
+$('cno').addEventListener('input',()=>{});
+async function newContract(){if(!confirm('Start a new contract? All contract fields will be cleared and the contract number will go up by 1.'))return;let next;try{const r=await api('nrm_get_contract_no',{p_token:state.token});next=Number(r?.contract_no??5846)+1}catch(err){toast(err.message||'Could not load saved contract number.');return}q('.page input:not(#cno):not(#cno2),.page textarea').forEach(e=>e.value='');state.currentVehicle=null;state.manualRate=false;$('plan').value='auto';$('rinfo').textContent='';$('total').textContent='0.00';$('signame').textContent='';$('name').dataset.driverId='';$('name').dataset.driverName='';$('pt1').value='Rental charges';setNowDefaults();setCno(next);autosize();checkExp();$('name').focus()}
 
 function parseDelimited(text,delimiter='\t'){const out=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const ch=text[i],next=text[i+1];if(quoted){if(ch==='"'&&next==='"'){field+='"';i++}else if(ch==='"')quoted=false;else field+=ch}else{if(ch==='"')quoted=true;else if(ch===delimiter){row.push(field);field=''}else if(ch==='\n'){row.push(field);out.push(row);row=[];field=''}else if(ch!=='\r')field+=ch}}row.push(field);if(row.some(v=>trim(v)!==''))out.push(row);return out}
 const hnorm=h=>trim(h).toLowerCase().replace(/[^a-z0-9]+/g,'');const parseNumeric=v=>{const s=trim(v).replace(/,/g,'');return s===''?null:(Number.isFinite(Number(s))?Number(s):null)};
@@ -95,7 +98,7 @@ $('vehicleFile').addEventListener('change',async e=>{const file=e.target.files?.
 function openKeyModal(){$('keyForm').reset();$('keyError').textContent='';showModal('keyModal');$('oldKey').focus()}function closeKeyModal(){hideModal('keyModal')}
 async function changeKey(){const oldKey=$('oldKey').value,newKey=$('newKey').value,newKey2=$('newKey2').value;$('keyError').textContent='';if(!oldKey||!newKey){$('keyError').textContent='All key fields are required.';return}if(newKey!==newKey2){$('keyError').textContent='New key confirmation does not match.';return}if(newKey.length<6){$('keyError').textContent='New key must be at least 6 characters.';return}try{const r=await api('nrm_change_key',{p_token:state.token,p_current_key:oldKey,p_new_key:newKey});if(!r?.ok)throw new Error(r?.message||'Could not change key.');closeKeyModal();toast('Access key changed ✔')}catch(err){$('keyError').textContent=err.message||'Could not change key.'}}
 
-async function loadAllData(){setDbState('Loading…',null);try{await Promise.all([loadDrivers(),loadVehicles()]);setDbState(`Connected · ${state.drivers.length} drivers · ${state.vehicles.length} vehicles`,true);if(!state.vehicles.length)toast('No vehicles found. Use Vehicle data → Import vehicles.')}catch(err){setDbState('Database error',false);toast(err.message||'Could not load database data.')}}
+async function loadAllData(){setDbState('Loading…',null);try{await Promise.all([loadDrivers(),loadVehicles(),loadSavedContractNo()]);setDbState(`Connected · ${state.drivers.length} drivers · ${state.vehicles.length} vehicles`,true);if(!state.vehicles.length)toast('No vehicles found. Use Vehicle data → Import vehicles.')}catch(err){setDbState('Database error',false);toast(err.message||'Could not load database data.')}}
 function fit(){const need=210*3.7795+30,w=innerWidth;$('sheets').style.zoom=w<need?(w/need):1}addEventListener('resize',fit);
 
 $('loginForm').addEventListener('submit',e=>{e.preventDefault();login($('loginKey').value)});
@@ -104,6 +107,7 @@ $('driverForm').addEventListener('submit',e=>{e.preventDefault();saveDriverModal
 $('keyForm').addEventListener('submit',e=>{e.preventDefault();changeKey()});
 $('printBtn').addEventListener('click',()=>window.print());
 $('newContractBtn').addEventListener('click',newContract);
+$('saveCnoBtn').addEventListener('click',saveContractNo);
 $('saveDriverBtn').addEventListener('click',saveCurrentDriver);
 $('driversBtn').addEventListener('click',()=>openDriverManager());
 $('vehiclesBtn').addEventListener('click',openVehicleImport);
@@ -117,5 +121,5 @@ $('importVehiclesBtn').addEventListener('click',importVehiclesToDb);
 $('closeKeyModalBtn').addEventListener('click',closeKeyModal);
 $('cancelKeyBtn').addEventListener('click',closeKeyModal);
 
-$('pt1').value='Rental charges';setCno(localStorage.getItem('nrm_cno')||'5842');setNowDefaults();recalc();autosize();checkExp();fit();setLocked(true);validateExistingSession();
+$('pt1').value='Rental charges';setCno('5846');setNowDefaults();recalc();autosize();checkExp();fit();setLocked(true);validateExistingSession();
 })();
