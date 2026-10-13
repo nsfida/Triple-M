@@ -31,8 +31,10 @@ body.locked #bar,body.locked #sheets{display:none!important}
 .hd .co small{display:block;font-size:8pt;font-weight:600;color:var(--mute);letter-spacing:0;margin-top:1mm}
 .hd .ttl{text-align:center;font-size:12pt;font-weight:700}
 .hd .ttl span{display:block;font-size:12pt}
-.hd .cn{display:flex;align-items:center;gap:2mm;font-weight:700;font-size:9pt;border:.3mm solid var(--navy);padding:1mm 2.5mm}
+.hd .cn{display:flex;flex-direction:column;align-items:center;gap:1mm;font-weight:700;font-size:9pt;border:.3mm solid var(--navy);padding:1mm 2.5mm}
 .hd .cn input{width:20mm;font:700 15pt 'Segoe UI',Arial;border:0;outline:0;color:#b91c1c;text-align:center;background:transparent}
+#saveCnoBtn{font:600 7pt 'Segoe UI',Arial;border:0;border-radius:2mm;padding:.7mm 2.5mm;background:var(--navy);color:#fff;cursor:pointer}
+#saveCnoBtn:disabled{opacity:.6;cursor:wait}
 
 /* ---------- layout ---------- */
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:3mm}
@@ -115,7 +117,7 @@ tr.excl td.lab{color:#555}
  <div class="hd">
   <div class="brand"><img class="brand-logo" src="logo.png" alt="Company logo"><div class="co">PREMIUM CAR RENTALS<small>Vehicle Rental Agreement</small></div></div>
   <div class="ttl"><span>عقد إيجار سيارة</span><span>Rental Agreement</span></div>
-  <div class="cn">Contract No.<input id="cno" inputmode="numeric"></div>
+  <div class="cn">Contract No.<input id="cno" inputmode="numeric"><button id="saveCnoBtn" type="button" class="noprint">Save</button></div>
  </div>
 
  <div class="cols">
