@@ -55,6 +55,8 @@ test("automatic test profile selects public-safe checks when private backend sou
     assert.equal(hasPrivateSource(root), false);
     assert.equal(resolveProfile(root, "auto"), "public");
     assert.deepEqual(getTestFiles(projectRoot, "public"), PUBLIC_TEST_FILES);
+    assert.ok(PUBLIC_TEST_FILES.includes("tests/app-downloads-public.test.js"), "public profile must keep browser-facing download coverage");
+    assert.ok(!PUBLIC_TEST_FILES.includes("tests/app-downloads.test.js"), "public profile must not invoke source-inspection tests for private native build files");
     assert.ok(PRIVATE_SOURCE_SENTINELS.every(relative => !fs.existsSync(path.join(root, relative))));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
