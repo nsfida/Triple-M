@@ -2,9 +2,9 @@
   "name": "triple-m",
   "private": true,
   "version": "1.0.0",
-  "description": "Triplem VIP \u2014 private personal and business finance workspace",
+  "description": "Triplem VIP — private personal and business finance workspace",
   "scripts": {
-    "test": "node --test tests/*.test.js",
+    "test": "node scripts/run_tests.js",
     "build:schema": "node scripts/build_full_schema_sql.js",
     "seo:indexnow": "node scripts/submit_indexnow.js --all",
     "seo:build-sitemap": "node scripts/build_sitemap.js",
@@ -19,7 +19,9 @@
     "audit:security": "node scripts/security_audit.js",
     "build:production": "node scripts/build_production.js && node scripts/audit_production_output.js",
     "verify:production": "npm run verify && npm run build:production",
-    "audit:production": "node scripts/audit_production_output.js"
+    "audit:production": "node scripts/audit_production_output.js",
+    "test:full": "node scripts/run_tests.js --profile=full",
+    "test:public": "node scripts/run_tests.js --profile=public"
   },
   "engines": {
     "node": ">=22"
