@@ -214,6 +214,7 @@ const CANONICAL_MIGRATION_FILES = [
   "196_insurance_refunds_tab.sql",
   "197_insurance_safe_sale_deletion.sql",
   "198_insurance_excel_backup_export.sql",
+  "199_secure_loan_ledger_unified_view.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */
