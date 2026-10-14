@@ -1,19 +1,36 @@
 name: SEO and GEO quality
+
 on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: seo-geo-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
+    name: Validate source, discovery files and production output
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Check out source without persisting credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up maintained Node.js runtime
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - run: npm run verify
-      - run: npm run seo:prepare
-      - run: npm run build:production
+          check-latest: false
+      - name: Verify application, security and regression tests
+        run: npm run verify
+      - name: Build sitemap and audit SEO/GEO source policies
+        run: npm run seo:prepare
+      - name: Build and audit production output
+        run: npm run build:production

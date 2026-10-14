@@ -1,17 +1,34 @@
 name: Production SEO post-deploy
+
 on:
   workflow_dispatch:
   repository_dispatch:
     types: [production-deployed]
+
 permissions:
   contents: read
+
+concurrency:
+  group: triplem-vip-production-seo-audit
+  cancel-in-progress: false
+
 jobs:
   verify-and-notify:
+    name: Audit live SEO/GEO and notify IndexNow
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Check out source without persisting credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up maintained Node.js runtime
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - run: npm run seo:postdeploy
+          check-latest: false
+      - name: Audit live production with bounded retries
+        env:
+          SEO_AUDIT_TIMEOUT_MS: '10000'
+          SEO_PAGE_RETRIES: '2'
+        run: npm run seo:postdeploy
