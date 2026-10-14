@@ -16,7 +16,10 @@ const PRIVATE_SOURCE_SENTINELS = [
   "supabase/functions/push-notifications/index.ts"
 ];
 const PUBLIC_TEST_FILES = [
-  "tests/app-downloads.test.js",
+  // This public-only test file checks website download behavior and the
+  // published setup executable without loading private native build sources.
+  // The full app-downloads.test.js remains part of the full-source suite only.
+  "tests/app-downloads-public.test.js",
   "tests/frontend-hardening.test.js",
   "tests/seo-quality.test.js",
   "tests/public-repository.test.js"
@@ -78,7 +81,8 @@ function main() {
 
   if (profile === "public") {
     console.log("[test] Private SQL migration and Supabase Edge Function sources are not both present.");
-    console.log("[test] Running the public-safe regression suite: app downloads, frontend hardening, SEO/GEO and public-checkout safety.");
+    console.log("[test] Running the public-safe regression suite: published app download behavior, frontend hardening, SEO/GEO and public-checkout safety.");
+    console.log("[test] Native Windows implementation tests are excluded because their build-source files are not part of this public checkout.");
     console.log("[test] No SQL files need to be added to the public repository. Full schema-dependent tests remain available in the private full-source workspace.");
   } else {
     console.log(`[test] Full backend source detected; running all ${files.length} regression test files, including migration and Edge Function checks.`);
