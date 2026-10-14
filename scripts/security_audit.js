@@ -95,15 +95,22 @@ for (const pattern of secretPatterns) {
 }
 
 // Edge functions must source privileged credentials from the environment rather than literals.
-for (const dirent of fs.readdirSync(path.join(root, "supabase/functions"), { withFileTypes: true })) {
-  if (!dirent.isDirectory()) continue;
-  const rel = `supabase/functions/${dirent.name}/index.ts`;
-  const absolute = path.join(root, rel);
-  if (!fs.existsSync(absolute)) continue;
-  const source = fs.readFileSync(absolute, "utf8");
-  for (const pattern of [/sk_live_[0-9A-Za-z]+/, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/]) {
-    if (pattern.test(source)) fail(`Literal private credential detected in ${rel}`);
+// Some branches/build contexts do not include Supabase Edge Functions, so skip this
+// optional scan cleanly when the directory is absent rather than failing with ENOENT.
+const functionsDir = path.join(root, "supabase/functions");
+if (fs.existsSync(functionsDir) && fs.statSync(functionsDir).isDirectory()) {
+  for (const dirent of fs.readdirSync(functionsDir, { withFileTypes: true })) {
+    if (!dirent.isDirectory()) continue;
+    const rel = `supabase/functions/${dirent.name}/index.ts`;
+    const absolute = path.join(root, rel);
+    if (!fs.existsSync(absolute)) continue;
+    const source = fs.readFileSync(absolute, "utf8");
+    for (const pattern of [/sk_live_[0-9A-Za-z]+/, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/]) {
+      if (pattern.test(source)) fail(`Literal private credential detected in ${rel}`);
+    }
   }
+} else {
+  console.log("Skipping Supabase edge function credential checks — supabase/functions not found.");
 }
 
 // Static caching may never intercept Supabase/API requests or non-GET mutations.
