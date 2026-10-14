@@ -1,12 +1,13 @@
-# Triplem VIP public discovery policy — https://triplem.vip/
-# Public HTML pages are canonical. Retrieval-oriented Markdown is available to answer engines.
-# robots.txt is a crawler directive, not an authentication or data-isolation mechanism.
+# Triplem VIP crawler policy
+# Canonical origin: https://triplem.vip/
+# Sitemap: list only canonical, indexable HTML pages. The robots protocol is not access control.
+Sitemap: https://triplem.vip/sitemap.xml
 
+# Standard search crawlers: serve canonical HTML in ordinary search results.
 User-agent: *
 Allow: /
 Allow: /seo/
 Allow: /regions/
-# Keep /Demo/ crawlable so search engines can read its explicit noindex directive.
 Allow: /Demo/
 Allow: /Founder/
 Allow: /Security/
@@ -31,9 +32,14 @@ Disallow: /node_modules/
 Disallow: /.cursor/
 Disallow: /.git/
 Disallow: /.github/
+Disallow: /dist-production/
 Disallow: /*.zip$
+Disallow: /*.sql$
+Disallow: /*.bak$
 
-# AI search and user-triggered retrieval crawlers may read concise Markdown mirrors while implementation and private-workspace paths remain excluded.
+# Keep /Demo/ crawlable so search engines can read its explicit noindex directive. Compliant search engines can then honor it.
+# Search/retrieval bots are allowed to read public HTML and approved Markdown mirrors.
+# These specific groups intentionally define their own policy; do not assume they inherit the wildcard group.
 User-agent: OAI-SearchBot
 User-agent: ChatGPT-User
 User-agent: PerplexityBot
@@ -44,8 +50,10 @@ Allow: /
 Allow: /index.md
 Allow: /seo/*.md$
 Allow: /regions/*.md$
-Allow: /seo/llms.txt
-Allow: /regions/llms.txt
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /humans.txt
+Allow: /.well-known/security.txt
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /docs/
@@ -59,17 +67,24 @@ Disallow: /node_modules/
 Disallow: /.cursor/
 Disallow: /.git/
 Disallow: /.github/
+Disallow: /dist-production/
 Disallow: /*.zip$
+Disallow: /*.sql$
+Disallow: /*.bak$
 
-# Existing model-development crawler access is retained separately; it is not required for search visibility.
+# Model-development crawlers are a separate decision from search/retrieval crawlers.
+# Public product content is allowed for these agents at present; private implementation paths remain excluded.
+# GPTBot and ClaudeBot are not substitutes for OAI-SearchBot/Claude-SearchBot.
+# Google-Extended controls certain Gemini model-development/grounding uses, not Google Search indexing.
 User-agent: GPTBot
 User-agent: ClaudeBot
+User-agent: Google-Extended
 Allow: /
 Allow: /index.md
 Allow: /seo/*.md$
 Allow: /regions/*.md$
-Allow: /seo/llms.txt
-Allow: /regions/llms.txt
+Allow: /llms.txt
+Allow: /llms-full.txt
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /docs/
@@ -83,6 +98,7 @@ Disallow: /node_modules/
 Disallow: /.cursor/
 Disallow: /.git/
 Disallow: /.github/
+Disallow: /dist-production/
 Disallow: /*.zip$
-
-Sitemap: https://triplem.vip/sitemap.xml
+Disallow: /*.sql$
+Disallow: /*.bak$

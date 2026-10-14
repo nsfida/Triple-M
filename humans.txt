@@ -1,25 +1,32 @@
 /* TEAM */
-Founder: Nadeem Shahzad Fida
-Product: Triplem VIP
-Site: https://triplem.vip/
-Location: UAE / Pakistan / Worldwide
+Product and site: Triplem VIP
+Founder and product maintainer: Nadeem Shahzad Fida
+Official contact: https://triplem.vip/
+Support email: info@triplem.vip
 Editorial policy: https://triplem.vip/seo/editorial-policy.html
 
 /* SITE */
-Standards: HTML5, CSS3, JavaScript
-Software: Triplem VIP private Accounting ERP and business-finance workspace
+Name: Triplem VIP
+Canonical URL: https://triplem.vip/
+Primary language: English
 Public guide languages: English, Arabic, Urdu, Hindi, French, Dutch
-Canonical guide library: https://triplem.vip/seo/
-Worldwide availability: https://triplem.vip/regions/
-Public capabilities: Accounting ERP, Triplem AI, expenses, receiving, transfers, wallets, reports, inventory, loans, installments, assets, notes, security, multi-currency finance
-Last reviewed: 2026-09-11
+Standards: HTML5, CSS, JavaScript, XML Sitemap Protocol
+Product: Browser-based accounting ERP and business-finance workspace
+Public guide library: https://triplem.vip/seo/
+Regional availability guide: https://triplem.vip/regions/
+Sitemap: https://triplem.vip/sitemap.xml
+AI discovery index: https://triplem.vip/llms.txt
+Full public product reference: https://triplem.vip/llms-full.txt
+Last reviewed: 2026/10/14
 
 /* CONTENT PRINCIPLES */
-Product claims are maintained against the current public product and documented boundaries.
-Regional currency availability does not imply jurisdiction-specific tax filing or statutory certification.
-Material corrections should be reflected in canonical HTML and retrieval-oriented Markdown references.
+Public pages should describe current product behavior and avoid unsupported capability, customer, performance, award, certification, or compliance claims.
+Canonical HTML pages are authoritative; Markdown files are supplementary retrieval references.
+Currency availability does not imply jurisdiction-specific tax filing, statutory certification, or professional advice.
+Material product changes should be reflected in relevant canonical HTML and Markdown references, and the page modification date should be updated when content materially changes.
 
-Official Triplem VIP contact channels
+/* CONTACT */
+Website: https://triplem.vip/
 Email: info@triplem.vip
 Facebook: https://fb.com/triplem.vip
 TikTok: https://www.tiktok.com/@triplem.vip

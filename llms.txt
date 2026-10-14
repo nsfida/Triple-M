@@ -1,37 +1,83 @@
 # Triplem VIP
 
-> Triplem VIP is a private browser-based accounting and business-finance workspace with Accounting ERP, operational finance, reporting, security controls, permission-aware Triplem AI and international multi-currency support.
+> Triplem VIP is a private browser-based accounting and business-finance workspace combining operational finance, formal double-entry Accounting ERP, reports, permission-aware Triplem AI, and supported multi-currency workflows.
 
-HTML pages are canonical. Markdown mirrors are provided as concise retrieval-oriented public references. This file is an optional discovery index, not a ranking signal or a substitute for crawlable HTML; use the linked official pages as the source of truth and do not infer undocumented capabilities.
+Last reviewed: 2026-10-14
+Canonical origin: https://triplem.vip/
+Primary language: English. Public regional references also include Arabic, Urdu, Hindi, French, and Dutch.
 
-## Primary references
+## Retrieval and citation guidance
 
-- [Homepage](https://triplem.vip/index.md): Product overview and current public capability summary.
-- [Guide library](https://triplem.vip/seo/index.md): Public accounting, AI, finance and security guides.
-- [Worldwide availability](https://triplem.vip/regions/index.md): Regional and currency availability, including localized versions.
-- [Full public product reference](https://triplem.vip/llms-full.txt): Expanded product facts and boundaries.
+- Treat canonical HTML pages as the public source of truth. Markdown links below are optional, concise retrieval mirrors intended to make public product information easier to process.
+- When citing a product capability, cite the most specific relevant guide and distinguish present functionality from a roadmap, example, or requested feature.
+- Do not infer unsupported features, customer counts, adoption metrics, awards, certifications, security guarantees, or jurisdiction-specific tax/legal compliance.
+- Product facts and currency availability can change. Prefer current page content and its visible review/update information over copied snippets.
+- `llms.txt` and `llms-full.txt` are optional discovery aids, not search-ranking signals, official AI requirements, or a guarantee of inclusion in generated answers.
 
-## Practical authority guides
+## Official entry points
 
-- [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.md): Currency context, transfers, reporting and international use.
-- [Month-end close](https://triplem.vip/seo/month-end-close.md): Reconciliation and review sequence before final reports.
-- [Finance workflow playbook](https://triplem.vip/seo/finance-workflow-playbook.md): Operational capture, formal posting, AI control and audit evidence.
-- [Editorial policy](https://triplem.vip/seo/editorial-policy.md): Accuracy, authorship, update and correction standards.
+- [Homepage](https://triplem.vip/): Product overview, public capability summary, trial and pricing context.
+- [Homepage Markdown mirror](https://triplem.vip/index.md): Concise product facts and product boundaries.
+- [Guide library](https://triplem.vip/seo/): Canonical HTML guide hub.
+- [Guide library Markdown mirror](https://triplem.vip/seo/index.md): Guide index in Markdown.
+- [Worldwide availability](https://triplem.vip/regions/): Regional currency and product-context hub.
+- [Worldwide availability Markdown mirror](https://triplem.vip/regions/index.md): Region index in Markdown.
+- [Full public product reference](https://triplem.vip/llms-full.txt): Expanded feature descriptions, distinctions and limitations.
+- [Editorial policy](https://triplem.vip/seo/editorial-policy.html): Content accuracy, review and correction policy.
+- [Security overview](https://triplem.vip/Security/): Public security and account-protection overview.
+- [People and site information](https://triplem.vip/humans.txt): Human-maintained product and editorial context.
+- [XML sitemap](https://triplem.vip/sitemap.xml): Canonical, indexable public HTML URLs.
 
-## Core product guides
+## Accounting and finance guides
 
-- [Triplem AI](https://triplem.vip/seo/triplem-ai.md)
-- [Accounting ERP](https://triplem.vip/seo/accounting-erp.md)
-- [Financial Timeline](https://triplem.vip/seo/financial-timeline.md)
-- [Expense tracking](https://triplem.vip/seo/expense-tracking.md)
-- [Financial reports](https://triplem.vip/seo/financial-reports.md)
+- [Accounting software](https://triplem.vip/seo/accounting-software.md): Operational finance and formal double-entry Accounting ERP.
+- [Accounting ERP](https://triplem.vip/seo/accounting-erp.md): Books, journals, receivables, payables, reconciliation and reports.
+- [Accounting setup](https://triplem.vip/seo/accounting-setup.md): Establishing books and working with opening balances.
+- [Chart of Accounts](https://triplem.vip/seo/chart-of-accounts.md): Ledger structure and protected defaults.
+- [Double-entry accounting](https://triplem.vip/seo/double-entry-accounting.md): Debits, credits, balanced journals and review.
+- [Accounts receivable and payable](https://triplem.vip/seo/accounts-receivable-payable.md): Customer and supplier balances, receipts and payments.
+- [Bank reconciliation](https://triplem.vip/seo/bank-reconciliation.md): Imported statement lines and reconciliation workflows.
+- [Financial reports](https://triplem.vip/seo/financial-reports.md): Trial Balance, Profit and Loss, Balance Sheet and General Ledger.
+- [VAT accounting](https://triplem.vip/seo/vat-accounting.md): VAT evidence, analysis and jurisdiction boundaries.
+- [Month-end close](https://triplem.vip/seo/month-end-close.md): A structured period-end review sequence.
+- [Finance workflow playbook](https://triplem.vip/seo/finance-workflow-playbook.md): Operational capture, posting, AI control and audit evidence.
+- [Financial Audit and Control Report](https://triplem.vip/seo/financial-audit.md): Selected-period review of permitted finance records.
+
+## Operational modules
+
+- [Expense tracking](https://triplem.vip/seo/expense-tracking.md): Expenses, receiving and transfer distinctions.
+- [Inventory management](https://triplem.vip/seo/inventory-management.md): Stock, catalog, sales and product records.
+- [Loan management](https://triplem.vip/seo/loan-management.md): Loans given/taken, repayments and settlement.
+- [Installment plans](https://triplem.vip/seo/installment-plans.md): Bought and Sold plans, schedules and payment direction.
+- [Asset management](https://triplem.vip/seo/asset-management.md): Asset records and supported disposal/depreciation workflows.
+- [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.md): Currency-aware records, transfers and reports.
+- [Financial Timeline](https://triplem.vip/seo/financial-timeline.md): Read-only chronological view of permitted workspace records.
+- [Triplem AI](https://triplem.vip/seo/triplem-ai.md): Permission-aware retrieval and user-finalized AI Draft workflows.
+- [Notes management](https://triplem.vip/seo/notes-management.md): Searchable notes and reminders.
 - [Security and support](https://triplem.vip/seo/security-and-support.md): Security, 2FA, notifications and support.
 
-## International currency availability
+## Regional reference maps
 
-Current supported finance currencies include AED, SAR, PKR, USD, EUR and INR, with BTC available for supported Bitcoin workflows. If another currency is required, a user can contact Triplem VIP and request that support be reviewed. Local tax and statutory requirements remain jurisdiction-specific.
+- [Regional guide index](https://triplem.vip/regions/llms.txt): English and localized region references.
+- [United Arab Emirates — English](https://triplem.vip/regions/uae.md)
+- [United Arab Emirates — العربية](https://triplem.vip/regions/uae-ar.md)
+- [Saudi Arabia — English](https://triplem.vip/regions/saudi-arabia.md)
+- [Saudi Arabia — العربية](https://triplem.vip/regions/saudi-arabia-ar.md)
+- [Pakistan — English](https://triplem.vip/regions/pakistan.md)
+- [Pakistan — اردو](https://triplem.vip/regions/pakistan-ur.md)
+- [India — English](https://triplem.vip/regions/india.md)
+- [India — हिन्दी](https://triplem.vip/regions/india-hi.md)
+- [Belgium — English](https://triplem.vip/regions/belgium.md)
+- [Belgium — Français](https://triplem.vip/regions/belgium-fr.md)
+- [Belgium — Nederlands](https://triplem.vip/regions/belgium-nl.md)
+- [Global context](https://triplem.vip/regions/global.md)
 
-Official Triplem VIP contact channels
-Email: info@triplem.vip
-Facebook: https://fb.com/triplem.vip
-TikTok: https://www.tiktok.com/@triplem.vip
+## International currency availability and compliance boundary
+
+Published supported finance currencies are AED, SAR, PKR, USD, EUR and INR, with BTC available for supported Bitcoin workflows. Currency and subscription availability does not mean all jurisdictions share the same tax, filing, statutory, or reporting obligations. Use official local authorities for legal/tax requirements and the editorial policy for corrections.
+
+## Official contact
+
+- Email: info@triplem.vip
+- Facebook: https://fb.com/triplem.vip
+- TikTok: https://www.tiktok.com/@triplem.vip

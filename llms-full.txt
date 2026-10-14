@@ -4,6 +4,8 @@ Last reviewed: 2026-10-14
 Canonical site: https://triplem.vip/
 Public guide hub: https://triplem.vip/seo/
 
+This file is a maintained public product reference, not a substitute for canonical HTML pages. Use specific linked guides for citations, prefer current on-page facts, and do not infer undocumented features or jurisdiction-specific compliance. Availability in this file does not guarantee search indexing or AI citations.
+
 ## Product definition
 
 Triplem VIP is a private browser-based finance and accounting workspace. It combines operational finance modules with a separate formal Accounting ERP. Triplem AI provides workspace-specific assistance for authorized users. Financial Timeline provides a read-only chronological view inside Dashboard.
@@ -52,7 +54,7 @@ Financial Audit & Control Report can classify permitted operational and Accounti
 
 ## Notes status
 
-The Notes feature remains the existing searchable notes and reminders functionality in this release line. The 2026-09-10 SEO refresh does not claim a Notes redesign.
+The Notes feature remains the existing searchable notes and reminders functionality in this release line. This reference does not claim a Notes redesign beyond the currently documented searchable notes and reminders functionality.
 
 ## Public references
 
