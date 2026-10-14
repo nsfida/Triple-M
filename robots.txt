@@ -6,6 +6,7 @@ User-agent: *
 Allow: /
 Allow: /seo/
 Allow: /regions/
+# Keep /Demo/ crawlable so search engines can read its explicit noindex directive.
 Allow: /Demo/
 Allow: /Founder/
 Allow: /Security/

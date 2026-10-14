@@ -1,9 +1,9 @@
-# Triplem VIP | Private Accounting & Business Finance Software
+# Triplem VIP | Accounting Software & Business Finance
 
-> Triplem VIP is a private browser-based accounting and business-finance workspace combining operational finance tools, formal Accounting ERP, reports, security controls, live support and permission-aware Triplem AI.
+> Triplem VIP is a private browser-based accounting and business-finance workspace for expenses, inventory, loans, multi-currency accounts and reports, with formal double-entry books, reconciliation, security controls and permission-aware Triplem AI.
 
 Canonical page: https://triplem.vip/
-Last reviewed: 2026-09-22
+Last reviewed: 2026-10-14
 
 ## What Triplem VIP covers
 

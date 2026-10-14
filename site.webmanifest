@@ -1,7 +1,7 @@
 {
   "name": "Triplem VIP",
   "short_name": "Triplem VIP",
-  "description": "Private Accounting ERP and business-finance workspace with Triplem AI, operational finance, reports, security and multi-currency support.",
+  "description": "Accounting and finance workspace for expenses, inventory, loans, multi-currency accounts, double-entry books, reconciliation and permission-aware AI.",
   "id": "https://triplem.vip/",
   "start_url": "/?utm_source=pwa&utm_medium=manifest",
   "scope": "/",

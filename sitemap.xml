@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://triplem.vip/</loc>
-    <lastmod>2026-09-22</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/" />
     <image:image>
@@ -10,12 +10,6 @@
       <image:title>Triplem VIP accounting and business finance workspace</image:title>
       <image:caption>Triplem VIP accounting, operational finance, reporting and multi-currency workspace.</image:caption>
     </image:image>
-  </url>
-  <url>
-    <loc>https://triplem.vip/Demo/</loc>
-    <lastmod>2026-09-11</lastmod>
-    <xhtml:link rel="alternate" hreflang="en" href="https://triplem.vip/" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://triplem.vip/" />
   </url>
   <url>
     <loc>https://triplem.vip/Founder/</loc>

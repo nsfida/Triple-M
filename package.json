@@ -22,6 +22,6 @@
     "audit:production": "node scripts/audit_production_output.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }

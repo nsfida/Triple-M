@@ -2,7 +2,7 @@
 
 > Triplem VIP is a private browser-based accounting and business-finance workspace with Accounting ERP, operational finance, reporting, security controls, permission-aware Triplem AI and international multi-currency support.
 
-HTML pages are canonical. Markdown mirrors are provided as concise retrieval-oriented public references.
+HTML pages are canonical. Markdown mirrors are provided as concise retrieval-oriented public references. This file is an optional discovery index, not a ranking signal or a substitute for crawlable HTML; use the linked official pages as the source of truth and do not infer undocumented capabilities.
 
 ## Primary references
 
