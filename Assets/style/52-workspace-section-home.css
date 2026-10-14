@@ -1,0 +1,1637 @@
+/* Triplem VIP workspace section home — 2026-09-16
+   The former persistent tab band stays in the DOM as a permission/navigation
+   authority for legacy code, but is no longer a visible workspace surface. */
+#app > .tabs{
+  display:none !important;
+}
+
+.workspace-home{
+  position:relative;
+  width:100%;
+  min-height:calc(100dvh - 112px);
+  padding:clamp(10px,1.6vw,22px) 0 clamp(22px,3vw,40px);
+  display:flex;
+  flex-direction:column;
+  gap:clamp(14px,2vw,24px);
+  overflow:hidden;
+  isolation:isolate;
+}
+.workspace-home.hide{display:none !important}
+.workspace-home::before,
+.workspace-home::after{
+  content:"";
+  position:absolute;
+  pointer-events:none;
+  z-index:-1;
+  border-radius:999px;
+  opacity:.72;
+}
+.workspace-home::before{
+  width:min(52vw,760px);
+  aspect-ratio:1;
+  left:-27vw;
+  top:-34%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--primary) 10%,transparent),transparent 68%);
+}
+.workspace-home::after{
+  width:min(40vw,580px);
+  aspect-ratio:1;
+  right:-20vw;
+  bottom:-28%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--primary) 8%,transparent),transparent 70%);
+}
+.workspace-home-heading{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  min-width:0;
+  padding:0 2px;
+}
+.workspace-home-kicker{
+  display:inline-flex;
+  align-items:center;
+  min-height:25px;
+  padding:5px 10px;
+  border:1px solid color-mix(in srgb,var(--primary) 22%,var(--line));
+  border-radius:999px;
+  color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 7%,var(--panel));
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+.workspace-home-heading h2{
+  margin:10px 0 2px;
+  color:var(--text);
+  font-size:clamp(1.25rem,2vw,1.8rem);
+  letter-spacing:-.04em;
+}
+.workspace-home-heading p{
+  margin:0;
+  color:var(--muted);
+  font-size:.84rem;
+  line-height:1.5;
+}
+.workspace-home-grid{
+  flex:1;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-auto-rows:minmax(205px,1fr);
+  gap:clamp(10px,1.25vw,18px);
+  align-content:center;
+  min-width:0;
+}
+.workspace-home-card{
+  --workspace-card-accent:var(--primary);
+  appearance:none;
+  position:relative;
+  min-width:0;
+  min-height:205px;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:space-between;
+  gap:8px;
+  padding:14px 15px 13px;
+  overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--line) 82%,var(--primary) 18%);
+  border-radius:clamp(17px,1.5vw,23px);
+  background:
+    radial-gradient(115% 90% at 92% -8%,color-mix(in srgb,var(--primary) 13%,transparent),transparent 57%),
+    linear-gradient(145deg,color-mix(in srgb,var(--panel) 97%,var(--primary) 3%),color-mix(in srgb,var(--panel-2) 94%,transparent));
+  color:var(--text);
+  box-shadow:
+    0 12px 28px color-mix(in srgb,var(--primary) 7%,transparent),
+    inset 0 1px 0 color-mix(in srgb,#fff 44%,transparent);
+  cursor:pointer;
+  text-align:left;
+  transform:translateZ(0);
+  transition:transform .18s cubic-bezier(.22,.75,.22,1),border-color .18s ease,box-shadow .18s ease,background .18s ease;
+  animation:workspaceCardEnter .34s cubic-bezier(.2,.8,.2,1) both;
+  animation-delay:calc(var(--workspace-card-index,0) * 24ms);
+  contain:layout paint style;
+}
+.workspace-home-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(115deg,transparent 20%,color-mix(in srgb,#fff 16%,transparent) 45%,transparent 68%);
+  transform:translate3d(-115%,0,0);
+  transition:transform .48s cubic-bezier(.2,.72,.2,1);
+}
+.workspace-home-card:hover,
+.workspace-home-card:focus-visible{
+  transform:translate3d(0,-3px,0);
+  border-color:color-mix(in srgb,var(--primary) 42%,var(--line));
+  box-shadow:0 17px 34px color-mix(in srgb,var(--primary) 13%,transparent),inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent);
+  outline:none;
+}
+.workspace-home-card:hover::before,
+.workspace-home-card:focus-visible::before{transform:translate3d(115%,0,0)}
+.workspace-card-art{
+  display:grid;
+  place-items:center;
+  width:132px;
+  height:132px;
+  min-width:132px;
+  min-height:132px;
+  max-width:132px;
+  max-height:132px;
+  aspect-ratio:1 / 1;
+  flex:0 0 132px;
+  align-self:center;
+  color:var(--workspace-card-accent);
+}
+.workspace-card-svg{
+  width:132px;
+  height:132px;
+  min-width:132px;
+  min-height:132px;
+  max-width:132px;
+  max-height:132px;
+  aspect-ratio:1 / 1;
+  display:block;
+  overflow:visible;
+  flex:none;
+}
+.workspace-card-svg *{
+  vector-effect:non-scaling-stroke;
+  transform-box:fill-box;
+  transform-origin:center;
+}
+.workspace-card-svg .wh-frame{
+  fill:color-mix(in srgb,var(--primary) 5%,transparent);
+  stroke:currentColor;
+  stroke-width:2.2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.workspace-card-svg .wh-soft{
+  fill:none;
+  stroke:color-mix(in srgb,currentColor 56%,var(--muted));
+  stroke-width:1.75;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.82;
+}
+.workspace-card-svg circle.wh-soft,
+.workspace-card-svg rect.wh-soft{
+  fill:color-mix(in srgb,currentColor 7%,transparent);
+}
+.workspace-card-svg .wh-accent,
+.workspace-card-svg .wh-line{
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.workspace-card-svg .wh-pulse,
+.workspace-card-svg .wh-dot{
+  fill:currentColor;
+  stroke:color-mix(in srgb,var(--panel) 75%,transparent);
+  stroke-width:2;
+}
+.workspace-card-svg .wh-draw{
+  stroke-dasharray:180;
+  stroke-dashoffset:180;
+  animation:workspaceSvgDraw 3.4s ease-in-out infinite;
+}
+.workspace-card-svg .wh-float{animation:workspaceSvgFloat 3.2s ease-in-out infinite}
+.workspace-card-svg .wh-pulse{animation:workspaceSvgPulse 2.2s ease-in-out infinite}
+.workspace-card-svg .wh-scan{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;opacity:.7;animation:workspaceSvgScan 2.8s ease-in-out infinite}
+.workspace-card-svg .wh-orbit-ring{stroke-dasharray:7 8;animation:workspaceSvgSpin 8s linear infinite}
+.workspace-card-svg .wh-spin{stroke-dasharray:9 7;animation:workspaceSvgSpin 7s linear infinite}
+.workspace-card-svg .wh-orbit-dot{animation:workspaceSvgPulse 2.1s ease-in-out infinite}
+.workspace-card-svg .wh-spark{animation:workspaceSvgSpark 2.5s ease-in-out infinite}
+.workspace-card-svg .wh-node-one{animation:workspaceSvgNode 2.8s ease-in-out infinite}
+.workspace-card-svg .wh-node-two{animation:workspaceSvgNode 3.1s ease-in-out infinite .2s}
+.workspace-card-svg .wh-node-three{animation:workspaceSvgNode 2.9s ease-in-out infinite .4s}
+.workspace-card-svg .wh-node-four{animation:workspaceSvgNode 3.2s ease-in-out infinite .1s}
+.workspace-card-svg .wh-coin-one{animation:workspaceSvgFloat 2.7s ease-in-out infinite}
+.workspace-card-svg .wh-coin-two{animation:workspaceSvgFloat 3.1s ease-in-out infinite .25s}
+.workspace-card-copy{
+  position:relative;
+  z-index:2;
+  width:100%;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  text-align:center;
+}
+.workspace-card-copy strong{
+  min-width:0;
+  color:var(--text);
+  font-size:.94rem;
+  line-height:1.22;
+  letter-spacing:-.025em;
+  overflow-wrap:anywhere;
+  width:100%;
+  text-align:center;
+}
+.workspace-card-copy small{
+  width:100%;
+  color:var(--muted);
+  font-size:.68rem;
+  line-height:1.35;
+  text-align:center;
+}
+.workspace-card-open{
+  position:absolute;
+  right:11px;
+  top:10px;
+  width:27px;
+  height:27px;
+  display:grid;
+  place-items:center;
+  border:1px solid color-mix(in srgb,var(--primary) 18%,var(--line));
+  border-radius:10px;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);
+  color:color-mix(in srgb,var(--primary) 78%,var(--text));
+  font-size:.66rem;
+}
+
+.workspace-section-nav{
+  position:sticky;
+  top:8px;
+  z-index:34;
+  width:min(100%,var(--content-max));
+  min-height:44px;
+  margin:0 auto 10px;
+  padding:5px 6px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) minmax(150px,220px);
+  gap:7px;
+  align-items:center;
+  border:1px solid color-mix(in srgb,var(--line) 84%,var(--primary) 16%);
+  border-radius:15px;
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
+  box-shadow:0 8px 22px color-mix(in srgb,var(--primary) 7%,transparent),inset 0 1px 0 color-mix(in srgb,#fff 40%,transparent);
+  backdrop-filter:blur(14px) saturate(1.12);
+  -webkit-backdrop-filter:blur(14px) saturate(1.12);
+}
+.workspace-section-nav.hide{display:none !important}
+.workspace-home-back{
+  width:auto;
+  min-width:112px;
+  height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:0 10px;
+  border:1px solid color-mix(in srgb,var(--primary) 22%,var(--line));
+  border-radius:10px;
+  background:color-mix(in srgb,var(--primary) 7%,var(--panel));
+  color:var(--primary);
+  font-size:.7rem;
+  font-weight:780;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:transform .15s ease,background .15s ease,border-color .15s ease;
+}
+.workspace-home-back i{font-size:.68rem;pointer-events:none}
+.workspace-home-back span{pointer-events:none}
+.workspace-home-back:hover,
+.workspace-home-back:focus-visible{
+  transform:translateX(-1px);
+  background:color-mix(in srgb,var(--primary) 12%,var(--panel));
+  border-color:color-mix(in srgb,var(--primary) 38%,var(--line));
+  outline:none;
+}
+.workspace-section-current{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  padding-left:2px;
+}
+.workspace-section-current span{
+  color:var(--muted);
+  font-size:.56rem;
+  font-weight:750;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.workspace-section-current strong{
+  min-width:0;
+  color:var(--text);
+  font-size:.82rem;
+  line-height:1.25;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.workspace-section-switch{
+  appearance:none;
+  -webkit-appearance:none;
+  width:100%;
+  min-width:0;
+  height:34px;
+  padding:0 11px;
+  border:1px solid color-mix(in srgb,var(--line) 88%,var(--primary) 12%);
+  border-radius:10px;
+  outline:0;
+  background:color-mix(in srgb,var(--panel-2) 86%,var(--panel));
+  color:var(--text);
+  font:inherit;
+  font-size:.72rem;
+  font-weight:720;
+  text-align:center;
+  text-align-last:center;
+  cursor:pointer;
+  box-shadow:none;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.workspace-section-switch:hover,
+.workspace-section-switch:focus-visible{
+  border-color:color-mix(in srgb,var(--primary) 38%,var(--line));
+  background:color-mix(in srgb,var(--primary) 7%,var(--panel));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 8%,transparent);
+}
+.workspace-section-switch option{color:var(--text);background:var(--panel);text-align:left}
+
+#app .center-wrap,
+#app .panel,
+#app .panel > .card,
+#app .panel .section{min-width:0;max-width:100%}
+
+@keyframes workspaceCardEnter{
+  from{opacity:0;transform:translate3d(0,8px,0) scale(.985)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes workspaceSvgFloat{
+  0%,100%{transform:translate3d(0,0,0)}
+  50%{transform:translate3d(0,-4px,0)}
+}
+@keyframes workspaceSvgPulse{
+  0%,100%{transform:scale(.92);opacity:.68}
+  50%{transform:scale(1.18);opacity:1}
+}
+@keyframes workspaceSvgDraw{
+  0%,14%{stroke-dashoffset:180;opacity:.46}
+  42%,72%{stroke-dashoffset:0;opacity:1}
+  88%,100%{stroke-dashoffset:-180;opacity:.42}
+}
+@keyframes workspaceSvgScan{
+  0%,100%{transform:translate3d(0,-15px,0);opacity:.16}
+  50%{transform:translate3d(0,16px,0);opacity:.9}
+}
+@keyframes workspaceSvgSpin{to{transform:rotate(360deg)}}
+@keyframes workspaceSvgSpark{
+  0%,100%{transform:scale(.84) rotate(0deg);opacity:.64}
+  50%{transform:scale(1.06) rotate(10deg);opacity:1}
+}
+@keyframes workspaceSvgNode{
+  0%,100%{transform:scale(.88);opacity:.55}
+  50%{transform:scale(1.12);opacity:1}
+}
+
+@media(max-width:1180px){
+  .workspace-home-grid{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(190px,1fr)}
+}
+@media(max-width:820px){
+  #app{overflow-x:clip}
+  .workspace-home{min-height:calc(100dvh - 96px);padding-top:4px;gap:12px}
+  .workspace-home-heading{padding-inline:2px}
+  .workspace-home-heading h2{margin-top:7px;font-size:1.2rem}
+  .workspace-home-heading p{font-size:.73rem}
+  .workspace-home-kicker{min-height:22px;padding:4px 8px;font-size:.59rem}
+  .workspace-home-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-auto-rows:minmax(118px,auto);
+    gap:8px;
+    align-content:start;
+  }
+  .workspace-home-card{
+    min-height:118px;
+    padding:7px 6px 8px;
+    gap:3px;
+    border-radius:14px;
+    align-items:center;
+    text-align:center;
+    justify-content:center;
+  }
+  .workspace-card-art{width:66px;height:66px;min-width:66px;min-height:66px;max-width:66px;max-height:66px;flex-basis:66px}
+  .workspace-card-svg{width:66px;height:66px;min-width:66px;min-height:66px;max-width:66px;max-height:66px}
+  .workspace-card-copy{width:100%;align-items:center;gap:0}
+  .workspace-card-copy strong{width:100%;font-size:.68rem;line-height:1.14;text-align:center;overflow-wrap:normal;word-break:normal}
+  .workspace-card-copy small,.workspace-card-open{display:none}
+  .workspace-section-nav{
+    top:5px;
+    grid-template-columns:auto minmax(0,1fr);
+    min-height:40px;
+    margin-bottom:8px;
+    padding:4px;
+    border-radius:13px;
+    gap:5px;
+  }
+  .workspace-home-back{min-width:104px;height:32px;padding-inline:8px;border-radius:9px;font-size:.64rem;gap:5px}
+  .workspace-section-current{display:none}
+  .workspace-section-switch{height:32px;padding-inline:8px;border-radius:9px;font-size:.66rem}
+}
+@media(max-width:380px){
+  .workspace-home-grid{gap:6px}
+  .workspace-home-card{min-height:108px;padding:6px 4px}
+  .workspace-card-art{width:60px;height:60px;min-width:60px;min-height:60px;max-width:60px;max-height:60px;flex-basis:60px}
+  .workspace-card-svg{width:60px;height:60px;min-width:60px;min-height:60px;max-width:60px;max-height:60px}
+  .workspace-card-copy strong{font-size:.62rem}
+  .workspace-section-nav{grid-template-columns:auto minmax(0,1fr)}
+  .workspace-home-back{min-width:98px;height:30px;padding-inline:7px;font-size:.6rem}
+}
+
+html.triplem-low-power .workspace-home-card{animation:none !important;transition:none !important}
+html.triplem-low-power .workspace-card-svg *{animation:none !important}
+html.triplem-low-power .workspace-home-card::before{display:none}
+html.triplem-low-power .workspace-section-nav{backdrop-filter:none;-webkit-backdrop-filter:none}
+@media(prefers-reduced-motion:reduce){
+  .workspace-home-card,
+  .workspace-card-svg *{animation:none !important;transition:none !important}
+  .workspace-home-card::before{display:none}
+}
+
+/* Workspace visual refinement — 2026-09-16 rev 002
+   Theme-aware multi-colour SVG art using the centralized chart palette. */
+.workspace-home{
+  margin-top:-10px;
+  padding-top:0;
+}
+.workspace-home-heading{
+  align-items:flex-start;
+  padding-top:0;
+}
+.workspace-home-heading > div{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:5px;
+}
+.workspace-home-kicker{
+  min-height:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:var(--primary);
+  font-size:.7rem;
+  letter-spacing:.12em;
+}
+.workspace-home-heading p{
+  margin:0;
+  font-size:.86rem;
+}
+
+.workspace-home-card{
+  --wh-c1:var(--chart-series-1,var(--primary));
+  --wh-c2:var(--chart-series-2,var(--success));
+  --wh-c3:var(--chart-series-3,var(--warning));
+  --wh-c4:var(--chart-series-4,var(--secondary));
+  background:
+    radial-gradient(110% 78% at 92% -5%,color-mix(in srgb,var(--wh-c1) 15%,transparent),transparent 58%),
+    radial-gradient(90% 66% at -4% 104%,color-mix(in srgb,var(--wh-c2) 10%,transparent),transparent 64%),
+    linear-gradient(145deg,color-mix(in srgb,var(--panel) 97%,var(--wh-c1) 3%),color-mix(in srgb,var(--panel-2) 94%,transparent));
+  border-color:color-mix(in srgb,var(--line) 78%,var(--wh-c1) 22%);
+  box-shadow:
+    0 12px 28px color-mix(in srgb,var(--wh-c1) 8%,transparent),
+    inset 0 1px 0 color-mix(in srgb,#fff 44%,transparent);
+}
+.workspace-home-card--dashboard{--wh-c1:var(--chart-series-1);--wh-c2:var(--chart-series-2);--wh-c3:var(--chart-series-3);--wh-c4:var(--chart-series-4)}
+.workspace-home-card--expenses{--wh-c1:var(--chart-series-2);--wh-c2:var(--chart-series-1);--wh-c3:var(--chart-series-6);--wh-c4:var(--chart-series-3)}
+.workspace-home-card--goods{--wh-c1:var(--chart-series-7);--wh-c2:var(--chart-series-2);--wh-c3:var(--chart-series-3);--wh-c4:var(--chart-series-5)}
+.workspace-home-card--audit{--wh-c1:var(--chart-series-5);--wh-c2:var(--chart-series-1);--wh-c3:var(--chart-series-2);--wh-c4:var(--chart-series-3)}
+.workspace-home-card--triplem-ai{--wh-c1:var(--chart-series-4);--wh-c2:var(--chart-series-5);--wh-c3:var(--chart-series-6);--wh-c4:var(--chart-series-2)}
+.workspace-home-card--assets{--wh-c1:var(--chart-series-3);--wh-c2:var(--chart-series-1);--wh-c3:var(--chart-series-2);--wh-c4:var(--chart-series-4)}
+.workspace-home-card--loans{--wh-c1:var(--chart-series-2);--wh-c2:var(--chart-series-6);--wh-c3:var(--chart-series-1);--wh-c4:var(--chart-series-3)}
+.workspace-home-card--installments{--wh-c1:var(--chart-series-4);--wh-c2:var(--chart-series-3);--wh-c3:var(--chart-series-1);--wh-c4:var(--chart-series-2)}
+.workspace-home-card--notes{--wh-c1:var(--chart-series-6);--wh-c2:var(--chart-series-4);--wh-c3:var(--chart-series-3);--wh-c4:var(--chart-series-5)}
+.workspace-home-card--bitcoin{--wh-c1:var(--chart-series-3);--wh-c2:var(--chart-series-5);--wh-c3:var(--chart-series-1);--wh-c4:var(--chart-series-2)}
+.workspace-home-card--admin{--wh-c1:var(--chart-series-1);--wh-c2:var(--chart-series-6);--wh-c3:var(--chart-series-4);--wh-c4:var(--chart-series-2)}
+
+.workspace-home-card:hover,
+.workspace-home-card:focus-visible{
+  border-color:color-mix(in srgb,var(--wh-c1) 54%,var(--line));
+  box-shadow:
+    0 18px 38px color-mix(in srgb,var(--wh-c1) 13%,transparent),
+    0 5px 18px color-mix(in srgb,var(--wh-c2) 7%,transparent),
+    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent);
+}
+.workspace-card-art{
+  position:relative;
+  isolation:isolate;
+  color:var(--wh-c1);
+}
+.workspace-card-art::before,
+.workspace-card-art::after{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  pointer-events:none;
+  border-radius:50%;
+  transform:translate3d(0,0,0);
+}
+.workspace-card-art::before{
+  width:116px;
+  height:116px;
+  left:50%;
+  top:50%;
+  margin-left:-58px;
+  margin-top:-58px;
+  background:radial-gradient(circle,color-mix(in srgb,var(--wh-c1) 18%,transparent),transparent 70%);
+  animation:workspaceArtGlowA 5.6s ease-in-out infinite;
+}
+.workspace-card-art::after{
+  width:86px;
+  height:86px;
+  left:50%;
+  top:50%;
+  margin-left:-43px;
+  margin-top:-43px;
+  background:radial-gradient(circle,color-mix(in srgb,var(--wh-c2) 14%,transparent),transparent 72%);
+  animation:workspaceArtGlowB 6.8s ease-in-out infinite;
+}
+.workspace-card-svg{
+  position:relative;
+  z-index:1;
+  transition:transform .24s cubic-bezier(.2,.75,.2,1);
+}
+.workspace-home-card:hover .workspace-card-svg,
+.workspace-home-card:focus-visible .workspace-card-svg{transform:scale(1.035)}
+.workspace-card-svg .wh-gradient-halo{opacity:.86;animation:workspaceHaloBreath 5s ease-in-out infinite}
+.workspace-card-svg .wh-frame{
+  fill:color-mix(in srgb,var(--wh-c1) 6%,transparent);
+  stroke:var(--wh-c1);
+}
+.workspace-card-svg .wh-soft{
+  stroke:color-mix(in srgb,var(--wh-c2) 76%,var(--muted));
+  opacity:.9;
+}
+.workspace-card-svg circle.wh-soft,
+.workspace-card-svg rect.wh-soft{fill:color-mix(in srgb,var(--wh-c2) 8%,transparent)}
+.workspace-card-svg .wh-accent{stroke:var(--wh-c3)}
+.workspace-card-svg .wh-line{stroke:var(--wh-c4)}
+.workspace-card-svg .wh-pulse,
+.workspace-card-svg .wh-dot{
+  fill:var(--wh-c3);
+  stroke:color-mix(in srgb,var(--panel) 80%,transparent);
+}
+.workspace-card-svg .wh-fill-soft{fill:color-mix(in srgb,var(--wh-c3) 11%,transparent)}
+.workspace-card-svg .wh-fill-solid{fill:var(--wh-c3);stroke:color-mix(in srgb,var(--wh-c4) 62%,var(--wh-c3))}
+.workspace-card-svg .wh-ai-orbit{
+  fill:none;
+  stroke:color-mix(in srgb,var(--wh-c2) 56%,transparent);
+  stroke-width:1.1;
+  stroke-dasharray:3.5 8;
+  opacity:.52;
+}
+.workspace-card-svg .wh-particle{fill:var(--wh-c4);opacity:.7}
+.workspace-card-svg .wh-particle-two{fill:var(--wh-c2)}
+.workspace-card-svg .wh-particle-three{fill:var(--wh-c3)}
+.workspace-card-svg .wh-main-shape{animation:workspaceMainShapeFloat 4.8s ease-in-out infinite}
+.workspace-card-svg .wh-spin-slow{animation:workspaceSvgSpin 14s linear infinite}
+.workspace-card-svg .wh-spin-reverse{animation:workspaceSvgSpinReverse 10s linear infinite}
+.workspace-card-svg .wh-particle-one{animation:workspaceParticleOne 3.4s ease-in-out infinite}
+.workspace-card-svg .wh-particle-two{animation:workspaceParticleTwo 3.9s ease-in-out infinite .4s}
+.workspace-card-svg .wh-particle-three{animation:workspaceParticleThree 4.3s ease-in-out infinite .8s}
+.workspace-card-svg .wh-draw-short{
+  stroke-dasharray:52;
+  stroke-dashoffset:52;
+  animation:workspaceShortDraw 3.2s ease-in-out infinite;
+}
+.workspace-card-svg .wh-wave{stroke-dasharray:5 7;animation:workspaceEnergyDrift 5.4s linear infinite}
+.workspace-card-svg .wh-rise{animation:workspaceRise 3s ease-in-out infinite}
+.workspace-card-svg .wh-orbit-arc{stroke-dasharray:10 8;animation:workspaceEnergyDrift 5.8s linear infinite}
+.workspace-card-svg .wh-calendar-glow{fill:color-mix(in srgb,var(--wh-c4) 10%,transparent);animation:workspaceCalendarGlow 2.8s ease-in-out infinite}
+.workspace-card-svg .wh-ai-core{animation:workspaceAiCore 3s ease-in-out infinite}
+
+@keyframes workspaceArtGlowA{
+  0%,100%{transform:translate3d(-10px,3px,0) scale(.92);opacity:.62}
+  50%{transform:translate3d(7px,-5px,0) scale(1.08);opacity:1}
+}
+@keyframes workspaceArtGlowB{
+  0%,100%{transform:translate3d(3px,-2px,0) scale(1.04);opacity:.55}
+  50%{transform:translate3d(-10px,8px,0) scale(.9);opacity:.92}
+}
+@keyframes workspaceHaloBreath{
+  0%,100%{transform:scale(.94);opacity:.56}
+  50%{transform:scale(1.06);opacity:.92}
+}
+@keyframes workspaceMainShapeFloat{
+  0%,100%{transform:translate3d(0,1px,0)}
+  50%{transform:translate3d(0,-2px,0)}
+}
+@keyframes workspaceSvgSpinReverse{to{transform:rotate(-360deg)}}
+@keyframes workspaceEnergyDrift{
+  from{stroke-dashoffset:0}
+  to{stroke-dashoffset:-96}
+}
+@keyframes workspaceParticleOne{
+  0%,100%{transform:translate3d(0,0,0) scale(.75);opacity:.35}
+  50%{transform:translate3d(5px,-5px,0) scale(1.25);opacity:1}
+}
+@keyframes workspaceParticleTwo{
+  0%,100%{transform:translate3d(0,0,0) scale(.82);opacity:.4}
+  50%{transform:translate3d(-6px,4px,0) scale(1.18);opacity:.95}
+}
+@keyframes workspaceParticleThree{
+  0%,100%{transform:translate3d(0,0,0) scale(.8);opacity:.38}
+  50%{transform:translate3d(-4px,-6px,0) scale(1.2);opacity:1}
+}
+@keyframes workspaceShortDraw{
+  0%,18%{stroke-dashoffset:52;opacity:.35}
+  46%,76%{stroke-dashoffset:0;opacity:1}
+  100%{stroke-dashoffset:-52;opacity:.35}
+}
+@keyframes workspaceRise{
+  0%,100%{transform:translate3d(-2px,2px,0);opacity:.58}
+  50%{transform:translate3d(2px,-2px,0);opacity:1}
+}
+@keyframes workspaceCalendarGlow{
+  0%,100%{opacity:.35;transform:scaleX(.82)}
+  50%{opacity:1;transform:scaleX(1.08)}
+}
+@keyframes workspaceAiCore{
+  0%,100%{transform:scale(.96)}
+  50%{transform:scale(1.035)}
+}
+
+html.triplem-low-power .workspace-card-art::before,
+html.triplem-low-power .workspace-card-art::after{animation:none !important}
+
+@media(max-width:820px){
+  .workspace-home{margin-top:-3px;padding-top:0}
+  .workspace-home-heading > div{gap:4px}
+  .workspace-home-kicker{font-size:.6rem}
+  .workspace-home-heading p{font-size:.72rem;line-height:1.35}
+  .workspace-card-art::before{width:64px;height:64px;margin-left:-32px;margin-top:-32px}
+  .workspace-card-art::after{width:48px;height:48px;margin-left:-24px;margin-top:-24px}
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-card-art::before,
+  .workspace-card-art::after{animation:none !important}
+  .workspace-card-svg{transition:none !important}
+}
+
+
+/* Triplem VIP Home refinement — 2026-09-16 rev 005
+   Clean navigation controls, no full-width shell bands, and desktop home with no ambient banner surface. */
+.workspace-home{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+.workspace-home::before,
+.workspace-home::after{
+  display:none !important;
+  content:none !important;
+}
+.workspace-section-nav{
+  position:sticky;
+  top:8px;
+  width:min(100%,var(--content-max));
+  min-height:0;
+  margin:0 auto 10px;
+  padding:0 2px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+.workspace-home-back{
+  min-width:132px;
+  flex:0 0 auto;
+}
+.workspace-section-switch{
+  width:min(220px,38vw);
+  flex:0 1 220px;
+}
+.workspace-section-current{display:none !important}
+
+/* Keep the Wallet home artwork visually square rather than a flattened landscape glyph. */
+.workspace-home-card--expenses .workspace-card-svg .wh-main-shape{
+  transform-origin:center center;
+}
+
+@media(max-width:820px){
+  .workspace-section-nav{
+    padding:0;
+    gap:6px;
+  }
+  .workspace-home-back{
+    min-width:118px;
+    flex:0 0 auto;
+  }
+  .workspace-section-switch{
+    width:auto;
+    min-width:0;
+    flex:1 1 auto;
+  }
+}
+
+/* Workspace SVG illustration refinement — 2026-09-16 rev 006
+   Fuller section-specific artwork, strict animation clipping, and no Wallet top-flap animation. */
+.workspace-card-art{
+  overflow:hidden;
+  border-radius:26px;
+  contain:paint;
+}
+.workspace-card-svg{
+  overflow:hidden !important;
+  contain:paint;
+}
+.workspace-card-svg .wh-svg-stage{
+  transform-origin:80px 80px;
+}
+.workspace-card-svg .wh-gradient-halo{
+  opacity:.72;
+  animation:workspaceHaloBreath 5.4s ease-in-out infinite;
+}
+.workspace-card-svg .wh-icon-base{
+  stroke:color-mix(in srgb,var(--wh-c1) 68%,var(--panel));
+  stroke-width:1.55;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.94;
+}
+.workspace-card-svg .wh-icon-inset{
+  fill:color-mix(in srgb,var(--panel) 70%,transparent);
+  stroke:color-mix(in srgb,#fff 38%,var(--wh-c2));
+  stroke-width:1.15;
+  opacity:.72;
+}
+.workspace-card-svg .wh-fill-primary{fill:var(--wh-c1)}
+.workspace-card-svg .wh-fill-secondary{fill:var(--wh-c2)}
+.workspace-card-svg .wh-fill-accent{fill:var(--wh-c3);stroke:color-mix(in srgb,var(--wh-c4) 52%,var(--wh-c3));stroke-width:1.1}
+.workspace-card-svg .wh-fill-four{fill:var(--wh-c4)}
+.workspace-card-svg .wh-chip{
+  fill:color-mix(in srgb,var(--panel) 66%,var(--wh-c2) 34%);
+  stroke:color-mix(in srgb,var(--wh-c2) 62%,var(--panel));
+  stroke-width:.8;
+  opacity:.92;
+}
+.workspace-card-svg .wh-chip-short{opacity:.72}
+.workspace-card-svg .wh-beacon{
+  fill:var(--wh-c3);
+  stroke:color-mix(in srgb,var(--panel) 82%,transparent);
+  stroke-width:2;
+  animation:workspaceSvgPulse 2.35s ease-in-out infinite;
+}
+.workspace-card-svg .wh-bright-line,
+.workspace-card-svg .wh-bottom-line,
+.workspace-card-svg .wh-node-link,
+.workspace-card-svg .wh-currency-mark,
+.workspace-card-svg .wh-transfer-arrow,
+.workspace-card-svg .wh-check,
+.workspace-card-svg .wh-fold,
+.workspace-card-svg .wh-pencil-line,
+.workspace-card-svg .wh-bitcoin-mark,
+.workspace-card-svg .wh-gear-spokes,
+.workspace-card-svg .wh-growth,
+.workspace-card-svg .wh-growth-head,
+.workspace-card-svg .wh-coin-mark{
+  fill:none;
+  stroke:color-mix(in srgb,#fff 72%,var(--wh-c4));
+  stroke-width:2.25;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.workspace-card-svg .wh-bottom-line{opacity:.52;stroke-width:1.8}
+.workspace-card-svg .wh-check{stroke:var(--wh-c3);stroke-width:4}
+.workspace-card-svg .wh-transfer-arrow{stroke:color-mix(in srgb,#fff 78%,var(--wh-c3));stroke-width:3}
+.workspace-card-svg .wh-currency-mark{stroke:color-mix(in srgb,#fff 82%,var(--wh-c4));stroke-width:3}
+.workspace-card-svg .wh-bitcoin-mark{stroke:color-mix(in srgb,#fff 88%,var(--wh-c4));stroke-width:3.3}
+.workspace-card-svg .wh-pencil-line{stroke:color-mix(in srgb,#fff 80%,var(--wh-c4));stroke-width:2}
+.workspace-card-svg .wh-fold{stroke:color-mix(in srgb,#fff 68%,var(--wh-c2));stroke-width:2.1}
+.workspace-card-svg .wh-growth{stroke:var(--wh-c3);stroke-width:3.2}
+.workspace-card-svg .wh-growth-head{stroke:var(--wh-c3);stroke-width:3.2}
+.workspace-card-svg .wh-bar{
+  opacity:.92;
+  transform-origin:center bottom;
+  animation:workspaceBarLift 3.2s ease-in-out infinite;
+}
+.workspace-card-svg .wh-bar-two{animation-delay:.16s}
+.workspace-card-svg .wh-bar-three{animation-delay:.32s}
+.workspace-card-svg .wh-bar-four{animation-delay:.48s}
+.workspace-card-svg .wh-wallet-pocket{
+  fill:color-mix(in srgb,var(--panel) 48%,var(--wh-c4) 52%);
+  stroke:color-mix(in srgb,#fff 44%,var(--wh-c4));
+  stroke-width:1.2;
+}
+.workspace-card-svg .wh-coin{
+  fill:color-mix(in srgb,var(--wh-c3) 78%,var(--panel));
+  stroke:color-mix(in srgb,#fff 42%,var(--wh-c3));
+  stroke-width:1.1;
+}
+.workspace-card-svg .wh-wallet-shape .wh-coin-one{animation:workspaceCoinBreathe 3.4s ease-in-out infinite}
+.workspace-card-svg .wh-wallet-shape .wh-coin-two{animation:workspaceCoinBreathe 3.8s ease-in-out infinite .3s}
+.workspace-card-svg .wh-wallet-shape{
+  animation:workspaceWalletBreathe 4.9s ease-in-out infinite;
+}
+.workspace-card-svg .wh-building{
+  stroke:color-mix(in srgb,#fff 34%,var(--wh-c1));
+  stroke-width:1.25;
+}
+.workspace-card-svg .wh-building-small{fill:color-mix(in srgb,var(--wh-c2) 72%,var(--panel))}
+.workspace-card-svg .wh-building-tall{fill:color-mix(in srgb,var(--wh-c1) 78%,var(--panel))}
+.workspace-card-svg .wh-window{
+  fill:color-mix(in srgb,var(--wh-c3) 68%,#fff 32%);
+  opacity:.88;
+  animation:workspaceWindowGlow 3.8s ease-in-out infinite;
+}
+.workspace-card-svg .wh-window:nth-of-type(2n){animation-delay:.35s}
+.workspace-card-svg .wh-loan-right{opacity:.9}
+.workspace-card-svg .wh-calendar-head{fill:color-mix(in srgb,var(--wh-c2) 72%,var(--panel));opacity:.9}
+.workspace-card-svg .wh-ring{fill:var(--wh-c4)}
+.workspace-card-svg .wh-date{fill:color-mix(in srgb,var(--panel) 58%,var(--wh-c2) 42%);opacity:.82}
+.workspace-card-svg .wh-date-active{fill:var(--wh-c3);animation:workspaceDatePulse 2.8s ease-in-out infinite}
+.workspace-card-svg .wh-pencil{stroke:color-mix(in srgb,#fff 32%,var(--wh-c4));stroke-width:1.15;animation:workspacePencilNudge 3.7s ease-in-out infinite}
+.workspace-card-svg .wh-ai-node{
+  fill:color-mix(in srgb,var(--wh-c2) 72%,var(--panel));
+  stroke:color-mix(in srgb,#fff 34%,var(--wh-c2));
+  stroke-width:1.1;
+}
+.workspace-card-svg .wh-ai-spark{stroke:color-mix(in srgb,#fff 46%,var(--wh-c3));stroke-width:1.1;animation:workspaceSvgSpark 2.7s ease-in-out infinite}
+.workspace-card-svg .wh-gear-ring{
+  fill:color-mix(in srgb,var(--panel) 56%,var(--wh-c2) 44%);
+  stroke:color-mix(in srgb,#fff 38%,var(--wh-c2));
+  stroke-width:2;
+  stroke-dasharray:8 5;
+}
+.workspace-card-svg .wh-scan{
+  stroke:color-mix(in srgb,#fff 72%,var(--wh-c4));
+  stroke-width:2.2;
+  opacity:.72;
+}
+
+/* The Wallet must never emit or animate a separate shape above its body. */
+.workspace-home-card--expenses .workspace-card-svg .wh-wallet-shape > *{
+  transform-origin:center center;
+}
+.workspace-home-card--expenses .workspace-card-svg .wh-wallet-shape .wh-icon-base,
+.workspace-home-card--expenses .workspace-card-svg .wh-wallet-shape .wh-icon-inset,
+.workspace-home-card--expenses .workspace-card-svg .wh-wallet-shape .wh-wallet-pocket,
+.workspace-home-card--expenses .workspace-card-svg .wh-wallet-shape .wh-chip,
+.workspace-home-card--expenses .workspace-card-svg .wh-wallet-shape .wh-bottom-line{
+  animation:none !important;
+}
+
+@keyframes workspaceBarLift{
+  0%,100%{transform:scaleY(.9);opacity:.72}
+  50%{transform:scaleY(1.03);opacity:1}
+}
+@keyframes workspaceCoinBreathe{
+  0%,100%{transform:translate3d(0,0,0) scale(.96)}
+  50%{transform:translate3d(0,-2px,0) scale(1.04)}
+}
+@keyframes workspaceWalletBreathe{
+  0%,100%{transform:translate3d(0,1px,0)}
+  50%{transform:translate3d(0,-1px,0)}
+}
+@keyframes workspaceWindowGlow{
+  0%,100%{opacity:.5}
+  50%{opacity:1}
+}
+@keyframes workspaceDatePulse{
+  0%,100%{transform:scale(.94);opacity:.76}
+  50%{transform:scale(1.05);opacity:1}
+}
+@keyframes workspacePencilNudge{
+  0%,100%{transform:translate3d(0,0,0)}
+  50%{transform:translate3d(2px,-2px,0)}
+}
+
+html.triplem-low-power .workspace-card-svg .wh-bar,
+html.triplem-low-power .workspace-card-svg .wh-window,
+html.triplem-low-power .workspace-card-svg .wh-date-active,
+html.triplem-low-power .workspace-card-svg .wh-pencil,
+html.triplem-low-power .workspace-card-svg .wh-wallet-shape,
+html.triplem-low-power .workspace-card-svg .wh-coin{animation:none !important}
+
+@media(max-width:820px){
+  .workspace-card-art{border-radius:16px}
+  .workspace-card-svg .wh-icon-base{stroke-width:1.35}
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-card-svg .wh-bar,
+  .workspace-card-svg .wh-window,
+  .workspace-card-svg .wh-date-active,
+  .workspace-card-svg .wh-pencil,
+  .workspace-card-svg .wh-wallet-shape,
+  .workspace-card-svg .wh-coin{animation:none !important}
+}
+
+/* Workspace SVG modern palette + semantic Loans/Bitcoin — 2026-09-16 rev 007
+   Restrained two-tone color hierarchy, realistic finance symbols, and clipped micro-motion. */
+.workspace-home-card{
+  --wh-neutral:color-mix(in srgb,var(--text) 72%,var(--panel));
+  --wh-metal:color-mix(in srgb,var(--muted) 42%,var(--panel));
+  --wh-c3:color-mix(in srgb,var(--wh-c1) 76%,var(--text) 24%);
+  --wh-c4:color-mix(in srgb,var(--wh-c2) 62%,var(--text) 38%);
+  background:
+    radial-gradient(84% 66% at 88% 0%,color-mix(in srgb,var(--wh-c1) 9%,transparent),transparent 64%),
+    linear-gradient(150deg,color-mix(in srgb,var(--panel) 98%,var(--wh-c1) 2%),color-mix(in srgb,var(--panel-2) 97%,var(--wh-c2) 3%));
+  border-color:color-mix(in srgb,var(--line) 88%,var(--wh-c1) 12%);
+  box-shadow:0 10px 26px color-mix(in srgb,var(--text) 5%,transparent),inset 0 1px 0 color-mix(in srgb,#fff 36%,transparent);
+}
+.workspace-home-card--dashboard{--wh-c1:color-mix(in srgb,var(--chart-series-1) 62%,var(--primary) 38%);--wh-c2:color-mix(in srgb,var(--primary-2) 72%,var(--chart-series-2) 28%)}
+.workspace-home-card--expenses{--wh-c1:color-mix(in srgb,var(--chart-series-2) 58%,var(--primary) 42%);--wh-c2:color-mix(in srgb,var(--primary-2) 65%,var(--chart-series-1) 35%)}
+.workspace-home-card--goods{--wh-c1:color-mix(in srgb,var(--chart-series-7) 54%,var(--primary) 46%);--wh-c2:color-mix(in srgb,var(--primary-2) 72%,var(--chart-series-2) 28%)}
+.workspace-home-card--audit{--wh-c1:color-mix(in srgb,var(--chart-series-5) 52%,var(--primary) 48%);--wh-c2:color-mix(in srgb,var(--primary-2) 76%,var(--chart-series-1) 24%)}
+.workspace-home-card--triplem-ai{--wh-c1:color-mix(in srgb,var(--chart-series-4) 58%,var(--primary) 42%);--wh-c2:color-mix(in srgb,var(--primary-2) 68%,var(--chart-series-5) 32%)}
+.workspace-home-card--assets{--wh-c1:color-mix(in srgb,var(--chart-series-3) 54%,var(--primary) 46%);--wh-c2:color-mix(in srgb,var(--primary-2) 74%,var(--chart-series-1) 26%)}
+.workspace-home-card--loans{--wh-c1:color-mix(in srgb,var(--chart-series-2) 56%,var(--primary) 44%);--wh-c2:color-mix(in srgb,var(--primary-2) 72%,var(--chart-series-6) 28%)}
+.workspace-home-card--installments{--wh-c1:color-mix(in srgb,var(--chart-series-4) 54%,var(--primary) 46%);--wh-c2:color-mix(in srgb,var(--primary-2) 72%,var(--chart-series-3) 28%)}
+.workspace-home-card--notes{--wh-c1:color-mix(in srgb,var(--chart-series-6) 54%,var(--primary) 46%);--wh-c2:color-mix(in srgb,var(--primary-2) 74%,var(--chart-series-4) 26%)}
+.workspace-home-card--admin{--wh-c1:color-mix(in srgb,var(--chart-series-1) 64%,var(--primary) 36%);--wh-c2:color-mix(in srgb,var(--primary-2) 74%,var(--chart-series-6) 26%)}
+.workspace-home-card--bitcoin{
+  --wh-btc-gold:color-mix(in srgb,#f5a524 86%,var(--primary) 14%);
+  --wh-btc-deep:color-mix(in srgb,#b86a0b 82%,var(--primary) 18%);
+  --wh-btc-light:color-mix(in srgb,#ffd978 90%,var(--primary-contrast) 10%);
+  --wh-c1:var(--wh-btc-gold);
+  --wh-c2:var(--wh-btc-deep);
+}
+.workspace-card-svg .wh-gradient-halo{opacity:.46}
+.workspace-card-svg .wh-icon-base{opacity:.91;stroke:color-mix(in srgb,var(--wh-c1) 52%,var(--panel));stroke-width:1.25}
+.workspace-card-svg .wh-icon-inset{fill:color-mix(in srgb,var(--panel) 82%,var(--wh-c1) 18%);stroke:color-mix(in srgb,var(--text) 18%,var(--wh-c1));opacity:.82}
+.workspace-card-svg .wh-chip{fill:color-mix(in srgb,var(--panel) 78%,var(--wh-c2) 22%);stroke:color-mix(in srgb,var(--wh-c2) 42%,var(--line));opacity:.9}
+.workspace-card-svg .wh-beacon{fill:var(--wh-c2);stroke:color-mix(in srgb,var(--panel) 88%,transparent)}
+.workspace-card-svg .wh-fill-primary{fill:var(--wh-c1)}
+.workspace-card-svg .wh-fill-secondary{fill:var(--wh-c2)}
+.workspace-card-svg .wh-fill-accent{fill:color-mix(in srgb,var(--wh-c1) 74%,var(--wh-c2) 26%);stroke:color-mix(in srgb,var(--wh-c2) 52%,var(--wh-c1))}
+.workspace-card-svg .wh-fill-four{fill:color-mix(in srgb,var(--wh-c2) 74%,var(--wh-neutral) 26%)}
+
+/* Loans: agreement + money + repayment, not generic transfer. */
+.workspace-card-svg .wh-loan-paper{stroke:color-mix(in srgb,var(--wh-c1) 62%,var(--panel));stroke-width:1.4}
+.workspace-card-svg .wh-loan-paper-inset{fill:color-mix(in srgb,var(--panel) 84%,var(--wh-c1) 16%)}
+.workspace-card-svg .wh-loan-check{fill:none;stroke:var(--wh-c2);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:38;animation:workspaceLoanCheck 3.6s ease-in-out infinite}
+.workspace-card-svg .wh-loan-coins{transform-origin:111px 88px;animation:workspaceLoanCoins 3.8s ease-in-out infinite}
+.workspace-card-svg .wh-loan-coin{fill:color-mix(in srgb,var(--wh-c2) 76%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 72%,var(--text));stroke-width:1}
+.workspace-card-svg .wh-loan-coin-back{fill:color-mix(in srgb,var(--wh-c2) 46%,var(--panel))}
+.workspace-card-svg .wh-loan-coin-side{fill:color-mix(in srgb,var(--wh-c2) 58%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 48%,var(--line));stroke-width:.8}
+.workspace-card-svg .wh-loan-coin-side-two{fill:color-mix(in srgb,var(--wh-c2) 64%,var(--panel))}
+.workspace-card-svg .wh-loan-coin-top{fill:color-mix(in srgb,var(--wh-c2) 84%,var(--panel))}
+.workspace-card-svg .wh-loan-coin-mark{fill:none;stroke:color-mix(in srgb,var(--text) 78%,var(--wh-c2));stroke-width:2.2;stroke-linecap:round}
+.workspace-card-svg .wh-loan-repay-arrow{fill:none;stroke:color-mix(in srgb,var(--wh-c1) 76%,var(--text));stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 7;animation:workspaceLoanRepay 4.2s linear infinite}
+.workspace-card-svg .wh-loan-arrow-dot{fill:var(--wh-c1);animation:workspaceSvgPulse 2.6s ease-in-out infinite}
+
+/* Bitcoin: dimensional, tilted metallic coin with a restrained sheen. */
+.workspace-card-svg .wh-bitcoin-scene{animation:none}
+.workspace-card-svg .wh-bitcoin-coin{transform-origin:80px 80px;animation:workspaceBitcoinTilt 5.2s ease-in-out infinite}
+.workspace-card-svg .wh-bitcoin-edge{stroke:color-mix(in srgb,var(--wh-btc-deep) 86%,#5c3608);stroke-width:1.1}
+.workspace-card-svg .wh-bitcoin-edge-back{fill:color-mix(in srgb,var(--wh-btc-deep) 84%,#5d3708)}
+.workspace-card-svg .wh-bitcoin-edge-mid{fill:color-mix(in srgb,var(--wh-btc-gold) 64%,var(--wh-btc-deep))}
+.workspace-card-svg .wh-bitcoin-face{fill:var(--wh-btc-gold);stroke:color-mix(in srgb,var(--wh-btc-light) 68%,var(--wh-btc-deep));stroke-width:1.6}
+.workspace-card-svg .wh-bitcoin-ring{fill:none;stroke:color-mix(in srgb,var(--wh-btc-light) 62%,var(--wh-btc-deep));stroke-width:2.2;opacity:.9}
+.workspace-card-svg .wh-bitcoin-mark{stroke:color-mix(in srgb,#fff 78%,var(--wh-btc-light));stroke-width:3.2;filter:none}
+.workspace-card-svg .wh-bitcoin-shine{fill:none;stroke:color-mix(in srgb,#fff 74%,var(--wh-btc-light));stroke-width:3;stroke-linecap:round;opacity:.55;animation:workspaceBitcoinShine 3.8s ease-in-out infinite}
+.workspace-card-svg .wh-bitcoin-shadow{fill:color-mix(in srgb,var(--text) 16%,transparent);opacity:.32;transform-origin:82px 135px;animation:workspaceBitcoinShadow 5.2s ease-in-out infinite}
+
+@keyframes workspaceLoanCheck{
+  0%,18%{stroke-dashoffset:38;opacity:.42}
+  42%,82%{stroke-dashoffset:0;opacity:1}
+  100%{stroke-dashoffset:-38;opacity:.46}
+}
+@keyframes workspaceLoanCoins{
+  0%,100%{transform:translate3d(0,1px,0)}
+  50%{transform:translate3d(0,-2px,0)}
+}
+@keyframes workspaceLoanRepay{to{stroke-dashoffset:-60}}
+@keyframes workspaceBitcoinTilt{
+  0%,100%{transform:translate3d(-1px,1px,0) rotate(-1.2deg)}
+  50%{transform:translate3d(1px,-1px,0) rotate(1.2deg)}
+}
+@keyframes workspaceBitcoinShine{
+  0%,100%{opacity:.28;transform:translate3d(-2px,2px,0)}
+  50%{opacity:.72;transform:translate3d(2px,-2px,0)}
+}
+@keyframes workspaceBitcoinShadow{
+  0%,100%{transform:scaleX(.9);opacity:.24}
+  50%{transform:scaleX(1.04);opacity:.34}
+}
+
+html.triplem-low-power .workspace-card-svg .wh-loan-check,
+html.triplem-low-power .workspace-card-svg .wh-loan-coins,
+html.triplem-low-power .workspace-card-svg .wh-loan-repay-arrow,
+html.triplem-low-power .workspace-card-svg .wh-loan-arrow-dot,
+html.triplem-low-power .workspace-card-svg .wh-bitcoin-coin,
+html.triplem-low-power .workspace-card-svg .wh-bitcoin-shine,
+html.triplem-low-power .workspace-card-svg .wh-bitcoin-shadow{animation:none !important}
+@media(prefers-reduced-motion:reduce){
+  .workspace-card-svg .wh-loan-check,
+  .workspace-card-svg .wh-loan-coins,
+  .workspace-card-svg .wh-loan-repay-arrow,
+  .workspace-card-svg .wh-loan-arrow-dot,
+  .workspace-card-svg .wh-bitcoin-coin,
+  .workspace-card-svg .wh-bitcoin-shine,
+  .workspace-card-svg .wh-bitcoin-shadow{animation:none !important}
+}
+
+/* Workspace icon system V2 — 2026-09-16 rev 008
+   Purpose-built section symbols, restrained theme color, subtle internal motion, strict clipping. */
+.workspace-card-art::before,
+.workspace-card-art::after{display:none !important}
+.workspace-card-art{
+  overflow:hidden !important;
+  contain:paint;
+  border-radius:24px;
+}
+.workspace-card-svg-v2{
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+  overflow:hidden !important;
+  contain:paint;
+}
+.workspace-card-svg-v2 .wh-v2-stage{transform-origin:80px 80px}
+.workspace-card-svg-v2 .wh-v2-icon{transform-origin:80px 80px}
+.workspace-card-svg-v2 .wh-v2-shell,
+.workspace-card-svg-v2 .wh-v2-screen,
+.workspace-card-svg-v2 .wh-v2-wallet-body,
+.workspace-card-svg-v2 .wh-v2-ai-chip,
+.workspace-card-svg-v2 .wh-v2-calendar,
+.workspace-card-svg-v2 .wh-v2-note-paper,
+.workspace-card-svg-v2 .wh-v2-loan-paper,
+.workspace-card-svg-v2 .wh-v2-shield,
+.workspace-card-svg-v2 .wh-v2-admin-shield{
+  fill:url(#wh-v2-main-dashboard);
+}
+/* SVG-local gradients are keyed per section; these declarations supply modern surfaces. */
+.workspace-home-card--dashboard .wh-v2-shell{fill:url(#wh-v2-main-dashboard)}
+.workspace-home-card--expenses .wh-v2-wallet-body{fill:url(#wh-v2-main-expenses)}
+.workspace-home-card--audit .wh-v2-shield{fill:url(#wh-v2-main-audit)}
+.workspace-home-card--triplem-ai .wh-v2-ai-chip{fill:url(#wh-v2-main-triplem-ai)}
+.workspace-home-card--loans .wh-v2-loan-paper{fill:url(#wh-v2-main-loans)}
+.workspace-home-card--installments .wh-v2-calendar{fill:url(#wh-v2-main-installments)}
+.workspace-home-card--notes .wh-v2-note-paper{fill:url(#wh-v2-main-notes)}
+.workspace-home-card--admin .wh-v2-admin-shield{fill:url(#wh-v2-main-admin)}
+
+.workspace-card-svg-v2 .wh-v2-screen,
+.workspace-card-svg-v2 .wh-v2-shield-inner{
+  fill:color-mix(in srgb,var(--panel) 82%,var(--wh-c1) 18%);
+  stroke:color-mix(in srgb,var(--line) 70%,var(--wh-c1));
+  stroke-width:1.2;
+}
+.workspace-card-svg-v2 .wh-v2-mini,
+.workspace-card-svg-v2 .wh-v2-row,
+.workspace-card-svg-v2 .wh-v2-loan-line,
+.workspace-card-svg-v2 .wh-v2-note-line{
+  fill:color-mix(in srgb,var(--panel) 70%,var(--wh-c2) 30%);
+  opacity:.9;
+}
+.workspace-card-svg-v2 .wh-v2-row-short,
+.workspace-card-svg-v2 .wh-v2-loan-line-short{opacity:.66}
+.workspace-card-svg-v2 .wh-v2-status,
+.workspace-card-svg-v2 .wh-v2-wallet-dot{
+  fill:color-mix(in srgb,var(--wh-c2) 84%,#fff 16%);
+  stroke:color-mix(in srgb,var(--panel) 90%,transparent);
+  stroke-width:2;
+}
+
+/* Dashboard */
+.workspace-card-svg-v2 .wh-v2-bars rect{
+  fill:color-mix(in srgb,var(--wh-c2) 82%,var(--wh-c1));
+  transform-box:fill-box;
+  transform-origin:center bottom;
+  animation:whV2Bar 3.8s ease-in-out infinite;
+}
+.workspace-card-svg-v2 .wh-v2-bars rect:nth-child(2){animation-delay:.22s;fill:var(--wh-c1)}
+.workspace-card-svg-v2 .wh-v2-bars rect:nth-child(3){animation-delay:.44s;fill:color-mix(in srgb,var(--wh-c1) 72%,var(--text) 28%)}
+.workspace-card-svg-v2 .wh-v2-trace{
+  fill:none;
+  stroke:color-mix(in srgb,#fff 82%,var(--wh-c2));
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-dasharray:86;
+  animation:whV2Trace 4.8s ease-in-out infinite;
+}
+
+/* Wallet */
+.workspace-card-svg-v2 .wh-v2-wallet-body{
+  stroke:color-mix(in srgb,var(--wh-c1) 66%,var(--panel));
+  stroke-width:1.4;
+}
+.workspace-card-svg-v2 .wh-v2-wallet-seam{
+  fill:none;stroke:color-mix(in srgb,#fff 52%,var(--wh-c2));stroke-width:2;stroke-linecap:round;opacity:.65
+}
+.workspace-card-svg-v2 .wh-v2-wallet-pocket{
+  fill:color-mix(in srgb,var(--panel) 58%,var(--wh-c2) 42%);
+  stroke:color-mix(in srgb,#fff 32%,var(--wh-c2));stroke-width:1.2
+}
+.workspace-card-svg-v2 .wh-v2-wallet-coin{
+  fill:color-mix(in srgb,var(--wh-c2) 78%,var(--panel));
+  stroke:color-mix(in srgb,#fff 34%,var(--wh-c2));stroke-width:1.1
+}
+.workspace-card-svg-v2 .wh-v2-wallet-coin-mark{
+  fill:none;stroke:color-mix(in srgb,var(--text) 74%,var(--wh-c2));stroke-width:2.1;stroke-linecap:round
+}
+.workspace-card-svg-v2 .wh-v2-wallet-card{
+  fill:color-mix(in srgb,var(--panel) 78%,var(--wh-c1) 22%);
+  stroke:color-mix(in srgb,var(--wh-c1) 42%,var(--line));stroke-width:1;
+  transform-box:fill-box;transform-origin:center;animation:whV2WalletCard 4.6s ease-in-out infinite
+}
+
+/* Inventory */
+.workspace-card-svg-v2 .wh-v2-box-top{fill:color-mix(in srgb,var(--wh-c1) 86%,var(--panel));stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--line));stroke-width:1.1}
+.workspace-card-svg-v2 .wh-v2-box-left{fill:color-mix(in srgb,var(--wh-c1) 62%,var(--panel));stroke:color-mix(in srgb,var(--wh-c1) 48%,var(--line));stroke-width:1.1}
+.workspace-card-svg-v2 .wh-v2-box-right{fill:color-mix(in srgb,var(--wh-c2) 68%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 48%,var(--line));stroke-width:1.1}
+.workspace-card-svg-v2 .wh-v2-box-line{fill:none;stroke:color-mix(in srgb,#fff 42%,var(--wh-c2));stroke-width:1.8;stroke-linecap:round}
+.workspace-card-svg-v2 .wh-v2-label{fill:color-mix(in srgb,var(--panel) 82%,var(--wh-c2) 18%);stroke:color-mix(in srgb,var(--wh-c2) 54%,var(--line));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-scanline{fill:none;stroke:color-mix(in srgb,#fff 78%,var(--wh-c2));stroke-width:2.3;stroke-linecap:round;animation:whV2Scan 3.4s ease-in-out infinite}
+
+/* Audit */
+.workspace-card-svg-v2 .wh-v2-shield{stroke:color-mix(in srgb,var(--wh-c1) 60%,var(--line));stroke-width:1.3}
+.workspace-card-svg-v2 .wh-v2-check{fill:none;stroke:color-mix(in srgb,#fff 86%,var(--wh-c2));stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:62;animation:whV2Check 4.2s ease-in-out infinite}
+
+/* AI */
+.workspace-card-svg-v2 .wh-v2-ai-chip{stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--line));stroke-width:1.3}
+.workspace-card-svg-v2 .wh-v2-ai-core{fill:color-mix(in srgb,var(--panel) 76%,var(--wh-c2) 24%);stroke:color-mix(in srgb,var(--wh-c2) 56%,var(--line));stroke-width:1.2;transform-box:fill-box;transform-origin:center;animation:whV2AiCore 3.6s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-ai-spark{fill:color-mix(in srgb,var(--wh-c2) 76%,#fff 24%);stroke:color-mix(in srgb,#fff 46%,var(--wh-c2));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-ai-pin{fill:none;stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--muted));stroke-width:2;stroke-linecap:round}
+.workspace-card-svg-v2 .wh-v2-ai-node{fill:color-mix(in srgb,var(--wh-c2) 68%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 55%,var(--line));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-ai-node-b,.workspace-card-svg-v2 .wh-v2-ai-node-c{animation:whV2Node 3.8s ease-in-out infinite}
+
+/* Assets */
+.workspace-card-svg-v2 .wh-v2-building{stroke:color-mix(in srgb,var(--line) 62%,var(--wh-c1));stroke-width:1.1}
+.workspace-card-svg-v2 .wh-v2-building-a{fill:color-mix(in srgb,var(--wh-c2) 64%,var(--panel))}
+.workspace-card-svg-v2 .wh-v2-building-b{fill:color-mix(in srgb,var(--wh-c1) 76%,var(--panel))}
+.workspace-card-svg-v2 .wh-v2-windows rect{fill:color-mix(in srgb,#fff 56%,var(--wh-c2));opacity:.78}
+.workspace-card-svg-v2 .wh-v2-window-hot{animation:whV2Window 3.2s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-asset-trend,.workspace-card-svg-v2 .wh-v2-asset-head{fill:none;stroke:color-mix(in srgb,#fff 72%,var(--wh-c2));stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+
+/* Loans */
+.workspace-card-svg-v2 .wh-v2-loan-paper{stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--line));stroke-width:1.2}
+.workspace-card-svg-v2 .wh-v2-loan-coin{fill:color-mix(in srgb,var(--wh-c2) 76%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 56%,var(--line));stroke-width:1.1}
+.workspace-card-svg-v2 .wh-v2-loan-coin-b{fill:color-mix(in srgb,var(--wh-c1) 68%,var(--panel));animation:whV2LoanCoin 4.1s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-loan-money{fill:none;stroke:color-mix(in srgb,#fff 78%,var(--wh-c2));stroke-width:2;stroke-linecap:round}
+.workspace-card-svg-v2 .wh-v2-loan-arrow{fill:none;stroke:color-mix(in srgb,var(--wh-c1) 76%,var(--text));stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:7 7;animation:whV2LoanArrow 4.5s linear infinite}
+
+/* Installments */
+.workspace-card-svg-v2 .wh-v2-calendar{stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--line));stroke-width:1.2}
+.workspace-card-svg-v2 .wh-v2-calendar-head{fill:color-mix(in srgb,var(--panel) 64%,var(--wh-c2) 36%)}
+.workspace-card-svg-v2 .wh-v2-calendar-ring{fill:color-mix(in srgb,var(--wh-c2) 78%,var(--text) 22%)}
+.workspace-card-svg-v2 .wh-v2-install-grid rect{fill:color-mix(in srgb,var(--panel) 76%,var(--wh-c1) 24%);stroke:color-mix(in srgb,var(--line) 72%,var(--wh-c1));stroke-width:.8}
+.workspace-card-svg-v2 .wh-v2-install-grid .wh-v2-install-dot{fill:color-mix(in srgb,var(--wh-c2) 74%,var(--panel));animation:whV2Install 3.1s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.workspace-card-svg-v2 .wh-v2-install-check{fill:none;stroke:color-mix(in srgb,#fff 82%,var(--wh-c2));stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Notes */
+.workspace-card-svg-v2 .wh-v2-note-paper{stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--line));stroke-width:1.2}
+.workspace-card-svg-v2 .wh-v2-note-fold{fill:none;stroke:color-mix(in srgb,#fff 42%,var(--wh-c2));stroke-width:2}
+.workspace-card-svg-v2 .wh-v2-pencil-body{fill:color-mix(in srgb,var(--wh-c2) 76%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 58%,var(--line));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-pencil-seam{fill:none;stroke:color-mix(in srgb,#fff 72%,var(--wh-c2));stroke-width:2}
+.workspace-card-svg-v2 .wh-v2-pencil{transform-origin:105px 107px;animation:whV2Pencil 4.2s ease-in-out infinite}
+
+/* Bitcoin: exact supplied geometry, theme-adaptive fill, subtle contained motion. */
+.workspace-home-card--bitcoin{
+  --wh-c1:color-mix(in srgb,var(--primary) 72%,var(--chart-series-3) 28%);
+  --wh-c2:color-mix(in srgb,var(--primary-2) 68%,var(--chart-series-5) 32%);
+}
+.workspace-card-svg-v2 .wh-v2-btc-glow{fill:color-mix(in srgb,var(--wh-c1) 11%,transparent);stroke:color-mix(in srgb,var(--wh-c1) 18%,transparent);stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-btc-motion{transform-origin:80px 80px;animation:whV2Bitcoin 5.4s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-btc-outer{fill:var(--wh-c1);stroke:color-mix(in srgb,var(--wh-c1) 62%,var(--text));stroke-width:.55}
+.workspace-card-svg-v2 .wh-v2-btc-mark{fill:color-mix(in srgb,#fff 94%,var(--wh-c2) 6%)}
+
+/* Admin */
+.workspace-card-svg-v2 .wh-v2-admin-shield{stroke:color-mix(in srgb,var(--wh-c1) 58%,var(--line));stroke-width:1.2}
+.workspace-card-svg-v2 .wh-v2-admin-user{fill:color-mix(in srgb,var(--panel) 78%,var(--wh-c2) 22%);stroke:color-mix(in srgb,var(--wh-c2) 52%,var(--line));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-admin-user-body{fill:color-mix(in srgb,var(--panel) 72%,var(--wh-c2) 28%);stroke:color-mix(in srgb,var(--wh-c2) 52%,var(--line));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-admin-gear{transform-origin:104px 94px}
+.workspace-card-svg-v2 .wh-v2-admin-gear-core{animation:whV2AdminCore 3.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.workspace-card-svg-v2 .wh-v2-admin-gear-ring{fill:color-mix(in srgb,var(--wh-c2) 68%,var(--panel));stroke:color-mix(in srgb,var(--wh-c2) 58%,var(--line));stroke-width:1.2}
+.workspace-card-svg-v2 .wh-v2-admin-gear-core{fill:color-mix(in srgb,#fff 62%,var(--wh-c1))}
+.workspace-card-svg-v2 .wh-v2-admin-gear-spokes{fill:none;stroke:color-mix(in srgb,var(--wh-c2) 72%,var(--text));stroke-width:2.2;stroke-linecap:round}
+.workspace-card-svg-v2 .wh-v2-fallback{fill:none;stroke:color-mix(in srgb,#fff 70%,var(--wh-c2));stroke-width:3;stroke-linecap:round}
+
+@keyframes whV2Bar{0%,100%{transform:scaleY(.92);opacity:.75}50%{transform:scaleY(1.02);opacity:1}}
+@keyframes whV2Trace{0%,15%{stroke-dashoffset:86;opacity:.4}48%,82%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-86;opacity:.4}}
+@keyframes whV2WalletCard{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(1px,0,0)}}
+@keyframes whV2Scan{0%,100%{transform:translate3d(0,-8px,0);opacity:.35}50%{transform:translate3d(0,10px,0);opacity:.9}}
+@keyframes whV2Check{0%,18%{stroke-dashoffset:62;opacity:.4}48%,84%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-62;opacity:.45}}
+@keyframes whV2AiCore{0%,100%{transform:scale(.96)}50%{transform:scale(1.025)}}
+@keyframes whV2Node{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes whV2Window{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes whV2LoanCoin{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-2px,0)}}
+@keyframes whV2LoanArrow{to{stroke-dashoffset:-56}}
+@keyframes whV2Install{0%,100%{opacity:.66;transform:scale(.96)}50%{opacity:1;transform:scale(1.04)}}
+@keyframes whV2Pencil{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(1.5px,-1.5px,0)}}
+@keyframes whV2Bitcoin{0%,100%{transform:translate3d(0,1px,0) rotate(-1deg)}50%{transform:translate3d(0,-2px,0) rotate(1deg)}}
+@keyframes whV2AdminCore{0%,100%{transform:scale(.92);opacity:.72}50%{transform:scale(1.08);opacity:1}}
+
+html.triplem-low-power .workspace-card-svg-v2 *,
+html.triplem-low-power .workspace-card-svg-v2 .wh-v2-icon{animation:none !important}
+@media(prefers-reduced-motion:reduce){
+  .workspace-card-svg-v2 *,
+  .workspace-card-svg-v2 .wh-v2-icon{animation:none !important;transition:none !important}
+}
+@media(max-width:820px){
+  .workspace-card-art{border-radius:15px}
+  .workspace-card-svg-v2 .wh-v2-btc-outer{stroke-width:.45}
+}
+
+
+/* Workspace icon precision pass — 2026-09-16 rev 009 */
+.workspace-card-svg-v2 .wh-v2-wallet{transform-origin:80px 80px}
+.workspace-card-svg-v2 .wh-v2-wallet-body{fill:url(#wh-v2-main-expenses);stroke:color-mix(in srgb,var(--wh-c1) 66%,var(--panel));stroke-width:1.4}
+.workspace-card-svg-v2 .wh-v2-wallet-inner{fill:color-mix(in srgb,var(--panel) 82%,var(--wh-c1) 18%);stroke:color-mix(in srgb,var(--line) 72%,var(--wh-c1));stroke-width:1.05}
+.workspace-card-svg-v2 .wh-v2-wallet-pocket{fill:color-mix(in srgb,var(--panel) 58%,var(--wh-c2) 42%);stroke:color-mix(in srgb,#fff 30%,var(--wh-c2));stroke-width:1.1}
+.workspace-card-svg-v2 .wh-v2-wallet-bottom{fill:none;stroke:color-mix(in srgb,#fff 34%,var(--wh-c2));stroke-width:1.6;stroke-linecap:round;opacity:.6}
+.workspace-card-svg-v2 .wh-v2-wallet-card{display:none!important}
+
+.workspace-card-svg-v2 .wh-v2-inventory{transform-origin:80px 80px}
+.workspace-card-svg-v2 .wh-v2-inventory-slot{fill:none;stroke:color-mix(in srgb,#fff 72%,var(--wh-c2));stroke-width:2.1;stroke-linecap:round;opacity:.82}
+.workspace-card-svg-v2 .wh-v2-inventory-dot{fill:color-mix(in srgb,var(--wh-c2) 82%,#fff 18%);animation:whV2InventoryDot 3.2s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-label,.workspace-card-svg-v2 .wh-v2-scanline{display:none!important}
+
+.workspace-card-svg-v2 .wh-v2-loans{transform-origin:80px 80px}
+.workspace-card-svg-v2 .wh-v2-loan-coin-main{fill:url(#wh-v2-main-loans);stroke:color-mix(in srgb,var(--wh-c1) 62%,var(--line));stroke-width:1.25;transform-box:fill-box;transform-origin:center;animation:whV2LoanCoinPulse 3.8s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-loan-currency{fill:none;stroke:color-mix(in srgb,#fff 88%,var(--wh-c2));stroke-width:2.7;stroke-linecap:round}
+.workspace-card-svg-v2 .wh-v2-loan-hand{fill:none;stroke:color-mix(in srgb,var(--text) 54%,var(--wh-c1));stroke-width:6.5;stroke-linecap:round;stroke-linejoin:round}
+.workspace-card-svg-v2 .wh-v2-loan-sleeve{fill:color-mix(in srgb,var(--panel) 70%,var(--wh-c2) 30%);stroke:color-mix(in srgb,var(--wh-c2) 46%,var(--line));stroke-width:1}
+.workspace-card-svg-v2 .wh-v2-loan-link{fill:none;stroke:color-mix(in srgb,var(--wh-c2) 72%,var(--text));stroke-width:2.6;stroke-linecap:round;opacity:.8}
+.workspace-card-svg-v2 .wh-v2-loan-paper,.workspace-card-svg-v2 .wh-v2-loan-line,.workspace-card-svg-v2 .wh-v2-loan-coin,.workspace-card-svg-v2 .wh-v2-loan-money,.workspace-card-svg-v2 .wh-v2-loan-arrow{display:none!important}
+
+.workspace-card-svg-v2 .wh-v2-bitcoin{transform-origin:80px 80px}
+.workspace-card-svg-v2 .wh-v2-btc-motion{transform-box:view-box;transform-origin:80px 80px;animation:whV2BitcoinCentered 5.2s ease-in-out infinite}
+.workspace-card-svg-v2 .wh-v2-btc-glow{display:none!important}
+
+@keyframes whV2InventoryDot{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes whV2LoanCoinPulse{0%,100%{transform:scale(.985)}50%{transform:scale(1.025)}}
+@keyframes whV2BitcoinCentered{0%,100%{transform:rotate(-.8deg) scale(.992)}50%{transform:rotate(.8deg) scale(1.008)}}
+
+html.triplem-low-power .workspace-card-svg-v2 .wh-v2-inventory-dot,
+html.triplem-low-power .workspace-card-svg-v2 .wh-v2-loan-coin-main,
+html.triplem-low-power .workspace-card-svg-v2 .wh-v2-btc-motion{animation:none!important}
+@media(prefers-reduced-motion:reduce){
+ .workspace-card-svg-v2 .wh-v2-inventory-dot,
+ .workspace-card-svg-v2 .wh-v2-loan-coin-main,
+ .workspace-card-svg-v2 .wh-v2-btc-motion{animation:none!important}
+}
+
+/* Workspace icon system V3 — finance-reference redesign — 2026-09-16 rev 010
+   Filled finance symbols, restrained theme-adaptive palette, contained micro-motion. */
+.workspace-home-card{
+  --wh-icon-deep:color-mix(in srgb,var(--primary) 78%,var(--text) 22%);
+  --wh-icon-deep-2:color-mix(in srgb,var(--primary) 62%,var(--text) 38%);
+  --wh-icon-deep-light:color-mix(in srgb,var(--primary) 48%,var(--panel) 52%);
+  --wh-icon-accent:color-mix(in srgb,var(--primary-2) 76%,var(--wh-c2) 24%);
+  --wh-icon-accent-2:color-mix(in srgb,var(--primary-2) 54%,var(--wh-c1) 46%);
+}
+.workspace-card-art{
+  overflow:hidden!important;
+  contain:paint;
+}
+.workspace-card-svg-v3{
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+  overflow:hidden!important;
+  contain:paint;
+}
+.workspace-card-svg-v3 .wh-v3-stage,
+.workspace-card-svg-v3 .wh-v3-icon{transform-origin:80px 80px}
+.workspace-card-svg-v3 .wh-v3-deep{fill:url(#wh-v3-primary-dashboard)}
+.workspace-home-card--dashboard .wh-v3-deep{fill:url(#wh-v3-primary-dashboard)}
+.workspace-home-card--expenses .wh-v3-deep{fill:url(#wh-v3-primary-expenses)}
+.workspace-home-card--goods .wh-v3-deep{fill:url(#wh-v3-primary-goods)}
+.workspace-home-card--audit .wh-v3-deep{fill:url(#wh-v3-primary-audit)}
+.workspace-home-card--triplem-ai .wh-v3-deep{fill:url(#wh-v3-primary-triplem-ai)}
+.workspace-home-card--assets .wh-v3-deep{fill:url(#wh-v3-primary-assets)}
+.workspace-home-card--loans .wh-v3-deep{fill:url(#wh-v3-primary-loans)}
+.workspace-home-card--installments .wh-v3-deep{fill:url(#wh-v3-primary-installments)}
+.workspace-home-card--notes .wh-v3-deep{fill:url(#wh-v3-primary-notes)}
+.workspace-home-card--messages .wh-v3-deep{fill:url(#wh-v3-primary-messages)}
+.workspace-home-card--admin .wh-v3-deep{fill:url(#wh-v3-primary-admin)}
+.workspace-card-svg-v3 .wh-v3-deep-2{fill:var(--wh-icon-deep-2)}
+.workspace-card-svg-v3 .wh-v3-deep-light{fill:var(--wh-icon-deep-light)}
+.workspace-card-svg-v3 .wh-v3-accent{fill:var(--wh-icon-accent)}
+.workspace-card-svg-v3 .wh-v3-panel{fill:color-mix(in srgb,var(--panel) 90%,#fff 10%)}
+.workspace-card-svg-v3 .wh-v3-soft-dot{fill:color-mix(in srgb,var(--wh-icon-accent) 62%,var(--panel));opacity:.72}
+.workspace-card-svg-v3 .wh-v3-accent-stroke{
+  fill:none;
+  stroke:var(--wh-icon-accent);
+  stroke-width:4.5;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.workspace-card-svg-v3 .wh-v3-money-mark,
+.workspace-card-svg-v3 .wh-v3-small-money-mark{
+  fill:none;
+  stroke:color-mix(in srgb,#fff 94%,var(--panel));
+  stroke-width:2.6;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.workspace-card-svg-v3 .wh-v3-small-money-mark{stroke-width:2.2}
+
+/* Dashboard */
+.workspace-card-svg-v3 .wh-v3-dashboard-bars rect{
+  transform-box:fill-box;
+  transform-origin:center bottom;
+  animation:whV3Bar 4.2s ease-in-out infinite;
+}
+.workspace-card-svg-v3 .wh-v3-dashboard-bars rect:nth-child(2){animation-delay:.18s}
+.workspace-card-svg-v3 .wh-v3-dashboard-bars rect:nth-child(3){animation-delay:.36s}
+.workspace-card-svg-v3 .wh-v3-dashboard-arrow{
+  stroke-dasharray:120;
+  animation:whV3ArrowDraw 5.2s ease-in-out infinite;
+}
+.workspace-card-svg-v3 .wh-v3-dashboard-arrowhead{animation:whV3ArrowHead 5.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+
+/* Wallet / Expenses */
+.workspace-card-svg-v3 .wh-v3-wallet-top{fill:color-mix(in srgb,var(--wh-icon-deep) 88%,var(--panel))}
+.workspace-card-svg-v3 .wh-v3-wallet .wh-v3-panel{fill:color-mix(in srgb,var(--panel) 76%,var(--wh-icon-accent) 24%)}
+.workspace-card-svg-v3 .wh-v3-money-coin{transform-box:fill-box;transform-origin:center;animation:whV3CoinPulse 3.8s ease-in-out infinite}
+
+/* Inventory */
+.workspace-card-svg-v3 .wh-v3-package-seam,
+.workspace-card-svg-v3 .wh-v3-package-up{
+  fill:none;
+  stroke:color-mix(in srgb,#fff 88%,var(--panel));
+  stroke-width:2.15;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.workspace-card-svg-v3 .wh-v3-package-tape{animation:whV3InventoryTape 4.6s ease-in-out infinite}
+
+/* Audit */
+.workspace-card-svg-v3 .wh-v3-paper-fold{fill:color-mix(in srgb,var(--panel) 76%,var(--wh-icon-accent) 24%)}
+.workspace-card-svg-v3 .wh-v3-paper-line{fill:color-mix(in srgb,var(--panel) 72%,var(--wh-icon-accent) 28%)}
+.workspace-card-svg-v3 .wh-v3-audit-lens{transform-box:fill-box;transform-origin:center;animation:whV3Lens 4.4s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-lens-inner{fill:color-mix(in srgb,var(--panel) 86%,transparent)}
+.workspace-card-svg-v3 .wh-v3-lens-bar{fill:var(--wh-icon-deep)}
+.workspace-card-svg-v3 .wh-v3-audit-handle{stroke-width:6}
+
+/* AI */
+.workspace-card-svg-v3 .wh-v3-ai-network circle{transform-box:fill-box;transform-origin:center;animation:whV3Node 3.6s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-ai-network circle:nth-child(2){animation-delay:.25s}
+.workspace-card-svg-v3 .wh-v3-ai-network circle:nth-child(3){animation-delay:.5s}
+.workspace-card-svg-v3 .wh-v3-ai-network circle:nth-child(4){animation-delay:.75s}
+.workspace-card-svg-v3 .wh-v3-ai-network circle:nth-child(5){animation-delay:1s}
+.workspace-card-svg-v3 .wh-v3-ai-link{fill:none;stroke:color-mix(in srgb,#fff 76%,var(--wh-icon-accent));stroke-width:2;stroke-linecap:round}
+.workspace-card-svg-v3 .wh-v3-ai-label{fill:var(--wh-icon-accent);font:800 27px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:-1px}
+
+/* Assets */
+.workspace-card-svg-v3 .wh-v3-house-roof{animation:whV3AccentBreath 4.2s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-assets-coin{transform-box:fill-box;transform-origin:center;animation:whV3CoinFloat 4s ease-in-out infinite}
+
+/* Loans */
+.workspace-card-svg-v3 .wh-v3-loan-coin{transform-box:fill-box;transform-origin:center;animation:whV3CoinPulse 4s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-handshake-line{fill:none;stroke:color-mix(in srgb,#fff 78%,var(--wh-icon-accent));stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Installments */
+.workspace-card-svg-v3 .wh-v3-calendar-grid rect{fill:color-mix(in srgb,var(--panel) 82%,var(--wh-icon-accent) 18%)}
+.workspace-card-svg-v3 .wh-v3-install-coin{transform-box:fill-box;transform-origin:center;animation:whV3CoinPulse 4.2s ease-in-out infinite}
+
+/* Notes */
+.workspace-card-svg-v3 .wh-v3-note-line{fill:color-mix(in srgb,var(--panel) 72%,var(--wh-icon-accent) 28%)}
+.workspace-card-svg-v3 .wh-v3-pencil{transform-origin:104px 107px;animation:whV3Pencil 4.4s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-pencil-tip{fill:color-mix(in srgb,var(--text) 52%,var(--panel))}
+
+/* Bitcoin: exact supplied reference geometry; only color and centered micro-motion change. */
+.workspace-home-card--bitcoin{
+  --wh-icon-accent:color-mix(in srgb,var(--primary) 70%,var(--chart-series-3) 30%);
+  --wh-icon-accent-2:color-mix(in srgb,var(--primary-2) 66%,var(--chart-series-5) 34%);
+}
+.workspace-card-svg-v3 .wh-v3-btc-motion{transform-origin:80px 80px;animation:whV3Bitcoin 5.2s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-btc-outer{fill:var(--wh-icon-accent)}
+.workspace-card-svg-v3 .wh-v3-btc-mark{fill:color-mix(in srgb,#fff 95%,var(--panel) 5%)}
+
+/* Messages */
+.workspace-card-svg-v3 .wh-v3-message-back{transform-box:fill-box;transform-origin:center;animation:whV3Message 4.4s ease-in-out infinite}
+
+/* Admin */
+.workspace-card-svg-v3 .wh-v3-admin-gear{transform-origin:112px 102px;animation:whV3Gear 7s ease-in-out infinite}
+.workspace-card-svg-v3 .wh-v3-gear-teeth{fill:none;stroke:var(--wh-icon-accent);stroke-width:4.8;stroke-linecap:round}
+.workspace-card-svg-v3 .wh-v3-fallback{fill:none;stroke:color-mix(in srgb,#fff 80%,var(--wh-icon-accent));stroke-width:3;stroke-linecap:round}
+
+@keyframes whV3Bar{0%,100%{transform:scaleY(.96)}50%{transform:scaleY(1.025)}}
+@keyframes whV3ArrowDraw{0%,14%{stroke-dashoffset:120;opacity:.45}46%,84%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-120;opacity:.5}}
+@keyframes whV3ArrowHead{0%,14%{opacity:.45;transform:scale(.94)}46%,84%{opacity:1;transform:scale(1)}100%{opacity:.5;transform:scale(.94)}}
+@keyframes whV3CoinPulse{0%,100%{transform:scale(.985)}50%{transform:scale(1.025)}}
+@keyframes whV3CoinFloat{0%,100%{transform:translate3d(0,1px,0)}50%{transform:translate3d(0,-1.5px,0)}}
+@keyframes whV3InventoryTape{0%,100%{opacity:.78}50%{opacity:1}}
+@keyframes whV3Lens{0%,100%{transform:scale(.985)}50%{transform:scale(1.018)}}
+@keyframes whV3Node{0%,100%{opacity:.58;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes whV3AccentBreath{0%,100%{opacity:.82}50%{opacity:1}}
+@keyframes whV3Pencil{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(1px,-1px,0)}}
+@keyframes whV3Bitcoin{0%,100%{transform:rotate(-.65deg) scale(.995)}50%{transform:rotate(.65deg) scale(1.005)}}
+@keyframes whV3Message{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(1px,1px,0)}}
+@keyframes whV3Gear{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+
+html.triplem-low-power .workspace-card-svg-v3 *,
+html.triplem-low-power .workspace-card-svg-v3 .wh-v3-icon{animation:none!important}
+@media(prefers-reduced-motion:reduce){
+  .workspace-card-svg-v3 *,
+  .workspace-card-svg-v3 .wh-v3-icon{animation:none!important;transition:none!important}
+}
+@media(max-width:820px){
+  .workspace-card-svg-v3 .wh-v3-accent-stroke{stroke-width:4}
+  .workspace-card-svg-v3 .wh-v3-money-mark{stroke-width:2.3}
+}
+
+
+/* Triplem VIP Home PNG icon system — 2026-09-16 rev 010
+   Static PNG artwork from Assets/logo/icons/. No SVG rendering or icon animation. */
+.workspace-card-art{
+  position:relative;
+  display:grid;
+  place-items:center;
+  box-sizing:border-box;
+  overflow:hidden;
+  isolation:isolate;
+  border-radius:24px;
+  background:rgba(255,255,255,.58);
+  border:1px solid rgba(255,255,255,.50);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.52),
+    0 7px 20px color-mix(in srgb,var(--text) 6%,transparent);
+  -webkit-backdrop-filter:blur(8px) saturate(108%);
+  backdrop-filter:blur(8px) saturate(108%);
+}
+.workspace-card-art::before,
+.workspace-card-art::after{content:none!important;display:none!important}
+.workspace-card-icon{
+  display:block;
+  width:78%;
+  height:78%;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  object-position:center;
+  margin:auto;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  transform:none!important;
+  animation:none!important;
+  transition:none!important;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+.workspace-card-svg,
+.workspace-card-svg-v3{display:none!important}
+
+/* Keep the white glass tile subtle enough to blend with every registered theme. */
+html[data-theme="dark"] .workspace-card-art,
+body[data-theme="dark"] .workspace-card-art,
+.theme-dark .workspace-card-art{
+  background:rgba(255,255,255,.13);
+  border-color:rgba(255,255,255,.17);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 7px 20px rgba(0,0,0,.12);
+}
+@media(max-width:820px){
+  .workspace-card-art{border-radius:15px;-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+  .workspace-card-icon{width:76%;height:76%}
+}
+@media(max-width:380px){
+  .workspace-card-art{border-radius:13px}
+  .workspace-card-icon{width:74%;height:74%}
+}
+html.triplem-low-power .workspace-card-icon{animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){
+  .workspace-card-icon{animation:none!important;transition:none!important}
+}
+
+/* Triplem VIP Home PNG glass-lens refinement — 2026-09-16 rev 011
+   Theme-derived lens tint and exact geometric icon centering. */
+.workspace-home-card .workspace-card-art{
+  --wh-glass-white:rgba(255,255,255,.34);
+  --wh-glass-panel:color-mix(in srgb,var(--panel) 74%,var(--wh-glass-white));
+  --wh-glass-tint:color-mix(in srgb,var(--wh-glass-panel) 86%,var(--wh-c1,var(--primary)) 14%);
+  --wh-glass-tint-2:color-mix(in srgb,var(--panel-2,var(--panel)) 88%,var(--wh-c2,var(--primary-2,var(--primary))) 12%);
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+  align-self:center!important;
+  justify-self:center!important;
+  margin-inline:auto!important;
+  overflow:hidden!important;
+  isolation:isolate;
+  background:
+    linear-gradient(145deg,
+      color-mix(in srgb,var(--wh-glass-tint) 90%,rgba(255,255,255,.18)),
+      color-mix(in srgb,var(--wh-glass-tint-2) 92%,transparent))!important;
+  border:1px solid color-mix(in srgb,var(--wh-c1,var(--primary)) 18%,rgba(255,255,255,.52))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.46),
+    inset 0 -1px 0 color-mix(in srgb,var(--wh-c1,var(--primary)) 7%,transparent),
+    0 8px 24px color-mix(in srgb,var(--wh-c1,var(--primary)) 8%,transparent)!important;
+  -webkit-backdrop-filter:blur(12px) saturate(128%)!important;
+  backdrop-filter:blur(12px) saturate(128%)!important;
+}
+.workspace-home-card .workspace-card-art::before{
+  content:""!important;
+  display:block!important;
+  position:absolute;
+  z-index:0;
+  inset:1px;
+  border-radius:inherit;
+  pointer-events:none;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.34) 0%,rgba(255,255,255,.12) 26%,transparent 52%),
+    radial-gradient(80% 66% at 82% 88%,color-mix(in srgb,var(--wh-c2,var(--primary)) 10%,transparent),transparent 72%);
+  opacity:.78;
+  transform:none!important;
+  animation:none!important;
+}
+.workspace-home-card .workspace-card-art::after{
+  content:""!important;
+  display:block!important;
+  position:absolute;
+  z-index:0;
+  left:12%;
+  right:12%;
+  top:8%;
+  height:1px;
+  border-radius:999px;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.68),transparent);
+  opacity:.62;
+  transform:none!important;
+  animation:none!important;
+}
+.workspace-home-card .workspace-card-icon{
+  position:absolute!important;
+  z-index:2;
+  left:50%!important;
+  top:50%!important;
+  width:76%!important;
+  height:76%!important;
+  max-width:76%!important;
+  max-height:76%!important;
+  margin:0!important;
+  padding:0!important;
+  object-fit:contain!important;
+  object-position:50% 50%!important;
+  transform:translate(-50%,-50%)!important;
+  transform-origin:50% 50%!important;
+}
+
+/* The same lens recipe follows all themes through their central panel/accent tokens. */
+html[data-theme="dark"] .workspace-home-card .workspace-card-art,
+body[data-theme="dark"] .workspace-home-card .workspace-card-art,
+.theme-dark .workspace-home-card .workspace-card-art{
+  --wh-glass-white:rgba(255,255,255,.12);
+  border-color:color-mix(in srgb,var(--wh-c1,var(--primary)) 22%,rgba(255,255,255,.20))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.15),
+    inset 0 -1px 0 color-mix(in srgb,var(--wh-c1,var(--primary)) 10%,transparent),
+    0 8px 24px rgba(0,0,0,.11)!important;
+}
+@media(max-width:820px){
+  .workspace-home-card .workspace-card-art{
+    -webkit-backdrop-filter:blur(8px) saturate(120%)!important;
+    backdrop-filter:blur(8px) saturate(120%)!important;
+  }
+  .workspace-home-card .workspace-card-icon{
+    width:74%!important;
+    height:74%!important;
+    max-width:74%!important;
+    max-height:74%!important;
+  }
+}
+@media(max-width:380px){
+  .workspace-home-card .workspace-card-icon{
+    width:72%!important;
+    height:72%!important;
+    max-width:72%!important;
+    max-height:72%!important;
+  }
+}
+
+/* Triplem VIP Home mobile PNG centering fix — 2026-09-16 rev 012
+   Low-power/reduced-motion modes must not remove the translate used for geometric centering. */
+@media(max-width:820px){
+  .workspace-home-card .workspace-card-icon,
+  html.triplem-low-power .workspace-home-card .workspace-card-icon{
+    left:50%!important;
+    top:50%!important;
+    margin:0!important;
+    transform:translate3d(-50%,-50%,0)!important;
+    transform-origin:50% 50%!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .workspace-home-card .workspace-card-icon{
+    transform:translate3d(-50%,-50%,0)!important;
+  }
+}

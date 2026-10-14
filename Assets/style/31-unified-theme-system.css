@@ -1,0 +1,568 @@
+/* Triplem VIP unified authenticated-workspace theme system.
+   Theme values come only from Assets/config/themes.js.
+   This file must remain palette-free: components consume semantic tokens only. */
+
+html.triplem-workspace-themed,
+html.triplem-workspace-themed body{
+  background:var(--page-bg) !important;
+  color:var(--text);
+}
+
+html.triplem-workspace-themed body{
+  min-height:100dvh;
+  background-attachment:fixed !important;
+}
+
+html.triplem-workspace-themed #app{
+  background:transparent !important;
+  color:var(--text) !important;
+}
+
+html.triplem-workspace-themed #app,
+html.triplem-workspace-themed body:has(#app:not(.hide)){
+  --card:var(--card-bg);
+  --triplem-theme-row:var(--surface-soft);
+  --triplem-theme-raised:var(--surface-elevated);
+}
+
+/* Native form chrome follows the theme instead of a named-theme exception. */
+html[data-triplem-theme-mode="dark"].triplem-workspace-themed :is(
+  #app,.modal,.inv-scanner-overlay,.landing-content-overlay.is-app-overlay
+) :is(select,input[type="date"],input[type="time"],input[type="datetime-local"],input[type="number"]){
+  color-scheme:dark;
+}
+html[data-triplem-theme-mode="light"].triplem-workspace-themed :is(
+  #app,.modal,.inv-scanner-overlay,.landing-content-overlay.is-app-overlay
+) :is(select,input[type="date"],input[type="time"],input[type="datetime-local"],input[type="number"]){
+  color-scheme:light;
+}
+
+/* Native rendered Liquid Glass. */
+html.triplem-workspace-themed #app :is(
+  .card,.section,.summary,.loan,.dashboard-block,.dashboard-hero-card,.dashboard-chart-card,
+  .expense-wallet-card,.expense-collapsible-section,.expense-item-row,
+  .inventory-card,.inventory-item-card,.inventory-section-card,.inventory-sku-card,.inventory-draft-card,
+  .inventory-brand-card,.inventory-customer-summary,.inventory-outstanding-panel,.inventory-outstanding-row,
+  .asset-card,.asset-chart-card,.asset-kpi,.dep-asset-card,.dep-summary-card,
+  .installment-plan-card,.installment-edit-summary,.ip-card,.ip-metric,
+  .btc-wallet-card,.btc-wallet-details,.btc-transaction-row,
+  .note-card,.note-grid-card,.note-detail-view,.note-create-reminder-card,
+  .section-details-metric,.section-details-chart-card,.section-details-activity-card,
+  .settings-card,.admin-user-card,.admin-analytics-card,.admin-storage-user-card,.admin-raw-edit-card,
+  .messages-compose-card,.messages-workspace,.messages-sidebar,.messages-conversation,
+  .wallet-details-card,.pricing-card,.table-wrap,.table-scroll,
+  .filter-inline-section,.compact-filter-row,.inventory-filter-row,.inventory-filter-layout,
+  .tabs,.loan-mode-switch,.assets-module-tabs
+){
+  background:var(--card-bg) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  background-clip:padding-box;
+}
+
+/* Keep internal card headers transparent so glass layers do not collide. */
+html.triplem-workspace-themed #app :is(
+  .overview-top,.dashboard-block-head,.section-head-top,.section-head:not(:has(.section-head-top)),
+  .detail-head,.expense-history-header,.expense-collapsible-header,.ip-card-head,.asset-card-top,
+  .inventory-section-card-top,.inventory-sku-card-top,.section-details-head,.settings-card-head,
+  .messages-thread-header,.messages-compose-head,.admin-comms-header,.admin-credentials-head,
+  .admin-access-head,.admin-raw-edit-head,.admin-storage-analytics-head,.inventory-outstanding-top
+){
+  background:transparent !important;
+  background-image:none !important;
+  color:var(--text) !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+}
+
+/* Banners use a dedicated theme token. */
+html.triplem-workspace-themed #app :is(
+  .guest-mode-banner,.trial-active-banner,.trial-expired-banner,.trial-grace-banner,.weak-password-banner,
+  .inventory-item-banner,.loan-details-banner,.inventory-outstanding-banner,.subscription-status-banner
+){
+  background:var(--banner-bg) !important;
+  border-color:var(--banner-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+html.triplem-workspace-themed #app :is(
+  .guest-mode-banner,.trial-active-banner,.trial-expired-banner,.trial-grace-banner,.weak-password-banner,
+  .inventory-item-banner,.loan-details-banner,.inventory-outstanding-banner,.subscription-status-banner
+) :is(h1,h2,h3,h4,h5,h6,strong,.title){
+  color:var(--text-strong) !important;
+}
+html.triplem-workspace-themed #app :is(
+  .guest-mode-banner,.trial-active-banner,.trial-expired-banner,.trial-grace-banner,.weak-password-banner,
+  .inventory-item-banner,.loan-details-banner,.inventory-outstanding-banner,.subscription-status-banner
+) :is(p,small,.help,.muted){
+  color:var(--muted) !important;
+}
+
+/* Every modal, sheet and popover must remain separated from the content behind it. */
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .modal-backdrop,.landing-overlay-backdrop,.landing-content-backdrop,.settings-sheet-backdrop,
+  .app-confirm-backdrop,.push-consent-overlay,.inv-scanner-overlay
+){
+  background:var(--overlay-scrim) !important;
+  backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
+}
+
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .modal-dialog,.settings-sheet,.landing-content-sheet,.inquiry-modal,.push-consent-card,
+  .app-confirm-dialog,.login-glass-panel--overlay,.guest-restriction-dialog,.trial-promo-card,
+  .reminder-alert-dialog,.transfer-success-content,.admin-live-agent-sheet,
+  .live-chat-assignment-sheet,.live-chat-transfer-sheet,.admin-receipt-viewer-dialog,
+  .inventory-section-modal-dialog,.installment-plan-dialog
+){
+  background:var(--modal-bg) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow-strong),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  background-clip:padding-box;
+}
+
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .modal-head,.modal-body,.modal-actions,.modal-footer,.settings-sheet-head,.settings-sheet-body,
+  .settings-sheet-footer,.landing-content-head,.landing-content-body,.landing-content-footer
+){
+  color:var(--text) !important;
+  border-color:var(--line) !important;
+}
+
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .menu-dropdown,.asset-card-dropdown,.account-menu-dropdown,.notification-dropdown,.dropdown,.popover,
+  .toast,.notice,.tooltip,.admin-comms-dropdown,.inventory-catalog-menu-wrap .menu-dropdown,
+  .theme-menu-dropdown
+){
+  background:var(--modal-bg) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow-strong),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+
+/* Theme menu remains usable with eleven themes. */
+html.triplem-workspace-themed #themeDropdown .theme-menu-options{
+  max-height:min(62dvh,520px);
+  overflow:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:var(--scrollbar-thumb) var(--scrollbar-track);
+}
+html.triplem-workspace-themed #themeDropdown .theme-menu-choice{
+  background:var(--control-bg) !important;
+  border-color:var(--line) !important;
+  color:var(--text) !important;
+}
+html.triplem-workspace-themed #themeDropdown .theme-menu-choice:hover{
+  background:var(--control-hover) !important;
+  border-color:var(--line-strong) !important;
+}
+html.triplem-workspace-themed #themeDropdown .theme-menu-choice.is-selected{
+  background:var(--filter-active) !important;
+  border-color:var(--primary) !important;
+  color:var(--text-strong) !important;
+  box-shadow:0 0 0 3px var(--focus-ring) !important;
+}
+
+/* Forms and native controls. */
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
+) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,textarea,.input,.select
+){
+  background:var(--control-bg) !important;
+  background-image:none !important;
+  border-color:var(--line) !important;
+  color:var(--text) !important;
+  -webkit-text-fill-color:var(--text) !important;
+  caret-color:var(--primary) !important;
+  box-shadow:none;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
+) :is(input,textarea)::placeholder{
+  color:var(--muted) !important;
+  -webkit-text-fill-color:var(--muted) !important;
+  opacity:1;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  #app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay,.inv-scanner-overlay
+) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,textarea,.input,.select
+):focus{
+  outline:none !important;
+  border-color:var(--primary) !important;
+  box-shadow:0 0 0 3px var(--focus-ring) !important;
+}
+html.triplem-workspace-themed :is(input[type="checkbox"],input[type="radio"],input[type="range"]){
+  accent-color:var(--primary);
+}
+html.triplem-workspace-themed select option{
+  background:var(--surface-elevated) !important;
+  color:var(--text) !important;
+}
+
+/* Buttons, hover, active, focus and disabled states. */
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary){
+  background:var(--primary-gradient) !important;
+  border-color:var(--primary) !important;
+  color:var(--on-primary) !important;
+  box-shadow:var(--shadow-soft),var(--theme-glow-shadow) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary):hover:not(:disabled){
+  filter:brightness(1.04) saturate(1.05);
+  border-color:var(--primary-hover) !important;
+  box-shadow:var(--shadow),var(--theme-glow-shadow) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.primary,.tiny.primary,button.primary):active:not(:disabled){
+  filter:brightness(.96);
+  border-color:var(--primary-active) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.soft,.tiny.soft){
+  background:var(--primary-soft) !important;
+  border-color:var(--line-strong) !important;
+  color:var(--text) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item){
+  background:var(--control-bg) !important;
+  border-color:var(--line) !important;
+  color:var(--text) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(.btn.ghost,.tiny.ghost,.icon-btn,.menu-item):hover:not(:disabled){
+  background:var(--control-hover) !important;
+  border-color:var(--line-strong) !important;
+  color:var(--text-strong) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(button.danger,.btn.danger,.tiny.danger){
+  background:var(--danger-soft) !important;
+  border-color:var(--danger) !important;
+  color:var(--danger) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(button.danger,.btn.danger,.tiny.danger):hover:not(:disabled){
+  background:var(--danger) !important;
+  color:var(--on-danger) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  button,input,select,textarea,[role="button"]
+):focus-visible{
+  outline:none !important;
+  box-shadow:0 0 0 3px var(--focus-ring) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  button,input,select,textarea,[role="button"]
+):disabled,
+html.triplem-workspace-themed body:has(#app:not(.hide)) [aria-disabled="true"]{
+  background:var(--surface-disabled) !important;
+  border-color:var(--line) !important;
+  color:var(--muted) !important;
+  box-shadow:none !important;
+  opacity:.72;
+}
+
+/* Tabs, filters, tags, badges and chips. */
+html.triplem-workspace-themed #app :is(
+  .tab,.loan-mode-btn,.assets-module-tab,.filter-chip,.filter-inline-btn,.inventory-layout-btn,
+  .section-details-currency-chip,.section-details-currency-bar button,.currency-choice,.date-preset,
+  .inventory-draft-customer-mode button,.inventory-customer-mode-btn,.btc-address-type-row,
+  .btc-wallet-type-btn,.btc-receive-address-chip
+){
+  background:var(--filter-bg) !important;
+  border-color:var(--line) !important;
+  color:var(--text) !important;
+  box-shadow:none !important;
+}
+html.triplem-workspace-themed #app :is(
+  .tab,.loan-mode-btn,.assets-module-tab,.filter-chip,.filter-inline-btn,.inventory-layout-btn,
+  .section-details-currency-chip,.section-details-currency-bar button,.currency-choice,.date-preset,
+  .inventory-draft-customer-mode button,.inventory-customer-mode-btn,.btc-address-type-row,
+  .btc-wallet-type-btn,.btc-receive-address-chip
+):hover:not(:disabled){
+  background:var(--filter-hover) !important;
+  border-color:var(--line-strong) !important;
+  color:var(--text-strong) !important;
+}
+html.triplem-workspace-themed #app :is(
+  .tab.active,.loan-mode-btn.active,.assets-module-tab.is-active,.filter-chip:has(input:checked),
+  .inventory-layout-btn.active,.section-details-currency-chip.active,
+  .section-details-currency-bar button.active,.section-details-currency-bar button[aria-pressed="true"],
+  .currency-choice.active,.currency-choice.selected,.date-preset.active,
+  .inventory-draft-customer-mode button.active,.inventory-draft-customer-mode button[aria-selected="true"],
+  .inventory-customer-mode-btn.active,.btc-address-type-row.is-selected,.btc-wallet-type-btn.active,
+  .btc-receive-address-chip.is-selected
+){
+  background:var(--filter-active) !important;
+  border-color:var(--primary) !important;
+  color:var(--text-strong) !important;
+  box-shadow:0 0 0 3px var(--focus-ring) !important;
+}
+html.triplem-workspace-themed #app :is(.badge,.chip,.tag,.pill,.settings-pill){
+  background:var(--tag-bg) !important;
+  border-color:var(--tag-border) !important;
+  color:var(--tag-text) !important;
+}
+html.triplem-workspace-themed #app :is(.badge.green,.badge.success,.chip.success,.tag.success){
+  background:var(--success-soft) !important;
+  border-color:var(--success) !important;
+  color:var(--success) !important;
+}
+html.triplem-workspace-themed #app :is(.badge.orange,.badge.warning,.chip.warning,.tag.warning){
+  background:var(--warning-soft) !important;
+  border-color:var(--warning) !important;
+  color:var(--warning) !important;
+}
+html.triplem-workspace-themed #app :is(.badge.red,.badge.danger,.chip.danger,.tag.danger){
+  background:var(--danger-soft) !important;
+  border-color:var(--danger) !important;
+  color:var(--danger) !important;
+}
+
+/* Tables and lists remain readable against the current glass surface. */
+html.triplem-workspace-themed #app :is(table,thead,tbody,tr,th,td){
+  border-color:var(--line) !important;
+  color:var(--text) !important;
+}
+html.triplem-workspace-themed #app :is(thead,th){
+  background:var(--surface-soft) !important;
+  color:var(--text-strong) !important;
+}
+html.triplem-workspace-themed #app tr:hover td{
+  background:var(--surface-hover) !important;
+}
+
+/* Secondary and muted text. */
+html.triplem-workspace-themed :is(#app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay) :is(
+  .help,.muted,small,.form-help,.field-help,.dashboard-hero-meta,.loan-sub
+){
+  color:var(--muted) !important;
+}
+html.triplem-workspace-themed :is(#app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay) :is(
+  h1,h2,h3,h4,h5,h6,strong,.title,.modal-title
+){
+  color:var(--text-strong);
+}
+
+/* Asset pre-chart loading state: shared semantic loader, not an ad-hoc empty card. */
+html.triplem-workspace-themed #assetDetailModal .asset-detail-loading{
+  min-height:132px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:10px;
+  padding:22px;
+  border:1px solid var(--glass-border);
+  border-radius:16px;
+  background:var(--loader-surface);
+  color:var(--text);
+  box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+html.triplem-workspace-themed #assetDetailModal .asset-detail-loading i{
+  color:var(--loader-spinner) !important;
+  text-shadow:var(--theme-glow-shadow);
+}
+html.triplem-workspace-themed #assetDetailModal .asset-detail-loading span{
+  color:var(--muted) !important;
+}
+
+/* Global record loader uses the same semantic loader tokens. */
+html.triplem-workspace-themed .app-data-loading{
+  background:var(--loader-backdrop) !important;
+  color:var(--text) !important;
+  backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
+}
+html.triplem-workspace-themed .app-data-loading-card{
+  background:var(--loader-surface) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow-strong),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+html.triplem-workspace-themed .app-data-loading-orbit{
+  border-color:color-mix(in srgb,var(--loader-spinner) 24%,transparent) !important;
+  border-top-color:var(--loader-spinner) !important;
+  border-right-color:var(--loader-spinner) !important;
+}
+html.triplem-workspace-themed .app-data-loading-core{
+  background:var(--surface-elevated) !important;
+  border-color:var(--line) !important;
+  color:var(--loader-spinner) !important;
+  box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight) !important;
+}
+html.triplem-workspace-themed .app-data-loading-dot{
+  background:var(--loader-spinner) !important;
+  box-shadow:var(--theme-glow-shadow) !important;
+}
+html.triplem-workspace-themed .app-data-loading-track{
+  background:var(--loader-track) !important;
+}
+html.triplem-workspace-themed .app-data-loading-track span{
+  background:var(--primary-gradient) !important;
+}
+
+/* Chart shells and canvas surroundings use theme surfaces; Chart.js colors are supplied in JS. */
+html.triplem-workspace-themed #app :is(
+  .dashboard-chart-card,.section-details-chart-card,.asset-chart-card,.admin-storage-chart-card,
+  .chart-card,.chart-wrap,.chart-shell
+){
+  background:var(--card-bg) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+}
+
+/* Scrollbars */
+html.triplem-workspace-themed *{
+  scrollbar-color:var(--scrollbar-thumb) var(--scrollbar-track);
+}
+html.triplem-workspace-themed *::-webkit-scrollbar-track{
+  background:var(--scrollbar-track);
+}
+html.triplem-workspace-themed *::-webkit-scrollbar-thumb{
+  background:var(--scrollbar-thumb);
+  border-radius:999px;
+}
+
+/* Text selection uses semantic theme colors. */
+html.triplem-workspace-themed ::selection{
+  background:var(--primary);
+  color:var(--on-primary);
+}
+
+/* Theme switching should not leave animated old-color frames. */
+html.triplem-workspace-themed.triplem-theme-applying *,
+html.triplem-workspace-themed.triplem-theme-applying *::before,
+html.triplem-workspace-themed.triplem-theme-applying *::after{
+  transition-duration:0s !important;
+}
+
+/* Reduced motion keeps the visual system but removes nonessential motion. */
+@media (prefers-reduced-motion:reduce){
+  html.triplem-workspace-themed :is(
+    .app-data-loading-orbit,.app-data-loading-core,.app-data-loading-track span,.btn-loader
+  ){
+    animation-duration:2.8s !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Semantic fallback coverage                                                  */
+/* -------------------------------------------------------------------------- */
+/* Any future card or panel that follows the project naming convention inherits
+   the same theme contract automatically. This is intentionally palette-free. */
+html.triplem-workspace-themed #app :is(
+  [class$="-card"],[class*="-card "],[class$="-panel"],[class*="-panel "]
+),
+html.triplem-workspace-themed .landing-content-overlay.is-app-overlay :is(
+  [class$="-card"],[class*="-card "],[class$="-panel"],[class*="-panel "]
+),
+html.triplem-workspace-themed .modal :is(
+  [class$="-card"],[class*="-card "]
+){
+  background:var(--card-bg) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight) !important;
+}
+
+/* Body-mounted dialogs and sheets use one raised Liquid Glass treatment. */
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .modal [class$="-dialog"],.modal [class*="-dialog "],
+  .modal [class$="-sheet"],.modal [class*="-sheet "],
+  .account-recovery-dialog,.account-security-dialog,.account-security-mini-dialog,
+  .account-security-approval-dialog,.unified-recovery-dialog,.secret-pin-dialog,
+  .two-factor-dialog,.two-factor-management-dialog,.force-password-dialog,
+  .admin-modal-dialog,.admin-analytics-dialog,.admin-credentials-dialog,
+  .admin-password-recovery-dialog,.admin-user-details-dialog,.company-team-dialog,
+  .access-request-details-dialog,.btc-qr-scanner-dialog,.asset-detail-dialog,
+  .compact-entry-dialog,.inventory-category-builder-modal-dialog,
+  .inventory-add-items-dialog,.inventory-add-wizard-dialog,.inventory-customer-dialog,
+  .inventory-edit-item-dialog,.inventory-qty-prompt-dialog,.inventory-receipt-edit-dialog,
+  .inventory-sale-draft-dialog
+){
+  background:var(--modal-bg) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--text) !important;
+  box-shadow:var(--shadow-strong),inset 0 1px 0 var(--glass-highlight),var(--theme-glow-shadow) !important;
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+
+/* Standalone full-screen overlay roots receive the shared scrim. */
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .transfer-success-overlay,.guest-restriction-overlay,.fraud-alert-overlay,
+  .app-download-overlay,.account-recovery-modal,.two-factor-modal,.secret-pin-modal,
+  .reminder-alert-modal,.installment-plan-overlay
+){
+  background:var(--overlay-scrim) !important;
+  backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
+  -webkit-backdrop-filter:blur(var(--overlay-blur)) saturate(var(--glass-saturate)) !important;
+}
+
+/* Project-specific badge/chip/tag names inherit the semantic tag system. */
+html.triplem-workspace-themed #app :is(
+  [class$="-badge"],[class*="-badge "],[class$="-chip"],[class*="-chip "],
+  [class$="-tag"],[class*="-tag "]
+),
+html.triplem-workspace-themed .modal :is(
+  [class$="-badge"],[class*="-badge "],[class$="-chip"],[class*="-chip "],
+  [class$="-tag"],[class*="-tag "]
+){
+  border-color:var(--tag-border) !important;
+  color:var(--tag-text) !important;
+}
+
+/* Labels and supporting text never inherit a stale foreground from a prior theme. */
+html.triplem-workspace-themed :is(#app,.modal,.settings-sheet,.landing-content-overlay.is-app-overlay) :is(
+  label,.form-label,.filter-inline-label,.filter-block-label,.field-label
+){
+  color:var(--text) !important;
+}
+
+/* Every purpose-built loading surface uses the same loader token family. */
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .admin-themed-loading,.account-security-loading,.app-inline-loading,
+  .inventory-loading-hint,.note-reminder-existing-loading
+){
+  background:var(--loader-surface) !important;
+  border-color:var(--glass-border) !important;
+  color:var(--muted) !important;
+  box-shadow:var(--shadow-soft),inset 0 1px 0 var(--glass-highlight) !important;
+}
+html.triplem-workspace-themed body:has(#app:not(.hide)) :is(
+  .app-inline-loading-spinner,.admin-themed-loading .btn-loader,
+  .account-security-loading .btn-loader,.inventory-loading-hint .btn-loader,
+  .note-reminder-existing-loading .btn-loader
+){
+  color:var(--loader-spinner) !important;
+  border-color:var(--loader-track) !important;
+  border-top-color:var(--loader-spinner) !important;
+}
+
+/* Menu triggers remain transparent until interaction; their open menus are raised. */
+html.triplem-workspace-themed #app :is(.menu-trigger,.person-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn){
+  color:var(--text) !important;
+}
+html.triplem-workspace-themed #app :is(.menu-trigger,.person-menu-btn,.asset-card-menu-btn,.inventory-catalog-menu-btn):hover{
+  background:var(--control-hover) !important;
+  color:var(--text-strong) !important;
+}
+
+/* Theme swatches use registry metadata for fill and semantic tokens for depth. */
+html.triplem-workspace-themed #themeDropdown .theme-menu-swatch{
+  border-color:var(--line-strong) !important;
+  box-shadow:inset 0 1px 0 var(--glass-highlight),var(--shadow-soft) !important;
+}
