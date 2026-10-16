@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saved Rental Agreement | عقد إيجار</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body class="contract-view locked">
+<div id="bar" class="noprint">
+  <h1 id="contractHeading">Saved Rental Agreement</h1>
+  <button class="pri" id="printBtn" type="button">🖨 Print / Save PDF</button>
+  <button id="backBtn" type="button">← Back to Contracts</button>
+  <span class="sp"></span><span id="contractState">Admin access required</span>
+</div>
+<div id="sheets"></div>
+<div id="authGate">
+  <div class="auth-card">
+    <div class="auth-brand"><img src="assets/logo.png" alt="Company logo"><div><h2>Rental Management</h2><p>Admin access required to open this saved contract</p></div></div>
+    <form id="accessForm">
+      <label class="auth-field"><span>Admin Access Key</span><input id="accessKey" type="password" inputmode="numeric" autocomplete="current-password" maxlength="128" autofocus></label>
+      <div class="auth-actions"><button id="unlockBtn" type="submit">Unlock contract</button></div>
+      <div id="accessError" class="auth-error" aria-live="polite"></div>
+    </form>
+  </div>
+</div>
+<script src="script/config.js"></script>
+<script src="script/contract.js"></script>
+</body>
+</html>

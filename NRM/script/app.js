@@ -1,0 +1,167 @@
+(() => {
+'use strict';
+
+const CFG=window.NRM_CONFIG||{}; const $=id=>document.getElementById(id); const q=(s,r=document)=>[...r.querySelectorAll(s)];
+function validateSupabaseConfig(){ try { const ref=JSON.parse(atob(CFG.supabaseAnonKey.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).ref; const host=new URL(CFG.supabaseUrl).hostname; const expected=host.split('.')[0]; if(ref && expected && ref!==expected) throw new Error('Supabase URL/key project mismatch. URL project: '+expected+'; key project: '+ref+'.'); } catch(e){ if(e instanceof Error && /project mismatch/.test(e.message)) throw e; } }
+validateSupabaseConfig();
+const trim=v=>String(v??'').trim(); const num=v=>{const n=parseFloat(String(v??'').replace(/,/g,''));return Number.isFinite(n)?n:0};
+const r2=n=>Math.round((n+Number.EPSILON)*100)/100; const fmt=n=>num(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const STORAGE_KEY='nrm_secure_session_v2';
+const state={token:localStorage.getItem(STORAGE_KEY)||'',drivers:[],vehicles:[],contracts:[],vehicleMap:new Map(),driverMap:new Map(),currentVehicle:null,manualRate:false,pendingVehicleRows:null};
+const toast=msg=>{const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('on'),2400)};
+
+async function api(fn,payload={},options={}){
+ if(!CFG.supabaseUrl||!CFG.supabaseAnonKey)throw new Error('Supabase configuration is missing.');
+ let res;
+ const headers={'apikey':CFG.supabaseAnonKey,'Authorization':`Bearer ${CFG.supabaseAnonKey}`,'Content-Type':'application/json'};
+ if(options.range)headers.Range=options.range;
+ if(options.count)headers.Prefer='count=exact';
+ try{res=await fetch(`${CFG.supabaseUrl}/rest/v1/rpc/${fn}`,{method:'POST',headers,body:JSON.stringify(payload),cache:'no-store'});}
+ catch(err){throw new Error(`Cannot reach Supabase. Check your internet connection and confirm this project is accessible: ${CFG.supabaseUrl}`)}
+ let body=null;try{body=await res.json()}catch{}
+ if(!res.ok)throw new Error(body?.message||body?.hint||body?.details||`Request failed (${res.status})`);
+ return options.withMeta?{body,contentRange:res.headers.get('content-range')||''}:body;
+}
+function setDbState(text,ok=null){const el=$('dbState');el.textContent=text;el.classList.toggle('ok',ok===true);el.classList.toggle('bad',ok===false)}
+function setLocked(locked){document.body.classList.toggle('locked',locked);$('authGate').hidden=!locked}
+function showModal(id){$(id).classList.add('on');$(id).setAttribute('aria-hidden','false')}
+function hideModal(id){$(id).classList.remove('on');$(id).setAttribute('aria-hidden','true')}
+
+async function validateExistingSession(){
+ if(!state.token){setLocked(true);setDbState('Not connected',false);return false}
+ try{const r=await api('nrm_validate_session',{p_token:state.token});if(!r?.valid)throw new Error('Session no longer valid.');setLocked(false);setDbState('Connected',true);await loadAllData();return true}
+ catch(err){localStorage.removeItem(STORAGE_KEY);state.token='';setLocked(true);setDbState('Login required',false);$('loginError').textContent='Please unlock the app. '+(err.message||'');return false}
+}
+async function login(key){$('loginError').textContent='';$('loginBtn').disabled=true;$('loginBtn').textContent='Unlocking…';try{const r=await api('nrm_login',{p_key:key});if(!r?.ok||!r?.token)throw new Error(r?.message||'Invalid access key.');state.token=r.token;localStorage.setItem(STORAGE_KEY,state.token);setLocked(false);setDbState('Connected',true);$('loginKey').value='';await loadAllData();$('name').focus()}catch(err){$('loginError').textContent=err.message||'Could not unlock.'}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Unlock'}}
+async function logoutApp(){if(!state.token)return;try{await api('nrm_logout',{p_token:state.token})}catch{}localStorage.removeItem(STORAGE_KEY);state.token='';state.drivers=[];state.vehicles=[];state.contracts=[];state.vehicleMap.clear();state.driverMap.clear();setLocked(true);setDbState('Logged out',false);$('loginKey').focus();toast('Logged out.')}
+
+function cacheDrivers(items){state.drivers=Array.isArray(items)?items:[];state.driverMap=new Map(state.drivers.map(d=>[String(d.id),d]))}
+async function loadDrivers(){const data=await api('nrm_get_drivers',{p_token:state.token});cacheDrivers(data);refreshDriverList();return data}
+function cacheOrReplaceDriver(d){const i=state.drivers.findIndex(x=>x.id===d.id);if(i>=0)state.drivers[i]=d;else state.drivers.push(d);state.driverMap.set(String(d.id),d);refreshDriverList()}
+function driverFromContractForm(){return{id:$('name').dataset.driverId||null,name:trim($('name').value),gender:trim($('gender').value),nationality:trim($('nat').value),dob:trim($('dob').value),residence:(state.driverMap.get($('name').dataset.driverId)?.residence)||'',mobile:trim($('phone').value),email:trim($('email').value),eid:trim($('eid').value),eidIssue:trim($('eidi').value),eidExpiry:trim($('eide').value),license:trim($('lic').value),licIssue:trim($('lici').value),licExpiry:trim($('lice').value),licPlace:trim($('licp').value),address:trim($('address').value)}}
+async function saveCurrentDriver(){const payload=driverFromContractForm();if(!payload.name){toast('Enter a driver name first.');$('name').focus();return}try{const d=await api('nrm_upsert_driver',{p_token:state.token,p_driver:payload});cacheOrReplaceDriver(d);$('name').dataset.driverId=d.id;$('name').dataset.driverName=d.name;toast('Driver saved ✔')}catch(err){toast(err.message||'Could not save driver.')}}
+function fillDriver(d){if(!d)return;$('name').value=d.name||'';$('name').dataset.driverId=d.id||'';$('name').dataset.driverName=d.name||'';$('email').value=d.email||'';$('phone').value=d.mobile||'';$('address').value=d.address||'';$('gender').value=d.gender||'';$('nat').value=d.nationality||'';$('dob').value=d.dob||'';$('eid').value=d.eid||'';$('eidi').value=d.eidIssue||'';$('eide').value=d.eidExpiry||'';$('lic').value=d.license||'';$('lici').value=d.licIssue||'';$('lice').value=d.licExpiry||'';$('licp').value=d.licPlace||'';syncHirer()}
+function openDriverManager(d=null){refreshDriverList();if(d)loadDriverIntoModal(d);else if(!$('dm_id').value)newDriverRecord();showModal('driverModal');$('driverSearch').focus()}
+function closeDriverManager(){hideModal('driverModal')}
+function newDriverRecord(){$('driverForm').reset();$('dm_id').value='';$('dm_name').focus()}
+function loadDriverIntoModal(d){const map={dm_id:'id',dm_name:'name',dm_gender:'gender',dm_nationality:'nationality',dm_residence:'residence',dm_dob:'dob',dm_mobile:'mobile',dm_email:'email',dm_eid:'eid',dm_eidIssue:'eidIssue',dm_eidExpiry:'eidExpiry',dm_license:'license',dm_licIssue:'licIssue',dm_licExpiry:'licExpiry',dm_licPlace:'licPlace',dm_address:'address'};for(const [id,k] of Object.entries(map))$(id).value=d[k]||''}
+function modalDriverPayload(){return{id:trim($('dm_id').value)||null,name:trim($('dm_name').value),gender:trim($('dm_gender').value),nationality:trim($('dm_nationality').value),residence:trim($('dm_residence').value),dob:trim($('dm_dob').value),mobile:trim($('dm_mobile').value),email:trim($('dm_email').value),eid:trim($('dm_eid').value),eidIssue:trim($('dm_eidIssue').value),eidExpiry:trim($('dm_eidExpiry').value),license:trim($('dm_license').value),licIssue:trim($('dm_licIssue').value),licExpiry:trim($('dm_licExpiry').value),licPlace:trim($('dm_licPlace').value),address:trim($('dm_address').value)}}
+async function saveDriverModal(){const payload=modalDriverPayload();if(!payload.name){toast('Driver name is required.');return}try{const d=await api('nrm_upsert_driver',{p_token:state.token,p_driver:payload});cacheOrReplaceDriver(d);loadDriverIntoModal(d);fillDriver(d);toast('Driver saved ✔')}catch(err){toast(err.message||'Could not save driver.')}}
+function refreshDriverList(){const list=$('driverList');if(!list)return;const term=trim($('driverSearch')?.value).toUpperCase();list.replaceChildren();const items=state.drivers.filter(d=>!term||`${d.name} ${d.mobile||''} ${d.license||''}`.toUpperCase().includes(term)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));if(!items.length){const em=document.createElement('div');em.className='driver-item';em.textContent='No drivers found.';list.appendChild(em);return}for(const d of items){const item=document.createElement('div');item.className='driver-item';item.dataset.id=d.id;const b=document.createElement('b');b.textContent=d.name||'';const s=document.createElement('small');s.textContent=`${d.mobile||''}${d.license?' · License '+d.license:''}`;item.append(b,s);item.addEventListener('click',()=>{loadDriverIntoModal(d);refreshDriverList();[...list.children].forEach(x=>x.classList.toggle('on',x.dataset.id===String(d.id)))});list.appendChild(item)}}
+function syncHirer(){$('hname').value=$('name').value;$('signame').textContent=$('name').value;$('hmob').value=$('hwa').value=$('phone').value;$('hemail').value=$('email').value;$('haddr').value=$('address').value;autosize();checkExp()}
+$('name').addEventListener('input',()=>{syncHirer();const v=trim($('name').value),old=$('name').dataset.driverName||'';if(!old||old.toUpperCase()!==v.toUpperCase())$('name').dataset.driverId='';$('name').dataset.driverName=v});['phone','email','address'].forEach(id=>$(id).addEventListener('input',syncHirer));
+
+function combo(input,getItems,pick){const dd=document.createElement('div');dd.className='dd';input.closest('label').appendChild(dd);let items=[],act=-1;const render=()=>{dd.replaceChildren();if(!items.length){const em=document.createElement('div');em.className='em';em.textContent='No match – you can keep typing a new entry';dd.appendChild(em)}else items.forEach((it,i)=>{const row=document.createElement('div');row.dataset.i=String(i);row.className=i===act?'a':'';const left=document.createElement('span');left.textContent=it.main;const right=document.createElement('small');right.textContent=it.sub||'';row.append(left,right);dd.appendChild(row)});dd.classList.add('on')};const show=()=>{items=getItems(input.value);act=items.length?0:-1;render()};const hide=()=>dd.classList.remove('on');const mark=()=>q('div[data-i]',dd).forEach((d,i)=>d.classList.toggle('a',i===act));input.addEventListener('focus',()=>{input.select();show()});input.addEventListener('input',show);input.addEventListener('blur',()=>setTimeout(()=>{hide();if(input.dataset.role==='name'||input.dataset.role==='plate')input.dispatchEvent(new Event('commit'))},130));input.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){act=Math.min(items.length-1,act+1);mark();e.preventDefault();q('.a',dd)[0]?.scrollIntoView({block:'nearest'})}else if(e.key==='ArrowUp'){act=Math.max(0,act-1);mark();e.preventDefault();q('.a',dd)[0]?.scrollIntoView({block:'nearest'})}else if(e.key==='Enter'||e.key==='Tab'){if(dd.classList.contains('on')&&items[act]&&e.key==='Enter'){pick(items[act].data);hide();e.preventDefault()}}else if(e.key==='Escape')hide()});dd.addEventListener('mousedown',e=>{e.preventDefault();const d=e.target.closest('div[data-i]');if(d){pick(items[Number(d.dataset.i)].data);hide();input.blur()}})}
+combo($('name'),v=>{const t=trim(v).toUpperCase();return state.drivers.filter(d=>!t||`${d.name} ${d.mobile||''} ${d.eid||''} ${d.license||''}`.toUpperCase().includes(t)).slice(0,60).map(d=>({main:d.name,sub:d.mobile||d.license||'',data:d}))},fillDriver);
+$('name').addEventListener('commit',()=>{const t=trim($('name').value).toUpperCase();const d=state.drivers.find(x=>String(x.name).trim().toUpperCase()===t);if(d)fillDriver(d);$('name').dataset.driverName=$('name').value});
+
+const normalizeReg=v=>trim(v).replace(/\s+/g,'').toUpperCase();
+function cacheVehicles(items){state.vehicles=Array.isArray(items)?items:[];state.vehicleMap=new Map(state.vehicles.map(v=>[normalizeReg(v.reg),v]))}
+async function loadVehicles(){
+ const data=await api('nrm_get_all_vehicles',{p_token:state.token});
+ const all=Array.isArray(data)?data:(Array.isArray(data?.vehicles)?data.vehicles:[]);
+ cacheVehicles(all);
+ return all;
+}
+function findVeh(r){return state.vehicleMap.get(normalizeReg(r))||null}
+combo($('plate'),v=>{const toks=trim(v).toUpperCase().split(/\s+/).filter(Boolean);const matches=state.vehicles.filter(x=>{const hay=`${x.reg||''} ${x.car_display||''} ${x.year||''} ${x.type_name||''} ${x.location||''}`.toUpperCase();return toks.every(t=>hay.includes(t))});const exact=normalizeReg(v);const ordered=exact?matches.sort((a,b)=>Number(normalizeReg(a.reg)!==exact)-Number(normalizeReg(b.reg)!==exact)):matches;return ordered.slice(0,80).map(x=>({main:`${x.reg||''} · ${x.car_display||''}${x.year?' '+x.year:''}`,sub:`${x.type_name||''}${x.location?' · '+x.location:''}`,data:x}))},fillVehicle);
+$('plate').addEventListener('commit',()=>{const v=findVeh($('plate').value);if(v&&v!==state.currentVehicle)fillVehicle(v)});
+function fillVehicle(v){state.currentVehicle=v;state.manualRate=false;$('plate').value=v.reg||'';$('car').value=v.car_display||'';$('vtype').value=v.type_name||'';$('color').value=v.color||'';$('chassis').value=v.chassis_no||'';$('salik').value=v.salik_tag||'';$('kmo').value=v.mileage??'';$('fuelo').value=v.fuel_level||'';$('loc').value=v.location||'Dubai';updateRate()}
+function updateRate(){const d=num($('days').value),info=$('rinfo');if(!state.currentVehicle){info.textContent='';recalc();return}const r=state.currentVehicle;info.textContent=`Daily ${r.daily_rate??'-'} · Weekly ${r.weekly_rate??'-'} · Monthly ${r.monthly_rate??'-'} (per day)`;let p=$('plan').value;if(p==='auto')p=d>=30?'M':d>=7?'W':'D';const rate=p==='D'?r.daily_rate:p==='W'?r.weekly_rate:p==='M'?r.monthly_rate:null;if(!state.manualRate&&rate!==null&&rate!==undefined&&rate!=='')$('pr1').value=rate;recalc()}
+$('plan').addEventListener('change',()=>{state.manualRate=false;updateRate()});$('pr1').addEventListener('input',()=>{state.manualRate=true;recalc()});q('input.hp').forEach(i=>i.addEventListener('change',()=>{const v=findVeh(i.value),km=i.closest('tr').querySelector('[data-h=kmout]');if(v){i.value=v.reg;if(!km.value)km.value=v.mileage??''}}));
+
+const pad=n=>String(n).padStart(2,'0');const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;let lastDays=1;
+function setMoneyDefaults(){['pr1','pr2','pr3','pr4','pa2','pa3','pa4','dep','exc','waiv'].forEach(id=>$(id).value='0.00');$('pa1').value='0.00';recalc()}
+function setNowDefaults(){const n=new Date();n.setSeconds(0,0);$('outdt').value=iso(n);$('retdt').value=iso(new Date(n.getTime()+864e5));$('days').value=1;lastDays=1;setMoneyDefaults()}
+function calcDays(){const a=new Date($('outdt').value),b=new Date($('retdt').value);if(isNaN(a)||isNaN(b))return;const d=r2((b-a)/864e5);$('days').value=d;lastDays=d;updateRate();checkExp()}
+$('retdt').addEventListener('input',calcDays);$('outdt').addEventListener('input',()=>{const a=new Date($('outdt').value);if(isNaN(a))return;$('retdt').value=iso(new Date(a.getTime()+lastDays*864e5));calcDays()});$('days').addEventListener('input',()=>{const d=num($('days').value);lastDays=d;const a=new Date($('outdt').value);if(!isNaN(a))$('retdt').value=iso(new Date(a.getTime()+d*864e5));updateRate();checkExp()});
+function recalc(){const a1=r2(num($('days').value)*num($('pr1').value));$('pa1').value=fmt(a1);const t=a1+num($('pa2').value)+num($('pa3').value)+num($('pa4').value)+num($('dep').value)+num($('waiv').value);$('total').textContent=fmt(t)}
+['pa2','pa3','pa4','dep','waiv','exc'].forEach(id=>$(id).addEventListener('input',recalc));['pa2','pa3','pa4','dep','waiv','exc','pa1'].forEach(id=>$(id).addEventListener('blur',()=>{const e=$(id);if(e.value!==''&&!isNaN(num(e.value)))e.value=fmt(num(e.value))}));
+function autosize(){q('textarea').forEach(t=>{t.style.height='auto';t.style.height=Math.max(t.scrollHeight,16)+'px'})}q('textarea').forEach(t=>t.addEventListener('input',autosize));
+q('[data-c=dob],[data-c=eidIssue],[data-c=eidExpiry],[data-c=licIssue],[data-c=licExpiry]').forEach(e=>{e.placeholder='dd-mm-yyyy';e.addEventListener('blur',()=>{let v=e.value.trim();if(!v)return;const d=v.replace(/\D/g,'');if(/^\d{8}$/.test(d)&&!/[\-\/.]/.test(v))e.value=`${d.slice(0,2)}-${d.slice(2,4)}-${d.slice(4)}`;else e.value=v.replace(/[\/\.]/g,'-');checkExp()});e.addEventListener('input',checkExp)});
+function pd(s){const m=/^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec((s||'').trim());return m?new Date(+m[3],+m[2]-1,+m[1],23,59):null}
+function checkExp(){const today=new Date(),ret=new Date($('retdt').value);q('label.exp').forEach(l=>{const d=pd(l.querySelector('input').value);l.classList.remove('bad','warn');if(!d)return;if(d<today)l.classList.add('bad');else if(!isNaN(ret)&&d<ret)l.classList.add('warn')})}
+function setCno(n){if($('cno'))$('cno').value=n}
+async function loadSavedContractNo(){const r=await api('nrm_get_contract_no',{p_token:state.token});const saved=Number(r?.contract_no??5846);setCno(r?.has_saved? saved+1 : saved)}
+function collectContractSnapshot(){
+ const fields={};
+ q('.page [id]').forEach(el=>{if('value' in el)fields[el.id]=el.value;else fields[el.id]=el.textContent||''});
+ const history={};
+ q('.page [data-h]').forEach(el=>{const key=el.dataset.h;(history[key]||(history[key]=[])).push(el.value||'')});
+ return {version:1,fields,history};
+}
+async function saveContractNo(){
+ const raw=trim($('cno').value);
+ if(!/^\d+$/.test(raw)){toast('Enter a valid whole contract number.');$('cno').focus();return}
+ const btn=$('saveCnoBtn');btn.disabled=true;btn.textContent='Saving…';
+ try{
+  const snapshot=collectContractSnapshot();
+  const r=await api('nrm_save_contract',{p_token:state.token,p_contract_no:Number(raw),p_contract_snapshot:snapshot});
+  if(!r?.ok||!r?.id)throw new Error(r?.message||'Could not save the contract. Run sql/migration_existing_contracts.sql in Supabase first.');
+  setCno(r.contract_no);loadExistingContracts().catch(()=>{});toast('Contract saved ✔');
+ }catch(err){const message=err.message||'Could not save the contract.';toast(/nrm_save_contract|schema cache|function .* does not exist/i.test(message)?'Run sql/migration_existing_contracts.sql in Supabase first.':message)}finally{btn.disabled=false;btn.textContent='Save'}
+}
+$('cno').addEventListener('input',()=>{});
+async function newContract(){if(!confirm('Start a new contract? All contract fields will be cleared and the contract number will go up by 1.'))return;let next;try{const r=await api('nrm_get_contract_no',{p_token:state.token});next=Number(r?.contract_no??5846)+1}catch(err){toast(err.message||'Could not load saved contract number.');return}q('.page input:not(#cno):not(#cno2),.page textarea').forEach(e=>e.value='');state.currentVehicle=null;state.manualRate=false;$('plan').value='auto';$('rinfo').textContent='';$('total').textContent='0.00';$('signame').textContent='';$('name').dataset.driverId='';$('name').dataset.driverName='';$('pt1').value='Rental charges';setNowDefaults();setCno(next);autosize();checkExp();$('name').focus()}
+
+function parseDelimited(text,delimiter='\t'){const out=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const ch=text[i],next=text[i+1];if(quoted){if(ch==='"'&&next==='"'){field+='"';i++}else if(ch==='"')quoted=false;else field+=ch}else{if(ch==='"')quoted=true;else if(ch===delimiter){row.push(field);field=''}else if(ch==='\n'){row.push(field);out.push(row);row=[];field=''}else if(ch!=='\r')field+=ch}}row.push(field);if(row.some(v=>trim(v)!==''))out.push(row);return out}
+const hnorm=h=>trim(h).toLowerCase().replace(/[^a-z0-9]+/g,'');const parseNumeric=v=>{const s=trim(v).replace(/,/g,'');return s===''?null:(Number.isFinite(Number(s))?Number(s):null)};
+function normalizeDate(v){const s=trim(v);if(!s)return null;if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(s);return m?`${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`:null}
+function mapVehicleRows(rawRows){if(rawRows.length<2)throw new Error('The file does not contain vehicle rows.');const headers=rawRows[0].map(h=>trim(h)),keys=headers.map(h=>hnorm(h)),idx=Object.fromEntries(keys.map((k,i)=>[k,i])),required=['plate','registration','makename','typename','brandname','modelname','currentstatus'],missing=required.filter(k=>idx[k]===undefined);if(missing.length)throw new Error('Required columns are missing: '+missing.join(', '));const raw=rawRows.slice(1).map((values,rowIndex)=>{const o={};headers.forEach((h,i)=>o[h]=trim(values[i]??''));o.__source_row=rowIndex+2;return o}).filter(r=>Object.entries(r).some(([k,v])=>k!=='__source_row'&&v!==''));const seenRegs=new Set();let repeatedRegistrations=0;const rows=[];for(const r of raw){const get=k=>r[headers[idx[k]]]??'',prefix=trim(get('registration')).replace(/\s+/g,''),plate=trim(get('plate')).replace(/\s+/g,''),reg=(prefix+plate).toUpperCase();if(!reg)continue;if(seenRegs.has(reg))repeatedRegistrations++;seenRegs.add(reg);const make=trim(get('makename')),brand=trim(get('brandname')),model=trim(get('modelname'));const sourceJson={...r};delete sourceJson.__source_row;sourceJson._source_row=r.__source_row;rows.push({reg,plate_number:plate,registration_prefix:prefix,salik_tag:trim(get('saliktag')),make_name:make,type_name:trim(get('typename')),brand_name:brand,model_name:model,year:/^\d{4}$/.test(model)?model:'',registration_expiry:normalizeDate(get('registrationexpiry')),insurance_expiry:normalizeDate(get('insuranceexpiry')),location:trim(get('location')),traffic_id:trim(get('trafficid')),engine_no:trim(get('enginno')),car_purchase_price:parseNumeric(get('carpurchaseprice')),chassis_no:trim(get('chassisno')),seats:trim(get('noseats')),luggage:trim(get('luggage')),transmission:trim(get('transmission')),vendor_name:trim(get('vendorname')),daily_rate:parseNumeric(get('dailyrate')),weekly_rate:parseNumeric(get('weeklyrate')),monthly_rate:parseNumeric(get('monthlyrate')),yearly_rate:parseNumeric(get('yearlyrate')),status:trim(get('currentstatus')),color:'',fuel_level:'',mileage:null,source_json:sourceJson});}return{rows,rawCount:raw.length,duplicateCount:repeatedRegistrations,mappedCount:keys.filter(k=>['vendorid','currentstatus','plate','registration','saliktag','makename','typename','brandname','modelname','registrationexpiry','insuranceexpiry','location','trafficid','enginno','carpurchaseprice','chassisno','noseats','luggage','transmission','vendorname','dailyrate','weeklyrate','monthlyrate','yearlyrate'].includes(k)).length}}
+async function previewVehicleFile(file){const text=await file.text(),delimiter=text.slice(0,1500).includes('\t')?'\t':',';const parsed=mapVehicleRows(parseDelimited(text,delimiter));state.pendingVehicleRows=parsed.rows;$('vehicleFileName').textContent=file.name;$('importSummary').hidden=false;$('impRows').textContent=parsed.rawCount;$('impUnique').textContent=parsed.rows.length;$('impDupes').textContent=parsed.duplicateCount;$('impMapped').textContent=parsed.mappedCount;$('importVehiclesBtn').disabled=false;$('importError').textContent=''}
+async function importVehiclesToDb(){if(!state.pendingVehicleRows?.length){toast('Choose a vehicle file first.');return}const btn=$('importVehiclesBtn');btn.disabled=true;btn.textContent='Importing…';$('importError').textContent='';try{const r=await api('nrm_import_vehicles',{p_token:state.token,p_rows:state.pendingVehicleRows,p_replace:$('replaceVehicles').checked});await loadVehicles();closeVehicleImport();toast(`Vehicles imported ✔ (${r?.imported??state.pendingVehicleRows.length})`)}catch(err){$('importError').textContent=err.message||'Vehicle import failed.'}finally{btn.disabled=false;btn.textContent='Import vehicles'}}
+function openVehicleImport(){state.pendingVehicleRows=null;$('vehicleFile').value='';$('vehicleFileName').textContent='Choose vehicles.xls';$('importSummary').hidden=true;$('importError').textContent='';$('importVehiclesBtn').disabled=true;showModal('vehicleModal')}function closeVehicleImport(){hideModal('vehicleModal')}
+$('vehicleFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;$('importError').textContent='';try{await previewVehicleFile(file)}catch(err){state.pendingVehicleRows=null;$('importVehiclesBtn').disabled=true;$('importSummary').hidden=true;$('importError').textContent=err.message||'Could not read this file.'}});
+
+function openKeyModal(){$('keyForm').reset();$('keyError').textContent='';showModal('keyModal');$('oldKey').focus()}function closeKeyModal(){hideModal('keyModal')}
+async function changeKey(){const oldKey=$('oldKey').value,newKey=$('newKey').value,newKey2=$('newKey2').value;$('keyError').textContent='';if(!oldKey||!newKey){$('keyError').textContent='All key fields are required.';return}if(newKey!==newKey2){$('keyError').textContent='New key confirmation does not match.';return}if(newKey.length<6){$('keyError').textContent='New key must be at least 6 characters.';return}try{const r=await api('nrm_change_key',{p_token:state.token,p_current_key:oldKey,p_new_key:newKey});if(!r?.ok)throw new Error(r?.message||'Could not change key.');closeKeyModal();toast('Access key changed ✔')}catch(err){$('keyError').textContent=err.message||'Could not change key.'}}
+
+function displayContractDate(value,fallback){
+ const s=trim(value)||trim(fallback);if(!s)return '—';
+ const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s);
+ if(m)return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+ const d=new Date(s);return Number.isNaN(d.getTime())?s:d.toLocaleString();
+}
+function renderExistingContracts(){
+ const body=$('contractsTableBody');if(!body)return;body.replaceChildren();
+ if(!state.contracts.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.className='empty-row';td.textContent='No saved contracts yet. Save a completed contract to see it here.';tr.appendChild(td);body.appendChild(tr);return}
+ for(const c of state.contracts){
+  const tr=document.createElement('tr');tr.tabIndex=0;tr.title='Open saved contract in a new tab';
+  const values=[c.contract_no??'',c.customer_name||'—',c.vehicle_label||'—',displayContractDate(c.contract_datetime,c.updated_at)];
+  values.forEach((v,i)=>{const td=document.createElement('td');if(i===0){const link=document.createElement('span');link.className='contract-open-link';link.textContent=String(v);td.appendChild(link)}else td.textContent=String(v);tr.appendChild(td)});
+  const open=()=>{if(!c.id){toast('This contract record has no link ID.');return}window.open(`contract.html?id=${encodeURIComponent(c.id)}`,'_blank','noopener');};
+  tr.addEventListener('click',open);tr.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});body.appendChild(tr);
+ }
+}
+async function loadExistingContracts(){
+ const status=$('contractsStatus');if(status)status.textContent='Loading saved contracts…';
+ try{const data=await api('nrm_list_contracts',{p_token:state.token});state.contracts=Array.isArray(data)?data:[];renderExistingContracts();if(status)status.textContent=`${state.contracts.length} saved contract${state.contracts.length===1?'':'s'}.`;return state.contracts}
+ catch(err){state.contracts=[];renderExistingContracts();const empty=$('contractsTableBody')?.querySelector('.empty-row');if(empty)empty.textContent='Saved contract list is unavailable until the new database migration is applied.';if(status)status.textContent=(err.message||'Could not load saved contracts.')+' — Run sql/migration_existing_contracts.sql in Supabase.';throw err}
+}
+function showContractTab(which){const existing=which==='existing';$('makeTab').classList.toggle('active',!existing);$('existingTab').classList.toggle('active',existing);$('makeTab').setAttribute('aria-selected',String(!existing));$('existingTab').setAttribute('aria-selected',String(existing));$('contractView').hidden=existing;$('existingContractsView').hidden=!existing;if(existing)loadExistingContracts().catch(()=>{});else fit()}
+async function loadAllData(){setDbState('Loading…',null);try{await Promise.all([loadDrivers(),loadVehicles(),loadSavedContractNo()]);setDbState(`Connected · ${state.drivers.length} drivers · ${state.vehicles.length} vehicles`,true);if(!state.vehicles.length)toast('No vehicles found. Use Vehicle data → Import vehicles.');loadExistingContracts().catch(()=>{});if(new URLSearchParams(location.search).get('view')==='existing')showContractTab('existing');}catch(err){setDbState('Database error',false);toast(err.message||'Could not load database data.')}}
+function fit(){const need=210*3.7795+30,w=innerWidth;$('sheets').style.zoom=w<need?(w/need):1}addEventListener('resize',fit);
+
+$('loginForm').addEventListener('submit',e=>{e.preventDefault();login($('loginKey').value)});
+$('driverSearch').addEventListener('input',refreshDriverList);
+$('driverForm').addEventListener('submit',e=>{e.preventDefault();saveDriverModal()});
+$('keyForm').addEventListener('submit',e=>{e.preventDefault();changeKey()});
+$('printBtn').addEventListener('click',()=>window.print());
+$('makeTab').addEventListener('click',()=>showContractTab('form'));$('existingTab').addEventListener('click',()=>showContractTab('existing'));$('refreshContractsBtn').addEventListener('click',()=>loadExistingContracts().catch(()=>{}));
+$('newContractBtn').addEventListener('click',newContract);
+$('saveCnoBtn').addEventListener('click',saveContractNo);
+$('saveDriverBtn').addEventListener('click',saveCurrentDriver);
+$('driversBtn').addEventListener('click',()=>openDriverManager());
+$('vehiclesBtn').addEventListener('click',openVehicleImport);
+$('changeKeyBtn').addEventListener('click',openKeyModal);
+$('logoutBtn').addEventListener('click',logoutApp);
+$('closeDriverModalBtn').addEventListener('click',closeDriverManager);
+$('newDriverBtn').addEventListener('click',newDriverRecord);
+$('closeVehicleModalBtn').addEventListener('click',closeVehicleImport);
+$('cancelVehicleBtn').addEventListener('click',closeVehicleImport);
+$('importVehiclesBtn').addEventListener('click',importVehiclesToDb);
+$('closeKeyModalBtn').addEventListener('click',closeKeyModal);
+$('cancelKeyBtn').addEventListener('click',closeKeyModal);
+
+$('pt1').value='Rental charges';setCno('5846');setNowDefaults();recalc();autosize();checkExp();fit();setLocked(true);validateExistingSession();
+})();

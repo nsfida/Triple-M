@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rental Agreement | عقد إيجار</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div id="bar" class="noprint"><h1>🚗 Rental Agreement</h1><button class="pri" id="printBtn" type="button">🖨 Print / Save PDF</button><button id="newContractBtn" type="button">➕ New contract</button><button id="saveDriverBtn" type="button">💾 Save driver</button><button id="driversBtn" type="button">👤 Drivers</button><button id="vehiclesBtn" type="button">🚘 Vehicle data</button><button id="changeKeyBtn" type="button">🔑 Change key</button><button id="logoutBtn" type="button">↪ Logout</button><span class="sp"></span><span id="dbState">Connecting…</span></div><div id="toast"></div>
+
+<nav id="viewTabs" class="view-tabs noprint" aria-label="Contract views">
+<button id="makeTab" type="button" class="active" aria-selected="true">Contract Form</button>
+<button id="existingTab" type="button" aria-selected="false">Existing Contracts</button>
+</nav>
+<div id="contractView">
+<div id="sheets">
+<!-- ======================= PAGE 1 ======================= -->
+<section class="page">
+ <div class="hd">
+  <div class="brand"><img class="brand-logo" src="assets/logo.png" alt="Company logo"><div class="co">PREMIUM CAR RENTALS<small>Vehicle Rental Agreement</small></div></div>
+  <div class="ttl"><span>عقد إيجار سيارة</span><span>Rental Agreement</span></div>
+  <div class="cn">Contract No.<input id="cno" inputmode="numeric"><button id="saveCnoBtn" type="button" class="noprint">Save</button></div>
+ </div>
+
+ <div class="cols">
+  <!-- LEFT -->
+  <div>
+   <div class="blk">
+    <div class="sh"><span>Billing Information</span><span lang="ar" dir="rtl">معلومات الفوترة</span></div>
+    <div class="g"><label class="f full"><span class="l"><b>Name</b><i lang="ar" dir="rtl">الاسم</i></span><input id="name" type="text" placeholder="Type or pick customer…" autocomplete="off" data-role="name"></label>
+<label class="f half"><span class="l"><b>E-mail</b><i lang="ar" dir="rtl">البريد الالكترونى</i></span><input id="email" type="text" data-c="email" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Phone</b><i lang="ar" dir="rtl">هاتف</i></span><input id="phone" type="text" data-c="mobile" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>TRN No.</b><i lang="ar" dir="rtl">رقم التسجيل الضريبي</i></span><input id="trn" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Trade License No.</b><i lang="ar" dir="rtl">الرخصة التجارية</i></span><input id="tl" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f full"><span class="l"><b>Address</b><i lang="ar" dir="rtl">عنوان السكن</i></span><textarea id="address" rows="1" data-c="address" placeholder="" ></textarea></label></div>
+   </div>
+   <div class="blk">
+    <div class="sh"><span>Hirer Information</span><span lang="ar" dir="rtl">معلومات المستأجر</span></div>
+    <div class="g"><label class="f full"><span class="l"><b>Name</b><i lang="ar" dir="rtl">الاسم</i></span><input id="hname" type="text" placeholder="" autocomplete="off" readonly ></label>
+<label class="f half"><span class="l"><b>Gender</b><i lang="ar" dir="rtl">جنس</i></span><input id="gender" type="text" data-c="gender" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Nationality</b><i lang="ar" dir="rtl">جنسية</i></span><input id="nat" type="text" data-c="nationality" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Date of Birth</b><i lang="ar" dir="rtl">تاريخ الولادة</i></span><input id="dob" type="text" data-c="dob" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Emirates ID / Passport</b><i lang="ar" dir="rtl">رقم الهوية / جواز السفر</i></span><input id="eid" type="text" data-c="eid" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Issue Date</b><i lang="ar" dir="rtl">تاريخ الإصدار</i></span><input id="eidi" type="text" data-c="eidIssue" placeholder="" autocomplete="off" ></label>
+<label class="f half exp"><span class="l"><b>Expiry Date</b><i lang="ar" dir="rtl">تاريخ الانتهاء</i></span><input id="eide" type="text" data-c="eidExpiry" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Mobile No</b><i lang="ar" dir="rtl">هاتف</i></span><input id="hmob" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>WhatsApp No</b><i lang="ar" dir="rtl">رقم الجوال</i></span><input id="hwa" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f full"><span class="l"><b>E-mail</b><i lang="ar" dir="rtl">البريد الالكترونى</i></span><input id="hemail" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f full"><span class="l"><b>Address</b><i lang="ar" dir="rtl">عنوان السكن</i></span><textarea id="haddr" rows="1" placeholder="" ></textarea></label></div>
+   </div>
+   <div class="blk">
+    <div class="sh"><span>Driver's License Details</span><span lang="ar" dir="rtl">تفاصيل رخصة القيادة</span></div>
+    <div class="g"><label class="f half"><span class="l"><b>Driving License No.</b><i lang="ar" dir="rtl">رقم رخصة القيادة</i></span><input id="lic" type="text" data-c="license" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Place of Issue</b><i lang="ar" dir="rtl">مكان صدوره</i></span><input id="licp" type="text" data-c="licPlace" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Date of Issue</b><i lang="ar" dir="rtl">تاريخ الاصدار</i></span><input id="lici" type="text" data-c="licIssue" placeholder="" autocomplete="off" ></label>
+<label class="f half exp"><span class="l"><b>Date of Expiry</b><i lang="ar" dir="rtl">تاريخ الانتهاء</i></span><input id="lice" type="text" data-c="licExpiry" placeholder="" autocomplete="off" ></label></div>
+   </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+   <div class="blk">
+    <div class="sh"><span>Vehicle Details</span><span lang="ar" dir="rtl">بيانات السيارة</span></div>
+    <div class="g"><label class="f half"><span class="l"><b>Plate Number</b><i lang="ar" dir="rtl">رقم السيارة</i></span><input id="plate" type="text" placeholder="Type plate / model…" autocomplete="off" data-role="plate"></label>
+<label class="f half"><span class="l"><b>Color</b><i lang="ar" dir="rtl">اللون</i></span><input id="color" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Car</b><i lang="ar" dir="rtl">سيارة</i></span><input id="car" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Type</b><i lang="ar" dir="rtl">نوع</i></span><input id="vtype" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Location</b><i lang="ar" dir="rtl">بلد المنشأ</i></span><input id="loc" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Chassis No.</b><i lang="ar" dir="rtl">رقم الشاصي</i></span><input id="chassis" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Out Date &amp; Time</b><i lang="ar" dir="rtl">تاريخ ووقت الاستلام</i></span><input id="outdt" type="datetime-local" placeholder="" autocomplete="off" ></label>
+<label class="f half"><span class="l"><b>Off-hire Return Date &amp; Time</b><i lang="ar" dir="rtl">تاريخ ووقت الإيقاف</i></span><input id="retdt" type="datetime-local" placeholder="" autocomplete="off" ></label>
+<label class="f third"><span class="l"><b>Odometer Out (KM)</b><i lang="ar" dir="rtl">قراءة العداد</i></span><input id="kmo" type="text" placeholder="" autocomplete="off" inputmode="numeric"></label>
+<label class="f third"><span class="l"><b>Fuel Level Out</b><i lang="ar" dir="rtl">مستوى الوقود</i></span><input id="fuelo" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f third"><span class="l"><b>Salik Tag</b><i lang="ar" dir="rtl">سالك</i></span><input id="salik" type="text" placeholder="" autocomplete="off" ></label></div>
+   </div>
+   <div class="blk">
+    <div class="g" style="margin-bottom:.9mm"><label class="f third"><span class="l"><b>Fuel | رسوم الوقود</b><i lang="ar" dir="rtl"></i></span><input id="fuelc" type="text" placeholder="" autocomplete="off" ></label>
+<label class="f third"><span class="l"><b>Daily KM Limit</b><i lang="ar" dir="rtl">حد الكيلومتر اليومي</i></span><input id="kml" type="text" placeholder="" autocomplete="off" inputmode="numeric"></label>
+<label class="f third"><span class="l"><b>No. of Days</b><i lang="ar" dir="rtl">عدد الايام</i></span><input id="days" type="text" placeholder="" autocomplete="off" inputmode="decimal"></label></div>
+    <table>
+     <tr><th style="width:56%">Particular | تفاصيل</th><th>Rate | السعر</th><th>Amount | المبلغ</th></tr>
+     <tr><td class="part"><input id="pt1" placeholder="Rental charges | إيجار"></td><td class="num"><input id="pr1" inputmode="decimal" class="rate"></td><td class="num"><input id="pa1" inputmode="decimal" readonly class="calc"></td></tr><tr><td class="part"><input id="pt2" placeholder=""></td><td class="num"><input id="pr2" inputmode="decimal" ></td><td class="num"><input id="pa2" inputmode="decimal" ></td></tr><tr><td class="part"><input id="pt3" placeholder=""></td><td class="num"><input id="pr3" inputmode="decimal" ></td><td class="num"><input id="pa3" inputmode="decimal" ></td></tr><tr><td class="part"><input id="pt4" placeholder=""></td><td class="num"><input id="pr4" inputmode="decimal" ></td><td class="num"><input id="pa4" inputmode="decimal" ></td></tr>
+     <tr><td class="lab">Deposit <i lang="ar">إيداع الضمان</i></td><td></td><td class="num"><input id="dep" inputmode="decimal"></td></tr>
+     <tr class="excl"><td class="lab">Excess Insurance <i lang="ar">التأمين الزائد</i></td><td style="font-size:6pt;color:#777;text-align:center">not in total</td><td class="num"><input id="exc" inputmode="decimal"></td></tr>
+     <tr><td class="lab">Deposit Waiver <i lang="ar">التنازل عن الودائع</i></td><td></td><td class="num"><input id="waiv" inputmode="decimal"></td></tr>
+     <tr class="tot"><td colspan="2">TOTAL (AED) <span lang="ar" style="float:right">الإجمالي</span></td><td class="num" id="total">0.00</td></tr>
+    </table>
+    <div class="rplan noprint">Rate plan:
+     <select id="plan"><option value="auto">Auto (by days)</option><option value="D">Daily</option><option value="W">Weekly</option><option value="M">Monthly</option></select>
+     <span id="rinfo"></span></div>
+   </div>
+   <div class="blk">
+    <div class="sh"><span>Vehicle Replacement History</span><span lang="ar" dir="rtl">تاريخ استبدال السيارة</span></div>
+    <table class="hist">
+     <tr><th>Out Date</th><th>In Date</th><th>Number Plate</th><th>KM Out</th><th>KM In</th></tr>
+     <tr><td><input data-h="out" placeholder=" "></td><td><input data-h="in"></td><td><input data-h="plate" class="hp"></td><td><input data-h="kmout" inputmode="numeric"></td><td><input data-h="kmin" inputmode="numeric"></td></tr><tr><td><input data-h="out" placeholder=" "></td><td><input data-h="in"></td><td><input data-h="plate" class="hp"></td><td><input data-h="kmout" inputmode="numeric"></td><td><input data-h="kmin" inputmode="numeric"></td></tr><tr><td><input data-h="out" placeholder=" "></td><td><input data-h="in"></td><td><input data-h="plate" class="hp"></td><td><input data-h="kmout" inputmode="numeric"></td><td><input data-h="kmin" inputmode="numeric"></td></tr><tr><td><input data-h="out" placeholder=" "></td><td><input data-h="in"></td><td><input data-h="plate" class="hp"></td><td><input data-h="kmout" inputmode="numeric"></td><td><input data-h="kmin" inputmode="numeric"></td></tr><tr><td><input data-h="out" placeholder=" "></td><td><input data-h="in"></td><td><input data-h="plate" class="hp"></td><td><input data-h="kmout" inputmode="numeric"></td><td><input data-h="kmin" inputmode="numeric"></td></tr>
+    </table>
+   </div>
+  </div>
+ </div>
+
+ <div class="blk">
+  <div class="sh"><span>Additional Remarks</span><span lang="ar" dir="rtl">ملاحظات إضافية</span></div>
+  <div class="box"><textarea id="rem" rows="2" placeholder="Type remarks…"></textarea></div>
+ </div>
+ <div class="blk">
+  <div class="sh"><span>Sponsor</span><span lang="ar" dir="rtl">ضمن رعى</span></div>
+  <div class="box">
+   <p class="sp-t">I am ____________________________ holder of Emirates ID / Passport No. ___________________, I authorize Premium Car Rentals to debit from my credit/debit card No. ______________ to pay all dues related to Contract No._______________</p>
+   <p class="sp-t" lang="ar" dir="rtl">أنا ____________ حامل رقم الهوية الإماراتية | جواز السفر ____ ، أفوض Premium Car Rentals بخصم رقم بطاقة الائتمان | الخصم الخاصة بي ___________________ لدفع جميع المستحقات المتعلقة بالعقد رقم ________________________</p>
+  </div>
+ </div>
+ <div class="blk" style="margin-bottom:0">
+  <div class="sh"><span>Acknowledgement from Hirer</span><span lang="ar" dir="rtl">إقرار من المستأجر</span></div>
+  <div class="box">
+   <p class="ack" lang="ar" dir="rtl">لقد قرأت ووافقت على الشروط والأحكام على جانبي هذه الاتفاقية وأؤكد أنه في حالة الدفع عن طريق بطاقة الائتمان، فإن توقيعي أدناه يشكل تفويضًا لخصم المبلغ الإجمالي المستحق من شركة بطاقة الائتمان الخاصة بي. كما أوافق على دفع رسوم مخالفات المرور وغيرها من المخالفات</p>
+   <p class="ack">I have read and agreed the terms and conditions on both sides of this agreement and confirm that if payment to be made by credit card my signature below shall constitute authority to debit my credit card company with the total amount due. I also agree to pay charges for traffic and other violations</p>
+   <div class="sig">
+    <div><div class="ln" id="signame"></div><div class="cap">Customer Name | اسم العميل</div></div>
+    <div><div class="ln"></div><div class="cap">Signature | التوقيع</div></div>
+   </div>
+  </div>
+ </div>
+</section></div>
+</div>
+<section id="existingContractsView" hidden aria-label="Existing Contracts">
+ <div class="existing-head"><h2>Existing Contracts</h2><button id="refreshContractsBtn" type="button">↻ Refresh</button></div>
+ <div class="contract-list-wrap"><table class="contract-list"><thead><tr><th>CNo.</th><th>Name</th><th>Vehicle</th><th>Date &amp; Time</th></tr></thead><tbody id="contractsTableBody"><tr><td colspan="4" class="empty-row">Loading contracts…</td></tr></tbody></table></div>
+ <div id="contractsStatus" aria-live="polite"></div>
+</section>
+<div id="authGate"><div class="auth-card"><div class="auth-brand"><img src="assets/logo.png" alt="Company logo"><div><h2>Rental Management</h2><p>Secure access</p></div></div><form id="loginForm"><label class="auth-field"><span>Access Key</span><input id="loginKey" type="password" inputmode="numeric" autocomplete="current-password" maxlength="128" autofocus></label><div class="auth-actions"><button id="loginBtn" type="submit">Unlock</button></div><div id="loginError" class="auth-error"></div></form></div></div>
+<div id="driverModal" class="modal-backdrop" aria-hidden="true"><div class="modal"><div class="modal-head"><h2>Driver Records</h2><button id="closeDriverModalBtn" type="button">✕</button></div><div class="modal-body"><div class="driver-layout"><div><input id="driverSearch" class="driver-search" placeholder="Search name, mobile or license…"><div id="driverList" class="driver-list"></div></div><form id="driverForm"><input type="hidden" id="dm_id"><div class="modal-grid"><label><span>Name *</span><input id="dm_name" required></label><label><span>Gender</span><input id="dm_gender"></label><label><span>Nationality</span><input id="dm_nationality"></label><label><span>Residence</span><input id="dm_residence"></label><label><span>Date of Birth</span><input id="dm_dob"></label><label><span>Mobile</span><input id="dm_mobile"></label><label><span>Email</span><input id="dm_email" type="email"></label><label><span>Emirates ID / Passport</span><input id="dm_eid"></label><label><span>EID Issue</span><input id="dm_eidIssue"></label><label><span>EID Expiry</span><input id="dm_eidExpiry"></label><label><span>Driving License</span><input id="dm_license"></label><label><span>License Issue</span><input id="dm_licIssue"></label><label><span>License Expiry</span><input id="dm_licExpiry"></label><label><span>License Place</span><input id="dm_licPlace"></label><label class="full"><span>Address</span><textarea id="dm_address"></textarea></label></div><div class="modal-foot"><button id="newDriverBtn" type="button">＋ New</button><button type="submit" class="pri">Save driver</button></div></form></div></div></div></div>
+<div id="vehicleModal" class="modal-backdrop" aria-hidden="true"><div class="modal"><div class="modal-head"><h2>Vehicle Data Import</h2><button id="closeVehicleModalBtn" type="button">✕</button></div><div class="modal-body"><div class="import-note"><b>Recommended file:</b> the supplied <code>data/vehicles.xls</code> export. This file is tab-separated text with vehicle records, and the importer maps its columns automatically.</div><div class="file-drop"><input id="vehicleFile" type="file" accept=".xls,.csv,.tsv,.txt"><div id="vehicleFileName" style="margin-top:8px;color:#64748b;font-size:12px">Choose data/vehicles.xls</div></div><div id="importSummary" class="import-summary" hidden><div class="import-stat"><b id="impRows">0</b><span>Source rows</span></div><div class="import-stat"><b id="impUnique">0</b><span>Vehicles to import</span></div><div class="import-stat"><b id="impDupes">0</b><span>Repeated registrations</span></div><div class="import-stat"><b id="impMapped">0</b><span>Columns mapped</span></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;font-weight:700"><input id="replaceVehicles" type="checkbox" checked style="width:auto;height:auto">Replace the current vehicle table before importing</label><div id="importError" class="auth-error"></div><div class="modal-foot"><button id="cancelVehicleBtn" type="button">Cancel</button><button id="importVehiclesBtn" type="button" class="pri" disabled>Import vehicles</button></div></div></div></div>
+<div id="keyModal" class="modal-backdrop" aria-hidden="true"><div class="modal" style="width:min(500px,96vw)"><div class="modal-head"><h2>Change Access Key</h2><button id="closeKeyModalBtn" type="button">✕</button></div><div class="modal-body"><form id="keyForm"><div class="modal-grid" style="grid-template-columns:1fr"><label><span>Current key</span><input id="oldKey" type="password" inputmode="numeric" autocomplete="current-password"></label><label><span>New key</span><input id="newKey" type="password" inputmode="numeric" autocomplete="new-password"></label><label><span>Confirm new key</span><input id="newKey2" type="password" inputmode="numeric" autocomplete="new-password"></label></div><div id="keyError" class="auth-error"></div><div class="modal-foot"><button id="cancelKeyBtn" type="button">Cancel</button><button type="submit" class="pri">Change key</button></div></form></div></div></div>
+<script src="script/config.js"></script><script src="script/app.js"></script></body></html>
