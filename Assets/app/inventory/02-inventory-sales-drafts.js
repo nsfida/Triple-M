@@ -142,6 +142,10 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
     const movementLabel = direction === "given" ? "Received back" : "Returned back";
     const openOnly = group.remaining > 0;
 
+    const quickPrincipalLabel = direction === "given" ? "Add Given Loan" : "Add Taken Loan";
+    const quickPaymentLabel = direction === "given" ? "Add Received Back" : "Add Returned Back";
+    // Only for the regular loan cards; installment/goods style cards hide the installment move option.
+    const showQuickEntry = typeof openEntryModal === "function" && !options.hideQuickEntry;
     const showInstallmentMove = direction === "taken" && !options.hideMoveToInstallments;
     const personName = String(group.person_name || "").trim();
     const unsyncedEntries = getUnsyncedEntriesForPerson(personName, direction);
@@ -179,6 +183,8 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
                 <div class="menu-wrap">
                   <button class="icon-btn ghost menu-trigger person-menu-btn" type="button" aria-label="More actions" title="More actions" data-person-menu="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">☰</button>
                   <div class="menu-dropdown" data-person-menu-panel="${escapeHtml(group.primaryGroupId || group.person_name || "menu")}">
+                    ${showQuickEntry ? `<button class="menu-item personActionBtn" type="button" data-action="quick-principal" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-plus"></i> ${escapeHtml(quickPrincipalLabel)}</button>` : ""}
+                    ${showQuickEntry && openOnly ? `<button class="menu-item personActionBtn" type="button" data-action="quick-payment" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-rotate-left"></i> ${escapeHtml(quickPaymentLabel)}</button>` : ""}
                     <button class="menu-item personActionBtn" type="button" data-action="pdf" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}"><i class="fa-solid fa-file-pdf"></i> Download PDF</button>
                     ${hasUnsynced ? `<button class="menu-item personActionBtn" type="button" data-action="save-db" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Save to Database</button>` : ""}
                     ${teamCanShowEdit("entries") ? `<button class="menu-item personActionBtn" type="button" data-action="edit-name" data-person="${encodeURIComponent(group.person_name || "")}" data-direction="${escapeHtml(direction)}">Edit Name</button>` : ""}
@@ -273,6 +279,21 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
     const action = btn.dataset.action;
     const person = btn.dataset.person;
     const dir = btn.dataset.direction;
+    if (action === "quick-principal" || action === "quick-payment") {
+      const name = decodeURIComponent(person || "");
+      document.querySelectorAll(".menu-dropdown.open").forEach(panel => panel.classList.remove("open"));
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+      const personGroup = groups.find(g => String(g.person_name || "") === name);
+      if (action === "quick-principal") {
+        openEntryModal("principal", dir, { personName: name, currency: personGroup?.currency || "" });
+        return;
+      }
+      // Pick the oldest still-open loan of this person for the payment form.
+      const openLoan = groupByLoan(personGroup?.entries || [])
+        .find(g => calculateLoan(g).remaining > 0);
+      openEntryModal("payment", dir, { groupId: openLoan?.group_id || "" });
+      return;
+    }
     if (action === "pdf") {
       await downloadPersonPDF(person, dir);
     } else if (action === "save-db") {
