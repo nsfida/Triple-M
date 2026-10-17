@@ -1242,7 +1242,11 @@ function openEntryModal(mode, direction, options = {}){
     if (principalPersonLabel) principalPersonLabel.textContent = state.modalInstallment ? "Installment Name" : "Person Name";
     els.principalModalForm.querySelector('input[name="person_name"]').placeholder =
       state.modalInstallment ? "Installment plan name" : (direction === "given" ? "Full name" : "Lender name");
-    setCurrencyChoice(els.principalModalForm, state.lastCurrency || "AED");
+    setCurrencyChoice(els.principalModalForm, options.currency || state.lastCurrency || "AED");
+    if (options.personName) {
+      const personInput = els.principalModalForm.querySelector('input[name="person_name"]');
+      if (personInput) personInput.value = String(options.personName);
+    }
     if (principalDate) principalDate.value = todayISO();
     defaultDateInputs(els.principalModalForm);
     if (principalDate && !principalDate.value) principalDate.value = todayISO();
@@ -1263,7 +1267,7 @@ function openEntryModal(mode, direction, options = {}){
       }
     }
     const principalWalletSelect = document.getElementById("modalLoanWalletSelect");
-    populateLoanWalletSelector(state.lastCurrency || "AED", principalWalletSelect);
+    populateLoanWalletSelector(options.currency || state.lastCurrency || "AED", principalWalletSelect);
     // Installment wallet integration is optional and applies only to the down
     // payment. Never carry a wallet selection into a fresh plan.
     if (state.modalInstallment && principalWalletSelect) {
