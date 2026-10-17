@@ -136,7 +136,21 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
     return;
   }
 
-  container.innerHTML = groups.map(group => {
+  // Default order: Open first, then Partial, then Closed. Inside each status the
+  // most recent activity comes first (same date logic the list already used).
+  const statusRank = { Open: 0, Partial: 1, Closed: 2 };
+  groups = groups
+    .map((g, i) => ({ g, i }))
+    .sort((a, b) => {
+      const ra = statusRank[a.g.status] ?? 3, rb = statusRank[b.g.status] ?? 3;
+      if (ra !== rb) return ra - rb;
+      const da = a.g.activityStamp || 0, db = b.g.activityStamp || 0;
+      if (da !== db) return db - da;
+      return a.i - b.i;
+    })
+    .map(x => x.g);
+
+  container.innerHTML = groups.map((group, groupIndex) => {
     const statusClass = group.status === "Closed" ? "green" : group.status === "Partial" ? "orange" : "blue";
     const directionLabel = direction === "given" ? "Given" : "Taken";
     const movementLabel = direction === "given" ? "Received back" : "Returned back";
@@ -155,7 +169,7 @@ function renderLoanCards(container, direction, searchKey = direction, options = 
         <summary>
           <div class="loan-top loan-details-banner" data-loan-details="1" data-person="${escapeHtml(group.person_name || "")}" data-direction="${escapeHtml(direction)}" role="button" tabindex="0" title="View loan details">
             <div class="lt-main">
-              <div class="loan-name"><i class="fa-solid fa-user"></i> ${escapeHtml(group.person_name || "Unnamed")}</div>
+              <div class="loan-name"><span class="loan-serial" title="Serial number" style="display:inline-block;min-width:1.9em;margin-right:6px;padding:1px 6px;border-radius:999px;background:rgba(127,127,127,.18);font-size:.78em;font-weight:700;text-align:center;">${groupIndex + 1}</span><i class="fa-solid fa-user"></i> ${escapeHtml(group.person_name || "Unnamed")}</div>
               <div class="loan-sub">
                 <span>${escapeHtml(directionLabel)}</span>
                 <span>Opened ${escapeHtml(displayDate(group.loan_date || "—"))}</span>
