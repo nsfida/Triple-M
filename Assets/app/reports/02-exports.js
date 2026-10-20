@@ -439,6 +439,238 @@ function closeExpenseHistoryPdfMenus(){
   });
 }
 
+let expensePdfExportInProgress = false;
+const EXPENSE_PDF_EXPORT_PAGE_SIZE = 500;
+const EXPENSE_PDF_TABLE_CHUNK_SIZE = 60;
+
+function expensePdfYieldToUi(){
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(finish);
+    setTimeout(finish, 0);
+  });
+}
+
+function startExpensePdfExportProgress(title){
+  if (expensePdfExportInProgress){
+    alert("A PDF export is already running. Please let it finish before starting another one.");
+    return null;
+  }
+  expensePdfExportInProgress = true;
+  const root = document.createElement("div");
+  root.id = "expensePdfExportProgressOverlay";
+  root.className = "expense-pdf-progress-root";
+  root.innerHTML = `
+    <div class="expense-pdf-progress-backdrop" aria-hidden="true"></div>
+    <section class="expense-pdf-progress-card" role="dialog" aria-modal="true" aria-labelledby="expensePdfProgressTitle">
+      <div class="expense-pdf-progress-top">
+        <div class="expense-pdf-progress-icon" aria-hidden="true"><i class="fa-solid fa-file-pdf"></i></div>
+        <div class="expense-pdf-progress-heading">
+          <span class="expense-pdf-progress-eyebrow">EXPENSES · PDF EXPORT</span>
+          <h2 id="expensePdfProgressTitle" data-expense-pdf-title>Preparing your report</h2>
+        </div>
+        <button type="button" class="expense-pdf-progress-toggle" data-expense-pdf-progress-toggle aria-label="Minimize PDF export progress" title="Minimize progress panel">
+          <i class="fa-solid fa-minus" data-expense-pdf-toggle-icon aria-hidden="true"></i><span data-expense-pdf-toggle-label>Minimize</span>
+        </button>
+      </div>
+      <p class="expense-pdf-progress-message" data-expense-pdf-progress-message>Reading the selected date range…</p>
+      <div class="expense-pdf-progress-track" role="progressbar" aria-label="PDF export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-expense-pdf-progress-track>
+        <span data-expense-pdf-progress-bar></span>
+      </div>
+      <div class="expense-pdf-progress-status"><span data-expense-pdf-progress-stage>Starting export</span><strong data-expense-pdf-progress-percent>0%</strong></div>
+      <div class="expense-pdf-progress-foot"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Large reports continue while minimized, so you can keep using Triplem VIP.</span></div>
+    </section>`;
+  document.body.appendChild(root);
+  const titleNode = root.querySelector("[data-expense-pdf-title]");
+  const messageNode = root.querySelector("[data-expense-pdf-progress-message]");
+  const stageNode = root.querySelector("[data-expense-pdf-progress-stage]");
+  const percentNode = root.querySelector("[data-expense-pdf-progress-percent]");
+  const trackNode = root.querySelector("[data-expense-pdf-progress-track]");
+  const barNode = root.querySelector("[data-expense-pdf-progress-bar]");
+  const toggle = root.querySelector("[data-expense-pdf-progress-toggle]");
+  const toggleIcon = root.querySelector("[data-expense-pdf-toggle-icon]");
+  const toggleLabel = root.querySelector("[data-expense-pdf-toggle-label]");
+  if (titleNode) titleNode.textContent = String(title || "Preparing your report");
+
+  toggle?.addEventListener("click", () => {
+    const minimized = root.classList.toggle("is-minimized");
+    const card = root.querySelector(".expense-pdf-progress-card");
+    card?.setAttribute("aria-modal", minimized ? "false" : "true");
+    toggle?.setAttribute("aria-label", minimized ? "Restore PDF export progress" : "Minimize PDF export progress");
+    toggle?.setAttribute("title", minimized ? "Restore progress panel" : "Minimize progress panel");
+    if (toggleIcon) toggleIcon.className = minimized ? "fa-solid fa-up-right-and-down-left-from-center" : "fa-solid fa-minus";
+    if (toggleLabel) toggleLabel.textContent = minimized ? "Restore" : "Minimize";
+  });
+
+  let finished = false;
+  return {
+    update(percent, message, stage){
+      if (finished || !root.isConnected) return;
+      const value = Math.max(0, Math.min(99, Math.round(Number(percent) || 0)));
+      if (messageNode && message != null) messageNode.textContent = String(message);
+      if (stageNode && stage != null) stageNode.textContent = String(stage);
+      if (percentNode) percentNode.textContent = `${value}%`;
+      if (barNode) barNode.style.width = `${value}%`;
+      if (trackNode) trackNode.setAttribute("aria-valuenow", String(value));
+    },
+    finish(){
+      if (finished) return;
+      finished = true;
+      root.remove();
+      expensePdfExportInProgress = false;
+    }
+  };
+}
+
+function expensePdfHistorySelectionSnapshot(){
+  const bounds = typeof expenseActivityQueryBounds === "function"
+    ? expenseActivityQueryBounds()
+    : (typeof expenseHistoryRangeBounds === "function" ? expenseHistoryRangeBounds() : { from:"", to:"", label:"All" });
+  const search = String(state?.search?.expenses || "").trim();
+  return {
+    from: String(bounds.from || ""),
+    to: String(bounds.to || ""),
+    search,
+    groupId: state?.expenseWalletFilter && state.expenseWalletFilter !== "all" ? String(state.expenseWalletFilter) : "",
+    rangeLabel: typeof expenseHistoryRangeText === "function" ? expenseHistoryRangeText() : String(bounds.label || "All"),
+    rangeSlug: String(state?.expenseHistoryRange || "month").replace(/[^a-z0-9_-]/gi, "_"),
+    emptyCustomRange: bounds.mode === "history" && state?.expenseHistoryRange === "custom" && !bounds.from && !bounds.to
+  };
+}
+
+function expensePdfDateWithinSelection(value, selection){
+  const date = String(value || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return true;
+  if (selection.from && date < selection.from) return false;
+  if (selection.to && date > selection.to) return false;
+  return true;
+}
+
+function expensePdfSingleLine(doc, value, maxWidth){
+  let text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text || !Number.isFinite(Number(maxWidth)) || Number(maxWidth) <= 0) return text;
+  while (text.length > 3 && typeof doc?.getTextWidth === "function" && doc.getTextWidth(text) > maxWidth){
+    text = `${text.slice(0, -4).trimEnd()}…`;
+  }
+  return text;
+}
+
+async function loadExpenseHistoryItemsForPdf(selection, progress, { targetItemKey = "" } = {}){
+  if (selection?.emptyCustomRange) return [];
+
+  // Non-lazy mode already has the complete expense ledger in memory. Lazy mode must
+  // use the paginated RPC route instead of mistaking the screen's current page for all history.
+  if (!(typeof isExpenseLazyMode === "function" && isExpenseLazyMode()) || typeof fetchExpenseActivityRpc !== "function"){
+    const localItems = typeof getExpenseHistoryItemsForExport === "function" ? getExpenseHistoryItemsForExport() : [];
+    const result = localItems.map(item => {
+      const txs = (item.txs || []).filter(tx => expensePdfDateWithinSelection(tx.date, selection));
+      const total = txs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+      const taxTotal = txs.reduce((sum, tx) => sum + Number(tx.taxAmount || 0), 0);
+      const netTotal = txs.reduce((sum, tx) => sum + Number(tx.netAmount ?? (Number(tx.amount || 0) - Number(tx.taxAmount || 0))), 0);
+      return { ...item, txs, total, taxTotal, netTotal, transactionCount: txs.length };
+    }).filter(item => item.txs.length > 0);
+    return targetItemKey ? result.filter(item => String(item.key) === String(targetItemKey)) : result;
+  }
+
+  progress?.update(3, "Reading every activity page for the selected range…", "Loading transactions");
+  const itemsByKey = new Map();
+  let offset = 0;
+  let activityRowsRead = 0;
+  let knownTotal = 0;
+  let lastPageWasServerPaged = true;
+  while (true){
+    const page = await fetchExpenseActivityRpc({
+      from: selection.from || null,
+      to: selection.to || null,
+      search: selection.search || "",
+      groupId: selection.groupId || "",
+      limit: EXPENSE_PDF_EXPORT_PAGE_SIZE,
+      offset
+    });
+    const pageRows = Array.isArray(page?.items) ? page.items : [];
+    if (Number(page?.total) > 0) knownTotal = Math.max(knownTotal, Number(page.total));
+    lastPageWasServerPaged = page?.serverPaged === true;
+    for (const row of pageRows){
+      const rowType = String(row?.row_type || "").toUpperCase();
+      if (rowType !== "EXPENSE") continue;
+      const meta = typeof expenseMetaFromNotes === "function" ? expenseMetaFromNotes(row.notes || "") : {};
+      const itemName = String(row.item_name || meta.itemName || "").trim();
+      const expenseType = String(row.expense_type || meta.expenseType || "Other").trim() || "Other";
+      const rowNotes = cleanExpenseNote(row.notes || "");
+      if (!itemName || expenseType.toLowerCase() === "transfer" || /^Transfer to\s+/i.test(rowNotes)) continue;
+      if (String(row.currency || "").trim().toUpperCase() === "BTC") continue;
+      if (!expensePdfDateWithinSelection(row.activity_date, selection)) continue;
+
+      const currency = String(row.currency || "AED").trim() || "AED";
+      const key = `${currency}||${itemName.toLowerCase()}`;
+      if (targetItemKey && key !== String(targetItemKey)) continue;
+      let item = itemsByKey.get(key);
+      if (!item){
+        item = { key, displayName:itemName, expenseType, currency, total:0, taxTotal:0, netTotal:0, txs:[], _seenIds:new Set() };
+        itemsByKey.set(key, item);
+      }
+      const tx = typeof expenseItemHistoryRowToTransaction === "function"
+        ? expenseItemHistoryRowToTransaction(row, { item_name:itemName, expense_type:expenseType, currency })
+        : {
+            id:row.id, date:row.activity_date, createdAt:row.created_at || row.updated_at || null,
+            wallet:row.account_name || "Wallet", group_id:row.group_id, amount:Number(row.amount || 0),
+            netAmount:Number(row.amount || 0), taxAmount:0, taxRate:0, expenseType, itemName,
+            currency, notes:cleanExpenseNote(row.notes || ""), details:normalizeExpenseDetails(row.details || {})
+          };
+      const transactionId = String(tx.id || row.id || "");
+      if (transactionId && item._seenIds.has(transactionId)) continue;
+      if (transactionId) item._seenIds.add(transactionId);
+      item.txs.push(tx);
+      item.total += Number(tx.amount || 0);
+      item.taxTotal += Number(tx.taxAmount || 0);
+      item.netTotal += Number(tx.netAmount ?? (Number(tx.amount || 0) - Number(tx.taxAmount || 0)));
+    }
+
+    activityRowsRead += pageRows.length;
+    offset += pageRows.length;
+    const fraction = knownTotal > 0 ? Math.min(1, activityRowsRead / knownTotal) : (pageRows.length ? 0.65 : 1);
+    const percent = 4 + fraction * 48;
+    progress?.update(percent, `Reading selected activity: ${activityRowsRead.toLocaleString()}${knownTotal ? ` of ${knownTotal.toLocaleString()}` : ""} records checked`, "Loading transactions");
+
+    if (!page?.hasMore || !pageRows.length){
+      // The legacy non-paged RPC has a 2,000-row ceiling. Never silently produce
+      // a partial financial report when full pagination cannot be verified.
+      if (page?.serverPaged !== true && activityRowsRead >= 2000){
+        throw new Error("The server could not verify the complete expense history for this large export. Apply the latest expense pagination migration, then retry. No partial PDF was downloaded.");
+      }
+      break;
+    }
+    if (page?.serverPaged !== true && offset >= 2000){
+      throw new Error("The server could not verify the complete expense history for this large export. Apply the latest expense pagination migration, then retry. No partial PDF was downloaded.");
+    }
+    if (knownTotal > 0 && offset > knownTotal + EXPENSE_PDF_EXPORT_PAGE_SIZE){
+      throw new Error("Expense history pagination returned inconsistent totals. No partial PDF was downloaded.");
+    }
+    await expensePdfYieldToUi();
+  }
+  if (lastPageWasServerPaged && knownTotal > 0 && activityRowsRead < knownTotal){
+    throw new Error("The complete expense history could not be loaded. Please retry the PDF export. No partial PDF was downloaded.");
+  }
+
+  const result = [...itemsByKey.values()];
+  for (const item of result){
+    item.txs.sort((a, b) => (dateStamp(b.date) - dateStamp(a.date)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    delete item._seenIds;
+    item.transactionCount = item.txs.length;
+    item.taxTotal = item.txs.reduce((sum, tx) => sum + Number(tx.taxAmount || 0), 0);
+    item.netTotal = item.txs.reduce((sum, tx) => sum + Number(tx.netAmount ?? (Number(tx.amount || 0) - Number(tx.taxAmount || 0))), 0);
+    item.total = item.txs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }
+  result.sort((a, b) => b.total - a.total || String(a.displayName || "").localeCompare(String(b.displayName || "")) || String(a.currency || "").localeCompare(String(b.currency || "")));
+  progress?.update(54, "All matching transactions are loaded. Preparing the PDF layout…", "Preparing report");
+  return result;
+}
+
 async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
   if (!window.jspdf){
     alert("PDF library loading. Please try again in a moment.");
@@ -446,211 +678,251 @@ async function downloadExpenseTransactionsHistoryPDF(mode = "detailed"){
   }
 
   const reportMode = String(mode || "detailed").toLowerCase() === "summary" ? "summary" : "detailed";
-  const items = getExpenseHistoryItemsForExport();
-  const rows = flattenExpenseHistoryItems(items);
-  if (!rows.length){
-    alert("No transactions found for the selected history range.");
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  await loadCustomFontsForPdf(doc);
-
-  const logoData = await getPdfLogo();
-  const rangeLabel = expenseHistoryRangeText();
+  const selection = expensePdfHistorySelectionSnapshot();
   const walletContext = expensePdfSelectedWalletContext();
-  const title = reportMode === "summary"
-    ? "Expenses Summary"
-    : "Expenses";
-  const subtitle = `${rangeLabel} | ${walletContext.label} | Generated: ${new Date().toLocaleString()}`;
-  drawPdfHeader(doc, logoData, title, subtitle);
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const walletCount = new Set(rows.map(r => r.wallet)).size;
-  const currencyTotals = new Map();
-  const currencyTaxTotals = new Map();
-  const currencyNetTotals = new Map();
-  const currencyCounts = new Map();
-  for (const r of rows){
-    const cur = r.currency || "AED";
-    currencyTotals.set(cur, (currencyTotals.get(cur) || 0) + Number(r.amount || 0));
-    currencyTaxTotals.set(cur, (currencyTaxTotals.get(cur) || 0) + Number(r.taxAmount || 0));
-    currencyNetTotals.set(cur, (currencyNetTotals.get(cur) || 0) + Number(r.netAmount || (Number(r.amount || 0) - Number(r.taxAmount || 0))));
-    currencyCounts.set(cur, (currencyCounts.get(cur) || 0) + 1);
-  }
+  const title = reportMode === "summary" ? "Expenses Summary" : "Expenses";
+  const progress = startExpensePdfExportProgress(title);
+  if (!progress) return;
 
-  const summaryTop = drawCompactPdfPartiesAndMeta(doc, {
-    rightLabel: "REPORT",
-    partyName: reportMode === "summary" ? "Expense Summary" : "Expenses",
-    meta: [
-      { label: "Range", value: rangeLabel },
-      { label: "Txns", value: String(rows.length) },
-      { label: "Items", value: String(items.length) },
-      { label: "Wallets", value: String(walletCount) }
-    ]
-  });
-
-  const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(cur => [
-    pdfCurrencyLabel(cur),
-    String(currencyCounts.get(cur) || 0),
-    expensePdfFlowText(currencyNetTotals.get(cur) || 0, cur, "out"),
-    expensePdfFlowText(currencyTaxTotals.get(cur) || 0, cur, "out"),
-    expensePdfFlowText(currencyTotals.get(cur) || 0, cur, "out")
-  ]);
-
-  doc.autoTable({
-    startY: summaryTop + 5,
-    head: [["Currency", "Transactions", "Net", "VAT", "Total Spent"]],
-    body: totalsBody,
-    theme: "grid",
-    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
-    styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8 },
-    columnStyles: {
-      0: { cellWidth: 32 },
-      1: { cellWidth: 30, halign: "right" },
-      2: { cellWidth: 40, halign: "right" },
-      3: { cellWidth: 35, halign: "right" },
-      4: { cellWidth: 43, halign: "right" }
-    },
-    margin: { left: 14, right: 14, top: 42, bottom: 32 },
-    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
-  });
-
-  let y = (doc.lastAutoTable?.finalY || 106) + 12;
-
-  if (reportMode === "summary"){
-    const itemsByCurrency = new Map();
-    for (const item of items){
-      const cur = item.currency || "AED";
-      if (!itemsByCurrency.has(cur)) itemsByCurrency.set(cur, []);
-      itemsByCurrency.get(cur).push(item);
+  try {
+    progress.update(2, `Preparing ${selection.rangeLabel}…`, "Preparing export");
+    const items = await loadExpenseHistoryItemsForPdf(selection, progress);
+    const rows = flattenExpenseHistoryItems(items);
+    if (!rows.length){
+      alert("No transactions found for the selected date range.");
+      return;
     }
 
-    for (const cur of sortCurrenciesList([...itemsByCurrency.keys()])){
-      const curItems = itemsByCurrency.get(cur) || [];
-      const curTotal = curItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
-      const curTax = curItems.reduce((sum, item) => sum + Number(item.taxTotal || 0), 0);
-      const curTxCount = curItems.reduce((sum, item) => sum + Number(item.txs?.length || 0), 0);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    await loadCustomFontsForPdf(doc);
+    const logoData = await getPdfLogo();
+    const rangeLabel = selection.rangeLabel || "All";
+    const subtitle = `${rangeLabel} | ${walletContext.label} | Generated: ${new Date().toLocaleString()}`;
+    drawPdfHeader(doc, logoData, title, subtitle);
 
-      y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 42);
-      doc.setFillColor(36, 87, 214);
-      doc.roundedRect(14, y, pageWidth - 28, 9, 1.5, 1.5, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text(`Spending by Item | ${pdfCurrencyLabel(cur)}`, 18, y + 6);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text(
-        `${curItems.length} item(s) | ${curTxCount} txn(s) | VAT ${expensePdfFlowText(curTax, cur, "out")} | Total ${expensePdfFlowText(curTotal, cur, "out")}`,
-        pageWidth - 18,
-        y + 6,
-        { align: "right" }
-      );
-
-      const summaryBody = curItems.map(item => {
-        const period = expenseItemTxPeriodLabel(item.txs);
-        const count = Math.max(1, Number(item.txs?.length || 0));
-        const net = Number(item.total || 0) - Number(item.taxTotal || 0);
-        return [
-          item.displayName || "—",
-          item.expenseType || "Other",
-          String(item.txs.length),
-          period,
-          expensePdfFlowText(Number(item.total || 0) / count, item.currency, "out"),
-          expensePdfFlowText(item.taxTotal || 0, item.currency, "out"),
-          expensePdfFlowText(net, item.currency, "out"),
-          expensePdfFlowText(item.total || 0, item.currency, "out")
-        ];
-      });
-
-      doc.autoTable({
-        startY: y + 13,
-        head: [["Item", "Type", "Txns", "Period", "Average", "VAT", "Net", "Total"]],
-        body: summaryBody,
-        theme: "grid",
-        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
-        styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: {
-          0: { cellWidth: 28 },
-          1: { cellWidth: 20 },
-          2: { cellWidth: 11, halign: "right" },
-          3: { cellWidth: 32 },
-          4: { cellWidth: 21, halign: "right" },
-          5: { cellWidth: 20, halign: "right" },
-          6: { cellWidth: 24, halign: "right" },
-          7: { cellWidth: 24, halign: "right" }
-        },
-        margin: { left: 14, right: 14, top: 50, bottom: 40 },
-        didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
-      });
-      y = (doc.lastAutoTable?.finalY || y + 13) + 12;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const walletCount = new Set(rows.map(row => row.wallet)).size;
+    const currencyTotals = new Map();
+    const currencyTaxTotals = new Map();
+    const currencyNetTotals = new Map();
+    const currencyCounts = new Map();
+    for (const row of rows){
+      const currency = row.currency || "AED";
+      currencyTotals.set(currency, (currencyTotals.get(currency) || 0) + Number(row.amount || 0));
+      currencyTaxTotals.set(currency, (currencyTaxTotals.get(currency) || 0) + Number(row.taxAmount || 0));
+      currencyNetTotals.set(currency, (currencyNetTotals.get(currency) || 0) + Number(row.netAmount ?? (Number(row.amount || 0) - Number(row.taxAmount || 0))));
+      currencyCounts.set(currency, (currencyCounts.get(currency) || 0) + 1);
     }
 
-    y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 22);
-    doc.setTextColor(71, 85, 105);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const noteLines = doc.splitTextToSize(
-      `Summary only — no individual transaction lines. Each item shows total spent for ${rangeLabel}, using that item's first and last transaction dates in this selection.`,
-      pageWidth - 28
-    );
-    doc.text(noteLines, 14, y);
+    progress.update(57, "Building the report overview…", "Preparing report");
+    const summaryTop = drawCompactPdfPartiesAndMeta(doc, {
+      rightLabel: "REPORT",
+      partyName: reportMode === "summary" ? "Expense Summary" : "Expenses",
+      meta: [
+        { label: "Range", value: rangeLabel },
+        { label: "Txns", value: String(rows.length) },
+        { label: "Items", value: String(items.length) },
+        { label: "Wallets", value: String(walletCount) }
+      ]
+    });
 
-    doc.save(`Expense_Transactions_Summary${walletContext.slug}_${expenseHistoryRangeSlug()}_${todayISO()}.pdf`);
-    return;
-  }
-
-  for (const item of items){
-    y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 45);
-    doc.setFillColor(36, 87, 214);
-    doc.roundedRect(14, y, pageWidth - 28, 9, 1.5, 1.5, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(`${item.displayName} | ${pdfCurrencyLabel(item.currency)}`, 18, y + 6);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`${item.txs.length} transaction(s) | Total: ${expensePdfFlowText(item.total, item.currency, "out")} | Type: ${item.expenseType || "Other"}`, pageWidth - 18, y + 6, { align: "right" });
-
-    const body = item.txs.map(tx => [
-      displayDate(tx.date || "—"),
-      tx.wallet || "—",
-      tx.expenseType || item.expenseType || "Other",
-      expensePdfFlowText(tx.amount, item.currency, "out"),
-      tx.taxAmount ? expensePdfFlowText(tx.taxAmount, item.currency, "out") : "-",
-      wrapTextForPdf(expensePdfDetailsText(tx.details || expenseMetaFromNotes(tx.notes).details || {}, "expense", cleanExpenseNote(tx.notes)), 78).split("\n")
+    const totalsBody = sortCurrenciesList([...currencyTotals.keys()]).map(currency => [
+      pdfCurrencyLabel(currency),
+      String(currencyCounts.get(currency) || 0),
+      expensePdfFlowText(currencyNetTotals.get(currency) || 0, currency, "out"),
+      expensePdfFlowText(currencyTaxTotals.get(currency) || 0, currency, "out"),
+      expensePdfFlowText(currencyTotals.get(currency) || 0, currency, "out")
     ]);
-    const orderedBody = body.map(row => [row[0], row[1], row[2], row[5], row[4], row[3]]);
-    const historyLogoMap = await expensePdfWalletLogos(item.txs.map(tx => tx.wallet || "Wallet"));
-    const historyLogoRows = item.txs.map(tx => historyLogoMap.get(String(tx.wallet || "Wallet").trim()) || null);
-
     doc.autoTable({
-      startY: y + 13,
-      head: [["Date", "Wallet", "Type", "Notes/Description", "VAT", "Amount"]],
-      body: orderedBody,
+      startY: summaryTop + 5,
+      head: [["Currency", "Transactions", "Net", "VAT", "Total Spent"]],
+      body: totalsBody,
       theme: "grid",
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
-      styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 7.6 },
+      styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8 },
       columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 34 },
-        2: { cellWidth: 26 },
-        3: { cellWidth: 46 },
-        4: { cellWidth: 24, halign: "right" },
-        5: { cellWidth: 28, halign: "right" }
+        0: { cellWidth: 32 },
+        1: { cellWidth: 30, halign: "right" },
+        2: { cellWidth: 40, halign: "right" },
+        3: { cellWidth: 35, halign: "right" },
+        4: { cellWidth: 43, halign: "right" }
       },
-      margin: { left: 14, right: 14, top: 50, bottom: 40 },
-      ...expensePdfWalletCellHooks(doc, historyLogoRows, 1),
+      margin: { left: 14, right: 14, top: 42, bottom: 32 },
       didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
     });
-    y = (doc.lastAutoTable?.finalY || y + 13) + 12;
-  }
 
-  doc.save(`Expenses_History${walletContext.slug}_${expenseHistoryRangeSlug()}_${todayISO()}.pdf`);
+    let y = (doc.lastAutoTable?.finalY || 106) + 12;
+    if (reportMode === "summary"){
+      const itemsByCurrency = new Map();
+      for (const item of items){
+        const currency = item.currency || "AED";
+        if (!itemsByCurrency.has(currency)) itemsByCurrency.set(currency, []);
+        itemsByCurrency.get(currency).push(item);
+      }
+      const totalSummaryRows = items.length;
+      let renderedSummaryRows = 0;
+      for (const currency of sortCurrenciesList([...itemsByCurrency.keys()])){
+        const currencyItems = itemsByCurrency.get(currency) || [];
+        const currencyTotal = currencyItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+        const currencyTax = currencyItems.reduce((sum, item) => sum + Number(item.taxTotal || 0), 0);
+        const currencyTxCount = currencyItems.reduce((sum, item) => sum + Number(item.txs?.length || 0), 0);
+        for (let start = 0; start < currencyItems.length; start += EXPENSE_PDF_TABLE_CHUNK_SIZE){
+          const chunk = currencyItems.slice(start, start + EXPENSE_PDF_TABLE_CHUNK_SIZE);
+          y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 65);
+          doc.setFillColor(36, 87, 214);
+          doc.roundedRect(14, y, pageWidth - 28, 9, 1.5, 1.5, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(255, 255, 255);
+          const leftBand = expensePdfSingleLine(doc, `Spending by Item | ${pdfCurrencyLabel(currency)}`, 68);
+          const rightBand = expensePdfSingleLine(doc,
+            `Items ${start + 1}-${Math.min(start + chunk.length, currencyItems.length)} of ${currencyItems.length} | Txns ${currencyTxCount} | VAT ${expensePdfFlowText(currencyTax, currency, "out")} | Total ${expensePdfFlowText(currencyTotal, currency, "out")}`,
+            pageWidth - 108
+          );
+          doc.text(leftBand, 18, y + 6);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.2);
+          doc.text(rightBand, pageWidth - 18, y + 6, { align: "right" });
+
+          const summaryBody = chunk.map(item => {
+            const period = expenseItemTxPeriodLabel(item.txs);
+            const count = Math.max(1, Number(item.txs?.length || 0));
+            const net = Number(item.netTotal ?? (Number(item.total || 0) - Number(item.taxTotal || 0)));
+            return [
+              item.displayName || "—",
+              item.expenseType || "Other",
+              String(item.txs.length),
+              period,
+              expensePdfFlowText(Number(item.total || 0) / count, item.currency, "out"),
+              expensePdfFlowText(item.taxTotal || 0, item.currency, "out"),
+              expensePdfFlowText(net, item.currency, "out"),
+              expensePdfFlowText(item.total || 0, item.currency, "out")
+            ];
+          });
+          doc.autoTable({
+            startY: y + 13,
+            head: [["Item", "Type", "Txns", "Period", "Average", "VAT", "Net", "Total"]],
+            body: summaryBody,
+            theme: "grid",
+            headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+            styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: {
+              0: { cellWidth: 28 },
+              1: { cellWidth: 20 },
+              2: { cellWidth: 11, halign: "right" },
+              3: { cellWidth: 32 },
+              4: { cellWidth: 21, halign: "right" },
+              5: { cellWidth: 20, halign: "right" },
+              6: { cellWidth: 24, halign: "right" },
+              7: { cellWidth: 24, halign: "right" }
+            },
+            margin: { left: 14, right: 14, top: 50, bottom: 40 },
+            didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+          });
+          y = (doc.lastAutoTable?.finalY || y + 13) + 12;
+          renderedSummaryRows += chunk.length;
+          const percent = 60 + (renderedSummaryRows / Math.max(1, totalSummaryRows)) * 36;
+          progress.update(percent, `Formatting summary: ${renderedSummaryRows.toLocaleString()} of ${totalSummaryRows.toLocaleString()} items`, "Formatting PDF");
+          await expensePdfYieldToUi();
+        }
+      }
+      y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 22);
+      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const noteLines = doc.splitTextToSize(
+        `Summary only. No individual transaction lines are shown. Item periods and amounts reflect the selected range: ${rangeLabel}.`,
+        pageWidth - 28
+      );
+      doc.text(noteLines, 14, y);
+      progress.update(98, "Finishing the PDF and starting your download…", "Finalizing report");
+      await expensePdfYieldToUi();
+      doc.save(`Expense_Transactions_Summary${walletContext.slug}_${selection.rangeSlug}_${todayISO()}.pdf`);
+      progress.update(99, "PDF is ready.", "Complete");
+      return;
+    }
+
+    const totalTransactions = items.reduce((sum, item) => sum + (item.txs?.length || 0), 0);
+    let renderedTransactions = 0;
+    for (const item of items){
+      const itemTransactions = item.txs || [];
+      for (let start = 0; start < itemTransactions.length; start += EXPENSE_PDF_TABLE_CHUNK_SIZE){
+        const txChunk = itemTransactions.slice(start, start + EXPENSE_PDF_TABLE_CHUNK_SIZE);
+        y = expenseHistoryPdfNewPageIfNeeded(doc, logoData, title, subtitle, y, 65);
+        doc.setFillColor(36, 87, 214);
+        doc.roundedRect(14, y, pageWidth - 28, 9, 1.5, 1.5, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.1);
+        const leftBand = expensePdfSingleLine(doc, `${item.displayName} | ${pdfCurrencyLabel(item.currency)}`, 69);
+        const first = start + 1;
+        const last = start + txChunk.length;
+        const rightBand = expensePdfSingleLine(doc,
+          `Transactions ${first}-${last} of ${itemTransactions.length} | Total ${expensePdfFlowText(item.total, item.currency, "out")}`,
+          pageWidth - 109
+        );
+        doc.text(leftBand, 18, y + 6);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.6);
+        doc.text(rightBand, pageWidth - 18, y + 6, { align: "right" });
+
+        const orderedBody = txChunk.map(tx => {
+          const detailText = expensePdfDetailsText(
+            tx.details || expenseMetaFromNotes(tx.notes).details || {},
+            "expense",
+            cleanExpenseNote(tx.notes)
+          );
+          return [
+            displayDate(tx.date || "—"),
+            tx.wallet || "—",
+            tx.expenseType || item.expenseType || "Other",
+            wrapTextForPdf(detailText, 78).split("\n"),
+            tx.taxAmount ? expensePdfFlowText(tx.taxAmount, item.currency, "out") : "-",
+            expensePdfFlowText(tx.amount, item.currency, "out")
+          ];
+        });
+        const historyLogoMap = await expensePdfWalletLogos(txChunk.map(tx => tx.wallet || "Wallet"));
+        const historyLogoRows = txChunk.map(tx => historyLogoMap.get(String(tx.wallet || "Wallet").trim()) || null);
+        doc.autoTable({
+          startY: y + 13,
+          head: [["Date", "Wallet", "Type", "Notes/Description", "VAT", "Amount"]],
+          body: orderedBody,
+          theme: "grid",
+          headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+          styles: { font: "helvetica", fontSize: 8, cellPadding: 2.3, overflow: "linebreak" },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          columnStyles: {
+            0: { cellWidth: 22 },
+            1: { cellWidth: 34 },
+            2: { cellWidth: 26 },
+            3: { cellWidth: 46 },
+            4: { cellWidth: 24, halign: "right" },
+            5: { cellWidth: 28, halign: "right" }
+          },
+          margin: { left: 14, right: 14, top: 50, bottom: 40 },
+          ...expensePdfWalletCellHooks(doc, historyLogoRows, 1),
+          didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+        });
+        y = (doc.lastAutoTable?.finalY || y + 13) + 12;
+        renderedTransactions += txChunk.length;
+        const percent = 60 + (renderedTransactions / Math.max(1, totalTransactions)) * 36;
+        progress.update(percent, `Formatting transactions: ${renderedTransactions.toLocaleString()} of ${totalTransactions.toLocaleString()}`, "Formatting PDF");
+        await expensePdfYieldToUi();
+      }
+    }
+
+    progress.update(98, "Finishing the PDF and starting your download…", "Finalizing report");
+    await expensePdfYieldToUi();
+    doc.save(`Expenses_History${walletContext.slug}_${selection.rangeSlug}_${todayISO()}.pdf`);
+    progress.update(99, "PDF is ready.", "Complete");
+  } catch (error) {
+    console.error("Expense history PDF export failed.", error);
+    alert(`Could not generate the complete expense PDF. ${String(error?.message || error || "Please try again.")}`);
+  } finally {
+    progress.finish();
+  }
 }
 
 async function downloadAllTopupsPDF(currencyFilter = null){
@@ -1230,79 +1502,118 @@ async function downloadExpenseTransferTransactionPDF(recordId){
 window.downloadExpenseTransferTransactionPDF = downloadExpenseTransferTransactionPDF;
 
 async function downloadExpenseItemPDF(itemKey){
-  if (typeof ensureExpenseItemHistoryLoaded === "function" && typeof isExpenseLazyMode === "function" && isExpenseLazyMode()) {
-    try { await ensureExpenseItemHistoryLoaded(itemKey, { all: true }); }
-    catch (error) { console.warn("Complete expense item history was unavailable for PDF export.", error); }
-  }
   if (!window.jspdf){
     alert("PDF library loading. Please try again in a moment.");
     return;
   }
 
-  const items = getExpenseHistoryItemsForExport();
-  const targetItem = items.find(item => item.key === itemKey);
-  if (!targetItem) {
-    alert("Expense item not found for the selected history range.");
-    return;
+  const selection = expensePdfHistorySelectionSnapshot();
+  const progress = startExpensePdfExportProgress("Expense item report");
+  if (!progress) return;
+
+  try {
+    progress.update(2, `Preparing ${selection.rangeLabel}…`, "Preparing export");
+    const items = await loadExpenseHistoryItemsForPdf(selection, progress, { targetItemKey: itemKey });
+    const targetItem = items.find(item => String(item.key) === String(itemKey));
+    if (!targetItem || !targetItem.txs?.length){
+      alert("No transactions for this item were found in the selected date range.");
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    await loadCustomFontsForPdf(doc);
+    const logoData = await getPdfLogo();
+    const title = "Expense Item Report";
+    const rangeLabel = selection.rangeLabel || "All";
+    const subtitle = `${rangeLabel} | Generated: ${new Date().toLocaleString()}`;
+    drawPdfHeader(doc, logoData, title, subtitle);
+    const headerBottom = drawCompactPdfPartiesAndMeta(doc, {
+      rightLabel: "EXPENSE ITEM",
+      partyName: targetItem.displayName,
+      meta: [
+        { label: "Date range", value: rangeLabel },
+        { label: "Transactions", value: String(targetItem.txs.length) },
+        { label: "Net", value: expensePdfFlowText(targetItem.netTotal ?? (Number(targetItem.total || 0) - Number(targetItem.taxTotal || 0)), targetItem.currency, "out") },
+        { label: "Total", value: expensePdfFlowText(targetItem.total || 0, targetItem.currency, "out") }
+      ]
+    });
+
+    let y = Math.max(88, headerBottom + 6);
+    const transactions = targetItem.txs || [];
+    let rendered = 0;
+    for (let start = 0; start < transactions.length; start += EXPENSE_PDF_TABLE_CHUNK_SIZE){
+      const chunk = transactions.slice(start, start + EXPENSE_PDF_TABLE_CHUNK_SIZE);
+      const orderedRows = chunk.map(tx => {
+        const detailText = expensePdfDetailsText(
+          tx.details || expenseMetaFromNotes(tx.notes).details || {},
+          "expense",
+          cleanExpenseNote(tx.notes)
+        );
+        return [
+          displayDate(tx.date || "—"),
+          tx.wallet || "—",
+          tx.expenseType || targetItem.expenseType || "Other",
+          wrapTextForPdf(detailText, 78).split("\n"),
+          tx.taxAmount ? expensePdfFlowText(tx.taxAmount, targetItem.currency, "out") : "-",
+          expensePdfFlowText(tx.amount, targetItem.currency, "out")
+        ];
+      });
+      const logoMap = await expensePdfWalletLogos(chunk.map(tx => tx.wallet || "Wallet"));
+      const logoRows = chunk.map(tx => logoMap.get(String(tx.wallet || "Wallet").trim()) || null);
+      doc.autoTable({
+        startY: y,
+        head: [["Date", "Wallet", "Type", "Notes / Description", "VAT", "Amount"]],
+        body: orderedRows,
+        theme: "grid",
+        headStyles: { fillColor: [36, 87, 214], textColor: 255, fontStyle: "bold" },
+        styles: { font: "helvetica", fontSize: 8.1, cellPadding: 2.2, overflow: "linebreak" },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 34 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 47 },
+          4: { cellWidth: 24, halign: "right" },
+          5: { cellWidth: 28, halign: "right" }
+        },
+        margin: { left: 14, right: 14, top: 50, bottom: 40 },
+        ...expensePdfWalletCellHooks(doc, logoRows, 1),
+        didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
+      });
+      y = (doc.lastAutoTable?.finalY || y + 12) + 8;
+      rendered += chunk.length;
+      progress.update(58 + (rendered / Math.max(1, transactions.length)) * 37,
+        `Formatting item transactions: ${rendered.toLocaleString()} of ${transactions.length.toLocaleString()}`,
+        "Formatting PDF");
+      await expensePdfYieldToUi();
+    }
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+    if (y + 28 > pageHeight - 34){
+      doc.addPage();
+      drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false);
+      y = 53;
+    }
+    const netTotal = Number(targetItem.netTotal ?? (Number(targetItem.total || 0) - Number(targetItem.taxTotal || 0)));
+    drawCompactPdfTotals(doc, y + 5, [
+      { label: "Net Amount", value: expensePdfFlowText(netTotal, targetItem.currency, "out") },
+      { label: "Total VAT", value: expensePdfFlowText(targetItem.taxTotal || 0, targetItem.currency, "out") },
+      { label: "Total Amount", value: expensePdfFlowText(targetItem.total || 0, targetItem.currency, "out"), strong: true }
+    ]);
+
+    progress.update(98, "Finishing the PDF and starting your download…", "Finalizing report");
+    await expensePdfYieldToUi();
+    const safeItemName = String(targetItem.displayName || "Expense").replace(/[^a-z0-9_-]+/gi, "_").replace(/^_+|_+$/g, "") || "Expense";
+    const safeCurrency = String(targetItem.currency || "AED").replace(/[^a-z0-9_-]+/gi, "_");
+    doc.save(`Expense_${safeItemName}_${safeCurrency}_${selection.rangeSlug}_${todayISO()}.pdf`);
+    progress.update(99, "PDF is ready.", "Complete");
+  } catch (error) {
+    console.error("Expense item PDF export failed.", error);
+    alert(`Could not generate the complete expense item PDF. ${String(error?.message || error || "Please try again.")}`);
+  } finally {
+    progress.finish();
   }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  // Load custom fonts for currency symbols
-  await loadCustomFontsForPdf(doc);
-
-  const logoData = await getPdfLogo();
-  const title = `Expense Report - ${targetItem.displayName}`;
-  const subtitle = `${expenseHistoryRangeText()} | Generated: ${new Date().toLocaleString()}`;
-  drawPdfHeader(doc, logoData, title, subtitle);
-  drawPdfOwnerBlock(doc, 48);
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`Item: ${targetItem.displayName}`, 132, 48);
-  doc.text(`Type: ${targetItem.expenseType || 'Other'}`, 132, 54);
-  doc.text(`Transactions: ${targetItem.txs.length}`, 132, 60);
-  doc.text(`VAT: ${expensePdfFlowText(targetItem.taxTotal || 0, targetItem.currency, "out")}`, 132, 66);
-  doc.text(`Net: ${expensePdfFlowText(Number(targetItem.total || 0) - Number(targetItem.taxTotal || 0), targetItem.currency, "out")}`, 132, 72);
-  doc.text(`Total: ${expensePdfFlowText(targetItem.total || 0, targetItem.currency, "out")}`, 132, 78);
-
-  const rows = targetItem.txs.map(tx => [
-    displayDate(tx.date || "—"),
-    tx.wallet || "—",
-    tx.expenseType || "—",
-    expensePdfFlowText(tx.amount, targetItem.currency, "out"),
-    tx.taxAmount ? expensePdfFlowText(tx.taxAmount, targetItem.currency, "out") : "-",
-    expensePdfDetailsText(tx.details || expenseMetaFromNotes(tx.notes).details || {}, "expense", cleanExpenseNote(tx.notes))
-  ]);
-  const orderedRows = rows.map(row => [row[0], row[1], row[2], wrapTextForPdf(row[5], 76).split("\n"), row[4], row[3]]);
-  const itemLogoMap = await expensePdfWalletLogos(targetItem.txs.map(tx => tx.wallet || "Wallet"));
-  const itemLogoRows = targetItem.txs.map(tx => itemLogoMap.get(String(tx.wallet || "Wallet").trim()) || null);
-
-  doc.autoTable({
-    startY: 86,
-    head: [["Date", "Wallet", "Type", "Notes/Description", "VAT", "Amount"]],
-    body: orderedRows,
-    theme: "grid",
-    headStyles: { fillColor: [36, 87, 214] },
-    styles: { font: "helvetica", fontSize: 8.4, cellPadding: 2.3, overflow: "linebreak" },
-    columnStyles: { 3: { cellWidth: 46 }, 4: { cellWidth: 24, halign: "right" }, 5: { cellWidth: 30, halign: "right" } },
-    margin: { top: 50, bottom: 40 },
-    ...expensePdfWalletCellHooks(doc, itemLogoRows, 1),
-    didDrawPage: () => drawPdfHeaderAndFooter(doc, logoData, title, subtitle, false)
-  });
-
-  // Add summary at the bottom
-  const finalY = doc.lastAutoTable.finalY || 72;
-  doc.setTextColor(23, 33, 43);
-  doc.setFontSize(10);
-  doc.text(`Net Amount: ${expensePdfFlowText(Number(targetItem.total || 0) - Number(targetItem.taxTotal || 0), targetItem.currency, "out")}`, 14, finalY + 10);
-  doc.text(`Total VAT: ${expensePdfFlowText(targetItem.taxTotal || 0, targetItem.currency, "out")}`, 14, finalY + 16);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Total Amount: ${expensePdfFlowText(targetItem.total, targetItem.currency, "out")}`, 14, finalY + 22);
-  doc.setFont("helvetica", "normal");
-
-  const fileName = `Expense_${targetItem.displayName.replace(/\s+/g, "_")}_${targetItem.currency}.pdf`;
-  doc.save(fileName);
 }
 
 async function deleteExpenseWallet(groupId, walletName) {
