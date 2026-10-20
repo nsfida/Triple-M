@@ -1514,3 +1514,206 @@
 #expenseEntryForm .expense-optional-details[open] .expense-chevron-right{display:none}
 #expenseTopupForm .expense-optional-details[open] .expense-chevron-down,
 #expenseEntryForm .expense-optional-details[open] .expense-chevron-down{display:inline-block}
+
+/* Focused, minimizable progress UI for long Expenses PDF exports. */
+.expense-pdf-progress-root{
+  position:fixed;
+  inset:0;
+  z-index:100000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+  color:var(--text, #172033);
+  font-family:inherit;
+}
+.expense-pdf-progress-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(11, 18, 32, .54);
+  backdrop-filter:blur(8px) saturate(1.08);
+  -webkit-backdrop-filter:blur(8px) saturate(1.08);
+  animation:expensePdfBackdropIn .18s ease-out both;
+}
+.expense-pdf-progress-card{
+  position:relative;
+  width:min(100%, 480px);
+  padding:23px 24px 19px;
+  border:1px solid var(--line, rgba(148,163,184,.3));
+  border-radius:23px;
+  background:var(--surface-glass-strong, var(--surface, #fff));
+  color:var(--text, #172033);
+  box-shadow:0 28px 90px rgba(0,0,0,.28), 0 3px 12px rgba(15,23,42,.08);
+  backdrop-filter:blur(24px) saturate(1.12);
+  -webkit-backdrop-filter:blur(24px) saturate(1.12);
+  animation:expensePdfCardIn .22s cubic-bezier(.2,.75,.25,1) both;
+}
+.expense-pdf-progress-top{
+  display:flex;
+  align-items:center;
+  gap:13px;
+}
+.expense-pdf-progress-icon{
+  display:grid;
+  place-items:center;
+  flex:0 0 48px;
+  width:48px;
+  height:48px;
+  border:1px solid rgba(36,87,214,.18);
+  border-radius:15px;
+  background:linear-gradient(145deg, rgba(36,87,214,.13), rgba(14,165,233,.09));
+  color:#2457d6;
+  font-size:20px;
+}
+.expense-pdf-progress-heading{
+  min-width:0;
+  flex:1 1 auto;
+}
+.expense-pdf-progress-eyebrow{
+  display:block;
+  margin-bottom:4px;
+  color:var(--muted, #718096);
+  font-size:.63rem;
+  font-weight:800;
+  letter-spacing:.13em;
+}
+.expense-pdf-progress-heading h2{
+  margin:0;
+  color:var(--text, #172033);
+  font-size:1.16rem;
+  font-weight:800;
+  line-height:1.25;
+  letter-spacing:-.025em;
+  overflow-wrap:anywhere;
+}
+.expense-pdf-progress-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:33px;
+  flex:0 0 auto;
+  padding:0 10px;
+  border:1px solid var(--line, rgba(148,163,184,.35));
+  border-radius:10px;
+  background:var(--surface, rgba(255,255,255,.7));
+  color:var(--text, #172033);
+  font:inherit;
+  font-size:.72rem;
+  font-weight:750;
+  cursor:pointer;
+  transition:background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.expense-pdf-progress-toggle:hover{
+  border-color:rgba(36,87,214,.45);
+  background:var(--primary-soft, rgba(36,87,214,.08));
+}
+.expense-pdf-progress-toggle:active{transform:scale(.98)}
+.expense-pdf-progress-toggle:focus-visible{
+  outline:3px solid rgba(36,87,214,.3);
+  outline-offset:2px;
+}
+.expense-pdf-progress-message{
+  margin:18px 0 13px;
+  color:var(--muted, #667085);
+  font-size:.88rem;
+  line-height:1.5;
+}
+.expense-pdf-progress-track{
+  position:relative;
+  width:100%;
+  height:10px;
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:999px;
+  background:var(--surface-muted, rgba(148,163,184,.19));
+}
+.expense-pdf-progress-track span{
+  display:block;
+  width:0%;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg, #2457d6 0%, #3388ef 52%, #25b9c8 100%);
+  box-shadow:0 0 15px rgba(36,87,214,.2);
+  transition:width .22s ease;
+}
+.expense-pdf-progress-status{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:10px;
+  color:var(--muted, #718096);
+  font-size:.73rem;
+  line-height:1.35;
+}
+.expense-pdf-progress-status strong{
+  flex:0 0 auto;
+  color:var(--text, #172033);
+  font-size:.82rem;
+  font-variant-numeric:tabular-nums;
+}
+.expense-pdf-progress-foot{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin-top:18px;
+  padding-top:14px;
+  border-top:1px solid var(--line, rgba(148,163,184,.25));
+  color:var(--muted, #718096);
+  font-size:.73rem;
+  line-height:1.45;
+}
+.expense-pdf-progress-foot i{
+  margin-top:2px;
+  color:#3388ef;
+}
+.expense-pdf-progress-root.is-minimized{
+  display:block;
+  padding:0;
+  pointer-events:none;
+}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-backdrop{display:none}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-card{
+  position:fixed;
+  right:max(16px, env(safe-area-inset-right));
+  bottom:max(16px, env(safe-area-inset-bottom));
+  width:min(380px, calc(100vw - 24px));
+  padding:14px 15px 13px;
+  border-radius:17px;
+  pointer-events:auto;
+  box-shadow:0 18px 55px rgba(0,0,0,.24), 0 2px 8px rgba(15,23,42,.08);
+  animation:expensePdfMinimizeIn .18s ease-out both;
+}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-icon{
+  flex-basis:36px;
+  width:36px;
+  height:36px;
+  border-radius:11px;
+  font-size:16px;
+}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-top{gap:10px}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-eyebrow{font-size:.55rem;margin-bottom:2px}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-heading h2{font-size:.91rem}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-toggle{width:34px;min-width:34px;height:32px;padding:0;font-size:0}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-toggle i{font-size:.8rem}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-message,
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-foot{display:none}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-track{height:6px;margin-top:11px}
+.expense-pdf-progress-root.is-minimized .expense-pdf-progress-status{margin-top:7px;font-size:.68rem}
+@keyframes expensePdfBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes expensePdfCardIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes expensePdfMinimizeIn{from{opacity:.7;transform:translateY(8px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:540px){
+  .expense-pdf-progress-root:not(.is-minimized){padding:14px}
+  .expense-pdf-progress-card{padding:19px 17px 16px;border-radius:19px}
+  .expense-pdf-progress-icon{flex-basis:42px;width:42px;height:42px}
+  .expense-pdf-progress-heading h2{font-size:1.02rem}
+  .expense-pdf-progress-toggle{width:34px;min-width:34px;padding:0;font-size:0}
+  .expense-pdf-progress-toggle i{font-size:.8rem}
+  .expense-pdf-progress-root.is-minimized .expense-pdf-progress-card{right:12px;bottom:12px;width:calc(100vw - 24px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .expense-pdf-progress-backdrop,.expense-pdf-progress-card,.expense-pdf-progress-root.is-minimized .expense-pdf-progress-card{animation:none}
+  .expense-pdf-progress-track span,.expense-pdf-progress-toggle{transition:none}
+}
