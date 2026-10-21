@@ -268,7 +268,7 @@ function drawTicket(ctx,t,opt){
   // frame & divider
   ctx.strokeStyle='#dcdcdc';ctx.lineWidth=1;ctx.strokeRect(18.5,15.5,1091,H-31);
   ctx.beginPath();ctx.moveTo(746.5,112);ctx.lineTo(746.5,H-16);ctx.stroke();
-  T(ctx,'Source: Fines Excel file – generated image',24,H-8,{font:`10px ${FONT}`,color:'#aaa'});
+  T(ctx,'',24,H-8,{font:`10px ${FONT}`,color:'#aaa'});
   return {W,H};
 }
 function renderTicket(t,scale,opt){
