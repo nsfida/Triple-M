@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RTA Fine Tickets → ZIP of Images</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--ink:#1c2230;--mut:#6b7385;--line:#dfe3ea;--pri:#1a1a8c;--ok:#0a7a3d;--bad:#b3261e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",Tahoma,Arial,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+#drop{border:2px dashed #aab1c3;border-radius:12px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s}
+#drop.over,#drop:hover{border-color:var(--pri);background:#f0f0fb}
+#drop b{display:block;font-size:17px;margin-bottom:4px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label{font-size:13px;color:var(--mut);display:block;margin-bottom:3px}
+select,input[type=text]{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+button{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:11px 22px;font:600 15px inherit;font-family:inherit;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--bg);border-radius:10px;padding:10px 12px}
+.stat span{display:block;font-size:12px;color:var(--mut)}
+.stat b{font-size:19px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+#bar{height:12px;background:#e6e8ef;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+#bar i{display:block;height:100%;width:0;background:var(--pri);transition:width .1s}
+#prev{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block}
+.hide{display:none}
+.note{font-size:13px;color:var(--mut)}
+#msg{white-space:pre-wrap;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RTA Fine Tickets → ZIP of Images</h1>
+  <p class="sub">Upload the fines Excel file (.xls / .xlsx). You get a ZIP with one image per ticket, named by Fine Number (e.g. <b>6261591407.png</b>).</p>
+
+  <div class="card">
+    <div id="drop"><b>Click here or drop the Excel file</b><span class="note">Works with the “Detect Traffic Violations” file (.xls or .xlsx)</span></div>
+    <input id="file" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
+    <div id="msg" class="note" style="margin-top:10px"></div>
+  </div>
+
+  <div id="info" class="card hide">
+    <div class="stats" id="stats"></div>
+    <div class="row" style="margin-top:16px">
+      <div><label>Image format</label><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
+      <div><label>Quality</label><select id="scale"><option value="1">Normal (1×)</option><option value="2">High (2×, bigger files)</option></select></div>
+      <div><label>Plate emirate text</label><input id="emirate" type="text" value="DUBAI" size="10"></div>
+      <button id="go">Generate ZIP</button>
+    </div>
+    <div id="bar" class="hide"><i></i></div>
+    <div id="status" class="note"></div>
+  </div>
+
+  <div id="pcard" class="card hide">
+    <label>Preview (first ticket)</label>
+    <canvas id="prev"></canvas>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let tickets=[], meta={};
+
+/* ---------- reading the Excel ---------- */
+const norm=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function str(v){
+  if(v==null)return '';
+  if(typeof v==='number')return Number.isInteger(v)?v.toFixed(0):String(v);
+  return String(v).replace(/\u00a0/g,' ').trim();
+}
+function parseDateCell(v){           // returns {d,m,y,hh,mm} (any may be null)
+  const r={d:null,m:null,y:null,hh:null,mm:null};
+  if(typeof v==='number'){
+    const p=XLSX.SSF.parse_date_code(v);
+    if(p){r.d=p.d;r.m=p.m;r.y=p.y;r.hh=p.H;r.mm=p.M}
+    return r;
+  }
+  const s=str(v);
+  let m=s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if(m){r.d=+m[1];r.m=+m[2];r.y=+m[3]<100?2000+ +m[3]:+m[3]}
+  m=s.match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
+  if(m){let h=+m[1];const ap=(m[3]||'').toLowerCase();
+    if(ap==='pm'&&h<12)h+=12; if(ap==='am'&&h===12)h=0; r.hh=h;r.mm=+m[2]}
+  return r;
+}
+function timeFromCell(v){
+  if(typeof v==='number'&&v<1){const t=Math.round(v*1440);return{hh:Math.floor(t/60)%24,mm:t%60}}
+  const r=parseDateCell(v);return{hh:r.hh,mm:r.mm};
+}
+function fmtDateTime(dv,tv){
+  const d=parseDateCell(dv);
+  let hh=d.hh,mm=d.mm;
+  if(tv!==undefined&&tv!==''){const t=timeFromCell(tv);if(t.hh!=null){hh=t.hh;mm=t.mm}}
+  let out=d.d?`${String(d.d).padStart(2,'0')} ${MON[d.m-1]} ${d.y}`:str(dv);
+  if(hh!=null){const ap=hh>=12?'pm':'am';const h12=hh%12||12;out+=`, ${h12}:${String(mm).padStart(2,'0')} ${ap}`}
+  return out;
+}
+function sortKey(dv,tv){
+  const d=parseDateCell(dv);let hh=d.hh||0,mm=d.mm||0;
+  if(tv!==undefined&&tv!==''){const t=timeFromCell(tv);if(t.hh!=null){hh=t.hh;mm=t.mm}}
+  return d.y?new Date(d.y,d.m-1,d.d,hh,mm).getTime():0;
+}
+
+function findCol(hdr,names){
+  for(const n of names){const i=hdr.indexOf(n);if(i>=0)return i}
+  return -1;
+}
+
+function parseWorkbook(wb){
+  const out=[],info={sheets:[],declaredCount:null,declaredAmount:null,fileNo:''};
+  for(const name of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''});
+    // find the header row (contains "Ticket Number")
+    let h=rows.findIndex(r=>r.some(c=>norm(c)==='ticketnumber'));
+    if(h<0)continue;
+    const hdr=rows[h].map(norm);
+    // summary row above header: Traffic File No | Total Tickets | Total Amount
+    for(let i=0;i<h;i++){
+      const hh=rows[i].map(norm);
+      if(hh.includes('totaltickets')&&rows[i+1]){
+        const nx=rows[i+1];
+        info.fileNo=str(nx[hh.indexOf('trafficfileno')]);
+        info.declaredCount=+str(nx[hh.indexOf('totaltickets')])||null;
+        info.declaredAmount=+str(nx[hh.indexOf('totalamount')])||null;info.mainSheet=name;
+      }
+    }
+    const c={
+      plate:findCol(hdr,['platenumber']),cat:findCol(hdr,['platecategory']),code:findCol(hdr,['platecode']),
+      no:findCol(hdr,['ticketnumber']),date:findCol(hdr,['ticketdate']),time:findCol(hdr,['tickettime']),
+      src:findCol(hdr,['finessource','finesource','source']),fee:findCol(hdr,['ticketfee','valueinsteadofbooking']),
+      off:findCol(hdr,['thetermsoftheoffense','textviolation','offense']),days:findCol(hdr,['numberofdaysofbooking'])
+    };
+    let n=0;
+    for(let i=h+1;i<rows.length;i++){
+      const r=rows[i];const no=str(r[c.no]);
+      if(!no||!/\d/.test(no))continue;
+      let plate=str(r[c.plate]),cat=c.cat>=0?str(r[c.cat]):'',code=c.code>=0?str(r[c.code]):'';
+      if(c.cat<0&&plate.includes(' ')){            // "20268 Private I" style
+        const p=plate.split(/\s+/);plate=p[0];cat=p[1]||'';code=p.slice(2).join(' ');
+      }
+      const dv=r[c.date],tv=c.time>=0?r[c.time]:'';
+      out.push({
+        no,plate,cat,code,
+        when:fmtDateTime(dv,tv),key:sortKey(dv,tv),
+        src:c.src>=0?str(r[c.src]):'',
+        fee:str(r[c.fee]),
+        off:str(r[c.off]),
+        days:c.days>=0?str(r[c.days]):'',
+        sheet:name
+      });n++;
+    }
+    info.sheets.push(`${name}: ${n}`);
+  }
+  return {list:out,info};
+}
+
+/* ---------- drawing a ticket (replica of the RTA search-result screenshot) ---------- */
+const FONT='"Segoe UI",Tahoma,Arial,sans-serif';
+const hasArabic=s=>/[\u0600-\u06FF]/.test(s);
+function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function wrap(ctx,text,maxW){
+  const words=String(text).split(/\s+/).filter(Boolean),lines=[];let cur='';
+  for(const w of words){
+    const t=cur?cur+' '+w:w;
+    if(cur&&ctx.measureText(t).width>maxW){lines.push(cur);cur=w}else cur=t;
+  }
+  if(cur)lines.push(cur);return lines.length?lines:[''];
+}
+function T(ctx,s,x,y,o={}){
+  ctx.font=o.font||`13px ${FONT}`;ctx.fillStyle=o.color||'#222';
+  ctx.textAlign=o.align||'left';ctx.textBaseline='middle';ctx.direction=o.dir||'ltr';
+  ctx.fillText(s,x,y);
+}
+const B=`600 13px ${FONT}`,G='#7b7b7b';
+
+function drawTicket(ctx,t,opt){
+  const W=1130;
+  const title=`${t.cat||'Vehicle'}${t.code?', Code '+t.code:''}, ${t.plate}`;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,2000);
+  // outer frame + filter bar
+  ctx.fillStyle='#f5f5f5';ctx.fillRect(18,15,1092,96);
+  T(ctx,'Show',35,42,{font:`600 12px ${FONT}`,color:'#666'});
+  T(ctx,'Sort',931,42,{font:`600 12px ${FONT}`,color:'#666'});
+  const sel=(x,w,txt)=>{rr(ctx,x,53,w,36,4);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d0d0d0';ctx.lineWidth=1;ctx.stroke();
+    T(ctx,txt,x+14,71,{font:`14px ${FONT}`,color:'#444'});
+    ctx.strokeStyle='#555';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(x+w-24,69);ctx.lineTo(x+w-17,76);ctx.lineTo(x+w-10,69);ctx.stroke()};
+  sel(35,152,'Fine Source');sel(195,110,'Category');sel(315,90,'Code');sel(931,162,'Date (new-old)');
+  rr(ctx,412,53,108,36,4);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d0d0d0';ctx.stroke();
+  T(ctx,t.plate,428,71,{font:`15px ${FONT}`,color:'#333'});
+  rr(ctx,527,53,198,36,4);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d0d0d0';ctx.stroke();
+  T(ctx,'Search by Brand or Ticket No...',542,72,{font:`12px ${FONT}`,color:'#555'});
+  ctx.strokeStyle='#666';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(748,71,6.5,0,7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(753,76);ctx.lineTo(758,81);ctx.stroke();
+
+  // left list row
+  ctx.font=B;
+  const srcLines=wrap(ctx,t.src||'-',128).slice(0,3);
+  const rowH=Math.max(72,50+srcLines.length*17);
+  ctx.fillStyle='#e8e8f4';ctx.fillRect(19,112,727,rowH);
+  wrap(ctx,title,125).slice(0,3).forEach((l,i)=>T(ctx,l,39,128+i*18,{font:B,color:'#111'}));
+  const lab=(s,x,y)=>T(ctx,s,x,y,{font:`12px ${FONT}`,color:G});
+  lab('Date and Time of',180,128);lab('Issuing The Fine',180,146);
+  const dl=wrap(ctx,t.when,125);dl.forEach((l,i)=>T(ctx,l,180,164+i*17,{font:`600 12.5px ${FONT}`,color:'#111'}));
+  lab('Amount',317,128);T(ctx,'AED '+t.fee,317,146,{font:`600 12.5px ${FONT}`,color:'#111'});
+  lab('Source',391,128);srcLines.forEach((l,i)=>T(ctx,l,391,146+i*17,{font:`600 12.5px ${FONT}`,color:'#111'}));
+  lab('Black points',517,128);T(ctx,'-',517,146,{font:`600 12.5px ${FONT}`,color:'#111'});
+  ctx.strokeStyle='#555';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(727,139);ctx.lineTo(732,145);ctx.lineTo(727,151);ctx.stroke();
+  // pagination
+  const py=112+rowH+13;
+  const btn=(x,w,s)=>{ctx.fillStyle='#4a545f';ctx.fillRect(x,py,w,27);T(ctx,s,x+w/2,py+14,{font:`600 14px ${FONT}`,color:'#fff',align:'center'})};
+  btn(38,63,'First');btn(107,63,'Previous');btn(596,62,'Next');btn(663,63,'Last');
+  ctx.fillStyle='#1a1a8c';ctx.fillRect(371,py,23,26);T(ctx,'1',382.5,py+13,{font:`600 14px ${FONT}`,color:'#fff',align:'center'});
+
+  // right detail panel
+  const X0=763,XV=911,XR=1095;
+  rr(ctx,761,157,334,50,2);ctx.fillStyle='#f3f3f3';ctx.fill();ctx.strokeStyle='#ddd';ctx.stroke();
+  ctx.font=B;wrap(ctx,title,170).slice(0,3).forEach((l,i)=>T(ctx,l,769,170+i*17,{font:B,color:'#111'}));
+  // plate
+  rr(ctx,947,168,121,30,3);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=1.4;ctx.stroke();
+  if(opt.emirate)T(ctx,opt.emirate.toUpperCase(),964,176,{font:`bold 8.5px ${FONT}`,color:'#111',align:'center'});
+  if(t.code)T(ctx,t.code,964,189,{font:`bold 14px ${FONT}`,color:'#111',align:'center'});
+  ctx.font=`bold 25px Arial,${FONT}`;
+  let pf=25;while(ctx.measureText(t.plate).width>72&&pf>12){pf--;ctx.font=`bold ${pf}px Arial,${FONT}`}
+  T(ctx,t.plate,1061,184,{font:ctx.font,color:'#111',align:'right'});
+
+  let y=227;
+  const kv=(label,value,twoLine)=>{
+    const l=twoLine?['Date and Time of Issuing','The Fine:']:[label];
+    if(twoLine){T(ctx,'Date and Time of Issuing',X0,y,{color:G});T(ctx,'The Fine:',X0,y+18,{color:G})}
+    else T(ctx,label,X0,y,{color:G});
+    ctx.font=B;const vl=wrap(ctx,value,XR-XV);
+    vl.forEach((s,i)=>T(ctx,s,XV,y+i*18,{font:B,color:'#111'}));
+    y+=Math.max(twoLine?42:22.5,vl.length*18+4.5);
+  };
+  // the screenshot wraps the date label in 2 lines; label column is narrow
+  y=227;
+  T(ctx,'Date and Time of Issuing',X0,y,{color:G});T(ctx,'The Fine:',X0,y+18,{color:G});
+  ctx.font=B;const wl=wrap(ctx,t.when,XR-XV);wl.forEach((s,i)=>T(ctx,s,XV,y+i*18,{font:B,color:'#111'}));
+  y+=Math.max(42,wl.length*18+4.5);
+  kv('Location:','-');
+  kv('Source:',t.src||'-');
+  kv('Amount:','AED '+t.fee);
+  kv('Payable Black Points:','-');
+  kv('Online declaration:','-');
+  kv('Fine Number:',t.no);
+  if(t.days)kv('Booking days:',t.days);
+  T(ctx,'Details:',X0,y,{color:G});y+=22;
+  // details text: Arabic part (RTL, right aligned) then English part
+  const off=t.off||'-';const cut=off.lastIndexOf('/');
+  let ar='',en=off;
+  if(hasArabic(off)&&cut>0){ar=off.slice(0,cut).trim()+' /';en=off.slice(cut+1).trim()}
+  else if(hasArabic(off)){ar=off;en=''}
+  ctx.font=`13px ${FONT}`;
+  if(ar){wrap(ctx,ar,XR-X0).forEach(l=>{T(ctx,l,XR,y,{font:`13px ${FONT}`,color:'#111',align:'right',dir:'rtl'});y+=18})}
+  if(en){wrap(ctx,en,XR-X0).forEach(l=>{T(ctx,l,X0,y,{font:`13px ${FONT}`,color:'#111'});y+=18})}
+  y+=14;
+  const H=Math.max(540,Math.ceil(y+34));
+  // frame & divider
+  ctx.strokeStyle='#dcdcdc';ctx.lineWidth=1;ctx.strokeRect(18.5,15.5,1091,H-31);
+  ctx.beginPath();ctx.moveTo(746.5,112);ctx.lineTo(746.5,H-16);ctx.stroke();
+  T(ctx,'Source: Fines Excel file – generated image',24,H-8,{font:`10px ${FONT}`,color:'#aaa'});
+  return {W,H};
+}
+function renderTicket(t,scale,opt){
+  const probe=document.createElement('canvas');probe.width=1130;probe.height=2000;
+  const {W,H}=drawTicket(probe.getContext('2d'),t,opt);
+  const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
+  const ctx=cv.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);
+  drawTicket(ctx,t,opt);return cv;
+}
+const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
+
+/* ---------- UI ---------- */
+const drop=$('drop'),fileIn=$('file');
+drop.onclick=()=>fileIn.click();
+fileIn.onchange=()=>fileIn.files[0]&&load(fileIn.files[0]);
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>{const f=ev.dataTransfer.files[0];f&&load(f)});
+
+async function load(file){
+  $('msg').textContent='Reading '+file.name+' …';
+  try{
+    if(typeof XLSX==='undefined'||typeof JSZip==='undefined')throw new Error('Libraries failed to load. Check your internet connection and reload the page.');
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const {list,info}=parseWorkbook(wb);
+    if(!list.length)throw new Error('No tickets found. The file must have a “Ticket Number” column.');
+    // de-duplicate ticket numbers (rare) so no file is overwritten
+    const seen={};list.forEach(t=>{const k=t.no;seen[k]=(seen[k]||0)+1;t.fname=seen[k]>1?`${k}_${seen[k]}`:k});
+    tickets=list;meta=info;
+    const total=list.reduce((s,t)=>s+(+t.fee||0),0);
+    const main=list.filter(t=>!info.mainSheet||t.sheet===info.mainSheet);
+    const mainTotal=main.reduce((s,t)=>s+(+t.fee||0),0);
+    const cOK=info.declaredCount==null||info.declaredCount===main.length;
+    const aOK=info.declaredAmount==null||info.declaredAmount===mainTotal;
+    const dups=list.length-new Set(list.map(t=>t.no)).size;
+    $('stats').innerHTML=
+      `<div class="stat"><span>Traffic file no.</span><b>${info.fileNo||'-'}</b></div>`+
+      `<div class="stat"><span>Tickets found</span><b>${list.length}</b></div>`+
+      `<div class="stat"><span>Total amount (AED)</span><b>${total.toLocaleString()}</b></div>`+
+      `<div class="stat"><span>Check vs. file header</span><b class="${cOK&&aOK?'ok':'bad'}">${info.declaredCount==null?'n/a':(cOK&&aOK?'✔ matches':'✖ mismatch')}</b></div>`;
+    $('msg').innerHTML=`Loaded <b>${file.name}</b> — sheets: ${info.sheets.join(' | ')}`+
+      (info.declaredCount!=null?`<br>File header says ${info.declaredCount} tickets / AED ${(info.declaredAmount||0).toLocaleString()} — main sheet has ${main.length} / AED ${mainTotal.toLocaleString()}.`:'')+
+      (dups?`<br>${dups} duplicate ticket number(s) were found; they get a _2, _3 suffix.`:'');
+    $('info').classList.remove('hide');$('pcard').classList.remove('hide');
+    refreshPreview();
+  }catch(e){console.error(e);$('msg').innerHTML=`<span class="bad">${e.message}</span>`}
+}
+function opts(){return{emirate:$('emirate').value.trim()}}
+function refreshPreview(){
+  if(!tickets.length)return;
+  const cv=renderTicket(tickets[0],1,opts());
+  const p=$('prev');p.width=cv.width;p.height=cv.height;p.getContext('2d').drawImage(cv,0,0);
+}
+$('emirate').oninput=refreshPreview;
+
+$('go').onclick=async()=>{
+  if(!tickets.length)return;
+  const btn=$('go');btn.disabled=true;
+  const ext=$('fmt').value,mime=ext==='png'?'image/png':'image/jpeg',scale=+$('scale').value,o=opts();
+  const zip=new JSZip(),bar=$('bar'),fill=bar.firstElementChild;bar.classList.remove('hide');
+  const t0=Date.now();
+  try{
+    for(let i=0;i<tickets.length;i++){
+      const t=tickets[i];
+      const cv=renderTicket(t,scale,o);
+      const blob=await toBlob(cv,mime,0.92);
+      zip.file(`${t.fname.replace(/[\\/:*?"<>|]/g,'_')}.${ext}`,blob);
+      fill.style.width=((i+1)/tickets.length*90)+'%';
+      $('status').textContent=`Creating images: ${i+1} / ${tickets.length}`;
+      if(i%5===4)await new Promise(r=>setTimeout(r));
+    }
+    const zb=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true},m=>{
+      fill.style.width=(90+m.percent/10)+'%';$('status').textContent=`Packing ZIP… ${m.percent.toFixed(0)}%`});
+    const a=document.createElement('a');a.href=URL.createObjectURL(zb);
+    a.download=`Tickets_${meta.fileNo||'fines'}.zip`;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+    $('status').innerHTML=`<span class="ok">✔ Done — ${tickets.length} images in ${((Date.now()-t0)/1000).toFixed(0)}s (${(zb.size/1048576).toFixed(1)} MB). Your download should start automatically.</span>`;
+  }catch(e){console.error(e);$('status').innerHTML=`<span class="bad">Error: ${e.message}</span>`}
+  btn.disabled=false;
+};
+</script>
+</body>
+</html>
