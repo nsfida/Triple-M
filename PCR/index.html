@@ -29,6 +29,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .ok{color:var(--ok)}.bad{color:var(--bad)}
 #bar{height:12px;background:#e6e8ef;border-radius:6px;overflow:hidden;margin:10px 0 6px}
 #bar i{display:block;height:100%;width:0;background:var(--pri);transition:width .1s}
+textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:14px/1.4 Consolas,monospace;resize:vertical}
 #prev{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block}
 .hide{display:none}
 .note{font-size:13px;color:var(--mut)}
@@ -48,6 +49,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
   <div id="info" class="card hide">
     <div class="stats" id="stats"></div>
+    <div style="margin-top:16px">
+      <label for="only">Only these fine numbers (optional) — one per line. Leave empty to download ALL tickets.</label>
+      <textarea id="only" rows="5" placeholder="9013174946&#10;7041972256&#10;1532155980&#10;35630847"></textarea>
+      <div id="onlyInfo" class="note"></div>
+    </div>
     <div class="row" style="margin-top:16px">
       <div><label>Image format</label><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
       <div><label>Quality</label><select id="scale"><option value="1">Normal (1×)</option><option value="2">High (2×, bigger files)</option></select></div>
@@ -314,7 +320,7 @@ async function load(file){
       (info.declaredCount!=null?`<br>File header says ${info.declaredCount} tickets / AED ${(info.declaredAmount||0).toLocaleString()} — main sheet has ${main.length} / AED ${mainTotal.toLocaleString()}.`:'')+
       (dups?`<br>${dups} duplicate ticket number(s) were found; they get a _2, _3 suffix.`:'');
     $('info').classList.remove('hide');$('pcard').classList.remove('hide');
-    refreshPreview();
+    refreshPreview();updateOnlyInfo();
   }catch(e){console.error(e);$('msg').innerHTML=`<span class="bad">${e.message}</span>`}
 }
 function opts(){return{emirate:$('emirate').value.trim()}}
@@ -325,28 +331,49 @@ function refreshPreview(){
 }
 $('emirate').oninput=refreshPreview;
 
+function getSelection(){
+  const wanted=[...new Set(($('only').value.match(/\d+/g)||[]))];
+  if(!wanted.length)return{list:tickets,filtered:false,missing:[],wanted};
+  const set=new Set(wanted);
+  const list=tickets.filter(t=>set.has(t.no));
+  const found=new Set(list.map(t=>t.no));
+  return{list,filtered:true,missing:wanted.filter(n=>!found.has(n)),wanted};
+}
+function updateOnlyInfo(){
+  if(!tickets.length){$('onlyInfo').textContent='';return}
+  const s=getSelection();
+  if(!s.filtered){$('onlyInfo').innerHTML='No numbers entered → all '+tickets.length+' tickets will be downloaded.';return}
+  $('onlyInfo').innerHTML=`<span class="ok">${s.list.length} ticket(s) matched</span> out of ${s.wanted.length} number(s) entered.`+
+    (s.missing.length?`<br><span class="bad">Not found in Excel (${s.missing.length}): ${s.missing.join(', ')}</span>`:'');
+  $('go').textContent=s.list.length?`Generate ZIP (${s.list.length} selected)`:'Generate ZIP';
+}
+$('only').oninput=()=>{updateOnlyInfo();if(!$('only').value.trim())$('go').textContent='Generate ZIP'};
+
 $('go').onclick=async()=>{
   if(!tickets.length)return;
+  const sel=getSelection();
+  if(sel.filtered&&!sel.list.length){$('status').innerHTML='<span class="bad">None of the fine numbers you entered were found in the Excel file.</span>';return}
+  const todo=sel.list;
   const btn=$('go');btn.disabled=true;
   const ext=$('fmt').value,mime=ext==='png'?'image/png':'image/jpeg',scale=+$('scale').value,o=opts();
   const zip=new JSZip(),bar=$('bar'),fill=bar.firstElementChild;bar.classList.remove('hide');
   const t0=Date.now();
   try{
-    for(let i=0;i<tickets.length;i++){
-      const t=tickets[i];
+    for(let i=0;i<todo.length;i++){
+      const t=todo[i];
       const cv=renderTicket(t,scale,o);
       const blob=await toBlob(cv,mime,0.92);
       zip.file(`${t.fname.replace(/[\\/:*?"<>|]/g,'_')}.${ext}`,blob);
-      fill.style.width=((i+1)/tickets.length*90)+'%';
-      $('status').textContent=`Creating images: ${i+1} / ${tickets.length}`;
+      fill.style.width=((i+1)/todo.length*90)+'%';
+      $('status').textContent=`Creating images: ${i+1} / ${todo.length}`;
       if(i%5===4)await new Promise(r=>setTimeout(r));
     }
     const zb=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true},m=>{
       fill.style.width=(90+m.percent/10)+'%';$('status').textContent=`Packing ZIP… ${m.percent.toFixed(0)}%`});
     const a=document.createElement('a');a.href=URL.createObjectURL(zb);
-    a.download=`Tickets_${meta.fileNo||'fines'}.zip`;document.body.appendChild(a);a.click();a.remove();
+    a.download=sel.filtered?`Tickets_selected_${todo.length}.zip`:`Tickets_${meta.fileNo||'fines'}.zip`;document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),60000);
-    $('status').innerHTML=`<span class="ok">✔ Done — ${tickets.length} images in ${((Date.now()-t0)/1000).toFixed(0)}s (${(zb.size/1048576).toFixed(1)} MB). Your download should start automatically.</span>`;
+    $('status').innerHTML=`<span class="ok">✔ Done — ${todo.length} images in ${((Date.now()-t0)/1000).toFixed(0)}s (${(zb.size/1048576).toFixed(1)} MB). Your download should start automatically.</span>`+(sel.missing.length?`<br><span class="bad">Not found in Excel (${sel.missing.length}): ${sel.missing.join(', ')}</span>`:'');
   }catch(e){console.error(e);$('status').innerHTML=`<span class="bad">Error: ${e.message}</span>`}
   btn.disabled=false;
 };
