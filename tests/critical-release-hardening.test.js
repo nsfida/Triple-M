@@ -129,7 +129,7 @@ test("release security policy and cache identifiers cover the critical changes",
   assert.match(headers, /Strict-Transport-Security: max-age=31536000/);
   assert.match(index, /01-assets\.js\?v=20261009-assets-critical-fixes/);
   assert.match(index, /01-bitcoin\.js\?v=20261009-bitcoin-critical-fixes/);
-  assert.match(index, /01-insurance\.js\?v=20261009-insurance-critical-fixes/);
+  assert.match(index, /01-insurance\.js\?v=20261022-markup-referral200/);
   const sw = read("service-worker.js");
   assert.match(sw, /STATIC_CACHE_PREFIX = "triplem-static-"/);
   assert.match(sw, /\$\{STATIC_CACHE_PREFIX\}v189-critical-hardening1/);
