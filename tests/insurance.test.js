@@ -459,7 +459,7 @@ test("Insurance sale form records optional referral and editable auto-calculated
   assert.doesNotMatch(source, /referralCommission>Math\.max\(math\.actualProfit,0\)/);
   assert.match(source, /insuranceReferralCommissionAmount/);
   assert.match(source, /referralCommissionValue=\(\)=>Math\.max\(0,n\(form\.elements\.gross_premium\?\.value\)-n\(form\.elements\.sale_price\?\.value\)\)/);
-  assert.match(source, /referralCommission=referralEnabled\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
+  assert.match(source, /referralCommission=referralGivesCommission\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
   assert.doesNotMatch(source, /name="referral_commission"/);
   assert.match(source, /id="insuranceReferralCommissionAmount" type="number" inputmode="decimal" min="0" step="0\.01" value="\$\{referralInputValue\}"/);
   assert.doesNotMatch(source, /Automatically calculated: Gross Premium/);
@@ -749,7 +749,7 @@ test("customer statement Documents menu is forced to a compact root-level vertic
   assert.match(js, /width: "196px"/);
   assert.match(css, /\.insurance-floating-menu\.insurance-customer-documents-dropdown\{[\s\S]*position:fixed!important;[\s\S]*grid-auto-flow:row!important;[\s\S]*width:196px!important;/);
   assert.match(html, /app\.feature\.bundle\.css\?v=20261003-commission-tabs001/);
-  assert.match(html, /01-insurance\.js\?v=20261009-insurance-critical-fixes/);
+  assert.match(html, /01-insurance\.js\?v=20261022-markup-referral200/);
 });
 
 
@@ -1050,4 +1050,76 @@ test('Insurance Excel backup is a real tenant-scoped .xls workbook with complete
   }
   assert.match(sql, /app_require_insurance_permission\('view'\)/);
   assert.doesNotMatch(sql.replace(/--.*$/gm, ''), /\b(insert|update|delete|drop table|truncate)\b/i);
+});
+
+test('Sale Price above Gross Premium is an Additional Charge, never a negative discount', () => {
+  const r = calculateInsuranceFinancials(1500, 1400, 1600);
+  assert.equal(r.customerDiscount, 0);
+  assert.equal(r.customerMarkup, 100);
+  assert.equal(r.companyCommission, 100);
+  assert.equal(r.actualProfit, 200);
+  assert.equal(r.isLoss, false);
+  const normal = calculateInsuranceFinancials(1500, 1400, 1450);
+  assert.equal(normal.customerDiscount, 50);
+  assert.equal(normal.customerMarkup, 0);
+  const equal = calculateInsuranceFinancials(1500, 1400, 1500);
+  assert.equal(equal.customerDiscount, 0);
+  assert.equal(equal.customerMarkup, 0);
+});
+
+test('Make Sale lets a sale above Gross Premium through and keeps invoices/receipts free of discount', () => {
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  assert.doesNotMatch(js, /Customer Discount is negative and represents a markup/);
+  assert.doesNotMatch(js, /Referral commission must be greater than zero/);
+  assert.match(js, /recorded as an Additional Charge \(no discount is applied on the invoice or receipt\)/);
+  assert.match(js, /function documentAdditionalCharge\(d\)/);
+  assert.match(js, /const discount=Math\.max\(n\(s\.gross_premium\)-n\(s\.sale_price\),0\)/);
+  assert.match(js, /<span>Additional Charge<\/span><strong>\+ \$\{moneyHtml\(additionalCharge,d\.currency\)\}/);
+  assert.match(js, /additionalCharge>0\?"Additional Charge":"Discount"/);
+});
+
+test('Additional Charge document logic reconciles Gross, Discount and Sale Amount', () => {
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  const start = js.indexOf('function documentAdditionalCharge(d)');
+  const end = js.indexOf('function documentHtml(d)');
+  const n = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+  const documentAdditionalCharge = new Function('n', `${js.slice(start, end)}; return documentAdditionalCharge;`)(n);
+  assert.equal(documentAdditionalCharge({ gross_premium: 1500, customer_discount: 0, sale_price: 1600 }), 100);
+  assert.equal(documentAdditionalCharge({ gross_premium: 1500, customer_discount: 50, sale_price: 1450 }), 0);
+  assert.equal(documentAdditionalCharge({ gross_premium: 1500, customer_discount: 0, sale_price: 1500 }), 0);
+  assert.equal(documentAdditionalCharge({ gross_premium: 1500, customer_discount: -100, sale_price: 1600 }), 100);
+  assert.equal(documentAdditionalCharge({ gross_premium: 0, customer_discount: 0, sale_price: 900 }), 0);
+});
+
+test('Make Sale records a chosen referral even when no commission is given', () => {
+  const js = fs.readFileSync(path.join(projectRoot, 'Assets/app/insurance/01-insurance.js'), 'utf8');
+  assert.match(js, /referralChosen=!!referralSelector\?\.value/);
+  assert.match(js, /referralName=referralChosen\?selectedReferralName\(\):""/);
+  assert.match(js, /referralCommission=referralGivesCommission\?Math\.max\(0,n\(referralAmount\?\.value\)\):0/);
+  assert.match(js, /no_commission: \{ label: "No Commission", cls: "none" \}/);
+  assert.match(js, /<option value="no_commission"/);
+  // Selecting "No referral" must really clear the referral (no fallback to the previously saved one).
+  assert.match(js, /const selectedReferralName=\(\)=>\{const value=referralSelector\?\.value\|\|"";if\(!value\)return""/);
+  assert.match(js, /const selectedReferralId=\(\)=>\{const value=referralSelector\?\.value\|\|"";return value&&value!=="__new__"\?value:null;\}/);
+});
+
+test('Migration 200 is additive, idempotent and safe for live Insurance data', () => {
+  const raw = fs.readFileSync(path.join(projectRoot, 'migrations/200_insurance_sale_markup_and_zero_commission_referrals.sql'), 'utf8');
+  const sql = raw.replace(/--.*$/gm, '');
+  assert.match(sql, /add column if not exists customer_markup numeric\(20,8\) not null default 0/i);
+  assert.match(sql, /greatest\(new\.gross_premium-new\.sale_price,0::numeric\)/i);
+  assert.match(sql, /greatest\(new\.sale_price-new\.gross_premium,0::numeric\)/i);
+  assert.match(sql, /before insert or update on public\.insurance_sales/i);
+  assert.doesNotMatch(sql, /drop\s+table|truncate|delete\s+from|drop\s+column|drop\s+function|alter\s+column/i);
+  // Backfill only touches rows where Sale Price exceeds Gross Premium.
+  assert.match(sql, /where sale_price>gross_premium/i);
+  for (const fn of ['app_insurance_list_referrer_directory', 'app_insurance_list_referrer_accounts', 'app_insurance_referrer_summary', 'app_insurance_get_referrer_account', 'app_insurance_get_referral']) {
+    assert.match(sql, new RegExp(`create or replace function public\\.${fn}\\(`), fn);
+  }
+  assert.doesNotMatch(sql, /referral_commission>0/);
+  assert.match(sql, /'no_commission'/);
+  // Payment functions are intentionally untouched: nothing can be paid against a zero commission.
+  assert.doesNotMatch(sql, /app_insurance_pay_referr/);
+  assert.match(sql, /^\s*begin;/im);
+  assert.match(sql, /commit;\s*$/i);
 });
