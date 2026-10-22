@@ -22,12 +22,18 @@
     if (gross < 0 || purchase < 0 || sale < 0) {
       throw new RangeError("Insurance prices cannot be negative.");
     }
+    // Sale Price below Gross Premium is a Customer Discount. Sale Price above
+    // Gross Premium is an Additional Charge (markup / service fee). The two are
+    // mutually exclusive and never negative, so a markup is never shown as a
+    // "negative discount" on invoices, receipts, reports or exports.
+    const difference = sale - gross;
     return {
       grossPremium: gross,
       purchasePrice: purchase,
       salePrice: sale,
       companyCommission: gross - purchase,
-      customerDiscount: gross - sale,
+      customerDiscount: difference < 0 ? -difference : 0,
+      customerMarkup: difference > 0 ? difference : 0,
       actualProfit: sale - purchase,
       isLoss: sale < purchase,
       lossAmount: sale < purchase ? purchase - sale : 0
