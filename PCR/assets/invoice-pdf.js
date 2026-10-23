@@ -61,13 +61,12 @@ function build(JsPDF, inv, assets) {
   };
 
   /* ---------- header (first page only) ---------- */
-  T(COMPANY.name, 21.9, 38.1, { bold: true });
-  T(COMPANY.addr1, 21.9, 65.1, { bold: true });
-  T(COMPANY.addr2, 21.9, 92.1, { bold: true });
-  doc.addImage(assets.logo, 'PNG', 249.75, 15, 96, 69.3);                       // logo.png (centred)
-  T('PREMIUM CAR RENTALS', 297.75, 97, { size: 7.2, bold: true, align: 'center' });   // company name as text under the logo
+  doc.addImage(assets.logo, 'PNG', 20, 22, 96, 69.3);                           // logo.png (top-left)
+  T(COMPANY.name, 130, 25, { size: 12, bold: true });                               // company details, centred on the logo artwork
+  T(COMPANY.addr1, 130, 55, { size: 9.5 });
+  T('TRN No: ' + COMPANY.trn, 130, 41, { size: 9.5 });
+  T(COMPANY.addr2, 130, 69, { size: 9.5 });
   T('Fines Tax Invoice', 297.75, 130.8, { size: 19.2, align: 'center', sw: 0.25 });
-  T('TRN No: ' + COMPANY.trn, 297.7, 147.9, { bold: true, align: 'center' });
 
   /* ---------- bill-to block ---------- */
   T('BILL TO CUSTOMER ID : ' + (inv.customerId || ''), 20.1, 170.4, { size: 10.8, color: [16, 15, 15] });
@@ -162,7 +161,8 @@ function build(JsPDF, inv, assets) {
     nl.forEach((s, i) => T(s, 29.8, lastBase - (nl.length - 1 - i) * 14.4, { size: ns }));
     rect(30.0, t + 48.6, 113.4, LW);  T('Customer Sign.', 86.7, t + 59.4, { align: 'center' });
     rect(352.2, t + 48.6, 128.7, LW); T('Officer Sign.', 416.55, t + 59.4, { align: 'center' });
-    T('Thank You For Your Business!', 252.8, t + 88.2, { bold: true, align: 'center' });
+    T('If you have any questions about this invoice, please contact', 252.8, t + 76.5, { size: 8, align: 'center' });
+    T('Thank You For Your Business!', 252.8, t + 90.5, { bold: true, align: 'center' });
   });
   return doc;
 }
