@@ -9,6 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/invoice-assets.js"></script>
 <script src="assets/invoice-pdf.js"></script>
+<script src="assets/email-assets.js"></script>
+<script src="assets/email-template.js"></script>
 <style>
 :root{--bg:#f4f5f8;--card:#fff;--ink:#1c2230;--mut:#6b7385;--line:#dfe3ea;--pri:#1a1a8c;--ok:#0a7a3d;--bad:#b3261e}
 *{box-sizing:border-box}
@@ -34,18 +36,37 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #bar i{display:block;height:100%;width:0;background:var(--pri);transition:width .1s}
 textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:14px/1.4 Consolas,monospace;resize:vertical}
 #prev{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block}
-.hide{display:none}
+.hide{display:none!important}
 .note{font-size:13px;color:var(--mut)}
 #msg,#imsg{white-space:pre-wrap;font-size:14px}
 .tag{display:inline-block;font-size:11px;font-weight:600;color:var(--pri);background:#e8e8f8;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:middle}
 .chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin:0;cursor:pointer}
 .chk input{width:16px;height:16px}
 #ipv{width:100%;height:620px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sec{background:#fff;color:var(--pri);border:1.5px solid var(--pri);padding:9px 16px;white-space:nowrap}
+.sec:hover{background:#f0f0fb}
+.ov{position:fixed;inset:0;background:rgba(20,24,40,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px}
+.ovbox{background:#fff;border-radius:14px;width:100%;max-width:820px;padding:20px 22px 24px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.ovhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.ovhead b{font-size:18px}
+.x{background:transparent;color:var(--mut);font-size:20px;padding:2px 10px;border-radius:6px}
+.x:hover{background:var(--bg)}
+.mrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+.mrow .nm{font-weight:600}.mrow .sm{font-size:13px;color:var(--mut)}
+.mrow button{padding:8px 16px;font-size:14px}
+.kv{display:flex;align-items:center;gap:8px;margin-top:8px}
+.kv span{width:62px;font-size:13px;color:var(--mut);flex:none}
+.kv input{flex:1;min-width:0;width:100%}
+.mini{background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:5px 10px;font-size:12px;border-radius:6px;font-weight:600}
+.att{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:14px}
+.warn{background:#fff6e0;border:1px solid #f0d58a;border-radius:8px;padding:10px 12px;font-size:14px;margin-top:10px}
+a.back{color:var(--pri);cursor:pointer;font-size:14px;text-decoration:none;font-weight:600}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>RTA Fine Tickets &amp; Invoices → ZIP</h1>
+  <div class="top"><h1>RTA Fine Tickets &amp; Invoices → ZIP</h1><button id="mailBtn" class="sec" type="button">✉ Email</button></div>
   <p class="sub">Upload the <b>fines Excel</b> to get one image per ticket (named by Fine Number, e.g. <b>6261591407.png</b>), and/or the <b>invoices Excel</b> to get one PDF invoice per customer (named by customer, e.g. <b>Customer Name.pdf</b>). Use either one, or both together in a single ZIP.</p>
 
   <div class="card">
@@ -92,6 +113,20 @@ textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:
     <label>Preview (first invoice — today’s date is used as the invoice date)</label>
     <iframe id="ipv" title="Invoice preview"></iframe>
     <div class="note" style="margin-top:6px">If the preview stays blank, <a id="ipvLink" href="#" target="_blank">open it in a new tab</a>.</div>
+  </div>
+</div>
+
+<div id="ov" class="ov hide" role="dialog" aria-modal="true">
+  <div class="ovbox">
+    <div class="ovhead"><b id="ovTitle">✉ Send email to customer</b><button id="ovClose" class="x" type="button" aria-label="Close">✕</button></div>
+
+    <div id="ovList">
+      <label for="mailNums">Ticket (fine) numbers — one per line</label>
+      <textarea id="mailNums" rows="4" placeholder="38504638&#10;36173003"></textarea>
+      <div id="mailInfo" class="note" style="margin-top:6px"></div>
+      <div id="mailRows"></div>
+    </div>
+
   </div>
 </div>
 
@@ -519,6 +554,94 @@ $('go').onclick=async()=>{
   }catch(e){console.error(e);$('status').innerHTML=`<span class="bad">Error: ${e.message}</span>`}
   btn.disabled=false;
 };
+
+/* ---------- EMAIL overlay ---------- */
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const safeName=s=>s.replace(/[\\/:*?"<>|]/g,'_').replace(/[. ]+$/,'');
+function saveBlob(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+}
+function openOv(){
+  if(!window.EmailTpl||!window.EMAIL_ASSETS){alert('Email files failed to load. Make sure the “assets” folder sits next to index.html, then reload the page.');return}
+  $('ov').classList.remove('hide');document.body.style.overflow='hidden';
+  renderMailList();$('mailNums').focus();
+}
+function closeOv(){$('ov').classList.add('hide');document.body.style.overflow=''}
+$('mailBtn').onclick=openOv;$('ovClose').onclick=closeOv;
+$('ov').addEventListener('mousedown',e=>{if(e.target===$('ov'))closeOv()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('ov').classList.contains('hide'))closeOv()});
+$('mailNums').oninput=renderMailList;
+
+function renderMailList(){
+  const box=$('mailRows'),info=$('mailInfo');box.innerHTML='';
+  if(!invoices.length){
+    info.innerHTML='';
+    box.innerHTML='<div class="warn">Upload the <b>invoices Excel</b> first (box 2 on the main page) — customer name, email, contract and amount are taken from it. Then come back here.</div>';
+    return;
+  }
+  const wanted=[...new Set(($('mailNums').value.match(/\d+/g)||[]))];
+  if(!wanted.length){info.textContent='Enter one or more ticket numbers to list the customers.';return}
+  const rows=[],missing=[];
+  wanted.forEach(n=>{const hit=invoices.filter(r=>r.fineNo===n);hit.length?rows.push(...hit):missing.push(n)});
+  // one entry per customer (same customer + contract), holding all of that customer's entered fines
+  const groups=new Map();
+  rows.forEach(r=>{
+    const k=EmailTpl.clean(r.customer).toUpperCase()+'|'+r.contract;
+    if(!groups.has(k))groups.set(k,[]);
+    if(!groups.get(k).some(x=>x.fineNo===r.fineNo))groups.get(k).push(r);
+  });
+  info.innerHTML=`<span class="${rows.length?'ok':'bad'}">${rows.length} ticket(s) matched</span> for <b>${groups.size}</b> customer(s), out of ${wanted.length} number(s) entered.`+
+    (missing.length?`<br><span class="bad">Not found in the invoices Excel (${missing.length}): ${missing.join(', ')}</span>`:'');
+  groups.forEach(g=>{
+    const f=g[0],total=g.reduce((a,r)=>a+(+r.total||0),0);
+    const d=document.createElement('div');d.className='mrow';
+    d.innerHTML=`<div><div class="nm">${esc(EmailTpl.clean(f.customer))}</div>
+      <div class="sm">${g.length>1?g.length+' fines':'Fine'} no. <b>${g.map(r=>esc(r.fineNo)).join(', ')}</b> · Contract ${esc(f.contract)} · AED ${EmailTpl.money(total)} · ${f.email?esc(f.email):'<span class="bad">no email in sheet</span>'}</div>
+      <div class="sm st"></div></div>
+      <button type="button">Send email</button>`;
+    const btn=d.querySelector('button'),st=d.querySelector('.st');
+    btn.onclick=()=>sendEmail(g,btn,st);
+    box.appendChild(d);
+  });
+}
+
+function mailData(g){
+  const f=g[0],total=g.reduce((a,r)=>a+(+r.total||0),0);
+  return{name:f.customer,contract:f.contract,amount:total,fineNo:g.map(r=>r.fineNo).join(', '),
+    fines:g.map(r=>({fineNo:r.fineNo,amount:r.total})),to:f.email,count:g.length};
+}
+async function sendEmail(g,btn,st){
+  const old=btn.textContent;btn.disabled=true;btn.textContent='Preparing…';st.textContent='';
+  try{
+    const name=safeName(EmailTpl.clean(g[0].customer))||'Invoice',d=mailData(g);
+    // one combined invoice for the customer + one ticket image per fine (when the fines Excel is loaded)
+    const inv=window.InvoicePDF.makeInvoices(g,true)[0];
+    const doc=window.InvoicePDF.build(window.jspdf.jsPDF,inv);
+    const list=[{name:name+'.pdf',mime:'application/pdf',bytes:new Uint8Array(doc.output('arraybuffer'))}];
+    const ext=$('fmt').value,mime=ext==='png'?'image/png':'image/jpeg',noTk=[];
+    for(const r of g){
+      const t=tickets.find(x=>x.no===r.fineNo);
+      if(!t){noTk.push(r.fineNo);continue}
+      const blob=await toBlob(renderTicket(t,+$('scale').value,opts()),mime,0.92);
+      list.push({name:`${t.no}.${ext}`,mime,bytes:new Uint8Array(await blob.arrayBuffer())});
+    }
+    const eml=EmailTpl.makeEml(d,list);
+    const blob=new Blob([eml],{type:'message/rfc822'}),fname=`Email - ${name} - ${g.length>1?g.length+' fines':g[0].fineNo}.eml`;
+    let opened=false;
+    try{                                   // preferred: hand it to the local helper, which opens it straight in Outlook
+      const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),30000);
+      const r=await fetch('http://127.0.0.1:8765/open?name='+encodeURIComponent(fname),{method:'POST',body:blob,signal:ac.signal});
+      clearTimeout(tm);opened=r.ok;
+    }catch(e){opened=false}
+    if(!opened)saveBlob(blob,fname);     // fallback: normal download
+    st.innerHTML=(opened
+      ?`<span class="ok">✔ Opened in Outlook with ${list.length} attachment(s) already included. Review and press Send.</span>`
+      :`<span class="ok">✔ Email draft downloaded — open the .eml file to continue in Outlook (${list.length} attachment(s) included).</span><br><span class="bad">Tip: run “Install Outlook Helper (run once).bat” one time so this button opens Outlook directly without downloading.</span>`)+
+      (noTk.length?`<br><span class="bad">Ticket image not attached for ${noTk.join(', ')} (upload the fines Excel in box 1 to include them).</span>`:'');
+  }catch(e){console.error(e);st.innerHTML=`<span class="bad">Error: ${esc(e.message)}</span>`}
+  btn.disabled=false;btn.textContent=old;
+}
 </script>
 </body>
 </html>
