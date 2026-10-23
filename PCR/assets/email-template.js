@@ -32,7 +32,7 @@ const money = n => (Math.round((+n + Number.EPSILON) * 100) / 100).toFixed(2);
 /* d = {name, contract, amount, fineNo, to, count} */
 function subject(d) {
   const n = String(d.count || 1).padStart(2, '0');
-  return `${n} New Traffic Ticket ✦✦✦ CNo${clean(d.contract)} ${clean(d.name)} ✦ (AED ${money(d.amount)}) ✦ (${d.fineNo})`;
+  return `${n} New Traffic Ticket${(d.count || 1) > 1 ? 's' : ''} ✦✦✦ CNo${clean(d.contract)} ${clean(d.name)} ✦ (AED ${money(d.amount)}) ✦ (${d.fineNo})`;
 }
 
 function html(d, mode, assets) {
