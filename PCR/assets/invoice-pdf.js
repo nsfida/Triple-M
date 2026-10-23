@@ -7,8 +7,7 @@ const COMPANY = {
   name: 'Premium Car Rental DMCC',
   addr1: 'JBC-1 Cluster G - JLT , Lobby area',
   addr2: 'DUBAI UAE',
-  trn: '100035111200003',
-  whatsapp: '971552554527'
+  trn: '100035111200003'
 };
 
 /* ---- small helpers ---- */
@@ -89,7 +88,10 @@ function build(JsPDF, inv, assets) {
   T(inv.address || '', VX, 252.3, { size: S });
 
   T('Date', 319.0, 185.7, { size: S });            T(inv.date, 575.4, 185.7, { size: S, align: 'right' });
-  T('Invoice#', 319.0, 201.9, { size: S });        T(inv.invoiceNo || '', 575.4, 201.9, { size: S, align: 'right' });
+  T('Invoice#', 319.0, 201.9, { size: S });
+  let is = S; const invMax = 575.4 - 319.0 - W('Invoice#', S) - 8;           // shrink if several invoice numbers are combined
+  while (W(inv.invoiceNo || '', is) > invMax && is > 5.5) is -= 0.2;
+  T(inv.invoiceNo || '', 575.4, 201.9, { size: is, align: 'right' });
   T('Contract No.', 319.0, 218.1, { size: S });    T(inv.contract, 575.4, 218.1, { size: S, align: 'right' });
   T('LPO/BID #', 319.0, 234.3, { size: S });       T('-', 575.4, 234.3, { size: S, align: 'right' });
 
@@ -159,9 +161,6 @@ function build(JsPDF, inv, assets) {
     nl.forEach((s, i) => T(s, 29.8, lastBase - (nl.length - 1 - i) * 14.4, { size: ns }));
     rect(30.0, t + 48.6, 113.4, LW);  T('Customer Sign.', 86.7, t + 59.4, { align: 'center' });
     rect(352.2, t + 48.6, 128.7, LW); T('Officer Sign.', 416.55, t + 59.4, { align: 'center' });
-    doc.addImage(assets.whatsapp, 'PNG', 189, t + 22.9, 18, 18);
-    T(COMPANY.whatsapp, 206.9, t + 40.5, { size: 14.4 });
-    T('If you have any questions about this invoice, please contact', 252.8, t + 73.8, { align: 'center' });
     T('Thank You For Your Business!', 252.8, t + 88.2, { bold: true, align: 'center' });
   });
   return doc;
@@ -186,6 +185,7 @@ function makeInvoices(rows, combine, date) {
       email: clean(f.email),
       vehicle: uniq(g.map(r => clean(r.plate))).join(', '),
       address: '',
+      invoiceNo: uniq(g.map(r => clean(r.invoiceNo)))[0] || '',      // several fines -> just one invoice number (the first one)
       date: date || today(),
       contract: uniq(g.map(r => clean(r.contract))).join(', '),
       lines: g.map(r => ({ fineNo: r.fineNo, plate: clean(r.plate), fine: r.fine, rta: r.rta, sur: r.sur, total: r.total }))

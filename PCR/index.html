@@ -239,7 +239,7 @@ function parseInvoiceWorkbook(wb){
     const h=rows.findIndex(r=>{const n=r.map(norm);return n.includes('customer')&&n.includes('fineno')});
     if(h<0)continue;
     const hdr=rows[h].map(norm),col=(...n)=>findCol(hdr,n);
-    const c={contract:col('contractno','contract'),cust:col('customer'),mobile:col('mobile','mobileno'),email:col('email'),
+    const c={contract:col('contractno','contract'),inv:col('inv','invoice','invoiceno','invoicenumber'),cust:col('customer'),mobile:col('mobile','mobileno'),email:col('email'),
       fineNo:col('fineno'),plate:col('plateno','platenumber','plate'),fine:col('fineamount'),rta:col('rtaamount'),
       sur:col('surchargeamount','surcharge'),vat:col('vatsuramount','vatamount','vat'),total:col('totalamount','total')};
     if(c.fine<0)throw new Error('The invoices file needs a “Fine Amount” column.');
@@ -253,7 +253,7 @@ function parseInvoiceWorkbook(wb){
       }
       const fine=IPN.num(g(r,c.fine)),rta=IPN.num(g(r,c.rta)),sur=IPN.num(g(r,c.sur)),vat=IPN.num(g(r,c.vat));
       const total=c.total>=0&&str(g(r,c.total))!==''?IPN.num(g(r,c.total)):fine+rta+sur+vat;
-      out.push({customer:cust,contract:str(g(r,c.contract)),mobile:str(g(r,c.mobile)),email:str(g(r,c.email)),
+      out.push({customer:cust,contract:str(g(r,c.contract)),invoiceNo:str(g(r,c.inv)),mobile:str(g(r,c.mobile)),email:str(g(r,c.email)),
         fineNo,plate:str(g(r,c.plate)),fine,rta,sur:sur+vat,total});      // surcharge column on the invoice = surcharge + its VAT
       n++;
     }
