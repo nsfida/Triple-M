@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RTA Fine Tickets → ZIP of Images</title>
+<title>RTA Fine Tickets &amp; Invoices → ZIP</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="assets/invoice-assets.js"></script>
+<script src="assets/invoice-pdf.js"></script>
 <style>
 :root{--bg:#f4f5f8;--card:#fff;--ink:#1c2230;--mut:#6b7385;--line:#dfe3ea;--pri:#1a1a8c;--ok:#0a7a3d;--bad:#b3261e}
 *{box-sizing:border-box}
@@ -15,7 +18,7 @@ h1{font-size:22px;margin:0 0 4px}
 .sub{color:var(--mut);margin:0 0 20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
 #drop{border:2px dashed #aab1c3;border-radius:12px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s}
-#drop.over,#drop:hover{border-color:var(--pri);background:#f0f0fb}
+#drop.over,#drop:hover,#idrop.over,#idrop:hover{border-color:var(--pri)!important;background:#f0f0fb}
 #drop b{display:block;font-size:17px;margin-bottom:4px}
 .row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
 label{font-size:13px;color:var(--mut);display:block;margin-bottom:3px}
@@ -33,33 +36,49 @@ textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:
 #prev{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block}
 .hide{display:none}
 .note{font-size:13px;color:var(--mut)}
-#msg{white-space:pre-wrap;font-size:14px}
+#msg,#imsg{white-space:pre-wrap;font-size:14px}
+.tag{display:inline-block;font-size:11px;font-weight:600;color:var(--pri);background:#e8e8f8;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin:0;cursor:pointer}
+.chk input{width:16px;height:16px}
+#ipv{width:100%;height:620px;border:1px solid var(--line);border-radius:6px;background:#fff}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>RTA Fine Tickets → ZIP of Images</h1>
-  <p class="sub">Upload the fines Excel file (.xls / .xlsx). You get a ZIP with one image per ticket, named by Fine Number (e.g. <b>6261591407.png</b>).</p>
+  <h1>RTA Fine Tickets &amp; Invoices → ZIP</h1>
+  <p class="sub">Upload the <b>fines Excel</b> to get one image per ticket (named by Fine Number, e.g. <b>6261591407.png</b>), and/or the <b>invoices Excel</b> to get one PDF invoice per customer (named by customer, e.g. <b>Customer Name.pdf</b>). Use either one, or both together in a single ZIP.</p>
 
   <div class="card">
-    <div id="drop"><b>Click here or drop the Excel file</b><span class="note">Works with the “Detect Traffic Violations” file (.xls or .xlsx)</span></div>
+    <label style="font-weight:600;color:var(--ink);font-size:14px">1. Tickets <span class="tag">optional</span></label>
+    <div id="drop" style="margin-top:6px"><b>Click here or drop the fines Excel file</b><span class="note">Works with the “Detect Traffic Violations” file (.xls or .xlsx)</span></div>
     <input id="file" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
     <div id="msg" class="note" style="margin-top:10px"></div>
   </div>
 
+  <div class="card">
+    <label style="font-weight:600;color:var(--ink);font-size:14px">2. Invoices <span class="tag">optional</span></label>
+    <div id="idrop" style="margin-top:6px;border:2px dashed #aab1c3;border-radius:12px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s"><b style="display:block;font-size:17px;margin-bottom:4px">Click here or drop the invoices Excel file</b><span class="note">Works with the “Premium Car Rentals” file (.xlsx) — needs Customer and Fine No columns</span></div>
+    <input id="ifile" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
+    <div id="imsg" class="note" style="margin-top:10px"></div>
+  </div>
+
   <div id="info" class="card hide">
     <div class="stats" id="stats"></div>
+    <div class="stats" id="istats" style="margin-top:10px"></div>
     <div style="margin-top:16px">
-      <label for="only">Only these fine numbers (optional) — one per line. Leave empty to download ALL tickets.</label>
+      <label for="only">Only these fine numbers (optional) — one per line. Leave empty to download ALL tickets / invoices.</label>
       <textarea id="only" rows="5" placeholder="9013174946&#10;7041972256&#10;1532155980&#10;35630847"></textarea>
       <div id="onlyInfo" class="note"></div>
     </div>
-    <div class="row" style="margin-top:16px">
+    <div class="row" style="margin-top:16px" id="tkOpts">
       <div><label>Image format</label><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
       <div><label>Quality</label><select id="scale"><option value="1">Normal (1×)</option><option value="2">High (2×, bigger files)</option></select></div>
       <div><label>Plate emirate text</label><input id="emirate" type="text" value="DUBAI" size="10"></div>
-      <button id="go">Generate ZIP</button>
     </div>
+    <div class="row hide" style="margin-top:14px" id="invOpts">
+      <label class="chk"><input type="checkbox" id="combine" checked> Combine all fines of the same customer (same contract) into one invoice</label>
+    </div>
+    <div class="row" style="margin-top:16px"><button id="go">Generate ZIP</button></div>
     <div id="bar" class="hide"><i></i></div>
     <div id="status" class="note"></div>
   </div>
@@ -68,12 +87,19 @@ textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:
     <label>Preview (first ticket)</label>
     <canvas id="prev"></canvas>
   </div>
+
+  <div id="ipcard" class="card hide">
+    <label>Preview (first invoice — today’s date is used as the invoice date)</label>
+    <iframe id="ipv" title="Invoice preview"></iframe>
+    <div class="note" style="margin-top:6px">If the preview stays blank, <a id="ipvLink" href="#" target="_blank">open it in a new tab</a>.</div>
+  </div>
 </div>
 
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
 let tickets=[], meta={};
+let invoices=[], imeta={}, ipvUrl=null;   // invoice rows (one per fine) from the invoices Excel
 
 /* ---------- reading the Excel ---------- */
 const norm=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -164,6 +190,37 @@ function parseWorkbook(wb){
         days:c.days>=0?str(r[c.days]):'',
         sheet:name
       });n++;
+    }
+    info.sheets.push(`${name}: ${n}`);
+  }
+  return {list:out,info};
+}
+
+/* ---------- reading the invoices Excel (Premium Car Rentals) ---------- */
+function parseInvoiceWorkbook(wb){
+  const IPN=window.InvoicePDF,out=[],info={sheets:[],declaredTotal:null};
+  for(const name of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''});
+    const h=rows.findIndex(r=>{const n=r.map(norm);return n.includes('customer')&&n.includes('fineno')});
+    if(h<0)continue;
+    const hdr=rows[h].map(norm),col=(...n)=>findCol(hdr,n);
+    const c={contract:col('contractno','contract'),cust:col('customer'),mobile:col('mobile','mobileno'),email:col('email'),
+      fineNo:col('fineno'),plate:col('plateno','platenumber','plate'),fine:col('fineamount'),rta:col('rtaamount'),
+      sur:col('surchargeamount','surcharge'),vat:col('vatsuramount','vatamount','vat'),total:col('totalamount','total')};
+    if(c.fine<0)throw new Error('The invoices file needs a “Fine Amount” column.');
+    const g=(r,i)=>i>=0?r[i]:'';
+    let n=0;
+    for(let i=h+1;i<rows.length;i++){
+      const r=rows[i],cust=str(g(r,c.cust)).replace(/\s+/g,' '),fineNo=str(g(r,c.fineNo));
+      if(!cust||!/\d/.test(fineNo)){                       // totals row at the bottom: no customer, only amounts
+        if(!cust&&!fineNo&&c.total>=0&&IPN.num(g(r,c.total))>0)info.declaredTotal=IPN.num(g(r,c.total));
+        continue;
+      }
+      const fine=IPN.num(g(r,c.fine)),rta=IPN.num(g(r,c.rta)),sur=IPN.num(g(r,c.sur)),vat=IPN.num(g(r,c.vat));
+      const total=c.total>=0&&str(g(r,c.total))!==''?IPN.num(g(r,c.total)):fine+rta+sur+vat;
+      out.push({customer:cust,contract:str(g(r,c.contract)),mobile:str(g(r,c.mobile)),email:str(g(r,c.email)),
+        fineNo,plate:str(g(r,c.plate)),fine,rta,sur:sur+vat,total});      // surcharge column on the invoice = surcharge + its VAT
+      n++;
     }
     info.sheets.push(`${name}: ${n}`);
   }
@@ -319,8 +376,7 @@ async function load(file){
     $('msg').innerHTML=`Loaded <b>${file.name}</b> — sheets: ${info.sheets.join(' | ')}`+
       (info.declaredCount!=null?`<br>File header says ${info.declaredCount} tickets / AED ${(info.declaredAmount||0).toLocaleString()} — main sheet has ${main.length} / AED ${mainTotal.toLocaleString()}.`:'')+
       (dups?`<br>${dups} duplicate ticket number(s) were found; they get a _2, _3 suffix.`:'');
-    $('info').classList.remove('hide');$('pcard').classList.remove('hide');
-    refreshPreview();updateOnlyInfo();
+    syncUI();refreshPreview();
   }catch(e){console.error(e);$('msg').innerHTML=`<span class="bad">${e.message}</span>`}
 }
 function opts(){return{emirate:$('emirate').value.trim()}}
@@ -331,49 +387,135 @@ function refreshPreview(){
 }
 $('emirate').oninput=refreshPreview;
 
+function syncUI(){
+  const hasT=tickets.length>0,hasI=invoices.length>0;
+  $('info').classList.toggle('hide',!(hasT||hasI));
+  $('stats').classList.toggle('hide',!hasT);
+  $('tkOpts').classList.toggle('hide',!hasT);
+  $('invOpts').classList.toggle('hide',!hasI);
+  $('pcard').classList.toggle('hide',!hasT);
+  $('ipcard').classList.toggle('hide',!hasI);
+  updateOnlyInfo();
+}
+const idrop=$('idrop'),ifileIn=$('ifile');
+idrop.onclick=()=>ifileIn.click();
+ifileIn.onchange=()=>ifileIn.files[0]&&loadInvoices(ifileIn.files[0]);
+['dragover','dragenter'].forEach(e=>idrop.addEventListener(e,ev=>{ev.preventDefault();idrop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>idrop.addEventListener(e,ev=>{ev.preventDefault();idrop.classList.remove('over')}));
+idrop.addEventListener('drop',ev=>{const f=ev.dataTransfer.files[0];f&&loadInvoices(f)});
+
+async function loadInvoices(file){
+  $('imsg').textContent='Reading '+file.name+' …';
+  try{
+    if(typeof XLSX==='undefined'||typeof JSZip==='undefined'||!window.jspdf||!window.InvoicePDF||!window.INV_ASSETS)
+      throw new Error('Libraries failed to load. Check your internet connection and that the “assets” folder sits next to index.html, then reload the page.');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    const {list,info}=parseInvoiceWorkbook(wb);
+    if(!list.length)throw new Error('No invoice rows found. The file must have “Customer” and “Fine No” columns.');
+    invoices=list;imeta=info;
+    renderInvoiceInfo(file.name);
+    syncUI();refreshInvoicePreview();
+  }catch(e){console.error(e);$('imsg').innerHTML=`<span class="bad">${e.message}</span>`}
+}
+function renderInvoiceInfo(fname){
+  const combine=$('combine').checked,list=invoices;
+  const count=window.InvoicePDF.makeInvoices(list,combine,'').length;
+  const total=list.reduce((s,r)=>s+r.total,0),r2=x=>Math.round(x*100)/100;
+  const ok=imeta.declaredTotal==null||Math.abs(r2(total)-r2(imeta.declaredTotal))<0.05;
+  $('istats').innerHTML=
+    `<div class="stat"><span>Invoice lines (fines)</span><b>${list.length}</b></div>`+
+    `<div class="stat"><span>Invoices to create</span><b>${count}</b></div>`+
+    `<div class="stat"><span>Total amount (AED)</span><b>${r2(total).toLocaleString(undefined,{minimumFractionDigits:2})}</b></div>`+
+    `<div class="stat"><span>Check vs. sheet total</span><b class="${ok?'ok':'bad'}">${imeta.declaredTotal==null?'n/a':(ok?'✔ matches':'✖ mismatch')}</b></div>`;
+  $('imsg').innerHTML=`Loaded <b>${fname}</b> — sheets: ${imeta.sheets.join(' | ')}`+
+    (imeta.declaredTotal!=null?`<br>Sheet total says AED ${imeta.declaredTotal.toLocaleString()} — fine lines add up to AED ${r2(total).toLocaleString()}.`:'');
+}
+function refreshInvoicePreview(){
+  if(!invoices.length)return;
+  try{
+    const inv=window.InvoicePDF.makeInvoices(invoices,$('combine').checked)[0];
+    const doc=window.InvoicePDF.build(window.jspdf.jsPDF,inv);
+    if(ipvUrl)URL.revokeObjectURL(ipvUrl);
+    ipvUrl=URL.createObjectURL(new Blob([doc.output('arraybuffer')],{type:'application/pdf'}));
+    $('ipv').src=ipvUrl;$('ipvLink').href=ipvUrl;
+  }catch(e){console.error(e)}
+}
+$('combine').onchange=()=>{if(invoices.length){renderInvoiceInfo($('imsg').querySelector('b')?.textContent||'');refreshInvoicePreview();updateOnlyInfo()}};
+
 function getSelection(){
   const wanted=[...new Set(($('only').value.match(/\d+/g)||[]))];
-  if(!wanted.length)return{list:tickets,filtered:false,missing:[],wanted};
+  if(!wanted.length)return{list:tickets,ilist:invoices,filtered:false,missing:[],wanted};
   const set=new Set(wanted);
   const list=tickets.filter(t=>set.has(t.no));
-  const found=new Set(list.map(t=>t.no));
-  return{list,filtered:true,missing:wanted.filter(n=>!found.has(n)),wanted};
+  const ilist=invoices.filter(r=>set.has(r.fineNo));
+  const found=new Set([...list.map(t=>t.no),...ilist.map(r=>r.fineNo)]);
+  return{list,ilist,filtered:true,missing:wanted.filter(n=>!found.has(n)),wanted};
 }
 function updateOnlyInfo(){
-  if(!tickets.length){$('onlyInfo').textContent='';return}
-  const s=getSelection();
-  if(!s.filtered){$('onlyInfo').innerHTML='No numbers entered → all '+tickets.length+' tickets will be downloaded.';return}
-  $('onlyInfo').innerHTML=`<span class="ok">${s.list.length} ticket(s) matched</span> out of ${s.wanted.length} number(s) entered.`+
+  if(!tickets.length&&!invoices.length){$('onlyInfo').textContent='';return}
+  const s=getSelection(),parts=[];
+  if(!s.filtered){
+    if(tickets.length)parts.push(tickets.length+' tickets');
+    if(invoices.length)parts.push(window.InvoicePDF.makeInvoices(invoices,$('combine').checked).length+' invoices');
+    $('onlyInfo').innerHTML='No numbers entered → all '+parts.join(' and ')+' will be downloaded.';
+    $('go').textContent='Generate ZIP';return;
+  }
+  if(tickets.length)parts.push(`${s.list.length} ticket(s)`);
+  if(invoices.length)parts.push(`${window.InvoicePDF.makeInvoices(s.ilist,$('combine').checked).length} invoice(s)`);
+  const n=(tickets.length?s.list.length:0)+(invoices.length?s.ilist.length:0);
+  $('onlyInfo').innerHTML=`<span class="ok">${parts.join(' and ')} matched</span> out of ${s.wanted.length} number(s) entered.`+
     (s.missing.length?`<br><span class="bad">Not found in Excel (${s.missing.length}): ${s.missing.join(', ')}</span>`:'');
-  $('go').textContent=s.list.length?`Generate ZIP (${s.list.length} selected)`:'Generate ZIP';
+  $('go').textContent=n?`Generate ZIP (${parts.join(' + ')} selected)`:'Generate ZIP';
 }
-$('only').oninput=()=>{updateOnlyInfo();if(!$('only').value.trim())$('go').textContent='Generate ZIP'};
+$('only').oninput=updateOnlyInfo;
 
 $('go').onclick=async()=>{
-  if(!tickets.length)return;
+  const hasT=tickets.length>0,hasI=invoices.length>0;
+  if(!hasT&&!hasI)return;
   const sel=getSelection();
-  if(sel.filtered&&!sel.list.length){$('status').innerHTML='<span class="bad">None of the fine numbers you entered were found in the Excel file.</span>';return}
-  const todo=sel.list;
+  const todo=hasT?sel.list:[];                                   // tickets to draw
+  const invList=hasI?window.InvoicePDF.makeInvoices(sel.ilist,$('combine').checked):[];   // invoices to build
+  if(sel.filtered&&!todo.length&&!invList.length){$('status').innerHTML='<span class="bad">None of the fine numbers you entered were found in the Excel file(s).</span>';return}
   const btn=$('go');btn.disabled=true;
   const ext=$('fmt').value,mime=ext==='png'?'image/png':'image/jpeg',scale=+$('scale').value,o=opts();
   const zip=new JSZip(),bar=$('bar'),fill=bar.firstElementChild;bar.classList.remove('hide');
+  const both=hasT&&hasI;                                          // both files -> Tickets/ and Invoices/ folders in one ZIP
+  const tz=both?zip.folder('Tickets'):zip,iz=both?zip.folder('Invoices'):zip;
+  const steps=todo.length+invList.length;let done=0;
   const t0=Date.now();
   try{
     for(let i=0;i<todo.length;i++){
       const t=todo[i];
       const cv=renderTicket(t,scale,o);
       const blob=await toBlob(cv,mime,0.92);
-      zip.file(`${t.fname.replace(/[\\/:*?"<>|]/g,'_')}.${ext}`,blob);
-      fill.style.width=((i+1)/todo.length*90)+'%';
-      $('status').textContent=`Creating images: ${i+1} / ${todo.length}`;
+      tz.file(`${t.fname.replace(/[\\/:*?"<>|]/g,'_')}.${ext}`,blob);
+      done++;
+      fill.style.width=(done/steps*90)+'%';
+      $('status').textContent=`Creating ticket images: ${i+1} / ${todo.length}`;
+      if(i%5===4)await new Promise(r=>setTimeout(r));
+    }
+    const used={};
+    for(let i=0;i<invList.length;i++){
+      const inv=invList[i];
+      const doc=window.InvoicePDF.build(window.jspdf.jsPDF,inv);
+      let base=(inv.customer.replace(/[\\/:*?"<>|]/g,'_').replace(/[. ]+$/,'')||'Invoice'),k=base.toLowerCase();
+      used[k]=(used[k]||0)+1;if(used[k]>1)base=`${base} (${used[k]})`;     // same customer twice -> "Name (2).pdf"
+      iz.file(`${base}.pdf`,doc.output('arraybuffer'));
+      done++;
+      fill.style.width=(done/steps*90)+'%';
+      $('status').textContent=`Creating invoices: ${i+1} / ${invList.length}`;
       if(i%5===4)await new Promise(r=>setTimeout(r));
     }
     const zb=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true},m=>{
       fill.style.width=(90+m.percent/10)+'%';$('status').textContent=`Packing ZIP… ${m.percent.toFixed(0)}%`});
     const a=document.createElement('a');a.href=URL.createObjectURL(zb);
-    a.download=sel.filtered?`Tickets_selected_${todo.length}.zip`:`Tickets_${meta.fileNo||'fines'}.zip`;document.body.appendChild(a);a.click();a.remove();
+    a.download=both?(sel.filtered?'Tickets_and_Invoices_selected.zip':`Tickets_and_Invoices_${meta.fileNo||'fines'}.zip`)
+      :hasT?(sel.filtered?`Tickets_selected_${todo.length}.zip`:`Tickets_${meta.fileNo||'fines'}.zip`)
+      :(sel.filtered?`Invoices_selected_${invList.length}.zip`:`Invoices_${invList.length}.zip`);
+    document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),60000);
-    $('status').innerHTML=`<span class="ok">✔ Done — ${todo.length} images in ${((Date.now()-t0)/1000).toFixed(0)}s (${(zb.size/1048576).toFixed(1)} MB). Your download should start automatically.</span>`+(sel.missing.length?`<br><span class="bad">Not found in Excel (${sel.missing.length}): ${sel.missing.join(', ')}</span>`:'');
+    const what=[todo.length?`${todo.length} ticket images`:'',invList.length?`${invList.length} invoices`:''].filter(Boolean).join(' + ');
+    $('status').innerHTML=`<span class="ok">✔ Done — ${what} in ${((Date.now()-t0)/1000).toFixed(0)}s (${(zb.size/1048576).toFixed(1)} MB). Your download should start automatically.</span>`+(sel.missing.length?`<br><span class="bad">Not found in Excel (${sel.missing.length}): ${sel.missing.join(', ')}</span>`:'');
   }catch(e){console.error(e);$('status').innerHTML=`<span class="bad">Error: ${e.message}</span>`}
   btn.disabled=false;
 };
