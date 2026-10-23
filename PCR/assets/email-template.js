@@ -25,6 +25,8 @@ const GREEN = 'Save Environment Initiative: PCR operates in a paperless environm
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const clean = s => String(s == null ? '' : s).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+// greeting only: long names are cut to the first three words (the subject, invoices etc. keep the full name)
+const greetName = n => clean(n).split(' ').slice(0, 3).join(' ');
 const money = n => (Math.round((+n + Number.EPSILON) * 100) / 100).toFixed(2);
 
 /* d = {name, contract, amount, fineNo, to, count} */
@@ -60,7 +62,7 @@ function html(d, mode, assets) {
 <table role="presentation" align="center" width="605" cellpadding="0" cellspacing="0" border="0" style="width:605px;max-width:100%;margin:0 auto;background:#ffffff;border:1px solid #CCCCCC;border-collapse:collapse">
 <tr><td style="padding:0;border:none">${img('banner', 605, 93, 'Premium Car Rentals')}</td></tr>
 <tr><td style="padding:25px 50px 0 50px;border:none;${CAN}text-align:left">
-  <p style="margin:0 0 2px 0;line-height:115%"><b style="font-size:14pt;color:#2F3542;${CAN}">Dear ${name}</b><span style="font-size:10pt;color:#000000;${CAN}">,</span></p>
+  <p style="margin:0 0 2px 0;line-height:115%"><b style="font-size:14pt;color:#2F3542;${CAN}">Dear ${esc(greetName(d.name))}</b><span style="font-size:10pt;color:#000000;${CAN}">,</span></p>
   <p style="margin:0;font-size:10pt;line-height:115%;color:#000000;${CAN}">We hope this email finds you well.</p>
 </td></tr>
 <tr><td style="padding:20px 50px;border:none">${img('bar', 44, 4, '')}</td></tr>
@@ -113,7 +115,7 @@ function text(d, full) {
   const fines = (d.fines && d.fines.length) ? d.fines : [{ fineNo: d.fineNo, amount: d.amount }];
   const many = fines.length > 1;
   const L = [
-    `Dear ${clean(d.name)},`, '', 'We hope this email finds you well.', '',
+    `Dear ${greetName(d.name)},`, '', 'We hope this email finds you well.', '',
     many ? `You have ${fines.length} new Traffic Fines with a total of AED ${money(d.amount)}` : `You have a new Traffic Fine of AED ${money(d.amount)}`,
     ...(many ? fines.map(f => `Fine No. ${clean(f.fineNo)} - AED ${money(f.amount)}`) : []), '',
     `Please Download attached PDF bill and traffic fine ${many ? 'tickets' : 'ticket'} for details!`, '',
@@ -166,7 +168,7 @@ function buildEml(e, attachments, assets) {
   assets = assets || root.EMAIL_ASSETS;
   const bm = boundary('mixed'), br = boundary('rel'), ba = boundary('alt');
   const out = [];
-  out.push('X-Unsent: 1', 'MIME-Version: 1.0');
+  out.push('X-Unsent: 1', 'X-Priority: 1 (Highest)', 'X-MSMail-Priority: High', 'Importance: High', 'Priority: urgent', 'MIME-Version: 1.0');
   if (e.to) out.push('To: ' + e.to);
   out.push('Cc: ' + e.cc.join(', '));
   out.push('Subject: ' + encWord(e.subject));
