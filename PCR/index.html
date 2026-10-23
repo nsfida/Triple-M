@@ -195,6 +195,7 @@ a.back{color:var(--cy);cursor:pointer;font-size:13px;text-decoration:none;font-w
       <label for="mailNums">Ticket (fine) numbers — one per line</label>
       <textarea id="mailNums" rows="4" placeholder="38504638&#10;36173003"></textarea>
       <div id="mailInfo" class="note" style="margin-top:6px"></div>
+      <div id="mailAll" class="hide" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button id="sendAll" type="button">✉ Send All</button><span id="allSt" class="note"></span></div>
       <div id="mailRows"></div>
     </div>
 
@@ -647,7 +648,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('ov').classList.
 $('mailNums').oninput=renderMailList;
 
 function renderMailList(){
-  const box=$('mailRows'),info=$('mailInfo');box.innerHTML='';
+  const box=$('mailRows'),info=$('mailInfo');box.innerHTML='';mailJobs=[];$('mailAll').classList.add('hide');
   if(!invoices.length){
     info.innerHTML='';
     box.innerHTML='<div class="warn">Upload the <b>invoices Excel</b> first (box 2 on the main page) — customer name, email, contract and amount are taken from it. Then come back here.</div>';
@@ -675,9 +676,26 @@ function renderMailList(){
       <button type="button">Send email</button>`;
     const btn=d.querySelector('button'),st=d.querySelector('.st');
     btn.onclick=()=>sendEmail(g,btn,st);
+    mailJobs.push({g,btn,st});
     box.appendChild(d);
   });
+  if(mailJobs.length)$('mailAll').classList.remove('hide');
 }
+
+/* Send All: runs the normal per-customer send for every listed customer, one after another */
+let mailJobs=[],sendingAll=false;
+$('sendAll').onclick=async()=>{
+  if(sendingAll||!mailJobs.length)return;
+  const jobs=mailJobs.slice(),b=$('sendAll'),st=$('allSt'),old=b.textContent;
+  sendingAll=true;b.disabled=true;
+  for(let i=0;i<jobs.length;i++){
+    st.textContent=`Preparing ${i+1} of ${jobs.length}…`;
+    await sendEmail(jobs[i].g,jobs[i].btn,jobs[i].st);
+    await new Promise(r=>setTimeout(r,500));
+  }
+  st.innerHTML=`<span class="ok">✔ Done — ${jobs.length} email(s) processed.</span>`;
+  b.disabled=false;b.textContent=old;sendingAll=false;
+};
 
 function mailData(g){
   const f=g[0],total=g.reduce((a,r)=>a+(+r.total||0),0);
