@@ -477,8 +477,10 @@ function refreshInvoicePreview(){
 }
 $('combine').onchange=()=>{if(invoices.length){renderInvoiceInfo($('imsg').querySelector('b')?.textContent||'');refreshInvoicePreview();updateOnlyInfo()}};
 
+// fine numbers typed in the boxes: separated by space / comma / semicolon / new line; a suffix such as "54654664-" is kept
+function parseNums(v){return String(v||'').split(/[\s,;]+/).map(t=>t.replace(/[^A-Za-z0-9-]/g,'')).filter(t=>/\d/.test(t))}
 function getSelection(){
-  const wanted=[...new Set(($('only').value.match(/\d+/g)||[]))];
+  const wanted=[...new Set((parseNums($('only').value)))];
   if(!wanted.length)return{list:tickets,ilist:invoices,filtered:false,missing:[],wanted};
   const set=new Set(wanted);
   const list=tickets.filter(t=>set.has(t.no));
@@ -580,7 +582,7 @@ function renderMailList(){
     box.innerHTML='<div class="warn">Upload the <b>invoices Excel</b> first (box 2 on the main page) — customer name, email, contract and amount are taken from it. Then come back here.</div>';
     return;
   }
-  const wanted=[...new Set(($('mailNums').value.match(/\d+/g)||[]))];
+  const wanted=[...new Set((parseNums($('mailNums').value)))];
   if(!wanted.length){info.textContent='Enter one or more ticket numbers to list the customers.';return}
   const rows=[],missing=[];
   wanted.forEach(n=>{const hit=invoices.filter(r=>r.fineNo===n);hit.length?rows.push(...hit):missing.push(n)});

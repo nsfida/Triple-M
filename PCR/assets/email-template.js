@@ -39,67 +39,73 @@ function html(d, mode, assets) {
     const a = assets[k], src = mode === 'cid' ? 'cid:' + k + '@pcr.ae' : `data:${a.mime};base64,${a.b64}`;
     return `<img src="${src}" width="${w}" height="${h}" alt="${alt || ''}" border="0" style="display:block;border:0;outline:none;${extra || ''}">`;
   };
-  const F = 'font-family:Calibri,\'Segoe UI\',Arial,sans-serif;font-size:16px;line-height:1.45;color:#000000;';
-  const P = `margin:0 0 14px 0;${F}`;
+  // same fonts / sizes / colours as the reference email
+  const CAN = `font-family:Candara,Calibri,Arial,sans-serif;`, CAL = `font-family:Calibri,'Segoe UI',Arial,sans-serif;`, ARI = `font-family:Arial,Helvetica,sans-serif;`;
+  const BLUE = '#365F91';
+  const body = `${CAL}font-size:11pt;line-height:115%;color:${BLUE};`;      // main paragraphs (blue)
   const name = esc(clean(d.name)), amt = 'AED ' + money(d.amount);
   const fines = (d.fines && d.fines.length) ? d.fines : [{ fineNo: d.fineNo, amount: d.amount }];
   const many = fines.length > 1;
   const headline = many ? `You have <u>${fines.length} new Traffic Fines</u> with a total of <u>${amt}</u>` : `You have a new <u>Traffic Fine</u> of <u>${amt}</u>`;
-  const breakdown = many ? '<div style="margin-top:8px;font-size:14px">' + fines.map(f => `Fine No. <b>${esc(clean(f.fineNo))}</b> &ndash; AED ${money(f.amount)}`).join('<br>') + '</div>' : '';
+  const breakdown = many ? `<div style="margin-top:8px;font-size:14px;color:#000000">` + fines.map(f => `Fine No. <b>${esc(clean(f.fineNo))}</b> &ndash; AED ${money(f.amount)}`).join('<br>') + '</div>' : '';
   const regret = many ? REGRET_MANY : REGRET;
-  const social = [['yt', 11, 7, 'YouTube', ''], ['tw', 11, 12, 'Twitter', ''], ['ig', 11, 12, 'Instagram', CFG.instagram],
-                  ['fb', 11, 12, 'Facebook', CFG.facebook], ['in', 11, 12, 'LinkedIn', '']]
-    .map(s => `<td style="padding-right:9px" valign="middle">${s[4] ? `<a href="${s[4]}" target="_blank">` : ''}${img(s[0], s[1], s[2], s[3])}${s[4] ? '</a>' : ''}</td>`).join('');
+  // reference order: LinkedIn, Facebook, Instagram, Twitter, YouTube
+  const social = [['in', 11, 12, 'LinkedIn', ''], ['fb', 11, 12, 'Facebook', CFG.facebook], ['ig', 11, 12, 'Instagram', CFG.instagram],
+                  ['tw', 11, 12, 'Twitter', ''], ['yt', 11, 7, 'YouTube', '']]
+    .map(x => `<td style="padding:0 5px" valign="middle">${x[4] ? `<a href="${x[4]}" target="_blank">` : ''}${img(x[0], x[1], x[2], x[3])}${x[4] ? '</a>' : ''}</td>`).join('');
+  const li = (t, red) => `<li style="margin:0 0 6px 0;${body}${red ? 'color:#FF0000;' : ''}"><span style="${red ? 'color:#FF0000;' : ''}">${esc(t)}</span></li>`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(subject(d))}</title></head>
 <body style="margin:0;padding:0;background:#ffffff">
-<table role="presentation" width="557" cellpadding="0" cellspacing="0" border="0" style="width:557px;max-width:100%;background:#ffffff;${F}">
-<tr><td>${img('banner', 557, 85, 'Premium Car Rentals')}</td></tr>
-<tr><td style="padding:30px 50px 0 50px;${F}">
-  <p style="${P}"><b>Dear ${name},</b></p>
-  <p style="${P}">We hope this email finds you well.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#ffffff"><tr><td align="center" style="padding:0">
+<table role="presentation" align="center" width="605" cellpadding="0" cellspacing="0" border="0" style="width:605px;max-width:100%;margin:0 auto;background:#ffffff;border:1px solid #CCCCCC;border-collapse:collapse">
+<tr><td style="padding:0;border:none">${img('banner', 605, 93, 'Premium Car Rentals')}</td></tr>
+<tr><td style="padding:25px 50px 0 50px;border:none;${CAN}text-align:left">
+  <p style="margin:0 0 2px 0;line-height:115%"><b style="font-size:14pt;color:#2F3542;${CAN}">Dear ${name}</b><span style="font-size:10pt;color:#000000;${CAN}">,</span></p>
+  <p style="margin:0;font-size:10pt;line-height:115%;color:#000000;${CAN}">We hope this email finds you well.</p>
 </td></tr>
-<tr><td style="padding:6px 50px 18px 50px">${img('bar', 44, 4, '')}</td></tr>
-<tr><td style="padding:0 50px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-   <tr><td bgcolor="#EEEEEE" style="background:#EEEEEE;padding:14px 12px;${F}">${headline}${breakdown}</td></tr>
-   <tr><td bgcolor="#FFE599" style="background:#FFE599;padding:10px 12px">
+<tr><td style="padding:20px 50px;border:none">${img('bar', 44, 4, '')}</td></tr>
+<tr><td style="padding:0 50px;border:none">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%">
+   <tr><td align="center" bgcolor="#EEEEEE" style="background:#EEEEEE;padding:8px 10px;text-align:center;font-size:12pt;line-height:115%;color:#FF0000;${CAN}">${headline}${breakdown}</td></tr>
+   <tr><td bgcolor="#FFE599" style="background:#FFE599;padding:0">
      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-       <td width="75" valign="middle" style="width:75px">${img('pdf', 61, 61, 'PDF')}</td>
-       <td valign="middle" style="${F}">Please <b>Download</b> attached PDF bill and traffic fine ${many ? 'tickets' : 'ticket'} for details<b>!</b></td>
+       <td align="center" valign="middle" style="padding:6px 8px;text-align:center;font-size:11pt;line-height:115%;color:#000000;${CAN}">Please <b>Download</b> attached PDF bill and traffic fine ${many ? 'tickets' : 'ticket'} for details<b>!</b></td>
+       <td width="75" valign="middle" style="width:75px;padding:2px 6px 2px 0">${img('pdf', 61, 61, 'PDF')}</td>
      </tr></table></td></tr>
   </table>
 </td></tr>
-<tr><td style="padding:32px 50px 0 50px;${F}">
-  <p style="${P}">${esc(regret)}</p>
-  <p style="${P};margin-top:26px"><b><u>Please be aware of our “Traffic Fines Payment” process terms:</u></b></p>
-  <ul style="margin:0 0 14px 0;padding-left:34px;${F}">
-    ${TERMS.map(t => `<li style="margin:0 0 10px 0;${F}">${esc(t)}</li>`).join('\n    ')}
+<tr><td style="padding:50px 50px 50px 50px;border:none;${body}">
+  <p style="margin:0 0 15px 0;text-align:center;${body}">${esc(regret)}</p>
+  <p style="margin:0 0 15px 0;text-align:left;${body}"><b><u>Please be aware of our “Traffic Fines Payment” process terms:</u></b></p>
+  <ul style="margin:0 0 15px 0;padding-left:28px;text-align:left;${body}">
+    ${TERMS.map((t, i) => li(t, i === 2)).join('\n    ')}
   </ul>
-  <p style="${P};margin-top:26px">${esc(THANKS)}</p>
-  <p style="${P};margin-top:26px">Sincerely,</p>
-  <p style="margin:0 0 2px 0;${F}"><b>${esc(CFG.signName)}</b></p>
-  <p style="margin:0 0 20px 0;${F}">${esc(CFG.signTitle)}</p>
+  <p style="margin:0 0 15px 0;text-align:center;${body}${CAN}">${esc(THANKS)}</p>
+  <p style="margin:0;text-align:center;${body}${CAN}">Sincerely,</p>
+  <p style="margin:0;text-align:center;${body}${CAN}"><b>${esc(CFG.signName)}</b></p>
+  <p style="margin:0;text-align:center;font-size:9pt;line-height:115%;color:${BLUE};${CAN}">${esc(CFG.signTitle)}</p>
 </td></tr>
-<tr><td style="padding:0 20px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #cccccc;border-bottom:1px solid #cccccc">
-   <tr><td style="padding:14px 30px 12px 30px" valign="middle">
-     <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-       <td valign="middle" style="padding-right:30px">
-         <div style="${F}font-size:14px"><a href="${CFG.webUrl}" style="color:#0563C1">${CFG.web}</a> &nbsp;|&nbsp; ${CFG.phone}</div>
-         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px"><tr>${social}</tr></table>
+<tr><td style="padding:1px 0 0 0;border:none;border-top:1px solid #DDDDDD">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid #CCCCCC">
+   <tr><td align="center" style="padding:10px 0 6px 0">
+     <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto"><tr>
+       <td valign="middle" style="padding:0 10px">${img('logo', 123, 30, 'Premium Car Rentals')}</td>
+       <td valign="middle" align="center" style="padding:0 10px">
+         <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto"><tr><td align="center" style="padding:0 0 3px 0;border-bottom:1px solid #BFBFBF;${ARI}font-size:8.5pt;color:#333333;white-space:nowrap"><a href="${CFG.webUrl}" style="color:#0563C1;text-decoration:underline">${CFG.web}</a> &nbsp;|&nbsp; ${CFG.phone}</td></tr></table>
+         <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:4px auto 0 auto"><tr>${social}</tr></table>
        </td>
-       <td valign="middle">${img('logo', 123, 30, 'Premium Car Rentals')}</td>
      </tr></table>
    </td></tr>
+   <tr><td align="center" style="padding:4px 10px 8px 10px;text-align:center;${ARI}font-size:8pt;color:#333333"><b>${esc(CFG.address)}</b></td></tr>
   </table>
-  <p style="margin:12px 0 10px 0;${F}font-size:14px"><b>${esc(CFG.address)}</b></p>
-  <div style="border:1px solid #dddddd;padding:10px 12px;${F}font-size:13px;line-height:1.5">
-    <p style="margin:0 0 8px 0">${esc(DISCLAIMER)}</p>
-    <p style="margin:0">${esc(GREEN)}</p>
-  </div>
 </td></tr>
-<tr><td style="height:20px">&nbsp;</td></tr>
-</table></body></html>`;
+<tr><td style="padding:6px 9px 9px 9px;border:none;border-top:1px solid #CCCCCC;text-align:center">
+  <p style="margin:0 0 6px 0;text-align:center;${ARI}font-size:6.5pt;line-height:115%;color:#595959">${esc(DISCLAIMER)}</p>
+  <p style="margin:0;text-align:center;${ARI}font-size:5.5pt;line-height:115%;color:#008000">${esc(GREEN)}</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
 }
 
 /* full=false -> shorter text for mailto: links (URL length limits) */
