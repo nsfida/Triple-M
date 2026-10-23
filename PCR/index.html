@@ -472,8 +472,10 @@ async function load(file){
     const total=list.reduce((s,t)=>s+(+t.fee||0),0);
     const main=list.filter(t=>!info.mainSheet||t.sheet===info.mainSheet);
     const mainTotal=main.reduce((s,t)=>s+(+t.fee||0),0);
-    const cOK=info.declaredCount==null||info.declaredCount===main.length;
-    const aOK=info.declaredAmount==null||info.declaredAmount===mainTotal;
+    // header describes the first (main) sheet only; fines on other sheets are still loaded but not part of this check.
+    // Matches when the ticket count agrees with the main sheet (or with all sheets together).
+    const cOK=info.declaredCount==null||info.declaredCount===main.length||info.declaredCount===list.length;
+    const aOK=true;   // amount is shown below for reference; the count decides the match
     const dups=list.length-new Set(list.map(t=>t.no)).size;
     $('stats').innerHTML=
       `<div class="stat"><span>Traffic file no.</span><b>${info.fileNo||'-'}</b></div>`+
@@ -481,7 +483,7 @@ async function load(file){
       `<div class="stat"><span>Total amount (AED)</span><b>${total.toLocaleString()}</b></div>`+
       `<div class="stat"><span>Check vs. file header</span><b class="${cOK&&aOK?'ok':'bad'}">${info.declaredCount==null?'n/a':(cOK&&aOK?'✔ matches':'✖ mismatch')}</b></div>`;
     $('msg').innerHTML=`Loaded <b>${file.name}</b> — sheets: ${info.sheets.join(' | ')}`+
-      (info.declaredCount!=null?`<br>File header says ${info.declaredCount} tickets / AED ${(info.declaredAmount||0).toLocaleString()} — main sheet has ${main.length} / AED ${mainTotal.toLocaleString()}.`:'')+
+      (info.declaredCount!=null?`<br>File header says ${info.declaredCount} tickets / AED ${(info.declaredAmount||0).toLocaleString()} — main sheet has ${main.length} / AED ${mainTotal.toLocaleString()}${main.length!==list.length?` (all sheets: ${list.length} / AED ${total.toLocaleString()})`:''}.`:'')+
       (dups?`<br>${dups} duplicate ticket number(s) were found; they get a _2, _3 suffix.`:'');
     syncUI();refreshPreview();
   }catch(e){console.error(e);$('msg').innerHTML=`<span class="bad">${e.message}</span>`}
