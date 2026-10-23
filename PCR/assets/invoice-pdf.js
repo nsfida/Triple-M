@@ -69,30 +69,29 @@ function build(JsPDF, inv, assets) {
   T('Fines Tax Invoice', 297.75, 130.8, { size: 19.2, align: 'center', sw: 0.25 });
 
   /* ---------- bill-to block ---------- */
-  T('BILL TO CUSTOMER ID : ' + (inv.customerId || ''), 20.1, 170.4, { size: 10.8, color: [16, 15, 15] });
   const S = 10.8, LX = 20.1, VX = 76.0;
+  const GAP = '  ';                                   // two spaces between a label and its value
+  T('Contract No.:', LX, 170.4, { size: S });
+  T(inv.contract || '', LX + W('Contract No.:' + GAP, S), 170.4, { size: S });
   // Customer name (shrinks if very long so it never touches the right-hand block)
   const custLbl = 'Customer:';
-  let cs = S; const cw = () => W(custLbl, cs) + W(inv.customer, cs);
+  let cs = S; const cw = () => W(custLbl + GAP, cs) + W(inv.customer, cs);
   while (cw() > 296 - LX && cs > 7) cs -= 0.2;
   T(custLbl, LX, 187.5, { size: cs });
-  T(inv.customer, LX + W(custLbl, cs), 187.5, { size: cs });
-  T('Mobile No.', LX, 203.7, { size: S });
-  T(inv.mobile, LX + W('Mobile No.', S), 203.7, { size: S });
-  T('Email', LX, 219.9, { size: S });
-  T(inv.email, VX, 219.9, { size: S });
+  T(inv.customer, LX + W(custLbl + GAP, cs), 187.5, { size: cs });
+  T('Mobile No.:', LX, 203.7, { size: S });
+  T(inv.mobile, LX + W('Mobile No.:' + GAP, S), 203.7, { size: S });
+  T('Email:', LX, 219.9, { size: S });
+  T(inv.email, LX + W('Email:' + GAP, S), 219.9, { size: S });
   T('Vehicle:', LX, 236.1, { size: S });
   let vs = S; while (W(inv.vehicle, vs) > 296 - VX && vs > 7) vs -= 0.2;
   T(inv.vehicle, VX, 236.1, { size: vs });
-  T('Address', LX, 252.3, { size: S });
-  T(inv.address || '', VX, 252.3, { size: S });
 
   T('Date', 319.0, 185.7, { size: S });            T(inv.date, 575.4, 185.7, { size: S, align: 'right' });
   T('Invoice#', 319.0, 201.9, { size: S });
   let is = S; const invMax = 575.4 - 319.0 - W('Invoice#', S) - 8;           // shrink if several invoice numbers are combined
   while (W(inv.invoiceNo || '', is) > invMax && is > 5.5) is -= 0.2;
   T(inv.invoiceNo || '', 575.4, 201.9, { size: is, align: 'right' });
-  T('Contract No.', 319.0, 218.1, { size: S });    T(inv.contract, 575.4, 218.1, { size: S, align: 'right' });
   T('LPO/BID #', 319.0, 234.3, { size: S });       T('-', 575.4, 234.3, { size: S, align: 'right' });
 
   /* ---------- table ---------- */
@@ -108,8 +107,8 @@ function build(JsPDF, inv, assets) {
     const y0 = first ? 262.2 : 40;                     // top line of table header
     // header row 1 (DESCRIPTION | CALCULATION)
     rect(X0 + LW, y0 + LW, 565.2 - 0, ROW, GREY);
-    T('DESCRIPTION', 15.6, y0 + 10.8, { bold: true, color: [16, 15, 15] });
-    T('CALCULATION', 241.7, y0 + 10.8, { bold: true, color: [255, 255, 255] });
+    T('DESCRIPTION', (X0 + X1) / 2, y0 + 10.8, { bold: true, align: 'center', color: [16, 15, 15] });
+    T('CALCULATION', (X1 + X6) / 2, y0 + 10.8, { bold: true, align: 'center', color: [16, 15, 15] });
     hl(X0, X6, y0); vl(X0, y0, y0 + ROW); vl(X1, y0, y0 + ROW); vl(X6, y0, y0 + ROW);
     // header row 2 (Fine | Fine Charge | RTA Fees | Surcharge)
     const y1 = y0 + ROW;
@@ -154,13 +153,8 @@ function build(JsPDF, inv, assets) {
     T('Amount', 490.9, t + 90.9);                      T('Paid', 490.9, t + 105.3);
     T('0', 579.9, t + 100.8, { size: 13.5, align: 'right' });
 
-    // customer name above the signature line (wrapped like the original)
-    let ns = 9, nl = wrap(inv.customer, ns, 113.4);
-    while (nl.length > 3 && ns > 6) { ns -= 0.5; nl = wrap(inv.customer, ns, 113.4); }
-    const lastBase = t + 44.1;
-    nl.forEach((s, i) => T(s, 29.8, lastBase - (nl.length - 1 - i) * 14.4, { size: ns }));
-    rect(30.0, t + 48.6, 113.4, LW);  T('Customer Sign.', 86.7, t + 59.4, { align: 'center' });
-    rect(352.2, t + 48.6, 128.7, LW); T('Officer Sign.', 416.55, t + 59.4, { align: 'center' });
+    // no signatures: system-generated notice in the left cell
+    T('This is system generated invoice and does not required any signature', (X0 + X4) / 2, t + 55, { size: 9, align: 'center' });
     T('If you have any questions about this invoice, please contact', 252.8, t + 76.5, { size: 8, align: 'center' });
     T('Thank You For Your Business!', 252.8, t + 90.5, { bold: true, align: 'center' });
   });
