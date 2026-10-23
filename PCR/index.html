@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RTA Fine Tickets &amp; Invoices → ZIP</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -12,94 +14,163 @@
 <script src="assets/email-assets.js"></script>
 <script src="assets/email-template.js"></script>
 <style>
-:root{--bg:#f4f5f8;--card:#fff;--ink:#1c2230;--mut:#6b7385;--line:#dfe3ea;--pri:#1a1a8c;--ok:#0a7a3d;--bad:#b3261e}
+:root{
+  color-scheme:light;
+  --bg:#f4f6fa;--card:#ffffff;--ink:#1d2433;--mut:#667085;--line:#e2e6ee;--line2:#cfd5e0;
+  --pri:#e8334a;--pri2:#f0702f;--cy:#1f7ae0;--vi:#6a55e0;
+  --ok:#12945f;--bad:#d92d3f;
+  --grad:linear-gradient(135deg,#e8334a 0%,#f0562f 55%,#f08a2f 100%);
+  --gradb:linear-gradient(135deg,#1f9be0 0%,#3d7be0 55%,#6a55e0 100%);
+  --r:12px;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",Tahoma,Arial,sans-serif}
-.wrap{max-width:900px;margin:0 auto;padding:28px 16px 60px}
-h1{font-size:22px;margin:0 0 4px}
-.sub{color:var(--mut);margin:0 0 20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
-#drop{border:2px dashed #aab1c3;border-radius:12px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s}
-#drop.over,#drop:hover,#idrop.over,#idrop:hover{border-color:var(--pri)!important;background:#f0f0fb}
-#drop b{display:block;font-size:17px;margin-bottom:4px}
-.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
-label{font-size:13px;color:var(--mut);display:block;margin-bottom:3px}
-select,input[type=text]{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
-button{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:11px 22px;font:600 15px inherit;font-family:inherit;cursor:pointer}
-button:disabled{opacity:.45;cursor:not-allowed}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.stat{background:var(--bg);border-radius:10px;padding:10px 12px}
-.stat span{display:block;font-size:12px;color:var(--mut)}
-.stat b{font-size:19px}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;color:var(--ink);background:var(--bg);
+  font:14px/1.45 "Outfit","Segoe UI",system-ui,Tahoma,Arial,sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+.wrap{max-width:820px;margin:0 auto;padding:16px 14px 40px}
+
+/* ---------- header ---------- */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{flex:none;width:72px;height:54px;object-fit:contain;padding:2px 4px;border-radius:12px;background:#fff;border:1px solid var(--line);box-shadow:0 2px 8px rgba(20,30,60,.08)}
+h1{font-size:clamp(17px,3vw,22px);line-height:1.15;margin:0;font-weight:700;letter-spacing:-.2px;color:var(--ink)}
+.kicker{display:block;margin-top:2px;font-size:10.5px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:var(--pri)}
+.sub{color:var(--mut);margin:10px 0 14px;max-width:780px;font-size:13px}
+.sub b{color:var(--ink);font-weight:600}
+
+/* ---------- cards ---------- */
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;
+  box-shadow:0 1px 3px rgba(20,30,60,.06),0 4px 14px rgba(20,30,60,.04)}
+label{font-size:12.5px;color:var(--mut);display:block;margin-bottom:4px}
+.card>label:first-child{font-weight:600;color:var(--ink);font-size:13px}
+
+/* ---------- import boxes ---------- */
+.imports{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.imp{margin:0;display:flex;flex-direction:column;padding:10px 12px;min-width:0;overflow:hidden;border-top:3px solid var(--ac);transition:box-shadow .2s,transform .2s}
+.imp.tk{--g:var(--gradb);--glow:rgba(31,122,224,.10);--ac:var(--cy)}
+.imp.iv{--g:var(--grad);--glow:rgba(232,51,74,.10);--ac:var(--pri)}
+.imp:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(20,30,60,.10)}
+.imphead{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex:none}
+.num{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--g);color:#fff;font-weight:700;font-size:12px}
+.imphead b{font-size:14px;font-weight:600}
+.tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:#f0f2f7;border:1px solid var(--line);border-radius:20px;padding:0 8px;margin-left:auto}
+.drop{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;cursor:pointer;
+  padding:12px 10px;border:1.5px dashed var(--line2);border-radius:10px;transition:.2s;background:var(--glow)}
+.drop svg{width:34px;height:auto;color:var(--ac);transition:transform .25s}
+.drop b{display:block;font-size:13.5px;font-weight:600;line-height:1.25}
+.drop .note{font-size:11.5px;line-height:1.3}
+.drop.over,.drop:hover{border-color:var(--ac);border-style:solid;background:var(--glow)}
+.drop.over svg,.drop:hover svg{transform:translateY(-2px) scale(1.06)}
+.msg{flex:none;max-height:90px;overflow:auto;margin-top:8px;padding:6px 8px;border-radius:8px;background:#f6f8fb;border:1px solid var(--line);font-size:12px;line-height:1.35}
+.msg:empty{display:none}
+.imp:has(.msg b) .drop{border-color:rgba(18,148,95,.6);border-style:solid}
+.msg::-webkit-scrollbar{width:6px}.msg::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px}
+
+/* ---------- controls ---------- */
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+select,input[type=text]{height:34px;padding:0 10px;border:1px solid var(--line2);border-radius:8px;font:inherit;color:var(--ink);background:#fff;outline:none;transition:.15s}
+select:focus,input[type=text]:focus,textarea:focus{border-color:var(--cy);box-shadow:0 0 0 3px rgba(31,122,224,.15)}
+button{background:var(--grad);color:#fff;border:0;border-radius:9px;padding:9px 20px;font:600 14px "Outfit","Segoe UI",system-ui,sans-serif;cursor:pointer;
+  box-shadow:0 2px 8px rgba(232,51,74,.25);transition:transform .15s,box-shadow .2s,filter .2s}
+button:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.05);box-shadow:0 4px 12px rgba(232,51,74,.35)}
+button:active:not(:disabled){transform:translateY(0)}
+button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+#go{padding:10px 26px;font-size:14.5px}
+textarea{width:100%;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;font:13px/1.4 Consolas,"JetBrains Mono",monospace;color:var(--ink);background:#fff;resize:vertical;outline:none;transition:.15s}
+textarea::placeholder,input::placeholder{color:#9aa3b5}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);margin:0;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--pri)}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.stat{position:relative;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:7px 10px 7px 13px;overflow:hidden}
+.stat::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--grad)}
+#stats .stat::before{background:var(--gradb)}
+.stat span{display:block;font-size:11.5px;color:var(--mut)}
+.stat b{font-size:18px;font-weight:700;letter-spacing:-.2px}
 .ok{color:var(--ok)}.bad{color:var(--bad)}
-#bar{height:12px;background:#e6e8ef;border-radius:6px;overflow:hidden;margin:10px 0 6px}
-#bar i{display:block;height:100%;width:0;background:var(--pri);transition:width .1s}
-textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:14px/1.4 Consolas,monospace;resize:vertical}
-#prev{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block}
+
+#bar{height:8px;background:#e8ebf2;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+#bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8334a,#f0702f,#f5b83d);border-radius:6px;transition:width .1s}
+
+#prev{max-width:100%;border:1px solid var(--line2);border-radius:8px;display:block;background:#fff;box-shadow:0 2px 10px rgba(20,30,60,.10)}
+#ipv{width:100%;height:520px;border:1px solid var(--line2);border-radius:8px;background:#fff;box-shadow:0 2px 10px rgba(20,30,60,.10)}
 .hide{display:none!important}
-.note{font-size:13px;color:var(--mut)}
-#msg,#imsg{white-space:pre-wrap;font-size:14px}
-.tag{display:inline-block;font-size:11px;font-weight:600;color:var(--pri);background:#e8e8f8;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:middle}
-.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin:0;cursor:pointer}
-.chk input{width:16px;height:16px}
-#ipv{width:100%;height:620px;border:1px solid var(--line);border-radius:6px;background:#fff}
-.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.sec{background:#fff;color:var(--pri);border:1.5px solid var(--pri);padding:9px 16px;white-space:nowrap}
-.sec:hover{background:#f0f0fb}
-.ov{position:fixed;inset:0;background:rgba(20,24,40,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px}
-.ovbox{background:#fff;border-radius:14px;width:100%;max-width:820px;padding:20px 22px 24px;box-shadow:0 12px 40px rgba(0,0,0,.3)}
-.ovhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.ovhead b{font-size:18px}
-.x{background:transparent;color:var(--mut);font-size:20px;padding:2px 10px;border-radius:6px}
-.x:hover{background:var(--bg)}
-.mrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
-.mrow .nm{font-weight:600}.mrow .sm{font-size:13px;color:var(--mut)}
-.mrow button{padding:8px 16px;font-size:14px}
-.kv{display:flex;align-items:center;gap:8px;margin-top:8px}
-.kv span{width:62px;font-size:13px;color:var(--mut);flex:none}
+.note{font-size:12.5px;color:var(--mut)}
+#msg,#imsg{white-space:pre-wrap}
+#onlyInfo{margin-top:4px}
+a{color:var(--cy)}
+
+/* ---------- email button + overlay ---------- */
+.sec{background:#fff;color:var(--ink);border:1px solid var(--line2);padding:7px 16px;white-space:nowrap;box-shadow:none}
+.sec:hover:not(:disabled){background:#fff5f6;border-color:var(--pri);box-shadow:0 2px 10px rgba(232,51,74,.18);filter:none}
+.ov{position:fixed;inset:0;background:rgba(30,38,60,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 12px}
+.ovbox{background:#fff;border:1px solid var(--line);border-radius:14px;width:100%;max-width:780px;padding:14px 16px 18px;box-shadow:0 20px 60px rgba(20,30,60,.30)}
+.ovhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.ovhead b{font-size:17px;font-weight:600}
+.x{background:#f0f2f7;color:var(--mut);font-size:16px;padding:3px 10px;border-radius:8px;box-shadow:none}
+.x:hover:not(:disabled){background:#fde3e6;color:var(--pri);box-shadow:none}
+.mrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#f8fafd;border-radius:10px;padding:8px 10px;margin-top:8px}
+.mrow .nm{font-weight:600}.mrow .sm{font-size:12.5px;color:var(--mut)}.mrow .sm b{color:var(--ink)}
+.mrow button{padding:6px 14px;font-size:13px}
+.warn{background:#fff7e0;border:1px solid #f0d27a;color:#7a5a00;border-radius:9px;padding:8px 10px;font-size:13px;margin-top:8px}
+a.back{color:var(--cy);cursor:pointer;font-size:13px;text-decoration:none;font-weight:600}
+.kv{display:flex;align-items:center;gap:8px;margin-top:6px}
+.kv span{width:56px;font-size:12.5px;color:var(--mut);flex:none}
 .kv input{flex:1;min-width:0;width:100%}
-.mini{background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:5px 10px;font-size:12px;border-radius:6px;font-weight:600}
-.att{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:14px}
-.warn{background:#fff6e0;border:1px solid #f0d58a;border-radius:8px;padding:10px 12px;font-size:14px;margin-top:10px}
-a.back{color:var(--pri);cursor:pointer;font-size:14px;text-decoration:none;font-weight:600}
+.mini{background:#f0f2f7;color:var(--ink);border:1px solid var(--line);padding:3px 9px;font-size:12px;border-radius:7px;font-weight:600;box-shadow:none}
+.att{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:13px}
+
+@media (max-width:560px){
+  .wrap{padding:12px 10px 30px}.imports{gap:8px}.imp{padding:8px 10px}
+  .imphead{gap:6px;margin-bottom:6px}.imphead b{font-size:13px}.tag{display:none}
+  .drop .note{display:none}.logo{width:58px;height:44px}.kicker{letter-spacing:.18em;font-size:9.5px}
+  .msg{font-size:11px;padding:5px 7px}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>RTA Fine Tickets &amp; Invoices → ZIP</h1><button id="mailBtn" class="sec" type="button">✉ Email</button></div>
+  <div class="top">
+    <div class="brand"><img class="logo" src="logo.png" alt="Premium Car Rentals"><div><h1>RTA Fine Tickets &amp; Invoices → ZIP</h1><span class="kicker">Premium Car Rentals</span></div></div>
+    <button id="mailBtn" class="sec" type="button">✉ Email</button>
+  </div>
   <p class="sub">Upload the <b>fines Excel</b> to get one image per ticket (named by Fine Number, e.g. <b>6261591407.png</b>), and/or the <b>invoices Excel</b> to get one PDF invoice per customer (named by customer, e.g. <b>Customer Name.pdf</b>). Use either one, or both together in a single ZIP.</p>
 
-  <div class="card">
-    <label style="font-weight:600;color:var(--ink);font-size:14px">1. Tickets <span class="tag">optional</span></label>
-    <div id="drop" style="margin-top:6px"><b>Click here or drop the fines Excel file</b><span class="note">Works with the “Detect Traffic Violations” file (.xls or .xlsx)</span></div>
-    <input id="file" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
-    <div id="msg" class="note" style="margin-top:10px"></div>
-  </div>
+  <div class="imports">
+    <div class="card imp tk">
+      <div class="imphead"><span class="num">1</span><b>Tickets</b><span class="tag">optional</span></div>
+      <div id="drop" class="drop"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 22a4 4 0 0 0 4-4h36a4 4 0 0 0 4 4v6a4 4 0 0 0 0 8v6a4 4 0 0 0-4 4H14a4 4 0 0 0-4-4v-6a4 4 0 0 0 0-8z" opacity=".9"/><path d="M38 18v28" stroke-dasharray="3 4"/><path d="M22 32h8M22 38h5"/></svg><b>Click here or drop the fines Excel file</b><span class="note">Works with the “Detect Traffic Violations” file (.xls or .xlsx)</span></div>
+      <input id="file" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
+      <div id="msg" class="note msg"></div>
+    </div>
 
-  <div class="card">
-    <label style="font-weight:600;color:var(--ink);font-size:14px">2. Invoices <span class="tag">optional</span></label>
-    <div id="idrop" style="margin-top:6px;border:2px dashed #aab1c3;border-radius:12px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s"><b style="display:block;font-size:17px;margin-bottom:4px">Click here or drop the invoices Excel file</b><span class="note">Works with the “Premium Car Rentals” file (.xlsx) — needs Customer and Fine No columns</span></div>
-    <input id="ifile" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
-    <div id="imsg" class="note" style="margin-top:10px"></div>
+    <div class="card imp iv">
+      <div class="imphead"><span class="num">2</span><b>Invoices</b><span class="tag">optional</span></div>
+      <div id="idrop" class="drop"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8h32v48l-6-4-5 4-5-4-5 4-5-4-6 4z"/><path d="M24 20h16M24 28h16M24 36h9"/></svg><b>Click here or drop the invoices Excel file</b><span class="note">Works with the “Premium Car Rentals” file (.xlsx) — needs Customer and Fine No columns</span></div>
+      <input id="ifile" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
+      <div id="imsg" class="note msg"></div>
+    </div>
   </div>
 
   <div id="info" class="card hide">
     <div class="stats" id="stats"></div>
     <div class="stats" id="istats" style="margin-top:10px"></div>
-    <div style="margin-top:16px">
+    <div style="margin-top:10px">
       <label for="only">Only these fine numbers (optional) — one per line. Leave empty to download ALL tickets / invoices.</label>
       <textarea id="only" rows="5" placeholder="9013174946&#10;7041972256&#10;1532155980&#10;35630847"></textarea>
       <div id="onlyInfo" class="note"></div>
     </div>
-    <div class="row" style="margin-top:16px" id="tkOpts">
+    <div class="row" style="margin-top:10px" id="tkOpts">
       <div><label>Image format</label><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
       <div><label>Quality</label><select id="scale"><option value="1">Normal (1×)</option><option value="2">High (2×, bigger files)</option></select></div>
       <div><label>Plate emirate text</label><input id="emirate" type="text" value="DUBAI" size="10"></div>
     </div>
-    <div class="row hide" style="margin-top:14px" id="invOpts">
+    <div class="row hide" style="margin-top:8px" id="invOpts">
       <label class="chk"><input type="checkbox" id="combine" checked> Combine all fines of the same customer (same contract) into one invoice</label>
     </div>
-    <div class="row" style="margin-top:16px"><button id="go">Generate ZIP</button></div>
+    <div class="row" style="margin-top:10px"><button id="go">Generate ZIP</button></div>
     <div id="bar" class="hide"><i></i></div>
     <div id="status" class="note"></div>
   </div>

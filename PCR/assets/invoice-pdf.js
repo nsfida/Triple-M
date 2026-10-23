@@ -64,7 +64,8 @@ function build(JsPDF, inv, assets) {
   T(COMPANY.name, 21.9, 38.1, { bold: true });
   T(COMPANY.addr1, 21.9, 65.1, { bold: true });
   T(COMPANY.addr2, 21.9, 92.1, { bold: true });
-  doc.addImage(assets.logo, 'PNG', 211, 22, 180, 63);
+  doc.addImage(assets.logo, 'PNG', 249.75, 15, 96, 69.3);                       // logo.png (centred)
+  T('PREMIUM CAR RENTALS', 297.75, 97, { size: 7.2, bold: true, align: 'center' });   // company name as text under the logo
   T('Fines Tax Invoice', 297.75, 130.8, { size: 19.2, align: 'center', sw: 0.25 });
   T('TRN No: ' + COMPANY.trn, 297.7, 147.9, { bold: true, align: 'center' });
 

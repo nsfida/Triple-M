@@ -49,7 +49,7 @@ function html(d, mode, assets) {
   const fines = (d.fines && d.fines.length) ? d.fines : [{ fineNo: d.fineNo, amount: d.amount }];
   const many = fines.length > 1;
   const headline = many ? `You have <u>${fines.length} new Traffic Fines</u> with a total of <u>${amt}</u>` : `You have a new <u>Traffic Fine</u> of <u>${amt}</u>`;
-  const breakdown = many ? `<div style="margin-top:8px;font-size:14px;color:#000000">` + fines.map(f => `Fine No. <b>${esc(clean(f.fineNo))}</b> &ndash; AED ${money(f.amount)}`).join('<br>') + '</div>' : '';
+  const breakdown = `<div style="margin-top:8px;font-size:14px;color:#000000">` + fines.map(f => `Fine No. <b>${esc(clean(f.fineNo))}</b> &ndash; AED ${money(f.amount)}`).join('<br>') + '</div>';
   const regret = many ? REGRET_MANY : REGRET;
   // reference order: LinkedIn, Facebook, Instagram, Twitter, YouTube
   const social = [['in', 11, 12, 'LinkedIn', ''], ['fb', 11, 12, 'Facebook', CFG.facebook], ['ig', 11, 12, 'Instagram', CFG.instagram],
@@ -117,7 +117,7 @@ function text(d, full) {
   const L = [
     `Dear ${greetName(d.name)},`, '', 'We hope this email finds you well.', '',
     many ? `You have ${fines.length} new Traffic Fines with a total of AED ${money(d.amount)}` : `You have a new Traffic Fine of AED ${money(d.amount)}`,
-    ...(many ? fines.map(f => `Fine No. ${clean(f.fineNo)} - AED ${money(f.amount)}`) : []), '',
+    ...fines.map(f => `Fine No. ${clean(f.fineNo)} - AED ${money(f.amount)}`), '',
     `Please Download attached PDF bill and traffic fine ${many ? 'tickets' : 'ticket'} for details!`, '',
     many ? REGRET_MANY : REGRET, '', 'Please be aware of our “Traffic Fines Payment” process terms:', '',
     ...TERMS.map(t => '• ' + t), '', THANKS, '', 'Sincerely,', CFG.signName, CFG.signTitle, '',
