@@ -8,30 +8,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <style>
-.top .in{padding:22px 20px 30px}.top h1{font-size:2.4rem}
-.login{max-width:380px;margin:9vh auto;background:#fff;padding:26px;border-radius:12px;box-shadow:0 8px 24px rgba(20,40,30,.12);border-top:10px solid var(--yellow)}
-.login label{display:block;font-weight:600;margin-top:12px}.login input{width:100%;padding:.6rem;border:2px solid var(--line);border-radius:8px;font:inherit}
+.login{max-width:360px;margin:6vh auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(20,40,30,.12);border-top:6px solid var(--yellow)}
+.login label{display:block;font-weight:600;margin-top:10px}.login input{width:100%;padding:.5rem .6rem;border:2px solid var(--line);border-radius:7px;font:inherit}
 .login input:focus{border-color:var(--green);outline:0}
-.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}.tools .sp{margin-left:auto}
-.rt{border-collapse:collapse;width:100%;min-width:900px}.rt th,.rt td{padding:.6rem .75rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
-.rt th{background:var(--asphalt);color:#fff;font-weight:600;position:sticky;top:0}.rt tbody tr:hover{background:#f7faf8}
-.rt td img{width:38px;height:48px;object-fit:cover;border-radius:3px;background:#dde6e2}
-.acts{display:flex;gap:6px;flex-wrap:wrap}.rt small{color:var(--muted)}
-.tabs{display:flex;gap:6px;margin:6px 0 4px}.tabs button{border:0;background:#e2eae6;border-radius:99px;padding:.45rem 1.2rem;font:600 1rem "Barlow";cursor:pointer;color:var(--muted)}.tabs button[aria-pressed=true]{background:var(--asphalt);color:#fff}
-.ftot{font:800 1.8rem "Barlow Condensed"}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.tools .sp{margin-left:auto;display:flex;gap:6px}
+.rt{border-collapse:collapse;width:100%;min-width:860px}.rt th,.rt td{padding:.4rem .6rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+.rt th{background:var(--asphalt);color:#fff;font-weight:600;font-size:.85rem;position:sticky;top:0}.rt tbody tr:hover{background:#f7faf8}
+.rt td img{width:32px;height:40px;object-fit:cover;border-radius:3px;background:#dde6e2;display:block}
+.hm{}.acts{display:flex;gap:5px;flex-wrap:wrap}.rt small{color:var(--muted)}
+.tabs{display:flex;gap:4px;margin:4px 0}.tabs button{border:0;background:#e2eae6;border-radius:99px;padding:.3rem .95rem;font:600 .92rem "Barlow";cursor:pointer;color:var(--muted)}.tabs button[aria-pressed=true]{background:var(--asphalt);color:#fff}
+.ftot{font:800 1.4rem "Barlow Condensed"}
 </style>
 </head>
 <body>
-<header class="top"><div class="in"><div><h1>Admin</h1><p>Khawrai Marathon Race Season Three registrations</p></div><div class="cta"><a class="btn ghost" style="color:#fff;box-shadow:inset 0 0 0 2px #5c6b65" href="index.html">Public list</a></div></div></header>
+<header class="top"><div class="in"><div class="tt"><h1>Admin <span>Khawrai Marathon Season Three</span></h1></div><div class="cta"><a class="btn ghost sm" style="color:#fff;box-shadow:inset 0 0 0 2px #5c6b65" href="index.html">Public list</a></div></div></header>
 
-<form class="login" id="login" hidden><h2 style="font-size:1.8rem">Sign in</h2>
+<form class="login" id="login" hidden><h2 style="font-size:1.5rem">Sign in</h2>
   <label for="u">Username</label><input id="u" autocomplete="username" required>
   <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
   <p class="msg bad" id="lerr" hidden></p><p><button class="btn" style="width:100%" id="lgo">Sign in</button></p>
   <p style="color:var(--muted);font-size:.9rem;margin:0">You stay signed in on this device until you press Sign out.</p></form>
 
 <main class="wrap" id="app" hidden>
-  <div class="tools"><b id="who"></b><span id="role" class="tag pending"></span><span class="sp"><a class="btn sm" href="register.html">Add registration</a> <button class="btn ghost sm" id="out">Sign out</button></span></div>
+  <div class="tools"><b id="who"></b><span id="role" class="tag pending hm"></span><span class="sp"><a class="btn sm" href="register.html">Add registration</a> <button class="btn ghost sm" id="out">Sign out</button></span></div>
   <div class="tabs" role="group" aria-label="Sections"><button id="tabR" aria-pressed="true">Registrations</button><button id="tabF" aria-pressed="false">Project funds</button></div>
   <section id="paneR">
     <div class="tools"><button class="btn alt sm" id="dlSel">Download selected PDF</button><button class="btn sm" id="dlAll">Download all PDF</button></div>
@@ -41,7 +40,7 @@
   <section id="paneF" hidden>
     <div class="tools"><button class="btn" id="addFund">Funds received</button><span class="ftot" id="ftot"></span></div>
     <p class="msg" id="finfo" aria-live="polite">Loading…</p>
-    <div class="tw"><table class="ft" style="min-width:700px"><thead><tr><th>#</th><th>Name</th><th>Mohallah</th><th class="amt">Amount (Rs.)</th><th>Type</th><th>Received by</th><th>Date</th><th></th></tr></thead><tbody id="fb"></tbody></table></div>
+    <div class="tw"><table class="ft"><thead><tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th><th class="hm">Type</th><th class="hm">Received by</th><th class="hm">Date</th><th></th></tr></thead><tbody id="fb"></tbody></table></div>
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -78,11 +77,11 @@ function draw() {
   const c = rows.filter(r => r.status === "confirmed").length;
   say(`${rows.length} registrations · ${c} confirmed · ${rows.length - c} pending`);
   $("tb").innerHTML = rows.map(r => `<tr data-id="${r.id}">
-    <td><input type="checkbox" class="sel" aria-label="Select ${esc(r.name)}"></td><td><img alt="" src="${esc(photoUrl(r.photo_path))}"></td>
-    <td><b>${esc(r.reg_no)}</b></td><td>${esc(r.name)}<br><small>${esc(r.father_name)}${r.entered_by ? " · added by " + esc(r.entered_by) : ""}</small></td><td>${ageOf(r.dob)}</td><td>${esc(r.cnic)}</td><td>${esc(r.mobile)}</td><td>${esc(r.payment_ref || "—")}</td>
-    <td><span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></td>
-    <td><div class="acts"><button class="btn sm alt" data-a="pdf">PDF</button><button class="btn sm ghost" data-a="docs">Files</button><button class="btn sm ghost" data-a="edit">Edit</button>
-    <button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm payment"}</button><button class="btn sm danger" data-a="del">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="10">No registrations yet.</td></tr>`;
+    <td class="cb"><input type="checkbox" class="sel" aria-label="Select ${esc(r.name)}"></td><td class="ph"><img alt="" src="${esc(photoUrl(r.photo_path))}"></td>
+    <td class="hm"><b>${esc(r.reg_no)}</b></td><td class="nm"><b class="ms">${esc(r.reg_no)}</b>${esc(r.name)}<br><small>${esc(r.father_name)}${r.entered_by ? " · added by " + esc(r.entered_by) : ""}</small></td><td class="hm">${ageOf(r.dob)}</td><td class="cn" data-l="CNIC">${esc(r.cnic)}</td><td class="mb" data-l="Mobile">${esc(r.mobile)}</td><td class="rf" data-l="Ref">${esc(r.payment_ref || "—")}</td>
+    <td class="st"><span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></td>
+    <td class="ac"><div class="acts"><button class="btn sm alt" data-a="pdf">PDF</button><button class="btn sm ghost" data-a="docs">Files</button><button class="btn sm ghost" data-a="edit">Edit</button>
+    <button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm"}</button><button class="btn sm danger" data-a="del">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="10">No registrations yet.</td></tr>`;
 }
 const both = () => { load(); loadFunds(); };
 $("selAll").onchange = e => document.querySelectorAll(".sel").forEach(x => x.checked = e.target.checked);
@@ -115,8 +114,8 @@ function drawFunds() {
   const total = funds.reduce((t, f) => t + Number(f.amount), 0), reg = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
   $("ftot").textContent = "Total " + rs(total); $("finfo").className = "msg";
   $("finfo").textContent = `${funds.length} entries · ${rs(total - reg)} donations · ${rs(reg)} entry fees`;
-  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td>${i + 1}</td><td>${esc(f.donor_name)}</td><td>${esc(f.mohallah)}</td><td class="amt"><b>${Number(f.amount).toLocaleString("en-US")}</b></td>
-    <td>${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td>${esc(f.recorded_by)}</td><td>${fmtDate(f.created_at)}</td>
+  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td><td>${esc(f.donor_name)}<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small></td><td>${esc(f.mohallah)}</td><td class="amt"><b>${Number(f.amount).toLocaleString("en-US")}</b></td>
+    <td class="hm">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td class="hm">${esc(f.recorded_by)}</td><td class="hm">${fmtDate(f.created_at)}</td>
     <td>${f.source === "donation" ? '<div class="acts"><button class="btn sm ghost" data-fe>Edit</button><button class="btn sm danger" data-fd>Delete</button></div>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No funds recorded yet.</td></tr>';
 }
 $("addFund").onclick = () => KMRAdmin.fund(null, loadFunds);

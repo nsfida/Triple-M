@@ -9,21 +9,21 @@
 </head>
 <body>
 <div class="adminbar" id="adminbar" hidden><div class="in">
-  <span class="who"><i class="dot"></i>Signed in as <b id="adminName"></b></span>
-  <span class="sp"><a class="btn" href="register.html">Add runner</a><a class="btn" href="admin.html">Admin panel</a><button class="btn ghost" id="adminOut">Sign out</button></span>
+  <span class="who"><i class="dot"></i><span class="lg">Signed in as&nbsp;</span><b id="adminName"></b></span>
+  <span class="sp"><a class="btn" href="register.html">Add</a><a class="btn" href="admin.html">Panel</a><button class="btn ghost" id="adminOut">Sign out</button></span>
 </div></div>
 
 <header class="top"><div class="in">
   <img class="logo" id="logo" alt="Khawrai Unity logo" onerror="this.style.display='none'">
-  <div><h1>Khawrai Marathon Race<br>Season Three</h1><p>Registered runners. Entry fee Rs. 500 &mdash; a runner shows Pending until payment is confirmed.</p></div>
-  <div class="cta"><a class="btn yellow" href="register.html">Register to run</a></div>
+  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Entry fee Rs. 500 &middot; a runner shows Pending until payment is confirmed</p></div>
+  <div class="cta"><a class="btn yellow" href="register.html">Register<span class="long"> to run</span></a></div>
 </div></header>
 
 <section class="score" aria-label="Summary"><div class="row">
   <div class="c"><b id="sAll">–</b><span>Registered</span></div>
   <div class="c g"><b id="sOk">–</b><span>Confirmed</span></div>
   <div class="c a"><b id="sPend">–</b><span>Pending</span></div>
-  <div class="c"><b id="sFund">–</b><span>Project funds</span></div>
+  <div class="c"><b id="sFund">–</b><span>Funds</span></div>
 </div></section>
 
 <nav class="tabbar" aria-label="Sections"><div class="in" role="tablist">
@@ -117,14 +117,14 @@ function renderFunds() {
   const total = funds.reduce((t, f) => t + Number(f.amount), 0), fee = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
   $("fTotal").textContent = rs(total); $("fFee").textContent = rs(fee); $("fDon").textContent = rs(total - fee); $("sFund").textContent = rs(total); $("nFund").textContent = funds.length;
   const cols = admin ? 7 : 4;
-  $("fh").innerHTML = `<tr><th>#</th><th>Name</th><th>Mohallah</th>${admin ? "<th>Type</th><th>Date</th>" : ""}<th class="amt">Amount (Rs.)</th>${admin ? '<th><span class="sr" style="position:absolute;left:-9999px">Actions</span></th>' : ""}</tr>`;
-  $("fb").innerHTML = funds.length ? funds.map((f, i) => `<tr data-id="${f.id}"><td>${i + 1}</td>
-    <td>${esc(f.donor_name)}${!admin && f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
-    ${admin ? `<td><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</span></td><td>${fmtDate(f.created_at)}</td>` : ""}
+  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th>${admin ? '<th class="hm">Type</th><th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr" style="position:absolute;left:-9999px">Actions</span></th>' : ""}</tr>`;
+  $("fb").innerHTML = funds.length ? funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td>
+    <td>${esc(f.donor_name)}${!admin && f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}${admin ? `<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
+    ${admin ? `<td class="hm"><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</span></td><td class="hm">${fmtDate(f.created_at)}</td>` : ""}
     <td class="amt">${Number(f.amount).toLocaleString("en-US")}</td>
     ${admin ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
     : `<tr><td colspan="${cols}" class="empty" style="grid-column:auto">No funds recorded yet.</td></tr>`;
-  $("ff").innerHTML = `<tr><td colspan="${cols - 1}">Total funds collected</td><td class="amt">${rs(total)}</td></tr>`;
+  $("ff").innerHTML = `<tr><td class="hn"></td><td>Total</td><td></td>${admin ? '<td class="hm"></td><td class="hm"></td>' : ""}<td class="amt">${rs(total)}</td>${admin ? "<td></td>" : ""}</tr>`;
 }
 
 // ---------- data ----------
@@ -188,7 +188,7 @@ async function applyAdmin(u) {
 }
 $("adminOut").onclick = async () => { await KMRAuth.signOut(); applyAdmin(""); };
 KMRAuth.onChange(applyAdmin);
-$("fh").innerHTML = '<tr><th>#</th><th>Name</th><th>Mohallah</th><th class="amt">Amount (Rs.)</th></tr>';
+$("fh").innerHTML = '<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th></tr>';
 (async () => { await applyAdmin(await KMRAuth.current()); })();
 </script>
 </body></html>
