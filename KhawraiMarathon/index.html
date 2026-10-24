@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Khawrai Marathon Race - Season Three</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="in">
+  <img class="logo" id="logo" alt="Khawrai Unity logo" onerror="this.style.display='none'">
+  <div><h1>Khawrai Marathon Race<br>Season Three</h1><p>Registered runners. Entry fee Rs. 500 &mdash; a runner shows Pending until payment is confirmed.</p></div>
+  <div class="cta"><a class="btn" style="background:var(--yellow);color:var(--asphalt)" href="register.html">Register to run</a></div>
+</div></header>
+<main class="wrap">
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search by name or race number" aria-label="Search participants">
+    <div class="chips" role="group" aria-label="Filter by status">
+      <button data-f="all" aria-pressed="true">All</button><button data-f="confirmed" aria-pressed="false">Confirmed</button><button data-f="pending" aria-pressed="false">Pending</button>
+    </div>
+  </div>
+  <p class="count" id="count" aria-live="polite">Loading runners…</p>
+  <div class="grid" id="grid"></div>
+  <section class="funds" aria-labelledby="fh"><h2 id="fh">Project funds</h2>
+    <p class="sub">Contributions and confirmed entry fees for Khawrai Marathon Race Season Three.</p>
+    <div class="tw"><table class="ft"><thead><tr><th>#</th><th>Name</th><th>Mohallah</th><th class="amt">Amount (Rs.)</th></tr></thead>
+    <tbody id="fb"><tr><td colspan="4">Loading…</td></tr></tbody>
+    <tfoot><tr><td colspan="3">Total funds collected</td><td class="amt" id="ftot">Rs. 0</td></tr></tfoot></table></div></section>
+</main>
+<footer>Khawrai Marathon Race Season Three &middot; <a href="admin.html">Admin sign in</a></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script><script src="js/common.js"></script>
+<script>
+document.getElementById("logo").src = KMR.LOGO_URL;
+let all = [], filter = "all";
+const grid = document.getElementById("grid"), count = document.getElementById("count");
+function render() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const rows = all.filter(r => (filter === "all" || r.status === filter) && (!q || r.name.toLowerCase().includes(q) || r.reg_no.toLowerCase().includes(q)));
+  const c = all.filter(r => r.status === "confirmed").length;
+  count.textContent = all.length ? `${rows.length} shown · ${all.length} registered · ${c} confirmed · ${all.length - c} pending` : "";
+  grid.innerHTML = rows.length ? rows.map(r => `<article class="bib ${r.status}">
+    <div class="no">${esc(r.reg_no.replace("KMR3-", ""))}</div>
+    <img class="ph" loading="lazy" alt="Photo of ${esc(r.name)}" src="${esc(photoUrl(r.photo_path))}">
+    <div class="nm">${esc(r.name)}</div><div class="ag">Age ${r.age == null ? "—" : r.age}</div>
+    <span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></article>`).join("")
+    : `<div class="empty">${all.length ? "No runners match this search." : "No runners registered yet. Be the first — use Register to run."}</div>`;
+}
+document.getElementById("q").addEventListener("input", render);
+document.querySelectorAll(".chips button").forEach(b => b.onclick = () => {
+  filter = b.dataset.f; document.querySelectorAll(".chips button").forEach(x => x.setAttribute("aria-pressed", x === b)); render();
+});
+(async () => {
+  const { data, error } = await sb.from("public_participants").select("*").order("created_at", { ascending: true }).limit(1000);
+  if (error) { count.textContent = "The list could not be loaded. Check your connection and refresh."; return; }
+  all = data; render();
+})();
+(async () => {
+  const { data, error } = await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
+  const fb = document.getElementById("fb");
+  if (error) { fb.innerHTML = '<tr><td colspan="4">The funds list could not be loaded.</td></tr>'; return; }
+  fb.innerHTML = data.length ? data.map((f, i) => `<tr><td>${i + 1}</td><td>${esc(f.donor_name)}${f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}</td><td>${esc(f.mohallah)}</td><td class="amt">${Number(f.amount).toLocaleString("en-US")}</td></tr>`).join("")
+    : '<tr><td colspan="4">No funds recorded yet.</td></tr>';
+  document.getElementById("ftot").textContent = "Rs. " + data.reduce((t, f) => t + Number(f.amount), 0).toLocaleString("en-US");
+})();
+</script>
+</body></html>

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin - Khawrai Marathon Season Three</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+.login{max-width:380px;margin:12vh auto;background:#fff;padding:26px;border-radius:8px;box-shadow:0 8px 24px rgba(20,40,30,.12);border-top:10px solid var(--yellow)}
+.login label{display:block;font-weight:600;margin-top:12px}.login input{width:100%;padding:.6rem;border:2px solid var(--line);border-radius:6px;font:inherit}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}.tools .sp{margin-left:auto}
+.tw{overflow-x:auto;background:#fff;border-radius:6px;box-shadow:0 1px 0 var(--line)}
+table{border-collapse:collapse;width:100%;min-width:880px}th,td{padding:.55rem .7rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{background:var(--asphalt);color:#fff;font-weight:600;position:sticky;top:0}
+td img{width:38px;height:48px;object-fit:cover;border-radius:3px;background:#dde6e2}
+.acts{display:flex;gap:6px;flex-wrap:wrap}.docs a{margin-right:8px;font-size:.9rem}
+.msg{padding:.6rem .8rem;border-radius:6px;background:#fff;margin:10px 0}.msg.bad{color:var(--red)}
+.tabs{display:flex;gap:8px;margin:6px 0 4px}.tabs button{border:2px solid var(--line);background:#fff;border-radius:99px;padding:.4rem 1.1rem;font:600 1rem "Barlow";cursor:pointer}.tabs button[aria-pressed=true]{background:var(--asphalt);border-color:var(--asphalt);color:#fff}
+dialog{border:0;border-radius:10px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 50px rgba(0,0,0,.3);border-top:10px solid var(--yellow)}dialog::backdrop{background:rgba(20,30,28,.55)}
+dialog label{display:block;font-weight:600;margin-top:12px}dialog input{width:100%;padding:.6rem;border:2px solid var(--line);border-radius:6px;font:inherit}
+dialog .row{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.ftot{font:800 1.8rem "Barlow Condensed"}
+tr.det td{background:#f6faf8;font-size:.92rem}
+</style>
+</head>
+<body>
+<header class="top"><div class="in"><div><h1 style="font-size:2.4rem">Admin</h1><p>Khawrai Marathon Race Season Three registrations</p></div><div class="cta"><a class="btn ghost" style="color:#fff;box-shadow:inset 0 0 0 2px #5c6b65" href="index.html">Public list</a></div></div></header>
+
+<form class="login" id="login"><h2 style="font-size:1.8rem">Sign in</h2>
+  <label for="u">Username</label><input id="u" autocomplete="username" required>
+  <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
+  <p class="msg bad" id="lerr" hidden></p><p><button class="btn" style="width:100%">Sign in</button></p></form>
+
+<main class="wrap" id="app" hidden>
+  <div class="tools"><b id="who"></b><span id="role" class="tag pending"></span><button class="btn ghost sm sp" id="out">Sign out</button></div>
+  <div class="tabs" role="group" aria-label="Sections"><button id="tabR" aria-pressed="true">Registrations</button><button id="tabF" aria-pressed="false">Project funds</button></div>
+  <section id="paneR">
+    <div class="tools"><button class="btn alt sm" id="dlSel">Download selected PDF</button><button class="btn sm" id="dlAll">Download all PDF</button></div>
+    <p class="msg" id="info" aria-live="polite">Loading…</p>
+    <div class="tw"><table><thead><tr><th><input type="checkbox" id="selAll" aria-label="Select all"></th><th></th><th>Reg No</th><th>Name</th><th>Age</th><th>CNIC</th><th>Mobile</th><th>Payment ref</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tb"></tbody></table></div>
+  </section>
+  <section id="paneF" hidden>
+    <div class="tools"><button class="btn" id="addFund">Funds Received</button><span class="ftot" id="ftot"></span></div>
+    <p class="msg" id="finfo" aria-live="polite">Loading…</p>
+    <div class="tw"><table style="min-width:640px"><thead><tr><th>#</th><th>Name</th><th>Mohallah</th><th>Amount (Rs.)</th><th>Type</th><th>Received by</th><th>Date</th><th></th></tr></thead><tbody id="fb"></tbody></table></div>
+  </section>
+</main>
+<dialog id="fundDlg"><form id="fundForm"><h2 style="font-size:1.7rem">Funds received</h2>
+  <label for="fn">Name</label><input id="fn" required maxlength="100"><label for="fm">Mohallah</label><input id="fm" required maxlength="100">
+  <label for="fa">Amount (Rs.)</label><input id="fa" type="number" min="1" step="1" inputmode="numeric" required>
+  <p class="msg bad" id="ferr" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Save entry</button></div></form></dialog>
+<dialog id="payDlg"><form id="payForm"><h2 style="font-size:1.7rem">Confirm payment</h2><p id="payWho" style="margin:.4rem 0 0"></p>
+  <label for="pa">Amount received (Rs.)</label><input id="pa" type="number" min="1" step="1" inputmode="numeric" required>
+  <label for="pm">Mohallah</label><input id="pm" required maxlength="100">
+  <p class="msg bad" id="perr" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Confirm payment</button></div></form></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="js/config.js"></script><script src="js/common.js"></script><script src="js/pdf.js"></script>
+<script>
+const $ = id => document.getElementById(id), C = KMR;
+let rows = [], user = "", isSuper = false;
+const age = d => { const b = new Date(d), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) a--; return a; };
+const slug = s => String(s).replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+function say(t, bad) { $("info").textContent = t; $("info").className = "msg" + (bad ? " bad" : ""); }
+
+$("login").onsubmit = async e => {
+  e.preventDefault(); const u = $("u").value.trim().toLowerCase(); $("lerr").hidden = true;
+  const fail = m => { $("lerr").textContent = m; $("lerr").hidden = false; };
+  if (!C.ADMINS.includes(u)) return fail("Wrong username or password.");
+  const { error } = await sb.auth.signInWithPassword({ email: `${u}@${C.EMAIL_DOMAIN}`, password: $("p").value });
+  if (error) return fail("Wrong username or password."); start();
+};
+$("out").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+async function start() {
+  const { data } = await sb.auth.getSession(); const em = data.session && data.session.user.email;
+  if (!em || !C.ADMINS.includes(em.split("@")[0])) { $("login").hidden = false; $("app").hidden = true; return; }
+  user = em.split("@")[0]; isSuper = C.ADMINS.includes(user);
+  $("login").hidden = true; $("app").hidden = false; $("who").textContent = user;
+  $("role").textContent = "Admin: can confirm, edit, delete and download";
+  load(); loadFunds();
+}
+async function load() {
+  const { data, error } = await sb.from("registrations").select("*").order("created_at", { ascending: true });
+  if (error) return say("Could not load registrations: " + error.message, true);
+  rows = data; draw();
+}
+function draw() {
+  const c = rows.filter(r => r.status === "confirmed").length;
+  say(`${rows.length} registrations · ${c} confirmed · ${rows.length - c} pending · Rs. ${(c * C.FEE).toLocaleString()} confirmed so far`);
+  $("tb").innerHTML = rows.map(r => `<tr data-id="${r.id}">
+    <td><input type="checkbox" class="sel" aria-label="Select ${esc(r.name)}"></td><td><img alt="" src="${esc(photoUrl(r.photo_path))}"></td>
+    <td><b>${esc(r.reg_no)}</b></td><td>${esc(r.name)}<br><small>${esc(r.father_name)}</small></td><td>${age(r.dob)}</td><td>${esc(r.cnic)}</td><td>${esc(r.mobile)}</td><td>${esc(r.payment_ref || "—")}</td>
+    <td><span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></td>
+    <td><div class="acts"><button class="btn sm alt" data-a="pdf">PDF</button><button class="btn sm ghost" data-a="docs">Files</button>
+    ${isSuper ? `<button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm payment"}</button><button class="btn sm danger" data-a="del">Delete</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="10">No registrations yet.</td></tr>`;
+}
+$("selAll").onchange = e => document.querySelectorAll(".sel").forEach(x => x.checked = e.target.checked);
+function save(doc, name) { doc.save(name); }
+async function makePdf(list, name, btn) {
+  const old = btn.textContent; btn.disabled = true;
+  try { const doc = await KMRPDF.build(list, (i, n) => btn.textContent = `Building ${i}/${n}…`); doc.save(name); }
+  catch (e) { say("PDF failed: " + e.message, true); } finally { btn.disabled = false; btn.textContent = old; }
+}
+$("dlAll").onclick = e => rows.length ? makePdf(rows, "Khawrai-S3-all-registrations.pdf", e.target) : say("Nothing to download yet.", true);
+$("dlSel").onclick = e => {
+  const ids = [...document.querySelectorAll(".sel:checked")].map(x => x.closest("tr").dataset.id);
+  ids.length ? makePdf(rows.filter(r => ids.includes(r.id)), "Khawrai-S3-selected-registrations.pdf", e.target) : say("Tick at least one registration first.", true);
+};
+$("tb").onclick = async e => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const tr = b.closest("tr"), r = rows.find(x => x.id === tr.dataset.id), a = b.dataset.a;
+  if (a === "pdf") return makePdf([r], `${r.reg_no}_${slug(r.name)}.pdf`, b);
+  if (a === "docs") {
+    const nxt = tr.nextElementSibling; if (nxt && nxt.classList.contains("det")) return nxt.remove();
+    const ext = p => (p.split(".").pop() || "jpg").toLowerCase();
+    const fn = (k, p) => `${r.reg_no}_${slug(r.name)}_${k}.${ext(p)}`;
+    const dls = [["Photo", "photo", r.photo_original_path, "originals", r.photo_path, "photos"], ["CNIC front", "cnic_front", r.cnic_front_original_path, "originals", r.cnic_front_path, "documents"], ["CNIC back", "cnic_back", r.cnic_back_original_path, "originals", r.cnic_back_path, "documents"]];
+    const urls = [];
+    const dlLinks = await Promise.all(dls.map(async ([l, k, op, ob, sp, sb2]) => {
+      const orig = !!op, path = orig ? op : sp, bk = orig ? ob : sb2;
+      const { data } = await sb.storage.from(bk).createSignedUrl(path, 600, { download: fn(k, path) });
+      if (!data) return ""; urls.push(data.signedUrl);
+      return `<a href="${esc(data.signedUrl)}">Download ${l} (${orig ? "original quality" : "standard quality"})</a>`;
+    }));
+    const items = [["Certificate", r.certificate_path, "documents"], ["Other document", r.other_doc_path, "documents"], ["Signature", r.signature_path, "documents"]].filter(i => i[1]);
+    const links = await Promise.all(items.map(async ([l, p, bk]) => { const { data } = await sb.storage.from(bk).createSignedUrl(p, 300); return data ? `<a target="_blank" rel="noopener" href="${esc(data.signedUrl)}">View ${l}</a>` : ""; }));
+    const same = rows.filter(x => x.id !== r.id && x.fingerprint && x.fingerprint === r.fingerprint).map(x => x.reg_no);
+    const where = r.lat != null ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.lat},${r.lng}">Open location in Google Maps</a> (${Number(r.lat).toFixed(6)}, ${Number(r.lng).toFixed(6)}, accuracy about ${Math.round(r.location_accuracy || 0)} m)` : "No location recorded (older registration)";
+    const d = document.createElement("tr"); d.className = "det";
+    d.innerHTML = `<td></td><td colspan="9"><div class="docs">${dlLinks.join("")}${urls.length ? '<button class="btn sm alt" data-all>Download all 3</button>' : ""}</div><div class="docs">${links.join("")}</div>
+      <div>${esc(r.gender)} · Born ${fmtDate(r.dob)} · ${esc(r.address)}, ${esc(r.district_tehsil)} · ${esc(r.sport)}${r.email ? " · " + esc(r.email) : ""}</div>
+      <div>${where}</div><div>Device ID: ${esc((r.device_id || "—").slice(0, 8))}${r.device_id ? "…" : ""}${same.length ? ` · <b style="color:var(--red)">Same device fingerprint as ${esc(same.join(", "))} - please review</b>` : ""}</div></td>`;
+    const all = d.querySelector("[data-all]");
+    if (all) all.onclick = () => urls.forEach((u, n) => setTimeout(() => { const x = document.createElement("a"); x.href = u; x.download = ""; document.body.appendChild(x); x.click(); x.remove(); }, n * 700));
+    return tr.after(d);
+  }
+  if (!isSuper) return;
+  if (a === "toggle") {
+    if (r.status !== "confirmed") return openPay(r);
+    if (!confirm(`Mark ${r.reg_no} as pending? Its fee entry will be removed from the project funds.`)) return;
+    const { error } = await sb.rpc("unconfirm_payment", { p_id: r.id });
+    if (error) return say("Not allowed: " + error.message, true);
+    await load(); loadFunds();
+  }
+  if (a === "del" && confirm(`Delete ${r.reg_no} (${r.name})? This cannot be undone.`)) {
+    const { data, error } = await sb.from("registrations").delete().eq("id", r.id).select();
+    if (error || !data.length) return say("Delete was not allowed.", true);
+    const rm = async (bk, ps) => { const l = ps.filter(Boolean); if (l.length) await sb.storage.from(bk).remove(l); };
+    await rm("photos", [r.photo_path]); await rm("originals", [r.photo_original_path, r.cnic_front_original_path, r.cnic_back_original_path]); await rm("documents", [r.cnic_front_path, r.cnic_back_path, r.certificate_path, r.other_doc_path, r.signature_path]);
+    rows = rows.filter(x => x.id !== r.id); draw();
+  }
+};
+
+// ----- tabs -----
+function tab(f) { $("paneR").hidden = f; $("paneF").hidden = !f; $("tabR").setAttribute("aria-pressed", !f); $("tabF").setAttribute("aria-pressed", f); }
+$("tabR").onclick = () => tab(false); $("tabF").onclick = () => tab(true);
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
+// ----- project funds -----
+let funds = [];
+const rs = n => "Rs. " + Number(n).toLocaleString("en-US");
+async function loadFunds() {
+  const { data, error } = await sb.from("funds").select("*").order("created_at", { ascending: true });
+  if (error) { $("finfo").textContent = "Could not load funds: " + error.message; $("finfo").className = "msg bad"; return; }
+  funds = data; drawFunds();
+}
+function drawFunds() {
+  const total = funds.reduce((t, f) => t + Number(f.amount), 0), reg = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
+  $("ftot").textContent = "Total " + rs(total); $("finfo").className = "msg";
+  $("finfo").textContent = `${funds.length} entries · ${rs(total - reg)} donations · ${rs(reg)} entry fees`;
+  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td>${i + 1}</td><td>${esc(f.donor_name)}</td><td>${esc(f.mohallah)}</td><td><b>${Number(f.amount).toLocaleString("en-US")}</b></td>
+    <td>${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td>${esc(f.recorded_by)}</td><td>${fmtDate(f.created_at)}</td>
+    <td>${f.source === "donation" ? '<button class="btn sm danger" data-del>Delete</button>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No funds recorded yet.</td></tr>';
+}
+$("addFund").onclick = () => { $("fundForm").reset(); $("ferr").hidden = true; $("fundDlg").showModal(); $("fn").focus(); };
+$("fundForm").onsubmit = async e => {
+  e.preventDefault();
+  const { error } = await sb.from("funds").insert({ donor_name: $("fn").value.trim(), mohallah: $("fm").value.trim(), amount: Math.round(Number($("fa").value)), source: "donation" });
+  if (error) { $("ferr").textContent = "Not saved: " + error.message; $("ferr").hidden = false; return; }
+  $("fundDlg").close(); loadFunds();
+};
+$("fb").onclick = async e => {
+  const b = e.target.closest("[data-del]"); if (!b) return; const id = b.closest("tr").dataset.id, f = funds.find(x => x.id === id);
+  if (!confirm(`Delete the entry of ${f.donor_name} (${rs(f.amount)})?`)) return;
+  const { data, error } = await sb.from("funds").delete().eq("id", id).select();
+  if (error || !data.length) { $("finfo").textContent = "Delete was not allowed."; $("finfo").className = "msg bad"; return; }
+  loadFunds();
+};
+// ----- confirm payment (asks for the amount received) -----
+let payRow = null;
+function openPay(r) { payRow = r; $("payWho").textContent = `${r.reg_no} · ${r.name}`; $("pa").value = C.FEE; $("pm").value = r.district_tehsil || ""; $("perr").hidden = true; $("payDlg").showModal(); $("pa").select(); }
+$("payForm").onsubmit = async e => {
+  e.preventDefault();
+  const { error } = await sb.rpc("confirm_payment", { p_id: payRow.id, p_amount: Number($("pa").value), p_mohallah: $("pm").value.trim() });
+  if (error) { $("perr").textContent = "Not saved: " + error.message; $("perr").hidden = false; return; }
+  $("payDlg").close(); await load(); loadFunds();
+};
+start();
+</script>
+</body></html>
