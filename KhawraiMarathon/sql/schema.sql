@@ -1,3 +1,4 @@
+-- NOTE: after this file, also run every file in sql/migrations/ (oldest first). They are safe to re-run.
 -- =====================================================================
 -- Khawrai Marathon Season Three - database schema, security and storage
 -- Run this whole file once in: Supabase Dashboard > SQL Editor

@@ -8,61 +8,187 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<div class="adminbar" id="adminbar" hidden><div class="in">
+  <span class="who"><i class="dot"></i>Signed in as <b id="adminName"></b></span>
+  <span class="sp"><a class="btn" href="register.html">Add runner</a><a class="btn" href="admin.html">Admin panel</a><button class="btn ghost" id="adminOut">Sign out</button></span>
+</div></div>
+
 <header class="top"><div class="in">
   <img class="logo" id="logo" alt="Khawrai Unity logo" onerror="this.style.display='none'">
   <div><h1>Khawrai Marathon Race<br>Season Three</h1><p>Registered runners. Entry fee Rs. 500 &mdash; a runner shows Pending until payment is confirmed.</p></div>
-  <div class="cta"><a class="btn" style="background:var(--yellow);color:var(--asphalt)" href="register.html">Register to run</a></div>
+  <div class="cta"><a class="btn yellow" href="register.html">Register to run</a></div>
 </div></header>
+
+<section class="score" aria-label="Summary"><div class="row">
+  <div class="c"><b id="sAll">–</b><span>Registered</span></div>
+  <div class="c g"><b id="sOk">–</b><span>Confirmed</span></div>
+  <div class="c a"><b id="sPend">–</b><span>Pending</span></div>
+  <div class="c"><b id="sFund">–</b><span>Project funds</span></div>
+</div></section>
+
+<nav class="tabbar" aria-label="Sections"><div class="in" role="tablist">
+  <button role="tab" id="tabRun" aria-controls="panRun" aria-selected="true">Runners <span class="n" id="nRun">0</span></button>
+  <button role="tab" id="tabFund" aria-controls="panFund" aria-selected="false" tabindex="-1">Project funds <span class="n" id="nFund">0</span></button>
+</div></nav>
+
 <main class="wrap">
-  <div class="bar">
-    <input type="search" id="q" placeholder="Search by name or race number" aria-label="Search participants">
-    <div class="chips" role="group" aria-label="Filter by status">
-      <button data-f="all" aria-pressed="true">All</button><button data-f="confirmed" aria-pressed="false">Confirmed</button><button data-f="pending" aria-pressed="false">Pending</button>
+  <section id="panRun" role="tabpanel" aria-labelledby="tabRun">
+    <div class="bar">
+      <input type="search" id="q" placeholder="Search by name or race number" aria-label="Search participants">
+      <div class="chips" role="group" aria-label="Filter by status">
+        <button data-f="all" aria-pressed="true">All</button><button data-f="confirmed" aria-pressed="false">Confirmed</button><button data-f="pending" aria-pressed="false">Pending</button>
+      </div>
     </div>
-  </div>
-  <p class="count" id="count" aria-live="polite">Loading runners…</p>
-  <div class="grid" id="grid"></div>
-  <section class="funds" aria-labelledby="fh"><h2 id="fh">Project funds</h2>
-    <p class="sub">Contributions and confirmed entry fees for Khawrai Marathon Race Season Three.</p>
-    <div class="tw"><table class="ft"><thead><tr><th>#</th><th>Name</th><th>Mohallah</th><th class="amt">Amount (Rs.)</th></tr></thead>
-    <tbody id="fb"><tr><td colspan="4">Loading…</td></tr></tbody>
-    <tfoot><tr><td colspan="3">Total funds collected</td><td class="amt" id="ftot">Rs. 0</td></tr></tfoot></table></div></section>
+    <p class="count" id="count" aria-live="polite">Loading runners…</p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="panFund" role="tabpanel" aria-labelledby="tabFund" hidden>
+    <div class="fsum">
+      <div class="c main"><b id="fTotal">Rs. 0</b><span>Total funds collected</span></div>
+      <div class="c"><b id="fDon">Rs. 0</b><span>Donations</span></div>
+      <div class="c"><b id="fFee">Rs. 0</b><span>Entry fees</span></div>
+    </div>
+    <div class="fhead"><h2>Contributions</h2><span class="sp"><button class="btn" id="addFund" hidden>Funds received</button></span></div>
+    <div class="tw"><table class="ft"><thead id="fh"></thead><tbody id="fb"><tr><td colspan="4">Loading…</td></tr></tbody><tfoot id="ff"></tfoot></table></div>
+  </section>
 </main>
-<footer>Khawrai Marathon Race Season Three &middot; <a href="admin.html">Admin sign in</a></footer>
+<footer>Khawrai Marathon Race Season Three &middot; <a id="footLink" href="admin.html">Admin sign in</a></footer>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script><script src="js/common.js"></script>
+<script src="js/config.js"></script><script src="js/common.js"></script><script src="js/admin-tools.js"></script>
 <script>
-document.getElementById("logo").src = KMR.LOGO_URL;
-let all = [], filter = "all";
-const grid = document.getElementById("grid"), count = document.getElementById("count");
-function render() {
-  const q = document.getElementById("q").value.trim().toLowerCase();
+const $ = id => document.getElementById(id);
+$("logo").src = KMR.LOGO_URL;
+let all = [], funds = [], filter = "all", admin = "", menuEl = null, menuBtn = null;
+
+const ICON = {
+  dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  ok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  file: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>',
+  pdf: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg>',
+  del: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
+};
+const item = (a, label, icon, cls) => `<button role="menuitem" data-act="${a}" class="${cls || ""}">${ICON[icon]}${label}</button>`;
+const kebab = label => admin ? `<button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label)}">${ICON.dots}</button>` : "";
+
+// ---------- tabs ----------
+function setTab(t, push) {
+  const f = t === "funds";
+  $("panRun").hidden = f; $("panFund").hidden = !f;
+  $("tabRun").setAttribute("aria-selected", !f); $("tabFund").setAttribute("aria-selected", f);
+  $("tabRun").tabIndex = f ? -1 : 0; $("tabFund").tabIndex = f ? 0 : -1;
+  if (push) history.replaceState(null, "", f ? "#funds" : location.pathname + location.search);
+  closeMenu();
+}
+$("tabRun").onclick = () => setTab("runners", true); $("tabFund").onclick = () => setTab("funds", true);
+document.querySelector("[role=tablist]").addEventListener("keydown", e => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const f = e.key === "ArrowRight"; setTab(f ? "funds" : "runners", true); $(f ? "tabFund" : "tabRun").focus();
+});
+window.addEventListener("hashchange", () => setTab(location.hash === "#funds" ? "funds" : "runners"));
+setTab(location.hash === "#funds" ? "funds" : "runners");
+
+// ---------- runners ----------
+const num = r => r.reg_no.replace("KMR3-", "");
+function renderRunners() {
+  const q = $("q").value.trim().toLowerCase();
   const rows = all.filter(r => (filter === "all" || r.status === filter) && (!q || r.name.toLowerCase().includes(q) || r.reg_no.toLowerCase().includes(q)));
   const c = all.filter(r => r.status === "confirmed").length;
-  count.textContent = all.length ? `${rows.length} shown · ${all.length} registered · ${c} confirmed · ${all.length - c} pending` : "";
-  grid.innerHTML = rows.length ? rows.map(r => `<article class="bib ${r.status}">
-    <div class="no">${esc(r.reg_no.replace("KMR3-", ""))}</div>
+  $("count").textContent = all.length ? `Showing ${rows.length} of ${all.length} runners` : "";
+  $("sAll").textContent = all.length; $("sOk").textContent = c; $("sPend").textContent = all.length - c; $("nRun").textContent = all.length;
+  $("grid").innerHTML = rows.length ? rows.map(r => `<article class="bib ${r.status}" data-id="${r.id}">${kebab("Edit options for " + r.name)}
+    <div class="no">${esc(num(r))}</div>
     <img class="ph" loading="lazy" alt="Photo of ${esc(r.name)}" src="${esc(photoUrl(r.photo_path))}">
     <div class="nm">${esc(r.name)}</div><div class="ag">Age ${r.age == null ? "—" : r.age}</div>
-    <span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></article>`).join("")
+    <span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span>
+    ${admin && r.entered_by ? `<div class="by">Added by ${esc(r.entered_by)}</div>` : ""}</article>`).join("")
     : `<div class="empty">${all.length ? "No runners match this search." : "No runners registered yet. Be the first — use Register to run."}</div>`;
 }
-document.getElementById("q").addEventListener("input", render);
+$("q").addEventListener("input", renderRunners);
 document.querySelectorAll(".chips button").forEach(b => b.onclick = () => {
-  filter = b.dataset.f; document.querySelectorAll(".chips button").forEach(x => x.setAttribute("aria-pressed", x === b)); render();
+  filter = b.dataset.f; document.querySelectorAll(".chips button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderRunners();
 });
-(async () => {
-  const { data, error } = await sb.from("public_participants").select("*").order("created_at", { ascending: true }).limit(1000);
-  if (error) { count.textContent = "The list could not be loaded. Check your connection and refresh."; return; }
-  all = data; render();
-})();
-(async () => {
-  const { data, error } = await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
-  const fb = document.getElementById("fb");
-  if (error) { fb.innerHTML = '<tr><td colspan="4">The funds list could not be loaded.</td></tr>'; return; }
-  fb.innerHTML = data.length ? data.map((f, i) => `<tr><td>${i + 1}</td><td>${esc(f.donor_name)}${f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}</td><td>${esc(f.mohallah)}</td><td class="amt">${Number(f.amount).toLocaleString("en-US")}</td></tr>`).join("")
-    : '<tr><td colspan="4">No funds recorded yet.</td></tr>';
-  document.getElementById("ftot").textContent = "Rs. " + data.reduce((t, f) => t + Number(f.amount), 0).toLocaleString("en-US");
-})();
+
+// ---------- funds ----------
+function renderFunds() {
+  const total = funds.reduce((t, f) => t + Number(f.amount), 0), fee = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
+  $("fTotal").textContent = rs(total); $("fFee").textContent = rs(fee); $("fDon").textContent = rs(total - fee); $("sFund").textContent = rs(total); $("nFund").textContent = funds.length;
+  const cols = admin ? 7 : 4;
+  $("fh").innerHTML = `<tr><th>#</th><th>Name</th><th>Mohallah</th>${admin ? "<th>Type</th><th>Date</th>" : ""}<th class="amt">Amount (Rs.)</th>${admin ? '<th><span class="sr" style="position:absolute;left:-9999px">Actions</span></th>' : ""}</tr>`;
+  $("fb").innerHTML = funds.length ? funds.map((f, i) => `<tr data-id="${f.id}"><td>${i + 1}</td>
+    <td>${esc(f.donor_name)}${!admin && f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
+    ${admin ? `<td><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</span></td><td>${fmtDate(f.created_at)}</td>` : ""}
+    <td class="amt">${Number(f.amount).toLocaleString("en-US")}</td>
+    ${admin ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
+    : `<tr><td colspan="${cols}" class="empty" style="grid-column:auto">No funds recorded yet.</td></tr>`;
+  $("ff").innerHTML = `<tr><td colspan="${cols - 1}">Total funds collected</td><td class="amt">${rs(total)}</td></tr>`;
+}
+
+// ---------- data ----------
+async function loadRunners() {
+  let res;
+  if (admin) { res = await sb.from("registrations").select("*").order("created_at", { ascending: true }); if (res.data) res.data.forEach(r => r.age = ageOf(r.dob)); }
+  else res = await sb.from("public_participants").select("*").order("created_at", { ascending: true }).limit(1000);
+  if (res.error) { $("count").textContent = "The list could not be loaded. Check your connection and refresh."; return; }
+  all = res.data; renderRunners();
+}
+async function loadFunds() {
+  const res = admin ? await sb.from("funds").select("*").order("created_at", { ascending: true }) : await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
+  if (res.error) { $("fb").innerHTML = '<tr><td colspan="4">The funds list could not be loaded.</td></tr>'; return; }
+  funds = res.data; renderFunds();
+}
+const reload = () => Promise.all([loadRunners(), loadFunds()]);
+
+// ---------- admin menu ----------
+function closeMenu(focus) { if (menuEl) { menuEl.remove(); menuEl = null; } if (menuBtn) { menuBtn.setAttribute("aria-expanded", "false"); if (focus) menuBtn.focus(); menuBtn = null; } }
+function openMenu(btn) {
+  const same = menuBtn === btn; closeMenu(); if (same) return;
+  const host = btn.closest(".bib") || btn.closest("td"), id = btn.closest("[data-id]").dataset.id, isFund = !btn.closest(".bib");
+  let html;
+  if (isFund) html = item("fedit", "Edit entry", "edit") + "<hr>" + item("fdel", "Delete entry", "del", "bad");
+  else { const r = all.find(x => x.id === id);
+    html = (r.status === "confirmed" ? item("unconfirm", "Mark as pending", "undo") : item("confirm", "Confirm payment", "ok", "good")) + item("edit", "Edit details", "edit") + item("files", "Files &amp; details", "file") + item("pdf", "Download PDF", "pdf") + "<hr>" + item("del", "Delete runner", "del", "bad"); }
+  menuEl = document.createElement("div"); menuEl.className = "menu"; menuEl.setAttribute("role", "menu"); menuEl.innerHTML = html; menuEl.dataset.id = id;
+  host.appendChild(menuEl); btn.setAttribute("aria-expanded", "true"); menuBtn = btn; menuEl.querySelector("button").focus();
+  if (menuEl.getBoundingClientRect().bottom > innerHeight - 8 && host.getBoundingClientRect().top > 260) menuEl.classList.add("up");
+}
+document.addEventListener("click", async e => {
+  const k = e.target.closest(".kebab"); if (k) return openMenu(k);
+  const m = e.target.closest(".menu button[data-act]");
+  if (!m) { if (!e.target.closest(".menu")) closeMenu(); return; }
+  const id = menuEl.dataset.id, a = m.dataset.act; closeMenu();
+  const r = all.find(x => x.id === id), f = funds.find(x => x.id === id);
+  if (a === "confirm") KMRAdmin.pay(r, reload);
+  else if (a === "unconfirm") KMRAdmin.unconfirm(r, reload);
+  else if (a === "edit") KMRAdmin.edit(r, renderRunners);
+  else if (a === "files") KMRAdmin.details(r, all);
+  else if (a === "pdf") { toast("Building PDF…"); KMRAdmin.pdf([r], `${r.reg_no}_${slug(r.name)}.pdf`); }
+  else if (a === "del") KMRAdmin.remove(r, reload);
+  else if (a === "fedit") KMRAdmin.fund(f, loadFunds);
+  else if (a === "fdel") KMRAdmin.removeFund(f, loadFunds);
+});
+document.addEventListener("keydown", e => {
+  if (!menuEl) return;
+  if (e.key === "Escape") return closeMenu(true);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); const b = [...menuEl.querySelectorAll("button")], i = b.indexOf(document.activeElement); b[(i + (e.key === "ArrowDown" ? 1 : -1) + b.length) % b.length].focus(); }
+});
+$("addFund").onclick = () => KMRAdmin.fund(null, loadFunds);
+
+// ---------- admin state (login is stored locally and shared by every page) ----------
+async function applyAdmin(u) {
+  if (u === admin && u !== undefined && applyAdmin.done) return;
+  applyAdmin.done = true; admin = u || ""; closeMenu();
+  $("adminbar").hidden = !admin; $("adminName").textContent = admin; $("addFund").hidden = !admin;
+  $("footLink").textContent = admin ? "Admin panel" : "Admin sign in";
+  if (admin) KMRAdmin.init();
+  await reload();
+}
+$("adminOut").onclick = async () => { await KMRAuth.signOut(); applyAdmin(""); };
+KMRAuth.onChange(applyAdmin);
+$("fh").innerHTML = '<tr><th>#</th><th>Name</th><th>Mohallah</th><th class="amt">Amount (Rs.)</th></tr>';
+(async () => { await applyAdmin(await KMRAuth.current()); })();
 </script>
 </body></html>

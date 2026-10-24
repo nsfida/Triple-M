@@ -42,12 +42,13 @@ canvas{width:100%;max-width:560px;height:130px;background:#fff;border:2px dashed
 </style>
 </head>
 <body>
+<div class="adminbar" id="adminbar" hidden><div class="in"><span class="who"><i class="dot"></i>Admin entry mode &middot; signed in as <b id="adminName"></b> &middot; no device or location limit, record as many runners as you need</span><span class="sp"><a class="btn" href="index.html">Public list</a><a class="btn" href="admin.html">Admin panel</a></span></div></div>
 <div class="sheet">
 <div id="done" class="ok" hidden>
   <h2>Registration received</h2>
   <div class="n" id="regno"></div>
-  <p>Keep this registration number. Your entry shows as <b>Pending</b> on the participants list until the Rs. 500 fee is confirmed by the admin.</p>
-  <p><a class="btn" href="index.html">View participants</a></p>
+  <p id="doneMsg">Keep this registration number. Your entry shows as <b>Pending</b> on the participants list until the Rs. 500 fee is confirmed by the admin.</p>
+  <p><button class="btn alt" id="again" hidden onclick="location.reload()">Add another registration</button> <a class="btn" href="index.html">View participants</a></p>
 </div>
 <div id="blocked" class="ok" hidden><h2>This device has already registered</h2>
   <p>Each device can register only once, so a second registration cannot be submitted from this device. If this is a mistake, contact the District Sports Office Nowshera.</p>
@@ -107,7 +108,7 @@ canvas{width:100%;max-width:560px;height:130px;background:#fff;border:2px dashed
     <div class="r"><span class="lb">Player's Signature/Thumb Impression</span><div><canvas id="sig" width="560" height="130" aria-label="Signature pad"></canvas><button type="button" class="btn ghost sm" id="clr" style="margin-top:6px">Clear signature</button></div></div>
     <div class="r"><label for="pname">Name of Player</label><input type="text" id="pname" required maxlength="100"></div>
     <div class="r"><label for="pay">Fee receipt / transaction no. (Rs. 500)</label><input type="text" id="pay" maxlength="80" placeholder="Optional: helps the admin confirm faster"></div>
-    <div class="r"><span class="lb">Location &amp; device</span><div>
+    <div class="r" id="locRow"><span class="lb">Location &amp; device</span><div>
       <p class="decl" style="font-weight:400;margin:0 0 8px">To prevent duplicate entries, the organisers record this device's ID and your current location on Google Maps. Tick the consent box, then press <b>Share my location</b> and choose <b>Allow</b> when your browser asks.</p>
       <label class="opts" style="margin-bottom:8px"><span style="display:flex;gap:7px;align-items:center;font-weight:600;color:#0d4a96"><input type="checkbox" id="consent"> I consent to share my device ID and exact location with the organisers.</span></label>
       <button type="button" class="btn alt sm" id="getLoc" disabled>Share my location</button>
@@ -169,10 +170,19 @@ async function fingerprint() {
   return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 function blockDevice() { $("f").hidden = true; $("done").hidden = true; $("blocked").hidden = false; }
-(async () => {
+// Signed-in admins (login is shared with the other pages) can record unlimited registrations: no device or location rule.
+let admin = "";
+function applyAdmin(u) {
+  admin = u || ""; $("adminbar").hidden = !admin; $("adminName").textContent = admin; $("locRow").hidden = !!admin;
+  if (admin && $("done").hidden) { $("f").hidden = false; $("blocked").hidden = true; }
+}
+async function checkDevice() {
+  if (admin) return;
   if (lsGet("kmr_registered") || ck("kmr_registered") || await idb.get("kmr_registered")) return blockDevice();
   try { const { data } = await sb.rpc("device_registered", { p_device: await getDeviceId() }); if (data === true) blockDevice(); } catch (e) {}
-})();
+}
+(async () => { applyAdmin(await KMRAuth.current()); await checkDevice(); })();
+KMRAuth.onChange(async u => { applyAdmin(u); if (!u) await checkDevice(); });
 let loc = null;
 $("consent").onchange = () => { $("getLoc").disabled = !$("consent").checked; if (!$("consent").checked) { loc = null; $("locInfo").textContent = ""; } };
 $("getLoc").onclick = () => {
@@ -218,15 +228,14 @@ $("f").addEventListener("submit", async e => {
   if (!$("photo").files[0] || !$("cf").files[0] || !$("cb").files[0]) return err.textContent = "Attach your photo and the front and back of your CNIC/B-Form.";
   if (!signed) return err.textContent = "Sign in the signature box.";
   if (!$("agree").checked) return err.textContent = "Accept the declaration to continue.";
-  if (!$("consent").checked) return err.textContent = "Tick the consent box to share your device ID and location.";
-  if (!loc) return err.textContent = "Press Share my location and allow it in your browser before submitting.";
+  if (!admin && !$("consent").checked) return err.textContent = "Tick the consent box to share your device ID and location.";
+  if (!admin && !loc) return err.textContent = "Press Share my location and allow it in your browser before submitting.";
   const big = ["photo", "cf", "cb"].find(i => $(i).files[0].size > 25 * 1024 * 1024); if (big) return err.textContent = "Each image must be under 25 MB.";
   const btn = $("go"); btn.disabled = true; btn.textContent = "Submitting…";
   try {
-    const deviceId = await getDeviceId();
-    const chk = await sb.rpc("device_registered", { p_device: deviceId });
-    if (chk.data === true) { blockDevice(); return; }
-    const fp = await fingerprint();
+    const deviceId = admin ? "" : await getDeviceId();
+    if (!admin) { const chk = await sb.rpc("device_registered", { p_device: deviceId }); if (chk.data === true) { blockDevice(); return; } }
+    const fp = admin ? "" : await fingerprint();
     const id = crypto.randomUUID(), jpg = "image/jpeg", official = document.querySelector("[name=official]:checked").value === "yes";
     const up = async (bucket, name, file) => file ? upload(bucket, `${id}/${name}.jpg`, await toJpeg(file), jpg) : "";
     const mimeOf = f => f.type && /^image\/(jpeg|png|webp|heic|heif)$/.test(f.type) ? f.type : ({ heic: "image/heic", heif: "image/heif", png: "image/png", webp: "image/webp" }[(f.name.split(".").pop() || "").toLowerCase()] || "image/jpeg");
@@ -248,14 +257,16 @@ $("f").addEventListener("submit", async e => {
       sport: v("sport"), association: v("assoc"), player_level: (document.querySelector("[name=level]:checked") || {}).value || "", years_experience: v("years"), education: v("edu"),
       official_participation: official, event_name: official ? v("event") : "", event_date: official ? v("eventdate") : "",
       event_level: official ? ((document.querySelector("[name=evlevel]:checked") || {}).value || "") : "", event_org: official ? v("org") : "",
-      device_id: deviceId, fingerprint: fp, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
+      device_id: deviceId, fingerprint: fp, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, accuracy: loc ? loc.accuracy : null,
       declaration_accepted: true, signature_name: v("pname"), payment_ref: v("pay"), ...paths };
     const { data, error } = await sb.rpc("submit_registration", { p: payload });
     if (error) {
+      if (admin && /Device ID missing|Location permission|device/i.test(error.message)) throw new Error("The database still has the old one-per-device rule. Run sql/migrations/20261024_001_admin_multi_entries.sql once in the Supabase SQL Editor, then try again.");
       if (error.code === "23505" && /device/.test(error.message)) { blockDevice(); return; }
       throw new Error(error.code === "23505" ? "This CNIC/B-Form number is already registered." : "Registration failed: " + error.message);
     }
-    remember("kmr_registered", data.reg_no);
+    if (admin) { $("doneMsg").textContent = "Registration recorded. It shows as Pending until you confirm the payment from the public list or the admin panel."; $("again").hidden = false; }
+    else remember("kmr_registered", data.reg_no);
     $("f").hidden = true; $("done").hidden = false; $("regno").textContent = data.reg_no; window.scrollTo(0, 0);
   } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = "Submit registration"; }
 });
