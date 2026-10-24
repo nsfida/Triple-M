@@ -1,6 +1,6 @@
 # Khawrai Marathon Race - Season Three
 
-Static website (no build step) + Supabase backend.
+Static website (no build step) + Supabase backend. The interface uses a refreshed light theme with responsive public, registration, and admin layouts; no frontend build step is required.
 
 | File | Purpose |
 |---|---|

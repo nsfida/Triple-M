@@ -2,42 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f4f7fb">
 <title>Admin - Khawrai Marathon Season Three</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
-<style>
-.login{max-width:360px;margin:6vh auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(20,40,30,.12);border-top:6px solid var(--yellow)}
-.login label{display:block;font-weight:600;margin-top:10px}.login input{width:100%;padding:.5rem .6rem;border:2px solid var(--line);border-radius:7px;font:inherit}
-.login input:focus{border-color:var(--green);outline:0}
-.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.tools .sp{margin-left:auto;display:flex;gap:6px}
-.rt{border-collapse:collapse;width:100%;min-width:860px}.rt th,.rt td{padding:.4rem .6rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
-.rt th{background:var(--asphalt);color:#fff;font-weight:600;font-size:.85rem;position:sticky;top:0}.rt tbody tr:hover{background:#f7faf8}
-.rt td img{width:32px;height:40px;object-fit:cover;border-radius:3px;background:#dde6e2;display:block}
-.hm{}.acts{display:flex;gap:5px;flex-wrap:wrap}.rt small{color:var(--muted)}
-.tabs{display:flex;gap:4px;margin:4px 0}.tabs button{border:0;background:#e2eae6;border-radius:99px;padding:.3rem .95rem;font:600 .92rem "Barlow";cursor:pointer;color:var(--muted)}.tabs button[aria-pressed=true]{background:var(--asphalt);color:#fff}
-.ftot{font:800 1.4rem "Barlow Condensed"}
-</style>
+
 </head>
 <body>
-<header class="top"><div class="in"><div class="tt"><h1>Admin <span>Khawrai Marathon Season Three</span></h1></div><div class="cta"><a class="btn ghost sm" style="color:#fff;box-shadow:inset 0 0 0 2px #5c6b65" href="index.html">Public list</a></div></div></header>
+<header class="top"><div class="in"><div class="topmark">K3</div><div class="tt"><h1>Control centre <span>Khawrai Marathon · Season Three</span></h1><p>Manage registrations, payments, documents and project funds.</p></div><div class="cta"><a class="btn ghost" href="index.html">Public site</a></div></div></header>
 
-<form class="login" id="login" hidden><h2 style="font-size:1.5rem">Sign in</h2>
+<form class="login" id="login" hidden><h2>Sign in</h2><p class="login-intro">Use your organiser account to access the control centre.</p>
   <label for="u">Username</label><input id="u" autocomplete="username" required>
   <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
-  <p class="msg bad" id="lerr" hidden></p><p><button class="btn" style="width:100%" id="lgo">Sign in</button></p>
-  <p style="color:var(--muted);font-size:.9rem;margin:0">You stay signed in on this device until you press Sign out.</p></form>
+  <p class="msg bad" id="lerr" hidden></p><p><button class="btn" type="submit" id="lgo">Sign in securely</button></p>
+  <p class="login-note">You stay signed in on this device until you press Sign out.</p></form>
 
 <main class="wrap" id="app" hidden>
   <div class="tools"><b id="who"></b><span id="role" class="tag pending hm"></span><span class="sp"><a class="btn sm" href="register.html">Add registration</a> <button class="btn ghost sm" id="out">Sign out</button></span></div>
   <div class="tabs" role="group" aria-label="Sections"><button id="tabR" aria-pressed="true">Registrations</button><button id="tabF" aria-pressed="false">Project funds</button></div>
   <section id="paneR">
+    <div class="section-heading"><div><h2>Runner registrations</h2><p>Find a runner, review payment status, and manage forms or documents.</p></div></div>
+    <div class="bar admin-search"><input type="search" id="adminQ" placeholder="Search name, registration no., CNIC or mobile" aria-label="Search registrations"></div>
     <div class="tools"><button class="btn alt sm" id="dlSel">Download selected PDF</button><button class="btn sm" id="dlAll">Download all PDF</button></div>
     <p class="msg" id="info" aria-live="polite">Loading…</p>
     <div class="tw"><table class="rt"><thead><tr><th><input type="checkbox" id="selAll" aria-label="Select all"></th><th></th><th>Reg No</th><th>Name</th><th>Age</th><th>CNIC</th><th>Mobile</th><th>Payment ref</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tb"></tbody></table></div>
   </section>
   <section id="paneF" hidden>
+    <div class="section-heading"><div><h2>Project funds</h2><p>Track entry fees and community contributions in one place.</p></div></div>
     <div class="tools"><button class="btn" id="addFund">Funds received</button><span class="ftot" id="ftot"></span></div>
     <p class="msg" id="finfo" aria-live="polite">Loading…</p>
     <div class="tw"><table class="ft"><thead><tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th><th class="hm">Type</th><th class="hm">Received by</th><th class="hm">Date</th><th></th></tr></thead><tbody id="fb"></tbody></table></div>
@@ -48,6 +41,7 @@
 <script>
 const $ = id => document.getElementById(id), C = KMR;
 let rows = [], funds = [], user = "";
+const selectedIds = new Set();
 function say(t, bad) { $("info").textContent = t; $("info").className = "msg" + (bad ? " bad" : ""); }
 
 // ----- sign in: the session is stored locally and shared with the public list and the register page -----
@@ -60,7 +54,7 @@ $("login").onsubmit = async e => {
 $("out").onclick = async () => { await KMRAuth.signOut(); show(""); };
 function show(u) {
   if (u === user && show.done) return; show.done = true; user = u;
-  $("login").hidden = !!u; $("app").hidden = !u; if (!u) { rows = []; funds = []; return $("u").focus(); }
+  $("login").hidden = !!u; $("app").hidden = !u; if (!u) { rows = []; funds = []; selectedIds.clear(); return $("u").focus(); }
   KMRAdmin.init(); $("who").textContent = u; $("role").textContent = "Admin: can confirm, edit, delete and download";
   load(); loadFunds();
 }
@@ -71,23 +65,48 @@ KMRAuth.onChange(show);
 async function load() {
   const { data, error } = await sb.from("registrations").select("*").order("created_at", { ascending: true });
   if (error) return say("Could not load registrations: " + error.message, true);
-  rows = data; draw();
+  rows = data;
+  for (const id of selectedIds) if (!rows.some(r => r.id === id)) selectedIds.delete(id);
+  draw();
 }
 function draw() {
+  const q = $("adminQ").value.trim().toLowerCase();
+  const shown = rows.filter(r => !q || [r.reg_no, r.name, r.father_name, r.cnic, r.mobile, r.payment_ref].some(v => String(v || "").toLowerCase().includes(q)));
   const c = rows.filter(r => r.status === "confirmed").length;
-  say(`${rows.length} registrations · ${c} confirmed · ${rows.length - c} pending`);
-  $("tb").innerHTML = rows.map(r => `<tr data-id="${r.id}">
-    <td class="cb"><input type="checkbox" class="sel" aria-label="Select ${esc(r.name)}"></td><td class="ph"><img alt="" src="${esc(photoUrl(r.photo_path))}"></td>
+  say(`${shown.length === rows.length ? rows.length : `Showing ${shown.length} of ${rows.length}`} registrations · ${c} confirmed · ${rows.length - c} pending`);
+  $("tb").innerHTML = shown.map(r => `<tr data-id="${r.id}">
+    <td class="cb"><input type="checkbox" class="sel" aria-label="Select ${esc(r.name)}" ${selectedIds.has(r.id) ? "checked" : ""}></td><td class="ph"><img alt="" loading="lazy" src="${esc(photoUrl(r.photo_path))}"></td>
     <td class="hm"><b>${esc(r.reg_no)}</b></td><td class="nm"><b class="ms">${esc(r.reg_no)}</b>${esc(r.name)}<br><small>${esc(r.father_name)}${r.entered_by ? " · added by " + esc(r.entered_by) : ""}</small></td><td class="hm">${ageOf(r.dob)}</td><td class="cn" data-l="CNIC">${esc(r.cnic)}</td><td class="mb" data-l="Mobile">${esc(r.mobile)}</td><td class="rf" data-l="Ref">${esc(r.payment_ref || "—")}</td>
     <td class="st"><span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></td>
     <td class="ac"><div class="acts"><button class="btn sm alt" data-a="pdf">PDF</button><button class="btn sm ghost" data-a="docs">Files</button><button class="btn sm ghost" data-a="edit">Edit</button>
-    <button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm"}</button><button class="btn sm danger" data-a="del">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="10">No registrations yet.</td></tr>`;
+    <button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm"}</button><button class="btn sm danger" data-a="del">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="10" class="table-empty">${rows.length ? "No registrations match that search." : "No registrations yet."}</td></tr>`;
+  syncSelectAll();
 }
+function syncSelectAll() {
+  const visible = [...document.querySelectorAll("#tb tr[data-id]")].map(tr => tr.dataset.id);
+  const picked = visible.filter(id => selectedIds.has(id)).length;
+  $("selAll").checked = visible.length > 0 && picked === visible.length;
+  $("selAll").indeterminate = picked > 0 && picked < visible.length;
+}
+$("adminQ").addEventListener("input", draw);
+$("tb").addEventListener("change", e => {
+  const box = e.target.closest("input.sel"); if (!box) return;
+  const id = box.closest("tr").dataset.id;
+  if (box.checked) selectedIds.add(id); else selectedIds.delete(id);
+  syncSelectAll();
+});
 const both = () => { load(); loadFunds(); };
-$("selAll").onchange = e => document.querySelectorAll(".sel").forEach(x => x.checked = e.target.checked);
+$("selAll").onchange = e => {
+  document.querySelectorAll("#tb tr[data-id]").forEach(tr => {
+    const id = tr.dataset.id, box = tr.querySelector(".sel");
+    if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+    if (box) box.checked = e.target.checked;
+  });
+  syncSelectAll();
+};
 $("dlAll").onclick = e => rows.length ? KMRAdmin.pdf(rows, "Khawrai-S3-all-registrations.pdf", e.target) : say("Nothing to download yet.", true);
 $("dlSel").onclick = e => {
-  const ids = [...document.querySelectorAll(".sel:checked")].map(x => x.closest("tr").dataset.id);
+  const ids = [...selectedIds];
   ids.length ? KMRAdmin.pdf(rows.filter(r => ids.includes(r.id)), "Khawrai-S3-selected-registrations.pdf", e.target) : say("Tick at least one registration first.", true);
 };
 $("tb").onclick = e => {

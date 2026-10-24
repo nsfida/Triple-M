@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f4f7fb">
 <title>Khawrai Marathon Race - Season Three</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -15,7 +16,7 @@
 
 <header class="top"><div class="in">
   <img class="logo" id="logo" alt="Khawrai Unity logo" onerror="this.style.display='none'">
-  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Entry fee Rs. 500 &middot; a runner shows Pending until payment is confirmed</p></div>
+  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Season Three · Official runner directory and transparent project funds · Entry fee Rs. 500</p></div>
   <div class="cta"><a class="btn yellow" href="register.html">Register<span class="long"> to run</span></a></div>
 </div></header>
 
@@ -117,13 +118,13 @@ function renderFunds() {
   const total = funds.reduce((t, f) => t + Number(f.amount), 0), fee = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
   $("fTotal").textContent = rs(total); $("fFee").textContent = rs(fee); $("fDon").textContent = rs(total - fee); $("sFund").textContent = rs(total); $("nFund").textContent = funds.length;
   const cols = admin ? 7 : 4;
-  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th>${admin ? '<th class="hm">Type</th><th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr" style="position:absolute;left:-9999px">Actions</span></th>' : ""}</tr>`;
+  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th>${admin ? '<th class="hm">Type</th><th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
   $("fb").innerHTML = funds.length ? funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td>
     <td>${esc(f.donor_name)}${!admin && f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}${admin ? `<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
     ${admin ? `<td class="hm"><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</span></td><td class="hm">${fmtDate(f.created_at)}</td>` : ""}
     <td class="amt">${Number(f.amount).toLocaleString("en-US")}</td>
     ${admin ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
-    : `<tr><td colspan="${cols}" class="empty" style="grid-column:auto">No funds recorded yet.</td></tr>`;
+    : `<tr><td colspan="${cols}" class="empty">No funds recorded yet.</td></tr>`;
   $("ff").innerHTML = `<tr><td class="hn"></td><td>Total</td><td></td>${admin ? '<td class="hm"></td><td class="hm"></td>' : ""}<td class="amt">${rs(total)}</td>${admin ? "<td></td>" : ""}</tr>`;
 }
 
