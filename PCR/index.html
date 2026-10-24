@@ -164,7 +164,7 @@ a.back{color:var(--cy);cursor:pointer;font-size:13px;text-decoration:none;font-w
     </div>
     <div class="row" style="margin-top:10px" id="tkOpts">
       <div><label>Image format</label><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select></div>
-      <div><label>Quality</label><select id="scale"><option value="1">Normal (1×)</option><option value="2">High (2×, bigger files)</option></select></div>
+      <div><label>Quality</label><select id="scale"><option value="1.5">Normal (1.5×)</option><option value="3">High (3×, bigger files)</option></select></div>
       <div><label>Plate emirate text</label><input id="emirate" type="text" value="DUBAI" size="10"></div>
     </div>
     <div class="row hide" style="margin-top:8px" id="invOpts">
@@ -444,15 +444,26 @@ function drawTicket(ctx,t,opt){
   if(ar){wrap(ctx,ar,XR-X0).forEach(l=>{T(ctx,l,XR,y,{font:`600 13px ${FONT}`,color:'#111',align:'right',dir:'rtl'});y+=18})}
   if(en){wrap(ctx,en,XR-X0).forEach(l=>{T(ctx,l,X0,y,{font:`600 13px ${FONT}`,color:'#111'});y+=18})}
   const H=Math.max(373,Math.ceil(y+14));
-  ctx.fillStyle='#e4e4e8';ctx.fillRect(DIV,0,1,H);                       // divider
+  ctx.fillStyle='#e4e4e8';ctx.fillRect(DIV,-60,1,H+120);                       // divider
   return {W,H};
 }
 function renderTicket(t,scale,opt){
   const probe=document.createElement('canvas');probe.width=1130;probe.height=2000;
   const {W,H}=drawTicket(probe.getContext('2d'),t,opt);
-  const cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;
+  // grey frame around the ticket with breathing room (extra space at the top and sides)
+  const M=18,SP=16,TP=26,BP=18;                         // outer margin, side / top / bottom padding inside the frame
+  const FW=W+2*SP,FH=H+TP+BP;                           // frame size
+  const CW=FW+2*M,CH=FH+2*M;                            // whole image
+  const cv=document.createElement('canvas');cv.width=Math.round(CW*scale);cv.height=Math.round(CH*scale);
   const ctx=cv.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);
-  drawTicket(ctx,t,opt);return cv;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle='#fff';ctx.fillRect(M,M,FW,FH);
+  ctx.save();ctx.beginPath();ctx.rect(M,M,FW,FH);ctx.clip();
+  ctx.translate(M+SP,M+TP);
+  drawTicket(ctx,t,opt);
+  ctx.restore();
+  ctx.strokeStyle='#b8b8b8';ctx.lineWidth=2;ctx.strokeRect(M+1,M+1,FW-2,FH-2);
+  return cv;
 }
 const toBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
 
@@ -604,7 +615,7 @@ $('go').onclick=async()=>{
     for(let i=0;i<todo.length;i++){
       const t=todo[i];
       const cv=renderTicket(t,scale,o);
-      const blob=await toBlob(cv,mime,0.92);
+      const blob=await toBlob(cv,mime,0.95);
       tz.file(`${t.fname.replace(/[\\/:*?"<>|]/g,'_')}.${ext}`,blob);
       done++;
       fill.style.width=(done/steps*90)+'%';
@@ -722,7 +733,7 @@ async function sendEmail(g,btn,st){
     for(const r of g){
       const t=tickets.find(x=>x.no===r.fineNo);
       if(!t){noTk.push(r.fineNo);continue}
-      const blob=await toBlob(renderTicket(t,+$('scale').value,opts()),mime,0.92);
+      const blob=await toBlob(renderTicket(t,+$('scale').value,opts()),mime,0.95);
       list.push({name:`${t.no}.${ext}`,mime,bytes:new Uint8Array(await blob.arrayBuffer())});
     }
     const eml=EmailTpl.makeEml(d,list);
