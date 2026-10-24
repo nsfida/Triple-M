@@ -140,14 +140,14 @@ a.back{color:var(--cy);cursor:pointer;font-size:13px;text-decoration:none;font-w
 
   <div class="imports">
     <div class="card imp tk">
-      <div class="imphead"><span class="num">1</span><b>Tickets</b><span class="tag">optional</span></div>
+      <div class="imphead"><span class="num">1</span><b>Dubai Police Excel Sheet</b><span class="tag">optional</span></div>
       <div id="drop" class="drop"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 22a4 4 0 0 0 4-4h36a4 4 0 0 0 4 4v6a4 4 0 0 0 0 8v6a4 4 0 0 0-4 4H14a4 4 0 0 0-4-4v-6a4 4 0 0 0 0-8z" opacity=".9"/><path d="M38 18v28" stroke-dasharray="3 4"/><path d="M22 32h8M22 38h5"/></svg><b>Click here or drop the fines Excel file</b><span class="note">Works with the “Detect Traffic Violations” file (.xls or .xlsx)</span></div>
       <input id="file" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
       <div id="msg" class="note msg"></div>
     </div>
 
     <div class="card imp iv">
-      <div class="imphead"><span class="num">2</span><b>Invoices</b><span class="tag">optional</span></div>
+      <div class="imphead"><span class="num">2</span><b>Caryaati Fine Report Excel Sheet</b><span class="tag">optional</span></div>
       <div id="idrop" class="drop"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 8h32v48l-6-4-5 4-5-4-5 4-5-4-6 4z"/><path d="M24 20h16M24 28h16M24 36h9"/></svg><b>Click here or drop the invoices Excel file</b><span class="note">Works with the “Premium Car Rentals” file (.xlsx) — needs Customer and Fine No columns</span></div>
       <input id="ifile" type="file" accept=".xls,.xlsx,.xlsm,.csv" class="hide">
       <div id="imsg" class="note msg"></div>
@@ -277,7 +277,8 @@ function parseWorkbook(wb){
       plate:findCol(hdr,['platenumber']),cat:findCol(hdr,['platecategory']),code:findCol(hdr,['platecode']),
       no:findCol(hdr,['ticketnumber']),date:findCol(hdr,['ticketdate']),time:findCol(hdr,['tickettime']),
       src:findCol(hdr,['finessource','finesource','source']),fee:findCol(hdr,['ticketfee','valueinsteadofbooking']),
-      off:findCol(hdr,['thetermsoftheoffense','textviolation','offense']),days:findCol(hdr,['numberofdaysofbooking'])
+      off:findCol(hdr,['thetermsoftheoffense','textviolation','offense']),days:findCol(hdr,['numberofdaysofbooking']),
+      status:findCol(hdr,['ticketstatus'])
     };
     let n=0;
     for(let i=h+1;i<rows.length;i++){
@@ -295,6 +296,7 @@ function parseWorkbook(wb){
         fee:str(r[c.fee]),
         off:str(r[c.off]),
         days:c.days>=0?str(r[c.days]):'',
+        status:c.status>=0?str(r[c.status]):'',
         sheet:name
       });n++;
     }
@@ -353,92 +355,96 @@ function T(ctx,s,x,y,o={}){
 }
 const B=`600 13px ${FONT}`,G='#7b7b7b';
 
+// amount shown ON THE TICKET ONLY: Dubai Police / RTA (Parking Fines) amounts in the Excel include a AED 20 RTA fee, so it is taken off here.
+// (t.fee itself is untouched, so invoices, e-mails and totals still use the Excel amount.)
+function ticketShownFee(t){
+  const n=norm(t.src);
+  const dubai=n.includes('dubaipolice')||n.includes('rtaparkingfine');
+  const v=parseFloat(String(t.fee).replace(/[,\s]/g,''));
+  if(dubai&&!isNaN(v)&&v>=20){const r=v-20;return String(Math.round(r*100)/100)}
+  return t.fee;
+}
 function drawTicket(ctx,t,opt){
-  const W=1130;
+  const W=1087,DIV=723;
   const title=`${t.cat||'Vehicle'}${t.code?', Code '+t.code:''}, ${t.plate}`;
+  const fee=ticketShownFee(t);
+  const pay=norm(t.status)==='yes';                       // red "Pay now" only for Ticket Status = Yes
+  const V=`600 12.5px ${FONT}`;
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,2000);
-  // outer frame + filter bar
-  ctx.fillStyle='#f5f5f5';ctx.fillRect(18,15,1092,96);
-  T(ctx,'Show',35,42,{font:`600 12px ${FONT}`,color:'#666'});
-  T(ctx,'Sort',931,42,{font:`600 12px ${FONT}`,color:'#666'});
-  const sel=(x,w,txt)=>{rr(ctx,x,53,w,36,4);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d0d0d0';ctx.lineWidth=1;ctx.stroke();
-    T(ctx,txt,x+14,71,{font:`14px ${FONT}`,color:'#444'});
-    ctx.strokeStyle='#555';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(x+w-24,69);ctx.lineTo(x+w-17,76);ctx.lineTo(x+w-10,69);ctx.stroke()};
-  sel(35,152,'Fine Source');sel(195,110,'Category');sel(315,90,'Code');sel(931,162,'Date (new-old)');
-  rr(ctx,412,53,108,36,4);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d0d0d0';ctx.stroke();
-  T(ctx,t.plate,428,71,{font:`15px ${FONT}`,color:'#333'});
-  rr(ctx,527,53,198,36,4);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#d0d0d0';ctx.stroke();
-  T(ctx,'Search by Brand or Ticket No...',542,72,{font:`12px ${FONT}`,color:'#555'});
-  ctx.strokeStyle='#666';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(748,71,6.5,0,7);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(753,76);ctx.lineTo(758,81);ctx.stroke();
 
-  // left list row
+  // ---------- left: list row ----------
   ctx.font=B;
   const srcLines=wrap(ctx,t.src||'-',128).slice(0,3);
-  const rowH=Math.max(72,50+srcLines.length*17);
-  ctx.fillStyle='#e8e8f4';ctx.fillRect(19,112,727,rowH);
-  wrap(ctx,title,125).slice(0,3).forEach((l,i)=>T(ctx,l,39,128+i*18,{font:B,color:'#111'}));
+  ctx.font=V;const dtLines=wrap(ctx,t.when,134);
+  const rowH=Math.max(72,50+srcLines.length*17,43+dtLines.length*17);
+  ctx.strokeStyle='#8a8a8a';ctx.lineWidth=1;ctx.strokeRect(10.5,rowH/2-11.5,22,22);            // checkbox
+  ctx.fillStyle='#fff';ctx.fillRect(11,rowH/2-11,21,21);ctx.strokeRect(10.5,rowH/2-11.5,22,22);
+  wrap(ctx,title,118).slice(0,3).forEach((l,i)=>T(ctx,l,54,17+i*18,{font:B,color:'#111'}));
   const lab=(s,x,y)=>T(ctx,s,x,y,{font:`12px ${FONT}`,color:G});
-  lab('Date and Time of',180,128);lab('Issuing The Fine',180,146);
-  const dl=wrap(ctx,t.when,125);dl.forEach((l,i)=>T(ctx,l,180,164+i*17,{font:`600 12.5px ${FONT}`,color:'#111'}));
-  lab('Amount',317,128);T(ctx,'AED '+t.fee,317,146,{font:`600 12.5px ${FONT}`,color:'#111'});
-  lab('Source',391,128);srcLines.forEach((l,i)=>T(ctx,l,391,146+i*17,{font:`600 12.5px ${FONT}`,color:'#111'}));
-  lab('Black points',517,128);T(ctx,'-',517,146,{font:`600 12.5px ${FONT}`,color:'#111'});
-  ctx.strokeStyle='#555';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(727,139);ctx.lineTo(732,145);ctx.lineTo(727,151);ctx.stroke();
-  // pagination
-  const py=112+rowH+13;
-  const btn=(x,w,s)=>{ctx.fillStyle='#4a545f';ctx.fillRect(x,py,w,27);T(ctx,s,x+w/2,py+14,{font:`600 14px ${FONT}`,color:'#fff',align:'center'})};
-  btn(38,63,'First');btn(107,63,'Previous');btn(596,62,'Next');btn(663,63,'Last');
-  ctx.fillStyle='#1a1a8c';ctx.fillRect(371,py,23,26);T(ctx,'1',382.5,py+13,{font:`600 14px ${FONT}`,color:'#fff',align:'center'});
+  lab('Date and Time of',180,17);lab('Issuing The Fine',180,35);
+  dtLines.forEach((l,i)=>T(ctx,l,180,52+i*17,{font:V,color:'#111'}));
+  lab('Amount',317,17);T(ctx,'AED '+fee,317,35,{font:V,color:'#111'});
+  lab('Source',391,17);srcLines.forEach((l,i)=>T(ctx,l,391,35+i*17,{font:V,color:'#111'}));
+  lab('Black points',517,17);T(ctx,'-',517,35,{font:V,color:'#111'});
+  ctx.strokeStyle='#555';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(705,30);ctx.lineTo(710,35);ctx.lineTo(705,40);ctx.stroke();
+  // soft shadow under the row + pagination strip
+  const sh=ctx.createLinearGradient(0,rowH,0,rowH+62);sh.addColorStop(0,'#ececf2');sh.addColorStop(.12,'#f8f8fb');sh.addColorStop(1,'#fff');
+  ctx.fillStyle=sh;ctx.fillRect(0,rowH,DIV,62);
+  ctx.fillStyle='#e4e4e8';ctx.fillRect(0,rowH,DIV,1);
+  const py=rowH+15;
+  const btn=(x,w,s)=>{ctx.fillStyle='#4a545f';ctx.fillRect(x,py,w,26);T(ctx,s,x+w/2,py+13,{font:`600 14px ${FONT}`,color:'#fff',align:'center'})};
+  btn(15,63,'First');btn(84,63,'Previous');btn(572,63,'Next');btn(641,62,'Last');
+  ctx.fillStyle='#1a1a8c';ctx.fillRect(348,py,23,26);T(ctx,'1',359.5,py+13,{font:`600 14px ${FONT}`,color:'#fff',align:'center'});
 
-  // right detail panel
-  const X0=763,XV=911,XR=1095;
-  rr(ctx,761,157,334,50,2);ctx.fillStyle='#f3f3f3';ctx.fill();ctx.strokeStyle='#ddd';ctx.stroke();
-  ctx.font=B;wrap(ctx,title,170).slice(0,3).forEach((l,i)=>T(ctx,l,769,170+i*17,{font:B,color:'#111'}));
-  // plate
-  rr(ctx,947,168,121,30,3);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=1.4;ctx.stroke();
-  if(opt.emirate)T(ctx,opt.emirate.toUpperCase(),964,176,{font:`bold 8.5px ${FONT}`,color:'#111',align:'center'});
-  if(t.code)T(ctx,t.code,964,189,{font:`bold 14px ${FONT}`,color:'#111',align:'center'});
-  ctx.font=`bold 25px Arial,${FONT}`;
-  let pf=25;while(ctx.measureText(t.plate).width>72&&pf>12){pf--;ctx.font=`bold ${pf}px Arial,${FONT}`}
-  T(ctx,t.plate,1061,184,{font:ctx.font,color:'#111',align:'right'});
+  // ---------- right: detail panel ----------
+  const X0=740,XV=889,XR=1072;
+  let y0=31;
+  if(pay){
+    ctx.fillStyle='#ee0000';ctx.fillRect(738,y0,334,35);
+    T(ctx,'Pay now',905,y0+18,{font:`14px ${FONT}`,color:'#fff',align:'center'});
+    y0+=49;
+  }
+  ctx.font=B;const tl=wrap(ctx,title,180).slice(0,3);
+  const cardH=Math.max(65,24+tl.length*18);
+  ctx.fillStyle='#f3f3f3';ctx.fillRect(738,y0,334,cardH);ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.strokeRect(738.5,y0+.5,333,cardH-1);
+  tl.forEach((l,i)=>T(ctx,l,747,y0+16+i*18,{font:B,color:'#111'}));
+  // plate (Dubai style: emirate + code on top, number below)
+  const px=940,py2=y0+13,pw=88,ph=44;
+  rr(ctx,px,py2,pw,ph,3);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=1.2;ctx.stroke();
+  if(opt.emirate)T(ctx,opt.emirate.toUpperCase(),px+8,py2+10,{font:`bold 8px ${FONT}`,color:'#111'});
+  if(t.code)T(ctx,t.code,px+pw-9,py2+11,{font:`bold 13px ${FONT}`,color:'#111',align:'right'});
+  let pf=21;ctx.font=`bold ${pf}px Arial,${FONT}`;
+  while(ctx.measureText(t.plate).width>pw-14&&pf>10){pf--;ctx.font=`bold ${pf}px Arial,${FONT}`}
+  T(ctx,t.plate,px+pw/2,py2+31,{font:ctx.font,color:'#111',align:'center'});
 
-  let y=227;
-  const kv=(label,value,twoLine)=>{
-    const l=twoLine?['Date and Time of Issuing','The Fine:']:[label];
-    if(twoLine){T(ctx,'Date and Time of Issuing',X0,y,{color:G});T(ctx,'The Fine:',X0,y+18,{color:G})}
-    else T(ctx,label,X0,y,{color:G});
+  let y=y0+cardH+21;
+  const kv=(label,value)=>{
+    T(ctx,label,X0,y,{color:G});
     ctx.font=B;const vl=wrap(ctx,value,XR-XV);
     vl.forEach((s,i)=>T(ctx,s,XV,y+i*18,{font:B,color:'#111'}));
-    y+=Math.max(twoLine?42:22.5,vl.length*18+4.5);
+    y+=Math.max(22.5,vl.length*18+4.5);
   };
-  // the screenshot wraps the date label in 2 lines; label column is narrow
-  y=227;
   T(ctx,'Date and Time of Issuing',X0,y,{color:G});T(ctx,'The Fine:',X0,y+18,{color:G});
   ctx.font=B;const wl=wrap(ctx,t.when,XR-XV);wl.forEach((s,i)=>T(ctx,s,XV,y+i*18,{font:B,color:'#111'}));
-  y+=Math.max(42,wl.length*18+4.5);
+  y+=Math.max(41,wl.length*18+4.5);
   kv('Location:','-');
   kv('Source:',t.src||'-');
-  kv('Amount:','AED '+t.fee);
+  kv('Amount:','AED '+fee);
   kv('Payable Black Points:','-');
-  kv('Online declaration:','-');
+  kv('Online declaration:','NO');
   kv('Fine Number:',t.no);
   if(t.days)kv('Booking days:',t.days);
-  T(ctx,'Details:',X0,y,{color:G});y+=22;
+  T(ctx,'Details:',X0,y,{color:G});y+=22.5;
   // details text: Arabic part (RTL, right aligned) then English part
   const off=t.off||'-';const cut=off.lastIndexOf('/');
   let ar='',en=off;
   if(hasArabic(off)&&cut>0){ar=off.slice(0,cut).trim()+' /';en=off.slice(cut+1).trim()}
   else if(hasArabic(off)){ar=off;en=''}
-  ctx.font=`13px ${FONT}`;
-  if(ar){wrap(ctx,ar,XR-X0).forEach(l=>{T(ctx,l,XR,y,{font:`13px ${FONT}`,color:'#111',align:'right',dir:'rtl'});y+=18})}
-  if(en){wrap(ctx,en,XR-X0).forEach(l=>{T(ctx,l,X0,y,{font:`13px ${FONT}`,color:'#111'});y+=18})}
-  y+=14;
-  const H=Math.max(540,Math.ceil(y+34));
-  // frame & divider
-  ctx.strokeStyle='#dcdcdc';ctx.lineWidth=1;ctx.strokeRect(18.5,15.5,1091,H-31);
-  ctx.beginPath();ctx.moveTo(746.5,112);ctx.lineTo(746.5,H-16);ctx.stroke();
-  T(ctx,'',24,H-8,{font:`10px ${FONT}`,color:'#aaa'});
+  ctx.font=`600 13px ${FONT}`;
+  if(ar){wrap(ctx,ar,XR-X0).forEach(l=>{T(ctx,l,XR,y,{font:`600 13px ${FONT}`,color:'#111',align:'right',dir:'rtl'});y+=18})}
+  if(en){wrap(ctx,en,XR-X0).forEach(l=>{T(ctx,l,X0,y,{font:`600 13px ${FONT}`,color:'#111'});y+=18})}
+  const H=Math.max(373,Math.ceil(y+14));
+  ctx.fillStyle='#e4e4e8';ctx.fillRect(DIV,0,1,H);                       // divider
   return {W,H};
 }
 function renderTicket(t,scale,opt){
