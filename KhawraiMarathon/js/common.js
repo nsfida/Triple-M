@@ -105,7 +105,7 @@
 
   // ---- Admin profile control: consistent avatar/menu on all three pages --------
   const AVATAR_PREFIX = "kmr-admin-avatar-v1:";
-  const userIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.7"></circle><path d="M4.6 20c.55-3.5 3.4-5.4 7.4-5.4s6.85 1.9 7.4 5.4"></path></svg>';
+  const userIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.6"></circle><path d="M4.2 20c.35-4 3.2-6.1 7.8-6.1s7.45 2.1 7.8 6.1z"></path></svg>';
   let profileReady = false, profileUser = "", avatarDraft = null;
   const initials = name => String(name || "").split(/[._\s-]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase() || "";
   const avatarFor = username => { try { return username ? localStorage.getItem(AVATAR_PREFIX + username) || "" : ""; } catch (e) { return ""; } };
@@ -122,11 +122,11 @@
     </button>
     <div class="profile-menu" role="menu" hidden>
       <div class="profile-menu-head"><span class="profile-avatar large" data-avatar>${avatarMarkup("")}</span><div><strong data-profile-name>Admin sign in</strong><small data-profile-sub>Account menu</small></div></div>
-      <a href="admin.html" class="profile-menu-item" data-profile-signin><span class="profile-menu-icon">↗</span><span><strong>Admin sign in</strong><small>Open organiser access</small></span></a>
-      <button type="button" class="profile-menu-item" data-profile-settings hidden><span class="profile-menu-icon">⚙</span><span><strong>Profile &amp; security</strong><small>Picture and password</small></span></button>
-      <a href="index.html" class="profile-menu-item" data-profile-public hidden><span class="profile-menu-icon">⌂</span><span><strong>Public participants</strong><small>View the runner directory</small></span></a>
-      <a href="register.html" class="profile-menu-item" data-profile-register hidden><span class="profile-menu-icon">＋</span><span><strong>New registration</strong><small>Add a runner</small></span></a>
-      <button type="button" class="profile-menu-item danger" data-profile-signout hidden><span class="profile-menu-icon">⇥</span><span><strong>Sign out</strong><small>End this device's session</small></span></button>
+      <a href="admin.html" class="profile-menu-item" data-profile-signin><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg></span><span><strong>Admin sign in</strong><small>Open organiser access</small></span></a>
+      <button type="button" class="profile-menu-item" data-profile-settings hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.3"/><path d="M5 20c.4-3.5 2.8-5.5 7-5.5s6.6 2 7 5.5"/><path d="M19 3v4M17 5h4"/></svg></span><span><strong>Profile &amp; security</strong><small>Picture and password</small></span></button>
+      <a href="index.html" class="profile-menu-item" data-profile-public hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></svg></span><span><strong>Public participants</strong><small>View the runner directory</small></span></a>
+      <a href="register.html" class="profile-menu-item" data-profile-register hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span><strong>New registration</strong><small>Add a runner</small></span></a>
+      <button type="button" class="profile-menu-item danger" data-profile-signout hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span><strong>Sign out</strong><small>End this device's session</small></span></button>
     </div>`;
   function setAvatar(node, username) { if (node) { node.innerHTML = avatarMarkup(username); node.classList.toggle("has-photo", !!avatarFor(username)); } }
   function renderProfile(username) {
