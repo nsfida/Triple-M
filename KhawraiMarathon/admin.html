@@ -11,16 +11,26 @@
 
 </head>
 <body>
-<header class="top"><div class="in"><div class="topmark">K3</div><div class="tt"><h1>Control centre <span>Khawrai Marathon · Season Three</span></h1><p>Manage registrations, payments, documents and project funds.</p></div><div class="cta"><a class="btn ghost" href="index.html">Public site</a></div></div></header>
+<div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
+  <div class="loader-card">
+    <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
+    <div class="loader-kicker">KHAWRAI MARATHON · SEASON THREE</div>
+    <h2>Getting the race ready</h2>
+    <p>Preparing runners, registrations and race updates.</p>
+    <div class="runner-track" aria-hidden="true"><span class="runner-icon">➤</span><span class="track-line"></span><span class="track-dot"></span><span class="track-dot"></span><span class="track-dot"></span></div>
+    <div class="loader-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
+  </div>
+</div>
+<header class="top"><div class="in"><a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a><div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Organiser control centre · Runners, documents, payments and project funds.</p></div><div class="header-actions"><div class="cta"><a class="btn ghost" href="index.html">Public site</a></div><div class="profile-mount"></div></div></div></header>
 
 <form class="login" id="login" hidden><h2>Sign in</h2><p class="login-intro">Use your organiser account to access the control centre.</p>
   <label for="u">Username</label><input id="u" autocomplete="username" required>
   <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
   <p class="msg bad" id="lerr" hidden></p><p><button class="btn" type="submit" id="lgo">Sign in securely</button></p>
-  <p class="login-note">You stay signed in on this device until you press Sign out.</p></form>
+  <p class="login-note">Use the account menu in the top-right corner to manage your profile or sign out.</p></form>
 
 <main class="wrap" id="app" hidden>
-  <div class="tools"><b id="who"></b><span id="role" class="tag pending hm"></span><span class="sp"><a class="btn sm" href="register.html">Add registration</a> <button class="btn ghost sm" id="out">Sign out</button></span></div>
+  <div class="admin-welcome tools"><div><span class="eyebrow">ADMIN WORKSPACE</span><strong>Registration management</strong><small>Changes save locally first and sync to the database in the background.</small></div><span class="sp"><a class="btn sm" href="register.html">+ Add registration</a></span></div>
   <div class="tabs" role="group" aria-label="Sections"><button id="tabR" aria-pressed="true">Registrations</button><button id="tabF" aria-pressed="false">Project funds</button></div>
   <section id="paneR">
     <div class="section-heading"><div><h2>Runner registrations</h2><p>Find a runner, review payment status, and manage forms or documents.</p></div></div>
@@ -51,11 +61,10 @@ $("login").onsubmit = async e => {
   if (r.error) { $("lerr").textContent = r.error; $("lerr").hidden = false; return; }
   $("p").value = ""; show(r.user);
 };
-$("out").onclick = async () => { await KMRAuth.signOut(); show(""); };
 function show(u) {
   if (u === user && show.done) return; show.done = true; user = u;
-  $("login").hidden = !!u; $("app").hidden = !u; if (!u) { rows = []; funds = []; selectedIds.clear(); return $("u").focus(); }
-  KMRAdmin.init(); $("who").textContent = u; $("role").textContent = "Admin: can confirm, edit, delete and download";
+  $("login").hidden = !!u; $("app").hidden = !u; if (!u) { rows = []; funds = []; selectedIds.clear(); KMRUI.hideLoading(); return $("u").focus(); }
+  KMRAdmin.init();
   load(); loadFunds();
 }
 KMRAuth.onChange(show);
@@ -63,11 +72,15 @@ KMRAuth.onChange(show);
 
 // ----- registrations -----
 async function load() {
-  const { data, error } = await sb.from("registrations").select("*").order("created_at", { ascending: true });
-  if (error) return say("Could not load registrations: " + error.message, true);
-  rows = data;
-  for (const id of selectedIds) if (!rows.some(r => r.id === id)) selectedIds.delete(id);
-  draw();
+  const cached = KMRStore.get("admin-registrations", true);
+  if (Array.isArray(cached)) { rows = cached; draw(); KMRUI.hideLoading(); }
+  try {
+    const { data, error } = await sb.from("registrations").select("*").order("created_at", { ascending: true });
+    if (error) { if (!Array.isArray(cached)) say("Could not load registrations: " + error.message, true); KMRUI.hideLoading(); return; }
+    rows = data || []; KMRStore.set("admin-registrations", rows, true);
+    for (const id of selectedIds) if (!rows.some(r => r.id === id)) selectedIds.delete(id);
+    draw(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) say("Could not load registrations. Check your connection.", true); KMRUI.hideLoading(); }
 }
 function draw() {
   const q = $("adminQ").value.trim().toLowerCase();
@@ -125,9 +138,13 @@ $("tabR").onclick = () => tab(false); $("tabF").onclick = () => tab(true);
 
 // ----- project funds -----
 async function loadFunds() {
-  const { data, error } = await sb.from("funds").select("*").order("created_at", { ascending: true });
-  if (error) { $("finfo").textContent = "Could not load funds: " + error.message; $("finfo").className = "msg bad"; return; }
-  funds = data; drawFunds();
+  const cached = KMRStore.get("admin-funds", true);
+  if (Array.isArray(cached)) { funds = cached; drawFunds(); KMRUI.hideLoading(); }
+  try {
+    const { data, error } = await sb.from("funds").select("*").order("created_at", { ascending: true });
+    if (error) { if (!Array.isArray(cached)) { $("finfo").textContent = "Could not load funds: " + error.message; $("finfo").className = "msg bad"; } KMRUI.hideLoading(); return; }
+    funds = data || []; KMRStore.set("admin-funds", funds, true); drawFunds(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) { $("finfo").textContent = "Could not load funds. Check your connection."; $("finfo").className = "msg bad"; } KMRUI.hideLoading(); }
 }
 function drawFunds() {
   const total = funds.reduce((t, f) => t + Number(f.amount), 0), reg = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
@@ -137,6 +154,18 @@ function drawFunds() {
     <td class="hm">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td class="hm">${esc(f.recorded_by)}</td><td class="hm">${fmtDate(f.created_at)}</td>
     <td>${f.source === "donation" ? '<div class="acts"><button class="btn sm ghost" data-fe>Edit</button><button class="btn sm danger" data-fd>Delete</button></div>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No funds recorded yet.</td></tr>';
 }
+window.addEventListener("kmr:optimistic-registration", e => {
+  if (!e.detail || !e.detail.row) return;
+  const row = e.detail.row, idx = rows.findIndex(x => x.id === row.id);
+  if (idx >= 0) rows[idx] = { ...rows[idx], ...row }; else rows.push(row);
+  KMRStore.set("admin-registrations", rows, true); draw();
+});
+window.addEventListener("kmr:optimistic-funds", () => {
+  const cached = KMRStore.get("admin-funds", true);
+  if (Array.isArray(cached)) { funds = cached; drawFunds(); }
+});
+window.addEventListener("kmr:admin-sync-complete", () => { load(); loadFunds(); });
+
 $("addFund").onclick = () => KMRAdmin.fund(null, loadFunds);
 $("fb").onclick = e => {
   const b = e.target.closest("[data-fe],[data-fd]"); if (!b) return; const f = funds.find(x => x.id === b.closest("tr").dataset.id);

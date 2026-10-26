@@ -9,15 +9,20 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<div class="adminbar" id="adminbar" hidden><div class="in">
-  <span class="who"><i class="dot"></i><span class="lg">Signed in as&nbsp;</span><b id="adminName"></b></span>
-  <span class="sp"><a class="btn" href="register.html">Add</a><a class="btn" href="admin.html">Panel</a><button class="btn ghost" id="adminOut">Sign out</button></span>
-</div></div>
-
+<div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
+  <div class="loader-card">
+    <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
+    <div class="loader-kicker">KHAWRAI MARATHON · SEASON THREE</div>
+    <h2>Getting the race ready</h2>
+    <p>Preparing runners, registrations and race updates.</p>
+    <div class="runner-track" aria-hidden="true"><span class="runner-icon">➤</span><span class="track-line"></span><span class="track-dot"></span><span class="track-dot"></span><span class="track-dot"></span></div>
+    <div class="loader-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
+  </div>
+</div>
 <header class="top"><div class="in">
-  <img class="logo" id="logo" alt="Khawrai Unity logo" onerror="this.style.display='none'">
-  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Season Three · Official runner directory and transparent project funds · Entry fee Rs. 500</p></div>
-  <div class="cta"><a class="btn yellow" href="register.html">Register<span class="long"> to run</span></a></div>
+  <a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" id="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
+  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Race-day stories, runner directory and transparent community funds.</p></div>
+  <div class="header-actions"><div class="cta"><a class="btn yellow" href="register.html">Register<span class="long"> to run</span></a></div><div class="profile-mount"></div></div>
 </div></header>
 
 <section class="score" aria-label="Summary"><div class="row">
@@ -54,13 +59,16 @@
     <div class="tw"><table class="ft"><thead id="fh"></thead><tbody id="fb"><tr><td colspan="4">Loading…</td></tr></tbody><tfoot id="ff"></tfoot></table></div>
   </section>
 </main>
+<dialog id="publicPlayerDialog" class="player-dialog" aria-labelledby="publicPlayerTitle">
+  <div id="publicPlayerContent"></div>
+  <div class="dialog-footer"><button type="button" class="btn ghost" id="closePublicPlayer">Close details</button></div>
+</dialog>
 <footer>Khawrai Marathon Race Season Three &middot; <a id="footLink" href="admin.html">Admin sign in</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script><script src="js/common.js"></script><script src="js/admin-tools.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-$("logo").src = KMR.LOGO_URL;
 let all = [], funds = [], filter = "all", admin = "", menuEl = null, menuBtn = null;
 
 const ICON = {
@@ -100,17 +108,49 @@ function renderRunners() {
   const c = all.filter(r => r.status === "confirmed").length;
   $("count").textContent = all.length ? `Showing ${rows.length} of ${all.length} runners` : "";
   $("sAll").textContent = all.length; $("sOk").textContent = c; $("sPend").textContent = all.length - c; $("nRun").textContent = all.length;
-  $("grid").innerHTML = rows.length ? rows.map(r => `<article class="bib ${r.status}" data-id="${r.id}">${kebab("Edit options for " + r.name)}
-    <div class="no">${esc(num(r))}</div>
-    <img class="ph" loading="lazy" alt="Photo of ${esc(r.name)}" src="${esc(photoUrl(r.photo_path))}">
+  $("grid").innerHTML = rows.length ? rows.map(r => `<article class="bib ${r.status}" data-id="${r.id}" tabindex="0" role="button" aria-label="View details for ${esc(r.name)}">
+    ${kebab("Edit options for " + r.name)}
+    <div class="no">KMR · ${esc(num(r))}</div>
+    <img class="ph" loading="lazy" alt="Photo of ${esc(r.name)}" src="${esc(photoUrl(r.photo_path))}" onerror="this.classList.add('missing-photo');this.removeAttribute('src')">
     <div class="nm">${esc(r.name)}</div><div class="ag">Age ${r.age == null ? "—" : r.age}</div>
-    <span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span>
+    <span class="tag ${r.status}"><span class="status-dot"></span>${r.status === "confirmed" ? "Confirmed" : "Pending"}</span>
+    <span class="card-hint">View player details <span aria-hidden="true">↗</span></span>
     ${admin && r.entered_by ? `<div class="by">Added by ${esc(r.entered_by)}</div>` : ""}</article>`).join("")
-    : `<div class="empty">${all.length ? "No runners match this search." : "No runners registered yet. Be the first — use Register to run."}</div>`;
+    : `<div class="empty">${all.length ? "No runners match this search." : "No runners registered yet. Be the first - use Register to run."}</div>`;
 }
 $("q").addEventListener("input", renderRunners);
 document.querySelectorAll(".chips button").forEach(b => b.onclick = () => {
   filter = b.dataset.f; document.querySelectorAll(".chips button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderRunners();
+});
+
+// Player cards open a polished public-safe detail overlay; admins see the full management view.
+function openPlayer(id) {
+  const r = all.find(x => String(x.id) === String(id)); if (!r) return;
+  if (admin) return KMRAdmin.details(r, all);
+  const age = r.age == null ? ageOf(r.dob) : r.age;
+  const address = [r.address, r.district_tehsil].filter(v => String(v || '').trim()).join(', ');
+  const img = photoUrl(r.photo_path);
+  $("publicPlayerContent").innerHTML = `<div class="player-detail-hero">
+      <div class="player-detail-photo">${img ? `<img src="${esc(img)}" alt="Portrait of ${esc(r.name)}" onerror="this.style.display='none'">` : `<span>${esc(String(r.name || 'K').trim().slice(0,1).toUpperCase())}</span>`}</div>
+      <div class="player-detail-head"><span class="detail-eyebrow">Khawrai Marathon · Season Three</span><span class="tag ${r.status}"><span class="status-dot"></span>${r.status === 'confirmed' ? 'Confirmed' : 'Pending'}</span>
+        <h2 id="publicPlayerTitle">${esc(r.name)}</h2><p class="dlg-sub">Registration ${esc(r.reg_no || '—')}</p>
+      </div></div>
+      <div class="player-detail-grid">
+        <div class="detail-field"><span>Age</span><strong>${age == null ? 'Not provided' : `${esc(age)} years`}</strong></div>
+        <div class="detail-field"><span>Gender</span><strong>${esc(r.gender || 'Not provided')}</strong></div>
+        <div class="detail-field wide"><span>Address</span><strong>${esc(address || 'Not provided')}</strong></div>
+      </div>
+      <p class="detail-footnote">Player details shown from the official Season Three registration record.</p>`;
+  const d = $("publicPlayerDialog"); if (!d.open) d.showModal();
+}
+$("closePublicPlayer").onclick = () => $("publicPlayerDialog").close();
+$("publicPlayerDialog").addEventListener("click", e => { if (e.target === $("publicPlayerDialog")) $("publicPlayerDialog").close(); });
+$("grid").addEventListener("click", e => {
+  if (e.target.closest(".kebab, .menu, button, a")) return;
+  const card = e.target.closest(".bib[data-id]"); if (card) openPlayer(card.dataset.id);
+});
+$("grid").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches(".bib[data-id]") && !e.target.closest(".menu")) { e.preventDefault(); openPlayer(e.target.dataset.id); }
 });
 
 // ---------- funds ----------
@@ -130,18 +170,39 @@ function renderFunds() {
 
 // ---------- data ----------
 async function loadRunners() {
-  let res;
-  if (admin) { res = await sb.from("registrations").select("*").order("created_at", { ascending: true }); if (res.data) res.data.forEach(r => r.age = ageOf(r.dob)); }
-  else res = await sb.from("public_participants").select("*").order("created_at", { ascending: true }).limit(1000);
-  if (res.error) { $("count").textContent = "The list could not be loaded. Check your connection and refresh."; return; }
-  all = res.data; renderRunners();
+  const key = admin ? "admin-runners" : "public-runners", privateData = !!admin;
+  const cached = KMRStore.get(key, privateData);
+  if (Array.isArray(cached)) { all = cached; if (admin) all.forEach(r => r.age = r.age ?? ageOf(r.dob)); renderRunners(); KMRUI.hideLoading(); }
+  try {
+    let res;
+    if (admin) { res = await sb.from("registrations").select("*").order("created_at", { ascending: true }); if (res.data) res.data.forEach(r => r.age = ageOf(r.dob)); }
+    else res = await sb.from("public_participants").select("*").order("created_at", { ascending: true }).limit(1000);
+    if (res.error) { if (!Array.isArray(cached)) $("count").textContent = "The list is unavailable right now. Any cached runners are shown."; KMRUI.hideLoading(); return; }
+    all = res.data || []; KMRStore.set(key, all, privateData); renderRunners(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) $("count").textContent = "The list is unavailable right now. Check your connection and refresh."; KMRUI.hideLoading(); }
 }
 async function loadFunds() {
-  const res = admin ? await sb.from("funds").select("*").order("created_at", { ascending: true }) : await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
-  if (res.error) { $("fb").innerHTML = '<tr><td colspan="4">The funds list could not be loaded.</td></tr>'; return; }
-  funds = res.data; renderFunds();
+  const key = admin ? "admin-funds" : "public-funds", privateData = !!admin;
+  const cached = KMRStore.get(key, privateData);
+  if (Array.isArray(cached)) { funds = cached; renderFunds(); KMRUI.hideLoading(); }
+  try {
+    const res = admin ? await sb.from("funds").select("*").order("created_at", { ascending: true }) : await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
+    if (res.error) { if (!Array.isArray(cached)) $("fb").innerHTML = '<tr><td colspan="4">The funds list is unavailable right now.</td></tr>'; KMRUI.hideLoading(); return; }
+    funds = res.data || []; KMRStore.set(key, funds, privateData); renderFunds(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) $("fb").innerHTML = '<tr><td colspan="4">The funds list is unavailable right now.</td></tr>'; KMRUI.hideLoading(); }
 }
 const reload = () => Promise.all([loadRunners(), loadFunds()]);
+window.addEventListener("kmr:optimistic-registration", e => {
+  if (!admin || !e.detail || !e.detail.row) return;
+  const row = e.detail.row, idx = all.findIndex(x => x.id === row.id);
+  if (idx >= 0) all[idx] = { ...all[idx], ...row }; else all.push(row);
+  KMRStore.set("admin-runners", all, true); renderRunners();
+});
+window.addEventListener("kmr:optimistic-funds", () => {
+  const cached = KMRStore.get(admin ? "admin-funds" : "public-funds", !!admin);
+  if (Array.isArray(cached)) { funds = cached; renderFunds(); }
+});
+window.addEventListener("kmr:admin-sync-complete", () => { reload(); });
 
 // ---------- admin menu ----------
 function closeMenu(focus) { if (menuEl) { menuEl.remove(); menuEl = null; } if (menuBtn) { menuBtn.setAttribute("aria-expanded", "false"); if (focus) menuBtn.focus(); menuBtn = null; } }
@@ -182,12 +243,11 @@ $("addFund").onclick = () => KMRAdmin.fund(null, loadFunds);
 async function applyAdmin(u) {
   if (u === admin && u !== undefined && applyAdmin.done) return;
   applyAdmin.done = true; admin = u || ""; closeMenu();
-  $("adminbar").hidden = !admin; $("adminName").textContent = admin; $("addFund").hidden = !admin;
+  $("addFund").hidden = !admin;
   $("footLink").textContent = admin ? "Admin panel" : "Admin sign in";
   if (admin) KMRAdmin.init();
   await reload();
 }
-$("adminOut").onclick = async () => { await KMRAuth.signOut(); applyAdmin(""); };
 KMRAuth.onChange(applyAdmin);
 $("fh").innerHTML = '<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th></tr>';
 (async () => { await applyAdmin(await KMRAuth.current()); })();

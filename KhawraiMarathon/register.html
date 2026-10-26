@@ -47,13 +47,22 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 </style>
 </head>
 <body>
-<div class="adminbar" id="adminbar" hidden><div class="in"><span class="who"><i class="dot"></i>Admin entry mode &middot; signed in as <b id="adminName"></b> &middot; no device or location limit, record as many runners as you need</span><span class="sp"><a class="btn" href="index.html">Public list</a><a class="btn" href="admin.html">Admin panel</a></span></div></div>
-<header class="top formtop"><div class="in"><div class="topmark">K3</div><div class="tt"><h1>Khawrai Marathon Race <span>Player registration</span></h1><p>Season Three · Official participant form</p></div><div class="cta"><a class="btn ghost" href="index.html">Participants</a></div></div></header>
+<div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
+  <div class="loader-card">
+    <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
+    <div class="loader-kicker">KHAWRAI MARATHON · SEASON THREE</div>
+    <h2>Getting the race ready</h2>
+    <p>Preparing runners, registrations and race updates.</p>
+    <div class="runner-track" aria-hidden="true"><span class="runner-icon">➤</span><span class="track-line"></span><span class="track-dot"></span><span class="track-dot"></span><span class="track-dot"></span></div>
+    <div class="loader-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
+  </div>
+</div>
+<header class="top formtop"><div class="in"><a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a><div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official player registration · Participant entry form</p></div><div class="header-actions"><div class="cta"><a class="btn ghost" href="index.html">Participants</a></div><div class="profile-mount"></div></div></div></header>
 <div class="sheet">
 <div id="done" class="ok" hidden>
   <h2>Registration received</h2>
   <div class="n" id="regno"></div>
-  <p id="doneMsg">Keep this registration number. Your entry shows as <b>Pending</b> on the participants list until the Rs. 500 fee is confirmed by the admin.</p>
+  <p id="doneMsg">Keep this registration number. Your entry shows as Pending on the participants list until the admin confirms it.</p><p id="syncMsg" class="msg" role="status" aria-live="polite" hidden></p><p><button type="button" class="btn alt" id="retrySync" hidden>Retry sync now</button></p>
   <p><button class="btn alt" id="again" hidden onclick="location.reload()">Add another registration</button> <a class="btn" href="index.html">View participants</a></p>
 </div>
 <div id="blocked" class="ok" hidden><h2>This device has already registered</h2>
@@ -179,7 +188,7 @@ function blockDevice() { $("f").hidden = true; $("done").hidden = true; $("block
 // Signed-in admins (login is shared with the other pages) can record unlimited registrations: no device or location rule.
 let admin = "";
 function applyAdmin(u) {
-  admin = u || ""; $("adminbar").hidden = !admin; $("adminName").textContent = admin; $("locRow").hidden = !!admin;
+  admin = u || ""; $("locRow").hidden = !!admin;
   if (admin && $("done").hidden) { $("f").hidden = false; $("blocked").hidden = true; }
 }
 async function checkDevice() {
@@ -187,8 +196,6 @@ async function checkDevice() {
   if (lsGet("kmr_registered") || ck("kmr_registered") || await idb.get("kmr_registered")) return blockDevice();
   try { const { data } = await sb.rpc("device_registered", { p_device: await getDeviceId() }); if (data === true) blockDevice(); } catch (e) {}
 }
-(async () => { applyAdmin(await KMRAuth.current()); await checkDevice(); })();
-KMRAuth.onChange(async u => { applyAdmin(u); if (!u) await checkDevice(); });
 let loc = null;
 $("consent").onchange = () => { $("getLoc").disabled = !$("consent").checked; if (!$("consent").checked) { loc = null; $("locInfo").textContent = ""; } };
 $("getLoc").onclick = () => {
@@ -219,10 +226,192 @@ function toJpeg(file, max = 1280, q = 0.85) {
 }
 async function upload(bucket, path, blob, type) {
   const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: type, upsert: false });
-  if (error) throw new Error("File upload failed: " + error.message); return path;
+  if (error) {
+    // A retry may find a random, job-specific path uploaded by this same queued submission.
+    if (/already exists|duplicate|object exists/i.test(error.message || "")) return path;
+    throw new Error("File upload failed: " + error.message);
+  }
+  return path;
 }
 $("cnic").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 13); e.target.value = d.length > 12 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}` : d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; });
 $("mobile").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 11); e.target.value = d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d; });
+// ---- Local-first registration draft + durable submission queue ----------------
+const DRAFT_KEY = "kmr-s3-registration-draft-v2", PENDING_KEY = "kmr-s3-registration-pending-v2";
+const QUEUE_DB = "kmr-s3-registration-queue-v1", QUEUE_STORE = "registrations";
+let syncingJob = false, activeJob = null;
+function openQueueDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error("This browser does not support local offline storage."));
+    const req = indexedDB.open(QUEUE_DB, 1);
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(QUEUE_STORE)) req.result.createObjectStore(QUEUE_STORE, { keyPath: "id" }); };
+    req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error || new Error("Could not open local storage."));
+  });
+}
+async function queuePut(job) {
+  const db = await openQueueDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite"); tx.objectStore(QUEUE_STORE).put(job);
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error || new Error("Could not save this entry on the device.")); tx.onabort = () => reject(tx.error || new Error("Local save was interrupted."));
+  });
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: job.id, adminMode: job.adminMode, createdAt: job.createdAt })); } catch (e) {}
+  db.close();
+}
+async function queueGetAll() {
+  try {
+    const db = await openQueueDb();
+    const records = await new Promise((resolve, reject) => {
+      const tx = db.transaction(QUEUE_STORE, "readonly"), req = tx.objectStore(QUEUE_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []); req.onerror = () => reject(req.error || new Error("Could not read local queue."));
+    });
+    db.close(); return records;
+  } catch (e) { return []; }
+}
+async function queueDelete(id) {
+  try {
+    const db = await openQueueDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(QUEUE_STORE, "readwrite"); tx.objectStore(QUEUE_STORE).delete(id);
+      tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+    });
+    db.close();
+  } catch (e) {}
+  try { const meta = JSON.parse(localStorage.getItem(PENDING_KEY) || "null"); if (!meta || meta.id === id) localStorage.removeItem(PENDING_KEY); } catch (e) {}
+}
+function persistDraft() {
+  const f = $("f"), snapshot = { fields: {}, radios: {}, checks: {} };
+  for (const el of f.elements) {
+    if (!el.id || ["file", "submit", "button", "reset", "password"].includes(el.type)) continue;
+    if (el.type === "radio") { if (el.checked) snapshot.radios[el.name] = el.value; continue; }
+    if (el.type === "checkbox") {
+      if (["consent", "agree", "ck1", "ck2", "ck3", "ck4"].includes(el.id)) continue;
+      snapshot.checks[el.id] = el.checked; continue;
+    }
+    snapshot.fields[el.id] = el.value;
+  }
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot)); } catch (e) {}
+}
+function restoreDraft() {
+  let data; try { data = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return; }
+  if (!data) return;
+  Object.entries(data.fields || {}).forEach(([id, value]) => { const el = $(id); if (el && !["file", "checkbox", "radio"].includes(el.type)) el.value = value; });
+  Object.entries(data.radios || {}).forEach(([name, value]) => { const el = document.querySelector(`[name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`); if (el) el.checked = true; });
+  Object.entries(data.checks || {}).forEach(([id, value]) => { const el = $(id); if (el && el.type === "checkbox") el.checked = !!value; });
+  try { syncOfficial(); } catch (e) {}
+}
+restoreDraft();
+document.querySelectorAll('#f input:not([type="file"]), #f select, #f textarea').forEach(el => {
+  if (["consent", "agree"].includes(el.id)) return;
+  el.addEventListener("input", persistDraft); el.addEventListener("change", persistDraft);
+});
+function showSyncPending(job, message) {
+  KMRUI.hideLoading();
+  activeJob = job; $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = false;
+  $("done").querySelector("h2").textContent = "Registration saved on this device";
+  $("regno").textContent = "SYNC PENDING";
+  $("doneMsg").textContent = "Your form and attached files are safely saved in this browser. This is not yet an official registration and will not appear on the runners list until database sync succeeds. Keep this browser data intact until it finishes syncing.";
+  $("syncMsg").textContent = message || (navigator.onLine ? "Connecting securely and syncing your entry…" : "You are offline. This entry will retry automatically when the connection returns.");
+  $("syncMsg").hidden = false; $("retrySync").hidden = false; $("again").hidden = true;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function showSyncError(message) { $("syncMsg").textContent = message; $("syncMsg").hidden = false; }
+function showRegistrationSuccess(regNo, isAdmin) {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  if (isAdmin) { $("doneMsg").textContent = "Registration recorded successfully. It remains Pending until an admin confirms its status in the public list or admin panel."; $("again").hidden = false; }
+  else { remember("kmr_registered", regNo); $("doneMsg").textContent = "Keep this registration number. Your entry is now recorded and shows as Pending until the admin confirms it."; $("again").hidden = true; }
+  $("done").querySelector("h2").textContent = "Registration received";
+  $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = false;
+  $("regno").textContent = regNo; $("syncMsg").hidden = true; $("retrySync").hidden = true;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function extensionOf(file) { return ((file && file.name || "image.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"; }
+function mimeOf(file) {
+  return file.type && /^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) ? file.type : ({ heic: "image/heic", heif: "image/heif", png: "image/png", webp: "image/webp" }[extensionOf(file)] || "image/jpeg");
+}
+async function buildRegistrationJob() {
+  const v = id => $(id).value.trim(), digits = id => v(id).replace(/\D/g, "");
+  const deviceId = admin ? "" : await getDeviceId(), fp = admin ? "" : await fingerprint();
+  const id = crypto.randomUUID(), official = document.querySelector('[name="official"]:checked').value === "yes";
+  const photo = $("photo").files[0], front = $("cf").files[0], back = $("cb").files[0], cert = $("cert").files[0], other = $("other").files[0];
+  const signature = await new Promise((resolve, reject) => cv.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not save the signature. Please sign again.")), "image/png"));
+  const payload = {
+    id, name: v("name"), father_name: v("father"), cnic: digits("cnic"), mobile: digits("mobile"), email: v("email"),
+    gender: document.querySelector('[name="gender"]:checked').value, dob: v("dob"), address: v("address"), district_tehsil: v("district"),
+    sport: v("sport"), association: v("assoc"), player_level: (document.querySelector('[name="level"]:checked') || {}).value || "", years_experience: v("years"), education: v("edu"),
+    official_participation: official, event_name: official ? v("event") : "", event_date: official ? v("eventdate") : "",
+    event_level: official ? ((document.querySelector('[name="evlevel"]:checked') || {}).value || "") : "", event_org: official ? v("org") : "",
+    device_id: deviceId, fingerprint: fp, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, accuracy: loc ? loc.accuracy : null,
+    declaration_accepted: true, signature_name: v("pname"), payment_ref: v("pay"),
+    photo_path: `${id}/photo.jpg`, cnic_front_path: `${id}/cnic_front.jpg`, cnic_back_path: `${id}/cnic_back.jpg`,
+    certificate_path: cert ? `${id}/certificate.jpg` : "", other_doc_path: other ? `${id}/other.jpg` : "",
+    photo_original_path: `${id}/photo_original.${extensionOf(photo)}`,
+    cnic_front_original_path: `${id}/cnic_front_original.${extensionOf(front)}`,
+    cnic_back_original_path: `${id}/cnic_back_original.${extensionOf(back)}`,
+    signature_path: `${id}/signature.png`
+  };
+  const files = [
+    { bucket: "photos", path: payload.photo_path, blob: photo, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "documents", path: payload.cnic_front_path, blob: front, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "documents", path: payload.cnic_back_path, blob: back, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "originals", path: payload.photo_original_path, blob: photo, mode: "original", type: mimeOf(photo) },
+    { bucket: "originals", path: payload.cnic_front_original_path, blob: front, mode: "original", type: mimeOf(front) },
+    { bucket: "originals", path: payload.cnic_back_original_path, blob: back, mode: "original", type: mimeOf(back) },
+    { bucket: "documents", path: payload.signature_path, blob: signature, mode: "raw", type: "image/png" }
+  ];
+  if (cert) files.push({ bucket: "documents", path: payload.certificate_path, blob: cert, mode: "jpeg", type: "image/jpeg" });
+  if (other) files.push({ bucket: "documents", path: payload.other_doc_path, blob: other, mode: "jpeg", type: "image/jpeg" });
+  return { id, adminMode: !!admin, createdAt: new Date().toISOString(), payload, files };
+}
+async function syncRegistrationJob(job) {
+  if (syncingJob) return;
+  if (!navigator.onLine) { showSyncPending(job, "Offline mode: this entry is safely queued on this device. Sync will retry when you are online."); return; }
+  if (!!admin !== !!job.adminMode) { showSyncPending(job, `This saved entry was started in ${job.adminMode ? "admin" : "public player"} mode. Sign in or out to match that mode before syncing it.`); return; }
+  syncingJob = true; activeJob = job; showSyncPending(job, "Uploading your documents securely, then saving the registration in the database…");
+  const btn = $("retrySync"); btn.disabled = true; const originalLabel = btn.textContent; btn.textContent = "Syncing…";
+  try {
+    // Concurrent uploads reduce submit time. Every path is unique to this durable queue item's UUID.
+    await Promise.all(job.files.map(async file => {
+      const blob = file.mode === "jpeg" ? await toJpeg(file.blob) : file.blob;
+      return upload(file.bucket, file.path, blob, file.type);
+    }));
+    const { data, error } = await sb.rpc("submit_registration", { p: job.payload });
+    if (error) {
+      if (error.code === "23505" && /device/i.test(error.message || "")) {
+        await queueDelete(job.id); activeJob = null; blockDevice(); return;
+      }
+      if (error.code === "23505" && /cnic/i.test(error.message || "")) {
+        await queueDelete(job.id); activeJob = null; $("done").hidden = true; $("f").hidden = false;
+        err.textContent = "This CNIC/B-Form number is already registered. Check the number and submit again.";
+        $("go").disabled = false; $("go").textContent = "Submit registration"; return;
+      }
+      if (error.code === "23505" && /registrations_pkey|registrations_pkey|id/i.test(error.message || "")) {
+        throw new Error("The database may have saved this entry before the connection dropped. Run migration 20261026_002_local_first_zero_payment.sql to enable safe retry, then retry sync.");
+      }
+      if (admin && /Device ID missing|Location permission|device/i.test(error.message || "")) throw new Error("Run sql/migrations/20261024_001_admin_multi_entries.sql in the Supabase SQL Editor, then retry sync.");
+      throw new Error("Database sync needs attention: " + error.message);
+    }
+    const regNo = data && data.reg_no;
+    if (!regNo) throw new Error("The server did not return a registration number. Your local entry is retained for retry.");
+    await queueDelete(job.id); activeJob = null; showRegistrationSuccess(regNo, job.adminMode);
+  } catch (ex) {
+    const message = ex && ex.message ? ex.message : "Could not sync this entry yet.";
+    showSyncPending(job, `${message} Your form and files remain saved locally. Retry when the connection or database is ready.`);
+  } finally {
+    syncingJob = false; btn.disabled = false; btn.textContent = originalLabel;
+    KMRUI.hideLoading();
+  }
+}
+async function restoreQueuedSubmission() {
+  const jobs = await queueGetAll(); if (!jobs.length) return false;
+  jobs.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const job = jobs[0]; showSyncPending(job, navigator.onLine ? "A previously saved registration was found. Resuming sync…" : "A registration is saved locally and will sync when the connection returns.");
+  if (navigator.onLine) await syncRegistrationJob(job);
+  return true;
+}
+$("retrySync").onclick = async () => {
+  const job = activeJob || (await queueGetAll())[0]; if (job) await syncRegistrationJob(job);
+};
+window.addEventListener("online", async () => { const job = activeJob || (await queueGetAll())[0]; if (job) await syncRegistrationJob(job); });
+
 $("f").addEventListener("submit", async e => {
   e.preventDefault(); err.textContent = "";
   const v = id => $(id).value.trim(), digits = id => v(id).replace(/\D/g, "");
@@ -230,51 +419,38 @@ $("f").addEventListener("submit", async e => {
   if (need) return err.textContent = `${need[1]} is required.`;
   if (digits("cnic").length !== 13) return err.textContent = "CNIC/B-Form number must have 13 digits.";
   if (digits("mobile").length !== 11) return err.textContent = "Mobile number must have 11 digits, for example 0300-1234567.";
-  if (!document.querySelector("[name=gender]:checked")) return err.textContent = "Select a gender.";
+  if (!document.querySelector('[name="gender"]:checked')) return err.textContent = "Select a gender.";
   if (!$("photo").files[0] || !$("cf").files[0] || !$("cb").files[0]) return err.textContent = "Attach your photo and the front and back of your CNIC/B-Form.";
   if (!signed) return err.textContent = "Sign in the signature box.";
   if (!$("agree").checked) return err.textContent = "Accept the declaration to continue.";
   if (!admin && !$("consent").checked) return err.textContent = "Tick the consent box to share your device ID and location.";
   if (!admin && !loc) return err.textContent = "Press Share my location and allow it in your browser before submitting.";
-  const big = ["photo", "cf", "cb"].find(i => $(i).files[0].size > 25 * 1024 * 1024); if (big) return err.textContent = "Each image must be under 25 MB.";
-  const btn = $("go"); btn.disabled = true; btn.textContent = "Submitting…";
+  const big = ["photo", "cf", "cb", "cert", "other"].find(i => $(i).files[0] && $(i).files[0].size > 25 * 1024 * 1024);
+  if (big) return err.textContent = "Each image must be under 25 MB.";
+  const btn = $("go"); btn.disabled = true; btn.textContent = "Saving on this device…";
   try {
-    const deviceId = admin ? "" : await getDeviceId();
-    if (!admin) { const chk = await sb.rpc("device_registered", { p_device: deviceId }); if (chk.data === true) { blockDevice(); return; } }
-    const fp = admin ? "" : await fingerprint();
-    const id = crypto.randomUUID(), jpg = "image/jpeg", official = document.querySelector("[name=official]:checked").value === "yes";
-    const up = async (bucket, name, file) => file ? upload(bucket, `${id}/${name}.jpg`, await toJpeg(file), jpg) : "";
-    const mimeOf = f => f.type && /^image\/(jpeg|png|webp|heic|heif)$/.test(f.type) ? f.type : ({ heic: "image/heic", heif: "image/heif", png: "image/png", webp: "image/webp" }[(f.name.split(".").pop() || "").toLowerCase()] || "image/jpeg");
-    const upO = (name, f) => upload("originals", `${id}/${name}.${(f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")}`, f, mimeOf(f));
-    const sigBlob = await new Promise(r => cv.toBlob(r, "image/png"));
-    const paths = {
-      photo_path: await up("photos", "photo", $("photo").files[0]),
-      cnic_front_path: await up("documents", "cnic_front", $("cf").files[0]),
-      cnic_back_path: await up("documents", "cnic_back", $("cb").files[0]),
-      certificate_path: await up("documents", "certificate", $("cert").files[0]),
-      other_doc_path: await up("documents", "other", $("other").files[0]),
-      photo_original_path: await upO("photo_original", $("photo").files[0]),
-      cnic_front_original_path: await upO("cnic_front_original", $("cf").files[0]),
-      cnic_back_original_path: await upO("cnic_back_original", $("cb").files[0]),
-      signature_path: await upload("documents", `${id}/signature.png`, sigBlob, "image/png")
-    };
-    const payload = { id, name: v("name"), father_name: v("father"), cnic: digits("cnic"), mobile: digits("mobile"), email: v("email"),
-      gender: document.querySelector("[name=gender]:checked").value, dob: v("dob"), address: v("address"), district_tehsil: v("district"),
-      sport: v("sport"), association: v("assoc"), player_level: (document.querySelector("[name=level]:checked") || {}).value || "", years_experience: v("years"), education: v("edu"),
-      official_participation: official, event_name: official ? v("event") : "", event_date: official ? v("eventdate") : "",
-      event_level: official ? ((document.querySelector("[name=evlevel]:checked") || {}).value || "") : "", event_org: official ? v("org") : "",
-      device_id: deviceId, fingerprint: fp, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, accuracy: loc ? loc.accuracy : null,
-      declaration_accepted: true, signature_name: v("pname"), payment_ref: v("pay"), ...paths };
-    const { data, error } = await sb.rpc("submit_registration", { p: payload });
-    if (error) {
-      if (admin && /Device ID missing|Location permission|device/i.test(error.message)) throw new Error("The database still has the old one-per-device rule. Run sql/migrations/20261024_001_admin_multi_entries.sql once in the Supabase SQL Editor, then try again.");
-      if (error.code === "23505" && /device/.test(error.message)) { blockDevice(); return; }
-      throw new Error(error.code === "23505" ? "This CNIC/B-Form number is already registered." : "Registration failed: " + error.message);
-    }
-    if (admin) { $("doneMsg").textContent = "Registration recorded. It shows as Pending until you confirm the payment from the public list or the admin panel."; $("again").hidden = false; }
-    else remember("kmr_registered", data.reg_no);
-    $("f").hidden = true; $("done").hidden = false; $("regno").textContent = data.reg_no; window.scrollTo(0, 0);
-  } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = "Submit registration"; }
+    const job = await buildRegistrationJob();
+    // Durable local write happens before uploads or database requests.
+    await queuePut(job);
+    persistDraft();
+    showSyncPending(job, "Saved locally. Syncing your files and registration to the database in the background…");
+    await syncRegistrationJob(job);
+  } catch (ex) {
+    err.textContent = (ex && ex.message) || "Could not save this entry locally. Please try again.";
+    btn.disabled = false; btn.textContent = "Submit registration";
+    if (activeJob) showSyncPending(activeJob, err.textContent);
+  }
+});
+(async () => {
+  applyAdmin(await KMRAuth.current());
+  const queued = await restoreQueuedSubmission();
+  if (!queued) await checkDevice();
+  KMRUI.hideLoading();
+})();
+KMRAuth.onChange(async u => {
+  applyAdmin(u);
+  const queued = await restoreQueuedSubmission();
+  if (!queued && !u) await checkDevice();
 });
 </script>
 </body></html>

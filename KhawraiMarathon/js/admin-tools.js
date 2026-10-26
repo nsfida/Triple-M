@@ -6,7 +6,7 @@
 
   const HTML = `
 <dialog id="kPay"><form method="dialog" id="kPayF"><h2>Confirm payment</h2><p class="dlg-sub" id="kPayWho"></p>
-  <label for="kPa">Amount received (Rs.)</label><input id="kPa" type="number" min="1" step="1" inputmode="numeric" required>
+  <label for="kPa">Amount received (Rs.) - enter 0 for status-only confirmation</label><input id="kPa" type="number" min="0" step="1" inputmode="numeric" required>
   <label for="kPm">Mohallah</label><input id="kPm" required maxlength="100">
   <p class="msg bad" id="kPayE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Confirm payment</button></div></form></dialog>
 
@@ -32,12 +32,144 @@
     const w = document.createElement("div"); w.innerHTML = HTML; document.body.append(...w.children);
     document.querySelectorAll("dialog [data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
     document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d) d.close(); }));
+    $("kDet").addEventListener("close", () => { activeDetailRow = null; activeDetailAll = []; detailRequestId++; });
     $("kEc").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 13); e.target.value = d.length > 12 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}` : d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; });
     $("kEm").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 11); e.target.value = d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d; });
+    syncOutbox();
   }
   const fmtCnic = d => { d = String(d || ""); return d.length === 13 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}` : d; };
   const fmtMob = d => { d = String(d || ""); return d.length === 11 ? `${d.slice(0, 4)}-${d.slice(4)}` : d; };
   const busy = (form, on) => form.querySelectorAll("button").forEach(b => b.disabled = on);
+
+  // Persist pending admin writes before starting their network requests. The UI can
+  // update immediately, while the RPC/table write is synced now or when connectivity returns.
+  const OUTBOX_KEY = "kmr-s3-admin-outbox-v1";
+  const outboxCallbacks = new Map();
+  let syncingOutbox = false;
+  function readOutbox() { try { const q = JSON.parse(localStorage.getItem(OUTBOX_KEY) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
+  function writeOutbox(q) { try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(q)); return true; } catch (e) { return false; } }
+  function enqueue(action, done) {
+    action.user = KMRAuth.hint() || ""; action.queuedAt = new Date().toISOString();
+    const q = readOutbox().filter(x => x.id !== action.id); q.push(action);
+    if (!writeOutbox(q)) return false;
+    if (done) outboxCallbacks.set(action.id, done);
+    return true;
+  }
+  function dequeue(id) { const q = readOutbox().filter(x => x.id !== id); writeOutbox(q); outboxCallbacks.delete(id); }
+  function persistRegistration(row) {
+    for (const key of ["admin-registrations", "admin-runners"]) {
+      const isList = KMRStore.get(key, true);
+      if (Array.isArray(isList)) { const next = isList.map(x => x.id === row.id ? { ...x, ...row } : x); KMRStore.set(key, next, true); }
+    }
+  }
+  function publishRegistration(row) {
+    persistRegistration(row);
+    window.dispatchEvent(new CustomEvent("kmr:optimistic-registration", { detail: { row } }));
+  }
+  function mutateFundCaches(row, opts = {}) {
+    const { removeId = null, syntheticId = null, removeRegistrationId = null, removeReference = null, removeOnly = false } = opts;
+    for (const [key, priv] of [["admin-funds", true], ["public-funds", false]]) {
+      const current = KMRStore.get(key, priv); if (!Array.isArray(current)) continue;
+      let next = current.filter(x => x.id !== removeId && (!syntheticId || x.id !== syntheticId) && !((removeRegistrationId && x.registration_id === removeRegistrationId || removeReference && x.reference === removeReference) && x.source === "registration"));
+      if (row && !removeOnly) {
+        const idx = next.findIndex(x => x.id === row.id);
+        if (idx >= 0) next[idx] = { ...next[idx], ...row }; else next.push(row);
+      }
+      KMRStore.set(key, next, priv);
+    }
+    window.dispatchEvent(new CustomEvent("kmr:optimistic-funds"));
+  }
+  function optimisticFee(action, row, remove = false) {
+    const syntheticId = `local-confirm-${row.id}`;
+    const localFund = !remove && Number(action.amount) > 0 ? {
+      id: syntheticId, registration_id: row.id, donor_name: row.name,
+      mohallah: action.mohallah || row.district_tehsil || "—", amount: Math.round(Number(action.amount)),
+      source: "registration", reference: row.reg_no, created_at: action.queuedAt || new Date().toISOString(), recorded_by: action.user || "pending sync"
+    } : null;
+    mutateFundCaches(localFund, { syntheticId, removeRegistrationId: remove ? row.id : null, removeReference: remove ? row.reg_no : null, removeOnly: !localFund });
+  }
+  const transientError = error => !navigator.onLine || /failed to fetch|network|timeout|load failed|connection|fetch is aborted|aborterror/i.test(String(error && (error.message || error) || ""));
+  async function processAction(action) {
+    if (action.type === "confirm") {
+      const q = await sb.from("registrations").select("id,status").eq("id", action.rowId).maybeSingle();
+      if (q.error) return { retry: true, error: q.error };
+      if (!q.data) return { retry: true, error: new Error("Registration not found while syncing confirmation.") };
+      if (q.data.status === "confirmed") {
+        const fq = await sb.from("funds").select("amount").eq("registration_id", action.rowId).eq("source", "registration");
+        if (fq.error) return { retry: true, error: fq.error };
+        const amounts = (fq.data || []).map(f => Number(f.amount));
+        const completed = Number(action.amount) === 0 ? amounts.length === 0 : amounts.includes(Math.round(Number(action.amount)));
+        return completed ? { done: true } : { conflict: true, error: new Error("This player is already confirmed with a different funds entry. Please review the project funds before retrying.") };
+      }
+      const { error } = await sb.rpc("confirm_payment", { p_id: action.rowId, p_amount: Number(action.amount), p_mohallah: action.mohallah });
+      if (error) {
+        if (/already confirmed/i.test(error.message || "")) return processAction(action);
+        return { retry: true, error };
+      }
+      return { done: true };
+    }
+    if (action.type === "unconfirm") {
+      const q = await sb.from("registrations").select("id,status").eq("id", action.rowId).maybeSingle();
+      if (q.error) return { retry: true, error: q.error };
+      if (q.data && q.data.status === "pending") return { done: true };
+      const { error } = await sb.rpc("unconfirm_payment", { p_id: action.rowId });
+      return error ? { retry: true, error } : { done: true };
+    }
+    if (action.type === "registration-edit") {
+      const { data, error } = await sb.from("registrations").update(action.row).eq("id", action.rowId).select();
+      if (error && error.code === "23505") return { invalid: true, error: new Error("Another player already has this CNIC/B-Form number.") };
+      if (error) return { retry: true, error };
+      if (!data || !data.length) return { retry: true, error: new Error("The edit is waiting for an authorised admin session.") };
+      Object.assign(action.row, data[0]); return { done: true };
+    }
+    if (action.type === "fund-save") {
+      let result;
+      if (action.isNew) result = await sb.from("funds").insert({ id: action.recordId, ...action.row, source: "donation" }).select();
+      else result = await sb.from("funds").update(action.row).eq("id", action.recordId).select();
+      if (result.error && action.isNew && result.error.code === "23505") {
+        const existing = await sb.from("funds").select("id,donor_name,mohallah,amount").eq("id", action.recordId).maybeSingle();
+        if (!existing.error && existing.data && existing.data.donor_name === action.row.donor_name && Number(existing.data.amount) === Number(action.row.amount)) return { done: true };
+      }
+      if (result.error) return { retry: true, error: result.error };
+      if (!result.data || (Array.isArray(result.data) && !result.data.length)) return { retry: true, error: new Error("The funds entry is waiting for an authorised admin session.") };
+      return { done: true };
+    }
+    return { retry: true, error: new Error("Unknown pending action.") };
+  }
+  async function syncOutbox() {
+    if (syncingOutbox || !navigator.onLine) return;
+    syncingOutbox = true;
+    try {
+      const currentUser = await KMRAuth.current(); if (!currentUser) return;
+      const queue = readOutbox();
+      for (const action of queue) {
+        if (action.user && action.user !== currentUser) continue;
+        if (!navigator.onLine) break;
+        const result = await processAction(action);
+        if (result.done) {
+          const cb = outboxCallbacks.get(action.id); dequeue(action.id);
+          if (cb) cb(); else window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
+        } else if (result.conflict) {
+          const cb = outboxCallbacks.get(action.id); dequeue(action.id);
+          if (action.type === "confirm" && action.row) { action.row.status = "confirmed"; publishRegistration(action.row); mutateFundCaches(null, { syntheticId: `local-confirm-${action.row.id}`, removeOnly: true }); }
+          toast(result.error.message, true);
+          if (cb) cb(); else window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
+        } else if (result.invalid) {
+          const cb = outboxCallbacks.get(action.id); dequeue(action.id);
+          if (action.oldRow) publishRegistration(action.oldRow);
+          toast(result.error.message, true);
+          if (cb) cb(); else window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
+        } else if (result.retry) {
+          action.lastError = String(result.error && result.error.message || "Sync pending");
+          writeOutbox(readOutbox().map(x => x.id === action.id ? action : x));
+          if (!transientError(result.error)) toast("Saved locally; sync is pending: " + action.lastError, true);
+          break;
+        }
+      }
+    } catch (e) { /* Keep pending writes for the next online event or admin page load. */ }
+    finally { syncingOutbox = false; }
+  }
+  window.addEventListener("online", syncOutbox);
 
   // ---- confirm / unconfirm ----
   let payRow = null, payDone = null;
@@ -46,18 +178,26 @@
     $("kPayWho").textContent = `${r.reg_no} · ${r.name}`; $("kPa").value = C.FEE; $("kPm").value = r.district_tehsil || ""; $("kPayE").hidden = true;
     $("kPay").showModal(); $("kPa").select();
     $("kPayF").onsubmit = async e => {
-      e.preventDefault(); busy($("kPayF"), true);
-      const { error } = await sb.rpc("confirm_payment", { p_id: payRow.id, p_amount: Number($("kPa").value), p_mohallah: $("kPm").value.trim() });
-      busy($("kPayF"), false);
-      if (error) { $("kPayE").textContent = "Not saved: " + error.message; $("kPayE").hidden = false; return; }
-      $("kPay").close(); toast(`${payRow.reg_no} confirmed`); payDone && payDone();
+      e.preventDefault();
+      const rawAmount = $("kPa").value.trim(), amount = Number(rawAmount);
+      if (rawAmount === "" || !Number.isFinite(amount) || amount < 0) {
+        $("kPayE").textContent = "Enter 0 or a positive whole-number amount."; $("kPayE").hidden = false; return;
+      }
+      const action = { id: `confirm:${payRow.id}`, type: "confirm", rowId: payRow.id, row: { ...payRow }, oldStatus: payRow.status,
+        amount: Math.round(amount), mohallah: $("kPm").value.trim() || payRow.district_tehsil || "" };
+      if (!enqueue(action, payDone)) { $("kPayE").textContent = "Local storage is unavailable. No change was made."; $("kPayE").hidden = false; return; }
+      payRow.status = "confirmed"; publishRegistration(payRow); optimisticFee(action, payRow);
+      $("kPay").close(); toast(navigator.onLine ? `${payRow.reg_no} confirmed locally; syncing…` : `${payRow.reg_no} saved locally; sync will resume online`);
+      syncOutbox();
     };
   }
   async function unconfirm(r, done) {
     if (!confirm(`Mark ${r.reg_no} as pending? Its fee entry will be removed from the project funds.`)) return;
-    const { error } = await sb.rpc("unconfirm_payment", { p_id: r.id });
-    if (error) return toast("Not allowed: " + error.message, true);
-    toast(`${r.reg_no} marked pending`); done && done();
+    const action = { id: `unconfirm:${r.id}`, type: "unconfirm", rowId: r.id, row: { ...r }, oldStatus: r.status };
+    if (!enqueue(action, done)) return toast("Local storage is unavailable. No change was made.", true);
+    r.status = "pending"; publishRegistration(r); optimisticFee(action, r, true);
+    toast(navigator.onLine ? `${r.reg_no} marked pending locally; syncing…` : `${r.reg_no} marked pending locally; sync will resume online`);
+    syncOutbox();
   }
 
   // ---- edit ----
@@ -76,12 +216,10 @@
       if (mobile.length !== 11) return bad("Mobile number must have 11 digits.");
       const upd = { name: $("kEn").value.trim(), father_name: $("kEf").value.trim(), cnic, mobile, email: $("kEe").value.trim() || null, gender: $("kEg").value, dob: $("kEd").value,
         address: $("kEa").value.trim(), district_tehsil: $("kEt").value.trim(), sport: $("kEs").value.trim(), payment_ref: $("kEp").value.trim() || null };
-      busy($("kEditF"), true);
-      const { data, error } = await sb.from("registrations").update(upd).eq("id", r.id).select();
-      busy($("kEditF"), false);
-      if (error) return bad(error.code === "23505" ? "Another runner already has this CNIC/B-Form number." : "Not saved: " + error.message);
-      if (!data || !data.length) return bad("Not saved: you are not allowed to edit this entry. Sign in again.");
-      Object.assign(r, data[0]); $("kEdit").close(); toast(`${r.reg_no} updated`); done && done(r);
+      const action = { id: `registration-edit:${r.id}`, type: "registration-edit", rowId: r.id, row: { ...upd }, oldRow: { ...r } };
+      if (!enqueue(action, () => { done && done(r); })) return bad("Local storage is unavailable. No change was made.");
+      Object.assign(r, upd); publishRegistration(r); $("kEdit").close();
+      toast(navigator.onLine ? `${r.reg_no} saved locally; syncing…` : `${r.reg_no} saved locally; sync will resume online`); syncOutbox();
     };
   }
 
@@ -109,30 +247,85 @@
     finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
   }
 
-  // ---- files & details ----
+  // ---- files, full player details and contextual admin actions ------------------
+  let activeDetailRow = null, activeDetailAll = [], detailRequestId = 0;
   async function details(r, all) {
-    init(); const box = $("kDetB"); box.innerHTML = `<h2>${esc(r.name)}</h2><p class="dlg-sub">${esc(r.reg_no)} · loading files…</p>`; $("kDet").showModal();
-    const ext = p => (p.split(".").pop() || "jpg").toLowerCase(), fn = (k, p) => `${r.reg_no}_${slug(r.name)}_${k}.${ext(p)}`;
-    const dls = [["Photo", "photo", r.photo_original_path, "originals", r.photo_path, "photos"], ["CNIC front", "cnic_front", r.cnic_front_original_path, "originals", r.cnic_front_path, "documents"], ["CNIC back", "cnic_back", r.cnic_back_original_path, "originals", r.cnic_back_path, "documents"]];
+    init(); activeDetailRow = r; activeDetailAll = all || [];
+    const requestId = ++detailRequestId;
+    const box = $("kDetB");
+    box.innerHTML = `<div class="detail-loading"><span class="mini-spinner"></span><span>Preparing secure player details and files…</span></div>`;
+    if (!$("kDet").open) $("kDet").showModal();
+    const ext = p => (String(p || "jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const fn = (k, p) => `${r.reg_no}_${slug(r.name)}_${k}.${ext(p)}`;
+    const dls = [
+      ["Player photo", "photo", r.photo_original_path, "originals", r.photo_path, "photos"],
+      ["CNIC front", "cnic_front", r.cnic_front_original_path, "originals", r.cnic_front_path, "documents"],
+      ["CNIC back", "cnic_back", r.cnic_back_original_path, "originals", r.cnic_back_path, "documents"]
+    ];
     const urls = [];
-    const dl = await Promise.all(dls.map(async ([l, k, op, ob, sp, sb2]) => {
-      const orig = !!op, path = orig ? op : sp, bk = orig ? ob : sb2;
-      const { data } = await sb.storage.from(bk).createSignedUrl(path, 600, { download: fn(k, path) });
-      if (!data) return ""; urls.push(data.signedUrl);
-      return `<a class="chipl" href="${esc(data.signedUrl)}">${l}<small>${orig ? "original" : "standard"}</small></a>`;
+    const dl = await Promise.all(dls.map(async ([label, key, originalPath, originalBucket, standardPath, standardBucket]) => {
+      const original = !!originalPath, path = original ? originalPath : standardPath, bucket = original ? originalBucket : standardBucket;
+      if (!path) return `<span class="chipl unavailable" aria-disabled="true">${label}<small>Not uploaded</small></span>`;
+      try {
+        const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 600, { download: fn(key, path) });
+        if (error || !data?.signedUrl) return `<span class="chipl unavailable" aria-disabled="true">${label}<small>Unavailable</small></span>`;
+        urls.push(data.signedUrl);
+        return `<a class="chipl" href="${esc(data.signedUrl)}" download>${label}<small>${original ? "original file" : "standard copy"}</small></a>`;
+      } catch (e) { return `<span class="chipl unavailable" aria-disabled="true">${label}<small>Unavailable</small></span>`; }
     }));
     const items = [["Certificate", r.certificate_path], ["Other document", r.other_doc_path], ["Signature", r.signature_path]].filter(i => i[1]);
-    const vw = await Promise.all(items.map(async ([l, p]) => { const { data } = await sb.storage.from("documents").createSignedUrl(p, 300); return data ? `<a class="chipl" target="_blank" rel="noopener" href="${esc(data.signedUrl)}">View ${l}</a>` : ""; }));
-    const same = (all || []).filter(x => x.id !== r.id && x.fingerprint && x.fingerprint === r.fingerprint).map(x => x.reg_no);
-    const where = r.lat != null ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.lat},${r.lng}">Open location in Google Maps</a> <small>(${Number(r.lat).toFixed(5)}, ${Number(r.lng).toFixed(5)}, about ${Math.round(r.location_accuracy || 0)} m)</small>` : "No location recorded";
+    const vw = await Promise.all(items.map(async ([label, path]) => {
+      try { const { data } = await sb.storage.from("documents").createSignedUrl(path, 300, { download: fn(label.toLowerCase().replace(/\s+/g, "_"), path) });
+        return data?.signedUrl ? `<a class="chipl" target="_blank" rel="noopener" href="${esc(data.signedUrl)}">${label}<small>view file</small></a>` : "";
+      } catch (e) { return ""; }
+    }));
+    if (requestId !== detailRequestId) return;
+    const same = activeDetailAll.filter(x => x.id !== r.id && x.fingerprint && x.fingerprint === r.fingerprint).map(x => x.reg_no);
+    const where = r.lat != null && r.lng != null ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${Number(r.lat)},${Number(r.lng)}">Open location in Google Maps</a> <small>(${Number(r.lat).toFixed(5)}, ${Number(r.lng).toFixed(5)}, about ${Math.round(r.location_accuracy || 0)} m)</small>` : "No location recorded";
     const by = r.entered_by ? `Recorded by admin ${r.entered_by}` : `Self-registered, device ${(r.device_id || "—").slice(0, 8)}${r.device_id ? "…" : ""}`;
-    box.innerHTML = `<h2>${esc(r.name)}</h2><p class="dlg-sub">${esc(r.reg_no)} · ${r.status === "confirmed" ? "Confirmed" : "Pending"} · ${esc(by)}</p>
-      <dl class="kv"><dt>Father</dt><dd>${esc(r.father_name)}</dd><dt>CNIC</dt><dd>${esc(fmtCnic(r.cnic))}</dd><dt>Mobile</dt><dd>${esc(fmtMob(r.mobile))}</dd>${r.email ? `<dt>Email</dt><dd>${esc(r.email)}</dd>` : ""}
-      <dt>Born</dt><dd>${fmtDate(r.dob)} · ${esc(r.gender)}</dd><dt>Address</dt><dd>${esc(r.address)}, ${esc(r.district_tehsil)}</dd><dt>Sport</dt><dd>${esc(r.sport)}</dd><dt>Receipt</dt><dd>${esc(r.payment_ref || "—")}</dd><dt>Location</dt><dd>${where}</dd></dl>
-      ${same.length ? `<p class="msg bad">Same device fingerprint as ${esc(same.join(", "))} — please review.</p>` : ""}
-      <div class="chiprow">${dl.join("")}${vw.join("")}</div>${urls.length ? '<p><button class="btn sm alt" id="kDlAll">Download all 3</button></p>' : ""}`;
-    const b = $("kDlAll"); if (b) b.onclick = () => urls.forEach((u, n) => setTimeout(() => { const x = document.createElement("a"); x.href = u; x.download = ""; document.body.appendChild(x); x.click(); x.remove(); }, n * 700));
+    const age = ageOf(r.dob);
+    box.innerHTML = `<div class="detail-hero">
+        <div class="detail-person-photo">${r.photo_path ? `<img src="${esc(photoUrl(r.photo_path))}" alt="Player portrait" onerror="this.style.display='none'">` : `<span>${esc(String(r.name || "K").trim().slice(0,1).toUpperCase())}</span>`}</div>
+        <div class="detail-person-copy"><span class="detail-eyebrow">PLAYER RECORD · ${esc(r.reg_no)}</span><h2>${esc(r.name)}</h2><p class="dlg-sub">${esc(by)}</p><span class="tag ${r.status}"><span class="status-dot"></span>${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></div>
+      </div>
+      <div class="detail-section-title"><h3>Player information</h3><span>Official registration details</span></div>
+      <dl class="kv">
+        <dt>Father's name</dt><dd>${esc(r.father_name || "—")}</dd>
+        <dt>Age / gender</dt><dd>${age == null ? "—" : esc(age)} years · ${esc(r.gender || "—")}</dd>
+        <dt>CNIC / B-Form</dt><dd>${esc(fmtCnic(r.cnic) || "—")}</dd>
+        <dt>Mobile</dt><dd>${esc(fmtMob(r.mobile) || "—")}</dd>
+        ${r.email ? `<dt>Email</dt><dd>${esc(r.email)}</dd>` : ""}
+        <dt>Address</dt><dd>${esc(r.address || "—")}, ${esc(r.district_tehsil || "—")}</dd>
+        <dt>Sport</dt><dd>${esc(r.sport || "—")}</dd>
+        <dt>Payment reference</dt><dd>${esc(r.payment_ref || "—")}</dd>
+        <dt>Location</dt><dd>${where}</dd>
+      </dl>
+      ${same.length ? `<p class="msg bad">Same device fingerprint as ${esc(same.join(", "))} - please review this registration.</p>` : ""}
+      <div class="detail-section-title"><h3>Documents &amp; downloads</h3><span>Secure, time-limited links</span></div>
+      <div class="chiprow">${dl.join("")}${vw.join("")}</div>
+      <div class="detail-actions">
+        <button type="button" class="btn ghost" id="kDetEdit">Edit details</button>
+        <button type="button" class="btn alt" id="kDetPdf">Download registration PDF</button>
+        <button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm payment"}</button>
+        <button type="button" class="btn danger" id="kDetDelete">Delete player</button>
+        ${urls.length ? `<button type="button" class="btn ghost" id="kDlAll">Download photo + CNIC files</button>` : ""}
+      </div>`;
+    const downloadAll = $("kDlAll"); if (downloadAll) downloadAll.onclick = () => urls.forEach((url, i) => setTimeout(() => { const a = document.createElement("a"); a.href = url; a.download = ""; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }, i * 600));
+    $("kDetEdit").onclick = () => edit(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
+    $("kDetPdf").onclick = e => pdf([r], `${r.reg_no}_${slug(r.name)}.pdf`, e.currentTarget);
+    $("kDetPayment").onclick = () => {
+      if (r.status === "confirmed") unconfirm(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
+      else { const payDialog = $("kPay"); payDialog.addEventListener("close", () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }, { once: true }); pay(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }); }
+    };
+    $("kDetDelete").onclick = () => remove(r, () => { $("kDet").close(); window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete")); });
   }
+  window.addEventListener("kmr:optimistic-registration", e => {
+    const row = e.detail && e.detail.row;
+    if (row && activeDetailRow && row.id === activeDetailRow.id) {
+      Object.assign(activeDetailRow, row);
+      details(activeDetailRow, activeDetailAll);
+    }
+  });
 
   // ---- project funds ----
   function fund(f, done) {
@@ -141,11 +334,13 @@
     $("kFund").showModal(); $("kFn").focus();
     $("kFundF").onsubmit = async e => {
       e.preventDefault(); const row = { donor_name: $("kFn").value.trim(), mohallah: $("kFm").value.trim(), amount: Math.round(Number($("kFa").value)) };
-      busy($("kFundF"), true);
-      const q = f ? sb.from("funds").update(row).eq("id", f.id).select() : sb.from("funds").insert({ ...row, source: "donation" }).select();
-      const { data, error } = await q; busy($("kFundF"), false);
-      if (error || !data || !data.length) { $("kFundE").textContent = "Not saved: " + (error ? error.message : "not allowed"); $("kFundE").hidden = false; return; }
-      $("kFund").close(); toast(f ? "Entry updated" : "Entry saved"); done && done();
+      const recordId = f ? f.id : crypto.randomUUID();
+      const action = { id: `fund-save:${recordId}`, type: "fund-save", recordId, isNew: !f, row, oldRow: f ? { ...f } : null };
+      const localRow = { id: recordId, ...row, source: f ? f.source : "donation", reference: f ? f.reference : null,
+        registration_id: f ? f.registration_id : null, created_at: f ? f.created_at : new Date().toISOString(), recorded_by: f ? f.recorded_by : (KMRAuth.hint() || "pending sync") };
+      if (!enqueue(action, done)) { $("kFundE").textContent = "Local storage is unavailable. No change was made."; $("kFundE").hidden = false; return; }
+      mutateFundCaches(localRow); $("kFund").close();
+      toast(navigator.onLine ? (f ? "Entry updated locally; syncing…" : "Entry saved locally; syncing…") : "Entry saved locally; sync will resume online"); syncOutbox();
     };
   }
   async function removeFund(f, done) {
@@ -155,5 +350,5 @@
     toast("Entry deleted"); done && done();
   }
 
-  window.KMRAdmin = { init, pay, unconfirm, edit, remove, pdf, details, fund, removeFund };
+  window.KMRAdmin = { init, pay, unconfirm, edit, remove, pdf, details, fund, removeFund, syncOutbox };
 })();
