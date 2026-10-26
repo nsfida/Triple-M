@@ -69,3 +69,10 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - `about.html` is linked from the header on the public, registration and admin pages. It describes the first two Khawrai Village editions, Season Three on **15 November 2026**, the expanded invitation to Dargai, Petao, Kati Miana, New Khawrai, Jehangira, Shaidu, Khairabad and surrounding villages, plus the Season Three management and organisation roles.
 - Season Three is managed by **Waseem Shahzad Fida** and organised by **District Sports Office Nowshera, Directorate General of Sports, Government of Khyber Pakhtunkhwa**. Contact: **+92 333 9095878**.
 - The Season Two photographs in `images/image1.jpg`, `images/image2.jpg` and `images/image3.jpg` are credited to **Sagar Studio**.
+
+
+## Season Two background video
+- After extracting this project, place your local video at `khawrai-marathon-s3/images/video.mp4` (the same `images` folder that contains `image1.jpg`, `image2.jpg` and `image3.jpg`). The MP4 is intentionally not bundled in the ZIP because it is large.
+- All four pages use the same muted, looping, full-screen background video with a pale readability overlay. The original Season Two photo is used as a graceful fallback if the video cannot play. The video stays behind the content and the loading screen remains in front.
+- The video uses native HTML media playback with `preload="metadata"`; the browser progressively buffers media as it plays. It does not load the MP4 into JavaScript memory. For actual range/chunk streaming, deploy to a static web server that supports HTTP byte-range requests (`Accept-Ranges: bytes`, with range requests returning `206 Partial Content`). Most common static hosts support this for MP4 files by default. Avoid serving the MP4 through a PHP endpoint that reads the entire file into memory.
+- Background video is muted, has no controls or sound, pauses while the browser tab is hidden, and is disabled for visitors who prefer reduced motion.

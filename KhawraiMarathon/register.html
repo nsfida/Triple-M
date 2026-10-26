@@ -45,8 +45,17 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 @media(max-width:700px){.sheet{padding:13px 10px 34px}#f{padding:14px;border-radius:16px}.fh{gap:8px;padding:13px 8px}.fh img{height:42px;max-width:52px}.fh .gov{font-size:.64rem;letter-spacing:.035em}.fh .dso{font-size:.85rem}.fh .title{margin-top:7px;padding:.4rem .55rem;font-size:.69rem}.meta{font-size:.72rem;gap:7px}.meta span b{margin-left:3px}.fee{padding:11px 12px;font-size:.77rem}.sec{border-radius:12px;margin-bottom:12px}.sec>h2{padding:12px;font-size:.77rem}.sec .body{padding:9px 12px 12px}.r{grid-template-columns:1fr;gap:5px;padding:9px 0}.r>label,.r>.lb{font-size:.77rem}.r input:not([type=radio]):not([type=checkbox]):not([type=file]),.r select,.r textarea{min-height:42px}.pic,.docs{grid-template-columns:1fr}.pic{gap:12px}.pic .drop{min-height:145px}.docs .two{grid-template-columns:1fr 1fr}.docs .drop{min-height:115px;font-size:.84rem}.docs li{font-size:.74rem}.opts{gap:9px 14px}.opts label{font-size:.76rem}.decl{padding:11px;font-size:.75rem}.file{font-size:.75rem}.consent-label span{align-items:flex-start}.consent-label input{flex:none;margin-top:1px}.agree-row{margin-top:11px}#f> .btn{width:100%;margin:0 0 8px!important}#f> .btn.ghost{margin-left:0!important}.ok{padding:25px 15px}}
 @media(max-width:390px){.fh img{max-width:42px;height:35px}.fh{gap:5px;padding:12px 6px}.fh .gov{font-size:.57rem}.fh .dso{font-size:.77rem}.fh .title{font-size:.61rem}.docs .two{grid-template-columns:1fr}.docs .drop{min-height:100px}}
 </style>
+<link rel="stylesheet" href="assets/video-background.css">
 </head>
 <body>
+<!-- Muted Season Two race footage. Place your large file at images/video.mp4. -->
+<div class="kmr-video-background" id="kmrVideoBackground" aria-hidden="true">
+  <video id="kmrBackgroundVideo" muted playsinline loop preload="metadata" tabindex="-1" disablepictureinpicture>
+    <source src="images/video.mp4" type="video/mp4">
+  </video>
+</div>
+<div class="kmr-video-wash" aria-hidden="true"></div>
+
 <div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
   <div class="loader-card">
     <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
@@ -453,4 +462,5 @@ KMRAuth.onChange(async u => {
   if (!queued && !u) await checkDevice();
 });
 </script>
+<script src="js/video-background.js"></script>
 </body></html>

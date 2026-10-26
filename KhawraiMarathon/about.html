@@ -11,8 +11,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/about.css">
+<link rel="stylesheet" href="assets/video-background.css">
 </head>
 <body class="about-body">
+<!-- Muted Season Two race footage. Place your large file at images/video.mp4. -->
+<div class="kmr-video-background" id="kmrVideoBackground" aria-hidden="true">
+  <video id="kmrBackgroundVideo" muted playsinline loop preload="metadata" tabindex="-1" disablepictureinpicture>
+    <source src="images/video.mp4" type="video/mp4">
+  </video>
+</div>
+<div class="kmr-video-wash" aria-hidden="true"></div>
+
 <a class="about-skip" href="#aboutMain">Skip to about content</a>
 <div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
   <div class="loader-card">
@@ -152,5 +161,6 @@
 <script src="js/config.js"></script>
 <script src="js/common.js"></script>
 <script>window.addEventListener('load', () => window.KMRUI && window.KMRUI.hideLoading());</script>
+<script src="js/video-background.js"></script>
 </body>
 </html>

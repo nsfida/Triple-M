@@ -7,8 +7,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/video-background.css">
 </head>
 <body>
+<!-- Muted Season Two race footage. Place your large file at images/video.mp4. -->
+<div class="kmr-video-background" id="kmrVideoBackground" aria-hidden="true">
+  <video id="kmrBackgroundVideo" muted playsinline loop preload="metadata" tabindex="-1" disablepictureinpicture>
+    <source src="images/video.mp4" type="video/mp4">
+  </video>
+</div>
+<div class="kmr-video-wash" aria-hidden="true"></div>
+
 <div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
   <div class="loader-card">
     <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
@@ -252,4 +261,5 @@ KMRAuth.onChange(applyAdmin);
 $("fh").innerHTML = '<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th></tr>';
 (async () => { await applyAdmin(await KMRAuth.current()); })();
 </script>
+<script src="js/video-background.js"></script>
 </body></html>
