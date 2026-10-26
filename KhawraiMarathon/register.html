@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f4f7fb">
+<title>Player Registration Form - Khawrai Marathon Season Three</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+.sheet{width:100%;max-width:1000px;margin:0 auto;padding:22px 22px 54px}
+#f{padding:24px;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+.fh{display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:center;margin:0 0 15px;padding:19px 14px;background:linear-gradient(135deg,#f7fbff 0%,#f3faf5 100%);border:1px solid var(--line);border-radius:16px}
+.fh img{width:auto;height:64px;max-width:90px;object-fit:contain}.fh>div{min-width:0;flex:1}
+.fh .gov{color:var(--green-dark);font-size:clamp(.72rem,2.2vw,.98rem);font-weight:900;letter-spacing:.08em;line-height:1.35}
+.fh .dso{margin-top:3px;color:var(--blue);font-size:clamp(.9rem,2.8vw,1.36rem);font-weight:900;letter-spacing:-.035em;line-height:1.25}
+.fh .title{display:inline-flex;justify-content:center;margin-top:10px;padding:.48rem .9rem;background:var(--green);color:#fff;border-radius:9px;font-size:clamp(.82rem,2vw,1rem);font-weight:900;letter-spacing:.045em}
+.meta{display:flex;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;padding:0 2px 14px;margin-bottom:14px;border-bottom:1px solid var(--line);color:#52647c;font-size:.78rem;font-weight:800}
+.meta span b{display:inline-block;margin-left:6px;color:var(--ink);font-weight:650}
+.fee{position:relative;margin:0 0 18px;padding:14px 16px 14px 18px;border:1px solid #f0dfb7;border-left:4px solid #e4a21b;border-radius:12px;background:#fff8e8;color:#6d4a08;font-size:.82rem;line-height:1.65}
+.sec{--c:var(--blue);margin:0 0 15px;overflow:hidden;border:1px solid var(--line);border-radius:15px;background:#fff}
+.sec.g{--c:var(--green)}.sec.b{--c:var(--blue)}
+.sec>h2{display:flex;align-items:center;gap:10px;padding:13px 16px;background:#edf3ff;color:#284f9b;font-size:.86rem;font-weight:900;letter-spacing:.035em}
+.sec.g>h2{background:#eaf7f0;color:#146a4b}
+.sec .body{padding:14px 17px 17px}
+.r{display:grid;grid-template-columns:minmax(180px, .7fr) minmax(0,1.6fr);gap:8px 18px;align-items:center;padding:9px 0;border-bottom:1px solid #edf1f5}
+.r:last-child{border-bottom:0}.r>label,.r>.lb{color:#465a73;font-size:.79rem;font-weight:800}
+.sec.g .r>label,.sec.g .r>.lb{color:#25654c}
+.r input:not([type=radio]):not([type=checkbox]):not([type=file]),.r select,.r textarea{width:100%;min-width:0;min-height:43px;padding:.62rem .75rem;border:1px solid #d9e2ed;border-radius:10px;background:#fbfcfe;color:var(--ink);font:inherit;font-size:.84rem;outline:0;transition:border-color .15s,box-shadow .15s,background .15s}
+.r input:not([type=radio]):not([type=checkbox]):not([type=file]):focus,.r select:focus,.r textarea:focus{border-color:#69a795;background:#fff;box-shadow:0 0 0 4px rgba(8,127,91,.08)}
+.r input::placeholder{color:#9ba7b7}
+.pic{display:grid;grid-template-columns:minmax(0,1fr) 175px;gap:16px;align-items:stretch}
+.opts{display:flex;align-items:center;flex-wrap:wrap;gap:9px 20px}.opts label{display:inline-flex;align-items:center;gap:7px;color:#42566e;font-size:.8rem;font-weight:700}.opts input,.docs input[type=checkbox]{width:18px;height:18px;accent-color:var(--green)}
+.drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:174px;padding:12px;overflow:hidden;border:1.5px dashed #91b5ac;border-radius:13px;background:#f6fbf8;color:var(--green-dark);font-size:.98rem;font-weight:900;text-align:center;cursor:pointer}
+.drop:hover{border-color:var(--green);background:#eff9f3}.drop small{color:var(--muted);font-size:.7rem;font-weight:600}
+.drop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.drop img{max-width:100%;max-height:160px;object-fit:contain;border-radius:9px}
+.docs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:18px}.docs ul{list-style:none;padding:0;margin:0}.docs li{display:flex;gap:9px;align-items:center;margin:9px 0;color:#3c5b4c;font-size:.79rem;font-weight:700}
+.docs .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.docs .drop{min-height:135px}
+.file{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 0;color:var(--muted);font-size:.78rem}.upload-note{margin-top:12px;color:var(--muted)}.signature-clear{margin-top:7px}.loc-desc{margin:0 0 8px;font-weight:600}.consent-label{margin-bottom:8px}.consent-label span{display:flex;gap:8px;align-items:center;color:#42566e;font-weight:750}.loc-info{margin:8px 0 0;font-weight:800}.agree-row{margin-top:12px}.file input[type=file]{max-width:100%;font:inherit;font-size:.72rem}
+.decl{margin:0 0 13px;padding:13px 14px;border:1px solid var(--line);border-radius:11px;background:#f8fafc;color:#53647a;font-size:.79rem;line-height:1.8}
+canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed #9bb8ca;border-radius:11px;background:#fbfdff;touch-action:none}
+.err{min-height:1.2em;margin:12px 0;color:var(--red);font-size:.82rem;font-weight:800}
+#f> .btn{min-height:48px;padding:.8rem 1.4rem}#f> .btn.ghost{margin-left:8px!important}
+.ok{padding:32px 24px;border:1px solid #c9e9d8;border-top:4px solid var(--green);border-radius:19px;background:#fff;box-shadow:var(--shadow);text-align:center}.ok h2{font-size:1.5rem}.ok p{max-width:650px;margin:12px auto;color:var(--muted);font-size:.86rem}.ok .n{margin:9px 0;color:var(--green);font-size:clamp(2rem,6vw,3.4rem);font-weight:900;letter-spacing:-.06em}
+@media(max-width:700px){.sheet{padding:13px 10px 34px}#f{padding:14px;border-radius:16px}.fh{gap:8px;padding:13px 8px}.fh img{height:42px;max-width:52px}.fh .gov{font-size:.64rem;letter-spacing:.035em}.fh .dso{font-size:.85rem}.fh .title{margin-top:7px;padding:.4rem .55rem;font-size:.69rem}.meta{font-size:.72rem;gap:7px}.meta span b{margin-left:3px}.fee{padding:11px 12px;font-size:.77rem}.sec{border-radius:12px;margin-bottom:12px}.sec>h2{padding:12px;font-size:.77rem}.sec .body{padding:9px 12px 12px}.r{grid-template-columns:1fr;gap:5px;padding:9px 0}.r>label,.r>.lb{font-size:.77rem}.r input:not([type=radio]):not([type=checkbox]):not([type=file]),.r select,.r textarea{min-height:42px}.pic,.docs{grid-template-columns:1fr}.pic{gap:12px}.pic .drop{min-height:145px}.docs .two{grid-template-columns:1fr 1fr}.docs .drop{min-height:115px;font-size:.84rem}.docs li{font-size:.74rem}.opts{gap:9px 14px}.opts label{font-size:.76rem}.decl{padding:11px;font-size:.75rem}.file{font-size:.75rem}.consent-label span{align-items:flex-start}.consent-label input{flex:none;margin-top:1px}.agree-row{margin-top:11px}#f> .btn{width:100%;margin:0 0 8px!important}#f> .btn.ghost{margin-left:0!important}.ok{padding:25px 15px}}
+@media(max-width:390px){.fh img{max-width:42px;height:35px}.fh{gap:5px;padding:12px 6px}.fh .gov{font-size:.57rem}.fh .dso{font-size:.77rem}.fh .title{font-size:.61rem}.docs .two{grid-template-columns:1fr}.docs .drop{min-height:100px}}
+</style>
+</head>
+<body>
+<div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
+  <div class="loader-card">
+    <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
+    <div class="loader-kicker">KHAWRAI MARATHON · SEASON THREE</div>
+    <h2>Getting the race ready</h2>
+    <p>Preparing runners, registrations and race updates.</p>
+    <div class="runner-track" aria-hidden="true"><span class="runner-icon">➤</span><span class="track-line"></span><span class="track-dot"></span><span class="track-dot"></span><span class="track-dot"></span></div>
+    <div class="loader-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
+  </div>
+</div>
+<header class="top formtop"><div class="in"><a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a><div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official player registration · Participant entry form</p></div><div class="header-actions"><div class="cta about-cta"><a class="btn ghost about-nav-link" href="about.html">About</a></div><div class="cta"><a class="btn ghost" href="index.html">Participants</a></div><div class="profile-mount"></div></div></div></header>
+<div class="sheet">
+<div id="done" class="ok" hidden>
+  <h2>Registration received</h2>
+  <div class="n" id="regno"></div>
+  <p id="doneMsg">Keep this registration number. Your entry shows as Pending on the participants list until the admin confirms it.</p><p id="syncMsg" class="msg" role="status" aria-live="polite" hidden></p><p><button type="button" class="btn alt" id="retrySync" hidden>Retry sync now</button></p>
+  <p><button class="btn alt" id="again" hidden onclick="location.reload()">Add another registration</button> <a class="btn" href="index.html">View participants</a></p>
+</div>
+<div id="blocked" class="ok" hidden><h2>This device has already registered</h2>
+  <p>Each device can register only once, so a second registration cannot be submitted from this device. If this is a mistake, contact the District Sports Office Nowshera.</p>
+  <p><a class="btn" href="index.html">View participants</a></p></div>
+<form id="f" novalidate>
+  <div class="fh">
+    <img src="assets/logo-left.png" alt="District Administration Nowshera emblem">
+    <div><div class="gov">GOVERNMENT OF KHYBER PAKHTUNKHWA</div><div class="dso">DISTRICT SPORTS OFFICE NOWSHERA</div><div class="title">PLAYER REGISTRATION FORM</div></div>
+    <img src="assets/logo-right.png" alt="District Sports Office Nowshera logo">
+  </div>
+  <div class="meta"><span>Registration No:<b>Assigned when you submit</b></span><span>Date of Registration:<b id="today"></b></span></div>
+  <p class="fee"><b>Entry fee: Rs. 500.</b> Pay the fee to the organisers, then enter the receipt or transaction number in the box at the end of this form. Your entry stays <b>Pending</b> until the admin confirms payment. Write names and addresses in English letters so they print correctly on your form.</p>
+
+  <section class="sec b"><h2>1. PLAYER PERSONAL INFORMATION</h2><div class="body"><div class="pic"><div>
+    <div class="r"><label for="name">Name</label><input type="text" id="name" required maxlength="100" autocomplete="name"></div>
+    <div class="r"><label for="father">Father's Name</label><input type="text" id="father" required maxlength="100"></div>
+    <div class="r"><label for="cnic">CNIC/B-Form No.</label><input type="text" id="cnic" required inputmode="numeric" placeholder="35202-1234567-1" maxlength="15"></div>
+    <div class="r"><label for="mobile">Mobile No.</label><input type="tel" id="mobile" required placeholder="03XX-XXXXXXX" maxlength="12" autocomplete="tel"></div>
+    <div class="r"><label for="email">Email</label><input type="email" id="email" autocomplete="email"></div>
+    <div class="r"><span class="lb">Gender</span><div class="opts"><label><input type="radio" name="gender" value="Male" required> Male</label><label><input type="radio" name="gender" value="Female"> Female</label></div></div>
+    <div class="r"><label for="dob">Date of Birth</label><input type="date" id="dob" required></div>
+  </div>
+  <label class="drop" id="photoDrop"><span>Player photo</span><small>Upload a recent portrait</small><input type="file" id="photo" accept="image/*"></label></div>
+    <div class="r"><label for="address">Permanent Address</label><input type="text" id="address" required maxlength="200"></div>
+    <div class="r"><label for="district">District / Tehsil</label><input type="text" id="district" required maxlength="100"></div>
+  </div></section>
+
+  <section class="sec g"><h2>2. SPORTS INFORMATION</h2><div class="body">
+    <div class="r"><label for="sport">Game/Sport Played</label><input type="text" id="sport" required maxlength="100" value="Marathon / Running"></div>
+    <div class="r"><label for="assoc">Registered Sports Association</label><input type="text" id="assoc" maxlength="150"></div>
+    <div class="r"><span class="lb">Player Level</span><div class="opts"><label><input type="radio" name="level" value="District"> District</label><label><input type="radio" name="level" value="Regional"> Regional</label><label><input type="radio" name="level" value="Provincial"> Provincial</label><label><input type="radio" name="level" value="National"> National</label></div></div>
+    <div class="r"><label for="years">Years of Experience</label><input type="text" id="years" maxlength="50"></div>
+    <div class="r"><label for="edu">Educational Qualification</label><input type="text" id="edu" maxlength="100"></div>
+  </div></section>
+
+  <section class="sec b"><h2>3. OFFICIAL SPORTS PARTICIPATION</h2><div class="body">
+    <div class="r"><span class="lb">Participation in Official Games/Events</span><div class="opts"><label><input type="radio" name="official" value="yes"> Yes</label><label><input type="radio" name="official" value="no" checked> No</label></div></div>
+    <div class="r"><label for="event">Name of Game/Event</label><input type="text" id="event" maxlength="150" class="ev"></div>
+    <div class="r"><label for="eventdate">Date of Participation</label><input type="text" id="eventdate" maxlength="60" class="ev" placeholder="e.g. March 2025"></div>
+    <div class="r"><span class="lb">Level of Participation</span><div class="opts"><label><input class="ev" type="radio" name="evlevel" value="District"> District</label><label><input class="ev" type="radio" name="evlevel" value="Regional"> Regional</label><label><input class="ev" type="radio" name="evlevel" value="Provincial"> Provincial</label><label><input class="ev" type="radio" name="evlevel" value="National"> National</label><label><input class="ev" type="radio" name="evlevel" value="International"> International</label></div></div>
+    <div class="r"><label for="org">Name of Organizing Department/Association</label><input type="text" id="org" maxlength="150" class="ev"></div>
+  </div></section>
+
+  <section class="sec g"><h2>4. DOCUMENTS / ATTACHMENTS</h2><div class="body"><div class="docs"><div><ul>
+    <li><input type="checkbox" id="ck1" disabled aria-label="Photograph attached"> Recent Player Photograph</li>
+    <li><input type="checkbox" id="ck2" disabled aria-label="CNIC attached"> CNIC/B-Form Copy (Front &amp; Back, as applicable)</li>
+    <li><input type="checkbox" id="ck3" disabled aria-label="Certificate attached"> Sports Certificate(s) / Achievement Certificate(s)</li>
+    <li><input type="checkbox" id="ck4" disabled aria-label="Other document attached"> Other Relevant Documents</li></ul>
+    <p class="file">Certificate (optional): <input type="file" id="cert" accept="image/*"></p>
+    <p class="file">Other document (optional): <input type="file" id="other" accept="image/*"></p>
+    <p class="file upload-note">Upload photos or scans as images (JPG or PNG).</p></div>
+    <div class="two"><label class="drop"><span>CNIC front</span><small>Tap to upload image</small><input type="file" id="cf" accept="image/*"></label>
+    <label class="drop"><span>CNIC back</span><small>Tap to upload image</small><input type="file" id="cb" accept="image/*"></label></div></div></div></section>
+
+  <section class="sec b"><h2>5. DECLARATION</h2><div class="body">
+    <p class="decl">I hereby declare that all the information provided in this registration form is true, correct and complete to the best of my knowledge and belief. I understand that the information may be used by the Directorate General of Sports, Khyber Pakhtunkhwa and the District Sports Office Nowshera for player registration, verification, record keeping, participation in sports activities/events and other sports-related official purposes.<br>I further undertake to provide correct and authentic information/documents whenever required.</p>
+    <div class="r"><span class="lb">Player's Signature/Thumb Impression</span><div><canvas id="sig" width="560" height="130" aria-label="Signature pad"></canvas><button type="button" class="btn ghost sm signature-clear" id="clr">Clear signature</button></div></div>
+    <div class="r"><label for="pname">Name of Player</label><input type="text" id="pname" required maxlength="100"></div>
+    <div class="r"><label for="pay">Fee receipt / transaction no. (Rs. 500)</label><input type="text" id="pay" maxlength="80" placeholder="Optional: helps the admin confirm faster"></div>
+    <div class="r" id="locRow"><span class="lb">Location &amp; device</span><div>
+      <p class="decl loc-desc">To prevent duplicate entries, the organisers record this device's ID and your current location on Google Maps. Tick the consent box, then press <b>Share my location</b> and choose <b>Allow</b> when your browser asks.</p>
+      <label class="opts consent-label"><span><input type="checkbox" id="consent"> I consent to share my device ID and exact location with the organisers.</span></label>
+      <button type="button" class="btn alt sm" id="getLoc" disabled>Share my location</button>
+      <p id="locInfo" class="loc-info" aria-live="polite"></p></div></div>
+    <div class="opts agree-row"><label><input type="checkbox" id="agree"> I accept the declaration above</label></div>
+  </div></section>
+
+  <div class="err" id="err" role="alert"></div>
+  <button class="btn" id="go" type="submit">Submit registration</button>
+  <a class="btn ghost" href="index.html">Back to participants</a>
+</form></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script><script src="js/common.js"></script>
+<script>
+const $ = id => document.getElementById(id), err = $("err");
+$("today").textContent = fmtDate(new Date());
+$("dob").max = new Date().toISOString().slice(0, 10);
+// official participation toggles the event fields
+function syncOfficial() { const on = document.querySelector('[name=official]:checked').value === "yes"; document.querySelectorAll(".ev").forEach(e => e.disabled = !on); }
+document.querySelectorAll("[name=official]").forEach(r => r.onchange = syncOfficial); syncOfficial();
+// image previews + ticks
+function bindPreview(inp, drop, tickIds) {
+  $(inp).onchange = () => {
+    const f = $(inp).files[0], d = drop instanceof Element ? drop : $(inp).closest(".drop");
+    if (f) { d.querySelectorAll("img").forEach(i => i.remove()); const im = new Image(); im.alt = "Selected image"; im.src = URL.createObjectURL(f); d.prepend(im); d.querySelector("span").style.display = "none"; d.querySelector("small").style.display = "none"; }
+    tick();
+  };
+}
+function tick() { $("ck1").checked = !!$("photo").files[0]; $("ck2").checked = !!($("cf").files[0] && $("cb").files[0]); $("ck3").checked = !!$("cert").files[0]; $("ck4").checked = !!$("other").files[0]; }
+["photo", "cf", "cb"].forEach(i => bindPreview(i)); ["cert", "other"].forEach(i => $(i).onchange = tick);
+// signature pad
+const cv = $("sig"), cx = cv.getContext("2d"); let drawing = false, signed = false;
+cx.lineWidth = 2.5; cx.lineCap = "round"; cx.strokeStyle = "#0a2150";
+const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+cv.addEventListener("pointerdown", e => { drawing = true; cv.setPointerCapture(e.pointerId); const [x, y] = pos(e); cx.beginPath(); cx.moveTo(x, y); });
+cv.addEventListener("pointermove", e => { if (!drawing) return; const [x, y] = pos(e); cx.lineTo(x, y); cx.stroke(); signed = true; });
+["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, () => drawing = false));
+$("clr").onclick = () => { cx.clearRect(0, 0, cv.width, cv.height); signed = false; };
+// ----- device ID, fingerprint, location -----
+const idb = {
+  open: () => new Promise((res, rej) => { const r = indexedDB.open("kmr", 1); r.onupgradeneeded = () => r.result.createObjectStore("k"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }),
+  async get(k) { try { const d = await this.open(); return await new Promise(res => { const q = d.transaction("k").objectStore("k").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } },
+  async set(k, v) { try { const d = await this.open(); await new Promise(res => { const t = d.transaction("k", "readwrite"); t.objectStore("k").put(v, k); t.oncomplete = res; t.onerror = res; }); } catch (e) {} }
+};
+const ck = n => (document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]*)")) || [])[1] || "";
+const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+function remember(k, v) { try { localStorage.setItem(k, v); } catch (e) {} document.cookie = `${k}=${v}; max-age=315360000; path=/; SameSite=Lax`; idb.set(k, v); }
+async function getDeviceId() {
+  let id = lsGet("kmr_device") || ck("kmr_device") || await idb.get("kmr_device");
+  if (!id) id = crypto.randomUUID();
+  remember("kmr_device", id); return id;
+}
+async function fingerprint() {
+  let c = "", gl = "";
+  try { const cv = document.createElement("canvas"); cv.width = 220; cv.height = 40; const g = cv.getContext("2d"); g.textBaseline = "top"; g.font = "16px Arial"; g.fillStyle = "#f60"; g.fillRect(10, 5, 100, 20); g.fillStyle = "#069"; g.fillText("Khawrai-S3 fp", 4, 12); c = cv.toDataURL(); } catch (e) {}
+  try { const x = document.createElement("canvas").getContext("webgl"), ex = x.getExtension("WEBGL_debug_renderer_info"); gl = ex ? x.getParameter(ex.UNMASKED_RENDERER_WEBGL) : ""; } catch (e) {}
+  const s = [navigator.userAgent, navigator.language, screen.width + "x" + screen.height + "x" + screen.colorDepth, devicePixelRatio, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.hardwareConcurrency, navigator.deviceMemory, navigator.platform, gl, c].join("|");
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function blockDevice() { $("f").hidden = true; $("done").hidden = true; $("blocked").hidden = false; }
+// Signed-in admins (login is shared with the other pages) can record unlimited registrations: no device or location rule.
+let admin = "";
+function applyAdmin(u) {
+  admin = u || ""; $("locRow").hidden = !!admin;
+  if (admin && $("done").hidden) { $("f").hidden = false; $("blocked").hidden = true; }
+}
+async function checkDevice() {
+  if (admin) return;
+  if (lsGet("kmr_registered") || ck("kmr_registered") || await idb.get("kmr_registered")) return blockDevice();
+  try { const { data } = await sb.rpc("device_registered", { p_device: await getDeviceId() }); if (data === true) blockDevice(); } catch (e) {}
+}
+let loc = null;
+$("consent").onchange = () => { $("getLoc").disabled = !$("consent").checked; if (!$("consent").checked) { loc = null; $("locInfo").textContent = ""; } };
+$("getLoc").onclick = () => {
+  const info = $("locInfo"); info.style.color = "var(--ink)"; loc = null;
+  if (!window.isSecureContext || !navigator.geolocation) { info.style.color = "var(--red)"; return info.textContent = "Location needs a secure (https) page and a browser that supports it."; }
+  info.textContent = "Waiting for your permission and GPS…"; $("getLoc").disabled = true;
+  navigator.geolocation.getCurrentPosition(p => {
+    loc = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
+    const u = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
+    info.innerHTML = `Location captured: ${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)} (accurate to about ${Math.round(loc.accuracy)} m) · <a target="_blank" rel="noopener" href="${u}">Check on Google Maps</a>`;
+    info.style.color = "var(--green)"; $("getLoc").disabled = false; $("getLoc").textContent = "Update my location";
+  }, e => {
+    info.style.color = "var(--red)"; $("getLoc").disabled = false;
+    info.textContent = e.code === 1 ? "Location permission was denied. Allow location for this site in your browser settings, then press Share my location again."
+      : e.code === 3 ? "Finding your location took too long. Move to an open area, turn on GPS and try again." : "Your location is unavailable. Turn on location services and try again.";
+  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+};
+// helpers
+function toJpeg(file, max = 1280, q = 0.85) {
+  return new Promise((res, rej) => {
+    const im = new Image(); im.onload = () => {
+      const s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement("canvas");
+      c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? res(b) : rej(new Error("Could not read image")), "image/jpeg", q);
+    }; im.onerror = () => rej(new Error("One of the files is not a supported image. Use JPG or PNG.")); im.src = URL.createObjectURL(file);
+  });
+}
+async function upload(bucket, path, blob, type) {
+  const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: type, upsert: false });
+  if (error) {
+    // A retry may find a random, job-specific path uploaded by this same queued submission.
+    if (/already exists|duplicate|object exists/i.test(error.message || "")) return path;
+    throw new Error("File upload failed: " + error.message);
+  }
+  return path;
+}
+$("cnic").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 13); e.target.value = d.length > 12 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}` : d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; });
+$("mobile").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 11); e.target.value = d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d; });
+// ---- Local-first registration draft + durable submission queue ----------------
+const DRAFT_KEY = "kmr-s3-registration-draft-v2", PENDING_KEY = "kmr-s3-registration-pending-v2";
+const QUEUE_DB = "kmr-s3-registration-queue-v1", QUEUE_STORE = "registrations";
+let syncingJob = false, activeJob = null;
+function openQueueDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error("This browser does not support local offline storage."));
+    const req = indexedDB.open(QUEUE_DB, 1);
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(QUEUE_STORE)) req.result.createObjectStore(QUEUE_STORE, { keyPath: "id" }); };
+    req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error || new Error("Could not open local storage."));
+  });
+}
+async function queuePut(job) {
+  const db = await openQueueDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite"); tx.objectStore(QUEUE_STORE).put(job);
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error || new Error("Could not save this entry on the device.")); tx.onabort = () => reject(tx.error || new Error("Local save was interrupted."));
+  });
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: job.id, adminMode: job.adminMode, createdAt: job.createdAt })); } catch (e) {}
+  db.close();
+}
+async function queueGetAll() {
+  try {
+    const db = await openQueueDb();
+    const records = await new Promise((resolve, reject) => {
+      const tx = db.transaction(QUEUE_STORE, "readonly"), req = tx.objectStore(QUEUE_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []); req.onerror = () => reject(req.error || new Error("Could not read local queue."));
+    });
+    db.close(); return records;
+  } catch (e) { return []; }
+}
+async function queueDelete(id) {
+  try {
+    const db = await openQueueDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(QUEUE_STORE, "readwrite"); tx.objectStore(QUEUE_STORE).delete(id);
+      tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+    });
+    db.close();
+  } catch (e) {}
+  try { const meta = JSON.parse(localStorage.getItem(PENDING_KEY) || "null"); if (!meta || meta.id === id) localStorage.removeItem(PENDING_KEY); } catch (e) {}
+}
+function persistDraft() {
+  const f = $("f"), snapshot = { fields: {}, radios: {}, checks: {} };
+  for (const el of f.elements) {
+    if (!el.id || ["file", "submit", "button", "reset", "password"].includes(el.type)) continue;
+    if (el.type === "radio") { if (el.checked) snapshot.radios[el.name] = el.value; continue; }
+    if (el.type === "checkbox") {
+      if (["consent", "agree", "ck1", "ck2", "ck3", "ck4"].includes(el.id)) continue;
+      snapshot.checks[el.id] = el.checked; continue;
+    }
+    snapshot.fields[el.id] = el.value;
+  }
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot)); } catch (e) {}
+}
+function restoreDraft() {
+  let data; try { data = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return; }
+  if (!data) return;
+  Object.entries(data.fields || {}).forEach(([id, value]) => { const el = $(id); if (el && !["file", "checkbox", "radio"].includes(el.type)) el.value = value; });
+  Object.entries(data.radios || {}).forEach(([name, value]) => { const el = document.querySelector(`[name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`); if (el) el.checked = true; });
+  Object.entries(data.checks || {}).forEach(([id, value]) => { const el = $(id); if (el && el.type === "checkbox") el.checked = !!value; });
+  try { syncOfficial(); } catch (e) {}
+}
+restoreDraft();
+document.querySelectorAll('#f input:not([type="file"]), #f select, #f textarea').forEach(el => {
+  if (["consent", "agree"].includes(el.id)) return;
+  el.addEventListener("input", persistDraft); el.addEventListener("change", persistDraft);
+});
+function showSyncPending(job, message) {
+  KMRUI.hideLoading();
+  activeJob = job; $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = false;
+  $("done").querySelector("h2").textContent = "Registration saved on this device";
+  $("regno").textContent = "SYNC PENDING";
+  $("doneMsg").textContent = "Your form and attached files are safely saved in this browser. This is not yet an official registration and will not appear on the runners list until database sync succeeds. Keep this browser data intact until it finishes syncing.";
+  $("syncMsg").textContent = message || (navigator.onLine ? "Connecting securely and syncing your entry…" : "You are offline. This entry will retry automatically when the connection returns.");
+  $("syncMsg").hidden = false; $("retrySync").hidden = false; $("again").hidden = true;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function showSyncError(message) { $("syncMsg").textContent = message; $("syncMsg").hidden = false; }
+function showRegistrationSuccess(regNo, isAdmin) {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  if (isAdmin) { $("doneMsg").textContent = "Registration recorded successfully. It remains Pending until an admin confirms its status in the public list or admin panel."; $("again").hidden = false; }
+  else { remember("kmr_registered", regNo); $("doneMsg").textContent = "Keep this registration number. Your entry is now recorded and shows as Pending until the admin confirms it."; $("again").hidden = true; }
+  $("done").querySelector("h2").textContent = "Registration received";
+  $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = false;
+  $("regno").textContent = regNo; $("syncMsg").hidden = true; $("retrySync").hidden = true;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function extensionOf(file) { return ((file && file.name || "image.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"; }
+function mimeOf(file) {
+  return file.type && /^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) ? file.type : ({ heic: "image/heic", heif: "image/heif", png: "image/png", webp: "image/webp" }[extensionOf(file)] || "image/jpeg");
+}
+async function buildRegistrationJob() {
+  const v = id => $(id).value.trim(), digits = id => v(id).replace(/\D/g, "");
+  const deviceId = admin ? "" : await getDeviceId(), fp = admin ? "" : await fingerprint();
+  const id = crypto.randomUUID(), official = document.querySelector('[name="official"]:checked').value === "yes";
+  const photo = $("photo").files[0], front = $("cf").files[0], back = $("cb").files[0], cert = $("cert").files[0], other = $("other").files[0];
+  const signature = await new Promise((resolve, reject) => cv.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not save the signature. Please sign again.")), "image/png"));
+  const payload = {
+    id, name: v("name"), father_name: v("father"), cnic: digits("cnic"), mobile: digits("mobile"), email: v("email"),
+    gender: document.querySelector('[name="gender"]:checked').value, dob: v("dob"), address: v("address"), district_tehsil: v("district"),
+    sport: v("sport"), association: v("assoc"), player_level: (document.querySelector('[name="level"]:checked') || {}).value || "", years_experience: v("years"), education: v("edu"),
+    official_participation: official, event_name: official ? v("event") : "", event_date: official ? v("eventdate") : "",
+    event_level: official ? ((document.querySelector('[name="evlevel"]:checked') || {}).value || "") : "", event_org: official ? v("org") : "",
+    device_id: deviceId, fingerprint: fp, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, accuracy: loc ? loc.accuracy : null,
+    declaration_accepted: true, signature_name: v("pname"), payment_ref: v("pay"),
+    photo_path: `${id}/photo.jpg`, cnic_front_path: `${id}/cnic_front.jpg`, cnic_back_path: `${id}/cnic_back.jpg`,
+    certificate_path: cert ? `${id}/certificate.jpg` : "", other_doc_path: other ? `${id}/other.jpg` : "",
+    photo_original_path: `${id}/photo_original.${extensionOf(photo)}`,
+    cnic_front_original_path: `${id}/cnic_front_original.${extensionOf(front)}`,
+    cnic_back_original_path: `${id}/cnic_back_original.${extensionOf(back)}`,
+    signature_path: `${id}/signature.png`
+  };
+  const files = [
+    { bucket: "photos", path: payload.photo_path, blob: photo, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "documents", path: payload.cnic_front_path, blob: front, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "documents", path: payload.cnic_back_path, blob: back, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "originals", path: payload.photo_original_path, blob: photo, mode: "original", type: mimeOf(photo) },
+    { bucket: "originals", path: payload.cnic_front_original_path, blob: front, mode: "original", type: mimeOf(front) },
+    { bucket: "originals", path: payload.cnic_back_original_path, blob: back, mode: "original", type: mimeOf(back) },
+    { bucket: "documents", path: payload.signature_path, blob: signature, mode: "raw", type: "image/png" }
+  ];
+  if (cert) files.push({ bucket: "documents", path: payload.certificate_path, blob: cert, mode: "jpeg", type: "image/jpeg" });
+  if (other) files.push({ bucket: "documents", path: payload.other_doc_path, blob: other, mode: "jpeg", type: "image/jpeg" });
+  return { id, adminMode: !!admin, createdAt: new Date().toISOString(), payload, files };
+}
+async function syncRegistrationJob(job) {
+  if (syncingJob) return;
+  if (!navigator.onLine) { showSyncPending(job, "Offline mode: this entry is safely queued on this device. Sync will retry when you are online."); return; }
+  if (!!admin !== !!job.adminMode) { showSyncPending(job, `This saved entry was started in ${job.adminMode ? "admin" : "public player"} mode. Sign in or out to match that mode before syncing it.`); return; }
+  syncingJob = true; activeJob = job; showSyncPending(job, "Uploading your documents securely, then saving the registration in the database…");
+  const btn = $("retrySync"); btn.disabled = true; const originalLabel = btn.textContent; btn.textContent = "Syncing…";
+  try {
+    // Concurrent uploads reduce submit time. Every path is unique to this durable queue item's UUID.
+    await Promise.all(job.files.map(async file => {
+      const blob = file.mode === "jpeg" ? await toJpeg(file.blob) : file.blob;
+      return upload(file.bucket, file.path, blob, file.type);
+    }));
+    const { data, error } = await sb.rpc("submit_registration", { p: job.payload });
+    if (error) {
+      if (error.code === "23505" && /device/i.test(error.message || "")) {
+        await queueDelete(job.id); activeJob = null; blockDevice(); return;
+      }
+      if (error.code === "23505" && /cnic/i.test(error.message || "")) {
+        await queueDelete(job.id); activeJob = null; $("done").hidden = true; $("f").hidden = false;
+        err.textContent = "This CNIC/B-Form number is already registered. Check the number and submit again.";
+        $("go").disabled = false; $("go").textContent = "Submit registration"; return;
+      }
+      if (error.code === "23505" && /registrations_pkey|registrations_pkey|id/i.test(error.message || "")) {
+        throw new Error("The database may have saved this entry before the connection dropped. Run migration 20261026_002_local_first_zero_payment.sql to enable safe retry, then retry sync.");
+      }
+      if (admin && /Device ID missing|Location permission|device/i.test(error.message || "")) throw new Error("Run sql/migrations/20261024_001_admin_multi_entries.sql in the Supabase SQL Editor, then retry sync.");
+      throw new Error("Database sync needs attention: " + error.message);
+    }
+    const regNo = data && data.reg_no;
+    if (!regNo) throw new Error("The server did not return a registration number. Your local entry is retained for retry.");
+    await queueDelete(job.id); activeJob = null; showRegistrationSuccess(regNo, job.adminMode);
+  } catch (ex) {
+    const message = ex && ex.message ? ex.message : "Could not sync this entry yet.";
+    showSyncPending(job, `${message} Your form and files remain saved locally. Retry when the connection or database is ready.`);
+  } finally {
+    syncingJob = false; btn.disabled = false; btn.textContent = originalLabel;
+    KMRUI.hideLoading();
+  }
+}
+async function restoreQueuedSubmission() {
+  const jobs = await queueGetAll(); if (!jobs.length) return false;
+  jobs.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const job = jobs[0]; showSyncPending(job, navigator.onLine ? "A previously saved registration was found. Resuming sync…" : "A registration is saved locally and will sync when the connection returns.");
+  if (navigator.onLine) await syncRegistrationJob(job);
+  return true;
+}
+$("retrySync").onclick = async () => {
+  const job = activeJob || (await queueGetAll())[0]; if (job) await syncRegistrationJob(job);
+};
+window.addEventListener("online", async () => { const job = activeJob || (await queueGetAll())[0]; if (job) await syncRegistrationJob(job); });
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault(); err.textContent = "";
+  const v = id => $(id).value.trim(), digits = id => v(id).replace(/\D/g, "");
+  const need = [["name", "Name"], ["father", "Father's name"], ["address", "Permanent address"], ["district", "District / Tehsil"], ["sport", "Game/Sport played"], ["pname", "Name of player"], ["dob", "Date of birth"]].find(([id]) => !v(id));
+  if (need) return err.textContent = `${need[1]} is required.`;
+  if (digits("cnic").length !== 13) return err.textContent = "CNIC/B-Form number must have 13 digits.";
+  if (digits("mobile").length !== 11) return err.textContent = "Mobile number must have 11 digits, for example 0300-1234567.";
+  if (!document.querySelector('[name="gender"]:checked')) return err.textContent = "Select a gender.";
+  if (!$("photo").files[0] || !$("cf").files[0] || !$("cb").files[0]) return err.textContent = "Attach your photo and the front and back of your CNIC/B-Form.";
+  if (!signed) return err.textContent = "Sign in the signature box.";
+  if (!$("agree").checked) return err.textContent = "Accept the declaration to continue.";
+  if (!admin && !$("consent").checked) return err.textContent = "Tick the consent box to share your device ID and location.";
+  if (!admin && !loc) return err.textContent = "Press Share my location and allow it in your browser before submitting.";
+  const big = ["photo", "cf", "cb", "cert", "other"].find(i => $(i).files[0] && $(i).files[0].size > 25 * 1024 * 1024);
+  if (big) return err.textContent = "Each image must be under 25 MB.";
+  const btn = $("go"); btn.disabled = true; btn.textContent = "Saving on this device…";
+  try {
+    const job = await buildRegistrationJob();
+    // Durable local write happens before uploads or database requests.
+    await queuePut(job);
+    persistDraft();
+    showSyncPending(job, "Saved locally. Syncing your files and registration to the database in the background…");
+    await syncRegistrationJob(job);
+  } catch (ex) {
+    err.textContent = (ex && ex.message) || "Could not save this entry locally. Please try again.";
+    btn.disabled = false; btn.textContent = "Submit registration";
+    if (activeJob) showSyncPending(activeJob, err.textContent);
+  }
+});
+(async () => {
+  applyAdmin(await KMRAuth.current());
+  const queued = await restoreQueuedSubmission();
+  if (!queued) await checkDevice();
+  KMRUI.hideLoading();
+})();
+KMRAuth.onChange(async u => {
+  applyAdmin(u);
+  const queued = await restoreQueuedSubmission();
+  if (!queued && !u) await checkDevice();
+});
+</script>
+</body></html>
