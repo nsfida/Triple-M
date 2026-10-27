@@ -42,7 +42,7 @@
     <div class="bar">
       <input type="search" id="q" placeholder="Search by name or race number" aria-label="Search participants">
       <div class="chips" role="group" aria-label="Filter by status">
-        <button data-f="all" aria-pressed="true">All</button><button data-f="confirmed" aria-pressed="false">Confirmed</button><button data-f="pending" aria-pressed="false">Pending</button>
+        <button data-f="all" aria-pressed="true">All</button><button data-f="confirmed" aria-pressed="false">Confirmed</button><button data-f="pending" aria-pressed="false">Pending</button><button data-f="cancelled" aria-pressed="false">Cancelled</button>
       </div>
     </div>
     <p class="count" id="count" aria-live="polite">Loading runners…</p>
@@ -125,7 +125,7 @@ setTab(location.hash === "#funds" ? "funds" : "runners");
 const num = r => r.reg_no.replace("KMR3-", "");
 function renderRunners() {
   const q = $("q").value.trim().toLowerCase();
-  const rows = all.filter(r => (filter === "all" || r.status === filter) && (!q || r.name.toLowerCase().includes(q) || r.reg_no.toLowerCase().includes(q)));
+  const rows = all.filter(r => (filter === "all" || (filter === "cancelled" ? !!r.is_cancelled : !r.is_cancelled && r.status === filter)) && (!q || r.name.toLowerCase().includes(q) || r.reg_no.toLowerCase().includes(q)));
   const active = all.filter(r => !r.is_cancelled), c = active.filter(r => r.status === "confirmed").length;
   const pending = active.filter(r => r.status !== "confirmed").length;
   $("count").textContent = all.length ? `Showing ${rows.length} of ${all.length} runners` : "";

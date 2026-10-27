@@ -99,7 +99,7 @@ button{touch-action:manipulation}
 .bar input[type=search]::placeholder{color:#98a4b4}.bar input[type=search]:focus{border-color:#6da99a;box-shadow:0 0 0 4px rgba(8,127,91,.09)}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chips button{min-height:39px;padding:.48rem .85rem;border:1px solid var(--line);border-radius:10px;background:#fff;color:#526176;font-size:.8rem;font-weight:800;cursor:pointer;transition:.15s}
-.chips button:hover{border-color:var(--line-strong);background:#fafcff}.chips button[aria-pressed=true]{background:var(--green-soft);border-color:#a8dfc8;color:var(--green-dark)}
+.chips button:hover{border-color:var(--line-strong);background:#fafcff}.chips button[aria-pressed=true]{background:var(--green-soft);border-color:#a8dfc8;color:var(--green-dark)}.chips button[data-f="cancelled"][aria-pressed=true]{background:#fff0f1;border-color:#f3c3c9;color:#a71f35}
 .count{margin:0 0 14px;color:var(--muted);font-size:.8rem;font-weight:700}
 .fhead{display:flex;gap:12px;align-items:center;margin:0 0 13px}.fhead h2{font-size:1.35rem}.fhead .sp{margin-left:auto}
 
