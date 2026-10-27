@@ -40,17 +40,42 @@
     <div class="tw"><table class="rt"><thead><tr><th><input type="checkbox" id="selAll" aria-label="Select all"></th><th></th><th>Reg No</th><th>Name</th><th>Age</th><th>CNIC</th><th>Mobile</th><th>Payment ref</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tb"></tbody></table></div>
   </section>
   <section id="paneF" hidden>
-    <div class="section-heading"><div><h2>Project funds</h2><p>Track entry fees and community contributions in one place.</p></div></div>
-    <div class="tools"><button class="btn" id="addFund">Funds received</button><span class="ftot" id="ftot"></span></div>
-    <p class="msg" id="finfo" aria-live="polite">Loading…</p>
-    <div class="tw"><table class="ft"><thead><tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th><th class="hm">Type</th><th class="hm">Received by</th><th class="hm">Date</th><th></th></tr></thead><tbody id="fb"></tbody></table></div>
+    <div class="section-heading"><div><h2>Project funds</h2><p>Receiving and expenses are separate ledgers. Record expenses even when they exceed collections; the net balance may be negative. Existing receiving entries remain unchanged.</p></div></div>
+    <div class="fsum funds-summary">
+      <div class="c main"><b id="ftot">Rs. 0</b><span>Total received</span></div>
+      <div class="c"><b id="fexpense">Rs. 0</b><span>Total expenses</span></div>
+      <div class="c balance"><b id="fbalance">Rs. 0</b><span>Net balance (may be negative)</span></div>
+      <div class="c"><b id="fdon">Rs. 0</b><span>Donations</span></div>
+      <div class="c"><b id="ffee">Rs. 0</b><span>Entry fees</span></div>
+    </div>
+    <div class="fund-tools">
+      <div class="fund-subtabs" role="group" aria-label="Project funds ledger">
+        <button class="active" type="button" id="fundTabRAdmin" aria-pressed="true">Receiving <span class="n" id="fundCountAdmin">0</span></button>
+        <button type="button" id="fundTabEAdmin" aria-pressed="false">Expenses <span class="n" id="expenseCountAdmin">0</span></button>
+      </div>
+      <div class="fund-pdf-actions">
+        <button class="btn sm ghost" id="pdfReceivingAdmin" type="button">Receiving PDF</button>
+        <button class="btn sm ghost" id="pdfExpensesAdmin" type="button">Expenses PDF</button>
+        <button class="btn sm alt" id="pdfStatementAdmin" type="button">Full statement PDF</button>
+      </div>
+    </div>
+    <section id="paneReceivingAdmin" class="fund-ledger-pane">
+      <div class="tools"><button class="btn" id="addFund">+ Record receiving</button></div>
+      <p class="msg" id="finfo" aria-live="polite">Loading receiving entries…</p>
+      <div class="tw"><table class="ft"><thead id="fundHeadAdmin"><tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th><th class="hm">Type</th><th class="hm">Received by</th><th class="hm">Date</th><th></th></tr></thead><tbody id="fb"></tbody><tfoot id="fundFootAdmin"></tfoot></table></div>
+    </section>
+    <section id="paneExpensesAdmin" class="fund-ledger-pane" hidden>
+      <div class="tools"><button class="btn" id="addExpense">+ Record expense</button></div>
+      <p class="msg" id="einfo" aria-live="polite">Loading expenses…</p>
+      <div class="tw"><table class="ft"><thead id="expenseHeadAdmin"></thead><tbody id="eb"></tbody><tfoot id="expenseFootAdmin"></tfoot></table></div>
+    </section>
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script><script src="js/common.js"></script><script src="js/admin-tools.js"></script>
 <script>
 const $ = id => document.getElementById(id), C = KMR;
-let rows = [], funds = [], user = "";
+let rows = [], funds = [], expenses = [], user = "";
 const selectedIds = new Set();
 function say(t, bad) { $("info").textContent = t; $("info").className = "msg" + (bad ? " bad" : ""); }
 
@@ -63,11 +88,12 @@ $("login").onsubmit = async e => {
 };
 function show(u) {
   if (u === user && show.done) return; show.done = true; user = u;
-  $("login").hidden = !!u; $("app").hidden = !u; if (!u) { rows = []; funds = []; selectedIds.clear(); KMRUI.hideLoading(); return $("u").focus(); }
+  $("login").hidden = !!u; $("app").hidden = !u; if (!u) { rows = []; funds = []; expenses = []; selectedIds.clear(); KMRUI.hideLoading(); return $("u").focus(); }
   KMRAdmin.init();
-  load(); loadFunds();
+  load(); loadFunds(); loadExpenses();
 }
 KMRAuth.onChange(show);
+setFundsLedger("receiving");
 (async () => show(await KMRAuth.current()))();
 
 // ----- registrations -----
@@ -85,14 +111,14 @@ async function load() {
 function draw() {
   const q = $("adminQ").value.trim().toLowerCase();
   const shown = rows.filter(r => !q || [r.reg_no, r.name, r.father_name, r.cnic, r.mobile, r.payment_ref].some(v => String(v || "").toLowerCase().includes(q)));
-  const c = rows.filter(r => r.status === "confirmed").length;
-  say(`${shown.length === rows.length ? rows.length : `Showing ${shown.length} of ${rows.length}`} registrations · ${c} confirmed · ${rows.length - c} pending`);
-  $("tb").innerHTML = shown.map(r => `<tr data-id="${r.id}">
+  const active = rows.filter(r => !r.is_cancelled), c = active.filter(r => r.status === "confirmed").length, pending = active.filter(r => r.status !== "confirmed").length, cancelled = rows.filter(r => r.is_cancelled).length;
+  say(`${shown.length === rows.length ? rows.length : `Showing ${shown.length} of ${rows.length}`} registrations · ${c} confirmed · ${pending} pending · ${cancelled} cancelled`);
+  $("tb").innerHTML = shown.map(r => `<tr data-id="${r.id}" class="${r.is_cancelled ? "cancelled-row" : ""}">
     <td class="cb"><input type="checkbox" class="sel" aria-label="Select ${esc(r.name)}" ${selectedIds.has(r.id) ? "checked" : ""}></td><td class="ph"><img alt="" loading="lazy" src="${esc(photoUrl(r.photo_path))}"></td>
     <td class="hm"><b>${esc(r.reg_no)}</b></td><td class="nm"><b class="ms">${esc(r.reg_no)}</b>${esc(r.name)}<br><small>${esc(r.father_name)}${r.entered_by ? " · added by " + esc(r.entered_by) : ""}</small></td><td class="hm">${ageOf(r.dob)}</td><td class="cn" data-l="CNIC">${esc(r.cnic)}</td><td class="mb" data-l="Mobile">${esc(r.mobile)}</td><td class="rf" data-l="Ref">${esc(r.payment_ref || "—")}</td>
-    <td class="st"><span class="tag ${r.status}">${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></td>
+    <td class="st"><span class="tag ${r.is_cancelled ? "cancelled" : r.status}">${r.is_cancelled ? "Cancelled" : r.status === "confirmed" ? "Confirmed" : "Pending"}</span></td>
     <td class="ac"><div class="acts"><button class="btn sm alt" data-a="pdf">PDF</button><button class="btn sm ghost" data-a="docs">Files</button><button class="btn sm ghost" data-a="edit">Edit</button>
-    <button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm"}</button><button class="btn sm danger" data-a="del">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="10" class="table-empty">${rows.length ? "No registrations match that search." : "No registrations yet."}</td></tr>`;
+    ${!r.is_cancelled ? `<button class="btn sm" data-a="toggle">${r.status === "confirmed" ? "Mark pending" : "Confirm"}</button>` : ""}<button class="btn sm ${r.is_cancelled ? "alt" : "danger"}" data-a="cancel">${r.is_cancelled ? "Restore" : "Cancel"}</button><button class="btn sm danger" data-a="del">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="10" class="table-empty">${rows.length ? "No registrations match that search." : "No registrations yet."}</td></tr>`;
   syncSelectAll();
 }
 function syncSelectAll() {
@@ -108,7 +134,7 @@ $("tb").addEventListener("change", e => {
   if (box.checked) selectedIds.add(id); else selectedIds.delete(id);
   syncSelectAll();
 });
-const both = () => { load(); loadFunds(); };
+const both = () => { load(); loadFunds(); loadExpenses(); };
 $("selAll").onchange = e => {
   document.querySelectorAll("#tb tr[data-id]").forEach(tr => {
     const id = tr.dataset.id, box = tr.querySelector(".sel");
@@ -129,6 +155,7 @@ $("tb").onclick = e => {
   else if (a === "docs") KMRAdmin.details(r, rows);
   else if (a === "edit") KMRAdmin.edit(r, draw);
   else if (a === "toggle") r.status === "confirmed" ? KMRAdmin.unconfirm(r, both) : KMRAdmin.pay(r, both);
+  else if (a === "cancel") KMRAdmin.cancel(r, both, !r.is_cancelled);
   else if (a === "del") KMRAdmin.remove(r, both);
 };
 
@@ -137,6 +164,21 @@ function tab(f) { $("paneR").hidden = f; $("paneF").hidden = !f; $("tabR").setAt
 $("tabR").onclick = () => tab(false); $("tabF").onclick = () => tab(true);
 
 // ----- project funds -----
+function setFundsLedger(which) {
+  const receiving = which !== "expenses";
+  $("paneReceivingAdmin").hidden = !receiving; $("paneExpensesAdmin").hidden = receiving;
+  $("fundTabRAdmin").classList.toggle("active", receiving); $("fundTabEAdmin").classList.toggle("active", !receiving);
+  $("fundTabRAdmin").setAttribute("aria-pressed", String(receiving)); $("fundTabEAdmin").setAttribute("aria-pressed", String(!receiving));
+}
+$("fundTabRAdmin").onclick = () => setFundsLedger("receiving");
+$("fundTabEAdmin").onclick = () => setFundsLedger("expenses");
+function drawFundSummary() {
+  // Collection and spending are always calculated separately; a negative net balance is valid.
+  const totals = KMRFunds.totals(funds, expenses);
+  const reg = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount || 0), 0);
+  $("ftot").textContent = rs(totals.received); $("ffee").textContent = rs(reg); $("fdon").textContent = rs(totals.received - reg); $("fexpense").textContent = rs(totals.expenses); $("fbalance").textContent = rs(totals.netBalance);
+  $("fundCountAdmin").textContent = funds.length; $("expenseCountAdmin").textContent = expenses.length;
+}
 async function loadFunds() {
   const cached = KMRStore.get("admin-funds", true);
   if (Array.isArray(cached)) { funds = cached; drawFunds(); KMRUI.hideLoading(); }
@@ -147,12 +189,28 @@ async function loadFunds() {
   } catch (e) { if (!Array.isArray(cached)) { $("finfo").textContent = "Could not load funds. Check your connection."; $("finfo").className = "msg bad"; } KMRUI.hideLoading(); }
 }
 function drawFunds() {
+  drawFundSummary();
   const total = funds.reduce((t, f) => t + Number(f.amount), 0), reg = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
-  $("ftot").textContent = "Total " + rs(total); $("finfo").className = "msg";
-  $("finfo").textContent = `${funds.length} entries · ${rs(total - reg)} donations · ${rs(reg)} entry fees`;
-  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td><td>${esc(f.donor_name)}<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small></td><td>${esc(f.mohallah)}</td><td class="amt"><b>${Number(f.amount).toLocaleString("en-US")}</b></td>
-    <td class="hm">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td class="hm">${esc(f.recorded_by)}</td><td class="hm">${fmtDate(f.created_at)}</td>
-    <td>${f.source === "donation" ? '<div class="acts"><button class="btn sm ghost" data-fe>Edit</button><button class="btn sm danger" data-fd>Delete</button></div>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No funds recorded yet.</td></tr>';
+  $("finfo").className = "msg"; $("finfo").textContent = `${funds.length} entries · ${rs(total-reg)} donations · ${rs(reg)} entry fees`;
+  $("fundHeadAdmin").innerHTML = '<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th><th class="hm">Type</th><th class="hm">Received by</th><th class="hm">Date</th><th></th></tr>';
+  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td><td>${esc(f.donor_name)}<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small></td><td>${esc(f.mohallah)}</td><td class="amt"><b>${Number(f.amount).toLocaleString("en-US")}</b></td><td class="hm">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td class="hm">${esc(f.recorded_by)}</td><td class="hm">${fmtDate(f.created_at)}</td><td>${f.source === "donation" ? '<div class="acts"><button class="btn sm ghost" data-fe>Edit</button><button class="btn sm danger" data-fd>Delete</button></div>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No receiving entries recorded yet.</td></tr>';
+  $("fundFootAdmin").innerHTML = `<tr><td></td><td colspan="2">Total received</td><td class="amt">${rs(total)}</td><td colspan="4"></td></tr>`;
+}
+async function loadExpenses() {
+  const cached = KMRStore.get("admin-expenses", true);
+  if (Array.isArray(cached)) { expenses = cached; drawExpenses(); KMRUI.hideLoading(); }
+  try {
+    const { data, error } = await sb.from("expenses").select("*").order("expense_date", { ascending: true }).order("created_at", { ascending: true });
+    if (error) { if (!Array.isArray(cached)) { $("einfo").textContent = "Could not load expenses: " + error.message; $("einfo").className = "msg bad"; } KMRUI.hideLoading(); return; }
+    expenses = data || []; KMRStore.set("admin-expenses", expenses, true); drawExpenses(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) { $("einfo").textContent = "Could not load expenses. Check your connection."; $("einfo").className = "msg bad"; } KMRUI.hideLoading(); }
+}
+function drawExpenses() {
+  drawFundSummary();
+  $("einfo").className = "msg"; $("einfo").textContent = `${expenses.length} expenses recorded`;
+  $("expenseHeadAdmin").innerHTML = '<tr><th class="hn">#</th><th>Date</th><th>Category</th><th>Description</th><th>Paid to</th><th class="hm">Method</th><th class="amt">Rs.</th><th>Actions</th></tr>';
+  $("eb").innerHTML = expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i+1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td><td class="hm">${esc(x.payment_method || "Cash")}</td><td class="amt"><b>${Number(x.amount).toLocaleString("en-US")}</b></td><td><div class="acts"><button class="btn sm ghost" data-exedit>Edit</button><button class="btn sm danger" data-exdel>Delete</button></div></td></tr>`).join("") || '<tr><td colspan="8">No expenses recorded yet.</td></tr>';
+  $("expenseFootAdmin").innerHTML = `<tr><td></td><td colspan="5">Total expenses</td><td class="amt">${rs(expenses.reduce((t,x)=>t+Number(x.amount),0))}</td><td></td></tr>`;
 }
 window.addEventListener("kmr:optimistic-registration", e => {
   if (!e.detail || !e.detail.row) return;
@@ -164,12 +222,24 @@ window.addEventListener("kmr:optimistic-funds", () => {
   const cached = KMRStore.get("admin-funds", true);
   if (Array.isArray(cached)) { funds = cached; drawFunds(); }
 });
-window.addEventListener("kmr:admin-sync-complete", () => { load(); loadFunds(); });
+window.addEventListener("kmr:optimistic-expenses", () => {
+  const cached = KMRStore.get("admin-expenses", true);
+  if (Array.isArray(cached)) { expenses = cached; drawExpenses(); }
+});
+window.addEventListener("kmr:admin-sync-complete", () => { load(); loadFunds(); loadExpenses(); });
 
 $("addFund").onclick = () => KMRAdmin.fund(null, loadFunds);
+$("addExpense").onclick = () => KMRAdmin.expense(null, loadExpenses);
+$("pdfReceivingAdmin").onclick = e => KMRAdmin.fundsPdf("receiving", funds, expenses, e.currentTarget);
+$("pdfExpensesAdmin").onclick = e => KMRAdmin.fundsPdf("expenses", funds, expenses, e.currentTarget);
+$("pdfStatementAdmin").onclick = e => KMRAdmin.fundsPdf("statement", funds, expenses, e.currentTarget);
 $("fb").onclick = e => {
   const b = e.target.closest("[data-fe],[data-fd]"); if (!b) return; const f = funds.find(x => x.id === b.closest("tr").dataset.id);
   b.hasAttribute("data-fe") ? KMRAdmin.fund(f, loadFunds) : KMRAdmin.removeFund(f, loadFunds);
+};
+$("eb").onclick = e => {
+  const b = e.target.closest("[data-exedit],[data-exdel]"); if (!b) return; const x = expenses.find(v => v.id === b.closest("tr").dataset.id);
+  b.hasAttribute("data-exedit") ? KMRAdmin.expense(x, loadExpenses) : KMRAdmin.removeExpense(x, loadExpenses);
 };
 </script>
 </body></html>

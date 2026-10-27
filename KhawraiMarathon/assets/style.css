@@ -403,3 +403,37 @@ footer{background:#fff;border-color:var(--line);color:var(--muted)}
 .profile-picture-actions label.btn{cursor:pointer}
 @media(max-width:720px){.header-actions .about-cta .about-nav-link{min-width:0}.profile-picture-actions{gap:8px}.profile-picture-actions .btn{font-size:.7rem;padding-inline:.35rem}}
 @media(max-width:370px){.profile-picture-actions{grid-template-columns:1fr}.profile-picture-actions .btn{height:40px;min-height:40px}}
+
+/* KMR-S3 updates: visible cancellation marks and structured project ledgers */
+.tag.cancelled{background:#fff0f1;border-color:#f3c3c9;color:#a71f35}
+.tag.cancelled .status-dot{background:#bd263d}
+.bib.cancelled{border-color:#e8a3ad!important;border-top-color:#c52f45!important;background:#fffafb}
+.bib.cancelled::after{content:"";position:absolute;inset:7px;z-index:1;pointer-events:none;border-radius:9px;background:linear-gradient(135deg,transparent 48.9%,rgba(186,31,54,.53) 49.45%,rgba(186,31,54,.53) 50.3%,transparent 50.85%),linear-gradient(45deg,transparent 48.9%,rgba(186,31,54,.3) 49.45%,rgba(186,31,54,.3) 50.3%,transparent 50.85%)}
+.bib.cancelled .nm,.bib.cancelled .no,.bib.cancelled .ag{text-decoration:line-through;text-decoration-color:#b7243b;text-decoration-thickness:1.5px}
+.bib.cancelled .ph{filter:grayscale(.7);opacity:.8}
+.bib.cancelled .kebab{z-index:2}
+.cancelled-row td:not(.cb):not(.ac){text-decoration:line-through;text-decoration-color:rgba(183,36,59,.6);text-decoration-thickness:1px;background:#fffafb}
+.cancelled-row .tag.cancelled{text-decoration:none}
+.funds-summary{grid-template-columns:1.25fr repeat(4,minmax(0,1fr))}
+.fsum .c.balance{background:#f0f5ff;border-color:#dbe5fb}
+.fsum .c.balance b{color:#284f93}
+.fund-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 16px;padding:10px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.fund-subtabs{display:flex;align-items:center;gap:5px;padding:4px;border:1px solid #e2e9eb;border-radius:11px;background:#f4f7f8}
+.fund-subtabs button{display:inline-flex;align-items:center;gap:7px;min-height:37px;padding:.5rem .85rem;border:1px solid transparent;border-radius:8px;background:transparent;color:#526872;font:inherit;font-size:.79rem;font-weight:850;cursor:pointer}
+.fund-subtabs button.active{background:#17394a;border-color:#17394a;color:#fff;box-shadow:0 2px 4px rgba(23,57,74,.12)}
+.fund-subtabs .n{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:99px;background:rgba(128,147,155,.13);font-size:.66rem;font-weight:850}
+.fund-subtabs button.active .n{background:rgba(255,255,255,.17);color:#fff}
+.fund-pdf-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.fund-pdf-actions .btn{min-height:35px;font-size:.72rem}
+.fund-ledger-pane .fhead{margin-top:3px}
+.src.expense-src{background:#fff3e6;color:#8c4b08}
+#kExpense{width:min(570px,calc(100% - 24px))}
+#kExpense label{display:block;margin:13px 0 5px;color:#445b65;font-size:.77rem;font-weight:800}
+#kExpense input,#kExpense select{box-sizing:border-box;width:100%;min-height:42px;padding:.6rem .7rem;border:1px solid var(--line-strong);border-radius:9px;background:#fbfdfd;color:var(--ink);font:inherit;font-size:.83rem}
+#kExpense input:focus,#kExpense select:focus{outline:0;border-color:#6caa98;box-shadow:0 0 0 3px rgba(8,127,91,.09)}
+#kExpense .row{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:15px}
+@media(max-width:900px){.funds-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.funds-summary .c.main{grid-column:span 1}}
+@media(max-width:720px){.fund-tools{align-items:stretch}.fund-subtabs{width:max-content;max-width:100%}.fund-pdf-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.fund-pdf-actions .btn:last-child{grid-column:1/-1}.funds-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.funds-summary .c{padding:12px}.funds-summary .c.main,.funds-summary .c.balance{grid-column:span 1}.funds-summary .c.main b,.funds-summary .c.balance b{font-size:1.35rem}.fund-subtabs{flex:1}.fund-subtabs button{flex:1;justify-content:center;padding-inline:.55rem}.fund-ledger-pane .tw{border-radius:10px}.fund-ledger-pane .ft{min-width:620px}.fund-ledger-pane table tbody td{font-size:.72rem}}
+@media(max-width:390px){.funds-summary{grid-template-columns:1fr 1fr}.funds-summary .c{padding:10px}.funds-summary b{font-size:1.12rem}.funds-summary .c.main b,.funds-summary .c.balance b{font-size:1.18rem}.fund-pdf-actions{gap:5px}.fund-pdf-actions .btn{padding-inline:.35rem;font-size:.64rem}.fund-subtabs button{font-size:.7rem}}
+
+@media(min-width:721px){.rt .acts{flex-wrap:wrap;min-width:250px}}

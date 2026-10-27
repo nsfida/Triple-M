@@ -25,6 +25,16 @@
   <label for="kFa">Amount (Rs.)</label><input id="kFa" type="number" min="1" step="1" inputmode="numeric" required>
   <p class="msg bad" id="kFundE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" id="kFundB">Save entry</button></div></form></dialog>
 
+<dialog id="kExpense"><form method="dialog" id="kExpenseF"><h2 id="kExpenseH">Record expense</h2><p class="dlg-sub">Expenses are recorded independently of collections. You can record spending even when expenses exceed receipts.</p>
+  <label for="kExDate">Expense date</label><input id="kExDate" type="date" required>
+  <label for="kExCategory">Category</label><select id="kExCategory" required><option>Equipment</option><option>Venue</option><option>Refreshments</option><option>Medical</option><option>Transport</option><option>Printing</option><option>Awards</option><option>Administration</option><option>Other</option></select>
+  <label for="kExDesc">Description</label><input id="kExDesc" required maxlength="240" placeholder="What was purchased or paid for?">
+  <label for="kExPaid">Paid to (optional)</label><input id="kExPaid" maxlength="120">
+  <label for="kExAmount">Amount (Rs.)</label><input id="kExAmount" type="number" min="1" step="1" inputmode="numeric" required>
+  <label for="kExMethod">Payment method</label><select id="kExMethod"><option>Cash</option><option>Bank transfer</option><option>Mobile wallet</option><option>Other</option></select>
+  <label for="kExRef">Receipt / reference (optional)</label><input id="kExRef" maxlength="120">
+  <p class="msg bad" id="kExpenseE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Save expense</button></div></form></dialog>
+
 <dialog id="kDet"><div id="kDetB"></div><div class="row"><button type="button" class="btn ghost" data-close>Close</button></div></dialog>`;
 
   function init() {
@@ -79,6 +89,16 @@
     }
     window.dispatchEvent(new CustomEvent("kmr:optimistic-funds"));
   }
+  function mutateExpenseCaches(row, opts = {}) {
+    const { removeId = null } = opts;
+    for (const [key, priv] of [["admin-expenses", true], ["public-expenses", false]]) {
+      const current = KMRStore.get(key, priv); if (!Array.isArray(current)) continue;
+      let next = current.filter(x => x.id !== removeId);
+      if (row) { const idx = next.findIndex(x => x.id === row.id); if (idx >= 0) next[idx] = { ...next[idx], ...row }; else next.push(row); }
+      KMRStore.set(key, next, priv);
+    }
+    window.dispatchEvent(new CustomEvent("kmr:optimistic-expenses"));
+  }
   function optimisticFee(action, row, remove = false) {
     const syntheticId = `local-confirm-${row.id}`;
     const localFund = !remove && Number(action.amount) > 0 ? {
@@ -114,6 +134,26 @@
       if (q.data && q.data.status === "pending") return { done: true };
       const { error } = await sb.rpc("unconfirm_payment", { p_id: action.rowId });
       return error ? { retry: true, error } : { done: true };
+    }
+    if (action.type === "player-cancel") {
+      const q = await sb.from("registrations").select("id,is_cancelled").eq("id", action.rowId).maybeSingle();
+      if (q.error) return { retry: true, error: q.error };
+      if (!q.data) return { retry: true, error: new Error("Registration not found while syncing cancellation.") };
+      if (!!q.data.is_cancelled === !!action.isCancelled) return { done: true };
+      const { error } = await sb.rpc("set_registration_cancelled", { p_id: action.rowId, p_cancelled: !!action.isCancelled });
+      return error ? { retry: true, error } : { done: true };
+    }
+    if (action.type === "expense-save") {
+      let result;
+      if (action.isNew) result = await sb.from("expenses").insert({ id: action.recordId, ...action.row }).select();
+      else result = await sb.from("expenses").update(action.row).eq("id", action.recordId).select();
+      if (result.error && action.isNew && result.error.code === "23505") {
+        const existing = await sb.from("expenses").select("id,expense_date,category,description,paid_to,amount").eq("id", action.recordId).maybeSingle();
+        if (!existing.error && existing.data && existing.data.description === action.row.description && Number(existing.data.amount) === Number(action.row.amount)) return { done: true };
+      }
+      if (result.error) return { retry: true, error: result.error };
+      if (!result.data || (Array.isArray(result.data) && !result.data.length)) return { retry: true, error: new Error("The expense is waiting for an authorised admin session.") };
+      return { done: true };
     }
     if (action.type === "registration-edit") {
       const { data, error } = await sb.from("registrations").update(action.row).eq("id", action.rowId).select();
@@ -197,6 +237,23 @@
     if (!enqueue(action, done)) return toast("Local storage is unavailable. No change was made.", true);
     r.status = "pending"; publishRegistration(r); optimisticFee(action, r, true);
     toast(navigator.onLine ? `${r.reg_no} marked pending locally; syncing…` : `${r.reg_no} marked pending locally; sync will resume online`);
+    syncOutbox();
+  }
+
+  async function cancel(r, done, forceState) {
+    const nextState = typeof forceState === "boolean" ? forceState : !r.is_cancelled;
+    const verb = nextState ? "Cancel" : "restore";
+    const message = nextState
+      ? `Cancel ${r.reg_no} (${r.name})? It will remain visible in the public All list with a cancellation mark. Any existing payment records will be preserved.`
+      : `Restore ${r.reg_no} (${r.name})? The cancellation mark will be removed.`;
+    if (!confirm(message)) return;
+    const action = { id: `player-cancel:${r.id}`, type: "player-cancel", rowId: r.id, row: { ...r }, oldRow: { ...r }, isCancelled: nextState };
+    if (!enqueue(action, done)) return toast("Local storage is unavailable. No change was made.", true);
+    r.is_cancelled = nextState;
+    r.cancelled_at = nextState ? new Date().toISOString() : null;
+    r.cancelled_by = nextState ? (KMRAuth.hint() || "pending sync") : null;
+    publishRegistration(r);
+    toast(navigator.onLine ? `${r.reg_no} ${nextState ? "cancelled" : "restored"} locally; syncing…` : `${r.reg_no} ${nextState ? "cancelled" : "restored"} locally; sync will resume online`);
     syncOutbox();
   }
 
@@ -286,7 +343,7 @@
     const age = ageOf(r.dob);
     box.innerHTML = `<div class="detail-hero">
         <div class="detail-person-photo">${r.photo_path ? `<img src="${esc(photoUrl(r.photo_path))}" alt="Player portrait" onerror="this.style.display='none'">` : `<span>${esc(String(r.name || "K").trim().slice(0,1).toUpperCase())}</span>`}</div>
-        <div class="detail-person-copy"><span class="detail-eyebrow">PLAYER RECORD · ${esc(r.reg_no)}</span><h2>${esc(r.name)}</h2><p class="dlg-sub">${esc(by)}</p><span class="tag ${r.status}"><span class="status-dot"></span>${r.status === "confirmed" ? "Confirmed" : "Pending"}</span></div>
+        <div class="detail-person-copy"><span class="detail-eyebrow">PLAYER RECORD · ${esc(r.reg_no)}</span><h2>${esc(r.name)}</h2><p class="dlg-sub">${esc(by)}</p><span class="tag ${r.is_cancelled ? "cancelled" : r.status}"><span class="status-dot"></span>${r.is_cancelled ? "Cancelled" : r.status === "confirmed" ? "Confirmed" : "Pending"}</span></div>
       </div>
       <div class="detail-section-title"><h3>Player information</h3><span>Official registration details</span></div>
       <dl class="kv">
@@ -306,17 +363,19 @@
       <div class="detail-actions">
         <button type="button" class="btn ghost" id="kDetEdit">Edit details</button>
         <button type="button" class="btn alt" id="kDetPdf">Download registration PDF</button>
-        <button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm payment"}</button>
+        ${!r.is_cancelled ? `<button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm payment"}</button>` : ""}
+        <button type="button" class="btn ${r.is_cancelled ? "alt" : "danger"}" id="kDetCancel">${r.is_cancelled ? "Restore player" : "Cancel player"}</button>
         <button type="button" class="btn danger" id="kDetDelete">Delete player</button>
         ${urls.length ? `<button type="button" class="btn ghost" id="kDlAll">Download photo + CNIC files</button>` : ""}
       </div>`;
     const downloadAll = $("kDlAll"); if (downloadAll) downloadAll.onclick = () => urls.forEach((url, i) => setTimeout(() => { const a = document.createElement("a"); a.href = url; a.download = ""; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }, i * 600));
     $("kDetEdit").onclick = () => edit(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
     $("kDetPdf").onclick = e => pdf([r], `${r.reg_no}_${slug(r.name)}.pdf`, e.currentTarget);
-    $("kDetPayment").onclick = () => {
+    const paymentAction = $("kDetPayment"); if (paymentAction) paymentAction.onclick = () => {
       if (r.status === "confirmed") unconfirm(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
       else { const payDialog = $("kPay"); payDialog.addEventListener("close", () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }, { once: true }); pay(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }); }
     };
+    $("kDetCancel").onclick = () => cancel(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }, !r.is_cancelled);
     $("kDetDelete").onclick = () => remove(r, () => { $("kDet").close(); window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete")); });
   }
   window.addEventListener("kmr:optimistic-registration", e => {
@@ -350,5 +409,119 @@
     toast("Entry deleted"); done && done();
   }
 
-  window.KMRAdmin = { init, pay, unconfirm, edit, remove, pdf, details, fund, removeFund, syncOutbox };
+  // ---- expenses ----
+  function expense(x, done) {
+    init(); $("kExpenseH").textContent = x ? "Edit expense" : "Record expense"; $("kExpenseE").hidden = true;
+    $("kExDate").value = x ? (x.expense_date || String(x.created_at || "").slice(0, 10)) : new Date().toISOString().slice(0, 10);
+    $("kExCategory").value = x ? x.category : "Other";
+    // A previously entered custom category remains editable by using the Other option as a safe fallback.
+    if (x && ![...$("kExCategory").options].some(o => o.value === x.category)) {
+      const o = document.createElement("option"); o.value = x.category; o.textContent = x.category; $("kExCategory").appendChild(o); $("kExCategory").value = x.category;
+    }
+    $("kExDesc").value = x ? x.description : ""; $("kExPaid").value = x ? (x.paid_to || "") : "";
+    $("kExAmount").value = x ? Math.round(x.amount) : ""; $("kExMethod").value = x ? (x.payment_method || "Cash") : "Cash";
+    $("kExRef").value = x ? (x.receipt_reference || "") : "";
+    $("kExpense").showModal(); $("kExDate").focus();
+    $("kExpenseF").onsubmit = async e => {
+      e.preventDefault();
+      const amount = Number($("kExAmount").value);
+      if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) { $("kExpenseE").textContent = "Enter a positive whole-number amount."; $("kExpenseE").hidden = false; return; }
+      const row = { expense_date: $("kExDate").value, category: $("kExCategory").value.trim(), description: $("kExDesc").value.trim(), paid_to: $("kExPaid").value.trim(), amount: Math.round(amount), payment_method: $("kExMethod").value, receipt_reference: $("kExRef").value.trim() || null };
+      if (!row.expense_date || row.category.length < 2 || row.description.length < 2) { $("kExpenseE").textContent = "Enter the date, category and a description."; $("kExpenseE").hidden = false; return; }
+      const recordId = x ? x.id : crypto.randomUUID();
+      const action = { id: `expense-save:${recordId}`, type: "expense-save", recordId, isNew: !x, row, oldRow: x ? { ...x } : null };
+      const localRow = { id: recordId, ...row, created_at: x ? x.created_at : new Date().toISOString(), recorded_by: x ? x.recorded_by : (KMRAuth.hint() || "pending sync") };
+      if (!enqueue(action, done)) { $("kExpenseE").textContent = "Local storage is unavailable. No change was made."; $("kExpenseE").hidden = false; return; }
+      mutateExpenseCaches(localRow); $("kExpense").close();
+      toast(navigator.onLine ? (x ? "Expense updated locally; syncing…" : "Expense saved locally; syncing…") : "Expense saved locally; sync will resume online"); syncOutbox();
+    };
+  }
+  async function removeExpense(x, done) {
+    if (!confirm(`Delete expense “${x.description}” (${rs(x.amount)})?`)) return;
+    const { data, error } = await sb.from("expenses").delete().eq("id", x.id).select();
+    if (error || !data || !data.length) return toast("Expense could not be deleted. Check your admin session and connection.", true);
+    mutateExpenseCaches(null, { removeId: x.id }); toast("Expense deleted"); done && done();
+  }
+
+  // Ledger PDFs are generated locally in the browser and include summary totals and a dated detail table.
+  async function fundsPdf(kind, receiveRows, expenseRows, btn) {
+    const old = btn && btn.textContent; if (btn) btn.disabled = true;
+    try {
+      const src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      if (!window.jspdf) await new Promise((resolve, reject) => { const existing = [...document.scripts].find(x => x.src === src); if (existing) { existing.addEventListener("load", resolve, { once: true }); existing.addEventListener("error", reject, { once: true }); return; } const script = document.createElement("script"); script.src = src; script.onload = resolve; script.onerror = () => reject(new Error("Could not load the PDF generator. Check your internet connection.")); document.head.appendChild(script); });
+      if (!window.jspdf) throw new Error("PDF generator is unavailable.");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4", compress: true });
+      const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 34;
+      // Sum each ledger independently. The net/ending balance is allowed to go below zero.
+      const totals = KMRFunds.totals(receiveRows, expenseRows);
+      const received = totals.received, spent = totals.expenses, netBalance = totals.netBalance;
+      const money = n => rs(Number(n || 0));
+      const date = v => { if (!v) return "-"; const d = new Date(v); return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
+      const generated = new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const title = kind === "receiving" ? "Project Funds - Receiving Report" : kind === "expenses" ? "Project Funds - Expenses Report" : "Project Funds - Combined Statement";
+      doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(22, 60, 74); doc.text("Khawrai Marathon Race - Season Three", margin, 34);
+      doc.setFontSize(13); doc.text(title, margin, 55); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(90, 108, 118); doc.text(`Generated ${generated}`, pageW - margin, 34, { align: "right" });
+      doc.setDrawColor(210, 222, 225); doc.line(margin, 66, pageW - margin, 66);
+      let y = 85;
+      if (kind === "statement") {
+        const boxes = [
+          ["TOTAL RECEIVED", received], ["TOTAL EXPENSES", spent], ["ENDING BALANCE", netBalance]
+        ];
+        const boxGap = 12, boxW = (pageW - margin * 2 - boxGap * 2) / 3;
+        boxes.forEach((b, i) => {
+          const x = margin + i * (boxW + boxGap);
+          doc.setFillColor(246, 249, 249); doc.setDrawColor(220, 229, 231); doc.roundedRect(x, y, boxW, 46, 7, 7, "FD");
+          doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(94, 111, 119); doc.text(b[0], x + 12, y + 15);
+          doc.setFontSize(15); doc.setTextColor(i === 2 && b[1] < 0 ? 170 : 22, i === 2 && b[1] < 0 ? 45 : 60, i === 2 && b[1] < 0 ? 45 : 74); doc.text(money(b[1]), x + 12, y + 35);
+        });
+        y += 63;
+        const ledger = [];
+        (receiveRows || []).forEach(r => ledger.push({ date: r.created_at, sort: new Date(r.created_at || 0).getTime(), type: "Receiving", detail: r.source === "registration" ? `Entry fee ${r.reference || ""}` : "Donation", party: r.donor_name || "-", inflow: Number(r.amount || 0), outflow: 0 }));
+        (expenseRows || []).forEach(r => ledger.push({ date: r.expense_date || r.created_at, sort: new Date(r.expense_date || r.created_at || 0).getTime(), type: "Expense", detail: `${r.category || ""}: ${r.description || ""}`, party: r.paid_to || "-", inflow: 0, outflow: Number(r.amount || 0) }));
+        ledger.sort((a, b) => a.sort - b.sort);
+        let balance = 0;
+        const tableRows = ledger.map(r => { balance += r.inflow - r.outflow; return [date(r.date), r.type, r.detail, r.party, r.inflow ? money(r.inflow) : "-", r.outflow ? money(r.outflow) : "-", money(balance)]; });
+        const tableEndY = drawTable(["Date", "Type", "Details", "Name / Payee", "Received", "Expense", "Balance"], tableRows, [70, 62, 245, 135, 80, 80, 82], y);
+        let endingY = tableEndY + 25;
+        if (endingY > pageH - 30) { doc.addPage(); endingY = 42; }
+        doc.setDrawColor(210, 222, 225); doc.line(margin, endingY - 12, pageW - margin, endingY - 12);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(38, 68, 79);
+        doc.text("ENDING BALANCE (TOTAL RECEIVED - TOTAL EXPENSES)", margin, endingY);
+        doc.setTextColor(netBalance < 0 ? 170 : 22, netBalance < 0 ? 45 : 60, netBalance < 0 ? 45 : 74);
+        doc.text(money(netBalance), pageW - margin, endingY, { align: "right" });
+      } else if (kind === "receiving") {
+        const data = (receiveRows || []).slice().sort((a,b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)).map(r => [date(r.created_at), r.donor_name || "-", r.mohallah || "-", r.source === "registration" ? `Entry fee ${r.reference || ""}` : "Donation", money(r.amount)]);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(22,60,74); doc.text(`Entries: ${data.length}     Total received: ${money(received)}`, margin, y); y += 14;
+        drawTable(["Date", "Name", "Mohallah", "Type / Reference", "Amount"], data, [82, 175, 175, 230, 100], y);
+      } else {
+        const data = (expenseRows || []).slice().sort((a,b) => new Date(a.expense_date || a.created_at || 0) - new Date(b.expense_date || b.created_at || 0)).map(r => [date(r.expense_date || r.created_at), r.category || "-", r.description || "-", r.paid_to || "-", r.payment_method || "-", money(r.amount)]);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(22,60,74); doc.text(`Entries: ${data.length}     Total expenses: ${money(spent)}`, margin, y); y += 14;
+        drawTable(["Date", "Category", "Description", "Paid to", "Payment method", "Amount"], data, [82, 115, 260, 150, 105, 100], y);
+      }
+      function drawTable(headers, rows, widths, startY) {
+        const totalW = widths.reduce((a,b) => a+b, 0), x0 = margin;
+        if (totalW > pageW - margin*2) { const scale = (pageW - margin*2) / totalW; widths = widths.map(w => w * scale); }
+        let y0 = startY, rowH;
+        const header = () => { doc.setFillColor(233, 241, 242); doc.setDrawColor(215, 225, 228); doc.rect(x0, y0, widths.reduce((a,b)=>a+b,0), 23, "FD"); let x=x0; doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(38,68,79); headers.forEach((h,i)=>{ doc.text(String(h),x+6,y0+14,{maxWidth:widths[i]-10}); x+=widths[i]; }); y0 += 23; };
+        header();
+        if (!rows.length) { doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(90,108,118); doc.text("No entries recorded.", x0+5, y0+18); return y0 + 25; }
+        rows.forEach((row, ri) => {
+          const wrapped = row.map((v,i) => doc.splitTextToSize(String(v ?? "-"), Math.max(22,widths[i]-12)));
+          rowH = Math.max(24, Math.max(...wrapped.map(t => t.length)) * 10 + 10);
+          if (y0 + rowH > pageH - 35) { doc.addPage(); y0 = 35; header(); }
+          if (ri % 2 === 1) { doc.setFillColor(249,251,251); doc.rect(x0,y0,widths.reduce((a,b)=>a+b,0),rowH,"F"); }
+          doc.setDrawColor(232,238,239); doc.line(x0,y0+rowH,x0+widths.reduce((a,b)=>a+b,0),y0+rowH);
+          let x=x0; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(48,65,73);
+          wrapped.forEach((t,i)=>{ doc.text(t,x+6,y0+13); x+=widths[i]; }); y0+=rowH;
+        });
+        return y0;
+      }
+      const fileName = kind === "receiving" ? "Khawrai-S3-receiving.pdf" : kind === "expenses" ? "Khawrai-S3-expenses.pdf" : "Khawrai-S3-funds-statement.pdf";
+      doc.save(fileName);
+    } catch (e) { toast("PDF failed: " + (e.message || e), true); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+  }
+
+  window.KMRAdmin = { init, pay, unconfirm, cancel, edit, remove, pdf, details, fund, removeFund, expense, removeExpense, fundsPdf, syncOutbox };
 })();

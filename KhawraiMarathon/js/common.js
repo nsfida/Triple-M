@@ -49,7 +49,25 @@
   window.photoUrl = p => p ? `${C.SUPABASE_URL}/storage/v1/object/public/photos/${p}` : "";
   window.fmtDate = d => { const x = new Date(d); return isNaN(x) ? "" : String(x.getDate()).padStart(2, "0") + "/" + String(x.getMonth() + 1).padStart(2, "0") + "/" + x.getFullYear(); };
   window.ageOf = d => { const b = new Date(d), n = new Date(); if (isNaN(b)) return null; let a = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) a--; return a; };
-  window.rs = n => "Rs. " + Number(n).toLocaleString("en-US");
+  // Signed formatting puts the minus sign before the currency marker, so a negative net
+  // balance is unambiguous everywhere it appears in the interface.
+  window.rs = n => {
+    const amount = Number(n || 0);
+    const formatted = Math.abs(amount).toLocaleString("en-US");
+    return amount < 0 ? `-Rs. ${formatted}` : `Rs. ${formatted}`;
+  };
+  // Receiving and spending are independent ledgers. Expenses are never capped by receipts;
+  // the net balance is simply total received minus total expenses and may be negative.
+  window.KMRFunds = {
+    totals(receivingRows, expenseRows) {
+      const sum = rows => (Array.isArray(rows) ? rows : []).reduce((total, row) => {
+        const amount = Number(row && row.amount || 0);
+        return total + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+      const received = sum(receivingRows), expenses = sum(expenseRows);
+      return { received, expenses, netBalance: received - expenses };
+    }
+  };
   window.slug = s => String(s).replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
   window.toast = (msg, bad) => {
     let t = document.getElementById("toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); document.body.appendChild(t); }

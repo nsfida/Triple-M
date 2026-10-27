@@ -7,7 +7,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | `index.html` | Public runner directory, project funds, and clickable player detail overlay |
 | `about.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts |
 | `register.html` | Public registration page - the official Player Registration Form, with Rs. 500 fee notice |
-| `admin.html` | Admin sign-in, confirm payment, download the filled PDF form (one, selected, or all) |
+| `admin.html` | Admin sign-in, registrations, cancellation, payment management, receiving and expense ledgers, and PDF reports |
 | `sql/schema.sql` | Tables, Row Level Security, storage buckets and policies |
 | `sql/migrations/` | **Safe, re-runnable migrations. Run new files here in date order.** Migrations are additive and avoid destructive data changes. |
 | `js/common.js`, `js/admin-tools.js` | Shared login (saved locally) and the admin actions used by every page |
@@ -19,7 +19,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | `js/config.js` | Supabase URL / anon key, logo URL, admin usernames |
 
 ## Setup (about 5 minutes)
-1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then every forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards - it holds passwords). Run the new `20261026_003_public_player_details.sql` after `20261026_002_local_first_zero_payment.sql` to enable gender/address in the public player overlay. Then run the read-only `sql/verify_migration_003.sql`; it should return `PASS`.
+1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then every forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards - it holds passwords). Run `20261026_003_public_player_details.sql` after `20261026_002_local_first_zero_payment.sql` to enable the public player overlay. Then run `20261027_004_cancellations_expenses.sql` to add reversible runner cancellation and the expenses ledger. The new migration is additive and does not delete or rewrite existing registrations or receiving records. `sql/verify_migration_003.sql` remains available to verify the earlier public-details migration.
    **Existing install:** run only migrations that have not already been applied. In particular, run `20261026_002_local_first_zero_payment.sql` after `20261024_001_admin_multi_entries.sql`. It changes RPC behavior only; it does not delete, reset or rewrite existing records.
 2. **Authentication > Sign In / Providers**: turn **off** "Allow new users to sign up".
 3. Upload the whole folder to any static host (Netlify, Vercel, GitHub Pages, cPanel). Opening via `https://` is required for camera/photo upload on phones.
@@ -31,13 +31,16 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | See name, age, photo, status, gender and registered address | yes | yes | yes |
 | Register (insert) | yes, always saved as *Pending* | - | - |
 | See CNIC, mobile, email and private documents | no | yes | yes |
-| Download PDFs | no | yes | yes |
+| Download filled registration PDFs | no | yes | yes |
+| Download receiving, expenses and combined statement PDFs | yes | yes | yes |
 | Confirm payment / edit / delete | no | yes | yes |
 
 ## Project funds
-- Admin > **Project funds** > **Funds Received**: enter Name, Mohallah and Amount. Both admins can add and delete donations.
-- **Confirm payment** asks for the amount received (default Rs. 500). Enter `0` to confirm status without recording income; positive amounts create a linked entry-fee row. **Mark pending** removes the linked entry fee.
-- The public page lists every entry (name, mohallah, amount) with the total at the bottom. Only admins can write; the public can only read.
+- Project Funds now has two ledgers: **Receiving** (the existing contributions and registration-fee flow) and **Expenses** (expense date, category, description, payee, payment method, amount and optional receipt/reference).
+- Both admin entry screens support adding, editing and deleting expense entries. The public funds page is read-only and shows the records and totals.
+- Receiving and spending are independent ledgers. Expenses can be recorded even when they exceed collections; the net balance is total received minus total expenses and may be negative. The summary keeps the two totals separate and shows that signed net balance, plus donation and entry-fee subtotals.
+- **Receiving PDF**, **Expenses PDF**, and **Full statement PDF** are available from both the public funds page and the admin control centre. The combined statement includes separate totals, a dated ledger with running balance, and a clearly labeled ending balance that displays a minus sign when expenses exceed receipts.
+- **Confirm payment** keeps the existing behavior: positive amounts create a linked entry-fee row, and **Mark pending** removes that linked entry fee. Expense records are stored in a separate `expenses` table and do not alter the existing `funds` data.
 
 ## One registration per device, location, original images
 - Each browser gets a random device ID stored in three places (local storage, cookie, IndexedDB). The server stores it with a unique rule, so a second registration from the same device is refused, and the form checks this before the person starts.
@@ -49,7 +52,8 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - **Unlimited entries for admins.** While signed in, the one-per-device rule and public location step are skipped, and **Add another registration** is available after each save. Public visitors keep the one-per-device rule. Admin rows are tagged `entered_by`. The CNIC must still be unique (it identifies a person).
 - **Login saved locally.** One session is stored in this browser's local storage and shared by `index.html`, `register.html` and `admin.html`, so a refresh never signs you out. Sign out only ends it on this device.
 - **Clickable player details.** Public visitors can open each runner card to view the name, age, gender and registered address. Signed-in admins get the secure full-detail overlay with edit, payment confirmation, registration PDF, photo/CNIC front/back downloads and other document links. The three-dot menu remains available for quick actions; donations in the funds tab have edit/delete too.
-- **Project funds tab.** The public page now has *Runners* and *Project funds* tabs (`index.html#funds` opens the funds tab directly).
+- **Project funds tabs.** The public page has *Runners* and *Project funds* tabs (`index.html#funds` opens the funds tab directly); Project Funds is divided into *Receiving* and *Expenses*.
+- **Reversible cancellation.** Admins can cancel or restore a runner without deleting the registration or changing its payment status. Cancelled runners remain in the public *All* list with clear red crossing lines; existing receiving records are preserved.
 
 ## Fast loading and local-first saving
 - Public participant/fund data is cached in local storage and drawn before a fresh background refresh. Admin list caches use session storage because they include private contact fields.
@@ -59,6 +63,11 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 
 ## Public player detail migration
 - `20261026_003_public_player_details.sql` replaces the participant view in-place while preserving its existing columns and adding `gender`, `address` and `district_tehsil` at the end. It does not alter or delete rows. Because the requested public player overlay displays the registered address, that address becomes visible to public visitors; CNIC, mobile, email and location coordinates remain excluded. To verify the migration actually exists in the live database, run `sql/verify_migration_003.sql` in Supabase SQL Editor and confirm it returns `PASS`. A local ZIP cannot apply a migration to Supabase by itself.
+
+## Cancellation and expenses migration
+- Run `sql/migrations/20261027_004_cancellations_expenses.sql` in the Supabase SQL Editor after your previously applied migrations.
+- The migration adds `is_cancelled`, `cancelled_at` and `cancelled_by` to registrations, creates the independent `expenses` ledger and its admin-only write policies, and adds a public read-only expenses view. It does not delete registration rows, update their payment status, or modify existing receiving records.
+- The migration file is safe to re-run. For new installations, `sql/schema.sql` and the public-details migration include compatible definitions; still run forward migrations in date order as listed in Setup.
 
 ## Notes
 - Logins: usernames map to `<username>@khawrai.app` in Supabase Auth.
