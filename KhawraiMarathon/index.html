@@ -44,6 +44,19 @@
       <div class="chips" role="group" aria-label="Filter by status">
         <button data-f="all" aria-pressed="true">All</button><button data-f="confirmed" aria-pressed="false">Confirmed</button><button data-f="pending" aria-pressed="false">Pending</button><button data-f="cancelled" aria-pressed="false">Cancelled</button>
       </div>
+      <details class="player-pdf-dropdown" id="playerPdfDropdown" hidden>
+        <summary aria-label="Download player list as PDF">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
+          <span>Download player list</span>
+          <svg class="pdf-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </summary>
+        <div class="player-pdf-menu" role="group" aria-label="Choose player list PDF">
+          <button type="button" data-player-pdf="all"><span class="pdf-menu-icon">01</span><span><strong>All players</strong><small>Every registration</small></span></button>
+          <button type="button" data-player-pdf="confirmed"><span class="pdf-menu-icon green">02</span><span><strong>Confirmed</strong><small>Confirmed, active players</small></span></button>
+          <button type="button" data-player-pdf="pending"><span class="pdf-menu-icon amber">03</span><span><strong>Pending</strong><small>Pending, active players</small></span></button>
+          <button type="button" data-player-pdf="cancelled"><span class="pdf-menu-icon red">04</span><span><strong>Cancelled</strong><small>Cancelled registrations</small></span></button>
+        </div>
+      </details>
     </div>
     <p class="count" id="count" aria-live="polite">Loading runners…</p>
     <div class="grid" id="grid"></div>
@@ -86,7 +99,7 @@
 <footer>Khawrai Marathon Race Season Three &middot; <a href="about.html">About the race</a> &middot; <a id="footLink" href="admin.html">Admin sign in</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script><script src="js/common.js"></script><script src="js/admin-tools.js"></script>
+<script src="js/config.js"></script><script src="js/common.js"></script><script src="js/admin-tools.js"></script><script src="js/player-list-pdf.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let all = [], funds = [], expenses = [], filter = "all", admin = "", menuEl = null, menuBtn = null;
@@ -143,6 +156,33 @@ function renderRunners() {
 $("q").addEventListener("input", renderRunners);
 document.querySelectorAll(".chips button").forEach(b => b.onclick = () => {
   filter = b.dataset.f; document.querySelectorAll(".chips button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderRunners();
+});
+
+// Admin-only player-list exports. Only the public-safe columns are passed to the PDF builder.
+document.querySelectorAll("[data-player-pdf]").forEach(button => {
+  button.addEventListener("click", async () => {
+    if (!admin || !window.KMRPlayerListPDF) return toast("Sign in as an administrator to download player lists.", true);
+    const kind = button.dataset.playerPdf;
+    const matches = all.filter(r => kind === "all" || (kind === "cancelled" ? !!r.is_cancelled : !r.is_cancelled && r.status === kind));
+    if (!matches.length) {
+      $("playerPdfDropdown").open = false;
+      return toast(`No ${kind === "all" ? "player" : kind} records to export.`, true);
+    }
+    const safeRows = matches.map(r => ({
+      reg_no: r.reg_no || "", name: r.name || "", age: r.age == null ? ageOf(r.dob) : r.age,
+      gender: r.gender || "", address: [r.address, r.district_tehsil].filter(v => String(v || "").trim()).join(", "),
+      photo_path: r.photo_path || "", status: r.status || "pending", is_cancelled: !!r.is_cancelled
+    }));
+    await window.KMRPlayerListPDF.download(safeRows, kind, button);
+    $("playerPdfDropdown").open = false;
+  });
+});
+document.addEventListener("click", e => {
+  const dropdown = $("playerPdfDropdown");
+  if (dropdown.open && !dropdown.contains(e.target)) dropdown.open = false;
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") $("playerPdfDropdown").open = false;
 });
 
 // Player cards open a polished public-safe detail overlay; admins see the full management view.
@@ -313,6 +353,8 @@ async function applyAdmin(u) {
   if (u === admin && u !== undefined && applyAdmin.done) return;
   applyAdmin.done = true; admin = u || ""; closeMenu();
   $("addFund").hidden = !admin; $("addExpense").hidden = !admin;
+  $("playerPdfDropdown").hidden = !admin;
+  if (!admin) $("playerPdfDropdown").open = false;
   $("footLink").textContent = admin ? "Admin panel" : "Admin sign in";
   if (admin) KMRAdmin.init();
   await reload();

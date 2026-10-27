@@ -4,7 +4,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 
 | File | Purpose |
 |---|---|
-| `index.html` | Public runner directory, project funds, and clickable player detail overlay |
+| `index.html` | Public runner directory, project funds, clickable player detail overlay, and admin-only player-list PDF exports |
 | `about.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts |
 | `register.html` | Public registration page - the official Player Registration Form, with Rs. 500 fee notice |
 | `admin.html` | Admin sign-in, registrations, cancellation, payment management, receiving and expense ledgers, and PDF reports |
@@ -51,6 +51,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 ## Admin features (migration 20261024_001)
 - **Unlimited entries for admins.** While signed in, the one-per-device rule and public location step are skipped, and **Add another registration** is available after each save. Public visitors keep the one-per-device rule. Admin rows are tagged `entered_by`. The CNIC must still be unique (it identifies a person).
 - **Login saved locally.** One session is stored in this browser's local storage and shared by `index.html`, `register.html` and `admin.html`, so a refresh never signs you out. Sign out only ends it on this device.
+- **Admin-only player-list PDFs.** From the public runner directory, signed-in admins can download All, Confirmed, Pending, or Cancelled player lists. Each landscape PDF includes the player photo, registration number, name, age, gender, public address and status; private contact details and identity documents are excluded. The branded title/logo appears on the first page, and the table is paginated to avoid overflow.
 - **Clickable player details.** Public visitors can open each runner card to view the name, age, gender and registered address. Signed-in admins get the secure full-detail overlay with edit, payment confirmation, registration PDF, photo/CNIC front/back downloads and other document links. The three-dot menu remains available for quick actions; donations in the funds tab have edit/delete too.
 - **Project funds tabs.** The public page has *Runners* and *Project funds* tabs (`index.html#funds` opens the funds tab directly); Project Funds is divided into *Receiving* and *Expenses*.
 - **Reversible cancellation.** Admins can cancel or restore a runner without deleting the registration or changing its payment status. Cancelled runners remain in the public *All* list with clear red crossing lines; existing receiving records are preserved.
