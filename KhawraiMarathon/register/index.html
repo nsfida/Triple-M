@@ -17,7 +17,21 @@
 .fh .title{display:inline-flex;justify-content:center;margin-top:10px;padding:.48rem .9rem;background:var(--green);color:#fff;border-radius:9px;font-size:clamp(.82rem,2vw,1rem);font-weight:900;letter-spacing:.045em}
 .meta{display:flex;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;padding:0 2px 14px;margin-bottom:14px;border-bottom:1px solid var(--line);color:#52647c;font-size:.78rem;font-weight:800}
 .meta span b{display:inline-block;margin-left:6px;color:var(--ink);font-weight:650}
-.fee{position:relative;margin:0 0 18px;padding:14px 16px 14px 18px;border:1px solid #f0dfb7;border-left:4px solid #e4a21b;border-radius:12px;background:#fff8e8;color:#6d4a08;font-size:.82rem;line-height:1.65}
+.fee{position:relative;margin:0 0 18px;padding:16px;border:1px solid #b9dfcd;border-left:4px solid var(--green);border-radius:14px;background:linear-gradient(135deg,#f3fbf6 0%,#fff 100%);color:#234b3c;font-size:.82rem;line-height:1.6}
+.payment-fee .payment-fee-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;color:#123f31}
+.payment-fee .payment-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;background:#dff5a0;color:#174b36;font-size:.68rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.payment-fee .payment-fee-heading strong{font-size:1rem;font-weight:900;line-height:1.35}
+.payment-fee .payment-method{display:grid;grid-template-columns:112px minmax(0,1fr);gap:16px;align-items:center;padding:13px 15px;border:1px solid #d7e9df;border-radius:12px;background:rgba(255,255,255,.9)}
+.payment-fee .easypaisa-logo{display:block;width:100%;max-width:106px;height:auto;max-height:58px;object-fit:contain;justify-self:center}
+.payment-fee .payment-method-name{margin-bottom:7px;color:#087f5b;font-size:.86rem;font-weight:900}
+.payment-fee .payment-account-label,.payment-fee .payment-account-name span{display:block;color:#687b71;font-size:.68rem;font-weight:800;letter-spacing:.035em;text-transform:uppercase}
+.payment-fee .payment-number{margin:1px 0 7px;color:#173f31;font-size:clamp(1.12rem,2.8vw,1.45rem);font-weight:900;letter-spacing:.035em;font-variant-numeric:tabular-nums}
+.payment-fee .payment-account-name{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.payment-fee .payment-account-name strong{color:#1c3e31;font-size:.83rem;font-weight:900}
+.payment-fee .payment-help{margin:12px 0 0;color:#355b49;font-size:.79rem;line-height:1.65}
+.payment-fee .payment-form-note{margin:7px 0 0;color:#63746a;font-size:.73rem;line-height:1.5}
+.payment-fee b{color:#173f31}
+@media(max-width:700px){.fee{padding:12px}.payment-fee .payment-fee-heading{align-items:flex-start;gap:7px}.payment-fee .payment-fee-heading strong{font-size:.9rem}.payment-fee .payment-method{grid-template-columns:78px minmax(0,1fr);gap:11px;padding:11px}.payment-fee .easypaisa-logo{max-width:76px;max-height:48px}.payment-fee .payment-number{font-size:1.12rem}.payment-fee .payment-account-name{gap:4px}.payment-fee .payment-account-name strong{font-size:.78rem}.payment-fee .payment-help{font-size:.76rem}}
 .sec{--c:var(--blue);margin:0 0 15px;overflow:hidden;border:1px solid var(--line);border-radius:15px;background:#fff}
 .sec.g{--c:var(--green)}.sec.b{--c:var(--blue)}
 .sec>h2{display:flex;align-items:center;gap:10px;padding:13px 16px;background:#edf3ff;color:#284f9b;font-size:.86rem;font-weight:900;letter-spacing:.035em}
@@ -114,7 +128,20 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
     <img src="../assets/logo-right.png" alt="District Sports Office Nowshera logo">
   </div>
   <div class="meta"><span>Registration No:<b>Assigned when you submit</b></span><span>Date of Registration:<b id="today"></b></span></div>
-  <p class="fee"><b>Entry fee: Rs. 500.</b> Pay the fee to the organisers, then enter the receipt or transaction number in the box at the end of this form. Your entry stays <b>Pending</b> until the admin confirms payment. Write names and addresses in English letters so they print correctly on your form.</p>
+  <div class="fee payment-fee" role="note" aria-label="Registration fee and Easypaisa payment instructions">
+    <div class="payment-fee-heading"><span class="payment-badge">Registration fee</span><strong>Please pay Rs. 500 before submitting this form.</strong></div>
+    <div class="payment-method">
+      <img class="easypaisa-logo" src="../assets/easypaisa.png" alt="Easypaisa" loading="lazy">
+      <div>
+        <div class="payment-method-name">Pay via Easypaisa</div>
+        <span class="payment-account-label">Account number</span>
+        <div class="payment-number" dir="ltr">03339095878</div>
+        <div class="payment-account-name"><span>Account name</span><strong>Waseem Shehzad Fida</strong></div>
+      </div>
+    </div>
+    <p class="payment-help">After paying, you may enter the receipt or transaction number in the field near the end of this form to help the organisers verify your payment. Your registration will remain <b>Pending</b> until an admin confirms the payment and updates the status. This is an instruction only; the existing registration and admin confirmation process is unchanged.</p>
+    <p class="payment-form-note">Please write names and addresses in English letters so they print correctly on your registration form.</p>
+  </div>
 
   <section class="sec b"><h2>1. PLAYER PERSONAL INFORMATION</h2><div class="body"><div class="pic"><div>
     <div class="r"><label for="name">Name</label><input type="text" id="name" required maxlength="100" autocomplete="name"></div>
