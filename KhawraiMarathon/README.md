@@ -4,6 +4,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 
 | File | Purpose |
 |---|---|
+| `index.html` | Official home page with key race details, quick links, prize information, Season Two photos and live registration-deadline banner (`/`) |
 | `participants/index.html` | Public runner directory, project funds, clickable player detail overlay, and admin-only player-list PDF exports (`/participants/`) |
 | `results/index.html` | Public live race status, official leaderboard, podium prizes, and results PDF download (`/results/`) |
 | `about/index.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts (`/about/`) |
@@ -16,7 +17,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | `sql/add_funds.sql` | Project funds only - run it if you installed before funds existed |
 | `sql/add_device_location.sql` | One registration per device, location, original images - run it if you installed before this update |
 | `sql/create_admin_users.sql` | Creates the two admin logins |
-| `assets/` | Shared styles, About page styling, logos and the original form artwork used for the PDFs |
+| `assets/` | Shared styles, homepage styling, About/results page styling, logos and the original form artwork used for the PDFs |
 | `images/` | Season Two race photographs used in the About gallery (credited to Sagar Studio) |
 | `js/config.js` | Supabase URL / anon key, logo URL, admin usernames |
 
@@ -25,7 +26,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
    **Existing install:** run only migrations that have not already been applied. In particular, run `20261026_002_local_first_zero_payment.sql` after `20261024_001_admin_multi_entries.sql`, then run `20261028_005_registration_deadline.sql` to activate the database-side deadline enforcement and `20261028_006_marathon_results.sql` to enable secure race controls and results. Migrations 005 and 006 are safe to re-run and do not delete, reset or rewrite existing records.
 2. **Authentication > Sign In / Providers**: turn **off** "Allow new users to sign up".
 3. Upload the whole folder to any static host (Netlify, Vercel, GitHub Pages, cPanel). Opening via `https://` is required for camera/photo upload on phones.
-4. Share `/register/` with participants; keep `/admin/` for the organisers. The root page redirects to `/participants/`.
+4. Share `/register/` with participants; keep `/admin/` for the organisers. The root URL `/` serves the official home page directly, without redirecting visitors to the participants list.
 
 ## Who can do what (enforced by the database, not just the screens)
 | | Public | waseemfida | nsfida |
@@ -70,7 +71,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - Public participant/fund data is cached in local storage and drawn before a fresh background refresh. Admin list caches use session storage because they include private contact fields.
 - Registration form fields autosave as a local draft. On submit, the form and attached file blobs are committed to IndexedDB first, then uploaded and submitted to Supabase. If offline or interrupted, the queue retries when the connection returns or the registration page is reopened. A local queued entry is clearly labeled **Sync pending** and is not considered an official registration until the server returns a registration number.
 - Admin confirmations, edits, and donation entries are written to a small local outbox before the database request. The UI updates immediately and the outbox retries while online or when an admin page is reopened. Keep the same browser profile and do not clear site data until pending syncs finish.
-- The page headers and loading screens use the original Khawrai Unity brand mark from `https://triplem.vip/KhawraiUnity/logo.png`; each logo links to the public participant list. A shared profile menu includes account navigation, sign-out, password changes and a browser-local admin profile picture. Runner photography is used as a low-contrast part of the shared visual theme.
+- The page headers and loading screens use the original Khawrai Unity brand mark from `https://triplem.vip/KhawraiUnity/logo.png`; each logo links to the home page. A shared profile menu includes account navigation, sign-out, password changes and a browser-local admin profile picture. Runner photography is used as a low-contrast part of the shared visual theme.
 
 ## Public player detail migration
 - `20261026_003_public_player_details.sql` replaces the participant view in-place while preserving its existing columns and adding `gender`, `address` and `district_tehsil` at the end. It does not alter or delete rows. Because the requested public player overlay displays the registered address, that address becomes visible to public visitors; CNIC, mobile, email and location coordinates remain excluded. To verify the migration actually exists in the live database, run `sql/verify_migration_003.sql` in Supabase SQL Editor and confirm it returns `PASS`. A local ZIP cannot apply a migration to Supabase by itself.
@@ -101,7 +102,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 
 ### Pretty routes and race-roster controls
 
-- Public pages are served from route folders: `/participants/`, `/results/`, `/about/`, `/register/`, and `/admin/`. The root URL redirects to `/participants/`; route folders provide clean URLs such as `/results/` and `/about/`. `.htaccess` redirects legacy `.html` links and direct `index.html` requests on Apache-compatible hosting. Keep the route-folder `index.html` files together with their assets when deploying.
+- Public pages are served from `/`, `/participants/`, `/results/`, `/about/`, `/register/`, and `/admin/`. The root URL `/` serves the dedicated home page and does not redirect to the participants page. Route folders provide clean URLs such as `/results/` and `/about/`. `.htaccess` redirects legacy `.html` links and direct route-folder `index.html` requests on Apache-compatible hosting. Keep each route-folder `index.html` together with its assets when deploying.
 - The Race Results admin roster lists every confirmed, non-cancelled runner in a randomized order per page session. Each runner row has an action dropdown for editing details, marking statuses, recording a finish time, or removing an existing result. All changes call authenticated database RPC functions; the public `/results/` page remains read-only.
 - Custom player/ledger kebab menus are rendered in a fixed body-level layer so table overflow and stacking contexts do not clip or cover their menu items. Primary navigation remains visible on mobile.
 

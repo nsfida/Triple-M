@@ -1,0 +1,611 @@
+/* Shared KMR-S3 masthead and navigation layout - used by every route. */
+:root {
+  --kmr-header: #103f34;
+  --kmr-header-deep: #0b342b;
+  --kmr-header-border: rgba(231, 246, 229, .17);
+  --kmr-lime: #c9f56a;
+}
+
+/* The upper title banner is intentionally slim: branding + Register + account only. */
+header.top {
+  position: relative;
+  z-index: 500;
+  overflow: visible;
+  color: #f8fbfc;
+  background: var(--kmr-header);
+  border: 0;
+  box-shadow: none;
+}
+header.top::before,
+header.top::after { content: none !important; }
+header.top .in {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  max-width: 1240px;
+  min-height: 70px;
+  margin: 0 auto;
+  padding: 8px 24px;
+}
+header.top .logo-link {
+  display: grid;
+  place-items: center;
+  flex: 0 0 43px;
+  width: 43px;
+  height: 43px;
+  padding: 3px;
+  border: 1px solid rgba(255,255,255,.6);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+header.top .logo-link:hover { transform: none; box-shadow: none; }
+header.top img.logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+}
+header.top .tt { flex: 1 1 auto; min-width: 0; }
+header.top h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.1rem, 1.9vw, 1.55rem);
+  font-weight: 850;
+  line-height: 1.12;
+  letter-spacing: -.045em;
+  text-wrap: balance;
+}
+header.top h1 span {
+  display: inline-block;
+  margin-left: .24rem;
+  color: #d8efaa;
+  font-size: .68em;
+  font-weight: 800;
+  letter-spacing: -.015em;
+}
+header.top p {
+  margin: 3px 0 0;
+  color: rgba(240, 250, 244, .75);
+  font-size: .69rem;
+  line-height: 1.3;
+}
+header.top .header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  margin-left: auto;
+  position: relative;
+  z-index: 520;
+}
+header.top .header-utilities {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  min-width: 0;
+}
+header.top .cta { display: flex; flex: 0 0 auto; align-items: center; margin: 0; }
+header.top .header-utilities .registration-cta {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 122px;
+}
+header.top .header-utilities .registration-cta .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 94px;
+  min-height: 33px;
+  padding: .43rem .9rem;
+  border: 1px solid var(--kmr-lime);
+  border-radius: 8px;
+  background: var(--kmr-lime);
+  color: #183a2b;
+  font-size: .72rem;
+  font-weight: 850;
+  line-height: 1.05;
+  white-space: nowrap;
+  box-shadow: none;
+}
+header.top .header-utilities .registration-cta .btn:hover { background: #bcec57; border-color: #bcec57; }
+header.top .registration-countdown {
+  display: block;
+  max-width: 100%;
+  color: #ff8e9b;
+  font-size: .48rem;
+  font-weight: 950;
+  line-height: 1.08;
+  letter-spacing: .015em;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+header.top .registration-countdown[hidden] { display: none !important; }
+header.top .header-utilities .registration-ended-pill,
+header.top .btn.registration-ended-pill {
+  min-height: 33px;
+  padding: .43rem .7rem;
+  border: 1px solid #f2b8bf;
+  border-radius: 8px;
+  background: #fff0f2;
+  color: #9d2637;
+  font-size: .68rem;
+  font-weight: 900;
+  box-shadow: none;
+}
+header.top .profile-mount,
+header.top .profile-wrap { position: relative; z-index: 530; flex: 0 0 auto; min-width: 0; }
+header.top .profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 35px;
+  max-width: 188px;
+  padding: 3px 8px 3px 3px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 9px;
+  background: rgba(255,255,255,.075);
+  color: #f8fbfc;
+  box-shadow: none;
+}
+header.top .profile-trigger:hover,
+header.top .profile-trigger[aria-expanded="true"] { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.4); }
+header.top .profile-avatar { flex: 0 0 27px; width: 27px; height: 27px; }
+header.top .profile-label { min-width: 0; gap: 2px; }
+header.top .profile-label strong { max-width: 103px; font-size: .66rem; }
+header.top .profile-label small { color: rgba(240,250,244,.7); font-size: .55rem; }
+header.top .profile-chevron { flex: 0 0 11px; width: 11px; height: 11px; }
+
+/* Primary navigation is a distinct, short row below the title banner. */
+.site-nav-shell {
+  position: relative;
+  z-index: 480;
+  width: 100%;
+  background: var(--kmr-header-deep);
+  border-top: 1px solid var(--kmr-header-border);
+  border-bottom: 2px solid var(--kmr-lime);
+  box-shadow: none;
+}
+.site-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 6px 24px;
+}
+.site-nav-shell .primary-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 7px;
+  width: min(100%, 456px);
+  margin: 0 auto;
+}
+.site-nav-shell .primary-nav .cta {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+}
+.site-nav-shell .primary-nav .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: .42rem .55rem;
+  border: 1px solid rgba(230, 247, 235, .24);
+  border-radius: 8px;
+  background: rgba(255,255,255,.075);
+  color: rgba(248,252,249,.9);
+  font-size: .7rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: none;
+  transform: none;
+}
+.site-nav-shell .primary-nav .btn:hover {
+  background: rgba(255,255,255,.13);
+  border-color: rgba(230,247,235,.45);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+.site-nav-shell .primary-nav .btn[aria-current="page"] {
+  border-color: #e8f7d0;
+  background: #e8f7d0;
+  color: #173d30;
+}
+.site-nav-shell .primary-nav .btn[aria-current="page"]:hover { background: #d9efb5; border-color: #d9efb5; }
+
+/* Mid-sized viewports retain the compact title row, then place utilities within its banner. */
+@media (max-width: 760px) {
+  header.top .in {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 7px 10px;
+    min-height: 0;
+    padding: 9px 16px 8px;
+  }
+  header.top .logo-link { width: 40px; height: 40px; flex-basis: 40px; }
+  header.top .tt { grid-column: 2; }
+  header.top h1 { font-size: clamp(.95rem, 2.7vw, 1.22rem); line-height: 1.1; }
+  header.top h1 span { font-size: .66em; }
+  header.top p { margin-top: 2px; font-size: .62rem; line-height: 1.25; }
+  header.top .header-actions { grid-column: 1 / -1; justify-self: end; width: 100%; margin: 0; }
+  header.top .header-utilities { gap: 8px; }
+  header.top .profile-trigger { min-height: 33px; max-width: 180px; }
+  .site-nav-inner { padding: 6px 14px; }
+  .site-nav-shell .primary-nav { gap: 5px; }
+  .site-nav-shell .primary-nav .btn { min-height: 33px; padding: .38rem .3rem; font-size: .66rem; }
+}
+@media (max-width: 390px) {
+  header.top .in { padding: 8px 11px 7px; column-gap: 8px; }
+  header.top .logo-link { width: 37px; height: 37px; flex-basis: 37px; }
+  header.top h1 { font-size: .92rem; letter-spacing: -.04em; }
+  header.top p { font-size: .58rem; }
+  header.top .header-utilities { gap: 7px; }
+  header.top .header-utilities .registration-cta { min-width: 116px; }
+  header.top .header-utilities .registration-cta .btn { min-width: 88px; min-height: 32px; padding: .38rem .7rem; font-size: .68rem; }
+  header.top .registration-countdown { font-size: .42rem; letter-spacing: 0; }
+  header.top .profile-trigger { gap: 5px; padding: 2px 6px 2px 2px; max-width: 176px; }
+  header.top .profile-avatar { flex-basis: 25px; width: 25px; height: 25px; }
+  header.top .profile-label strong { max-width: 97px; font-size: .61rem; }
+  header.top .profile-label small { font-size: .51rem; }
+  .site-nav-inner { padding: 5px 9px; }
+  .site-nav-shell .primary-nav { gap: 4px; }
+  .site-nav-shell .primary-nav .btn { min-height: 32px; padding: .35rem .12rem; font-size: .6rem; letter-spacing: -.015em; }
+}
+@media (max-width: 340px) {
+  header.top .profile-label small { display: none; }
+  header.top .profile-label strong { max-width: 92px; }
+  header.top .header-utilities { gap: 6px; }
+  header.top .header-utilities .registration-cta { min-width: 108px; }
+  header.top .registration-countdown { font-size: .39rem; }
+  .site-nav-shell .primary-nav .btn { font-size: .56rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-nav-shell .primary-nav .btn { transition: none; }
+}
+/* A shared nav must always expose all four links, including Results on phones. */
+.site-nav-shell .primary-nav .results-nav-cta { display: block !important; }
+
+/* Final overrides neutralize older per-page responsive navigation rules. */
+@media (min-width: 761px) {
+  header.top .header-actions { display: flex !important; width: auto !important; grid-template-columns: none !important; grid-template-rows: none !important; }
+}
+@media (max-width: 760px) {
+  header.top .header-actions {
+    display: flex !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    justify-content: flex-end !important;
+  }
+  header.top .header-utilities { display: flex !important; width: auto !important; flex: 0 0 auto !important; align-items: center !important; }
+  header.top .header-utilities .registration-cta {
+    display: flex !important;
+    width: 122px !important;
+    min-width: 122px !important;
+    flex: 0 0 122px !important;
+    align-items: center !important;
+  }
+  header.top .header-utilities .profile-trigger {
+    display: flex !important;
+    width: auto !important;
+    min-width: 134px !important;
+    max-width: 180px !important;
+    padding: 2px 7px 2px 3px !important;
+    justify-content: flex-start !important;
+  }
+  header.top .header-utilities .profile-label { display: grid !important; }
+  header.top .header-utilities .profile-chevron { display: block !important; }
+  header.top .header-utilities .profile-label strong { max-width: 92px !important; }
+}
+@media (max-width: 390px) {
+  header.top .header-utilities .registration-cta { width: 116px !important; min-width: 116px !important; flex-basis: 116px !important; }
+  header.top .header-utilities .profile-trigger { min-width: 126px !important; max-width: 168px !important; }
+  header.top .header-utilities .profile-label strong { max-width: 86px !important; }
+}
+@media (max-width: 340px) {
+  header.top .header-utilities .profile-trigger { min-width: 120px !important; max-width: 158px !important; }
+  header.top .header-utilities .profile-label small { display: none !important; }
+  header.top .header-utilities .registration-cta { width: 108px !important; min-width: 108px !important; flex-basis: 108px !important; }
+}
+
+@media (min-width: 761px) { header.top .in { flex-wrap: nowrap !important; } }
+@media (max-width: 760px) {
+  header.top .header-utilities .profile-mount,
+  header.top .header-utilities .profile-wrap {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    justify-self: auto !important;
+  }
+}
+
+/* Final header refinement: aligned utility controls, centered countdown and in-flow nav. */
+header.top {
+  position: relative !important;
+  top: auto !important;
+  inset-block-start: auto !important;
+  z-index: 500;
+}
+header.top .in {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 43px minmax(0, 1fr) auto !important;
+  grid-template-rows: minmax(35px, auto) !important;
+  align-items: center !important;
+  column-gap: 11px !important;
+  row-gap: 0 !important;
+  min-height: 79px !important;
+  padding: 8px 24px 22px !important;
+  box-sizing: border-box !important;
+}
+header.top .logo-link { grid-column: 1 !important; grid-row: 1 !important; align-self: center !important; }
+header.top .tt { grid-column: 2 !important; grid-row: 1 !important; min-width: 0 !important; align-self: center !important; }
+header.top h1 { margin: 0 !important; }
+header.top p { margin-top: 3px !important; }
+header.top .header-actions {
+  position: static !important;
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  align-self: center !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+}
+header.top .header-utilities {
+  position: static !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+header.top .header-utilities .registration-cta {
+  position: static !important;
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 35px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+header.top .header-utilities .registration-cta > .btn,
+header.top .header-utilities .profile-trigger {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 35px !important;
+  min-height: 35px !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+header.top .header-utilities .registration-cta > .btn {
+  min-width: 98px !important;
+  padding: 0 12px !important;
+  font-size: .72rem !important;
+}
+header.top .header-utilities .profile-mount,
+header.top .header-utilities .profile-wrap {
+  position: relative !important;
+  z-index: 530 !important;
+  display: block !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+header.top .header-utilities .profile-trigger {
+  min-width: 145px !important;
+  max-width: 188px !important;
+  padding: 3px 8px 3px 3px !important;
+  gap: 6px !important;
+}
+/* Place the live clock at the bottom-center of the title banner, not beneath Register. */
+header.top .registration-countdown {
+  position: absolute !important;
+  z-index: 2 !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: 4px !important;
+  display: block !important;
+  width: max-content !important;
+  max-width: calc(100% - 24px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  color: #ff9aa4 !important;
+  font-size: .66rem !important;
+  font-weight: 950 !important;
+  line-height: 1.1 !important;
+  letter-spacing: .025em !important;
+  text-align: center !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  transform: translateX(-50%) !important;
+}
+header.top .registration-countdown[hidden] { display: none !important; }
+header.top .registration-ended-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap;
+}
+header.top .registration-ended-pill[hidden] { display: none !important; }
+
+/* Navigation scrolls naturally with the page and has no full-width colored strip. */
+.site-nav-shell {
+  position: static !important;
+  top: auto !important;
+  inset-block-start: auto !important;
+  z-index: auto !important;
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 9px 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+.site-nav-inner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 1240px !important;
+  margin: 0 auto !important;
+  padding: 0 24px !important;
+  box-sizing: border-box !important;
+}
+.site-nav-shell .primary-nav {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  width: min(100%, 480px) !important;
+  margin: 0 auto !important;
+}
+.site-nav-shell .primary-nav .cta { display: block !important; width: 100% !important; min-width: 0 !important; margin: 0 !important; }
+.site-nav-shell .primary-nav .btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 33px !important;
+  height: 33px !important;
+  box-sizing: border-box !important;
+  padding: 0 8px !important;
+  overflow: hidden !important;
+  border: 1px solid #cbded3 !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.76) !important;
+  color: #174a3a !important;
+  font-size: .7rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  text-overflow: ellipsis !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.site-nav-shell .primary-nav .btn:hover {
+  background: #f1f8ef !important;
+  border-color: #98bda8 !important;
+  color: #103f34 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.site-nav-shell .primary-nav .btn[aria-current="page"] {
+  background: #d8ef8a !important;
+  border-color: #c3e56b !important;
+  color: #173d30 !important;
+}
+
+@media (max-width: 760px) {
+  header.top .in {
+    grid-template-columns: 37px minmax(50px, 1fr) auto !important;
+    column-gap: 7px !important;
+    min-height: 73px !important;
+    padding: 7px 12px 21px !important;
+  }
+  header.top .logo-link { width: 37px !important; height: 37px !important; flex-basis: 37px !important; }
+  header.top h1 { font-size: clamp(.68rem, 2.8vw, 1.02rem) !important; line-height: 1.04 !important; letter-spacing: -.04em !important; overflow-wrap: normal !important; }
+  header.top h1 span { font-size: .64em !important; }
+  header.top p { font-size: .6rem !important; line-height: 1.15 !important; }
+  header.top .header-actions { grid-column: 3 !important; grid-row: 1 !important; width: auto !important; justify-self: end !important; }
+  header.top .header-utilities { gap: 5px !important; }
+  header.top .header-utilities .registration-cta { width: auto !important; min-width: 0 !important; flex: 0 0 auto !important; height: 31px !important; }
+  header.top .header-utilities .registration-cta > .btn,
+  header.top .header-utilities .profile-trigger { height: 31px !important; min-height: 31px !important; }
+  header.top .header-utilities .registration-cta > .btn { min-width: 68px !important; padding: 0 7px !important; font-size: .63rem !important; }
+  header.top .header-utilities .profile-trigger { min-width: 99px !important; max-width: 111px !important; padding: 2px 5px 2px 2px !important; gap: 4px !important; }
+  header.top .header-utilities .profile-avatar { width: 23px !important; height: 23px !important; flex-basis: 23px !important; }
+  header.top .header-utilities .profile-label { display: grid !important; min-width: 0 !important; gap: 1px !important; }
+  header.top .header-utilities .profile-label strong { max-width: 58px !important; font-size: .57rem !important; line-height: 1 !important; }
+  header.top .header-utilities .profile-label small { display: none !important; }
+  header.top .header-utilities .profile-chevron { display: block !important; flex-basis: 9px !important; width: 9px !important; height: 9px !important; }
+  header.top .registration-countdown { font-size: .58rem !important; letter-spacing: .01em !important; bottom: 4px !important; }
+  header.top .registration-ended-pill { max-width: 82px !important; min-width: 0 !important; padding: 0 5px !important; font-size: .56rem !important; white-space: normal !important; line-height: 1.05 !important; text-align: center !important; }
+  .site-nav-shell { padding: 8px 0 11px !important; }
+  .site-nav-inner { padding: 0 12px !important; }
+  .site-nav-shell .primary-nav { gap: 5px !important; width: min(100%, 480px) !important; }
+  .site-nav-shell .primary-nav .btn { min-height: 32px !important; height: 32px !important; padding: 0 4px !important; font-size: clamp(.57rem, 2.1vw, .66rem) !important; }
+}
+@media (max-width: 480px) {
+  header.top .in { grid-template-columns: 34px minmax(38px, 1fr) auto !important; column-gap: 5px !important; padding: 7px 10px 20px !important; min-height: 70px !important; }
+  header.top .logo-link { width: 34px !important; height: 34px !important; flex-basis: 34px !important; }
+  header.top h1 { font-size: clamp(.66rem, 2.7vw, .82rem) !important; line-height: 1.02 !important; }
+  header.top h1 span { display: none !important; }
+  header.top p { display: none !important; }
+  header.top .header-utilities { gap: 4px !important; }
+  header.top .header-utilities .registration-cta > .btn { min-width: 63px !important; padding: 0 5px !important; font-size: .59rem !important; }
+  header.top .header-utilities .profile-trigger { min-width: 93px !important; max-width: 100px !important; }
+  header.top .header-utilities .profile-label strong { max-width: 51px !important; font-size: .54rem !important; }
+  header.top .header-utilities .profile-avatar { width: 20px !important; height: 20px !important; flex-basis: 20px !important; }
+  header.top .registration-countdown { font-size: .54rem !important; letter-spacing: 0 !important; max-width: calc(100% - 16px) !important; }
+  .site-nav-inner { padding-inline: 9px !important; }
+  .site-nav-shell .primary-nav { gap: 4px !important; }
+  .site-nav-shell .primary-nav .btn { font-size: .57rem !important; padding-inline: 2px !important; }
+}
+@media (max-width: 340px) {
+  header.top .in { grid-template-columns: 30px minmax(32px, 1fr) auto !important; column-gap: 4px !important; padding-inline: 7px !important; }
+  header.top .logo-link { width: 30px !important; height: 30px !important; flex-basis: 30px !important; }
+  header.top h1 { font-size: .63rem !important; }
+  header.top .header-utilities { gap: 3px !important; }
+  header.top .header-utilities .registration-cta > .btn { min-width: 58px !important; font-size: .56rem !important; }
+  header.top .header-utilities .profile-trigger { min-width: 87px !important; max-width: 90px !important; gap: 3px !important; }
+  header.top .header-utilities .profile-label strong { max-width: 46px !important; font-size: .5rem !important; }
+  header.top .registration-countdown { font-size: .51rem !important; }
+  .site-nav-inner { padding-inline: 6px !important; }
+  .site-nav-shell .primary-nav { gap: 3px !important; }
+  .site-nav-shell .primary-nav .btn { font-size: .54rem !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-nav-shell .primary-nav .btn { transition: none !important; }
+}
+
+/* Preserve the native hidden state: the general utility-button rule also targets the ended pill. */
+header.top .header-utilities .registration-cta > .registration-ended-pill[hidden] {
+  display: none !important;
+}

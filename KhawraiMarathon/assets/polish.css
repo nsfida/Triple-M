@@ -319,3 +319,10 @@ dialog,
   transform: none !important;
   background-image: none !important;
 }
+
+
+/* Explicitly honour hidden state for header registration controls despite button styling. */
+.top .header-utilities .registration-cta > [hidden],
+.top .header-utilities .registration-cta [hidden] {
+  display: none !important;
+}
