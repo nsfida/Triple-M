@@ -1,0 +1,321 @@
+/* KMR-S3 visual repair layer. Loaded last on every route. */
+:root {
+  --button-radius: 9px;
+  --content-gutter: 24px;
+}
+
+html {
+  max-width: 100%;
+  overflow-x: clip;
+  scroll-padding-top: 96px;
+}
+
+body {
+  width: 100%;
+  min-width: 320px;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Flat, calm controls: remove the raised/3D shadows and hover lift. */
+.btn,
+button.btn,
+a.btn,
+label.btn,
+input.btn,
+.header-actions .cta .btn {
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none !important;
+  transform: none !important;
+  text-shadow: none;
+  background-image: none;
+  border-radius: var(--button-radius);
+  border-width: 1px;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, opacity .16s ease;
+}
+
+.btn:hover,
+.btn:focus,
+.btn:active,
+button.btn:hover,
+button.btn:active,
+a.btn:hover,
+a.btn:active,
+label.btn:hover,
+.header-actions .cta .btn[aria-current="page"],
+.header-actions .cta .btn[aria-current="page"]:hover {
+  box-shadow: none !important;
+  transform: none !important;
+  text-shadow: none;
+}
+
+.btn:focus-visible,
+button:focus-visible,
+a.btn:focus-visible {
+  outline: 2px solid #69a990;
+  outline-offset: 2px;
+}
+
+.btn[disabled],
+button[disabled] {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none;
+}
+
+/* The selected navigation link uses color/border only, not an inset shadow. */
+.header-actions .cta .btn[aria-current="page"] {
+  border-color: #d8ef8a;
+  background: rgba(216, 239, 138, .14);
+  color: #e8f5c9;
+}
+.header-actions .cta .btn.yellow[aria-current="page"] {
+  border-color: #d8ef8a;
+  background: #d8ef8a;
+  color: #203a2f;
+}
+.tabbar button[aria-selected="true"],
+.tabs button[aria-pressed="true"],
+.chips button,
+.fund-subtabs button,
+.fund-tabs button,
+.kebab {
+  box-shadow: none !important;
+  transform: none !important;
+}
+.tabbar button:hover,
+.tabs button:hover,
+.chips button:hover,
+.fund-subtabs button:hover,
+.fund-tabs button:hover,
+.kebab:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Consistent sizing and alignment across the main content containers. */
+main,
+.wrap,
+.about-page,
+.sheet,
+.results-page {
+  box-sizing: border-box;
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Dropdowns and dialogs must sit above tables, cards, and sticky headings. */
+.profile-menu { z-index: 10060; }
+.menu.menu-floating { z-index: 10070; }
+.player-pdf-dropdown { position: relative; z-index: 45; }
+.player-pdf-menu { z-index: 10070; }
+dialog,
+.profile-dialog,
+.player-dialog { z-index: 10080; }
+
+/* About page: restore consistent editorial width and prevent grid overflow. */
+.about-page {
+  width: 100%;
+  max-width: 1240px;
+}
+.about-hero,
+.about-intro-grid,
+.about-section,
+.about-gallery-section,
+.about-region,
+.about-leadership,
+.about-values,
+.about-contact {
+  min-width: 0;
+  max-width: 100%;
+}
+.about-hero-copy,
+.about-intro-copy,
+.about-purpose-card,
+.season-card,
+.gallery-card,
+.region-copy,
+.region-list,
+.leadership-card,
+.value-item,
+.contact-copy,
+.contact-actions {
+  min-width: 0;
+}
+.about-hero h2,
+.about-intro-copy h2,
+.about-section-head h2,
+.region-copy h2,
+.values-heading h2,
+.contact-copy h2 {
+  overflow-wrap: anywhere;
+}
+.about-hero-actions .btn { min-height: 42px; }
+.about-footer-inner { min-width: 0; }
+.about-footer nav a { line-height: 1.5; }
+
+/* Results page responsive centering. */
+.results-page { width: 100%; }
+.results-hero,
+.results-control-card,
+.results-table-wrap,
+.prize-grid,
+.podium-grid { min-width: 0; }
+.results-hero h2 { overflow-wrap: anywhere; }
+.prize-amount { white-space: normal; overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  :root { --content-gutter: 18px; }
+  .wrap { padding-left: 18px; padding-right: 18px; }
+  .about-page { padding-left: 18px; padding-right: 18px; }
+  .results-shortcut { width: 100%; box-sizing: border-box; }
+}
+
+@media (max-width: 720px) {
+  :root { --content-gutter: 12px; }
+  .top .in {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .top .tt { min-width: 0; }
+  .header-actions {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 36px !important;
+    align-items: stretch;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+  }
+  .header-actions .cta {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    align-items: stretch;
+  }
+  .header-actions .cta .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: .42rem .18rem;
+    border-radius: 8px;
+    font-size: clamp(.59rem, 2.15vw, .7rem);
+    line-height: 1.12;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .header-actions .profile-mount {
+    display: block;
+    width: 36px;
+    min-width: 0;
+    justify-self: end;
+    align-self: center;
+  }
+  .header-actions .profile-trigger {
+    display: flex;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    min-height: 37px;
+    padding: 2px;
+  }
+  .header-actions .profile-label,
+  .header-actions .profile-chevron { display: none; }
+
+  .wrap,
+  .about-page,
+  .sheet,
+  .results-page {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .wrap { padding: 15px 12px 36px; }
+  .about-page { padding: 15px 12px 42px; }
+  .sheet { padding: 14px 12px 36px; }
+  .score,
+  .tabbar .in,
+  .results-shortcut { box-sizing: border-box; width: 100%; margin-left: auto; margin-right: auto; }
+  .score { padding-left: 12px; padding-right: 12px; }
+  .tabbar .in { padding-left: 12px; padding-right: 12px; }
+  .results-shortcut { padding-left: 12px; padding-right: 12px; }
+
+  /* About content is centered in the viewport; copy remains comfortably readable. */
+  .about-hero { width: 100%; grid-template-columns: minmax(0, 1fr); }
+  .about-hero-copy { padding: 30px 21px 32px; }
+  .about-hero-photo { width: auto; max-width: calc(100% - 24px); margin-left: 12px; margin-right: 12px; }
+  .about-intro-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-left: 4px; padding-right: 4px; }
+  .about-section-head { gap: 12px; }
+  .season-timeline,
+  .season-gallery,
+  .leadership-grid { grid-template-columns: minmax(0, 1fr); }
+  .about-region { grid-template-columns: minmax(0, 1fr); padding-left: 17px; padding-right: 17px; }
+  .region-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about-values { grid-template-columns: minmax(0, 1fr); padding-left: 4px; padding-right: 4px; }
+  .values-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about-contact { grid-template-columns: 42px minmax(0, 1fr); padding: 23px 16px; }
+  .contact-actions { grid-column: 1 / -1; width: 100%; justify-items: start; }
+  .about-contact .btn { max-width: 100%; white-space: normal; }
+  .about-footer { padding-left: 14px; padding-right: 14px; }
+  .about-footer-inner { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+  .about-footer-bottom { display: flex; flex-direction: column; gap: 4px; }
+
+  .results-hero { width: 100%; }
+  .prize-grid,
+  .podium-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .results-page .leaderboard-heading .tools { display: flex; flex-wrap: wrap; width: 100%; }
+  .results-page .leaderboard-heading .tools .btn { flex: 1 1 145px; min-width: 0; }
+}
+
+@media (max-width: 390px) {
+  .top .in { padding-left: 9px; padding-right: 9px; }
+  .header-actions { grid-template-columns: repeat(4, minmax(0, 1fr)) 32px !important; gap: 3px; }
+  .header-actions .cta .btn { min-height: 36px; padding-left: .08rem; padding-right: .08rem; font-size: .58rem; }
+  .header-actions .profile-mount,
+  .header-actions .profile-trigger { width: 32px; min-width: 32px; }
+  .about-page { padding-left: 10px; padding-right: 10px; }
+  .about-hero-copy { padding-left: 17px; padding-right: 17px; }
+  .about-hero h2 { font-size: clamp(1.82rem, 8vw, 2.3rem); }
+  .about-hero-facts { flex-wrap: wrap; gap: 12px 20px; }
+  .about-hero-actions { align-items: flex-start; gap: 10px; }
+  .about-hero-actions .btn { width: 100%; }
+  .about-hero-actions .about-text-link { min-height: 38px; }
+  .region-list,
+  .values-grid { grid-template-columns: minmax(0, 1fr); }
+  .about-contact { grid-template-columns: minmax(0, 1fr); }
+  .contact-symbol { margin-bottom: 0; }
+  .prize-grid { gap: 6px; }
+  .prize-card { padding: 17px 5px 13px; }
+  .prize-amount { font-size: clamp(.78rem, 3.6vw, .95rem); }
+  .podium-grid { gap: 5px; }
+  .podium-card { padding-left: 4px; padding-right: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, button, a.btn { transition: none !important; }
+}
+
+/* Keep dropdown triggers flat as well; table menus must float above content. */
+.player-pdf-dropdown > summary,
+.player-pdf-dropdown > summary:hover,
+.player-pdf-dropdown[open] > summary {
+  box-shadow: none !important;
+  transform: none !important;
+  background-image: none !important;
+}
