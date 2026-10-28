@@ -5,12 +5,14 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | File | Purpose |
 |---|---|
 | `index.html` | Public runner directory, project funds, clickable player detail overlay, and admin-only player-list PDF exports |
+| `results.html` | Public live race status, official leaderboard, podium prizes, and results PDF download |
 | `about.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts |
 | `register.html` | Public registration page - the official Player Registration Form, with Rs. 500 fee notice |
 | `admin.html` | Admin sign-in, registrations, cancellation, payment management, receiving and expense ledgers, and PDF reports |
 | `sql/schema.sql` | Tables, Row Level Security, storage buckets and policies |
+| `sql/verify_marathon_results.sql` | Verifies result tables, RLS, blocked direct writes, and Realtime publication |
 | `sql/migrations/` | **Safe, re-runnable migrations. Run new files here in date order.** Migrations are additive and avoid destructive data changes. |
-| `js/common.js`, `js/admin-tools.js` | Shared login (saved locally) and the admin actions used by every page |
+| `js/common.js`, `js/admin-tools.js`, `js/admin-race.js`, `js/results.js` | Shared login, registration tools, secure race administration, and the public live leaderboard |
 | `sql/add_funds.sql` | Project funds only - run it if you installed before funds existed |
 | `sql/add_device_location.sql` | One registration per device, location, original images - run it if you installed before this update |
 | `sql/create_admin_users.sql` | Creates the two admin logins |
@@ -19,8 +21,8 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | `js/config.js` | Supabase URL / anon key, logo URL, admin usernames |
 
 ## Setup (about 5 minutes)
-1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then every forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards - it holds passwords). Run `20261026_003_public_player_details.sql` after `20261026_002_local_first_zero_payment.sql` to enable the public player overlay, then `20261027_004_cancellations_expenses.sql` and `20261028_005_registration_deadline.sql`. Migration 005 enforces the 05 November 2026, 11:59 PM Pakistan Standard Time public registration cutoff in PostgreSQL and storage upload policies, while verified admins can continue registering runners. `sql/verify_migration_003.sql` remains available to verify the earlier public-details migration.
-   **Existing install:** run only migrations that have not already been applied. In particular, run `20261026_002_local_first_zero_payment.sql` after `20261024_001_admin_multi_entries.sql`, then run `20261028_005_registration_deadline.sql` to activate the database-side deadline enforcement. Migration 005 is safe to re-run and does not delete, reset or rewrite existing records.
+1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then every forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards - it holds passwords). Run `20261026_003_public_player_details.sql` after `20261026_002_local_first_zero_payment.sql` to enable the public player overlay, then `20261027_004_cancellations_expenses.sql`, `20261028_005_registration_deadline.sql`, and `20261028_006_marathon_results.sql`. Migration 005 enforces the 05 November 2026, 11:59 PM Pakistan Standard Time public registration cutoff in PostgreSQL and storage upload policies, while verified admins can continue registering runners. `sql/verify_migration_003.sql` remains available to verify the earlier public-details migration.
+   **Existing install:** run only migrations that have not already been applied. In particular, run `20261026_002_local_first_zero_payment.sql` after `20261024_001_admin_multi_entries.sql`, then run `20261028_005_registration_deadline.sql` to activate the database-side deadline enforcement and `20261028_006_marathon_results.sql` to enable secure race controls and results. Migrations 005 and 006 are safe to re-run and do not delete, reset or rewrite existing records.
 2. **Authentication > Sign In / Providers**: turn **off** "Allow new users to sign up".
 3. Upload the whole folder to any static host (Netlify, Vercel, GitHub Pages, cPanel). Opening via `https://` is required for camera/photo upload on phones.
 4. Share `register.html` with participants; keep `admin.html` for the organisers.
@@ -32,6 +34,9 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | Register (insert) | yes, always saved as *Pending* | - | - |
 | See CNIC, mobile, email and private documents | no | yes | yes |
 | Download filled registration PDFs | no | yes | yes |
+| View live official results and prize standings | yes | yes | yes |
+| Change race status, runner status, bib numbers and finish times | no | yes | yes |
+| Download official results PDF | yes | yes | yes |
 | Download receiving, expenses and combined statement PDFs | yes | yes | yes |
 | Confirm payment / edit / delete | no | yes | yes |
 
@@ -84,3 +89,11 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - `about.html` is linked from the header on the public, registration and admin pages. It describes the first two Khawrai Village editions, Season Three on **15 November 2026**, the expanded invitation to Dargai, Petao, Kati Miana, New Khawrai, Jehangira, Shaidu, Khairabad and surrounding villages, plus the Season Three management and organisation roles.
 - Season Three is managed by **Waseem Shahzad Fida** and organised by **District Sports Office Nowshera, Directorate General of Sports, Government of Khyber Pakhtunkhwa**. Contact: **+92 333 9095878**.
 - The Season Two photographs in `images/image1.jpg`, `images/image2.jpg` and `images/image3.jpg` are credited to **Sagar Studio**.
+
+
+## Marathon results and race control (migration 20261028_006)
+- Race date is fixed to **15 November 2026 at 04:00 PM Pakistan Time (UTC+05:00)**. The public `results.html` board shows scheduled/in-progress/completed state, a countdown, current leaderboard, podium and prize details, with branded PDF download.
+- Only the verified admin accounts can change race state, public announcements, bib numbers, runner status or finish times. Result writes use SECURITY DEFINER RPCs that check the authenticated JWT email; direct table writes are revoked for all client roles.
+- Public visitors can only read public-safe result rows and race status. The results view does not expose CNIC, phone, email, address or private documents. Only confirmed, non-cancelled runners may be saved to official results.
+- Positions are automatically recomputed from ascending finish times. First prize is **Rs. 15,000 + Winning Trophy**, second prize **Rs. 10,000 + Trophy**, and third prize **Rs. 5,000 + Trophy**. Finish times use `HH:MM:SS`.
+- Supabase Realtime updates the public board without a manual refresh; a 15-second background polling fallback is enabled. Run the migration in Supabase SQL Editor after migrations 001 through 005, then execute `sql/verify_marathon_results.sql` to check the access boundaries and Realtime publication. ZIP deployment by itself does not apply database migrations.

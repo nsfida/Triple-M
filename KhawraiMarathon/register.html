@@ -58,23 +58,23 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
     <div class="loader-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
   </div>
 </div>
-<header class="top formtop"><div class="in"><a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a><div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official player registration · Participant entry form</p></div><div class="header-actions"><div class="cta about-cta"><a class="btn ghost about-nav-link" href="about.html">About</a></div><div class="cta"><a class="btn ghost" href="index.html">Participants</a></div><div class="profile-mount"></div></div></div></header>
+<header class="top formtop"><div class="in"><a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a><div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official player registration · Participant entry form</p></div><div class="header-actions"><div class="cta results-nav-cta"><a class="btn ghost" href="results.html">Results</a></div><div class="cta about-cta"><a class="btn ghost about-nav-link" href="about.html">About</a></div><div class="cta"><a class="btn ghost" href="index.html">Participants</a></div><div class="profile-mount"></div></div></div></header>
 <div class="sheet">
 <div id="done" class="ok" hidden>
   <h2>Registration received</h2>
   <div class="n" id="regno"></div>
   <p id="doneMsg">Keep this registration number. Your entry shows as Pending on the participants list until the admin confirms it.</p><p id="syncMsg" class="msg" role="status" aria-live="polite" hidden></p><p><button type="button" class="btn alt" id="retrySync" hidden>Retry sync now</button></p>
-  <p><button class="btn alt" id="again" hidden onclick="location.reload()">Add another registration</button> <a class="btn" href="index.html">View participants</a></p>
+  <p><button class="btn alt" id="again" hidden onclick="location.reload()">Add another registration</button> <a class="btn" href="index.html">View participants</a> <a class="btn ghost" href="results.html">Race results</a></p>
 </div>
 <div id="blocked" class="ok" hidden><h2>This device has already registered</h2>
   <p>Each device can register only once, so a second registration cannot be submitted from this device. If this is a mistake, contact the District Sports Office Nowshera.</p>
-  <p><a class="btn" href="index.html">View participants</a></p></div>
+  <p><a class="btn" href="index.html">View participants</a> <a class="btn ghost" href="results.html">Race results</a></p></div>
 <div id="registrationClosed" class="ok registration-closed-card" hidden>
   <h2>Registration Ends</h2>
   <div class="n">Online registration is closed</div>
   <p class="closed-deadline">Deadline: 05 November 2026 at 11:59 PM Pakistan Standard Time.</p>
   <p>Only verified administrators can submit new player registrations after the deadline. Please contact the organisers if you need assistance.</p>
-  <p><a class="btn" href="index.html">View participants</a> <a class="btn ghost" href="admin.html">Admin sign in</a></p>
+  <p><a class="btn" href="index.html">View participants</a> <a class="btn ghost" href="results.html">Race results</a> <a class="btn ghost" href="admin.html">Admin sign in</a></p>
 </div>
 <form id="f" novalidate>
   <div class="fh">
@@ -141,7 +141,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 
   <div class="err" id="err" role="alert"></div>
   <button class="btn" id="go" type="submit">Submit registration</button>
-  <a class="btn ghost" href="index.html">Back to participants</a>
+  <a class="btn ghost" href="index.html">Back to participants</a> <a class="btn ghost" href="results.html">Race results</a>
 </form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script><script src="js/common.js"></script>
