@@ -461,3 +461,22 @@ footer{background:#fff;border-color:var(--line);color:var(--muted)}
 .pdf-menu-icon.amber{background:#fff5df;border-color:#f1dfb5;color:#8a5a08}
 .pdf-menu-icon.red{background:#fff0f1;border-color:#f1c9ce;color:#a52e40}
 @media(max-width:720px){.player-pdf-dropdown{width:100%}.player-pdf-dropdown>summary{width:100%;justify-content:center}.player-pdf-menu{left:0;right:0;width:100%}}
+
+
+/* Registration deadline announcement + high-visibility countdown */
+.registration-notice{position:relative;z-index:140;display:flex;align-items:center;min-height:30px;overflow:hidden;border-bottom:1px solid #7f1828;background:linear-gradient(90deg,#8d1e30 0%,#b4233a 46%,#8d1e30 100%);color:#fff7f7;box-shadow:0 2px 8px rgba(77,15,28,.12)}
+.registration-notice-viewport{width:100%;overflow:hidden;white-space:nowrap}
+.registration-notice-track{display:flex;width:max-content;align-items:center;animation:kmr-registration-marquee 30s linear infinite;will-change:transform}
+.registration-notice-track[hidden]{display:none!important}
+.registration-notice-track span{display:block;flex:none;padding:7px 74px 7px 0;font-size:.66rem;font-weight:900;letter-spacing:.075em;line-height:1.1;white-space:nowrap}
+.registration-notice:hover .registration-notice-track{animation-play-state:paused}
+@keyframes kmr-registration-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.registration-cta{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:150px}
+.registration-countdown{display:block;color:#ff7b87;font-size:.61rem;font-weight:1000;letter-spacing:.015em;line-height:1.05;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.15)}
+.registration-countdown[hidden],.registration-cta [hidden]{display:none!important}
+.top .btn.registration-ended-pill{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:.62rem .9rem;border:1px solid #e7aab2;border-radius:10px;background:#ffe9ec;color:#9f2132;font-size:.78rem;font-weight:950;line-height:1.1;white-space:nowrap;box-shadow:none;cursor:default}
+.top .btn.registration-ended-pill:hover{background:#ffe9ec;border-color:#e7aab2;transform:none}
+@media(max-width:900px){.registration-cta{min-width:0}}
+@media(max-width:640px){.registration-notice{min-height:27px}.registration-notice-track span{padding-block:6px;font-size:.59rem;letter-spacing:.045em}.registration-cta{gap:3px}.registration-countdown{font-size:.46rem;letter-spacing:0}.top .btn.registration-ended-pill{min-height:35px;padding:.42rem .48rem;font-size:.66rem}}
+@media(max-width:390px){.registration-countdown{font-size:.41rem}.top .btn.registration-ended-pill{padding:.4rem .4rem;font-size:.61rem}.registration-notice-track span{font-size:.56rem}}
+@media(prefers-reduced-motion:reduce){.registration-notice-track{animation:none!important;transform:none!important}}

@@ -1,6 +1,15 @@
 (function () {
   const C = window.KMR;
 
+  // Display-only deadline helper. The same cutoff is also enforced by the Supabase
+  // submit_registration function and storage INSERT policies in migration 20261028_005.
+  const registrationCutoff = Date.parse(C.REGISTRATION_CUTOFF || "2026-11-06T00:00:00+05:00");
+  window.KMRRegistration = {
+    cutoffMs: registrationCutoff,
+    isOpen() { return Date.now() < registrationCutoff; },
+    remainingMs() { return Math.max(0, registrationCutoff - Date.now()); }
+  };
+
   // ---- Persistent, shared login -------------------------------------------------
   // The Supabase session is kept in localStorage under ONE key, so every page of the site
   // (public list, register, admin) reads the same login and a refresh never signs you out.

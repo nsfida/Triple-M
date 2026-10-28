@@ -19,10 +19,23 @@
     <div class="loader-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
   </div>
 </div>
+<div class="registration-notice" id="registrationNotice" role="status" aria-live="polite">
+  <div class="registration-notice-viewport" aria-hidden="true">
+    <div class="registration-notice-track" id="registrationAnnouncementOpen">
+      <span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span>
+      <span>REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE</span>
+    </div>
+    <div class="registration-notice-track" id="registrationAnnouncementClosed" hidden>
+      <span>REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST</span>
+      <span>REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST</span>
+    </div>
+  </div>
+  <span class="sr-only" id="registrationNoticeAccessible">Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time.</span>
+</div>
 <header class="top"><div class="in">
   <a class="logo-link" href="index.html" aria-label="Khawrai Marathon Race home"><img class="logo" id="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
   <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Race-day stories, runner directory and transparent community funds.</p></div>
-  <div class="header-actions"><div class="cta about-cta"><a class="btn ghost about-nav-link" href="about.html" aria-label="About Khawrai Marathon Race">About</a></div><div class="cta"><a class="btn yellow" href="register.html">Register<span class="long"> to run</span></a></div><div class="profile-mount"></div></div>
+  <div class="header-actions"><div class="cta about-cta"><a class="btn ghost about-nav-link" href="about.html" aria-label="About Khawrai Marathon Race">About</a></div><div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="register.html">Register<span class="long"> to run</span></a><span class="registration-countdown" id="registrationCountdown" aria-live="off">CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div><div class="profile-mount"></div></div>
 </div></header>
 
 <section class="score" aria-label="Summary"><div class="row">
@@ -84,7 +97,7 @@
     </div>
     <section id="receivingPane" class="fund-ledger-pane">
       <div class="fhead"><h2>Receiving</h2><span class="sp"><button class="btn" id="addFund" hidden>+ Record receiving</button></span></div>
-      <div class="tw"><table class="ft"><thead id="fh"></thead><tbody id="fb"><tr><td colspan="4">Loading…</td></tr></tbody><tfoot id="ff"></tfoot></table></div>
+      <div class="tw"><table class="ft"><thead id="fh"></thead><tbody id="fb"><tr><td colspan="5">Loading…</td></tr></tbody><tfoot id="ff"></tfoot></table></div>
     </section>
     <section id="expensesPane" class="fund-ledger-pane" hidden>
       <div class="fhead"><h2>Expenses</h2><span class="sp"><button class="btn" id="addExpense" hidden>+ Record expense</button></span></div>
@@ -103,6 +116,31 @@
 <script>
 const $ = id => document.getElementById(id);
 let all = [], funds = [], expenses = [], filter = "all", admin = "", menuEl = null, menuBtn = null;
+
+// Visible deadline timer and announcement state. The database remains authoritative.
+function updateRegistrationDeadline() {
+  const open = KMRRegistration.isOpen();
+  const link = $("registerCta"), timer = $("registrationCountdown"), ended = $("registrationEndedCta");
+  const openTrack = $("registrationAnnouncementOpen"), closedTrack = $("registrationAnnouncementClosed");
+  const accessible = $("registrationNoticeAccessible");
+  if (!open) {
+    link.hidden = true; timer.hidden = true; ended.hidden = false;
+    openTrack.hidden = true; closedTrack.hidden = false;
+    accessible.textContent = "Registration has ended. Online player registration is closed.";
+    return;
+  }
+  link.hidden = false; timer.hidden = false; ended.hidden = true;
+  openTrack.hidden = false; closedTrack.hidden = true;
+  const remaining = KMRRegistration.remainingMs();
+  const days = Math.floor(remaining / 86400000);
+  const hours = Math.floor((remaining % 86400000) / 3600000);
+  const minutes = Math.floor((remaining % 3600000) / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+  const pad = n => String(n).padStart(2, "0");
+  timer.textContent = `CLOSES IN ${days}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S`;
+}
+updateRegistrationDeadline();
+window.setInterval(updateRegistrationDeadline, 1000);
 
 const ICON = {
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
@@ -234,15 +272,16 @@ function renderFundSummary() {
 }
 function renderFunds() {
   renderFundSummary();
-  const cols = admin ? 7 : 4;
-  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th>${admin ? '<th class="hm">Type</th><th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
+  const cols = admin ? 7 : 5;
+  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th>Type</th>${admin ? '<th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
   $("fb").innerHTML = funds.length ? funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td>
-    <td>${esc(f.donor_name)}${!admin && f.source === "registration" ? `<br><small>Entry fee ${esc(f.reference || "")}</small>` : ""}${admin ? `<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
-    ${admin ? `<td class="hm"><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</span></td><td class="hm">${fmtDate(f.created_at)}</td>` : ""}
+    <td>${esc(f.donor_name)}${admin ? `<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
+    <td><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee" + (f.reference ? " " + esc(f.reference) : "") : "Donation"}</span></td>
+    ${admin ? `<td class="hm">${fmtDate(f.created_at)}</td>` : ""}
     <td class="amt">${Number(f.amount).toLocaleString("en-US")}</td>
     ${admin ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
     : `<tr><td colspan="${cols}" class="empty">No receiving entries recorded yet.</td></tr>`;
-  $("ff").innerHTML = `<tr><td class="hn"></td><td>Total received</td><td></td>${admin ? '<td class="hm"></td><td class="hm"></td>' : ""}<td class="amt">${rs(funds.reduce((t, f) => t + Number(f.amount), 0))}</td>${admin ? "<td></td>" : ""}</tr>`;
+  $("ff").innerHTML = `<tr><td class="hn"></td><td>Total received</td><td></td><td></td>${admin ? '<td class="hm"></td>' : ""}<td class="amt">${rs(funds.reduce((t, f) => t + Number(f.amount), 0))}</td>${admin ? "<td></td>" : ""}</tr>`;
 }
 function renderExpenses() {
   renderFundSummary();
@@ -272,9 +311,9 @@ async function loadFunds() {
   if (Array.isArray(cached)) { funds = cached; renderFunds(); KMRUI.hideLoading(); }
   try {
     const res = admin ? await sb.from("funds").select("*").order("created_at", { ascending: true }) : await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
-    if (res.error) { if (!Array.isArray(cached)) $("fb").innerHTML = '<tr><td colspan="4">The funds list is unavailable right now.</td></tr>'; KMRUI.hideLoading(); return; }
+    if (res.error) { if (!Array.isArray(cached)) $("fb").innerHTML = `<tr><td colspan="${admin ? 7 : 5}">The funds list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); return; }
     funds = res.data || []; KMRStore.set(key, funds, privateData); renderFunds(); KMRUI.hideLoading();
-  } catch (e) { if (!Array.isArray(cached)) $("fb").innerHTML = '<tr><td colspan="4">The funds list is unavailable right now.</td></tr>'; KMRUI.hideLoading(); }
+  } catch (e) { if (!Array.isArray(cached)) $("fb").innerHTML = `<tr><td colspan="${admin ? 7 : 5}">The funds list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); }
 }
 async function loadExpenses() {
   const key = admin ? "admin-expenses" : "public-expenses", privateData = !!admin;

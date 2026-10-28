@@ -42,6 +42,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 .err{min-height:1.2em;margin:12px 0;color:var(--red);font-size:.82rem;font-weight:800}
 #f> .btn{min-height:48px;padding:.8rem 1.4rem}#f> .btn.ghost{margin-left:8px!important}
 .ok{padding:32px 24px;border:1px solid #c9e9d8;border-top:4px solid var(--green);border-radius:19px;background:#fff;box-shadow:var(--shadow);text-align:center}.ok h2{font-size:1.5rem}.ok p{max-width:650px;margin:12px auto;color:var(--muted);font-size:.86rem}.ok .n{margin:9px 0;color:var(--green);font-size:clamp(2rem,6vw,3.4rem);font-weight:900;letter-spacing:-.06em}
+.registration-closed-card{border-color:#f1c5ca;border-top-color:#bd263d;background:linear-gradient(145deg,#fff 0%,#fff8f8 100%)}.registration-closed-card h2{color:#a91f33}.registration-closed-card .n{color:#b4233a;font-size:clamp(1.45rem,4vw,2.25rem);letter-spacing:-.035em}.registration-closed-card .btn{margin:5px 4px 0}.registration-closed-card .closed-deadline{color:#9d2434;font-weight:900}
 @media(max-width:700px){.sheet{padding:13px 10px 34px}#f{padding:14px;border-radius:16px}.fh{gap:8px;padding:13px 8px}.fh img{height:42px;max-width:52px}.fh .gov{font-size:.64rem;letter-spacing:.035em}.fh .dso{font-size:.85rem}.fh .title{margin-top:7px;padding:.4rem .55rem;font-size:.69rem}.meta{font-size:.72rem;gap:7px}.meta span b{margin-left:3px}.fee{padding:11px 12px;font-size:.77rem}.sec{border-radius:12px;margin-bottom:12px}.sec>h2{padding:12px;font-size:.77rem}.sec .body{padding:9px 12px 12px}.r{grid-template-columns:1fr;gap:5px;padding:9px 0}.r>label,.r>.lb{font-size:.77rem}.r input:not([type=radio]):not([type=checkbox]):not([type=file]),.r select,.r textarea{min-height:42px}.pic,.docs{grid-template-columns:1fr}.pic{gap:12px}.pic .drop{min-height:145px}.docs .two{grid-template-columns:1fr 1fr}.docs .drop{min-height:115px;font-size:.84rem}.docs li{font-size:.74rem}.opts{gap:9px 14px}.opts label{font-size:.76rem}.decl{padding:11px;font-size:.75rem}.file{font-size:.75rem}.consent-label span{align-items:flex-start}.consent-label input{flex:none;margin-top:1px}.agree-row{margin-top:11px}#f> .btn{width:100%;margin:0 0 8px!important}#f> .btn.ghost{margin-left:0!important}.ok{padding:25px 15px}}
 @media(max-width:390px){.fh img{max-width:42px;height:35px}.fh{gap:5px;padding:12px 6px}.fh .gov{font-size:.57rem}.fh .dso{font-size:.77rem}.fh .title{font-size:.61rem}.docs .two{grid-template-columns:1fr}.docs .drop{min-height:100px}}
 </style>
@@ -68,6 +69,13 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
 <div id="blocked" class="ok" hidden><h2>This device has already registered</h2>
   <p>Each device can register only once, so a second registration cannot be submitted from this device. If this is a mistake, contact the District Sports Office Nowshera.</p>
   <p><a class="btn" href="index.html">View participants</a></p></div>
+<div id="registrationClosed" class="ok registration-closed-card" hidden>
+  <h2>Registration Ends</h2>
+  <div class="n">Online registration is closed</div>
+  <p class="closed-deadline">Deadline: 05 November 2026 at 11:59 PM Pakistan Standard Time.</p>
+  <p>Only verified administrators can submit new player registrations after the deadline. Please contact the organisers if you need assistance.</p>
+  <p><a class="btn" href="index.html">View participants</a> <a class="btn ghost" href="admin.html">Admin sign in</a></p>
+</div>
 <form id="f" novalidate>
   <div class="fh">
     <img src="assets/logo-left.png" alt="District Administration Nowshera emblem">
@@ -184,18 +192,24 @@ async function fingerprint() {
   const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
-function blockDevice() { $("f").hidden = true; $("done").hidden = true; $("blocked").hidden = false; }
-// Signed-in admins (login is shared with the other pages) can record unlimited registrations: no device or location rule.
+function blockDevice() { $("f").hidden = true; $("done").hidden = true; $("registrationClosed").hidden = true; $("blocked").hidden = false; }
+function showRegistrationClosed() { $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = true; $("registrationClosed").hidden = false; }
+// Only the authenticated admin session can bypass the deadline; the database independently verifies the JWT.
 let admin = "";
 function applyAdmin(u) {
   admin = u || ""; $("locRow").hidden = !!admin;
+  if (!admin && !KMRRegistration.isOpen() && $("done").hidden) { showRegistrationClosed(); return; }
+  $("registrationClosed").hidden = true;
   if (admin && $("done").hidden) { $("f").hidden = false; $("blocked").hidden = true; }
 }
 async function checkDevice() {
   if (admin) return;
+  if (!KMRRegistration.isOpen()) return showRegistrationClosed();
   if (lsGet("kmr_registered") || ck("kmr_registered") || await idb.get("kmr_registered")) return blockDevice();
-  try { const { data } = await sb.rpc("device_registered", { p_device: await getDeviceId() }); if (data === true) blockDevice(); } catch (e) {}
+  try { const { data } = await sb.rpc("device_registered", { p_device: await getDeviceId() }); if (data === true && KMRRegistration.isOpen()) blockDevice(); } catch (e) {}
 }
+// Keep an already-open registration tab in sync with the deadline, not just fresh page loads.
+window.setInterval(() => { if (!admin && !KMRRegistration.isOpen() && $("done").hidden) showRegistrationClosed(); }, 1000);
 let loc = null;
 $("consent").onchange = () => { $("getLoc").disabled = !$("consent").checked; if (!$("consent").checked) { loc = null; $("locInfo").textContent = ""; } };
 $("getLoc").onclick = () => {
@@ -305,7 +319,7 @@ document.querySelectorAll('#f input:not([type="file"]), #f select, #f textarea')
 });
 function showSyncPending(job, message) {
   KMRUI.hideLoading();
-  activeJob = job; $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = false;
+  activeJob = job; $("f").hidden = true; $("blocked").hidden = true; $("registrationClosed").hidden = true; $("done").hidden = false;
   $("done").querySelector("h2").textContent = "Registration saved on this device";
   $("regno").textContent = "SYNC PENDING";
   $("doneMsg").textContent = "Your form and attached files are safely saved in this browser. This is not yet an official registration and will not appear on the runners list until database sync succeeds. Keep this browser data intact until it finishes syncing.";
@@ -319,7 +333,7 @@ function showRegistrationSuccess(regNo, isAdmin) {
   if (isAdmin) { $("doneMsg").textContent = "Registration recorded successfully. It remains Pending until an admin confirms its status in the public list or admin panel."; $("again").hidden = false; }
   else { remember("kmr_registered", regNo); $("doneMsg").textContent = "Keep this registration number. Your entry is now recorded and shows as Pending until the admin confirms it."; $("again").hidden = true; }
   $("done").querySelector("h2").textContent = "Registration received";
-  $("f").hidden = true; $("blocked").hidden = true; $("done").hidden = false;
+  $("f").hidden = true; $("blocked").hidden = true; $("registrationClosed").hidden = true; $("done").hidden = false;
   $("regno").textContent = regNo; $("syncMsg").hidden = true; $("retrySync").hidden = true;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -368,6 +382,20 @@ async function syncRegistrationJob(job) {
   syncingJob = true; activeJob = job; showSyncPending(job, "Uploading your documents securely, then saving the registration in the database…");
   const btn = $("retrySync"); btn.disabled = true; const originalLabel = btn.textContent; btn.textContent = "Syncing…";
   try {
+    // After the cutoff, resolve an idempotent retry directly against PostgreSQL before trying
+    // any uploads. Existing committed jobs may recover; new public jobs are rejected by SQL.
+    if (!admin && !KMRRegistration.isOpen()) {
+      const { data, error } = await sb.rpc("submit_registration", { p: job.payload });
+      if (!error && data && data.reg_no) {
+        await queueDelete(job.id); activeJob = null; showRegistrationSuccess(data.reg_no, false); return;
+      }
+      if (error && /registration has closed/i.test(error.message || "")) {
+        await queueDelete(job.id); activeJob = null;
+        try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+        showRegistrationClosed(); return;
+      }
+      throw new Error(error ? "Database sync needs attention: " + error.message : "The server did not return a registration number.");
+    }
     // Concurrent uploads reduce submit time. Every path is unique to this durable queue item's UUID.
     await Promise.all(job.files.map(async file => {
       const blob = file.mode === "jpeg" ? await toJpeg(file.blob) : file.blob;
@@ -375,6 +403,11 @@ async function syncRegistrationJob(job) {
     }));
     const { data, error } = await sb.rpc("submit_registration", { p: job.payload });
     if (error) {
+      if (!admin && /registration has closed/i.test(error.message || "")) {
+        await queueDelete(job.id); activeJob = null;
+        try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+        showRegistrationClosed(); return;
+      }
       if (error.code === "23505" && /device/i.test(error.message || "")) {
         await queueDelete(job.id); activeJob = null; blockDevice(); return;
       }
@@ -414,6 +447,7 @@ window.addEventListener("online", async () => { const job = activeJob || (await 
 
 $("f").addEventListener("submit", async e => {
   e.preventDefault(); err.textContent = "";
+  if (!admin && !KMRRegistration.isOpen()) { showRegistrationClosed(); return; }
   const v = id => $(id).value.trim(), digits = id => v(id).replace(/\D/g, "");
   const need = [["name", "Name"], ["father", "Father's name"], ["address", "Permanent address"], ["district", "District / Tehsil"], ["sport", "Game/Sport played"], ["pname", "Name of player"], ["dob", "Date of birth"]].find(([id]) => !v(id));
   if (need) return err.textContent = `${need[1]} is required.`;
