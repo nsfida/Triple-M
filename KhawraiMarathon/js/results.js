@@ -134,13 +134,60 @@
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('PDF library failed to load.');
   }
 
-  async function logoDataUrl() {
+  // Decode each logo in the browser and re-encode it as a real PNG data URL. This
+  // also fixes logo-left.png, whose file bytes are JPEG despite its .png suffix.
+  async function imageAsPngDataUrl(url, existingImage = null) {
+    let objectUrl = null;
     try {
-      const response = await fetch('../assets/logo-left.png', { cache: 'force-cache' });
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      return await new Promise(resolve => { const fr = new FileReader(); fr.onload = () => resolve(fr.result); fr.onerror = () => resolve(null); fr.readAsDataURL(blob); });
-    } catch (_) { return null; }
+      let image;
+      try {
+        const response = await fetch(url, { cache: 'force-cache', credentials: 'same-origin' });
+        if (!response.ok) throw new Error('Logo request failed');
+        objectUrl = URL.createObjectURL(await response.blob());
+        image = new Image();
+        image.src = objectUrl;
+        if (image.decode) await image.decode();
+        else await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
+      } catch (error) {
+        if (!existingImage || !existingImage.complete || !existingImage.naturalWidth) throw error;
+        image = existingImage;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, image.naturalWidth || image.width);
+      canvas.height = Math.max(1, image.naturalHeight || image.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas is unavailable');
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    } catch (_) {
+      return null;
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function loadPdfLogos() {
+    const pageLogoElement = document.querySelector('.top .logo');
+    const pageLogoUrl = pageLogoElement && (pageLogoElement.currentSrc || pageLogoElement.src)
+      || (window.KMR && window.KMR.LOGO_URL)
+      || 'https://triplem.vip/KhawraiUnity/logo.png';
+    const [pageLogo, leftLogo, rightLogo] = await Promise.all([
+      imageAsPngDataUrl(pageLogoUrl, pageLogoElement),
+      imageAsPngDataUrl('../assets/logo-left.png'),
+      imageAsPngDataUrl('../assets/logo-right.png')
+    ]);
+    return { pageLogo, leftLogo, rightLogo };
+  }
+
+  function addContainedLogo(doc, dataUrl, x, y, boxW, boxH, alias) {
+    if (!dataUrl) return;
+    try {
+      const info = doc.getImageProperties(dataUrl);
+      const width = Number(info.width) || boxW, height = Number(info.height) || boxH;
+      const scale = Math.min(boxW / width, boxH / height);
+      const drawW = width * scale, drawH = height * scale;
+      doc.addImage(dataUrl, 'PNG', x + (boxW - drawW) / 2, y + (boxH - drawH) / 2, drawW, drawH, alias, 'FAST');
+    } catch (_) { /* A missing logo must not prevent the results PDF from downloading. */ }
   }
 
   async function downloadPdf() {
@@ -152,19 +199,36 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
       const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 36;
-      const logo = await logoDataUrl();
-      if (logo) { try { doc.addImage(logo, 'PNG', margin, 27, 43, 43, 'kmr-logo', 'FAST'); } catch (_) {} }
-      doc.setTextColor(18, 54, 45); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text('KHAWRAI MARATHON RACE', logo ? margin + 54 : margin, 43);
-      doc.setFontSize(11); doc.text('SEASON THREE · OFFICIAL RESULTS', logo ? margin + 54 : margin, 60);
+      const logos = await loadPdfLogos();
+
+      // The page's own header logo stays beside the title. The district and sports
+      // department logos sit together at the upper-right with identical box sizes.
+      const drawBrandHeader = continued => {
+        addContainedLogo(doc, logos.pageLogo, margin, 20, 46, 46, 'kmr-page-logo');
+        const partnerSize = 36, partnerGap = 8;
+        const partnerRightX = pageW - margin - partnerSize;
+        const partnerLeftX = partnerRightX - partnerGap - partnerSize;
+        addContainedLogo(doc, logos.leftLogo, partnerLeftX, 25, partnerSize, partnerSize, 'kmr-district-logo');
+        addContainedLogo(doc, logos.rightLogo, partnerRightX, 25, partnerSize, partnerSize, 'kmr-sports-logo');
+        const titleX = margin + 55;
+        doc.setTextColor(18, 54, 45); doc.setFont('helvetica', 'bold'); doc.setFontSize(16.5);
+        doc.text('KHAWRAI MARATHON RACE', titleX, 40);
+        doc.setFontSize(10.5);
+        doc.setTextColor(70, 91, 82);
+        doc.text(continued ? 'SEASON THREE · OFFICIAL RESULTS · CONTINUED' : 'SEASON THREE · OFFICIAL RESULTS', titleX, 57);
+        doc.setDrawColor(211, 224, 217); doc.setLineWidth(0.8); doc.line(margin, 75, pageW - margin, 75);
+      };
+
+      drawBrandHeader(false);
       doc.setFont('helvetica', 'normal'); doc.setTextColor(94, 108, 104); doc.setFontSize(8.5);
-      doc.text('Race date: 15 November 2026 · 04:00 PM Pakistan Time', margin, 89);
-      doc.text('Race status: ' + statusLabel(control && control.race_status), margin, 103);
-      if (control && control.started_at) doc.text('Started: ' + dateTime(control.started_at), margin, 117);
-      if (control && control.ended_at) doc.text('Ended: ' + dateTime(control.ended_at), margin + 230, 117);
-      doc.setDrawColor(211, 224, 217); doc.line(margin, 129, pageW - margin, 129);
-      doc.setTextColor(35, 54, 47); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.text('PODIUM PRIZES', margin, 148);
+      doc.text('Race date: 15 November 2026 · 04:00 PM Pakistan Time', margin, 91);
+      doc.text('Race status: ' + statusLabel(control && control.race_status), margin, 105);
+      if (control && control.started_at) doc.text('Started: ' + dateTime(control.started_at), margin, 119);
+      if (control && control.ended_at) doc.text('Ended: ' + dateTime(control.ended_at), margin + 230, 119);
+      doc.setDrawColor(211, 224, 217); doc.line(margin, 130, pageW - margin, 130);
+      doc.setTextColor(35, 54, 47); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.text('PODIUM PRIZES', margin, 149);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.2); doc.setTextColor(93, 103, 100);
-      doc.text('1st: Rs. 15,000 + Winning Trophy', margin, 164); doc.text('2nd: Rs. 10,000 + Trophy', margin + 190, 164); doc.text('3rd: Rs. 5,000 + Trophy', margin + 355, 164);
+      doc.text('1st: Rs. 15,000 + Winning Trophy', margin, 165); doc.text('2nd: Rs. 10,000 + Trophy', margin + 190, 165); doc.text('3rd: Rs. 5,000 + Trophy', margin + 355, 165);
       let y = 196;
       const cols = [margin, margin + 48, margin + 105, margin + 330, margin + 420];
       const drawHeader = () => {
@@ -178,7 +242,12 @@
         doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 110, 108); doc.setFontSize(10); doc.text('Official results have not been published yet.', margin, y + 20); y += 42;
       }
       sorted.forEach((r, i) => {
-        if (y > pageH - 48) { doc.setFontSize(8); doc.setTextColor(120, 130, 126); doc.text(`Khawrai Marathon Season Three · Page ${doc.internal.getNumberOfPages()}`, margin, pageH - 20); doc.addPage(); y = 46; drawHeader(); }
+        if (y > pageH - 48) {
+          doc.addPage();
+          drawBrandHeader(true);
+          y = 96;
+          drawHeader();
+        }
         if (Number(r.place) === 1) { doc.setFillColor(255, 244, 200); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
         else if (Number(r.place) === 2) { doc.setFillColor(235, 241, 245); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
         else if (Number(r.place) === 3) { doc.setFillColor(250, 230, 214); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
