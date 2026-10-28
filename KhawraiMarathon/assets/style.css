@@ -534,3 +534,65 @@ footer{background:#fff;border-color:var(--line);color:var(--muted)}
   .header-actions .top .btn.registration-ended-pill,.header-actions .btn.registration-ended-pill{width:100%;min-height:32px;padding:.34rem .12rem;font-size:.58rem!important;white-space:normal;}
 }
 @media(max-width:370px){.header-actions .registration-countdown{font-size:.38rem;}}
+
+
+/* Admin player-photo replacement field */
+.k-edit-photo{display:grid;grid-template-columns:82px minmax(0,1fr);gap:13px;align-items:center;margin-top:16px;padding:12px;border:1px solid var(--line);border-radius:13px;background:#f7fafb;min-width:0}
+.k-edit-photo-preview{display:grid;place-items:center;width:82px;height:88px;overflow:hidden;border:1px solid #d8e3e6;border-radius:11px;background:#eaf1ef;color:#285747;font-size:1.45rem;font-weight:850}
+.k-edit-photo-preview img{display:block;width:100%;height:100%;object-fit:cover}
+.k-edit-photo-preview img[hidden]{display:none}
+.k-edit-photo-preview span[hidden]{display:none}
+.k-edit-photo-copy{min-width:0}
+.k-edit-photo-copy label{display:block;margin:0 0 5px;color:var(--ink);font-size:.8rem;font-weight:850}
+.k-edit-photo-copy input[type=file]{display:block;width:100%;max-width:100%;min-width:0;margin:5px 0 6px;padding:7px;border:1px dashed var(--line-strong);border-radius:8px;background:#fff;font-size:.72rem}
+.k-edit-photo-copy small{display:block;color:var(--muted);font-size:.68rem;line-height:1.5;font-weight:500;overflow-wrap:anywhere}
+@media(max-width:480px){.k-edit-photo{grid-template-columns:66px minmax(0,1fr);gap:9px;padding:10px}.k-edit-photo-preview{width:66px;height:74px;border-radius:9px}.k-edit-photo-copy label{font-size:.73rem}.k-edit-photo-copy input[type=file]{font-size:.66rem;padding:6px}.k-edit-photo-copy small{font-size:.63rem;line-height:1.45}}
+
+/* Shared registration status used by every route, not only the participants page. */
+.registration-ended-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: .62rem .9rem;
+  border: 1px solid #e7aab2;
+  border-radius: 9px;
+  background: #fff0f2;
+  color: #9f2132;
+  font-size: .78rem;
+  font-weight: 900;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: default;
+}
+.registration-ended-link[hidden] { display: none !important; }
+.registration-cta .registration-ended-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 40px;
+  max-width: 100%;
+  padding: .62rem .9rem;
+  border: 1px solid #e7aab2;
+  border-radius: 10px;
+  background: #ffe9ec;
+  color: #9f2132;
+  font-size: .78rem;
+  font-weight: 950;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: none;
+  cursor: default;
+}
+.registration-cta .registration-ended-pill[hidden] { display: none !important; }
+@media (max-width: 640px) {
+  .registration-ended-link { min-height: 34px; padding: .45rem .65rem; font-size: .68rem; }
+  .registration-cta .registration-ended-pill { min-height: 32px; width: 100%; padding: .34rem .12rem; font-size: .58rem; white-space: normal; }
+}

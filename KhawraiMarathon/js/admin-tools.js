@@ -18,7 +18,8 @@
   <label for="kEa">Permanent address</label><input id="kEa" required maxlength="200">
   <div class="two"><div><label for="kEt">District / Tehsil</label><input id="kEt" required maxlength="100"></div><div><label for="kEs">Sport</label><input id="kEs" required maxlength="100"></div></div>
   <label for="kEp">Payment receipt / reference</label><input id="kEp" maxlength="80">
-  <p class="msg bad" id="kEditE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Save changes</button></div></form></dialog>
+  <div class="k-edit-photo"><div class="k-edit-photo-preview" id="kEditPhotoFrame"><img id="kEditPhotoPreview" alt="Current player photo" hidden><span id="kEditPhotoInitial">K</span></div><div class="k-edit-photo-copy"><label for="kEditPhoto">Replace player photo (optional)</label><input id="kEditPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"><small>High-quality optimized copy used on the website. The original file is kept privately for admin records until replacement is saved, then the previous photo and its original are deleted.</small></div></div>
+  <p class="msg bad" id="kEditE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" type="submit">Save changes</button></div></form></dialog>
 
 <dialog id="kFund"><form method="dialog" id="kFundF"><h2 id="kFundH">Funds received</h2>
   <label for="kFn">Name</label><input id="kFn" required maxlength="100"><label for="kFm">Mohallah</label><input id="kFm" required maxlength="100">
@@ -45,7 +46,11 @@
     $("kDet").addEventListener("close", () => { activeDetailRow = null; activeDetailAll = []; detailRequestId++; });
     $("kEc").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 13); e.target.value = d.length > 12 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}` : d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; });
     $("kEm").addEventListener("input", e => { const d = e.target.value.replace(/\D/g, "").slice(0, 11); e.target.value = d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d; });
+    $("kEditPhoto").addEventListener("change", previewEditPhoto);
+    $("kEdit").addEventListener("close", resetEditPhotoPreview);
     syncOutbox();
+    cleanupPendingImageDeletes();
+    window.addEventListener("online", cleanupPendingImageDeletes);
   }
   const fmtCnic = d => { d = String(d || ""); return d.length === 13 ? `${d.slice(0, 5)}-${d.slice(5, 12)}-${d.slice(12)}` : d; };
   const fmtMob = d => { d = String(d || ""); return d.length === 11 ? `${d.slice(0, 4)}-${d.slice(4)}` : d; };
@@ -257,22 +262,177 @@
     syncOutbox();
   }
 
+  // ---- storage file replacement / stale-object cleanup ------------------------
+  const IMAGE_CLEANUP_KEY = "kmr-s3-image-cleanup-v1";
+  let editPhotoPreviewUrl = null;
+  function readImageCleanupQueue() { try { const q = JSON.parse(localStorage.getItem(IMAGE_CLEANUP_KEY) || "[]"); return Array.isArray(q) ? q : []; } catch (_) { return []; } }
+  function writeImageCleanupQueue(q) { try { localStorage.setItem(IMAGE_CLEANUP_KEY, JSON.stringify(q)); return true; } catch (_) { return false; } }
+  function queueImageCleanup(bucket, paths) {
+    const clean = [...new Set((paths || []).filter(p => typeof p === "string" && p.trim()))];
+    if (!clean.length) return;
+    const queue = readImageCleanupQueue();
+    const key = `${bucket}:${clean.slice().sort().join("|")}`;
+    if (!queue.some(item => item.key === key)) queue.push({ key, bucket, paths: clean, queuedAt: new Date().toISOString() });
+    writeImageCleanupQueue(queue);
+  }
+  async function removeStorageFiles(bucket, paths, attempts = 3) {
+    const clean = [...new Set((paths || []).filter(Boolean))];
+    if (!clean.length) return null;
+    let lastError = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const { error } = await sb.storage.from(bucket).remove(clean);
+        if (!error) return null;
+        lastError = error;
+      } catch (error) { lastError = error; }
+      if (i + 1 < attempts) await new Promise(resolve => setTimeout(resolve, 250 * (i + 1)));
+    }
+    return lastError || new Error("Storage cleanup failed.");
+  }
+  async function cleanupPendingImageDeletes() {
+    if (!navigator.onLine) return;
+    const current = await Promise.resolve().then(() => KMRAuth.current()).catch(() => null);
+    if (!current) return;
+    const queue = readImageCleanupQueue(); if (!queue.length) return;
+    const remaining = [];
+    for (const item of queue) {
+      // Local storage is not trusted input; restrict retries to the two photo buckets.
+      if (!item || !["photos", "originals"].includes(item.bucket) || !Array.isArray(item.paths)) continue;
+      const error = await removeStorageFiles(item.bucket, item.paths, 2);
+      if (error) remaining.push(item);
+    }
+    writeImageCleanupQueue(remaining);
+  }
+  function resetEditPhotoPreview() {
+    if (editPhotoPreviewUrl) URL.revokeObjectURL(editPhotoPreviewUrl);
+    editPhotoPreviewUrl = null;
+    const input = $("kEditPhoto"), img = $("kEditPhotoPreview"), initial = $("kEditPhotoInitial");
+    if (input) input.value = "";
+    if (img) { img.removeAttribute("src"); img.hidden = true; }
+    if (initial) initial.hidden = false;
+  }
+  function previewEditPhoto() {
+    const input = $("kEditPhoto"), file = input && input.files && input.files[0];
+    const img = $("kEditPhotoPreview"), initial = $("kEditPhotoInitial");
+    if (editPhotoPreviewUrl) URL.revokeObjectURL(editPhotoPreviewUrl);
+    editPhotoPreviewUrl = null;
+    if (!file) return;
+    try { if (!window.KMRImageOptimizer) throw new Error("Image optimizer has not loaded. Refresh and try again."); window.KMRImageOptimizer.validate(file); }
+    catch (error) { input.value = ""; toast(error.message, true); return; }
+    editPhotoPreviewUrl = URL.createObjectURL(file);
+    img.src = editPhotoPreviewUrl; img.hidden = false; initial.hidden = true;
+    $("kEditE").hidden = true;
+  }
+  async function uploadReplacement(bucket, path, blob, contentType) {
+    const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType, upsert: false, cacheControl: "31536000" });
+    if (error) throw new Error(`Could not upload replacement ${bucket} file: ${error.message}`);
+  }
+
   // ---- edit ----
   function edit(r, done) {
     init();
+    resetEditPhotoPreview();
     $("kEditWho").textContent = `${r.reg_no} · registered ${fmtDate(r.created_at)}`;
     $("kEn").value = r.name || ""; $("kEf").value = r.father_name || ""; $("kEc").value = fmtCnic(r.cnic); $("kEm").value = fmtMob(r.mobile);
     $("kEg").value = r.gender || "Male"; $("kEd").value = r.dob || ""; $("kEe").value = r.email || ""; $("kEa").value = r.address || "";
     $("kEt").value = r.district_tehsil || ""; $("kEs").value = r.sport || ""; $("kEp").value = r.payment_ref || ""; $("kEditE").hidden = true;
     $("kEd").max = new Date().toISOString().slice(0, 10);
+    const currentImg = $("kEditPhotoPreview"), initial = $("kEditPhotoInitial");
+    if (r.photo_path) { currentImg.src = photoUrl(r.photo_path); currentImg.hidden = false; initial.hidden = true; }
+    else { currentImg.removeAttribute("src"); currentImg.hidden = true; initial.textContent = String(r.name || "K").trim().slice(0, 1).toUpperCase(); initial.hidden = false; }
     $("kEdit").showModal();
     $("kEditF").onsubmit = async e => {
-      e.preventDefault(); const bad = m => { $("kEditE").textContent = m; $("kEditE").hidden = false; };
+      e.preventDefault(); const form = $("kEditF");
+      const bad = m => { $("kEditE").textContent = m; $("kEditE").hidden = false; };
       const cnic = $("kEc").value.replace(/\D/g, ""), mobile = $("kEm").value.replace(/\D/g, "");
       if (cnic.length !== 13) return bad("CNIC/B-Form number must have 13 digits.");
       if (mobile.length !== 11) return bad("Mobile number must have 11 digits.");
       const upd = { name: $("kEn").value.trim(), father_name: $("kEf").value.trim(), cnic, mobile, email: $("kEe").value.trim() || null, gender: $("kEg").value, dob: $("kEd").value,
         address: $("kEa").value.trim(), district_tehsil: $("kEt").value.trim(), sport: $("kEs").value.trim(), payment_ref: $("kEp").value.trim() || null };
+      const photoFile = $("kEditPhoto").files && $("kEditPhoto").files[0];
+
+      // Photo changes are deliberately online-only: the old image is kept until the database
+      // safely points to the newly uploaded image, then the old objects are deleted.
+      if (photoFile) {
+        if (!navigator.onLine) return bad("Replacing a photo requires an internet connection. Your existing photo has not been changed.");
+        if (!window.KMRImageOptimizer) return bad("Image optimization has not loaded. Refresh the page and try again.");
+        let newPhotoPath = null, newOriginalPath = null, committed = false, outcomeUnknown = false;
+        const previousPhotoPath = r.photo_path || null, previousPhotoOriginalPath = r.photo_original_path || null;
+        busy(form, true);
+        const saveButton = form.querySelector('button[type="submit"]');
+        const oldSaveLabel = saveButton ? saveButton.textContent : "Save changes";
+        if (saveButton) saveButton.textContent = "Optimizing photo…";
+        try {
+          const currentUser = await KMRAuth.current();
+          if (!currentUser) throw new Error("Your admin session has expired. Sign in again before changing a photo.");
+          window.KMRImageOptimizer.validate(photoFile);
+          const optimized = await window.KMRImageOptimizer.optimize(photoFile, "photo");
+          const token = crypto.randomUUID();
+          newPhotoPath = `${r.id}/photo-${token}.jpg`;
+          newOriginalPath = `${r.id}/photo_original-${token}.${window.KMRImageOptimizer.extension(photoFile)}`;
+          if (saveButton) saveButton.textContent = "Uploading securely…";
+          await uploadReplacement("photos", newPhotoPath, optimized, "image/jpeg");
+          try {
+            await uploadReplacement("originals", newOriginalPath, photoFile, window.KMRImageOptimizer.mime(photoFile));
+          } catch (error) {
+            await removeStorageFiles("photos", [newPhotoPath], 2); newPhotoPath = null; throw error;
+          }
+          if (saveButton) saveButton.textContent = "Saving player record…";
+          const updatePayload = { ...upd, photo_path: newPhotoPath, photo_original_path: newOriginalPath };
+          const { data, error } = await sb.from("registrations").update(updatePayload).eq("id", r.id).select("*");
+          let savedRow = !error && data && data.length ? data[0] : null;
+          if (!savedRow) {
+            // A network interruption can hide a successful commit from the browser. Verify the
+            // stored paths before deleting any new upload, so we never leave a broken photo link.
+            const check = await sb.from("registrations").select("*").eq("id", r.id).maybeSingle();
+            if (!check.error && check.data && check.data.photo_path === newPhotoPath && check.data.photo_original_path === newOriginalPath) {
+              savedRow = check.data;
+            } else if (check.error) {
+              outcomeUnknown = true;
+              throw new Error("The connection dropped while saving. The new files were retained to protect the player's photo. Refresh the player record before retrying.");
+            } else if (error && error.code === "23505") {
+              throw new Error("Another player already has this CNIC/B-Form number.");
+            } else if (error) {
+              throw new Error("The database did not accept the update: " + error.message);
+            } else {
+              throw new Error("The player record was not updated. Check that you are signed in with an authorized admin account.");
+            }
+          }
+          committed = true;
+          Object.assign(r, savedRow); publishRegistration(r);
+          $("kEdit").close();
+
+          const oldPaths = { photos: [], originals: [] };
+          if (previousPhotoPath && previousPhotoPath !== newPhotoPath) oldPaths.photos.push(previousPhotoPath);
+          if (previousPhotoOriginalPath && previousPhotoOriginalPath !== newOriginalPath) oldPaths.originals.push(previousPhotoOriginalPath);
+          const cleanupErrors = [];
+          for (const [bucket, paths] of Object.entries(oldPaths)) {
+            const error = await removeStorageFiles(bucket, paths, 3);
+            if (error) { queueImageCleanup(bucket, paths); cleanupErrors.push(bucket); }
+          }
+          if (cleanupErrors.length) {
+            toast("Player saved with the new photo, but old-file cleanup is pending: " + cleanupErrors.join(", ") + ". The system will retry when an admin page is online.", true);
+          } else {
+            toast(`${r.reg_no} details and photo saved. The previous photo and original were deleted.`);
+          }
+          if (done) done(r);
+        } catch (error) {
+          if (!committed && !outcomeUnknown) {
+            const rollbackErrors = [];
+            if (newPhotoPath) { const x = await removeStorageFiles("photos", [newPhotoPath], 2); if (x) rollbackErrors.push("photos"); }
+            if (newOriginalPath) { const x = await removeStorageFiles("originals", [newOriginalPath], 2); if (x) rollbackErrors.push("originals"); }
+            if (rollbackErrors.length) {
+              if (newPhotoPath) queueImageCleanup("photos", [newPhotoPath]);
+              if (newOriginalPath) queueImageCleanup("originals", [newOriginalPath]);
+            }
+          }
+          bad(error && error.message ? error.message : "Could not update this player.");
+        } finally {
+          busy(form, false); if (saveButton) saveButton.textContent = oldSaveLabel;
+        }
+        return;
+      }
+
       const action = { id: `registration-edit:${r.id}`, type: "registration-edit", rowId: r.id, row: { ...upd }, oldRow: { ...r } };
       if (!enqueue(action, () => { done && done(r); })) return bad("Local storage is unavailable. No change was made.");
       Object.assign(r, upd); publishRegistration(r); $("kEdit").close();

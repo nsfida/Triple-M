@@ -62,7 +62,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - **Reversible cancellation.** Admins can cancel or restore a runner without deleting the registration or changing its payment status. Cancelled runners remain in the public *All* list with clear red crossing lines; existing receiving records are preserved.
 
 ## Registration deadline (migration 20261028_005)
-- The public registration deadline is **05 November 2026 at 11:59 PM Pakistan Standard Time (UTC+05:00)**. The home page shows a second-by-second countdown and a right-to-left announcement strip; after the cutoff, the public Register CTA is replaced by **Registration Ends** and the direct registration page displays a closed state.
+- The public registration deadline is **05 November 2026 at 11:59 PM Pakistan Standard Time (UTC+05:00)**. The shared `js/registration-ui.js` component shows the same second-by-second countdown and right-to-left announcement strip on Participants, Results, About, Register and Admin routes. After the cutoff, all public registration links are replaced by **Registration Ends**, and the direct registration page displays a closed state. Verified admins retain their post-deadline registration path.
 - Deadline enforcement is server-side: PostgreSQL rejects new non-admin registration RPC calls and storage uploads after the cutoff. Only the two verified admin JWT emails can continue creating registrations after the deadline. Changing page HTML, JavaScript, or browser time does not bypass the database check. Existing registrations and funds are not rewritten.
 - The public Project Funds receiving ledger now shows a **Type** column (Donation or Entry fee) using fields already exposed by the public-safe `public_funds` view.
 
@@ -83,7 +83,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 ## Notes
 - Logins: usernames map to `<username>@khawrai.app` in Supabase Auth.
 - Names in the PDF use a standard font, so English letters only (the form says so).
-- Uploaded images are shrunk to 1280 px JPEG; max 3 MB per file; the public list loads up to 1000 runners.
+- Display copies of player photos are optimized to a maximum 1600 px and high-quality JPEG; CNIC/document working copies use up to 2400 px. Upload size targets remain below the 3 MB bucket limit. Exact source files are preserved privately for admin retrieval; the public participant list uses only optimized player-photo copies and loads up to 1000 runners.
 
 ## About Khawrai Marathon Race
 - `/about/` is linked from the header on all public and admin pages. It describes the first two Khawrai Village editions, Season Three on **15 November 2026**, the expanded invitation to Dargai, Petao, Kati Miana, New Khawrai, Jehangira, Shaidu, Khairabad and surrounding villages, plus the Season Three management and organisation roles.
@@ -104,3 +104,10 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - Public pages are served from route folders: `/participants/`, `/results/`, `/about/`, `/register/`, and `/admin/`. The root URL redirects to `/participants/`; route folders provide clean URLs such as `/results/` and `/about/`. `.htaccess` redirects legacy `.html` links and direct `index.html` requests on Apache-compatible hosting. Keep the route-folder `index.html` files together with their assets when deploying.
 - The Race Results admin roster lists every confirmed, non-cancelled runner in a randomized order per page session. Each runner row has an action dropdown for editing details, marking statuses, recording a finish time, or removing an existing result. All changes call authenticated database RPC functions; the public `/results/` page remains read-only.
 - Custom player/ledger kebab menus are rendered in a fixed body-level layer so table overflow and stacking contexts do not clip or cover their menu items. Primary navigation remains visible on mobile.
+
+
+## Image optimization and player-photo replacement
+
+New registration uploads now generate optimized JPEG copies for the public player photo and the private working copies of CNIC front/back images. Player photos are capped at 1600 pixels on the longest side and CNIC/document images at 2400 pixels, using high JPEG quality with adaptive size reduction to stay below the Storage upload limit. The exact uploaded player photo and CNIC front/back files are retained in the private `originals` bucket, so administrators can still retrieve the original without re-encoding loss. Only the optimized player photo is served from the public `photos` bucket; originals and identity documents remain private.
+
+Administrators can replace a runner's photo from **Admin Panel → Runner registrations → Edit** (and from the participant list when signed in as an administrator). The replacement is uploaded under a new versioned path, the database is updated using the existing admin-only registration RLS, then the previous public photo and private original are deleted. If Storage temporarily refuses cleanup, the old object paths are queued locally for retry when an admin page comes online. Photo replacement requires an active internet connection; ordinary field edits retain the existing offline queue behavior. No SQL migration is required because the project already contains `photo_path` and `photo_original_path` columns and administrator-only update/delete policies.

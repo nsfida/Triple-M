@@ -116,35 +116,12 @@
 <footer>Khawrai Marathon Race Season Three &middot; <a href="../results/">Live race results</a> &middot; <a href="../about/">About the race</a> &middot; <a id="footLink" href="../admin/">Admin sign in</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/admin-tools.js"></script><script src="../js/player-list-pdf.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js"></script><script src="../js/player-list-pdf.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let all = [], funds = [], expenses = [], filter = "all", admin = "", menuEl = null, menuBtn = null;
 
-// Visible deadline timer and announcement state. The database remains authoritative.
-function updateRegistrationDeadline() {
-  const open = KMRRegistration.isOpen();
-  const link = $("registerCta"), timer = $("registrationCountdown"), ended = $("registrationEndedCta");
-  const openTrack = $("registrationAnnouncementOpen"), closedTrack = $("registrationAnnouncementClosed");
-  const accessible = $("registrationNoticeAccessible");
-  if (!open) {
-    link.hidden = true; timer.hidden = true; ended.hidden = false;
-    openTrack.hidden = true; closedTrack.hidden = false;
-    accessible.textContent = "Registration has ended. Online player registration is closed.";
-    return;
-  }
-  link.hidden = false; timer.hidden = false; ended.hidden = true;
-  openTrack.hidden = false; closedTrack.hidden = true;
-  const remaining = KMRRegistration.remainingMs();
-  const days = Math.floor(remaining / 86400000);
-  const hours = Math.floor((remaining % 86400000) / 3600000);
-  const minutes = Math.floor((remaining % 3600000) / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000);
-  const pad = n => String(n).padStart(2, "0");
-  timer.textContent = `CLOSES IN ${days}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S`;
-}
-updateRegistrationDeadline();
-window.setInterval(updateRegistrationDeadline, 1000);
+// Registration deadline UI is shared across every route by js/registration-ui.js.
 
 const ICON = {
   dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',

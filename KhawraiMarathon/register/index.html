@@ -147,7 +147,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   <a class="btn ghost" href="../participants/">Back to participants</a> <a class="btn ghost" href="../results/">Race results</a>
 </form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script>
 <script>
 const $ = id => document.getElementById(id), err = $("err");
 $("today").textContent = fmtDate(new Date());
@@ -231,15 +231,9 @@ $("getLoc").onclick = () => {
   }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
 };
 // helpers
-function toJpeg(file, max = 1280, q = 0.85) {
-  return new Promise((res, rej) => {
-    const im = new Image(); im.onload = () => {
-      const s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement("canvas");
-      c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
-      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
-      c.toBlob(b => b ? res(b) : rej(new Error("Could not read image")), "image/jpeg", q);
-    }; im.onerror = () => rej(new Error("One of the files is not a supported image. Use JPG or PNG.")); im.src = URL.createObjectURL(file);
-  });
+function toJpeg(file, profile = "document") {
+  if (!window.KMRImageOptimizer) return Promise.reject(new Error("Image optimization has not loaded. Refresh the page and try again."));
+  return window.KMRImageOptimizer.optimize(file, profile);
 }
 async function upload(bucket, path, blob, type) {
   const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: type, upsert: false });
@@ -340,15 +334,19 @@ function showRegistrationSuccess(regNo, isAdmin) {
   $("regno").textContent = regNo; $("syncMsg").hidden = true; $("retrySync").hidden = true;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
-function extensionOf(file) { return ((file && file.name || "image.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"; }
-function mimeOf(file) {
-  return file.type && /^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) ? file.type : ({ heic: "image/heic", heif: "image/heif", png: "image/png", webp: "image/webp" }[extensionOf(file)] || "image/jpeg");
-}
+function extensionOf(file) { return window.KMRImageOptimizer ? window.KMRImageOptimizer.extension(file) : ((file && file.name || "image.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"; }
+function mimeOf(file) { return window.KMRImageOptimizer ? window.KMRImageOptimizer.mime(file) : (file && file.type || "image/jpeg"); }
 async function buildRegistrationJob() {
   const v = id => $(id).value.trim(), digits = id => v(id).replace(/\D/g, "");
   const deviceId = admin ? "" : await getDeviceId(), fp = admin ? "" : await fingerprint();
   const id = crypto.randomUUID(), official = document.querySelector('[name="official"]:checked').value === "yes";
   const photo = $("photo").files[0], front = $("cf").files[0], back = $("cb").files[0], cert = $("cert").files[0], other = $("other").files[0];
+  // Validate/size-check all uploads before any network operation begins. Original files are
+  // kept privately, while the public/working JPEG copies are optimized during queue sync.
+  for (const [label, file] of [["Player photo", photo], ["CNIC front", front], ["CNIC back", back], ["Certificate", cert], ["Other document", other]]) {
+    if (!file) continue;
+    try { window.KMRImageOptimizer.validate(file); } catch (error) { throw new Error(`${label}: ${error.message}`); }
+  }
   const signature = await new Promise((resolve, reject) => cv.toBlob(blob => blob ? resolve(blob) : reject(new Error("Could not save the signature. Please sign again.")), "image/png"));
   const payload = {
     id, name: v("name"), father_name: v("father"), cnic: digits("cnic"), mobile: digits("mobile"), email: v("email"),
@@ -366,16 +364,16 @@ async function buildRegistrationJob() {
     signature_path: `${id}/signature.png`
   };
   const files = [
-    { bucket: "photos", path: payload.photo_path, blob: photo, mode: "jpeg", type: "image/jpeg" },
-    { bucket: "documents", path: payload.cnic_front_path, blob: front, mode: "jpeg", type: "image/jpeg" },
-    { bucket: "documents", path: payload.cnic_back_path, blob: back, mode: "jpeg", type: "image/jpeg" },
+    { bucket: "photos", path: payload.photo_path, blob: photo, mode: "jpeg", profile: "photo", type: "image/jpeg" },
+    { bucket: "documents", path: payload.cnic_front_path, blob: front, mode: "jpeg", profile: "document", type: "image/jpeg" },
+    { bucket: "documents", path: payload.cnic_back_path, blob: back, mode: "jpeg", profile: "document", type: "image/jpeg" },
     { bucket: "originals", path: payload.photo_original_path, blob: photo, mode: "original", type: mimeOf(photo) },
     { bucket: "originals", path: payload.cnic_front_original_path, blob: front, mode: "original", type: mimeOf(front) },
     { bucket: "originals", path: payload.cnic_back_original_path, blob: back, mode: "original", type: mimeOf(back) },
     { bucket: "documents", path: payload.signature_path, blob: signature, mode: "raw", type: "image/png" }
   ];
-  if (cert) files.push({ bucket: "documents", path: payload.certificate_path, blob: cert, mode: "jpeg", type: "image/jpeg" });
-  if (other) files.push({ bucket: "documents", path: payload.other_doc_path, blob: other, mode: "jpeg", type: "image/jpeg" });
+  if (cert) files.push({ bucket: "documents", path: payload.certificate_path, blob: cert, mode: "jpeg", profile: "document", type: "image/jpeg" });
+  if (other) files.push({ bucket: "documents", path: payload.other_doc_path, blob: other, mode: "jpeg", profile: "document", type: "image/jpeg" });
   return { id, adminMode: !!admin, createdAt: new Date().toISOString(), payload, files };
 }
 async function syncRegistrationJob(job) {
@@ -401,7 +399,7 @@ async function syncRegistrationJob(job) {
     }
     // Concurrent uploads reduce submit time. Every path is unique to this durable queue item's UUID.
     await Promise.all(job.files.map(async file => {
-      const blob = file.mode === "jpeg" ? await toJpeg(file.blob) : file.blob;
+      const blob = file.mode === "jpeg" ? await toJpeg(file.blob, file.profile || "document") : file.blob;
       return upload(file.bucket, file.path, blob, file.type);
     }));
     const { data, error } = await sb.rpc("submit_registration", { p: job.payload });
