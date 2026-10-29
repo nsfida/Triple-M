@@ -12,8 +12,9 @@
 
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/admin/">
 <link rel="stylesheet" href="../assets/polish.css">
-<link rel="stylesheet" href="../assets/header-layout.css">
-<link rel="stylesheet" href="../assets/admin-compact.css?v=20261029-5">
+<link rel="stylesheet" href="../assets/header-layout.css?v=20261029-7">
+<link rel="stylesheet" href="../assets/admin-accounts-dialog.css?v=20261029-3">
+<link rel="stylesheet" href="../assets/admin-compact.css?v=20261029-6">
 </head>
 <body class="admin-page">
 <div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
@@ -50,8 +51,8 @@
 <nav class="site-nav-shell" aria-label="Site navigation">
   <div class="site-nav-inner">
     <div class="primary-nav" aria-label="Main navigation"><div class="cta home-nav-cta"><a class="btn ghost" href="../">Home</a></div><div class="cta results-nav-cta"><a class="btn ghost" href="../results/">Results</a></div>
-    <div class="cta participants-nav-cta"><a class="btn ghost" href="../participants/">Participants</a></div>
-    <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="../results/manage/">Manage Results</a></div></div>
+    <div class="cta participants-nav-cta"><a class="btn ghost" href="../participants/"><span class="nav-label-full">Participants</span><span class="nav-label-mobile">Players</span></a></div>
+    <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="../results/manage/"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div></div>
   </div>
 </nav>
 
@@ -107,7 +108,7 @@
   
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261029-4"></script><script src="../js/admin-accounts.js?v=20261029-3"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js"></script>
 <script>
 const $ = id => document.getElementById(id), C = KMR;
 let rows = [], funds = [], expenses = [], user = "";

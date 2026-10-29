@@ -1,6 +1,7 @@
 (function () {
   const $ = id => document.getElementById(id);
   let wired = false, activeUser = '', channel = null, rosterPollTimer = null, registrations = [], results = [], publicResults = [], control = null, busy = false, editingRegistrationId = '', permissions = {};
+  const selectedRunnerIds = new Set();
   const announcementPresets = Object.freeze({
     registration_reminder: 'Registration is open. Please complete your registration before the deadline and arrive early on race day.',
     race_day_arrival: 'Race-day reminder: please arrive early for registration check-in and warm-up. Follow the organisers’ instructions.',
@@ -32,12 +33,12 @@
   const setBusy = value => {
     busy = value;
     const finalized = !!(control && control.results_finalized_at);
-    document.querySelectorAll('#paneResultsAdmin button, #paneResultsAdmin select, #paneResultsAdmin input').forEach(node => {
-      if (node.closest('#adminAccountsPanel')) { node.disabled = value; return; }
+    document.querySelectorAll('#paneResultsAdmin button, #paneResultsAdmin select, #paneResultsAdmin input, #raceBulkFinishDialog button, #raceBulkFinishDialog input').forEach(node => {
       const lockedResultEdit = finalized && node.matches('#raceResultForm input, #raceResultForm select, #raceResultForm button, [data-race-action], #raceStatusAdmin, #raceStartNow, #raceEndNow, #raceFinalizeResults, #raceFullResetOpen');
       const lockedReset = finalized && node.matches('#raceResetScheduled') && !(permissions && permissions.is_owner === true);
       node.disabled = value || !!lockedResultEdit || !!lockedReset;
     });
+    syncBulkSelectionUI();
   };
   function resetForm() {
     editingRegistrationId = '';
@@ -89,9 +90,11 @@
     const reopen = $('raceReopenResults');
     if (finalize) { finalize.hidden = finalized; finalize.disabled = finalized || !raceEnded || runningCount > 0 || busy; }
     if (reopen) { reopen.hidden = !(finalized && canReopen); reopen.disabled = busy; }
-    document.querySelectorAll('#raceResultForm input, #raceResultForm select, #raceResultForm button, [data-race-action]').forEach(node => {
+    document.querySelectorAll('#raceResultForm input, #raceResultForm select, #raceResultForm button, [data-race-action], #raceSelectVisible, #raceBulkStatus, #raceBulkApply, [data-select-runner]').forEach(node => {
       node.disabled = finalized || busy;
     });
+    const clearSelection = $('raceBulkClearSelection');
+    if (clearSelection) clearSelection.disabled = busy;
     const statusSelect = $('raceStatusAdmin');
     if (statusSelect) statusSelect.disabled = finalized || busy;
     const resetScheduled = $('raceResetScheduled');
@@ -146,6 +149,8 @@
     const { data, error } = await sb.from('public_marathon_runner_roster').select('id,reg_no,name,status,is_cancelled,photo_path').order('reg_no', { ascending: true });
     if (error) throw error;
     registrations = data || [];
+    const activeIds = new Set(registrations.filter(r => r.status === 'confirmed' && !r.is_cancelled).map(r => r.id));
+    [...selectedRunnerIds].forEach(id => { if (!activeIds.has(id)) selectedRunnerIds.delete(id); });
     fillRunnerChoices();
     renderResults();
   }
@@ -201,17 +206,10 @@
   }
   function renderResults() {
     const { all, rows } = getRosterRows();
-    const withResults = all.filter(item => item.result).length;
-    const counts = { awaiting: all.filter(item => !item.result).length, registered: 0, running: 0, finished: 0, dnf: 0, dsq: 0 };
-    all.forEach(({ result }) => { if (result && Object.prototype.hasOwnProperty.call(counts, result.status)) counts[result.status] += 1; });
-    $('raceResultCount').textContent = `${all.length} eligible · ${withResults} with a result · ${counts.awaiting} awaiting entry · Showing ${rows.length}`;
-    $('raceResultMetrics').innerHTML = [
-      ['Awaiting', counts.awaiting, 'awaiting'], ['Not started', counts.registered, 'registered'], ['Running', counts.running, 'running'],
-      ['Finished', counts.finished, 'finished'], ['DNF', counts.dnf, 'dnf'], ['Disqualified', counts.dsq, 'dsq']
-    ].map(([label, count, key]) => `<span class="race-result-metric race-result-metric-${key}"><strong>${count}</strong><small>${label}</small></span>`).join('');
     if (!rows.length) {
       const message = all.length ? 'No runners match these search and filter settings. Clear filters to see everyone.' : 'No confirmed, active runners are available. Confirm a registration first.';
-      $('raceAdminResultsBody').innerHTML = `<tr class="race-admin-empty-row"><td colspan="8" class="race-admin-empty">${message}</td></tr>`;
+      $('raceAdminResultsBody').innerHTML = `<tr class="race-admin-empty-row"><td colspan="9" class="race-admin-empty">${message}</td></tr>`;
+      syncBulkSelectionUI([]);
       return;
     }
     $('raceAdminResultsBody').innerHTML = rows.map(({ runner, result, place }) => {
@@ -220,6 +218,7 @@
       const currentPosition = result && result.status === 'running' && result.current_position != null ? String(result.current_position) : '—';
       const updated = result && result.updated_at ? esc(formatStamp(result.updated_at)) : '<span class="race-admin-not-entered">Not entered</span>';
       return `<tr data-registration-id="${esc(runner.id)}"${result ? ` data-result-id="${esc(result.id)}"` : ''}>
+        <td data-label="Select" class="race-select-cell"><input type="checkbox" data-select-runner="${esc(runner.id)}" aria-label="Select ${esc(runner.name)}"${selectedRunnerIds.has(runner.id) ? ' checked' : ''}></td>
         <td data-label="Place">${place ? `<b class="race-place race-place-${place <= 3 ? place : 0}">${place}</b>` : '—'}</td>
         <td data-label="Registration No."><strong class="race-registration-no">${esc(runner.reg_no)}</strong></td>
         <td data-label="Player"><span class="race-admin-runner-name"><strong>${esc(runner.name)}</strong></span></td>
@@ -240,6 +239,7 @@
         </select></label></td>
       </tr>`;
     }).join('');
+    syncBulkSelectionUI(rows);
   }
   function beginResultEdit(registrationId, row, preferredStatus) {
     const runner = registrations.find(r => r.id === registrationId);
@@ -441,32 +441,110 @@
     const row = results.find(r => r.id === id); if (!row) return;
     beginResultEdit(row.registration_id, row, null);
   }
-  function exportFilteredResultsCsv() {
-    const { rows } = getRosterRows();
-    if (!rows.length) return drawMessage('There are no visible rows to export. Adjust the filters and try again.', true);
-    const cell = value => {
-      let text = String(value == null ? '' : value);
-      if (/^[\u0000-\u0020]*[=+@\-]/.test(text)) text = `'${text}`;
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-    const header = ['Registration Number', 'Player Name', 'Result Status', 'Place', 'Current Position', 'Finish Time', 'Last Updated'];
-    const lines = [header, ...rows.map(({ runner, result, place }) => [
-      runner.reg_no || '', runner.name || '', result ? labelStatus(result.status) : 'Awaiting result', place || '',
-      result && result.status === 'running' ? result.current_position || '' : '',
-      result && result.status === 'finished' ? formatTime(result.finish_time_seconds) : '',
-      result && result.updated_at ? formatStamp(result.updated_at) : ''
-    ])].map(row => row.map(cell).join(','));
-    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'khawrai-marathon-runner-results.csv';
-    link.style.display = 'none';
-    document.body.appendChild(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    drawMessage(`Exported ${rows.length} visible runner record${rows.length === 1 ? '' : 's'} to CSV.`);
+  function getSelectedRunners() {
+    const active = new Map(registrations.filter(r => r.status === 'confirmed' && !r.is_cancelled).map(r => [r.id, r]));
+    return [...selectedRunnerIds].map(id => active.get(id)).filter(Boolean);
   }
-
+  function syncBulkSelectionUI(rows) {
+    const tbody = $('raceAdminResultsBody');
+    const boxes = tbody ? [...tbody.querySelectorAll('[data-select-runner]')] : [];
+    const visibleIds = boxes.map(box => box.dataset.selectRunner);
+    const selectedVisible = visibleIds.filter(id => selectedRunnerIds.has(id)).length;
+    const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    const selectVisible = $('raceSelectVisible');
+    if (selectVisible) {
+      selectVisible.checked = allVisibleSelected;
+      selectVisible.indeterminate = selectedVisible > 0 && !allVisibleSelected;
+      selectVisible.disabled = busy || !!(control && control.results_finalized_at) || visibleIds.length === 0;
+    }
+    const count = $('raceBulkSelectedCount');
+    const selected = getSelectedRunners();
+    if (count) count.textContent = `${selected.length} selected`;
+    const status = $('raceBulkStatus');
+    const apply = $('raceBulkApply');
+    if (status) status.disabled = busy || !!(control && control.results_finalized_at);
+    if (apply) apply.disabled = busy || !!(control && control.results_finalized_at) || selected.length === 0 || !status || !status.value;
+    if (boxes.length) {
+      boxes.forEach(box => { box.checked = selectedRunnerIds.has(box.dataset.selectRunner); box.disabled = busy || !!(control && control.results_finalized_at); });
+    }
+  }
+  function openBulkFinishedDialog(ids) {
+    const dialog = $('raceBulkFinishDialog');
+    const rows = ids.map(id => {
+      const runner = registrations.find(item => item.id === id);
+      const existing = results.find(item => item.registration_id === id);
+      if (!runner) return null;
+      return { id, runner, existing };
+    }).filter(Boolean);
+    if (!rows.length) return drawMessage('Select at least one active, confirmed runner first.', true);
+    $('raceBulkFinishRows').innerHTML = rows.map(({ id, runner, existing }) => {
+      const value = existing && existing.status === 'finished' ? secondsToTime(existing.finish_time_seconds) : '';
+      return `<div class="race-bulk-finish-row"><div class="race-bulk-finish-runner"><strong>${esc(runner.reg_no)} · ${esc(runner.name)}</strong><small>${existing && existing.status === 'finished' ? 'Existing finish time prefilled' : 'Enter this runner’s finish time'}</small></div><label><span class="sr-only">Finish time for ${esc(runner.name)}</span><input data-bulk-finish-time data-registration-id="${esc(id)}" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" placeholder="HH:MM:SS" value="${esc(value)}" required></label></div>`;
+    }).join('');
+    $('raceBulkFinishError').hidden = true;
+    $('raceBulkFinishError').textContent = '';
+    if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+    else drawMessage('This browser does not support the secure finish-time dialog. Please update the browser and try again.', true);
+  }
+  async function applyBulkStatus(status, ids, finishTimes = {}) {
+    if (busy) return;
+    if (control && control.results_finalized_at) return drawMessage('Official results are finalized. Ask nsfida to reopen editing before making changes.', true);
+    const allowedStatuses = ['registered', 'running', 'dnf', 'dsq', 'finished'];
+    if (!allowedStatuses.includes(status)) return drawMessage('Choose a valid status for the selected runners.', true);
+    const selected = ids.map(id => registrations.find(r => r.id === id)).filter(r => r && r.status === 'confirmed' && !r.is_cancelled);
+    if (!selected.length) return drawMessage('Select at least one active, confirmed runner first.', true);
+    const names = selected.slice(0, 5).map(r => `${r.reg_no} ${r.name}`).join(', ');
+    const more = selected.length > 5 ? ` and ${selected.length - 5} more` : '';
+    if (status !== 'finished' && !confirm(`Set ${selected.length} selected runner${selected.length === 1 ? '' : 's'} to ${labelStatus(status)}?\n\n${names}${more}\n\nOnly race-result status fields will be updated.`)) return;
+    setBusy(true);
+    drawMessage(`Updating ${selected.length} selected runner${selected.length === 1 ? '' : 's'}…`);
+    let succeeded = 0;
+    const failures = [];
+    try {
+      for (const runner of selected) {
+        const existing = results.find(row => row.registration_id === runner.id);
+        const finishSeconds = status === 'finished' ? finishTimes[runner.id] : null;
+        const currentPosition = status === 'running' && existing && existing.status === 'running' && existing.current_position != null
+          ? Number(existing.current_position) : null;
+        const { error } = await sb.rpc('admin_upsert_marathon_result', {
+          p_registration_id: runner.id,
+          p_status: status,
+          p_finish_time_seconds: finishSeconds,
+          p_current_position: currentPosition
+        });
+        if (error) {
+          failures.push({ runner, message: error.message || 'Update failed.' });
+        } else {
+          succeeded += 1;
+          selectedRunnerIds.delete(runner.id);
+        }
+      }
+      await Promise.all([loadResults(), loadControl()]);
+      if (failures.length) {
+        const failureSummary = failures.slice(0, 3).map(item => `${item.runner.reg_no} ${item.runner.name}: ${item.message}`).join(' · ');
+        drawMessage(`${succeeded} runner${succeeded === 1 ? '' : 's'} updated; ${failures.length} failed. Failed runners remain selected so you can retry. ${failureSummary}`, true);
+      } else {
+        drawMessage(`${succeeded} runner${succeeded === 1 ? '' : 's'} updated to ${labelStatus(status)}. Public standings will refresh automatically.`);
+        if ($('raceBulkStatus')) $('raceBulkStatus').value = '';
+      }
+    } catch (error) {
+      drawMessage(error && error.message ? error.message : `Bulk update stopped after ${succeeded} successful change${succeeded === 1 ? '' : 's'}. Some changes may already have been saved.`, true);
+    } finally {
+      setBusy(false);
+      syncBulkSelectionUI();
+    }
+  }
+  function beginBulkStatusUpdate() {
+    if (busy) return;
+    if (control && control.results_finalized_at) return drawMessage('Official results are finalized. Ask nsfida to reopen editing before making changes.', true);
+    const selected = getSelectedRunners();
+    if (!selected.length) return drawMessage('Select one or more players using the checkboxes first.', true);
+    const status = $('raceBulkStatus').value;
+    if (!status) return drawMessage('Choose the status to apply to the selected players.', true);
+    const ids = selected.map(runner => runner.id);
+    if (status === 'finished') return openBulkFinishedDialog(ids);
+    applyBulkStatus(status, ids);
+  }
   function wire() {
     if (wired) return; wired = true;
     $('raceControlForm').addEventListener('submit', e => { e.preventDefault(); saveControl(); });
@@ -498,8 +576,46 @@
       finally { setBusy(false); }
     });
     $('raceAdminResultsBody').addEventListener('change', e => {
+      const checkbox = e.target.closest('[data-select-runner]');
+      if (checkbox) {
+        if (checkbox.checked) selectedRunnerIds.add(checkbox.dataset.selectRunner);
+        else selectedRunnerIds.delete(checkbox.dataset.selectRunner);
+        syncBulkSelectionUI();
+        return;
+      }
       const select = e.target.closest('[data-race-action]');
       if (select) handleRosterAction(select);
+    });
+    $('raceSelectVisible').addEventListener('change', () => {
+      const boxes = [...$('raceAdminResultsBody').querySelectorAll('[data-select-runner]')];
+      boxes.forEach(box => { if ($('raceSelectVisible').checked) selectedRunnerIds.add(box.dataset.selectRunner); else selectedRunnerIds.delete(box.dataset.selectRunner); });
+      syncBulkSelectionUI();
+    });
+    $('raceBulkStatus').addEventListener('change', syncBulkSelectionUI);
+    $('raceBulkApply').addEventListener('click', beginBulkStatusUpdate);
+    $('raceBulkClearSelection').addEventListener('click', () => { selectedRunnerIds.clear(); renderResults(); drawMessage('Runner selection cleared.'); });
+    $('raceBulkFinishCancel').addEventListener('click', () => $('raceBulkFinishDialog').close());
+    $('raceBulkFinishForm').addEventListener('submit', event => {
+      event.preventDefault();
+      if (busy) return;
+      const inputs = [...$('raceBulkFinishRows').querySelectorAll('[data-bulk-finish-time]')];
+      const finishTimes = {};
+      let invalid = null;
+      inputs.forEach(input => {
+        const seconds = timeToSeconds(input.value);
+        input.removeAttribute('aria-invalid');
+        if (seconds == null) { input.setAttribute('aria-invalid', 'true'); if (!invalid) invalid = input; }
+        else finishTimes[input.dataset.registrationId] = seconds;
+      });
+      if (invalid) {
+        $('raceBulkFinishError').textContent = 'Enter a valid finish time for every selected runner in HH:MM:SS format (00:00:01 to 48:00:00).';
+        $('raceBulkFinishError').hidden = false;
+        invalid.focus();
+        return;
+      }
+      const ids = inputs.map(input => input.dataset.registrationId);
+      $('raceBulkFinishDialog').close();
+      applyBulkStatus('finished', ids, finishTimes);
     });
     $('raceRunnerSearch').addEventListener('input', renderResults);
     $('raceRunnerFilter').addEventListener('change', renderResults);
@@ -518,13 +634,16 @@
       beginResultEdit(next.runner.id, null, 'registered');
       drawMessage(`Ready to enter a result for ${next.runner.name} (${next.runner.reg_no}).`);
     });
-    $('raceExportResults').addEventListener('click', exportFilteredResultsCsv);
     $('raceCurrentPosition').addEventListener('input', () => { if ($('raceResultStatus').value !== 'running') $('raceCurrentPosition').value = ''; });
   }
   async function init(username, userPermissions = {}) {
     if (!username || !userPermissions || userPermissions.can_results !== true) return dispose();
     if (activeUser === username && channel) { permissions = userPermissions; applyFinalizationUI(); return; }
-    dispose(); activeUser = username; permissions = userPermissions; wire(); resetForm(); drawMessage('Connecting to race controls…');
+    dispose(); activeUser = username; permissions = userPermissions;
+    // dispose() also hides the app for sign-out/permission-loss flows; restore it only
+    // after init has received the authenticated Results permission from the route guard.
+    const authorisedApp = $('app'); if (authorisedApp) authorisedApp.hidden = false;
+    wire(); resetForm(); drawMessage('Connecting to race controls…');
     try {
       await Promise.all([loadRegistrations(), loadControl(), loadResults()]);
       drawMessage('Race controls are ready. All changes are verified again by the database.');
@@ -546,7 +665,7 @@
     }, 30000);
   }
   function dispose() {
-    const previous = channel; channel = null; activeUser = ''; permissions = {};
+    const previous = channel; channel = null; activeUser = ''; permissions = {}; selectedRunnerIds.clear(); syncBulkSelectionUI();
     if (rosterPollTimer) { window.clearInterval(rosterPollTimer); rosterPollTimer = null; }
     const app = $('app'); if (app) app.hidden = true;
     if (previous) sb.removeChannel(previous);

@@ -609,3 +609,37 @@ header.top .registration-ended-pill[hidden] { display: none !important; }
 header.top .header-utilities .registration-cta > .registration-ended-pill[hidden] {
   display: none !important;
 }
+
+/* Privileged navigation must remain hidden despite legacy display!important rules. */
+body .site-nav-shell .primary-nav > .cta[data-admin-results-nav-wrap][hidden] {
+  display: none !important;
+  visibility: hidden !important;
+}
+.site-nav-shell .primary-nav.has-admin-results {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  width: min(100%, 520px) !important;
+}
+.nav-label-mobile { display: none !important; }
+@media (max-width: 520px) {
+  .site-nav-shell .primary-nav.has-admin-results .participants-nav-cta .nav-label-full,
+  .site-nav-shell .primary-nav.has-admin-results .admin-results-nav .nav-label-full { display: none !important; }
+  .site-nav-shell .primary-nav.has-admin-results .participants-nav-cta .nav-label-mobile,
+  .site-nav-shell .primary-nav.has-admin-results .admin-results-nav .nav-label-mobile {
+    display: inline !important;
+  }
+  .site-nav-shell .primary-nav.has-admin-results .admin-results-nav .nav-label-mobile {
+    white-space: normal !important;
+    line-height: 1 !important;
+  }
+  .site-nav-shell .primary-nav.has-admin-results .btn {
+    min-width: 0 !important;
+    padding-inline: 1px !important;
+    font-size: clamp(.49rem, 1.75vw, .58rem) !important;
+    letter-spacing: -.025em !important;
+    overflow: hidden !important;
+  }
+  .site-nav-shell .primary-nav.has-admin-results .admin-results-nav .btn {
+    white-space: normal !important;
+    line-height: 1 !important;
+  }
+}

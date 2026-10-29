@@ -10,9 +10,10 @@
 
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/">
 <link rel="stylesheet" href="../assets/polish.css">
-<link rel="stylesheet" href="../assets/header-layout.css">
+<link rel="stylesheet" href="../assets/header-layout.css?v=20261029-7">
+<link rel="stylesheet" href="../assets/admin-accounts-dialog.css?v=20261029-3">
 </head>
-<body>
+<body class="results-public-route">
 <div class="registration-notice" id="registrationNotice" role="status" aria-live="polite">
   <div class="registration-notice-viewport" aria-hidden="true">
     <div class="registration-notice-track" id="registrationAnnouncementOpen">
@@ -30,14 +31,17 @@
   <div class="in">
     <a class="logo-link" href="../" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
     <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official race results and live leaderboard.</p></div>
-    <div class="header-actions"><div class="header-utilities"><div class="profile-mount"></div></div></div>
+    <div class="header-actions"><div class="header-utilities">
+      <div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="../register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off">CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
+      <div class="profile-mount"></div>
+    </div></div>
   </div>
 </header>
 <nav class="site-nav-shell" aria-label="Site navigation">
   <div class="site-nav-inner">
     <div class="primary-nav" aria-label="Main navigation"><div class="cta home-nav-cta"><a class="btn ghost" href="../">Home</a></div><div class="cta results-nav-cta"><a class="btn ghost" href="../results/" aria-current="page">Results</a></div>
-    <div class="cta participants-nav-cta"><a class="btn ghost" href="../participants/">Participants</a></div>
-    <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="manage/">Manage Results</a></div></div>
+    <div class="cta participants-nav-cta"><a class="btn ghost" href="../participants/"><span class="nav-label-full">Participants</span><span class="nav-label-mobile">Players</span></a></div>
+    <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="manage/"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div></div>
   </div>
 </nav>
 <main class="wrap results-page">
@@ -87,5 +91,5 @@
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../">Home</a> · <a href="../participants/">Participants</a> · <a href="../about/">About the race</a> · <a href="../admin/">Admin sign in</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261029-2"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261029-4"></script><script src="../js/admin-accounts.js?v=20261029-3"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261029-2"></script>
 </body></html>

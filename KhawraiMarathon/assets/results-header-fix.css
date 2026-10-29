@@ -1,0 +1,87 @@
+/* Public Results page account/sign-in control alignment fixes. */
+body.results-public-route header.top .header-actions {
+  align-self:center;
+  min-width:0;
+  margin-left:auto;
+}
+body.results-public-route header.top .header-utilities {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:0;
+  min-width:0;
+}
+body.results-public-route header.top .profile-mount,
+body.results-public-route header.top .profile-wrap { min-width:0; }
+body.results-public-route header.top .header-utilities .profile-trigger {
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:7px !important;
+  width:auto !important;
+  min-width:136px !important;
+  max-width:176px !important;
+  height:37px !important;
+  min-height:37px !important;
+  margin:0 !important;
+  padding:3px 9px 3px 3px !important;
+  border:1px solid rgba(255,255,255,.3) !important;
+  border-radius:10px !important;
+  background:rgba(255,255,255,.09) !important;
+  color:#fff !important;
+  box-shadow:none !important;
+  line-height:1 !important;
+}
+body.results-public-route header.top .profile-avatar {
+  flex:0 0 29px !important;
+  width:29px !important;
+  height:29px !important;
+}
+body.results-public-route header.top .profile-label { display:grid !important; min-width:0 !important; gap:2px !important; }
+body.results-public-route header.top .profile-label strong { max-width:94px !important; font-size:.68rem !important; line-height:1.05 !important; }
+body.results-public-route header.top .profile-label small { display:block !important; font-size:.53rem !important; line-height:1.05 !important; }
+body.results-public-route header.top .profile-chevron { flex:0 0 11px !important; width:11px !important; height:11px !important; }
+@media(max-width:760px) {
+  body.results-public-route header.top .header-actions { grid-column:3 !important; grid-row:1 !important; width:auto !important; justify-self:end !important; }
+  body.results-public-route header.top .header-utilities .profile-trigger {
+    min-width:112px !important;
+    max-width:130px !important;
+    height:33px !important;
+    min-height:33px !important;
+    gap:5px !important;
+    padding:2px 6px 2px 2px !important;
+  }
+  body.results-public-route header.top .profile-avatar { flex-basis:25px !important; width:25px !important; height:25px !important; }
+  body.results-public-route header.top .profile-label strong { max-width:65px !important; font-size:.59rem !important; }
+  body.results-public-route header.top .profile-label small { display:none !important; }
+}
+@media(max-width:390px) {
+  body.results-public-route header.top .header-utilities .profile-trigger { min-width:103px !important; max-width:115px !important; }
+  body.results-public-route header.top .profile-avatar { flex-basis:23px !important; width:23px !important; height:23px !important; }
+  body.results-public-route header.top .profile-label strong { max-width:58px !important; font-size:.56rem !important; }
+}
+@media(max-width:760px) {
+  body.results-public-route header.top .profile-label strong {
+    max-width:72px !important;
+    font-size:.55rem !important;
+    letter-spacing:-.015em !important;
+  }
+  body.results-public-route header.top .header-utilities .profile-trigger {
+    min-width:118px !important;
+    max-width:132px !important;
+  }
+}
+@media(max-width:390px) {
+  body.results-public-route header.top .profile-label strong {
+    max-width:65px !important;
+    font-size:.52rem !important;
+  }
+  body.results-public-route header.top .header-utilities .profile-trigger {
+    min-width:112px !important;
+    max-width:122px !important;
+  }
+}
+@media(max-width:340px) {
+  body.results-public-route header.top .profile-label strong { max-width:59px !important; font-size:.5rem !important; }
+  body.results-public-route header.top .header-utilities .profile-trigger { min-width:106px !important; max-width:112px !important; }
+}

@@ -37,13 +37,22 @@
     return email.slice(0, -suffix.length);
   };
   const renderAdminResultsNav = () => {
-    const allowed = !!(cachedPermissions && cachedPermissions.is_admin && cachedPermissions.can_results);
-    document.querySelectorAll('[data-admin-results-nav-wrap]').forEach(node => { node.hidden = !allowed; });
+    // The button is visible only after the server confirms an authenticated account
+    // with the Results feature. A stored username hint is never used for this decision.
+    const allowed = !!(cachedPermissions && cachedPermissions.is_admin === true && cachedPermissions.can_results === true);
+    document.querySelectorAll('[data-admin-results-nav-wrap]').forEach(node => {
+      node.hidden = !allowed;
+      const nav = node.closest('.primary-nav');
+      if (nav) nav.classList.toggle('has-admin-results', allowed);
+    });
     document.querySelectorAll('[data-admin-results-nav]').forEach(node => {
       node.hidden = !allowed;
       if (allowed && /\/results\/manage\/?$/.test(location.pathname)) node.setAttribute('aria-current', 'page');
       else node.removeAttribute('aria-current');
     });
+    // Some legacy navigation selectors use display!important. Re-assert native hidden
+    // state explicitly so public visitors never see a privileged link, even on mobile.
+    if (!allowed) document.querySelectorAll('[data-admin-results-nav-wrap], [data-admin-results-nav]').forEach(node => { node.hidden = true; });
   };
   async function fetchMyPermissions() {
     try {
@@ -212,6 +221,7 @@
       <div class="profile-menu-head"><span class="profile-avatar large" data-avatar>${avatarMarkup("")}</span><div><strong data-profile-name>Admin sign in</strong><small data-profile-sub>Account menu</small></div></div>
       <a href="../admin/" class="profile-menu-item" data-profile-signin><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg></span><span><strong>Admin sign in</strong><small>Open organiser access</small></span></a>
       <button type="button" class="profile-menu-item" data-profile-settings hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.3"/><path d="M5 20c.4-3.5 2.8-5.5 7-5.5s6.6 2 7 5.5"/><path d="M19 3v4M17 5h4"/></svg></span><span><strong>Profile &amp; security</strong><small>Picture and password</small></span></button>
+      <button type="button" class="profile-menu-item" data-profile-admin-accounts hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 20c.3-3.4 2.4-5.2 6.2-5.2 1.6 0 2.9.3 3.9 1"/><circle cx="17.5" cy="16.5" r="3.2"/><path d="M17.5 14.8v3.4M15.8 16.5h3.4"/></svg></span><span><strong>Admin accounts &amp; access</strong><small>Create admins and manage feature permissions</small></span></button>
       <a href="../participants/" class="profile-menu-item" data-profile-public hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></svg></span><span><strong>Public participants</strong><small>View the runner directory</small></span></a>
       <a href="../register/" class="profile-menu-item" data-profile-register hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span><strong>New registration</strong><small>Add a runner</small></span></a>
       <button type="button" class="profile-menu-item danger" data-profile-signout hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span><strong>Sign out</strong><small>End this device's session</small></span></button>
@@ -225,6 +235,10 @@
       mount.querySelectorAll("[data-avatar]").forEach(n => setAvatar(n, profileUser));
       const signed = !!profileUser;
       ["settings", "public", "register", "signout"].forEach(action => { const b = mount.querySelector(`[data-profile-${action}]`); if (b) b.hidden = !signed; });
+      const permissionState = KMRAuth.permissions();
+      const canManageAdminAccounts = !!(signed && profileUser.toLowerCase() === "nsfida" && permissionState && permissionState.is_owner === true && permissionState.can_manage_admins === true);
+      const accountsEntry = mount.querySelector("[data-profile-admin-accounts]");
+      if (accountsEntry) accountsEntry.hidden = !canManageAdminAccounts;
       const signIn = mount.querySelector("[data-profile-signin]");
       if (signIn) signIn.href = routeHref("admin");
       const publicLink = mount.querySelector("[data-profile-public]");

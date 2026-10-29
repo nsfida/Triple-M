@@ -9,9 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../assets/style.css">
 <link rel="stylesheet" href="../../assets/polish.css">
-<link rel="stylesheet" href="../../assets/header-layout.css">
-<link rel="stylesheet" href="../../assets/admin-compact.css?v=20261029-6">
-<link rel="stylesheet" href="../../assets/results-manage.css?v=20261029-4">
+<link rel="stylesheet" href="../../assets/header-layout.css?v=20261029-7">
+<link rel="stylesheet" href="../../assets/admin-accounts-dialog.css?v=20261029-3">
+<link rel="stylesheet" href="../../assets/admin-compact.css?v=20261029-8">
+<link rel="stylesheet" href="../../assets/results-manage.css?v=20261029-6">
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/manage/">
 </head>
 <body class="admin-page results-manage-route">
@@ -24,14 +25,17 @@
 <header class="top"><div class="in">
   <a class="logo-link" href="../../" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
   <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Authorised race-control workspace · Live runner results and final standings.</p></div>
-  <div class="header-actions"><div class="header-utilities"><div class="profile-mount"></div></div></div>
+  <div class="header-actions"><div class="header-utilities">
+    <div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="../../register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off">CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
+    <div class="profile-mount"></div>
+  </div></div>
 </div></header>
 <nav class="site-nav-shell" aria-label="Site navigation"><div class="site-nav-inner"><div class="primary-nav" aria-label="Main navigation">
   <div class="cta home-nav-cta"><a class="btn ghost" href="../../">Home</a></div>
   <div class="cta results-nav-cta"><a class="btn ghost" href="../">Results</a></div>
-  <div class="cta participants-nav-cta"><a class="btn ghost" href="../../participants/">Participants</a></div>
+  <div class="cta participants-nav-cta"><a class="btn ghost" href="../../participants/"><span class="nav-label-full">Participants</span><span class="nav-label-mobile">Players</span></a></div>
   <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../../about/">About</a></div>
-  <div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="./" aria-current="page">Manage Results</a></div>
+  <div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="./" aria-current="page"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div>
 </div></div></nav>
 <main class="wrap results-manage-denied" id="resultsManageDenied" role="status">
   <section class="race-admin-panel access-denied-card"><span class="results-kicker">Authorised access only</span><h2>Results management is restricted</h2><p>This page contains race-control and runner-update settings. Sign in with an admin account that has Results access. Public standings remain available to everyone.</p><div class="access-denied-actions"><a class="btn" href="../../admin/">Admin sign in</a><a class="btn ghost" href="../">Open public results</a></div></section>
@@ -101,39 +105,52 @@
       </form>
       <p class="race-admin-note">Finish time must be from 00:00:01 through 48:00:00. Rankings are automatically recalculated by finish time; first, second and third receive the displayed prize awards.</p>
     </section>
-    <div class="section-heading race-list-heading"><div><h3>Runner result updates</h3><p id="raceResultCount">Loading confirmed runners…</p></div></div>
     <div class="race-results-toolbar" aria-label="Search, filter and sort runners">
       <label class="race-results-search">Search runner<input id="raceRunnerSearch" type="search" autocomplete="off" placeholder="Registration number or player name…" aria-label="Search by registration number or player name"></label>
       <label>Result status<select id="raceRunnerFilter" aria-label="Filter runners by result status"><option value="all">All eligible runners</option><option value="awaiting">Awaiting result</option><option value="registered">Not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
       <label>Sort by<select id="raceRunnerSort" aria-label="Sort runner results"><option value="reg_no">Registration number</option><option value="name">Player name</option><option value="finish_time">Fastest finish time</option><option value="position">Current position</option><option value="updated">Recently updated</option></select></label>
       <div class="race-results-toolbar-actions">
         <button type="button" class="btn sm ghost" id="raceNextPendingRunner">Enter next pending result</button>
-        <button type="button" class="btn sm ghost" id="raceExportResults">Export filtered CSV</button>
         <button type="button" class="btn sm ghost" id="raceClearRunnerFilters">Clear filters</button>
       </div>
     </div>
-    <div class="race-result-metrics" id="raceResultMetrics" aria-live="polite">Loading result summary…</div>
-    <p class="msg" id="raceAdminMsg" aria-live="polite">Connecting to race controls…</p>
-    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Place / position</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Current position</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="8" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
-    <div class="race-admin-prizes"><strong>Public prize display</strong><span><b class="gold-text">1st:</b> Rs. 15,000 + Winning Trophy</span><span><b class="silver-text">2nd:</b> Rs. 10,000 + Trophy</span><span><b class="bronze-text">3rd:</b> Rs. 5,000 + Trophy</span><a class="btn sm ghost" href="../results/" target="_blank" rel="noopener">Open public live board</a></div>
-  
-    <section class="race-admin-panel managed-admins-panel" id="adminAccountsPanel" hidden aria-labelledby="adminAccountsTitle">
-      <div class="race-admin-panel-head"><div><h3 id="adminAccountsTitle">Admin accounts and feature access</h3><p>Only nsfida can create admin logins or change their access. Built-in admin accounts are protected.</p></div></div>
-      <form id="createAdminForm" class="managed-admin-create-form">
-        <label>Display name<input id="newAdminDisplayName" maxlength="100" required placeholder="Admin name"></label>
-        <label>Username<input id="newAdminUsername" required minlength="2" maxlength="40" pattern="[A-Za-z0-9][A-Za-z0-9._-]{1,39}" autocomplete="off" placeholder="username"><small>Login will be username@khawrai.app</small></label>
-        <label>Temporary password<input id="newAdminPassword" type="password" minlength="10" required autocomplete="new-password" placeholder="At least 10 characters"></label>
-        <fieldset class="admin-feature-checks"><legend>Allow access to</legend>
-          <label><input type="checkbox" id="newAdminCanRegistrations"> Registrations</label>
-          <label><input type="checkbox" id="newAdminCanFunds"> Funds and expenses</label>
-          <label><input type="checkbox" id="newAdminCanResults" checked> Race results</label>
-        </fieldset>
-        <button class="btn" id="createAdminSubmit" type="submit">Create admin account</button>
-      </form>
-      <p class="msg" id="adminAccountsMessage" role="status" aria-live="polite">Admin account management is available to nsfida only.</p>
-      <div id="managedAdminAccountsList" class="managed-admin-accounts-list"><p class="msg">Loading managed admins…</p></div>
+    <section class="race-bulk-toolbar" aria-label="Bulk runner status updates">
+      <div class="race-bulk-toolbar-top">
+        <label class="race-select-visible-label"><input id="raceSelectVisible" type="checkbox"><span>Select all visible players</span></label>
+        <strong id="raceBulkSelectedCount" aria-live="polite">0 selected</strong>
+        <button type="button" class="btn sm ghost" id="raceBulkClearSelection">Clear selection</button>
+      </div>
+      <div class="race-bulk-controls">
+        <label for="raceBulkStatus">Set selected players to
+          <select id="raceBulkStatus">
+            <option value="">Choose status…</option>
+            <option value="registered">Registered / not started</option>
+            <option value="running">Running</option>
+            <option value="finished">Finished (enter each time)</option>
+            <option value="dnf">Did not finish (DNF)</option>
+            <option value="dsq">Disqualified (DSQ)</option>
+          </select>
+        </label>
+        <button type="button" class="btn sm" id="raceBulkApply" disabled>Apply to selected</button>
+      </div>
+      <p class="race-bulk-help">Select any combination of players. “Select all visible” follows your current search and filters. Selections remain active when filters change, so check the selected count before applying. Finished status requires a separate finish time for every selected runner.</p>
     </section>
-</section><dialog class="race-reset-dialog" id="raceResetDialog" aria-labelledby="raceResetDialogTitle" aria-describedby="raceResetDialogDescription">
+    <p class="msg" id="raceAdminMsg" aria-live="polite">Connecting to race controls…</p>
+    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Select</th><th>Place / position</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Current position</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="9" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
+    <div class="race-admin-prizes"><strong>Public prize display</strong><span><b class="gold-text">1st:</b> Rs. 15,000 + Winning Trophy</span><span><b class="silver-text">2nd:</b> Rs. 10,000 + Trophy</span><span><b class="bronze-text">3rd:</b> Rs. 5,000 + Trophy</span><a class="btn sm ghost" href="../" target="_blank" rel="noopener">Open public live board</a></div>
+  
+</section><dialog class="race-bulk-finish-dialog" id="raceBulkFinishDialog" aria-labelledby="raceBulkFinishTitle" aria-describedby="raceBulkFinishDescription">
+  <form id="raceBulkFinishForm" class="race-bulk-finish-card">
+    <span class="race-reset-eyebrow">BULK RESULT UPDATE</span>
+    <h2 id="raceBulkFinishTitle">Enter individual finish times</h2>
+    <p id="raceBulkFinishDescription">Each runner needs their own finish time. Existing saved finish times are prefilled so you can verify or correct them before saving.</p>
+    <div id="raceBulkFinishRows" class="race-bulk-finish-rows"></div>
+    <p id="raceBulkFinishError" class="msg bad" role="alert" hidden></p>
+    <div class="race-bulk-finish-actions"><button type="button" class="btn ghost" id="raceBulkFinishCancel">Cancel</button><button type="submit" class="btn" id="raceBulkFinishSave">Save finish results</button></div>
+    <small class="race-bulk-finish-note">Every time must use HH:MM:SS and be between 00:00:01 and 48:00:00.</small>
+  </form>
+</dialog>
+<dialog class="race-reset-dialog" id="raceResetDialog" aria-labelledby="raceResetDialogTitle" aria-describedby="raceResetDialogDescription">
     <form id="raceResetDialogForm" class="race-reset-dialog-card">
       <div class="race-reset-dialog-icon" aria-hidden="true">↺</div>
       <h2 id="raceResetDialogTitle">Reset all race results and status?</h2>
@@ -149,7 +166,7 @@
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../../">Home</a> · <a href="../">Public results</a> · <a href="../../about/">About the race</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../../js/config.js"></script><script src="../../js/common.js"></script><script src="../../js/admin-race.js?v=20261029-4"></script><script src="../../js/admin-accounts.js?v=20261029-2"></script>
+<script src="../../js/config.js"></script><script src="../../js/common.js?v=20261029-4"></script><script src="../../js/admin-accounts.js?v=20261029-3"></script><script src="../../js/registration-ui.js"></script><script src="../../js/admin-race.js?v=20261029-7"></script>
 <script>
 (function(){
   const app=document.getElementById('app'), denied=document.getElementById('resultsManageDenied');
@@ -163,7 +180,7 @@
     if(active===permissionKey) return;
     active=permissionKey;
     if(window.KMRRaceAdmin) KMRRaceAdmin.init(username,perms);
-    if(window.KMRAdminAccounts) KMRAdminAccounts.init(perms);
+    if(window.KMRAdminAccounts) KMRAdminAccounts.init(perms, username);
   }
   KMRAuth.onChange(u=>applyAccess(u));
   KMRAuth.onPermissionChange(perms=>{ sb.auth.getSession().then(({data})=>{ const email=String(data&&data.session&&data.session.user&&data.session.user.email||'').toLowerCase(); const suffix='@'+String(KMR.EMAIL_DOMAIN||'khawrai.app').toLowerCase(); const u=email.endsWith(suffix)?email.slice(0,-suffix.length):''; applyAccess(u); }).catch(()=>applyAccess('')); });
