@@ -13,8 +13,9 @@
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/admin/">
 <link rel="stylesheet" href="../assets/polish.css">
 <link rel="stylesheet" href="../assets/header-layout.css">
+<link rel="stylesheet" href="../assets/admin-compact.css?v=20261029-5">
 </head>
-<body>
+<body class="admin-page">
 <div class="app-loader" id="appLoader" role="status" aria-live="polite" aria-label="Loading Khawrai Marathon Season Three">
   <div class="loader-card">
     <div class="loader-logo"><img src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></div>
@@ -112,31 +113,84 @@
       <div class="race-admin-panel-head"><div><h3 id="raceControlTitle">Race status and announcement</h3><p>Scheduled for 15 November 2026 at 04:00 PM Pakistan Time.</p></div></div>
       <form id="raceControlForm" class="race-admin-control-form">
         <label>Race state<select id="raceStatusAdmin" required><option value="scheduled">Scheduled / not started</option><option value="in_progress">Race in progress</option><option value="completed">Race completed</option></select></label>
-        <label class="race-public-message-field">Public announcement <small>Optional · up to 300 characters</small><input id="racePublicMessage" maxlength="300" placeholder="e.g. Race has officially started. Good luck to all runners."></label>
+        <div class="race-public-message-field">
+          <label class="race-announcement-title" for="racePublicMessage">Public announcement <small>Optional · up to 300 characters</small></label>
+          <div class="race-announcement-fields">
+            <label class="sr-only" for="raceAnnouncementPreset">Quick announcement presets</label>
+            <select id="raceAnnouncementPreset" aria-label="Choose a preset public announcement">
+              <option value="">Choose a quick preset…</option>
+              <option value="registration_reminder">Registration reminder</option>
+              <option value="race_day_arrival">Race-day arrival reminder</option>
+              <option value="race_starting_soon">Race starting soon</option>
+              <option value="race_started">Race has started</option>
+              <option value="race_in_progress">Race in progress</option>
+              <option value="finish_line_open">Finish line update</option>
+              <option value="results_updating">Results being updated</option>
+              <option value="race_completed">Race completed / thank you</option>
+              <option value="start_delayed">Start delayed</option>
+              <option value="safety_reminder">Runner safety reminder</option>
+              <option value="thank_you">Thank you message</option>
+              <option value="custom">Write your own message…</option>
+            </select>
+            <input id="racePublicMessage" maxlength="300" placeholder="Choose a preset or write your own announcement…" autocomplete="off">
+          </div>
+          <small class="race-announcement-help">Choose a preset to fill the message, edit it freely, then select Save race state. Your own message works too.</small>
+        </div>
         <button type="submit" class="btn">Save race state</button>
       </form>
-      <div class="race-admin-quick-actions"><button type="button" class="btn alt" id="raceStartNow">Start race now</button><button type="button" class="btn danger" id="raceEndNow">End race</button><button type="button" class="btn ghost" id="raceResetScheduled">Reset to scheduled</button></div>
-      <p class="race-admin-note">Starting or ending the race records a server timestamp. Resetting to Scheduled clears the start/end timestamps. The public board updates automatically.</p>
+      <div class="race-admin-quick-actions" aria-label="Quick race controls">
+        <button type="button" class="btn alt" id="raceStartNow"><span aria-hidden="true">▶</span> Start race now</button>
+        <button type="button" class="btn danger" id="raceEndNow"><span aria-hidden="true">■</span> End race</button>
+        <button type="button" class="btn ghost" id="raceResetScheduled"><span aria-hidden="true">↺</span> Reset status only</button>
+      </div>
+      <p class="race-admin-note">Start and End record the official server time. <strong>Reset status only</strong> clears the start/end times and public announcement but keeps every saved runner result.</p>
+      <div class="race-admin-reset-callout" aria-labelledby="raceResetCalloutTitle">
+        <div class="race-admin-reset-copy"><span class="race-reset-eyebrow">AFTER TESTING</span><strong id="raceResetCalloutTitle">Need a clean race session?</strong><p>Delete every saved race-result record, then return the race to Scheduled. This includes any official results too, not just test entries. Registrations and financial records are kept.</p></div>
+        <button type="button" class="btn danger race-full-reset-open" id="raceFullResetOpen"><span aria-hidden="true">↺</span> Full reset: clear all results</button>
+      </div>
     </section>
     <section class="race-admin-panel" aria-labelledby="raceResultFormTitle">
       <div class="race-admin-panel-head"><div><h3 id="raceResultFormTitle">Add or update a runner result</h3><p>Only confirmed, non-cancelled runners can be saved to official results.</p></div></div>
       <form id="raceResultForm" class="race-admin-result-form">
         <label class="wide">Runner<select id="raceResultRunner" required><option value="">Loading confirmed runners…</option></select></label>
-        <label>Bib number <small>Optional · up to 20 characters</small><input id="raceBibNumber" maxlength="20" placeholder="e.g. 101"></label>
         <label>Runner status<select id="raceResultStatus" required><option value="registered">Registered / not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
         <label id="raceFinishTimeWrap" hidden>Finish time <small>24-hour format · HH:MM:SS</small><input id="raceFinishTime" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" placeholder="00:42:18"></label>
         <div class="race-form-actions"><button type="submit" class="btn" id="raceSaveResult">Save result</button><button type="button" class="btn ghost" id="raceCancelEdit" hidden>Cancel edit</button></div>
       </form>
       <p class="race-admin-note">Finish time must be from 00:00:01 through 48:00:00. Rankings are automatically recalculated by finish time; first, second and third receive the displayed prize awards.</p>
     </section>
-    <div class="section-heading race-list-heading"><div><h3>All eligible race participants</h3><p id="raceResultCount">Loading confirmed runners…</p></div></div>
+    <div class="section-heading race-list-heading"><div><h3>Runner result updates</h3><p id="raceResultCount">Loading confirmed runners…</p></div></div>
+    <div class="race-results-toolbar" aria-label="Search, filter and sort runners">
+      <label class="race-results-search">Search runner<input id="raceRunnerSearch" type="search" autocomplete="off" placeholder="Registration number or player name…" aria-label="Search by registration number or player name"></label>
+      <label>Result status<select id="raceRunnerFilter" aria-label="Filter runners by result status"><option value="all">All eligible runners</option><option value="awaiting">Awaiting result</option><option value="registered">Not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
+      <label>Sort by<select id="raceRunnerSort" aria-label="Sort runner results"><option value="reg_no">Registration number</option><option value="name">Player name</option><option value="finish_time">Fastest finish time</option><option value="updated">Recently updated</option></select></label>
+      <div class="race-results-toolbar-actions">
+        <button type="button" class="btn sm ghost" id="raceNextPendingRunner">Enter next pending result</button>
+        <button type="button" class="btn sm ghost" id="raceExportResults">Export filtered CSV</button>
+        <button type="button" class="btn sm ghost" id="raceClearRunnerFilters">Clear filters</button>
+      </div>
+    </div>
+    <div class="race-result-metrics" id="raceResultMetrics" aria-live="polite">Loading result summary…</div>
     <p class="msg" id="raceAdminMsg" aria-live="polite">Connecting to race controls…</p>
-    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Place</th><th>Bib / Reg No</th><th>Runner</th><th>Status</th><th>Finish time</th><th>Last updated</th><th>Runner actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr><td colspan="7" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
+    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Place</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="7" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
     <div class="race-admin-prizes"><strong>Public prize display</strong><span><b class="gold-text">1st:</b> Rs. 15,000 + Winning Trophy</span><span><b class="silver-text">2nd:</b> Rs. 10,000 + Trophy</span><span><b class="bronze-text">3rd:</b> Rs. 5,000 + Trophy</span><a class="btn sm ghost" href="../results/" target="_blank" rel="noopener">Open public live board</a></div>
   </section>
+  <dialog class="race-reset-dialog" id="raceResetDialog" aria-labelledby="raceResetDialogTitle" aria-describedby="raceResetDialogDescription">
+    <form id="raceResetDialogForm" class="race-reset-dialog-card">
+      <div class="race-reset-dialog-icon" aria-hidden="true">↺</div>
+      <h2 id="raceResetDialogTitle">Reset all race results and status?</h2>
+      <p id="raceResetDialogDescription">This permanently removes EVERY saved race-result record, including any official results, runner statuses and finish times. The race returns to Scheduled, and the official start/end timestamps and public announcement are cleared. The system does not distinguish test results from official results.</p>
+      <div class="race-reset-keep-safe"><strong>These records will stay untouched</strong><span>All registrations and participant details, runner photos, payments, project funds, expenses and other admin data.</span></div>
+      <p class="race-reset-record-count" id="raceResetResultCount">Preparing reset summary…</p>
+      <label class="race-reset-confirm-label" for="raceResetConfirmText">Type <strong>RESET</strong> to confirm</label>
+      <input id="raceResetConfirmText" name="raceResetConfirmText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type RESET here" aria-label="Type RESET to confirm deleting all race results">
+      <div class="race-reset-dialog-actions"><button type="button" class="btn ghost" id="raceResetCancel">Cancel</button><button type="submit" class="btn danger" id="raceResetConfirm" disabled>Reset race and results</button></div>
+      <small class="race-reset-warning">This action cannot be undone. It does not delete player registrations.</small>
+    </form>
+  </dialog>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js"></script><script src="../js/admin-race.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js"></script><script src="../js/admin-race.js?v=20261029-2"></script>
 <script>
 const $ = id => document.getElementById(id), C = KMR;
 let rows = [], funds = [], expenses = [], user = "";

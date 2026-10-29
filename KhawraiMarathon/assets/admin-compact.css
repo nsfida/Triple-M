@@ -1,0 +1,649 @@
+/* Compact, aligned organiser workspace. Loaded last on admin/index.html only. */
+.admin-page #app.wrap {
+  max-width: 1240px;
+  padding: 13px 20px 30px;
+}
+.admin-page #app .admin-welcome {
+  padding: 11px 14px;
+  gap: 10px;
+  border-radius: 11px;
+}
+.admin-page #app .admin-welcome strong { font-size: .9rem; }
+.admin-page #app .admin-welcome small { font-size: .68rem; }
+.admin-page #app .tabs {
+  gap: 5px;
+  margin: 8px 0 12px;
+  padding: 4px;
+  border-radius: 10px;
+}
+.admin-page #app .tabs button {
+  min-height: 35px;
+  padding: .42rem .78rem;
+  border-radius: 7px;
+  font-size: .75rem;
+  line-height: 1.15;
+}
+.admin-page #app .section-heading { gap: 10px; margin: 8px 0 11px; }
+.admin-page #app .section-heading h2 { margin-bottom: 0; font-size: 1.12rem; }
+.admin-page #app .section-heading h3 { margin-bottom: 0; font-size: .98rem; }
+.admin-page #app .section-heading p { margin-top: 4px; font-size: .72rem; line-height: 1.45; }
+.admin-page #app .tools { gap: 7px; margin: 7px 0 10px; }
+.admin-page #app .msg { margin: 8px 0; padding: .55rem .72rem; border-radius: 9px; font-size: .73rem; line-height: 1.45; }
+.admin-page #app .btn {
+  min-height: 35px;
+  padding: .42rem .68rem;
+  border-radius: 8px;
+  font-size: .74rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+.admin-page #app .btn.sm { min-height: 30px; padding: .34rem .55rem; font-size: .68rem; }
+.admin-page #app input:not([type="checkbox"]),
+.admin-page #app select,
+.admin-page #app textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  border-radius: 8px;
+}
+.admin-page #app .race-admin-status-strip { gap: 8px; margin: 9px 0 10px; }
+.admin-page #app .race-admin-status-strip > div { gap: 3px; padding: 10px 12px; border-radius: 10px; }
+.admin-page #app .race-admin-status-strip span { font-size: .59rem; }
+.admin-page #app .race-admin-status-strip strong { font-size: .78rem; line-height: 1.35; }
+.admin-page #app .race-admin-panel { margin: 10px 0; padding: 15px; border-radius: 12px; box-shadow: 0 4px 14px rgba(25, 48, 60, .035); }
+.admin-page #app .race-admin-panel-head { margin-bottom: 10px; }
+.admin-page #app .race-admin-panel-head h3 { font-size: .93rem; }
+.admin-page #app .race-admin-panel-head p { margin-top: 3px; font-size: .68rem; line-height: 1.45; }
+.admin-page #app .race-admin-control-form {
+  grid-template-columns: minmax(145px, .52fr) minmax(0, 1.72fr) auto;
+  gap: 9px;
+  align-items: end;
+}
+.admin-page #app .race-admin-control-form > label,
+.admin-page #app .race-admin-control-form > .race-public-message-field,
+.admin-page #app .race-admin-result-form > label {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  min-width: 0;
+  color: #526176;
+  font-size: .69rem;
+  font-weight: 800;
+}
+.admin-page #app .race-admin-control-form label small,
+.admin-page #app .race-admin-result-form label small { font-size: .59rem; line-height: 1.35; }
+.admin-page #app .race-admin-control-form input,
+.admin-page #app .race-admin-control-form select,
+.admin-page #app .race-admin-result-form input,
+.admin-page #app .race-admin-result-form select {
+  width: 100%;
+  min-height: 37px;
+  padding: .48rem .6rem;
+  border-radius: 8px;
+  font-size: .72rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.admin-page #app .race-admin-control-form > button { min-height: 37px; padding-inline: .72rem; white-space: nowrap; }
+.admin-page #app .race-public-message-field { display: grid; gap: 5px; min-width: 0; }
+.admin-page #app .race-announcement-title { display: block; color: #526176; font-size: .69rem; font-weight: 800; }
+.admin-page #app .race-announcement-title small { display: inline; margin-left: 5px; color: #8a97a6; font-size: .58rem; font-weight: 600; }
+.admin-page #app .race-announcement-fields { display: grid; grid-template-columns: minmax(135px, .82fr) minmax(0, 1.25fr); gap: 6px; min-width: 0; }
+.admin-page #app .race-announcement-fields select,
+.admin-page #app .race-announcement-fields input { min-width: 0; max-width: 100%; }
+.admin-page #app .race-announcement-help { display: block; margin-top: 0; color: #85939c; font-size: .57rem; font-weight: 550; line-height: 1.35; }
+.admin-page #app .race-admin-quick-actions { gap: 7px; margin-top: 10px; padding-top: 10px; }
+.admin-page #app .race-admin-quick-actions .btn { min-height: 34px; padding: .4rem .68rem; font-size: .72rem; }
+.admin-page #app .race-admin-note { margin-top: 8px; font-size: .63rem; line-height: 1.5; }
+.admin-page #app .race-admin-reset-callout { gap: 12px; margin-top: 10px; padding: 11px 12px; border-radius: 10px; }
+.admin-page #app .race-admin-reset-copy { gap: 3px; }
+.admin-page #app .race-admin-reset-copy > strong { font-size: .82rem; }
+.admin-page #app .race-admin-reset-copy p { font-size: .65rem; line-height: 1.45; }
+.admin-page #app .race-full-reset-open { min-height: 35px; max-width: 210px; padding: .42rem .65rem; font-size: .7rem; }
+.admin-page #app .race-admin-result-form { grid-template-columns: minmax(180px, 1.45fr) minmax(120px, .7fr) minmax(150px, 1fr); gap: 9px; }
+.admin-page #app .race-admin-result-form .wide { grid-column: auto; }
+.admin-page #app .race-form-actions { gap: 6px; margin-top: 0; }
+.admin-page #app .race-form-actions .btn { min-width: 98px; }
+.admin-page #app .race-list-heading { margin-top: 15px; }
+.admin-page #app .race-admin-table-wrap { margin-top: 6px; }
+.admin-page #app .race-admin-table td { font-size: .72rem; }
+.admin-page #app .race-admin-table td small { font-size: .59rem; }
+.admin-page #app .race-admin-table .race-row-action-label select { min-height: 34px; padding: .38rem .48rem; font-size: .67rem; }
+.admin-page #app .race-place { width: 25px; height: 25px; border-radius: 7px; }
+.admin-page #app .race-admin-status { padding: 4px 7px; font-size: .59rem; }
+.admin-page #app .race-admin-prizes { gap: 9px; margin-top: 12px; padding: 11px 12px; border-radius: 10px; }
+.admin-page #app .race-admin-prizes > strong { font-size: .72rem; }
+.admin-page #app .race-admin-prizes > span { font-size: .65rem; }
+.admin-page #app .race-reset-dialog-card { gap: 11px; }
+.admin-page #app .race-reset-dialog-actions .btn { min-height: 36px; }
+.admin-page #app .tw { border-radius: 10px; }
+.admin-page .funds-summary { gap: 8px; }
+.admin-page .funds-summary .c { padding: 11px; }
+.admin-page .fund-tools { gap: 8px; }
+.admin-page .fund-subtabs button { min-height: 34px; padding: .38rem .65rem; font-size: .72rem; }
+
+@media (max-width: 900px) {
+  .admin-page #app.wrap { padding-inline: 16px; }
+  .admin-page #app .race-admin-control-form { grid-template-columns: minmax(135px, .6fr) minmax(0, 1.65fr); }
+  .admin-page #app .race-admin-control-form > button { grid-column: 1 / -1; justify-self: start; min-width: 125px; }
+  .admin-page #app .race-admin-result-form { grid-template-columns: minmax(0, 1.4fr) minmax(110px, .75fr) minmax(140px, 1fr); }
+}
+@media (max-width: 640px) {
+  .admin-page #app.wrap { padding: 9px 10px 22px; }
+  .admin-page #app .admin-welcome { padding: 10px; gap: 8px; align-items: center; }
+  .admin-page #app .admin-welcome strong { font-size: .82rem; }
+  .admin-page #app .admin-welcome small { font-size: .63rem; }
+  .admin-page #app .tabs { display: flex; width: 100%; box-sizing: border-box; gap: 3px; margin: 7px 0 10px; padding: 3px; }
+  .admin-page #app .tabs button { flex: 1 1 0; min-width: 0; min-height: 34px; padding: .38rem .18rem; font-size: .67rem; white-space: nowrap; }
+  .admin-page #app .section-heading { align-items: flex-start; margin: 7px 0 9px; }
+  .admin-page #app .section-heading h2 { font-size: 1.02rem; }
+  .admin-page #app .section-heading h3 { font-size: .91rem; }
+  .admin-page #app .section-heading p { font-size: .67rem; line-height: 1.4; }
+  .admin-page #app .section-heading > .btn { flex: 0 0 auto; max-width: 104px; font-size: .65rem; white-space: normal; }
+  .admin-page #app .btn { min-height: 34px; padding: .38rem .56rem; font-size: .7rem; }
+  .admin-page #app .btn.sm { min-height: 29px; padding: .3rem .46rem; font-size: .64rem; }
+  .admin-page #app .tools { gap: 5px; margin: 6px 0 8px; }
+  .admin-page #app .msg { padding: .5rem .6rem; font-size: .68rem; }
+  .admin-page #app .race-admin-status-strip { grid-template-columns: 1fr; gap: 5px; margin: 7px 0 8px; }
+  .admin-page #app .race-admin-status-strip > div { grid-template-columns: minmax(93px, .7fr) minmax(0, 1.3fr); gap: 8px; padding: 8px 10px; }
+  .admin-page #app .race-admin-status-strip span { font-size: .55rem; }
+  .admin-page #app .race-admin-status-strip strong { font-size: .69rem; }
+  .admin-page #app .race-admin-panel { margin: 8px 0; padding: 11px 10px; border-radius: 10px; }
+  .admin-page #app .race-admin-panel-head { margin-bottom: 8px; }
+  .admin-page #app .race-admin-panel-head h3 { font-size: .88rem; }
+  .admin-page #app .race-admin-panel-head p { font-size: .63rem; }
+  .admin-page #app .race-admin-control-form { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .admin-page #app .race-admin-control-form > button { grid-column: auto; justify-self: stretch; width: 100%; min-height: 35px; }
+  .admin-page #app .race-admin-control-form input,
+  .admin-page #app .race-admin-control-form select,
+  .admin-page #app .race-admin-result-form input,
+  .admin-page #app .race-admin-result-form select { min-height: 38px; padding: .45rem .55rem; font-size: .7rem; }
+  .admin-page #app .race-announcement-fields { grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr); gap: 5px; }
+  .admin-page #app .race-announcement-fields select,
+  .admin-page #app .race-announcement-fields input { min-height: 38px; padding: .42rem .45rem; font-size: .65rem; }
+  .admin-page #app .race-announcement-title { font-size: .66rem; }
+  .admin-page #app .race-announcement-title small { font-size: .55rem; }
+  .admin-page #app .race-announcement-help { font-size: .55rem; }
+  .admin-page #app .race-admin-quick-actions { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 5px; margin-top: 8px; padding-top: 8px; }
+  .admin-page #app .race-admin-quick-actions .btn { min-width: 0; min-height: 33px; padding: .36rem .35rem; font-size: .64rem; line-height: 1.2; }
+  .admin-page #app .race-admin-quick-actions #raceResetScheduled { grid-column: 1 / -1; }
+  .admin-page #app .race-admin-note { margin-top: 7px; font-size: .59rem; }
+  .admin-page #app .race-admin-reset-callout { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 8px; padding: 9px; }
+  .admin-page #app .race-admin-reset-copy > strong { font-size: .76rem; }
+  .admin-page #app .race-admin-reset-copy p { font-size: .61rem; }
+  .admin-page #app .race-full-reset-open { width: 100%; max-width: none; min-height: 34px; padding: .38rem .5rem; font-size: .66rem; }
+  .admin-page #app .race-admin-result-form { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; }
+  .admin-page #app .race-admin-result-form .wide { grid-column: 1 / -1; }
+  .admin-page #app #raceFinishTimeWrap:not([hidden]) { grid-column: 1 / -1; }
+  .admin-page #app .race-admin-result-form > label { font-size: .66rem; }
+  .admin-page #app .race-form-actions { grid-column: 1 / -1; gap: 6px; }
+  .admin-page #app .race-form-actions .btn { flex: 1; min-width: 0; }
+  .admin-page #app .race-list-heading { margin-top: 11px; }
+  .admin-page #app #paneResultsAdmin .race-admin-table-wrap.tw { margin-top: 5px; }
+  .admin-page #app #paneResultsAdmin .race-admin-table tbody tr:not(.race-admin-empty-row) { margin-bottom: 7px; padding: 5px 9px; border-radius: 10px; }
+  .admin-page #app #paneResultsAdmin .race-admin-table tbody td { grid-template-columns: minmax(77px, .61fr) minmax(0, 1.39fr); gap: 7px; padding: 7px 0; font-size: .69rem; }
+  .admin-page #app #paneResultsAdmin .race-admin-table tbody td::before { font-size: .57rem; }
+  .admin-page #app #paneResultsAdmin .race-row-action-label select { min-height: 37px; font-size: .65rem; }
+  .admin-page #app .race-admin-prizes { gap: 6px; margin-top: 9px; padding: 9px; }
+  .admin-page #app .race-admin-prizes > span { font-size: .61rem; }
+  .admin-page #app .race-admin-prizes .btn { width: 100%; margin: 2px 0 0; }
+  .admin-page #app .race-reset-dialog { width: calc(100vw - 18px); max-height: 90dvh; border-radius: 13px; }
+  .admin-page #app .race-reset-dialog-card { gap: 9px; padding: 14px; }
+  .admin-page #app .race-reset-dialog-icon { width: 37px; height: 37px; font-size: 1.35rem; }
+  .admin-page #app .race-reset-dialog h2 { font-size: 1.1rem; }
+  .admin-page #app .race-reset-dialog p { font-size: .72rem; line-height: 1.5; }
+  .admin-page #app .race-reset-keep-safe { padding: 9px; }
+  .admin-page #app .race-reset-keep-safe strong { font-size: .69rem; }
+  .admin-page #app .race-reset-keep-safe span { font-size: .65rem; }
+  .admin-page #app .race-reset-dialog-actions { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .admin-page #app .race-reset-dialog-actions .btn { width: 100%; min-height: 36px; padding: .38rem .35rem; font-size: .66rem; }
+  .admin-page #app .race-reset-warning { font-size: .61rem; }
+  .admin-page .funds-summary .c { padding: 9px; }
+  .admin-page .fund-subtabs button { min-height: 32px; padding: .32rem .42rem; font-size: .66rem; }
+}
+@media (max-width: 380px) {
+  .admin-page #app.wrap { padding-inline: 8px; }
+  .admin-page #app .tabs button { font-size: .62rem; }
+  .admin-page #app .race-announcement-fields { grid-template-columns: 1fr; }
+  .admin-page #app .race-admin-quick-actions .btn { font-size: .61rem; }
+  .admin-page #app .race-admin-reset-callout { padding: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-page #app .btn,
+  .admin-page #app .race-admin-quick-actions .btn { transition: none !important; }
+}
+
+
+/* Alignment pass: consistent control baselines, compact action groups and filterable roster. */
+.admin-page #app #paneResultsAdmin .race-admin-control-form {
+  grid-template-columns: minmax(150px, .58fr) minmax(0, 1.72fr);
+  align-items: end;
+  column-gap: 12px;
+  row-gap: 10px;
+}
+.admin-page #app #paneResultsAdmin .race-admin-control-form > label,
+.admin-page #app #paneResultsAdmin .race-admin-control-form > .race-public-message-field {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.admin-page #app #paneResultsAdmin .race-admin-control-form > button[type="submit"] {
+  grid-column: 1 / -1;
+  justify-self: end;
+  width: auto;
+  min-width: 140px;
+  min-height: 36px;
+  margin: 0;
+}
+.admin-page #app #paneResultsAdmin .race-admin-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+.admin-page #app #paneResultsAdmin .race-admin-quick-actions .btn {
+  display: inline-flex;
+  min-width: 0;
+  width: 100%;
+  min-height: 35px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  white-space: normal;
+  box-sizing: border-box;
+}
+.admin-page #app #paneResultsAdmin .race-admin-result-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) minmax(175px, .9fr) minmax(170px, .8fr);
+  align-items: end;
+  gap: 10px;
+}
+.admin-page #app #paneResultsAdmin .race-admin-result-form > label {
+  display: grid;
+  align-content: end;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.admin-page #app #paneResultsAdmin .race-admin-result-form input,
+.admin-page #app #paneResultsAdmin .race-admin-result-form select,
+.admin-page #app #paneResultsAdmin .race-admin-control-form input,
+.admin-page #app #paneResultsAdmin .race-admin-control-form select,
+.admin-page #app #paneResultsAdmin .race-results-toolbar input,
+.admin-page #app #paneResultsAdmin .race-results-toolbar select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 37px;
+  box-sizing: border-box;
+  margin: 0;
+  line-height: 1.2;
+}
+.admin-page #app #paneResultsAdmin .race-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+.admin-page #app #paneResultsAdmin .race-form-actions .btn {
+  width: auto;
+  min-width: 112px;
+  min-height: 35px;
+  margin: 0;
+}
+.admin-page #paneResultsAdmin .race-results-toolbar {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.35fr) repeat(2, minmax(160px, .75fr));
+  align-items: end;
+  gap: 9px;
+  margin: 8px 0 7px;
+  padding: 12px;
+  border: 1px solid #e0e8e8;
+  border-radius: 11px;
+  background: #fbfdfd;
+}
+.admin-page #paneResultsAdmin .race-results-toolbar > label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #526176;
+  font-size: .67rem;
+  font-weight: 800;
+}
+.admin-page #paneResultsAdmin .race-results-toolbar-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+  margin-top: 1px;
+}
+.admin-page #paneResultsAdmin .race-results-toolbar-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0;
+  padding: .38rem .6rem;
+  line-height: 1.15;
+  text-align: center;
+}
+.admin-page #paneResultsAdmin .race-result-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+  margin: 7px 0 10px;
+}
+.admin-page #paneResultsAdmin .race-result-metric {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #e4eaec;
+  border-radius: 9px;
+  background: #fff;
+}
+.admin-page #paneResultsAdmin .race-result-metric strong {
+  font-size: .88rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.admin-page #paneResultsAdmin .race-result-metric small {
+  color: #677985;
+  font-size: .59rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.admin-page #paneResultsAdmin .race-result-metric-running { border-color: #d7e6fa; background: #f7faff; }
+.admin-page #paneResultsAdmin .race-result-metric-finished { border-color: #d7ecdf; background: #f7fcf8; }
+.admin-page #paneResultsAdmin .race-result-metric-dnf,
+.admin-page #paneResultsAdmin .race-result-metric-dsq { border-color: #f0dddd; background: #fffafa; }
+.admin-page #paneResultsAdmin .race-registration-no { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.admin-page #paneResultsAdmin .race-admin-table .race-row-action-label { display: block; width: 100%; min-width: 150px; }
+.admin-page #paneResultsAdmin .race-admin-table .race-row-action-label select { display: block; width: 100%; min-height: 35px; box-sizing: border-box; }
+.admin-page #paneResultsAdmin .race-admin-table td { vertical-align: middle; }
+.admin-page #paneResultsAdmin .race-admin-table th { white-space: nowrap; }
+.admin-page #paneResultsAdmin .race-reset-dialog-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.admin-page #paneResultsAdmin .race-reset-dialog-actions .btn { min-width: 135px; margin: 0; }
+
+@media (max-width: 900px) {
+  .admin-page #app #paneResultsAdmin .race-results-toolbar { grid-template-columns: minmax(0, 1.3fr) minmax(0, .8fr); }
+  .admin-page #app #paneResultsAdmin .race-results-toolbar .race-results-search { grid-column: 1 / -1; }
+  .admin-page #app #paneResultsAdmin .race-result-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-page #app #paneResultsAdmin .race-admin-result-form { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+  .admin-page #app #paneResultsAdmin .race-admin-result-form .wide { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .admin-page #app #paneResultsAdmin .race-admin-control-form { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .admin-page #app #paneResultsAdmin .race-admin-control-form > button[type="submit"] { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
+  .admin-page #app #paneResultsAdmin .race-admin-quick-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .admin-page #app #paneResultsAdmin .race-admin-quick-actions #raceResetScheduled { grid-column: 1 / -1; }
+  .admin-page #app #paneResultsAdmin .race-admin-result-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .admin-page #app #paneResultsAdmin .race-admin-result-form .wide,
+  .admin-page #app #paneResultsAdmin .race-admin-result-form #raceFinishTimeWrap:not([hidden]),
+  .admin-page #app #paneResultsAdmin .race-form-actions { grid-column: 1 / -1; }
+  .admin-page #app #paneResultsAdmin .race-form-actions { justify-content: stretch; }
+  .admin-page #app #paneResultsAdmin .race-form-actions .btn { flex: 1 1 0; min-width: 0; }
+  .admin-page #paneResultsAdmin .race-results-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 9px; }
+  .admin-page #paneResultsAdmin .race-results-toolbar .race-results-search,
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions { grid-column: 1 / -1; }
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions #raceNextPendingRunner { grid-column: 1 / -1; }
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions .btn { width: 100%; min-height: 34px; white-space: normal; font-size: .65rem; }
+  .admin-page #paneResultsAdmin .race-result-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .admin-page #paneResultsAdmin .race-result-metric { padding: 7px 8px; gap: 7px; }
+  .admin-page #paneResultsAdmin .race-result-metric strong { min-width: 18px; font-size: .82rem; }
+  .admin-page #paneResultsAdmin .race-result-metric small { font-size: .57rem; }
+  .admin-page #paneResultsAdmin .race-reset-dialog-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-page #paneResultsAdmin .race-reset-dialog-actions .btn { width: 100%; min-width: 0; }
+}
+@media (max-width: 360px) {
+  .admin-page #paneResultsAdmin .race-results-toolbar { grid-template-columns: minmax(0, 1fr); }
+  .admin-page #paneResultsAdmin .race-results-toolbar > label,
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions { grid-column: 1 / -1; }
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions { grid-template-columns: minmax(0, 1fr); }
+  .admin-page #paneResultsAdmin .race-results-toolbar-actions #raceNextPendingRunner { grid-column: auto; }
+}
+
+/* Shared admin dialogs, registration tools and finance actions use the same compact grid rhythm. */
+.admin-page #app #paneR .tools,
+.admin-page #app .fund-pdf-actions,
+.admin-page #app .fund-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+.admin-page #app #paneR .tools .btn,
+.admin-page #app .fund-pdf-actions .btn,
+.admin-page #app .fund-ledger-pane .tools .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  margin: 0;
+  white-space: normal;
+  line-height: 1.2;
+}
+.admin-page #app .acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 5px;
+  min-width: 0;
+}
+.admin-page #app .acts .btn {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 54px;
+  min-height: 29px;
+  margin: 0;
+  padding: .3rem .48rem;
+  font-size: .65rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) {
+  box-sizing: border-box;
+  width: min(540px, calc(100vw - 18px));
+  max-width: none;
+  max-height: min(91dvh, 850px);
+  padding: 16px;
+  border-radius: 14px;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) h2 {
+  margin: 0 0 5px;
+  font-size: 1.08rem;
+  line-height: 1.3;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .dlg-sub {
+  margin: 0 0 5px;
+  font-size: .7rem;
+  line-height: 1.45;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) label {
+  display: block;
+  min-width: 0;
+  margin: 9px 0 0;
+  color: #4c5c72;
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) input:not([type="file"]),
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) select,
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin-top: 4px;
+  padding: .45rem .58rem;
+  border-radius: 8px;
+  font-size: .74rem;
+  line-height: 1.25;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 7px 10px;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .two > div { min-width: 0; }
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .row .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  min-height: 34px;
+  margin: 0;
+  padding: .38rem .62rem;
+  font-size: .7rem;
+  line-height: 1.2;
+}
+body.admin-page #kEdit .k-edit-photo { grid-template-columns: 68px minmax(0, 1fr); gap: 10px; margin-top: 10px; padding: 9px; }
+body.admin-page #kEdit .k-edit-photo-preview { width: 68px; height: 72px; }
+body.admin-page #kEdit .k-edit-photo-copy small { font-size: .61rem; line-height: 1.4; }
+@media (max-width: 640px) {
+  .admin-page #app #paneR .tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-page #app #paneR .tools .btn { width: 100%; min-width: 0; min-height: 32px; padding-inline: .35rem; font-size: .63rem; }
+  .admin-page #app .fund-pdf-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .admin-page #app .fund-pdf-actions .btn { width: 100%; min-width: 0; padding-inline: .35rem; font-size: .62rem; }
+  .admin-page #app .fund-pdf-actions #pdfStatementAdmin { grid-column: 1 / -1; }
+  .admin-page #app .acts { gap: 4px; }
+  .admin-page #app .acts .btn { min-width: 0; padding-inline: .38rem; font-size: .61rem; }
+  body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) { width: calc(100vw - 16px); padding: 13px; border-radius: 12px; }
+  body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .two { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+  body.admin-page dialog:not(.race-reset-dialog):not(.profile-dialog) .row .btn { width: 100%; min-width: 0; min-height: 34px; padding-inline: .3rem; font-size: .66rem; }
+  body.admin-page #kEdit .k-edit-photo { grid-template-columns: 58px minmax(0, 1fr); gap: 8px; padding: 8px; }
+  body.admin-page #kEdit .k-edit-photo-preview { width: 58px; height: 64px; }
+}
+
+/* Final alignment pass: equal control heights and a consistent action baseline. */
+.admin-page #app .race-admin-control-form > button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: end;
+  justify-self: end;
+  min-height: 37px;
+  margin: 0;
+  line-height: 1.15;
+}
+.admin-page #app .race-admin-result-form > label,
+.admin-page #app .race-admin-control-form > label,
+.admin-page #app .race-admin-control-form > .race-public-message-field {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.admin-page #app .race-admin-result-form input,
+.admin-page #app .race-admin-result-form select,
+.admin-page #app .race-admin-control-form input,
+.admin-page #app .race-admin-control-form select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 37px;
+  margin: 0;
+}
+.admin-page #app .race-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+.admin-page #app .race-form-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  min-height: 34px;
+  margin: 0;
+  line-height: 1.15;
+  text-align: center;
+}
+.admin-page #app .race-admin-quick-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+  line-height: 1.2;
+}
+.admin-page #app .race-results-toolbar > label {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.admin-page #app .race-results-toolbar input,
+.admin-page #app .race-results-toolbar select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  box-sizing: border-box;
+}
+.admin-page #app .race-results-toolbar-actions .btn {
+  margin: 0;
+  line-height: 1.2;
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .admin-page #app .race-admin-control-form > button[type="submit"] {
+    justify-self: end;
+    width: auto;
+    min-width: 140px;
+  }
+}
+@media (max-width: 640px) {
+  .admin-page #app .race-admin-control-form > button[type="submit"] {
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+  }
+  .admin-page #app .race-form-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .admin-page #app .race-form-actions .btn {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
+  }
+}

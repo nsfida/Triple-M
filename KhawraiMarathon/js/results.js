@@ -64,7 +64,7 @@
     const cls = place === 1 ? 'p1' : place === 2 ? 'p2' : 'p3';
     const medal = place === 1 ? '★' : place === 2 ? '◆' : '●';
     const prize = place === 1 ? 'Rs. 15,000 + Winning Trophy' : place === 2 ? 'Rs. 10,000 + Trophy' : 'Rs. 5,000 + Trophy';
-    const person = row ? `<img class="podium-photo" src="${esc(photoUrl(row.photo_path) || '../assets/logo-left.png')}" alt="" loading="lazy"><h3>${esc(row.runner_name)}</h3><span class="podium-bib">BIB ${esc(row.bib_number)}</span><strong class="podium-time">${formatTime(row.finish_time_seconds)}</strong>` : `<div class="podium-number">${place}</div><h3>Awaiting result</h3><span class="podium-bib">${['','1ST PLACE','2ND PLACE','3RD PLACE'][place]}</span><strong class="podium-time">—</strong>`;
+    const person = row ? `<img class="podium-photo" src="${esc(photoUrl(row.photo_path) || '../assets/logo-left.png')}" alt="" loading="lazy"><h3>${esc(row.runner_name)}</h3><span class="podium-reg-no">Registration No. ${esc(row.reg_no)}</span><strong class="podium-time">${formatTime(row.finish_time_seconds)}</strong>` : `<div class="podium-number">${place}</div><h3>Awaiting result</h3><span class="podium-reg-no">${['','1ST PLACE','2ND PLACE','3RD PLACE'][place]}</span><strong class="podium-time">—</strong>`;
     return `<article class="podium-card ${cls}"><span class="podium-crown" aria-hidden="true">${medal}</span><span class="podium-number">${place}</span>${person}<span class="podium-prize">${prize}</span></article>`;
   }
 
@@ -89,7 +89,7 @@
     $('resultsTableBody').innerHTML = sorted.map(r => {
       const p = Number(r.place || 0), medal = p >= 1 && p <= 3 ? ` p${p}` : '';
       const timeText = r.status === 'finished' ? formatTime(r.finish_time_seconds) : r.status === 'running' ? 'In progress' : '—';
-      return `<tr><td class="place-cell"><span class="place-badge${medal}">${p > 0 ? p : '—'}</span></td><td class="runner-col"><div class="runner-cell"><img src="${esc(photoUrl(r.photo_path) || '../assets/logo-left.png')}" alt="" loading="lazy"><div><strong>${esc(r.runner_name)}</strong><small>${esc(r.bib_number)} · ${esc(r.reg_no)}</small></div></div></td><td class="status-col"><span class="result-status-pill ${esc(r.status)}">${esc(statusLabel(r.status))}</span></td><td class="time-col result-time">${timeText}</td><td class="updated-col">${timeOnly(r.updated_at)}</td></tr>`;
+      return `<tr><td class="place-cell"><span class="place-badge${medal}">${p > 0 ? p : '—'}</span></td><td class="runner-col"><div class="runner-cell"><img src="${esc(photoUrl(r.photo_path) || '../assets/logo-left.png')}" alt="" loading="lazy"><div><strong>${esc(r.runner_name)}</strong><small>Registration No. ${esc(r.reg_no)}</small></div></div></td><td class="status-col"><span class="result-status-pill ${esc(r.status)}">${esc(statusLabel(r.status))}</span></td><td class="time-col result-time">${timeText}</td><td class="updated-col">${timeOnly(r.updated_at)}</td></tr>`;
     }).join('');
   }
 
@@ -234,7 +234,7 @@
       const drawHeader = () => {
         doc.setFillColor(19, 65, 52); doc.roundedRect(margin, y - 13, pageW - margin * 2, 24, 4, 4, 'F');
         doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-        doc.text('PLACE', cols[0] + 7, y + 2); doc.text('BIB', cols[1] + 3, y + 2); doc.text('RUNNER', cols[2] + 3, y + 2); doc.text('STATUS', cols[3] + 3, y + 2); doc.text('TIME', cols[4] + 3, y + 2); y += 22;
+        doc.text('PLACE', cols[0] + 7, y + 2); doc.text('REG. NO.', cols[1] + 3, y + 2); doc.text('RUNNER', cols[2] + 3, y + 2); doc.text('STATUS', cols[3] + 3, y + 2); doc.text('TIME', cols[4] + 3, y + 2); y += 22;
       };
       drawHeader();
       const sorted = ordered(results);
@@ -254,7 +254,7 @@
         else if (i % 2 === 0) { doc.setFillColor(247, 250, 248); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
         doc.setTextColor(32, 49, 43); doc.setFont('helvetica', r.place && r.place <= 3 ? 'bold' : 'normal'); doc.setFontSize(8.2);
         doc.text(r.place ? String(r.place) : '—', cols[0] + 7, y + 4);
-        doc.text(String(r.bib_number || '—').slice(0, 13), cols[1] + 3, y + 4);
+        doc.text(String(r.reg_no || '—').slice(0, 13), cols[1] + 3, y + 4);
         doc.text(doc.splitTextToSize(String(r.runner_name || ''), 215)[0] || '', cols[2] + 3, y + 4);
         doc.setFont('helvetica', 'normal'); doc.text(statusLabel(r.status), cols[3] + 3, y + 4);
         doc.setFont('helvetica', 'bold'); doc.text(r.status === 'finished' ? formatTime(r.finish_time_seconds) : '—', cols[4] + 3, y + 4);

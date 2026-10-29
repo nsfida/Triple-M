@@ -22,8 +22,8 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | `js/config.js` | Supabase URL / anon key, logo URL, admin usernames |
 
 ## Setup (about 5 minutes)
-1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then every forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards - it holds passwords). Run `20261026_003_public_player_details.sql` after `20261026_002_local_first_zero_payment.sql` to enable the public player overlay, then `20261027_004_cancellations_expenses.sql`, `20261028_005_registration_deadline.sql`, and `20261028_006_marathon_results.sql`. Migration 005 enforces the 05 November 2026, 11:59 PM Pakistan Standard Time public registration cutoff in PostgreSQL and storage upload policies, while verified admins can continue registering runners. `sql/verify_migration_003.sql` remains available to verify the earlier public-details migration.
-   **Existing install:** run only migrations that have not already been applied. In particular, run `20261026_002_local_first_zero_payment.sql` after `20261024_001_admin_multi_entries.sql`, then run `20261028_005_registration_deadline.sql` to activate the database-side deadline enforcement and `20261028_006_marathon_results.sql` to enable secure race controls and results. Migrations 005 and 006 are safe to re-run and do not delete, reset or rewrite existing records.
+1. Supabase dashboard > **SQL Editor**: run `sql/schema.sql`, then each forward migration in `sql/migrations/` in date order, then `sql/create_admin_users.sql` (delete that file afterwards because it holds passwords). Ensure `20261026_003_public_player_details.sql` follows `20261026_002_local_first_zero_payment.sql`, then run migrations `20261027_004_cancellations_expenses.sql`, `20261028_005_registration_deadline.sql`, `20261028_006_marathon_results.sql`, and `20261029_007_registration_number_only_results.sql`. Migration 005 enforces the 05 November 2026, 11:59 PM Pakistan Standard Time public registration cutoff. `sql/verify_migration_003.sql` checks the earlier public-details migration.
+   **Existing install:** run only migrations that have not already been applied. Run migration 007 after migration 006. It replaces the public results view and admin result-write RPC to use registration numbers exclusively. Existing result rows, registrations, times, and statuses are preserved. Any non-null historical bib values are copied to a private archive table with client access revoked, then the unused bib column is removed from the live results table. Run `sql/verify_marathon_results.sql` after migration 007.
 2. **Authentication > Sign In / Providers**: turn **off** "Allow new users to sign up".
 3. Upload the whole folder to any static host (Netlify, Vercel, GitHub Pages, cPanel). Opening via `https://` is required for camera/photo upload on phones.
 4. Share `/register/` with participants; keep `/admin/` for the organisers. The root URL `/` serves the official home page directly, without redirecting visitors to the participants list.
@@ -36,7 +36,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | See CNIC, mobile, email and private documents | no | yes | yes |
 | Download filled registration PDFs | no | yes | yes |
 | View live official results and prize standings | yes | yes | yes |
-| Change race status, runner status, bib numbers and finish times | no | yes | yes |
+| Change race status, runner status and finish times | no | yes | yes |
 | Download official results PDF | yes | yes | yes |
 | Download receiving, expenses and combined statement PDFs | yes | yes | yes |
 | Confirm payment / edit / delete | no | yes | yes |
@@ -93,18 +93,18 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - The Season Two photographs in `images/image1.jpg`, `images/image2.jpg` and `images/image3.jpg` are credited to **Sagar Studio**.
 
 
-## Marathon results and race control (migration 20261028_006)
-- Race date is fixed to **15 November 2026 at 04:00 PM Pakistan Time (UTC+05:00)**. The public `/results/` board shows scheduled/in-progress/completed state, a countdown, current leaderboard, podium and prize details, with branded PDF download.
-- Only the verified admin accounts can change race state, public announcements, bib numbers, runner status or finish times. Result writes use SECURITY DEFINER RPCs that check the authenticated JWT email; direct table writes are revoked for all client roles.
+## Marathon results and race control (migrations 20261028_006 and 20261029_007)
+- Race date is fixed to **15 November 2026 at 04:00 PM Pakistan Time (UTC+05:00)**. Each runner is identified only by their official registration number. The later migration archives non-null historical bib values in a private table and removes the legacy column from the live results table and public view. The public `/results/` board shows scheduled/in-progress/completed state, a countdown, current leaderboard, podium and prize details, with branded PDF download.
+- Only the verified admin accounts can change race state, public announcements, runner status or finish times. Result writes use SECURITY DEFINER RPCs that check the authenticated JWT email; direct table writes are revoked for all client roles.
 - Public visitors can only read the public-safe race control and results fields; direct result writes are revoked from all client roles. The results view does not expose CNIC, phone, email, address or private documents. Only confirmed, non-cancelled runners may be saved to official results.
 - Positions are automatically recomputed from ascending finish times. First prize is **Rs. 15,000 + Winning Trophy**, second prize **Rs. 10,000 + Trophy**, and third prize **Rs. 5,000 + Trophy**. Finish times use `HH:MM:SS`.
-- Supabase Realtime updates the public board without a manual refresh; a 15-second background polling fallback is enabled. Run the migration in Supabase SQL Editor after migrations 001 through 005, then execute `sql/verify_marathon_results.sql` to check the access boundaries and Realtime publication. ZIP deployment by itself does not apply database migrations.
+- Supabase Realtime updates the public board without a manual refresh; a 15-second background polling fallback is enabled. Run migrations 006 and 007 in Supabase SQL Editor after migrations 001 through 005, then execute `sql/verify_marathon_results.sql` to check the access boundaries and Realtime publication. ZIP deployment by itself does not apply database migrations.
 
 
 ### Pretty routes and race-roster controls
 
 - Public pages are served from `/`, `/participants/`, `/results/`, `/about/`, `/register/`, and `/admin/`. The root URL `/` serves the dedicated home page and does not redirect to the participants page. Route folders provide clean URLs such as `/results/` and `/about/`. `.htaccess` redirects legacy `.html` links and direct route-folder `index.html` requests on Apache-compatible hosting. Keep each route-folder `index.html` together with its assets when deploying.
-- The Race Results admin roster lists every confirmed, non-cancelled runner in a randomized order per page session. Each runner row has an action dropdown for editing details, marking statuses, recording a finish time, or removing an existing result. All changes call authenticated database RPC functions; the public `/results/` page remains read-only.
+- The Race Results admin roster lists every confirmed, non-cancelled runner sorted by registration number by default. Search by player name or registration number, filter by result status, sort by name/finish time/recent update, export the filtered roster to CSV, and jump to the next runner awaiting an entry. Each runner row has an action dropdown for editing details, marking statuses, recording a finish time, or removing an existing result. All changes call authenticated database RPC functions; the public `/results/` page remains read-only.
 - Custom player/ledger kebab menus are rendered in a fixed body-level layer so table overflow and stacking contexts do not clip or cover their menu items. Primary navigation remains visible on mobile.
 
 
