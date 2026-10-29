@@ -1,0 +1,421 @@
+/* Standalone results-management route. The shared public stylesheet remains the design system. */
+.admin-results-nav { display:flex; align-items:center; }
+.admin-results-nav .btn { white-space:nowrap; min-height:36px; padding:.48rem .75rem; font-size:.73rem; }
+.results-manage-route .tt p { max-width:560px; }
+.results-manage-route #app { max-width:1320px; }
+.results-manage-route #paneResultsAdmin { margin:0; }
+.results-manage-route #paneResultsAdmin > .section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0; }
+.results-manage-route .race-admin-control-form { display:grid; grid-template-columns:minmax(160px,.72fr) minmax(0,1.7fr); gap:10px 12px; align-items:start; }
+.results-manage-route .race-admin-control-form > button { grid-column:1/-1; justify-self:end; align-self:center; min-height:36px; padding:.42rem .78rem; white-space:nowrap; }
+.results-manage-route .race-admin-control-form > label,
+.results-manage-route .race-admin-control-form > .race-public-message-field { min-width:0; }
+.results-manage-route .race-announcement-fields { display:grid; grid-template-columns:minmax(150px,.9fr) minmax(0,1.1fr); gap:8px; align-items:stretch; min-width:0; }
+.results-manage-route .race-announcement-fields > label { min-width:0; display:block; }
+.results-manage-route .race-announcement-fields select,
+.results-manage-route .race-announcement-fields input { min-width:0; width:100%; height:38px; min-height:38px; box-sizing:border-box; padding:.42rem .58rem; border-radius:9px; font:inherit; font-size:.72rem; line-height:1.25; }
+.results-manage-route .race-admin-control-form input,
+.results-manage-route .race-admin-control-form select,
+.results-manage-route .race-admin-result-form input,
+.results-manage-route .race-admin-result-form select { min-width:0; box-sizing:border-box; }
+.results-manage-route .race-public-message-field { grid-column:auto; display:grid; gap:5px; min-width:0; }
+.results-manage-route .race-announcement-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 7px; min-height:18px; margin:0; line-height:1.3; }
+.results-manage-route .race-announcement-title small { display:inline; margin:0; color:var(--muted); font-size:.58rem; font-weight:650; line-height:1.25; }
+.results-manage-route .race-admin-result-form { grid-template-columns:minmax(190px,1.4fr) minmax(140px,.8fr) minmax(135px,.7fr) minmax(165px,1fr); gap:10px; align-items:end; }
+.results-manage-route .race-admin-result-form label { min-width:0; }
+.results-manage-route .race-admin-control-form > label { display:grid; align-content:start; gap:6px; min-width:0; }
+.results-manage-route .race-admin-control-form > label > select,
+.results-manage-route .race-admin-result-form > label > input,
+.results-manage-route .race-admin-result-form > label > select { height:38px; min-height:38px; padding:.42rem .58rem; border-radius:9px; box-sizing:border-box; }
+.results-manage-route .race-announcement-help { display:block; margin:0; color:var(--muted); font-size:.61rem; line-height:1.45; }
+.results-manage-route .race-admin-table { min-width:1080px; }
+.results-manage-route .race-results-toolbar > label { display:grid; align-content:start; gap:5px; min-width:0; }
+.results-manage-route .race-results-toolbar input, .results-manage-route .race-results-toolbar select { width:100%; min-width:0; height:37px; min-height:37px; box-sizing:border-box; padding:.4rem .58rem; }
+.results-manage-route .race-results-toolbar-actions { display:flex; align-items:end; justify-content:flex-start; flex-wrap:wrap; gap:6px; min-width:0; }
+.results-manage-route .race-results-toolbar-actions .btn { min-height:34px; padding:.38rem .58rem; font-size:.67rem; }
+.results-manage-route .race-admin-table .race-row-action-label { display:block; min-width:160px; }
+.results-manage-route .race-admin-table .race-row-action-label select { width:100%; min-width:0; }
+.results-manage-route .race-finalize-panel { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:13px; padding:12px 14px; border:1px solid #d8e8df; border-radius:12px; background:linear-gradient(120deg,#f2faf5,#fff); }
+.results-manage-route .race-finalize-panel > div:first-child { display:grid; gap:3px; min-width:0; }
+.results-manage-route .race-finalize-panel strong { color:#183f32; font-size:.86rem; }
+.results-manage-route .race-finalize-panel p { margin:0; color:#687970; font-size:.68rem; line-height:1.5; }
+.results-manage-route .race-finalize-actions { display:flex; align-items:center; gap:7px; flex-wrap:wrap; flex-shrink:0; }
+.results-manage-route .race-finalize-actions .btn { min-height:35px; padding:.4rem .68rem; font-size:.7rem; }
+.results-manage-route .race-admin-status-strip { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.results-manage-route .race-admin-prizes { margin-bottom:13px; }
+.results-manage-route .managed-admins-panel { margin-top:24px; }
+.results-manage-route .managed-admin-create-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; align-items:end; }
+.results-manage-route .managed-admin-create-form > label { display:grid; min-width:0; gap:5px; color:#526176; font-size:.7rem; font-weight:800; }
+.results-manage-route .managed-admin-create-form > label input { width:100%; min-width:0; box-sizing:border-box; height:38px; min-height:38px; border:1px solid var(--line-strong); border-radius:9px; padding:.55rem .65rem; color:var(--ink); font:inherit; font-size:.75rem; }
+.results-manage-route .managed-admin-create-form > label small { color:var(--muted); font-size:.59rem; }
+.results-manage-route .admin-feature-checks { grid-column:1 / 3; display:flex; gap:8px 16px; flex-wrap:wrap; min-width:0; margin:0; padding:10px 12px; border:1px solid var(--line); border-radius:10px; }
+.results-manage-route .admin-feature-checks legend { padding:0 5px; color:#526176; font-size:.66rem; font-weight:850; }
+.results-manage-route .admin-feature-checks label { display:inline-flex; align-items:center; gap:6px; color:#394b55; font-size:.68rem; font-weight:700; }
+.results-manage-route .managed-admin-create-form > button { min-height:39px; }
+.results-manage-route .managed-admin-accounts-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:10px; }
+.results-manage-route .managed-admin-card { min-width:0; padding:12px; border:1px solid var(--line); border-radius:11px; background:#fff; }
+.results-manage-route .managed-admin-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:9px; }
+.results-manage-route .managed-admin-card-head strong { display:block; color:var(--ink); font-size:.8rem; overflow-wrap:anywhere; }
+.results-manage-route .managed-admin-card-head small { display:block; margin-top:2px; color:var(--muted); font-size:.65rem; }
+.results-manage-route .managed-admin-card-flags { display:flex; gap:8px 12px; flex-wrap:wrap; margin-bottom:10px; }
+.results-manage-route .managed-admin-card-flags label { display:flex; align-items:center; gap:5px; color:#475864; font-size:.66rem; font-weight:700; }
+.results-manage-route .managed-admin-card-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.results-manage-route .managed-admin-card-actions .btn { min-height:32px; padding:.34rem .62rem; font-size:.67rem; }
+.results-manage-route .managed-admin-card .account-disabled { color:#a33b3b; font-size:.62rem; font-weight:850; }
+.results-manage-route .access-denied-card { max-width:680px; margin:38px auto; padding:26px; }
+.results-manage-route .access-denied-card h2 { margin:7px 0; color:var(--ink); }
+.results-manage-route .access-denied-card p { color:var(--muted); line-height:1.6; }
+.results-manage-route .access-denied-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+.results-manage-route .admin-access-notice { padding:18px; }
+.results-manage-route .admin-access-notice h2 { margin:0 0 6px; }
+.results-manage-route .admin-access-notice p { margin:0 0 12px; color:var(--muted); font-size:.8rem; }
+@media(max-width:900px) {
+  .results-manage-route .race-admin-status-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .results-manage-route .race-admin-control-form { grid-template-columns:minmax(140px,.7fr) minmax(0,1.6fr); }
+  .results-manage-route .race-admin-control-form > button { grid-column:1/-1; justify-self:end; }
+  .results-manage-route .race-admin-result-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .results-manage-route .race-admin-result-form .wide { grid-column:1/-1; }
+  .results-manage-route .managed-admin-create-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .results-manage-route .admin-feature-checks { grid-column:1 / -1; }
+  .results-manage-route .managed-admin-create-form > button { justify-self:start; }
+}
+@media(max-width:640px) {
+  .admin-results-nav { display:flex !important; }
+  .admin-results-nav .btn { min-height:32px; padding:.34rem .5rem; font-size:.62rem; }
+  .results-manage-route .tt p { font-size:.67rem; }
+  .results-manage-route #app { padding-inline:10px; }
+  .results-manage-route #paneResultsAdmin > .section-heading { align-items:flex-start; flex-direction:column; gap:8px; }
+  .results-manage-route #paneResultsAdmin > .section-heading .btn { width:auto; min-height:32px; }
+  .results-manage-route .race-admin-status-strip { grid-template-columns:1fr; gap:5px; }
+  .results-manage-route .race-admin-status-strip > div { grid-template-columns:minmax(90px,.7fr) minmax(0,1.3fr); align-items:center; padding:8px 10px; }
+  .results-manage-route .race-admin-panel { padding:11px 10px; margin:8px 0; }
+  .results-manage-route .race-admin-control-form { grid-template-columns:minmax(0,1fr); gap:8px; }
+  .results-manage-route .race-admin-control-form > button { grid-column:auto; justify-self:stretch; width:100%; height:35px; min-height:35px; }
+  .results-manage-route .race-announcement-fields { grid-template-columns:minmax(0,1fr); gap:6px; }
+  .results-manage-route .race-announcement-fields select, .results-manage-route .race-announcement-fields input { height:36px; min-height:36px; font-size:.69rem; }
+  .results-manage-route .race-admin-control-form input,
+  .results-manage-route .race-admin-control-form select,
+  .results-manage-route .race-admin-result-form input,
+  .results-manage-route .race-admin-result-form select { min-height:36px; padding:.42rem .52rem; font-size:.69rem; }
+  .results-manage-route .race-admin-quick-actions { grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
+  .results-manage-route .race-admin-quick-actions .btn { min-width:0; min-height:32px; height:auto; padding:.33rem .35rem; font-size:.63rem; line-height:1.25; }
+  .results-manage-route .race-admin-quick-actions #raceResetScheduled { grid-column:1/-1; }
+  .results-manage-route .race-admin-reset-callout { flex-direction:column; align-items:stretch; gap:7px; padding:9px; }
+  .results-manage-route .race-admin-reset-callout .btn { width:100%; min-height:34px; }
+  .results-manage-route .race-finalize-panel { align-items:stretch; flex-direction:column; gap:9px; padding:10px; }
+  .results-manage-route .race-finalize-actions { display:grid; grid-template-columns:1fr; }
+  .results-manage-route .race-finalize-actions .btn { width:100%; }
+  .results-manage-route .race-admin-result-form { grid-template-columns:minmax(0,1fr); gap:7px; }
+  .results-manage-route .race-admin-result-form .wide { grid-column:auto; }
+  .results-manage-route .race-form-actions { display:grid; grid-template-columns:1fr 1fr; }
+  .results-manage-route .race-form-actions .btn { min-width:0; width:100%; min-height:34px; padding:.35rem .45rem; font-size:.66rem; }
+  .results-manage-route .race-results-toolbar { display:grid; grid-template-columns:minmax(0,1fr); gap:7px; }
+  .results-manage-route .race-results-toolbar-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .results-manage-route .race-results-toolbar-actions .btn { width:100%; min-width:0; min-height:32px; padding:.32rem .35rem; font-size:.6rem; }
+  .results-manage-route #raceNextPendingRunner { grid-column:1/-1; }
+  .results-manage-route .race-result-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+  .results-manage-route .race-result-metric { min-width:0; padding:7px 5px; }
+  .results-manage-route .race-result-metric strong { font-size:.83rem; }
+  .results-manage-route .race-result-metric small { font-size:.54rem; }
+  .results-manage-route #paneResultsAdmin .race-admin-table-wrap.tw { overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; }
+  .results-manage-route #paneResultsAdmin .race-admin-table { display:block; width:100%; min-width:0!important; border-collapse:separate; border-spacing:0; background:transparent; }
+  .results-manage-route #paneResultsAdmin .race-admin-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .results-manage-route #paneResultsAdmin .race-admin-table tbody { display:block; width:100%; }
+  .results-manage-route #paneResultsAdmin .race-admin-table tbody tr:not(.race-admin-empty-row) { display:block; width:100%; box-sizing:border-box; margin:0 0 8px; padding:6px 9px; border:1px solid #dce5e8; border-radius:10px; background:#fff; box-shadow:0 3px 10px rgba(28,54,66,.04); }
+  .results-manage-route #paneResultsAdmin .race-admin-table tbody td { display:grid; grid-template-columns:minmax(90px,.66fr) minmax(0,1.34fr); align-items:center; gap:8px; width:100%; box-sizing:border-box; padding:7px 0; border-bottom:1px solid #edf1f3; text-align:left; font-size:.67rem; overflow-wrap:anywhere; }
+  .results-manage-route #paneResultsAdmin .race-admin-table tbody td::before { content:attr(data-label); color:#72838c; font-size:.56rem; font-weight:900; }
+  .results-manage-route #paneResultsAdmin .race-admin-table tbody td:last-child { border-bottom:0; }
+  .results-manage-route .race-admin-table .race-row-action-label { min-width:0; }
+  .results-manage-route .race-admin-table .race-row-action-label select { width:100%; min-height:34px; font-size:.64rem; }
+  .results-manage-route .race-admin-prizes { align-items:flex-start; flex-direction:column; gap:6px; padding:9px; }
+  .results-manage-route .race-admin-prizes .btn { width:100%; margin-left:0; }
+  .results-manage-route .managed-admin-create-form { grid-template-columns:minmax(0,1fr); }
+  .results-manage-route .admin-feature-checks { grid-column:auto; display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+  .results-manage-route .managed-admin-create-form > button { width:100%; }
+  .results-manage-route .managed-admin-accounts-list { grid-template-columns:minmax(0,1fr); }
+  .results-manage-route .access-denied-card { margin:18px 10px; padding:18px 13px; }
+  .results-manage-route .access-denied-actions { display:grid; grid-template-columns:1fr; }
+}
+
+/* High-specificity route overrides: admin-compact.css also styles the old embedded
+   Results panel. Keep this standalone page's controls aligned independently. */
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form {
+  display:grid;
+  grid-template-columns:minmax(155px,.68fr) minmax(0,1.55fr);
+  align-items:start;
+  gap:10px 12px;
+  width:100%;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form > label,
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form > .race-public-message-field {
+  min-width:0;
+  width:100%;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form > button[type="submit"] {
+  grid-column:1 / -1;
+  justify-self:end;
+  align-self:center;
+  width:auto;
+  min-width:132px;
+  min-height:35px;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields {
+  display:grid;
+  grid-template-columns:minmax(155px,.78fr) minmax(0,1.22fr);
+  align-items:stretch;
+  gap:8px;
+  width:100%;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields > label {
+  display:block;
+  min-width:0;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields select,
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields input {
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:37px;
+  min-height:37px;
+  margin:0;
+  box-sizing:border-box;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form {
+  display:grid;
+  grid-template-columns:minmax(200px,1.35fr) minmax(145px,.8fr) minmax(130px,.7fr) minmax(150px,.9fr);
+  align-items:end;
+  gap:10px;
+  width:100%;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form > label {
+  display:grid;
+  align-content:end;
+  gap:5px;
+  min-width:0;
+  width:100%;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form > label.wide {
+  grid-column:span 2;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form input,
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form select,
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form select,
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form input {
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:37px;
+  min-height:37px;
+  margin:0;
+  box-sizing:border-box;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-form-actions {
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:8px;
+  min-width:0;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-form-actions .btn {
+  flex:0 0 auto;
+  width:auto;
+  min-width:108px;
+  min-height:34px;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar {
+  display:grid;
+  grid-template-columns:minmax(220px,1.35fr) minmax(155px,.8fr) minmax(155px,.8fr);
+  align-items:end;
+  gap:9px;
+  width:100%;
+  box-sizing:border-box;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar > label {
+  display:grid;
+  align-content:start;
+  gap:5px;
+  min-width:0;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar input,
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar select {
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:36px;
+  min-height:36px;
+  margin:0;
+  box-sizing:border-box;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions {
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:7px;
+  min-width:0;
+  margin:0;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions .btn {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  width:auto;
+  min-width:0;
+  min-height:32px;
+  margin:0;
+  line-height:1.2;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-status-strip {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  align-items:stretch;
+  gap:8px;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-result-metrics {
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:7px;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table-wrap { min-width:0; width:100%; }
+body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table { width:100%; }
+body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:end;
+  gap:10px;
+  width:100%;
+}
+body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form > label { min-width:0; width:100%; margin:0; }
+body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form > label input { display:block; width:100%; min-width:0; box-sizing:border-box; }
+body.admin-page.results-manage-route #app #paneResultsAdmin .admin-feature-checks { min-width:0; margin:0; }
+body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form > button { justify-self:start; align-self:end; min-height:36px; margin:0; white-space:normal; }
+
+@media (max-width: 900px) {
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-status-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form { grid-template-columns:minmax(145px,.72fr) minmax(0,1.5fr); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form > label.wide { grid-column:1 / -1; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form .race-form-actions { grid-column:1 / -1; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar { grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar .race-results-search,
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions { grid-column:1 / -1; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-result-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .admin-feature-checks { grid-column:1 / -1; }
+}
+@media (max-width: 640px) {
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-status-strip { grid-template-columns:minmax(0,1fr); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form { grid-template-columns:minmax(0,1fr); gap:8px; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-control-form > button[type="submit"] { grid-column:auto; justify-self:stretch; width:100%; min-width:0; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields { grid-template-columns:minmax(0,1fr); gap:6px; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields select,
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-announcement-fields input { height:36px; min-height:36px; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form { grid-template-columns:minmax(0,1fr); gap:7px; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-result-form > label.wide { grid-column:auto; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-form-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); justify-content:stretch; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-form-actions .btn { width:100%; min-width:0; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar { grid-template-columns:minmax(0,1fr); gap:7px; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar .race-results-search,
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions { grid-column:auto; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); justify-content:stretch; gap:5px; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions .btn { width:100%; min-width:0; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-results-toolbar-actions #raceNextPendingRunner { grid-column:1 / -1; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-result-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form { grid-template-columns:minmax(0,1fr); }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .admin-feature-checks { grid-column:auto; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .managed-admin-create-form > button { justify-self:stretch; width:100%; }
+}
+@media (max-width: 640px) {
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table-wrap.tw {
+    display:block;
+    width:100%;
+    min-width:0;
+    overflow:visible;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table {
+    display:block;
+    width:100%;
+    min-width:0 !important;
+    border-collapse:separate;
+    border-spacing:0;
+    background:transparent;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table thead {
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody { display:block; width:100%; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody tr:not(.race-admin-empty-row) {
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    margin:0 0 8px;
+    padding:6px 9px;
+    border:1px solid #dce5e8;
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 3px 10px rgba(28,54,66,.04);
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody td {
+    display:grid;
+    grid-template-columns:minmax(88px,.66fr) minmax(0,1.34fr);
+    align-items:center;
+    gap:8px;
+    width:100%;
+    box-sizing:border-box;
+    padding:7px 0;
+    border-bottom:1px solid #edf1f3;
+    text-align:left;
+    font-size:.66rem;
+    overflow-wrap:anywhere;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody td::before {
+    content:attr(data-label);
+    color:#72838c;
+    font-size:.56rem;
+    font-weight:900;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody td:last-child { border-bottom:0; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody tr.race-admin-empty-row {
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    margin:0;
+    padding:12px;
+    border:1px dashed #cedbe0;
+    border-radius:10px;
+    background:#fff;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody tr.race-admin-empty-row td {
+    display:block;
+    padding:3px;
+    border:0;
+    text-align:center;
+  }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table tbody tr.race-admin-empty-row td::before { content:none; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table .race-row-action-label { display:block; width:100%; min-width:0; }
+  body.admin-page.results-manage-route #app #paneResultsAdmin .race-admin-table .race-row-action-label select { width:100%; min-width:0; min-height:34px; font-size:.64rem; }
+}

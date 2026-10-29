@@ -25,7 +25,7 @@
 
   function rootPath() {
     let path = window.location.pathname || "/";
-    const routed = path.replace(/\/(?:participants|results|about|register|admin)(?:\/index\.html)?\/?$/i, "/");
+    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin)(?:\/index\.html)?\/?$/i, "/");
     if (routed !== path) path = routed;
     else path = path.replace(/\/index\.html$/i, "/");
     if (!path.endsWith("/")) path = path.slice(0, path.lastIndexOf("/") + 1);

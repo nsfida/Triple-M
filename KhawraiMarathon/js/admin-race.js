@@ -1,6 +1,6 @@
 (function () {
   const $ = id => document.getElementById(id);
-  let wired = false, activeUser = '', channel = null, registrations = [], results = [], publicResults = [], control = null, busy = false, editingRegistrationId = '';
+  let wired = false, activeUser = '', channel = null, rosterPollTimer = null, registrations = [], results = [], publicResults = [], control = null, busy = false, editingRegistrationId = '', permissions = {};
   const announcementPresets = Object.freeze({
     registration_reminder: 'Registration is open. Please complete your registration before the deadline and arrive early on race day.',
     race_day_arrival: 'Race-day reminder: please arrive early for registration check-in and warm-up. Follow the organisers’ instructions.',
@@ -29,11 +29,21 @@
   const formatTime = sec => sec == null ? '—' : secondsToTime(sec);
   const formatStamp = value => { if (!value) return 'Not recorded'; try { return new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(value)) + ' PKT'; } catch (_) { return new Date(value).toLocaleString(); } };
   const drawMessage = (text, bad = false) => { const node = $('raceAdminMsg'); node.textContent = text; node.className = 'msg' + (bad ? ' bad' : ''); };
-  const setBusy = value => { busy = value; document.querySelectorAll('#paneResultsAdmin button, #paneResultsAdmin select').forEach(b => { if (!b.dataset.keepEnabled) b.disabled = value; }); };
+  const setBusy = value => {
+    busy = value;
+    const finalized = !!(control && control.results_finalized_at);
+    document.querySelectorAll('#paneResultsAdmin button, #paneResultsAdmin select, #paneResultsAdmin input').forEach(node => {
+      if (node.closest('#adminAccountsPanel')) { node.disabled = value; return; }
+      const lockedResultEdit = finalized && node.matches('#raceResultForm input, #raceResultForm select, #raceResultForm button, [data-race-action], #raceStatusAdmin, #raceStartNow, #raceEndNow, #raceFinalizeResults, #raceFullResetOpen');
+      const lockedReset = finalized && node.matches('#raceResetScheduled') && !(permissions && permissions.is_owner === true);
+      node.disabled = value || !!lockedResultEdit || !!lockedReset;
+    });
+  };
   function resetForm() {
     editingRegistrationId = '';
     $('raceResultForm').reset();
     $('raceFinishTimeWrap').hidden = $('raceResultStatus').value !== 'finished';
+    $('raceCurrentPositionWrap').hidden = $('raceResultStatus').value !== 'running';
     $('raceResultFormTitle').textContent = 'Add or update a runner result';
     $('raceSaveResult').textContent = 'Save result';
     $('raceCancelEdit').hidden = true;
@@ -44,7 +54,7 @@
     $('raceResultRunner').innerHTML = '<option value="">Choose a confirmed runner…</option>' + active.map(r => `<option value="${esc(r.id)}">${esc(r.reg_no)} · ${esc(r.name)}</option>`).join('');
     if (active.some(r => r.id === current)) $('raceResultRunner').value = current;
   }
-  function updateFinishTimeVisibility() { $('raceFinishTimeWrap').hidden = $('raceResultStatus').value !== 'finished'; }
+  function updateFinishTimeVisibility() { $('raceFinishTimeWrap').hidden = $('raceResultStatus').value !== 'finished'; $('raceCurrentPositionWrap').hidden = $('raceResultStatus').value !== 'running'; }
   function syncAnnouncementPresetSelection() {
     const message = $('racePublicMessage').value.trim();
     const matchedPreset = Object.keys(announcementPresets).find(key => announcementPresets[key] === message);
@@ -62,6 +72,63 @@
     $('racePublicMessage').focus();
     $('racePublicMessage').setSelectionRange($('racePublicMessage').value.length, $('racePublicMessage').value.length);
   }
+  function applyFinalizationUI() {
+    const finalized = !!(control && control.results_finalized_at);
+    const raceEnded = !!(control && control.race_status === 'completed');
+    const runningCount = results.filter(row => row.status === 'running').length;
+    const canReopen = permissions && permissions.is_owner === true;
+    const heading = $('raceFinalizationHeading');
+    const help = $('raceFinalizationHelp');
+    if (heading) heading.textContent = finalized ? 'Official results finalized and locked' : raceEnded ? 'Race ended · results are still provisional' : 'Results are provisional';
+    if (help) help.textContent = finalized
+      ? `Finalized ${formatStamp(control.results_finalized_at)}. To correct a result, nsfida must reopen editing first.`
+      : !raceEnded ? 'After the race is ended, verify finish times and runner positions before finalizing.'
+      : runningCount ? `${runningCount} runner${runningCount === 1 ? ' is' : 's are'} still marked Running. Update their status before finalization.`
+      : 'Review the leaderboard and announcements. Finalization locks result changes until nsfida reopens editing.';
+    const finalize = $('raceFinalizeResults');
+    const reopen = $('raceReopenResults');
+    if (finalize) { finalize.hidden = finalized; finalize.disabled = finalized || !raceEnded || runningCount > 0 || busy; }
+    if (reopen) { reopen.hidden = !(finalized && canReopen); reopen.disabled = busy; }
+    document.querySelectorAll('#raceResultForm input, #raceResultForm select, #raceResultForm button, [data-race-action]').forEach(node => {
+      node.disabled = finalized || busy;
+    });
+    const statusSelect = $('raceStatusAdmin');
+    if (statusSelect) statusSelect.disabled = finalized || busy;
+    const resetScheduled = $('raceResetScheduled');
+    if (resetScheduled) resetScheduled.disabled = busy || (finalized && !canReopen);
+    const fullReset = $('raceFullResetOpen');
+    if (fullReset) fullReset.disabled = busy || finalized;
+    const saveControlButton = document.querySelector('#raceControlForm button[type="submit"]');
+    if (saveControlButton) saveControlButton.disabled = busy;
+    if (finalized) drawMessage('Official results are finalized. Result edits are locked; only nsfida can reopen editing.', false);
+  }
+  async function finalizeResults() {
+    if (busy) return;
+    if (!control || control.race_status !== 'completed') return drawMessage('End the race before finalizing official results.', true);
+    if (results.some(row => row.status === 'running')) return drawMessage('At least one runner is still marked Running. Update their result or mark them DNF first.', true);
+    if (!confirm('Finalize the official race results now? All result updates will be locked until nsfida reopens editing.')) return;
+    setBusy(true); drawMessage('Finalizing official results…');
+    try {
+      const { error } = await sb.rpc('admin_finalize_marathon_results', { p_finalize: true });
+      if (error) throw error;
+      await Promise.all([loadControl(), loadResults()]);
+      drawMessage('Official results finalized. The public results page now shows the final standings.');
+    } catch (error) { drawMessage(error && error.message ? error.message : 'Could not finalize results.', true); }
+    finally { setBusy(false); applyFinalizationUI(); }
+  }
+  async function reopenResults() {
+    if (busy || !permissions || permissions.is_owner !== true) return drawMessage('Only nsfida can reopen official results.', true);
+    if (!confirm('Reopen editing for the finalized results? The public board will return to provisional status until finalization is completed again.')) return;
+    setBusy(true); drawMessage('Reopening result editing…');
+    try {
+      const { error } = await sb.rpc('admin_finalize_marathon_results', { p_finalize: false });
+      if (error) throw error;
+      await loadControl();
+      drawMessage('Result editing reopened. Corrections are allowed again; finalize the results when ready.');
+    } catch (error) { drawMessage(error && error.message ? error.message : 'Could not reopen results.', true); }
+    finally { setBusy(false); applyFinalizationUI(); }
+  }
+
   function renderControl() {
     if (!control) return;
     $('raceStatusAdmin').value = control.race_status || 'scheduled';
@@ -72,9 +139,11 @@
     $('raceAdminCurrentStatus').textContent = labelStatus(control.race_status);
     $('raceAdminStartedAt').textContent = started;
     $('raceAdminEndedAt').textContent = ended;
+    $('raceAdminFinalizedAt').textContent = control.results_finalized_at ? formatStamp(control.results_finalized_at) + (control.results_finalized_by ? ' · by ' + control.results_finalized_by : '') : 'Not finalized';
+    applyFinalizationUI();
   }
   async function loadRegistrations() {
-    const { data, error } = await sb.from('registrations').select('id,reg_no,name,status,is_cancelled,photo_path').order('created_at', { ascending: true });
+    const { data, error } = await sb.from('public_marathon_runner_roster').select('id,reg_no,name,status,is_cancelled,photo_path').order('reg_no', { ascending: true });
     if (error) throw error;
     registrations = data || [];
     fillRunnerChoices();
@@ -87,13 +156,14 @@
   }
   async function loadResults() {
     const [raw, publicRows] = await Promise.all([
-      sb.from('marathon_results').select('id,registration_id,status,finish_time_seconds,updated_at').order('updated_at', { ascending: false }),
-      sb.from('public_marathon_results').select('result_id,registration_id,place')
+      sb.from('marathon_results').select('id,registration_id,status,finish_time_seconds,current_position,updated_at').order('updated_at', { ascending: false }),
+      sb.from('public_marathon_results').select('result_id,registration_id,place,current_position,status')
     ]);
     if (raw.error) throw raw.error;
     results = raw.data || [];
     publicResults = publicRows.error ? [] : (publicRows.data || []);
     renderResults();
+    applyFinalizationUI();
   }
   function registrationCompare(a, b) {
     return String(a.reg_no || '').localeCompare(String(b.reg_no || ''), undefined, { numeric: true, sensitivity: 'base' }) || String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
@@ -121,12 +191,13 @@
       const bt = b.result && b.result.status === 'finished' && Number.isFinite(Number(b.result.finish_time_seconds)) ? Number(b.result.finish_time_seconds) : Infinity;
       return at - bt || registrationCompare(a.runner, b.runner);
     });
+    else if (sort === 'position') rows.sort((a, b) => { const ap = a.result && a.result.status === 'running' ? Number(a.result.current_position || Infinity) : Infinity; const bp = b.result && b.result.status === 'running' ? Number(b.result.current_position || Infinity) : Infinity; return ap - bp || registrationCompare(a.runner, b.runner); });
     else if (sort === 'updated') rows.sort((a, b) => {
       const at = a.result && a.result.updated_at ? new Date(a.result.updated_at).getTime() : 0;
       const bt = b.result && b.result.updated_at ? new Date(b.result.updated_at).getTime() : 0;
       return bt - at || registrationCompare(a.runner, b.runner);
     });
-    return { all, rows: rows.map(item => ({ ...item, place: item.result ? places.get(item.result.id) : null })) };
+    return { all, rows: rows.map(item => ({ ...item, place: item.result && item.result.status === 'finished' ? places.get(item.result.id) : null })) };
   }
   function renderResults() {
     const { all, rows } = getRosterRows();
@@ -140,18 +211,20 @@
     ].map(([label, count, key]) => `<span class="race-result-metric race-result-metric-${key}"><strong>${count}</strong><small>${label}</small></span>`).join('');
     if (!rows.length) {
       const message = all.length ? 'No runners match these search and filter settings. Clear filters to see everyone.' : 'No confirmed, active runners are available. Confirm a registration first.';
-      $('raceAdminResultsBody').innerHTML = `<tr class="race-admin-empty-row"><td colspan="7" class="race-admin-empty">${message}</td></tr>`;
+      $('raceAdminResultsBody').innerHTML = `<tr class="race-admin-empty-row"><td colspan="8" class="race-admin-empty">${message}</td></tr>`;
       return;
     }
     $('raceAdminResultsBody').innerHTML = rows.map(({ runner, result, place }) => {
       const status = result ? result.status : 'registered';
       const finish = result && result.status === 'finished' ? formatTime(result.finish_time_seconds) : '—';
+      const currentPosition = result && result.status === 'running' && result.current_position != null ? String(result.current_position) : '—';
       const updated = result && result.updated_at ? esc(formatStamp(result.updated_at)) : '<span class="race-admin-not-entered">Not entered</span>';
       return `<tr data-registration-id="${esc(runner.id)}"${result ? ` data-result-id="${esc(result.id)}"` : ''}>
         <td data-label="Place">${place ? `<b class="race-place race-place-${place <= 3 ? place : 0}">${place}</b>` : '—'}</td>
         <td data-label="Registration No."><strong class="race-registration-no">${esc(runner.reg_no)}</strong></td>
         <td data-label="Player"><span class="race-admin-runner-name"><strong>${esc(runner.name)}</strong></span></td>
         <td data-label="Status"><span class="race-admin-status ${esc(status)}">${esc(labelStatus(status))}</span></td>
+        <td data-label="Current position"><b class="race-admin-time">${esc(currentPosition)}</b></td>
         <td data-label="Finish time"><b class="race-admin-time">${finish}</b></td>
         <td data-label="Last updated">${updated}</td>
         <td data-label="Actions"><label class="race-row-action-label"><span class="sr-only">Actions for ${esc(runner.name)}</span><select data-race-action data-registration-id="${esc(runner.id)}" aria-label="Actions for ${esc(runner.name)}">
@@ -160,6 +233,7 @@
           <option value="registered">Mark not started</option>
           <option value="running">Mark running</option>
           <option value="finished">Record / edit finish time</option>
+          <option value="position">Set current position</option>
           <option value="dnf">Mark DNF</option>
           <option value="dsq">Disqualify runner</option>
           <option value="delete"${result ? '' : ' disabled'}>Remove result record</option>
@@ -175,6 +249,7 @@
     editingRegistrationId = registrationId;
     $('raceResultStatus').value = preferredStatus || row && row.status || 'registered';
     $('raceFinishTime').value = secondsToTime(row && row.finish_time_seconds);
+    $('raceCurrentPosition').value = $('raceResultStatus').value === 'running' && row && row.current_position != null ? String(row.current_position) : '';
     updateFinishTimeVisibility();
     $('raceResultFormTitle').textContent = (row ? 'Editing result · ' : 'Add result · ') + runner.name;
     $('raceSaveResult').textContent = row ? 'Update result' : 'Save result';
@@ -190,10 +265,14 @@
     if (status === 'dsq' && !confirm(`Disqualify ${runner.name} from official results?`)) return;
     setBusy(true); drawMessage(`Updating ${runner.name}…`);
     try {
+      const existingResult = results.find(row => row.registration_id === registrationId);
+      const preservedPosition = status === 'running' && existingResult && existingResult.status === 'running'
+        ? existingResult.current_position : null;
       const { error } = await sb.rpc('admin_upsert_marathon_result', {
         p_registration_id: registrationId,
         p_status: status,
-        p_finish_time_seconds: null
+        p_finish_time_seconds: null,
+        p_current_position: preservedPosition
       });
       if (error) throw error;
       await loadResults();
@@ -208,6 +287,7 @@
     const result = results.find(r => r.registration_id === registrationId);
     if (action === 'edit') return beginResultEdit(registrationId, result, null);
     if (action === 'finished') return beginResultEdit(registrationId, result, 'finished');
+    if (action === 'position') return beginResultEdit(registrationId, result, 'running');
     if (action === 'delete') { if (result) return deleteResult(result.id); return; }
     if (['registered', 'running', 'dnf', 'dsq'].includes(action)) return quickSetStatus(registrationId, action);
   }
@@ -316,18 +396,25 @@
     if (busy) return;
     const registrationId = $('raceResultRunner').value;
     const status = $('raceResultStatus').value;
-    let seconds = null;
+    let seconds = null, currentPosition = null;
     if (!registrationId) return drawMessage('Choose a confirmed runner first.', true);
     if (status === 'finished') {
       seconds = timeToSeconds($('raceFinishTime').value);
       if (seconds == null) return drawMessage('Enter finish time as HH:MM:SS, between 00:00:01 and 48:00:00.', true);
+    }
+    if (status === 'running' && $('raceCurrentPosition').value.trim()) {
+      currentPosition = Number($('raceCurrentPosition').value);
+      if (!Number.isInteger(currentPosition) || currentPosition < 1 || currentPosition > 10000) return drawMessage('Current position must be a whole number from 1 to 10000.', true);
+      const collision = results.find(row => row.registration_id !== registrationId && row.status === 'running' && Number(row.current_position) === currentPosition);
+      if (collision) { const other = registrations.find(item => item.id === collision.registration_id); return drawMessage(`Position ${currentPosition} is already assigned to ${other ? other.name : 'another runner'}. Clear or change that position first.`, true); }
     }
     setBusy(true); drawMessage('Saving result securely…');
     try {
       const { error } = await sb.rpc('admin_upsert_marathon_result', {
         p_registration_id: registrationId,
         p_status: status,
-        p_finish_time_seconds: seconds
+        p_finish_time_seconds: seconds,
+        p_current_position: currentPosition
       });
       if (error) throw error;
       resetForm(); await Promise.all([loadResults(), loadControl()]);
@@ -362,9 +449,10 @@
       if (/^[\u0000-\u0020]*[=+@\-]/.test(text)) text = `'${text}`;
       return `"${text.replace(/"/g, '""')}"`;
     };
-    const header = ['Registration Number', 'Player Name', 'Result Status', 'Place', 'Finish Time', 'Last Updated'];
+    const header = ['Registration Number', 'Player Name', 'Result Status', 'Place', 'Current Position', 'Finish Time', 'Last Updated'];
     const lines = [header, ...rows.map(({ runner, result, place }) => [
       runner.reg_no || '', runner.name || '', result ? labelStatus(result.status) : 'Awaiting result', place || '',
+      result && result.status === 'running' ? result.current_position || '' : '',
       result && result.status === 'finished' ? formatTime(result.finish_time_seconds) : '',
       result && result.updated_at ? formatStamp(result.updated_at) : ''
     ])].map(row => row.map(cell).join(','));
@@ -389,6 +477,8 @@
     $('raceCancelEdit').addEventListener('click', resetForm);
     $('raceStartNow').addEventListener('click', () => { $('raceStatusAdmin').value = 'in_progress'; saveControl('in_progress'); });
     $('raceEndNow').addEventListener('click', () => { $('raceStatusAdmin').value = 'completed'; saveControl('completed'); });
+    $('raceFinalizeResults').addEventListener('click', finalizeResults);
+    $('raceReopenResults').addEventListener('click', reopenResults);
     $('raceResetScheduled').addEventListener('click', resetRaceStatusOnly);
     $('raceFullResetOpen').addEventListener('click', openFullResetDialog);
     $('raceResetCancel').addEventListener('click', () => $('raceResetDialog').close());
@@ -429,14 +519,16 @@
       drawMessage(`Ready to enter a result for ${next.runner.name} (${next.runner.reg_no}).`);
     });
     $('raceExportResults').addEventListener('click', exportFilteredResultsCsv);
+    $('raceCurrentPosition').addEventListener('input', () => { if ($('raceResultStatus').value !== 'running') $('raceCurrentPosition').value = ''; });
   }
-  async function init(username) {
-    if (!username) return dispose();
-    if (activeUser === username && channel) return;
-    dispose(); activeUser = username; wire(); resetForm(); drawMessage('Connecting to race controls…');
+  async function init(username, userPermissions = {}) {
+    if (!username || !userPermissions || userPermissions.can_results !== true) return dispose();
+    if (activeUser === username && channel) { permissions = userPermissions; applyFinalizationUI(); return; }
+    dispose(); activeUser = username; permissions = userPermissions; wire(); resetForm(); drawMessage('Connecting to race controls…');
     try {
       await Promise.all([loadRegistrations(), loadControl(), loadResults()]);
       drawMessage('Race controls are ready. All changes are verified again by the database.');
+      applyFinalizationUI();
     } catch (error) { drawMessage(error && error.message ? error.message : 'Could not load race data. Run the results SQL migration first.', true); }
     try {
       channel = sb.channel('kmr-admin-race-results')
@@ -448,9 +540,15 @@
         })
         .subscribe();
     } catch (_) { channel = null; }
+    if (!rosterPollTimer) rosterPollTimer = window.setInterval(() => {
+      if (!activeUser || document.hidden) return;
+      loadRegistrations().catch(error => drawMessage(error && error.message || 'Could not refresh the public runner roster.', true));
+    }, 30000);
   }
   function dispose() {
-    const previous = channel; channel = null; activeUser = '';
+    const previous = channel; channel = null; activeUser = ''; permissions = {};
+    if (rosterPollTimer) { window.clearInterval(rosterPollTimer); rosterPollTimer = null; }
+    const app = $('app'); if (app) app.hidden = true;
     if (previous) sb.removeChannel(previous);
   }
   window.KMRRaceAdmin = { init, dispose };

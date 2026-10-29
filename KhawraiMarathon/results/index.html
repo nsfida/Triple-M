@@ -6,7 +6,7 @@
 <title>Live Results - Khawrai Marathon Season Three</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/results.css?v=20261029-1">
+<link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/results.css?v=20261029-2">
 
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/">
 <link rel="stylesheet" href="../assets/polish.css">
@@ -30,15 +30,14 @@
   <div class="in">
     <a class="logo-link" href="../" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
     <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Official race results and live leaderboard.</p></div>
-    <div class="header-actions"><div class="header-utilities"><div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="../register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off">CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
-    <div class="profile-mount"></div></div></div>
+    <div class="header-actions"><div class="header-utilities"><div class="profile-mount"></div></div></div>
   </div>
 </header>
 <nav class="site-nav-shell" aria-label="Site navigation">
   <div class="site-nav-inner">
     <div class="primary-nav" aria-label="Main navigation"><div class="cta home-nav-cta"><a class="btn ghost" href="../">Home</a></div><div class="cta results-nav-cta"><a class="btn ghost" href="../results/" aria-current="page">Results</a></div>
     <div class="cta participants-nav-cta"><a class="btn ghost" href="../participants/">Participants</a></div>
-    <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div></div>
+    <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../about/">About</a></div><div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="manage/">Manage Results</a></div></div>
   </div>
 </nav>
 <main class="wrap results-page">
@@ -60,6 +59,8 @@
       <p class="results-live-note" id="raceLiveNote" aria-live="polite">Connecting to race updates…</p>
     </aside>
   </section>
+  <section id="resultsFinalizationBanner" class="results-finalization-banner" hidden aria-live="polite" aria-atomic="true"><div class="results-finalization-icon" aria-hidden="true">🏁</div><div><strong id="resultsFinalizationTitle">Race results are being finalized</strong><p id="resultsFinalizationText">The race has ended. Organisers are reviewing finish times and current positions before publishing the official final standings.</p><p id="resultsFinalizationAnnouncement" hidden></p></div></section>
+
 
   <section aria-labelledby="prizesTitle">
     <div class="prizes-heading"><div><h2 id="prizesTitle">Race prizes</h2><p>Podium finishers receive cash awards and trophies.</p></div></div>
@@ -80,11 +81,11 @@
       <div><h2 id="leaderboardTitle">Live leaderboard</h2><p id="leaderboardSummary">Official times appear as organisers record them.</p></div>
       <div class="tools"><span class="live-connection" id="liveConnection">Live connection</span><button type="button" class="btn sm alt" id="downloadResultsPdf">Download results PDF</button></div>
     </div>
-    <div class="results-table-wrap"><table class="results-table"><thead><tr><th>Place</th><th>Runner</th><th>Status</th><th>Finish time</th><th>Updated</th></tr></thead><tbody id="resultsTableBody"><tr><td colspan="5" class="results-empty">Loading live results…</td></tr></tbody></table></div>
+    <div class="results-table-wrap"><table class="results-table"><thead><tr><th>Place / position</th><th>Runner</th><th>Status</th><th>Finish time</th><th>Updated</th></tr></thead><tbody id="resultsTableBody"><tr><td colspan="5" class="results-empty">Loading live results…</td></tr></tbody></table></div>
     <p class="results-footnote">Official standings are calculated from the finish times recorded by race organisers. The public results board is read-only. For corrections, contact the marathon organisers.</p>
   </section>
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../">Home</a> · <a href="../participants/">Participants</a> · <a href="../about/">About the race</a> · <a href="../admin/">Admin sign in</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261029-1"></script>
+<script src="../js/config.js"></script><script src="../js/common.js"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261029-2"></script>
 </body></html>

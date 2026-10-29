@@ -26,9 +26,34 @@
     const bFinished = b.status === 'finished' && Number.isFinite(Number(b.finish_time_seconds));
     if (aFinished && bFinished) return Number(a.place || 999999) - Number(b.place || 999999) || Number(a.finish_time_seconds) - Number(b.finish_time_seconds);
     if (aFinished !== bFinished) return aFinished ? -1 : 1;
+    if (a.status === 'running' && b.status === 'running') {
+      const ap = Number(a.current_position || a.place || Infinity), bp = Number(b.current_position || b.place || Infinity);
+      if (ap !== bp) return ap - bp;
+    }
     const order = { running: 1, registered: 2, dnf: 3, dsq: 4 };
     return (order[a.status] || 9) - (order[b.status] || 9) || String(a.runner_name || '').localeCompare(String(b.runner_name || ''));
   });
+
+  function renderFinalizationBanner() {
+    const banner = $('resultsFinalizationBanner');
+    if (!banner) return;
+    const completed = !!(control && control.race_status === 'completed');
+    if (!completed) {
+      banner.hidden = true;
+      $('resultsFinalizationAnnouncement').hidden = true;
+      return;
+    }
+    const finalized = !!(control && control.results_finalized_at);
+    banner.hidden = false;
+    $('resultsFinalizationTitle').textContent = finalized ? 'Official results finalized' : 'Race finished · results being finalized';
+    $('resultsFinalizationText').textContent = finalized
+      ? `The organisers have verified and finalized the official standings${control.results_finalized_at ? ' on ' + dateTime(control.results_finalized_at) : ''}. The leaderboard below is the published final result.`
+      : 'The race has ended. Organisers are reviewing finish times and runner positions before publishing the official final standings. The leaderboard remains provisional until finalization.';
+    const announcement = String(control && control.public_message || '').trim();
+    const announcementNode = $('resultsFinalizationAnnouncement');
+    announcementNode.hidden = !announcement;
+    announcementNode.textContent = announcement ? `Organiser announcement: ${announcement}` : '';
+  }
 
   function renderControl() {
     const status = control && control.race_status || 'scheduled';
@@ -48,6 +73,7 @@
       $('raceLiveNote').textContent = safeText(control && control.public_message, 'The race is scheduled for 15 November 2026 at 04:00 PM Pakistan Time. The official start will be announced by organisers.');
       updateCountdown();
     }
+    renderFinalizationBanner();
   }
 
   function updateCountdown() {
@@ -81,7 +107,11 @@
     drawPodium(sorted);
     const finished = sorted.filter(r => r.status === 'finished' && r.finish_time_seconds != null).length;
     const running = sorted.filter(r => r.status === 'running').length;
-    $('leaderboardSummary').textContent = `${sorted.length} runner result${sorted.length === 1 ? '' : 's'} · ${finished} finished · ${running} running`;
+    const totalSummary = `${sorted.length} runner result${sorted.length === 1 ? '' : 's'} · ${finished} finished · ${running} running`;
+    if (control && control.race_status === 'completed' && !control.results_finalized_at) $('leaderboardSummary').textContent = `${totalSummary} · Standings are provisional while organisers verify and finalize results.`;
+    else if (control && control.results_finalized_at) $('leaderboardSummary').textContent = `${totalSummary} · Official final standings.`;
+    else if (control && control.race_status === 'in_progress') $('leaderboardSummary').textContent = `${totalSummary} · Live positions are updated by race organisers.`;
+    else $('leaderboardSummary').textContent = totalSummary;
     if (!sorted.length) {
       $('resultsTableBody').innerHTML = '<tr><td colspan="5" class="results-empty">Official results have not been published yet. Please check back during the race.</td></tr>';
       return;
@@ -113,7 +143,7 @@
       control = controlRes.data || { race_status: 'scheduled', scheduled_at: scheduledFallback, public_message: '' };
       results = Array.isArray(resultsRes.data) ? resultsRes.data : [];
       renderControl(); drawResults();
-      $('podiumLiveState').textContent = control.race_status === 'in_progress' ? 'Live standings' : control.race_status === 'completed' ? 'Final standings' : 'Standings update live';
+      $('podiumLiveState').textContent = control.race_status === 'in_progress' ? 'Live standings' : control.race_status === 'completed' ? (control.results_finalized_at ? 'Official final standings' : 'Provisional · being finalized') : 'Standings update live';
       // Connection state is driven by the Realtime subscription; data polling is a fallback.
     } catch (error) {
       console.warn('Could not load live results:', error && error.message || error);

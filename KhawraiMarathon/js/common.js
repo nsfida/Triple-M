@@ -27,28 +27,80 @@
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: AUTH_KEY, storage }
   });
 
-  const nameOf = s => { const em = s && s.user && s.user.email; const u = em ? em.split("@")[0] : ""; return C.ADMINS.includes(u) ? u : ""; };
   const listeners = [];
+  const permissionListeners = [];
+  let cachedPermissions = null;
+  const usernameFromSession = session => {
+    const email = String(session && session.user && session.user.email || '').trim().toLowerCase();
+    const suffix = '@' + String(C.EMAIL_DOMAIN || 'khawrai.app').toLowerCase();
+    if (!email.endsWith(suffix)) return '';
+    return email.slice(0, -suffix.length);
+  };
+  const renderAdminResultsNav = () => {
+    const allowed = !!(cachedPermissions && cachedPermissions.is_admin && cachedPermissions.can_results);
+    document.querySelectorAll('[data-admin-results-nav-wrap]').forEach(node => { node.hidden = !allowed; });
+    document.querySelectorAll('[data-admin-results-nav]').forEach(node => {
+      node.hidden = !allowed;
+      if (allowed && /\/results\/manage\/?$/.test(location.pathname)) node.setAttribute('aria-current', 'page');
+      else node.removeAttribute('aria-current');
+    });
+  };
+  async function fetchMyPermissions() {
+    try {
+      const { data: sessionData } = await sb.auth.getSession();
+      if (!sessionData || !sessionData.session || !sessionData.session.user) {
+        cachedPermissions = null; renderAdminResultsNav(); permissionListeners.forEach(fn => fn(null)); return null;
+      }
+      const { data, error } = await sb.rpc('admin_my_permissions');
+      if (error || !data || data.is_admin !== true) {
+        cachedPermissions = null; renderAdminResultsNav(); permissionListeners.forEach(fn => fn(null)); return null;
+      }
+      cachedPermissions = data;
+      renderAdminResultsNav(); permissionListeners.forEach(fn => fn(cachedPermissions));
+      return cachedPermissions;
+    } catch (_) {
+      cachedPermissions = null; renderAdminResultsNav(); permissionListeners.forEach(fn => fn(null)); return null;
+    }
+  }
   const KMRAuth = {
-    // instant, no network: who was signed in last time (used to avoid a flash of the sign-in form)
-    hint: () => storage.getItem(HINT_KEY) || "",
-    // verified: reads the stored session (refreshing the token if needed)
+    // Display hints are never authorization. Every route and privileged action is checked against the database.
+    hint: () => storage.getItem(HINT_KEY) || '',
+    permissions: () => cachedPermissions,
+    async refreshPermissions() { return fetchMyPermissions(); },
     async current() {
-      try { const { data } = await sb.auth.getSession(); const u = nameOf(data.session); u ? storage.setItem(HINT_KEY, u) : storage.removeItem(HINT_KEY); return u; }
-      catch (e) { return ""; }
+      try {
+        const { data, error } = await sb.auth.getSession();
+        if (error || !data.session || !data.session.user) {
+          cachedPermissions = null; storage.removeItem(HINT_KEY); renderAdminResultsNav(); return '';
+        }
+        const username = usernameFromSession(data.session);
+        if (!username) { cachedPermissions = null; storage.removeItem(HINT_KEY); renderAdminResultsNav(); return ''; }
+        const permissions = await fetchMyPermissions();
+        if (!permissions || permissions.is_admin !== true) { storage.removeItem(HINT_KEY); return ''; }
+        storage.setItem(HINT_KEY, username);
+        return username;
+      } catch (_) { cachedPermissions = null; renderAdminResultsNav(); return ''; }
     },
     async signIn(username, password) {
-      const u = String(username || "").trim().toLowerCase();
-      if (!C.ADMINS.includes(u)) return { error: "Wrong username or password." };
+      const u = String(username || '').trim().toLowerCase();
+      if (!/^[a-z0-9._-]{2,40}$/.test(u) || !password) return { error: 'Wrong username or password.' };
       const { error } = await sb.auth.signInWithPassword({ email: `${u}@${C.EMAIL_DOMAIN}`, password });
-      if (error) return { error: "Wrong username or password." };
-      storage.setItem(HINT_KEY, u); return { user: u };
+      if (error) return { error: 'Wrong username or password.' };
+      const permissions = await fetchMyPermissions();
+      if (!permissions || permissions.is_admin !== true) {
+        storage.removeItem(HINT_KEY); cachedPermissions = null;
+        try { await sb.auth.signOut({ scope: 'local' }); } catch (_) {}
+        renderAdminResultsNav();
+        return { error: 'This account has not been granted admin access. Contact nsfida if you believe this is an error.' };
+      }
+      storage.setItem(HINT_KEY, u); return { user: u, permissions };
     },
-    async signOut() { storage.removeItem(HINT_KEY); try { await sb.auth.signOut({ scope: "local" }); } catch (e) {} },
-    onChange(cb) { listeners.push(cb); }
+    async signOut() { storage.removeItem(HINT_KEY); cachedPermissions = null; renderAdminResultsNav(); try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {} },
+    onChange(cb) { listeners.push(cb); },
+    onPermissionChange(cb) { permissionListeners.push(cb); }
   };
   window.KMRAuth = KMRAuth;
-  const fire = async () => { const u = await KMRAuth.current(); listeners.forEach(f => f(u)); };
+  const fire = async () => { const u = await KMRAuth.current(); listeners.forEach(f => f(u)); renderAdminResultsNav(); };
   // another tab signed in or out, or the token was refreshed/expired
   sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_IN" || ev === "SIGNED_OUT") setTimeout(fire, 0); });
   window.addEventListener("storage", e => { if (e.key === AUTH_KEY || e.key === HINT_KEY) fire(); });
@@ -136,7 +188,7 @@
   let profileReady = false, profileUser = "", avatarDraft = null;
   function routeRootPath() {
     let path = window.location.pathname || "/";
-    const routed = path.replace(/\/(?:participants|results|about|register|admin)(?:\/index\.html)?\/?$/i, "/");
+    const routed = path.replace(/\/(?:results\/manage|participants|results|about|register|admin)(?:\/index\.html)?\/?$/i, "/");
     if (routed !== path) path = routed;
     else path = path.replace(/\/index\.html$/i, "/");
     if (!path.endsWith("/")) path = path.slice(0, path.lastIndexOf("/") + 1);
