@@ -43,7 +43,7 @@
 .home-vertical-label { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); writing-mode: vertical-rl; color: rgba(255,255,255,.65); font-size: .52rem; font-weight: 900; letter-spacing: .2em; }
 .home-hero-bottomline { position: absolute; z-index: 3; right: 0; bottom: 0; left: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 11px 20px; background: rgba(8,43,34,.86); border-top: 1px solid rgba(231,249,220,.17); color: rgba(242,255,247,.67); font-size: .55rem; font-weight: 800; letter-spacing: .09em; }
 .home-hero-bottomline b { margin-right: 6px; color: #c9f56a; font-size: .83rem; }
-.home-shortcuts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 17px; }
+.home-shortcuts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 17px; }
 .home-shortcut-card { position: relative; display: grid; grid-template-columns: 31px minmax(0,1fr) 15px; grid-template-rows: auto 1fr; gap: 10px 11px; min-width: 0; padding: 19px 17px 18px; border: 1px solid #e2e8f0; border-radius: 15px; background: #fff; color: #17263b; text-decoration: none; box-shadow: 0 5px 20px rgba(22,40,66,.035); transition: border-color .16s,transform .16s,box-shadow .16s; }
 .home-shortcut-card:hover { transform: translateY(-2px); border-color: #a8d0bd; box-shadow: 0 12px 26px rgba(22,40,66,.07); }
 .shortcut-no { grid-column: 1 / -1; color: #8b98a8; font-size: .59rem; font-weight: 900; letter-spacing: .15em; }
@@ -135,6 +135,7 @@
   .home-hero-copy { padding: 32px; }
   .home-hero-visual { min-height: 470px; }
   .home-shortcuts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .home-shortcuts .home-shortcut-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .home-facts-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .home-prizes { grid-template-columns: minmax(0,1fr); gap: 24px; }
   .home-prize-heading { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: end; gap: 0 20px; }

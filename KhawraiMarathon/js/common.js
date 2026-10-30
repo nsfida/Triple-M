@@ -65,6 +65,7 @@
         cachedPermissions = null; renderAdminResultsNav(); permissionListeners.forEach(fn => fn(null)); return null;
       }
       cachedPermissions = data;
+      if (!KMRAuth.canFunds() && window.KMRPurgeFundsCache) window.KMRPurgeFundsCache(true);
       renderAdminResultsNav(); permissionListeners.forEach(fn => fn(cachedPermissions));
       return cachedPermissions;
     } catch (_) {
@@ -75,6 +76,9 @@
     // Display hints are never authorization. Every route and privileged action is checked against the database.
     hint: () => storage.getItem(HINT_KEY) || '',
     permissions: () => cachedPermissions,
+    // Project Funds are visible to, and editable by, the owner account (nsfida) only. The server
+    // enforces this with RLS; this flag only decides what the interface shows.
+    canFunds: () => !!(cachedPermissions && cachedPermissions.is_admin === true && cachedPermissions.is_owner === true && cachedPermissions.can_funds === true),
     async refreshPermissions() { return fetchMyPermissions(); },
     async current() {
       try {
@@ -104,7 +108,7 @@
       }
       storage.setItem(HINT_KEY, u); return { user: u, permissions };
     },
-    async signOut() { storage.removeItem(HINT_KEY); cachedPermissions = null; renderAdminResultsNav(); try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {} },
+    async signOut() { storage.removeItem(HINT_KEY); cachedPermissions = null; if (window.KMRPurgeFundsCache) window.KMRPurgeFundsCache(true); renderAdminResultsNav(); try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {} },
     onChange(cb) { listeners.push(cb); },
     onPermissionChange(cb) { permissionListeners.push(cb); }
   };
@@ -167,6 +171,13 @@
       try { cacheStorage(privateData)?.removeItem(CACHE_PREFIX + key); } catch (e) {}
     }
   };
+  // Project Funds are owner-only. Remove any cached ledger copies that older versions of the site left in
+  // this browser (the public funds list used to be cached persistently).
+  window.KMRPurgeFundsCache = function (includePrivate) {
+    [["public-funds", false], ["public-expenses", false]].forEach(([k, priv]) => KMRStore.remove(k, priv));
+    if (includePrivate) [["admin-funds", true], ["admin-expenses", true]].forEach(([k, priv]) => KMRStore.remove(k, priv));
+  };
+  window.KMRPurgeFundsCache(false);
   window.KMRUI = {
     hideLoading() {
       const node = document.getElementById("appLoader"); if (!node || node.dataset.closed) return;
@@ -249,7 +260,7 @@
         signIn.hidden = false;
         const title = signIn.querySelector("strong"), sub = signIn.querySelector("small");
         if (title) title.textContent = signed ? "Admin control centre" : "Admin sign in";
-        if (sub) sub.textContent = signed ? "Manage registrations and funds" : "Open organiser access";
+        if (sub) sub.textContent = signed ? (KMRAuth.canFunds() ? "Manage registrations and funds" : "Manage registrations and results") : "Open organiser access";
       }
       mount.classList.toggle("is-signed-in", signed);
       const menu = mount.querySelector(".profile-menu"); if (menu) menu.hidden = true;

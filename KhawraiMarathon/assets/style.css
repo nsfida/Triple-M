@@ -666,3 +666,7 @@ footer{background:#fff;border-color:var(--line);color:var(--muted)}
 @media(prefers-reduced-motion:reduce){.race-admin-quick-actions .btn,.race-full-reset-open{transition:none!important}}
 
 .race-admin-runner-name{display:grid;gap:2px;min-width:0}.race-admin-runner-name>strong{overflow-wrap:anywhere}.race-admin-runner-name>small{margin-top:0!important}
+
+/* Project Funds are owner-only: when the Funds stat is hidden, the summary shows three evenly sized cards. */
+.score .row.no-funds{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:700px){.score .row.no-funds{grid-template-columns:repeat(2,minmax(0,1fr))}.score .row.no-funds .c:last-child{grid-column:1/-1}}

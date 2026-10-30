@@ -17,21 +17,7 @@
 .fh .title{display:inline-flex;justify-content:center;margin-top:10px;padding:.48rem .9rem;background:var(--green);color:#fff;border-radius:9px;font-size:clamp(.82rem,2vw,1rem);font-weight:900;letter-spacing:.045em}
 .meta{display:flex;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;padding:0 2px 14px;margin-bottom:14px;border-bottom:1px solid var(--line);color:#52647c;font-size:.78rem;font-weight:800}
 .meta span b{display:inline-block;margin-left:6px;color:var(--ink);font-weight:650}
-.fee{position:relative;margin:0 0 18px;padding:16px;border:1px solid #b9dfcd;border-left:4px solid var(--green);border-radius:14px;background:linear-gradient(135deg,#f3fbf6 0%,#fff 100%);color:#234b3c;font-size:.82rem;line-height:1.6}
-.payment-fee .payment-fee-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;color:#123f31}
-.payment-fee .payment-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;background:#dff5a0;color:#174b36;font-size:.68rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
-.payment-fee .payment-fee-heading strong{font-size:1rem;font-weight:900;line-height:1.35}
-.payment-fee .payment-method{display:grid;grid-template-columns:112px minmax(0,1fr);gap:16px;align-items:center;padding:13px 15px;border:1px solid #d7e9df;border-radius:12px;background:rgba(255,255,255,.9)}
-.payment-fee .easypaisa-logo{display:block;width:100%;max-width:106px;height:auto;max-height:58px;object-fit:contain;justify-self:center}
-.payment-fee .payment-method-name{margin-bottom:7px;color:#087f5b;font-size:.86rem;font-weight:900}
-.payment-fee .payment-account-label,.payment-fee .payment-account-name span{display:block;color:#687b71;font-size:.68rem;font-weight:800;letter-spacing:.035em;text-transform:uppercase}
-.payment-fee .payment-number{margin:1px 0 7px;color:#173f31;font-size:clamp(1.12rem,2.8vw,1.45rem);font-weight:900;letter-spacing:.035em;font-variant-numeric:tabular-nums}
-.payment-fee .payment-account-name{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.payment-fee .payment-account-name strong{color:#1c3e31;font-size:.83rem;font-weight:900}
-.payment-fee .payment-help{margin:12px 0 0;color:#355b49;font-size:.79rem;line-height:1.65}
-.payment-fee .payment-form-note{margin:7px 0 0;color:#63746a;font-size:.73rem;line-height:1.5}
-.payment-fee b{color:#173f31}
-@media(max-width:700px){.fee{padding:12px}.payment-fee .payment-fee-heading{align-items:flex-start;gap:7px}.payment-fee .payment-fee-heading strong{font-size:.9rem}.payment-fee .payment-method{grid-template-columns:78px minmax(0,1fr);gap:11px;padding:11px}.payment-fee .easypaisa-logo{max-width:76px;max-height:48px}.payment-fee .payment-number{font-size:1.12rem}.payment-fee .payment-account-name{gap:4px}.payment-fee .payment-account-name strong{font-size:.78rem}.payment-fee .payment-help{font-size:.76rem}}
+.form-note{margin:0 0 18px;padding:12px 16px;border:1px solid #b9dfcd;border-left:4px solid var(--green);border-radius:14px;background:linear-gradient(135deg,#f3fbf6 0%,#fff 100%);color:#234b3c;font-size:.82rem;line-height:1.6}.form-note p{margin:0}
 .sec{--c:var(--blue);margin:0 0 15px;overflow:hidden;border:1px solid var(--line);border-radius:15px;background:#fff}
 .sec.g{--c:var(--green)}.sec.b{--c:var(--blue)}
 .sec>h2{display:flex;align-items:center;gap:10px;padding:13px 16px;background:#edf3ff;color:#284f9b;font-size:.86rem;font-weight:900;letter-spacing:.035em}
@@ -129,19 +115,8 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
     <img src="../assets/logo-right.png" alt="District Sports Office Nowshera logo">
   </div>
   <div class="meta"><span>Registration No:<b>Assigned when you submit</b></span><span>Date of Registration:<b id="today"></b></span></div>
-  <div class="fee payment-fee" role="note" aria-label="Registration fee and Easypaisa payment instructions">
-    <div class="payment-fee-heading"><span class="payment-badge">Registration fee</span><strong>Please pay Rs. 500 before submitting this form.</strong></div>
-    <div class="payment-method">
-      <img class="easypaisa-logo" src="../assets/easypaisa.png" alt="Easypaisa" loading="lazy">
-      <div>
-        <div class="payment-method-name">Pay via Easypaisa</div>
-        <span class="payment-account-label">Account number</span>
-        <div class="payment-number" dir="ltr">03339095878</div>
-        <div class="payment-account-name"><span>Account name</span><strong>Waseem Shehzad Fida</strong></div>
-      </div>
-    </div>
-    <p class="payment-help">After paying, you may enter the receipt or transaction number in the field near the end of this form to help the organisers verify your payment. Your registration will remain <b>Pending</b> until an admin confirms the payment and updates the status. This is an instruction only; the existing registration and admin confirmation process is unchanged.</p>
-    <p class="payment-form-note">Please write names and addresses in English letters so they print correctly on your registration form.</p>
+  <div class="form-note" role="note" aria-label="Form instructions">
+    <p>Please write names and addresses in English letters so they print correctly on your registration form.</p>
   </div>
 
   <section class="sec b"><h2>1. PLAYER PERSONAL INFORMATION</h2><div class="body"><div class="pic"><div>
@@ -189,7 +164,6 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
     <p class="decl">I hereby declare that all the information provided in this registration form is true, correct and complete to the best of my knowledge and belief. I understand that the information may be used by the Directorate General of Sports, Khyber Pakhtunkhwa and the District Sports Office Nowshera for player registration, verification, record keeping, participation in sports activities/events and other sports-related official purposes.<br>I further undertake to provide correct and authentic information/documents whenever required.</p>
     <div class="r"><span class="lb">Player's Signature/Thumb Impression</span><div><canvas id="sig" width="560" height="130" aria-label="Signature pad"></canvas><button type="button" class="btn ghost sm signature-clear" id="clr">Clear signature</button></div></div>
     <div class="r"><label for="pname">Name of Player</label><input type="text" id="pname" required maxlength="100"></div>
-    <div class="r"><label for="pay">Fee receipt / transaction no. (Rs. 500)</label><input type="text" id="pay" maxlength="80" placeholder="Optional: helps the admin confirm faster"></div>
     <div class="r" id="locRow"><span class="lb">Location &amp; device</span><div>
       <p class="decl loc-desc">To prevent duplicate entries, the organisers record this device's ID and your current location on Google Maps. Tick the consent box, then press <b>Share my location</b> and choose <b>Allow</b> when your browser asks.</p>
       <label class="opts consent-label"><span><input type="checkbox" id="consent"> I consent to share my device ID and exact location with the organisers.</span></label>
@@ -203,7 +177,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   <a class="btn ghost" href="../participants/">Back to participants</a> <a class="btn ghost" href="../results/">Race results</a>
 </form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261029-4"></script><script src="../js/admin-accounts.js?v=20261029-3"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-1"></script><script src="../js/admin-accounts.js?v=20261030-1"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script>
 <script>
 const $ = id => document.getElementById(id), err = $("err");
 $("today").textContent = fmtDate(new Date());
@@ -411,7 +385,7 @@ async function buildRegistrationJob() {
     official_participation: official, event_name: official ? v("event") : "", event_date: official ? v("eventdate") : "",
     event_level: official ? ((document.querySelector('[name="evlevel"]:checked') || {}).value || "") : "", event_org: official ? v("org") : "",
     device_id: deviceId, fingerprint: fp, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, accuracy: loc ? loc.accuracy : null,
-    declaration_accepted: true, signature_name: v("pname"), payment_ref: v("pay"),
+    declaration_accepted: true, signature_name: v("pname"),
     photo_path: `${id}/photo.jpg`, cnic_front_path: `${id}/cnic_front.jpg`, cnic_back_path: `${id}/cnic_back.jpg`,
     certificate_path: cert ? `${id}/certificate.jpg` : "", other_doc_path: other ? `${id}/other.jpg` : "",
     photo_original_path: `${id}/photo_original.${extensionOf(photo)}`,

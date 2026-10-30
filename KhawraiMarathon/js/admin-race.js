@@ -332,7 +332,7 @@
       return;
     }
     // Fallback for older browsers that do not implement the dialog element.
-    if (confirm(`Reset the entire race session? This removes ${results.length} saved result record(s), resets the race to Scheduled and clears its timestamps and public announcement. Registrations, payments, funds and expenses will remain.`)) {
+    if (confirm(`Reset the entire race session? This removes ${results.length} saved result record(s), resets the race to Scheduled and clears its timestamps and public announcement. Registrations and participant records will remain.`)) {
       const typed = prompt('Type RESET to confirm:');
       if (String(typed || '').trim().toUpperCase() === 'RESET') fullResetRaceSession();
     }
@@ -386,7 +386,7 @@
       drawMessage(`Reset requests completed: race is Scheduled and ${removed} result records were removed, but the display could not refresh. Refresh race data to verify. ${refreshError}`, true);
     } else {
       resetForm();
-      drawMessage(`Full reset complete. Race is Scheduled, timestamps and public announcement are cleared, and ${removed} saved result record${removed === 1 ? '' : 's'} ${removed === 1 ? 'was' : 'were'} removed. Registrations, photos, payments, funds and expenses were not changed.`);
+      drawMessage(`Full reset complete. Race is Scheduled, timestamps and public announcement are cleared, and ${removed} saved result record${removed === 1 ? '' : 's'} ${removed === 1 ? 'was' : 'were'} removed. Registrations, photos and participant records were not changed.`);
     }
     setBusy(false);
   }

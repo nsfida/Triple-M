@@ -5,11 +5,11 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | File | Purpose |
 |---|---|
 | `index.html` | Official home page with key race details, quick links, prize information, Season Two photos and live registration-deadline banner (`/`) |
-| `participants/index.html` | Public runner directory, project funds, clickable player detail overlay, and admin-only player-list PDF exports (`/participants/`) |
+| `participants/index.html` | Public runner directory, clickable player detail overlay, and admin-only player-list PDF exports (`/participants/`) |
 | `results/index.html` | Public live race status, official leaderboard, podium prizes, and results PDF download (`/results/`) |
 | `about/index.html` | Detailed race story, Season One to Three timeline, invited communities, Season Two gallery and organiser contacts (`/about/`) |
-| `register/index.html` | Public registration page - the official Player Registration Form, with Rs. 500 fee notice (`/register/`) |
-| `admin/index.html` | Admin sign-in, registrations, cancellation, payment management, receiving and expense ledgers, race control and PDF reports (`/admin/`) |
+| `register/index.html` | Public registration page - the official Player Registration Form, with no fee or payment information (`/register/`) |
+| `admin/index.html` | Admin sign-in, registrations, cancellation, registration confirmation, owner-only project funds (receiving and expense ledgers), race control and PDF reports (`/admin/`) |
 | `sql/schema.sql` | Tables, Row Level Security, storage buckets and policies |
 | `sql/verify_marathon_results.sql` | Verifies result tables, RLS, blocked direct writes, and Realtime publication |
 | `sql/migrations/` | **Safe, re-runnable migrations. Run new files here in date order.** Migrations are additive and avoid destructive data changes. |
@@ -38,15 +38,17 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | View live official results and prize standings | yes | yes | yes |
 | Change race status, runner status and finish times | no | yes | yes |
 | Download official results PDF | yes | yes | yes |
-| Download receiving, expenses and combined statement PDFs | yes | yes | yes |
-| Confirm payment / edit / delete | no | yes | yes |
+| See, record, edit or delete Project Funds (receiving and expenses) and download their PDFs | **no** | **no** | **yes (nsfida only)** |
+| Confirm registration / edit / delete a registration | no | yes | yes |
 
-## Project funds
+## Project funds (nsfida only)
+- **Project Funds are private to the owner admin `nsfida`.** No public visitor, no other admin (including `waseemfida`) and no managed admin can see the section, read the data, record entries or download the funds PDFs. The *Project funds* tab, the Funds counter, the home-page shortcut and the public funds views no longer exist for anyone else. This is enforced in the database (migration `20261030_009_funds_owner_only.sql`), not only in the screens.
+- Other admins can still **Confirm registration** / **Mark as pending**; this changes the status only and never records money. Only nsfida sees the optional amount field when confirming. If a registration has a linked funds entry, only nsfida can mark it pending.
 - Project Funds now has two ledgers: **Receiving** (the existing contributions and registration-fee flow) and **Expenses** (expense date, category, description, payee, payment method, amount and optional receipt/reference).
-- Both admin entry screens support adding, editing and deleting expense entries. The public funds page is read-only and shows the records and totals.
+- Both ledgers support adding, editing and deleting entries for nsfida, on `/admin/` (Project funds tab) and on `/participants/#funds`.
 - Receiving and spending are independent ledgers. Expenses can be recorded even when they exceed collections; the net balance is total received minus total expenses and may be negative. The summary keeps the two totals separate and shows that signed net balance, plus donation and entry-fee subtotals.
-- **Receiving PDF**, **Expenses PDF**, and **Full statement PDF** are available from both the public funds page and the admin control centre. The combined statement includes separate totals, a dated ledger with running balance, and a clearly labeled ending balance that displays a minus sign when expenses exceed receipts.
-- **Confirm payment** keeps the existing behavior: positive amounts create a linked entry-fee row, and **Mark pending** removes that linked entry fee. Expense records are stored in a separate `expenses` table and do not alter the existing `funds` data.
+- **Receiving PDF**, **Expenses PDF**, and **Full statement PDF** are available to nsfida from the admin control centre and the participants page. The combined statement includes separate totals, a dated ledger with running balance, and a clearly labeled ending balance that displays a minus sign when expenses exceed receipts.
+- When nsfida confirms a registration with an amount above zero, a linked entry row is created; **Mark pending** by nsfida removes that linked row. The amount now defaults to 0 because the registration form no longer mentions any fee. Expense records are stored in a separate `expenses` table and do not alter the existing `funds` data.
 
 ## One registration per device, location, original images
 - Each browser gets a random device ID stored in three places (local storage, cookie, IndexedDB). The server stores it with a unique rule, so a second registration from the same device is refused, and the form checks this before the person starts.
@@ -60,13 +62,12 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - **Admin-only player-list PDFs.** From the public runner directory, signed-in admins can download All, Confirmed, Pending, or Cancelled player lists. Each landscape PDF includes the player photo, registration number, name, age, gender, public address and status; private contact details and identity documents are excluded. The branded title/logo appears on the first page, and the table is paginated to avoid overflow.
 - **Clickable player details.** Public visitors can open each runner card to view the name, age, gender and registered address. Signed-in admins get the secure full-detail overlay with edit, payment confirmation, registration PDF, photo/CNIC front/back downloads and other document links. The three-dot menu remains available for quick actions; the Admin registrations table consolidates each runner's PDF, files, edit, payment/status, cancel/restore and delete actions into one floating dropdown. Donations in the funds tab have edit/delete too.
 - **Reliable registration PDFs on clean routes.** The PDF builder and registration-form template resolve relative to their script files, so downloads work from nested routes such as `/admin/` and `/participants/`. jsPDF loading also has a fallback CDN.
-- **Project funds tabs.** The public page has *Runners* and *Project funds* tabs (`/participants/#funds` opens the funds tab directly); Project Funds is divided into *Receiving* and *Expenses*.
+- **Project funds tab (nsfida only).** Signed in as nsfida, `/participants/` shows *Runners* and *Project funds* tabs (`/participants/#funds` opens the funds tab). Everyone else sees only the runner directory.
 - **Reversible cancellation.** Admins can cancel or restore a runner without deleting the registration or changing its payment status. Cancelled runners remain in the public *All* list with clear red crossing lines; existing receiving records are preserved.
 
 ## Registration deadline (migration 20261028_005)
 - The public registration deadline is **05 November 2026 at 11:59 PM Pakistan Standard Time (UTC+05:00)**. The shared `js/registration-ui.js` component shows the same second-by-second countdown and right-to-left announcement strip on Participants, Results, About, Register and Admin routes. After the cutoff, all public registration links are replaced by **Registration Ends**, and the direct registration page displays a closed state. Verified admins retain their post-deadline registration path.
 - Deadline enforcement is server-side: PostgreSQL rejects new non-admin registration RPC calls and storage uploads after the cutoff. Only the two verified admin JWT emails can continue creating registrations after the deadline. Changing page HTML, JavaScript, or browser time does not bypass the database check. Existing registrations and funds are not rewritten.
-- The public Project Funds receiving ledger now shows a **Type** column (Donation or Entry fee) using fields already exposed by the public-safe `public_funds` view.
 
 ## Fast loading and local-first saving
 - Public participant/fund data is cached in local storage and drawn before a fresh background refresh. Admin list caches use session storage because they include private contact fields.
@@ -141,3 +142,17 @@ Race results can be edited after the race is marked Completed while they remain 
 - The account modal re-checks the current session and permissions every time it opens. Admin account creation and feature access changes continue to use the existing protected Edge Function and database RPCs; no SQL migration was added for this styling/navigation change.
 - Public `/results/` and `/results/manage/` use the same shared header/registration button layout as other site routes. The separate public-results header override is no longer loaded.
 - Removed the Runner result updates summary/counts, result metrics tiles, and CSV export UI/logic. Runner searching, status filters, sorting, individual results, and bulk status updates remain available.
+
+
+## Registration fee removal and owner-only Project Funds (30 October 2026)
+
+**Registration form** (`/register/`): the Rs. 500 registration-fee notice, the Easypaisa payment block (logo, account number and account name) and the "Fee receipt / transaction no." field were removed completely, and `assets/easypaisa.png` was deleted. The form now shows only the English-letters reminder. New registrations send no payment reference. Existing `payment_ref` values stay in the database untouched; the admin screens no longer display or edit them.
+
+**Admin and public pages**: "Confirm payment" is now **Confirm registration**, the *Payment ref* column and payment-reference fields were removed, and `KMR.FEE` was removed from `js/config.js`.
+
+**Project Funds restricted to nsfida**
+- Run `sql/migrations/20261030_009_funds_owner_only.sql` after migration 008, then `sql/verify_funds_owner_only.sql` (all rows should show `ok = expected`).
+- The migration adds `is_funds_owner()`, makes `admin_has_feature('funds')` and `admin_my_permissions()` true for nsfida only, rebuilds the `funds` and `expenses` row-level-security policies around `is_funds_owner()`, drops the public `public_funds` and `public_expenses` views, clears `can_funds` on every managed admin account and blocks it with a check constraint, and updates `confirm_payment` / `unconfirm_payment` so that non-owner admins can only change status. Managed accounts that had *only* funds access are deactivated, because they would have no remaining feature.
+- The **Funds and expenses** checkbox was removed from *Admin accounts & access*, and the `admin-account` Edge Function now always creates accounts without funds access. **Redeploy the Edge Function** (`supabase functions deploy admin-account`).
+- Existing funds and expenses rows are preserved. Old cached public funds lists in visitors' browsers are purged automatically.
+- Home page: the "Project funds" shortcut was removed and the remaining cards were renumbered.

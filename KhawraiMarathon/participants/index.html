@@ -40,7 +40,7 @@
 <header class="top">
   <div class="in">
     <a class="logo-link" href="../" aria-label="Khawrai Marathon Race home"><img class="logo" id="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
-    <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Race-day stories, runner directory and transparent community funds.</p></div>
+    <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Race-day stories and the runner directory.</p></div>
     <div class="header-actions"><div class="header-utilities"><div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="../register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off">CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
     <div class="profile-mount"></div></div></div>
   </div>
@@ -54,16 +54,16 @@
 </nav>
 <div class="results-shortcut"><a href="../results/"><strong>🏁 Follow the marathon live</strong><span>Results, podium and prizes →</span></a></div>
 
-<section class="score" aria-label="Summary"><div class="row">
+<section class="score" aria-label="Summary"><div class="row no-funds" id="scoreRow">
   <div class="c"><b id="sAll">–</b><span>Registered</span></div>
   <div class="c g"><b id="sOk">–</b><span>Confirmed</span></div>
   <div class="c a"><b id="sPend">–</b><span>Pending</span></div>
-  <div class="c"><b id="sFund">–</b><span>Funds</span></div>
+  <div class="c" id="sFundCard" hidden><b id="sFund">–</b><span>Funds</span></div>
 </div></section>
 
-<nav class="tabbar" aria-label="Sections"><div class="in" role="tablist">
+<nav class="tabbar" id="fundTabbar" aria-label="Sections" hidden><div class="in" role="tablist">
   <button role="tab" id="tabRun" aria-controls="panRun" aria-selected="true">Runners <span class="n" id="nRun">0</span></button>
-  <button role="tab" id="tabFund" aria-controls="panFund" aria-selected="false" tabindex="-1">Project funds <span class="n" id="nFund">0</span></button>
+  <button role="tab" id="tabFund" aria-controls="panFund" aria-selected="false" tabindex="-1" hidden>Project funds <span class="n" id="nFund">0</span></button>
 </div></nav>
 
 <main class="wrap">
@@ -92,7 +92,7 @@
   </section>
 
   <section id="panFund" role="tabpanel" aria-labelledby="tabFund" hidden>
-    <p class="msg">Receiving and expenses are tracked separately. Record spending regardless of how much has been collected; the net balance can be negative.</p>
+    <p class="msg">Private to nsfida. Receiving and expenses are tracked separately. Record spending regardless of how much has been collected; the net balance can be negative.</p>
     <div class="fsum funds-summary">
       <div class="c main"><b id="fTotal">Rs. 0</b><span>Total received</span></div>
       <div class="c"><b id="fExpense">Rs. 0</b><span>Total expenses</span></div>
@@ -128,10 +128,11 @@
 <footer>Khawrai Marathon Race Season Three &middot; <a href="../results/">Live race results</a> &middot; <a href="../about/">About the race</a> &middot; <a id="footLink" href="../admin/">Admin sign in</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261029-4"></script><script src="../js/admin-accounts.js?v=20261029-3"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js"></script><script src="../js/player-list-pdf.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-1"></script><script src="../js/admin-accounts.js?v=20261030-1"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js?v=20261030-1"></script><script src="../js/player-list-pdf.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-let all = [], funds = [], expenses = [], filter = "all", admin = "", menuEl = null, menuBtn = null;
+let all = [], funds = [], expenses = [], filter = "all", admin = "", owner = false, menuEl = null, menuBtn = null;
+// Project Funds are visible to, and editable by, the owner (nsfida) only. Everyone else never sees the tab, the data or the totals.
 
 // Registration deadline UI is shared across every route by js/registration-ui.js.
 
@@ -150,7 +151,7 @@ const kebab = label => admin ? `<button class="kebab" aria-haspopup="menu" aria-
 
 // ---------- tabs ----------
 function setTab(t, push) {
-  const f = t === "funds";
+  const f = t === "funds" && owner;
   $("panRun").hidden = f; $("panFund").hidden = !f;
   $("tabRun").setAttribute("aria-selected", !f); $("tabFund").setAttribute("aria-selected", f);
   $("tabRun").tabIndex = f ? -1 : 0; $("tabFund").tabIndex = f ? 0 : -1;
@@ -159,7 +160,7 @@ function setTab(t, push) {
 }
 $("tabRun").onclick = () => setTab("runners", true); $("tabFund").onclick = () => setTab("funds", true);
 document.querySelector("[role=tablist]").addEventListener("keydown", e => {
-  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if (!owner || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
   const f = e.key === "ArrowRight"; setTab(f ? "funds" : "runners", true); $(f ? "tabFund" : "tabRun").focus();
 });
 window.addEventListener("hashchange", () => setTab(location.hash === "#funds" ? "funds" : "runners"));
@@ -265,24 +266,24 @@ function renderFundSummary() {
 }
 function renderFunds() {
   renderFundSummary();
-  const cols = admin ? 7 : 5;
-  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th>Type</th>${admin ? '<th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
+  const cols = owner ? 7 : 5;
+  $("fh").innerHTML = `<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th>Type</th>${owner ? '<th class="hm">Date</th>' : ""}<th class="amt">Rs.</th>${owner ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
   $("fb").innerHTML = funds.length ? funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td>
-    <td>${esc(f.donor_name)}${admin ? `<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
+    <td>${esc(f.donor_name)}${owner ? `<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small>` : ""}</td><td>${esc(f.mohallah)}</td>
     <td><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee" + (f.reference ? " " + esc(f.reference) : "") : "Donation"}</span></td>
-    ${admin ? `<td class="hm">${fmtDate(f.created_at)}</td>` : ""}
+    ${owner ? `<td class="hm">${fmtDate(f.created_at)}</td>` : ""}
     <td class="amt">${Number(f.amount).toLocaleString("en-US")}</td>
-    ${admin ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
+    ${owner ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
     : `<tr><td colspan="${cols}" class="empty">No receiving entries recorded yet.</td></tr>`;
-  $("ff").innerHTML = `<tr><td class="hn"></td><td>Total received</td><td></td><td></td>${admin ? '<td class="hm"></td>' : ""}<td class="amt">${rs(funds.reduce((t, f) => t + Number(f.amount), 0))}</td>${admin ? "<td></td>" : ""}</tr>`;
+  $("ff").innerHTML = `<tr><td class="hn"></td><td>Total received</td><td></td><td></td>${owner ? '<td class="hm"></td>' : ""}<td class="amt">${rs(funds.reduce((t, f) => t + Number(f.amount), 0))}</td>${owner ? "<td></td>" : ""}</tr>`;
 }
 function renderExpenses() {
   renderFundSummary();
   const adminCols = 8, publicCols = 6;
-  $("fxh").innerHTML = `<tr><th class="hn">#</th><th>Date</th><th>Category</th><th>Details</th><th>Paid to</th>${admin ? '<th class="hm">Payment</th>' : ""}<th class="amt">Rs.</th>${admin ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
-  $("fxb").innerHTML = expenses.length ? expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i + 1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td>${admin ? `<td class="hm">${esc(x.payment_method || "Cash")}</td>` : ""}<td class="amt">${Number(x.amount).toLocaleString("en-US")}</td>${admin ? `<td class="act"><button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="Edit options for expense ${esc(x.description)}">${ICON.dots}</button></td>` : ""}</tr>`).join("")
-    : `<tr><td colspan="${admin ? adminCols : publicCols}" class="empty">No expenses recorded yet.</td></tr>`;
-  $("fxf").innerHTML = `<tr><td class="hn"></td><td colspan="${admin ? 5 : 4}">Total expenses</td><td class="amt">${rs(expenses.reduce((t, x) => t + Number(x.amount), 0))}</td>${admin ? "<td></td>" : ""}</tr>`;
+  $("fxh").innerHTML = `<tr><th class="hn">#</th><th>Date</th><th>Category</th><th>Details</th><th>Paid to</th>${owner ? '<th class="hm">Payment</th>' : ""}<th class="amt">Rs.</th>${owner ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
+  $("fxb").innerHTML = expenses.length ? expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i + 1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td>${owner ? `<td class="hm">${esc(x.payment_method || "Cash")}</td>` : ""}<td class="amt">${Number(x.amount).toLocaleString("en-US")}</td>${owner ? `<td class="act"><button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="Edit options for expense ${esc(x.description)}">${ICON.dots}</button></td>` : ""}</tr>`).join("")
+    : `<tr><td colspan="${owner ? adminCols : publicCols}" class="empty">No expenses recorded yet.</td></tr>`;
+  $("fxf").innerHTML = `<tr><td class="hn"></td><td colspan="${owner ? 5 : 4}">Total expenses</td><td class="amt">${rs(expenses.reduce((t, x) => t + Number(x.amount), 0))}</td>${owner ? "<td></td>" : ""}</tr>`;
 }
 
 // ---------- data ----------
@@ -299,26 +300,28 @@ async function loadRunners() {
   } catch (e) { if (!Array.isArray(cached)) $("count").textContent = "The list is unavailable right now. Check your connection and refresh."; KMRUI.hideLoading(); }
 }
 async function loadFunds() {
-  const key = admin ? "admin-funds" : "public-funds", privateData = !!admin;
-  const cached = KMRStore.get(key, privateData);
+  if (!owner) { funds = []; return; }
+  const key = "admin-funds";
+  const cached = KMRStore.get(key, true);
   if (Array.isArray(cached)) { funds = cached; renderFunds(); KMRUI.hideLoading(); }
   try {
-    const res = admin ? await sb.from("funds").select("*").order("created_at", { ascending: true }) : await sb.from("public_funds").select("*").order("created_at", { ascending: true }).limit(5000);
-    if (res.error) { if (!Array.isArray(cached)) $("fb").innerHTML = `<tr><td colspan="${admin ? 7 : 5}">The funds list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); return; }
-    funds = res.data || []; KMRStore.set(key, funds, privateData); renderFunds(); KMRUI.hideLoading();
-  } catch (e) { if (!Array.isArray(cached)) $("fb").innerHTML = `<tr><td colspan="${admin ? 7 : 5}">The funds list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); }
+    const res = await sb.from("funds").select("*").order("created_at", { ascending: true });
+    if (res.error) { if (!Array.isArray(cached)) $("fb").innerHTML = `<tr><td colspan="7">The funds list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); return; }
+    funds = res.data || []; KMRStore.set(key, funds, true); renderFunds(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) $("fb").innerHTML = `<tr><td colspan="7">The funds list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); }
 }
 async function loadExpenses() {
-  const key = admin ? "admin-expenses" : "public-expenses", privateData = !!admin;
-  const cached = KMRStore.get(key, privateData);
+  if (!owner) { expenses = []; return; }
+  const key = "admin-expenses";
+  const cached = KMRStore.get(key, true);
   if (Array.isArray(cached)) { expenses = cached; renderExpenses(); KMRUI.hideLoading(); }
   try {
-    const res = admin ? await sb.from("expenses").select("*").order("expense_date", { ascending: true }).order("created_at", { ascending: true }) : await sb.from("public_expenses").select("*").order("expense_date", { ascending: true }).order("created_at", { ascending: true }).limit(5000);
-    if (res.error) { if (!Array.isArray(cached)) $("fxb").innerHTML = `<tr><td colspan="${admin ? 8 : 6}">The expenses list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); return; }
-    expenses = res.data || []; KMRStore.set(key, expenses, privateData); renderExpenses(); KMRUI.hideLoading();
-  } catch (e) { if (!Array.isArray(cached)) $("fxb").innerHTML = `<tr><td colspan="${admin ? 8 : 6}">The expenses list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); }
+    const res = await sb.from("expenses").select("*").order("expense_date", { ascending: true }).order("created_at", { ascending: true });
+    if (res.error) { if (!Array.isArray(cached)) $("fxb").innerHTML = `<tr><td colspan="8">The expenses list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); return; }
+    expenses = res.data || []; KMRStore.set(key, expenses, true); renderExpenses(); KMRUI.hideLoading();
+  } catch (e) { if (!Array.isArray(cached)) $("fxb").innerHTML = `<tr><td colspan="8">The expenses list is unavailable right now.</td></tr>`; KMRUI.hideLoading(); }
 }
-const reload = () => Promise.all([loadRunners(), loadFunds(), loadExpenses()]);
+const reload = () => Promise.all([loadRunners(), ...(owner ? [loadFunds(), loadExpenses()] : [])]);
 window.addEventListener("kmr:optimistic-registration", e => {
   if (!admin || !e.detail || !e.detail.row) return;
   const row = e.detail.row, idx = all.findIndex(x => x.id === row.id);
@@ -326,11 +329,13 @@ window.addEventListener("kmr:optimistic-registration", e => {
   KMRStore.set("admin-runners", all, true); renderRunners();
 });
 window.addEventListener("kmr:optimistic-funds", () => {
-  const cached = KMRStore.get(admin ? "admin-funds" : "public-funds", !!admin);
+  if (!owner) return;
+  const cached = KMRStore.get("admin-funds", true);
   if (Array.isArray(cached)) { funds = cached; renderFunds(); }
 });
 window.addEventListener("kmr:optimistic-expenses", () => {
-  const cached = KMRStore.get(admin ? "admin-expenses" : "public-expenses", !!admin);
+  if (!owner) return;
+  const cached = KMRStore.get("admin-expenses", true);
   if (Array.isArray(cached)) { expenses = cached; renderExpenses(); }
 });
 window.addEventListener("kmr:admin-sync-complete", () => { reload(); });
@@ -345,7 +350,7 @@ function openMenu(btn) {
   if (isExpense) html = item("exedit", "Edit expense", "edit") + "<hr>" + item("exdel", "Delete expense", "del", "bad");
   else if (isFund) html = item("fedit", "Edit entry", "edit") + "<hr>" + item("fdel", "Delete entry", "del", "bad");
   else { const r = all.find(x => x.id === id);
-    html = (r.is_cancelled ? item("restore", "Restore player", "undo", "good") : item("cancel", "Cancel player", "cancel", "bad")) + (!r.is_cancelled ? (r.status === "confirmed" ? item("unconfirm", "Mark as pending", "undo") : item("confirm", "Confirm payment", "ok", "good")) : "") + item("edit", "Edit details", "edit") + item("files", "Files &amp; details", "file") + item("pdf", "Download PDF", "pdf") + "<hr>" + item("del", "Delete runner", "del", "bad"); }
+    html = (r.is_cancelled ? item("restore", "Restore player", "undo", "good") : item("cancel", "Cancel player", "cancel", "bad")) + (!r.is_cancelled ? (r.status === "confirmed" ? item("unconfirm", "Mark as pending", "undo") : item("confirm", "Confirm registration", "ok", "good")) : "") + item("edit", "Edit details", "edit") + item("files", "Files &amp; details", "file") + item("pdf", "Download PDF", "pdf") + "<hr>" + item("del", "Delete runner", "del", "bad"); }
   menuEl = document.createElement("div"); menuEl.className = "menu menu-floating"; menuEl.setAttribute("role", "menu"); menuEl.innerHTML = html; menuEl.dataset.id = id;
   // A body-level fixed menu escapes table overflow and stacking contexts on desktop and mobile.
   document.body.appendChild(menuEl); btn.setAttribute("aria-expanded", "true"); menuBtn = btn;
@@ -394,7 +399,14 @@ $("downloadStatementPdf").onclick = e => KMRAdmin.fundsPdf("statement", funds, e
 async function applyAdmin(u) {
   if (u === admin && u !== undefined && applyAdmin.done) return;
   applyAdmin.done = true; admin = u || ""; closeMenu();
-  $("addFund").hidden = !admin; $("addExpense").hidden = !admin;
+  // Server-confirmed owner permission decides whether any Project Funds UI exists at all.
+  if (admin && !KMRAuth.permissions()) await KMRAuth.refreshPermissions();
+  owner = !!(admin && KMRAuth.canFunds());
+  if (!owner) { funds = []; expenses = []; if (window.KMRPurgeFundsCache) window.KMRPurgeFundsCache(true); }
+  $("tabFund").hidden = !owner; $("fundTabbar").hidden = !owner; $("sFundCard").hidden = !owner; $("scoreRow").classList.toggle("no-funds", !owner);
+  $("addFund").hidden = !owner; $("addExpense").hidden = !owner;
+  if (!owner && location.hash === "#funds") history.replaceState(null, "", location.pathname + location.search);
+  setTab(owner && location.hash === "#funds" ? "funds" : "runners");
   $("playerPdfDropdown").hidden = !admin;
   if (!admin) $("playerPdfDropdown").open = false;
   $("footLink").textContent = admin ? "Admin panel" : "Admin sign in";

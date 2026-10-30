@@ -2,7 +2,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   let wired = false, owner = false, loading = false, activeDialog = null;
-  const featureLabels = { registrations: 'Registrations', funds: 'Funds and expenses', results: 'Race results' };
+  const featureLabels = { registrations: 'Registrations', results: 'Race results' };
 
   const isOwner = (perms, username) => String(username || '').trim().toLowerCase() === 'nsfida'
     && !!(perms && perms.is_owner === true && perms.can_manage_admins === true);
@@ -33,14 +33,13 @@
         </header>
         <div class="managed-admin-dialog-content">
           <section class="managed-admins-panel" id="adminAccountsPanel" aria-labelledby="adminAccountsPanelTitle">
-            <div class="managed-admin-section-intro"><div><span class="managed-admin-kicker">ACCESS MANAGEMENT</span><h3 id="adminAccountsPanelTitle">Create a new admin</h3><p>Built-in admin accounts are protected. Give each organiser only the features they need.</p></div></div>
+            <div class="managed-admin-section-intro"><div><span class="managed-admin-kicker">ACCESS MANAGEMENT</span><h3 id="adminAccountsPanelTitle">Create a new admin</h3><p>Built-in admin accounts are protected. Give each organiser only the features they need. Project Funds are reserved for nsfida and cannot be delegated.</p></div></div>
             <form id="createAdminForm" class="managed-admin-create-form">
               <label>Display name<input id="newAdminDisplayName" maxlength="100" required placeholder="Admin name" autocomplete="name"></label>
               <label>Username<input id="newAdminUsername" required minlength="2" maxlength="40" pattern="[A-Za-z0-9][A-Za-z0-9._-]{1,39}" autocomplete="off" placeholder="username"><small>Login will be username@khawrai.app</small></label>
               <label>Temporary password<input id="newAdminPassword" type="password" minlength="10" required autocomplete="new-password" placeholder="At least 10 characters"><small>Share this temporary password privately.</small></label>
               <fieldset class="admin-feature-checks"><legend>Allow access to</legend>
                 <label><input type="checkbox" id="newAdminCanRegistrations"> Registrations</label>
-                <label><input type="checkbox" id="newAdminCanFunds"> Funds and expenses</label>
                 <label><input type="checkbox" id="newAdminCanResults" checked> Race results</label>
               </fieldset>
               <button class="btn" id="createAdminSubmit" type="submit">Create admin account</button>
@@ -67,7 +66,7 @@
 
   const selectedFlags = root => ({
     can_registrations: !!root.querySelector('[data-flag="registrations"]')?.checked,
-    can_funds: !!root.querySelector('[data-flag="funds"]')?.checked,
+    can_funds: false, // Project Funds are reserved for nsfida only.
     can_results: !!root.querySelector('[data-flag="results"]')?.checked,
     is_active: !!root.querySelector('[data-flag="active"]')?.checked
   });
@@ -77,7 +76,6 @@
     const emailAttr = esc(email);
     const flags = [
       ['registrations', featureLabels.registrations, account.can_registrations],
-      ['funds', featureLabels.funds, account.can_funds],
       ['results', featureLabels.results, account.can_results],
       ['active', 'Account active', account.is_active]
     ];
@@ -114,10 +112,10 @@
     const password = $('newAdminPassword').value;
     const flags = {
       can_registrations: $('newAdminCanRegistrations').checked,
-      can_funds: $('newAdminCanFunds').checked,
+      can_funds: false,
       can_results: $('newAdminCanResults').checked
     };
-    if (!flags.can_registrations && !flags.can_funds && !flags.can_results) return showMessage('Select at least one feature for this account.', true);
+    if (!flags.can_registrations && !flags.can_results) return showMessage('Select Registrations or Race results for this account.', true);
     if (!/^[a-z0-9][a-z0-9._-]{1,39}$/.test(username)) return showMessage('Username must be 2–40 characters and use letters, numbers, dots, underscores or hyphens.', true);
     if (password.length < 10) return showMessage('Use a temporary password with at least 10 characters.', true);
     button.disabled = true; showMessage('Creating the admin account securely…');
@@ -146,7 +144,7 @@
     const email = card.dataset.adminEmail;
     const displayName = card.querySelector('.managed-admin-card-head strong')?.textContent.trim() || email.split('@')[0];
     const flags = selectedFlags(card);
-    if (flags.is_active && !flags.can_registrations && !flags.can_funds && !flags.can_results) {
+    if (flags.is_active && !flags.can_registrations && !flags.can_results) {
       showMessage(`Enable at least one feature or disable ${email}.`, true); return;
     }
     const button = card.querySelector('[data-save-admin]');

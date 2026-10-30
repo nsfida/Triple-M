@@ -40,13 +40,14 @@ Deno.serve(async (req: Request) => {
   const displayName = String(body.display_name || '').trim().slice(0, 100);
   const password = String(body.password || '');
   const canRegistrations = body.can_registrations === true;
-  const canFunds = body.can_funds === true;
+  // Project Funds belong to the owner (nsfida) only; managed admins can never receive this permission.
+  const canFunds = false;
   const canResults = body.can_results === true;
   if (!/^[a-z0-9][a-z0-9._-]{1,39}$/.test(username)) return json(400, { error: 'Username must be 2-40 characters and use letters, numbers, dots, underscores or hyphens.' });
   if (['nsfida', 'waseemfida'].includes(username)) return json(400, { error: 'This username is reserved for a built-in admin.' });
   if (password.length < 10) return json(400, { error: 'Use a temporary password with at least 10 characters.' });
   if (!displayName) return json(400, { error: 'Enter the admin display name.' });
-  if (!canRegistrations && !canFunds && !canResults) return json(400, { error: 'Enable at least one feature for this admin.' });
+  if (!canRegistrations && !canResults) return json(400, { error: 'Enable Registrations or Race results for this admin.' });
 
   const email = `${username}@${DOMAIN}`;
   const { data: created, error: createError } = await service.auth.admin.createUser({

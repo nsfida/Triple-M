@@ -10,10 +10,13 @@
   let ready = false;
 
   const HTML = `
-<dialog id="kPay"><form method="dialog" id="kPayF"><h2>Confirm payment</h2><p class="dlg-sub" id="kPayWho"></p>
-  <label for="kPa">Amount received (Rs.) - enter 0 for status-only confirmation</label><input id="kPa" type="number" min="0" step="1" inputmode="numeric" required>
-  <label for="kPm">Mohallah</label><input id="kPm" required maxlength="100">
-  <p class="msg bad" id="kPayE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Confirm payment</button></div></form></dialog>
+<dialog id="kPay"><form method="dialog" id="kPayF"><h2>Confirm registration</h2><p class="dlg-sub" id="kPayWho"></p>
+  <p class="dlg-sub" id="kPayStatusNote">This marks the registration as Confirmed. No amount is recorded.</p>
+  <div id="kPayFundsFields" hidden>
+    <label for="kPa">Amount received (Rs.) - enter 0 for status-only confirmation</label><input id="kPa" type="number" min="0" step="1" inputmode="numeric" value="0">
+    <label for="kPm">Mohallah</label><input id="kPm" maxlength="100">
+  </div>
+  <p class="msg bad" id="kPayE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn">Confirm registration</button></div></form></dialog>
 
 <dialog id="kEdit"><form method="dialog" id="kEditF"><h2>Edit runner</h2><p class="dlg-sub" id="kEditWho"></p>
   <div class="two"><div><label for="kEn">Name</label><input id="kEn" required maxlength="100"></div><div><label for="kEf">Father's name</label><input id="kEf" required maxlength="100"></div></div>
@@ -22,7 +25,6 @@
   <label for="kEe">Email</label><input id="kEe" type="email" maxlength="150">
   <label for="kEa">Permanent address</label><input id="kEa" required maxlength="200">
   <div class="two"><div><label for="kEt">District / Tehsil</label><input id="kEt" required maxlength="100"></div><div><label for="kEs">Sport</label><input id="kEs" required maxlength="100"></div></div>
-  <label for="kEp">Payment receipt / reference</label><input id="kEp" maxlength="80">
   <div class="k-edit-photo"><div class="k-edit-photo-preview" id="kEditPhotoFrame"><img id="kEditPhotoPreview" alt="Current player photo" hidden><span id="kEditPhotoInitial">K</span></div><div class="k-edit-photo-copy"><label for="kEditPhoto">Replace player photo (optional)</label><input id="kEditPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"><small>High-quality optimized copy used on the website. The original file is kept privately for admin records until replacement is saved, then the previous photo and its original are deleted.</small></div></div>
   <p class="msg bad" id="kEditE" hidden></p><div class="row"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn" type="submit">Save changes</button></div></form></dialog>
 
@@ -88,7 +90,7 @@
   }
   function mutateFundCaches(row, opts = {}) {
     const { removeId = null, syntheticId = null, removeRegistrationId = null, removeReference = null, removeOnly = false } = opts;
-    for (const [key, priv] of [["admin-funds", true], ["public-funds", false]]) {
+    for (const [key, priv] of [["admin-funds", true]]) {
       const current = KMRStore.get(key, priv); if (!Array.isArray(current)) continue;
       let next = current.filter(x => x.id !== removeId && (!syntheticId || x.id !== syntheticId) && !((removeRegistrationId && x.registration_id === removeRegistrationId || removeReference && x.reference === removeReference) && x.source === "registration"));
       if (row && !removeOnly) {
@@ -101,7 +103,7 @@
   }
   function mutateExpenseCaches(row, opts = {}) {
     const { removeId = null } = opts;
-    for (const [key, priv] of [["admin-expenses", true], ["public-expenses", false]]) {
+    for (const [key, priv] of [["admin-expenses", true]]) {
       const current = KMRStore.get(key, priv); if (!Array.isArray(current)) continue;
       let next = current.filter(x => x.id !== removeId);
       if (row) { const idx = next.findIndex(x => x.id === row.id); if (idx >= 0) next[idx] = { ...next[idx], ...row }; else next.push(row); }
@@ -120,11 +122,16 @@
   }
   const transientError = error => !navigator.onLine || /failed to fetch|network|timeout|load failed|connection|fetch is aborted|aborterror/i.test(String(error && (error.message || error) || ""));
   async function processAction(action) {
+    // Project Funds are owner-only. Queued ledger writes made under another account are dropped, never retried.
+    if ((action.type === "fund-save" || action.type === "expense-save") && !KMRAuth.canFunds()) {
+      return { discard: true, error: new Error("Project Funds can only be changed by nsfida. The pending entry was discarded.") };
+    }
     if (action.type === "confirm") {
       const q = await sb.from("registrations").select("id,status").eq("id", action.rowId).maybeSingle();
       if (q.error) return { retry: true, error: q.error };
       if (!q.data) return { retry: true, error: new Error("Registration not found while syncing confirmation.") };
       if (q.data.status === "confirmed") {
+        if (!KMRAuth.canFunds()) return { done: true };
         const fq = await sb.from("funds").select("amount").eq("registration_id", action.rowId).eq("source", "registration");
         if (fq.error) return { retry: true, error: fq.error };
         const amounts = (fq.data || []).map(f => Number(f.amount));
@@ -143,6 +150,7 @@
       if (q.error) return { retry: true, error: q.error };
       if (q.data && q.data.status === "pending") return { done: true };
       const { error } = await sb.rpc("unconfirm_payment", { p_id: action.rowId });
+      if (error && /only nsfida/i.test(error.message || "")) return { invalid: true, error };
       return error ? { retry: true, error } : { done: true };
     }
     if (action.type === "player-cancel") {
@@ -199,6 +207,9 @@
         if (result.done) {
           const cb = outboxCallbacks.get(action.id); dequeue(action.id);
           if (cb) cb(); else window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
+        } else if (result.discard) {
+          dequeue(action.id); toast(result.error.message, true);
+          window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
         } else if (result.conflict) {
           const cb = outboxCallbacks.get(action.id); dequeue(action.id);
           if (action.type === "confirm" && action.row) { action.row.status = "confirmed"; publishRegistration(action.row); mutateFundCaches(null, { syntheticId: `local-confirm-${action.row.id}`, removeOnly: true }); }
@@ -225,16 +236,22 @@
   let payRow = null, payDone = null;
   function pay(r, done) {
     init(); payRow = r; payDone = done;
-    $("kPayWho").textContent = `${r.reg_no} · ${r.name}`; $("kPa").value = C.FEE; $("kPm").value = r.district_tehsil || ""; $("kPayE").hidden = true;
-    $("kPay").showModal(); $("kPa").select();
+    // Only the owner (nsfida) can record money. Every other admin confirms the status only.
+    const owner = KMRAuth.canFunds();
+    $("kPayWho").textContent = `${r.reg_no} · ${r.name}`; $("kPa").value = 0; $("kPm").value = r.district_tehsil || ""; $("kPayE").hidden = true;
+    $("kPayFundsFields").hidden = !owner; $("kPayStatusNote").hidden = owner;
+    $("kPay").showModal(); if (owner) $("kPa").select();
     $("kPayF").onsubmit = async e => {
       e.preventDefault();
-      const rawAmount = $("kPa").value.trim(), amount = Number(rawAmount);
-      if (rawAmount === "" || !Number.isFinite(amount) || amount < 0) {
-        $("kPayE").textContent = "Enter 0 or a positive whole-number amount."; $("kPayE").hidden = false; return;
+      let amount = 0;
+      if (owner) {
+        const rawAmount = $("kPa").value.trim(); amount = Number(rawAmount);
+        if (rawAmount === "" || !Number.isFinite(amount) || amount < 0) {
+          $("kPayE").textContent = "Enter 0 or a positive whole-number amount."; $("kPayE").hidden = false; return;
+        }
       }
       const action = { id: `confirm:${payRow.id}`, type: "confirm", rowId: payRow.id, row: { ...payRow }, oldStatus: payRow.status,
-        amount: Math.round(amount), mohallah: $("kPm").value.trim() || payRow.district_tehsil || "" };
+        amount: Math.round(amount), mohallah: owner ? ($("kPm").value.trim() || payRow.district_tehsil || "") : (payRow.district_tehsil || "") };
       if (!enqueue(action, payDone)) { $("kPayE").textContent = "Local storage is unavailable. No change was made."; $("kPayE").hidden = false; return; }
       payRow.status = "confirmed"; publishRegistration(payRow); optimisticFee(action, payRow);
       $("kPay").close(); toast(navigator.onLine ? `${payRow.reg_no} confirmed locally; syncing…` : `${payRow.reg_no} saved locally; sync will resume online`);
@@ -242,8 +259,9 @@
     };
   }
   async function unconfirm(r, done) {
-    if (!confirm(`Mark ${r.reg_no} as pending? Its fee entry will be removed from the project funds.`)) return;
-    const action = { id: `unconfirm:${r.id}`, type: "unconfirm", rowId: r.id, row: { ...r }, oldStatus: r.status };
+    const owner = KMRAuth.canFunds();
+    if (!confirm(owner ? `Mark ${r.reg_no} as pending? Any linked entry in Project Funds will be removed.` : `Mark ${r.reg_no} as pending?`)) return;
+    const action = { id: `unconfirm:${r.id}`, type: "unconfirm", rowId: r.id, row: { ...r }, oldRow: { ...r }, oldStatus: r.status };
     if (!enqueue(action, done)) return toast("Local storage is unavailable. No change was made.", true);
     r.status = "pending"; publishRegistration(r); optimisticFee(action, r, true);
     toast(navigator.onLine ? `${r.reg_no} marked pending locally; syncing…` : `${r.reg_no} marked pending locally; sync will resume online`);
@@ -340,7 +358,7 @@
     $("kEditWho").textContent = `${r.reg_no} · registered ${fmtDate(r.created_at)}`;
     $("kEn").value = r.name || ""; $("kEf").value = r.father_name || ""; $("kEc").value = fmtCnic(r.cnic); $("kEm").value = fmtMob(r.mobile);
     $("kEg").value = r.gender || "Male"; $("kEd").value = r.dob || ""; $("kEe").value = r.email || ""; $("kEa").value = r.address || "";
-    $("kEt").value = r.district_tehsil || ""; $("kEs").value = r.sport || ""; $("kEp").value = r.payment_ref || ""; $("kEditE").hidden = true;
+    $("kEt").value = r.district_tehsil || ""; $("kEs").value = r.sport || ""; $("kEditE").hidden = true;
     $("kEd").max = new Date().toISOString().slice(0, 10);
     const currentImg = $("kEditPhotoPreview"), initial = $("kEditPhotoInitial");
     if (r.photo_path) { currentImg.src = photoUrl(r.photo_path); currentImg.hidden = false; initial.hidden = true; }
@@ -353,7 +371,7 @@
       if (cnic.length !== 13) return bad("CNIC/B-Form number must have 13 digits.");
       if (mobile.length !== 11) return bad("Mobile number must have 11 digits.");
       const upd = { name: $("kEn").value.trim(), father_name: $("kEf").value.trim(), cnic, mobile, email: $("kEe").value.trim() || null, gender: $("kEg").value, dob: $("kEd").value,
-        address: $("kEa").value.trim(), district_tehsil: $("kEt").value.trim(), sport: $("kEs").value.trim(), payment_ref: $("kEp").value.trim() || null };
+        address: $("kEa").value.trim(), district_tehsil: $("kEt").value.trim(), sport: $("kEs").value.trim() };
       const photoFile = $("kEditPhoto").files && $("kEditPhoto").files[0];
 
       // Photo changes are deliberately online-only: the old image is kept until the database
@@ -557,7 +575,6 @@
         ${r.email ? `<dt>Email</dt><dd>${esc(r.email)}</dd>` : ""}
         <dt>Address</dt><dd>${esc(r.address || "—")}, ${esc(r.district_tehsil || "—")}</dd>
         <dt>Sport</dt><dd>${esc(r.sport || "—")}</dd>
-        <dt>Payment reference</dt><dd>${esc(r.payment_ref || "—")}</dd>
         <dt>Location</dt><dd>${where}</dd>
       </dl>
       ${same.length ? `<p class="msg bad">Same device fingerprint as ${esc(same.join(", "))} - please review this registration.</p>` : ""}
@@ -566,7 +583,7 @@
       <div class="detail-actions">
         <button type="button" class="btn ghost" id="kDetEdit">Edit details</button>
         <button type="button" class="btn alt" id="kDetPdf">Download registration PDF</button>
-        ${!r.is_cancelled ? `<button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm payment"}</button>` : ""}
+        ${!r.is_cancelled ? `<button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm registration"}</button>` : ""}
         <button type="button" class="btn ${r.is_cancelled ? "alt" : "danger"}" id="kDetCancel">${r.is_cancelled ? "Restore player" : "Cancel player"}</button>
         <button type="button" class="btn danger" id="kDetDelete">Delete player</button>
         ${urls.length ? `<button type="button" class="btn ghost" id="kDlAll">Download photo + CNIC files</button>` : ""}
@@ -590,7 +607,9 @@
   });
 
   // ---- project funds ----
+  const fundsDenied = () => { if (KMRAuth.canFunds()) return false; toast("Project Funds can only be managed by nsfida.", true); return true; };
   function fund(f, done) {
+    if (fundsDenied()) return;
     init(); $("kFundH").textContent = f ? "Edit entry" : "Funds received"; $("kFundE").hidden = true;
     $("kFn").value = f ? f.donor_name : ""; $("kFm").value = f ? f.mohallah : ""; $("kFa").value = f ? Math.round(f.amount) : "";
     $("kFund").showModal(); $("kFn").focus();
@@ -606,6 +625,7 @@
     };
   }
   async function removeFund(f, done) {
+    if (fundsDenied()) return;
     if (!confirm(`Delete the entry of ${f.donor_name} (${rs(f.amount)})?`)) return;
     const { data, error } = await sb.from("funds").delete().eq("id", f.id).select();
     if (error || !data.length) return toast("Delete was not allowed.", true);
@@ -614,6 +634,7 @@
 
   // ---- expenses ----
   function expense(x, done) {
+    if (fundsDenied()) return;
     init(); $("kExpenseH").textContent = x ? "Edit expense" : "Record expense"; $("kExpenseE").hidden = true;
     $("kExDate").value = x ? (x.expense_date || String(x.created_at || "").slice(0, 10)) : new Date().toISOString().slice(0, 10);
     $("kExCategory").value = x ? x.category : "Other";
@@ -640,6 +661,7 @@
     };
   }
   async function removeExpense(x, done) {
+    if (fundsDenied()) return;
     if (!confirm(`Delete expense “${x.description}” (${rs(x.amount)})?`)) return;
     const { data, error } = await sb.from("expenses").delete().eq("id", x.id).select();
     if (error || !data || !data.length) return toast("Expense could not be deleted. Check your admin session and connection.", true);
@@ -648,6 +670,7 @@
 
   // Ledger PDFs are generated locally in the browser and include summary totals and a dated detail table.
   async function fundsPdf(kind, receiveRows, expenseRows, btn) {
+    if (fundsDenied()) return;
     const old = btn && btn.textContent; if (btn) btn.disabled = true;
     try {
       const src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
