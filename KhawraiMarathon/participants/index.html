@@ -92,7 +92,7 @@
   </section>
 
   <section id="panFund" role="tabpanel" aria-labelledby="tabFund" hidden>
-    <p class="msg">Private to nsfida. Receiving and expenses are tracked separately. Record spending regardless of how much has been collected; the net balance can be negative.</p>
+    <p class="msg">Visible only to admins allowed by nsfida. Receiving and expenses are tracked separately. Record spending regardless of how much has been collected; the net balance can be negative.</p>
     <div class="fsum funds-summary">
       <div class="c main"><b id="fTotal">Rs. 0</b><span>Total received</span></div>
       <div class="c"><b id="fExpense">Rs. 0</b><span>Total expenses</span></div>
@@ -128,11 +128,12 @@
 <footer>Khawrai Marathon Race Season Three &middot; <a href="../results/">Live race results</a> &middot; <a href="../about/">About the race</a> &middot; <a id="footLink" href="../admin/">Admin sign in</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-1"></script><script src="../js/admin-accounts.js?v=20261030-1"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js?v=20261030-1"></script><script src="../js/player-list-pdf.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-2"></script><script src="../js/admin-accounts.js?v=20261030-2"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js?v=20261030-2"></script><script src="../js/player-list-pdf.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let all = [], funds = [], expenses = [], filter = "all", admin = "", owner = false, menuEl = null, menuBtn = null;
-// Project Funds are visible to, and editable by, the owner (nsfida) only. Everyone else never sees the tab, the data or the totals.
+// `owner` means: this admin was allowed by nsfida to VIEW Project Funds. Everyone else never sees the tab, the data or the totals.
+// Adding, editing and deleting are separate rights (canFundsAdd / canFundsEdit / canFundsDelete).
 
 // Registration deadline UI is shared across every route by js/registration-ui.js.
 
@@ -147,7 +148,8 @@ const ICON = {
   cancel: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 8.5 7 7m0-7-7 7"/></svg>'
 };
 const item = (a, label, icon, cls) => `<button role="menuitem" data-act="${a}" class="${cls || ""}">${ICON[icon]}${label}</button>`;
-const kebab = label => admin ? `<button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label)}">${ICON.dots}</button>` : "";
+const ledgerKebab = label => `<button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label)}">${ICON.dots}</button>`;
+const kebab = label => admin && KMRAuth.can("can_registrations") ? `<button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label)}">${ICON.dots}</button>` : "";
 
 // ---------- tabs ----------
 function setTab(t, push) {
@@ -273,7 +275,7 @@ function renderFunds() {
     <td><span class="src ${f.source === "registration" ? "" : "don"}">${f.source === "registration" ? "Entry fee" + (f.reference ? " " + esc(f.reference) : "") : "Donation"}</span></td>
     ${owner ? `<td class="hm">${fmtDate(f.created_at)}</td>` : ""}
     <td class="amt">${Number(f.amount).toLocaleString("en-US")}</td>
-    ${owner ? `<td class="act">${f.source === "donation" ? kebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
+    ${owner ? `<td class="act">${f.source === "donation" && (KMRAuth.canFundsEdit() || KMRAuth.canFundsDelete()) ? ledgerKebab("Edit options for " + f.donor_name) : ""}</td>` : ""}</tr>`).join("")
     : `<tr><td colspan="${cols}" class="empty">No receiving entries recorded yet.</td></tr>`;
   $("ff").innerHTML = `<tr><td class="hn"></td><td>Total received</td><td></td><td></td>${owner ? '<td class="hm"></td>' : ""}<td class="amt">${rs(funds.reduce((t, f) => t + Number(f.amount), 0))}</td>${owner ? "<td></td>" : ""}</tr>`;
 }
@@ -281,7 +283,7 @@ function renderExpenses() {
   renderFundSummary();
   const adminCols = 8, publicCols = 6;
   $("fxh").innerHTML = `<tr><th class="hn">#</th><th>Date</th><th>Category</th><th>Details</th><th>Paid to</th>${owner ? '<th class="hm">Payment</th>' : ""}<th class="amt">Rs.</th>${owner ? '<th><span class="sr-only">Actions</span></th>' : ""}</tr>`;
-  $("fxb").innerHTML = expenses.length ? expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i + 1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td>${owner ? `<td class="hm">${esc(x.payment_method || "Cash")}</td>` : ""}<td class="amt">${Number(x.amount).toLocaleString("en-US")}</td>${owner ? `<td class="act"><button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="Edit options for expense ${esc(x.description)}">${ICON.dots}</button></td>` : ""}</tr>`).join("")
+  $("fxb").innerHTML = expenses.length ? expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i + 1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td>${owner ? `<td class="hm">${esc(x.payment_method || "Cash")}</td>` : ""}<td class="amt">${Number(x.amount).toLocaleString("en-US")}</td>${owner ? `<td class="act">${KMRAuth.canFundsEdit() || KMRAuth.canFundsDelete() ? `<button class="kebab" aria-haspopup="menu" aria-expanded="false" aria-label="Edit options for expense ${esc(x.description)}">${ICON.dots}</button>` : ""}</td>` : ""}</tr>`).join("")
     : `<tr><td colspan="${owner ? adminCols : publicCols}" class="empty">No expenses recorded yet.</td></tr>`;
   $("fxf").innerHTML = `<tr><td class="hn"></td><td colspan="${owner ? 5 : 4}">Total expenses</td><td class="amt">${rs(expenses.reduce((t, x) => t + Number(x.amount), 0))}</td>${owner ? "<td></td>" : ""}</tr>`;
 }
@@ -347,10 +349,14 @@ function openMenu(btn) {
   const host = btn.closest(".bib") || btn.closest("td"), id = btn.closest("[data-id]").dataset.id, isFund = !btn.closest(".bib");
   let html;
   const isExpense = !btn.closest(".bib") && !!btn.closest("#fxb");
-  if (isExpense) html = item("exedit", "Edit expense", "edit") + "<hr>" + item("exdel", "Delete expense", "del", "bad");
-  else if (isFund) html = item("fedit", "Edit entry", "edit") + "<hr>" + item("fdel", "Delete entry", "del", "bad");
+  const ledgerMenu = (edit, del) => [KMRAuth.canFundsEdit() ? item(...edit) : "", KMRAuth.canFundsEdit() && KMRAuth.canFundsDelete() ? "<hr>" : "", KMRAuth.canFundsDelete() ? item(...del) : ""].join("");
+  if (isExpense) html = ledgerMenu(["exedit", "Edit expense", "edit"], ["exdel", "Delete expense", "del", "bad"]);
+  else if (isFund) html = ledgerMenu(["fedit", "Edit entry", "edit"], ["fdel", "Delete entry", "del", "bad"]);
   else { const r = all.find(x => x.id === id);
-    html = (r.is_cancelled ? item("restore", "Restore player", "undo", "good") : item("cancel", "Cancel player", "cancel", "bad")) + (!r.is_cancelled ? (r.status === "confirmed" ? item("unconfirm", "Mark as pending", "undo") : item("confirm", "Confirm registration", "ok", "good")) : "") + item("edit", "Edit details", "edit") + item("files", "Files &amp; details", "file") + item("pdf", "Download PDF", "pdf") + "<hr>" + item("del", "Delete runner", "del", "bad"); }
+    const canEdit = KMRAuth.canEditRegistrations(), canDel = KMRAuth.canDeleteRegistrations();
+    html = (canEdit ? (r.is_cancelled ? item("restore", "Restore player", "undo", "good") : item("cancel", "Cancel player", "cancel", "bad")) + (!r.is_cancelled ? (r.status === "confirmed" ? item("unconfirm", "Mark as pending", "undo") : item("confirm", "Confirm registration", "ok", "good")) : "") + item("edit", "Edit details", "edit") : "")
+      + item("files", "Files &amp; details", "file") + item("pdf", "Download PDF", "pdf")
+      + (canDel ? "<hr>" + item("del", "Delete runner", "del", "bad") : ""); }
   menuEl = document.createElement("div"); menuEl.className = "menu menu-floating"; menuEl.setAttribute("role", "menu"); menuEl.innerHTML = html; menuEl.dataset.id = id;
   // A body-level fixed menu escapes table overflow and stacking contexts on desktop and mobile.
   document.body.appendChild(menuEl); btn.setAttribute("aria-expanded", "true"); menuBtn = btn;
@@ -404,7 +410,7 @@ async function applyAdmin(u) {
   owner = !!(admin && KMRAuth.canFunds());
   if (!owner) { funds = []; expenses = []; if (window.KMRPurgeFundsCache) window.KMRPurgeFundsCache(true); }
   $("tabFund").hidden = !owner; $("fundTabbar").hidden = !owner; $("sFundCard").hidden = !owner; $("scoreRow").classList.toggle("no-funds", !owner);
-  $("addFund").hidden = !owner; $("addExpense").hidden = !owner;
+  $("addFund").hidden = !KMRAuth.canFundsAdd(); $("addExpense").hidden = !KMRAuth.canFundsAdd();
   if (!owner && location.hash === "#funds") history.replaceState(null, "", location.pathname + location.search);
   setTab(owner && location.hash === "#funds" ? "funds" : "runners");
   $("playerPdfDropdown").hidden = !admin;

@@ -76,9 +76,15 @@
     // Display hints are never authorization. Every route and privileged action is checked against the database.
     hint: () => storage.getItem(HINT_KEY) || '',
     permissions: () => cachedPermissions,
-    // Project Funds are visible to, and editable by, the owner account (nsfida) only. The server
-    // enforces this with RLS; this flag only decides what the interface shows.
-    canFunds: () => !!(cachedPermissions && cachedPermissions.is_admin === true && cachedPermissions.is_owner === true && cachedPermissions.can_funds === true),
+    // Fine-grained permissions granted by nsfida. These only decide what the interface shows;
+    // the database enforces the same rules on every read and write.
+    can: (flag) => !!(cachedPermissions && cachedPermissions.is_admin === true && cachedPermissions[flag] === true),
+    canFunds: () => KMRAuth.can('can_funds'),                    // view Project Funds
+    canFundsAdd: () => KMRAuth.can('can_funds_add'),
+    canFundsEdit: () => KMRAuth.can('can_funds_edit'),
+    canFundsDelete: () => KMRAuth.can('can_funds_delete'),
+    canEditRegistrations: () => KMRAuth.can('can_edit_registrations'),
+    canDeleteRegistrations: () => KMRAuth.can('can_delete_registrations'),
     async refreshPermissions() { return fetchMyPermissions(); },
     async current() {
       try {

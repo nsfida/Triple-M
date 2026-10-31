@@ -122,9 +122,13 @@
   }
   const transientError = error => !navigator.onLine || /failed to fetch|network|timeout|load failed|connection|fetch is aborted|aborterror/i.test(String(error && (error.message || error) || ""));
   async function processAction(action) {
-    // Project Funds are owner-only. Queued ledger writes made under another account are dropped, never retried.
-    if ((action.type === "fund-save" || action.type === "expense-save") && !KMRAuth.canFunds()) {
-      return { discard: true, error: new Error("Project Funds can only be changed by nsfida. The pending entry was discarded.") };
+    // Queued ledger writes the current account may no longer make are dropped, never retried.
+    if (action.type === "fund-save" || action.type === "expense-save") {
+      const ok = action.isNew ? KMRAuth.canFundsAdd() : KMRAuth.canFundsEdit();
+      if (!ok) return { discard: true, error: new Error("You no longer have permission for this funds entry. The pending entry was discarded.") };
+    }
+    if ((action.type === "confirm" || action.type === "unconfirm" || action.type === "player-cancel") && !KMRAuth.canEditRegistrations()) {
+      return { discard: true, error: new Error("You no longer have permission to edit registrations. The pending change was discarded."), restore: true };
     }
     if (action.type === "confirm") {
       const q = await sb.from("registrations").select("id,status").eq("id", action.rowId).maybeSingle();
@@ -150,7 +154,7 @@
       if (q.error) return { retry: true, error: q.error };
       if (q.data && q.data.status === "pending") return { done: true };
       const { error } = await sb.rpc("unconfirm_payment", { p_id: action.rowId });
-      if (error && /only nsfida/i.test(error.message || "")) return { invalid: true, error };
+      if (error && /funds delete permission|do not have permission/i.test(error.message || "")) return { invalid: true, error };
       return error ? { retry: true, error } : { done: true };
     }
     if (action.type === "player-cancel") {
@@ -209,6 +213,7 @@
           if (cb) cb(); else window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
         } else if (result.discard) {
           dequeue(action.id); toast(result.error.message, true);
+          if (result.restore && action.oldRow) publishRegistration(action.oldRow);
           window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete", { detail: { action } }));
         } else if (result.conflict) {
           const cb = outboxCallbacks.get(action.id); dequeue(action.id);
@@ -235,9 +240,10 @@
   // ---- confirm / unconfirm ----
   let payRow = null, payDone = null;
   function pay(r, done) {
+    if (regEditDenied()) return;
     init(); payRow = r; payDone = done;
-    // Only the owner (nsfida) can record money. Every other admin confirms the status only.
-    const owner = KMRAuth.canFunds();
+    // Only an admin allowed to make funds entries sees the amount field; everyone else confirms the status only.
+    const owner = KMRAuth.canFundsAdd();
     $("kPayWho").textContent = `${r.reg_no} · ${r.name}`; $("kPa").value = 0; $("kPm").value = r.district_tehsil || ""; $("kPayE").hidden = true;
     $("kPayFundsFields").hidden = !owner; $("kPayStatusNote").hidden = owner;
     $("kPay").showModal(); if (owner) $("kPa").select();
@@ -250,7 +256,7 @@
           $("kPayE").textContent = "Enter 0 or a positive whole-number amount."; $("kPayE").hidden = false; return;
         }
       }
-      const action = { id: `confirm:${payRow.id}`, type: "confirm", rowId: payRow.id, row: { ...payRow }, oldStatus: payRow.status,
+      const action = { id: `confirm:${payRow.id}`, type: "confirm", rowId: payRow.id, row: { ...payRow }, oldRow: { ...payRow }, oldStatus: payRow.status,
         amount: Math.round(amount), mohallah: owner ? ($("kPm").value.trim() || payRow.district_tehsil || "") : (payRow.district_tehsil || "") };
       if (!enqueue(action, payDone)) { $("kPayE").textContent = "Local storage is unavailable. No change was made."; $("kPayE").hidden = false; return; }
       payRow.status = "confirmed"; publishRegistration(payRow); optimisticFee(action, payRow);
@@ -259,7 +265,8 @@
     };
   }
   async function unconfirm(r, done) {
-    const owner = KMRAuth.canFunds();
+    if (regEditDenied()) return;
+    const owner = KMRAuth.canFundsDelete();
     if (!confirm(owner ? `Mark ${r.reg_no} as pending? Any linked entry in Project Funds will be removed.` : `Mark ${r.reg_no} as pending?`)) return;
     const action = { id: `unconfirm:${r.id}`, type: "unconfirm", rowId: r.id, row: { ...r }, oldRow: { ...r }, oldStatus: r.status };
     if (!enqueue(action, done)) return toast("Local storage is unavailable. No change was made.", true);
@@ -269,6 +276,7 @@
   }
 
   async function cancel(r, done, forceState) {
+    if (regEditDenied()) return;
     const nextState = typeof forceState === "boolean" ? forceState : !r.is_cancelled;
     const verb = nextState ? "Cancel" : "restore";
     const message = nextState
@@ -353,6 +361,7 @@
 
   // ---- edit ----
   function edit(r, done) {
+    if (regEditDenied()) return;
     init();
     resetEditPhotoPreview();
     $("kEditWho").textContent = `${r.reg_no} · registered ${fmtDate(r.created_at)}`;
@@ -465,6 +474,7 @@
 
   // ---- delete ----
   async function remove(r, done) {
+    if (regDeleteDenied()) return;
     if (!confirm(`Delete ${r.reg_no} (${r.name})? This cannot be undone.`)) return;
     const { data, error } = await sb.from("registrations").delete().eq("id", r.id).select();
     if (error || !data.length) return toast("Delete was not allowed.", true);
@@ -581,22 +591,22 @@
       <div class="detail-section-title"><h3>Documents &amp; downloads</h3><span>Secure, time-limited links</span></div>
       <div class="chiprow">${dl.join("")}${vw.join("")}</div>
       <div class="detail-actions">
-        <button type="button" class="btn ghost" id="kDetEdit">Edit details</button>
+        ${KMRAuth.canEditRegistrations() ? `<button type="button" class="btn ghost" id="kDetEdit">Edit details</button>` : ""}
         <button type="button" class="btn alt" id="kDetPdf">Download registration PDF</button>
-        ${!r.is_cancelled ? `<button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm registration"}</button>` : ""}
-        <button type="button" class="btn ${r.is_cancelled ? "alt" : "danger"}" id="kDetCancel">${r.is_cancelled ? "Restore player" : "Cancel player"}</button>
-        <button type="button" class="btn danger" id="kDetDelete">Delete player</button>
+        ${!r.is_cancelled && KMRAuth.canEditRegistrations() ? `<button type="button" class="btn" id="kDetPayment">${r.status === "confirmed" ? "Mark as pending" : "Confirm registration"}</button>` : ""}
+        ${KMRAuth.canEditRegistrations() ? `<button type="button" class="btn ${r.is_cancelled ? "alt" : "danger"}" id="kDetCancel">${r.is_cancelled ? "Restore player" : "Cancel player"}</button>` : ""}
+        ${KMRAuth.canDeleteRegistrations() ? `<button type="button" class="btn danger" id="kDetDelete">Delete player</button>` : ""}
         ${urls.length ? `<button type="button" class="btn ghost" id="kDlAll">Download photo + CNIC files</button>` : ""}
       </div>`;
     const downloadAll = $("kDlAll"); if (downloadAll) downloadAll.onclick = () => urls.forEach((url, i) => setTimeout(() => { const a = document.createElement("a"); a.href = url; a.download = ""; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }, i * 600));
-    $("kDetEdit").onclick = () => edit(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
+    const detEdit = $("kDetEdit"); if (detEdit) detEdit.onclick = () => edit(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
     $("kDetPdf").onclick = e => pdf([r], `${r.reg_no}_${slug(r.name)}.pdf`, e.currentTarget);
     const paymentAction = $("kDetPayment"); if (paymentAction) paymentAction.onclick = () => {
       if (r.status === "confirmed") unconfirm(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); });
       else { const payDialog = $("kPay"); payDialog.addEventListener("close", () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }, { once: true }); pay(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }); }
     };
-    $("kDetCancel").onclick = () => cancel(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }, !r.is_cancelled);
-    $("kDetDelete").onclick = () => remove(r, () => { $("kDet").close(); window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete")); });
+    const detCancel = $("kDetCancel"); if (detCancel) detCancel.onclick = () => cancel(r, () => { if (activeDetailRow?.id === r.id) details(r, activeDetailAll); }, !r.is_cancelled);
+    const detDelete = $("kDetDelete"); if (detDelete) detDelete.onclick = () => remove(r, () => { $("kDet").close(); window.dispatchEvent(new CustomEvent("kmr:admin-sync-complete")); });
   }
   window.addEventListener("kmr:optimistic-registration", e => {
     const row = e.detail && e.detail.row;
@@ -607,9 +617,16 @@
   });
 
   // ---- project funds ----
-  const fundsDenied = () => { if (KMRAuth.canFunds()) return false; toast("Project Funds can only be managed by nsfida.", true); return true; };
+  // Each right is granted separately by nsfida. The database enforces the same rules; these checks give a clear message first.
+  const denied = (allowed, what) => { if (allowed) return false; toast(`You do not have permission to ${what}. Ask nsfida to allow it.`, true); return true; };
+  const fundsDenied = (kind) => kind === "add" ? denied(KMRAuth.canFundsAdd(), "make funds entries")
+    : kind === "edit" ? denied(KMRAuth.canFundsEdit(), "edit funds entries")
+    : kind === "delete" ? denied(KMRAuth.canFundsDelete(), "delete funds entries")
+    : denied(KMRAuth.canFunds(), "view Project Funds");
+  const regEditDenied = () => denied(KMRAuth.canEditRegistrations(), "edit registrations");
+  const regDeleteDenied = () => denied(KMRAuth.canDeleteRegistrations(), "delete registrations");
   function fund(f, done) {
-    if (fundsDenied()) return;
+    if (fundsDenied(f ? "edit" : "add")) return;
     init(); $("kFundH").textContent = f ? "Edit entry" : "Funds received"; $("kFundE").hidden = true;
     $("kFn").value = f ? f.donor_name : ""; $("kFm").value = f ? f.mohallah : ""; $("kFa").value = f ? Math.round(f.amount) : "";
     $("kFund").showModal(); $("kFn").focus();
@@ -625,7 +642,7 @@
     };
   }
   async function removeFund(f, done) {
-    if (fundsDenied()) return;
+    if (fundsDenied("delete")) return;
     if (!confirm(`Delete the entry of ${f.donor_name} (${rs(f.amount)})?`)) return;
     const { data, error } = await sb.from("funds").delete().eq("id", f.id).select();
     if (error || !data.length) return toast("Delete was not allowed.", true);
@@ -634,7 +651,7 @@
 
   // ---- expenses ----
   function expense(x, done) {
-    if (fundsDenied()) return;
+    if (fundsDenied(x ? "edit" : "add")) return;
     init(); $("kExpenseH").textContent = x ? "Edit expense" : "Record expense"; $("kExpenseE").hidden = true;
     $("kExDate").value = x ? (x.expense_date || String(x.created_at || "").slice(0, 10)) : new Date().toISOString().slice(0, 10);
     $("kExCategory").value = x ? x.category : "Other";
@@ -661,7 +678,7 @@
     };
   }
   async function removeExpense(x, done) {
-    if (fundsDenied()) return;
+    if (fundsDenied("delete")) return;
     if (!confirm(`Delete expense “${x.description}” (${rs(x.amount)})?`)) return;
     const { data, error } = await sb.from("expenses").delete().eq("id", x.id).select();
     if (error || !data || !data.length) return toast("Expense could not be deleted. Check your admin session and connection.", true);

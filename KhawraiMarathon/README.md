@@ -38,16 +38,16 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 | View live official results and prize standings | yes | yes | yes |
 | Change race status, runner status and finish times | no | yes | yes |
 | Download official results PDF | yes | yes | yes |
-| See, record, edit or delete Project Funds (receiving and expenses) and download their PDFs | **no** | **no** | **yes (nsfida only)** |
-| Confirm registration / edit / delete a registration | no | yes | yes |
+| Project Funds (receiving and expenses) | **no** | only if nsfida allows | yes |
+| Edit / confirm / cancel / delete a registration | no | only if nsfida allows (defaults: waseemfida can) | yes |
 
-## Project funds (nsfida only)
-- **Project Funds are private to the owner admin `nsfida`.** No public visitor, no other admin (including `waseemfida`) and no managed admin can see the section, read the data, record entries or download the funds PDFs. The *Project funds* tab, the Funds counter, the home-page shortcut and the public funds views no longer exist for anyone else. This is enforced in the database (migration `20261030_009_funds_owner_only.sql`), not only in the screens.
-- Other admins can still **Confirm registration** / **Mark as pending**; this changes the status only and never records money. Only nsfida sees the optional amount field when confirming. If a registration has a linked funds entry, only nsfida can mark it pending.
+## Project funds (permission-controlled)
+- **Project Funds are hidden from the public and from every admin unless nsfida allows it** (see "Per-admin permissions" at the end of this file). There is no public funds view any more. The database enforces every right, not only the screens.
+- Confirming a registration needs the *Edit registrations* right; entering an amount while confirming also needs *Make funds entries*.
 - Project Funds now has two ledgers: **Receiving** (the existing contributions and registration-fee flow) and **Expenses** (expense date, category, description, payee, payment method, amount and optional receipt/reference).
-- Both ledgers support adding, editing and deleting entries for nsfida, on `/admin/` (Project funds tab) and on `/participants/#funds`.
+- Both ledgers support adding, editing and deleting entries for nsfida and for admins allowed to, on `/admin/` (Project funds tab) and on `/participants/#funds`.
 - Receiving and spending are independent ledgers. Expenses can be recorded even when they exceed collections; the net balance is total received minus total expenses and may be negative. The summary keeps the two totals separate and shows that signed net balance, plus donation and entry-fee subtotals.
-- **Receiving PDF**, **Expenses PDF**, and **Full statement PDF** are available to nsfida from the admin control centre and the participants page. The combined statement includes separate totals, a dated ledger with running balance, and a clearly labeled ending balance that displays a minus sign when expenses exceed receipts.
+- **Receiving PDF**, **Expenses PDF**, and **Full statement PDF** are available to every admin allowed to view funds, from the admin control centre and the participants page. The combined statement includes separate totals, a dated ledger with running balance, and a clearly labeled ending balance that displays a minus sign when expenses exceed receipts.
 - When nsfida confirms a registration with an amount above zero, a linked entry row is created; **Mark pending** by nsfida removes that linked row. The amount now defaults to 0 because the registration form no longer mentions any fee. Expense records are stored in a separate `expenses` table and do not alter the existing `funds` data.
 
 ## One registration per device, location, original images
@@ -62,7 +62,7 @@ Static website (no build step) + Supabase backend. The interface uses a refreshe
 - **Admin-only player-list PDFs.** From the public runner directory, signed-in admins can download All, Confirmed, Pending, or Cancelled player lists. Each landscape PDF includes the player photo, registration number, name, age, gender, public address and status; private contact details and identity documents are excluded. The branded title/logo appears on the first page, and the table is paginated to avoid overflow.
 - **Clickable player details.** Public visitors can open each runner card to view the name, age, gender and registered address. Signed-in admins get the secure full-detail overlay with edit, payment confirmation, registration PDF, photo/CNIC front/back downloads and other document links. The three-dot menu remains available for quick actions; the Admin registrations table consolidates each runner's PDF, files, edit, payment/status, cancel/restore and delete actions into one floating dropdown. Donations in the funds tab have edit/delete too.
 - **Reliable registration PDFs on clean routes.** The PDF builder and registration-form template resolve relative to their script files, so downloads work from nested routes such as `/admin/` and `/participants/`. jsPDF loading also has a fallback CDN.
-- **Project funds tab (nsfida only).** Signed in as nsfida, `/participants/` shows *Runners* and *Project funds* tabs (`/participants/#funds` opens the funds tab). Everyone else sees only the runner directory.
+- **Project funds tab (only for allowed admins).** Signed in as nsfida or an admin allowed to view funds, `/participants/` shows *Runners* and *Project funds* tabs (`/participants/#funds` opens the funds tab). Everyone else sees only the runner directory.
 - **Reversible cancellation.** Admins can cancel or restore a runner without deleting the registration or changing its payment status. Cancelled runners remain in the public *All* list with clear red crossing lines; existing receiving records are preserved.
 
 ## Registration deadline (migration 20261028_005)
@@ -156,3 +156,28 @@ Race results can be edited after the race is marked Completed while they remain 
 - The **Funds and expenses** checkbox was removed from *Admin accounts & access*, and the `admin-account` Edge Function now always creates accounts without funds access. **Redeploy the Edge Function** (`supabase functions deploy admin-account`).
 - Existing funds and expenses rows are preserved. Old cached public funds lists in visitors' browsers are purged automatically.
 - Home page: the "Project funds" shortcut was removed and the remaining cards were renumbered.
+
+**Migration 010** (`20261030_010_service_role_schema_access.sql`): run after 009. It grants the Edge Function's `service_role` access to the `public` schema and the managed-admin table. Without it, creating an admin fails with "permission denied for schema public".
+
+
+## Per-admin permissions (30 October 2026, migration 011)
+
+nsfida decides, for **every other admin, new or existing, including waseemfida**, exactly what that admin may do. Open *Admin accounts & permissions* from the profile menu: tick the switches and press **Save permissions** (or choose them when creating an admin).
+
+| Area | Switch | Allows |
+|---|---|---|
+| Registrations | View registrations | Runner list, details, documents, registration PDFs |
+| | Edit registrations | Change details and photo, confirm / mark pending, cancel / restore (needs View) |
+| | Delete registrations | Permanently delete a registration and its files (needs View) |
+| Project funds | View funds | See receiving and expenses entries, totals and PDFs |
+| | Make funds entries | Record receiving entries and expenses, enter an amount when confirming (needs View) |
+| | Edit funds entries | Change existing entries (needs View) |
+| | Delete funds entries | Delete entries (needs View) |
+| Race results | Manage race results | Manage Results page |
+
+- Nothing is allowed unless ticked. *Quick set* buttons fill **Full access**, **View only** or **Clear all**. Switches that depend on another switch are greyed out until their parent is ticked.
+- nsfida always has full access and is never restricted. An admin can also be switched off completely with **Account active**.
+- Existing managed admins keep their current access (they receive Edit and Delete registrations, as they could before) and get no funds access. waseemfida keeps registrations (including edit and delete) and results, with no funds access, until nsfida changes it.
+- Changes apply the next time that admin opens or refreshes a page.
+- Adding a brand-new registration from the admin side remains available to anyone with *View registrations*.
+- Setup: run `sql/migrations/20261030_011_granular_admin_permissions.sql` (after 009 and 010), redeploy the `admin-account` Edge Function, then run `sql/verify_funds_owner_only.sql`.

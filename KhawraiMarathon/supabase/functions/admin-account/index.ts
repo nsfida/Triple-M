@@ -40,14 +40,20 @@ Deno.serve(async (req: Request) => {
   const displayName = String(body.display_name || '').trim().slice(0, 100);
   const password = String(body.password || '');
   const canRegistrations = body.can_registrations === true;
-  // Project Funds belong to the owner (nsfida) only; managed admins can never receive this permission.
-  const canFunds = false;
+  const canEditRegistrations = body.can_edit_registrations === true;
+  const canDeleteRegistrations = body.can_delete_registrations === true;
+  const canFunds = body.can_funds === true;            // view Project Funds
+  const canFundsAdd = body.can_funds_add === true;
+  const canFundsEdit = body.can_funds_edit === true;
+  const canFundsDelete = body.can_funds_delete === true;
   const canResults = body.can_results === true;
   if (!/^[a-z0-9][a-z0-9._-]{1,39}$/.test(username)) return json(400, { error: 'Username must be 2-40 characters and use letters, numbers, dots, underscores or hyphens.' });
   if (['nsfida', 'waseemfida'].includes(username)) return json(400, { error: 'This username is reserved for a built-in admin.' });
   if (password.length < 10) return json(400, { error: 'Use a temporary password with at least 10 characters.' });
   if (!displayName) return json(400, { error: 'Enter the admin display name.' });
-  if (!canRegistrations && !canResults) return json(400, { error: 'Enable Registrations or Race results for this admin.' });
+  if ((canEditRegistrations || canDeleteRegistrations) && !canRegistrations) return json(400, { error: 'Edit and Delete registrations require the View registrations permission.' });
+  if ((canFundsAdd || canFundsEdit || canFundsDelete) && !canFunds) return json(400, { error: 'Adding, editing or deleting funds requires the View funds permission.' });
+  if (!canRegistrations && !canFunds && !canResults) return json(400, { error: 'Enable at least one permission for this admin.' });
 
   const email = `${username}@${DOMAIN}`;
   const { data: created, error: createError } = await service.auth.admin.createUser({
@@ -62,7 +68,12 @@ Deno.serve(async (req: Request) => {
     email,
     display_name: displayName,
     can_registrations: canRegistrations,
+    can_edit_registrations: canEditRegistrations,
+    can_delete_registrations: canDeleteRegistrations,
     can_funds: canFunds,
+    can_funds_add: canFundsAdd,
+    can_funds_edit: canFundsEdit,
+    can_funds_delete: canFundsDelete,
     can_results: canResults,
     is_active: true,
     created_by: 'nsfida',

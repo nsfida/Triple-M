@@ -108,20 +108,21 @@
   
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-1"></script><script src="../js/admin-accounts.js?v=20261030-1"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js?v=20261030-1"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-2"></script><script src="../js/admin-accounts.js?v=20261030-2"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script><script src="../js/admin-tools.js?v=20261030-2"></script>
 <script>
 const $ = id => document.getElementById(id), C = KMR;
 let rows = [], funds = [], expenses = [], user = "";
 const selectedIds = new Set();
 function applyAdminFeatureAccess(perms) {
   const canReg = perms && perms.can_registrations === true;
-  // Project Funds are reserved for the owner account (nsfida) only.
-  const canFunds = !!(perms && perms.can_funds === true && perms.is_owner === true);
+  // Project Funds are visible only to admins nsfida has allowed (the database enforces this too).
+  const canFunds = !!(perms && perms.can_funds === true);
   $("tabR").hidden = !canReg; $("paneR").hidden = !canReg;
   $("tabF").hidden = !canFunds; $("paneF").hidden = !canFunds;
   $("adminWelcome").hidden = !canReg && !canFunds;
   $("adminTabs").hidden = !canReg && !canFunds;
   $("adminAccessNotice").hidden = canReg || canFunds;
+  $("addFund").hidden = !KMRAuth.canFundsAdd(); $("addExpense").hidden = !KMRAuth.canFundsAdd();
   $("adminSubtitle").textContent = canFunds ? "Organiser control centre · Runners, documents, registrations and project funds." : "Organiser control centre · Runners, documents and registrations.";
   if (canReg) tab("registrations"); else if (canFunds) tab("funds");
 }
@@ -136,12 +137,12 @@ $("login").onsubmit = async e => {
 };
 function show(u) {
   const perms = KMRAuth.permissions() || {};
-  const signature = [u || "", !!perms.can_registrations, !!perms.can_funds, !!perms.can_results, !!perms.is_owner].join(":");
+  const signature = [u || "", ...["can_registrations","can_edit_registrations","can_delete_registrations","can_funds","can_funds_add","can_funds_edit","can_funds_delete","can_results","is_owner"].map(k => !!perms[k])].join(":");
   if (signature === show.signature) return; show.signature = signature; user = u;
   $("login").hidden = !!u; $("app").hidden = !u;
   if (!u) { rows = []; funds = []; expenses = []; selectedIds.clear(); KMRUI.hideLoading(); return $("u").focus(); }
   applyAdminFeatureAccess(perms);
-  const ownerFunds = perms.can_funds === true && perms.is_owner === true;
+  const ownerFunds = perms.can_funds === true;
   if (perms.can_registrations || ownerFunds) KMRAdmin.init();
   if (perms.can_registrations) load(); else { rows = []; $("tb").innerHTML = ""; }
   if (ownerFunds) { loadFunds(); loadExpenses(); } else { funds = []; expenses = []; $("fb").innerHTML = ""; $("eb").innerHTML = ""; }
@@ -228,12 +229,12 @@ function openAdminRowMenu(trigger) {
   const html = [
     adminMenuItem("pdf", "Download registration PDF"),
     adminMenuItem("docs", "Files &amp; player details"),
-    adminMenuItem("edit", "Edit player details"),
-    "<hr>",
-    !r.is_cancelled ? adminMenuItem("toggle", r.status === "confirmed" ? "Mark as pending" : "Confirm registration", r.status === "confirmed" ? "" : "good") : "",
-    adminMenuItem("cancel", r.is_cancelled ? "Restore registration" : "Cancel registration", r.is_cancelled ? "good" : "bad"),
-    "<hr>",
-    adminMenuItem("del", "Delete registration", "bad")
+    KMRAuth.canEditRegistrations() ? adminMenuItem("edit", "Edit player details") : "",
+    KMRAuth.canEditRegistrations() || KMRAuth.canDeleteRegistrations() ? "<hr>" : "",
+    !r.is_cancelled && KMRAuth.canEditRegistrations() ? adminMenuItem("toggle", r.status === "confirmed" ? "Mark as pending" : "Confirm registration", r.status === "confirmed" ? "" : "good") : "",
+    KMRAuth.canEditRegistrations() ? adminMenuItem("cancel", r.is_cancelled ? "Restore registration" : "Cancel registration", r.is_cancelled ? "good" : "bad") : "",
+    KMRAuth.canDeleteRegistrations() ? "<hr>" : "",
+    KMRAuth.canDeleteRegistrations() ? adminMenuItem("del", "Delete registration", "bad") : ""
   ].filter(Boolean).join("");
   const menu = document.createElement("div");
   menu.id = "adminRowActionMenu";
@@ -332,7 +333,7 @@ function drawFunds() {
   const total = funds.reduce((t, f) => t + Number(f.amount), 0), reg = funds.filter(f => f.source === "registration").reduce((t, f) => t + Number(f.amount), 0);
   $("finfo").className = "msg"; $("finfo").textContent = `${funds.length} entries · ${rs(total-reg)} donations · ${rs(reg)} entry fees`;
   $("fundHeadAdmin").innerHTML = '<tr><th class="hn">#</th><th>Name</th><th>Mohallah</th><th class="amt">Rs.</th><th class="hm">Type</th><th class="hm">Received by</th><th class="hm">Date</th><th></th></tr>';
-  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td><td>${esc(f.donor_name)}<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small></td><td>${esc(f.mohallah)}</td><td class="amt"><b>${Number(f.amount).toLocaleString("en-US")}</b></td><td class="hm">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td class="hm">${esc(f.recorded_by)}</td><td class="hm">${fmtDate(f.created_at)}</td><td>${f.source === "donation" ? '<div class="acts"><button class="btn sm ghost" data-fe>Edit</button><button class="btn sm danger" data-fd>Delete</button></div>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No receiving entries recorded yet.</td></tr>';
+  $("fb").innerHTML = funds.map((f, i) => `<tr data-id="${f.id}"><td class="hn">${i + 1}</td><td>${esc(f.donor_name)}<small class="ms">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</small></td><td>${esc(f.mohallah)}</td><td class="amt"><b>${Number(f.amount).toLocaleString("en-US")}</b></td><td class="hm">${f.source === "registration" ? "Entry fee " + esc(f.reference || "") : "Donation"}</td><td class="hm">${esc(f.recorded_by)}</td><td class="hm">${fmtDate(f.created_at)}</td><td>${f.source === "donation" ? '<div class="acts">${KMRAuth.canFundsEdit() ? `<button class="btn sm ghost" data-fe>Edit</button>` : ""}${KMRAuth.canFundsDelete() ? `<button class="btn sm danger" data-fd>Delete</button>` : ""}</div>' : ""}</td></tr>`).join("") || '<tr><td colspan="8">No receiving entries recorded yet.</td></tr>';
   $("fundFootAdmin").innerHTML = `<tr><td></td><td colspan="2">Total received</td><td class="amt">${rs(total)}</td><td colspan="4"></td></tr>`;
 }
 async function loadExpenses() {
@@ -348,7 +349,7 @@ function drawExpenses() {
   drawFundSummary();
   $("einfo").className = "msg"; $("einfo").textContent = `${expenses.length} expenses recorded`;
   $("expenseHeadAdmin").innerHTML = '<tr><th class="hn">#</th><th>Date</th><th>Category</th><th>Description</th><th>Paid to</th><th class="hm">Method</th><th class="amt">Rs.</th><th>Actions</th></tr>';
-  $("eb").innerHTML = expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i+1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td><td class="hm">${esc(x.payment_method || "Cash")}</td><td class="amt"><b>${Number(x.amount).toLocaleString("en-US")}</b></td><td><div class="acts"><button class="btn sm ghost" data-exedit>Edit</button><button class="btn sm danger" data-exdel>Delete</button></div></td></tr>`).join("") || '<tr><td colspan="8">No expenses recorded yet.</td></tr>';
+  $("eb").innerHTML = expenses.map((x, i) => `<tr data-id="${x.id}"><td class="hn">${i+1}</td><td>${fmtDate(x.expense_date || x.created_at)}</td><td><span class="src expense-src">${esc(x.category || "Other")}</span></td><td>${esc(x.description || "—")}${x.receipt_reference ? `<small class="ms">Ref: ${esc(x.receipt_reference)}</small>` : ""}</td><td>${esc(x.paid_to || "—")}</td><td class="hm">${esc(x.payment_method || "Cash")}</td><td class="amt"><b>${Number(x.amount).toLocaleString("en-US")}</b></td><td><div class="acts">${KMRAuth.canFundsEdit() ? `<button class="btn sm ghost" data-exedit>Edit</button>` : ""}${KMRAuth.canFundsDelete() ? `<button class="btn sm danger" data-exdel>Delete</button>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="8">No expenses recorded yet.</td></tr>';
   $("expenseFootAdmin").innerHTML = `<tr><td></td><td colspan="5">Total expenses</td><td class="amt">${rs(expenses.reduce((t,x)=>t+Number(x.amount),0))}</td><td></td></tr>`;
 }
 window.addEventListener("kmr:optimistic-registration", e => {
