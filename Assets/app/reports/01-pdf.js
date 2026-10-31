@@ -994,6 +994,35 @@ function drawPdfHeaderAndFooter(doc, logoData, title, subtitle, showOwnerBlock =
   drawPdfFooter(doc);
 }
 
+function calculateLoanPdfSignedTotal(rows){
+  return (Array.isArray(rows) ? rows : []).reduce((sum, row) => {
+    const amount = Number(row?.amount ?? 0);
+    return sum + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
+}
+
+function formatLoanPdfSignedAmount(amount, currency, signOverride){
+  const numeric = Number(amount ?? 0);
+  const safeAmount = Number.isFinite(numeric) ? numeric : 0;
+  const sign = signOverride || (safeAmount > 0 ? "+" : safeAmount < 0 ? "-" : "");
+  const formatted = formatPdfAmount(Math.abs(safeAmount), currency);
+  return sign ? `${sign} ${formatted}` : formatted;
+}
+
+function selectLoanPdfRows(rows, selectedIds){
+  const selected = new Set((Array.isArray(selectedIds) ? selectedIds : []).map(String));
+  if (!selected.size) return [];
+
+  let runningBalance = 0;
+  return (Array.isArray(rows) ? rows : [])
+    .filter(row => selected.has(String(row.id)))
+    .map(row => {
+      const amount = Number(row?.amount ?? 0);
+      runningBalance += Number.isFinite(amount) ? amount : 0;
+      return { ...row, selectedBalanceAfter: runningBalance };
+    });
+}
+
 function buildPersonPdfData(personName, direction){
   const normalizedName = String(personName || "").trim();
   const personEntries = state.entries.filter(e =>
@@ -1005,10 +1034,8 @@ function buildPersonPdfData(personName, direction){
   const actionRows = personEntries.filter(e => e.entry_kind !== "principal");
 
   const currency = principalRows[0]?.currency || actionRows[0]?.currency || "";
-  const principalTotal = principalRows.reduce((sum, e) => sum + Number(e.principal_amount || 0), 0);
-  const paidTotal = actionRows.reduce((sum, e) => sum + Number(e.action_amount || 0), 0);
-  const remaining = Math.max(principalTotal - paidTotal, 0);
-  const status = remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open";
+  const principalTotal = principalRows.reduce((sum, e) => sum + Math.abs(Number(e.principal_amount || 0)), 0);
+  const paidTotal = actionRows.reduce((sum, e) => sum + Math.abs(Number(e.action_amount || 0)), 0);
   const loanCount = new Set(personEntries.map(e => e.group_id).filter(Boolean)).size;
 
   const timeline = personEntries
@@ -1023,10 +1050,10 @@ function buildPersonPdfData(personName, direction){
   let runningRemaining = 0;
   const rows = timeline.map(entry => {
     const isPrincipal = entry.entry_kind === "principal";
-    const amount = Number(isPrincipal ? entry.principal_amount : entry.action_amount || 0);
-    runningRemaining = isPrincipal
-      ? runningRemaining + amount
-      : Math.max(runningRemaining - amount, 0);
+    const rawAmount = Number(isPrincipal ? entry.principal_amount : entry.action_amount || 0);
+    const magnitude = Number.isFinite(rawAmount) ? Math.abs(rawAmount) : 0;
+    const amount = isPrincipal ? magnitude : -magnitude;
+    runningRemaining = Math.max(runningRemaining + amount, 0);
 
     return {
       id: entry.id,
@@ -1034,13 +1061,17 @@ function buildPersonPdfData(personName, direction){
       createdAt: entry.created_at || null,
       date: isPrincipal ? (entry.loan_date || "—") : (entry.action_date || "—"),
       type: isPrincipal ? "Principal" : (entry.entry_kind === "partial" ? "Partial" : "Full"),
+      sign: isPrincipal ? "+" : "-",
       amount,
       remainingAfter: runningRemaining,
       note: entry.notes || "—"
     };
   });
 
-  return { personName: normalizedName, direction, currency, principalTotal, paidTotal, remaining, status, loanCount, rows };
+  const signedTotal = calculateLoanPdfSignedTotal(rows);
+  const remaining = Math.max(signedTotal, 0);
+  const status = remaining <= 0 ? "Closed" : paidTotal > 0 ? "Partial" : "Open";
+  return { personName: normalizedName, direction, currency, principalTotal, paidTotal, signedTotal, remaining, status, loanCount, rows };
 }
 
 async function downloadLoanTransactionsSelectionPDF(personNameEncoded, direction, selectedIds = []) {
@@ -1048,8 +1079,7 @@ async function downloadLoanTransactionsSelectionPDF(personNameEncoded, direction
   const personName = decodeURIComponent(personNameEncoded || "");
   const data = buildPersonPdfData(personName, direction);
   if (!data) { alert("No entries found for this person."); return; }
-  const wanted = new Set((selectedIds || []).map(String));
-  const rows = wanted.size ? data.rows.filter(r => wanted.has(String(r.id))) : data.rows;
+  const rows = selectLoanPdfRows(data.rows, selectedIds);
   if (!rows.length) { alert("Select one or more loan transactions."); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -1058,7 +1088,7 @@ async function downloadLoanTransactionsSelectionPDF(personNameEncoded, direction
   const title = rows.length === 1 ? "Loan Transaction Receipt" : "Selected Loan Transactions";
   const subtitle = `${data.personName} · ${direction === "given" ? "Loan Given" : "Loan Taken"}`;
   drawPdfHeader(doc, logoData, title, subtitle);
-  const total = rows.reduce((sum,r)=>sum+Number(r.amount||0),0);
+  const total = calculateLoanPdfSignedTotal(rows);
   const y = drawCompactPdfPartiesAndMeta(doc, {
     rightLabel: "CLIENT",
     partyName: data.personName,
@@ -1066,26 +1096,27 @@ async function downloadLoanTransactionsSelectionPDF(personNameEncoded, direction
       { label: "Direction", value: direction === "given" ? "Given" : "Taken" },
       { label: "Currency", value: pdfCurrencyLabel(data.currency) },
       { label: "Selected", value: String(rows.length) },
-      { label: "Total", value: formatPdfAmount(total, data.currency) }
+      { label: "Total", value: formatLoanPdfSignedAmount(total, data.currency) }
     ]
   });
   doc.autoTable({
     startY: y + 5,
-    head: [["Date","Type","Notes","Recorded","Amount"]],
+    head: [["Date","Type","Notes","Recorded","Amount","Balance"]],
     body: rows.map(r => [
       displayDate(r.date), r.type,
       (typeof cleanInstallmentDisplayNote === "function" ? cleanInstallmentDisplayNote(r.note) : String(r.note||"").replace(/\[INSTALLMENT\]/g,"").trim()) || "—",
       r.createdAt ? new Date(r.createdAt).toLocaleString() : "—",
-      formatPdfAmount(r.amount, data.currency)
+      formatLoanPdfSignedAmount(r.amount, data.currency, r.sign),
+      formatLoanPdfSignedAmount(r.selectedBalanceAfter, data.currency)
     ]),
     theme:"grid",
     headStyles:{fillColor:[15,23,42],textColor:255,fontStyle:"bold",fontSize:7.6},
     styles:{font:"helvetica",fontSize:7.8,cellPadding:1.8,overflow:"linebreak"},
-    columnStyles:{0:{cellWidth:25},1:{cellWidth:24},2:{cellWidth:62},3:{cellWidth:37},4:{cellWidth:32,halign:"right"}},
+    columnStyles:{0:{cellWidth:22},1:{cellWidth:22},2:{cellWidth:44},3:{cellWidth:30},4:{cellWidth:32,halign:"right"},5:{cellWidth:32,halign:"right"}},
     margin:{top:42,bottom:32},
     didDrawPage:()=>drawPdfHeaderAndFooter(doc,logoData,title,subtitle,false)
   });
-  drawCompactPdfTotals(doc, doc.lastAutoTable.finalY + 5, [{label:"Selected total",value:formatPdfAmount(total,data.currency),strong:true}]);
+  drawCompactPdfTotals(doc, doc.lastAutoTable.finalY + 5, [{label:"Selected total",value:formatLoanPdfSignedAmount(total,data.currency),strong:true}]);
   doc.save(`Loan_${rows.length===1?"Transaction":"Selected_Transactions"}_${data.personName.replace(/[^a-z0-9_-]+/gi,"_")}.pdf`);
 }
 window.downloadLoanTransactionsSelectionPDF = downloadLoanTransactionsSelectionPDF;
@@ -1121,7 +1152,7 @@ async function downloadPersonPDF(personNameEncoded, direction) {
       { label: "Status", value: data.status },
       { label: "Currency", value: pdfCurrencyLabel(data.currency) },
       { label: "Entries", value: String(data.loanCount) },
-      { label: "Remaining", value: formatMon(data.remaining) }
+      { label: "Remaining", value: formatLoanPdfSignedAmount(data.remaining, data.currency) }
     ]
   });
 
@@ -1129,7 +1160,7 @@ async function downloadPersonPDF(personNameEncoded, direction) {
     displayDate(r.date),
     r.type,
     (typeof cleanInstallmentDisplayNote === "function" ? cleanInstallmentDisplayNote(r.note) : String(r.note || "").replace(/\[INSTALLMENT\]/g, "").trim()) || "—",
-    formatMon(r.amount),
+    formatLoanPdfSignedAmount(r.amount, data.currency, r.sign),
     formatMon(r.remainingAfter)
   ]);
 
@@ -1152,9 +1183,9 @@ async function downloadPersonPDF(personNameEncoded, direction) {
   });
 
   drawCompactPdfTotals(doc, doc.lastAutoTable.finalY + 5, [
-    { label: "Principal", value: formatMon(data.principalTotal) },
-    { label: direction === "given" ? "Received back" : "Paid / returned", value: formatMon(data.paidTotal) },
-    { label: "Remaining", value: formatMon(data.remaining), strong: true }
+    { label: "Principal", value: formatLoanPdfSignedAmount(data.principalTotal, data.currency, "+") },
+    { label: direction === "given" ? "Received back" : "Paid / returned", value: formatLoanPdfSignedAmount(-data.paidTotal, data.currency, "-") },
+    { label: "Remaining", value: formatLoanPdfSignedAmount(data.remaining, data.currency), strong: true }
   ]);
 
   doc.save(`Statement_${data.personName.replace(/\s+/g, "_")}.pdf`);
