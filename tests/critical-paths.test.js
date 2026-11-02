@@ -1719,7 +1719,10 @@ it("127 adds free TOTP Authenticator App 2FA with trusted Remember Me sessions a
   assert.match(index, /auth\/03-two-factor\.js\?v=(?:20260903-(?:auth2fa(?:127|128)|auth-recovery129)|20260904-(?:self-recovery137|account-security138))/);
   assert.match(builder, /127_authenticator_app_2fa_and_ux_performance\.sql/);
 
-  assert.match(messaging, /requestIdleCallback/);
+  const bindings = fs.readFileSync(path.join(projectRoot, "Assets/app/ui/02-bindings.js"), "utf8");
+  assert.doesNotMatch(messaging, /requestIdleCallback/);
+  assert.match(bindings, /if \(key === "admin-notify"\) \{\s*loadAdminNotificationsDropdown\(\)/);
+  assert.match(bindings, /if \(key === "admin-messages"\) \{\s*loadAdminMessagesPreview\(\)/);
   assert.match(messaging, /optimisticMarkAllNotificationsRead/);
   assert.match(messaging, /runNotificationMutationInBackground/);
   assert.match(push, /togglePending/);
@@ -3408,7 +3411,7 @@ it('SEO refresh covers Financial Timeline, Bought/Sold installments, current exp
   assert.match(installments, /Installment Plans Sold/i);
   assert.match(installments, /operational receivable/i);
   assert.match(installments, /guarantor/i);
-  assert.match(expenses, /pure expenses/i);
+  assert.match(expenses, /pure expense records/i);
   assert.match(expenses, /Receiving/);
   assert.match(expenses, /Internal Transfers/);
   assert.match(ai, /Precision retrieval/);
@@ -3439,12 +3442,12 @@ it('SEO refresh covers Financial Timeline, Bought/Sold installments, current exp
   assert.match(sitemap, /https:\/\/triplem\.vip\/seo\/windows-desktop-app\.html/);
 
   const seoPages = fs.readdirSync(path.join(root, 'seo')).filter(name => name.endsWith('.html'));
-  assert.equal(seoPages.length, 32);
+  assert.equal(seoPages.length, 33);
   const authorityPages = new Set(['multi-currency-accounting.html', 'month-end-close.html', 'finance-workflow-playbook.html', 'editorial-policy.html']);
   for (const page of seoPages) {
     const html = readFile(path.join('seo', page));
     assert.match(html, /42-public-accounting-seo\.css\?v=(?:20260910-security-parity006|20260911-seo-geo-authority007)/, `${page} should use the unified SEO visual stylesheet`);
-    if (!authorityPages.has(page)) assert.match(html, /id="global-currency-support"/, `${page} should retain international currency availability`);
+    if (!authorityPages.has(page) && page !== 'faq.html') assert.match(html, /id="global-currency-support"/, `${page} should retain international currency availability`);
     assert.match(html, /rel="alternate" type="text\/markdown"/, `${page} should expose its Markdown counterpart`);
     assert.match(html, /(?:href="https:\/\/triplem\.vip\/seo\/llms\.txt" rel="describedby"|rel="describedby" href="https:\/\/triplem\.vip\/seo\/llms\.txt")/, `${page} should point to the subtree discovery map`);
   }
@@ -3536,7 +3539,8 @@ it('168 hardens SEO/GEO with authority content, localization, structured-data cl
   assert.match(read('regions/belgium-nl.html'), /<html[^>]*lang="nl-BE"[^>]*dir="ltr"|<html[^>]*dir="ltr"[^>]*lang="nl-BE"/);
 
   for (const page of fs.readdirSync(path.join(root,'seo')).filter(n => n.endsWith('.html'))) {
-    assert.doesNotMatch(read(path.join('seo',page)), /"@type"\s*:\s*"FAQPage"/);
+    if (page === 'faq.html') assert.match(read(path.join('seo',page)), /"@type"\s*:\s*"FAQPage"/);
+    else assert.doesNotMatch(read(path.join('seo',page)), /"@type"\s*:\s*"FAQPage"/);
   }
 
   assert.match(robots, /User-agent: Claude-SearchBot/);
@@ -3572,3 +3576,74 @@ it('169 keeps the standalone 404 page centered, local and dependency-safe', () =
   assert.match(html, /main\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/);
   assert.match(html, /\.error-card\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?text-align:\s*center;/);
 });
+
+it("pauses idle Supabase polling while keeping push and queued work event-driven", () => {
+  const root = path.join(__dirname, "..");
+  const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
+  const messaging = read("Assets/app/messaging/01-messaging.js");
+  const push = read("Assets/app/notifications/01-web-push.js");
+  const security = read("Assets/app/auth/05-account-security.js");
+  const serviceWorker = read("service-worker.js");
+  const offline = read("Assets/app/core/08-offline-sync.js");
+  const liveChat = read("Assets/app/landing/02-live-chat.js");
+  const analytics = read("Assets/app/admin/03-admin-analytics.js");
+  const siteAnalytics = read("Assets/app/analytics/01-site-tracker.js");
+  const activity = read("Assets/app/core/00-activity.js");
+  const demoMessaging = read("Demo/Assets/app/messaging/01-messaging.js");
+  const demoPush = read("Demo/Assets/app/notifications/01-web-push.js");
+  const demoSecurity = read("Demo/Assets/app/auth/05-account-security.js");
+  const demoOffline = read("Demo/Assets/app/core/08-offline-sync.js");
+  const demoLiveChat = read("Demo/Assets/app/landing/02-live-chat.js");
+  const demoAnalytics = read("Demo/Assets/app/admin/03-admin-analytics.js");
+
+  for (const source of [messaging, demoMessaging]) {
+    assert.match(source, /MESSAGING_LIVE_POLL_MS = 120000/);
+    assert.match(source, /MESSAGING_LIVE_POLL_ACTIVE_MS = 30000/);
+    assert.match(source, /function startMessagingLiveSync\(\)[\s\S]*?if \(!messagingLiveIsActive\(\)\)[\s\S]*?return;/);
+    assert.match(source, /LIVE_CHAT_PRESENCE_SWEEP_THROTTLE_MS = 120000/);
+    assert.match(source, /!messagingLiveIsActive\(\)/);
+    assert.match(source, /window\.addEventListener\("triplem:idle"[\s\S]*?stopLiveChatRealtimeBridge\(\)/);
+    assert.match(source, /stopLiveChatRealtimeBridge\(\);\s*return;/);
+    assert.match(source, /scheduleMessagingLivePoll\(180, \{ force: true \}\)/);
+    assert.match(source, /INSTALLMENT_DUE_CHECK_INTERVAL_MS = 6 \* 60 \* 60 \* 1000/);
+    assert.match(source, /markInstallmentDueCheckCompleted\(dueCheckKey\)/);
+    assert.doesNotMatch(source, /await dispatchDueNoteRemindersThrottled\(false\)/);
+    assert.doesNotMatch(source, /requestIdleCallback|warmCommsMenus/);
+  }
+
+  for (const source of [push, demoPush]) {
+    assert.match(source, /presenceIsOpen: false/);
+    assert.match(source, /stateLocal\.presenceTimer = window\.setInterval\(\(\) => \{\s*touchOpenTab\(\);\s*\}, 45000\)/);
+    assert.doesNotMatch(source, /setInterval\(\(\) => \{\s*touchOpenTab\(\);\s*setClientPresence/);
+  }
+
+  for (const source of [offline, demoOffline]) {
+    assert.doesNotMatch(source, /setInterval\s*\(/);
+    assert.match(source, /scheduleOfflineSync\(900\)/);
+    assert.match(source, /retry deadlines/);
+  }
+  for (const source of [liveChat, demoLiveChat]) {
+    assert.match(source, /SUPPORT_CONFIG_CACHE_TTL_MS = 5 \* 60 \* 1000/);
+    assert.match(source, /!session \|\| !isSupportPanelOpen\(\) \|\| document\.hidden/);
+    assert.match(source, /TriplemActivity\?\.isActive\?\./);
+    assert.match(source, /window\.addEventListener\("triplem:idle",[\s\S]*?stopPolling\(\)/);
+    assert.match(source, /window\.addEventListener\("triplem:activity",[\s\S]*?startPolling\(\)/);
+    assert.match(source, /function closePanel\(\)[\s\S]*?stopPolling\(\)/);
+    assert.doesNotMatch(source, /supportConfigTimer|setInterval\(\(\) => refreshSupportConfig/);
+  }
+  for (const source of [analytics, demoAnalytics]) {
+    assert.match(source, /window\.TriplemActivity\?\.isActive\?\./);
+    assert.match(source, /}, 60000\)/);
+  }
+  assert.match(security, /recoveryApprovalPoll=setInterval\(\(\)=>\{ const active=.*?\},300000\)/);
+  assert.match(demoSecurity, /recoveryApprovalPoll=setInterval\(\(\)=>\{ const active=.*?\},300000\)/);
+  assert.match(activity, /IDLE_AFTER_MS = 2 \* 60 \* 1000/);
+  assert.match(activity, /function signalIdle\(/);
+  assert.match(activity, /window\.dispatchEvent\(new CustomEvent\("triplem:idle"/);
+  assert.match(read("index.html"), /Assets\/app\/core\/00-activity\.js/);
+  assert.match(read("Demo/index.html"), /Assets\/app\/core\/00-activity\.js/);
+  assert.match(siteAnalytics, /HEARTBEAT_MS = 10 \* 60 \* 1000/);
+  assert.match(siteAnalytics, /ACTIVE_HEARTBEAT_IDLE_MS = 2 \* 60 \* 1000/);
+  assert.match(serviceWorker, /self\.addEventListener\("push"/);
+});
+

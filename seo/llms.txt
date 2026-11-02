@@ -11,6 +11,8 @@
 
 ## Product guides
 
+- [Triplem VIP FAQ: Features, Pricing & Account Security](https://triplem.vip/seo/faq.md)
+
 - [Insurance Management | Commission, Referrals & PDFs | Triplem VIP](https://triplem.vip/seo/insurance-management.md)
 - [Inventory Management | Stock, Customers & Invoices | Triplem VIP](https://triplem.vip/seo/inventory-management.md)
 - [Excel to Triplem VIP | Custom Finance Setup & Migration Guide](https://triplem.vip/seo/excel-to-triplem-vip.md)

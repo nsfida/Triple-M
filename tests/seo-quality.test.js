@@ -74,22 +74,23 @@ test('sitemap, demo indexability, homepage search copy and maintained workflow r
   const homepage = read('index.html');
   const demo = read('Demo/index.html');
   const sitemap = read('sitemap.xml');
+  const sitemapIndex = read('sitemap-index.xml');
   const qualityWorkflow = read('.github/workflows/seo-quality.yml');
   const postdeployWorkflow = read('.github/workflows/seo-postdeploy.yml');
   const packageJson = JSON.parse(read('package.json'));
 
   assert.match(homepage, /<title>Triplem VIP \| Accounting Software, Finance ERP &amp; AI<\/title>/);
-  assert.match(homepage, /name="description" content="Accounting and finance software for expenses, inventory, loans/);
-  assert.match(homepage, /"dateModified": "2026-10-14"/);
+  assert.match(homepage, /name="description" content="Accounting software for expenses, inventory, loans/);
+  assert.match(homepage, /"dateModified": "2026-10-31"/);
   assert.match(homepage, /<meta property="og:image:width" content="895" \/>/);
-  assert.match(read('index.md'), /Last reviewed: 2026-10-14/);
+  assert.match(read('index.md'), /Last reviewed: 2026-10-31/);
   assert.doesNotMatch(homepage, /name="geo\.region"|name="geo\.placename"|name="subject"|name="category"/);
   for (const agent of ['robots', 'googlebot', 'bingbot']) {
     assert.match(demo, new RegExp(`<meta name="${agent}" content="noindex, follow"`));
   }
   assert.doesNotMatch(demo, /<link\b[^>]*rel="canonical"|hreflang=/i);
   assert.doesNotMatch(sitemap, /<loc>https:\/\/triplem\.vip\/Demo\/<\/loc>/);
-  assert.match(read('robots.txt'), /Keep \/Demo\/ crawlable so search engines can read its explicit noindex directive/);
+  assert.match(read('robots.txt'), /The Demo is crawlable so engines can read its explicit noindex directive/);
   assert.match(qualityWorkflow, /actions\/checkout@v7/);
   assert.match(qualityWorkflow, /actions\/setup-node@v7[\s\S]*node-version: '24'/);
   assert.match(postdeployWorkflow, /node-version: '24'/);
@@ -112,18 +113,29 @@ test('sitemap freshness comes only from explicit content dates, never deployment
   assert.equal(sitemapBuilder.extractModified('<html><head></head><body>no explicit date</body></html>', 'test.html'), '');
 
   const entries = sitemapBuilder.buildEntries();
-  assert.equal(entries.length, 48);
+  assert.equal(entries.length, 49);
   assert.equal(new Set(entries.map(entry => entry.loc)).size, entries.length);
   assert.ok(entries.every(entry => entry.loc.startsWith('https://triplem.vip/')));
   assert.ok(entries.every(entry => !entry.loc.endsWith('/Demo/')));
+  assert.ok(entries.some(entry => entry.loc === 'https://triplem.vip/seo/faq.html'));
   assert.ok(entries.every(entry => !entry.lastmod || sitemapBuilder.validIsoDate(entry.lastmod)));
-  assert.equal(entries.find(entry => entry.loc === 'https://triplem.vip/').lastmod, '2026-10-14');
+  assert.equal(entries.find(entry => entry.loc === 'https://triplem.vip/').lastmod, '2026-10-31');
+  assert.ok(entries.every(entry => ['always','hourly','daily','weekly','monthly','yearly','never'].includes(entry.changefreq)));
+  assert.ok(entries.every(entry => Number(entry.priority) >= 0 && Number(entry.priority) <= 1));
 });
 
 test('live sitemap validation rejects impossible dates and unsafe XML declarations', () => {
   const valid = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://triplem.vip/</loc><lastmod>2026-10-14</lastmod></url></urlset>';
   assert.throws(() => sitemapEntries(valid.replace('2026-10-14', '2026-02-30')), /Invalid calendar date/);
   assert.throws(() => sitemapEntries(valid.replace('<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE urlset [<!ENTITY x "y">]><?xml version="1.0" encoding="UTF-8"?>')), /DOCTYPE|entity/i);
+});
+
+test('sitemap index points only to the verified full HTTPS sitemap', () => {
+  const { sitemapIndexEntries } = require('../scripts/audit_live_seo');
+  const valid = '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://triplem.vip/sitemap.xml</loc></sitemap></sitemapindex>';
+  assert.deepEqual(sitemapIndexEntries(valid), ['https://triplem.vip/sitemap.xml']);
+  assert.throws(() => sitemapIndexEntries(valid.replace('https://triplem.vip/sitemap.xml', 'https://other.example/sitemap.xml')), /clean HTTPS URL/);
+  assert.throws(() => sitemapIndexEntries(valid.replace('<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE sitemapindex [<!ENTITY x "y">]><?xml version="1.0" encoding="UTF-8"?>')), /DOCTYPE|entity/i);
 });
 
 test('post-deploy SEO gate stays strict while IndexNow transport failures are explicitly non-blocking', () => {
@@ -144,10 +156,58 @@ test('humans.txt and LLM discovery references have current, explicit source boun
   const humans = read('humans.txt');
   const llms = read('llms.txt');
   const full = read('llms-full.txt');
-  assert.match(humans, /Last reviewed: 2026\/10\/14/);
+  assert.match(humans, /Last reviewed: 2026\/10\/31/);
   assert.match(humans, /Canonical HTML pages are authoritative/);
-  assert.match(llms, /optional, concise retrieval mirrors/i);
-  assert.match(llms, /not search-ranking signals/i);
+  assert.match(llms, /Markdown pages are supplementary reading copies/i);
+  assert.match(llms, /optional context files, not ranking signals/i);
   assert.match(llms, /Editorial policy/);
   assert.match(full, /Currency availability does not imply/i);
+});
+
+
+test('public SEO metadata, manifest icons and FAQ schema stay complete', () => {
+  const root = path.resolve(__dirname, '..');
+  const { buildEntries, publicHtmlFiles } = require('../scripts/build_sitemap');
+  const files = publicHtmlFiles().filter(file => file !== 'Demo/index.html');
+  const manifest = JSON.parse(read('site.webmanifest'));
+  assert.equal(files.length, 49);
+  assert.ok(files.every(file => fs.existsSync(path.join(root, file))));
+  for (const file of files) {
+    const html = read(file);
+    const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+    const desc = (html.match(/<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/i) || [])[0] || '';
+    const canonical = (html.match(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/i) || [])[0] || '';
+    assert.equal([...html.matchAll(/<title\b/gi)].length, 1, file);
+    const visibleTitle = title.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, '\'');
+    assert.ok(visibleTitle.length >= 50 && visibleTitle.length <= 60, file);
+    assert.equal([...html.matchAll(/<meta\b(?=[^>]*\bname=["']description["'])/gi)].length, 1, file);
+    const description = desc.match(/content=["']([^"']*)["']/i)?.[1] || '';
+    assert.ok(description.length >= 140 && description.length <= 160, file);
+    assert.equal([...html.matchAll(/<link\b(?=[^>]*\brel=["']canonical["'])/gi)].length, 1, file);
+    assert.match(canonical, /rel=["']canonical["']/i);
+    assert.equal([...html.matchAll(/<h1\b/gi)].length, 1, file);
+    assert.match(html, /<html\b[^>]*lang=["'][^"']+["']/i);
+    assert.match(html, /<link\b[^>]*rel=["']manifest["']/i);
+    if (file !== 'index.html') {
+      const scripts = [...html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+      const types = scripts.flatMap(match => {
+        const data = JSON.parse(match[1]);
+        return (data['@graph'] || [data]).map(node => node['@type']);
+      });
+      assert.ok(types.includes('BreadcrumbList'), `${file} must have BreadcrumbList JSON-LD`);
+    }
+  }
+  assert.equal(manifest.icons.filter(icon => icon.sizes === '192x192').length, 1);
+  assert.ok(manifest.icons.some(icon => icon.sizes === '512x512' && icon.purpose === 'any'));
+  assert.ok(manifest.icons.some(icon => icon.sizes === '512x512' && icon.purpose === 'maskable'));
+  const faq = read('seo/faq.html');
+  assert.match(faq, /Frequently Asked Questions About Triplem VIP/);
+  assert.match(faq, /<script type="application\/ld\+json">/);
+  assert.match(faq, /"@type": "FAQPage"/);
+  assert.match(faq, /Bitcoin private keys leave my browser/);
+  const robots = read('robots.txt');
+  for (const bot of ['GPTBot','OAI-SearchBot','ChatGPT-User','ClaudeBot','Claude-SearchBot','PerplexityBot','Google-Extended','Applebot-Extended','CCBot']) {
+    assert.match(robots, new RegExp(`User-agent: ${bot}`));
+  }
+  assert.ok(buildEntries().some(entry => entry.loc === 'https://triplem.vip/seo/faq.html'));
 });
