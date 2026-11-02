@@ -1,6 +1,6 @@
 # Triplem VIP — Full Public Product Reference
 
-Last reviewed: 2026-10-14
+Last reviewed: 2026-10-31
 Canonical site: https://triplem.vip/
 Public guide hub: https://triplem.vip/seo/
 
@@ -9,6 +9,120 @@ This file is a maintained public product reference, not a substitute for canonic
 ## Product definition
 
 Triplem VIP is a private browser-based finance and accounting workspace. It combines operational finance modules with a separate formal Accounting ERP. Triplem AI provides workspace-specific assistance for authorized users. Financial Timeline provides a read-only chronological view inside Dashboard.
+
+
+## Who Triplem VIP is for
+
+Triplem VIP serves individuals who want organized personal finance records and businesses that need structured operational money management. Its documented use cases include shop owners, merchants, service businesses, private lenders and careful finance operators. A company setup can support more than one team member, with access controlled by the account administrator and the enabled permissions. Customer-specific configuration can be requested for suitable workflows.
+
+The product runs in a web browser on desktop and mobile. Optional install helpers can provide a home-screen or desktop-app experience; the main workspace remains the browser-based service.
+
+## Main modules in plain language
+
+### Wallets, expenses and cash movement
+
+Users can create cash, bank, card and custom wallets. Each wallet maintains its own currency, balance context and transaction history. Users can add money, record expenses and move money between wallets. Expense, Receiving and Internal Transfers are distinct classifications: a wallet transfer is not automatically operating income or an expense.
+
+### Inventory, sales and customers
+
+Inventory workflows cover product/catalogue records, stock, purchases, sales, low-stock signals and customer records. Users can save carts or proformas, finalize sales, track customer balances and create invoice or receipt PDFs. Profit visibility depends on the cost and transaction information entered in the workspace.
+
+### Loans and repayments
+
+The Loans module tracks money lent to another person or business and money borrowed from someone else. It distinguishes Loan Given from Received Back, and Loan Taken from Returned Back. The direction matters when calculating who owes whom and what balance remains. Supported statement exports provide transaction history and balances.
+
+### Installment plans
+
+Installment Plans Bought tracks amounts the user or business must pay. Installment Plans Sold tracks amounts expected from a customer or counterparty. Each direction has its own payment or receipt treatment, schedule details and PDF statement. A future receivable is not treated as cash before it is received.
+
+### Asset management
+
+Asset records can capture purchase price, purchase date, type and description. The lifecycle can include maintenance, repairs, running costs, additional investment, revenue, sale or disposal. Reports can show ownership duration and net profit/loss. Asset types and certain expense labels can be named and reused where the workflow supports it.
+
+### Insurance management
+
+The insurance area documents insurance providers and reusable policies, policy numbers, sales, customer documents, referral records, commission context, cancellations, opening balances and referral settlements. Public feature information is maintained in the [Insurance Management guide](https://triplem.vip/seo/insurance-management.html).
+
+### Formal Accounting ERP
+
+The formal Accounting ERP is separate from the operational finance modules. It includes a Chart of Accounts, journals, sales and purchases, Accounts Receivable, Accounts Payable, bank reconciliation, VAT views and financial reports. Operational transactions do not automatically become General Ledger postings unless a supported bridge explicitly does so. Users remain responsible for their local statutory and tax requirements.
+
+### Reports and exports
+
+Depending on the module, users can export PDF statements, receipts, inventory invoices, customer records, asset summaries, Bitcoin statements and formal accounting reports. Formal reports include Trial Balance, Profit and Loss, Balance Sheet and General Ledger views. Exports should be reviewed before they are used for accounting, tax or other formal decisions.
+
+### Financial Timeline
+
+Financial Timeline is a read-only Dashboard view that arranges permitted workspace activity chronologically. It supports date, module, currency and search filters and summarizes currency-specific inflow, outflow and net activity. It is not the General Ledger.
+
+### Triplem AI
+
+Triplem AI assists authorized users with product guidance and retrieval from records they are permitted to access. AI-created finance actions remain isolated Drafts until the user reviews and finalizes them. A Draft is not included in normal balances, inventory, VAT, reports or Accounting before finalization.
+
+### Notes and reminders
+
+The Notes feature provides searchable notes and reminders for operational follow-up. Do not infer project-management or document-storage features beyond the published notes functionality.
+
+### Bitcoin wallet tools
+
+Bitcoin workflows support client-side key handling. Sensitive private-key material remains in the browser on the user's device rather than being uploaded to Triplem VIP servers for custody. Supported functions include creating or using wallet addresses, sending and receiving, and reviewing wallet transaction history. Users should only use trusted devices and protect their own keys and backups.
+
+### Account security and support
+
+Public documentation describes password protection, optional Authenticator App TOTP two-factor authentication, recovery controls, Smart PIN confirmation for sensitive actions, session protections and private account workspaces. TOTP secrets are encrypted server-side and recovery codes are stored as hashes. Visitors can start with guided Live Support and request an agent. Registered users can use authenticated in-app support where enabled. Never send passwords, Smart PINs, TOTP secrets or recovery codes to support.
+
+## Common questions
+
+### Is Triplem VIP only for businesses?
+
+No. It is intended for both individuals and businesses. The modules a user sees can depend on their account setup and administrator permissions.
+
+### Does Triplem VIP replace formal accounting software?
+
+It includes a formal double-entry Accounting ERP as well as operational finance modules. The product keeps those roles distinct; users should confirm the specific accounting workflows and local requirements that apply to them.
+
+### Which currencies are supported?
+
+Current documented finance workflows support AED, SAR, PKR, USD, EUR and INR. BTC is available for supported Bitcoin workflows. Currency availability does not mean that every country's tax or statutory rules are handled identically.
+
+### Can a user download reports?
+
+Yes. Supported modules provide PDF statements, receipts, invoices or financial reports. Available report types depend on the module and enabled account features.
+
+### Does Triplem VIP submit VAT returns electronically?
+
+No. VAT views support review and evidence. Triplem VIP does not electronically submit a VAT return and does not replace local professional tax review.
+
+### Does Bitcoin private-key material go to the server?
+
+The documented Bitcoin key workflows are client-side. Sensitive private-key material remains in the browser on the user's device and is not uploaded to Triplem VIP servers for custody.
+
+### How can someone request access or a trial?
+
+Visitors can use the public inquiry or Live Support options, email the official contact address, or use the available trial option on the sign-in screen when it is offered. Account access is private and may require approval.
+
+### Where can current plan details be checked?
+
+The live [Pricing section](https://triplem.vip/#pricing) is the source for current plan details. Pricing, offers and currency presentation may change, so this reference does not repeat amounts that could become stale.
+
+### Where can users get help?
+
+Visitors can use Live Support from the website. Registered users can use authenticated in-app support where enabled. The public contact email is info@triplem.vip.
+
+## Public navigation and support
+
+- Sitemap index: https://triplem.vip/sitemap-index.xml
+
+- Homepage: https://triplem.vip/
+- Features: https://triplem.vip/#features
+- Services: https://triplem.vip/#services
+- About: https://triplem.vip/#about
+- Pricing: https://triplem.vip/#pricing
+- FAQ: https://triplem.vip/seo/faq.html
+- Contact: mailto:info@triplem.vip
+- Security: https://triplem.vip/Security/
+- Guide library: https://triplem.vip/seo/
+- Regional availability: https://triplem.vip/regions/
 
 ## International currency availability
 

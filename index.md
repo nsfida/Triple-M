@@ -3,7 +3,7 @@
 > Triplem VIP is a private browser-based accounting and business-finance workspace for expenses, inventory, loans, multi-currency accounts and reports, with formal double-entry books, reconciliation, security controls and permission-aware Triplem AI.
 
 Canonical page: https://triplem.vip/
-Last reviewed: 2026-10-14
+Last reviewed: 2026-10-31
 
 ## What Triplem VIP covers
 
@@ -25,6 +25,10 @@ Triplem VIP is intended for users in any country. If a required currency is not 
 - [Financial reports](https://triplem.vip/seo/financial-reports.md): Core accounting and operational reporting boundaries.
 - [Triplem AI](https://triplem.vip/seo/triplem-ai.md): Permission-aware workspace assistance and reviewable AI workflows.
 - [Security and support](https://triplem.vip/seo/security-and-support.md): Authentication, account protection and support channels.
+
+## Questions and answers
+
+- [Frequently Asked Questions](https://triplem.vip/seo/faq.md): Public answers about access, features, security, pricing and support.
 
 ## Official resources
 

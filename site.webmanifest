@@ -1,8 +1,8 @@
 {
+  "id": "/",
   "name": "Triplem VIP",
   "short_name": "Triplem VIP",
-  "description": "Accounting and finance workspace for expenses, inventory, loans, multi-currency accounts, double-entry books, reconciliation and permission-aware AI.",
-  "id": "https://triplem.vip/",
+  "description": "Private browser-based accounting and business-finance workspace for expenses, wallets, inventory, loans, assets, installments, reports and formal double-entry Accounting ERP.",
   "start_url": "/?utm_source=pwa&utm_medium=manifest",
   "scope": "/",
   "display": "standalone",
@@ -18,10 +18,22 @@
   ],
   "icons": [
     {
-      "src": "https://triplem.vip/Assets/logo/logo.png",
+      "src": "/Assets/logo/logo-pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Assets/logo/logo-pwa-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/Assets/logo/logo-pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -32,8 +44,9 @@
       "url": "/#login",
       "icons": [
         {
-          "src": "https://triplem.vip/Assets/logo/logo.png",
-          "sizes": "512x512"
+          "src": "/Assets/logo/logo-pwa-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -44,8 +57,22 @@
       "url": "/seo/",
       "icons": [
         {
-          "src": "https://triplem.vip/Assets/logo/logo.png",
-          "sizes": "512x512"
+          "src": "/Assets/logo/logo-pwa-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Frequently Asked Questions",
+      "short_name": "FAQ",
+      "description": "Answers about Triplem VIP features and access",
+      "url": "/seo/faq.html",
+      "icons": [
+        {
+          "src": "/Assets/logo/logo-pwa-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -56,8 +83,9 @@
       "url": "/regions/",
       "icons": [
         {
-          "src": "https://triplem.vip/Assets/logo/logo.png",
-          "sizes": "512x512"
+          "src": "/Assets/logo/logo-pwa-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }

@@ -8,21 +8,29 @@ Editorial policy: https://triplem.vip/seo/editorial-policy.html
 /* SITE */
 Name: Triplem VIP
 Canonical URL: https://triplem.vip/
+Product: Browser-based accounting and business-finance workspace with a separate formal double-entry Accounting ERP
 Primary language: English
 Public guide languages: English, Arabic, Urdu, Hindi, French, Dutch
-Standards: HTML5, CSS, JavaScript, XML Sitemap Protocol
-Product: Browser-based accounting ERP and business-finance workspace
+Frontend: Semantic HTML5, CSS3 and browser-native JavaScript
+Backend services: Supabase PostgreSQL, Auth, Storage and Edge Functions
+Edge function language/runtime: TypeScript on the Supabase Edge Runtime
+Local tooling: Node.js (package.json requires Node.js >=22)
+Rendering: Static multi-page HTML with client-side application behavior; no SSR framework identified
+Deployment: Static site with custom-domain CNAME and a host-style _headers configuration
+Hosting provider: TODO — confirm the actual production static-hosting provider; it is not explicitly identified in the source tree
+Product URL: https://triplem.vip/
 Public guide library: https://triplem.vip/seo/
 Regional availability guide: https://triplem.vip/regions/
+FAQ: https://triplem.vip/seo/faq.html
 Sitemap: https://triplem.vip/sitemap.xml
 AI discovery index: https://triplem.vip/llms.txt
 Full public product reference: https://triplem.vip/llms-full.txt
-Last reviewed: 2026/10/14
+Last reviewed: 2026/10/31
 
 /* CONTENT PRINCIPLES */
-Public pages should describe current product behavior and avoid unsupported capability, customer, performance, award, certification, or compliance claims.
+Public pages describe current product behavior and avoid unsupported capability, customer, performance, award, certification, security-guarantee or compliance claims.
 Canonical HTML pages are authoritative; Markdown files are supplementary retrieval references.
-Currency availability does not imply jurisdiction-specific tax filing, statutory certification, or professional advice.
+Currency availability does not imply jurisdiction-specific tax filing, statutory certification or professional advice.
 Material product changes should be reflected in relevant canonical HTML and Markdown references, and the page modification date should be updated when content materially changes.
 
 /* CONTACT */

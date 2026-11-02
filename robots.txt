@@ -1,9 +1,10 @@
 # Triplem VIP crawler policy
 # Canonical origin: https://triplem.vip/
-# Sitemap: list only canonical, indexable HTML pages. The robots protocol is not access control.
+# Robots rules guide crawlers; they are not an access-control or privacy boundary.
+Sitemap: https://triplem.vip/sitemap-index.xml
 Sitemap: https://triplem.vip/sitemap.xml
 
-# Standard search crawlers: serve canonical HTML in ordinary search results.
+# Standard search crawlers may fetch public pages and assets needed to render them.
 User-agent: *
 Allow: /
 Allow: /seo/
@@ -14,11 +15,25 @@ Allow: /Security/
 Allow: /llms.txt
 Allow: /llms-full.txt
 Allow: /humans.txt
-Allow: /.well-known/security.txt
 Allow: /site.webmanifest
-Disallow: /index.md
+Allow: /.well-known/security.txt
+# The Demo is crawlable so engines can read its explicit noindex directive.
+# Markdown mirrors are reserved for retrieval-oriented crawlers; canonical HTML is preferred in search.
+Disallow: /index.md$
 Disallow: /seo/*.md$
 Disallow: /regions/*.md$
+# Private application routes and API conventions (the live dashboard itself is authenticated at the root app shell).
+Disallow: /login/
+Disallow: /dashboard/
+Disallow: /account/
+Disallow: /settings/
+Disallow: /admin/
+Disallow: /app/
+Disallow: /private/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /billing/
+# Source, build, maintenance and backup paths are not public content.
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /docs/
@@ -37,54 +52,44 @@ Disallow: /*.zip$
 Disallow: /*.sql$
 Disallow: /*.bak$
 
-# Keep /Demo/ crawlable so search engines can read its explicit noindex directive. Compliant search engines can then honor it.
-# Search/retrieval bots are allowed to read public HTML and approved Markdown mirrors.
-# These specific groups intentionally define their own policy; do not assume they inherit the wildcard group.
+# Explicit AI search/retrieval and model-access crawlers. All receive the same public-only policy above.
+# These named groups repeat the standard private/source exclusions because specific groups do not inherit wildcard rules.
+User-agent: GPTBot
 User-agent: OAI-SearchBot
 User-agent: ChatGPT-User
-User-agent: PerplexityBot
-User-agent: Perplexity-User
+User-agent: ClaudeBot
 User-agent: Claude-SearchBot
 User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
 Allow: /
-Allow: /index.md
+Allow: /seo/
+Allow: /regions/
+Allow: /Demo/
+Allow: /Founder/
+Allow: /Security/
+Allow: /index.md$
 Allow: /seo/*.md$
 Allow: /regions/*.md$
 Allow: /llms.txt
 Allow: /llms-full.txt
 Allow: /humans.txt
+Allow: /site.webmanifest
 Allow: /.well-known/security.txt
-Disallow: /Backup/
-Disallow: /ad/
-Disallow: /docs/
-Disallow: /migrations/
-Disallow: /scripts/
-Disallow: /tests/
-Disallow: /supabase/
-Disallow: /developer-artifacts/
-Disallow: /Assets/sql/
-Disallow: /node_modules/
-Disallow: /.cursor/
-Disallow: /.git/
-Disallow: /.github/
-Disallow: /dist-production/
-Disallow: /*.zip$
-Disallow: /*.sql$
-Disallow: /*.bak$
-
-# Model-development crawlers are a separate decision from search/retrieval crawlers.
-# Public product content is allowed for these agents at present; private implementation paths remain excluded.
-# GPTBot and ClaudeBot are not substitutes for OAI-SearchBot/Claude-SearchBot.
-# Google-Extended controls certain Gemini model-development/grounding uses, not Google Search indexing.
-User-agent: GPTBot
-User-agent: ClaudeBot
-User-agent: Google-Extended
-Allow: /
-Allow: /index.md
-Allow: /seo/*.md$
-Allow: /regions/*.md$
-Allow: /llms.txt
-Allow: /llms-full.txt
+# Keep the interactive Demo crawlable for its HTML noindex directive; do not block rendering assets.
+Disallow: /login/
+Disallow: /dashboard/
+Disallow: /account/
+Disallow: /settings/
+Disallow: /admin/
+Disallow: /app/
+Disallow: /private/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /billing/
 Disallow: /Backup/
 Disallow: /ad/
 Disallow: /docs/
