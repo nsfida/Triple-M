@@ -38,11 +38,33 @@
     doc.line(cx - 3.6, cy + 0.2, cx - 1, cy + 3.2); doc.line(cx - 1, cy + 3.2, cx + 4.2, cy - 3.8);
   }
 
-  async function build(rows, progress) {
+  // Optional compact copy of the form artwork (used by the backup so thousands of PDFs stay small).
+  const compactTemplates = new Map();
+  async function compactDataUrl(dataUrl, maxWidth, quality) {
+    const key = maxWidth + ":" + quality;
+    if (compactTemplates.has(key)) return compactTemplates.get(key);
+    const task = (async () => {
+      const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = dataUrl; });
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale)); canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", quality);
+    })();
+    compactTemplates.set(key, task);
+    task.catch(() => compactTemplates.delete(key));
+    return task;
+  }
+
+  // options (all optional): { getFile(bucket, path) -> data URL | null, templateMaxWidth, templateQuality }
+  async function build(rows, progress, options) {
     const { jsPDF } = window.jspdf;
+    const fileGetter = options && typeof options.getFile === "function" ? options.getFile : getFile;
     const templateResponse = await fetch(FORM_TEMPLATE_URL, { cache: "force-cache" });
     if (!templateResponse.ok) throw new Error(`Could not load the registration form template (HTTP ${templateResponse.status}).`);
-    const tpl = await templateResponse.blob().then(toDataURL);
+    let tpl = await templateResponse.blob().then(toDataURL);
+    if (options && options.templateMaxWidth) tpl = await compactDataUrl(tpl, options.templateMaxWidth, options.templateQuality || 0.8);
     const doc = new jsPDF({ unit: "pt", format: [PW, PH], compress: true });
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
@@ -51,8 +73,8 @@
       doc.addImage(tpl, "JPEG", 0, 0, PW, PH, "tpl", "FAST");
       doc.setFont("helvetica", "normal"); doc.setTextColor(8, 28, 70);
       const [photo, cf, cb, cert, other, sign] = await Promise.all([
-        getFile("photos", r.photo_path), getFile("documents", r.cnic_front_path), getFile("documents", r.cnic_back_path),
-        getFile("documents", r.certificate_path), getFile("documents", r.other_doc_path), getFile("documents", r.signature_path)
+        fileGetter("photos", r.photo_path), fileGetter("documents", r.cnic_front_path), fileGetter("documents", r.cnic_back_path),
+        fileGetter("documents", r.certificate_path), fileGetter("documents", r.other_doc_path), fileGetter("documents", r.signature_path)
       ]);
       const date = fmtDate(r.created_at);
       put(doc, "regno", r.reg_no); put(doc, "regdate", date);

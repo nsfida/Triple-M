@@ -203,3 +203,26 @@ nsfida decides, for **every other admin, new or existing, including waseemfida**
 
 Setup: run `sql/migrations/20261031_012_photo_storage_tools.sql` (after 011). No Edge Function change is needed.
 Note: the public `originals` upload rule is intentionally left in place so that registration pages already open in someone's browser do not fail during the update; any file they upload can be removed with the clean-up tool.
+
+
+## Backup & restore (1 November 2026, migration 013) - nsfida only
+
+Profile menu > **Backup & restore**. The menu item, the screen and the database function are available to **nsfida only**; no other admin can see or use them.
+
+**1. Download a full backup**
+- Creates a ZIP with: `data/players.json` (every registration record), `photos/<REG>_<Name>.jpg` (photos named by player), and `players/<REG>_<Name>/` (one folder per player containing `registration_form.pdf`, the photo, CNIC front/back, certificate, other document and signature). A `README.txt` is included.
+- Untick *Include registration form PDF* for a faster, smaller backup. Lists of more than 120 players (or about 220 MB) are split into several ZIPs (`..._part1.zip`, `..._part2.zip`...). Each part restores on its own.
+- The backup PDFs use a compact form template and downsized images to keep them small. The original image files in the folder are full copies of what is stored.
+
+**2. Restore from a backup ZIP** (same ZIP, or one you edited by hand)
+1. Choose the ZIP and press **Check backup**. Nothing is written yet; every player is validated (including the database rules) and you see how many are new, how many already exist and which cannot be restored.
+2. Press **Restore missing data**. Rules:
+   - A player that already exists (same id, or same CNIC) is **never changed**.
+   - A file is uploaded only when nothing exists at its path yet. **Existing files are never replaced.** For existing players, files that are missing in storage are restored at the paths the record already uses.
+   - A new player keeps the id, registration number, status and dates from the backup, with files at the same paths. If its number is already taken by someone else it gets the next free number. The number counter is moved past every restored number so new sign-ups never collide.
+   - If saving a new player's record fails, the files uploaded for that player are removed again.
+3. A text report of problems can be downloaded.
+
+**Adding a player by hand** (see also `README.txt` inside every backup): add an object to the `players` list in `data/players.json` with `name, father_name, cnic, mobile, gender, dob, address, district_tehsil, sport` (do not add `id`, `reg_no` or `_backup`), create a folder under `players/` with `photo.jpg`, `cnic_front.jpg`, `cnic_back.jpg` (optional `certificate.jpg`, `other.jpg`, `signature.png`), and link it with `"folder": "players/<folder name>"`. On restore the player receives a new id, the next registration number and new storage paths (`<id>/photo.jpg` ...), images are compressed, and a signature image is generated from the typed name when none is supplied.
+
+Setup: run `sql/migrations/20261101_013_backup_restore.sql` (after 012). No Edge Function change is needed.

@@ -240,6 +240,7 @@
       <button type="button" class="profile-menu-item" data-profile-settings hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.3"/><path d="M5 20c.4-3.5 2.8-5.5 7-5.5s6.6 2 7 5.5"/><path d="M19 3v4M17 5h4"/></svg></span><span><strong>Profile &amp; security</strong><small>Picture and password</small></span></button>
       <button type="button" class="profile-menu-item" data-profile-admin-accounts hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 20c.3-3.4 2.4-5.2 6.2-5.2 1.6 0 2.9.3 3.9 1"/><circle cx="17.5" cy="16.5" r="3.2"/><path d="M17.5 14.8v3.4M15.8 16.5h3.4"/></svg></span><span><strong>Admin accounts &amp; access</strong><small>Create admins and manage feature permissions</small></span></button>
       <button type="button" class="profile-menu-item" data-profile-storage hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg></span><span><strong>Photo storage</strong><small>Compress photos and free storage space</small></span></button>
+      <button type="button" class="profile-menu-item" data-profile-backup hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg></span><span><strong>Backup &amp; restore</strong><small>Download all data or restore missing data</small></span></button>
       <a href="../participants/" class="profile-menu-item" data-profile-public hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></svg></span><span><strong>Public participants</strong><small>View the runner directory</small></span></a>
       <a href="../register/" class="profile-menu-item" data-profile-register hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span><strong>New registration</strong><small>Add a runner</small></span></a>
       <button type="button" class="profile-menu-item danger" data-profile-signout hidden><span class="profile-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></span><span><strong>Sign out</strong><small>End this device's session</small></span></button>
@@ -259,6 +260,8 @@
       if (accountsEntry) accountsEntry.hidden = !canManageAdminAccounts;
       const storageEntry = mount.querySelector("[data-profile-storage]");
       if (storageEntry) storageEntry.hidden = !canManageAdminAccounts;
+      const backupEntry = mount.querySelector("[data-profile-backup]");
+      if (backupEntry) backupEntry.hidden = !canManageAdminAccounts;
       const signIn = mount.querySelector("[data-profile-signin]");
       if (signIn) signIn.href = routeHref("admin");
       const publicLink = mount.querySelector("[data-profile-public]");

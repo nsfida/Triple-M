@@ -1,0 +1,18 @@
+/* Backup & restore dialog extras (owner-only). Builds on storage-tools.css. */
+.backup-dialog{width:min(780px,calc(100vw - 28px));max-width:780px}
+.backup-text{margin:0;color:#4b6068;font-size:.72rem;line-height:1.5}
+.backup-list{margin:0;padding-left:18px;color:#4b6068;font-size:.7rem;line-height:1.6}
+.backup-list b{color:#19343b}
+.backup-pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.backup-pick input[type=file]{flex:1 1 240px;min-width:0;margin:0;padding:7px;border:1px dashed #b8cbcd;border-radius:10px;background:#fbfdfd;font:inherit;font-size:.72rem}
+.backup-check{display:grid;gap:8px;padding:10px 12px;border:1px solid #d8e3e4;border-radius:11px;background:#fbfdfd}
+.backup-tally{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.backup-tally>div{padding:8px 10px;border:1px solid #e1e8e9;border-radius:10px;background:#fff;text-align:center}
+.backup-tally b{display:block;font-size:1.15rem;color:#19343b}
+.backup-tally small{display:block;color:#74878d;font-size:.6rem;line-height:1.3}
+.backup-tally .ok{border-color:#bfe0cd;background:#eef8f2}.backup-tally .ok b{color:#17543a}
+.backup-tally .bad{border-color:#efcbcb;background:#fff3f3}.backup-tally .bad b{color:#a43136}
+.backup-problems{padding:8px 10px;border:1px solid #efcbcb;border-radius:10px;background:#fff8f8;font-size:.66rem;color:#7a2a2f}
+.backup-problems summary{cursor:pointer;font-weight:800}
+.backup-problems ul{margin:6px 0 0;padding-left:18px;line-height:1.5}
+@media(max-width:600px){.backup-tally{grid-template-columns:repeat(2,minmax(0,1fr))}}

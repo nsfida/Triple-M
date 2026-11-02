@@ -5,7 +5,7 @@
   const ADMIN_TOOLS_SCRIPT_URL = document.currentScript && document.currentScript.src
     ? document.currentScript.src
     : new URL("admin-tools.js", new URL("js/", document.baseURI)).href;
-  const PDF_BUILDER_URL = new URL("pdf.js", ADMIN_TOOLS_SCRIPT_URL).href;
+  const PDF_BUILDER_URL = new URL("pdf.js?v=20261101-1", ADMIN_TOOLS_SCRIPT_URL).href;
   const scriptLoads = new Map();
   let ready = false;
 
