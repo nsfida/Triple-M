@@ -10,7 +10,8 @@ let errors=[]; let warnings=[];
 const err=(file,msg)=>errors.push(`${file}: ${msg}`);
 const warn=(file,msg)=>warnings.push(`${file}: ${msg}`);
 const read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
-const text=s=>String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+const text=s=>String(s||'').replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+const count=(html,re)=>[...html.matchAll(re)].length;
 const tagAttr=(tag,name)=>{ const m=tag.match(new RegExp('\\b'+name+'=[\"\']([^\"\']+)[\"\']','i')); return m?m[1]:''; };
 const linkTags=html=>[...html.matchAll(/<link\b[^>]*>/gi)].map(m=>m[0]);
 const attr=(html, tag, key, value, wanted) => {
@@ -41,6 +42,7 @@ const pages=['index.html','Founder/index.html','Security/index.html',...fs.readd
 function expectedCanonicalFor(file){ if(file==='index.html') return `${BASE}/`; if(path.posix.basename(file)==='index.html') return `${BASE}/${path.posix.dirname(file)}/`; return `${BASE}/${file}`; }
 const canonicals=new Map();
 const sitemap=read('sitemap.xml');
+const sitemapIndex=read('sitemap-index.xml');
 const robots=read('robots.txt');
 
 for(const file of pages){
@@ -50,16 +52,36 @@ for(const file of pages){
   const canonical=attr(html,'link','rel','canonical','href');
   const robotsMeta=attr(html,'meta','name','robots','content');
   const h1s=[...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)];
-  if(!title) err(file,'missing <title>'); else if(title.length>72) warn(file,`long title (${title.length} chars)`);
-  if(!desc) err(file,'missing meta description'); else if(desc.length<70||desc.length>190) warn(file,`description length ${desc.length}`);
+  if(count(html,/<title\b/gi)!==1) err(file,'expected exactly one <title> element');
+  if(!title) err(file,'missing <title>'); else if(title.length<50||title.length>60) err(file,`title should be about 50–60 characters (found ${title.length})`);
+  if(count(html,/<meta\b(?=[^>]*\bname=["']description["'])/gi)!==1) err(file,'expected exactly one meta description');
+  if(!desc) err(file,'missing meta description'); else if(desc.length<140||desc.length>160) err(file,`meta description should be about 140–160 characters (found ${desc.length})`);
+  if(count(html,/<link\b(?=[^>]*\brel=["']canonical["'])/gi)!==1) err(file,'expected exactly one canonical link');
   if(!canonical||!canonical.startsWith(BASE)) err(file,'missing or non-production canonical');
   else { if(canonical!==expectedCanonicalFor(file)) err(file,`canonical does not match this page URL; expected ${expectedCanonicalFor(file)}`); if(canonicals.has(canonical)) err(file,`duplicate canonical also used by ${canonicals.get(canonical)}`); canonicals.set(canonical,file); if(!sitemap.includes(`<loc>${canonical.replace(/&/g,'&amp;')}</loc>`)) err(file,'canonical missing from sitemap'); }
   if(/\bnoindex\b/i.test(robotsMeta) || !/(?:^|[,\s])index(?:$|[,\s])/i.test(robotsMeta)) err(file,'page is not explicitly indexable');
   if(h1s.length!==1) err(file,`expected exactly one H1, found ${h1s.length}`);
-  for(const m of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){
-    try { const obj=JSON.parse(m[1]); if(JSON.stringify(obj).includes('FAQPage')) err(file,'deprecated FAQPage structured data remains'); }
-    catch(e){ err(file,`invalid JSON-LD: ${e.message}`); }
+  if(count(html,/<html\b(?=[^>]*\blang=["'][^"']+["'])/gi)!==1) err(file,'expected an explicit html lang attribute');
+  if(count(html,/<meta\b(?=[^>]*\bname=["']viewport["'])/gi)!==1) err(file,'expected exactly one viewport meta tag');
+  for(const [property,label] of [['og:title','og:title'],['og:description','og:description'],['og:image','og:image'],['og:url','og:url'],['og:type','og:type']]){
+    if(count(html,new RegExp(`<meta\\b(?=[^>]*\\bproperty=["']${property.replace(':','\\:')}["'])`,'gi'))!==1) err(file,`expected exactly one ${label} tag`);
   }
+  for(const name of ['twitter:card','twitter:title','twitter:description','twitter:image']){
+    if(count(html,new RegExp(`<meta\\b(?=[^>]*\\bname=["']${name.replace(':','\\:')}["'])`,'gi'))!==1) err(file,`expected exactly one ${name} tag`);
+  }
+  if(count(html,/<link\b(?=[^>]*\brel=["']manifest["'])/gi)!==1) err(file,'expected exactly one site manifest link');
+  let hasBreadcrumb=false;
+  for(const m of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){
+    try {
+      const obj=JSON.parse(m[1]);
+      const nodes=Array.isArray(obj['@graph'])?obj['@graph']:[obj];
+      if(nodes.some(node=>node&&node['@type']==='BreadcrumbList')) hasBreadcrumb=true;
+      const hasFaq=JSON.stringify(obj).includes('FAQPage');
+      if(hasFaq && file!=='seo/faq.html') err(file,'FAQPage structured data must only appear on the visible dedicated FAQ page');
+      if(file==='seo/faq.html' && !hasFaq) err(file,'dedicated FAQ page must describe its visible FAQs with FAQPage JSON-LD');
+    } catch(e){ err(file,`invalid JSON-LD: ${e.message}`); }
+  }
+  if(file!=='index.html'&&!hasBreadcrumb) err(file,'inner public pages must include a BreadcrumbList JSON-LD node');
   if(file.startsWith('seo/')||file.startsWith('regions/')){
     const mdTag=linkTags(html).find(t=>tagAttr(t,'rel')==='alternate' && tagAttr(t,'type')==='text/markdown');
     const md=mdTag?tagAttr(mdTag,'href'):'';
@@ -82,6 +104,10 @@ for(const file of pages){
 
 // The interactive demo remains available to visitors, but its app shell is not a distinct indexable landing page.
 const demoHtml=read('Demo/index.html');
+for (const file of ['Demo/index.html','404.html']) {
+  const html=read(file);
+  if(count(html,/<link\b(?=[^>]*\brel=["']manifest["'])/gi)!==1) err(file,'expected exactly one site manifest link');
+}
 for(const directive of ['robots','googlebot','bingbot']){
   const value=attr(demoHtml,'meta','name',directive,'content');
   if(!/\bnoindex\b/i.test(value) || !/\bfollow\b/i.test(value)) err('Demo/index.html',`expected ${directive} noindex,follow directive`);
@@ -109,23 +135,24 @@ for(const [canonical,alts] of regionData){
   }
 }
 
-if(!/User-agent:\s*OAI-SearchBot/i.test(robots)) err('robots.txt','OAI-SearchBot policy missing');
-if(!/User-agent:\s*Claude-SearchBot/i.test(robots)) err('robots.txt','Claude-SearchBot policy missing');
-if(!/User-agent:\s*PerplexityBot/i.test(robots)) err('robots.txt','PerplexityBot policy missing');
+const aiAgents=['GPTBot','OAI-SearchBot','ChatGPT-User','ClaudeBot','Claude-SearchBot','PerplexityBot','Google-Extended','Applebot-Extended','CCBot','Perplexity-User','Claude-User'];
 if(!/Allow:\s*\/Demo\//i.test(robots)) err('robots.txt','Demo must remain crawlable so search engines can read its noindex directive');
-if(!/Sitemap:\s*https:\/\/triplem\.vip\/sitemap\.xml/i.test(robots)) err('robots.txt','sitemap directive missing');
+if(!/Sitemap:\s*https:\/\/triplem\.vip\/sitemap-index\.xml/i.test(robots)) err('robots.txt','multilingual sitemap index directive missing');
+if(!/Sitemap:\s*https:\/\/triplem\.vip\/sitemap\.xml/i.test(robots)) err('robots.txt','backward-compatible full sitemap directive missing');
+if(!/^<\?xml[^>]*>\s*<sitemapindex\b/i.test(sitemapIndex)) err('sitemap-index.xml','expected a valid sitemapindex document');
+const sitemapIndexLocations=[...sitemapIndex.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(m=>m[1]);
+if(sitemapIndexLocations.length!==1 || sitemapIndexLocations[0]!=='https://triplem.vip/sitemap.xml') err('sitemap-index.xml','index must point to the full hreflang-aware sitemap.xml');
+if(!/sitemapindex\s*>\s*$/i.test(sitemapIndex.trim())) err('sitemap-index.xml','sitemap index is not properly closed');
 if(!robots.includes('Disallow: /seo/*.md$')||!robots.includes('Disallow: /regions/*.md$')) err('robots.txt','canonical HTML protection for generic crawlers is incomplete');
 const robotGroups=parseRobotsGroups(robots);
-for(const agent of ['Googlebot','Bingbot']){
+const publicPaths=['/','/seo/faq.html','/seo/accounting-software.html','/regions/uae.html','/Demo/','/Founder/','/Security/'];
+const privatePaths=['/login/','/dashboard/','/account/','/settings/','/admin/','/app/','/private/','/api/','/auth/','/billing/','/Backup/','/scripts/','/migrations/','/supabase/','/tests/'];
+for(const agent of ['Googlebot','Bingbot',...aiAgents]){
   const rules=matchingRobotsRules(robotGroups,agent);
-  for(const p of ['/','/seo/accounting-software.html','/regions/uae.html']) if(!rules.length||!pathAllowedByRules(rules,p)) err('robots.txt',`${agent} must be able to crawl public canonical HTML (${p})`);
-  for(const p of ['/scripts/','/migrations/','/supabase/']) if(pathAllowedByRules(rules,p)) err('robots.txt',`${agent} must not be directed to crawl source/private implementation paths (${p})`);
-  if(pathAllowedByRules(rules,'/index.md')||pathAllowedByRules(rules,'/seo/accounting-software.md')) err('robots.txt',`${agent} should receive canonical HTML rather than Markdown mirrors in ordinary search results`);
-}
-for(const agent of ['OAI-SearchBot','ChatGPT-User','PerplexityBot','Perplexity-User','Claude-SearchBot','Claude-User']){
-  const rules=matchingRobotsRules(robotGroups,agent);
-  for(const p of ['/','/seo/accounting-software.html','/index.md','/seo/accounting-software.md']) if(!rules.length||!pathAllowedByRules(rules,p)) err('robots.txt',`${agent} must be able to retrieve approved public content (${p})`);
-  for(const p of ['/Backup/','/scripts/','/migrations/','/supabase/']) if(pathAllowedByRules(rules,p)) err('robots.txt',`${agent} must not be directed to retrieve excluded implementation paths (${p})`);
+  for(const target of publicPaths) if(!rules.length||!pathAllowedByRules(rules,target)) err('robots.txt',`${agent} must be able to crawl public content (${target})`);
+  for(const target of privatePaths) if(pathAllowedByRules(rules,target)) err('robots.txt',`${agent} must not be directed to crawl private/source paths (${target})`);
+  if(['Googlebot','Bingbot'].includes(agent) && (pathAllowedByRules(rules,'/index.md')||pathAllowedByRules(rules,'/seo/faq.md'))) err('robots.txt',`${agent} should receive canonical HTML rather than Markdown mirrors in ordinary search results`);
+  if(aiAgents.includes(agent)) for(const target of ['/index.md','/seo/faq.md','/seo/accounting-software.md']) if(!rules.length||!pathAllowedByRules(rules,target)) err('robots.txt',`${agent} must be able to retrieve approved public Markdown (${target})`);
 }
 if(!fs.existsSync(path.join(ROOT,'llms.txt'))||!fs.existsSync(path.join(ROOT,'llms-full.txt'))||!fs.existsSync(path.join(ROOT,'humans.txt'))||!fs.existsSync(path.join(ROOT,'seo/llms.txt'))||!fs.existsSync(path.join(ROOT,'regions/llms.txt'))) err('discovery','root humans/llms files or sectional discovery maps are missing');
 for(const file of ['llms.txt','llms-full.txt','seo/llms.txt','regions/llms.txt']){
@@ -147,13 +174,63 @@ try{
   for(const entry of sitemapData) if(!canonicals.has(entry.url)) err('sitemap.xml',`URL is not an indexable source page: ${entry.url}`);
   if(sitemapSet.size!==canonicals.size) err('sitemap.xml',`URL count mismatch: sitemap=${sitemapSet.size}; indexable HTML=${canonicals.size}`);
 }catch(error){err('sitemap.xml',error.message);}
-for (const publicFile of ['Security/index.html']) {
-  const publicHtml=read(publicFile);
-  if(/"@type"\s*:\s*"FAQPage"/.test(publicHtml)) err(publicFile,'deprecated FAQPage structured data remains');
-}
+// Validate the PWA manifest and ensure every referenced icon exists at the declared dimensions.
+try {
+  const manifest=JSON.parse(read('site.webmanifest'));
+  for(const key of ['name','short_name','description','start_url','scope','display','background_color','theme_color','lang','id','categories','icons']){
+    if(manifest[key]===undefined || manifest[key]===null || manifest[key]==='') err('site.webmanifest',`missing required manifest field: ${key}`);
+  }
+  const icons=manifest.icons||[];
+  for(const expected of [{size:'192x192',purpose:'any'},{size:'512x512',purpose:'any'},{size:'512x512',purpose:'maskable'}]){
+    if(!icons.some(icon=>icon.sizes===expected.size && (icon.purpose||'any').split(/\s+/).includes(expected.purpose))) err('site.webmanifest',`missing ${expected.size} ${expected.purpose} icon declaration`);
+  }
+  for(const icon of icons){
+    const local=icon.src.startsWith('/')?icon.src.slice(1):icon.src;
+    const iconPath=path.join(ROOT,local);
+    if(!fs.existsSync(iconPath)){err('site.webmanifest',`manifest icon file does not exist: ${icon.src}`);continue;}
+    const bytes=fs.readFileSync(iconPath);
+    if(icon.type==='image/png' && (bytes.length<24 || bytes.toString('hex',0,8)!=='89504e470d0a1a0a')) err('site.webmanifest',`icon is not a valid PNG: ${icon.src}`);
+    else if(icon.type==='image/png'){
+      const dims=`${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`;
+      if(dims!==icon.sizes) err('site.webmanifest',`icon dimensions ${dims} do not match declared ${icon.sizes}: ${icon.src}`);
+    }
+  }
+}catch(e){err('site.webmanifest',`invalid JSON or icon metadata: ${e.message}`);}
+
+// Ensure every sitemap URL resolves to a local canonical HTML source file, with valid hint values.
+try{
+  const sitemapData=sitemapEntries(sitemap);
+  const sitemapSet=new Set(sitemapData.map(entry=>entry.url));
+  for(const [canonical,file] of canonicals) if(!sitemapSet.has(canonical)) err('sitemap.xml',`indexable canonical missing from sitemap: ${file} (${canonical})`);
+  for(const entry of sitemapData){
+    if(!canonicals.has(entry.url)) err('sitemap.xml',`URL is not an indexable source page: ${entry.url}`);
+    const pathname=new URL(entry.url).pathname;
+    const local=pathname.endsWith('/')?path.join(pathname.slice(1),'index.html'):pathname.slice(1);
+    if(!fs.existsSync(path.join(ROOT,local))) err('sitemap.xml',`URL has no local source HTML: ${entry.url}`);
+  }
+  if(sitemapSet.size!==canonicals.size) err('sitemap.xml',`URL count mismatch: sitemap=${sitemapSet.size}; indexable HTML=${canonicals.size}`);
+  const urlBlocks=[...sitemap.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url>/gi)].map(m=>m[1]);
+  for(const block of urlBlocks){
+    const cf=(block.match(/<changefreq>([^<]+)<\/changefreq>/i)||[])[1];
+    const pr=(block.match(/<priority>([^<]+)<\/priority>/i)||[])[1];
+    if(!['always','hourly','daily','weekly','monthly','yearly','never'].includes(cf)) err('sitemap.xml',`invalid or missing changefreq: ${cf||'(missing)'}`);
+    if(!pr||!/^0(?:\.\d)?$|^1(?:\.0)?$/.test(pr)) err('sitemap.xml',`invalid or missing priority: ${pr||'(missing)'}`);
+  }
+}catch(error){err('sitemap.xml',error.message);}
+const faqHtml=read('seo/faq.html');
+const faqMarkup=faqHtml.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+if(!faqMarkup) err('seo/faq.html','FAQ page is missing JSON-LD');
+else try{
+  const data=JSON.parse(faqMarkup[1]);
+  const graph=data['@graph']||[];
+  const faqNode=graph.find(node=>node['@type']==='FAQPage');
+  const visibleQuestions=[...faqHtml.matchAll(/<article class="faq-item"><h3>([\s\S]*?)<\/h3>/gi)].length;
+  if(!faqNode) err('seo/faq.html','FAQPage node missing');
+  else if((faqNode.mainEntity||[]).length!==visibleQuestions) err('seo/faq.html',`FAQ schema question count does not match visible HTML (${(faqNode.mainEntity||[]).length} vs ${visibleQuestions})`);
+}catch(e){err('seo/faq.html',`invalid FAQ JSON-LD: ${e.message}`);}
 const e404=read('404.html'); if(!/noindex\s*,?\s*follow/i.test(e404)) err('404.html','404 page must be noindex,follow');
 
-console.log(`SEO audit checked ${pages.length} canonical HTML pages, the sitemap/source URL set, crawler policy, and public AI/human discovery files.`);
+console.log(`SEO audit checked ${pages.length} canonical HTML pages, the sitemap/source URL set, crawler policy, manifest icons, JSON-LD and public AI/human discovery files.`);
 if(warnings.length){ console.log(`Warnings (${warnings.length}):`); warnings.forEach(x=>console.log('  WARN '+x)); }
 if(errors.length){ console.error(`Errors (${errors.length}):`); errors.forEach(x=>console.error('  ERROR '+x)); process.exit(1); }
 console.log('SEO/GEO source audit passed.');

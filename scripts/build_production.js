@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, "..");
 const output = path.join(root, "dist-production");
 
 const rootFiles = [
-  "index.html", "404.html", "CNAME", "robots.txt", "sitemap.xml", "site.webmanifest",
+  "index.html", "404.html", "CNAME", "robots.txt", "sitemap.xml", "sitemap-index.xml", "site.webmanifest",
   "humans.txt", "llms.txt", "llms-full.txt", "index.md", "service-worker.js",
   "fe79ac427d86a8002988e0a87b9a500f.txt", "_headers"
 ];

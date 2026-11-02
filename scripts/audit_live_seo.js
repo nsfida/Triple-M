@@ -107,6 +107,26 @@ function decodeXml(value) {
     .replace(/&apos;/g, "'");
 }
 
+function sitemapIndexEntries(xml) {
+  if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('sitemap-index.xml must not contain a DOCTYPE or custom entity declaration.');
+  if (!/^\s*<\?xml\b/i.test(xml) || !/<sitemapindex\b[^>]*>/i.test(xml) || !/<\/sitemapindex>\s*$/i.test(xml)) {
+    throw new Error('sitemap-index.xml is not a well-formed sitemap index document.');
+  }
+  const blocks=[...xml.matchAll(/<sitemap\b[^>]*>([\s\S]*?)<\/sitemap>/gi)].map(match=>match[1]);
+  if (!blocks.length) throw new Error('sitemap-index.xml contains no sitemap entries.');
+  const urls=blocks.map((block,index)=>{
+    const raw=(block.match(/<loc>\s*([\s\S]*?)\s*<\/loc>/i)||[])[1];
+    if(!raw) throw new Error(`sitemap-index.xml entry ${index+1} is missing <loc>.`);
+    const url=decodeXml(raw.trim());
+    let parsed; try{parsed=new URL(url);}catch{throw new Error(`Invalid sitemap index URL: ${url}`);}
+    if(parsed.protocol!=='https:'||parsed.origin!==BASE||parsed.username||parsed.password||parsed.hash||parsed.search) throw new Error(`Sitemap index URL must be a clean HTTPS URL on ${BASE}: ${url}`);
+    return url;
+  });
+  if(blocks.length!==[...xml.matchAll(/<loc>/gi)].length) throw new Error('sitemap-index.xml contains a <loc> element outside a <sitemap> entry or an unmatched sitemap entry.');
+  if(new Set(urls).size!==urls.length) throw new Error('sitemap-index.xml contains duplicate sitemap URLs.');
+  return urls;
+}
+
 function sitemapEntries(xml) {
   if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('sitemap.xml must not contain a DOCTYPE or custom entity declaration.');
   if (!/^\s*<\?xml\b/i.test(xml) || !/<urlset\b[^>]*>/i.test(xml) || !/<\/urlset>\s*$/i.test(xml)) {
@@ -228,6 +248,13 @@ if (require.main === module) {
     if (healthy) robotsText = await healthy.text();
   } catch (error) { failures.push(error.message); }
 
+  let sitemapIndexText = '';
+  try {
+    const response = await get(`${BASE}/sitemap-index.xml`, { retries: readinessRetries, retry404: true, accept: 'application/xml,text/xml,*/*' });
+    const healthy = requireHealthyResource(response, `${BASE}/sitemap-index.xml`, ['application/xml', 'text/xml'], failures);
+    if (healthy) sitemapIndexText = await healthy.text();
+  } catch (error) { failures.push(error.message); }
+
   let sitemapText = '';
   try {
     const response = await get(`${BASE}/sitemap.xml`, { retries: readinessRetries, retry404: true, accept: 'application/xml,text/xml,*/*' });
@@ -283,7 +310,15 @@ if (require.main === module) {
       failures.push('robots.txt must keep Markdown mirrors out of generic crawler results so canonical HTML remains the main search result.');
     }
     if (pathAllowedByRules(genericRules, '/Demo/')) failures.push('robots.txt must not block /Demo/ because crawlers need to read its noindex directive.');
-    if (!/Sitemap:\s*https:\/\/triplem\.vip\/sitemap\.xml/i.test(robotsText)) failures.push('robots.txt is missing the canonical sitemap directive.');
+    if (!/Sitemap:\s*https:\/\/triplem\.vip\/sitemap-index\.xml/i.test(robotsText)) failures.push('robots.txt is missing the multilingual sitemap index directive.');
+    if (!/Sitemap:\s*https:\/\/triplem\.vip\/sitemap\.xml/i.test(robotsText)) failures.push('robots.txt is missing the backward-compatible full sitemap directive.')
+  }
+
+  if (sitemapIndexText) {
+    try {
+      const indexLocations=sitemapIndexEntries(sitemapIndexText);
+      if(!indexLocations.includes(`${BASE}/sitemap.xml`)) failures.push('sitemap-index.xml must reference the full hreflang-aware sitemap.xml.');
+    } catch(error) { failures.push(error.message); }
   }
 
   let entries = [];
@@ -335,4 +370,4 @@ if (require.main === module) {
 });
 }
 
-module.exports = { attributes, canonicalFromHtml, decodeXml, htmlMeta, matchingRobotsRules, parseRobotsGroups, pathAllowedByRules, pathRuleMatches, sitemapEntries };
+module.exports = { attributes, canonicalFromHtml, decodeXml, htmlMeta, matchingRobotsRules, parseRobotsGroups, pathAllowedByRules, pathRuleMatches, sitemapEntries, sitemapIndexEntries };

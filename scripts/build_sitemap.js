@@ -104,6 +104,22 @@ function extractAlternates(html, relativePath) {
   });
 }
 
+function pageHints(relativePath) {
+  // These fields are conservative crawler hints for consumers that use them.
+  // Google ignores changefreq/priority; keep lastmod tied to explicit content dates.
+  if (relativePath === 'index.html') return { changefreq: 'weekly', priority: '1.0' };
+  if (relativePath === 'seo/index.html' || relativePath === 'regions/index.html') {
+    return { changefreq: 'weekly', priority: '0.9' };
+  }
+  if (relativePath === 'seo/faq.html') return { changefreq: 'monthly', priority: '0.8' };
+  if (relativePath === 'Founder/index.html' || relativePath === 'Security/index.html') {
+    return { changefreq: 'yearly', priority: '0.6' };
+  }
+  if (relativePath.startsWith('regions/')) return { changefreq: 'monthly', priority: '0.7' };
+  if (relativePath.startsWith('seo/')) return { changefreq: 'monthly', priority: '0.7' };
+  return { changefreq: 'monthly', priority: '0.5' };
+}
+
 function buildEntries() {
   const entries = [];
   for (const relativePath of publicHtmlFiles()) {
@@ -123,7 +139,8 @@ function buildEntries() {
     const entry = {
       loc: canonical,
       lastmod: extractModified(html, relativePath),
-      alternates: extractAlternates(html, relativePath)
+      alternates: extractAlternates(html, relativePath),
+      ...pageHints(relativePath)
     };
     if (relativePath === 'index.html') {
       entry.image = {
@@ -157,6 +174,8 @@ function generateXml(entries) {
     lines.push('  <url>');
     lines.push(`    <loc>${escapeXml(entry.loc)}</loc>`);
     if (entry.lastmod) lines.push(`    <lastmod>${escapeXml(entry.lastmod)}</lastmod>`);
+    if (entry.changefreq) lines.push(`    <changefreq>${escapeXml(entry.changefreq)}</changefreq>`);
+    if (entry.priority) lines.push(`    <priority>${escapeXml(entry.priority)}</priority>`);
     for (const [language, url] of entry.alternates) {
       lines.push(`    <xhtml:link rel="alternate" hreflang="${escapeXml(language)}" href="${escapeXml(url)}" />`);
     }
@@ -173,11 +192,29 @@ function generateXml(entries) {
   return lines.join('\n');
 }
 
+function generateSitemapIndex(entries) {
+  const latestContentDate = entries.map(entry => entry.lastmod).filter(Boolean).sort().at(-1) || '';
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    '  <sitemap>',
+    `    <loc>${BASE}/sitemap.xml</loc>`
+  ];
+  if (latestContentDate) lines.push(`    <lastmod>${escapeXml(latestContentDate)}</lastmod>`);
+  lines.push('  </sitemap>', '</sitemapindex>', '');
+  return lines.join('\n');
+}
+
 function buildSitemap() {
   const entries = buildEntries();
   const output = path.join(ROOT, 'sitemap.xml');
   fs.writeFileSync(output, generateXml(entries), 'utf8');
-  console.log(`Built sitemap.xml with ${entries.length} unique canonical, indexable URLs.`);
+  // Keep the established sitemap.xml URL and its full hreflang-aware URL set
+  // intact. The index provides a stable discovery entry point for multilingual
+  // properties and can later reference additional language sitemaps without
+  // changing the existing endpoint.
+  fs.writeFileSync(path.join(ROOT, 'sitemap-index.xml'), generateSitemapIndex(entries), 'utf8');
+  console.log(`Built sitemap.xml with ${entries.length} unique canonical, indexable URLs and refreshed sitemap-index.xml.`);
   return entries.length;
 }
 
@@ -189,4 +226,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { buildSitemap, buildEntries, extractAlternates, extractCanonical, extractModified, generateXml, isNoindex, publicHtmlFiles, validIsoDate };
+module.exports = { buildSitemap, buildEntries, extractAlternates, extractCanonical, extractModified, generateXml, generateSitemapIndex, isNoindex, pageHints, publicHtmlFiles, validIsoDate };

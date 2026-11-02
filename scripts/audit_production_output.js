@@ -73,8 +73,13 @@ function auditProductionOutput(outputRoot = output) {
   for (const item of forbiddenPaths) {
     if (fs.existsSync(path.join(outputRoot, item))) fail(`Developer-only or unsafe artifact leaked into production output: ${item}`);
   }
-  for (const required of ["index.html", "404.html", "service-worker.js", "_headers", "production-manifest.json", "release-manifest.json"]) {
+  for (const required of ["index.html", "404.html", "robots.txt", "sitemap.xml", "sitemap-index.xml", "service-worker.js", "_headers", "production-manifest.json", "release-manifest.json"]) {
     if (!fs.existsSync(path.join(outputRoot, required))) fail(`Required production output file is missing: ${required}`);
+  }
+
+  const sitemapIndex = fs.readFileSync(path.join(outputRoot, "sitemap-index.xml"), "utf8");
+  if (!/<sitemapindex\b[\s\S]*<loc>https:\/\/triplem\.vip\/sitemap\.xml<\/loc>[\s\S]*<\/sitemapindex>/i.test(sitemapIndex)) {
+    fail("Production sitemap-index.xml must reference the canonical full sitemap.xml.");
   }
 
   const manifestPath = path.join(outputRoot, "production-manifest.json");
