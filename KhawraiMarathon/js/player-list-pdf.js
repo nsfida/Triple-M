@@ -49,8 +49,14 @@
     });
   }
 
-  async function fetchPng(url) {
+  // Photos print in a 31 x 40 pt box, so they are shrunk to a tiny JPEG before they enter the PDF.
+  // (Embedding the full-size image as PNG made the player list PDF many megabytes.)
+  const PHOTO_MAX_SIDE = 96, PHOTO_JPEG_QUALITY = 0.5, LOGO_MAX_SIDE = 220;
+
+  async function fetchImage(url, opts) {
     if (!url) return null;
+    const maxSide = (opts && opts.maxSide) || PHOTO_MAX_SIDE;
+    const asJpeg = !(opts && opts.png);
     try {
       const response = await fetch(url, { mode: "cors", credentials: "omit", cache: "force-cache" });
       if (!response.ok) return null;
@@ -63,13 +69,17 @@
         image.src = objectUrl;
         if (image.decode) await image.decode();
         else await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
+        const srcW = Math.max(1, image.naturalWidth || image.width), srcH = Math.max(1, image.naturalHeight || image.height);
+        const scale = Math.min(1, maxSide / Math.max(srcW, srcH));
         const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, image.naturalWidth || image.width);
-        canvas.height = Math.max(1, image.naturalHeight || image.height);
+        canvas.width = Math.max(1, Math.round(srcW * scale));
+        canvas.height = Math.max(1, Math.round(srcH * scale));
         const ctx = canvas.getContext("2d");
         if (!ctx) return null;
-        ctx.drawImage(image, 0, 0);
-        const dataUrl = canvas.toDataURL("image/png");
+        ctx.imageSmoothingQuality = "high";
+        if (asJpeg) { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const dataUrl = asJpeg ? canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY) : canvas.toDataURL("image/png");
         imageSizeCache.set(dataUrl, [canvas.width, canvas.height]);
         return dataUrl;
       } finally {
@@ -82,7 +92,7 @@
 
   async function logoData() {
     const url = (window.KMR && window.KMR.LOGO_URL) || document.getElementById("logo")?.src || "";
-    return fetchPng(url);
+    return fetchImage(url, { png: true, maxSide: LOGO_MAX_SIDE });
   }
 
   async function playerPhoto(row) {
@@ -90,7 +100,7 @@
     if (!path) return null;
     if (!photoCache.has(path)) {
       const url = window.photoUrl ? window.photoUrl(path) : "";
-      photoCache.set(path, fetchPng(url).then(data => {
+      photoCache.set(path, fetchImage(url, { maxSide: PHOTO_MAX_SIDE }).then(data => {
         if (!data) photoCache.delete(path);
         return data;
       }));
@@ -206,7 +216,7 @@
         const pad = 2, availW = boxW - pad * 2, availH = boxH - pad * 2;
         const scale = Math.min(availW / iw, availH / ih);
         const iw2 = iw * scale, ih2 = ih * scale;
-        doc.addImage(data, "PNG", px + (boxW - iw2) / 2, py + (boxH - ih2) / 2, iw2, ih2, undefined, "FAST");
+        doc.addImage(data, "JPEG", px + (boxW - iw2) / 2, py + (boxH - ih2) / 2, iw2, ih2, undefined, "FAST");
         return;
       } catch (_) {}
     }

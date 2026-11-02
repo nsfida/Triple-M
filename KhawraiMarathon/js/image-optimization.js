@@ -1,6 +1,9 @@
-/* KMR image optimization: public/working copies are JPEGs sized for quick loading.
-   The registration workflow separately retains the exact uploaded file in the private
-   `originals` bucket so an administrator can retrieve the original without quality loss. */
+/* KMR image optimization: every stored image is a compressed JPEG.
+   Full-size originals are NOT stored any more (they used a lot of database storage).
+   - photo:    max 1000 px on the long side, JPEG quality 0.86 down to 0.74, aim for <= 260 KB
+               (the photo is shown small on the site and printed in a passport-size box)
+   - document: max 1600 px, JPEG quality 0.84 down to 0.72, aim for <= 520 KB (CNIC text stays readable)
+   Quality is only lowered when the size target is not met at the better setting. */
 (function () {
   "use strict";
 
@@ -9,7 +12,7 @@
     png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif"
   };
   const EXT_BY_MIME = Object.fromEntries(Object.entries(MIME_BY_EXT).map(([ext, mime]) => [mime, ext]));
-  const MAX_SOURCE_BYTES = 24 * 1024 * 1024; // Originals bucket limit is 25 MiB.
+  const MAX_SOURCE_BYTES = 24 * 1024 * 1024; // Largest file a person may choose; it is compressed before upload.
 
   function extension(file) {
     const declared = String(file && file.type || "").toLowerCase();
@@ -62,8 +65,8 @@
   async function optimize(file, profile = "photo") {
     validate(file);
     const settings = profile === "photo"
-      ? { maxDimension: 1600, targetBytes: 850 * 1024, minDimension: 1100, qualities: [0.94, 0.92, 0.90, 0.88] }
-      : { maxDimension: 2400, targetBytes: 1900 * 1024, minDimension: 1600, qualities: [0.95, 0.93, 0.91, 0.89] };
+      ? { maxDimension: 1000, targetBytes: 260 * 1024, minDimension: 640, qualities: [0.86, 0.82, 0.78, 0.74] }
+      : { maxDimension: 1600, targetBytes: 520 * 1024, minDimension: 1100, qualities: [0.84, 0.80, 0.76, 0.72] };
     const decoded = await decode(file);
     try {
       const source = decoded.image;
@@ -73,8 +76,7 @@
       const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) throw new Error("Image optimization is not supported by this browser.");
       let best = null;
-      // Start with very high visual quality. Reduce quality only when needed to keep uploads
-      // comfortably below the bucket size limit and make the public player list fast.
+      // Start with the best quality of the profile and only reduce it when the size target is missed.
       for (let dimensionPass = 0; dimensionPass < 4; dimensionPass++) {
         canvas.width = Math.max(1, Math.round(source.width * scale));
         canvas.height = Math.max(1, Math.round(source.height * scale));
@@ -89,7 +91,7 @@
           if (candidate.size <= settings.targetBytes) return candidate;
         }
         // Large camera images can still be oversized. Reduce dimensions gently rather than
-        // crushing quality; originals remain privately available for exact-quality downloads.
+        // crushing quality.
         if (Math.min(canvas.width, canvas.height) <= settings.minDimension) break;
         scale *= 0.88;
       }

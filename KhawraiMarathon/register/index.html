@@ -177,7 +177,7 @@ canvas{display:block;width:100%;max-width:560px;height:130px;border:1.5px dashed
   <a class="btn ghost" href="../participants/">Back to participants</a> <a class="btn ghost" href="../results/">Race results</a>
 </form></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261030-2"></script><script src="../js/admin-accounts.js?v=20261030-2"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261031-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js?v=20261031-1"></script>
 <script>
 const $ = id => document.getElementById(id), err = $("err");
 $("today").textContent = fmtDate(new Date());
@@ -388,18 +388,12 @@ async function buildRegistrationJob() {
     declaration_accepted: true, signature_name: v("pname"),
     photo_path: `${id}/photo.jpg`, cnic_front_path: `${id}/cnic_front.jpg`, cnic_back_path: `${id}/cnic_back.jpg`,
     certificate_path: cert ? `${id}/certificate.jpg` : "", other_doc_path: other ? `${id}/other.jpg` : "",
-    photo_original_path: `${id}/photo_original.${extensionOf(photo)}`,
-    cnic_front_original_path: `${id}/cnic_front_original.${extensionOf(front)}`,
-    cnic_back_original_path: `${id}/cnic_back_original.${extensionOf(back)}`,
     signature_path: `${id}/signature.png`
   };
   const files = [
     { bucket: "photos", path: payload.photo_path, blob: photo, mode: "jpeg", profile: "photo", type: "image/jpeg" },
     { bucket: "documents", path: payload.cnic_front_path, blob: front, mode: "jpeg", profile: "document", type: "image/jpeg" },
     { bucket: "documents", path: payload.cnic_back_path, blob: back, mode: "jpeg", profile: "document", type: "image/jpeg" },
-    { bucket: "originals", path: payload.photo_original_path, blob: photo, mode: "original", type: mimeOf(photo) },
-    { bucket: "originals", path: payload.cnic_front_original_path, blob: front, mode: "original", type: mimeOf(front) },
-    { bucket: "originals", path: payload.cnic_back_original_path, blob: back, mode: "original", type: mimeOf(back) },
     { bucket: "documents", path: payload.signature_path, blob: signature, mode: "raw", type: "image/png" }
   ];
   if (cert) files.push({ bucket: "documents", path: payload.certificate_path, blob: cert, mode: "jpeg", profile: "document", type: "image/jpeg" });
@@ -427,6 +421,10 @@ async function syncRegistrationJob(job) {
       }
       throw new Error(error ? "Database sync needs attention: " + error.message : "The server did not return a registration number.");
     }
+    // Full-size originals are no longer stored (only the compressed copies). A submission queued by an older
+    // version of this page may still list them, so drop them here before uploading.
+    job.files = job.files.filter(file => file.bucket !== "originals");
+    ["photo_original_path", "cnic_front_original_path", "cnic_back_original_path"].forEach(key => { if (job.payload) delete job.payload[key]; });
     // Concurrent uploads reduce submit time. Every path is unique to this durable queue item's UUID.
     await Promise.all(job.files.map(async file => {
       const blob = file.mode === "jpeg" ? await toJpeg(file.blob, file.profile || "document") : file.blob;

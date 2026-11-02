@@ -181,3 +181,25 @@ nsfida decides, for **every other admin, new or existing, including waseemfida**
 - Changes apply the next time that admin opens or refreshes a page.
 - Adding a brand-new registration from the admin side remains available to anyone with *View registrations*.
 - Setup: run `sql/migrations/20261030_011_granular_admin_permissions.sql` (after 009 and 010), redeploy the `admin-account` Edge Function, then run `sql/verify_funds_owner_only.sql`.
+
+
+## Photo compression and storage clean-up (31 October 2026, migration 012)
+
+**Why:** uploaded photos were stored in full size (the registration form also kept an untouched copy of the photo and both CNIC images in the private `originals` bucket), which used a lot of database storage. The players-list PDF also embedded every photo at its full size as a lossless PNG.
+
+**New uploads (registration form and admin photo replacement)**
+- Only compressed JPEGs are stored. Full-size originals are no longer saved.
+- Player photo: at most 1000 px on the long side, JPEG quality 0.86 (lowered stepwise to 0.74 only if needed to stay near 260 KB).
+- CNIC and other documents: at most 1600 px, quality 0.84 (down to 0.72 if needed, about 520 KB), so CNIC text stays readable. Signatures are unchanged.
+- A submission queued on someone's phone by the older page is handled too: any queued originals are dropped before upload.
+
+**Players-list PDF:** each photo is shrunk to 96 px and saved as a quality-0.5 JPEG before it enters the PDF (it prints in a 31 x 40 pt box), and the logo is limited to 220 px. This reduces the PDF from several megabytes to a small fraction of that.
+
+**Clean up existing files (nsfida only):** profile menu > **Photo storage**.
+1. Shows storage used by player photos, CNIC/documents and old originals.
+2. *Compress player photos* re-saves photos above 300 KB at the new settings; *Compress CNIC & documents* does the same for document images above 600 KB (signatures are skipped). A file is replaced only when the new one is at least 15% smaller.
+3. *Delete the old full-size originals* permanently removes the `originals` files and clears their record paths. Originals that have no compressed copy are kept.
+4. You can stop at any time and run it again; finished files are skipped. Keep the window open while it runs (compression happens in your browser).
+
+Setup: run `sql/migrations/20261031_012_photo_storage_tools.sql` (after 011). No Edge Function change is needed.
+Note: the public `originals` upload rule is intentionally left in place so that registration pages already open in someone's browser do not fail during the update; any file they upload can be removed with the clean-up tool.

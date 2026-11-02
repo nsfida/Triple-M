@@ -1,0 +1,35 @@
+/* Photo storage & compression dialog (owner-only). Loaded by js/storage-tools.js. */
+dialog.storage-dialog{width:min(720px,calc(100vw - 28px));max-width:720px;max-height:min(92dvh,860px);padding:0;border:1px solid #d3dfe1;border-radius:16px;background:#f6f9f9;color:#19343b;box-shadow:0 24px 70px rgba(15,40,48,.32)}
+dialog.storage-dialog::backdrop{background:rgba(10,28,34,.55)}
+.storage-shell{display:grid;gap:12px;padding:16px;max-height:min(92dvh,860px);overflow:auto}
+.storage-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.storage-head h2{margin:2px 0 4px;font-size:1.15rem;letter-spacing:-.02em}
+.storage-head p{margin:0;color:#5f747b;font-size:.74rem;line-height:1.45}
+.storage-kicker{color:#2a7a5b;font-size:.58rem;font-weight:850;letter-spacing:.08em}
+.storage-close{margin:0;padding:6px 12px;border:1px solid #cfdcde;border-radius:9px;background:#fff;color:#2f4a52;font:inherit;font-size:.72rem;font-weight:750;cursor:pointer}
+.storage-card{display:grid;gap:8px;padding:13px 14px;border:1px solid #d8e3e4;border-radius:13px;background:#fff}
+.storage-card h3{margin:0;font-size:.86rem}
+.storage-card-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.storage-usage{display:grid;gap:6px}
+.storage-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 10px;border:1px solid #e3ebec;border-radius:10px;background:#fbfdfd}
+.storage-row b{display:block;font-size:.76rem}
+.storage-row small{display:block;color:#74878d;font-size:.62rem;line-height:1.35}
+.storage-row.is-big{border-color:#f0d6a6;background:#fffaf0}
+.storage-row.total{background:#eef8f2;border-color:#bfe0cd}
+.storage-num{text-align:right;white-space:nowrap}
+.storage-opt{display:grid;grid-template-columns:18px minmax(0,1fr);gap:9px;align-items:start;margin:0;padding:8px 6px;border-radius:9px;cursor:pointer}
+.storage-opt:hover{background:#f0f7f4}
+.storage-opt input{width:16px;height:16px;margin:2px 0 0;accent-color:#1f7a54}
+.storage-opt b{display:block;font-size:.76rem}
+.storage-opt small{display:block;margin-top:1px;color:#70838a;font-size:.63rem;line-height:1.45}
+.storage-opt.danger b{color:#9a2c32}
+.storage-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.storage-progress{display:grid;gap:6px}
+.storage-bar{height:9px;border-radius:99px;background:#e4eeee;overflow:hidden}
+.storage-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#1f7a54,#6cc08f);transition:width .2s}
+.storage-status{margin:0;color:#47616a;font-size:.7rem}
+.storage-log{margin:0;padding:8px 10px;max-height:150px;overflow:auto;list-style:none;border:1px solid #e3ebec;border-radius:10px;background:#fbfdfd;font-size:.64rem;line-height:1.5;color:#4b6068}
+.storage-log .bad{color:#a43136}
+.storage-summary{margin:0;padding:9px 11px;border:1px solid #bfe0cd;border-radius:10px;background:#eef8f2;color:#17543a;font-size:.74rem;font-weight:700}
+.storage-foot{margin:0;color:#7a898f;font-size:.62rem;line-height:1.45}
+@media(max-width:600px){.storage-shell{padding:12px}.storage-actions .btn{flex:1 1 100%}}

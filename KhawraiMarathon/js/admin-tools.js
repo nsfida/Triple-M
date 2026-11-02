@@ -401,14 +401,9 @@
           const optimized = await window.KMRImageOptimizer.optimize(photoFile, "photo");
           const token = crypto.randomUUID();
           newPhotoPath = `${r.id}/photo-${token}.jpg`;
-          newOriginalPath = `${r.id}/photo_original-${token}.${window.KMRImageOptimizer.extension(photoFile)}`;
+          newOriginalPath = null; // full-size originals are no longer stored; only the compressed photo is kept
           if (saveButton) saveButton.textContent = "Uploading securely…";
           await uploadReplacement("photos", newPhotoPath, optimized, "image/jpeg");
-          try {
-            await uploadReplacement("originals", newOriginalPath, photoFile, window.KMRImageOptimizer.mime(photoFile));
-          } catch (error) {
-            await removeStorageFiles("photos", [newPhotoPath], 2); newPhotoPath = null; throw error;
-          }
           if (saveButton) saveButton.textContent = "Saving player record…";
           const updatePayload = { ...upd, photo_path: newPhotoPath, photo_original_path: newOriginalPath };
           const { data, error } = await sb.from("registrations").update(updatePayload).eq("id", r.id).select("*");
@@ -445,7 +440,7 @@
           if (cleanupErrors.length) {
             toast("Player saved with the new photo, but old-file cleanup is pending: " + cleanupErrors.join(", ") + ". The system will retry when an admin page is online.", true);
           } else {
-            toast(`${r.reg_no} details and photo saved. The previous photo and original were deleted.`);
+            toast(`${r.reg_no} details and photo saved. The previous photo was deleted.`);
           }
           if (done) done(r);
         } catch (error) {
