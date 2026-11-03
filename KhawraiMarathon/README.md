@@ -226,3 +226,39 @@ Profile menu > **Backup & restore**. The menu item, the screen and the database 
 **Adding a player by hand** (see also `README.txt` inside every backup): add an object to the `players` list in `data/players.json` with `name, father_name, cnic, mobile, gender, dob, address, district_tehsil, sport` (do not add `id`, `reg_no` or `_backup`), create a folder under `players/` with `photo.jpg`, `cnic_front.jpg`, `cnic_back.jpg` (optional `certificate.jpg`, `other.jpg`, `signature.png`), and link it with `"folder": "players/<folder name>"`. On restore the player receives a new id, the next registration number and new storage paths (`<id>/photo.jpg` ...), images are compressed, and a signature image is generated from the typed name when none is supplied.
 
 Setup: run `sql/migrations/20261101_013_backup_restore.sql` (after 012). No Edge Function change is needed.
+
+
+## Live race: automatic start, positions and the live screen (2 November 2026, migration 014)
+
+### What happens when the race starts
+Press **Start race now** (Manage Results). In one step the database:
+1. sets **every confirmed, non-cancelled runner to Running**,
+2. gives each a **random starting position 1..N** (N = number of participating runners),
+3. switches the public Results page to the **live banner**.
+Pressing Start again later (or *Save race state* while already in progress) never reshuffles anything.
+
+### Positions
+- Positions are **one overall ranking** (1..N) of everybody who is **Running or Finished**. DNF, DSQ and Not started have no position; the runners behind them move up automatically.
+- **Click any position number** (in the *Live positions* list or in the runner table). A picker opens with the numbers 1..N (a bottom sheet on phones). Choose a number and the runner moves there **immediately**; everybody in between shifts by one place, in the same database transaction, so the order can never contain gaps or duplicates.
+  - Move to 1st: the old 1st becomes 2nd, the old 2nd becomes 3rd, and so on until the gap closes.
+  - Move 1st down to 10th: runners 2..10 each move up one place.
+- ▲ / ▼ buttons move a runner one place. Several quick moves are saved in the order you made them. If the server refuses one, the real order is shown again with a clear message.
+- **Live positions tools:** *Add missing runners* (confirmed after the start), *Sort finished by time* (optional; orders runners that have a finish time, fastest first) and *Mark all running as finished* (positions are kept; useful before finalizing).
+- A **finish time is now optional** for Finished runners; order is decided by position. Everything locks when official results are finalized (nsfida can reopen).
+- *Full reset* is now one database call (fast, one live update).
+
+### Public live screen (`/results/`)
+- While the race runs, the page's top banner shows **LIVE**, the race clock, the organiser announcement, the **1st, 2nd and 3rd runners** (photo, name, registration number, prize, status/time) and counts (runners / running / finished / DNF-DSQ). After the race it shows *Race completed* (provisional) and then *Official final results*.
+- Below it: the live leaderboard (top 25 first, **Show all**, search by name or registration number, filters). Rows that change place show **▲/▼** markers for a few seconds. Mobile and desktop layouts were checked from 320 px upwards.
+
+### Built for hundreds of viewers
+- Viewers do **not** subscribe to the 300-row results table any more. Every change updates **one tiny row** (`marathon_live_state`: version, top 3, counts, race control, about 0.6 KB). One admin action = one event, however many runners shifted. The top-3 banner changes instantly from that event.
+- The full leaderboard is **one row** (`marathon_live_board`, about 25 KB for 300 runners), fetched **once per version change after a random 0.15-1.6 s delay**, so 300 viewers never hit the server in the same instant. Many rapid events are collapsed into one fetch; older versions are ignored.
+- A safety poll (tiny `version` request, every ~45 s, ~12 s if the connection is down; paused while the tab is hidden) covers blocked WebSockets.
+- The page updates rows in place (no flicker, photos are not reloaded) and loads photos lazily; only 25 rows are rendered until a viewer taps *Show all*.
+- Kafka and Bloom filters would add servers and complexity without helping at this scale: Supabase Realtime is already the publish/subscribe layer, and the versioned snapshot gives the same fan-out and de-duplication.
+
+### Setup
+1. Run `sql/migrations/20261102_014_live_race_positions.sql` (after 013), then `sql/verify_live_race.sql` (every row `ok = expected`). Existing results are converted automatically: finished runners (by finish time) first, then runners still running in their old order.
+2. Upload the site files. No Edge Function change is needed.
+3. Supabase > Database > Replication: `marathon_live_state` is added to the `supabase_realtime` publication by the migration (check it appears there).

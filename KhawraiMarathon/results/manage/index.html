@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="../../assets/admin-accounts-dialog.css?v=20261029-3">
 <link rel="stylesheet" href="../../assets/admin-compact.css?v=20261029-8">
 <link rel="stylesheet" href="../../assets/results-manage.css?v=20261029-6">
+<link rel="stylesheet" href="../../assets/results-live-admin.css?v=20261102-2">
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/manage/">
 </head>
 <body class="admin-page results-manage-route">
@@ -43,7 +44,7 @@
 <main class="wrap" id="app" hidden>
   <div class="admin-welcome tools"><div><span class="eyebrow">AUTHORISED RESULTS WORKSPACE</span><strong>Race control and official results</strong><small>Results stay provisional until an authorised organiser finalizes the standings.</small></div><span class="sp"><a class="btn sm ghost" href="../">View public board</a></span></div>
 <section id="paneResultsAdmin">
-    <div class="section-heading"><div><h2>Race control and official results</h2><p>Update runners during the race, correct provisional results after the finish, and publish the final leaderboard when everything is verified. The database checks permissions for every change.</p></div><button type="button" class="btn sm ghost" id="raceRefreshData">Refresh race data</button></div>
+    <div class="section-heading"><div><h2>Race control and official results</h2><p>Update runners during the race, correct provisional results after the finish, and publish the final leaderboard when everything is verified. The database checks permissions for every change.</p></div><button type="button" class="btn sm ghost" id="raceRefreshData">Refresh race data</button><a class="btn ghost lp-jump" href="#livePositionsPanel">↓ Live positions</a></div>
     <div class="race-admin-status-strip">
       <div><span>Current race state</span><strong id="raceAdminCurrentStatus">Loading…</strong></div>
       <div><span>Race started</span><strong id="raceAdminStartedAt">Not started</strong></div>
@@ -94,21 +95,34 @@
         <button type="button" class="btn danger race-full-reset-open" id="raceFullResetOpen"><span aria-hidden="true">↺</span> Full reset: clear all results</button>
       </div>
     </section>
+    <section class="race-admin-panel lp-panel" id="livePositionsPanel" aria-labelledby="lpTitle">
+      <div class="race-admin-panel-head lp-head">
+        <div><h3 id="lpTitle">Live positions</h3><p id="lpSummary">Start the race to give every confirmed runner a starting position.</p></div>
+        <div class="lp-tools" aria-label="Live position tools">
+          <button type="button" class="btn sm ghost lp-edit" id="lpAddMissing" hidden>＋ Add missing runners</button>
+          <button type="button" class="btn sm ghost lp-edit" id="lpRankByTime" hidden>⏱ Sort finished by time</button>
+          <button type="button" class="btn sm lp-edit" id="lpFinishAll" hidden>✓ Mark all running as finished</button>
+        </div>
+      </div>
+      <p class="lp-help" id="lpHelp">Tap a position number to move that runner to any place. Everyone in between shifts by one place automatically, and the public live board updates straight away.</p>
+      <div class="lp-search"><label class="sr-only" for="lpSearch">Find a runner in the live list</label><input id="lpSearch" type="search" autocomplete="off" placeholder="Find runner by name or reg. no."><span class="lp-count" id="lpCount"></span></div>
+      <ol class="lp-list" id="lpList" aria-label="Runners in live position order"><li class="lp-empty">Loading live positions…</li></ol>
+    </section>
     <section class="race-admin-panel" aria-labelledby="raceResultFormTitle">
       <div class="race-admin-panel-head"><div><h3 id="raceResultFormTitle">Add or update a runner result</h3><p>Only confirmed, non-cancelled runners can be saved to official results.</p></div></div>
       <form id="raceResultForm" class="race-admin-result-form">
         <label class="wide">Runner<select id="raceResultRunner" required><option value="">Loading confirmed runners…</option></select></label>
         <label>Runner status<select id="raceResultStatus" required><option value="registered">Registered / not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
-        <label id="raceCurrentPositionWrap" hidden>Current position <small>For runners still on the course</small><input id="raceCurrentPosition" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="e.g. 1" autocomplete="off"></label>
-        <label id="raceFinishTimeWrap" hidden>Finish time <small>24-hour format · HH:MM:SS</small><input id="raceFinishTime" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" placeholder="00:42:18"></label>
+        <label id="raceCurrentPositionWrap" hidden>Position <small>Optional · others shift automatically</small><input id="raceCurrentPosition" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="e.g. 1" autocomplete="off"></label>
+        <label id="raceFinishTimeWrap" hidden>Finish time <small>Optional · HH:MM:SS</small><input id="raceFinishTime" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" placeholder="00:42:18"></label>
         <div class="race-form-actions"><button type="submit" class="btn" id="raceSaveResult">Save result</button><button type="button" class="btn ghost" id="raceCancelEdit" hidden>Cancel edit</button></div>
       </form>
-      <p class="race-admin-note">Finish time must be from 00:00:01 through 48:00:00. Rankings are automatically recalculated by finish time; first, second and third receive the displayed prize awards.</p>
+      <p class="race-admin-note">Positions are one live ranking for everybody who is Running or Finished. Setting a position moves the runner there and shifts the runners in between. A finish time is optional (00:00:01 to 48:00:00); use “Sort finished by time” if you want finished runners ordered by their times.</p>
     </section>
     <div class="race-results-toolbar" aria-label="Search, filter and sort runners">
       <label class="race-results-search">Search runner<input id="raceRunnerSearch" type="search" autocomplete="off" placeholder="Registration number or player name…" aria-label="Search by registration number or player name"></label>
       <label>Result status<select id="raceRunnerFilter" aria-label="Filter runners by result status"><option value="all">All eligible runners</option><option value="awaiting">Awaiting result</option><option value="registered">Not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
-      <label>Sort by<select id="raceRunnerSort" aria-label="Sort runner results"><option value="reg_no">Registration number</option><option value="name">Player name</option><option value="finish_time">Fastest finish time</option><option value="position">Current position</option><option value="updated">Recently updated</option></select></label>
+      <label>Sort by<select id="raceRunnerSort" aria-label="Sort runner results"><option value="position" selected>Live position</option><option value="reg_no">Registration number</option><option value="name">Player name</option><option value="finish_time">Fastest finish time</option><option value="updated">Recently updated</option></select></label>
       <div class="race-results-toolbar-actions">
         <button type="button" class="btn sm ghost" id="raceNextPendingRunner">Enter next pending result</button>
         <button type="button" class="btn sm ghost" id="raceClearRunnerFilters">Clear filters</button>
@@ -126,28 +140,28 @@
             <option value="">Choose status…</option>
             <option value="registered">Registered / not started</option>
             <option value="running">Running</option>
-            <option value="finished">Finished (enter each time)</option>
+            <option value="finished">Finished (times optional)</option>
             <option value="dnf">Did not finish (DNF)</option>
             <option value="dsq">Disqualified (DSQ)</option>
           </select>
         </label>
         <button type="button" class="btn sm" id="raceBulkApply" disabled>Apply to selected</button>
       </div>
-      <p class="race-bulk-help">Select any combination of players. “Select all visible” follows your current search and filters. Selections remain active when filters change, so check the selected count before applying. Finished status requires a separate finish time for every selected runner.</p>
+      <p class="race-bulk-help">Select any combination of players. “Select all visible” follows your current search and filters. Selections remain active when filters change, so check the selected count before applying. Finished lets you enter a time for each selected runner (optional).</p>
     </section>
     <p class="msg" id="raceAdminMsg" aria-live="polite">Connecting to race controls…</p>
-    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Select</th><th>Place / position</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Current position</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="9" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
+    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Select</th><th>Position</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="8" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
     <div class="race-admin-prizes"><strong>Public prize display</strong><span><b class="gold-text">1st:</b> Rs. 15,000 + Winning Trophy</span><span><b class="silver-text">2nd:</b> Rs. 10,000 + Trophy</span><span><b class="bronze-text">3rd:</b> Rs. 5,000 + Trophy</span><a class="btn sm ghost" href="../" target="_blank" rel="noopener">Open public live board</a></div>
   
 </section><dialog class="race-bulk-finish-dialog" id="raceBulkFinishDialog" aria-labelledby="raceBulkFinishTitle" aria-describedby="raceBulkFinishDescription">
   <form id="raceBulkFinishForm" class="race-bulk-finish-card">
     <span class="race-reset-eyebrow">BULK RESULT UPDATE</span>
     <h2 id="raceBulkFinishTitle">Enter individual finish times</h2>
-    <p id="raceBulkFinishDescription">Each runner needs their own finish time. Existing saved finish times are prefilled so you can verify or correct them before saving.</p>
+    <p id="raceBulkFinishDescription">Enter a finish time for each runner if you have it. Leave a time empty to mark the runner Finished without a time. Existing saved times are prefilled.</p>
     <div id="raceBulkFinishRows" class="race-bulk-finish-rows"></div>
     <p id="raceBulkFinishError" class="msg bad" role="alert" hidden></p>
     <div class="race-bulk-finish-actions"><button type="button" class="btn ghost" id="raceBulkFinishCancel">Cancel</button><button type="submit" class="btn" id="raceBulkFinishSave">Save finish results</button></div>
-    <small class="race-bulk-finish-note">Every time must use HH:MM:SS and be between 00:00:01 and 48:00:00.</small>
+    <small class="race-bulk-finish-note">Times are optional. When entered they must use HH:MM:SS and be between 00:00:01 and 48:00:00.</small>
   </form>
 </dialog>
 <dialog class="race-reset-dialog" id="raceResetDialog" aria-labelledby="raceResetDialogTitle" aria-describedby="raceResetDialogDescription">
@@ -163,10 +177,24 @@
       <small class="race-reset-warning">This action cannot be undone. It does not delete player registrations.</small>
     </form>
   </dialog>
+
+<div class="pos-sheet" id="posSheet" hidden role="dialog" aria-modal="true" aria-labelledby="posSheetTitle">
+  <div class="pos-backdrop" data-pos-close></div>
+  <div class="pos-card">
+    <div class="pos-grab" aria-hidden="true"></div>
+    <div class="pos-head">
+      <div class="pos-who"><small>Set live position</small><strong id="posSheetTitle">Runner</strong><span id="posSheetCurrent">Currently —</span></div>
+      <button type="button" class="pos-x" data-pos-close aria-label="Close">✕</button>
+    </div>
+    <p class="pos-hint" id="posSheetHint">Choose the new position. Runners in between move down or up by one place.</p>
+    <div class="pos-grid" id="posGrid" role="listbox" aria-label="Positions"></div>
+    <div class="pos-foot"><button type="button" class="btn ghost" data-pos-close>Cancel</button></div>
+  </div>
+</div>
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../../">Home</a> · <a href="../">Public results</a> · <a href="../../about/">About the race</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../../js/config.js"></script><script src="../../js/common.js?v=20261101-1"></script><script src="../../js/admin-accounts.js?v=20261031-1"></script><script src="../../js/storage-tools.js?v=20261031-1"></script><script src="../../js/backup-tools.js?v=20261101-1"></script><script src="../../js/registration-ui.js"></script><script src="../../js/admin-race.js?v=20261031-1"></script>
+<script src="../../js/config.js"></script><script src="../../js/common.js?v=20261101-1"></script><script src="../../js/admin-accounts.js?v=20261031-1"></script><script src="../../js/storage-tools.js?v=20261031-1"></script><script src="../../js/backup-tools.js?v=20261101-1"></script><script src="../../js/registration-ui.js"></script><script src="../../js/admin-race.js?v=20261102-2"></script>
 <script>
 (function(){
   const app=document.getElementById('app'), denied=document.getElementById('resultsManageDenied');

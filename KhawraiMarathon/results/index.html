@@ -6,7 +6,7 @@
 <title>Live Results - Khawrai Marathon Season Three</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/results.css?v=20261029-2">
+<link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/results.css?v=20261029-2"><link rel="stylesheet" href="../assets/results-live.css?v=20261102-2">
 
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/">
 <link rel="stylesheet" href="../assets/polish.css">
@@ -45,7 +45,7 @@
   </div>
 </nav>
 <main class="wrap results-page">
-  <section class="results-hero" aria-labelledby="resultsTitle">
+  <section class="results-hero" id="resultsHero" aria-labelledby="resultsTitle">
     <div>
       <span class="results-kicker">Official race board · Season Three</span>
       <h2 id="resultsTitle">Every stride has a story.<br>Every finish counts.</h2>
@@ -63,10 +63,48 @@
       <p class="results-live-note" id="raceLiveNote" aria-live="polite">Connecting to race updates…</p>
     </aside>
   </section>
+
+  <section class="lv-banner" id="liveBanner" hidden aria-label="Live race banner" data-mode="live">
+    <div class="lv-top">
+      <div class="lv-state">
+        <span class="lv-badge" id="lvBadge"><i aria-hidden="true"></i><b id="lvBadgeText">LIVE</b></span>
+        <div class="lv-title"><strong id="lvTitle" aria-live="polite">Race in progress</strong><small id="lvSub">Live positions · updated by the race organisers</small></div>
+      </div>
+      <div class="lv-clock"><small id="lvClockLabel">Race time</small><b id="lvClock">00:00:00</b></div>
+    </div>
+    <p class="lv-announce" id="lvAnnounce" hidden><span aria-hidden="true">📣</span><span id="lvAnnounceText"></span></p>
+    <div class="lv-leaders" id="lvLeaders" role="list" aria-label="Top three runners">
+      <article class="lv-leader p1 is-empty" data-slot="0" role="listitem">
+        <span class="lv-medal" aria-hidden="true">1</span>
+        <span class="lv-photo-wrap"><img class="lv-photo" alt="" width="84" height="84" decoding="async" hidden></span>
+        <div class="lv-info"><small class="lv-place" data-prize="Rs. 15,000">1st place</small><strong class="lv-name">Waiting for runners</strong><span class="lv-reg"></span></div>
+        <div class="lv-result"><b class="lv-status"></b><span class="lv-time"></span><small class="lv-prize">Rs. 15,000 + Winning Trophy</small></div>
+      </article>
+      <article class="lv-leader p2 is-empty" data-slot="1" role="listitem">
+        <span class="lv-medal" aria-hidden="true">2</span>
+        <span class="lv-photo-wrap"><img class="lv-photo" alt="" width="84" height="84" decoding="async" hidden></span>
+        <div class="lv-info"><small class="lv-place" data-prize="Rs. 10,000">2nd place</small><strong class="lv-name">Waiting for runners</strong><span class="lv-reg"></span></div>
+        <div class="lv-result"><b class="lv-status"></b><span class="lv-time"></span><small class="lv-prize">Rs. 10,000 + Trophy</small></div>
+      </article>
+      <article class="lv-leader p3 is-empty" data-slot="2" role="listitem">
+        <span class="lv-medal" aria-hidden="true">3</span>
+        <span class="lv-photo-wrap"><img class="lv-photo" alt="" width="84" height="84" decoding="async" hidden></span>
+        <div class="lv-info"><small class="lv-place" data-prize="Rs. 5,000">3rd place</small><strong class="lv-name">Waiting for runners</strong><span class="lv-reg"></span></div>
+        <div class="lv-result"><b class="lv-status"></b><span class="lv-time"></span><small class="lv-prize">Rs. 5,000 + Trophy</small></div>
+      </article>
+    </div>
+    <div class="lv-stats" aria-label="Race summary">
+      <div><b id="lvStatTotal">0</b><small>Runners</small></div>
+      <div><b id="lvStatRunning">0</b><small>Running</small></div>
+      <div><b id="lvStatFinished">0</b><small>Finished</small></div>
+      <div><b id="lvStatOther">0</b><small>DNF / DSQ</small></div>
+    </div>
+    <div class="lv-foot"><span class="live-connection" id="lvConn">Live connection</span><small id="lvUpdated"></small></div>
+  </section>
   <section id="resultsFinalizationBanner" class="results-finalization-banner" hidden aria-live="polite" aria-atomic="true"><div class="results-finalization-icon" aria-hidden="true">🏁</div><div><strong id="resultsFinalizationTitle">Race results are being finalized</strong><p id="resultsFinalizationText">The race has ended. Organisers are reviewing finish times and current positions before publishing the official final standings.</p><p id="resultsFinalizationAnnouncement" hidden></p></div></section>
 
 
-  <section aria-labelledby="prizesTitle">
+  <section id="prizesSection" aria-labelledby="prizesTitle">
     <div class="prizes-heading"><div><h2 id="prizesTitle">Race prizes</h2><p>Podium finishers receive cash awards and trophies.</p></div></div>
     <div class="prize-grid">
       <article class="prize-card first"><span class="prize-medal">1</span><span class="prize-place">1st Prize · Gold</span><strong class="prize-amount">Rs. 15,000</strong><span class="prize-sub">+ Winning Trophy</span></article>
@@ -75,21 +113,26 @@
     </div>
   </section>
 
-  <section id="podiumSection" aria-labelledby="podiumTitle" hidden>
-    <div class="prizes-heading"><div><h2 id="podiumTitle">The podium</h2><p>Current top three finishers, based on recorded finish times.</p></div><span class="live-connection" id="podiumLiveState">Live standings</span></div>
-    <div class="podium-grid" id="podiumGrid"></div>
-  </section>
-
-  <section aria-labelledby="leaderboardTitle">
+  <section id="leaderboardSection" aria-labelledby="leaderboardTitle">
     <div class="leaderboard-heading">
       <div><h2 id="leaderboardTitle">Live leaderboard</h2><p id="leaderboardSummary">Official times appear as organisers record them.</p></div>
       <div class="tools"><span class="live-connection" id="liveConnection">Live connection</span><button type="button" class="btn sm alt" id="downloadResultsPdf">Download results PDF</button></div>
     </div>
-    <div class="results-table-wrap"><table class="results-table"><thead><tr><th>Place / position</th><th>Runner</th><th>Status</th><th>Finish time</th><th>Updated</th></tr></thead><tbody id="resultsTableBody"><tr><td colspan="5" class="results-empty">Loading live results…</td></tr></tbody></table></div>
-    <p class="results-footnote">Official standings are calculated from the finish times recorded by race organisers. The public results board is read-only. For corrections, contact the marathon organisers.</p>
+    <div class="lv-toolbar">
+      <label class="lv-search"><span class="sr-only">Search runner by name or registration number</span><input id="lvSearch" type="search" placeholder="Search name or registration no." autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></label>
+      <div class="lv-filters" role="group" aria-label="Filter runners">
+        <button type="button" class="on" data-lv-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-lv-filter="running" aria-pressed="false">Running</button>
+        <button type="button" data-lv-filter="finished" aria-pressed="false">Finished</button>
+        <button type="button" data-lv-filter="other" aria-pressed="false">Others</button>
+      </div>
+    </div>
+    <ol class="lv-board" id="lvBoard" aria-label="Live leaderboard"><li class="lv-empty">Loading live results…</li></ol>
+    <div class="lv-more"><button type="button" class="btn alt" id="lvMore" hidden>Show all runners</button><p id="lvMoreNote"></p></div>
+    <p class="results-footnote">Positions are set by the race organisers and update live. Finish times appear when they are recorded. The public results board is read-only. For corrections, contact the marathon organisers.</p>
   </section>
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../">Home</a> · <a href="../participants/">Participants</a> · <a href="../about/">About the race</a> · <a href="../admin/">Admin sign in</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261101-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261029-2"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261101-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261102-2"></script>
 </body></html>

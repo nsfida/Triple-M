@@ -1,0 +1,98 @@
+/* Manage Results: live positions list, position picker (bottom sheet on phones) and table position button.
+   Touch targets are at least 44px. No horizontal overflow down to 320px. */
+.lp-panel{position:relative;scroll-margin-top:84px}
+.lp-jump{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-left:8px;text-decoration:none}
+.lp-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 14px}
+.lp-tools{display:flex;flex-wrap:wrap;gap:8px}
+.lp-tools .btn[hidden]{display:none}
+.lp-tools .btn{min-height:40px}
+.lp-help{margin:6px 0 10px;color:#5d7168;font-size:.72rem;line-height:1.55}
+.lp-search{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.lp-search input{flex:1 1 auto;min-width:0;min-height:44px;margin:0;padding:0 14px;border:1px solid #cfdcde;border-radius:12px;background:#fff;font:inherit;font-size:.84rem}
+.lp-search input:focus{outline:none;border-color:#0b8060;box-shadow:0 0 0 3px rgba(11,128,96,.16)}
+.lp-count{flex:0 0 auto;color:#68788a;font-size:.72rem;font-weight:800}
+
+.lp-list{list-style:none;margin:0;padding:0;display:grid;gap:7px;max-height:min(70dvh,720px);overflow:auto;overscroll-behavior:contain;padding-right:2px}
+.lp-row{display:grid;grid-template-columns:auto 42px minmax(0,1fr) auto auto;align-items:center;gap:10px;min-width:0;padding:8px 10px;border:1px solid #dce5e8;border-radius:14px;background:#fff;content-visibility:auto;contain-intrinsic-size:auto 62px}
+.lp-row.p1{border-color:#f0d27a;background:linear-gradient(100deg,#fff8dd,#fff 55%)}
+.lp-row.p2{border-color:#cfd9e1;background:linear-gradient(100deg,#f1f5f8,#fff 55%)}
+.lp-row.p3{border-color:#e8c4a6;background:linear-gradient(100deg,#fbeee3,#fff 55%)}
+.lp-pos,.race-pos-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:60px;min-height:44px;margin:0;padding:0 10px;border:1px solid #b7cdc4;border-radius:12px;background:#eef6f2;color:#123d31;font:inherit;font-weight:900;cursor:pointer;touch-action:manipulation;transition:background-color .15s,transform .05s}
+.lp-pos b,.race-pos-btn b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.lp-pos i,.race-pos-btn i{font-style:normal;font-size:.7rem;opacity:.65}
+.lp-pos:hover:not(:disabled),.race-pos-btn:hover:not(:disabled){background:#dff0e8}
+.lp-pos:active:not(:disabled),.race-pos-btn:active:not(:disabled){transform:scale(.97)}
+.lp-pos:focus-visible,.race-pos-btn:focus-visible,.pos-n:focus-visible,.lp-step:focus-visible{outline:3px solid #0b8060;outline-offset:2px}
+.lp-pos.pos-1,.race-pos-btn.pos-1{background:#ffd666;border-color:#e3b840;color:#3a2a00}
+.lp-pos.pos-2,.race-pos-btn.pos-2{background:#dfe6ec;border-color:#b9c6d0;color:#243038}
+.lp-pos.pos-3,.race-pos-btn.pos-3{background:#e2a06e;border-color:#c98650;color:#3a1f0c}
+.lp-pos:disabled,.race-pos-btn:disabled{opacity:.55;cursor:not-allowed}
+.lp-photo{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#e8efec}
+.lp-photo.missing{visibility:hidden}
+.lp-who{display:grid;gap:1px;min-width:0}
+.lp-who strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;color:#17332b}
+.lp-who small{color:#68788a;font-size:.68rem;font-weight:700}
+.lp-status{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#eef2f1;color:#526b60;font-size:.64rem;font-weight:900;white-space:nowrap}
+.lp-status.running{background:#e3f6e9;color:#17703f}.lp-status.finished{background:#0b6b4b;color:#fff}
+.lp-actions{display:flex;align-items:center;gap:6px}
+.lp-step{width:44px;height:44px;margin:0;padding:0;border:1px solid #cfdcde;border-radius:12px;background:#fff;color:#27493e;font-size:.9rem;cursor:pointer;touch-action:manipulation}
+.lp-step:hover:not(:disabled){background:#eef6f2}.lp-step:disabled{opacity:.4;cursor:not-allowed}
+.lp-act{width:118px;min-height:44px;margin:0;padding:0 8px;border:1px solid #cfdcde;border-radius:12px;background:#fff;font:inherit;font-size:.72rem;color:#27493e}
+.lp-empty{padding:24px 14px;border:1px dashed #c9d8d2;border-radius:14px;background:#fbfdfc;color:#5d7168;text-align:center;font-size:.82rem;line-height:1.6}
+
+.race-pos-cell{white-space:nowrap}
+.race-pos-none{color:#8a9aa3;font-weight:800}
+
+/* ------------------------------------------------------------------ position picker */
+body.pos-open{overflow:hidden}
+.pos-sheet{position:fixed;inset:0;z-index:3000;display:grid;align-items:end;justify-items:center}
+.pos-sheet[hidden]{display:none}
+.pos-backdrop{position:absolute;inset:0;background:rgba(10,28,34,.58);opacity:0;transition:opacity .2s}
+.pos-sheet.show .pos-backdrop{opacity:1}
+.pos-card{position:relative;display:flex;flex-direction:column;gap:10px;width:min(560px,100%);max-height:min(86dvh,680px);padding:10px 14px max(14px,env(safe-area-inset-bottom));border-radius:22px 22px 0 0;background:#fff;box-shadow:0 -12px 50px rgba(8,30,38,.35);transform:translateY(105%);transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+.pos-sheet.show .pos-card{transform:none}
+.pos-grab{width:44px;height:5px;margin:2px auto 0;border-radius:99px;background:#cfd8dc}
+.pos-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pos-who{display:grid;gap:2px;min-width:0}
+.pos-who small{color:#2a7a5b;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.pos-who strong{font-size:1.05rem;line-height:1.25;color:#17332b;overflow-wrap:anywhere}
+.pos-who span{color:#68788a;font-size:.74rem;font-weight:700}
+.pos-x{flex:0 0 auto;width:44px;height:44px;margin:0;padding:0;border:1px solid #cfdcde;border-radius:12px;background:#fff;color:#35534a;font-size:1rem;cursor:pointer}
+.pos-hint{margin:0;color:#5d7168;font-size:.72rem;line-height:1.5}
+.pos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 2px 6px;-webkit-overflow-scrolling:touch}
+.pos-n{min-height:48px;margin:0;padding:0;border:1px solid #cfdcde;border-radius:12px;background:#f4f8f7;color:#17332b;font:inherit;font-size:.95rem;font-weight:850;font-variant-numeric:tabular-nums;cursor:pointer;touch-action:manipulation}
+.pos-n:hover{background:#dff0e8;border-color:#8fc4ac}
+.pos-n:active{transform:scale(.96)}
+.pos-n.m1{background:#fff3c4;border-color:#e3b840}.pos-n.m2{background:#eef2f5;border-color:#b9c6d0}.pos-n.m3{background:#fae6d6;border-color:#d9a176}
+.pos-n.is-current{background:#0b6b4b;border-color:#0b6b4b;color:#fff;box-shadow:0 0 0 3px rgba(11,107,75,.25)}
+.pos-foot{display:flex;justify-content:flex-end}
+.pos-foot .btn{min-height:44px}
+
+@media(min-width:720px){
+  .pos-sheet{align-items:center}
+  .pos-card{border-radius:22px;max-height:min(80dvh,640px);padding:16px 18px 16px;transform:translateY(18px) scale(.97);opacity:0;transition:transform .2s cubic-bezier(.2,.8,.2,1),opacity .2s}
+  .pos-sheet.show .pos-card{transform:none;opacity:1}
+  .pos-grab{display:none}
+  .pos-grid{grid-template-columns:repeat(auto-fill,minmax(58px,1fr))}
+}
+
+/* ------------------------------------------------------------------ small screens */
+@media(max-width:700px){
+  .lp-row{grid-template-columns:auto 40px minmax(0,1fr);grid-template-areas:"pos photo who" "status status actions";gap:8px 10px;padding:9px 10px}
+  .lp-row .lp-pos{grid-area:pos}.lp-row .lp-photo{grid-area:photo;width:40px;height:40px}.lp-row .lp-who{grid-area:who}
+  .lp-row .lp-status{grid-area:status;justify-self:start}
+  .lp-row .lp-actions{grid-area:actions;justify-self:end}
+  .lp-act{width:104px}
+  .lp-tools{width:100%}.lp-tools .btn{flex:1 1 100%;justify-content:center}
+  .lp-list{max-height:min(66dvh,640px)}
+}
+@media(max-width:360px){
+  .lp-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"pos who" "status status" "actions actions"}
+  .lp-row .lp-photo{display:none}
+  .lp-row .lp-actions{justify-self:stretch;display:grid;grid-template-columns:44px 44px 1fr}.lp-act{width:100%}
+  .pos-grid{grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px}
+}
+@media(prefers-reduced-motion:reduce){.pos-card,.pos-backdrop,.lp-pos,.race-pos-btn{transition:none}}
+
+/* roster card layout (phones): keep the position button a natural size */
+@media(max-width:860px){.race-pos-cell .race-pos-btn{justify-self:start;width:auto;min-width:96px}}
