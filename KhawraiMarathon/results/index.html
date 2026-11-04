@@ -6,7 +6,7 @@
 <title>Live Results - Khawrai Marathon Season Three</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/results.css?v=20261029-2"><link rel="stylesheet" href="../assets/results-live.css?v=20261102-2">
+<link rel="stylesheet" href="../assets/style.css"><link rel="stylesheet" href="../assets/results.css?v=20261029-2"><link rel="stylesheet" href="../assets/results-live.css?v=20261105-4">
 
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/">
 <link rel="stylesheet" href="../assets/polish.css">
@@ -67,11 +67,12 @@
   <section class="lv-banner" id="liveBanner" hidden aria-label="Live race banner" data-mode="live">
     <div class="lv-top">
       <div class="lv-state">
-        <span class="lv-badge" id="lvBadge"><i aria-hidden="true"></i><b id="lvBadgeText">LIVE</b></span>
+        <span class="lv-badge" id="lvBadge"><i aria-hidden="true"></i><b id="lvBadgeText">LIVE</b><span class="lv-badge-viewers" id="lvBadgeViewers" hidden aria-live="polite" aria-atomic="true"><!-- 👁 N --></span></span>
         <div class="lv-title"><strong id="lvTitle" aria-live="polite">Race in progress</strong><small id="lvSub">Live positions · updated by the race organisers</small></div>
       </div>
       <div class="lv-clock"><small id="lvClockLabel">Race time</small><b id="lvClock">00:00:00</b></div>
     </div>
+    <p class="lv-banner-status" id="lvBannerStatus" hidden aria-live="polite"><span id="lvBannerStatusText"></span></p>
     <p class="lv-announce" id="lvAnnounce" hidden><span aria-hidden="true">📣</span><span id="lvAnnounceText"></span></p>
     <div class="lv-leaders" id="lvLeaders" role="list" aria-label="Top three runners">
       <article class="lv-leader p1 is-empty" data-slot="0" role="listitem">
@@ -100,6 +101,10 @@
       <div><b id="lvStatOther">0</b><small>DNF / DSQ</small></div>
     </div>
     <div class="lv-foot"><span class="live-connection" id="lvConn">Live connection</span><small id="lvUpdated"></small></div>
+    <div class="race-feed-wrap" id="raceFeedWrap" hidden aria-label="Race event log">
+      <h3 class="race-feed-title"><span aria-hidden="true">📋</span> Race events</h3>
+      <ol class="race-feed-list" id="raceFeedList" reversed aria-live="polite" aria-atomic="false"></ol>
+    </div>
   </section>
   <section id="resultsFinalizationBanner" class="results-finalization-banner" hidden aria-live="polite" aria-atomic="true"><div class="results-finalization-icon" aria-hidden="true">🏁</div><div><strong id="resultsFinalizationTitle">Race results are being finalized</strong><p id="resultsFinalizationText">The race has ended. Organisers are reviewing finish times and current positions before publishing the official final standings.</p><p id="resultsFinalizationAnnouncement" hidden></p></div></section>
 
@@ -134,5 +139,5 @@
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../">Home</a> · <a href="../participants/">Participants</a> · <a href="../about/">About the race</a> · <a href="../admin/">Admin sign in</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261101-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261102-2"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261101-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js"></script><script src="../js/results.js?v=20261105-4"></script>
 </body></html>

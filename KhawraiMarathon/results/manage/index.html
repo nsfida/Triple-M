@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f4f7fb"><meta name="robots" content="noindex,nofollow">
-<meta name="description" content="Authorized organiser workspace for Khawrai Marathon Race Season Three results and race control.">
+<meta name="description" content="Authorised organiser workspace for Khawrai Marathon Race Season Three results and race control.">
 <title>Manage Results - Khawrai Marathon Season Three</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,8 +12,8 @@
 <link rel="stylesheet" href="../../assets/header-layout.css?v=20261029-7">
 <link rel="stylesheet" href="../../assets/admin-accounts-dialog.css?v=20261029-3">
 <link rel="stylesheet" href="../../assets/admin-compact.css?v=20261029-8">
-<link rel="stylesheet" href="../../assets/results-manage.css?v=20261029-6">
-<link rel="stylesheet" href="../../assets/results-live-admin.css?v=20261102-2">
+<link rel="stylesheet" href="../../assets/results-manage.css?v=20261105-4">
+<link rel="stylesheet" href="../../assets/results-live-admin.css?v=20261105-1">
 <link rel="canonical" href="https://triplem.vip/KhawraiMarathon/results/manage/">
 </head>
 <body class="admin-page results-manage-route">
@@ -25,7 +25,7 @@
 </div>
 <header class="top"><div class="in">
   <a class="logo-link" href="../../" aria-label="Khawrai Marathon Race home"><img class="logo" src="https://triplem.vip/KhawraiUnity/logo.png" alt="Khawrai Unity logo"></a>
-  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Authorised race-control workspace · Live runner results and final standings.</p></div>
+  <div class="tt"><h1>Khawrai Marathon Race <span>Season Three</span></h1><p>Authorised race-control workspace</p></div>
   <div class="header-actions"><div class="header-utilities">
     <div class="cta registration-cta"><a class="btn yellow" id="registerCta" href="../../register/">Register</a><span class="registration-countdown" id="registrationCountdown" aria-live="off">CLOSES IN --D --H --M --S</span><span class="btn registration-ended-pill" id="registrationEndedCta" hidden>Registration Ends</span></div>
     <div class="profile-mount"></div>
@@ -38,146 +38,152 @@
   <div class="cta about-cta"><a class="btn ghost about-nav-link" href="../../about/">About</a></div>
   <div class="cta admin-results-nav" data-admin-results-nav-wrap hidden><a class="btn ghost" data-admin-results-nav href="./" aria-current="page"><span class="nav-label-full">Manage Results</span><span class="nav-label-mobile">Manage<br>Results</span></a></div>
 </div></div></nav>
-<main class="wrap results-manage-denied" id="resultsManageDenied" role="status">
-  <section class="race-admin-panel access-denied-card"><span class="results-kicker">Authorised access only</span><h2>Results management is restricted</h2><p>This page contains race-control and runner-update settings. Sign in with an admin account that has Results access. Public standings remain available to everyone.</p><div class="access-denied-actions"><a class="btn" href="../../admin/">Admin sign in</a><a class="btn ghost" href="../">Open public results</a></div></section>
-</main>
-<main class="wrap" id="app" hidden>
-  <div class="admin-welcome tools"><div><span class="eyebrow">AUTHORISED RESULTS WORKSPACE</span><strong>Race control and official results</strong><small>Results stay provisional until an authorised organiser finalizes the standings.</small></div><span class="sp"><a class="btn sm ghost" href="../">View public board</a></span></div>
-<section id="paneResultsAdmin">
-    <div class="section-heading"><div><h2>Race control and official results</h2><p>Update runners during the race, correct provisional results after the finish, and publish the final leaderboard when everything is verified. The database checks permissions for every change.</p></div><button type="button" class="btn sm ghost" id="raceRefreshData">Refresh race data</button><a class="btn ghost lp-jump" href="#livePositionsPanel">↓ Live positions</a></div>
-    <div class="race-admin-status-strip">
-      <div><span>Current race state</span><strong id="raceAdminCurrentStatus">Loading…</strong></div>
-      <div><span>Race started</span><strong id="raceAdminStartedAt">Not started</strong></div>
-      <div><span>Race ended</span><strong id="raceAdminEndedAt">Not ended</strong></div>
-      <div><span>Official results</span><strong id="raceAdminFinalizedAt">Not finalized</strong></div>
-    </div>
-    <section class="race-admin-panel" aria-labelledby="raceControlTitle">
-      <div class="race-admin-panel-head"><div><h3 id="raceControlTitle">Race status and announcement</h3><p>Scheduled for 15 November 2026 at 04:00 PM Pakistan Time.</p></div></div>
-      <form id="raceControlForm" class="race-admin-control-form">
-        <label>Race state<select id="raceStatusAdmin" required><option value="scheduled">Scheduled / not started</option><option value="in_progress">Race in progress</option><option value="completed">Race completed</option></select></label>
-        <div class="race-public-message-field">
-          <label class="race-announcement-title" for="racePublicMessage">Public announcement <small>Optional · up to 300 characters</small></label>
-          <div class="race-announcement-fields">
-            <label class="sr-only" for="raceAnnouncementPreset">Quick announcement presets</label>
-            <select id="raceAnnouncementPreset" aria-label="Choose a preset public announcement">
-              <option value="">Choose a quick preset…</option>
-              <option value="registration_reminder">Registration reminder</option>
-              <option value="race_day_arrival">Race-day arrival reminder</option>
-              <option value="race_starting_soon">Race starting soon</option>
-              <option value="race_started">Race has started</option>
-              <option value="race_in_progress">Race in progress</option>
-              <option value="finish_line_open">Finish line update</option>
-              <option value="results_updating">Results being updated</option>
-              <option value="race_completed">Race completed / thank you</option>
-              <option value="start_delayed">Start delayed</option>
-              <option value="safety_reminder">Runner safety reminder</option>
-              <option value="thank_you">Thank you message</option>
-              <option value="custom">Write your own message…</option>
-            </select>
-            <input id="racePublicMessage" maxlength="300" placeholder="Choose a preset or write your own announcement…" autocomplete="off">
-          </div>
-          <small class="race-announcement-help">Choose a preset to fill the message, edit it freely, then select Save race state. Your own message works too.</small>
-        </div>
-        <button type="submit" class="btn">Save race state</button>
-      </form>
-      <div class="race-admin-quick-actions" aria-label="Quick race controls">
-        <button type="button" class="btn alt" id="raceStartNow"><span aria-hidden="true">▶</span> Start race now</button>
-        <button type="button" class="btn danger" id="raceEndNow"><span aria-hidden="true">■</span> End race</button>
-        <button type="button" class="btn ghost" id="raceResetScheduled"><span aria-hidden="true">↺</span> Reset status only</button>
-      </div>
-      <p class="race-admin-note">Start and End record the official server time. <strong>Reset status only</strong> clears the start/end times and public announcement but keeps every saved runner result.</p>
-      <div class="race-finalize-panel" aria-live="polite">
-        <div><span class="race-reset-eyebrow">OFFICIAL RESULT STATUS</span><strong id="raceFinalizationHeading">Results are provisional</strong><p id="raceFinalizationHelp">After the race is ended, verify all finish times and runner statuses before finalizing.</p></div>
-        <div class="race-finalize-actions"><button type="button" class="btn" id="raceFinalizeResults">Finalize official results</button><button type="button" class="btn ghost" id="raceReopenResults" hidden>Reopen result editing</button></div>
-      </div>
-      <div class="race-admin-reset-callout" aria-labelledby="raceResetCalloutTitle">
-        <div class="race-admin-reset-copy"><span class="race-reset-eyebrow">AFTER TESTING</span><strong id="raceResetCalloutTitle">Need a clean race session?</strong><p>Delete every saved race-result record, then return the race to Scheduled. This includes any official results too, not just test entries. Registrations and financial records are kept.</p></div>
-        <button type="button" class="btn danger race-full-reset-open" id="raceFullResetOpen"><span aria-hidden="true">↺</span> Full reset: clear all results</button>
-      </div>
-    </section>
-    <section class="race-admin-panel lp-panel" id="livePositionsPanel" aria-labelledby="lpTitle">
-      <div class="race-admin-panel-head lp-head">
-        <div><h3 id="lpTitle">Live positions</h3><p id="lpSummary">Start the race to give every confirmed runner a starting position.</p></div>
-        <div class="lp-tools" aria-label="Live position tools">
-          <button type="button" class="btn sm ghost lp-edit" id="lpAddMissing" hidden>＋ Add missing runners</button>
-          <button type="button" class="btn sm ghost lp-edit" id="lpRankByTime" hidden>⏱ Sort finished by time</button>
-          <button type="button" class="btn sm lp-edit" id="lpFinishAll" hidden>✓ Mark all running as finished</button>
-        </div>
-      </div>
-      <p class="lp-help" id="lpHelp">Tap a position number to move that runner to any place. Everyone in between shifts by one place automatically, and the public live board updates straight away.</p>
-      <div class="lp-search"><label class="sr-only" for="lpSearch">Find a runner in the live list</label><input id="lpSearch" type="search" autocomplete="off" placeholder="Find runner by name or reg. no."><span class="lp-count" id="lpCount"></span></div>
-      <ol class="lp-list" id="lpList" aria-label="Runners in live position order"><li class="lp-empty">Loading live positions…</li></ol>
-    </section>
-    <section class="race-admin-panel" aria-labelledby="raceResultFormTitle">
-      <div class="race-admin-panel-head"><div><h3 id="raceResultFormTitle">Add or update a runner result</h3><p>Only confirmed, non-cancelled runners can be saved to official results.</p></div></div>
-      <form id="raceResultForm" class="race-admin-result-form">
-        <label class="wide">Runner<select id="raceResultRunner" required><option value="">Loading confirmed runners…</option></select></label>
-        <label>Runner status<select id="raceResultStatus" required><option value="registered">Registered / not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
-        <label id="raceCurrentPositionWrap" hidden>Position <small>Optional · others shift automatically</small><input id="raceCurrentPosition" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="e.g. 1" autocomplete="off"></label>
-        <label id="raceFinishTimeWrap" hidden>Finish time <small>Optional · HH:MM:SS</small><input id="raceFinishTime" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" placeholder="00:42:18"></label>
-        <div class="race-form-actions"><button type="submit" class="btn" id="raceSaveResult">Save result</button><button type="button" class="btn ghost" id="raceCancelEdit" hidden>Cancel edit</button></div>
-      </form>
-      <p class="race-admin-note">Positions are one live ranking for everybody who is Running or Finished. Setting a position moves the runner there and shifts the runners in between. A finish time is optional (00:00:01 to 48:00:00); use “Sort finished by time” if you want finished runners ordered by their times.</p>
-    </section>
-    <div class="race-results-toolbar" aria-label="Search, filter and sort runners">
-      <label class="race-results-search">Search runner<input id="raceRunnerSearch" type="search" autocomplete="off" placeholder="Registration number or player name…" aria-label="Search by registration number or player name"></label>
-      <label>Result status<select id="raceRunnerFilter" aria-label="Filter runners by result status"><option value="all">All eligible runners</option><option value="awaiting">Awaiting result</option><option value="registered">Not started</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">Did not finish (DNF)</option><option value="dsq">Disqualified (DSQ)</option></select></label>
-      <label>Sort by<select id="raceRunnerSort" aria-label="Sort runner results"><option value="position" selected>Live position</option><option value="reg_no">Registration number</option><option value="name">Player name</option><option value="finish_time">Fastest finish time</option><option value="updated">Recently updated</option></select></label>
-      <div class="race-results-toolbar-actions">
-        <button type="button" class="btn sm ghost" id="raceNextPendingRunner">Enter next pending result</button>
-        <button type="button" class="btn sm ghost" id="raceClearRunnerFilters">Clear filters</button>
-      </div>
-    </div>
-    <section class="race-bulk-toolbar" aria-label="Bulk runner status updates">
-      <div class="race-bulk-toolbar-top">
-        <label class="race-select-visible-label"><input id="raceSelectVisible" type="checkbox"><span>Select all visible players</span></label>
-        <strong id="raceBulkSelectedCount" aria-live="polite">0 selected</strong>
-        <button type="button" class="btn sm ghost" id="raceBulkClearSelection">Clear selection</button>
-      </div>
-      <div class="race-bulk-controls">
-        <label for="raceBulkStatus">Set selected players to
-          <select id="raceBulkStatus">
-            <option value="">Choose status…</option>
-            <option value="registered">Registered / not started</option>
-            <option value="running">Running</option>
-            <option value="finished">Finished (times optional)</option>
-            <option value="dnf">Did not finish (DNF)</option>
-            <option value="dsq">Disqualified (DSQ)</option>
-          </select>
-        </label>
-        <button type="button" class="btn sm" id="raceBulkApply" disabled>Apply to selected</button>
-      </div>
-      <p class="race-bulk-help">Select any combination of players. “Select all visible” follows your current search and filters. Selections remain active when filters change, so check the selected count before applying. Finished lets you enter a time for each selected runner (optional).</p>
-    </section>
-    <p class="msg" id="raceAdminMsg" aria-live="polite">Connecting to race controls…</p>
-    <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Select</th><th>Position</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="8" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
-    <div class="race-admin-prizes"><strong>Public prize display</strong><span><b class="gold-text">1st:</b> Rs. 15,000 + Winning Trophy</span><span><b class="silver-text">2nd:</b> Rs. 10,000 + Trophy</span><span><b class="bronze-text">3rd:</b> Rs. 5,000 + Trophy</span><a class="btn sm ghost" href="../" target="_blank" rel="noopener">Open public live board</a></div>
-  
-</section><dialog class="race-bulk-finish-dialog" id="raceBulkFinishDialog" aria-labelledby="raceBulkFinishTitle" aria-describedby="raceBulkFinishDescription">
-  <form id="raceBulkFinishForm" class="race-bulk-finish-card">
-    <span class="race-reset-eyebrow">BULK RESULT UPDATE</span>
-    <h2 id="raceBulkFinishTitle">Enter individual finish times</h2>
-    <p id="raceBulkFinishDescription">Enter a finish time for each runner if you have it. Leave a time empty to mark the runner Finished without a time. Existing saved times are prefilled.</p>
-    <div id="raceBulkFinishRows" class="race-bulk-finish-rows"></div>
-    <p id="raceBulkFinishError" class="msg bad" role="alert" hidden></p>
-    <div class="race-bulk-finish-actions"><button type="button" class="btn ghost" id="raceBulkFinishCancel">Cancel</button><button type="submit" class="btn" id="raceBulkFinishSave">Save finish results</button></div>
-    <small class="race-bulk-finish-note">Times are optional. When entered they must use HH:MM:SS and be between 00:00:01 and 48:00:00.</small>
-  </form>
-</dialog>
-<dialog class="race-reset-dialog" id="raceResetDialog" aria-labelledby="raceResetDialogTitle" aria-describedby="raceResetDialogDescription">
-    <form id="raceResetDialogForm" class="race-reset-dialog-card">
-      <div class="race-reset-dialog-icon" aria-hidden="true">↺</div>
-      <h2 id="raceResetDialogTitle">Reset all race results and status?</h2>
-      <p id="raceResetDialogDescription">This permanently removes EVERY saved race-result record, including any official results, runner statuses and finish times. The race returns to Scheduled, and the official start/end timestamps and public announcement are cleared. The system does not distinguish test results from official results.</p>
-      <div class="race-reset-keep-safe"><strong>These records will stay untouched</strong><span>All registrations and participant details, runner photos and other admin data.</span></div>
-      <p class="race-reset-record-count" id="raceResetResultCount">Preparing reset summary…</p>
-      <label class="race-reset-confirm-label" for="raceResetConfirmText">Type <strong>RESET</strong> to confirm</label>
-      <input id="raceResetConfirmText" name="raceResetConfirmText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type RESET here" aria-label="Type RESET to confirm deleting all race results">
-      <div class="race-reset-dialog-actions"><button type="button" class="btn ghost" id="raceResetCancel">Cancel</button><button type="submit" class="btn danger" id="raceResetConfirm" disabled>Reset race and results</button></div>
-      <small class="race-reset-warning">This action cannot be undone. It does not delete player registrations.</small>
-    </form>
-  </dialog>
 
+<!-- ACCESS DENIED -->
+<main class="wrap results-manage-denied" id="resultsManageDenied" role="status">
+  <section class="race-admin-panel access-denied-card"><span class="results-kicker">Authorised access only</span><h2>Results management is restricted</h2><p>Sign in with an admin account that has Results access.</p><div class="access-denied-actions"><a class="btn" href="../../admin/">Admin sign in</a><a class="btn ghost" href="../">Open public results</a></div></section>
+</main>
+
+<main class="wrap" id="app" hidden>
+
+<!-- ═══ STICKY CONTROL BAR ═══════════════════════════════════════ -->
+<div class="race-ctrl-bar" id="raceCtrlBar" role="toolbar" aria-label="Race controls">
+  <div class="race-ctrl-left">
+    <span class="race-ctrl-badge" id="raceCtrlBadge">Scheduled</span>
+    <span class="race-ctrl-clock" id="raceCtrlClock" hidden>00:00:00</span>
+  </div>
+  <div class="race-ctrl-actions">
+    <button type="button" class="btn sm ctrl-start" id="raceStartNow" title="Start race · assigns all confirmed runners Running with random positions">▶ Start</button>
+    <button type="button" class="btn sm ctrl-end danger" id="raceEndNow" disabled title="End race (only active after race starts)">■ End</button>
+    <button type="button" class="btn sm ghost ctrl-finalize" id="raceFinalizeResults" hidden>✓ Finalize</button>
+    <button type="button" class="btn sm ghost ctrl-reopen" id="raceReopenResults" hidden>✎ Reopen</button>
+    <button type="button" class="btn sm ghost ctrl-reset" id="raceResetScheduled" title="Reset status only · keep all saved results">↺ Reset</button>
+    <button type="button" class="btn sm danger ctrl-full-reset" id="raceFullResetOpen" title="Full reset · remove all result records">✕ Full Reset</button>
+    <button type="button" class="btn sm ghost ctrl-refresh" id="raceRefreshData" title="Refresh race data">↻</button>
+  </div>
+</div>
+
+<section id="paneResultsAdmin">
+
+  <!-- ── Compact status strip ── -->
+  <div class="race-admin-status-strip">
+    <div><span>State</span><strong id="raceAdminCurrentStatus">Loading…</strong></div>
+    <div><span>Started</span><strong id="raceAdminStartedAt">Not started</strong></div>
+    <div><span>Ended</span><strong id="raceAdminEndedAt">Not ended</strong></div>
+    <div><span>Results</span><strong id="raceAdminFinalizedAt">Not finalized</strong></div>
+  </div>
+
+  <!-- ── Announcement (collapsed by default) ── -->
+  <details class="race-announce-wrap" id="announceWrap">
+    <summary class="race-announce-toggle">Public announcement <span class="race-announce-preview" id="announcePreview"></span></summary>
+    <div class="race-announce-body">
+      <form id="raceControlForm" class="race-announce-form">
+        <!-- Col 1: State -->
+        <div class="ann-state">
+          <span>State</span>
+          <select id="raceStatusAdmin" required>
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <!-- Col 2: Preset + message text -->
+        <div class="ann-msg-wrap">
+          <span>Public announcement</span>
+          <select id="raceAnnouncementPreset" aria-label="Choose a preset announcement">
+            <option value="">— choose preset —</option>
+            <option value="registration_reminder">Registration reminder</option>
+            <option value="race_day_arrival">Race-day arrival reminder</option>
+            <option value="race_starting_soon">Race starting soon</option>
+            <option value="race_started">Race has started</option>
+            <option value="race_in_progress">Race in progress</option>
+            <option value="finish_line_open">Finish line update</option>
+            <option value="results_updating">Results being updated</option>
+            <option value="race_completed">Race completed</option>
+            <option value="start_delayed">Start delayed</option>
+            <option value="safety_reminder">Safety reminder</option>
+            <option value="thank_you">Thank you message</option>
+            <option value="custom">Custom…</option>
+          </select>
+          <input type="text" id="racePublicMessage" maxlength="300" placeholder="Type announcement here (optional)…" autocomplete="off">
+        </div>
+        <!-- Col 3: Save -->
+        <button type="submit" class="btn sm ann-save">Save</button>
+      </form>
+    </div>
+  </details>
+
+  <!-- ── Status message ── -->
+  <p class="msg" id="raceAdminMsg" aria-live="polite">Connecting to race controls…</p>
+
+  <!-- ── BANNER STATUS TEXT (nsfida only) ── -->
+  <div id="bannerStatusWrap" class="banner-status-wrap" hidden>
+    <div class="banner-status-head">
+      <span class="banner-status-label">Banner status text <span class="owner-only-pill">nsfida only</span></span>
+      <span class="banner-status-hint">Shown on the public results banner before or during the race (e.g. "Race is about to start!", "We love that early energy 🔥"). Leave blank to hide.</span>
+    </div>
+    <div class="banner-status-row">
+      <input type="text" id="bannerStatusText" maxlength="200" placeholder='e.g. "Race is about to start!" or "We love that early energy 🔥"' autocomplete="off">
+      <button type="button" class="btn sm" id="bannerStatusSave">Save</button>
+    </div>
+  </div>
+
+  <!-- ── LIVE POSITIONS ── -->
+  <section class="race-admin-panel lp-panel" id="livePositionsPanel" aria-labelledby="lpTitle">
+    <div class="race-admin-panel-head lp-head">
+      <div><h3 id="lpTitle">Live positions</h3><p id="lpSummary">Start the race to assign positions.</p></div>
+      <div class="lp-tools" aria-label="Live position tools">
+        <button type="button" class="btn sm ghost lp-edit" id="lpAddMissing" hidden>＋ Missing</button>
+        <button type="button" class="btn sm ghost lp-edit" id="lpRankByTime" hidden>⏱ Sort by time</button>
+        <button type="button" class="btn sm lp-edit" id="lpFinishAll" hidden>✓ Finish all</button>
+      </div>
+    </div>
+    <div class="lp-search"><label class="sr-only" for="lpSearch">Find runner</label><input id="lpSearch" type="search" autocomplete="off" placeholder="Find runner by name or reg. no."><span class="lp-count" id="lpCount"></span></div>
+    <ol class="lp-list" id="lpList" aria-label="Runners in live position order"><li class="lp-empty">Start the race to see live positions.</li></ol>
+  </section>
+
+  <!-- ── ADD / UPDATE RESULT ── -->
+  <section class="race-admin-panel" aria-labelledby="raceResultFormTitle">
+    <h3 id="raceResultFormTitle" class="compact-panel-title">Add / update runner</h3>
+    <form id="raceResultForm" class="race-admin-result-form">
+      <label class="wide">Runner<select id="raceResultRunner" required><option value="">Choose a confirmed runner…</option></select></label>
+      <label>Status<select id="raceResultStatus" required><option value="registered">Registered</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">DNF</option><option value="dsq">DSQ</option></select></label>
+      <label id="raceCurrentPositionWrap" hidden>Position<input id="raceCurrentPosition" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="e.g. 1" autocomplete="off"></label>
+      <label id="raceFinishTimeWrap" hidden>Time<input id="raceFinishTime" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,2}:[0-5][0-9]:[0-5][0-9]" placeholder="00:42:18"></label>
+      <div class="race-form-actions"><button type="submit" class="btn sm" id="raceSaveResult">Save</button><button type="button" class="btn sm ghost" id="raceCancelEdit" hidden>Cancel</button></div>
+    </form>
+  </section>
+
+  <!-- ── TOOLBAR ── -->
+  <div class="race-results-toolbar" aria-label="Search, filter and sort runners">
+    <label class="race-results-search">Search<input id="raceRunnerSearch" type="search" autocomplete="off" placeholder="Reg no or name…" aria-label="Search by registration number or player name"></label>
+    <label>Filter<select id="raceRunnerFilter" aria-label="Filter runners by result status"><option value="all">All</option><option value="awaiting">Awaiting</option><option value="registered">Registered</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">DNF</option><option value="dsq">DSQ</option></select></label>
+    <label>Sort<select id="raceRunnerSort" aria-label="Sort runner results"><option value="position" selected>Position</option><option value="reg_no">Reg no</option><option value="name">Name</option><option value="finish_time">Time</option><option value="updated">Updated</option></select></label>
+    <div class="race-results-toolbar-actions">
+      <button type="button" class="btn sm ghost" id="raceNextPendingRunner">Next pending</button>
+      <button type="button" class="btn sm ghost" id="raceClearRunnerFilters">Clear</button>
+    </div>
+  </div>
+
+  <!-- ── BULK ── -->
+  <section class="race-bulk-toolbar" aria-label="Bulk updates">
+    <div class="race-bulk-toolbar-top">
+      <label class="race-select-visible-label"><input id="raceSelectVisible" type="checkbox"><span>Select visible</span></label>
+      <strong id="raceBulkSelectedCount" aria-live="polite">0 selected</strong>
+      <button type="button" class="btn sm ghost" id="raceBulkClearSelection">Clear</button>
+    </div>
+    <div class="race-bulk-controls">
+      <label for="raceBulkStatus">Set to <select id="raceBulkStatus"><option value="">Status…</option><option value="registered">Registered</option><option value="running">Running</option><option value="finished">Finished</option><option value="dnf">DNF</option><option value="dsq">DSQ</option></select></label>
+      <button type="button" class="btn sm" id="raceBulkApply" disabled>Apply</button>
+    </div>
+  </section>
+
+  <!-- ── RUNNER TABLE ── -->
+  <div class="tw race-admin-table-wrap"><table class="ft race-admin-table"><thead><tr><th>Select</th><th>Position</th><th>Registration No.</th><th>Player</th><th>Status</th><th>Finish time</th><th>Last updated</th><th>Actions</th></tr></thead><tbody id="raceAdminResultsBody"><tr class="race-admin-empty-row"><td colspan="8" class="race-admin-empty">Loading confirmed runners…</td></tr></tbody></table></div>
+
+</section>
+
+<!-- ══ POSITION PICKER ══ -->
 <div class="pos-sheet" id="posSheet" hidden role="dialog" aria-modal="true" aria-labelledby="posSheetTitle">
   <div class="pos-backdrop" data-pos-close></div>
   <div class="pos-card">
@@ -186,15 +192,42 @@
       <div class="pos-who"><small>Set live position</small><strong id="posSheetTitle">Runner</strong><span id="posSheetCurrent">Currently —</span></div>
       <button type="button" class="pos-x" data-pos-close aria-label="Close">✕</button>
     </div>
-    <p class="pos-hint" id="posSheetHint">Choose the new position. Runners in between move down or up by one place.</p>
+    <p class="pos-hint" id="posSheetHint">Choose the new position. Runners in between shift by one place.</p>
     <div class="pos-grid" id="posGrid" role="listbox" aria-label="Positions"></div>
     <div class="pos-foot"><button type="button" class="btn ghost" data-pos-close>Cancel</button></div>
   </div>
 </div>
+
+<!-- ══ BULK FINISH DIALOG ══ -->
+<dialog class="race-bulk-finish-dialog" id="raceBulkFinishDialog" aria-labelledby="raceBulkFinishTitle" aria-describedby="raceBulkFinishDescription">
+  <form id="raceBulkFinishForm" class="race-bulk-finish-card">
+    <span class="race-reset-eyebrow">BULK UPDATE</span>
+    <h2 id="raceBulkFinishTitle">Enter finish times</h2>
+    <p id="raceBulkFinishDescription">Times are optional (HH:MM:SS). Leave empty to mark Finished without a time.</p>
+    <div id="raceBulkFinishRows" class="race-bulk-finish-rows"></div>
+    <p id="raceBulkFinishError" class="msg bad" role="alert" hidden></p>
+    <div class="race-bulk-finish-actions"><button type="button" class="btn ghost" id="raceBulkFinishCancel">Cancel</button><button type="submit" class="btn" id="raceBulkFinishSave">Save</button></div>
+  </form>
+</dialog>
+
+<!-- ══ FULL RESET DIALOG ══ -->
+<dialog class="race-reset-dialog" id="raceResetDialog" aria-labelledby="raceResetDialogTitle" aria-describedby="raceResetDialogDescription">
+  <form id="raceResetDialogForm" class="race-reset-dialog-card">
+    <div class="race-reset-dialog-icon" aria-hidden="true">↺</div>
+    <h2 id="raceResetDialogTitle">Reset all race results?</h2>
+    <p id="raceResetDialogDescription">Removes EVERY saved race-result record and returns the race to Scheduled. Registrations and participant records are kept.</p>
+    <p class="race-reset-record-count" id="raceResetResultCount">Preparing reset summary…</p>
+    <label class="race-reset-confirm-label" for="raceResetConfirmText">Type <strong>RESET</strong> to confirm</label>
+    <input id="raceResetConfirmText" name="raceResetConfirmText" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type RESET here" aria-label="Type RESET to confirm deleting all race results">
+    <div class="race-reset-dialog-actions"><button type="button" class="btn ghost" id="raceResetCancel">Cancel</button><button type="submit" class="btn danger" id="raceResetConfirm" disabled>Full Reset</button></div>
+    <small class="race-reset-warning">Cannot be undone. Does not delete player registrations.</small>
+  </form>
+</dialog>
+
 </main>
 <footer>Khawrai Marathon Race Season Three · <a href="../../">Home</a> · <a href="../">Public results</a> · <a href="../../about/">About the race</a></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../../js/config.js"></script><script src="../../js/common.js?v=20261101-1"></script><script src="../../js/admin-accounts.js?v=20261031-1"></script><script src="../../js/storage-tools.js?v=20261031-1"></script><script src="../../js/backup-tools.js?v=20261101-1"></script><script src="../../js/registration-ui.js"></script><script src="../../js/admin-race.js?v=20261102-2"></script>
+<script src="../../js/config.js"></script><script src="../../js/common.js?v=20261101-1"></script><script src="../../js/admin-accounts.js?v=20261031-1"></script><script src="../../js/storage-tools.js?v=20261031-1"></script><script src="../../js/backup-tools.js?v=20261101-1"></script><script src="../../js/registration-ui.js"></script><script src="../../js/admin-race.js?v=20261105-4"></script>
 <script>
 (function(){
   const app=document.getElementById('app'), denied=document.getElementById('resultsManageDenied');

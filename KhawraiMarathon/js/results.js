@@ -14,9 +14,9 @@
   const PRIZES = ['Rs. 15,000 + Winning Trophy', 'Rs. 10,000 + Trophy', 'Rs. 5,000 + Trophy'];
 
   const S = {
-    v: 0, bv: 0, ctl: null, banner: { top: [], c: {}, ctl: {} }, board: [], updatedAt: null, offset: 0,
+    v: 0, bv: 0, ctl: null, banner: { top: [], c: {}, ctl: {} }, board: [], feed: [], updatedAt: null, offset: 0,
     filter: 'all', query: '', showAll: false, connected: false, loaded: false,
-    moves: new Map(), prevPos: new Map()
+    moves: new Map(), prevPos: new Map(), viewers: 0
   };
   let results = [];                           // board rows (PDF uses this)
   const ordered = rows => rows;               // the board is already in live order
@@ -104,9 +104,26 @@
       const message = String(ctl.public_message || '').trim();
       $('lvAnnounce').hidden = !message;
       $('lvAnnounceText').textContent = message;
+      // Banner status text (nsfida-only custom message shown above the announce bar)
+      const bannerStatus = String(ctl.banner_text || '').trim();
+      if ($('lvBannerStatus')) {
+        $('lvBannerStatus').hidden = !bannerStatus;
+        $('lvBannerStatusText').textContent = bannerStatus;
+      }
     }
     renderFinalizationBanner();
+    renderViewers();
+    syncPresence();
     renderClock();
+    // PDF button: only available after race is completed. Any reset sets race_status back
+    // to 'scheduled', which automatically re-locks the button.
+    const pdfBtn = $('downloadResultsPdf');
+    if (pdfBtn) {
+      const pdfAllowed = mode === 'completed' || mode === 'final';
+      pdfBtn.hidden = !pdfAllowed;
+      pdfBtn.disabled = !pdfAllowed;
+      pdfBtn.title = pdfAllowed ? 'Download official results PDF' : 'PDF download is only available after the race is completed';
+    }
   }
 
   function updateCountdown() {
@@ -270,7 +287,7 @@
   function scheduleRender() {
     if (renderQueued) return;
     renderQueued = true;
-    requestAnimationFrame(() => { renderQueued = false; renderControl(); renderLeaders(); renderStats(); renderBoard(); renderSummary(); });
+    requestAnimationFrame(() => { renderQueued = false; renderControl(); renderLeaders(); renderStats(); renderBoard(); renderSummary(); renderFeed(); renderViewers(); });
   }
 
   // ---------------------------------------------------------------- data flow
@@ -295,8 +312,106 @@
     const board = (Array.isArray(b.board) ? b.board : []).map(toRow);
     noteMoves(board);
     S.board = board; results = board; S.loaded = true;
+    if (Array.isArray(b.feed)) S.feed = b.feed;
     scheduleRender();
     return true;
+  }
+
+  // ---------------------------------------------------------------- race event feed
+  const FEED_ICONS = { start: '🏃', finish: '🏁', dnf: '⛔', dsq: '🚫', position: '↕', note: '📣', reset: '🔄', end: '🏁' };
+  function renderFeed() {
+    const wrap = $('raceFeedWrap');
+    if (!wrap) return;
+    const mode = raceMode();
+    // only show feed while race is live or just finished (not finalized, not scheduled)
+    const showFeed = (mode === 'live' || mode === 'completed') && S.feed && S.feed.length > 0;
+    wrap.hidden = !showFeed;
+    if (!showFeed) return;
+
+    const list = $('raceFeedList');
+    if (!list) return;
+
+    // keyed update: only rebuild if content changed
+    const newKey = S.feed.map(e => e.id || e.ts).join(',');
+    if (list.dataset.feedKey === newKey) return;
+    list.dataset.feedKey = newKey;
+
+    list.innerHTML = S.feed.map(ev => {
+      const icon = FEED_ICONS[ev.event_type] || '•';
+      const clock = ev.race_clock_seconds != null ? formatTime(ev.race_clock_seconds) : '';
+      const name = ev.runner_name ? esc(ev.runner_name) : '';
+      const reg = ev.reg_no ? `<span class="feed-reg">#${esc(ev.reg_no)}</span>` : '';
+      const msg = ev.message ? esc(ev.message) : '';
+      const detail = name ? `${name}${reg ? ' ' + reg : ''}${msg ? ' · ' + msg : ''}` : msg;
+      return `<li class="feed-item feed-${esc(ev.event_type || 'note')}">
+        <span class="feed-icon" aria-hidden="true">${icon}</span>
+        <span class="feed-body">${detail}</span>
+        ${clock ? `<span class="feed-clock">${clock}</span>` : ''}
+      </li>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------------- live viewer count
+  // Uses Supabase Realtime Presence: each tab is one presence entry.
+  // The count is only shown when race is in_progress or completed.
+  let presenceChannel = null;
+  const VIEWER_KEY = () => Math.random().toString(36).slice(2) + Date.now().toString(36); // unique per tab
+  let myViewerKey = null;
+
+  function renderViewers() {
+    const el = $('lvBadgeViewers');
+    if (!el) return;
+    const mode = raceMode();
+    const show = (mode === 'live' || mode === 'completed') && S.viewers > 0;
+    el.hidden = !show;
+    if (!show) return;
+    el.textContent = '';
+    // eye icon + count, no "viewers" text
+    el.innerHTML = `<span aria-hidden="true">👁</span>${S.viewers}`;
+    el.setAttribute('aria-label', `${S.viewers} ${S.viewers === 1 ? 'viewer' : 'viewers'} watching`);
+  }
+
+  function joinPresence() {
+    // Leave any existing channel first
+    if (presenceChannel) { try { sb.removeChannel(presenceChannel); } catch (_) {} presenceChannel = null; }
+    myViewerKey = VIEWER_KEY();
+    try {
+      presenceChannel = sb.channel('kmr-viewers', { config: { presence: { key: myViewerKey } } })
+        .on('presence', { event: 'sync' }, () => {
+          const state = presenceChannel.presenceState();
+          S.viewers = Object.keys(state).length;
+          renderViewers();
+        })
+        .on('presence', { event: 'join' }, () => {
+          const state = presenceChannel.presenceState();
+          S.viewers = Object.keys(state).length;
+          renderViewers();
+        })
+        .on('presence', { event: 'leave' }, () => {
+          const state = presenceChannel.presenceState();
+          S.viewers = Object.keys(state).length;
+          renderViewers();
+        })
+        .subscribe(async status => {
+          if (status === 'SUBSCRIBED') {
+            await presenceChannel.track({ joined_at: Date.now() });
+          }
+        });
+    } catch (_) { /* presence unavailable; silently skip */ }
+  }
+
+  function leavePresence() {
+    if (presenceChannel) { try { presenceChannel.untrack(); sb.removeChannel(presenceChannel); } catch (_) {} presenceChannel = null; }
+    S.viewers = 0;
+    renderViewers();
+  }
+
+  function syncPresence() {
+    // Join only when race is live or completed; leave otherwise.
+    const mode = raceMode();
+    const shouldTrack = mode === 'live' || mode === 'completed';
+    if (shouldTrack && !presenceChannel) joinPresence();
+    else if (!shouldTrack && presenceChannel) leavePresence();
   }
 
   // The tiny realtime row: update the banner at once, then fetch the board after a random delay.
@@ -434,82 +549,316 @@
   async function downloadPdf() {
     const button = $('downloadResultsPdf');
     if (button.disabled) return;
-    button.disabled = true; const old = button.textContent; button.textContent = 'Preparing PDF…';
+    button.disabled = true;
+    const old = button.textContent;
+    button.textContent = 'Preparing PDF…';
     try {
       await loadPdfLibrary();
       const { jsPDF } = window.jspdf;
+
+      // ── constants ────────────────────────────────────────────────────────
+      const A4W = 595.28, A4H = 841.89, M = 36; // pt
       const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
-      const pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight(), margin = 36;
+      const ctl = S.ctl || {};
+      const sorted = ordered(results);
+
+      // ── logos ────────────────────────────────────────────────────────────
+      button.textContent = 'Loading logos…';
       const logos = await loadPdfLogos();
 
-      // The page's own header logo stays beside the title. The district and sports
-      // department logos sit together at the upper-right with identical box sizes.
-      const drawBrandHeader = continued => {
-        addContainedLogo(doc, logos.pageLogo, margin, 20, 46, 46, 'kmr-page-logo');
-        const partnerSize = 36, partnerGap = 8;
-        const partnerRightX = pageW - margin - partnerSize;
-        const partnerLeftX = partnerRightX - partnerGap - partnerSize;
-        addContainedLogo(doc, logos.leftLogo, partnerLeftX, 25, partnerSize, partnerSize, 'kmr-district-logo');
-        addContainedLogo(doc, logos.rightLogo, partnerRightX, 25, partnerSize, partnerSize, 'kmr-sports-logo');
-        const titleX = margin + 55;
-        doc.setTextColor(18, 54, 45); doc.setFont('helvetica', 'bold'); doc.setFontSize(16.5);
-        doc.text('KHAWRAI MARATHON RACE', titleX, 40);
-        doc.setFontSize(10.5);
-        doc.setTextColor(70, 91, 82);
-        doc.text(continued ? 'SEASON THREE · OFFICIAL RESULTS · CONTINUED' : 'SEASON THREE · OFFICIAL RESULTS', titleX, 57);
-        doc.setDrawColor(211, 224, 217); doc.setLineWidth(0.8); doc.line(margin, 75, pageW - margin, 75);
+      // ── fetch enriched player data (address, district) ───────────────────
+      button.textContent = 'Loading player data…';
+      let participantMap = {};   // reg_no → { address, district_tehsil }
+      try {
+        const { data: pData } = await sb.from('public_participants')
+          .select('reg_no, address, district_tehsil')
+          .order('reg_no');
+        if (Array.isArray(pData)) pData.forEach(p => { participantMap[p.reg_no] = p; });
+      } catch (_) { /* non-fatal; address column just stays blank */ }
+
+      // ── fetch race event log ─────────────────────────────────────────────
+      button.textContent = 'Loading race events…';
+      let eventLog = [];
+      try {
+        const { data: eData } = await sb.from('marathon_race_log')
+          .select('id, event_type, race_clock_seconds, reg_no, runner_name, message, created_at')
+          .order('id', { ascending: true });
+        if (Array.isArray(eData)) eventLog = eData;
+      } catch (_) { /* non-fatal */ }
+
+      // ── load photo images for top-10 runners ────────────────────────────
+      button.textContent = 'Loading photos…';
+      const photoCache = {};
+      const top10 = sorted.slice(0, 10).filter(r => r.photo_path);
+      await Promise.allSettled(top10.map(async r => {
+        const url = photoSrc(r.photo_path);
+        const data = await imageAsPngDataUrl(url);
+        if (data) photoCache[r.reg_no] = data;
+      }));
+
+      button.textContent = 'Building PDF…';
+
+      // ── helpers ──────────────────────────────────────────────────────────
+      const clip = (str, maxLen) => { const s = String(str || ''); return s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s; };
+
+      // Draw the standard page header:
+      //   LEFT : pageLogo (Khawrai Unity) 50×50 pt
+      //   RIGHT: leftLogo + rightLogo side by side, 38×38 pt each, flush with right margin
+      //   TITLE: centred between the two logo groups
+      const drawHeader = (subtitle) => {
+        const logoY = 16;
+        // ── Left: main page logo ─────────────────────────────────────────
+        addContainedLogo(doc, logos.pageLogo, M, logoY, 50, 50, 'kmr-page-logo');
+        // ── Right: two partner logos, right-aligned ──────────────────────
+        const partnerSz = 38, partnerGap = 6;
+        const r2X = A4W - M - partnerSz;         // rightmost logo x
+        const r1X = r2X - partnerGap - partnerSz; // second-from-right x
+        addContainedLogo(doc, logos.leftLogo,  r1X, logoY + 6, partnerSz, partnerSz, 'kmr-left-logo');
+        addContainedLogo(doc, logos.rightLogo, r2X, logoY + 6, partnerSz, partnerSz, 'kmr-right-logo');
+        // ── Title block: left-aligned, next to pageLogo ──────────────────
+        const titleX = M + 58;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(18, 54, 45);
+        doc.text('KHAWRAI MARATHON RACE', titleX, 33);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70, 91, 82);
+        doc.text('SEASON THREE  ·  15 NOVEMBER 2026  ·  ' + subtitle.toUpperCase(), titleX, 47);
+        // ── Divider ───────────────────────────────────────────────────────
+        doc.setDrawColor(180, 210, 196); doc.setLineWidth(0.8);
+        doc.line(M, 66, A4W - M, 66);
       };
 
-      drawBrandHeader(false);
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(94, 108, 104); doc.setFontSize(8.5);
-      doc.text('Race date: 15 November 2026 · 04:00 PM Pakistan Time', margin, 91);
-      doc.text('Race status: ' + statusLabel(control && control.race_status), margin, 105);
-      if (control && control.started_at) doc.text('Started: ' + dateTime(control.started_at), margin, 119);
-      if (control && control.ended_at) doc.text('Ended: ' + dateTime(control.ended_at), margin + 230, 119);
-      doc.setDrawColor(211, 224, 217); doc.line(margin, 130, pageW - margin, 130);
-      doc.setTextColor(35, 54, 47); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.text('PODIUM PRIZES', margin, 149);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.2); doc.setTextColor(93, 103, 100);
-      doc.text('1st: Rs. 15,000 + Winning Trophy', margin, 165); doc.text('2nd: Rs. 10,000 + Trophy', margin + 190, 165); doc.text('3rd: Rs. 5,000 + Trophy', margin + 355, 165);
-      let y = 196;
-      const cols = [margin, margin + 48, margin + 105, margin + 330, margin + 420];
-      const drawHeader = () => {
-        doc.setFillColor(19, 65, 52); doc.roundedRect(margin, y - 13, pageW - margin * 2, 24, 4, 4, 'F');
-        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-        doc.text('PLACE', cols[0] + 7, y + 2); doc.text('REG. NO.', cols[1] + 3, y + 2); doc.text('RUNNER', cols[2] + 3, y + 2); doc.text('STATUS', cols[3] + 3, y + 2); doc.text('TIME', cols[4] + 3, y + 2); y += 22;
-      };
-      drawHeader();
-      const sorted = ordered(results);
-      if (!sorted.length) {
-        doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 110, 108); doc.setFontSize(10); doc.text('Official results have not been published yet.', margin, y + 20); y += 42;
-      }
-      sorted.forEach((r, i) => {
-        if (y > pageH - 48) {
-          doc.addPage();
-          drawBrandHeader(true);
-          y = 96;
-          drawHeader();
+      // Footer for every page (call after all pages are created)
+      const drawFooters = () => {
+        const total = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= total; p++) {
+          doc.setPage(p);
+          doc.setDrawColor(200, 218, 210); doc.setLineWidth(0.5);
+          doc.line(M, A4H - 28, A4W - M, A4H - 28);
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(140, 150, 145);
+          doc.text(`Khawrai Marathon Race Season Three  ·  Official results  ·  Generated ${dateTime(new Date().toISOString())}`, M, A4H - 16);
+          doc.text(`Page ${p} of ${total}`, A4W - M, A4H - 16, { align: 'right' });
         }
-        if (Number(r.place) === 1) { doc.setFillColor(255, 244, 200); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
-        else if (Number(r.place) === 2) { doc.setFillColor(235, 241, 245); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
-        else if (Number(r.place) === 3) { doc.setFillColor(250, 230, 214); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
-        else if (i % 2 === 0) { doc.setFillColor(247, 250, 248); doc.rect(margin, y - 11, pageW - margin * 2, 25, 'F'); }
-        doc.setTextColor(32, 49, 43); doc.setFont('helvetica', r.place && r.place <= 3 ? 'bold' : 'normal'); doc.setFontSize(8.2);
-        doc.text(r.place ? String(r.place) : '—', cols[0] + 7, y + 4);
-        doc.text(String(r.reg_no || '—').slice(0, 13), cols[1] + 3, y + 4);
-        doc.text(doc.splitTextToSize(String(r.runner_name || ''), 215)[0] || '', cols[2] + 3, y + 4);
-        doc.setFont('helvetica', 'normal'); doc.text(statusLabel(r.status), cols[3] + 3, y + 4);
-        doc.setFont('helvetica', 'bold'); doc.text(r.status === 'finished' ? formatTime(r.finish_time_seconds) : '—', cols[4] + 3, y + 4);
-        y += 25;
-      });
-      for (let p = 1; p <= doc.internal.getNumberOfPages(); p++) {
-        doc.setPage(p); doc.setDrawColor(219, 228, 222); doc.line(margin, pageH - 33, pageW - margin, pageH - 33);
-        doc.setFont('helvetica', 'normal'); doc.setTextColor(115, 126, 120); doc.setFontSize(7.5); doc.text('Official live board · Generated ' + dateTime(new Date().toISOString()), margin, pageH - 19);
-        doc.text(`Page ${p} of ${doc.internal.getNumberOfPages()}`, pageW - margin, pageH - 19, { align: 'right' });
+      };
+
+      // ════════════════════════════════════════════════════════════════════
+      // PAGE 1 — race summary + leaderboard
+      // ════════════════════════════════════════════════════════════════════
+      drawHeader('Official Results');
+
+      // Race info block
+      let y = 82;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(80, 95, 90);
+      const infoLeft  = `Race status: ${statusLabel(ctl.race_status || 'scheduled')}`;
+      const infoRight = ctl.results_finalized_at ? `Finalized: ${dateTime(ctl.results_finalized_at)}` : '';
+      doc.text(infoLeft, M, y);
+      if (infoRight) doc.text(infoRight, A4W - M, y, { align: 'right' });
+      y += 11;
+      if (ctl.started_at) {
+        doc.text(`Started: ${dateTime(ctl.started_at)}`, M, y);
+        if (ctl.ended_at) doc.text(`Ended: ${dateTime(ctl.ended_at)}`, A4W - M, y, { align: 'right' });
+        y += 11;
       }
+      const c = S.banner && S.banner.c || {};
+      const totals = `${c.participants != null ? c.participants : sorted.length} runners · ${c.finished || 0} finished · ${c.running || 0} still running`;
+      doc.text(totals, M, y); y += 11;
+      if (ctl.public_message) {
+        doc.setTextColor(30, 80, 60); doc.setFont('helvetica', 'bold');
+        doc.text(clip('Announcement: ' + ctl.public_message, 110), M, y); y += 11;
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 95, 90);
+      }
+
+      // Prizes banner
+      y += 4;
+      doc.setFillColor(19, 65, 52); doc.roundedRect(M, y, A4W - M * 2, 20, 3, 3, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+      doc.text('PRIZES', M + 8, y + 13);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+      doc.text('1st: Rs. 15,000 + Winning Trophy', M + 54, y + 13);
+      doc.text('2nd: Rs. 10,000 + Trophy', M + 230, y + 13);
+      doc.text('3rd: Rs. 5,000 + Trophy', M + 380, y + 13);
+      y += 28;
+
+      // ── Leaderboard table ───────────────────────────────────────────────
+      // Columns: photo | place | reg | name | address | status | time
+      // Widths (sum = A4W - 2*M = 523 pt):
+      const colPhoto  = M;          // 32 pt photo box
+      const colPlace  = M + 32;     // 28
+      const colReg    = M + 60;     // 46
+      const colName   = M + 106;    // 160
+      const colAddr   = M + 266;    // 140
+      const colStatus = M + 406;    // 60
+      const colTime   = M + 466;    // 57  → total 523
+
+      const ROW_H = 32;  // pt per data row (tall enough for two text lines + photo)
+      const HDR_H = 20;
+
+      const drawTableHeader = () => {
+        doc.setFillColor(19, 65, 52); doc.rect(M, y, A4W - M * 2, HDR_H, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+        doc.text('#',        colPlace  + 2, y + 13);
+        doc.text('REG',      colReg    + 2, y + 13);
+        doc.text('RUNNER',   colName   + 2, y + 13);
+        doc.text('ADDRESS',  colAddr   + 2, y + 13);
+        doc.text('STATUS',   colStatus + 2, y + 13);
+        doc.text('TIME',     colTime   + 2, y + 13);
+        y += HDR_H;
+      };
+
+      drawTableHeader();
+
+      if (!sorted.length) {
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 110, 108); doc.setFontSize(9);
+        doc.text('Official results have not been published yet.', M, y + 20); y += 40;
+      }
+
+      sorted.forEach((r, i) => {
+        // Page break check
+        if (y > A4H - 60) {
+          doc.addPage();
+          drawHeader('Official Results (continued)');
+          y = 80;
+          drawTableHeader();
+        }
+
+        // Row background
+        const pl = Number(r.place);
+        if (pl === 1)      { doc.setFillColor(255, 247, 205); doc.rect(M, y, A4W - M * 2, ROW_H, 'F'); }
+        else if (pl === 2) { doc.setFillColor(236, 242, 248); doc.rect(M, y, A4W - M * 2, ROW_H, 'F'); }
+        else if (pl === 3) { doc.setFillColor(252, 236, 220); doc.rect(M, y, A4W - M * 2, ROW_H, 'F'); }
+        else if (i % 2 === 0) { doc.setFillColor(248, 251, 249); doc.rect(M, y, A4W - M * 2, ROW_H, 'F'); }
+
+        // Thin row separator
+        doc.setDrawColor(220, 232, 226); doc.setLineWidth(0.3);
+        doc.line(M, y + ROW_H, A4W - M, y + ROW_H);
+
+        // Photo (top-10 only)
+        const photoData = photoCache[r.reg_no];
+        if (photoData) {
+          try {
+            doc.addImage(photoData, 'PNG', colPhoto + 1, y + 2, 28, 28, `photo-${r.reg_no}`, 'FAST');
+          } catch (_) { /* skip if image embedding fails */ }
+        }
+
+        // Podium medal strip on left edge for top 3
+        if (pl <= 3) {
+          const medalColor = pl === 1 ? [210, 160, 20] : pl === 2 ? [150, 160, 170] : [180, 100, 50];
+          doc.setFillColor(...medalColor);
+          doc.rect(M, y, 3, ROW_H, 'F');
+        }
+
+        const textY1 = y + 11; // first line baseline
+        const textY2 = y + 22; // second line baseline
+
+        // Place
+        doc.setTextColor(30, 50, 42);
+        doc.setFont('helvetica', pl <= 3 ? 'bold' : 'normal');
+        doc.setFontSize(pl <= 3 ? 9 : 8);
+        doc.text(r.place != null ? String(r.place) : '—', colPlace + 2, textY1 + (ROW_H - 22) / 2);
+
+        // Reg no
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(80, 95, 90);
+        doc.text(clip(r.reg_no, 10), colReg + 2, textY1);
+
+        // Runner name + address
+        const pInfo = participantMap[r.reg_no] || {};
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(22, 44, 36);
+        doc.text(clip(r.runner_name, 28), colName + 2, textY1);
+        if (pInfo.district_tehsil) {
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(100, 115, 108);
+          doc.text(clip(pInfo.district_tehsil, 30), colName + 2, textY2);
+        }
+
+        // Address column
+        if (pInfo.address) {
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(100, 115, 108);
+          const addrLines = doc.splitTextToSize(clip(pInfo.address, 55), 134);
+          doc.text(addrLines.slice(0, 2), colAddr + 2, textY1);
+        }
+
+        // Status
+        const statusColors = { finished: [11, 107, 75], running: [20, 100, 50], dnf: [160, 100, 20], dsq: [160, 40, 40] };
+        const sc = statusColors[r.status] || [80, 90, 85];
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...sc);
+        doc.text(statusLabel(r.status), colStatus + 2, textY1 + 4);
+
+        // Finish time
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(22, 44, 36);
+        doc.text(r.status === 'finished' ? formatTime(r.finish_time_seconds) : '—', colTime + 2, textY1 + 4);
+
+        y += ROW_H;
+      });
+
+      // ════════════════════════════════════════════════════════════════════
+      // PAGE — Race event log (only if there are events)
+      // ════════════════════════════════════════════════════════════════════
+      if (eventLog.length > 0) {
+        doc.addPage();
+        drawHeader('Race Event Log');
+        y = 80;
+
+        // Section title
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(18, 54, 45);
+        doc.text('COMPLETE RACE EVENT LOG', M, y); y += 6;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 115, 108);
+        doc.text(`${eventLog.length} event${eventLog.length === 1 ? '' : 's'} recorded during this race`, M, y); y += 14;
+
+        // Event table header
+        const evCols = { time: M, clock: M + 68, type: M + 118, reg: M + 170, name: M + 210, msg: M + 335 };
+        const EV_H = 18;
+        const drawEvHeader = () => {
+          doc.setFillColor(19, 65, 52); doc.rect(M, y, A4W - M * 2, 18, 'F');
+          doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8);
+          doc.text('PKT TIME',   evCols.time  + 2, y + 12);
+          doc.text('RACE CLOCK', evCols.clock + 2, y + 12);
+          doc.text('EVENT',      evCols.type  + 2, y + 12);
+          doc.text('REG',        evCols.reg   + 2, y + 12);
+          doc.text('RUNNER',     evCols.name  + 2, y + 12);
+          doc.text('NOTE',       evCols.msg   + 2, y + 12);
+          y += 18;
+        };
+        drawEvHeader();
+
+        const EVENT_ICONS = { start: 'START', finish: 'FINISH', dnf: 'DNF', dsq: 'DSQ', position: 'POS', note: 'NOTE', reset: 'RESET', end: 'END' };
+        const EVENT_COLORS = { start: [0, 120, 80], finish: [11, 107, 75], dnf: [150, 90, 10], dsq: [160, 40, 40], end: [30, 70, 120], reset: [120, 60, 10], note: [60, 60, 100], position: [40, 80, 60] };
+
+        eventLog.forEach((ev, i) => {
+          if (y > A4H - 56) {
+            doc.addPage();
+            drawHeader('Race Event Log (continued)');
+            y = 80;
+            drawEvHeader();
+          }
+          if (i % 2 === 0) { doc.setFillColor(247, 250, 248); doc.rect(M, y, A4W - M * 2, EV_H, 'F'); }
+          doc.setDrawColor(220, 232, 226); doc.setLineWidth(0.3);
+          doc.line(M, y + EV_H, A4W - M, y + EV_H);
+
+          const evBase = y + 12;
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(80, 95, 90);
+          doc.text(ev.created_at ? timeOnly(ev.created_at) : '—', evCols.time + 2, evBase);
+          doc.text(ev.race_clock_seconds != null ? formatTime(ev.race_clock_seconds) : '—', evCols.clock + 2, evBase);
+
+          const ec = EVENT_COLORS[ev.event_type] || [60, 80, 70];
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...ec);
+          doc.text(EVENT_ICONS[ev.event_type] || (ev.event_type || '').toUpperCase(), evCols.type + 2, evBase);
+
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(60, 80, 70);
+          doc.text(clip(ev.reg_no, 8), evCols.reg + 2, evBase);
+          doc.text(clip(ev.runner_name, 20), evCols.name + 2, evBase);
+          doc.setTextColor(90, 100, 95);
+          doc.text(clip(ev.message, 42), evCols.msg + 2, evBase);
+          y += EV_H;
+        });
+      }
+
+      // ── footers on every page ────────────────────────────────────────────
+      drawFooters();
       doc.save('Khawrai-Marathon-Season-Three-Results.pdf');
+
     } catch (error) {
       alert(error && error.message ? error.message : 'Could not create the results PDF.');
-    } finally { button.disabled = false; button.textContent = old; }
+    } finally {
+      button.disabled = false;
+      button.textContent = old;
+    }
   }
 
 
@@ -531,7 +880,7 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { requestBoard(Math.random() * 600); renderClock(); } });
     window.addEventListener('online', () => { requestBoard(200); setConnection(S.connected); });
     window.addEventListener('offline', () => setConnection(false));
-    window.addEventListener('beforeunload', () => { clearTimeout(pollTimer); clearTimeout(boardTimer); if (channel) sb.removeChannel(channel); });
+    window.addEventListener('beforeunload', () => { clearTimeout(pollTimer); clearTimeout(boardTimer); if (channel) sb.removeChannel(channel); leavePresence(); });
   }
 
   wire();
@@ -539,5 +888,5 @@
   subscribe();
   setInterval(() => { updateCountdown(); renderClock(); }, 1000);
   // exposed for automated tests only
-  window.__kmrLive = { S, applyBundle, applyState, scheduleRender, requestBoard };
+  window.__kmrLive = { S, applyBundle, applyState, scheduleRender, requestBoard, syncPresence, leavePresence };
 })();

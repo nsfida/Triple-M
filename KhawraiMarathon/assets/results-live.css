@@ -24,6 +24,8 @@
 .lv-clock{display:grid;gap:1px;justify-items:end;text-align:right;flex:0 0 auto}
 .lv-clock small{color:#bfe0d2;font-size:.62rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
 .lv-clock b{font-size:clamp(1.5rem,6vw,2.4rem);line-height:1;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.lv-banner-status{display:flex;align-items:center;justify-content:center;gap:7px;margin:14px 0 0;padding:9px 14px;border-radius:10px;background:rgba(255,255,255,.12);backdrop-filter:blur(6px);color:#e8f8f0;font-size:.82rem;font-weight:600;text-align:center;line-height:1.45;letter-spacing:.01em;overflow-wrap:anywhere;border:1px solid rgba(255,255,255,.15)}
+.lv-banner-status[hidden]{display:none!important}
 .lv-announce{display:flex;align-items:flex-start;gap:9px;margin:12px 0 0;padding:10px 12px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(5,36,29,.32);color:#f1faf5;font-size:.8rem;line-height:1.5;overflow-wrap:anywhere}
 .lv-announce[hidden]{display:none!important}
 
@@ -143,4 +145,25 @@ body[data-race-mode="live"] #prizesSection,body[data-race-mode="completed"] #pri
   .lv-filters{width:100%}.lv-filters button{flex:1 1 0;padding:0 6px}
 }
 @media(max-width:340px){.lv-row{grid-template-columns:40px minmax(0,1fr) auto}.lv-row .lv-photo{display:none}.lv-leader{grid-template-columns:auto minmax(0,1fr)}.lv-result{grid-column:1 / -1;max-width:none;display:flex;justify-items:unset;gap:6px}}
+
+/* ------------------------------------------------------------------ race event feed */
+.race-feed-wrap{margin:14px 0 0;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13)}
+.race-feed-wrap[hidden]{display:none!important}
+.race-feed-title{margin:0 0 10px;font-size:.7rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.65);display:flex;align-items:center;gap:6px}
+.race-feed-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+.race-feed-list::-webkit-scrollbar{width:4px}.race-feed-list::-webkit-scrollbar-track{background:transparent}.race-feed-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:4px}
+.feed-item{display:flex;align-items:baseline;gap:7px;padding:5px 7px;border-radius:8px;font-size:.72rem;line-height:1.4;color:rgba(255,255,255,.88);background:rgba(255,255,255,.04);transition:background .2s}
+.feed-item:first-child{background:rgba(255,255,255,.10);color:#fff}
+.feed-icon{flex:0 0 auto;font-size:.8rem;line-height:1}
+.feed-body{flex:1 1 0;min-width:0;overflow-wrap:anywhere}
+.feed-reg{opacity:.65;font-size:.66rem;margin-left:2px}
+.feed-clock{flex:0 0 auto;font-size:.64rem;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.5);font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:auto;padding-left:8px}
+.feed-finish .feed-icon,.feed-start .feed-icon{font-size:.9rem}
+.feed-dnf,.feed-dsq{color:rgba(255,180,170,.88)}
+@media(max-width:480px){.race-feed-list{max-height:160px}.feed-item{font-size:.68rem}}
 @media(prefers-reduced-motion:reduce){.lv-badge i,.lv-leader.swap,.lv-row.moved-up,.lv-row.moved-down{animation:none}}
+
+/* ------------------------------------------------------------------ live viewer count (inside badge) */
+.lv-badge-viewers{display:inline-flex;align-items:center;gap:3px;margin-left:7px;padding-left:8px;border-left:1px solid rgba(255,255,255,.35);font-size:.68rem;font-weight:900;letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
+.lv-badge-viewers[hidden]{display:none!important}
+.lv-badge-viewers span{font-size:.74rem;line-height:1}

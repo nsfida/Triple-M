@@ -51,11 +51,14 @@
   const setBusy = value => {
     busy = value;
     const finalized = !!(control && control.results_finalized_at);
-    document.querySelectorAll('#paneResultsAdmin button, #paneResultsAdmin select, #paneResultsAdmin input, #raceBulkFinishDialog button, #raceBulkFinishDialog input').forEach(node => {
+    document.querySelectorAll('#paneResultsAdmin button, #paneResultsAdmin select, #paneResultsAdmin input, #raceBulkFinishDialog button, #raceBulkFinishDialog input, .race-ctrl-bar button').forEach(node => {
       const lockedResultEdit = finalized && node.matches('#raceResultForm input, #raceResultForm select, #raceResultForm button, [data-race-action], .lp-edit, #raceStatusAdmin, #raceStartNow, #raceEndNow, #raceFinalizeResults, #raceFullResetOpen');
       const lockedReset = finalized && node.matches('#raceResetScheduled') && !(permissions && permissions.is_owner === true);
       node.disabled = value || !!lockedResultEdit || !!lockedReset;
     });
+    // End button: only active when race is actually in_progress
+    const endBtn = $('raceEndNow');
+    if (endBtn && !value) endBtn.disabled = !(control && control.race_status === 'in_progress') || finalized;
     syncBulkSelectionUI();
     if (typeof renderLive === 'function') renderLive();
   };
@@ -115,10 +118,17 @@
     if (clearSelection) clearSelection.disabled = busy;
     const statusSelect = $('raceStatusAdmin');
     if (statusSelect) statusSelect.disabled = finalized || busy;
+    const isOwner = permissions && permissions.is_owner === true;
     const resetScheduled = $('raceResetScheduled');
-    if (resetScheduled) resetScheduled.disabled = busy || (finalized && !canReopen);
+    if (resetScheduled) {
+      resetScheduled.hidden = !isOwner;
+      resetScheduled.disabled = busy || (finalized && !canReopen);
+    }
     const fullReset = $('raceFullResetOpen');
-    if (fullReset) fullReset.disabled = busy || finalized;
+    if (fullReset) {
+      fullReset.hidden = !isOwner;
+      fullReset.disabled = busy || finalized;
+    }
     const saveControlButton = document.querySelector('#raceControlForm button[type="submit"]');
     if (saveControlButton) saveControlButton.disabled = busy;
     if (finalized) drawMessage('Official results are finalized. Result edits are locked; only nsfida can reopen editing.', false);
@@ -161,6 +171,34 @@
     $('raceAdminStartedAt').textContent = started;
     $('raceAdminEndedAt').textContent = ended;
     $('raceAdminFinalizedAt').textContent = control.results_finalized_at ? formatStamp(control.results_finalized_at) + (control.results_finalized_by ? ' · by ' + control.results_finalized_by : '') : 'Not finalized';
+    // Sticky bar badge
+    const badge = $('raceCtrlBadge');
+    if (badge) {
+      const s = control.race_status || 'scheduled';
+      badge.textContent = { scheduled: 'Scheduled', in_progress: 'Live', completed: 'Ended' }[s] || labelStatus(s);
+      badge.className = 'race-ctrl-badge s-' + s;
+    }
+    // Announce preview
+    const preview = $('announcePreview');
+    if (preview) {
+      const msg = (control.public_message || '').trim();
+      preview.textContent = msg ? '· ' + msg.slice(0, 60) + (msg.length > 60 ? '…' : '') : '';
+    }
+    // End button: only enabled when race is in_progress
+    const endBtn = $('raceEndNow');
+    if (endBtn) endBtn.disabled = control.race_status !== 'in_progress' || busy;
+
+    // Banner status text field (nsfida only)
+    const bannerWrap = $('bannerStatusWrap');
+    const bannerInput = $('bannerStatusText');
+    if (bannerWrap) {
+      const isOwner = permissions && permissions.is_owner === true;
+      bannerWrap.hidden = !isOwner;
+      if (isOwner && bannerInput) {
+        bannerInput.value = control.banner_text || '';
+      }
+    }
+
     applyFinalizationUI();
   }
   async function loadRegistrations() {
@@ -501,7 +539,9 @@
     setBusy(true); drawMessage('Saving race control…');
     try {
       const wasScheduled = !control || control.race_status === 'scheduled';
-      const { error } = await sb.rpc('admin_update_race_control', { p_race_status: status, p_public_message: $('racePublicMessage').value.trim() });
+      // Pass the browser's real clock so started_at / ended_at reflect Pakistan time
+      // exactly when the admin pressed the button, not the DB server's clock.
+      const { error } = await sb.rpc('admin_update_race_control', { p_race_status: status, p_public_message: $('racePublicMessage').value.trim(), p_client_now: new Date().toISOString() });
       if (error) throw error;
       await Promise.all([loadControl(), loadResults()]);
       const started = status === 'in_progress' && wasScheduled;
@@ -509,8 +549,23 @@
     } catch (error) { drawMessage(error && error.message ? error.message : 'Could not save race control.', true); }
     finally { setBusy(false); }
   }
+  async function saveBannerText() {
+    if (busy || !(permissions && permissions.is_owner)) return;
+    const text = ($('bannerStatusText').value || '').trim() || null;
+    setBusy(true); drawMessage('Saving banner status text…');
+    try {
+      const { error } = await sb.rpc('admin_save_banner_text', { p_text: text });
+      if (error) throw error;
+      await loadControl();
+      drawMessage(text ? 'Banner status text saved. It will appear on the public results banner.' : 'Banner status text cleared.');
+    } catch (error) {
+      drawMessage(error && error.message ? error.message : 'Could not save banner text.', true);
+    } finally { setBusy(false); }
+  }
+
   async function resetRaceStatusOnly() {
     if (busy) return;
+    if (!(permissions && permissions.is_owner)) return drawMessage('Only nsfida can reset the race status.', true);
     if (!confirm('Reset race status only? The race will return to Scheduled, start/end timestamps and the public announcement will be cleared, but all saved runner results will remain.')) return;
     setBusy(true); drawMessage('Resetting race status…');
     try {
@@ -703,6 +758,8 @@
     $('raceReopenResults').addEventListener('click', reopenResults);
     $('raceResetScheduled').addEventListener('click', resetRaceStatusOnly);
     $('raceFullResetOpen').addEventListener('click', openFullResetDialog);
+    const bannerSaveBtn = $('bannerStatusSave');
+    if (bannerSaveBtn) bannerSaveBtn.addEventListener('click', saveBannerText);
     $('raceResetCancel').addEventListener('click', () => $('raceResetDialog').close());
     $('raceResetConfirmText').addEventListener('input', () => {
       $('raceResetConfirm').disabled = $('raceResetConfirmText').value.trim().toUpperCase() !== 'RESET';

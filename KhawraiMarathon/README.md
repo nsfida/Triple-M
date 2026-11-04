@@ -259,6 +259,6 @@ Pressing Start again later (or *Save race state* while already in progress) neve
 - Kafka and Bloom filters would add servers and complexity without helping at this scale: Supabase Realtime is already the publish/subscribe layer, and the versioned snapshot gives the same fan-out and de-duplication.
 
 ### Setup
-1. Run `sql/migrations/20261102_014_live_race_positions.sql` (after 013), then `sql/verify_live_race.sql` (every row `ok = expected`). Existing results are converted automatically: finished runners (by finish time) first, then runners still running in their old order.
+1. Run `sql/migrations/20261102_014_live_race_positions.sql` (after 013), then `sql/migrations/20261104_015_fix_full_reset_delete_guard.sql`, then `sql/verify_live_race.sql` (every row `ok = expected`). Existing results are converted automatically: finished runners (by finish time) first, then runners still running in their old order. Migration 015 repairs the full-reset RPC for databases that reject unfiltered DELETE statements; it does not change or delete registrations, photos, funds or expenses. Existing installs that already ran 014 only need to run migration 015.
 2. Upload the site files. No Edge Function change is needed.
 3. Supabase > Database > Replication: `marathon_live_state` is added to the `supabase_realtime` publication by the migration (check it appears there).
