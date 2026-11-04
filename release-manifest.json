@@ -1,10 +1,10 @@
 {
   "format": "triplem-vip-release-manifest-v1",
-  "generatedAtUtc": "2026-11-04T11:56:01.013Z",
+  "generatedAtUtc": "2026-11-04T19:29:40.231Z",
   "application": "Triplem VIP",
   "build": {
-    "fileCount": 428,
-    "totalBytes": 43197450,
+    "fileCount": 431,
+    "totalBytes": 44447674,
     "productionManifest": "production-manifest.json"
   },
   "database": {

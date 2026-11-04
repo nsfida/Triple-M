@@ -2,13 +2,20 @@
 
 > Use Triplem VIP as a native Windows desktop app that loads the live triplem.vip workspace with the same account, data, permissions and web updates.
 
-Reviewed: 2026-09-21
+Reviewed: 2026-11-04
 
 ## Native Windows access
 
 Triplem VIP can be installed as a dedicated Windows application. The installed app owns its Windows window and loads the live Triplem VIP service through Microsoft WebView2.
 
-The installer can create a Desktop shortcut and Start Menu entry that target the installed TriplemVIP.exe.
+## Install on Windows 10 or 11
+
+1. Download TriplemVIP_Setup.exe from triplem.vip and run it. Setup installs for the current Windows user and needs no administrator rights.
+2. Accept the licence agreement.
+3. Choose the installation folder (the default is recommended) and click Install.
+4. On the Finish page, choose Create Desktop Shortcut, Create Start Menu Icon and Pin on Taskbar, then click Finish.
+
+Pinning is confirmed by Windows itself when Triplem VIP opens, and it requires the Start Menu entry. The app uses the Microsoft Edge WebView2 Runtime included with Windows 11 and most Windows 10 PCs.
 
 ## Same online workspace
 

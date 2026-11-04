@@ -5,6 +5,7 @@
 ## Authority and methodology
 
 - [Editorial policy](https://triplem.vip/seo/editorial-policy.md)
+- [Privacy policy](https://triplem.vip/seo/privacy-policy.md)
 - [Finance workflow playbook](https://triplem.vip/seo/finance-workflow-playbook.md)
 - [Month-end close](https://triplem.vip/seo/month-end-close.md)
 - [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.md)

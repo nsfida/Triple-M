@@ -1,8 +1,8 @@
 {
   "format": "triplem-vip-production-manifest-v1",
   "scope": "Copied production content files; generated manifest files are not self-hashed.",
-  "fileCount": 428,
-  "totalBytes": 43197450,
+  "fileCount": 431,
+  "totalBytes": 44447674,
   "files": [
     {
       "path": "_headers",
@@ -525,6 +525,11 @@
       "sha256": "3fdd7fa652a40e26aee26a41d4232901a78e7713dbefc02a8dfdd3f02cf02673"
     },
     {
+      "path": "Assets/logo/og-card.jpg",
+      "bytes": 66468,
+      "sha256": "534f9e539f12536ba459118ef0a226eb2ffab7a4775e5fc8cb56c734df5a6c12"
+    },
+    {
       "path": "Assets/logo/transfer.gif",
       "bytes": 177965,
       "sha256": "2a5d639ce8a3a6ac31e4907c573de5d0f3c3a316bd4b332a6a1e987ec4102a76"
@@ -641,8 +646,8 @@
     },
     {
       "path": "Assets/mobile_app/Windows/TriplemVIP_Setup.exe",
-      "bytes": 5784262,
-      "sha256": "81ca8b2daa0cc5e296d649a46f26c2b00c52daeaa5fa6bb26cb1c9ea531a4a92"
+      "bytes": 6932568,
+      "sha256": "65571b2c05d5ba0a1af4e3974d6be9d46af93599c6829b4b60cb8f853046ff4d"
     },
     {
       "path": "Assets/paper_wallet_bg.png",
@@ -1546,8 +1551,8 @@
     },
     {
       "path": "Founder/index.html",
-      "bytes": 79525,
-      "sha256": "931ba7c4803b5bbd64dee337e7fd54c110668abfa3184cd051d7a889e10adcf8"
+      "bytes": 79488,
+      "sha256": "9c6d77ac8c604096281b72f163123627c8542aed8f11bc0724b69820dabf57f8"
     },
     {
       "path": "Founder/photo.png",
@@ -1611,33 +1616,33 @@
     },
     {
       "path": "humans.txt",
-      "bytes": 2186,
-      "sha256": "4544f9368471dff6acf5fd3091448a383bfe2dc85e497a6eb62ee9d33c040596"
+      "bytes": 2246,
+      "sha256": "b2cd6e93cff7766a5ad1e94be89baf0732246450da8b1cd3c9b092fab305ee57"
     },
     {
       "path": "index.html",
-      "bytes": 494723,
-      "sha256": "23ce53c30dea48362f8feb2cc40813155e682cdc46ca60045e90cf6b213754df"
+      "bytes": 493174,
+      "sha256": "d6f28b9c845a08ed9c505b096f3110d5d13420786dad0a86baadd7e79ca62668"
     },
     {
       "path": "index.md",
       "bytes": 3630,
-      "sha256": "16cfa021517944766b740278004145078421f62352f31c075ae9c14f62c8263d"
+      "sha256": "07ab2e1e936b5801b939e3c38dd7a967508f537e772bf84d37ef8753cbc56539"
     },
     {
       "path": "llms-full.txt",
-      "bytes": 15681,
-      "sha256": "adf3359488b7e028ca5a92cc8f5035fb02f87597e25cf5fb6922dd27d8ddfa36"
+      "bytes": 16733,
+      "sha256": "54c621b45f3fedf28df43c9dc3dbbdf878e2194d9c1f885cc211fc2467a8da8e"
     },
     {
       "path": "llms.txt",
-      "bytes": 6935,
-      "sha256": "effa95595e720747501293adca9b60304ff1d26a4b39b87d8667cd646cec5f2d"
+      "bytes": 7215,
+      "sha256": "7f00d65a65ee76c4353c2189e82d88f853d43c9d73bd8f203bf644ce8f726f9e"
     },
     {
       "path": "regions/belgium-fr.html",
-      "bytes": 17987,
-      "sha256": "78a578e12697d8d8866f4e447482922befb563fa5082795ebb15ed056320978d"
+      "bytes": 18123,
+      "sha256": "be7012fcb2ab471caf3be3accc59f906bd28db3d6bc64e839efe9ac542c3ff78"
     },
     {
       "path": "regions/belgium-fr.md",
@@ -1646,8 +1651,8 @@
     },
     {
       "path": "regions/belgium-nl.html",
-      "bytes": 17635,
-      "sha256": "2e4f0dde1eb714b82cfb9e7b9071f87e2f27a9500cbcd72a8c08ac49b1a2ea98"
+      "bytes": 17771,
+      "sha256": "6a3896161ad626e124df838a4f81f55a4b76a5bc2f684bc623987ff29587c07e"
     },
     {
       "path": "regions/belgium-nl.md",
@@ -1656,8 +1661,8 @@
     },
     {
       "path": "regions/belgium.html",
-      "bytes": 17521,
-      "sha256": "242ef34e114466373e605b5c87978dd037d8b10ecb79fcc5ab2d8c97e33681a7"
+      "bytes": 17657,
+      "sha256": "b93bce57e0075ef14dc82e4eee402404324cfcf59c45cf1ae1896390f03de597"
     },
     {
       "path": "regions/belgium.md",
@@ -1666,8 +1671,8 @@
     },
     {
       "path": "regions/global.html",
-      "bytes": 17098,
-      "sha256": "4c60fec638ab953bf0fec07edac55d232db0d9c3828a38dd8e7e8dbf9205f153"
+      "bytes": 17234,
+      "sha256": "9002319457ec7ca5bc3585f58c80113bd4349fd1d3b34c32f2bcddca160e998a"
     },
     {
       "path": "regions/global.md",
@@ -1676,8 +1681,8 @@
     },
     {
       "path": "regions/index.html",
-      "bytes": 16058,
-      "sha256": "658d0b69ceeb1d605f315e4072f90200c4a9cc89b4441bcccbb9553727ee791e"
+      "bytes": 16194,
+      "sha256": "5475b64e3e79c93933193c90715b4f345fa0cae7de5473fad918657c046796e4"
     },
     {
       "path": "regions/index.md",
@@ -1686,8 +1691,8 @@
     },
     {
       "path": "regions/india-hi.html",
-      "bytes": 22206,
-      "sha256": "60ba8249850ace6884ac38a4f494cb92914c789f83057dff9bb19ddd02dac3c6"
+      "bytes": 22342,
+      "sha256": "47554f9cd0de3a27bab4d3c9512c2de3dce1290798679ce1512182199761d11e"
     },
     {
       "path": "regions/india-hi.md",
@@ -1696,8 +1701,8 @@
     },
     {
       "path": "regions/india.html",
-      "bytes": 17210,
-      "sha256": "d5e558f1aff0b490e09d9815b244c2f3fa8ff70c548ce49503af5b92af6c2af3"
+      "bytes": 17346,
+      "sha256": "312c88e6b497ce1455683bad1e5908c40a1c6ce673a88d3358cee80c93ec3e33"
     },
     {
       "path": "regions/india.md",
@@ -1711,8 +1716,8 @@
     },
     {
       "path": "regions/pakistan-ur.html",
-      "bytes": 19238,
-      "sha256": "d73f39d194716309b380269cfc3f670ff469e78070b37e8c1a8da21a5c4e0947"
+      "bytes": 19374,
+      "sha256": "03c9add77e6bff7b1f0cd1f6e2975d8cda1f2787f0fed52efe288ec2d69a88c2"
     },
     {
       "path": "regions/pakistan-ur.md",
@@ -1721,8 +1726,8 @@
     },
     {
       "path": "regions/pakistan.html",
-      "bytes": 17306,
-      "sha256": "81a82e1d959532e2698d2e2ef065e87bf1bfb77d9fede1081095571ae8874cfc"
+      "bytes": 17442,
+      "sha256": "f79cecd279ca8e76940d424f42487dfddf1ab5df2b2eb17fd6df771a726b866d"
     },
     {
       "path": "regions/pakistan.md",
@@ -1731,8 +1736,8 @@
     },
     {
       "path": "regions/saudi-arabia-ar.html",
-      "bytes": 19783,
-      "sha256": "ce8ebe349c3d73e9c01feaaf2e9cc4d770d870e1f61d4d6c38f044cd12570dda"
+      "bytes": 19919,
+      "sha256": "23fc5e500b57ddc82d2e045bd7bef7b1245071ff1e10a99d6b1ae386e8abfdf9"
     },
     {
       "path": "regions/saudi-arabia-ar.md",
@@ -1741,8 +1746,8 @@
     },
     {
       "path": "regions/saudi-arabia.html",
-      "bytes": 17461,
-      "sha256": "fba712630b32ddd6ea3342473b6fffd1768d695e123362b5cf0c253448950d17"
+      "bytes": 17597,
+      "sha256": "771598717e3f21625264176da5ecddd6de135a15f8dabe3368e5f0ed42c9949c"
     },
     {
       "path": "regions/saudi-arabia.md",
@@ -1751,8 +1756,8 @@
     },
     {
       "path": "regions/uae-ar.html",
-      "bytes": 19593,
-      "sha256": "78430e80dadf46bf7f4256977bba1fba813c3b800070779d9b0a9b374c9ac058"
+      "bytes": 19729,
+      "sha256": "d8e80f153a427c727386cc9f764e519024c5d68a39d385df4ef8246ea21c4fd9"
     },
     {
       "path": "regions/uae-ar.md",
@@ -1761,8 +1766,8 @@
     },
     {
       "path": "regions/uae.html",
-      "bytes": 17240,
-      "sha256": "3ce0dd9dda925f0de18916500072ac9eb191fd2945dbc7424945c53b576eab60"
+      "bytes": 17376,
+      "sha256": "f3ad5e368bcde3c04e3ec166f92ff0b227264255a9a8fa561217b74467691863"
     },
     {
       "path": "regions/uae.md",
@@ -1776,8 +1781,8 @@
     },
     {
       "path": "Security/index.html",
-      "bytes": 60616,
-      "sha256": "4bd27c4a6edc02dcb97d0ff3e3a778a67993bd400a591dbfb4a00169a206bdab"
+      "bytes": 60734,
+      "sha256": "40af8b94f51664a2619fce53ee95c2ac8bb82c51e0be3203b36cedb06c6474c3"
     },
     {
       "path": "Security/style.css",
@@ -1791,8 +1796,8 @@
     },
     {
       "path": "seo/account-details.html",
-      "bytes": 26745,
-      "sha256": "47d9bf48e54c4d82a5bcf70e80fcf405e615536f757248b227ff430f941a288c"
+      "bytes": 26863,
+      "sha256": "054aa760f55c41bea660d8eaf0402210b9cae46c725246dae04de4daa4e86c5e"
     },
     {
       "path": "seo/account-details.md",
@@ -1801,8 +1806,8 @@
     },
     {
       "path": "seo/accounting-erp.html",
-      "bytes": 34082,
-      "sha256": "26be533aa9f3c0875ee33d3c55fc6a3dbaf803621c4fe0d64b6d2e9e53aed164"
+      "bytes": 34200,
+      "sha256": "1c246e0ec5422c24b690f40af4f4ac719a9d096d1cbc3234623c9546653a7966"
     },
     {
       "path": "seo/accounting-erp.md",
@@ -1811,8 +1816,8 @@
     },
     {
       "path": "seo/accounting-setup.html",
-      "bytes": 33374,
-      "sha256": "8d460d1e36d02dc3c255338a54e6533fa4b3db8878f6db3ac72c4ddba9cfccfc"
+      "bytes": 33492,
+      "sha256": "eec12c37ac855aa493cccf271a47f53a1edaf2ebea0452a6493bcfbce76ab7f6"
     },
     {
       "path": "seo/accounting-setup.md",
@@ -1821,8 +1826,8 @@
     },
     {
       "path": "seo/accounting-software.html",
-      "bytes": 30661,
-      "sha256": "1184424ecbed80a6eae167459b7eb77139b5236e1b9ae6ffa6bcd8e7fa804d86"
+      "bytes": 30779,
+      "sha256": "4a144c5f695a3ccb8a3a2ee8336c27f397b10ca3fe82cddc7b10c177cadf4f0f"
     },
     {
       "path": "seo/accounting-software.md",
@@ -1831,8 +1836,8 @@
     },
     {
       "path": "seo/accounts-receivable-payable.html",
-      "bytes": 29882,
-      "sha256": "a7c2ff0907cdee605e9b1bd65eebdd53f4b4d844fa7ff3cba9734c4db6d6f4da"
+      "bytes": 30000,
+      "sha256": "d82345295f61b8561b0011393606487acc9568504387a718b264f8fe34cad30e"
     },
     {
       "path": "seo/accounts-receivable-payable.md",
@@ -1841,8 +1846,8 @@
     },
     {
       "path": "seo/asset-management.html",
-      "bytes": 30001,
-      "sha256": "6503c43b6bcf51bb51d9bea5a9e34d8eaf0fc08ab6cba577ca7e88576d8c51f4"
+      "bytes": 30119,
+      "sha256": "89648a85a66233db4ddd77df0453dd6952ed0b1ebdb6609fce6672b7e6c75930"
     },
     {
       "path": "seo/asset-management.md",
@@ -1851,8 +1856,8 @@
     },
     {
       "path": "seo/bank-reconciliation.html",
-      "bytes": 28328,
-      "sha256": "981721053a43de121aa264b4cc5508adc683088bcd2084cde41d957fd1b8cd07"
+      "bytes": 28446,
+      "sha256": "c2994d83e6b8dbeccfab09a123587080b66929c9bd48014bc6fa91b33f105938"
     },
     {
       "path": "seo/bank-reconciliation.md",
@@ -1861,8 +1866,8 @@
     },
     {
       "path": "seo/bitcoin-wallet.html",
-      "bytes": 28527,
-      "sha256": "15659f543eb14e089c24352b682275e067b278b94d9e1d2dd69be49de9d4ac5a"
+      "bytes": 28645,
+      "sha256": "f42754fbb86654cf464942bc5cbb71bac8d286f6891957cc92a6eb3eacc8b552"
     },
     {
       "path": "seo/bitcoin-wallet.md",
@@ -1871,8 +1876,8 @@
     },
     {
       "path": "seo/chart-of-accounts.html",
-      "bytes": 28760,
-      "sha256": "681956e2655e90a300bf429fdf1bf461e809abcd6d1dbf492b5ed7e259572247"
+      "bytes": 28878,
+      "sha256": "27736f309feb00ba6f0ba32aa3e10c75d7cfd42b5fb484ed8be29ae0df0df744"
     },
     {
       "path": "seo/chart-of-accounts.md",
@@ -1881,8 +1886,8 @@
     },
     {
       "path": "seo/double-entry-accounting.html",
-      "bytes": 28773,
-      "sha256": "4a101e41b752fbc3d325b954179271a791b4a87371f427487bcf38ce6bf06d15"
+      "bytes": 28891,
+      "sha256": "699aa4b3754bd653fe2c6f332742abcc988fd2cde2bb082d29d983e7a113f200"
     },
     {
       "path": "seo/double-entry-accounting.md",
@@ -1891,8 +1896,8 @@
     },
     {
       "path": "seo/editorial-policy.html",
-      "bytes": 16357,
-      "sha256": "1a9c9151725102194e1a337fa9aec6695702170ed531b9a27aa70067713510c6"
+      "bytes": 16493,
+      "sha256": "7ddcc3d082ae1e975c5e06ef312cb45d2b6ada7b696f298cdbd25f760ff741e5"
     },
     {
       "path": "seo/editorial-policy.md",
@@ -1901,8 +1906,8 @@
     },
     {
       "path": "seo/excel-to-triplem-vip.html",
-      "bytes": 28598,
-      "sha256": "0e4b3ae73857cb79fbaf48685676b0e438f337b73bdbd11834b191b7f16f14c0"
+      "bytes": 28696,
+      "sha256": "9bb99ef155ce0cf7f25aefc302081c24bb419b94ccbc5c9c052c31aa0bcf4ecb"
     },
     {
       "path": "seo/excel-to-triplem-vip.md",
@@ -1911,8 +1916,8 @@
     },
     {
       "path": "seo/expense-tracking.html",
-      "bytes": 32569,
-      "sha256": "d2e7ce2fee821fd56a9cb7e7068d35ed19ba3b94bf211dbd5372d60c511fcfed"
+      "bytes": 32687,
+      "sha256": "cdda6accba84b52ac04a64e628d8d2b8ae3ee1bbe07a7925ad7f13d18f799160"
     },
     {
       "path": "seo/expense-tracking.md",
@@ -1921,18 +1926,18 @@
     },
     {
       "path": "seo/faq.html",
-      "bytes": 33204,
-      "sha256": "b792bd14e4f44117d1474aa3abff274c8c9320c90adf37f96f94d5daf116d597"
+      "bytes": 34738,
+      "sha256": "1cbed2e618ff61a102bcd5654b1fda3ad93f0a0c422b96c76f14ecafe700e69c"
     },
     {
       "path": "seo/faq.md",
-      "bytes": 9572,
-      "sha256": "ba5d5718b4838c093f40cea6a8243f57f9d5064fadd2d945cdb1d4ec66095b91"
+      "bytes": 10157,
+      "sha256": "2d8d36b9a8579424157f66a581415c44697c777ae5018ce847959453b328edce"
     },
     {
       "path": "seo/finance-software.html",
-      "bytes": 33857,
-      "sha256": "58e1bb6b200676547f8577e08051650a004505e18fcb37b7e75ff3877aa0dde2"
+      "bytes": 33975,
+      "sha256": "3b3d59f9fbe8fd2a90885d7828f1f433ba4c43a859467b55dba14e7979b33459"
     },
     {
       "path": "seo/finance-software.md",
@@ -1941,8 +1946,8 @@
     },
     {
       "path": "seo/finance-workflow-playbook.html",
-      "bytes": 17073,
-      "sha256": "145499afefee3de6cd17bae422ef6102c5db1c54ece3749a592209dcba6d8897"
+      "bytes": 17209,
+      "sha256": "1e4432b7c42f19c448cec29f6177ef491213569b0eabd910864393f122ef1313"
     },
     {
       "path": "seo/finance-workflow-playbook.md",
@@ -1951,8 +1956,8 @@
     },
     {
       "path": "seo/financial-audit.html",
-      "bytes": 29790,
-      "sha256": "93162389bc97066f714dee79071544f8d10c3eeeb0e7c7a875c8677dbfba6ae3"
+      "bytes": 29908,
+      "sha256": "3747aaf5a64ba889cc461bea1978cb8dfa48bb6681a753e08ae139f4fc489a6a"
     },
     {
       "path": "seo/financial-audit.md",
@@ -1961,8 +1966,8 @@
     },
     {
       "path": "seo/financial-reports.html",
-      "bytes": 31804,
-      "sha256": "b224c0c6d2087cfab76ce5ad317bc6b44b0c30d52344dff27caf97b3773bbad5"
+      "bytes": 31922,
+      "sha256": "c694fd48b8f2b4b41b5c9396ea2892c140e111a0094099f87d242eb1444b0450"
     },
     {
       "path": "seo/financial-reports.md",
@@ -1971,8 +1976,8 @@
     },
     {
       "path": "seo/financial-timeline.html",
-      "bytes": 28416,
-      "sha256": "39d2beedc8893e71ec24df7130b94ccf479f024167f8e5a5922c790ff4be1a84"
+      "bytes": 28534,
+      "sha256": "b4d5895220fa11b3a503aa2a818ace126d02b2b5132a188a80e4456f190bd6a5"
     },
     {
       "path": "seo/financial-timeline.md",
@@ -1981,8 +1986,8 @@
     },
     {
       "path": "seo/index.html",
-      "bytes": 55289,
-      "sha256": "07cc3a9cd51c1824505ad410ca0aa013c50a12e65945f52658e8255dd25294e8"
+      "bytes": 55407,
+      "sha256": "7e712362244793395afef7210e05f2d855c22ee20f1377f4e150e7bcb0c2c728"
     },
     {
       "path": "seo/index.md",
@@ -1991,8 +1996,8 @@
     },
     {
       "path": "seo/installment-plans.html",
-      "bytes": 28481,
-      "sha256": "1b6d7acef720291f613093be234436125efbf341503394a52611a3e191d8567e"
+      "bytes": 28599,
+      "sha256": "dc2d2d9356d701ebc3fe5bb916b148c556458b3191b55096c3d1736b1fc43aa2"
     },
     {
       "path": "seo/installment-plans.md",
@@ -2001,8 +2006,8 @@
     },
     {
       "path": "seo/insurance-management.html",
-      "bytes": 26920,
-      "sha256": "aa246d29cdd5e5fec7bf3f08d303bd374ba14d2b19775bac50159b18926b5c6b"
+      "bytes": 27018,
+      "sha256": "7b3faed3581dbfd93c6006ac25634f54c80012dd58ee9dce45d2c202ad13aeb2"
     },
     {
       "path": "seo/insurance-management.md",
@@ -2011,8 +2016,8 @@
     },
     {
       "path": "seo/inventory-management.html",
-      "bytes": 23703,
-      "sha256": "18e9634ad5795f4b08ef613068f5bc7c8ced4c2ea7d5adfcec31223eb8ca3beb"
+      "bytes": 23801,
+      "sha256": "2f00bd58236f5310132b2ca23f6c5a1eda272acaeddb4295e2c3693fbaebb921"
     },
     {
       "path": "seo/inventory-management.md",
@@ -2021,8 +2026,8 @@
     },
     {
       "path": "seo/keyboard-shortcuts.html",
-      "bytes": 25368,
-      "sha256": "1ca89c70bc99149bea08c1d956ef2fabf583df24565944925becdaafb65e6e66"
+      "bytes": 25486,
+      "sha256": "8da6ed5676644f0cdf2e79ea121e263413e46d0c682cad6b8de86afcc37114a3"
     },
     {
       "path": "seo/keyboard-shortcuts.md",
@@ -2031,13 +2036,13 @@
     },
     {
       "path": "seo/llms.txt",
-      "bytes": 4276,
-      "sha256": "d311061f8df9ded543122001239bb14ddc306948ab83be7bd2d7811a9a73176c"
+      "bytes": 4338,
+      "sha256": "183705d8f433e509a1dd1d4edc667edcdbe56aa4b4ec560bd407ca1402a22d31"
     },
     {
       "path": "seo/loan-management.html",
-      "bytes": 30113,
-      "sha256": "c7a79b85f8aaf733a961ff02548b67fc3e981058c0c55dbbc077de858a89ab70"
+      "bytes": 30231,
+      "sha256": "3d9b510dbef980dbfad6b23bffbf0c4c985d34158ec8f2e1dea313b4cee2b4b4"
     },
     {
       "path": "seo/loan-management.md",
@@ -2046,8 +2051,8 @@
     },
     {
       "path": "seo/month-end-close.html",
-      "bytes": 17396,
-      "sha256": "bc61f09b5aa7911054bb895d9c5860c8728a13b6e72183943a91b3ed5c4f07fb"
+      "bytes": 17532,
+      "sha256": "04749ff661c266771b5684c1e7f4dbb24f1f3fb728a45aa497d033598b4e366b"
     },
     {
       "path": "seo/month-end-close.md",
@@ -2056,8 +2061,8 @@
     },
     {
       "path": "seo/multi-currency-accounting.html",
-      "bytes": 17588,
-      "sha256": "9dfa2f31c02eac7b062adf4d2bee050659669c90b57d2441834207838d6bf09c"
+      "bytes": 17724,
+      "sha256": "2bd6f05bc5fedf1cb7b05c02ad36894e9ee2e0e5c30eca0398cb0397d6717ff5"
     },
     {
       "path": "seo/multi-currency-accounting.md",
@@ -2066,8 +2071,8 @@
     },
     {
       "path": "seo/notes-management.html",
-      "bytes": 28531,
-      "sha256": "e0c4c327be83f28d0b4608b73e2662672b80231a11edc2b5702ca5e912a32f5c"
+      "bytes": 28649,
+      "sha256": "ada1d157e04623bf8164cbd6bbbf907921af6203705ffdeb5042c764f829078f"
     },
     {
       "path": "seo/notes-management.md",
@@ -2075,9 +2080,19 @@
       "sha256": "d970c6e907ee33ce18b141063b99ea43e31a27c4742cc18ab8fe185278069690"
     },
     {
+      "path": "seo/privacy-policy.html",
+      "bytes": 21008,
+      "sha256": "58657d4db4e6ecd1781d6e7b7112c77086ec533839c2e96ae73eb435feb3a150"
+    },
+    {
+      "path": "seo/privacy-policy.md",
+      "bytes": 5748,
+      "sha256": "00362d3cb3ebf80382b301bffbeadaf362e43205bd30fcb8bae753608715c37d"
+    },
+    {
       "path": "seo/security-and-support.html",
-      "bytes": 37229,
-      "sha256": "4380116da0b747786f73fa0ce66d0b84a4cb0fc52fdacb43c61a4498861e91e7"
+      "bytes": 37347,
+      "sha256": "afc8f7cede9cba1d043ca7413a530d8637e2ed11668adb609e4b2d0407bdf9da"
     },
     {
       "path": "seo/security-and-support.md",
@@ -2086,8 +2101,8 @@
     },
     {
       "path": "seo/triplem-ai.html",
-      "bytes": 33145,
-      "sha256": "80e26061a195399900fbc5d92c6b9ee9bf9ee7d152d352e027345cde02b9f7d7"
+      "bytes": 33263,
+      "sha256": "8ea9fda33ce7e0532a31e3644d5d05a1f04c9670ef147e3429aa9a9fbb7de530"
     },
     {
       "path": "seo/triplem-ai.md",
@@ -2096,8 +2111,8 @@
     },
     {
       "path": "seo/triplem.html",
-      "bytes": 34389,
-      "sha256": "88095fbb38adcf630ceb36a172040425d2765e0deb4085bb082c2ca9347314cb"
+      "bytes": 34507,
+      "sha256": "7af8a19446dc6f262204144f2f9420eff9ecf35505cb317c49a65fa3ace1b846"
     },
     {
       "path": "seo/triplem.md",
@@ -2106,8 +2121,8 @@
     },
     {
       "path": "seo/vat-accounting.html",
-      "bytes": 29321,
-      "sha256": "8d8fc81a699e04dd7cf4f1c53c8e75befc1187886c867933443669255e18f830"
+      "bytes": 29439,
+      "sha256": "adbccfb4fc232d1d89079186cd7a680c940653ffffa4cd1e1e2a1388516b50ac"
     },
     {
       "path": "seo/vat-accounting.md",
@@ -2116,13 +2131,13 @@
     },
     {
       "path": "seo/windows-desktop-app.html",
-      "bytes": 21281,
-      "sha256": "f5fee9770deb08c6c0928ae09048afa916a46caa62cf6690ca621fc041c339f1"
+      "bytes": 21550,
+      "sha256": "285330c49374632ed26b4422e7ff8f05707b65410d1aef4a8fe5fc39fa387a3d"
     },
     {
       "path": "seo/windows-desktop-app.md",
-      "bytes": 1390,
-      "sha256": "ac65feb16b1fcd7452cf2755659052b121dbcaf334a37f1094eb5f4faab9d298"
+      "bytes": 1889,
+      "sha256": "4c338ce26fe5dc65dae980b62000dfc6375f6215a224b3561f292fd1ea5e8ffc"
     },
     {
       "path": "service-worker.js",
@@ -2137,12 +2152,12 @@
     {
       "path": "sitemap-index.xml",
       "bytes": 228,
-      "sha256": "01601de26437ecb5e45d1d205e07c956881415a624e720bb99e086563027dc7d"
+      "sha256": "9baf1694e5fdd71283fef22c80ae0c316356a5ffc1b45dca4d7b2b6adbf45a29"
     },
     {
       "path": "sitemap.xml",
-      "bytes": 20342,
-      "sha256": "b8be780ce3b1253a4aa5c45be6c121569fd97a831d386f3fcd1a10cb8ecf4793"
+      "bytes": 20725,
+      "sha256": "a887edd19c2d174283c39d9eee7265bc102990291c6553f1f2e95b6e6588ac54"
     }
   ]
 }

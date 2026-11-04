@@ -1,7 +1,7 @@
 # Triplem VIP Frequently Asked Questions
 
 Canonical page: https://triplem.vip/seo/faq.html
-Last reviewed: 2026-10-31
+Last reviewed: 2026-11-04
 
 Answers below are published on the canonical HTML page. Check that page for the current product wording and visual navigation.
 
@@ -29,7 +29,11 @@ After approval or trial signup, you receive credentials for your own workspace. 
 
 ### Do I need to install an app?
 
-No. Triplem VIP runs in the browser on desktop and mobile. Optional iOS/Android install helpers are available if you want a home-screen style shortcut, but the full workspace works without a store install.
+No. Triplem VIP runs in the browser on desktop and mobile. A Windows 10 and 11 desktop app and iOS/Android install helpers are optional; they open the same workspace, data and permissions as the browser.
+
+### Can I use Triplem VIP offline?
+
+Partly. If your connection drops, new entries and edits saved through the standard forms (loans, installments, inventory, expense entries, notes and assets) are stored on your device and sync automatically when the connection returns. Changes made to the same record on another device are flagged for review instead of being overwritten. With Remember Me enabled, you can also reopen the workspace without internet and see the data last loaded on that device. Accounting ERP documents, insurance, messages and administration still need a connection.
 
 ## Features & workflow
 
