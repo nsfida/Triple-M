@@ -8684,3 +8684,28 @@ html.triplem-apps-open,body.triplem-apps-open{overflow:hidden!important}
   .app-download-overlay{padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))!important;align-items:center!important;justify-content:center!important}
   .app-download-modal{width:100%!important;margin:auto!important;max-height:88vh!important;max-height:88dvh!important;border-radius:15px!important}
 }
+
+/* ===== SOURCE: Assets/style/56-offline-reliability.css ===== */
+/* Offline reliability: offline banner, sync review panel, sync status badges. */
+.offline-mode-banner{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:2147483000;display:flex;align-items:center;gap:10px;max-width:min(680px,calc(100vw - 32px));padding:10px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--warning) 45%,var(--line));background:color-mix(in srgb,var(--warning) 12%,var(--surface));color:var(--text);box-shadow:0 10px 30px rgba(15,23,42,.18);font-size:.82rem;font-weight:600;line-height:1.35}
+.offline-mode-banner i{color:var(--warning);flex:0 0 auto}
+.offline-mode-banner.hide{display:none}
+.offline-entry-pending--conflict{border-color:color-mix(in srgb,var(--warning) 45%,var(--line));background:color-mix(in srgb,var(--warning) 12%,var(--surface));color:var(--warning)}
+.offline-entry-pending--failed{border-color:color-mix(in srgb,var(--danger) 45%,var(--line));background:color-mix(in srgb,var(--danger) 10%,var(--surface));color:var(--danger)}
+.offline-sync-status.is-error .offline-sync-count{background:var(--danger)}
+.offline-sync-panel .offline-sync-sheet{max-width:560px;width:calc(100vw - 32px)}
+.offline-sync-panel .settings-sheet-head p{margin:4px 0 0;color:var(--muted);font-size:.82rem}
+.offline-panel-list{display:grid;gap:10px;max-height:min(60vh,520px);overflow:auto}
+.offline-panel-empty{margin:6px 0;color:var(--muted)}
+.offline-panel-item{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.offline-panel-item--failed{border-color:color-mix(in srgb,var(--danger) 45%,var(--line))}
+.offline-panel-item--conflict{border-color:color-mix(in srgb,var(--warning) 50%,var(--line))}
+.offline-panel-item-main{display:grid;gap:3px;min-width:0;flex:1 1 220px}
+.offline-panel-item-main strong{color:var(--text);font-size:.9rem;overflow-wrap:anywhere}
+.offline-panel-item-main span{color:var(--muted);font-size:.78rem;overflow-wrap:anywhere}
+.offline-panel-status{font-weight:600}
+.offline-panel-item--failed .offline-panel-status{color:var(--danger)}
+.offline-panel-item--conflict .offline-panel-status{color:var(--warning)}
+.offline-panel-item-actions{display:flex;flex-wrap:wrap;gap:6px}
+.offline-panel-footer{display:flex;justify-content:flex-end;margin-top:14px}
+@media (max-width:560px){.offline-mode-banner{bottom:calc(76px + env(safe-area-inset-bottom,0px));font-size:.78rem}}
