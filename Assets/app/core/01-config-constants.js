@@ -221,6 +221,10 @@ function removeStoredSessionCredentials(){
   try {
     localStorage.removeItem(SESSION_ENCRYPTED_STORAGE_KEY);
   } catch {}
+  // Encrypted offline read cache + profile snapshot belong to this session.
+  // The offline write queue is deliberately NOT cleared: unsynced entries must
+  // survive sign-out and sync after the owner signs in again.
+  try { window.TriplemOfflineCache?.clearAll?.(); } catch (_) {}
   deleteCredentialEncryptionKey();
   if (typeof state !== "undefined" && state) {
     state.sessionToken = "";

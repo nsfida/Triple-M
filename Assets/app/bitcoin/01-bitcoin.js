@@ -3,19 +3,28 @@
 const BTC_NETWORKS = {
   mainnet: {
     label: 'Mainnet',
-    network: bitcoinjs.networks.bitcoin,
+    // Resolved lazily: if the bitcoinjs CDN script is unavailable (offline,
+    // CDN outage, filtered network) this module must still load, otherwise
+    // later constants stay uninitialised and sign-in fails.
+    get network() { return typeof bitcoinjs !== "undefined" ? bitcoinjs.networks.bitcoin : null; },
     api: 'https://blockstream.info/api',
     wifHint: 'Mainnet WIF usually starts with 5, K, or L.'
   },
   testnet: {
     label: 'Testnet',
-    network: bitcoinjs.networks.testnet,
+    // Resolved lazily: if the bitcoinjs CDN script is unavailable (offline,
+    // CDN outage, filtered network) this module must still load, otherwise
+    // later constants stay uninitialised and sign-in fails.
+    get network() { return typeof bitcoinjs !== "undefined" ? bitcoinjs.networks.testnet : null; },
     api: 'https://blockstream.info/testnet/api',
     wifHint: 'Testnet WIF usually starts with 9 or c.'
   },
   signet: {
     label: 'Signet',
-    network: bitcoinjs.networks.testnet,
+    // Resolved lazily: if the bitcoinjs CDN script is unavailable (offline,
+    // CDN outage, filtered network) this module must still load, otherwise
+    // later constants stay uninitialised and sign-in fails.
+    get network() { return typeof bitcoinjs !== "undefined" ? bitcoinjs.networks.testnet : null; },
     api: 'https://blockstream.info/signet/api',
     wifHint: 'Signet uses the testnet-style key format.'
   }
@@ -3393,7 +3402,7 @@ function renderExistingAddressesDropdown() {
     walletInfo.innerHTML = `
       <div style="font-weight:600;color:var(--text);margin-bottom:2px;">${escapeHtml(wallet.label)}</div>
       <div style="font-size:.8rem;color:var(--muted);">${escapeHtml(wallet.address.slice(0, 20))}...${escapeHtml(wallet.address.slice(-10))}</div>
-      <div style="font-size:.75rem;color:var(--muted);">${wallet.network} ${wallet.is_watch_only ? '(Watch Only)' : '(Full)'}</div>
+      <div style="font-size:.75rem;color:var(--muted);">${escapeHtml(String(wallet.network || ""))} ${wallet.is_watch_only ? '(Watch Only)' : '(Full)'}</div>
       ${legacyBadge ? `<div style="margin-top:6px;">${legacyBadge}</div>` : ""}
     `;
     

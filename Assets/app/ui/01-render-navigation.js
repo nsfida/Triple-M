@@ -1,5 +1,9 @@
 /* Modularized from script.js lines 17623-21688 — renderAll and navigation shell. Load order must be preserved. */
 function renderAll(){
+  // Keep offline edits visible after any data reload (cheap no-op when none are queued).
+  if (state.offlineSync?.pendingPatchCount > 0 && typeof reapplyOfflinePatchesToLoadedEntries === "function") {
+    try { reapplyOfflinePatchesToLoadedEntries(); } catch (_) {}
+  }
   invalidateExpenseAccountsSyncCache();
   renderOverviewCards();
   renderLoanSelectors();

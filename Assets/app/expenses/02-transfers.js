@@ -321,8 +321,8 @@ function showTransferSuccessOverlay(fromAccount, toAccount, amount, currency) {
   
   // Set transfer details with wallet icons
   amountElement.innerHTML = money(amount, currency);
-  fromWalletElement.innerHTML = `${getWalletIconHtml(fromAccount.person_name, 16)} ${fromAccount.person_name}`;
-  toWalletElement.innerHTML = `${getWalletIconHtml(toAccount.person_name, 16)} ${toAccount.person_name}`;
+  fromWalletElement.innerHTML = `${getWalletIconHtml(fromAccount.person_name, 16)} ${escapeHtml(fromAccount.person_name)}`;
+  toWalletElement.innerHTML = `${getWalletIconHtml(toAccount.person_name, 16)} ${escapeHtml(toAccount.person_name)}`;
   
   // Show overlay
   overlay.classList.remove("hide");
@@ -349,7 +349,7 @@ function showMoneyAddedSuccessOverlay(walletName, amount, currency) {
   
   // Set money added details with wallet icon
   amountElement.innerHTML = money(amount, currency);
-  walletElement.innerHTML = `${getWalletIconHtml(walletName, 16)} ${walletName}`;
+  walletElement.innerHTML = `${getWalletIconHtml(walletName, 16)} ${escapeHtml(walletName)}`;
   
   // Show overlay
   overlay.classList.remove("hide");

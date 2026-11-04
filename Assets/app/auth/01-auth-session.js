@@ -2115,7 +2115,14 @@ async function supabaseRpc(fnName, args = {}, options = {}){
     }
   });
   const value = unwrapRpcJson(data);
-  try { window.TriplemPush?.scheduleAdminInboxFlush?.(); } catch (_) {}
+  // Only the protected Main Admin session can flush the admin push outbox
+  // (the Edge Function rejects everyone else). Scheduling it for other users
+  // produced a rejected Edge Function call and log line after almost every RPC.
+  try {
+    if (state.sessionUser?.is_protected === true && state.sessionUser?.role === "admin") {
+      window.TriplemPush?.scheduleAdminInboxFlush?.({ mutating: !(window.TriplemOfflineCache?.isReadRpc?.(fnName)) });
+    }
+  } catch (_) {}
   return value;
 }
 
@@ -3084,13 +3091,22 @@ function apiHeaders(extra = {}){
 
 async function supabase(path, options = {}){
   const dbConfig = getSupabaseConfig();
+  const { offlineCache, ...fetchOptions } = options || {};
+  // Read requests of a remembered session are cached (encrypted) so the
+  // workspace can still be viewed after an offline reload. Writes never are.
+  const offlineCacheApi = window.TriplemOfflineCache;
+  const cacheable = !!offlineCacheApi?.isCacheableRequest?.(path, options);
   let res;
   try{
     res = await fetch(`${dbConfig.supabaseUrl}/rest/v1/${path}`, {
-      ...options,
-      headers: apiHeaders(options.headers || {})
+      ...fetchOptions,
+      headers: apiHeaders(fetchOptions.headers || {})
     });
   }catch(cause){
+    if (cacheable) {
+      const cached = await offlineCacheApi.recall(path, options);
+      if (cached?.hit) return cached.data;
+    }
     const error = new Error("Database request failed. Please check your connection.");
     error.name = "TriplemNetworkError";
     error.code = "NETWORK_ERROR";
@@ -3103,6 +3119,11 @@ async function supabase(path, options = {}){
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok && cacheable && [502, 503, 504].includes(res.status)) {
+    const cached = await offlineCacheApi.recall(path, options);
+    if (cached?.hit) return cached.data;
+  }
+  if (res.ok && cacheable) offlineCacheApi.remember(path, options, data);
   if (!res.ok) {
     const message = data?.message || data?.error || data?.hint || text || `Request failed (${res.status})`;
     if (res.status === 401 || /session expired|authentication required|invalid username or password/i.test(String(message))) {

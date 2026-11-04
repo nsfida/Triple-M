@@ -883,7 +883,10 @@ window.addEventListener("resize", () => {
   });
 
   if (els.logoutBtn){
-    els.logoutBtn.addEventListener("click", () => doLogout());
+    els.logoutBtn.addEventListener("click", () => {
+      if (typeof confirmLogoutWithPendingOfflineWork === "function" && !confirmLogoutWithPendingOfflineWork()) return;
+      doLogout();
+    });
   }
   if (els.secretPinBtn){
     els.secretPinBtn.addEventListener("click", () => handleSecretPinMenuAction());

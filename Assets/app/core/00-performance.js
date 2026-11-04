@@ -7,7 +7,10 @@
 
   const register = async () => {
     try {
-      const registration = await navigator.serviceWorker.register("/service-worker.js", {
+      // Must be byte-identical to the URL used by the Web Push module. Two
+      // different script URLs for the same scope make the browser reinstall the
+      // worker every time either one registers (on almost every page load).
+      const registration = await navigator.serviceWorker.register(window.TRIPLEM_SERVICE_WORKER_URL || "/service-worker.js?v=123", {
         scope: "/",
         updateViaCache: "none"
       });

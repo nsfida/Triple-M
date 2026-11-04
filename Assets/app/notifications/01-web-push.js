@@ -2,7 +2,7 @@
 (() => {
   "use strict";
 
-  const SW_URL = "/service-worker.js?v=123";
+  const SW_URL = window.TRIPLEM_SERVICE_WORKER_URL || "/service-worker.js?v=123";
   const FUNCTION_NAME = "push-notifications";
   const stateLocal = {
     config: null,
@@ -1012,9 +1012,17 @@
     return stateLocal.adminInboxFlushPromise;
   }
 
-  function scheduleAdminInboxFlush() {
+  // Admin outbox flush cadence: soon after the Main Admin changes something,
+  // but at most once a minute while the admin is only reading/polling. Each
+  // flush is an Edge Function invocation plus database work and log lines.
+  const ADMIN_INBOX_FLUSH_MIN_GAP_MS = 4000;
+  const ADMIN_INBOX_FLUSH_READ_GAP_MS = 60000;
+  function scheduleAdminInboxFlush(options = {}) {
     const elapsed = Date.now() - Number(stateLocal.adminInboxLastFlushAt || 0);
-    const delay = elapsed >= 4000 ? 450 : Math.max(450, 4000 - elapsed);
+    const mutating = options?.mutating !== false;
+    if (!mutating && elapsed < ADMIN_INBOX_FLUSH_READ_GAP_MS) return false;
+    if (!mutating && stateLocal.adminInboxFlushTimer) return true;
+    const delay = elapsed >= ADMIN_INBOX_FLUSH_MIN_GAP_MS ? 450 : Math.max(450, ADMIN_INBOX_FLUSH_MIN_GAP_MS - elapsed);
     if (stateLocal.adminInboxFlushTimer) clearTimeout(stateLocal.adminInboxFlushTimer);
     stateLocal.adminInboxFlushTimer = setTimeout(() => {
       stateLocal.adminInboxFlushTimer = null;

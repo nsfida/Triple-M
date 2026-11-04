@@ -1493,11 +1493,13 @@
       return { usedLedger: true };
     }
     const body = mapLedgerPatchToDomain(entry, patchBody);
-    await global.supabase(`${table}?id=eq.${encodeURIComponent(entry.id)}`, {
+    const rows = await global.supabase(`${table}?id=eq.${encodeURIComponent(entry.id)}`, {
       method: "PATCH",
       body: JSON.stringify(body)
     });
-    return { usedLedger: false };
+    // The updated row (PostgREST return=representation) lets callers keep the
+    // server's updated_at, used for offline edit conflict detection.
+    return { usedLedger: false, row: Array.isArray(rows) ? rows[0] || null : null };
   }
 
   function resolveDomainTable(entry) {

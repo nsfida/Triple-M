@@ -22,8 +22,11 @@ const state = {
   offlineSync: {
     syncing: false,
     pendingCount: 0,
+    attentionCount: 0,
     lastError: "",
-    retryTimer: null
+    retryTimer: null,
+    authBlocked: false,
+    offlineSession: false
   },
   unlocked: false,
   guestMode: false,

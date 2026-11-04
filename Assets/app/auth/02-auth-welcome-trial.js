@@ -778,6 +778,13 @@ async function completeAuthenticatedUnlock(user, sessionToken, { remember = fals
   if (typeof startOfflineSyncForSession === "function") {
     startOfflineSyncForSession();
   }
+  // Keep an encrypted profile snapshot (Remember Me only) so the workspace can
+  // be reopened offline after a reload. Never refreshed from offline data.
+  if (!state.offlineSync.offlineSession) {
+    try { window.TriplemOfflineCache?.saveProfile?.(user); } catch (_) {}
+  } else {
+    try { window.TriplemOfflineCache?.refreshBanner?.(); } catch (_) {}
+  }
   updateGuestModeUi();
   try { await window.refreshTriplemAiAccessState?.({ force: true }); } catch (_) {}
   applyPermissionGates();
@@ -1010,11 +1017,29 @@ async function attemptUnlock(options = {}){
         throw new Error("Saved login does not match this username.");
       }
       state.sessionToken = rememberedCredential.sessionToken;
-      const validated = await withAuthResumeTimeout(
-        supabaseRpc("app_validate_session", {}),
-        12000,
-        "Saved session validation"
-      );
+      state.offlineSync.offlineSession = false;
+      let validated = null;
+      try {
+        validated = await withAuthResumeTimeout(
+          supabaseRpc("app_validate_session", {}, { offlineCache: false }),
+          12000,
+          "Saved session validation"
+        );
+      } catch (validateErr) {
+        // No connection: reopen the workspace from the encrypted copy saved on
+        // this device so the user can keep working. The session is verified
+        // with the server as soon as the connection returns.
+        const offlineResume = typeof isConnectivityFailure === "function" && isConnectivityFailure(validateErr)
+          && window.TriplemOfflineCache?.resumeProfile
+          ? await window.TriplemOfflineCache.resumeProfile(safeUser)
+          : null;
+        if (!offlineResume?.user) {
+          if (offlineResume?.refused) validateErr.offlineRefusal = offlineResume.refused;
+          throw validateErr;
+        }
+        state.offlineSync.offlineSession = true;
+        validated = { user: offlineResume.user };
+      }
       user = validated?.user || validated;
       sessionToken = rememberedCredential.sessionToken;
       if (!user?.id) throw new Error("Session expired or invalid");
@@ -1113,7 +1138,9 @@ async function attemptUnlock(options = {}){
       if (!connectivityFailure) removeStoredSessionCredentials();
       if (connectivityFailure) {
         if (els.lockError) {
-          els.lockError.textContent = "The saved session could not be verified right now. Your locally saved entries remain on this device. Reconnect or sign in again.";
+          els.lockError.textContent = err?.offlineRefusal
+            ? `You are offline. ${err.offlineRefusal}`
+            : "The saved session could not be verified right now. Your locally saved entries remain on this device. Reconnect or sign in again.";
           els.lockError.classList.add("show");
         }
       } else if (!silentResume && els.lockError) {
