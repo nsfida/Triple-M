@@ -2,7 +2,7 @@
 
 > Triplem VIP is a private browser-based accounting and business-finance workspace for individuals and businesses. It combines everyday money management (wallets, expenses, receiving, transfers, loans, inventory, assets, installments and reports) with a separate formal double-entry Accounting ERP and permission-aware Triplem AI.
 
-Last reviewed: 2026-10-31  
+Last reviewed: 2026-11-04  
 Canonical origin: https://triplem.vip/  
 Primary language: English. Public regional references also include Arabic, Urdu, Hindi, French and Dutch.
 
@@ -47,7 +47,9 @@ Primary language: English. Public regional references also include Arabic, Urdu,
 - [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.html): Currency-aware wallets, activity and reports.
 - [Bitcoin wallet tools](https://triplem.vip/seo/bitcoin-wallet.html): Client-side Bitcoin key handling and supported wallet records.
 - [Security and support](https://triplem.vip/seo/security-and-support.html): Security, 2FA, notifications and support, including Authenticator app 2FA, Web Push notifications and account recovery.
+- [Windows desktop app](https://triplem.vip/seo/windows-desktop-app.html): Installing the Windows 10/11 app, shortcuts and taskbar pinning.
 - [Editorial policy](https://triplem.vip/seo/editorial-policy.html): Public-content accuracy, correction and review principles.
+- [Privacy policy](https://triplem.vip/seo/privacy-policy.html): What data is collected, service providers, retention, export and deletion.
 
 ## Regional references
 

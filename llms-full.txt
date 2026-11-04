@@ -1,6 +1,6 @@
 # Triplem VIP — Full Public Product Reference
 
-Last reviewed: 2026-10-31
+Last reviewed: 2026-11-04
 Canonical site: https://triplem.vip/
 Public guide hub: https://triplem.vip/seo/
 
@@ -105,6 +105,14 @@ Visitors can use the public inquiry or Live Support options, email the official 
 
 The live [Pricing section](https://triplem.vip/#pricing) is the source for current plan details. Pricing, offers and currency presentation may change, so this reference does not repeat amounts that could become stale.
 
+### Is there a Windows app?
+
+Yes. TriplemVIP_Setup.exe installs a Windows 10/11 desktop app for the current Windows user, without administrator rights. It opens the same online workspace through Microsoft Edge WebView2. After installation, the Finish page lets the user create a Desktop shortcut and a Start Menu icon and pin the app to the taskbar. Windows itself confirms the pin. See https://triplem.vip/seo/windows-desktop-app.html.
+
+### Can Triplem VIP be used offline?
+
+Partly. If the connection drops, new entries and edits saved through the standard forms (loans, installments, inventory, expense entries, notes and assets) are stored on the device and sync automatically when the connection returns. Conflicting changes made on another device are held for the user to review. With Remember Me enabled, the workspace can be reopened without internet, showing the data last loaded on that device. Accounting ERP documents, insurance, messages and administration require a connection.
+
 ### Where can users get help?
 
 Visitors can use Live Support from the website. Registered users can use authenticated in-app support where enabled. The public contact email is info@triplem.vip.
@@ -190,6 +198,7 @@ Multi-currency guide: https://triplem.vip/seo/multi-currency-accounting.html
 Month-end close checklist: https://triplem.vip/seo/month-end-close.html
 Finance workflow playbook: https://triplem.vip/seo/finance-workflow-playbook.html
 Editorial policy: https://triplem.vip/seo/editorial-policy.html
+Privacy policy: https://triplem.vip/seo/privacy-policy.html
 Worldwide availability: https://triplem.vip/regions/
 
 ## Regional reference pages
