@@ -1,0 +1,29 @@
+{
+  "format": "triplem-vip-release-manifest-v1",
+  "generatedAtUtc": "2026-11-04T11:56:01.013Z",
+  "application": "Triplem VIP",
+  "build": {
+    "fileCount": 428,
+    "totalBytes": 43197450,
+    "productionManifest": "production-manifest.json"
+  },
+  "database": {
+    "databaseChangesRequired": false,
+    "requiredMigrations": [],
+    "migrationsBundled": false
+  },
+  "edgeFunctions": {
+    "deploymentRequired": true,
+    "requiredDeployments": [
+      "push-notifications"
+    ],
+    "bundledInProductionZip": false,
+    "reason": "The push-notifications Edge Function now validates the protected-admin session before using the service-role admin outbox operation."
+  },
+  "cacheStrategy": "Local JavaScript and CSS references in HTML are fingerprinted from file content during the production build.",
+  "security": {
+    "freshInstallSchemaInPublicOutput": false,
+    "responseHeadersFile": "_headers",
+    "serviceWorkerCache": "triplem-static-v190-offline-reliability1"
+  }
+}

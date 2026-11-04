@@ -1,9 +1,19 @@
-/* Triplem VIP Web Push Service Worker — v123; static asset cache hardening v189-critical-hardening1. */
+/* Triplem VIP Web Push Service Worker — v123; static asset cache v190-offline-reliability1.
+ *
+ * Offline support (2026-11): the HTML app shell and the pinned CDN libraries are
+ * kept so the workspace can be reopened without internet. Supabase API, auth and
+ * Edge Function traffic is never intercepted or cached here; offline data lives
+ * in the page's encrypted IndexedDB cache and durable write queue instead.
+ */
 "use strict";
 
 const STATIC_CACHE_PREFIX = "triplem-static-";
-const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v189-critical-hardening1`;
+const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v190-offline-reliability1`;
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font"]);
+// Version-pinned third-party libraries and fonts referenced by the pages.
+const PINNED_CDN_HOSTS = new Set(["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"]);
+const NAVIGATION_TIMEOUT_MS = 6000;
+const OFFLINE_FALLBACK_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Triplem VIP — Offline</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center}main{max-width:420px}button{margin-top:16px;padding:10px 18px;border-radius:10px;border:0;background:#2563eb;color:#fff;font-weight:600}</style></head><body><main><h1>You are offline</h1><p>This page has not been saved on this device yet. Open Triplem VIP once while online and it will be available offline afterwards. Entries already saved on this device are safe.</p><button onclick="location.reload()">Try again</button></main></body></html>`;
 
 /**
  * Resolve a notification destination without permitting external origins or
@@ -22,8 +32,48 @@ function resolveSafeNotificationUrl(rawUrl, origin = self.location.origin) {
   }
 }
 
+/** Same-origin script/stylesheet URLs referenced by the app shell (comments ignored). */
+function shellAssetUrls(html, baseUrl) {
+  const active = String(html || "").replace(/<!--[\s\S]*?-->/g, "");
+  const urls = new Set();
+  const add = raw => {
+    try {
+      const url = new URL(String(raw || "").replace(/&amp;/g, "&"), baseUrl);
+      if (url.origin === self.location.origin && url.pathname.includes("/Assets/")) urls.add(url.href);
+      else if (url.protocol === "https:" && PINNED_CDN_HOSTS.has(url.hostname)) urls.add(url.href);
+    } catch (_) {}
+  };
+  for (const match of active.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)) add(match[1]);
+  for (const match of active.matchAll(/<link\b[^>]*\brel="stylesheet"[^>]*\bhref="([^"]+)"/gi)) add(match[1]);
+  return [...urls];
+}
+
+/** Best effort: keep the app shell and its scripts so the next reload works offline. */
+async function precacheAppShell() {
+  try {
+    const cache = await caches.open(STATIC_CACHE);
+    const shellUrl = new URL("./", self.registration?.scope || self.location.origin).href;
+    const response = await fetch(shellUrl, { cache: "no-cache", credentials: "same-origin" });
+    if (!response.ok || response.redirected) return;
+    await cache.put(navigationCacheKey(shellUrl), response.clone());
+    const html = await response.text();
+    await Promise.all(shellAssetUrls(html, shellUrl).map(async href => {
+      try {
+        if (await cache.match(href)) return;
+        const url = new URL(href);
+        const request = url.origin === self.location.origin ? new Request(href) : new Request(href, { mode: "no-cors" });
+        const assetResponse = await fetch(request);
+        if (canStoreResponse(assetResponse) || isStorableOpaqueCdnResponse(assetResponse, url)) await cache.put(href, assetResponse);
+      } catch (_) {}
+    }));
+  } catch (_) {}
+}
+
 self.addEventListener("install", event => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil((async () => {
+    await precacheAppShell();
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", event => {
@@ -83,10 +133,74 @@ async function networkFirst(request) {
   }
 }
 
+function navigationCacheKey(rawUrl) {
+  const url = new URL(rawUrl);
+  return `${url.origin}${url.pathname}`;
+}
+
+function isStorableOpaqueCdnResponse(response, url) {
+  return !!response && response.type === "opaque" && PINNED_CDN_HOSTS.has(url.hostname);
+}
+
+function isPinnedCdnRequest(request, url) {
+  return request.method === "GET" && url.protocol === "https:" && PINNED_CDN_HOSTS.has(url.hostname) && !request.headers.has("range");
+}
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+  });
+}
+
+/** HTML pages: network first (always fresh when online), cached shell when offline. */
+async function navigationNetworkFirst(event, request) {
+  const cache = await caches.open(STATIC_CACHE);
+  const key = navigationCacheKey(request.url);
+  try {
+    const response = await withTimeout(fetch(request), NAVIGATION_TIMEOUT_MS);
+    if (response.ok && !response.redirected && response.type === "basic") {
+      const copy = response.clone();
+      event.waitUntil(cache.put(key, copy).catch(() => {}));
+    }
+    return response;
+  } catch (error) {
+    const cached = await cache.match(key)
+      || await cache.match(navigationCacheKey(new URL("./", self.registration?.scope || self.location.origin).href));
+    if (cached) return cached;
+    return new Response(OFFLINE_FALLBACK_HTML, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+  }
+}
+
+/** Pinned CDN libraries: network first, cached copy when offline. */
+async function cdnNetworkFirst(event, request, url) {
+  const cache = await caches.open(STATIC_CACHE);
+  try {
+    const response = await fetch(request);
+    if (canStoreResponse(response) || isStorableOpaqueCdnResponse(response, url)) {
+      const copy = response.clone();
+      event.waitUntil(cache.put(request, copy).catch(() => {}));
+    }
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request, { ignoreVary: true });
+    if (cached) return cached;
+    throw error;
+  }
+}
+
 self.addEventListener("fetch", event => {
   const request = event.request;
   let url;
   try { url = new URL(request.url); } catch (_) { return; }
+  if (request.method === "GET" && request.mode === "navigate" && url.origin === self.location.origin) {
+    event.respondWith(navigationNetworkFirst(event, request));
+    return;
+  }
+  if (isPinnedCdnRequest(request, url)) {
+    event.respondWith(cdnNetworkFirst(event, request, url));
+    return;
+  }
   if (!isCacheableStaticRequest(request, url)) return;
 
   // Versioned URLs are immutable from the browser's perspective, so serve them
