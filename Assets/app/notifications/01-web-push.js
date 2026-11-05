@@ -96,7 +96,16 @@
     return safe(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
   }
 
+  // The Windows app hosts the site in Microsoft WebView2, which has no Web Push
+  // service: device notifications can never be delivered there, so the feature
+  // is treated as unavailable (no prompts, no switches). Detection matches the
+  // early check in index.html.
+  function isWindowsApp() {
+    try { return window.TRIPLEM_WINDOWS_APP === true || !!(window.chrome && window.chrome.webview); } catch (_) { return false; }
+  }
+
   function supported() {
+    if (isWindowsApp()) return false;
     return window.isSecureContext
       && "serviceWorker" in navigator
       && "PushManager" in window
@@ -654,6 +663,7 @@
   }
 
   function openPushConsentModal(mode) {
+    if (isWindowsApp()) return;
     const modal = ensurePushConsentModal();
     if (!modal.classList.contains("hide")) return;
     const accountMode = mode === "account";
@@ -1129,6 +1139,7 @@
 
   window.TriplemPush = {
     supported,
+    isWindowsApp,
     enable,
     disable,
     enableVisitorNotifications,
