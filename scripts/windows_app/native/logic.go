@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.6.2"
+	appVersionNative = "3.7.0"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )
@@ -29,6 +29,10 @@ var openTargets = map[string]bool{
 	"notifications": true,
 	"messages":      true,
 	"live-chat":     true,
+	// 3.7
+	"search":      true,
+	"new-invoice": true,
+	"offline":     true,
 }
 
 type launchArgs struct {
@@ -64,7 +68,7 @@ func parseLaunchArgs(args []string) launchArgs {
 			out.Background = true
 		case strings.HasPrefix(strings.ToLower(a), "--open="):
 			t := strings.ToLower(strings.TrimSpace(a[len("--open="):]))
-			if openTargets[t] {
+			if isOpenTarget(t) { // a fixed screen or a recent record (3.7)
 				out.Open = t
 			}
 		case strings.EqualFold(a, "--updated"):
@@ -157,6 +161,11 @@ type bridgeMessage struct {
 	Dark    bool          `json:"dark,omitempty"`
 	Color   string        `json:"color,omitempty"`
 	Channel string        `json:"channel,omitempty"`
+	// 3.7
+	Print   json.RawMessage `json:"print,omitempty"`
+	Recent  []recentRecord  `json:"recent,omitempty"`
+	Online  *bool           `json:"online,omitempty"`
+	Pending int             `json:"pending,omitempty"`
 }
 
 var allowedCommands = map[string]bool{
@@ -165,6 +174,9 @@ var allowedCommands = map[string]bool{
 	// 3.6
 	"update-check": true, "update-install": true, "theme": true, "report": true,
 	"push-open": true, "push-close": true,
+	// 3.7
+	"lock-now": true, "unlock": true, "print-info": true, "print-run": true, "print-pdf": true,
+	"print-system": true, "recent": true, "status": true,
 }
 
 // parseBridgeMessage validates a JSON message from the page. Offline pages
@@ -189,8 +201,14 @@ func parseBridgeMessage(source, raw string) (bridgeMessage, bool) {
 	if m.Count < 0 {
 		m.Count = 0
 	}
-	if m.Target != "" && !openTargets[m.Target] {
+	if m.Target != "" && !isOpenTarget(m.Target) {
 		m.Target = ""
+	}
+	if m.Pending < 0 {
+		m.Pending = 0
+	}
+	if len(m.Recent) > 20 {
+		m.Recent = m.Recent[:20]
 	}
 	m.ID = cleanID(m.ID)
 	m.Actions = sanitizeToastActions(m.Actions)
@@ -258,12 +276,21 @@ type desktopSettings struct {
 	DeviceID       string `json:"deviceId,omitempty"`
 	// 3.6.1: version whose one-time taskbar icon check has run.
 	IconRepairVersion string `json:"iconRepairVersion,omitempty"`
+	// 3.7
+	AppLock         bool     `json:"appLock"`
+	LockMinutes     int      `json:"lockMinutes"`
+	LockHideDetails bool     `json:"lockHideDetails"`
+	TrayBadge       bool     `json:"trayBadge"`
+	SaveMemory      bool     `json:"saveMemory"`
+	RecentJumpList  bool     `json:"recentJumpList"`
+	JumpRemoved     []string `json:"jumpRemoved,omitempty"`
 }
 
 // New keys default to "on" for existing 3.5 settings files too, because
 // decodeSettings starts from these defaults and only overrides stored keys.
 func defaultSettings() desktopSettings {
-	return desktopSettings{Notifications: true, CloseToTray: true, AutoUpdate: true, QuickAddHotkey: true}
+	return desktopSettings{Notifications: true, CloseToTray: true, AutoUpdate: true, QuickAddHotkey: true,
+		LockMinutes: 5, LockHideDetails: true, TrayBadge: true, SaveMemory: true, RecentJumpList: true}
 }
 
 // decodeSettings never fails: unknown or damaged files fall back to defaults,
@@ -278,6 +305,12 @@ func decodeSettings(b []byte) desktopSettings {
 		return defaultSettings()
 	}
 	_ = json.Unmarshal(b, &s)
+	if !validLockMinutes(s.LockMinutes) {
+		s.LockMinutes = 5
+	}
+	if len(s.JumpRemoved) > 50 {
+		s.JumpRemoved = s.JumpRemoved[len(s.JumpRemoved)-50:]
+	}
 	return s
 }
 

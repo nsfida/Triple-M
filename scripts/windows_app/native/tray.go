@@ -72,6 +72,7 @@ const (
 	cmdInventory     = 1009
 	cmdUpdate        = 1010
 	cmdReport        = 1011
+	cmdLockNow       = 1012
 )
 
 var (
@@ -121,6 +122,8 @@ func addTrayIcon() {
 	d.UVersion = NOTIFYICON_VERSION_4
 	procShellNotifyIconW.Call(NIM_SETVERSION, uintptr(unsafe.Pointer(&d)))
 	trayAdded = true
+	refreshTrayIcon()
+	refreshTrayTooltip()
 }
 
 func removeTrayIcon() {
@@ -133,13 +136,7 @@ func removeTrayIcon() {
 }
 
 func updateTrayTooltip() {
-	if !trayAdded {
-		return
-	}
-	d := trayData()
-	d.UFlags = NIF_TIP | NIF_SHOWTIP
-	copyWide(d.SzTip[:], trayTooltip(unreadCount, false))
-	procShellNotifyIconW.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&d)))
+	refreshTrayTooltip()
 }
 
 // showToast displays a native Windows notification. Clicking it opens the
@@ -210,6 +207,10 @@ func showTrayMenu() {
 	add(MF_STRING, cmdNewJournal, "New Journal Entry")
 	add(MF_STRING, cmdReports, "Reports")
 	add(MF_STRING, cmdInventory, "Inventory")
+	if appLockEnabled() && !appLocked {
+		add(MF_SEPARATOR, 0, "")
+		add(MF_STRING, cmdLockNow, "Lock Triplem VIP")
+	}
 	add(MF_SEPARATOR, 0, "")
 	add(MF_STRING|check(settings.Notifications), cmdNotifications, "Windows notifications")
 	add(MF_STRING|check(startWithWindowsEnabled()), cmdStartup, "Start with Windows")
@@ -269,6 +270,8 @@ func handleMenuCommand(cmd uintptr) {
 		}
 	case cmdReport:
 		sendErrorReport()
+	case cmdLockNow:
+		lockApp("tray menu")
 	case cmdQuit:
 		quitApplication()
 	}
@@ -283,6 +286,9 @@ func refreshTrayMenuState() {}
 func setWebVisible(v bool) {
 	if webController == nil {
 		return
+	}
+	if v && appLocked {
+		v = false // nothing of the workspace is rendered while locked
 	}
 	flag := uintptr(0)
 	if v {
@@ -307,6 +313,8 @@ func showMainWindow() {
 		}
 	}
 	windowEverShown = true
+	noteReturn()
+	onWindowShownForMemory()
 	setWebVisible(true)
 	procBringWindowToTop.Call(mainHwnd)
 	if r, _, _ := procSetForegroundWindow.Call(mainHwnd); r == 0 {
@@ -332,6 +340,8 @@ func hideToTray() {
 	}
 	procShowWindow.Call(mainHwnd, SW_HIDE)
 	setWebVisible(false)
+	noteAway()
+	onWindowHiddenForMemory()
 	if pageReady {
 		postToPage(map[string]interface{}{"type": "visibility", "visible": false})
 	}

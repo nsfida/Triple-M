@@ -36,35 +36,70 @@ var (
 	hotkeyUnavailable         bool
 )
 
-// applyQuickAddHotkey registers Ctrl+Alt+Shift+E for "Add expense" while the
-// setting is on. If another program already uses the combination, Windows
-// refuses it and the settings panel says so; nothing else is affected.
+// applyQuickAddHotkey registers the global shortcuts (3.6: Ctrl+Alt+Shift+E
+// for Add Expense; 3.7 adds F for Search and I for New Invoice) while the
+// setting is on. Each is registered on its own: if another program already
+// uses one combination, Windows refuses only that one and the settings panel
+// says which; the others keep working.
 func applyQuickAddHotkey() {
 	defer recoverOptional("shortcut key")
 	if mainHwnd == 0 {
 		return
 	}
 	want := settings.QuickAddHotkey && !safeStart
-	if want && !hotkeyRegistered {
-		r, _, _ := procRegisterHotKey.Call(mainHwnd, quickAddKeyID, MOD_CONTROL|MOD_ALT|MOD_SHIFT|MOD_NOREPEAT, quickAddVKey)
-		hotkeyRegistered = r != 0
-		hotkeyUnavailable = r == 0
-		if r == 0 {
-			startupLog("shortcut key " + quickAddShortcutTxt + " is used by another program")
+	for _, h := range globalHotkeys {
+		on := hotkeysOn[h.ID]
+		switch {
+		case want && !on:
+			r, _, _ := procRegisterHotKey.Call(mainHwnd, h.ID, MOD_CONTROL|MOD_ALT|MOD_SHIFT|MOD_NOREPEAT, uintptr(h.Key))
+			hotkeysOn[h.ID] = r != 0
+			hotkeysBusy[h.ID] = r == 0
+			if r == 0 {
+				startupLog("shortcut key " + h.Label + " is used by another program")
+			}
+		case !want && on:
+			procUnregisterHotKey.Call(mainHwnd, h.ID)
+			hotkeysOn[h.ID] = false
+			hotkeysBusy[h.ID] = false
+		case !want:
+			hotkeysBusy[h.ID] = false
 		}
-	} else if !want && hotkeyRegistered {
-		procUnregisterHotKey.Call(mainHwnd, quickAddKeyID)
-		hotkeyRegistered = false
-		hotkeyUnavailable = false
+	}
+	hotkeyRegistered = hotkeysOn[quickAddKeyID]
+	hotkeyUnavailable = hotkeysBusy[quickAddKeyID]
+}
+
+var (
+	hotkeysOn   = map[uintptr]bool{}
+	hotkeysBusy = map[uintptr]bool{}
+)
+
+func unregisterHotkeys() {
+	for _, h := range globalHotkeys {
+		if hotkeysOn[h.ID] {
+			procUnregisterHotKey.Call(mainHwnd, h.ID)
+			hotkeysOn[h.ID] = false
+		}
 	}
 }
 
+func unavailableHotkeyTargets() []string {
+	out := []string{}
+	for _, h := range globalHotkeys {
+		if hotkeysBusy[h.ID] {
+			out = append(out, h.Target)
+		}
+	}
+	return out
+}
+
 func onHotkey(id uintptr) {
-	if id != quickAddKeyID {
+	target := hotkeyTarget(id)
+	if target == "" {
 		return
 	}
 	showMainWindow()
-	requestOpenTarget("new-expense")
+	requestOpenTarget(target)
 }
 
 // applyWindowBackdrop gives the window the Windows 11 Mica material behind
@@ -84,6 +119,12 @@ func applyTitleBarTheme(dark bool, color string) {
 	var on uint32
 	if dark {
 		on = 1
+	}
+	if dark != themeDark {
+		themeDark = dark
+		if appLocked {
+			invalidateWindow()
+		}
 	}
 	if r, _, _ := procDwmSetWindowAttribute.Call(mainHwnd, dwmUseDarkMode, uintptr(unsafe.Pointer(&on)), 4); !hrOK(r) {
 		procDwmSetWindowAttribute.Call(mainHwnd, dwmUseDarkModeOld, uintptr(unsafe.Pointer(&on)), 4)

@@ -42,7 +42,9 @@ var (
 func desktopInitScript() string {
 	caps := []string{"notifications", "badge", "tray", "jumplist", "saveas", "print", "autostart", "offline", "placement",
 		// 3.6
-		"toasts", "links", "hotkey", "theme", "report", "dragdrop"}
+		"toasts", "links", "hotkey", "theme", "report", "dragdrop",
+		// 3.7
+		"appbar", "applock", "printplus", "recent", "shortcuts", "savememory", "traybadge", "offlineprep"}
 	if updatesSupported() {
 		caps = append(caps, "update")
 	}
@@ -55,6 +57,16 @@ func desktopInitScript() string {
 	if webView4 == 0 {
 		caps = removeString(caps, "saveas")
 	}
+	if webView16 == 0 {
+		caps = removeString(caps, "printplus")
+	}
+	if webView7 != 0 {
+		caps = append(caps, "printpdf")
+	}
+	hotkeys := make([]map[string]string, 0, len(globalHotkeys))
+	for _, h := range globalHotkeys {
+		hotkeys = append(hotkeys, map[string]string{"target": h.Target, "keys": h.Label})
+	}
 	info := map[string]interface{}{
 		"app":      "windows",
 		"version":  appVersionNative,
@@ -62,6 +74,7 @@ func desktopInitScript() string {
 		"packaged": isPackaged(),
 		"caps":     caps,
 		"shortcut": quickAddShortcutTxt,
+		"hotkeys":  hotkeys,
 	}
 	b, _ := json.Marshal(info)
 	return `(function(){try{var d=JSON.parse(` + jsString(string(b)) + `);Object.freeze(d.caps);Object.defineProperty(window,"__TRIPLEM_DESKTOP__",{value:Object.freeze(d),configurable:false,writable:false,enumerable:false});}catch(e){}})();`
@@ -95,6 +108,7 @@ func configureWebView(viewPtr uintptr) {
 	}
 	webView4 = comQuery(viewPtr, &iidCoreWebView2_4)
 	webView16 = comQuery(viewPtr, &iidCoreWebView2_16)
+	webView7 = comQuery(viewPtr, &iidCoreWebView2_7)
 
 	hScriptAdded = newHandler(func(this, hr, id uintptr) uintptr { return 0 })
 	hWebMessage = newHandler(onWebMessage)
@@ -163,11 +177,22 @@ func sendSettingsToPage() {
 		"quickAddHotkey":    settings.QuickAddHotkey,
 		"hotkeyUnavailable": hotkeyUnavailable,
 		"safeStart":         safeStart,
+		// 3.7
+		"hotkeysUnavailable": unavailableHotkeyTargets(),
+		"appLock":            settings.AppLock,
+		"lockMinutes":        settings.LockMinutes,
+		"lockHideDetails":    settings.LockHideDetails,
+		"helloAvailable":     helloAvailable,
+		"locked":             appLocked,
+		"trayBadge":          settings.TrayBadge,
+		"saveMemory":         settings.SaveMemory,
+		"recentJumpList":     settings.RecentJumpList,
+		"canPausePage":       canSuspendPage(true, settings.Notifications, isPackaged(), wnsChannel != 0),
 	})
 }
 
 func requestOpenTarget(target string) {
-	if !openTargets[target] {
+	if !isOpenTarget(target) {
 		return
 	}
 	if pageReady && !offlineShown {
@@ -219,27 +244,68 @@ func handleBridgeMessage(m bridgeMessage) {
 		}
 		sendPushChannelToPage()
 		announceSafeStart()
+		if appLocked {
+			postToPage(map[string]interface{}{"type": "lock-state", "locked": true})
+		}
 	case "badge":
 		updateUnreadBadge(m.Count)
 	case "notify":
 		if !settings.Notifications || nativeDedupe.seen(m.Tag) {
 			return
 		}
-		if isWindowShown() && isForeground() {
+		if isWindowShown() && isForeground() && !appLocked {
 			return // the user is looking at Triplem VIP: the in-app bell is enough
+		}
+		if appLocked && settings.LockHideDetails {
+			// Locked: say that something arrived, not what it says.
+			m.Title = "Triplem VIP"
+			m.Body = "You have a new notification. Unlock Triplem VIP to see it."
+			if m.Target == "messages" {
+				m.Body = "You have a new message. Unlock Triplem VIP to read it."
+			}
+			m.Actions = nil
 		}
 		notify(m)
 	case "settings-get":
 		sendSettingsToPage()
 	case "settings-set":
+		if m.Key == "lockMinutes" {
+			var n int
+			if json.Unmarshal(m.Value, &n) == nil && validLockMinutes(n) {
+				settings.LockMinutes = n
+				saveSettings()
+			}
+			sendSettingsToPage()
+			return
+		}
 		var v bool
 		if json.Unmarshal(m.Value, &v) != nil {
 			return
 		}
 		applySetting(m.Key, v)
 		sendSettingsToPage()
-	case "print":
+	case "print", "print-system":
 		showSystemPrintDialog()
+	case "print-info":
+		sendPrintInfo()
+	case "print-run":
+		runDirectPrint(m.Print)
+	case "print-pdf":
+		runPrintToPdf(m.Print)
+	case "lock-now":
+		lockApp("requested")
+	case "unlock":
+		if m.Kind == "signed-out" {
+			pageSignedOutFromLock()
+		}
+	case "recent":
+		setRecentRecords(m.Recent)
+	case "status":
+		if m.Online != nil {
+			netOnline = *m.Online
+		}
+		netPending = m.Pending
+		refreshTrayTooltip()
 	case "download-open":
 		openDownload(m.ID, false)
 	case "download-show":
@@ -286,6 +352,31 @@ func applySetting(key string, v bool) {
 	case "quickAddHotkey":
 		settings.QuickAddHotkey = v
 		applyQuickAddHotkey()
+	// 3.7
+	case "appLock":
+		// Turning the lock on or off always needs Windows Hello first; the
+		// result arrives as "lock-result" and the setting changes only then.
+		if v != settings.AppLock {
+			if v {
+				requestHello("enable")
+			} else {
+				requestHello("disable")
+			}
+		}
+		return
+	case "lockHideDetails":
+		settings.LockHideDetails = v
+	case "trayBadge":
+		settings.TrayBadge = v
+		refreshTrayIcon()
+	case "saveMemory":
+		settings.SaveMemory = v
+		if !v {
+			onWindowShownForMemory()
+		}
+	case "recentJumpList":
+		settings.RecentJumpList = v
+		refreshJumpListForPrivacy()
 	default:
 		return
 	}

@@ -5,6 +5,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"unsafe"
 )
 
@@ -32,12 +34,16 @@ const (
 
 	cdlSetAppID       = 3
 	cdlBeginList      = 4
+	cdlAppendCategory = 5
 	cdlAddUserTasks   = 7
 	cdlCommitList     = 8
 	cdlDeleteList     = 10
 	cdlAbortList      = 11
 	ocAddObject       = 5
 	slSetArguments    = 11
+	slGetArguments    = 10
+	oaGetCount        = 3
+	oaGetAt           = 4
 	slSetDescription  = 7
 	slSetIconLocation = 17
 	slSetPath         = 20
@@ -77,6 +83,7 @@ func updateUnreadBadge(n int) {
 	}
 	unreadCount = n
 	updateTrayTooltip()
+	refreshTrayIcon()
 	refreshOverlayBadge()
 }
 
@@ -171,7 +178,9 @@ type jumpTask struct{ title, description, target string }
 
 var jumpTasks = []jumpTask{
 	{"New Expense", "Open Triplem VIP and add a new expense", "new-expense"},
+	{"New Invoice", "Open a new sales invoice in Accounting", "new-invoice"},
 	{"New Journal Entry", "Open a new balanced journal entry in Accounting", "new-journal"},
+	{"Search", "Search your Triplem VIP workspace", "search"},
 	{"Reports", "Open Accounting reports", "reports"},
 	{"Inventory", "Open Inventory", "inventory"},
 }
@@ -222,23 +231,25 @@ func buildJumpList() {
 		startupLog("jump list: BeginList failed")
 		return
 	}
+	rememberRemovedJumpItems(removed)
 	releaseCOM(removed)
-	var coll uintptr
-	r, _, _ := procCoCreateInstanceNative.Call(uintptr(unsafe.Pointer(&clsidEnumerableObjectCollection)), 0, CLSCTX_INPROC_SERVER, uintptr(unsafe.Pointer(&iidObjectCollection)), uintptr(unsafe.Pointer(&coll)))
-	if !hrOK(r) || coll == 0 {
-		vcall(list, cdlAbortList)
-		return
-	}
-	defer releaseCOM(coll)
-	for _, t := range jumpTasks {
-		link := newJumpLink(target, icon, t)
-		if link == 0 {
-			continue
+
+	// 3.7: "Recent" category with records opened lately (never while the app
+	// lock is on, and only when the user keeps that option on).
+	if recent := jumpRecentForList(); len(recent) > 0 {
+		if arr := newJumpCollection(target, icon, recent); arr != 0 {
+			if !hrOK(vcall(list, cdlAppendCategory, uintptr(unsafe.Pointer(utf16Ptr("Recent"))), arr)) {
+				// E_ACCESSDENIED: the user turned off recent items in Windows
+				// Settings. The tasks below still work.
+				startupLog("jump list: recent items are turned off in Windows")
+			}
+			releaseCOM(arr)
 		}
-		vcall(coll, ocAddObject, link)
-		releaseCOM(link)
 	}
-	arr := comQuery(coll, &iidObjectArray)
+
+	tasks := make([]jumpTask, len(jumpTasks))
+	copy(tasks, jumpTasks)
+	arr := newJumpCollection(target, icon, tasks)
 	if arr == 0 {
 		vcall(list, cdlAbortList)
 		return
@@ -250,6 +261,124 @@ func buildJumpList() {
 		return
 	}
 	startupLog("jump list ready")
+}
+
+// newJumpCollection returns an IObjectArray of shell links (caller releases).
+func newJumpCollection(target, icon string, items []jumpTask) uintptr {
+	var coll uintptr
+	r, _, _ := procCoCreateInstanceNative.Call(uintptr(unsafe.Pointer(&clsidEnumerableObjectCollection)), 0, CLSCTX_INPROC_SERVER, uintptr(unsafe.Pointer(&iidObjectCollection)), uintptr(unsafe.Pointer(&coll)))
+	if !hrOK(r) || coll == 0 {
+		return 0
+	}
+	defer releaseCOM(coll)
+	for _, t := range items {
+		link := newJumpLink(target, icon, t)
+		if link == 0 {
+			continue
+		}
+		vcall(coll, ocAddObject, link)
+		releaseCOM(link)
+	}
+	return comQuery(coll, &iidObjectArray)
+}
+
+// rememberRemovedJumpItems stores the arguments of Jump List items the user
+// removed, so they are never added again (Windows requires that).
+func rememberRemovedJumpItems(removed uintptr) {
+	if removed == 0 {
+		return
+	}
+	var count uint32
+	if !hrOK(vcall(removed, oaGetCount, uintptr(unsafe.Pointer(&count)))) || count == 0 {
+		return
+	}
+	changed := false
+	for i := uint32(0); i < count && i < 50; i++ {
+		var link uintptr
+		if !hrOK(vcall(removed, oaGetAt, uintptr(i), uintptr(unsafe.Pointer(&iidShellLinkW)), uintptr(unsafe.Pointer(&link)))) || link == 0 {
+			continue
+		}
+		buf := make([]uint16, 512)
+		if hrOK(vcall(link, slGetArguments, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))) {
+			args := syscall.UTF16ToString(buf)
+			if strings.HasPrefix(args, "--open=") && !containsString(settings.JumpRemoved, args) {
+				settings.JumpRemoved = append(settings.JumpRemoved, args)
+				changed = true
+			}
+		}
+		releaseCOM(link)
+	}
+	if changed {
+		if len(settings.JumpRemoved) > 50 {
+			settings.JumpRemoved = settings.JumpRemoved[len(settings.JumpRemoved)-50:]
+		}
+		saveSettings()
+	}
+}
+
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// ---- Recent records (3.7) -----------------------------------------------------------
+
+const jumpListTimerID = 0x549002
+
+var (
+	jumpRecent   []recentRecord
+	jumpBuiltSig = "\x00unbuilt"
+)
+
+func jumpRecentForList() []jumpTask {
+	if !settings.RecentJumpList || appLockEnabled() {
+		return nil
+	}
+	blocked := map[string]bool{}
+	for _, a := range settings.JumpRemoved {
+		blocked[a] = true
+	}
+	out := []jumpTask{}
+	for _, r := range sanitizeRecent(jumpRecent, blocked) {
+		desc := "Open this wallet in Triplem VIP"
+		if r.Kind == "doc" {
+			desc = "Open this document in Triplem VIP"
+		}
+		out = append(out, jumpTask{title: r.Title, description: desc, target: recordTarget(r.Kind, r.ID)})
+	}
+	return out
+}
+
+// setRecentRecords receives the records the page opened lately (most recent
+// first). The Jump List is rebuilt a moment later, and only when it changed.
+func setRecentRecords(list []recentRecord) {
+	jumpRecent = sanitizeRecent(list, nil)
+	procSetTimer.Call(mainHwnd, jumpListTimerID, 1500, 0)
+}
+
+func refreshJumpListForPrivacy() {
+	procSetTimer.Call(mainHwnd, jumpListTimerID, 300, 0)
+}
+
+func onJumpListTimer() {
+	procKillTimer.Call(mainHwnd, jumpListTimerID)
+	if safeStart {
+		return
+	}
+	var recent []recentRecord
+	if settings.RecentJumpList && !appLockEnabled() {
+		recent = jumpRecent
+	}
+	sig := recentSignature(recent)
+	if sig == jumpBuiltSig {
+		return
+	}
+	jumpBuiltSig = sig
+	buildJumpList()
 }
 
 func newJumpLink(target, icon string, t jumpTask) uintptr {

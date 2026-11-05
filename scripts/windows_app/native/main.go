@@ -405,8 +405,10 @@ func controllerCreated(_ uintptr, result uintptr, controllerPtr uintptr) uintptr
 
 	resizeWebView()
 	controller.vtbl.PutIsVisible.Call(controllerPtr, 1)
-	if !isWindowShown() {
-		setWebVisible(false) // started hidden in the tray (Start with Windows)
+	if !isWindowShown() || appLocked {
+		// Started hidden in the tray (Start with Windows), or locked: the
+		// workspace is not rendered until it is shown / unlocked.
+		controller.vtbl.PutIsVisible.Call(controllerPtr, 0)
 	}
 	configureWebView(viewPtr)
 
@@ -457,6 +459,8 @@ const SIZE_MINIMIZED = 1
 
 var wmTaskbarButtonCreated uintptr
 
+var wasMinimized bool
+
 // wndProc runs every window message inside a guard: if one feature hits an
 // unexpected error, it is written to the diagnostic log and the app keeps
 // running instead of closing (3.6.2).
@@ -476,22 +480,57 @@ func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) u
 		resizeWebView()
 		if wParam == SIZE_MINIMIZED {
 			setWebVisible(false) // nothing to render while minimised
+			if !wasMinimized {
+				wasMinimized = true
+				noteAway()
+			}
 		} else if v, _, _ := procIsWindowVisible.Call(hwnd); v != 0 {
+			if wasMinimized {
+				wasMinimized = false
+				noteReturn()
+			}
 			setWebVisible(true)
 		}
+		if appLocked {
+			invalidateWindow()
+		}
 		return 0
+	case WM_PAINT:
+		if appLocked {
+			paintLockScreen(hwnd)
+			return 0
+		}
+	case WM_ERASEBKGND:
+		if appLocked {
+			return 1 // the lock screen paints the whole window
+		}
+	case WM_LBUTTONUP, WM_KEYDOWN, WM_SETCURSOR:
+		if handleLockInput(message, wParam, lParam) {
+			if message == WM_SETCURSOR {
+				return 1
+			}
+			return 0
+		}
+	case WM_WTSSESSION_CHANGE:
+		if wParam == WTS_SESSION_LOCK {
+			lockApp("Windows locked")
+		}
+	case WM_POWERBROADCAST:
+		if wParam == PBT_APMSUSPEND {
+			lockApp("sleep")
+		}
 	case WM_ACTIVATE:
 		// Give keyboard focus back to the page (not just the frame window) when
 		// the window is activated, e.g. after Alt+Tab or reopening it from the
 		// notification area, so typing works without clicking first.
-		if wParam&0xFFFF != WA_INACTIVE && atomic.LoadUint32(&initialized) != 0 && webController != nil {
+		if wParam&0xFFFF != WA_INACTIVE && atomic.LoadUint32(&initialized) != 0 && webController != nil && !appLocked {
 			if ic, _, _ := procIsIconic.Call(hwnd); ic == 0 {
 				focusWebView()
 				return 0 // DefWindowProc would move the focus back to the frame
 			}
 		}
 	case WM_SETFOCUS:
-		if webController != nil && atomic.LoadUint32(&initialized) != 0 {
+		if webController != nil && atomic.LoadUint32(&initialized) != 0 && !appLocked {
 			focusWebView()
 			return 0
 		}
@@ -524,6 +563,27 @@ func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) u
 		}
 		if wParam == iconRepairTimerID {
 			onIconRepairTimer()
+			return 0
+		}
+		switch wParam { // 3.7
+		case helloPollTimerID:
+			pollHello()
+			invalidateWindow()
+			return 0
+		case helloAutoTimerID:
+			onHelloAutoTimer()
+			return 0
+		case lockIdleTimerID:
+			onLockIdleTimer()
+			return 0
+		case helloAvailTimerID:
+			onHelloAvailabilityTimer()
+			return 0
+		case suspendTimerID:
+			onSuspendTimer()
+			return 0
+		case jumpListTimerID:
+			onJumpListTimer()
 			return 0
 		}
 		switch wParam {
@@ -578,9 +638,8 @@ func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) u
 	case WM_DESTROY:
 		procKillTimer.Call(hwnd, backgroundTickTimerID)
 		procKillTimer.Call(hwnd, updateTimerID)
-		if hotkeyRegistered {
-			procUnregisterHotKey.Call(hwnd, quickAddKeyID)
-		}
+		unregisterHotkeys()
+		stopLockMonitoring()
 		removeTrayIcon()
 		clearOverlayBadge()
 		clearWindowIdentity(hwnd)
@@ -589,6 +648,7 @@ func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) u
 	}
 	if wmTaskbarCreated != 0 && uintptr(message) == wmTaskbarCreated {
 		trayAdded = false // Explorer restarted: the icon must be added again
+		trayBadgeFor = -1
 		addTrayIcon()
 		return 0
 	}
@@ -1123,6 +1183,7 @@ func runNativeApp(args launchArgs) {
 	startUpdateSchedule()
 	startCleanRunTimer()
 	scheduleIconRepair()
+	startLockMonitoring()
 	messageLoop()
 
 	// Keep callback vtables and COM pointers alive until the native loop exits.
