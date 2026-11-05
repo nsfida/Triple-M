@@ -2,7 +2,7 @@
 
 > Use Triplem VIP as a native Windows desktop app that loads the live triplem.vip workspace with the same account, data, permissions and web updates.
 
-Reviewed: 2026-11-04
+Reviewed: 2026-11-05
 
 ## Native Windows access
 
@@ -16,6 +16,17 @@ Triplem VIP can be installed as a dedicated Windows application. The installed a
 4. On the Finish page, choose Create Desktop Shortcut, Create Start Menu Icon and Pin on Taskbar, then click Finish.
 
 Pinning is confirmed by Windows itself when Triplem VIP opens, and it requires the Start Menu entry. The app uses the Microsoft Edge WebView2 Runtime included with Windows 11 and most Windows 10 PCs.
+
+## Windows features
+
+These features are part of the Triplem VIP Windows app 3.6. Your account, records and permissions stay exactly the same as on the web.
+
+- **Windows notifications:** Reminders, messages and live chat requests appear in the Windows notification centre. Buttons let you accept or decline a live chat, mark a notification as read or open a reply straight from the notification.
+- **Automatic updates:** The Setup version downloads new app versions in the background, checks their Triplem VIP signature, and installs only when you choose Restart to update. The Microsoft Store version is updated by the Store.
+- **Quick add shortcut:** Press Ctrl+Alt+Shift+E anywhere in Windows to open Add Expense. The shortcut can be switched off in the Windows app settings under the notification bell.
+- **Drag and drop files:** Drop a payment receipt, logo or bank statement onto the app window and it is attached to the upload field of the form that is open.
+- **Tray, taskbar and Jump List:** Triplem VIP can keep running in the notification area, shows the unread count on its taskbar icon and offers New Expense, New Journal Entry, Reports and Inventory from the Jump List.
+- **Error reports and recovery:** If the app closes unexpectedly it recovers on the next start. Create error report prepares a support file with personal details removed; nothing is sent without your choice.
 
 ## Same online workspace
 
