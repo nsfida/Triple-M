@@ -134,8 +134,19 @@ func isPackaged() bool {
 	return r != 15700 // APPMODEL_ERROR_NO_PACKAGE
 }
 
+// setWindowIdentity gives the window the full set of taskbar relaunch
+// properties (command, icon, display name and AppUserModelID). Windows reads
+// them when the user pins the running app, so the pinned button keeps the
+// Triplem VIP icon and starts the right program after the window is closed or
+// hidden in the notification area. Without them a pin made from the running
+// window could fall back to a blank "white page" icon. Store installs get all
+// of this from their package and are left alone.
 func setWindowIdentity(hwnd uintptr) {
 	if isPackaged() {
+		return
+	}
+	defer recoverOptional("window identity")
+	if hwnd == 0 {
 		return
 	}
 	var storePtr uintptr
@@ -151,9 +162,34 @@ func setWindowIdentity(hwnd uintptr) {
 	}
 	// Relaunch properties are deliberately set before AppUserModel.ID. Windows uses
 	// them to preserve the app's own executable and icon when a taskbar pin is made.
-	setWindowProperty(store, 2, `"`+exe+`"`)
-	setWindowProperty(store, 3, exe+",0")
+	cmd, icon, name := relaunchProperties(exe)
+	setWindowProperty(store, 2, cmd)  // System.AppUserModel.RelaunchCommand
+	setWindowProperty(store, 3, icon) // System.AppUserModel.RelaunchIconResource
+	setWindowProperty(store, 4, name) // System.AppUserModel.RelaunchDisplayNameResource
 	setWindowProperty(store, 5, appUserModelID)
+	store.vtbl.Commit.Call(storePtr)
+}
+
+// clearWindowIdentity removes the window properties again before the window
+// is destroyed, as Windows asks for (the property store would otherwise keep
+// the strings until the window handle is reused).
+func clearWindowIdentity(hwnd uintptr) {
+	defer recoverOptional("window identity")
+	if isPackaged() || hwnd == 0 {
+		return
+	}
+	var storePtr uintptr
+	hr, _, _ := procSHGetPropertyStoreForWindow.Call(hwnd, uintptr(unsafe.Pointer(&iidIPropertyStore)), uintptr(unsafe.Pointer(&storePtr)))
+	if int32(hr) < 0 || storePtr == 0 {
+		return
+	}
+	store := (*iPropertyStore)(unsafe.Pointer(storePtr))
+	defer store.vtbl.Release.Call(storePtr)
+	var empty propVariant // VT_EMPTY
+	for _, pid := range []uint32{2, 3, 4, 5} {
+		key := propertyKey{FmtID: appModelFmtID, PID: pid}
+		store.vtbl.SetValue.Call(storePtr, uintptr(unsafe.Pointer(&key)), uintptr(unsafe.Pointer(&empty)))
+	}
 	store.vtbl.Commit.Call(storePtr)
 }
 
@@ -394,6 +430,16 @@ func initCallbacks() {
 	controllerHandlerObject.vtbl = &controllerHandlerVTable
 }
 
+func focusWebView() {
+	if c := webController; c != nil {
+		c.vtbl.MoveFocus.Call(uintptr(unsafe.Pointer(c)), 0) // COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC
+		return
+	}
+	if mainHwnd != 0 {
+		procSetFocus.Call(mainHwnd)
+	}
+}
+
 func resizeWebView() {
 	controller := webController
 	if controller == nil || mainHwnd == 0 {
@@ -422,9 +468,34 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 		}
 		return 0
 	case WM_ACTIVATE:
-		if atomic.LoadUint32(&initialized) != 0 {
-			procSetFocus.Call(hwnd)
+		// Give keyboard focus back to the page (not just the frame window) when
+		// the window is activated, e.g. after Alt+Tab or reopening it from the
+		// notification area, so typing works without clicking first.
+		if wParam&0xFFFF != WA_INACTIVE && atomic.LoadUint32(&initialized) != 0 && webController != nil {
+			if ic, _, _ := procIsIconic.Call(hwnd); ic == 0 {
+				focusWebView()
+				return 0 // DefWindowProc would move the focus back to the frame
+			}
 		}
+	case WM_SETFOCUS:
+		if webController != nil && atomic.LoadUint32(&initialized) != 0 {
+			focusWebView()
+			return 0
+		}
+	case WM_MOVE:
+		// Lets WebView2 place drop-down lists, menus and tooltips correctly
+		// after the window was moved.
+		if c := webController; c != nil {
+			c.vtbl.NotifyParentWindowPositionChanged.Call(uintptr(unsafe.Pointer(c)))
+		}
+	case WM_DPICHANGED:
+		// Per-monitor DPI: take the size Windows suggests for the new monitor's
+		// scaling, otherwise the window keeps the wrong size after it is
+		// dragged between monitors with different scaling.
+		if r := (*rect)(unsafe.Pointer(lParam)); r != nil {
+			procSetWindowPos.Call(hwnd, 0, uintptr(r.Left), uintptr(r.Top), uintptr(r.Right-r.Left), uintptr(r.Bottom-r.Top), SWP_NOZORDER|SWP_NOACTIVATE)
+		}
+		return 0
 	case WM_TIMER:
 		if wParam == pinStartTimerID {
 			promptTaskbarPinRequest()
@@ -436,6 +507,10 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 		}
 		if wParam == backgroundTickTimerID {
 			backgroundTick()
+			return 0
+		}
+		if wParam == iconRepairTimerID {
+			onIconRepairTimer()
 			return 0
 		}
 		switch wParam {
@@ -495,6 +570,7 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 		}
 		removeTrayIcon()
 		clearOverlayBadge()
+		clearWindowIdentity(hwnd)
 		procPostQuitMessage.Call(0)
 		return 0
 	}
@@ -518,20 +594,45 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 }
 
 func loadAppIcon() uintptr {
+	return loadAppIconSize(0)
+}
+
+// loadAppIconSize loads icon resource 1 (embedded at build time) at exactly
+// size x size pixels, so Windows picks the matching image instead of scaling
+// the 32 px one (sharp title bar, taskbar and notification-area icons).
+// size 0 means the system's default large icon size.
+func loadAppIconSize(size int) uintptr {
 	hInstance, _, _ := procGetModuleHandleW.Call(0)
-	// The installer writes icon resource ID 1 into the installed executable. Loading
-	// it from the module keeps the running and pinned taskbar identities identical.
-	if h, _, _ := procLoadImageW.Call(hInstance, 1, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE); h != 0 {
+	flags := uintptr(0)
+	if size <= 0 {
+		size, flags = 0, LR_DEFAULTSIZE
+	}
+	if h, _, _ := procLoadImageW.Call(hInstance, 1, IMAGE_ICON, uintptr(size), uintptr(size), flags); h != 0 {
 		return h
 	}
+	if size != 0 {
+		return loadAppIconSize(0)
+	}
 	return 0
+}
+
+func systemIconSize(metric uintptr, fallback int) int {
+	n, _, _ := procGetSystemMetrics.Call(metric)
+	if int(n) < 16 || int(n) > 256 {
+		return fallback
+	}
+	return int(n)
 }
 
 func createMainWindow() bool {
 	hInstance, _, _ := procGetModuleHandleW.Call(0)
 	className := utf16Ptr("TriplemVIP.NativeWindow")
 	title := utf16Ptr("Triplem VIP")
-	icon := loadAppIcon()
+	icon := loadAppIconSize(systemIconSize(SM_CXICON, 32))
+	smallIcon := loadAppIconSize(systemIconSize(SM_CXSMICON, 16))
+	if smallIcon == 0 {
+		smallIcon = icon
+	}
 	cursor, _, _ := procLoadCursorW.Call(0, IDC_ARROW)
 
 	wc := wndClassExW{
@@ -542,7 +643,7 @@ func createMainWindow() bool {
 		HIcon:         syscall.Handle(icon),
 		HCursor:       syscall.Handle(cursor),
 		LpszClassName: className,
-		HIconSm:       syscall.Handle(icon),
+		HIconSm:       syscall.Handle(smallIcon),
 	}
 	atom, _, _ := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
 	if atom == 0 {
@@ -566,7 +667,7 @@ func createMainWindow() bool {
 	// Avoid property-store COM calls here so the native window can never fail silently before it is shown.
 	if icon != 0 {
 		procSendMessageW.Call(hwnd, WM_SETICON, ICON_BIG, icon)
-		procSendMessageW.Call(hwnd, WM_SETICON, ICON_SMALL, icon)
+		procSendMessageW.Call(hwnd, WM_SETICON, ICON_SMALL, smallIcon)
 	}
 	initialShowCmd = applyInitialPlacement(hwnd)
 	if backgroundLaunched {
@@ -982,6 +1083,11 @@ func runNativeApp(args launchArgs) {
 		return
 	}
 	startupLog("native window created")
+	// Taskbar relaunch identity (3.6.1). Deliberately applied only after the
+	// window exists and is shown: a property-store problem can then never stop
+	// the window from appearing. Windows reads these values when the user pins
+	// the button, so the pin keeps the app icon after the window is closed.
+	setWindowIdentity(mainHwnd)
 	applyWindowBackdrop(mainHwnd)
 	registerAppIdentity()
 	initToasts()
@@ -999,6 +1105,7 @@ func runNativeApp(args launchArgs) {
 	}
 	startUpdateSchedule()
 	startCleanRunTimer()
+	scheduleIconRepair()
 	messageLoop()
 
 	// Keep callback vtables and COM pointers alive until the native loop exits.

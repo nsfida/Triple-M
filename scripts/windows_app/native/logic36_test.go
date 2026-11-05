@@ -194,7 +194,7 @@ func TestVersionNewer(t *testing.T) {
 	if !versionNewer("3.6.1", "3.6.0") || !versionNewer("3.10.0", "3.9.9") || versionNewer("3.6.0", "3.6.0") || versionNewer("3.5.9", "3.6.0") {
 		t.Fatal("version comparison")
 	}
-	if !versionNewer("3.6.0", appVersionNative) && appVersionNative != "3.6.0" {
+	if versionNewer("3.6.0", appVersionNative) {
 		t.Fatal("app version")
 	}
 }

@@ -220,6 +220,7 @@ const CANONICAL_MIGRATION_FILES = [
   "202_session_validation_write_reduction.sql",
   "203_aziz_detailed_answer_length.sql",
   "204_windows_store_push_channels.sql",
+  "205_user_backup_restore.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

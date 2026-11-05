@@ -14,6 +14,7 @@ var (
 	procPostMessageW               = user32.NewProc("PostMessageW")
 	procIsWindowVisible            = user32.NewProc("IsWindowVisible")
 	procIsIconic                   = user32.NewProc("IsIconic")
+	procSetWindowPos               = user32.NewProc("SetWindowPos")
 	procGetWindowPlacement         = user32.NewProc("GetWindowPlacement")
 	procSetWindowPlacement         = user32.NewProc("SetWindowPlacement")
 	procEnumDisplayMonitors        = user32.NewProc("EnumDisplayMonitors")
@@ -81,6 +82,14 @@ const (
 	SW_SHOWMINNOACTIVE = 7
 
 	SM_CXSMICON = 49
+	SM_CXICON   = 11
+
+	WA_INACTIVE    = 0
+	WM_MOVE        = 0x0003
+	WM_SETFOCUS    = 0x0007
+	WM_DPICHANGED  = 0x02E0
+	SWP_NOZORDER   = 0x0004
+	SWP_NOACTIVATE = 0x0010
 
 	MONITOR_DEFAULTTONEAREST = 2
 	ERROR_ALREADY_EXISTS     = 183

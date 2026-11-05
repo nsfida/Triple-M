@@ -39,7 +39,11 @@ def parse_ico(path: Path):
         width,height,color,res,planes,bits,size,dataoff=struct.unpack_from('<BBBBHHII', b, off)
         data=b[dataoff:dataoff+size]
         if len(data)!=size: raise ValueError('truncated ICO image')
-        imgs.append((width,height,color,res,planes,bits,data))
+        # Small sizes must be classic bitmaps: PNG is only reliable at 256 px
+        # everywhere in the Windows shell (pinned taskbar items, icon cache).
+        if data[:8]==b'\x89PNG\r\n\x1a\n' and width!=0:
+            raise ValueError(f'{width}px icon image is PNG; run make_classic_ico.py')
+        imgs.append((width,height,color,res,planes or 1,bits or 32,data))
     return imgs
 
 def group_icon(imgs):

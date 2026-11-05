@@ -24,6 +24,7 @@ const PUBLIC_TEST_FILES = [
   "tests/offline-sync-behaviour.test.js",
   "tests/windows-installer-glass.test.js", "tests/windows-desktop-app.test.js", "tests/windows-desktop-36.test.js",
   "tests/seo-quality.test.js",
+  "tests/user-backup-restore.test.js",
   "tests/public-repository.test.js"
 ];
 

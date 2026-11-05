@@ -17,7 +17,7 @@ const native = () => fs.readdirSync(path.join(root, nativeDir)).filter(f => f.en
 
 test("updates are only installed from a signed manifest and a matching SHA-256", { skip: skipNative }, () => {
   const src = native();
-  assert.match(src, /appVersionNative = "3\.6\.0"/);
+  assert.match(src, /appVersionNative = "3\.6\.1"/);
   assert.match(src, /ed25519\.Verify\(pub, payload, sig\)/);
   assert.match(src, /updatePublicKeyB64 = "[A-Za-z0-9+/]{43}="/);
   assert.match(src, /strings\.HasPrefix\(m\.URL, updateDownloadPrefix\)/);
@@ -74,7 +74,7 @@ test("Store push: strict COM handler, cancelled while running, closed on sign-ou
   assert.match(src, /case "push-close":\s*closePushChannel\(\)/);
   assert.match(src, /if !isPackaged\(\) \|\| safeStart \|\| wnsOperation != 0 \{/);
   const manifest = text("scripts/windows_app/msix/AppxManifest.xml");
-  assert.match(manifest, /Version="3\.6\.0\.0"/);
+  assert.match(manifest, /Version="3\.6\.1\.0"/);
   assert.match(manifest, /<uap3:Protocol Name="triplemvip" Parameters="--link &quot;%1&quot;">/);
 });
 
@@ -122,4 +122,44 @@ test("page side: buttons reuse existing actions, no direct database calls in the
   assert.match(push, /Date\.now\(\) - Number\(last\.at \|\| 0\) < DAY/, "at most one registration write per device per day");
   assert.match(text("Assets/app/messaging/01-messaging.js"), /document\.addEventListener\("triplem:notification-mark-read"/);
   assert.match(text("Assets/app/auth/02-auth-welcome-trial.js"), /window\.TriplemDesktop\?\.beforeLogout\?\.\(\)/);
+});
+
+// 3.6.1: the pinned taskbar button keeps the app icon when the window is
+// closed to the notification area (no blank "white page" icon).
+test("3.6.1 pinned taskbar icon: relaunch identity, icon repair and classic icon images", { skip: skipNative }, () => {
+  const src = native();
+  // Full relaunch identity (command, icon, display name, app ID) before the window is shown.
+  assert.match(src, /setWindowProperty\(store, 2, cmd\)/);
+  assert.match(src, /setWindowProperty\(store, 3, icon\)/);
+  assert.match(src, /setWindowProperty\(store, 4, name\)/);
+  const run = src.slice(src.indexOf("func runNativeApp("));
+  assert.ok(run.indexOf("setWindowIdentity(mainHwnd)") > run.indexOf("createMainWindow()"), "identity is applied once the window exists and is shown");
+  assert.match(src, /clearWindowIdentity\(hwnd\)/);
+  // Repair touches only this app's own shortcuts, once per version.
+  assert.match(src, /pinnedLinkFix\(info, exe, appUserModelID\)/);
+  assert.match(src, /iconRepairDue\(settings\.IconRepairVersion, appVersionNative\)/);
+  assert.match(src, /SHCNE_ASSOCCHANGED/);
+  // Sharp icons at the real sizes for the title bar, taskbar and notification area.
+  assert.match(src, /loadAppIconSize\(systemIconSize\(SM_CXSMICON, 16\)\)/);
+  // Window behaviour fixes.
+  assert.match(src, /NotifyParentWindowPositionChanged\.Call/);
+  assert.match(src, /case WM_DPICHANGED:/);
+  assert.match(src, /MoveFocus\.Call/);
+});
+
+test("3.6.1 app icon: classic bitmaps below 256 px (PNG only at 256 px)", { skip: has("scripts/windows_app/assets/TriplemVIP.ico") ? false : "icon source not present" }, () => {
+  const b = fs.readFileSync(path.join(root, "scripts/windows_app/assets/TriplemVIP.ico"));
+  const count = b.readUInt16LE(4);
+  const sizes = [];
+  for (let i = 0; i < count; i += 1) {
+    const e = 6 + i * 16;
+    const w = b[e] || 256;
+    const planes = b.readUInt16LE(e + 4);
+    const off = b.readUInt32LE(e + 12);
+    const isPng = b.slice(off, off + 8).equals(Buffer.from("89504e470d0a1a0a", "hex"));
+    assert.equal(planes, 1, `${w}px entry has planes=1`);
+    assert.equal(isPng, w === 256, `${w}px entry is ${w === 256 ? "PNG" : "a classic bitmap"}`);
+    sizes.push(w);
+  }
+  for (const s of [16, 20, 24, 32, 40, 48, 256]) assert.ok(sizes.includes(s), `icon has ${s}px`);
 });

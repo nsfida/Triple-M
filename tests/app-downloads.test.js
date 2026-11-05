@@ -73,7 +73,7 @@ test("Windows download is wired into landing and authenticated account UI", () =
   assert.match(html, /data-app-platform="android"/);
   assert.match(html, /data-app-platform="ios"/);
   assert.match(html, /data-app-platform="windows"/);
-  assert.match(html, /Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=20261105-desktop360/);
+  assert.match(html, /Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=20261105-desktop361/);
   assert.match(html, /Accept the license, choose the installation folder/);
   assert.match(html, /approve the Windows confirmation after first launch/);
   assert.match(html, /Assets\/app\/ui\/04-app-downloads\.js/);
@@ -102,8 +102,10 @@ test("native app is a separate WebView2 client with durable Triplem VIP taskbar 
   assert.match(source, /SetCurrentProcessExplicitAppUserModelID/);
   assert.match(source, /TriplemVIP\.Desktop/);
   assert.match(source, /SHGetPropertyStoreForWindow/);
-  assert.match(source, /setWindowProperty\(store, 3, exe\+",0"\)/);
-  assert.doesNotMatch(source, /setWindowIdentity\(hwnd\)/, "window property-store COM must not run before the native window is shown");
+  // 3.6.1: full relaunch identity, applied only after the window was created and shown.
+  assert.match(source, /setWindowProperty\(store, 3, icon\)/);
+  assert.doesNotMatch(source.slice(source.indexOf("func createMainWindow()"), source.indexOf("var initialShowCmd")), /setWindowIdentity\(/, "window property-store COM must not run before the native window is shown");
+  assert.ok(source.indexOf('startupLog("native window created")') < source.indexOf("setWindowIdentity(mainHwnd)"), "identity is applied after the window was shown");
   assert.match(source, /LoadLibraryExW/);
   assert.match(source, /LOAD_WITH_ALTERED_SEARCH_PATH/);
   assert.match(source, /TriplemVIP\.log/);

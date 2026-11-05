@@ -77,6 +77,7 @@ const (
 var (
 	trayAdded          bool
 	trayIcon           uintptr
+	balloonIcon        uintptr
 	toastTarget        string
 	unreadCount        int
 	wmTaskbarCreated   uintptr
@@ -103,7 +104,9 @@ func addTrayIcon() {
 		return
 	}
 	if trayIcon == 0 {
-		trayIcon = loadAppIcon()
+		// The notification area shows small icons: load the matching size
+		// rather than shrinking the 32 px image.
+		trayIcon = loadAppIconSize(systemIconSize(SM_CXSMICON, 16))
 	}
 	d := trayData()
 	d.UFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP
@@ -160,7 +163,10 @@ func showToast(title, body, target string) {
 	copyWide(d.SzInfoTitle[:], title)
 	copyWide(d.SzInfo[:], body)
 	d.DwInfoFlags = NIIF_USER | NIIF_LARGE | NIIF_QUIET
-	d.HBalloonIcon = trayIcon
+	if balloonIcon == 0 {
+		balloonIcon = loadAppIcon() // NIIF_LARGE uses the large icon size
+	}
+	d.HBalloonIcon = balloonIcon
 	if r, _, _ := procShellNotifyIconW.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&d))); r != 0 {
 		toastTarget = target
 	}

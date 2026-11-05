@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.6.0"
+	appVersionNative = "3.6.1"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )
@@ -256,6 +256,8 @@ type desktopSettings struct {
 	AutoUpdate     bool   `json:"autoUpdate"`
 	QuickAddHotkey bool   `json:"quickAddHotkey"`
 	DeviceID       string `json:"deviceId,omitempty"`
+	// 3.6.1: version whose one-time taskbar icon check has run.
+	IconRepairVersion string `json:"iconRepairVersion,omitempty"`
 }
 
 // New keys default to "on" for existing 3.5 settings files too, because

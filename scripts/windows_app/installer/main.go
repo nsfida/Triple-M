@@ -157,7 +157,7 @@ func pinRequestFile() string {
 // modify Windows security settings.
 
 const (
-	appVersion = "3.6.0"
+	appVersion = "3.6.1"
 
 	setupWidth  = 760
 	setupHeight = 548
@@ -278,6 +278,7 @@ var (
 	procSHBrowseForFolderW   = shell32.NewProc("SHBrowseForFolderW")
 	procSHGetPathFromIDListW = shell32.NewProc("SHGetPathFromIDListW")
 	procSHGetKnownFolderPath = shell32.NewProc("SHGetKnownFolderPath")
+	procSHChangeNotify       = shell32.NewProc("SHChangeNotify")
 	procCoTaskMemFree        = ole32.NewProc("CoTaskMemFree")
 
 	procCreateFontW      = gdi32.NewProc("CreateFontW")
@@ -873,6 +874,11 @@ func installCore(dest string, progress func(int, string)) (string, error) {
 	progress(100, "Installation complete.")
 	setupInstalledExe = exePath
 	setupInstallOK = true
+	// Tell Explorer the program file changed so taskbar pins and shortcuts
+	// draw the new icon instead of an older cached (possibly blank) one.
+	if p, err := syscall.UTF16PtrFromString(exePath); err == nil {
+		procSHChangeNotify.Call(0x00002000, 0x0005|0x3000, uintptr(unsafe.Pointer(p)), 0) // SHCNE_UPDATEITEM, SHCNF_PATHW|SHCNF_FLUSHNOWAIT
+	}
 	setupLog("installation completed successfully")
 	return exePath, nil
 }
