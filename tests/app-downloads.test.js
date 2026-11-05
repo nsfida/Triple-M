@@ -47,6 +47,25 @@ function peInfo(data){
   return { sizeOfImage, resourceRva, resourceSize, sections: parsed };
 }
 
+
+// 3.6+: the signed update manifest must describe exactly this Setup file
+// (catches a stale or mismatched upload before installed apps see it).
+function assertSignedUpdateManifest(root) {
+  const crypto = require("node:crypto");
+  const dir = path.join(root, "Assets/mobile_app/Windows");
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, "latest.json"), "utf8"));
+  const payload = Buffer.from(manifest.payload, "base64");
+  const raw = Buffer.from("m/6uGYB8uwv1/UNlYLAku4mrfXL1Pf02T2DOz5dBWaM=", "base64");
+  const key = crypto.createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), raw]), format: "der", type: "spki" });
+  assert.ok(crypto.verify(null, payload, key, Buffer.from(manifest.signature, "base64")), "latest.json must be signed with the Triplem VIP update key");
+  const info = JSON.parse(payload.toString("utf8"));
+  const setup = fs.readFileSync(path.join(dir, "TriplemVIP_Setup.exe"));
+  assert.equal(info.product, "triplem-vip-windows");
+  assert.equal(info.size, setup.length, "latest.json size must match the uploaded TriplemVIP_Setup.exe");
+  assert.equal(info.sha256, crypto.createHash("sha256").update(setup).digest("hex"), "latest.json must match the uploaded TriplemVIP_Setup.exe");
+  assert.match(info.url, /^https:\/\/triplem\.vip\/Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=/);
+}
+
 test("Windows download is wired into landing and authenticated account UI", () => {
   const html = text("index.html");
   assert.match(html, /id="windowsDownloadBtn"/);
@@ -54,7 +73,7 @@ test("Windows download is wired into landing and authenticated account UI", () =
   assert.match(html, /data-app-platform="android"/);
   assert.match(html, /data-app-platform="ios"/);
   assert.match(html, /data-app-platform="windows"/);
-  assert.match(html, /Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=20261105-desktop351/);
+  assert.match(html, /Assets\/mobile_app\/Windows\/TriplemVIP_Setup\.exe\?v=20261105-desktop360/);
   assert.match(html, /Accept the license, choose the installation folder/);
   assert.match(html, /approve the Windows confirmation after first launch/);
   assert.match(html, /Assets\/app\/ui\/04-app-downloads\.js/);
@@ -62,7 +81,8 @@ test("Windows download is wired into landing and authenticated account UI", () =
 
 test("Windows website package is exactly one all-in-one setup executable", () => {
   const dir = path.join(root, "Assets/mobile_app/Windows");
-  assert.deepEqual(fs.readdirSync(dir).sort(), ["TriplemVIP_Setup.exe"]);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ["TriplemVIP_Setup.exe", "latest.json"]);
+  assertSignedUpdateManifest(root);
   const data = read("Assets/mobile_app/Windows/TriplemVIP_Setup.exe");
   assert.ok(data.length > 1000000, "setup should be a complete native x64 executable");
   const pe = peInfo(data);
