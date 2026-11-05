@@ -69,7 +69,7 @@
   <section id="paneR">
     <div class="section-heading"><div><h2>Runner registrations</h2><p>Find a runner, review registration status, and manage forms or documents.</p></div></div>
     <div class="bar admin-search"><input type="search" id="adminQ" placeholder="Search name, registration no., CNIC or mobile" aria-label="Search registrations"></div>
-    <div class="tools"><button class="btn alt sm" id="dlSel">Download selected PDF</button><button class="btn sm" id="dlAll">Download all PDF</button></div>
+    <div class="tools"><button class="btn alt sm" id="dlSel">Download selected PDF</button><button class="btn sm" id="dlAll">Download all PDF</button><button class="btn sm owner-only" id="dlFullReg" hidden title="Export all registration forms with CNIC photos — nsfida only">⬇ Full registration PDF</button></div>
     <p class="msg" id="info" aria-live="polite">Loading…</p>
     <div class="tw"><table class="rt"><thead><tr><th><input type="checkbox" id="selAll" aria-label="Select all"></th><th></th><th>Reg No</th><th>Name</th><th>Age</th><th>CNIC</th><th>Mobile</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tb"></tbody></table></div>
   </section>
@@ -108,7 +108,7 @@
   
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="../js/config.js"></script><script src="../js/common.js?v=20261101-1"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js"></script><script src="../js/image-optimization.js?v=20261031-1"></script><script src="../js/admin-tools.js?v=20261031-1"></script>
+<script src="../js/config.js"></script><script src="../js/common.js?v=20261105-5"></script><script src="../js/admin-accounts.js?v=20261031-1"></script><script src="../js/storage-tools.js?v=20261031-1"></script><script src="../js/backup-tools.js?v=20261101-1"></script><script src="../js/registration-ui.js?v=20261105-5"></script><script src="../js/image-optimization.js?v=20261031-1"></script><script src="../js/admin-tools.js?v=20261031-1"></script><script src="../js/admin-full-registration-pdf.js?v=20261105-1"></script>
 <script>
 const $ = id => document.getElementById(id), C = KMR;
 let rows = [], funds = [], expenses = [], user = "";
@@ -142,6 +142,9 @@ function show(u) {
   $("login").hidden = !!u; $("app").hidden = !u;
   if (!u) { rows = []; funds = []; expenses = []; selectedIds.clear(); KMRUI.hideLoading(); return $("u").focus(); }
   applyAdminFeatureAccess(perms);
+  // nsfida-only: show / hide the full-registration PDF export button
+  const isOwner = perms.is_owner === true;
+  $("dlFullReg").hidden = !isOwner;
   const ownerFunds = perms.can_funds === true;
   if (perms.can_registrations || ownerFunds) KMRAdmin.init();
   if (perms.can_registrations) load(); else { rows = []; $("tb").innerHTML = ""; }
@@ -200,6 +203,7 @@ $("selAll").onchange = e => {
   syncSelectAll();
 };
 $("dlAll").onclick = e => rows.length ? KMRAdmin.pdf(rows, "Khawrai-S3-all-registrations.pdf", e.target) : say("Nothing to download yet.", true);
+$("dlFullReg").onclick = e => { if (window.KMRFullRegPDF) KMRFullRegPDF.download(e.currentTarget); };
 $("dlSel").onclick = e => {
   const ids = [...selectedIds];
   ids.length ? KMRAdmin.pdf(rows.filter(r => ids.includes(r.id)), "Khawrai-S3-selected-registrations.pdf", e.target) : say("Tick at least one registration first.", true);

@@ -3,11 +3,35 @@
 
   // Display-only deadline helper. The same cutoff is also enforced by the Supabase
   // submit_registration function and storage INSERT policies in migration 20261028_005.
-  const registrationCutoff = Date.parse(C.REGISTRATION_CUTOFF || "2026-11-06T00:00:00+05:00");
+  //
+  // IMPORTANT — time-zone safety:
+  //   • Date.now() always returns UTC milliseconds, unaffected by the device's local
+  //     timezone setting. The cutoff is stored as an ISO-8601 string with an explicit
+  //     +05:00 offset (PKT = Asia/Karachi, no DST), so Date.parse produces the
+  //     correct UTC epoch regardless of which timezone the visitor's device is set to.
+  //   • The countdown therefore always counts down to 11:59:59 PM Pakistan Standard
+  //     Time, even when the device is set to Dubai, UTC, or any other zone.
+  const _rawCutoff = C.REGISTRATION_CUTOFF || "2026-11-05T23:59:59+05:00";
+  const registrationCutoff = Date.parse(_rawCutoff);
+  // Sanity-check: if the browser somehow NaN'd the parse, fall back to hardcoded UTC.
+  // 2026-11-05T23:59:59+05:00 = 2026-11-05T18:59:59Z = 1762873199000 ms
+  const _cutoffMs = isNaN(registrationCutoff) ? 1762873199000 : registrationCutoff;
   window.KMRRegistration = {
-    cutoffMs: registrationCutoff,
-    isOpen() { return Date.now() < registrationCutoff; },
-    remainingMs() { return Math.max(0, registrationCutoff - Date.now()); }
+    cutoffMs: _cutoffMs,
+    // Returns true only while the PKT deadline has not passed.
+    isOpen() { return Date.now() < _cutoffMs; },
+    // Milliseconds remaining until PKT deadline (0 once passed).
+    remainingMs() { return Math.max(0, _cutoffMs - Date.now()); },
+    // Human-readable PKT time string for display (e.g. "11:59 PM PKT").
+    cutoffPKT() {
+      try {
+        return new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Karachi',
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true
+        }).format(new Date(_cutoffMs)) + ' PKT';
+      } catch (_) { return '11:59 PM PKT, 05 Nov 2026'; }
+    }
   };
 
   // ---- Persistent, shared login -------------------------------------------------

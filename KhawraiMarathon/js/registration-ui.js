@@ -8,8 +8,12 @@
   const registration = window.KMRRegistration;
   if (!registration || !document.body) return;
 
-  const OPEN_COPY = "REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME · REGISTER BEFORE THE DEADLINE";
+  const OPEN_COPY = "REGISTRATION DEADLINE: 05 NOVEMBER 2026 · 11:59 PM PAKISTAN STANDARD TIME (PKT) · REGISTER BEFORE THE DEADLINE";
   const CLOSED_COPY = "REGISTRATION HAS ENDED · ONLINE PLAYER REGISTRATION IS CLOSED · THANK YOU FOR YOUR INTEREST";
+  // PKT deadline label — derived from KMRRegistration so it always matches config.js.
+  const DEADLINE_LABEL = (window.KMRRegistration && window.KMRRegistration.cutoffPKT)
+    ? window.KMRRegistration.cutoffPKT()
+    : "11:59 PM PKT, 05 November 2026";
   const originalLinkState = new Map();
   let isVerifiedAdmin = false;
   let navigationRegisterLink = null;
@@ -161,7 +165,7 @@
     if (noticeClosedTrack) noticeClosedTrack.hidden = open;
     if (noticeAccessible) {
       noticeAccessible.textContent = open
-        ? "Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time."
+        ? "Registration closes on 05 November 2026 at 11:59 PM Pakistan Standard Time (PKT)."
         : "Registration has ended. Online player registration is closed.";
     }
   }
@@ -169,12 +173,19 @@
   function updateCountdown() {
     if (!countdownNode) return;
     const remaining = registration.remainingMs();
+    if (remaining <= 0) {
+      // Deadline passed — hide countdown, let applyRegistrationState handle the locked UI.
+      countdownNode.hidden = true;
+      return;
+    }
     const days = Math.floor(remaining / 86400000);
     const hours = Math.floor((remaining % 86400000) / 3600000);
     const minutes = Math.floor((remaining % 3600000) / 60000);
     const seconds = Math.floor((remaining % 60000) / 1000);
     const pad = n => String(n).padStart(2, "0");
-    countdownNode.textContent = `CLOSES IN ${days}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S`;
+    // Always computed from UTC Date.now() vs UTC cutoff — correct regardless of device timezone.
+    countdownNode.textContent = `CLOSES IN ${days}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S (PKT)`;
+    countdownNode.hidden = false;
   }
 
   function restoreNavigationLink() {
