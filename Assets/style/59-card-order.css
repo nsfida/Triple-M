@@ -1,0 +1,88 @@
+/* Your own card order: long-press a card to move it (same feel as wallets).
+   Used by Triplem VIP Home (section cards) and the Detailed Dashboard. */
+.card-order-reorderable{
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+.dashboard-hero-card.card-order-reorderable,
+.dashboard-block.card-order-reorderable{
+  transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+.card-order-pressing{
+  transform:scale(.985) !important;
+}
+.card-order-reordering,
+.card-order-press-armed,
+html.card-order-drag-lock,
+html.card-order-drag-lock body,
+html.card-order-drag-lock *{
+  user-select:none !important;
+  -webkit-user-select:none !important;
+  -webkit-touch-callout:none !important;
+}
+html.card-order-drag-lock,
+html.card-order-drag-lock body{
+  touch-action:none !important;
+  overscroll-behavior:none !important;
+}
+.card-order-reordering{
+  touch-action:none !important;
+}
+.card-order-reordering .card-order-reorderable{
+  cursor:grabbing;
+  transition:none !important;
+}
+/* Cards that were moved never replay their entrance animation. */
+.card-order-settled > .workspace-home-card{
+  animation:none !important;
+}
+.card-order-reordering .workspace-home-card:hover,
+.card-order-reordering .workspace-home-card:focus-visible{
+  transform:none;
+}
+.card-order-source{
+  opacity:.45;
+  transform:scale(.98) !important;
+}
+.card-order-target{
+  outline:2px dashed color-mix(in srgb, var(--primary, #2457d6) 55%, transparent);
+  outline-offset:2px;
+}
+.card-order-ghost{
+  position:fixed !important;
+  z-index:9999;
+  pointer-events:none;
+  opacity:.94;
+  margin:0 !important;
+  box-shadow:0 14px 32px rgba(15,23,42,.24);
+  transform:scale(1.03);
+  user-select:none !important;
+  -webkit-user-select:none !important;
+}
+.card-order-ghost-compact{
+  padding:12px 16px;
+  border-radius:14px;
+  border:1px solid var(--line, rgba(148,163,184,.3));
+  background:var(--surface-elevated, #fff);
+  color:var(--text, #17212b);
+}
+.card-order-ghost-compact h4{
+  margin:0;
+  font-size:.95rem;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.card-order-ghost-compact h4 i{
+  color:var(--primary, #2457d6);
+}
+.dashboard-section-switch-btn.card-order-ghost{
+  width:auto !important;
+  height:auto !important;
+}
+@media (prefers-reduced-motion:reduce){
+  .dashboard-hero-card.card-order-reorderable,
+  .dashboard-block.card-order-reorderable{transition:none}
+  .card-order-pressing{transform:none !important}
+}

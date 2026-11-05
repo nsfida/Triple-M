@@ -136,8 +136,13 @@
       "path": "Assets/style/58-backup-restore.css",
       "bytes": 17393,
       "sha256": "7da1e0db8fac352ba2ad62beea2dcdf09a34d7c4b231fb74e4b52faa5bb35166"
+    },
+    {
+      "path": "Assets/style/59-card-order.css",
+      "bytes": 2436,
+      "sha256": "eaff4e46edca8cf58a417942321f5af2214e0fbb1bb31cb6040014e67c8ee60b"
     }
   ],
-  "bytes": 562151,
-  "sha256": "dd25781fc7db8aff8b7c20618e2486385cf72ce3e30b11d0432eded8178f9f5e"
+  "bytes": 564645,
+  "sha256": "efec61a88e4c64c25a0b26aca5a2c1b671489054d6970f85b42d6075fc610efb"
 }
