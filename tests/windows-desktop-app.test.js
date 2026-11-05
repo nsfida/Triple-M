@@ -55,7 +55,7 @@ test("tray, close-to-tray, quit, single instance and Start with Windows are impl
 test("native notifications are de-duplicated and suppressed while the app is in the foreground", { skip: skipNative }, () => {
   const src = nativeSource();
   assert.match(src, /if !settings\.Notifications \|\| nativeDedupe\.seen\(m\.Tag\) \{/);
-  assert.match(src, /if isWindowShown\(\) && isForeground\(\) \{/);
+  assert.match(src, /if isWindowShown\(\) && isForeground\(\) && !appLocked \{/);
   assert.match(src, /d\.UFlags = NIF_INFO/);
   assert.match(src, /case NIN_BALLOONUSERCLICK:/);
   assert.match(src, /backgroundTickTimerID, 60\*1000/);
@@ -117,7 +117,7 @@ test("Store manifest declares the startup task and the alias used by Jump List t
   assert.match(m, /TaskId="TriplemVIPStartup" Enabled="false"/);
   assert.match(m, /<desktop:ExecutionAlias Alias="triplemvip\.exe" \/>/);
   assert.match(m, /ProcessorArchitecture="@ARCH@"/);
-  assert.match(m, /Version="3\.6\.2\.0"/);
+  assert.match(m, /Version="3\.7\.0\.0"/);
 });
 
 test("signing is wired into the build and never faked", { skip: has("scripts/windows_app/build_windows_app.sh") ? false : "Windows build scripts not present in this checkout" }, () => {
@@ -139,7 +139,7 @@ test("page module is inert outside the Windows app and only uses existing app fu
   assert.match(js, /can\("accounting", "create"\)/);
   assert.match(js, /document\.getElementById\("openExpenseEntryBtn"\)/);
   assert.doesNotMatch(js, /supabaseRpc|supabase\(|fetch\(/, "the desktop module performs no database or network writes");
-  assert.match(text("index.html"), /<script defer src="Assets\/app\/desktop\/01-windows-desktop\.js\?v=\d{8}-desktop360"><\/script>/);
+  assert.match(text("index.html"), /<script defer src="Assets\/app\/desktop\/01-windows-desktop\.js\?v=\d{8}-desktop370"><\/script>/);
   const messaging = text("Assets/app/messaging/01-messaging.js");
   assert.match(messaging, /if \(el\.id === "adminNotifyCount" \|\| el\.id === "adminMessagesCount"\) announceUnreadCounts\(\);/);
   assert.match(messaging, /new CustomEvent\("triplem:comms-snapshot"/);

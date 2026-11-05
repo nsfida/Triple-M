@@ -17,7 +17,7 @@ const native = () => fs.readdirSync(path.join(root, nativeDir)).filter(f => f.en
 
 test("updates are only installed from a signed manifest and a matching SHA-256", { skip: skipNative }, () => {
   const src = native();
-  assert.match(src, /appVersionNative = "3\.6\.2"/);
+  assert.match(src, /appVersionNative = "3\.7\.0"/);
   assert.match(src, /ed25519\.Verify\(pub, payload, sig\)/);
   assert.match(src, /updatePublicKeyB64 = "[A-Za-z0-9+/]{43}="/);
   assert.match(src, /strings\.HasPrefix\(m\.URL, updateDownloadPrefix\)/);
@@ -74,7 +74,7 @@ test("Store push: strict COM handler, cancelled while running, closed on sign-ou
   assert.match(src, /case "push-close":\s*closePushChannel\(\)/);
   assert.match(src, /if !isPackaged\(\) \|\| safeStart \|\| wnsOperation != 0 \{/);
   const manifest = text("scripts/windows_app/msix/AppxManifest.xml");
-  assert.match(manifest, /Version="3\.6\.2\.0"/);
+  assert.match(manifest, /Version="3\.7\.0\.0"/);
   assert.match(manifest, /<uap3:Protocol Name="triplemvip" Parameters="--link &quot;%1&quot;">/);
 });
 
@@ -115,7 +115,9 @@ test("page side: buttons reuse existing actions, no direct database calls in the
   assert.match(js, /runNotificationAction\(n, action === "accept-chat" \? "live-accept" : "live-decline"\)/);
   assert.match(js, /new CustomEvent\("triplem:notification-mark-read"/);
   assert.match(js, /e\.preventDefault\(\); \/\/ never let the window navigate to the dropped file/);
-  assert.match(js, /const panel = document\.createElement\("details"\);/);
+  // 3.7: the Windows app settings live in the bar under the header icons, not in the bell.
+  assert.match(js, /const chips = document\.querySelector\("#app \.header \.chips"\);/);
+  assert.doesNotMatch(js, /getElementById\("adminNotifyDropdown"\)/);
   assert.match(js, /beforeLogout,/);
   const push = text("Assets/app/notifications/01-web-push.js");
   assert.match(push, /window\.addEventListener\("triplem:windows-push-channel"/);
