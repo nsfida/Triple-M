@@ -47,7 +47,7 @@ Primary language: English. Public regional references also include Arabic, Urdu,
 - [Multi-currency accounting](https://triplem.vip/seo/multi-currency-accounting.html): Currency-aware wallets, activity and reports.
 - [Bitcoin wallet tools](https://triplem.vip/seo/bitcoin-wallet.html): Client-side Bitcoin key handling and supported wallet records.
 - [Security and support](https://triplem.vip/seo/security-and-support.html): Security, 2FA, notifications and support, including Authenticator app 2FA, Web Push notifications and account recovery.
-- [Windows desktop app](https://triplem.vip/seo/windows-desktop-app.html): Installing the Windows 10/11 app, shortcuts and taskbar pinning.
+- [Windows desktop app](https://triplem.vip/seo/windows-desktop-app.html): Installing the Windows 10/11 app, shortcuts, taskbar pinning, notifications with actions, automatic updates and the quick-add shortcut.
 - [Editorial policy](https://triplem.vip/seo/editorial-policy.html): Public-content accuracy, correction and review principles.
 - [Privacy policy](https://triplem.vip/seo/privacy-policy.html): What data is collected, service providers, retention, export and deletion.
 

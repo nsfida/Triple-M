@@ -40,7 +40,15 @@ var (
 )
 
 func desktopInitScript() string {
-	caps := []string{"notifications", "badge", "tray", "jumplist", "saveas", "print", "autostart", "offline", "placement"}
+	caps := []string{"notifications", "badge", "tray", "jumplist", "saveas", "print", "autostart", "offline", "placement",
+		// 3.6
+		"toasts", "links", "hotkey", "theme", "report", "dragdrop"}
+	if updatesSupported() {
+		caps = append(caps, "update")
+	}
+	if isPackaged() {
+		caps = append(caps, "push")
+	}
 	if webView16 == 0 {
 		caps = removeString(caps, "print")
 	}
@@ -53,6 +61,7 @@ func desktopInitScript() string {
 		"arch":     runtimeArchFolder(runtime.GOARCH),
 		"packaged": isPackaged(),
 		"caps":     caps,
+		"shortcut": quickAddShortcutTxt,
 	}
 	b, _ := json.Marshal(info)
 	return `(function(){try{var d=JSON.parse(` + jsString(string(b)) + `);Object.freeze(d.caps);Object.defineProperty(window,"__TRIPLEM_DESKTOP__",{value:Object.freeze(d),configurable:false,writable:false,enumerable:false});}catch(e){}})();`
@@ -148,6 +157,12 @@ func sendSettingsToPage() {
 		"closeToTray":      settings.CloseToTray,
 		"startWithWindows": startWithWindowsEnabled(),
 		"autostartManaged": autostartManagedByWindows(),
+		// 3.6
+		"autoUpdate":        settings.AutoUpdate,
+		"updatesSupported":  updatesSupported(),
+		"quickAddHotkey":    settings.QuickAddHotkey,
+		"hotkeyUnavailable": hotkeyUnavailable,
+		"safeStart":         safeStart,
 	})
 }
 
@@ -190,6 +205,20 @@ func handleBridgeMessage(m bridgeMessage) {
 			pendingOpen = ""
 			postToPage(map[string]string{"type": "open", "target": t})
 		}
+		if pendingLink.Target != "" {
+			l := pendingLink
+			pendingLink = linkRequest{}
+			postLinkToPage(l)
+		}
+		if justUpdated {
+			justUpdated = false
+			postToPage(map[string]string{"type": "updated", "version": appVersionNative})
+		}
+		if updatesSupported() {
+			sendUpdateStateToPage()
+		}
+		sendPushChannelToPage()
+		announceSafeStart()
 	case "badge":
 		updateUnreadBadge(m.Count)
 	case "notify":
@@ -199,7 +228,7 @@ func handleBridgeMessage(m bridgeMessage) {
 		if isWindowShown() && isForeground() {
 			return // the user is looking at Triplem VIP: the in-app bell is enough
 		}
-		showToast(m.Title, m.Body, m.Target)
+		notify(m)
 	case "settings-get":
 		sendSettingsToPage()
 	case "settings-set":
@@ -219,6 +248,22 @@ func handleBridgeMessage(m bridgeMessage) {
 		retryConnection()
 	case "show":
 		showMainWindow()
+	case "update-check":
+		checkForUpdates(true)
+	case "update-install":
+		installStagedUpdate()
+	case "theme":
+		applyTitleBarTheme(m.Dark, m.Color)
+	case "report":
+		sendErrorReport()
+	case "push-open":
+		if wnsChannel == 0 && settings.Notifications {
+			startPushChannel()
+		} else {
+			sendPushChannelToPage()
+		}
+	case "push-close":
+		closePushChannel()
 	}
 }
 
@@ -226,10 +271,21 @@ func applySetting(key string, v bool) {
 	switch key {
 	case "notifications":
 		settings.Notifications = v
+		if !v {
+			closePushChannel() // also no Store notifications while the app is closed
+		}
 	case "closeToTray":
 		settings.CloseToTray = v
 	case "startWithWindows":
 		setStartWithWindows(v)
+	case "autoUpdate":
+		settings.AutoUpdate = v
+		if v {
+			checkForUpdates(false)
+		}
+	case "quickAddHotkey":
+		settings.QuickAddHotkey = v
+		applyQuickAddHotkey()
 	default:
 		return
 	}

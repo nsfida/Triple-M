@@ -219,6 +219,7 @@ const CANONICAL_MIGRATION_FILES = [
   "201_security_internal_helper_execute_hardening.sql",
   "202_session_validation_write_reduction.sql",
   "203_aziz_detailed_answer_length.sql",
+  "204_windows_store_push_channels.sql",
 ];
 
 /** Prefix key used for uniqueness: "001", "001a", "038", … */

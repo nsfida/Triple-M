@@ -157,7 +157,7 @@ func pinRequestFile() string {
 // modify Windows security settings.
 
 const (
-	appVersion = "3.5.0"
+	appVersion = "3.6.0"
 
 	setupWidth  = 760
 	setupHeight = 548
@@ -1196,6 +1196,12 @@ func runSetupWizard() {
 }
 
 func main() {
+	// 3.6: the installed app applies a downloaded, verified update by running
+	// this Setup with --update --dir=<its folder>. No wizard is shown.
+	if dir, ok := updateModeArgs(os.Args[1:]); ok {
+		runSilentUpdate(dir)
+		return
+	}
 	// Premium glass Setup (WebView2) when the Microsoft runtime is available;
 	// the classic native wizard remains as a complete fallback.
 	if runGlassSetup() {

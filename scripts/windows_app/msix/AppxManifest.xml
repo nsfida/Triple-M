@@ -22,7 +22,7 @@
   <Identity
     Name="TriplemVIP.TriplemVIP"
     Publisher="CN=D58541F4-18AA-431F-869F-990A8A8D60CE"
-    Version="3.5.0.0"
+    Version="3.6.0.0"
     ProcessorArchitecture="@ARCH@" />
 
   <Properties>
@@ -55,6 +55,13 @@
         <desktop:Extension Category="windows.startupTask" Executable="TriplemVIP.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="TriplemVIPStartup" Enabled="false" DisplayName="Triplem VIP" />
         </desktop:Extension>
+        <!-- triplemvip:// links (notification clicks and buttons, links in e-mails).
+             Only the link is passed; the app ignores every other argument. -->
+        <uap3:Extension Category="windows.protocol" Executable="TriplemVIP.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap3:Protocol Name="triplemvip" Parameters="--link &quot;%1&quot;">
+            <uap:DisplayName>Triplem VIP</uap:DisplayName>
+          </uap3:Protocol>
+        </uap3:Extension>
         <!-- Lets Jump List tasks start the packaged app with its arguments. -->
         <uap3:Extension Category="windows.appExecutionAlias" Executable="TriplemVIP.exe" EntryPoint="Windows.FullTrustApplication">
           <uap3:AppExecutionAlias>

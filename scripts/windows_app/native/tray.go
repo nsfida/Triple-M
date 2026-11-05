@@ -70,6 +70,8 @@ const (
 	cmdNewJournal    = 1007
 	cmdReports       = 1008
 	cmdInventory     = 1009
+	cmdUpdate        = 1010
+	cmdReport        = 1011
 )
 
 var (
@@ -207,6 +209,15 @@ func showTrayMenu() {
 	add(MF_STRING|check(startWithWindowsEnabled()), cmdStartup, "Start with Windows")
 	add(MF_STRING|check(settings.CloseToTray), cmdCloseToTray, "Keep running in the notification area when closed")
 	add(MF_SEPARATOR, 0, "")
+	if updatesSupported() {
+		if label := updateMenuLabel(); label != "" {
+			add(MF_STRING, cmdUpdate, label)
+		} else {
+			add(MF_STRING, cmdUpdate, "Check for updates")
+		}
+	}
+	add(MF_STRING, cmdReport, "Create error report…")
+	add(MF_SEPARATOR, 0, "")
 	add(MF_STRING, cmdQuit, "Quit Triplem VIP")
 	procSetMenuDefaultItem.Call(menu, cmdOpen, 0)
 
@@ -243,6 +254,15 @@ func handleMenuCommand(cmd uintptr) {
 	case cmdCloseToTray:
 		applySetting("closeToTray", !settings.CloseToTray)
 		sendSettingsToPage()
+	case cmdUpdate:
+		if updateMenuLabel() != "" {
+			installStagedUpdate()
+		} else {
+			showMainWindow()
+			checkForUpdates(true)
+		}
+	case cmdReport:
+		sendErrorReport()
 	case cmdQuit:
 		quitApplication()
 	}
@@ -321,6 +341,7 @@ func quitApplication() {
 		return
 	}
 	quitting = true
+	markRunClean()
 	if isWindowShown() {
 		saveWindowPlacement()
 	}

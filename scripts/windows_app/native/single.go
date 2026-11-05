@@ -86,6 +86,10 @@ func handleCopyData(lParam uintptr) uintptr {
 		if a.Background {
 			return // e.g. a duplicate autostart: nothing to show
 		}
+		if a.Link.Target != "" {
+			handleLink(a.Link)
+			return
+		}
 		showMainWindow()
 		if a.Open != "" {
 			requestOpenTarget(a.Open)

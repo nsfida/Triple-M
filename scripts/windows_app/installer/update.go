@@ -6,6 +6,8 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"path/filepath"
+	"syscall"
 	"time"
 	"unsafe"
 )
@@ -96,4 +98,80 @@ func replaceExecutable(tmp, dest string) error {
 		procMoveFileExWSetup.Call(uintptr(unsafe.Pointer(utf16Ptr(old))), 0, 0x4) // MOVEFILE_DELAY_UNTIL_REBOOT
 	}
 	return os.Rename(tmp, dest)
+}
+
+// ---- Silent update (3.6) -------------------------------------------------------------
+//
+// Started by the installed Triplem VIP app after it downloaded this Setup and
+// verified its signed manifest and SHA-256 hash. It replaces only
+// TriplemVIP.exe in the existing installation folder (shortcuts, settings,
+// the signed-in session and all data are kept), then starts the app again.
+
+func updateModeArgs(args []string) (string, bool) {
+	update := false
+	dir := ""
+	for _, a := range args {
+		switch {
+		case a == "--update":
+			update = true
+		case len(a) > 6 && a[:6] == "--dir=":
+			dir = a[6:]
+		}
+	}
+	if !update {
+		return "", false
+	}
+	return dir, true
+}
+
+// validUpdateDir accepts only an existing Triplem VIP installation folder.
+func validUpdateDir(dir string) bool {
+	if dir == "" || !filepath.IsAbs(dir) {
+		return false
+	}
+	st, err := os.Stat(filepath.Join(dir, "TriplemVIP.exe"))
+	return err == nil && !st.IsDir()
+}
+
+func runSilentUpdate(dir string) {
+	setupLog("silent update requested")
+	if !validUpdateDir(dir) {
+		dir = setupDefaultDir()
+		if !validUpdateDir(dir) {
+			messageBox("Triplem VIP Update", "The Triplem VIP installation folder was not found. Download Triplem VIP again from https://triplem.vip/ to update.", MB_OK|MB_ICONERROR)
+			return
+		}
+	}
+	// The app is closing itself; wait briefly so its executable is released.
+	time.Sleep(700 * time.Millisecond)
+	exePath, err := installCore(dir, func(int, string) {})
+	if err != nil {
+		setupLog("silent update failed: " + err.Error())
+		messageBox("Triplem VIP Update", "The update could not be installed. Your current version and all your data are unchanged.\r\n\r\n"+err.Error()+"\r\n\r\nDiagnostic log: "+setupLogPath(), MB_OK|MB_ICONERROR)
+		// Start the existing version again so the user is not left without the app.
+		if old := filepath.Join(dir, "TriplemVIP.exe"); validUpdateDir(dir) {
+			_ = startWithArgs(old, "--updated-failed")
+		}
+		return
+	}
+	setupLog("silent update complete")
+	if err := startWithArgs(exePath, "--updated"); err != nil {
+		setupLog("relaunch after update failed: " + err.Error())
+	}
+}
+
+func startWithArgs(path, args string) error {
+	var si startupInfo
+	si.Cb = uint32(unsafe.Sizeof(si))
+	var pi processInformation
+	app := utf16Ptr(path)
+	cmd, _ := syscall.UTF16FromString(`"` + path + `" ` + args)
+	work := utf16Ptr(filepath.Dir(path))
+	r, _, e := procCreateProcessW.Call(uintptr(unsafe.Pointer(app)), uintptr(unsafe.Pointer(&cmd[0])), 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(work)), uintptr(unsafe.Pointer(&si)), uintptr(unsafe.Pointer(&pi)))
+	if r == 0 {
+		return e
+	}
+	procCloseHandle.Call(uintptr(pi.HProcess))
+	procCloseHandle.Call(uintptr(pi.HThread))
+	return nil
 }

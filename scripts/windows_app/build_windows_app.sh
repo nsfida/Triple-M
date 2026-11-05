@@ -17,6 +17,14 @@
 # Without it, unsigned files are produced and a warning is printed. Set
 # TRIPLEM_REQUIRE_SIGNING=1 for release builds to fail instead of warning.
 #
+# Automatic updates (3.6+): the build also writes the signed update manifest
+# Assets/mobile_app/Windows/latest.json when the private update key is given:
+#   export TRIPLEM_UPDATE_KEY_FILE=/safe/place/triplem_update_signing_key.txt
+#   export TRIPLEM_UPDATE_NOTES="What changed"
+# The key must match the public key compiled into the app (checked below).
+# Never commit the key file. Without it, installed apps simply keep the
+# current version until the next signed release.
+#
 # Requirements: Go 1.22+, Python 3, GNU binutils with PE support for both
 # x86-64 and AArch64 (Debian/Ubuntu: apt install binutils-multiarch).
 set -euo pipefail
@@ -25,7 +33,7 @@ NATIVE_DIR="$ROOT/scripts/windows_app/native"
 INSTALLER_DIR="$ROOT/scripts/windows_app/installer"
 ICO="$ROOT/scripts/windows_app/assets/TriplemVIP.ico"
 OUT="$ROOT/Assets/mobile_app/Windows/TriplemVIP_Setup.exe"
-VERSION="3.5.0"
+VERSION="3.6.0"
 TMP="${TMPDIR:-/tmp}/triplem-vip-windows-build"
 mkdir -p "$TMP" "$INSTALLER_DIR/payload" "$(dirname "$OUT")"
 rm -f "$TMP"/TriplemVIP*.exe
@@ -88,6 +96,21 @@ python3 "$ROOT/scripts/windows_app/build_resources.py" "$TMP/TriplemVIP_Setup.ex
   --description "Triplem VIP Setup" --version "$VERSION" --original "TriplemVIP_Setup.exe"
 sign_file "$TMP/TriplemVIP_Setup.exe"
 cp "$TMP/TriplemVIP_Setup.exe" "$OUT"
+
+MANIFEST="$(dirname "$OUT")/latest.json"
+if [ -n "${TRIPLEM_UPDATE_KEY_FILE:-}" ]; then
+  KEY_PUB="$(cd "$ROOT/scripts/windows_app/updatesign" && GO111MODULE=off go run . -key "$TRIPLEM_UPDATE_KEY_FILE" -print-public)"
+  if ! grep -q "updatePublicKeyB64 = \"$KEY_PUB\"" "$NATIVE_DIR/logic36.go"; then
+    echo "ERROR: the update signing key does not match the public key compiled into the app." >&2
+    exit 1
+  fi
+  (cd "$ROOT/scripts/windows_app/updatesign" && GO111MODULE=off go run . -key "$TRIPLEM_UPDATE_KEY_FILE" -setup "$OUT" -version "$VERSION" -out "$MANIFEST" -notes "${TRIPLEM_UPDATE_NOTES:-}")
+elif [ "${TRIPLEM_REQUIRE_UPDATE_SIGNING:-0}" = "1" ]; then
+  echo "ERROR: TRIPLEM_REQUIRE_UPDATE_SIGNING=1 but TRIPLEM_UPDATE_KEY_FILE is not set." >&2
+  exit 1
+else
+  echo "WARNING: latest.json was not written (no TRIPLEM_UPDATE_KEY_FILE); installed apps will not see this release automatically." >&2
+fi
 
 python3 "$ROOT/scripts/windows_app/signing/verify_signature.py" --report "$TMP/TriplemVIP.exe" "$TMP/TriplemVIP-arm64.exe" "$OUT" || true
 printf 'Native app SHA-256 (x64):   %s\n' "$APP_SHA"

@@ -107,7 +107,7 @@ The live [Pricing section](https://triplem.vip/#pricing) is the source for curre
 
 ### Is there a Windows app?
 
-Yes. TriplemVIP_Setup.exe installs a Windows 10/11 desktop app for the current Windows user, without administrator rights. It opens the same online workspace through Microsoft Edge WebView2. After installation, the Finish page lets the user create a Desktop shortcut and a Start Menu icon and pin the app to the taskbar. Windows itself confirms the pin. See https://triplem.vip/seo/windows-desktop-app.html.
+Yes. TriplemVIP_Setup.exe installs a Windows 10/11 desktop app for the current Windows user, without administrator rights. It opens the same online workspace through Microsoft Edge WebView2. After installation, the Finish page lets the user create a Desktop shortcut and a Start Menu icon and pin the app to the taskbar. Windows itself confirms the pin. Version 3.6 adds Windows notifications with Accept, Decline, Mark as read and Reply buttons, automatic signed updates for the Setup version (the Microsoft Store updates its own version), a Ctrl+Alt+Shift+E quick-add shortcut for Add Expense, drag and drop into open upload fields, and error reports with personal details removed. See https://triplem.vip/seo/windows-desktop-app.html.
 
 ### Can Triplem VIP be used offline?
 

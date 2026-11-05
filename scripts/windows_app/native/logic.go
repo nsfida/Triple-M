@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	appVersionNative = "3.5.0"
+	appVersionNative = "3.6.0"
 	appOrigin        = "https://triplem.vip"
 	maxWebMessage    = 64 * 1024
 )
@@ -28,16 +28,33 @@ var openTargets = map[string]bool{
 	"inventory":     true,
 	"notifications": true,
 	"messages":      true,
+	"live-chat":     true,
 }
 
 type launchArgs struct {
 	Uninstall  bool
 	Background bool   // started by "Start with Windows": stay in the tray
 	Open       string // validated open target or ""
+	Link       linkRequest
+	Update     bool // relaunched by Setup after an update was applied
 }
 
 func parseLaunchArgs(args []string) launchArgs {
 	var out launchArgs
+	// Started from a triplemvip:// link (registered as: "exe" --link "%1"):
+	// only the link is read and every other argument is ignored, so a crafted
+	// link can never inject --uninstall or any other option.
+	for i, a := range args {
+		if strings.EqualFold(strings.TrimSpace(a), "--link") {
+			if i+1 < len(args) {
+				if l, ok := parseLink(args[i+1]); ok {
+					out.Link = l
+					out.Open = l.Target
+				}
+			}
+			return out
+		}
+	}
 	for _, a := range args {
 		a = strings.TrimSpace(a)
 		switch {
@@ -49,6 +66,13 @@ func parseLaunchArgs(args []string) launchArgs {
 			t := strings.ToLower(strings.TrimSpace(a[len("--open="):]))
 			if openTargets[t] {
 				out.Open = t
+			}
+		case strings.EqualFold(a, "--updated"):
+			out.Update = true
+		case strings.HasPrefix(strings.ToLower(a), linkScheme+":"):
+			if l, ok := parseLink(a); ok {
+				out.Link = l
+				out.Open = l.Target
 			}
 		}
 	}
@@ -64,6 +88,9 @@ func encodeForwardedArgs(a launchArgs) string {
 	}
 	if a.Background {
 		parts = append(parts, "--background")
+	}
+	if a.Link.Raw != "" {
+		parts = append(parts, a.Link.Raw)
 	}
 	return strings.Join(parts, "\n")
 }
@@ -125,11 +152,19 @@ type bridgeMessage struct {
 	Target  string          `json:"target,omitempty"`
 	Kind    string          `json:"kind,omitempty"`
 	Visible bool            `json:"visible,omitempty"`
+	// 3.6
+	Actions []toastAction `json:"actions,omitempty"`
+	Dark    bool          `json:"dark,omitempty"`
+	Color   string        `json:"color,omitempty"`
+	Channel string        `json:"channel,omitempty"`
 }
 
 var allowedCommands = map[string]bool{
 	"ready": true, "badge": true, "notify": true, "settings-get": true, "settings-set": true,
 	"print": true, "download-open": true, "download-show": true, "retry": true, "show": true,
+	// 3.6
+	"update-check": true, "update-install": true, "theme": true, "report": true,
+	"push-open": true, "push-close": true,
 }
 
 // parseBridgeMessage validates a JSON message from the page. Offline pages
@@ -156,6 +191,11 @@ func parseBridgeMessage(source, raw string) (bridgeMessage, bool) {
 	}
 	if m.Target != "" && !openTargets[m.Target] {
 		m.Target = ""
+	}
+	m.ID = cleanID(m.ID)
+	m.Actions = sanitizeToastActions(m.Actions)
+	if !validHexColor(m.Color) {
+		m.Color = ""
 	}
 	return m, true
 }
@@ -212,10 +252,16 @@ type desktopSettings struct {
 	CloseToTray    bool   `json:"closeToTray"`
 	CloseHintShown bool   `json:"closeHintShown"`
 	LastSaveDir    string `json:"lastSaveDir,omitempty"`
+	// 3.6
+	AutoUpdate     bool   `json:"autoUpdate"`
+	QuickAddHotkey bool   `json:"quickAddHotkey"`
+	DeviceID       string `json:"deviceId,omitempty"`
 }
 
+// New keys default to "on" for existing 3.5 settings files too, because
+// decodeSettings starts from these defaults and only overrides stored keys.
 func defaultSettings() desktopSettings {
-	return desktopSettings{Notifications: true, CloseToTray: true}
+	return desktopSettings{Notifications: true, CloseToTray: true, AutoUpdate: true, QuickAddHotkey: true}
 }
 
 // decodeSettings never fails: unknown or damaged files fall back to defaults,

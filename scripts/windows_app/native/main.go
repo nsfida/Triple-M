@@ -438,6 +438,20 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 			backgroundTick()
 			return 0
 		}
+		switch wParam {
+		case updateTimerID:
+			onUpdateTimer()
+			return 0
+		case crashCleanTimerID:
+			onCleanRunTimer()
+			return 0
+		case wnsPollTimerID:
+			pollPushChannel()
+			return 0
+		}
+	case WM_HOTKEY:
+		onHotkey(wParam)
+		return 0
 	case WM_EXITSIZEMOVE:
 		saveWindowPlacement()
 	case WM_COPYDATA:
@@ -463,6 +477,7 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 				saveWindowPlacement()
 			}
 			removeTrayIcon()
+			markRunClean() // Windows sign-out / restart is not a crash
 		}
 		return 0
 	case WM_CLOSE:
@@ -474,6 +489,10 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 		return 0
 	case WM_DESTROY:
 		procKillTimer.Call(hwnd, backgroundTickTimerID)
+		procKillTimer.Call(hwnd, updateTimerID)
+		if hotkeyRegistered {
+			procUnregisterHotKey.Call(hwnd, quickAddKeyID)
+		}
 		removeTrayIcon()
 		clearOverlayBadge()
 		procPostQuitMessage.Call(0)
@@ -485,6 +504,9 @@ func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 		return 0
 	}
 	if wmTaskbarButtonCreated != 0 && uintptr(message) == wmTaskbarButtonCreated {
+		if safeStart {
+			return 0 // safe start: no taskbar badge
+		}
 		initTaskbarList()
 		taskbarReady = taskbarList != 0
 		overlayIconCount = -1
@@ -941,6 +963,7 @@ func runNativeApp(args launchArgs) {
 
 	initCallbacks()
 	loadSettings()
+	beginRunState()
 	wmTaskbarCreated, _, _ = procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(utf16Ptr("TaskbarCreated"))))
 	wmTaskbarButtonCreated, _, _ = procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(utf16Ptr("TaskbarButtonCreated"))))
 	backgroundLaunched = args.Background || launchedByStartupTask()
@@ -948,12 +971,21 @@ func runNativeApp(args launchArgs) {
 		backgroundLaunched = false
 		pendingOpen = args.Open
 	}
+	if args.Link.Target != "" {
+		pendingOpen = ""
+		pendingLink = authorizeLink(args.Link, processToken) // a new process: actions only open
+	}
+	justUpdated = args.Update
 	if !createMainWindow() {
 		startupLog("native window creation failed")
 		messageBox("Triplem VIP", "The Triplem VIP Windows application window could not be created.", MB_OK|MB_ICONERROR)
 		return
 	}
 	startupLog("native window created")
+	applyWindowBackdrop(mainHwnd)
+	registerAppIdentity()
+	initToasts()
+	applyQuickAddHotkey()
 	addTrayIcon()
 	if !startWebView2() {
 		removeTrayIcon()
@@ -961,7 +993,12 @@ func runNativeApp(args launchArgs) {
 		return
 	}
 	startBackgroundTick()
-	buildJumpList()
+	if !safeStart {
+		buildJumpList()
+		startPushChannel()
+	}
+	startUpdateSchedule()
+	startCleanRunTimer()
 	messageLoop()
 
 	// Keep callback vtables and COM pointers alive until the native loop exits.
@@ -1031,10 +1068,14 @@ func runUninstall() {
 	procCoInitializeEx.Call(0, COINIT_APARTMENTTHREADED)
 	deleteJumpList()
 	unregisterAppNative()
+	removeAppIdentity()
 	if local := os.Getenv("LOCALAPPDATA"); local != "" {
 		_ = os.RemoveAll(filepath.Join(local, "Triplem VIP", "WebView2"))
+		_ = os.RemoveAll(filepath.Join(local, "Triplem VIP", "Updates"))
 		_ = os.Remove(filepath.Join(local, "Triplem VIP", "desktop-settings.json"))
 		_ = os.Remove(filepath.Join(local, "Triplem VIP", "window.json"))
+		_ = os.Remove(filepath.Join(local, "Triplem VIP", "toast-logo.png"))
+		_ = os.Remove(filepath.Join(local, "Triplem VIP", "run-state.json"))
 	}
 	self, _ := os.Executable()
 	dir := filepath.Dir(self)
