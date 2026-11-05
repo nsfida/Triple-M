@@ -131,8 +131,13 @@
       "path": "Assets/style/57-notifications-messaging.css",
       "bytes": 6639,
       "sha256": "f789fd4d12ae9fa7ea7f6e6bfe53e7d44a495c8407bd514a2af53708086f9450"
+    },
+    {
+      "path": "Assets/style/58-backup-restore.css",
+      "bytes": 17393,
+      "sha256": "7da1e0db8fac352ba2ad62beea2dcdf09a34d7c4b231fb74e4b52faa5bb35166"
     }
   ],
-  "bytes": 544696,
-  "sha256": "a95406a2e9fbe4e4c773b913737b7846996c48ec9a7bdff8f5d99227d2b4c14f"
+  "bytes": 562151,
+  "sha256": "dd25781fc7db8aff8b7c20618e2486385cf72ce3e30b11d0432eded8178f9f5e"
 }
