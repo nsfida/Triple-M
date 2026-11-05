@@ -177,7 +177,7 @@ func askSavePath(defPath string) (string, bool) {
 	for attempt := 0; attempt < 5; attempt++ {
 		buf := make([]uint16, 32768)
 		copy(buf, utf16Bytes(name))
-		filter := utf16Bytes(saveDialogFilter(ext))
+		filter := utf16MultiString(saveDialogFilter(ext)) // keeps the embedded NUL separators
 		var defExt *uint16
 		if ext != "" {
 			defExt = utf16Ptr(strings.TrimPrefix(ext, "."))

@@ -125,9 +125,10 @@ type copyDataStruct struct {
 	LpData uintptr
 }
 
+// utf16Bytes returns s as a NUL-terminated UTF-16 string. It is never empty
+// (embedded NULs are dropped), so &u[0] is always safe.
 func utf16Bytes(s string) []uint16 {
-	u, _ := syscall.UTF16FromString(s)
-	return u
+	return utf16NoNUL(s)
 }
 
 // ---- Files under %LOCALAPPDATA%\Triplem VIP ------------------------------------------

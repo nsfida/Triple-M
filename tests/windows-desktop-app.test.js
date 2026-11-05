@@ -117,7 +117,7 @@ test("Store manifest declares the startup task and the alias used by Jump List t
   assert.match(m, /TaskId="TriplemVIPStartup" Enabled="false"/);
   assert.match(m, /<desktop:ExecutionAlias Alias="triplemvip\.exe" \/>/);
   assert.match(m, /ProcessorArchitecture="@ARCH@"/);
-  assert.match(m, /Version="3\.6\.1\.0"/);
+  assert.match(m, /Version="3\.6\.2\.0"/);
 });
 
 test("signing is wired into the build and never faked", { skip: has("scripts/windows_app/build_windows_app.sh") ? false : "Windows build scripts not present in this checkout" }, () => {

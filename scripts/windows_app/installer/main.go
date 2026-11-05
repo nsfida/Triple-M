@@ -157,7 +157,7 @@ func pinRequestFile() string {
 // modify Windows security settings.
 
 const (
-	appVersion = "3.6.1"
+	appVersion = "3.6.2"
 
 	setupWidth  = 760
 	setupHeight = 548

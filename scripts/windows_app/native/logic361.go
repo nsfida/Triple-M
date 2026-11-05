@@ -7,6 +7,7 @@ package main
 
 import (
 	"strings"
+	"unicode/utf16"
 )
 
 const appDisplayName = "Triplem VIP"
@@ -62,4 +63,23 @@ func pinnedLinkFix(l pinnedLink, exe, appID string) (ours, setIcon, setAppID boo
 // iconRepairDue reports whether the once-per-version icon repair should run.
 func iconRepairDue(lastRepairedVersion, current string) bool {
 	return strings.TrimSpace(lastRepairedVersion) != current
+}
+
+// utf16MultiString encodes a Windows "double-NUL-terminated" string list,
+// such as the Save As dialog's file-type filter ("PDF (*.pdf)\x00*.pdf\x00
+// ...\x00\x00"). syscall.UTF16FromString refuses any string that contains a
+// NUL and returned nothing for it, which made the first PDF export crash the
+// app (3.6.2 fix). The result always ends with two NULs and is never empty.
+func utf16MultiString(s string) []uint16 {
+	u := utf16.Encode([]rune(s))
+	for len(u) < 2 || u[len(u)-1] != 0 || u[len(u)-2] != 0 {
+		u = append(u, 0)
+	}
+	return u
+}
+
+// utf16NoNUL encodes s as a NUL-terminated UTF-16 string. Embedded NULs (which
+// Windows strings cannot contain) are dropped, so the result is never empty.
+func utf16NoNUL(s string) []uint16 {
+	return append(utf16.Encode([]rune(strings.ReplaceAll(s, "\x00", ""))), 0)
 }

@@ -10,6 +10,8 @@ package main
 
 import (
 	"fmt"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -136,13 +138,24 @@ var (
 	handlersKeep []*comHandler
 )
 
-func newHandler(invoke interface{}) *comHandler {
+func newHandler(invoke func(this, a, b uintptr) uintptr) *comHandler {
 	handlerOnce.Do(func() {
 		handlerQI = syscall.NewCallback(queryInterface)
 		handlerAdd = syscall.NewCallback(addRef)
 		handlerRel = syscall.NewCallback(release)
 	})
-	h := &comHandler{vtbl: &comHandlerVtbl{handlerQI, handlerAdd, handlerRel, syscall.NewCallback(invoke)}}
+	// A bug in one WebView2 event handler must never close the app: the
+	// error is logged (with its location) and the event is reported handled.
+	guarded := func(this, a, b uintptr) (r uintptr) {
+		defer func() {
+			if p := recover(); p != nil {
+				logRecoveredPanic("WebView2 event", p)
+				r = 0
+			}
+		}()
+		return invoke(this, a, b)
+	}
+	h := &comHandler{vtbl: &comHandlerVtbl{handlerQI, handlerAdd, handlerRel, syscall.NewCallback(guarded)}}
 	handlersKeep = append(handlersKeep, h) // COM keeps raw pointers: never let GC free these
 	return h
 }
@@ -214,7 +227,7 @@ func runUITasks() {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					startupLog("ui task panic recovered")
+					logRecoveredPanic("UI task", r)
 				}
 			}()
 			f()
@@ -240,6 +253,16 @@ func initPropVariantString(s string, pv *propVariant) bool {
 	*pv = propVariant{VT: 31} // VT_LPWSTR
 	pv.Value1 = mem
 	return true
+}
+
+// logRecoveredPanic writes a recovered error and where it happened to the
+// diagnostic log, so a problem can be fixed without the app closing.
+func logRecoveredPanic(where string, p interface{}) {
+	stack := string(debug.Stack())
+	if len(stack) > 4000 {
+		stack = stack[:4000]
+	}
+	startupLog(fmt.Sprintf("recovered error in %s: %v\r\n%s", where, p, strings.ReplaceAll(stack, "\n", "\r\n")))
 }
 
 // recoverOptional keeps an optional Windows integration (tray icon, badge,

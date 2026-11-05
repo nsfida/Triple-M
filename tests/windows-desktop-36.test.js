@@ -17,7 +17,7 @@ const native = () => fs.readdirSync(path.join(root, nativeDir)).filter(f => f.en
 
 test("updates are only installed from a signed manifest and a matching SHA-256", { skip: skipNative }, () => {
   const src = native();
-  assert.match(src, /appVersionNative = "3\.6\.1"/);
+  assert.match(src, /appVersionNative = "3\.6\.2"/);
   assert.match(src, /ed25519\.Verify\(pub, payload, sig\)/);
   assert.match(src, /updatePublicKeyB64 = "[A-Za-z0-9+/]{43}="/);
   assert.match(src, /strings\.HasPrefix\(m\.URL, updateDownloadPrefix\)/);
@@ -74,7 +74,7 @@ test("Store push: strict COM handler, cancelled while running, closed on sign-ou
   assert.match(src, /case "push-close":\s*closePushChannel\(\)/);
   assert.match(src, /if !isPackaged\(\) \|\| safeStart \|\| wnsOperation != 0 \{/);
   const manifest = text("scripts/windows_app/msix/AppxManifest.xml");
-  assert.match(manifest, /Version="3\.6\.1\.0"/);
+  assert.match(manifest, /Version="3\.6\.2\.0"/);
   assert.match(manifest, /<uap3:Protocol Name="triplemvip" Parameters="--link &quot;%1&quot;">/);
 });
 
@@ -162,4 +162,19 @@ test("3.6.1 app icon: classic bitmaps below 256 px (PNG only at 256 px)", { skip
     sizes.push(w);
   }
   for (const s of [16, 20, 24, 32, 40, 48, 256]) assert.ok(sizes.includes(s), `icon has ${s}px`);
+});
+
+// 3.6.2: exporting a PDF (or any file) closed the app with "index out of
+// range [0] with length 0". The Save As filter contains NUL separators, which
+// syscall.UTF16FromString rejects (it returned an empty slice).
+test("3.6.2 Save As never crashes and no window message can close the app", { skip: skipNative }, () => {
+  const src = native();
+  assert.match(src, /filter := utf16MultiString\(saveDialogFilter\(ext\)\)/);
+  assert.doesNotMatch(src, /utf16Bytes\(saveDialogFilter/);
+  assert.doesNotMatch(src.replace(/\/\/[^\n]*/g, ""), /syscall\.UTF16(Ptr)?FromString\((?!className)/, "UTF-16 helpers must never return an empty slice");
+  assert.match(src, /func utf16Bytes\(s string\) \[\]uint16 \{\s*return utf16NoNUL\(s\)/);
+  // Safety nets: window messages, WebView2 events and UI tasks log and continue.
+  assert.match(src, /func wndProc\([^)]*\) \(result uintptr\) \{\s*defer func\(\) \{\s*if p := recover\(\)/);
+  assert.match(src, /logRecoveredPanic\("WebView2 event", p\)/);
+  assert.match(src, /logRecoveredPanic\("UI task", r\)/);
 });

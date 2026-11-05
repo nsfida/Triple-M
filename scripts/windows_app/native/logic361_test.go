@@ -50,3 +50,59 @@ func TestIconRepairDue(t *testing.T) {
 		t.Fatal("the repair runs once for every new version")
 	}
 }
+
+// 3.6.2 regression: the Save As filter contains NUL separators. Encoding it
+// with syscall.UTF16FromString returned nothing and the PDF export crashed
+// the app with "index out of range [0] with length 0".
+func TestSaveDialogFilterEncoding(t *testing.T) {
+	for _, ext := range []string{".pdf", ".xlsx", ".csv", ".zip", ".weird", ""} {
+		f := saveDialogFilter(ext)
+		u := utf16MultiString(f)
+		if len(u) < 4 || u[len(u)-1] != 0 || u[len(u)-2] != 0 {
+			t.Fatalf("%q: filter must end with a double NUL", ext)
+		}
+		// Every entry survives: label, pattern, ..., "All files", "*.*".
+		var parts []string
+		start := 0
+		for i, c := range u {
+			if c == 0 {
+				if i == start {
+					break
+				}
+				parts = append(parts, string(utf16Decode16(u[start:i])))
+				start = i + 1
+			}
+		}
+		if len(parts)%2 != 0 || parts[len(parts)-1] != "*.*" {
+			t.Fatalf("%q: unexpected filter entries %v", ext, parts)
+		}
+		if ext == ".pdf" && (len(parts) != 4 || parts[1] != "*.pdf") {
+			t.Fatalf("pdf filter: %v", parts)
+		}
+	}
+	if u := utf16MultiString(""); len(u) != 2 {
+		t.Fatal("an empty list is two NULs")
+	}
+}
+
+func TestUTF16NoNULNeverEmpty(t *testing.T) {
+	for _, s := range []string{"", "\x00", "a\x00b", "Triplem VIP"} {
+		u := utf16NoNUL(s)
+		if len(u) == 0 || u[len(u)-1] != 0 {
+			t.Fatalf("%q: must be NUL-terminated and non-empty", s)
+		}
+		for _, c := range u[:len(u)-1] {
+			if c == 0 {
+				t.Fatalf("%q: embedded NUL kept", s)
+			}
+		}
+	}
+}
+
+func utf16Decode16(u []uint16) []rune {
+	out := make([]rune, 0, len(u))
+	for _, c := range u {
+		out = append(out, rune(c))
+	}
+	return out
+}

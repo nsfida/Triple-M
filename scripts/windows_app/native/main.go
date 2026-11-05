@@ -337,9 +337,9 @@ var (
 	controllerHandlerVTable controllerHandlerVtbl
 )
 
+// utf16Ptr returns a NUL-terminated UTF-16 copy of s; never nil.
 func utf16Ptr(s string) *uint16 {
-	p, _ := syscall.UTF16PtrFromString(s)
-	return p
+	return &utf16NoNUL(s)[0]
 }
 
 func messageBox(title, text string, flags uintptr) {
@@ -457,7 +457,20 @@ const SIZE_MINIMIZED = 1
 
 var wmTaskbarButtonCreated uintptr
 
-func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
+// wndProc runs every window message inside a guard: if one feature hits an
+// unexpected error, it is written to the diagnostic log and the app keeps
+// running instead of closing (3.6.2).
+func wndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) (result uintptr) {
+	defer func() {
+		if p := recover(); p != nil {
+			logRecoveredPanic(fmt.Sprintf("window message 0x%04X", message), p)
+			result, _, _ = procDefWindowProcW.Call(hwnd, uintptr(message), wParam, lParam)
+		}
+	}()
+	return handleWindowMessage(hwnd, message, wParam, lParam)
+}
+
+func handleWindowMessage(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 	switch message {
 	case WM_SIZE:
 		resizeWebView()
@@ -1051,8 +1064,12 @@ func pollTaskbarPinRequest() {
 func runNativeApp(args launchArgs) {
 	defer func() {
 		if r := recover(); r != nil {
-			startupLog(fmt.Sprintf("fatal startup panic: %v", r))
-			messageBox("Triplem VIP", "Triplem VIP encountered a startup error.\n\nA diagnostic log was written to %LOCALAPPDATA%\\Triplem VIP\\TriplemVIP.log", MB_OK|MB_ICONERROR)
+			logRecoveredPanic("application", r)
+			what := "a startup error"
+			if atomic.LoadUint32(&initialized) != 0 {
+				what = "an unexpected error"
+			}
+			messageBox("Triplem VIP", "Triplem VIP encountered "+what+".\n\nA diagnostic log was written to %LOCALAPPDATA%\\Triplem VIP\\TriplemVIP.log", MB_OK|MB_ICONERROR)
 		}
 	}()
 	startupLog("application process started")

@@ -4,7 +4,6 @@ package main
 
 import (
 	"os"
-	"syscall"
 	"time"
 	"unsafe"
 )
@@ -99,7 +98,7 @@ func removeStartupRegistration() {
 // ---- WinRT helpers (packaged only) -------------------------------------------------
 
 func withHString(s string, f func(h uintptr)) bool {
-	u, _ := syscall.UTF16FromString(s)
+	u := utf16Bytes(s) // never empty, even if s contains a NUL
 	var h uintptr
 	r, _, _ := procWindowsCreateString.Call(uintptr(unsafe.Pointer(&u[0])), uintptr(len(u)-1), uintptr(unsafe.Pointer(&h)))
 	if !hrOK(r) || h == 0 {
