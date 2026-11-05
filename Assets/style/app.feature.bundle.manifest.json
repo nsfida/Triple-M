@@ -126,8 +126,13 @@
       "path": "Assets/style/56-offline-reliability.css",
       "bytes": 2514,
       "sha256": "5084786b98f08aa99c1ae429ac5dd9774ab6aa4a310028e9807181ca9e444299"
+    },
+    {
+      "path": "Assets/style/57-notifications-messaging.css",
+      "bytes": 6639,
+      "sha256": "f789fd4d12ae9fa7ea7f6e6bfe53e7d44a495c8407bd514a2af53708086f9450"
     }
   ],
-  "bytes": 537986,
-  "sha256": "b6ce5dc9e4d7f7a488b52e7cce85647537ea2eeaf204556e85ddd06a739515ed"
+  "bytes": 544696,
+  "sha256": "a95406a2e9fbe4e4c773b913737b7846996c48ec9a7bdff8f5d99227d2b4c14f"
 }

@@ -8709,3 +8709,117 @@ html.triplem-apps-open,body.triplem-apps-open{overflow:hidden!important}
 .offline-panel-item-actions{display:flex;flex-wrap:wrap;gap:6px}
 .offline-panel-footer{display:flex;justify-content:flex-end;margin-top:14px}
 @media (max-width:560px){.offline-mode-banner{bottom:calc(76px + env(safe-area-inset-bottom,0px));font-size:.78rem}}
+
+/* ===== SOURCE: Assets/style/57-notifications-messaging.css ===== */
+/* Triplem VIP - Notifications & Messaging refinement (2026-11-05)
+ * One simple line per notification with a detail overlay, Messages "Read all",
+ * conversation day separators, grouped bubbles, composer hints, drafts and
+ * failed-send retry. Uses the shared theme tokens so every theme is supported. */
+
+/* ---- Header actions -------------------------------------------------------------- */
+.admin-comms-header-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+
+/* ---- Notification rows: one line each ------------------------------------------------- */
+#adminNotifyList .admin-comms-item.notif-row{
+  grid-template-columns:30px minmax(0,1fr) auto 8px;
+  align-items:center;
+  gap:10px;
+  padding:9px 10px;
+  border-radius:12px;
+  min-height:48px;
+  position:relative;
+}
+#adminNotifyList .notif-row:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+#adminNotifyList .notif-row .notif-row-icon{width:30px;height:30px;border-radius:9px;font-size:.82rem}
+.notif-row-text{display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden;white-space:nowrap}
+.notif-row-text strong{
+  flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  font-size:.86rem;font-weight:600;color:var(--text)
+}
+.notif-row-text span{
+  flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  font-size:.8rem;color:var(--muted)
+}
+.notif-row.unread .notif-row-text strong{font-weight:750}
+.notif-row-time{font-size:.74rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.notif-row-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
+@media (max-width:520px){
+  .notif-row-text{flex-direction:column;align-items:stretch;gap:1px}
+  .notif-row-text strong,.notif-row-text span{white-space:nowrap}
+}
+
+/* ---- Notification detail overlay --------------------------------------------------------- */
+.notification-detail-modal{z-index:2147482000}
+.notification-detail-modal .notification-detail-dialog{
+  width:min(520px,calc(100vw - 28px));
+  max-height:min(86vh,720px);
+  display:flex;flex-direction:column;
+  padding:0;overflow:hidden;
+  border-radius:18px;
+  background:var(--surface-elevated,var(--surface));
+  border:1px solid var(--line);
+  box-shadow:var(--shadow-strong,0 24px 60px rgba(15,23,42,.28));
+}
+.notification-detail-head{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.notification-detail-head .notification-detail-icon{flex:0 0 auto;width:40px;height:40px;border-radius:12px}
+.notification-detail-heading{flex:1;min-width:0}
+.notification-detail-heading h3{margin:0;font-size:1.02rem;line-height:1.35;color:var(--text);overflow-wrap:anywhere}
+.notification-detail-time{display:block;margin-top:3px;font-size:.78rem;color:var(--muted)}
+.notification-detail-body{padding:14px 18px;overflow:auto;display:grid;gap:12px}
+.notification-detail-text{margin:0;font-size:.9rem;line-height:1.6;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
+.notification-detail-fields{margin:0;display:grid;gap:8px;padding:12px;border-radius:12px;background:var(--surface-soft,var(--panel-2));border:1px solid var(--line)}
+.notification-detail-fields div{display:grid;grid-template-columns:minmax(110px,38%) 1fr;gap:10px;align-items:baseline}
+.notification-detail-fields dt{font-size:.76rem;color:var(--muted);font-weight:600}
+.notification-detail-fields dd{margin:0;font-size:.86rem;color:var(--text);overflow-wrap:anywhere}
+.notification-detail-state{margin:0;font-size:.82rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+.notification-detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line)}
+.notification-detail-actions .btn{min-height:38px}
+.notification-detail-spacer{flex:1}
+@media (max-width:520px){
+  .notification-detail-fields div{grid-template-columns:1fr;gap:2px}
+  .notification-detail-actions .btn{flex:1 1 auto;justify-content:center}
+  .notification-detail-spacer{display:none}
+}
+
+/* ---- Messages dropdown ------------------------------------------------------------------- */
+#adminMessagesPreviewList .admin-comms-message-main{position:relative}
+.message-unread-chip{
+  align-self:center;margin-left:auto;flex:0 0 auto;
+  min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+  display:inline-grid;place-items:center;
+  font-size:.7rem;font-weight:700;color:#fff;background:var(--primary)
+}
+#adminMessagesPreviewList .admin-comms-message-row.unread .admin-comms-item-title{font-weight:750}
+
+/* ---- Conversation view ------------------------------------------------------------------- */
+.chat-day-separator,.message-float-day-separator{
+  display:flex;align-items:center;gap:10px;margin:14px 4px 8px;
+  font-size:.72rem;font-weight:600;color:var(--muted);text-transform:none
+}
+.chat-day-separator::before,.chat-day-separator::after,
+.message-float-day-separator::before,.message-float-day-separator::after{content:"";flex:1;height:1px;background:var(--line)}
+.chat-day-separator span,.message-float-day-separator span{
+  padding:3px 10px;border-radius:999px;background:var(--surface-soft,var(--panel-2));border:1px solid var(--line)
+}
+.chat-bubble-row.is-grouped{margin-top:-6px}
+.chat-bubble-row.is-grouped .chat-bubble-meta{display:none}
+.chat-bubble-body a,.message-float-chat-body a{color:inherit;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.chat-bubble-row.chat-bubble-failed .chat-bubble{opacity:.85;outline:1px dashed color-mix(in srgb,var(--danger) 55%,transparent)}
+.chat-send-failed{color:var(--danger);font-weight:700}
+.chat-retry-btn{
+  font:inherit;font-size:.74rem;font-weight:700;cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--danger) 45%,var(--line));border-radius:999px;
+  padding:1px 9px;background:transparent;color:var(--danger)
+}
+.chat-retry-btn:hover{background:color-mix(in srgb,var(--danger) 10%,transparent)}
+
+/* ---- Composer --------------------------------------------------------------------------------- */
+#messagesReplyInput,.message-float-reply textarea{resize:none;max-height:168px;overflow-y:auto}
+.messages-reply-meta{
+  grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;
+  font-size:.72rem;color:var(--muted);margin-top:2px
+}
+.message-char-count:empty{display:none}
+.message-char-count.is-low{color:var(--danger);font-weight:700}
+.message-float-reply .message-char-count{display:block;font-size:.7rem;color:var(--muted);text-align:right}
+@media (hover:none),(max-width:720px){.messages-reply-keys{display:none}}
