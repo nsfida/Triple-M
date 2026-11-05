@@ -113,7 +113,8 @@
   function browserDeviceLabel() {
     const ua = safe(navigator.userAgent);
     let browser = "Browser";
-    if (/Edg\//.test(ua)) browser = "Edge";
+    if (window.TRIPLEM_WINDOWS_APP === true) browser = "Triplem VIP app";
+    else if (/Edg\//.test(ua)) browser = "Edge";
     else if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) browser = "Chrome";
     else if (/Firefox\//.test(ua)) browser = "Firefox";
     else if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) browser = "Safari";

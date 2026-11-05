@@ -188,7 +188,17 @@
     setQuickSignInLocal(quick===true);const u=user();if(u?.settings){u.settings.security_biometric_quick_sign_in=quick===true;u.settings.security_biometric_smart_pin_bypass=bypass===true;}return result;
   }
 
-  function quickSignInLocalEnabled() { try { return localStorage.getItem(QUICK_SIGNIN_LOCAL)==="1"; } catch (_) { return false; } }
+  // Windows app: Windows Hello passkeys belong to the PC (not to one browser
+  // profile), so Quick Sign-In is offered whenever Windows reports a
+  // user-verifying platform authenticator. The server still accepts only
+  // passkeys registered for Quick Sign-In on this account (no weakening).
+  let windowsHelloAvailable=false;
+  function isWindowsApp(){ try { return window.TRIPLEM_WINDOWS_APP===true; } catch (_) { return false; } }
+  function detectWindowsHello(){
+    if(!isWindowsApp()||!webauthnSupported()||typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable!=="function")return;
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(v=>{windowsHelloAvailable=v===true;updateQuickSignInButton();}).catch(()=>{});
+  }
+  function quickSignInLocalEnabled() { if (windowsHelloAvailable) return true; try { return localStorage.getItem(QUICK_SIGNIN_LOCAL)==="1"; } catch (_) { return false; } }
   function setQuickSignInLocal(enabled) { try { enabled ? localStorage.setItem(QUICK_SIGNIN_LOCAL,"1") : localStorage.removeItem(QUICK_SIGNIN_LOCAL); } catch (_) {} updateQuickSignInButton(); }
 
   async function performBiometricQuickSignIn() {
@@ -204,7 +214,11 @@
       try{if(typeof state!=="undefined")state.sessionToken=result.session_token;}catch(_){}
       if(typeof window.completeAuthenticatedUnlock!=="function")throw new Error("Sign-in module is unavailable. Refresh and try again.");
       const ok=await window.completeAuthenticatedUnlock(result.user,result.session_token,{remember,silentResume:false,biometricVerified:true});if(!ok)throw new Error("Sign-in was cancelled.");
-    }catch(e){if(err){err.textContent=e?.message||"Biometric sign-in failed.";err.classList.add("show");}}
+    }catch(e){
+      let text=e?.message||"Biometric sign-in failed.";
+      if(isWindowsApp()&&(e?.name==="NotAllowedError"||e?.name==="AbortError"))text="Windows Hello was cancelled, or no Triplem VIP passkey is saved on this PC. Sign in with your password, then turn on Windows Hello / Passkey Quick Sign-In in Account Security.";
+      if(err){err.textContent=text;err.classList.add("show");}
+    }
     finally{if(btn?.isConnected)btn.disabled=false;}
   }
 
@@ -213,8 +227,11 @@
     if(document.getElementById("biometricQuickSignInBtn")){updateQuickSignInButton();return;}
     const signIn=document.getElementById("unlockBtn");if(!signIn)return;
     const btn=document.createElement("button");btn.id="biometricQuickSignInBtn";btn.type="button";btn.className="btn biometric-quick-signin-btn hide";
-    btn.innerHTML='<i class="fa-solid fa-fingerprint" aria-hidden="true"></i><span>Face ID / Passkey</span><small>Quick sign-in</small>';
+    btn.innerHTML=isWindowsApp()
+      ? '<i class="fa-brands fa-windows" aria-hidden="true"></i><span>Windows Hello</span><small>Face, fingerprint or PIN</small>'
+      : '<i class="fa-solid fa-fingerprint" aria-hidden="true"></i><span>Face ID / Passkey</span><small>Quick sign-in</small>';
     btn.addEventListener("click",performBiometricQuickSignIn);signIn.insertAdjacentElement("afterend",btn);updateQuickSignInButton();
+    detectWindowsHello();
   }
 
   async function tryBiometricWorkspaceUnlock(){

@@ -703,6 +703,33 @@ function notificationBelongsInBell(item){
     || isLiveChatRoutingNotification(item);
 }
 
+// One event, one place (2026-11-05): conversations live in Messages. A live
+// chat appears in the bell only as an offer that is still waiting for THIS
+// user's Accept/Decline and is not already a conversation in their Messages.
+// Lifecycle notices (taken, transferred, timed out, closed) and anything the
+// admin already sees as a Messages conversation are not repeated in the bell.
+function isLiveChatOfferPending(item){
+  const status = String(notificationPayloadObject(item).assignment_status || "").trim().toLowerCase();
+  return !status || status === "pending";
+}
+
+// The authenticated routing RPC confirms a genuinely actionable offer when it is
+// available (Build 117); stale invitations never offer Accept/Decline.
+function liveChatOfferStillOpen(item){
+  const direct = adminCommsState.lastDirectOffers;
+  if (direct?.available) return (Array.isArray(direct.items) ? direct.items : []).some(row => liveChatOfferMatches(row, item));
+  return isLiveChatOfferPending(item);
+}
+
+function notificationShownInBell(item){
+  if (!notificationBelongsInBell(item)) return false;
+  if (!isLiveChatRoutingNotification(item)) return true;
+  if (!isLiveChatOfferNotification(item) || !liveChatOfferStillOpen(item)) return false;
+  if (isAppAdminSession()) return false;
+  const inquiryId = String(notificationPayloadObject(item).inquiry_id || "");
+  return !(inquiryId && adminCommsState.conversationIds instanceof Set && adminCommsState.conversationIds.has(inquiryId));
+}
+
 function isPersonalMessageThread(item){
   return !!item
     && String(item.source || "app").toLowerCase() === "app"
@@ -1611,18 +1638,66 @@ function showFloatingMessagePeek(thread){
   floatingMessageState.peekTimer = setTimeout(clearFloatingPeek, MESSAGE_FLOAT_PEEK_MS);
 }
 
+// ---- Message presentation helpers (2026-11-05) -----------------------------------
+// Escaped text with safe clickable https/http links (rel=noopener, new tab).
+function messageBodyHtml(text){
+  const escaped = escapeHtml(String(text ?? ""));
+  return escaped.replace(/\bhttps?:\/\/[^\s<]+/g, raw => {
+    const trail = raw.match(/[.,;:!?)\]]+$/);
+    const url = trail ? raw.slice(0, -trail[0].length) : raw;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trail ? trail[0] : ""}`;
+  });
+}
+
+function messageDayKey(value){
+  const d = new Date(value || Date.now());
+  return Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` : "";
+}
+
+function messageDayLabel(value){
+  const d = new Date(value || Date.now());
+  if (!Number.isFinite(d.getTime())) return "";
+  const today = new Date();
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  if (messageDayKey(d) === messageDayKey(today)) return "Today";
+  if (messageDayKey(d) === messageDayKey(yesterday)) return "Yesterday";
+  try {
+    return d.toLocaleDateString(undefined, d.getFullYear() === today.getFullYear()
+      ? { weekday: "short", day: "numeric", month: "short" }
+      : { day: "numeric", month: "short", year: "numeric" });
+  } catch (_) { return d.toDateString(); }
+}
+
+function messageDaySeparatorHtml(value, cls = "chat-day-separator"){
+  return `<div class="${cls}" role="separator"><span>${escapeHtml(messageDayLabel(value))}</span></div>`;
+}
+
+// Consecutive messages from the same sender within 5 minutes are grouped.
+function messageStartsGroup(prev, m){
+  if (!prev) return true;
+  if (messageDayKey(prev.created_at) !== messageDayKey(m.created_at)) return true;
+  if (String(prev.sender_role || "") !== String(m.sender_role || "")) return true;
+  if (String(prev.sender_id || "") !== String(m.sender_id || "")) return true;
+  if (String(prev.support_actor || prev.message_actor || "") !== String(m.support_actor || m.message_actor || "")) return true;
+  return Math.abs(new Date(m.created_at || 0) - new Date(prev.created_at || 0)) > 5 * 60 * 1000;
+}
+
 function floatingHistoryRowsHtml(messages, thread = null){
   const admin = isAppAdminSession();
   const supportThread = isAssignedSupportThread(thread);
   if (!Array.isArray(messages) || !messages.length) {
     return `<div class="message-float-history-empty">No messages yet.</div>`;
   }
+  let lastDay = "";
   return messages.map(m => {
     const mine = admin || supportThread ? m.sender_role === "admin" : m.sender_role !== "admin";
-    return `
+    const day = messageDayKey(m.created_at || new Date().toISOString());
+    const separator = day && day !== lastDay ? messageDaySeparatorHtml(m.created_at || new Date().toISOString(), "message-float-day-separator") : "";
+    lastDay = day;
+    return `${separator}
       <div class="message-float-chat-row ${mine ? "mine" : "theirs"}" data-message-id="${escapeHtml(String(m.id || ""))}">
         <div class="message-float-chat-bubble${m._optimistic ? " chat-bubble-pending" : ""}">
-          <div class="message-float-chat-body" dir="auto">${escapeHtml(String(m.body || ""))}</div>
+          <div class="message-float-chat-body" dir="auto">${messageBodyHtml(m.body || "")}</div>
           <div class="message-float-chat-time">${escapeHtml(formatRelativeTime(m.created_at || new Date().toISOString()))}</div>
         </div>
       </div>`;
@@ -1669,6 +1744,7 @@ function ensureFloatingMessageCard(thread){
       <div class="message-float-reply">
         ${liveSupportSide ? liveChatQuickRepliesHtml(`float-${id}`) : ""}
         <textarea class="input" rows="2" maxlength="4000" data-float-reply="${escapeHtml(id)}" placeholder="Write a reply…" aria-label="Quick reply"></textarea>
+        <span class="message-char-count" aria-live="polite"></span>
         <div class="message-float-actions">
           <button type="button" class="btn ghost message-float-open" data-float-open="${escapeHtml(id)}"><i class="fa-solid fa-comments"></i> Open Messages</button>
           ${liveSupportSide && isAssignedSupportThread(thread) ? `<button type="button" class="btn ghost message-float-transfer" data-float-transfer="${escapeHtml(id)}"><i class="fa-solid fa-right-left"></i> Transfer</button><button type="button" class="btn ghost live-support-end-chat-btn message-float-end-chat" data-float-end-chat="${escapeHtml(id)}" title="End this live chat"><i class="fa-solid fa-phone-slash"></i><span>End Chat</span></button>` : ""}
@@ -1676,6 +1752,7 @@ function ensureFloatingMessageCard(thread){
         </div>
       </div>`;
     cards.appendChild(card);
+    restoreMessageDraft(card.querySelector(`[data-float-reply="${id}"]`), id);
   } else {
     const name = card.querySelector("[data-float-person-name]");
     const detail = card.querySelector("[data-float-person-detail]");
@@ -2046,7 +2123,8 @@ async function sendFloatingMessageReply(threadId){
   floatingMessageState.sendInFlight.add(id);
   const sendBtn = card?.querySelector(`[data-float-send="${id}"]`);
   if (sendBtn) sendBtn.disabled = true;
-  if (input) input.value = "";
+  if (input) { input.value = ""; autosizeMessageInput(input); }
+  clearMessageDraft(id);
   const optimisticId = appendOptimisticFloatingReply(id, body);
   try {
     const result = await supabaseRpc("app_reply_inquiry", { p_inquiry_id: id, p_body: body });
@@ -2075,8 +2153,9 @@ async function sendFloatingMessageReply(threadId){
   } catch (err) {
     removeOptimisticFloatingReply(id, optimisticId);
     renderFloatingMessageCard(floatingMessageState.threadMap.get(id), { focus: true, scrollBottom: true });
-    if (input) input.value = body;
-    alert(err.message || "Could not send reply.");
+    if (input) { input.value = body; autosizeMessageInput(input); }
+    saveMessageDraft(id, body);
+    showMessageSendNotice(err.message || "Could not send the message. Your text is kept so you can try again.");
   } finally {
     floatingMessageState.sendInFlight.delete(id);
     const currentCard = document.querySelector(floatingCardSelector(id));
@@ -2955,6 +3034,24 @@ function setHeaderBadge(el, count){
   const n = Math.max(0, Number(count) || 0);
   el.textContent = n > 99 ? "99+" : String(n);
   el.style.display = n > 0 ? "inline" : "none";
+  el.dataset.count = String(n);
+  if (el.id === "adminNotifyCount" || el.id === "adminMessagesCount") announceUnreadCounts();
+}
+
+// Single source for the unread total shown by the header bells. Desktop
+// integrations (Windows app taskbar badge) listen for this event; the web UI
+// itself does not depend on it.
+function announceUnreadCounts(){
+  try {
+    const read = id => Math.max(0, Number(document.getElementById(id)?.dataset.count) || 0);
+    window.dispatchEvent(new CustomEvent("triplem:unread-counts", {
+      detail: {
+        notifications: read("adminNotifyCount"),
+        messages: read("adminMessagesCount"),
+        signedIn: !!(state.unlocked && !isGuestMode() && state.sessionUser)
+      }
+    }));
+  } catch (_) {}
 }
 
 function updateAdminCommsVisibility(){
@@ -3003,9 +3100,19 @@ async function refreshAdminCommsBadges(){
         }
       } catch (_) {}
     }
-    const notificationUnread = notifications.reduce((sum, item) => sum + (!item.is_read ? 1 : 0), 0);
+    adminCommsState.lastDirectOffers = directLiveOffers;
+    adminCommsState.conversationIds = new Set((Array.isArray(threads) ? threads : [])
+      .filter(t => admin ? isAdminMessageThread(t) : isUserVisibleMessageThread(t))
+      .map(t => String(t.id || "")).filter(Boolean));
+    const bellNotifications = notifications.filter(notificationShownInBell);
+    const notificationUnread = bellNotifications.reduce((sum, item) => sum + (!item.is_read ? 1 : 0), 0);
     const messageUnread = threads.reduce((sum, thread) => sum + personalMessageUnreadCount(thread, admin), 0);
     applyAdminBadgeCounts(notificationUnread, messageUnread);
+    try {
+      window.dispatchEvent(new CustomEvent("triplem:comms-snapshot", {
+        detail: { notifications: bellNotifications, threads, admin, userId: String(state.sessionUser?.id || "") }
+      }));
+    } catch (_) {}
     syncLiveChatOfferDock(mergeLiveChatOfferRows(notifications, directLiveOffers));
     syncFloatingMessageBubbles(threads);
   } catch (err) {
@@ -3244,6 +3351,270 @@ async function openLiveChatAssignmentDetails(notification){
   modal.setAttribute("aria-hidden","false");
 }
 
+function notificationSource(n){
+  return n?.source || (n?.kind === "note_reminder" || n?.kind === "installment_due" ? "user" : "admin");
+}
+
+function notificationTitleText(n){
+  const payload = notificationPayloadObject(n);
+  return String(n?.title || (
+    n?.kind === "note_reminder"
+      ? (payload.type === "installment_manual" ? "Installment reminder" : "Note reminder")
+      : n?.kind === "installment_due" ? "Installment due" : "Notification"
+  )).trim();
+}
+
+function notificationVisual(n){
+  if (isSecurityRecoveryNotification(n)) return { cls: "warn", icon: "fa-shield-halved" };
+  if (isLiveChatOfferNotification(n)) return { cls: "inquiry", icon: "fa-headset" };
+  if (isAdminBroadcastNotification(n)) return { cls: "", icon: "fa-bullhorn" };
+  if (isSubscriptionUserNotification(n)) return { cls: "renewal", icon: "fa-crown" };
+  return { cls: notificationIconClass(n?.kind), icon: notificationIcon(n?.kind) };
+}
+
+function notificationPreviewText(n){
+  const payload = notificationPayloadObject(n);
+  if (n?.kind === "note_reminder") return String(payload.note_preview || n.body || "").trim();
+  if (n?.kind === "installment_due") return [payload.person_name, payload.due_date, payload.amount_label].filter(Boolean).join(" · ") || String(n.body || "");
+  return String(n?.body || "").replace(/\s+/g, " ").trim();
+}
+
+function notificationShortTime(value){
+  const t = new Date(value || 0).getTime();
+  if (!Number.isFinite(t) || t <= 0) return "";
+  const diff = Math.max(0, Date.now() - t) / 1000;
+  if (diff < 60) return "now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d`;
+  try { return new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" }); } catch (_) { return ""; }
+}
+
+// One simple line per notification. Details and actions open in an overlay.
+function notificationRowHtml(n){
+  const unread = !n.is_read;
+  const source = notificationSource(n);
+  const v = notificationVisual(n);
+  const title = notificationTitleText(n);
+  const preview = notificationPreviewText(n);
+  return `
+        <div class="admin-comms-item notif-row ${unread ? "unread" : ""}" role="button" tabindex="0" data-notification-id="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" aria-label="${escapeHtml(`${unread ? "Unread: " : ""}${title}`)}">
+          <span class="notif-row-icon admin-comms-item-icon ${escapeHtml(v.cls)}" aria-hidden="true"><i class="fa-solid ${escapeHtml(v.icon)}"></i></span>
+          <span class="notif-row-text"><strong>${escapeHtml(title)}</strong>${preview ? `<span>${escapeHtml(preview.slice(0, 140))}</span>` : ""}</span>
+          <time class="notif-row-time" datetime="${escapeHtml(n.created_at || "")}" title="${escapeHtml(formatRelativeTime(n.created_at))}">${escapeHtml(notificationShortTime(n.created_at))}</time>
+          ${unread ? `<span class="notif-row-dot" aria-hidden="true"></span>` : ""}
+        </div>`;
+}
+
+function notificationDetailFields(n){
+  const payload = notificationPayloadObject(n);
+  const rows = [];
+  const add = (label, value) => { const v = String(value ?? "").trim(); if (v) rows.push([label, v]); };
+  if (isSecurityRecoveryNotification(n)) {
+    add("Matching code", payload.display_code);
+    add("Important", "Approve only from a browser you previously trusted for account recovery.");
+  } else if (n.kind === "note_reminder") {
+    add("Note", payload.note_preview || n.body);
+    add("Reminder time", payload.remind_at ? formatTrialExpiry(payload.remind_at) : "");
+  } else if (n.kind === "installment_due") {
+    add("Customer / party", payload.person_name);
+    add("Due date", payload.due_date);
+    add("Amount", payload.amount_label);
+  } else if (n.kind === "renewal_request") {
+    add("Requested period", payload.period_label || accessPeriodLabel(payload.requested_period, payload.requested_days, payload.requested_until ? toInputDateValue(payload.requested_until) : null));
+    add("Current expiry", payload.current_expires_at ? formatTrialExpiry(payload.current_expires_at) : "");
+    add("Message", payload.message);
+  } else if (n.kind === "subscription_payment") {
+    add("Plan", payload.plan === "yearly" ? "Pro Yearly" : payload.plan ? "Pro Monthly" : "");
+    add("Team seats", payload.team_seats);
+  } else if (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled") {
+    add("Trial expired", payload.trial_expires_at ? formatTrialExpiry(payload.trial_expires_at) : "");
+    add("Access disabled on", payload.access_disable_at ? formatTrialExpiry(payload.access_disable_at) : "");
+  } else if (isLiveChatOfferNotification(n)) {
+    add("Visitor", payload.guest_name);
+    add("Message", payload.message);
+    add("From", payload.from_agent_name);
+  }
+  return rows;
+}
+
+function notificationActions(n){
+  const source = notificationSource(n);
+  const payload = notificationPayloadObject(n);
+  const actions = [];
+  if (source === "user" && isLiveChatOfferNotification(n) && payload.inquiry_id && liveChatOfferStillOpen(n)) {
+    actions.push({ id: "live-accept", label: "Accept live chat", icon: "fa-headset", primary: true });
+    actions.push({ id: "live-decline", label: "Decline", icon: "fa-xmark", danger: true });
+  } else if (source === "user" && isSecurityRecoveryNotification(n)) {
+    actions.push({ id: "open", label: "Review approval", icon: "fa-shield-halved", primary: true });
+  } else if (source === "user" && isSubscriptionUserNotification(n)) {
+    actions.push({ id: "open", label: "View subscription details", icon: "fa-receipt", primary: true });
+  } else if (n.kind === "inquiry" && isMemberAccessRequestNotification(n)) {
+    actions.push({ id: "open", label: "View request", icon: "fa-user-lock", primary: true });
+  } else if (n.kind === "note_reminder") {
+    actions.push({ id: "open", label: "Open reminder", icon: "fa-clock", primary: true });
+  } else if (n.kind === "installment_due") {
+    actions.push({ id: "open", label: "Open installment", icon: "fa-calendar-day", primary: true });
+  } else if (source === "admin" && n.kind === "subscription_payment" && payload.request_id) {
+    actions.push({ id: "review-payment", label: "Review payment", icon: "fa-receipt", primary: true });
+  }
+  if (source === "admin" && n.related_user_id) {
+    actions.push({ id: "open-user", label: "Open user", icon: "fa-user", primary: !actions.length });
+  }
+  return actions;
+}
+
+function ensureNotificationDetailModal(){
+  let modal = document.getElementById("notificationDetailModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "notificationDetailModal";
+  modal.className = "modal hide notification-detail-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-notif-detail-close></div>
+    <div class="modal-dialog notification-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="notificationDetailTitle">
+      <div class="notification-detail-head">
+        <span class="notification-detail-icon admin-comms-item-icon" aria-hidden="true"><i class="fa-solid fa-bell"></i></span>
+        <div class="notification-detail-heading">
+          <h3 id="notificationDetailTitle">Notification</h3>
+          <time class="notification-detail-time"></time>
+        </div>
+        <button class="icon-btn ghost" type="button" data-notif-detail-close aria-label="Close">&times;</button>
+      </div>
+      <div class="notification-detail-body"></div>
+      <div class="notification-detail-actions"></div>
+    </div>`;
+  (document.getElementById("app") || document.body).appendChild(modal);
+  modal.addEventListener("click", async e => {
+    if (e.target.closest("[data-notif-detail-close]")) { closeNotificationDetail(); return; }
+    const btn = e.target.closest("[data-notif-detail-action]");
+    if (!btn || btn.disabled) return;
+    const n = (adminCommsState.notifications || []).find(x => String(x.id) === String(modal.dataset.notificationId || ""));
+    if (!n) { closeNotificationDetail(); return; }
+    btn.disabled = true;
+    try { await runNotificationAction(n, btn.dataset.notifDetailAction); }
+    catch (ex) { alert(ex?.message || "Action failed."); }
+    finally { if (btn.isConnected) btn.disabled = false; }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !modal.classList.contains("hide")) closeNotificationDetail();
+  });
+  return modal;
+}
+
+function closeNotificationDetail(){
+  const modal = document.getElementById("notificationDetailModal");
+  if (!modal) return;
+  modal.classList.add("hide");
+  modal.setAttribute("aria-hidden", "true");
+  modal.dataset.notificationId = "";
+}
+
+function openNotificationDetail(n){
+  const modal = ensureNotificationDetailModal();
+  const v = notificationVisual(n);
+  const icon = modal.querySelector(".notification-detail-icon");
+  icon.className = `notification-detail-icon admin-comms-item-icon ${v.cls}`;
+  icon.innerHTML = `<i class="fa-solid ${escapeHtml(v.icon)}"></i>`;
+  modal.querySelector("#notificationDetailTitle").textContent = notificationTitleText(n);
+  const time = modal.querySelector(".notification-detail-time");
+  time.setAttribute("datetime", n.created_at || "");
+  let absolute = "";
+  try { absolute = n.created_at ? new Date(n.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : ""; } catch (_) {}
+  time.textContent = [absolute, formatRelativeTime(n.created_at)].filter(Boolean).join(" · ");
+  const fields = notificationDetailFields(n);
+  const body = String(n.body || "").trim();
+  const payload = notificationPayloadObject(n);
+  const amount = n.kind === "subscription_payment" && payload.amount ? regionalMoneyHtml(payload.amount, payload.currency || "USD") : "";
+  const offer = isLiveChatOfferNotification(n) ? liveChatNotificationResolution(n, liveChatOfferStillOpen(n)) : null;
+  modal.querySelector(".notification-detail-body").innerHTML = `
+    ${body && !fields.some(([, value]) => value === body) ? `<p class="notification-detail-text" dir="auto">${escapeHtml(body)}</p>` : ""}
+    ${fields.length || amount ? `<dl class="notification-detail-fields">${fields.map(([k, val]) => `<div><dt>${escapeHtml(k)}</dt><dd dir="auto">${escapeHtml(val)}</dd></div>`).join("")}${amount ? `<div><dt>Amount</dt><dd>${amount}</dd></div>` : ""}</dl>` : ""}
+    ${offer ? `<p class="notification-detail-state is-${escapeHtml(offer.code)}"><i class="fa-solid fa-circle-info"></i> ${escapeHtml(offer.label)}</p>` : ""}`;
+  const actions = notificationActions(n);
+  const source = notificationSource(n);
+  modal.querySelector(".notification-detail-actions").innerHTML = `
+    ${actions.map(a => `<button type="button" class="btn ${a.primary ? "primary" : a.danger ? "ghost danger-text" : "soft"}" data-notif-detail-action="${escapeHtml(a.id)}"><i class="fa-solid ${escapeHtml(a.icon)}"></i> ${escapeHtml(a.label)}</button>`).join("")}
+    <span class="notification-detail-spacer"></span>
+    <button type="button" class="btn ghost danger-text" data-notif-detail-action="delete" data-source="${escapeHtml(source)}"><i class="fa-solid fa-trash"></i> Delete</button>`;
+  modal.dataset.notificationId = String(n.id);
+  modal.classList.remove("hide");
+  modal.setAttribute("aria-hidden", "false");
+  requestAnimationFrame(() => modal.querySelector(".notification-detail-actions .btn.primary, [data-notif-detail-close].icon-btn")?.focus({ preventScroll: true }));
+}
+
+function closeOpenMenusForAction(){
+  document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
+  closeNotificationDetail();
+}
+
+// The same actions the notification rows offered before, now reached from the
+// detail overlay.
+async function runNotificationAction(n, action){
+  const source = notificationSource(n);
+  const payload = notificationPayloadObject(n);
+  if (action === "delete") {
+    if (!(await appConfirmDelete("Delete this notification?", { title: "Delete notification?", confirmLabel: "Delete notification" }))) return;
+    closeNotificationDetail();
+    document.dispatchEvent(new CustomEvent("triplem:notification-delete", { detail: { id: n.id, source } }));
+    return;
+  }
+  if (action === "live-decline") {
+    await supabaseRpc(isLiveChatTransferNotification(n) ? "app_live_chat_decline_transfer" : "app_live_chat_decline_assignment", { p_inquiry_id: payload.inquiry_id });
+    closeNotificationDetail();
+    adminCommsState.notificationDropdownSignature = "";
+    await loadAdminNotificationsDropdown();
+    await refreshAdminCommsBadges();
+    return;
+  }
+  if (action === "live-accept") {
+    closeOpenMenusForAction();
+    if (isLiveChatTransferNotification(n)) syncLiveChatOfferDock([n]);
+    else await openLiveChatAssignmentDetails(n);
+    return;
+  }
+  if (action === "review-payment") {
+    closeOpenMenusForAction();
+    activate("admin");
+    await openAdminSubscriptionReviewById(payload.request_id);
+    return;
+  }
+  if (action === "open-user") {
+    closeOpenMenusForAction();
+    activate("admin");
+    await loadAdminUsers();
+    const targetUser = (state.adminUsersCache || []).find(user => String(user.id) === String(n.related_user_id));
+    if (targetUser && typeof window.openAdminUserDetailsOverlay === "function") window.openAdminUserDetailsOverlay(targetUser);
+    return;
+  }
+  if (action !== "open") return;
+  closeOpenMenusForAction();
+  if (source === "user" && isSecurityRecoveryNotification(n)) {
+    const opened = await window.openTrustedRecoveryApprovalById?.(payload.request_id || "");
+    if (!opened) alert("Open this request from the browser that you previously trusted for account recovery.");
+  } else if (source === "user" && isSubscriptionUserNotification(n)) {
+    await openSubscriptionNotificationDetails(n);
+  } else if (n.kind === "inquiry" && isMemberAccessRequestNotification(n)) {
+    await openAccessRequestDetails(n);
+  } else if (n.kind === "note_reminder" || n.kind === "installment_due") {
+    // Replay the same centered overlay (and sound) for reminder inbox rows.
+    const raw = notificationRowToReminderAlertRaw({ ...n, is_read: false });
+    if (raw) {
+      const item = normalizeReminderAlertItem(raw);
+      const key = reminderAlertDedupeKey(item);
+      if (key) noteReminderUiState.toastedReminderIds.delete(key);
+      enqueueReminderAlerts([raw]);
+    } else if (n.kind === "installment_due") {
+      activate("installments");
+    } else {
+      const planId = payload.plan_group_id || payload.related_plan_group_id || "";
+      if (payload.type === "installment_manual" || (planId && !n.related_note_id && !payload.note_id)) activate("installments");
+      else activate("notes");
+    }
+  }
+}
+
 async function loadAdminNotificationsDropdown(){
   const list = document.getElementById("adminNotifyList");
   if (!list || !messagingLiveEligible()) return;
@@ -3278,7 +3649,8 @@ async function loadAdminNotificationsDropdown(){
     const directLiveOffers = await fetchDirectLiveChatOffers().catch(() => ({ available: false, items: [] }));
     if (requestId !== adminCommsState.notificationRequestId) return;
     items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    adminCommsState.notifications = items.filter(notificationBelongsInBell).slice(0, 50);
+    adminCommsState.lastDirectOffers = directLiveOffers.available ? directLiveOffers : { available: false, items: [] };
+    adminCommsState.notifications = items.filter(notificationShownInBell).slice(0, 50);
     const notificationSignature = adminCommsState.notifications.map(n => {
       const p = notificationPayloadObject(n);
       return [n.id, n.is_read ? 1 : 0, n.created_at || "", n.kind || "", p.assignment_status || "", p.request_id || "", p.inquiry_id || "", p.transfer_id || ""].join("|");
@@ -3297,76 +3669,7 @@ async function loadAdminNotificationsDropdown(){
       list.scrollTop = 0;
       return;
     }
-    list.innerHTML = adminCommsState.notifications.map(n => {
-      const unread = !n.is_read;
-      const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
-      const source = n.source || (n.kind === "note_reminder" || n.kind === "installment_due" ? "user" : "admin");
-      const reminderPreview = n.kind === "note_reminder"
-        ? String(payload.note_preview || n.body || "").trim()
-        : n.kind === "installment_due"
-          ? [payload.person_name, payload.due_date, payload.amount_label].filter(Boolean).join(" · ")
-          : "";
-      const extra = isSecurityRecoveryNotification(n)
-        ? `<p class="admin-comms-item-body"><strong>Matching code ${escapeHtml(payload.display_code || "")}</strong> · Approve only from a browser you previously trusted.</p>`
-        : n.kind === "renewal_request"
-        ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.period_label || accessPeriodLabel(payload.requested_period, payload.requested_days, payload.requested_until ? toInputDateValue(payload.requested_until) : null))}</strong>${payload.current_expires_at ? ` · current ${escapeHtml(formatTrialExpiry(payload.current_expires_at))}` : ""}${payload.message ? ` · “${escapeHtml(payload.message)}”` : ""}</p>`
-        : n.kind === "subscription_payment"
-          ? `<p class="admin-comms-item-body"><strong>${escapeHtml(payload.plan === "yearly" ? "Pro Yearly" : "Pro Monthly")}</strong>${payload.amount ? ` · ${regionalMoneyHtml(payload.amount, payload.currency || "USD")}` : ""}${payload.team_seats ? ` · ${escapeHtml(String(payload.team_seats))} team seat(s)` : ""}</p>`
-        : (n.kind === "access_expiry_warning" || n.kind === "access_auto_disabled")
-          ? `<p class="admin-comms-item-body">${payload.trial_expires_at ? `Expired ${escapeHtml(formatTrialExpiry(payload.trial_expires_at))}` : ""}${payload.access_disable_at ? ` · disable ${escapeHtml(formatTrialExpiry(payload.access_disable_at))}` : ""}</p>`
-          : (reminderPreview
-            ? `<p class="admin-comms-item-body">${escapeHtml(reminderPreview.slice(0, 120))}</p>`
-            : "");
-      const jumpUser = source === "admin" && n.related_user_id
-        ? `<button type="button" class="btn ghost" data-notif-user="${escapeHtml(n.related_user_id)}" title="Open user"><i class="fa-solid fa-user"></i></button>`
-        : "";
-      const paymentReview = source === "admin" && n.kind === "subscription_payment" && payload.request_id
-        ? `<button type="button" class="btn primary" data-subscription-review="${escapeHtml(payload.request_id)}" title="Review payment"><i class="fa-solid fa-receipt"></i></button>`
-        : "";
-      const payloadPending = !String(payload.assignment_status || "").trim() || String(payload.assignment_status || "").toLowerCase() === "pending";
-      const assignmentOpen = isLiveChatOfferNotification(n)
-        ? (directLiveOffers.available
-          ? (Array.isArray(directLiveOffers.items) ? directLiveOffers.items : []).some(item => liveChatOfferMatches(item, n))
-          : payloadPending)
-        : false;
-      const offerKind = isLiveChatTransferNotification(n) ? "transfer" : "assignment";
-      const liveResolution = isLiveChatOfferNotification(n) ? liveChatNotificationResolution(n, assignmentOpen) : null;
-      const liveResolutionLine = liveResolution ? `<p class="admin-comms-item-body live-chat-notification-state is-${escapeHtml(liveResolution.code)}"><i class="fa-solid ${assignmentOpen ? "fa-clock" : "fa-circle-check"}"></i> ${escapeHtml(liveResolution.label)}</p>` : "";
-      const liveChatAccept = source === "user" && isLiveChatOfferNotification(n) && payload.inquiry_id && assignmentOpen
-        ? `<button type="button" class="btn primary" data-live-chat-accept="${escapeHtml(payload.inquiry_id)}" data-live-chat-kind="${offerKind}" title="Accept live chat"><i class="fa-solid fa-headset"></i></button>`
-        : "";
-      const liveChatDecline = source === "user" && isLiveChatOfferNotification(n) && payload.inquiry_id && assignmentOpen
-        ? `<button type="button" class="btn ghost danger-text" data-live-chat-decline="${escapeHtml(payload.inquiry_id)}" data-live-chat-kind="${offerKind}" title="Decline live chat"><i class="fa-solid fa-xmark"></i></button>`
-        : "";
-      const title = String(n.title || (
-        n.kind === "note_reminder"
-          ? (payload.type === "installment_manual" ? "Installment reminder" : "Note reminder")
-          : n.kind === "installment_due"
-            ? "Installment due"
-            : "Notification"
-      )).trim();
-      return `
-        <div class="admin-comms-item ${unread ? "unread" : ""}" data-notification-id="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" data-related-user="${escapeHtml(n.related_user_id || "")}">
-          <div class="admin-comms-item-icon ${isSecurityRecoveryNotification(n) ? "warn" : isLiveChatOfferNotification(n) ? "inquiry" : notificationIconClass(n.kind)}">
-            <i class="fa-solid ${isSecurityRecoveryNotification(n) ? "fa-shield-halved" : isLiveChatOfferNotification(n) ? "fa-headset" : notificationIcon(n.kind)}"></i>
-          </div>
-          <div>
-            <p class="admin-comms-item-title">${escapeHtml(title)}</p>
-            <p class="admin-comms-item-body">${escapeHtml(n.body || "")}</p>
-            ${extra}
-            ${liveResolutionLine}
-            <span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(n.created_at))}</span>
-          </div>
-          <div class="admin-comms-item-actions">
-            ${paymentReview}
-            ${liveChatAccept}
-            ${liveChatDecline}
-            ${jumpUser}
-            ${unread ? `<button type="button" class="btn ghost admin-notif-read-btn" data-notif-read="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" title="Mark notification as read"><i class="fa-solid fa-check" aria-hidden="true"></i><span>Read</span></button>` : ""}
-            <button type="button" class="btn ghost" data-notif-delete="${escapeHtml(n.id)}" data-notif-source="${escapeHtml(source)}" title="Delete"><i class="fa-solid fa-trash"></i></button>
-          </div>
-        </div>`;
-    }).join("");
+    list.innerHTML = adminCommsState.notifications.map(notificationRowHtml).join("");
     list.dataset.notificationsRendered = "1";
     list.scrollTop = previousScrollTop;
     requestAnimationFrame(() => { if (list.isConnected) list.scrollTop = previousScrollTop; });
@@ -3397,7 +3700,11 @@ async function loadAdminMessagesPreview(){
       const unread = admin || supportThread ? Number(item.unread_for_admin || 0) > 0 : Number(item.unread_for_user || 0) > 0;
       const who = admin || supportThread ? (item.sender_display_name || item.guest_name || item.sender_username || "Guest") : "Admin";
       const transferPending = String(item.support_transfer_status || "").toLowerCase() === "pending";
-      return `<div class="admin-comms-item admin-comms-message-row ${unread ? "unread" : ""}" data-message-preview-row="${escapeHtml(item.id)}"><button type="button" class="admin-comms-message-main" data-preview-inquiry="${escapeHtml(item.id)}" title="Open floating chat"><span class="admin-comms-item-icon inquiry"><i class="fa-solid fa-comments"></i></span><span class="admin-comms-message-copy"><span class="admin-comms-item-title">${escapeHtml(item.subject || "Conversation")}${transferPending ? ` <em class="live-support-inline-state">Transfer pending</em>` : ""}</span><span class="admin-comms-item-body">${escapeHtml(who)} · ${escapeHtml(item.last_message_preview || item.body || "")}</span><span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(item.last_message_at || item.created_at))}</span></span></button></div>`;
+      const unreadCount = Math.max(0, Number(admin || supportThread ? item.unread_for_admin : item.unread_for_user) || 0);
+      const lastRole = String(item.last_message_role || "").toLowerCase();
+      const lastMine = lastRole ? ((admin || supportThread) ? lastRole === "admin" : lastRole !== "admin") : false;
+      const previewText = `${lastMine ? "You: " : `${who}: `}${item.last_message_preview || item.body || ""}`;
+      return `<div class="admin-comms-item admin-comms-message-row ${unread ? "unread" : ""}" data-message-preview-row="${escapeHtml(item.id)}"><button type="button" class="admin-comms-message-main" data-preview-inquiry="${escapeHtml(item.id)}" title="Open floating chat"><span class="admin-comms-item-icon inquiry"><i class="fa-solid fa-comments"></i></span><span class="admin-comms-message-copy"><span class="admin-comms-item-title">${escapeHtml(item.subject || "Conversation")}${transferPending ? ` <em class="live-support-inline-state">Transfer pending</em>` : ""}</span><span class="admin-comms-item-body">${escapeHtml(previewText)}</span><span class="admin-comms-item-meta">${escapeHtml(formatRelativeTime(item.last_message_at || item.created_at))}</span></span>${unread && unreadCount ? `<span class="message-unread-chip" aria-label="${unreadCount} unread">${unreadCount > 99 ? "99+" : unreadCount}</span>` : ""}</button></div>`;
     }).join("");
     list.scrollTop = previousScrollTop; requestAnimationFrame(() => { if (list.isConnected) list.scrollTop = previousScrollTop; });
   } catch (err) {
@@ -3937,7 +4244,7 @@ async function openInquiryThread(inquiryId, options = {}){
       <div class="messages-thread-header-main">
         <div>
           <h4>${admin ? escapeHtml(inquiry.subject || "Conversation") : supportThread ? escapeHtml(inquiry.sender_display_name || inquiry.guest_name || "Live Chat Guest") : "Triplem VIP Admin"}</h4>
-          <p>${admin ? `${escapeHtml(inquiry.sender_display_name || "Guest")}${inquiry.sender_username ? ` · @${escapeHtml(inquiry.sender_username)}` : ""}${isLandingLiveChatThread(inquiry) ? ` · Landing live chat${liveChatIdentityNote}` : (inquiry.source === "landing" ? " · Login page request" : "")}` : supportThread ? `Triplem VIP Live Support · visitor conversation${liveChatIdentityNote}` : "Private conversation · Continue here whenever you need assistance."}</p>
+          <p>${admin ? `${escapeHtml(inquiry.sender_display_name || "Guest")}${inquiry.sender_username ? ` · @${escapeHtml(inquiry.sender_username)}` : ""}${isLandingLiveChatThread(inquiry) ? ` · Landing live chat${liveChatIdentityNote}` : (inquiry.source === "landing" ? " · Login page request" : "")}` : supportThread ? `Triplem VIP Live Support · visitor conversation${liveChatIdentityNote}` : "Private conversation with Triplem VIP support · replies arrive here and in your notifications"}</p>
           ${(admin || supportThread) && contactBits ? `<p class="messages-thread-contact">${contactBits}</p>` : ""}
           ${supportThread ? `<p class="live-support-visitor-presence ${escapeHtml(presenceClass)}"><i class="fa-solid ${supportRouteStatus === "closed" ? "fa-circle-stop" : visitorPresence === "online" ? "fa-circle" : "fa-signal"}"></i><span>${escapeHtml(presenceLabel)}</span></p>` : ""}
         </div>
@@ -3950,7 +4257,12 @@ async function openInquiryThread(inquiryId, options = {}){
         ${supportActive ? `${String(inquiry.support_transfer_status || "").toLowerCase() === "pending" ? `<span class="live-support-transfer-pending"><i class="fa-solid fa-clock"></i> Transfer pending${inquiry.support_transfer_to_name ? ` · ${escapeHtml(inquiry.support_transfer_to_name)}` : ""}</span>` : `<button type="button" class="btn ghost tiny" data-live-chat-transfer="${escapeHtml(inquiry.id)}"><i class="fa-solid fa-right-left"></i> Transfer</button>`}<button type="button" class="btn ghost tiny live-support-end-chat-btn" data-live-chat-agent-end="${escapeHtml(inquiry.id)}" title="End this live chat"><i class="fa-solid fa-phone-slash"></i><span>End Chat</span></button>` : (supportThread ? `<span class="live-support-ended-state"><i class="fa-solid fa-lock"></i> Conversation ended</span>` : (!admin ? `<button type="button" class="btn ghost danger-text" data-my-inquiry-delete="${escapeHtml(inquiry.id)}"><i class="fa-solid fa-trash"></i> Delete</button>` : ""))}
       </div>`;
 
-    scroll.innerHTML = messages.map(m => {
+    let lastDay = "";
+    scroll.innerHTML = messages.map((m, index) => {
+      const day = messageDayKey(m.created_at);
+      const separator = day && day !== lastDay ? messageDaySeparatorHtml(m.created_at) : "";
+      lastDay = day;
+      const grouped = !messageStartsGroup(messages[index - 1], m);
       const actor = String(m.message_actor || m.support_actor || (m.sender_role === "admin" && m.sender_id ? "agent" : "")).toLowerCase();
       const isAiMessage = actor === "ai" || m.is_ai === true;
       const isHumanMessage = actor === "agent";
@@ -3959,14 +4271,14 @@ async function openInquiryThread(inquiryId, options = {}){
       const actorBadge = isAiMessage
         ? `<em class="chat-actor-badge is-ai">AI Assistant</em>`
         : isHumanMessage ? `<em class="chat-actor-badge is-human">Agent</em>` : "";
-      return `
-        <div class="chat-bubble-row ${mine ? "mine" : "theirs"}">
+      return `${separator}
+        <div class="chat-bubble-row ${mine ? "mine" : "theirs"}${grouped ? " is-grouped" : ""}">
           <div class="chat-bubble ${roleClass}">
             <div class="chat-bubble-meta">
               <span class="chat-bubble-who"><strong>${escapeHtml(m.sender_label || m.sender_role)}</strong>${actorBadge}</span>
               <span class="chat-message-time-status">${escapeHtml(formatRelativeTime(m.created_at))}${messageDeliveryTickHtml(m, receipts, mine, inquiry)}</span>
             </div>
-            <div class="chat-bubble-body" dir="auto">${escapeHtml(m.body)}</div>
+            <div class="chat-bubble-body" dir="auto">${messageBodyHtml(m.body)}</div>
           </div>
         </div>`;
     }).join("") || `<div class="empty">No messages in this thread.</div>`;
@@ -3974,7 +4286,8 @@ async function openInquiryThread(inquiryId, options = {}){
     if (replyBar) {
       replyBar.classList.toggle("hide", !messagesUiState.canReply);
       const replyInput = document.getElementById("messagesReplyInput");
-      if (replyInput && !admin) replyInput.placeholder = supportThread ? "Reply to live-chat visitor…" : "Write a message to Admin…";
+      if (replyInput && !admin) replyInput.placeholder = supportThread ? "Reply to live-chat visitor…" : "Write a message to Triplem VIP support…";
+      if (replyInput && !silent) restoreMessageDraft(replyInput, inquiryId);
       const note = (admin || supportThread) && isLandingLiveChatThread(inquiry)
         ? supportAiMode === "human_pending"
           ? "AI Assistant paused · your reply will clearly identify you to the visitor as a Triplem VIP support agent."
@@ -4023,9 +4336,14 @@ async function sendInquiryReply(){
   const startingUserConversation = !isAppAdminSession() && messagesUiState.userStarter && !threadId;
   if ((!threadId && !startingUserConversation) || !body) return;
   let optimisticRow = null;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    showMessageSendNotice("You are offline. Your message is kept in the box and can be sent when the connection returns.");
+    return;
+  }
   try {
     if (btn) btn.disabled = true;
-    if (input) input.value = "";
+    if (input) { input.value = ""; autosizeMessageInput(input); }
+    clearMessageDraft(threadId || "new");
     if (scroll) {
       optimisticRow = document.createElement("div");
       optimisticRow.className = "chat-bubble-row mine chat-bubble-pending";
@@ -4079,16 +4397,88 @@ async function sendInquiryReply(){
     await openInquiryThread(threadId, { silent: true });
     refreshAdminCommsBadges().catch(() => {});
   } catch (ex) {
-    optimisticRow?.remove();
-    if (input) input.value = body;
-    input?.focus({ preventScroll: true });
-    alert(ex.message || "Could not send reply.");
+    // Keep the message visible as "Not sent" with Retry instead of losing it.
+    if (optimisticRow) {
+      optimisticRow.classList.add("chat-bubble-failed");
+      const meta = optimisticRow.querySelector(".chat-bubble-meta span");
+      if (meta) meta.innerHTML = `<span class="chat-send-failed">Not sent</span> <button type="button" class="chat-retry-btn" data-retry-message>Retry</button>`;
+      optimisticRow.querySelector("[data-retry-message]")?.addEventListener("click", () => {
+        optimisticRow.remove();
+        if (input) { input.value = body; autosizeMessageInput(input); }
+        sendInquiryReply();
+      }, { once: true });
+    } else if (input) {
+      input.value = body;
+    }
+    saveMessageDraft(threadId || "new", body);
+    showMessageSendNotice(ex?.message || "Could not send the message. Please try again.");
   } finally {
     if (btn) btn.disabled = false;
   }
 }
 
+// ---- Composer helpers (drafts, auto-size, notices) --------------------------------
+const MESSAGE_DRAFT_PREFIX = "triplem-message-draft-v1:";
+function messageDraftKey(threadId){
+  const uid = String(state?.sessionUser?.id || state?.currentUsername || "guest");
+  return `${MESSAGE_DRAFT_PREFIX}${uid}:${String(threadId || "new")}`;
+}
+function saveMessageDraft(threadId, text){
+  try {
+    const value = String(text || "");
+    if (value.trim()) localStorage.setItem(messageDraftKey(threadId), value.slice(0, 4000));
+    else localStorage.removeItem(messageDraftKey(threadId));
+  } catch (_) {}
+}
+function clearMessageDraft(threadId){ try { localStorage.removeItem(messageDraftKey(threadId)); } catch (_) {} }
+function restoreMessageDraft(input, threadId){
+  if (!input) return;
+  let draft = "";
+  try { draft = localStorage.getItem(messageDraftKey(threadId)) || ""; } catch (_) {}
+  if (input.dataset.draftThread !== String(threadId || "new")) {
+    input.value = draft;
+    input.dataset.draftThread = String(threadId || "new");
+  }
+  autosizeMessageInput(input);
+}
+function autosizeMessageInput(input){
+  if (!input || input.tagName !== "TEXTAREA") return;
+  input.style.height = "auto";
+  input.style.height = `${Math.min(input.scrollHeight + 2, 168)}px`;
+  const wrap = input.closest(".messages-reply-bar, .message-float-reply");
+  const counter = wrap?.querySelector(".message-char-count");
+  const left = 4000 - input.value.length;
+  if (counter) {
+    counter.textContent = left <= 400 ? `${left} characters left` : "";
+    counter.classList.toggle("is-low", left <= 100);
+  }
+}
+function showMessageSendNotice(text){
+  if (typeof showEntryConfirmation === "function") { try { showEntryConfirmation(text); return; } catch (_) {} }
+  alert(text);
+}
+
+function bindMessageComposerEnhancements(){
+  if (document.documentElement.dataset.messageComposerBound === "1") return;
+  document.documentElement.dataset.messageComposerBound = "1";
+  let draftTimer = null;
+  document.addEventListener("input", e => {
+    const input = e.target;
+    if (!(input instanceof HTMLTextAreaElement)) return;
+    if (input.id !== "messagesReplyInput" && !input.hasAttribute("data-float-reply")) return;
+    autosizeMessageInput(input);
+    const threadId = input.id === "messagesReplyInput" ? String(messagesUiState.selectedId || "new") : String(input.getAttribute("data-float-reply") || "");
+    if (draftTimer) clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => saveMessageDraft(threadId, input.value), 350);
+  });
+  const bar = document.getElementById("messagesReplyBar");
+  if (bar && !bar.querySelector(".messages-reply-meta")) {
+    bar.insertAdjacentHTML("beforeend", `<div class="messages-reply-meta"><span class="messages-reply-keys">Enter to send · Shift+Enter for a new line</span><span class="message-char-count" aria-live="polite"></span></div>`);
+  }
+}
+
 function bindMessagingUi(){
+  bindMessageComposerEnhancements();
   ensureFloatingMessageDock();
   ensureMessagesComposerPortal();
   bindMessagesFocusMode();
@@ -4243,7 +4633,7 @@ function bindMessagingUi(){
     if (item) item.is_read = true;
     const row = document.querySelector(`#adminNotifyList [data-notification-id="${CSS.escape(id)}"]`);
     row?.classList.remove("unread");
-    row?.querySelectorAll("[data-notif-read]").forEach(btn => btn.remove());
+    row?.querySelectorAll(".notif-row-dot").forEach(dot => dot.remove());
     if (wasUnread) setNotificationBadgeOptimistically(adminCommsState.unreadNotifications - 1);
   }
 
@@ -4267,7 +4657,7 @@ function bindMessagingUi(){
     adminCommsState.notifications = (adminCommsState.notifications || []).map(n => ({ ...n, is_read: true }));
     const list = document.getElementById("adminNotifyList");
     list?.querySelectorAll(".admin-comms-item.unread").forEach(row => row.classList.remove("unread"));
-    list?.querySelectorAll("[data-notif-read]").forEach(btn => btn.remove());
+    list?.querySelectorAll(".notif-row-dot").forEach(dot => dot.remove());
     setNotificationBadgeOptimistically(0);
   }
 
@@ -4298,6 +4688,41 @@ function bindMessagingUi(){
         const failed = results.find(result => result.status === "rejected");
         if (failed) throw failed.reason || new Error("Could not mark notifications as read.");
       }, "Could not mark notifications as read.");
+    });
+  }
+
+  // Read all conversations (Messages dropdown). Uses the same per-conversation
+  // read RPC as opening a chat; conversations assigned to another agent are
+  // skipped by the server and simply stay unread.
+  const messagesMarkAllBtn = document.getElementById("adminMessagesMarkAllBtn");
+  if (messagesMarkAllBtn) {
+    messagesMarkAllBtn.addEventListener("click", async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (messagesMarkAllBtn.disabled) return;
+      messagesMarkAllBtn.disabled = true;
+      try {
+        const admin = isAppAdminSession();
+        const threads = await fetchPersonalMessageThreads(300, null);
+        const unread = threads.filter(t => (admin ? isAdminMessageThread(t) : isUserVisibleMessageThread(t)) && personalMessageServerUnreadCount(t, admin) > 0);
+        document.querySelectorAll("#adminMessagesPreviewList .admin-comms-message-row.unread").forEach(row => {
+          row.classList.remove("unread");
+          row.querySelector(".message-unread-chip")?.remove();
+        });
+        setHeaderBadge(document.getElementById("adminMessagesCount"), 0);
+        for (let i = 0; i < unread.length; i += 4) {
+          await Promise.allSettled(unread.slice(i, i + 4).map(t => supabaseRpc("app_mark_inquiry_read", { p_inquiry_id: t.id })
+            .then(() => { try { markFloatingThreadLocallyRead(t); } catch (_) {} })));
+        }
+      } catch (err) {
+        alert(err?.message || "Could not mark conversations as read.");
+      } finally {
+        messagesMarkAllBtn.disabled = false;
+        adminCommsState.messagePreviewSignature = "";
+        refreshAdminCommsBadges().catch(() => {});
+        if (isAdminCommsDropdownOpen("admin-messages")) loadAdminMessagesPreview().catch(() => {});
+        try { renderFloatingMessageHeads(); } catch (_) {}
+      }
     });
   }
 
@@ -4338,141 +4763,42 @@ function bindMessagingUi(){
     });
   }
 
+  // Rows are single lines; every action lives in the notification detail overlay.
   document.getElementById("adminNotifyList")?.addEventListener("click", async e => {
-    const readBtn = e.target.closest("[data-notif-read]");
-    const delBtn = e.target.closest("[data-notif-delete]");
-    const paymentBtn = e.target.closest("[data-subscription-review]");
-    const liveAcceptBtn = e.target.closest("[data-live-chat-accept]");
-    const liveDeclineBtn = e.target.closest("[data-live-chat-decline]");
-    if (liveDeclineBtn) {
-      e.preventDefault(); e.stopPropagation();
-      try {
-        liveDeclineBtn.disabled = true;
-        await supabaseRpc(liveDeclineBtn.dataset.liveChatKind === "transfer" ? "app_live_chat_decline_transfer" : "app_live_chat_decline_assignment", { p_inquiry_id: liveDeclineBtn.dataset.liveChatDecline });
-        await loadAdminNotificationsDropdown();
-        await refreshAdminCommsBadges();
-      } catch (ex) { alert(ex.message || "Could not decline this live chat."); }
-      finally { liveDeclineBtn.disabled = false; }
-      return;
-    }
-    if (liveAcceptBtn) {
-      e.preventDefault(); e.stopPropagation();
-      const nrow = e.target.closest("[data-notification-id]");
-      const n = adminCommsState.notifications.find(x => x.id === nrow?.dataset.notificationId);
-      document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-      if (n) await openLiveChatAssignmentDetails(n);
-      return;
-    }
-    if (paymentBtn) {
-      e.preventDefault(); e.stopPropagation();
-      document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-      try {
-        activate("admin");
-        await openAdminSubscriptionReviewById(paymentBtn.dataset.subscriptionReview);
-      } catch (ex) { alert(ex.message || "Could not open payment review."); }
-      return;
-    }
-    const userBtn = e.target.closest("[data-notif-user]");
     const row = e.target.closest("[data-notification-id]");
-    const sourceOf = (el) => String(el?.dataset?.notifSource || row?.dataset?.notifSource || "admin");
+    const sourceOf = (el) => String(el?.dataset?.notifSource || "admin");
     try {
-      if (userBtn) {
-        e.stopPropagation();
-        const userId = userBtn.dataset.notifUser;
-        document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-        activate("admin");
-        await loadAdminUsers();
-        const targetUser = (state.adminUsersCache || []).find(user => String(user.id) === String(userId));
-        if (targetUser && typeof window.openAdminUserDetailsOverlay === "function") window.openAdminUserDetailsOverlay(targetUser);
-        return;
-      }
-      if (readBtn) {
-        e.stopPropagation();
-        const source = sourceOf(readBtn);
-        const notificationId = readBtn.dataset.notifRead;
-        optimisticMarkNotificationRead(notificationId);
-        runNotificationMutationInBackground(() => source === "user"
-          ? supabaseRpc("app_mark_my_notification_read", { p_notification_id: notificationId })
-          : supabaseRpc("app_admin_mark_notification_read", { p_notification_id: notificationId }),
-        "Could not mark this notification as read.");
-        return;
-      }
-      if (delBtn) {
-        e.stopPropagation();
-        if (!(await appConfirmDelete("Delete this notification?", { title: "Delete notification?", confirmLabel: "Delete notification" }))) return;
-        const source = sourceOf(delBtn);
-        const notificationId = delBtn.dataset.notifDelete;
-        optimisticDeleteNotification(notificationId);
-        runNotificationMutationInBackground(() => source === "user"
-          ? supabaseRpc("app_delete_my_notification", { p_notification_id: notificationId })
-          : supabaseRpc("app_admin_delete_notification", { p_notification_id: notificationId }),
-        "Could not delete this notification.");
-        return;
-      }
       if (row?.dataset.notificationId) {
-        const n = adminCommsState.notifications.find(x => x.id === row.dataset.notificationId);
+        const n = adminCommsState.notifications.find(x => String(x.id) === String(row.dataset.notificationId));
         const source = sourceOf(row);
-        if (n && !n.is_read) {
+        if (!n) return;
+        if (!n.is_read) {
           optimisticMarkNotificationRead(n.id);
           runNotificationMutationInBackground(() => source === "user"
             ? supabaseRpc("app_mark_my_notification_read", { p_notification_id: n.id })
             : supabaseRpc("app_admin_mark_notification_read", { p_notification_id: n.id }),
           "Could not mark this notification as read.");
         }
-        if (source === "user" && isSecurityRecoveryNotification(n)) {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          const opened = await window.openTrustedRecoveryApprovalById?.(notificationPayloadObject(n).request_id || "");
-          if (!opened) alert("Open this request from the browser that you previously trusted for account recovery.");
-        } else if (source === "user" && isLiveChatOfferNotification(n)) {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          if (isLiveChatTransferNotification(n)) syncLiveChatOfferDock([n]);
-          else await openLiveChatAssignmentDetails(n);
-        } else if (source === "user" && isSubscriptionUserNotification(n)) {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          await openSubscriptionNotificationDetails(n);
-        } else if (n?.kind === "inquiry" && isLiveChatNotification(n)) {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          goToMessagesTab(n.related_inquiry_id || null, { compose: false });
-          setTimeout(() => { if (n.related_inquiry_id) openInquiryThread(n.related_inquiry_id).catch(() => {}); }, 80);
-        } else if (n?.kind === "inquiry" && isMemberAccessRequestNotification(n)) {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          await openAccessRequestDetails(n);
-        } else if (n?.kind === "note_reminder" || n?.kind === "installment_due") {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          // Replay the same centered overlay (and sound) for reminder inbox rows.
-          const raw = notificationRowToReminderAlertRaw({ ...n, is_read: false });
-          if (raw) {
-            const item = normalizeReminderAlertItem(raw);
-            const key = reminderAlertDedupeKey(item);
-            if (key) noteReminderUiState.toastedReminderIds.delete(key);
-            enqueueReminderAlerts([raw]);
-          } else if (n.kind === "installment_due") {
-            activate("installments");
-          } else {
-            const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
-            const planId = payload.plan_group_id || payload.related_plan_group_id || "";
-            if (payload.type === "installment_manual" || (planId && !n.related_note_id && !payload.note_id)) {
-              activate("installments");
-            } else {
-              activate("notes");
-            }
-          }
-        } else if (n?.kind === "trial_signup" || n?.kind === "renewal_request" || n?.kind === "subscription_payment" || n?.kind === "access_expiry_warning" || n?.kind === "access_auto_disabled") {
-          document.querySelectorAll(".menu-dropdown.open").forEach(p => p.classList.remove("open"));
-          activate("admin");
-          if (n.related_user_id) {
-            await loadAdminUsers();
-            const targetUser = (state.adminUsersCache || []).find(user => String(user.id) === String(n.related_user_id));
-            if (targetUser && typeof window.openAdminUserDetailsOverlay === "function") window.openAdminUserDetailsOverlay(targetUser);
-            if (n.kind === "subscription_payment" && n.payload?.request_id && typeof openAdminSubscriptionReviewById === "function") {
-              try { await openAdminSubscriptionReviewById(n.payload.request_id); } catch (reviewErr) { console.warn("Payment review could not be opened:", reviewErr); }
-            }
-          }
-        }
+        openNotificationDetail(n);
       }
     } catch (ex) {
       alert(ex.message || "Action failed.");
     }
+  });
+document.getElementById("adminNotifyList")?.addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".notif-row[data-notification-id]")) {
+      e.preventDefault();
+      e.target.click();
+    }
+  });
+  document.addEventListener("triplem:notification-delete", e => {
+    const { id, source } = e.detail || {};
+    if (!id) return;
+    optimisticDeleteNotification(id);
+    runNotificationMutationInBackground(() => source === "user"
+      ? supabaseRpc("app_delete_my_notification", { p_notification_id: id })
+      : supabaseRpc("app_admin_delete_notification", { p_notification_id: id }),
+    "Could not delete this notification.");
   });
 document.getElementById("adminMessagesPreviewList")?.addEventListener("click", async e => {
     const floatBtn = e.target.closest("[data-preview-inquiry]");

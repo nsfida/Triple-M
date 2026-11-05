@@ -1658,6 +1658,8 @@
   }
 
   function openThermalPrintWindow(html) {
+    // Windows app: print through the standard Windows print dialog.
+    try { if (window.TriplemDesktop?.printHtml?.(html)) return; } catch (_) {}
     // Prefer a hidden iframe so we never depend on pop-ups.
     // (window.open(..., "noopener") returns null in many browsers while still
     // opening a blank tab — that caused the empty page + false "blocked" alert.)
