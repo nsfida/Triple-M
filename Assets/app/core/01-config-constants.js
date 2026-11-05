@@ -251,8 +251,11 @@ function applyRememberMeCheckboxFromPreference(){
   try {
     if (!els?.rememberMeCheckbox) return;
     const pref = localStorage.getItem(REMEMBER_ME_PREF_KEY);
-    // Default unchecked for security unless user previously chose Remember Me
-    els.rememberMeCheckbox.checked = pref === "1";
+    // Default unchecked for security unless user previously chose Remember Me.
+    // In the installed Windows app (3.7) it starts ticked the first time, so
+    // the workspace can open offline; an earlier "no" (pref "0") is kept.
+    const windowsApp = (() => { try { return window.__TRIPLEM_DESKTOP__?.app === "windows"; } catch (_) { return false; } })();
+    els.rememberMeCheckbox.checked = pref === "1" || (pref === null && windowsApp);
   } catch {}
 }
 

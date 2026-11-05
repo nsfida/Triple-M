@@ -295,8 +295,176 @@
     async messages(opts = {}) {
       const id = UUID_RE.test(safe(opts.id)) ? safe(opts.id) : "";
       await openConversation(id, opts.action === "reply");
+    },
+    // 3.7
+    async search() { openSearchPalette(); },
+    async "new-invoice"() {
+      if (!allowed("accounting") || !can("accounting", "create")) return notAvailable("New invoices");
+      goTab("accounting");
+      try { await window.TriplemAccounting?.load?.(); } catch (_) {}
+      if (typeof window.TriplemAccounting?.openDocument !== "function") return notAvailable("New invoices");
+      window.TriplemAccounting.openDocument("sales");
+      const type = await waitFor(() => document.querySelector('#acctDocumentForm [name="doc_type"]'), 4000);
+      if (type && [...type.options].some(o => o.value === "sales_invoice")) {
+        type.value = "sales_invoice";
+        type.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    },
+    async offline() { toggleAppMenu(true); },
+    async wallet(opts = {}) {
+      const id = safe(opts.id);
+      if (!allowed("expenses")) return notAvailable("Expenses");
+      goTab("expenses");
+      await waitFor(() => document.getElementById("expensesPanel")?.classList.contains("active"));
+      const exists = await waitFor(() => { try { return typeof getExpenseAccounts === "function" && getExpenseAccounts({ applyUiFilters: false }).some(a => a.group_id === id); } catch (_) { return false; } }, 6000);
+      if (!exists || typeof openWalletDetailsOverlay !== "function") { forgetRecent("wallet", id); return showDesktopNotice("This wallet is no longer available", "warn"); }
+      openWalletDetailsOverlay(id);
+    },
+    async doc(opts = {}) {
+      const id = safe(opts.id);
+      if (!allowed("accounting")) return notAvailable("Accounting");
+      goTab("accounting");
+      try { await window.TriplemAccounting?.load?.(); } catch (_) {}
+      const found = (window.TriplemAccounting?.state?.documents || []).some(d => safe(d.id) === id);
+      if (!found || typeof window.TriplemAccounting?.viewDocument !== "function") { forgetRecent("doc", id); return showDesktopNotice("This document is no longer available", "warn"); }
+      window.TriplemAccounting.viewDocument(id);
+      noteRecent("doc", id);
     }
   };
+
+  // ---- Quick search (Ctrl+Alt+Shift+F, 3.7) --------------------------------------------------
+  // Every section keeps its own search box; this palette sends the text to the
+  // section you pick (the current one first) and focuses it.
+  const SEARCH_TARGETS = [
+    { tab: "expenses", input: "searchExpenses", label: "Expenses & wallets", icon: "fa-wallet" },
+    { tab: "goods", input: "searchGoods", label: "Inventory", icon: "fa-boxes-stacked" },
+    { tab: "accounting", input: "accountingSearch", label: "Accounting", icon: "fa-scale-balanced" },
+    { tab: "loans", input: "searchGiven", label: "Loans", icon: "fa-hand-holding-dollar", panel: "givenPanel" },
+    { tab: "installments", input: "searchInstallments", label: "Installment plans", icon: "fa-calendar-check" },
+    { tab: "assets", input: "searchAssets", label: "Assets", icon: "fa-building" },
+    { tab: "insurance", input: "insuranceFilterSearch", label: "Insurance", icon: "fa-shield-halved" },
+    { tab: "notes", input: "searchNotes", label: "Notes", icon: "fa-note-sticky" }
+  ];
+
+  function activeSearchTarget(list) {
+    const active = [...document.querySelectorAll("section.panel.active")].map(p => p.id);
+    return list.find(t => active.includes(`${t.tab}Panel`) || (t.panel && active.includes(t.panel))) || null;
+  }
+
+  function closeSearchPalette() {
+    document.getElementById("triplemDesktopSearch")?.remove();
+  }
+
+  function openSearchPalette() {
+    if (!signedInUserId()) return;
+    ensureStyles();
+    closeSearchPalette();
+    const list = SEARCH_TARGETS.filter(t => allowed(t.tab));
+    if (!list.length) return notAvailable("Search");
+    const current = activeSearchTarget(list);
+    const ordered = current ? [current, ...list.filter(t => t !== current)] : list;
+    let index = 0;
+    const host = document.createElement("div");
+    host.id = "triplemDesktopSearch";
+    host.className = "dsp-backdrop";
+    host.innerHTML = `<div class="dsp-card" role="dialog" aria-modal="true" aria-label="Search">
+        <div class="dsp-input"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search Triplem VIP…" aria-label="Search text" autocomplete="off"><kbd>Esc</kbd></div>
+        <ul class="dsp-list" role="listbox">${ordered.map((t, i) => `<li role="option" data-i="${i}"${i === 0 ? ' aria-selected="true"' : ""}><i class="fa-solid ${esc(t.icon)}" aria-hidden="true"></i><span>Search in <strong>${esc(t.label)}</strong></span>${t === current ? "<em>Current</em>" : ""}</li>`).join("")}</ul>
+        <p class="dsp-hint">Enter to search · ↑ ↓ to choose a section</p>
+      </div>`;
+    document.body.appendChild(host);
+    const input = host.querySelector("input");
+    const items = [...host.querySelectorAll("li")];
+    const select = i => { index = (i + items.length) % items.length; items.forEach((li, n) => li.setAttribute("aria-selected", n === index ? "true" : "false")); items[index].scrollIntoView({ block: "nearest" }); };
+    const run = async () => {
+      const target = ordered[index];
+      const text = input.value.trim();
+      closeSearchPalette();
+      goTab(target.tab);
+      const field = await waitFor(() => { const el = document.getElementById(target.input); return el && el.offsetParent !== null ? el : null; }, 6000);
+      if (!field) return notAvailable(`Search in ${target.label}`);
+      if (text) {
+        field.value = text;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      field.focus();
+      try { field.select(); } catch (_) {}
+    };
+    input.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown") { e.preventDefault(); select(index + 1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); select(index - 1); }
+      else if (e.key === "Enter") { e.preventDefault(); run(); }
+      else if (e.key === "Escape") { e.preventDefault(); closeSearchPalette(); }
+    });
+    host.addEventListener("click", e => {
+      if (e.target === host) { closeSearchPalette(); return; }
+      const li = e.target.closest("li[data-i]");
+      if (li) { select(Number(li.dataset.i)); run(); }
+    });
+    setTimeout(() => input.focus(), 20);
+  }
+
+  // ---- Recent records for the taskbar Jump List (3.7) ------------------------------------
+  const RECENT_PREFIX = "triplem-desktop-recent-v1:";
+  const DOC_KIND_LABELS = { quotation: "Quotation", sales_order: "Sales order", delivery_note: "Delivery note", sales_invoice: "Invoice", credit_note: "Credit note", sales_return: "Sales return", purchase_order: "Purchase order", purchase_receipt: "Purchase receipt", purchase_bill: "Purchase bill", expense_invoice: "Expense invoice", debit_note: "Debit note", purchase_return: "Purchase return" };
+
+  function readRecent(uid) {
+    try { const v = JSON.parse(localStorage.getItem(RECENT_PREFIX + uid) || "[]"); return Array.isArray(v) ? v.filter(r => r && UUID_RE.test(safe(r.id)) && (r.kind === "doc" || r.kind === "wallet")).slice(0, 6) : []; } catch (_) { return []; }
+  }
+  function sendRecent() {
+    if (!caps.has("recent")) return;
+    const uid = signedInUserId();
+    send("recent", { recent: uid ? readRecent(uid) : [] });
+  }
+  function recentTitle(kind, id) {
+    try {
+      if (kind === "wallet" && typeof getExpenseAccounts === "function") {
+        const a = getExpenseAccounts({ applyUiFilters: false }).find(x => x.group_id === id);
+        return a ? safe(a.person_name || "Wallet").trim() + (a.currency ? ` (${safe(a.currency)})` : "") : "";
+      }
+      if (kind === "doc") {
+        const d = (window.TriplemAccounting?.state?.documents || []).find(x => safe(x.id) === id);
+        return d ? `${DOC_KIND_LABELS[d.doc_type] || "Document"} ${safe(d.document_no)}`.trim() : "";
+      }
+    } catch (_) {}
+    return "";
+  }
+  function noteRecent(kind, id) {
+    const uid = signedInUserId();
+    if (!caps.has("recent") || !uid || !UUID_RE.test(safe(id))) return;
+    const title = recentTitle(kind, id).slice(0, 60);
+    if (!title) return;
+    const list = readRecent(uid).filter(r => !(r.kind === kind && r.id === id));
+    list.unshift({ kind, id, title });
+    try { localStorage.setItem(RECENT_PREFIX + uid, JSON.stringify(list.slice(0, 6))); } catch (_) {}
+    sendRecent();
+  }
+  function forgetRecent(kind, id) {
+    const uid = signedInUserId();
+    if (!uid) return;
+    try { localStorage.setItem(RECENT_PREFIX + uid, JSON.stringify(readRecent(uid).filter(r => !(r.kind === kind && r.id === id)))); } catch (_) {}
+    sendRecent();
+  }
+  function trackRecentRecords() {
+    if (!caps.has("recent")) return;
+    // Wallet details (all ways of opening them go through this function).
+    if (typeof window.openWalletDetailsOverlay === "function" && !window.openWalletDetailsOverlay.__triplemRecent) {
+      const original = window.openWalletDetailsOverlay;
+      const wrapped = function (groupId) {
+        const result = original.apply(this, arguments);
+        try { noteRecent("wallet", safe(groupId).trim()); } catch (_) {}
+        return result;
+      };
+      wrapped.__triplemRecent = true;
+      try { window.openWalletDetailsOverlay = wrapped; } catch (_) {}
+    }
+    // Accounting documents opened from any list.
+    document.addEventListener("click", e => {
+      const el = e.target.closest?.('[data-acct-action="view-document"][data-id]');
+      if (el) setTimeout(() => noteRecent("doc", safe(el.dataset.id)), 0);
+    }, true);
+  }
 
   // Notification buttons. Native code only passes an action through when the
   // click came from this app's own notification; otherwise it just opens.
@@ -323,6 +491,9 @@
   }
 
   function openTarget(target, opts = {}) {
+    // Recent records from the Jump List arrive as "wallet:<id>" / "doc:<id>".
+    const rec = /^(wallet|doc):([0-9a-f-]{36})$/i.exec(safe(target));
+    if (rec && UUID_RE.test(rec[2])) { target = rec[1].toLowerCase(); opts = { ...opts, id: rec[2].toLowerCase() }; }
     const handler = targetHandlers[target];
     if (!handler) return;
     waitForUnlock(() => {
@@ -342,21 +513,6 @@
     const style = document.createElement("style");
     style.id = "triplemDesktopStyles";
     style.textContent = `
-      .desktop-app-settings{border-top:1px solid var(--line,rgba(148,163,184,.25));flex:0 0 auto;position:relative;background:var(--surface-elevated,#fff);border-radius:0 0 inherit inherit}
-      .desktop-app-settings[open]{box-shadow:0 -10px 18px -14px rgba(15,23,42,.35)}
-      .desktop-app-settings>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;cursor:pointer;user-select:none;
-        font-size:.78rem;font-weight:650;color:var(--text,#17212b)}
-      .desktop-app-settings>summary::-webkit-details-marker{display:none}
-      .desktop-app-settings>summary:hover{background:var(--surface-hover,rgba(241,245,249,.92))}
-      .desktop-app-settings>summary:focus-visible{outline:2px solid var(--primary,#2457d6);outline-offset:-2px;border-radius:8px}
-      .desktop-app-summary-title{display:inline-flex;align-items:center;gap:7px}
-      .desktop-app-summary-title i{color:var(--primary,#2457d6)}
-      .desktop-app-summary-meta{display:inline-flex;align-items:center;gap:8px;color:var(--muted,#667085);font-weight:600;font-size:.72rem;font-variant-numeric:tabular-nums}
-      .desktop-app-caret{font-size:.68rem;transition:transform .15s}
-      .desktop-app-settings[open] .desktop-app-caret{transform:rotate(180deg)}
-      .desktop-app-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:var(--primary,#2457d6);color:#fff;font-size:.68rem;font-weight:700}
-      .desktop-app-chip[hidden]{display:none}
-      .desktop-app-body{display:grid;gap:10px;padding:2px 14px 14px;max-height:min(46vh,360px);overflow-y:auto;overscroll-behavior:contain}
       .desktop-app-switch{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.82rem;cursor:pointer;color:var(--text,#17212b)}
       .desktop-app-switch>span{min-width:0}
       .desktop-app-switch small{display:block;color:var(--muted,#667085);font-size:.72rem;line-height:1.35;margin-top:1px}
@@ -400,7 +556,121 @@
       #triplemDesktopDrop.is-blocked .dd-card i{color:var(--muted,#94a3b8)}
       @keyframes tvipNoticeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
       .desktop-app-update-line[hidden]{display:none}
-      @media (prefers-reduced-motion:reduce){#triplemDesktopNotice.show{animation:none}.desktop-app-switch input,.desktop-app-switch input::after,.desktop-app-caret{transition:none}}
+      @media (prefers-reduced-motion:reduce){#triplemDesktopNotice.show{animation:none}.desktop-app-switch input,.desktop-app-switch input::after{transition:none}}
+      /* ---- 3.7: Windows app bar under the header icons ---- */
+      .desktop-appbar-wrap{flex:1 0 100%;width:0;min-width:0;height:32px;position:relative}
+      .btn.ghost.desktop-appbar{position:absolute;top:0;left:0;width:100%;min-width:0;min-height:32px;height:32px;padding:0 6px 0 12px;box-sizing:border-box;border-radius:999px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+        font-size:.76rem;font-weight:650;line-height:1;overflow:hidden;text-align:left}
+      .desktop-appbar .dab-left,.desktop-appbar .dab-right{display:inline-flex;align-items:center;gap:7px;min-width:0}
+      .desktop-appbar .dab-left i{color:var(--primary,#2457d6);font-size:.86rem}
+      .desktop-appbar .dab-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .desktop-appbar .dab-version{color:var(--muted,#667085);font-weight:600;font-size:.7rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+      .desktop-appbar .dab-chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:.68rem;font-weight:700;white-space:nowrap;
+        background:color-mix(in srgb,var(--success,#16a34a) 12%,transparent);color:var(--success,#15803d)}
+      .desktop-appbar .dab-chip[hidden]{display:none}
+      .desktop-appbar .dab-dot,.desktop-app-menu .dam-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
+      .desktop-appbar .dab-chip[data-tone="offline"]{background:color-mix(in srgb,var(--muted,#64748b) 16%,transparent);color:var(--muted,#475569)}
+      .desktop-appbar .dab-chip[data-tone="pending"],.desktop-appbar .dab-chip[data-tone="sync"]{background:color-mix(in srgb,var(--primary,#2457d6) 13%,transparent);color:var(--primary,#2457d6)}
+      .desktop-appbar .dab-chip[data-tone="warn"]{background:color-mix(in srgb,var(--warning,#d97706) 15%,transparent);color:var(--warning,#b45309)}
+      .desktop-appbar .dab-chip[data-tone="sync"] .dab-dot{animation:tvipPulse 1s ease-in-out infinite}
+      .desktop-appbar .dab-chip.is-lock{background:color-mix(in srgb,var(--primary,#2457d6) 13%,transparent);color:var(--primary,#2457d6);padding:0 7px}
+      .desktop-appbar .dab-chip.is-update{background:var(--primary,#2457d6);color:#fff}
+      .desktop-appbar .dab-caret{font-size:.62rem;color:var(--muted,#667085);margin:0 4px 0 2px;transition:transform .15s}
+      .desktop-appbar[aria-expanded="true"] .dab-caret{transform:rotate(180deg)}
+      @keyframes tvipPulse{50%{opacity:.35}}
+      #desktopAppMenu.menu-dropdown.desktop-app-menu{position:fixed!important;z-index:12100!important;padding:0;display:none;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;border-radius:16px;min-width:0;color:var(--text,#17212b);
+        background:var(--surface-glass,var(--surface-elevated,#fff))!important;backdrop-filter:blur(22px) saturate(1.15);-webkit-backdrop-filter:blur(22px) saturate(1.15)}
+      #desktopAppMenu.menu-dropdown.desktop-app-menu.open{display:flex}
+      /* Themes restyle every <input>; the switch track must win in all of them. */
+      html body #desktopAppMenu.desktop-app-menu .desktop-app-switch input[type="checkbox"][role="switch"]{background-color:color-mix(in srgb,var(--muted,#64748b) 45%,transparent)!important;border:0!important;box-shadow:none!important}
+      html body #desktopAppMenu.desktop-app-menu .desktop-app-switch input[type="checkbox"][role="switch"]:checked{background-color:var(--primary,#2457d6)!important}
+      .desktop-app-menu .dam-head{display:flex;align-items:center;gap:10px;padding:12px 12px 10px 14px;border-bottom:1px solid var(--line,rgba(148,163,184,.25))}
+      .desktop-app-menu .dam-logo{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary,#2457d6) 12%,transparent);color:var(--primary,#2457d6);flex:0 0 auto}
+      .desktop-app-menu .dam-head-text{flex:1;min-width:0}
+      .desktop-app-menu .dam-head-text strong{display:block;font-size:.86rem;color:var(--text,#17212b)}
+      .desktop-app-menu .dam-head-text small{display:block;font-size:.72rem;color:var(--muted,#667085);margin-top:1px}
+      .desktop-app-menu .dam-close{border:0;background:none;color:var(--muted,#667085);width:28px;height:28px;border-radius:8px;cursor:pointer}
+      .desktop-app-menu .dam-close:hover{background:var(--surface-hover,rgba(241,245,249,.92));color:var(--text,#17212b)}
+      .desktop-app-menu .dam-section{display:grid;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line,rgba(148,163,184,.2))}
+      .desktop-app-menu .dam-section h5{margin:0;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#667085);font-weight:700}
+      .desktop-app-menu .dam-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--success,#16a34a) 9%,transparent);color:var(--success,#15803d)}
+      .desktop-app-menu .dam-status[data-tone="offline"]{background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent);color:var(--muted,#475569)}
+      .desktop-app-menu .dam-status[data-tone="pending"],.desktop-app-menu .dam-status[data-tone="sync"]{background:color-mix(in srgb,var(--primary,#2457d6) 10%,transparent);color:var(--primary,#2457d6)}
+      .desktop-app-menu .dam-status[data-tone="warn"]{background:color-mix(in srgb,var(--warning,#d97706) 12%,transparent);color:var(--warning,#b45309)}
+      .desktop-app-menu .dam-status-text{flex:1 1 calc(100% - 24px);min-width:0}
+      .desktop-app-menu .dam-status-text strong{display:block;font-size:.82rem}
+      .desktop-app-menu .dam-status-text small{display:block;font-size:.73rem;line-height:1.4;color:var(--text,#17212b);opacity:.78;margin-top:2px}
+      .desktop-app-menu .dam-status-actions{display:flex;gap:6px;flex:1 0 100%;justify-content:flex-end}
+      .desktop-app-menu .dam-status-actions:not(:has(.dam-btn:not([hidden]))){display:none}
+      .desktop-app-menu .dam-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+      .desktop-app-menu .dam-row strong{display:block;font-size:.82rem;color:var(--text,#17212b);font-weight:600}
+      .desktop-app-menu .dam-row small{display:block;font-size:.72rem;line-height:1.4;color:var(--muted,#667085);margin-top:1px}
+      .desktop-app-menu .dam-btn,.desktop-app-menu .desktop-app-actions button{font:inherit;font-size:.75rem;font-weight:650;border:1px solid var(--line-strong,rgba(71,85,105,.3));background:var(--control-bg,#fff);color:var(--text,#17212b);
+        border-radius:999px;padding:6px 12px;cursor:pointer;line-height:1.2;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+      .desktop-app-menu .dam-btn:hover:not(:disabled),.desktop-app-menu .desktop-app-actions button:hover:not(:disabled){background:var(--control-hover,#f1f5f9)}
+      .desktop-app-menu .dam-btn.primary{background:var(--primary,#2457d6);border-color:var(--primary,#2457d6);color:#fff}
+      .desktop-app-menu .dam-btn:disabled,.desktop-app-menu .desktop-app-actions button:disabled{opacity:.55;cursor:default}
+      .desktop-app-menu .dam-btn[hidden]{display:none}
+      .desktop-app-menu .dam-select{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.82rem;color:var(--text,#17212b)}
+      .desktop-app-menu .dam-select select{font:inherit;font-size:.78rem;border:1px solid var(--line-strong,rgba(71,85,105,.3));background:var(--control-bg,#fff);color:var(--text,#17212b);border-radius:9px;padding:5px 8px;max-width:58%}
+      .desktop-app-menu .dam-select.is-off{opacity:.55}
+      .desktop-app-menu .dam-keys{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+      .desktop-app-menu .dam-keys li{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.78rem;color:var(--text,#17212b);padding:5px 8px;border-radius:9px;background:var(--surface-hover,rgba(241,245,249,.7))}
+      .desktop-app-menu .dam-keys kbd{font:inherit;font-size:.7rem;font-weight:700;color:var(--muted,#475569);background:var(--control-bg,#fff);border:1px solid var(--line,rgba(148,163,184,.35));border-radius:6px;padding:2px 6px;white-space:nowrap}
+      .desktop-app-menu .dam-keys li.is-busy kbd{color:var(--warning,#b45309);border-color:color-mix(in srgb,var(--warning,#d97706) 45%,transparent);text-decoration:line-through}
+      .desktop-app-menu .dam-keys li.is-off{opacity:.5}
+      .desktop-app-menu .dam-foot{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 14px}
+      .desktop-app-menu .desktop-app-switch input:disabled+*{opacity:.6}
+      /* ---- 3.7: print panel ---- */
+      .dpp-backdrop,.dsp-backdrop{position:fixed;inset:0;z-index:2147482000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+      .dpp-card{width:min(620px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;border-radius:18px;background:var(--surface-elevated,#fff);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);color:var(--text,#17212b);box-shadow:0 30px 70px rgba(2,6,23,.35);border:1px solid var(--line,rgba(148,163,184,.25));overflow:hidden}
+      .dpp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px 10px}
+      .dpp-head h3{margin:0;font-size:1.02rem;display:flex;align-items:center;gap:8px}
+      .dpp-head h3 i{color:var(--primary,#2457d6)}
+      .dpp-head p{margin:3px 0 0;font-size:.78rem;color:var(--muted,#667085);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:440px}
+      .dpp-x{border:0;background:none;color:var(--muted,#667085);width:30px;height:30px;border-radius:9px;cursor:pointer}
+      .dpp-x:hover{background:var(--surface-hover,#f1f5f9)}
+      .dpp-body{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:6px 18px 14px;overflow-y:auto}
+      .dpp-field{display:grid;gap:5px;font-size:.76rem;font-weight:650;color:var(--muted,#667085);min-width:0}
+      .dpp-field select,.dpp-field input{font:inherit;font-size:.84rem;font-weight:500;color:var(--text,#17212b);background:var(--control-bg,#fff);border:1px solid var(--line-strong,rgba(71,85,105,.3));border-radius:10px;padding:7px 9px;min-width:0;width:100%;box-sizing:border-box}
+      .dpp-field select:focus,.dpp-field input:focus{outline:2px solid color-mix(in srgb,var(--primary,#2457d6) 45%,transparent);outline-offset:1px}
+      .dpp-field input:disabled{opacity:.5}
+      .dpp-wide{grid-column:1/-1}
+      .dpp-pages{display:grid;grid-template-columns:96px 1fr;gap:6px}
+      .dpp-seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line-strong,rgba(71,85,105,.3));border-radius:10px;overflow:hidden}
+      .dpp-seg label{position:relative;cursor:pointer}
+      .dpp-seg input{position:absolute;opacity:0;pointer-events:none}
+      .dpp-seg span{display:block;text-align:center;padding:7px 6px;font-size:.8rem;font-weight:600;color:var(--text,#17212b);background:var(--control-bg,#fff)}
+      .dpp-seg input:checked+span{background:var(--primary,#2457d6);color:#fff}
+      .dpp-seg input:focus-visible+span{outline:2px solid var(--primary,#2457d6);outline-offset:-3px}
+      .dpp-checks{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.82rem;color:var(--text,#17212b)}
+      .dpp-checks label{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+      .dpp-checks input{width:16px;height:16px;accent-color:var(--primary,#2457d6)}
+      .dpp-error{margin:0;color:var(--danger,#dc2626);font-size:.78rem;font-weight:600}
+      .dpp-foot{display:flex;align-items:center;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line,rgba(148,163,184,.25))}
+      .dpp-spacer{flex:1}
+      .dpp-link{border:0;background:none;color:var(--primary,#2457d6);font:inherit;font-size:.8rem;font-weight:650;cursor:pointer;padding:6px 2px}
+      .dpp-btn{font:inherit;font-size:.82rem;font-weight:650;border:1px solid var(--line-strong,rgba(71,85,105,.3));background:var(--control-bg,#fff);color:var(--text,#17212b);border-radius:11px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+      .dpp-btn:hover{background:var(--control-hover,#f1f5f9)}
+      .dpp-btn.primary{background:var(--primary,#2457d6);border-color:var(--primary,#2457d6);color:#fff}
+      .dpp-btn.primary:hover{filter:brightness(1.06)}
+      @media (max-width:560px){.dpp-body{grid-template-columns:1fr}.dpp-foot{flex-wrap:wrap}.dpp-spacer{display:none}}
+      /* ---- 3.7: quick search ---- */
+      .dsp-backdrop{place-items:start center;padding-top:12vh}
+      .dsp-card{width:min(560px,100%);border-radius:18px;background:var(--surface-elevated,#fff);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);color:var(--text,#17212b);box-shadow:0 30px 70px rgba(2,6,23,.35);border:1px solid var(--line,rgba(148,163,184,.25));overflow:hidden}
+      .dsp-input{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line,rgba(148,163,184,.25))}
+      .dsp-input i{color:var(--muted,#667085)}
+      .dsp-input input{flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:1rem;color:var(--text,#17212b);min-width:0}
+      .dsp-input kbd{font:inherit;font-size:.68rem;color:var(--muted,#667085);border:1px solid var(--line,rgba(148,163,184,.35));border-radius:6px;padding:2px 6px}
+      .dsp-list{list-style:none;margin:0;padding:6px;max-height:min(46vh,360px);overflow-y:auto}
+      .dsp-list li{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:.86rem;cursor:pointer}
+      .dsp-list li i{width:18px;text-align:center;color:var(--primary,#2457d6)}
+      .dsp-list li span{flex:1}
+      .dsp-list li em{font-style:normal;font-size:.68rem;font-weight:700;color:var(--muted,#667085)}
+      .dsp-list li[aria-selected="true"]{background:color-mix(in srgb,var(--primary,#2457d6) 11%,transparent)}
+      .dsp-hint{margin:0;padding:8px 16px 12px;font-size:.72rem;color:var(--muted,#667085)}
+      @media print{.dpp-backdrop,.dsp-backdrop,.desktop-app-menu{display:none!important}}
+      @media (prefers-reduced-motion:reduce){.desktop-appbar .dab-caret,.desktop-appbar .dab-chip .dab-dot{transition:none;animation:none}}
       @media screen{#triplemDesktopPrintHost{display:none!important}}
       @media print{
         body.triplem-desktop-printing>*:not(#triplemDesktopPrintHost){display:none!important}
@@ -409,75 +679,284 @@
     document.head.appendChild(style);
   }
 
-  // ---- Settings panel inside the notifications menu ---------------------------------------
+  // ---- Windows app bar + menu (3.7) ------------------------------------------------------------
+  // A bar under the header icons (from the bell to the account icon) shows the
+  // app's state at a glance: connection, changes waiting to sync, lock and
+  // updates. Clicking it opens the Windows app menu. (Until 3.6 these settings
+  // lived at the bottom of the notifications menu.)
   function switchRow(key, label, hint, hintId = "") {
     return `<label class="desktop-app-switch"><span>${esc(label)}<small${hintId ? ` id="${esc(hintId)}"` : ""}>${esc(hint)}</small></span><input type="checkbox" role="switch" data-desktop-setting="${esc(key)}"></label>`;
   }
 
-  const PANEL_OPEN_KEY = "triplem-desktop-settings-open-v1";
-  function ensureSettingsPanel() {
-    const dropdown = document.getElementById("adminNotifyDropdown");
-    if (!dropdown || document.getElementById("desktopAppSettings")) return;
-    // Collapsed by default so the notification list keeps its space; the
-    // "Update ready" chip is visible even while it is closed.
-    const panel = document.createElement("details");
-    panel.id = "desktopAppSettings";
-    panel.className = "desktop-app-settings";
-    try { panel.open = localStorage.getItem(PANEL_OPEN_KEY) === "1"; } catch (_) {}
-    panel.innerHTML = `<summary><span class="desktop-app-summary-title"><i class="fa-brands fa-windows" aria-hidden="true"></i> Windows app</span>
-        <span class="desktop-app-summary-meta"><span class="desktop-app-chip" id="desktopUpdateChip" hidden>Update ready</span><span id="desktopAppVersion">${esc(info.version ? "v" + info.version : "")}</span><i class="fa-solid fa-chevron-down desktop-app-caret" aria-hidden="true"></i></span></summary>
-      <div class="desktop-app-body">
-      ${switchRow("notifications", "Windows notifications", "Alerts in the Windows notification centre")}
-      ${switchRow("closeToTray", "Run in the background when closed", "Keeps notifications arriving; quit from the tray icon")}
-      ${switchRow("startWithWindows", "Start with Windows", "Opens quietly in the notification area at sign-in")}
-      ${caps.has("hotkey") ? switchRow("quickAddHotkey", "Quick add shortcut", `${SHORTCUT} opens Add Expense from anywhere`, "desktopHotkeyHint") : ""}
-      ${caps.has("update") ? switchRow("autoUpdate", "Download updates automatically", "Installs only when you choose Restart to update") : ""}
-      ${caps.has("update") ? `<p class="desktop-app-update-line" id="desktopUpdateLine" aria-live="polite" hidden></p>` : ""}
-      <div class="desktop-app-actions">
-        ${caps.has("update") ? `<button type="button" data-desktop-cmd="update">Check for updates</button>` : ""}
-        ${caps.has("report") ? `<button type="button" data-desktop-cmd="report">Create error report</button>` : ""}
+  const LOCK_CHOICES = [[0, "When closed or minimised"], [1, "After 1 minute away"], [5, "After 5 minutes away"], [15, "After 15 minutes away"], [30, "After 30 minutes away"], [60, "After 1 hour away"]];
+  const HELLO_TEXT = {
+    1: "No Windows Hello device (camera, fingerprint reader or PIN) is available on this PC.",
+    2: "Set up Windows Hello (PIN, face or fingerprint) in Windows Settings > Accounts > Sign-in options first.",
+    3: "Windows Hello is turned off by your organisation's policy.",
+    4: "Windows Hello is busy. Try again in a moment."
+  };
+  const HOTKEY_LABELS = { "new-expense": "Add expense", search: "Search", "new-invoice": "New sales invoice" };
+
+  function hotkeyList() {
+    const list = Array.isArray(info.hotkeys) && info.hotkeys.length ? info.hotkeys : [{ target: "new-expense", keys: SHORTCUT }];
+    return list.filter(h => HOTKEY_LABELS[h.target]);
+  }
+
+  function appMenuHtml() {
+    const sec = (title, body, extra = "") => `<section class="dam-section"${extra}><h5>${esc(title)}</h5>${body}</section>`;
+    const lockOptions = LOCK_CHOICES.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
+    const keys = hotkeyList().map(h => `<li data-hotkey="${esc(h.target)}"><span>${esc(HOTKEY_LABELS[h.target])}</span><kbd>${esc(h.keys)}</kbd></li>`).join("");
+    return `
+      <div class="dam-head">
+        <span class="dam-logo" aria-hidden="true"><i class="fa-brands fa-windows"></i></span>
+        <div class="dam-head-text"><strong>Triplem VIP for Windows</strong><small id="damVersion">Version ${esc(info.version || "")}${info.arch ? ` · ${esc(info.arch)}` : ""}${info.packaged ? " · Microsoft Store" : ""}</small></div>
+        <button type="button" class="dam-close" data-dam="close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
+      <section class="dam-section dam-status-section" aria-live="polite">
+        <div class="dam-status" id="damStatus">
+          <span class="dam-dot" aria-hidden="true"></span>
+          <div class="dam-status-text"><strong id="damStatusTitle">Online</strong><small id="damStatusText"></small></div>
+          <div class="dam-status-actions">
+            <button type="button" class="dam-btn" data-dam="review" id="damReviewBtn" hidden>Review</button>
+            <button type="button" class="dam-btn primary" data-dam="sync" id="damSyncBtn" hidden>Sync now</button>
+          </div>
+        </div>
+        ${caps.has("offlineprep") ? `<div class="dam-row" id="damOfflineRow"><div><strong>Offline access</strong><small id="damOfflineText"></small></div><button type="button" class="dam-btn" data-dam="prepare" id="damPrepareBtn">Prepare now</button></div>` : ""}
+      </section>
+      ${caps.has("update") ? sec("Updates", `
+        <p class="desktop-app-update-line" id="desktopUpdateLine" aria-live="polite" hidden></p>
+        ${switchRow("autoUpdate", "Download updates automatically", "Installs only when you choose Restart to update")}
+        <div class="desktop-app-actions"><button type="button" data-desktop-cmd="update">Check for updates</button></div>`) : ""}
+      ${caps.has("applock") ? sec("Security", `
+        <label class="desktop-app-switch"><span>Lock with Windows Hello<small id="damLockHint">Ask for your face, fingerprint or PIN to open Triplem VIP</small></span><input type="checkbox" role="switch" id="damLockSwitch"></label>
+        <label class="dam-select" id="damLockMinutesRow"><span>Lock the app</span><select id="damLockMinutes">${lockOptions}</select></label>
+        ${switchRow("lockHideDetails", "Hide notification details while locked", "Notifications only say that something arrived")}
+        <div class="desktop-app-actions"><button type="button" data-dam="lock-now" id="damLockNow">Lock now</button></div>`) : ""}
+      ${sec("Notifications & background", `
+        ${switchRow("notifications", "Windows notifications", "Alerts in the Windows notification centre")}
+        ${caps.has("traybadge") ? switchRow("trayBadge", "Unread count on the tray icon", "Shows the number on the Triplem VIP icon next to the clock") : ""}
+        ${switchRow("closeToTray", "Run in the background when closed", "Keeps notifications arriving; quit from the tray icon")}
+        ${caps.has("savememory") ? switchRow("saveMemory", "Save memory in the background", "Uses less memory while the app is in the notification area", "damMemoryHint") : ""}
+        ${switchRow("startWithWindows", "Start with Windows", "Opens quietly in the notification area at sign-in")}`)}
+      ${caps.has("hotkey") ? sec("Shortcuts", `
+        ${switchRow("quickAddHotkey", "Global shortcuts", "Work from any app, even when Triplem VIP is in the background", "desktopHotkeyHint")}
+        <ul class="dam-keys" id="damKeys">${keys}</ul>
+        ${caps.has("recent") ? switchRow("recentJumpList", "Recent items in the taskbar menu", "Right-click the Triplem VIP taskbar icon to reopen wallets and invoices", "damRecentHint") : ""}`) : ""}
+      <div class="dam-foot">
+        ${caps.has("printplus") || caps.has("print") ? `<button type="button" class="dam-btn" data-dam="print"><i class="fa-solid fa-print" aria-hidden="true"></i> Print this page</button>` : ""}
+        ${caps.has("report") ? `<button type="button" class="dam-btn" data-desktop-cmd="report"><i class="fa-solid fa-bug" aria-hidden="true"></i> Create error report</button>` : ""}
       </div>`;
-    panel.addEventListener("toggle", () => { try { localStorage.setItem(PANEL_OPEN_KEY, panel.open ? "1" : "0"); } catch (_) {} });
-    panel.addEventListener("click", e => {
+  }
+
+  function ensureAppBar() {
+    if (document.getElementById("desktopAppBarWrap")) return;
+    const chips = document.querySelector("#app .header .chips");
+    if (!chips) return;
+    ensureStyles();
+    const wrap = document.createElement("div");
+    wrap.id = "desktopAppBarWrap";
+    wrap.className = "menu-wrap desktop-appbar-wrap";
+    wrap.innerHTML = `<button type="button" class="btn ghost menu-trigger desktop-appbar" id="desktopAppBar" aria-haspopup="dialog" aria-expanded="false" aria-controls="desktopAppMenu" title="Windows app settings">
+        <span class="dab-left"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="dab-title">Windows app</span><span class="dab-version">${esc(info.version ? "v" + info.version : "")}</span></span>
+        <span class="dab-right"><span class="dab-chip" id="dabStatusChip"><span class="dab-dot" aria-hidden="true"></span><span id="dabStatusText">Online</span></span><span class="dab-chip is-lock" id="dabLockChip" hidden><i class="fa-solid fa-lock" aria-hidden="true"></i></span><span class="dab-chip is-update" id="desktopUpdateChip" hidden>Update</span><i class="fa-solid fa-chevron-down dab-caret" aria-hidden="true"></i></span>
+      </button>`;
+    chips.appendChild(wrap);
+    // The menu lives directly in <body>: glass headers in some themes would
+    // otherwise become the reference box for its fixed position.
+    const menu = document.createElement("div");
+    menu.className = "menu-dropdown desktop-app-menu";
+    menu.id = "desktopAppMenu";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Windows app");
+    menu.innerHTML = appMenuHtml();
+    document.body.appendChild(menu);
+    const bar = wrap.querySelector("#desktopAppBar");
+    // The app's shared "click outside" handler closes open menus; keep the
+    // bar's expanded state in step with that.
+    new MutationObserver(() => { if (!menu.classList.contains("open")) bar.setAttribute("aria-expanded", "false"); }).observe(menu, { attributes: true, attributeFilter: ["class"] });
+    bar.addEventListener("click", e => {
       e.stopPropagation();
-      const btn = e.target.closest("[data-desktop-cmd]");
-      if (!btn) return;
-      if (btn.dataset.desktopCmd === "update") {
-        if (local.update.state === "ready") send("update-install"); else send("update-check");
-      } else if (btn.dataset.desktopCmd === "report") {
-        send("report");
+      toggleAppMenu(!menu.classList.contains("open"));
+    });
+    menu.addEventListener("click", e => {
+      const cmd = e.target.closest("[data-desktop-cmd]");
+      if (cmd) {
+        if (cmd.dataset.desktopCmd === "update") {
+          if (local.update.state === "ready") send("update-install"); else send("update-check");
+        } else if (cmd.dataset.desktopCmd === "report") {
+          send("report");
+        }
+        return;
+      }
+      const act = e.target.closest("[data-dam]");
+      if (!act) return;
+      switch (act.dataset.dam) {
+        case "close": toggleAppMenu(false); break;
+        case "sync": try { if (typeof syncOfflineQueue === "function") syncOfflineQueue({ force: true, userInitiated: true }); } catch (_) {} setTimeout(renderStatus, 300); break;
+        case "review": toggleAppMenu(false); try { if (typeof openOfflineSyncPanel === "function") openOfflineSyncPanel(); } catch (_) {} break;
+        case "prepare": prepareOffline({ manual: true }); break;
+        case "lock-now": toggleAppMenu(false); send("lock-now"); break;
+        case "print": toggleAppMenu(false); setTimeout(() => window.print(), 120); break;
       }
     });
-    panel.addEventListener("change", e => {
+    menu.addEventListener("change", e => {
+      if (e.target.id === "damLockSwitch") {
+        const want = !!e.target.checked;
+        e.target.checked = !!local.settings.appLock; // changes only after Windows Hello confirms
+        local.lockBusy = true;
+        renderLock();
+        send("settings-set", { key: "appLock", value: want });
+        return;
+      }
+      if (e.target.id === "damLockMinutes") {
+        send("settings-set", { key: "lockMinutes", value: Number(e.target.value) });
+        return;
+      }
       const input = e.target.closest("[data-desktop-setting]");
       if (!input) return;
       const key = input.dataset.desktopSetting;
       send("settings-set", { key, value: !!input.checked });
       if (key === "notifications") onNotificationsSwitch(!!input.checked);
     });
-    dropdown.appendChild(panel);
+    menu.addEventListener("keydown", e => { if (e.key === "Escape") { toggleAppMenu(false); bar.focus(); } });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && menu.classList.contains("open")) { toggleAppMenu(false); } });
+    // Keep the bar exactly under the visible icons (bell ... account), also
+    // when icons appear or hide, or the header wraps on a narrow window.
+    let alignQueued = false;
+    const queueAlign = () => { if (alignQueued) return; alignQueued = true; requestAnimationFrame(() => { alignQueued = false; alignAppBar(); }); };
+    try { new ResizeObserver(queueAlign).observe(chips); } catch (_) {}
+    try { new MutationObserver(queueAlign).observe(chips, { attributes: true, attributeFilter: ["class", "style", "hidden"], subtree: true, childList: true }); } catch (_) {}
+    window.addEventListener("resize", () => { queueAlign(); if (menu.classList.contains("open")) positionAppMenu(); });
+    // Icons can also move because of page-wide classes (theme, Windows app
+    // mode); a cheap periodic check keeps the bar aligned (writes only on change).
+    setInterval(() => { if (!document.hidden) alignAppBar(); }, 1500);
+    alignAppBar();
+    window.addEventListener("scroll", () => { if (menu.classList.contains("open")) positionAppMenu(); }, { passive: true });
     renderSettings();
     renderUpdate();
+    renderStatus();
+  }
+
+  function alignAppBar() {
+    const wrap = document.getElementById("desktopAppBarWrap");
+    const bar = document.getElementById("desktopAppBar");
+    const chips = wrap?.parentElement;
+    if (!wrap || !bar || !chips) return;
+    // The bar is positioned from the visible icons' edges (bell ... account).
+    // It is taken out of the layout flow so its own width never widens the
+    // header (which would move the icons it is measured from).
+    const icons = [...chips.querySelectorAll(".top-icon-btn")].filter(el => !wrap.contains(el) && el.offsetParent !== null && el.getBoundingClientRect().width > 0);
+    const wr = wrap.getBoundingClientRect();
+    let left = 0;
+    let width = wr.width;
+    if (icons.length) {
+      const l = Math.min(...icons.map(el => el.getBoundingClientRect().left));
+      const r = Math.max(...icons.map(el => el.getBoundingClientRect().right));
+      left = Math.round(l - wr.left);
+      width = Math.round(r - l);
+    }
+    const ls = `${Math.max(0, left)}px`;
+    const ws = `${Math.max(160, width)}px`;
+    if (bar.style.left !== ls) bar.style.left = ls;
+    if (bar.style.width !== ws) bar.style.width = ws;
+  }
+
+  function positionAppMenu() {
+    const bar = document.getElementById("desktopAppBar");
+    const menu = document.getElementById("desktopAppMenu");
+    if (!bar || !menu) return;
+    const r = bar.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    // Same width as the bar (at least 340 px so the options stay readable).
+    const width = Math.min(Math.max(r.width, 340), vw - 20);
+    let left = r.right - width;
+    if (left < 10) left = 10;
+    menu.style.width = `${width}px`;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${r.bottom + 6}px`;
+    menu.style.maxHeight = `${Math.max(240, window.innerHeight - r.bottom - 18)}px`;
+  }
+
+  function toggleAppMenu(open) {
+    const bar = document.getElementById("desktopAppBar");
+    const menu = document.getElementById("desktopAppMenu");
+    if (!bar || !menu) return;
+    if (open) {
+      document.querySelectorAll(".menu-dropdown.open").forEach(p => { if (p !== menu) p.classList.remove("open"); });
+      document.querySelectorAll(".menu-trigger[aria-expanded='true']").forEach(t => { if (t !== bar) t.setAttribute("aria-expanded", "false"); });
+      alignAppBar();
+      renderStatus();
+      renderOffline();
+      menu.classList.add("open");
+      positionAppMenu();
+      send("settings-get");
+    } else {
+      menu.classList.remove("open");
+    }
+    bar.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
   function renderSettings() {
     document.querySelectorAll("[data-desktop-setting]").forEach(input => {
       input.checked = !!local.settings[input.dataset.desktopSetting];
     });
+    const busyKeys = new Set(local.settings.hotkeysUnavailable || []);
+    if (local.settings.hotkeyUnavailable) busyKeys.add("new-expense");
     const hint = document.getElementById("desktopHotkeyHint");
     if (hint) {
-      const busy = local.settings.quickAddHotkey && local.settings.hotkeyUnavailable;
-      hint.textContent = busy ? `${SHORTCUT} is used by another program on this PC` : `${SHORTCUT} opens Add Expense from anywhere`;
+      const busy = local.settings.quickAddHotkey && busyKeys.size > 0;
+      hint.textContent = busy ? "A shortcut marked below is used by another program on this PC" : "Work from any app, even when Triplem VIP is in the background";
       hint.classList.toggle("is-warn", busy);
     }
+    document.querySelectorAll("#damKeys [data-hotkey]").forEach(li => {
+      const busy = local.settings.quickAddHotkey && busyKeys.has(li.dataset.hotkey);
+      li.classList.toggle("is-busy", busy);
+      li.classList.toggle("is-off", !local.settings.quickAddHotkey);
+      li.title = busy ? "Used by another program on this PC" : "";
+    });
+    const mem = document.getElementById("damMemoryHint");
+    if (mem) mem.textContent = local.settings.canPausePage ? "Uses less memory and pauses the page while the app is in the notification area" : "Uses less memory while the app is in the notification area";
+    const recent = document.getElementById("damRecentHint");
+    if (recent) recent.textContent = local.settings.appLock ? "Not shown while the Windows Hello lock is on" : "Right-click the Triplem VIP taskbar icon to reopen wallets and invoices";
+    renderLock();
+  }
+
+  function renderLock() {
+    const sw = document.getElementById("damLockSwitch");
+    if (!sw) return;
+    const s = local.settings;
+    sw.checked = !!s.appLock;
+    const unavailable = s.helloAvailable > 0 && !s.appLock;
+    sw.disabled = !!local.lockBusy || unavailable;
+    const hint = document.getElementById("damLockHint");
+    if (hint) {
+      let text = "Ask for your face, fingerprint or PIN to open Triplem VIP";
+      let warn = false;
+      if (local.lockBusy) text = "Waiting for Windows Hello…";
+      else if (unavailable) { text = HELLO_TEXT[s.helloAvailable] || "Windows Hello is not available on this PC."; warn = true; }
+      else if (local.lockError) { text = local.lockError; warn = true; }
+      hint.textContent = text;
+      hint.classList.toggle("is-warn", warn);
+    }
+    const minutes = document.getElementById("damLockMinutes");
+    if (minutes) { minutes.value = String(s.lockMinutes ?? 5); minutes.disabled = !s.appLock; }
+    const row = document.getElementById("damLockMinutesRow");
+    if (row) row.classList.toggle("is-off", !s.appLock);
+    const hide = document.querySelector('[data-desktop-setting="lockHideDetails"]');
+    if (hide) hide.disabled = !s.appLock;
+    const now = document.getElementById("damLockNow");
+    if (now) now.disabled = !s.appLock;
+    const chip = document.getElementById("dabLockChip");
+    if (chip) { chip.hidden = !s.appLock; chip.title = "Windows Hello lock is on"; }
   }
 
   function renderUpdate() {
     const line = document.getElementById("desktopUpdateLine");
     const btn = document.querySelector('[data-desktop-cmd="update"]');
-    if (!line && !btn) return;
     const u = local.update;
+    const chip = document.getElementById("desktopUpdateChip");
+    if (chip) { chip.hidden = u.state !== "ready"; chip.title = u.state === "ready" ? `Version ${u.version} is ready to install` : ""; }
+    if (!line && !btn) return;
     let text = "";
     let cls = "";
     let label = "Check for updates";
@@ -491,9 +970,134 @@
       default: text = "";
     }
     if (line) { line.textContent = text; line.className = `desktop-app-update-line ${cls}`.trim(); line.hidden = !text; }
-    const chip = document.getElementById("desktopUpdateChip");
-    if (chip) chip.hidden = u.state !== "ready";
     if (btn) { btn.textContent = label; btn.disabled = busy; btn.classList.toggle("primary", u.state === "ready"); }
+  }
+
+  // ---- Connection, sync and offline access (3.7) --------------------------------------------
+  function netState() {
+    const st = appState();
+    const sync = st?.offlineSync || {};
+    const offlineSession = !!sync.offlineSession;
+    return {
+      online: navigator.onLine && !offlineSession,
+      browserOnline: navigator.onLine,
+      offlineSession,
+      pending: Number(sync.pendingCount || 0),
+      attention: Number(sync.attentionCount || 0),
+      syncing: !!sync.syncing,
+      authBlocked: !!sync.authBlocked
+    };
+  }
+
+  function plural(n, one, many) { return `${n} ${n === 1 ? one : many}`; }
+
+  function renderStatus() {
+    const n = netState();
+    const signedIn = !!signedInUserId();
+    let tone = "ok";
+    let short = "Online";
+    let title = "Online";
+    let text = "Everything is saved to your account.";
+    if (!n.online) {
+      tone = "offline";
+      short = "Offline";
+      title = "Offline";
+      text = n.offlineSession || signedIn ? "You are working with data saved on this PC. New entries are kept here and sync when you are back online." : "No internet connection.";
+    }
+    if (signedIn && n.pending > 0) {
+      if (n.syncing) { tone = "sync"; short = "Syncing"; title = "Syncing"; text = `Saving ${plural(n.pending, "change", "changes")} to your account…`; }
+      else if (n.attention > 0) { tone = "warn"; short = `${n.pending} to review`; title = n.online ? "Some changes need attention" : "Offline"; text = `${plural(n.pending, "change is", "changes are")} saved on this PC; ${plural(n.attention, "needs", "need")} your review.`; }
+      else if (n.authBlocked) { tone = "warn"; short = `${n.pending} waiting`; title = "Sign in to sync"; text = `${plural(n.pending, "change is", "changes are")} saved on this PC. Sign in again to sync ${n.pending === 1 ? "it" : "them"}.`; }
+      else { if (tone === "ok") tone = "pending"; short = n.online ? `${n.pending} to sync` : `Offline · ${n.pending}`; text = `${plural(n.pending, "change is", "changes are")} saved on this PC${n.online ? " and syncing automatically." : " and will sync when you are back online."}`; }
+    }
+    const chip = document.getElementById("dabStatusChip");
+    if (chip) { chip.dataset.tone = tone; chip.title = text; }
+    const chipText = document.getElementById("dabStatusText");
+    if (chipText) chipText.textContent = short;
+    const box = document.getElementById("damStatus");
+    if (box) box.dataset.tone = tone;
+    const t = document.getElementById("damStatusTitle");
+    if (t) t.textContent = title;
+    const d = document.getElementById("damStatusText");
+    if (d) d.textContent = text;
+    const syncBtn = document.getElementById("damSyncBtn");
+    if (syncBtn) { syncBtn.hidden = !(signedIn && n.pending > 0); syncBtn.disabled = !n.online || n.syncing; }
+    const review = document.getElementById("damReviewBtn");
+    if (review) review.hidden = !(signedIn && n.pending > 0);
+    // Tell the app (tray tooltip) only when something changed.
+    const key = `${n.online}|${signedIn ? n.pending : 0}`;
+    if (key !== local.lastStatusKey) {
+      local.lastStatusKey = key;
+      send("status", { online: n.online, pending: signedIn ? n.pending : 0 });
+    }
+  }
+
+  const PREPARED_PREFIX = "triplem-desktop-offline-prepared-v1:";
+  const PREPARE_EVERY_MS = 2 * 60 * 60 * 1000;
+  function rememberedSession() {
+    const st = appState();
+    return !!(st?.sessionRememberMe && signedInUserId());
+  }
+  function preparedAt(uid) { try { return Number(localStorage.getItem(PREPARED_PREFIX + uid) || 0); } catch (_) { return 0; } }
+  function timeAgo(ms) {
+    const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 60) return "just now";
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h} h ago`;
+    return new Date(ms).toLocaleDateString();
+  }
+
+  function renderOffline() {
+    const text = document.getElementById("damOfflineText");
+    const btn = document.getElementById("damPrepareBtn");
+    if (!text || !btn) return;
+    const uid = signedInUserId();
+    let t = "";
+    let canPrepare = false;
+    if (!uid) t = "Sign in to make your records available offline.";
+    else if (!rememberedSession()) t = "Needs Remember me: sign out, then sign in with Remember me ticked to open your records without internet.";
+    else if (local.preparing) t = "Saving your latest records on this PC…";
+    else {
+      const at = preparedAt(uid);
+      t = at ? `Ready · records saved on this PC ${timeAgo(at)}` : "Your records are saved on this PC as you open them.";
+      canPrepare = netState().online;
+    }
+    text.textContent = t;
+    btn.disabled = !canPrepare || !!local.preparing;
+    btn.textContent = local.preparing ? "Preparing…" : "Prepare now";
+  }
+
+  // Loads every section's records once so they are in this PC's encrypted
+  // offline copy (reads only; it uses the same loaders as the app itself).
+  async function prepareOffline({ manual = false } = {}) {
+    const uid = signedInUserId();
+    if (!uid || local.preparing || !rememberedSession() || !netState().online) { renderOffline(); return false; }
+    if (!manual && Date.now() - preparedAt(uid) < PREPARE_EVERY_MS) return false;
+    local.preparing = true;
+    renderOffline();
+    let ok = true;
+    try {
+      if (typeof ensureAllLedgerDataLoaded === "function") await ensureAllLedgerDataLoaded({});
+      if (allowed("accounting") && can("accounting", "view") && typeof window.TriplemAccounting?.load === "function") {
+        try { await window.TriplemAccounting.load(); } catch (_) {}
+      }
+      if (typeof warmDashboardData === "function") { try { await warmDashboardData(); } catch (_) {} }
+    } catch (err) {
+      ok = false;
+      console.warn("Preparing offline access failed:", err);
+    } finally {
+      local.preparing = false;
+    }
+    if (ok && signedInUserId() === uid) {
+      try { localStorage.setItem(PREPARED_PREFIX + uid, String(Date.now())); } catch (_) {}
+      if (manual) showDesktopNotice("Ready for offline use", "success", [], "Your latest records are saved on this PC.");
+    } else if (manual) {
+      showDesktopNotice("Could not prepare offline access", "warn", [], "Check your internet connection and try again.");
+    }
+    renderOffline();
+    return ok;
   }
 
   // ---- In-page notice (export saved / failed, availability messages) -----------------------
@@ -525,13 +1129,196 @@
     if (typeof local.thermalCleanup === "function") { const f = local.thermalCleanup; local.thermalCleanup = null; f(); }
   }
 
-  function nativePrint() {
-    if (!caps.has("print")) { local.originalPrint?.(); return; }
+  // Printing (3.7): the app's own print panel chooses printer, copies, pages,
+  // paper, orientation, margins, colour, two-sided, scale, background graphics
+  // and headers, then the app prints directly or saves a PDF. "More settings"
+  // still opens the Windows print dialog. Without the 3.7 app, the Windows
+  // print dialog opens as before.
+  const PRINT_PREFS_KEY = "triplem-desktop-print-v1";
+  const PAPER_MM = { a3: [297, 420], a4: [210, 297], a5: [148, 210], letter: [215.9, 279.4], legal: [215.9, 355.6] };
+  const MARGIN_MM = { none: 0, narrow: 6.35, normal: 10.16, wide: 19.05 };
+
+  function readPrintPrefs() {
+    const d = { printer: "", copies: 1, orientation: "portrait", paper: "a4", margins: "default", color: "default", duplex: "default", scale: 100, backgrounds: true, headers: false };
+    try { return { ...d, ...(JSON.parse(localStorage.getItem(PRINT_PREFS_KEY) || "{}") || {}) }; } catch (_) { return d; }
+  }
+  function savePrintPrefs(o) {
+    const keep = (({ printer, copies, orientation, paper, margins, color, duplex, scale, backgrounds, headers }) => ({ printer, copies, orientation, paper, margins, color, duplex, scale, backgrounds, headers }))(o);
+    try { localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify(keep)); } catch (_) {}
+  }
+
+  function nativePrint(context = {}) {
+    if (caps.has("printplus")) { openPrintPanel(context); return; }
+    if (!caps.has("print")) { cleanupThermal(); local.originalPrint?.(); return; }
     send("print");
   }
 
+  // A temporary @page rule gives the chosen paper and margins on every PC
+  // (ARM64 cannot pass these settings to WebView2 directly).
+  function applyPageRule(o) {
+    removePageRule();
+    const paper = PAPER_MM[o.paper];
+    const margin = MARGIN_MM[o.margins];
+    if (!paper && margin === undefined) return;
+    const parts = [];
+    if (paper) {
+      const [w, h] = o.orientation === "landscape" ? [paper[1], paper[0]] : paper;
+      parts.push(`size:${w}mm ${h}mm`);
+    } else if (o.orientation === "landscape") {
+      parts.push("size:landscape");
+    }
+    if (margin !== undefined) parts.push(`margin:${margin}mm`);
+    const style = document.createElement("style");
+    style.id = "triplemDesktopPageRule";
+    style.textContent = `@page{${parts.join(";")}}`;
+    document.head.appendChild(style);
+  }
+  function removePageRule() { document.getElementById("triplemDesktopPageRule")?.remove(); }
+
+  function finishPrint() {
+    local.printing = false;
+    local.printMode = "";
+    removePageRule();
+    cleanupThermal();
+  }
+
+  function printPanelHtml(o, ctx) {
+    const printers = local.printInfo?.printers || [];
+    const def = local.printInfo?.default || "";
+    const opt = (v, t, cur) => `<option value="${esc(v)}"${String(cur) === String(v) ? " selected" : ""}>${esc(t)}</option>`;
+    const printerOptions = [opt("", def ? `Default printer (${def})` : "Default printer", o.printer)].concat(printers.map(p => opt(p, p, o.printer))).join("");
+    const floats = local.printInfo ? local.printInfo.floats !== false : info.arch !== "arm64";
+    return `
+      <div class="dpp-card" role="dialog" aria-modal="true" aria-labelledby="dppTitle">
+        <div class="dpp-head"><div><h3 id="dppTitle"><i class="fa-solid fa-print" aria-hidden="true"></i> Print</h3><p>${esc(ctx.title || "Current page")}</p></div><button type="button" class="dpp-x" data-dpp="cancel" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+        <form class="dpp-body" id="dppForm" novalidate>
+          <label class="dpp-field dpp-wide"><span>Printer</span><select name="printer">${printerOptions}</select></label>
+          <label class="dpp-field"><span>Copies</span><input name="copies" type="number" min="1" max="99" step="1" value="${esc(o.copies || 1)}"></label>
+          <div class="dpp-field"><span>Pages</span><div class="dpp-pages"><select name="pagesMode"><option value="all">All</option><option value="custom">Custom</option></select><input name="pages" placeholder="e.g. 1-3, 5" autocomplete="off" disabled></div></div>
+          <div class="dpp-field"><span>Layout</span><div class="dpp-seg" role="radiogroup" aria-label="Layout">
+            <label><input type="radio" name="orientation" value="portrait"${o.orientation !== "landscape" ? " checked" : ""}><span>Portrait</span></label>
+            <label><input type="radio" name="orientation" value="landscape"${o.orientation === "landscape" ? " checked" : ""}><span>Landscape</span></label></div></div>
+          <label class="dpp-field"><span>Paper size</span><select name="paper">${[["a4", "A4"], ["letter", "Letter"], ["legal", "Legal"], ["a5", "A5"], ["a3", "A3"], ["default", "Printer default"]].map(([v, t]) => opt(v, t, o.paper)).join("")}</select></label>
+          <label class="dpp-field"><span>Margins</span><select name="margins">${[["default", "Default"], ["none", "None"], ["narrow", "Narrow"], ["normal", "Normal"], ["wide", "Wide"]].map(([v, t]) => opt(v, t, o.margins)).join("")}</select></label>
+          <label class="dpp-field"><span>Colour</span><select name="color">${[["default", "Printer default"], ["color", "Colour"], ["bw", "Black and white"]].map(([v, t]) => opt(v, t, o.color)).join("")}</select></label>
+          <label class="dpp-field"><span>Two-sided</span><select name="duplex">${[["default", "Printer default"], ["one", "Off (one-sided)"], ["long", "Flip on long edge"], ["short", "Flip on short edge"]].map(([v, t]) => opt(v, t, o.duplex)).join("")}</select></label>
+          ${floats ? `<label class="dpp-field"><span>Scale (%)</span><input name="scale" type="number" min="10" max="200" step="5" value="${esc(o.scale || 100)}"></label>` : ""}
+          <div class="dpp-checks dpp-wide">
+            <label><input type="checkbox" name="backgrounds"${o.backgrounds ? " checked" : ""}> Background colours and images</label>
+            <label><input type="checkbox" name="headers"${o.headers ? " checked" : ""}> Headers and footers</label>
+          </div>
+          <p class="dpp-error dpp-wide" id="dppError" role="alert" hidden></p>
+        </form>
+        <div class="dpp-foot">
+          <button type="button" class="dpp-link" data-dpp="system">More settings…</button>
+          <span class="dpp-spacer"></span>
+          <button type="button" class="dpp-btn" data-dpp="cancel">Cancel</button>
+          ${caps.has("printpdf") ? `<button type="button" class="dpp-btn" data-dpp="pdf"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Save as PDF</button>` : ""}
+          <button type="button" class="dpp-btn primary" data-dpp="print"><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button>
+        </div>
+      </div>`;
+  }
+
+  function readPrintForm(form) {
+    const f = new FormData(form);
+    const pagesMode = f.get("pagesMode");
+    const scale = Number(f.get("scale") || 100);
+    return {
+      printer: String(f.get("printer") || ""),
+      copies: Math.max(1, Math.min(99, Math.round(Number(f.get("copies")) || 1))),
+      pages: pagesMode === "custom" ? String(f.get("pages") || "").trim() : "",
+      orientation: f.get("orientation") === "landscape" ? "landscape" : "portrait",
+      paper: String(f.get("paper") || "default"),
+      margins: String(f.get("margins") || "default"),
+      color: String(f.get("color") || "default"),
+      duplex: String(f.get("duplex") || "default"),
+      scale: Number.isFinite(scale) ? Math.round(scale) : 100,
+      backgrounds: f.get("backgrounds") === "on",
+      headers: f.get("headers") === "on"
+    };
+  }
+
+  function validPages(p) {
+    if (!p) return true;
+    if (!/^\s*\d{1,4}(\s*-\s*\d{1,4})?(\s*,\s*\d{1,4}(\s*-\s*\d{1,4})?)*\s*$/.test(p)) return false;
+    return p.replace(/\s/g, "").split(",").every(part => { const [a, b = a] = part.split("-").map(Number); return a >= 1 && b >= a; });
+  }
+
+  function closePrintPanel({ keepPrinting = false } = {}) {
+    const el = document.getElementById("triplemDesktopPrintPanel");
+    if (el) el.remove();
+    document.removeEventListener("keydown", printPanelKeys, true);
+    if (!keepPrinting) finishPrint();
+  }
+  function printPanelKeys(e) {
+    if (e.key === "Escape") { e.preventDefault(); closePrintPanel(); }
+    if (e.key === "Enter" && e.target?.tagName !== "SELECT" && e.target?.tagName !== "BUTTON") {
+      e.preventDefault();
+      document.querySelector('#triplemDesktopPrintPanel [data-dpp="print"]')?.click();
+    }
+  }
+
+  function openPrintPanel(context = {}) {
+    ensureStyles();
+    if (document.getElementById("triplemDesktopPrintPanel")) return;
+    const prefs = readPrintPrefs();
+    const host = document.createElement("div");
+    host.id = "triplemDesktopPrintPanel";
+    host.className = "dpp-backdrop";
+    const render = () => { host.innerHTML = printPanelHtml(readPrintPrefsFrom(host) || prefs, context); bindForm(); };
+    const readPrintPrefsFrom = h => { const form = h.querySelector("#dppForm"); return form ? { ...prefs, ...readPrintForm(form) } : null; };
+    const showError = text => { const el = host.querySelector("#dppError"); if (el) { el.textContent = text; el.hidden = !text; } };
+    function bindForm() {
+      const form = host.querySelector("#dppForm");
+      const mode = form.querySelector('[name="pagesMode"]');
+      const pages = form.querySelector('[name="pages"]');
+      mode.addEventListener("change", () => { pages.disabled = mode.value !== "custom"; if (!pages.disabled) pages.focus(); });
+      form.addEventListener("submit", e => e.preventDefault());
+      setTimeout(() => host.querySelector('[data-dpp="print"]')?.focus(), 30);
+    }
+    host.addEventListener("click", e => {
+      if (e.target === host) { closePrintPanel(); return; }
+      const btn = e.target.closest("[data-dpp]");
+      if (!btn) return;
+      const action = btn.dataset.dpp;
+      if (action === "cancel") { closePrintPanel(); return; }
+      if (action === "system") {
+        closePrintPanel({ keepPrinting: true });
+        local.printing = true;
+        local.printMode = "system";
+        send("print-system");
+        return;
+      }
+      const o = readPrintForm(host.querySelector("#dppForm"));
+      if (!validPages(o.pages)) { showError("Pages must look like 1-3, 5."); return; }
+      if (o.scale < 10 || o.scale > 200) { showError("Scale must be between 10 and 200 %."); return; }
+      savePrintPrefs(o);
+      closePrintPanel({ keepPrinting: true });
+      local.printing = true;
+      local.printMode = "direct";
+      applyPageRule(o);
+      const fileName = safe(context.fileName || document.title || "Triplem VIP").replace(/[\\/:*?"<>|]+/g, " ").trim() || "Triplem VIP";
+      // Two frames so the page lays out with the new @page rule first (with a
+      // timer as a fallback when frames are paused).
+      let sentJob = false;
+      const go = () => {
+        if (sentJob) return;
+        sentJob = true;
+        send(action === "pdf" ? "print-pdf" : "print-run", { print: { ...o, fileName: /\.pdf$/i.test(fileName) ? fileName : `${fileName}.pdf` } });
+      };
+      requestAnimationFrame(() => requestAnimationFrame(go));
+      setTimeout(go, 250);
+    });
+    host.innerHTML = printPanelHtml(prefs, context);
+    document.body.appendChild(host);
+    bindForm();
+    document.addEventListener("keydown", printPanelKeys, true);
+    if (!local.printInfo) send("print-info");
+    local.reRenderPrintPanel = render;
+  }
+
   // Receipt printing: the receipt document is rendered into a print-only host
-  // of this page (screen: hidden), then the Windows print dialog prints it.
+  // of this page (screen: hidden), then the print panel prints it.
   function printHtml(html) {
     if (!caps.has("print") || typeof html !== "string" || !html) return false;
     ensureStyles();
@@ -553,12 +1340,15 @@
       printHost.remove();
       styleEl.remove();
     };
-    const onAfter = () => { window.removeEventListener("afterprint", onAfter); cleanupThermal(); };
+    // Direct printing (3.7) cleans up when the app reports the job finished;
+    // the Windows print dialog path cleans up after printing as before.
+    const onAfter = () => { window.removeEventListener("afterprint", onAfter); if (local.printMode !== "direct") cleanupThermal(); };
     window.addEventListener("afterprint", onAfter);
     const imgs = [...printHost.querySelectorAll("img")].filter(img => !img.complete);
     let pending = imgs.length;
     let fired = false;
-    const go = () => { if (fired) return; fired = true; setTimeout(() => send("print"), 80); };
+    const title = safe(doc.title || "Receipt");
+    const go = () => { if (fired) return; fired = true; setTimeout(() => (caps.has("printplus") ? openPrintPanel({ title, fileName: title }) : send("print")), 80); };
     if (!pending) go();
     imgs.forEach(img => {
       const done = () => { pending -= 1; if (pending <= 0) go(); };
@@ -570,13 +1360,17 @@
   }
 
   if (caps.has("print")) {
-    window.print = function triplemDesktopPrint() { cleanupThermal(); nativePrint(); };
+    window.print = function triplemDesktopPrint() {
+      if (!document.body.classList.contains("triplem-desktop-printing")) cleanupThermal();
+      nativePrint({ title: document.title });
+    };
     document.addEventListener("keydown", e => {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         e.stopPropagation();
+        if (document.getElementById("triplemDesktopPrintPanel")) return;
         cleanupThermal();
-        nativePrint();
+        nativePrint({ title: document.title });
       }
     }, true);
   }
@@ -765,9 +1559,50 @@
           updatesSupported: msg.updatesSupported === true,
           quickAddHotkey: msg.quickAddHotkey !== false,
           hotkeyUnavailable: msg.hotkeyUnavailable === true,
-          safeStart: msg.safeStart === true
+          safeStart: msg.safeStart === true,
+          // 3.7
+          hotkeysUnavailable: Array.isArray(msg.hotkeysUnavailable) ? msg.hotkeysUnavailable.map(safe) : [],
+          appLock: msg.appLock === true,
+          lockMinutes: Number.isFinite(Number(msg.lockMinutes)) ? Number(msg.lockMinutes) : 5,
+          lockHideDetails: msg.lockHideDetails !== false,
+          helloAvailable: Number.isFinite(Number(msg.helloAvailable)) ? Number(msg.helloAvailable) : -1,
+          trayBadge: msg.trayBadge !== false,
+          saveMemory: msg.saveMemory !== false,
+          recentJumpList: msg.recentJumpList !== false,
+          canPausePage: msg.canPausePage === true
         };
+        local.locked = msg.locked === true;
         renderSettings();
+        break;
+      case "lock-result":
+        local.lockBusy = false;
+        local.lockError = msg.ok ? "" : safe(msg.error);
+        local.settings.appLock = msg.enabled === true;
+        renderSettings();
+        if (msg.ok) showDesktopNotice(msg.enabled ? "Windows Hello lock is on" : "Windows Hello lock is off", "success", [], msg.enabled ? "Triplem VIP will ask for your face, fingerprint or PIN when it opens." : "");
+        break;
+      case "lock-state":
+        local.locked = msg.locked === true;
+        if (local.locked) {
+          toggleAppMenu(false);
+          closeSearchPalette();
+        }
+        break;
+      case "lock-signout":
+        // Chosen on the native lock screen: sign out without the usual
+        // questions (changes saved on this PC stay and sync at next sign-in).
+        try { if (typeof doLogout === "function" && signedInUserId()) doLogout(); } catch (_) {}
+        setTimeout(() => send("unlock", { kind: "signed-out" }), 200);
+        break;
+      case "print-info":
+        local.printInfo = { printers: Array.isArray(msg.printers) ? msg.printers.map(safe) : [], default: safe(msg.default), direct: msg.direct !== false, pdf: msg.pdf === true, floats: msg.floats !== false };
+        if (document.getElementById("triplemDesktopPrintPanel") && typeof local.reRenderPrintPanel === "function") local.reRenderPrintPanel();
+        break;
+      case "print-done":
+        finishPrint();
+        if (!msg.ok && !msg.cancelled && !msg.pdf) showDesktopNotice("Printing did not finish", "error", [{ label: "More settings…", run: () => { local.printMode = "system"; local.printing = true; send("print-system"); } }], safe(msg.error));
+        if (!msg.ok && !msg.cancelled && msg.pdf && msg.error) showDesktopNotice("Could not save the PDF", "error", [], safe(msg.error));
+        if (msg.ok && !msg.pdf) showDesktopNotice("Sent to the printer", "success");
         break;
       case "open":
         openTarget(safe(msg.target), { id: safe(msg.id), action: safe(msg.action) });
@@ -778,7 +1613,8 @@
         break;
       case "visibility":
         local.windowVisible = msg.visible !== false;
-        if (local.windowVisible) backgroundRefresh(true);
+        if (local.windowVisible) { backgroundRefresh(true); renderStatus(); }
+        else { toggleAppMenu(false); closeSearchPalette(); }
         break;
       case "download-complete": {
         const id = safe(msg.id);
@@ -792,7 +1628,7 @@
         showDesktopNotice(`Could not save ${safe(msg.name) || "the export"}`, "error", [], safe(msg.reason));
         break;
       case "print-unavailable":
-        cleanupThermal();
+        finishPrint();
         local.originalPrint?.();
         break;
       case "update": {
@@ -837,17 +1673,39 @@
   window.TriplemDesktop = Object.freeze({
     info,
     printHtml,
-    print: nativePrint,
+    print: () => nativePrint({ title: document.title }),
     open: openTarget,
     beforeLogout,
-    _test: Object.freeze({ planToasts, notificationTitle, notificationBody, cssColorToHex, fileAccepted })
+    openPrintPanel,
+    openSearch: openSearchPalette,
+    prepareOffline,
+    _test: Object.freeze({ planToasts, notificationTitle, notificationBody, cssColorToHex, fileAccepted, validPages, readRecent, applyPageRule, removePageRule })
   });
+
+  // Sign-in / sign-out / connection changes (cheap periodic check).
+  function watchSession() {
+    const uid = signedInUserId();
+    if (uid !== local.watchUid) {
+      local.watchUid = uid;
+      sendRecent();
+      renderOffline();
+      if (uid && caps.has("offlineprep")) {
+        clearTimeout(local.prepTimer);
+        local.prepTimer = setTimeout(() => prepareOffline(), 25000); // after sign-in has settled
+      }
+    }
+    renderStatus();
+  }
 
   function start() {
     ensureStyles();
-    ensureSettingsPanel();
-    // The notifications menu can be rebuilt; keep the settings panel present.
-    new MutationObserver(() => ensureSettingsPanel()).observe(document.body, { childList: true, subtree: false });
+    ensureAppBar();
+    trackRecentRecords();
+    window.addEventListener("online", () => { renderStatus(); renderOffline(); });
+    window.addEventListener("offline", () => { renderStatus(); renderOffline(); });
+    window.addEventListener("afterprint", () => { if (local.printMode === "system") finishPrint(); });
+    setInterval(watchSession, 4000);
+    if (caps.has("offlineprep")) setInterval(() => { if (local.windowVisible !== false || !document.hidden) prepareOffline(); }, 15 * 60 * 1000);
     if (caps.has("theme")) {
       new MutationObserver(() => syncTitleBar()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-triplem-theme", "style", "class"] });
       syncTitleBar();
@@ -855,6 +1713,7 @@
     // Sign-in / sign-out changes for Store notifications (cheap check).
     if (caps.has("push")) setInterval(syncPushRegistration, 5000);
     send("ready", {});
+    watchSession();
     try {
       const d = { notifications: Number(document.getElementById("adminNotifyCount")?.dataset.count) || 0, messages: Number(document.getElementById("adminMessagesCount")?.dataset.count) || 0 };
       pushBadge(signedInUserId() ? d.notifications + d.messages : 0);

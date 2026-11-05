@@ -656,10 +656,17 @@ function ensureWorkspaceNavigationEvents(){
   }
 }
 
+function getWorkspaceOrderedTabButtons(){
+  const tabs = getWorkspaceVisibleTabButtons();
+  // The user's own Home card order (long-press to move; saved to the account).
+  try { if (typeof window.orderHomeTabs === "function") return window.orderHomeTabs(tabs); } catch (_) {}
+  return tabs;
+}
+
 function renderWorkspaceHome(){
   const grid = document.getElementById("workspaceHomeGrid");
   if (!grid) return;
-  const tabs = getWorkspaceVisibleTabButtons();
+  const tabs = getWorkspaceOrderedTabButtons();
   grid.innerHTML = tabs.map((btn, index) => {
     const key = workspaceTabKey(btn.dataset.tab);
     const rawKey = String(btn.dataset.tab || key);
@@ -677,6 +684,7 @@ function renderWorkspaceHome(){
   grid.querySelectorAll("[data-workspace-tab]").forEach(card => {
     card.addEventListener("click", () => activate(card.dataset.workspaceTab));
   });
+  try { window.bindHomeReorder?.(grid); } catch (_) {}
 }
 
 function showWorkspaceHome(){
@@ -708,7 +716,7 @@ function syncWorkspaceSectionNavigation(tab){
   if (nav) nav.classList.remove("hide");
   if (title) title.textContent = getWorkspaceSectionLabel(sectionKey);
   if (select) {
-    const tabs = getWorkspaceVisibleTabButtons();
+    const tabs = getWorkspaceOrderedTabButtons();
     const candidateButton = tabs.find(btn => workspaceTabKey(btn.dataset.tab) === sectionKey);
     const candidate = candidateButton?.dataset.tab || sectionKey;
     const options = [
@@ -3817,7 +3825,10 @@ function isDashboardSectionAllowed(sectionId){
 }
 
 function getAllowedDashboardSections(){
-  return DASHBOARD_SECTION_OPTIONS.filter(s => isDashboardSectionAllowed(s.id));
+  const list = DASHBOARD_SECTION_OPTIONS.filter(s => isDashboardSectionAllowed(s.id));
+  // The user's own card order (long-press to move; saved to the account).
+  try { if (typeof window.orderDashboardSections === "function") return window.orderDashboardSections(list); } catch (_) {}
+  return list;
 }
 
 function destroyDashboardCharts(){
@@ -4940,6 +4951,7 @@ function refreshDashboardSection(sectionKey, { soft = false, currencyHint = "" }
   if (detailsHost) {
     detailsHost.innerHTML = section === "assets" ? dashboardAssetsDetailsTableHtml(data) : "";
   }
+  try { window.bindDashboardReorder?.(root); } catch (_) {}
 
   if (soft) {
     requestAnimationFrame(() => {
@@ -4988,6 +5000,7 @@ function switchDashboardActiveSection(nextSection){
     </div>
   `;
   if (data) paintDashboardSectionCharts(section, data);
+  try { window.bindDashboardReorder?.(root); } catch (_) {}
   requestAnimationFrame(() => content.classList.remove("is-switching"));
 
   if (typeof warmDashboardData === "function") {
@@ -5093,6 +5106,7 @@ function renderDetailedDashboard(options = {}){
   }
 
   root.classList.add("is-hydrated");
+  try { window.bindDashboardReorder?.(root); } catch (_) {}
   if (scrollY != null) {
     requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
