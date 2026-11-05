@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Microsoft Store (MSIX) package for the Triplem VIP Windows client.
+
+  Why: an MSIX submitted through Partner Center is re-signed by Microsoft, so
+  users installing from the Microsoft Store see no SmartScreen / "unknown
+  publisher" warning, and Windows handles install, Start Menu entry, updates
+  and uninstall.
+
+  Identity values below are the Partner Center Product identity for the
+  reserved name "Triplem VIP" (filled 2026-11-04). Do not change them: the
+  Store rejects packages whose identity does not match the reservation.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 desktop rescap">
+
+  <Identity
+    Name="TriplemVIP.TriplemVIP"
+    Publisher="CN=D58541F4-18AA-431F-869F-990A8A8D60CE"
+    Version="3.5.0.0"
+    ProcessorArchitecture="@ARCH@" />
+
+  <Properties>
+    <DisplayName>Triplem VIP</DisplayName>
+    <PublisherDisplayName>Triplem VIP</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Triplem VIP accounting, expenses, inventory, loans and assets workspace for Windows.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="TriplemVIP" Executable="TriplemVIP.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Triplem VIP"
+        Description="Triplem VIP accounting and business finance workspace"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\LargeTile.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- "Start with Windows" (off until the user turns it on in the app). -->
+        <desktop:Extension Category="windows.startupTask" Executable="TriplemVIP.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="TriplemVIPStartup" Enabled="false" DisplayName="Triplem VIP" />
+        </desktop:Extension>
+        <!-- Lets Jump List tasks start the packaged app with its arguments. -->
+        <uap3:Extension Category="windows.appExecutionAlias" Executable="TriplemVIP.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap3:AppExecutionAlias>
+            <desktop:ExecutionAlias Alias="triplemvip.exe" />
+          </uap3:AppExecutionAlias>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
