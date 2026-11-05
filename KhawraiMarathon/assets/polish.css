@@ -22,8 +22,7 @@ body {
 button.btn,
 a.btn,
 label.btn,
-input.btn,
-.header-actions .cta .btn {
+input.btn {
   appearance: none;
   -webkit-appearance: none;
   box-shadow: none !important;
@@ -42,9 +41,7 @@ button.btn:hover,
 button.btn:active,
 a.btn:hover,
 a.btn:active,
-label.btn:hover,
-.header-actions .cta .btn[aria-current="page"],
-.header-actions .cta .btn[aria-current="page"]:hover {
+label.btn:hover {
   box-shadow: none !important;
   transform: none !important;
   text-shadow: none;
@@ -64,17 +61,6 @@ button[disabled] {
   filter: none;
 }
 
-/* The selected navigation link uses color/border only, not an inset shadow. */
-.header-actions .cta .btn[aria-current="page"] {
-  border-color: #d8ef8a;
-  background: rgba(216, 239, 138, .14);
-  color: #e8f5c9;
-}
-.header-actions .cta .btn.yellow[aria-current="page"] {
-  border-color: #d8ef8a;
-  background: #d8ef8a;
-  color: #203a2f;
-}
 .tabbar button[aria-selected="true"],
 .tabs button[aria-pressed="true"],
 .chips button,
@@ -113,7 +99,6 @@ canvas {
 }
 
 /* Dropdowns and dialogs must sit above tables, cards, and sticky headings. */
-.profile-menu { z-index: 10060; }
 .menu.menu-floating { z-index: 10070; }
 .player-pdf-dropdown { position: relative; z-index: 45; }
 .player-pdf-menu { z-index: 10070; }
@@ -181,62 +166,6 @@ dialog,
 
 @media (max-width: 720px) {
   :root { --content-gutter: 12px; }
-  .top .in {
-    width: 100%;
-    max-width: 100%;
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-  .top .tt { min-width: 0; }
-  .header-actions {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 36px !important;
-    align-items: stretch;
-    gap: 5px;
-    width: 100%;
-    min-width: 0;
-    margin: 0 !important;
-  }
-  .header-actions .cta {
-    display: flex !important;
-    width: 100%;
-    min-width: 0;
-    margin: 0 !important;
-    align-items: stretch;
-  }
-  .header-actions .cta .btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-width: 0;
-    min-height: 38px;
-    padding: .42rem .18rem;
-    border-radius: 8px;
-    font-size: clamp(.59rem, 2.15vw, .7rem);
-    line-height: 1.12;
-    text-align: center;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  .header-actions .profile-mount {
-    display: block;
-    width: 36px;
-    min-width: 0;
-    justify-self: end;
-    align-self: center;
-  }
-  .header-actions .profile-trigger {
-    display: flex;
-    justify-content: center;
-    width: 36px;
-    min-width: 36px;
-    min-height: 37px;
-    padding: 2px;
-  }
-  .header-actions .profile-label,
-  .header-actions .profile-chevron { display: none; }
-
   .wrap,
   .about-page,
   .sheet,
@@ -284,11 +213,6 @@ dialog,
 }
 
 @media (max-width: 390px) {
-  .top .in { padding-left: 9px; padding-right: 9px; }
-  .header-actions { grid-template-columns: repeat(4, minmax(0, 1fr)) 32px !important; gap: 3px; }
-  .header-actions .cta .btn { min-height: 36px; padding-left: .08rem; padding-right: .08rem; font-size: .58rem; }
-  .header-actions .profile-mount,
-  .header-actions .profile-trigger { width: 32px; min-width: 32px; }
   .about-page { padding-left: 10px; padding-right: 10px; }
   .about-hero-copy { padding-left: 17px; padding-right: 17px; }
   .about-hero h2 { font-size: clamp(1.82rem, 8vw, 2.3rem); }
@@ -321,8 +245,3 @@ dialog,
 }
 
 
-/* Explicitly honour hidden state for header registration controls despite button styling. */
-.top .header-utilities .registration-cta > [hidden],
-.top .header-utilities .registration-cta [hidden] {
-  display: none !important;
-}

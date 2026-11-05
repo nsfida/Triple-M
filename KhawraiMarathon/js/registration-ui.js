@@ -125,22 +125,36 @@
   // without a reload. Database checks are still authoritative and cannot be bypassed
   // by changing any of this browser-side markup.
   function closeRegularLink(anchor) {
+    const isProfileRegisterLink = anchor.hasAttribute("data-profile-register");
     const existing = originalLinkState.get(anchor);
     if (existing) {
       // Another shared component may refresh a hidden profile link; re-apply the
       // closed state instead of allowing that refresh to restore a public href.
-      if (existing.placeholder && !existing.placeholder.isConnected) anchor.insertAdjacentElement("afterend", existing.placeholder);
+      // The account-menu registration item is suppressed silently: adding a
+      // second "Registration Ends" badge inside the menu breaks its layout.
+      if (isProfileRegisterLink && existing.placeholder) {
+        if (existing.placeholder.isConnected) existing.placeholder.remove();
+        existing.placeholder = null;
+      } else if (existing.placeholder && !existing.placeholder.isConnected) {
+        anchor.insertAdjacentElement("afterend", existing.placeholder);
+      }
       anchor.hidden = true;
       anchor.removeAttribute("href");
       anchor.setAttribute("aria-hidden", "true");
       return;
     }
-    const placeholder = document.createElement("span");
-    placeholder.className = "registration-ended-link";
-    placeholder.textContent = "Registration Ends";
-    placeholder.setAttribute("aria-disabled", "true");
-    placeholder.setAttribute("role", "text");
-    anchor.insertAdjacentElement("afterend", placeholder);
+
+    // Public registration links outside the account menu keep a readable closed
+    // status. The profile menu item is simply hidden because the menu already
+    // contains account actions and must not gain a second status control.
+    const placeholder = isProfileRegisterLink ? null : document.createElement("span");
+    if (placeholder) {
+      placeholder.className = "registration-ended-link";
+      placeholder.textContent = "Registration Ends";
+      placeholder.setAttribute("aria-disabled", "true");
+      placeholder.setAttribute("role", "text");
+      anchor.insertAdjacentElement("afterend", placeholder);
+    }
     originalLinkState.set(anchor, { placeholder, href: anchor.getAttribute("href"), html: anchor.innerHTML, hidden: anchor.hidden });
     anchor.hidden = true;
     anchor.removeAttribute("href");
@@ -184,7 +198,7 @@
     const seconds = Math.floor((remaining % 60000) / 1000);
     const pad = n => String(n).padStart(2, "0");
     // Always computed from UTC Date.now() vs UTC cutoff — correct regardless of device timezone.
-    countdownNode.textContent = `CLOSES IN ${days}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S (PKT)`;
+    countdownNode.textContent = `CLOSES IN ${days}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S`;
     countdownNode.hidden = false;
   }
 
