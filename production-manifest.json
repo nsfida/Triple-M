@@ -1,8 +1,8 @@
 {
   "format": "triplem-vip-production-manifest-v1",
   "scope": "Copied production content files; generated manifest files are not self-hashed.",
-  "fileCount": 431,
-  "totalBytes": 44447674,
+  "fileCount": 433,
+  "totalBytes": 49032174,
   "files": [
     {
       "path": "_headers",
@@ -86,13 +86,13 @@
     },
     {
       "path": "Assets/app/auth/04-account-recovery.js",
-      "bytes": 64194,
-      "sha256": "a1dc9131aad8e68a71f8c3876d9988dba0c20cf3379a3f39d1cc4be5112ed059"
+      "bytes": 64273,
+      "sha256": "a182ae76781d9ac1063d4d352df5cbfb212c18ca44630cbc64a85d83bd84a094"
     },
     {
       "path": "Assets/app/auth/05-account-security.js",
-      "bytes": 67008,
-      "sha256": "49917a9b7ec3407cb18b3305bc799938d8e8ea3f58796593826d81c73957cbb1"
+      "bytes": 68296,
+      "sha256": "c03baaa17c622bb0dc16bbebb746db87c3ff456e668065d69369700ad0f1cec5"
     },
     {
       "path": "Assets/app/auth/06-auth-ui.js",
@@ -185,6 +185,11 @@
       "sha256": "4fa7239b832d7517322ff6165e632c0d10d3d5cc18430b7108bb88f9605f5a8e"
     },
     {
+      "path": "Assets/app/desktop/01-windows-desktop.js",
+      "bytes": 22010,
+      "sha256": "d2bea14082232c4f81241c3cb92287f31bc94218cf11e164fc0b19b324c81237"
+    },
+    {
       "path": "Assets/app/domain-ledger.js",
       "bytes": 68051,
       "sha256": "182033840b5b0fa9de20da6e73f32b9f4f1a11e1ea289657054544aaf964fcdb"
@@ -236,8 +241,8 @@
     },
     {
       "path": "Assets/app/inventory/04-inventory-barcodes-scanner.js",
-      "bytes": 81748,
-      "sha256": "82fa2ff9c9a89661d6f8ecdf2dd4d2760b968a88b1eed8763a607b1d3a9359e9"
+      "bytes": 81896,
+      "sha256": "c0ce9a72ccf7cdaf0c81ddc186ceaae8d04cc5948ab41f5d8c5e21ba9201a0c5"
     },
     {
       "path": "Assets/app/inventory-catalog.js",
@@ -296,8 +301,8 @@
     },
     {
       "path": "Assets/app/messaging/01-messaging.js",
-      "bytes": 262334,
-      "sha256": "f5c80e89c3c0b6ee8d44f5461a7ff6a768dca0d8e2ec25a2a40e9dd1c8026221"
+      "bytes": 276880,
+      "sha256": "bf0c47026269787dd86dacda39baaf2ad041f2b2cda1f71ffb1dfdd6ade9130a"
     },
     {
       "path": "Assets/app/notes/01-notes.js",
@@ -306,8 +311,8 @@
     },
     {
       "path": "Assets/app/notifications/01-web-push.js",
-      "bytes": 57598,
-      "sha256": "538487ad7c393dc0614a6ffb2f233b1336d95e7665a2568a6d5c8091eeaa3edc"
+      "bytes": 58122,
+      "sha256": "360bbb34752c5ededf0d79e8473c22d49c3c24142e3c2f850481db1c95095642"
     },
     {
       "path": "Assets/app/reports/01-pdf.js",
@@ -646,8 +651,8 @@
     },
     {
       "path": "Assets/mobile_app/Windows/TriplemVIP_Setup.exe",
-      "bytes": 6932568,
-      "sha256": "65571b2c05d5ba0a1af4e3974d6be9d46af93599c6829b4b60cb8f853046ff4d"
+      "bytes": 11498961,
+      "sha256": "f5df0c08a883e6c687ec6494c9f6f635cd8c48a2af7f94a226f0cad62b597d62"
     },
     {
       "path": "Assets/paper_wallet_bg.png",
@@ -940,19 +945,24 @@
       "sha256": "5084786b98f08aa99c1ae429ac5dd9774ab6aa4a310028e9807181ca9e444299"
     },
     {
+      "path": "Assets/style/57-notifications-messaging.css",
+      "bytes": 6639,
+      "sha256": "f789fd4d12ae9fa7ea7f6e6bfe53e7d44a495c8407bd514a2af53708086f9450"
+    },
+    {
       "path": "Assets/style/app.bundle.css",
-      "bytes": 1103260,
-      "sha256": "4207a967afac77f201d62d2a8875a5088530d1a31bd2f3afdcc9aa68c4d23579"
+      "bytes": 1067532,
+      "sha256": "cb13aacc2f8714d7e54fe7c7f592d17673d70ae4238206564047d6f4290515a9"
     },
     {
       "path": "Assets/style/app.feature.bundle.css",
-      "bytes": 537986,
-      "sha256": "b6ce5dc9e4d7f7a488b52e7cce85647537ea2eeaf204556e85ddd06a739515ed"
+      "bytes": 544696,
+      "sha256": "a95406a2e9fbe4e4c773b913737b7846996c48ec9a7bdff8f5d99227d2b4c14f"
     },
     {
       "path": "Assets/style/app.feature.bundle.manifest.json",
-      "bytes": 4627,
-      "sha256": "4902ef3e1b8cd1369bc8d59a4b7c8bcc37fcda3d3477ce7d6459f277402b15d5"
+      "bytes": 4805,
+      "sha256": "d61c915ac963c193822c3106aa67be4a36bab8266d3d5fdccbfaf997a07a5ec4"
     },
     {
       "path": "Assets/style/fonts/AED.ttf",
@@ -1621,8 +1631,8 @@
     },
     {
       "path": "index.html",
-      "bytes": 493174,
-      "sha256": "d6f28b9c845a08ed9c505b096f3110d5d13420786dad0a86baadd7e79ca62668"
+      "bytes": 494901,
+      "sha256": "06396ba9290c23478f8e990f2499040d391f5335e84880939c2c8f6a22f41b28"
     },
     {
       "path": "index.md",
@@ -2141,8 +2151,8 @@
     },
     {
       "path": "service-worker.js",
-      "bytes": 11687,
-      "sha256": "63599ee412249f709ab9f68c7a19c52af8a940f0768384709203ec23c38dfecf"
+      "bytes": 11673,
+      "sha256": "ca94fc4882d4b9f49c576aec05744ae303b625f0c79077a1304464d22cc021aa"
     },
     {
       "path": "site.webmanifest",

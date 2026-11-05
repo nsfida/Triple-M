@@ -1,10 +1,10 @@
 {
   "format": "triplem-vip-release-manifest-v1",
-  "generatedAtUtc": "2026-11-04T19:29:40.231Z",
+  "generatedAtUtc": "2026-11-05T07:46:58.875Z",
   "application": "Triplem VIP",
   "build": {
-    "fileCount": 431,
-    "totalBytes": 44447674,
+    "fileCount": 433,
+    "totalBytes": 49032174,
     "productionManifest": "production-manifest.json"
   },
   "database": {
@@ -24,6 +24,6 @@
   "security": {
     "freshInstallSchemaInPublicOutput": false,
     "responseHeadersFile": "_headers",
-    "serviceWorkerCache": "triplem-static-v190-offline-reliability1"
+    "serviceWorkerCache": "triplem-static-v191-windows-push1"
   }
 }
