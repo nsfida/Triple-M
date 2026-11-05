@@ -357,6 +357,9 @@ function startGuestMode(){
 
 function doLogout(){
   try { window.stopAccountSecurityBackground?.(); } catch (_) {}
+  // Windows app 3.6: stop this PC's Store notifications for the account that
+  // is signing out (no-op in browsers and on mobile).
+  try { window.TriplemDesktop?.beforeLogout?.(); } catch (_) {}
   const wasGuestMode = isGuestMode();
   if (!wasGuestMode && state.sessionToken) {
     if (typeof lockAdminSecuritySession === "function") {

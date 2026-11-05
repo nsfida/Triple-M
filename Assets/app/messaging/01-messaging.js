@@ -4800,6 +4800,19 @@ document.getElementById("adminNotifyList")?.addEventListener("keydown", e => {
       : supabaseRpc("app_admin_delete_notification", { p_notification_id: id }),
     "Could not delete this notification.");
   });
+  // 2026-11-05 (Windows app 3.6): "Mark as read" from a Windows notification
+  // button uses exactly the same optimistic update and RPC as the bell.
+  document.addEventListener("triplem:notification-mark-read", e => {
+    const { id } = e.detail || {};
+    const n = (adminCommsState.notifications || []).find(x => String(x.id) === String(id || ""));
+    if (!n || n.is_read) return;
+    const source = notificationSource(n);
+    optimisticMarkNotificationRead(n.id);
+    runNotificationMutationInBackground(() => source === "user"
+      ? supabaseRpc("app_mark_my_notification_read", { p_notification_id: n.id })
+      : supabaseRpc("app_admin_mark_notification_read", { p_notification_id: n.id }),
+    "Could not mark this notification as read.");
+  });
 document.getElementById("adminMessagesPreviewList")?.addEventListener("click", async e => {
     const floatBtn = e.target.closest("[data-preview-inquiry]");
     if (!floatBtn) return;

@@ -1165,3 +1165,52 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind, { once: true });
   else bind();
 })();
+
+/* Triplem VIP for Windows 3.6 (Microsoft Store version): register this PC's
+ * Windows Push Notification Services channel for the signed-in account so
+ * notifications arrive while the app is closed. Runs only when the Windows app
+ * reports a channel; browsers and mobile never receive these events.
+ * Database writes are kept to one per device per day (or when the account or
+ * channel changes); the server keeps one row per device (migration 204). */
+(() => {
+  "use strict";
+  const KEY = "triplem-wns-registration-v1";
+  const DAY = 24 * 60 * 60 * 1000;
+  let inFlight = false;
+
+  function read() { try { return JSON.parse(localStorage.getItem(KEY) || "null") || null; } catch (_) { return null; } }
+  function write(v) { try { if (v) localStorage.setItem(KEY, JSON.stringify(v)); else localStorage.removeItem(KEY); } catch (_) {} }
+  function signedIn() { try { return typeof state !== "undefined" && !!state?.sessionToken && !!state?.unlocked; } catch (_) { return false; } }
+
+  window.addEventListener("triplem:windows-push-channel", async event => {
+    const d = event?.detail || {};
+    const uri = String(d.uri || "");
+    const deviceId = String(d.deviceId || "");
+    const userId = String(d.userId || "");
+    if (!uri || !/^[0-9a-f]{32}$/.test(deviceId) || !userId || !signedIn() || inFlight) return;
+    if (typeof window.supabaseRpc !== "function") return;
+    const last = read();
+    if (last && last.userId === userId && last.uri === uri && Date.now() - Number(last.at || 0) < DAY) return;
+    inFlight = true;
+    try {
+      await window.supabaseRpc("app_register_windows_push_channel", {
+        p_channel_uri: uri,
+        p_device_id: deviceId,
+        p_expires_at: d.expires || null
+      });
+      write({ userId, uri, deviceId, at: Date.now() });
+    } catch (_) {
+      // Server not ready yet (e.g. migration 204 not applied): try again tomorrow.
+      write({ userId, uri, deviceId, at: Date.now(), failed: true });
+    } finally {
+      inFlight = false;
+    }
+  });
+
+  window.addEventListener("triplem:windows-push-unregister", event => {
+    const deviceId = String(event?.detail?.deviceId || "");
+    write(null);
+    if (!/^[0-9a-f]{32}$/.test(deviceId) || typeof window.supabaseRpc !== "function" || !signedIn()) return;
+    window.supabaseRpc("app_unregister_windows_push_channel", { p_device_id: deviceId }).catch(() => {});
+  });
+})();
