@@ -1,4 +1,4 @@
-/* Triplem VIP Web Push Service Worker — v123; static asset cache v190-offline-reliability1.
+/* Triplem VIP Web Push Service Worker — v123; static asset cache v191-windows-push1.
  *
  * Offline support (2026-11): the HTML app shell and the pinned CDN libraries are
  * kept so the workspace can be reopened without internet. Supabase API, auth and
@@ -8,7 +8,7 @@
 "use strict";
 
 const STATIC_CACHE_PREFIX = "triplem-static-";
-const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v190-offline-reliability1`;
+const STATIC_CACHE = `${STATIC_CACHE_PREFIX}v191-windows-push1`;
 const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font"]);
 // Version-pinned third-party libraries and fonts referenced by the pages.
 const PINNED_CDN_HOSTS = new Set(["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"]);

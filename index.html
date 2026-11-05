@@ -39,7 +39,27 @@
       document.documentElement.style.visibility = "hidden";
       try { window.top.location.replace(window.location.href); } catch (_) {}
     })();
+    /* Triplem VIP Windows app (WebView2 exposes window.chrome.webview; normal
+       browsers do not). WebView2 cannot receive Web Push, so every notification
+       prompt and switch is hidden there. Web and mobile are unchanged. */
+    (function () {
+      try {
+        if (window.chrome && window.chrome.webview) {
+          window.TRIPLEM_WINDOWS_APP = true;
+          document.documentElement.classList.add("triplem-windows-app");
+        }
+      } catch (_) {}
+    })();
   </script>
+  <style>
+    html.triplem-windows-app .landing-visitor-alert-control,
+    html.triplem-windows-app #lockScreen .landing-visitor-alert-control,
+    html.triplem-windows-app .landing-mobile-notification-row,
+    html.triplem-windows-app #lockScreen .landing-mobile-notification-row,
+    html.triplem-windows-app #pushQuickToggleBtn,
+    html.triplem-windows-app .admin-comms-device-footer,
+    html.triplem-windows-app #pushConsentModal { display: none !important; }
+  </style>
   <meta name="copyright" content="Triplem VIP" />
   <link rel="author" href="https://triplem.vip/humans.txt" />
   <link rel="manifest" href="/site.webmanifest" />
@@ -950,7 +970,7 @@
   <script defer src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading&idle=20261031-005&amp;__v=b5240a09ca80afd9"></script>
   <script defer src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=167&logopt=20261031-001&amp;notifyopt=20261031-002&amp;idle=20261031-005&amp;__v=f5c80e89c3c0b6ee"></script>
   <script defer src="Assets/app/ui/04-app-downloads.js?v=20260921-windows-app002&amp;__v=c5c334d8e9d59ec4"></script>
-  <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169&amp;notifyopt=20261031-002&amp;offline=20261104-001&amp;__v=538487ad7c393dc0"></script>
+  <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169&amp;notifyopt=20261031-002&amp;offline=20261104-001&amp;winapp=20261105-001&amp;__v=360bbb34752c5ede"></script>
   <script defer src="Assets/app/boot.js?v=20260906-currency001&amp;__v=c7b83679508d3030"></script>
 </head>
 <body>
