@@ -771,5 +771,25 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bindMenu, { once: true });
   else bindMenu();
 
-  window.TriplemBackup = Object.freeze({ open, close, _state: S, _refresh: refreshAppData });
+  // ---- used by the Windows app (3.8): "Back up now" and scheduled backups ------------------
+  // Builds exactly the same backup as "Download backup" (no password: the file
+  // is saved into the backup folder the user chose on this PC).
+  let quietRun = null;
+  async function createFile({ onProgress } = {}) {
+    if (!isOwner()) { const e = new Error("Only the account owner can back up this workspace."); e.code = "owner"; throw e; }
+    if (S.busy || quietRun) { const e = new Error("A backup or restore is already running."); e.code = "busy"; throw e; }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) { const e = new Error("No internet connection. The backup needs your online account."); e.code = "offline"; throw e; }
+    quietRun = new AbortController();
+    try {
+      const d = await deps();
+      const out = await E().createBackup(d, { password: "", signal: quietRun.signal, onProgress: p => { try { onProgress && onProgress(p); } catch (_) {} } });
+      return out;
+    } finally { quietRun = null; }
+  }
+  function markBackedUp(iso) {
+    try { localStorage.setItem(LAST_KEY + userId(), iso || new Date().toISOString()); } catch (_) {}
+    if (S.view === "home" && !document.getElementById("userBackupModal")?.classList.contains("hide")) render();
+  }
+
+  window.TriplemBackup = Object.freeze({ open, close, _state: S, _refresh: refreshAppData, createFile, save: download, markBackedUp, isOwner, lastBackupText });
 })();

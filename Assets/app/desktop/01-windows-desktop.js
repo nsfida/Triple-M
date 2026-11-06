@@ -619,8 +619,80 @@
       .desktop-app-menu .dam-keys kbd{font:inherit;font-size:.7rem;font-weight:700;color:var(--muted,#475569);background:var(--control-bg,#fff);border:1px solid var(--line,rgba(148,163,184,.35));border-radius:6px;padding:2px 6px;white-space:nowrap}
       .desktop-app-menu .dam-keys li.is-busy kbd{color:var(--warning,#b45309);border-color:color-mix(in srgb,var(--warning,#d97706) 45%,transparent);text-decoration:line-through}
       .desktop-app-menu .dam-keys li.is-off{opacity:.5}
-      .desktop-app-menu .dam-foot{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 14px}
       .desktop-app-menu .desktop-app-switch input:disabled+*{opacity:.6}
+      /* ---- 3.8: accordion menu ---- */
+      .desktop-app-menu .dam-accordion{display:flex;flex-direction:column;padding:6px}
+      .desktop-app-menu .dam-acc{border-radius:12px;transition:background-color .2s ease}
+      .desktop-app-menu .dam-acc+.dam-acc{margin-top:2px}
+      .desktop-app-menu .dam-acc.is-open{background:color-mix(in srgb,var(--primary,#2457d6) 6%,transparent)}
+      .desktop-app-menu .dam-acc-head{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;cursor:pointer;color:var(--text,#17212b);font:inherit;font-size:.82rem;font-weight:650;line-height:1.2;-webkit-tap-highlight-color:transparent}
+      .desktop-app-menu .dam-acc-head:hover{background:var(--surface-hover,rgba(241,245,249,.8))}
+      .desktop-app-menu .dam-acc.is-open .dam-acc-head:hover{background:transparent}
+      .desktop-app-menu .dam-acc-head:focus-visible{outline:2px solid var(--primary,#2457d6);outline-offset:-2px}
+      .desktop-app-menu .dam-acc-icon{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;font-size:.8rem;color:var(--primary,#2457d6);background:color-mix(in srgb,var(--primary,#2457d6) 11%,transparent)}
+      .desktop-app-menu .dam-acc-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .desktop-app-menu .dam-acc-chip{flex:0 1 auto;min-width:0;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:999px;color:var(--muted,#667085);background:color-mix(in srgb,var(--muted,#64748b) 12%,transparent);font-variant-numeric:tabular-nums}
+      .desktop-app-menu .dam-acc-chip:empty{display:none}
+      .desktop-app-menu .dam-acc-chip[data-tone="ok"]{color:var(--success,#15803d);background:color-mix(in srgb,var(--success,#16a34a) 12%,transparent)}
+      .desktop-app-menu .dam-acc-chip[data-tone="pending"],.desktop-app-menu .dam-acc-chip[data-tone="sync"]{color:var(--primary,#2457d6);background:color-mix(in srgb,var(--primary,#2457d6) 12%,transparent)}
+      .desktop-app-menu .dam-acc-chip[data-tone="warn"]{color:var(--warning,#b45309);background:color-mix(in srgb,var(--warning,#d97706) 14%,transparent)}
+      .desktop-app-menu .dam-acc-chip[data-tone="offline"]{color:var(--muted,#475569)}
+      .desktop-app-menu .dam-acc-caret{font-size:.62rem;color:var(--muted,#667085);transition:transform .28s cubic-bezier(.2,.8,.2,1);flex:0 0 auto}
+      .desktop-app-menu .dam-acc.is-open .dam-acc-caret{transform:rotate(180deg)}
+      .desktop-app-menu .dam-acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.2,.8,.2,1)}
+      .desktop-app-menu .dam-acc.is-open .dam-acc-body{grid-template-rows:1fr}
+      .desktop-app-menu .dam-acc-inner{min-height:0;overflow:hidden}
+      .desktop-app-menu .dam-acc-content{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:4px 12px 12px 48px;opacity:0;transform:translateY(-4px);transition:opacity .2s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
+      .desktop-app-menu .dam-acc.is-open .dam-acc-content{opacity:1;transform:none;transition-delay:.05s}
+      .desktop-app-menu .dam-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+      .desktop-app-menu .dam-btns-wide{justify-content:flex-start}
+      .desktop-app-menu .dam-btns:not(:has(.dam-btn:not([hidden]))){display:none}
+      .desktop-app-menu .dam-btn.icon{padding:6px 9px}
+      .desktop-app-menu .dam-btn kbd{font:inherit;font-size:.66rem;font-weight:700;color:var(--muted,#475569);border:1px solid var(--line,rgba(148,163,184,.35));border-radius:5px;padding:0 4px;margin-left:2px}
+      .desktop-app-menu .dam-row-text{min-width:0;flex:1}
+      .desktop-app-menu .dam-acc-content>*{min-width:0}
+      .desktop-app-menu .dam-select span{flex:1;min-width:0}
+      .desktop-app-menu .dam-select select,.desktop-app-menu .dam-select input[type="time"]{flex:0 1 auto;min-width:0}
+      .desktop-app-menu .dam-row-text small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .desktop-app-menu .dam-status{padding:8px 10px;gap:6px 9px}
+      .desktop-app-menu .dam-status-text{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+      .desktop-app-menu .dam-status-text small{margin:0}
+      .desktop-app-menu .dam-select[hidden],.desktop-app-menu .dam-select [hidden]{display:none!important}
+      .desktop-app-menu .dam-select input[type="time"]{font:inherit;font-size:.78rem;border:1px solid var(--line-strong,rgba(71,85,105,.3));background:var(--control-bg,#fff);color:var(--text,#17212b);border-radius:9px;padding:4px 8px;min-height:30px}
+      .desktop-app-menu .dam-select select+select{margin-left:6px}
+      .desktop-app-menu .dam-line{margin:0;font-size:.74rem;color:var(--muted,#667085);font-variant-numeric:tabular-nums;min-height:1em}
+      .desktop-app-menu .dam-line.is-warn,.desktop-app-menu .dam-warn{color:var(--warning,#b45309);font-size:.74rem;font-weight:600}
+      .desktop-app-menu .dam-warn[hidden],.desktop-app-menu .dam-note[hidden]{display:none}
+      .desktop-app-menu .dam-note{margin:0;padding:8px 10px;border-radius:10px;font-size:.76rem;font-weight:600;color:var(--text,#17212b);background:color-mix(in srgb,var(--warning,#d97706) 11%,transparent)}
+      .desktop-app-menu .dam-folder .dam-btns{flex:0 0 auto}
+      .desktop-app-menu .dam-spin{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;display:inline-block;animation:tvipSpin .8s linear infinite}
+      @keyframes tvipSpin{to{transform:rotate(360deg)}}
+      .desktop-app-menu .dam-foot{display:flex;justify-content:flex-end;padding:4px 12px 10px;border-top:1px solid var(--line,rgba(148,163,184,.2))}
+      .desktop-app-menu .dam-link{border:0;background:none;color:var(--muted,#667085);font:inherit;font-size:.74rem;font-weight:650;cursor:pointer;padding:6px 4px;display:inline-flex;align-items:center;gap:6px;border-radius:8px}
+      .desktop-app-menu .dam-link:hover{color:var(--text,#17212b)}
+      .desktop-appbar .dab-chip.is-backup{background:color-mix(in srgb,var(--primary,#2457d6) 13%,transparent);color:var(--primary,#2457d6);padding:0 7px}
+      .desktop-appbar .dab-chip.is-backup i{animation:tvipPulse 1.2s ease-in-out infinite}
+      @media (max-width:420px){.desktop-app-menu .dam-acc-content{padding-left:12px}}
+      @media (prefers-reduced-motion:reduce){.desktop-app-menu .dam-acc-body,.desktop-app-menu .dam-acc-content,.desktop-app-menu .dam-acc-caret{transition:none!important}.desktop-app-menu .dam-spin,.desktop-appbar .dab-chip.is-backup i{animation:none}}
+      /* ---- 3.8: keyboard shortcuts overlay ---- */
+      .dkh-backdrop{position:fixed;inset:0;z-index:2147482000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:tvipFade .16s ease-out}
+      .dkh-card{width:min(720px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;border-radius:18px;background:var(--surface-elevated,#fff);color:var(--text,#17212b);box-shadow:0 30px 70px rgba(2,6,23,.35);border:1px solid var(--line,rgba(148,163,184,.25));overflow:hidden;outline:0}
+      .dkh-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line,rgba(148,163,184,.25))}
+      .dkh-head h3{margin:0;font-size:1rem;display:flex;align-items:center;gap:9px}
+      .dkh-head h3 i{color:var(--primary,#2457d6)}
+      .dkh-x{border:0;background:none;color:var(--muted,#667085);width:30px;height:30px;border-radius:9px;cursor:pointer}
+      .dkh-x:hover{background:var(--surface-hover,#f1f5f9);color:var(--text,#17212b)}
+      .dkh-body{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px;padding:12px 18px 18px;overflow-y:auto}
+      .dkh-body h4{margin:10px 0 6px;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#667085)}
+      .dkh-body ul{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+      .dkh-body li{display:flex;align-items:center;gap:12px;font-size:.82rem;padding:5px 8px;border-radius:9px}
+      .dkh-body li:hover{background:var(--surface-hover,rgba(241,245,249,.7))}
+      .dkh-keys{display:inline-flex;align-items:center;gap:4px;min-width:118px;color:var(--muted,#667085);font-size:.7rem}
+      .dkh-keys kbd{font:inherit;font-size:.7rem;font-weight:700;color:var(--text,#17212b);background:var(--control-bg,#fff);border:1px solid var(--line-strong,rgba(71,85,105,.3));border-bottom-width:2px;border-radius:6px;padding:2px 7px;min-width:12px;text-align:center}
+      .dkh-empty{margin:0;font-size:.8rem;color:var(--muted,#667085)}
+      @keyframes tvipFade{from{opacity:0}to{opacity:1}}
+      @media (max-width:640px){.dkh-body{grid-template-columns:1fr}}
+      @media print{.dkh-backdrop{display:none!important}}
       /* ---- 3.7: print panel ---- */
       .dpp-backdrop,.dsp-backdrop{position:fixed;inset:0;z-index:2147482000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
       .dpp-card{width:min(620px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;border-radius:18px;background:var(--surface-elevated,#fff);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);color:var(--text,#17212b);box-shadow:0 30px 70px rgba(2,6,23,.35);border:1px solid var(--line,rgba(148,163,184,.25));overflow:hidden}
@@ -679,73 +751,124 @@
     document.head.appendChild(style);
   }
 
-  // ---- Windows app bar + menu (3.7) ------------------------------------------------------------
+  // ---- Windows app bar + menu (3.7, accordion since 3.8) ------------------------------------
   // A bar under the header icons (from the bell to the account icon) shows the
   // app's state at a glance: connection, changes waiting to sync, lock and
-  // updates. Clicking it opens the Windows app menu. (Until 3.6 these settings
-  // lived at the bottom of the notifications menu.)
-  function switchRow(key, label, hint, hintId = "") {
-    return `<label class="desktop-app-switch"><span>${esc(label)}<small${hintId ? ` id="${esc(hintId)}"` : ""}>${esc(hint)}</small></span><input type="checkbox" role="switch" data-desktop-setting="${esc(key)}"></label>`;
+  // updates. Clicking it opens the Windows app menu: one closed banner per
+  // topic; opening a banner closes the one that was open.
+  function switchRow(key, label, id = "") {
+    return `<label class="desktop-app-switch"><span>${esc(label)}</span><input type="checkbox" role="switch" data-desktop-setting="${esc(key)}"${id ? ` id="${esc(id)}"` : ""}></label>`;
   }
 
-  const LOCK_CHOICES = [[0, "When closed or minimised"], [1, "After 1 minute away"], [5, "After 5 minutes away"], [15, "After 15 minutes away"], [30, "After 30 minutes away"], [60, "After 1 hour away"]];
+  const LOCK_CHOICES = [[0, "When closed or minimised"], [1, "After 1 minute"], [5, "After 5 minutes"], [15, "After 15 minutes"], [30, "After 30 minutes"], [60, "After 1 hour"]];
   const HELLO_TEXT = {
-    1: "No Windows Hello device (camera, fingerprint reader or PIN) is available on this PC.",
-    2: "Set up Windows Hello (PIN, face or fingerprint) in Windows Settings > Accounts > Sign-in options first.",
-    3: "Windows Hello is turned off by your organisation's policy.",
+    1: "No Windows Hello device is available on this PC.",
+    2: "Set up Windows Hello in Settings > Accounts > Sign-in options first.",
+    3: "Windows Hello is turned off by your organisation.",
     4: "Windows Hello is busy. Try again in a moment."
   };
   const HOTKEY_LABELS = { "new-expense": "Add expense", search: "Search", "new-invoice": "New sales invoice" };
+  const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const APPKEYS_KEY = "triplem-desktop-appkeys-v1";
+  const ACC_ICONS = { sync: "fa-wifi", backup: "fa-box-archive", security: "fa-fingerprint", notify: "fa-bell", keys: "fa-keyboard", updates: "fa-rotate" };
 
   function hotkeyList() {
     const list = Array.isArray(info.hotkeys) && info.hotkeys.length ? info.hotkeys : [{ target: "new-expense", keys: SHORTCUT }];
     return list.filter(h => HOTKEY_LABELS[h.target]);
   }
+  function appKeysOn() { try { return localStorage.getItem(APPKEYS_KEY) !== "0"; } catch (_) { return true; } }
+
+  function accItem(id, title, body) {
+    const cap = id.charAt(0).toUpperCase() + id.slice(1);
+    return `<section class="dam-acc" data-acc="${id}">
+        <button type="button" class="dam-acc-head" id="damAcc${cap}Head" aria-expanded="false" aria-controls="damAcc${cap}">
+          <span class="dam-acc-icon" aria-hidden="true"><i class="fa-solid ${ACC_ICONS[id]}"></i></span>
+          <span class="dam-acc-title">${esc(title)}</span>
+          <span class="dam-acc-chip" id="damChip${cap}"></span>
+          <i class="fa-solid fa-chevron-down dam-acc-caret" aria-hidden="true"></i>
+        </button>
+        <div class="dam-acc-body" id="damAcc${cap}" role="region" aria-labelledby="damAcc${cap}Head"><div class="dam-acc-inner"><div class="dam-acc-content">${body}</div></div></div>
+      </section>`;
+  }
 
   function appMenuHtml() {
-    const sec = (title, body, extra = "") => `<section class="dam-section"${extra}><h5>${esc(title)}</h5>${body}</section>`;
     const lockOptions = LOCK_CHOICES.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
     const keys = hotkeyList().map(h => `<li data-hotkey="${esc(h.target)}"><span>${esc(HOTKEY_LABELS[h.target])}</span><kbd>${esc(h.keys)}</kbd></li>`).join("");
+    const monthDays = Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}">${i + 1}${["st", "nd", "rd"][((i + 1) % 10) - 1] && ![11, 12, 13].includes(i + 1) ? ["st", "nd", "rd"][((i + 1) % 10) - 1] : "th"}</option>`).join("");
+    const items = [];
+    items.push(accItem("sync", "Connection & sync", `
+        <div class="dam-status" id="damStatus" aria-live="polite">
+          <span class="dam-dot" aria-hidden="true"></span>
+          <div class="dam-status-text"><strong id="damStatusTitle">Online</strong><small id="damStatusText"></small></div>
+        </div>
+        <div class="dam-btns"><button type="button" class="dam-btn" data-dam="review" id="damReviewBtn" hidden>Review</button><button type="button" class="dam-btn primary" data-dam="sync" id="damSyncBtn" hidden>Sync now</button></div>
+        ${caps.has("offlineprep") ? `<div class="dam-row" id="damOfflineRow"><div class="dam-row-text"><strong>Offline copy</strong><small id="damOfflineText"></small></div><button type="button" class="dam-btn" data-dam="prepare" id="damPrepareBtn">Prepare now</button></div>` : ""}`));
+    if (caps.has("backup")) items.push(accItem("backup", "Backup & restore", `
+        <p class="dam-note" id="damBackupNote" hidden></p>
+        <div class="dam-btns dam-btns-wide"><button type="button" class="dam-btn primary" data-dam="backup-now" id="damBackupNow"><i class="fa-solid fa-download" aria-hidden="true"></i> Back up now</button><button type="button" class="dam-btn" data-dam="restore" id="damRestoreBtn"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Restore</button></div>
+        <label class="dam-select"><span>Automatic backup</span><select id="damBackupFreq"><option value="off">Off</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+        <label class="dam-select" id="damBackupDayRow"><span>Day</span><select id="damBackupWeekday">${WEEKDAYS.map((d, i) => `<option value="${i}">${d}</option>`).join("")}</select><select id="damBackupMonthday">${monthDays}</select></label>
+        <label class="dam-select" id="damBackupTimeRow"><span>Time</span><input type="time" id="damBackupTime" value="21:00" step="60"></label>
+        <label class="dam-select" id="damBackupKeepRow"><span>Keep</span><select id="damBackupKeep"><option value="5">Last 5</option><option value="10">Last 10</option><option value="20">Last 20</option><option value="30">Last 30</option><option value="0">All</option></select></label>
+        <div class="dam-row dam-folder"><div class="dam-row-text"><strong>Folder</strong><small id="damBackupFolder" title=""></small></div><div class="dam-btns"><button type="button" class="dam-btn" data-dam="backup-folder">Change</button><button type="button" class="dam-btn icon" data-dam="backup-open" title="Open folder" aria-label="Open folder"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></button></div></div>
+        <p class="dam-line" id="damBackupLine" aria-live="polite"></p>`));
+    if (caps.has("applock")) items.push(accItem("security", "Security", `
+        <label class="desktop-app-switch"><span>Lock with Windows Hello</span><input type="checkbox" role="switch" id="damLockSwitch"></label>
+        <small class="dam-warn" id="damLockHint" hidden></small>
+        <label class="dam-select" id="damLockMinutesRow"><span>Lock the app</span><select id="damLockMinutes">${lockOptions}</select></label>
+        ${switchRow("lockHideDetails", "Hide notification text while locked")}
+        <div class="dam-btns"><button type="button" class="dam-btn" data-dam="lock-now" id="damLockNow"><i class="fa-solid fa-lock" aria-hidden="true"></i> Lock now</button></div>`));
+    items.push(accItem("notify", "Notifications & background", `
+        ${switchRow("notifications", "Windows notifications")}
+        ${caps.has("traybadge") ? switchRow("trayBadge", "Unread count on the tray icon") : ""}
+        ${switchRow("closeToTray", "Keep running when closed")}
+        ${caps.has("savememory") ? switchRow("saveMemory", "Save memory in the background") : ""}
+        ${switchRow("startWithWindows", "Start with Windows")}`));
+    items.push(accItem("keys", "Shortcuts", `
+        <label class="desktop-app-switch"><span>Shortcuts in the app</span><input type="checkbox" role="switch" id="damAppKeys"></label>
+        ${caps.has("hotkey") ? `${switchRow("quickAddHotkey", "Shortcuts from any app")}<small class="dam-warn" id="desktopHotkeyHint" hidden></small><ul class="dam-keys" id="damKeys">${keys}</ul>` : ""}
+        ${caps.has("recent") ? switchRow("recentJumpList", "Recent items in the taskbar menu") : ""}
+        <div class="dam-btns"><button type="button" class="dam-btn" data-dam="shortcuts"><i class="fa-solid fa-keyboard" aria-hidden="true"></i> All shortcuts <kbd>Ctrl /</kbd></button></div>`));
+    if (caps.has("update")) items.push(accItem("updates", "Updates", `
+        ${switchRow("autoUpdate", "Download updates automatically")}
+        <p class="desktop-app-update-line" id="desktopUpdateLine" aria-live="polite" hidden></p>
+        <div class="desktop-app-actions"><button type="button" data-desktop-cmd="update">Check for updates</button></div>`));
     return `
       <div class="dam-head">
         <span class="dam-logo" aria-hidden="true"><i class="fa-brands fa-windows"></i></span>
         <div class="dam-head-text"><strong>Triplem VIP for Windows</strong><small id="damVersion">Version ${esc(info.version || "")}${info.arch ? ` · ${esc(info.arch)}` : ""}${info.packaged ? " · Microsoft Store" : ""}</small></div>
         <button type="button" class="dam-close" data-dam="close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
-      <section class="dam-section dam-status-section" aria-live="polite">
-        <div class="dam-status" id="damStatus">
-          <span class="dam-dot" aria-hidden="true"></span>
-          <div class="dam-status-text"><strong id="damStatusTitle">Online</strong><small id="damStatusText"></small></div>
-          <div class="dam-status-actions">
-            <button type="button" class="dam-btn" data-dam="review" id="damReviewBtn" hidden>Review</button>
-            <button type="button" class="dam-btn primary" data-dam="sync" id="damSyncBtn" hidden>Sync now</button>
-          </div>
-        </div>
-        ${caps.has("offlineprep") ? `<div class="dam-row" id="damOfflineRow"><div><strong>Offline access</strong><small id="damOfflineText"></small></div><button type="button" class="dam-btn" data-dam="prepare" id="damPrepareBtn">Prepare now</button></div>` : ""}
-      </section>
-      ${caps.has("update") ? sec("Updates", `
-        <p class="desktop-app-update-line" id="desktopUpdateLine" aria-live="polite" hidden></p>
-        ${switchRow("autoUpdate", "Download updates automatically", "Installs only when you choose Restart to update")}
-        <div class="desktop-app-actions"><button type="button" data-desktop-cmd="update">Check for updates</button></div>`) : ""}
-      ${caps.has("applock") ? sec("Security", `
-        <label class="desktop-app-switch"><span>Lock with Windows Hello<small id="damLockHint">Ask for your face, fingerprint or PIN to open Triplem VIP</small></span><input type="checkbox" role="switch" id="damLockSwitch"></label>
-        <label class="dam-select" id="damLockMinutesRow"><span>Lock the app</span><select id="damLockMinutes">${lockOptions}</select></label>
-        ${switchRow("lockHideDetails", "Hide notification details while locked", "Notifications only say that something arrived")}
-        <div class="desktop-app-actions"><button type="button" data-dam="lock-now" id="damLockNow">Lock now</button></div>`) : ""}
-      ${sec("Notifications & background", `
-        ${switchRow("notifications", "Windows notifications", "Alerts in the Windows notification centre")}
-        ${caps.has("traybadge") ? switchRow("trayBadge", "Unread count on the tray icon", "Shows the number on the Triplem VIP icon next to the clock") : ""}
-        ${switchRow("closeToTray", "Run in the background when closed", "Keeps notifications arriving; quit from the tray icon")}
-        ${caps.has("savememory") ? switchRow("saveMemory", "Save memory in the background", "Uses less memory while the app is in the notification area", "damMemoryHint") : ""}
-        ${switchRow("startWithWindows", "Start with Windows", "Opens quietly in the notification area at sign-in")}`)}
-      ${caps.has("hotkey") ? sec("Shortcuts", `
-        ${switchRow("quickAddHotkey", "Global shortcuts", "Work from any app, even when Triplem VIP is in the background", "desktopHotkeyHint")}
-        <ul class="dam-keys" id="damKeys">${keys}</ul>
-        ${caps.has("recent") ? switchRow("recentJumpList", "Recent items in the taskbar menu", "Right-click the Triplem VIP taskbar icon to reopen wallets and invoices", "damRecentHint") : ""}`) : ""}
-      <div class="dam-foot">
-        ${caps.has("printplus") || caps.has("print") ? `<button type="button" class="dam-btn" data-dam="print"><i class="fa-solid fa-print" aria-hidden="true"></i> Print this page</button>` : ""}
-        ${caps.has("report") ? `<button type="button" class="dam-btn" data-desktop-cmd="report"><i class="fa-solid fa-bug" aria-hidden="true"></i> Create error report</button>` : ""}
-      </div>`;
+      <div class="dam-accordion">${items.join("")}</div>
+      ${caps.has("report") ? `<div class="dam-foot"><button type="button" class="dam-link" data-desktop-cmd="report"><i class="fa-solid fa-bug" aria-hidden="true"></i> Create error report</button></div>` : ""}`;
+  }
+
+  // Only one banner is open at a time; the height animates smoothly.
+  function setAccordion(id) {
+    const menu = document.getElementById("desktopAppMenu");
+    if (!menu) return;
+    local.openAcc = id || "";
+    menu.querySelectorAll(".dam-acc").forEach(sec => {
+      const open = sec.dataset.acc === local.openAcc;
+      sec.classList.toggle("is-open", open);
+      sec.querySelector(".dam-acc-head")?.setAttribute("aria-expanded", open ? "true" : "false");
+      const body = sec.querySelector(".dam-acc-body");
+      if (body) body.inert = !open;
+    });
+    if (local.openAcc) {
+      const sec = menu.querySelector(`.dam-acc[data-acc="${local.openAcc}"]`);
+      if (local.openAcc === "sync") renderOffline();
+      if (local.openAcc === "backup") renderBackup();
+      // Keep the opened banner in view once it has grown.
+      setTimeout(() => { try { sec?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } catch (_) {} }, 280);
+    }
+  }
+
+  function setChip(id, text, tone = "") {
+    const chip = document.getElementById(id);
+    if (!chip) return;
+    if (chip.textContent !== text) chip.textContent = text;
+    chip.dataset.tone = tone;
   }
 
   function ensureAppBar() {
@@ -756,9 +879,9 @@
     const wrap = document.createElement("div");
     wrap.id = "desktopAppBarWrap";
     wrap.className = "menu-wrap desktop-appbar-wrap";
-    wrap.innerHTML = `<button type="button" class="btn ghost menu-trigger desktop-appbar" id="desktopAppBar" aria-haspopup="dialog" aria-expanded="false" aria-controls="desktopAppMenu" title="Windows app settings">
+    wrap.innerHTML = `<button type="button" class="btn ghost menu-trigger desktop-appbar" id="desktopAppBar" aria-haspopup="dialog" aria-expanded="false" aria-controls="desktopAppMenu" title="Windows app settings (Ctrl+,)">
         <span class="dab-left"><i class="fa-brands fa-windows" aria-hidden="true"></i><span class="dab-title">Windows app</span><span class="dab-version">${esc(info.version ? "v" + info.version : "")}</span></span>
-        <span class="dab-right"><span class="dab-chip" id="dabStatusChip"><span class="dab-dot" aria-hidden="true"></span><span id="dabStatusText">Online</span></span><span class="dab-chip is-lock" id="dabLockChip" hidden><i class="fa-solid fa-lock" aria-hidden="true"></i></span><span class="dab-chip is-update" id="desktopUpdateChip" hidden>Update</span><i class="fa-solid fa-chevron-down dab-caret" aria-hidden="true"></i></span>
+        <span class="dab-right"><span class="dab-chip" id="dabStatusChip"><span class="dab-dot" aria-hidden="true"></span><span id="dabStatusText">Online</span></span><span class="dab-chip is-lock" id="dabLockChip" hidden><i class="fa-solid fa-lock" aria-hidden="true"></i></span><span class="dab-chip is-backup" id="dabBackupChip" hidden><i class="fa-solid fa-box-archive" aria-hidden="true"></i></span><span class="dab-chip is-update" id="desktopUpdateChip" hidden>Update</span><i class="fa-solid fa-chevron-down dab-caret" aria-hidden="true"></i></span>
       </button>`;
     chips.appendChild(wrap);
     // The menu lives directly in <body>: glass headers in some themes would
@@ -770,6 +893,7 @@
     menu.setAttribute("aria-label", "Windows app");
     menu.innerHTML = appMenuHtml();
     document.body.appendChild(menu);
+    setAccordion("");
     const bar = wrap.querySelector("#desktopAppBar");
     // The app's shared "click outside" handler closes open menus; keep the
     // bar's expanded state in step with that.
@@ -779,6 +903,12 @@
       toggleAppMenu(!menu.classList.contains("open"));
     });
     menu.addEventListener("click", e => {
+      const head = e.target.closest(".dam-acc-head");
+      if (head) {
+        const id = head.closest(".dam-acc")?.dataset.acc || "";
+        setAccordion(local.openAcc === id ? "" : id);
+        return;
+      }
       const cmd = e.target.closest("[data-desktop-cmd]");
       if (cmd) {
         if (cmd.dataset.desktopCmd === "update") {
@@ -796,7 +926,11 @@
         case "review": toggleAppMenu(false); try { if (typeof openOfflineSyncPanel === "function") openOfflineSyncPanel(); } catch (_) {} break;
         case "prepare": prepareOffline({ manual: true }); break;
         case "lock-now": toggleAppMenu(false); send("lock-now"); break;
-        case "print": toggleAppMenu(false); setTimeout(() => window.print(), 120); break;
+        case "backup-now": runDesktopBackup({ auto: false }); break;
+        case "restore": openRestore(); break;
+        case "backup-folder": send("backup-folder"); break;
+        case "backup-open": send("backup-open-folder"); break;
+        case "shortcuts": toggleAppMenu(false); showShortcuts(); break;
       }
     });
     menu.addEventListener("change", e => {
@@ -810,6 +944,15 @@
       }
       if (e.target.id === "damLockMinutes") {
         send("settings-set", { key: "lockMinutes", value: Number(e.target.value) });
+        return;
+      }
+      if (e.target.id === "damAppKeys") {
+        try { localStorage.setItem(APPKEYS_KEY, e.target.checked ? "1" : "0"); } catch (_) {}
+        renderChips();
+        return;
+      }
+      if (/^damBackup(Freq|Weekday|Monthday|Time|Keep)$/.test(e.target.id)) {
+        saveBackupSchedule();
         return;
       }
       const input = e.target.closest("[data-desktop-setting]");
@@ -887,6 +1030,7 @@
       alignAppBar();
       renderStatus();
       renderOffline();
+      renderBackup();
       menu.classList.add("open");
       positionAppMenu();
       send("settings-get");
@@ -900,12 +1044,15 @@
     document.querySelectorAll("[data-desktop-setting]").forEach(input => {
       input.checked = !!local.settings[input.dataset.desktopSetting];
     });
+    const keysSwitch = document.getElementById("damAppKeys");
+    if (keysSwitch) keysSwitch.checked = appKeysOn();
     const busyKeys = new Set(local.settings.hotkeysUnavailable || []);
     if (local.settings.hotkeyUnavailable) busyKeys.add("new-expense");
     const hint = document.getElementById("desktopHotkeyHint");
     if (hint) {
       const busy = local.settings.quickAddHotkey && busyKeys.size > 0;
-      hint.textContent = busy ? "A shortcut marked below is used by another program on this PC" : "Work from any app, even when Triplem VIP is in the background";
+      hint.textContent = busy ? "A marked shortcut is used by another program" : "";
+      hint.hidden = !busy;
       hint.classList.toggle("is-warn", busy);
     }
     document.querySelectorAll("#damKeys [data-hotkey]").forEach(li => {
@@ -914,11 +1061,9 @@
       li.classList.toggle("is-off", !local.settings.quickAddHotkey);
       li.title = busy ? "Used by another program on this PC" : "";
     });
-    const mem = document.getElementById("damMemoryHint");
-    if (mem) mem.textContent = local.settings.canPausePage ? "Uses less memory and pauses the page while the app is in the notification area" : "Uses less memory while the app is in the notification area";
-    const recent = document.getElementById("damRecentHint");
-    if (recent) recent.textContent = local.settings.appLock ? "Not shown while the Windows Hello lock is on" : "Right-click the Triplem VIP taskbar icon to reopen wallets and invoices";
     renderLock();
+    renderBackup();
+    renderChips();
   }
 
   function renderLock() {
@@ -930,13 +1075,13 @@
     sw.disabled = !!local.lockBusy || unavailable;
     const hint = document.getElementById("damLockHint");
     if (hint) {
-      let text = "Ask for your face, fingerprint or PIN to open Triplem VIP";
-      let warn = false;
+      let text = "";
       if (local.lockBusy) text = "Waiting for Windows Hello…";
-      else if (unavailable) { text = HELLO_TEXT[s.helloAvailable] || "Windows Hello is not available on this PC."; warn = true; }
-      else if (local.lockError) { text = local.lockError; warn = true; }
+      else if (unavailable) text = HELLO_TEXT[s.helloAvailable] || "Windows Hello is not available on this PC.";
+      else if (local.lockError) text = local.lockError;
       hint.textContent = text;
-      hint.classList.toggle("is-warn", warn);
+      hint.hidden = !text;
+      hint.classList.toggle("is-warn", !!text && !local.lockBusy);
     }
     const minutes = document.getElementById("damLockMinutes");
     if (minutes) { minutes.value = String(s.lockMinutes ?? 5); minutes.disabled = !s.appLock; }
@@ -948,6 +1093,7 @@
     if (now) now.disabled = !s.appLock;
     const chip = document.getElementById("dabLockChip");
     if (chip) { chip.hidden = !s.appLock; chip.title = "Windows Hello lock is on"; }
+    renderChips();
   }
 
   function renderUpdate() {
@@ -956,6 +1102,7 @@
     const u = local.update;
     const chip = document.getElementById("desktopUpdateChip");
     if (chip) { chip.hidden = u.state !== "ready"; chip.title = u.state === "ready" ? `Version ${u.version} is ready to install` : ""; }
+    renderChips();
     if (!line && !btn) return;
     let text = "";
     let cls = "";
@@ -971,6 +1118,27 @@
     }
     if (line) { line.textContent = text; line.className = `desktop-app-update-line ${cls}`.trim(); line.hidden = !text; }
     if (btn) { btn.textContent = label; btn.disabled = busy; btn.classList.toggle("primary", u.state === "ready"); }
+  }
+
+  // Short state shown on each closed banner.
+  function renderChips() {
+    const n = netState();
+    const signedIn = !!signedInUserId();
+    if (!n.online) setChip("damChipSync", signedIn && n.pending ? `Offline · ${n.pending}` : "Offline", "offline");
+    else if (signedIn && n.pending) setChip("damChipSync", n.syncing ? "Syncing" : `${n.pending} to sync`, n.attention ? "warn" : "pending");
+    else setChip("damChipSync", "Online", "ok");
+    const b = local.backupSettings || {};
+    if (b.lastError) setChip("damChipBackup", "Needs attention", "warn");
+    else if (local.backupBusy) setChip("damChipBackup", "Backing up…", "pending");
+    else setChip("damChipBackup", backupScheduleLabel(b), b.freq && b.freq !== "off" ? "ok" : "");
+    const s = local.settings;
+    setChip("damChipSecurity", s.appLock ? "Locked by Hello" : "Off", s.appLock ? "ok" : "");
+    setChip("damChipNotify", s.notifications ? "On" : "Off", s.notifications ? "ok" : "");
+    setChip("damChipKeys", appKeysOn() ? "On" : "Off", appKeysOn() ? "ok" : "");
+    const u = local.update;
+    setChip("damChipUpdates", u.state === "ready" ? "Ready" : u.state === "downloading" ? "Downloading" : u.state === "error" ? "Error" : `v${info.version || ""}`, u.state === "ready" ? "pending" : u.state === "error" ? "warn" : "");
+    const backupChip = document.getElementById("dabBackupChip");
+    if (backupChip) { backupChip.hidden = !local.backupBusy; backupChip.title = "Backing up…"; }
   }
 
   // ---- Connection, sync and offline access (3.7) --------------------------------------------
@@ -997,18 +1165,18 @@
     let tone = "ok";
     let short = "Online";
     let title = "Online";
-    let text = "Everything is saved to your account.";
+    let text = "All changes are saved.";
     if (!n.online) {
       tone = "offline";
       short = "Offline";
       title = "Offline";
-      text = n.offlineSession || signedIn ? "You are working with data saved on this PC. New entries are kept here and sync when you are back online." : "No internet connection.";
+      text = n.offlineSession || signedIn ? "Working with data saved on this PC." : "No internet connection.";
     }
     if (signedIn && n.pending > 0) {
-      if (n.syncing) { tone = "sync"; short = "Syncing"; title = "Syncing"; text = `Saving ${plural(n.pending, "change", "changes")} to your account…`; }
-      else if (n.attention > 0) { tone = "warn"; short = `${n.pending} to review`; title = n.online ? "Some changes need attention" : "Offline"; text = `${plural(n.pending, "change is", "changes are")} saved on this PC; ${plural(n.attention, "needs", "need")} your review.`; }
-      else if (n.authBlocked) { tone = "warn"; short = `${n.pending} waiting`; title = "Sign in to sync"; text = `${plural(n.pending, "change is", "changes are")} saved on this PC. Sign in again to sync ${n.pending === 1 ? "it" : "them"}.`; }
-      else { if (tone === "ok") tone = "pending"; short = n.online ? `${n.pending} to sync` : `Offline · ${n.pending}`; text = `${plural(n.pending, "change is", "changes are")} saved on this PC${n.online ? " and syncing automatically." : " and will sync when you are back online."}`; }
+      if (n.syncing) { tone = "sync"; short = "Syncing"; title = "Syncing"; text = `Saving ${plural(n.pending, "change", "changes")}…`; }
+      else if (n.attention > 0) { tone = "warn"; short = `${n.pending} to review`; title = n.online ? "Needs attention" : "Offline"; text = `${plural(n.attention, "change needs", "changes need")} review.`; }
+      else if (n.authBlocked) { tone = "warn"; short = `${n.pending} waiting`; title = "Sign in to sync"; text = `${plural(n.pending, "change", "changes")} waiting on this PC.`; }
+      else { if (tone === "ok") tone = "pending"; short = n.online ? `${n.pending} to sync` : `Offline · ${n.pending}`; text = `${plural(n.pending, "change", "changes")} waiting on this PC.`; }
     }
     const chip = document.getElementById("dabStatusChip");
     if (chip) { chip.dataset.tone = tone; chip.title = text; }
@@ -1024,6 +1192,7 @@
     if (syncBtn) { syncBtn.hidden = !(signedIn && n.pending > 0); syncBtn.disabled = !n.online || n.syncing; }
     const review = document.getElementById("damReviewBtn");
     if (review) review.hidden = !(signedIn && n.pending > 0);
+    renderChips();
     // Tell the app (tray tooltip) only when something changed.
     const key = `${n.online}|${signedIn ? n.pending : 0}`;
     if (key !== local.lastStatusKey) {
@@ -1056,17 +1225,160 @@
     const uid = signedInUserId();
     let t = "";
     let canPrepare = false;
-    if (!uid) t = "Sign in to make your records available offline.";
-    else if (!rememberedSession()) t = "Needs Remember me: sign out, then sign in with Remember me ticked to open your records without internet.";
-    else if (local.preparing) t = "Saving your latest records on this PC…";
+    if (!uid) t = "Sign in first";
+    else if (!rememberedSession()) t = "Needs Remember me at sign-in";
+    else if (local.preparing) t = "Saving your records…";
     else {
       const at = preparedAt(uid);
-      t = at ? `Ready · records saved on this PC ${timeAgo(at)}` : "Your records are saved on this PC as you open them.";
+      t = at ? `Saved ${timeAgo(at)}` : "Saved as you open records";
       canPrepare = netState().online;
     }
     text.textContent = t;
     btn.disabled = !canPrepare || !!local.preparing;
     btn.textContent = local.preparing ? "Preparing…" : "Prepare now";
+  }
+
+  // ---- Backup & Restore (3.8) ----------------------------------------------------------------
+  // The backup is built by the page exactly like Account > Backup & Restore;
+  // the app saves it into the chosen folder (no dialog) and runs the schedule.
+  function backupScheduleLabel(b) {
+    const t = safe(b.time || "21:00");
+    switch (b.freq) {
+      case "daily": return `Daily ${t}`;
+      case "weekly": return `${WEEKDAYS[Number(b.weekday) || 0].slice(0, 3)} ${t}`;
+      case "monthly": return `Monthly ${t}`;
+      default: return "Manual";
+    }
+  }
+  function backupOwnerState() {
+    if (!signedInUserId()) return "signed-out";
+    try { if (window.TriplemBackup?.isOwner && !window.TriplemBackup.isOwner()) return "member"; } catch (_) {}
+    return "owner";
+  }
+  function whenText(ms) {
+    if (!ms) return "";
+    const d = new Date(ms);
+    const today = new Date();
+    const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1);
+    const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (d.toDateString() === today.toDateString()) return `today ${time}`;
+    if (d.toDateString() === tomorrow.toDateString()) return `tomorrow ${time}`;
+    return `${d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${time}`;
+  }
+
+  function renderBackup() {
+    const box = document.getElementById("damAccBackup");
+    if (!box) return;
+    const b = local.backupSettings || { freq: "off", time: "21:00", weekday: 5, monthday: 1, keep: 10, folder: "" };
+    const owner = backupOwnerState();
+    const note = document.getElementById("damBackupNote");
+    if (note) {
+      note.hidden = owner === "owner";
+      note.textContent = owner === "signed-out" ? "Sign in to back up your account." : owner === "member" ? "Only the account owner can back up and restore." : "";
+    }
+    const busy = !!local.backupBusy;
+    const disable = owner !== "owner";
+    const set = (id, v) => { const el = document.getElementById(id); if (el && document.activeElement !== el && el.value !== String(v)) el.value = String(v); };
+    set("damBackupFreq", b.freq || "off");
+    set("damBackupTime", b.time || "21:00");
+    set("damBackupWeekday", b.weekday ?? 5);
+    set("damBackupMonthday", b.monthday ?? 1);
+    set("damBackupKeep", b.keep ?? 10);
+    ["damBackupFreq", "damBackupTime", "damBackupWeekday", "damBackupMonthday", "damBackupKeep", "damRestoreBtn"].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disable; });
+    const now = document.getElementById("damBackupNow");
+    if (now) { now.disabled = disable || busy; now.innerHTML = busy ? `<span class="dam-spin" aria-hidden="true"></span> Backing up…` : `<i class="fa-solid fa-download" aria-hidden="true"></i> Back up now`; }
+    const off = (b.freq || "off") === "off";
+    const dayRow = document.getElementById("damBackupDayRow");
+    if (dayRow) {
+      dayRow.hidden = off || b.freq === "daily";
+      const wd = document.getElementById("damBackupWeekday"); if (wd) wd.hidden = b.freq !== "weekly";
+      const md = document.getElementById("damBackupMonthday"); if (md) md.hidden = b.freq !== "monthly";
+    }
+    const timeRow = document.getElementById("damBackupTimeRow"); if (timeRow) timeRow.hidden = off;
+    const folder = document.getElementById("damBackupFolder");
+    if (folder) { folder.textContent = safe(b.folder) || "Documents\\Triplem VIP Backups"; folder.title = safe(b.folder); }
+    const line = document.getElementById("damBackupLine");
+    if (line) {
+      let t = "";
+      let cls = "";
+      if (busy) t = local.backupStep || "Creating the backup…";
+      else if (b.lastError) { t = safe(b.lastError); cls = "is-warn"; }
+      else {
+        const parts = [];
+        if (b.lastDone) parts.push(`Last ${whenText(Number(b.lastDone))}`);
+        if (!off && b.next) parts.push(`Next ${whenText(Number(b.next))}`);
+        t = parts.join(" · ") || (off ? "No backup yet" : "");
+      }
+      line.textContent = t;
+      line.className = `dam-line ${cls}`.trim();
+    }
+    renderChips();
+  }
+
+  function saveBackupSchedule() {
+    const val = id => document.getElementById(id)?.value;
+    const sched = {
+      freq: val("damBackupFreq") || "off",
+      time: val("damBackupTime") || "21:00",
+      weekday: Number(val("damBackupWeekday") ?? 5),
+      monthday: Number(val("damBackupMonthday") ?? 1),
+      keep: Number(val("damBackupKeep") ?? 10)
+    };
+    local.backupSettings = { ...(local.backupSettings || {}), ...sched };
+    renderBackup();
+    send("backup-schedule", { backup: sched });
+  }
+
+  function openRestore() {
+    toggleAppMenu(false);
+    if (typeof window.TriplemBackup?.open === "function") window.TriplemBackup.open();
+    else notAvailable("Restore");
+  }
+
+  // Builds the backup in the page and hands the file to the app.
+  async function runDesktopBackup({ auto = false } = {}) {
+    const fail = (reason, quiet = false) => {
+      local.backupBusy = false;
+      local.backupStep = "";
+      renderBackup();
+      send("backup-failed", { reason, auto });
+      if (!auto && !quiet) showDesktopNotice("Backup not created", "error", [], reason);
+    };
+    if (local.backupBusy) return;
+    const api = window.TriplemBackup;
+    if (!api?.createFile) return fail("Backup is not available in this version of the page. Reload and try again.");
+    const owner = backupOwnerState();
+    if (owner === "signed-out") return fail("Sign in to Triplem VIP to back up your account.");
+    if (owner === "member") return fail("Only the account owner can back up this workspace.");
+    if (!netState().online) return fail("No internet connection. The backup will run when you are online.");
+    local.backupBusy = true;
+    local.backupStep = "Creating the backup…";
+    renderBackup();
+    try {
+      const out = await api.createFile({
+        onProgress: p => {
+          const pct = p && p.total ? Math.min(99, Math.round((p.done / p.total) * 100)) : 0;
+          local.backupStep = pct ? `Creating the backup… ${pct}%` : "Creating the backup…";
+          const line = document.getElementById("damBackupLine");
+          if (line) line.textContent = local.backupStep;
+        }
+      });
+      local.backupStep = "Saving…";
+      renderBackup();
+      local.backupFile = out.filename;
+      local.backupRecords = out.manifest?.totals?.records || 0;
+      // Tell the app which download is the backup, then download it.
+      const ready = new Promise(resolve => { local.backupExpectResolve = resolve; setTimeout(resolve, 4000); });
+      send("backup-expect", { name: out.filename, auto });
+      await ready;
+      local.backupExpectResolve = null;
+      api.save(out.bytes, out.filename);
+      // The app reports "backup-saved" or "backup-status" when the file is written.
+      clearTimeout(local.backupWatch);
+      local.backupWatch = setTimeout(() => { if (local.backupBusy) { local.backupBusy = false; local.backupStep = ""; renderBackup(); } }, 120000);
+    } catch (err) {
+      fail(safe(err?.message) || "The backup could not be created.");
+    }
   }
 
   // Loads every section's records once so they are in this PC's encrypted
@@ -1099,6 +1411,147 @@
     renderOffline();
     return ok;
   }
+
+  // ---- Two-key shortcuts inside the app (3.8) ----------------------------------------------
+  // Ctrl + key works anywhere in the app, Alt + key in the open section
+  // (Assets/app/ui/03-section-shortcuts.js), Alt + 1…9 opens a section and
+  // Ctrl + S saves the open form. They only work while Triplem VIP is the
+  // active window, so they never take keys away from other programs (the
+  // optional "from any app" shortcuts are the three-key ones above).
+  function sectionNewEntry() {
+    const reg = window.TriplemSectionShortcuts;
+    const section = reg?.activeSection?.() || "";
+    const group = reg?.group?.(section);
+    const first = group?.shortcuts?.find(s => s.key === "n") || group?.shortcuts?.find(s => ["g", "t"].includes(s.key) && /Loan/.test(s.label));
+    if (first) { first.run(); return; }
+    if (section === "home" || !section) { openTarget("new-expense"); return; }
+    showDesktopNotice("Nothing to add in this section", "info");
+  }
+  function openSectionByNumber(n) {
+    try {
+      const list = (typeof getWorkspaceOrderedTabButtons === "function" ? getWorkspaceOrderedTabButtons() : []).filter(b => b?.dataset?.tab);
+      const btn = list[n - 1];
+      if (btn) goTab(btn.dataset.tab);
+    } catch (_) {}
+  }
+  function clickIfUsable(id) {
+    const el = document.getElementById(id);
+    if (el && !el.disabled && el.offsetParent !== null) { el.click(); return true; }
+    return false;
+  }
+
+  const APP_KEYS = [
+    { code: "KeyK", keys: ["Ctrl", "K"], label: "Search", run: () => openSearchPalette() },
+    { code: "KeyN", keys: ["Ctrl", "N"], label: "New entry in this section", run: sectionNewEntry },
+    { code: "KeyE", keys: ["Ctrl", "E"], label: "Add expense", run: () => openTarget("new-expense") },
+    { code: "KeyI", keys: ["Ctrl", "I"], label: "New sales invoice", run: () => openTarget("new-invoice") },
+    { code: "KeyH", keys: ["Ctrl", "H"], label: "Home", run: () => goTab("home") },
+    { code: "KeyD", keys: ["Ctrl", "D"], label: "Dashboard", run: () => (allowed("dashboard") ? goTab("dashboard") : notAvailable("Dashboard")) },
+    { code: "KeyJ", keys: ["Ctrl", "J"], label: "Notifications", run: () => openTarget("notifications") },
+    { code: "KeyM", keys: ["Ctrl", "M"], label: "Messages", run: () => openTarget("messages") },
+    { code: "KeyR", keys: ["Ctrl", "R"], label: "Refresh data", run: () => { if (!clickIfUsable("refreshBtn")) location.reload(); } },
+    { code: "KeyB", keys: ["Ctrl", "B"], label: "Back up now", cap: "backup", run: () => runDesktopBackup({ auto: false }) },
+    { code: "KeyL", keys: ["Ctrl", "L"], label: "Lock now", cap: "applock", run: () => (local.settings.appLock ? send("lock-now") : showDesktopNotice("Turn on the Windows Hello lock first", "info", [{ label: "Open settings", run: () => { toggleAppMenu(true); setAccordion("security"); } }])) },
+    { code: "KeyP", keys: ["Ctrl", "P"], label: "Print", cap: "print", listOnly: true },
+    { code: "Comma", keys: ["Ctrl", ","], label: "Windows app menu", run: () => { const m = document.getElementById("desktopAppMenu"); toggleAppMenu(!m?.classList.contains("open")); } },
+    { code: "Slash", keys: ["Ctrl", "/"], label: "All shortcuts", run: () => showShortcuts() }
+  ].filter(k => !k.cap || caps.has(k.cap));
+
+  function topModal() {
+    const list = [...document.querySelectorAll(".modal:not(.hide), #accountingDynamicModal")].filter(el => {
+      const cs = getComputedStyle(el);
+      return cs.display !== "none" && cs.visibility !== "hidden";
+    });
+    return list[list.length - 1] || null;
+  }
+
+  // Ctrl + S / Ctrl + Enter: the form's own save button (only when there is
+  // exactly one obvious one), so nothing unexpected is ever submitted.
+  function saveTopModal(modal) {
+    const usable = el => el && !el.disabled && el.offsetParent !== null && el.getAttribute("aria-disabled") !== "true";
+    let btn = [...modal.querySelectorAll("form button[type=submit]")].find(usable);
+    if (!btn) {
+      const primary = [...modal.querySelectorAll(".accounting-modal-footer .btn.primary, .modal-footer .btn.primary, .modal-foot .btn.primary, .tvb-primary")].filter(usable);
+      if (primary.length === 1) btn = primary[0];
+    }
+    if (btn) btn.click();
+  }
+
+  function onAppKey(e) {
+    if (e.defaultPrevented || e.isComposing || !appKeysOn() || local.locked) return;
+    if (document.getElementById("triplemDesktopKeys") && e.key !== "Escape") return;
+    const ctrl = e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
+    const alt = e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey;
+    if (!ctrl && !alt) return;
+    const signedIn = !!signedInUserId();
+    const modal = topModal();
+    if (ctrl) {
+      if (e.code === "KeyS" || (e.key === "Enter" && modal)) {
+        e.preventDefault();
+        if (modal && !e.repeat) saveTopModal(modal);
+        return;
+      }
+      if (e.repeat) return;
+      const k = APP_KEYS.find(x => x.code === e.code);
+      if (!k || k.listOnly) return;
+      if (e.code === "Slash") { e.preventDefault(); k.run(); return; }
+      if (modal && e.code === "KeyR") { e.preventDefault(); return; } // never reload over an open form
+      if (!signedIn || modal || document.querySelector(".dpp-backdrop, .dsp-backdrop")) return;
+      if (e.target instanceof Element && e.target.closest("[contenteditable='true'],[contenteditable='plaintext-only']")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try { k.run(); } catch (err) { console.warn("Shortcut failed:", err); }
+      return;
+    }
+    // Alt + 1…9: open the sections in the order of Triplem VIP Home.
+    if (alt && /^Digit[1-9]$/.test(e.code) && signedIn && !modal && !e.repeat) {
+      e.preventDefault();
+      openSectionByNumber(Number(e.code.slice(5)));
+    }
+  }
+
+  function keysHtml(keys) {
+    return keys.map((k, i) => `${i ? "<span>+</span>" : ""}<kbd>${esc(k)}</kbd>`).join("");
+  }
+
+  function closeShortcuts() {
+    const host = document.getElementById("triplemDesktopKeys");
+    if (!host) return;
+    host.remove();
+    try { local.keysReturnFocus?.focus?.({ preventScroll: true }); } catch (_) {}
+  }
+
+  function showShortcuts() {
+    ensureStyles();
+    closeShortcuts();
+    local.keysReturnFocus = document.activeElement;
+    const reg = window.TriplemSectionShortcuts;
+    const section = reg?.activeSection?.() || "";
+    const group = reg?.group?.(section);
+    const label = section && typeof getWorkspaceSectionLabel === "function" ? getWorkspaceSectionLabel(section) : "";
+    const rows = list => list.map(r => `<li><span class="dkh-keys">${keysHtml(r.keys)}</span><span>${esc(r.label)}</span></li>`).join("");
+    const anywhere = APP_KEYS.map(k => ({ keys: k.keys, label: k.label })).concat([{ keys: ["Alt", "1–9"], label: "Open a section (Home order)" }]);
+    const forms = [{ keys: ["Ctrl", "S"], label: "Save" }, { keys: ["Ctrl", "Enter"], label: "Save" }, { keys: ["Esc"], label: "Close" }];
+    const global = caps.has("hotkey") && local.settings.quickAddHotkey ? hotkeyList().map(h => ({ keys: safe(h.keys).split("+"), label: HOTKEY_LABELS[h.target] })) : [];
+    const host = document.createElement("div");
+    host.id = "triplemDesktopKeys";
+    host.className = "dkh-backdrop";
+    host.innerHTML = `<div class="dkh-card" role="dialog" aria-modal="true" aria-labelledby="dkhTitle" tabindex="-1">
+        <div class="dkh-head"><h3 id="dkhTitle"><i class="fa-solid fa-keyboard" aria-hidden="true"></i> Keyboard shortcuts</h3><button type="button" class="dkh-x" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+        <div class="dkh-body">
+          <section><h4>Anywhere</h4><ul>${rows(anywhere)}</ul></section>
+          <section><h4>${esc(group && label ? label : "This section")}</h4>${group ? `<ul>${rows(group.shortcuts)}</ul>` : `<p class="dkh-empty">Open a section to see its shortcuts.</p>`}
+            <h4>Forms</h4><ul>${rows(forms)}</ul>
+            ${global.length ? `<h4>From any app</h4><ul>${rows(global)}</ul>` : ""}</section>
+        </div>
+      </div>`;
+    document.body.appendChild(host);
+    host.addEventListener("click", e => { if (e.target === host || e.target.closest(".dkh-x")) closeShortcuts(); });
+    host.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeShortcuts(); } });
+    setTimeout(() => host.querySelector(".dkh-card")?.focus({ preventScroll: true }), 20);
+  }
+
+  window.addEventListener("keydown", onAppKey, true);
 
   // ---- In-page notice (export saved / failed, availability messages) -----------------------
   let noticeTimer = null;
@@ -1572,7 +2025,41 @@
           canPausePage: msg.canPausePage === true
         };
         local.locked = msg.locked === true;
+        if (msg.backup && typeof msg.backup === "object") {
+          local.backupSettings = msg.backup;
+          if (msg.backup.running === false && local.backupBusy && !local.backupFile) local.backupBusy = false;
+        }
         renderSettings();
+        break;
+      // ---- 3.8 Backup & Restore ----
+      case "backup-run":
+        runDesktopBackup({ auto: msg.auto === true });
+        break;
+      case "backup-expect-ok":
+        if (typeof local.backupExpectResolve === "function") local.backupExpectResolve();
+        break;
+      case "backup-saved": {
+        clearTimeout(local.backupWatch);
+        local.backupBusy = false;
+        local.backupStep = "";
+        try { window.TriplemBackup?.markBackedUp?.(); } catch (_) {}
+        const n = local.backupRecords || 0;
+        const removed = Number(msg.removed) || 0;
+        local.backupFile = "";
+        renderBackup();
+        showDesktopNotice("Backup saved", "success", [{ label: "Open folder", run: () => send("backup-open-folder") }],
+          `${n ? `${n.toLocaleString()} records · ` : ""}${safe(msg.folder) ? `in ${safe(msg.folder)}` : safe(msg.name)}${removed ? ` · ${removed} older backup${removed === 1 ? "" : "s"} removed` : ""}`);
+        break;
+      }
+      case "backup-status":
+        if (msg.ok === false) {
+          clearTimeout(local.backupWatch);
+          local.backupBusy = false;
+          local.backupStep = "";
+          local.backupFile = "";
+          renderBackup();
+          if (!msg.cancelled && msg.reason && !msg.auto) showDesktopNotice("Backup not saved", "error", [], safe(msg.reason));
+        }
         break;
       case "lock-result":
         local.lockBusy = false;
@@ -1617,6 +2104,7 @@
         else { toggleAppMenu(false); closeSearchPalette(); }
         break;
       case "download-complete": {
+        if (msg.backup) break; // reported by "backup-saved"
         const id = safe(msg.id);
         showDesktopNotice(`Saved ${safe(msg.name)}`, "info", [
           { label: "Open file", run: () => send("download-open", { id }) },
@@ -1679,6 +2167,10 @@
     openPrintPanel,
     openSearch: openSearchPalette,
     prepareOffline,
+    // 3.8
+    showShortcuts,
+    backupNow: () => runDesktopBackup({ auto: false }),
+    openMenu: (section = "") => { toggleAppMenu(true); if (section) setAccordion(section); },
     _test: Object.freeze({ planToasts, notificationTitle, notificationBody, cssColorToHex, fileAccepted, validPages, readRecent, applyPageRule, removePageRule })
   });
 

@@ -79,7 +79,94 @@
     reportColumns: [],
     reportTitle: "",
     pendingBankImport: null,
+    // 3.8
+    reportPreset: "",
+    reportCompare: false,
+    reportRowMeta: [],
+    docFilter: { sales: "all", purchases: "all" },
+    docType: { sales: "", purchases: "" },
+    journalFilter: "all",
   };
+
+  // ---- Settings stored with the books (accounting_settings.meta, 3.8) ----------------------
+  // Numbering prefixes, defaults for new documents, invoice text and display
+  // choices. Only the "meta" object is extended; other settings keep their columns.
+  const DEFAULT_PREFIXES = {
+    quotation: "QUO", sales_order: "SO", delivery_note: "DN", sales_invoice: "INV", credit_note: "CN", sales_return: "SR",
+    purchase_order: "PO", purchase_receipt: "GRN", purchase_bill: "BILL", debit_note: "DBN", purchase_return: "PR", expense_invoice: "EXP",
+  };
+  const PERIODS = [
+    ["this_month", "This month"], ["last_month", "Last month"], ["this_quarter", "This quarter"], ["last_quarter", "Last quarter"],
+    ["fiscal_year", "This financial year"], ["last_fiscal_year", "Last financial year"], ["this_year", "This calendar year"], ["last_year", "Last calendar year"], ["custom", "Custom dates"],
+  ];
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  function metaA() { const m = stateA.settings?.meta; return m && typeof m === "object" && !Array.isArray(m) ? m : {}; }
+  function prefsA() {
+    const m = metaA();
+    const obj = v => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+    return { numbering: obj(m.numbering), defaults: obj(m.defaults), invoice: obj(m.invoice), ui: obj(m.ui) };
+  }
+  function docPrefix(type) {
+    const p = String(prefsA().numbering.prefixes?.[type] || "").trim().toUpperCase();
+    return /^[A-Z0-9]{1,8}$/.test(p) ? p : DEFAULT_PREFIXES[type] || "DOC";
+  }
+  const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function fiscalStart(year) {
+    const m = Math.min(12, Math.max(1, num(stateA.settings?.fiscal_year_start_month || 1))) - 1;
+    const d = Math.min(28, Math.max(1, num(stateA.settings?.fiscal_year_start_day || 1)));
+    return new Date(year, m, d);
+  }
+  // [from, to] for a period preset, as YYYY-MM-DD.
+  function periodRange(preset, now = new Date()) {
+    const y = now.getFullYear(), mo = now.getMonth();
+    const q = Math.floor(mo / 3);
+    const range = (a, b) => [isoDate(a), isoDate(b)];
+    switch (preset) {
+      case "this_month": return range(new Date(y, mo, 1), new Date(y, mo + 1, 0));
+      case "last_month": return range(new Date(y, mo - 1, 1), new Date(y, mo, 0));
+      case "this_quarter": return range(new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 0));
+      case "last_quarter": return range(new Date(y, q * 3 - 3, 1), new Date(y, q * 3, 0));
+      case "this_year": return range(new Date(y, 0, 1), new Date(y, 11, 31));
+      case "last_year": return range(new Date(y - 1, 0, 1), new Date(y - 1, 11, 31));
+      case "fiscal_year":
+      case "last_fiscal_year": {
+        let start = fiscalStart(y);
+        if (start > now) start = fiscalStart(y - 1);
+        if (preset === "last_fiscal_year") start = fiscalStart(start.getFullYear() - 1);
+        const end = new Date(start.getFullYear() + 1, start.getMonth(), start.getDate() - 1);
+        return range(start, end);
+      }
+      default: return [stateA.reportFrom, stateA.reportTo];
+    }
+  }
+  // The period of the same length right before [from, to] (for comparisons).
+  function previousPeriod(from, to) {
+    const a = new Date(`${from}T00:00:00`), b = new Date(`${to}T00:00:00`);
+    if (isNaN(a) || isNaN(b)) return ["", ""];
+    const sameMonthSpan = a.getDate() === 1 && new Date(b.getFullYear(), b.getMonth(), b.getDate() + 1).getDate() === 1;
+    if (sameMonthSpan) {
+      const months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1;
+      return [isoDate(new Date(a.getFullYear(), a.getMonth() - months, 1)), isoDate(new Date(a.getFullYear(), a.getMonth(), 0))];
+    }
+    const days = Math.round((b - a) / 86400000) + 1;
+    return [isoDate(new Date(a.getFullYear(), a.getMonth(), a.getDate() - days)), isoDate(new Date(a.getFullYear(), a.getMonth(), a.getDate() - 1))];
+  }
+  function periodOptions(selected) {
+    return PERIODS.map(([v, l]) => `<option value="${v}" ${v === selected ? "selected" : ""}>${esc(l)}</option>`).join("");
+  }
+  function defaultAccountFor(kind) {
+    const d = prefsA().defaults;
+    const id = kind === "receipt" ? d.receipt_account_id : kind === "payment" ? d.payment_account_id : kind === "sales" ? d.sales_account_id : kind === "purchases" ? d.purchase_account_id : "";
+    return id && stateA.accounts.some(a => a.id === id && a.is_active) ? id : "";
+  }
+  function defaultTaxFor(kind) {
+    const d = prefsA().defaults;
+    const id = kind === "sales" ? d.sales_tax_code_id : d.purchase_tax_code_id;
+    if (id && stateA.taxCodes.some(t => t.id === id && t.is_active)) return id;
+    if (id === "none") return "";
+    const code = String(stateA.settings?.default_tax_code || "").trim();
+    return stateA.taxCodes.find(t => t.code === code && t.is_active && code !== "NONE")?.id || "";
+  }
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -363,6 +450,7 @@
     const body = $("#accountingWorkspaceBody");
     const guide = VIEW_GUIDES[stateA.view] || VIEW_GUIDES.overview;
     if (!body || !guide || body.querySelector(".accounting-view-guide")) return;
+    if (prefsA().ui.show_guides !== true) return; // 3.8: off unless chosen in Settings > Display
     body.insertAdjacentHTML("afterbegin", `<aside class="accounting-view-guide" aria-label="Accounting guidance"><div class="accounting-view-guide-icon"><i class="fa-regular fa-compass"></i></div><div><small>${esc(guide[0])}</small><strong>${esc(guide[1])}</strong><span>${esc(guide[2])}</span></div><button class="btn ghost tiny" type="button" data-acct-action="guide">Full Guide</button></aside>`);
   }
 
@@ -377,15 +465,38 @@
     return { revenue, expense, profit: revenue - expense, cash, receivable, payable };
   }
 
+  // Income and expenses of the last six months from posted journals (base currency).
+  function monthlyPerformance(months = 6) {
+    const now = new Date();
+    const out = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const a = new Date(now.getFullYear(), now.getMonth() - i, 1), b = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      const lines = postedLinesInRange(isoDate(a), isoDate(b));
+      const income = stateA.accounts.filter(x => x.account_type === "income").reduce((t, x) => t + accountMovementInLines(x, lines), 0);
+      const expense = stateA.accounts.filter(x => x.account_type === "expense").reduce((t, x) => t + accountMovementInLines(x, lines), 0);
+      out.push({ label: a.toLocaleDateString(undefined, { month: "short" }), income: round8(income), expense: round8(expense) });
+    }
+    return out;
+  }
+
   function renderAccountingOverview() {
     const body = $("#accountingWorkspaceBody");
     const k = accountingKpis();
-    const recent = stateA.journals.slice(0, 8);
+    const recent = stateA.journals.slice(0, 6);
     const openSales = stateA.documents.filter(d => RECEIVABLE_TYPES.has(d.doc_type) && num(d.balance_amount) > 0 && d.status !== "draft").length;
     const openPurchases = stateA.documents.filter(d => PAYABLE_TYPES.has(d.doc_type) && num(d.balance_amount) > 0 && d.status !== "draft").length;
     const unreconciled = stateA.bankTransactions.filter(t => t.reconciliation_status === "unreconciled").length;
-    const auditCount = stateA.audit.length;
-    setContextActions(can("edit") ? `<button class="btn ghost tiny" data-acct-action="settings"><i class="fa-solid fa-gear"></i> Accounting Settings</button>` : "");
+    const drafts = stateA.documents.filter(d => d.status === "draft").length + stateA.journals.filter(j => j.status === "draft").length;
+    const todayMs = dateStampA(today());
+    const overdue = stateA.documents.filter(d => RECEIVABLE_TYPES.has(d.doc_type) && documentEffectiveStatus(d) === "overdue").sort((a, b) => dateStampA(a.due_date) - dateStampA(b.due_date));
+    const dueSoon = stateA.documents.filter(d => PAYABLE_TYPES.has(d.doc_type) && num(d.balance_amount) > 0 && !["draft", "cancelled", "paid"].includes(d.status) && d.due_date && dateStampA(d.due_date) <= todayMs + 7 * 86400000).sort((a, b) => dateStampA(a.due_date) - dateStampA(b.due_date));
+    const months = monthlyPerformance(6);
+    const peak = Math.max(1, ...months.map(m => Math.max(Math.abs(m.income), Math.abs(m.expense))));
+    const attention = [
+      ...overdue.slice(0, 4).map(d => ({ d, text: `Overdue since ${dateDisplay(d.due_date)}`, tone: "red" })),
+      ...dueSoon.slice(0, 4).map(d => ({ d, text: dateStampA(d.due_date) < todayMs ? `Overdue since ${dateDisplay(d.due_date)}` : `Due ${dateDisplay(d.due_date)}`, tone: dateStampA(d.due_date) < todayMs ? "red" : "orange" })),
+    ];
+    setContextActions(can("edit") ? `<button class="btn ghost tiny" data-acct-action="settings"><i class="fa-solid fa-gear"></i> Settings</button>` : "");
     body.innerHTML = `
       <div class="accounting-kpi-grid">
         ${kpiCard("Cash & Bank", k.cash, "fa-solid fa-building-columns", "cash")}
@@ -395,27 +506,32 @@
       </div>
       <div class="accounting-overview-grid">
         <article class="accounting-card accounting-health-card">
-          <div class="accounting-card-head"><div><small>BOOKS HEALTH</small><h4>Accounting control centre</h4></div><span class="badge green">Live</span></div>
+          <div class="accounting-card-head"><div><small>BOOKS HEALTH</small><h4>Control centre</h4></div><span class="badge green">Live</span></div>
           <div class="accounting-health-grid">
-            <button data-acct-view="sales"><strong>${openSales}</strong><span>Open customer balances</span></button>
-            <button data-acct-view="purchases"><strong>${openPurchases}</strong><span>Open supplier balances</span></button>
+            <button data-acct-action="filter-docs" data-kind="sales" data-filter="open"><strong>${openSales}</strong><span>Open customer invoices</span></button>
+            <button data-acct-action="filter-docs" data-kind="purchases" data-filter="open"><strong>${openPurchases}</strong><span>Open supplier bills</span></button>
             <button data-acct-view="reconciliation"><strong>${unreconciled}</strong><span>Unreconciled bank rows</span></button>
-            <button data-acct-view="audit"><strong>${auditCount}</strong><span>Recent audit events loaded</span></button>
+            <button data-acct-action="filter-docs" data-kind="sales" data-filter="draft"><strong>${drafts}</strong><span>Drafts to finish</span></button>
           </div>
         </article>
         <article class="accounting-card">
-          <div class="accounting-card-head"><div><small>PERFORMANCE</small><h4>Income and expenses</h4></div><button class="tiny ghost" data-acct-view="reports">Reports</button></div>
-          <div class="accounting-performance">
-            <div><span>Income</span><strong>${moneyA(k.revenue)}</strong><div class="accounting-meter"><i style="width:${Math.min(100, k.revenue > 0 ? 100 : 0)}%"></i></div></div>
-            <div><span>Expenses</span><strong>${moneyA(k.expense)}</strong><div class="accounting-meter"><i style="width:${Math.min(100, k.revenue > 0 ? Math.abs(k.expense / k.revenue) * 100 : (k.expense ? 100 : 0))}%"></i></div></div>
-            <div class="accounting-net-row"><span>Net</span><strong>${moneyA(k.profit)}</strong></div>
+          <div class="accounting-card-head"><div><small>LAST 6 MONTHS</small><h4>Income and expenses</h4></div><button class="tiny ghost" data-acct-view="reports">Reports</button></div>
+          <div class="accounting-month-chart" role="img" aria-label="Income and expenses for the last six months">
+            ${months.map(m => `<div class="accounting-month"><div class="accounting-month-bars"><i class="in" style="height:${Math.max(2, Math.round(Math.abs(m.income) / peak * 100))}%" title="Income ${esc(reportCellText(moneyA(m.income)))}"></i><i class="out" style="height:${Math.max(2, Math.round(Math.abs(m.expense) / peak * 100))}%" title="Expenses ${esc(reportCellText(moneyA(m.expense)))}"></i></div><span>${esc(m.label)}</span></div>`).join("")}
           </div>
+          <div class="accounting-month-legend"><span class="in">Income ${moneyA(k.revenue)}</span><span class="out">Expenses ${moneyA(k.expense)}</span><span class="net">Net ${moneyA(k.profit)}</span></div>
         </article>
       </div>
-      <article class="accounting-card">
-        <div class="accounting-card-head"><div><small>RECENT LEDGER</small><h4>Posted and draft journals</h4></div><button class="tiny primary" data-acct-action="new-journal"><i class="fa-solid fa-plus"></i> Journal</button></div>
-        ${recent.length ? `<div class="accounting-list">${recent.map(j => journalRowHtml(j, true)).join("")}</div>` : emptyState("No journals yet", "Create a balanced journal or post a sales/purchase document.")}
-      </article>`;
+      <div class="accounting-overview-grid">
+        <article class="accounting-card">
+          <div class="accounting-card-head"><div><small>NEEDS ATTENTION</small><h4>Overdue and due soon</h4></div></div>
+          ${attention.length ? `<div class="accounting-attention-list">${attention.map(({ d, text, tone }) => `<button type="button" class="accounting-attention-row" data-acct-action="view-document" data-id="${esc(d.id)}"><span class="accounting-attention-dot ${tone}"></span><span class="accounting-attention-main"><strong>${esc(d.document_no)} · ${esc(contactName(d.contact_id))}</strong><small>${esc(DOC_LABELS[d.doc_type] || "")} · ${esc(text)}</small></span><strong>${moneyA(d.balance_amount, d.currency)}</strong></button>`).join("")}</div>` : emptyState("Nothing is overdue")}
+        </article>
+        <article class="accounting-card">
+          <div class="accounting-card-head"><div><small>RECENT LEDGER</small><h4>Latest journals</h4></div>${can("create") ? `<button class="tiny primary" data-acct-action="new-journal"><i class="fa-solid fa-plus"></i> Journal</button>` : ""}</div>
+          ${recent.length ? `<div class="accounting-list">${recent.map(j => journalRowHtml(j, true)).join("")}</div>` : emptyState("No journals yet")}
+        </article>
+      </div>`;
   }
 
   function kpiCard(label, value, icon, kind) {
@@ -428,12 +544,12 @@
   function renderAccounts() {
     const body = $("#accountingWorkspaceBody");
     const rows = stateA.accounts.filter(a => searchMatch([a.code, a.name, a.account_type, a.account_subtype, a.currency, a.is_active ? "active" : "archived"]));
-    setContextActions(can("create") ? `<button class="btn primary tiny" data-acct-action="new-account"><i class="fa-solid fa-plus"></i> Account</button>` : "");
+    setContextActions(`<button class="btn ghost tiny" data-acct-action="accounts-csv"><i class="fa-solid fa-file-csv"></i> CSV</button>${can("create") ? `<button class="btn primary tiny" data-acct-action="new-account"><i class="fa-solid fa-plus"></i> Account</button>` : ""}`);
     body.innerHTML = `
       <article class="accounting-card">
-        <div class="accounting-card-head"><div><small>GENERAL LEDGER</small><h4>Chart of Accounts</h4><p>${stateA.accounts.length} accounts. System accounts are protected; unused custom accounts can be archived without disturbing historical postings.</p></div></div>
+        <div class="accounting-card-head"><div><small>GENERAL LEDGER</small><h4>Chart of Accounts</h4><p>${stateA.accounts.length} accounts</p></div></div>
         <div class="accounting-table-wrap"><table class="accounting-table"><thead><tr><th>Code</th><th>Account</th><th>Type</th><th>Currency</th><th class="num">Balance</th><th></th></tr></thead><tbody>
-          ${rows.map(a => `<tr class="${a.is_active ? "" : "accounting-row-archived"}"><td><code>${esc(a.code)}</code></td><td><strong>${esc(a.name)}</strong><small>${esc(statusText(a.account_subtype || "General"))}${a.is_cash_account ? " · Cash/Bank" : ""} · ${a.is_active ? "Active" : "Archived"}</small></td><td><span class="accounting-type-pill ${esc(a.account_type)}">${esc(statusText(a.account_type))}</span></td><td>${currencySymbol(a.currency)} ${esc(a.currency)}</td><td class="num"><strong>${moneyA(accountBalance(a), baseCurrency())}</strong></td><td class="actions">${can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-account" data-id="${esc(a.id)}" title="Edit account"><i class="fa-solid fa-pen"></i></button>` : ""}${!a.is_system && can("delete") ? (a.is_active ? `<button class="icon-btn ghost danger" data-acct-action="archive-account" data-id="${esc(a.id)}" title="Delete safely by archiving"><i class="fa-solid fa-trash-can"></i></button>` : `<button class="icon-btn ghost" data-acct-action="restore-account" data-id="${esc(a.id)}" title="Restore account"><i class="fa-solid fa-arrow-rotate-left"></i></button>`) : ""}</td></tr>`).join("") || `<tr><td colspan="6">${emptyState("No matching accounts")}</td></tr>`}
+          ${rows.map(a => `<tr class="${a.is_active ? "" : "accounting-row-archived"}"><td><code>${esc(a.code)}</code></td><td><button type="button" class="accounting-link" data-acct-action="account-ledger" data-id="${esc(a.id)}" title="Open ledger"><strong>${esc(a.name)}</strong></button><small>${esc(statusText(a.account_subtype || "General"))}${a.is_cash_account ? " · Cash/Bank" : ""} · ${a.is_active ? "Active" : "Archived"}</small></td><td><span class="accounting-type-pill ${esc(a.account_type)}">${esc(statusText(a.account_type))}</span></td><td>${currencySymbol(a.currency)} ${esc(a.currency)}</td><td class="num"><strong>${moneyA(accountBalance(a), baseCurrency())}</strong></td><td class="actions"><button class="icon-btn ghost" data-acct-action="account-ledger" data-id="${esc(a.id)}" title="Ledger"><i class="fa-solid fa-book-open"></i></button>${can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-account" data-id="${esc(a.id)}" title="Edit account"><i class="fa-solid fa-pen"></i></button>` : ""}${!a.is_system && can("delete") ? (a.is_active ? `<button class="icon-btn ghost danger" data-acct-action="archive-account" data-id="${esc(a.id)}" title="Delete safely by archiving"><i class="fa-solid fa-trash-can"></i></button>` : `<button class="icon-btn ghost" data-acct-action="restore-account" data-id="${esc(a.id)}" title="Restore account"><i class="fa-solid fa-arrow-rotate-left"></i></button>`) : ""}</td></tr>`).join("") || `<tr><td colspan="6">${emptyState("No matching accounts")}</td></tr>`}
         </tbody></table></div>
       </article>`;
   }
@@ -452,15 +568,20 @@
       <div class="accounting-list-icon"><i class="fa-solid fa-book-open"></i></div>
       <div class="accounting-list-main"><strong>${esc(j.journal_no)}</strong><span>${esc(j.description || j.reference || "Journal entry")}</span><small>${dateDisplay(j.journal_date)}${j.reference ? ` · ${esc(j.reference)}` : ""}</small></div>
       <div class="accounting-list-value"><strong>${moneyA(t.debit, baseCurrency())}</strong><span class="badge ${j.status === "posted" ? "green" : j.status === "void" ? "red" : "orange"}">${esc(statusText(j.status))}</span></div>
-      <div class="accounting-list-actions"><button class="icon-btn ghost" data-acct-action="view-journal" data-id="${esc(j.id)}" title="View journal"><i class="fa-solid fa-eye"></i></button>${j.status === "draft" && can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-journal" data-id="${esc(j.id)}" title="Edit draft"><i class="fa-solid fa-pen"></i></button><button class="icon-btn ghost" data-acct-action="post-journal" data-id="${esc(j.id)}" title="Post journal"><i class="fa-solid fa-circle-check"></i></button>` : ""}${j.status === "draft" && can("delete") ? `<button class="icon-btn ghost danger" data-acct-action="delete-journal" data-id="${esc(j.id)}" title="Delete draft"><i class="fa-solid fa-trash-can"></i></button>` : ""}${j.status === "posted" && can("delete") ? `<button class="icon-btn ghost danger" data-acct-action="void-journal" data-id="${esc(j.id)}" title="Void by reversal"><i class="fa-solid fa-rotate-left"></i></button>` : ""}</div>
+      <div class="accounting-list-actions"><button class="icon-btn ghost" data-acct-action="view-journal" data-id="${esc(j.id)}" title="View journal"><i class="fa-solid fa-eye"></i></button>${j.status === "draft" && can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-journal" data-id="${esc(j.id)}" title="Edit draft"><i class="fa-solid fa-pen"></i></button><button class="icon-btn ghost" data-acct-action="post-journal" data-id="${esc(j.id)}" title="Post journal"><i class="fa-solid fa-circle-check"></i></button>` : ""}${j.status === "draft" && can("delete") ? `<button class="icon-btn ghost danger" data-acct-action="delete-journal" data-id="${esc(j.id)}" title="Delete draft"><i class="fa-solid fa-trash-can"></i></button>` : ""}${!compact && can("create") ? `<button class="icon-btn ghost" data-acct-action="duplicate-journal" data-id="${esc(j.id)}" title="Duplicate as new draft"><i class="fa-regular fa-copy"></i></button>` : ""}${j.status === "posted" && can("delete") ? `<button class="icon-btn ghost danger" data-acct-action="void-journal" data-id="${esc(j.id)}" title="Void by reversal"><i class="fa-solid fa-rotate-left"></i></button>` : ""}</div>
     </div>`;
   }
 
   function renderJournals() {
     const body = $("#accountingWorkspaceBody");
-    const rows = stateA.journals.filter(j => searchMatch([j.journal_no, j.reference, j.description, j.status, j.journal_date]));
+    const all = stateA.journals.filter(j => searchMatch([j.journal_no, j.reference, j.description, j.status, j.journal_date]));
+    const f = stateA.journalFilter || "all";
+    const rows = f === "all" ? all : all.filter(j => j.status === f);
+    const count = st => all.filter(j => st === "all" || j.status === st).length;
     setContextActions(can("create") ? `<button class="btn primary tiny" data-acct-action="new-journal"><i class="fa-solid fa-plus"></i> Journal</button>` : "");
-    body.innerHTML = `<article class="accounting-card"><div class="accounting-card-head"><div><small>DOUBLE ENTRY</small><h4>Journal Entries</h4><p>Drafts can be edited. Posted journals are immutable and can only be voided through an automatic reversal.</p></div></div>${rows.length ? `<div class="accounting-list">${rows.map(j => journalRowHtml(j)).join("")}</div>` : emptyState("No journal entries")}</article>`;
+    body.innerHTML = `<article class="accounting-card"><div class="accounting-card-head"><div><small>DOUBLE ENTRY</small><h4>Journal Entries</h4></div></div>
+      <div class="accounting-chips" role="tablist">${[["all", "All"], ["draft", "Drafts"], ["posted", "Posted"], ["void", "Void"]].map(([v, l]) => `<button type="button" class="accounting-chip${f === v ? " active" : ""}" data-acct-action="journal-filter" data-filter="${v}" role="tab" aria-selected="${f === v}">${l}<em>${count(v)}</em></button>`).join("")}</div>
+      ${rows.length ? `<div class="accounting-list">${rows.map(j => journalRowHtml(j)).join("")}</div>` : emptyState("No journal entries")}</article>`;
   }
 
   function documentKindOptions(kind) {
@@ -477,33 +598,56 @@
       <div class="accounting-doc-main"><strong>${esc(d.document_no)}</strong><span>${esc(DOC_LABELS[d.doc_type] || statusText(d.doc_type))} · ${esc(contactName(d.contact_id))}</span><small>${dateDisplay(d.issue_date)}${d.due_date ? ` · Due ${dateDisplay(d.due_date)}` : ""}</small></div>
       <div class="accounting-doc-money"><strong>${moneyA(d.total_amount, d.currency)}</strong>${num(d.balance_amount) > 0 && d.status !== "draft" ? `<small>Open ${moneyA(d.balance_amount, d.currency)}</small>` : ""}</div>
       <span class="accounting-status ${esc(effective)}">${esc(statusText(effective))}</span>
-      <div class="accounting-doc-actions"><button class="icon-btn ghost" data-acct-action="view-document" data-id="${esc(d.id)}" title="View"><i class="fa-solid fa-eye"></i></button>${d.status === "draft" && can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-document" data-id="${esc(d.id)}" title="Edit draft"><i class="fa-solid fa-pen"></i></button><button class="icon-btn ghost" data-acct-action="post-document" data-id="${esc(d.id)}" title="Issue/Post"><i class="fa-solid fa-paper-plane"></i></button>` : ""}${canPay ? `<button class="icon-btn ghost" data-acct-action="record-payment" data-id="${esc(d.id)}" title="Record payment"><i class="fa-solid fa-money-check-dollar"></i></button>` : ""}<button class="icon-btn ghost" data-acct-action="document-pdf" data-id="${esc(d.id)}" title="PDF"><i class="fa-solid fa-file-pdf"></i></button>${canLifecycleDelete ? `<button class="icon-btn ghost danger" data-acct-action="cancel-document" data-id="${esc(d.id)}" title="${d.status === "draft" ? "Delete draft" : "Cancel safely"}"><i class="fa-solid ${d.status === "draft" ? "fa-trash-can" : "fa-ban"}"></i></button>` : ""}</div>
+      <div class="accounting-doc-actions"><button class="icon-btn ghost" data-acct-action="view-document" data-id="${esc(d.id)}" title="View"><i class="fa-solid fa-eye"></i></button>${d.status === "draft" && can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-document" data-id="${esc(d.id)}" title="Edit draft"><i class="fa-solid fa-pen"></i></button><button class="icon-btn ghost" data-acct-action="post-document" data-id="${esc(d.id)}" title="Issue/Post"><i class="fa-solid fa-paper-plane"></i></button>` : ""}${canPay ? `<button class="icon-btn ghost" data-acct-action="record-payment" data-id="${esc(d.id)}" title="Record payment"><i class="fa-solid fa-money-check-dollar"></i></button>` : ""}<button class="icon-btn ghost" data-acct-action="document-pdf" data-id="${esc(d.id)}" title="PDF"><i class="fa-solid fa-file-pdf"></i></button>${can("create") ? `<button class="icon-btn ghost" data-acct-action="duplicate-document" data-id="${esc(d.id)}" title="Duplicate as new draft"><i class="fa-regular fa-copy"></i></button>` : ""}${canLifecycleDelete ? `<button class="icon-btn ghost danger" data-acct-action="cancel-document" data-id="${esc(d.id)}" title="${d.status === "draft" ? "Delete draft" : "Cancel safely"}"><i class="fa-solid ${d.status === "draft" ? "fa-trash-can" : "fa-ban"}"></i></button>` : ""}</div>
     </div>`;
+  }
+
+  const DOC_FILTERS = [["all", "All"], ["draft", "Drafts"], ["open", "Open"], ["overdue", "Overdue"], ["paid", "Paid"], ["cancelled", "Cancelled"]];
+  function docMatchesFilter(d, f) {
+    const st = documentEffectiveStatus(d);
+    switch (f) {
+      case "draft": return d.status === "draft";
+      case "open": return d.status !== "draft" && d.status !== "cancelled" && num(d.balance_amount) > 0;
+      case "overdue": return st === "overdue";
+      case "paid": return d.status === "paid";
+      case "cancelled": return d.status === "cancelled";
+      default: return true;
+    }
   }
 
   function renderDocuments(kind) {
     const body = $("#accountingWorkspaceBody");
     const types = kind === "sales" ? SALES_TYPES : PURCHASE_TYPES;
-    const rows = stateA.documents.filter(d => types.has(d.doc_type) && searchMatch([d.document_no, d.doc_type, contactName(d.contact_id), d.status, d.reference]));
-    const open = rows.filter(d => num(d.balance_amount) > 0 && d.status !== "draft").reduce((s, d) => s + num(d.balance_amount) * num(d.fx_rate || 1), 0);
-    setContextActions(can("create") ? `<button class="btn primary tiny" data-acct-action="new-${kind}-document"><i class="fa-solid fa-plus"></i> New ${kind === "sales" ? "Sale" : "Purchase"}</button>` : "");
+    const typeFilter = stateA.docType[kind] || "";
+    const f = stateA.docFilter[kind] || "all";
+    const base = stateA.documents.filter(d => types.has(d.doc_type) && (!typeFilter || d.doc_type === typeFilter) && searchMatch([d.document_no, d.doc_type, contactName(d.contact_id), d.status, d.reference]));
+    const rows = base.filter(d => docMatchesFilter(d, f));
+    const open = base.filter(d => num(d.balance_amount) > 0 && d.status !== "draft" && d.status !== "cancelled").reduce((s, d) => s + num(d.balance_amount) * num(d.fx_rate || 1), 0);
+    const overdueSum = base.filter(d => documentEffectiveStatus(d) === "overdue").reduce((s, d) => s + num(d.balance_amount) * num(d.fx_rate || 1), 0);
+    const total = rows.filter(d => d.status !== "cancelled").reduce((s, d) => s + num(d.total_amount) * num(d.fx_rate || 1), 0);
+    setContextActions(can("create") ? `${kind === "sales" ? `<button class="btn ghost tiny" data-acct-action="new-typed-document" data-kind="sales" data-type="quotation"><i class="fa-solid fa-file-lines"></i> Quote</button><button class="btn primary tiny" data-acct-action="new-typed-document" data-kind="sales" data-type="sales_invoice"><i class="fa-solid fa-plus"></i> Invoice</button>` : `<button class="btn ghost tiny" data-acct-action="new-typed-document" data-kind="purchases" data-type="purchase_order"><i class="fa-solid fa-file-lines"></i> Order</button><button class="btn primary tiny" data-acct-action="new-typed-document" data-kind="purchases" data-type="purchase_bill"><i class="fa-solid fa-plus"></i> Bill</button>`}<button class="btn ghost tiny" data-acct-action="new-${kind}-document" title="Other document types"><i class="fa-solid fa-ellipsis"></i></button>` : "");
     body.innerHTML = `
       <div class="accounting-kpi-grid accounting-kpi-grid--mini">
-        <article class="accounting-kpi"><div class="accounting-kpi-icon"><i class="fa-solid fa-file-invoice"></i></div><div><span>Documents</span><strong>${rows.length}</strong><small>${kind === "sales" ? "Sales lifecycle" : "Purchase lifecycle"}</small></div></article>
-        <article class="accounting-kpi"><div class="accounting-kpi-icon"><i class="fa-solid fa-hourglass-half"></i></div><div><span>Open balance</span><strong>${moneyA(open)}</strong><small>Base currency equivalent</small></div></article>
+        <article class="accounting-kpi"><div class="accounting-kpi-icon"><i class="fa-solid fa-file-invoice"></i></div><div><span>Shown</span><strong>${rows.length}</strong><small>${moneyA(total)}</small></div></article>
+        <article class="accounting-kpi"><div class="accounting-kpi-icon"><i class="fa-solid fa-hourglass-half"></i></div><div><span>Open balance</span><strong>${moneyA(open)}</strong><small>${esc(baseCurrency())}</small></div></article>
+        <article class="accounting-kpi ${overdueSum > 0 ? "loss" : ""}"><div class="accounting-kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div><span>Overdue</span><strong>${moneyA(overdueSum)}</strong><small>${esc(baseCurrency())}</small></div></article>
       </div>
-      <article class="accounting-card"><div class="accounting-card-head"><div><small>${kind === "sales" ? "REVENUE CYCLE" : "PROCURE TO PAY"}</small><h4>${kind === "sales" ? "Sales Documents" : "Purchase Documents"}</h4><p>${kind === "sales" ? "Quotations, orders, delivery notes, invoices, credit notes and returns." : "Purchase orders, receipts, supplier bills, debit notes, returns and expense invoices."}</p></div></div>${rows.length ? `<div class="accounting-doc-list">${rows.map(documentRowHtml).join("")}</div>` : emptyState(`No ${kind} documents`, `Create your first ${kind} document.`)}</article>`;
+      <article class="accounting-card"><div class="accounting-card-head"><div><small>${kind === "sales" ? "REVENUE CYCLE" : "PROCURE TO PAY"}</small><h4>${kind === "sales" ? "Sales Documents" : "Purchase Documents"}</h4></div>
+        <label class="accounting-type-filter"><span class="sr-only">Document type</span><select class="input" data-acct-doc-type="${kind}"><option value="">All types</option>${documentKindOptions(kind).replace(`value="${typeFilter}"`, `value="${typeFilter}" selected`)}</select></label></div>
+        <div class="accounting-chips" role="tablist">${DOC_FILTERS.map(([v, l]) => `<button type="button" class="accounting-chip${f === v ? " active" : ""}" data-acct-action="doc-filter" data-kind="${kind}" data-filter="${v}" role="tab" aria-selected="${f === v}">${l}<em>${base.filter(d => docMatchesFilter(d, v)).length}</em></button>`).join("")}</div>
+        ${rows.length ? `<div class="accounting-doc-list">${rows.map(documentRowHtml).join("")}</div>` : emptyState(f === "all" && !typeFilter ? `No ${kind} documents` : "Nothing matches this filter")}</article>`;
+    body.querySelector("[data-acct-doc-type]")?.addEventListener("change", e => { stateA.docType[kind] = e.target.value; renderAccountingView(); });
   }
 
   function renderContacts() {
     const body = $("#accountingWorkspaceBody");
     const rows = stateA.contacts.filter(c => searchMatch([c.name, c.company_name, c.contact_type, c.email, c.phone, c.tax_registration_number, c.is_active ? "active" : "archived"]));
     setContextActions(can("create") ? `<button class="btn primary tiny" data-acct-action="new-contact"><i class="fa-solid fa-user-plus"></i> Contact</button>` : "");
-    body.innerHTML = `<article class="accounting-card"><div class="accounting-card-head"><div><small>PARTIES</small><h4>Customers & Suppliers</h4><p>Reusable contact records for invoices, bills, payments and statements. Archived contacts remain attached to historical records.</p></div></div><div class="accounting-contact-grid">${rows.map(c => {
+    body.innerHTML = `<article class="accounting-card"><div class="accounting-card-head"><div><small>PARTIES</small><h4>Customers & Suppliers</h4><p>${stateA.contacts.filter(c => c.is_active).length} active</p></div></div><div class="accounting-contact-grid">${rows.map(c => {
       const docs = stateA.documents.filter(d => d.contact_id === c.id);
       const openDocs = docs.filter(d => d.status !== "draft" && d.status !== "cancelled");
       const open = openDocs.reduce((sum, d) => sum + (num(d.balance_amount) * num(d.fx_rate || 1)), 0);
-      return `<article class="accounting-contact-card${c.is_active ? "" : " accounting-card-archived"}"><div class="accounting-contact-avatar">${esc((c.name || "?").slice(0, 1).toUpperCase())}</div><div class="accounting-contact-info"><strong>${esc(c.name)}</strong><span>${esc(c.company_name || statusText(c.contact_type))}</span><small>${[c.email, c.phone].filter(Boolean).map(esc).join(" · ") || "No contact details"} · ${c.is_active ? "Active" : "Archived"}</small></div><div class="accounting-contact-meta"><span>${docs.length} docs</span><strong>${moneyA(open)}</strong></div><div class="accounting-contact-actions">${can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-contact" data-id="${esc(c.id)}" title="Edit contact"><i class="fa-solid fa-pen"></i></button>` : ""}${can("delete") ? (c.is_active ? `<button class="icon-btn ghost danger" data-acct-action="archive-contact" data-id="${esc(c.id)}" title="Delete safely by archiving"><i class="fa-solid fa-trash-can"></i></button>` : `<button class="icon-btn ghost" data-acct-action="restore-contact" data-id="${esc(c.id)}" title="Restore contact"><i class="fa-solid fa-arrow-rotate-left"></i></button>`) : ""}</div></article>`;
+      return `<article class="accounting-contact-card${c.is_active ? "" : " accounting-card-archived"}"><div class="accounting-contact-avatar">${esc((c.name || "?").slice(0, 1).toUpperCase())}</div><div class="accounting-contact-info"><strong>${esc(c.name)}</strong><span>${esc(c.company_name || statusText(c.contact_type))}</span><small>${[c.email, c.phone].filter(Boolean).map(esc).join(" · ") || "No contact details"} · ${c.is_active ? "Active" : "Archived"}</small></div><div class="accounting-contact-meta"><span>${docs.length} docs</span><strong>${moneyA(open)}</strong></div><div class="accounting-contact-actions"><button class="icon-btn ghost" data-acct-action="contact-statement" data-id="${esc(c.id)}" title="Statement"><i class="fa-solid fa-file-lines"></i></button>${can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-contact" data-id="${esc(c.id)}" title="Edit contact"><i class="fa-solid fa-pen"></i></button>` : ""}${can("delete") ? (c.is_active ? `<button class="icon-btn ghost danger" data-acct-action="archive-contact" data-id="${esc(c.id)}" title="Delete safely by archiving"><i class="fa-solid fa-trash-can"></i></button>` : `<button class="icon-btn ghost" data-acct-action="restore-contact" data-id="${esc(c.id)}" title="Restore contact"><i class="fa-solid fa-arrow-rotate-left"></i></button>`) : ""}</div></article>`;
     }).join("") || emptyState("No contacts")}</div></article>`;
   }
 
@@ -580,7 +724,7 @@
     const estimate = stateA.settings?.corporate_tax_enabled ? taxableAbove * rate / 100 : 0;
     setContextActions(`${can("edit") ? `<button class="btn ghost tiny" data-acct-action="settings"><i class="fa-solid fa-gear"></i> Tax Settings</button>` : ""}${can("create") ? `<button class="btn ghost tiny" data-acct-action="new-tax-code"><i class="fa-solid fa-plus"></i> Tax Code</button>` : ""}<button class="btn primary tiny" data-acct-action="tax-pdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>`);
     body.innerHTML = `
-      <div class="accounting-tax-filter"><label>From<input id="acctTaxFrom" class="input" type="date" value="${esc(stateA.reportFrom)}"></label><label>To<input id="acctTaxTo" class="input" type="date" value="${esc(stateA.reportTo)}"></label><button class="btn soft" data-acct-action="apply-tax-filter">Apply</button></div>
+      <div class="accounting-tax-filter"><label>Period<select id="acctTaxPreset" class="input" data-acct-period="tax">${periodOptions(stateA.reportPreset || "custom")}</select></label><label>From<input id="acctTaxFrom" class="input" type="date" value="${esc(stateA.reportFrom)}"></label><label>To<input id="acctTaxTo" class="input" type="date" value="${esc(stateA.reportTo)}"></label><button class="btn soft" data-acct-action="apply-tax-filter">Apply</button></div>
       <div class="accounting-kpi-grid">
         ${kpiCard("Output Tax", t.output, "fa-solid fa-arrow-up", "tax")}
         ${kpiCard("Input Tax", t.input, "fa-solid fa-arrow-down", "tax")}
@@ -592,15 +736,25 @@
         <article class="accounting-card"><div class="accounting-card-head"><div><small>MANAGEMENT ESTIMATE</small><h4>Corporate Tax</h4><p>Period-matched management estimate from posted income and expense journals.</p></div></div><div class="accounting-tax-estimate"><div><span>Accounting profit</span><strong>${moneyA(profit)}</strong></div><div><span>Configured threshold</span><strong>${moneyA(threshold)}</strong></div><div><span>Configured rate</span><strong>${rate.toFixed(2)}%</strong></div><div class="total"><span>Estimated amount</span><strong>${moneyA(estimate)}</strong></div><p>Estimate for ${dateDisplay(stateA.reportFrom)} to ${dateDisplay(stateA.reportTo)}. This is management information, not an electronic filing or legal determination.</p></div></article>
       </div>
       <article class="accounting-card"><div class="accounting-card-head"><div><small>TAX MASTER DATA</small><h4>Configured Tax Codes</h4><p>Edit rates and behaviour for future documents. Historical line amounts are not recalculated. Custom codes can be archived and restored.</p></div></div><div class="accounting-tax-code-grid">${stateA.taxCodes.filter(tc => searchMatch([tc.code,tc.name,tc.tax_kind,tc.rate,tc.is_active ? "active" : "archived"])).map(tc => `<article class="accounting-tax-code-card${tc.is_active ? "" : " accounting-card-archived"}"><div><small>${esc(statusText(tc.tax_kind))} · ${tc.is_active ? "Active" : "Archived"}</small><strong>${esc(tc.code)} · ${esc(tc.name)}</strong><span>${num(tc.rate).toFixed(2)}%</span></div><div class="accounting-tax-code-actions">${can("edit") ? `<button class="icon-btn ghost" data-acct-action="edit-tax-code" data-id="${esc(tc.id)}" title="Edit tax code"><i class="fa-solid fa-pen"></i></button>` : ""}${!tc.is_system && can("delete") ? (tc.is_active ? `<button class="icon-btn ghost danger" data-acct-action="archive-tax-code" data-id="${esc(tc.id)}" title="Delete safely by archiving"><i class="fa-solid fa-trash-can"></i></button>` : `<button class="icon-btn ghost" data-acct-action="restore-tax-code" data-id="${esc(tc.id)}" title="Restore tax code"><i class="fa-solid fa-arrow-rotate-left"></i></button>`) : ""}</div></article>`).join("") || emptyState("No tax codes")}</div></article>`;
-    $("#acctTaxFrom")?.addEventListener("change", e => { stateA.reportFrom = e.target.value; });
-    $("#acctTaxTo")?.addEventListener("change", e => { stateA.reportTo = e.target.value; });
+    $("#acctTaxFrom")?.addEventListener("change", e => { stateA.reportFrom = e.target.value; stateA.reportPreset = "custom"; });
+    $("#acctTaxTo")?.addEventListener("change", e => { stateA.reportTo = e.target.value; stateA.reportPreset = "custom"; });
+    bindPeriodSelect("#acctTaxPreset");
   }
 
   function reportDateRange() {
-    const year = new Date().getFullYear();
-    if (!stateA.reportFrom) stateA.reportFrom = `${year}-01-01`;
-    if (!stateA.reportTo) stateA.reportTo = `${year}-12-31`;
+    if (!stateA.reportFrom || !stateA.reportTo) {
+      const preset = PERIODS.some(p => p[0] === prefsA().ui.default_period) ? prefsA().ui.default_period : "fiscal_year";
+      const [from, to] = periodRange(preset === "custom" ? "fiscal_year" : preset);
+      stateA.reportFrom = from; stateA.reportTo = to; stateA.reportPreset = preset === "custom" ? "fiscal_year" : preset;
+    }
     return [stateA.reportFrom, stateA.reportTo];
+  }
+  function bindPeriodSelect(sel) {
+    $(sel)?.addEventListener("change", e => {
+      const v = e.target.value;
+      stateA.reportPreset = v;
+      if (v !== "custom") { const [a, b] = periodRange(v); stateA.reportFrom = a; stateA.reportTo = b; renderAccountingView(); }
+    });
   }
 
   function postedLinesInRange(from, to) {
@@ -613,30 +767,71 @@
     const lines = postedLinesInRange(from, to);
     const asOfLines = postedLinesThrough(to);
     let title = "Report", columns = [], rows = [];
+    const meta = [];
+    const push = (row, m = {}) => { rows.push(row); meta.push(m); };
     if (type === "trial_balance") {
       title = "Trial Balance"; columns = ["Code", "Account", "Period Debit", "Period Credit", "Closing Balance"];
-      rows = stateA.accounts.map(a => {
+      let td = 0, tc = 0;
+      stateA.accounts.forEach(a => {
         const period = lines.filter(x => x.line.account_id === a.id);
         const debit = period.reduce((sum, x) => sum + num(x.line.base_debit), 0);
         const credit = period.reduce((sum, x) => sum + num(x.line.base_credit), 0);
         const closing = accountBalanceAt(a, asOfLines);
-        return [a.code, a.name, moneyA(debit), moneyA(credit), moneyA(closing)];
-      }).filter(r => !reportMoneyIsZero(r[2]) || !reportMoneyIsZero(r[3]) || !reportMoneyIsZero(r[4]));
+        const row = [a.code, a.name, moneyA(debit), moneyA(credit), moneyA(closing)];
+        if (!reportMoneyIsZero(row[2]) || !reportMoneyIsZero(row[3]) || !reportMoneyIsZero(row[4])) { td += debit; tc += credit; push(row, { account: a.id }); }
+      });
+      if (rows.length) push(["", "Total", moneyA(td), moneyA(tc), ""], { cls: "total" });
     } else if (type === "profit_loss") {
-      title = "Profit & Loss"; columns = ["Code", "Account", "Category", "Amount"];
-      rows = stateA.accounts.filter(a => ["income", "expense"].includes(a.account_type)).map(a => [a.code, a.name, statusText(a.account_type), moneyA(accountMovementInLines(a, lines))]);
-      const income = stateA.accounts.filter(a => a.account_type === "income").reduce((sum, a) => sum + accountMovementInLines(a, lines), 0);
-      const expense = stateA.accounts.filter(a => a.account_type === "expense").reduce((sum, a) => sum + accountMovementInLines(a, lines), 0);
-      rows.push(["", "Net Profit / Loss", "Net", moneyA(income - expense)]);
+      title = "Profit & Loss";
+      const compare = stateA.reportCompare;
+      const [pf, pt] = compare ? previousPeriod(from, to) : ["", ""];
+      const prevLines = compare ? postedLinesInRange(pf, pt) : [];
+      columns = compare ? ["Code", "Account", "Category", "This period", `${dateDisplay(pf)} – ${dateDisplay(pt)}`, "Change"] : ["Code", "Account", "Category", "Amount"];
+      const section = (kind, label) => {
+        let cur = 0, prev = 0;
+        push(["", label, "", ...(compare ? ["", "", ""] : [""])], { cls: "group" });
+        stateA.accounts.filter(a => a.account_type === kind).forEach(a => {
+          const v = accountMovementInLines(a, lines), pv = compare ? accountMovementInLines(a, prevLines) : 0;
+          if (Math.abs(v) < 0.00000001 && Math.abs(pv) < 0.00000001) return;
+          cur += v; prev += pv;
+          push([a.code, a.name, statusText(kind), moneyA(v), ...(compare ? [moneyA(pv), moneyA(v - pv)] : [])], { account: a.id });
+        });
+        push(["", `Total ${label}`, "", moneyA(cur), ...(compare ? [moneyA(prev), moneyA(cur - prev)] : [])], { cls: "subtotal" });
+        return [cur, prev];
+      };
+      const [inc, pinc] = section("income", "Income");
+      const [exp, pexp] = section("expense", "Expenses");
+      push(["", "Net Profit / Loss", "Net", moneyA(inc - exp), ...(compare ? [moneyA(pinc - pexp), moneyA((inc - exp) - (pinc - pexp))] : [])], { cls: "total" });
     } else if (type === "balance_sheet") {
-      title = "Balance Sheet"; columns = ["Code", "Account", "Category", `Balance as of ${dateDisplay(to)}`];
-      rows = stateA.accounts.filter(a => ["asset", "liability", "equity"].includes(a.account_type)).map(a => [a.code, a.name, statusText(a.account_type), moneyA(accountBalanceAt(a, asOfLines))]);
-      const currentEarnings = stateA.accounts.filter(a => a.account_type === "income").reduce((sum, a) => sum + accountMovementInLines(a, asOfLines), 0)
-        - stateA.accounts.filter(a => a.account_type === "expense").reduce((sum, a) => sum + accountMovementInLines(a, asOfLines), 0);
-      if (Math.abs(currentEarnings) > 0.00000001) rows.push(["", "Current Earnings (Unclosed)", "Equity", moneyA(currentEarnings)]);
+      title = "Balance Sheet";
+      const compare = stateA.reportCompare;
+      const prevTo = compare ? isoDate(new Date(new Date(`${from}T00:00:00`).getTime() - 86400000)) : "";
+      const prevLines = compare ? postedLinesThrough(prevTo) : [];
+      columns = compare ? ["Code", "Account", "Category", `Balance as of ${dateDisplay(to)}`, `As of ${dateDisplay(prevTo)}`] : ["Code", "Account", "Category", `Balance as of ${dateDisplay(to)}`];
+      const earnings = ls => stateA.accounts.filter(a => a.account_type === "income").reduce((sum, a) => sum + accountMovementInLines(a, ls), 0)
+        - stateA.accounts.filter(a => a.account_type === "expense").reduce((sum, a) => sum + accountMovementInLines(a, ls), 0);
+      const totals = {};
+      ["asset", "liability", "equity"].forEach(kind => {
+        const label = kind === "asset" ? "Assets" : kind === "liability" ? "Liabilities" : "Equity";
+        push(["", label, "", "", ...(compare ? [""] : [])], { cls: "group" });
+        let cur = 0, prev = 0;
+        stateA.accounts.filter(a => a.account_type === kind).forEach(a => {
+          const v = accountBalanceAt(a, asOfLines), pv = compare ? accountBalanceAt(a, prevLines) : 0;
+          if (Math.abs(v) < 0.00000001 && Math.abs(pv) < 0.00000001 && !num(a.opening_balance)) return;
+          cur += v; prev += pv;
+          push([a.code, a.name, statusText(kind), moneyA(v), ...(compare ? [moneyA(pv)] : [])], { account: a.id });
+        });
+        if (kind === "equity") {
+          const ce = earnings(asOfLines), pce = compare ? earnings(prevLines) : 0;
+          if (Math.abs(ce) > 0.00000001 || Math.abs(pce) > 0.00000001) { push(["", "Current Earnings (Unclosed)", "Equity", moneyA(ce), ...(compare ? [moneyA(pce)] : [])]); cur += ce; prev += pce; }
+        }
+        totals[kind] = [cur, prev];
+        push(["", `Total ${label}`, "", moneyA(cur), ...(compare ? [moneyA(prev)] : [])], { cls: "subtotal" });
+      });
+      push(["", "Total Liabilities & Equity", "", moneyA(totals.liability[0] + totals.equity[0]), ...(compare ? [moneyA(totals.liability[1] + totals.equity[1])] : [])], { cls: "total" });
     } else if (type === "general_ledger") {
       title = "General Ledger"; columns = ["Date", "Journal", "Account", "Description", "Debit", "Credit"];
-      rows = lines.sort((a,b) => dateStampA(a.journal.journal_date)-dateStampA(b.journal.journal_date)).map(x => [dateDisplay(x.journal.journal_date), x.journal.journal_no, x.account ? `${x.account.code} ${x.account.name}` : "—", x.line.description || x.journal.description || "", moneyA(x.line.base_debit), moneyA(x.line.base_credit)]);
+      lines.sort((a,b) => dateStampA(a.journal.journal_date)-dateStampA(b.journal.journal_date)).forEach(x => push([dateDisplay(x.journal.journal_date), x.journal.journal_no, x.account ? `${x.account.code} ${x.account.name}` : "—", x.line.description || x.journal.description || "", moneyA(x.line.base_debit), moneyA(x.line.base_credit)], { account: x.account?.id }));
     } else if (type === "cash_flow") {
       title = "Cash Flow Activity"; columns = ["Month", "Inflows", "Outflows", "Net"];
       const map = new Map();
@@ -676,7 +871,7 @@
       title = "VAT Summary"; columns = ["Tax Code", "Taxable Base", "Tax"];
       rows = taxSummary(from,to).byCode.map(r => [r.code,moneyA(r.taxable),moneyA(r.tax)]);
     }
-    return { title, columns, rows };
+    return { title, columns, rows, meta: meta.length === rows.length ? meta : rows.map(() => ({})) };
   }
 
   function accountMovementInLines(account, lines) {
@@ -699,24 +894,128 @@
     });
   }
 
+  const REPORT_TYPES = [["trial_balance", "Trial Balance"], ["profit_loss", "Profit & Loss"], ["balance_sheet", "Balance Sheet"], ["general_ledger", "General Ledger"], ["cash_flow", "Cash Flow"], ["ar_aging", "Receivables Aging"], ["ap_aging", "Payables Aging"], ["customer_balances", "Customer Balances"], ["supplier_balances", "Supplier Balances"], ["dimension_profitability", "Dimension Profitability"], ["reconciliation_status", "Bank Reconciliation Status"], ["sales_register", "Sales Register"], ["purchase_register", "Purchase Register"], ["vat_summary", "VAT Summary"]];
+
   function renderReports() {
     const body = $("#accountingWorkspaceBody");
     const [from,to] = reportDateRange();
     const report = buildReport(stateA.reportType, from, to);
-    stateA.reportRows = report.rows; stateA.reportColumns = report.columns; stateA.reportTitle = report.title;
+    stateA.reportRows = report.rows; stateA.reportColumns = report.columns; stateA.reportTitle = report.title; stateA.reportRowMeta = report.meta;
+    const canCompare = stateA.reportType === "profit_loss" || stateA.reportType === "balance_sheet";
     setContextActions(`<button class="btn ghost tiny" data-acct-action="report-csv"><i class="fa-solid fa-file-csv"></i> CSV</button><button class="btn primary tiny" data-acct-action="report-pdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>`);
     body.innerHTML = `
       <div class="accounting-report-toolbar">
-        <label>Report<select id="acctReportType" class="input">
-          <option value="trial_balance">Trial Balance</option><option value="profit_loss">Profit & Loss</option><option value="balance_sheet">Balance Sheet</option><option value="general_ledger">General Ledger</option><option value="cash_flow">Cash Flow</option><option value="ar_aging">Receivables Aging</option><option value="ap_aging">Payables Aging</option><option value="customer_balances">Customer Balances</option><option value="supplier_balances">Supplier Balances</option><option value="dimension_profitability">Dimension Profitability</option><option value="reconciliation_status">Bank Reconciliation Status</option><option value="sales_register">Sales Register</option><option value="purchase_register">Purchase Register</option><option value="vat_summary">VAT Summary</option>
-        </select></label>
-        <label>From<input id="acctReportFrom" class="input" type="date" value="${esc(from)}"></label><label>To<input id="acctReportTo" class="input" type="date" value="${esc(to)}"></label><button class="btn soft" data-acct-action="apply-report">Run</button>
+        <label>Report<select id="acctReportType" class="input">${REPORT_TYPES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select></label>
+        <label>Period<select id="acctReportPreset" class="input">${periodOptions(stateA.reportPreset || "custom")}</select></label>
+        <label>From<input id="acctReportFrom" class="input" type="date" value="${esc(from)}"></label><label>To<input id="acctReportTo" class="input" type="date" value="${esc(to)}"></label>
+        ${canCompare ? `<label class="accounting-check accounting-compare"><input type="checkbox" id="acctReportCompare" ${stateA.reportCompare ? "checked" : ""}><span>${stateA.reportType === "balance_sheet" ? "Compare with period start" : "Compare with previous period"}</span></label>` : ""}
+        <button class="btn soft" data-acct-action="apply-report">Run</button>
       </div>
-      <article class="accounting-card"><div class="accounting-card-head"><div><small>FINANCIAL REPORT</small><h4>${esc(report.title)}</h4><p>${dateDisplay(from)} to ${dateDisplay(to)} · ${esc(baseCurrency())} base books</p></div></div><div class="accounting-table-wrap"><table class="accounting-table accounting-report-table"><thead><tr>${report.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${report.rows.map(r => `<tr>${r.map(c => `<td${reportCellIsMoney(c) ? ' class="num"' : ""}>${reportCellHtml(c)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${report.columns.length}">No records for this period.</td></tr>`}</tbody></table></div></article>`;
+      <article class="accounting-card"><div class="accounting-card-head"><div><small>FINANCIAL REPORT</small><h4>${esc(report.title)}</h4><p>${dateDisplay(from)} to ${dateDisplay(to)} · ${esc(baseCurrency())}</p></div></div><div class="accounting-table-wrap"><table class="accounting-table accounting-report-table"><thead><tr>${report.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${report.rows.map((r, i) => { const m = report.meta[i] || {}; return `<tr class="${m.cls ? `accounting-row-${m.cls}` : ""}${m.account ? " accounting-row-link" : ""}"${m.account ? ` data-acct-action="account-ledger" data-id="${esc(m.account)}" title="Open ledger" tabindex="0"` : ""}>${r.map(c => `<td${reportCellIsMoney(c) ? ' class="num"' : ""}>${reportCellHtml(c)}</td>`).join("")}</tr>`; }).join("") || `<tr><td colspan="${report.columns.length}">No records for this period.</td></tr>`}</tbody></table></div></article>`;
     $("#acctReportType").value = stateA.reportType;
-    $("#acctReportType")?.addEventListener("change", e => { stateA.reportType = e.target.value; });
-    $("#acctReportFrom")?.addEventListener("change", e => { stateA.reportFrom = e.target.value; });
-    $("#acctReportTo")?.addEventListener("change", e => { stateA.reportTo = e.target.value; });
+    $("#acctReportType")?.addEventListener("change", e => { stateA.reportType = e.target.value; renderAccountingView(); });
+    $("#acctReportFrom")?.addEventListener("change", e => { stateA.reportFrom = e.target.value; stateA.reportPreset = "custom"; const p = $("#acctReportPreset"); if (p) p.value = "custom"; });
+    $("#acctReportTo")?.addEventListener("change", e => { stateA.reportTo = e.target.value; stateA.reportPreset = "custom"; const p = $("#acctReportPreset"); if (p) p.value = "custom"; });
+    $("#acctReportCompare")?.addEventListener("change", e => { stateA.reportCompare = e.target.checked; renderAccountingView(); });
+    bindPeriodSelect("#acctReportPreset");
+    body.querySelectorAll("tr.accounting-row-link").forEach(tr => tr.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); openAccountLedger(tr.dataset.id); } }));
+  }
+
+  // ---- Account ledger (drill-down, 3.8) ---------------------------------------------------
+  function normalSign(account) { return (account.account_type === "asset" || account.account_type === "expense") ? 1 : -1; }
+  function accountLedgerData(accountId, from, to) {
+    const a = stateA.accounts.find(x => x.id === accountId);
+    if (!a) return null;
+    const sign = normalSign(a);
+    const before = from ? postedLinesInRange("", isoDate(new Date(new Date(`${from}T00:00:00`).getTime() - 86400000))) : [];
+    const opening = round8(num(a.opening_balance) + accountMovementInLines(a, before));
+    let running = opening;
+    const rows = postedLinesInRange(from, to).filter(x => x.line.account_id === accountId)
+      .sort((p, q) => dateStampA(p.journal.journal_date) - dateStampA(q.journal.journal_date) || String(p.journal.journal_no).localeCompare(String(q.journal.journal_no)))
+      .map(x => {
+        const d = num(x.line.base_debit), c = num(x.line.base_credit);
+        running = round8(running + sign * (d - c));
+        return { date: x.journal.journal_date, journal: x.journal, desc: x.line.description || x.journal.description || "", debit: d, credit: c, balance: running };
+      });
+    return { account: a, opening, closing: running, rows, debit: rows.reduce((t, r) => t + r.debit, 0), credit: rows.reduce((t, r) => t + r.credit, 0) };
+  }
+  function openAccountLedger(accountId, from = null, to = null, preset = null) {
+    const [rf, rt] = reportDateRange();
+    if (preset === null) preset = from === null ? (stateA.reportPreset || "custom") : "custom";
+    from = from ?? rf; to = to ?? rt;
+    const data = accountLedgerData(accountId, from, to);
+    if (!data) return;
+    const a = data.account;
+    const table = `<div class="accounting-table-wrap"><table class="accounting-table"><thead><tr><th>Date</th><th>Journal</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead><tbody>
+      <tr class="accounting-row-group"><td colspan="5">Opening balance</td><td class="num">${moneyA(data.opening)}</td></tr>
+      ${data.rows.map(r => `<tr><td>${dateDisplay(r.date)}</td><td><button type="button" class="accounting-link" data-acct-action="view-journal" data-id="${esc(r.journal.id)}">${esc(r.journal.journal_no)}</button></td><td>${esc(r.desc)}</td><td class="num">${r.debit ? moneyA(r.debit) : ""}</td><td class="num">${r.credit ? moneyA(r.credit) : ""}</td><td class="num">${moneyA(r.balance)}</td></tr>`).join("") || `<tr><td colspan="6">No postings in this period.</td></tr>`}
+      <tr class="accounting-row-total"><td colspan="3">Closing balance</td><td class="num">${moneyA(data.debit)}</td><td class="num">${moneyA(data.credit)}</td><td class="num">${moneyA(data.closing)}</td></tr></tbody></table></div>`;
+    openAccountingModal({
+      title: `${a.code} · ${a.name}`, subtitle: `${statusText(a.account_type)} · ${dateDisplay(from)} – ${dateDisplay(to)}`, wide: true,
+      body: `<div class="accounting-report-toolbar accounting-ledger-toolbar"><label>Period<select class="input" id="acctLedgerPreset">${periodOptions(preset)}</select></label><label>From<input class="input" type="date" id="acctLedgerFrom" value="${esc(from)}"></label><label>To<input class="input" type="date" id="acctLedgerTo" value="${esc(to)}"></label><button class="btn soft" type="button" id="acctLedgerRun">Run</button></div>${table}`,
+      actions: `<button class="btn ghost" data-acct-modal-close>Close</button><button class="btn soft" id="acctLedgerCsv"><i class="fa-solid fa-file-csv"></i> CSV</button><button class="btn primary" id="acctLedgerPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>`,
+      onOpen(modal) {
+        const rerun = (f, t, p = "custom") => openAccountLedger(accountId, f, t, p);
+        $("#acctLedgerPreset", modal).addEventListener("change", e => { if (e.target.value !== "custom") { const [f, t] = periodRange(e.target.value); rerun(f, t, e.target.value); } });
+        $("#acctLedgerRun", modal).onclick = () => rerun($("#acctLedgerFrom", modal).value, $("#acctLedgerTo", modal).value);
+        const exportRows = () => [["", "Opening balance", "", "", "", moneyA(data.opening)], ...data.rows.map(r => [dateDisplay(r.date), r.journal.journal_no, r.desc, r.debit ? moneyA(r.debit) : "", r.credit ? moneyA(r.credit) : "", moneyA(r.balance)]), ["", "Closing balance", "", moneyA(data.debit), moneyA(data.credit), moneyA(data.closing)]];
+        const cols = ["Date", "Journal", "Description", "Debit", "Credit", "Balance"];
+        const fname = `Ledger_${a.code}_${from}_${to}`;
+        $("#acctLedgerCsv", modal).onclick = () => downloadCsv(cols, exportRows(), `${fname}.csv`);
+        $("#acctLedgerPdf", modal).onclick = () => downloadAccountingPdf(`Account Ledger · ${a.code} ${a.name}`, cols, exportRows(), `${fname}.pdf`, [["Period", `${from} to ${to}`]]);
+      },
+    });
+  }
+
+  // ---- Customer / supplier statement (3.8) -------------------------------------------------
+  function contactStatementData(contactId) {
+    const c = stateA.contacts.find(x => x.id === contactId);
+    if (!c) return null;
+    const docs = stateA.documents.filter(d => d.contact_id === contactId && d.status !== "draft" && d.status !== "cancelled" && POSTABLE_TYPES.has(d.doc_type));
+    const events = [];
+    docs.forEach(d => {
+      const fx = num(d.fx_rate || 1), amt = num(d.total_amount) * fx;
+      const sales = SALES_TYPES.has(d.doc_type);
+      const reduces = ["credit_note", "sales_return", "debit_note", "purchase_return"].includes(d.doc_type);
+      events.push({ date: d.issue_date, ref: d.document_no, text: `${DOC_LABELS[d.doc_type] || "Document"}${d.reference ? ` · ${d.reference}` : ""}`, charge: reduces ? 0 : amt, credit: reduces ? amt : 0, side: sales ? "sales" : "purchases", docId: d.id });
+    });
+    stateA.payments.filter(p => p.contact_id === contactId || docs.some(d => d.id === p.document_id)).forEach(p => {
+      const amt = num(p.amount) * num(p.fx_rate || 1);
+      const doc = stateA.documents.find(d => d.id === p.document_id);
+      const refund = p.payment_type === "refund";
+      events.push({ date: p.payment_date, ref: p.reference || (doc ? doc.document_no : ""), text: refund ? "Refund" : p.payment_type === "receipt" ? "Receipt" : "Payment", charge: refund ? amt : 0, credit: refund ? 0 : amt, side: doc && SALES_TYPES.has(doc.doc_type) ? "sales" : "purchases" });
+    });
+    events.sort((a, b) => dateStampA(a.date) - dateStampA(b.date));
+    let running = 0;
+    events.forEach(e => { running = round8(running + e.charge - e.credit); e.balance = running; });
+    const open = docs.filter(d => (RECEIVABLE_TYPES.has(d.doc_type) || PAYABLE_TYPES.has(d.doc_type))).reduce((t, d) => t + num(d.balance_amount) * num(d.fx_rate || 1), 0);
+    return { contact: c, events, balance: running, open: round8(open) };
+  }
+  function openContactStatement(contactId) {
+    const data = contactStatementData(contactId);
+    if (!data) return;
+    const c = data.contact;
+    openAccountingModal({
+      title: `Statement · ${c.name}`, subtitle: `${statusText(c.contact_type)}${c.company_name ? ` · ${c.company_name}` : ""} · ${esc(baseCurrency())}`, wide: true,
+      body: `<div class="accounting-detail-meta"><span><small>Open balance</small><strong>${moneyA(data.open)}</strong></span><span><small>Entries</small><strong>${data.events.length}</strong></span><span><small>Tax no.</small><strong>${esc(c.tax_registration_number || "—")}</strong></span></div>
+        <div class="accounting-table-wrap"><table class="accounting-table"><thead><tr><th>Date</th><th>Reference</th><th>Details</th><th class="num">Charges</th><th class="num">Payments / credits</th><th class="num">Balance</th></tr></thead><tbody>
+        ${data.events.map(e => `<tr><td>${dateDisplay(e.date)}</td><td>${e.docId ? `<button type="button" class="accounting-link" data-acct-action="view-document" data-id="${esc(e.docId)}">${esc(e.ref)}</button>` : esc(e.ref)}</td><td>${esc(e.text)}</td><td class="num">${e.charge ? moneyA(e.charge) : ""}</td><td class="num">${e.credit ? moneyA(e.credit) : ""}</td><td class="num">${moneyA(e.balance)}</td></tr>`).join("") || `<tr><td colspan="6">No issued documents yet.</td></tr>`}
+        </tbody></table></div>`,
+      actions: `<button class="btn ghost" data-acct-modal-close>Close</button><button class="btn primary" id="acctStatementPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>`,
+      onOpen(modal) {
+        $("#acctStatementPdf", modal).onclick = () => downloadAccountingPdf(`Statement of Account · ${c.name}`, ["Date", "Reference", "Details", "Charges", "Payments / credits", "Balance"],
+          data.events.map(e => [dateDisplay(e.date), e.ref, e.text, e.charge ? moneyA(e.charge) : "", e.credit ? moneyA(e.credit) : "", moneyA(e.balance)]),
+          `Statement_${String(c.name).replace(/[^a-z0-9]+/gi, "_")}_${today()}.pdf`,
+          [["Customer / supplier", c.name], ["Tax no.", c.tax_registration_number || "—"], ["Open balance", moneyA(data.open)], ["Date", dateDisplay(today())]]);
+      },
+    });
+  }
+
+  function downloadCsv(columns, rows, filename) {
+    const lines = [columns, ...rows].map(row => row.map(v => `"${reportCellText(v).replace(/"/g, '""')}"`).join(","));
+    const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   function renderDimensions() {
@@ -850,26 +1149,54 @@
     return `<div class="accounting-entry-line" data-journal-line><span class="accounting-line-no">${index + 1}</span><select class="input" name="account_id" required><option value="">Select account</option>${accountOptions({selected:line.account_id})}</select><input class="input" name="description" value="${esc(line.description||"")}" placeholder="Line description"><input class="input num" name="debit" type="number" min="0" step="0.00000001" value="${line.debit ? esc(line.debit) : ""}" placeholder="Debit"><input class="input num" name="credit" type="number" min="0" step="0.00000001" value="${line.credit ? esc(line.credit) : ""}" placeholder="Credit"><select class="input" name="dimension_id">${dimensionOptions(line.dimension_id)}</select><button type="button" class="icon-btn ghost danger" data-remove-journal-line title="Remove"><i class="fa-solid fa-xmark"></i></button></div>`;
   }
 
-  function openJournalModal(id = null) {
+  function openJournalModal(id = null, opts = {}) {
     const journal=id?stateA.journals.find(j=>j.id===id):null;
-    const lines=journal?linesForJournal(journal.id):[{},{ }];
-    openAccountingModal({title:journal?`Edit ${journal.journal_no}`:"New Journal Entry",subtitle:"Every journal must balance in base currency before it can be saved or posted.",wide:true,body:`<form id="acctJournalForm" class="accounting-form"><input type="hidden" name="id" value="${esc(journal?.id||"")}"><div class="accounting-form-grid accounting-journal-head"><label>Date<input class="input" type="date" name="journal_date" value="${esc(journal?.journal_date||today())}" required></label><label>Reference<input class="input" name="reference" value="${esc(journal?.reference||"")}"></label><label>Currency<select class="input" name="currency">${currencyOptions(journal?.currency||baseCurrency())}</select></label><label>FX to ${esc(baseCurrency())}<input class="input" type="number" min="0.0000000001" step="0.0000000001" name="fx_rate" value="${esc(journal?.fx_rate||1)}" required></label><label class="accounting-form-wide">Description<input class="input" name="description" value="${esc(journal?.description||"")}" required></label></div><div class="accounting-entry-lines-head"><strong>Journal Lines</strong><button class="btn ghost tiny" type="button" id="acctAddJournalLine"><i class="fa-solid fa-plus"></i> Line</button></div><div id="acctJournalLines" class="accounting-entry-lines">${lines.map(journalLineTemplate).join("")}</div><div id="acctJournalTotals" class="accounting-entry-totals"></div></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctJournalSave">Save Draft</button>`,onOpen(modal){const root=$("#acctJournalLines",modal);const refresh=()=>{ $$('[data-journal-line]',root).forEach((row,i)=>{row.querySelector('.accounting-line-no').textContent=i+1;});updateJournalTotals(modal);};$("#acctAddJournalLine",modal).onclick=()=>{root.insertAdjacentHTML("beforeend",journalLineTemplate({},root.children.length));refresh();};root.addEventListener("click",e=>{const b=e.target.closest("[data-remove-journal-line]");if(b&&root.children.length>2){b.closest("[data-journal-line]").remove();refresh();}});root.addEventListener("input",refresh);$("#acctJournalSave",modal).onclick=()=>saveJournal(modal,journal);refresh();}});
+    const copy=!journal&&opts.copyFrom?stateA.journals.find(j=>j.id===opts.copyFrom):null;
+    const src=journal||copy;
+    const lines=src?linesForJournal(src.id).map(l=>({account_id:l.account_id,description:l.description,debit:num(l.debit),credit:num(l.credit),dimension_id:l.dimension_id})):[{},{}];
+    const head={journal_date:journal?.journal_date||today(),reference:src?.reference||"",currency:src?.currency||baseCurrency(),fx_rate:src?.fx_rate||1,description:src?.description||""};
+    openAccountingModal({title:journal?`Edit ${journal.journal_no}`:copy?`Copy of ${copy.journal_no}`:"New Journal Entry",subtitle:"Debits must equal credits.",wide:true,body:`<form id="acctJournalForm" class="accounting-form"><input type="hidden" name="id" value="${esc(journal?.id||"")}"><div class="accounting-form-grid accounting-journal-head"><label>Date<input class="input" type="date" name="journal_date" value="${esc(head.journal_date)}" required></label><label>Reference<input class="input" name="reference" value="${esc(head.reference)}"></label><label>Currency<select class="input" name="currency">${currencyOptions(head.currency)}</select></label><label>FX to ${esc(baseCurrency())}<input class="input" type="number" min="0.0000000001" step="0.0000000001" name="fx_rate" value="${esc(head.fx_rate)}" required></label><label class="accounting-form-wide">Description<input class="input" name="description" value="${esc(head.description)}" required></label></div><div class="accounting-entry-lines-head"><strong>Journal Lines</strong><span class="accounting-line-tools"><button class="btn ghost tiny" type="button" id="acctBalanceJournal" title="Put the difference on the last line"><i class="fa-solid fa-scale-balanced"></i> Balance</button><button class="btn ghost tiny" type="button" id="acctAddJournalLine"><i class="fa-solid fa-plus"></i> Line</button></span></div><div id="acctJournalLines" class="accounting-entry-lines">${lines.map(journalLineTemplate).join("")}</div><div id="acctJournalTotals" class="accounting-entry-totals"></div></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctJournalSave">Save Draft</button>`,onOpen(modal){const root=$("#acctJournalLines",modal);const refresh=()=>{ $$('[data-journal-line]',root).forEach((row,i)=>{row.querySelector('.accounting-line-no').textContent=i+1;});updateJournalTotals(modal);};$("#acctAddJournalLine",modal).onclick=()=>{root.insertAdjacentHTML("beforeend",journalLineTemplate({},root.children.length));refresh();root.lastElementChild?.querySelector("select")?.focus();};$("#acctBalanceJournal",modal).onclick=()=>{balanceJournalLines(root);refresh();};root.addEventListener("click",e=>{const b=e.target.closest("[data-remove-journal-line]");if(b&&root.children.length>2){b.closest("[data-journal-line]").remove();refresh();}});root.addEventListener("input",e=>{const row=e.target.closest("[data-journal-line]");if(row&&(e.target.name==="debit"||e.target.name==="credit")&&num(e.target.value)>0){const other=$(`[name=${e.target.name==="debit"?"credit":"debit"}]`,row);if(other&&num(other.value)>0)other.value="";}refresh();});$("#acctJournalSave",modal).onclick=()=>saveJournal(modal,journal);refresh();}});
+  }
+  // Puts the difference between debits and credits on the last line (or a new one).
+  function balanceJournalLines(root){
+    const rows=$$("[data-journal-line]",root);
+    const d=rows.reduce((t,r)=>t+num($("[name=debit]",r).value),0), c=rows.reduce((t,r)=>t+num($("[name=credit]",r).value),0);
+    const diff=round8(d-c); if(Math.abs(diff)<0.00000001) return;
+    let target=rows.reverse().find(r=>!num($("[name=debit]",r).value)&&!num($("[name=credit]",r).value));
+    if(!target){root.insertAdjacentHTML("beforeend",journalLineTemplate({},root.children.length));target=root.lastElementChild;}
+    if(diff>0) $("[name=credit]",target).value=String(diff); else $("[name=debit]",target).value=String(-diff);
   }
   function updateJournalTotals(modal){const rows=$$("[data-journal-line]",modal);const d=rows.reduce((s,r)=>s+num($("[name=debit]",r).value),0);const c=rows.reduce((s,r)=>s+num($("[name=credit]",r).value),0);const fx=num($("[name=fx_rate]",modal)?.value||1);const el=$("#acctJournalTotals",modal);if(el)el.innerHTML=`<span>Debit <strong>${moneyA(d*fx)}</strong></span><span>Credit <strong>${moneyA(c*fx)}</strong></span><span class="${Math.abs(d-c)<0.00000001?"balanced":"unbalanced"}">${Math.abs(d-c)<0.00000001?"Balanced":"Difference " + moneyA((d-c)*fx)}</span>`;}
   async function saveJournal(modal,existing){const form=$("#acctJournalForm",modal);if(!form.reportValidity())return;const fd=new FormData(form);const lines=$$("[data-journal-line]",modal).map(r=>({account_id:$("[name=account_id]",r).value,description:$("[name=description]",r).value,debit:num($("[name=debit]",r).value),credit:num($("[name=credit]",r).value),dimension_id:$("[name=dimension_id]",r).value||null,currency:fd.get("currency"),fx_rate:num(fd.get("fx_rate"))||1}));const header={id:existing?.id||null,journal_date:fd.get("journal_date"),reference:String(fd.get("reference")||"").trim(),description:String(fd.get("description")||"").trim(),currency:fd.get("currency"),fx_rate:num(fd.get("fx_rate"))||1};try{await global.supabaseRpc("app_accounting_save_journal",{p_journal:header,p_lines:lines});closeAccountingModal();await loadAccountingWorkspace({force:true});toast("Journal draft saved.");}catch(err){toast(err.message||"Journal could not be saved.","error");}}
 
   function documentLineTemplate(line = {}, kind = "sales", index = 0) {
     const accountTypes = kind === "sales" ? ["income"] : ["expense","asset"];
+    if (!line.__keep && !line.tax_code_id && !line.description) line = { ...line, tax_code_id: defaultTaxFor(kind), account_id: line.account_id || defaultAccountFor(kind) };
     return `<div class="accounting-doc-line" data-document-line><span class="accounting-line-no">${index+1}</span><input class="input" name="item_code" value="${esc(line.item_code||"")}" placeholder="Code"><input class="input accounting-doc-desc" name="description" value="${esc(line.description||"")}" placeholder="Description" required><input class="input num" name="quantity" type="number" min="0.00000001" step="0.00000001" value="${esc(line.quantity||1)}" required><input class="input num" name="unit_price" type="number" min="0" step="0.00000001" value="${esc(line.unit_price||0)}" required><input class="input num" name="discount_amount" type="number" min="0" step="0.00000001" value="${esc(line.discount_amount||0)}"><select class="input" name="tax_code_id">${taxOptions(line.tax_code_id)}</select><select class="input" name="account_id"><option value="">Default account</option>${accountOptions({types:accountTypes,selected:line.account_id})}</select><select class="input" name="dimension_id">${dimensionOptions(line.dimension_id)}</select><strong class="accounting-doc-line-total">${moneyA(line.total_amount||0)}</strong><button type="button" class="icon-btn ghost danger" data-remove-document-line><i class="fa-solid fa-xmark"></i></button></div>`;
   }
 
-  function openDocumentModal(kind, id = null) {
+  function openDocumentModal(kind, id = null, presetType = null, opts = {}) {
     const doc=id?stateA.documents.find(d=>d.id===id):null;
-    const actualKind=doc?(SALES_TYPES.has(doc.doc_type)?"sales":"purchases"):kind;
-    const lines=doc?linesForDocument(doc.id):[{}];
-    openAccountingModal({title:doc?`Edit ${doc.document_no}`:`New ${actualKind === "sales" ? "Sales" : "Purchase"} Document`,subtitle:"Save as draft first; issuing a financial document posts the matching double-entry journal.",wide:true,body:`<form id="acctDocumentForm" class="accounting-form"><input type="hidden" name="id" value="${esc(doc?.id||"")}"><div class="accounting-form-grid"><label>Document Type<select class="input" name="doc_type" ${doc?"disabled":""}>${documentKindOptions(actualKind)}</select></label><label>${actualKind==="sales"?"Customer":"Supplier"}<select class="input" name="contact_id" required>${contactOptions(actualKind,doc?.contact_id)}</select></label><label>Issue Date<input class="input" type="date" name="issue_date" value="${esc(doc?.issue_date||today())}" required></label><label>Supply Date<input class="input" type="date" name="supply_date" value="${esc(doc?.supply_date||doc?.issue_date||today())}"></label><label>Due Date<input class="input" type="date" name="due_date" value="${esc(doc?.due_date||"")}"></label><label>Currency<select class="input" name="currency">${currencyOptions(doc?.currency||baseCurrency())}</select></label><label>FX to ${esc(baseCurrency())}<input class="input" type="number" name="fx_rate" min="0.0000000001" step="0.0000000001" value="${esc(doc?.fx_rate||1)}"></label><label class="accounting-form-wide">Reference<input class="input" name="reference" value="${esc(doc?.reference||"")}"></label></div><div class="accounting-entry-lines-head"><strong>Line Items</strong><button class="btn ghost tiny" type="button" id="acctAddDocLine"><i class="fa-solid fa-plus"></i> Line</button></div><div class="accounting-doc-lines-header"><span>#</span><span>Code</span><span>Description</span><span>Qty</span><span>Price</span><span>Discount</span><span>Tax</span><span>Account</span><span>Dimension</span><span>Total</span><span></span></div><div id="acctDocumentLines" class="accounting-doc-lines">${lines.map((l,i)=>documentLineTemplate(l,actualKind,i)).join("")}</div><div id="acctDocumentTotals" class="accounting-document-totals"></div><label class="accounting-form-wide">Notes<textarea class="input" name="notes" rows="2">${esc(doc?.notes||"")}</textarea></label></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctDocumentSave">Save Draft</button>`,onOpen(modal){const typeSel=$("[name=doc_type]",modal);if(doc)typeSel.value=doc.doc_type;const root=$("#acctDocumentLines",modal);const refresh=()=>updateDocumentTotals(modal,actualKind);$("#acctAddDocLine",modal).onclick=()=>{root.insertAdjacentHTML("beforeend",documentLineTemplate({},actualKind,root.children.length));refresh();};root.addEventListener("click",e=>{const b=e.target.closest("[data-remove-document-line]");if(b&&root.children.length>1){b.closest("[data-document-line]").remove();refresh();}});root.addEventListener("input",refresh);root.addEventListener("change",refresh);$("#acctDocumentSave",modal).onclick=()=>saveDocument(modal,doc,actualKind);refresh();}});
+    const copy=!doc&&opts.copyFrom?stateA.documents.find(d=>d.id===opts.copyFrom):null;
+    const src=doc||copy;
+    const actualKind=src?(SALES_TYPES.has(src.doc_type)?"sales":"purchases"):kind;
+    const types=actualKind==="sales"?SALES_TYPES:PURCHASE_TYPES;
+    const type=doc?doc.doc_type:(copy?copy.doc_type:(presetType&&types.has(presetType)?presetType:(actualKind==="sales"?"sales_invoice":"purchase_bill")));
+    const lines=src?linesForDocument(src.id).map(l=>({__keep:true,item_code:l.item_code,description:l.description,quantity:l.quantity,unit_price:l.unit_price,discount_amount:l.discount_amount,tax_code_id:l.tax_code_id,account_id:l.account_id,dimension_id:l.dimension_id,total_amount:l.total_amount})):[{}];
+    const issue=doc?.issue_date||today();
+    const contact=src?.contact_id||"";
+    const terms=num(stateA.contacts.find(c=>c.id===contact)?.payment_terms_days ?? stateA.settings?.invoice_terms_days ?? 30);
+    const due=doc?(doc.due_date||""):(RECEIVABLE_TYPES.has(type)||PAYABLE_TYPES.has(type)?isoDate(new Date(new Date(`${issue}T00:00:00`).getTime()+terms*86400000)):"");
+    const title=doc?`Edit ${doc.document_no}`:copy?`Copy of ${copy.document_no}`:`New ${DOC_LABELS[type]||"Document"}`;
+    openAccountingModal({title,subtitle:doc?DOC_LABELS[doc.doc_type]:`Number: ${docPrefix(type)}-${new Date().getFullYear()}-#####`,wide:true,body:`<form id="acctDocumentForm" class="accounting-form"><input type="hidden" name="id" value="${esc(doc?.id||"")}"><div class="accounting-form-grid"><label>Document Type<select class="input" name="doc_type" ${doc?"disabled":""}>${documentKindOptions(actualKind)}</select></label><label>${actualKind==="sales"?"Customer":"Supplier"}<select class="input" name="contact_id" required>${contactOptions(actualKind,contact)}</select></label><label>Issue Date<input class="input" type="date" name="issue_date" value="${esc(issue)}" required></label><label>Supply Date<input class="input" type="date" name="supply_date" value="${esc(doc?.supply_date||issue)}"></label><label>Due Date<input class="input" type="date" name="due_date" value="${esc(due)}"></label><label>Currency<select class="input" name="currency">${currencyOptions(src?.currency||baseCurrency())}</select></label><label>FX to ${esc(baseCurrency())}<input class="input" type="number" name="fx_rate" min="0.0000000001" step="0.0000000001" value="${esc(src?.fx_rate||1)}"></label><label class="accounting-form-wide">Reference<input class="input" name="reference" value="${esc(src?.reference||"")}"></label></div><div class="accounting-entry-lines-head"><strong>Line Items</strong><button class="btn ghost tiny" type="button" id="acctAddDocLine"><i class="fa-solid fa-plus"></i> Line</button></div><div class="accounting-doc-lines-header"><span>#</span><span>Code</span><span>Description</span><span>Qty</span><span>Price</span><span>Discount</span><span>Tax</span><span>Account</span><span>Dimension</span><span>Total</span><span></span></div><div id="acctDocumentLines" class="accounting-doc-lines">${lines.map((l,i)=>documentLineTemplate(l,actualKind,i)).join("")}</div><div id="acctDocumentTotals" class="accounting-document-totals"></div><label class="accounting-form-wide">Notes<textarea class="input" name="notes" rows="2">${esc(src?.notes||"")}</textarea></label></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctDocumentSave">Save Draft</button>`,onOpen(modal){const typeSel=$("[name=doc_type]",modal);typeSel.value=type;const root=$("#acctDocumentLines",modal);const refresh=()=>updateDocumentTotals(modal,actualKind);
+      // Due date follows the customer's / supplier's terms until it is changed by hand.
+      let dueAuto=!doc;const dueEl=$("[name=due_date]",modal),issueEl=$("[name=issue_date]",modal),contactEl=$("[name=contact_id]",modal),curEl=$("[name=currency]",modal);
+      const autoDue=()=>{if(!dueAuto)return;const t=typeSel.value;if(!(RECEIVABLE_TYPES.has(t)||PAYABLE_TYPES.has(t))){dueEl.value="";return;}const c=stateA.contacts.find(x=>x.id===contactEl.value);const days=num(c?.payment_terms_days ?? stateA.settings?.invoice_terms_days ?? 30);if(issueEl.value)dueEl.value=isoDate(new Date(new Date(`${issueEl.value}T00:00:00`).getTime()+days*86400000));};
+      dueEl.addEventListener("input",()=>{dueAuto=false;});issueEl.addEventListener("change",()=>{const sup=$("[name=supply_date]",modal);if(sup&&!doc)sup.value=issueEl.value;autoDue();});typeSel.addEventListener("change",()=>{autoDue();const h=modal.querySelector(".modal-head h3");if(h&&!doc&&!copy)h.textContent=`New ${DOC_LABELS[typeSel.value]||"Document"}`;const sub=modal.querySelector(".modal-head p");if(sub&&!doc)sub.textContent=`Number: ${docPrefix(typeSel.value)}-${new Date().getFullYear()}-#####`;});
+      contactEl.addEventListener("change",()=>{const c=stateA.contacts.find(x=>x.id===contactEl.value);if(c&&!doc&&c.currency&&curEl&&[...curEl.options].some(o=>o.value===c.currency)){curEl.value=c.currency;refresh();}autoDue();});
+      $("#acctAddDocLine",modal).onclick=()=>{root.insertAdjacentHTML("beforeend",documentLineTemplate({},actualKind,root.children.length));refresh();root.lastElementChild?.querySelector("[name=description]")?.focus();};root.addEventListener("click",e=>{const b=e.target.closest("[data-remove-document-line]");if(b&&root.children.length>1){b.closest("[data-document-line]").remove();refresh();}});root.addEventListener("input",refresh);root.addEventListener("change",refresh);$("#acctDocumentSave",modal).onclick=()=>saveDocument(modal,doc,actualKind);refresh();}});
   }
-  function updateDocumentTotals(modal,kind){let subtotal=0,discount=0,tax=0,total=0;$$('[data-document-line]',modal).forEach((row,i)=>{row.querySelector('.accounting-line-no').textContent=i+1;const q=num($("[name=quantity]",row).value);const p=num($("[name=unit_price]",row).value);const d=num($("[name=discount_amount]",row).value);const taxSel=$("[name=tax_code_id]",row);const rate=num(taxSel?.selectedOptions?.[0]?.dataset?.rate||0);const net=Math.max(0,q*p-d);const tx=net*rate/100;const tt=net+tx;subtotal+=q*p;discount+=d;tax+=tx;total+=tt;const out=$(".accounting-doc-line-total",row);if(out)out.textContent=moneyA(tt,$("[name=currency]",modal)?.value||baseCurrency());});const el=$("#acctDocumentTotals",modal);if(el)el.innerHTML=`<span>Subtotal <strong>${moneyA(subtotal,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span><span>Discount <strong>${moneyA(discount,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span><span>Tax <strong>${moneyA(tax,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span><span class="total">Total <strong>${moneyA(total,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span>`;}
+  function updateDocumentTotals(modal,kind){let subtotal=0,discount=0,tax=0,total=0;$$('[data-document-line]',modal).forEach((row,i)=>{row.querySelector('.accounting-line-no').textContent=i+1;const q=num($("[name=quantity]",row).value);const p=num($("[name=unit_price]",row).value);const d=num($("[name=discount_amount]",row).value);const taxSel=$("[name=tax_code_id]",row);const rate=num(taxSel?.selectedOptions?.[0]?.dataset?.rate||0);const net=Math.max(0,q*p-d);const tx=net*rate/100;const tt=net+tx;subtotal+=q*p;discount+=d;tax+=tx;total+=tt;const out=$(".accounting-doc-line-total",row);if(out)out.innerHTML=moneyA(tt,$("[name=currency]",modal)?.value||baseCurrency());});const el=$("#acctDocumentTotals",modal);if(el)el.innerHTML=`<span>Subtotal <strong>${moneyA(subtotal,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span><span>Discount <strong>${moneyA(discount,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span><span>Tax <strong>${moneyA(tax,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span><span class="total">Total <strong>${moneyA(total,$("[name=currency]",modal)?.value||baseCurrency())}</strong></span>`;}
   async function saveDocument(modal,existing,kind){const form=$("#acctDocumentForm",modal);if(!form.reportValidity())return;const fd=new FormData(form);const doc={id:existing?.id||null,doc_type:existing?.doc_type||fd.get("doc_type"),contact_id:fd.get("contact_id"),issue_date:fd.get("issue_date"),supply_date:fd.get("supply_date")||fd.get("issue_date"),due_date:fd.get("due_date")||null,currency:fd.get("currency"),fx_rate:num(fd.get("fx_rate"))||1,reference:String(fd.get("reference")||"").trim(),notes:String(fd.get("notes")||"").trim()};const lines=$$('[data-document-line]',modal).map(row=>({item_code:$("[name=item_code]",row).value,description:$("[name=description]",row).value,quantity:num($("[name=quantity]",row).value),unit_price:num($("[name=unit_price]",row).value),discount_amount:num($("[name=discount_amount]",row).value),tax_code_id:$("[name=tax_code_id]",row).value||null,account_id:$("[name=account_id]",row).value||null,dimension_id:$("[name=dimension_id]",row).value||null}));try{await global.supabaseRpc("app_accounting_save_document",{p_document:doc,p_lines:lines});closeAccountingModal();await loadAccountingWorkspace({force:true});toast("Document draft saved.");}catch(err){toast(err.message||"Document could not be saved.","error");}}
 
   function openJournalView(id) {
@@ -900,7 +1227,7 @@
 
   function openPaymentModal(id) {
     const d=stateA.documents.find(x=>x.id===id);if(!d)return;const cash=stateA.accounts.filter(a=>a.is_cash_account&&a.is_active);
-    openAccountingModal({title:RECEIVABLE_TYPES.has(d.doc_type)?"Record Customer Receipt":"Record Supplier Payment",subtitle:`${d.document_no} · Open ${moneyA(d.balance_amount,d.currency)}`,body:`<form id="acctPaymentForm" class="accounting-form"><div class="accounting-form-grid"><label>Amount<input class="input" type="number" name="amount" min="0.00000001" max="${esc(d.balance_amount)}" step="0.00000001" value="${esc(d.balance_amount)}" required></label><label>Cash / Bank Account<select class="input" name="account_id" required><option value="">Select account</option>${cash.map(a=>`<option value="${esc(a.id)}">${esc(a.code)} · ${esc(a.name)}</option>`).join("")}</select></label><label>Date<input class="input" type="date" name="payment_date" value="${today()}" required></label><label>FX to ${esc(baseCurrency())}<input class="input" type="number" min="0.0000000001" step="0.0000000001" name="fx_rate" value="${esc(d.fx_rate||1)}"></label><label class="accounting-form-wide">Reference<input class="input" name="reference" placeholder="Bank reference / receipt no."></label><label class="accounting-form-wide">Notes<textarea class="input" name="notes" rows="2"></textarea></label></div></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctPaymentSave">Record Payment</button>`,onOpen(modal){$("#acctPaymentSave",modal).onclick=async()=>{const f=$("#acctPaymentForm",modal);if(!f.reportValidity())return;const fd=new FormData(f);try{await global.supabaseRpc("app_accounting_record_payment",{p_document_id:d.id,p_amount:num(fd.get("amount")),p_account_id:fd.get("account_id"),p_payment_date:fd.get("payment_date"),p_reference:String(fd.get("reference")||"").trim()||null,p_notes:String(fd.get("notes")||"").trim()||null,p_fx_rate:num(fd.get("fx_rate"))||d.fx_rate||1});closeAccountingModal();await loadAccountingWorkspace({force:true});toast("Payment recorded and posted to the ledger.");}catch(err){toast(err.message||"Payment could not be recorded.","error");}};}});
+    openAccountingModal({title:RECEIVABLE_TYPES.has(d.doc_type)?"Record Customer Receipt":"Record Supplier Payment",subtitle:`${d.document_no} · Open ${moneyA(d.balance_amount,d.currency)}`,body:`<form id="acctPaymentForm" class="accounting-form"><div class="accounting-form-grid"><label>Amount<input class="input" type="number" name="amount" min="0.00000001" max="${esc(d.balance_amount)}" step="0.00000001" value="${esc(d.balance_amount)}" required></label><label>Cash / Bank Account<select class="input" name="account_id" required><option value="">Select account</option>${cash.map(a=>`<option value="${esc(a.id)}" ${a.id===defaultAccountFor(RECEIVABLE_TYPES.has(d.doc_type)?"receipt":"payment")?"selected":""}>${esc(a.code)} · ${esc(a.name)}</option>`).join("")}</select></label><label>Date<input class="input" type="date" name="payment_date" value="${today()}" required></label><label>FX to ${esc(baseCurrency())}<input class="input" type="number" min="0.0000000001" step="0.0000000001" name="fx_rate" value="${esc(d.fx_rate||1)}"></label><label class="accounting-form-wide">Reference<input class="input" name="reference" placeholder="Bank reference / receipt no."></label><label class="accounting-form-wide">Notes<textarea class="input" name="notes" rows="2"></textarea></label></div></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctPaymentSave">Record Payment</button>`,onOpen(modal){$("#acctPaymentSave",modal).onclick=async()=>{const f=$("#acctPaymentForm",modal);if(!f.reportValidity())return;const fd=new FormData(f);try{await global.supabaseRpc("app_accounting_record_payment",{p_document_id:d.id,p_amount:num(fd.get("amount")),p_account_id:fd.get("account_id"),p_payment_date:fd.get("payment_date"),p_reference:String(fd.get("reference")||"").trim()||null,p_notes:String(fd.get("notes")||"").trim()||null,p_fx_rate:num(fd.get("fx_rate"))||d.fx_rate||1});closeAccountingModal();await loadAccountingWorkspace({force:true});toast("Payment recorded and posted to the ledger.");}catch(err){toast(err.message||"Payment could not be recorded.","error");}};}});
   }
 
   function openBankTransactionModal(id = null) {
@@ -927,8 +1254,43 @@
   async function matchBank(txId,journalId){try{await global.supabaseRpc("app_accounting_match_bank_transaction",{p_bank_transaction_id:txId,p_journal_id:journalId});await loadAccountingWorkspace({force:true});toast("Bank transaction reconciled.");}catch(err){toast(err.message||"Could not reconcile transaction.","error");}}
   async function unmatchBank(txId){if(!confirm("Remove this bank match and return the row to unreconciled status?"))return;try{await global.supabaseRpc("app_accounting_unmatch_bank_transaction",{p_bank_transaction_id:txId});await loadAccountingWorkspace({force:true});toast("Bank match removed.");}catch(err){toast(err.message||"Could not remove bank match.","error");}}
 
-  function openSettingsModal(){const s=stateA.settings||{};const isOwner=String(global.state?.sessionUser?.id||"")===String(currentOwner()||"");openAccountingModal({title:"Accounting Settings",subtitle:"Base books, fiscal year, closed periods and management tax configuration.",body:`<form id="acctSettingsForm" class="accounting-form"><div class="accounting-form-grid"><label>Base Currency<select class="input" name="base_currency">${currencyOptions(s.base_currency||"AED")}</select></label><label>Invoice terms days<input class="input" type="number" min="0" name="invoice_terms_days" value="${esc(s.invoice_terms_days??30)}"></label><label>Fiscal start month<input class="input" type="number" min="1" max="12" name="fiscal_year_start_month" value="${esc(s.fiscal_year_start_month??1)}"></label><label>Fiscal start day<input class="input" type="number" min="1" max="28" name="fiscal_year_start_day" value="${esc(s.fiscal_year_start_day??1)}"></label><label>Books locked through<input class="input" type="date" name="books_lock_date" value="${esc(s.books_lock_date||"")}" ${isOwner?"":"disabled"}><small>${isOwner?"Posting on or before this date will be blocked.":"Only the company owner can change the closed-period date."}</small></label><label>Tax Registration Name<input class="input" name="tax_registration_name" value="${esc(s.tax_registration_name||"")}"></label><label>TRN / Tax Registration No.<input class="input" name="tax_registration_number" value="${esc(s.tax_registration_number||"")}"></label><label>CT Threshold<input class="input" type="number" min="0" step="0.01" name="corporate_tax_threshold" value="${esc(s.corporate_tax_threshold??375000)}"></label><label>CT Rate %<input class="input" type="number" min="0" max="100" step="0.01" name="corporate_tax_rate" value="${esc(s.corporate_tax_rate??9)}"></label><label class="accounting-check accounting-form-wide"><input type="checkbox" name="corporate_tax_enabled" ${s.corporate_tax_enabled?"checked":""}><span>Enable management corporate-tax estimate</span></label></div></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctSettingsSave">Save Settings</button>`,onOpen(modal){$("#acctSettingsSave",modal).onclick=()=>saveSettings(modal);}});}
-  async function saveSettings(modal){const f=$("#acctSettingsForm",modal);if(!f.reportValidity())return;const fd=new FormData(f);const isOwner=String(global.state?.sessionUser?.id||"")===String(currentOwner()||"");const payload={owner_id:currentOwner(),base_currency:fd.get("base_currency"),invoice_terms_days:Math.max(0,Math.floor(num(fd.get("invoice_terms_days")))),fiscal_year_start_month:Math.min(12,Math.max(1,Math.floor(num(fd.get("fiscal_year_start_month"))))),fiscal_year_start_day:Math.min(28,Math.max(1,Math.floor(num(fd.get("fiscal_year_start_day"))))),books_lock_date:isOwner?(fd.get("books_lock_date")||null):(stateA.settings?.books_lock_date||null),tax_registration_name:String(fd.get("tax_registration_name")||"").trim()||null,tax_registration_number:String(fd.get("tax_registration_number")||"").trim()||null,corporate_tax_threshold:Math.max(0,num(fd.get("corporate_tax_threshold"))),corporate_tax_rate:Math.min(100,Math.max(0,num(fd.get("corporate_tax_rate")))),corporate_tax_enabled:fd.get("corporate_tax_enabled")==="on"};try{if(stateA.settings)await global.supabase(`accounting_settings?owner_id=eq.${encodeURIComponent(currentOwner())}`,{method:"PATCH",body:JSON.stringify(payload)});else await global.supabase("accounting_settings",{method:"POST",body:JSON.stringify(payload)});closeAccountingModal();await loadAccountingWorkspace({force:true});toast("Accounting settings saved.");}catch(err){toast(err.message||"Settings could not be saved.","error");}}
+  const SETTINGS_TABS = [["general", "General", "fa-sliders"], ["numbering", "Numbering", "fa-hashtag"], ["defaults", "Defaults", "fa-wand-magic-sparkles"], ["invoice", "Invoices", "fa-file-invoice"], ["tax", "Tax", "fa-percent"], ["display", "Display", "fa-eye"]];
+  function openSettingsModal(tab = "general"){
+    const st=stateA.settings||{};const pr=prefsA();const isOwner=String(global.state?.sessionUser?.id||"")===String(currentOwner()||"");
+    const cash=stateA.accounts.filter(a=>a.is_cash_account&&a.is_active);
+    const acctSel=(name,list,sel,blank="Ask each time")=>`<select class="input" name="${name}"><option value="">${esc(blank)}</option>${list.map(a=>`<option value="${esc(a.id)}" ${a.id===sel?"selected":""}>${esc(a.code)} · ${esc(a.name)}</option>`).join("")}</select>`;
+    const taxSel=(name,sel)=>`<select class="input" name="${name}"><option value="">Books default (${esc(st.default_tax_code||"NONE")})</option><option value="none" ${sel==="none"?"selected":""}>No tax</option>${stateA.taxCodes.filter(t=>t.is_active).map(t=>`<option value="${esc(t.id)}" ${t.id===sel?"selected":""}>${esc(t.code)} · ${esc(t.name)}</option>`).join("")}</select>`;
+    const panes={
+      general:`<div class="accounting-form-grid"><label>Base Currency<select class="input" name="base_currency">${currencyOptions(st.base_currency||"AED")}</select></label><label>Payment terms (days)<input class="input" type="number" min="0" max="3650" name="invoice_terms_days" value="${esc(st.invoice_terms_days??30)}"></label><label>Financial year starts<select class="input" name="fiscal_year_start_month">${MONTHS.map((m,i)=>`<option value="${i+1}" ${num(st.fiscal_year_start_month||1)===i+1?"selected":""}>${m}</option>`).join("")}</select></label><label>Start day<input class="input" type="number" min="1" max="28" name="fiscal_year_start_day" value="${esc(st.fiscal_year_start_day??1)}"></label><label class="accounting-form-wide">Books locked through<input class="input" type="date" name="books_lock_date" value="${esc(st.books_lock_date||"")}" ${isOwner?"":"disabled"}><small>${isOwner?"No posting on or before this date.":"Only the company owner can change this."}</small></label></div>`,
+      numbering:`<div class="accounting-prefix-grid">${Object.keys(DEFAULT_PREFIXES).map(t=>`<label>${esc(DOC_LABELS[t])}<input class="input" name="prefix_${t}" maxlength="8" pattern="[A-Za-z0-9]{1,8}" value="${esc(pr.numbering.prefixes?.[t]||"")}" placeholder="${DEFAULT_PREFIXES[t]}"><small data-prefix-preview="${t}">${docPrefix(t)}-${new Date().getFullYear()}-00001</small></label>`).join("")}</div>`,
+      defaults:`<div class="accounting-form-grid"><label>Sales tax<select class="input" name="sales_tax_code_id">${taxSel("x",pr.defaults.sales_tax_code_id||"").replace(/^<select class="input" name="x">|<\/select>$/g,"")}</select></label><label>Purchase tax<select class="input" name="purchase_tax_code_id">${taxSel("x",pr.defaults.purchase_tax_code_id||"").replace(/^<select class="input" name="x">|<\/select>$/g,"")}</select></label><label>Sales account${acctSel("sales_account_id",stateA.accounts.filter(a=>a.is_active&&a.account_type==="income"),pr.defaults.sales_account_id,"Posting default")}</label><label>Purchase account${acctSel("purchase_account_id",stateA.accounts.filter(a=>a.is_active&&["expense","asset"].includes(a.account_type)),pr.defaults.purchase_account_id,"Posting default")}</label><label>Receive customer payments into${acctSel("receipt_account_id",cash,pr.defaults.receipt_account_id)}</label><label>Pay suppliers from${acctSel("payment_account_id",cash,pr.defaults.payment_account_id)}</label></div>`,
+      invoice:`<div class="accounting-form-grid"><label class="accounting-form-wide">Payment terms text<textarea class="input" name="inv_terms" rows="2" maxlength="600" placeholder="e.g. Payment due within 30 days.">${esc(pr.invoice.terms||"")}</textarea></label><label class="accounting-form-wide">Bank details<textarea class="input" name="inv_bank" rows="3" maxlength="600" placeholder="Bank, account name, IBAN">${esc(pr.invoice.bank||"")}</textarea></label><label class="accounting-form-wide">Footer note<input class="input" name="inv_footer" maxlength="200" value="${esc(pr.invoice.footer||"")}" placeholder="Thank you for your business."></label><label class="accounting-check"><input type="checkbox" name="inv_qr" ${pr.invoice.show_qr!==false?"checked":""}><span>QR code on documents</span></label></div>`,
+      tax:`<div class="accounting-form-grid"><label>Tax Registration Name<input class="input" name="tax_registration_name" value="${esc(st.tax_registration_name||"")}"></label><label>TRN / Tax Registration No.<input class="input" name="tax_registration_number" value="${esc(st.tax_registration_number||"")}"></label><label class="accounting-check accounting-form-wide"><input type="checkbox" name="corporate_tax_enabled" ${st.corporate_tax_enabled?"checked":""}><span>Corporate-tax estimate</span></label><label>CT Threshold<input class="input" type="number" min="0" step="0.01" name="corporate_tax_threshold" value="${esc(st.corporate_tax_threshold??375000)}"></label><label>CT Rate %<input class="input" type="number" min="0" max="100" step="0.01" name="corporate_tax_rate" value="${esc(st.corporate_tax_rate??9)}"></label></div>`,
+      display:`<div class="accounting-form-grid"><label>Default report period<select class="input" name="default_period">${periodOptions(pr.ui.default_period||"fiscal_year").replace('<option value="custom"','<option value="custom" hidden')}</select></label><label class="accounting-check"><input type="checkbox" name="show_guides" ${pr.ui.show_guides===true?"checked":""}><span>Show help banners</span></label></div>`,
+    };
+    openAccountingModal({title:"Accounting Settings",subtitle:"",wide:true,body:`<form id="acctSettingsForm" class="accounting-form accounting-settings-form"><div class="accounting-settings-tabs" role="tablist">${SETTINGS_TABS.map(([id,l,ic])=>`<button type="button" role="tab" class="accounting-settings-tab${id===tab?" active":""}" data-settings-tab="${id}" aria-selected="${id===tab}"><i class="fa-solid ${ic}"></i><span>${l}</span></button>`).join("")}</div>${SETTINGS_TABS.map(([id])=>`<section class="accounting-settings-pane${id===tab?" active":""}" data-settings-pane="${id}" role="tabpanel">${panes[id]}</section>`).join("")}<p class="accounting-settings-error" id="acctSettingsError" role="alert"></p></form>`,actions:`<button class="btn ghost" data-acct-modal-close>Cancel</button><button class="btn primary" id="acctSettingsSave">Save Settings</button>`,onOpen(modal){
+      modal.querySelector(".accounting-settings-tabs").addEventListener("click",e=>{const b=e.target.closest("[data-settings-tab]");if(!b)return;modal.querySelectorAll("[data-settings-tab]").forEach(x=>{x.classList.toggle("active",x===b);x.setAttribute("aria-selected",x===b?"true":"false");});modal.querySelectorAll("[data-settings-pane]").forEach(p=>p.classList.toggle("active",p.dataset.settingsPane===b.dataset.settingsTab));});
+      modal.querySelectorAll("[name^=prefix_]").forEach(inp=>inp.addEventListener("input",()=>{const t=inp.name.slice(7);const v=inp.value.trim().toUpperCase();const out=modal.querySelector(`[data-prefix-preview="${t}"]`);if(out)out.textContent=`${/^[A-Z0-9]{1,8}$/.test(v)?v:DEFAULT_PREFIXES[t]}-${new Date().getFullYear()}-00001`;}));
+      $("#acctSettingsSave",modal).onclick=()=>saveSettings(modal);
+    }});
+  }
+  async function saveSettings(modal){
+    const f=$("#acctSettingsForm",modal);const err=$("#acctSettingsError",modal);if(err)err.textContent="";
+    // Invalid fields can sit on a hidden tab: show that tab first.
+    const bad=[...f.querySelectorAll("input,select,textarea")].find(el=>!el.checkValidity());
+    if(bad){const pane=bad.closest("[data-settings-pane]");if(pane)modal.querySelector(`[data-settings-tab="${pane.dataset.settingsPane}"]`)?.click();bad.reportValidity();return;}
+    const fd=new FormData(f);const isOwner=String(global.state?.sessionUser?.id||"")===String(currentOwner()||"");
+    const prefixes={};Object.keys(DEFAULT_PREFIXES).forEach(t=>{const v=String(fd.get(`prefix_${t}`)||"").trim().toUpperCase();if(v&&/^[A-Z0-9]{1,8}$/.test(v)&&v!==DEFAULT_PREFIXES[t])prefixes[t]=v;});
+    const meta=metaA();
+    const nextMeta={...meta,
+      numbering:{...(meta.numbering&&typeof meta.numbering==="object"?meta.numbering:{}),prefixes},
+      defaults:{sales_tax_code_id:fd.get("sales_tax_code_id")||"",purchase_tax_code_id:fd.get("purchase_tax_code_id")||"",sales_account_id:fd.get("sales_account_id")||"",purchase_account_id:fd.get("purchase_account_id")||"",receipt_account_id:fd.get("receipt_account_id")||"",payment_account_id:fd.get("payment_account_id")||""},
+      invoice:{terms:String(fd.get("inv_terms")||"").trim().slice(0,600),bank:String(fd.get("inv_bank")||"").trim().slice(0,600),footer:String(fd.get("inv_footer")||"").trim().slice(0,200),show_qr:fd.get("inv_qr")==="on"},
+      ui:{...(meta.ui&&typeof meta.ui==="object"?meta.ui:{}),default_period:String(fd.get("default_period")||"fiscal_year"),show_guides:fd.get("show_guides")==="on"}};
+    const payload={owner_id:currentOwner(),base_currency:fd.get("base_currency"),invoice_terms_days:Math.min(3650,Math.max(0,Math.floor(num(fd.get("invoice_terms_days"))))),fiscal_year_start_month:Math.min(12,Math.max(1,Math.floor(num(fd.get("fiscal_year_start_month"))))),fiscal_year_start_day:Math.min(28,Math.max(1,Math.floor(num(fd.get("fiscal_year_start_day"))))),books_lock_date:isOwner?(fd.get("books_lock_date")||null):(stateA.settings?.books_lock_date||null),tax_registration_name:String(fd.get("tax_registration_name")||"").trim()||null,tax_registration_number:String(fd.get("tax_registration_number")||"").trim()||null,corporate_tax_threshold:Math.max(0,num(fd.get("corporate_tax_threshold"))),corporate_tax_rate:Math.min(100,Math.max(0,num(fd.get("corporate_tax_rate")))),corporate_tax_enabled:fd.get("corporate_tax_enabled")==="on",meta:nextMeta};
+    const periodChanged=String(prefsA().ui.default_period||"fiscal_year")!==nextMeta.ui.default_period;
+    try{if(stateA.settings)await global.supabase(`accounting_settings?owner_id=eq.${encodeURIComponent(currentOwner())}`,{method:"PATCH",body:JSON.stringify(payload)});else await global.supabase("accounting_settings",{method:"POST",body:JSON.stringify(payload)});closeAccountingModal();if(periodChanged){stateA.reportFrom="";stateA.reportTo="";}await loadAccountingWorkspace({force:true});toast("Accounting settings saved.");}catch(e){if(err)err.textContent=e.message||"Settings could not be saved.";toast(e.message||"Settings could not be saved.","error");}
+  }
 
   async function postJournal(id){try{await global.supabaseRpc("app_accounting_post_journal",{p_journal_id:id});await loadAccountingWorkspace({force:true});toast("Journal posted.");}catch(err){toast(err.message||"Journal could not be posted.","error");}}
   async function voidJournal(id){const reason=prompt("Reason for voiding this posted journal:","");if(reason===null)return;try{await global.supabaseRpc("app_accounting_void_journal",{p_journal_id:id,p_reason:reason||null});await loadAccountingWorkspace({force:true});toast("Journal voided with an automatic reversal.");}catch(err){toast(err.message||"Journal could not be voided.","error");}}
@@ -956,10 +1318,14 @@
     const exportRows = (rows || []).map(row => (row || []).map(reportCellText));
     if(typeof doc.autoTable==="function")doc.autoTable({startY:y,head:[exportColumns],body:exportRows,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[36,87,214]},margin:{left:10,right:10}});
     else { exportRows.slice(0,40).forEach((r,i)=>doc.text(r.join(" | ").slice(0,150),14,y+i*5)); }
+    // 3.8: payment terms, bank details and footer from Accounting Settings > Invoices.
+    const after=(options.footerBlocks||[]).filter(b=>b&&String(b[1]||"").trim());
+    if(after.length){let fy=(doc.lastAutoTable?.finalY||y)+8;const pageH=doc.internal.pageSize.getHeight();const pageW=doc.internal.pageSize.getWidth();
+      after.forEach(([label,text])=>{const lines=doc.splitTextToSize(String(text),pageW-28);const need=(label?5:0)+lines.length*4+3;if(fy+need>pageH-12){doc.addPage();fy=16;}if(label){doc.setFontSize(8);doc.setFont(undefined,"bold");doc.text(String(label),14,fy);doc.setFont(undefined,"normal");fy+=4.5;}doc.setFontSize(8);doc.text(lines,14,fy);fy+=lines.length*4+3;});}
     doc.save(filename);
   }
 
-  async function downloadDocumentPdf(id){const d=stateA.documents.find(x=>x.id===id);if(!d)return;const lines=linesForDocument(id);const contact=stateA.contacts.find(c=>c.id===d.contact_id);const sellerTrn=stateA.settings?.tax_registration_number||"";const qrPayload=["Triplem VIP Document",d.document_uuid||d.id,d.document_no,d.issue_date,d.supply_date||d.issue_date,d.currency,round8(d.total_amount).toFixed(2),round8(d.tax_amount).toFixed(2),sellerTrn].join("|");await downloadAccountingPdf(`${DOC_LABELS[d.doc_type]} ${d.document_no}`,["Code","Description","Qty","Unit Price","Discount","Tax","Total"],lines.map(l=>[l.item_code||"",l.description,String(l.quantity),moneyA(l.unit_price,d.currency),moneyA(l.discount_amount,d.currency),moneyA(l.tax_amount,d.currency),moneyA(l.total_amount,d.currency)]),`${d.document_no}.pdf`,[["Party",contactName(d.contact_id)],["Party Tax No.",contact?.tax_registration_number||"—"],["Issue Date",dateDisplay(d.issue_date)],["Supply Date",dateDisplay(d.supply_date||d.issue_date)],["Due Date",dateDisplay(d.due_date)],["Seller Tax No.",sellerTrn||"—"],["Currency",d.currency],["Document UUID",d.document_uuid||d.id],["Total",moneyA(d.total_amount,d.currency)],["Credits / Returns",moneyA(d.credit_applied_amount||0,d.currency)],["Balance",moneyA(d.balance_amount,d.currency)]],{qrText:qrPayload});}
+  async function downloadDocumentPdf(id){const d=stateA.documents.find(x=>x.id===id);if(!d)return;const lines=linesForDocument(id);const contact=stateA.contacts.find(c=>c.id===d.contact_id);const sellerTrn=stateA.settings?.tax_registration_number||"";const qrPayload=["Triplem VIP Document",d.document_uuid||d.id,d.document_no,d.issue_date,d.supply_date||d.issue_date,d.currency,round8(d.total_amount).toFixed(2),round8(d.tax_amount).toFixed(2),sellerTrn].join("|");await downloadAccountingPdf(`${DOC_LABELS[d.doc_type]} ${d.document_no}`,["Code","Description","Qty","Unit Price","Discount","Tax","Total"],lines.map(l=>[l.item_code||"",l.description,String(l.quantity),moneyA(l.unit_price,d.currency),moneyA(l.discount_amount,d.currency),moneyA(l.tax_amount,d.currency),moneyA(l.total_amount,d.currency)]),`${d.document_no}.pdf`,[["Party",contactName(d.contact_id)],["Party Tax No.",contact?.tax_registration_number||"—"],["Issue Date",dateDisplay(d.issue_date)],["Supply Date",dateDisplay(d.supply_date||d.issue_date)],["Due Date",dateDisplay(d.due_date)],["Seller Tax No.",sellerTrn||"—"],["Currency",d.currency],["Document UUID",d.document_uuid||d.id],["Total",moneyA(d.total_amount,d.currency)],["Credits / Returns",moneyA(d.credit_applied_amount||0,d.currency)],["Balance",moneyA(d.balance_amount,d.currency)]],{qrText:prefsA().invoice.show_qr===false?"":qrPayload,footerBlocks:[["Payment terms",prefsA().invoice.terms],["Bank details",prefsA().invoice.bank],["",prefsA().invoice.footer],...(d.notes?[["Notes",d.notes]]:[])]});}
   async function downloadReportPdf(){await downloadAccountingPdf(stateA.reportTitle,stateA.reportColumns,stateA.reportRows,`${stateA.reportTitle.replace(/[^a-z0-9]+/gi,"_")}_${today()}.pdf`,[["Period",`${stateA.reportFrom} to ${stateA.reportTo}`]]);}
   function downloadReportCsv(){const lines=[stateA.reportColumns,...stateA.reportRows].map(row=>row.map(v=>`"${reportCellText(v).replace(/"/g,'""')}"`).join(","));const blob=new Blob([lines.join("\r\n")],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${stateA.reportTitle.replace(/[^a-z0-9]+/gi,"_")}_${today()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   async function downloadTaxPdf(){const t=taxSummary();await downloadAccountingPdf("Tax Summary",["Tax Code","Taxable Base","Tax"],t.byCode.map(r=>[r.code,moneyA(r.taxable),moneyA(r.tax)]),`Tax_Summary_${today()}.pdf`,[["Output Tax",moneyA(t.output)],["Input Tax",moneyA(t.input)],["Net",moneyA(t.net)]]);}
@@ -1012,15 +1378,25 @@
       case "settings": return openSettingsModal();
       case "apply-tax-filter": stateA.reportFrom=$("#acctTaxFrom")?.value||"";stateA.reportTo=$("#acctTaxTo")?.value||"";return renderAccountingView();
       case "tax-pdf": return downloadTaxPdf();
-      case "apply-report": stateA.reportType=$("#acctReportType")?.value||stateA.reportType;stateA.reportFrom=$("#acctReportFrom")?.value||stateA.reportFrom;stateA.reportTo=$("#acctReportTo")?.value||stateA.reportTo;return renderAccountingView();
+      case "apply-report": stateA.reportType=$("#acctReportType")?.value||stateA.reportType;stateA.reportFrom=$("#acctReportFrom")?.value||stateA.reportFrom;stateA.reportTo=$("#acctReportTo")?.value||stateA.reportTo;stateA.reportCompare=!!$("#acctReportCompare")?.checked;return renderAccountingView();
       case "report-pdf": return downloadReportPdf();
       case "report-csv": return downloadReportCsv();
+      // 3.8
+      case "account-ledger": return openAccountLedger(el.dataset.id);
+      case "contact-statement": return openContactStatement(el.dataset.id);
+      case "duplicate-document": { const d=stateA.documents.find(x=>x.id===el.dataset.id); if(!d) return; return openDocumentModal(SALES_TYPES.has(d.doc_type)?"sales":"purchases",null,null,{copyFrom:d.id}); }
+      case "duplicate-journal": return openJournalModal(null,{copyFrom:el.dataset.id});
+      case "new-typed-document": return openDocumentModal(el.dataset.kind,null,el.dataset.type);
+      case "doc-filter": stateA.docFilter[el.dataset.kind]=el.dataset.filter||"all"; return renderAccountingView();
+      case "filter-docs": stateA.docFilter[el.dataset.kind]=el.dataset.filter||"all"; stateA.docType[el.dataset.kind]=""; return setAccountingView(el.dataset.kind);
+      case "journal-filter": stateA.journalFilter=el.dataset.filter||"all"; return renderAccountingView();
+      case "accounts-csv": return downloadCsv(["Code","Account","Type","Subtype","Currency","Cash/Bank","Active","Balance"],stateA.accounts.map(a=>[a.code,a.name,statusText(a.account_type),a.account_subtype||"",a.currency,a.is_cash_account?"Yes":"No",a.is_active?"Yes":"No",moneyA(accountBalance(a))]),`Chart_of_Accounts_${today()}.csv`);
     }
   }
 
   function openQuickNewMenu(){
     if(!can("create")){toast("You do not have permission to create accounting records.","error");return;}
-    openAccountingModal({title:"New Accounting Record",subtitle:"Choose the workflow you want to start.",body:`<div class="accounting-quick-grid"><button class="accounting-quick-btn" data-acct-action="new-journal"><i class="fa-solid fa-book"></i><strong>Journal Entry</strong><span>Balanced double entry</span></button><button class="accounting-quick-btn" data-acct-action="new-sales-document"><i class="fa-solid fa-file-invoice-dollar"></i><strong>Sales Document</strong><span>Quote, order or invoice</span></button><button class="accounting-quick-btn" data-acct-action="new-purchases-document"><i class="fa-solid fa-file-invoice"></i><strong>Purchase Document</strong><span>PO, receipt or bill</span></button><button class="accounting-quick-btn" data-acct-action="new-contact"><i class="fa-solid fa-user-plus"></i><strong>Contact</strong><span>Customer or supplier</span></button><button class="accounting-quick-btn" data-acct-action="new-bank-transaction"><i class="fa-solid fa-building-columns"></i><strong>Bank Row</strong><span>Manual reconciliation item</span></button><button class="accounting-quick-btn" data-acct-action="new-dimension"><i class="fa-solid fa-diagram-project"></i><strong>Dimension</strong><span>Cost centre or project</span></button></div>`});
+    openAccountingModal({title:"New Accounting Record",subtitle:"",body:`<div class="accounting-quick-grid"><button class="accounting-quick-btn" data-acct-action="new-typed-document" data-kind="sales" data-type="sales_invoice"><i class="fa-solid fa-file-invoice-dollar"></i><strong>Sales Invoice</strong><span>Bill a customer</span></button><button class="accounting-quick-btn" data-acct-action="new-typed-document" data-kind="purchases" data-type="purchase_bill"><i class="fa-solid fa-file-invoice"></i><strong>Purchase Bill</strong><span>Record a supplier bill</span></button><button class="accounting-quick-btn" data-acct-action="new-typed-document" data-kind="sales" data-type="quotation"><i class="fa-solid fa-file-lines"></i><strong>Quotation</strong><span>Price offer</span></button><button class="accounting-quick-btn" data-acct-action="new-journal"><i class="fa-solid fa-book"></i><strong>Journal Entry</strong><span>Balanced double entry</span></button><button class="accounting-quick-btn" data-acct-action="new-sales-document"><i class="fa-solid fa-arrow-up-right-dots"></i><strong>Other Sales</strong><span>Order, delivery, credit note</span></button><button class="accounting-quick-btn" data-acct-action="new-purchases-document"><i class="fa-solid fa-arrow-down"></i><strong>Other Purchases</strong><span>PO, receipt, debit note</span></button><button class="accounting-quick-btn" data-acct-action="new-contact"><i class="fa-solid fa-user-plus"></i><strong>Contact</strong><span>Customer or supplier</span></button><button class="accounting-quick-btn" data-acct-action="new-bank-transaction"><i class="fa-solid fa-building-columns"></i><strong>Bank Row</strong><span>Manual reconciliation item</span></button><button class="accounting-quick-btn" data-acct-action="new-dimension"><i class="fa-solid fa-diagram-project"></i><strong>Dimension</strong><span>Cost centre or project</span></button></div>`});
   }
 
   function openAccountingGuide(){
@@ -1063,6 +1439,10 @@
     render: renderAccountingView,
     openDocument: openDocumentModal,
     openJournal: openJournalModal,
+    openSettings: openSettingsModal,
+    openLedger: openAccountLedger,
+    openStatement: openContactStatement,
+    _test: { periodRange, previousPeriod, docPrefix, buildReport, accountLedgerData, contactStatementData, docMatchesFilter },
     viewDocument: openDocumentView,
     viewJournal: openJournalView
   };
