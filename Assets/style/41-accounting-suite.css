@@ -412,3 +412,74 @@ body.accounting-modal-open{overflow:hidden}
   .accounting-modal-footer{padding-bottom:max(9px,env(safe-area-inset-bottom))}
   .accounting-modal-footer .btn{min-height:36px}
 }
+
+/* ---- 3.8: Accounting upgrade (filters, ledger, statements, settings, overview) ---- */
+.accounting-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.accounting-chip{appearance:none;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 92%,transparent);color:var(--muted);border-radius:999px;padding:6px 11px;min-height:32px;display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:.74rem;font-weight:720;cursor:pointer;transition:background .16s ease,color .16s ease,border-color .16s ease}
+.accounting-chip em{font-style:normal;font-size:.66rem;font-weight:800;min-width:18px;text-align:center;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,var(--muted) 14%,transparent);color:inherit}
+.accounting-chip:hover{color:var(--text);border-color:color-mix(in srgb,var(--primary,#2457d6) 35%,var(--line))}
+.accounting-chip.active{background:color-mix(in srgb,var(--primary,#2457d6) 12%,var(--panel));border-color:color-mix(in srgb,var(--primary,#2457d6) 45%,var(--line));color:var(--primary,#2457d6)}
+.accounting-chip.active em{background:color-mix(in srgb,var(--primary,#2457d6) 18%,transparent)}
+.accounting-chip:focus-visible,.accounting-link:focus-visible,.accounting-settings-tab:focus-visible,.accounting-attention-row:focus-visible,.accounting-row-link:focus-visible{outline:2px solid var(--primary,#2457d6);outline-offset:2px}
+.accounting-type-filter .input{min-height:32px;font-size:.74rem;padding-block:4px}
+.accounting-link{appearance:none;border:0;background:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.accounting-link:hover strong,.accounting-link:hover{color:var(--primary,#2457d6);text-decoration:underline;text-underline-offset:2px}
+.accounting-row-link{cursor:pointer}
+.accounting-row-link:hover td{background:color-mix(in srgb,var(--primary,#2457d6) 5%,transparent)}
+.accounting-table tr.accounting-row-group td{font-weight:800;font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:color-mix(in srgb,var(--muted) 6%,transparent)}
+.accounting-table tr.accounting-row-subtotal td{font-weight:760;border-top:1px solid var(--line)}
+.accounting-table tr.accounting-row-total td{font-weight:850;border-top:2px solid color-mix(in srgb,var(--text) 35%,var(--line));background:color-mix(in srgb,var(--primary,#2457d6) 5%,transparent)}
+.accounting-compare{display:inline-flex!important;grid-auto-flow:column;align-items:center;gap:7px!important;min-height:35px;font-size:.72rem!important;color:var(--text)!important}
+.accounting-line-tools{display:inline-flex;gap:6px;flex-wrap:wrap}
+.accounting-ledger-toolbar{margin-bottom:10px}
+.accounting-month-chart{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;align-items:end;height:132px;padding:6px 2px 0}
+.accounting-month{display:grid;grid-template-rows:1fr auto;gap:6px;height:100%;min-width:0}
+.accounting-month span{font-size:.64rem;font-weight:720;color:var(--muted);text-align:center}
+.accounting-month-bars{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:100%}
+.accounting-month-bars i{display:block;width:min(16px,40%);border-radius:5px 5px 2px 2px;transition:height .35s ease}
+.accounting-month-bars i.in,.accounting-month-legend .in::before{background:var(--success,#16a34a)}
+.accounting-month-bars i.out,.accounting-month-legend .out::before{background:color-mix(in srgb,var(--danger,#dc2626) 82%,transparent)}
+.accounting-month-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:.72rem;font-weight:700;color:var(--muted)}
+.accounting-month-legend span{display:inline-flex;align-items:center;gap:6px}
+.accounting-month-legend .in::before,.accounting-month-legend .out::before{content:"";width:9px;height:9px;border-radius:3px;display:inline-block}
+.accounting-month-legend .net{color:var(--text)}
+.accounting-attention-list{display:grid;gap:6px}
+.accounting-attention-row{appearance:none;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 92%,transparent);border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:10px;font:inherit;color:var(--text);text-align:left;cursor:pointer;min-width:0}
+.accounting-attention-row:hover{border-color:color-mix(in srgb,var(--primary,#2457d6) 35%,var(--line))}
+.accounting-attention-row>strong{font-size:.78rem;white-space:nowrap}
+.accounting-attention-main{flex:1;min-width:0;display:grid;gap:2px}
+.accounting-attention-main strong{font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.accounting-attention-main small{font-size:.68rem;color:var(--muted)}
+.accounting-attention-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--warning,#d97706)}
+.accounting-attention-dot.red{background:var(--danger,#dc2626)}
+.accounting-settings-tabs{display:flex;gap:6px;overflow-x:auto;padding:4px;margin:0 0 14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--panel) 88%,transparent);scrollbar-width:none}
+.accounting-settings-tabs::-webkit-scrollbar{display:none}
+.accounting-settings-tab{appearance:none;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:10px;padding:8px 11px;display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:.76rem;font-weight:760;white-space:nowrap;cursor:pointer}
+.accounting-settings-tab:hover{color:var(--text)}
+.accounting-settings-tab.active{background:color-mix(in srgb,var(--primary,#2457d6) 12%,var(--panel));border-color:color-mix(in srgb,var(--primary,#2457d6) 35%,transparent);color:var(--primary,#2457d6)}
+.accounting-settings-pane{display:none}
+.accounting-settings-pane.active{display:block}
+.accounting-settings-form .accounting-form-grid small{display:block;margin-top:3px;color:var(--muted);font-size:.66rem;font-weight:600}
+.accounting-prefix-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.accounting-prefix-grid label{display:grid;gap:4px;font-size:.68rem;font-weight:760;color:var(--muted)}
+.accounting-prefix-grid .input{text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.accounting-prefix-grid small{font-size:.64rem;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.accounting-settings-error{margin:10px 0 0;color:var(--danger,#dc2626);font-size:.76rem;font-weight:700;min-height:1em}
+.accounting-kpi.loss .accounting-kpi-icon{color:var(--danger,#dc2626)}
+@keyframes acctFadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (max-width:760px){
+  .accounting-prefix-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .accounting-month-chart{height:110px}
+  .accounting-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .accounting-chips::-webkit-scrollbar{display:none}
+  .accounting-chip{flex:0 0 auto}
+  .accounting-compare{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:reduce){.accounting-month-bars i{transition:none}.accounting-settings-pane.active{animation:none}}
+.accounting-health-grid button{appearance:none;border:1px solid var(--line);border-radius:13px;background:color-mix(in srgb,var(--panel-2) 80%,var(--panel));color:var(--text);min-height:62px;padding:10px 12px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;font:inherit;text-align:left;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+.accounting-health-grid button strong{font-size:1.05rem;font-weight:850;font-variant-numeric:tabular-nums;margin:0;color:var(--text)}
+.accounting-health-grid button span{font-size:.7rem;font-weight:700;color:var(--muted)}
+.accounting-health-grid button:hover{border-color:color-mix(in srgb,var(--primary) 35%,var(--line));background:color-mix(in srgb,var(--primary) 7%,var(--panel));transform:translateY(-1px)}
+.accounting-health-grid button:focus-visible{outline:2px solid var(--primary,#2457d6);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.accounting-health-grid button{transition:none}.accounting-health-grid button:hover{transform:none}}
+@media (max-width:760px){.accounting-kpi-grid--mini{grid-template-columns:repeat(3,minmax(0,1fr))}.accounting-kpi-grid--mini .accounting-kpi{padding:9px}.accounting-kpi-grid--mini .accounting-kpi strong{font-size:.8rem}}

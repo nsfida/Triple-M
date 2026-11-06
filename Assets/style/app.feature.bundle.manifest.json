@@ -64,8 +64,8 @@
     },
     {
       "path": "Assets/style/41-accounting-suite.css",
-      "bytes": 44269,
-      "sha256": "a99638153732a313cc152475cc520a9f6c6f8306ab8d24410de63a1353eee6d0"
+      "bytes": 52617,
+      "sha256": "0c82b1c9f4c4d9dfffaac639e5884f18bcdc38e2391e4888f1d9bab036acab1a"
     },
     {
       "path": "Assets/style/42-public-accounting-seo.css",
@@ -89,8 +89,8 @@
     },
     {
       "path": "Assets/style/47-section-keyboard-shortcuts.css",
-      "bytes": 2475,
-      "sha256": "fbe7566130eb2e7f09258b8e778581d725873f4eead3f28aca96305a2119698f"
+      "bytes": 2840,
+      "sha256": "ac580f77b404c563613b707124ba7102f098acfcaa0b9219e7bc11b241531c97"
     },
     {
       "path": "Assets/style/48-installment-bought-sold.css",
@@ -148,6 +148,6 @@
       "sha256": "19a52ee6a53f771c283e316588983b41c73132cd08e95ee279dc420d3d5c52a1"
     }
   ],
-  "bytes": 568899,
-  "sha256": "974bf38ab5c36b8951c6e0c6b1aa41d917163c4f28a75c376afae267fbac7fa2"
+  "bytes": 577612,
+  "sha256": "0b64c56eeab8398582fa93daf61e9f54cfe3022d1d720d05d165602824dbfb1a"
 }

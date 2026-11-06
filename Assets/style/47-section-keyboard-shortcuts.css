@@ -121,3 +121,16 @@
 @media (max-width:899px),(any-hover:none),(any-pointer:coarse){
   .section-shortcuts-modal{display:none!important}
 }
+
+/* Windows app (3.8): two-key shortcuts work at every window size, so the
+   section "Shortcuts" tags stay visible there; they open the full list. */
+html.triplem-app-keys .section-shortcuts-tag{
+  display:inline-flex!important;
+  align-items:center;
+  gap:6px;
+  min-height:28px;
+  padding:4px 9px;
+  border-radius:999px;
+  white-space:nowrap;
+  line-height:1;
+}
