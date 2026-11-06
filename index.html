@@ -50,6 +50,20 @@
         }
       } catch (_) {}
     })();
+    /* Microsoft Store version (packaged MSIX) only: Store policy 10.2.6 does
+       not allow cryptocurrency transactions from this publisher account, so the
+       Bitcoin wallet is not offered there. The website, phones and the Setup
+       version of the Windows app are unchanged, and no data is touched: the
+       wallets stay in the account and show again everywhere else. */
+    (function () {
+      try {
+        var d = window.__TRIPLEM_DESKTOP__;
+        if (d && d.app === "windows" && d.packaged === true) {
+          window.TRIPLEM_STORE_APP = true;
+          document.documentElement.classList.add("triplem-store-app");
+        }
+      } catch (_) {}
+    })();
   </script>
   <style>
     html.triplem-windows-app .landing-visitor-alert-control,
@@ -59,6 +73,10 @@
     html.triplem-windows-app #pushQuickToggleBtn,
     html.triplem-windows-app .admin-comms-device-footer,
     html.triplem-windows-app #pushConsentModal { display: none !important; }
+    html.triplem-store-app .tab[data-tab="bitcoin"],
+    html.triplem-store-app #bitcoinPanel,
+    html.triplem-store-app .store-hide-crypto,
+    html.triplem-store-app option[value="BTC"]:not(:checked) { display: none !important; }
   </style>
   <meta name="copyright" content="Triplem VIP" />
   <link rel="author" href="https://triplem.vip/humans.txt" />
@@ -898,6 +916,7 @@
   <link rel="stylesheet" href="Assets/style/57-notifications-messaging.css?v=20261105-inbox001" />
   <link rel="stylesheet" href="Assets/style/58-backup-restore.css?v=20261105-backup001" />
   <link rel="stylesheet" href="Assets/style/59-card-order.css?v=20261106-cardorder001" />
+  <link rel="stylesheet" href="Assets/style/60-ai-report.css?v=20261106-aireport001" />
   -->
   <!-- Deferred runtime is declared in <head> so downloads begin during HTML parsing; execution order and post-parse semantics remain unchanged. -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -928,7 +947,7 @@
   <script defer src="Assets/app/core/02-state.js?v=20260909-triplem-ai-158&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/inventory-catalog.js"></script>
   <script defer src="Assets/app/core/03-els.js?v=20260903-admin-overlay126&pagination=155&help=20260922-001"></script>
-  <script defer src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&contact=20260922-001&amp;offline=20261104-001"></script>
+  <script defer src="Assets/app/auth/01-auth-session.js?v=20260905-audio141&currency=001&accounting=149001&audit=154&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&contact=20260922-001&amp;offline=20261104-001&amp;store=20261106-001"></script>
   <script defer src="Assets/app/auth/03-two-factor.js?v=20260904-account-security138&security=146"></script>
   <script defer src="Assets/app/auth/04-account-recovery.js?v=20260904-reliability139&amp;r=20261105-desktop350"></script>
   <script defer src="Assets/app/auth/05-account-security.js?v=20260907-webauthn148&security=148&notifyopt=20261031-002&idle=20261031-005&amp;r=20261105-desktop350"></script>
@@ -946,7 +965,7 @@
   <script defer src="Assets/app/inventory/04-inventory-barcodes-scanner.js?v=20260915-inventory-standards-001&amp;r=20261105-desktop350"></script>
   <script defer src="Assets/app/expenses/01-expenses-wallets.js?v=20260912-wallet-transactions-167&currency=002&build011=003&uifix=20260915-001"></script>
   <script defer src="Assets/app/core/09-dashboard-summary.js?v=20260828-performance"></script>
-  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001"></script>
+  <script defer src="Assets/app/ui/01-render-navigation.js?memberentry=20261017-001&v=20260912-wallet-transactions-167&build011=001&accounting=149001&uifix=20260915-001&customerux=20260915-001&workspacehome=20260916-001&homefix=20260916-005&svgfill=20260916-006&svgmodern=20260916-007&iconref=20260916-010&amp;offline=20261104-001&amp;store=20261106-001"></script>
   <script defer src="Assets/app/installments/01-installments.js?v=20260901-currency-font-audit1&build011=001"></script>
   <script defer src="Assets/app/loans/01-loans-payments.js?v=20260908-audit-pagination-154"></script>
   <script defer src="Assets/app/installments/02-bought-sold-plans.js?v=20260915-installment-amount-mode-001"></script>
@@ -957,12 +976,13 @@
   <script defer src="Assets/app/expenses/02-transfers.js?v=20260908-account-details1&build014=001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/expenses/03-expense-audit-pagination.js?v=20260908-server-pagination-155&uifix=20260915-001"></script>
   <script defer src="Assets/app/audit/01-financial-audit-report.js?v=20260909-audit-executive-sections-158"></script>
-  <script defer src="Assets/app/ai/02-triplem-ai.js?v=20260912-timeline-openfix-167"></script>
+  <script defer src="Assets/app/ai/02-triplem-ai.js?v=20260912-timeline-openfix-167&amp;report=20261106-001"></script>
+  <script defer src="Assets/app/ai/03-ai-report.js?v=20261106-aireport001"></script>
   <script defer src="Assets/app/ui/02-bindings.js?v=20260902-plan-menu1&build014=001&pagination=155&help=20260922-001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/ui/03-section-shortcuts.js?v=20260909-sections002"></script>
   <script defer src="Assets/app/landing/01-landing.js?v=20260904-authsurface140&regional=157"></script>
-  <script defer src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157&idle=20261031-005"></script>
-  <script defer src="Assets/app/auth/02-auth-welcome-trial.js?v=20260913-wallet-selector-lazyfix1&regional=156&currency=001&workspacehome=20260916-001&amp;offline=20261104-001&amp;desktop=20261105-360"></script>
+  <script defer src="Assets/app/landing/02-live-chat.js?v=20260905-aziz153&regional=156&currency=002&knowledge=157&idle=20261031-005&amp;report=20261106-001"></script>
+  <script defer src="Assets/app/auth/02-auth-welcome-trial.js?v=20260913-wallet-selector-lazyfix1&regional=156&currency=001&workspacehome=20260916-001&amp;offline=20261104-001&amp;desktop=20261105-360&amp;store=20261106-001"></script>
   <script defer src="Assets/app/bitcoin/01-bitcoin.js?v=20261009-bitcoin-critical-fixes&currency=002&build010=001&build011=001&amp;offline=20261104-001"></script>
   <script defer src="Assets/app/notes/01-notes.js?v=20260905-audio141&currency=001&build011=001&build012=notes002&accounting=149001"></script>
   <script defer src="Assets/app/dashboard/01-financial-timeline.js?v=20260912-timeline-clean002"></script>
@@ -971,7 +991,7 @@
   <script defer src="Assets/app/admin/01-admin.js?v=20260905-livechat154&regional=156&build011=001&accounting=149001&accountingui=002&ai=158&team=168001&amp;teamfix=20260917-169&insurancefix=171001&billingcontact=20260922-001"></script>
   <script defer src="Assets/app/admin/02-admin-security.js?v=20260801-data-loading"></script>
   <script defer src="Assets/app/admin/03-admin-analytics.js?v=20260801-data-loading&idle=20261031-005"></script>
-  <script defer src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=167&logopt=20261031-001&amp;notifyopt=20261031-002&amp;idle=20261031-005&amp;inbox=20261105-001&amp;desktop=20261105-360"></script>
+  <script defer src="Assets/app/messaging/01-messaging.js?v=20260905-v154&regional=156&messages=167&logopt=20261031-001&amp;notifyopt=20261031-002&amp;idle=20261031-005&amp;inbox=20261105-001&amp;desktop=20261105-360&amp;report=20261106-001"></script>
   <script defer src="Assets/app/ui/04-app-downloads.js?v=20260921-windows-app002"></script>
   <script defer src="Assets/app/ui/05-card-order.js?v=20261106-cardorder001"></script>
   <script defer src="Assets/app/notifications/01-web-push.js?v=20260904-reliability139&amp;admininbox=20260917-169&amp;notifyopt=20261031-002&amp;offline=20261104-001&amp;winapp=20261105-001&amp;wns=20261105-360"></script>
@@ -1245,7 +1265,7 @@
                 <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sales, purchases, receivables &amp; payables</li>
                 <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Reconciliation, VAT analysis &amp; audit trail</li>
                 <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Loans, assets &amp; depreciation, notes &amp; reminders</li>
-                <li><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Client-side Bitcoin send &amp; receive</li>
+                <li class="store-hide-crypto"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Client-side Bitcoin send &amp; receive</li>
               </ul>
               <div class="landing-trial-banner-actions">
                 <button type="button" class="btn primary landing-cta-pulse" data-landing-trial><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Free Sign-up</button>
@@ -1374,7 +1394,7 @@
               <p>Searchable sticky-style notes with scheduled reminders and reschedulable follow-ups.</p>
               <span class="landing-seo-card-cta">Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
             </a>
-            <a class="landing-seo-card landing-surface-card" href="seo/bitcoin-wallet.html">
+            <a class="store-hide-crypto landing-seo-card landing-surface-card" href="seo/bitcoin-wallet.html">
               <span class="landing-seo-card-icon" aria-hidden="true"><i class="fa-brands fa-bitcoin"></i></span>
               <h3>Bitcoin wallet tools</h3>
               <p>Watch-only and client-side wallet workflows, multiple address types, send, receive, history and PDF records.</p>
@@ -1451,7 +1471,7 @@
             <article class="landing-accounting-suite-card"><i class="fa-solid fa-hand-holding-dollar"></i><h3>Loans &amp; settlements</h3><p>Record loans given or taken, preserve person and currency context, use supported wallet linking, add repayments or returns and review the complete settlement history.</p><a href="seo/loan-management.html">Loan management guide <i class="fa-solid fa-arrow-right"></i></a></article>
             <article class="landing-accounting-suite-card"><i class="fa-solid fa-building"></i><h3>Assets &amp; depreciation</h3><p>Track purchase cost, optional wallet deduction, revenue, expenses, sale or disposal and profitability, then use Depreciation Assets for schedules, accumulated depreciation, book value, remaining life and specialist PDFs.</p><a href="seo/asset-management.html">Asset management guide <i class="fa-solid fa-arrow-right"></i></a></article>
             <article class="landing-accounting-suite-card"><i class="fa-solid fa-note-sticky"></i><h3>Notes &amp; reminders</h3><p>Create searchable sticky-style notes, retain free-form operational context and schedule reminder alerts that can be rescheduled when follow-up moves.</p><a href="seo/notes-management.html">Notes guide <i class="fa-solid fa-arrow-right"></i></a></article>
-            <article class="landing-accounting-suite-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallet tools</h3><p>Monitor watch-only addresses or load client-side wallet access, choose supported address types, send or receive Bitcoin, inspect history and generate transaction or wallet PDF records.</p><a href="seo/bitcoin-wallet.html">Bitcoin guide <i class="fa-solid fa-arrow-right"></i></a></article>
+            <article class="store-hide-crypto landing-accounting-suite-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallet tools</h3><p>Monitor watch-only addresses or load client-side wallet access, choose supported address types, send or receive Bitcoin, inspect history and generate transaction or wallet PDF records.</p><a href="seo/bitcoin-wallet.html">Bitcoin guide <i class="fa-solid fa-arrow-right"></i></a></article>
           </div>
           <div class="landing-accounting-flow" aria-label="Operational finance modules">
             <span><i class="fa-solid fa-wallet"></i> Expenses &amp; Wallets</span>
@@ -1459,7 +1479,7 @@
             <span><i class="fa-solid fa-hand-holding-dollar"></i> Loans</span>
             <span><i class="fa-solid fa-building"></i> Assets</span>
             <span><i class="fa-solid fa-note-sticky"></i> Notes</span>
-            <span><i class="fa-brands fa-bitcoin"></i> Bitcoin</span>
+            <span class="store-hide-crypto"><i class="fa-brands fa-bitcoin"></i> Bitcoin</span>
           </div>
           <p class="landing-accounting-suite-note"><strong>Data-safe separation:</strong> these operational modules remain available independently from Accounting ERP. Their existing records are not silently converted into journals, so current users keep their established data and workflow.</p>
         </section>
@@ -1849,7 +1869,7 @@
                     </div>
                     <strong class="landing-demo-wallet-bal">Rs. 76,500</strong>
                   </article>
-                  <article class="landing-demo-wallet" role="listitem">
+                  <article class="store-hide-crypto landing-demo-wallet" role="listitem">
                     <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Bitcoin.png" alt="Bitcoin wallet logo" width="40" height="40" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';" />
                     <div class="landing-demo-wallet-copy">
                       <h3>Bitcoin</h3>
@@ -1935,7 +1955,7 @@
                 <article class="landing-card"><i class="fa-solid fa-boxes-stacked"></i><h3>Inventory</h3><p>Control purchased stock, sales receipts, low-stock items, customer balances, outstanding invoices, and profit records.</p></article>
                 <article class="landing-card"><i class="fa-solid fa-building"></i><h3>Assets &amp; Depreciation</h3><p>Track cars, property, equipment and investments with purchase cost, optional wallet deduction, revenue, expenses, sale or disposal, charts and PDFs, plus depreciation schedules, accumulated depreciation, book value and remaining life.</p></article>
                 <article class="landing-card"><i class="fa-solid fa-file-invoice-dollar"></i><h3>Invoices and receipts</h3><p>Download professional PDFs for sales invoices, receipts, customer statements, transaction records, and financial reports.</p></article>
-                <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallet tools</h3><p>Use watch-only or spendable client-side wallet access, select supported address types, send and receive Bitcoin, review transaction history and generate PDF records while treating private keys as device-sensitive secrets.</p></article>
+                <article class="store-hide-crypto landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Bitcoin wallet tools</h3><p>Use watch-only or spendable client-side wallet access, select supported address types, send and receive Bitcoin, review transaction history and generate PDF records while treating private keys as device-sensitive secrets.</p></article>
                 <article class="landing-card"><i class="fa-solid fa-note-sticky"></i><h3>Notes &amp; reminders</h3><p>Create searchable sticky-style notes with titles and content, schedule future reminders, reschedule follow-ups and keep human context beside the financial workspace.</p></article>
               </div>
 
@@ -1979,7 +1999,7 @@
                     </div>
                     <strong class="landing-demo-wallet-bal">Rs. 186,400</strong>
                   </article>
-                  <article class="landing-demo-wallet" role="listitem">
+                  <article class="store-hide-crypto landing-demo-wallet" role="listitem">
                     <img class="landing-demo-wallet-logo" src="Assets/logo/wallet_logos/Bitcoin.png" alt="Bitcoin wallet logo" width="40" height="40" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='Assets/logo/wallet_logos/triplem_default_wallet.png';" />
                     <div class="landing-demo-wallet-copy">
                       <h3>Bitcoin</h3>
@@ -2111,7 +2131,7 @@
                 <div class="landing-card-grid three">
                   <article class="landing-card"><i class="fa-solid fa-user-shield"></i><h3>Layered account access</h3><p>Assigned credentials open the account boundary, while optional Authenticator 2FA, Smart PIN protection and revocable sessions add separate controls around sensitive access.</p></article>
                   <article class="landing-card"><i class="fa-solid fa-database"></i><h3>Separated data handling</h3><p>Owner-aware records, guarded application functions and database security policies keep the private workspace distinct from the public website and visitor support surface.</p></article>
-                  <article class="landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Client-side Bitcoin control: private keys stay in the browser and do not leave your device. Send and receive from Triplem VIP, and review per-wallet transaction statements.</p></article>
+                  <article class="store-hide-crypto landing-card"><i class="fa-brands fa-bitcoin"></i><h3>Local Bitcoin control</h3><p>Client-side Bitcoin control: private keys stay in the browser and do not leave your device. Send and receive from Triplem VIP, and review per-wallet transaction statements.</p></article>
                 </div>
               </div>
 
@@ -2602,7 +2622,7 @@
                     <p>Yes. Track money given, received back, loans taken, repayments, and installment plans with settlement visibility so open balances stay easy to follow.</p>
                   </div>
                 </details>
-                <details>
+                <details class="store-hide-crypto">
                   <summary>How does Bitcoin work in Triplem VIP?</summary>
                   <div class="faq-answer">
                     <p>Bitcoin in Triplem VIP is designed for client-side control. Private keys and other sensitive key material remain in the browser on your device—they do not leave the browser for Triplem VIP servers.</p>
@@ -2615,7 +2635,7 @@
                     <p>Always use a trusted device, protect your screen and backups, and never share private keys or seed phrases.</p>
                   </div>
                 </details>
-                <details>
+                <details class="store-hide-crypto">
                   <summary>Do Bitcoin private keys leave my browser?</summary>
                   <div class="faq-answer">
                     <p>No. Sensitive Bitcoin key material is handled client-side in the browser. Private keys are not uploaded to Triplem VIP servers for custody. Signing and key use stay on your device; the network sees normal broadcast transactions when you send.</p>
@@ -3237,7 +3257,7 @@
                   Manage installment plans with flexible payment schedules, partial payment tracking, and automated balance calculations.
                 </p>
               </div>
-              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
+              <div class="store-hide-crypto" style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px;">
                 <h5 style="margin: 0 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--primary);"><i class="fa-brands fa-bitcoin"></i> Bitcoin Blockchain Integration</h5>
                 <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">
                   Client-side Bitcoin control with send and receive from Triplem VIP, per-wallet transaction statements, and blockchain balances. Private keys and sensitive key material stay in the browser and do not leave your device.
@@ -3328,7 +3348,7 @@
                 </div>
                 <p style="margin: 0; line-height: 1.5; color: var(--text); font-size: 0.9rem;">Separate server for every business ensuring data isolation and security.</p>
               </div>
-              <div style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
+              <div class="store-hide-crypto" style="background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
                   <div style="width: 36px; height: 36px; background: #f7931a; color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;"><i class="fa-brands fa-bitcoin"></i></div>
                   <h5 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text);">Bitcoin Support</h5>

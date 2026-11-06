@@ -13,7 +13,7 @@ const activeHtml = html => html.replace(/<!--[\s\S]*?-->/g, "");
 test("production CSS bundle preserves every maintained feature stylesheet in source order", () => {
   const manifest = JSON.parse(read("Assets/style/app.feature.bundle.manifest.json"));
   const bundle = read("Assets/style/app.feature.bundle.css");
-  assert.equal(manifest.sources.length, 28); // + 57-notifications-messaging.css, 58-backup-restore.css (2026-11-05), 59-card-order.css (2026-11-06)
+  assert.equal(manifest.sources.length, 29); // + 57-notifications-messaging.css, 58-backup-restore.css (2026-11-05), 59-card-order.css, 60-ai-report.css (2026-11-06)
   let last = -1;
   for (const source of manifest.sources) {
     const marker = `/* ===== SOURCE: ${source.path} ===== */`;
